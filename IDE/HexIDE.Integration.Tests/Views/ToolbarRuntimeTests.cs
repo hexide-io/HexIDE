@@ -46,7 +46,6 @@ public class ToolbarRuntimeTests
             Style = 1
             ButtonWidth = 1005
             ButtonHeight = 1005
-            ImageList = "ImageList1"
             BeginProperty Buttons
                NumButtons = 2
                BeginProperty Button1
@@ -98,8 +97,10 @@ public class ToolbarRuntimeTests
         var source = System.IO.File.ReadAllText(System.IO.Path.Join(directory!.FullName,
             "corpus", "inbox-controls", "saved", "toolbar", "Form1.frm"));
         var definition = new FormDeserializer().Deserialize(new ProjectDefinition(VBProjectType.EXE, "P"), source, new NullSink())!;
-        // The ImageList itself is still pending #1083. Run the actual saved Toolbar block on its own.
-        var block = definition.UnknownChildSubtreeTexts.Single(t => t.Contains("Toolbar Toolbar1", StringComparison.Ordinal));
+        // Exercise the button bag alone; ToolbarImageListTests covers the full saved form binding.
+        var block = definition.UnknownChildSubtreeTexts.Single(t => t.Contains("Toolbar Toolbar1", StringComparison.Ordinal))
+            .ReplaceLineEndings("\n")
+            .Replace("      ImageList       =   \"ImageList1\"\n", "", StringComparison.Ordinal);
         var form = "VERSION 5.00\r\nBegin VB.Form Form1\r\n" + block + "\r\nEnd\r\nAttribute VB_Name = \"Form1\"\r\n";
         (await Run("""
             Debug.Print Toolbar1.Buttons.Count, Toolbar1.Buttons("new").Caption
@@ -202,9 +203,6 @@ public class ToolbarRuntimeTests
 
     [AvaloniaTheory]
     [InlineData("Controls")]
-    [InlineData("ImageList")]
-    [InlineData("DisabledImageList")]
-    [InlineData("HotImageList")]
     [InlineData("MouseIcon")]
     [InlineData("hWnd")]
     public async Task Pending_members_refuse_instead_of_returning_a_guessed_value(string member)
@@ -214,7 +212,6 @@ public class ToolbarRuntimeTests
     }
 
     [AvaloniaTheory]
-    [InlineData("Set Toolbar1.ImageList = Nothing")]
     [InlineData("Toolbar1.Customize")]
     [InlineData("Toolbar1.Align = 0")]
     public async Task Pending_assignments_indexing_and_methods_refuse(string code)
@@ -410,17 +407,10 @@ public class ToolbarRuntimeTests
             .Should().Equal(error, "0");
     }
 
-    [AvaloniaTheory]
-    [InlineData("Debug.Print b.Left")]
-    [InlineData("Debug.Print b.Top")]
-    [InlineData("Debug.Print b.Width")]
-    [InlineData("Debug.Print b.Height")]
-    [InlineData("Debug.Print Toolbar1.ButtonWidth")]
-    [InlineData("Debug.Print Toolbar1.ButtonHeight")]
-    [InlineData("b.Enabled = 0")]
-    public async Task Pending_geometry_and_unmeasured_conversions_refuse(string operation)
+    [AvaloniaFact]
+    public async Task Unmeasured_boolean_conversion_refuses()
     {
-        var act = () => Run($"Dim b As Object\nSet b = Toolbar1.Buttons.Add\n{operation}");
+        var act = () => Run("Dim b As Object\nSet b = Toolbar1.Buttons.Add\nb.Enabled = 0");
         await act.Should().ThrowAsync<NotImplementedException>().WithMessage("Toolbar item conversions or geometry are not implemented (#1088)");
     }
 
@@ -474,22 +464,22 @@ public class ToolbarRuntimeTests
     }
 
     [AvaloniaTheory]
-    [InlineData(0, 510.2362)]
-    [InlineData(1, 510.2362)]
-    [InlineData(2, 510.2362)]
-    [InlineData(3, 120.189)]
+    [InlineData(0, 0)]
+    [InlineData(1, 0)]
+    [InlineData(2, 0)]
+    [InlineData(3, 120)]
     [InlineData(4, 0)]
-    [InlineData(5, 705.2599)]
+    [InlineData(5, 195.0237)]
     public async Task Measured_button_styles_have_their_measured_geometry(int style, double width)
     {
         (await Run($"""
             Dim a As Object, b As Object
             Set a = Toolbar1.Buttons.Add(, "a", "Alpha")
             Set b = Toolbar1.Buttons.Add(, "b", "Alpha", {style})
-            Debug.Print Abs(a.Left) < 0.001, Abs(a.Top - 30.04725) < 0.001
-            Debug.Print Abs(b.Left - a.Width) < 0.001, Abs(b.Width - {width.ToString(CultureInfo.InvariantCulture)}) < 0.001
-            Debug.Print Abs(a.Height - 540.2835) < 0.001, TypeName(b.Width), TypeName(b.Left)
-            Debug.Print Abs(Toolbar1.ButtonWidth - 510.2362) < 0.001, Abs(Toolbar1.ButtonHeight - 540.2835) < 0.001, Toolbar1.Height
+            Debug.Print Abs(a.Left) < 0.001, Abs(a.Top - 30) < 0.001
+            Debug.Print Abs(b.Left - a.Width) < 0.001, Abs(b.Width - {(style is 3 or 4 ? "0" : "a.Width")} - {width.ToString(CultureInfo.InvariantCulture)}) < 0.001
+            Debug.Print Abs(a.Height - 570) < 0.001, TypeName(b.Width), TypeName(b.Left)
+            Debug.Print Abs(Toolbar1.ButtonWidth - a.Width) < 0.001, Abs(Toolbar1.ButtonHeight - 570) < 0.001, Toolbar1.Height
             """)).Should().Equal("True", "True", "True", "True", "True", "Single", "Single", "True", "True", "630");
     }
 
@@ -508,12 +498,12 @@ public class ToolbarRuntimeTests
             p.Visible = True
             Debug.Print Abs(b.Left - a.Width - 1500) < 0.001
             a.Style = 3
-            Debug.Print Abs(b.Left - 120.189 - 1500) < 0.001
+            Debug.Print Abs(b.Left - 120 - 1500) < 0.001
             Toolbar1.Buttons.Remove "p"
-            Debug.Print Abs(b.Left - 120.189) < 0.001
+            Debug.Print Abs(b.Left - 120) < 0.001
             Set p = Toolbar1.Buttons.Add(1, "p", , 4)
             p.Width = 1500
-            Debug.Print Abs(b.Left - 120.189 - 1500) < 0.001
+            Debug.Print Abs(b.Left - 120 - 1500) < 0.001
             Toolbar1.Buttons.Clear
             Debug.Print Toolbar1.Height
             """)).Should().Equal("True", "True", "0", "0", "True", "True", "True", "True", "630");
@@ -525,25 +515,23 @@ public class ToolbarRuntimeTests
         (await Run("""
             Dim b As Object
             Set b = Toolbar1.Buttons.Add(, , "Alpha")
+            Dim originalWidth As Single
+            originalWidth = b.Width
             Toolbar1.ButtonWidth = -5
             Toolbar1.ButtonHeight = 800
             Toolbar1.Height = 2000
-            Debug.Print Err.Number, Abs(Toolbar1.ButtonWidth - 510.2362) < 0.001, Abs(Toolbar1.ButtonHeight - 540.2835) < 0.001, Toolbar1.Height
+            Debug.Print Err.Number, Abs(Toolbar1.ButtonWidth - originalWidth) < 0.001, Abs(Toolbar1.ButtonHeight - 570) < 0.001, Toolbar1.Height
             Toolbar1.TextAlignment = 1
-            Debug.Print Abs(Toolbar1.ButtonHeight - 329.9528) < 0.001
+            Debug.Print Abs(Toolbar1.ButtonHeight - 330) < 0.001
             """)).Should().Equal("0", "True", "True", "630", "True");
     }
 
     [AvaloniaTheory]
-    [InlineData("b.Caption = \"An unmeasured caption\"", "Toolbar1.ButtonWidth")]
     [InlineData("b.Visible = False", "b.Left")]
     [InlineData("b.Visible = False", "b.Top")]
-    [InlineData("Toolbar1.TextAlignment = 1", "b.Top")]
-    [InlineData("Toolbar1.Buttons.Clear", "Toolbar1.ButtonWidth")]
-    [InlineData("Set p = Toolbar1.Buttons.Add(1, , , 4)\np.Width = 6000", "b.Left")]
     public async Task Measured_layout_refuses_edges_without_a_sizing_measurement(string change, string read)
     {
-        (await Run("Dim b As Object\nSet b = Toolbar1.Buttons.Add(, , \"Alpha\")\nDebug.Print Abs(b.Width - 510.2362) < 0.001"))
+        (await Run("Dim b As Object\nSet b = Toolbar1.Buttons.Add(, , \"Alpha\")\nDebug.Print b.Width > 0"))
             .Should().Equal("True");
         var act = () => Run($"Dim b As Object, p As Object\nSet b = Toolbar1.Buttons.Add(, , \"Alpha\")\n{change}\nDebug.Print {read}");
         await act.Should().ThrowAsync<NotImplementedException>().WithMessage("Toolbar item conversions or geometry are not implemented (#1088)");

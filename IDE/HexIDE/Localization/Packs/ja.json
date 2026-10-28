@@ -681,6 +681,7 @@
     "Str.Tool.ProtocolInspector.Reply": "— 応答、{0} バイト —",
     "Str.Tool.ProtocolInspector.Copy": "トレースとしてコピー",
     "Str.Tool.ProtocolInspector.Export": "会話をエクスポート...",
+    "Str.Tool.ProtocolInspector.ReplaceFiles": "これらの既存のファイルを置き換えますか？\n{0}",
     "Str.Tool.ProtocolInspector.Exported": "{0} 件のメッセージを {1} にエクスポートしました。マニフェストは {2} です。",
     "Str.Tool.ProtocolInspector.ExportFailed": "エクスポートは完了しませんでした: {0}",
     "Str.Tool.ProtocolInspector.LeavesRedacted": "外部に出る内容は仮名化されます。",
@@ -926,6 +927,9 @@
     "Str.PropDesc.MaskColor": "透明ピクセルに使用する色。",
     "Str.PropDesc.UseMaskColor": "マスク色を使用するかどうか。",
     "Str.Options.EditorGeneral.Display.ShowIndentGuides": "インデントガイドを表示",
-    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "入れ子の深さに応じて括弧を色分け"
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "入れ子の深さに応じて括弧を色分け",
+    "Str.Dialog.Print.Configuration": "部数: 1、用紙の向き: 縦。",
+    "Str.Dialog.Print.Unavailable": "印刷は未実装です。OK はダイアログの設定のみを返します。",
+    "Str.Dialog.Color.Rgb": "RGB（#RRGGBB）"
   }
 }

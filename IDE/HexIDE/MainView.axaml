@@ -264,7 +264,7 @@
                             <MenuItem Header="{DynamicResource Str.Menu.Project.AddPropertyPage}" utils:MenuUtils.MenuIcon="{StaticResource Geo.Addpropertypage}" Command="{CompiledBinding AddPropertyPageCommand}" />
                             <MenuItem Header="{DynamicResource Str.Menu.Project.AddFile}" Command="{CompiledBinding AddFileCommand}" />
                             <Separator />
-                            <MenuItem Header="{CompiledBinding RemoveFormMenuHeader}" />
+                            <MenuItem x:Name="RemoveProjectMemberMenuItem" Header="{CompiledBinding RemoveFormMenuHeader}" Command="{CompiledBinding RemoveDocumentCommand}" />
                             <Separator />
                             <MenuItem Header="{DynamicResource Str.Menu.Project.References}" utils:MenuUtils.MenuIcon="{StaticResource Geo.References}" Command="{x:Static vb:ApplicationCommands.ProjectReferencesCommand}" IsVisible="{CompiledBinding Personality.IsProjectReferencesVisible}" />
                             <MenuItem Header="{DynamicResource Str.Menu.Project.Components}" Command="{x:Static vb:ApplicationCommands.ProjectComponentsCommand}" />

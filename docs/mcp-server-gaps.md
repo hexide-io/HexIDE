@@ -21,6 +21,11 @@ maxDepth: 14)`, not "`dump_visual_tree` returns only the tab chrome". Misspelled
 `dump_visual_tree {"interactive_only": false}` now run with an explicit ignored-argument note and a suggestion
 of `interactiveOnly` (#1315); an omitted argument still uses its declared default.
 
+**Write-tool source audit (#2504, not a live probe).** The [file-safety audit](file-safety-audit.md)
+records missing disk recovery and project-root containment on source/property/control saves, with their
+entry points and remaining work. MCP conversation exports now preserve earlier exports; that fix does
+not close the other write-tool gaps. Tracked by [#2504](https://github.com/hexide-io/HexIDE/issues/2504).
+
 ---
 
 ## 3. Three tool calls while the IDE is down drop the tools until `/mcp` (narrowed 2026-10-12)
@@ -701,15 +706,18 @@ CodeEditorViewModel.SelectedObject = UserControl1`.
 
 **Fix.** Category rows now expose an expand/collapse provider tied to `IsExpanded`; their toggles use the localized category header as their accessible name. Inspection reports the provider's `expandCollapseState`.
 
-## No tool says which mouse pointer a control shows
+## `match: "TextEditor"` does not find the Immediate window, though the description says it does
 
-**Symptom (2026-10-28, Windows, #2448's live check).** `inspect_element {"target":"Window","window":"Form1"}` on a running
-form whose program had set `Screen.MousePointer = vbHourglass`, as its caption confirmed, has no cursor field.
-`take_snapshot` captures no OS cursor, and `dump_visual_tree` carries nothing about it. So neither `Screen.MousePointer`,
-nor a control's own `MousePointer`, nor a TextBox's I-beam can be checked in the running IDE.
+**Symptom (2026-10-28, Windows, #2496's live check).** With the Immediate window shown and seven lines of a program's
+`Debug.Print` output in it, `dump_visual_tree {"window":"ide","match":"TextEditor"}` answered "Nothing matches
+'TextEditor'", and so did the same call scoped with `root` to the Immediate pane. `match: "Immediate"` with
+`interactiveOnly: false` found only the hidden toolbar button. The tool's description promises that `TextEditor` finds
+"the Immediate window's" editor. The window is an `ImmediateToolView` over an unnamed `TextArea`, and no node carries
+its text, so a caller cannot tell an empty window from one it cannot reach.
 
-**Workaround.** None in the running IDE. A headless Integration test can read each control's `Cursor`, as
-`ScreenObjectRuntimeTests` does, and the program can read its own `MousePointer` back.
+**Workaround.** `inspect_element` on `.../TitleBar[Immediate]/Pane[Immediate]/Custom`, the `ImmediateToolView`: its
+`dataContextMembers` give `Document` with the whole text as its value.
 
-**Suggested fix.** Report the effective pointer in `inspect_element`: the standard cursor type it was made from, or
-custom, and whether it was set above the control's own value. [#2453](https://github.com/hexide-io/HexIDE/issues/2453).
+**Suggested fix.** Give the editor a node `match: "TextEditor"` finds and `inspect_element` reads, or correct the
+description to name the route that works; better, a read of the Immediate window's text, the commonest check after a run.
+[#2513](https://github.com/hexide-io/HexIDE/issues/2513).

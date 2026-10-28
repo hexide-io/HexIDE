@@ -681,6 +681,7 @@
     "Str.Tool.ProtocolInspector.Reply": "— απάντηση, {0} byte —",
     "Str.Tool.ProtocolInspector.Copy": "Αντιγραφή ως ίχνος",
     "Str.Tool.ProtocolInspector.Export": "Εξαγωγή συνομιλίας...",
+    "Str.Tool.ProtocolInspector.ReplaceFiles": "Αντικατάσταση αυτών των υπαρχόντων αρχείων;\n{0}",
     "Str.Tool.ProtocolInspector.Exported": "Εξήχθησαν {0} μηνύματα στο {1}, με το δηλωτικό στο {2}.",
     "Str.Tool.ProtocolInspector.ExportFailed": "Η εξαγωγή δεν ολοκληρώθηκε: {0}",
     "Str.Tool.ProtocolInspector.LeavesRedacted": "Ό,τι φεύγει είναι ψευδωνυμοποιημένο.",
@@ -926,6 +927,9 @@
     "Str.PropDesc.MaskColor": "Το χρώμα των διαφανών pixel.",
     "Str.PropDesc.UseMaskColor": "Αν χρησιμοποιείται το χρώμα μάσκας.",
     "Str.Options.EditorGeneral.Display.ShowIndentGuides": "Εμφάνιση οδηγών εσοχής",
-    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Χρωματισμός παρενθέσεων ανά βάθος ένθεσης"
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Χρωματισμός παρενθέσεων ανά βάθος ένθεσης",
+    "Str.Dialog.Print.Configuration": "Αντίγραφα: 1· προσανατολισμός: κατακόρυφος.",
+    "Str.Dialog.Print.Unavailable": "Η εκτύπωση δεν έχει υλοποιηθεί. Το OK επιστρέφει μόνο τις ρυθμίσεις του διαλόγου.",
+    "Str.Dialog.Color.Rgb": "RGB (#RRGGBB)"
   }
 }

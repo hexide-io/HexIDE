@@ -54,7 +54,7 @@ public interface IFormView
 /// <summary>
 /// A running program (#822): one interpreter built from every module, every form a template of it, one event pump that
 /// every form's events go through, and the forms that have instances. It ends when no form is loaded, shown or hidden
-/// (measured), and the default instances' Terminates come then, in the order the forms were made.
+/// (measured), and remaining instances terminate then, in project form order, newest first within each form (#2497).
 /// </summary>
 public sealed class VBProgram : IFormProgram
 {
@@ -64,7 +64,9 @@ public sealed class VBProgram : IFormProgram
     private readonly Dictionary<string, FormDefinition> definitions = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<VbObject, VBWindowContext> contexts = new(ReferenceEqualityComparer.Instance);
     private readonly List<VbObject> created = [];
-    private readonly HashSet<VbObject> loaded = new(ReferenceEqualityComparer.Instance);
+    private readonly Dictionary<string, int> formOrder = new(StringComparer.OrdinalIgnoreCase);
+    // The loaded forms, in the order they loaded, as VB6's Forms holds them (measured, #2496).
+    private readonly List<VbObject> loaded = [];
     // The modal forms displayed, innermost last.
     private readonly List<VBWindowContext> modals = [];
     // The form Activate was last raised for, until another is activated or it unloads.
@@ -116,6 +118,9 @@ public sealed class VBProgram : IFormProgram
         Debugging.IDebugController? debugController, Func<FormDefinition, IFormView>? openForm)
     {
         this.openForm = openForm;
+        if (project is not null)
+            foreach (var form in project.Forms)
+                formOrder.TryAdd(form.Name, formOrder.Count);
         StandardLibrary = rootContext.StandardLibrary;
         var (standardModules, classModules) = VBLoader.InterpreterModules(project);
         string primaryName, primaryCode;
@@ -411,9 +416,14 @@ public sealed class VBProgram : IFormProgram
     internal void Loaded(VBWindowContext context)
     {
         var instance = context.FormInstance!;
-        if (loaded.Add(instance))
-            interpreter.AddRef(Vb6Value.NewObject(instance));
+        if (loaded.Exists(form => ReferenceEquals(form, instance)))
+            return;
+        loaded.Add(instance);
+        interpreter.AddRef(Vb6Value.NewObject(instance));
     }
+
+    /// <inheritdoc/>
+    public IReadOnlyList<VbObject> LoadedForms => loaded;
 
     /// <summary>
     /// A form has unloaded: the program lets go of it there, inside the statement that unloaded it, so a
@@ -425,8 +435,11 @@ public sealed class VBProgram : IFormProgram
         if (ReferenceEquals(active, context))
             active = null;
         var instance = context.FormInstance!;
-        if (loaded.Remove(instance))
-            await interpreter.ReleaseRef(Vb6Value.NewObject(instance));
+        var at = loaded.FindIndex(form => ReferenceEquals(form, instance));
+        if (at < 0)
+            return;
+        loaded.RemoveAt(at);
+        await interpreter.ReleaseRef(Vb6Value.NewObject(instance));
     }
 
     /// <summary>
@@ -446,9 +459,15 @@ public sealed class VBProgram : IFormProgram
         if (finishing)
             return;
         finishing = true;
-        foreach (var instance in created.ToList())
+        // #2496 measured project order between forms, reverse creation order within each form.
+        var instances = created.ToList();
+        if (formOrder.Count > 0)
+            instances = instances.AsEnumerable().Reverse()
+                .OrderBy(instance => formOrder.GetValueOrDefault(instance.ClassName, int.MaxValue)).ToList();
+        foreach (var instance in instances)
             if (!instance.Terminated && contexts.TryGetValue(instance, out var context))
                 await context.TerminateAsync();
+        await interpreter.ReleasePredeclaredInstances();
         CloseAll();
         ended.TrySetResult();
     }

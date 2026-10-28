@@ -47,6 +47,12 @@ public interface IBasicStandardLibrary
     Task<VbFileDialogAnswer?> ShowFileDialog(VbFileDialogRequest request) =>
         throw new NotImplementedException("A CommonDialog's file dialogs are not implemented in this host (#1084)");
 
+    Task<bool> ShowPrintDialog() =>
+        throw new NotImplementedException("This host does not implement the print dialog (#2299)");
+
+    Task<int?> ShowColorDialog(int initial) =>
+        throw new NotImplementedException("This host does not implement the color dialog (#2299)");
+
     /// <summary>A CommonDialog's <c>ShowFont</c> (#1084): the font chosen, or null for Cancel.</summary>
     Task<VbFontChoice?> ShowFontDialog(VbFontChoice initial) =>
         throw new NotImplementedException("A CommonDialog's font dialog is not implemented in this host (#1084)");
@@ -522,7 +528,8 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         // never reaches this path (its count never hit zero); a shared field just decrements. (Inter-field
         // teardown order is unpinned — Dictionary order — no oracle constraint yet.)
         foreach (var slot in o.InstanceEnv.variableToLocation.Values)
-            await ReleaseRef(ExecutionContext.State[slot]);
+            if (!predeclaredSlots.Contains(slot))   // shared program names are not this instance's fields (#2555)
+                await ReleaseRef(ExecutionContext.State[slot]);
         // Then its procedures' Statics, in the order the module declares them (measured, #1491).
         if (o.Statics is { } statics)
             foreach (var slot in statics.InSourceOrder())
@@ -612,6 +619,7 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         // A relative path in a file statement is the project's folder's (#1145), read when the file is opened, since the
         // project's details arrive after the interpreter is built.
         BuiltIns.Files.ProjectFolder = () => App.Path;
+        App = new VbApp(AppInfo.None, BuiltIns.Files);
 
         // Build the primary (startup) module over the caller-provided rootEnv, then any additional modules —
         // each with its own env, ALL sharing one ExecutionState so slots are program-global (this is why ByRef
@@ -627,7 +635,7 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
                 Modules.Add(BuildModule(name, InterpreterModuleKind.Standard, modCode, new ExecutionEnvironment()));
 
         // Class modules are TEMPLATES, not singletons — registered so `New`/`Dim As`/`TypeOf` resolve the name,
-        // but instantiated only by New (each instance gets its own field env), never run at program start.
+        // but instantiated only on use (each instance gets its own field env), never run at program start.
         if (classModules != null)
             foreach (var (name, modCode) in classModules)
                 Modules.Add(BuildModule(name, InterpreterModuleKind.Class, modCode, new ExecutionEnvironment()));
@@ -670,6 +678,18 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         SeedProgramGlobal("Err", () => new Vb6Value(Err));
         SeedProgramGlobal("App", () => new Vb6Value(App));
 
+        // A predeclared class name is a shared As New slot (#2555), separate from every explicit New.
+        foreach (var module in Modules.All)
+            if (module.Kind == InterpreterModuleKind.Class && module.PrePass.PredeclaredId)
+            {
+                SeedProgramGlobal(module.Name, () => Vb6Value.Nothing);
+                if (rootEnv.TryGetVariableLocation(module.Name, out var slot))
+                {
+                    ExecutionContext.State.MarkAutoNew(slot, module.Name, module.Name);
+                    predeclaredSlots.Add(slot);
+                }
+            }
+
         // Each module sees the other standard modules' Public variables and Consts unqualified, behind its own names
         // (#880). Set after every module's pre-pass, which is what lists them.
         foreach (var m in Modules.All)
@@ -688,9 +708,17 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
     /// </summary>
     public VbScreen Screen => screen ??= new VbScreen(this, stdLib);
 
-    /// <summary>The library object a name nothing else claims stands for, or null: <c>Screen</c> (#2431).</summary>
+    private VbForms? formsCollection;
+
+    /// <summary>The program-global <c>Forms</c> (#2496), reached as <see cref="Screen"/> is.</summary>
+    public VbForms FormsCollection => formsCollection ??= new VbForms(this);
+
+    /// <summary>The library object a name nothing else claims stands for, or null: <c>Screen</c> (#2431) and <c>Forms</c>
+    /// (#2496).</summary>
     internal Vb6Value? UnclaimedLibraryObject(string name) =>
-        name.Equals("Screen", StringComparison.OrdinalIgnoreCase) ? new Vb6Value(Screen) : (Vb6Value?)null;
+        name.Equals("Screen", StringComparison.OrdinalIgnoreCase) ? new Vb6Value(Screen)
+        : name.Equals("Forms", StringComparison.OrdinalIgnoreCase) ? new Vb6Value(FormsCollection)
+        : (Vb6Value?)null;
 
     /// <summary>
     /// Tell the running program which project it is. Called by the host before <c>Execute</c>; a program
@@ -701,7 +729,7 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
     {
         if (info.ProjectName is { } name)
             ProjectName = name;
-        App = new VbApp(info);
+        App = new VbApp(info, BuiltIns.Files);
         SeedProgramGlobal("App", () => new Vb6Value(App));
         BuiltIns.CommonDialogReferenced = info.CommonDialogReferenced;
         BuiltIns.ControlLibraries = info.ControlLibraries ?? [];
@@ -841,6 +869,18 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
                 m.ModuleEnv.DefineVariable(name, slot);
     }
 
+    private readonly List<int> predeclaredSlots = new();
+
+    internal async Task ReleasePredeclaredInstances()
+    {
+        foreach (var slot in predeclaredSlots)
+        {
+            var value = ExecutionContext.State[slot];
+            ExecutionContext.State[slot] = Vb6Value.Nothing;
+            await ReleaseRef(value);
+        }
+    }
+
     public async Task Execute()
     {
         declarationsRun = true;
@@ -858,6 +898,11 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         catch (Debugging.StopExecutionSignal)
         {
             // A debugger reset (Stop) unwound the walk cleanly (refcount teardown ran, suppressed) — swallow it.
+        }
+        finally
+        {
+            if (Forms is null)
+                await ReleasePredeclaredInstances();
         }
     }
 
@@ -919,6 +964,8 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         }
         finally
         {
+            if (Forms is null)
+                await ReleasePredeclaredInstances();
             ReleaseLibraryGlobals();
         }
     }
@@ -1309,6 +1356,9 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
             foreach (var arg in args) values.Add(arg.Value);
             return await CallLibraryMember(global, name, values);
         }
+        if (name.Equals("CallByName", StringComparison.OrdinalIgnoreCase))
+            return await CallByName(args, callerFrames);
+
         var flat = await VB6BuiltIns.ArrangeIntrinsicArguments(name, args);
         if (await CallBuiltIn(name, flat, currentModule.PrePass.OptionCompareText) is { } result)
             return result.Value is LibraryObject && callerFrames is not null ? AdoptNewTemp(result, callerFrames) : result;

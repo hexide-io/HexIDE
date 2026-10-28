@@ -1266,6 +1266,8 @@ Empty lists for other documents SHALL NOT prevent applying edits to the current 
 
 The client SHALL accept signature-help parameter labels as strings or UTF-16 offset pairs into the
 signature label. The popup SHALL use the exact offset range for highlighting and parameter text.
+The header SHALL preserve the signature label verbatim and show only the active parameter range in bold,
+keeping the label's own optional-parameter brackets (#2632).
 String labels SHALL retain first-match highlighting; an out-of-bounds offset SHALL produce no highlight.
 A reply that fails deferred result deserialization SHALL be recorded as Failed with an answer-dropped
 explanation, retaining any captured reply body.
@@ -1311,6 +1313,26 @@ when the UI language changes.
 - **WHEN** the UI language changes while a server is connected
 - **THEN** the existing connection stays open
 - **AND** the next connection's initialize request carries the newly resolved locale
+
+### Requirement: Existing outside sources contribute initial workspace folders
+At initialization, the client SHALL include each loaded project's folder before any existing outside
+source folders contributed by that project. It SHALL deduplicate folders by full host path and SHALL
+keep one project per `.vbp`, irrespective of the folders its sources occupy. Missing source files SHALL
+NOT contribute folders. Connections SHALL send deduplicated added and removed folders
+to servers declaring `workspace.workspaceFolders.changeNotifications` as true or a string.
+The notification SHALL precede project import on the same debounced trigger; unchanged folders SHALL
+produce no notification.
+
+#### Scenario: A listed source lives beside the project directory
+- **GIVEN** a project in `App` lists an existing module in sibling directory `Shared`
+- **WHEN** a language server initializes
+- **THEN** its workspace folders include `App` followed by `Shared`
+- **AND** the module remains part of the listing project
+
+#### Scenario: A membership change adds an outside folder
+- **WHEN** a project-import connection's project gains a source in a new outside folder
+- **THEN** its opted-in server receives one folder-change notification before the debounced import
+- **AND** removing that source removes only the outside folder when no other source needs it
 
 ### Requirement: Project-import declarations SHALL be validated independently of server startup
 

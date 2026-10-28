@@ -105,6 +105,9 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
     public async Task<(Vb6Value, Vb6Value)> GetTwoValuesSameTypesOrNull(VB6Parser.ValueStmtContext[] context)
     {
         var (leftValue, rightValue) = await GetTwoValues(context);
+        if ((leftValue.Type == Vb6Value.ValueType.Error || rightValue.Type == Vb6Value.ValueType.Error)
+            && leftValue.Type != rightValue.Type)
+            throw new VBRunTimeException(context[0], VBStandardError.TypeMismatch);
         if (leftValue.Type == Vb6Value.ValueType.Null || rightValue.Type == Vb6Value.ValueType.Null)
             return (leftValue, rightValue);
 
@@ -852,6 +855,9 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
                 (bangFound, bangTarget) = await interpreter.ReadVariableAfter(env, name, bangNeed!);
             if (!bangFound && await BareFormMember(name) is { } bangMember)
                 (bangFound, bangTarget) = (true, bangMember);
+            // `Forms!Form1`, where nothing the program declares claims the name (#2496).
+            if (!bangFound && interpreter.UnclaimedLibraryObject(name) is { Value: VbForms } forms)
+                (bangFound, bangTarget) = (true, forms);
             if (!bangFound)
                 throw new NotImplementedException($"`{context.GetText()}` is supported only on a Collection and a form's Controls");
             return await Bang(bangTarget, bang);
@@ -1112,6 +1118,8 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
             VbCollection items => items.Default([new Vb6Value(key)]),
             ImageListImages images => images.Item(new Vb6Value(key)),
             FormControls controls => controls.Item([new Vb6Value(key)]),
+            // Forms has no keys, so `Forms!Form1` is 13 (measured, #2496).
+            VbForms forms => forms.Item([new Vb6Value(key)]),
             VbObject { ClassDef.Kind: InterpreterModuleKind.Form } form =>
                 await interpreter.Loading((Form: form, Key: key),
                     static s => FormMembers.ControlsItem(s.Form, [new Vb6Value(s.Key)])),
@@ -1420,6 +1428,13 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
                 throw new NotImplementedException($"{name}$ on a form's Controls is not implemented (#742)");
             return heldControls.Item(await EvaluateCallArgs(argsCtx));
         }
+        // Forms held in a variable, `o(0)` (#2496).
+        if (named && maybeGroup.Value is VbForms heldForms)
+        {
+            if (dollar)
+                throw new NotImplementedException($"{name}$ on Forms is not implemented (#742)");
+            return heldForms.Item(await EvaluateCallArgs(argsCtx));
+        }
         // Indexing a variable declared As Collection that holds Nothing is 91 (measured, #1471).
         if (named && maybeGroup.Type == Vb6Value.ValueType.Object && maybeGroup.Value is null
             && maybeGroup.DeclaredAs is { } declaredAs && IsCollectionType(declaredAs))
@@ -1515,6 +1530,11 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         if (!dollar && interpreter.GlobalMember(name) is { } global)
             return await interpreter.CallLibraryMember(global, name, await EvaluateCallArgs(argsCtx))
                 ?? throw new VBSubOrFunctionNotDefinedException(name);
+        if (!dollar && name.Equals("CallByName", StringComparison.OrdinalIgnoreCase))
+            return await interpreter.CallByName(await ResolveCallArgs(argsCtx), stmtFrames);
+        // `Forms(i)`, where nothing the program declares claims the name: Forms' default member, Item (#2496).
+        if (!dollar && interpreter.UnclaimedLibraryObject(name) is { Value: VbForms forms })
+            return forms.Item(await EvaluateCallArgs(argsCtx));
         if (dollar && DollarRefused.Contains(name))
             throw new VBCompileErrorException(TypeCharacterMismatch);
         if (dollar && !DollarForms.Contains(name) && !DollarIgnored.Contains(name))
@@ -1591,6 +1611,8 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
             return AvaloniaInterop.TabStripMembers.Read(strip, MemberName(member), await EvaluateCallArgs(MemberArgs(member)));
         if (variable.Value is VBToolbar toolbar)
         {
+            if (MemberArgs(member) is null && MemberName(member).ToLowerInvariant() is "hotimagelist" or "disabledimagelist"
+                && toolbar.TryGetProperty(MemberName(member), out var imageList)) return imageList;
             VBToolbar.RefusePending(MemberName(member));
             if (MemberName(member).Equals("Buttons", StringComparison.OrdinalIgnoreCase) && MemberArgs(member) is { } indexes)
                 return toolbar.Buttons.Item(await EvaluateCallArgs(indexes));
@@ -1714,12 +1736,18 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         // Every member of a control Controls.Remove took out is 735, its Name included (measured, #1556).
         VBProps.RefuseIfRemoved(control);
 
+        if (control is VBTimer && TimerMembers.TryGet(control, memberIdentifier, out var timerValue))
+            return timerValue;
+
         AvaloniaInterop.UserControlMembers.Check(variable, memberIdentifier, reading: true);
         if (AvaloniaInterop.UserControlMembers.TryGet(control, memberIdentifier, out var userControlValue))
             return userControlValue;
 
         if (AvaloniaInterop.UserControlContainers.TryGet(control, memberIdentifier, out var containerValue))
             return containerValue;
+
+        if (AvaloniaInterop.RichTextBoxMembers.TryGet(control, memberIdentifier, out var richTextValue))
+            return richTextValue;
 
         // An in-box control's own members, and the extender's it lacks, by its member table (#1082).
         if ((AvaloniaInterop.StatusBarMembers.TryGet(control, memberIdentifier, out var inBoxValue)
@@ -1733,11 +1761,6 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
 
         foreach (var prop in props)
         {
-            // A Timer's or scroll bar's colour, which VB6 does not have and which would read as black. Refused until
-            // #801 resolves a property the control does not declare, rather than read wrong.
-            if (AvaloniaInteroperability.IsUnsetColour(control, prop))
-                throw new NotImplementedException(
-                    $"Reading {memberIdentifier} from this control is not implemented: VB6 gives it no {memberIdentifier} (#801)");
             if (AvaloniaInteroperability.TryGet(control, prop, out var value))
                 return value;
         }
@@ -1846,6 +1869,8 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
             var library = qualifier.Name!;
             while (true)
             {
+                if (memberName.Equals("CallByName", StringComparison.OrdinalIgnoreCase))
+                    return await ThenTheRest(await interpreter.CallByName(await ResolveCallArgs(argsCtx), stmtFrames));
                 var args = argsCtx != null ? await EvaluateIntrinsicArgs(memberName, argsCtx) : new List<Vb6Value>();
                 if (await EvaluateFunction(memberName, args) is { } fn)
                     return await ThenTheRest(fn);
@@ -2172,6 +2197,8 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
             // and Nothing Is Nothing — NOT Vb6Value equality (which would run numeric coercion).
             var leftObject = await EvaluateValue(context.valueStmt(0));
             var rightObject = await EvaluateValue(context.valueStmt(1));
+            if (leftObject.Type == Vb6Value.ValueType.Error || rightObject.Type == Vb6Value.ValueType.Error)
+                throw new VBRunTimeException(context, VBStandardError.ObjectRequired);
             return new Vb6Value(ReferenceEquals(leftObject.Value, rightObject.Value));
         }
         // Option Compare is the module's where the comparison is written: a Binary module's function called from a Text
@@ -2195,6 +2222,8 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         // non-numeric string vs a number is Type Mismatch, both already faithful, and the same in either mode).
         if (StringCompare(leftValue, rightValue, compareText) is int sc)
             return (Vb6Value)Holds(order, sc, 0);
+        if (leftValue.Type == Vb6Value.ValueType.Error && rightValue.Type == Vb6Value.ValueType.Error)
+            return (Vb6Value)Holds(order, (ushort)leftValue.Value!, (ushort)rightValue.Value!);
         if (TryUnpack(leftValue, rightValue, out int leftInt, out int rightInt))
             return (Vb6Value)Holds(order, leftInt, rightInt);
         if (TryUnpack(leftValue, rightValue, out float leftFloat, out float rightFloat))
@@ -2362,6 +2391,9 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
             ?? throw new VBCompileErrorException("Expected a class name after New");
         if (IsCollectionType(className) && !interpreter.Modules.TryGet(className, out _))
             return interpreter.AdoptNewTemp(new Vb6Value(interpreter.NewCollection()), stmtFrames);
+        // VB6 compiles New ErrObject but refuses its creation at run time (#2627).
+        if (className.Equals("ErrObject", StringComparison.OrdinalIgnoreCase) && !interpreter.Modules.TryGet(className, out _))
+            throw new VBRunTimeException(context, new VBStandardError(-2147221164, "Class not registered"));
         var created = Vb6Value.NewObject(await interpreter.NewObject(className));
         // Hold the transient in the current statement frame so a New that is never stored (consumed by a built-in
         // arg, a condition, a member read) still terminates at statement-end; a subsequent Set / ByVal-bind
@@ -2416,6 +2448,7 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
                 VBToolbar => "MSComctlLib",
                 VBStatusBar => "MSComctlLib",
                 VBImageList => "MSComctlLib",
+                VBUpDown => "MSComCtl2",
                 _ => "VB",
             };
             return new Vb6Value(string.Equals(targetName, "Object", StringComparison.OrdinalIgnoreCase)
@@ -2423,7 +2456,7 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
                 || string.Equals(targetName, className, StringComparison.OrdinalIgnoreCase)
                 || string.Equals(targetName, $"{library}.{className}", StringComparison.OrdinalIgnoreCase));
         }
-        if (operand.Value is ControlArrayGroup or FormControls)
+        if (operand.Value is ControlArrayGroup or FormControls or VbForms)
             return new Vb6Value(string.Equals(targetName, "Object", StringComparison.OrdinalIgnoreCase));
         if (operand.Value is VbObject vo)
             return new Vb6Value(string.Equals(vo.ClassName, targetName, StringComparison.OrdinalIgnoreCase)

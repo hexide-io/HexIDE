@@ -235,11 +235,7 @@ public partial class RelatedDocumentEditorViewModel(ILspClient lspClient, IWindo
             throw;
         }
 
-        // Written to a sibling temp file and moved into place, so an interrupted save cannot leave a
-        // truncated document where the original was.
-        var temporary = path + ".hexide-tmp";
-        await File.WriteAllBytesAsync(temporary, bytes);
-        File.Move(temporary, path, overwrite: true);
+        AtomicFileWriter.WriteAllBytes(path, bytes);
 
         savedText = text;
         IsDirty = false;

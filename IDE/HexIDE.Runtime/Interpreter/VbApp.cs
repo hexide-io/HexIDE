@@ -1,10 +1,15 @@
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Text;
+
 namespace HexIDE.Runtime.Interpreter;
 
 /// <summary>
 /// What the running program knows about itself: the project identity behind <see cref="VbApp"/>.
 /// </summary>
 /// <param name="Title">
-/// The <c>.vbp</c> <c>Title=</c> value, falling back to <c>Name=</c> when the key is absent — measured, see
+/// The <c>.vbp</c> <c>Title=</c> value, falling back to the project file name without its extension when the key is absent — measured, see
 /// the App section of <c>docs/vb6-fidelity-oracle/the-app-object--and-the-difference-between-f5-and-a-compiled-exe.md</c>. Quotes already stripped.
 /// </param>
 /// <param name="ExeName">
@@ -29,7 +34,8 @@ public record AppInfo(
     bool CommonDialogReferenced = false,
     IReadOnlyList<Components.InBox.RuntimeLibrary>? ControlLibraries = null,
     string CommandLine = "",
-    string? ProjectName = null)
+    string? ProjectName = null,
+    bool HasProjectHelpFile = false)
 {
     /// <summary>A program with no project behind it — the test harness and the bare interpreter.</summary>
     public static readonly AppInfo None = new();
@@ -43,9 +49,9 @@ public record AppInfo(
         var path = project.AbsolutePath;
 
         return new AppInfo(
-            // Title= if the project has one, else the project Name — measured against a compiled probe
-            // with no Title key, which reported Name.
-            Title: PreSectionValue(project, "Title") ?? project.Name,
+            // With no Title=, F5 uses the project file name (#2413). Keep the unsaved fallback.
+            Title: PreSectionValue(project, "Title")
+                ?? (path is null ? project.Name : System.IO.Path.GetFileNameWithoutExtension(path)),
 
             // The PROJECT FILE's name, not project.Name and not ExeName32. Measured under F5 with all
             // three set to different strings; VB6 returned the .vbp's own filename.
@@ -68,7 +74,8 @@ public record AppInfo(
             ControlLibraries: Components.InBox.RuntimeLibraries.ReferencedBy(project),
             // Project Properties' "Command Line Arguments", which is what Command gives under F5, and HexIDE runs as F5 runs.
             CommandLine: PreSectionValue(project, "Command32") ?? "",
-            ProjectName: project.Name);
+            ProjectName: project.Name,
+            HasProjectHelpFile: !string.IsNullOrEmpty(PreSectionValue(project, "HelpFile")));
     }
 
     /// <summary>
@@ -88,10 +95,7 @@ public record AppInfo(
 
             var value = line[(key.Length + 1)..].Trim();
 
-            // VB6 writes this key quoted — `Title="Project1"` appears in its own templates — and its own
-            // reader then strips the LEADING quote only, so a real VB6 app carries a stray `"` at the end
-            // of App.Title. That is a defect rather than a design, so both quotes come off here. Recorded
-            // as a deliberate divergence in docs/vb6-fidelity-oracle/the-app-object--and-the-difference-between-f5-and-a-compiled-exe.md.
+            // Quoted titles read back without either quote under F5 and compiled p-code (#2413).
             if (value.Length >= 2 && value[0] == '"' && value[^1] == '"')
                 value = value[1..^1];
             else if (value.Length >= 1 && value[0] == '"')
@@ -116,17 +120,93 @@ public record AppInfo(
 /// exe's, and <c>ProductName</c> is empty rather than following <c>Title</c>, because that is precisely
 /// what VB6 reports when no exe exists. Both were measured rather than assumed.</para>
 ///
-/// <para><c>Title</c> is writable at run time, as in VB6; everything else is read-only and a write is
-/// ignored rather than throwing, matching how the member-write path treats an unknown property.</para>
+/// <para>Title, HelpFile and TaskVisible are writable at run time. StartMode refuses assignment, and LogPath
+/// rejects writes as measured in #2552; writes to the remaining properties retain the existing member-write
+/// behaviour.</para>
 /// </summary>
 public class VbApp(AppInfo info) : ICSharpProxy, ICSharpPropertyBag
 {
-    /// <summary>App has methods in VB6 (LogEvent, StartLogging); none are implemented, so every call is a
-    /// clean "member not found" rather than a silent no-op.</summary>
-    public void Call(string method, System.Collections.Generic.List<Vb6Value> args)
-        => throw new VBRunTimeException(VBStandardError.MethodOrDataMemberNotFound, "App." + method);
+    private readonly VbFiles loggingFiles = new() { ProjectFolder = () => info.Path };
+    private long logMode = 1;
+    private string logPath = "";
+    private bool loggingStarted;
+
+    internal VbApp(AppInfo info, VbFiles files) : this(info) => loggingFiles = files;
+
+    // Measured native and p-code, #2552. NT logging is deliberately a no-op: registering an event source
+    // would change the developer's machine and require administrator rights (docs/interpreter-gaps.md).
+    public void Call(string method, List<Vb6Value> args)
+    {
+        switch (method.ToLowerInvariant())
+        {
+            case "startlogging":
+                if (args.Count != 2 || args[0].Type != Vb6Value.ValueType.String)
+                    throw new NotImplementedException("App.StartLogging argument conversion or omitted mode is unmeasured (#2552)");
+                var mode = LoggingNumber(args[1]);
+                if (mode is not (1 or 2 or 3 or 18))
+                    throw new NotImplementedException("App.StartLogging mode is unmeasured (#2552)");
+                var path = (string)args[0].Value!;
+                if (mode == 3 && path.Length != 0)
+                    throw new NotImplementedException("App.StartLogging NT with a nonempty path is unmeasured (#2552)");
+                logMode = mode == 18 ? 1 : mode;
+                if (mode == 2) logPath = path.Length == 0 ? "vbevents.log" : path;
+                else if (mode == 3) logPath = "";
+                loggingStarted = true;
+                return;
+            case "logevent":
+                LogEvent(args);
+                return;
+            default:
+                throw new VBRunTimeException(VBStandardError.MethodOrDataMemberNotFound, "App." + method);
+        }
+    }
+
+    private static long LoggingNumber(Vb6Value value)
+    {
+        if (value.Type != Vb6Value.ValueType.Integer && value.Type != Vb6Value.ValueType.Long)
+            throw new NotImplementedException("App logging argument conversion is unmeasured (#2552)");
+        return Convert.ToInt64(value.Value);
+    }
+
+    private void LogEvent(List<Vb6Value> args)
+    {
+        if (args.Count is < 1 or > 2)
+            throw new NotImplementedException("App.LogEvent argument count is unmeasured (#2552)");
+        var type = args.Count == 1 ? 4 : LoggingNumber(args[1]);
+        var word = type switch
+        {
+            4 => "Information ",
+            2 => "Warning     ",
+            1 => "Error       ",
+            9 => throw new VBRunTimeException(VBStandardError.InvalidPropertyValue),
+            _ => throw new NotImplementedException("App.LogEvent type is unmeasured (#2552)"),
+        };
+        var message = args[0].Type == Vb6Value.ValueType.String
+            ? (string)args[0].Value!
+            : LoggingNumber(args[0]).ToString(System.Globalization.CultureInfo.InvariantCulture);
+        if (!loggingStarted)
+        {
+            logMode = 3;
+            loggingStarted = true;
+        }
+        if (logMode != 2) return;
+        var line = $"{word}Application {logPath}: Thread ID: {Environment.CurrentManagedThreadId} ,Logged: {message}\r\n";
+        foreach (var character in line)
+            if (character > 127)
+                throw new NotImplementedException("App.LogEvent non-ASCII file encoding is unmeasured (#2552)");
+        try
+        {
+            File.AppendAllText(loggingFiles.FullPath(logPath), line, Encoding.ASCII);
+        }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException or ArgumentException)
+        {
+            throw new NotImplementedException("App.LogEvent file failure semantics are unmeasured (#2552)", error);
+        }
+    }
 
     private string title = info.Title;
+    private string? helpFile = info.HasProjectHelpFile ? null : "";
+    private bool taskVisible = true;
 
     /// <summary>The project's folder, empty for an unsaved project: where a relative file path is resolved (#1145).</summary>
     public string Path => info.Path;
@@ -142,8 +222,14 @@ public class VbApp(AppInfo info) : ICSharpProxy, ICSharpPropertyBag
         switch (name.ToLowerInvariant())
         {
             case "title": value = title; return true;
+            // Measured in #2551; a project's nonempty HelpFile= has not been measured.
+            case "helpfile": value = helpFile ?? throw new NotImplementedException("App.HelpFile from a project is not implemented (#2551)"); return true;
+            case "startmode": value = 0; return true;
+            case "taskvisible": value = taskVisible; return true;
             case "exename": value = info.ExeName; return true;
             case "path": value = info.Path; return true;
+            case "logmode": value = new Vb6Value(logMode); return true;
+            case "logpath": value = logPath; return true;
 
             // Empty by design, not by omission: the version resource lives in a compiled exe, and there
             // isn't one. VB6 under F5 returns empty here too.
@@ -167,9 +253,22 @@ public class VbApp(AppInfo info) : ICSharpProxy, ICSharpPropertyBag
 
     public bool TrySetProperty(string name, Vb6Value value)
     {
-        if (!string.Equals(name, "Title", System.StringComparison.OrdinalIgnoreCase))
-            return false;
-        title = VbDisplay.ToText(value);
-        return true;
+        switch (name.ToLowerInvariant())
+        {
+            case "title": title = VbDisplay.ToText(value); return true;
+            case "helpfile":
+                if (value.Type != Vb6Value.ValueType.String)
+                    throw new NotImplementedException("App.HelpFile conversion is not implemented (#2551)");
+                helpFile = (string)value.Value!;
+                return true;
+            case "taskvisible":
+                if (value.Type != Vb6Value.ValueType.Boolean)
+                    throw new NotImplementedException("App.TaskVisible conversion is not implemented (#2551)");
+                taskVisible = (bool)value.Value!;
+                return true;
+            case "startmode": throw new VBCompileErrorException("Can't assign to read-only property");
+            case "logpath": throw new VBCompileErrorException("Can't assign to read-only property");
+            default: return false;
+        }
     }
 }

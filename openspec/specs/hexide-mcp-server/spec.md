@@ -38,6 +38,29 @@ that is closed it SHALL give no `items`, and `itemsNote` SHALL say to expand it;
 - **WHEN** the Language dropdown, holding 31 items of which ten have rows, is expanded and inspected
 - **THEN** `items` gives all 31 texts, and `select` takes any of them as written
 
+### Requirement: The Immediate window's editor SHALL be found by match and read where it is shown
+`dump_visual_tree`'s `match` SHALL find the Immediate window's editor by its class, `TextEditor`, and by the window's
+name, under a path that is the same in every language. `inspect_element` on that editor SHALL report the window's text
+as its `value`, with `isReadOnly`. An editor whose document is a project file SHALL leave its text to `get_file_content`.
+
+#### Scenario: Reading a program's Debug.Print output
+- **WHEN** the Immediate window holds a run's output and `dump_visual_tree` is called with `match: "TextEditor"`
+- **THEN** the Immediate window's editor is among the matches, and `inspect_element` on it gives the output as `value`
+
+#### Scenario: A code window's editor
+- **WHEN** a code window's editor is inspected
+- **THEN** its `value` is absent, and its file is read with `get_file_content`
+
+### Requirement: Inspection SHALL report the mouse pointer a control shows
+`inspect_element` SHALL give `pointer` for a control showing a pointer set on it or above it: a running program's
+MousePointer by number and name, the pointer drawn, where it is set, and `setBy`, which says whether it is the
+control's own value, one set over it as `Screen.MousePointer` sets it, or a style's. A pointer the runtime did not make
+SHALL be reported as not recorded, never guessed, and a control with none set SHALL have no `pointer`.
+
+#### Scenario: Screen.MousePointer over a control's own
+- **WHEN** a running form's code sets `Screen.MousePointer = 11` over a button whose own MousePointer is 2
+- **THEN** the button's `pointer` is 11, Hourglass, set by Override, and after `Screen.MousePointer = 0` it is 2, Cross, its own
+
 ### Requirement: Inspection SHALL report what a tree has selected
 `inspect_element` on a tree SHALL report in `selectionItems` the rows the tree has selected, each named as its row
 reads, and SHALL report an empty list only when nothing is selected. A tree whose peer offers no selection provider
@@ -641,7 +664,19 @@ to a disabled window or one under a modal dialog.
 
 #### Scenario: Minimizing a running form
 - **WHEN** `set_window_state` minimizes `window: "Form1"` and then restores it
-- **THEN** the form's Resize runs for each, as it does for its minimize and restore boxes, and the reply names `Form1`
+- **THEN** exactly one Resize runs for each, with the new state and settled client size, as for its caption buttons
+- **AND** Paint follows restoring from minimized, with no Activate, Deactivate, GotFocus or LostFocus
+- **AND** the reply names `Form1`
+
+#### Scenario: Maximizing and restoring a running form
+- **WHEN** `set_window_state` maximizes `window: "Form1"` and then restores it
+- **THEN** each change raises exactly one Resize with the final state and client size
+- **AND** Paint follows maximizing, but not restoring from maximized
+
+#### Scenario: Resizing a running form
+- **WHEN** a person drags a running form's border or corner with window contents shown while dragging
+- **THEN** each move raises one Resize, followed by Paint when the client grows
+- **AND** releasing the border raises neither event
 
 #### Scenario: A Fixed Dialog
 - **WHEN** `set_window_state` asks a Fixed Dialog form to minimize, or to take a new width
@@ -878,6 +913,20 @@ as waiting to run separately from handlers already started.
 - **THEN** the reply names the suspended handler as still running
 - **AND** events with handlers queued behind it are named as waiting to run
 - **AND** events without handlers are omitted
+
+### Requirement: Run-control replies SHALL say what the program printed
+A successful reply from `run_project`, `stop_project`, `continue_program`, `break_program`, a step or `run_to_cursor`
+SHALL give in `printed` what the program wrote with `Debug.Print` since its run began or a reply last reported it, and
+its note SHALL say how much, or that it wrote nothing. Output past 4000 characters SHALL keep its end, with the note
+saying how much was left out.
+
+#### Scenario: A program that prints as it loads
+- **WHEN** `run_project` starts a program whose `Form_Load` prints two lines
+- **THEN** `printed` holds the two lines, and the note says Debug.Print wrote 2 lines
+
+#### Scenario: Nothing printed
+- **WHEN** a program prints nothing before `stop_project`
+- **THEN** the reply has no `printed`, and its note says Debug.Print wrote nothing
 
 ### Requirement: Realized items SHALL be listed in item order
 The control-view collector shared by `dump_visual_tree` and path resolution SHALL order an items

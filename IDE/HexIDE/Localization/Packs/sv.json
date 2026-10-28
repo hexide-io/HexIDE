@@ -681,6 +681,7 @@
     "Str.Tool.ProtocolInspector.Reply": "— svar, {0} byte —",
     "Str.Tool.ProtocolInspector.Copy": "Kopiera som spårning",
     "Str.Tool.ProtocolInspector.Export": "Exportera konversation...",
+    "Str.Tool.ProtocolInspector.ReplaceFiles": "Ersätt dessa befintliga filer?\n{0}",
     "Str.Tool.ProtocolInspector.Exported": "Exporterade {0} meddelanden till {1}, med manifestet i {2}.",
     "Str.Tool.ProtocolInspector.ExportFailed": "Exporten slutfördes inte: {0}",
     "Str.Tool.ProtocolInspector.LeavesRedacted": "Det som lämnar datorn är pseudonymiserat.",
@@ -926,6 +927,9 @@
     "Str.PropDesc.MaskColor": "Färgen för genomskinliga pixlar.",
     "Str.PropDesc.UseMaskColor": "Om maskfärgen används.",
     "Str.Options.EditorGeneral.Display.ShowIndentGuides": "Visa indragslinjer",
-    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Färglägg parenteser efter nästlingsdjup"
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Färglägg parenteser efter nästlingsdjup",
+    "Str.Dialog.Print.Configuration": "Kopior: 1; orientering: stående.",
+    "Str.Dialog.Print.Unavailable": "Utskrift är inte implementerad. OK returnerar endast dialoginställningarna.",
+    "Str.Dialog.Color.Rgb": "RGB (#RRGGBB)"
   }
 }
