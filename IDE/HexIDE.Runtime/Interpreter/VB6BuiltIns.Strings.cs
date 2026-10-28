@@ -448,13 +448,13 @@ public partial class VB6BuiltIns
         {
             int j = 2;
             while (j < s.Length && Uri.IsHexDigit(s[j])) j++;
-            return j > 2 ? Convert.ToInt64(s.Substring(2, j - 2), 16) : 0;
+            return j > 2 ? RadixNumber(Convert.ToInt64(s.Substring(2, j - 2), 16), Vb6Value.ValueType.Integer) : 0;
         }
         if (s.StartsWith("&O", StringComparison.OrdinalIgnoreCase))
         {
             int j = 2;
             while (j < s.Length && s[j] is >= '0' and <= '7') j++;
-            return j > 2 ? Convert.ToInt64(s.Substring(2, j - 2), 8) : 0;
+            return j > 2 ? RadixNumber(Convert.ToInt64(s.Substring(2, j - 2), 8), Vb6Value.ValueType.Integer) : 0;
         }
         int i = 0;
         if (i < s.Length && (s[i] == '+' || s[i] == '-')) i++;
