@@ -793,6 +793,44 @@ freed storage SHALL report it as out of scope without throwing into the UI.
 - **WHEN** the debugger inspects a frame after its procedure returns
 - **THEN** freed locals are absent from Locals and a watch on freed storage is out of scope
 
+### Requirement: ImageCombo collection model
+
+The interpreter SHALL support the internal ImageCombo collection model with one-based integer indices,
+string keys, insertion, removal, clearing and held-item renumbering. Item Text SHALL be its default member
+and Tag SHALL retain the assigned scalar value's type, except that Empty SHALL become an empty String.
+A new item's Tag SHALL be an empty String, and assigning Nothing SHALL preserve Nothing. String keys
+SHALL compare case-sensitively. Saved MSComctlLib.ImageCombo blocks SHALL create runtime controls exposing this model (#1092 part A).
+The loader SHALL load measured saved properties without posting Change, and subsequent code Change SHALL reach
+the form through its event pump. The designer SHALL retain the original block as carried, view-only content.
+The loader SHALL refuse control arrays, contained controls and saved properties it does not implement.
+ImageList binding and the remaining owner members are pending.
+The internal owner SHALL support Text, SelectedItem, Locked and default Indentation for new items.
+Selecting an item SHALL copy its Text to the owner; changing that selected item's Text SHALL update the owner.
+Removing the selected item or assigning Nothing SHALL clear selection while retaining Text.
+Text writes SHALL never select an item. Text writes and selection writes, even unchanged, and selected-item
+Text writes SHALL post Change through the event pump, without coalescing or raising Click.
+Count and Index SHALL return Long, and item Indentation SHALL return Integer.
+
+#### Scenario: Insert then remove before a held item
+- **WHEN** Alpha and Bravo are added, Charlie is inserted at index 1, and Charlie is removed
+- **THEN** the held Bravo item's Index changes from 3 to 2
+
+#### Scenario: Unmeasured collection behavior
+- **WHEN** a caller reads an item after Clear
+- **THEN** the model refuses with HexIDE's not-implemented error rather than guessing the error number
+
+#### Scenario: Distinct keys differing only in case
+- **WHEN** items keyed `abc` and `ABC` are added
+- **THEN** each exact key retrieves its own item, and `Abc` raises 35601
+
+#### Scenario: Code changes wait for a yield
+- **WHEN** code assigns Text twice to the same value during a running handler
+- **THEN** no Change handler runs before the next yield, and DoEvents delivers both queued Changes
+
+#### Scenario: Unknown selection edges refuse
+- **WHEN** code assigns Selected = False, selects an item from another owner, writes owner Text while selected, or clears a collection with a selected item
+- **THEN** the model refuses with HexIDE's not-implemented error
+
 ### Requirement: Control Font references SHALL retain identity and share mutations
 
 For the built-in font-bearing controls with runtime implementations, Font SHALL expose an object whose

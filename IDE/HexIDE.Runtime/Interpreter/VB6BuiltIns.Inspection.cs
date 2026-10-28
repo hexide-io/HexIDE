@@ -88,6 +88,8 @@ public partial class VB6BuiltIns
         StatusBarPanel => "IPanel",
         StatusBarPanels => "IPanels",
         ImageListImages => "IImages",
+        ImageComboItems => "IComboItems",
+        ImageComboItem => "IComboItem",
         ImageListImage => "IImage",
         ImageListPictureObject => "Picture",
         Components.InBox.TreeNodes => "INodes",
