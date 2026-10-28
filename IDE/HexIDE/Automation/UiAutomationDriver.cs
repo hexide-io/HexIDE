@@ -109,7 +109,11 @@ public static class UiAutomationDriver
         var providers = DescribeProviders(peer, control);
 
         string[] selection = [];
-        if (peer.GetProvider<ISelectionProvider>() is { } sel)
+        // A list first: from Avalonia 12.0.5 its peer offers a selection provider, but that names only the rows that
+        // exist, so a selected item scrolled out of view, or in a list too short to show it, went missing (#2026).
+        if (control is ListBox listBox)
+            selection = Safe(() => SelectedNames(listBox).ToArray(), []);
+        else if (peer.GetProvider<ISelectionProvider>() is { } sel)
             selection = Safe(() => sel.GetSelection().Select(p => p.GetName()).ToArray(), []);
         else if (control is SelectingItemsControl selecting and not (MenuItem or MenuBase))
             selection = Safe(() => SelectedNames(selecting).ToArray(), []);
@@ -509,8 +513,9 @@ public static class UiAutomationDriver
     /// <summary>
     /// The action tokens a control actually accepts. Mostly its automation providers, but not only:
     /// <see cref="Interact"/> has fallbacks for controls whose peer offers nothing, and a token missing
-    /// here is a token nobody tries. <c>MenuItemAutomationPeer</c> exposes <b>no providers at all</b>, so
-    /// reporting the peer verbatim would advertise a menu as undrivable while every verb on it works.
+    /// here is a token nobody tries. <c>MenuItemAutomationPeer</c> exposes no invoke or expandCollapse provider,
+    /// and from 12.0.5 only a toggle that skips the click, so reporting the peer verbatim would advertise a menu as
+    /// undrivable while every verb on it works.
     /// </summary>
     public static string[] DescribeProviders(AutomationPeer peer, Control? control = null)
     {
@@ -549,6 +554,9 @@ public static class UiAutomationDriver
 
         if (control is MenuItem menuItem)
         {
+            // Avalonia 12.0.5's peer offers a toggle on a checkable item that only sets IsChecked, and Interact refuses
+            // toggle on every menu item for that reason, so advertising it would promise a verb that only refuses.
+            list.Remove("toggle");
             if (!list.Contains("invoke")) list.Add("invoke");
             // Only where there is a submenu to open: advertising expandCollapse on a leaf would promise
             // an action that correctly refuses.
@@ -645,8 +653,8 @@ public static class UiAutomationDriver
                         return outcome;
 #endif
                     }
-                    // MenuItemAutomationPeer exposes NO providers at all — not invoke, not
-                    // expandCollapse — so every verb failed on a menu and none of it was reachable.
+                    // MenuItemAutomationPeer exposes no invoke and no expandCollapse provider, so every verb failed
+                    // on a menu and none of it was reachable.
                     // ClickMenuItem clicks it as Avalonia's menu does: it moves a checkable item's tick, raises
                     // Click, whose class handler executes Command, so plain Click handlers and bound commands
                     // fire once, then closes the menu. Raising Click alone was the #947 defect.
@@ -674,12 +682,15 @@ public static class UiAutomationDriver
                 case "toggle":
                     // A menu item has no toggle of its own; only a click moves its tick. A running form's menu leaves the
                     // tick to its program, in its Click, so the refusal does not steer a caller to run an item such as Exit
-                    // for its tick, and says where the tick is read (#1255 review).
-                    if (peer.GetProvider<IToggleProvider>() is null && control is HexIDE.Runtime.BuiltinControls.VBMenu)
+                    // for its tick, and says where the tick is read (#1255 review). From Avalonia 12.0.5 the peer of a
+                    // checkable item offers a toggle, but it only sets IsChecked: no Click is raised, so neither the
+                    // program's handler nor the command behind an IDE tick runs. So a menu item is refused whatever its
+                    // peer offers.
+                    if (control is HexIDE.Runtime.BuiltinControls.VBMenu)
                         return Err("a running form's menu item has no toggle of its own: its program sets the tick, in the "
                                    + "item's Click, which 'invoke' runs as a click does. inspect_element reads the tick as "
                                    + "toggleState; nothing was done");
-                    if (peer.GetProvider<IToggleProvider>() is null && control is MenuItem toggleItem)
+                    if (control is MenuItem toggleItem)
                         return Err(toggleItem.ToggleType == MenuItemToggleType.None
                             ? $"'{LabelOf(control, peer)}' has no tick to toggle, and 'invoke' would run it as a click "
                               + "does; nothing was done"
@@ -1308,7 +1319,8 @@ public static class UiAutomationDriver
         if (!matchEmptyValue) value = NullIfEmpty(value);
         if (value is null)
         {
-            if (peer.GetProvider<ISelectionItemProvider>() is { } selfSip)
+            // A tree's item is selected through its tree, as before Avalonia 12.0.5 gave its peer a provider of its own.
+            if (control is not TreeViewItem && peer.GetProvider<ISelectionItemProvider>() is { } selfSip)
             {
                 // Named before the dropdown closes over it, as invoke names a button before it closes its dialog.
                 var label = LabelOf(control, peer);
