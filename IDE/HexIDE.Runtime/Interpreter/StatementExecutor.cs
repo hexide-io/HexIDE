@@ -3447,9 +3447,10 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 treeNode.SetObjectProperty(UdtFieldName(membersCall.iCS_S_MemberCall()[0]), value);
                 return default;
             }
-            if (setLead && target.Value is VBToolbar && membersCall.iCS_S_MemberCall().Length == 1)
+            if (setLead && target.Value is VBToolbar toolbar && membersCall.iCS_S_MemberCall().Length == 1)
             {
                 var name = UdtFieldName(membersCall.iCS_S_MemberCall()[0]);
+                if (name.Equals("ImageList", StringComparison.OrdinalIgnoreCase) && toolbar.TrySetProperty(name, value)) return default;
                 VBToolbar.RefusePending(name);
                 if (name.Equals("Buttons", StringComparison.OrdinalIgnoreCase)) throw ToolbarItems.Error(383);
             }

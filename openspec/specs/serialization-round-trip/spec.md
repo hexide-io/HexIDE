@@ -72,7 +72,8 @@ subset — and the developer discovers which parts by finding out what stopped w
 - **THEN** its carried Toolbar blocks retain `ToolTips`, BorderStyle after `_Version`, HIMETRIC ButtonWidth/ButtonHeight,
   twips placeholder widths and nested ButtonMenus verbatim, and its ImageList companion retains every byte
 - **AND** the separate runtime loader reads designed top-level Toolbar button/menu bags under their measured names,
-  retaining numeric image indexes without ImageList binding; designer editing/rewriting of these bags remains unsupported
+  retaining numeric image indexes and binding the saved ImageList name after all controls are created, including a list
+  appearing later in the file; designer editing/rewriting of these bags remains unsupported
 - **AND** carried Toolbars SHALL remain view-only, excluded from the Properties component list, including their own
   scalar properties and Buttons, until those edits can be saved faithfully; editing a surrounding form property
   SHALL survive save and reload without changing the carried Toolbar blocks or companion bytes

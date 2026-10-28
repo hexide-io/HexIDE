@@ -1559,6 +1559,8 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
             return AvaloniaInterop.TabStripMembers.Read(strip, MemberName(member), await EvaluateCallArgs(MemberArgs(member)));
         if (variable.Value is VBToolbar toolbar)
         {
+            if (MemberArgs(member) is null && MemberName(member).ToLowerInvariant() is "hotimagelist" or "disabledimagelist"
+                && toolbar.TryGetProperty(MemberName(member), out var imageList)) return imageList;
             VBToolbar.RefusePending(MemberName(member));
             if (MemberName(member).Equals("Buttons", StringComparison.OrdinalIgnoreCase) && MemberArgs(member) is { } indexes)
                 return toolbar.Buttons.Item(await EvaluateCallArgs(indexes));
