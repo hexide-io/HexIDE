@@ -926,6 +926,9 @@
     "Str.PropDesc.MaskColor": "The color used for transparent pixels.",
     "Str.PropDesc.UseMaskColor": "Whether to use the mask color.",
     "Str.Options.EditorGeneral.Display.ShowIndentGuides": "Show indent guides",
-    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Color parentheses by nesting depth"
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Color parentheses by nesting depth",
+    "Str.Dialog.Print.Configuration": "Copies: 1; orientation: portrait.",
+    "Str.Dialog.Print.Unavailable": "Printing is not implemented. OK returns the dialog settings only.",
+    "Str.Dialog.Color.Rgb": "RGB (#RRGGBB)"
   }
 }

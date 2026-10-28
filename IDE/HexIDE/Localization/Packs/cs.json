@@ -926,6 +926,9 @@
     "Str.PropDesc.MaskColor": "Barva průhledných pixelů.",
     "Str.PropDesc.UseMaskColor": "Zda použít barvu masky.",
     "Str.Options.EditorGeneral.Display.ShowIndentGuides": "Zobrazit vodítka odsazení",
-    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Barvit závorky podle hloubky vnoření"
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Barvit závorky podle hloubky vnoření",
+    "Str.Dialog.Print.Configuration": "Kopie: 1; orientace: na výšku.",
+    "Str.Dialog.Print.Unavailable": "Tisk není implementován. OK vrátí pouze nastavení dialogu.",
+    "Str.Dialog.Color.Rgb": "RGB (#RRGGBB)"
   }
 }

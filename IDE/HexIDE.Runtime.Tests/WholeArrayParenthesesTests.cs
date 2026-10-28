@@ -54,6 +54,49 @@ public class WholeArrayParenthesesTests : BaseVBTestFixture
         Log.Should().Equal("Long()", "2", "0");
     }
 
+    // Measured native and p-code: https://github.com/hexide-io/HexIDE/issues/2474; #2532 pins forwarding and copy isolation.
+    [Fact]
+    public async Task A_ParamArray_with_empty_parentheses_arrives_as_one_array_element()
+    {
+        await Run("""
+            Forward 1, 2
+            Sub Forward(ParamArray a() As Variant)
+                Take a()
+            End Sub
+            Sub Take(ParamArray b() As Variant)
+                Debug.Print LBound(b)
+                Debug.Print UBound(b)
+                Debug.Print IsArray(b(0))
+                Debug.Print TypeName(b(0))
+                Debug.Print b(0)(0)
+                Debug.Print b(0)(1)
+            End Sub
+            """);
+
+        Log.Should().Equal("0", "0", "True", "Variant()", "1", "2");
+    }
+
+    [Fact]
+    public async Task Writing_through_the_forwarded_ParamArray_element_leaves_the_caller_unchanged()
+    {
+        await Run("""
+            Dim n As Integer
+            n = 1
+            Forward n, 2
+            Debug.Print n
+            Sub Forward(ParamArray a() As Variant)
+                Take a()
+                Debug.Print a(0)
+            End Sub
+            Sub Take(ParamArray b() As Variant)
+                b(0)(0) = 99
+                Debug.Print b(0)(0)
+            End Sub
+            """);
+
+        Log.Should().Equal("99", "1", "1");
+    }
+
     [Fact]
     public async Task Empty_parentheses_on_a_Variant_array_are_a_compile_error_at_the_statement()
     {

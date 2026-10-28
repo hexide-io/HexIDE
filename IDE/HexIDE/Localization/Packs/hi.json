@@ -926,6 +926,9 @@
     "Str.PropDesc.MaskColor": "पारदर्शी पिक्सेल का रंग।",
     "Str.PropDesc.UseMaskColor": "क्या मास्क रंग का उपयोग करना है।",
     "Str.Options.EditorGeneral.Display.ShowIndentGuides": "इंडेंट गाइड दिखाएँ",
-    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "नेस्टिंग की गहराई के अनुसार कोष्ठकों को रंगें"
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "नेस्टिंग की गहराई के अनुसार कोष्ठकों को रंगें",
+    "Str.Dialog.Print.Configuration": "प्रतियाँ: 1; अभिविन्यास: पोर्ट्रेट।",
+    "Str.Dialog.Print.Unavailable": "मुद्रण लागू नहीं है। ठीक केवल संवाद की सेटिंग लौटाता है।",
+    "Str.Dialog.Color.Rgb": "RGB (#RRGGBB)"
   }
 }

@@ -46,11 +46,12 @@ public class ComponentsViewModelTests
 
         // Keep these measured registry descriptions independent of later library additions.
         vm.Controls.Where(c => c.Library == ControlLibraries.ComctlLib || c.Library == ControlLibraries.MSComctlLib
-                || c.Library == ControlLibraries.MSComDlg)
+                || c.Library == ControlLibraries.MSComDlg || c.Library == ControlLibraries.RichTextLib)
             .Select(c => (c.Name, c.Location, c.IsSelected)).Should().Equal(
             ("Microsoft Common Dialog Control 6.0", "COMDLG32.OCX", false),
             ("Microsoft Windows Common Controls 5.0 (SP2)", "COMCTL32.OCX", false),
-            ("Microsoft Windows Common Controls 6.0 (SP6)", "MSCOMCTL.OCX", true));
+            ("Microsoft Windows Common Controls 6.0 (SP6)", "MSCOMCTL.OCX", true),
+            ("RichTextLib", "RICHTX32.OCX", false));
         vm.Controls.Should().OnlyContain(c => c.CanChange);
     }
 
