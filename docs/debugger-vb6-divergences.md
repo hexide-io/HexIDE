@@ -605,23 +605,26 @@ recorded in #1866; the dockable pane uses selection/double-click rather than VB6
   Recursion, cross-module contexts, Break When types and running-state refresh were not measured and
   keep their previous behavior.
 
-### D30. Locals rows for a control or a form, beyond what is measured (#2329, #2700)
-- **VB6:**
-  - **The Type column:** an object row's Type gives the declared type, then the class: `Object/Timer` for a `Dim t As
-    Object`, `Timer/Timer` for a control under `Me`, `Form/Form1` for a Timer's `Parent`, and `Variant/Object/Timer` for an
-    `Item` row.
-  - **The rows a control lists:** the members its type has, and no others. That is measured for a Timer, whose seven are
-    on #2329.
-- **HexIDE:**
-  - **The Type column:** an object row gives its class alone, as `Timer`.
-  - **A Timer** lists VB6's seven rows, each with its declared type.
-  - **Every other control** lists every property HexIDE can read, sorted by name, and a raising read shows no type.
-  - **An array** is a row named `Grid()` of type `Long()`, where VB6's is `Grid` of type `Long(1 to 2)` (measured on
-    #2698). It sorts by its name all the same.
+### D30. Locals rows beyond what is measured (#2329, #2700)
+- **VB6, measured** (hexide-int, #2289, #2329, #2700; oracle #2698 and #2702):
+  - **The Type column** gives a live object's declared type, then its class: `Object/Class1`, `Timer/Timer` for a control
+    under `Me`, `Variant/Object/Class1` in a Variant. `Nothing` reads as the declared type alone, and an array as its
+    element type and bounds, `Class1(1 to 2)`.
+  - **A class instance** lists its variables and its properties, sorted by name.
+  - **A control** lists the members its type has, and no others. A Timer's seven are on #2329.
+- **HexIDE:** all of the above for variables, members, array elements, `Item` rows and a Timer's `Parent`, since #2700.
+  What differs:
+  - **A class instance's properties aren't listed,** only its variables: reading a `Property Get` runs the program's code,
+    which can't run while it is paused (D15).
+  - **Every control but a Timer** lists every property HexIDE can read, and a raising read shows no type.
+  - **A watch's value keeps its own type,** as `Class1`, since an expression has no declaration. VB6's watch rows aren't
+    measured.
+  - **A module's variables keep their declaration order,** where an object's members are sorted. VB6's module row isn't
+    measured with variables in it.
+  - **An array of more than one dimension** writes its bounds as `Long(1 to 2, 0 to 3)`, which is inferred, not measured.
 - **Why:** each control's member list, and the declared types its rows show, have to be measured on `vb6.exe` one class at
-  a time. The Type column's form needs measuring for class instances, Variants, Nothing and arrays first (#2700).
+  a time.
 - **Status:** **open**.
-  - The Type column is #2700.
   - Other controls' member lists follow as each is measured.
   - `get_locals` marks a row that reopens an object open above it, such as a Timer's `Parent` under `Me`, with `repeats`,
     and leaves its children out. The Locals window opens it, as VB6's does.

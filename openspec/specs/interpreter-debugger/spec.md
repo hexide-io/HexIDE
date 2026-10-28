@@ -178,6 +178,11 @@ Locals is the primary inspection surface, showing what is in scope where executi
 - **WHEN** the developer expands a control array
 - **THEN** its elements are listed as `Item 1`, `Item 2` and on, in index order, numbered from 1 whatever their Index
 
+#### Scenario: An object's Type column
+- **WHEN** the paused procedure holds `Dim objO As Object` set to a Class1, and `Dim nilC As Class1` never set
+- **THEN** `objO`'s Type reads `Object/Class1`, and `nilC` reads `Nothing` with type `Class1`
+- **AND** an array declared `(1 To 2) As Class1` reads `Class1(1 to 2)`, and its elements follow the same rule
+
 #### Scenario: Expanding a running form's Me
 - **WHEN** the developer expands `Me` on a running form
 - **THEN** its first row is `[_Default]`, reading VB6's "Wrong number of arguments" error with type `Object`

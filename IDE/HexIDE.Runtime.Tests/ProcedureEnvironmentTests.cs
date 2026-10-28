@@ -51,9 +51,10 @@ public class ProcedureEnvironmentTests : BaseVBTestFixture
         context.AllocVariable(proc, "FIELD", new Vb6Value(9));
         proc.Parameters.Add("FIELD");
         var scope = DebugInspector.Build(proc, module, vb, "Work");
-        scope.Locals.Select(n => n.Name).Should().Equal("Me", "field");
+        // A standard module is listed by its name, as VB6's Locals lists it (measured, #2700).
+        scope.Locals.Select(n => n.Name).Should().Equal("Module1", "field");
         scope.Locals.Single(n => n.Name == "field").Value.Should().Be("9");
-        scope.Locals.Single(n => n.Name == "Me").Expand().Select(n => n.Value).Should().Equal("7", "8");
+        scope.Locals.Single(n => n.Name == "Module1").Expand().Select(n => n.Value).Should().Equal("7", "8");
         proc.variableToLocation.Keys.Should().Equal("field");
 
         // The same ByVal-style fresh slot must hide an instance field, with both visible in Locals.
