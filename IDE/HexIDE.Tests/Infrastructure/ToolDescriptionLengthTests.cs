@@ -60,7 +60,6 @@ public class ToolDescriptionLengthTests
         ["interact.action"] = ("every verb's semantics, the held button's among them", 2568),
         ["interact.value"] = ("click's arguments and the held button's lifecycle", 2568),
         ["inspect_element"] = ("per-field explanations, with target's own description empty", 2569),
-        ["set_file_content"] = ("the name and project rules, whose own descriptions are empty", 2571),
         ["type_text"] = ("the text rules, whose own description is empty, and the shared ProgramWaitNote", 2572),
     };
 
