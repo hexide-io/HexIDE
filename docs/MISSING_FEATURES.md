@@ -169,8 +169,8 @@
 ## Window Menu
 
 | Item | Shortcut | Status | Notes |
-| Reopen Closed Window / Recently Closed Windows | Ctrl+Shift+T (Cmd+Shift+T on macOS) | Done | **HexIDE addition** — last 20 closed code, designer and tool document tabs, session-only; restores code caret; pruned on document removal and project close (#2000) |
 |---|---|---|---|
+| Reopen Closed Window / Recently Closed Windows | Ctrl+Shift+T (Cmd+Shift+T on macOS) | Done | **HexIDE addition** — last 20 closed code, designer and tool document tabs, session-only; restores code caret; pruned on document removal and project close (#2000) |
 | Split | — | Stub | Always disabled |
 | Tile Horizontally | — | Done | Publishes rearrange event; MDI host responds |
 | Tile Vertically | — | Done | Publishes rearrange event; MDI host responds |
