@@ -834,6 +834,23 @@ OS launch failures and unmeasured style values SHALL refuse explicitly as not im
 - **WHEN** code calls `Shell("nosuchprogram_x.exe")`
 - **THEN** the runtime raises error 53
 
+### Requirement: Reset and FileAttr
+The interpreter SHALL close all open files and flush buffered writes on `Reset`, unless a module-local
+Sub named Reset handles the call. `FileAttr` SHALL return Long mode values 2 for Output, 8 for Append,
+4 for Random and 32 for Binary, defaulting its second argument to 1. An open Input file,
+second-argument conversions from types other than Byte/Integer/Long, and named arguments SHALL be
+refused as not implemented until measured (#2521).
+
+#### Scenario: Reset releases buffered files
+- **WHEN** Reset runs with open files
+- **THEN** their writes are flushed, FreeFile returns 1, and their former numbers raise error 52 in EOF and FileAttr
+- **AND** closing those numbers again succeeds
+
+#### Scenario: FileAttr arguments
+- **WHEN** FileAttr receives a file number
+- **THEN** it converts as CInt, including numeric strings, rounding 1.6 to 2 and raising 94 for Null
+- **AND** attribute 0, 2 or 3 raises 5, and an unopened number with attribute 1 raises 52
+
 ### Requirement: Forms SHALL hold the program's loaded forms as VB6's does
 `Forms` SHALL be a program global, reached where nothing the program declares claims the name. It SHALL hold the loaded
 forms in the order they loaded, a form from the start of its own Load to the end of its own Unload. Its index SHALL be a

@@ -370,6 +370,21 @@ internal sealed partial class VbFiles
         return file.Mode != VbFileMode.Input || AtEnd(file);
     }
 
+    // #2521 measured every mode except Input: its probe failed to open that file.
+    public long FileAttr(int number, long attribute)
+    {
+        if (attribute != 1)
+            throw new VBRunTimeException(VBStandardError.InvalidProcedureCall);
+        return Get(number).Mode switch
+        {
+            VbFileMode.Output => 2L,
+            VbFileMode.Append => 8L,
+            VbFileMode.Random => 4L,
+            VbFileMode.Binary => 32L,
+            _ => throw new NotImplementedException("FileAttr for Input mode is not implemented: its VB6 value is unmeasured (#2521)"),
+        };
+    }
+
     private static bool AtEnd(OpenFile file) => file.Position >= file.Input.Length || file.Input[file.Position] == CtrlZ;
 
     /// <summary>
