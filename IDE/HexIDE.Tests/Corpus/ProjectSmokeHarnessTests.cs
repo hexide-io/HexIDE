@@ -17,6 +17,47 @@ public class ProjectSmokeHarnessTests : IDisposable
         GC.SuppressFinalize(this);
     }
 
+    [Theory]
+    [InlineData("ran to completion", "made", false)]
+    [InlineData("ran to the time limit", "refused", false)]
+    [InlineData("crashed", "made", true)]
+    [InlineData("refused", "crashed", true)]
+    public async Task Run_and_make_are_reported_independently_after_save(string run, string make, bool failed)
+    {
+        var result = await ProjectSmokeHarness.Check(root, Project, _ =>
+            Task.FromResult<Func<Task<string?>>>(() => Task.FromResult<string?>(null)),
+            run: path =>
+            {
+                path.Should().NotBe(Project);
+                File.Exists(path).Should().BeTrue();
+                return Task.FromResult(new SmokeStage(run, "run detail"));
+            }, make: path =>
+            {
+                File.WriteAllText(Path.Join(Path.GetDirectoryName(path)!, "made.dll"), "package");
+                return Task.FromResult(new SmokeStage(make, "make detail"));
+            });
+        result.Run.Should().Be(new SmokeStage(run, "run detail"));
+        result.Make.Should().Be(new SmokeStage(make, "make detail"));
+        result.Differences.Should().BeEmpty("Make output is created after the save comparison");
+        result.Failed.Should().Be(failed);
+        File.Exists(Path.Join(root, "made.dll")).Should().BeFalse();
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task A_startup_exception_does_not_hide_the_make_result(bool refusal)
+    {
+        var result = await ProjectSmokeHarness.Check(root, Project, _ =>
+            Task.FromResult<Func<Task<string?>>>(() => Task.FromResult<string?>(null)),
+            run: _ => throw (refusal ? new NotImplementedException("missing member") : new InvalidOperationException("fault")),
+            make: _ => Task.FromResult(new SmokeStage("made")));
+        result.Run.Status.Should().Be(refusal ? "refused" : "crashed");
+        result.Run.Detail.Should().Contain(refusal ? "missing member" : "fault");
+        result.Make.Status.Should().Be("made");
+        result.Failed.Should().Be(!refusal);
+    }
+
     [Fact]
     public async Task Reference_paths_follow_the_measured_same_drive_other_drive_and_unresolved_rules()
     {
