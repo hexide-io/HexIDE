@@ -44,7 +44,7 @@ they can read it.
 - **WHEN** a resized tool is closed and shown again, including after restarting the IDE
 - **THEN** its last recorded region and dock proportion are restored
 - **AND** repeated close/show cycles preserve the allocated size
-- **AND** showing a closed member of a split during the session restores its own dock in that split
+- **AND** showing a closed member of a split, including after restarting the IDE, restores its own dock in that split
 
 #### Scenario: Reopening after rearranging panels
 - **WHEN** tool windows are docked, resized, opened or closed and the IDE is restarted

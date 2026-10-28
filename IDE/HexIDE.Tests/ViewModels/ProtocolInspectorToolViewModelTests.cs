@@ -675,7 +675,7 @@ public class ProtocolInspectorToolViewModelTests : IAsyncDisposable
         // wrong one — most likely by concluding the record was empty.
         Frame("vb6", "initialize");
         _windows.SaveFilePickerAsync(Arg.Any<FilePickerSaveOptions>())
-                .Returns(Path.Combine(Path.GetTempPath(), "no-such-directory-here", "x.jsonl"));
+                .Returns(Path.GetTempPath());
 
         var vm = Sut();
         await vm.ExportAsync();

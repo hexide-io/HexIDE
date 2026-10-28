@@ -108,6 +108,7 @@ public partial class MainViewViewModel : ObservableObject
     }
 
     public DelegateCommand SaveFormCommand { get; }
+    public DelegateCommand RemoveDocumentCommand { get; }
     public DelegateCommand SaveFormAsCommand { get; }
 
     public DelegateCommand StartDefaultProjectCommand { get; }
@@ -190,8 +191,35 @@ public partial class MainViewViewModel : ObservableObject
     public string RemoveProjectMenuHeader => FormatHeader("Str.Menu.File.RemoveProjectFormat", "Str.Menu.File.RemoveProjectFallback", FocusedProjectUtil.FocusedOrStartupProject?.Name);
     public string MakeProjectMenuHeader => FormatHeader("Str.Menu.File.MakeProjectFormat", "Str.Menu.File.MakeProjectFallback", FocusedProjectUtil.FocusedOrStartupProject?.Name);
     public string MakeWithVb6MenuHeader => FormatHeader("Str.Menu.File.MakeWithVb6Format", "Str.Menu.File.MakeWithVb6Fallback", FocusedProjectUtil.FocusedOrStartupProject?.Name);
-    public string RemoveFormMenuHeader => FormatHeader("Str.Menu.Project.RemoveFormFormat", "Str.Menu.Project.RemoveFormFallback", FocusedProjectUtil.FocusedForm?.Name);
+    public string RemoveFormMenuHeader => FormatHeader("Str.Menu.Project.RemoveFormFormat", "Str.Menu.Project.RemoveFormFallback", RemovableDocument?.Name);
     public string ProjectPropertiesMenuHeader => FormatHeader("Str.Menu.Project.PropertiesFormat", "Str.Menu.Project.PropertiesFallback", FocusedProjectUtil.FocusedOrStartupProject?.Name);
+
+    private DocumentIdentity? RemovableDocument
+    {
+        get
+        {
+            var document = ProjectExplorer.SelectedForm is { } form ? DocumentIdentity.For(form.FormDefinition)
+                : ProjectExplorer.SelectedModule is { } module ? DocumentIdentity.For(module.ModuleDefinition)
+                : documentDockService.ActiveDocument?.OpenDocument;
+            return document != null && DocumentLookup.DocumentsOf(document.Project).Contains(document) ? document : null;
+        }
+    }
+
+    private void UpdateRemoveDocumentMenu()
+    {
+        OnPropertyChanged(nameof(RemoveFormMenuHeader));
+        RemoveDocumentCommand.RaiseCanExecutedChanged();
+    }
+
+    private async Task RemoveActiveDocument()
+    {
+        if (RemovableDocument is not { } document) return;
+        if (ProjectExplorer.HasRemovableSelection)
+            await ProjectExplorer.RemoveSelectedDocument();
+        else
+            await projectService.RemoveDocument(document);
+        UpdateRemoveDocumentMenu();
+    }
 
     private string FormatHeader(string formatKey, string fallbackKey, string? name) =>
         name is { } n ? string.Format(localization.GetString(formatKey), n) : localization.GetString(fallbackKey);
@@ -499,6 +527,30 @@ public partial class MainViewViewModel : ObservableObject
             rootDock.DefaultDockable = mainLayout;
             rootDock.VisibleDockables = CreateList<IDockable>(mainLayout);
             liveLayout = rootDock;
+            // Recreate the ordinary close/show paths before exposing the restored layout.
+            // Closed add-ins need a temporary leaf until their real tool registers.
+            var closed = m.Tools.Where(t => !t.Open).Select(t => t.Key).ToHashSet();
+            var placeholders = new List<string>();
+            if (m.Topology != null)
+            {
+                foreach (var key in closed.Where(k => deferredTools.ContainsKey(k) && !toolsByKey.ContainsKey(k)))
+                {
+                    if (!pendingToolDocks.Remove(key, out var pending)) continue;
+                    var placeholder = new Tool { CanClose = true };
+                    toolsByKey[key] = placeholder;
+                    placeholders.Add(key);
+                    pending.VisibleDockables!.Add(placeholder);
+                    if (!pendingToolDocks.Values.Contains(pending)) pendingToolGroups.Remove(pending);
+                }
+                InitLayout(rootDock);
+                foreach (var key in closed)
+                    if (toolsByKey.TryGetValue(key, out var tool) && FindContainer(rootDock, tool) != null)
+                        CloseDockable(tool);
+                foreach (var key in placeholders) toolsByKey.Remove(key);
+                foreach (var key in closed)
+                    if (lastPlacements.TryGetValue(key, out var placement))
+                        lastPlacements[key] = placement with { Open = false };
+            }
             return rootDock;
         }
 
@@ -520,17 +572,47 @@ public partial class MainViewViewModel : ObservableObject
         {
             if (node is not IDock dock) return null;
             var kind = node is IDocumentDock ? "document" : node is IToolDock ? "tool" : "split";
-            var keys = (dock.VisibleDockables ?? CreateList<IDockable>()).Select(KeyOf)
-                .OfType<string>().Concat(pendingToolDocks.Where(p => ReferenceEquals(p.Value, dock)).Select(p => p.Key)).ToArray();
+            // Save removed branches alongside live ones; Tools.Open keeps them closed on restore.
+            var slots = closedSlots.Values.SelectMany(p => p).ToArray();
+            IEnumerable<IDockable> SavedChildren(IDock parent) =>
+                liveLayout != null && !ReferenceEquals(parent, liveLayout.DefaultDockable)
+                    && FindContainer(liveLayout, parent) == null && slots.FirstOrDefault(s => ReferenceEquals(s.Parent, parent)) is { } saved
+                    ? saved.Siblings.Select(s => s.Dock)
+                    : (parent.VisibleDockables ?? CreateList<IDockable>()).Where(d => d is not IProportionalDockSplitter);
+            bool WasInside(IDockable branch, IDockable child) => branch is IDock parent
+                && SavedChildren(parent).Any(d => ReferenceEquals(d, child) || WasInside(d, child));
+            var children = SavedChildren(dock).ToList();
+            var proportions = new Dictionary<IDockable, double>();
+            foreach (var slot in closedSlots.Values.SelectMany(p => p).Where(s => ReferenceEquals(s.Parent, dock)))
+            {
+                if (liveLayout != null && FindContainer(liveLayout, dock) == null)
+                    foreach (var (sibling, proportion) in slot.Siblings) proportions[sibling] = proportion;
+                if (children.Contains(slot.Child)) continue;
+                // Dock may have promoted a surviving descendant when it collapsed this branch.
+                children.RemoveAll(child => WasInside(slot.Child, child));
+                var index = slot.Siblings.TakeWhile(s => !ReferenceEquals(s.Dock, slot.Child))
+                    .Count(s => children.Contains(s.Dock));
+                children.Insert(Math.Min(index, children.Count), slot.Child);
+                foreach (var (sibling, proportion) in slot.Siblings) proportions[sibling] = proportion;
+            }
+            string? SavedKey(IDockable child) => KeyOf(child) ?? closedSlots
+                .FirstOrDefault(p => p.Value.Count > 0 && ReferenceEquals(p.Value[0].Child, child)).Key;
+            var keys = children.Select(SavedKey).OfType<string>()
+                .Concat(pendingToolDocks.Where(p => ReferenceEquals(p.Value, dock)).Select(p => p.Key)).ToArray();
             var pendingGroup = node is IToolDock group ? pendingToolGroups.GetValueOrDefault(group) : null;
             if (pendingGroup != null)
                 keys = keys.OrderBy(k => pendingGroup.Tools.ToList().IndexOf(k)).ToArray();
+            DockLayoutNode? CaptureChild(IDockable child)
+            {
+                var captured = CaptureTopology(child);
+                return captured != null && proportions.TryGetValue(child, out var proportion)
+                    ? captured with { Proportion = double.IsNaN(proportion) ? null : proportion } : captured;
+            }
             return new DockLayoutNode(kind, double.IsNaN(node.Proportion) ? null : node.Proportion,
                 node is IProportionalDock pd ? pd.Orientation : Orientation.Horizontal,
                 node is IToolDock td ? td.Alignment : Alignment.Unset, node.Context as string,
                 keys, pendingGroup?.ActiveTool ?? (dock.ActiveDockable is { } active ? KeyOf(active) : null),
-                kind == "split" ? (dock.VisibleDockables ?? CreateList<IDockable>())
-                    .Select(CaptureTopology).OfType<DockLayoutNode>().ToArray() : []);
+                kind == "split" ? children.Select(CaptureChild).OfType<DockLayoutNode>().ToArray() : []);
         }
 
         private IDock? RestoreTopology(DockLayoutNode node)
@@ -732,6 +814,7 @@ public partial class MainViewViewModel : ObservableObject
         {
             var key = "addin:" + tool.Id;
             toolsByKey[key] = tool;
+            tool.KeepSavedWidth = deferredTools.GetValueOrDefault(key)?.Proportion is not null;
             if (!deferredTools.TryGetValue(key, out var saved) || saved.Open)
                 PlaceTool(layout, tool, rightFallback: true);
         }
@@ -743,6 +826,14 @@ public partial class MainViewViewModel : ObservableObject
             var key = KeyOf(tool);
             if (key != null && closedSlots.Remove(key, out var path) && path.Count > 0)
             {
+                var leaf = path[0];
+                if (!ReferenceEquals(leaf.Child, tool))
+                    path[0] = leaf with
+                    {
+                        Child = tool,
+                        Siblings = leaf.Siblings.Select(s => ReferenceEquals(s.Dock, leaf.Child)
+                            ? ((IDockable)tool, s.Proportion) : s).ToArray(),
+                    };
                 foreach (var slot in path.AsEnumerable().Reverse())
                 {
                     var list = slot.Parent.VisibleDockables ??= CreateList<IDockable>();
@@ -1197,6 +1288,9 @@ public partial class MainViewViewModel : ObservableObject
             };
         }
 
+        RemoveDocumentCommand = new DelegateCommand(() => RemoveActiveDocument().ListenErrors(),
+            () => RemovableDocument != null);
+        ProjectExplorer.ObservePropertyChanged(x => x.SelectedItem).Subscribe(_ => UpdateRemoveDocumentMenu());
         SaveFormCommand = new DelegateCommand(() => SaveActiveForm(false),
             () => FocusedProjectUtil.FocusedForm != null);
         SaveFormAsCommand = new DelegateCommand(() => SaveActiveForm(true),
@@ -1331,6 +1425,8 @@ public partial class MainViewViewModel : ObservableObject
                     _activeDesigner.UndoStack.Changed += _activeDesignerUndoHandler;
                 }
                 UpdateUndoHeaders();
+
+                UpdateRemoveDocumentMenu();
 
                 // Whether Find has anything to search is a property of the active document, so this is
                 // the only moment at which the answer can change.

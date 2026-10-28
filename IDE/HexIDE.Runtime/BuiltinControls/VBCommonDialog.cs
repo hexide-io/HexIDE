@@ -7,8 +7,8 @@ namespace HexIDE.Runtime.BuiltinControls;
 
 /// <summary>
 /// The CommonDialog control, <c>MSComDlg.CommonDialog</c> from COMDLG32.OCX (#1084): <c>ShowOpen</c>, <c>ShowSave</c> and
-/// <c>ShowFont</c>, with the dialogs the host's own. It is invisible at run time; its component carries the own file
-/// properties verbatim.
+/// <c>ShowFont</c>, plus the measured ShowColor cases (#2299), with the dialogs the host's own. It is invisible at run
+/// time; its component carries the own file properties verbatim.
 /// </summary>
 /// <remarks>
 /// Measured on vb6.exe as p-code on Windows 10 (the oracle's "The CommonDialog control"):
@@ -53,7 +53,7 @@ public sealed class VBCommonDialog : Control, ICSharpPropertyBag, ICSharpAsyncPr
     private int flags, color;
     private bool cancelError, fontBold, fontItalic;
     private float fontSize = 8;
-    private bool filterIndexUnknown;
+    private bool filterIndexUnknown, printAccepted;
 
     public VBCommonDialog(IBasicStandardLibrary host)
     {
@@ -78,6 +78,7 @@ public sealed class VBCommonDialog : Control, ICSharpPropertyBag, ICSharpAsyncPr
     {
         Vb6Value? found = name.ToLowerInvariant() switch
         {
+            "hdc" when printAccepted => new Vb6Value(0L),
             "action" => throw new VBRunTimeException(new VBStandardError(394, "Get not supported (write-only property)")),
             "left" or "top" => throw new VBRunTimeException(new VBStandardError(393, "Get not supported at runtime")),
             "visible" or "width" or "height" or "enabled" or "hwnd" =>
@@ -234,6 +235,12 @@ public sealed class VBCommonDialog : Control, ICSharpPropertyBag, ICSharpAsyncPr
             case "showsave":
                 await ShowFile(save: true);
                 break;
+            case "showcolor":
+                await ShowColor();
+                break;
+            case "showprinter":
+                await ShowPrinter();
+                break;
             case "showfont":
                 await ShowFont();
                 break;
@@ -324,6 +331,33 @@ public sealed class VBCommonDialog : Control, ICSharpPropertyBag, ICSharpAsyncPr
         return explorer
             ? folder[..^1] + "\0" + string.Join("\0", names)
             : folder + " " + string.Join(" ", names);
+    }
+
+    private async Task ShowColor()
+    {
+        // Only Flags 0 and cdlCCRGBInit have measured dialog behaviour (#2299).
+        if (flags is not (0 or 1) || (flags == 1 && (color < 0 || color > 0xFFFFFF)))
+            throw new NotImplementedException("This CommonDialog color flag or system color is not implemented (#2299)");
+        var chosen = await host.ShowColorDialog(flags == 1 ? color : 0);
+        if (chosen is { } rgb)
+            color = rgb;
+        else if (cancelError)
+            throw new VBRunTimeException(Cancelled);
+    }
+
+    private async Task ShowPrinter()
+    {
+        if (flags != 0 || copies is not (1 or 3) || orientation != 1 || fromPage != 0 || toPage != 0 || min != 0 || max != 0)
+            throw new NotImplementedException("This CommonDialog print configuration is not measured (#2299)");
+        if (!await host.ShowPrintDialog())
+        {
+            if (cancelError)
+                throw new VBRunTimeException(Cancelled);
+            return;
+        }
+        copies = 1;
+        orientation = 1;
+        printAccepted = true;
     }
 
     private async Task ShowFont()

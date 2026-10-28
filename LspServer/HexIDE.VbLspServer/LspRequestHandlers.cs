@@ -169,7 +169,10 @@ internal static class LspRequestHandlers
             }
             w.WriteEndArray();
             w.WriteNumber("activeSignature", 0);
-            w.WriteNumber("activeParameter", activeParameter);
+            // Past a list's end the list is still active; past any other signature's end the index is sent as it is, so
+            // no parameter is marked for an argument VB6 would refuse (#2599).
+            var last = entries[0].Parameters.Length - 1;
+            w.WriteNumber("activeParameter", entries[0].LastIsList && last >= 0 ? Math.Min(activeParameter, last) : activeParameter);
             w.WriteEndObject();
         });
     }

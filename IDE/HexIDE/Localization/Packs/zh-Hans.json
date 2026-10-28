@@ -926,6 +926,9 @@
     "Str.PropDesc.MaskColor": "透明像素使用的颜色。",
     "Str.PropDesc.UseMaskColor": "是否使用遮罩颜色。",
     "Str.Options.EditorGeneral.Display.ShowIndentGuides": "显示缩进参考线",
-    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "按嵌套深度为圆括号着色"
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "按嵌套深度为圆括号着色",
+    "Str.Dialog.Print.Configuration": "份数：1；方向：纵向。",
+    "Str.Dialog.Print.Unavailable": "尚未实现打印。确定仅返回对话框设置。",
+    "Str.Dialog.Color.Rgb": "RGB（#RRGGBB）"
   }
 }

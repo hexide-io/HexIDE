@@ -1,5 +1,5 @@
 VERSION 5.00
-Begin VB.Form frmBoard
+Begin VB.Form frmBoard 
    BorderStyle     =   1  'Fixed Single
    Caption         =   "Battleship"
    ClientHeight    =   2520
@@ -10,14 +10,14 @@ Begin VB.Form frmBoard
    ScaleHeight     =   2520
    ScaleWidth      =   2520
    StartUpPosition =   2  'CenterScreen
-   Begin VB.Label lblStatus
+   Begin VB.Label lblStatus 
       Height          =   255
       Left            =   120
       TabIndex        =   1
       Top             =   2160
       Width           =   2280
    End
-   Begin VB.Label lblCell
+   Begin VB.Label lblCell 
       Alignment       =   2  'Center
       BackColor       =   &H00C08000&
       BorderStyle     =   1  'Fixed Single

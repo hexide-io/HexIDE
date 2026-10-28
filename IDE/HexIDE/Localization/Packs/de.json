@@ -926,6 +926,9 @@
     "Str.PropDesc.MaskColor": "Die Farbe für transparente Pixel.",
     "Str.PropDesc.UseMaskColor": "Ob die Maskenfarbe verwendet wird.",
     "Str.Options.EditorGeneral.Display.ShowIndentGuides": "Einrückungslinien anzeigen",
-    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Klammern nach Verschachtelungstiefe färben"
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Klammern nach Verschachtelungstiefe färben",
+    "Str.Dialog.Print.Configuration": "Kopien: 1; Ausrichtung: Hochformat.",
+    "Str.Dialog.Print.Unavailable": "Drucken ist nicht implementiert. OK gibt nur die Dialogeinstellungen zurück.",
+    "Str.Dialog.Color.Rgb": "RGB (#RRGGBB)"
   }
 }

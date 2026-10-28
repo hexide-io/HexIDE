@@ -926,6 +926,9 @@
     "Str.PropDesc.MaskColor": "Το χρώμα των διαφανών pixel.",
     "Str.PropDesc.UseMaskColor": "Αν χρησιμοποιείται το χρώμα μάσκας.",
     "Str.Options.EditorGeneral.Display.ShowIndentGuides": "Εμφάνιση οδηγών εσοχής",
-    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Χρωματισμός παρενθέσεων ανά βάθος ένθεσης"
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Χρωματισμός παρενθέσεων ανά βάθος ένθεσης",
+    "Str.Dialog.Print.Configuration": "Αντίγραφα: 1· προσανατολισμός: κατακόρυφος.",
+    "Str.Dialog.Print.Unavailable": "Η εκτύπωση δεν έχει υλοποιηθεί. Το OK επιστρέφει μόνο τις ρυθμίσεις του διαλόγου.",
+    "Str.Dialog.Color.Rgb": "RGB (#RRGGBB)"
   }
 }
