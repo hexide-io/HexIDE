@@ -1965,6 +1965,16 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         if (value.Type == Vb6Value.ValueType.Object && (intoArray || IsBareUdtArrayField(context.implicitCallStmt_InStmt())))
             return value;   // ArrayStore refuses it
 
+        // BuddyControl is a Variant which accepts a control reference even through Let (#1093).
+        if (value.Value is Control
+            && context.implicitCallStmt_InStmt().iCS_S_MembersCall() is { } buddyCall
+            && buddyCall.iCS_S_VariableOrProcedureCall() is { } buddyLead
+            && buddyCall.iCS_S_MemberCall() is [var buddyMember]
+            && UdtFieldName(buddyMember).Equals("BuddyControl", StringComparison.OrdinalIgnoreCase)
+            && interpreter.ExecutionContext.TryGetVariable(currentEnv, buddyLead.GetText(), out var buddyTarget)
+            && buddyTarget.Value is VBUpDown)
+            return value;
+
         if (context.implicitCallStmt_InStmt().iCS_S_MembersCall() is { } selectionTarget
             && selectionTarget.iCS_S_MemberCall().LastOrDefault() is { } lastSelection
             && UdtFieldName(lastSelection).Equals("SelectedItem", StringComparison.OrdinalIgnoreCase)
@@ -2216,6 +2226,11 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 if (oldLet.Value is StatusBarPanel panel)
                 {
                     panel.SetText(value);
+                    return default;
+                }
+                if (oldLet.Value is VBUpDown upDown)
+                {
+                    upDown.TrySetProperty("Value", value);
                     return default;
                 }
                 RefuseLetIntoObject(oldLet, identifier, context);
@@ -2902,6 +2917,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
     private sealed class FileTarget(VbFiles files, int number) : VbPrint.ITarget
     {
         public int Column => files.Column(number);
+        public int Width => files.PrintWidth(number);
         public void Write(string text) => files.Write(number, text);
     }
 
@@ -3058,7 +3074,8 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             await interpreter.CallProcedure("Reset", [], currentModule, callerEnv: currentEnv, callerFrames: stmtFrames);
             return ControlFlow.Nothing;
         }
-        throw new NotImplementedException("Reset not implemented");
+        interpreter.BuiltIns.Files.CloseAll();
+        return ControlFlow.Nothing;
     }
 
     public override async Task<ControlFlow> VisitResumeStmt(VB6Parser.ResumeStmtContext context)
@@ -3551,7 +3568,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 if (target.Value is VBStatusBar bar && StatusBarMembers.TrySet(bar, name, value) == true) return default;
                 throw new NotImplementedException($"Set on StatusBar member {name} is not implemented (#1087)");
             }
-            if (setLead && target.Value is VBImageList or ImageListImages or ImageListImage)
+            if (setLead && target.Value is VBImageList or ImageListImages or ImageListImage or VBUpDown)
             {
                 var imageMembers = membersCall.iCS_S_MemberCall();
                 var receiver = await expressionExecutor.ResolveMemberChain(target, imageMembers[..^1], 0, context);
@@ -4316,7 +4333,13 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
 
     public override async Task<ControlFlow> VisitWidthStmt(VB6Parser.WidthStmtContext context)
     {
-        throw new NotImplementedException("Width not implemented");
+        if (!context.valueStmt(0).GetText().StartsWith('#'))
+            throw new NotImplementedException("Width without a file number is not implemented");
+        var number = await FileNumber(context.valueStmt(0));
+        var value = await expressionExecutor.EvaluateValue(context.valueStmt(1));
+        var width = Convert.ToInt32(VbNumeric.CoerceOnStore(value, Vb6Value.ValueType.Integer, context).Value);
+        interpreter.BuiltIns.Files.SetWidth(number, width);
+        return ControlFlow.Nothing;
     }
 
     public override async Task<ControlFlow> VisitWithStmt(VB6Parser.WithStmtContext context)
@@ -4607,6 +4630,11 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             // A library-qualified intrinsic invoked as a statement — evaluate and discard the result. An unknown
             // member stops the run even under Resume Next (#867); a known constant
             // used as a bare statement is a harmless no-op.
+            if (memberName.Equals("CallByName", StringComparison.OrdinalIgnoreCase))
+            {
+                await interpreter.CallByName(await expressionExecutor.ResolveCallArgs(argsCall), stmtFrames);
+                return true;
+            }
             var args = await expressionExecutor.EvaluateIntrinsicArgs(memberName, argsCall);
             if (await expressionExecutor.EvaluateFunction(memberName, args) is null
                 && !(args.Count == 0 && interpreter.BuiltIns.TryGetBuiltInConstant(memberName, out _)))
@@ -4660,6 +4688,8 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         }
         else if (interpreter.GlobalMember(subName) is { } global)
             await interpreter.CallLibraryMember(global, subName, await expressionExecutor.EvaluateCallArgs(context.argsCall()));
+        else if (subName.Equals("CallByName", StringComparison.OrdinalIgnoreCase))
+            await interpreter.CallByName(await expressionExecutor.ResolveCallArgs(context.argsCall()), stmtFrames);
         else
         {
             List<Vb6Value> builtinArgs = await expressionExecutor.EvaluateIntrinsicArgs(subName, context.argsCall());

@@ -1,7 +1,7 @@
 # In-box control corpus
 
 The saved fixtures cover ProgressBars from MSCOMCTL.OCX (`MSComctlLib`, 6.0) and COMCTL32.OCX (`ComctlLib`, 5.0),
-StatusBars, ImageLists, Toolbars, TabStrips and TreeViews from MSCOMCTL.OCX, CommonDialogs from COMDLG32.OCX (`MSComDlg`), and RichTextBoxes from RICHTX32.OCX (`RichTextLib`). An in-box control's native persistence differs from an intrinsic's: the extender's
+StatusBars, ImageLists, Toolbars, TabStrips and TreeViews from MSCOMCTL.OCX, UpDowns from MSCOMCT2.OCX, CommonDialogs from COMDLG32.OCX (`MSComDlg`), and RichTextBoxes from RICHTX32.OCX (`RichTextLib`). An in-box control's native persistence differs from an intrinsic's: the extender's
 properties sort by name, followed by the control's own run, whose ordering and nested property bags are measured
 rather than inferred (hexide-io/HexIDE#1082, #1083, #1084, #1086, #1087, #1088, #1100).
 
@@ -59,6 +59,7 @@ too: VB6's save of a form doesn't rewrite the project, so none is VB6's.
 | `saved/commondialog/` | Four CommonDialogs saved by VB6. Three were written by hand: one with every property off its default and its lines reversed, one with only its position and `_Version`, and one with its defaults written out, which VB6 cut back to the minimal block. The fourth, `CommonDialog4`, was double-clicked from the toolbox, and VB6 wrote it ahead of the other three (#1084). There is no `.frx` |
 | `saved/tabstrip/` | Three TabStrips saved by VB6: one written by hand with every property off its default, its lines reversed and three tabs with tags, tips and images by index and by key; a minimal block; and one double-clicked from the toolbox. Every one gets a Tabs block. The `.frx` is the ImageList's (#1089) |
 | `saved/richtextbox/` | Three RichTextBoxes saved by VB6: one written by hand with every property off its default, its lines reversed and its TextRTF inline, then Locked set in the Properties window (saved as `ReadOnly`); a minimal block; and one double-clicked from the toolbox. Every TextRTF is in the `.frx` (#1100) |
+| `saved/updown/` | Four UpDowns saved by VB6: off-default properties, a minimal block, a Text2 buddy binding and the toolbox default; provenance below (#1093). There is no `.frx` |
 
 The CommonDialog save was written on 2026-10-27 with COMDLG32.OCX 6.01.9782; its project is hand-written.
 
@@ -78,6 +79,15 @@ The round-trip lane walks their forms and companions. The original probe picture
 | `saved/imagelist/empty-key/` | Four pictures, 16 x 16: no Key and no Tag; Key `k2` and no Tag; Key `k3` and Tag `t3`; no Key and Tag `t4`. An empty Key writes `Key = ""`, and an empty Tag no line |
 | `input/imagelist/pictures/` | The four picture files inserted, made for the probe. Each is byte for byte what the `.frx` records hold |
 
+## UpDown saves
+
+`saved/updown/` holds the four MSCOMCT2.OCX UpDowns VB6 SP6 saved on 2026-10-27 (#1093).
+One has its own properties off their defaults, one is minimal, one is bound to Text2 through the
+Properties window, and one was double-clicked from the toolbox. The bound block records BuddyControl,
+BuddyDispid, OrigLeft/Top/Right/Bottom and BuddyProperty = 0; Text2 is saved narrowed. There is no `.frx`.
+The round-trip lane walks the save; loaded UpDown blocks remain read-only in the designer and are
+preserved verbatim when the form is edited. The `.vbp` is hand-written, as in `input/`.
+
 ## Pending saves
 
 Written by VB6's IDE (SP6) on the oracle VM, 2026-10-26, on the console session, for the measurements in the oracle's "In-box
@@ -92,7 +102,6 @@ controls: the ImageList" (hexide-io/HexIDE#1083) and "In-box controls: the Statu
 | `pending/msflexgrid/` | Three MSFlexGrids saved by VB6: one written by hand with every property off its default and its lines reversed, a minimal block, and one double-clicked from the toolbox. There is no `.frx`: cell text is not saved, only FormatString (#1099) |
 | `pending/defaults/` | All nine MSCOMCTL.OCX controls double-clicked from the toolbox onto an empty 6000 x 4500 form, as VB6 saved them. The ImageCombo's name, `s`, is the rig's: a keystroke meant for Ctrl+S landed in its (Name) row |
 | `pending/slider/` | Five Sliders saved by VB6: one written by hand with every property off its default and its lines reversed, its `Text` line dropped as VB6 doesn't save it; a minimal block; an upright one; one with only `Value`; and one double-clicked from the toolbox. There is no `.frx` (#1091) |
-| `pending/updown/` | Four UpDowns from MSCOMCT2.OCX saved by VB6: one written by hand with every property but the buddy's off its default and its lines reversed; a minimal block; one bound to Text2 through the Properties window, which wrote `BuddyControl`, `BuddyDispid`, the four `Orig` lines and `BuddyProperty = 0` and narrowed Text2; and one double-clicked from the toolbox. There is no `.frx` (#1093) |
 | `pending/dtpicker/` | Seven DTPickers from MSCOMCT2.OCX, written by hand with their lines reversed and saved by VB6 untouched: a minimal block; one with only `MaxDate`; one with `MinDate`, `MaxDate`, `CurrentDate`, `CustomFormat` and Format 3; one with the five calendar colours, `CheckBox`, `UpDown`, `Enabled`, `MousePointer` and `OLEDropMode`; one with `CurrentDate` and an earlier save's `Format`; one with Format 0; and one with a `Font` block. Every block gains a `Format` line, whose high 16 bits differ between IDE sessions, and a `CurrentDate`; a block without one is saved as 36494. There is no `.frx` (#1094) |
 | `pending/dtpicker-added/` | Three DTPickers saved by VB6: two minimal blocks, the second of which had its Properties window shown and so saved the moment it was read as its `CurrentDate`, and one double-clicked from the toolbox, 1500 x 750 and written first. There is no `.frx` (#1094) |
 | `pending/monthview/` | Nine MonthViews from MSCOMCT2.OCX saved by VB6: a minimal block; six written by hand with their lines reversed, for the dates and selection, the appearance and switches, two months by two, the six colours and a `Font`; a minimal block whose Properties window was shown; and one double-clicked from the toolbox, written first. Every block gains `Appearance`, a `StartOfWeek` whose high 16 bits differ between IDE sessions, and a `CurrentDate`; the toolbox one has StartOfWeek 2, the locale's Monday. The ones that size themselves were rewritten at their new size. There is no `.frx` (#1095) |

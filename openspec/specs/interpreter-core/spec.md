@@ -220,6 +220,35 @@ program that compiles and runs.
 - **WHEN** `Class_Initialize` makes a bare `Reset` call and its class defines a private Sub named `Reset`
 - **THEN** the interpreter SHALL call that Sub on the current instance
 
+### Requirement: CallByName SHALL dispatch class and implemented in-box members
+`CallByName` SHALL support Collection `Add` with item/key and `Item` with one index through VbMethod,
+and `Err.Number` through VbGet, as expressions or statements, bare or VBA-qualified (#2519).
+Class instances SHALL support public scalar field Get/Let, Property Get/Let/Set and method calls through the
+same procedure binder as direct calls, preserving conversions, Optional, ParamArray and ByRef writeback.
+Class object results SHALL be returned for Set; a Collection result used as a value raises 450.
+A Sub used as a value SHALL return Empty. Missing or empty class member names and call types 0/16 raise 438;
+Get on a method raises 450, too few arguments 449, and too many 450.
+Forms/controls, Collection object results, private members, non-scalar fields, field Set/indexing and
+unavailable accessors SHALL refuse as not implemented. So SHALL other unmeasured member/call-type/arity
+combinations, named/omitted arguments and name/call-type conversions.
+
+#### Scenario: Collection lookup by name
+- **WHEN** a Collection receives `CallByName k, "Add", VbMethod, "a", "ka"`
+- **THEN** `CallByName(k, "Item", VbMethod, "ka")` returns String `a`
+- **AND** Get on Count or Item raises 438
+
+#### Scenario: Class ByRef call
+- **WHEN** `n As Integer` holds 4 and `CallByName c, "Twice", VbMethod, n` calls a method that doubles its ByRef argument
+- **THEN** the caller's n holds 8
+
+#### Scenario: Object property identity
+- **WHEN** `CallByName c, "O", VbSet, k` assigns a Collection to a class object property
+- **THEN** `Set got = CallByName(c, "O", VbGet)` returns that same Collection
+
+#### Scenario: Receiver and name errors
+- **WHEN** CallByName receives Nothing, a scalar receiver, or a Variant Null name respectively
+- **THEN** it raises 5, 424, or 94 respectively
+
 ### Requirement: Empty parentheses SHALL preserve a declared whole array
 A declared array named with empty parentheses SHALL evaluate as the whole array. Array parameters and
 ByRef Variant parameters SHALL share it; ByVal Variant parameters and a Let into a Variant SHALL copy it.
@@ -805,6 +834,23 @@ OS launch failures and unmeasured style values SHALL refuse explicitly as not im
 - **WHEN** code calls `Shell("nosuchprogram_x.exe")`
 - **THEN** the runtime raises error 53
 
+### Requirement: Reset and FileAttr
+The interpreter SHALL close all open files and flush buffered writes on `Reset`, unless a module-local
+Sub named Reset handles the call. `FileAttr` SHALL return Long mode values 2 for Output, 8 for Append,
+4 for Random and 32 for Binary, defaulting its second argument to 1. An open Input file,
+second-argument conversions from types other than Byte/Integer/Long, and named arguments SHALL be
+refused as not implemented until measured (#2521).
+
+#### Scenario: Reset releases buffered files
+- **WHEN** Reset runs with open files
+- **THEN** their writes are flushed, FreeFile returns 1, and their former numbers raise error 52 in EOF and FileAttr
+- **AND** closing those numbers again succeeds
+
+#### Scenario: FileAttr arguments
+- **WHEN** FileAttr receives a file number
+- **THEN** it converts as CInt, including numeric strings, rounding 1.6 to 2 and raising 94 for Null
+- **AND** attribute 0, 2 or 3 raises 5, and an unopened number with attribute 1 raises 52
+
 ### Requirement: Forms SHALL hold the program's loaded forms as VB6's does
 `Forms` SHALL be a program global, reached where nothing the program declares claims the name. It SHALL hold the loaded
 forms in the order they loaded, a form from the start of its own Load to the end of its own Unload. Its index SHALL be a
@@ -863,3 +909,40 @@ DC requests SHALL be refused as not implemented. Actual printing remains not imp
 - **WHEN** the user cancels the colour or print dialog
 - **THEN** its result properties are unchanged
 - **AND** CancelError True raises 32755
+
+### Requirement: Measured application status members
+
+The interpreter SHALL expose App.HelpFile, App.StartMode, App.TaskVisible and IMEStatus with the
+values and types measured in [issue #2551](https://github.com/hexide-io/HexIDE/issues/2551).
+It SHALL refuse unmeasured IMEStatus arguments, nonempty project HelpFile values and
+HelpFile/TaskVisible conversions as not implemented.
+
+#### Scenario: Application status is read and changed
+- **GIVEN** no project help file is named, App.HelpFile starts as String "" and App.TaskVisible as Boolean True
+- **WHEN** a program reads App.StartMode, assigns "probe.hlp" to App.HelpFile and False to App.TaskVisible
+- **THEN** the values are Integer 0, String "probe.hlp" and Boolean False respectively
+- **AND** IMEStatus returns Long 0 in the no-IME host
+- **AND** assigning App.StartMode raises the read-only compile diagnostic as the statement executes
+
+### Requirement: Width controls sequential Print item wrapping
+
+The interpreter SHALL implement the `Width #` cases measured in
+[#2554](https://github.com/hexide-io/HexIDE/issues/2554): CInt conversion, widths 0–255,
+error 5 for 256 and -1, and error 52 for an unopened number. Zero SHALL remove the limit.
+
+#### Scenario: Items exceed a width of five
+- **WHEN** `Width #1, 5` precedes `Print #1, "ab"; "cd"; "ef"` on an Output file
+- **THEN** the file SHALL contain `abcd`, CRLF, `ef`, CRLF
+- **AND** an oversized item SHALL stay whole, starting a new line if the column is nonzero
+- **AND** numeric padding SHALL count toward the width
+
+#### Scenario: Position and statement boundaries
+- **WHEN** a comma moves beyond the width
+- **THEN** Print SHALL start a new line
+- **AND** a trailing semicolon SHALL preserve the column for the next Print
+- **AND** Write SHALL retain its existing unwrapped output
+
+#### Scenario: Other measured modes
+- **WHEN** Width is used on an open Binary or Input file
+- **THEN** it SHALL accept the measured width of five without error
+- **AND** no effect in those modes is specified by this measurement

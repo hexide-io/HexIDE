@@ -188,8 +188,6 @@ public class MultiModuleTests : BaseVBTestFixture
     [Theory]
     [InlineData("VBA.Frobnicate 1")]
     [InlineData("Call VBA.Frobnicate(1)")]
-    [InlineData("VBA.CallByName o, \"Foo\", VbMethod")]
-    [InlineData("Call VBA.CallByName(o, \"Foo\", VbMethod)")]
     public async Task LibraryQualified_UnknownMember_Statement_IsNotTrappable(string statement)
     {
         Func<Task> act = () => Run("On Error Resume Next\nDim o As Object\n" + statement + "\nDebug.Print \"continued\"\n");
