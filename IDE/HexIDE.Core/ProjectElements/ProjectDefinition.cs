@@ -130,6 +130,9 @@ public partial class ProjectDefinition : INotifyPropertyChanged
     public IReadOnlyList<RelatedDocumentDefinition> RelatedDocuments => relatedDocuments;
     public IReadOnlyList<VbReference> References => references;
 
+    // Session state: References OK regroups saves even when its selection is unchanged (#2274).
+    public bool ReferencesDialogAccepted { get; set; }
+
     // Recognised .vbp keys in read order. Empty for a new project, which uses the writer's default order.
     public List<string> KnownLineKeys { get; } = new();
 

@@ -16,7 +16,7 @@ namespace HexIDE.Runtime.Tests;
 ///
 /// Loads real VB6-authored files, re-serializes them, and compares bytes. Any difference in a file HexIDE
 /// did not author is a violation of the round-trip guarantee ("open any VB6 project, save it, lose nothing")
-/// by definition — no oracle round-trip is needed to call it a defect, because VB6 wrote the input.
+/// by definition — except reference path spelling, which VB6 changes with the project drive (#2274).
 ///
 /// corpus/designer and corpus/member-attributes are always required. Additional roots:
 ///   1. HEXIDE_ROUNDTRIP_CORPUS — ';'-separated absolute paths.
@@ -98,8 +98,7 @@ public class SerializationCorpusTests
             yield break;
         }
 
-        var vb98 = Environment.GetEnvironmentVariable("VB6_TEMPLATES")
-                   ?? @"C:\Program Files (x86)\Microsoft Visual Studio\VB98\Template";
+        var vb98 = TemplateRoot();
         if (Directory.Exists(vb98)) yield return vb98;
 
     }
@@ -738,6 +737,65 @@ public class SerializationCorpusTests
           + $"{string.Join(", ", broken)}).\n" + report);
     }
 
+    // Only the path may change spelling on save (#2274). Do not parse and reserialize the
+    // whole line: that would hide changes to the GUID, LCID, name or surrounding bytes.
+    private static string ReferenceIdentities(string source, string projectPath)
+    {
+        var directory = projectPath[..(projectPath.Length - SerializedProject.FileNameOf(projectPath).Length)];
+        return Regex.Replace(source, @"(?m)^(Reference=\*\\G\{[^}\r\n]+\}#[^#\r\n]+#[^#\r\n]+#)([^#\r\n]+)(?=#)",
+            match => match.Groups[1].Value + AbsoluteReference(match.Groups[2].Value, directory));
+    }
+
+    private static string AbsoluteReference(string path, string directory)
+    {
+        path = path.Replace('/', '\\');
+        var absolute = path.StartsWith('\\') || (path.Length >= 3 && path[1] == ':' && path[2] == '\\');
+        var combined = absolute ? path : directory.Replace('/', '\\').TrimEnd('\\') + "\\" + path;
+        var root = combined.StartsWith(@"\\") ? @"\\" : combined.StartsWith('\\') ? @"\" : "";
+        var rootParts = root == @"\\" ? 2 : combined.Length >= 2 && combined[1] == ':' ? 1 : 0;
+        var parts = new List<string>();
+        foreach (var part in combined.Split('\\', StringSplitOptions.RemoveEmptyEntries))
+        {
+            if (part == ".") continue;
+            if (part == "..")
+            {
+                if (parts.Count > rootParts) parts.RemoveAt(parts.Count - 1);
+            }
+            else
+                parts.Add(part);
+        }
+        return root + string.Join("\\", parts).ToUpperInvariant();
+    }
+
+    [Theory]
+    [InlineData(@"C:\Windows\SysWOW64\stdole2.tlb", @"..\..\Windows\SysWOW64\stdole2.tlb", true)]
+    [InlineData(@"X:\lib.tlb", @"X:\lib.tlb", true)]
+    [InlineData(@"X:\lib.tlb", @"C:\lib.tlb", false)]
+    [InlineData(@"C:\Windows\SysWOW64\stdole2.tlb", @"..\Windows\SysWOW64\stdole2.tlb", false)]
+    public void Project_comparison_resolves_only_reference_paths(string originalPath, string savedPath, bool equal)
+    {
+        const string prefix = @"Reference=*\G{00020430-0000-0000-C000-000000000046}#2.0#0#";
+        var original = prefix + originalPath + "#OLE Automation\r\nName=\"Probe\"\r\n";
+        var saved = prefix + savedPath + "#OLE Automation\r\nName=\"Probe\"\r\n";
+        var expected = ReferenceIdentities(original, @"C:\a\b\Probe.vbp");
+        (expected == ReferenceIdentities(saved, @"C:\a\b\Probe.vbp")).Should().Be(equal);
+        foreach (var changed in new[] { saved.Replace("#2.0#", "#3.0#"), saved.Replace("#0#", "#9#"),
+                     saved.Replace("OLE Automation", "Other"), saved.Replace("Probe", "Other"),
+                     saved.Replace("\r\n", "\n"), saved.Replace("00020430", "00020431") })
+            ReferenceIdentities(changed, @"C:\a\b\Probe.vbp").Should().NotBe(expected);
+    }
+
+    [Fact]
+    public void Project_comparison_resolves_each_projects_own_folder()
+    {
+        const string prefix = @"Reference=*\G{00020430-0000-0000-C000-000000000046}#2.0#0#";
+        ReferenceIdentities(prefix + @"..\lib.tlb#OLE Automation", @"C:\a\b\Probe.vbp")
+            .Should().Be(ReferenceIdentities(prefix + @"lib.tlb#OLE Automation", @"C:\a\Probe.vbp"));
+    }
+
+    private static string TemplateRoot() => Environment.GetEnvironmentVariable("VB6_TEMPLATES")
+        ?? @"C:\Program Files (x86)\Microsoft Visual Studio\VB98\Template";
+
     [Fact]
     public void Project_files_round_trip_byte_for_byte()
     {
@@ -763,7 +821,8 @@ public class SerializationCorpusTests
             try
             {
                 var rendered = RoundTripProject(original, path);
-                var diff = Differences(original, rendered);
+                var diff = Differences(ReferenceIdentities(original, path),
+                    ReferenceIdentities(rendered, path));
                 if (diff is null) { report.AppendLine($"OK        {label}"); continue; }
                 failures.Add(path);
                 report.AppendLine($"DIFF      {label}: {diff}");

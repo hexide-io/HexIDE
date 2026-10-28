@@ -680,7 +680,10 @@ that cannot be held, and SHALL NOT be left waiting on a dialog.
 
 ### Requirement: Recognised project lines SHALL retain their read order
 
-The writer SHALL retain the read order of recognised `.vbp` keys. A kept or reclassified item line SHALL
+The writer SHALL preserve read line order on an unedited save. Once the References dialog
+has been accepted for the project in the session, even unchanged, it SHALL save `Type=`,
+then every `Reference=`, then read `Object=` lines, then members (#2274, SP6 IDE). Components added in the session SHALL
+follow the last `Form=` line (#1103). Within the remaining lines, the writer SHALL retain the read order of recognised `.vbp` keys. A kept or reclassified item line SHALL
 retain its source slot even when its path is rebased. Other lines SHALL take the next unclaimed slot of
 their key, so a renamed form stays in its slot. A line with no remaining slot SHALL follow its predecessor
 in the default writer sequence; unused slots SHALL be omitted. A project with no recorded slots SHALL use
@@ -691,7 +694,14 @@ being anchored to slots; adding or removing an item may therefore shift them.
 
 - **GIVEN** a project whose `Form=` line precedes `Reference=`, with an unknown line between them
 - **WHEN** the form is renamed and the project is saved
-- **THEN** the renamed `Form=` line retains its slot before the unknown line and the reference
+- **THEN** the renamed form retains its slot before the reference and the unknown line retains its hint
+
+#### Scenario: References OK without a change
+
+- **GIVEN** a project with references or read components after member lines
+- **WHEN** References is accepted without changing a selection and the project is saved
+- **THEN** references precede read components, followed by members
+- **AND** cancelling References on a freshly loaded project preserves its read order
 
 #### Scenario: A missing form precedes a loaded form
 
@@ -797,6 +807,18 @@ Large preset dimensions SHALL NOT be inferred from the StandardSize line.
 #### Scenario: Save an invalid StandardSize file line
 - **WHEN** a loaded PropertyPage contains `StandardSize = 1 'Small` and is saved
 - **THEN** the `.pag` omits StandardSize and keeps its dimensions
+
+### Requirement: Reference paths SHALL follow the measured save rules
+
+The writer SHALL name a library on the project's drive relative to the saved project's folder,
+including system libraries. Other-drive and UNC paths SHALL remain absolute. Without registry
+resolution, HexIDE SHALL retain empty paths, diverging from VB6 for registered libraries.
+
+#### Scenario: A system library on the project drive
+
+- **GIVEN** an absolute reference path on the project's drive
+- **WHEN** the project is saved
+- **THEN** the reference names that library relative to the destination folder
 
 ### Requirement: CommonDialog scalar saves follow the measured VB6 layout
 The serializer SHALL write MSComDlg.CommonDialog own scalar properties under their individual names in the
