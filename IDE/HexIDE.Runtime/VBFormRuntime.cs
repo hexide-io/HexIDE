@@ -175,6 +175,9 @@ public class VBFormRuntime : Window, IModuleExecutionRoot, IFormView
         }
     }
 
+    public System.Threading.Tasks.Task<int> CompareRowsAsync(string name, int row1, int row2, int cmp) =>
+        windowContext.CompareRowsAsync(name, row1, row2, cmp);
+
     public void ExecuteKeyboardEvent(string name, IReadOnlyList<Vb6Value> args, int writable, Action<int> completed) =>
         windowContext.ExecuteKeyboardEvent(name, args, writable, completed);
 

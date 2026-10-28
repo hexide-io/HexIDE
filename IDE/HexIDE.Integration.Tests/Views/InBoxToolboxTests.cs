@@ -58,7 +58,10 @@ public class InBoxToolboxTests
     }
 
     private static (ProjectDefinition project, ToolBoxToolViewModel toolbox, FormEditViewModel vm, FormDefinition form) Designer(
-        params RuntimeLibrary[] referenced)
+        params RuntimeLibrary[] referenced) => Designer(true, referenced);
+
+    private static (ProjectDefinition project, ToolBoxToolViewModel toolbox, FormEditViewModel vm, FormDefinition form) Designer(
+        bool alignToGrid, params RuntimeLibrary[] referenced)
     {
         var project = new ProjectDefinition(VBProjectType.EXE, "P");
         foreach (var library in referenced)
@@ -69,7 +72,7 @@ public class InBoxToolboxTests
         var toolbox = new ToolBoxToolViewModel(Substitute.For<IDocumentDockService>(),
             Substitute.For<IComponentRegistry>(), Substitute.For<ILocalizationService>());
         var settings = Substitute.For<ISettingsService>();
-        settings.AlignToGrid.Returns(true);
+        settings.AlignToGrid.Returns(alignToGrid);
         settings.GridWidth.Returns(8);
         settings.GridHeight.Returns(8);
         var vm = new FormEditViewModel(toolbox, Substitute.For<IEventBus>(), Substitute.For<IProjectService>(), null!, null!,
@@ -80,6 +83,34 @@ public class InBoxToolboxTests
 
     private static RuntimeLibrary?[] InBoxLibraries(ToolBoxToolViewModel toolbox) =>
         toolbox.Components.Where(c => c.BaseClass is InBoxComponentClass).Select(c => c.Library).ToArray();
+
+    [AvaloniaFact]
+    public void A_toolbox_grid_writes_the_measured_bare_block()
+    {
+        var (_, _, vm, form) = Designer(false, ControlLibraries.MSFlexGridLib);
+        var root = form.Components.Single(c => c.BaseClass is FormComponentClass);
+        root.SetProperty(VBProperties.WidthProperty, 640d);
+        root.SetProperty(VBProperties.HeightProperty, 480d);
+        vm.SpawnControlCenter(FlexGridComponentClass.Instance, ControlLibraries.MSFlexGridLib);
+        vm.CommitLayout();
+
+        var grid = form.Components.Single(c => c.BaseClass is FlexGridComponentClass);
+        grid.GetPropertyOrDefault(VBProperties.WidthProperty).Should().Be(100);
+        grid.GetPropertyOrDefault(VBProperties.HeightProperty).Should().Be(50);
+        var (text, companion) = new FormSerializer().Serialize(form, "Form1.frm");
+        text.Should().Contain("   Begin MSFlexGridLib.MSFlexGrid MSFlexGrid1 \r\n" + """
+                  Height          =   750
+                  Left            =   4050
+                  TabIndex        =   0
+                  Top             =   3225
+                  Width           =   1500
+                  _ExtentX        =   2646
+                  _ExtentY        =   1323
+                  _Version        =   393216
+               End
+            """.ReplaceLineEndings("\r\n"));
+        companion.Should().BeNull();
+    }
 
     [AvaloniaFact]
     public void RichTextBox_toolbox_placement_seeds_its_name_and_declares_its_library()

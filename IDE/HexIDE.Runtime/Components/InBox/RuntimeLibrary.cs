@@ -176,6 +176,10 @@ public static class ControlLibraries
         },
         "comctl32-constants.json");
 
+    public static readonly RuntimeLibrary MSFlexGridLib = new("MSFlexGridLib", "MSFLXGRD.OCX",
+        "{5E9E78A0-531B-11CF-91F6-C2863C385E30}", "1.0", "MSFLXGRD.OCX", 393216,
+        new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase) { ["MSFlexGrid"] = 1099 }, null);
+
     public static readonly RuntimeLibrary TabDlg = new("TabDlg", "TabDlg",
         "{BDC217C8-ED16-11CD-956C-0000C04E4C0A}", "1.1", "TABCTL32.OCX", 393216,
         new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase) { ["SSTab"] = 1090 }, "tabdlg-constants.json");
@@ -207,7 +211,7 @@ public static class ControlLibraries
         new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase) { ["RichTextBox"] = 1100 }, null);
 
     /// <summary>Every in-box control library HexIDE knows.</summary>
-    public static IReadOnlyList<RuntimeLibrary> All { get; } = [MSComctlLib, ComctlLib, TabDlg, MSComDlg, MSComCtl2, MSMask, RichTextLib];
+    public static IReadOnlyList<RuntimeLibrary> All { get; } = [MSComctlLib, ComctlLib, MSFlexGridLib, TabDlg, MSComDlg, MSComCtl2, MSMask, RichTextLib];
 
     /// <summary>The library <paramref name="reference"/> names, or null for one HexIDE doesn't know.</summary>
     public static RuntimeLibrary? For(ObjectReference reference) => All.FirstOrDefault(l => l.IsNamedBy(reference));

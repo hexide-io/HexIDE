@@ -24,7 +24,7 @@ concurrency:
 env:
   MIN_TESTS_RUNTIME: 6885       # 7248 measured; catches short runs; raise to 95% of a new full total.
   MIN_TESTS_TWINBASIC: 200      # 226
-  MIN_TESTS_IDE: 4381           # 4612 measured; catches short runs; raise to 95% of a new full total.
+  MIN_TESTS_IDE: 4427           # 4661 measured (#1099); catches short runs; raise to 95% of a new full total.
   MIN_TESTS_INTEGRATION: 3379   # 3557 measured; catches short runs; raise to 95% of a new full total.
   MIN_TESTS_LSP_SERVER: 528     # 556 measured; catches short runs; raise to 95% of a new full total.
 
