@@ -224,7 +224,8 @@ program that compiles and runs.
 A declared array named with empty parentheses SHALL evaluate as the whole array. Array parameters and
 ByRef Variant parameters SHALL share it; ByVal Variant parameters and a Let into a Variant SHALL copy it.
 A Variant holding an array, named with empty parentheses, SHALL raise "Expected Sub, Function, or Property"
-when the statement executes (measured, #2474). The ParamArray form remains deferred until after #2462.
+when the statement executes (measured, #2474). Passing a ParamArray as `T a()` to another ParamArray
+SHALL pass one element holding a copy of the array (measured native and p-code, #2474; #2532).
 
 #### Scenario: Passing the whole array
 - **WHEN** `S arr()` or `Call S(arr())` passes `Dim arr(2) As Long` to `S(x() As Long)`
@@ -233,6 +234,11 @@ when the statement executes (measured, #2474). The ParamArray form remains defer
 #### Scenario: Reading and copying the whole array
 - **WHEN** `w = arr()` assigns that array into a Variant
 - **THEN** w is a Long() with upper bound 2 and changing its elements leaves arr unchanged
+
+#### Scenario: Forwarding a ParamArray with empty parentheses
+- **WHEN** a procedure passes its ParamArray as `T a()` to another ParamArray
+- **THEN** the callee receives one element holding the array
+- **AND** writing through that element leaves the caller's ParamArray unchanged
 
 ### Requirement: A name read through a type character SHALL be the name's own read
 A variable, constant, Enum member, parameter or array read with a type-declaration character (`s$`, `i%`,
