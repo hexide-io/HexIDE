@@ -126,6 +126,28 @@ public class AtomicFileWriterTests
         }
     }
 
+    [Fact]
+    public void LayoutSavePreservesFileAtOldStagingName()
+    {
+        var target = FreshPath();
+        var service = new WindowStateService(Substitute.For<ISettingsService>());
+        // Keep this command's output in the test directory without redirecting the process-wide user profile.
+        typeof(WindowStateService).GetField("_dockLayoutPath",
+            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!.SetValue(service, target);
+        File.WriteAllText(target + ".tmp", "user file");
+        try
+        {
+            service.SaveLayoutManifestJson("{}");
+            File.ReadAllText(target).Should().Be("{}");
+            File.ReadAllText(target + ".tmp").Should().Be("user file");
+        }
+        finally
+        {
+            File.Delete(target);
+            File.Delete(target + ".tmp");
+        }
+    }
+
     private sealed class FlushFailureStream(string path)
         : FileStream(path, FileMode.CreateNew, FileAccess.Write, FileShare.None)
     {

@@ -81,6 +81,26 @@ public class WriteAtSaveTests : IDisposable
             _ => svc.AddNewPropertyPage(project, name, interactive: false).ContinueWith(t => DocumentIdentity.For(t.Result)),
         };
 
+    [Fact]
+    public async Task SavingPreservesFilesAtOldStagingNames()
+    {
+        var svc = MakeService();
+        var project = Unsaved();
+        await svc.AddNewForm(project, "Form1", interactive: false);
+        await svc.AddNewModule(project, "Module1", ModuleKind.StandardModule, interactive: false);
+        string[] names = ["Project1.vbp", "Form1.frm", "Module1.bas"];
+        foreach (var name in names)
+            File.WriteAllText(Path.Join(dir, name + ".tmp"), "user file");
+
+        await svc.SaveProject(project, saveAs: false);
+
+        foreach (var name in names)
+        {
+            File.Exists(Path.Join(dir, name)).Should().BeTrue();
+            File.ReadAllText(Path.Join(dir, name + ".tmp")).Should().Be("user file");
+        }
+    }
+
     [Theory]
     [InlineData("Form")]
     [InlineData("Module")]
