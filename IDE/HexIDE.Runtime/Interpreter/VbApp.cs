@@ -29,7 +29,8 @@ public record AppInfo(
     bool CommonDialogReferenced = false,
     IReadOnlyList<Components.InBox.RuntimeLibrary>? ControlLibraries = null,
     string CommandLine = "",
-    string? ProjectName = null)
+    string? ProjectName = null,
+    string? ResourceFilePath = null)
 {
     /// <summary>A program with no project behind it — the test harness and the bare interpreter.</summary>
     public static readonly AppInfo None = new();
@@ -68,7 +69,8 @@ public record AppInfo(
             ControlLibraries: Components.InBox.RuntimeLibraries.ReferencedBy(project),
             // Project Properties' "Command Line Arguments", which is what Command gives under F5, and HexIDE runs as F5 runs.
             CommandLine: PreSectionValue(project, "Command32") ?? "",
-            ProjectName: project.Name);
+            ProjectName: project.Name,
+            ResourceFilePath: Win32Resources.PathFor(project));
     }
 
     /// <summary>

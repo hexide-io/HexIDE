@@ -679,6 +679,8 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
     /// <summary>The program-global <c>App</c> object, describing the project this program came from.</summary>
     public VbApp App { get; private set; } = new(AppInfo.None);
 
+    internal Win32Resources Resources { get; private set; } = new();
+
     private VbScreen? screen;
 
     /// <summary>
@@ -709,6 +711,7 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
     {
         if (info.ProjectName is { } name)
             ProjectName = name;
+        Resources = Win32Resources.Load(info.ResourceFilePath);
         App = new VbApp(info);
         SeedProgramGlobal("App", () => new Vb6Value(App));
         BuiltIns.CommonDialogReferenced = info.CommonDialogReferenced;
