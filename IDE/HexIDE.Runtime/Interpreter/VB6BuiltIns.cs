@@ -50,8 +50,9 @@ public partial class VB6BuiltIns
     internal string CommandLine { get; set; } = "";
 
     /// <summary>
-    /// What <c>Erl</c> answers, a Long (#2528): the last line number passed in the procedure that trapped the latest error,
-    /// set as the error is trapped, and 0 again wherever VB6 clears Err itself. The program's own <c>Err.Clear</c> leaves it.
+    /// What <c>Erl</c> answers, a Long (#2528): the line number at or above where the latest trapped error was raised, in the
+    /// procedure that trapped it and in source order, set as the error is trapped, and 0 again wherever VB6 clears Err itself.
+    /// The program's own <c>Err.Clear</c> leaves it.
     /// </summary>
     internal long Erl { get; set; }
 

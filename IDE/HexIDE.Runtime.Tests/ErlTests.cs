@@ -3,8 +3,8 @@ using HexIDE.Runtime.Interpreter;
 namespace HexIDE.Runtime.Tests;
 
 /// <summary>
-/// <c>Erl</c> (#2528): the last line number passed in the procedure that trapped the latest error, a Long, and 0 again
-/// wherever VB6 clears <c>Err</c> itself. The procedures are the probe's, and every line was logged by vb6.exe, native and
+/// <c>Erl</c> (#2528): the line number at or above where the latest error was raised, in the procedure that trapped it and
+/// in source order, a Long, and 0 again wherever VB6 clears <c>Err</c> itself. The procedures are the probe's, and every line was logged by vb6.exe, native and
 /// p-code alike (the issue has both probes). E13's `Next` is unnumbered here, where the probe's was `30  Next`: a
 /// number on a closing line doesn't parse yet (#2529).
 /// </summary>
@@ -276,5 +276,112 @@ public class ErlTests : BaseVBTestFixture
             "on 70: Erl 70",
             "after G6: Erl 0 err 0",
             "Err.Raise after 80: Erl 80"));
+    }
+
+    [Fact]
+    public async Task Erl_is_the_line_number_at_or_above_where_the_error_was_raised_in_source_order()
+    {
+        // A loop's second pass reads the For or Do line's number, not that of the body's last line, which ran last: the
+        // number above the faulting line in the source. Each procedure is a probe's Sub Main, renamed.
+        await Run("""
+            Sub PForBodyTop()
+                Dim i As Integer, s As String, b As Integer, x As Integer, v As Variant, c As New Collection
+                On Error GoTo h
+            10 For i = 1 To 2
+                If i = 2 Then x = 1 / 0
+            20 s = s & i
+            Next
+                Debug.Print "p-for-body-top: ok [" & s & "] i " & i
+                Exit Sub
+            h:
+                Debug.Print "p-for-body-top: err " & Err.Number & " erl " & Erl & " [" & s & "] i " & i
+            End Sub
+            Sub PDoBodyTop()
+                Dim i As Integer, s As String, b As Integer, x As Integer, v As Variant, c As New Collection
+                On Error GoTo h
+            10 Do
+                If i = 1 Then x = 1 / 0
+            20 i = i + 1
+            Loop While i < 3
+                Debug.Print "p-do-body-top: ok [" & s & "] i " & i
+                Exit Sub
+            h:
+                Debug.Print "p-do-body-top: err " & Err.Number & " erl " & Erl & " [" & s & "] i " & i
+            End Sub
+            Sub PDowhileBodyTop()
+                Dim i As Integer, s As String, b As Integer, x As Integer, v As Variant, c As New Collection
+                On Error GoTo h
+            10 Do While i < 3
+                If i = 1 Then x = 1 / 0
+            20 i = i + 1
+            Loop
+                Debug.Print "p-dowhile-body-top: ok [" & s & "] i " & i
+                Exit Sub
+            h:
+                Debug.Print "p-dowhile-body-top: err " & Err.Number & " erl " & Erl & " [" & s & "] i " & i
+            End Sub
+            Sub PForeachBodyTop()
+                Dim i As Integer, s As String, b As Integer, x As Integer, v As Variant, c As New Collection
+                On Error GoTo h
+            c.Add 1
+            c.Add 2
+            10 For Each v In c
+                If v = 2 Then x = 1 / 0
+            20 s = s & v
+            Next
+                Debug.Print "p-foreach-body-top: ok [" & s & "] i " & i
+                Exit Sub
+            h:
+                Debug.Print "p-foreach-body-top: err " & Err.Number & " erl " & Erl & " [" & s & "] i " & i
+            End Sub
+            Sub PDowhileLoopUnnumbered()
+                Dim i As Integer, s As String, b As Integer, x As Integer, v As Variant, c As New Collection
+                On Error GoTo h
+            10 Do While 1 / (2 - i) > -5
+            20 i = i + 1
+            Loop
+                Debug.Print "p-dowhile-loop-unnumbered: ok [" & s & "] i " & i
+                Exit Sub
+            h:
+                Debug.Print "p-dowhile-loop-unnumbered: err " & Err.Number & " erl " & Erl & " [" & s & "] i " & i
+            End Sub
+            Sub PWhileWendUnnumbered()
+                Dim i As Integer, s As String, b As Integer, x As Integer, v As Variant, c As New Collection
+                On Error GoTo h
+            10 While 1 / (2 - i) > -5
+            20 i = i + 1
+            Wend
+                Debug.Print "p-while-wend-unnumbered: ok [" & s & "] i " & i
+                Exit Sub
+            h:
+                Debug.Print "p-while-wend-unnumbered: err " & Err.Number & " erl " & Erl & " [" & s & "] i " & i
+            End Sub
+            Sub PForNextUnnumbered()
+                Dim i As Integer, s As String, b As Integer, x As Integer, v As Variant, c As New Collection
+                On Error GoTo h
+            10 For b = 32766 To 32767
+            20 s = s & "x"
+            Next
+                Debug.Print "p-for-next-unnumbered: ok [" & s & "] i " & i
+                Exit Sub
+            h:
+                Debug.Print "p-for-next-unnumbered: err " & Err.Number & " erl " & Erl & " [" & s & "] i " & i
+            End Sub
+            PForBodyTop
+            PDoBodyTop
+            PDowhileBodyTop
+            PForeachBodyTop
+            PDowhileLoopUnnumbered
+            PWhileWendUnnumbered
+            PForNextUnnumbered
+            """);
+        AssertDebugLog(Lines(
+            "p-for-body-top: err 11 erl 10 [1] i 2",
+            "p-do-body-top: err 11 erl 10 [] i 1",
+            "p-dowhile-body-top: err 11 erl 10 [] i 1",
+            "p-foreach-body-top: err 11 erl 10 [1] i 0",
+            "p-dowhile-loop-unnumbered: err 11 erl 10 [] i 2",
+            "p-while-wend-unnumbered: err 11 erl 10 [] i 2",
+            "p-for-next-unnumbered: err 6 erl 20 [xx] i 0"));
     }
 }

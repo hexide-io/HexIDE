@@ -323,8 +323,8 @@ program that never fails.
 - **THEN** it raises a trappable error with VB6's number for that condition
 
 #### Scenario: The line an error was raised on
-- **WHEN** an error is raised after line 20 of a numbered procedure, or in a procedure it called on line 20, and that
-  procedure's handler reads `Erl`
+- **WHEN** an error is raised on line 20 of a numbered procedure or below it with no number between, or in a procedure
+  it called there, and that procedure's handler reads `Erl`
 - **THEN** `Erl` SHALL read 20, a Long, until an `On Error` statement, a `Resume` or leaving the handler sets it to 0;
   `Err.Clear` SHALL leave it (measured, #2528)
 
