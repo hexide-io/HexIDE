@@ -1035,6 +1035,20 @@ which no platform sends as text. In a code window the key SHALL be judged as typ
 - **WHEN** `press_key` presses A with Ctrl
 - **THEN** no text is sent, and a running TextBox's KeyPress is the 1 its runtime makes from the KeyDown
 
+### Requirement: type_text SHALL send keys to a control that takes typing itself
+In keyboard mode, `type_text` SHALL send its keys to the addressed control when nothing under it is a text box and it
+takes focus, as a person's keyboard sends them, and SHALL judge it by what it did with them, not by its class. When it
+handled the text of none of the keys that type a character, the reply SHALL say so, and that their KeyDown and KeyUp
+were raised. A control that does not take focus SHALL be refused, saying that a person's keys could not reach it.
+
+#### Scenario: A running form's RichTextBox
+- **WHEN** `type_text` types `abc` in keyboard mode into a running RichTextBox, whose KeyPress and Change log
+- **THEN** each key runs KeyPress and the edit runs Change, and the RichTextBox holds `abc`
+
+#### Scenario: Document mode
+- **WHEN** `type_text` in its default mode addresses a control that takes typing itself
+- **THEN** it is refused as having no text surface, and the refusal names keyboard mode
+
 ### Requirement: press_key reads a chord written as one key
 `press_key` SHALL read a `key` written as a chord, such as `Ctrl+H`, as its last part, with the parts before it
 as modifiers added to any `modifiers` given, and its reply SHALL say how it read the chord. A chord whose leading
