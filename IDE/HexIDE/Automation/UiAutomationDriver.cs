@@ -223,7 +223,8 @@ public static class UiAutomationDriver
             itemTexts,
             itemsNote,
             // The pointer it shows, and where that is set (#2453).
-            Safe(() => PointerReader.Read(control, c => root is null ? Describe(c) : PathWithin(root, "Window", c)), null));
+            Safe(() => PointerReader.Read(control, c => root is null ? Describe(c) : PathWithin(root, "Window", c)), null),
+            control.IsPointerOver);
     }
 
     /// <summary>How many items <see cref="ItemTexts"/> reads at most.</summary>
@@ -799,7 +800,7 @@ public static class UiAutomationDriver
                     // menu, rather than an action the control does not support (#949).
                     // But the code window's completion list and parameter info are listed under its editor and are not
                     // the editor's flyout, so with one open, "nothing to close" would deny what the dump shows.
-                    if (AttachedPopupsOf(control).Count > 0)
+                    if (AttachedPopupsOf(control).Any(p => p.Child is not ToolTip))
                         return Err($"'{LabelOf(control, peer)}' has a popup open that collapse does not close, such as "
                                    + "the completion list; press_key Escape closes it");
                     if (control.ContextMenu is not null || FlyoutsOf(control).Any())
@@ -1762,6 +1763,8 @@ public static class UiAutomationDriver
             return Fail(problem);
         if (TopLevel.GetTopLevel(control) is not { } topLevel)
             return Fail("the control is not attached to a window, so it has no coordinates to click at");
+        // A hover left there by 'stay' ends first, as a person's pointer leaves what it was over to press elsewhere (#2562).
+        EndStayingHover(topLevel);
         var local = at ?? new Point(control.Bounds.Width / 2, control.Bounds.Height / 2);
         if (control.TranslatePoint(local, topLevel) is not { } inWindow)
             return Fail($"could not translate ({local.X.ToString("0.#", CultureInfo.InvariantCulture)}, {local.Y.ToString("0.#", CultureInfo.InvariantCulture)}) on '{Describe(control)}' into window coordinates");
@@ -4119,6 +4122,7 @@ public static class UiAutomationDriver
             var target = FindHoverTarget(control);
             if (Shows(target) is not true and var shows)
                 return new InteractOutcome(false, "pointer", null, NotShowingRefusal(target, "hover", shows));
+            EndStayingHover(topLevel);
             var local = HoverPoint(target, x, y);
             if (target.TranslatePoint(local, topLevel) is not { } atTopLevel)
                 return new InteractOutcome(false, "pointer", null,
@@ -4212,6 +4216,56 @@ public static class UiAutomationDriver
             RawPointer.Leave(topLevel);
             ClickPointer.Remove(topLevel);
         }
+    }
+
+    /// <summary>
+    /// Leaves a hover's pointer where it went, for 'stay' (#2562): what it landed on keeps its pointer-over look and any
+    /// tip it opened, so a snapshot shows them. The next click, drag or hover in the window ends it first, as
+    /// <see cref="EndHover"/> would have, and the real mouse's next move over the window takes it back.
+    /// </summary>
+    public static void StayHover(Control hovered)
+    {
+        if (TopLevel.GetTopLevel(hovered) is not { } topLevel)
+            return;
+        ClickPointer.Remove(topLevel);
+        Stayed.AddOrUpdate(topLevel, hovered);
+    }
+
+    /// <summary>
+    /// How long a staying hover is watched before its state is read. A tip's popup opening under a real mouse resting on the
+    /// window makes the platform send a move where that mouse is, and it arrives a moment after the tip: read sooner, the
+    /// reply said the control was under the pointer when it no longer was (#2562).
+    /// </summary>
+    public static readonly TimeSpan StaySettle = TimeSpan.FromMilliseconds(200);
+
+    /// <summary>
+    /// What a reply says of a staying hover, read after <see cref="StaySettle"/>: whether <paramref name="hovered"/> reads
+    /// as under the pointer and how long that lasts, or, when it does not, what took it. <paramref name="moved"/> is the
+    /// foreign-pointer watch's account; <paramref name="saidAlready"/> when the reply already gives it.
+    /// </summary>
+    public static string StayedNote(Control hovered, string? moved, bool saidAlready)
+    {
+        if (hovered.IsPointerOver)
+            return $"; the pointer stays there and '{Describe(hovered)}' reads as under it (isPointerOver), so take_snapshot "
+                   + "shows its pointer-over look and any tip, until the next click, drag or hover in this window or the real "
+                   + "mouse's next move over it";
+        var why = moved is null ? "input the hover did not send has moved it"
+            : saidAlready ? "what moved the pointer, above, took it" : moved;
+        return $"; the pointer was left there, but '{Describe(hovered)}' does not read as under it (isPointerOver is false): "
+               + why;
+    }
+
+    // The windows a hover was left in by 'stay', with what it landed on (#2562).
+    private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<TopLevel, Control> Stayed = new();
+
+    /// <summary>Ends a hover 'stay' left in <paramref name="topLevel"/>: the pointer leaves the window, as a hover's end
+    /// takes it. Nothing when there is none.</summary>
+    internal static void EndStayingHover(TopLevel topLevel)
+    {
+        if (!Stayed.TryGetValue(topLevel, out _))
+            return;
+        Stayed.Remove(topLevel);
+        RawPointer.Leave(topLevel);
     }
 
     // Where each window last had a click's pointer, so a click there again moves nothing first, as a still mouse sends no
@@ -5211,7 +5265,22 @@ public static class UiAutomationDriver
 
     // One popup for a menu or a flyout; the code window can have two open at once, its completion list under the
     // parameter info of the call being typed into, and reporting only the list left the signature unseen (#942 review).
+    // An open tip is one too: a hover left by 'stay' keeps it open for a snapshot, which draws it with the others, and a
+    // dump lists its text under its owner (#2562).
     private static IReadOnlyList<Popup> AttachedPopupsOf(Control c)
+    {
+        var owned = OwnedPopupsOf(c);
+        return OpenTipPopupOf(c) is { } tip ? [.. owned, tip] : owned;
+    }
+
+    // The popup a tip open on the control is shown in. Avalonia keeps the tip in an internal attached property; none when
+    // a later Avalonia renames it, and the snapshot then leaves the tip out, as it did before.
+    private static Popup? OpenTipPopupOf(Control c) =>
+        ToolTipInstanceProperty is not null && ToolTip.GetIsOpen(c)
+        && c.GetValue(ToolTipInstanceProperty) is ToolTip tip && tip.GetLogicalParent() is Popup { IsOpen: true } popup
+            ? popup : null;
+
+    private static IReadOnlyList<Popup> OwnedPopupsOf(Control c)
     {
         if (c.ContextMenu is { } menu && IsOpenOn(menu, c))
             return menu.GetLogicalParent() is Popup menuPopup ? [menuPopup] : [];
@@ -5502,7 +5571,10 @@ public record UiNodeDetail(
     string? ItemsNote = null,
     // The mouse pointer it shows: a running program's MousePointer by number and name, and where it is set (#2453). Absent
     // when none is set on it or above it, and the platform's arrow shows.
-    PointerState? Pointer = null);
+    PointerState? Pointer = null,
+    // Whether the pointer is over it, as its :pointerover style reads it (#2562): a hover that stays sets it, and the real
+    // mouse's next move takes it back.
+    bool IsPointerOver = false);
 
 /// <summary>The inspected Window's Avalonia frame properties and, on Windows, its native style masks.</summary>
 public record WindowFrameState(bool CanResize, string WindowDecorations, bool CanMinimize, bool CanMaximize,
