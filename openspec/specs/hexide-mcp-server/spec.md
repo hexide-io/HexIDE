@@ -708,6 +708,19 @@ automation name, or else its text, and SHALL list that name, never a type name, 
 - **WHEN** a path names an item whose header is a TextBlock and whose automation name is its text
 - **THEN** the item is reached, and a miss in that menu lists it by that name
 
+### Requirement: A Make from the menu SHALL say what it made, or why it made nothing
+When `invoke_menu_item` starts a Make, its reply SHALL wait for Make to end and SHALL name the program and project it
+wrote, with their sizes and whether the program wrote over a file. Otherwise it SHALL give why nothing was written, and
+whether a message box saying so is open. A Make waiting at a save dialog nothing answered SHALL be reported as that.
+
+#### Scenario: A Make with its answer armed
+- **WHEN** `answer_next_file_dialog` arms a program's path and `invoke_menu_item` runs File/Make
+- **THEN** the note names that path and its size, and the project written beside it
+
+#### Scenario: No standalone runner
+- **WHEN** a Debug build with no published runner runs File/Make
+- **THEN** the note says no program was made, names the folder the runner was looked for in, and says a box is open
+
 ### Requirement: hover SHALL report a tip by the text it shows
 `hover` SHALL report a tooltip by its text: a string as written, and a tip that is a control by its visible text
 blocks in order. A tip with no text to read SHALL be reported as such, never by a type's name, and an open tip whose
