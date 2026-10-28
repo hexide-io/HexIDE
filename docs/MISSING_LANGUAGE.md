@@ -119,7 +119,7 @@ on the *read* path — seven rows describe the single-dot restriction it removed
 |---|---:|---:|---:|---:|---:|---:|---:|
 | Statements | 1 | 0 | 9 | 50 | 0 | 47 | 107 |
 | Operators | 0 | 0 | 1 | 20 | 0 | 11 | 32 |
-| Intrinsic functions | 0 | 0 | 15 | 67 | 0 | 71 | 153 |
+| Intrinsic functions | 0 | 0 | 13 | 69 | 0 | 71 | 153 |
 | Keywords and modifiers | 0 | 0 | 2 | 22 | 1 | 26 | 51 |
 | Literals, types and suffixes | 0 | 1 | 2 | 20 | 0 | 27 | 50 |
 | Compiler directives and options | 0 | 0 | 0 | 14 | 19 | 14 | 47 |
@@ -267,7 +267,7 @@ operator `:=`, the other such gap, since [#1465](https://github.com/hexide-io/He
 |---|---|---|---|
 | `Line number` | Won't load | **[#2561](https://github.com/hexide-io/HexIDE/issues/2561):** a number on `End Sub`, `End Function` or `End Property` is still a syntax error, so the module doesn't load; vb6.exe accepts it (measured). **[#2529](https://github.com/hexide-io/HexIDE/issues/2529):** on any other line that closes a block or opens its next part, `30 Next`, `End If`, `Else`, `ElseIf`, `Loop`, `Wend`, a later `Case`, `End Select` or `End With`, a number works, as vb6.exe accepts it. A `GoTo` to one from inside its construct ends the block it is in, so a loop goes round and an If, Select Case or With is done; from before the construct it goes past an If, Select Case or With, and tests a `Loop` or `Wend` condition (measured). Refused: a `GoTo` from outside a For loop to its `Next`, which vb6.exe hangs on natively and runs on from as p-code, and one from outside to a closing line nested in another block. A number before a first `Case` stays an error, as vb6.exe refuses it. On a statement, a number works as a `GoTo`, `On Error GoTo` and `Resume` target. | VB6.g4, VbClosingLineNumbers.cs, StatementExecutor.cs |
 
-## Dies mid-run — 87 names
+## Dies mid-run — 85 names
 
 These parse. The program starts, reaches the statement, and throws. Grouped by area below so the clusters
 are visible — and they are very clustered: the file-I/O family beyond text files is absent as a block, and so is
@@ -519,7 +519,7 @@ missing.
 | `TypeOf ... Is` | Supported | **#2265:** bare `ProgressBar` follows the first referenced control library, while the qualified name selects its own library. **[#1060](https://github.com/hexide-io/HexIDE/issues/1060):** a control was False whatever the type named, so the usual loop over a form's Controls did nothing, silently. Measured and fixed: a control is its class, with its library or without (`TextBox`, `VB.TextBox`, `MSComDlg.CommonDialog`, and since #1082 `MSComctlLib.ProgressBar`, or `ComctlLib.ProgressBar` for one read under the 5.0 library), a `Control` and an `Object`; a control array and Controls are an `Object`, and Controls is no `Collection`; a form is a `Form`. `VisitVsTypeOf`, including an explicit grammar-greediness workaround: "`TypeOf p Is Clock` parses the operand as the comparison `p Is Clock` with NO Is-type clause. Recover by… | ExpressionExecutor.cs |
 | `Xor` | Supported | `VisitVsXor` — same raw-pair `VbBitwise` treatment (`static (a, b) => a ^ b`). Measured `(True Xor False)` -> Boolean True. | ExpressionExecutor.cs |
 
-### Intrinsic functions — 153 names (15 absent, 67 partial, 71 supported)
+### Intrinsic functions — 153 names (13 absent, 69 partial, 71 supported)
 
 
 **array** (3)
