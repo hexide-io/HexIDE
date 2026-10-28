@@ -651,7 +651,35 @@ Saved again, that block came back with `Appearance = 1` and nothing else.
 ### In HexIDE
 
 MSComctlLib.TreeView forms run with the hierarchy model and scoped control bindings: Nodes, Style, LineStyle,
-Indentation, LabelEdit, HideSelection, Checkboxes, Sorted, SelectedItem and PathSeparator. Runtime drawing
+Indentation, LabelEdit, HideSelection, Checkboxes, Sorted, SelectedItem, Scroll and PathSeparator. Runtime drawing
 now follows visible hierarchy order, Style/LineStyle decorations, Indentation, checkboxes, Bold and label
 selection. Measured mouse, focus and keyboard events are bound. The measured native file writer now preserves the saved form and companion byte for byte; owned values without modelled writers stay unavailable for designer editing. Remaining runtime members, ImageList binding, label editing and the sample-node designer preview are later slices (#1086). The 5.0 control
 remains refused; its behaviour has not been measured here.
+
+### Scrolling
+
+Measured 2026-10-27, vb6.exe SP6 / MSCOMCTL.OCX 6.01.9782, native and p-code agreeing
+(issue #2359, issuecomment-6446762220). A shown 2400 × 1200 twip tree, Style 7 / Appearance 1,
+without an ImageList, held roots Node 01–30 (k01–k30). Real console keys and wheel input were
+followed by Timer logging selection, HitTest top/bottom rows, GetScrollPos, window bar styles,
+client size and GetVisibleCount.
+
+- TVM_GETITEMHEIGHT returned 16. The 160 × 80 tree had a 156 × 76 client and four whole rows.
+- Bars measured 17 pixels. Five nodes brought in the vertical bar (client width 139).
+  A 30-W label brought in the horizontal bar (client height 59, three whole rows).
+  Removing overflow or collapsing children removed the corresponding bars.
+- Down from k04 selected k05 with k02 at the top. Subsequent Down keys advanced the top one row.
+  PageDown from k01 selected k04 without scrolling; from k07 at the bottom it selected k10,
+  moving the top from k04 to k07. PageUp mirrored this at the top. End selected k30 with k27
+  at the top (position 26); Home returned to k01. Boundary Up/Down changed nothing.
+- SelectedItem k25 with k10 at the top moved the top to k22. k02.Selected=True moved it to k02.
+- EnsureVisible k20, k05, k30, k01, k12, k13 gave top rows k17, k05, k27, k01, k09, k10,
+  returning True each time. Calling it on already-visible k10 returned False. A collapsed root
+  was expanded to show its eighth child in the last whole row (position 5).
+- One wheel notch moved three rows without changing selection, clamped to positions 0–26.
+  With only a horizontal bar, a downward notch moved sideways by 15 pixels.
+- Selecting a long label did not scroll horizontally. Right/Left on a childless node did nothing.
+  Right, numpad + and * expanded a root without scrolling; Left and numpad - collapsed it.
+- Scroll=False kept both bars absent, position zero and four whole rows. Keys still selected
+  out-of-view nodes; code selection, EnsureVisible and the wheel did not scroll. EnsureVisible
+  returned False for every node.

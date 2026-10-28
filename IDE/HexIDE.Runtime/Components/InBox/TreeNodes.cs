@@ -16,6 +16,7 @@ internal sealed partial class TreeNodes(Action? sortPending = null)
     private bool sorted;
     private bool pendingSort;
 
+    internal Func<TreeNode, bool>? ScrollIntoView;
     internal event Action? Changed;
     internal event Action<TreeNode, bool>? ExpansionChanged;
     internal void NotifyExpansion(TreeNode node, bool expanded) => ExpansionChanged?.Invoke(node, expanded);
@@ -67,7 +68,11 @@ internal sealed partial class TreeNodes(Action? sortPending = null)
             if (value is not null) RequireOwned(value);
             if (selectedItem is not null) selectedItem.IsSelected = false;
             selectedItem = value;
-            if (value is not null) value.IsSelected = true;
+            if (value is not null)
+            {
+                value.IsSelected = true;
+                ScrollIntoView?.Invoke(value);
+            }
             NotifyChanged();
         }
     }
@@ -345,6 +350,6 @@ internal sealed partial class TreeNode
         for (var node = ParentNode; node is not null; node = node.ParentNode)
             if (!node.expanded) node.Expanded = true;
         Owner.NotifyChanged();
-        return false;
+        return Owner.ScrollIntoView?.Invoke(this) ?? false;
     }
 }

@@ -14,13 +14,19 @@ internal sealed partial class VBTreeView : Control, ICSharpPropertyBag
     internal int ClientEdge { get; private set; } = 2;
 
     // Height is the declared .frm twips converted to pixels by the loader, available before layout.
-    internal long GetVisibleCount() => (long)(Math.Max(0, Height - 2 * ClientEdge) / RowHeight);
+    internal long GetVisibleCount()
+    {
+        UpdateScroll();
+        return WholeRows;
+    }
 
     internal void LoadEdge(int appearance, int borderStyle)
     {
         sunken = appearance == 1;
         singleBorder = borderStyle == 1;
         ClientEdge = (sunken ? 2 : 0) + (singleBorder ? 1 : 0);
+        InvalidateArrange();
+        InvalidateVisual();
     }
 
     private bool sunken = true;
@@ -31,7 +37,9 @@ internal sealed partial class VBTreeView : Control, ICSharpPropertyBag
         Focusable = true;
         PointerPressed += HandlePointerPressed;
         Nodes = new TreeNodes(() => Dispatcher.UIThread.Post(() => Nodes!.ProcessPendingSort(), DispatcherPriority.Background));
-        Nodes.Changed += InvalidateVisual;
+        Nodes.Changed += () => { UpdateScroll(); InvalidateArrange(); InvalidateVisual(); };
+        Nodes.ScrollIntoView = EnsureNodeVisible;
+        InitializeScrollBars();
         Nodes.ExpansionChanged += (node, expanded) => Raise(expanded ? "Expand" : "Collapse", new Vb6Value(node));
     }
     private long style = 7;
@@ -61,6 +69,7 @@ internal sealed partial class VBTreeView : Control, ICSharpPropertyBag
             "indentation" => new((float)(indentation * 1440 / 2540)),
             "hideselection" => new(hideSelection),
             "singlesel" => new(singleSel),
+            "scroll" => new(scroll),
             "checkboxes" => new(Nodes.Checkboxes),
             "sorted" => new(Nodes.Sorted),
             "pathseparator" => new(Nodes.PathSeparator),
@@ -86,12 +95,15 @@ internal sealed partial class VBTreeView : Control, ICSharpPropertyBag
                 indentation = Math.Round(himetric);
                 break;
             case "hideselection": hideSelection = TreeNodes.BooleanValue(value); break;
+            case "scroll": scroll = TreeNodes.BooleanValue(value); break;
             case "singlesel": singleSel = TreeNodes.BooleanValue(value); break;
             case "checkboxes": Nodes.Checkboxes = TreeNodes.BooleanValue(value); break;
             case "sorted": Nodes.Sorted = TreeNodes.BooleanValue(value); break;
             case "pathseparator": Nodes.PathSeparator = TreeNodes.TextValue(value); break;
             default: throw new NotImplementedException();
         }
+        UpdateScroll();
+        InvalidateArrange();
         InvalidateVisual();
         return true;
     }
