@@ -615,3 +615,17 @@ Measured on vb6.exe, native and p-code (`docs/vb6-fidelity-oracle/the-forms-coll
 #### Scenario: For Each walks the forms held when it began
 - **WHEN** a For Each over `Forms` unloads the last form on its first pass, and loads Form4
 - **THEN** it SHALL still hand out the unloaded form when it reaches it, and SHALL NOT reach Form4
+
+### Requirement: Measured application status members
+
+The interpreter SHALL expose App.HelpFile, App.StartMode, App.TaskVisible and IMEStatus with the
+values and types measured in [issue #2551](https://github.com/hexide-io/HexIDE/issues/2551).
+It SHALL refuse unmeasured IMEStatus arguments, nonempty project HelpFile values and
+HelpFile/TaskVisible conversions as not implemented.
+
+#### Scenario: Application status is read and changed
+- **GIVEN** no project help file is named, App.HelpFile starts as String "" and App.TaskVisible as Boolean True
+- **WHEN** a program reads App.StartMode, assigns "probe.hlp" to App.HelpFile and False to App.TaskVisible
+- **THEN** the values are Integer 0, String "probe.hlp" and Boolean False respectively
+- **AND** IMEStatus returns Long 0 in the no-IME host
+- **AND** assigning App.StartMode raises the read-only compile diagnostic as the statement executes

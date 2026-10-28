@@ -29,7 +29,8 @@ public record AppInfo(
     bool CommonDialogReferenced = false,
     IReadOnlyList<Components.InBox.RuntimeLibrary>? ControlLibraries = null,
     string CommandLine = "",
-    string? ProjectName = null)
+    string? ProjectName = null,
+    bool HasProjectHelpFile = false)
 {
     /// <summary>A program with no project behind it — the test harness and the bare interpreter.</summary>
     public static readonly AppInfo None = new();
@@ -68,7 +69,8 @@ public record AppInfo(
             ControlLibraries: Components.InBox.RuntimeLibraries.ReferencedBy(project),
             // Project Properties' "Command Line Arguments", which is what Command gives under F5, and HexIDE runs as F5 runs.
             CommandLine: PreSectionValue(project, "Command32") ?? "",
-            ProjectName: project.Name);
+            ProjectName: project.Name,
+            HasProjectHelpFile: !string.IsNullOrEmpty(PreSectionValue(project, "HelpFile")));
     }
 
     /// <summary>
@@ -116,8 +118,8 @@ public record AppInfo(
 /// exe's, and <c>ProductName</c> is empty rather than following <c>Title</c>, because that is precisely
 /// what VB6 reports when no exe exists. Both were measured rather than assumed.</para>
 ///
-/// <para><c>Title</c> is writable at run time, as in VB6; everything else is read-only and a write is
-/// ignored rather than throwing, matching how the member-write path treats an unknown property.</para>
+/// <para>Title, HelpFile and TaskVisible are writable at run time. StartMode refuses assignment;
+/// writes to the remaining properties retain the existing member-write behaviour.</para>
 /// </summary>
 public class VbApp(AppInfo info) : ICSharpProxy, ICSharpPropertyBag
 {
@@ -127,6 +129,8 @@ public class VbApp(AppInfo info) : ICSharpProxy, ICSharpPropertyBag
         => throw new VBRunTimeException(VBStandardError.MethodOrDataMemberNotFound, "App." + method);
 
     private string title = info.Title;
+    private string? helpFile = info.HasProjectHelpFile ? null : "";
+    private bool taskVisible = true;
 
     /// <summary>The project's folder, empty for an unsaved project: where a relative file path is resolved (#1145).</summary>
     public string Path => info.Path;
@@ -142,6 +146,10 @@ public class VbApp(AppInfo info) : ICSharpProxy, ICSharpPropertyBag
         switch (name.ToLowerInvariant())
         {
             case "title": value = title; return true;
+            // Measured in #2551; a project's nonempty HelpFile= has not been measured.
+            case "helpfile": value = helpFile ?? throw new NotImplementedException("App.HelpFile from a project is not implemented (#2551)"); return true;
+            case "startmode": value = 0; return true;
+            case "taskvisible": value = taskVisible; return true;
             case "exename": value = info.ExeName; return true;
             case "path": value = info.Path; return true;
 
@@ -167,9 +175,21 @@ public class VbApp(AppInfo info) : ICSharpProxy, ICSharpPropertyBag
 
     public bool TrySetProperty(string name, Vb6Value value)
     {
-        if (!string.Equals(name, "Title", System.StringComparison.OrdinalIgnoreCase))
-            return false;
-        title = VbDisplay.ToText(value);
-        return true;
+        switch (name.ToLowerInvariant())
+        {
+            case "title": title = VbDisplay.ToText(value); return true;
+            case "helpfile":
+                if (value.Type != Vb6Value.ValueType.String)
+                    throw new NotImplementedException("App.HelpFile conversion is not implemented (#2551)");
+                helpFile = (string)value.Value!;
+                return true;
+            case "taskvisible":
+                if (value.Type != Vb6Value.ValueType.Boolean)
+                    throw new NotImplementedException("App.TaskVisible conversion is not implemented (#2551)");
+                taskVisible = (bool)value.Value!;
+                return true;
+            case "startmode": throw new VBCompileErrorException("Can't assign to read-only property");
+            default: return false;
+        }
     }
 }

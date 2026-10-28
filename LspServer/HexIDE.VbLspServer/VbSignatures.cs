@@ -294,6 +294,7 @@ internal static class VbSignatures
             ["GetObject"]    = [new SignatureEntry("GetObject([Pathname], [Class]) As Object", ["Pathname", "Class"], "Returns a reference to an object from a file.")],
             ["Shell"]        = [new SignatureEntry("Shell(Pathname As String, [WindowStyle As VbAppWinStyle]) As Double", ["Pathname", "WindowStyle"], "Runs an executable program.")],
             ["Command"]      = [new SignatureEntry("Command() As String", [], "Returns the command line the program was started with.")],
+            ["IMEStatus"]    = [new SignatureEntry("IMEStatus() As Long", [], "Returns zero when no input method editor is available.")],
             ["DoEvents"]     = [new SignatureEntry("DoEvents() As Integer", [], "Lets waiting events run before the program goes on.")],
             ["FreeFile"]     = [new SignatureEntry("FreeFile([RangeNumber As Integer]) As Integer", ["RangeNumber"], "Returns the next file number free for Open.")],
             ["EOF"]          = [new SignatureEntry("EOF(FileNumber As Integer) As Boolean", ["FileNumber"], "Returns whether a file has been read to its end.")],
