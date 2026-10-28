@@ -833,6 +833,26 @@ probes and its 2026-10-27 entry "A For counter written with a type character" (#
 - **WHEN** `Dim i As Long` is followed by `For i% = 1 To 2: Next`, or `Dim i As Integer` by `For i = 1 To 2: Next i&`
 - **THEN** the statement raises "Type-declaration character does not match declared data type"
 
+### Requirement: Object array stores SHALL distinguish declarations from Variant values
+A Function returning Object(), Collection() or a project class array SHALL accept an array of objects through a
+Variant without inspecting the elements' classes. A Variant array such as `Array(1, 2)` SHALL raise error 13 at the
+return store, leaving the caller's target unchanged. Direct assignments from a named array with a different declared
+element type SHALL raise "Can't assign to array" as the statement executes, for returns and dynamic array variables.
+These rules are measured on vb6.exe SP6, native and p-code (#999).
+
+#### Scenario: A Variant array stored into an object array return
+- **WHEN** a Function declared `As Object()` or `As Collection()` executes `F = Array(1, 2)`
+- **THEN** the store raises error 13 and a caller's Empty target stays Empty
+
+#### Scenario: Object is not a wildcard for a named array
+- **WHEN** a Function declared `As Object()` stores a named Collection() or Class1() array into its return name
+- **THEN** the interpreter raises "Can't assign to array"
+
+#### Scenario: A Variant bypasses the class compatibility check
+- **WHEN** a Function declared `As Class1()` stores a Variant holding an Object() whose first element is a Collection
+- **THEN** the call succeeds and the returned first element has TypeName "Collection"
+- **AND** assigning that element with Set into a variable declared `As Class1` raises error 13
+
 ### Requirement: The Screen object SHALL answer as VB6's does
 `Screen` SHALL be a program global. Its size SHALL be the primary screen in twips, 15 to a device-independent pixel.
 `MousePointer` SHALL convert as a control's does, and every form SHALL show it while it is not 0. `ActiveForm` and
