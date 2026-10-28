@@ -625,6 +625,8 @@ recorded in #1866; the dockable pane uses selection/double-click rather than VB6
     So are an undimensioned array's `String()` and an empty one's `String(0 to -1)`.
   - **A Variant holding an array** keeps HexIDE's earlier row, `v()` of type `Integer()`, since VB6's isn't measured.
   - **A UDT** reads as its type name, `TPoint`, as before. VB6's isn't measured.
+  - **`Me`'s own row** reads as its class alone, `Class1` in a class's method and `Form1` on a form, as before. VB6's isn't
+    measured for either.
 - **Why:** each control's member list, and the declared types its rows show, have to be measured on `vb6.exe` one class at
   a time.
 - **Status:** **open**.
