@@ -2,7 +2,7 @@
 
 > **Scope.** Every built-in of the VB6 *language*: statements, functions, operators, keywords and
 > modifiers, literals and type names, compiler directives, intrinsic constants, and the in-box objects a
-> program can touch without adding a reference. **1184 names**, each with HexIDE's current support level.
+> program can touch without adding a reference. **1185 names**, each with HexIDE's current support level.
 >
 > **Sibling docs.** This is the *positive* inventory — what runs. The *gap catalogue*, which classifies
 > why something is missing (Deferred / Walled / Platform / Partial), is
@@ -121,9 +121,9 @@ on the *read* path — seven rows describe the single-dot restriction it removed
 | Keywords and modifiers | 0 | 0 | 2 | 22 | 1 | 26 | 51 |
 | Literals, types and suffixes | 0 | 0 | 3 | 20 | 0 | 27 | 50 |
 | Compiler directives and options | 0 | 0 | 1 | 14 | 19 | 13 | 47 |
-| In-box objects | 0 | 0 | 68 | 21 | 0 | 34 | 123 |
+| In-box objects | 0 | 0 | 68 | 22 | 0 | 34 | 124 |
 | Intrinsic constants | 0 | 0 | 0 | 258 | 0 | 363 | 621 |
-| **Total** | **1** | **0** | **124** | **452** | **20** | **587** | **1184** |
+| **Total** | **1** | **0** | **124** | **453** | **20** | **587** | **1185** |
 
 The *Silently wrong* column counts only what a verifier proved by running it. It is a floor, not a
 census — see the caveat above.
@@ -160,7 +160,7 @@ visitor, not changing how the language is understood.
 **Operators are nearly complete** — 1 absent of 32 — so expressions and arithmetic generally work. The
 damage is concentrated in **statements** and the **in-box object model**: 15% of VB6's statements (16
 of 107) and 55% of the
-in-box surface (`App`, `Printer`, `Clipboard`; 68 of 123) are unavailable. Both
+in-box surface (`App`, `Printer`, `Clipboard`; 68 of 124) are unavailable. Both
 figures are rounded to the nearest whole percent.
 
 That is the honest answer to "will my code run?" — the arithmetic will; the plumbing around it often will
@@ -909,7 +909,7 @@ missing.
 | `Option Base` | Supported | Collected by PrePass ('ArrayBase = int.Parse(context.INTEGERLITERAL().GetText());', PrePass.cs) and applied on both declaration paths: module-level Dim arrays (PrePass.cs) and… | PrePass.cs |
 | `Version` | Supported | Handled on three independent paths. Form/control files: the deserializer skips the line ('if (line.StartsWith("VERSION")) { continue; }', VbFrmFormatDeserializer.cs) and the serializer… | VbFrmFormatDeserializer.cs |
 
-### In-box objects — 123 names (68 absent, 21 partial, 34 supported)
+### In-box objects — 124 names (68 absent, 22 partial, 34 supported)
 
 | Name | Status | Detail | Source |
 |---|---|---|---|
@@ -1001,6 +1001,7 @@ missing.
 | `PSet` | **Dies** | throws `"Only single element supported"` — fails at run time on the coordinate pair, exactly as Circle does. VB6.g4 has no PSET token and no psetStmt rule. `PSet (10, 20), vbRed` parses as a… | ExpressionExecutor.cs |
 | `Scale` | **Dies** | throws `"Only single element supported"` — fails at run time. VB6.g4 has no SCALE token and no scaleStmt rule. `Scale (0, 0)-(100, 100)` parses as a bare procedure call with one argument - a… | ExpressionExecutor.cs |
 | `Screen` | Partial | **[#2431](https://github.com/hexide-io/HexIDE/issues/2431):** reached wherever nothing the program declares is named Screen, as `Clipboard` is, with or without Option Explicit: `TypeName` is "Screen", and `Dim s As Screen` holds it (measured, oracle "The Screen object"). Each member's row says what runs. `MouseIcon` is refused rather than guessed. A write to a member a program cannot write is 382, or 383 for TwipsPerPixelX and Y, naming it, as through an Object; early-bound, VB6 refuses it at compile time instead, and here it is refused as the statement runs. | VbScreen.cs |
+| `Form.ActiveControl` | Partial | **[#2437](https://github.com/hexide-io/HexIDE/issues/2437), first slice:** remembers the last control focused on each form, including inactive and hidden forms. Nothing before showing, on a Label-only form, and after an unloaded form loads again on read (measured in #2437, oracle [#2279](https://github.com/hexide-io/HexIDE/issues/2279)). Initial focus (#2436) and restoring focus with GotFocus on reactivation remain outstanding. | FormMembers.cs, VBFormRuntime.cs |
 | `Screen.ActiveControl` | Partial | **[#2431](https://github.com/hexide-io/HexIDE/issues/2431):** the active form's control with the focus. Nothing, with no error, when no form is active or the form has nothing that can take the focus (measured, oracle "The Screen object"). Partial because a shown form gives no control the focus until the user or the program moves it ([#2436](https://github.com/hexide-io/HexIDE/issues/2436)), so this reads Nothing there, where VB6 reads the first control in tab order. | VBProgram.cs |
 | `Screen.ActiveForm` | Supported | **[#2431](https://github.com/hexide-io/HexIDE/issues/2431):** the form last activated. Nothing, with no error, before a form is shown, after `Load` alone, and after it unloads (measured, oracle "The Screen object"). | VBProgram.cs |
 | `Screen.FontCount` | Partial | **[#2431](https://github.com/hexide-io/HexIDE/issues/2431):** an Integer, as measured: the number of font families the platform lists, which is not the count Windows gives VB6. | VbScreen.cs, AvaloniaDisplay.cs |
@@ -1330,7 +1331,7 @@ Two known drift hazards, both live:
    (it listed `Implements` as permanently out of scope after it had been implemented).
 
 
-## Referenced control libraries (outside the 1184-name inventory)
+## Referenced control libraries (outside the 1185-name inventory)
 
 These require an Object reference; the inventory and headline counts above cover the language's in-box names.
 
