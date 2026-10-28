@@ -874,3 +874,16 @@ SHALL emit lowercase hexadecimal without padding, as measured in VB6 SP6 (#2273)
 - **WHEN** references with LCIDs `0`, `9`, `409`, `c0a` and `C09` are read
 - **THEN** their model values are 0, 9, 1033, 3082 and 3081
 - **AND** saving writes `0`, `9`, `409`, `c0a` and `c09`, respectively
+
+### Requirement: ActiveX EXE saves add Retained at the measured location
+
+When saving `Type=OleExe` without a `Retained=` line, the writer SHALL insert `Retained=0`
+between adjacent `Unattended=0` and `ThreadPerObject=0` lines (#2459). It SHALL preserve an
+existing Retained line and SHALL leave other project types, missing neighbours and other orders
+unchanged because their insertion behaviour has not been measured.
+
+#### Scenario: The ActiveX Document Exe template lacks Retained
+
+- **WHEN** an ActiveX EXE with no Retained line and adjacent Unattended=0 and ThreadPerObject=0 lines is saved
+- **THEN** Retained=0 is inserted between those lines
+- **AND** the remaining lines retain their order

@@ -1015,10 +1015,16 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
         var (target, _, error) = ResolveActiveWindow(string.IsNullOrWhiteSpace(window) ? "ide" : window, ideByDefault: true);
         if (target is null)
             return (null, null, error);
+        return (target, StateNameOf(target), null);
+    }
+
+    // A window as the window-state tools name it, which is what a caller passes as 'window' to reach it again.
+    private static string StateNameOf(Avalonia.Controls.Window target)
+    {
         var main = (Avalonia.Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime)?.MainWindow;
-        return (target, target == main ? "ide"
+        return target == main ? "ide"
             : HexIDE.Runtime.BuiltinControls.VBProps.GetName(target) is { Length: > 0 } form ? form
-            : DescribeWindow(target), null);
+            : DescribeWindow(target);
     }
 
     internal static WindowStateResult WindowStateOf(Avalonia.Controls.Window window, string name)
@@ -2218,7 +2224,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
                      + "even where another window covers it, with its open popups drawn over it. Windows only; refused, with no "
                      + "client-only fallback, for a window hidden or minimized. Should Windows render nothing, the frame is "
                      + "copied from the screen and the 'note' says how much of it other windows cover, since that part shows "
-                     + "them. Default false renders the client area and its popups, even if occluded.")]
+                     + "them. Default false renders the client area and its popups, even if occluded, and refuses a minimized window, whose last frame is stale.")]
         bool includeFrame = false,
         CancellationToken ct = default)
     {
@@ -2246,6 +2252,11 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
                 if (snapshot is null)
                     return new SnapshotResult(null, frameError, activeDialog, Title: active.Title, CaptureArea: null);
             }
+            // A minimized window is refused as the frame capture refuses it: the compositor still held its last frame, which
+            // came back as a capture of the window as it is (#2416).
+            else if (active.WindowState == Avalonia.Controls.WindowState.Minimized)
+                return new SnapshotResult(null, HexIDE.Automation.SnapshotComposer.MinimizedRefusal(StateNameOf(active)),
+                    activeDialog, Title: active.Title, CaptureArea: null);
             else
                 snapshot = await HexIDE.Automation.SnapshotComposer.CaptureAsync(active);
             using var captured = snapshot;
@@ -2545,7 +2556,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     [DescribesEnum(typeof(Avalonia.Automation.ExpandCollapseState))]
     [DescribesEnum(typeof(WindowDecorations))]
     [DescribesEnum(typeof(WindowState))]
-    [Description("Deep-inspects one control addressed by 'target' (a path from dump_visual_tree): identity, providers, 'isFocused' (has keyboard focus), 'isKeyboardFocusable', and 'boundingRect' (x, y, width, height in window device-independent units from its top-left; map into a snapshot with take_snapshot's scale and window offsets). Reports value with 'isReadOnly' (when a value provider exists), toggle state, 'expandCollapseState' (Collapsed, Expanded, PartiallyExpanded, LeafNode when an expand/collapse provider exists), 'selectionItems', what is selected, not the list's items (expand and dump a dropdown to read those), 'itemCount', how many items a list, dropdown or tab holds, hidden ones too, and a scroll bar/slider's 'range' (value, minimum, maximum, isReadOnly). A Window also reports 'frame': canResize, windowDecorations (None, BorderOnly, Full), canMinimize, canMaximize, showInTaskbar, windowState (Normal, Minimized, Maximized, FullScreen). These are Avalonia properties; on Windows, nativeStyle and nativeExStyle are the HWND's GWL_STYLE/GWL_EXSTYLE masks, or nativeStyleNote says why not. Lists the DataContext ViewModel's public commands, Command-bound methods and properties for interact's reflection actions, with property values where readable as text. A control that inherits its DataContext lists only its own resolved Command, if any, with binding details in 'dataContextNote'; 'dataContextOwner' gives the owner's path, and 'dataContextNote' counts omitted Dock base-type members. An editor's Document reads as a line count: get_file_content returns the whole text that CaretOffset, SelectionStart and SelectionLength count into; the Immediate window's reads as its text. Values over 4000 characters are cut and give their full length. Use before interact to check providers or discover VM members. Pass the same 'window' as the dump the path came from; its parameter description lists the values. 'isHidden' is true for a control in the tree but effectively invisible (e.g. collapsed by a binding), and absent when showing.")]
+    [Description("Deep-inspects one control addressed by 'target' (a path from dump_visual_tree): identity, providers, 'isFocused' (has keyboard focus), 'isKeyboardFocusable', and 'boundingRect' (x, y, width, height in window device-independent units from its top-left; map into a snapshot with take_snapshot's scale and window offsets). Reports value with 'isReadOnly' (when a value provider exists), toggle state, 'expandCollapseState' (Collapsed, Expanded, PartiallyExpanded, LeafNode when an expand/collapse provider exists), 'selectionItems', what is selected, not the list's items, which 'items' gives: each one's text for select, off-screen ones too (a dropdown only while open); 'itemCount', how many items a list, dropdown or tab holds, hidden ones too, and a scroll bar/slider's 'range' (value, minimum, maximum, isReadOnly). A Window also reports 'frame': canResize, windowDecorations (None, BorderOnly, Full), canMinimize, canMaximize, showInTaskbar, windowState (Normal, Minimized, Maximized, FullScreen). On Windows, nativeStyle and nativeExStyle are the HWND's GWL_STYLE/GWL_EXSTYLE masks, or nativeStyleNote says why not. Lists the DataContext ViewModel's public commands, Command-bound methods and properties for interact's reflection actions, with property values where readable as text. A control that inherits its DataContext lists only its own resolved Command, if any, with binding details in 'dataContextNote'; 'dataContextOwner' gives the owner's path, and 'dataContextNote' counts omitted Dock base-type members. An editor's Document reads as a line count: get_file_content returns the whole text that CaretOffset, SelectionStart and SelectionLength count into; the Immediate window's reads as its text. Values over 4000 characters are cut and give their full length. Use before interact to check providers or discover VM members. Pass the same 'window' as the dump the path came from. 'isHidden' is true for a control in the tree but effectively invisible (e.g. collapsed by a binding), and absent when showing.")]
     public async Task<InspectResult> InspectElementAsync(
         string target, [Description(WindowParameter)] string? window = null, CancellationToken ct = default)
     {

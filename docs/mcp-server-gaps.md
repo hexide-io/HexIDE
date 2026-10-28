@@ -701,16 +701,15 @@ CodeEditorViewModel.SelectedObject = UserControl1`.
 
 **Fix.** Category rows now expose an expand/collapse provider tied to `IsExpanded`; their toggles use the localized category header as their accessible name. Inspection reports the provider's `expandCollapseState`.
 
-## `take_snapshot` of a minimized window returns its last frame as if current
+## No tool says which mouse pointer a control shows
 
-**Symptom (2026-10-27, Windows, #1925's minimized check).** After `set_window_state {"state":"Minimized","window":"Form1"}`
-had run the form's Resize, `take_snapshot {"window":"Form1"}` returned a 450×300 image, with the usual client
-`captureArea`, whose label read `resize 1, activate 1, state 0`: the form before it minimized. Restored, it read
-`resize 3`. A minimized window draws no new frames, and the compositor capture (#2306) returns the last one.
+**Symptom (2026-10-28, Windows, #2448's live check).** `inspect_element {"target":"Window","window":"Form1"}` on a running
+form whose program had set `Screen.MousePointer = vbHourglass`, as its caption confirmed, has no cursor field.
+`take_snapshot` captures no OS cursor, and `dump_visual_tree` carries nothing about it. So neither `Screen.MousePointer`,
+nor a control's own `MousePointer`, nor a TextBox's I-beam can be checked in the running IDE.
 
-**Workaround.** Restore the window with `set_window_state` before capturing it, and treat a capture of a minimized
-window as stale.
+**Workaround.** None in the running IDE. A headless Integration test can read each control's `Cursor`, as
+`ScreenObjectRuntimeTests` does, and the program can read its own `MousePointer` back.
 
-**Suggested fix.** Refuse a minimized window in the default capture, as the frame capture does, naming
-`set_window_state`; or render it fresh and say so. Never present the last frame as current.
-[#2416](https://github.com/hexide-io/HexIDE/issues/2416).
+**Suggested fix.** Report the effective pointer in `inspect_element`: the standard cursor type it was made from, or
+custom, and whether it was set above the control's own value. [#2453](https://github.com/hexide-io/HexIDE/issues/2453).

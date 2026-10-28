@@ -626,6 +626,7 @@ added afterwards.
 - [`Like` in `#If` and `#Const`, and a directive's text order (2026-10-23, #1598)](like-in-if-and-const-and-a-directives-text-order.md#like-in-if-and-const-and-a-directives-text-order-2026-10-23-1598)
 - [A Let into an array variable (2026-10-23, #998, #1588)](a-let-into-an-array-variable.md#a-let-into-an-array-variable-2026-10-23-998-1588)
 - [StrComp, StrConv, Environ, Switch and Error(), and the case of a character (2026-10-23, #1560)](strcomp-strconv-environ-switch-and-error.md#strcomp-strconv-environ-switch-and-error-and-the-case-of-a-character-2026-10-23-1560)
+- [Err.Source after a run-time error and after Err.Raise (#1483)](when-err-is-cleared-and-what-a-running-handler-traps.md#errsource-after-a-run-time-error-and-after-errraise-1483)
 - [When Err is cleared, and what a running handler traps (2026-10-23, #877)](when-err-is-cleared-and-what-a-running-handler-traps.md#when-err-is-cleared-and-what-a-running-handler-traps-2026-10-23-877)
 - [Err.Source after a run-time error and after Err.Raise (2026-10-27, #1483)](err-source-after-a-run-time-error-and-err-raise.md#errsource-after-a-run-time-error-and-after-errraise-2026-10-27-1483)
 - [`Time`, and eight Dies rows that already ran (2026-10-23, #1633)](time-and-eight-dies-rows-that-already-ran.md#time-and-eight-dies-rows-that-already-ran-2026-10-23-1633)
@@ -642,6 +643,7 @@ added afterwards.
 - [The control a shown form focuses (2026-10-28, #2436)](the-control-a-shown-form-focuses.md#the-control-a-shown-form-focuses-2026-10-28-2436)
 - [A form's own ActiveControl (2026-10-28, #2437)](a-forms-own-activecontrol.md#a-forms-own-activecontrol-2026-10-28-2437)
 - [A ParamArray parameter (2026-10-28, #2462)](a-paramarray-parameter.md#a-paramarray-parameter-2026-10-28-2462)
+- [The MaskedEdBox: its mask, its Text and its keystrokes (2026-10-28, #1098)](the-maskededbox-mask-text-and-keystrokes.md#the-maskededbox-its-mask-its-text-and-its-keystrokes-2026-10-28-1098)
 - [A D exponent in a source literal (2026-10-23, #1611)](a-d-exponent-in-a-source-literal.md#a-d-exponent-in-a-source-literal-2026-10-23-1611)
 - [GetSetting, SaveSetting, DeleteSetting and GetAllSettings (2026-10-23, #1562)](getsetting-savesetting-deletesetting-and-getallsettings.md#getsetting-savesetting-deletesetting-and-getallsettings-2026-10-23-1562)
 - [A name declared twice (2026-10-23, #1622, #1499)](a-name-declared-twice.md#a-name-declared-twice-2026-10-23-1622-1499)
@@ -702,3 +704,4 @@ added afterwards.
 - [In-box controls: the Animation (2026-10-27, #1096)](in-box-controls-the-animation.md#in-box-controls-the-animation-2026-10-27-1096)
 
 - [Numeric format functions (#2515)](numeric-format-functions.md)
+- [The Forms collection (2026-10-28, #2496)](the-forms-collection.md#the-forms-collection-2026-10-28-2496)

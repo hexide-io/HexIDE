@@ -212,6 +212,20 @@ program that compiles and runs.
 - **WHEN** `Class_Initialize` makes a bare `Reset` call and its class defines a private Sub named `Reset`
 - **THEN** the interpreter SHALL call that Sub on the current instance
 
+### Requirement: Empty parentheses SHALL preserve a declared whole array
+A declared array named with empty parentheses SHALL evaluate as the whole array. Array parameters and
+ByRef Variant parameters SHALL share it; ByVal Variant parameters and a Let into a Variant SHALL copy it.
+A Variant holding an array, named with empty parentheses, SHALL raise "Expected Sub, Function, or Property"
+when the statement executes (measured, #2474). The ParamArray form remains deferred until after #2462.
+
+#### Scenario: Passing the whole array
+- **WHEN** `S arr()` or `Call S(arr())` passes `Dim arr(2) As Long` to `S(x() As Long)`
+- **THEN** `UBound(x)` is 2 and adding 1 to `x(0)` changes the caller's element to 1
+
+#### Scenario: Reading and copying the whole array
+- **WHEN** `w = arr()` assigns that array into a Variant
+- **THEN** w is a Long() with upper bound 2 and changing its elements leaves arr unchanged
+
 ### Requirement: A name read through a type character SHALL be the name's own read
 A variable, constant, Enum member, parameter or array read with a type-declaration character (`s$`, `i%`,
 `a%(1)`) SHALL be read as the name without it, and SHALL raise VB6's compile error "Type-declaration character
@@ -469,6 +483,29 @@ freed storage SHALL report it as out of scope without throwing into the UI.
 - **WHEN** the debugger inspects a frame after its procedure returns
 - **THEN** freed locals are absent from Locals and a watch on freed storage is out of scope
 
+### Requirement: Err.Source identifies the raising project
+
+A trapped run-time error SHALL report the raising project's Name as Err.Source, without a class
+suffix and independently of Title. Err.Raise SHALL retain an explicit source; with no source argument
+it SHALL fill an empty Source from the project name and preserve an already set Source. Err.Clear
+SHALL empty Source. Error provenance SHALL survive propagation across the managed library boundary.
+Native ActiveX DLL activation remains outside the implemented runtime surface.
+
+#### Scenario: A class raises into its caller
+
+- **WHEN** a class in project Probe raises a run-time error trapped by its caller
+- **THEN** Err.Source is Probe, even with Title set to Titled App
+
+#### Scenario: A managed library propagates an error
+
+- **WHEN** code in project ProbeDll raises an error into project Probe
+- **THEN** the caller's handler sees ProbeDll, or the source explicitly supplied to Err.Raise
+
+#### Scenario: A sourceless Raise follows a manual Source
+
+- **WHEN** Err.Source is Set and Err.Raise 7 supplies no source
+- **THEN** Err.Source remains Set
+
 ### Requirement: Assignment targets with type characters
 
 The interpreter SHALL resolve an unqualified scalar assignment target with `$`, `%`, `&`, `!`, `#` or `@`
@@ -499,3 +536,27 @@ probes and its 2026-10-27 entry "A For counter written with a type character" (#
 
 - **WHEN** `Dim i As Long` is followed by `For i% = 1 To 2: Next`, or `Dim i As Integer` by `For i = 1 To 2: Next i&`
 - **THEN** the statement raises "Type-declaration character does not match declared data type"
+
+### Requirement: The Screen object SHALL answer as VB6's does
+`Screen` SHALL be a program global. Its size SHALL be the primary screen in twips, 15 to a device-independent pixel.
+`MousePointer` SHALL convert as a control's does, and every form SHALL show it while it is not 0. `ActiveForm` and
+`ActiveControl` SHALL be Nothing, with no error, when no form is active. A member a program cannot write SHALL raise
+382 or 383, naming it.
+
+Measured on vb6.exe, native and p-code (`docs/vb6-fidelity-oracle/the-screen-object.md`, #2431).
+
+#### Scenario: Centring a form on the screen
+- **WHEN** a program reads `Screen.Width` on a screen 1024 device-independent pixels wide
+- **THEN** it SHALL read the Single 15360
+
+#### Scenario: The hourglass over a form
+- **WHEN** a program sets `Screen.MousePointer = vbHourglass` while a form is shown
+- **THEN** the form and every control on it SHALL show the hourglass, until the program sets it to 0
+
+#### Scenario: No form active
+- **WHEN** a program with no form shown reads `Screen.ActiveForm` or `Screen.ActiveControl`
+- **THEN** it SHALL read Nothing, and raise no error
+
+#### Scenario: A write to a member a program cannot write
+- **WHEN** a program writes `s.Width = 100` through `Set s = Screen`
+- **THEN** the interpreter SHALL raise 382, "'Width' property cannot be set at run time"
