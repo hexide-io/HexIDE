@@ -533,7 +533,8 @@ public class ProjectService : IProjectService
     /// False for an automation caller: no refusal is shown as a dialog, an unfaithful refusal comes back as
     /// <see langword="false"/>, and an encoding refusal as the <see cref="SourceEncodingRefusal"/>, which
     /// names the character. A dialog would hold the caller's reply until a person dismissed it. The picker
-    /// is not suppressed; see <see cref="ScriptedFileDialogs.WouldShowPicker"/>.
+    /// is not suppressed for pathless documents or Save As. Existing scratch files are persisted in place;
+    /// see <see cref="ScriptedFileDialogs.WouldShowPicker"/>.
     /// </param>
     public async Task<bool> SaveForm(FormDefinition form, bool saveAs, bool interactive = true, SaveRewriteReport? rewrites = null)
     {
@@ -542,7 +543,7 @@ public class ProjectService : IProjectService
             // Returned so a non-interactive caller can tell a refusal from a save. The MCP write tools reported
             // success unconditionally, which told an agent a file had been written when it had not — and an
             // agent, unlike a developer, has no dialog to read and will build on the answer.
-            return (await WithSaveRefusals(() => SaveFiles([(form, saveAs)], ownCommand: true, rewrites: rewrites), interactive)).Count > 0;
+            return (await WithSaveRefusals(() => SaveFiles([(form, saveAs)], ownCommand: true, rewrites: rewrites, userSave: interactive), interactive)).Count > 0;
         }
         finally
         {
@@ -629,6 +630,7 @@ public class ProjectService : IProjectService
     /// a write rewrites the document's attribute qualifiers whether or not it has unsaved changes, as VB6's does;
     /// see <see cref="RewrittenQualifiers"/>.
     /// </param>
+    /// <param name="userSave">False for internal persistence: an existing scratch path remains its destination.</param>
     /// <returns>What was written. A document HexIDE cannot reproduce is left out, and banked for the
     /// caller's <see cref="ReportRefusedSaves"/>.</returns>
     /// <remarks>
@@ -645,7 +647,7 @@ public class ProjectService : IProjectService
     /// If one stops holding, each writer's own encode still refuses, but files written before it stay written.
     /// </remarks>
     private async Task<IReadOnlyList<Destination>> SaveFiles(
-        IReadOnlyList<(object Document, bool SaveAs)> files, bool announceSave = true, bool ownCommand = false, SaveRewriteReport? rewrites = null)
+        IReadOnlyList<(object Document, bool SaveAs)> files, bool announceSave = true, bool ownCommand = false, SaveRewriteReport? rewrites = null, bool userSave = true)
     {
         // A UserControl's or PropertyPage's designer half is one file with its module, and the file the project names is
         // the module's. Saved as a form, a new one has no path (#500) and asked for a .frm, and wrote the edit there
@@ -660,7 +662,7 @@ public class ProjectService : IProjectService
 
         var destinations = new List<Destination>();
         foreach (var (document, saveAs) in files)
-            if (await DestinationOf(document, saveAs) is { } destination)
+            if (await DestinationOf(document, saveAs, userSave) is { } destination)
                 destinations.Add(destination);
 
         // The gate in DestinationOf keeps a picker from asking about a file that will not be written; this one
@@ -701,7 +703,7 @@ public class ProjectService : IProjectService
     /// <paramref name="saveAs"/> is set. Null when HexIDE cannot reproduce it, which is banked as a refusal.
     /// </summary>
     /// <exception cref="OperationCanceledException">A picker was dismissed.</exception>
-    private async Task<Destination?> DestinationOf(object document, bool saveAs)
+    private async Task<Destination?> DestinationOf(object document, bool saveAs, bool userSave)
     {
         switch (document)
         {
@@ -720,7 +722,7 @@ public class ProjectService : IProjectService
                 // docs/serialization-outcomes.md says is never acceptable. (#143)
                 if (RefusesUnfaithful(form))
                     return null;
-                return form.AbsolutePath is { } formPath && !saveAs
+                return form.AbsolutePath is { } formPath && !saveAs && (!userSave || !IsScratchFile(form.Owner, formPath))
                     ? new Destination(form, formPath)
                     : new Destination(form, await ChooseFormPath(form), Chosen: true);
 
@@ -730,12 +732,12 @@ public class ProjectService : IProjectService
                 // module has no designer half yet, or a fresh one with no unfaithful causes.
                 if (RefusesUnfaithful(module))
                     return null;
-                return module.AbsolutePath is { } modulePath && !saveAs
+                return module.AbsolutePath is { } modulePath && !saveAs && (!userSave || !IsScratchFile(module.Owner, modulePath))
                     ? new Destination(module, modulePath)
                     : new Destination(module, await ChooseModulePath(module), Chosen: true);
 
             case ProjectDefinition project:
-                return project.AbsolutePath is { } projectPath && !saveAs
+                return project.AbsolutePath is { } projectPath && !saveAs && (!userSave || !IsScratchFile(project, projectPath))
                     ? new Destination(project, projectPath)
                     : new Destination(project, await ChooseProjectPath(project), Chosen: true);
 
@@ -747,6 +749,17 @@ public class ProjectService : IProjectService
             default:
                 throw new ArgumentException($"HexIDE does not save a {document?.GetType().Name ?? "null"}.", nameof(document));
         }
+    }
+
+    // A file written for --newproject still has no user-chosen home (#2678). Use the recorded
+    // scratch directory, not a TEMP/name heuristic that could catch a project the user saved there.
+    private static bool IsScratchFile(ProjectDefinition project, string? path)
+    {
+        if (path is null || project.WorkingDirectory is not { } scratch)
+            return false;
+        var relative = Path.GetRelativePath(scratch, path);
+        return !Path.IsPathRooted(relative) && relative != ".."
+            && !relative.StartsWith(".." + Path.DirectorySeparatorChar, StringComparison.Ordinal);
     }
 
     /// <summary>The designer half a UserControl or PropertyPage is written from; null for any other module.</summary>
@@ -2044,7 +2057,7 @@ public class ProjectService : IProjectService
     {
         try
         {
-            return await WithSaveRefusals(() => SaveModuleCore(module, saveAs, rewrites: rewrites), interactive);
+            return await WithSaveRefusals(() => SaveModuleCore(module, saveAs, rewrites: rewrites, userSave: interactive), interactive);
         }
         finally
         {
@@ -2069,8 +2082,8 @@ public class ProjectService : IProjectService
     /// way, because a write that adopts no header rewrites no qualifier.
     /// </para>
     /// </remarks>
-    internal async Task<bool> SaveModuleCore(ModuleDefinition module, bool saveAs, bool announceSave = true, SaveRewriteReport? rewrites = null) =>
-        (await SaveFiles([(module, saveAs)], announceSave, ownCommand: true, rewrites: rewrites)).Count > 0;
+    internal async Task<bool> SaveModuleCore(ModuleDefinition module, bool saveAs, bool announceSave = true, SaveRewriteReport? rewrites = null, bool userSave = true) =>
+        (await SaveFiles([(module, saveAs)], announceSave, ownCommand: true, rewrites: rewrites, userSave: userSave && announceSave)).Count > 0;
 
     /// <summary>Writes a module the caller has decided HexIDE can reproduce, and repoints it there.</summary>
     /// <param name="ownCommand">As <see cref="SaveFiles"/>'s: the module is written by its own Save or Save As.</param>
@@ -2136,7 +2149,7 @@ public class ProjectService : IProjectService
     private bool IsDirty(ProjectDefinition project)
     {
         var path = project.AbsolutePath;
-        if (path is null)
+        if (path is null || IsScratchFile(project, path))
             return true; // never saved
 
         // A member with no file changes the project file for certain, since the next save lists it, and the render
@@ -2155,7 +2168,7 @@ public class ProjectService : IProjectService
     private bool IsDirty(FormDefinition form)
     {
         var path = form.AbsolutePath;
-        if (path is null)
+        if (path is null || IsScratchFile(form.Owner, path))
             return true;
 
         var (text, binary) = new FormSerializer().Serialize(form, Path.GetFileName(path));
@@ -2165,7 +2178,7 @@ public class ProjectService : IProjectService
     private bool IsDirty(ModuleDefinition module)
     {
         var path = module.AbsolutePath;
-        if (path is null)
+        if (path is null || IsScratchFile(module.Owner, path))
             return true;
 
         if (module.FormPart is { } formPart && module.Kind is ModuleKind.UserControl or ModuleKind.PropertyPage)
