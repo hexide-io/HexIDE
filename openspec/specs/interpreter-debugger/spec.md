@@ -165,8 +165,24 @@ Locals is the primary inspection surface, showing what is in scope where executi
 
 #### Scenario: Expanding a control whose property cannot be read
 - **WHEN** the developer expands a control one of whose listed properties raises when read
-- **THEN** that property is listed with the raised error's own description in angle brackets, and no type
+- **THEN** that property is listed with the raised error's own description in angle brackets, and the member's declared
+  type where it is measured, as a Timer's is, and otherwise no type
 - **AND** the control's other properties are still listed, and the expansion does not fail
+
+#### Scenario: Expanding a Timer
+- **WHEN** the developer expands a Timer
+- **THEN** it lists VB6's seven rows in VB6's order, `[_Default]`, `Enabled`, `Index`, `Interval`, `Name`, `Parent` and
+  `Tag`, each with the member's declared type, and `Parent` opens to the form
+
+#### Scenario: Expanding a control array
+- **WHEN** the developer expands a control array
+- **THEN** its elements are listed as `Item 1`, `Item 2` and on, in index order, numbered from 1 whatever their Index
+
+#### Scenario: Expanding a running form's Me
+- **WHEN** the developer expands `Me` on a running form
+- **THEN** its first row is `[_Default]`, reading VB6's "Wrong number of arguments" error with type `Object`
+- **AND** its properties and controls follow as one list sorted by name, case ignored, and an `Item` row per control
+  ends it, in the order the form's file holds them
 
 ### Requirement: The Immediate window SHALL evaluate expressions against the paused frame
 The Immediate window SHALL evaluate expressions and execute assignments against the paused frame, and SHALL reject calls to user procedures.

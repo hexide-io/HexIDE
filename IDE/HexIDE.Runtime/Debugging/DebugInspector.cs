@@ -33,6 +33,11 @@ public sealed class DebugNode
     /// <summary>True if this node can be expanded (has a lazy child provider).</summary>
     public bool HasChildren => _expand is not null;
 
+    /// <summary>The node opens an object already open above it, as a Timer's Parent under Me does. VB6's Locals opens it
+    /// all the same, so the window does too, but a walk that expands everything stops here: below it is the same tree
+    /// again (#2329).</summary>
+    public bool Repeats { get; init; }
+
     /// <summary>&gt; 0 on the synthetic "N more elements" marker appended when an array exceeds the element cap;
     /// the front-end shows a localized "… N more". 0 for an ordinary node.</summary>
     public int TruncatedRemaining { get; }
@@ -179,15 +184,7 @@ public static class DebugInspector
             // A form instance (#822): its window's own VB6 properties (Caption / Width / BackColor / …) first, then the
             // instance's variables and controls (P8 D7, the form property surface). Read even before the form has loaded,
             // since Locals only looks.
-            nodes.Add(new DebugNode("Me", formObj.ClassName, formObj.ClassName, () =>
-            {
-                var kids = new List<DebugNode>();
-                kids.AddRange(PropertyNodes(instanceWindow));
-                var ancestors = NewAncestorSet();
-                ancestors.Add(formObj);
-                kids.AddRange(EnvChildren(baseEnv, ctx, ancestors, 1, selfName));
-                return kids;
-            }));
+            nodes.Add(FormNode("Me", formObj.ClassName, formObj, instanceWindow, baseEnv, ctx, selfName, 0));
         }
         else if (me is { Value: VbObject rootObj })
         {
@@ -224,6 +221,36 @@ public static class DebugInspector
         return new DebugScope(context, nodes);
     }
 
+    /// <summary>
+    /// A running form, as <c>Me</c> or a Timer's <c>Parent</c>, as VB6's Locals window lists it (measured, #2329 and the
+    /// oracle's #2698): its default member's row first; then its properties and its controls as one list, sorted by name
+    /// with case ignored, a control array as one node; then an <c>Item</c> row for each control, in the file's order with
+    /// each array element where its block is. The instance's own variables follow the sorted list, where VB6's are not yet
+    /// measured. VB6 opens a form however it was reached, Parent under Me included, so only the depth bounds it.
+    /// </summary>
+    internal static DebugNode FormNode(string name, string value, VbObject formObj, Control window,
+        ExecutionEnvironment baseEnv, ModuleExecutionContext ctx, string selfName, int depth,
+        IReadOnlySet<VbObject>? above = null) =>
+        new(name, value, formObj.ClassName, depth + 1 >= MaxDepth ? null : () =>
+        {
+            // VB6's first row under a form is its default member, which can't be read without an argument.
+            var kids = new List<DebugNode>
+            {
+                new("[_Default]", $"<{VBStandardError.WrongNumberOfArgumentsOrInvalidPropertyAssignment.Description}>",
+                    "Object"),
+            };
+            var ancestors = NewAncestorSet();
+            ancestors.Add(formObj);
+            var members = new List<DebugNode>(PropertyNodes(window));
+            var variables = new List<DebugNode>();
+            foreach (var (varName, varValue) in VisibleVariables(baseEnv, ctx, selfName))
+                (IsControl(varValue) ? members : variables).Add(ValueNode(varName, varValue, ctx, ancestors, depth + 1));
+            kids.AddRange(members.OrderBy(n => n.Name, StringComparer.OrdinalIgnoreCase));
+            kids.AddRange(variables);
+            kids.AddRange(ItemNodes(formObj.Controls?.All ?? [], ctx, ancestors, depth + 1));
+            return kids;
+        }) { Repeats = above?.Contains(formObj) == true };
+
     /// <summary>Build a single Locals-style node for an arbitrary evaluated expression <paramref name="value"/> (a
     /// Watch expression's result). Named <paramref name="name"/> (the watch text); expandable for object/array/UDT
     /// results, a leaf otherwise — the same rendering the Locals tree uses.</summary>
@@ -245,18 +272,25 @@ public static class DebugInspector
     // <paramref name="selfName"/> (the module's own name for the Me/module root) hides a form's self-reference
     // binding — HexIDE seeds the form's own name into its module scope, but VB6 never shows that under Me.
     private static IReadOnlyList<DebugNode> EnvChildren(
-        ExecutionEnvironment env, ModuleExecutionContext ctx, HashSet<VbObject> ancestors, int depth, string? selfName = null)
+        ExecutionEnvironment env, ModuleExecutionContext ctx, HashSet<VbObject> ancestors, int depth, string? selfName = null) =>
+        [.. VisibleVariables(env, ctx, selfName).Select(v => ValueNode(v.Name, v.Value, ctx, ancestors, depth))];
+
+    // Every variable of an environment that Locals shows, in declaration order.
+    private static IEnumerable<(string Name, Vb6Value Value)> VisibleVariables(
+        ExecutionEnvironment env, ModuleExecutionContext ctx, string? selfName)
     {
-        var list = new List<DebugNode>();
         foreach (var name in env.variableToLocation.Keys)
         {
             if (Hidden.Contains(name) || IsSelfRef(name, selfName) || IsFormName(ctx, env, name))
                 continue;
             if (ctx.TryInspectVariable(env, name, out var value))
-                list.Add(ValueNode(name, value, ctx, ancestors, depth));
+                yield return (name, value);
         }
-        return list;
     }
+
+    // A control or a control array, which a form lists among its members (#2329).
+    private static bool IsControl(Vb6Value value) =>
+        value.Type == Vb6Value.ValueType.Control || value.Value is ControlArrayGroup;
 
     // One row for a named value — a leaf for scalars/Nothing/controls, or an expandable node for arrays, UDTs and
     // live class instances. `name` is the bare variable name (array element names are derived from it).
@@ -313,7 +347,7 @@ public static class DebugInspector
             return new DebugNode(name, FormatValue(value), type, () =>
             {
                 var kids = new List<DebugNode>();
-                kids.AddRange(PropertyNodes(control));
+                kids.AddRange(control is VBTimer ? TimerNodes(control, ctx, ancestors, depth) : PropertyNodes(control));
                 return kids;
             });
 
@@ -330,13 +364,8 @@ public static class DebugInspector
             }
             if (depth >= MaxDepth || group.Count == 0)
                 return new DebugNode(name, string.Empty, elemType);
-            return new DebugNode(name, string.Empty, elemType, () =>
-            {
-                var kids = new List<DebugNode>();
-                foreach (var (index, element) in group.Elements)
-                    kids.Add(ValueNode($"{name}({index})", new Vb6Value(element), ctx, ancestors, depth + 1));
-                return kids;
-            });
+            return new DebugNode(name, string.Empty, elemType,
+                () => [.. ItemNodes([.. group.Elements.Values], ctx, ancestors, depth)]);
         }
 
         // A Collection (#1471) — expand to its items in order, "Item 1", "Item 2", …, each a node of its own, so an object
@@ -391,6 +420,23 @@ public static class DebugInspector
         }
         return list;
     }
+
+    // An enumerable object's members as VB6's Locals lists them after its own rows: Item 1, Item 2 and on, in its order and
+    // counted from 1 whatever an element's Index. A control array's elements, and a form's controls under Me (measured on
+    // #2289, the table on #2329; Me's measured with two Timers only).
+    private static IEnumerable<DebugNode> ItemNodes(
+        IReadOnlyList<Control> items, ModuleExecutionContext ctx, HashSet<VbObject> ancestors, int depth) =>
+        items.Select((item, i) => ValueNode($"Item {i + 1}", new Vb6Value(item), ctx, ancestors, depth + 1));
+
+    // The seven rows VB6's Locals window lists under a Timer, in its order, each with the member's declared type (#2329).
+    // Parent opens to the form, as VB6's does.
+    private static IEnumerable<DebugNode> TimerNodes(
+        Control timer, ModuleExecutionContext ctx, HashSet<VbObject> ancestors, int depth) =>
+        TimerMembers.LocalsRows(timer).Select(row =>
+            row.Error is { } error ? new DebugNode(row.Name, $"<{error}>", row.DeclaredType)
+            : row.Value.Value is VbObject { FormWindow: { } window } form
+                ? FormNode(row.Name, string.Empty, form, window, form.InstanceEnv, ctx, form.ClassName, depth + 1, ancestors)
+            : new DebugNode(row.Name, FormatValue(row.Value), row.DeclaredType));
 
     // A live control's or form's properties, name-sorted. One whose read raises shows the raised error's own description
     // in angle brackets, with no type, and the rest are still listed (#2289). The angle brackets are VB6's own, for a member
