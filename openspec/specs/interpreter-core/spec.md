@@ -17,8 +17,6 @@ worse than one that is obviously incomplete.
 > - **A member on a value that is not a control.** `Clipboard.SetText` and `Collection.Remove` raise a run-time
 >   error with no number, and `Err.Number` is left at 0. Tracked in
 >   [#257](https://github.com/hexide-io/HexIDE/issues/257).
-> - **A member VB6 has, raised as VB6's own error.** `App.LogEvent` and `App.StartLogging` raise 438, which reads
->   as though VB6 had no such member.
 > - **`For Each` over anything but an array,** a control array included, raises Type mismatch (13).
 > - **A `Class_Terminate` that raises while the failure unwinds** replaces it with its own error
 >   ([#767](https://github.com/hexide-io/HexIDE/issues/767)).
@@ -30,6 +28,41 @@ worse than one that is obviously incomplete.
 > here, not the intent.
 
 ## Requirements
+
+### Requirement: ObjPtr SHALL preserve object identity
+`ObjPtr` SHALL return Long identities satisfying the relations measured in
+[#2622](https://github.com/hexide-io/HexIDE/issues/2622) (measuring PRs #2624 and #2628).
+These identities need not be native addresses. Unmeasured non-object operand types SHALL be refused
+as not implemented.
+
+#### Scenario: Nothing and live object aliases
+- **WHEN** `ObjPtr` reads Nothing, an unset Object or an Object set to Nothing
+- **THEN** it SHALL return zero as a Long
+- **WHEN** two names reference the same live object
+- **THEN** their identities SHALL be equal and non-zero
+- **AND** a different live object SHALL have a different identity
+
+#### Scenario: Measured invalid operands
+- **WHEN** `ObjPtr(5)` or `ObjPtr("a")` executes
+- **THEN** it SHALL raise run-time error 13 for VB6's compile-time Type mismatch
+
+### Requirement: ErrObject assignments and creation SHALL match measured VB6 errors
+
+A variable declared `As ErrObject` SHALL accept Err and Nothing. Assigning a Collection SHALL
+raise 13 and preserve the previous reference. `New ErrObject` SHALL raise a trappable run-time
+-2147221164, "Class not registered" (VB6 SP6 native/p-code measurements, #2627).
+
+#### Scenario: Refused Collection assignment
+
+- **GIVEN** `e As ErrObject` holds Err
+- **WHEN** `Set e = New Collection` executes under `On Error Resume Next`
+- **THEN** Err.Number is 13 and `e Is Err` remains True
+
+#### Scenario: ErrObject cannot be created
+
+- **GIVEN** `e As ErrObject` holds Nothing
+- **WHEN** `Set e = New ErrObject` executes under `On Error Resume Next`
+- **THEN** Err.Number is -2147221164, Err.Description is "Class not registered", and e remains Nothing
 
 ### Requirement: One engine SHALL serve every execution path
 Running from the IDE, running under automation, and running in tests SHALL all execute through the same
@@ -891,6 +924,39 @@ refused as not implemented until measured (#2521).
 - **THEN** it converts as CInt, including numeric strings, rounding 1.6 to 2 and raising 94 for Null
 - **AND** attribute 0, 2 or 3 raises 5, and an unopened number with attribute 1 raises 52
 
+### Requirement: CVErr SHALL construct an Error Variant
+
+The runtime SHALL reproduce Error Variant construction, inspection, conversions, comparisons,
+display and refusals measured in [#2520](https://github.com/hexide-io/HexIDE/issues/2520)
+and [#2613](https://github.com/hexide-io/HexIDE/pull/2613). It SHALL report VarType 10
+and TypeName "Error". Missing SHALL remain a separate omitted-argument sentinel with its
+existing measured behaviour. Unmeasured Error conversions and declared stores SHALL refuse
+as not implemented.
+
+#### Scenario: Explicit conversion differs from an implicit store
+- **WHEN** a Variant holds CVErr(5)
+- **THEN** CLng returns Long 5 and CStr returns "Error 5"
+- **AND** assigning it to a Long or String raises error 13 without changing the destination
+
+#### Scenario: Constructing an Error value
+- **WHEN** CVErr receives 1.5 or 2.5
+- **THEN** it returns Error 2
+- **AND** CVErr(65536) raises error 5
+
+#### Scenario: The follow-up explicit conversions
+- **WHEN** a Variant holds CVErr(5)
+- **THEN** CBool, CByte, CSng and CCur return True, Byte 5, Single 5 and Currency 5
+- **AND** CDec and CDate raise error 13
+
+#### Scenario: An Error selector compared with a number
+- **WHEN** a Variant holding CVErr(5) reaches Case 5 under On Error Resume Next
+- **THEN** the comparison raises 13 and runs that Case's body, retaining Err.Number after End Select
+
+#### Scenario: Displaying an Error value
+- **WHEN** Print # or Write # receives CVErr(5)
+- **THEN** Print # writes "Error 5" and Write # writes "#ERROR 5#"
+- **AND** implicit string coercion still raises 13
+
 ### Requirement: Forms SHALL hold the program's loaded forms as VB6's does
 `Forms` SHALL be a program global, reached where nothing the program declares claims the name. It SHALL hold the loaded
 forms in the order they loaded, a form from the start of its own Load to the end of its own Unload. Its index SHALL be a
@@ -915,6 +981,27 @@ Measured on vb6.exe, native and p-code (`docs/vb6-fidelity-oracle/the-forms-coll
 #### Scenario: For Each walks the forms held when it began
 - **WHEN** a For Each over `Forms` unloads the last form on its first pass, and loads Form4
 - **THEN** it SHALL still hand out the unloaded form when it reaches it, and SHALL NOT reach Form4
+
+### Requirement: App logging SHALL implement the measured file modes
+App.StartLogging and App.LogEvent SHALL implement the file output and mode/path values measured in
+[#2552](https://github.com/hexide-io/HexIDE/issues/2552). App.LogMode SHALL be a Long and App.LogPath a String;
+LogPath assignment SHALL reject the write as read-only. Default and NT logging SHALL deliberately write
+no operating-system event, while retaining the measured values. Unmeasured modes, conversions, encoding
+and file-failure semantics SHALL fail explicitly as not implemented.
+
+#### Scenario: File logging appends
+- **WHEN** a program selects mode 2 and logs a measured event type
+- **THEN** the file receives the measured padded severity, application path, integer thread id, message and CRLF
+- **AND** an existing file is appended to
+
+#### Scenario: Overwrite flag disables logging
+- **WHEN** a program selects mode 18 and logs an event
+- **THEN** LogMode reads Long 1 and the existing file remains unchanged
+
+#### Scenario: Default logging selects NT without a system side effect
+- **WHEN** a program logs an event without StartLogging
+- **THEN** LogMode changes from Long 1 to Long 3 and LogPath remains empty
+- **AND** no operating-system event is written
 
 ### Requirement: FormatDateTime SHALL use the program's locale
 `FormatDateTime(Date, [NamedFormat])` SHALL return a String using `VbLocale`: omitted or 0
@@ -986,3 +1073,55 @@ error 5 for 256 and -1, and error 52 for an unopened number. Zero SHALL remove t
 - **WHEN** Width is used on an open Binary or Input file
 - **THEN** it SHALL accept the measured width of five without error
 - **AND** no effect in those modes is specified by this measurement
+
+### Requirement: File locks within a program
+
+The interpreter SHALL implement Lock and Unlock for a whole file, a single record, an inclusive
+`start To end` range, and `To end` with start 1, in accordance with the native and p-code measurements
+in [#2553](https://github.com/hexide-io/HexIDE/issues/2553). Binary ranges SHALL count bytes and Random
+ranges SHALL count records of the file's Len; sequential ranges SHALL cover the whole file. The
+runtime SHALL refuse a duplicate lock or non-exact unlock with error 70, an invalid range with 63,
+and an unopened number with 52. Unmeasured range conversions from types other than Byte, Integer or
+Long SHALL be refused as not implemented. Locks are scoped to this program; cross-process locking is not provided.
+
+#### Scenario: Another file number reads a locked range
+- **GIVEN** two Binary handles on one file and `Lock #1, 2 To 4`
+- **WHEN** `Get #2, 4, b` executes
+- **THEN** it raises error 70, while `Get #1, 4, b` may read its own lock
+- **AND** `Unlock #1, 2 To 3` raises 70 while `Unlock #1, 2 To 4` succeeds
+
+#### Scenario: Closing the owner releases locks
+- **GIVEN** two handles on a file and a range locked by number 1
+- **WHEN** number 1 closes
+- **THEN** number 2 can read the released range
+
+### Requirement: Form termination order at the run's end
+
+At a normal run's end, the program SHALL terminate remaining form instances in the order the project lists
+its forms, and newest instance first within each form, as [#2496 measured](../../../docs/vb6-fidelity-oracle/the-forms-collection.md#the-terminates-at-the-runs-end).
+
+#### Scenario: Creation order differs from project order
+
+- **GIVEN** the project lists Form3, Form1, Form4, Form2
+- **WHEN** instances are made in the order Form4, Form2, Form1, Form3, then a second Form2
+- **THEN** termination runs Form3, Form1, Form4, the second Form2, then the first Form2
+
+### Requirement: Mid statement spellings SHALL overwrite the existing string
+`Mid` and `Mid$` statements SHALL replace at most the supplied length, replacement length and remaining
+target length, without growing the target. A Variant target holding an Integer SHALL become a String. A Null target
+or replacement SHALL raise 94 without changing the target. `MidB` and `MidB$` statements SHALL overwrite
+bytes of the target's low-byte-first UTF-16 representation, preserving all untouched bytes and the total
+character length, including when the write crosses character boundaries or has an odd byte count.
+These outcomes are measured on vb6.exe SP6, native and p-code ([#2623](https://github.com/hexide-io/HexIDE/issues/2623)).
+
+#### Scenario: A character write is clamped
+- **WHEN** `s` is `"abcdef"` and `Mid$(s, 5) = "WXYZ"` runs
+- **THEN** `s` is `"abcdWX"`
+
+#### Scenario: A byte write crosses characters
+- **WHEN** `s` is `"abcdef"` and `MidB(s, 2, 2) = "X"` runs
+- **THEN** its character units are 22625, 0, 99, 100, 101, 102
+
+#### Scenario: A Null target is preserved
+- **WHEN** `v` holds Null and `Mid$(v, 1, 1) = "9"` runs
+- **THEN** error 94 is raised and `v` remains Null

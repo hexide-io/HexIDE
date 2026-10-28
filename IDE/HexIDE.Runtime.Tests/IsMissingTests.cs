@@ -147,7 +147,7 @@ public class IsMissingTests : BaseVBTestFixture
     [Fact]
     public async Task A_missing_value_is_an_error_value()
     {
-        // Measured True. Missing is the only vbError value the model has; CVErr is still unimplemented.
+        // Measured True. Missing reports as vbError, independently of the CVErr Error subtype (#2520).
         await Run("""
             Function Probe(a, Optional v)
                 Probe = IsError(v)

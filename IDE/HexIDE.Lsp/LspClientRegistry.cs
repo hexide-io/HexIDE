@@ -948,6 +948,10 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
             await client.StartAsync(cancellationToken);
             e.State = client.IsRunning ? LanguageConnectionState.Running : LanguageConnectionState.Failed;
             e.StateSince = DateTimeOffset.UtcNow;
+            if (client.IsRunning && _artifacts is not null)
+                await _artifacts.TrackFoldersAsync(e.Registration, token =>
+                    ReferenceEquals(e.Client, client) && client.IsRunning
+                        ? client.UpdateWorkspaceFoldersAsync(token) : Task.CompletedTask, cancellationToken);
             if (client.IsRunning && _artifacts is not null && e.Registration.ProjectImport is { } spec)
                 await _artifacts.ImportAsync(e.Registration, async (project, token) =>
                 {

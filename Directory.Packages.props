@@ -90,6 +90,9 @@
          The package's own dependency is an open ">= 3.2.2", so NuGet resolves 4.0.0 happily and it fails
          only at test DISCOVERY — no build error, no restore warning. Raise this when #22072 closes. -->
     <PackageVersion Include="xunit.v3" Version="[3.2.2,4.0.0)" />
+    <!-- At the Microsoft.Testing.Platform version xunit.v3 brings (1.9.1), which the extension must match. CI runs
+         the Integration steps with hang dumps on, so a hung test is named and dumped inside the step limit (#2530). -->
+    <PackageVersion Include="Microsoft.Testing.Extensions.HangDump" Version="1.9.1" />
   </ItemGroup>
   <!-- MCP server -->
   <ItemGroup>

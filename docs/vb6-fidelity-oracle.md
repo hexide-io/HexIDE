@@ -46,3 +46,6 @@ The ParamArray forwarding measurement supplied by hexide-int in
 [#2532](https://github.com/hexide-io/HexIDE/issues/2532) agrees in native and p-code:
 `T a()` inside a ParamArray procedure supplies one element containing a copy of the whole
 array to T's ParamArray. Writes through that nested array leave the caller's ParamArray unchanged.
+
+The #2497 correction to form termination order, measured by #2496 in native and p-code builds, is recorded in
+[The Forms collection](vb6-fidelity-oracle/the-forms-collection.md#the-terminates-at-the-runs-end).
