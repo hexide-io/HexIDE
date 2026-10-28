@@ -13,6 +13,13 @@ public interface IModuleExecutionRoot
     // args carries a control-array event's leading `Index As Integer` (null for a parameterless handler).
     void ExecuteSub(string name, IReadOnlyList<Vb6Value>? args = null);
 
+    // The designated argument is passed through a caller slot and read back after the handler returns.
+    void ExecuteEventByRef(string name, IReadOnlyList<Vb6Value> args, int byRefIndex, Action<Vb6Value> completed)
+    {
+        ExecuteSub(name, args);
+        completed(args[byRefIndex]);
+    }
+
     // Keyboard arguments must return before the character is applied (#2325).
     void ExecuteKeyboardEvent(string name, IReadOnlyList<Vb6Value> args, int writable, Action<int> completed)
     {

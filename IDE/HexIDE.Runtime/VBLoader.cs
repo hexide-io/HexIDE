@@ -43,11 +43,12 @@ public class VBLoader
         VbObject? form = null,
         VBProgram? program = null)
     {
-        var toolbars = element.Components.Where(c => c.BaseClass is FormComponentClass)
+        var runtimeBlocks = element.Components.Where(c => c.BaseClass is FormComponentClass)
             .SelectMany(c => c.PreservedChildSubtrees)
-            .Select(block => (block.Text, Component: Components.InBox.ToolbarComponentClass.ReadForRuntime(block.Text)))
+            .Select(block => (block.Text, Component: (Components.InBox.ToolbarComponentClass.ReadForRuntime(block.Text)
+                ?? Components.InBox.MonthViewComponentClass.ReadForRuntime(block.Text))))
             .Where(pair => pair.Component is not null).ToDictionary(pair => pair.Text, pair => pair.Component!);
-        RefuseUnsupportedControls(element, toolbars.Keys);
+        RefuseUnsupportedControls(element, runtimeBlocks.Keys);
         var canvas = new Canvas()
         {
             ClipToBounds = true
@@ -165,8 +166,8 @@ public class VBLoader
                 dialogs[block] = upDown;
             }
 
-        // The Toolbar is runtime-only until its file slice; its designer block remains carried verbatim.
-        foreach (var (block, component) in toolbars)
+        // Toolbar and MonthView are runtime-only until their file slices; designer blocks remain carried verbatim.
+        foreach (var (block, component) in runtimeBlocks)
         {
             PlaceComponentTree(component, canvas, canvas, element, (part, control, host) =>
             {
@@ -783,11 +784,11 @@ public class VBLoader
     /// with Err.Number 0, and a form whose code never names it ran as if it had never held it. This is an engine limit,
     /// so no On Error in the program can trap it. A form the designer opens is not refused: it shows what it holds.
     /// </summary>
-    private static void RefuseUnsupportedControls(FormDefinition element, ICollection<string> runtimeToolbars)
+    private static void RefuseUnsupportedControls(FormDefinition element, ICollection<string> runtimeBlocks)
     {
         var lines = new List<string>();
         foreach (var block in element.UnknownChildSubtreeTexts)
-            if (!runtimeToolbars.Contains(block) && RuntimeControlBlock(block, "MSComCtl2.UpDown") is null)
+            if (!runtimeBlocks.Contains(block) && RuntimeControlBlock(block, "MSComCtl2.UpDown") is null)
                 DescribeUncreatable(block, lines);
         foreach (var component in element.Components)
             foreach (var property in component.UnknownRawProperties)

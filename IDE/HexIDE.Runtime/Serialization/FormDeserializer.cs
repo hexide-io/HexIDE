@@ -93,6 +93,7 @@ public class FormDeserializer
         Components.InBox.StatusBarComponentClass.Instance,
         Components.InBox.ImageListComponentClass.Instance,
         Components.InBox.ToolbarComponentClass.Instance,
+        Components.InBox.MonthViewComponentClass.Instance,
         Components.InBox.SSTabComponentClass.Instance,
         Components.InBox.CommonDialogComponentClass.Instance,
         Components.InBox.MaskedEdBoxComponentClass.Instance,
@@ -101,15 +102,15 @@ public class FormDeserializer
 
     /// <summary>
     /// Whether a control the designer carries as a block is one HexIDE runs (#2327): a CommonDialog (#1084), or a Toolbar
-    /// (#1088) or an UpDown (#1093) that holds no controls and is no control array's element. Loading one warns of
-    /// nothing, and the designer's box says it is view-only there rather than unsupported. A nested or arrayed Toolbar or
-    /// UpDown is still refused at run time.
+    /// (#1088) or an UpDown (#1093) or MonthView (#1095) that holds no controls and is no control array's element.
+    /// Loading one warns of nothing, and the designer's box says it is view-only there rather than unsupported. A nested
+    /// or arrayed Toolbar, UpDown or MonthView is still refused at run time.
     /// </summary>
     public static bool RunsWhenCarried(string type, bool holdsControls, bool inArray) =>
         type.Equals("MSComDlg.CommonDialog", StringComparison.OrdinalIgnoreCase)
         || !holdsControls && !inArray
             && (type.Equals("MSComCtl2.UpDown", StringComparison.OrdinalIgnoreCase)
-                || componentsByTypeNames.TryGetValue(type, out var known) && known is Components.InBox.ToolbarComponentClass);
+                || componentsByTypeNames.TryGetValue(type, out var known) && known is Components.InBox.ToolbarComponentClass or Components.InBox.MonthViewComponentClass);
 
     public FormDefinition? Deserialize(ProjectDefinition owner, string source, IDeserializeErrorSink errorSink,
         IReadOnlyDictionary<int, byte[]>? frxBlobs = null,
@@ -168,8 +169,8 @@ public class FormDeserializer
         {
             var known = componentsByTypeNames.TryGetValue(serializedComponent.Type, out var componentClass)
                 || extraComponents != null && extraComponents.TryGetValue(serializedComponent.Type, out componentClass);
-            // The designer carries Toolbar blocks verbatim; the runtime explicitly reads their property bags.
-            if (!known || componentClass is null || componentClass is Components.InBox.ToolbarComponentClass
+            // The designer carries Toolbar and MonthView blocks verbatim; the runtime reads their property bags.
+            if (!known || componentClass is null || componentClass is (Components.InBox.ToolbarComponentClass or Components.InBox.MonthViewComponentClass)
                 && (extraComponents is null || !extraComponents.ContainsKey(serializedComponent.Type)
                     || serializedComponent.SubComponents.Count != 0
                     || serializedComponent.Properties.Keys.Any(name => name.Equals("Index", StringComparison.OrdinalIgnoreCase))))

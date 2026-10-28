@@ -183,6 +183,9 @@ public class VBFormRuntime : Window, IModuleExecutionRoot, IFormView
         windowContext.ExecuteSub(name, args);
     }
 
+    public void ExecuteEventByRef(string name, IReadOnlyList<Vb6Value> args, int byRefIndex, Action<Vb6Value> completed) =>
+        windowContext.ExecuteEventByRef(name, args, byRefIndex, completed);
+
     public System.Threading.Tasks.Task ExecuteEditEventAsync(string name, IList<Vb6Value> args) =>
         windowContext.ExecuteEditEventAsync(name, args);
 
