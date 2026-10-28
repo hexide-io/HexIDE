@@ -99,6 +99,12 @@ public sealed class NamedPipeLspTransport : ILspTransport
     private Process? _process;
     private ChildProcessJob? _job;
 
+    // A launched server's end is reported exactly once, from Exited or from teardown, whichever sees it first. The
+    // stdio transport has had this since #2107; this one unsubscribed Exited at teardown and reported nothing, so a
+    // server that outlived the connect attempt by a moment had its exit code dropped (#2685).
+    private readonly Lock _exitGate = new();
+    private bool _exitReported;
+
     /// <summary>
     /// Set when a launch was configured, ran, and produced no handle to own.
     /// </summary>
@@ -449,6 +455,7 @@ public sealed class NamedPipeLspTransport : ILspTransport
         }
 
         _process = process;
+        lock (_exitGate) _exitReported = false;
         _job.Assign(process);
         process.EnableRaisingEvents = true;
 
@@ -475,32 +482,41 @@ public sealed class NamedPipeLspTransport : ILspTransport
 
     private void OnServerExited(object? sender, EventArgs e)
     {
+        // BEFORE Closed, which is what tears the connection down. An exit code arriving after the record
+        // stopped accepting entries would be the one fact nobody could see — and for a pipe server that
+        // died during startup it is very nearly the only fact there is.
+        lock (_exitGate) ReportExit(sender as Process);
+
+        Closed?.Invoke(this, EventArgs.Empty);
+    }
+
+    private void ReportExit(Process? process)
+    {
+        if (_exitReported) return;
+        _exitReported = true;
+
         // Read first: Kill() and Dispose() are both moments away, and ExitCode throws once the handle
         // is gone.
-        var code = ExitCode();
+        var code = ExitCode(process);
 
         _logger.LogWarning(
             "Language server process exited{Code}", code is null ? "" : $" with code {code}");
 
-        // BEFORE Closed, which is what tears the connection down. An exit code arriving after the record
-        // stopped accepting entries would be the one fact nobody could see — and for a pipe server that
-        // died during startup it is very nearly the only fact there is.
         Notice?.Invoke(this, new TransportNotice(
             TransportNoticeKind.Lifecycle,
             code is null ? "process exited" : $"process exited with code {code}",
             Fault: code is not (null or 0)));
-
-        Closed?.Invoke(this, EventArgs.Empty);
     }
 
     /// <summary>The exit code, or null when the process cannot tell us.</summary>
     /// <remarks>
     /// Wrapped because reading it races teardown: a disposed or already-reaped handle throws rather than
-    /// answering, and a diagnostic must never be the thing that breaks a shutdown.
+    /// answering, and a diagnostic must never be the thing that breaks a shutdown. It takes the process
+    /// rather than reading the field, because teardown clears the field before it reports.
     /// </remarks>
-    private int? ExitCode()
+    private static int? ExitCode(Process? process)
     {
-        try { return _process?.HasExited == true ? _process.ExitCode : null; }
+        try { return process?.HasExited == true ? process.ExitCode : null; }
         catch (Exception) { return null; }
     }
 
@@ -547,6 +563,13 @@ public sealed class NamedPipeLspTransport : ILspTransport
             }
         }
         catch { /* already gone */ }
+
+        // Exited was unsubscribed above, so a server that exited during the grace, or was killed after it, is
+        // reported here; one that Exited already reported is not reported again.
+        lock (_exitGate)
+        {
+            if (process.HasExited) ReportExit(process);
+        }
 
         process.Dispose();
         _job?.Dispose();

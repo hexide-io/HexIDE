@@ -41,11 +41,13 @@ public static class Program
         {
             // NamedPipeShutdownTests: a server still bringing up. It says it is running, waits for the test to start
             // teardown, and exits that many milliseconds later, leaving a marker only if nothing killed it first.
+            // NamedPipeProcessNoticeTests also gives it an exit code to report.
             await File.WriteAllTextAsync(args[1], "ready");
             while (!File.Exists(args[2])) await Task.Delay(20);
             await Task.Delay(int.Parse(args[4]));
             await File.WriteAllTextAsync(args[3] + ".tmp", "done");
             File.Move(args[3] + ".tmp", args[3]);
+            Environment.ExitCode = args.Length > 5 ? int.Parse(args[5]) : 0;
             return;
         }
         if (args[0] == "clean-server")
