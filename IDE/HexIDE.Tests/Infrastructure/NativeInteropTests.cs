@@ -18,6 +18,7 @@ public class NativeInteropTests
 
     [Theory]
     [InlineData("HexIDE", "Controls/MDI/MDIWindow.axaml.cs", 2)]
+    [InlineData("HexIDE", "IDE/Profiles/ProfileFileReader.cs", 5)]
     [InlineData("HexIDE.Desktop", "ConsoleOutput.cs", 5)]
     [InlineData("HexIDE.Desktop", "Server/ToolFailures.cs", 1)]
     [InlineData("HexIDE.Desktop", "Server/X11WindowManager.cs", 6)]
