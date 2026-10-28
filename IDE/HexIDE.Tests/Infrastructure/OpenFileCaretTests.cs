@@ -30,6 +30,22 @@ public class OpenFileCaretTests
     [Fact]
     public void The_note_reads_the_caret_back_from_the_editor_get_file_content_reads()
     {
-        OpenFile.Body.Should().Contain("CaretPlacement.Where(").And.Contain("CodeEditorOf(placed)");
+        OpenFile.Body.Should().Contain("CaretPlacement.Where(").And.Contain("CodeEditorOf(placed)")
+            .And.Contain("CarriedEditorOf(placedInCarried!)");
+    }
+
+    [Fact]
+    public void A_carried_file_s_place_is_checked_before_it_opens_against_the_text_get_file_content_returns()
+    {
+        // It refused any line for a carried file, opening nothing (#2403). Now it places the caret as in a code window,
+        // and, as there, refuses a place off the text before anything opens.
+        var body = OpenFile.Body;
+        var carried = body.IndexOf("found.Carried is { } carried", StringComparison.Ordinal);
+        var refusal = body.IndexOf("CaretPlacement.Refusal(text", carried, StringComparison.Ordinal);
+
+        refusal.Should().BeGreaterThan(carried);
+        refusal.Should().BeLessThan(body.IndexOf("EditRelatedDocument(", carried, StringComparison.Ordinal));
+        body.Should().Contain("CarriedTextOf(carried)").And.NotContain("where this does not put the caret");
+        ToolSource.Tools.Single(t => t.Name == "get_file_content").Body.Should().Contain("CarriedTextOf(carried)");
     }
 }

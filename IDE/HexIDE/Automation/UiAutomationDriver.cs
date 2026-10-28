@@ -198,11 +198,16 @@ public static class UiAutomationDriver
             control is SelectingItemsControl items and not (MenuItem or MenuBase) ? Safe<int?>(() => items.ItemCount, null) : null,
             DistinctLabelOf(NameOf(control, peer), peer),
             peer.GetProvider<IValueProvider>() is { } valueProvider ? Safe<bool?>(() => valueProvider.IsReadOnly, null) : null,
-            control is Window window ? new WindowFrameState(window.CanResize, window.WindowDecorations.ToString(),
-                window.CanMinimize, window.CanMaximize, window.ShowInTaskbar, window.WindowState.ToString(),
-                "Native window styles are not reported; frame fields are Avalonia properties, not a read of Win32 GWL_STYLE/GWL_EXSTYLE.") : null,
+            control is Window window ? ReadFrame(window) : null,
             peer.GetProvider<IExpandCollapseProvider>() is { } expansion
                 ? Safe<string?>(() => expansion.ExpandCollapseState.ToString(), null) : null);
+    }
+
+    private static WindowFrameState ReadFrame(Window window)
+    {
+        var (style, exStyle, note) = NativeWindowFrame.Read(window);
+        return new WindowFrameState(window.CanResize, window.WindowDecorations.ToString(), window.CanMinimize,
+            window.CanMaximize, window.ShowInTaskbar, window.WindowState.ToString(), note, style, exStyle);
     }
 
     /// <summary>
@@ -3165,7 +3170,7 @@ public static class UiAutomationDriver
                 return new InteractOutcome(false, TypedMechanism, null, NotShowingRefusal(control, "type_text", shows));
             if (FindTextSurface(control) is not { } surface)
                 return new InteractOutcome(false, TypedMechanism, null,
-                    NoTextSurface(control));
+                    NoTextSurface(control, keyboard: false));
             if (AmbiguousSurface(control, surface, controlPath) is { } ambiguous)
                 return new InteractOutcome(false, TypedMechanism, null, ambiguous);
 
@@ -3305,9 +3310,13 @@ public static class UiAutomationDriver
         {
             if (Shows(control) is not true and var shows)
                 return new InteractOutcome(false, KeyboardMechanism, null, NotShowingRefusal(control, "type_text", shows));
-            if (FindTextSurface(control) is not { } surface)
+            // A control that takes focus is sent the keys when nothing under it is a text box, as a person's keyboard sends
+            // them, and what it did with them is read from what came back, not judged from its class: a running form's
+            // RichTextBox takes typing in a TextInput handler of its own, and was refused as having no text surface (#2460).
+            if ((FindTextSurface(control) ?? (control.Focusable ? control : null)) is not { } surface)
                 return new InteractOutcome(false, KeyboardMechanism, null,
-                    NoTextSurface(control));
+                    NoTextSurface(control, keyboard: true));
+            var textBox = surface is TextEditor or TextArea or TextBox;
             if (AmbiguousSurface(control, surface, controlPath) is { } ambiguous)
                 return new InteractOutcome(false, KeyboardMechanism, null, ambiguous);
             var address = ReferenceEquals(surface, control) ? string.Empty : AddressOf(control, controlPath, surface);
@@ -3350,6 +3359,7 @@ public static class UiAutomationDriver
             static object Shown(Window dialog) => dialog.Content ?? dialog;
             var dialogsBefore = OpenDialogs.Among(OpenWindows()).Select(Shown).ToHashSet();
             var unanswered = 0;
+            var (sentText, tookText) = (0, 0);
             Control at = start;
             for (var i = 0; i < keys.Count; i++)
             {
@@ -3366,7 +3376,8 @@ public static class UiAutomationDriver
                     return refused;
 
                 var (key, mods, typed) = keys[i];
-                DeliverKey(at, key, mods, typed);
+                if (DeliverKey(at, key, mods, typed) is { } handled)
+                    (sentText, tookText) = (sentText + 1, tookText + (handled ? 1 : 0));
                 // The next key once what this one set off ahead of input has run, and the list or parameter info it
                 // asked the language server for has come back.
                 await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => { }, Avalonia.Threading.DispatcherPriority.Input);
@@ -3401,8 +3412,17 @@ public static class UiAutomationDriver
                 1 => "; LeftShift went down before the capital and up after it",
                 _ => $"; LeftShift went down before each of the {capitals} capitals and up after it",
             };
+            // A control that is no text box is judged by what it did with the keys' text: a TextInput it handled is text it
+            // took, whatever it then made of it.
+            if (!textBox && sentText > 0 && tookText == 0)
+                return new InteractOutcome(false, KeyboardMechanism, null,
+                    $"sent {keys.Count} key(s) to {Describe(surface)} as a person types them, and it took the text of none of "
+                    + $"them: it handled no TextInput, so it takes no typing{moved}. Their KeyDown and KeyUp were raised, and "
+                    + "anything those drive ran");
+            var tookNote = textBox || tookText == sentText ? ""
+                : $"; it took the text of {tookText} of the {sentText} key(s) that type a character, handling no TextInput for the rest";
             return new InteractOutcome(true, KeyboardMechanism,
-                $"typed {keys.Count} key(s) into {surface.GetType().Name}{address} as a person types them{caret}{shifted}{moved}{slow}{selectionNote}", null);
+                $"typed {keys.Count} key(s) into {surface.GetType().Name}{address} as a person types them{caret}{shifted}{tookNote}{moved}{slow}{selectionNote}", null);
         }
         catch (OperationCanceledException)
         {
@@ -3425,15 +3445,16 @@ public static class UiAutomationDriver
     /// Delivers a key to <paramref name="at"/> as Avalonia's keyboard device delivers a real one: the key bindings on it
     /// and its ancestors are tried first, nearest first, and KeyDown is raised only when none took it; then the text
     /// it types, and KeyUp. Raising KeyDown alone skipped the bindings, so an Enter bound to a search did not search
-    /// (#943 review).
+    /// (#943 review). Returns whether the TextInput was handled, or null when the key types nothing (#2460).
     /// </summary>
-    private static void DeliverKey(Control at, Key key, KeyModifiers mods, string? typed)
+    private static bool? DeliverKey(Control at, Key key, KeyModifiers mods, string? typed)
     {
+        bool? took = null;
         if (key == Key.None)
         {
             if (typed is not null)
-                at.RaiseEvent(new TextInputEventArgs { RoutedEvent = InputElement.TextInputEvent, Text = typed, Source = at });
-            return;
+                took = RaiseText(at, typed);
+            return took;
         }
         // Each modifier's own key around it, as a person holds a chord (#2422).
         foreach (var (stroke, held, isDown) in Chord(key, mods))
@@ -3453,7 +3474,15 @@ public static class UiAutomationDriver
                     }
             at.RaiseEvent(down);
             if (stroke == key && typed is not null)
-                at.RaiseEvent(new TextInputEventArgs { RoutedEvent = InputElement.TextInputEvent, Text = typed, Source = at });
+                took = RaiseText(at, typed);
+        }
+        return took;
+
+        static bool RaiseText(Control at, string typed)
+        {
+            var input = new TextInputEventArgs { RoutedEvent = InputElement.TextInputEvent, Text = typed, Source = at };
+            at.RaiseEvent(input);
+            return input.Handled;
         }
     }
 
@@ -3498,6 +3527,33 @@ public static class UiAutomationDriver
         }
         return strokes;
     }
+
+    /// <summary>
+    /// The character <paramref name="key"/> types with <paramref name="mods"/> held, on the US layout press_key assumes;
+    /// null when it types none (#2428). A platform sends a key's character as text of its own between its KeyDown and
+    /// KeyUp: none with Ctrl, Alt or Meta held, whose chords are commands, and none for a control character such as
+    /// Enter's or Backspace's, which a running program's KeyPress takes from the key itself.
+    /// </summary>
+    internal static string? TypedBy(Key key, KeyModifiers mods)
+    {
+        if ((mods & ~KeyModifiers.Shift) != KeyModifiers.None)
+            return null;
+        var physical = Enum.GetValues<PhysicalKey>().FirstOrDefault(p => p.ToQwertyKey() == key);
+        if (physical == PhysicalKey.None)
+            return null;
+        var symbol = physical.ToQwertyKeySymbol(mods.HasFlag(KeyModifiers.Shift));
+        return string.IsNullOrEmpty(symbol) || symbol.Any(char.IsControl) ? null : symbol;
+    }
+
+    /// <summary>
+    /// Where a key that types <paramref name="typed"/> writes in a code window, for the protected-line check: over the
+    /// selection, or at the caret. Null when it types nothing, or over a selection only partly protected, whose editable
+    /// parts take it as type_text's typing does (#1040).
+    /// </summary>
+    private static EditedSpan? TypingSpan(TextArea area, string? typed) =>
+        typed is null || PartialSelection(area, deletes: false) is not null ? null
+        : area.Selection.IsEmpty ? new EditedSpan(area.Caret.Offset, 0, Deletes: false)
+        : new EditedSpan(area.Selection.SurroundingSegment.Offset, area.Selection.SurroundingSegment.Length, Deletes: false);
 
     /// <summary>
     /// What a reply says of the modifier keys <see cref="Chord"/> pressed around <paramref name="key"/>; "" when none.
@@ -3629,8 +3685,10 @@ public static class UiAutomationDriver
             var partial = selectionDelete && deletionArea is not null
                 ? PartialSelection(deletionArea, deletes: true) : null;
             var lengthBefore = deletionArea?.Document.TextLength ?? 0;
+            // A key that types a character writes it, as a person's does, so it is judged as typing is (#2428).
+            var typedText = TypedBy(parsedKey, mods);
             if (AreaOf(target) is { } pressedIn
-                && EditSpan(pressedIn, parsedKey, mods) is { } span
+                && (EditSpan(pressedIn, parsedKey, mods) ?? TypingSpan(pressedIn, typedText)) is { } span
                 && partial is null
                 && RefusedInReadOnlyRegion(pressedIn, span, "press_key") is { } refused)
                 return selectionDelete && !pressedIn.Selection.IsEmpty
@@ -3657,7 +3715,7 @@ public static class UiAutomationDriver
             if (!throughWindow)
             {
                 mechanism = "routed-key";
-                DeliverKey(target, parsedKey, mods, typed: null);
+                DeliverKey(target, parsedKey, mods, typedText);
             }
 
             // Naming the receiver is half the point. Both gaps this closes presented as "reports success and
@@ -3670,7 +3728,8 @@ public static class UiAutomationDriver
                   + partial.Left + SelectionState(deletionArea)
                 : string.Empty;
             return new InteractOutcome(true, mechanism,
-                $"{focusMove}pressed {chord}{parsedKey}{where}{HeldNote(parsedKey, mods)}{changed}{chordRead}", null);
+                $"{focusMove}pressed {chord}{parsedKey}{where}{HeldNote(parsedKey, mods)}"
+                + (typedText is null ? "" : $"; it typed \"{typedText}\", as the key does") + $"{changed}{chordRead}", null);
         }
         catch (Exception ex) { return new InteractOutcome(false, mechanism, null, $"press_key threw: {ex.Message}"); }
     }
@@ -4154,6 +4213,8 @@ public static class UiAutomationDriver
                     System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic);
             public static readonly System.Reflection.ConstructorInfo? NewEvent = typeof(Avalonia.Input.Raw.RawKeyEventArgs)
                 .GetConstructors().FirstOrDefault(c => c.GetParameters().Length == 9);
+            public static readonly System.Reflection.ConstructorInfo? NewText = typeof(Avalonia.Input.Raw.RawTextInputEventArgs)
+                .GetConstructors().FirstOrDefault(c => c.GetParameters().Length == 4);
             static Members() { }
         }
 
@@ -4188,6 +4249,16 @@ public static class UiAutomationDriver
                         s.Key, Raw(s.Held), strokePhysical, strokeSymbol!, KeyDeviceType.Keyboard];
                     return (Avalonia.Input.Raw.RawInputEventArgs)constructor.Invoke(args);
                 }).ToList();
+                // The key's character, as text of its own after its KeyDown, where the platform sends it (#2428). Without a
+                // way to make one, the routed fallback delivers the key and its text instead.
+                if (TypedBy(key, mods) is { } text)
+                {
+                    if (Members.NewText is not { } newText)
+                        return false;
+                    var after = Chord(key, mods).FindIndex(s => s.Key == key && s.Down) + 1;
+                    strokes.Insert(after, (Avalonia.Input.Raw.RawInputEventArgs)newText.Invoke(
+                        [keyboard, (ulong)Environment.TickCount64, root, text]));
+                }
                 input = found;
             }
             catch (Exception ex) when (ex is System.Reflection.TargetInvocationException or TypeInitializationException
@@ -4533,9 +4604,12 @@ public static class UiAutomationDriver
         static int Kind(Control c) => c switch { TextEditor => 0, TextArea => 1, _ => 2 };
     }
 
-    // Why there is nothing to type into: a dropdown that is not editable takes its text by select, once it is open.
-    private static string NoTextSurface(Control control) =>
+    // Why there is nothing to type into: a dropdown that is not editable takes its text by select, once it is open. In
+    // keyboard mode a control that takes focus is sent the keys, so it is refused only when it cannot take focus (#2460).
+    private static string NoTextSurface(Control control, bool keyboard) =>
         $"'{control.GetType().Name}' has no text surface (TextEditor/TextArea/TextBox) to type into"
+        + (keyboard ? ", and does not take focus, so a person's keys could not reach it"
+            : control.Focusable ? "; mode \"keyboard\" sends it keys as a person types, for a control that takes typing itself" : "")
         + (control is ComboBox { IsEditable: false }
             ? "; it is a dropdown that is not editable: 'expand' it, then 'select' its item by text" : "");
 
@@ -5330,9 +5404,15 @@ public record UiNodeDetail(
     WindowFrameState? Frame = null,
     string? ExpandCollapseState = null);
 
-/// <summary>The inspected Window's current Avalonia frame properties; native styles are explicitly unreported.</summary>
+/// <summary>The inspected Window's Avalonia frame properties and, on Windows, its native style masks.</summary>
 public record WindowFrameState(bool CanResize, string WindowDecorations, bool CanMinimize, bool CanMaximize,
-    bool ShowInTaskbar, string WindowState, string NativeStyleNote);
+    bool ShowInTaskbar, string WindowState,
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    string? NativeStyleNote,
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    uint? NativeStyle = null,
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    uint? NativeExStyle = null);
 
 /// <summary>A range control's state: a scroll bar's or slider's position, its bounds, and whether it can be set.</summary>
 public record RangeState(double Value, double Minimum, double Maximum, bool IsReadOnly);

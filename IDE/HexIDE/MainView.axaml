@@ -668,7 +668,7 @@
                                     Background="{DynamicResource {x:Static commonControls:SystemColors.ControlBrushKey}}"
                                     Height="22"
                                     AutomationProperties.AutomationId="StatusBar">
-                <DockPanel Margin="2,1">
+                <DockPanel x:Name="StatusBarPanel" Margin="2,1">
                     <!-- INS/OVR panel (rightmost) -->
                     <ClassicBorderDecorator DockPanel.Dock="Right" BorderStyle="Sunken" BorderThickness="1"
                                             MinWidth="50" Margin="1,0,0,0">

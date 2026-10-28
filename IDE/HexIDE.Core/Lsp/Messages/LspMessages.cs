@@ -282,7 +282,11 @@ public record WorkspaceClientCapabilities(
     /// negotiation and shipping either alone produces silence rather than an error.
     /// </remarks>
     [property: JsonPropertyName("workspaceFolders")] bool? WorkspaceFolders = null,
+    [property: JsonPropertyName("diagnostics")] WorkspaceDiagnosticsClientCapabilities? Diagnostics = null,
     [property: JsonPropertyName("fileOperations")] FileOperationsClientCapabilities? FileOperations = null);
+
+public record WorkspaceDiagnosticsClientCapabilities(
+    [property: JsonPropertyName("refreshSupport")] bool RefreshSupport = true);
 
 public record FileOperationsClientCapabilities(
     [property: JsonPropertyName("didCreate")] bool DidCreate = true,

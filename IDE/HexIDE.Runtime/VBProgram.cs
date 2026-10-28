@@ -59,6 +59,7 @@ public interface IFormView
 public sealed class VBProgram : IFormProgram
 {
     private readonly BasicInterpreter interpreter;
+    internal IBasicStandardLibrary StandardLibrary { get; }
     private readonly Func<FormDefinition, IFormView>? openForm;
     private readonly Dictionary<string, FormDefinition> definitions = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<VbObject, VBWindowContext> contexts = new(ReferenceEqualityComparer.Instance);
@@ -115,6 +116,7 @@ public sealed class VBProgram : IFormProgram
         Debugging.IDebugController? debugController, Func<FormDefinition, IFormView>? openForm)
     {
         this.openForm = openForm;
+        StandardLibrary = rootContext.StandardLibrary;
         var (standardModules, classModules) = VBLoader.InterpreterModules(project);
         string primaryName, primaryCode;
         var primaryKind = InterpreterModuleKind.Form;
@@ -146,14 +148,21 @@ public sealed class VBProgram : IFormProgram
         // The project's Conditional Compilation Arguments, or vb6.exe's refusal of them before anything runs (#1112).
         var compilation = project is null ? null : CompilationConstants.ForProject(project);
         interpreter = new BasicInterpreter(rootContext.StandardLibrary, ExecutionContext, rootContext.RootEnv,
-            primaryCode, primaryName, additional, classModules, primaryKind, others, compilation)
+            primaryCode, primaryName, additional, classModules.Concat(project?.Modules
+                .Where(m => m.Kind == ModuleKind.UserControl && m.FormPart is not null)
+                .Select(m => (m.Name, FormCodeText.WholeFile(m))) ?? []).ToList(), primaryKind, others, compilation)
         {
             DebugController = debugController,
             Events = Events,
             Forms = this,
         };
         if (project is not null)
+        {
             interpreter.SetAppInfo(AppInfo.FromProject(project));
+            foreach (var module in project.Modules.Where(m => m.Kind == ModuleKind.UserControl && m.FormPart is not null))
+                if (interpreter.Modules.TryGet(module.Name, out var controlTemplate))
+                    controlTemplate.HostedControl = true;
+        }
         VBLoader.DescribeProject(interpreter, project);
         interpreter.SeedFormNames();
         if (startup is null)
@@ -294,7 +303,7 @@ public sealed class VBProgram : IFormProgram
         var context = view.Context;
         context.Attach(this, form, FormCodeText.WholeFile(definition), existing);
         var instance = context.FormInstance!;
-        view.SetContent(VBLoader.SpawnComponents(definition, ExecutionContext, instance.InstanceEnv, context.StandardLibrary, instance));
+        view.SetContent(VBLoader.SpawnComponents(definition, ExecutionContext, instance.InstanceEnv, context.StandardLibrary, instance, this));
         context.HoldControlsUntilLoad();
         context.CloseWindow = view.CloseForm;
         Register(context);
@@ -394,6 +403,7 @@ public sealed class VBProgram : IFormProgram
         // window is shown before it is activated, so a Show's Resize has run by then.
         using var posting = Events.Posting();
         previous?.ExecuteSub("Form_Deactivate");
+        context.ShowControls();
         context.ExecuteSub("Form_Activate");
     }
 

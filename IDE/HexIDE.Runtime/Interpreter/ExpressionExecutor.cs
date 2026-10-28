@@ -1297,6 +1297,12 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
                 throw new VBRunTimeException(ctx, VBStandardError.SubscriptOutOfRange);
             }
         }
+        if (value.Value is Components.InBox.TabStripTabs tabs)
+        {
+            if (indices.Count != 1)
+                throw AvaloniaInterop.TabStripMembers.Refused("Tabs index arguments");
+            return tabs.Item(indices[0]);
+        }
         if (value.Value is ToolbarItems toolbarItems)
             return toolbarItems.Item(indices);
         if (value.Value is StatusBarPanels panels)
@@ -1359,6 +1365,13 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
             (named, maybeGroup) = await interpreter.ReadVariableAfter(env, name, namedNeed!);
         if (variableHint is not null && !maybeGroup.Type.IsArray)
             throw new NotImplementedException($"`{name}{variableHint.GetText()}(…)` is not implemented: {name} is not an array (#742)");
+        if (named && maybeGroup.Value is Components.InBox.TabStripTabs tabs)
+        {
+            var indices = await EvaluateCallArgs(argsCtx);
+            if (indices.Count != 1)
+                throw AvaloniaInterop.TabStripMembers.Refused("Tabs index arguments");
+            return tabs.Item(indices[0]);
+        }
         // A Collection's default member, Item: `c(1)` and `c("key")` (#1471). `c(1)(2)` indexes the Item (#1476).
         if (named && maybeGroup.Value is ToolbarItems toolbarItems)
             return toolbarItems.Item(await EvaluateCallArgs(argsCtx));
@@ -1551,6 +1564,8 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         Vb6Value variable, VB6Parser.ICS_S_MemberCallContext member, Antlr4.Runtime.ParserRuleContext ctx,
         Func<Task>? beforeLast = null)
     {
+        if (variable.Value is VBTabStrip strip && AvaloniaInterop.TabStripMembers.IsOwn(MemberName(member)))
+            return AvaloniaInterop.TabStripMembers.Read(strip, MemberName(member), await EvaluateCallArgs(MemberArgs(member)));
         if (variable.Value is VBToolbar toolbar)
         {
             VBToolbar.RefusePending(MemberName(member));
@@ -1675,6 +1690,13 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
             throw new VBMethodOrDataMemberNotFoundException(memberIdentifier, variable.Type);
         // Every member of a control Controls.Remove took out is 735, its Name included (measured, #1556).
         VBProps.RefuseIfRemoved(control);
+
+        AvaloniaInterop.UserControlMembers.Check(variable, memberIdentifier, reading: true);
+        if (AvaloniaInterop.UserControlMembers.TryGet(control, memberIdentifier, out var userControlValue))
+            return userControlValue;
+
+        if (AvaloniaInterop.UserControlContainers.TryGet(control, memberIdentifier, out var containerValue))
+            return containerValue;
 
         // An in-box control's own members, and the extender's it lacks, by its member table (#1082).
         if ((AvaloniaInterop.StatusBarMembers.TryGet(control, memberIdentifier, out var inBoxValue)

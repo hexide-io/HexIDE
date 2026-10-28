@@ -381,6 +381,20 @@ a reply SHALL say so: the reply of the save that took it, or else the next reply
 - **WHEN** a client arms two paths as one answer and a document without a file is saved
 - **THEN** nothing is written, and the save's reply fails, saying its picker answered as cancelled and why
 
+### Requirement: open_file SHALL put the caret at a line and column in the editor it opens
+Given a line, and a column if wanted, `open_file` SHALL put the caret there in the editor it opens, a code window's or
+a carried file's, numbering both from 1 as the editor does, against the text `get_file_content` returns. A place off
+the text SHALL be refused before anything opens. A fold over the caret SHALL be opened, and the note SHALL read the
+caret's line, column and offset back from the editor.
+
+#### Scenario: A carried file
+- **WHEN** `open_file` opens a carried file at line 3, column 5
+- **THEN** its editor's caret is there, and the note says so
+
+#### Scenario: A place off the text
+- **WHEN** `open_file` names a line past the file's last
+- **THEN** nothing opens, and the reply gives the lines it has
+
 ### Requirement: A tool that names a document SHALL name its project, and count lines from the top of the file
 A tool that accepts or reports a form, module or class SHALL identify it by its project and its name, SHALL
 find it in any loaded project, and SHALL match both without regard to case. Where a reply also carries the name
@@ -474,11 +488,68 @@ SHALL report none for an IDE started without one.
 - **WHEN** tooling polls the health check of an IDE started for a session
 - **THEN** the reply names that session beside the process ID
 
+### Requirement: Native window frames are observable
+
+Window inspection SHALL report `nativeStyle` and `nativeExStyle` as unsigned 32-bit masks read from the
+Windows HWND, or a `nativeStyleNote` explaining why they cannot be read. These SHALL remain distinct from
+the Avalonia frame properties. Other controls SHALL have no frame section.
+
+#### Scenario: Inspecting a running form's window
+
+- **WHEN** a caller inspects the `Window` of a running form on Windows
+- **THEN** `nativeStyle` and `nativeExStyle` equal the window's `GWL_STYLE` and `GWL_EXSTYLE`
+
+### Requirement: A frame snapshot SHALL show the window whatever covers it
+
+The snapshot tool SHALL accept optional `includeFrame`, default false. When true on Windows, it SHALL
+capture the window as Windows renders it, frame included, even where another window covers it, draw its
+open popups over it, and report client-origin offsets in image pixels. Where Windows renders nothing, it SHALL
+copy the frame rectangle from the screen instead and say how much of it other windows cover. Unavailable
+captures SHALL return an actionable error without a client-only fallback.
+
+#### Scenario: Capturing a running form with its caption
+
+- **WHEN** a caller requests `includeFrame: true` for a visible Windows form fully on screen
+- **THEN** the PNG includes the frame and the reply reports the client origin within it
+- **AND** the same offsets and scale map inspected bounds into the full and inline images
+
+#### Scenario: Another window covers the form
+
+- **WHEN** another application's window covers a running form and a caller requests `includeFrame: true`
+- **THEN** the PNG shows the form and its frame, not the covering window
+
+#### Scenario: The host cannot capture the frame
+
+- **WHEN** the window has no Windows HWND, or is hidden or minimized
+- **THEN** frame capture returns an error explaining the limitation and what to do next
+
+### Requirement: The status bar SHALL show that the automation server is listening
+While the automation server is listening, the main window's status bar SHALL show a section naming its port, followed
+by the session when the IDE was started for one, as `MCP :5140 · docs-pass`, and SHALL NOT show it before the port is
+bound. The section SHALL carry that text as its automation name, its strings SHALL be localised, and a build without the
+server SHALL contain no such section.
+
+#### Scenario: Telling sessions' IDEs apart
+- **WHEN** an IDE is started with `--server-port 5140 --session docs-pass`
+- **THEN** its status bar reads `MCP :5140 · docs-pass`, and one started without `--session` reads `MCP :5140`
+
+
+### Requirement: The status bar's automation section SHALL say what is driving the IDE
+Hovering over the section SHALL show the endpoint, whom it serves, the process ID and the build directory with the user's
+profile replaced, that the server answers this machine only with no authentication, the running call if any, the last
+call and its time, and the count of calls refused from other sessions with the session the last one named. A dot before
+the text SHALL be filled with the theme's highlight while a call runs, and SHALL stay filled across a burst of calls.
+
+#### Scenario: A call from another session
+- **WHEN** a call from another session is refused
+- **THEN** hovering over the section counts it and names the session it named, and it is not shown as the last call
+
 
 ### Requirement: Snapshots identify the title and capture area
 
 The snapshot description and reply SHALL explain that the image captures the window's client area,
-without its title bar or frame, with open popups included unless the reply's note says otherwise.
+without its title bar or frame unless `includeFrame` asks for them, with open popups included unless the
+reply's note says otherwise.
 The reply SHALL report the captured window's actual title in `title`, including for the IDE's own
 window and an empty caption. It SHALL retain `activeDialog` with its previous meaning for compatibility.
 
@@ -518,6 +589,17 @@ unknown name's refusal SHALL say that the IDE's window is the default here.
 #### Scenario: No window named
 - **WHEN** `get_window_state` is called with no `window`
 - **THEN** it reports the IDE's own window, named `ide`
+
+### Requirement: The window-state reply SHALL say what its numbers measure
+The window-state reply SHALL give `scale`, and the window's `outer` rectangle, its `frame` as drawn and its `client`
+area, each on the screen in device-independent pixels, beside `x`, `y`, `width` and `height`, which it SHALL keep as
+`set_window_state` takes them. Every reply SHALL carry `units`, which says the unit of each and which edge each
+measures. A window that is hidden or minimized SHALL have no rectangles, and `outer` and `frame` SHALL be left out
+where the platform reports no frame.
+
+#### Scenario: A form moved to 720, 360 screen pixels at 150%
+- **WHEN** `set_window_state` moves `window: "Form1"` to `x` 720, `y` 360 on a 150% display
+- **THEN** the reply's `outer` starts at 480, 240 and its `frame` and `client` inside it, with `scale` 1.5
 
 ### Requirement: Another window SHALL change as a person changes it
 `set_window_state` SHALL change a window other than the IDE's own as its minimize, maximize or restore box or its frame
@@ -610,7 +692,7 @@ cause when no such input came, and SHALL NOT count routed pointer events a tool 
 
 ### Requirement: Snapshot coordinates include popup overhang
 
-A snapshot SHALL include the window and its open native popups at their relative screen positions,
+By default, a snapshot SHALL include the client area and its open native popups at their relative screen positions,
 including popups extending left of or above the window. The reply SHALL report the window origin in
 full-image pixels as `windowOffsetX` and `windowOffsetY`, zero when no left or top overhang exists.
 Tool descriptions SHALL explain how to map inspected window-relative bounds into both returned images.
@@ -713,6 +795,16 @@ and legacy initialize clients stateless, without issuing an MCP session ID or of
 #### Scenario: Rebuild with an attached client
 - **WHEN** the server restarts on the same endpoint after a client has connected
 - **THEN** that client's next tool call is answered without a stale transport session
+
+### Requirement: An array or object that arrives as text SHALL be refused naming a stale schema
+When a string argument holds, as JSON, the array or object its parameter declares, the server SHALL refuse it, and
+the refusal SHALL say that a client holding an older schema of the tool sends that, that retrying in the same session
+sends it again, and that a new session loads the current schema. It SHALL NOT point the caller at the schema. A long
+string in any refusal SHALL be shown by its length and its start.
+
+#### Scenario: A parameter added after the session loaded the tool
+- **WHEN** a session that loaded `answer_next_file_dialog` before it took `paths` sends `paths` as an array
+- **THEN** the refusal names the stale schema and says a new session is needed, and nothing is armed
 
 ### Requirement: Integral argument overflow explains the storage limit
 The server SHALL refuse an integral argument outside its parameter's storage range with the argument
@@ -940,6 +1032,33 @@ at that moment, so a modifier key's own down reports itself held and its up does
 #### Scenario: A capital typed as keys
 - **WHEN** `type_text` types K in keyboard mode
 - **THEN** Shift's own KeyDown comes before K's and its KeyUp after K's, and the reply says so
+
+### Requirement: press_key SHALL type the character a key types
+`press_key` SHALL send the character a key types, as text of its own between the key's KeyDown and KeyUp, as a
+platform sends a person's press. It SHALL send none with Ctrl, Alt or Meta held, and none for a control character,
+which no platform sends as text. In a code window the key SHALL be judged as typing is. The reply SHALL say what was typed.
+
+#### Scenario: Shift+K on a running TextBox
+- **WHEN** `press_key` presses K with Shift on a TextBox that logs its key events
+- **THEN** they run KeyDown 16, KeyDown 75, KeyPress 75, KeyUp 75, KeyUp 16, and the TextBox holds K
+
+#### Scenario: A command chord
+- **WHEN** `press_key` presses A with Ctrl
+- **THEN** no text is sent, and a running TextBox's KeyPress is the 1 its runtime makes from the KeyDown
+
+### Requirement: type_text SHALL send keys to a control that takes typing itself
+In keyboard mode, `type_text` SHALL send its keys to the addressed control when nothing under it is a text box and it
+takes focus, as a person's keyboard sends them, and SHALL judge it by what it did with them, not by its class. When it
+handled the text of none of the keys that type a character, the reply SHALL say so, and that their KeyDown and KeyUp
+were raised. A control that does not take focus SHALL be refused, saying that a person's keys could not reach it.
+
+#### Scenario: A running form's RichTextBox
+- **WHEN** `type_text` types `abc` in keyboard mode into a running RichTextBox, whose KeyPress and Change log
+- **THEN** each key runs KeyPress and the edit runs Change, and the RichTextBox holds `abc`
+
+#### Scenario: Document mode
+- **WHEN** `type_text` in its default mode addresses a control that takes typing itself
+- **THEN** it is refused as having no text surface, and the refusal names keyboard mode
 
 ### Requirement: press_key reads a chord written as one key
 `press_key` SHALL read a `key` written as a chord, such as `Ctrl+H`, as its last part, with the parts before it

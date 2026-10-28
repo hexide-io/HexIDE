@@ -306,7 +306,7 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
             }
             if (f.AutoNewClass is { } made)
             {
-                if (!Modules.TryGet(made, out var classModule) || classModule.Kind != InterpreterModuleKind.Class)
+                if (!Modules.TryGet(made, out var classModule) || classModule.Kind != InterpreterModuleKind.Class || classModule.HostedControl)
                     throw new NotImplementedException($"Field '{f.Name}' declared As New inside Type '{typeName}' is not implemented (#1488)");
                 fields[f.Name] = Vb6Value.Nothing;
                 autoNewFields[f.Name] = new AutoNew(made, f.Name);
@@ -396,7 +396,7 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         // deadlock) and mutate state. Blocked here, before construction. Scoped to Paused (see RunProcedure).
         if (SuppressUserProcedureCalls && DebugController?.State == Debugging.DebugState.Paused)
             throw new Debugging.ImmediateEvalException("Creating objects is not available in the Immediate window.");
-        if (!Modules.TryGet(className, out var classDef) || classDef.Kind != InterpreterModuleKind.Class)
+        if (!Modules.TryGet(className, out var classDef) || classDef.Kind != InterpreterModuleKind.Class || classDef.HostedControl)
             throw new VBCompileErrorException("User-defined type not defined: " + className);
         // A class that claims an interface must supply all of it. VB6 refuses to BUILD such a program; with no
         // compile step to refuse at, the check runs here — once per class, before the first instance exists, so
@@ -482,7 +482,9 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
             foreach (var field in bag.EnumerateFields())
                 await ReleaseRef(field.Value);
         }
-        else if (v.Value is VBArray array)
+        // A ParamArray's elements are its caller's arguments, and the copies it made of the rest are released with the call
+        // (#2462), so releasing the array itself, as `a = Array(7)` does, releases nothing.
+        else if (v.Value is VBArray { IsParamArray: false } array)
         {
             foreach (var element in array.EnumerateElements())
                 await ReleaseRef(element);
@@ -1718,8 +1720,12 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         for (int i = 0; i < proc.Parameters.Count; i++)
         {
             var p = proc.Parameters[i];
+            // A ParamArray is the last parameter, and takes every argument left (#2462).
             if (p.ParamArray)
-                throw new NotImplementedException("ParamArray parameters are not yet supported");
+            {
+                BindParamArray(p, args, i, callee, ownedSlots, refSlots);
+                return;
+            }
             // An Enum parameter is a Long: converted into one, and typed (measured, #1005: `c * m` with `c As MyEnum`
             // given 5 and `m As Long` 500000000 overflows, and `Select Case c` converts `Case 4.6` into 5). Resolved here,
             // since the pre-pass that read the declaration had not yet seen every module's Enums.
@@ -1738,6 +1744,10 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
             if (i < args.Count && !args[i].Value.IsMissing)
             {
                 var arg = args[i];
+                // A ParamArray passed whole to a ByRef parameter is VB6's compile error "Invalid ParamArray use" (measured, to
+                // `x() As Variant` and to `v As Variant`), raised here as the call runs. A ByVal parameter takes a copy.
+                if (p.ByRef && arg.Location is { } argSlot && ExecutionContext.State.IsParamArray(argSlot))
+                    throw new VBCompileErrorException("Invalid ParamArray use");
                 // A `v As Variant` shares its argument as an untyped `v` does, whatever the argument holds (measured:
                 // #970 for an array, which is what lets a Variant sort routine sort its caller's array and a ReDim reach
                 // the caller's; #1001 for a scalar, so `v = 5` reaches a caller's Variant, and a caller's `Integer`, which
@@ -1814,6 +1824,55 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
                 throw new VBCompileErrorException($"Argument not optional: '{p.Name}' in '{proc.Name}'");
             }
         }
+    }
+
+    // A ParamArray (#2462): the arguments from `first` on, as a Variant array from 0, empty when there are none. Measured, native
+    // and p-code: `IsMissing` of it is True only when it is empty, Option Base 1 leaves it from 0, and each element is its
+    // argument, ByRef, so `a(i) = a(i) + 1` on `Bump i, n` leaves i 2 and n 11.
+    private void BindParamArray(ParamInfo p, IReadOnlyList<CallArg> args, int first, ExecutionEnvironment callee,
+        List<int> ownedSlots, List<int> refSlots)
+    {
+        var elements = new IByRefTarget[Math.Max(0, args.Count - first)];
+        for (int e = 0; e < elements.Length; e++)
+            elements[e] = ParamArrayElement(args[first + e], callee, ownedSlots, refSlots);
+        var value = new Vb6Value(new Vb6Value.ValueType(Vb6Value.ValueType.EmptyVariant, true), [(0, elements.Length - 1)])
+            .WithArray(VBArray.ParamArray(elements));
+        callee.Parameters.Add(p.Name);
+        ExecutionContext.AllocVariable(callee, p.Name, value, null);
+        if (callee.TryGetVariableLocation(p.Name, out var location))
+        {
+            ExecutionContext.State.MarkDeclaredArray(location);
+            ExecutionContext.State.MarkParamArray(location);
+        }
+    }
+
+    // One argument of a ParamArray (#2462), as a ByRef argument binds (measured): a variable is shared, and a store through the
+    // element converts to its type, so 5.7 into an Integer is 6 and "abc" 13; a field or an array element is reached through a
+    // slot that stands for it, so `Bump arr(2)` leaves 21. Anything else is the call's own copy: an expression, a variable in
+    // parentheses (`Bump (i)` leaves i), a constant, a blank, which is Missing (`Show 1, , 3`), and a ParamArray passed on,
+    // which arrives as one element holding a copy of the array.
+    private IByRefTarget ParamArrayElement(CallArg arg, ExecutionEnvironment callee, List<int> ownedSlots, List<int> refSlots)
+    {
+        var state = ExecutionContext.State;
+        if (arg.Location is { } location && !state.IsConstant(location) && !state.IsReadOnly(location) && !state.IsParamArray(location))
+            return new SlotRef(state, location);
+        if (arg.Ref is { } target)
+        {
+            var refSlot = state.AllocRef(target, callee);
+            refSlots.Add(refSlot);
+            return new SlotRef(state, refSlot);
+        }
+        var copy = arg.Omitted ? Vb6Value.Missing : CopyForStore(arg.Value);
+        var own = state.Alloc(copy);
+        callee.AllocatedSlots?.Add(own);
+        // Held for the call, as a ByVal argument is, and released when it returns.
+        if (copy.Value is VbObject or VBArray or VbCollection or LibraryObject)
+        {
+            if (copy.Value is not VBArray)
+                AddRef(copy);
+            ownedSlots.Add(own);
+        }
+        return new SlotRef(state, own);
     }
 
     // A parameter's own slot says what it was declared as, for ReDim: `b()` an array, `v` or `v As Variant` a Variant.

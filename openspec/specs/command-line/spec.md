@@ -34,3 +34,11 @@ repeating initialization.
 - **WHEN** the desktop main window opens without being activated, with `--newproject` specified
 - **THEN** the startup hook creates the default project
 - **AND** later activation or reopening the same window does not run initialization again
+
+### Requirement: Absolute project paths are accepted alongside slash-prefixed flags
+HexIDE SHALL accept an absolute positional path ending in `.vbp`, `.vbg` or `.twinproj`, including a Unix
+path beginning `/`. Recognized slash-prefixed flags SHALL continue to take precedence over positional paths.
+
+#### Scenario: An absolute Unix project path
+- **WHEN** HexIDE is started with `/capture-lsp /tmp/example/Project.vbp`
+- **THEN** capture is armed and `/tmp/example/Project.vbp` is selected as the project to open
