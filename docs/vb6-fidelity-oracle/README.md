@@ -720,3 +720,6 @@ added afterwards.
 - [Err.HelpFile, Err.HelpContext and Err.LastDllError (2026-10-28, #2527)](err-helpfile-err-helpcontext-and-err-lastdllerror.md#errhelpfile-errhelpcontext-and-errlastdllerror-2026-10-28-2527)
 - [Erl: the line number an error reports (2026-10-28, #2528)](erl-the-line-number-an-error-reports.md#erl-the-line-number-an-error-reports-2026-10-28-2528)
 - [A line number on a closing or middle line of a block (2026-10-28, #2529)](a-line-number-on-a-closing-or-middle-line-of-a-block.md#a-line-number-on-a-closing-or-middle-line-of-a-block-2026-10-28-2529)
+- [ObjPtr, StrPtr and VarPtr, by their relations (2026-10-28, #2622)](objptr-strptr-and-varptr-by-their-relations.md#objptr-strptr-and-varptr-by-their-relations-2026-10-28-2622)
+- [The Mid, Mid$, MidB and MidB$ statements (2026-10-28, #2623)](the-mid-mid-midb-and-midb-statements.md#the-mid-mid-midb-and-midb-statements-2026-10-28-2623)
+- [A file number written with # inside a function (2026-10-28)](a-file-number-written-with-inside-a-function.md#a-file-number-written-with--inside-a-function-2026-10-28)
