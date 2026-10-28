@@ -748,3 +748,31 @@ Shift+K`, does not say nothing was typed. The raw key events carry no text, whic
 
 **Suggested fix.** Type the key's character between its KeyDown and KeyUp when it types one, as `type_text` does; or
 say in the reply that nothing was typed and name `type_text`. [#2428](https://github.com/hexide-io/HexIDE/issues/2428).
+
+## No tool says which mouse pointer a control shows
+
+**Symptom (2026-10-28, Windows, #2448's live check).** `inspect_element {"target":"Window","window":"Form1"}` on a running
+form whose program had set `Screen.MousePointer = vbHourglass`, as its caption confirmed, has no cursor field.
+`take_snapshot` captures no OS cursor, and `dump_visual_tree` carries nothing about it. So neither `Screen.MousePointer`,
+nor a control's own `MousePointer`, nor a TextBox's I-beam can be checked in the running IDE.
+
+**Workaround.** None in the running IDE. A headless Integration test can read each control's `Cursor`, as
+`ScreenObjectRuntimeTests` does, and the program can read its own `MousePointer` back.
+
+**Suggested fix.** Report the effective pointer in `inspect_element`: the standard cursor type it was made from, or
+custom, and whether it was set above the control's own value. [#2453](https://github.com/hexide-io/HexIDE/issues/2453).
+
+## `get_window_state` gives the position in physical pixels and the size in device-independent ones
+
+**Symptom (2026-10-28, Windows, 150% display, #2448's live check).** `get_window_state {"window":"Form1"}` gave
+`{"x":721,"y":325,"width":304,"height":200}` for a form its program had placed at Left 7200, Top 3600 twips, which is
+480, 240 device-independent pixels. `x` and `y` are physical pixels, while `width` and `height` are the client area in
+device-independent pixels. The maximized IDE reads `{"x":-11,"y":-11,...}`, so the position includes Windows'
+invisible resize borders, but the reply says none of this. A `y` of 325 where the form's Top implies 360 could be a
+placement offset or only what the number measures, and a caller can't tell which.
+
+**Workaround.** None for judging where a form sits on the screen. The program's own `Me.Left` and `Me.Top` read back
+the values it set.
+
+**Suggested fix.** One unit throughout, with the scale given, and the visible frame's and the client's rectangles.
+[#2454](https://github.com/hexide-io/HexIDE/issues/2454).
