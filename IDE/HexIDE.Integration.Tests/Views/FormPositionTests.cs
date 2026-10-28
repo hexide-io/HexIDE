@@ -74,6 +74,32 @@ public class FormPositionTests
         finally { form.Close(); }
     }
 
+    // A window's Position is in the screen's pixels, and a twip is a fifteenth of a device-independent pixel, so at
+    // 150% Left = 1200 is 80 device-independent pixels and 120 of the screen's. The headless platform scales by 1, where
+    // the two units agree, so the conversions are checked here at the scalings a desktop has.
+    [Theory]
+    [InlineData(80d, 1d, 80)]
+    [InlineData(80d, 1.5d, 120)]
+    [InlineData(200d, 1.25d, 250)]
+    [InlineData(-200d, 1.5d, -300)]
+    public void A_position_goes_to_the_screen_pixel_its_scaling_gives(double pixels, double scaling, int screenPixel)
+    {
+        FormPosition.ScreenPixel(pixels, scaling).Should().Be(screenPixel);
+        FormPosition.Twips(screenPixel, scaling).Should().Be(pixels * 15);
+    }
+
+    [Theory]
+    [InlineData(1024, 1d, 4740d, 5310d)]
+    [InlineData(768, 1d, 3585d, 3960d)]
+    [InlineData(1920, 1.5d, 4740d, 7230d)]
+    [InlineData(1080, 1.5d, 3585d, 3600d)]
+    public void CenterScreen_centres_in_the_units_Screen_reports(int screenExtent, double scaling, double outerTwips, double twips)
+    {
+        // 5310 and 3960 are vb6.exe's on a 1024 x 768 console (#852). At 150%, Screen.Width is 1920 / 1.5 * 15 = 19200
+        // twips, and (19200 - 4740) / 2 is 7230.
+        (FormPosition.Centred(0, screenExtent, outerTwips, scaling) * 15).Should().Be(twips);
+    }
+
     private static float Read(Window form, PropertyClass property)
     {
         AvaloniaInteroperability.TryGet(form, property, out var value).Should().BeTrue();

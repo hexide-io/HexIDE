@@ -22,12 +22,12 @@ internal static class FormPosition
         var state = states.GetOrCreateValue(window);
         var pixel = vertical ? window.Position.Y : window.Position.X;
         var assigned = vertical ? state.Top : state.Left;
-        return assigned is { } value && value.Pixel == pixel ? value.Twips : pixel * VBScaleModeExtensions.PixelToTwips;
+        return assigned is { } value && value.Pixel == pixel ? value.Twips : Twips(pixel, window.DesktopScaling);
     }
 
     public static void Write(Window window, bool vertical, double pixels)
     {
-        var pixel = (int)Math.Round(pixels);
+        var pixel = ScreenPixel(pixels, window.DesktopScaling);
         window.Position = vertical ? new PixelPoint(window.Position.X, pixel) : new PixelPoint(pixel, window.Position.Y);
         var state = states.GetOrCreateValue(window);
         var value = (pixels * VBScaleModeExtensions.PixelToTwips, pixel);
@@ -46,9 +46,23 @@ internal static class FormPosition
     public static void Center(Window window)
     {
         if (window.Screens.Primary is not { } screen) return;
-        states.Remove(window);
-        window.Position = new PixelPoint(
-            screen.Bounds.X + (int)Math.Floor((screen.Bounds.Width - FormFrame.Read(window, false) / VBScaleModeExtensions.PixelToTwips) / 2),
-            screen.Bounds.Y + (int)Math.Floor((screen.Bounds.Height - FormFrame.Read(window, true) / VBScaleModeExtensions.PixelToTwips) / 2));
+        Write(window, false, Centred(screen.Bounds.X, screen.Bounds.Width, FormFrame.Read(window, false), screen.Scaling));
+        Write(window, true, Centred(screen.Bounds.Y, screen.Bounds.Height, FormFrame.Read(window, true), screen.Scaling));
     }
+
+    // A twip is a fifteenth of a device-independent pixel, as Screen's size is, while a window's Position is in the
+    // screen's own pixels. The two agree only at 100% scaling, so every crossing between them goes through these.
+
+    /// <summary>A position in device-independent pixels, as the screen pixel the window goes to.</summary>
+    internal static int ScreenPixel(double pixels, double scaling) => (int)Math.Round(pixels * scaling);
+
+    /// <summary>A screen pixel, as twips.</summary>
+    internal static double Twips(int screenPixel, double scaling) => screenPixel / scaling * VBScaleModeExtensions.PixelToTwips;
+
+    /// <summary>
+    /// Where a window whose outer extent is <paramref name="outerTwips"/> starts when centred on a screen, in whole
+    /// device-independent pixels: CenterScreen centres in whole pixels (measured, #852).
+    /// </summary>
+    internal static double Centred(int screenOrigin, int screenExtent, double outerTwips, double scaling) =>
+        screenOrigin / scaling + Math.Floor((screenExtent / scaling - outerTwips / VBScaleModeExtensions.PixelToTwips) / 2);
 }
