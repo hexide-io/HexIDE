@@ -918,6 +918,12 @@ The untitled-document tests also drain and poll for clangd's URI refusal and ruf
 warning, with a five-second deadline, before asserting on standard error (#2269). Diagnostics arriving
 does not mean the independent stderr reader has finished recording those lines.
 
+A stdio server that exits before its Windows job assignment completes still supplies its stderr and
+exit-code notices (#2752). A refused assignment is ignored only if the process has already exited;
+a refusal for a running process still fails the connection rather than leaving it outside the job.
+`StdioProcessNoticeTests` drives both exit/assignment orders with a shell waiting on stdin, and injects
+the native assignment failure after waiting for exit, so this regression also runs on Linux.
+
 The one thing the proxy could do that the inspector cannot is observe a client so broken it never reaches
 its own serializer — a failure outside the process is immune to a tap inside it. That was worth one
 mitigation rather than keeping the whole thing: a serialization failure is now recorded as a never-sent

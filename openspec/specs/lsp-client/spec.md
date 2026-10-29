@@ -291,7 +291,9 @@ raise the transport's unexpected-close event.
 On Windows, each stdio or launched pipe server SHALL be assigned immediately after launch to
 `ChildProcessJob`, whose kill-on-close job ends assigned processes and descendants created after
 assignment when the IDE ends, including without managed shutdown. Assignment failure SHALL fail
-the connection and clean up the launched process. Externally owned pipe servers SHALL NOT be
+the connection and clean up the launched process, except that a stdio process already exited when
+assignment fails SHALL retain its stderr and exit-code reporting and SHALL NOT be reported as failing
+to start (#2752). Externally owned pipe servers SHALL NOT be
 assigned. Descendants created before assignment are not covered, since `Process.Start` cannot
 start suspended.
 
