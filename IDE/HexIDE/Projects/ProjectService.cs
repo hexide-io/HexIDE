@@ -1245,10 +1245,20 @@ public class ProjectService : IProjectService
 
         // The picker only confirms the executable; the interpreter's archive is a separate output (#2504).
         var archivePath = Path.ChangeExtension(exePath, "dll")!;
-        if (File.Exists(archivePath) && await windowManager.MessageBox(
-                string.Format(localization.GetString("Str.Tool.ProtocolInspector.ReplaceFiles"), archivePath),
-                buttons: MessageBoxButtons.YesNo, icon: MessageBoxIcon.Warning) != MessageBoxResult.Yes)
-            throw new OperationCanceledException();
+        if (File.Exists(archivePath))
+        {
+            // Make waits on the question, and an automation caller is told so (#2718). A No used to leave through the
+            // cancelled-picker arm, and was reported as a save dialog cancelled.
+            make.Asking(archivePath);
+            if (await windowManager.MessageBox(
+                    string.Format(localization.GetString("Str.Tool.ProtocolInspector.ReplaceFiles"), archivePath),
+                    buttons: MessageBoxButtons.YesNo, icon: MessageBoxIcon.Warning) != MessageBoxResult.Yes)
+            {
+                make.NotMade($"replacing {archivePath}, which was already there, was declined, so nothing was written", false);
+                throw new OperationCanceledException();
+            }
+            make.Reached(MakeOutcomes.Stage.Writing);
+        }
 
         var exeFileName = Path.GetFileNameWithoutExtension(exePath);
 
