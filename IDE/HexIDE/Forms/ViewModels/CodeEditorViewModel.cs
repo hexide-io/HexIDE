@@ -1941,7 +1941,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
             localization.GetString("Str.CodeEditor.Dialog.RenameTitle"), defaultText);
 
     public Task<TextEdit[]> RequestFormattingAsync(CancellationToken ct = default)
-        => LiveDocumentUri is { } uri ? lspClient.RequestFormattingAsync(uri, ct) : Task.FromResult<TextEdit[]>([]);
+        => LiveDocumentUri is { } uri ? lspClient.RequestFormattingAsync(uri, new FormattingOptions(Settings.TabWidth, true), ct) : Task.FromResult<TextEdit[]>([]);
 
     /// <summary>
     /// Exposes the document URI for cross-file definition navigation and for the rename edit lookup.

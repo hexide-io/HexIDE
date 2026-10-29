@@ -123,7 +123,7 @@ public class ActiveFormSaveTests
         lsp.IsRunning.Returns(true);
         lsp.RequestDocumentSymbolsAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(Array.Empty<DocumentSymbol>());
         var formatting = new TaskCompletionSource<TextEdit[]>();
-        lsp.RequestFormattingAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(formatting.Task);
+        lsp.RequestFormattingAsync(Arg.Any<string>(), Arg.Any<FormattingOptions>(), Arg.Any<CancellationToken>()).Returns(formatting.Task);
         var settings = Substitute.For<ISettingsService>();
         settings.TabWidth.Returns(4);
         settings.FormatOnSave.Returns(true);

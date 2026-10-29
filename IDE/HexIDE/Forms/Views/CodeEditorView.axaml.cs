@@ -1897,7 +1897,7 @@ public partial class CodeEditorView : UserControl
                 var updatedLine = doc.GetLineByNumber(currentLineNumber);
                 var updatedLineText = doc.GetText(updatedLine.Offset, updatedLine.Length);
                 var indent = VbAutoCloseProvider.GetIndentation(updatedLineText);
-                var bodyIndent = VbAutoCloseProvider.GetBodyIndent(indent);
+                var bodyIndent = VbAutoCloseProvider.GetBodyIndent(indent, TextEditor.Options.IndentationSize);
                 var addCloser = closer is not null && !NextNonEmptyLineIs(doc, lastLineBefore, closer);
                 var insertText = addCloser ? newline + bodyIndent + newline + indent + closer : newline + indent;
 
