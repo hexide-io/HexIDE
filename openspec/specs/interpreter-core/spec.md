@@ -259,6 +259,23 @@ by value will run such a program to completion while producing the wrong answer.
 - **WHEN** a member call statement puts its parenthesised argument directly after the member name
 - **THEN** it runs as the spaced form does, with the parenthesised expression passed by value
 
+### Requirement: Measured straight-line and sum-of-years depreciation
+
+The interpreter SHALL implement positional `SLN` and `SYD` calls with Double results matching
+all measured rows in [#2524](https://github.com/hexide-io/HexIDE/issues/2524) bit for bit.
+It SHALL refuse their unmeasured named calls and argument counts as not implemented.
+`DDB` remains unimplemented until every measured row can be reproduced.
+
+#### Scenario: Straight-line depreciation
+- **WHEN** a program evaluates `SLN(30000, 7500, 10)`
+- **THEN** it returns Double with bits `40A1940000000000`
+- **AND** life zero raises error 5, while life -2 returns Double with bits `C0C5F90000000000`
+
+#### Scenario: Fractional sum-of-years period
+- **WHEN** a program evaluates `SYD(30000, 7500, 10, 2.5)`
+- **THEN** it returns Double with bits `40AB2A8BA2E8BA2F`
+- **AND** a period outside 1 to life raises error 5
+
 ### Requirement: Name resolution SHALL let user code shadow built-in functions
 A name SHALL be resolved as a local variable or array first, then as a procedure defined in the project, and
 only then as a built-in function.
