@@ -13,6 +13,15 @@ the kind of thing that erodes silently unless it is a requirement.
 
 ## Requirements
 
+### Requirement: Startup is visible without tracing
+The server SHALL send an informational `window/logMessage` after the client's `initialized`
+notification, confirming startup with the same name and version advertised by `initialize`.
+This notification SHALL be independent of the trace level and SHALL preserve file logging.
+
+#### Scenario: A client leaves tracing off
+- **WHEN** the client completes initialization with tracing off
+- **THEN** it receives a type 3 `window/logMessage` confirming startup, server name and version
+
 ### Requirement: The source tree SHALL be uniformly permissively licensed
 The language server and every artifact it embeds SHALL be permissively licensed, and the tree SHALL NOT
 contain a copyleft licence file, a copyleft-derived grammar, or test inputs derived from a copyleft
