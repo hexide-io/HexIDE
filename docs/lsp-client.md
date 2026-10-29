@@ -644,6 +644,10 @@ report a change that is not a document, such as its own configuration file being
 
 ## Routing: which server gets which document
 
+Language & Debug Servers refreshes each server's tracked open-document count after document opens
+and closes, including the close half of a rename (#2485). Startup alone is too early: the first
+`didOpen` follows the running-state notification. This applies to Full and Incremental sync alike.
+
 Two questions the protocol keeps separate, and so does HexIDE:
 
 - **`extensions`** — which files a server *serves*. This is what routing reads, for every document.
