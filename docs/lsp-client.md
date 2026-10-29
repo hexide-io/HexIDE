@@ -739,7 +739,11 @@ reports scheduling uncertainty; it does not establish that the server omitted an
 
 Stdio process logs include the configured server ID as a structured `Server` property and in the
 rendered message for startup, start failure, stderr (Debug level) and exit. Direct transport callers
-that supply no ID use the executable name.
+that supply no ID use the executable name. The identity test's process waits for an `exit` frame
+before writing stderr and exiting, so startup/job assignment finishes before it can exit (#2347).
+A ping response confirms it is serving requests before the test releases it.
+The test awaits each server's matching log callback with the shared two-minute safety bound and
+reports received logs on timeout.
 
 Launched pipe servers can receive HexIDE's process ID through `{pid}` in `arguments` (#406),
 with or without an open workspace. A server can use it to watch its owner and exit after an unclean
