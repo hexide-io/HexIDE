@@ -9,11 +9,11 @@ using HexIDE.Localization;
 
 namespace HexIDE.Tests.IDE;
 
-public class RecentlyClosedDocumentsTests
+public class RecentlyClosedDocumentsTests : CompositionTestBase
 {
-    private static (DISetup composition, IDocumentDockService dock, IEditorService editors, MainViewViewModel root) Shell()
+    private (DISetup composition, IDocumentDockService dock, IEditorService editors, MainViewViewModel root) Shell()
     {
-        var composition = new DISetup();
+        var composition = Composition;
         var root = composition.Root;
         return (composition, composition.DocumentDockService, composition.EditorService, root);
     }
