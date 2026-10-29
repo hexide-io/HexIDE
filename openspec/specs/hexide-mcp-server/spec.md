@@ -442,6 +442,16 @@ caret's line, column and offset back from the editor.
 - **WHEN** `open_file` names a line past the file's last
 - **THEN** nothing opens, and the reply gives the lines it has
 
+### Requirement: open_file SHALL say when its caret is where type_text would be refused
+When the caret `open_file` places is in a part of a code window only the IDE changes, a form's header or a member's
+Attribute lines, the note SHALL name that part and give the nearest place that can be edited by line, column and offset.
+When the whole window refuses typing, the note SHALL say so. A caret where `type_text` writes SHALL add nothing.
+
+#### Scenario: A line inside a form's header
+- **WHEN** `open_file` opens Form1 of a new project at line 16, inside its header
+- **THEN** the note says the caret is in the file's header, which only the IDE changes, and names line 18, column 1,
+  offset 485, as the nearest place that can be edited
+
 ### Requirement: A tool that names a document SHALL name its project, and count lines from the top of the file
 A tool that accepts or reports a form, module or class SHALL identify it by its project and its name, SHALL
 find it in any loaded project, and SHALL match both without regard to case. Where a reply also carries the name
