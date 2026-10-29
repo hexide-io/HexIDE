@@ -21,7 +21,7 @@ using Serilog;
 
 namespace HexIDE.Projects;
 
-public class ProjectService : IProjectService
+public partial class ProjectService : IProjectService
 {
     private readonly Func<NewProjectViewModel> newProjectVm;
     private readonly IWindowManager windowManager;
@@ -417,11 +417,13 @@ public class ProjectService : IProjectService
         var errorSink = new DeserializeErrorSink(localization);
         // The load itself is shared with the Standalone host a made program runs in (#1062). What the IDE adds is its own
         // record of what it read, which the save-changes prompt and the file watcher compare against.
-        var (project, serializedProject, readByteForByteList) = await new ProjectLoader
+        var (project, serializedProject, readByteForByteList, projectFileBytes) = await new ProjectLoader
         {
             HostAnsi = HostAnsi,
             FileRead = baselineStore.Record,
         }.LoadAsync(projectPath, errorSink);
+        // The project file too, as a save records it: crash recovery matches a moved project by it (#499).
+        baselineStore.Record(projectPath, projectFileBytes);
         var readByteForByte = readByteForByteList.ToList();
 
         projectManager.AddProject(project);
@@ -454,6 +456,8 @@ public class ProjectService : IProjectService
         await ReportReadByteForByte(readByteForByte);
         if (conflictingNames.Count > 0)
             await windowManager.MessageBox(string.Join("\n\n", conflictingNames), icon: MessageBoxIcon.Warning);
+
+        eventBus.Publish(new ProjectOpenedEvent(project));
     }
 
     /// <summary>
@@ -2174,6 +2178,104 @@ public class ProjectService : IProjectService
 
     public bool HasUnsavedChanges(FormDefinition form) => IsDirty(form);
     public bool HasUnsavedChanges(ModuleDefinition module) => IsDirty(module);
+
+    /// <inheritdoc/>
+    /// <remarks>
+    /// <para>
+    /// <b>Dirty means what it means to the save prompt,</b> and each unsaved file is rendered by the helper its save
+    /// uses, so a backup holds exactly what a save would have written. A file with no path yet is named as
+    /// <c>Name.ext</c>, and a form's text cites its companion by that name.
+    /// </para>
+    /// <para>
+    /// <b>Only what has run ahead is flushed.</b> This runs every few seconds, and an unconditional flush would
+    /// rebuild every open designer each time (<see cref="ApplyAllUnsavedChangesEvent.OnlyWhereAhead"/>).
+    /// </para>
+    /// <para>
+    /// <b>A member with no file is named in the project file's text where a save would put it, beside the project
+    /// file,</b> or the serializer leaves it out (#1359). A project that was never saved has no folder, so its text
+    /// is rendered as though it were in the temporary directory. Only the relative paths of members that have files
+    /// depend on that, and a restore takes those from <see cref="UnsavedDocument.Path"/> instead.
+    /// </para>
+    /// </remarks>
+    public IReadOnlyList<HexIDE.Recovery.UnsavedProject> CaptureUnsavedWork()
+    {
+        eventBus.Publish(new ApplyAllUnsavedChangesEvent { OnlyWhereAhead = true });
+
+        var captured = new List<HexIDE.Recovery.UnsavedProject>();
+        foreach (var project in projectManager.LoadedProjects)
+        {
+            var documents = new List<HexIDE.Recovery.UnsavedDocument>();
+            foreach (var form in project.Forms)
+            {
+                var fileName = form.AbsolutePath is { } path ? Path.GetFileName(path) : form.Name + ".frm";
+                documents.Add(new(form.Name, "Form", form.AbsolutePath, form.TextEncoding,
+                    IsDirty(form) ? Unsaved(fileName, RenderForm(form, fileName)) : null, DiskHashOf(form.AbsolutePath)));
+            }
+            foreach (var module in project.Modules)
+            {
+                var fileName = module.AbsolutePath is { } path
+                    ? Path.GetFileName(path)
+                    : module.Name + "." + ModuleExtension(module.Kind);
+                documents.Add(new(module.Name, module.Kind.ToString(), module.AbsolutePath, module.TextEncoding,
+                    IsDirty(module) ? Unsaved(fileName, RenderModule(module, fileName)) : null, DiskHashOf(module.AbsolutePath)));
+            }
+
+            var projectDirty = IsDirty(project);
+            if (!projectDirty && documents.All(document => document.Content is null))
+                continue;
+
+            var projectPath = project.AbsolutePath ?? NotionalProjectPath(project);
+            var directory = Path.GetDirectoryName(projectPath) ?? "";
+            string? PathOf(object member) => member switch
+            {
+                FormDefinition { AbsolutePath: null } form => Path.Combine(directory, form.Name + ".frm"),
+                ModuleDefinition { AbsolutePath: null } module =>
+                    Path.Combine(directory, module.Name + "." + ModuleExtension(module.Kind)),
+                _ => null,
+            };
+
+            captured.Add(new(project.Name, project.AbsolutePath,
+                project.AbsolutePath is { } projectFile ? baselineStore.TryGet(projectFile)?.Hash : null,
+                project.TextEncoding,
+                projectDirty
+                    ? new HexIDE.Recovery.UnsavedFile(Path.GetFileName(projectPath),
+                        new ProjectSerializer().Serialize(project, projectPath, PathOf))
+                    : null,
+                documents,
+                projectPath,
+                IsInScratchFolder(project)));
+        }
+        return captured;
+    }
+
+    private string? DiskHashOf(string? path) => path is null ? null : baselineStore.TryGet(path)?.Hash;
+
+    /// <summary>Whether <paramref name="project"/>'s file is in the scratch folder the IDE made for it, as <c>--newproject</c> saves it.</summary>
+    private static bool IsInScratchFolder(ProjectDefinition project) =>
+        project.AbsolutePath is { } saved && project.WorkingDirectory is { Length: > 0 } scratch
+        && string.Equals(Path.TrimEndingDirectorySeparator(Path.GetDirectoryName(saved) ?? ""),
+            Path.TrimEndingDirectorySeparator(scratch), StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// A private place, kept for the session, to render a never-saved project's file against: its members are named
+    /// relative to it, so a restore that puts the files back there finds each of them again.
+    /// </summary>
+    /// <remarks>
+    /// One per project instance, as <see cref="ProjectFilesDirectory"/> is, and for its reason: two never-saved
+    /// projects are both called Project1. Not that directory itself, whose assignment the language layer would hear as
+    /// a new working directory.
+    /// </remarks>
+    private static string NotionalProjectPath(ProjectDefinition project) =>
+        NotionalProjectPaths.GetValue(project, p => Path.Combine(Path.GetTempPath(),
+            $"hexide_recovered_{Guid.NewGuid():N}", SanitiseForPath(p.Name) + ".vbp"));
+
+    private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<ProjectDefinition, string>
+        NotionalProjectPaths = new();
+
+    private static HexIDE.Recovery.UnsavedFile Unsaved(string fileName, (string Text, byte[]? Companion) rendered) =>
+        rendered.Companion is { Length: > 0 } companion
+            ? new(fileName, rendered.Text, Path.ChangeExtension(fileName, CompanionBinaryExtension(fileName)), companion)
+            : new(fileName, rendered.Text);
 
     private bool IsDirty(FormDefinition form)
     {

@@ -74,6 +74,7 @@ public class ViewLocator : IDataTemplate
         Register<NewProjectViewModel, NewProjectView>();
         Register<FindReplaceViewModel, FindReplaceView>();
         Register<SaveChangesViewModel, SaveChangesView>();
+        Register<RecoveryDialogViewModel, RecoveryDialogView>();
         Register<FileConflictViewModel, FileConflictView>();
         Register<ProjectPropertiesViewModel, ProjectPropertiesView>();
         Register<ReferencesViewModel, ReferencesView>();
