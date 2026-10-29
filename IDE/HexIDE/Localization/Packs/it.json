@@ -2,6 +2,8 @@
   "name": "Italian",
   "direction": "ltr",
   "strings": {
+    "Str.Tool.Properties.LoadPicture": "Carica immagine",
+    "Str.Tool.Properties.LoadPictureFailed": "Impossibile caricare l’immagine da “{0}”.",
     "Str.Designer.ShowTabOrder": "Mostra ordine di tabulazione (barrato: TabStop disattivato)",
     "Str.Options.EditorGeneral.Display.StickyScroll": "Intestazioni fisse durante lo scorrimento",
     "Str.Options.EditorGeneral.Display.StickyDepth": "Numero massimo di intestazioni fissate",
