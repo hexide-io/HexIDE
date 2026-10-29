@@ -151,9 +151,8 @@ some are refinements we may take. Format: **What → VB6 → HexIDE → Why → 
   canvas), so what remains is that `DebugInspector`'s child provider enumerates the form's controls flat rather
   than walking the containment tree the model records. Same symptom, smaller and purely-Locals-side cause; an
   *unloaded* form's **synthetic `Me` root** (D8 — no backing
-  control) has no property surface; and `ICSharpProxy` wrappers don't expand (a non-issue — the only proxied roots,
-  `Debug`/`Err`, are `Hidden`). Value formatting is the inspector's approximate `FormatValue` (colours/fonts via
-  their value, not `&H…`/font descriptors) — the D9 approximation.
+  control) has no property surface; and `ICSharpProxy` wrappers do not expand. Font is now a visible object (#934), and its member expansion
+  remains outstanding. Value formatting is the inspector's approximate `FormatValue` — the D9 approximation.
 - **Status:** **RESOLVED for the ordinary case** — form/control property surface + the child-control tree all render
   (P8 + residual-1/3, 2026-08-10). The lazy child-provider model made each surface purely additive. The
   `Me.Tag`-leaked-`TaskCompletionSource` defect this surfaced is FIXED (see interpreter-gaps). The remaining items
@@ -177,6 +176,9 @@ some are refinements we may take. Format: **What → VB6 → HexIDE → Why → 
   window's VB6 properties first, then the instance's variables and controls (D7's surface, unchanged). The form's name
   is now seeded into every module, as `Debug` and `Err` are, so it is hidden from a module frame's Locals as well as
   under `Me`. The labelling question above is still unmeasured.
+
+Font reads on the supported intrinsic controls now return the shared Font object (#934), rather than a String or Null. Its Locals
+property expansion remains unimplemented; the object is currently a leaf labelled Font.
 
 ### D9. Locals show only already-executed `Dim`s; value formatting is approximate
 - **VB6:** the Locals window lists **every** declared local from procedure entry (unset ones show as `Empty`/0/""),
@@ -436,7 +438,10 @@ recorded in #1866; the dockable pane uses selection/double-click rather than VB6
   all of it. End ends the run as End does. An error is unhandled when no activation would trap it, from the one that
   raised it down to where the program was entered: an event's procedure, a `RaiseEvent` sink or `Sub Main`. So a handler
   in the code that raised an event never sees its error, `RaiseEvent` included. `HaltOnErrorTests` pins each case.
-  What remains:
+  The standalone host now applies the same entry boundary (#757), shows the compiled program's warning with OK
+  only, holds events and Timers, and exits on dismissal without unload or terminate events. `StandaloneErrorTests`
+  drives the host for event errors, Sub Main, b2 and b3, compile errors and faults.
+  What remains in the IDE:
   - **A statement runs again whole.** That is measured, for `x = F() + 1 \ 0`, where F is called again.
   - **A condition runs again on its own,** an `ElseIf`'s, or a `Loop Until`'s without another pass through the body,
     and so does a statement of a single-line `If`'s tail. **These are chosen, not measured.** They are the closest
@@ -448,9 +453,6 @@ recorded in #1866; the dockable pane uses selection/double-click rather than VB6
   - **Whether `Err` holds the error** at the break is unmeasured, and HexIDE leaves it as it was.
   - **A form's `Terminate`, and a class's `Initialize` and `Terminate`,** are not entries. An error a form's Terminate
     leaves unhandled is reported as before, and the run carries on.
-  - **No host to halt:** the Standalone runner has none, and its run-time errors are
-    [#757](https://github.com/hexide-io/HexIDE/issues/757). Without one, an error unwinds to the event's dispatch as
-    before, and a `RaiseEvent` sink's error still reaches a handler in the raiser.
 
   D22 is the same divergence for a compile error, and D27 is the one case where HexIDE follows the compiled program
   instead.

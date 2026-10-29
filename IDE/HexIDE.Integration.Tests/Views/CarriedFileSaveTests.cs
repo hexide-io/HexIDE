@@ -75,6 +75,21 @@ public class CarriedFileSaveTests : IDisposable
     }
 
     [AvaloniaFact]
+    public async Task SavingPreservesFileAtOldStagingName()
+    {
+        using var vm = Open([0x63]);
+        var path = vm.RelatedDocument!.AbsolutePath!;
+        File.WriteAllText(path + ".hexide-tmp", "user file");
+        vm.Document.Text = "edited";
+
+        await vm.SaveAsync();
+
+        File.ReadAllText(path).Should().Be("edited");
+        File.ReadAllText(path + ".hexide-tmp").Should().Be("user file");
+        vm.IsDirty.Should().BeFalse();
+    }
+
+    [AvaloniaFact]
     public async Task SavingTextRestoredToItsOriginalValueDoesNotWrite()
     {
         using var vm = Open([0x63]);

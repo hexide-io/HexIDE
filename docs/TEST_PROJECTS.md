@@ -60,11 +60,12 @@ when overriding the build output.
 
 ---
 
-## Project smoke checks (#2505, open/save lane)
+## Project smoke checks (#2505)
 
 `ProjectCorpusSmokeTests` in `HexIDE.Tests` opens projects through the real `ProjectService` and saves
 scratch copies. It always includes `demo/`, `corpus/designer`, the member-attribute round-trip and
-`saved*` evidence directories, and `corpus/inbox-controls/saved`. `HEXIDE_ROUNDTRIP_CORPUS` adds
+`saved*` evidence directories, and `corpus/inbox-controls/saved`.
+`VB6_TEMPLATES` adds its tree when set. `HEXIDE_ROUNDTRIP_CORPUS` accepts
 semicolon-separated roots; a configured root that is missing fails the test. Project discovery is
 case-insensitive for `.vbp` extensions, including on Linux.
 
@@ -100,8 +101,31 @@ VB6 block-opening whitespace, so the sweep requires byte identity apart from the
 were reproduced with CRLF inputs, which `.gitattributes` already enforces on these files on Linux too.
 Three evidence-writing regression cases cover changed, added and deleted files on Linux.
 
-Remaining: bounded startup execution through `HexIDE.Standalone`, Make coverage, and their per-project
-results. The open/save lane does not establish the full beta gate's run/make guarantee.
+After comparing the saved bytes, each scratch project starts through `VBLoader.RunMadeProgram`, the
+entry point used by `HexIDE.Standalone.App`, in an isolated Avalonia headless worker process. The
+`ProjectSmokeRunner.StartupSeconds` constant bounds startup at **3 seconds**, including synchronous
+loops; worker initialization has a separate 60-second watchdog. Regression fixtures allow 30 seconds for
+cold JIT work when asserting completion/refusal/fault results; the infinite-loop fixture uses the corpus
+limit. MsgBox chooses its first offered button;
+InputBox accepts its default text. These are scripted smoke inputs, not VB6 fidelity expectations.
+The worker uses the scratch project directory as its working directory and is killed after reporting or
+timing out. This is process isolation, not a security sandbox: only run trusted corpus programs.
+
+Make then uses `ProjectService.MakeProject`, writing its runner and project archive under
+`smoke-output/` in the scratch project directory. It finds a published runner under
+`HEXIDE_MAKE_RUNTIME/standalone/`, defaulting to `artifacts/make-runtime/standalone/`, as the existing made
+program tests do. Publish it using the command in `MadeProgramTests` to exercise successful Make locally.
+A missing runtime or a save cancellation is reported as a refusal with its reason, never as a successful
+Make. The packaging regression uses a fixture runner and checks the archive on Linux; it does not prove
+the published executable starts.
+
+The report includes `Run` and `Make` status/detail pairs for every project, even after a save refusal or
+an execution fault. Startup reports `ran to completion`, `ran to the time limit`, `refused` for
+`NotImplementedException` (also used when no startup path is configured), or `crashed` for every other
+exception, preserving the stack. Make reports
+`made`, `refused` or `crashed`. Only crashes and unexpected save differences fail the sweep. No interpreter
+behaviour is changed or newly claimed as VB6-measured by this harness. Its fault fixture uses
+`Err.Raise 5`, already [measured in #877](vb6-fidelity-oracle/when-err-is-cleared-and-what-a-running-handler-traps.md).
 
 ## Corpus coverage targets
 

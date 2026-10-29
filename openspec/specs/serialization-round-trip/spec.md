@@ -737,6 +737,21 @@ SHALL leave those control copies unchanged (measured for #2062; see
 - **WHEN** Form1's font name becomes Tahoma
 - **THEN** both controls still read Arial
 
+### Requirement: Interpreter archive replacement consent
+
+Interpreter Make SHALL ask before replacing an existing derived `.dll` project archive, naming that
+file. Only Yes SHALL authorize replacement. Declining or dismissing the question SHALL leave both the
+archive and executable untouched. The archive SHALL be staged and flushed through `AtomicFileWriter`.
+
+#### Scenario: Decline replacement of a derived archive
+- **WHEN** the executable picker selects a path whose derived `.dll` already exists
+- **AND** the developer declines or dismisses the archive replacement question
+- **THEN** Make is cancelled without replacing either output
+
+#### Scenario: Agree to replace a derived archive
+- **WHEN** the developer answers Yes to the question naming the existing derived archive
+- **THEN** Make replaces the archive with a readable package of the current project
+
 ### Requirement: Made programs SHALL carry source text independently of the host code page
 
 Make SHALL encode the package's project, form and module source copies as UTF-8 with a BOM, without

@@ -54,6 +54,12 @@ Processes have no shell or tty. See [the configuration guide](language-servers.m
 
 ## The wire contract
 
+Optional members whose LSP 3.17 types exclude null are omitted when unset, including formatting's
+`trimTrailingWhitespace` and initialize's `capabilities.textDocument.foldingRange` (#2668).
+This is a per-property rule: initialize's `processId`, `rootUri` and `workspaceFolders` still allow
+explicit null, as do opaque `LSPAny` values. `OptionalMembersWireShapeTests` reads framed JSON through
+the production formatter and source-generated context to guard absence and preserve explicit values.
+
 **Sent by the client:**
 
 | Phase | Methods |
@@ -101,7 +107,12 @@ HexIDE kills its remaining process tree, including during bring-up (#313).
 The stdio transport also allows two seconds for an orderly exit, then kills the remaining process
 tree and waits up to two seconds for termination before disposing its process handle (#2023).
 Unix transports allow an additional two seconds for the guard's group cleanup (#2297). The stdio
-exit code is recorded even during client stop. A test-only process server covers orderly exit, ignored
+exit code is recorded even during client stop. Both process-owning transports retain their exit
+handlers through disposal and record the exit once. Deliberate disposal logs the exit code at
+information level with the server identity; a timeout kill is logged separately. Unexpected exits
+remain warnings. The Unix guard and post-kill waits described above still exceed #491's requested
+two-second total bound; integrating that deadline with descendant cleanup remains outstanding.
+A test-only process server covers orderly exit, ignored
 exit, wrapper children, a truncated reply followed by a crash, and an unsolicited non-zero exit.
 
 **Consumed from the server:** `textDocument/publishDiagnostics`, `$/logTrace`, `$/progress` (work-done

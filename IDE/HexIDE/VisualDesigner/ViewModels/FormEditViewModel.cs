@@ -550,6 +550,9 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
         RebuildContainmentOrder(positionInList);
         foreach (var (container, ordinals) in CarriedPlacement(orderedComponents).ToList())
             container.SetPreservedChildOrdinals(ordinals);
+        foreach (var instance in orderedComponents.Where(c => !IsReadOnly && c.BaseClass is SSTabComponentClass))
+            SSTabComponentClass.Instance.SynchronizeDesignerPages(instance,
+                orderedComponents.Where(c => ReferenceEquals(c.Container, instance)).ToList());
         formDefinition?.UpdateComponents(orderedComponents);
     }
 
@@ -640,6 +643,9 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
             AllComponents.Add(vm);
         }
 
+        foreach (var instance in fileOrder.Where(c => !IsReadOnly && c.BaseClass is SSTabComponentClass))
+            SSTabComponentClass.Instance.InitializeDesignerPages(instance);
+
         foreach (var comp in DrawOrder(fileOrder))
             Components.Add(viewModels[comp]);
 
@@ -713,6 +719,28 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
     private static long Twips(double pixels) => (long)Math.Round(pixels * VBScaleModeExtensions.PixelToTwips);
 
     private static double Pixels(long twips) => twips / (double)VBScaleModeExtensions.PixelToTwips;
+
+    internal bool SwitchSSTabPage(Point point)
+    {
+        if (IsReadOnly)
+            return false;
+        for (var i = Components.Count - 1; i >= 0; i--)
+        {
+            var vm = Components[i];
+            if (vm.Instance.BaseClass is not SSTabComponentClass tab
+                || !new Rect(vm.Left, vm.Top, vm.Width, vm.Height).Contains(point))
+                continue;
+            var children = AllComponents.Where(c => ReferenceEquals(c.Instance.Container, vm.Instance))
+                .Select(c => c.Instance).ToList();
+            if (!tab.SelectDesignerPage(vm.Instance, point - new Vector(vm.Left, vm.Top),
+                    new Size(vm.Width, vm.Height), children))
+                return false;
+            SelectedComponent = vm;
+            CommitLayout();
+            return true;
+        }
+        return false;
+    }
 
     /// <summary>
     /// A control drawn with the selected tool by a drag from <paramref name="pressedAt"/> to <paramref name="releasedAt"/>,
