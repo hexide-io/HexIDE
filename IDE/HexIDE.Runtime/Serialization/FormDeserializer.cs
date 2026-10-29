@@ -89,6 +89,7 @@ public class FormDeserializer
     internal static readonly Components.InBox.InBoxComponentClass[] InBoxComponents =
     [
         Components.InBox.ProgressBarComponentClass.Instance,
+        Components.InBox.ListViewComponentClass.Instance,
         Components.InBox.TabStripComponentClass.Instance,
         Components.InBox.StatusBarComponentClass.Instance,
         Components.InBox.ImageListComponentClass.Instance,
@@ -607,7 +608,11 @@ public class FormDeserializer
             // An in-box control is written back under the type name it was read under, and with the extents it was read with
             // until it is sized (#1082).
             if (componentClass is Components.InBox.InBoxComponentClass inBox)
+            {
                 inBox.Loaded(instance, serializedComponent.Type);
+                if (inBox is Components.InBox.ListViewComponentClass)
+                    instance.SetProperty(Components.InBox.ListViewComponentClass.FilePropertiesProperty, serializedComponent);
+            }
             else if (componentClass is Components.InBox.TreeViewComponentClass)
             {
                 instance.SetProperty(Components.InBox.InBoxComponentClass.LoadedTypeNameProperty, serializedComponent.Type);

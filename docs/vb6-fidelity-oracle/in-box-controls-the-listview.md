@@ -273,8 +273,12 @@ text.
 | click a column header | **ColumnClick and nothing else**: no MouseDown, MouseUp or Click |
 | double-click a column header | one ColumnClick |
 
-- **MouseDown and MouseUp give X and Y in twips** from the control's top-left. A click 50 pixels across and 42 down gave
-  750 and 630.
+- **MouseDown, MouseMove and MouseUp give X and Y in client-area twips, inside the edge.** The later console
+  measurement (issue #1086, issuecomment-6449003235, native matching p-code; supervisor correction on #1085,
+  2026-10-27) corrects the earlier claim that the origin was the outer top-left. With BorderStyle 1 and Appearance 1,
+  the edge is 3 pixels: 21 pixels from the outer corner gives X 270, and (40, 30) gives (555, 405).
+  Flat appearance gives X 315 and (600, 450), respectively. The earlier (50, 42) → (750, 630) observation remains
+  recorded, but does not establish an outer-corner origin for the default edge.
 - **ItemClick is raised for an item already selected,** on every click on it.
 - **SelectedItem can be Nothing inside ItemClick.** It read Nothing in the Ctrl+click's ItemClick and in the
   Shift+click's last one, and named the clicked item by Click.
@@ -457,7 +461,7 @@ inside AfterLabelEdit too. It changed only after AfterLabelEdit returned.
 - **The run-time reads:** EXEs read every property back, natively and as p-code.
   - The first read the second form as written by hand, which is where the missing-line values below come from.
   - The second read VB6's own save of the third form, the round trip from VB6's writer to its reader.
-- **The corpus:** VB6's saves are in `corpus/inbox-controls/pending/listview/` and `listview-columns/`.
+- **The corpus:** VB6's saves are in `corpus/inbox-controls/saved/listview/` and `listview-columns/`.
 
 **Double-clicked onto a form,** VB6 writes this block (corpus `defaults/`):
 
@@ -586,4 +590,16 @@ NumItems 0 written, and no BackColor or BorderStyle.
 
 ### In HexIDE
 
-A form holding a ListView is refused at load, as any in-box control HexIDE doesn't model is (#1085).
+The #1085 object model implements ListItems, ColumnHeaders, ListSubItems and column-bounded SubItems, Text defaults,
+Long counts/indexes, keys, item string tags, selection and checkbox state, measured properties, sorting and FindItem.
+Sorted additions wait for a dispatcher turn, including DoEvents. It draws text in all four views, Report headers and
+subitems, selection/focus and checkboxes. Mouse input, the measured navigation events and cancellable label editing
+are implemented. Part C loads text-only saved properties and flat columns, including the distinct file
+defaults and HIMETRIC widths; C2 carries saved own-property runs and flat columns verbatim while writing
+designer extender edits and resize extents. Both corpus saves round-trip with their companions. Own-property
+and column editing remains unavailable; the canonical edit writer for those properties is still to come. The
+designer previews the name and optional checkbox without resolving ImageList bindings. ListView ImageList binding
+remains unimplemented after merging #1083. Unmeasured conversions,
+member edges and error descriptions are refused rather than supplied with inferred values; see MISSING_LANGUAGE.md's
+ListView implementation
+boundaries, including the unresolved SortOrder timing. These are implementation notes, not additional measurements.
