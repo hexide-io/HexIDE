@@ -1744,8 +1744,16 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
 
         return WithPrinted(new MutateResult(true, null, (outcome.Stop is { } at
             ? PausedAt(at)
-            : outcome.Running ? $"Running; no pause within {RunReplyWait.TotalSeconds.ToString("0", System.Globalization.CultureInfo.InvariantCulture)} s." : "The program ended.") + RaisedNote(outcome)));
+            : outcome.Running ? $"Running; no pause within {RunReplyWait.TotalSeconds.ToString("0", System.Globalization.CultureInfo.InvariantCulture)} s." : "The program ended.")
+            + FinishedNote(outcome) + RaisedNote(outcome)));
     }
+
+    // The handlers paused or held when the program was continued that ran to their end, which "Running" alone left to be
+    // inferred (#2720).
+    private static string FinishedNote(RunOutcome outcome) =>
+        outcome.Finished is { Count: > 0 } finished
+            ? $" {string.Join(", ", finished.Take(finished.Count - 1))}{(finished.Count > 1 ? " and " : "")}{finished[^1]} finished."
+            : "";
 
     /// <summary>How long a step's reply waits for the pause it causes before saying the program is still going.</summary>
     private static readonly TimeSpan StepReplyWait = TimeSpan.FromSeconds(2);
@@ -1757,7 +1765,8 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     /// What a run-control tool's start led to: the pause it caused, if one came within the wait; whether the
     /// program is still running; and a run-time error raised since, as its message reads on one line.
     /// </summary>
-    private readonly record struct RunOutcome(StoppedInfo? Stop, bool Running, string? NewError);
+    private readonly record struct RunOutcome(StoppedInfo? Stop, bool Running, string? NewError,
+        IReadOnlyList<string>? Finished = null);
 
     /// <summary>
     /// Runs <paramref name="startOnUi"/> on the UI thread and waits up to <paramref name="wait"/> for the pause it
@@ -1775,12 +1784,16 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
         var stopped = new TaskCompletionSource<StoppedInfo>(TaskCreationOptions.RunContinuationsAsynchronously);
         void OnStopped(StoppedInfo info) => stopped.TrySetResult(info);
         int? errorBefore = null;
+        HexIDE.Runtime.EventPump? pump = null;
+        IReadOnlyCollection<object> liveBefore = [];
 
         var refused = await Dispatcher.UIThread.InvokeAsync(() =>
         {
             if (ctx.RootViewModel.ExternalDebugger?.IsActive == true)
                 return new MutateResult(false, ctx.Localization.GetString("Str.Debug.External.Unsupported"));
             errorBefore = ctx.RootViewModel.RuntimeErrors.Last?.Sequence;
+            pump = UiAutomationDriver.RunningPump();
+            liveBefore = [.. pump?.Live ?? []];
             ctx.DebugController.Stopped += OnStopped;
             var refusal = startOnUi();
             if (refusal is not null)
@@ -1795,16 +1808,17 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
             StoppedInfo? stop = await Task.WhenAny(stopped.Task, Task.Delay(wait, ct)) == stopped.Task
                 ? await stopped.Task
                 : null;
-            var (running, error) = await Dispatcher.UIThread.InvokeAsync(() =>
+            var (running, error, finished) = await Dispatcher.UIThread.InvokeAsync(() =>
             {
                 var last = ctx.RootViewModel.RuntimeErrors.Last;
                 return (ctx.ProjectRunnerService.IsRunning,
                         last is { } raised && raised.Sequence != errorBefore
                             ? System.Text.RegularExpressions.Regex.Replace(raised.Message, @"\s+", " ").Trim()
                               + (raised.Where is { } where ? $" (in {where.Module}, line {where.Line})" : "")
-                            : null);
+                            : null,
+                        pump?.FinishedSince(liveBefore));
             });
-            return (null, new RunOutcome(stop, running, error));
+            return (null, new RunOutcome(stop, running, error, finished));
         }
         finally
         {
@@ -2415,7 +2429,9 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
             if (match is null)
             {
                 activeDocumentPath = ActiveDocumentPath(start, basePath, ctx.DocumentDockService.ActiveTab);
-                return new VisualTreeResult(null, label, UiAutomationDriver.Dump(start, basePath, maxDepth, interactiveOnly),
+                var tree = UiAutomationDriver.Dump(start, basePath, maxDepth, interactiveOnly);
+                return new VisualTreeResult(null, label, tree,
+                    Note: tree is { Children.Length: 0, Truncated: not true } ? EmptyTreeNote(start, basePath, root, interactiveOnly) : null,
                     FocusedPath: focus.FocusedPath, FocusReason: focus.FocusReason);
             }
 
@@ -2432,9 +2448,29 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
         if (result is { Root: { } tree, Matches: null })
         {
             var (fitted, fitNote) = FitToReply(tree, activeDocumentPath);
-            result = result with { Root = fitted, Note = fitNote };
+            result = result with { Root = fitted, Note = fitNote ?? result.Note };
         }
         return result;
+    }
+
+    /// <summary>
+    /// Why a dump's tree came back empty (#2725): the window or node holds nothing showing, or <c>interactiveOnly</c> left out
+    /// everything below it. An empty <c>children</c> list alone could mean either, and a caller had to guess. A node the walk
+    /// cut off is <c>truncated</c> instead, and isn't this.
+    /// </summary>
+    internal static string EmptyTreeNote(Control start, string basePath, string? root, bool interactiveOnly)
+    {
+        var where = root is null ? "This window" : $"'{root}'";
+        // One level unfiltered is enough to tell: anything showing below would be there. A hidden node, such as a form's
+        // empty menu bar, is nothing a caller can see or use.
+        var parts = interactiveOnly
+            ? UiAutomationDriver.Dump(start, basePath, 1, interactiveOnly: false).Children.Count(c => c.IsHidden != true)
+            : 0;
+        return parts > 0
+            ? $"{where} has nothing interactive below it, so interactiveOnly left out {parts} part{(parts == 1 ? "" : "s")} "
+              + "that show, such as text: pass interactiveOnly false to see them."
+            : $"{where} holds no controls. Anything drawn on it, such as a picture, what Print or Line drew, or a list's "
+              + "drawn items, is not a control: take_snapshot shows it.";
     }
 
     // Enough to choose from; past it the caller is told to narrow the text or the root, not handed the whole tree again.

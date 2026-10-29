@@ -2392,12 +2392,15 @@ public static class UiAutomationDriver
                         // A program's own box holds its handler; another window, such as the IDE's compile error, may not.
                         Box = dialog?.Content is HexIDE.Runtime.Dialogs.MessageBox or HexIDE.Runtime.Dialogs.InputBox,
                         Opened = OpenedForms(watch),
+                        Finished = watch.Pump.FinishedSince(watch.LiveBefore),
+                        // Read here, on the UI thread, as the reply below is composed off it.
+                        Title = dialog?.Title,
                     };
                 },
                 Avalonia.Threading.DispatcherPriority.Send).GetTask().ConfigureAwait(false);
             var opened = state.Opened.Count == 0
                 ? ""
-                : $"; the program opened {string.Join(", ", state.Opened.Select(t => $"'{t}'"))}";
+                : $"; the program opened {Joined(state.Opened)}";
             var waiting = state.Waiting.Length == 0 ? "" : $", with {state.Waiting} waiting to run";
             if (state.Idle)
             {
@@ -2406,9 +2409,13 @@ public static class UiAutomationDriver
                     ? await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(read, Avalonia.Threading.DispatcherPriority.Send)
                         .GetTask().ConfigureAwait(false)
                     : null;
+                // A handler found running, held at a MsgBox or paused, that this action let finish: said, since a reply that
+                // named it running would otherwise leave its end to be inferred (#2720).
+                var finished = state.Finished.Count == 0 ? "" : $"{Joined(state.Finished)} finished";
+                var after = string.Join("; ", new[] { finished, opened.Length == 0 ? "" : opened[2..] }.Where(p => p.Length > 0));
                 return outcome with
                 {
-                    Detail = outcome.Detail + settled + (opened.Length == 0 ? "" : $" ({opened[2..]})"),
+                    Detail = outcome.Detail + settled + (after.Length == 0 ? "" : $" ({after})"),
                     Settled = null,
                 };
             }
@@ -2426,13 +2433,16 @@ public static class UiAutomationDriver
             {
                 // Named here, so the reply's note of open dialogs leaves it out (#1253).
                 OpenDialogs.NamedInReply(dialog);
+                // How to reach it, which a caller met with a box for the first time had to guess (#2720): by its title, which a
+                // window it is over may share, or by "auto" when it has none.
+                var reach = string.IsNullOrWhiteSpace(state.Title) ? "\"auto\"" : $"\"{state.Title}\"";
                 return outcome with
                 {
                     Detail = outcome.Detail + $" (the program is still running {state.Busy}{waiting}, and has a window open over "
                              + "its form, " + state.Description
                              + (state.Box ? "; a MsgBox holds its handler until it is answered, so the form may change after that"
                                  : "; it may hold the program until it is answered, so the form may change after that")
-                             + $"{opened})",
+                             + $"; window {reach} reaches it{opened})",
                 };
             }
             if (Environment.TickCount64 >= deadline)
@@ -2498,9 +2508,25 @@ public static class UiAutomationDriver
             .FirstOrDefault(w => w.IsVisible && w != watch.Form && w is not HexIDE.Runtime.IModuleExecutionRoot
                                  && (watch.WaitingOnWindowBefore || !watch.Before.Contains(w)));
 
-    /// <summary>The titles of the program's forms that have opened since the action began.</summary>
+    /// <summary>
+    /// The program's forms that have opened since the action began, each by its name, which reaches it as a window and which
+    /// a program can't change, with its caption beside it where that differs: <c>Form2 ("Second")</c> (#2720).
+    /// </summary>
     private static List<string> OpenedForms(ProgramWatch watch) =>
-        [.. OpenWindows().Where(w => w is HexIDE.Runtime.IModuleExecutionRoot && !watch.Before.Contains(w)).Select(w => w.Title ?? "")];
+        [.. OpenWindows().Where(w => w is HexIDE.Runtime.IModuleExecutionRoot && !watch.Before.Contains(w)).Select(FormLabel)];
+
+    private static string FormLabel(Window form) =>
+        HexIDE.Runtime.BuiltinControls.VBProps.GetName(form) is not { Length: > 0 } name ? $"'{form.Title}'"
+        : string.Equals(name, form.Title, StringComparison.OrdinalIgnoreCase) ? name
+        : $"{name} (\"{form.Title}\")";
+
+    // Names as a sentence lists them: "A", "A and B", "A, B and C".
+    private static string Joined(IReadOnlyList<string> names) =>
+        names.Count == 1 ? names[0] : $"{string.Join(", ", names.Take(names.Count - 1))} and {names[^1]}";
+
+    /// <summary>The running program's event pump, read from any of its open forms, or null when none is open.</summary>
+    internal static HexIDE.Runtime.EventPump? RunningPump() =>
+        OpenWindows().OfType<HexIDE.Runtime.IModuleExecutionRoot>().Select(r => r.Events).FirstOrDefault(e => e is not null);
 
     // `click`'s value: an optional point, a button and the keys held, in any order (ClickValue).
     private static bool TryParseClick(string? value, out Point? at, out MouseButton button, out KeyModifiers keys, out bool twice, out string? destination, out bool hold, out string problem)

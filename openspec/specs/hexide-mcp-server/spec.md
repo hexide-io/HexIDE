@@ -978,6 +978,21 @@ click, drag or hover in that window SHALL end a staying hover before it acts. `i
 - **WHEN** a click lands elsewhere in that window
 - **THEN** the button no longer reads as under the pointer, and its tip is closed
 
+### Requirement: Program wait replies SHALL say what a caller would otherwise guess
+A reply that waits on a running program SHALL say when a handler it found running, held at a window or paused, has
+finished, a Timer's left out. It SHALL name a form the program opened by its name, with its caption beside it where
+that differs, and SHALL say which `window` reaches a window that holds a handler. `continue_program` SHALL say which
+handlers it let finish.
+
+#### Scenario: Answering a MsgBox
+- **WHEN** a click's handler waits at a MsgBox titled "Question", and a later `interact` answers it
+- **THEN** the click's reply says `window "Question"` reaches the box
+- **AND** the answer's reply says the handler finished
+
+#### Scenario: A form opened under another caption
+- **WHEN** a click shows Form2, whose Load sets its caption to "Second"
+- **THEN** the reply says the program opened `Form2 ("Second")`
+
 ### Requirement: Run-control replies SHALL say what the program printed
 A successful reply from `run_project`, `stop_project`, `continue_program`, `break_program`, a step or `run_to_cursor`
 SHALL give in `printed` what the program wrote with `Debug.Print` since its run began or a reply last reported it, and
@@ -1004,6 +1019,19 @@ follow those containers, retaining their relative visual-child order.
 #### Scenario: A selected row is visible near the top
 - **WHEN** a selected row is the third row on screen
 - **THEN** it follows the first two rows in the dump rather than appearing first because it was created first
+
+### Requirement: An empty dump SHALL say why it is empty
+A `dump_visual_tree` reply whose tree has no children, and is not `truncated`, SHALL say in its note whether the window or
+node holds nothing showing, or whether `interactiveOnly` left out parts that show, and how many, so a caller can tell an
+empty form from a filtered one.
+
+#### Scenario: A running form with no controls
+- **WHEN** a program's Form2 has no controls and is dumped with the defaults
+- **THEN** the note says the window holds no controls, and that what is drawn on it shows in a snapshot
+
+#### Scenario: A window holding only text
+- **WHEN** a window holds only text and is dumped with `interactiveOnly` true
+- **THEN** the note says how many parts the filter left out, and to pass `interactiveOnly` false to see them
 
 ### Requirement: Large discovery trees prioritize showing controls
 

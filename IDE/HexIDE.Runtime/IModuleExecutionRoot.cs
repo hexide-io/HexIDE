@@ -47,6 +47,16 @@ public interface IModuleExecutionRoot
     void ExecuteEvent(string name, Func<IReadOnlyList<Vb6Value>> args, EventCoalescing coalescing = EventCoalescing.None, Func<bool>? when = null) =>
         ExecuteSubIf(name, args(), when ?? (() => true));
 
+    /// <summary>An event called inside a control method, with writable arguments and completion before it returns.</summary>
+    System.Threading.Tasks.Task ExecuteControlEventAsync(string name, IReadOnlyList<CallArg> args)
+    {
+        var values = new List<Vb6Value>();
+        foreach (var arg in args)
+            values.Add(arg.Value);
+        ExecuteSub(name, values);
+        return System.Threading.Tasks.Task.CompletedTask;
+    }
+
     /// <summary>
     /// A Timer control's tick. While that Timer's own handler runs the tick is dropped, and while another handler runs
     /// at most one waits (measured, #766). A root with no queue of its own runs it as any event.

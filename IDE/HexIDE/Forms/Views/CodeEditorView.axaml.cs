@@ -94,6 +94,8 @@ public partial class CodeEditorView : UserControl
     private Action<HexIDE.Runtime.Debugging.StoppedInfo>? _onDebugStopped;
     private Action? _onDebugContinued;
     private System.ComponentModel.PropertyChangedEventHandler? _vmSelectionSync;
+    private EventHandler? _editorSelectionSync;
+    private bool _syncingSelection;
     private bool _resetPromptOpen;
     private string? _preEditBody;       // the code as it stood before the first edit while running (for Cancel→revert)
     private bool _resetPromptArmed;     // developer input is being handled; the next change it makes asks to reset
@@ -278,18 +280,35 @@ public partial class CodeEditorView : UserControl
             // would accumulate on the VM and fire redundantly on every later selection change.
             _vmSelectionSync = (_, args) =>
             {
-                if (args.PropertyName is nameof(CodeEditorViewModel.SelectionStart) or nameof(CodeEditorViewModel.SelectionLength))
+                if (!_syncingSelection && args.PropertyName is nameof(CodeEditorViewModel.SelectionStart) or nameof(CodeEditorViewModel.SelectionLength))
                 {
                     if (TextEditor.SelectionStart != vm.SelectionStart ||
                         TextEditor.SelectionLength != vm.SelectionLength)
                     {
-                        TextEditor.Select(vm.SelectionStart, vm.SelectionLength);
-                        if (vm.SelectionLength > 0)
-                            TextEditor.TextArea.Caret.BringCaretToView();
+                        _syncingSelection = true;
+                        try
+                        {
+                            TextEditor.Select(vm.SelectionStart, vm.SelectionLength);
+                            if (vm.SelectionLength > 0)
+                                TextEditor.TextArea.Caret.BringCaretToView();
+                        }
+                        finally { _syncingSelection = false; }
                     }
                 }
             };
             vm.PropertyChanged += _vmSelectionSync;
+            _editorSelectionSync = (_, _) =>
+            {
+                if (_syncingSelection) return;
+                _syncingSelection = true;
+                try
+                {
+                    vm.SelectionStart = TextEditor.SelectionStart;
+                    vm.SelectionLength = TextEditor.SelectionLength;
+                }
+                finally { _syncingSelection = false; }
+            };
+            TextEditor.TextArea.SelectionChanged += _editorSelectionSync;
 
             vm.FocusWindowRequest += VmOnFocusWindowRequest;
 
@@ -526,6 +545,11 @@ public partial class CodeEditorView : UserControl
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
         base.OnDetachedFromVisualTree(e);
+        if (_editorSelectionSync is not null)
+        {
+            TextEditor.TextArea.SelectionChanged -= _editorSelectionSync;
+            _editorSelectionSync = null;
+        }
         Minimap.Detach();
         _indentGuideRenderer?.Dispose();
         _indentGuideRenderer = null;
@@ -693,6 +717,9 @@ public partial class CodeEditorView : UserControl
         if (DataContext is CodeEditorViewModel vm)
         {
             vm.CaretOffset = TextEditor.CaretOffset;
+            // Clearing a selection can raise SelectionChanged before the caret moves to its new start.
+            if (TextEditor.TextArea.Selection.IsEmpty)
+                _editorSelectionSync?.Invoke(sender, e);
 
             var caret = TextEditor.TextArea.Caret;
             vm.StatusBar.Line = caret.Line;

@@ -1331,6 +1331,8 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
                 throw new VBRunTimeException(ctx, VBStandardError.SubscriptOutOfRange);
             }
         }
+        if (value.Value is IListViewCollection listItems)
+            return listItems.Item(indices);
         if (value.Value is Components.InBox.TabStripTabs tabs)
         {
             if (indices.Count != 1)
@@ -1422,6 +1424,8 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
             return tabs.Item(indices[0]);
         }
         // A Collection's default member, Item: `c(1)` and `c("key")` (#1471). `c(1)(2)` indexes the Item (#1476).
+        if (named && maybeGroup.Value is IListViewCollection heldItems)
+            return heldItems.Item(await EvaluateCallArgs(argsCtx));
         if (named && maybeGroup.Value is ToolbarItems toolbarItems)
             return toolbarItems.Item(await EvaluateCallArgs(argsCtx));
         if (named && maybeGroup.Value is Components.InBox.TreeNodes nodes)
@@ -1651,6 +1655,17 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         if (variable.Value is BasicInterpreter.LibraryObject managed && MemberArgs(member) is null
             && managed.TryGetProperty(MemberName(member), out var property))
             return property;
+        if (variable.Value is VBListView listView)
+        {
+            var name = MemberName(member);
+            if (name.Equals("ListItems", StringComparison.OrdinalIgnoreCase) || name.Equals("ColumnHeaders", StringComparison.OrdinalIgnoreCase))
+                return MemberArgs(member) is { } itemArgs ? listView.CallMember(name, await EvaluateCallArgs(itemArgs))
+                    : name.Equals("ListItems", StringComparison.OrdinalIgnoreCase) ? new Vb6Value(listView.Items) : new Vb6Value(listView.Columns);
+            if (name.Equals("Refresh", StringComparison.OrdinalIgnoreCase))
+                throw new NotImplementedException("ListView.Refresh as a value is unmeasured (#1085)");
+            if (Components.InBox.ListViewComponentClass.Instance.Member(name) is { Kind: Components.InBox.MemberKind.Method })
+                return listView.CallMember(name, await EvaluateMemberArgs(listView, name, MemberArgs(member)));
+        }
         if (variable.Value is BuiltinControls.VBStatusBar statusBar && MemberName(member).Equals("Panels", StringComparison.OrdinalIgnoreCase))
             return MemberArgs(member) is { } panelArgs
                 ? new Vb6Value(statusBar.Panels.Item(await EvaluateCallArgs(panelArgs))) : new Vb6Value(statusBar.Panels);
@@ -2485,6 +2500,7 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
             {
                 VBCommonDialog => "MSComDlg",
                 VBProgressBar bar => bar.Library.Name,
+                VBListView => "MSComctlLib",
                 VBToolbar => "MSComctlLib",
                 VBStatusBar => "MSComctlLib",
                 VBImageList => "MSComctlLib",
