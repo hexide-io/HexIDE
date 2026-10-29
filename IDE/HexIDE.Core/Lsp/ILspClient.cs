@@ -271,7 +271,7 @@ public interface ILspClient : IAsyncDisposable
     Task<RenameResult?> RequestRenameAsync(string uri, Position position, string newName, CancellationToken cancellationToken = default);
 
     /// <summary>Sends textDocument/formatting and returns text edits, or empty.</summary>
-    Task<TextEdit[]> RequestFormattingAsync(string uri, CancellationToken cancellationToken = default);
+    Task<TextEdit[]> RequestFormattingAsync(string uri, FormattingOptions options, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Sends <c>textDocument/codeLens</c> and returns the lenses, or empty.

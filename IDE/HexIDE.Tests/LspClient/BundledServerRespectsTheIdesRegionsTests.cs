@@ -68,7 +68,7 @@ public class BundledServerRespectsTheIdesRegionsTests : IAsyncDisposable
             }
 
             var uri = await OpenAsync(client, text);
-            var edits = await client.RequestFormattingAsync(uri, TestContext.Current.CancellationToken);
+            var edits = await client.RequestFormattingAsync(uri, new FormattingOptions(4, true), TestContext.Current.CancellationToken);
 
             var lines = Lines(text);
             var expected = Enumerable.Range(0, lines.Length)

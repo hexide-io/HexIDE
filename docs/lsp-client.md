@@ -856,6 +856,8 @@ once per capability per connection. These routing notes also appear in exported 
 
 The editor flushes its debounced document change before requesting completion (for both letters and
 advertised triggers) or signature help, so the server receives the current typed text first (#2227).
+Document formatting (including format-on-save) sends the editor’s Tab Width as `options.tabSize`
+and `insertSpaces: true`, matching the editor’s conversion of tabs to spaces (#2669).
 On-type formatting is not implemented.
 
 Completion asks every document claimant concurrently, with a shared **one-second popup budget**.

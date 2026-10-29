@@ -18,8 +18,6 @@ namespace HexIDE.Runtime.Editor;
 /// </remarks>
 public static class VbAutoCloseProvider
 {
-    private const int IndentSize = 4;
-
     // ── Block opener patterns ────────────────────────────────────────────────
 
     private static readonly (Regex Pattern, string Closer)[] BlockRules =
@@ -205,11 +203,11 @@ public static class VbAutoCloseProvider
     }
 
     /// <summary>
-    /// Creates the indented body indent string (current indent + 4 spaces).
+    /// Creates the indented body indent string (current indent + the configured number of spaces).
     /// </summary>
-    public static string GetBodyIndent(string currentIndent)
+    public static string GetBodyIndent(string currentIndent, int indentSize)
     {
-        return currentIndent + new string(' ', IndentSize);
+        return currentIndent + new string(' ', indentSize);
     }
 
     // ── Private helpers ──────────────────────────────────────────────────────

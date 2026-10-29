@@ -2,6 +2,8 @@
   "name": "Norwegian Bokmål",
   "direction": "ltr",
   "strings": {
+    "Str.Tool.Properties.LoadPicture": "Last inn bilde",
+    "Str.Tool.Properties.LoadPictureFailed": "Kan ikke laste inn bildet fra «{0}».",
     "Str.Designer.ShowTabOrder": "Vis tabulatorrekkefølge (overstreket: TabStop av)",
     "Str.Options.EditorGeneral.Display.StickyScroll": "Festede overskrifter ved rulling",
     "Str.Options.EditorGeneral.Display.StickyDepth": "Maksimalt antall festede overskrifter",

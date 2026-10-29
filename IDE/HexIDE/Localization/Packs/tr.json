@@ -2,6 +2,8 @@
   "name": "Turkish",
   "direction": "ltr",
   "strings": {
+    "Str.Tool.Properties.LoadPicture": "Resim yükle",
+    "Str.Tool.Properties.LoadPictureFailed": "“{0}” dosyasından resim yüklenemiyor.",
     "Str.Designer.ShowTabOrder": "Sekme sırasını göster (üstü çizili: TabStop kapalı)",
     "Str.Options.EditorGeneral.Display.StickyScroll": "Kaydırırken başlıkları sabitle",
     "Str.Options.EditorGeneral.Display.StickyDepth": "En fazla sabitlenen başlık sayısı",

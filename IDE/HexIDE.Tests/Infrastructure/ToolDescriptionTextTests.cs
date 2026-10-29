@@ -64,7 +64,7 @@ public class ToolDescriptionTextTests
     {
         // interact, type_text and press_key end with + ProgramWaitNote, which was neither measured nor checked.
         ToolSource.Tools.Where(t => t.Name is "interact" or "type_text" or "press_key")
-            .Should().HaveCount(3).And.OnlyContain(t => t.Description.EndsWith("A form the program opened is named.", StringComparison.Ordinal));
+            .Should().HaveCount(3).And.OnlyContain(t => t.Description.EndsWith("A note says why when it stops sooner.", StringComparison.Ordinal));
         ToolSource.Unparsed.Should().BeEmpty();
     }
 

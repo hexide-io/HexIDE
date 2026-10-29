@@ -258,7 +258,11 @@ public class ForegroundWindowTests : IDisposable
         var first = Form("Form1", "Form1");
         var second = Form("Form1", "Form1 again");
 
-        ForegroundWindow.Pick("Form1", main, [main, first, second]).Error.Should().Contain("2 open windows answer to 'Form1'");
+        // Side by side, no name tells them apart; the refusal says what does reach one, not to name a title only one has
+        // (#2712).
+        ForegroundWindow.Pick("Form1", main, [main, first, second]).Error.Should().Contain("2 open windows answer to 'Form1'")
+            .And.Contain("\"auto\" reaches one of them, Form1 (\"Form1 again\"), the one opened last")
+            .And.NotContain("a title only it has");
 
         second.Hide();
         ForegroundWindow.Pick("Form1 again", main, [main, first, second]).Error.Should().Contain("is hidden");
@@ -354,5 +358,40 @@ public class ForegroundWindowTests : IDisposable
         var findWhat = PathTo(find, "FindWhat");
 
         ForegroundWindow.Resolve(findWhat, null, find, main, "Find").Control.Should().BeOfType<TextBox>();
+    }
+
+    // The Find dialog's message box has the dialog's own title, so "Find" named both and was refused with nothing that could
+    // reach either (#2712). Stacked, the name reaches the one on top, as a person can use only that one.
+    [AvaloniaFact]
+    public void A_name_shared_by_a_dialog_and_the_box_over_it_reaches_the_box_and_then_the_dialog()
+    {
+        var main = Shown("HexIDE");
+        var find = Track(new Window { Title = "Find" });
+        find.Show(main);
+        var box = Track(new Window { Title = "Find" });
+        _ = box.ShowDialog(find);
+
+        ForegroundWindow.Pick("Find", main, [main, find, box]).Window.Should().BeSameAs(box);
+
+        box.Close();
+        ForegroundWindow.Pick("Find", main, [main, find, box]).Window.Should().BeSameAs(find);
+    }
+
+    // A path from the dialog fails in the box, and says the name reached the window on top of the one it came from.
+    [AvaloniaFact]
+    public void A_path_that_fails_in_the_box_says_the_name_reached_the_window_on_top()
+    {
+        var main = Shown("HexIDE");
+        var find = Track(new Window { Title = "Find" });
+        find.Show(main);
+        var box = Track(new Window { Title = "Find" });
+        _ = box.ShowDialog(find);
+
+        var (control, error) = ForegroundWindow.Resolve("Window/Button[Find Next]", "Find", box, main, "Find");
+
+        control.Should().BeNull();
+        error.Should().Contain("'Find' reached the window on top, \"Find\", which sits over another window of that name");
+        ForegroundWindow.Resolve("Window/Button[Find Next]", "Find", find, main, "Find").Error
+            .Should().NotContain("window on top", "the dialog is on top of nothing of its name");
     }
 }

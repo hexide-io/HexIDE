@@ -470,7 +470,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
                      + "not the summary's pixels: in the container's ScaleMode, twips on a form unless it says otherwise, "
                      + "twips inside a Frame, and a form's own Width and Height with its frame; the row's 'note' names the "
                      + "unit. 'settable' says whether set_control_property takes that text back; a "
-                     + "picture and the like are set in the Properties window. Properties the file holds that HexIDE does not model, or "
+                     + "picture is loaded with its row's ... button in the Properties window (arm answer_next_file_dialog first). Properties the file holds that HexIDE does not model, or "
                      + "could not read, are rows too, with the file's text, not settable, and a 'note' saying which. "
                      + "A control array named without an index is its first element, and the reply's 'note' says so.")]
         string? controlName = null,
@@ -2337,18 +2337,18 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     private const string FrameCaptureArea = "The whole window, title bar and frame included, as Windows renders it, even "
         + "where another window covers it; open popups are drawn over it unless the note says otherwise.";
 
+    // What a caller needs before the call: that the reply waits, and what counts as the program waiting for input. Why a
+    // reply stopped short, and which forms the program opened, its own note says when it happens (#2511, #2567).
     private const string ProgramWaitNote =
-        "On a running VB6 program's form or its MsgBox, the reply waits up to 3 s for the program to finish what the "
-        + "action set off; a DoEvents loop already running, or a Timer's, is waiting for input. If it cannot, a note in "
-        + "parentheses says why: paused (where), a window open over the form, or still running at 3 s. A form the program "
-        + "opened is named.";
+        "On a running VB6 program's form or its MsgBox, the reply waits up to 3 s for what the action set off; a loop "
+        + "already at DoEvents, or a Timer's, counts as waiting for input. A note says why when it stops sooner.";
 
     private const string WindowParameter =
         "Which top-level window the path is resolved against: \"auto\" (default) is any visible window other than the "
         + "IDE's own, whether or not it is on top: a dialog, the Find window, or a running VB6 program's form, INCLUDING "
         + "while it is paused at a breakpoint; among several, a dialog wins, then the one with focus, then the one opened "
         + "last, else the IDE's own. \"ide\" reaches the IDE's own window; a window's title, or a running form's name such as \"Form2\", reaches that "
-        + "window, which is how a form behind another form of the program is reached. An unknown name is refused with "
+        + "window, or of two stacked under one name the one on top, which is how a form behind another form of the program is reached. An unknown name is refused with "
         + "the open windows listed, each form by its name and title: ask for an unknown name to discover them; the name is the stable handle.";
 
     [McpServerTool(Name = "dump_visual_tree")]
@@ -2712,7 +2712,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     }
 
     [McpServerTool(Name = "hover")]
-    [Description("Moves the pointer onto the control at 'target' (a path from dump_visual_tree) by sending a mouse move through the window's own input, as the platform delivers a real one, watches for a tip, and reports its text: a declared ToolTip.Tip, such as a toolbar button's, and a tip a control raises from its own pointer handler, such as LSP quick-info and the debugger's Auto Data Tips in the code editor. A tip that is a control reads as its visible text blocks, joined with ' / '. The move is hit-tested as a real one is: when something else is drawn at the point the reply says what it landed on, and reports that control's tip, as that is what a person would be shown; a disabled target shows a tip only with ToolTip.ShowOnDisabled, and the reply says it is disabled. When nothing is drawn at the point, or Avalonia's input cannot be reached, the move is raised on the control instead, which opens only the second kind, and the reply says so. Without 'x' and 'y' a code editor is hovered at its CARET, which is how a particular identifier is hovered; see 'x'. 'dwellMs' is how long to watch, and 'window' picks the window. When no tip opens, the reply adds the 'declared tip' of the control under the hovered point or its nearest ancestor that sets one, which is the text a human would be shown there. The pointer then leaves the window, closing the tip, so assert the reply, not a snapshot: 'tipBounds' places an opened tip in the window as inspect_element's boundingRect does, and 'detail' gives its offset from the point hovered. The cursor and pointer-over stay the hover's until the real mouse next moves.")]
+    [Description("Moves the pointer onto the control at 'target' (a path from dump_visual_tree) by sending a mouse move through the window's own input, as the platform delivers a real one, watches for a tip, and reports its text: a declared ToolTip.Tip, such as a toolbar button's, and a tip a control raises from its own pointer handler, such as LSP quick-info and the debugger's Auto Data Tips in the code editor. A tip that is a control reads as its visible text blocks, joined with ' / '. The move is hit-tested as a real one is: when something else is drawn at the point the reply says what it landed on, and reports that control's tip, as that is what a person would be shown; a disabled target shows a tip only with ToolTip.ShowOnDisabled, and the reply says it is disabled. When nothing is drawn at the point, or Avalonia's input cannot be reached, the move is raised on the control instead, which opens only the second kind, and the reply says so. Without 'x' and 'y' a code editor is hovered at its CARET, which is how a particular identifier is hovered; see 'x'. 'dwellMs' is how long to watch, and 'window' picks the window. When no tip opens, the reply adds the 'declared tip' of the control under the hovered point or its nearest ancestor that sets one, which is the text a human would be shown there. The pointer then leaves the window, closing the tip, unless 'stay' keeps it there for a snapshot: 'tipBounds' places an opened tip in the window as inspect_element's boundingRect does, and 'detail' gives its offset from the point hovered. The cursor and pointer-over stay the hover's until the real mouse next moves.")]
     public async Task<InteractOutcome> HoverAsync(
         [Description("A path from dump_visual_tree. A target that is not a code editor but contains one is hovered at "
                      + "that editor, the first showing under it, and the reply then names the editor and gives its path, "
@@ -2730,6 +2730,12 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
                      + "400ms quick-info dwell plus the language server's round trip.")]
         int dwellMs = 1500,
         [Description(WindowParameter)] string? window = null,
+        [Description("True leaves the pointer on the point when the watch ends, for a snapshot: what it landed on keeps "
+                     + "its pointer-over look, such as a flat toolbar button's hot image, and an opened tip stays open. "
+                     + "The reply says whether it reads as under the pointer, as inspect_element's isPointerOver does. It "
+                     + "lasts until the next click, drag or hover in that window, or the real mouse's next move over it. "
+                     + "Default false: the pointer leaves the window.")]
+        bool stay = false,
         CancellationToken ct = default)
     {
         if (dwellMs is < 0 or > MaxHoverDwellMs)
@@ -2781,6 +2787,8 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
         // Where the tip was while it was open, beside the point hovered, both in the window: it closes when the hover ends,
         // so this is the only time its placement can be read (#1303).
         (Rect Bounds, Point Hovered)? placed = null;
+        // What 'stay' adds to the reply, once the watch has run to its end (#2562).
+        string? stayed = null;
         try
         {
             var deadline = Environment.TickCount64 + dwellMs;
@@ -2817,24 +2825,40 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
         finally
         {
             if (watch is not null)
-                moved = await Dispatcher.UIThread.InvokeAsync(() =>
-                {
-                    var what = watch.Moved;
-                    watch.Dispose();
-                    return what;
-                });
+                moved = await Dispatcher.UIThread.InvokeAsync(() => watch.Moved);
             // The pointer then leaves, closing the tip, so the next action finds the window with nothing over it: a tip
             // left open covered what a click was aimed at, and the click's press, raised on the control, never closed it.
-            if (at.ThroughWindowInput)
+            // With 'stay' it remains for a snapshot, and the next click, drag or hover ends it before acting (#2562). Its
+            // state is read a moment later, with the watch still running, so the reply says what settled and what took it.
+            var staying = stay && at.ThroughWindowInput && !ct.IsCancellationRequested;
+            if (staying)
+            {
+                await Dispatcher.UIThread.InvokeAsync(() => UiAutomationDriver.StayHover(hovered));
+                await Task.Delay(UiAutomationDriver.StaySettle, CancellationToken.None);
+            }
+            var settled = watch is null ? null : await Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                var what = watch.Moved;
+                watch.Dispose();
+                return what;
+            });
+            if (staying)
+                // Said already when no tip opened and the watch's account is the one the reply gives as what took it.
+                stayed = await Dispatcher.UIThread.InvokeAsync(() =>
+                    UiAutomationDriver.StayedNote(hovered, settled, saidAlready: tip is null && enabled && settled == moved));
+            else if (at.ThroughWindowInput)
                 await Dispatcher.UIThread.InvokeAsync(() => UiAutomationDriver.EndHover(hovered));
+            else if (stay)
+                stayed = "; 'stay' left nothing under the pointer: the move was raised on the control, which sets nothing "
+                         + "as under it";
         }
 
         if (tip is not null)
             return placed is not { } where
-                ? raised with { Detail = raised.Detail + "; tip: " + tip }
+                ? raised with { Detail = raised.Detail + "; tip: " + tip + stayed }
                 : raised with
                 {
-                    Detail = raised.Detail + "; tip: " + tip + " (" + TipPlacement(where.Bounds, where.Hovered) + ")",
+                    Detail = raised.Detail + "; tip: " + tip + " (" + TipPlacement(where.Bounds, where.Hovered) + ")" + stayed,
                     TipBounds = [Round(where.Bounds.X), Round(where.Bounds.Y), Round(where.Bounds.Width), Round(where.Bounds.Height)],
                 };
 
@@ -2845,14 +2869,14 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
         var unopened = raised.Detail + "; no tip opened within " + dwellMs + "ms" + (took is null ? string.Empty : " (" + took + ")");
         return raised with
         {
-            Detail = declared is null
+            Detail = (declared is null
                 ? unopened
                 : unopened
                   + (took is not null ? string.Empty
                       : !at.ThroughWindowInput
                       ? " (the move was raised on the control, which Avalonia's ToolTipService never sees)"
                       : enabled ? " (its ToolTip.ShowDelay may be longer than the watch)" : string.Empty)
-                  + "; declared tip: " + declared,
+                  + "; declared tip: " + declared) + stayed,
         };
     }
 
@@ -2907,7 +2931,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     private static string? TipOn(Control c) =>
         ToolTip.GetIsOpen(c) && UiAutomationDriver.TipText(ToolTip.GetTip(c)) is { } text ? text : null;
     [McpServerTool(Name = "press_key")]
-    [Description("Presses a key on the control at 'target' through the window's platform input, so access keys (Alt+letter), menus and key bindings see it with optional 'modifiers', whose own keys go down before it and up after, as a person's chord, and types the key's character if it has one; 'window' selects the top-level window. If target contains the keyboard focus, presses there without moving it. Otherwise resolves to the DEEPEST input surface under 'target' (in the code editor, its TextArea) and focuses it first; falls back to the first focusable descendant, and FAILS when nothing under 'target' can take keyboard focus. The reply says 'moved focus from <path or nothing> to <path>' when it moved focus before delivery, which raises a running program's focus events. The mechanism is 'window-input', or 'routed-key' when focus or platform input was unavailable and KeyDown/KeyUp were raised on the surface instead, which skips access keys; a refusal reads 'keyboard'. When the key went to a control other than the one addressed, the reply names it and gives its path. In a code window, Delete or Back over a selection deletes only its editable parts, and says what was left. Any other change to the file's header or a member's Attribute lines, which only the IDE changes, is refused; the reply names the region and gives an editable offset into the whole file (get_file_content), or advice for a backward deletion. A key deleting the whole of a declaration's line deletes its Attribute lines with it, as the code window's keys do, and is not refused. Navigation keys are never refused. Refused on a disabled control, and while a modal dialog is open over the window, which would take a person's keys. " + ProgramWaitNote)]
+    [Description("Presses a key on the control at 'target' through the window's platform input, so access keys (Alt+letter), menus and key bindings see it with optional 'modifiers', whose own keys go down before it and up after, as a person's chord, and types the key's character if it has one; 'window' selects the top-level window. If target contains the keyboard focus, presses there without moving it. Otherwise resolves to the DEEPEST input surface under 'target' (in the code editor, its TextArea) and focuses it first; falls back to the first focusable descendant, and FAILS when nothing under 'target' can take keyboard focus. The reply says 'moved focus from <path or nothing> to <path>' when it moved focus before delivery, which raises a running program's focus events. The mechanism is 'window-input', or 'routed-key' when focus or platform input was unavailable and KeyDown/KeyUp were raised on the surface instead, which skips access keys; a refusal reads 'keyboard'. In a code window, Delete or Back over a selection deletes only its editable parts, and says what was left. Any other change to the file's header or a member's Attribute lines, which only the IDE changes, is refused; the reply names the region and gives an editable offset into the whole file (get_file_content), or advice for a backward deletion. A key deleting the whole of a declaration's line deletes its Attribute lines with it, as the code window's keys do, and is not refused. Navigation keys are never refused. Refused on a disabled control, and while a modal dialog is open over the window, which would take a person's keys. " + ProgramWaitNote)]
     public async Task<InteractOutcome> PressKeyAsync(
         [Description("A control's path, as dump_visual_tree prints it.")] string target,
         [Description("An Avalonia Key name: Enter, Tab, Back, Delete, Escape, Down, S, ... A chord written as one, such as 'Ctrl+H', is read as key 'H' with modifiers 'Ctrl', and the reply says so.")] string key,

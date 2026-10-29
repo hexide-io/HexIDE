@@ -2,6 +2,8 @@
   "name": "es",
   "direction": "ltr",
   "strings": {
+    "Str.Tool.Properties.LoadPicture": "Cargar imagen",
+    "Str.Tool.Properties.LoadPictureFailed": "No se puede cargar la imagen de «{0}».",
     "Str.Designer.ShowTabOrder": "Mostrar orden de tabulación (tachado: TabStop desactivado)",
     "Str.Options.EditorGeneral.Display.StickyScroll": "Encabezados fijos al desplazarse",
     "Str.Options.EditorGeneral.Display.StickyDepth": "Máximo de encabezados fijados",
