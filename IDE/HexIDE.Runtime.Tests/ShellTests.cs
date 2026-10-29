@@ -119,7 +119,60 @@ public class ShellTests : BaseVBTestFixture
         }
         finally
         {
-            Directory.Delete(directory, true);
+            DeleteHelperDirectory(directory);
+        }
+    }
+
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public void HelperDirectoryCleanupToleratesDeleteFailures(bool accessDenied, bool persistent)
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "hexide shell cleanup " + Guid.NewGuid());
+        Directory.CreateDirectory(directory);
+        File.WriteAllText(Path.Combine(directory, "helper.exe"), "test");
+        var attempts = 0;
+        try
+        {
+            DeleteHelperDirectory(directory, path =>
+            {
+                attempts++;
+                if (persistent || attempts < 3)
+                {
+                    if (accessDenied)
+                        throw new UnauthorizedAccessException();
+                    throw new IOException();
+                }
+                Directory.Delete(path, true);
+            });
+            attempts.Should().Be(persistent ? 5 : 3);
+            Directory.Exists(directory).Should().Be(persistent);
+        }
+        finally
+        {
+            if (Directory.Exists(directory))
+                Directory.Delete(directory, true);
+        }
+    }
+
+    private static void DeleteHelperDirectory(string directory, Action<string>? delete = null)
+    {
+        delete ??= path => Directory.Delete(path, true);
+        for (var attempt = 0; attempt < 5; attempt++)
+        {
+            try
+            {
+                delete(directory);
+                return;
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                // A scanner may still hold helper.exe after exit (#2741). Leave it to the temp cleaner if busy.
+                if (attempt < 4)
+                    System.Threading.Thread.Sleep(25 * (attempt + 1));
+            }
         }
     }
 

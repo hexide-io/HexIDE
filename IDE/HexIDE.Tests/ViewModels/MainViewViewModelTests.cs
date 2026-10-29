@@ -162,7 +162,8 @@ public class MainViewViewModelTests
     /// where F5 does and end at what the user is shown.
     /// </summary>
     private MainViewViewModel Build(IProjectRunnerService runner, IDocumentDockService? dock = null,
-        HexIDE.Debugging.IBreakpointService? breakpoints = null, IProjectService? projects = null)
+        HexIDE.Debugging.IBreakpointService? breakpoints = null, IProjectService? projects = null,
+        HexIDE.Recovery.IRecoveryOffers? recoveryOffers = null)
     {
         projects ??= _projectService;
         var mockDocDock = dock ?? Substitute.For<IDocumentDockService>();
@@ -257,7 +258,8 @@ public class MainViewViewModelTests
             windowStateService,
             breakpoints ?? Substitute.For<HexIDE.Debugging.IBreakpointService>(),
             _debugController,
-            new RecentEditsToolViewModel(new RecentEditHistory(_eventBus), () => editorService, loc));
+            new RecentEditsToolViewModel(new RecentEditHistory(_eventBus), () => editorService, loc),
+            recoveryOffers: recoveryOffers);
     }
 
     // --- Add File: a file that joined read byte for byte ---
@@ -733,6 +735,57 @@ public class MainViewViewModelTests
         _sut.OnInitialized();
 
         _projectService.DidNotReceive().CreateNewProject();
+    }
+
+    [AvaloniaFact]
+    public async Task OnInitialized_OffersUnsavedWorkFirst_AndARestoredProjectStandsInForTheNewProjectPrompt()
+    {
+        _settingsService.PromptForProjectOnStartup.Returns(true);
+        var offers = Substitute.For<HexIDE.Recovery.IRecoveryOffers>();
+        offers.OfferAtStartAsync().Returns(true);
+        var sut = Build(_runnerService, recoveryOffers: offers);
+
+        sut.OnInitialized();
+        await Task.Yield();
+
+        await offers.Received(1).OfferAtStartAsync();
+        await _projectService.DidNotReceive().CreateNewProject();
+    }
+
+    [AvaloniaFact]
+    public async Task OnInitialized_StillPrompts_WhenNothingWasRestored()
+    {
+        _settingsService.PromptForProjectOnStartup.Returns(true);
+        _projectService.CreateNewProject().Returns(Task.CompletedTask);
+        var offers = Substitute.For<HexIDE.Recovery.IRecoveryOffers>();
+        offers.OfferAtStartAsync().Returns(false);
+        var sut = Build(_runnerService, recoveryOffers: offers);
+
+        sut.OnInitialized();
+        await Task.Yield();
+
+        await _projectService.Received(1).CreateNewProject();
+    }
+
+    [AvaloniaFact]
+    public async Task OnInitialized_OpensTheProjectNamedAtLaunch_EvenAfterARestore()
+    {
+        var offers = Substitute.For<HexIDE.Recovery.IRecoveryOffers>();
+        offers.OfferAtStartAsync().Returns(true);
+        var opened = false;
+        var previous = Static.StartupProjectHook;
+        Static.StartupProjectHook = (_, _) => { opened = true; return Task.CompletedTask; };
+        try
+        {
+            Build(_runnerService, recoveryOffers: offers).OnInitialized();
+            await Task.Yield();
+        }
+        finally
+        {
+            Static.StartupProjectHook = previous;
+        }
+
+        opened.Should().BeTrue("the restored work and the project named on the command line are both wanted");
     }
 
     // --- A compile error met mid-run (#759) ---

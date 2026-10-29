@@ -19,7 +19,7 @@ public partial class VB6BuiltIns
     // explicitly until an oracle probe supplies them. #2516, #2523, #2524 (SLN/SYD) and #2622 likewise measure only
     // positional calls.
     private static readonly HashSet<string> UnmeasuredNamedArguments = new(StringComparer.OrdinalIgnoreCase)
-    { "AscB", "CallByName", "ChrB", "CurDir", "Dir", "FileAttr", "FileDateTime", "FileLen", "FormatDateTime", "FV", "GetAttr", "IMEStatus", "InStrB", "IPmt", "LeftB", "MidB", "NPer", "ObjPtr", "Partition", "Pmt", "PPmt", "PV", "Rate", "RightB", "SLN", "SYD" };
+    { "AscB", "CallByName", "ChrB", "CurDir", "Dir", "FileAttr", "FileDateTime", "FileLen", "FormatDateTime", "FV", "GetAttr", "IMEStatus", "InStrB", "IPmt", "LeftB", "MidB", "NPer", "ObjPtr", "Partition", "Pmt", "PPmt", "PV", "Rate", "RightB", "SLN", "StrPtr", "SYD", "VarPtr" };
 
     private static readonly Dictionary<string, IntrinsicParameters> NamedParameterTable = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -146,6 +146,7 @@ public partial class VB6BuiltIns
     {
         internal HashSet<int> Omitted { get; } = new();
         internal long? LenVariableSize { get; set; }
+        internal long? PointerIdentity { get; set; }
 
         internal void AddArgument(Vb6Value value, bool omitted)
         {

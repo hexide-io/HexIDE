@@ -26,6 +26,8 @@ public partial class VB6BuiltIns
         d["IsNull"]    = (_, a, _) => new Vb6Value(a[0].Type == VT.Null);
         d["IsArray"]   = (_, a, _) => new Vb6Value(a[0].Type.IsArray);
         d["IsObject"]  = (_, a, _) => new Vb6Value(IsObjectValue(a[0]));
+        d["StrPtr"] = (_, a, _) => PointerIdentity(a);
+        d["VarPtr"] = (_, a, _) => PointerIdentity(a);
         d["ObjPtr"]    = (self, a, _) => self.ObjPtr(a);
 
         // True only for an argument the caller left out, and only where there was nothing to put in its
@@ -220,6 +222,11 @@ public partial class VB6BuiltIns
     private readonly ConditionalWeakTable<object, ObjectIdentity> objectIdentities = new();
     private long nextObjectIdentity;
     private sealed record ObjectIdentity(long Number);
+
+    private static Vb6Value PointerIdentity(IReadOnlyList<Vb6Value> args) =>
+        args is IntrinsicArgumentValues { PointerIdentity: { } identity }
+            ? new Vb6Value(identity)
+            : throw new NotImplementedException("Unmeasured pointer argument shape (#2622)");
 
     private Vb6Value ObjPtr(IReadOnlyList<Vb6Value> args)
     {

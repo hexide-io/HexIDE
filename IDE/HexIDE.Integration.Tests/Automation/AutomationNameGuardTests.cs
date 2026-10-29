@@ -135,6 +135,19 @@ public class AutomationNameGuardTests
             };
             RequireItem<ProjectTemplateViewModel>(window);
             Check(window, "New Project dialog", failures);
+
+            window.Content = new RecoveryDialogView
+            {
+                DataContext = new RecoveryDialogViewModel(loc,
+                    [
+                        new RecoveryItemViewModel("Project1", "Never saved", "Backed up 2026-10-28 14:25", null, new object()),
+                        new RecoveryItemViewModel("Project2", "From work", "Backed up 2026-10-28 14:20", "Changed: Form1", new object()),
+                    ],
+                    _ => Task.FromResult(true), _ => Task.FromResult(true)),
+            };
+            RequireItem<RecoveryItemViewModel>(window);
+            Check(window, "Recover Unsaved Work dialog", failures);
+
             var settings = Substitute.For<ISettingsService>();
             settings.ActiveLanguage.Returns("system");
             var languageSwitch = Substitute.For<ILanguageSwitchService>();

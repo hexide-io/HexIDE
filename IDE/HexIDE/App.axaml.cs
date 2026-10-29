@@ -86,6 +86,10 @@ public partial class App : Application
             // startup project opens. Desktop-only — file watching makes no sense headless/WASM.
             _ = _diSetup.FileWatcherService;
 
+            // Unsaved work is backed up from here on, so an exit nobody chose doesn't lose it (#499). Desktop only, as
+            // the file watcher is.
+            _diSetup.Recovery.Start();
+
             var windowStateService = _diSetup.WindowStateService;
 
             if (Static.ForceSingleView)
@@ -165,6 +169,9 @@ public partial class App : Application
                     // written it already; a forced one did not unload them, and the debounce would not
                     // outlive the process.
                     _diSetup.UserSidecarService.FlushAll();
+                    // Somebody decided about the unsaved work on the way here: the save prompt was answered, there was
+                    // none, or automation asked to discard it. So the backup goes, unless a terminate signal kept it.
+                    _diSetup.Recovery.EndRun();
                 };
 
                 async void ConfirmThenClose()

@@ -442,6 +442,16 @@ caret's line, column and offset back from the editor.
 - **WHEN** `open_file` names a line past the file's last
 - **THEN** nothing opens, and the reply gives the lines it has
 
+### Requirement: open_file SHALL say when its caret is where type_text would be refused
+When the caret `open_file` places is in a part of a code window only the IDE changes, a form's header or a member's
+Attribute lines, the note SHALL name that part and give the nearest place that can be edited by line, column and offset.
+When the whole window refuses typing, the note SHALL say so. A caret where `type_text` writes SHALL add nothing.
+
+#### Scenario: A line inside a form's header
+- **WHEN** `open_file` opens Form1 of a new project at line 16, inside its header
+- **THEN** the note says the caret is in the file's header, which only the IDE changes, and names line 18, column 1,
+  offset 485, as the nearest place that can be edited
+
 ### Requirement: A tool that names a document SHALL name its project, and count lines from the top of the file
 A tool that accepts or reports a form, module or class SHALL identify it by its project and its name, SHALL
 find it in any loaded project, and SHALL match both without regard to case. Where a reply also carries the name
@@ -736,6 +746,17 @@ whether a message box saying so is open. A Make waiting at a save dialog nothing
 #### Scenario: No standalone runner
 - **WHEN** a Debug build with no published runner runs File/Make
 - **THEN** the note says no program was made, names the folder the runner was looked for in, and says a box is open
+
+### Requirement: Make's question before replacing an archive SHALL be reported
+A Make asking whether to replace the archive already beside the program SHALL be reported by `invoke_menu_item` as
+asking, within about a second, naming the archive. An `interact` that answers the question SHALL report what Make then
+did, and a No SHALL be reported as declining to replace the archive, not as a cancelled save dialog.
+
+#### Scenario: A second Make to the same path
+- **WHEN** a Make is armed with the path an earlier Make wrote, and runs File/Make
+- **THEN** the note says Make asks whether to replace the archive, names it, and says that interact answers the box
+- **AND** an `interact` answering No says nothing was written because replacing the archive was declined
+- **AND** an `interact` answering Yes names the program made over the earlier one
 
 ### Requirement: hover SHALL report a tip by the text it shows
 `hover` SHALL report a tooltip by its text: a string as written, and a tip that is a control by its visible text
@@ -1232,6 +1253,14 @@ were raised. A control that does not take focus SHALL be refused, saying that a 
 #### Scenario: Document mode
 - **WHEN** `type_text` in its default mode addresses a control that takes typing itself
 - **THEN** it is refused as having no text surface, and the refusal names keyboard mode
+
+### Requirement: A type_text write into a TextBox SHALL be drawn as written
+In its default mode, `type_text` SHALL commit what it writes into a TextBox so that the box draws the text it then
+holds, in a live, focused window as in a headless one, and not the text it held before the write.
+
+#### Scenario: The Find dialog's box
+- **WHEN** `type_text` in its default mode writes `Form` into the focused Find What box
+- **THEN** a snapshot of the dialog shows `Form` in the box, with the caret after it
 
 ### Requirement: press_key reads a chord written as one key
 `press_key` SHALL read a `key` written as a chord, such as `Ctrl+H`, as its last part, with the parts before it

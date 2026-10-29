@@ -306,6 +306,8 @@ internal static class VbSignatures
             ["IsObject"]  = [new SignatureEntry("IsObject(Expression) As Boolean",["Expression"], "Returns True if the variable is an object reference.")],
             // Descriptive positional label; VB6's parameter name and named calls remain unmeasured (#2622).
             ["ObjPtr"]    = [new SignatureEntry("ObjPtr(object) As Long", ["object"], "Returns an object's identity; Nothing has identity zero. Named arguments are not implemented.")],
+            ["StrPtr"]    = [new SignatureEntry("StrPtr(expression) As Long", ["expression"], "Returns a String buffer's identity; vbNullString has identity zero. Named arguments are not implemented.")],
+            ["VarPtr"]    = [new SignatureEntry("VarPtr(expression) As Long", ["expression"], "Returns a variable's identity. Named arguments are not implemented.")],
             ["IsArray"]   = [new SignatureEntry("IsArray(VarName) As Boolean",    ["VarName"],    "Returns True if the variable is an array.")],
             ["IsDate"]    = [new SignatureEntry("IsDate(Expression) As Boolean",  ["Expression"], "Returns True if the expression can be converted to a date.")],
             ["IsNumeric"] = [new SignatureEntry("IsNumeric(Expression) As Boolean",["Expression"],"Returns True if the expression can be evaluated as a number.")],
