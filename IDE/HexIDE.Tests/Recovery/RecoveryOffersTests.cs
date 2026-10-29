@@ -263,14 +263,18 @@ public sealed class RecoveryOffersTests : IDisposable
 
     /// <summary>
     /// A first session whose project is in the scratch folder <c>--newproject</c> makes, with Module1 and the project
-    /// file both captured as unsaved, and crashed.
+    /// file both captured as unsaved, and crashed. Unedited, they are captured all the same: every file in the scratch
+    /// folder counts as unsaved (#2678).
     /// </summary>
-    private async Task<(Session First, string Run)> CrashedScratch()
+    private async Task<(Session First, string Run)> CrashedScratch(bool edited = true)
     {
         var first = await Opened(WriteProject(dir));
         first.Project.WorkingDirectory = Path.GetDirectoryName(first.Project.AbsolutePath);
-        Module(first.Project, "Module1").UpdateCode("Public Sub Edited()\r\nEnd Sub\r\n");
-        first.Project.StartsAtSubMain = true;
+        if (edited)
+        {
+            Module(first.Project, "Module1").UpdateCode("Public Sub Edited()\r\nEnd Sub\r\n");
+            first.Project.StartsAtSubMain = true;
+        }
         var run = Crash(first);
         var recorded = RecoveryRun.Read(run)!.Projects.Single();
         recorded.Scratch.Should().BeTrue();
@@ -282,9 +286,10 @@ public sealed class RecoveryOffersTests : IDisposable
     public async Task A_scratch_project_its_files_already_hold_is_not_offered_at_start()
     {
         // #2678 makes every document in a scratch project count as unsaved, so a killed --newproject run leaves a
-        // backup whether or not anything was edited. Saving after the crash stands in for that: the files hold it.
-        var (first, run) = await CrashedScratch();
-        await first.Service.SaveProject(first.Project, saveAs: false);
+        // backup whether or not anything was edited. Nothing was here, so the files hold every byte of it.
+        var (_, run) = await CrashedScratch(edited: false);
+        RecoveryRun.Read(run)!.Projects.Single().Documents.Should().Contain(d => d.File != null,
+            "an unedited scratch document is captured too, which is why this rule exists");
 
         var offers = Offers(new Session());
 
