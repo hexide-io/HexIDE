@@ -148,7 +148,7 @@ public partial class VB6BuiltIns
     // CVar among them: CVar of an object is the object, whether its default member wants an argument, as a Collection's
     // does, or not (measured, #1466: TypeName(CVar(k)) is "K1" and IsObject(CVar(k)) True for a class with a default Value).
     private static readonly HashSet<string> TakesTheArgumentItself = new(StringComparer.OrdinalIgnoreCase)
-        { "TypeName", "IsObject", "IsMissing", "Array", "CVar", "ObjPtr" };
+        { "TypeName", "IsObject", "IsMissing", "Array", "CVar", "ObjPtr", "StrPtr", "VarPtr" };
 
     private static readonly HashSet<string> ReadsADefaultMemberIfAny = new(StringComparer.OrdinalIgnoreCase)
         { "VarType", "IsNumeric", "IsEmpty", "IsNull", "IsDate", "IsError", "IsArray" };
@@ -184,6 +184,7 @@ public partial class VB6BuiltIns
         RegisterConversion(d);
         RegisterMath(d);
         RegisterFinancial(d);
+        RegisterDepreciation(d);
         RegisterArray(d);
         RegisterInspection(d);
         d["LoadPicture"] = (self, args, _) => PanelPicture.Load(args, self.Files);

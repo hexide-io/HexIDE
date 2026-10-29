@@ -189,6 +189,9 @@ public class VBFormRuntime : Window, IModuleExecutionRoot, IFormView
     public void ExecuteSubIf(string name, IReadOnlyList<Vb6Value>? args, Func<bool> when) =>
         windowContext.ExecuteSubIf(name, args, when);
 
+    public System.Threading.Tasks.Task ExecuteControlEventAsync(string name, IReadOnlyList<CallArg> args) =>
+        windowContext.ExecuteControlEventAsync(name, args);
+
     public bool Handles(string name) => windowContext.Handles(name);
 
     public void ExecuteEvent(string name, Func<IReadOnlyList<Vb6Value>> args, EventCoalescing coalescing = EventCoalescing.None, Func<bool>? when = null) =>

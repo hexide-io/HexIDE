@@ -2,6 +2,7 @@
 using System.Text;
 using System.Text.Json;
 using HexIDE.Lsp;
+using HexIDE.Lsp.Messages;
 using Microsoft.Extensions.Logging;
 using Nerdbank.Streams;
 using StreamJsonRpc;
@@ -129,7 +130,7 @@ public class ShutdownWireShapeTests : IAsyncDisposable
                     // result ends in three consecutive closing braces, which no $$"""...""" form accepts.
                     var head = "{\"jsonrpc\":\"2.0\",\"id\":" + id.GetRawText() + ",\"result\":";
                     var reply = m.GetString() == "initialize"
-                        ? head + "{\"capabilities\":{},\"serverInfo\":"
+                        ? head + "{\"capabilities\":{\"documentFormattingProvider\":true},\"serverInfo\":"
                                + "{\"name\":\"wire-probe\",\"version\":\"1.0.0\"}}}"
                         : head + "null}";
                     await WriteFrameAsync(serverSide, reply, _cts.Token);
@@ -153,6 +154,21 @@ public class ShutdownWireShapeTests : IAsyncDisposable
         if (answerInitialize) await _starting;
         else await _initializeSeen.Task.WaitAsync(TimeSpan.FromSeconds(10), _cts.Token);
         return client;
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task FormattingCarriesTheRequestedIndentation(bool insertSpaces)
+    {
+        var client = await ConnectedAsync();
+
+        await client.RequestFormattingAsync("file:///M.bas", new FormattingOptions(2, insertSpaces),
+            TestContext.Current.CancellationToken);
+
+        var options = FrameFor("textDocument/formatting").GetProperty("params").GetProperty("options");
+        options.GetProperty("tabSize").GetInt32().Should().Be(2);
+        options.GetProperty("insertSpaces").GetBoolean().Should().Be(insertSpaces);
     }
 
     [AvaloniaTheory]

@@ -293,6 +293,10 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
                 // writing the composed text back would put the designer block into Code, where the
                 // interpreter compiles it as VB.
                 var body = BufferBody;
+                var ahead = formDefinition is { } form && !string.Equals(body, form.Code, StringComparison.Ordinal)
+                    || moduleDefinition is { } module && !string.Equals(body, module.Code, StringComparison.Ordinal);
+                if (e.OnlyWhereAhead && !ahead)
+                    return;
                 formDefinition?.UpdateCode(body);
                 if (moduleDefinition is not null)
                     moduleDefinition.UpdateCode(body);
@@ -1061,6 +1065,9 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
         // reads the verdict live; this is for the banner (#475).
         OnPropertyChanged(new PropertyChangedEventArgs(nameof(IsReadOnly)));
         OnPropertyChanged(new PropertyChangedEventArgs(nameof(ReadOnlyReason)));
+        // The tab's marker follows the model just replaced: clean after a reload from disk, edited after crash
+        // recovery restores unsaved work into it (#499).
+        RefreshModelModified();
 
         if (string.Equals(Document.Text, whole, StringComparison.Ordinal))
             return;
@@ -1941,7 +1948,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
             localization.GetString("Str.CodeEditor.Dialog.RenameTitle"), defaultText);
 
     public Task<TextEdit[]> RequestFormattingAsync(CancellationToken ct = default)
-        => LiveDocumentUri is { } uri ? lspClient.RequestFormattingAsync(uri, ct) : Task.FromResult<TextEdit[]>([]);
+        => LiveDocumentUri is { } uri ? lspClient.RequestFormattingAsync(uri, new FormattingOptions(Settings.TabWidth, true), ct) : Task.FromResult<TextEdit[]>([]);
 
     /// <summary>
     /// Exposes the document URI for cross-file definition navigation and for the rename edit lookup.

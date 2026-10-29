@@ -135,6 +135,19 @@ public class AutomationNameGuardTests
             };
             RequireItem<ProjectTemplateViewModel>(window);
             Check(window, "New Project dialog", failures);
+
+            window.Content = new RecoveryDialogView
+            {
+                DataContext = new RecoveryDialogViewModel(loc,
+                    [
+                        new RecoveryItemViewModel("Project1", "Never saved", "Backed up 2026-10-28 14:25", null, new object()),
+                        new RecoveryItemViewModel("Project2", "From work", "Backed up 2026-10-28 14:20", "Changed: Form1", new object()),
+                    ],
+                    _ => Task.FromResult(true), _ => Task.FromResult(true)),
+            };
+            RequireItem<RecoveryItemViewModel>(window);
+            Check(window, "Recover Unsaved Work dialog", failures);
+
             var settings = Substitute.For<ISettingsService>();
             settings.ActiveLanguage.Returns("system");
             var languageSwitch = Substitute.For<ILanguageSwitchService>();
@@ -149,6 +162,13 @@ public class AutomationNameGuardTests
             {
                 options.SelectedNode = node;
                 Check(window, "Options / " + node.Title, failures);
+                var controls = window.GetVisualDescendants().OfType<Control>().ToArray();
+                foreach (var spinner in controls.OfType<NumericUpDown>())
+                    Avalonia.Automation.Peers.ControlAutomationPeer.CreatePeerForElement(spinner).GetName()
+                        .Should().NotBeNullOrWhiteSpace("every Options spinner must be named");
+                foreach (var control in controls.Where(c => c.Focusable))
+                    Avalonia.Automation.Peers.ControlAutomationPeer.CreatePeerForElement(control)?.GetName()
+                        ?.TrimEnd().Should().NotEndWith(":").And.NotEndWith("：");
             }
             string.Join(Environment.NewLine, failures).Should().BeEmpty(
                 "rendered IDE controls must not be named after loaded types, and list/tree rows and combo boxes must have names");

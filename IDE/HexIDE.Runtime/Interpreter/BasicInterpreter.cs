@@ -339,7 +339,7 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
 
     /// <summary>
     /// The value a store keeps, copied as VB6 copies it: a UDT deeply, an array level by level
-    /// (<see cref="VBArray.CopyForLet"/>), everything else as it is. Applied wherever VB6 copies: a Let into a variable, a
+    /// (<see cref="VBArray.CopyForLet"/>), a String buffer independently, everything else as it is. Applied wherever VB6 copies: a Let into a variable, a
     /// field or an element, a ByVal argument and a For Each variable, and so a Function's return. A <c>VbObject</c> is
     /// never copied: objects are references, so <c>Set b = a</c> shares, and a copied array shares its objects with the
     /// original (measured, #970: <c>b(0) Is a(0)</c>). Each is held once more, so the copy AddRefs it, and every array then
@@ -350,6 +350,7 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
 
     private Vb6Value CopyForStore(Vb6Value v, int depth) => v.Value switch
     {
+        string => v.CopyString(),
         VbUdt udt => CopyUdt(udt),
         VBArray array => v.WithArray(array.CopyForLet(element => CopyElement(element, depth + 1))),
         _ => v,
@@ -1861,7 +1862,7 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
                     // 13 at the call, `S 5` with `ByVal x As String` is "5", `D "1/2/2000"` As Date is that date, and
                     // `NI "12"` As Integer is 12, which Narrow read as 0).
                     var stored = DeclaredSlotType(p) is { } dt
-                        ? VbNumeric.CoerceOnStore(passed, dt, proc.Body as Antlr4.Runtime.ParserRuleContext)
+                        ? VbNumeric.CoerceOnStore(passed, dt, proc.Body as Antlr4.Runtime.ParserRuleContext).CopyString()
                         : CopyForStore(passed);
                     ExecutionContext.AllocVariable(callee, p.Name, stored, DeclaredSlotType(p));
                     MarkParameterSlot(p, callee);

@@ -52,10 +52,7 @@ public class ToolDescriptionLengthTests
     /// <summary>Descriptions over <see cref="Budget"/> when the rule came in, keyed "tool" or "tool.parameter".</summary>
     private static readonly Dictionary<string, (string Why, int Issue)> OverBudget = new()
     {
-        ["take_snapshot"] = ("the coordinate mapping and the capture file's lifetime, which are the reply's to explain", 2565),
         ["dump_visual_tree"] = ("the control-view rules and the reply fields isHidden, isOffscreen and focusedPath", 2566),
-        ["press_key"] = ("focus resolution and the shared ProgramWaitNote", 2567),
-        ["interact"] = ("click's reply detail and the shared ProgramWaitNote", 2568),
         ["interact.action"] = ("every verb's semantics, the held button's among them", 2568),
         ["interact.value"] = ("click's arguments and the held button's lifecycle", 2568),
         ["inspect_element"] = ("per-field explanations, with target's own description empty", 2569),

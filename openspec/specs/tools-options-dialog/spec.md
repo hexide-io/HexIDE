@@ -93,11 +93,11 @@ contribute a page is what makes a third-party add-in feel like part of the IDE r
 
 ### Requirement: Numeric formatting and grid fields SHALL be named by their labels
 The Tab width, grid Width and grid Height text boxes SHALL expose their localized labels as automation names,
-without access-key markers. The names SHALL follow changes to those labels.
+without access-key markers or trailing colons. The names SHALL follow changes to those labels.
 
 #### Scenario: Naming a numeric field
 - **WHEN** the Formatting or Form Grid page is shown
-- **THEN** each numeric text box has its label's displayed text as its automation name
+- **THEN** each numeric text box has its label's text without access-key markers or trailing colons as its automation name
 
 #### Scenario: Changing the label language
 - **WHEN** a numeric field's localized label changes
@@ -105,8 +105,8 @@ without access-key markers. The names SHALL follow changes to those labels.
 
 ### Requirement: Options lists SHALL have localized accessible names
 The Language, Region, Theme and Keymap combo boxes SHALL expose accessible names from their visible
-localized labels, without access-key markers. Names SHALL update when the labels change language and
-SHALL remain available when a list is disabled or empty.
+localized labels, without access-key markers or trailing colons (including full-width colons). Names SHALL
+update when the labels change language and SHALL remain available when a list is disabled or empty.
 
 #### Scenario: System default has no region
 - **WHEN** the Language page shows System default and the Region list is disabled and empty
@@ -117,9 +117,11 @@ SHALL remain available when a list is disabled or empty.
 - **THEN** the corresponding list's accessible name changes with it
 
 ### Requirement: Sticky-scroll depth spinner buttons SHALL have localized accessible names
-The Editor General page's sticky-scroll depth spinner buttons SHALL expose localized Increase and
-Decrease names rather than the type names of their arrow graphics.
+The Editor General page's sticky-scroll depth spinner SHALL take its accessible name from its row's
+localized label, without access-key markers or trailing colons. Its buttons SHALL expose localized
+Increase and Decrease names describing a number changing rather than a size changing.
 
 #### Scenario: Inspecting the depth spinner
 - **WHEN** the Editor General page is rendered
-- **THEN** the spinner buttons expose localized Increase and Decrease names, including while disabled
+- **THEN** the spinner exposes its localized row label without a trailing colon
+- **AND** its buttons expose localized Increase and Decrease names, including while disabled

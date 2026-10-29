@@ -30,3 +30,15 @@ block:
 | l-numlabel-next | `For i = 1 To 3` / `If i = 2 Then GoTo Skip` / `s = s & i` / `30 Skip: Next` | ok [13] i 4 | same |
 | l-plain-next | `For i = 1 To 3` / `s = s & i` / `Skip: Next` | ok [123] i 4 | same |
 | l-wend-inside | `While i < 3` / `i = i + 1` / `If i = 1 Then GoTo Skip` / `s = s & i` / `Skip: Wend` | ok [23] i 3 | same |
+
+**A head on `End Function` and `End Property`, and two edge shapes** (#2561), native and p-code alike. A `GoTo 90` to
+`90 End Function`, or to `Done: End Function`, returns the value the Function had (5 and 6, not 7 and 8); `End Property`
+the same (3 and 4). `90: End Sub`, a number with a colon, is a head as well. `L "T starts": End Sub`, an `End Sub` after a
+statement and a colon on one line, compiles and returns: there is no head there.
+
+| Probe | Lines | Logged, native | Logged, p-code |
+|---|---|---|---|
+| f-colon-number | `Sub T()` / `L "T starts"` / `GoTo 90` / `L "not reached"` / `90: End Sub` / `Sub Main()` / `T` / `L "f-colon-number: back in Main"` / `End Sub` | T starts · back in Main | same |
+| f-endfunction | `Function F() As Long` / `10  F = 5` / `20  GoTo 90` / `30  F = 7` / `90 End Function` / `Function G() As Long` / `G = 6` / `GoTo Done` / `G = 8` / `Done: End Function` / `Sub Main()` / `L "f-endfunction: F " & F() & " G " & G()` / `End Sub` | F 5 G 6 | same |
+| f-endproperty | `Property Get P() As Long` / `P = 3` / `GoTo Done` / `P = 9` / `Done: End Property` / `Property Get Q() As Long` / `10  Q = 4` / `20  GoTo 90` / `90 End Property` / `Sub Main()` / `L "f-endproperty: P " & P & " Q " & Q` / `End Sub` | P 3 Q 4 | same |
+| f-statement-then-end | `Sub T()` / `L "T starts": End Sub` / `Sub Main()` / `T` / `L "f-statement-then-end: back in Main"` / `End Sub` | T starts · back in Main | same |

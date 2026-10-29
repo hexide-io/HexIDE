@@ -229,6 +229,8 @@ internal static class VbSignatures
             ["Int"]  = [new SignatureEntry("Int(Number) As Integer", ["Number"], "Returns the integer portion of a number.")],
             ["Fix"]  = [new SignatureEntry("Fix(Number) As Integer", ["Number"], "Returns the integer portion of a number (truncates toward zero).")],
             ["Round"] = [new SignatureEntry("Round(Number, [NumDigitsAfterDecimal As Long]) As Variant", ["Number", "NumDigitsAfterDecimal"], "Rounds a number to a number of decimal places, a half to the even digit.")],
+            ["SLN"]  = [new SignatureEntry("SLN(Cost, Salvage, Life) As Double", ["Cost", "Salvage", "Life"], "Returns straight-line depreciation for one period.")],
+            ["SYD"]  = [new SignatureEntry("SYD(Cost, Salvage, Life, Period) As Double", ["Cost", "Salvage", "Life", "Period"], "Returns sum-of-years depreciation for the given period.")],
             ["Sqr"]  = [new SignatureEntry("Sqr(Number) As Double",  ["Number"], "Returns the square root of a number.")],
             ["Rnd"]  = [new SignatureEntry("Rnd([Number]) As Single", ["Number"], "Returns a random number between 0 and 1.")],
             ["Sgn"]  = [new SignatureEntry("Sgn(Number) As Integer", ["Number"], "Returns an integer indicating the sign of a number.")],
@@ -304,6 +306,8 @@ internal static class VbSignatures
             ["IsObject"]  = [new SignatureEntry("IsObject(Expression) As Boolean",["Expression"], "Returns True if the variable is an object reference.")],
             // Descriptive positional label; VB6's parameter name and named calls remain unmeasured (#2622).
             ["ObjPtr"]    = [new SignatureEntry("ObjPtr(object) As Long", ["object"], "Returns an object's identity; Nothing has identity zero. Named arguments are not implemented.")],
+            ["StrPtr"]    = [new SignatureEntry("StrPtr(expression) As Long", ["expression"], "Returns a String buffer's identity; vbNullString has identity zero. Named arguments are not implemented.")],
+            ["VarPtr"]    = [new SignatureEntry("VarPtr(expression) As Long", ["expression"], "Returns a variable's identity. Named arguments are not implemented.")],
             ["IsArray"]   = [new SignatureEntry("IsArray(VarName) As Boolean",    ["VarName"],    "Returns True if the variable is an array.")],
             ["IsDate"]    = [new SignatureEntry("IsDate(Expression) As Boolean",  ["Expression"], "Returns True if the expression can be converted to a date.")],
             ["IsNumeric"] = [new SignatureEntry("IsNumeric(Expression) As Boolean",["Expression"],"Returns True if the expression can be evaluated as a number.")],

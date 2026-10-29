@@ -1,0 +1,61 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:viewModels="clr-namespace:HexIDE.Forms.ViewModels"
+             xmlns:common="clr-namespace:Classic.CommonControls;assembly=Classic.CommonControls.Avalonia"
+             mc:Ignorable="d" d:DesignWidth="520" d:DesignHeight="300"
+             x:DataType="viewModels:RecoveryDialogViewModel"
+             Height="300"
+             x:Class="HexIDE.Forms.Views.RecoveryDialogView">
+
+    <Grid Margin="11,12,11,15" ColumnDefinitions="380,20,110">
+
+        <DockPanel>
+            <TextBlock TextWrapping="WrapWithOverflow" DockPanel.Dock="Top" Margin="0,0,0,10"
+                       Text="{DynamicResource Str.Dialog.Recovery.Prompt}" />
+
+            <ListBox x:Name="Projects"
+                     ItemsSource="{CompiledBinding Items}"
+                     SelectedItem="{CompiledBinding SelectedItem}"
+                     ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                     AutomationProperties.Name="{DynamicResource Str.Dialog.Recovery.List}">
+                <ListBox.Styles>
+                    <Style Selector="ListBoxItem" x:DataType="viewModels:RecoveryItemViewModel">
+                        <Setter Property="AutomationProperties.Name" Value="{CompiledBinding AccessibleName}" />
+                    </Style>
+                    <!-- The selected row reads as selected whether or not the list has focus, as in VB6's dialogs. -->
+                    <Style Selector="ListBoxItem:selected">
+                        <Setter Property="Foreground"
+                                Value="{DynamicResource {x:Static common:SystemColors.HighlightTextBrushKey}}"/>
+                        <Style Selector="^ /template/ ContentPresenter#PART_ContentPresenter">
+                            <Setter Property="Background"
+                                    Value="{DynamicResource {x:Static common:SystemColors.HighlightBrushKey}}"/>
+                        </Style>
+                    </Style>
+                </ListBox.Styles>
+                <ListBox.ItemTemplate>
+                    <DataTemplate x:DataType="viewModels:RecoveryItemViewModel">
+                        <StackPanel Margin="2,3">
+                            <TextBlock FontWeight="Bold" Text="{CompiledBinding Name}" />
+                            <TextBlock TextWrapping="Wrap" Text="{CompiledBinding Origin}" />
+                            <TextBlock TextWrapping="Wrap" Text="{CompiledBinding BackedUp}" />
+                            <TextBlock TextWrapping="Wrap" Text="{CompiledBinding ChangedOnDisk}"
+                                       IsVisible="{CompiledBinding ChangedOnDisk, Converter={x:Static ObjectConverters.IsNotNull}}" />
+                        </StackPanel>
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
+        </DockPanel>
+
+        <StackPanel Grid.Column="2" Orientation="Vertical" Spacing="5">
+            <Button Command="{CompiledBinding RestoreCommand}" IsDefault="True"
+                    Content="{DynamicResource Str.Dialog.Recovery.Button.Restore}" />
+            <Button Command="{CompiledBinding DiscardCommand}"
+                    Content="{DynamicResource Str.Dialog.Recovery.Button.Discard}" />
+            <Button Command="{CompiledBinding LaterCommand}" IsCancel="True"
+                    Content="{DynamicResource Str.Dialog.Recovery.Button.Later}" />
+        </StackPanel>
+
+    </Grid>
+</UserControl>

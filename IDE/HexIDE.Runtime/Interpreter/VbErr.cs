@@ -31,9 +31,11 @@ public class VbErr(Func<string>? projectName = null) : ICSharpProxy, ICSharpProp
     /// </summary>
     public string Description
     {
-        get => description;
+        get => unmeasuredDescription
+            ? throw new NotImplementedException("This ListView error description is unmeasured (#1085)") : description;
         set
         {
+            unmeasuredDescription = false;
             description = value;
             descriptionSet = true;
         }
@@ -45,10 +47,12 @@ public class VbErr(Func<string>? projectName = null) : ICSharpProxy, ICSharpProp
 
     private string description = "";
     private bool descriptionSet;
+    private bool unmeasuredDescription;
 
     public void Clear()
     {
         Number = 0;
+        unmeasuredDescription = false;
         description = "";
         descriptionSet = false;
         Source = "";
@@ -64,6 +68,7 @@ public class VbErr(Func<string>? projectName = null) : ICSharpProxy, ICSharpProp
         HelpFile = ex.VbHelpFile ?? "";
         HelpContext = ex.VbHelpContext ?? DefaultHelpContext(Number);
         Description = ex.Error.Description ?? "";
+        unmeasuredDescription = ex is ListViewItems.ListViewError { HasDescription: false };
     }
 
     // Err.Raise Number, [Source], [Description], [HelpFile], [HelpContext] — sets the fields then throws. With no

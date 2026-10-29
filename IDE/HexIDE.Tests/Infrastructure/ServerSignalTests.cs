@@ -20,7 +20,9 @@ public class ServerSignalTests
     {
         var source = Source("DesktopStartup.cs");
         source.Should().Contain("PosixSignalRegistration.Create(PosixSignal.SIGTERM,");
-        source.Should().MatchRegex(@"signal.Cancel = true;\s*Avalonia.Threading.Dispatcher.UIThread.Post\(\(\) =>\s*\{\s*IdeShutdown.Prepare\(ctx, force: true\);\s*IdeShutdown.CloseMainWindow\(\);");
+        // The signal closes without the prompt, as shutdown_ide does, but keeps the unsaved work for the next start: nobody
+        // chose to lose it (#499). The keep comes first, so the close that follows does not delete the backup.
+        source.Should().MatchRegex(@"signal.Cancel = true;\s*Avalonia.Threading.Dispatcher.UIThread.Post\(\(\) =>\s*\{\s*setup.Recovery.KeepForRecovery\(\);\s*IdeShutdown.Prepare\(ctx, force: true\);\s*IdeShutdown.CloseMainWindow\(\);");
         source.Should().MatchRegex(@"desktop.Exit \+= [\s\S]*?termination\?\.Dispose\(\);");
     }
 
@@ -30,5 +32,8 @@ public class ServerSignalTests
         var source = Source("Server/HexIdeTools.cs");
         source.Should().Contain("IdeShutdown.Prepare(ctx, force)");
         source.Should().Contain("Dispatcher.UIThread.Post(IdeShutdown.CloseMainWindow);");
+        // shutdown_ide's caller chose to discard, so its close deletes the backup: only the signal keeps it (#499).
+        source.Should().NotContain("KeepForRecovery");
+        Source("Server/IdeShutdown.cs").Should().NotContain("KeepForRecovery");
     }
 }

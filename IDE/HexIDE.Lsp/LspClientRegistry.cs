@@ -507,8 +507,8 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
     public Task<RenameResult?> RequestRenameAsync(string uri, Position position, string newName, CancellationToken ct = default) =>
         TopClaimantAdvertising(uri, "renameProvider") is { } c ? c.RequestRenameAsync(uri, position, newName, ct) : Task.FromResult<RenameResult?>(null);
 
-    public Task<TextEdit[]> RequestFormattingAsync(string uri, CancellationToken ct = default) =>
-        TopClaimantAdvertising(uri, "documentFormattingProvider") is { } c ? c.RequestFormattingAsync(uri, ct) : Task.FromResult<TextEdit[]>([]);
+    public Task<TextEdit[]> RequestFormattingAsync(string uri, FormattingOptions options, CancellationToken ct = default) =>
+        TopClaimantAdvertising(uri, "documentFormattingProvider") is { } c ? c.RequestFormattingAsync(uri, options, ct) : Task.FromResult<TextEdit[]>([]);
 
     /// <summary>
     /// Routed by advertised capability rather than by language, because it has no document to route by.

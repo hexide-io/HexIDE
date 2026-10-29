@@ -370,7 +370,8 @@ public class FormSerializer
                 continue;
             if (instance.BaseClass is RichTextBoxComponentClass && RichTextBoxPersistence.IsOwnProperty(raw.Name))
                 continue;
-            if (Omit(raw.Name) || inBox is SSTabComponentClass && IsSSTabOwnLine(raw.Name)
+            if (Omit(raw.Name) || inBox is ListViewComponentClass && IsListViewOwnProperty(raw.Name)
+                || inBox is SSTabComponentClass && IsSSTabOwnLine(raw.Name)
                 || inBox is not null && IsOwnRunLine(inBox, raw.Name))
                 continue;
             if (instance.BaseClass.Properties.Any(p =>
@@ -464,6 +465,11 @@ public class FormSerializer
     private static void WriteOwnProperties(VbFrmFormatSerializer vb, ComponentInstance instance, InBoxComponentClass inBox,
         CompanionCitations citations)
     {
+        if (inBox is ListViewComponentClass)
+        {
+            WriteListViewProperties(vb, instance, citations);
+            return;
+        }
         ComponentInstance.UnknownRawProperty? Carried(string name) =>
             instance.UnknownRawProperties.FirstOrDefault(r => r.Name.Equals(name, StringComparison.OrdinalIgnoreCase)) is
                 { Name: not null } raw ? raw : null;
@@ -562,5 +568,44 @@ public class FormSerializer
             }
             else if (Carried("Images") is { } images) WriteCarried(images);
         }
+    }
+
+    private static bool IsListViewOwnProperty(string name) =>
+        ListViewComponentClass.Instance.Member(name) is not null
+        || name.StartsWith("ColumnHeader(", StringComparison.OrdinalIgnoreCase)
+        || name is "_ExtentX" or "_ExtentY" or "_Version" or "NumItems" or "AllowReorder" or "ColHdrIcons";
+
+    // Own properties stay read-only in the designer. Carry their complete runs, including duplicate OLE lines
+    // and flat column blocks; only the extender's editable properties are rendered from the model (#1085).
+    private static void WriteListViewProperties(VbFrmFormatSerializer vb, ComponentInstance instance,
+        CompanionCitations citations)
+    {
+        var loaded = instance.GetPropertyOrDefault(ListViewComponentClass.FilePropertiesProperty);
+        var basis = instance.GetPropertyOrDefault(InBoxComponentClass.ExtentBasisProperty);
+        var width = instance.GetPropertyOrDefault(VBProperties.WidthProperty);
+        var height = instance.GetPropertyOrDefault(VBProperties.HeightProperty);
+        var resized = basis is null || basis.Width != width || basis.Height != height;
+        if (resized)
+        {
+            vb.WriteProperty("_ExtentX", typeof(int), InBoxComponentClass.Extent((int)Math.Round(width)));
+            vb.WriteProperty("_ExtentY", typeof(int), InBoxComponentClass.Extent((int)Math.Round(height)));
+        }
+        foreach (var raw in instance.UnknownRawProperties.Where(raw => IsListViewOwnProperty(raw.Name)))
+        {
+            if (resized && (raw.Name.Equals("_ExtentX", StringComparison.OrdinalIgnoreCase)
+                || raw.Name.Equals("_ExtentY", StringComparison.OrdinalIgnoreCase)))
+                continue;
+            vb.WriteVerbatimProperty(raw.Name, raw.Lines.Select(line => citations.Cite(line, raw.Records)).ToList());
+        }
+        if (loaded is not null)
+            return;
+        vb.WriteProperty("LabelWrap", typeof(bool), true);
+        vb.WriteProperty("HideSelection", typeof(bool), true);
+        vb.WriteProperty("_Version", typeof(int), 393217);
+        vb.WriteProperty("ForeColor", typeof(int), unchecked((int)0x80000008));
+        vb.WriteProperty("BackColor", typeof(int), unchecked((int)0x80000005));
+        vb.WriteProperty("BorderStyle", typeof(int), 1);
+        vb.WriteProperty("Appearance", typeof(int), 1);
+        vb.WriteProperty("NumItems", typeof(int), 0);
     }
 }

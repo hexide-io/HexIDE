@@ -344,3 +344,23 @@ Runtime invisibility and the measured unsnapped placement SHALL remain unchanged
 - **WHEN** an ImageList is placed on a form
 - **THEN** its raised box contains the original vector drawing rather than a text stand-in
 - **AND** changing theme updates its brushes
+
+### Requirement: Load a picture from the Properties window
+The Properties window SHALL offer an ellipsis button on modeled Picture, Icon, DragIcon and MouseIcon rows.
+It SHALL open the IDE file-dialog service's single-file picker and validate the selected file with the existing
+companion picture decoder. An accepted picture SHALL replace the property's record as one undoable designer
+change and save through the existing companion writer. Cancelling SHALL change nothing. A file the reader cannot
+read SHALL be refused with a localized message naming the file, retaining the old picture.
+This is the scoped decision in [#2653](https://github.com/hexide-io/HexIDE/issues/2653); clearing and file-type
+filters remain unchanged. Record framing is measured in
+[the serialization oracle](../../../docs/vb6-fidelity-oracle/serialization--file-format-fidelity.md).
+
+#### Scenario: Replace a picture and undo
+- **WHEN** a picture file the decoder accepts is chosen from a picture row's ellipsis button
+- **THEN** the row and control hold that picture and saving and reopening retains it
+- **AND** one undo restores the previous picture
+
+#### Scenario: Cancel or refuse a file
+- **WHEN** the picker is cancelled or the chosen file cannot be read as a picture
+- **THEN** the property and undo history remain unchanged
+- **AND** a refused file produces a message naming it

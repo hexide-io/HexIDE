@@ -15,6 +15,8 @@ public static class AvaloniaMethodsInteroperability
     public static Vb6Value Call(this Control c, string method, IReadOnlyList<Vb6Value> args)
     {
         VBProps.RefuseIfRemoved(c);
+        if (c is VBListView listView && Components.InBox.ListViewComponentClass.Instance.Member(method) is not null)
+            return listView.CallMember(method, args);
         if (c is VBUpDown && (method.Equals("OLEDrag", StringComparison.OrdinalIgnoreCase)
                               || method.Equals("AboutBox", StringComparison.OrdinalIgnoreCase)))
             throw new NotImplementedException($"UpDown {method} is not implemented (#1093)");
@@ -243,6 +245,11 @@ public static class AvaloniaMethodsInteroperability
     public static async ValueTask<Vb6Value> CallAsync(this Control c, string method, IReadOnlyList<Vb6Value> args)
     {
         VBProps.RefuseIfRemoved(c);
+        if (c is VBListView list && method.Equals("StartLabelEdit", StringComparison.OrdinalIgnoreCase) && args.Count == 0)
+        {
+            await list.StartLabelEdit();
+            return Vb6Value.Nothing;
+        }
         if (c is VBTreeView tree && method.Equals("StartLabelEdit", StringComparison.OrdinalIgnoreCase))
         {
             if (args.Count != 0) throw new NotImplementedException();
