@@ -48,6 +48,16 @@ public class ExecutionState
     /// </summary>
     private readonly HashSet<int> readOnlyLocations = new();
 
+    private readonly Dictionary<int, long> variableIdentities = new();
+    internal long VariableIdentity(int location)
+    {
+        if (refSlots.TryGetValue(location, out var target))
+            return PointerIdentities.Target(target);
+        if (!variableIdentities.TryGetValue(location, out var identity))
+            variableIdentities[location] = identity = PointerIdentities.Allocate();
+        return identity;
+    }
+
     private int nextFreeLocation = 0;
 
     public int Alloc(Vb6Value value) => Alloc(value, null);
@@ -227,6 +237,7 @@ public class ExecutionState
     {
         ReleaseRef(location);
         memory.Remove(location);
+        variableIdentities.Remove(location);
         declaredTypes.Remove(location);
         declaredClasses.Remove(location);
         variantLocations.Remove(location);

@@ -119,13 +119,13 @@ on the *read* path — seven rows describe the single-dot restriction it removed
 |---|---:|---:|---:|---:|---:|---:|---:|
 | Statements | 1 | 0 | 9 | 50 | 0 | 47 | 107 |
 | Operators | 0 | 0 | 1 | 20 | 0 | 11 | 32 |
-| Intrinsic functions | 0 | 0 | 15 | 67 | 0 | 71 | 153 |
+| Intrinsic functions | 0 | 0 | 13 | 69 | 0 | 71 | 153 |
 | Keywords and modifiers | 0 | 0 | 2 | 22 | 1 | 26 | 51 |
 | Literals, types and suffixes | 0 | 0 | 2 | 19 | 0 | 29 | 50 |
 | Compiler directives and options | 0 | 0 | 0 | 14 | 19 | 14 | 47 |
 | In-box objects | 0 | 0 | 58 | 28 | 0 | 38 | 124 |
 | Intrinsic constants | 0 | 0 | 0 | 258 | 0 | 363 | 621 |
-| **Total** | **1** | **0** | **87** | **478** | **20** | **599** | **1185** |
+| **Total** | **1** | **0** | **85** | **480** | **20** | **599** | **1185** |
 
 The *Silently wrong* column counts only what a verifier proved by running it. It is a floor, not a
 census — see the caveat above.
@@ -267,7 +267,7 @@ operator `:=`, the other such gap, since [#1465](https://github.com/hexide-io/He
 | Name | Status | Detail | Source |
 |---|---|---|---|
 
-## Dies mid-run — 87 names
+## Dies mid-run — 85 names
 
 These parse. The program starts, reaches the statement, and throws. Grouped by area below so the clusters
 are visible — and they are very clustered: the file-I/O family beyond text files is absent as a block, and so is
@@ -358,8 +358,6 @@ most of the in-box object model.
 | `Scale` | **Dies** | throws `"Only single element supported"` — fails at run time. VB6.g4 has no SCALE token and no scaleStmt rule. `Scale (0, 0)-(100, 100)` parses as a bare procedure call with one argument - a… | ExpressionExecutor.cs |
 | `SelectedControls` | **Dies** | Measured for `Dim s As SelectedControls`: VBCompileErrorException: "User-defined type not defined: SelectedControls" (StatementExecutor.cs). | StatementExecutor.cs |
 | `SendKeys` | **Dies** | throws `"Sendkeys not implemented"` — Grammar rule `sendkeysStmt : SENDKEYS WS valueStmt (WS? COMMA WS? valueStmt)?` (VB6.g4) with a real SENDKEYS token; the visitor body is a single… | StatementExecutor.cs |
-| `StrPtr` | **Dies** | **#2622 remaining:** unregistered; string-buffer identity, vbNullString versus assigned empty text, copying and ByRef/ByVal relations remain unimplemented. Measurements are in [#2622](https://github.com/hexide-io/HexIDE/issues/2622), with measuring PRs #2624 and #2628. | VB6BuiltIns.cs |
-| `VarPtr` | **Dies** | **#2622 remaining:** unregistered; variable and temporary identity, ByRef/ByVal aliasing and the measured array element steps remain unimplemented. Measurements are in [#2622](https://github.com/hexide-io/HexIDE/issues/2622), with measuring PRs #2624 and #2628. | VB6BuiltIns.cs |
 | `Time (statement)` | **Dies** | **Fixed by #191** — was Silently wrong: it ran, did nothing and let the program continue. Now raises, naming the intrinsic | StatementExecutor.cs |
 | `Cls` | **Dies** | **[#995](https://github.com/hexide-io/HexIDE/issues/995):** in a form, a bare `Cls` is the form's method, refused as not implemented for the form, as `Me.Cls` is. — **Fixed by #191** — was Silently wrong: it ran, did nothing and let the program continue. Now raises, naming the intrinsic | StatementExecutor.cs |
 
@@ -521,7 +519,7 @@ missing.
 | `TypeOf ... Is` | Supported | **#2265:** bare `ProgressBar` follows the first referenced control library, while the qualified name selects its own library. **[#1060](https://github.com/hexide-io/HexIDE/issues/1060):** a control was False whatever the type named, so the usual loop over a form's Controls did nothing, silently. Measured and fixed: a control is its class, with its library or without (`TextBox`, `VB.TextBox`, `MSComDlg.CommonDialog`, and since #1082 `MSComctlLib.ProgressBar`, or `ComctlLib.ProgressBar` for one read under the 5.0 library), a `Control` and an `Object`; a control array and Controls are an `Object`, and Controls is no `Collection`; a form is a `Form`. `VisitVsTypeOf`, including an explicit grammar-greediness workaround: "`TypeOf p Is Clock` parses the operand as the comparison `p Is Clock` with NO Is-type clause. Recover by… | ExpressionExecutor.cs |
 | `Xor` | Supported | `VisitVsXor` — same raw-pair `VbBitwise` treatment (`static (a, b) => a ^ b`). Measured `(True Xor False)` -> Boolean True. | ExpressionExecutor.cs |
 
-### Intrinsic functions — 153 names (15 absent, 67 partial, 71 supported)
+### Intrinsic functions — 153 names (13 absent, 69 partial, 71 supported)
 
 
 **array** (3)
@@ -605,8 +603,8 @@ missing.
 | `Erl` | Supported | **[#2528](https://github.com/hexide-io/HexIDE/issues/2528):** a Long, the line number at or above where the error was raised, in the procedure that trapped it and in source order, whether or not that line ran: an error in a callee is the caller's call line, a loop's second pass reads the For or Do line's number, an error with no number above it is 0, and the number wraps at 65536 (line 70000 reads 4464). Every `On Error` statement, every `Resume` and leaving a handler set it to 0, as they clear `Err`; the program's own `Err.Clear` does not (measured, native and p-code). | VB6BuiltIns.cs, StatementExecutor.cs |
 | `Error` | Supported | **#1560:** `Error(n)` answers from vb6.exe's measured table of all 65,536 numbers, past 65535 being 6; `Error` with no number is Err's Description or its number's text. | VB6BuiltIns.Interaction.cs, VbErrorMessages.cs |
 | `ObjPtr` | Partial | **#2622, object-identity slice:** returns a Long identity: zero for Nothing or an unset Object, non-zero for live objects, shared by aliases and distinct for different objects. Integer and String operands raise run-time 13. Named arguments, other non-object operand types and argument counts other than one are unmeasured and explicitly refused as not implemented. Identities are not native addresses. Measured native/p-code relations: [issue #2622](https://github.com/hexide-io/HexIDE/issues/2622), measuring PRs [#2624](https://github.com/hexide-io/HexIDE/pull/2624) and [#2628](https://github.com/hexide-io/HexIDE/pull/2628); `ObjPtrTests`. | VB6BuiltIns.Inspection.cs |
-| `StrPtr` | **Dies** | **#2622 remaining:** unregistered; string-buffer identity, vbNullString versus assigned empty text, copying and ByRef/ByVal relations remain unimplemented. Measurements are in [#2622](https://github.com/hexide-io/HexIDE/issues/2622), with measuring PRs #2624 and #2628. | VB6BuiltIns.cs |
-| `VarPtr` | **Dies** | **#2622 remaining:** unregistered; variable and temporary identity, ByRef/ByVal aliasing and the measured array element steps remain unimplemented. Measurements are in [#2622](https://github.com/hexide-io/HexIDE/issues/2622), with measuring PRs #2624 and #2628. | VB6BuiltIns.cs |
+| `StrPtr` | Partial | **#2622 stack follow-up:** buffer identity shares the value payload, preserving the pre-pointer value size; the identity relations below are unchanged. **#2622:** Long buffer identities: vbNullString and unassigned String are zero; assigned empty text is non-zero; copies and ByVal String arguments have separate identities, ByRef shares. Other conversions except the measured Integer temporary are unmeasured and explicitly refused. Named arguments and counts other than one are refused. Identities are not native addresses. [Measured native/p-code relations](https://github.com/hexide-io/HexIDE/issues/2622), measuring PRs [#2624](https://github.com/hexide-io/HexIDE/pull/2624) and [#2628](https://github.com/hexide-io/HexIDE/pull/2628); `PointerIdentityTests`. | ExpressionExecutor.cs, PointerIdentities.cs, Vb6Value.cs |
+| `VarPtr` | Partial | **#2622:** Stable, distinct Long variable identities; ByRef shares the caller's slot, ByVal has its own. One-dimensional Long/Integer/Currency/Variant array elements step by 4/2/8/16. Integer temporaries are non-zero. Other temporaries, array widths, multidimensional and ParamArray elements, and UDT fields are unmeasured and explicitly refused. Named arguments and counts other than one are refused. Identities are not native addresses. [Measured native/p-code relations](https://github.com/hexide-io/HexIDE/issues/2622), measuring PRs [#2624](https://github.com/hexide-io/HexIDE/pull/2624) and [#2628](https://github.com/hexide-io/HexIDE/pull/2628); `PointerIdentityTests`. | ExpressionExecutor.cs, PointerIdentities.cs |
 | `IsError` | Supported | **#2520:** True for CVErr Error Variants and omitted Optional Variants; False for ordinary numbers and Empty, measured [native and p-code](https://github.com/hexide-io/HexIDE/issues/2520). | VB6BuiltIns.Inspection.cs |
 | `TypeName` | Partial | **#872:** `TypeName(Debug)` raises the measured "Syntax error" as its statement executes, even under On Error Resume Next. Control arrays already report "Object", and class arrays "Object()" with VarType 8201. Registered and correct for every primitive, array and VB class instance (a VbObject reports its own ClassName; arrays append "()"). The restriction is objects that are not VB classes: for… | VB6BuiltIns.Inspection.cs |
 | `IsArray` | Supported | Registered: new Vb6Value(a[0].Type.IsArray) — reports the value model's array flag directly. Tested: IsArray(a)=True for Dim a(1 To 3) As Integer, IsArray(123)=False… | VB6BuiltIns.Inspection.cs |
