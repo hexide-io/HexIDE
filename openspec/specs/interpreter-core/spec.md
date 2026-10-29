@@ -489,9 +489,10 @@ without calling the label as a procedure.
 - **THEN** it prints both `T` and `AFTER` without attempting to call `Fin`
 
 ### Requirement: A jump to a closing line SHALL end the block it is in
-A line number or label MAY stand on the line that closes a block or opens its next part, other than a procedure's End
-(#2561). A jump to one from inside its construct SHALL end the block it is in as if that block had run to its end, so a
-loop goes round and an If, Select Case or With is done, as vb6.exe does, native and p-code alike (#2529).
+A line number or label MAY stand on the line that closes a block or opens its next part, a procedure's End included. A
+jump to one from inside its construct SHALL end the block it is in as if that block had run to its end, so a loop goes
+round, an If, Select Case or With is done, and a procedure returns, as vb6.exe does, native and p-code alike (#2529,
+#2561).
 
 #### Scenario: Going round a loop from a labelled Next
 - **WHEN** a For loop from 1 to 3 jumps to `Skip: Next` when its counter is 2, and appends the counter otherwise

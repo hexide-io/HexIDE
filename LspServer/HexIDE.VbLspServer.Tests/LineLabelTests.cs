@@ -62,6 +62,9 @@ public class LineLabelTests
     [InlineData("Sub S()\r\n10 While x < 3\r\n20 x = x + 1\r\n30 Wend\r\nEnd Sub\r\n")]
     [InlineData("Sub S()\r\n10 Select Case x\r\n    Case 0\r\n30 x = 1\r\n40 Case Else\r\n50 x = 2\r\n60 End Select\r\nEnd Sub\r\n")]
     [InlineData("Sub S()\r\n10 With c\r\n20 .Add 1\r\n30 End With\r\nEnd Sub\r\n")]
+    [InlineData("Sub S()\r\n10 x = 1\r\n90 End Sub\r\n")]
+    [InlineData("Function F()\r\n10 F = 1\r\n90 End Function\r\n")]
+    [InlineData("Property Get P()\r\n10 P = 1\r\n90 End Property\r\n")]
     [InlineData("Sub S()\r\n10 For i = 1 To 2\r\n30 Next\r\nEnd Sub\r\n")]
     [InlineData("Sub S()\r\n    For i = 1 To 3\r\n        If i = 2 Then GoTo Skip\r\n        x = i\r\nSkip: Next\r\nEnd Sub\r\n")]
     [InlineData("Sub S()\r\n    If x = 0 Then\r\n        GoTo Skip\r\nSkip: Else\r\n        x = 1\r\n    End If\r\nEnd Sub\r\n")]
@@ -69,14 +72,6 @@ public class LineLabelTests
     public void AHeadOnAClosingOrMiddleLineProducesNoDiagnostics(string code)
     {
         VbDiagnosticsProvider.GetDiagnostics(code).Should().BeEmpty();
-    }
-
-    [Fact]
-    public void ALineNumberOnAProceduresEndIsStillAnError()
-    {
-        // vb6.exe compiles it (measured, #2529), but the interpreter cannot load it yet (#2561), and the editor must not
-        // pass what the interpreter refuses.
-        VbDiagnosticsProvider.GetDiagnostics("Sub S()\r\n10 x = 1\r\n90 End Sub\r\n").Should().NotBeEmpty();
     }
 
     [Fact]
