@@ -6,6 +6,7 @@ using Avalonia.Automation;
 using Avalonia.Automation.Peers;
 using Avalonia.Automation.Provider;
 using Avalonia.Controls;
+using Avalonia.Controls.Presenters;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.LogicalTree;
@@ -3393,9 +3394,21 @@ public static class UiAutomationDriver
                                         Math.Clamp(Math.Max(textBox.SelectionStart, textBox.SelectionEnd), 0, current.Length));
                     if (start == end)
                         start = end = Math.Clamp(textBox.CaretIndex, 0, current.Length);
-                    textBox.Text = current.Remove(start, end - start).Insert(start, text);
-                    textBox.CaretIndex = start + text.Length;
-                    textBox.SelectionStart = textBox.SelectionEnd = start + text.Length;
+                    var typed = current.Remove(start, end - start).Insert(start, text);
+                    // Committed in the order TextBox's own text input commits a key: the text, the selection cleared, the
+                    // presenter's text and caret, then the box's caret. Assigning Text, then the caret and selection, left a
+                    // live, focused box drawing the previous text's glyphs until its text next changed, though it held the
+                    // new text (#2737). Invalidating the presenter's TextRunCache cleared that and a fresh render did not, so
+                    // the cache held the old text's runs. Avalonia 12.0.4 and 12.0.5 do this to a focused box given its text
+                    // and then its caret; 12.1.0 on draws it either way, so after #868 this order is no longer needed.
+                    textBox.SetCurrentValue(TextBox.TextProperty, typed);
+                    textBox.ClearSelection();
+                    if (textBox.GetVisualDescendants().OfType<TextPresenter>().FirstOrDefault() is { } presenter)
+                    {
+                        presenter.SetCurrentValue(TextPresenter.TextProperty, typed);
+                        presenter.MoveCaretToTextPosition(start + text.Length);
+                    }
+                    textBox.SetCurrentValue(TextBox.CaretIndexProperty, start + text.Length);
                     replacing = end > start ? $", replacing the {end - start} selected char(s)" : "";
                     break;
             }
