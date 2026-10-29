@@ -914,6 +914,36 @@ unchanged because their insertion behaviour has not been measured.
 - **THEN** Retained=0 is inserted between those lines
 - **AND** the remaining lines retain their order
 
+### Requirement: New-project scratch files require user-chosen destinations
+
+Save Project As and Save Project on a project still in its recorded scratch directory SHALL ask for
+scratch members' destinations in member order, then the project's destination. The project file SHALL
+be written last and name each member at its chosen path. Scratch files SHALL NOT count as user-saved.
+All destinations SHALL be collected before any write or path change; cancelling any picker SHALL
+cancel the whole save without writing files or marking edits saved. This follows the save workflow
+recorded in [#2678](https://github.com/hexide-io/HexIDE/issues/2678).
+
+Internal automation persistence SHALL write an existing scratch member to its scratch path without a
+file picker. This SHALL NOT give it a user-saved status. Explicit Save and Save As commands and save
+prompts SHALL still treat scratch members as needing a user-chosen destination. Automation's picker
+guard SHALL agree with its persistence path: only a pathless member needs an armed picker answer.
+
+#### Scenario: Save a new scratch project beside its first form
+
+- **WHEN** a new scratch project's form and project destinations are chosen in one folder
+- **THEN** the form picker precedes the project picker, both files are written there, and the project
+  names the form as `Form1.frm` without a path back into the scratch directory
+
+#### Scenario: Cancel a scratch member's destination
+
+- **WHEN** any scratch member's save picker is cancelled
+- **THEN** no file is written, all original paths remain, and unsaved edits remain unsaved
+
+#### Scenario: Persist an automation edit to a scratch member
+
+- **WHEN** automation persists a form or module with an existing scratch path
+- **THEN** the edit is written to that path without a picker, and the member remains user-unsaved
+
 ## Out of Scope
 - **Interpreting preserved binary content.** Binary resources the IDE has no model for stay opaque; they are
   carried, never read.
