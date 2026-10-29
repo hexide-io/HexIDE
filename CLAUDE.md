@@ -312,7 +312,7 @@ HexIDE is a visual tool used by humans. Visual verification is not optional.
 - Treat every UI feature as incomplete until verified against the running IDE: `take_snapshot` for rendering/layout, and `dump_visual_tree` / `inspect_element` for **structured** assertions (a control exists, is enabled, has the expected value / selection / toggle state / providers) — which often replace a pixel snapshot.
 - Discover and drive UI with the generic trio — `dump_visual_tree` to find a control, `interact` to navigate and act (select a page, click a button, toggle, type, open a dialog), `inspect_element` to confirm — plus `add_control` / `activate_document_tab` / `view_designer` for designer/tab setup. Set up required state autonomously; never ask the user to do something a tool can do.
 - Build a **new** dedicated MCP tool only when the generic trio genuinely can't reach a surface **and** the tool-authoring policy in `openspec/specs/hexide-mcp-server/spec.md` justifies it (reads a model the tree can't see, persists/transacts, or beats path addressing). Otherwise, `interact` is the tool.
-- **Record every MCP dev-server shortcoming you hit** — a surface it can't observe (e.g. a runtime modal layered over a running form), a property it can't set (e.g. an enum/colour), a lifecycle gotcha (e.g. tools dropping after refused calls while the IDE is down) — in [`docs/mcp-server-gaps.md`](docs/mcp-server-gaps.md), with symptom → workaround → suggested fix, so the tooling is improved deliberately instead of re-worked around each session. **State the exact call it failed with, arguments included** — a gap concluded from `dump_visual_tree`'s default `interactiveOnly: true` once recorded readable content as unreadable, and stood for weeks because nobody could tell the defaults had been used (#362).
+- **Record every MCP dev-server shortcoming you hit** — a surface it can't observe (e.g. a runtime modal layered over a running form), a property it can't set (e.g. an enum/colour), a lifecycle gotcha (e.g. tools dropping after refused calls while the IDE is down) — as a file of its own in [`docs/mcp-gaps/open/`](docs/mcp-gaps/open/), named after the issue filed for it, with symptom → workaround → suggested fix ([`docs/mcp-server-gaps.md`](docs/mcp-server-gaps.md) says how), so the tooling is improved deliberately instead of re-worked around each session. **State the exact call it failed with, arguments included** — a gap concluded from `dump_visual_tree`'s default `interactiveOnly: true` once recorded readable content as unreadable, and stood for weeks because nobody could tell the defaults had been used (#362).
 
 **MUST NOT:**
 - Assume AXAML renders as expected — Avalonia has rendering quirks invisible to tests
@@ -353,8 +353,8 @@ So, for any tool added here:
   `framesDropped` read as data loss.
 - **A reply that mutates reports the new state**, and reports it even when that state is empty.
 
-**Record every shortcoming in `docs/mcp-server-gaps.md` AND file it**, exactly as a human-facing defect
-would be. An entry that lives only in that file is a note to self; the surface ships either way.
+**Record every shortcoming in `docs/mcp-gaps/open/` AND file it**, exactly as a human-facing defect
+would be. An entry that lives only in that folder is a note to self; the surface ships either way.
 
 **A relaunch keeps the tools a session already has. A new tool needs `/mcp`; a changed one that this session
 has already loaded needs a new session.** The server is stateless (#763), so there is no session to go stale
