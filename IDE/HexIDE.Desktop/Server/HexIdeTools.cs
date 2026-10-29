@@ -2238,8 +2238,27 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
         }
     }
 
+    /// <summary>What a capture's file is, since each call writes a new one (#756, said here since #2565).</summary>
+    internal const string SnapshotPathNote =
+        "Each call writes a new file. Earlier captures stay at their paths, and nothing deletes them.";
+
+    /// <summary>
+    /// How inspect_element's window-relative boundingRect, in device-independent units, maps into this capture and its
+    /// inline copy, with this capture's own numbers (#2565). The description used to give the formulas, and a caller had to
+    /// put the reply's fields into them.
+    /// </summary>
+    internal static string SnapshotUnits(double scale, int offsetX, int offsetY, double? inlineScale)
+    {
+        static string N(double value) => Math.Round(value, 3).ToString(System.Globalization.CultureInfo.InvariantCulture);
+        var units = "inspect_element's boundingRect is relative to the window, in device-independent units. In this image, "
+                    + $"x = x * {N(scale)} + {offsetX} and y = y * {N(scale)} + {offsetY}.";
+        return inlineScale is { } s
+            ? units + $" In the inline copy, x = x * {N(s)} + {N(offsetX * s / scale)} and y = y * {N(s)} + {N(offsetY * s / scale)}."
+            : units;
+    }
+
     [McpServerTool(Name = "take_snapshot")]
-    [Description("Captures the window's client area, without its title bar or frame, as a PNG, or with 'includeFrame' the whole window as Windows renders it, even where another window covers it. 'captureArea' says which in the reply; 'title' is the actual window title, including the IDE's. 'activeDialog' is retained for compatibility (null for the IDE). Returns the file path so the caller can read the image, with its size in pixels ('width', 'height') and its 'scale', the pixels per device-independent unit. Open popups can extend the image left or above the window: 'windowOffsetX' and 'windowOffsetY' give the window origin in full-image pixels (otherwise zero). For inspect_element's window-relative 'boundingRect', image x = x * scale + windowOffsetX, likewise y. For the inline copy, x = (x + windowOffsetX / scale) * inlineScale, likewise y. If any other window is open (a dialog, the Find window, or a running program's form) it is captured in preference to the IDE's own, whether or not it is on top; otherwise the main window is captured. 'window' selects which top-level window to address, as its description says: under \"auto\" (default) a running program's form, INCLUDING while it is paused at a breakpoint, is usually picked over the IDE; pass \"ide\" for the IDE itself, or a window's title or a running form's name for that window. Each call writes a new file and returns its path; earlier captures are left in place, so a path from an earlier call still holds that image, and nothing deletes them. The path is on the IDE's machine: a client attached from another machine, through a tunnel, passes 'inline' true to get the image itself as well, in a copy fitted to 1568 pixels described by 'inlineWidth', 'inlineHeight' and 'inlineScale'. A popup reported on no screen, or so far from the window that the image would pass 16,384 × 16,384 pixels' worth, is left out, and the 'note' says what it held, where it was and why. The image is the compositor's, as on screen; should it give none within 5 s, a render target draws it and the 'note' says so.")]
+    [Description("Captures the window's client area, without its title bar or frame, as a PNG, or with 'includeFrame' the whole window as Windows renders it, even where another window covers it. 'captureArea' says which in the reply; 'title' is the actual window title, including the IDE's. 'activeDialog' is retained for compatibility (null for the IDE). Returns the file path so the caller can read the image, with its size in pixels ('width', 'height') and its 'scale', the pixels per device-independent unit; 'pathNote' says how long the file is kept. Open popups can extend the image left or above the window: 'windowOffsetX' and 'windowOffsetY' give the window origin in full-image pixels (otherwise zero), and 'units' maps inspect_element's window-relative 'boundingRect' into the image, and into the inline copy. If any other window is open (a dialog, the Find window, or a running program's form) it is captured in preference to the IDE's own, whether or not it is on top; otherwise the main window is captured. 'window' selects which top-level window to address, as its description says: under \"auto\" (default) a running program's form, INCLUDING while it is paused at a breakpoint, is usually picked over the IDE; pass \"ide\" for the IDE itself, or a window's title or a running form's name for that window. The path is on the IDE's machine: a client attached from another machine, through a tunnel, passes 'inline' true to get the image itself as well, in a copy fitted to 1568 pixels described by 'inlineWidth', 'inlineHeight' and 'inlineScale'. The 'note' says what the image leaves out, such as a popup on no screen or too far from the window, and when a render target drew it because the compositor gave none within 5 s.")]
     public async Task<SnapshotResult> TakeSnapshotAsync(
         [Description(WindowParameter)] string? window = null,
         // The tool holds an inline copy, which InlineSnapshot attaches after the reply (#957).
@@ -2301,7 +2320,9 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
                 bitmap.PixelSize.Width, bitmap.PixelSize.Height, active.DesktopScaling,
                 WindowOffsetX: windowOffset.X, WindowOffsetY: windowOffset.Y,
                 Note: string.Join(" ", new[] { snapshot.Frame, LeftOutNote(leftOut), snapshot.Fallback }.OfType<string>()) is { Length: > 0 } note ? note : null,
-                Title: active.Title);
+                Title: active.Title,
+                Units: SnapshotUnits(active.DesktopScaling, windowOffset.X, windowOffset.Y, null),
+                PathNote: SnapshotPathNote);
             if (includeFrame)
                 result = result with { CaptureArea = FrameCaptureArea };
             if (!inline)
@@ -2322,11 +2343,13 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
                 fitted.Save(png);
             }
             InlineSnapshot.Hold(path, png.ToArray());
+            var inlineScale = active.DesktopScaling * width / bitmap.PixelSize.Width;
             return result with
             {
                 InlineWidth = width,
                 InlineHeight = height,
-                InlineScale = active.DesktopScaling * width / bitmap.PixelSize.Width,
+                InlineScale = inlineScale,
+                Units = SnapshotUnits(active.DesktopScaling, windowOffset.X, windowOffset.Y, inlineScale),
             };
         });
     }
@@ -3688,7 +3711,9 @@ internal record SnapshotResult(
     int? WindowOffsetX = null, int? WindowOffsetY = null, string? Note = null,
     string? Title = null,
     // What the image holds, so absent when there is none: a refusal said it held a client area it never captured.
-    string? CaptureArea = "Window client area, without its title bar or frame; open popups are included unless the note says otherwise.");
+    string? CaptureArea = "Window client area, without its title bar or frame; open popups are included unless the note says otherwise.",
+    // How boundingRect maps into the image, and how long the file is kept: present only with an image (#2565).
+    string? Units = null, string? PathNote = null);
 
 internal record ProjectInfoResult(
     string? ProjectName,
