@@ -1020,6 +1020,19 @@ follow those containers, retaining their relative visual-child order.
 - **WHEN** a selected row is the third row on screen
 - **THEN** it follows the first two rows in the dump rather than appearing first because it was created first
 
+### Requirement: An empty dump SHALL say why it is empty
+A `dump_visual_tree` reply whose tree has no children, and is not `truncated`, SHALL say in its note whether the window or
+node holds nothing showing, or whether `interactiveOnly` left out parts that show, and how many, so a caller can tell an
+empty form from a filtered one.
+
+#### Scenario: A running form with no controls
+- **WHEN** a program's Form2 has no controls and is dumped with the defaults
+- **THEN** the note says the window holds no controls, and that what is drawn on it shows in a snapshot
+
+#### Scenario: A window holding only text
+- **WHEN** a window holds only text and is dumped with `interactiveOnly` true
+- **THEN** the note says how many parts the filter left out, and to pass `interactiveOnly` false to see them
+
 ### Requirement: Large discovery trees prioritize showing controls
 
 A `dump_visual_tree` tree exceeding the 40,000-character tree budget SHALL first omit children below
