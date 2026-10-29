@@ -15,11 +15,12 @@ namespace HexIDE.Runtime.Interpreter;
 /// </remarks>
 internal static class NextCounterList
 {
-    /// <summary>The lexer's tokens, with each comma of a Next's counter list expanded. Lexing happens here, so the
-    /// lexer's error listeners must be attached first.</summary>
+    /// <summary>The lexer's tokens, with each comma of a Next's counter list expanded, and a head on a procedure's End
+    /// given a statement (<see cref="ProcedureEndHeads"/>). Lexing happens here, so the lexer's error listeners must be
+    /// attached first.</summary>
     public static CommonTokenStream Tokens(VB6Lexer lexer)
     {
-        var tokens = lexer.GetAllTokens();
+        var tokens = ProcedureEndHeads.Expand(lexer.GetAllTokens());
         var commas = Commas(tokens);
         if (commas.Count == 0)
             return new CommonTokenStream(new ListTokenSource(tokens));

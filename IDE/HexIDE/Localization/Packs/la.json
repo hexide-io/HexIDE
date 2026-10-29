@@ -2,6 +2,8 @@
   "name": "Latina",
   "direction": "ltr",
   "strings": {
+    "Str.Tool.Properties.LoadPicture": "Imaginem onerare",
+    "Str.Tool.Properties.LoadPictureFailed": "Imago ex “{0}” onerari non potest.",
     "Str.Designer.ShowTabOrder": "Ordinem tabulationis monstrare (transfixum: TabStop inactivum)",
     "Str.Options.EditorGeneral.Display.StickyScroll": "Tituli fixi inter volvendum",
     "Str.Options.EditorGeneral.Display.StickyDepth": "Numerus maximus titulorum fixorum",

@@ -2,6 +2,8 @@
   "name": "English",
   "direction": "ltr",
   "strings": {
+    "Str.Tool.Properties.LoadPicture": "Load picture",
+    "Str.Tool.Properties.LoadPictureFailed": "Cannot load picture from “{0}”.",
     "Str.Designer.ShowTabOrder": "Show tab order (crossed out: TabStop off)",
     "Str.Options.EditorGeneral.Display.StickyScroll": "Sticky scroll",
     "Str.Options.EditorGeneral.Display.StickyDepth": "Maximum pinned headers",

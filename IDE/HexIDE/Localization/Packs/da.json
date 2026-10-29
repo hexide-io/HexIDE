@@ -2,6 +2,8 @@
   "name": "Danish",
   "direction": "ltr",
   "strings": {
+    "Str.Tool.Properties.LoadPicture": "Indlæs billede",
+    "Str.Tool.Properties.LoadPictureFailed": "Kan ikke indlæse billedet fra ”{0}”.",
     "Str.Designer.ShowTabOrder": "Vis tabulatorrækkefølge (overstreget: TabStop fra)",
     "Str.Options.EditorGeneral.Display.StickyScroll": "Fastgjorte overskrifter ved rulning",
     "Str.Options.EditorGeneral.Display.StickyDepth": "Maksimalt antal fastgjorte overskrifter",
@@ -176,7 +178,7 @@
     "Str.Menu.Format.Spacing.MakeEqual": "Gør _ens",
     "Str.Spinner.Increase": "Forøg",
     "Str.Menu.Format.Spacing.Increase": "_Forøg",
-    "Str.Spinner.Decrease": "Formindsk",
+    "Str.Spinner.Decrease": "Reducer",
     "Str.Menu.Format.Spacing.Decrease": "_Formindsk",
     "Str.Menu.Format.Spacing.Remove": "_Fjern",
     "Str.Menu.Format.CenterInForm": "_Centrér i formular",

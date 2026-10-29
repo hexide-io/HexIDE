@@ -2,6 +2,8 @@
   "name": "Korean",
   "direction": "ltr",
   "strings": {
+    "Str.Tool.Properties.LoadPicture": "그림 불러오기",
+    "Str.Tool.Properties.LoadPictureFailed": "“{0}”에서 그림을 불러올 수 없습니다.",
     "Str.Designer.ShowTabOrder": "탭 순서 표시 (취소선: TabStop 꺼짐)",
     "Str.Options.EditorGeneral.Display.StickyScroll": "스크롤 시 머리글 고정",
     "Str.Options.EditorGeneral.Display.StickyDepth": "고정할 머리글 최대 수",

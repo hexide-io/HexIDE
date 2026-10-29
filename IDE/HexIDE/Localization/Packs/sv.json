@@ -2,6 +2,8 @@
   "name": "Swedish",
   "direction": "ltr",
   "strings": {
+    "Str.Tool.Properties.LoadPicture": "Läs in bild",
+    "Str.Tool.Properties.LoadPictureFailed": "Det går inte att läsa in bilden från ”{0}”.",
     "Str.Designer.ShowTabOrder": "Visa tabbordning (överstruket: TabStop av)",
     "Str.Options.EditorGeneral.Display.StickyScroll": "Fästa rubriker vid rullning",
     "Str.Options.EditorGeneral.Display.StickyDepth": "Maximalt antal fästa rubriker",

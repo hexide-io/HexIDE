@@ -645,6 +645,22 @@ unknown name's refusal SHALL say that the IDE's window is the default here.
 - **WHEN** `get_window_state` is called with no `window`
 - **THEN** it reports the IDE's own window, named `ide`
 
+### Requirement: A window name SHALL reach a window a caller can use
+A `window` named by a title or a running form's name SHALL reach the one visible window of that name. Where several
+share it and sit on one another, each owning the next, the name SHALL reach the one on top, the one a person can use,
+and a path that fails there SHALL say that the name reached the window on top of another of that name. Where several
+share it side by side, the refusal SHALL name what does reach one of them, rather than advice no caller can follow.
+
+#### Scenario: A dialog and its own message box share a title
+- **WHEN** the Find dialog has raised a message box also titled "Find", and a tool is called with `window: "Find"`
+- **THEN** it reaches the message box
+- **AND** once the box closes, the same name reaches the Find dialog
+
+#### Scenario: Two instances of one form are open
+- **WHEN** two instances of Form1 are showing side by side, and a tool is called with `window: "Form1"`
+- **THEN** it is refused, naming both
+- **AND** the refusal says which of them `auto` reaches
+
 ### Requirement: The window-state reply SHALL say what its numbers measure
 The window-state reply SHALL give `scale`, and the window's `outer` rectangle, its `frame` as drawn and its `client`
 area, each on the screen in device-independent pixels, beside `x`, `y`, `width` and `height`, which it SHALL keep as
@@ -945,6 +961,22 @@ SHALL send nothing to any window.
 - **WHEN** the process `Shell` started has started the program and exited
 - **THEN** the program's windows are read through it, and a reply with no window says whether the process exited, has
   no window yet, or its ID now names another process
+
+### Requirement: A hover SHALL be able to leave the pointer for a snapshot
+`hover` with `stay` SHALL leave the pointer on the point when its watch ends, so the control it landed on reads as under
+the pointer and a tip it opened stays open, and `take_snapshot` SHALL draw that tip with the window. The reply SHALL say
+whether the control reads as under the pointer once the move has settled, and what took it when it does not. The next
+click, drag or hover in that window SHALL end a staying hover before it acts. `inspect_element` SHALL report
+`isPointerOver`.
+
+#### Scenario: A toolbar button's hover look
+- **WHEN** `hover` with `stay` lands on a toolbar button that has a tip, with the real mouse off the window
+- **THEN** the reply says the button reads as under the pointer, `inspect_element` reports `isPointerOver` true, and a
+  snapshot draws its tip
+
+#### Scenario: The next click ends it
+- **WHEN** a click lands elsewhere in that window
+- **THEN** the button no longer reads as under the pointer, and its tip is closed
 
 ### Requirement: Run-control replies SHALL say what the program printed
 A successful reply from `run_project`, `stop_project`, `continue_program`, `break_program`, a step or `run_to_cursor`

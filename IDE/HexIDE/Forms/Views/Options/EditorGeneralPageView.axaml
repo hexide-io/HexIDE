@@ -2,6 +2,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:converters="clr-namespace:HexIDE.Converters"
              xmlns:vm="clr-namespace:HexIDE.Forms.ViewModels.Options"
              mc:Ignorable="d" d:DesignWidth="420" d:DesignHeight="300"
              x:DataType="vm:EditorGeneralPageViewModel"
@@ -29,8 +30,9 @@
                 <CheckBox IsChecked="{CompiledBinding ShowIndentGuides}" Content="{DynamicResource Str.Options.EditorGeneral.Display.ShowIndentGuides}" />
                 <CheckBox IsChecked="{CompiledBinding IsStickyScrollEnabled}" Content="{DynamicResource Str.Options.EditorGeneral.Display.StickyScroll}" />
                 <StackPanel Orientation="Horizontal" Spacing="8">
-                    <TextBlock Text="{DynamicResource Str.Options.EditorGeneral.Display.StickyDepth}" VerticalAlignment="Center" />
-                    <NumericUpDown Value="{CompiledBinding StickyScrollDepth}" Minimum="1" Maximum="10" Width="80" IsEnabled="{CompiledBinding IsStickyScrollEnabled}" />
+                    <TextBlock x:Name="StickyDepthLabel" Text="{DynamicResource Str.Options.EditorGeneral.Display.StickyDepth}" VerticalAlignment="Center" />
+                    <NumericUpDown AutomationProperties.Name="{CompiledBinding #StickyDepthLabel.Text, Converter={x:Static converters:AccessKeyNameConverter.Instance}, ConverterParameter=TrimColon}"
+                                   Value="{CompiledBinding StickyScrollDepth}" Minimum="1" Maximum="10" Width="80" IsEnabled="{CompiledBinding IsStickyScrollEnabled}" />
                 </StackPanel>
                 <CheckBox IsChecked="{CompiledBinding IsMinimapVisible}" Content="{DynamicResource Str.Options.EditorGeneral.Display.ShowMinimap}" />
                 <CheckBox IsChecked="{CompiledBinding ColorBracketsByDepth}" Content="{DynamicResource Str.Options.EditorGeneral.Display.ColorBracketsByDepth}" />

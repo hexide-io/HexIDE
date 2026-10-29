@@ -149,6 +149,13 @@ public class AutomationNameGuardTests
             {
                 options.SelectedNode = node;
                 Check(window, "Options / " + node.Title, failures);
+                var controls = window.GetVisualDescendants().OfType<Control>().ToArray();
+                foreach (var spinner in controls.OfType<NumericUpDown>())
+                    Avalonia.Automation.Peers.ControlAutomationPeer.CreatePeerForElement(spinner).GetName()
+                        .Should().NotBeNullOrWhiteSpace("every Options spinner must be named");
+                foreach (var control in controls.Where(c => c.Focusable))
+                    Avalonia.Automation.Peers.ControlAutomationPeer.CreatePeerForElement(control)?.GetName()
+                        ?.TrimEnd().Should().NotEndWith(":").And.NotEndWith("：");
             }
             string.Join(Environment.NewLine, failures).Should().BeEmpty(
                 "rendered IDE controls must not be named after loaded types, and list/tree rows and combo boxes must have names");
