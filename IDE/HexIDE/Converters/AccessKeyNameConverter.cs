@@ -22,9 +22,12 @@ public sealed class AccessKeyNameConverter : IValueConverter, IMultiValueConvert
 {
     public static readonly AccessKeyNameConverter Instance = new();
 
+    // Labels in Options keep punctuation visually, but omit trailing colons when announced.
     public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture) =>
         value is string caption
-            ? MenuPath.StripAccessKey(caption)
+            ? parameter is "TrimColon"
+                ? MenuPath.StripAccessKey(caption).TrimEnd().TrimEnd(':', '：').TrimEnd()
+                : MenuPath.StripAccessKey(caption)
             : AvaloniaProperty.UnsetValue;
 
     /// <param name="values">The content, then the tooltip.</param>
