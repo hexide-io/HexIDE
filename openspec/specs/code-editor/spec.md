@@ -523,6 +523,16 @@ editor and select the matching text. Forms, modules and carried files SHALL part
 - **THEN** Current Project names and searches that document's project
 - **AND** All Projects searches every loaded project
 
+### Requirement: Code-window selections SHALL stay in step with the view-model
+Keyboard and mouse selections SHALL update the code-window view-model's selection start and length,
+including when cleared, for Selected Text searches and the add-in selection API. View-model selections
+SHALL still select text in the editor. Neither direction SHALL re-enter the other.
+
+#### Scenario: A developer selects code
+- **WHEN** the developer selects text in the code window
+- **THEN** the view-model and add-in API report that span
+- **AND** Selected Text Find searches within that span
+
 ### Requirement: Structural and selection scopes SHALL restrict every search and replacement
 Current Procedure and Current Module SHALL use containing procedure or module ranges reported by the
 active document's language server, including nested symbols, and SHALL fall back to Current Document
