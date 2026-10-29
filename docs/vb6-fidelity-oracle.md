@@ -41,6 +41,16 @@ model comparison, which is a computation against those measurements, not a new V
 The #881 comments’ measured compare validation order is recorded in
 [A compare argument, and when it is checked](vb6-fidelity-oracle/compare-argument-validation.md).
 
+The #2622 brief records StrPtr and VarPtr relations measured by hexide-int with vb6.exe SP6,
+with matching native and p-code results: null/unassigned String buffers are zero, assigned empty
+text has a buffer, assignments copy buffers, variable identities are stable and distinct, and
+Long/Integer/Currency/Variant array elements step by 4/2/8/16 bytes. ByRef shares the caller's
+variable and String buffer identities; ByVal has separate identities. String variable and buffer
+identities differ. Both intrinsics return Long, including non-zero temporary identities for `5`.
+These constrain relations rather than address values. Provenance: [issue #2622](https://github.com/hexide-io/HexIDE/issues/2622),
+measuring PRs [#2624](https://github.com/hexide-io/HexIDE/pull/2624) and
+[#2628](https://github.com/hexide-io/HexIDE/pull/2628); the measuring authors own their oracle pages.
+
 The ParamArray forwarding measurement supplied by hexide-int in
 [#2474](https://github.com/hexide-io/HexIDE/issues/2474) and restated in
 [#2532](https://github.com/hexide-io/HexIDE/issues/2532) agrees in native and p-code:
