@@ -83,7 +83,7 @@ public class TimerLocalsTests
                 ("Index", "<Object not an array>", "Integer"),
                 ("Interval", "1000", "Long"),
                 ("Name", "\"Timer1\"", "String"),
-                ("Parent", "", "Form1"),
+                ("Parent", "", "Form/Form1"),
                 ("Tag", "\"t1\"", "String"));
             var parent = timer1.Single(r => r.Name == "Parent");
             parent.HasChildren.Should().BeTrue("VB6's Parent row opens to the form, under Me too");
@@ -102,14 +102,14 @@ public class TimerLocalsTests
             var array = rows.Single(r => r.Name == "Timer2");
             var items = array.Expand();
 
-            items.Select(r => r.Name).Should().Equal("Item 1");
+            items.Select(r => (r.Name, r.TypeName)).Should().Equal(("Item 1", "Variant/Object/Timer"));
             Read(items[0].Expand()).Should().Equal(
                 ("[_Default]", "True", "Boolean"),
                 ("Enabled", "True", "Boolean"),
                 ("Index", "0", "Integer"),
                 ("Interval", "250", "Long"),
                 ("Name", "\"Timer2\"", "String"),
-                ("Parent", "", "Form1"),
+                ("Parent", "", "Form/Form1"),
                 ("Tag", "\"\"", "String"));
         }
         finally { window.Close(); }
@@ -132,7 +132,14 @@ public class TimerLocalsTests
                 .And.Contain(["aFirst", "Caption", "Grid", "mCount", "Score", "Timer1", "Timer2", "zLast"]);
             names.Last().Should().Be("zLast", "a variable sorts in with the properties, not after them");
             var items = rows.Skip(1 + sorted.Count).ToList();
-            items.Select(r => (r.Name, r.TypeName)).Should().Equal(("Item 1", "Timer"), ("Item 2", "Timer"));
+            items.Select(r => (r.Name, r.TypeName)).Should().Equal(("Item 1", "Variant/Object/Timer"), ("Item 2", "Variant/Object/Timer"));
+            // A control is a member declared by its class, and a control array by its elements' (measured, #2700 and #2698).
+            sorted.Single(r => r.Name == "Timer1").TypeName.Should().Be("Timer/Timer");
+            sorted.Single(r => r.Name == "Timer2").TypeName.Should().Be("Timer/Timer");
+            sorted.Single(r => r.Name == "Grid").TypeName.Should().Be("Long(1 to 2)");
+            sorted.Single(r => r.Name == "zLast").TypeName.Should().Be("Variant/String");
+            sorted.Where(r => r.Name is "aFirst" or "mCount" or "Score").Select(r => (r.Name, r.Value, r.TypeName))
+                .Should().Equal(("aFirst", "\"a\"", "String"), ("mCount", "42", "Long"), ("Score", "7", "Integer"));
             items[0].Expand().Single(r => r.Name == "Name").Value.Should().Be("\"Timer1\"", "Items follow the file's order");
         }
         finally { window.Close(); }

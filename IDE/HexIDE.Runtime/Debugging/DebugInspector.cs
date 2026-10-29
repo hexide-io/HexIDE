@@ -193,16 +193,19 @@ public static class DebugInspector
             {
                 var ancestors = NewAncestorSet();
                 ancestors.Add(rootObj);
-                expand = () => EnvChildren(baseEnv, ctx, ancestors, 1, selfName);
+                expand = () => SortedByName(EnvChildren(baseEnv, ctx, ancestors, 1, selfName));
             }
             nodes.Add(new DebugNode("Me", rootObj.ClassName, rootObj.ClassName, expand));
         }
-        else if (baseHasVars)
+        else
         {
-            string label = ReferenceEquals(module, interp.PrimaryModule) ? "Me" : module.Name;
+            // VB6 lists a standard module's row even with nothing in it, typed by its name twice, and opens it to one
+            // <No Variables> row (measured, #2700).
             nodes.Add(new DebugNode(
-                label, module.Name, module.Name,
-                () => EnvChildren(baseEnv, ctx, NewAncestorSet(), 1, selfName)));
+                module.Name, string.Empty, $"{module.Name}/{module.Name}",
+                () => baseHasVars
+                    ? EnvChildren(baseEnv, ctx, NewAncestorSet(), 1, selfName)
+                    : [new DebugNode("<No Variables>", string.Empty, string.Empty)]));
         }
 
         // 2) The procedure's own params + locals. Procedure scopes no longer copy base bindings (#2120).
@@ -214,7 +217,7 @@ public static class DebugInspector
             if (baseEnv.variableToLocation.TryGetValue(name, out var baseSlot) && baseSlot == slot)
                 continue;   // identical to the base scope's binding — shown under the Me/module root instead
             if (ctx.TryInspectVariable(env, name, out var value))
-                nodes.Add(ValueNode(name, value, ctx, NewAncestorSet(), 1));
+                nodes.Add(ValueNode(name, value, ctx, NewAncestorSet(), 1, Declared.Of(ctx, env, name)));
         }
 
         string context = procName is { Length: > 0 } ? $"{module.Name}.{procName}" : module.Name;
@@ -230,8 +233,8 @@ public static class DebugInspector
     /// </summary>
     internal static DebugNode FormNode(string name, string value, VbObject formObj, Control window,
         ExecutionEnvironment baseEnv, ModuleExecutionContext ctx, string selfName, int depth,
-        IReadOnlySet<VbObject>? above = null) =>
-        new(name, value, formObj.ClassName, depth + 1 >= MaxDepth ? null : () =>
+        IReadOnlySet<VbObject>? above = null, string? type = null) =>
+        new(name, value, type ?? formObj.ClassName, depth + 1 >= MaxDepth ? null : () =>
         {
             // VB6's first row under a form is its default member, which can't be read without an argument.
             var kids = new List<DebugNode>
@@ -243,10 +246,14 @@ public static class DebugInspector
             ancestors.Add(formObj);
             var members = new List<DebugNode>(PropertyNodes(window));
             foreach (var (varName, varValue) in VisibleVariables(baseEnv, ctx, selfName))
-                members.Add(ValueNode(varName, varValue, ctx, ancestors, depth + 1));
-            // An array sorts by its name, which VB6 writes without the parentheses HexIDE's row adds.
-            kids.AddRange(members.OrderBy(n => n.Name.EndsWith("()", StringComparison.Ordinal) ? n.Name[..^2] : n.Name,
-                StringComparer.OrdinalIgnoreCase));
+            {
+                // A form's control is a member declared by its class, Timer/Timer, though its slot records no class.
+                var declared = Declared.Of(ctx, baseEnv, varName);
+                if (declared is { Class: null, Scalar: null, IsVariant: false } && ControlClassOf(varValue) is { } controlClass)
+                    declared = new Declared(controlClass, null, false);
+                members.Add(ValueNode(varName, varValue, ctx, ancestors, depth + 1, declared));
+            }
+            kids.AddRange(SortedByName(members));
             kids.AddRange(ItemNodes(formObj.Controls?.All ?? [], ctx, ancestors, depth + 1));
             return kids;
         }) { Repeats = above?.Contains(formObj) == true };
@@ -273,7 +280,74 @@ public static class DebugInspector
     // binding — HexIDE seeds the form's own name into its module scope, but VB6 never shows that under Me.
     private static IReadOnlyList<DebugNode> EnvChildren(
         ExecutionEnvironment env, ModuleExecutionContext ctx, HashSet<VbObject> ancestors, int depth, string? selfName = null) =>
-        [.. VisibleVariables(env, ctx, selfName).Select(v => ValueNode(v.Name, v.Value, ctx, ancestors, depth))];
+        [.. VisibleVariables(env, ctx, selfName).Select(v =>
+            ValueNode(v.Name, v.Value, ctx, ancestors, depth, Declared.Of(ctx, env, v.Name)))];
+
+    // An object's members as VB6's Locals lists them, sorted by name with case ignored: a form's and a class instance's
+    // alike, Private included (measured, #2329 and #2700). A procedure's own locals keep their declaration order.
+    private static IReadOnlyList<DebugNode> SortedByName(IEnumerable<DebugNode> members) =>
+        [.. members.OrderBy(n => n.Name.EndsWith("()", StringComparison.Ordinal) ? n.Name[..^2] : n.Name,
+            StringComparer.OrdinalIgnoreCase)];
+
+    /// <summary>
+    /// What a row was declared as, for its Type column (#2700): a class or <c>Object</c>, a scalar type, or a Variant. A
+    /// row with none of them, a UDT's, or with no declaration at all, as a watch's expression is, keeps its value's own
+    /// type.
+    /// </summary>
+    private sealed record Declared(string? Class, Vb6Value.ValueType? Scalar, bool IsVariant)
+    {
+        public static readonly Declared Variant = new(null, null, true);
+
+        public static Declared? Of(ModuleExecutionContext ctx, ExecutionEnvironment env, string name) =>
+            ctx.DeclarationOf(env, name) is { } d ? new Declared(d.Class, d.Scalar, d.IsVariant) : null;
+    }
+
+    /// <summary>
+    /// The Type column as VB6's Locals window writes it (measured by hexide-int on #2700): a live object as its declared
+    /// type, a slash and its class, <c>Object/Class1</c>, with <c>Variant/</c> in front when a Variant holds it;
+    /// <c>Nothing</c> as the declared type alone, and <c>Variant/Object</c> in a Variant; a Variant's scalar as
+    /// <c>Variant/</c> and its type. A typed scalar is its type, and a row with no declaration its value's.
+    /// </summary>
+    private static string TypeText(Vb6Value value, string actual, Declared? declared)
+    {
+        if (declared is null)
+            return actual;
+        if (value.Type == Vb6Value.ValueType.Object && value.Value is null)
+            return declared.Class ?? (declared.IsVariant ? "Variant/Object" : actual);
+        if (value.Type == Vb6Value.ValueType.Object || value.Type == Vb6Value.ValueType.Control
+            || value.Value is ControlArrayGroup or VbCollection or ICSharpProxy)
+            return declared.Class is { } declaredClass ? $"{declaredClass}/{actual}"
+                : declared.IsVariant ? $"Variant/Object/{actual}" : actual;
+        return declared.IsVariant ? $"Variant/{actual}" : actual;
+    }
+
+    // A control's class, or a control array's elements', which a form declares it by.
+    private static string? ControlClassOf(Vb6Value value) => value.Value switch
+    {
+        Control control when value.Type == Vb6Value.ValueType.Control => VB6BuiltIns.DebugTypeName(value),
+        ControlArrayGroup group => group.Elements.Values.FirstOrDefault() is { } first
+            ? VB6BuiltIns.DebugTypeName(new Vb6Value(first)) : null,
+        _ => null,
+    };
+
+    // An array's Type as VB6 writes it: its element type and bounds, Class1(1 to 2) (measured, #2329 and #2700).
+    private static string ArrayType(VBArray arr, Declared declared, string elementType) =>
+        arr.Rank == 0
+            ? $"{elementType}()"
+            : $"{elementType}({string.Join(", ", Enumerable.Range(1, arr.Rank).Select(d =>
+                $"{arr.LowerBound(d).ToString(CultureInfo.InvariantCulture)} to {arr.UpperBound(d).ToString(CultureInfo.InvariantCulture)}"))})";
+
+    // What an array's elements were declared as: its class, or Object, or its scalar type, or Variant.
+    private static (Declared Element, string TypeName) ElementOf(VBArray arr, Declared declared)
+    {
+        if ((declared.Class ?? arr.DeclaredClass) is { } elementClass)
+            return (new Declared(elementClass, null, false), elementClass);
+        if (arr.ElementType is { } scalar && scalar != Vb6Value.ValueType.EmptyVariant)
+            return scalar == Vb6Value.ValueType.Object
+                ? (new Declared("Object", null, false), "Object")
+                : (new Declared(null, scalar, false), VB6BuiltIns.DebugTypeName(new Vb6Value(scalar)));
+        return (Declared.Variant, "Variant");
+    }
 
     // Every variable of an environment that Locals shows, in declaration order.
     private static IEnumerable<(string Name, Vb6Value Value)> VisibleVariables(
@@ -293,19 +367,26 @@ public static class DebugInspector
     // One row for a named value — a leaf for scalars/Nothing/controls, or an expandable node for arrays, UDTs and
     // live class instances. `name` is the bare variable name (array element names are derived from it).
     private static DebugNode ValueNode(
-        string name, Vb6Value value, ModuleExecutionContext ctx, HashSet<VbObject> ancestors, int depth)
+        string name, Vb6Value value, ModuleExecutionContext ctx, HashSet<VbObject> ancestors, int depth,
+        Declared? declared = null)
     {
-        string type = VB6BuiltIns.DebugTypeName(value);
+        string type = TypeText(value, VB6BuiltIns.DebugTypeName(value), declared);
 
         // Array — expand to elements by real subscript (capped). An undimensioned OR zero-length array (any
         // dimension with UBound < LBound, e.g. Split("") or ReDim a(1 To 0)) is a leaf — expanding it would index
-        // an empty backing store and throw (review finding).
+        // an empty backing store and throw (review finding). A declared array is named and typed as VB6 writes it,
+        // Grid of type Long(1 to 2) (measured, #2329 and #2700). A watch's array result, and a Variant holding an array,
+        // which nothing has measured, keep their name and value's type.
         if (value.Type.IsArray && value.Value is VBArray arr)
         {
+            var (element, elementType) = declared is null || declared.IsVariant ? (null, null) : ElementOf(arr, declared);
+            var header = element is null ? name + "()" : name;
+            if (element is not null)
+                type = ArrayType(arr, declared!, elementType!);
             if (arr.Rank == 0 || IsEmptyArray(arr) || depth >= MaxDepth)
-                return new DebugNode(name + "()", string.Empty, type);
-            return new DebugNode(name + "()", string.Empty, type,
-                () => ArrayChildren(name, arr, ctx, ancestors, depth + 1));
+                return new DebugNode(header, string.Empty, type);
+            return new DebugNode(header, string.Empty, type,
+                () => ArrayChildren(name, arr, ctx, ancestors, depth + 1, element));
         }
 
         // UDT — expand to fields (a UDT is a value type; no cycle possible, but honour the depth backstop and don't
@@ -323,16 +404,16 @@ public static class DebugInspector
         if (value.Type == Vb6Value.ValueType.Object)
         {
             if (value.Value is not VbObject obj)
-                return new DebugNode(name, "Nothing", "Nothing");
+                return new DebugNode(name, "Nothing", type);
             // Leaf when: a cycle back to an ancestor, at the depth cap, or the instance has no inspectable fields
             // (a field-less class would otherwise show an expander that opens to nothing — review finding).
             if (depth >= MaxDepth || ancestors.Contains(obj) || !HasVisibleVars(obj.InstanceEnv, ctx))
-                return new DebugNode(name, obj.ClassName, obj.ClassName);   // cycle / too deep / no fields: leaf
-            return new DebugNode(name, string.Empty, obj.ClassName, () =>
+                return new DebugNode(name, obj.ClassName, type);   // cycle / too deep / no fields: leaf
+            return new DebugNode(name, string.Empty, type, () =>
             {
                 // VbObject uses default (reference) equality, so a plain HashSet keys instances by identity.
                 var next = new HashSet<VbObject>(ancestors) { obj };
-                return EnvChildren(obj.InstanceEnv, ctx, next, depth + 1);
+                return SortedByName(EnvChildren(obj.InstanceEnv, ctx, next, depth + 1));
             });
         }
 
@@ -360,9 +441,10 @@ public static class DebugInspector
                 elemType = VB6BuiltIns.DebugTypeName(new Vb6Value(el));
                 break;
             }
+            var groupType = TypeText(value, elemType, declared);
             if (depth >= MaxDepth || group.Count == 0)
-                return new DebugNode(name, string.Empty, elemType);
-            return new DebugNode(name, string.Empty, elemType,
+                return new DebugNode(name, string.Empty, groupType);
+            return new DebugNode(name, string.Empty, groupType,
                 () => [.. ItemNodes([.. group.Elements.Values], ctx, ancestors, depth)]);
         }
 
@@ -371,13 +453,13 @@ public static class DebugInspector
         if (value.Value is VbCollection collection)
         {
             if (depth >= MaxDepth || collection.ItemCount == 0)
-                return new DebugNode(name, type, type);   // like a field-less class: its type, no expander
+                return new DebugNode(name, VB6BuiltIns.DebugTypeName(value), type);   // like a field-less class: its class, no expander
             return new DebugNode(name, string.Empty, type, () =>
             {
                 var values = collection.Snapshot();
                 var kids = new List<DebugNode>();
                 for (int i = 0; i < values.Count && i < MaxArrayElements; i++)
-                    kids.Add(ValueNode($"Item {i + 1}", values[i], ctx, ancestors, depth + 1));
+                    kids.Add(ValueNode($"Item {i + 1}", values[i], ctx, ancestors, depth + 1, Declared.Variant));
                 if (values.Count > MaxArrayElements)
                     kids.Add(DebugNode.Truncation(values.Count - MaxArrayElements));
                 return kids;
@@ -398,7 +480,8 @@ public static class DebugInspector
     }
 
     private static IReadOnlyList<DebugNode> ArrayChildren(
-        string baseName, VBArray arr, ModuleExecutionContext ctx, HashSet<VbObject> ancestors, int depth)
+        string baseName, VBArray arr, ModuleExecutionContext ctx, HashSet<VbObject> ancestors, int depth,
+        Declared? element = null)
     {
         var list = new List<DebugNode>();
         int shown = 0;
@@ -413,7 +496,7 @@ public static class DebugInspector
                 break;
             }
             string elemName = $"{baseName}({string.Join(", ", index)})";
-            list.Add(ValueNode(elemName, value, ctx, ancestors, depth));
+            list.Add(ValueNode(elemName, value, ctx, ancestors, depth, element));
             shown++;
         }
         return list;
@@ -424,7 +507,7 @@ public static class DebugInspector
     // #2289, the table on #2329; Me's measured with two Timers only).
     private static IEnumerable<DebugNode> ItemNodes(
         IReadOnlyList<Control> items, ModuleExecutionContext ctx, HashSet<VbObject> ancestors, int depth) =>
-        items.Select((item, i) => ValueNode($"Item {i + 1}", new Vb6Value(item), ctx, ancestors, depth + 1));
+        items.Select((item, i) => ValueNode($"Item {i + 1}", new Vb6Value(item), ctx, ancestors, depth + 1, Declared.Variant));
 
     // The seven rows VB6's Locals window lists under a Timer, in its order, each with the member's declared type (#2329).
     // Parent opens to the form, as VB6's does.
@@ -433,7 +516,8 @@ public static class DebugInspector
         TimerMembers.LocalsRows(timer).Select(row =>
             row.Error is { } error ? new DebugNode(row.Name, $"<{error}>", row.DeclaredType)
             : row.Value.Value is VbObject { FormWindow: { } window } form
-                ? FormNode(row.Name, string.Empty, form, window, form.InstanceEnv, ctx, form.ClassName, depth + 1, ancestors)
+                ? FormNode(row.Name, string.Empty, form, window, form.InstanceEnv, ctx, form.ClassName, depth + 1, ancestors,
+                    $"{row.DeclaredType}/{form.ClassName}")
             : new DebugNode(row.Name, FormatValue(row.Value), row.DeclaredType));
 
     // A live control's or form's properties, name-sorted. One whose read raises shows the raised error's own description
