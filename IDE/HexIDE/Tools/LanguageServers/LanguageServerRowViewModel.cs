@@ -127,6 +127,10 @@ public sealed partial class LanguageServerRowViewModel : ObservableObject
     public string Id => _c.Id;
     public string DisplayName => string.IsNullOrWhiteSpace(_c.DisplayName) ? _c.Id : _c.DisplayName;
 
+    /// <summary>The add-in that contributed this connection (#2760); empty for the configuration file and the bundled server.</summary>
+    public string Origin => _c.Origin ?? "";
+    public bool HasOrigin => !string.IsNullOrWhiteSpace(_c.Origin);
+
     /// <summary>
     /// Which protocol this row speaks. Not localized: <c>LSP</c> and <c>DAP</c> are protocol names, in the
     /// same class as the transport words below — translating them would make them harder to recognise, not
@@ -277,11 +281,15 @@ public sealed partial class LanguageServerRowViewModel : ObservableObject
         var lines = new List<string>
         {
             $"{DisplayName}  [{Id}]  {Kind}",
+        };
+        if (HasOrigin) lines.Add($"  added by  : {Origin}");
+        lines.AddRange(
+        [
             $"  transport : {Transport}" + (HasEndpoint ? $" · {RedactedEndpoint(redactor)}" : ""),
             $"  claims    : {Claims}",
             $"  priority  : {Priority}",
             $"  state     : {State}{(Age.Length > 0 ? " · " + Age : "")}",
-        };
+        ]);
         if (HasReportedIdentity) lines.Add($"  reported  : {ReportedBy}");
         if (HasChain)
         {

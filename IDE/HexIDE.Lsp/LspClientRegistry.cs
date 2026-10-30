@@ -31,7 +31,10 @@ namespace HexIDE.Lsp;
 /// </summary>
 public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
 {
-    private readonly List<Entry> _entries;
+    // Replaced whole, never changed in place: an add-in's server arrives while documents are being routed (#2760), and a
+    // reader holding the old list keeps a consistent one. Written only under _entriesGate.
+    private volatile IReadOnlyList<Entry> _entries;
+    private readonly object _entriesGate = new();
     private readonly ILogger<LspClientRegistry> _logger;
     private readonly TimeProvider _timeProvider;
     private readonly ILspWorkspace? _workspace;
@@ -147,7 +150,29 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
     private readonly ConcurrentDictionary<string, LanguageServerConfigProblem> _importProblems = new();
     private readonly IReadOnlyList<LanguageServerConfigProblem> _configurationProblems;
     public IReadOnlyList<LanguageServerConfigProblem> ConfigurationProblems =>
-        _configurationProblems.Concat(_importProblems.Values).ToArray();
+        _configurationProblems.Concat(_contributionProblems).Concat(_importProblems.Values).ToArray();
+
+    // What was wrong with the servers add-ins contributed (#2760), in the order they were found: reported beside the
+    // file's, since a contributed entry is checked as one of the file's is.
+    private readonly ConcurrentQueue<LanguageServerConfigProblem> _contributionProblems = new();
+
+    /// <summary>Reports what was wrong with a server an add-in contributed, beside the configuration file's problems.</summary>
+    public void ReportContributionProblems(IEnumerable<LanguageServerConfigProblem> problems)
+    {
+        ArgumentNullException.ThrowIfNull(problems);
+        var any = false;
+        foreach (var problem in problems)
+        {
+            _contributionProblems.Enqueue(problem);
+            any = true;
+        }
+
+        if (any) ConnectionsChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    /// <summary>Whether a server with this id is known, configured or contributed.</summary>
+    public bool Knows(string id) =>
+        _entries.Any(e => string.Equals(e.Registration.Id, id, StringComparison.Ordinal));
 
     public IReadOnlyList<LanguageServerConnection> Connections =>
         _entries.Select(e => new LanguageServerConnection(
@@ -166,7 +191,8 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
             e.Client?.LastAttempt ?? e.LastAttempt,
             e.Client?.DeclinedCapabilities,
             (e.Client as VBLspClient)?.OpenDocumentCount ?? 0,
-            (e.Client as VBLspClient)?.SentWorkspaceRootUri)).ToList();
+            (e.Client as VBLspClient)?.SentWorkspaceRootUri,
+            e.Registration.Origin)).ToList();
 
     /// <summary>
     /// What a connection's state is <em>now</em>, rather than what it was when something last wrote it down.
@@ -920,7 +946,7 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
         await e.Gate.WaitAsync(cancellationToken);
         try
         {
-            if (e.Client is not null) return;
+            if (e.Client is not null || e.Removed) return;
 
             e.State = LanguageConnectionState.Starting;
             e.StateSince = DateTimeOffset.UtcNow;
@@ -935,6 +961,11 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
                     _logger.LogWarning(ex, "Workspace artefact for {Server} failed; launching anyway.", e.Registration.Id);
                 }
             }
+
+            // An add-in's gate (#2760), unlike the artefact above, decides whether the server starts: one that throws
+            // fails the start, below, as a launch that fails does, and its message is the attempt's.
+            if (e.Registration.BeforeLaunch is { } beforeLaunch)
+                await beforeLaunch(cancellationToken);
 
             var client = e.Registration.CreateClient();
             client.DiagnosticsPublished += OnInnerDiagnostics;
@@ -1059,7 +1090,7 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
         return DiagnosticOwner.LanguageServer;
     }
 
-    private sealed class Entry(LanguageServerRegistration registration)
+    internal sealed class Entry(LanguageServerRegistration registration)
     {
         public LanguageServerRegistration Registration { get; } = registration;
         public ILspClient? Client;
@@ -1074,5 +1105,131 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
         public LanguageConnectionAttempt? LastAttempt;
 
         public readonly SemaphoreSlim Gate = new(1, 1);
+
+        /// <summary>Set, under <see cref="Gate"/>, when the server is taken out: nothing starts it again.</summary>
+        public bool Removed;
+    }
+
+    // ── Servers that arrive while the IDE runs (#457, #2760) ─────────────────────────────────────────
+
+    /// <summary>
+    /// Adds a server while the IDE runs: an add-in's, which registers after this router is built — at start-up, or on
+    /// the consent pass after the window opens. The documents already open that it claims are opened on it, which starts
+    /// it, as the first document it claims would.
+    /// </summary>
+    /// <returns>The server as it was added: what takes it out again, and what says when the open documents reached it.</returns>
+    /// <exception cref="InvalidOperationException">A server with the registration's id is known already.</exception>
+    public Contribution Add(LanguageServerRegistration registration)
+    {
+        ArgumentNullException.ThrowIfNull(registration);
+        var entry = new Entry(registration);
+        lock (_entriesGate)
+        {
+            if (_entries.Any(e => string.Equals(e.Registration.Id, registration.Id, StringComparison.Ordinal)))
+                throw new InvalidOperationException($"A language server with the id '{registration.Id}' is known already.");
+
+            // Ordered as the constructor orders them, and as stably: an equal priority comes after the ones already here.
+            _entries = _entries.Append(entry).OrderByDescending(e => e.Registration.Priority).ToList();
+        }
+
+        _logger.LogInformation("Language server '{Id}' was added while running, from {Origin}.",
+            registration.Id, registration.Origin ?? "the host");
+        ConnectionsChanged?.Invoke(this, EventArgs.Empty);
+        return new Contribution(this, entry, OpenKnownDocumentsOnAsync(entry));
+    }
+
+    // Each document already open that the new server claims, opened on it. Serialised with a workspace move, which
+    // replays documents onto the servers it restarts, so neither replays onto a server the other is tearing down.
+    private async Task OpenKnownDocumentsOnAsync(Entry entry)
+    {
+        // Off the caller's stack: the caller is an add-in's initialisation, which must not wait for a server to start.
+        await Task.Yield();
+        await _restartGate.WaitAsync();
+        try
+        {
+            foreach (var (uri, known) in _open)
+            {
+                if (!ClaimantsFor(uri, known.IsProjectMember).Contains(entry)) continue;
+
+                await EnsureStartedAsync(entry, CancellationToken.None);
+                if (entry.Client is { } client)
+                    await client.OpenDocumentAsync(uri, known.Text);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "The documents already open could not all be opened on '{Id}'.", entry.Registration.Id);
+        }
+        finally
+        {
+            _restartGate.Release();
+        }
+    }
+
+    // A server taken out: a start in progress finishes first, then the server is stopped, what it said about each
+    // document is withdrawn, and its row goes.
+    private async Task RemoveAsync(Entry entry)
+    {
+        lock (_entriesGate)
+            _entries = _entries.Where(e => !ReferenceEquals(e, entry)).ToList();
+
+        await entry.Gate.WaitAsync();
+        try
+        {
+            entry.Removed = true;
+            if (entry.Client is { } client)
+            {
+                client.DiagnosticsPublished -= OnInnerDiagnostics;
+                client.MessageShown -= OnInnerMessage;
+                client.MessageLogged -= OnInnerLogMessage;
+                client.TraceReceived -= OnInnerTrace;
+                client.StateChanged -= OnInnerStateChanged;
+                try { await client.StopAsync(); }
+                catch (Exception ex) { _logger.LogDebug(ex, "Stop failed for {Id}", entry.Registration.Id); }
+                client.ProgressReceived -= OnInnerProgress;
+                entry.Client = null;
+            }
+
+            entry.State = LanguageConnectionState.Stopped;
+            entry.StateSince = DateTimeOffset.UtcNow;
+        }
+        finally
+        {
+            entry.Gate.Release();
+        }
+
+        foreach (var p in _diagnostics.Withdraw(entry.Registration.Id))
+            DiagnosticsPublished?.Invoke(this, p);
+        ConnectionsChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    /// <summary>
+    /// A server added while the IDE runs (<see cref="Add"/>): its client, once it has one, and what takes it out.
+    /// </summary>
+    public sealed class Contribution : IAsyncDisposable
+    {
+        private readonly LspClientRegistry _registry;
+        private readonly Entry _entry;
+        private int _disposed;
+
+        internal Contribution(LspClientRegistry registry, Entry entry, Task opened)
+        {
+            _registry = registry;
+            _entry = entry;
+            Opened = opened;
+        }
+
+        /// <summary>The id it was added under.</summary>
+        public string Id => _entry.Registration.Id;
+
+        /// <summary>Completes when the documents that were open when it was added have been opened on it.</summary>
+        public Task Opened { get; }
+
+        /// <summary>Its client, once it has started; null before, and after it is taken out.</summary>
+        public ILspClient? Client => _entry.Client;
+
+        /// <summary>Stops the server, if it is running, and takes it out. Once; a second call does nothing.</summary>
+        public ValueTask DisposeAsync() =>
+            Interlocked.Exchange(ref _disposed, 1) == 0 ? new ValueTask(_registry.RemoveAsync(_entry)) : ValueTask.CompletedTask;
     }
 }

@@ -98,6 +98,12 @@
                                                     <TextBlock Grid.Column="1" Classes="machine" Text="{CompiledBinding Id}" />
                                                 </Grid>
 
+                                                <Grid ColumnDefinitions="96,*" IsVisible="{CompiledBinding HasOrigin}">
+                                                    <TextBlock Classes="label" Grid.Column="0"
+                                                               Text="{DynamicResource Str.Tool.LanguageServers.Origin}" />
+                                                    <TextBlock Grid.Column="1" Text="{CompiledBinding Origin}" />
+                                                </Grid>
+
                                                 <Grid ColumnDefinitions="96,*">
                                                     <TextBlock Classes="label" Grid.Column="0"
                                                                Text="{DynamicResource Str.Tool.LanguageServers.Transport}" />

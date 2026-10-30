@@ -100,7 +100,9 @@ public sealed record LanguageServerConnection(
     // Not `= []`: a collection expression is not a constant, so it cannot be a parameter default.
     IReadOnlyList<string>? DeclinedByClient = null,
     int OpenDocumentCount = 0,
-    string? WorkspaceRootUri = null);
+    string? WorkspaceRootUri = null,
+    // Who contributed the connection: an add-in's title, or null for the configuration file and the bundled server.
+    string? Origin = null);
 
 /// <summary>
 /// How far a connection attempt got. Ordered, and the order is the sequence itself.

@@ -411,6 +411,81 @@ A default entry whose server cannot be located SHALL be omitted rather than cont
 - **WHEN** the user configuration is deleted
 - **THEN** the defaults apply again on the next start
 
+### Requirement: An add-in SHALL be able to contribute a server, which the configuration outranks
+An add-in SHALL be able to contribute a language server while the IDE runs, described as an entry of the
+configuration file is, and the IDE SHALL check it as it checks one, launch it, route documents to it and list it as
+it does a configured server. The Language Servers window SHALL name the add-in that contributed it. An identifier the
+configuration already names, enabled or not, SHALL keep its configured entry; the contribution SHALL NOT be added, and
+a configuration problem SHALL say so.
+
+A contribution is a registration, not a client of the add-in's own (#457, #2760). The connection stays the IDE's,
+so what the IDE builds around its connections — the Protocol Inspector's capture, the problem reports, restart and
+crash handling — holds for a contributed server too. The configuration outranks a contribution for the same reason
+it outranks a default: what a user wrote is what runs.
+
+An add-in may register after documents are open — one whose first run waited for consent initialises after the
+window opens — so the documents already open that a contributed server claims SHALL be opened on it, which starts it
+as the first document it claims would. Withdrawing the contribution SHALL stop the server and remove its row.
+
+#### Scenario: An add-in contributes a server after documents are open
+- **WHEN** an add-in contributes a server for a language whose documents are already open
+- **THEN** the server starts and is opened on those documents, and its row names the add-in
+
+#### Scenario: The configuration names the identifier already
+- **WHEN** an add-in contributes a server under an identifier the configuration names
+- **THEN** the configured entry is kept, the contribution is not added, and a configuration problem says why
+
+#### Scenario: A contributed entry fails the checks
+- **WHEN** a contributed entry fails a check a configured entry would fail
+- **THEN** it is not added, and the failure is a configuration problem as a configured entry's would be
+
+#### Scenario: The add-in withdraws its server
+- **WHEN** the add-in disposes the handle its registration returned
+- **THEN** the server is stopped, what it reported about each document is withdrawn, and its row goes
+
+### Requirement: A contributed server SHALL be gated before it launches
+A contributed server MAY carry a gate the IDE SHALL run before it starts the server's process, every time it starts
+it. The start SHALL wait for the gate, with the start's own cancellation, and a gate that fails SHALL fail the start
+as a launch that fails does, with its reason on the server's row.
+
+A server starts lazily, on the first document it claims, so a notification that a project loaded is not a moment
+before the launch: the two happen in either order. Anything a server must find when it starts needs a gate, not a
+notification.
+
+#### Scenario: The gate runs first
+- **WHEN** a document starts a contributed server that carries a gate
+- **THEN** nothing is launched until the gate completes
+
+#### Scenario: The gate fails
+- **WHEN** the gate fails
+- **THEN** no process is started, the server is failed, and its row says why
+
+### Requirement: A contributed server's own messages SHALL pass through the IDE's connection
+A contribution MAY name a message prefix of its own, and the methods under it that the server calls on the client.
+The add-in SHALL be able to send requests and notifications under its prefix over the IDE's connection, and SHALL
+answer the methods it claimed. The IDE SHALL NOT interpret either, and SHALL capture them as it captures any message.
+A prefix in a namespace the protocol itself uses SHALL be refused, as SHALL a send or a claim outside the
+registration's prefix. A method the server calls that nothing claims SHALL be answered as an unknown method is.
+
+The prefix is what keeps the channel the add-in's. Without it an add-in could speak for the IDE's own client, or
+answer a protocol method in its place, and the IDE's model of the connection would no longer be the connection.
+
+#### Scenario: The add-in asks its server something of its own
+- **WHEN** the add-in sends a request under its prefix
+- **THEN** the server receives it as sent, the add-in receives the server's result as sent, and both are captured
+
+#### Scenario: The server asks the add-in
+- **WHEN** the server calls a method the add-in claimed
+- **THEN** the add-in's answer is the reply
+
+#### Scenario: The server calls a method nobody claimed
+- **WHEN** the server calls a method under the prefix that the add-in did not claim
+- **THEN** the reply is *Method not found*
+
+#### Scenario: An add-in names the protocol's namespace
+- **WHEN** a contribution's prefix is in a namespace the protocol uses, or it claims or sends a method outside its prefix
+- **THEN** it is refused
+
 ### Requirement: A document SHALL be routed by extension, and each server told the identifier it declared
 Routing SHALL key on the document's extension. Where a document is offered to more than one server, each
 server SHALL be told the language identifier **that server declared**, rather than a single identifier

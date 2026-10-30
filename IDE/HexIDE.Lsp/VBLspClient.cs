@@ -365,6 +365,9 @@ public sealed class VBLspClient : ILspClient
         var cancellation = new LspCancellationStrategy(rpc, _logger);
         rpc.CancellationStrategy = cancellation;
         rpc.AddLocalRpcTarget(cancellation);
+        foreach (var (name, answer) in _claimed)
+            rpc.AddLocalRpcMethod(ClaimedMethod.Answer, new ClaimedMethod(answer),
+                new JsonRpcMethodAttribute(name) { UseSingleObjectParameterDeserialization = true });
         rpc.Disconnected += OnRpcDisconnected;
         _rpc = rpc;
         rpc.StartListening();
@@ -1842,6 +1845,48 @@ public sealed class VBLspClient : ILspClient
             foreach (var document in _openDocuments.Keys) PullDiagnosticsInBackground(document);
         }
         return result;
+    }
+
+    // ── An add-in's own messages (#457, #2760) ─────────────────────────────────────────────────────
+
+    // The server-to-client methods an add-in claimed: added to every connection this client makes, a reconnect's
+    // included, since each connection is a new JsonRpc.
+    private IReadOnlyDictionary<string, HexIDE.Addins.AddinServerMethod> _claimed =
+        new Dictionary<string, HexIDE.Addins.AddinServerMethod>(StringComparer.Ordinal);
+
+    /// <summary>
+    /// The server-to-client methods an add-in answers, by name. Set before the client starts: a connection takes the
+    /// methods it answers when it is made, and cannot take more once it listens.
+    /// </summary>
+    /// <remarks>
+    /// The names are the caller's to check. This passes them through, as it passes through what the add-in sends
+    /// (<see cref="SendCustomRequestAsync"/>): neither is interpreted here, which is the point of the channel.
+    /// </remarks>
+    public void Claim(IReadOnlyDictionary<string, HexIDE.Addins.AddinServerMethod> methods) => _claimed = methods;
+
+    /// <summary>
+    /// Sends a request an add-in owns over this connection, and returns the server's result as it was sent. Captured as
+    /// any other request is.
+    /// </summary>
+    /// <exception cref="InvalidOperationException">The connection is not up.</exception>
+    public Task<JsonElement?> SendCustomRequestAsync(string method, JsonElement? parameters, CancellationToken cancellationToken = default) =>
+        InvokeRequestAsync<JsonElement?>(RunningRpc(), method, parameters, cancellationToken);
+
+    /// <summary>Sends a notification an add-in owns over this connection. Captured as any other notification is.</summary>
+    /// <exception cref="InvalidOperationException">The connection is not up.</exception>
+    public Task SendCustomNotificationAsync(string method, JsonElement? parameters) =>
+        RunningRpc().NotifyWithParameterObjectAsync(method, parameters);
+
+    private JsonRpc RunningRpc() =>
+        _rpc is { } rpc && IsRunning ? rpc : throw new InvalidOperationException("The language server is not running.");
+
+    // What a claimed method is to JsonRpc: a target whose one method takes the whole params object, as the server sent it.
+    private sealed class ClaimedMethod(HexIDE.Addins.AddinServerMethod answer)
+    {
+        public static readonly System.Reflection.MethodInfo Answer = typeof(ClaimedMethod).GetMethod(nameof(AnswerAsync))!;
+
+        public Task<JsonElement?> AnswerAsync(JsonElement? parameters, CancellationToken cancellationToken) =>
+            answer(parameters, cancellationToken);
     }
 
     public async Task<System.Text.Json.JsonElement?> ExecuteCommandAsync(
