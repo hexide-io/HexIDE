@@ -350,6 +350,11 @@ public class AddinServerRegistrationTests : IDisposable
         var unclaimed = () => rpc.InvokeWithParameterObjectAsync<JsonElement>("probe/unclaimed", new { }, Token);
         await unclaimed.Should().ThrowAsync<RemoteMethodNotFoundException>();
 
+        // A request of the add-in's own the server does not know is refused by the server, and the connection survives it.
+        var unknown = () => connection.RequestAsync("probe/unknown", JsonDocument.Parse("{}").RootElement, Token);
+        await unknown.Should().ThrowAsync<RemoteMethodNotFoundException>();
+        connection.IsRunning.Should().BeTrue("a server's refusal of an add-in's request is the add-in's to handle, not the connection's end");
+
         // Over HexIDE's own connection, so the Protocol Inspector has them.
         await capture.DrainAsync();
         capture.Snapshot("probe").Select(e => e.Method).Should().Contain(["probe/echo", "probe/note", "probe/ask"]);
