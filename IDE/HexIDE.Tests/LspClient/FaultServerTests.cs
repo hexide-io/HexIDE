@@ -121,6 +121,28 @@ public sealed class FaultServerTests : IAsyncDisposable
     // ---- Requests ----
 
     [Fact]
+    public async Task A_refusal_written_with_its_error_before_its_id_ends_the_request_and_not_the_connection()
+    {
+        // rumdl 0.2.79's reply, byte for byte but the id (#2760): `error` comes before `id`, and carries the method name as its
+        // `data`, so the data is read before StreamJsonRpc knows the request it answers. An add-in's request a server does not
+        // know is the ordinary way to meet it.
+        var (client, _, _) = Connect(s => s.Script = async (message, server) =>
+        {
+            if ((string?)message["method"] != "probe/unknown") return false;
+            var body = Encoding.UTF8.GetBytes(
+                $$"""{"jsonrpc":"2.0","error":{"code":-32601,"message":"Method not found","data":"probe/unknown"},"id":{{message["id"]!.ToJsonString()}}}""");
+            await server.WriteRawAsync([.. Encoding.ASCII.GetBytes($"Content-Length: {body.Length}\r\n\r\n"), .. body]);
+            return true;
+        });
+        await client.StartAsync(Token);
+
+        var asking = () => client.SendCustomRequestAsync("probe/unknown", System.Text.Json.JsonDocument.Parse("{}").RootElement, Token);
+
+        await asking.Should().ThrowAsync<RemoteMethodNotFoundException>();
+        client.IsRunning.Should().BeTrue("a refused request is not a lost connection");
+    }
+
+    [Fact]
     public async Task A_request_the_server_never_answers_comes_back_empty_at_its_deadline()
     {
         var (client, server, _) = Connect(s => s.Script = (message, _) => Task.FromResult((string?)message["method"] == "textDocument/hover"));
