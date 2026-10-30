@@ -92,6 +92,25 @@ harmless disposable handle.
 - **WHEN** a form nests a control under a class an add-in contributed
 - **THEN** the form opens read-only and the save is refused, with the reason given
 
+### Requirement: Add-ins SHALL be able to contribute a language server
+The host surface SHALL let an add-in contribute a language server registration, with a gate that runs before the
+server launches and a message channel of the add-in's own on the server's connection, as `lsp-client` specifies. The
+registration SHALL return a handle that stops the server and removes it when disposed, and SHALL be accepted after
+start-up, since an add-in whose first run waits for consent initialises after the window opens.
+
+An add-in exists to make a server one thing to install rather than an entry to write by hand (#457), and it cannot
+do that if the server it brings has to be written into the user's configuration behind their back. The capability
+design maps this member to `languageServer.contribute`; the member checks no declaration today, since that design's
+host checks are not built.
+
+#### Scenario: Contributing a server
+- **WHEN** an add-in registers a language server
+- **THEN** the server is launched, routed to and listed as a configured server is, under the add-in's name
+
+#### Scenario: A failed initialisation rolls the server back
+- **WHEN** an add-in's initialisation fails after it registered a language server
+- **THEN** the server is taken out with its other contributions
+
 ### Requirement: Add-ins SHALL be able to observe IDE lifecycle events
 The host surface SHALL raise events for project load and unload, file open and close, and run start and
 stop, delivered on the UI thread.

@@ -444,6 +444,24 @@ public sealed class LanguageServerConfigLoader
             false,
             LanguageServerConfigProblemKind.IgnoredField));
     }
+
+    /// <summary>
+    /// The checks an entry of the file gets, for one an add-in contributes (#2760), and the notice of a command HexIDE has
+    /// not run before, so a contributed launch is shown before it runs as a hand-written one is.
+    /// </summary>
+    /// <returns>Whether the entry can be used. What was wrong with it is added to <paramref name="problems"/> either way.</returns>
+    public bool ValidateContributed(
+        LanguageServerEntry entry, List<LanguageServerConfigProblem> problems, LanguageServerCommandStore? seen = null,
+        IWorkspaceArtifactProviderRegistry? artifactProviders = null)
+    {
+        ArgumentNullException.ThrowIfNull(entry);
+        ArgumentNullException.ThrowIfNull(problems);
+        if (!Validate(entry, problems, artifactProviders, out _)) return false;
+
+        AnnounceUnseenCommands([entry], seen, problems);
+        return true;
+    }
+
     private static bool Validate(
         LanguageServerEntry entry, List<LanguageServerConfigProblem> problems,
         IWorkspaceArtifactProviderRegistry? artifactProviders, out string id)

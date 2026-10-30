@@ -365,6 +365,9 @@ public sealed class VBLspClient : ILspClient
         var cancellation = new LspCancellationStrategy(rpc, _logger);
         rpc.CancellationStrategy = cancellation;
         rpc.AddLocalRpcTarget(cancellation);
+        foreach (var (name, answer) in _claimed)
+            rpc.AddLocalRpcMethod(ClaimedMethod.Answer, new ClaimedMethod(name, answer, _logger),
+                new JsonRpcMethodAttribute(name) { UseSingleObjectParameterDeserialization = true });
         rpc.Disconnected += OnRpcDisconnected;
         _rpc = rpc;
         rpc.StartListening();
@@ -372,7 +375,23 @@ public sealed class VBLspClient : ILspClient
         await InitializeAsync(cancellationToken, attempt);
 
         if (_initialized)
+        {
+            RaiseConnected();
             await ReopenTrackedDocumentsAsync();
+        }
+    }
+
+    /// <summary>
+    /// Raised after each handshake this client completes, once <c>initialized</c> is sent: the first connection and every
+    /// reconnect, each of which is a new server process with no memory of the last.
+    /// </summary>
+    /// <remarks>Raised on the connecting thread; a handler that throws is logged and does not end the connection.</remarks>
+    public event EventHandler? Connected;
+
+    private void RaiseConnected()
+    {
+        try { Connected?.Invoke(this, EventArgs.Empty); }
+        catch (Exception ex) { _logger.LogDebug(ex, "A Connected handler threw"); }
     }
 
     /// <summary>
@@ -1842,6 +1861,77 @@ public sealed class VBLspClient : ILspClient
             foreach (var document in _openDocuments.Keys) PullDiagnosticsInBackground(document);
         }
         return result;
+    }
+
+    // ── An add-in's own messages (#457, #2760) ─────────────────────────────────────────────────────
+
+    // The server-to-client methods an add-in claimed: added to every connection this client makes, a reconnect's
+    // included, since each connection is a new JsonRpc.
+    private IReadOnlyDictionary<string, HexIDE.Addins.AddinServerMethod> _claimed =
+        new Dictionary<string, HexIDE.Addins.AddinServerMethod>(StringComparer.Ordinal);
+
+    /// <summary>
+    /// The server-to-client methods an add-in answers, by name. Set before the client starts: a connection takes the
+    /// methods it answers when it is made, and cannot take more once it listens.
+    /// </summary>
+    /// <remarks>
+    /// The names are the caller's to check. This passes them through, as it passes through what the add-in sends
+    /// (<see cref="SendCustomRequestAsync"/>): neither is interpreted here, which is the point of the channel. They are
+    /// copied, so what the caller checked is what is claimed, whatever it adds to its own dictionary later.
+    /// </remarks>
+    public void Claim(IReadOnlyDictionary<string, HexIDE.Addins.AddinServerMethod> methods) =>
+        _claimed = new Dictionary<string, HexIDE.Addins.AddinServerMethod>(methods, StringComparer.Ordinal);
+
+    /// <summary>
+    /// Sends a request an add-in owns over this connection, and returns the server's result as it was sent. Captured as
+    /// any other request is.
+    /// </summary>
+    /// <param name="timeout">
+    /// How long to wait for the answer: null for this client's own request timeout, or
+    /// <see cref="Timeout.InfiniteTimeSpan"/> for a request that waits on a person.
+    /// </param>
+    /// <exception cref="InvalidOperationException">The connection is not up.</exception>
+    public Task<JsonElement?> SendCustomRequestAsync(
+        string method, JsonElement? parameters, TimeSpan? timeout = null, CancellationToken cancellationToken = default) =>
+        InvokeRequestAsync<JsonElement?>(RunningRpc(), method, parameters, cancellationToken, timeout);
+
+    /// <summary>Sends a notification an add-in owns over this connection. Captured as any other notification is.</summary>
+    /// <exception cref="InvalidOperationException">The connection is not up.</exception>
+    /// <exception cref="OperationCanceledException">The token was cancelled before the notification was written.</exception>
+    public Task SendCustomNotificationAsync(string method, JsonElement? parameters, CancellationToken cancellationToken = default)
+    {
+        // JsonRpc takes no token for a notification, so cancelling stops it being sent, and stops the wait for the write.
+        cancellationToken.ThrowIfCancellationRequested();
+        return RunningRpc().NotifyWithParameterObjectAsync(method, parameters).WaitAsync(cancellationToken);
+    }
+
+    private JsonRpc RunningRpc() =>
+        _rpc is { } rpc && IsRunning ? rpc : throw new InvalidOperationException("The language server is not running.");
+
+    // What a claimed method is to JsonRpc: a target whose one method takes the whole params object, as the server sent it.
+    //
+    // A handler that throws is answered with its message only. JsonRpc would otherwise put the exception's type and stack
+    // in the error's data, and a stack names the add-in's files and the user's paths, which are not the server's to read.
+    private sealed class ClaimedMethod(string name, HexIDE.Addins.AddinServerMethod answer, ILogger logger)
+    {
+        public static readonly System.Reflection.MethodInfo Answer = typeof(ClaimedMethod).GetMethod(nameof(AnswerAsync))!;
+
+        public async Task<JsonElement?> AnswerAsync(JsonElement? parameters, CancellationToken cancellationToken)
+        {
+            try
+            {
+                return await answer(parameters, cancellationToken);
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (Exception ex) when (ex is not LocalRpcException)
+            {
+                logger.LogWarning(ex, "The add-in's answer to '{Method}' failed.", name);
+                throw new LocalRpcException(ex.Message) { ErrorCode = (int)StreamJsonRpc.Protocol.JsonRpcErrorCode.InvocationError, ErrorData = null };
+            }
+        }
     }
 
     public async Task<System.Text.Json.JsonElement?> ExecuteCommandAsync(

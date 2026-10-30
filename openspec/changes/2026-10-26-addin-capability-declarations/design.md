@@ -23,7 +23,7 @@ implicitly declare another. Scope is all loaded projects, matching today's multi
 | `project.write` | Change editor content or create/change files in an open project | Every overload of `SetContent`, `ApplyEdits`, `TrySetContent`, `TryApplyEdits`; future workspace-artefact writer (#455) | Change source code and create or change files in your open projects. |
 | `program.run` | Start/stop the startup project or launch a program | `IHexIdeHost.RunProject`/`StopProject`; future external-process launch API | Run your project or start programs on your computer. |
 | `ui.contribute` | Add IDE controls, commands, templates and settings, or navigate a document | `Menus`, `ToolWindows`, `Options` registration; `RegisterCommand`, `RegisterComponent`, `RegisterProjectTemplate`; all `NavigateTo`/`TryNavigateTo` overloads | Add menus, windows, controls and templates, and navigate your code. |
-| `languageServer.contribute` | Supply a language server which receives documents for its configured languages | Future add-in language-server contribution seam (#457); no such member on `IHexIdeHost` today | Provide a language server that receives source code for its configured languages. |
+| `languageServer.contribute` | Supply a language server which receives documents for its configured languages | `IHexIdeHost.RegisterLanguageServer` (#457, #2760), which checks no declaration until these host checks are built | Provide a language server that receives source code for its configured languages. |
 
 Run-state event subscriptions carry no source/path data and need no capability. `Registry` remains
 available for add-in identity/status discovery; it must not become a route to another add-in's privileged

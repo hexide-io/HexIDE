@@ -76,5 +76,9 @@ namespace HexIDE.Lsp;
 // rather than that request returning nothing. Found by pointing the client at a server that throws
 // (`RequestFailureLoggingTests`), which is a thing no server we had ever driven happened to do.
 [JsonSerializable(typeof(StreamJsonRpc.Protocol.CommonErrorData))]
+// The same failure by another route (#2760): an error reply whose `error` member comes before its `id`, as rumdl writes
+// one, is read before StreamJsonRpc knows which request it answers, so its `data` — a string, for rumdl — is read as an
+// object, and an unregistered object took the connection down just the same.
+[JsonSerializable(typeof(object))]
 [JsonSourceGenerationOptions(PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase)]
 public partial class LspJsonContext : JsonSerializerContext { }
