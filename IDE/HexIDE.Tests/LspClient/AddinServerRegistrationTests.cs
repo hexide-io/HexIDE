@@ -297,6 +297,18 @@ public class AddinServerRegistrationTests : IDisposable
 
         [JsonRpcMethod("probe/note", UseSingleObjectParameterDeserialization = true)]
         public void Note(JsonElement p) => _noted.TrySetResult(p.Clone());
+
+        /// <summary>The server's own connection, for a request it answers by asking the client first.</summary>
+        public JsonRpc? Rpc { get; set; }
+
+        // As a program that shows a dialog is run: the client's request is answered only after the server's question to the
+        // client is.
+        [JsonRpcMethod("probe/run", UseSingleObjectParameterDeserialization = true)]
+        public async Task<JsonElement> RunAsync(JsonElement _)
+        {
+            var answer = await Rpc!.InvokeWithParameterObjectAsync<JsonElement>("probe/ask", new { q = "while running" });
+            return JsonDocument.Parse($$"""{"ran":{{answer.GetProperty("answer").GetInt32()}}}""").RootElement.Clone();
+        }
     }
 
     [Fact]
@@ -308,6 +320,7 @@ public class AddinServerRegistrationTests : IDisposable
         var serving = pipe.WaitForConnectionAsync(Token).ContinueWith(_ =>
         {
             var rpc = new JsonRpc(new HeaderDelimitedMessageHandler(pipe, pipe, new SystemTextJsonFormatter()), server);
+            server.Rpc = rpc;
             rpc.StartListening();
             return rpc;
         }, TaskScheduler.Default);
@@ -350,6 +363,10 @@ public class AddinServerRegistrationTests : IDisposable
         var unclaimed = () => rpc.InvokeWithParameterObjectAsync<JsonElement>("probe/unclaimed", new { }, Token);
         await unclaimed.Should().ThrowAsync<RemoteMethodNotFoundException>();
 
+        // The server asks while the add-in's own request waits for its answer, as a program that shows a dialog does.
+        var ran = await connection.RequestAsync("probe/run", JsonDocument.Parse("{}").RootElement, Token).WaitAsync(TimeSpan.FromSeconds(30), Token);
+        ran!.Value.GetProperty("ran").GetInt32().Should().Be(42);
+
         // A request of the add-in's own the server does not know is refused by the server, and the connection survives it.
         var unknown = () => connection.RequestAsync("probe/unknown", JsonDocument.Parse("{}").RootElement, Token);
         await unknown.Should().ThrowAsync<RemoteMethodNotFoundException>();
@@ -357,7 +374,11 @@ public class AddinServerRegistrationTests : IDisposable
 
         // Over HexIDE's own connection, so the Protocol Inspector has them.
         await capture.DrainAsync();
-        capture.Snapshot("probe").Select(e => e.Method).Should().Contain(["probe/echo", "probe/note", "probe/ask"]);
+        var record = capture.Snapshot("probe");
+        record.Select(e => e.Method).Should().Contain(["probe/echo", "probe/note", "probe/ask"]);
+        record.Where(e => e.Method == "probe/ask" && e.Direction == ConversationDirection.Received).Should()
+            .HaveCount(2).And.OnlyContain(e => e.Outcome == ConversationOutcome.Answered,
+                "the add-in's answer goes out over the same connection and completes the server's request in the record");
 
         rpc.Dispose();
     }
