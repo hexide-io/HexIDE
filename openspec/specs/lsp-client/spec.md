@@ -446,11 +446,15 @@ as the first document it claims would. Withdrawing the contribution SHALL stop t
 ### Requirement: A contributed server SHALL be gated before it launches
 A contributed server MAY carry a gate the IDE SHALL run before it starts the server's process, every time it starts
 it. The start SHALL wait for the gate, with the start's own cancellation, and a gate that fails SHALL fail the start
-as a launch that fails does, with its reason on the server's row.
+as a launch that fails does, with its reason on the server's row. Withdrawing the contribution SHALL cancel a gate
+that is running. A start that is cancelled SHALL leave the server not started, so the next document it claims starts
+it again, rather than failed. No open of another server's documents SHALL wait for the gate, a restart after the
+workspace moves included.
 
 A server starts lazily, on the first document it claims, so a notification that a project loaded is not a moment
 before the launch: the two happen in either order. Anything a server must find when it starts needs a gate, not a
-notification.
+notification. A gate takes as long as the add-in takes, which can be as long as a person takes, so it holds only its
+own server's start.
 
 #### Scenario: The gate runs first
 - **WHEN** a document starts a contributed server that carries a gate
@@ -460,12 +464,39 @@ notification.
 - **WHEN** the gate fails
 - **THEN** no process is started, the server is failed, and its row says why
 
+#### Scenario: The add-in withdraws its server while the gate waits
+- **WHEN** the add-in disposes its handle while the gate is running
+- **THEN** the gate is cancelled, no process is started, and the withdrawal completes
+
+#### Scenario: The open waiting for the gate is cancelled
+- **WHEN** the open that is starting a contributed server is cancelled while the gate runs
+- **THEN** the server is not started, and the next document it claims starts it
+
+#### Scenario: The workspace moves while the gate holds the restart
+- **WHEN** the workspace moves and a contributed server's gate holds its restart
+- **THEN** the opens of other documents complete, and the server is opened on its documents once the gate completes
+
+### Requirement: An add-in SHALL be told each time its server starts
+A contribution MAY carry a step the IDE SHALL run after each start's `initialize` handshake, once `initialized` is
+sent: the first start, a restart after the workspace moves, and a reconnect. The step SHALL be given the connection,
+and SHALL NOT hold the start.
+
+Each start is a new server process with no memory of the last, so a handshake of the add-in's own with its server has
+to follow every one of them. Polling whether the server runs would race the documents the start sends.
+
+#### Scenario: The server restarts
+- **WHEN** the workspace moves and the contributed server is started again
+- **THEN** the add-in's step runs again, over the new connection
+
 ### Requirement: A contributed server's own messages SHALL pass through the IDE's connection
 A contribution MAY name a message prefix of its own, and the methods under it that the server calls on the client.
 The add-in SHALL be able to send requests and notifications under its prefix over the IDE's connection, and SHALL
 answer the methods it claimed. The IDE SHALL NOT interpret either, and SHALL capture them as it captures any message.
 A prefix in a namespace the protocol itself uses SHALL be refused, as SHALL a send or a claim outside the
-registration's prefix. A method the server calls that nothing claims SHALL be answered as an unknown method is.
+registration's prefix. The methods claimed SHALL be the ones the registration named when it was made. A method the
+server calls that nothing claims SHALL be answered as an unknown method is. An answer that fails SHALL be an error
+carrying its message only. A request of the add-in's SHALL wait for its answer as long as the add-in says, and the
+IDE's own request timeout when it says nothing.
 
 The prefix is what keeps the channel the add-in's. Without it an add-in could speak for the IDE's own client, or
 answer a protocol method in its place, and the IDE's model of the connection would no longer be the connection.
@@ -481,6 +512,14 @@ answer a protocol method in its place, and the IDE's model of the connection wou
 #### Scenario: The server calls a method nobody claimed
 - **WHEN** the server calls a method under the prefix that the add-in did not claim
 - **THEN** the reply is *Method not found*
+
+#### Scenario: The add-in's answer fails
+- **WHEN** the add-in's answer to a method it claimed throws
+- **THEN** the reply is an error with the failure's message, and no type, stack or path of the add-in's
+
+#### Scenario: A request that waits on a person
+- **WHEN** the add-in sends a request with no time limit, such as one that runs a program that shows a dialog
+- **THEN** it waits for the server's answer however long that takes
 
 #### Scenario: An add-in names the protocol's namespace
 - **WHEN** a contribution's prefix is in a namespace the protocol uses, or it claims or sends a method outside its prefix

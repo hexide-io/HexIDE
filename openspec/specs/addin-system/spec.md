@@ -100,7 +100,8 @@ start-up, since an add-in whose first run waits for consent initialises after th
 
 An add-in exists to make a server one thing to install rather than an entry to write by hand (#457), and it cannot
 do that if the server it brings has to be written into the user's configuration behind their back. The capability
-design maps this member to `languageServer.contribute`, which a declaration will gate.
+design maps this member to `languageServer.contribute`; the member checks no declaration today, since that design's
+host checks are not built.
 
 #### Scenario: Contributing a server
 - **WHEN** an add-in registers a language server

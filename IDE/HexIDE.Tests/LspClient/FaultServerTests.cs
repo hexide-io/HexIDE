@@ -136,7 +136,7 @@ public sealed class FaultServerTests : IAsyncDisposable
         });
         await client.StartAsync(Token);
 
-        var asking = () => client.SendCustomRequestAsync("probe/unknown", System.Text.Json.JsonDocument.Parse("{}").RootElement, Token);
+        var asking = () => client.SendCustomRequestAsync("probe/unknown", System.Text.Json.JsonDocument.Parse("{}").RootElement, cancellationToken: Token);
 
         await asking.Should().ThrowAsync<RemoteMethodNotFoundException>();
         client.IsRunning.Should().BeTrue("a refused request is not a lost connection");

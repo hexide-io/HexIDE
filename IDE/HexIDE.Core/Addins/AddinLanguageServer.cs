@@ -7,6 +7,10 @@ namespace HexIDE.Addins;
 /// Answers a method a language server calls on the client, which an add-in claimed: the method's parameters as the
 /// server sent them, and the result to send back. For a notification the result is not sent.
 /// </summary>
+/// <remarks>
+/// Called on a thread-pool thread, not the UI thread, and possibly while another of the add-in's requests to the same
+/// server is waiting for its answer. One that throws is answered with an error carrying its message only.
+/// </remarks>
 public delegate Task<JsonElement?> AddinServerMethod(JsonElement? parameters, CancellationToken cancellationToken);
 
 /// <summary>
@@ -33,6 +37,14 @@ public sealed record AddinLanguageServer(LanguageServerEntry Entry)
     /// launch that fails does, with its message on the server's row.
     /// </summary>
     public Func<CancellationToken, Task>? BeforeLaunch { get; init; }
+
+    /// <summary>
+    /// Runs after each start's <c>initialize</c> handshake, once <c>initialized</c> is sent: the first start, a restart
+    /// after the workspace moves, and a reconnect after the server's process exits. Each is a new process, so a handshake
+    /// of the add-in's own with its server belongs here. Called on a thread-pool thread with the connection it is about;
+    /// nothing waits for it, and the token is cancelled when the server is taken out. One that throws is logged.
+    /// </summary>
+    public Func<IAddinServerConnection, CancellationToken, Task>? AfterStart { get; init; }
 
     /// <summary>
     /// The prefix of every method the add-in sends and claims, such as <c>"myserver/"</c>: what makes them the add-in's
@@ -64,9 +76,19 @@ public interface IAddinServerConnection : IDisposable
     /// Sends a request under the registration's <see cref="AddinLanguageServer.MessagePrefix"/>, and returns the server's
     /// result, as it sent it.
     /// </summary>
+    /// <param name="method">The method, under the registration's prefix.</param>
+    /// <param name="parameters">The parameters, sent as they are.</param>
+    /// <param name="timeout">
+    /// How long to wait for the answer. Null is HexIDE's own request timeout, as its own requests have.
+    /// <see cref="Timeout.InfiniteTimeSpan"/> waits until the server answers or the token is cancelled, which is what a
+    /// request that waits on a person needs, such as one that runs a program that shows a dialog.
+    /// </param>
+    /// <param name="cancellationToken">Cancels the request, and tells the server so.</param>
     /// <exception cref="ArgumentException">The method is not under the registration's prefix.</exception>
     /// <exception cref="InvalidOperationException">The server is not running.</exception>
-    Task<JsonElement?> RequestAsync(string method, JsonElement? parameters = null, CancellationToken cancellationToken = default);
+    /// <exception cref="TimeoutException">The server did not answer within the timeout.</exception>
+    Task<JsonElement?> RequestAsync(
+        string method, JsonElement? parameters = null, TimeSpan? timeout = null, CancellationToken cancellationToken = default);
 
     /// <summary>Sends a notification under the registration's <see cref="AddinLanguageServer.MessagePrefix"/>.</summary>
     /// <exception cref="ArgumentException">The method is not under the registration's prefix.</exception>

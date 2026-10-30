@@ -32,13 +32,16 @@ public interface IHexIdeHost
     /// it claims; one that is open already starts it now.
     /// </summary>
     /// <remarks>
-    /// The capability design maps this member to <c>languageServer.contribute</c>, which a declaration will gate.
+    /// The capability design maps this member to <c>languageServer.contribute</c>. It checks no declaration today: that
+    /// design's host checks are not built, so any add-in can call it.
     /// </remarks>
     /// <returns>The connection the add-in's own messages go over. Disposing it stops the server and takes it out.</returns>
     /// <exception cref="ArgumentException">
     /// The entry fails the checks an entry of the file gets, or its message prefix or one of its methods is not the
     /// add-in's to use. What was wrong with the entry is reported in the Language Servers window too.
     /// </exception>
-    /// <exception cref="InvalidOperationException">The configuration names the id already, and keeps its own entry.</exception>
+    /// <exception cref="InvalidOperationException">
+    /// The id is taken: the configuration names it, and keeps its own entry, or another add-in contributed it first.
+    /// </exception>
     IAddinServerConnection RegisterLanguageServer(AddinLanguageServer server);
 }

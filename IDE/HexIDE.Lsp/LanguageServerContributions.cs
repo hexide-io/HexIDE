@@ -48,18 +48,24 @@ public sealed class LanguageServerContributions(
     /// The entry fails the checks a file entry gets, is switched off, or its prefix or one of its methods is not the
     /// add-in's to use. What was wrong with the entry is also a configuration problem.
     /// </exception>
-    /// <exception cref="InvalidOperationException">The configuration names the id already, and keeps its own entry.</exception>
+    /// <exception cref="InvalidOperationException">
+    /// The id is taken: the configuration names it, and keeps its own entry, or another add-in contributed it first.
+    /// </exception>
     public AddinServerConnection Register(AddinLanguageServer server, string? origin)
     {
         ArgumentNullException.ThrowIfNull(server);
         ArgumentNullException.ThrowIfNull(server.Entry);
-        CheckMessages(server);
+
+        // Copied once, here, so the methods checked are the methods claimed: the add-in keeps its own dictionary, and one
+        // added to it later, outside the prefix, would otherwise be answered by the add-in in the client's place.
+        var claimed = new Dictionary<string, AddinServerMethod>(server.ServerMethods, StringComparer.Ordinal);
+        CheckMessages(server.MessagePrefix, claimed);
 
         var entry = server.Entry;
         var problems = new List<LanguageServerConfigProblem>();
         if (!loader.ValidateContributed(entry, problems, seen, artifactProviders))
         {
-            router.ReportContributionProblems(problems);
+            router.ReportContributionProblems(entry.Id ?? "", problems);
             throw new ArgumentException(problems.FirstOrDefault(p => p.EntryRejected)?.Message ?? "The entry was rejected.",
                 nameof(server));
         }
@@ -69,61 +75,95 @@ public sealed class LanguageServerContributions(
         {
             var kept = new LanguageServerConfigProblem(
                 id,
-                $"{origin ?? "An add-in"} contributes a language server with the id '{id}', which the configuration names already. "
-              + "The configured entry is kept, and the contribution is not added.",
+                configuredIds.Contains(id)
+                    ? $"{origin ?? "An add-in"} contributes a language server with the id '{id}', which the configuration names "
+                      + "already. The configured entry is kept, and the contribution is not added."
+                    : $"{origin ?? "An add-in"} contributes a language server with the id '{id}', which another add-in has "
+                      + "contributed already. The first is kept, and this one is not added.",
                 true);
-            router.ReportContributionProblems([kept]);
+            router.ReportContributionProblems(id, [kept]);
             throw new InvalidOperationException(kept.Message);
         }
 
         if (factory.Create([entry]) is not [var made])
         {
-            router.ReportContributionProblems(problems);
+            router.ReportContributionProblems(id, problems);
             throw new ArgumentException($"The language server '{id}' is switched off, so there is nothing to add.", nameof(server));
         }
 
         // What was worth saying about an entry that is used all the same: a launch command not run before, a misspelt field.
-        router.ReportContributionProblems(problems);
+        router.ReportContributionProblems(id, problems);
 
-        var claimed = server.ServerMethods;
+        // The connection exists only once the router has the server, but a start can finish before then, so what runs
+        // after a start waits for it rather than finding it missing.
+        var connection = new TaskCompletionSource<AddinServerConnection>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var afterStart = server.AfterStart;
         var registration = made with
         {
             BeforeLaunch = server.BeforeLaunch,
             Origin = origin,
-            CreateClient = claimed.Count == 0 ? made.CreateClient : () =>
+            CreateClient = claimed.Count == 0 && afterStart is null ? made.CreateClient : () =>
             {
                 var client = made.CreateClient();
-                if (client is VBLspClient connection) connection.Claim(claimed);
+                if (client is VBLspClient lsp)
+                {
+                    if (claimed.Count > 0) lsp.Claim(claimed);
+                    if (afterStart is not null) lsp.Connected += (_, _) => _ = RunAfterStartAsync(afterStart, connection.Task, id);
+                }
                 return client;
             },
         };
 
         logger.LogInformation("{Origin} contributes the language server '{Id}'.", origin ?? "An add-in", id);
-        return new AddinServerConnection(router.Add(registration), server.MessagePrefix, logger);
+        var added = new AddinServerConnection(router.Add(registration), server.MessagePrefix, logger);
+        connection.SetResult(added);
+        return added;
+    }
+
+    // Off the connecting thread, so a start never waits for an add-in.
+    private async Task RunAfterStartAsync(
+        Func<IAddinServerConnection, CancellationToken, Task> afterStart, Task<AddinServerConnection> connection, string id)
+    {
+        await Task.Yield();
+        try
+        {
+            var added = await connection;
+            await afterStart(added, added.Lifetime);
+        }
+        catch (OperationCanceledException)
+        {
+            // The server was taken out while the add-in was still answering its start.
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "The add-in's step after '{Id}' started failed.", id);
+        }
     }
 
     // The prefix, and the methods claimed under it, checked before anything is added.
-    private static void CheckMessages(AddinLanguageServer server)
+    private static void CheckMessages(string? messagePrefix, IReadOnlyDictionary<string, AddinServerMethod> claimed)
     {
-        if (server.MessagePrefix is not { } prefix)
+        // Register's parameter, which is what the add-in passed and got wrong.
+        const string server = "server";
+        if (messagePrefix is not { } prefix)
         {
-            if (server.ServerMethods.Count > 0)
-                throw new ArgumentException("Methods can be claimed only under a message prefix.", nameof(server));
+            if (claimed.Count > 0)
+                throw new ArgumentException("Methods can be claimed only under a message prefix.", server);
             return;
         }
 
         if (prefix.Length < 2 || !prefix.EndsWith('/') || prefix.Any(char.IsWhiteSpace))
             throw new ArgumentException($"'{prefix}' is not a message prefix: one is a name followed by '/', such as 'myserver/'.",
-                nameof(server));
+                server);
 
         if (ProtocolNamespaces.Any(ns => prefix.StartsWith(ns, StringComparison.OrdinalIgnoreCase)))
             throw new ArgumentException($"'{prefix}' is a namespace the Language Server Protocol uses, so it is not an add-in's.",
-                nameof(server));
+                server);
 
-        foreach (var method in server.ServerMethods.Keys)
+        foreach (var method in claimed.Keys)
         {
             if (!IsUnder(method, prefix))
-                throw new ArgumentException($"'{method}' is not under the registration's prefix '{prefix}'.", nameof(server));
+                throw new ArgumentException($"'{method}' is not under the registration's prefix '{prefix}'.", server);
         }
     }
 
@@ -155,11 +195,18 @@ public sealed class AddinServerConnection : IAddinServerConnection, IAsyncDispos
     /// <summary>Completes when the documents that were open when the server was added have been opened on it.</summary>
     public Task Opened => _contribution.Opened;
 
-    public Task<JsonElement?> RequestAsync(string method, JsonElement? parameters = null, CancellationToken cancellationToken = default) =>
-        Running(method).SendCustomRequestAsync(method, parameters, cancellationToken);
+    /// <summary>Cancelled when the server is taken out.</summary>
+    internal CancellationToken Lifetime => _contribution.Lifetime;
+
+    /// <summary>The router's client for the server, once it has started.</summary>
+    internal ILspClient? Client => _contribution.Client;
+
+    public Task<JsonElement?> RequestAsync(
+        string method, JsonElement? parameters = null, TimeSpan? timeout = null, CancellationToken cancellationToken = default) =>
+        Running(method).SendCustomRequestAsync(method, parameters, timeout, cancellationToken);
 
     public Task NotifyAsync(string method, JsonElement? parameters = null, CancellationToken cancellationToken = default) =>
-        Running(method).SendCustomNotificationAsync(method, parameters);
+        Running(method).SendCustomNotificationAsync(method, parameters, cancellationToken);
 
     private VBLspClient Running(string method)
     {
