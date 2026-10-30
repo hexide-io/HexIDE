@@ -80,6 +80,33 @@ public class AddinServerRegistrationTests : IDisposable
     }
 
     [Fact]
+    public async Task AServerAddedWhileItsGateHoldsItsStart_StallsNoOtherDocumentsOpen()
+    {
+        // The workspace is what makes an open pass through the router's restart gate, which a replay must not hold.
+        var workspace = Substitute.For<ILspWorkspace>();
+        workspace.Directory.Returns("c:/p");
+        var (others, _) = FakeClients();
+        var router = new LspClientRegistry([new LanguageServerRegistration("txt", "Text", [".txt"], "plaintext", others)],
+            _loggerFactory.CreateLogger<LspClientRegistry>(), workspace);
+        await router.OpenDocumentAsync("file:///c:/p/README.md", "# hi", Token);
+        var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var (factory, _) = FakeClients();
+
+        var added = router.Add(Markdown(factory) with
+        {
+            BeforeLaunch = async token => { entered.TrySetResult(); await release.Task.WaitAsync(token); },
+        });
+        await entered.Task.WaitAsync(TimeSpan.FromSeconds(30), Token);
+
+        // Another language's document opens while the contributed server is still held at its gate.
+        await router.OpenDocumentAsync("file:///c:/p/notes.txt", "notes", Token).WaitAsync(TimeSpan.FromSeconds(30), Token);
+
+        release.SetResult();
+        await added.Opened.WaitAsync(TimeSpan.FromSeconds(30), Token);
+    }
+
+    [Fact]
     public async Task AServerAddedWithNothingOpenThatItClaims_StartsOnTheFirstDocumentItClaims()
     {
         var router = Router();

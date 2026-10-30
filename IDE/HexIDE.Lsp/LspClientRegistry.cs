@@ -1138,31 +1138,33 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
         return new Contribution(this, entry, OpenKnownDocumentsOnAsync(entry));
     }
 
-    // Each document already open that the new server claims, opened on it. Serialised with a workspace move, which
-    // replays documents onto the servers it restarts, so neither replays onto a server the other is tearing down.
+    // Each document already open that the new server claims, opened on it.
+    //
+    // NOT under _restartGate, though a workspace move's replay is. Every open passes through that gate, and holding it
+    // while this server starts — its gate before launch included — would stall the opening of every other document, of
+    // any language, for as long as one add-in's server takes to come up. Nothing here needs it: an open of the same
+    // document racing in from the editor reaches the same client, which opens a document once and keeps the newest text
+    // it was given (VBLspClient.TrackOpen), and a document closed meanwhile is not in _open when it is read again below.
     private async Task OpenKnownDocumentsOnAsync(Entry entry)
     {
         // Off the caller's stack: the caller is an add-in's initialisation, which must not wait for a server to start.
         await Task.Yield();
-        await _restartGate.WaitAsync();
         try
         {
-            foreach (var (uri, known) in _open)
+            foreach (var uri in _open.Keys)
             {
-                if (!ClaimantsFor(uri, known.IsProjectMember).Contains(entry)) continue;
+                if (!_open.TryGetValue(uri, out var known) || !ClaimantsFor(uri, known.IsProjectMember).Contains(entry)) continue;
 
                 await EnsureStartedAsync(entry, CancellationToken.None);
-                if (entry.Client is { } client)
-                    await client.OpenDocumentAsync(uri, known.Text);
+
+                // Read again after the start, which can take a while: the text may have changed, or the document closed.
+                if (entry.Client is { } client && _open.TryGetValue(uri, out var current))
+                    await client.OpenDocumentAsync(uri, current.Text);
             }
         }
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "The documents already open could not all be opened on '{Id}'.", entry.Registration.Id);
-        }
-        finally
-        {
-            _restartGate.Release();
         }
     }
 
