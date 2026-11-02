@@ -63,6 +63,74 @@ public sealed class UserFileWriteFailureTests : IDisposable
     }
 
     [Theory]
+    [InlineData("Form1.frm")]
+    [InlineData("Form1.frx")]
+    [InlineData("Module1.bas")]
+    [InlineData("Project1.vbp")]
+    public async Task ProjectSavePreservesEachTargetOnPartialWrite(string name)
+    {
+        var service = new ProjectService(() => throw new InvalidOperationException(), windows,
+            Substitute.For<IEventBus>(), Substitute.For<IProjectManager>(), Substitute.For<IRecentProjectsService>(),
+            Substitute.For<IReferenceLibraryService>(), Substitute.For<IUserSidecarService>(), new FileBaselineStore(),
+            Substitute.For<ILocalizationService>(), Substitute.For<IHeaderRefresher>());
+        var project = new ProjectDefinition(VBProjectType.EXE, "Project1");
+        var form = await service.AddNewForm(project, "Form1", interactive: false);
+        form.Components[0].SetProperty(VBProperties.IconProperty, new byte[] { 1, 2, 3, 4 });
+        await service.AddNewModule(project, "Module1", ModuleKind.StandardModule, interactive: false);
+        var target = Target(name);
+        Fail(target);
+
+        Func<Task> save = () => service.SaveProjectToDirectory(project, root);
+        await save.Should().ThrowAsync<IOException>().WithMessage("Disk full");
+        Preserved(target);
+
+        AtomicFileWriter.OpenStream.Value = null;
+        await service.SaveProjectToDirectory(project, root);
+        File.ReadAllText(target).Should().NotBe("old bytes");
+    }
+
+    [Theory]
+    [InlineData("Form1.frm")]
+    [InlineData("Module1.bas")]
+    [InlineData("Project1.vbp")]
+    public async Task PackageConversionPreservesEachTargetOnPartialWrite(string name)
+    {
+        var service = new ProjectService(() => throw new InvalidOperationException(), windows,
+            Substitute.For<IEventBus>(), Substitute.For<IProjectManager>(), Substitute.For<IRecentProjectsService>(),
+            Substitute.For<IReferenceLibraryService>(), Substitute.For<IUserSidecarService>(), new FileBaselineStore(),
+            Substitute.For<ILocalizationService>(), Substitute.For<IHeaderRefresher>());
+        var project = new ProjectDefinition(VBProjectType.EXE, "Project1");
+        await service.AddNewForm(project, "Form1", interactive: false);
+        await service.AddNewModule(project, "Module1", ModuleKind.StandardModule, interactive: false);
+        await service.SaveProjectToDirectory(project, root);
+        var target = Target(name);
+        Fail(target);
+
+        var convert = () => ProjectService.EncodePackageSources(project);
+        convert.Should().Throw<IOException>().WithMessage("Disk full");
+        Preserved(target);
+    }
+
+    [Fact]
+    public async Task GroupSavePreservesTargetOnPartialWrite()
+    {
+        var target = Target("Group1.vbg");
+        var group = new ProjectGroupDefinition("Group1") { AbsolutePath = target };
+        var manager = Substitute.For<IProjectManager>();
+        manager.LoadedProjects.Returns(Array.Empty<ProjectDefinition>());
+        manager.CurrentGroup.Returns(group);
+        var service = new ProjectService(() => throw new InvalidOperationException(), windows,
+            Substitute.For<IEventBus>(), manager, Substitute.For<IRecentProjectsService>(),
+            Substitute.For<IReferenceLibraryService>(), Substitute.For<IUserSidecarService>(), new FileBaselineStore(),
+            Substitute.For<ILocalizationService>(), Substitute.For<IHeaderRefresher>());
+        Fail(target);
+
+        Func<Task> save = () => service.SaveAllProjects(saveAs: false);
+        await save.Should().ThrowAsync<IOException>().WithMessage("Disk full");
+        Preserved(target);
+    }
+
+    [Theory]
     [InlineData("Made.dll")]
     [InlineData("Made.exe")]
     public async Task MakePreservesEachOutputOnPartialWrite(string name)
