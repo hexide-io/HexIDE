@@ -1343,3 +1343,21 @@ SHALL follow Form_Activate (#2436, measured on vb6.exe, native and p-code agreei
 - **THEN** it raises error 5 and showing the form subsequently focuses its first eligible control
 - **WHEN** Form_Load instead calls Me.Show then Text2.SetFocus
 - **THEN** Form_Activate, the first control's GotFocus and Text2_GotFocus occur inside Form_Load in that order
+
+### Requirement: TextBox measured keyboard codes
+
+A runtime TextBox SHALL deliver KeyDown and KeyUp through its event queue for the
+letters, top-row digits, Space, navigation/editing keys, F1–F9/F11/F12 and keypad
+keys mapped by #2325's [keyboard sweep](https://github.com/hexide-io/HexIDE/issues/2325#issuecomment-6454480155),
+using its measured KeyCode and held-modifier Shift mask. KeyPreview SHALL retain
+the existing form-first delivery. Host-translated keypad navigation SHALL use
+the navigation key received from the host. Enter/Esc, Tab arbitration, punctuation
+and unmeasured combinations remain outside this additional code-mapping slice.
+
+#### Scenario: Home reaches a handler before TextBox navigation
+- **WHEN** Home is pressed and released in a TextBox with no modifier
+- **THEN** its KeyDown and KeyUp handlers receive KeyCode 36 and Shift 0
+
+#### Scenario: Numeric keypad Clear
+- **WHEN** the host reports keypad 5 with NumLock off as Clear
+- **THEN** the TextBox's KeyDown and KeyUp handlers receive KeyCode 12
