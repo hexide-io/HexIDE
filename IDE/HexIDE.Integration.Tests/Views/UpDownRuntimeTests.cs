@@ -62,10 +62,8 @@ public class UpDownRuntimeTests
 
     private static string CorpusSource()
     {
-        DirectoryInfo? directory = new(AppContext.BaseDirectory);
-        while (directory is not null && !Directory.Exists(Path.Join(directory.FullName, "corpus"))) directory = directory.Parent;
-        directory.Should().NotBeNull();
-        var basePath = Path.Join(directory!.FullName, "corpus", "inbox-controls");
+        var directory = RepoTree.Root();
+        var basePath = Path.Join(directory, "corpus", "inbox-controls");
         var path = Path.Join(basePath, "saved", "updown", "Form1.frm");
         return HexIDE.IDE.Vb6TextFile.ReadAllText(path);
     }

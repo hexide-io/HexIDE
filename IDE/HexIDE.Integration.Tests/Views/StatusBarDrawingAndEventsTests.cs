@@ -131,9 +131,8 @@ public class StatusBarDrawingAndEventsTests : WindowTestFixture
 
     private static string PictureFormPath()
     {
-        var at = new System.IO.DirectoryInfo(AppContext.BaseDirectory);
-        while (at != null && !System.IO.Directory.Exists(System.IO.Path.Join(at.FullName, "corpus"))) at = at.Parent;
-        return System.IO.Path.Join(at!.FullName, "corpus", "inbox-controls", "saved", "statusbar-picture", "Form1.frm");
+        var at = RepoTree.Root();
+        return System.IO.Path.Join(at, "corpus", "inbox-controls", "saved", "statusbar-picture", "Form1.frm");
     }
 
     [AvaloniaTheory]

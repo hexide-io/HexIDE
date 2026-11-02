@@ -102,7 +102,7 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         return (left, right);
     }
 
-    public async Task<(Vb6Value, Vb6Value)> GetTwoValuesSameTypesOrNull(VB6Parser.ValueStmtContext[] context, bool inclusiveComparison = false)
+    public async Task<(Vb6Value, Vb6Value)> GetTwoValuesSameTypesOrNull(VB6Parser.ValueStmtContext[] context)
     {
         var (leftValue, rightValue) = await GetTwoValues(context);
         if ((leftValue.Type == Vb6Value.ValueType.Error || rightValue.Type == Vb6Value.ValueType.Error)
@@ -140,33 +140,27 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         if (leftValue.Type == rightValue.Type)
             return (leftValue, rightValue);
 
-        // Both numeric but different subtypes: promote both to the wider one on the VB6 widening ladder
-        // (Byte < Integer < Long < Single < Currency < Decimal < Double). The operator/comparison cascades
-        // then read the common type. NOTE: this is a stopgap that unblocks the new types — the VB6-correct
-        // per-operator RESULT type (e.g. Long+Long -> Long, not Double) is 2.3's VbNumeric job.
+        // #229: comparison domains are pair-specific; arithmetic has its own tables in VbNumeric.
         var lr = NumericRank(leftValue.Type);
         var rr = NumericRank(rightValue.Type);
         if (lr >= 0 && rr >= 0)
         {
             var target = lr >= rr ? leftValue.Type : rightValue.Type;
-            if (inclusiveComparison)
+            // The four exceptional pairs override the remaining domains.
+            var pair = (Math.Min(lr, rr), Math.Max(lr, rr));
+            target = pair switch
             {
-                // #229: inclusive comparisons use the measured pair domain, not the widening ladder.
-                var pair = (Math.Min(lr, rr), Math.Max(lr, rr));
-                target = pair switch
-                {
-                    (3, 6) => Vb6Value.ValueType.Single,
-                    (2, 3) => Vb6Value.ValueType.Double,
-                    (4, 6) => Vb6Value.ValueType.Currency,
-                    (5, 6) => Vb6Value.ValueType.Decimal,
-                    _ => target
-                };
-                // Out-of-range comparisons still order without raising a conversion overflow.
-                if ((target == Vb6Value.ValueType.Currency || target == Vb6Value.ValueType.Decimal) &&
-                    (Math.Abs(AsDouble(leftValue)) >= (target == Vb6Value.ValueType.Currency ? 922337203685477.5807 : (double)decimal.MaxValue) ||
-                     Math.Abs(AsDouble(rightValue)) >= (target == Vb6Value.ValueType.Currency ? 922337203685477.5807 : (double)decimal.MaxValue)))
-                    target = Vb6Value.ValueType.Double;
-            }
+                (3, 6) => Vb6Value.ValueType.Single,
+                (2, 3) => Vb6Value.ValueType.Double,
+                (4, 6) => Vb6Value.ValueType.Currency,
+                (5, 6) => Vb6Value.ValueType.Decimal,
+                _ => target
+            };
+            // Out-of-range comparisons still order without raising a conversion overflow.
+            if ((target == Vb6Value.ValueType.Currency || target == Vb6Value.ValueType.Decimal) &&
+                (Math.Abs(AsDouble(leftValue)) >= (target == Vb6Value.ValueType.Currency ? 922337203685477.5807 : (double)decimal.MaxValue) ||
+                 Math.Abs(AsDouble(rightValue)) >= (target == Vb6Value.ValueType.Currency ? 922337203685477.5807 : (double)decimal.MaxValue)))
+                target = Vb6Value.ValueType.Double;
             return (PromoteNumeric(leftValue, target), PromoteNumeric(rightValue, target));
         }
 
@@ -2291,8 +2285,7 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
             : context.GT() != null ? Order.Greater
             : context.LEQ() != null ? Order.LessOrEqual
             : Order.GreaterOrEqual;
-        var (leftValue, rightValue) = await GetTwoValuesSameTypesOrNull(context.valueStmt(),
-            context.LEQ() != null || context.GEQ() != null);
+        var (leftValue, rightValue) = await GetTwoValuesSameTypesOrNull(context.valueStmt());
         // Two strings compare ordinally under Option Compare Binary (oracle-verified: "B" < "a", "10" < "9"), and as text
         // under Option Compare Text. A string-vs-number pair is left to the numeric path below (numeric string coerces; a
         // non-numeric string vs a number is Type Mismatch, both already faithful, and the same in either mode).
@@ -2300,8 +2293,7 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
             return (Vb6Value)Holds(order, sc, 0);
         if (leftValue.Type == Vb6Value.ValueType.Boolean && rightValue.Type == Vb6Value.ValueType.Boolean)
             return (Vb6Value)Holds(order, leftValue.Value is true ? -1 : 0, rightValue.Value is true ? -1 : 0);
-        if ((context.LEQ() != null || context.GEQ() != null) &&
-            leftValue.Value is decimal leftDecimal && rightValue.Value is decimal rightDecimal)
+        if (leftValue.Value is decimal leftDecimal && rightValue.Value is decimal rightDecimal)
             return (Vb6Value)Holds(order, leftDecimal, rightDecimal);
         if (leftValue.Type == Vb6Value.ValueType.Error && rightValue.Type == Vb6Value.ValueType.Error)
             return (Vb6Value)Holds(order, (ushort)leftValue.Value!, (ushort)rightValue.Value!);
@@ -2526,7 +2518,7 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
             // An in-box control's library is the one it was read under: MSComctlLib's ProgressBar or ComctlLib's (#1082).
             var library = control switch
             {
-                VBCommonDialog => "MSComDlg",
+                VBCommonDialog => Components.InBox.CommonDialogComponentClass.Instance.Library.Name,
                 VBProgressBar bar => bar.Library.Name,
                 VBListView => "MSComctlLib",
                 VBToolbar => "MSComctlLib",

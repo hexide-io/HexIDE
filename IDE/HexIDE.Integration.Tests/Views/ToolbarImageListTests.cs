@@ -19,9 +19,8 @@ public class ToolbarImageListTests
 
     internal static VBImageList Images()
     {
-        var root = new DirectoryInfo(AppContext.BaseDirectory);
-        while (root is not null && !Directory.Exists(Path.Join(root.FullName, "corpus"))) root = root.Parent;
-        var path = Path.Join(root!.FullName, "corpus", "inbox-controls", "saved", "imagelist", "three", "Form1.frm");
+        var root = RepoTree.Root();
+        var path = Path.Join(root, "corpus", "inbox-controls", "saved", "imagelist", "three", "Form1.frm");
         var source = Vb6TextFile.ReadAllText(path);
         var form = new FormDeserializer().Deserialize(new ProjectDefinition(VBProjectType.EXE, "P"), source, new Sink(),
             FrxDeserializer.Read(File.ReadAllBytes(Path.ChangeExtension(path, ".frx")), source))!;
@@ -55,9 +54,8 @@ public class ToolbarImageListTests
     [InlineData(true)]
     public async Task Saved_binding_resolves_in_either_file_order_and_preserves_the_files(bool imagesFirst)
     {
-        var root = new DirectoryInfo(AppContext.BaseDirectory);
-        while (root is not null && !Directory.Exists(Path.Join(root.FullName, "corpus"))) root = root.Parent;
-        var path = Path.Join(root!.FullName, "corpus", "inbox-controls", "saved", "toolbar", "Form1.frm");
+        var root = RepoTree.Root();
+        var path = Path.Join(root, "corpus", "inbox-controls", "saved", "toolbar", "Form1.frm");
         var original = File.ReadAllBytes(path);
         var companion = File.ReadAllBytes(Path.ChangeExtension(path, ".frx"));
         var source = Vb6TextFile.ReadDocument(original).Text;
@@ -99,9 +97,8 @@ public class ToolbarImageListTests
     [AvaloniaFact]
     public async Task Hot_and_disabled_lists_are_set_from_code()
     {
-        var root = new DirectoryInfo(AppContext.BaseDirectory);
-        while (root is not null && !Directory.Exists(Path.Join(root.FullName, "corpus"))) root = root.Parent;
-        var path = Path.Join(root!.FullName, "corpus", "inbox-controls", "saved", "toolbar", "Form1.frm");
+        var root = RepoTree.Root();
+        var path = Path.Join(root, "corpus", "inbox-controls", "saved", "toolbar", "Form1.frm");
         var source = Vb6TextFile.ReadAllText(path);
         var form = new FormDeserializer().Deserialize(new ProjectDefinition(VBProjectType.EXE, "P"), source, new Sink(),
             FrxDeserializer.Read(File.ReadAllBytes(Path.ChangeExtension(path, ".frx")), source))!;
@@ -307,9 +304,8 @@ public class ToolbarImageListTests
     [AvaloniaFact]
     public void Vb6s_saved_form_runs_in_a_shown_window()
     {
-        var root = new DirectoryInfo(AppContext.BaseDirectory);
-        while (root is not null && !Directory.Exists(Path.Join(root.FullName, "corpus"))) root = root.Parent;
-        var path = Path.Join(root!.FullName, "corpus", "inbox-controls", "saved", "toolbar", "Form1.frm");
+        var root = RepoTree.Root();
+        var path = Path.Join(root, "corpus", "inbox-controls", "saved", "toolbar", "Form1.frm");
         var source = Vb6TextFile.ReadAllText(path);
         var project = new ProjectDefinition(VBProjectType.EXE, "P");
         var form = new FormDeserializer().Deserialize(project, source, new Sink(),

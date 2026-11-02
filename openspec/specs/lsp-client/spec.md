@@ -12,6 +12,23 @@ later without the editor noticing.
 
 ## Requirements
 
+### Requirement: Servers can request the editor tab size
+The client SHALL declare `workspace.configuration` support and SHALL answer `workspace/configuration`
+with one result per item in request order. Section `editor.tabSize` SHALL return the current editor
+Tab Width as a number regardless of scope URI; unknown or absent sections SHALL return null.
+The client SHALL notify running servers with `workspace/didChangeConfiguration` and empty settings
+when Tab Width changes.
+
+#### Scenario: A server requests known and unknown settings
+- **WHEN** a server requests an unknown section followed by `editor.tabSize` and Tab Width is 2
+- **THEN** the response is `[null, 2]`
+
+#### Scenario: The user changes Tab Width
+- **WHEN** Tab Width changes to 8 while a server is running
+- **THEN** the client sends `workspace/didChangeConfiguration`
+- **AND** a subsequent `editor.tabSize` request returns 8
+
+
 ### Requirement: Optional non-nullable protocol members are omitted when unset
 The client SHALL omit unset optional members whose LSP types exclude null, using property-level
 serialization rules. It SHALL preserve explicit values and members whose protocol types permit null.
@@ -291,7 +308,9 @@ raise the transport's unexpected-close event.
 On Windows, each stdio or launched pipe server SHALL be assigned immediately after launch to
 `ChildProcessJob`, whose kill-on-close job ends assigned processes and descendants created after
 assignment when the IDE ends, including without managed shutdown. Assignment failure SHALL fail
-the connection and clean up the launched process. Externally owned pipe servers SHALL NOT be
+the connection and clean up the launched process, except that a stdio process already exited when
+assignment fails SHALL retain its stderr and exit-code reporting and SHALL NOT be reported as failing
+to start (#2752). Externally owned pipe servers SHALL NOT be
 assigned. Descendants created before assignment are not covered, since `Process.Start` cannot
 start suspended.
 

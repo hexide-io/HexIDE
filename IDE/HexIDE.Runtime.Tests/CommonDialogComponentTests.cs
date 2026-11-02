@@ -70,11 +70,8 @@ public class CommonDialogComponentTests
 
     private static string CorpusPath()
     {
-        var directory = new DirectoryInfo(AppContext.BaseDirectory);
-        while (directory is not null && !Directory.Exists(Path.Join(directory.FullName, "corpus")))
-            directory = directory.Parent;
-        directory.Should().NotBeNull();
-        return Path.Join(directory!.FullName, "corpus", "inbox-controls", "saved", "commondialog", "Form1.frm");
+        var directory = RepoTree.Root();
+        return Path.Join(directory, "corpus", "inbox-controls", "saved", "commondialog", "Form1.frm");
     }
 
     [Fact]

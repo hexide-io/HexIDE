@@ -21,17 +21,17 @@ public class TextBoxKeyPressTests
         public void LogError(string message) => throw new Exception(message);
     }
 
-    // Unrecorded KeyCode mappings retain their existing Down/Up behavior; KeyAscii is the measured character.
+    // #2325: measured KeyCode/KeyAscii and form-first preview, including filtered characters.
     [AvaloniaTheory]
     [InlineData(false, "k", "k", "D75,P107,C,U75")]
     [InlineData(false, "K", "K", "D75,P75,C,U75")]
     [InlineData(false, "a", "b", "D65,P97,C,U65")]
-    [InlineData(false, "q", "", "P113")]
-    [InlineData(false, "w", "w", "P119,C")]
+    [InlineData(false, "q", "", "D81,P113,U81")]
+    [InlineData(false, "w", "w", "D87,P119,C,U87")]
     [InlineData(true, "k", "k", "FD75,D75,FP107,P107,C,FU75,U75")]
     [InlineData(true, "x", "x", "FD88,FP120,P120,C,FU88,U88")]
-    [InlineData(true, "z", "", "FP122")]
-    [InlineData(true, "e", "E", "FP101,P69,C")]
+    [InlineData(true, "z", "", "FD90,D90,FP122,FU90,U90")]
+    [InlineData(true, "e", "E", "FD69,D69,FP101,P69,C,FU69,U69")]
     [InlineData(false, "Back", "", "D8,P8,C,U8")]
     [InlineData(true, "Back", "", "FD8,D8,FP8,P8,C,FU8,U8")]
     [InlineData(false, "Delete", "", "D46,U46")]

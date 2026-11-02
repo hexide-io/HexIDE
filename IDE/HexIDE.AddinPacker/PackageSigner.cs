@@ -22,6 +22,7 @@ public sealed class PackRequest
     /// file and recorded as the manifest's <c>logoPath</c> so it is signature-covered.</summary>
     public string? Logo { get; init; }
     public string? MinHexideVersion { get; init; }
+    public List<string> Capabilities { get; init; } = [];
 }
 
 /// <summary>
@@ -93,6 +94,10 @@ public static class PackageSigner
         if (r.MinHexideVersion is { } minimum)
             _ = System.Version.Parse(minimum);
 
+        var capabilities = JsonSerializer.SerializeToElement(r.Capabilities.Order(StringComparer.Ordinal).ToArray());
+        if (!AddinCapabilities.IsValid(capabilities))
+            throw new ArgumentException("invalid capabilities declaration", nameof(r));
+
         // Start from a clean output dir so the package is an EXACT match for the manifest — a stale
         // file left from a previous pack would (correctly) fail the verifier's completeness check.
         if (Directory.Exists(r.OutDir))
@@ -129,6 +134,7 @@ public static class PackageSigner
         var manifest = new AddinManifest
         {
             Schema = AddinManifest.CurrentSchema,
+            Capabilities = capabilities,
             MinHexideVersion = r.MinHexideVersion,
             Id = r.Id,
             Title = r.Title,

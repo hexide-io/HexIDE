@@ -279,6 +279,12 @@ public record TextDocumentClientCapabilities(
     [property: JsonPropertyName("semanticTokens")]
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] SemanticTokensClientCapabilities? SemanticTokens = null);
 
+public record ConfigurationParams([property: JsonPropertyName("items")] ConfigurationItem[] Items);
+public record ConfigurationItem(
+    [property: JsonPropertyName("scopeUri")] string? ScopeUri = null,
+    [property: JsonPropertyName("section")] string? Section = null);
+public record DidChangeConfigurationParams([property: JsonPropertyName("settings")] EmptyParams Settings);
+
 /// <summary>
 /// What the client can do at workspace scope.
 ///
@@ -305,7 +311,9 @@ public record WorkspaceClientCapabilities(
     [property: JsonPropertyName("diagnostics")]
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] WorkspaceDiagnosticsClientCapabilities? Diagnostics = null,
     [property: JsonPropertyName("fileOperations")]
-    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] FileOperationsClientCapabilities? FileOperations = null);
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] FileOperationsClientCapabilities? FileOperations = null,
+    [property: JsonPropertyName("configuration")]
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] bool? Configuration = null);
 
 public record WorkspaceDiagnosticsClientCapabilities(
     [property: JsonPropertyName("refreshSupport")] bool RefreshSupport = true);

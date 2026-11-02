@@ -863,6 +863,12 @@ the file controls and Data, and Locals expansion remain outside this implementat
 - **WHEN** `Set Label1.Font = Nothing` executes
 - **THEN** error 380 is raised and the original Font reference remains assigned
 
+#### Scenario: An Arial Font is changed through a retained reference
+
+- **WHEN** `Set f = Label1.Font` retains an Arial font and `f.Size = 14` executes
+- **THEN** `Label1.FontSize` and the Currency `f.Size` read 14.25
+- **AND** `Set Text1.Font = Label1.Font` makes Text1 read Arial 14.25 too
+
 ### Requirement: A literal's sign SHALL be an operator
 The interpreter SHALL type numeric literals from their digits before applying a leading sign, and SHALL
 apply negation after exponentiation. It SHALL keep exponent signs within the literal token and parse
@@ -1343,3 +1349,47 @@ SHALL follow Form_Activate (#2436, measured on vb6.exe, native and p-code agreei
 - **THEN** it raises error 5 and showing the form subsequently focuses its first eligible control
 - **WHEN** Form_Load instead calls Me.Show then Text2.SetFocus
 - **THEN** Form_Activate, the first control's GotFocus and Text2_GotFocus occur inside Form_Load in that order
+
+### Requirement: CommonDialog uses the shared control library
+The runtime SHALL resolve CommonDialog constants through the referenced MSComDlg library record and take its
+TypeOf library identity from its component class, without a separate CommonDialog reference flag.
+The designer and loader SHALL use the registered nonvisual component rather than a preserved control block.
+
+#### Scenario: Qualified CommonDialog constants
+- **GIVEN** a project referencing MSComDlg
+- **WHEN** it reads `MSComDlg.cdlCancel` and `FileOpenConstants.cdlOFNReadOnly`
+- **THEN** the shared library resolver returns the recorded constants (see
+  [the CommonDialog oracle](../../../docs/vb6-fidelity-oracle/in-box-controls-the-commondialog.md))
+
+### Requirement: Numeric comparison pair domains
+The runtime SHALL use VB6's measured comparison domains for all six comparison operators:
+Single/Double compares as Single, Single/Long as Double, Currency/Double as Currency rounded
+to four decimal places, and Decimal/Double as Decimal. Narrowing SHALL NOT raise conversion
+overflow during comparison. Other numeric pairs SHALL retain their existing domains.
+Provenance: [numeric pair measurements](../../../docs/vb6-fidelity-oracle/numeric-type-pairs--five-arithmetic-tables-and-comparison-is-a-sixth.md#comparison-is-a-per-pair-table-and-it-narrows).
+
+#### Scenario: Single and Double equality narrows
+- **WHEN** Single 0.1 is compared with Double 0.1 in either order, typed or as Variants
+- **THEN** equality is True, inequality is False, and both strict orderings are False
+
+#### Scenario: Long retains its precision beside Single
+- **WHEN** Single 16777216 is compared with Long 16777217
+- **THEN** equality is False and the Single is less than the Long
+
+### Requirement: TextBox measured keyboard codes
+
+A runtime TextBox SHALL deliver KeyDown and KeyUp through its event queue for the
+letters, top-row digits, Space, navigation/editing keys, F1–F9/F11/F12 and keypad
+keys mapped by #2325's [keyboard sweep](https://github.com/hexide-io/HexIDE/issues/2325#issuecomment-6454480155),
+using its measured KeyCode and held-modifier Shift mask. KeyPreview SHALL retain
+the existing form-first delivery. Host-translated keypad navigation SHALL use
+the navigation key received from the host. Enter/Esc, Tab arbitration, punctuation
+and unmeasured combinations remain outside this additional code-mapping slice.
+
+#### Scenario: Home reaches a handler before TextBox navigation
+- **WHEN** Home is pressed and released in a TextBox with no modifier
+- **THEN** its KeyDown and KeyUp handlers receive KeyCode 36 and Shift 0
+
+#### Scenario: Numeric keypad Clear
+- **WHEN** the host reports keypad 5 with NumLock off as Clear
+- **THEN** the TextBox's KeyDown and KeyUp handlers receive KeyCode 12

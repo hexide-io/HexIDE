@@ -143,11 +143,8 @@ public class SSTabDesignerTests : WindowTestFixture
         vm.FlushComponentsToModel();
 
         var (text, _) = new FormSerializer().Serialize(vm.FormDefinition!, "Form1.frm");
-        var root = new DirectoryInfo(AppContext.BaseDirectory);
-        while (root is not null && !Directory.Exists(Path.Combine(root.FullName, "corpus")))
-            root = root.Parent;
-        root.Should().NotBeNull();
-        var corpus = File.ReadAllText(Path.Combine(root!.FullName, "corpus", "inbox-controls", "pending",
+        var root = RepoTree.Root();
+        var corpus = File.ReadAllText(Path.Combine(root, "corpus", "inbox-controls", "pending",
             "sstab", "Form1.frm")).ReplaceLineEndings("\n").Split('\n');
         var lines = text.ReplaceLineEndings("\n").Split('\n');
         var ownLines = lines.Where(l => l.TrimStart().StartsWith("Tab", StringComparison.Ordinal)

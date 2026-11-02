@@ -44,10 +44,8 @@ public class RichTextBoxPersistenceTests
     [Fact]
     public void Recorded_save_round_trips_both_files_byte_for_byte()
     {
-        var root = new DirectoryInfo(AppContext.BaseDirectory);
-        while (root != null && !Directory.Exists(Path.Join(root.FullName, "corpus"))) root = root.Parent;
-        root.Should().NotBeNull();
-        var directory = Path.Join(root!.FullName, "corpus", "inbox-controls");
+        var root = RepoTree.Root();
+        var directory = Path.Join(root, "corpus", "inbox-controls");
         var path = Path.Join(directory, "saved", "richtextbox", "Form1.frm");
         var source = File.ReadAllText(path).ReplaceLineEndings("\r\n");
         var bytes = File.ReadAllBytes(Path.ChangeExtension(path, ".frx"));

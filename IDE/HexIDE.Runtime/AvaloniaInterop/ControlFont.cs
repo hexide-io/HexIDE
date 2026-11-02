@@ -125,11 +125,12 @@ internal sealed class ControlFont : ICSharpProxy, ICSharpPropertyBag
 
     public bool TrySetProperty(string name, Vb6Value value)
     {
-        // The issue measured these two Size assignments. Object-member coercions and other writes are not measured.
+        // Only the issue's measured Size assignments; other object-member coercions and writes remain unmeasured.
         if (name.Equals("Size", StringComparison.OrdinalIgnoreCase)
-            && value.Type == Vb6Value.ValueType.Integer && value.Value is int size && size is 9 or 12)
+            && value.Type == Vb6Value.ValueType.Integer && value.Value is int size
+            && (size is 9 or 12 || size == 14 && font.FontFamilyName == "Arial"))
         {
-            font = new VBFont(font.FontFamilyName, size, italic: font.Italic, charset: font.Charset,
+            font = new VBFont(font.FontFamilyName, size == 14 ? 14.25 : size, italic: font.Italic, charset: font.Charset,
                 underline: font.Underline, strikethrough: font.Strikethrough, weight: font.Weight);
             Publish();
             return true;
