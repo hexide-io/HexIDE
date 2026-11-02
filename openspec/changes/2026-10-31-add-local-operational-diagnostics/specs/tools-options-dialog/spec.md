@@ -19,7 +19,7 @@ The core category SHALL contain no endpoint, authentication or network-export co
 ### Requirement: Recording settings participate in the Options transaction
 The chosen recording mode SHALL take effect only when the whole Options dialog is confirmed. Cancel
 SHALL leave the active mode unchanged. Restoring this category's defaults SHALL stage Local and SHALL
-NOT install an exporter or create an export grant. Applying Off SHALL revoke operational and log grants
+NOT install an exporter or create an export grant. Applying Off SHALL revoke operational grants
 and discard retained observations; a later Local choice SHALL NOT reinstate those grants.
 
 #### Scenario: Off is selected and cancelled
@@ -28,7 +28,7 @@ and discard retained observations; a later Local choice SHALL NOT reinstate thos
 
 #### Scenario: Off is confirmed
 - **WHEN** the developer confirms Off
-- **THEN** local operational recording stops, retained observations are cleared and operational/log grants are revoked
+- **THEN** local operational recording stops, retained observations are cleared and operational grants are revoked
 - **AND** existing local application logging and protocol-capture settings are unchanged
 
 #### Scenario: Defaults are restored after export was stopped
@@ -36,7 +36,7 @@ and discard retained observations; a later Local choice SHALL NOT reinstate thos
 - **THEN** local recording is enabled without creating or restoring an exporter grant
 
 ### Requirement: Stopping export is independent of Options
-The core diagnostics view SHALL expose active operational/log subscriptions and a direct Stop Export action.
+The core diagnostics view SHALL expose active operational subscriptions and a direct Stop Export action.
 Stopping an exporter SHALL revoke its grant immediately without editing the staged Options transaction.
 Confirming unrelated Options changes SHALL NOT restore a grant that was revoked while the dialog was open.
 

@@ -3,7 +3,7 @@
 ### Requirement: Operational diagnostics are local by default
 The desktop IDE SHALL offer Off and Local, defaulting to Local in a fresh profile. Local SHALL use
 bounded session memory without automatic persistence, telemetry networking or listener ports. The standard
-distribution SHALL NOT bundle or acquire an exporter. Off SHALL stop recording, revoke operational/log grants and
+distribution SHALL NOT bundle or acquire an exporter. Off SHALL stop recording, revoke operational grants and
 clear retained observations. These controls SHALL NOT claim to disable existing logs, protocol captures,
 external processes or independently acting add-ins.
 
@@ -15,7 +15,6 @@ external processes or independently acting add-ins.
 #### Scenario: Recording is switched off
 - **WHEN** Off is committed
 - **THEN** new operational observations are not retained or delivered to subscribers and the prior record is discarded
-- **AND** supported application-log export is revoked without changing existing local logging
 - **AND** returning to Local does not restore revoked subscriptions without fresh authorization
 
 ### Requirement: Observations use a closed operational data schema
@@ -186,7 +185,7 @@ SHALL NOT make it eligible for collection.
 ### Requirement: The core view reports effective state
 The IDE SHALL provide a localized, accessible diagnostics view showing active recording mode, observation
 window, resource limits and separate loss counts. Registered exporters SHALL show effective destinations
-without credentials, operational/log subscription states and independently reported transport health. The view SHALL
+without credentials, operational subscription states and independently reported transport health. The view SHALL
 distinguish a stopped subscription from unconfirmed exporter transport state.
 
 #### Scenario: Exporter transport cannot be confirmed stopped

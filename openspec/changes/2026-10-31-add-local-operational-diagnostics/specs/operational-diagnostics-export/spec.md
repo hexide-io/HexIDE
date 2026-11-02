@@ -18,7 +18,7 @@ exporter dependencies.
 
 ### Requirement: The add-in owns a dedicated configuration surface
 The exporter SHALL contribute a localized, accessible command under Tools or Add-Ins, with its own
-endpoint, trace/metric/log selections, log policy, masked session authentication and delivery state. It SHALL NOT add
+endpoint, trace/metric selections, masked session authentication and delivery state. It SHALL NOT add
 collector controls to core Options. Editing or saving configuration SHALL NOT resolve endpoints,
 test connections or transmit data. Cancel SHALL preserve the prior active configuration.
 
@@ -67,8 +67,7 @@ anything to the proposed destination. Records queued for one destination SHALL N
 For traces and metrics the exporter SHALL use only the authorized operational stream and its allowlist.
 It SHALL NOT import logs/captures, use editor diagnostics or unrestricted instrumentation, or add
 identity, environment data or arbitrary context. Names, resource metadata, attributes, events and links
-SHALL obey that allowlist. Metric totals SHALL start at authorization. A separate log grant SHALL NOT
-widen operational payloads or supply their attributes.
+SHALL obey that allowlist. Metric totals SHALL start at authorization.
 
 #### Scenario: A local record already contains activity
 - **WHEN** the exporter is started after a period of local recording
@@ -77,22 +76,9 @@ widen operational payloads or supply their attributes.
 #### Scenario: Raw captures and application logs exist
 - **WHEN** the exporter is running alongside a source-bearing protocol capture
 - **THEN** captured content and application logs remain absent from its operational OTLP payloads
-- **AND** log payloads remain absent unless a separate application-log grant authorizes them
-
-### Requirement: Application logs have their own subscription and policy
-The same optional exporter MAY deliver OTLP logs through a separately granted host log stream under
-the application-log-export contract. Log export SHALL default to disabled and redaction to enabled.
-Disabling redaction SHALL require that contract's prominent warning and session acknowledgement.
-The exporter SHALL use only records prepared under the authorized policy, without file tailing or a
-global logging subscription. Operational-only consent SHALL NOT authorize any logs.
-
-#### Scenario: Unredacted logs are explicitly authorized
-- **WHEN** the developer confirms the log scope, destination and redaction-off warning
-- **THEN** the same add-in may deliver newly eligible unredacted log records over OTLP
-- **AND** any accompanying traces and metrics retain their restricted metadata schema
 
 ### Requirement: Delivery uses a verified standard transport
-The exporter SHALL support OTLP traces, metrics and authorized logs with verified TLS server identity for remote
+The exporter SHALL support OTLP traces and metrics with verified TLS server identity for remote
 connections. Plain HTTP SHALL be limited to literal loopback IPs. URL credentials, redirects, certificate
 bypass and fallback destinations SHALL be refused. Separate authentication SHALL go only to the confirmed
 destination. Success SHALL indicate collector acceptance, not guaranteed downstream storage or analysis.
@@ -155,7 +141,6 @@ when it cannot verify that state.
 
 ## Purpose
 
-Define the explicitly installed add-in that delivers authorized operational observations and separately
-consented application logs to a user-selected collector. Acquisition, configuration and transmission
-remain separate choices. Operational metadata retains its content-free contract while log delivery
-has its own scope and redaction policy; both use host-controlled subscription boundaries.
+Define optional, separately acquired delivery of content-free operational traces and metrics to a
+user-selected collector. Acquisition, configuration and transmission remain separate choices under
+host-controlled subscription boundaries.

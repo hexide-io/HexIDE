@@ -8,8 +8,6 @@ Reports of slow project opening, refused saves and unresponsive language feature
 outcomes that users can inspect and share without disclosing their projects. HexIDE already records
 protocol conversations and application logs; a small, content-free operational record makes those
 reports easier to investigate and can feed a collector when the user explicitly chooses one.
-Users investigating failures also need the option to send application logs to their own collector,
-with separate consent for their potentially sensitive contents and control over local redaction.
 
 ## What Changes
 
@@ -22,18 +20,10 @@ with separate consent for their potentially sensitive contents and control over 
 - Expose a host-owned, bounded live subscription for content-free observations through the add-in API.
 - Deliver OTLP traces and metrics through a separately installed exporter add-in, not a built-in
   Options setting. The standard distribution neither bundles nor automatically installs the add-in.
-- Let the same add-in export new application logs through a separate host subscription and log-specific
-  grant. Log export defaults to disabled, including when traces or metrics are already authorized.
-- Apply local log redaction by default. Allow disabling it for the current IDE session only after a
-  prominent warning and explicit confirmation; keep the unredacted state visible while export runs.
-- Bind log consent to selected sources/categories, minimum severity and redaction policy. Show an
-  outgoing-record preview; explain that redaction is best effort and future records may differ.
 - The add-in contributes its own configuration command. Installation and load consent do not start
   export: a separate host-mediated confirmation names the destination and disclosure scope.
 - Changing the destination, exporter build or exported scope requires fresh confirmation. Users can
   stop delivery from the core diagnostics view even if the add-in's UI fails. No local history is replayed.
-- Adding log sources, lowering the severity threshold or disabling/weakening redaction requires fresh
-  confirmation. Policy changes discard pending log data so an old queue cannot cross the new boundary.
 - Keep project contents, identities, protocol bodies and arbitrary log/exception text out of this
   operational pipeline. Collector failures cannot block editing, saving or bounded shutdown.
 
@@ -49,10 +39,7 @@ claim that those details were previously agreed. This change records a design; i
 - `operational-diagnostics`: content-free observations, local retention and inspection, manual export,
   data boundaries and the bounded live subscription exposed to add-ins.
 - `operational-diagnostics-export`: an explicitly installed exporter add-in, destination-specific
-  authorization, OTLP delivery, revocation and failure isolation for operational signals and separately
-  authorized application logs.
-- `application-log-export`: live application-log selection, separate consent, local preview, default
-  redaction, explicit unredacted export and bounded host delivery.
+  authorization, OTLP delivery, revocation and failure isolation for operational signals.
 
 ### Modified Capabilities
 
@@ -64,7 +51,7 @@ redaction and disclosure flow are not an implicit source of collector data.
 
 ## Impact
 
-Future implementation touches the desktop composition root, logging integration, settings and localized
+Future implementation touches the desktop composition root, settings and localized
 UI, project orchestration, the LSP client and the curated add-in host API. Instrumentation uses the .NET diagnostic
 APIs; the OpenTelemetry SDK and exporter belong exclusively to the optional add-in's private dependencies.
 Core remains free of third-party dependencies and the standard desktop distribution has no OTLP exporter.
@@ -75,8 +62,8 @@ The first release observes external servers from the client. It neither injects 
 them nor modifies protocol messages to propagate trace context. Server-side parser spans, interpreter
 statement tracing, runtime execution diagnostics, persistent flight recording, automatic log export,
 historical log-file upload, external-process/program-output forwarding, maintainer-operated collection
-and usage analytics are deferred. Explicit live application-log export is included; existing local log
-levels and retention remain independently controlled.
+and usage analytics are deferred. Live application-log export is decided separately in
+[#2861](https://github.com/hexide-io/HexIDE/issues/2861); existing local log levels and retention remain independently controlled.
 
 ## Delivery phases
 
@@ -85,10 +72,9 @@ levels and retention remain independently controlled.
 2. **User controls and first useful operations:** add the localized view and Options mode, instrument
    open/save/LSP operations, and deliver inspection, clearing and previewed file export.
 3. **Host subscription boundary:** add identity-bound export grants and bounded live subscriptions,
-   including a separate log grant, source selection, preview and redaction. Revocation is independent
-   of the exporter UI and neither subscription exposes historical data.
+   with revocation independent of the exporter UI and no access to historical data.
 4. **Optional collector add-in:** separately package the SDK/exporter, configuration command,
-   trace/metric/log delivery, disclosure UI and bounded transport; installation alone sends nothing.
+   trace/metric delivery, disclosure UI and bounded transport; installation alone sends nothing.
 5. **Release acceptance:** verify the complete transitions, exported bytes, offline behavior,
    resource bounds and platform UI in distributed builds.
 
@@ -97,11 +83,6 @@ unarchived until implementation and verification are complete. Current capabilit
 
 ## Alternatives considered
 
-- Treating logs as operational metadata would break the content-free contract. Keep typed operational
-  observations separate from a deliberately authorized content-bearing log stream; raw protocol captures
-  and historical files retain their own sharing workflows.
-- Prohibiting unredacted application-log export prevents legitimate debugging of details that redaction
-  removes. Default to redaction and permit a visible, session-scoped override after explicit warning.
 - A network exporter configured solely by ambient environment variables is conventional in services,
   but does not establish an IDE user's intent. Explicit application configuration owns transmission.
 - Persistent local traces would improve post-crash investigation but create a new retention promise.
