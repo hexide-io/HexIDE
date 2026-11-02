@@ -56,10 +56,8 @@ public class RichTextBoxRuntimeTests
 
     private static FormDefinition RecordedForm()
     {
-        var root = new DirectoryInfo(AppContext.BaseDirectory);
-        while (root != null && !Directory.Exists(Path.Join(root.FullName, "corpus"))) root = root.Parent;
-        root.Should().NotBeNull();
-        var path = Path.Join(root!.FullName, "corpus", "inbox-controls", "saved", "richtextbox", "Form1.frm");
+        var root = RepoTree.Root();
+        var path = Path.Join(root, "corpus", "inbox-controls", "saved", "richtextbox", "Form1.frm");
         var source = File.ReadAllText(path);
         var project = new ProjectDefinition(VBProjectType.EXE, "P");
         var form = new FormDeserializer().Deserialize(project, source, new NullSink(),

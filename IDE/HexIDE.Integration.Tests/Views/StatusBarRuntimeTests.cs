@@ -298,10 +298,8 @@ public class StatusBarRuntimeTests
     [InlineData("statusbar-picture", "3", "red")]
     public async Task Measured_saved_forms_run_with_their_saved_panels(string folder, string count, string text)
     {
-        var at = new System.IO.DirectoryInfo(AppContext.BaseDirectory);
-        while (at != null && !System.IO.Directory.Exists(System.IO.Path.Join(at.FullName, "corpus"))) at = at.Parent;
-        at.Should().NotBeNull();
-        var root = System.IO.Path.Join(at!.FullName, "corpus", "inbox-controls");
+        var at = RepoTree.Root();
+        var root = System.IO.Path.Join(at, "corpus", "inbox-controls");
         var path = System.IO.Path.Join(root, "saved", folder, "Form1.frm");
         if (!System.IO.File.Exists(path)) path = System.IO.Path.Join(root, "pending", folder, "Form1.frm");
         var source = System.IO.File.ReadAllText(path);

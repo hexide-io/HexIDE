@@ -1343,3 +1343,14 @@ SHALL follow Form_Activate (#2436, measured on vb6.exe, native and p-code agreei
 - **THEN** it raises error 5 and showing the form subsequently focuses its first eligible control
 - **WHEN** Form_Load instead calls Me.Show then Text2.SetFocus
 - **THEN** Form_Activate, the first control's GotFocus and Text2_GotFocus occur inside Form_Load in that order
+
+### Requirement: CommonDialog uses the shared control library
+The runtime SHALL resolve CommonDialog constants through the referenced MSComDlg library record and take its
+TypeOf library identity from its component class, without a separate CommonDialog reference flag.
+The designer and loader SHALL use the registered nonvisual component rather than a preserved control block.
+
+#### Scenario: Qualified CommonDialog constants
+- **GIVEN** a project referencing MSComDlg
+- **WHEN** it reads `MSComDlg.cdlCancel` and `FileOpenConstants.cdlOFNReadOnly`
+- **THEN** the shared library resolver returns the recorded constants (see
+  [the CommonDialog oracle](../../../docs/vb6-fidelity-oracle/in-box-controls-the-commondialog.md))

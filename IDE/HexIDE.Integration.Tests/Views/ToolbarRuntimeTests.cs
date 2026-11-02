@@ -91,10 +91,8 @@ public class ToolbarRuntimeTests
     [AvaloniaFact]
     public async Task Vb6s_saved_toolbar_buttons_are_executable()
     {
-        var directory = new System.IO.DirectoryInfo(AppContext.BaseDirectory);
-        while (directory is not null && !System.IO.Directory.Exists(System.IO.Path.Join(directory.FullName, "corpus")))
-            directory = directory.Parent;
-        var source = System.IO.File.ReadAllText(System.IO.Path.Join(directory!.FullName,
+        var directory = RepoTree.Root();
+        var source = System.IO.File.ReadAllText(System.IO.Path.Join(directory,
             "corpus", "inbox-controls", "saved", "toolbar", "Form1.frm"));
         var definition = new FormDeserializer().Deserialize(new ProjectDefinition(VBProjectType.EXE, "P"), source, new NullSink())!;
         // Exercise the button bag alone; ToolbarImageListTests covers the full saved form binding.

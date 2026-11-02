@@ -16,11 +16,8 @@ public class InBoxMemberTableTests
 {
     private static IReadOnlyList<JsonElement> Rows(string file)
     {
-        var dir = new DirectoryInfo(AppContext.BaseDirectory);
-        while (dir is not null && !Directory.Exists(Path.Join(dir.FullName, "corpus", "inbox-controls")))
-            dir = dir.Parent;
-        dir.Should().NotBeNull("corpus/inbox-controls ships with the repository");
-        return File.ReadAllLines(Path.Join(dir!.FullName, "corpus", "inbox-controls", "typelib", file))
+        var dir = RepoTree.Root();
+        return File.ReadAllLines(Path.Join(dir, "corpus", "inbox-controls", "typelib", file))
             .Where(l => l.Length > 0).Select(l => JsonDocument.Parse(l).RootElement).ToList();
     }
 

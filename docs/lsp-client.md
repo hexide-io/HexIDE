@@ -112,6 +112,10 @@ handlers through disposal and record the exit once. Deliberate disposal logs the
 information level with the server identity; a timeout kill is logged separately. Unexpected exits
 remain warnings. The Unix guard and post-kill waits described above still exceed #491's requested
 two-second total bound; integrating that deadline with descendant cleanup remains outstanding.
+Whole-composition IDE tests use a per-test owner that awaits disposal of the language registry,
+including when an assertion fails (#2588). A source guard rejects direct `DISetup` construction
+elsewhere in `HexIDE.Tests`; this guards ownership rather than enumerating all test-host children.
+
 A test-only process server covers orderly exit, ignored
 exit, wrapper children, a truncated reply followed by a crash, and an unsolicited non-zero exit.
 
@@ -739,7 +743,11 @@ reports scheduling uncertainty; it does not establish that the server omitted an
 
 Stdio process logs include the configured server ID as a structured `Server` property and in the
 rendered message for startup, start failure, stderr (Debug level) and exit. Direct transport callers
-that supply no ID use the executable name.
+that supply no ID use the executable name. The identity test's process waits for an `exit` frame
+before writing stderr and exiting, so startup/job assignment finishes before it can exit (#2347).
+A ping response confirms it is serving requests before the test releases it.
+The test awaits each server's matching log callback with the shared two-minute safety bound and
+reports received logs on timeout.
 
 Launched pipe servers can receive HexIDE's process ID through `{pid}` in `arguments` (#406),
 with or without an open workspace. A server can use it to watch its owner and exit after an unclean
@@ -919,6 +927,12 @@ intermittent SIGPIPE.
 The untitled-document tests also drain and poll for clangd's URI refusal and ruff's dynamic-registration
 warning, with a five-second deadline, before asserting on standard error (#2269). Diagnostics arriving
 does not mean the independent stderr reader has finished recording those lines.
+
+A stdio server that exits before its Windows job assignment completes still supplies its stderr and
+exit-code notices (#2752). A refused assignment is ignored only if the process has already exited;
+a refusal for a running process still fails the connection rather than leaving it outside the job.
+`StdioProcessNoticeTests` drives both exit/assignment orders with a shell waiting on stdin, and injects
+the native assignment failure after waiting for exit, so this regression also runs on Linux.
 
 The one thing the proxy could do that the inspector cannot is observe a client so broken it never reaches
 its own serializer — a failure outside the process is immune to a tap inside it. That was worth one

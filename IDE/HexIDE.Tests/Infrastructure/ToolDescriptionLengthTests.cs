@@ -52,7 +52,6 @@ public class ToolDescriptionLengthTests
     /// <summary>Descriptions over <see cref="Budget"/> when the rule came in, keyed "tool" or "tool.parameter".</summary>
     private static readonly Dictionary<string, (string Why, int Issue)> OverBudget = new()
     {
-        ["list_lsp_messages"] = ("the kind, direction and outcome vocabularies, and reply-field explanations", 2564),
         ["dump_visual_tree"] = ("the control-view rules and the reply fields isHidden, isOffscreen and focusedPath", 2566),
         ["interact.action"] = ("every verb's semantics, the held button's among them", 2568),
         ["interact.value"] = ("click's arguments and the held button's lifecycle", 2568),

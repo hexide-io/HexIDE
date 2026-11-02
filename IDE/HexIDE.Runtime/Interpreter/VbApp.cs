@@ -31,7 +31,6 @@ public record AppInfo(
     string LegalCopyright = "",
     string LegalTrademarks = "",
     string Comments = "",
-    bool CommonDialogReferenced = false,
     IReadOnlyList<Components.InBox.RuntimeLibrary>? ControlLibraries = null,
     string CommandLine = "",
     string? ProjectName = null,
@@ -68,9 +67,6 @@ public record AppInfo(
             LegalCopyright: PreSectionValue(project, "VersionLegalCopyright") ?? "",
             LegalTrademarks: PreSectionValue(project, "VersionLegalTrademarks") ?? "",
             Comments: PreSectionValue(project, "VersionComments") ?? "",
-            // The .vbp's Object= line, or a form's: VB6 writes both for a form that holds the control (#1084).
-            CommonDialogReferenced: project.UnknownPreSectionLines.Any(l => CommonDialogConstants.IsReference(l.RawLine))
-                || project.Forms.Any(f => f.HeaderLines.Any(CommonDialogConstants.IsReference)),
             // The in-box control libraries the project references, whose constants then resolve (#1082).
             ControlLibraries: Components.InBox.RuntimeLibraries.ReferencedBy(project),
             // Project Properties' "Command Line Arguments", which is what Command gives under F5, and HexIDE runs as F5 runs.
