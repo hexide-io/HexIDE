@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using Avalonia.Input;
 
 namespace HexIDE.Runtime.BuiltinTypes;
@@ -33,6 +34,19 @@ public static class VBCursorTypeExtensions
 
     public static Cursor ToCursor(this VBCursorType cursor)
     {
-        return new Cursor(cursor.ToStandardCursorType());
+        var made = new Cursor(cursor.ToStandardCursorType());
+        Made.AddOrUpdate(made, new StrongBox<VBCursorType>(cursor));
+        return made;
     }
+
+    /// <summary>
+    /// The MousePointer <paramref name="cursor"/> was made from by <see cref="ToCursor"/>, or null for one the runtime did
+    /// not make, such as a TextBox's I-beam from its theme. Avalonia's <see cref="Cursor"/> does not say what it shows, so
+    /// the automation surface reads a running program's pointer from here (#2453).
+    /// </summary>
+    public static VBCursorType? PointerOf(Cursor? cursor) =>
+        cursor is not null && Made.TryGetValue(cursor, out var pointer) ? pointer.Value : null;
+
+    // Recorded, not cached: each call still makes its own Cursor, as callers compare them by reference.
+    private static readonly ConditionalWeakTable<Cursor, StrongBox<VBCursorType>> Made = new();
 }

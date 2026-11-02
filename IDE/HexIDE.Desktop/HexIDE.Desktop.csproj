@@ -119,11 +119,11 @@
        no bundled first-party add-ins. A release build supplies the key (locally in firstparty/, or in CI
        from a secret written into the trust dir before Build), so the add-ins are signed and bundled. -->
   <Target Name="PackAIChatAddin" AfterTargets="Build" Condition="'$(TargetFramework)' != '' and Exists('$(AddinTrustDir)/firstparty.key')">
-    <Exec Command="dotnet &quot;$(AddinPacker)&quot; pack --src &quot;$(MSBuildProjectDirectory)/../HexIDE.AIChat/bin/$(Configuration)/net10.0&quot; --out &quot;$(OutDir)addins/com.hexide.aichat&quot; --id com.hexide.aichat --title &quot;AI Chat&quot; --description &quot;AI-powered VB6 coding assistant&quot; --version 1.0.0 --author HexIDE --entry HexIDE.AIChat.dll --trust &quot;$(AddinTrustDir)&quot;" />
+    <Exec Command="dotnet &quot;$(AddinPacker)&quot; pack --src &quot;$(MSBuildProjectDirectory)/../HexIDE.AIChat/bin/$(Configuration)/net10.0&quot; --out &quot;$(OutDir)addins/com.hexide.aichat&quot; --id com.hexide.aichat --title &quot;AI Chat&quot; --description &quot;AI-powered VB6 coding assistant&quot; --version 1.0.0 --author HexIDE --capability project.read --capability project.write --capability program.run --capability ui.contribute --entry HexIDE.AIChat.dll --trust &quot;$(AddinTrustDir)&quot;" />
   </Target>
 
   <Target Name="PackTestAddin" AfterTargets="Build" Condition="'$(TargetFramework)' != '' and '$(Configuration)' == 'Debug' and Exists('$(AddinTrustDir)/firstparty.key')">
-    <Exec Command="dotnet &quot;$(AddinPacker)&quot; pack --src &quot;$(MSBuildProjectDirectory)/../HexIDE.TestAddin/bin/$(Configuration)/net10.0&quot; --out &quot;$(OutDir)addins/com.hexide.testaddin&quot; --id com.hexide.testaddin --title TestAddin --description &quot;Phase 4 verification add-in&quot; --version 4.0.0 --author HexIDE --entry HexIDE.TestAddin.dll --logo logo.png --trust &quot;$(AddinTrustDir)&quot;" />
+    <Exec Command="dotnet &quot;$(AddinPacker)&quot; pack --src &quot;$(MSBuildProjectDirectory)/../HexIDE.TestAddin/bin/$(Configuration)/net10.0&quot; --out &quot;$(OutDir)addins/com.hexide.testaddin&quot; --id com.hexide.testaddin --title TestAddin --description &quot;Phase 4 verification add-in&quot; --version 4.0.0 --author HexIDE --capability project.read --capability ui.contribute --entry HexIDE.TestAddin.dll --logo logo.png --trust &quot;$(AddinTrustDir)&quot;" />
   </Target>
 
   <!-- Visibility when the key is absent: make the skip explicit rather than silent. -->

@@ -6,6 +6,7 @@ using Avalonia.Automation;
 using Avalonia.Automation.Peers;
 using Avalonia.Automation.Provider;
 using Avalonia.Controls;
+using Avalonia.Controls.Presenters;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.LogicalTree;
@@ -109,7 +110,11 @@ public static class UiAutomationDriver
         var providers = DescribeProviders(peer, control);
 
         string[] selection = [];
-        if (peer.GetProvider<ISelectionProvider>() is { } sel)
+        // A list first: from Avalonia 12.0.5 its peer offers a selection provider, but that names only the rows that
+        // exist, so a selected item scrolled out of view, or in a list too short to show it, went missing (#2026).
+        if (control is ListBox listBox)
+            selection = Safe(() => SelectedNames(listBox).ToArray(), []);
+        else if (peer.GetProvider<ISelectionProvider>() is { } sel)
             selection = Safe(() => sel.GetSelection().Select(p => p.GetName()).ToArray(), []);
         else if (control is SelectingItemsControl selecting and not (MenuItem or MenuBase))
             selection = Safe(() => SelectedNames(selecting).ToArray(), []);
@@ -126,6 +131,18 @@ public static class UiAutomationDriver
             selection = [.. selection.Select(s => IsDefaultText(s, item) ? shown : s)];
             if (value is not null && IsDefaultText(value, item))
                 value = shown;
+        }
+
+        // An editor has no value provider, so the Immediate window's text could be read only from its view's members, on
+        // another node, and nothing said so (#2513). A code window's document is a project file, which get_file_content
+        // returns with its open edits, so that one is still left out (#562). Its writability goes with it, as a value
+        // provider's does.
+        bool? editorReadOnly = null;
+        if (value is null && control is TextEditor { Document: { } document } shownEditor
+            && control.DataContext is not HexIDE.Forms.ViewModels.ISearchableDocument)
+        {
+            value = Safe<string?>(() => Capped(document.Text), null);
+            editorReadOnly = shownEditor.IsReadOnly;
         }
 
         bool? toggle = null;
@@ -200,12 +217,15 @@ public static class UiAutomationDriver
             note,
             control is SelectingItemsControl items and not (MenuItem or MenuBase) ? Safe<int?>(() => items.ItemCount, null) : null,
             DistinctLabelOf(NameOf(control, peer), peer),
-            peer.GetProvider<IValueProvider>() is { } valueProvider ? Safe<bool?>(() => valueProvider.IsReadOnly, null) : null,
+            peer.GetProvider<IValueProvider>() is { } valueProvider ? Safe<bool?>(() => valueProvider.IsReadOnly, null) : editorReadOnly,
             control is Window window ? ReadFrame(window) : null,
             peer.GetProvider<IExpandCollapseProvider>() is { } expansion
                 ? Safe<string?>(() => expansion.ExpandCollapseState.ToString(), null) : null,
             itemTexts,
-            itemsNote);
+            itemsNote,
+            // The pointer it shows, and where that is set (#2453).
+            Safe(() => PointerReader.Read(control, c => root is null ? Describe(c) : PathWithin(root, "Window", c)), null),
+            control.IsPointerOver);
     }
 
     /// <summary>How many items <see cref="ItemTexts"/> reads at most.</summary>
@@ -341,6 +361,10 @@ public static class UiAutomationDriver
     /// <summary>Cap on a reported value, in characters. The Immediate buffer is unbounded.</summary>
     private const int MaxValueLength = 4000;
 
+    private static string Capped(string text) => text.Length > MaxValueLength
+        ? text[..MaxValueLength] + $"… [truncated at {MaxValueLength} of {text.Length} chars]"
+        : text;
+
     /// <summary>
     /// A property's current value as text, or null when it cannot be read as text.
     /// </summary>
@@ -395,9 +419,7 @@ public static class UiAutomationDriver
                 IFormattable f => f.ToString(null, CultureInfo.InvariantCulture),
                 _ => raw.ToString(),
             };
-            return text is { Length: > MaxValueLength }
-                ? text[..MaxValueLength] + $"… [truncated at {MaxValueLength} of {text.Length} chars]"
-                : text;
+            return text is null ? null : Capped(text);
         }, null);
     }
 
@@ -493,8 +515,9 @@ public static class UiAutomationDriver
     /// <summary>
     /// The action tokens a control actually accepts. Mostly its automation providers, but not only:
     /// <see cref="Interact"/> has fallbacks for controls whose peer offers nothing, and a token missing
-    /// here is a token nobody tries. <c>MenuItemAutomationPeer</c> exposes <b>no providers at all</b>, so
-    /// reporting the peer verbatim would advertise a menu as undrivable while every verb on it works.
+    /// here is a token nobody tries. <c>MenuItemAutomationPeer</c> exposes no invoke or expandCollapse provider,
+    /// and from 12.0.5 only a toggle that skips the click, so reporting the peer verbatim would advertise a menu as
+    /// undrivable while every verb on it works.
     /// </summary>
     public static string[] DescribeProviders(AutomationPeer peer, Control? control = null)
     {
@@ -533,6 +556,9 @@ public static class UiAutomationDriver
 
         if (control is MenuItem menuItem)
         {
+            // Avalonia 12.0.5's peer offers a toggle on a checkable item that only sets IsChecked, and Interact refuses
+            // toggle on every menu item for that reason, so advertising it would promise a verb that only refuses.
+            list.Remove("toggle");
             if (!list.Contains("invoke")) list.Add("invoke");
             // Only where there is a submenu to open: advertising expandCollapse on a leaf would promise
             // an action that correctly refuses.
@@ -629,8 +655,8 @@ public static class UiAutomationDriver
                         return outcome;
 #endif
                     }
-                    // MenuItemAutomationPeer exposes NO providers at all — not invoke, not
-                    // expandCollapse — so every verb failed on a menu and none of it was reachable.
+                    // MenuItemAutomationPeer exposes no invoke and no expandCollapse provider, so every verb failed
+                    // on a menu and none of it was reachable.
                     // ClickMenuItem clicks it as Avalonia's menu does: it moves a checkable item's tick, raises
                     // Click, whose class handler executes Command, so plain Click handlers and bound commands
                     // fire once, then closes the menu. Raising Click alone was the #947 defect.
@@ -658,12 +684,15 @@ public static class UiAutomationDriver
                 case "toggle":
                     // A menu item has no toggle of its own; only a click moves its tick. A running form's menu leaves the
                     // tick to its program, in its Click, so the refusal does not steer a caller to run an item such as Exit
-                    // for its tick, and says where the tick is read (#1255 review).
-                    if (peer.GetProvider<IToggleProvider>() is null && control is HexIDE.Runtime.BuiltinControls.VBMenu)
+                    // for its tick, and says where the tick is read (#1255 review). From Avalonia 12.0.5 the peer of a
+                    // checkable item offers a toggle, but it only sets IsChecked: no Click is raised, so neither the
+                    // program's handler nor the command behind an IDE tick runs. So a menu item is refused whatever its
+                    // peer offers.
+                    if (control is HexIDE.Runtime.BuiltinControls.VBMenu)
                         return Err("a running form's menu item has no toggle of its own: its program sets the tick, in the "
                                    + "item's Click, which 'invoke' runs as a click does. inspect_element reads the tick as "
                                    + "toggleState; nothing was done");
-                    if (peer.GetProvider<IToggleProvider>() is null && control is MenuItem toggleItem)
+                    if (control is MenuItem toggleItem)
                         return Err(toggleItem.ToggleType == MenuItemToggleType.None
                             ? $"'{LabelOf(control, peer)}' has no tick to toggle, and 'invoke' would run it as a click "
                               + "does; nothing was done"
@@ -772,7 +801,7 @@ public static class UiAutomationDriver
                     // menu, rather than an action the control does not support (#949).
                     // But the code window's completion list and parameter info are listed under its editor and are not
                     // the editor's flyout, so with one open, "nothing to close" would deny what the dump shows.
-                    if (AttachedPopupsOf(control).Count > 0)
+                    if (AttachedPopupsOf(control).Any(p => p.Child is not ToolTip))
                         return Err($"'{LabelOf(control, peer)}' has a popup open that collapse does not close, such as "
                                    + "the completion list; press_key Escape closes it");
                     if (control.ContextMenu is not null || FlyoutsOf(control).Any())
@@ -1292,7 +1321,8 @@ public static class UiAutomationDriver
         if (!matchEmptyValue) value = NullIfEmpty(value);
         if (value is null)
         {
-            if (peer.GetProvider<ISelectionItemProvider>() is { } selfSip)
+            // A tree's item is selected through its tree, as before Avalonia 12.0.5 gave its peer a provider of its own.
+            if (control is not TreeViewItem && peer.GetProvider<ISelectionItemProvider>() is { } selfSip)
             {
                 // Named before the dropdown closes over it, as invoke names a button before it closes its dialog.
                 var label = LabelOf(control, peer);
@@ -1734,6 +1764,8 @@ public static class UiAutomationDriver
             return Fail(problem);
         if (TopLevel.GetTopLevel(control) is not { } topLevel)
             return Fail("the control is not attached to a window, so it has no coordinates to click at");
+        // A hover left there by 'stay' ends first, as a person's pointer leaves what it was over to press elsewhere (#2562).
+        EndStayingHover(topLevel);
         var local = at ?? new Point(control.Bounds.Width / 2, control.Bounds.Height / 2);
         if (control.TranslatePoint(local, topLevel) is not { } inWindow)
             return Fail($"could not translate ({local.X.ToString("0.#", CultureInfo.InvariantCulture)}, {local.Y.ToString("0.#", CultureInfo.InvariantCulture)}) on '{Describe(control)}' into window coordinates");
@@ -2214,7 +2246,7 @@ public static class UiAutomationDriver
     /// </remarks>
     internal static async Task AbandonHeldAsync(bool idleOnly = false)
     {
-        if (HeldButton.Current is not { } held || idleOnly && !HeldButton.Idle())
+        if (HeldButton.Current is not { } held || idleOnly && !HeldButton.IdleElseRearm())
             return;
         held.End();
         var keyed = held.Window.FocusManager?.GetFocusedElement() as Control ?? held.Pointer.Captured as Control ?? held.Window;
@@ -2361,12 +2393,15 @@ public static class UiAutomationDriver
                         // A program's own box holds its handler; another window, such as the IDE's compile error, may not.
                         Box = dialog?.Content is HexIDE.Runtime.Dialogs.MessageBox or HexIDE.Runtime.Dialogs.InputBox,
                         Opened = OpenedForms(watch),
+                        Finished = watch.Pump.FinishedSince(watch.LiveBefore),
+                        // Read here, on the UI thread, as the reply below is composed off it.
+                        Title = dialog?.Title,
                     };
                 },
                 Avalonia.Threading.DispatcherPriority.Send).GetTask().ConfigureAwait(false);
             var opened = state.Opened.Count == 0
                 ? ""
-                : $"; the program opened {string.Join(", ", state.Opened.Select(t => $"'{t}'"))}";
+                : $"; the program opened {Joined(state.Opened)}";
             var waiting = state.Waiting.Length == 0 ? "" : $", with {state.Waiting} waiting to run";
             if (state.Idle)
             {
@@ -2375,9 +2410,13 @@ public static class UiAutomationDriver
                     ? await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(read, Avalonia.Threading.DispatcherPriority.Send)
                         .GetTask().ConfigureAwait(false)
                     : null;
+                // A handler found running, held at a MsgBox or paused, that this action let finish: said, since a reply that
+                // named it running would otherwise leave its end to be inferred (#2720).
+                var finished = state.Finished.Count == 0 ? "" : $"{Joined(state.Finished)} finished";
+                var after = string.Join("; ", new[] { finished, opened.Length == 0 ? "" : opened[2..] }.Where(p => p.Length > 0));
                 return outcome with
                 {
-                    Detail = outcome.Detail + settled + (opened.Length == 0 ? "" : $" ({opened[2..]})"),
+                    Detail = outcome.Detail + settled + (after.Length == 0 ? "" : $" ({after})"),
                     Settled = null,
                 };
             }
@@ -2395,13 +2434,16 @@ public static class UiAutomationDriver
             {
                 // Named here, so the reply's note of open dialogs leaves it out (#1253).
                 OpenDialogs.NamedInReply(dialog);
+                // How to reach it, which a caller met with a box for the first time had to guess (#2720): by its title, which a
+                // window it is over may share, or by "auto" when it has none.
+                var reach = string.IsNullOrWhiteSpace(state.Title) ? "\"auto\"" : $"\"{state.Title}\"";
                 return outcome with
                 {
                     Detail = outcome.Detail + $" (the program is still running {state.Busy}{waiting}, and has a window open over "
                              + "its form, " + state.Description
                              + (state.Box ? "; a MsgBox holds its handler until it is answered, so the form may change after that"
                                  : "; it may hold the program until it is answered, so the form may change after that")
-                             + $"{opened})",
+                             + $"; window {reach} reaches it{opened})",
                 };
             }
             if (Environment.TickCount64 >= deadline)
@@ -2467,9 +2509,25 @@ public static class UiAutomationDriver
             .FirstOrDefault(w => w.IsVisible && w != watch.Form && w is not HexIDE.Runtime.IModuleExecutionRoot
                                  && (watch.WaitingOnWindowBefore || !watch.Before.Contains(w)));
 
-    /// <summary>The titles of the program's forms that have opened since the action began.</summary>
+    /// <summary>
+    /// The program's forms that have opened since the action began, each by its name, which reaches it as a window and which
+    /// a program can't change, with its caption beside it where that differs: <c>Form2 ("Second")</c> (#2720).
+    /// </summary>
     private static List<string> OpenedForms(ProgramWatch watch) =>
-        [.. OpenWindows().Where(w => w is HexIDE.Runtime.IModuleExecutionRoot && !watch.Before.Contains(w)).Select(w => w.Title ?? "")];
+        [.. OpenWindows().Where(w => w is HexIDE.Runtime.IModuleExecutionRoot && !watch.Before.Contains(w)).Select(FormLabel)];
+
+    private static string FormLabel(Window form) =>
+        HexIDE.Runtime.BuiltinControls.VBProps.GetName(form) is not { Length: > 0 } name ? $"'{form.Title}'"
+        : string.Equals(name, form.Title, StringComparison.OrdinalIgnoreCase) ? name
+        : $"{name} (\"{form.Title}\")";
+
+    // Names as a sentence lists them: "A", "A and B", "A, B and C".
+    private static string Joined(IReadOnlyList<string> names) =>
+        names.Count == 1 ? names[0] : $"{string.Join(", ", names.Take(names.Count - 1))} and {names[^1]}";
+
+    /// <summary>The running program's event pump, read from any of its open forms, or null when none is open.</summary>
+    internal static HexIDE.Runtime.EventPump? RunningPump() =>
+        OpenWindows().OfType<HexIDE.Runtime.IModuleExecutionRoot>().Select(r => r.Events).FirstOrDefault(e => e is not null);
 
     // `click`'s value: an optional point, a button and the keys held, in any order (ClickValue).
     private static bool TryParseClick(string? value, out Point? at, out MouseButton button, out KeyModifiers keys, out bool twice, out string? destination, out bool hold, out string problem)
@@ -3336,9 +3394,21 @@ public static class UiAutomationDriver
                                         Math.Clamp(Math.Max(textBox.SelectionStart, textBox.SelectionEnd), 0, current.Length));
                     if (start == end)
                         start = end = Math.Clamp(textBox.CaretIndex, 0, current.Length);
-                    textBox.Text = current.Remove(start, end - start).Insert(start, text);
-                    textBox.CaretIndex = start + text.Length;
-                    textBox.SelectionStart = textBox.SelectionEnd = start + text.Length;
+                    var typed = current.Remove(start, end - start).Insert(start, text);
+                    // Committed in the order TextBox's own text input commits a key: the text, the selection cleared, the
+                    // presenter's text and caret, then the box's caret. Assigning Text, then the caret and selection, left a
+                    // live, focused box drawing the previous text's glyphs until its text next changed, though it held the
+                    // new text (#2737). Invalidating the presenter's TextRunCache cleared that and a fresh render did not, so
+                    // the cache held the old text's runs. Avalonia 12.0.4 and 12.0.5 do this to a focused box given its text
+                    // and then its caret; 12.1.0 on draws it either way, so after #868 this order is no longer needed.
+                    textBox.SetCurrentValue(TextBox.TextProperty, typed);
+                    textBox.ClearSelection();
+                    if (textBox.GetVisualDescendants().OfType<TextPresenter>().FirstOrDefault() is { } presenter)
+                    {
+                        presenter.SetCurrentValue(TextPresenter.TextProperty, typed);
+                        presenter.MoveCaretToTextPosition(start + text.Length);
+                    }
+                    textBox.SetCurrentValue(TextBox.CaretIndexProperty, start + text.Length);
                     replacing = end > start ? $", replacing the {end - start} selected char(s)" : "";
                     break;
             }
@@ -4091,6 +4161,7 @@ public static class UiAutomationDriver
             var target = FindHoverTarget(control);
             if (Shows(target) is not true and var shows)
                 return new InteractOutcome(false, "pointer", null, NotShowingRefusal(target, "hover", shows));
+            EndStayingHover(topLevel);
             var local = HoverPoint(target, x, y);
             if (target.TranslatePoint(local, topLevel) is not { } atTopLevel)
                 return new InteractOutcome(false, "pointer", null,
@@ -4184,6 +4255,56 @@ public static class UiAutomationDriver
             RawPointer.Leave(topLevel);
             ClickPointer.Remove(topLevel);
         }
+    }
+
+    /// <summary>
+    /// Leaves a hover's pointer where it went, for 'stay' (#2562): what it landed on keeps its pointer-over look and any
+    /// tip it opened, so a snapshot shows them. The next click, drag or hover in the window ends it first, as
+    /// <see cref="EndHover"/> would have, and the real mouse's next move over the window takes it back.
+    /// </summary>
+    public static void StayHover(Control hovered)
+    {
+        if (TopLevel.GetTopLevel(hovered) is not { } topLevel)
+            return;
+        ClickPointer.Remove(topLevel);
+        Stayed.AddOrUpdate(topLevel, hovered);
+    }
+
+    /// <summary>
+    /// How long a staying hover is watched before its state is read. A tip's popup opening under a real mouse resting on the
+    /// window makes the platform send a move where that mouse is, and it arrives a moment after the tip: read sooner, the
+    /// reply said the control was under the pointer when it no longer was (#2562).
+    /// </summary>
+    public static readonly TimeSpan StaySettle = TimeSpan.FromMilliseconds(200);
+
+    /// <summary>
+    /// What a reply says of a staying hover, read after <see cref="StaySettle"/>: whether <paramref name="hovered"/> reads
+    /// as under the pointer and how long that lasts, or, when it does not, what took it. <paramref name="moved"/> is the
+    /// foreign-pointer watch's account; <paramref name="saidAlready"/> when the reply already gives it.
+    /// </summary>
+    public static string StayedNote(Control hovered, string? moved, bool saidAlready)
+    {
+        if (hovered.IsPointerOver)
+            return $"; the pointer stays there and '{Describe(hovered)}' reads as under it (isPointerOver), so take_snapshot "
+                   + "shows its pointer-over look and any tip, until the next click, drag or hover in this window or the real "
+                   + "mouse's next move over it";
+        var why = moved is null ? "input the hover did not send has moved it"
+            : saidAlready ? "what moved the pointer, above, took it" : moved;
+        return $"; the pointer was left there, but '{Describe(hovered)}' does not read as under it (isPointerOver is false): "
+               + why;
+    }
+
+    // The windows a hover was left in by 'stay', with what it landed on (#2562).
+    private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<TopLevel, Control> Stayed = new();
+
+    /// <summary>Ends a hover 'stay' left in <paramref name="topLevel"/>: the pointer leaves the window, as a hover's end
+    /// takes it. Nothing when there is none.</summary>
+    internal static void EndStayingHover(TopLevel topLevel)
+    {
+        if (!Stayed.TryGetValue(topLevel, out _))
+            return;
+        Stayed.Remove(topLevel);
+        RawPointer.Leave(topLevel);
     }
 
     // Where each window last had a click's pointer, so a click there again moves nothing first, as a still mouse sends no
@@ -5160,7 +5281,7 @@ public static class UiAutomationDriver
     /// are attached with <c>ISetLogicalParent.SetParent</c> instead: the popup is never a visual child of
     /// anything, so a visual walk cannot reach it however deep it goes. That asymmetry is what made menus
     /// look like they worked while context menus and toolbar flyouts reported <c>children: []</c> — one
-    /// cause wearing two faces, recorded as two separate entries in docs/mcp-server-gaps.md.</para>
+    /// cause wearing two faces, recorded as two separate entries in docs/mcp-gaps/.</para>
     ///
     /// <para><b>Found from the owner, not by enumerating popup roots.</b> Avalonia exposes no public list of
     /// live <c>PopupRoot</c>s, but every one of these popups is reachable from the control that owns it —
@@ -5183,7 +5304,22 @@ public static class UiAutomationDriver
 
     // One popup for a menu or a flyout; the code window can have two open at once, its completion list under the
     // parameter info of the call being typed into, and reporting only the list left the signature unseen (#942 review).
+    // An open tip is one too: a hover left by 'stay' keeps it open for a snapshot, which draws it with the others, and a
+    // dump lists its text under its owner (#2562).
     private static IReadOnlyList<Popup> AttachedPopupsOf(Control c)
+    {
+        var owned = OwnedPopupsOf(c);
+        return OpenTipPopupOf(c) is { } tip ? [.. owned, tip] : owned;
+    }
+
+    // The popup a tip open on the control is shown in. Avalonia keeps the tip in an internal attached property; none when
+    // a later Avalonia renames it, and the snapshot then leaves the tip out, as it did before.
+    private static Popup? OpenTipPopupOf(Control c) =>
+        ToolTipInstanceProperty is not null && ToolTip.GetIsOpen(c)
+        && c.GetValue(ToolTipInstanceProperty) is ToolTip tip && tip.GetLogicalParent() is Popup { IsOpen: true } popup
+            ? popup : null;
+
+    private static IReadOnlyList<Popup> OwnedPopupsOf(Control c)
     {
         if (c.ContextMenu is { } menu && IsOpenOn(menu, c))
             return menu.GetLogicalParent() is Popup menuPopup ? [menuPopup] : [];
@@ -5471,7 +5607,13 @@ public record UiNodeDetail(
     // The text of each item of a list, dropdown or tab control, as select matches it, rows scrolled out of view included,
     // and what was left out (#2450). Absent for a dropdown that is closed, which the note explains.
     string[]? Items = null,
-    string? ItemsNote = null);
+    string? ItemsNote = null,
+    // The mouse pointer it shows: a running program's MousePointer by number and name, and where it is set (#2453). Absent
+    // when none is set on it or above it, and the platform's arrow shows.
+    PointerState? Pointer = null,
+    // Whether the pointer is over it, as its :pointerover style reads it (#2562): a hover that stays sets it, and the real
+    // mouse's next move takes it back.
+    bool IsPointerOver = false);
 
 /// <summary>The inspected Window's Avalonia frame properties and, on Windows, its native style masks.</summary>
 public record WindowFrameState(bool CanResize, string WindowDecorations, bool CanMinimize, bool CanMaximize,

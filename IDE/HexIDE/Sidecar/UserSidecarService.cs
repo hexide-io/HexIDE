@@ -755,9 +755,7 @@ public class UserSidecarService : IUserSidecarService
             var json = JsonSerializer.Serialize(data, s_jsonOptions);
             if (json != onDisk)
             {
-                var tempPath = path + ".tmp";
-                File.WriteAllText(tempPath, json);
-                File.Move(tempPath, path, overwrite: true);
+                AtomicFileWriter.WriteAllText(path, json);
                 Log.Debug("UserSidecarService: Saved sidecar to {Path}", path);
             }
 

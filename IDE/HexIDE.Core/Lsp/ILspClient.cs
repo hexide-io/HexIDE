@@ -271,7 +271,7 @@ public interface ILspClient : IAsyncDisposable
     Task<RenameResult?> RequestRenameAsync(string uri, Position position, string newName, CancellationToken cancellationToken = default);
 
     /// <summary>Sends textDocument/formatting and returns text edits, or empty.</summary>
-    Task<TextEdit[]> RequestFormattingAsync(string uri, CancellationToken cancellationToken = default);
+    Task<TextEdit[]> RequestFormattingAsync(string uri, FormattingOptions options, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Sends <c>textDocument/codeLens</c> and returns the lenses, or empty.
@@ -284,6 +284,9 @@ public interface ILspClient : IAsyncDisposable
     /// having to know that lenses have provenance.
     /// </remarks>
     Task<CodeLens[]> RequestCodeLensesAsync(string uri, CancellationToken cancellationToken = default);
+
+    /// <summary>Notifies opted-in servers of workspace folder changes before project import.</summary>
+    Task UpdateWorkspaceFoldersAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
 
     /// <summary>Imports a project and refreshes diagnostics. Failures propagate to configuration reporting.</summary>
     Task<System.Text.Json.JsonElement?> ImportProjectAsync(ProjectImportSpec spec, string uri, string text,

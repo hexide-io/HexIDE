@@ -6,6 +6,8 @@ using Xunit.v3;
 
 namespace HexIDE.Integration.Tests;
 
+// Sets the process-wide culture defaults to check the guard names a test that leaves one (#2500).
+[Collection(typeof(ProcessCultureCollection))]
 public class CultureGuardTests
 {
     private static readonly CultureInfo LeakCulture = CultureInfo.GetCultureInfo(
@@ -26,21 +28,28 @@ public class CultureGuardTests
         }
     }
 
+    // Avalonia 12.0.4 ran each dispatcher job by restoring the context it was posted from, and left it on the thread,
+    // culture and all. So a job posted under another test's culture changed this one's, which is how the guard came to
+    // name tests that never touched a culture (#2029, #2473). From 12.0.5 a job runs under the UI thread's own culture and
+    // the thread keeps it (AvaloniaUI/Avalonia#21627). The guard still names a test that leaves a culture behind; this
+    // pins that a job is no longer a way to do it.
     [AvaloniaFact]
-    public void After_names_the_test_whose_dispatcher_job_left_its_execution_context()
+    public void A_dispatcher_job_neither_runs_under_nor_leaves_the_culture_it_was_posted_under()
     {
         var context = ExecutionContext.Capture()!;
+        var own = CultureInfo.CurrentUICulture.Name;
+        string? seen = null;
         try
         {
             ExecutionContext.Run(context, _ =>
             {
                 CultureInfo.CurrentUICulture = LeakCulture;
-                Dispatcher.UIThread.Post(() => { }, DispatcherPriority.Send);
+                Dispatcher.UIThread.Post(() => seen = CultureInfo.CurrentUICulture.Name, DispatcherPriority.Send);
             }, null);
-            CultureInfo.CurrentUICulture.Name.Should().NotBe(LeakCulture.Name);
             Dispatcher.UIThread.RunJobs(DispatcherPriority.Send);
-            CultureInfo.CurrentUICulture.Name.Should().Be(LeakCulture.Name);
-            AssertLeak("CurrentUICulture", "dispatcher context leaker");
+
+            seen.Should().Be(own, "a job runs under the UI thread's culture, not the one it was posted under");
+            CultureInfo.CurrentUICulture.Name.Should().Be(own, "and the thread keeps its own culture after it");
         }
         finally
         {

@@ -74,7 +74,7 @@ if [ ! -f "$MANIFEST" ]; then
 else
   while IFS= read -r pkg; do
     [ -n "$pkg" ] || continue
-    lic=$(awk -F'	' -v p="$pkg" '$1==p{print $2}' "$MANIFEST" | head -n1)
+    lic=$(awk -F'	' -v p="$pkg" '{sub(/\r$/,"")} $1==p{print $2}' "$MANIFEST" | head -n1)
     if [ -z "$lic" ]; then
       note "package has no recorded licence: $pkg (add it to $MANIFEST)"
     elif ! printf '%s' "$lic" | grep -Eq "$PERMITTED"; then

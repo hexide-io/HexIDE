@@ -183,7 +183,7 @@ public sealed class ProjectLspWorkspace(Func<IProjectManager> projectManager) : 
             ? ProjectService.ProjectFilesDirectory(project)
             : null;
 
-    /// <summary>One folder per loaded project, named as the user sees the project named.</summary>
+    /// <summary>Project folders followed by existing outside source folders.</summary>
     /// <remarks>
     /// <para>
     /// Deduplicated by full path, and <b>ordinally</b>. Two projects genuinely sharing a directory produce
@@ -213,9 +213,23 @@ public sealed class ProjectLspWorkspace(Func<IProjectManager> projectManager) : 
                 if (string.IsNullOrWhiteSpace(directory)) continue;
 
                 var full = TryFullPath(directory);
-                if (full is null || !seen.Add(full)) continue;
+                if (full is null) continue;
 
-                folders.Add(new LspWorkspaceFolder(project.Name, full));
+                if (seen.Add(full)) folders.Add(new LspWorkspaceFolder(project.Name, full));
+                var sources = project.Forms.Select(f => f.AbsolutePath)
+                    .Concat(project.Modules.Select(m => m.AbsolutePath));
+                foreach (var source in sources)
+                {
+                    if (source is null) continue;
+                    var hostPath = Path.GetFullPath(SerializedProject.ToHostPath(source), full);
+                    if (!File.Exists(hostPath)) continue;
+                    var relative = Path.GetRelativePath(full, hostPath);
+                    if (relative != ".." && !relative.StartsWith(".." + Path.DirectorySeparatorChar,
+                            StringComparison.Ordinal) && !Path.IsPathRooted(relative)) continue;
+                    var outside = Path.GetDirectoryName(hostPath);
+                    if (outside is not null && seen.Add(outside))
+                        folders.Add(new LspWorkspaceFolder(Path.GetFileName(outside), outside));
+                }
             }
             return folders;
         }

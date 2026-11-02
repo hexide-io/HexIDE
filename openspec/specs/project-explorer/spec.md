@@ -274,3 +274,38 @@ These commands SHALL be available only for a selected form and SHALL NOT format 
 #### Scenario: Save a selected form at a new path
 - **WHEN** Save As is chosen on a form in the Project Explorer
 - **THEN** that form is passed to the form-save service with Save As enabled
+
+### Requirement: Loaded forms and modules SHALL be removable from the Explorer
+The Explorer SHALL offer removal for a loaded form, standard module, class module, UserControl or property
+page. Removal SHALL flush editor buffers and offer to save an unsaved member before removing it. Cancelling
+the prompt or its save picker, or refusing the save, SHALL retain the member. Choosing No SHALL discard
+unsaved edits from project membership without writing the file.
+
+Successful removal SHALL close the member's code and designer editors, remove its tree node, and leave its
+file on disk. Removing a saved member SHALL make the project changed, and its next save SHALL omit that
+member's entry.
+The Project menu SHALL offer the same removal for the selected Explorer member, falling back to the focused
+editor member when the Explorer has no removable selection. Its header SHALL name that member and its
+command SHALL be disabled when neither identifies a loaded member. Designers and related documents remain
+outstanding under #835.
+
+#### Scenario: Removing an unchanged saved module
+- **WHEN** the developer removes an unchanged saved module through the Explorer
+- **THEN** its tree node and code editor close without a save prompt
+- **AND** the module file remains on disk and the next project save omits its entry
+
+#### Scenario: Removing an unchanged adopted member
+- **WHEN** a form, standard module, class, UserControl or property page is added from an existing file and removed without edits
+- **THEN** it SHALL compare as unchanged and remove without a save prompt, just as a project-loaded member does
+- **AND** its file remains on disk
+
+This is HexIDE consistency (#2644); VB6's removal behavior for an adopted member is unmeasured.
+
+#### Scenario: Cancelling an unsaved member's removal
+- **WHEN** the developer cancels the save prompt or the save picker while removing an unsaved form or module
+- **THEN** the member remains in the project and its editors remain open
+
+#### Scenario: Removing the member named by the Project menu
+- **WHEN** the developer chooses Project → Remove for a selected Explorer member or focused editor member
+- **THEN** the member named in the header goes through the same save/cancel flow as Explorer removal
+- **AND** the menu item is disabled when neither selection nor focus identifies a loaded removable member

@@ -238,3 +238,63 @@ column and keep closed tools closed. A new tool SHALL use the right column by de
 - **WHEN** the developer resets the window layout with add-in tools registered
 - **THEN** open add-in tools return to the default right column
 - **AND** closed add-in tools remain closed
+
+### Requirement: Contributed tools SHALL declare a measured usable width
+A contributed tool's content MAY implement `IToolWindowMinimumWidth` to measure the width at which its
+controls fit. On first display in a dock, the IDE SHALL grow that dock's column to the measured width,
+borrowing only space above the document column's minimum. This SHALL NOT impose a permanent resize
+minimum. A saved width and later user resizing SHALL be retained. Tools without a declaration SHALL
+keep their existing sizing.
+
+#### Scenario: AI Chat opens in the default left dock
+- **WHEN** AI Chat is first displayed in the narrow left dock
+- **THEN** the column grows to fit its measured prompt, Send and New row, subject to the document minimum
+- **AND** the Toolbox alone retains its narrow default
+
+#### Scenario: The developer narrows the dock afterwards
+- **WHEN** the developer resizes a dock after its initial usable width has been applied
+- **THEN** subsequent layout passes and showing that tool again retain the chosen width
+
+### Requirement: Schema 2 capability declaration validation and packing
+Schema 2 manifests SHALL contain a top-level `capabilities` array containing only unique,
+case-sensitive identifiers from `project.read`, `project.write`, `program.run`, `ui.contribute` and
+`languageServer.contribute`. Invalid or missing declarations SHALL be incompatible before trust
+verification, including in developer mode. The declaration SHALL be covered by the existing raw-byte
+manifest signature and hash. Schema 1 and older manifests SHALL retain compatibility without requiring
+this field. Host enforcement is tracked separately in #459's unarchived change.
+
+The packer SHALL emit schema 2 with an explicit array (empty when none are requested), sort identifiers
+ordinally, accept repeated `--capability` arguments, and validate before modifying its output directory.
+Bundled add-ins SHALL declare their own current host use.
+
+#### Scenario: Invalid declaration
+- **WHEN** a schema 2 manifest has no declaration, null, a non-array, a non-string entry, a duplicate or an unknown identifier
+- **THEN** verification returns Incompatible before trust checks
+
+#### Scenario: Packing without capabilities
+- **WHEN** a publisher packs an add-in without `--capability` arguments
+- **THEN** its signed manifest contains schema 2 and an empty capabilities array
+
+#### Scenario: Packing an invalid declaration
+- **WHEN** a publisher passes an unknown or duplicate capability
+- **THEN** packing fails before touching the output directory
+
+### Requirement: Verified declaration metadata preserves build provenance
+Successful package verification SHALL produce an immutable declaration snapshot containing the add-in
+id, publisher id, manifest hash, legacy state and declared capabilities. Registry metadata SHALL expose
+that snapshot before consent. Failed verification SHALL NOT produce a verified declaration snapshot.
+Legacy schemas SHALL be identified as lacking a declaration, even if a stray capabilities field exists;
+an explicit schema-2 empty list SHALL remain distinguishable from that absence. This metadata SHALL
+represent declarations, not capability grants or observed host use.
+
+#### Scenario: Inspecting a build before consent
+- **WHEN** a verified schema-2 package awaits consent
+- **THEN** registry metadata exposes its declaration and exact manifest hash without executing its code
+
+#### Scenario: Legacy declaration absence
+- **WHEN** a schema-0 or schema-1 package verifies successfully
+- **THEN** its snapshot identifies legacy absence and contains no declared capabilities
+
+#### Scenario: Verification fails
+- **WHEN** a package is untrusted or incompatible
+- **THEN** it has no verified declaration snapshot

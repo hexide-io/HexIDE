@@ -36,6 +36,7 @@ EmmyLua.LanguageServer.Framework	MIT
 LanguageExt.Core	MIT
 MessagePack	MIT
 Microsoft.Extensions.Logging.Abstractions	MIT
+Microsoft.Testing.Extensions.HangDump	MIT
 ModelContextProtocol.AspNetCore	Apache-2.0
 NSubstitute	BSD-3-Clause
 Nerdbank.MessagePack	MIT

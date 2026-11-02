@@ -36,7 +36,7 @@ public interface ILspWorkspace
     string? Directory { get; }
 
     /// <summary>
-    /// Every folder in the workspace, one per loaded project — empty when there is no project open.
+    /// Every project folder and existing outside source folder — empty when there is no project open.
     /// </summary>
     /// <remarks>
     /// <para>

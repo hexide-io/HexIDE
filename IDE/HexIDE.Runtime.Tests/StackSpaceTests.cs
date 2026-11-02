@@ -28,6 +28,15 @@ namespace HexIDE.Runtime.Tests;
 public class StackSpaceTests : BaseVBTestFixture
 {
     [Fact]
+    public void PointerIdentities_DoNotGrowValuesOnTheRecursiveWalk()
+    {
+        // #2622: a fourth reference in Vb6Value made every by-value copy on the walk heavier.
+        // Keep main's three references and two flags (including alignment), on either pointer width.
+        var size = System.Runtime.CompilerServices.Unsafe.SizeOf<Vb6Value>();
+        size.Should().BeLessThanOrEqualTo(4 * IntPtr.Size, "pointer identities must not enlarge values on the recursive walk");
+    }
+
+    [Fact]
     public async Task UnboundedRecursion_RaisesError28_InsteadOfKillingTheProcess()
     {
         // The whole of the bug, in five lines. Before the guard this test did not fail — the test HOST died,

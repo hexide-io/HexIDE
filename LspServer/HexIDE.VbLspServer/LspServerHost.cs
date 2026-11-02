@@ -5,7 +5,6 @@
 using System.Text.Json;
 using EmmyLua.LanguageServer.Framework.Protocol.JsonRpc;
 using EmmyLua.LanguageServer.Framework.Server;
-using EmmyLua.LanguageServer.Framework.Server.Scheduler;
 using Serilog;
 
 namespace HexIDE.VbLspServer;
@@ -22,13 +21,15 @@ public static class LspServerHost
     /// <c>await server.Run()</c> to start the read loop; <c>server.Exit()</c> stops it.
     /// </summary>
     public static LanguageServer Create(Stream input, Stream output)
+        => Create(input, output, new DocumentStore());
+
+    internal static LanguageServer Create(Stream input, Stream output, DocumentStore store)
     {
-        var store = new DocumentStore();
         var ls = new RenameLanguageServer(input, output, store);
 
-        // Sequential dispatch is the framework default, pinned explicitly: the IDE client relies on
-        // didChange-before-next-request ordering (FlushDocumentAsync + format-on-save).
-        ls.SetScheduler(new SingleThreadScheduler());
+        // Keep didChange-before-next-request ordering (especially format-on-save), except completion,
+        // which can answer from the last published declaration snapshot during a parse (#2434).
+        ls.SetScheduler(new TimingScheduler());
 
         // The server's own trace channel. Off until a client asks for it, at which point it carries what
         // only this process knows about an analysis — never a restatement of the frames the client sent.
@@ -140,12 +141,16 @@ public static class LspServerHost
     /// <remarks>
     /// The publish goes first and the trace line behind it, so the functional message keeps exactly the
     /// ordering it had before tracing existed. <c>trace.IsEnabled</c> is read before the analysis, not
-    /// after: with tracing off nothing is measured, nothing is allocated, and nothing extra is sent.
+    /// after: with tracing off no analysis report is allocated or sent. Debug timings are independent.
     /// </remarks>
     private static async Task PublishAsync(
         LanguageServer ls, DocumentStore store, TraceReporter trace, string uri, string text)
     {
+        using var uriContext = Serilog.Context.LogContext.PushProperty("Uri", uri);
+        var started = System.Diagnostics.Stopwatch.GetTimestamp();
         var update = await store.UpdateDocumentAsync(uri, text, trace.IsEnabled);
+        Log.Debug("Diagnostics {Uri} elapsed {ElapsedMs} ms", uri,
+            System.Diagnostics.Stopwatch.GetElapsedTime(started).TotalMilliseconds);
         await ls.SendNotification(new NotificationMessage("textDocument/publishDiagnostics",
             LspRequestHandlers.BuildPublishParams(uri, update.Diagnostics)));
         if (update.Analysis is { } analysis)

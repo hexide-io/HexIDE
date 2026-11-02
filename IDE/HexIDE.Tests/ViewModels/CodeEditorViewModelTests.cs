@@ -53,6 +53,28 @@ public class CodeEditorViewModelTests : IDisposable
     }
 
     [AvaloniaFact]
+    public void Removing_a_module_closes_only_its_code_editor()
+    {
+        Action<ModuleUnloadedEvent>? unloaded = null;
+        _eventBus.Subscribe<ModuleUnloadedEvent>(Arg.Any<Action<ModuleUnloadedEvent>>())
+            .Returns(ci =>
+            {
+                unloaded = ci.Arg<Action<ModuleUnloadedEvent>>();
+                return Substitute.For<IDisposable>();
+            });
+        var module = TestHelpers.CreateModule();
+        var vm = CreateSut().Initialize(module);
+        var closes = 0;
+        vm.CloseRequest += _ => closes++;
+
+        unloaded.Should().NotBeNull();
+        unloaded!(new ModuleUnloadedEvent(TestHelpers.CreateModule()));
+        closes.Should().Be(0);
+        unloaded(new ModuleUnloadedEvent(module));
+        closes.Should().Be(1);
+    }
+
+    [AvaloniaFact]
     public void RecentEdits_RecordsModuleEditsAfterInitialization()
     {
         var module = TestHelpers.CreateModule();
@@ -844,13 +866,16 @@ public class CodeEditorViewModelTests : IDisposable
     {
         var form = TestHelpers.CreateForm(name: "Form1");
         var vm = CreateSut().Initialize(form);
+        _settingsService.TabWidth.Returns(2);
         var expected = Array.Empty<TextEdit>();
-        _lspClient.RequestFormattingAsync("untitled:TestProject/Form1.frm", Arg.Any<CancellationToken>())
+        _lspClient.RequestFormattingAsync("untitled:TestProject/Form1.frm", new FormattingOptions(2, true), Arg.Any<CancellationToken>())
             .Returns(expected);
 
         var result = await vm.RequestFormattingAsync();
 
         result.Should().BeSameAs(expected);
+        await _lspClient.Received(1).RequestFormattingAsync("untitled:TestProject/Form1.frm",
+            new FormattingOptions(2, true), Arg.Any<CancellationToken>());
     }
 
     // ── Dispose ──────────────────────────────────────────────────────

@@ -2,6 +2,9 @@ namespace HexIDE.Lsp;
 
 public interface IWorkspaceArtifactService
 {
+    /// <summary>Runs folder updates on the project-change debounce, before any imports.</summary>
+    Task TrackFoldersAsync(LanguageServerRegistration server, Func<CancellationToken, Task> update,
+        CancellationToken cancellationToken) => Task.CompletedTask;
     Task ImportAsync(LanguageServerRegistration server, Func<WorkspaceArtifactContext, CancellationToken, Task> import,
         CancellationToken cancellationToken);
     Task PrepareAsync(LanguageServerRegistration server, CancellationToken cancellationToken);

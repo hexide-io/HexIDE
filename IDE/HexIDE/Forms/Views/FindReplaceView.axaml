@@ -1,6 +1,7 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:HexIDE.Forms.ViewModels"
+             xmlns:converters="clr-namespace:HexIDE.Converters"
              x:Class="HexIDE.Forms.Views.FindReplaceView"
              x:DataType="vm:FindReplaceViewModel">
 
@@ -25,20 +26,25 @@
 
             <!-- Find What. Both boxes hold code, so they read left to right whatever the IDE's language (#1944). -->
             <DockPanel>
-                <TextBlock DockPanel.Dock="Left" Text="{DynamicResource Str.Dialog.FindReplace.Label.FindWhat}" VerticalAlignment="Center" Width="75" />
-                <TextBox Text="{CompiledBinding SearchText, Mode=TwoWay}" FlowDirection="LeftToRight" />
+                <!-- Each box is named by its caption, without the access-key underscore, so a screen reader and the automation
+                     tree know which box takes what (#2717). -->
+                <TextBlock x:Name="FindWhatLabel" DockPanel.Dock="Left" Text="{DynamicResource Str.Dialog.FindReplace.Label.FindWhat}" VerticalAlignment="Center" Width="75" />
+                <TextBox Text="{CompiledBinding SearchText, Mode=TwoWay}" FlowDirection="LeftToRight"
+                         AutomationProperties.Name="{CompiledBinding #FindWhatLabel.Text, Converter={x:Static converters:AccessKeyNameConverter.Instance}}" />
             </DockPanel>
 
             <!-- Replace With (conditional) -->
             <DockPanel IsVisible="{CompiledBinding ShowReplace}">
-                <TextBlock DockPanel.Dock="Left" Text="{DynamicResource Str.Dialog.FindReplace.Label.ReplaceWith}" VerticalAlignment="Center" Width="75" />
-                <TextBox Text="{CompiledBinding ReplaceText, Mode=TwoWay}" FlowDirection="LeftToRight" />
+                <TextBlock x:Name="ReplaceWithLabel" DockPanel.Dock="Left" Text="{DynamicResource Str.Dialog.FindReplace.Label.ReplaceWith}" VerticalAlignment="Center" Width="75" />
+                <TextBox Text="{CompiledBinding ReplaceText, Mode=TwoWay}" FlowDirection="LeftToRight"
+                         AutomationProperties.Name="{CompiledBinding #ReplaceWithLabel.Text, Converter={x:Static converters:AccessKeyNameConverter.Instance}}" />
             </DockPanel>
 
             <!-- Search scope -->
             <DockPanel>
-                <TextBlock DockPanel.Dock="Left" Text="{DynamicResource Str.Dialog.FindReplace.Label.Search}" VerticalAlignment="Center" Width="75" />
+                <TextBlock x:Name="SearchLabel" DockPanel.Dock="Left" Text="{DynamicResource Str.Dialog.FindReplace.Label.Search}" VerticalAlignment="Center" Width="75" />
                 <ComboBox ItemsSource="{CompiledBinding ScopeItems}"
+                          AutomationProperties.Name="{CompiledBinding #SearchLabel.Text, Converter={x:Static converters:AccessKeyNameConverter.Instance}}"
                           SelectedIndex="{CompiledBinding SelectedScopeIndex, Mode=TwoWay}"
                           HorizontalAlignment="Stretch" />
             </DockPanel>

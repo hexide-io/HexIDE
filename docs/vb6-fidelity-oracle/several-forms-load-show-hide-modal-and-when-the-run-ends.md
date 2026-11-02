@@ -82,9 +82,10 @@ Form2's own timer reports on Form1, then unloads (6a) or hides (6b) Form2 at its
 - **So the run ends when no form is loaded, shown or hidden, and Sub Main has returned.**
 - **The Terminates of default instances never released** come at the run's end, all together, in the order the forms
   were first created.
-  **Corrected 2026-10-28 (#2496, #2497):** they come form by form in the order the project lists the forms, and within
+  **Overturned 2026-10-28 (#2496, #2497):** they come form by form in the order the project lists the forms, and within
   one form the instance made last comes first. These probes made their two forms in the project's order, so the two
-  rules gave the same answer. The measurement is in "The Forms collection".
+  rules gave the same answer. The measurement is in [The Forms collection, "The Terminates at the run's
+  end"](the-forms-collection.md#the-terminates-at-the-runs-end).
 
 Unrelated to the questions but recorded: in session 0 a shown form reads `Visible` False, as #973's probe saw.
 

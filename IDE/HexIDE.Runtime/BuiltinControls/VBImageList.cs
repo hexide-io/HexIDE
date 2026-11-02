@@ -10,11 +10,17 @@ namespace HexIDE.Runtime.BuiltinControls;
 public sealed class VBImageList : Control, ICSharpAsyncProxy, ICSharpPropertyBag
 {
     internal ImageListImages Images { get; }
+    internal readonly List<WeakReference<VBToolbar>> BoundToolbars = [];
+    internal void RefuseBoundShrink()
+    {
+        BoundToolbars.RemoveAll(reference => !reference.TryGetTarget(out _));
+        if (BoundToolbars.Any(reference => reference.TryGetTarget(out var bar) && bar.ImageList == this)) throw Error(35617);
+    }
     internal int ImageWidth;
     internal int ImageHeight;
-    private int maskColor;
+    internal int maskColor;
     private int backColor;
-    private bool useMaskColor;
+    internal bool useMaskColor;
 
     public VBImageList(ComponentInstance instance)
     {
@@ -35,6 +41,7 @@ public sealed class VBImageList : Control, ICSharpAsyncProxy, ICSharpPropertyBag
     {
         35600 => "Index out of bounds", 35601 => "Element not found", 35602 => "Key is not unique in collection",
         35603 => "Invalid key", 35607 => "Required argument is missing",
+        35617 => "ImageList cannot be modified while another control is bound to it",
         35611 => "Property is read-only if image list contains images", 35700 => "Circular object referencing is not allowed",
         383 => "Property is read-only", _ => throw new ArgumentOutOfRangeException(nameof(number)),
     }));
@@ -64,14 +71,20 @@ public sealed class VBImageList : Control, ICSharpAsyncProxy, ICSharpPropertyBag
             case "himagelist": throw new NotImplementedException("ImageList.hImageList is not implemented (#1083)");
             case "left" or "top" or "index":
                 throw new NotImplementedException("Setting this ImageList extender member is unmeasured (#1083)");
-            case "maskcolor": maskColor = Long(value); return true;
+            case "maskcolor": maskColor = Long(value); InvalidateImages(); return true;
             case "backcolor": backColor = Long(value); return true;
             case "usemaskcolor":
                 if (value.Type != Vb6Value.ValueType.Boolean) throw UnmeasuredConversion();
-                useMaskColor = (bool)value.Value!; return true;
+                useMaskColor = (bool)value.Value!; InvalidateImages(); return true;
             case "name" or "tag" or "parent" or "object": return false;
             default: throw new VBRunTimeException(VBStandardError.ObjectDoesntSupportThisPropertyOrMethod);
         }
+    }
+
+    private void InvalidateImages()
+    {
+        foreach (var reference in BoundToolbars)
+            if (reference.TryGetTarget(out var bar)) bar.InvalidateImages();
     }
 
     private int Dimension(Vb6Value value, int current)
@@ -174,8 +187,12 @@ internal sealed class ImageListImages(VBImageList owner) : ICSharpAsyncProxy, IC
         {
             case "count": result = new Vb6Value(items.Count); break;
             case "item": result = Item(Arg(0)); break;
-            case "clear": items.Clear(); owner.ImageWidth = owner.ImageHeight = 0; break;
-            case "remove": items.RemoveAt(Position(Arg(0))); break;
+            case "clear": owner.RefuseBoundShrink(); items.Clear(); owner.ImageWidth = owner.ImageHeight = 0; break;
+            case "remove":
+                var position = Position(Arg(0));
+                owner.RefuseBoundShrink();
+                items.RemoveAt(position);
+                break;
             case "add":
             {
                 var key = Key(Arg(1));
@@ -247,12 +264,14 @@ internal sealed class ImageListPictureObject : ICSharpAsyncProxy
     internal int PixelWidth { get; }
     internal int PixelHeight { get; }
     private readonly int pictureType;
+    internal readonly byte[] Payload;
     internal ImageListPictureObject(byte[] record)
     {
         if (record.Length < 28 || BitConverter.ToInt32(record, 0) != record.Length - 4
             || new Guid(record.AsSpan(4, 16)) != new Guid("0BE35204-8F91-11CE-9DE3-00AA004BB851")
             || BitConverter.ToInt32(record, 20) != 0x746c || BitConverter.ToInt32(record, 24) != record.Length - 28)
             throw new NotImplementedException("Unmeasured ImageList picture record (#1083)");
+        Payload = record[28..];
         var file = record.AsSpan(28);
         if (file.Length >= 26 && file[0] == 'B' && file[1] == 'M')
         {

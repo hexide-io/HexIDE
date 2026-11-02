@@ -54,6 +54,22 @@ public class HoverThroughWindowInputTests
         while (Environment.TickCount64 < end) { await Task.Delay(20); Dispatcher.UIThread.RunJobs(); }
     }
 
+    internal static async Task WaitForTip(Control control, Func<bool>? ready = null,
+        string condition = "the tooltip to open", int timeoutMs = 5000)
+    {
+        ready ??= () => ToolTip.GetIsOpen(control);
+        var elapsed = System.Diagnostics.Stopwatch.StartNew();
+        while (!ready() && elapsed.ElapsedMilliseconds < timeoutMs)
+        {
+            await Task.Delay(20);
+            var context = ExecutionContext.Capture();
+            try { Dispatcher.UIThread.RunJobs(); }
+            finally { if (context is not null) ExecutionContext.Restore(context); }
+        }
+        ready().Should().BeTrue("waited {0} ms (limit {1} ms) for {2}; tooltip open: {3}; tip: {4}",
+            elapsed.ElapsedMilliseconds, timeoutMs, condition, ToolTip.GetIsOpen(control), ToolTip.GetTip(control) ?? "<null>");
+    }
+
     [AvaloniaFact]
     public async Task A_declared_tooltip_opens_and_the_reply_names_the_route()
     {
@@ -378,7 +394,7 @@ public class HoverThroughWindowInputTests
             var point = view.GetVisualPosition(new AvaloniaEdit.TextViewPosition(80, 4), AvaloniaEdit.Rendering.VisualYPosition.TextMiddle) - view.ScrollOffset;
             var target = view.TranslatePoint(point, editor)!.Value;
             UiAutomationDriver.Hover(editor, target.X, target.Y, null, out _).Success.Should().BeTrue();
-            await Settle(700);
+            await WaitForTip(editor);
             hoverAsks.Should().ContainSingle();
             hoverAsks[0].Line.Should().Be(79);
             var asked = hoverAsks[0];
@@ -409,7 +425,9 @@ public class HoverThroughWindowInputTests
         var (window, editor, vm) = ShowEditor(external);
         try
         {
-            for (var i = 0; i < 200 && !external.CanEvaluateHover; i++) await Settle(20);
+            // The variables response raises Changed and cancels pending hovers; wait for that inspection too.
+            await WaitForTip(editor, () => external.CanEvaluateHover && external.Variables.Count > 0,
+                "the stopped frame and its variables to finish loading");
             external.CanEvaluateHover.Should().BeTrue();
             editor.Text = "answer";
             for (var i = 0; i < 5; i++) { Avalonia.Headless.AvaloniaHeadlessPlatform.ForceRenderTimerTick(); Dispatcher.UIThread.RunJobs(); }
@@ -417,7 +435,7 @@ public class HoverThroughWindowInputTests
             var point = view.GetVisualPosition(new AvaloniaEdit.TextViewPosition(1, 3), AvaloniaEdit.Rendering.VisualYPosition.TextMiddle) - view.ScrollOffset;
             var target = view.TranslatePoint(point, editor)!.Value;
             UiAutomationDriver.Hover(editor, target.X, target.Y, null, out _).Success.Should().BeTrue();
-            await Settle(700);
+            await WaitForTip(editor);
             ToolTip.GetTip(editor)?.ToString().Should().Be("answer = frame:0:answer");
             hoverAsks.Should().BeEmpty();
             UiAutomationDriver.EndHover(editor);
@@ -426,7 +444,7 @@ public class HoverThroughWindowInputTests
             external.IsActive.Should().BeTrue();
             external.Stop.Should().BeNull();
             UiAutomationDriver.Hover(editor, target.X, target.Y, null, out _).Success.Should().BeTrue();
-            await Settle(700);
+            await WaitForTip(editor);
             hoverAsks.Should().ContainSingle();
             ToolTip.GetTip(editor)?.ToString().Should().Contain("Sub Foo()");
         }
@@ -452,7 +470,7 @@ public class HoverThroughWindowInputTests
         {
             UiAutomationDriver.Hover(editor, null, null, null, out var first).Success.Should().BeTrue();
             first!.Value.ThroughWindowInput.Should().BeTrue();
-            await Settle(700);
+            await WaitForTip(editor);
             ToolTip.GetIsOpen(editor).Should().BeTrue();
             if (endedBetween)
             {
@@ -462,7 +480,7 @@ public class HoverThroughWindowInputTests
             }
 
             UiAutomationDriver.Hover(editor, null, null, null, out _).Success.Should().BeTrue();
-            await Settle(700);
+            await WaitForTip(editor);
 
             ToolTip.GetIsOpen(editor).Should().BeTrue();
             ToolTip.GetTip(editor)?.ToString().Should().Contain("Sub Foo()");
@@ -493,7 +511,7 @@ public class HoverThroughWindowInputTests
                         "Second message", DiagnosticSeverity.Warning)]));
             Dispatcher.UIThread.RunJobs();
             UiAutomationDriver.Hover(editor, null, null, null, out _).Success.Should().BeTrue();
-            await Settle(700);
+            await WaitForTip(editor);
             ToolTip.GetIsOpen(editor).Should().BeTrue();
             var tip = ToolTip.GetTip(editor)?.ToString();
             tip.Should().Contain("Server: First message").And.Contain("Second message");
@@ -502,7 +520,11 @@ public class HoverThroughWindowInputTests
 
             editor.CaretOffset = editor.Document.GetLineByNumber(line + 1).Offset + 7;
             UiAutomationDriver.Hover(editor, null, null, null, out _).Success.Should().BeTrue();
-            await Settle(700);
+            await WaitForTip(editor,
+                () => autoQuickInfo && hasQuickInfo
+                    ? ToolTip.GetIsOpen(editor) && ToolTip.GetTip(editor)?.ToString() == "Quick info"
+                    : ToolTip.GetTip(editor) is null,
+                "the hover outside diagnostics to replace or clear the tooltip");
             var outsideTip = ToolTip.GetTip(editor)?.ToString() ?? "";
             outsideTip.Should().NotContain("First message");
             outsideTip.Should().NotContain("Second message");
@@ -512,5 +534,34 @@ public class HoverThroughWindowInputTests
             ToolTip.GetTip(editor).Should().BeNull();
         }
         finally { window.Close(); vm.Dispose(); }
+    }
+}
+
+public class HoverTipWaitTests
+{
+    [AvaloniaFact]
+    public async Task Waiting_for_a_tip_allows_it_to_open_after_the_old_fixed_wait()
+    {
+        var button = new Button();
+        ToolTip.SetTip(button, "Slow tip");
+        var window = new Window { Content = button };
+        window.Show();
+        try
+        {
+            using var timer = DispatcherTimer.RunOnce(() => ToolTip.SetIsOpen(button, true),
+                TimeSpan.FromMilliseconds(900));
+            await HoverThroughWindowInputTests.WaitForTip(button);
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaFact]
+    public async Task Waiting_for_a_tip_reports_the_condition_elapsed_time_and_last_tip_on_timeout()
+    {
+        var button = new Button();
+        ToolTip.SetTip(button, "Last tip");
+        Func<Task> wait = () => HoverThroughWindowInputTests.WaitForTip(button, timeoutMs: 40);
+        await wait.Should().ThrowAsync<Xunit.Sdk.XunitException>()
+            .WithMessage("*waited*ms (limit 40 ms) for the tooltip to open; tooltip open: False; tip: Last tip*");
     }
 }

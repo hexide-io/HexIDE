@@ -107,7 +107,7 @@ public class UiSaveAnswerTimingTests
         var lsp = Substitute.For<ILspClient>();
         lsp.IsRunning.Returns(true);
         var formatting = new TaskCompletionSource<TextEdit[]>();
-        lsp.RequestFormattingAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(formatting.Task);
+        lsp.RequestFormattingAsync(Arg.Any<string>(), Arg.Any<FormattingOptions>(), Arg.Any<CancellationToken>()).Returns(formatting.Task);
         lsp.RequestDocumentSymbolsAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(Array.Empty<DocumentSymbol>());
         var settings = Substitute.For<ISettingsService>();
         settings.TabWidth.Returns(4);

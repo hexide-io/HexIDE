@@ -15,6 +15,19 @@ public static class AvaloniaMethodsInteroperability
     public static Vb6Value Call(this Control c, string method, IReadOnlyList<Vb6Value> args)
     {
         VBProps.RefuseIfRemoved(c);
+        if (c is VBListView listView && Components.InBox.ListViewComponentClass.Instance.Member(method) is not null)
+            return listView.CallMember(method, args);
+        if (c is VBUpDown && (method.Equals("OLEDrag", StringComparison.OrdinalIgnoreCase)
+                              || method.Equals("AboutBox", StringComparison.OrdinalIgnoreCase)))
+            throw new NotImplementedException($"UpDown {method} is not implemented (#1093)");
+        if (c is VBDTPicker && (method.Equals("OLEDrag", StringComparison.OrdinalIgnoreCase)
+                                || method.Equals("AboutBox", StringComparison.OrdinalIgnoreCase)))
+            throw new NotImplementedException($"DTPicker {method} is not implemented (#1094)");
+        if (c is VBMaskEdBox && Components.InBox.MaskedEdBoxComponentClass.Instance.Member(method) is not null)
+            throw VBMaskEdBox.Refused(method);
+        if (c is VBTimer)
+            TimerMembers.RefuseMethod(method);
+
         if (c is VBTabStrip strip && TabStripMembers.IsOwn(method))
         {
             if (!method.Equals("DeselectAll", StringComparison.OrdinalIgnoreCase))
@@ -22,13 +35,12 @@ public static class AvaloniaMethodsInteroperability
             strip.Model.DeselectAll((int)(long)strip.Values["Style"].Value!);
             return Vb6Value.Nothing;
         }
-        if (c is VBTreeView)
-            throw new NotImplementedException();
         if (c is VBToolbar)
             VBToolbar.RefusePending(method);
         // An in-box control's own methods, and those it lacks, by its member table (#1082). One it lacks, such as a
         // ProgressBar's SetFocus, is refused as a property it lacks is: VB6's compile error on the early-bound call, which
         // is 438 late-bound (measured).
+        RichTextBoxMembers.RefuseMethod(c, method);
         if (c is VBSSTab && Components.InBox.SSTabComponentClass.Instance.Member(method) is { Implemented: false })
             throw new NotImplementedException($"SSTab {method} is not implemented");
         if ((StatusBarMembers.TryCall(c, method) ?? ProgressBarMembers.TryCall(c, method)) is { } inBox)
@@ -88,6 +100,9 @@ public static class AvaloniaMethodsInteroperability
         if (method.Equals("setfocus", StringComparison.OrdinalIgnoreCase) && args.Count == 0 && (c is IFormView || c.Focusable))
             return SetFocus(c);
 
+        if (c is VBTreeView)
+            throw new NotImplementedException($"TreeView.{method} (#1086)");
+
         // A method VB6 has and HexIDE does not, such as Refresh, SetFocus or Cls. This was a
         // plain Exception, which the IDE reports as an internal fault. It is HexIDE's gap, not the program's, so
         // it says so, and it is never trappable: On Error Resume Next stepping over a Move that never happened
@@ -106,6 +121,7 @@ public static class AvaloniaMethodsInteroperability
     /// <item>otherwise the control has the focus at once, and its form is activated if another one had it. The old
     /// control's LostFocus and the new one's GotFocus come after the handler that called SetFocus has returned, as
     /// messages Windows posts;</item>
+    /// <item>after Me.Show in Form_Load, the focus events run inside Load instead (#2436, measured);</item>
     /// <item>it raises no Validate, and on the control that already has the focus it raises nothing.</item>
     /// </list>
     /// A control that can't take the focus, such as a Label, has no SetFocus in VB6, and is refused as not implemented
@@ -119,7 +135,7 @@ public static class AvaloniaMethodsInteroperability
         view.ActivateForm();
         if (c is not IFormView)
         {
-            using var posting = view.Context.Events.Posting();
+            using var posting = view.Context.Loading ? null : view.Context.Events.Posting();
             c.Focus();
         }
         return Vb6Value.Nothing;
@@ -229,6 +245,17 @@ public static class AvaloniaMethodsInteroperability
     public static async ValueTask<Vb6Value> CallAsync(this Control c, string method, IReadOnlyList<Vb6Value> args)
     {
         VBProps.RefuseIfRemoved(c);
+        if (c is VBListView list && method.Equals("StartLabelEdit", StringComparison.OrdinalIgnoreCase) && args.Count == 0)
+        {
+            await list.StartLabelEdit();
+            return Vb6Value.Nothing;
+        }
+        if (c is VBTreeView tree && method.Equals("StartLabelEdit", StringComparison.OrdinalIgnoreCase))
+        {
+            if (args.Count != 0) throw new NotImplementedException();
+            await tree.StartLabelEditAsync();
+            return Vb6Value.Nothing;
+        }
         // A CommonDialog's ShowOpen and the rest wait for the dialog (#1084).
         if (c is VBCommonDialog dialog && VBCommonDialog.Handles(method))
             return await dialog.CallAsync(method, args);

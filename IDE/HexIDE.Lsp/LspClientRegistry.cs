@@ -507,8 +507,8 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
     public Task<RenameResult?> RequestRenameAsync(string uri, Position position, string newName, CancellationToken ct = default) =>
         TopClaimantAdvertising(uri, "renameProvider") is { } c ? c.RequestRenameAsync(uri, position, newName, ct) : Task.FromResult<RenameResult?>(null);
 
-    public Task<TextEdit[]> RequestFormattingAsync(string uri, CancellationToken ct = default) =>
-        TopClaimantAdvertising(uri, "documentFormattingProvider") is { } c ? c.RequestFormattingAsync(uri, ct) : Task.FromResult<TextEdit[]>([]);
+    public Task<TextEdit[]> RequestFormattingAsync(string uri, FormattingOptions options, CancellationToken ct = default) =>
+        TopClaimantAdvertising(uri, "documentFormattingProvider") is { } c ? c.RequestFormattingAsync(uri, options, ct) : Task.FromResult<TextEdit[]>([]);
 
     /// <summary>
     /// Routed by advertised capability rather than by language, because it has no document to route by.
@@ -948,6 +948,10 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
             await client.StartAsync(cancellationToken);
             e.State = client.IsRunning ? LanguageConnectionState.Running : LanguageConnectionState.Failed;
             e.StateSince = DateTimeOffset.UtcNow;
+            if (client.IsRunning && _artifacts is not null)
+                await _artifacts.TrackFoldersAsync(e.Registration, token =>
+                    ReferenceEquals(e.Client, client) && client.IsRunning
+                        ? client.UpdateWorkspaceFoldersAsync(token) : Task.CompletedTask, cancellationToken);
             if (client.IsRunning && _artifacts is not null && e.Registration.ProjectImport is { } spec)
                 await _artifacts.ImportAsync(e.Registration, async (project, token) =>
                 {

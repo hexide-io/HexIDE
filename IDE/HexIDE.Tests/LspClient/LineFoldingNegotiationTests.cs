@@ -80,7 +80,7 @@ public class LineFoldingNegotiationTests : IAsyncDisposable
         semantic.GetProperty("multilineTokenSupport").GetBoolean().Should().BeFalse();
 
         initialize.GetProperty("capabilities").GetProperty("textDocument")
-            .GetProperty("foldingRange").ValueKind.Should().Be(JsonValueKind.Null);
+            .TryGetProperty("foldingRange", out _).Should().BeFalse();
 
         const string uri = "untitled:Module1.bas";
         var tokens = await client.RequestSemanticTokensAsync(uri, TestContext.Current.CancellationToken);

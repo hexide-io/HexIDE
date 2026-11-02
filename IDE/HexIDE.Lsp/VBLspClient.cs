@@ -180,7 +180,7 @@ public sealed class VBLspClient : ILspClient
         ILspWorkspace? workspace = null, TimeSpan? initializeTimeout = null,
         string trace = LspTraceValue.Off,
         ConversationLog? capture = null, string? connectionId = null,
-        ConversationRedactor? workspaceNames = null, Func<string>? locale = null)
+        ConversationRedactor? workspaceNames = null, Func<string>? locale = null, HexIDE.IDE.ISettingsService? settings = null)
     {
         _transport = transport;
         _logger = logger;
@@ -192,9 +192,11 @@ public sealed class VBLspClient : ILspClient
         _connectionId = connectionId;
         _workspaceNames = workspaceNames;
         _locale = locale ?? (() => "en");
+        _settings = settings;
     }
 
     private readonly Func<string> _locale;
+    private readonly HexIDE.IDE.ISettingsService? _settings;
 
     /// <summary>
     /// Where this connection's conversation is recorded, and under what name. Null when nothing is
@@ -300,6 +302,7 @@ public sealed class VBLspClient : ILspClient
     {
         // Channel-level death signal (e.g. stdio server process exit). WebSocket drops surface via
         // JsonRpc.Disconnected instead, wired per-connection in ConnectAndInitializeAsync.
+        if (_settings is not null) _settings.PropertyChanged += OnSettingsChanged;
         _transport.Closed += OnTransportClosed;
         _transport.Notice += OnTransportNotice;
 
@@ -567,7 +570,7 @@ public sealed class VBLspClient : ILspClient
         var initParams = new InitializeParams(
             ProcessId: Environment.ProcessId,
             RootUri: WorkspaceRootUri(),
-            WorkspaceFolders: WorkspaceFolders(),
+            WorkspaceFolders: _sentWorkspaceFolders = WorkspaceFolders(),
             // Sent even when it is off. The field is optional and off is its default, so this line changes
             // nothing about how a server behaves — it changes what a capture of a quiet session can tell
             // you, which is the difference between "we never asked" and "we asked and it said nothing".
@@ -605,6 +608,7 @@ public sealed class VBLspClient : ILspClient
                 new WorkspaceClientCapabilities(
                     ExecuteCommand: new ExecuteCommandClientCapabilities(),
                     WorkspaceFolders: true,
+                    Configuration: true,
                     Diagnostics: new WorkspaceDiagnosticsClientCapabilities(),
                     FileOperations: new FileOperationsClientCapabilities()),
                 // The same declare-and-gate bargain as save and codeLens: silence otherwise is correct.
@@ -1712,12 +1716,12 @@ public sealed class VBLspClient : ILspClient
         }
     }
 
-    public async Task<TextEdit[]> RequestFormattingAsync(string uri, CancellationToken cancellationToken = default)
+    public async Task<TextEdit[]> RequestFormattingAsync(string uri, FormattingOptions options, CancellationToken cancellationToken = default)
     {
         if (_rpc is null || !_initialized || !CanServe("documentFormattingProvider")) return [];
         var p = new DocumentFormattingParams(
             new TextDocumentIdentifier(uri),
-            new FormattingOptions(4, true));
+            options);
         try
         {
             return await InvokeRequestAsync<TextEdit[]?>(_rpc,
@@ -1787,6 +1791,32 @@ public sealed class VBLspClient : ILspClient
             WarnRequestFailedOnce("codeLens/resolve", ex, cancellationToken);
             return null;
         }
+    }
+
+    private WorkspaceFolder[]? _sentWorkspaceFolders;
+
+    public async Task UpdateWorkspaceFoldersAsync(CancellationToken cancellationToken = default)
+    {
+        if (_rpc is null || !_initialized) return;
+        var capabilities = AdvertisedCapabilities;
+        if (capabilities is not { ValueKind: JsonValueKind.Object } caps
+            || !caps.TryGetProperty("workspace", out var workspace)
+            || workspace.ValueKind != JsonValueKind.Object
+            || !workspace.TryGetProperty("workspaceFolders", out var folders)
+            || folders.ValueKind != JsonValueKind.Object
+            || !folders.TryGetProperty("changeNotifications", out var notifications)
+            || !(notifications.ValueKind == JsonValueKind.True
+                || notifications.ValueKind == JsonValueKind.String)) return;
+
+        var current = (WorkspaceFolders() ?? []).DistinctBy(f => f.Uri).ToArray();
+        var previous = _sentWorkspaceFolders ?? [];
+        var added = current.Where(f => !previous.Any(p => p.Uri == f.Uri)).ToArray();
+        var removed = previous.Where(f => !current.Any(p => p.Uri == f.Uri)).ToArray();
+        if (added.Length == 0 && removed.Length == 0) return;
+        cancellationToken.ThrowIfCancellationRequested();
+        await _rpc.NotifyWithParameterObjectAsync("workspace/didChangeWorkspaceFolders",
+            new DidChangeWorkspaceFoldersParams(new WorkspaceFoldersChangeEvent(added, removed)));
+        _sentWorkspaceFolders = current;
     }
 
     private bool _serverRefreshesDiagnostics;
@@ -1932,6 +1962,7 @@ public sealed class VBLspClient : ILspClient
 
     public async Task StopAsync()
     {
+        if (_settings is not null) _settings.PropertyChanged -= OnSettingsChanged;
         ClearProgress();
         _stopping = true;
         // Safe even if the reconnect loop already disposed the CTS in its finally.
@@ -1956,8 +1987,9 @@ public sealed class VBLspClient : ILspClient
             // object omits the member; JSON null on the wire is not equivalent to absence.
             //
             // The cost of getting this wrong is not a rejected request: LSP has a server exit 0 when a
-            // shutdown preceded exit and 1 otherwise, so a server that refuses ours correctly reports
-            // that we never shut it down, and any supervisor reads every clean exit as a crash.
+            // shutdown preceded exit; LSP specifies 1 otherwise, but measured ruff returns 2 (#491).
+            // A server that refuses ours reports that we never shut it down, and any supervisor reads
+            // every clean exit as a crash.
             // See hexide-io/HexIDE#312.
             // A live but wedged server must not hold IDE shutdown indefinitely (#392).
             try
@@ -2107,11 +2139,33 @@ public sealed class VBLspClient : ILspClient
         return Task.CompletedTask;
     }
 
+    private async void OnSettingsChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName is not (nameof(HexIDE.IDE.ISettingsService.TabWidth) or null or "")) return;
+        var rpc = _rpc;
+        if (!IsRunning || rpc is null) return;
+        try
+        {
+            await rpc.NotifyWithParameterObjectAsync("workspace/didChangeConfiguration",
+                new DidChangeConfigurationParams(EmptyParams.Instance));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Could not send workspace/didChangeConfiguration to the {Language} server", _languageId);
+        }
+    }
+
     private sealed class LspNotificationReceiver
     {
         private readonly VBLspClient _client;
 
         public LspNotificationReceiver(VBLspClient client) => _client = client;
+
+        [JsonRpcMethod("workspace/configuration", UseSingleObjectParameterDeserialization = true)]
+        public JsonElement[] OnConfiguration(ConfigurationParams p) => p.Items.Select(item =>
+            JsonSerializer.SerializeToElement<int?>(item.Section == "editor.tabSize"
+                ? _client._settings?.TabWidth ?? HexIDE.IDE.SettingsDefaults.TabWidth
+                : null, LspJsonContext.Default.NullableInt32)).ToArray();
 
         [JsonRpcMethod("textDocument/publishDiagnostics", UseSingleObjectParameterDeserialization = true)]
         public void OnPublishDiagnostics(PublishDiagnosticsParams p)

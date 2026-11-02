@@ -97,6 +97,9 @@ public sealed class NamedPipeLspTransport : ILspTransport
 
     private PipeStream? _pipe;
     private Process? _process;
+    private readonly Lock _exitGate = new();
+    private bool _exitReported;
+    private bool _disposing;
     private ChildProcessJob? _job;
 
     /// <summary>
@@ -210,6 +213,11 @@ public sealed class NamedPipeLspTransport : ILspTransport
         // Drop any previous connection (reconnect) so the far side observes the close and frees its
         // endpoint, rather than leaking a half-open pipe that the next dial would collide with.
         await DisposeAsync();
+        lock (_exitGate)
+        {
+            _disposing = false;
+            _exitReported = false;
+        }
 
         // Resolved before the pipe exists and before anything is started, because a placeholder that
         // cannot be filled is a knowable precondition rather than a connect failure — and reporting it as
@@ -475,12 +483,27 @@ public sealed class NamedPipeLspTransport : ILspTransport
 
     private void OnServerExited(object? sender, EventArgs e)
     {
+        bool disposing;
+        lock (_exitGate)
+        {
+            if (!ReferenceEquals(sender, _process)) return;
+            ReportExit();
+            disposing = _disposing;
+        }
+        if (!disposing) Closed?.Invoke(this, EventArgs.Empty);
+    }
+
+    private void ReportExit()
+    {
+        if (_exitReported) return;
+        _exitReported = true;
         // Read first: Kill() and Dispose() are both moments away, and ExitCode throws once the handle
         // is gone.
         var code = ExitCode();
 
-        _logger.LogWarning(
-            "Language server process exited{Code}", code is null ? "" : $" with code {code}");
+        _logger.Log(_disposing ? LogLevel.Information : LogLevel.Warning,
+            "[{Server}] Language server process exited{Code}", _launch!.FileName,
+            code is null ? "" : $" with code {code}");
 
         // BEFORE Closed, which is what tears the connection down. An exit code arriving after the record
         // stopped accepting entries would be the one fact nobody could see — and for a pipe server that
@@ -489,8 +512,6 @@ public sealed class NamedPipeLspTransport : ILspTransport
             TransportNoticeKind.Lifecycle,
             code is null ? "process exited" : $"process exited with code {code}",
             Fault: code is not (null or 0)));
-
-        Closed?.Invoke(this, EventArgs.Empty);
     }
 
     /// <summary>The exit code, or null when the process cannot tell us.</summary>
@@ -509,7 +530,7 @@ public sealed class NamedPipeLspTransport : ILspTransport
         var pipe = _pipe;
         var process = _process;
         _pipe = null;
-        _process = null;
+        lock (_exitGate) _disposing = true;
 
         if (pipe is not null)
         {
@@ -523,14 +544,7 @@ public sealed class NamedPipeLspTransport : ILspTransport
             return;
         }
 
-        // Killing the child is required, not tidy-up. A real third-party server was measured taking a
-        // client PID on its command line, silently ignoring it, logging that it "will not be able to
-        // automatically exit", and then outliving every client — leaving orphaned server processes on
-        // each run. A transport that owns a child has to assume nothing else will reap it.
-        //
-        // Unsubscribe first: the kill would otherwise raise Closed during teardown and invite the
-        // client to reconnect to a transport that is being disposed.
-        process.Exited -= OnServerExited;
+        // Keep observing the child through the grace period; deliberate teardown must not raise Closed.
         try
         {
             // A server may still be starting children after initialize answers (#313).
@@ -543,12 +557,22 @@ public sealed class NamedPipeLspTransport : ILspTransport
             if (!process.HasExited)
             {
                 LaunchedServerGuard.Kill(process);
+                _logger.LogInformation("[{Server}] Language server process killed after waiting {Timeout:g} for exit.",
+                    _launch!.FileName, LaunchedServerGuard.ExitTimeout);
+                Notice?.Invoke(this, new TransportNotice(TransportNoticeKind.Lifecycle,
+                    "process killed after waiting for exit"));
                 await process.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(2));
             }
         }
         catch { /* already gone */ }
 
-        process.Dispose();
+        lock (_exitGate)
+        {
+            if (process.HasExited) ReportExit();
+            process.Exited -= OnServerExited;
+            process.Dispose();
+            _process = null;
+        }
         _job?.Dispose();
         _job = null;
     }

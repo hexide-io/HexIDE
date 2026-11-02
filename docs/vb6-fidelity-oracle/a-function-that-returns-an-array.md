@@ -105,14 +105,12 @@ scalar `T` or Variant, checks the value's type against it:
 - **A String into a Byte()** stopped the run with a NotImplementedException naming #998, since neither this path nor
   a Byte() variable converted yet, and raising an error VB6 doesn't would be worse. Both convert since #998.
 
-Every row is pinned, the typed parameters as HexIDE's answer, except three. The Property Get rows are pinned through the class, since a standard module's
+Every row is pinned, the typed parameters as HexIDE's answer, except the cases below. The Property Get rows are pinned through the class, since a standard module's
 Property Get is #977's. Not pinned, and known to differ:
 - **`F = G()`**, with `G` declared `As Integer`, is 13 here where VB6 refuses to compile it, because the statement
   executor doesn't read a callee's declared type. Wrong only on a program VB6 does not compile.
 - **A typed parameter**, `p As Integer` or `p() As Long`, stored into the return is 13 here where VB6 refuses to
   compile it, for the reason above. Pinned as HexIDE's answer, so that changing it is a decision.
-- **`As Object()` and `As Collection()`** are not checked, because their element type is not modelled, so `F = Array(1,
-  2)` returns the Variant array where VB6 raises 13. That is a missing error on a path that runs: #999.
 - **`StrConv`** isn't implemented, so its row stops the run before the store.
 
 ### An array of objects (2026-10-27, #999)
@@ -146,3 +144,8 @@ same assignments between dynamic arrays, `b = a`, with no Function. Native and p
 - **The 13 that #999 measured** is for an array whose elements are not objects: `Array(1, 2)` is a Variant(). So the
   run-time check needs only "an array of objects", not the class.
 - **`TypeName` of a Collection() or a Class1() is "Object()".**
+
+**HexIDE, after #999.** Object and Collection returns use the object array type; a class-array return resolves its
+class when called. A named array with another declared object element type is refused as the store executes, for
+returns and dynamic array variables alike. Through a Variant the check accepts any object array, keeping the
+destination declaration without inspecting its elements. The measurements above are pinned in `ObjectArrayReturnTests`.

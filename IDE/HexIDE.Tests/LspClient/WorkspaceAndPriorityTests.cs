@@ -45,7 +45,7 @@ public class WorkspaceAndPriorityTests : IAsyncDisposable
         c.AdvertisedCapabilities.Returns(JsonDocument.Parse(
             """{"textDocumentSync":{"openClose":true,"change":1},"documentFormattingProvider":true}""")
             .RootElement.Clone());
-        c.RequestFormattingAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
+        c.RequestFormattingAsync(Arg.Any<string>(), new FormattingOptions(4, true), Arg.Any<CancellationToken>())
             .Returns([new TextEdit(new LspRange(new Position(0, 0), new Position(0, 1)), marker)]);
         return c;
     }
@@ -68,7 +68,7 @@ public class WorkspaceAndPriorityTests : IAsyncDisposable
         _disposables.Add(sut);
 
         await sut.OpenDocumentAsync("file:///c:/p/M.bas", "code", TestContext.Current.CancellationToken);
-        var edits = await sut.RequestFormattingAsync("file:///c:/p/M.bas", TestContext.Current.CancellationToken);
+        var edits = await sut.RequestFormattingAsync("file:///c:/p/M.bas", new FormattingOptions(4, true), TestContext.Current.CancellationToken);
 
         edits.Should().ContainSingle().Which.NewText.Should().Be("mine");
     }
@@ -91,7 +91,7 @@ public class WorkspaceAndPriorityTests : IAsyncDisposable
         _disposables.Add(sut);
 
         await sut.OpenDocumentAsync("file:///c:/p/M.bas", "code", TestContext.Current.CancellationToken);
-        var edits = await sut.RequestFormattingAsync("file:///c:/p/M.bas", TestContext.Current.CancellationToken);
+        var edits = await sut.RequestFormattingAsync("file:///c:/p/M.bas", new FormattingOptions(4, true), TestContext.Current.CancellationToken);
 
         edits.Should().ContainSingle().Which.NewText.Should().Be("bundled");
     }

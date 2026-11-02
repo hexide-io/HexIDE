@@ -101,9 +101,6 @@ public class CorpusBehaviourTests
         // ---- REFUSES CODE VB6 RAN. A false rejection at run time rather than parse time — the parse ---
         // ---- gate is blind to these too, because the module parses and then dies executing. ----------
 
-        // A jump to a label sharing Next's line remains deferred by the tree-walking limit (#223).
-        ["line-labels/label-immediately-before-a-loop-terminator"] = "LABEL-BEFORE-TERMINATOR: dies after the first print",
-
         // GOSUB. Not a defect but the tree-walking limit CLAUDE.md names explicitly: a visitor-frame stack
         // has no position to return to. Listed so the count is honest, not because it is fixable here.
         ["gap-fill/gosub-return-colon-joined-one-line"] = "GOSUB: the execution-strategy limit, by design",

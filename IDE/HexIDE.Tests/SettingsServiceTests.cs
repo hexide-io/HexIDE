@@ -28,6 +28,17 @@ public class SettingsServiceTests : IDisposable
         return new SettingsService(SettingsPath);
     }
 
+    [Fact]
+    public void SavingPreservesFileAtOldStagingName()
+    {
+        var settings = CreateSut();
+        File.WriteAllText(SettingsPath + ".tmp", "user file");
+        settings.TabWidth = 8;
+        settings.Save();
+        CreateSut().TabWidth.Should().Be(8);
+        File.ReadAllText(SettingsPath + ".tmp").Should().Be("user file");
+    }
+
     [Theory]
     [InlineData(nameof(SettingsService.RequireVariableDeclaration), true)]
     [InlineData(nameof(SettingsService.AutoListMembers), false)]

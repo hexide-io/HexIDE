@@ -173,6 +173,66 @@ public class DockFactoryTests
         }
     }
 
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    [InlineData(true, true)]
+    public void ClosedSplitMember_FileRoundTripRestoresItsOwnDock(bool addin, bool closeContainer)
+    {
+        var (factory, immediate) = CreateFactory();
+        var root = factory.CreateLayout();
+        factory.InitLayout(root);
+        Tool tool = immediate;
+        if (addin)
+        {
+            tool = new HexIDE.Addins.AddinToolWindowViewModel("sample", "Sample", () => new object());
+            factory.RegisterAddinTool(root, (HexIDE.Addins.AddinToolWindowViewModel)tool);
+        }
+        (tool.Owner as IDock)?.VisibleDockables?.Remove(tool);
+        var main = (IDock)root.DefaultDockable!;
+        var left = main.VisibleDockables![0];
+        left.Proportion = 0.4;
+        var dock = factory.CreateToolDock();
+        dock.Proportion = 0.6;
+        dock.VisibleDockables = factory.CreateList<IDockable>(tool);
+        main.VisibleDockables[0] = new ProportionalDock
+        {
+            Proportion = 0.25,
+            VisibleDockables = factory.CreateList(left, new ProportionalDockSplitter(), dock),
+        };
+        factory.InitLayout(root);
+        factory.CloseDockable(closeContainer ? dock : tool);
+        var file = System.IO.Path.Combine(AppContext.BaseDirectory, System.IO.Path.GetRandomFileName());
+        try
+        {
+            // Two restarts include an eager save before the closed add-in registers.
+            for (var restart = 0; restart < 2; restart++)
+            {
+                System.IO.File.WriteAllText(file, LayoutManifestJson.Serialize(factory.CaptureManifest(root)));
+                (factory, immediate) = CreateFactory(LayoutManifestJson.Deserialize(System.IO.File.ReadAllText(file)));
+                root = factory.CreateLayout();
+                factory.InitLayout(root);
+                factory.CaptureManifest(root).Tools.Single(t => t.Key == (addin ? "addin:sample" : "immediate"))
+                    .Open.Should().BeFalse();
+            }
+            tool = addin
+                ? new HexIDE.Addins.AddinToolWindowViewModel("sample", "Sample", () => new object()) : immediate;
+            if (addin)
+                factory.RegisterAddinTool(root, (HexIDE.Addins.AddinToolWindowViewModel)tool);
+            factory.PlaceTool(root, tool, rightFallback: false);
+            var split = (IProportionalDock)((IDock)root.DefaultDockable!).VisibleDockables![0];
+            split.Proportion.Should().Be(0.25);
+            split.VisibleDockables.Should().HaveCount(3);
+            split.VisibleDockables![0].Proportion.Should().Be(0.4);
+            var restored = (IToolDock)split.VisibleDockables[2];
+            restored.VisibleDockables.Should().Equal(tool);
+            restored.ActiveDockable.Should().BeSameAs(tool);
+            restored.Proportion.Should().Be(0.6);
+        }
+        finally { System.IO.File.Delete(file); }
+    }
+
     [AvaloniaTheory]
     [InlineData(Dock.Model.Core.Orientation.Horizontal, false, false)]
     [InlineData(Dock.Model.Core.Orientation.Vertical, false, false)]
@@ -523,6 +583,7 @@ public class DockFactoryTests
 
         factory.RegisterAddinTool(root, tool);
 
+        tool.KeepSavedWidth.Should().BeTrue("a saved dock width must not be replaced by first-display sizing");
         var captured = factory.CaptureManifest(root).Tools.Single(t => t.Key == saved.Key);
         captured.Open.Should().BeTrue();
         captured.Region.Should().Be(region);

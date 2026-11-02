@@ -38,6 +38,29 @@ that is closed it SHALL give no `items`, and `itemsNote` SHALL say to expand it;
 - **WHEN** the Language dropdown, holding 31 items of which ten have rows, is expanded and inspected
 - **THEN** `items` gives all 31 texts, and `select` takes any of them as written
 
+### Requirement: The Immediate window's editor SHALL be found by match and read where it is shown
+`dump_visual_tree`'s `match` SHALL find the Immediate window's editor by its class, `TextEditor`, and by the window's
+name, under a path that is the same in every language. `inspect_element` on that editor SHALL report the window's text
+as its `value`, with `isReadOnly`. An editor whose document is a project file SHALL leave its text to `get_file_content`.
+
+#### Scenario: Reading a program's Debug.Print output
+- **WHEN** the Immediate window holds a run's output and `dump_visual_tree` is called with `match: "TextEditor"`
+- **THEN** the Immediate window's editor is among the matches, and `inspect_element` on it gives the output as `value`
+
+#### Scenario: A code window's editor
+- **WHEN** a code window's editor is inspected
+- **THEN** its `value` is absent, and its file is read with `get_file_content`
+
+### Requirement: Inspection SHALL report the mouse pointer a control shows
+`inspect_element` SHALL give `pointer` for a control showing a pointer set on it or above it: a running program's
+MousePointer by number and name, the pointer drawn, where it is set, and `setBy`, which says whether it is the
+control's own value, one set over it as `Screen.MousePointer` sets it, or a style's. A pointer the runtime did not make
+SHALL be reported as not recorded, never guessed, and a control with none set SHALL have no `pointer`.
+
+#### Scenario: Screen.MousePointer over a control's own
+- **WHEN** a running form's code sets `Screen.MousePointer = 11` over a button whose own MousePointer is 2
+- **THEN** the button's `pointer` is 11, Hourglass, set by Override, and after `Screen.MousePointer = 0` it is 2, Cross, its own
+
 ### Requirement: Inspection SHALL report what a tree has selected
 `inspect_element` on a tree SHALL report in `selectionItems` the rows the tree has selected, each named as its row
 reads, and SHALL report an empty list only when nothing is selected. A tree whose peer offers no selection provider
@@ -218,6 +241,20 @@ in a tree is fragile in a way a direct call is not.
 #### Scenario: A tool that duplicates the generic mechanism
 - **WHEN** a proposed tool does something the generic mechanism already does
 - **THEN** it is declined in favour of the generic mechanism
+
+### Requirement: A reply field SHALL explain itself where it appears
+A reply field that needs explaining SHALL carry its explanation in the reply, beside the field, when the field
+appears. A tool's description SHALL name the field and the vocabulary it uses, and SHALL keep to what a caller needs
+before the first call. A tool description SHALL stay within 1900 characters, so that a merge adding both sides' text
+cannot take it past the 2048 a client delivers (#638, #2511).
+
+#### Scenario: A new reply field
+- **WHEN** a tool's reply gains a field whose meaning is not plain from its name and value
+- **THEN** the reply says what it means, and the description names the field without explaining it
+
+#### Scenario: A description past the budget
+- **WHEN** a change takes a tool or parameter description past 1900 characters
+- **THEN** the build fails, naming the tool, unless the tool is still listed as not yet brought within it
 
 ### Requirement: The server SHALL serve only requests that originated on this machine
 The server SHALL refuse any request whose `Host` header does not name a loopback address on the port it
@@ -404,6 +441,16 @@ caret's line, column and offset back from the editor.
 #### Scenario: A place off the text
 - **WHEN** `open_file` names a line past the file's last
 - **THEN** nothing opens, and the reply gives the lines it has
+
+### Requirement: open_file SHALL say when its caret is where type_text would be refused
+When the caret `open_file` places is in a part of a code window only the IDE changes, a form's header or a member's
+Attribute lines, the note SHALL name that part and give the nearest place that can be edited by line, column and offset.
+When the whole window refuses typing, the note SHALL say so. A caret where `type_text` writes SHALL add nothing.
+
+#### Scenario: A line inside a form's header
+- **WHEN** `open_file` opens Form1 of a new project at line 16, inside its header
+- **THEN** the note says the caret is in the file's header, which only the IDE changes, and names line 18, column 1,
+  offset 485, as the nearest place that can be edited
 
 ### Requirement: A tool that names a document SHALL name its project, and count lines from the top of the file
 A tool that accepts or reports a form, module or class SHALL identify it by its project and its name, SHALL
@@ -608,6 +655,22 @@ unknown name's refusal SHALL say that the IDE's window is the default here.
 - **WHEN** `get_window_state` is called with no `window`
 - **THEN** it reports the IDE's own window, named `ide`
 
+### Requirement: A window name SHALL reach a window a caller can use
+A `window` named by a title or a running form's name SHALL reach the one visible window of that name. Where several
+share it and sit on one another, each owning the next, the name SHALL reach the one on top, the one a person can use,
+and a path that fails there SHALL say that the name reached the window on top of another of that name. Where several
+share it side by side, the refusal SHALL name what does reach one of them, rather than advice no caller can follow.
+
+#### Scenario: A dialog and its own message box share a title
+- **WHEN** the Find dialog has raised a message box also titled "Find", and a tool is called with `window: "Find"`
+- **THEN** it reaches the message box
+- **AND** once the box closes, the same name reaches the Find dialog
+
+#### Scenario: Two instances of one form are open
+- **WHEN** two instances of Form1 are showing side by side, and a tool is called with `window: "Form1"`
+- **THEN** it is refused, naming both
+- **AND** the refusal says which of them `auto` reaches
+
 ### Requirement: The window-state reply SHALL say what its numbers measure
 The window-state reply SHALL give `scale`, and the window's `outer` rectangle, its `frame` as drawn and its `client`
 area, each on the screen in device-independent pixels, beside `x`, `y`, `width` and `height`, which it SHALL keep as
@@ -627,7 +690,19 @@ to a disabled window or one under a modal dialog.
 
 #### Scenario: Minimizing a running form
 - **WHEN** `set_window_state` minimizes `window: "Form1"` and then restores it
-- **THEN** the form's Resize runs for each, as it does for its minimize and restore boxes, and the reply names `Form1`
+- **THEN** exactly one Resize runs for each, with the new state and settled client size, as for its caption buttons
+- **AND** Paint follows restoring from minimized, with no Activate, Deactivate, GotFocus or LostFocus
+- **AND** the reply names `Form1`
+
+#### Scenario: Maximizing and restoring a running form
+- **WHEN** `set_window_state` maximizes `window: "Form1"` and then restores it
+- **THEN** each change raises exactly one Resize with the final state and client size
+- **AND** Paint follows maximizing, but not restoring from maximized
+
+#### Scenario: Resizing a running form
+- **WHEN** a person drags a running form's border or corner with window contents shown while dragging
+- **THEN** each move raises one Resize, followed by Paint when the client grows
+- **AND** releasing the border raises neither event
 
 #### Scenario: A Fixed Dialog
 - **WHEN** `set_window_state` asks a Fixed Dialog form to minimize, or to take a new width
@@ -658,6 +733,30 @@ automation name, or else its text, and SHALL list that name, never a type name, 
 #### Scenario: An item with a TextBlock header
 - **WHEN** a path names an item whose header is a TextBlock and whose automation name is its text
 - **THEN** the item is reached, and a miss in that menu lists it by that name
+
+### Requirement: A Make from the menu SHALL say what it made, or why it made nothing
+When `invoke_menu_item` starts a Make, its reply SHALL wait for Make to end and SHALL name the program and project it
+wrote, with their sizes and whether the program wrote over a file. Otherwise it SHALL give why nothing was written, and
+whether a message box saying so is open. A Make waiting at a save dialog nothing answered SHALL be reported as that.
+
+#### Scenario: A Make with its answer armed
+- **WHEN** `answer_next_file_dialog` arms a program's path and `invoke_menu_item` runs File/Make
+- **THEN** the note names that path and its size, and the project written beside it
+
+#### Scenario: No standalone runner
+- **WHEN** a Debug build with no published runner runs File/Make
+- **THEN** the note says no program was made, names the folder the runner was looked for in, and says a box is open
+
+### Requirement: Make's question before replacing an archive SHALL be reported
+A Make asking whether to replace the archive already beside the program SHALL be reported by `invoke_menu_item` as
+asking, within about a second, naming the archive. An `interact` that answers the question SHALL report what Make then
+did, and a No SHALL be reported as declining to replace the archive, not as a cancelled save dialog.
+
+#### Scenario: A second Make to the same path
+- **WHEN** a Make is armed with the path an earlier Make wrote, and runs File/Make
+- **THEN** the note says Make asks whether to replace the archive, names it, and says that interact answers the box
+- **AND** an `interact` answering No says nothing was written because replacing the archive was declined
+- **AND** an `interact` answering Yes names the program made over the earlier one
 
 ### Requirement: hover SHALL report a tip by the text it shows
 `hover` SHALL report a tooltip by its text: a string as written, and a tip that is a control by its visible text
@@ -865,6 +964,70 @@ as waiting to run separately from handlers already started.
 - **AND** events with handlers queued behind it are named as waiting to run
 - **AND** events without handlers are omitted
 
+### Requirement: A program Shell started SHALL have its windows readable, and no other process
+`get_process_windows` SHALL describe the top-level windows of a process a VB6 program run in the IDE started with
+`Shell`, and of the processes that one started, giving each one's state, visibility, bounds and whether it has the
+foreground. It SHALL refuse any other process, a reused process ID included, SHALL say why a reply has no window, and
+SHALL send nothing to any window.
+
+#### Scenario: A program started minimized
+- **WHEN** a program runs `pid = Shell("notepad.exe", 6)` and the caller passes that `pid`
+- **THEN** Notepad's window is reported as Minimized and visible, with the window style Shell was given
+
+#### Scenario: Another process
+- **WHEN** the caller passes the ID of a process `Shell` did not start
+- **THEN** the call is refused, naming the processes `Shell` did start
+
+#### Scenario: A launcher that hands off
+- **WHEN** the process `Shell` started has started the program and exited
+- **THEN** the program's windows are read through it, and a reply with no window says whether the process exited, has
+  no window yet, or its ID now names another process
+
+### Requirement: A hover SHALL be able to leave the pointer for a snapshot
+`hover` with `stay` SHALL leave the pointer on the point when its watch ends, so the control it landed on reads as under
+the pointer and a tip it opened stays open, and `take_snapshot` SHALL draw that tip with the window. The reply SHALL say
+whether the control reads as under the pointer once the move has settled, and what took it when it does not. The next
+click, drag or hover in that window SHALL end a staying hover before it acts. `inspect_element` SHALL report
+`isPointerOver`.
+
+#### Scenario: A toolbar button's hover look
+- **WHEN** `hover` with `stay` lands on a toolbar button that has a tip, with the real mouse off the window
+- **THEN** the reply says the button reads as under the pointer, `inspect_element` reports `isPointerOver` true, and a
+  snapshot draws its tip
+
+#### Scenario: The next click ends it
+- **WHEN** a click lands elsewhere in that window
+- **THEN** the button no longer reads as under the pointer, and its tip is closed
+
+### Requirement: Program wait replies SHALL say what a caller would otherwise guess
+A reply that waits on a running program SHALL say when a handler it found running, held at a window or paused, has
+finished, a Timer's left out. It SHALL name a form the program opened by its name, with its caption beside it where
+that differs, and SHALL say which `window` reaches a window that holds a handler. `continue_program` SHALL say which
+handlers it let finish.
+
+#### Scenario: Answering a MsgBox
+- **WHEN** a click's handler waits at a MsgBox titled "Question", and a later `interact` answers it
+- **THEN** the click's reply says `window "Question"` reaches the box
+- **AND** the answer's reply says the handler finished
+
+#### Scenario: A form opened under another caption
+- **WHEN** a click shows Form2, whose Load sets its caption to "Second"
+- **THEN** the reply says the program opened `Form2 ("Second")`
+
+### Requirement: Run-control replies SHALL say what the program printed
+A successful reply from `run_project`, `stop_project`, `continue_program`, `break_program`, a step or `run_to_cursor`
+SHALL give in `printed` what the program wrote with `Debug.Print` since its run began or a reply last reported it, and
+its note SHALL say how much, or that it wrote nothing. Output past 4000 characters SHALL keep its end, with the note
+saying how much was left out.
+
+#### Scenario: A program that prints as it loads
+- **WHEN** `run_project` starts a program whose `Form_Load` prints two lines
+- **THEN** `printed` holds the two lines, and the note says Debug.Print wrote 2 lines
+
+#### Scenario: Nothing printed
+- **WHEN** a program prints nothing before `stop_project`
+- **THEN** the reply has no `printed`, and its note says Debug.Print wrote nothing
+
 ### Requirement: Realized items SHALL be listed in item order
 The control-view collector shared by `dump_visual_tree` and path resolution SHALL order an items
 panel's own containers by their owning `ItemsControl` index. Children without an item index SHALL
@@ -877,6 +1040,19 @@ follow those containers, retaining their relative visual-child order.
 #### Scenario: A selected row is visible near the top
 - **WHEN** a selected row is the third row on screen
 - **THEN** it follows the first two rows in the dump rather than appearing first because it was created first
+
+### Requirement: An empty dump SHALL say why it is empty
+A `dump_visual_tree` reply whose tree has no children, and is not `truncated`, SHALL say in its note whether the window or
+node holds nothing showing, or whether `interactiveOnly` left out parts that show, and how many, so a caller can tell an
+empty form from a filtered one.
+
+#### Scenario: A running form with no controls
+- **WHEN** a program's Form2 has no controls and is dumped with the defaults
+- **THEN** the note says the window holds no controls, and that what is drawn on it shows in a snapshot
+
+#### Scenario: A window holding only text
+- **WHEN** a window holds only text and is dumped with `interactiveOnly` true
+- **THEN** the note says how many parts the filter left out, and to pass `interactiveOnly` false to see them
 
 ### Requirement: Large discovery trees prioritize showing controls
 
@@ -964,7 +1140,7 @@ pointer, in the same window, SHALL move nothing first, as a still pointer sends 
 
 #### Scenario: A click on a running form's button
 - **WHEN** `click` presses Command1, which logs its mouse events
-- **THEN** they run MouseMove, MouseDown, Click, MouseUp, as a real pointer's click on it runs them
+- **THEN** they run MouseMove, MouseDown, Click, MouseUp, MouseMove (Button 0), as a real pointer's left click on it runs them
 
 #### Scenario: A second click at the same point
 - **WHEN** `click` presses again where the last click left the pointer
@@ -1077,6 +1253,14 @@ were raised. A control that does not take focus SHALL be refused, saying that a 
 #### Scenario: Document mode
 - **WHEN** `type_text` in its default mode addresses a control that takes typing itself
 - **THEN** it is refused as having no text surface, and the refusal names keyboard mode
+
+### Requirement: A type_text write into a TextBox SHALL be drawn as written
+In its default mode, `type_text` SHALL commit what it writes into a TextBox so that the box draws the text it then
+holds, in a live, focused window as in a headless one, and not the text it held before the write.
+
+#### Scenario: The Find dialog's box
+- **WHEN** `type_text` in its default mode writes `Form` into the focused Find What box
+- **THEN** a snapshot of the dialog shows `Form` in the box, with the caret after it
 
 ### Requirement: press_key reads a chord written as one key
 `press_key` SHALL read a `key` written as a chord, such as `Ctrl+H`, as its last part, with the parts before it

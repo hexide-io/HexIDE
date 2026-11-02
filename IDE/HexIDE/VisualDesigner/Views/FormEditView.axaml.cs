@@ -10,6 +10,7 @@ using Avalonia.Media;
 using HexIDE.Controls;
 using HexIDE.Events;
 using HexIDE.IDE;
+using HexIDE.Runtime.Components.InBox;
 using R3;
 using Serilog;
 
@@ -31,8 +32,19 @@ public partial class FormEditView : UserControl
         ControlsContainer.AddHandler(DoubleTappedEvent, VisualControl_OnDoubleTapped,
             Avalonia.Interactivity.RoutingStrategies.Bubble, handledEventsToo: true);
 
+        ControlsContainer.AddHandler(PointerPressedEvent, OnDesignerPagePressed,
+            Avalonia.Interactivity.RoutingStrategies.Tunnel);
         FormContainer.AddHandler(PointerMovedEvent, OnFormPointerMoved);
         FormContainer.AddHandler(PointerReleasedEvent, OnFormPointerReleased);
+    }
+
+    private void OnDesignerPagePressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (DataContext is FormEditViewModel vm && vm.ToolsBoxToolViewModel is { IsCursorSelected: true }
+            && e.Source is Control { DataContext: ComponentInstanceViewModel { Instance.BaseClass: SSTabComponentClass } }
+            && e.GetCurrentPoint(ControlsContainer).Properties.IsLeftButtonPressed
+            && vm.SwitchSSTabPage(e.GetPosition(ControlsContainer)))
+            e.Handled = true;
     }
 
     private Point newControlInitialPress;

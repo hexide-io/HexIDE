@@ -40,7 +40,7 @@ public class LspClientRegistryTests
                 return items;
             });
         c.RequestDocumentSymbolsAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns([]);
-        c.RequestFormattingAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns([]);
+        c.RequestFormattingAsync(Arg.Any<string>(), new FormattingOptions(4, true), Arg.Any<CancellationToken>()).Returns([]);
         c.RequestBuiltinSymbolsAsync(Arg.Any<CancellationToken>()).Returns([]);
         return c;
     }
@@ -209,7 +209,7 @@ public class LspClientRegistryTests
                 await sut.RequestDocumentSymbolsAsync(Vb6Doc, TestContext.Current.CancellationToken);
                 break;
             case "documentFormattingProvider":
-                await sut.RequestFormattingAsync(Vb6Doc, TestContext.Current.CancellationToken);
+                await sut.RequestFormattingAsync(Vb6Doc, new FormattingOptions(4, true), TestContext.Current.CancellationToken);
                 break;
             case "renameProvider":
                 await sut.RequestRenameAsync(Vb6Doc, new Position(0, 0), "renamed", TestContext.Current.CancellationToken);
@@ -532,16 +532,16 @@ public class LspClientRegistryTests
         // fallback; they are a different opinion about the same text.
         var low = FakeServer();
         var high = FakeServer();
-        high.RequestFormattingAsync(Vb6Doc, Arg.Any<CancellationToken>())
+        high.RequestFormattingAsync(Vb6Doc, new FormattingOptions(2, true), Arg.Any<CancellationToken>())
             .Returns([new TextEdit(Span(0), "x")]);
 
         var sut = Registry(Registration("low", low, priority: 0), Registration("high", high, priority: 10));
         await sut.OpenDocumentAsync(Vb6Doc, "code", TestContext.Current.CancellationToken);
 
-        var edits = await sut.RequestFormattingAsync(Vb6Doc, TestContext.Current.CancellationToken);
+        var edits = await sut.RequestFormattingAsync(Vb6Doc, new FormattingOptions(2, true), TestContext.Current.CancellationToken);
 
         edits.Should().HaveCount(1);
-        await low.DidNotReceive().RequestFormattingAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
+        await low.DidNotReceive().RequestFormattingAsync(Arg.Any<string>(), Arg.Any<FormattingOptions>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -552,7 +552,7 @@ public class LspClientRegistryTests
         // do nothing, with a perfectly healthy formatter installed.
         var cannotFormat = FakeServer(capabilitiesJson: """{"hoverProvider":true}""");
         var canFormat = FakeServer(capabilitiesJson: """{"documentFormattingProvider":true}""");
-        canFormat.RequestFormattingAsync(Vb6Doc, Arg.Any<CancellationToken>())
+        canFormat.RequestFormattingAsync(Vb6Doc, new FormattingOptions(4, true), Arg.Any<CancellationToken>())
             .Returns([new TextEdit(Span(0), "formatted")]);
 
         var sut = Registry(
@@ -560,10 +560,10 @@ public class LspClientRegistryTests
             Registration("can", canFormat));
         await sut.OpenDocumentAsync(Vb6Doc, "code", TestContext.Current.CancellationToken);
 
-        var edits = await sut.RequestFormattingAsync(Vb6Doc, TestContext.Current.CancellationToken);
+        var edits = await sut.RequestFormattingAsync(Vb6Doc, new FormattingOptions(4, true), TestContext.Current.CancellationToken);
 
         edits.Should().ContainSingle().Which.NewText.Should().Be("formatted");
-        await cannotFormat.DidNotReceive().RequestFormattingAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
+        await cannotFormat.DidNotReceive().RequestFormattingAsync(Arg.Any<string>(), Arg.Any<FormattingOptions>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -574,10 +574,10 @@ public class LspClientRegistryTests
         var sut = Registry(Registration("first", first), Registration("second", second));
         await sut.OpenDocumentAsync(Vb6Doc, "code", TestContext.Current.CancellationToken);
 
-        await sut.RequestFormattingAsync(Vb6Doc, TestContext.Current.CancellationToken);
+        await sut.RequestFormattingAsync(Vb6Doc, new FormattingOptions(4, true), TestContext.Current.CancellationToken);
 
-        await first.Received(1).RequestFormattingAsync(Vb6Doc, Arg.Any<CancellationToken>());
-        await second.DidNotReceive().RequestFormattingAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
+        await first.Received(1).RequestFormattingAsync(Vb6Doc, new FormattingOptions(4, true), Arg.Any<CancellationToken>());
+        await second.DidNotReceive().RequestFormattingAsync(Arg.Any<string>(), Arg.Any<FormattingOptions>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]

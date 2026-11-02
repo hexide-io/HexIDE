@@ -42,8 +42,12 @@ internal static class DesktopStartup
         else if (ServerOptions.NewProject)
             HexIDE.Static.StartupProjectHook = async (ps, pm) =>
             {
+                // The project this creates, which is not always the startup project: one crash recovery restored
+                // just before stays the startup project, and saving that instead wrote its recovered work over its
+                // files (hexide-io/HexIDE#499).
+                var before = pm.LoadedProjects.ToList();
                 await ps.CreateNewProject(IProjectTemplate.StandardEXE);
-                if (pm.StartupProject is { } project)
+                if (pm.LoadedProjects.FirstOrDefault(p => !before.Contains(p)) is { } project)
                 {
                     // Through the shared helper, NOT a second copy of the same path rule. This line
                     // used to build "%TEMP%/hexide_{Name}" itself, and since --newproject always names
@@ -86,6 +90,9 @@ internal static class DesktopStartup
                     signal.Cancel = true;
                     Avalonia.Threading.Dispatcher.UIThread.Post(() =>
                     {
+                        // Closes without the save prompt, as shutdown_ide does, but nobody chose to lose the work, so
+                        // it is backed up and kept for the next start (#499).
+                        setup.Recovery.KeepForRecovery();
                         IdeShutdown.Prepare(ctx, force: true);
                         IdeShutdown.CloseMainWindow();
                     });

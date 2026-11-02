@@ -142,6 +142,14 @@ public partial class DISetup
             .Bind<IHeaderRefresher>().As(Singleton).To<HeaderRefresher>()
             .Bind<IClock>().As(Singleton).To<SystemClock>()
             .Bind<IFileWatcherService>().As(Singleton).To<FileWatcherService>()
+            // One per session: the run's recovery folder is made once, at start, and a second timer would back up twice.
+            .Bind<HexIDE.Recovery.IRecoveryOffers>().As(Singleton).To<HexIDE.Recovery.RecoveryOffers>()
+            .Bind<HexIDE.Recovery.IRecoveryService>().As(Singleton).To(ctx =>
+            {
+                ctx.Inject<IProjectService>(out var projects);
+                ctx.Inject<IClock>(out var clock);
+                return new HexIDE.Recovery.RecoveryService(projects, clock);
+            })
             .Bind<ISettingsService>().As(Singleton).To<SettingsService>()
             .Bind<IWindowStateService>().As(Singleton).To<WindowStateService>()
             .Bind<IStatusBarService>().As(Singleton).To<StatusBarService>()
@@ -236,9 +244,10 @@ public partial class DISetup
                 foreach (var problem in configuration.Problems)
                     log.LogWarning("Language server configuration: {Message}", problem.Message);
 
+                ctx.Inject<ISettingsService>(out var settings);
                 var registrations = new LanguageServerRegistrationFactory(loggerFactory, workspace, capture, providers,
-                    workspaceNames: new HexIDE.Redaction.ConversationRedactor(pseudonyms),
-                    locale: () => localization.ResolvedLanguage)
+                    new HexIDE.Redaction.ConversationRedactor(pseudonyms),
+                    () => localization.ResolvedLanguage, settings)
                     .Create(configuration.Entries);
 
                 // Distinguishable from "servers fine, nothing to say" — the confusion #231 documents, and
@@ -322,6 +331,8 @@ public partial class DISetup
             .Root<IEventBus>("EventBus")
             .Root<IUserSidecarService>("UserSidecarService")
             .Root<IFileWatcherService>("FileWatcherService")
+            .Root<HexIDE.Recovery.IRecoveryService>("Recovery")
+            .Root<HexIDE.Recovery.IRecoveryOffers>("RecoveryOffers")
             .Root<IBookmarkService>("BookmarkService")
             .Root<HexIDE.Debugging.IBreakpointService>("BreakpointService")
             .Root<HexIDE.Runtime.Debugging.IDebugController>("DebugController")

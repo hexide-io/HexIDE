@@ -25,4 +25,21 @@ public class ProcessNoticeWaitTests
         await waiting.Should().ThrowAsync<TimeoutException>()
             .WithMessage("*the child stderr echo*may not have been scheduled*does not establish a missing exit code*");
     }
+
+    [Fact]
+    public async Task ATimeoutListsWhatDidArrive()
+    {
+        var signal = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var seen = new List<HexIDE.Lsp.TransportNotice>
+        {
+            new(HexIDE.Lsp.TransportNoticeKind.StandardError, "one"),
+            new(HexIDE.Lsp.TransportNoticeKind.Lifecycle, "process exited with code 3", Fault: true),
+        };
+        var gate = new Lock();
+        Func<Task> waiting = () => ProcessNoticeWait.ForAsync(signal.Task, "the exit-code notice",
+            TestContext.Current.CancellationToken, TimeSpan.Zero, () => ProcessNoticeWait.Describe(seen, gate));
+
+        await waiting.Should().ThrowAsync<TimeoutException>()
+            .WithMessage("*Received meanwhile: StandardError 'one'; Lifecycle 'process exited with code 3'");
+    }
 }

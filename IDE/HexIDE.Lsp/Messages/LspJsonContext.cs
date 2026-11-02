@@ -3,8 +3,13 @@ using HexIDE.Lsp.Messages;
 
 namespace HexIDE.Lsp;
 
+[JsonSerializable(typeof(ConfigurationParams))]
+[JsonSerializable(typeof(DidChangeConfigurationParams))]
+[JsonSerializable(typeof(System.Text.Json.JsonElement[]))]
+[JsonSerializable(typeof(int?))]
 [JsonSerializable(typeof(FileOperationParams))]
 [JsonSerializable(typeof(RenameFilesParams))]
+[JsonSerializable(typeof(DidChangeWorkspaceFoldersParams))]
 [JsonSerializable(typeof(InitializeParams))]
 [JsonSerializable(typeof(InitializeResult))]
 [JsonSerializable(typeof(ServerCapabilities))]

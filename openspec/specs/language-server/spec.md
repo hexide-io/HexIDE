@@ -82,15 +82,28 @@ stops that refresh from happening.
 - **THEN** the server publishes them again rather than suppressing the notification
 
 ### Requirement: The server SHALL process requests in order with respect to document changes
-The server SHALL apply a document change before handling any request that arrives after it.
+The server SHALL apply a document change before handling any request that arrives after it, except
+completion. Completion SHALL answer without waiting for pending analysis, using the last published
+per-document declaration snapshot. Once the first open starts analysis, completion SHALL offer the
+static keywords and built-ins even if no declarations have been parsed yet.
+Diagnostic publication and all other request ordering SHALL remain sequential.
 
 The IDE flushes pending edits and then immediately asks a question about the edited text — formatting on
 save is the clearest case. Concurrent handling would let the question be answered against the text as it
 was before the edit, producing a result that is wrong in a way that looks intermittent.
 
 #### Scenario: Requesting formatting immediately after an edit
-- **WHEN** a change notification is followed by a request for the same document
+- **WHEN** a change notification is followed by a formatting request for the same document
 - **THEN** the request is answered against the changed text
+
+#### Scenario: Completion while a change is being analysed
+- **WHEN** completion arrives while a document analysis is pending
+- **THEN** it returns the last published declaration snapshot without waiting for that analysis
+- **AND** subsequent completion sees the new declarations after that analysis publishes
+
+#### Scenario: Completion before the first analysis finishes
+- **WHEN** completion arrives while the first document analysis is pending
+- **THEN** it answers with static keywords and built-ins without waiting for declarations to be parsed
 
 ### Requirement: The server SHALL answer "nothing found" with an empty result
 Where a request finds nothing, the server SHALL return an empty result rather than a protocol-level error.

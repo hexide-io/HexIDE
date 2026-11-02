@@ -6,6 +6,10 @@ namespace HexIDE.Runtime;
 
 public interface IModuleExecutionRoot
 {
+    // An editing event must return its ByRef arguments before the owner places or commits the editor.
+    System.Threading.Tasks.Task ExecuteEditEventAsync(string name, IList<Vb6Value> args) =>
+        throw new NotImplementedException();
+
     // args carries a control-array event's leading `Index As Integer` (null for a parameterless handler).
     void ExecuteSub(string name, IReadOnlyList<Vb6Value>? args = null);
 
@@ -37,10 +41,21 @@ public interface IModuleExecutionRoot
     /// Raise an event whose arguments are worked out as it is dispatched (#974). One HexIDE can't work out, such as a
     /// mouse position in a ScaleMode it doesn't convert, is then refused as the run's own error, reported like any other,
     /// rather than thrown out of an input handler. <paramref name="coalescing"/> says how it waits behind a running
-    /// handler: a MouseMove is <see cref="EventCoalescing.Latest"/> (#766).
+    /// handler: a MouseMove is <see cref="EventCoalescing.Latest"/> (#766). A supplied <paramref name="when"/>
+    /// is checked at dispatch, as in ExecuteSubIf.
     /// </summary>
-    void ExecuteEvent(string name, Func<IReadOnlyList<Vb6Value>> args, EventCoalescing coalescing = EventCoalescing.None) =>
-        ExecuteSub(name, args());
+    void ExecuteEvent(string name, Func<IReadOnlyList<Vb6Value>> args, EventCoalescing coalescing = EventCoalescing.None, Func<bool>? when = null) =>
+        ExecuteSubIf(name, args(), when ?? (() => true));
+
+    /// <summary>An event called inside a control method, with writable arguments and completion before it returns.</summary>
+    System.Threading.Tasks.Task ExecuteControlEventAsync(string name, IReadOnlyList<CallArg> args)
+    {
+        var values = new List<Vb6Value>();
+        foreach (var arg in args)
+            values.Add(arg.Value);
+        ExecuteSub(name, values);
+        return System.Threading.Tasks.Task.CompletedTask;
+    }
 
     /// <summary>
     /// A Timer control's tick. While that Timer's own handler runs the tick is dropped, and while another handler runs

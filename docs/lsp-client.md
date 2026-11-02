@@ -18,7 +18,8 @@ A pinned foreign-server download with a checksum mismatch fails an ordinary guar
 the affected protocol tests skip visibly with a checksum-specific reason (#487).
 
 Signature help accepts parameter labels as strings or UTF-16 offset pairs into the signature label.
-The popup highlights the exact offset range and uses its text for parameter documentation. String labels
+The popup bolds the active parameter range without changing the signature label or its optional-parameter
+brackets ([#2632](https://github.com/hexide-io/HexIDE/issues/2632)), and uses its text for parameter documentation. String labels
 retain their existing first-match highlighting. An offset outside the signature has no highlight.
 If deferred result deserialization fails, the protocol inspector marks the exchange Failed with an
 “answer dropped” detail and retains any captured reply body (#2186).
@@ -52,6 +53,12 @@ inherited variables. Both apply to stdio and launched pipe servers; pipe placeho
 Processes have no shell or tty. See [the configuration guide](language-servers.md).
 
 ## The wire contract
+
+Optional members whose LSP 3.17 types exclude null are omitted when unset, including formatting's
+`trimTrailingWhitespace` and initialize's `capabilities.textDocument.foldingRange` (#2668).
+This is a per-property rule: initialize's `processId`, `rootUri` and `workspaceFolders` still allow
+explicit null, as do opaque `LSPAny` values. `OptionalMembersWireShapeTests` reads framed JSON through
+the production formatter and source-generated context to guard absence and preserve explicit values.
 
 **Sent by the client:**
 
@@ -100,7 +107,16 @@ HexIDE kills its remaining process tree, including during bring-up (#313).
 The stdio transport also allows two seconds for an orderly exit, then kills the remaining process
 tree and waits up to two seconds for termination before disposing its process handle (#2023).
 Unix transports allow an additional two seconds for the guard's group cleanup (#2297). The stdio
-exit code is recorded even during client stop. A test-only process server covers orderly exit, ignored
+exit code is recorded even during client stop. Both process-owning transports retain their exit
+handlers through disposal and record the exit once. Deliberate disposal logs the exit code at
+information level with the server identity; a timeout kill is logged separately. Unexpected exits
+remain warnings. The Unix guard and post-kill waits described above still exceed #491's requested
+two-second total bound; integrating that deadline with descendant cleanup remains outstanding.
+Whole-composition IDE tests use a per-test owner that awaits disposal of the language registry,
+including when an assertion fails (#2588). A source guard rejects direct `DISetup` construction
+elsewhere in `HexIDE.Tests`; this guards ownership rather than enumerating all test-host children.
+
+A test-only process server covers orderly exit, ignored
 exit, wrapper children, a truncated reply followed by a crash, and an unsolicited non-zero exit.
 
 **Consumed from the server:** `textDocument/publishDiagnostics`, `$/logTrace`, `$/progress` (work-done
@@ -212,7 +228,12 @@ an early initialize error from the expected timeout without accepting either as 
 
 ## Describing the workspace
 
-`initialize` carries **both** `workspaceFolders` — one per loaded project — and the deprecated `rootUri`,
+Each project's folder precedes its outside source folders. Missing source files add no folder; shared
+folders are deduplicated, and an outside source still belongs to the project listing it (#2364).
+Membership changes use the same 300 ms debounce as project import.
+Opted-in servers receive deduplicated added and removed folders before the import command (#2364).
+
+`initialize` carries **both** `workspaceFolders` — each loaded project’s folder, plus existing outside source folders — and the deprecated `rootUri`,
 and the client declares `workspace.workspaceFolders`. Sending both is not belt-and-braces: four of the five
 servers this suite drives were measured, and they show three different behaviours. (ruff, the fifth, was
 added later for the pull model and has not been measured on this question — which is stated rather than
@@ -238,9 +259,9 @@ to one entry, so a server does not index the same tree twice.
 `workspaceFolders` is **null, never an empty array**, when no project is open: the protocol gives those two
 different meanings, and "no folders are open" is the true one.
 
-**Not yet done:** `workspace/didChangeWorkspaceFolders`. A server started while a group was open is
-correct; one already running when a project joins or leaves the group is not told, and keeps the folder list
-it was given at `initialize`.
+`workspace/didChangeWorkspaceFolders` is sent on that trigger only when the server declares
+`workspace.workspaceFolders.changeNotifications` as true or a registration string.
+Unchanged folders produce no notification. Folder updates also reach connections without project import.
 
 ---
 
@@ -731,7 +752,11 @@ reports scheduling uncertainty; it does not establish that the server omitted an
 
 Stdio process logs include the configured server ID as a structured `Server` property and in the
 rendered message for startup, start failure, stderr (Debug level) and exit. Direct transport callers
-that supply no ID use the executable name.
+that supply no ID use the executable name. The identity test's process waits for an `exit` frame
+before writing stderr and exiting, so startup/job assignment finishes before it can exit (#2347).
+A ping response confirms it is serving requests before the test releases it.
+The test awaits each server's matching log callback with the shared two-minute safety bound and
+reports received logs on timeout.
 
 Launched pipe servers can receive HexIDE's process ID through `{pid}` in `arguments` (#406),
 with or without an open workspace. A server can use it to watch its owner and exit after an unclean
@@ -763,6 +788,11 @@ assertion would be guarding against nothing.
 ---
 
 ## Reading the conversation
+
+Conversation exports ask before replacing any existing messages or derived manifest file, naming both
+when both exist. Declining writes neither file. Automation exports each use a fresh temporary directory,
+so a later export preserves earlier returned files (#2504). The broader
+[file-safety audit](file-safety-audit.md) records the remaining write-path risks.
 
 **The protocol inspector is how you see what crossed the wire**, and it is the answer to the question a
 diagnostics list cannot settle: whether a request was even sent, what came back, and how long it took. A
@@ -843,6 +873,8 @@ once per capability per connection. These routing notes also appear in exported 
 
 The editor flushes its debounced document change before requesting completion (for both letters and
 advertised triggers) or signature help, so the server receives the current typed text first (#2227).
+Document formatting (including format-on-save) sends the editor’s Tab Width as `options.tabSize`
+and `insertSpaces: true`, matching the editor’s conversion of tabs to spaces (#2669).
 On-type formatting is not implemented.
 
 Completion asks every document claimant concurrently, with a shared **one-second popup budget**.
@@ -905,6 +937,12 @@ The untitled-document tests also drain and poll for clangd's URI refusal and ruf
 warning, with a five-second deadline, before asserting on standard error (#2269). Diagnostics arriving
 does not mean the independent stderr reader has finished recording those lines.
 
+A stdio server that exits before its Windows job assignment completes still supplies its stderr and
+exit-code notices (#2752). A refused assignment is ignored only if the process has already exited;
+a refusal for a running process still fails the connection rather than leaving it outside the job.
+`StdioProcessNoticeTests` drives both exit/assignment orders with a shell waiting on stdin, and injects
+the native assignment failure after waiting for exit, so this regression also runs on Linux.
+
 The one thing the proxy could do that the inspector cannot is observe a client so broken it never reaches
 its own serializer — a failure outside the process is immune to a tap inside it. That was worth one
 mitigation rather than keeping the whole thing: a serialization failure is now recorded as a never-sent
@@ -952,6 +990,15 @@ client may legitimately gate a custom method on. A server that does not advertis
 
 ---
 
+## Editor configuration (#2669)
+
+The client declares `workspace.configuration` and answers `workspace/configuration` with one value
+per requested item, in order. `editor.tabSize` returns the current Tools > Options Tab Width as a
+number, including for scoped items; unknown or absent sections return `null`. Running connections
+receive `workspace/didChangeConfiguration` with empty `settings` when Tab Width changes, so a server
+can request its configuration again. New connections read the current value on their first request.
+`WorkspaceConfigurationWireTests` checks the capability, response array and change notification frames.
+
 ## Coverage against the specification
 
 LSP 3.17 defines **93 messages** — 67 requests and 26 notifications. The table below is generated from the
@@ -959,7 +1006,7 @@ specification's own [`metaModel.json`](https://raw.githubusercontent.com/microso
 the canonical machine-readable list, so the method names and directions are the specification's rather than
 this document's recollection of them.
 
-**HexIDE implements 33 of the 93.** That is not a deficiency in itself — no client implements them all, and
+**HexIDE implements 36 of the 93.** That is not a deficiency in itself — no client implements them all, and
 most of the remainder are features no VB6 IDE needs. It is here so the shape of the gap is visible rather
 than inferred.
 
@@ -1027,18 +1074,18 @@ than inferred.
 | ○ | `textDocument/willSave` | → |  |
 | ○ | `textDocument/willSaveWaitUntil` | → |  |
 
-### `workspace/*` — 4 of 21
+### `workspace/*` — 7 of 21
 
 | | Method | Dir | Notes |
 |---|---|---|---|
 | ○ | `workspace/applyEdit` | ← | A server cannot ask the IDE to edit a document |
 | ○ | `workspace/codeLens/refresh` | ← |  |
-| ○ | `workspace/configuration` | ← | A server asking for its configuration is refused |
+| ✅ | `workspace/configuration` | ← | Returns editor.tabSize from Tab Width; unknown items return null |
 | ○ | `workspace/diagnostic` | → | The pull model, workspace-wide ([#284](https://github.com/hexide-io/HexIDE/issues/284)) |
 | ✅ | `workspace/diagnostic/refresh` | ← | Re-asks every open document; the only way a pull-model server can report a change that is not a document |
-| ○ | `workspace/didChangeConfiguration` | → |  |
+| ✅ | `workspace/didChangeConfiguration` | → | Notifies running servers when Tab Width changes |
 | ○ | `workspace/didChangeWatchedFiles` | → |  |
-| ○ | `workspace/didChangeWorkspaceFolders` | → |  |
+| ✅ | `workspace/didChangeWorkspaceFolders` | → | Shared project-change debounce; opted-in servers, before import |
 | ✅ | `workspace/didCreateFiles` | → | First saves and Save As to new files, filtered per running server (#2248) |
 | ○ | `workspace/didDeleteFiles` | → |  |
 | ○ | `workspace/didRenameFiles` | → |  |
@@ -1198,11 +1245,9 @@ Three clusters account for nearly all of the gap:
   would consume* below. `workspace/symbol` used to sit in this list and no longer does: the client speaks it
   and the Object Browser surfaces it, so the missing half is a *server*, which is exactly the point of the
   seam.
-- **Workspace-level protocol** — `workspace/*` is 2 of 21. There *is* a workspace model now — one folder
-  per loaded project, sent in `initialize` — and `workspace/symbol` searches it. What is still absent is
-  everything that keeps that model live or reacts to it: file-operation notifications, watched files,
-  configuration round-trips, and `didChangeWorkspaceFolders` for a group whose membership changes while a
-  server is running ([#261](https://github.com/hexide-io/HexIDE/issues/261)).
+- **Workspace-level protocol** — `workspace/*` is 7 of 21. The client sends project folders,
+  updates them as group membership changes, sends file-operation notifications, and answers editor
+  configuration requests. Watched-file notifications and server-initiated workspace edits remain absent.
 - **Server-to-client courtesy** — `window/*` and `client/*` are 3 of 8 between them. Alongside work-done progress (#360), the messages that landed
   are the ones that cost no analysis depth and buy diagnosability: a server can now explain its own
   problems instead of appearing broken ([#289](https://github.com/hexide-io/HexIDE/issues/289)). Dynamic registration stays refused on
@@ -1298,7 +1343,7 @@ for that connection alone. The client declares `workspace.diagnostics.refreshSup
 Automatic transport reconnect currently replays documents but does not re-import until the next
 project change; immediate imports cover registry startup and workspace-root replacement.
 Projects without a saved path are reported rather than assigned an invented project URI. Folder updates
-and their ordering are #2364; #2248 file-operation routing is absent on this branch.
+precede the import on the same debounce (#2364).
 See [configuration](language-servers.md#project-import-declarations).
 
 ### Semantic colours

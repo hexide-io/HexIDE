@@ -43,6 +43,7 @@
         <EmbeddedResource Include="Interpreter\Data\mscomctl-constants.json" />
         <EmbeddedResource Include="Interpreter\Data\comctl32-constants.json" />
         <EmbeddedResource Include="Interpreter\Data\tabdlg-constants.json" />
+        <EmbeddedResource Include="Interpreter\Data\msmask32-constants.json" />
         <!-- The types those libraries declare, read by scripts/dump-typelib-types.ps1, and embedded for the same
              reasons: which names after `As` are VB's own object types (#822). -->
         <EmbeddedResource Include="Interpreter\Data\vb6-inbox-types.json" />

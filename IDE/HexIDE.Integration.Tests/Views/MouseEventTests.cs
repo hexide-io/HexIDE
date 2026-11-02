@@ -181,7 +181,7 @@ public class MouseEventTests
         Dispatcher.UIThread.RunJobs();
 
         run.Errors.Should().BeEmpty();
-        run.Printed.Should().Equal("Command1 MouseDown 1 0 150 75", "Command1 Click", "Command1 MouseUp 1 0 150 75");
+        run.Printed.Should().Equal("Command1 MouseDown 1 0 150 75", "Command1 Click", "Command1 MouseUp 1 0 150 75", "Command1 MouseMove 0 0 150 75");
     }
 
     [AvaloniaFact]
@@ -204,7 +204,7 @@ public class MouseEventTests
         public void ExecuteSub(string name, IReadOnlyList<Vb6Value>? args = null) => Raised.Add((name, EventCoalescing.None));
 
         public void ExecuteEvent(string name, System.Func<IReadOnlyList<Vb6Value>> args,
-            EventCoalescing coalescing = EventCoalescing.None) => Raised.Add((name, coalescing));
+            EventCoalescing coalescing = EventCoalescing.None, System.Func<bool>? when = null) => Raised.Add((name, coalescing));
     }
 
     [AvaloniaFact]
@@ -246,7 +246,7 @@ public class MouseEventTests
         run.Click(run.At("Command1", 10, 5));
 
         run.Errors.Should().BeEmpty();
-        run.Printed.Should().Equal("Command1 MouseDown 1 0 150 75", "Command1 Click", "Command1 MouseUp 1 0 150 75");
+        run.Printed.Should().Equal("Command1 MouseDown 1 0 150 75", "Command1 Click", "Command1 MouseUp 1 0 150 75", "Command1 MouseMove 0 0 150 75");
     }
 
     [AvaloniaTheory]
@@ -310,8 +310,8 @@ public class MouseEventTests
         run.Click(run.At("lblCell", 5, 3));
 
         run.Errors.Should().BeEmpty();
-        run.Printed.Should().Equal("Label1 MouseDown 1 0 75 45", "Label1 MouseUp 1 0 75 45",
-            "lblCell MouseDown (0) 1 0 75 45", "lblCell MouseUp (0) 1 0 75 45");
+        run.Printed.Should().Equal("Label1 MouseDown 1 0 75 45", "Label1 MouseUp 1 0 75 45", "Label1 MouseMove 0 0 75 45",
+            "lblCell MouseDown (0) 1 0 75 45", "lblCell MouseUp (0) 1 0 75 45", "lblCell MouseMove (0) 0 0 75 45");
     }
 
     [AvaloniaTheory]
@@ -325,7 +325,7 @@ public class MouseEventTests
         run.Click(new Point(300, 10));
 
         run.Errors.Should().BeEmpty();
-        run.Printed.Should().Equal($"Form MouseDown 1 0 {expected}", $"Form MouseUp 1 0 {expected}");
+        run.Printed.Should().Equal($"Form MouseDown 1 0 {expected}", $"Form MouseUp 1 0 {expected}", $"Form MouseMove 0 0 {expected}");
     }
 
     // A form's own Click, measured with real input (the oracle's "A click with real input", #1364). Form1's client area is
@@ -343,7 +343,8 @@ public class MouseEventTests
         run.Click(new Point(300, 10), button);
 
         run.Errors.Should().BeEmpty();
-        run.Printed.Should().Equal($"Form MouseDown {vbButton} 0 4500 150", $"Form MouseUp {vbButton} 0 4500 150", "Form Click");
+        var expected = new[] { $"Form MouseDown {vbButton} 0 4500 150", $"Form MouseUp {vbButton} 0 4500 150", "Form Click" };
+        run.Printed.Should().Equal(button == MouseButton.Left ? expected.Append("Form MouseMove 0 0 4500 150") : expected);
     }
 
     [AvaloniaFact]
@@ -357,7 +358,7 @@ public class MouseEventTests
         Dispatcher.UIThread.RunJobs();
 
         run.Errors.Should().BeEmpty();
-        run.Printed.Should().Equal("Form MouseDown 1 0 4500 150", "Form MouseUp 1 0 3750 2250", "Form Click");
+        run.Printed.Should().Equal("Form MouseDown 1 0 4500 150", "Form MouseUp 1 0 3750 2250", "Form Click", "Form MouseMove 0 0 3750 2250");
     }
 
     [AvaloniaFact]
@@ -372,7 +373,7 @@ public class MouseEventTests
         Dispatcher.UIThread.RunJobs();
 
         run.Errors.Should().BeEmpty();
-        run.Printed.Should().Equal("Form MouseDown 1 0 4500 150", "Form MouseUp 1 0 315 1245");
+        run.Printed.Should().Equal("Form MouseDown 1 0 4500 150", "Form MouseUp 1 0 315 1245", "Label1 MouseMove 0 0 75 45");
     }
 
     [AvaloniaFact]
@@ -463,9 +464,9 @@ public class MouseEventTests
     }
 
     [AvaloniaFact]
-    public void A_press_on_a_control_released_on_the_form_is_nothing_to_the_form()
+    public void A_press_on_a_control_released_on_the_form_gives_it_only_the_release_move()
     {
-        // Measured: pressed on Command1 and released on the form, the form has no event at all.
+        // Real-input oracle #2417: the form receives the trailing move, after Command1's MouseUp.
         using var run = Start(Form(Twips, Controls), Handlers("Form"));
 
         run.Window.MouseDown(run.At("Command1", 10, 5), MouseButton.Left);
@@ -473,7 +474,7 @@ public class MouseEventTests
         Dispatcher.UIThread.RunJobs();
 
         run.Errors.Should().BeEmpty();
-        run.Printed.Should().BeEmpty();
+        run.Printed.Should().Equal("Form MouseMove 0 0 4500 150");
     }
 
     [AvaloniaFact]
@@ -487,9 +488,9 @@ public class MouseEventTests
 
         run.Errors.Should().BeEmpty();
         run.Printed.Should().Equal(
-            "Form MouseDown 1 0 4500 150", "Form MouseUp 1 0 4500 150", "Form Click",
+            "Form MouseDown 1 0 4500 150", "Form MouseUp 1 0 4500 150", "Form Click", "Form MouseMove 0 0 4500 150",
             "Form DblClick", "Form MouseUp 1 0 4500 150",
-            "Form MouseDown 1 0 4500 150", "Form MouseUp 1 0 4500 150", "Form Click");
+            "Form MouseDown 1 0 4500 150", "Form MouseUp 1 0 4500 150", "Form Click", "Form MouseMove 0 0 4500 150");
     }
 
     private static async Task<InteractOutcome> AutomationClick(Running run, string value)
@@ -538,16 +539,14 @@ public class MouseEventTests
     [InlineData(-1L)]
     public async Task Automation_click_double_runs_the_forms_DblClick_once_in_the_measured_order(long timeSliceMs)
     {
-        // Same vb6.exe order as A_double_click_on_the_form_raises_DblClick... above (#1031). Those probes logged no
-        // MouseMove, so they say nothing of one (#2412). The pointer's arrival raises one first, as a person's does (#2407), and
-        // the second press, where the first left it, raises none.
+        // Real-input oracle #2417: arrival, then a move after the first release, none after the second.
         using var run = Start(Form(Twips, Controls), Handlers("Form", dblClick: true), Debugger(timeSliceMs));
         var outcome = await AutomationClick(run, "300,10 double");
         outcome.Success.Should().BeTrue(outcome.Error);
         outcome.Detail.Should().Contain("double-clicked").And.Contain("left button").And.Contain("(300, 10)");
         run.Errors.Should().BeEmpty();
         run.Printed.Should().Equal("Form MouseMove 0 0 4500 150", "Form MouseDown 1 0 4500 150", "Form MouseUp 1 0 4500 150",
-            "Form Click", "Form DblClick", "Form MouseUp 1 0 4500 150");
+            "Form Click", "Form MouseMove 0 0 4500 150", "Form DblClick", "Form MouseUp 1 0 4500 150");
     }
 
     [AvaloniaFact]
@@ -604,7 +603,7 @@ public class MouseEventTests
         run.ClickSequence(at);
 
         run.Errors.Should().BeEmpty();
-        run.Printed.Should().Equal("Label1 MouseDown 1 0 75 45", "Label1 MouseUp 1 0 75 45", "Label1 Click",
+        run.Printed.Should().Equal("Label1 MouseDown 1 0 75 45", "Label1 MouseUp 1 0 75 45", "Label1 Click", "Label1 MouseMove 0 0 75 45",
             "Label1 DblClick", "Label1 MouseUp 1 0 75 45");
     }
 
@@ -640,7 +639,9 @@ public class MouseEventTests
     {
         // Measured: unlike every other control with a DblClick, the second press raises MouseDown too. Click comes only as
         // the option becomes selected, so the second click raises none.
-        using var run = Start(Form(Twips, Ctl("OptionButton", "Option1", 240, 240, 1215, 255, "      Caption         =   \"o1\"\r\n")),
+        // Keep the option unselected until the pointer arrives; showing a form now focuses its first tab stop (#2436).
+        using var run = Start(Form(Twips, Ctl("TextBox", "Text1", 2000, 240, 1215, 375, "      TabIndex = 0\r\n")
+            + Ctl("OptionButton", "Option1", 240, 240, 1215, 255, "      Caption         =   \"o1\"\r\n      TabIndex = 1\r\n")),
             Handlers("Option1", dblClick: true));
         var at = run.At("Option1", 10, 5);
 
@@ -654,7 +655,9 @@ public class MouseEventTests
     [AvaloniaFact]
     public void OptionButton_presses_outside_the_double_click_interval_raise_no_DblClick()
     {
-        using var run = Start(Form(Twips, Ctl("OptionButton", "Option1", 240, 240, 1215, 255, "      Caption         =   \"o1\"\r\n")),
+        // Keep the option unselected until the pointer arrives; showing a form now focuses its first tab stop (#2436).
+        using var run = Start(Form(Twips, Ctl("TextBox", "Text1", 2000, 240, 1215, 375, "      TabIndex = 0\r\n")
+            + Ctl("OptionButton", "Option1", 240, 240, 1215, 255, "      Caption         =   \"o1\"\r\n      TabIndex = 1\r\n")),
             Handlers("Option1", dblClick: true));
 
         run.ClickSequence(run.At("Option1", 10, 5), intervalMs: 600);
@@ -674,8 +677,8 @@ public class MouseEventTests
         run.ClickSequence(at);
 
         run.Errors.Should().BeEmpty();
-        run.Printed.Should().Equal("Command1 MouseDown 1 0 150 75", "Command1 Click", "Command1 MouseUp 1 0 150 75",
-            "Command1 MouseDown 1 0 150 75", "Command1 Click", "Command1 MouseUp 1 0 150 75");
+        run.Printed.Should().Equal("Command1 MouseDown 1 0 150 75", "Command1 Click", "Command1 MouseUp 1 0 150 75", "Command1 MouseMove 0 0 150 75",
+            "Command1 MouseDown 1 0 150 75", "Command1 Click", "Command1 MouseUp 1 0 150 75", "Command1 MouseMove 0 0 150 75");
     }
 
     [AvaloniaFact]
@@ -687,7 +690,7 @@ public class MouseEventTests
         run.ClickSequence(at);
 
         run.Errors.Should().BeEmpty();
-        run.Printed.Should().Equal("lblCell MouseDown (0) 1 0 75 45", "lblCell MouseUp (0) 1 0 75 45",
+        run.Printed.Should().Equal("lblCell MouseDown (0) 1 0 75 45", "lblCell MouseUp (0) 1 0 75 45", "lblCell MouseMove (0) 0 0 75 45",
             "lblCell DblClick (0)", "lblCell MouseUp (0) 1 0 75 45");
     }
 
@@ -845,7 +848,7 @@ public class MouseEventTests
         Dispatcher.UIThread.RunJobs();
 
         run.Errors.Should().BeEmpty();
-        run.Printed.Should().Equal("Form MouseDown 1 0 4500 150", "Form MouseUp 1 0 4500 150", "Form Click");
+        run.Printed.Should().Equal("Form MouseDown 1 0 4500 150", "Form MouseUp 1 0 4500 150", "Form Click", "Form MouseMove 0 0 4500 150");
     }
 
     [AvaloniaFact]
@@ -857,7 +860,7 @@ public class MouseEventTests
         run.Click(run.At("Command1", 10, 5));
 
         run.Errors.Should().BeEmpty();
-        run.Printed.Should().Equal("Command1 MouseDown 1 0 150 75", "Command1 Click", "Command1 MouseUp 1 0 150 75");
+        run.Printed.Should().Equal("Command1 MouseDown 1 0 150 75", "Command1 Click", "Command1 MouseUp 1 0 150 75", "Command1 MouseMove 0 0 150 75");
     }
 
     [AvaloniaFact]
@@ -870,6 +873,51 @@ public class MouseEventTests
 
         run.Errors.Should().BeEmpty();
         run.Printed.Should().BeEmpty();
+    }
+
+    [AvaloniaTheory]
+    [InlineData("Form", "", false)]
+    [InlineData("Command1", "CommandButton", false)]
+    [InlineData("Label1", "Label", false)]
+    [InlineData("Image1", "Image", false)]
+    [InlineData("Form", "", true)]
+    [InlineData("Label1", "Label", true)]
+    [InlineData("Image1", "Image", true)]
+    public void Release_raises_one_unpressed_move_except_after_the_second_double_click_release(string name, string kind, bool twice)
+    {
+        using var run = Start(Form(Twips, kind == "" ? "" : Ctl(kind, name, 240, 240, 1200, 900)),
+            Handlers(name, dblClick: true));
+        var at = name == "Form" ? new Point(10, 5) : run.At(name, 10, 5);
+
+        run.ClickSequence(at, count: twice ? 2 : 1);
+
+        var first = name == "Command1"
+            ? new[] { $"{name} MouseDown 1 0 150 75", $"{name} Click", $"{name} MouseUp 1 0 150 75" }
+            : new[] { $"{name} MouseDown 1 0 150 75", $"{name} MouseUp 1 0 150 75", $"{name} Click" };
+        var expected = first.Append($"{name} MouseMove 0 0 150 75");
+        if (twice)
+            expected = expected.Concat(new[] { $"{name} DblClick", $"{name} MouseUp 1 0 150 75" });
+        run.Errors.Should().BeEmpty();
+        run.Printed.Should().Equal(expected);
+    }
+
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Drag_release_moves_over_the_form_after_MouseUp_and_any_Click(bool fromButton)
+    {
+        using var run = Start(Form(Twips, Controls), Handlers("Form") + Handlers("Command1"));
+        run.Window.MouseDown(fromButton ? run.At("Command1", 10, 5) : new Point(280, 10), MouseButton.Left);
+        run.Window.MouseMove(new Point(300, 10), RawInputModifiers.LeftMouseButton);
+        run.Window.MouseUp(new Point(300, 10), MouseButton.Left);
+        Dispatcher.UIThread.RunJobs();
+
+        run.Errors.Should().BeEmpty();
+        run.Printed.Should().Equal(fromButton
+            ? new[] { "Command1 MouseDown 1 0 150 75", "Command1 MouseMove 1 0 4260 -90",
+                "Command1 MouseUp 1 0 4260 -90", "Form MouseMove 0 0 4500 150" }
+            : new[] { "Form MouseDown 1 0 4200 150", "Form MouseMove 1 0 4500 150",
+                "Form MouseUp 1 0 4500 150", "Form Click", "Form MouseMove 0 0 4500 150" });
     }
 
     [AvaloniaFact]
@@ -890,7 +938,7 @@ public class MouseEventTests
 
         run.Errors.Should().BeEmpty();
         run.Printed.Should().Equal("Command1 MouseMove 0 0 180 90", "Command1 MouseDown 1 0 180 90",
-            "Command1 MouseMove 1 0 195 105", "Command1 MouseUp 1 0 195 105");
+            "Command1 MouseMove 1 0 195 105", "Command1 MouseUp 1 0 195 105", "Command1 MouseMove 0 0 195 105");
     }
 
     [AvaloniaTheory]
@@ -906,7 +954,7 @@ public class MouseEventTests
         run.Click(run.At("Label1", 5, 3), MouseButton.Left, modifiers);
 
         run.Errors.Should().BeEmpty();
-        run.Printed.Should().Equal($"Label1 MouseDown 1 {shift} 75 45", $"Label1 MouseUp 1 {shift} 75 45");
+        run.Printed.Should().Equal($"Label1 MouseDown 1 {shift} 75 45", $"Label1 MouseUp 1 {shift} 75 45", $"Label1 MouseMove 0 {shift} 75 45");
     }
 
     [AvaloniaFact]
@@ -918,7 +966,53 @@ public class MouseEventTests
         run.Click(run.At("Image1", 78, 58));
 
         run.Errors.Should().BeEmpty();
-        run.Printed.Should().Equal("Image1 MouseDown 1 0 1170 870", "Image1 MouseUp 1 0 1170 870");
+        run.Printed.Should().Equal("Image1 MouseDown 1 0 1170 870", "Image1 MouseUp 1 0 1170 870", "Image1 MouseMove 0 0 1170 870");
+    }
+
+    // Real input on vb6.exe, native matching p-code (#861): the oracle's "An Image's Click across its whole rectangle".
+    [AvaloniaTheory]
+    [InlineData(50, 30, 750, 450)]
+    [InlineData(99, 59, 1485, 885)]
+    public void An_empty_Image_raises_Click_at_its_centre_and_far_corner(int x, int y, int twipsX, int twipsY)
+    {
+        using var run = Start(Form(Twips, Ctl("Image", "Image1", 300, 300, 1500, 900)),
+            Handlers("Image1") + Handlers("Form"));
+
+        run.Click(run.At("Image1", x, y));
+
+        run.Errors.Should().BeEmpty();
+        run.Printed.Should().Equal($"Image1 MouseDown 1 0 {twipsX} {twipsY}",
+            $"Image1 MouseUp 1 0 {twipsX} {twipsY}", "Image1 Click", $"Image1 MouseMove 0 0 {twipsX} {twipsY}");
+    }
+
+    [AvaloniaFact]
+    public void One_pixel_past_an_empty_Images_right_edge_raises_only_the_forms_Click()
+    {
+        using var run = Start(Form(Twips, Ctl("Image", "Image1", 300, 300, 1500, 900)),
+            Handlers("Image1") + Handlers("Form"));
+
+        run.Click(run.At("Image1", 101, 30));
+
+        run.Errors.Should().BeEmpty();
+        run.Printed.Should().Equal("Form MouseDown 1 0 1815 750", "Form MouseUp 1 0 1815 750", "Form Click",
+            "Form MouseMove 0 0 1815 750");
+    }
+
+    [AvaloniaTheory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void An_Image_inside_a_Frame_takes_Click_alone_and_the_Frames_empty_area_takes_its_own(bool image)
+    {
+        var frame = Ctl("Frame", "Frame1", 240, 1500, 2400, 1500,
+            children: Ctl("Image", "Image2", 300, 300, 1200, 900));
+        using var run = Start(Form(Twips, frame), Handlers("Image2") + Handlers("Frame1") + Handlers("Form"));
+
+        run.Click(image ? run.At("Image2", 40, 30) : run.At("Frame1", 133, 80));
+
+        run.Errors.Should().BeEmpty();
+        run.Printed.Should().Equal(image
+            ? new[] { "Image2 MouseDown 1 0 600 450", "Image2 MouseUp 1 0 600 450", "Image2 Click", "Image2 MouseMove 0 0 600 450" }
+            : new[] { "Frame1 MouseDown 1 0 1995 1200", "Frame1 MouseUp 1 0 1995 1200", "Frame1 Click" });
     }
 
     [AvaloniaFact]
