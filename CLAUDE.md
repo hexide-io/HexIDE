@@ -797,6 +797,12 @@ nice-to-have.
   to a card by its id, and record only what can be public, such as "settled on the Team Desk". Where else it
   may go is her call. The repository is public, and a leak cannot be taken back: GitHub content is cached
   and indexed even after it is deleted.
+- **The Team Desk banner (`board/banner`) sets the week's pace. Read it before starting anything sizeable.**
+  **Yellow** (`warn`, from 85% of the Claude week): finish or park what's in flight, push it, and start
+  nothing long. **Red** (`pause`, from the 95% spin-down): the team is paused, and nothing new starts. Jen
+  may still contact a session about a specific item. If she does, keep the reply short and token-light, and
+  don't wake other sessions unless it's urgent. Only Jen lifts the pause; the weekly reset doesn't. Codex
+  lanes keep running what's queued.
 
 - **Avalonia 12.0.5 / Dock 12.0.0.2** — the project is on Avalonia 12. `Classic.Avalonia.Theme 12.0.1-beta1` is kept as a **controls-only** dependency (provides `ClassicBorderDecorator`, `ClassicBorderStyle`). **Do not pin it back to 11.3.0.3**: that build was compiled against Avalonia 11, so `ClassicBorderDecorator.DrawRadioButtonBorder` called a `StreamGeometryContext.ArcTo` overload Avalonia 12 replaced, and **every VB6 option button killed the process on render** (`MissingMethodException`, thrown on the render thread — uncatchable, and nothing reaches the Serilog log; the stack only exists in the Windows Application event log). It is a prerelease because it is the only Avalonia-12 build published. `<ClassicTheme />` remains **NOT loaded** and this change does not re-open that question — do not add it back. The `Classic.Avalonia.Theme.Dock`, `.ColorPicker`, and `.DataGrid` sub-packages have been removed. `Avalonia.Themes.Simple 12.0.5` is the base theme (`<SimpleTheme />` in App.axaml).
 - **`Classic.CommonControls.Avalonia 12.0.1-beta1` controls** (`ToolBar`, `ToolBarButton`, `RebarHandle`, `ListView`, `ListViewItem`) are **NOT used** — the `TypeLoadException: PseudolassesExtensions` applied to the 11.x build, but they stay unused by design (removing VB6 chrome is intended, not incidental). Use standard Avalonia `StackPanel`/`Button`/`ToggleButton`/`ListBox` instead. The version follows `Classic.Avalonia.Theme` transitively; no project references it directly. `SystemColors` static resource keys from that assembly are still used for color lookups and do not crash.
