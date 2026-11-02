@@ -265,6 +265,8 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
         await Task.WhenAll(claimants
             .Where(e => e.Client is not null)
             .Select(e => e.Client!.OpenDocumentAsync(uri, current, cancellationToken)));
+        // Startup was announced before the document was tracked. Refresh the card's count too (#2485).
+        ConnectionsChanged?.Invoke(this, EventArgs.Empty);
     }
 
     public Task ChangeDocumentAsync(string uri, int version, string text, CancellationToken cancellationToken = default)
@@ -312,15 +314,17 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
             .Select(c => c.CloseDocumentForRenameAsync(uri, cancellationToken)));
         _open.TryRemove(uri, out _);
         ForgetDiagnosticsFor(uri);
+        ConnectionsChanged?.Invoke(this, EventArgs.Empty);
     }
 
-    public Task CloseDocumentAsync(string uri, CancellationToken cancellationToken = default)
+    public async Task CloseDocumentAsync(string uri, CancellationToken cancellationToken = default)
     {
         // Routed BEFORE the record is dropped, or the close would be offered to a different set of servers
         // than the open was -- the exact asymmetry that leaves a server holding a document forever.
         var closing = Task.WhenAll(StartedClaimantsFor(uri).Select(c => c.CloseDocumentAsync(uri, cancellationToken)));
         _open.TryRemove(uri, out _);
-        return closing;
+        await closing;
+        ConnectionsChanged?.Invoke(this, EventArgs.Empty);
     }
 
     public Task SaveDocumentAsync(string uri, CancellationToken cancellationToken = default) =>

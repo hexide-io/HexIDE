@@ -559,6 +559,19 @@ without it points at the executable for a fault that has nothing to do with it.
 - **THEN** the running servers SHALL restart at the new root without waiting for another document to open
 - **AND** each restarted server is told both documents are open with their latest text before it is sent a change to either
 
+### Requirement: Connection cards SHALL refresh their open-document counts
+The registry SHALL notify connection views after opening or closing a document, including closing for
+rename, so each server's card reflects its current tracked document count. This SHALL apply to both
+Full and Incremental sync, including the first document that starts a server (#2485).
+
+#### Scenario: A document starts its server
+- **WHEN** a document is opened and its server starts lazily
+- **THEN** the connection card refreshes after the document is tracked and shows one open document
+
+#### Scenario: An already running server gains or loses a document
+- **WHEN** another document opens, a document closes, or a document closes for rename
+- **THEN** the card refreshes to reflect the server's updated tracked document count
+
 ### Requirement: A malformed entry SHALL fail alone, and visibly
 An entry that cannot be used SHALL NOT prevent other entries from being used, and SHALL NOT prevent the IDE
 from starting. An entry missing information required to reach a server SHALL be rejected. An entry carrying
