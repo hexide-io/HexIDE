@@ -1343,3 +1343,18 @@ SHALL follow Form_Activate (#2436, measured on vb6.exe, native and p-code agreei
 - **THEN** it raises error 5 and showing the form subsequently focuses its first eligible control
 - **WHEN** Form_Load instead calls Me.Show then Text2.SetFocus
 - **THEN** Form_Activate, the first control's GotFocus and Text2_GotFocus occur inside Form_Load in that order
+
+### Requirement: Numeric comparison pair domains
+The runtime SHALL use VB6's measured comparison domains for all six comparison operators:
+Single/Double compares as Single, Single/Long as Double, Currency/Double as Currency rounded
+to four decimal places, and Decimal/Double as Decimal. Narrowing SHALL NOT raise conversion
+overflow during comparison. Other numeric pairs SHALL retain their existing domains.
+Provenance: [numeric pair measurements](../../../docs/vb6-fidelity-oracle/numeric-type-pairs--five-arithmetic-tables-and-comparison-is-a-sixth.md#comparison-is-a-per-pair-table-and-it-narrows).
+
+#### Scenario: Single and Double equality narrows
+- **WHEN** Single 0.1 is compared with Double 0.1 in either order, typed or as Variants
+- **THEN** equality is True, inequality is False, and both strict orderings are False
+
+#### Scenario: Long retains its precision beside Single
+- **WHEN** Single 16777216 is compared with Long 16777217
+- **THEN** equality is False and the Single is less than the Long
