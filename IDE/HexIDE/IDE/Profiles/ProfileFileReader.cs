@@ -15,9 +15,8 @@ internal static partial class ProfileFileReader
         if (!ProfilePaths.IsSafeReference(reference) || ProfilePaths.HasLink(directory, reference))
             throw new InvalidDataException("UnsafePath");
         beforeOpen?.Invoke();
-        if (OperatingSystem.IsWindows())
-            return ReadWindows(directory, reference);
-        return ReadUnix(directory, reference);
+        using var bundle = new BundleRead(directory);
+        return bundle.Read(reference);
     }
 
     internal static (int NoFollow, int DirectoryOnly, int CloseOnExec, int NonBlock) UnixFlags(OSPlatform platform)
@@ -41,11 +40,19 @@ internal static partial class ProfileFileReader
 
         public BundleRead(string directory)
         {
-            this.directory = Path.GetFullPath(directory);
+            this.directory = Path.TrimEndingDirectorySeparator(Path.GetFullPath(directory));
             try
             {
                 if (OperatingSystem.IsWindows())
                 {
+                    // Follow trusted ancestors once, retaining the resolved directory while locking its path.
+                    var resolved = OpenWindows(this.directory, directory: true, retainDirectory: true);
+                    handles.Add(resolved);
+                    var path = new char[32768];
+                    var length = GetFinalPathNameByHandle(resolved, path, (uint)path.Length, 0);
+                    if (length == 0 || length >= path.Length)
+                        throw new InvalidDataException("UnreadablePath", new Win32Exception(Marshal.GetLastPInvokeError()));
+                    this.directory = new string(path, 0, (int)length);
                     var current = Path.GetPathRoot(this.directory)!;
                     handles.Add(OpenWindows(current, directory: true, retainDirectory: true));
                     foreach (var component in this.directory[current.Length..].Split(Path.DirectorySeparatorChar,
@@ -54,14 +61,18 @@ internal static partial class ProfileFileReader
                         current = Path.Combine(current, component);
                         handles.Add(OpenWindows(current, directory: true, retainDirectory: true));
                     }
+                    // Refuse an ancestor move that raced acquisition of the canonical path handles.
+                    length = GetFinalPathNameByHandle(resolved, path, (uint)path.Length, 0);
+                    if (length == 0 || length >= path.Length
+                        || new string(path, 0, (int)length) != this.directory)
+                        throw new InvalidDataException("UnsafePath");
                 }
                 else
                 {
                     var (noFollow, directoryOnly, closeOnExec, _) = UnixFlags(UnixPlatform);
-                    handles.Add(OpenAt(-1, "/", directoryOnly | noFollow | closeOnExec));
-                    foreach (var component in this.directory.Split('/', StringSplitOptions.RemoveEmptyEntries))
-                        handles.Add(OpenAt(handles[^1].DangerousGetHandle().ToInt32(), component,
-                            directoryOnly | noFollow | closeOnExec));
+                    // Opening the root resolves trusted ancestors atomically; O_NOFOLLOW protects the root
+                    // itself. Every untrusted reference component is then opened relative to this descriptor.
+                    handles.Add(OpenAt(-1, this.directory, directoryOnly | noFollow | closeOnExec));
                 }
             }
             catch
@@ -87,12 +98,6 @@ internal static partial class ProfileFileReader
             for (var index = handles.Count - 1; index >= 0; index--)
                 handles[index].Dispose();
         }
-    }
-
-    private static byte[] ReadUnix(string directory, string reference)
-    {
-        using var bundle = new BundleRead(directory);
-        return bundle.Read(reference);
     }
 
     private static byte[] ReadUnixRelative(SafeFileHandle root, string reference)
@@ -264,6 +269,10 @@ internal static partial class ProfileFileReader
         [FieldOffset(24)] public uint ModeX64;
         [FieldOffset(16)] public uint ModeArm64;
     }
+
+    [LibraryImport("kernel32.dll", EntryPoint = "GetFinalPathNameByHandleW", SetLastError = true,
+        StringMarshalling = StringMarshalling.Utf16)]
+    private static partial uint GetFinalPathNameByHandle(SafeFileHandle handle, [Out] char[] path, uint length, uint flags);
 
     [LibraryImport("libc", EntryPoint = "fstat", SetLastError = true)]
     private static partial int FStat(SafeFileHandle handle, out LinuxStat information);
