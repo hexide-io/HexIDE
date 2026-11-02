@@ -277,7 +277,16 @@ public record TextDocumentClientCapabilities(
     [property: JsonPropertyName("foldingRange")]
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] FoldingRangeClientCapabilities? FoldingRange = null,
     [property: JsonPropertyName("semanticTokens")]
-    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] SemanticTokensClientCapabilities? SemanticTokens = null);
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] SemanticTokensClientCapabilities? SemanticTokens = null,
+    [property: JsonPropertyName("completion")]
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] CompletionClientCapabilities? Completion = null);
+
+public record CompletionClientCapabilities(
+    [property: JsonPropertyName("completionItemKind")] CompletionItemKindClientCapabilities CompletionItemKind,
+    [property: JsonPropertyName("insertTextMode")] int InsertTextMode = 1);
+
+public record CompletionItemKindClientCapabilities(
+    [property: JsonPropertyName("valueSet")] CompletionItemKind[] ValueSet);
 
 public record ConfigurationParams([property: JsonPropertyName("items")] ConfigurationItem[] Items);
 public record ConfigurationItem(
@@ -776,7 +785,13 @@ public record CompletionItem(
     [property: JsonPropertyName("detail")]
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Detail = null,
     [property: JsonPropertyName("insertText")]
-    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? InsertText = null);
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? InsertText = null,
+    [property: JsonPropertyName("textEdit")]
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] TextEdit? TextEdit = null,
+    [property: JsonPropertyName("additionalTextEdits")]
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] TextEdit[]? AdditionalTextEdits = null,
+    [property: JsonPropertyName("insertTextFormat")]
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] int? InsertTextFormat = null);
 
 public record CompletionList(
     [property: JsonPropertyName("isIncomplete")] bool IsIncomplete,

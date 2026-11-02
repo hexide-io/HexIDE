@@ -216,7 +216,7 @@ public sealed class LocalizationService : ILocalizationService
     /// region inherits its neutral pack, and one absent from both inherits canonical English. Returns false
     /// if a file pack fails to load (map is then the canonical map).
     /// </summary>
-    private bool TryResolveMap(string id, out Dictionary<string, string> map, out string direction)
+    internal bool TryResolveMap(string id, out Dictionary<string, string> map, out string direction)
     {
         direction = "ltr";
 

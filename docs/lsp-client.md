@@ -70,6 +70,30 @@ the production formatter and source-generated context to guard absence and prese
 | Actions | `codeLens/resolve`, `workspace/executeCommand` — see *Commands and lenses* |
 | Custom | `vb/builtinSymbols` — see *Custom methods* |
 
+Initialize declares `textDocument.completion` with the six completion kinds currently named by the
+client (Text, Function, Variable, Property, Keyword and Constant), and default `insertTextMode: 1`
+(`asIs`). Other optional completion capabilities remain absent: snippets, insert/replace edits,
+resolve, commit characters, documentation formats, context and list item defaults are not advertised
+(#2670, first slice). This follows the [LSP 3.17 completion capability contract](https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#completionClientCapabilities).
+The editor applies a completion's `textEdit` in preference to `insertText` or `label`; without
+a `textEdit`, it replaces the completion segment. `additionalTextEdits` use the same original
+document coordinates and commit with the main edit as one undo step. The caret follows the main
+insertion, including shifts from earlier edits. Invalid, overlapping or protected edit sets are
+refused in full. The editor expands numbered snippet tabstops (`$1`, `${1}`), defaults
+(`${1:Item}`), repeated linked placeholders, choices (`${1|one,two|}`), escaped `$`, `}` and
+backslashes, and final `$0`.
+Tab visits positive stops in numeric order, Shift+Tab goes back, and Tab after the last stop
+finishes at `$0` (or the insertion end); Escape ends linking. Multiline whitespace remains as sent.
+Unsupported or malformed snippet syntax refuses the whole completion before applying additional edits.
+Choice placeholders offer their values in the completion picker; selecting a value updates linked
+occurrences. Choice pickers also appear under their editor in automation dumps and snapshots,
+with each choice named by its text. Commas and pipes can be escaped within choices.
+After typing in a placeholder, Tab advances when no completion list is open. With a completion
+list open, Tab accepts its selected item, following the editor's ordinary completion rule;
+close that list before using Tab to navigate the snippet.
+This is a partial third slice of #2670: nested placeholders and variables still need support
+before `snippetSupport` can be advertised. Insert/replace edits and indentation adjustment also remain.
+
 Completion replies accept `CompletionItem[]`, `CompletionList`, or `null` (#2204). Bare arrays
 are normalized to a complete list (`isIncomplete: false`); list objects retain their supplied flag.
 The editor receives the items from either shape; it does not currently use `isIncomplete`.

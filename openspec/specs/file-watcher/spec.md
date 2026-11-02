@@ -163,6 +163,12 @@ read.
 - **WHEN** conflicting changes arrive while the IDE is not focused
 - **THEN** the prompt waits until the developer returns to the IDE
 
+#### Scenario: Returning to deferred conflicts
+- **WHEN** the main window is activated with conflicts waiting, including when the activation event precedes
+  the window's active-state update
+- **THEN** the IDE shows the consolidated conflict prompt once after the active-state update, without another
+  disk change being needed
+
 #### Scenario: Turning watching off
 - **WHEN** the developer disables external-change watching
 - **THEN** no reloads or prompts occur
