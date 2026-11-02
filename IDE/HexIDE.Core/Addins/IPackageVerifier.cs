@@ -38,6 +38,10 @@ public sealed record PackageVerificationResult(
 {
     public bool IsVerified => Verdict == PackageVerdict.Verified;
 
+    /// <summary>Immutable declaration and build identity, set only after successful verification.
+    /// Null for untrusted or incompatible packages; legacy absence differs from an explicit empty list.</summary>
+    public AddinCapabilityDeclaration? VerifiedDeclaration { get; init; }
+
     /// <summary>SHA-256 (lower-case hex) of the raw <c>addin.json</c> bytes — a stable content identity
     /// for the package, used as the consent key. Null only when the manifest could not be read. Because
     /// the manifest lists the version and every file hash, any change to the package changes this.</summary>
