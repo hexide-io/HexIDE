@@ -258,9 +258,14 @@ counting it. Its first engine result is retained as `parallelAttempt`; only the 
 
 What the adapter does that the tool relies on, measured against the revision in the next paragraph:
 - A class module needs its `VERSION 1.0 CLASS` header, or it is read as a standard module. The tool adds it.
-- An unhandled run-time error stops under the adapter's default `unhandled` filter. Continuing prints
-  `Run-time error 'N': description` on `stderr` and exits 1, which is where the number is read.
-  The runner also recognises `Application error 'N': ...` (measured at 653244e, #2119).
+- An unhandled run-time error stops under the adapter's default `unhandled` filter. Since RDCore #574, continuing
+  from that stop runs the failing line again, as VBA's F5 does, and stops there again. So the runner reads the error
+  at the first stop whose reason is `exception`, and ends the program there: `terminate` where the adapter
+  advertises it, then `disconnect`, or `disconnect` alone. The result's `endedAtException` says which.
+  - The number is in `exceptionInfo`'s `exceptionId`: `VBR00006` for a run-time error and `VBA00006` for an
+    application error, with nothing on `stderr` (measured at 84278ae, #1368).
+  - Before #574, continuing printed `Run-time error 'N': description` or `Application error 'N': ...` on `stderr`
+    and exited 1 (measured at 653244e, #2119). The runner still reads that form.
 - A compile error is printed on `stderr`, with an exit code of 1.
 
 Measured on Windows, 2026-10-22, against RDCore `f3acd864` with a local, unreviewed transport fix (`6bb9b426`),
