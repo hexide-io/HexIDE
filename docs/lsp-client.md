@@ -967,6 +967,15 @@ client may legitimately gate a custom method on. A server that does not advertis
 
 ---
 
+## Editor configuration (#2669)
+
+The client declares `workspace.configuration` and answers `workspace/configuration` with one value
+per requested item, in order. `editor.tabSize` returns the current Tools > Options Tab Width as a
+number, including for scoped items; unknown or absent sections return `null`. Running connections
+receive `workspace/didChangeConfiguration` with empty `settings` when Tab Width changes, so a server
+can request its configuration again. New connections read the current value on their first request.
+`WorkspaceConfigurationWireTests` checks the capability, response array and change notification frames.
+
 ## Coverage against the specification
 
 LSP 3.17 defines **93 messages** — 67 requests and 26 notifications. The table below is generated from the
@@ -974,7 +983,7 @@ specification's own [`metaModel.json`](https://raw.githubusercontent.com/microso
 the canonical machine-readable list, so the method names and directions are the specification's rather than
 this document's recollection of them.
 
-**HexIDE implements 34 of the 93.** That is not a deficiency in itself — no client implements them all, and
+**HexIDE implements 36 of the 93.** That is not a deficiency in itself — no client implements them all, and
 most of the remainder are features no VB6 IDE needs. It is here so the shape of the gap is visible rather
 than inferred.
 
@@ -1042,16 +1051,16 @@ than inferred.
 | ○ | `textDocument/willSave` | → |  |
 | ○ | `textDocument/willSaveWaitUntil` | → |  |
 
-### `workspace/*` — 5 of 21
+### `workspace/*` — 7 of 21
 
 | | Method | Dir | Notes |
 |---|---|---|---|
 | ○ | `workspace/applyEdit` | ← | A server cannot ask the IDE to edit a document |
 | ○ | `workspace/codeLens/refresh` | ← |  |
-| ○ | `workspace/configuration` | ← | A server asking for its configuration is refused |
+| ✅ | `workspace/configuration` | ← | Returns editor.tabSize from Tab Width; unknown items return null |
 | ○ | `workspace/diagnostic` | → | The pull model, workspace-wide ([#284](https://github.com/hexide-io/HexIDE/issues/284)) |
 | ✅ | `workspace/diagnostic/refresh` | ← | Re-asks every open document; the only way a pull-model server can report a change that is not a document |
-| ○ | `workspace/didChangeConfiguration` | → |  |
+| ✅ | `workspace/didChangeConfiguration` | → | Notifies running servers when Tab Width changes |
 | ○ | `workspace/didChangeWatchedFiles` | → |  |
 | ✅ | `workspace/didChangeWorkspaceFolders` | → | Shared project-change debounce; opted-in servers, before import |
 | ✅ | `workspace/didCreateFiles` | → | First saves and Save As to new files, filtered per running server (#2248) |
@@ -1213,11 +1222,9 @@ Three clusters account for nearly all of the gap:
   would consume* below. `workspace/symbol` used to sit in this list and no longer does: the client speaks it
   and the Object Browser surfaces it, so the missing half is a *server*, which is exactly the point of the
   seam.
-- **Workspace-level protocol** — `workspace/*` is 2 of 21. There *is* a workspace model now — one folder
-  per loaded project, sent in `initialize` — and `workspace/symbol` searches it. What is still absent is
-  everything that keeps that model live or reacts to it: file-operation notifications, watched files,
-  configuration round-trips, and `didChangeWorkspaceFolders` for a group whose membership changes while a
-  server is running ([#261](https://github.com/hexide-io/HexIDE/issues/261)).
+- **Workspace-level protocol** — `workspace/*` is 7 of 21. The client sends project folders,
+  updates them as group membership changes, sends file-operation notifications, and answers editor
+  configuration requests. Watched-file notifications and server-initiated workspace edits remain absent.
 - **Server-to-client courtesy** — `window/*` and `client/*` are 3 of 8 between them. Alongside work-done progress (#360), the messages that landed
   are the ones that cost no analysis depth and buy diagnosability: a server can now explain its own
   problems instead of appearing broken ([#289](https://github.com/hexide-io/HexIDE/issues/289)). Dynamic registration stays refused on
