@@ -68,14 +68,17 @@ public class LayoutManifestJsonTests
         d.Tools.Single(t => t.Key == "languageServers").Open.Should().BeFalse(
             "it is a diagnostic surface, opened when something is wrong rather than carried by default");
 
+        d.Tools.Single(t => t.Key == "formLayout").Should().Be(
+            new ToolLayoutState("formLayout", false, DockRegion.Right, 2, null));
+
         // NOTE: adding a tool needs no CurrentVersion bump. A layout saved before it existed simply has
         // no entry for it, and restore iterates the SAVED states — so the tool is not placed, which is
         // exactly right for one that defaults to closed. A bump would force every existing layout to be
         // discarded to add a window nobody had open.
 
-        // Default open-state: the four left/right built-ins are open; debug + document tools start closed.
+        // Default open-state: Toolbox, Project and Properties are open; other tools start closed.
         d.Tools.Where(t => t.Open).Select(t => t.Key)
-            .Should().BeEquivalentTo("toolbox", "project", "properties", "formLayout");
+            .Should().BeEquivalentTo("toolbox", "project", "properties");
     }
 
     [Fact]

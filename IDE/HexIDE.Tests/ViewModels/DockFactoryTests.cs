@@ -461,10 +461,30 @@ public class DockFactoryTests
         var m = factory.CaptureManifest(root);
 
         m.Tools.Where(t => t.Open).Select(t => t.Key)
-            .Should().BeEquivalentTo("toolbox", "project", "properties", "formLayout");
+            .Should().BeEquivalentTo("toolbox", "project", "properties");
         m.Tools.Single(t => t.Key == "properties").Region.Should().Be(DockRegion.Right);
         m.Tools.Single(t => t.Key == "properties").Order.Should().Be(1);
         m.Tools.Single(t => t.Key == "immediate").Open.Should().BeFalse();
+    }
+
+    [Fact]
+    public void ResetLayout_ClosesSavedOpenFormLayout()
+    {
+        var saved = LayoutManifest.Default with
+        {
+            Tools = LayoutManifest.Default.Tools.Select(t => t.Key == "formLayout"
+                ? t with { Open = true } : t).ToArray()
+        };
+        var (factory, _) = CreateFactory(LayoutManifestJson.Deserialize(LayoutManifestJson.Serialize(saved)));
+        var root = factory.CreateLayout();
+        factory.InitLayout(root);
+        factory.CaptureManifest(root).Tools.Single(t => t.Key == "formLayout").Open.Should().BeTrue();
+
+        root = factory.ResetLayout(root);
+        factory.InitLayout(root);
+
+        factory.CaptureManifest(root).Tools.Single(t => t.Key == "formLayout").Should().Be(
+            new ToolLayoutState("formLayout", false, DockRegion.Right, 2, null));
     }
 
     [Fact]
