@@ -174,7 +174,7 @@ public sealed class LocalizationService : ILocalizationService
                 return lang.Id;
 
         // (2) Exact region match — e.g. "en-GB" → "en-GB" (so a British machine gets Colour/Customise, not
-        // the `en` canonical), "zh-CN" → "zh-CN". Regions are fileless except en-GB but all resolve correctly.
+        // the `en` canonical), "zh-CN" → "zh-CN". Regions with no overrides are fileless but all resolve correctly.
         foreach (var regions in LanguageManifest.Regions.Values)
             foreach (var r in regions)
                 if (string.Equals(r.Id, cultureName, StringComparison.OrdinalIgnoreCase))
