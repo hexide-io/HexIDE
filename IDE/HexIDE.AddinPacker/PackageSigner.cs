@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using System.Text.Json;
+using System.Text;
 using HexIDE.Addins;
 
 namespace HexIDE.AddinPacker;
@@ -38,6 +39,8 @@ public static class PackageSigner
     {
         Directory.CreateDirectory(outDir);
 
+        var outputs = new Dictionary<string, byte[]>();
+
         using var root = ECDsa.Create(ECCurve.NamedCurves.nistP256);
         using var intermediate = ECDsa.Create(ECCurve.NamedCurves.nistP256);
         using var firstParty = ECDsa.Create(ECCurve.NamedCurves.nistP256);
@@ -49,8 +52,8 @@ public static class PackageSigner
             PublicKey = PackageCrypto.ExportPublicKey(intermediate),
         };
         var interBytes = JsonSerializer.SerializeToUtf8Bytes(interRec, AddinJsonContext.Default.IntermediateRecord);
-        File.WriteAllBytes(Path.Combine(outDir, "intermediate.json"), interBytes);
-        File.WriteAllText(Path.Combine(outDir, "intermediate.sig"), PackageCrypto.Sign(root, interBytes));
+        outputs["intermediate.json"] = interBytes;
+        outputs["intermediate.sig"] = Encoding.UTF8.GetBytes(PackageCrypto.Sign(root, interBytes));
 
         var pubRec = new PublisherRecord
         {
@@ -60,18 +63,19 @@ public static class PackageSigner
             IntermediateId = "hexide-marketplace-dev",
         };
         var pubBytes = JsonSerializer.SerializeToUtf8Bytes(pubRec, AddinJsonContext.Default.PublisherRecord);
-        File.WriteAllBytes(Path.Combine(outDir, "publisher.json"), pubBytes);
-        File.WriteAllText(Path.Combine(outDir, "publisher.sig"), PackageCrypto.Sign(intermediate, pubBytes));
+        outputs["publisher.json"] = pubBytes;
+        outputs["publisher.sig"] = Encoding.UTF8.GetBytes(PackageCrypto.Sign(intermediate, pubBytes));
 
-        File.WriteAllText(Path.Combine(outDir, "hexide-root.pub"), PackageCrypto.ExportPublicKey(root));
+        outputs["hexide-root.pub"] = Encoding.UTF8.GetBytes(PackageCrypto.ExportPublicKey(root));
         // The first-party publisher PUBLIC key is pinned (baked into the IDE) so first-party status is
         // bound to possession of the first-party private key, not just the publisherId string.
-        File.WriteAllText(Path.Combine(outDir, "hexide-firstparty.pub"), PackageCrypto.ExportPublicKey(firstParty));
-        File.WriteAllText(Path.Combine(outDir, "firstparty.key"), PackageCrypto.ExportPrivateKey(firstParty));
+        outputs["hexide-firstparty.pub"] = Encoding.UTF8.GetBytes(PackageCrypto.ExportPublicKey(firstParty));
+        outputs["firstparty.key"] = Encoding.UTF8.GetBytes(PackageCrypto.ExportPrivateKey(firstParty));
         // Dev-only private keys retained so the chain can be regenerated/rotated. NEVER ship these.
-        File.WriteAllText(Path.Combine(outDir, "root.key"), PackageCrypto.ExportPrivateKey(root));
-        File.WriteAllText(Path.Combine(outDir, "intermediate.key"), PackageCrypto.ExportPrivateKey(intermediate));
+        outputs["root.key"] = Encoding.UTF8.GetBytes(PackageCrypto.ExportPrivateKey(root));
+        outputs["intermediate.key"] = Encoding.UTF8.GetBytes(PackageCrypto.ExportPrivateKey(intermediate));
 
+        WriteNewFiles(outDir, outputs);
         Console.WriteLine($"Generated dev trust chain in {outDir}");
     }
 
@@ -80,12 +84,51 @@ public static class PackageSigner
     public static void SignRevocations(string inJsonPath, string rootKeyPath, string outDir)
     {
         Directory.CreateDirectory(outDir);
+        var outputs = new Dictionary<string, byte[]>();
         var jsonBytes = File.ReadAllBytes(inJsonPath);
         var keyB64 = File.ReadAllText(rootKeyPath).Trim();
         using var key = PackageCrypto.ImportPrivateKey(keyB64);
-        File.WriteAllBytes(Path.Combine(outDir, "revocations.json"), jsonBytes);
-        File.WriteAllText(Path.Combine(outDir, "revocations.sig"), PackageCrypto.Sign(key, jsonBytes));
+        outputs["revocations.json"] = jsonBytes;
+        outputs["revocations.sig"] = Encoding.UTF8.GetBytes(PackageCrypto.Sign(key, jsonBytes));
+        WriteNewFiles(outDir, outputs);
         Console.WriteLine($"Signed revocation list -> {Path.Combine(outDir, "revocations.json")}");
+    }
+
+    private static void WriteNewFiles(string directory, Dictionary<string, byte[]> outputs)
+    {
+        var streams = new Dictionary<string, FileStream>();
+        var completed = false;
+        try
+        {
+            try
+            {
+                // Reserve every destination before writing, so a collision cannot replace part of a chain.
+                foreach (var name in outputs.Keys)
+                    streams.Add(name, new FileStream(Path.Combine(directory, name), FileMode.CreateNew, FileAccess.Write));
+                foreach (var (name, bytes) in outputs)
+                {
+                    streams[name].Write(bytes);
+                    streams[name].Flush(flushToDisk: true);
+                }
+            }
+            finally
+            {
+                foreach (var stream in streams.Values)
+                    stream.Dispose();
+            }
+            completed = true;
+        }
+        finally
+        {
+            if (!completed)
+                foreach (var name in streams.Keys)
+                {
+                    // Preserve the original failure if the filesystem also refuses cleanup.
+                    try { File.Delete(Path.Combine(directory, name)); }
+                    catch (IOException) { }
+                    catch (UnauthorizedAccessException) { }
+                }
+        }
     }
 
     public static void Pack(PackRequest r)

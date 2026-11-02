@@ -364,3 +364,16 @@ filters remain unchanged. Record framing is measured in
 - **WHEN** the picker is cancelled or the chosen file cannot be read as a picture
 - **THEN** the property and undo history remain unchanged
 - **AND** a refused file produces a message naming it
+
+### Requirement: Confirm picture export replacement
+The Properties window's picture export SHALL ask an explicit Yes/No question naming an existing destination
+before replacing it, including when a scripted file-picker answer chose the path. Only Yes SHALL permit
+replacement, staged and flushed through the atomic writer. A new destination SHALL be created exclusively.
+
+#### Scenario: Decline replacement
+- **WHEN** picture export chooses an existing file and the replacement question is declined or dismissed
+- **THEN** the existing bytes remain unchanged
+
+#### Scenario: Accept replacement
+- **WHEN** the replacement question is answered Yes
+- **THEN** the destination contains the exported picture payload

@@ -219,6 +219,11 @@ already built.
    `.rdproj` with a unique case name and no references (`--project-template` supplies another). The tool writes
    `results.jsonl` one line per program as each finishes, and the counts to `summary.json`. `--timeout` bounds each program (60 s by
    default), `--parallel` sets how many adapters run at once, and `--dry-run` writes the workspaces and starts nothing.
+   Every output file is created exclusively: a collision stops the run without replacing the existing file.
+   A failed reservation or write removes only output files created by that invocation, including results
+   and workspaces already written before a later collision.
+   Use a fresh `--out` directory after a successful run.
+   A serial retry reuses the workspace created by its parallel attempt.
 
 Outcomes compare HexIDE's Immediate output lines with RDCore's `stdout` lines, trimmed. Individual printed items
 retain their types and use the same formatter as `Debug.Print`, including Null and numeric spacing (#2119).

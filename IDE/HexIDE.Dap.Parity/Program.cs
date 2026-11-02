@@ -38,7 +38,8 @@ var template = options.ProjectTemplate is { } t ? File.ReadAllText(t) : DefaultP
 // Readable output: a label such as "f3acd864 + fix" keeps its plus sign, and a test name its quotes.
 var json = new JsonSerializerOptions { Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping };
 var indented = new JsonSerializerOptions(json) { WriteIndented = true };
-var results = new StreamWriter(Path.Combine(outDir, "results.jsonl"), append: false, new UTF8Encoding(false));
+using var outputs = new NewOutputFiles();
+using var results = new StreamWriter(outputs.Create(Path.Combine(outDir, "results.jsonl")), new UTF8Encoding(false));
 var gate = new object();
 void Write(JsonObject line)
 {
@@ -87,7 +88,7 @@ await Task.WhenAll(cases.Select(async c =>
 // No adapters from the parallel pass remain when these cases are retried.
 foreach (var retry in retries)
 {
-    var result = await RunCase(retry.Index, retry.Record);
+    var result = await RunCase(retry.Index, retry.Record, reuseWorkspace: true);
     result["parallelAttempt"] = retry.Result["engine"]?.DeepClone();
     Complete(result);
 }
@@ -115,12 +116,13 @@ var summary = new JsonObject
     ["outcomes"] = new JsonObject(counts.Select(kv => KeyValuePair.Create(kv.Key, (JsonNode?)kv.Value))),
     ["excludedFor"] = new JsonObject(exclusions.Select(kv => KeyValuePair.Create(kv.Key, (JsonNode?)kv.Value))),
 };
-File.WriteAllText(Path.Combine(outDir, "summary.json"), summary.ToJsonString(indented));
+WriteNewText(Path.Combine(outDir, "summary.json"), summary.ToJsonString(indented));
 Console.WriteLine(summary.ToJsonString(indented));
 Console.WriteLine($"Results: {outDir}");
+outputs.Complete();
 return 0;
 
-async Task<JsonObject> RunCase(int index, JsonObject record)
+async Task<JsonObject> RunCase(int index, JsonObject record, bool reuseWorkspace = false)
 {
     var modules = record["modules"]!.AsArray().Select(m => m!.AsObject()).ToList();
     var startup = modules[0];
@@ -152,22 +154,26 @@ async Task<JsonObject> RunCase(int index, JsonObject record)
     }
 
     var dir = Path.Combine(outDir, "cases", index.ToString("D5"));
-    Directory.CreateDirectory(dir);
-    var files = new JsonArray();
-    for (var i = 0; i < modules.Count; i++)
+    // A serial retry runs the workspace this invocation already created, without rewriting its files.
+    if (!reuseWorkspace)
     {
-        var m = modules[i];
-        var name = m["name"]!.GetValue<string>();
-        var kind = m["kind"]!.GetValue<string>();
-        // The startup module as an engine that starts only at a named procedure can call it; the others as written,
-        // since only the startup module has statements of its own.
-        var source = i == 0 ? m["wrapped"]!.GetValue<string>() : m["source"]!.GetValue<string>();
-        var file = name + (kind == "class" ? ".cls" : ".bas");
-        File.WriteAllText(Path.Combine(dir, file), ModuleText(name, kind, source), new UTF8Encoding(false));
-        files.Add(new JsonObject { ["RelativeUri"] = file });
+        Directory.CreateDirectory(dir);
+        var files = new JsonArray();
+        for (var i = 0; i < modules.Count; i++)
+        {
+            var m = modules[i];
+            var name = m["name"]!.GetValue<string>();
+            var kind = m["kind"]!.GetValue<string>();
+            // The startup module as an engine that starts only at a named procedure can call it; the others as written,
+            // since only the startup module has statements of its own.
+            var source = i == 0 ? m["wrapped"]!.GetValue<string>() : m["source"]!.GetValue<string>();
+            var file = name + (kind == "class" ? ".cls" : ".bas");
+            WriteNewText(Path.Combine(dir, file), ModuleText(name, kind, source));
+            files.Add(new JsonObject { ["RelativeUri"] = file });
+        }
+        var project = Comparison.Project(template, index, files);
+        WriteNewText(Path.Combine(dir, ".rdproj"), project.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
     }
-    var project = Comparison.Project(template, index, files);
-    File.WriteAllText(Path.Combine(dir, ".rdproj"), project.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
     if (options.DryRun)
     {
         result["outcome"] = "dry-run";
@@ -267,6 +273,12 @@ async Task<Engine> RunEngine(string workspace, string module)
     }
     engine.ElapsedMs = clock.ElapsedMilliseconds;
     return engine;
+}
+
+void WriteNewText(string path, string text)
+{
+    using var writer = new StreamWriter(outputs.Create(path), new UTF8Encoding(false));
+    writer.Write(text);
 }
 
 static string ModuleText(string name, string kind, string source)

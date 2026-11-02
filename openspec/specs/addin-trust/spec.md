@@ -221,3 +221,17 @@ minimum SHALL be rejected before changing the output directory.
 
 - **WHEN** a publisher packs with `--min-hexide-version 1.4`
 - **THEN** the signed manifest records schema 1 and minimum HexIDE version `1.4`
+
+### Requirement: Signing generators preserve existing output
+
+The add-in packer's `genkeys` and `sign-revocations` commands SHALL create their output files
+exclusively. If any destination already exists, the command SHALL fail without replacing that file
+or writing generated content to any of its other destinations. If a reservation or write fails,
+the command SHALL remove exactly the output files created by that call.
+
+#### Scenario: An existing private key or revocation output
+
+- **WHEN** a signing generator encounters an existing output file
+- **THEN** it reports failure and preserves that file's bytes
+- **AND** no generated key, trust record or signature is written to the other destinations
+- **AND** any output files reserved by this call are removed, including when the last destination collides
