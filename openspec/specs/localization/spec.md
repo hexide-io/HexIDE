@@ -5,7 +5,7 @@ Define how the IDE's own text is translated: where strings come from, how a lang
 and the guarantees that keep a translated IDE usable even when a translation is incomplete.
 
 VB6 solved this by shipping a different build per language, which was a distribution constraint of its era
-rather than a design. One build carrying every language is the modern answer, and it is worth doing properly
+rather than a design. One build carrying the in-box languages is the modern answer, and it is worth doing properly
 here for a reason specific to this project: the people most likely to still be maintaining VB6 code are
 distributed across a lot of countries, and an English-only IDE excludes them for no good reason.
 
@@ -118,6 +118,15 @@ SHALL remain in place, and the persisted selection SHALL remain `system`.
 #### Scenario: A region without a shipped regional entry
 - **WHEN** the startup UI culture is `fr-CD` and System default is selected
 - **THEN** the IDE uses the neutral French pack
+
+### Requirement: A removed saved language SHALL fall back safely
+A saved language whose pack and neutral pack are no longer shipped, and which has no user translation
+overrides, SHALL resolve to canonical English without an error, using the existing unknown-language fallback.
+
+#### Scenario: Starting with a removed language
+- **WHEN** the saved language is Hindi, Persian, Urdu, Latin or Esperanto, or one of their former regions
+- **AND** no user translation overrides supply that language
+- **THEN** startup applies English with left-to-right chrome
 
 ### Requirement: Changing language SHALL take effect immediately
 Selecting a language SHALL update the interface without restarting the IDE, including windows already open.
