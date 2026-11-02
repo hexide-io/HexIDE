@@ -431,8 +431,8 @@ that connection receives `workspace/diagnostic/refresh`; subsequent refreshes ar
 Automatic transport reconnect re-imports only on the next project change; immediate imports currently
 cover registry startup and workspace-root replacement. Workspace-folder changes are sent before the import on
 the same debounce (#2364). Importing does not make HexIDE an artefact writer, so an entry that declares
-`projectImport` and no `workspaceArtifact` also receives the file-operation notifications its server asks for
-(#2248). Declaring both loses them (#2915), so drop `workspaceArtifact` when you add an import.
+`projectImport` also receives the file-operation notifications its server asks for (#2248), whether or not it
+also declares `workspaceArtifact` (#2915).
 
 #### RDCore
 

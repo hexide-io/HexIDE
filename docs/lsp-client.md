@@ -1247,11 +1247,11 @@ These are notifications and carry no request id. Wire tests read the frames and 
 as a barrier when asserting silence.
 
 The registry fans out to every running server whose operation filter matches, regardless of its document
-language claims, except entries with `workspaceArtifact`: those receive no create, rename or delete
-notifications. HexIDE's generated artefact already describes their project, so only one writer maintains
-it. An entry that declares `projectImport` instead, as RDCore's does
-([language-servers.md](language-servers.md#rdcore)), receives matching notifications; one that declares
-both receives none (#2915). File events do not start servers. Initialize advertises the three
+language claims, except entries with `workspaceArtifact` and no `projectImport`: those receive no create,
+rename or delete notifications. HexIDE's generated artefact already describes their project, so only one
+writer maintains it. A declared `projectImport` replaces generation, so an entry that declares it, as RDCore's
+does ([language-servers.md](language-servers.md#rdcore)), receives matching notifications, whether or not it
+also declares `workspaceArtifact` (#2915). File events do not start servers. Initialize advertises the three
 notification capabilities.
 First saves and Save As to a destination that does not exist report creation after the write succeeds;
 ordinary overwrites and temporary Make EXE copies report nothing. Save As keeps the original file, so it

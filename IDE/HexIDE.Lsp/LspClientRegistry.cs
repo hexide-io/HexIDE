@@ -350,7 +350,7 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
         Func<ILspClient, T[], Task> send, Func<T, string>? newUri = null) =>
         // Generated workspace artefacts already describe the project; keep a single writer (#2248).
         // Other workspace events follow operation filters, not language claims, and never launch a server.
-        Task.WhenAll(_entries.Where(e => e.Registration.WorkspaceArtifact is null
+        Task.WhenAll(_entries.Where(e => (e.Registration.WorkspaceArtifact is null || e.Registration.ProjectImport is not null)
             && e.Client is { IsRunning: true }).Select(e =>
         {
             var client = e.Client!;
