@@ -1249,8 +1249,9 @@ as a barrier when asserting silence.
 The registry fans out to every running server whose operation filter matches, regardless of its document
 language claims, except entries with `workspaceArtifact`: those receive no create, rename or delete
 notifications. HexIDE's generated artefact already describes their project, so only one writer maintains
-it. When RDCore switches to `rdcore.importProject`, its entry drops `workspaceArtifact` and starts
-receiving matching notifications. File events do not start servers. Initialize advertises the three
+it. An entry that declares `projectImport` instead, as RDCore's does
+([language-servers.md](language-servers.md#rdcore)), receives matching notifications; one that declares
+both receives none (#2915). File events do not start servers. Initialize advertises the three
 notification capabilities.
 First saves and Save As to a destination that does not exist report creation after the write succeeds;
 ordinary overwrites and temporary Make EXE copies report nothing. Save As keeps the original file, so it
@@ -1351,7 +1352,8 @@ describe returns null: nothing is prompted or written, and a target HexIDE still
 confinement and ownership check as a replace, while an edited one is left alone with its reason. Providers return
 content and never write files. The first provider, `clangd`, projects carried C/C++ files into `compile_commands.json`.
 The second, `rdcore`, projects the project's code files, references and Conditional Compilation Arguments into the
-`.rdproj` RDCore's language server needs at the workspace root, which it reads only when it starts.
+`.rdproj` RDCore's language server needs at the workspace root. Current RDCore builds take a project import
+instead (below).
 
 This implements generation only (#455). Regeneration sends no `workspace/didChangeWatchedFiles` until
 #456; there is no public add-in contract (#457), no undeclared generation,
