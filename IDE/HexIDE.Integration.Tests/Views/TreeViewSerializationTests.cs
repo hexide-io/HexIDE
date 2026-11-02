@@ -17,9 +17,8 @@ public class TreeViewSerializationTests
 
     private static string CorpusDirectory()
     {
-        var root = new DirectoryInfo(AppContext.BaseDirectory);
-        while (root is not null && !Directory.Exists(Path.Join(root.FullName, "corpus"))) root = root.Parent;
-        var corpus = Path.Join(root!.FullName, "corpus", "inbox-controls");
+        var root = RepoTree.Root();
+        var corpus = Path.Join(root, "corpus", "inbox-controls");
         return Path.Join(corpus, "saved", "treeview");
     }
 
