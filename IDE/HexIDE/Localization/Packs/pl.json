@@ -2,6 +2,8 @@
   "name": "Polish",
   "direction": "ltr",
   "strings": {
+    "Str.Dialog.About.Credits.Header": "Podziękowania",
+    "Str.Dialog.About.Credits.Thanks": "HexIDE tworzą wyjątkowe zespoły AI wraz z ludzkimi współtwórcami. Serdecznie dziękujemy Claude od Anthropic — sesjom Claude Code, które piszą, przeglądają i scalają pracę — oraz Codex od OpenAI — ścieżkom pracy Codex, które posuwają naprzód poprawki z kolejki. Ich staranność i niestrudzona praca umożliwiają rozwój HexIDE.",
     "Str.Tool.Properties.LoadPicture": "Wczytaj obraz",
     "Str.Tool.Properties.LoadPictureFailed": "Nie można wczytać obrazu z „{0}”.",
     "Str.Designer.ShowTabOrder": "Pokaż kolejność tabulacji (przekreślone: TabStop wyłączone)",

@@ -2,6 +2,8 @@
   "name": "Urdu",
   "direction": "rtl",
   "strings": {
+    "Str.Dialog.About.Credits.Header": "اظہارِ تشکر",
+    "Str.Dialog.About.Credits.Thanks": "HexIDE کو غیر معمولی AI ٹیمیں اس کے انسانی معاونین کے ساتھ مل کر بناتی ہیں۔ Anthropic کے Claude — کام لکھنے، اس کا جائزہ لینے اور اسے ضم کرنے والے Claude Code سیشنز — اور OpenAI کے Codex — قطار میں لگے اصلاحی کام آگے بڑھانے والی Codex کی کام کی راہوں — کا تہہ دل سے شکریہ۔ ان کی توجہ اور انتھک محنت سے HexIDE ممکن ہے۔",
     "Str.Tool.Properties.LoadPicture": "تصویر لوڈ کریں",
     "Str.Tool.Properties.LoadPictureFailed": "”{0}“ سے تصویر لوڈ نہیں ہو سکتی۔",
     "Str.Designer.ShowTabOrder": "ٹیب کی ترتیب دکھائیں (کٹا ہوا: TabStop بند)",

@@ -309,6 +309,11 @@ public class FormSerializer
                  || prop == VBProperties.VisibleProperty))
                 continue;
 
+            // The VB6 IDE drops even an explicit MousePointer = 0 (#1970).
+            if (prop == VBProperties.MousePointerProperty
+                && instance.GetPropertyOrDefault(VBProperties.MousePointerProperty) == VBCursorType.Default)
+                continue;
+
             if (prop == VBProperties.IntervalProperty && instance.BaseClass is TimerComponentClass
                 && instance.GetPropertyOrDefault(VBProperties.IntervalProperty) == 0)
                 continue;

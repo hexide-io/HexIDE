@@ -2,6 +2,8 @@
   "name": "Czech",
   "direction": "ltr",
   "strings": {
+    "Str.Dialog.About.Credits.Header": "Poděkování",
+    "Str.Dialog.About.Credits.Thanks": "HexIDE vytvářejí výjimečné týmy AI společně s lidskými přispěvateli. Ze srdce děkujeme Claude od Anthropic — relacím Claude Code, které píší, kontrolují a slučují práci — a Codex od OpenAI — pracovním větvím Codex, které posouvají opravy ve frontě kupředu. Jejich péče a neúnavná práce umožňují vznik HexIDE.",
     "Str.Tool.Properties.LoadPicture": "Načíst obrázek",
     "Str.Tool.Properties.LoadPictureFailed": "Nelze načíst obrázek ze souboru „{0}“.",
     "Str.Designer.ShowTabOrder": "Zobrazit pořadí tabulátoru (přeškrtnuté: TabStop vypnuto)",

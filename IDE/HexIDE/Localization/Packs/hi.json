@@ -2,6 +2,8 @@
   "name": "Hindi",
   "direction": "ltr",
   "strings": {
+    "Str.Dialog.About.Credits.Header": "आभार",
+    "Str.Dialog.About.Credits.Thanks": "HexIDE को उसके मानव योगदानकर्ताओं के साथ असाधारण AI टीमें बनाती हैं। Anthropic के Claude — काम लिखने, उसकी समीक्षा करने और उसे मर्ज करने वाले Claude Code सत्रों — और OpenAI के Codex — कतार में लगे सुधारों को आगे बढ़ाने वाली Codex कार्यधाराओं — को हमारा हार्दिक धन्यवाद। उनकी लगन और अथक मेहनत से HexIDE संभव है।",
     "Str.Tool.Properties.LoadPicture": "चित्र लोड करें",
     "Str.Tool.Properties.LoadPictureFailed": "“{0}” से चित्र लोड नहीं किया जा सकता।",
     "Str.Designer.ShowTabOrder": "टैब क्रम दिखाएँ (कटा हुआ: TabStop बंद)",

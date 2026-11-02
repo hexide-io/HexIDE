@@ -2,6 +2,8 @@
   "name": "Danish",
   "direction": "ltr",
   "strings": {
+    "Str.Dialog.About.Credits.Header": "Tak til",
+    "Str.Dialog.About.Credits.Thanks": "HexIDE bygges af enestående AI-teams sammen med sine menneskelige bidragydere. Vores hjertelige tak til Claude fra Anthropic — de Claude Code-sessioner, der skriver, gennemgår og fletter arbejdet — og Codex fra OpenAI — de Codex-arbejdsspor, der fører rettelserne i køen fremad. Deres omhu og utrættelige arbejde gør HexIDE muligt.",
     "Str.Tool.Properties.LoadPicture": "Indlæs billede",
     "Str.Tool.Properties.LoadPictureFailed": "Kan ikke indlæse billedet fra ”{0}”.",
     "Str.Designer.ShowTabOrder": "Vis tabulatorrækkefølge (overstreget: TabStop fra)",

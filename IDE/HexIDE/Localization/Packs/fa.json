@@ -2,6 +2,8 @@
   "name": "Persian",
   "direction": "rtl",
   "strings": {
+    "Str.Dialog.About.Credits.Header": "قدردانی",
+    "Str.Dialog.About.Credits.Thanks": "HexIDE را تیم‌های خارق‌العادهٔ هوش مصنوعی در کنار مشارکت‌کنندگان انسانی آن می‌سازند. سپاس صمیمانهٔ ما از Claude از Anthropic — نشست‌های Claude Code که کار را می‌نویسند، بازبینی و ادغام می‌کنند — و Codex از OpenAI — مسیرهای کاری Codex که اصلاحات در صف را پیش می‌برند. توجه و تلاش خستگی‌ناپذیر آن‌ها HexIDE را ممکن می‌سازد.",
     "Str.Tool.Properties.LoadPicture": "بارگذاری تصویر",
     "Str.Tool.Properties.LoadPictureFailed": "بارگذاری تصویر از «{0}» ممکن نیست.",
     "Str.Designer.ShowTabOrder": "نمایش ترتیب پیمایش (خط‌خورده: TabStop خاموش)",

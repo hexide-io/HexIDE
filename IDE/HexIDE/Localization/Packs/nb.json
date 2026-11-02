@@ -2,6 +2,8 @@
   "name": "Norwegian Bokmål",
   "direction": "ltr",
   "strings": {
+    "Str.Dialog.About.Credits.Header": "Takk til",
+    "Str.Dialog.About.Credits.Thanks": "HexIDE bygges av fremragende KI-team sammen med sine menneskelige bidragsytere. Vår hjertelige takk til Claude fra Anthropic — Claude Code-øktene som skriver, gjennomgår og fletter arbeidet — og Codex fra OpenAI — Codex-arbeidssporene som fører rettelsene i køen fremover. Deres omtanke og utrettelige arbeid gjør HexIDE mulig.",
     "Str.Tool.Properties.LoadPicture": "Last inn bilde",
     "Str.Tool.Properties.LoadPictureFailed": "Kan ikke laste inn bildet fra «{0}».",
     "Str.Designer.ShowTabOrder": "Vis tabulatorrekkefølge (overstreket: TabStop av)",

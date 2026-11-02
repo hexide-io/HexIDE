@@ -240,7 +240,7 @@ public class WindowManager : IWindowManager
 
     public async Task ShowAbout(AboutDialogOptions options)
     {
-        var vm = new AboutDialogViewModel(options);
+        var vm = new AboutDialogViewModel(options, _localization);
         var dialog = new AboutDialog { DataContext = vm };
         var title = string.Format(_localization.GetString("Str.WindowManager.AboutTitle"), options.Title);
 

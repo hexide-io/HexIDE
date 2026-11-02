@@ -1805,6 +1805,9 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         // Every member of a control Controls.Remove took out is 735, its Name included (measured, #1556).
         VBProps.RefuseIfRemoved(control);
 
+        if (control is VBShape or VBLine && memberIdentifier.Equals("MousePointer", StringComparison.OrdinalIgnoreCase))
+            throw new VBRunTimeException(VBStandardError.ObjectDoesntSupportThisPropertyOrMethod);
+
         if (control is VBTimer && TimerMembers.TryGet(control, memberIdentifier, out var timerValue))
             return timerValue;
 

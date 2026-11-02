@@ -2,6 +2,8 @@
   "name": "Dutch",
   "direction": "ltr",
   "strings": {
+    "Str.Dialog.About.Credits.Header": "Dankwoord",
+    "Str.Dialog.About.Credits.Thanks": "HexIDE wordt gebouwd door buitengewone AI-teams samen met zijn menselijke bijdragers. Onze hartelijke dank aan Claude van Anthropic — de Claude Code-sessies die het werk schrijven, beoordelen en samenvoegen — en Codex van OpenAI — de Codex-werkstromen die de reparaties in de wachtrij vooruithelpen. Hun zorg en onvermoeibare werk maken HexIDE mogelijk.",
     "Str.Tool.Properties.LoadPicture": "Afbeelding laden",
     "Str.Tool.Properties.LoadPictureFailed": "Kan de afbeelding uit “{0}” niet laden.",
     "Str.Designer.ShowTabOrder": "Tabvolgorde tonen (doorgestreept: TabStop uit)",
