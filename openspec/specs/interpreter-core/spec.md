@@ -1375,3 +1375,21 @@ Provenance: [numeric pair measurements](../../../docs/vb6-fidelity-oracle/numeri
 #### Scenario: Long retains its precision beside Single
 - **WHEN** Single 16777216 is compared with Long 16777217
 - **THEN** equality is False and the Single is less than the Long
+
+### Requirement: TextBox measured keyboard codes
+
+A runtime TextBox SHALL deliver KeyDown and KeyUp through its event queue for the
+letters, top-row digits, Space, navigation/editing keys, F1–F9/F11/F12 and keypad
+keys mapped by #2325's [keyboard sweep](https://github.com/hexide-io/HexIDE/issues/2325#issuecomment-6454480155),
+using its measured KeyCode and held-modifier Shift mask. KeyPreview SHALL retain
+the existing form-first delivery. Host-translated keypad navigation SHALL use
+the navigation key received from the host. Enter/Esc, Tab arbitration, punctuation
+and unmeasured combinations remain outside this additional code-mapping slice.
+
+#### Scenario: Home reaches a handler before TextBox navigation
+- **WHEN** Home is pressed and released in a TextBox with no modifier
+- **THEN** its KeyDown and KeyUp handlers receive KeyCode 36 and Shift 0
+
+#### Scenario: Numeric keypad Clear
+- **WHEN** the host reports keypad 5 with NumLock off as Clear
+- **THEN** the TextBox's KeyDown and KeyUp handlers receive KeyCode 12
