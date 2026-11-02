@@ -56,6 +56,32 @@ public class PictureExportTests
         finally { File.Delete(path); }
     }
 
+    [Theory]
+    [InlineData(MessageBoxResult.Yes)]
+    [InlineData(MessageBoxResult.No)]
+    [InlineData(MessageBoxResult.Cancel)]
+    public async Task ExistingDestinationRequiresExplicitConsent(MessageBoxResult answer)
+    {
+        var windows = Substitute.For<IWindowManager>();
+        var localization = Substitute.For<ILocalizationService>();
+        localization.GetString("Str.Tool.ProtocolInspector.ReplaceFiles").Returns("Replace these existing files?\n{0}");
+        var path = Path.Combine(Path.GetTempPath(), Guid.NewGuid() + ".ico");
+        windows.SaveFilePickerAsync(Arg.Any<FilePickerSaveOptions>()).Returns(path);
+        windows.MessageBox(Arg.Any<string>(), Arg.Any<string>(), MessageBoxButtons.YesNo,
+            MessageBoxIcon.Warning).Returns(answer);
+        try
+        {
+            File.WriteAllBytes(path, [99]);
+            var parent = new PropertiesToolViewModel(Substitute.For<IDocumentDockService>(),
+                Substitute.For<IEventBus>(), windows, localization);
+            await parent.ExportPictureAsync(VBProperties.PictureProperty, Record([42]));
+            File.ReadAllBytes(path).Should().Equal(answer == MessageBoxResult.Yes ? new byte[] { 42 } : [99]);
+            await windows.Received(1).MessageBox(Arg.Is<string>(text => text.Contains(path)),
+                Arg.Any<string>(), MessageBoxButtons.YesNo, MessageBoxIcon.Warning);
+        }
+        finally { File.Delete(path); }
+    }
+
     [Fact]
     public async Task CancelWritesNothing()
     {

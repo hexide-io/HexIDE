@@ -89,6 +89,46 @@ public class ProgramParityTests
         });
     }
 
+    [Theory]
+    [InlineData("results.jsonl")]
+    [InlineData("summary.json")]
+    [InlineData("cases/00001/Module1.bas")]
+    [InlineData("cases/00001/.rdproj")]
+    public async Task Existing_output_is_preserved(string relativePath)
+    {
+        var dir = Path.Combine(Path.GetTempPath(), $"hexide-parity-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(dir);
+        try
+        {
+            var dump = Path.Combine(dir, "dump.jsonl");
+            await File.WriteAllTextAsync(dump,
+                """{"modules":[{"name":"Module1","kind":"startup","source":"","wrapped":"Public Sub HexDumpMain()\nEnd Sub"}],"printed":[]}""",
+                TestContext.Current.CancellationToken);
+            var output = Path.Combine(dir, "out");
+            // The case paths are written with '/', which Windows lists back as '\'.
+            var existing = Path.GetFullPath(Path.Combine(output, relativePath));
+            Directory.CreateDirectory(Path.GetDirectoryName(existing)!);
+            await File.WriteAllTextAsync(existing, "user-owned content", TestContext.Current.CancellationToken);
+            var start = new System.Diagnostics.ProcessStartInfo("dotnet") { UseShellExecute = false,
+                RedirectStandardOutput = true, RedirectStandardError = true };
+            start.ArgumentList.Add(typeof(Comparison).Assembly.Location);
+            foreach (var arg in new[] { dump, "--dry-run", "--out", output })
+                start.ArgumentList.Add(arg);
+            using var process = System.Diagnostics.Process.Start(start)!;
+            var stdout = process.StandardOutput.ReadToEndAsync(TestContext.Current.CancellationToken);
+            var stderr = process.StandardError.ReadToEndAsync(TestContext.Current.CancellationToken);
+            await process.WaitForExitAsync(TestContext.Current.CancellationToken);
+            await Task.WhenAll(stdout, stderr);
+            File.ReadAllText(existing).Should().Be("user-owned content");
+            process.ExitCode.Should().NotBe(0);
+            Directory.GetFiles(output, "*", SearchOption.AllDirectories).Should().Equal(existing);
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
     /// <summary>Runs the tool with <c>--dry-run</c> on a one-line dump, and checks its results and case folders.</summary>
     private static async Task DryRun(string dumpLine, Action<string[], string> check)
     {
