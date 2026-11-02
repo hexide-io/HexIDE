@@ -559,6 +559,19 @@ without it points at the executable for a fault that has nothing to do with it.
 - **THEN** the running servers SHALL restart at the new root without waiting for another document to open
 - **AND** each restarted server is told both documents are open with their latest text before it is sent a change to either
 
+### Requirement: Connection cards SHALL refresh their open-document counts
+The registry SHALL notify connection views after opening or closing a document, including closing for
+rename, so each server's card reflects its current tracked document count. This SHALL apply to both
+Full and Incremental sync, including the first document that starts a server (#2485).
+
+#### Scenario: A document starts its server
+- **WHEN** a document is opened and its server starts lazily
+- **THEN** the connection card refreshes after the document is tracked and shows one open document
+
+#### Scenario: An already running server gains or loses a document
+- **WHEN** another document opens, a document closes, or a document closes for rename
+- **THEN** the card refreshes to reflect the server's updated tracked document count
+
 ### Requirement: A malformed entry SHALL fail alone, and visibly
 An entry that cannot be used SHALL NOT prevent other entries from being used, and SHALL NOT prevent the IDE
 from starting. An entry missing information required to reach a server SHALL be rejected. An entry carrying
@@ -924,6 +937,14 @@ upward is worse than one that does not recognise the value at all.
 #### Scenario: A server explaining a misconfiguration
 - **WHEN** a server reports a problem with its own setup
 - **THEN** that report reaches a surface the developer can read, rather than only a discarded log level
+
+#### Scenario: Per-server output remains readable without capture
+- **WHEN** a server sends `window/logMessage` or stderr, or HexIDE records a workspace-generation note
+- **THEN** the Language & Debug Servers view SHALL show that output on the corresponding server's card as it arrives
+- **AND** log messages SHALL retain their numeric protocol type, including unknown types
+- **AND** output received before opening the view SHALL remain available without arming protocol capture
+- **AND** each server SHALL retain at most its latest 65,536 characters, indicating discarded text with an ellipsis
+- **AND** the server's protocol inspector SHALL remain one action away
 
 #### Scenario: Running commentary reaches the default log
 - **WHEN** a server sends `window/logMessage` with type 4 (Log)

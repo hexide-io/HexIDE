@@ -79,7 +79,7 @@
 | Call Stack… | Ctrl+L | Done (Phase 5) | Dockable Call Stack tool window; lists the running activation chain (Module.Procedure + Line, current frame arrowed) from `IDebugController.GetCallStack()`; rebuilt on each break, cleared on Continue; selecting a caller opens its calling statement with a green gutter triangle; MCP `get_call_stack`. Additive vs VB6's modal list — D16–D17 |
 | Project Explorer | Ctrl+R | Done | Menu item enabled; opens/focuses Project Explorer tool window |
 | Properties Window | F4 | Done | Selecting a module, class, UserControl or PropertyPage in Project Explorer offers `(Name)` with project naming checks; renaming keeps the designer root and `VB_Name` together and leaves the filename unchanged (#493) |
-| Form Layout Window | — | Done | Monitor illustration with correct aspect ratio and live form thumbnail (StartUpPosition, Left, Top, Width, Height) |
+| Form Layout Window | — | Done | Monitor illustration with correct aspect ratio and live form thumbnail (StartUpPosition, Left, Top, Width, Height); closed by default on first run and Reset Layout (#531) |
 | Property Pages | — | Missing | Windows-only; see below. `IPropertyPage`/`IPropertyPageSite` COM runtime display |
 | Toolbox | — | Done | Contributed tools can request a measured usable width on first display without widening the Toolbox alone (#2361). Default and Reset place it on the left; reopening retains its home and is captured for restart (#895); recreated left docks are initialized with their tools so they remain visible (#2238) |
 | Color Palette | — | Done | |
@@ -164,6 +164,7 @@
 | Procedure Attributes… | — | Stub | Bound to `NYICommand` ([#62](https://github.com/hexide-io/HexIDE/issues/62)). Since #273 the `Attribute` lines this dialog writes are read-only in the code window, so it is the only way the IDE could change them. Until it exists they cannot be edited in the IDE, and a save keeps them, re-qualified when their member is renamed (see Code Editor Window) |
 | Menu Editor… | Ctrl+E | Done | Full menu tree editor |
 | Options… | — | Done | 2-pane TreeView redesign (Phase 46, complete): Environment/Editor/Form Designer/Advanced pages; per-page + global reset-to-defaults; localized accessible names without trailing colons for Language, Region, Theme and Keymap lists and sticky-scroll depth (#2449, #2680); Add-Ins section with per-add-in details, activate/deactivate, and add-in-contributed settings pages (`host.Options.RegisterOptionsPage`) |
+| Language-server output | — | Done | HexIDE extension: each server card in Language & Debug Servers shows live log messages by numeric protocol type, stderr and workspace-generation notes; bounded session history works without capture arming, with the protocol inspector one click away (#2388) |
 
 ---
 
@@ -216,7 +217,7 @@
 | End | Done | |
 | Project Explorer | Done | Opens/focuses tool window |
 | Properties | Done | Opens/focuses tool window |
-| Form Layout | Done | Opens Form Layout tool window with live form position thumbnail |
+| Form Layout | Done | Opens Form Layout tool window with live form position thumbnail; no longer open by default (#531) |
 | Object Browser | Partial | Opens Object Browser document tab; Unicode placeholder icons pending (#11); stale member list, double-click position, and Escape-to-close outstanding (#24) |
 | ToolBox | Done | Remains open after restart when a far-left dock drop nests its dock; live tools in unrecognized arrangements restore in their home region (#2239) |
 | Data View | Stub | Button present; no Data View window |
@@ -407,7 +408,7 @@
 
 | Feature | Status | Notes |
 |---|---|---|
-| Form position preview on screen layout | Done | Live form thumbnail with the current form name (including renames); hidden when there is no form to preview or the previewed form is removed. Reacts to StartUpPosition, Left, Top, Width, Height property changes. VB6 empty-project and multiple-form behaviour remains unmeasured (#576) |
+| Form position preview on screen layout | Done | Closed by default on first run and Reset Layout; available from View → Form Layout (#531). Live form thumbnail with the current form name (including renames); hidden when there is no form to preview or the previewed form is removed. Reacts to StartUpPosition, Left, Top, Width, Height property changes. VB6 empty-project and multiple-form behaviour remains unmeasured (#576) |
 
 ---
 

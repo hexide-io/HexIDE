@@ -52,6 +52,7 @@ public partial class LanguageServersToolViewModel : Document
     private readonly IEventBus _events;
     private readonly Pseudonymiser _pseudonyms;
     private readonly IProjectManager? _projects;
+    private readonly HashSet<string> _pendingOutput = new(StringComparer.Ordinal);
 
     public ObservableCollection<LanguageServerGroupViewModel> Groups { get; } = [];
     public ObservableCollection<LanguageServerConfigProblem> Problems { get; } = [];
@@ -105,6 +106,7 @@ public partial class LanguageServersToolViewModel : Document
 
         _registry.ConnectionsChanged += OnConnectionsChanged;
         _capture.ArmingChanged += OnArmingChanged;
+        _capture.Output.Changed += OnOutputChanged;
         Refresh();
     }
 
@@ -138,6 +140,28 @@ public partial class LanguageServersToolViewModel : Document
                 }
             }
         }
+    }
+
+    private void OnOutputChanged(object? sender, string connectionId)
+    {
+        lock (_pendingOutput)
+        {
+            var alreadyQueued = _pendingOutput.Count > 0;
+            _pendingOutput.Add(connectionId);
+            if (alreadyQueued) return;
+        }
+        // A noisy server must not queue one dispatcher job for every line.
+        Dispatcher.UIThread.Post(() =>
+        {
+            string[] changed;
+            lock (_pendingOutput)
+            {
+                changed = [.. _pendingOutput];
+                _pendingOutput.Clear();
+            }
+            foreach (var row in Groups.SelectMany(g => g.Rows))
+                if (changed.Contains(row.Id)) row.OutputChanged();
+        });
     }
 
     private void OnArmsFutureServersChanged() => _capture.ArmsEveryConnection = ArmsFutureServers;
