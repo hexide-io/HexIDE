@@ -85,7 +85,26 @@ public sealed partial class VBListView
             return;
         editingItem = item;
         originalLabel = item.Caption;
-        labelEditor = new TextBox { Text = originalLabel, AcceptsReturn = false };
+        labelEditor = new TextBox
+        {
+            Text = originalLabel, AcceptsReturn = false,
+            FontFamily = LabelTypeface.FontFamily, FontSize = LabelFontSize,
+            FontWeight = LabelTypeface.Weight, FontStyle = LabelTypeface.Style,
+        };
+        if (Number("View") == 3)
+        {
+            // Report-view edit box before/after typing, measured in the ListView oracle (#2729).
+            labelEditor.Padding = new Thickness(0);
+            labelEditor.BorderThickness = new Thickness(1);
+            labelEditor.VerticalContentAlignment = Avalonia.Layout.VerticalAlignment.Center;
+            labelEditor.Height = 17;
+            labelEditor.TextChanged += (sender, _) =>
+            {
+                var editor = (TextBox)sender!;
+                if (editor.Text != originalLabel)
+                    editor.Height = 21;
+            };
+        }
         ScrollViewer.SetHorizontalScrollBarVisibility(labelEditor, ScrollBarVisibility.Disabled);
         ScrollViewer.SetVerticalScrollBarVisibility(labelEditor, ScrollBarVisibility.Disabled);
         labelEditor.AddHandler(KeyDownEvent, (_, e) =>

@@ -120,8 +120,9 @@ internal abstract class ListViewTextCollection<T> : ICSharpAsyncProxy, ICSharpPr
     }
 }
 
-internal sealed class ListViewColumns(Action? changed = null) : ListViewTextCollection<ListViewColumn>
+internal sealed class ListViewColumns(Action? changed = null, Func<Vb6Value, Vb6Value>? validateIcon = null) : ListViewTextCollection<ListViewColumn>
 {
+    internal Vb6Value ValidateIcon(Vb6Value value) => validateIcon is not null ? validateIcon(value) : throw ListViewItems.Error(35613);
     internal override void Changed() => changed?.Invoke();
     internal List<ListViewColumn> DisplayOrder { get; } = [];
     protected override IReadOnlyList<string> AddParameters => ["Index", "Key", "Text", "Width", "Alignment", "Icon"];
@@ -138,7 +139,7 @@ internal sealed class ListViewColumns(Action? changed = null) : ListViewTextColl
             column.Alignment = alignment;
         }
         if (!ListViewItems.Argument(args, 5).IsMissing)
-            throw ListViewItems.Error(35613);
+            column.Icon = ValidateIcon(args[5]);
         return column;
     }
     protected override void Added(ListViewColumn item, int at) => DisplayOrder.Insert(at, item);
@@ -151,6 +152,7 @@ internal sealed class ListViewColumns(Action? changed = null) : ListViewTextColl
 
 internal sealed class ListViewColumn(ListViewColumns columns) : ListViewTextObject
 {
+    internal Vb6Value Icon = new(0);
     internal bool Removed { get; set; }
     internal int Alignment { get; set; }
     private float width = 1440;
@@ -170,7 +172,7 @@ internal sealed class ListViewColumn(ListViewColumns columns) : ListViewTextObje
             "position" => new Vb6Value(Position()),
             "subitemindex" => new Vb6Value(Index()),
             "left" => new Vb6Value(columns.Entries.Take(Index()).Sum(c => c.Width)),
-            "icon" => new Vb6Value(0),
+            "icon" => Icon,
             _ => throw new NotImplementedException($"ColumnHeader.{name} is not implemented (#1085)"),
         };
         return true;
@@ -218,7 +220,7 @@ internal sealed class ListViewColumn(ListViewColumns columns) : ListViewTextObje
                 columns.DisplayOrder.Remove(this);
                 columns.DisplayOrder.Insert(position - 1, this);
                 break;
-            case "icon": throw ListViewItems.Error(35613);
+            case "icon": Icon = columns.ValidateIcon(value); break;
             case "index" or "left": throw new VBRunTimeException(VBStandardError.PropertySetCantBeUsedWithAReadOnlyProperty);
             case "subitemindex": throw ListViewItems.Error(382);
             default: throw new NotImplementedException($"ColumnHeader.{name} is not implemented (#1085)");
