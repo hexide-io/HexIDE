@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 1,
+  "id": "vbaode",
+  "projectTypes": [
+    "standard-exe"
+  ],
+  "menuVisibility": {
+    "project.references": false,
+    "tools.references": true
+  }
+}
