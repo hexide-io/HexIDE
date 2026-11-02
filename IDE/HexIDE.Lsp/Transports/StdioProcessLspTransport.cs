@@ -53,6 +53,9 @@ public sealed class StdioProcessLspTransport : ILspTransport
         _workspace = workspace;
     }
 
+    // Test seam for ordering process exit against the native job assignment (#2752).
+    internal Action<ChildProcessJob, Process> AssignProcessToJob { get; set; } = (job, process) => job.Assign(process);
+
     public bool IsAlive => _process is { HasExited: false };
 
     // A spawned subprocess is one-shot: a crash does not auto-respawn (preserves desktop behaviour).
@@ -182,7 +185,15 @@ public sealed class StdioProcessLspTransport : ILspTransport
             _job = new ChildProcessJob();
             LaunchedServerGuard.Wrap(_process.StartInfo);
             _process.Start();
-            _job.Assign(_process);
+            try
+            {
+                AssignProcessToJob(_job, _process);
+            }
+            catch (Exception ex) when (ex is Win32Exception or InvalidOperationException && _process.HasExited)
+            {
+                // A fast exit can beat Windows job assignment. It still started: drain stderr and
+                // retain the exit code instead of turning the assignment error into a launch failure.
+            }
             _process.BeginErrorReadLine();
         }
         catch (Exception ex)
