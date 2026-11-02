@@ -19,6 +19,25 @@ operations do.
 > [#1458](https://github.com/hexide-io/HexIDE/issues/1458). Cut and paste within a form keeps it (#1453).
 
 ## Requirements
+
+### Requirement: PictureBox designer bitmap assignment honors AutoSize
+When a bitmap is assigned to a PictureBox with AutoSize True, the designer SHALL set Width and Height to the bitmap's pixel dimensions plus two pixels on each side for the default 3-D Fixed Single border, or no extra pixels with BorderStyle None. It SHALL record those dimensions with the picture edit as one undo step. This implements the measured bitmap cases in [#922's oracle](../../../docs/vb6-fidelity-oracle/autosize-on-a-label-and-a-picturebox.md); runtime AutoSize and Label AutoSize remain pending.
+
+#### Scenario: A 40 by 30 bitmap is assigned
+- **WHEN** the designer assigns a 40 by 30 pixel bitmap to an AutoSize PictureBox
+- **THEN** the model holds 44 by 34 pixels with the default border, or 40 by 30 with none
+- **AND** saving writes 660 by 510 twips with the default border, or 600 by 450 with none
+- **AND** undo restores the picture and both previous dimensions together
+
+#### Scenario: Stored dimensions and explicit assignments hold
+- **WHEN** a form loads, the picture is cleared, or Width is assigned explicitly
+- **THEN** AutoSize does not recompute the dimensions
+
+#### Scenario: An unmeasured picture or border is used
+- **WHEN** AutoSize would fit a non-bitmap picture or a flat Fixed Single border
+- **THEN** the designer refuses sizing once with the not-implemented message explaining that the size is unmeasured
+- **AND** it restores the picture without reporting a file-load or invalid-property error
+
 ### Requirement: The designer SHALL draw a form's client area at the size it is saved and run with
 The area a form's controls are designed in SHALL be its client area, `ClientWidth` by `ClientHeight`, the size its
 window has at run time. The frame and caption bar SHALL be drawn outside it, and dragging the frame's handles SHALL

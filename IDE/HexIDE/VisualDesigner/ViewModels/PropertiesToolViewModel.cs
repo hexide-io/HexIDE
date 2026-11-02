@@ -289,6 +289,11 @@ public partial class PropertiesToolViewModel : Tool
             instance.SetUntypedProperty(property, record);
             document.PushSetPropertyCommand(instance, property, before, record);
         }
+        catch (NotImplementedException e)
+        {
+            await windowManager.MessageBox(string.Format(localization.GetString("Str.ProjectRunner.NotImplementedYet"),
+                e.Message), icon: MessageBoxIcon.Error);
+        }
         catch (Exception)
         {
             await windowManager.MessageBox(string.Format(localization.GetString("Str.Tool.Properties.LoadPictureFailed"),

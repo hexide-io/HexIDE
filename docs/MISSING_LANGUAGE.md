@@ -1151,6 +1151,17 @@ that made `vbNewLine` and `vbTab` read as the largest cliff in this inventory, w
 | `vbUseCompareOption` | Supported | **Not a VB6 name at all.** Widely documented as a member of `VbCompareMethod` with value -1, but the type library declares only three members (`vbBinaryCompare` 0, `vbTextCompare` 1, `vbDatabaseCompare` 2). Measured: `VbCompareMethod.vbUseCompareOption` is a compile error in vb6.exe, "Method or data member not found", and HexIDE refuses it in the same words. The bare form is an undeclared Variant, `Empty`, in both. **[#1633](https://github.com/hexide-io/HexIDE/issues/1633):** it was rated Dies, which counted a faithful refusal as a gap. | VB6InBoxLibraries.cs |
 | `vbVerticalTab` | Supported | Member of the `VBA.Constants` module. `Chr(11)`, read from the type library and cross-checked against a compiled program's `Asc` and `Len`. Resolves bare, as `VBA.vbVerticalTab`, as `VBA.Constants.vbVerticalTab` and in a module-level `Const`, since [#215](https://github.com/hexide-io/HexIDE/issues/215). **[#1633](https://github.com/hexide-io/HexIDE/issues/1633):** rated Dies here until then, long after it resolved. | VB6InBoxLibraries.cs |
 
+## AutoSize control members (outside the baseline inventory)
+
+[Issue #922's measurements](vb6-fidelity-oracle/autosize-on-a-label-and-a-picturebox.md) cover the bitmap cases below. The baseline name counts do not move for this designer slice.
+
+| Member | Status | Detail | Source |
+|---|---|---|---|
+| PictureBox.AutoSize in the designer | Partial | Assigning a bitmap fits its pixels plus the default 3-D border, or no border, in one undo step; the model holds pixels and the save writes twips. Loading and clearing a picture keep dimensions; explicit Width holds. | PictureBoxComponentClass.cs |
+| PictureBox.AutoSize with a flat Fixed Single border | Dies | Border size is unmeasured; designer sizing reports one not-implemented refusal and restores the picture edit. | PictureBoxComponentClass.cs |
+| PictureBox.AutoSize with a non-bitmap picture | Dies | Sizing is unmeasured; designer sizing reports one not-implemented refusal and restores the picture edit. | PictureBoxComponentClass.cs |
+| Label.AutoSize and runtime PictureBox.AutoSize | Silently wrong | Remaining measured work for #922: caption/font changes, alignment, WordWrap, AutoSize transitions and runtime picture assignment. | LabelComponentClass.cs; PictureBoxComponentClass.cs |
+
 ## Keyboard events (outside the baseline inventory)
 
 Issue #2325 delivers TextBox keyboard events and Form KeyPreview for the measured

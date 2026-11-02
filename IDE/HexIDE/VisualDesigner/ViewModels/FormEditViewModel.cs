@@ -1500,7 +1500,16 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
         if (Equals(before, after))
             return [];
         var command = new Commands.SetPropertyCommand(target, property, before, after);
-        var consequences = target.BaseClass.ApplyDesignerConsequences(target, property);
+        IReadOnlyList<PropertyChange> consequences;
+        try
+        {
+            consequences = target.BaseClass.ApplyDesignerConsequences(target, property);
+        }
+        catch (NotImplementedException)
+        {
+            target.SetUntypedProperty(property, before);
+            throw;
+        }
         if (consequences.Count == 0)
         {
             UndoStack.Push(command);
