@@ -961,6 +961,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             await interpreter.CallProxy((ICSharpProxy)value.Value!, identifier, callArgs);
         else if (value.Type == Vb6Value.ValueType.Control)
         {
+            VBFlatScrollBar.RefuseEarlyBound(value, identifier);
             UserControlMembers.Check(value, identifier);
             await ((Control)value.Value!).CallAsync(identifier, callArgs);
         }
@@ -2000,6 +2001,16 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
 
         if (context.PLUS_EQ() != null || context.MINUS_EQ() != null)
             throw new NotImplementedException("+-/-= not implemented in variable assignment");
+
+        // ImageCombo's SelectedItem put takes the object even without Set (#1092).
+        if (context.implicitCallStmt_InStmt().iCS_S_MembersCall() is { } comboTarget
+            && comboTarget.iCS_S_VariableOrProcedureCall() is { } comboLead
+            && comboTarget.iCS_S_MemberCall() is { Length: 1 } comboMembers
+            && UdtFieldName(comboMembers[0]).Equals("SelectedItem", StringComparison.OrdinalIgnoreCase)
+            && interpreter.ExecutionContext.TryInspectVariable(currentEnv, comboLead.GetText(), out var combo)
+            && combo.Value is ImageComboModel or VBImageCombo)
+            return value;
+
         if (value.Type == Vb6Value.ValueType.Object && (intoArray || IsBareUdtArrayField(context.implicitCallStmt_InStmt())))
             return value;   // ArrayStore refuses it
 
@@ -2250,6 +2261,11 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             {
                 if (interpreter.ExecutionContext.State.DeclaredClassOf(letSlot) is { } letClass && ExpressionExecutor.IsCollectionType(letClass))
                     throw new VBCompileErrorException("Argument not optional");
+                if (oldLet.Value is VBMonthView monthView)
+                {
+                    monthView.TrySetProperty("Value", value);
+                    return default;
+                }
                 if (oldLet.Value is VBRichTextBox richTextBox)
                 {
                     VBProps.RefuseIfRemoved(richTextBox);
@@ -2264,6 +2280,11 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 if (oldLet.Value is StatusBarPanel panel)
                 {
                     panel.SetText(value);
+                    return default;
+                }
+                if (oldLet.Value is VBFlatScrollBar flat)
+                {
+                    flat.TrySetProperty("Value", value);
                     return default;
                 }
                 if (oldLet.Value is VBDTPicker picker)
@@ -3663,7 +3684,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 if (target.Value is VBStatusBar bar && StatusBarMembers.TrySet(bar, name, value) == true) return default;
                 throw new NotImplementedException($"Set on StatusBar member {name} is not implemented (#1087)");
             }
-            if (setLead && target.Value is VBImageList or ImageListImages or ImageListImage or VBUpDown)
+            if (setLead && target.Value is VBImageList or ImageListImages or ImageListImage or VBUpDown or ImageComboModel or VBImageCombo or ImageComboItems or ImageComboItem)
             {
                 var imageMembers = membersCall.iCS_S_MemberCall();
                 var receiver = await expressionExecutor.ResolveMemberChain(target, imageMembers[..^1], 0, context);
@@ -4724,6 +4745,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         }
         else if (value.Type == Vb6Value.ValueType.Control)
         {
+            VBFlatScrollBar.RefuseEarlyBound(value, identifier);
             UserControlMembers.Check(value, identifier);
             await ((Control)value.Value!).CallAsync(identifier, callArgs);
         }
