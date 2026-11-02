@@ -2,6 +2,12 @@
   "name": "Estonian",
   "direction": "ltr",
   "strings": {
+    "Str.Profiles.LoadError": "Profiili „{0}”, faili „{1}” ei saa laadida. Kontrollige paketi vormingut ja failiteid.",
+    "Str.Profiles.HelpSummary": "Baasprofiil: nimi, kataloogitee või none (turvarežiim).",
+    "Str.Profiles.PersonalityRemoved": "--personality on eemaldatud. Kasutage --profile vb6, --profile vbaode või --profile vba.",
+    "Str.Profiles.SelectorRequired": "--profile vajab täpselt üht väärtust: paketi nimi, kataloogitee või none. Kontrollige käivitusargumente.",
+    "Str.RevertGate.SessionOnly": "See keelemuudatus kestab ainult selle seansi.",
+    "Str.NewProject.NoTemplates": "See profiil ei paku uue projekti malle. Avage selle asemel olemasolev projekt.",
     "Str.Dialog.About.Credits.Header": "Tänuavaldused",
     "Str.Dialog.About.Credits.Thanks": "HexIDE-d loovad koos inimestest kaastöölistega erakordsed AI-meeskonnad. Täname südamest Claude by Anthropic — Claude Code seansse, mis kirjutavad, vaatavad üle ja ühendavad töö — ning Codex by OpenAI — Codex töövooge, mis viivad järjekorras ootavaid parandusi edasi. Nende hool ja väsimatu töö teevad HexIDE võimalikuks.",
     "Str.Tool.LanguageServers.Output": "Väljund",

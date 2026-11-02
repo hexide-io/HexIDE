@@ -251,7 +251,7 @@ public class MainViewViewModelTests
             new AddinOptionsService(),
             Substitute.For<IDeveloperModeService>(),
             _statusBarService,
-            Substitute.For<IPersonalityService>(),
+            Substitute.For<IProfileService>(),
             new AddinMenuService(),
             new AddinCommandService(),
             new AddinToolWindowService(),

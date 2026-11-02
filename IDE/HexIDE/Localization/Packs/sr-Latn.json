@@ -2,6 +2,12 @@
   "name": "Serbian (Latin)",
   "direction": "ltr",
   "strings": {
+    "Str.Profiles.LoadError": "Nije moguće učitati profil „{0}”, datoteku „{1}”. Proverite format paketa i putanje datoteka.",
+    "Str.Profiles.HelpSummary": "Osnovni profil: naziv, putanja direktorijuma ili none (bezbedni režim).",
+    "Str.Profiles.PersonalityRemoved": "--personality je uklonjen. Koristite --profile vb6, --profile vbaode ili --profile vba.",
+    "Str.Profiles.SelectorRequired": "--profile zahteva tačno jednu vrednost: naziv paketa, putanju direktorijuma ili none. Proverite argumente pokretanja.",
+    "Str.RevertGate.SessionOnly": "Ova promena jezika važi samo za ovu sesiju.",
+    "Str.NewProject.NoTemplates": "Ovaj profil ne nudi šablone za nove projekte. Otvorite postojeći projekat.",
     "Str.Dialog.About.Credits.Header": "Zasluge",
     "Str.Dialog.About.Credits.Thanks": "HexIDE uz ljudske saradnike grade izvanredni AI timovi. Od srca zahvaljujemo Claude by Anthropic — sesijama Claude Code koje pišu, pregledaju i spajaju rad — i Codex by OpenAI — radnim tokovima Codex koji unapređuju ispravke na čekanju. Njihova brižnost i neumoran rad omogućavaju HexIDE.",
     "Str.Tool.LanguageServers.Output": "Izlaz",

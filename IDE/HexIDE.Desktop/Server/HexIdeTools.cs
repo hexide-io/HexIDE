@@ -2109,16 +2109,16 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     }
 
     [McpServerTool(Name = "get_new_project_templates")]
-    [Description("Returns the list of project templates that would appear in the New Project dialog, including personality templates and any add-in registered templates.")]
+    [Description("Returns the list of project templates that would appear in the New Project dialog. Each template source is profile or addin.")]
     public Task<NewProjectTemplatesResult> GetNewProjectTemplatesAsync(CancellationToken ct)
     {
-        var personality = ctx.PersonalityService.AvailableProjectTypes
-            .Select(t => new TemplateInfo(t.Name, t.Supported, "personality"))
+        var profile = ctx.ProfileService.AvailableProjectTypes
+            .Select(t => new TemplateInfo(t.Name, t.Supported, "profile"))
             .ToArray();
         var addin = ctx.AddinProjectTemplateService.Templates
             .Select(t => new TemplateInfo(t.Name, t.Supported, "addin"))
             .ToArray();
-        return Task.FromResult(new NewProjectTemplatesResult([.. personality, .. addin]));
+        return Task.FromResult(new NewProjectTemplatesResult([.. profile, .. addin]));
     }
 
     [McpServerTool(Name = "shutdown_ide")]
@@ -2181,7 +2181,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
         [("pseudo", "Pseudo (LTR)"), ("pseudo-rtl", "Pseudo (RTL)")];
 
     [McpServerTool(Name = "set_ide_language")]
-    [Description("Switches the IDE chrome language by pack id ('en', 'pseudo', 'pseudo-rtl', or an installed pack id), driving the exact live-apply + countdown-revert confirmation gate the Options dropdown uses. Returns immediately; the gate stays open and auto-reverts after its countdown. Keep on the gate also saves the language for later starts, as OK in Options does; Revert or the countdown saves nothing. Asking for the language already in use opens no gate and saves it. While a gate is open, another call is refused and names the language it is waiting on. Call take_snapshot right after to capture the gate, or wait for it to time out to see the reverted chrome.")]
+    [Description("Switches the IDE chrome language by pack id ('en', 'pseudo', 'pseudo-rtl', or an installed pack id), driving the exact live-apply + countdown-revert confirmation gate the Options dropdown uses. Returns immediately; the gate stays open and auto-reverts after its countdown. Keep on the gate also saves the language for later starts, as OK in Options does (in --profile none it lasts only this session); Revert or the countdown saves nothing. Asking for the language already in use opens no gate and saves it. While a gate is open, another call is refused and names the language it is waiting on. Call take_snapshot right after to capture the gate, or wait for it to time out to see the reverted chrome.")]
     public async Task<MutateResult> SetIdeLanguageAsync(string id, CancellationToken ct)
     {
         // Checked first against what the Language page offers, languages and their regions. An unknown id used
@@ -2227,11 +2227,13 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
                     ?? match;
         if (string.Equals(previous, match, StringComparison.OrdinalIgnoreCase))
             return new MutateResult(true, null,
-                $"{shown} ('{match}') is already the IDE's language, so no confirmation gate was opened. It is saved "
-                + "for later starts.");
+                $"{shown} ('{match}') is already the IDE's language, so no confirmation gate was opened. "
+                + (Static.IsRecoveryMode ? "This language change lasts only this session." : "It is saved for later starts."));
         return new MutateResult(true, null,
-            $"Switching to {shown} ('{match}'). A confirmation gate is open: Keep saves {shown} for later starts, as "
-            + $"OK in Options does, and Revert or its countdown goes back to '{previous}' and saves nothing. "
+            $"Switching to {shown} ('{match}'). A confirmation gate is open: "
+            + (Static.IsRecoveryMode ? "This language change lasts only this session." + " "
+                : $"Keep saves {shown} for later starts, as OK in Options does, and ")
+            + $"Revert or its countdown goes back to '{previous}' and saves nothing. "
             + "take_snapshot captures it. Another switch is refused until it closes.");
     }
 

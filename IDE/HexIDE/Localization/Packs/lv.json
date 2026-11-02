@@ -2,6 +2,12 @@
   "name": "Latvian",
   "direction": "ltr",
   "strings": {
+    "Str.Profiles.LoadError": "Nevar ielādēt profilu “{0}”, failu “{1}”. Pārbaudiet pakotnes formātu un failu ceļus.",
+    "Str.Profiles.HelpSummary": "Pamatprofils: nosaukums, direktorija ceļš vai none (drošais režīms).",
+    "Str.Profiles.PersonalityRemoved": "--personality ir noņemts. Izmantojiet --profile vb6, --profile vbaode vai --profile vba.",
+    "Str.Profiles.SelectorRequired": "--profile nepieciešama tieši viena vērtība: pakotnes nosaukums, direktorija ceļš vai none. Pārbaudiet palaišanas argumentus.",
+    "Str.RevertGate.SessionOnly": "Šī valodas maiņa ir spēkā tikai šajā sesijā.",
+    "Str.NewProject.NoTemplates": "Šis profils nepiedāvā jauna projekta veidnes. Atveriet esošu projektu.",
     "Str.Dialog.About.Credits.Header": "Pateicības",
     "Str.Dialog.About.Credits.Thanks": "HexIDE kopā ar cilvēkiem, kas piedalās tā izstrādē, veido izcilas AI komandas. No sirds pateicamies Claude by Anthropic — Claude Code sesijām, kas raksta, pārskata un apvieno darbu — un Codex by OpenAI — Codex darba plūsmām, kas virza uz priekšu rindā gaidošos labojumus. Viņu rūpība un nenogurstošais darbs padara HexIDE iespējamu.",
     "Str.Tool.LanguageServers.Output": "Izvade",

@@ -2,6 +2,12 @@
   "name": "Slovak",
   "direction": "ltr",
   "strings": {
+    "Str.Profiles.LoadError": "Nemožno načítať profil „{0}“, súbor „{1}“. Skontrolujte formát balíka a cesty k súborom.",
+    "Str.Profiles.HelpSummary": "Základný profil: názov, cesta k adresáru alebo none (núdzový režim).",
+    "Str.Profiles.PersonalityRemoved": "--personality bol odstránený. Použite --profile vb6, --profile vbaode alebo --profile vba.",
+    "Str.Profiles.SelectorRequired": "--profile vyžaduje presne jednu hodnotu: názov balíka, cestu k adresáru alebo none. Skontrolujte argumenty spustenia.",
+    "Str.RevertGate.SessionOnly": "Táto zmena jazyka platí iba pre túto reláciu.",
+    "Str.NewProject.NoTemplates": "Tento profil neponúka šablóny nových projektov. Otvorte existujúci projekt.",
     "Str.Dialog.About.Credits.Header": "Poďakovanie",
     "Str.Dialog.About.Credits.Thanks": "HexIDE spolu s ľudskými prispievateľmi vytvárajú výnimočné AI tímy. Zo srdca ďakujeme Claude by Anthropic — reláciám Claude Code, ktoré píšu, kontrolujú a zlučujú prácu — a Codex by OpenAI — pracovným prúdom Codex, ktoré posúvajú čakajúce opravy vpred. Ich starostlivosť a neúnavná práca umožňujú existenciu HexIDE.",
     "Str.Tool.LanguageServers.Output": "Výstup",

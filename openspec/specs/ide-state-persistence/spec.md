@@ -10,6 +10,10 @@ IDE that discards that adjustment every launch is asking them to do it again dai
 bothering.
 
 ## Requirements
+
+In recovery launches (`--profile none`), the [profiles contract](../profiles/spec.md) takes precedence:
+saved settings/layout are bypassed, and window/layout changes and resets stay in memory.
+
 ### Requirement: Window geometry SHALL be restored
 The IDE SHALL record its window's size, position and maximised state, and restore them on the next launch.
 

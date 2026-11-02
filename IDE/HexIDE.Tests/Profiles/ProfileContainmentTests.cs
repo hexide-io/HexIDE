@@ -220,7 +220,7 @@ public class ProfileContainmentTests
     {
         using var document = JsonDocument.Parse("{\"schemaVersion\":1,\"id\":\"example\",\"theme\":"
             + JsonSerializer.Serialize(reference) + "}");
-        var source = Path.Combine(root, "profile.json");
+        var source = Path.Combine(root, Path.Combine(ProfilePaths.Components(reference)));
         Action parse = () => ProfileCatalog.ParseDirectoryManifest(document.RootElement, root, "example");
         var error = parse.Should().Throw<InvalidDataException>().Which;
         error.Data["file"].Should().Be(source);
