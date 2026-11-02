@@ -112,6 +112,10 @@ handlers through disposal and record the exit once. Deliberate disposal logs the
 information level with the server identity; a timeout kill is logged separately. Unexpected exits
 remain warnings. The Unix guard and post-kill waits described above still exceed #491's requested
 two-second total bound; integrating that deadline with descendant cleanup remains outstanding.
+Whole-composition IDE tests use a per-test owner that awaits disposal of the language registry,
+including when an assertion fails (#2588). A source guard rejects direct `DISetup` construction
+elsewhere in `HexIDE.Tests`; this guards ownership rather than enumerating all test-host children.
+
 A test-only process server covers orderly exit, ignored
 exit, wrapper children, a truncated reply followed by a crash, and an unsolicited non-zero exit.
 
