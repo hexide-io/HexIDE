@@ -2821,6 +2821,8 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
         if (resolved.Item1 is not { } found)
             return new InteractOutcome(false, "pointer", null, resolved.Item2);
         await Dispatcher.UIThread.InvokeAsync(() => UiAutomationDriver.NextFrameDrawnAsync(found, UiAutomationDriver.ClickFrameWait));
+        // Everything the capture holds by now is before this hover, so a quick-info request above it is this hover's (#2574).
+        var watermark = await ctx.Capture.DrainAsync();
 
         var raised = await Dispatcher.UIThread.InvokeAsync(() =>
         {
@@ -2854,6 +2856,8 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
         (Rect Bounds, Point Hovered)? placed = null;
         // What 'stay' adds to the reply, once the watch has run to its end (#2562).
         string? stayed = null;
+        // In a code window, why no tip opened (#2574).
+        string? quickInfo = null;
         try
         {
             var deadline = Environment.TickCount64 + dwellMs;
@@ -2884,8 +2888,12 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
             // purpose: "tip:" means a popup was observed open, "declared tip:" means only that the text is set.
             // Collapsing them would turn a limitation into a passing assertion.
             if (tip is null)
+            {
                 (declared, enabled) = await Dispatcher.UIThread.InvokeAsync(
                     () => (UiAutomationDriver.DeclaredToolTipAt(at.Receiver, at.Point), at.Receiver.IsEffectivelyEnabled));
+                // Read before the pointer leaves, which cancels a request still waiting and would report it as cancelled.
+                quickInfo = await QuickInfoNoteAsync(at, watermark, dwellMs);
+            }
         }
         finally
         {
@@ -2931,7 +2939,8 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
         // declared: quick info and Auto Data Tips declare none, and missed the same way (#2376). Not for a disabled target,
         // which opened none to take, and whose reply already says why.
         var took = enabled ? moved : null;
-        var unopened = raised.Detail + "; no tip opened within " + dwellMs + "ms" + (took is null ? string.Empty : " (" + took + ")");
+        var unopened = raised.Detail + "; no tip opened within " + dwellMs + "ms" + (took is null ? string.Empty : " (" + took + ")")
+                       + (quickInfo is null ? string.Empty : "; " + quickInfo);
         return raised with
         {
             Detail = (declared is null
@@ -2948,6 +2957,30 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     // The watch is bounded so a mistyped value cannot hold a call open for minutes. Refused rather than
     // clamped, because a clamped value left the reply quoting a dwell that never happened (#610).
     private const int MaxHoverDwellMs = 10_000;
+
+    /// <summary>
+    /// For a hover in a code window, what the editor asked for at the point and what became of it; null anywhere else.
+    /// </summary>
+    private async Task<string?> QuickInfoNoteAsync(UiAutomationDriver.HoverLanding at, long watermark, int dwellMs)
+    {
+        try
+        {
+            var route = await Dispatcher.UIThread.InvokeAsync(
+                () => HexIDE.Forms.Views.CodeEditorView.RouteUnder(at.Receiver, at.Point));
+            if (route is not { } where) return null;
+            await ctx.Capture.DrainAsync();
+            var asked = HoverQuickInfoNote.AskedSince(ctx.Capture.Snapshot(), watermark, DateTimeOffset.UtcNow);
+            var extension = DocumentLanguage.ExtensionOf(where.DocumentUri);
+            var registered = asked.Count > 0 ? [] : HoverQuickInfoNote.RegisteredFor(
+                (ctx.LspClient as ILanguageConnectionRegistry)?.Connections ?? [], extension);
+            return HoverQuickInfoNote.Describe(where, dwellMs, asked, registered, extension);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            // The account is an addition to the reply; the hover's own result stands without it.
+            return "quick info: could not be read (" + ex.GetType().Name + ")";
+        }
+    }
 
     /// <summary>
     /// The text of a tooltip currently OPEN on a control, one of its ancestors, or one of its
