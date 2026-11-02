@@ -454,6 +454,11 @@ than obeyed.
 Not a language feature, so it is absent from the table below. The trace explains an analysis to the
 client; the server's debug log also separates scheduling and execution costs.
 
+After the client's `initialized` notification, the bundled server sends an informational
+`window/logMessage` with its name, version and startup confirmation (#2509). This appears on its
+Language & Debug Servers card even with tracing off. The rolling file log is unchanged; analysis
+budget reports still use the opt-in trace channel below. The server does not load projects itself.
+
 Set `trace` to `messages` or `verbose` in `initialize`, or send `$/setTrace` to a running server, and the
 analysis reports itself over `$/logTrace`. At `messages` that is one line per analysis; at `verbose` the
 same line arrives with detail attached in the notification's `verbose` member. Off is the default, an
