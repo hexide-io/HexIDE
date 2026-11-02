@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
+using Avalonia.Controls.Presenters;
 using Avalonia.Headless;
 using Avalonia.Threading;
 using Avalonia.Headless.XUnit;
@@ -86,6 +87,46 @@ public class ListViewLabelEditTests
             editor.Bounds.Height.Should().BeGreaterThanOrEqualTo(editor.DesiredSize.Height);
             ScrollViewer.GetHorizontalScrollBarVisibility(editor).Should().Be(ScrollBarVisibility.Disabled);
             ScrollViewer.GetVerticalScrollBarVisibility(editor).Should().Be(ScrollBarVisibility.Disabled);
+        }
+        finally { window.Close(); }
+    }
+
+    // Measured Report-view heights: docs/vb6-fidelity-oracle/in-box-controls-the-listview.md,
+    // "The edit box" (#2729). Other views' heights have not been measured.
+    [AvaloniaTheory]
+    [InlineData(false, 17)]
+    [InlineData(true, 21)]
+    public async Task Report_editor_uses_measured_height(bool typeText, double height)
+    {
+        var (window, list, _) = await Open();
+        try
+        {
+            list.TrySetProperty("View", new Vb6Value(3L));
+            list.SelectedItem!.TrySetProperty("Text", new Vb6Value("Item 2"));
+            await list.CallAsync("StartLabelEdit", []);
+            window.UpdateLayout();
+            var editor = Editor(list)!;
+            // The running IDE raises this while opening, before any text input (#2729).
+            editor.RaiseEvent(new TextChangedEventArgs(TextBox.TextChangedEvent));
+            window.UpdateLayout();
+            editor.Bounds.Height.Should().Be(17);
+            if (typeText)
+                window.KeyTextInput("abc");
+            window.UpdateLayout();
+            editor.Bounds.Height.Should().Be(height);
+            var presenter = editor.GetVisualDescendants().OfType<TextPresenter>().Single();
+            var contentHeight = editor.Bounds.Height - editor.BorderThickness.Top - editor.BorderThickness.Bottom
+                - editor.Padding.Top - editor.Padding.Bottom;
+            contentHeight.Should().BeGreaterThanOrEqualTo(presenter.TextLayout.Height);
+            editor.FontFamily.Should().Be(VBListView.LabelTypeface.FontFamily);
+            editor.FontSize.Should().Be(VBListView.LabelFontSize);
+            editor.FontWeight.Should().Be(VBListView.LabelTypeface.Weight);
+            editor.FontStyle.Should().Be(VBListView.LabelTypeface.Style);
+            editor.Padding.Should().Be(new Thickness(0));
+            editor.BorderThickness.Should().Be(new Thickness(1));
+            editor.VerticalContentAlignment.Should().Be(Avalonia.Layout.VerticalAlignment.Center);
+            if (typeText)
+                editor.Text.Should().Be("abc");
         }
         finally { window.Close(); }
     }

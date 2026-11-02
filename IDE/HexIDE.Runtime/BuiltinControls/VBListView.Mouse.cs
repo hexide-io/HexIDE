@@ -15,17 +15,21 @@ public sealed partial class VBListView
     private bool secondPress;
     private ListViewItem? anchor;
 
+    private double RowHeight => Images("SmallIcons") is not null ? 17 : 18;
+    private double HeaderHeight => Images("SmallIcons") is not null || Images("ColumnHeaderIcons") is not null ? 17 : 18;
+
     private IEnumerable<(ListViewItem Item, Rect Cell, Rect Row)> ItemCells()
     {
         var content = new Rect(Bounds.Size).Deflate(VBProps.GetClientInset(this));
         if (content.Width <= 0 || content.Height <= 0)
             yield break;
         var report = Number("View") == 3;
-        var top = content.Y + (report && !Flag("HideColumnHeaders") && Columns.Entries.Count > 0 ? 18 : 0);
+        var top = content.Y + (report && !Flag("HideColumnHeaders") && Columns.Entries.Count > 0 ? HeaderHeight : 0);
         var icon = Number("View") == 0;
-        var width = icon ? 76 : Math.Max(40, Items.Entries.Select(i => TextWidth(i.Caption) + (Checkboxes ? 24 : 8)).DefaultIfEmpty(40).Max());
-        var height = icon ? 64 : 18;
-        var across = Math.Max(1, (int)(content.Width / width));
+        var bound = Images(icon ? "Icons" : "SmallIcons") is not null;
+        var width = icon ? (bound ? 59 : 76) : Math.Max(40, Items.Entries.Select(i => TextWidth(i.Caption) + (Checkboxes ? 24 : 8) + (bound ? 16 : 0)).DefaultIfEmpty(40).Max());
+        var height = icon ? (bound ? 59 : 64) : RowHeight;
+        var across = Math.Max(1, (int)(content.Width / (bound && Number("View") == 1 ? 59 : width)));
         var down = Math.Max(1, (int)((content.Bottom - top) / height));
         for (var index = 0; index < Items.Entries.Count; index++)
         {
@@ -34,9 +38,9 @@ public sealed partial class VBListView
                 var x = content.X;
                 foreach (var column in Columns.DisplayOrder)
                 {
-                    var cell = new Rect(x, top + index * 18, column.Width / 15d, 18);
+                    var cell = new Rect(x, top + index * RowHeight, column.Width / 15d, RowHeight);
                     if (ReferenceEquals(column, Columns.Entries[0]))
-                        yield return (Items.Entries[index], cell, new Rect(content.X, cell.Y, content.Width, 18));
+                        yield return (Items.Entries[index], cell, new Rect(content.X, cell.Y, content.Width, RowHeight));
                     x += cell.Width;
                 }
             }
@@ -54,13 +58,22 @@ public sealed partial class VBListView
     private Rect ItemLabel(ListViewItem item, Rect cell)
     {
         var icon = Number("View") == 0;
-        var label = icon ? new Rect(cell.X, cell.Y + 32, cell.Width, cell.Height - 32) : cell.Deflate(new Thickness(2, 1));
+        var labelTop = Images("Icons") is not null ? 22 : 32;
+        var label = icon ? new Rect(cell.X, cell.Y + labelTop, cell.Width, cell.Height - labelTop) : cell.Deflate(new Thickness(2, 1));
+        if (!icon && Images("SmallIcons") is not null)
+            label = new Rect(label.X + 16, label.Y, Math.Max(0, label.Width - 16), label.Height);
         if (icon && !Flag("LabelWrap"))
         {
             var width = Math.Max(label.Width, TextWidth(item.Caption) + 4);
             label = new Rect(cell.Center.X - width / 2, label.Y, width, label.Height);
         }
         return label;
+    }
+
+    private Rect CheckboxBounds(ListViewItem item, Rect cell)
+    {
+        var label = Number("View") == 0 ? ItemLabel(item, cell) : cell.Deflate(new Thickness(2, 1));
+        return new Rect(label.X, label.Y + 1, 12, 12);
     }
 
     protected override void OnPointerPressed(PointerPressedEventArgs e)
@@ -102,12 +115,12 @@ public sealed partial class VBListView
         headerPress = false;
         secondPress = e.ClickCount % 2 == 0;
         var inset = VBProps.GetClientInset(this);
-        if (Number("View") == 3 && !Flag("HideColumnHeaders") && point.Y >= inset && point.Y < inset + 18)
+        if (Number("View") == 3 && !Flag("HideColumnHeaders") && point.Y >= inset && point.Y < inset + HeaderHeight)
         {
             var x = inset;
             foreach (var column in Columns.DisplayOrder)
             {
-                var cell = new Rect(x, inset, column.Width / 15d, 18);
+                var cell = new Rect(x, inset, column.Width / 15d, HeaderHeight);
                 if (cell.Contains(point))
                 {
                     headerPress = true;
@@ -130,8 +143,7 @@ public sealed partial class VBListView
             var hit = false;
             foreach (var (item, cell, row) in ItemCells())
             {
-                var label = ItemLabel(item, cell);
-                var box = new Rect(label.X, label.Y + 1, 12, 12);
+                var box = CheckboxBounds(item, cell);
                 if (Checkboxes && item.HasCheckbox && cell.Contains(point) && box.Contains(point))
                 {
                     item.TryGetProperty("Checked", out var value);
@@ -141,9 +153,9 @@ public sealed partial class VBListView
                     break;
                 }
                 var target = Number("View") == 3 && Flag("FullRowSelect") ? row : ItemLabelBounds(item, cell);
-                if (!target.Contains(point) || !new Rect(Bounds.Size).Contains(point))
+                if (!(target.Contains(point) || Images(Number("View") == 0 ? "Icons" : "SmallIcons") is not null && ItemIconBounds(cell).Contains(point)) || !new Rect(Bounds.Size).Contains(point))
                     continue;
-                var edit = ReferenceEquals(SelectedItem, item) && item.IsSelected
+                var edit = ItemLabelBounds(item, cell).Contains(point) && ReferenceEquals(SelectedItem, item) && item.IsSelected
                     && Number("LabelEdit") == 0 && e.KeyModifiers == KeyModifiers.None
                     && e.GetCurrentPoint(this).Properties.PointerUpdateKind == PointerUpdateKind.LeftButtonPressed;
                 await MouseSelect(item, e.KeyModifiers);

@@ -805,7 +805,9 @@ The serializer SHALL carry a loaded MSComctlLib ListView's own property runs and
 including repeated OLEDragMode/OLEDropMode lines and binary citations, while writing editable extender
 properties from the designer model. A resize SHALL recompute extents from whole pixels. Own properties
 and columns without an edit writer SHALL remain unavailable for designer editing. ImageList bindings
-SHALL be preserved without implying runtime binding support.
+SHALL be preserved; saved Icons, SmallIcons and ColHdrIcons names SHALL resolve after runtime controls
+are created, with column ImageIndex selectors validated against ColumnHeaderIcons. Unmeasured bindings
+SHALL refuse rather than silently omit images.
 
 #### Scenario: Saving a designed ListView without edits
 - **WHEN** either saved ListView corpus form is loaded and saved without edits
@@ -820,6 +822,18 @@ SHALL be preserved without implying runtime binding support.
 - **WHEN** a loaded ListView is displayed in the designer
 - **THEN** the preview shows its name and optional checkbox without resolving ImageList bindings
 - **AND** report headers are not displayed
+
+### Requirement: Loaded ListViews use measured client edges
+
+A loaded MSComctlLib ListView SHALL use a client inset of 2 pixels for Appearance 1 plus 1 pixel
+for BorderStyle 1, including when the BorderStyle line is omitted and loads as 0. Drawing, hit testing
+and MouseDown/MouseMove/MouseUp coordinates SHALL use that same inset. These four combinations are
+measured in [#2730](https://github.com/hexide-io/HexIDE/issues/2730) (oracle PR #2732).
+
+#### Scenario: Running the saved ListView forms
+- **WHEN** either saved ListView corpus form runs without changing its saved properties
+- **THEN** its ListViews load, including Appearance 1 with omitted BorderStyle
+- **AND** its saved ImageList bindings resolve and the form can unload normally
 
 ### Requirement: PropertyPage saves distinguish HelpContextID from StandardSize
 A PropertyPage designer SHALL expose HelpContextID as an editable integer property and save its value
