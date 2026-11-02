@@ -1248,7 +1248,7 @@ public partial class FindReplaceViewModelTests
             new AddinOptionsService(),
             Substitute.For<IDeveloperModeService>(),
             Substitute.For<IStatusBarService>(),
-            Substitute.For<IPersonalityService>(),
+            Substitute.For<IProfileService>(),
             new AddinMenuService(),
             new AddinCommandService(),
             new AddinToolWindowService(),

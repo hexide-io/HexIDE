@@ -244,7 +244,7 @@ public partial class MainViewViewModel : ObservableObject
 
     public ISettingsService Settings => settingsService;
 
-    public IPersonalityService Personality { get; }
+    public IProfileService Profile { get; }
 
     internal AddinMenuService AddinMenuService { get; }
 
@@ -1099,7 +1099,7 @@ public partial class MainViewViewModel : ObservableObject
         AddinOptionsService addinOptionsService,
         IDeveloperModeService developerModeService,
         IStatusBarService statusBarService,
-        IPersonalityService personalityService,
+        IProfileService profileService,
         AddinMenuService addinMenuService,
         AddinCommandService addinCommandService,
         AddinToolWindowService addinToolWindowService,
@@ -1115,7 +1115,7 @@ public partial class MainViewViewModel : ObservableObject
             () => (recoveryOffers?.ShowPendingAsync() ?? Task.CompletedTask).ListenErrors(),
             () => recoveryOffers is not null);
         RecentEdits = recentEdits;
-        Personality = personalityService;
+        Profile = profileService;
         AddinMenuService = addinMenuService;
         AddinCommandService = addinCommandService;
         _addinToolWindowService = addinToolWindowService;

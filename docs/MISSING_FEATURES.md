@@ -34,6 +34,14 @@
 
 ---
 
+## Recovery launch
+
+| Item | Shortcut | Status | Notes |
+|---|---|---|---|
+| `--profile none` | — | Done | HexIDE recovery mode (#504): bypasses saved settings/layout, user keymap discovery, user translations and add-ins; starts with Classic, Default and neutral English. Settings, layout and translation edits stay in memory and layout reset preserves saved state. Explicit project paths and new-project flags remain available. This does not sandbox language servers. See [command-line.md](command-line.md). |
+
+---
+
 ## Edit Menu
 
 | Item | Shortcut | Status | Notes |
@@ -202,7 +210,7 @@
 
 | Button | Status | Notes |
 |---|---|---|
-| Add Project (with flyout: Standard EXE / ActiveX EXE / DLL / Control) | Done | Only Standard EXE creates a project; the ActiveX EXE, DLL and Control entries are refused. An implicit group is created when >1 project is loaded |
+| Add Project (with profile template flyout) | Done | Uses the same ordered built-in profile offerings as New Project (#504/#418); unsupported entries are disabled. The open flyout presenter follows those offerings; empty offerings explain that an existing project can be opened. An implicit group is created when >1 project is loaded |
 | Add Form (with flyout) | Done | Flyout wired: Form, MDI Form (missing — not yet implemented), Module, Class Module, User Control, Property Page, Add File… |
 | Menu Editor | Done | |
 | Open Project | Done | |
