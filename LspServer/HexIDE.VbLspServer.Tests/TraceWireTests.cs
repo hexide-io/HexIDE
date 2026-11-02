@@ -2,7 +2,7 @@
 // Copyright (C) 2026 The HexIDE Authors
 // The server's own trace channel, asserted on the frames that come back rather than on our own calls
 // returning. Everything here is driven through StreamJsonRpc over an in-memory pipe pair — the transport
-// the real IDE client uses — and every assertion is about a $/logTrace frame's contents.
+// the real IDE client uses. Startup is checked on window/logMessage independently of trace.
 
 using System.IO.Pipelines;
 using System.Text.Json;
@@ -22,6 +22,24 @@ public class TraceWireTests
 
     private const string CleanDoc = "Sub DoWork()\nEnd Sub\nSub Other()\nEnd Sub\n";
     private const string BrokenDoc = "Sub DoWork()\n    @@\nEnd Sub\n";
+
+    [Fact]
+    public async Task Initialized_reports_startup_and_advertised_version_even_with_trace_off()
+    {
+        await using var h = new Harness();
+        var result = await h.Rpc.InvokeWithParameterObjectAsync<JsonElement>("initialize",
+            new { processId = (int?)null, rootUri = (string?)null, capabilities = new { }, trace = "off" },
+            cancellationToken: TestContext.Current.CancellationToken)
+            .WaitAsync(Timeout, TestContext.Current.CancellationToken);
+        await h.Rpc.NotifyWithParameterObjectAsync("initialized", new { });
+
+        var frame = await h.NextLogAsync();
+        frame.GetProperty("type").GetInt32().Should().Be(3);
+        frame.GetProperty("message").GetString().Should()
+            .Contain(result.GetProperty("serverInfo").GetProperty("name").GetString()!)
+            .And.Contain(result.GetProperty("serverInfo").GetProperty("version").GetString()!)
+            .And.Contain("started");
+    }
 
     // ── off ─────────────────────────────────────────────────────────────────────────────────────
     [Fact]
@@ -268,6 +286,9 @@ public class TraceWireTests
         public Task<JsonElement> NextDiagnosticsAsync() =>
             _client.Diagnostics.Reader.ReadAsync().AsTask().WaitAsync(Timeout);
 
+        public Task<JsonElement> NextLogAsync() =>
+            _client.Log.Reader.ReadAsync().AsTask().WaitAsync(Timeout);
+
         public Task<JsonElement> NextTraceAsync() =>
             _client.Trace.Reader.ReadAsync().AsTask().WaitAsync(Timeout);
 
@@ -283,6 +304,11 @@ public class TraceWireTests
         private sealed class ClientTarget
         {
             public Channel<JsonElement> Diagnostics { get; } = Channel.CreateUnbounded<JsonElement>();
+            public Channel<JsonElement> Log { get; } = Channel.CreateUnbounded<JsonElement>();
+
+            [JsonRpcMethod("window/logMessage", UseSingleObjectParameterDeserialization = true)]
+            public void LogMessage(JsonElement message) => Log.Writer.TryWrite(message);
+
             public Channel<JsonElement> Trace { get; } = Channel.CreateUnbounded<JsonElement>();
 
             [JsonRpcMethod("textDocument/publishDiagnostics", UseSingleObjectParameterDeserialization = true)]

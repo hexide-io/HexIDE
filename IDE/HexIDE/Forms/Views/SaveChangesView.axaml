@@ -23,13 +23,11 @@
                      >
                 <ListBox.Styles>
                     <Style Selector="ListBoxItem:selected">
-                        <Style Selector="^:not(:focus-within)">
-                            <Setter Property="Foreground"
-                                    Value="{DynamicResource {x:Static common:SystemColors.HighlightTextBrushKey}}"/>
-                            <Style Selector="^ /template/ Border#Bd">
-                                <Setter Property="Background"
-                                        Value="{DynamicResource {x:Static common:SystemColors.HighlightBrushKey}}"/>
-                            </Style>
+                        <Setter Property="Foreground"
+                                Value="{DynamicResource {x:Static common:SystemColors.HighlightTextBrushKey}}"/>
+                        <Style Selector="^ /template/ ContentPresenter#PART_ContentPresenter">
+                            <Setter Property="Background"
+                                    Value="{DynamicResource {x:Static common:SystemColors.HighlightBrushKey}}"/>
                         </Style>
                     </Style>
                 </ListBox.Styles>

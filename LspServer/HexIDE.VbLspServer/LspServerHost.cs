@@ -41,16 +41,28 @@ public static class LspServerHost
         // block and leaves the dispatch path below untouched.
         ls.AddHandler(new VbServerCapabilities());
 
+        const string serverName = "HexIDE VB6 Language Server";
+        const string serverVersion = "1.0.0";
         ls.OnInitialize((initializeParams, serverInfo) =>
         {
-            serverInfo.Name = "HexIDE VB6 Language Server";
-            serverInfo.Version = "1.0.0";
+            serverInfo.Name = serverName;
+            serverInfo.Version = serverVersion;
             // Trace level is per connection and arrives here first. Absent means off, which it already is.
             trace.ApplyInitialize(initializeParams.Trace);
             Log.Information("initialize received");
             return Task.CompletedTask;
         });
-        ls.OnInitialized(_ => { Log.Information("client initialized"); return Task.CompletedTask; });
+        ls.OnInitialized(async _ =>
+        {
+            Log.Information("client initialized");
+            await ls.SendNotification(new NotificationMessage("window/logMessage", LspJson.Doc(w =>
+            {
+                w.WriteStartObject();
+                w.WriteNumber("type", 3);
+                w.WriteString("message", $"{serverName} {serverVersion} started.");
+                w.WriteEndObject();
+            })));
+        });
         ls.OnShutdown(() => { Log.Information("shutdown received"); return Task.CompletedTask; });
 
         // $/setTrace changes the level on a running server. The framework carries the parameter types but
