@@ -220,6 +220,7 @@ public sealed class UserFileWriteFailureTests : IDisposable
         var target = Target("picture.ico");
         Fail(target);
         windows.SaveFilePickerAsync(Arg.Any<FilePickerSaveOptions>()).Returns(target);
+        windows.MessageBox(default!).ReturnsForAnyArgs(MessageBoxResult.Yes);
         // The framed one-byte payload accepted by the resource exporter.
         byte[] record = [9, 0, 0, 0, 0x6c, 0x74, 0, 0, 1, 0, 0, 0, 42];
         var owner = new PropertiesToolViewModel(Substitute.For<IDocumentDockService>(), Substitute.For<IEventBus>(),
