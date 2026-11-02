@@ -2526,7 +2526,7 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
             // An in-box control's library is the one it was read under: MSComctlLib's ProgressBar or ComctlLib's (#1082).
             var library = control switch
             {
-                VBCommonDialog => "MSComDlg",
+                VBCommonDialog => Components.InBox.CommonDialogComponentClass.Instance.Library.Name,
                 VBProgressBar bar => bar.Library.Name,
                 VBListView => "MSComctlLib",
                 VBToolbar => "MSComctlLib",
