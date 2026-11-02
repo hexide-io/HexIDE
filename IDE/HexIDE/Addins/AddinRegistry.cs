@@ -393,7 +393,7 @@ internal sealed class AddinRegistry : IAddinRegistry, IAddinLoader
         result.Manifest is { } m
             ? new AddinInfo(packageDir, m.Title, m.Description, m.Version, m.Author,
                             result.PublisherDisplayName ?? "", m.Id, result.ManifestHash ?? "",
-                            result.LogoPath, result.Chain)
+                            result.LogoPath, result.Chain) { VerifiedDeclaration = result.VerifiedDeclaration }
             : ShallowInfo(packageDir);
 
     private static AddinInfo ShallowInfo(string packageDir) =>
