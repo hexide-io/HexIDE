@@ -19,6 +19,19 @@
         <Separator />
         <TextBlock Text="{CompiledBinding Copyright}" HorizontalAlignment="Center" FontSize="11" />
 
+        <Expander Header="{DynamicResource Str.Dialog.About.Credits.Header}" IsExpanded="True"
+                  HorizontalAlignment="Stretch">
+            <ScrollViewer MaxHeight="260" HorizontalScrollBarVisibility="Disabled">
+                <ItemsControl ItemsSource="{CompiledBinding Credits}" MaxWidth="300">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="x:String">
+                            <TextBlock Text="{CompiledBinding}" TextWrapping="Wrap" Margin="0,0,0,8" />
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </ScrollViewer>
+        </Expander>
+
         <!-- Canonical add-in trust-anchor fingerprints, for out-of-band verification. -->
         <Expander Header="{DynamicResource Str.Dialog.About.SigningKeys.Header}" IsVisible="{CompiledBinding HasTrustAnchors}"
                   HorizontalAlignment="Stretch">

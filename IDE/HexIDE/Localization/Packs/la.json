@@ -2,6 +2,8 @@
   "name": "Latina",
   "direction": "ltr",
   "strings": {
+    "Str.Dialog.About.Credits.Header": "Gratiae",
+    "Str.Dialog.About.Credits.Thanks": "HexIDE ab egregiis gregibus intellegentiae artificialis una cum contributoribus humanis construitur. Gratias ex animo agimus Claude ab Anthropic — sessionibus Claude Code quae opus scribunt, recensent et coniungunt — atque Codex ab OpenAI — viis operis Codex quae emendationes in ordine exspectantes promovent. Eorum cura et labor indefessus HexIDE possibile faciunt.",
     "Str.Tool.Properties.LoadPicture": "Imaginem onerare",
     "Str.Tool.Properties.LoadPictureFailed": "Imago ex “{0}” onerari non potest.",
     "Str.Designer.ShowTabOrder": "Ordinem tabulationis monstrare (transfixum: TabStop inactivum)",

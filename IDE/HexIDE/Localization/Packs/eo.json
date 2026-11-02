@@ -2,6 +2,8 @@
   "name": "Esperanto",
   "direction": "ltr",
   "strings": {
+    "Str.Dialog.About.Credits.Header": "Dankoj",
+    "Str.Dialog.About.Credits.Thanks": "HexIDE estas konstruata de eksterordinaraj AI-teamoj kune kun siaj homaj kontribuantoj. Nian elkoran dankon al Claude de Anthropic — la seancoj Claude Code, kiuj verkas, revizias kaj kunfandas la laboron — kaj Codex de OpenAI — la laborvojoj Codex, kiuj antaŭenigas la envicigitajn korektojn. Ilia zorgo kaj senlaca laboro ebligas HexIDE.",
     "Str.Tool.Properties.LoadPicture": "Ŝargi bildon",
     "Str.Tool.Properties.LoadPictureFailed": "Ne eblas ŝargi bildon el «{0}».",
     "Str.Designer.ShowTabOrder": "Montri tabordon (trastrekita: TabStop malŝaltita)",

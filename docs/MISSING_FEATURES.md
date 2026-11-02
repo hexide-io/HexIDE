@@ -438,7 +438,7 @@
 | Runtime Error | Partial | A run-time error nothing handles halts the program at its statement, with nothing running behind the dialog. Debug, the default button, breaks there with the procedure live, and Continue runs the statement again. End ends the run ([#1011](https://github.com/hexide-io/HexIDE/issues/1011)). Continue stays disabled, as in VB6's dialog for this error. Help, which VB6 offers, is disabled too. Also reports what ends a run on its own, which used to reach only the log or an unrecorded message box: a construct HexIDE does not implement, a fault in the engine (as VB6's "Internal error", 51), and an error `Sub Main` does not handle ([#754](https://github.com/hexide-io/HexIDE/issues/754)) |
 | Save Changes | Partial | Per-file checkbox UI present; selective-save logic unclear |
 | Font | Done | |
-| About | Done | |
+| About | Done | Localized Credits expander opens expanded and thanks human contributors, Claude (Anthropic) and Codex (OpenAI). About options append brand credits after HexIDE’s own; no removal or replacement option (#2746). |
 | Object Browser | Partial | Implemented as a Document tab; Unicode placeholder icons pending (#11); stale member list, double-click position, and Escape-to-close outstanding (#24) |
 | Color dialog (property editor) | Done | Inline picker in Properties grid |
 | Input Box (VB6 runtime) | Done | |
