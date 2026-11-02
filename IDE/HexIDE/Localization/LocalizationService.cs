@@ -8,6 +8,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Media;
 using Avalonia.Platform;
+using HexIDE.Profiles;
 using Serilog;
 
 namespace HexIDE.Localization;
@@ -19,6 +20,8 @@ namespace HexIDE.Localization;
 /// </summary>
 public sealed class LocalizationService : ILocalizationService
 {
+    // Startup diagnostics use only shipped resources, before the Avalonia platform is initialized.
+    private readonly IAssetLoader _assets = new StandardAssetLoader();
     private Func<string, Uri> _packUri = id => new Uri($"avares://HexIDE/Localization/Packs/{id}.json");
 
     // Captured by App.Initialize before the invariant pin; never read the pinned thread culture (#799).
@@ -30,8 +33,9 @@ public sealed class LocalizationService : ILocalizationService
     // The per-user override tier, merged LAST in resolution. Optional so existing `new LocalizationService()`
     // tests still construct without it; when present, an override change live-re-applies the active language.
     private readonly IUserTranslationsService? _userTranslations;
+    private readonly Dictionary<string, Dictionary<string, string>> _profileStrings = new(StringComparer.Ordinal);
 
-    // The active pack's effective map (English merged with the active pack's overrides).
+    // The active pack's effective map, including profile and user overrides.
     private Dictionary<string, string> _currentStrings;
 
     // The merged dictionary currently injected into Application.Resources (the "language slot").
@@ -87,6 +91,25 @@ public sealed class LocalizationService : ILocalizationService
             new LanguageInfo("system", "System default", "ltr"),
             .. packs,
         ];
+    }
+
+    internal LocalizationService(ProfileSnapshot? profile, IUserTranslationsService? userTranslations = null,
+        IDeveloperModeService? developerMode = null)
+        : this(userTranslations, developerMode)
+    {
+        if (profile == null)
+            return;
+        foreach (var (id, payload) in profile.LanguageOverrides)
+        {
+            var pack = payload.Content.Deserialize(LocalizationJsonContext.Default.LanguagePackRecord)!;
+            var strings = new Dictionary<string, string>(StringComparer.Ordinal);
+            if (pack.Strings != null)
+                foreach (var (key, value) in pack.Strings)
+                    if (_englishStrings.ContainsKey(key) && !string.IsNullOrWhiteSpace(value)
+                        && UserTranslationsService.PreservesPlaceholders(_englishStrings, key, value))
+                        strings[key] = value;
+            _profileStrings[id] = strings;
+        }
     }
 
     // Tests can supply fixtures from their own assembly; canonical English still comes from the product.
@@ -213,7 +236,8 @@ public sealed class LocalizationService : ILocalizationService
     /// Resolves a pack id to its effective string map and reading direction. <c>"system"</c> resolves to
     /// the OS-matched pack. The map is built **3-tier** — canonical <c>en</c>, then the neutral-language
     /// pack (e.g. <c>fr</c> for <c>fr-CA</c>) if one exists, then the pack itself — so a key absent from a
-    /// region inherits its neutral pack, and one absent from both inherits canonical English. Returns false
+    /// region inherits its neutral pack, and one absent from both inherits canonical English. Profile
+    /// neutral/region overrides follow the shipped layers, then user overrides. Returns false
     /// if a file pack fails to load (map is then the canonical map).
     /// </summary>
     internal bool TryResolveMap(string id, out Dictionary<string, string> map, out string direction)
@@ -228,6 +252,7 @@ public sealed class LocalizationService : ILocalizationService
             // The canonical, key-complete pack (US-spelled, the de-facto neutral English). Honor user
             // overrides on `en` itself (authoring the canonical), merged last.
             map = new Dictionary<string, string>(_englishStrings);
+            MergeProfileOverrides("en", map);
             MergeUserOverrides("en", map);
             return true;
         }
@@ -263,6 +288,12 @@ public sealed class LocalizationService : ILocalizationService
                 found = true;
             }
 
+            // Profile strings use the same locale chain, below the existing per-user tier.
+            if (neutral != id && MergeProfileOverrides(neutral, merged))
+                found = true;
+            if (MergeProfileOverrides(id, merged))
+                found = true;
+
             // The per-user override tier, merged LAST so it beats every shipped tier — neutral first, then
             // the region id, mirroring the shipped-pack order. An UNSHIPPED culture that has only user
             // overrides still counts as resolved (found), so it does not fall back to canonical en.
@@ -291,6 +322,15 @@ public sealed class LocalizationService : ILocalizationService
             map = new Dictionary<string, string>(_englishStrings);
             return false;
         }
+    }
+
+    private bool MergeProfileOverrides(string id, Dictionary<string, string> into)
+    {
+        if (!_profileStrings.TryGetValue(id, out var strings) || strings.Count == 0)
+            return false;
+        foreach (var (key, value) in strings)
+            into[key] = value;
+        return true;
     }
 
     /// <summary>Merges the user override tier for <paramref name="packId"/> into <paramref name="into"/>
@@ -340,12 +380,12 @@ public sealed class LocalizationService : ILocalizationService
     }
 
     private bool PackExists(string id) =>
-        AssetLoader.Exists(_packUri(id));
+        _assets.Exists(_packUri(id));
 
     private LanguagePackRecord LoadPack(string id)
     {
         var uri = _packUri(id);
-        using var stream = AssetLoader.Open(uri);
+        using var stream = _assets.Open(uri);
         return JsonSerializer.Deserialize(stream, LocalizationJsonContext.Default.LanguagePackRecord)
                ?? throw new InvalidOperationException($"Language pack '{id}' deserialized to null.");
     }

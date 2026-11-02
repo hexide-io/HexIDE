@@ -439,7 +439,7 @@ The signatures in this curated table are checked by `McpToolTableDocumentationTe
 - `--user-data-dir <path>` — keep this session's settings, layout, recents and `lsp-servers.json` in that directory instead of the user's own. **Use it for any demo or automation run that needs its own configuration**, rather than editing the real one and relying on someone to change it back. Works in Release. A relative path is relative to where HexIDE was started
 - `--developer-mode` — session developer mode; DEBUG-only and inert in a distributed build
 - `--ansi-code-page <n>` — read and write VB6 sources as a machine whose ANSI code page is `n` (e.g. `932`); DEBUG-only. The only way to reach the byte-for-byte read and its notice on a Western machine, where every byte decodes
-- `--personality <vb6|vbaode|vba>` — the IDE personality for the session
+- `--profile <value>` — a built-in/installed profile name, directory path, or `none`; omission selects `vb6`. The old personality flag refuses startup with a replacement diagnostic
 - Positional `.vbp` path — skip the startup dialog and open that project
 
 **Adding a flag is two places and a width budget, and the build enforces all three.** Declare it in

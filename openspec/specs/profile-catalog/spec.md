@@ -2,11 +2,11 @@
 
 ## Purpose
 
-Record the standalone catalog foundation for #2621. The IDE still uses personalities. The approved
-bundle design and remaining loader work are in
-`openspec/changes/2026-10-25-profiles-supersede-personalities/`. This component does not apply profiles
-or parse CLI selectors. It validates parsed manifest declarations and provides a contained byte reader,
-bundle JSON assembly and name resolution with directory replacement protection, without IDE consumers.
+Provide the shared catalog and contained bundle loader introduced by #2621/#2714. The selector and
+consumer adapter in `HexIDE.Profiles.ProfileResolver` uses this loader for session profiles (#504).
+This component validates declarations and captures JSON without applying services or parsing CLI
+selectors. The approved bundle design and remaining surface work are in
+`openspec/changes/2026-10-25-profiles-supersede-personalities/`.
 
 ## Requirements
 
@@ -26,7 +26,7 @@ File references SHALL confer no permission to open a file.
 
 The catalog SHALL read embedded JSON manifests through an explicit index containing `vb6`, `vbaode`
 and `vba`, in that order. They SHALL declare schema version 1 and only the project types and menu
-visibility specified by the approved bundle design. No IDE consumer SHALL be wired by this foundation.
+visibility specified by the approved bundle design.
 
 #### Scenario: Built-in declarations are inspected
 
@@ -202,8 +202,8 @@ It SHALL NOT close the caller's handle during fallback validation.
 ### Requirement: Detached bundle assembly
 
 The standalone assembler SHALL read the manifest and every declared payload through the contained
-reader before returning an immutable map of detached JSON objects. It SHALL NOT be connected to IDE
-consumers by this component.
+reader before returning an immutable map of detached JSON objects. It SHALL NOT apply captured data
+to IDE services.
 
 #### Scenario: Payload changes after assembly
 

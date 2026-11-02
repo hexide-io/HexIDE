@@ -151,15 +151,22 @@ internal sealed class ProfileManifest(string source)
             try
             {
                 if (ProfilePaths.HasLink(directory, reference))
-                    throw Error(field, "UnsafePath");
+                    throw PathError("UnsafePath");
             }
             catch (IOException)
             {
-                throw Error(field, "UnreadablePath");
+                throw PathError("UnreadablePath");
             }
             catch (UnauthorizedAccessException)
             {
-                throw Error(field, "UnreadablePath");
+                throw PathError("UnreadablePath");
+            }
+
+            InvalidDataException PathError(string code)
+            {
+                var error = Error(field, code);
+                error.Data["file"] = Path.Combine(directory, Path.Combine(ProfilePaths.Components(reference)));
+                return error;
             }
         }
     }

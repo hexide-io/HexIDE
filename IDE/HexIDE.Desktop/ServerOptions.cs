@@ -38,7 +38,8 @@ internal static class ServerOptions
     public static bool NewProject { get; private set; }
     public static bool NewProjectUnsaved { get; private set; }
     public static string? ProjectPath { get; private set; }
-    public static string? Personality { get; private set; }
+    public static string? Profile { get; private set; }
+    public static string? ProfileArgumentError { get; private set; }
 
     /// <summary><c>--user-data-dir</c>: the directory this session keeps per-user files in, already made
     /// absolute against the directory HexIDE was started from. Null when the flag was not given.</summary>
@@ -177,12 +178,18 @@ internal static class ServerOptions
                 return true;
             }),
 
-        // <name>, not <vb6|vbaode|vba>: the value column is the longest spelling in the list, so naming
-        // the values here made every other row ten cells wider and put the beside layout out of reach of
-        // a default console. They live in the summary instead, where they cost one row rather than six.
-        new("personality", "<name>",
-            "IDE personality for the session: vb6, vbaode or vba.",
-            value => { Personality = value; return true; }),
+        new("profile", "<value>",
+            new HexIDE.Localization.LocalizationService().GetStringFrom("en", "Str.Profiles.HelpSummary"),
+            value =>
+            {
+                if (Profile != null || !IsProfileValue(value))
+                {
+                    ProfileArgumentError ??= "Str.Profiles.SelectorRequired";
+                    return false;
+                }
+                Profile = value;
+                return true;
+            }),
 
         new("server-port", "<port>",
             "Start the automation server on this port. Debug builds only.",
@@ -246,6 +253,9 @@ internal static class ServerOptions
     public static void ParseArgs(string[] args, string invocationDirectory)
     {
         _invocationDirectory = invocationDirectory;
+        if (args.Any(arg => arg.Equals("--personality", StringComparison.OrdinalIgnoreCase) ||
+                            arg.Equals("/personality", StringComparison.OrdinalIgnoreCase)))
+            ProfileArgumentError = "Str.Profiles.PersonalityRemoved";
 
         for (var i = 0; i < args.Length; i++)
         {
@@ -311,6 +321,13 @@ internal static class ServerOptions
 
         return string.Join(Environment.NewLine, [.. body, .. tail]);
     }
+
+    private static bool IsProfileValue(string? value) =>
+        !string.IsNullOrWhiteSpace(value) && !value.StartsWith('-') &&
+        Match(value) == null && !value.Equals("/personality", StringComparison.OrdinalIgnoreCase);
+
+    internal static HexIDE.Profiles.ProfileSnapshot? ResolveProfile(string invocationDirectory, string userDataDirectory) =>
+        new HexIDE.Profiles.ProfileResolver(UserDataDirectory ?? userDataDirectory, invocationDirectory).Resolve(Profile);
 
     private static string Spelling(CommandLineOption option) =>
         option.TakesValue ? $"--{option.Name} {option.ValueName}" : $"--{option.Name}";

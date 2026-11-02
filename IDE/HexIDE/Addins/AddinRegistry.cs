@@ -29,6 +29,7 @@ internal sealed class AddinRegistry : IAddinRegistry, IAddinLoader
     private readonly HashSet<string> _disabled;
     private IHexIdeHost? _host;
     private bool _disposed;
+    private readonly bool _recoveryMode = Static.IsRecoveryMode;
 
     private static readonly JsonSerializerOptions s_jsonOptions = new() { WriteIndented = true };
 
@@ -59,13 +60,15 @@ internal sealed class AddinRegistry : IAddinRegistry, IAddinLoader
         _revocations = revocations;
         _stateFilePath = stateFilePath;
         _addinsDirectory = addinsDirectory;
-        _disabled = LoadDisabledSet();
+        _disabled = _recoveryMode ? new HashSet<string>(StringComparer.OrdinalIgnoreCase) : LoadDisabledSet();
     }
 
     // ── IAddinLoader ─────────────────────────────────────────────
 
     public void LoadAll(IHexIdeHost host)
     {
+        if (_recoveryMode)
+            return;
         _host = host;   // retained for the post-window consent pass (late-loading consented add-ins)
 
         var dir = _addinsDirectory;
@@ -379,7 +382,7 @@ internal sealed class AddinRegistry : IAddinRegistry, IAddinLoader
 
     public void RevokeConsent(string manifestHash)
     {
-        if (string.IsNullOrEmpty(manifestHash))
+        if (_recoveryMode || string.IsNullOrEmpty(manifestHash))
             return;
         _consent.Revoke(manifestHash);
         var ctx = _contexts.FirstOrDefault(c => c.Info.ManifestHash == manifestHash);
@@ -428,6 +431,7 @@ internal sealed class AddinRegistry : IAddinRegistry, IAddinLoader
 
     private void SaveDisabledSet()
     {
+        if (_recoveryMode) return;
         try
         {
             var data = new AddinStateData { Disabled = [.. _disabled] };

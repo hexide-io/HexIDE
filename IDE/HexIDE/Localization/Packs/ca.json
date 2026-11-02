@@ -2,6 +2,12 @@
   "name": "Catalan",
   "direction": "ltr",
   "strings": {
+    "Str.Profiles.LoadError": "No es pot carregar el perfil «{0}», fitxer «{1}». Comproveu el format del paquet i els camins dels fitxers.",
+    "Str.Profiles.HelpSummary": "Perfil base: nom, camí de directori o none (mode segur).",
+    "Str.Profiles.PersonalityRemoved": "--personality s'ha eliminat. Feu servir --profile vb6, --profile vbaode o --profile vba.",
+    "Str.Profiles.SelectorRequired": "--profile necessita exactament un valor: un nom de paquet, un camí de directori o none. Comproveu els arguments d'inici.",
+    "Str.RevertGate.SessionOnly": "Aquest canvi d'idioma només dura aquesta sessió.",
+    "Str.NewProject.NoTemplates": "Aquest perfil no ofereix plantilles de projecte nou. Obriu un projecte existent.",
     "Str.Dialog.About.Credits.Header": "Crèdits",
     "Str.Dialog.About.Credits.Thanks": "HexIDE es construeix al costat dels seus col·laboradors humans amb equips extraordinaris d’AI. Agraïm de tot cor a Claude by Anthropic — les sessions de Claude Code que escriuen, revisen i integren la feina — i a Codex by OpenAI — els fluxos de Codex que fan avançar les correccions en cua. La seva cura i feina incansable fan possible HexIDE.",
     "Str.Tool.LanguageServers.Output": "Sortida",

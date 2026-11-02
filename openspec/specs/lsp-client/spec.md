@@ -220,6 +220,25 @@ document for both (hexide-io/HexIDE#721).
 - **WHEN** a document is closed
 - **THEN** the server is notified, so it can release any state held for that document
 
+### Requirement: A request about a document SHALL follow its open
+
+A request about a document SHALL reach a server only after that server has been sent the document's
+`didOpen`, as LSP requires. A request made while that open is still to come SHALL wait for it and SHALL still
+be answered. One server still starting SHALL NOT hold up another server's answers (hexide-io/HexIDE#2909).
+
+#### Scenario: Asked during a server's project import
+- **WHEN** the code window asks for folds and semantic tokens while its server's project import is outstanding
+- **THEN** the server is sent the document's open before either request, and both are answered
+
+#### Scenario: Asked while a second server starts
+- **WHEN** two servers claim a document and the code window asks about it while the second is still starting
+- **THEN** the first server is sent the document's open before the requests, and answers them without waiting
+  for the second
+
+#### Scenario: Asked during a restart
+- **WHEN** the workspace moves and a document already open is asked about while its server starts again
+- **THEN** the restarted server is sent the document's open before the requests
+
 ### Requirement: Diagnostics SHALL be pushed through a single channel from more than one source
 The client SHALL expose one diagnostics channel that carries both server-published diagnostics and
 diagnostics injected by the IDE, and SHALL raise on it rather than requiring a consumer to poll.
