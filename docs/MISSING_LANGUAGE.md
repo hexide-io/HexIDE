@@ -1259,7 +1259,7 @@ These preparatory binding entries are outside the language-name inventory; its c
 |---|---|
 | Control `Font` | Implemented for existing font-bearing runtime controls: TypeName Font, stable identity, Name default value, Currency Size, measured member reads, shared Set and error 380 for Nothing. Font on scroll bars, Timer, Shape, Line and Image raises 438. |
 | `New StdFont`, `stdole.StdFont` | Not implemented: the supplied measurement records sharing after construction but does not record initial member values. Explicit construction refuses; auto-instancing remains refused. |
-| `Font.Size` writes | Only measured Integer 9 and 12 are implemented in this slice. Other sizes and conversions refuse as not implemented; the measured standalone StdFont size 20 case remains outstanding. |
+| `Font.Size` writes | Measured Integer 9 and 12, plus Arial Integer 14 reading back 14.25 through a retained Font reference, are implemented ([oracle](vb6-fidelity-oracle/a-controls-font-object.md)). Other sizes and conversions refuse as not implemented; the measured standalone StdFont size 20 case remains outstanding. |
 | `Font.Name`, `Bold`, `Italic`, `Underline`, `Strikethrough`, `Weight`, `Charset` writes | Not implemented: object-member assignment conversions and error contracts remain unmeasured. Scalar FontName/FontBold and sibling setters retain their existing measured behavior and propagate through shared references. |
 | `Font.Underline`, `Font.Strikethrough` reads | Not implemented: the supplied Font-object measurements do not record these reads. Their scalar control aliases retain their measured behavior. |
 | Font methods and native handles | Not implemented; no unmeasured method result or native handle is fabricated. |
