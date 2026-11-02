@@ -12,6 +12,23 @@ later without the editor noticing.
 
 ## Requirements
 
+### Requirement: Servers can request the editor tab size
+The client SHALL declare `workspace.configuration` support and SHALL answer `workspace/configuration`
+with one result per item in request order. Section `editor.tabSize` SHALL return the current editor
+Tab Width as a number regardless of scope URI; unknown or absent sections SHALL return null.
+The client SHALL notify running servers with `workspace/didChangeConfiguration` and empty settings
+when Tab Width changes.
+
+#### Scenario: A server requests known and unknown settings
+- **WHEN** a server requests an unknown section followed by `editor.tabSize` and Tab Width is 2
+- **THEN** the response is `[null, 2]`
+
+#### Scenario: The user changes Tab Width
+- **WHEN** Tab Width changes to 8 while a server is running
+- **THEN** the client sends `workspace/didChangeConfiguration`
+- **AND** a subsequent `editor.tabSize` request returns 8
+
+
 ### Requirement: Optional non-nullable protocol members are omitted when unset
 The client SHALL omit unset optional members whose LSP types exclude null, using property-level
 serialization rules. It SHALL preserve explicit values and members whose protocol types permit null.
