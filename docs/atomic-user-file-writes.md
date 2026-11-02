@@ -81,8 +81,11 @@ The helper tests exercise a partial stream write followed by an I/O error, prese
 old bytes and removing the temporary file, a refused replacement, a refused disk flush,
 and an unrelated pre-existing `.tmp` file. Existing save and encoding tests cover
 successful callers. Failure-injection tests for this slice exercise each remaining in-process caller,
-including both destinations of each protocol export. Earlier project/carried-file
-callers still have helper-level failure coverage only. No VB6 measurement
+including both destinations of each protocol export. Project-save source/module/project/companion destinations, group saves and each package-conversion destination
+also have caller-level partial-write tests in `UserFileWriteFailureTests`.
+`CarriedFileSaveTests.PartialWriteFailurePreservesBytesAndDirtyStateUntilRetry` checks
+that a carried-file save preserves bytes, removes its staging file and stays dirty
+until a successful retry. No VB6 measurement
 is required or introduced: this is a HexIDE persistence policy.
 
 A failed Make reports the existing localized error dialog and rethrows. Resource export
@@ -132,3 +135,90 @@ opt-in VB6 oracle compiler; the last five require Windows filesystem behaviour.
 
 Tree hygiene passed with nine nonblocking warnings; `git diff --check` passed.
 This run leaves its changes uncommitted for supervisor review.
+
+## Caller-coverage follow-up (2026-10-29)
+
+No product code changes in this follow-up. Nine additional cases cover partial writes
+at project source/module/project/companion saves, group saves, all three package
+encoding destinations and carried-file saves. The carried-file case verifies dirty
+state and a successful retry. All twenty `UserFileWriteFailureTests` cases pass with
+no skips; the new carried-file case also passes. These tests pass against the existing
+fix, so this follow-up claims **zero before-failing tests**.
+
+The full runtime suite completed: **8,003 passed, 13 skipped, no failures or errors**
+(8,016 total), in 302.814 seconds. No test hung. Its skips are the same thirteen
+listed above. The full Integration suite completed: **4,291 passed, six failed, two
+skipped, no errors** (4,299 total), in 304.271 seconds. The failures are the existing
+`OptionsViewIntegrationTests.SpinnerTranslations_DescribeChangingANumber` cases for
+`de`, `nl`, `id`, `fi`, `cs` and `da`: they return raw localization keys. All six also
+fail when run alone without the save tests. The Integration skips are
+`ToolbarCaptionTests.Windows_caption_width_follows_installed_fonts_Gdi_extent` and
+`ToolbarCaptionTests.Segoe_UI_nine_point_matches_console_measurements`; neither
+establishes Linux coverage. Both XML reports pass `check-xunit-report.sh`'s error
+check; that check does not turn the six assertion failures into passes.
+
+Build output and NuGet's HTTP cache were redirected inside this clone because the
+sandbox refused writes to existing intermediate files and the shared cache. Desktop
+builds in Debug with zero warnings and errors using the fresh output directory.
+The MTP launches stalled before naming a test, even with a writable runtime directory;
+the Integration hang monitor initially failed creating a mutex in the read-only runtime
+directory. Full suite results above come from the built xUnit executables with
+`-parallel none -verbose`, not those stalled launches. Feature status and
+`MISSING_LANGUAGE.md` rows/counts are unchanged. External VB6 compiler publication
+remains the unmeasured exception described in the inventory.
+
+The full IDE run completed: **4,896 passed, 44 skipped, no failures or errors**
+(4,940 total), in 848.093 seconds, above the 4,481-case CI floor; its XML error
+check passes. The companion and group cases were added after that full run started
+and are covered by the final twenty-case caller run rather than its totals. The
+runtime and Integration totals also exceed their CI floors. Tree hygiene passes
+with ten nonblocking warnings, and `git diff --check` passes. No live UI check is
+needed for these test/documentation additions. Changes remain uncommitted for review.
+
+IDE skips (not coverage; Windows facilities, unavailable VB6 templates, bundled-server
+or made-program prerequisites):
+
+- `Tools.ProjectTreeBuilderTests.ForwardSlashPath_NormalizesAndNests`
+- `Tools.ProjectTreeBuilderTests.AMemberWithNoRelativeForm_CaptionsItsAbsoluteLocation`
+- `Tools.ProjectTreeBuilderTests.CrossDriveMember_RendersAtRoot`
+- `Infrastructure.WindowStateUnconfirmedTests.On_Windows_the_probe_does_not_guess`
+- `UserDataPathTests.OnWindowsItIsUnderAppData`
+- `ViewModels.MemberAttributesFollowARenameTests.RenamingAProcedureThatHasADescription(route: \"the bundled server\")`
+- `IDE.EditorServiceNavigationTests.AFileUriWhoseDriveLetterTheServerNormalisedStillResolves`
+- `Runtime.VbSettingsStoreTests.A_value_another_program_wrote_that_is_not_text_reads_as_no_text`
+- `Runtime.VbSettingsStoreTests.The_registry_keeps_each_setting_as_text_as_vb6_exe_does`
+- `Projects.CompanionBinaryPreservationTests.A_form_whose_records_HexIDE_does_not_model_saves_both_halves_as_VB6_wrote_them`
+- `Projects.CompanionBinaryPreservationTests.A_form_that_reproduces_its_companion_is_never_denied_the_write`
+- `Projects.CompanionBinaryPreservationTests.A_second_save_still_leaves_the_companion_intact`
+- `Projects.CompanionBinaryPreservationTests.The_form_records_that_it_lost_binary_fidelity`
+- `Projects.CompanionBinaryPreservationTests.AFormWhoseBlobsAreAllModelled_DoesNotRaiseTheLossFlag`
+- `Projects.CompanionBinaryPreservationTests.Dropping_a_blob_bearing_control_keeps_both_halves_in_step`
+- `Projects.CompanionBinaryPreservationTests.Saving_never_shrinks_or_deletes_a_companion_it_cannot_reproduce`
+- `LspClient.LspDocumentSessionTests.AWindowsDriveLetterInTheOtherCaseStillMatches`
+- `Addins.PackageVerificationTests.Locked_signature_file_yields_Untrusted_not_an_exception`
+- `LspClient.BundledServerRespectsTheIdesRegionsTests.RenamingAWordTheLayoutAlsoUsesEditsNothingTheIdeHoldsExceptTheMembersOwnQualifier`
+- `LspClient.BundledServerRespectsTheIdesRegionsTests.RenamingAMemberTakesItsOwnAttributeQualifiersAlong`
+- `LspClient.BundledServerRespectsTheIdesRegionsTests.RenameAndHighlightFromALineTheIdeHoldsReadOnlyAnswerNothing`
+- `LspClient.BundledServerRespectsTheIdesRegionsTests.ADamagedHeaderStillLeavesTheCodesOwnErrorsReported`
+- `LspClient.BundledServerRespectsTheIdesRegionsTests.FormattingChangesExactlyTheLinesTheIdeLeavesToTheDeveloper`
+- `LspClient.BundledServerRespectsTheIdesRegionsTests.NoDiagnosticLandsOnALineTheIdeHoldsReadOnly`
+- `LspClient.BundledServerRespectsTheIdesRegionsTests.TheServerRefusesExactlyTheNewNamesTheIdeRefuses`
+- `Projects.ClassModuleSaveFidelityTests.A_reload_from_disk_also_preserves_the_header`
+- `Projects.ClassModuleSaveFidelityTests.Editing_the_body_leaves_the_header_untouched`
+- `Projects.ClassModuleSaveFidelityTests.Saving_a_project_leaves_an_untouched_class_byte_identical`
+- `Projects.MadeProgramTests.A_made_program_starts_and_runs_its_Sub_Main`
+- `Server.ProcessWindowsToolTests.A_window_of_a_process_the_started_one_started_is_read_through_it`
+- `Server.ProcessWindowsToolTests.A_program_started_hidden_is_read_as_hidden_and_the_note_says_vbHide_did_it`
+- `Server.ProcessWindowsToolTests.A_running_process_with_no_window_is_said_to_have_none_yet`
+- `Server.ProcessWindowsToolTests.A_minimized_program_is_read_as_minimized_and_visible`
+- `Sidecar.UserSidecarSaveTests.TheProjectsOwnSidecarSpelledInAnotherCaseIsStillItsOwn`
+- `Processes.ChildProcessJobTests.A_closed_job_refuses_a_process`
+- `Processes.ChildProcessJobTests.A_process_left_out_of_the_job_outlives_it`
+- `Processes.ChildProcessJobTests.Closing_the_job_ends_the_process_put_in_it`
+- `LspClient.BundledServerTraceRoundTripTests.TheServerTracesWhatTheClientAskedForAtTheHandshake`
+- `LspClient.BundledServerTraceRoundTripTests.AskingForNothingGetsNothing`
+- `LspClient.BundledServerTraceRoundTripTests.TheLevelCanBeTurnedUpOnAServerThatIsAlreadyRunning`
+- `LspClient.TypeLibraryNamesTests.ALocalLinkToAShareIsNotALocalPath`
+- `LspClient.BundledServerHandshakeTests.NothingTheBundledServerAdvertisesIsReportedUnused`
+- `LspClient.WorkspaceArtifactProjectTests.TheTypeLibraryNamesOleAutomationStdole`
+- `LspClient.WorkspaceArtifactProjectTests.ALocalTypeLibraryIsNamedFromItsFile`
