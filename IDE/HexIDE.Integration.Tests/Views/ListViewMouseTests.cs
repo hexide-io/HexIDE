@@ -96,23 +96,30 @@ public class ListViewMouseTests
         finally { window.Close(); }
     }
 
+    // #2730, native matching p-code (oracle PR #2732): 2 px Appearance + 1 px BorderStyle.
     [AvaloniaTheory]
-    [InlineData(1, 555f, 405f)]
-    [InlineData(0, 600f, 450f)]
-    public async Task Mouse_coordinates_start_inside_the_edge(int appearance, float x, float y)
+    [InlineData(1, 1, 21, 21, 270f, 270f)]
+    [InlineData(1, 0, 21, 21, 285f, 285f)]
+    [InlineData(0, 1, 21, 21, 300f, 300f)]
+    [InlineData(0, 0, 21, 21, 315f, 315f)]
+    [InlineData(1, 1, 40, 30, 555f, 405f)]
+    [InlineData(1, 0, 40, 30, 570f, 420f)]
+    [InlineData(0, 1, 40, 30, 585f, 435f)]
+    [InlineData(0, 0, 40, 30, 600f, 450f)]
+    public async Task Mouse_coordinates_start_inside_the_edge(int appearance, int border, int outerX, int outerY, float x, float y)
     {
         var (window, list, recorder) = await Open();
         try
         {
             var fields = new VBSerializedComponent();
             fields.Properties["NumItems"] = 2;
-            fields.Properties["BorderStyle"] = 1;
+            fields.Properties["BorderStyle"] = border;
             fields.Properties["Appearance"] = appearance;
             var instance = new ComponentInstance(ListViewComponentClass.Instance, "ListView1");
             instance.SetProperty(ListViewComponentClass.FilePropertiesProperty, fields);
             list.LoadProperties(instance);
-            window.MouseMove(new Point(40, 30));
-            Click(window, new Point(40, 30));
+            window.MouseMove(new Point(outerX, outerY));
+            Click(window, new Point(outerX, outerY));
             foreach (var name in new[] { "MouseMove", "MouseDown", "MouseUp" })
             {
                 var index = recorder.Calls.IndexOf(name);
@@ -125,9 +132,11 @@ public class ListViewMouseTests
     }
 
     [AvaloniaTheory]
-    [InlineData(1)]
-    [InlineData(0)]
-    public async Task Header_hit_testing_starts_inside_the_edge(int appearance)
+    [InlineData(1, 1, 3)]
+    [InlineData(1, 0, 2)]
+    [InlineData(0, 1, 1)]
+    [InlineData(0, 0, 0)]
+    public async Task Header_hit_testing_starts_inside_the_edge(int appearance, int border, int inset)
     {
         foreach (var inside in new[] { false, true })
         {
@@ -136,13 +145,12 @@ public class ListViewMouseTests
             {
                 var fields = new VBSerializedComponent();
                 fields.Properties["NumItems"] = 2;
-                fields.Properties["BorderStyle"] = 1;
+                fields.Properties["BorderStyle"] = border;
                 fields.Properties["Appearance"] = appearance;
                 fields.Properties["View"] = 3;
                 var instance = new ComponentInstance(ListViewComponentClass.Instance, "ListView1");
                 instance.SetProperty(ListViewComponentClass.FilePropertiesProperty, fields);
                 list.LoadProperties(instance);
-                var inset = appearance == 1 ? 3 : 0;
                 if (!inside && inset == 0)
                     continue;
                 Click(window, new Point(inset + (inside ? 0.5 : -0.5), inset + 0.5));

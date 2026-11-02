@@ -210,6 +210,20 @@ public class VBLoader
             toolbar.TrySetProperty("ImageList", new Vb6Value((Control)images));
         }
 
+        foreach (var list in placed.Values.OfType<VBListView>())
+        {
+            foreach (var (member, name) in list.SavedImageLists)
+            {
+                var matches = placed.Values.Where(c => VBProps.GetName(c) == name).ToArray();
+                if (matches.Length != 1 || matches[0] is not VBImageList images)
+                    throw new NotImplementedException("ListView saved ImageList reference is unmeasured (#1085)");
+                list.TrySetProperty(member, new Vb6Value((Control)images));
+            }
+            foreach (var column in list.Columns.Entries)
+                if (column.Icon.Value is int index && index != 0)
+                    list.ValidateImage("ColumnHeaderIcons", column.Icon);
+        }
+
         // A menu has a name in code as a control has (#1126): a variable of its own, or an element of its menu control
         // array, whose Click then passes the element's Index.
         foreach (var (component, control, parent) in menus)

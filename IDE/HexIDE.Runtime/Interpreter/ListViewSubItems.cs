@@ -2,23 +2,24 @@ using System.Collections.Generic;
 
 namespace HexIDE.Runtime.Interpreter;
 
-internal sealed class ListViewSubItems(Action alive, Action? changed = null) : ListViewTextCollection<ListViewSubItem>
+internal sealed class ListViewSubItems(Action alive, Action? changed = null, Func<Vb6Value, Vb6Value>? validateIcon = null) : ListViewTextCollection<ListViewSubItem>
 {
+    internal Vb6Value ValidateIcon(Vb6Value value) => validateIcon is not null ? validateIcon(value) : throw ListViewItems.Error(35613);
     internal override void Changed() => changed?.Invoke();
     internal override void Alive() => alive();
     protected override IReadOnlyList<string> AddParameters => ["Index", "Key", "Text", "ReportIcon", "ToolTipText"];
     protected override ListViewSubItem Create(List<Vb6Value> args, int at)
     {
-        if (!ListViewItems.Argument(args, 3).IsMissing)
-            throw ListViewItems.Error(35613);
+        var icon = ListViewItems.Argument(args, 3).IsMissing ? Vb6Value.Variant : ValidateIcon(args[3]);
         if (!ListViewItems.Argument(args, 4).IsMissing)
             throw new NotImplementedException("ListSubItems.Add ToolTipText is unmeasured (#1085)");
-        return new ListViewSubItem(this);
+        return new ListViewSubItem(this) { ReportIcon = icon };
     }
 }
 
 internal sealed class ListViewSubItem(ListViewSubItems items) : ListViewTextObject
 {
+    internal Vb6Value ReportIcon = Vb6Value.Variant;
     private bool bold;
     public override bool TryGetProperty(string name, out Vb6Value value)
     {
@@ -29,7 +30,7 @@ internal sealed class ListViewSubItem(ListViewSubItems items) : ListViewTextObje
         {
             "text" => new Vb6Value(Text), "key" => new Vb6Value(Key), "tag" => Tag,
             "index" => new Vb6Value((long)items.Entries.IndexOf(this) + 1),
-            "reporticon" => Vb6Value.Variant,
+            "reporticon" => ReportIcon,
             "bold" => new Vb6Value(bold), "tooltiptext" => new Vb6Value(""),
             "forecolor" => throw new NotImplementedException("ListSubItem default ForeColor is unmeasured (#1085)"),
             _ => throw new NotImplementedException($"ListSubItem.{name} is not implemented (#1085)"),
@@ -50,7 +51,7 @@ internal sealed class ListViewSubItem(ListViewSubItems items) : ListViewTextObje
         {
             case "bold": bold = ListViewItems.Boolean(value); break;
             case "tooltiptext": throw new NotImplementedException("ListSubItem.ToolTipText assignment is unmeasured (#1085)");
-            case "reporticon": throw ListViewItems.Error(35613);
+            case "reporticon": ReportIcon = items.ValidateIcon(value); break;
             case "forecolor": throw new NotImplementedException("ListSubItem ForeColor values are unmeasured in group 1 (#1085)");
             default: throw new NotImplementedException($"ListSubItem.{name} assignment is not implemented (#1085)");
         }

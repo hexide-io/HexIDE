@@ -10,6 +10,9 @@ namespace HexIDE.Runtime.BuiltinControls;
 
 public sealed partial class VBListView
 {
+    internal static readonly Typeface LabelTypeface = new("Arial");
+    internal const double LabelFontSize = 11;
+
     private bool Flag(string name) => (bool)properties[name].Value!;
     private long Number(string name) => (long)properties[name].Value!;
     private static IBrush SystemBrush(VbSystemColor color) => VBColor.FromSystemColor(color).ToBrush();
@@ -35,7 +38,7 @@ public sealed partial class VBListView
             return;
         using var contentClip = context.PushClip(content);
 
-        const double rowHeight = 18;
+        var rowHeight = RowHeight;
         var report = Number("View") == 3;
         var top = content.Y;
         if (report && !Flag("HideColumnHeaders") && Columns.Entries.Count > 0)
@@ -43,13 +46,20 @@ public sealed partial class VBListView
             var x = content.X;
             foreach (var column in Columns.DisplayOrder)
             {
-                var cell = new Rect(x, top, column.Width / 15d, rowHeight);
+                var cell = new Rect(x, top, column.Width / 15d, HeaderHeight);
                 context.FillRectangle(SystemBrush(VbSystemColor.Btnface), cell);
                 context.DrawRectangle(null, frame, cell);
-                DrawText(context, column.Text, cell.Deflate(new Thickness(3, 1)), column.Alignment);
+                var textCell = cell.Deflate(new Thickness(3, 1));
+                if (Images("ColumnHeaderIcons") is not null && !(column.Icon.Value is int zero && zero == 0))
+                {
+                    using (context.PushClip(cell))
+                        DrawImage(context, "ColumnHeaderIcons", column.Icon, new Rect(cell.X + 2, cell.Y, 16, 16));
+                    textCell = new Rect(textCell.X + 16, textCell.Y, Math.Max(0, textCell.Width - 16), textCell.Height);
+                }
+                DrawText(context, column.Text, textCell, column.Alignment);
                 x += cell.Width;
             }
-            top += rowHeight;
+            top += HeaderHeight;
         }
         if (report && Flag("GridLines"))
         {
@@ -88,7 +98,14 @@ public sealed partial class VBListView
                 else
                 {
                     var sub = item.SubItems.Entries.ElementAtOrDefault(subIndex - 1);
-                    DrawText(context, sub?.Text ?? "", columnCell.Deflate(new Thickness(3, 1)), column.Alignment,
+                    var subCell = columnCell.Deflate(new Thickness(3, 1));
+                    if (sub is not null && sub.ReportIcon.Type != Vb6Value.ValueType.EmptyVariant)
+                    {
+                        using (context.PushClip(columnCell))
+                            DrawImage(context, "SmallIcons", sub.ReportIcon, new Rect(columnCell.X + 2, columnCell.Y, 16, 16));
+                        subCell = new Rect(subCell.X + 16, subCell.Y, Math.Max(0, subCell.Width - 16), subCell.Height);
+                    }
+                    DrawText(context, sub?.Text ?? "", subCell, column.Alignment,
                         foreground: Flag("FullRowSelect") && ShowSelection(item) && (IsFocused || !IsEnabled)
                             ? SystemBrush(VbSystemColor.Highlighttext) : null,
                         bold: sub is not null && (bool)Read(sub, "Bold")!);
@@ -99,7 +116,7 @@ public sealed partial class VBListView
     }
 
     private static double TextWidth(string text) => new FormattedText(text, CultureInfo.InvariantCulture,
-        FlowDirection.LeftToRight, new Typeface("Arial"), 11, Brushes.Black).Width;
+        FlowDirection.LeftToRight, LabelTypeface, LabelFontSize, Brushes.Black).Width;
 
     private bool ShowSelection(ListViewItem item) => item.IsSelected && (IsFocused || !Flag("HideSelection") || !IsEnabled);
     private IBrush SelectionBrush() => SystemBrush(IsFocused || !IsEnabled ? VbSystemColor.Highlight : VbSystemColor.Btnface);
@@ -125,9 +142,11 @@ public sealed partial class VBListView
     {
         if (cell.Width <= 0 || cell.Height <= 0)
             return;
+        using (context.PushClip(cell))
+            DrawImage(context, icon ? "Icons" : "SmallIcons", icon ? item.Icon : item.SmallIcon, ItemIconBounds(cell),
+                ShowSelection(item), (bool)Read(item, "Ghosted")!);
         var label = ItemLabel(item, cell);
         var unwrappedIcon = icon && !Flag("LabelWrap");
-        var checkboxLabel = label;
         if (Checkboxes)
             label = new Rect(label.X + 16, label.Y, Math.Max(0, label.Width - 16), label.Height);
         var highlight = !icon && Number("View") == 3 && Flag("FullRowSelect") ? row
@@ -138,7 +157,7 @@ public sealed partial class VBListView
         if (Checkboxes && item.HasCheckbox)
         {
             using var checkboxClip = context.PushClip(cell);
-            var box = new Rect(checkboxLabel.X, checkboxLabel.Y + 1, 12, 12);
+            var box = CheckboxBounds(item, cell);
             context.DrawRectangle(Brushes.White, new Pen(SystemBrush(VbSystemColor.Btnshadow)), box);
             if ((bool)Read(item, "Checked")!)
             {
@@ -161,8 +180,8 @@ public sealed partial class VBListView
         if (cell.Width <= 0 || cell.Height <= 0)
             return;
         using var clip = context.PushClip(cell);
-        using var layout = new TextLayout(text, new Typeface("Arial", weight: bold ? FontWeight.Bold : FontWeight.Normal),
-            11, foreground ?? SystemBrush(VbSystemColor.Windowtext),
+        using var layout = new TextLayout(text, new Typeface(LabelTypeface.FontFamily, LabelTypeface.Style, bold ? FontWeight.Bold : LabelTypeface.Weight),
+            LabelFontSize, foreground ?? SystemBrush(VbSystemColor.Windowtext),
             textAlignment: alignment switch { 1 => TextAlignment.Right, 2 => TextAlignment.Center, _ => TextAlignment.Left },
             textWrapping: wrap ? TextWrapping.Wrap : TextWrapping.NoWrap, textTrimming: TextTrimming.CharacterEllipsis,
             maxWidth: cell.Width, maxHeight: cell.Height);
