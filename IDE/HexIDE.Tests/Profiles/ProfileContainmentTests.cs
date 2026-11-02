@@ -183,6 +183,71 @@ public class ProfileContainmentTests
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
+    public void SymlinkedAncestorAllowsContainedReads(bool bundleLoad)
+    {
+        WithBundle((root, _) =>
+        {
+            File.WriteAllText(Path.Combine(root, "profile.json"),
+                """{"schemaVersion":1,"id":"example","theme":"theme.json"}""");
+            File.WriteAllText(Path.Combine(root, "theme.json"), "{}");
+            var ancestor = Path.GetDirectoryName(root)!;
+            var link = Path.Combine(ancestor, "alias");
+            Directory.CreateSymbolicLink(link, ancestor);
+            var reached = Path.Combine(link, "example");
+            if (bundleLoad)
+                ProfileBundleLoader.Load(reached).Files["theme.json"].ValueKind.Should().Be(JsonValueKind.Object);
+            else
+                ProfileFileReader.Read(reached, "theme.json").Should().Equal((byte)'{', (byte)'}');
+        });
+    }
+
+    [Fact]
+    public void SymlinkedAncestorRetargetDoesNotRedirectAnOpenedReader()
+    {
+        WithBundle((root, outside) =>
+        {
+            File.WriteAllBytes(Path.Combine(root, "payload.json"), [1, 2, 3]);
+            var replacement = Path.Combine(outside, "example");
+            Directory.CreateDirectory(replacement);
+            File.WriteAllBytes(Path.Combine(replacement, "payload.json"), [4, 5, 6]);
+            var ancestor = Path.GetDirectoryName(root)!;
+            var link = Path.Combine(ancestor, "alias");
+            Directory.CreateSymbolicLink(link, ancestor);
+            using var reader = new ProfileFileReader.BundleRead(Path.Combine(link, "example"));
+            reader.Read("payload.json", beforeOpen: () =>
+            {
+                Directory.Delete(link);
+                Directory.CreateSymbolicLink(link, outside);
+            }).Should().Equal(1, 2, 3);
+        });
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void SymlinkedAncestorStillRefusesPayloadLinks(bool directoryLink)
+    {
+        WithBundle((root, outside) =>
+        {
+            File.WriteAllText(Path.Combine(outside, "payload.json"), "{}");
+            var ancestor = Path.GetDirectoryName(root)!;
+            var link = Path.Combine(ancestor, "alias");
+            Directory.CreateSymbolicLink(link, ancestor);
+            if (directoryLink)
+                Directory.CreateSymbolicLink(Path.Combine(root, "link"), outside);
+            else
+                File.CreateSymbolicLink(Path.Combine(root, "link"), Path.Combine(outside, "payload.json"));
+            File.WriteAllBytes(Path.Combine(root, "regular.json"), [1, 2, 3]);
+            using var reader = new ProfileFileReader.BundleRead(Path.Combine(link, "example"));
+            reader.Read("regular.json").Should().Equal(1, 2, 3);
+            ((Action)(() => reader.Read(directoryLink ? "link/payload.json" : "link")))
+                .Should().Throw<InvalidDataException>();
+        });
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
     public void CleanupUnlinksWithoutTouchingEscapeTarget(bool directoryLink)
     {
         WithBundle((root, outside) =>

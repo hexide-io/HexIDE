@@ -131,6 +131,24 @@ files SHALL remain declarations pending loader validation. Preflight SHALL NOT a
 - **WHEN** a directory manifest references a file through a symlink, dangling link or junction
 - **THEN** parsing refuses it with the manifest file and field attributed
 
+### Requirement: Trusted profile directory resolution
+
+The reader SHALL resolve the profile directory once to an opened directory before walking references
+with no-follow semantics. Symbolic links above the profile directory SHALL be allowed; links inside it SHALL remain
+refused. Windows resolution SHALL retain the resolving directory handle and canonical ancestor handles
+without write/delete sharing for the reader's lifetime.
+
+#### Scenario: Symlinked user-data ancestor
+
+- **WHEN** the profile directory is reached through a symbolic link in an ancestor directory
+- **THEN** direct reads and bundle assembly read ordinary contained files
+- **AND** a symbolic link in a payload reference is still refused
+
+#### Scenario: Ancestor link retargeted after opening
+
+- **WHEN** an ancestor symbolic link is retargeted after the bundle reader opens its directory
+- **THEN** subsequent reads remain in the originally opened directory
+
 ### Requirement: Handle-relative Unix containment
 
 On Linux and macOS the standalone byte reader SHALL open each directory and file relative to the preceding
