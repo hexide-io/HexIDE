@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "id": "vb6",
+  "projectTypes": [
+    "standard-exe",
+    "activex-exe",
+    "activex-dll",
+    "activex-control",
+    "application-wizard",
+    "wizard-manager",
+    "data-project",
+    "enterprise-controls"
+  ],
+  "menuVisibility": {
+    "project.references": true,
+    "tools.references": false
+  }
+}

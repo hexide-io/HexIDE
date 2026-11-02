@@ -27,6 +27,193 @@ deliveries, not one large implementation issue. No follow-up issue is created by
 - [ ] **Manifest/resolver — large:** implement versioned immutable snapshots, embedded index, installed
   discovery, path containment, validation and attributed errors. This is a new component with multiple
   behaviours and its own tests. Cover missing files, traversal/symlink escape, collisions and atomicity.
+  #2621 first slice adds immutable declaration snapshots, the embedded built-in index and installed
+  folder discovery only. Discovery returns untrusted candidates (including reserved built-in names);
+  it never opens manifests or payloads. Validation, selected-bundle loading, containment, name
+  collision resolution and atomic payload capture remain incomplete. No consumer is wired.
+  Verification: 12 catalog cases pass without skips in an isolated harness using the same source
+  and tests; disabling the implemented behaviours makes all 12 fail (mutation proof, not a
+  pre-change baseline). Full HexIDE.Tests and Desktop Debug build were attempted but blocked by
+  Antlr4BuildTasks Locker initialisation before the tests or IDE build could complete. Strict
+  validation of the new live profile-catalog spec passes; no language-coverage counts change.
+  #2621 second slice adds validation of parsed manifest declarations: required version/id, installed
+  folder-id matching, exact field/type checks, approved surface/template/locale ids and duplicate
+  rejection, with internal file/field/code diagnostics. Built-ins use the same validator. This parser
+  opens no files and makes no containment guarantee. Reading installed JSON, syntax diagnostics,
+  referenced pack/settings validation, containment, collisions, atomic loading and localized error
+  presentation remain incomplete. No consumer is wired. See the live profile-catalog spec for the
+  implemented boundary.
+  Verification: all 31 new cases failed against the unchanged step-1 parser extracted into a testable
+  method, before validation was added; all 43 profile cases then passed without skips. Full
+  HexIDE.Tests ran through the direct xUnit executable after `dotnet test` stalled at runner launch:
+  4,627 passed, 28 skipped, zero failures/errors (4,655 total, above the CI floor of 4,249).
+  `HEXIDE_FOREIGN_LSP_DOWNLOAD=0` was set; skips were unavailable VB6 templates and Windows-only
+  behaviour, not profile coverage. The xUnit XML report checker passed. Desktop Debug built with zero
+  warnings/errors using serial MSBuild with shared compilation disabled. Strict profile-catalog spec
+  validation and tree hygiene passed (nine existing non-blocking hygiene warnings).
+  MISSING_FEATURES status and MISSING_LANGUAGE counts remain unchanged; no VB6 semantics or UI changed.
+  #2621 third slice adds portable reference spelling validation in the declaration parser and a separate
+  directory-manifest preflight for symlinks/reparse points, including Windows junctions. It refuses all
+  links, including internal links, rather than resolving them. Missing references remain declarations;
+  this is not an atomic loader or permission to open a path later. Installed manifest reading, payload
+  capture/validation, collision resolution and protection against concurrent replacement remain pending.
+  No consumer is wired; MISSING_FEATURES status and MISSING_LANGUAGE counts remain unchanged.
+  Verification: 25 containment cases failed against the declaration-only parser before checks were
+  added (the directory entry point initially delegated to that unchanged parser). All 69 profile cases
+  then completed: 68 passed, one Windows-only junction test skipped. The skipped test is not Linux
+  coverage or a measured teeth case. Full test-project and Desktop Debug builds passed with zero
+  warnings/errors. Full-suite attempts via `dotnet test` and the direct xUnit executable stalled
+  without a final report; no full-suite pass is claimed. `HEXIDE_FOREIGN_LSP_DOWNLOAD=0` was set.
+  Strict live-spec validation and tree hygiene pass (nine existing non-blocking hygiene warnings).
+  #2621 fourth slice adds a standalone contained byte reader, without wiring any consumer. Linux
+  opens each component relative to a held directory descriptor with `O_NOFOLLOW`; Windows holds
+  ancestor handles without write/delete sharing and inspects opened handles for reparse points.
+  This deliberately refuses links in ancestors as well as within a bundle. Other hosts refuse reads
+  until an equivalent implementation exists. This primitive does not capture an atomic multi-file
+  snapshot. Bundle assembly, collision resolution, atomic loading and payload validation remain pending.
+  Verification: the file-link, directory-link and root-link swap cases all failed before the handle
+  reader was implemented, against a pathname reader exposed through the new seam (three teeth).
+  The ordinary-file success test also passes, without claiming teeth. All 74 profile cases completed:
+  72 passed, two Windows-only junction tests skipped, including the new junction-swap case. These skips
+  prove no Windows behaviour. MISSING_FEATURES status and MISSING_LANGUAGE counts remain unchanged;
+  there are no new VB6 semantics or UI changes.
+  Full HexIDE.Tests completed through the direct xUnit executable with verbose/long-running diagnostics
+  and `HEXIDE_FOREIGN_LSP_DOWNLOAD=0`: 4,657 passed, 30 skipped, zero failures/errors (4,687 total,
+  above the 4,249 floor). The XML report checker passed. Skips were 20 Windows-only cases and ten
+  unavailable VB6 template cases; cached foreign servers ran. Full test-project and Desktop Debug builds
+  passed with zero warnings/errors. Tree hygiene passed with nine existing non-blocking warnings.
+  Strict OpenSpec validation was attempted but the installed CLI stalled without a result; no pass is
+  claimed for that command. Changes remain uncommitted for supervisor review.
+  #2621 cleanup correction removes file/directory symlinks and Windows junctions as entries before
+  recursively deleting fixtures. Escape targets live outside the deleted fixture tree; every fixture
+  asserts its target directory and sentinel bytes survive cleanup. Two new Linux regression cases
+  (file and directory links) failed against the unchanged cleanup before the unlink pass was added.
+  This corrects test infrastructure only; bundle assembly, payload validation, collisions and atomic
+  multi-file snapshots remain pending. Windows junction cleanup still requires the supervisor's run.
+  No IDE consumer, UI, feature status or MISSING_LANGUAGE count changes.
+  Verification: the direct xUnit executable completed all 76 profile cases: 74 passed, two Windows-only
+  junction cases skipped (no Windows coverage claimed). The XML error checker passed. Both new cleanup
+  cases failed before implementation (two teeth). The Desktop Debug build passed serially with zero
+  warnings/errors; tree hygiene passed with existing non-blocking warnings. Full HexIDE.Tests
+  was attempted with `HEXIDE_FOREIGN_LSP_DOWNLOAD=0`: an initial run began before helper output copying
+  completed and was stopped after failures and a pipe-test stall; a fresh run with helpers present
+  reached its ten-minute limit after 3,137 completed cases without a reported failure, while
+  `NamedPipeWorkspacePlaceholderTests.ThePidPlaceholderGivesTheServerItsOwner(withWorkspace: True)`
+  was active. No complete full-suite result or XML report is claimed. Windows-only and unavailable
+  VB6-template cases skipped; cached foreign servers ran. Changes remain uncommitted for review.
+  #2621 bundle assembly slice adds a standalone assembler over the contained reader, returning detached
+  JSON and immutable declarations only after every reference is captured. It validates JSON syntax,
+  object/record shapes and the settings allowlist, types and duplicate fields, with file/field/code
+  diagnostics. Existing pack entry filtering and effective settings validation remain adapter work.
+  This assembler explicitly makes no multi-file atomicity guarantee and is not connected to consumers.
+  Name resolution now reserves built-in ids through the embedded index, while explicit directories
+  can select colliding ids. Invalid names are refused; no CLI selector is wired. Atomic loading remains
+  incomplete; #2621 is not complete.
+  No VB6 semantics, UI, MISSING_FEATURES status or MISSING_LANGUAGE counts change.
+  Verification: nine assembly cases failed against the declaration-only assembler stub before assembly
+  was implemented; six name/collision cases failed against installed-only name forwarding before
+  reserved-name resolution was added (15 distinct pre-change failures, no mutation-only claim).
+  Full HexIDE.Tests completed through the direct xUnit executable with foreign-server downloads disabled:
+  4,674 passed, 30 skipped, zero failures/errors (4,704 total, above the 4,249 floor). The XML error
+  checker passed. Twenty Windows-only cases and ten unavailable VB6 template cases skipped; these
+  prove no coverage on those platforms/fixtures. Cached foreign servers ran. An initial ten-minute
+  run timed out and had two process-logging failures because the fast test rebuild omitted the LSP
+  guard DLL from its output. Copying the already-built guard DLL restored the helper; all four logging
+  cases then passed, and the full fifteen-minute retry above passed. No product workaround was added.
+  All 91 profile cases completed: 89 passed, two existing Windows-only junction cases skipped, providing
+  no Windows coverage. The xUnit XML error check passed. Desktop Debug built with zero warnings/errors.
+  Tree hygiene passed with nine existing non-blocking warnings. Strict live-spec validation timed out
+  after 45 seconds without a validation result, including a retry with telemetry disabled; no pass is
+  claimed. Changes remain uncommitted for review.
+  #2621 security review slice caps each manifest and payload at 1 MiB, preserving attributed
+  `TooLarge` diagnostics and reading at most the limit plus one byte even during growth. Linux uses
+  fstat on the opened handle to refuse non-regular files; Windows refuses non-disk handles. Bundle ids
+  now exclude portable Windows device names. Native Linux stat layouts support x64 and arm64; other
+  architectures fail closed. The live catalog spec now has short, single-behaviour requirements and
+  scenarios. Atomic multi-file snapshot loading remains incomplete; #2621 is not complete and the
+  assembler must not be connected to consumers. No VB6 semantics, UI, MISSING_FEATURES status or
+  MISSING_LANGUAGE counts change.
+  Verification: 29 new cases failed before implementation (22 device ids, three attributed size-limit
+  cases, a file growing during a stream read, and Linux FIFO/device/socket refusal). The exact-limit
+  success case already passed; no teeth claimed for it. All 122 profile cases completed: 119 passed,
+  three Windows-only cases skipped (the two junction cases and the new pipe-handle case). Skips prove
+  no Windows coverage. The test-project and Desktop Debug builds passed with zero warnings/errors,
+  using a fresh in-clone artifacts path because existing intermediate files were read-only. The ANTLR
+  task's Locker failed; the cached Java and ANTLR jar generated the current grammars directly before
+  building. Profile tests ran through the direct xUnit executable. Strict live-spec validation and
+  tree hygiene pass (nine existing non-blocking hygiene warnings). Full HexIDE.Tests completed through
+  the direct xUnit executable with `HEXIDE_FOREIGN_LSP_DOWNLOAD=0`: 4,797 passed, 43 skipped, zero
+  failures/errors (4,840 total). The CI floor rises to 4,598 (95% of the measured total). Skips provide
+  no coverage: 21 Windows-only cases, 12 cases finding a stale bundled-server binary at their default
+  path, and ten unavailable VB6 template cases. Cached foreign servers ran. Changes remain uncommitted
+  for review.
+  #2621 older-glibc compatibility slice keeps fstat where its entry point and stat layout are
+  available. An injectable mode reader lets Linux tests simulate its absence. Missing fstat and
+  unsupported architectures fall back to FileStream.CanSeek, refusing pipes without consuming them
+  and preserving the caller's handle. The fallback intentionally cannot distinguish a seekable device
+  from a regular file, as accepted by the latest issue review. Native errors other than a missing
+  entry point retain their existing refusal. No new VB6 measurement, user-facing string or UI change
+  is involved; MISSING_FEATURES status and MISSING_LANGUAGE counts are unchanged.
+  Four new Linux cases failed against the previous behaviour before implementation (regular file
+  acceptance and pipe refusal, each for missing fstat and unsupported architecture), then passed.
+  The full profile slice has 123 passes, three Windows-only skips and no failures or xUnit errors.
+  Skips provide no Windows coverage. Strict live-spec validation passes. Atomic multi-file snapshot
+  loading remains the final #2621 task: this assembler still must not be connected to consumers.
+  Final verification: full HexIDE.Tests ran through the direct xUnit executable with
+  `HEXIDE_FOREIGN_LSP_DOWNLOAD=0`: 4,812 passed, 32 skipped, zero failures/errors (4,844 total).
+  The xUnit XML error checker passes; the CI floor rises to 4,602 (95%). Skips provide no coverage:
+  21 Windows-only cases, ten unavailable VB6 template cases, and one bundled-server rename case
+  whose freshness guard found changed source during the run. Cached foreign servers ran. An initial
+  full run was interrupted after two process-lifecycle failures exposed a missing guard DLL in the
+  test output; restoring the freshly built DLL allowed the complete retry above to pass. MSBuild's
+  initial test invocation failed in a child node; dependency and test builds then completed separately.
+  Desktop Debug builds with zero warnings/errors. Strict live-spec validation and tree hygiene pass
+  (nine existing non-blocking hygiene warnings). Upstream was merged, resolving only CI-floor
+  conflicts by retaining the higher values. This slice remains uncommitted for review.
+  #2621 macOS compatibility slice shares the Unix openat walk with Linux, selecting Darwin's
+  no-follow, directory-only, close-on-exec and nonblocking flags from XNU's `bsd/sys/fcntl.h`.
+  Unsupported platforms refuse with an internal InvalidDataException naming the platform. macOS uses
+  the existing seekability fallback, without interpreting Linux stat offsets; the documented seekable
+  device limitation remains. Profile fixtures use /private/tmp on macOS because /tmp is a symlink;
+  ancestor links remain refused. The contained-read and link-swap cases now also run on macOS.
+  Two new platform-selection cases failed before the fix (two teeth). macOS CI must confirm ordinary
+  bundle assembly, attributed oversized-file errors, and file/directory/root link swaps; Linux cannot
+  prove Darwin's native opens. Atomic snapshots remain pending for the next scoped delivery (#2714).
+  No UI, VB6 semantics, feature status or MISSING_LANGUAGE count changes.
+  Verification: all 128 profile cases completed (125 passed, three Windows-only skips); both new
+  platform-selection cases failed before the fix. The full HexIDE.Tests executable completed with
+  HEXIDE_FOREIGN_LSP_DOWNLOAD=0 and fixed seed 1: 4,933 passed, 35 skipped, zero failures or runner
+  errors (4,968 total). The XML report checker passes; the CI floor rises to 4,720 (95%). Skips are
+  25 Windows-only cases and ten unavailable VB6-template cases, and provide no coverage. Cached
+  foreign servers ran. The corpus smoke case passed after 398 seconds; its long duration was not a
+  confirmed stall. Earlier incomplete attempts are not counted as passes.
+  Antlr4BuildTasks failed during lock initialization. Regenerating runtime and LSP grammar output
+  directly with the installed Java/ANTLR tools allowed complete test-project and Desktop Debug builds
+  with zero warnings/errors; the exact Desktop command then also passed. The fresh guard DLL had to
+  be copied into test output before the full retry. Strict profile-catalog validation, tree hygiene
+  (nine existing non-blocking warnings) and diff whitespace checks pass. Changes remain uncommitted
+  for supervisor review; only the upstream merge was committed.
+  #2714 retains the bundle directory for the entire assembly. Linux/macOS payload opens use the
+  retained descriptor; Windows ancestor locks deny write/delete sharing until assembly completes.
+  The manifest is re-read through that directory before returning; changed bytes refuse with internal
+  BundleChanged/file/field diagnostics. This implements the issue's manifest re-read option, not a
+  transaction for arbitrary in-place payload writes with unchanged manifest bytes. No consumer is
+  connected. The live profile-catalog spec records the guarantee and its boundary.
+  Both new common-platform regression cases failed against the original reader with only the callback
+  seam added (two Linux teeth): a swapped bundle mixed old theme/new settings, and a changed manifest
+  was accepted. Windows and macOS native execution remain for their runners; Linux proves neither.
+  No UI, VB6 semantics, feature status or MISSING_LANGUAGE count changes.
+  Verification: all 130 profile cases completed: 127 passed, three Windows-only skips
+  (WindowsPipeHandleIsRefused, JunctionEscapeIsRefused and
+  JunctionSwappedInAfterPreflightIsRefusedDuringRead). The skips prove no Windows behaviour.
+  Desktop Debug builds with zero warnings/errors; strict profile-catalog validation and tree hygiene
+  pass (nine existing non-blocking warnings).
+  The complete direct xUnit run with HEXIDE_FOREIGN_LSP_DOWNLOAD=0 and seed 1 passes: 4,935 passed,
+  35 skipped, zero failures/errors/not-run (4,970 total, above the 4,720 floor). The XML error checker
+  passes. Skips are 25 Windows-only cases and ten unavailable VB6-template cases; cached foreign
+  servers ran. The prior dotnet-test attempt reached its 15-minute timeout while still progressing
+  through corpus smoke tests, so it is not counted as a pass; the complete retry took 930 seconds.
+  Changes remain uncommitted for supervisor review.
 - [ ] **Pack/default adapters — medium per adapter:** separately connect existing theme, keymap,
   language and presence-aware settings readers. Each is a producer/consumer change following existing
   pack precedents. Test precedence, invalid data and preservation of saved user values.
@@ -68,3 +255,17 @@ deliveries, not one large implementation issue. No follow-up issue is created by
   MISSING_LANGUAGE counts should remain unchanged unless separate language work actually changes them.
 - [ ] Archive through the OpenSpec CLI only after implementation tasks are complete; inspect merged
   Purpose sections. Keep this change unarchived while it describes proposed behaviour.
+  #2714 Windows review correction: retained bundle/ancestor handles request FILE_LIST_DIRECTORY
+  instead of attribute-only access, with FILE_SHARE_READ only. The replacement regression now
+  explicitly requires IOException on Windows, then checks generation 4; a second row renames an
+  ancestor. Windows execution is required from the supervisor; Linux cannot prove Windows sharing.
+  Sharing rule: https://learn.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-createfilew
+  (omitting FILE_SHARE_DELETE denies delete access, which includes rename; attribute requests are
+  exempt from sharing). No feature status or MISSING_LANGUAGE count changes.
+  Windows-review validation (2026-11-02): all 18 ProfileBundleTests pass on Linux, no skips.
+  The complete direct xUnit run with downloads disabled and seed 1 passes: 5,031 passed, 35 skipped,
+  zero failures/errors/not-run (5,066 total, above the 4,720 floor); XML error checker passes.
+  The wrapper attempt was cancelled after producing no result and is not counted as a pass.
+  Desktop Debug builds with zero warnings/errors; strict profile-catalog validation, tree hygiene
+  and diff whitespace checks pass. Windows teeth remain unverified locally: its two theory rows
+  must reject rename and return generation 4; Linux passes do not prove that native sharing rule.
