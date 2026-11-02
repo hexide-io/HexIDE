@@ -20,6 +20,7 @@ public sealed partial class ExternalDebugService(ConversationLog capture)
     private DapSession? session;
     private CancellationTokenSource? cancellation;
     private Task? stopping;
+    private bool resumePending;
     private long inspectionVersion;
     private long selectionVersion;
     public bool IsActive { get; private set; }
@@ -164,7 +165,7 @@ public sealed partial class ExternalDebugService(ConversationLog capture)
             session = null;
             cancellation.Dispose();
             cancellation = null;
-            IsActive = IsBusy = IsEvaluating = false;
+            IsActive = IsBusy = IsEvaluating = resumePending = false;
             Stop = null;
             ThreadId = null;
             ClearInspection();
@@ -194,17 +195,33 @@ public sealed partial class ExternalDebugService(ConversationLog capture)
             {
                 if (session != current) return;
                 State = update.Snapshot.State;
-                if (Stop != update.Snapshot.Stop) ClearInspection();
-                Stop = update.Snapshot.Stop;
+                var refusedResume = resumePending && State == DapSessionState.Stopped && update.Event is null;
+                if (update.Snapshot.ResumePending)
+                {
+                    // Keep completed inspection visible until execution is confirmed; pending replies are stale.
+                    if (!resumePending) { ++inspectionVersion; ++selectionVersion; }
+                }
+                else
+                {
+                    if (Stop != update.Snapshot.Stop && !refusedResume) ClearInspection();
+                    Stop = update.Snapshot.Stop;
+                }
+                resumePending = update.Snapshot.ResumePending;
                 if (Stop?.ThreadId is { } thread) ThreadId = thread;
                 if (update.Event?.Event == "output" && update.Event.Body is { } body && body.TryGetProperty("output", out var output))
                     Output?.Invoke(output.GetString() ?? "");
                 if (update.Event?.Event == "breakpoint" && update.Event.Body is { } breakpointEvent)
                     ApplyBreakpointEvent(breakpointEvent);
-                if (update.Snapshot.Stop is null) ClearInspection();
+                if (Stop is null) ClearInspection();
                 UpdateConnection();
                 Changed?.Invoke();
-                if (update.Event?.Event == "stopped" && Stop is { } stop) _ = InspectAsync(current, stop);
+                if (Stop is { } stop)
+                {
+                    if (update.Event?.Event == "stopped" || refusedResume && Frames.Count == 0)
+                        _ = InspectAsync(current, stop);
+                    else if (refusedResume && Variables.Count == 0 && SelectedFrame is { } frame)
+                        _ = RefreshSelectedFrameAsync(current, stop, frame.GetProperty("id").GetInt32());
+                }
             });
             if (update.Event?.Event == "terminated") await StopAsync();
         }

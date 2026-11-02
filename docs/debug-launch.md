@@ -39,7 +39,10 @@ During the session:
 - Call Stack initially selects the stopped thread's top frame. Select a caller to inspect its non-expensive
   scopes in Locals and reveal its loaded source. Locals clears while the new request is pending; late results
   from older selections are rejected. Expanding a remote aggregate fetches its children asynchronously.
-  Resuming clears inspection, and the next stop selects its top frame again.
+  An accepted resume clears inspection, and the next stop selects its top frame again. While a resume is
+  pending, inspection remains visible but cannot be evaluated. A refused continue or step keeps the stack,
+  selected frame, locals and current-line mark, and reports the adapter's refusal in Immediate
+  ([#2912](https://github.com/hexide-io/HexIDE/issues/2912)).
 - A stop opens Call Stack and Locals. When the source is already part of a loaded IDE project, its code
   window is revealed and marks the current line. The amber execution highlight and Show Next Statement
   continue to identify the top frame even when inspecting a caller. Sources outside loaded projects are not opened automatically.
