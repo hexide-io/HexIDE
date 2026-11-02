@@ -1541,9 +1541,10 @@ A missing registration or an empty matching batch SHALL send no notification.
 
 The client SHALL advertise support for the three notifications in initialize. The registry SHALL route
 file operations to every running connection whose operation filter matches, independently of document
-language claims. Entries with `workspaceArtifact` SHALL receive no file-operation notifications:
-HexIDE's generated artefact describes their project. An entry without `workspaceArtifact` SHALL remain
-eligible for matching notifications. File operations SHALL NOT start a server.
+language claims. Entries with `workspaceArtifact` and no `projectImport` SHALL receive no file-operation
+notifications: HexIDE's generated artefact describes their project. An entry without `workspaceArtifact`,
+or with `projectImport` replacing generation, SHALL remain eligible for matching notifications.
+File operations SHALL NOT start a server.
 
 Successful first saves and Save As writes to a new destination SHALL report creation after the bytes
 reach disk. Overwriting an existing file SHALL NOT report creation. Temporary Make EXE copies SHALL NOT
@@ -1574,9 +1575,14 @@ names and membership only.
 - **AND** saving it again reports no file creation
 
 #### Scenario: HexIDE generates the server's workspace artefact
-- **GIVEN** a running server with `workspaceArtifact` and matching file-operation filters
+- **GIVEN** a running server with `workspaceArtifact`, no `projectImport` and matching file-operation filters
 - **WHEN** a file is created, renamed or deleted
 - **THEN** the server receives no file-operation notification
+
+#### Scenario: Project import replaces workspace artefact generation
+- **GIVEN** a running server declaring both `workspaceArtifact` and `projectImport`, with matching file-operation filters
+- **WHEN** a file is created, renamed or deleted
+- **THEN** the server receives the corresponding notification
 
 #### Scenario: The server owns its workspace artefact
 - **GIVEN** a running server without `workspaceArtifact` and with matching file-operation filters
