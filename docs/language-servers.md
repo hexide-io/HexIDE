@@ -359,7 +359,8 @@ command and its arguments; the filename is appended as a separate argument, and 
 `["clang"]`. This is a core provider seam, not yet a public add-in contract (#457).
 
 The `rdcore` provider writes the `.rdproj` that RDCore's language server reads from the workspace root,
-without which it analyses nothing:
+without which it analyses nothing. Current RDCore builds import the project instead
+([below](#rdcore)); the provider is for a build that can't:
 
 ```json
 "workspaceArtifact": { "path": ".rdproj", "provider": "rdcore" }
@@ -370,8 +371,8 @@ workspace root, including one in a subfolder or beside the project's folder, and
 references and its Conditional Compilation Arguments. It lists no other files, because RDCore parses
 anything listed as code. `settings.version` sets the file's `Version`, which must be no newer than the
 server reading it; the default, `0.1.0`, suits every RDCore build so far. A `.rdproj` you wrote yourself
-is left alone. RDCore reads the file only when it starts, so a module added while it runs is analysed
-from its next start.
+is left alone. A build that reads the file only when it starts analyses a module added while it runs from its
+next start.
 
 Before launch, HexIDE asks: “Server X has requested to write local file Y.” **Allow** permits that
 server in that workspace for this session; **Allow Always** remembers that server/workspace pair.
@@ -428,5 +429,36 @@ saved path appear as configuration problems in Tools → Language Servers; the s
 After a successful import, open documents are pulled for diagnostics without previous result IDs, until
 that connection receives `workspace/diagnostic/refresh`; subsequent refreshes are then the server's job.
 Automatic transport reconnect re-imports only on the next project change; immediate imports currently
-cover registry startup and workspace-root replacement. Workspace-folder changes before imports are tracked in #2364. File-operation routing under #2248 is not
-present on this branch yet; importing does not make HexIDE an artefact writer.
+cover registry startup and workspace-root replacement. Workspace-folder changes are sent before the import on
+the same debounce (#2364). Importing does not make HexIDE an artefact writer, so an entry that declares
+`projectImport` and no `workspaceArtifact` also receives the file-operation notifications its server asks for
+(#2248). Declaring both loses them (#2915), so drop `workspaceArtifact` when you add an import.
+
+#### RDCore
+
+RDCore's language server takes its project this way. The entry it needs today runs it over a named pipe and
+imports the project with `rdcore.importProject`:
+
+```json
+{
+  "id": "rdcore-vba",
+  "displayName": "RD-VBA (RDCore)",
+  "extensions": [".bas", ".cls", ".frm"],
+  "languageId": "vba",
+  "transport": "pipe",
+  "pipeName": "RDCore.HexIDE",
+  "pipeRole": "connect",
+  "command": "path/to/RDCore.LanguageServer.exe",
+  "arguments": "--pipe-name {pipe} --workspace {workspaceUri}",
+  "priority": 10,
+  "projectImport": {
+    "command": "rdcore.importProject",
+    "arguments": [{ "uri": "{uri}", "text": "{text}", "overwrite": true }]
+  }
+}
+```
+
+Give `command` the absolute path of your build. The import needs a saved project: an unsaved one is reported
+in Tools → Language Servers rather than given an invented URI. If your build doesn't advertise
+`rdcore.importProject`, the same window reports the command as unavailable: use the
+[`rdcore` workspace-artefact provider](#generated-workspace-files) in place of `projectImport`.

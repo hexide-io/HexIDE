@@ -71,9 +71,28 @@ not selected expressions or member chains. While the external program runs, hove
 quick info.
 
 This integration inspects one stopped program thread. It does not implement thread selection,
-restart, Run To Cursor or Set Next Statement.
-Conditions and hit counts are not yet supported. Sources without a saved file path cannot receive external
-breakpoints. Editing source does not update the running backend.
+restart or Run To Cursor. Sources without a saved file path cannot receive external breakpoints.
+
+These three depend on what the adapter offers. Each was measured against RDCore `84278aea` on 2026-11-02,
+whose adapter supports all three:
+
+- **Set Next Statement is not offered.** During an external session the command says it is not available
+  and sends nothing, even to an adapter that advertises `gotoTargets` (#2914).
+- **Breakpoint conditions are not sent.** An external breakpoint carries a line only, and nothing in the IDE
+  gives it a condition or a hit count. A launch file whose breakpoint entry has a `condition` is refused
+  before launch (#2914).
+- **Edits reach the program only through the adapter.** HexIDE sends nothing when you edit. An adapter that
+  reads the saved sources when the program resumes, as RDCore's does, runs an edit you saved while stopped,
+  so save before you step. Use **Save Project**: Ctrl+S does not save a module (#244), and where no blank
+  line separates a module's declarations from its first procedure it inserts one, which moves every
+  statement below it. An adapter that
+  can't apply an edit refuses the step and leaves the program stopped. HexIDE prints its message in
+  Immediate, but also clears Call Stack, Locals and the current line until the next stop (#2912). Undo the
+  edit and save again, or End. HexIDE doesn't advertise `supportsInvalidatedEvent`, so the adapter sends
+  no `invalidated`; what is shown refreshes at the next stop (#2914).
+
+Breakpoints stay on the line numbers they were set on. An edit that adds or removes lines above one leaves it
+on a different statement.
 
 The existing debugger MCP commands remain interpreter-oriented. During an external run, `get_debug_state`
 reports external state and `stop_project` stops it; other execution/inspection tools explicitly refuse remote
