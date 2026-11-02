@@ -599,6 +599,9 @@ public sealed class VBLspClient : ILspClient
                     // nothing goes silent without this. What goes is the nesting, because a server that
                     // honours it sends the flat form to a client that never said it could take the tree.
                     DocumentSymbol: new DocumentSymbolClientCapabilities(HierarchicalDocumentSymbolSupport: true),
+                    Completion: new CompletionClientCapabilities(new CompletionItemKindClientCapabilities(
+                        [CompletionItemKind.Text, CompletionItemKind.Function, CompletionItemKind.Variable,
+                         CompletionItemKind.Property, CompletionItemKind.Keyword, CompletionItemKind.Constant])),
                     SemanticTokens: new SemanticTokensClientCapabilities(new(),
                         ["namespace", "type", "class", "enum", "interface", "struct", "typeParameter",
                          "parameter", "variable", "property", "enumMember", "event", "function", "method",

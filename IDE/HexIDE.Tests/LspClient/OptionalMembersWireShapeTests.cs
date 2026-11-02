@@ -32,6 +32,7 @@ public class OptionalMembersWireShapeTests
     [InlineData("TextDocumentClientCapabilities", "documentSymbol")]
     [InlineData("TextDocumentClientCapabilities", "foldingRange")]
     [InlineData("TextDocumentClientCapabilities", "semanticTokens")]
+    [InlineData("TextDocumentClientCapabilities", "completion")]
     [InlineData("WorkspaceClientCapabilities", "executeCommand")]
     [InlineData("WorkspaceClientCapabilities", "workspaceFolders")]
     [InlineData("WorkspaceClientCapabilities", "diagnostics")]

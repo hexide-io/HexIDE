@@ -1256,6 +1256,65 @@ anyway, so it is recorded rather than defended.
 - **AND** the capability grants neither writes outside the workspace nor writes without consent
 - **AND** the public add-in provider contract remains outside this change
 
+### Requirement: Completion capabilities describe current insertion support
+The client SHALL declare `textDocument.completion` in initialize with default `insertTextMode: 1`
+(asIs) and a completion kind value set of Text, Function, Variable, Property, Keyword and Constant.
+It SHALL omit optional completion capabilities it does not implement, including snippet support and
+insert/replace support.
+
+#### Scenario: A server inspects completion capabilities
+- **WHEN** the client sends initialize
+- **THEN** completion declares kind values `[1, 3, 6, 10, 14, 21]` and default insertion mode `1`
+- **AND** snippet, insert/replace, resolve, context and list item default support are absent
+
+### Requirement: Completion text edits commit together
+The editor SHALL apply a completion's TextEdit instead of its insertText or label when provided,
+and SHALL otherwise replace the completion segment. It SHALL resolve additionalTextEdits against
+the original document and apply all edits as one undo step, placing the caret after the main
+insertion. It SHALL refuse the entire commit if an edit is out of bounds, overlaps another edit
+or touches protected text.
+
+#### Scenario: A completion also adds a declaration
+- **WHEN** an accepted completion replaces a word and adds a declaration earlier in the document
+- **THEN** both edits use the original document positions and the caret follows the completed word
+- **AND** one undo restores the original document
+
+#### Scenario: An additional edit touches a protected header
+- **WHEN** any additional completion edit touches a protected region
+- **THEN** neither the main edit nor the additional edits are applied
+
+### Requirement: Numbered completion snippet placeholders
+The editor SHALL expand numbered tabstops, placeholder defaults, repeated linked placeholders,
+backslash escapes and the final `$0` in completion items with insertTextFormat 2, preserving
+multiline whitespace. It SHALL visit positive tabstops in numeric order, finish at `$0` or the
+insertion end, and end linking on Escape. It SHALL refuse unsupported or malformed snippet syntax
+before changing the document. Snippet support SHALL remain undeclared while nested placeholders
+and variables are unfinished.
+
+#### Scenario: A completion repeats a loop variable
+- **WHEN** a snippet contains `${1:Item}` followed by `$1` and `${2:c}`
+- **THEN** the default Item is selected and editing it changes both occurrences
+- **AND** Tab selects c and a further Tab finishes at the final stop
+
+### Requirement: Completion snippet choices
+The editor SHALL expand a numbered choice placeholder to its first value and offer its values in
+an editor completion picker when the placeholder is selected. It SHALL decode escaped commas and
+pipes within choices, link repeated occurrences, and refuse an unterminated choice before editing.
+
+#### Scenario: A user chooses a snippet value
+- **WHEN** a completion contains `${1|one,two,three|} $1`
+- **THEN** the editor inserts one in both occurrences and offers one, two and three
+- **AND** selecting two replaces both occurrences with two
+- **AND** the picker and its named choices appear under the editor in automation dumps and snapshots
+
+#### Scenario: Tab after typing with no completion list open
+- **WHEN** the user types in a snippet placeholder and closes the completion list
+- **THEN** Tab advances to the next tabstop or final stop
+
+#### Scenario: Tab while a completion list is open
+- **WHEN** the user types in a snippet placeholder and leaves the completion list open
+- **THEN** Tab accepts the selected completion
+
 ### Requirement: Completion SHALL merge within a bounded popup budget
 The editor SHALL flush pending document changes before requesting completion, including requests triggered
 by letters and advertised trigger characters.
