@@ -861,21 +861,23 @@ public class CodeEditorViewModelTests : IDisposable
         await _windowManager.Received(1).MessageBox("Long is a keyword", icon: MessageBoxIcon.Information);
     }
 
-    [AvaloniaFact]
-    public async Task RequestFormattingAsync_DelegatesToLspClient()
+    [AvaloniaTheory]
+    [InlineData(2)]
+    [InlineData(8)]
+    public async Task RequestFormattingAsync_DelegatesToLspClient(int tabWidth)
     {
         var form = TestHelpers.CreateForm(name: "Form1");
         var vm = CreateSut().Initialize(form);
-        _settingsService.TabWidth.Returns(2);
+        _settingsService.TabWidth.Returns(tabWidth);
         var expected = Array.Empty<TextEdit>();
-        _lspClient.RequestFormattingAsync("untitled:TestProject/Form1.frm", new FormattingOptions(2, true), Arg.Any<CancellationToken>())
+        _lspClient.RequestFormattingAsync("untitled:TestProject/Form1.frm", new FormattingOptions(tabWidth, true), Arg.Any<CancellationToken>())
             .Returns(expected);
 
         var result = await vm.RequestFormattingAsync();
 
         result.Should().BeSameAs(expected);
         await _lspClient.Received(1).RequestFormattingAsync("untitled:TestProject/Form1.frm",
-            new FormattingOptions(2, true), Arg.Any<CancellationToken>());
+            new FormattingOptions(tabWidth, true), Arg.Any<CancellationToken>());
     }
 
     // ── Dispose ──────────────────────────────────────────────────────
