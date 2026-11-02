@@ -863,6 +863,12 @@ the file controls and Data, and Locals expansion remain outside this implementat
 - **WHEN** `Set Label1.Font = Nothing` executes
 - **THEN** error 380 is raised and the original Font reference remains assigned
 
+#### Scenario: An Arial Font is changed through a retained reference
+
+- **WHEN** `Set f = Label1.Font` retains an Arial font and `f.Size = 14` executes
+- **THEN** `Label1.FontSize` and the Currency `f.Size` read 14.25
+- **AND** `Set Text1.Font = Label1.Font` makes Text1 read Arial 14.25 too
+
 ### Requirement: A literal's sign SHALL be an operator
 The interpreter SHALL type numeric literals from their digits before applying a leading sign, and SHALL
 apply negation after exponentiation. It SHALL keep exponent signs within the literal token and parse
