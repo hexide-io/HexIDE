@@ -2,6 +2,8 @@
   "name": "English",
   "direction": "ltr",
   "strings": {
+    "Str.Dialog.About.Credits.Header": "Credits",
+    "Str.Dialog.About.Credits.Thanks": "HexIDE is built alongside its human contributors by extraordinary AI teams. Our heartfelt thanks to Claude by Anthropic — the Claude Code sessions that write, review and merge the work — and Codex by OpenAI — the Codex lanes that carry the queued fixes forward. Their care and tireless work make HexIDE possible.",
     "Str.Tool.Properties.LoadPicture": "Load picture",
     "Str.Tool.Properties.LoadPictureFailed": "Cannot load picture from “{0}”.",
     "Str.Designer.ShowTabOrder": "Show tab order (crossed out: TabStop off)",

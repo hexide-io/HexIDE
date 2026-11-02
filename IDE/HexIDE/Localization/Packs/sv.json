@@ -2,6 +2,8 @@
   "name": "Swedish",
   "direction": "ltr",
   "strings": {
+    "Str.Dialog.About.Credits.Header": "Tack till",
+    "Str.Dialog.About.Credits.Thanks": "HexIDE byggs av enastående AI-team tillsammans med sina mänskliga bidragsgivare. Vårt varma tack till Claude från Anthropic — Claude Code-sessionerna som skriver, granskar och sammanfogar arbetet — och Codex från OpenAI — Codex-arbetsspåren som för rättningarna i kön framåt. Deras omsorg och outtröttliga arbete gör HexIDE möjligt.",
     "Str.Tool.Properties.LoadPicture": "Läs in bild",
     "Str.Tool.Properties.LoadPictureFailed": "Det går inte att läsa in bilden från ”{0}”.",
     "Str.Designer.ShowTabOrder": "Visa tabbordning (överstruket: TabStop av)",

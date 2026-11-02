@@ -2,6 +2,8 @@
   "name": "German",
   "direction": "ltr",
   "strings": {
+    "Str.Dialog.About.Credits.Header": "Danksagung",
+    "Str.Dialog.About.Credits.Thanks": "HexIDE wird von außergewöhnlichen KI-Teams gemeinsam mit seinen menschlichen Mitwirkenden entwickelt. Unser herzlicher Dank gilt Claude von Anthropic — den Claude Code-Sitzungen, die die Arbeit schreiben, prüfen und zusammenführen — und Codex von OpenAI — den Codex-Arbeitssträngen, die die eingereihten Korrekturen voranbringen. Ihre Sorgfalt und unermüdliche Arbeit machen HexIDE möglich.",
     "Str.Tool.Properties.LoadPicture": "Bild laden",
     "Str.Tool.Properties.LoadPictureFailed": "Das Bild aus „{0}“ kann nicht geladen werden.",
     "Str.Designer.ShowTabOrder": "Tabulatorreihenfolge anzeigen (durchgestrichen: TabStop aus)",

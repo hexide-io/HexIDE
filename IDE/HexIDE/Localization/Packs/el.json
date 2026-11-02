@@ -2,6 +2,8 @@
   "name": "Greek",
   "direction": "ltr",
   "strings": {
+    "Str.Dialog.About.Credits.Header": "Ευχαριστίες",
+    "Str.Dialog.About.Credits.Thanks": "Το HexIDE δημιουργείται από εξαιρετικές ομάδες AI μαζί με τους ανθρώπους που συνεισφέρουν σε αυτό. Ευχαριστούμε από καρδιάς το Claude της Anthropic — τις συνεδρίες Claude Code που γράφουν, ελέγχουν και συγχωνεύουν την εργασία — και το Codex της OpenAI — τις ροές εργασίας Codex που προωθούν τις διορθώσεις στην ουρά. Η φροντίδα και η ακούραστη εργασία τους κάνουν το HexIDE δυνατό.",
     "Str.Tool.Properties.LoadPicture": "Φόρτωση εικόνας",
     "Str.Tool.Properties.LoadPictureFailed": "Δεν είναι δυνατή η φόρτωση εικόνας από το «{0}».",
     "Str.Designer.ShowTabOrder": "Εμφάνιση σειράς Tab (διαγραφή: TabStop ανενεργό)",
