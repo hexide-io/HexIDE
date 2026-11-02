@@ -75,10 +75,12 @@ public partial class CodeEditorView : UserControl
     /// surface (#942). Both are popups parented only logically, to the window, so neither the visual walk nor the routes
     /// to a control's menus and flyouts reaches them, and a list that was open read as none. Both can be open at once,
     /// as typing an argument opens a list under the call's parameter info, and then both are returned (#942 review).
+    /// Active snippet choice pickers use the same route (#2670).
     /// </summary>
     internal static IReadOnlyList<Avalonia.Controls.Primitives.Popup> OpenPopupsOf(TextEditor editor) =>
         Avalonia.LogicalTree.LogicalExtensions.FindLogicalAncestorOfType<CodeEditorView>(editor) is { } view && ReferenceEquals(view.TextEditor, editor)
             ? new Avalonia.Controls.Primitives.Popup?[] { view._completionWindow, view._insightWindow }
+                .Concat(CompletionSnippet.OpenChoiceWindows(editor.TextArea))
                 .Where(p => p is { IsOpen: true }).Select(p => p!).ToList()
             : [];
     private DocumentHighlightRenderer? _highlightRenderer;
@@ -2618,12 +2620,69 @@ internal sealed class VbCompletionData(CompletionItem item, Func<int, int, bool>
 
     public void Complete(AvaloniaEdit.Editing.TextArea textArea, ISegment completionSegment, EventArgs e)
     {
-        // Nothing is written into a region, nor into a file held read-only as a whole (the view passes
-        // CodeEditorViewModel.RefusesTyping). A completion belongs to the word at the caret, so there is no
-        // "after the region" to move it to that would still mean anything: it is simply not applied.
-        if (isReadOnlyRegion(completionSegment.Offset, completionSegment.Length))
+        var document = textArea.Document;
+        var mainOffset = completionSegment.Offset;
+        var mainLength = completionSegment.Length;
+        var mainText = item.InsertText ?? item.Label;
+        if (item.TextEdit is { } main)
+        {
+            if (!Resolve(main, out mainOffset, out mainLength))
+                return;
+            mainText = main.NewText;
+        }
+
+        var snippet = item.InsertTextFormat == 2 ? CompletionSnippet.Parse(mainText) : null;
+        if (item.InsertTextFormat == 2 && snippet is null)
             return;
-        textArea.Document.Replace(completionSegment, item.InsertText ?? item.Label);
+        mainText = snippet?.Text ?? mainText;
+        var edits = new List<(int Offset, int Length, string Text)> { (mainOffset, mainLength, mainText) };
+        foreach (var edit in item.AdditionalTextEdits ?? [])
+        {
+            if (!Resolve(edit, out var offset, out var length))
+                return;
+            edits.Add((offset, length, edit.NewText));
+        }
+
+        // All ranges refer to the original buffer. Refuse the whole item before writing any part of it.
+        edits.Sort((left, right) => left.Offset.CompareTo(right.Offset));
+        for (var i = 0; i < edits.Count; i++)
+        {
+            var edit = edits[i];
+            if (isReadOnlyRegion(edit.Offset, edit.Length)
+                || (i > 0 && (edits[i - 1].Offset + edits[i - 1].Length > edit.Offset
+                              || edits[i - 1].Offset == edit.Offset)))
+                return;
+        }
+
+        var caret = mainOffset + mainText.Length;
+        using (document.RunUpdate())
+        {
+            foreach (var edit in edits.AsEnumerable().Reverse())
+            {
+                document.Replace(edit.Offset, edit.Length, edit.Text);
+                if (edit.Offset < mainOffset)
+                    caret += edit.Text.Length - edit.Length;
+            }
+        }
+        textArea.ClearSelection();
+        textArea.Caret.Offset = caret;
+        snippet?.Activate(textArea, caret - mainText.Length);
+
+        bool Resolve(TextEdit edit, out int offset, out int length)
+        {
+            offset = length = 0;
+            if (edit.Range is not { Start: { } start, End: { } end }
+                || start.Line < 0 || end.Line < start.Line || end.Line >= document.LineCount
+                || start.Character < 0 || end.Character < 0)
+                return false;
+            var first = document.GetLineByNumber(start.Line + 1);
+            var last = document.GetLineByNumber(end.Line + 1);
+            if (start.Character > first.Length || end.Character > last.Length)
+                return false;
+            offset = first.Offset + start.Character;
+            length = last.Offset + end.Character - offset;
+            return length >= 0;
+        }
     }
 }
 
