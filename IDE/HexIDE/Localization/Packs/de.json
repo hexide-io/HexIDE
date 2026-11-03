@@ -2,6 +2,8 @@
   "name": "German",
   "direction": "ltr",
   "strings": {
+    "Str.Debug.External.BreakpointConditionUnsupported": "Haltepunktbedingungen werden für externe Sitzungen noch nicht unterstützt. Datei '{0}', Haltepunkteintrag {1}.",
+    "Str.Debug.External.BreakpointOptionUnsupported": "Die Haltepunktoption '{0}' wird für externe Sitzungen noch nicht unterstützt. Datei '{1}', Haltepunkteintrag {2}.",
     "Str.MainWindow.RecoveryNotice": "Wiederherstellungssitzung — Einstellungsänderungen werden nicht gespeichert",
     "Str.Profiles.LoadError": "Profil '{0}', Datei '{1}' kann nicht geladen werden. Prüfen Sie das Paketformat und die Dateipfade.",
     "Str.Profiles.HelpSummary": "Basisprofil: Name, Verzeichnispfad oder none (abgesicherter Modus).",

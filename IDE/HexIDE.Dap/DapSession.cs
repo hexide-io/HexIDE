@@ -6,7 +6,11 @@ namespace HexIDE.Dap;
 public enum DapSessionState { Created, Starting, Running, Stopped, Ended, Faulted }
 
 /// <summary>A stop identity, scoped to one session. Never apply inspection replies across these identities.</summary>
-public sealed record DapStop(Guid SessionId, long Generation, int? ThreadId, string Reason);
+public sealed record DapStop(Guid SessionId, long Generation, int? ThreadId, string Reason)
+{
+    // A refused resume expires inspection handles without becoming a new source-reveal location.
+    public long NavigationGeneration { get; init; } = Generation;
+}
 /// <summary>ResumePending invalidates requests while consumers retain the last displayed inspection.</summary>
 public sealed record DapSessionSnapshot(DapSessionState State, DapStop? Stop, Exception? Failure, bool ResumePending = false);
 public sealed record DapSessionUpdate(DapSessionSnapshot Snapshot, DapEvent? Event);
@@ -183,10 +187,27 @@ public sealed class DapSession : IAsyncDisposable
         if (!IsCurrent(stop)) throw new InvalidOperationException("This inspection belongs to an expired debug stop.");
     }
 
+    public async Task SetNextStatementAsync(DapStop stop, string path, int line, int threadId, CancellationToken token = default)
+    {
+        if (!Supports("supportsGotoTargetsRequest")) throw new InvalidOperationException("The adapter does not support goto targets.");
+        ArgumentException.ThrowIfNullOrWhiteSpace(path);
+        ArgumentOutOfRangeException.ThrowIfLessThan(line, 1);
+        var reply = await Inspect(stop, "gotoTargets", new { source = new { path }, line }, token).ConfigureAwait(false);
+        var targets = reply.Body!.Value.GetProperty("targets");
+        if (targets.GetArrayLength() == 0)
+            throw new DapRequestException(reply);
+        await ResumeCoreAsync(stop, "goto", new { threadId, targetId = targets[0].GetProperty("id").GetInt32() }, token).ConfigureAwait(false);
+    }
+
     /// <summary>Only continue/next/stepIn/stepOut. Invalidates inspection before sending, including adapters without continued events.</summary>
     public async Task ResumeAsync(DapStop stop, string command, int threadId, CancellationToken token = default)
     {
         if (command is not ("continue" or "next" or "stepIn" or "stepOut")) throw new ArgumentException("Not a resume command.", nameof(command));
+        await ResumeCoreAsync(stop, command, new { threadId }, token).ConfigureAwait(false);
+    }
+
+    private async Task ResumeCoreAsync(DapStop stop, string command, object arguments, CancellationToken token)
+    {
         await _commands.WaitAsync(token).ConfigureAwait(false);
         long generation = 0;
         try
@@ -198,7 +219,7 @@ public sealed class DapSession : IAsyncDisposable
                 Change(DapSessionState.Running, resumePending: true);
                 generation = _generation;
             }
-            try { await Request(command, new { threadId }, token).ConfigureAwait(false); }
+            try { await Request(command, arguments, token).ConfigureAwait(false); }
             catch (DapRequestException)
             {
                 lock (_sync)

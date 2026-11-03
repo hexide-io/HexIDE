@@ -22,7 +22,9 @@ file. The executable must be a file path, not a shell command or a PATH lookup. 
 strings; no shell expansion or variable substitution occurs. Argument contents and launch properties are
 adapter-specific and passed unchanged, so use absolute workspace paths there. Environment entries override
 inherited variables; a null value removes a variable. Lines are one-based and include source file headers.
-Unknown top-level properties and invalid breakpoint lines are rejected. Configuration failures appear in
+Unknown top-level properties and invalid breakpoint lines are rejected. A breakpoint entry containing
+`condition`, `hitCondition` or `logMessage` is refused before the adapter starts, with a localized diagnostic naming the launch file and
+the one-based breakpoint entry; external breakpoint conditions, hit conditions and log messages are not supported yet. Configuration failures appear in
 the Immediate window. Only explicitly listed breakpoints are installed initially; saved interpreter gutter
 marks are not imported. External breakpoint edits are session-only and never rewrite the launch file.
 
@@ -83,13 +85,16 @@ quick info.
 This integration inspects one stopped program thread. It does not implement thread selection,
 restart or Run To Cursor. Sources without a saved file path cannot receive external breakpoints.
 
-These three depend on what the adapter offers. Each was measured against RDCore `84278aea` on 2026-11-02,
-whose adapter supports all three:
+The adapter determines which operations it can perform. RDCore `84278aea` advertised goto targets and
+conditional breakpoints and applied saved edits in the measurements recorded in [#2914](https://github.com/hexide-io/HexIDE/issues/2914):
 
-- **Set Next Statement is not offered.** During an external session the command says it is not available
-  and sends nothing, even to an adapter that advertises `gotoTargets` (#2914).
+- **Set Next Statement** while stopped sends `gotoTargets` for the active editor's saved source path and
+  caret line, then `goto` with the first returned target and the stopped thread. This requires
+  `supportsGotoTargetsRequest`; without it, the command reports that it is unavailable and sends nothing.
+  Empty targets or a refused request report the adapter's message in Immediate and retain inspection and
+  the current line, without moving the caret or scrolling the editor on refusal. A successful move displays the location from the following `stopped` event (#2914).
 - **Breakpoint conditions are not sent.** An external breakpoint carries a line only, and nothing in the IDE
-  gives it a condition or a hit count. A launch file whose breakpoint entry has a `condition` is refused
+  gives it a condition or a hit count. A launch file whose breakpoint entry has a `condition`, `hitCondition` or `logMessage` is refused
   before launch (#2914).
 - **Edits reach the program only through the adapter.** HexIDE sends nothing when you edit. An adapter that
   reads the saved sources when the program resumes, as RDCore's does, runs an edit you saved while stopped,
@@ -97,7 +102,7 @@ whose adapter supports all three:
   line separates a module's declarations from its first procedure it inserts one, which moves every
   statement below it. An adapter that
   can't apply an edit refuses the step and leaves the program stopped. HexIDE prints its message in
-  Immediate, and keeps Call Stack, Locals, the selected frame and the current line as they were (#2912).
+  Immediate, and keeps Call Stack, Locals, the selected frame and the current line as they were, without moving the caret or scrolling the editor (#2912, #2914).
   Undo the edit and save again, or End. When an adapter sends `invalidated` while the program is stopped,
   HexIDE refreshes Call Stack, Locals and Watches, keeping the selected frame where it still exists
   (#2914). RDCore's adapter sends it only after it applies a saved edit, just before that resume's

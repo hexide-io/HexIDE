@@ -2,6 +2,8 @@
   "name": "Portuguese",
   "direction": "ltr",
   "strings": {
+    "Str.Debug.External.BreakpointConditionUnsupported": "As condições de pontos de interrupção ainda não são suportadas em sessões externas. Ficheiro '{0}', entrada de ponto de interrupção {1}.",
+    "Str.Debug.External.BreakpointOptionUnsupported": "A opção de ponto de interrupção '{0}' ainda não é suportada em sessões externas. Ficheiro '{1}', entrada {2}.",
     "Str.MainWindow.RecoveryNotice": "Sessão de recuperação — as alterações às definições não serão guardadas",
     "Str.Profiles.LoadError": "Não foi possível carregar o perfil '{0}', ficheiro '{1}'. Verifique o formato do pacote e os caminhos dos ficheiros.",
     "Str.Profiles.HelpSummary": "Perfil base: nome, caminho de diretório ou none (modo de segurança).",

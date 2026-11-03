@@ -2,6 +2,8 @@
   "name": "Hungarian",
   "direction": "ltr",
   "strings": {
+    "Str.Debug.External.BreakpointConditionUnsupported": "A külső munkamenetek még nem támogatják a feltételes töréspontokat. Fájl: '{0}', töréspontbejegyzés: {1}.",
+    "Str.Debug.External.BreakpointOptionUnsupported": "A(z) '{0}' töréspont-beállítás külső munkamenetekben még nem támogatott. Fájl: '{1}', töréspontbejegyzés: {2}.",
     "Str.MainWindow.RecoveryNotice": "Helyreállítási munkamenet — a beállítások módosításai nem lesznek mentve",
     "Str.Profiles.LoadError": "Nem tölthető be a(z) „{0}” profil „{1}” fájlja. Ellenőrizze a csomag formátumát és a fájlok elérési útját.",
     "Str.Profiles.HelpSummary": "Alapprofil: név, könyvtárútvonal vagy none (csökkentett mód).",

@@ -2,6 +2,8 @@
   "name": "Polish",
   "direction": "ltr",
   "strings": {
+    "Str.Debug.External.BreakpointConditionUnsupported": "Warunki punktów przerwania nie są jeszcze obsługiwane w sesjach zewnętrznych. Plik '{0}', wpis punktu przerwania {1}.",
+    "Str.Debug.External.BreakpointOptionUnsupported": "Opcja punktu przerwania '{0}' nie jest jeszcze obsługiwana w sesjach zewnętrznych. Plik '{1}', wpis punktu przerwania {2}.",
     "Str.MainWindow.RecoveryNotice": "Sesja odzyskiwania — zmiany ustawień nie zostaną zapisane",
     "Str.Profiles.LoadError": "Nie można wczytać profilu '{0}', plik '{1}'. Sprawdź format pakietu i ścieżki plików.",
     "Str.Profiles.HelpSummary": "Profil podstawowy: nazwa, ścieżka katalogu lub none (tryb awaryjny).",

@@ -2,6 +2,8 @@
   "name": "Swedish",
   "direction": "ltr",
   "strings": {
+    "Str.Debug.External.BreakpointConditionUnsupported": "Villkor för brytpunkter stöds ännu inte för externa sessioner. Fil '{0}', brytpunktspost {1}.",
+    "Str.Debug.External.BreakpointOptionUnsupported": "Brytpunktsalternativet '{0}' stöds ännu inte för externa sessioner. Fil '{1}', brytpunktspost {2}.",
     "Str.MainWindow.RecoveryNotice": "Återställningssession — inställningsändringar sparas inte",
     "Str.Profiles.LoadError": "Kan inte läsa in profilen '{0}', filen '{1}'. Kontrollera paketformatet och filsökvägarna.",
     "Str.Profiles.HelpSummary": "Basprofil: namn, katalogsökväg eller none (felsäkert läge).",

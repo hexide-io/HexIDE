@@ -2,6 +2,8 @@
   "name": "Chinese (Simplified)",
   "direction": "ltr",
   "strings": {
+    "Str.Debug.External.BreakpointConditionUnsupported": "外部会话尚不支持断点条件。文件 '{0}'，断点条目 {1}。",
+    "Str.Debug.External.BreakpointOptionUnsupported": "外部会话尚不支持断点选项 '{0}'。文件 '{1}'，断点条目 {2}。",
     "Str.MainWindow.RecoveryNotice": "恢复会话 — 设置更改不会保存",
     "Str.Profiles.LoadError": "无法加载配置文件包 '{0}' 中的文件 '{1}'。请检查包格式和文件路径。",
     "Str.Profiles.HelpSummary": "基础配置：名称、目录路径或 none（安全模式）。",

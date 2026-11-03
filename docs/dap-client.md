@@ -134,6 +134,9 @@ running state and partial-thread resumes are not implemented.
 overwrites a later stopped event on receipt of its response. A definitive refusal restores a fresh stop;
 timeout/cancellation is uncertain and ends the session rather than claiming it is still paused. `PauseAsync`
 requests a break while running; only a stopped event confirms it. Capabilities retain the initialize response.
+`SetNextStatementAsync(stop, path, line, threadId)` requires `supportsGotoTargetsRequest`, queries
+`gotoTargets` and resumes with `goto` using the first returned target. Empty targets and adapter refusals
+retain stopped inspection; a successful move takes its location from the next stopped event.
 `EvaluateAsync(stop, frameId, expression)` sends adapter-specific Immediate syntax with `context: repl`.
 Frame zero is valid. The raw result preserves type, variable reference and extension fields. The stop is
 validated before and after the request; callers must also validate their selected-frame identity before
