@@ -14,6 +14,13 @@
 > [`MISSING_FEATURES.md`](MISSING_FEATURES.md).
 >
 > **Living document.** Update a row the moment its status changes.
+> To recount after a merge, run from the repository root:
+> `HEXIDE_MISSING_LANGUAGE_FIX=1 dotnet test IDE/HexIDE.Tests/ -p:TestingPlatformCaptureOutput=false -- --filter-class "*MissingLanguageDocTests"`
+> (PowerShell: set `$env:HEXIDE_MISSING_LANGUAGE_FIX = "1"` before the same `dotnet test` command,
+> then `Remove-Item Env:HEXIDE_MISSING_LANGUAGE_FIX`). Disabling MTP output capture shows each change
+> in the terminal. The guard reports and rewrites derived counts
+> using its own recount, preserving line endings. It still rejects unknown ratings, duplicate names,
+> missing status rows and inconsistent constant-family ratings; fix those source rows by hand.
 > Diagnostic wording below reflects #935: missing-member messages omit receiver types, and value text
 > prints inner type names without Either wrappers. This wording is HexIDE's, not a VB6 measurement.
 
