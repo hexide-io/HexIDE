@@ -1371,6 +1371,8 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
             return items.Default(indices);
         if (value.Value is ImageListImages images)
             return images.Item(indices[0]);
+        if (value.Value is ImageComboItems)
+            return ImageComboItem(value, indices);
         if (value.Type == Vb6Value.ValueType.Object || value.Value is VbObject)
             throw new NotImplementedException(value.Value is null
                 ? $"indexing Nothing, as in {ctx.GetText()}, is not implemented: what VB6 raises is unmeasured (#1476)"
@@ -1378,6 +1380,19 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         if (value.HasFixedType)
             throw new VBCompileErrorException("Type mismatch");
         throw new VBRunTimeException(ctx, VBStandardError.TypeMismatch);
+    }
+
+    // Reuse the argument awaiter and keep control-specific result locals off recursive frames (#2827).
+    private static Vb6Value ImageComboItem(Vb6Value value, IReadOnlyList<Vb6Value> indices) =>
+        new(((ImageComboItems)value.Value!).Item(indices[0]));
+
+    private static Vb6Value ImageCollectionItem(Vb6Value value, IReadOnlyList<Vb6Value> indices) =>
+        value.Value is ImageListImages images ? images.Item(indices[0]) : ImageComboItem(value, indices);
+
+    private static Vb6Value MonthViewVisibleDay(Vb6Value value, IReadOnlyList<Vb6Value> indexes)
+    {
+        if (indexes.Count != 1) throw VBMonthView.Pending("VisibleDays argument count");
+        return ((VBMonthView)value.Value!).VisibleDay(indexes[0]);
     }
 
     // A procedure with no parameters, given arguments, is called with none and its result indexed with them, where it
@@ -1463,8 +1478,8 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         }
         if (named && maybeGroup.Value is StatusBarPanels panels)
             return new Vb6Value(panels.Item(await EvaluateCallArgs(argsCtx)));
-        if (named && maybeGroup.Value is ImageListImages images)
-            return images.Item((await EvaluateCallArgs(argsCtx))[0]);
+        if (named && maybeGroup.Value is ImageListImages or ImageComboItems)
+            return ImageCollectionItem(maybeGroup, await EvaluateCallArgs(argsCtx));
         // A form's Controls held in a variable, `o(1)` (#1060).
         if (named && maybeGroup.Value is FormControls heldControls)
         {
@@ -1691,6 +1706,9 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         if (variable.Value is BuiltinControls.VBStatusBar statusBar && MemberName(member).Equals("Panels", StringComparison.OrdinalIgnoreCase))
             return MemberArgs(member) is { } panelArgs
                 ? new Vb6Value(statusBar.Panels.Item(await EvaluateCallArgs(panelArgs))) : new Vb6Value(statusBar.Panels);
+        if (variable.Value is VBMonthView && MemberName(member).Equals("VisibleDays", StringComparison.OrdinalIgnoreCase)
+            && MemberArgs(member) is not null)
+            return MonthViewVisibleDay(variable, await EvaluateCallArgs(MemberArgs(member)));
         if (variable.Value is VBImageList && MemberName(member).ToLowerInvariant() is "name" or "tag" or "parent" or "object")
         {
             // These four are the invisible control's extender, answered by the shared control bindings.
@@ -2525,9 +2543,10 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
                 VBProgressBar bar => bar.Library.Name,
                 VBListView => "MSComctlLib",
                 VBToolbar => "MSComctlLib",
+                VBMonthView => "MSComCtl2",
                 VBStatusBar => "MSComctlLib",
                 VBImageList => "MSComctlLib",
-                VBUpDown => "MSComCtl2",
+                VBUpDown or VBFlatScrollBar => "MSComCtl2",
                 _ => "VB",
             };
             return new Vb6Value(string.Equals(targetName, "Object", StringComparison.OrdinalIgnoreCase)

@@ -246,10 +246,12 @@ public class UpDownRuntimeTests
             window.MouseUp(point, MouseButton.Left);
             spin.Value.Should().Be(1);
             window.MouseDown(point, MouseButton.Left);
-            var frame = new DispatcherFrame();
-            using var stop = DispatcherTimer.RunOnce(() => frame.Continue = false, TimeSpan.FromMilliseconds(850));
-            Dispatcher.UIThread.PushFrame(frame);
-            spin.Value.Should().BeGreaterThan(2);
+            var repeat = RepeatTimerDriver.For(spin);
+            repeat.IsEnabled.Should().BeTrue();
+            repeat.Interval.Should().Be(TimeSpan.FromMilliseconds(530));
+            for (var tick = 0; tick < 3; tick++) RepeatTimerDriver.Tick(repeat);
+            repeat.Interval.Should().Be(TimeSpan.FromMilliseconds(110));
+            spin.Value.Should().Be(5);
             spin.Value.Should().Be(recorder.Calls.Count(c => c.Name == "UpDown1_Change"));
             window.MouseUp(point, MouseButton.Left);
             spin.TryGetProperty("Acceleration", out var stored).Should().BeTrue();
@@ -383,18 +385,21 @@ public class UpDownRuntimeTests
             var point = spin.TranslatePoint(new Point(5, 3), window)!.Value;
             window.MouseDown(point, MouseButton.Left);
             recorder.Calls.Clear();
-            var frame = new DispatcherFrame();
-            using var stop = DispatcherTimer.RunOnce(() => frame.Continue = false, TimeSpan.FromMilliseconds(850));
-            Dispatcher.UIThread.PushFrame(frame);
-            recorder.Calls.Count(c => c.Name == "UpDown1_Change").Should().BeGreaterThanOrEqualTo(1);
+            var repeat = RepeatTimerDriver.For(spin);
+            repeat.IsEnabled.Should().BeTrue();
+            repeat.Interval.Should().Be(TimeSpan.FromMilliseconds(530));
+            for (var tick = 0; tick < 3; tick++) RepeatTimerDriver.Tick(repeat);
+            repeat.Interval.Should().Be(TimeSpan.FromMilliseconds(110));
+            recorder.Calls.Count(c => c.Name == "UpDown1_Change").Should().Be(3);
             recorder.Calls.Should().NotContain(c => c.Name == "UpDown1_UpClick");
             window.MouseUp(point, MouseButton.Left);
             recorder.Calls.Count(c => c.Name == "UpDown1_UpClick").Should().Be(1);
             var after = spin.Value;
-            frame = new DispatcherFrame();
-            using var stopAgain = DispatcherTimer.RunOnce(() => frame.Continue = false, TimeSpan.FromMilliseconds(200));
-            Dispatcher.UIThread.PushFrame(frame);
+            repeat.IsEnabled.Should().BeFalse();
+            var callsAfterRelease = recorder.Calls.Count;
+            RepeatTimerDriver.Tick(repeat);
             spin.Value.Should().Be(after);
+            recorder.Calls.Should().HaveCount(callsAfterRelease);
         }
         finally { window.Close(); }
     }
