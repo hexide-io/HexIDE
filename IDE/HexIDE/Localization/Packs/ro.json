@@ -2,6 +2,13 @@
   "name": "Romanian",
   "direction": "ltr",
   "strings": {
+    "Str.MainWindow.RecoveryNotice": "Sesiune de recuperare — modificările setărilor nu vor fi salvate",
+    "Str.Profiles.LoadError": "Nu se poate încărca profilul „{0}”, fișierul „{1}”. Verificați formatul pachetului și căile fișierelor.",
+    "Str.Profiles.HelpSummary": "Profil de bază: nume, cale de director sau none (mod sigur).",
+    "Str.Profiles.PersonalityRemoved": "--personality a fost eliminat. Folosiți --profile vb6, --profile vbaode sau --profile vba.",
+    "Str.Profiles.SelectorRequired": "--profile necesită exact o valoare: un nume de pachet, o cale de director sau none. Verificați argumentele de pornire.",
+    "Str.RevertGate.SessionOnly": "Această schimbare de limbă durează doar în această sesiune.",
+    "Str.NewProject.NoTemplates": "Acest profil nu oferă șabloane pentru proiecte noi. Deschideți un proiect existent.",
     "Str.Dialog.About.Credits.Header": "Credite",
     "Str.Dialog.About.Credits.Thanks": "HexIDE este construit alături de contribuitorii săi umani de echipe AI extraordinare. Mulțumim din suflet Claude by Anthropic — sesiunilor Claude Code care scriu, revizuiesc și integrează munca — și Codex by OpenAI — fluxurilor Codex care duc mai departe corecțiile din coadă. Grija și munca lor neobosită fac HexIDE posibil.",
     "Str.Tool.LanguageServers.Output": "Ieșire",

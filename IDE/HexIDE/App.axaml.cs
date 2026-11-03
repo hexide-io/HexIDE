@@ -54,8 +54,16 @@ public partial class App : Application
             envLevel, Environment.Version, Environment.OSVersion);
 
         _diSetup = new DISetup();
-        _diSetup.ThemeService.Apply(_diSetup.SettingsService.ActiveTheme);
-        _diSetup.KeymapService.Apply(_diSetup.SettingsService.ActiveKeymap);
+        if (Static.Profile is { } profile)
+        {
+            ((HexIDE.Themes.ThemeService)_diSetup.ThemeService).Apply(profile, (SettingsService)_diSetup.SettingsService);
+            ((HexIDE.Keymaps.KeymapService)_diSetup.KeymapService).Apply(profile, (SettingsService)_diSetup.SettingsService);
+        }
+        else
+        {
+            _diSetup.ThemeService.Apply(_diSetup.SettingsService.ActiveTheme);
+            _diSetup.KeymapService.Apply(_diSetup.SettingsService.ActiveKeymap);
+        }
 
         // Register the VB6 highlighting definition and subscribe it to theme changes before any editor
         // is built, so the first paint is already correct rather than light-until-you-switch. Must

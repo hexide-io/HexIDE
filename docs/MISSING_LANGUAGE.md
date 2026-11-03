@@ -14,6 +14,13 @@
 > [`MISSING_FEATURES.md`](MISSING_FEATURES.md).
 >
 > **Living document.** Update a row the moment its status changes.
+> To recount after a merge, run from the repository root:
+> `HEXIDE_MISSING_LANGUAGE_FIX=1 dotnet test IDE/HexIDE.Tests/ -p:TestingPlatformCaptureOutput=false -- --filter-class "*MissingLanguageDocTests"`
+> (PowerShell: set `$env:HEXIDE_MISSING_LANGUAGE_FIX = "1"` before the same `dotnet test` command,
+> then `Remove-Item Env:HEXIDE_MISSING_LANGUAGE_FIX`). Disabling MTP output capture shows each change
+> in the terminal. The guard reports and rewrites derived counts
+> using its own recount, preserving line endings. It still rejects unknown ratings, duplicate names,
+> missing status rows and inconsistent constant-family ratings; fix those source rows by hand.
 > Diagnostic wording below reflects #935: missing-member messages omit receiver types, and value text
 > prints inner type names without Either wrappers. This wording is HexIDE's, not a VB6 measurement.
 
@@ -1377,7 +1384,7 @@ These require an Object reference; the inventory and headline counts above cover
 | Member | Status | Detail | Implementation |
 |---|---|---|---|
 | `MSComctlLib.ImageList.ListImages` | Supported | #1083: Add, Item by index/key, Remove, Clear, Count and For Each in index order; measured collection errors, read-only Picture/Index, Key and Variant Tag. Saved BMP/ICO pictures retain type and dimensions. | VBImageList.cs |
-| `MSComctlLib.ImageList` properties | Partial | #1083: ImageWidth/ImageHeight, BackColor, MaskColor and UseMaskColor; invisible at run time. The 5.0 ComctlLib control and property pages remain unavailable. Property conversions beyond Integer/Long dimensions and colors or Boolean UseMaskColor, and key comparisons differing only in case, explicitly refuse as unmeasured. Other Picture conversions and writes to Left/Top/Index also refuse as unmeasured. LoadPicture retains its existing unimplemented status. | ImageListComponentClass.cs |
+| `MSComctlLib.ImageList` properties | Partial | #1083: ImageWidth/ImageHeight, BackColor, MaskColor and UseMaskColor; invisible at run time. The 5.0 ComctlLib control and property pages remain unavailable. Property conversions beyond Integer/Long dimensions and colors or Boolean UseMaskColor, and key comparisons differing only in case, explicitly refuse as unmeasured. Other Picture conversions and writes to Left/Top/Index also refuse as unmeasured. `LoadPicture` runs, but only a StatusBar panel accepts its result so far (see its own row). | ImageListComponentClass.cs |
 | `ListImage.Draw` | **Dies** | Member marked not implemented (#1083 supervisor decision): HexIDE has no device contexts; Form/PictureBox hDC is already unavailable. | VBImageList.cs |
 | `ImageList.Overlay` | **Dies** | Member marked not implemented (#1083 supervisor decision): drawing awaits a device-context design. | VBImageList.cs |
 | `ImageList.hImageList` | **Dies** | Member marked not implemented (#1083 supervisor decision): native handles are not fabricated. | VBImageList.cs |

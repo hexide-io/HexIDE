@@ -2,6 +2,13 @@
   "name": "Slovenian",
   "direction": "ltr",
   "strings": {
+    "Str.MainWindow.RecoveryNotice": "Obnovitvena seja — spremembe nastavitev ne bodo shranjene",
+    "Str.Profiles.LoadError": "Profila »{0}«, datoteke »{1}«, ni mogoče naložiti. Preverite obliko paketa in poti datotek.",
+    "Str.Profiles.HelpSummary": "Osnovni profil: ime, pot do imenika ali none (varni način).",
+    "Str.Profiles.PersonalityRemoved": "--personality je odstranjen. Uporabite --profile vb6, --profile vbaode ali --profile vba.",
+    "Str.Profiles.SelectorRequired": "--profile zahteva natanko eno vrednost: ime paketa, pot do imenika ali none. Preverite zagonske argumente.",
+    "Str.RevertGate.SessionOnly": "Ta sprememba jezika velja samo za to sejo.",
+    "Str.NewProject.NoTemplates": "Ta profil ne ponuja predlog za nove projekte. Odprite obstoječi projekt.",
     "Str.Dialog.About.Credits.Header": "Zahvale",
     "Str.Dialog.About.Credits.Thanks": "HexIDE skupaj s človeškimi sodelavci gradijo izjemne ekipe AI. Iskreno se zahvaljujemo Claude by Anthropic — sejam Claude Code, ki pišejo, pregledujejo in združujejo delo — ter Codex by OpenAI — delovnim tokovom Codex, ki izvajajo čakajoče popravke. Njihova skrbnost in neutrudno delo omogočata HexIDE.",
     "Str.Tool.LanguageServers.Output": "Izhod",

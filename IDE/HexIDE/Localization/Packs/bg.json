@@ -2,6 +2,13 @@
   "name": "Bulgarian",
   "direction": "ltr",
   "strings": {
+    "Str.MainWindow.RecoveryNotice": "Сесия за възстановяване — промените в настройките няма да бъдат запазени",
+    "Str.Profiles.LoadError": "Профилът „{0}“, файл „{1}“, не може да се зареди. Проверете формата на пакета и пътищата на файловете.",
+    "Str.Profiles.HelpSummary": "Основен профил: име, път до директория или none (безопасен режим).",
+    "Str.Profiles.PersonalityRemoved": "--personality е премахнат. Използвайте --profile vb6, --profile vbaode или --profile vba.",
+    "Str.Profiles.SelectorRequired": "--profile изисква точно една стойност: име на пакет, път до директория или none. Проверете аргументите за стартиране.",
+    "Str.RevertGate.SessionOnly": "Тази промяна на езика важи само за текущата сесия.",
+    "Str.NewProject.NoTemplates": "Този профил не предлага шаблони за нов проект. Вместо това отворете съществуващ проект.",
     "Str.Dialog.About.Credits.Header": "Благодарности",
     "Str.Dialog.About.Credits.Thanks": "HexIDE се изгражда заедно с човешките си сътрудници от изключителни AI екипи. Сърдечно благодарим на Claude by Anthropic — сесиите на Claude Code, които пишат, преглеждат и сливат работата — и на Codex by OpenAI — потоците на Codex, които придвижват чакащите поправки напред. Тяхната грижа и неуморна работа правят HexIDE възможен.",
     "Str.Tool.LanguageServers.Output": "Изход",

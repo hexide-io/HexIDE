@@ -2,6 +2,13 @@
   "name": "Basque",
   "direction": "ltr",
   "strings": {
+    "Str.MainWindow.RecoveryNotice": "Berreskuratze-saioa — ezarpenen aldaketak ez dira gordeko",
+    "Str.Profiles.LoadError": "Ezin da «{0}» profila kargatu, «{1}» fitxategia. Egiaztatu paketearen formatua eta fitxategien bideak.",
+    "Str.Profiles.HelpSummary": "Oinarrizko profila: izena, direktorioaren bidea edo none (modu segurua).",
+    "Str.Profiles.PersonalityRemoved": "--personality kendu da. Erabili --profile vb6, --profile vbaode edo --profile vba.",
+    "Str.Profiles.SelectorRequired": "--profile aukerak balio bakarra behar du: paketearen izena, direktorioaren bidea edo none. Egiaztatu abiarazteko argumentuak.",
+    "Str.RevertGate.SessionOnly": "Hizkuntza-aldaketa honek saio honetan bakarrik iraungo du.",
+    "Str.NewProject.NoTemplates": "Profil honek ez du proiektu berrietarako txantiloirik eskaintzen. Ireki lehendik dagoen proiektu bat.",
     "Str.Dialog.About.Credits.Header": "Eskerrak",
     "Str.Dialog.About.Credits.Thanks": "HexIDE giza laguntzaileekin batera eraikitzen dute aparteko AI taldeek. Bihotzez eskertzen ditugu Claude by Anthropic — lana idatzi, berrikusi eta bateratzen duten Claude Code saioak — eta Codex by OpenAI — ilaran dauden konponketak aurrera eramaten dituzten Codex lan-fluxuak. Haien arretak eta lan nekaezinak HexIDE ahalbidetzen dute.",
     "Str.Tool.LanguageServers.Output": "Irteera",

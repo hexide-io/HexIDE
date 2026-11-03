@@ -220,6 +220,30 @@ document for both (hexide-io/HexIDE#721).
 - **WHEN** a document is closed
 - **THEN** the server is notified, so it can release any state held for that document
 
+### Requirement: A request about a document SHALL follow its open
+
+A request about a document SHALL reach a server only after that server has been sent the document's
+`didOpen`, as LSP requires. A request made while that open is still to come SHALL wait for it and SHALL still
+be answered. One server still starting SHALL NOT hold up another server's answers (hexide-io/HexIDE#2909).
+
+#### Scenario: Asked during a server's project import
+- **WHEN** the code window asks for folds and semantic tokens while its server's project import is outstanding
+- **THEN** the server is sent the document's open before either request, and both are answered
+
+#### Scenario: Asked while a second server starts
+- **WHEN** two servers claim a document and the code window asks about it while the second is still starting
+- **THEN** the first server is sent the document's open before the requests, and answers them without waiting
+  for the second
+
+#### Scenario: Asked during a restart
+- **WHEN** the workspace moves and a document already open is asked about while its server starts again
+- **THEN** the restarted server is sent the document's open before the requests
+
+#### Scenario: Asked during the client's own reconnect replay
+- **WHEN** a client reconnects with several tracked documents and a request is made before its document is replayed
+- **THEN** the request waits until that document's `didOpen` has been written on the new connection
+- **AND** an open reserved but not yet written does not release the request
+
 ### Requirement: Diagnostics SHALL be pushed through a single channel from more than one source
 The client SHALL expose one diagnostics channel that carries both server-published diagnostics and
 diagnostics injected by the IDE, and SHALL raise on it rather than requiring a consumer to poll.
@@ -1552,9 +1576,10 @@ A missing registration or an empty matching batch SHALL send no notification.
 
 The client SHALL advertise support for the three notifications in initialize. The registry SHALL route
 file operations to every running connection whose operation filter matches, independently of document
-language claims. Entries with `workspaceArtifact` SHALL receive no file-operation notifications:
-HexIDE's generated artefact describes their project. An entry without `workspaceArtifact` SHALL remain
-eligible for matching notifications. File operations SHALL NOT start a server.
+language claims. Entries with `workspaceArtifact` and no `projectImport` SHALL receive no file-operation
+notifications: HexIDE's generated artefact describes their project. An entry without `workspaceArtifact`,
+or with `projectImport` replacing generation, SHALL remain eligible for matching notifications.
+File operations SHALL NOT start a server.
 
 Successful first saves and Save As writes to a new destination SHALL report creation after the bytes
 reach disk. Overwriting an existing file SHALL NOT report creation. Temporary Make EXE copies SHALL NOT
@@ -1585,9 +1610,14 @@ names and membership only.
 - **AND** saving it again reports no file creation
 
 #### Scenario: HexIDE generates the server's workspace artefact
-- **GIVEN** a running server with `workspaceArtifact` and matching file-operation filters
+- **GIVEN** a running server with `workspaceArtifact`, no `projectImport` and matching file-operation filters
 - **WHEN** a file is created, renamed or deleted
 - **THEN** the server receives no file-operation notification
+
+#### Scenario: Project import replaces workspace artefact generation
+- **GIVEN** a running server declaring both `workspaceArtifact` and `projectImport`, with matching file-operation filters
+- **WHEN** a file is created, renamed or deleted
+- **THEN** the server receives the corresponding notification
 
 #### Scenario: The server owns its workspace artefact
 - **GIVEN** a running server without `workspaceArtifact` and with matching file-operation filters

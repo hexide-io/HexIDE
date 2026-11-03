@@ -396,7 +396,11 @@ crossing the flush that superseded it cannot send a lower version after the flus
 
 **On reconnect, tracked documents are replayed** through the same code path as a first open, carrying the
 version this connection has been tracking rather than `1`. Resetting to `1` would put the client's count
-behind the session's, so the next change would arrive bearing a version the server had already seen.
+behind the session's, so the next change would arrive bearing a version the server had already seen. Requests
+about a tracked document wait for that document's `didOpen` write on the current connection, including
+requests made from the initialized state change before replay begins. Reserving an open for replay is
+not enough to release a request. Pending waits respect caller cancellation and the request timeout
+([#2920](https://github.com/hexide-io/HexIDE/issues/2920)).
 
 That replay used to be a *second* implementation, and it drifted: it hardcoded the language identifier to
 `vb6` and skipped the capability gate, so after any reconnect an attached foreign server was told every one
@@ -903,7 +907,8 @@ The editor flushes its debounced document change before requesting completion (f
 advertised triggers) or signature help, so the server receives the current typed text first (#2227).
 Document formatting (including format-on-save) sends the editor’s Tab Width as `options.tabSize`
 and `insertSpaces: true`, matching the editor’s conversion of tabs to spaces (#2669).
-On-type formatting is not implemented.
+Wire tests cover widths 2 and 8 with both `insertSpaces` values; editor delegation tests cover
+both widths with spaces. On-type formatting is not implemented.
 
 Completion asks every document claimant concurrently, with a shared **one-second popup budget**.
 It returns when all answers arrive or that budget expires, taking only answers received in time. Items
@@ -1262,10 +1267,11 @@ These are notifications and carry no request id. Wire tests read the frames and 
 as a barrier when asserting silence.
 
 The registry fans out to every running server whose operation filter matches, regardless of its document
-language claims, except entries with `workspaceArtifact`: those receive no create, rename or delete
-notifications. HexIDE's generated artefact already describes their project, so only one writer maintains
-it. When RDCore switches to `rdcore.importProject`, its entry drops `workspaceArtifact` and starts
-receiving matching notifications. File events do not start servers. Initialize advertises the three
+language claims, except entries with `workspaceArtifact` and no `projectImport`: those receive no create,
+rename or delete notifications. HexIDE's generated artefact already describes their project, so only one
+writer maintains it. A declared `projectImport` replaces generation, so an entry that declares it, as RDCore's
+does ([language-servers.md](language-servers.md#rdcore)), receives matching notifications, whether or not it
+also declares `workspaceArtifact` (#2915). File events do not start servers. Initialize advertises the three
 notification capabilities.
 First saves and Save As to a destination that does not exist report creation after the write succeeds;
 ordinary overwrites and temporary Make EXE copies report nothing. Save As keeps the original file, so it
@@ -1366,7 +1372,8 @@ describe returns null: nothing is prompted or written, and a target HexIDE still
 confinement and ownership check as a replace, while an edited one is left alone with its reason. Providers return
 content and never write files. The first provider, `clangd`, projects carried C/C++ files into `compile_commands.json`.
 The second, `rdcore`, projects the project's code files, references and Conditional Compilation Arguments into the
-`.rdproj` RDCore's language server needs at the workspace root, which it reads only when it starts.
+`.rdproj` RDCore's language server needs at the workspace root. Current RDCore builds take a project import
+instead (below).
 
 This implements generation only (#455). Regeneration sends no `workspace/didChangeWatchedFiles` until
 #456; there is no public add-in contract (#457), no undeclared generation,

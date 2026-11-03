@@ -1237,7 +1237,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     /// mid-build would name a document the server never opened, twice.
     /// </para>
     /// </remarks>
-    private string? LiveDocumentUri => session is { IsOpen: true } open ? open.Uri : null;
+    internal string? LiveDocumentUri => session is { IsOpen: true } open ? open.Uri : null;
 
     public void SaveForm() => SaveWithFormattingAsync(() => projectService.SaveForm(formDefinition!, false)).ListenErrors();
     public void SaveModule() => SaveWithFormattingAsync(() => projectService.SaveModule(moduleDefinition!, false)).ListenErrors();

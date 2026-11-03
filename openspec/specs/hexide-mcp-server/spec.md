@@ -807,6 +807,31 @@ cause when no such input came, and SHALL NOT count routed pointer events a tool 
 - **WHEN** another hover moves the pointer elsewhere during the watch, and no tip opens
 - **THEN** the reply names the other hover, not the real mouse, and says to hover one control at a time
 
+### Requirement: hover SHALL say why a code window opened no tip
+When `hover` lands in a code window and no tip opens, the reply SHALL say where it landed, as a line, column and the word
+there or that the point is below the text, and what the editor asked for: each quick-info request recorded during the watch
+with how it ended, or why none was asked. It SHALL state only what the editor and the protocol capture recorded.
+
+#### Scenario: A server answers with nothing
+- **WHEN** `hover` rests on a word and the language server answers the quick-info request with nothing to show
+- **THEN** the reply names the word, the server and the request's capture sequence, and says it answered with nothing to show
+
+#### Scenario: No server for the document
+- **WHEN** no language server is registered for the document's extension
+- **THEN** the reply says none is registered for those files, so none was asked
+
+#### Scenario: A watch shorter than the editor's delay
+- **WHEN** `dwellMs` is no longer than the editor's 400ms quick-info delay
+- **THEN** the reply says nothing had been asked yet, and that `dwellMs` must exceed the delay plus the server's round trip
+
+#### Scenario: A request still waiting
+- **WHEN** the quick-info request has no answer when the watch ends
+- **THEN** the reply says so, with how long it had waited, and that a longer `dwellMs` may see the answer
+
+#### Scenario: A point below the text
+- **WHEN** the point is below the last line of text
+- **THEN** the reply says so, and that nothing was asked
+
 ### Requirement: Snapshot coordinates include popup overhang
 
 By default, a snapshot SHALL include the client area and its open native popups at their relative screen positions,

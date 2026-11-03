@@ -127,10 +127,12 @@ equally a LaTeX class file, so claiming `.cls` is not enough to receive the proj
 a claim on VB6 would hand a LaTeX server your source. The entry must also establish that it serves VB6, by
 claiming one of `.bas`, `.frm`, `.ctl`, `.pag`, `.dob` or `.dsr`, or by declaring `languageId: vb6`. That is
 the only thing routing ever reads `languageId` for, and it never makes a claim on its own: an entry declaring
-`vb6` that claims no VB6 extension is still sent nothing. It applies only to documents of the project. A
-`.cls` the project merely carries goes to every entry that claims `.cls`, because nothing says it is VB6.
-That includes the bundled VB6 server, so a LaTeX class file the project carries is parsed as VB6 and shown
-with errors it does not have ([#279](https://github.com/hexide-io/HexIDE/issues/279), open).
+`vb6` that claims no VB6 extension is still sent nothing. A `.cls` the project merely carries is judged by
+its content instead: an entry that serves VB6 receives it only when its first non-blank line is
+`VERSION 1.0 CLASS`, so a LaTeX class file the project carries no longer reaches the bundled VB6 server
+([#279](https://github.com/hexide-io/HexIDE/issues/279)). Every other entry claiming `.cls` still receives
+it by extension. The check is made when the file opens, and editing it does not change where it goes until
+it is opened again.
 
 > Earlier revisions of this section said HexIDE's forms and modules had no extension on the wire, and that
 > an entry naming the language `vb6` received them whatever extensions it claimed. Both were true while those
@@ -359,7 +361,8 @@ command and its arguments; the filename is appended as a separate argument, and 
 `["clang"]`. This is a core provider seam, not yet a public add-in contract (#457).
 
 The `rdcore` provider writes the `.rdproj` that RDCore's language server reads from the workspace root,
-without which it analyses nothing:
+without which it analyses nothing. Current RDCore builds import the project instead
+([below](#rdcore)); the provider is for a build that can't:
 
 ```json
 "workspaceArtifact": { "path": ".rdproj", "provider": "rdcore" }
@@ -370,8 +373,8 @@ workspace root, including one in a subfolder or beside the project's folder, and
 references and its Conditional Compilation Arguments. It lists no other files, because RDCore parses
 anything listed as code. `settings.version` sets the file's `Version`, which must be no newer than the
 server reading it; the default, `0.1.0`, suits every RDCore build so far. A `.rdproj` you wrote yourself
-is left alone. RDCore reads the file only when it starts, so a module added while it runs is analysed
-from its next start.
+is left alone. A build that reads the file only when it starts analyses a module added while it runs from its
+next start.
 
 Before launch, HexIDE asks: “Server X has requested to write local file Y.” **Allow** permits that
 server in that workspace for this session; **Allow Always** remembers that server/workspace pair.
@@ -428,5 +431,36 @@ saved path appear as configuration problems in Tools → Language Servers; the s
 After a successful import, open documents are pulled for diagnostics without previous result IDs, until
 that connection receives `workspace/diagnostic/refresh`; subsequent refreshes are then the server's job.
 Automatic transport reconnect re-imports only on the next project change; immediate imports currently
-cover registry startup and workspace-root replacement. Workspace-folder changes before imports are tracked in #2364. File-operation routing under #2248 is not
-present on this branch yet; importing does not make HexIDE an artefact writer.
+cover registry startup and workspace-root replacement. Workspace-folder changes are sent before the import on
+the same debounce (#2364). Importing does not make HexIDE an artefact writer, so an entry that declares
+`projectImport` also receives the file-operation notifications its server asks for (#2248), whether or not it
+also declares `workspaceArtifact` (#2915).
+
+#### RDCore
+
+RDCore's language server takes its project this way. The entry it needs today runs it over a named pipe and
+imports the project with `rdcore.importProject`:
+
+```json
+{
+  "id": "rdcore-vba",
+  "displayName": "RD-VBA (RDCore)",
+  "extensions": [".bas", ".cls", ".frm"],
+  "languageId": "vba",
+  "transport": "pipe",
+  "pipeName": "RDCore.HexIDE",
+  "pipeRole": "connect",
+  "command": "path/to/RDCore.LanguageServer.exe",
+  "arguments": "--pipe-name {pipe} --workspace {workspaceUri}",
+  "priority": 10,
+  "projectImport": {
+    "command": "rdcore.importProject",
+    "arguments": [{ "uri": "{uri}", "text": "{text}", "overwrite": true }]
+  }
+}
+```
+
+Give `command` the absolute path of your build. The import needs a saved project: an unsaved one is reported
+in Tools → Language Servers rather than given an invented URI. If your build doesn't advertise
+`rdcore.importProject`, the same window reports the command as unavailable: use the
+[`rdcore` workspace-artefact provider](#generated-workspace-files) in place of `projectImport`.

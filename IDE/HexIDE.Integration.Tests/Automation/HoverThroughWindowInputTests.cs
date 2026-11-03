@@ -380,6 +380,43 @@ public class HoverThroughWindowInputTests
         return (window, editor, vm);
     }
 
+    // What the hover tool reports when no tip opened is the editor's own route at the point, read through the landing the
+    // move made, not one the tool works out again (#2574).
+    [AvaloniaFact]
+    public void The_route_under_a_hover_is_the_one_the_editor_takes()
+    {
+        var (window, editor, vm) = ShowEditor();
+        try
+        {
+            UiAutomationDriver.Hover(editor, null, null, null, out var landing).Success.Should().BeTrue();
+            var onWord = CodeEditorView.RouteUnder(landing!.Value.Receiver, landing.Value.Point);
+            UiAutomationDriver.EndHover(editor);
+            onWord.Should().NotBeNull();
+            onWord!.Value.Route.Should().Be(CodeEditorView.HoverRoute.QuickInfo);
+            onWord.Value.Word.Should().Be("Mid");
+            onWord.Value.Line.Should().Be(editor.Document.GetLocation(editor.CaretOffset).Line);
+            onWord.Value.DocumentUri.Should().NotBeNull();
+
+            var view = editor.TextArea.TextView;
+            var blankLine = editor.Document.Lines.First(l => l.Length == 0).LineNumber;
+            var blank = view.GetVisualPosition(new AvaloniaEdit.TextViewPosition(blankLine, 1),
+                AvaloniaEdit.Rendering.VisualYPosition.TextMiddle) - view.ScrollOffset;
+            var onBlank = CodeEditorView.RouteUnder(view, blank)!.Value;
+            onBlank.Line.Should().Be(blankLine);
+            onBlank.Word.Should().BeNull();
+
+            var below = CodeEditorView.RouteUnder(view, new Point(20, view.Bounds.Height - 2))!.Value;
+            below.Route.Should().Be(CodeEditorView.HoverRoute.NotOverText);
+            below.Line.Should().BeNull();
+
+            vm.Settings.AutoQuickInfo.Returns(false);
+            CodeEditorView.RouteUnder(view, blank)!.Value.Route.Should().Be(CodeEditorView.HoverRoute.QuickInfoOff);
+
+            CodeEditorView.RouteUnder(window, new Point(1, 1)).Should().BeNull("a window holding a code window is not in one");
+        }
+        finally { window.Close(); vm.Dispose(); }
+    }
+
     [AvaloniaFact]
     public async Task Scrolled_hover_requests_the_visible_identifier()
     {

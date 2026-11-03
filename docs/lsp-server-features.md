@@ -15,7 +15,8 @@ replaced or switched off like any other.
 **Visitor hardening (#1894):** symbol, declaration and Option Explicit walks bound recursion in
 `VisitChildren` at 500 levels, including left-associated operator trees. The 100,000-addition
 [probe](parse-depth-probes.md) now retains statement-level declarations and symbols without crashing;
-expression interiors beyond the bound are skipped. The interpreter's expression-walk overflow remains.
+expression interiors beyond the bound are skipped. The interpreter's expression walk no longer overflows
+the process stack either: before it runs out, it raises VB6's error 28, Out of stack space (#1893).
 
 ---
 
@@ -118,8 +119,8 @@ the non-empty lines outside the IDE's regions.
 **`textDocument/publishDiagnostics`** (server-push)
 
 The server parses VB6 source with the full ANTLR4 grammar on every change. Syntax errors surface as red
-wavy underlines. The client shows no message for one yet, on hover or anywhere else
-([#451](https://github.com/hexide-io/HexIDE/issues/451)); `get_diagnostics` reads them.
+wavy underlines. Hovering one shows its message, with any other message overlapping it
+([#451](https://github.com/hexide-io/HexIDE/issues/451)); `get_diagnostics` reads them too.
 
 **What works:** precise error spans on the offending token; ANTLR messages prettified into VB6-style text
 by `VbErrorMessages.Prettify()`; squiggles cleared on close. A whole VB6 file is accepted, and nothing is
@@ -322,8 +323,8 @@ change, and other requests (including formatting) still wait for that change's a
 
 **`textDocument/signatureHelp`**
 
-89 VB6 built-ins are covered, spanning strings, type conversions, math, arrays, character/ASCII,
-date/time, inspection, I/O and object/misc. The active parameter tracks comma position through nested
+148 VB6 built-ins are covered, spanning strings, byte strings, type conversions, math, arrays,
+character/ASCII, date/time, inspection, error handling, files and I/O, financial and object/misc. The active parameter tracks comma position through nested
 parentheses. Past the end of a signature whose last parameter is a list, as `Array`, `Choose` and `Switch` have,
 that parameter stays active. Past any other signature's end, the argument's own index is sent, so no parameter
 is marked for an argument VB6 would refuse (#2599).

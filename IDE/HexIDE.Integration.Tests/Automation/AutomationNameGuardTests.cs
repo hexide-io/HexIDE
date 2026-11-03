@@ -131,7 +131,7 @@ public class AutomationNameGuardTests
             window.Content = new NewProjectView
             {
                 DataContext = new NewProjectViewModel(Substitute.For<IWindowManager>(),
-                    Substitute.For<IRecentProjectsService>(), Substitute.For<ISettingsService>(), new PersonalityService(), loc),
+                    Substitute.For<IRecentProjectsService>(), Substitute.For<ISettingsService>(), new ProfileService(), loc),
             };
             RequireItem<ProjectTemplateViewModel>(window);
             Check(window, "New Project dialog", failures);

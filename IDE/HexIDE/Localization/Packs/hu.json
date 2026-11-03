@@ -2,6 +2,13 @@
   "name": "Hungarian",
   "direction": "ltr",
   "strings": {
+    "Str.MainWindow.RecoveryNotice": "Helyreállítási munkamenet — a beállítások módosításai nem lesznek mentve",
+    "Str.Profiles.LoadError": "Nem tölthető be a(z) „{0}” profil „{1}” fájlja. Ellenőrizze a csomag formátumát és a fájlok elérési útját.",
+    "Str.Profiles.HelpSummary": "Alapprofil: név, könyvtárútvonal vagy none (csökkentett mód).",
+    "Str.Profiles.PersonalityRemoved": "A --personality megszűnt. Használja a --profile vb6, --profile vbaode vagy --profile vba kapcsolót.",
+    "Str.Profiles.SelectorRequired": "A --profile pontosan egy értéket vár: csomagnevet, könyvtárútvonalat vagy none értéket. Ellenőrizze az indítási argumentumokat.",
+    "Str.RevertGate.SessionOnly": "Ez a nyelvváltás csak erre a munkamenetre érvényes.",
+    "Str.NewProject.NoTemplates": "Ez a profil nem kínál újprojektsablonokat. Nyisson meg egy meglévő projektet.",
     "Str.Dialog.About.Credits.Header": "Köszönetnyilvánítás",
     "Str.Dialog.About.Credits.Thanks": "A HexIDE fejlesztésén emberi közreműködői mellett rendkívüli AI-csapatok dolgoznak. Szívből köszönjük a Claude by Anthropic — a munkát megíró, ellenőrző és egyesítő Claude Code munkamenetek — és a Codex by OpenAI — a sorban álló javításokat előrevivő Codex munkafolyamatok — segítségét. Gondosságuk és fáradhatatlan munkájuk teszi lehetővé a HexIDE létét.",
     "Str.Tool.LanguageServers.Output": "Kimenet",

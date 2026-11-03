@@ -10,20 +10,20 @@ public class NewProjectViewModelTests
     private readonly IWindowManager _windowManager = Substitute.For<IWindowManager>();
     private readonly IRecentProjectsService _recentProjects = Substitute.For<IRecentProjectsService>();
     private readonly ISettingsService _settingsService = Substitute.For<ISettingsService>();
-    private readonly IPersonalityService _personality = Substitute.For<IPersonalityService>();
+    private readonly IProfileService _profile = Substitute.For<IProfileService>();
     private readonly ILocalizationService _localization = Substitute.For<ILocalizationService>();
 
     public NewProjectViewModelTests()
     {
         _recentProjects.GetRecent().Returns(new List<string>());
         _settingsService.PromptForProjectOnStartup.Returns(true);
-        _personality.AvailableProjectTypes.Returns(new List<IProjectTemplate>(IProjectTemplate.Templates));
+        _profile.AvailableProjectTypes.Returns(new List<IProjectTemplate>(IProjectTemplate.Templates));
         _localization.GetString("Str.NewProject.Msg.Title").Returns("New Project");
         _localization.GetString("Str.NewProject.Msg.VersionDoesNotSupport").Returns("Your HexIDE version doesn't support {0}");
         _localization.GetString("Str.NewProject.Msg.ProjectNoLongerExists").Returns("The project file no longer exists:\n{0}");
     }
 
-    private NewProjectViewModel CreateSut() => new(_windowManager, _recentProjects, _settingsService, _personality, _localization);
+    private NewProjectViewModel CreateSut() => new(_windowManager, _recentProjects, _settingsService, _profile, _localization);
 
     [AvaloniaFact]
     public void Title_ShouldBeNewProject()
