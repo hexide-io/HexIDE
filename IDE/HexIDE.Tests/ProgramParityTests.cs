@@ -15,6 +15,47 @@ public class ProgramParityTests
             .Should().Be("both-error-match");
     }
 
+    [Theory]
+    [InlineData("VBR00011", 11, "both-error-match")]
+    [InlineData("VBA00006", 6, "both-error-match")]
+    [InlineData("VBR00006", 11, "both-error-differ")]
+    [InlineData("Overflow", 6, "hexide-run-time-error-engine-refused")]
+    public void An_exception_stop_compares_the_number_in_its_id(string exceptionId, int hexideNumber, string outcome)
+    {
+        // Measured at RDCore 84278ae: VBR for a run-time error and VBA for an application error, with nothing on stderr.
+        var engine = new Engine { Exception = new JsonObject { ["info"] = new JsonObject { ["exceptionId"] = exceptionId } } };
+        Comparison.Outcome(new Hexide([], [], "VBRunTimeException", hexideNumber, null), engine).Should().Be(outcome);
+    }
+
+    [Fact]
+    public void An_exception_stop_is_an_engine_error_where_HexIDE_ran_cleanly()
+    {
+        var engine = new Engine { Exception = new JsonObject { ["info"] = new JsonObject { ["exceptionId"] = "VBR00011" } } };
+        Comparison.Outcome(new Hexide([], [], null, null, null), engine).Should().Be("engine-error-only");
+    }
+
+    [Theory]
+    [InlineData("exception", "terminate")]
+    [InlineData("exception-no-terminate", "disconnect")]
+    public async Task An_unhandled_error_is_read_at_its_first_stop_and_the_program_ended_there(string mode, string endedBy)
+    {
+        // The fixture stops again on the same line if continued, as RDCore does since its #574, so a runner that
+        // continues from the stop never sees the program end.
+        var adapter = Path.ChangeExtension(typeof(Dap.TestAdapter.Program).Assembly.Location, OperatingSystem.IsWindows() ? ".exe" : null);
+        await RunTool("""
+            {"modules":[{"name":"Module1","kind":"startup","source":"","wrapped":"Public Sub HexDumpMain()\nEnd Sub"}],"printed":[{"text":"before","type":"String"}],"lines":["before"],"locale":"en-US","error":{"kind":"VBRunTimeException","number":11,"message":"Division by zero"}}
+            """, ["--timeout", "30"], new() { ["HEXIDE_PARITY_ADAPTER"] = adapter, ["HEXIDE_DAP_FIXTURE_MODE"] = mode }, (results, _) =>
+        {
+            var result = JsonNode.Parse(results[1])!;
+            result["outcome"]!.GetValue<string>().Should().Be("both-error-match");
+            var engine = result["engine"]!;
+            engine["stops"]!.AsArray().Select(s => s!.GetValue<string>()).Should().Equal("exception");
+            engine["endedAtException"]!.GetValue<string>().Should().Be(endedBy);
+            engine["errorNumber"]!.GetValue<int>().Should().Be(11);
+            engine["stdout"]!.GetValue<string>().Should().Be("before\n");
+        });
+    }
+
     [Fact]
     public void Statement_lines_are_compared_instead_of_individual_items()
     {
@@ -130,7 +171,10 @@ public class ProgramParityTests
     }
 
     /// <summary>Runs the tool with <c>--dry-run</c> on a one-line dump, and checks its results and case folders.</summary>
-    private static async Task DryRun(string dumpLine, Action<string[], string> check)
+    private static Task DryRun(string dumpLine, Action<string[], string> check) => RunTool(dumpLine, ["--dry-run"], [], check);
+
+    /// <summary>Runs the tool on a one-line dump with the given options and environment, and checks its results and case folders.</summary>
+    private static async Task RunTool(string dumpLine, string[] options, Dictionary<string, string> environment, Action<string[], string> check)
     {
         var dir = Path.Combine(Path.GetTempPath(), $"hexide-parity-{Guid.NewGuid():N}");
         Directory.CreateDirectory(dir);
@@ -140,8 +184,10 @@ public class ProgramParityTests
             await File.WriteAllTextAsync(dump, dumpLine, TestContext.Current.CancellationToken);
             var start = new System.Diagnostics.ProcessStartInfo("dotnet") { UseShellExecute = false };
             start.ArgumentList.Add(typeof(Comparison).Assembly.Location);
-            foreach (var arg in new[] { dump, "--dry-run", "--out", Path.Combine(dir, "out") })
+            foreach (var arg in new[] { dump, "--out", Path.Combine(dir, "out") }.Concat(options))
                 start.ArgumentList.Add(arg);
+            foreach (var (name, value) in environment)
+                start.Environment[name] = value;
             using var process = System.Diagnostics.Process.Start(start)!;
             await process.WaitForExitAsync(TestContext.Current.CancellationToken);
             process.ExitCode.Should().Be(0);

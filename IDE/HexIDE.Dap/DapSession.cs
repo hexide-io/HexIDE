@@ -174,6 +174,26 @@ public sealed class DapSession : IAsyncDisposable
         return Inspect(stop, "evaluate", new { expression, frameId, context = "hover" }, token);
     }
 
+    /// <summary>What stopped the program at an exception stop. Sent only to an adapter that advertises it.</summary>
+    public Task<DapResponse> ExceptionInfoAsync(DapStop stop, int threadId, CancellationToken token = default)
+    {
+        if (!Supports("supportsExceptionInfoRequest"))
+            throw new InvalidOperationException("The adapter does not support the exceptionInfo request.");
+        return Inspect(stop, "exceptionInfo", new { threadId }, token);
+    }
+
+    /// <summary>
+    /// Asks the adapter to end the program, which it reports with a terminated event; the session stays open for the
+    /// disconnect that follows. Sent only to an adapter that advertises it: otherwise end the program with
+    /// <see cref="DisconnectAsync"/>.
+    /// </summary>
+    public async Task TerminateAsync(CancellationToken token = default)
+    {
+        if (!Supports("supportsTerminateRequest"))
+            throw new InvalidOperationException("The adapter does not support the terminate request.");
+        await Request("terminate", new { }, token).ConfigureAwait(false);
+    }
+
     private async Task<DapResponse> Inspect(DapStop stop, string command, object arguments, CancellationToken token)
     {
         CheckStop(stop);

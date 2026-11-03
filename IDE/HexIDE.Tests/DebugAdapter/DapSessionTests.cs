@@ -450,6 +450,50 @@ public class DapSessionTests
     }
 
     [Fact]
+    public async Task Exception_info_asks_for_the_stopped_thread_only_when_the_adapter_advertises_it()
+    {
+        await using var peer = new Peer();
+        await using var session = new DapSession(peer.Client);
+        await Launch(peer, session, capabilities: """{"supportsConfigurationDoneRequest":true,"supportsExceptionInfoRequest":true}""");
+        await peer.Send("""{"seq":11,"type":"event","event":"stopped","body":{"threadId":3,"reason":"exception"}}""");
+        var stop = (await Until(session, u => u.Event?.Event == "stopped")).Snapshot.Stop!;
+        var pending = session.ExceptionInfoAsync(stop, stop.ThreadId!.Value, Token);
+        var request = await peer.Receive();
+        request.GetProperty("command").GetString().Should().Be("exceptionInfo");
+        request.GetProperty("arguments").GetProperty("threadId").GetInt32().Should().Be(3);
+        await peer.Reply(request, """{"exceptionId":"6","description":"Overflow","breakMode":"unhandled"}""");
+        (await pending).Body!.Value.GetProperty("description").GetString().Should().Be("Overflow");
+
+        await using var silentPeer = new Peer();
+        await using var silent = new DapSession(silentPeer.Client);
+        await Launch(silentPeer, silent);
+        var silentStop = await Stop(silentPeer, silent);
+        await ((Func<Task>)(() => silent.ExceptionInfoAsync(silentStop, 1, Token))).Should().ThrowExactlyAsync<InvalidOperationException>();
+    }
+
+    [Fact]
+    public async Task Terminate_is_sent_only_when_the_adapter_advertises_it_and_leaves_the_session_open()
+    {
+        await using var peer = new Peer();
+        await using var session = new DapSession(peer.Client);
+        await Launch(peer, session, capabilities: """{"supportsConfigurationDoneRequest":true,"supportsTerminateRequest":true}""");
+        await Stop(peer, session);
+        var terminate = session.TerminateAsync(Token);
+        var request = await peer.Receive();
+        request.GetProperty("command").GetString().Should().Be("terminate");
+        await peer.Reply(request);
+        await terminate.WaitAsync(Patience, Token);
+        await peer.Send("""{"seq":12,"type":"event","event":"terminated"}""");
+        await Until(session, u => u.Event?.Event == "terminated");
+        peer.Client.Completion.IsCompleted.Should().BeFalse("the disconnect that follows still needs the connection");
+
+        await using var silentPeer = new Peer();
+        await using var silent = new DapSession(silentPeer.Client);
+        await Launch(silentPeer, silent);
+        await ((Func<Task>)(() => silent.TerminateAsync(Token))).Should().ThrowExactlyAsync<InvalidOperationException>();
+    }
+
+    [Fact]
     public async Task Pause_waits_for_event_and_refused_disconnect_still_releases_ownership()
     {
         await using var peer = new Peer();

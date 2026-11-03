@@ -10,6 +10,8 @@ public static class Program
     public static async Task<int> Main(string[] args)
     {
         var mode = args[0];
+        // Started as an engine's adapter is, with `--dap --workspace <dir>`, the fixture takes its mode from the environment.
+        if (mode == "--dap") mode = Environment.GetEnvironmentVariable("HEXIDE_DAP_FIXTURE_MODE") ?? mode;
         if (mode == "exit") { Console.Error.Write("adapter startup failed"); return 37; }
         // A failed test must not leave an orphan alive indefinitely.
         if (mode == "child") { await Task.Delay(TimeSpan.FromMinutes(1)); return 0; }
@@ -63,6 +65,31 @@ public static class Program
             catch (EndOfStreamException) { return 0; }
             using var request = JsonDocument.Parse(body);
             if (mode == "silent") continue;
+            if (mode is "exception" or "exception-no-terminate")
+            {
+                // A program that prints, then stops at an unhandled error. Continuing re-runs the failing line and stops
+                // there again, as an engine following VBA's F5 does.
+                var command = request.RootElement.GetProperty("command").GetString();
+                object reply = command switch
+                {
+                    "initialize" => new { supportsConfigurationDoneRequest = true, supportsExceptionInfoRequest = true,
+                        supportsTerminateRequest = mode == "exception" },
+                    "exceptionInfo" => new { exceptionId = "VBR00011", description = "Division by zero", breakMode = "Unhandled",
+                        details = new { message = "Division by zero", typeName = "Run-time error" } },
+                    _ => new { },
+                };
+                await Send(new { seq = 30, type = "response", request_seq = request.RootElement.GetProperty("seq").GetInt32(),
+                    command, success = true, body = reply });
+                if (command == "initialize") await Send(new { seq = 31, type = "event", @event = "initialized" });
+                if (command == "configurationDone")
+                    await Send(new { seq = 32, type = "event", @event = "output", body = new { category = "stdout", output = "before\n" } });
+                if (command is "configurationDone" or "continue")
+                    await Send(new { seq = 33, type = "event", @event = "stopped",
+                        body = new { threadId = 1, reason = "exception", description = "Division by zero" } });
+                if (command == "terminate") await Send(new { seq = 34, type = "event", @event = "terminated" });
+                if (command == "disconnect") return 0;
+                continue;
+            }
             if (mode is "goto" or "goto-empty" or "goto-refuse" or "goto-targets-refuse" or "invalidated" or "session" or "frames" or "frames-delayed" or "evaluate" or "evaluate-running" or "breakpoints" or "breakpoints-delayed" or "breakpoints-refuse-clear" or "resume-refusal" or "disconnect-held")
             {
                 var command = request.RootElement.GetProperty("command").GetString();
