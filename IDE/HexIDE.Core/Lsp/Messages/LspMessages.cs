@@ -279,7 +279,9 @@ public record TextDocumentClientCapabilities(
     [property: JsonPropertyName("semanticTokens")]
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] SemanticTokensClientCapabilities? SemanticTokens = null,
     [property: JsonPropertyName("completion")]
-    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] CompletionClientCapabilities? Completion = null);
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] CompletionClientCapabilities? Completion = null,
+    [property: JsonPropertyName("inlayHint")]
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] InlayHintClientCapabilities? InlayHint = null);
 
 public record CompletionClientCapabilities(
     [property: JsonPropertyName("completionItemKind")] CompletionItemKindClientCapabilities CompletionItemKind,
@@ -521,7 +523,9 @@ public record ServerCapabilities(
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] System.Text.Json.JsonElement? DiagnosticProvider = null,
     [property: JsonPropertyName("executeCommandProvider")]
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] System.Text.Json.JsonElement? ExecuteCommandProvider = null,
-    [property: JsonPropertyName("experimental")]                System.Text.Json.JsonElement? Experimental = null)
+    [property: JsonPropertyName("experimental")]                System.Text.Json.JsonElement? Experimental = null,
+    [property: JsonPropertyName("inlayHintProvider")]
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] System.Text.Json.JsonElement? InlayHintProvider = null)
 {
     /// <summary>
     /// True when a capability is present and switched on, in either shape the protocol permits.
@@ -1207,3 +1211,22 @@ public record WorkspaceFoldersChangeEvent(
 
 public record DidChangeWorkspaceFoldersParams(
     [property: JsonPropertyName("event")] WorkspaceFoldersChangeEvent Event);
+
+public record InlayHintClientCapabilities();
+
+public record InlayHintParams(
+    [property: JsonPropertyName("textDocument")] TextDocumentIdentifier TextDocument,
+    [property: JsonPropertyName("range")] Range Range);
+
+public record InlayHint(
+    [property: JsonPropertyName("position")] Position Position,
+    [property: JsonPropertyName("label")] System.Text.Json.JsonElement Label)
+{
+    [JsonIgnore]
+    public string Text => Label.ValueKind == System.Text.Json.JsonValueKind.String
+        ? Label.GetString() ?? ""
+        : Label.ValueKind == System.Text.Json.JsonValueKind.Array
+            ? string.Concat(Label.EnumerateArray().Select(part =>
+                part.TryGetProperty("value", out var value) ? value.GetString() : ""))
+            : "";
+}

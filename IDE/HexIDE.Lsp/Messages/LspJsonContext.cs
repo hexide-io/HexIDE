@@ -44,6 +44,8 @@ namespace HexIDE.Lsp;
 [JsonSerializable(typeof(SemanticTokens))]
 [JsonSerializable(typeof(FoldingRangeParams))]
 [JsonSerializable(typeof(FoldingRange[]))]
+[JsonSerializable(typeof(InlayHintParams))]
+[JsonSerializable(typeof(InlayHint[]))]
 [JsonSerializable(typeof(CodeLensParams))]
 [JsonSerializable(typeof(CodeLens))]
 [JsonSerializable(typeof(CodeLens[]))]

@@ -438,6 +438,7 @@
     "Str.Options.EditorGeneral.CodeSettings.FormatOnSave": "Dona format en desar",
     "Str.Options.EditorGeneral.Display.Header": "Visualització",
     "Str.Options.EditorGeneral.Display.ShowMinimap": "Mostra el minimapa",
+    "Str.Options.EditorGeneral.Display.ShowInlayHints": "Mostra les pistes en línia",
     "Str.Options.EditorFormatting.Indentation.Header": "Sagnat",
     "Str.Options.EditorFormatting.Indentation.TabWidth": "Amplada de la tabulació:",
     "Str.Options.Grid.GroupHeader": "Configuració de la quadrícula del formulari",

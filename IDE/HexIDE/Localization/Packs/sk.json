@@ -438,6 +438,7 @@
     "Str.Options.EditorGeneral.CodeSettings.FormatOnSave": "Formátovať pri ukladaní",
     "Str.Options.EditorGeneral.Display.Header": "Zobrazenie",
     "Str.Options.EditorGeneral.Display.ShowMinimap": "Zobraziť minimapu",
+    "Str.Options.EditorGeneral.Display.ShowInlayHints": "Zobraziť vložené nápovedy",
     "Str.Options.EditorFormatting.Indentation.Header": "Odsadenie",
     "Str.Options.EditorFormatting.Indentation.TabWidth": "Šírka tabulátora:",
     "Str.Options.Grid.GroupHeader": "Nastavenia mriežky formulára",

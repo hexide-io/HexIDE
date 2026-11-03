@@ -599,6 +599,7 @@ public sealed class VBLspClient : ILspClient
                     // nothing goes silent without this. What goes is the nesting, because a server that
                     // honours it sends the flat form to a client that never said it could take the tree.
                     DocumentSymbol: new DocumentSymbolClientCapabilities(HierarchicalDocumentSymbolSupport: true),
+                    InlayHint: new InlayHintClientCapabilities(),
                     Completion: new CompletionClientCapabilities(new CompletionItemKindClientCapabilities(
                         [CompletionItemKind.Text, CompletionItemKind.Function, CompletionItemKind.Variable,
                          CompletionItemKind.Property, CompletionItemKind.Keyword, CompletionItemKind.Constant])),
@@ -1737,6 +1738,21 @@ public sealed class VBLspClient : ILspClient
         }
     }
 
+    public async Task<InlayHint[]> RequestInlayHintsAsync(string uri, HexIDE.Lsp.Messages.Range range, CancellationToken cancellationToken = default)
+    {
+        if (_rpc is null || !_initialized || !CanServe("inlayHintProvider")) return [];
+        try
+        {
+            return await InvokeRequestAsync<InlayHint[]?>(_rpc, "textDocument/inlayHint",
+                new InlayHintParams(new TextDocumentIdentifier(uri), range), cancellationToken) ?? [];
+        }
+        catch (Exception ex)
+        {
+            WarnRequestFailedOnce("textDocument/inlayHint", ex, cancellationToken);
+            return [];
+        }
+    }
+
     public async Task<CodeLens[]> RequestCodeLensesAsync(string uri, CancellationToken cancellationToken = default)
     {
         if (_rpc is null || !_initialized || !CanServe("codeLensProvider")) return [];
@@ -2452,6 +2468,7 @@ public sealed class VBLspClient : ILspClient
         "foldingRangeProvider",
         "semanticTokensProvider",
         "hoverProvider",
+        "inlayHintProvider",
         "renameProvider",
         "signatureHelpProvider",
         // Read by the sync readers rather than a gate, because its two shapes mean different things — and

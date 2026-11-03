@@ -1910,6 +1910,14 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     public Task<HoverResult?> RequestHoverAsync(Position position, CancellationToken ct = default)
         => LiveDocumentUri is { } uri ? lspClient.RequestHoverAsync(uri, position, ct) : Task.FromResult<HoverResult?>(null);
 
+    public async Task<InlayHint[]> RequestInlayHintsAsync(CancellationToken ct = default)
+    {
+        if (!Settings.ShowInlayHints || LiveDocumentUri is not { } uri) return [];
+        await FlushDocumentAsync(ct);
+        var last = Document.GetLineByNumber(Document.LineCount);
+        return await lspClient.RequestInlayHintsAsync(uri,
+            new(new Position(0, 0), new Position(last.LineNumber - 1, last.Length)), ct);
+    }
     public Task<SemanticTokenResult?> RequestSemanticTokensAsync(CancellationToken ct = default)
         => LiveDocumentUri is { } uri ? lspClient.RequestSemanticTokensAsync(uri, ct) : Task.FromResult<SemanticTokenResult?>(null);
 

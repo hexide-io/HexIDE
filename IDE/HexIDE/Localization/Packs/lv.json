@@ -438,6 +438,7 @@
     "Str.Options.EditorGeneral.CodeSettings.FormatOnSave": "Formatēt saglabājot",
     "Str.Options.EditorGeneral.Display.Header": "Attēlojums",
     "Str.Options.EditorGeneral.Display.ShowMinimap": "Rādīt minikarti",
+    "Str.Options.EditorGeneral.Display.ShowInlayHints": "Rādīt iegultos padomus",
     "Str.Options.EditorFormatting.Indentation.Header": "Atkāpes",
     "Str.Options.EditorFormatting.Indentation.TabWidth": "Tabulācijas platums:",
     "Str.Options.Grid.GroupHeader": "Formas režģa iestatījumi",
