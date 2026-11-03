@@ -1211,7 +1211,8 @@ public partial class FindReplaceViewModelTests
             immediate, locals, watches, callStack, colorPalette, objectBrowser, translationEditor,
             languageServers,
             protocolInspector,
-            windowStateService, new DockFactoryReference());
+            windowStateService, new DockFactoryReference(), new HexIDE.Tools.OutlineToolViewModel(
+                Substitute.For<HexIDE.Localization.ILocalizationService>(), Substitute.For<IDocumentDockService>()));
 
         return new MainViewViewModel(
             windowManager,

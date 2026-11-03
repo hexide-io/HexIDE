@@ -85,6 +85,8 @@ public partial class MainViewViewModel : ObservableObject
     public ImmediateToolViewModel Immediate { get; }
     public FormLayoutToolViewModel FormLayout { get; }
     public LocalsToolViewModel Locals { get; }
+    public OutlineToolViewModel Outline => dockFactory.Outline;
+    public ICommand OpenOutlineCommand { get; private set; } = null!;
     public WatchesToolViewModel Watches { get; }
     public CallStackToolViewModel CallStack { get; }
     public RecentEditsToolViewModel RecentEdits { get; }
@@ -284,6 +286,8 @@ public partial class MainViewViewModel : ObservableObject
         public ProportionalDock? MiddleDock;
         public DocumentDock? DocumentDock { get; private set; }
 
+        public OutlineToolViewModel Outline { get; }
+
         public DockFactory(ToolBoxToolViewModel toolBox,
             ProjectToolViewModel project,
             PropertiesToolViewModel properties,
@@ -298,7 +302,8 @@ public partial class MainViewViewModel : ObservableObject
             LanguageServersToolViewModel languageServers,
             HexIDE.Tools.ProtocolInspector.ProtocolInspectorToolViewModel protocolInspector,
             IWindowStateService windowStateService,
-            DockFactoryReference documentDockFactory)
+            DockFactoryReference documentDockFactory,
+            OutlineToolViewModel outline)
         {
             ArgumentNullException.ThrowIfNull(toolBox);
             ArgumentNullException.ThrowIfNull(project);
@@ -315,7 +320,9 @@ public partial class MainViewViewModel : ObservableObject
             ArgumentNullException.ThrowIfNull(protocolInspector);
             ArgumentNullException.ThrowIfNull(windowStateService);
             ArgumentNullException.ThrowIfNull(documentDockFactory);
+            ArgumentNullException.ThrowIfNull(outline);
 
+            Outline = outline;
             this.windowStateService = windowStateService;
             toolsByKey = new Dictionary<string, IDockable>
             {
@@ -325,6 +332,7 @@ public partial class MainViewViewModel : ObservableObject
                 ["formLayout"]        = formLayout,
                 ["immediate"]         = immediate,
                 ["locals"]            = locals,
+                ["outline"]           = outline,
                 ["watches"]           = watches,
                 ["callStack"]         = callStack,
                 ["colorPalette"]      = colorPalette,
@@ -1166,6 +1174,7 @@ public partial class MainViewViewModel : ObservableObject
         Immediate = immediate;
         FormLayout = formLayout;
         Locals = locals;
+        OpenOutlineCommand = new DelegateCommand(() => OpenOrActivateTool(Outline, true));
         Watches = watches;
         CallStack = callStack;
         callStack.FrameShown += () =>
