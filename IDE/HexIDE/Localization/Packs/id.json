@@ -2,6 +2,7 @@
   "name": "Indonesian",
   "direction": "ltr",
   "strings": {
+    "Str.MainWindow.RecoveryNotice": "Sesi pemulihan — perubahan pengaturan tidak akan disimpan",
     "Str.Profiles.LoadError": "Tidak dapat memuat profil '{0}', berkas '{1}'. Periksa format bundel dan jalur berkas.",
     "Str.Profiles.HelpSummary": "Profil dasar: nama, jalur direktori, atau none (mode aman).",
     "Str.Profiles.PersonalityRemoved": "--personality telah dihapus. Gunakan --profile vb6, --profile vbaode atau --profile vba.",

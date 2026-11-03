@@ -2,6 +2,7 @@
   "name": "Serbian (Latin)",
   "direction": "ltr",
   "strings": {
+    "Str.MainWindow.RecoveryNotice": "Sesija oporavka — promene podešavanja neće biti sačuvane",
     "Str.Profiles.LoadError": "Nije moguće učitati profil „{0}”, datoteku „{1}”. Proverite format paketa i putanje datoteka.",
     "Str.Profiles.HelpSummary": "Osnovni profil: naziv, putanja direktorijuma ili none (bezbedni režim).",
     "Str.Profiles.PersonalityRemoved": "--personality je uklonjen. Koristite --profile vb6, --profile vbaode ili --profile vba.",

@@ -2,6 +2,7 @@
   "name": "Portuguese",
   "direction": "ltr",
   "strings": {
+    "Str.MainWindow.RecoveryNotice": "Sessão de recuperação — as alterações às definições não serão guardadas",
     "Str.Profiles.LoadError": "Não foi possível carregar o perfil '{0}', ficheiro '{1}'. Verifique o formato do pacote e os caminhos dos ficheiros.",
     "Str.Profiles.HelpSummary": "Perfil base: nome, caminho de diretório ou none (modo de segurança).",
     "Str.Profiles.PersonalityRemoved": "--personality foi removido. Use --profile vb6, --profile vbaode ou --profile vba.",

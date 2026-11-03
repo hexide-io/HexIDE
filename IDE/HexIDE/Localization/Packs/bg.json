@@ -2,6 +2,7 @@
   "name": "Bulgarian",
   "direction": "ltr",
   "strings": {
+    "Str.MainWindow.RecoveryNotice": "Сесия за възстановяване — промените в настройките няма да бъдат запазени",
     "Str.Profiles.LoadError": "Профилът „{0}“, файл „{1}“, не може да се зареди. Проверете формата на пакета и пътищата на файловете.",
     "Str.Profiles.HelpSummary": "Основен профил: име, път до директория или none (безопасен режим).",
     "Str.Profiles.PersonalityRemoved": "--personality е премахнат. Използвайте --profile vb6, --profile vbaode или --profile vba.",

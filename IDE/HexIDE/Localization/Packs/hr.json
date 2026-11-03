@@ -2,6 +2,7 @@
   "name": "Croatian",
   "direction": "ltr",
   "strings": {
+    "Str.MainWindow.RecoveryNotice": "Sesija oporavka — promjene postavki neće se spremiti",
     "Str.Profiles.LoadError": "Nije moguće učitati profil „{0}”, datoteku „{1}”. Provjerite format paketa i putanje datoteka.",
     "Str.Profiles.HelpSummary": "Osnovni profil: naziv, putanja direktorija ili none (sigurni način rada).",
     "Str.Profiles.PersonalityRemoved": "--personality je uklonjen. Upotrijebite --profile vb6, --profile vbaode ili --profile vba.",

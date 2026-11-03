@@ -388,6 +388,39 @@ public class MainViewViewModelTests
         changed.Should().Contain(nameof(_sut.Title)).And.Contain(nameof(_sut.WindowTitle));
     }
 
+    [AvaloniaTheory]
+    [InlineData(null, false, false)]
+    [InlineData("P", false, false)]
+    [InlineData("P", true, false)]
+    [InlineData("P", true, true)]
+    public void Recovery_window_title_keeps_notice_across_project_run_and_language_changes(string? project, bool running, bool paused)
+    {
+        var previous = Static.IsRecoveryMode;
+        try
+        {
+            Static.IsRecoveryMode = true;
+            _focusedProjectUtil.FocusedOrStartupProject.Returns(project == null ? null : TestHelpers.CreateProject(project));
+            _runnerService.IsRunning.Returns(running);
+            _debugController.State.Returns(paused ? HexIDE.Runtime.Debugging.DebugState.Paused : HexIDE.Runtime.Debugging.DebugState.Running);
+            _localization.GetString("Str.MainWindow.RecoveryNotice").Returns("Recovery session — settings changes won't be saved");
+            var changed = new List<string?>();
+            _sut.PropertyChanged += (_, e) => changed.Add(e.PropertyName);
+
+            _sut.WindowTitle.Should().Be(_sut.Title + " — Recovery session — settings changes won't be saved");
+            _localization.GetString("Str.MainWindow.RecoveryNotice").Returns("Translated recovery notice");
+            _localization.LanguageChanged += Raise.Event<System.Action>();
+
+            _sut.WindowTitle.Should().Be(_sut.Title + " — Translated recovery notice");
+            changed.Should().Contain(nameof(_sut.WindowTitle));
+            Static.IsRecoveryMode = false;
+            _sut.WindowTitle.Should().Be(_sut.Title);
+        }
+        finally
+        {
+            Static.IsRecoveryMode = previous;
+        }
+    }
+
     // --- StartDefaultProjectCommand ---
 
     [AvaloniaTheory]

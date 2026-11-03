@@ -2,6 +2,7 @@
   "name": "Chinese (Traditional)",
   "direction": "ltr",
   "strings": {
+    "Str.MainWindow.RecoveryNotice": "復原工作階段 — 設定變更不會儲存",
     "Str.Profiles.LoadError": "無法載入設定檔套件 '{0}' 中的檔案 '{1}'。請檢查套件格式和檔案路徑。",
     "Str.Profiles.HelpSummary": "基礎設定：名稱、目錄路徑或 none（安全模式）。",
     "Str.Profiles.PersonalityRemoved": "--personality 已移除。請使用 --profile vb6、--profile vbaode 或 --profile vba。",

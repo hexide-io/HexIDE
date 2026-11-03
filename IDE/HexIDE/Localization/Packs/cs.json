@@ -2,6 +2,7 @@
   "name": "Czech",
   "direction": "ltr",
   "strings": {
+    "Str.MainWindow.RecoveryNotice": "Relace obnovení — změny nastavení nebudou uloženy",
     "Str.Profiles.LoadError": "Nelze načíst profil '{0}', soubor '{1}'. Zkontrolujte formát balíčku a cesty k souborům.",
     "Str.Profiles.HelpSummary": "Základní profil: název, cesta k adresáři nebo none (nouzový režim).",
     "Str.Profiles.PersonalityRemoved": "--personality byl odstraněn. Použijte --profile vb6, --profile vbaode nebo --profile vba.",

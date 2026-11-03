@@ -2,6 +2,7 @@
   "name": "Hebrew",
   "direction": "rtl",
   "strings": {
+    "Str.MainWindow.RecoveryNotice": "הפעלת שחזור — שינויים בהגדרות לא יישמרו",
     "Str.Profiles.LoadError": "לא ניתן לטעון את הפרופיל '{0}', קובץ '{1}'. יש לבדוק את מבנה החבילה ואת נתיבי הקבצים.",
     "Str.Profiles.HelpSummary": "פרופיל בסיס: שם, נתיב תיקייה או none (מצב בטוח).",
     "Str.Profiles.PersonalityRemoved": "האפשרות --personality הוסרה. השתמשו ב־--profile vb6, ב־--profile vbaode או ב־--profile vba.",

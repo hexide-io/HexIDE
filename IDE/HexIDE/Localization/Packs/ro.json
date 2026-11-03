@@ -2,6 +2,7 @@
   "name": "Romanian",
   "direction": "ltr",
   "strings": {
+    "Str.MainWindow.RecoveryNotice": "Sesiune de recuperare — modificările setărilor nu vor fi salvate",
     "Str.Profiles.LoadError": "Nu se poate încărca profilul „{0}”, fișierul „{1}”. Verificați formatul pachetului și căile fișierelor.",
     "Str.Profiles.HelpSummary": "Profil de bază: nume, cale de director sau none (mod sigur).",
     "Str.Profiles.PersonalityRemoved": "--personality a fost eliminat. Folosiți --profile vb6, --profile vbaode sau --profile vba.",

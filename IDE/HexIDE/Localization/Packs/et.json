@@ -2,6 +2,7 @@
   "name": "Estonian",
   "direction": "ltr",
   "strings": {
+    "Str.MainWindow.RecoveryNotice": "Taasteseanss — sätete muudatusi ei salvestata",
     "Str.Profiles.LoadError": "Profiili „{0}”, faili „{1}” ei saa laadida. Kontrollige paketi vormingut ja failiteid.",
     "Str.Profiles.HelpSummary": "Baasprofiil: nimi, kataloogitee või none (turvarežiim).",
     "Str.Profiles.PersonalityRemoved": "--personality on eemaldatud. Kasutage --profile vb6, --profile vbaode või --profile vba.",

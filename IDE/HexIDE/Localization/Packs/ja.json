@@ -2,6 +2,7 @@
   "name": "Japanese",
   "direction": "ltr",
   "strings": {
+    "Str.MainWindow.RecoveryNotice": "回復セッション — 設定の変更は保存されません",
     "Str.Profiles.LoadError": "プロファイル '{0}' のファイル '{1}' を読み込めません。バンドルの形式とファイルのパスを確認してください。",
     "Str.Profiles.HelpSummary": "基本プロファイル：名前、ディレクトリパス、または none（セーフモード）。",
     "Str.Profiles.PersonalityRemoved": "--personality は削除されました。--profile vb6、--profile vbaode、または --profile vba を使用してください。",

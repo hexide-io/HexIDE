@@ -2,6 +2,7 @@
   "name": "Galician",
   "direction": "ltr",
   "strings": {
+    "Str.MainWindow.RecoveryNotice": "Sesión de recuperación — os cambios de configuración non se gardarán",
     "Str.Profiles.LoadError": "Non se pode cargar o perfil «{0}», ficheiro «{1}». Comprobe o formato do paquete e as rutas dos ficheiros.",
     "Str.Profiles.HelpSummary": "Perfil base: nome, ruta de directorio ou none (modo seguro).",
     "Str.Profiles.PersonalityRemoved": "--personality eliminouse. Use --profile vb6, --profile vbaode ou --profile vba.",

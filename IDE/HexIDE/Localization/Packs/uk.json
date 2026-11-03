@@ -2,6 +2,7 @@
   "name": "Ukrainian",
   "direction": "ltr",
   "strings": {
+    "Str.MainWindow.RecoveryNotice": "Сеанс відновлення — зміни налаштувань не буде збережено",
     "Str.Profiles.LoadError": "Не вдалося завантажити профіль '{0}', файл '{1}'. Перевірте формат пакунка та шляхи до файлів.",
     "Str.Profiles.HelpSummary": "Базовий профіль: назва, шлях до каталогу або none (безпечний режим).",
     "Str.Profiles.PersonalityRemoved": "Параметр --personality вилучено. Використовуйте --profile vb6, --profile vbaode або --profile vba.",

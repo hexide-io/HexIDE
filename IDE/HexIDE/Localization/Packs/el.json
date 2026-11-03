@@ -2,6 +2,7 @@
   "name": "Greek",
   "direction": "ltr",
   "strings": {
+    "Str.MainWindow.RecoveryNotice": "Συνεδρία ανάκτησης — οι αλλαγές ρυθμίσεων δεν θα αποθηκευτούν",
     "Str.Profiles.LoadError": "Δεν είναι δυνατή η φόρτωση του προφίλ '{0}', αρχείο '{1}'. Ελέγξτε τη μορφή του πακέτου και τις διαδρομές αρχείων.",
     "Str.Profiles.HelpSummary": "Βασικό προφίλ: όνομα, διαδρομή καταλόγου ή none (ασφαλής λειτουργία).",
     "Str.Profiles.PersonalityRemoved": "Το --personality καταργήθηκε. Χρησιμοποιήστε --profile vb6, --profile vbaode ή --profile vba.",
