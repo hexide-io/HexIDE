@@ -961,6 +961,21 @@
     "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Farbiť zátvorky podľa hĺbky vnorenia",
     "Str.Dialog.Print.Configuration": "Kópie: 1; orientácia: na výšku.",
     "Str.Dialog.Print.Unavailable": "Tlač nie je implementovaná. OK vráti iba nastavenia dialógového okna.",
-    "Str.Dialog.Color.Rgb": "RGB (#RRGGBB)"
+    "Str.Dialog.Color.Rgb": "RGB (#RRGGBB)",
+    "Str.Tool.Diagnostics.Severity": "Závažnosť",
+    "Str.Tool.Diagnostics.Severity.Error": "Chyba",
+    "Str.Tool.Diagnostics.Severity.Warning": "Upozornenie",
+    "Str.Tool.Diagnostics.Severity.Information": "Informácia",
+    "Str.Tool.Diagnostics.Severity.Hint": "Tip",
+    "Str.Tool.Diagnostics.Title": "Diagnostika",
+    "Str.Tool.Diagnostics.Errors": "Chyby",
+    "Str.Tool.Diagnostics.Warnings": "Upozornenia",
+    "Str.Tool.Diagnostics.Information": "Informácie",
+    "Str.Tool.Diagnostics.Hints": "Rady",
+    "Str.Tool.Diagnostics.CurrentDocument": "Aktuálny dokument",
+    "Str.Tool.Diagnostics.Server": "Server",
+    "Str.Tool.Diagnostics.Document": "Dokument",
+    "Str.Tool.Diagnostics.Line": "Riadok",
+    "Str.Tool.Diagnostics.Message": "Správa"
   }
 }

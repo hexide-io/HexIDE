@@ -961,6 +961,21 @@
     "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Haakjes kleuren op nestingsdiepte",
     "Str.Dialog.Print.Configuration": "Exemplaren: 1; afdrukstand: staand.",
     "Str.Dialog.Print.Unavailable": "Afdrukken is niet geïmplementeerd. OK geeft alleen de dialooginstellingen terug.",
-    "Str.Dialog.Color.Rgb": "RGB (#RRGGBB)"
+    "Str.Dialog.Color.Rgb": "RGB (#RRGGBB)",
+    "Str.Tool.Diagnostics.Severity": "Ernst",
+    "Str.Tool.Diagnostics.Severity.Error": "Fout",
+    "Str.Tool.Diagnostics.Severity.Warning": "Waarschuwing",
+    "Str.Tool.Diagnostics.Severity.Information": "Informatie",
+    "Str.Tool.Diagnostics.Severity.Hint": "Hint",
+    "Str.Tool.Diagnostics.Title": "Diagnostiek",
+    "Str.Tool.Diagnostics.Errors": "Fouten",
+    "Str.Tool.Diagnostics.Warnings": "Waarschuwingen",
+    "Str.Tool.Diagnostics.Information": "Informatie",
+    "Str.Tool.Diagnostics.Hints": "Hints",
+    "Str.Tool.Diagnostics.CurrentDocument": "Huidig document",
+    "Str.Tool.Diagnostics.Server": "Server",
+    "Str.Tool.Diagnostics.Document": "Document",
+    "Str.Tool.Diagnostics.Line": "Regel",
+    "Str.Tool.Diagnostics.Message": "Bericht"
   }
 }

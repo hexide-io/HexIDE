@@ -961,6 +961,21 @@
     "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Väritä sulkeet sisäkkäisyyden mukaan",
     "Str.Dialog.Print.Configuration": "Kopioita: 1; suunta: pysty.",
     "Str.Dialog.Print.Unavailable": "Tulostusta ei ole toteutettu. OK palauttaa vain valintaikkunan asetukset.",
-    "Str.Dialog.Color.Rgb": "RGB (#RRGGBB)"
+    "Str.Dialog.Color.Rgb": "RGB (#RRGGBB)",
+    "Str.Tool.Diagnostics.Severity": "Vakavuus",
+    "Str.Tool.Diagnostics.Severity.Error": "Virhe",
+    "Str.Tool.Diagnostics.Severity.Warning": "Varoitus",
+    "Str.Tool.Diagnostics.Severity.Information": "Tieto",
+    "Str.Tool.Diagnostics.Severity.Hint": "Vihje",
+    "Str.Tool.Diagnostics.Title": "Diagnostiikka",
+    "Str.Tool.Diagnostics.Errors": "Virheet",
+    "Str.Tool.Diagnostics.Warnings": "Varoitukset",
+    "Str.Tool.Diagnostics.Information": "Tiedot",
+    "Str.Tool.Diagnostics.Hints": "Vihjeet",
+    "Str.Tool.Diagnostics.CurrentDocument": "Nykyinen asiakirja",
+    "Str.Tool.Diagnostics.Server": "Palvelin",
+    "Str.Tool.Diagnostics.Document": "Asiakirja",
+    "Str.Tool.Diagnostics.Line": "Rivi",
+    "Str.Tool.Diagnostics.Message": "Viesti"
   }
 }

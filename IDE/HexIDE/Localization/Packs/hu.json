@@ -961,6 +961,21 @@
     "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Zárójelek színezése a beágyazási mélység szerint",
     "Str.Dialog.Print.Configuration": "Példányszám: 1; tájolás: álló.",
     "Str.Dialog.Print.Unavailable": "A nyomtatás nincs megvalósítva. Az OK csak a párbeszédpanel beállításait adja vissza.",
-    "Str.Dialog.Color.Rgb": "RGB (#RRGGBB)"
+    "Str.Dialog.Color.Rgb": "RGB (#RRGGBB)",
+    "Str.Tool.Diagnostics.Severity": "Súlyosság",
+    "Str.Tool.Diagnostics.Severity.Error": "Hiba",
+    "Str.Tool.Diagnostics.Severity.Warning": "Figyelmeztetés",
+    "Str.Tool.Diagnostics.Severity.Information": "Információ",
+    "Str.Tool.Diagnostics.Severity.Hint": "Tipp",
+    "Str.Tool.Diagnostics.Title": "Diagnosztika",
+    "Str.Tool.Diagnostics.Errors": "Hibák",
+    "Str.Tool.Diagnostics.Warnings": "Figyelmeztetések",
+    "Str.Tool.Diagnostics.Information": "Információ",
+    "Str.Tool.Diagnostics.Hints": "Tippek",
+    "Str.Tool.Diagnostics.CurrentDocument": "Aktuális dokumentum",
+    "Str.Tool.Diagnostics.Server": "Kiszolgáló",
+    "Str.Tool.Diagnostics.Document": "Dokumentum",
+    "Str.Tool.Diagnostics.Line": "Sor",
+    "Str.Tool.Diagnostics.Message": "Üzenet"
   }
 }

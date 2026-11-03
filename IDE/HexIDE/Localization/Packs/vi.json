@@ -961,6 +961,21 @@
     "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Tô màu dấu ngoặc theo độ sâu lồng nhau",
     "Str.Dialog.Print.Configuration": "Số bản: 1; hướng: dọc.",
     "Str.Dialog.Print.Unavailable": "Chưa triển khai in. OK chỉ trả về thiết lập hộp thoại.",
-    "Str.Dialog.Color.Rgb": "RGB (#RRGGBB)"
+    "Str.Dialog.Color.Rgb": "RGB (#RRGGBB)",
+    "Str.Tool.Diagnostics.Severity": "Mức độ nghiêm trọng",
+    "Str.Tool.Diagnostics.Severity.Error": "Lỗi",
+    "Str.Tool.Diagnostics.Severity.Warning": "Cảnh báo",
+    "Str.Tool.Diagnostics.Severity.Information": "Thông tin",
+    "Str.Tool.Diagnostics.Severity.Hint": "Gợi ý",
+    "Str.Tool.Diagnostics.Title": "Chẩn đoán",
+    "Str.Tool.Diagnostics.Errors": "Lỗi",
+    "Str.Tool.Diagnostics.Warnings": "Cảnh báo",
+    "Str.Tool.Diagnostics.Information": "Thông tin",
+    "Str.Tool.Diagnostics.Hints": "Gợi ý",
+    "Str.Tool.Diagnostics.CurrentDocument": "Tài liệu hiện tại",
+    "Str.Tool.Diagnostics.Server": "Máy chủ",
+    "Str.Tool.Diagnostics.Document": "Tài liệu",
+    "Str.Tool.Diagnostics.Line": "Dòng",
+    "Str.Tool.Diagnostics.Message": "Thông báo"
   }
 }

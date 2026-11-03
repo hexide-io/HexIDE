@@ -961,6 +961,21 @@
     "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Parantezleri iç içe geçme derinliğine göre renklendir",
     "Str.Dialog.Print.Configuration": "Kopya: 1; yön: dikey.",
     "Str.Dialog.Print.Unavailable": "Yazdırma uygulanmamıştır. Tamam yalnızca iletişim kutusu ayarlarını döndürür.",
-    "Str.Dialog.Color.Rgb": "RGB (#RRGGBB)"
+    "Str.Dialog.Color.Rgb": "RGB (#RRGGBB)",
+    "Str.Tool.Diagnostics.Severity": "Önem derecesi",
+    "Str.Tool.Diagnostics.Severity.Error": "Hata",
+    "Str.Tool.Diagnostics.Severity.Warning": "Uyarı",
+    "Str.Tool.Diagnostics.Severity.Information": "Bilgi",
+    "Str.Tool.Diagnostics.Severity.Hint": "İpucu",
+    "Str.Tool.Diagnostics.Title": "Tanılar",
+    "Str.Tool.Diagnostics.Errors": "Hatalar",
+    "Str.Tool.Diagnostics.Warnings": "Uyarılar",
+    "Str.Tool.Diagnostics.Information": "Bilgi",
+    "Str.Tool.Diagnostics.Hints": "İpuçları",
+    "Str.Tool.Diagnostics.CurrentDocument": "Geçerli belge",
+    "Str.Tool.Diagnostics.Server": "Sunucu",
+    "Str.Tool.Diagnostics.Document": "Belge",
+    "Str.Tool.Diagnostics.Line": "Satır",
+    "Str.Tool.Diagnostics.Message": "İleti"
   }
 }

@@ -961,6 +961,21 @@
     "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Colorir parênteses por profundidade de aninhamento",
     "Str.Dialog.Print.Configuration": "Cópias: 1; orientação: vertical.",
     "Str.Dialog.Print.Unavailable": "A impressão não está implementada. OK devolve apenas as definições do diálogo.",
-    "Str.Dialog.Color.Rgb": "RGB (#RRGGBB)"
+    "Str.Dialog.Color.Rgb": "RGB (#RRGGBB)",
+    "Str.Tool.Diagnostics.Severity": "Gravidade",
+    "Str.Tool.Diagnostics.Severity.Error": "Erro",
+    "Str.Tool.Diagnostics.Severity.Warning": "Aviso",
+    "Str.Tool.Diagnostics.Severity.Information": "Informação",
+    "Str.Tool.Diagnostics.Severity.Hint": "Sugestão",
+    "Str.Tool.Diagnostics.Title": "Diagnósticos",
+    "Str.Tool.Diagnostics.Errors": "Erros",
+    "Str.Tool.Diagnostics.Warnings": "Avisos",
+    "Str.Tool.Diagnostics.Information": "Informações",
+    "Str.Tool.Diagnostics.Hints": "Sugestões",
+    "Str.Tool.Diagnostics.CurrentDocument": "Documento atual",
+    "Str.Tool.Diagnostics.Server": "Servidor",
+    "Str.Tool.Diagnostics.Document": "Documento",
+    "Str.Tool.Diagnostics.Line": "Linha",
+    "Str.Tool.Diagnostics.Message": "Mensagem"
   }
 }

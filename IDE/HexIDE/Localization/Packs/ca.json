@@ -961,6 +961,21 @@
     "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Acoloreix els parèntesis segons la profunditat d'imbricació",
     "Str.Dialog.Print.Configuration": "Còpies: 1; orientació: vertical.",
     "Str.Dialog.Print.Unavailable": "La impressió no està implementada. D'acord només retorna la configuració del diàleg.",
-    "Str.Dialog.Color.Rgb": "RGB (#RRGGBB)"
+    "Str.Dialog.Color.Rgb": "RGB (#RRGGBB)",
+    "Str.Tool.Diagnostics.Severity": "Gravetat",
+    "Str.Tool.Diagnostics.Severity.Error": "Error",
+    "Str.Tool.Diagnostics.Severity.Warning": "Avís",
+    "Str.Tool.Diagnostics.Severity.Information": "Informació",
+    "Str.Tool.Diagnostics.Severity.Hint": "Suggeriment",
+    "Str.Tool.Diagnostics.Title": "Diagnòstics",
+    "Str.Tool.Diagnostics.Errors": "Errors",
+    "Str.Tool.Diagnostics.Warnings": "Avisos",
+    "Str.Tool.Diagnostics.Information": "Informació",
+    "Str.Tool.Diagnostics.Hints": "Suggeriments",
+    "Str.Tool.Diagnostics.CurrentDocument": "Document actual",
+    "Str.Tool.Diagnostics.Server": "Servidor",
+    "Str.Tool.Diagnostics.Document": "Document",
+    "Str.Tool.Diagnostics.Line": "Línia",
+    "Str.Tool.Diagnostics.Message": "Missatge"
   }
 }

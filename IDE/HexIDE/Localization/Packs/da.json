@@ -961,6 +961,21 @@
     "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Farv parenteser efter indlejringsdybde",
     "Str.Dialog.Print.Configuration": "Kopier: 1; retning: stående.",
     "Str.Dialog.Print.Unavailable": "Udskrivning er ikke implementeret. OK returnerer kun dialogens indstillinger.",
-    "Str.Dialog.Color.Rgb": "RGB (#RRGGBB)"
+    "Str.Dialog.Color.Rgb": "RGB (#RRGGBB)",
+    "Str.Tool.Diagnostics.Severity": "Alvorlighed",
+    "Str.Tool.Diagnostics.Severity.Error": "Fejl",
+    "Str.Tool.Diagnostics.Severity.Warning": "Advarsel",
+    "Str.Tool.Diagnostics.Severity.Information": "Information",
+    "Str.Tool.Diagnostics.Severity.Hint": "Tip",
+    "Str.Tool.Diagnostics.Title": "Diagnostik",
+    "Str.Tool.Diagnostics.Errors": "Fejl",
+    "Str.Tool.Diagnostics.Warnings": "Advarsler",
+    "Str.Tool.Diagnostics.Information": "Information",
+    "Str.Tool.Diagnostics.Hints": "Tip",
+    "Str.Tool.Diagnostics.CurrentDocument": "Aktuelt dokument",
+    "Str.Tool.Diagnostics.Server": "Server",
+    "Str.Tool.Diagnostics.Document": "Dokument",
+    "Str.Tool.Diagnostics.Line": "Linje",
+    "Str.Tool.Diagnostics.Message": "Meddelelse"
   }
 }

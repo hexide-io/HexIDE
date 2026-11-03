@@ -961,6 +961,21 @@
     "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Barvit závorky podle hloubky vnoření",
     "Str.Dialog.Print.Configuration": "Kopie: 1; orientace: na výšku.",
     "Str.Dialog.Print.Unavailable": "Tisk není implementován. OK vrátí pouze nastavení dialogu.",
-    "Str.Dialog.Color.Rgb": "RGB (#RRGGBB)"
+    "Str.Dialog.Color.Rgb": "RGB (#RRGGBB)",
+    "Str.Tool.Diagnostics.Severity": "Závažnost",
+    "Str.Tool.Diagnostics.Severity.Error": "Chyba",
+    "Str.Tool.Diagnostics.Severity.Warning": "Upozornění",
+    "Str.Tool.Diagnostics.Severity.Information": "Informace",
+    "Str.Tool.Diagnostics.Severity.Hint": "Nápověda",
+    "Str.Tool.Diagnostics.Title": "Diagnostika",
+    "Str.Tool.Diagnostics.Errors": "Chyby",
+    "Str.Tool.Diagnostics.Warnings": "Upozornění",
+    "Str.Tool.Diagnostics.Information": "Informace",
+    "Str.Tool.Diagnostics.Hints": "Nápovědy",
+    "Str.Tool.Diagnostics.CurrentDocument": "Aktuální dokument",
+    "Str.Tool.Diagnostics.Server": "Server",
+    "Str.Tool.Diagnostics.Document": "Dokument",
+    "Str.Tool.Diagnostics.Line": "Řádek",
+    "Str.Tool.Diagnostics.Message": "Zpráva"
   }
 }

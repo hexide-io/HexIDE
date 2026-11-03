@@ -961,6 +961,21 @@
     "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Color parentheses by nesting depth",
     "Str.Dialog.Print.Configuration": "Copies: 1; orientation: portrait.",
     "Str.Dialog.Print.Unavailable": "Printing is not implemented. OK returns the dialog settings only.",
-    "Str.Dialog.Color.Rgb": "RGB (#RRGGBB)"
+    "Str.Dialog.Color.Rgb": "RGB (#RRGGBB)",
+    "Str.Tool.Diagnostics.Severity": "Severity",
+    "Str.Tool.Diagnostics.Severity.Error": "Error",
+    "Str.Tool.Diagnostics.Severity.Warning": "Warning",
+    "Str.Tool.Diagnostics.Severity.Information": "Information",
+    "Str.Tool.Diagnostics.Severity.Hint": "Hint",
+    "Str.Tool.Diagnostics.Title": "Diagnostics",
+    "Str.Tool.Diagnostics.Errors": "Errors",
+    "Str.Tool.Diagnostics.Warnings": "Warnings",
+    "Str.Tool.Diagnostics.Information": "Information",
+    "Str.Tool.Diagnostics.Hints": "Hints",
+    "Str.Tool.Diagnostics.CurrentDocument": "Current document",
+    "Str.Tool.Diagnostics.Server": "Server",
+    "Str.Tool.Diagnostics.Document": "Document",
+    "Str.Tool.Diagnostics.Line": "Line",
+    "Str.Tool.Diagnostics.Message": "Message"
   }
 }

@@ -96,6 +96,7 @@ public partial class MainViewViewModel : ObservableObject
 
     /// <summary>What actually went over the wire to a language server.</summary>
     public HexIDE.Tools.ProtocolInspector.ProtocolInspectorToolViewModel ProtocolInspector { get; }
+    public HexIDE.Tools.Diagnostics.DiagnosticsToolViewModel Diagnostics { get; }
     public IFocusedProjectUtil FocusedProjectUtil { get; }
 
     public IStatusBarService StatusBar { get; }
@@ -1085,6 +1086,7 @@ public partial class MainViewViewModel : ObservableObject
         TranslationEditorViewModel translationEditor,
         LanguageServersToolViewModel languageServers,
         HexIDE.Tools.ProtocolInspector.ProtocolInspectorToolViewModel protocolInspector,
+        HexIDE.Tools.Diagnostics.DiagnosticsToolViewModel diagnostics,
         IProjectManager projectManager,
         IFocusedProjectUtil focusedProjectUtil,
         IProjectService projectService,
@@ -1179,6 +1181,8 @@ public partial class MainViewViewModel : ObservableObject
         LanguageServers = languageServers;
         OpenLanguageServersCommand = new DelegateCommand(OpenLanguageServers);
         ProtocolInspector = protocolInspector;
+        Diagnostics = diagnostics;
+        OpenDiagnosticsCommand = new DelegateCommand(OpenDiagnostics);
         OpenProtocolInspectorCommand = new DelegateCommand(OpenProtocolInspector);
         FocusedProjectUtil = focusedProjectUtil;
 
@@ -2081,6 +2085,14 @@ public partial class MainViewViewModel : ObservableObject
     }
     /// <summary>Opens the language-server view, or brings it forward if it is already open.</summary>
     public ICommand OpenLanguageServersCommand { get; private set; } = null!;
+
+    public ICommand OpenDiagnosticsCommand { get; }
+
+    public void OpenDiagnostics()
+    {
+        Diagnostics.Refresh();
+        OpenOrActivateTool(Diagnostics, false);
+    }
 
     /// <summary>Opens the protocol inspector, or brings it forward if it is already open.</summary>
     /// <remarks>

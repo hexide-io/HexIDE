@@ -961,6 +961,21 @@
     "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Spalvinti skliaustus pagal įdėjimo gylį",
     "Str.Dialog.Print.Configuration": "Kopijos: 1; orientacija: stačia.",
     "Str.Dialog.Print.Unavailable": "Spausdinimas neįgyvendintas. „Gerai“ tik grąžina dialogo nuostatas.",
-    "Str.Dialog.Color.Rgb": "RGB (#RRGGBB)"
+    "Str.Dialog.Color.Rgb": "RGB (#RRGGBB)",
+    "Str.Tool.Diagnostics.Severity": "Svarba",
+    "Str.Tool.Diagnostics.Severity.Error": "Klaida",
+    "Str.Tool.Diagnostics.Severity.Warning": "Įspėjimas",
+    "Str.Tool.Diagnostics.Severity.Information": "Informacija",
+    "Str.Tool.Diagnostics.Severity.Hint": "Patarimas",
+    "Str.Tool.Diagnostics.Title": "Diagnostika",
+    "Str.Tool.Diagnostics.Errors": "Klaidos",
+    "Str.Tool.Diagnostics.Warnings": "Įspėjimai",
+    "Str.Tool.Diagnostics.Information": "Informacija",
+    "Str.Tool.Diagnostics.Hints": "Patarimai",
+    "Str.Tool.Diagnostics.CurrentDocument": "Dabartinis dokumentas",
+    "Str.Tool.Diagnostics.Server": "Serveris",
+    "Str.Tool.Diagnostics.Document": "Dokumentas",
+    "Str.Tool.Diagnostics.Line": "Eilutė",
+    "Str.Tool.Diagnostics.Message": "Pranešimas"
   }
 }

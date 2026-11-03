@@ -961,6 +961,21 @@
     "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Värvi sulud pesastussügavuse järgi",
     "Str.Dialog.Print.Configuration": "Koopiaid: 1; suund: püstpaigutus.",
     "Str.Dialog.Print.Unavailable": "Printimine pole teostatud. OK tagastab ainult dialoogi sätted.",
-    "Str.Dialog.Color.Rgb": "RGB (#RRGGBB)"
+    "Str.Dialog.Color.Rgb": "RGB (#RRGGBB)",
+    "Str.Tool.Diagnostics.Severity": "Tõsidus",
+    "Str.Tool.Diagnostics.Severity.Error": "Viga",
+    "Str.Tool.Diagnostics.Severity.Warning": "Hoiatus",
+    "Str.Tool.Diagnostics.Severity.Information": "Teave",
+    "Str.Tool.Diagnostics.Severity.Hint": "Vihje",
+    "Str.Tool.Diagnostics.Title": "Diagnostika",
+    "Str.Tool.Diagnostics.Errors": "Vead",
+    "Str.Tool.Diagnostics.Warnings": "Hoiatused",
+    "Str.Tool.Diagnostics.Information": "Teave",
+    "Str.Tool.Diagnostics.Hints": "Vihjed",
+    "Str.Tool.Diagnostics.CurrentDocument": "Praegune dokument",
+    "Str.Tool.Diagnostics.Server": "Server",
+    "Str.Tool.Diagnostics.Document": "Dokument",
+    "Str.Tool.Diagnostics.Line": "Rida",
+    "Str.Tool.Diagnostics.Message": "Sõnum"
   }
 }

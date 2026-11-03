@@ -961,6 +961,21 @@
     "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Χρωματισμός παρενθέσεων ανά βάθος ένθεσης",
     "Str.Dialog.Print.Configuration": "Αντίγραφα: 1· προσανατολισμός: κατακόρυφος.",
     "Str.Dialog.Print.Unavailable": "Η εκτύπωση δεν έχει υλοποιηθεί. Το OK επιστρέφει μόνο τις ρυθμίσεις του διαλόγου.",
-    "Str.Dialog.Color.Rgb": "RGB (#RRGGBB)"
+    "Str.Dialog.Color.Rgb": "RGB (#RRGGBB)",
+    "Str.Tool.Diagnostics.Severity": "Σοβαρότητα",
+    "Str.Tool.Diagnostics.Severity.Error": "Σφάλμα",
+    "Str.Tool.Diagnostics.Severity.Warning": "Προειδοποίηση",
+    "Str.Tool.Diagnostics.Severity.Information": "Πληροφορία",
+    "Str.Tool.Diagnostics.Severity.Hint": "Υπόδειξη",
+    "Str.Tool.Diagnostics.Title": "Διαγνωστικά",
+    "Str.Tool.Diagnostics.Errors": "Σφάλματα",
+    "Str.Tool.Diagnostics.Warnings": "Προειδοποιήσεις",
+    "Str.Tool.Diagnostics.Information": "Πληροφορίες",
+    "Str.Tool.Diagnostics.Hints": "Υποδείξεις",
+    "Str.Tool.Diagnostics.CurrentDocument": "Τρέχον έγγραφο",
+    "Str.Tool.Diagnostics.Server": "Διακομιστής",
+    "Str.Tool.Diagnostics.Document": "Έγγραφο",
+    "Str.Tool.Diagnostics.Line": "Γραμμή",
+    "Str.Tool.Diagnostics.Message": "Μήνυμα"
   }
 }

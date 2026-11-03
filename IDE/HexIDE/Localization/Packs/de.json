@@ -961,6 +961,21 @@
     "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Klammern nach Verschachtelungstiefe färben",
     "Str.Dialog.Print.Configuration": "Kopien: 1; Ausrichtung: Hochformat.",
     "Str.Dialog.Print.Unavailable": "Drucken ist nicht implementiert. OK gibt nur die Dialogeinstellungen zurück.",
-    "Str.Dialog.Color.Rgb": "RGB (#RRGGBB)"
+    "Str.Dialog.Color.Rgb": "RGB (#RRGGBB)",
+    "Str.Tool.Diagnostics.Severity": "Schweregrad",
+    "Str.Tool.Diagnostics.Severity.Error": "Fehler",
+    "Str.Tool.Diagnostics.Severity.Warning": "Warnung",
+    "Str.Tool.Diagnostics.Severity.Information": "Information",
+    "Str.Tool.Diagnostics.Severity.Hint": "Hinweis",
+    "Str.Tool.Diagnostics.Title": "Diagnosen",
+    "Str.Tool.Diagnostics.Errors": "Fehler",
+    "Str.Tool.Diagnostics.Warnings": "Warnungen",
+    "Str.Tool.Diagnostics.Information": "Informationen",
+    "Str.Tool.Diagnostics.Hints": "Hinweise",
+    "Str.Tool.Diagnostics.CurrentDocument": "Aktuelles Dokument",
+    "Str.Tool.Diagnostics.Server": "Server",
+    "Str.Tool.Diagnostics.Document": "Dokument",
+    "Str.Tool.Diagnostics.Line": "Zeile",
+    "Str.Tool.Diagnostics.Message": "Meldung"
   }
 }

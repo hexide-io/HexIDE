@@ -961,6 +961,21 @@
     "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Colorează parantezele după nivelul de imbricare",
     "Str.Dialog.Print.Configuration": "Copii: 1; orientare: portret.",
     "Str.Dialog.Print.Unavailable": "Imprimarea nu este implementată. OK returnează doar setările casetei de dialog.",
-    "Str.Dialog.Color.Rgb": "RGB (#RRGGBB)"
+    "Str.Dialog.Color.Rgb": "RGB (#RRGGBB)",
+    "Str.Tool.Diagnostics.Severity": "Severitate",
+    "Str.Tool.Diagnostics.Severity.Error": "Eroare",
+    "Str.Tool.Diagnostics.Severity.Warning": "Avertisment",
+    "Str.Tool.Diagnostics.Severity.Information": "Informație",
+    "Str.Tool.Diagnostics.Severity.Hint": "Indiciu",
+    "Str.Tool.Diagnostics.Title": "Diagnosticare",
+    "Str.Tool.Diagnostics.Errors": "Erori",
+    "Str.Tool.Diagnostics.Warnings": "Avertismente",
+    "Str.Tool.Diagnostics.Information": "Informații",
+    "Str.Tool.Diagnostics.Hints": "Sugestii",
+    "Str.Tool.Diagnostics.CurrentDocument": "Documentul curent",
+    "Str.Tool.Diagnostics.Server": "Server",
+    "Str.Tool.Diagnostics.Document": "Document",
+    "Str.Tool.Diagnostics.Line": "Linie",
+    "Str.Tool.Diagnostics.Message": "Mesaj"
   }
 }

@@ -961,6 +961,21 @@
     "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Fargelegg parenteser etter nøstingsdybde",
     "Str.Dialog.Print.Configuration": "Kopier: 1; retning: stående.",
     "Str.Dialog.Print.Unavailable": "Utskrift er ikke implementert. OK returnerer bare dialoginnstillingene.",
-    "Str.Dialog.Color.Rgb": "RGB (#RRGGBB)"
+    "Str.Dialog.Color.Rgb": "RGB (#RRGGBB)",
+    "Str.Tool.Diagnostics.Severity": "Alvorlighetsgrad",
+    "Str.Tool.Diagnostics.Severity.Error": "Feil",
+    "Str.Tool.Diagnostics.Severity.Warning": "Advarsel",
+    "Str.Tool.Diagnostics.Severity.Information": "Informasjon",
+    "Str.Tool.Diagnostics.Severity.Hint": "Tips",
+    "Str.Tool.Diagnostics.Title": "Diagnostikk",
+    "Str.Tool.Diagnostics.Errors": "Feil",
+    "Str.Tool.Diagnostics.Warnings": "Advarsler",
+    "Str.Tool.Diagnostics.Information": "Informasjon",
+    "Str.Tool.Diagnostics.Hints": "Hint",
+    "Str.Tool.Diagnostics.CurrentDocument": "Gjeldende dokument",
+    "Str.Tool.Diagnostics.Server": "Server",
+    "Str.Tool.Diagnostics.Document": "Dokument",
+    "Str.Tool.Diagnostics.Line": "Linje",
+    "Str.Tool.Diagnostics.Message": "Melding"
   }
 }

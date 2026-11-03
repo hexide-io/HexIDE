@@ -961,6 +961,21 @@
     "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "依巢狀深度為圓括號著色",
     "Str.Dialog.Print.Configuration": "份數：1；方向：直向。",
     "Str.Dialog.Print.Unavailable": "尚未實作列印。確定僅傳回對話方塊設定。",
-    "Str.Dialog.Color.Rgb": "RGB（#RRGGBB）"
+    "Str.Dialog.Color.Rgb": "RGB（#RRGGBB）",
+    "Str.Tool.Diagnostics.Severity": "嚴重程度",
+    "Str.Tool.Diagnostics.Severity.Error": "錯誤",
+    "Str.Tool.Diagnostics.Severity.Warning": "警告",
+    "Str.Tool.Diagnostics.Severity.Information": "資訊",
+    "Str.Tool.Diagnostics.Severity.Hint": "提示",
+    "Str.Tool.Diagnostics.Title": "診斷",
+    "Str.Tool.Diagnostics.Errors": "錯誤",
+    "Str.Tool.Diagnostics.Warnings": "警告",
+    "Str.Tool.Diagnostics.Information": "資訊",
+    "Str.Tool.Diagnostics.Hints": "提示",
+    "Str.Tool.Diagnostics.CurrentDocument": "目前文件",
+    "Str.Tool.Diagnostics.Server": "伺服器",
+    "Str.Tool.Diagnostics.Document": "文件",
+    "Str.Tool.Diagnostics.Line": "行",
+    "Str.Tool.Diagnostics.Message": "訊息"
   }
 }

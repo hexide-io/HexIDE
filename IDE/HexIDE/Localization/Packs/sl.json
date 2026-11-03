@@ -961,6 +961,21 @@
     "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Obarvaj oklepaje glede na globino gnezdenja",
     "Str.Dialog.Print.Configuration": "Kopije: 1; usmerjenost: pokončno.",
     "Str.Dialog.Print.Unavailable": "Tiskanje ni implementirano. V redu vrne le nastavitve pogovornega okna.",
-    "Str.Dialog.Color.Rgb": "RGB (#RRGGBB)"
+    "Str.Dialog.Color.Rgb": "RGB (#RRGGBB)",
+    "Str.Tool.Diagnostics.Severity": "Resnost",
+    "Str.Tool.Diagnostics.Severity.Error": "Napaka",
+    "Str.Tool.Diagnostics.Severity.Warning": "Opozorilo",
+    "Str.Tool.Diagnostics.Severity.Information": "Informacija",
+    "Str.Tool.Diagnostics.Severity.Hint": "Namig",
+    "Str.Tool.Diagnostics.Title": "Diagnostika",
+    "Str.Tool.Diagnostics.Errors": "Napake",
+    "Str.Tool.Diagnostics.Warnings": "Opozorila",
+    "Str.Tool.Diagnostics.Information": "Informacije",
+    "Str.Tool.Diagnostics.Hints": "Namigi",
+    "Str.Tool.Diagnostics.CurrentDocument": "Trenutni dokument",
+    "Str.Tool.Diagnostics.Server": "Strežnik",
+    "Str.Tool.Diagnostics.Document": "Dokument",
+    "Str.Tool.Diagnostics.Line": "Vrstica",
+    "Str.Tool.Diagnostics.Message": "Sporočilo"
   }
 }

@@ -961,6 +961,21 @@
     "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "צביעת סוגריים לפי עומק הקינון",
     "Str.Dialog.Print.Configuration": "עותקים: 1; כיוון: לאורך.",
     "Str.Dialog.Print.Unavailable": "הדפסה אינה ממומשת. אישור מחזיר רק את הגדרות תיבת הדו־שיח.",
-    "Str.Dialog.Color.Rgb": "RGB (#RRGGBB)"
+    "Str.Dialog.Color.Rgb": "RGB (#RRGGBB)",
+    "Str.Tool.Diagnostics.Severity": "חומרה",
+    "Str.Tool.Diagnostics.Severity.Error": "שגיאה",
+    "Str.Tool.Diagnostics.Severity.Warning": "אזהרה",
+    "Str.Tool.Diagnostics.Severity.Information": "מידע",
+    "Str.Tool.Diagnostics.Severity.Hint": "רמז",
+    "Str.Tool.Diagnostics.Title": "אבחונים",
+    "Str.Tool.Diagnostics.Errors": "שגיאות",
+    "Str.Tool.Diagnostics.Warnings": "אזהרות",
+    "Str.Tool.Diagnostics.Information": "מידע",
+    "Str.Tool.Diagnostics.Hints": "רמזים",
+    "Str.Tool.Diagnostics.CurrentDocument": "המסמך הנוכחי",
+    "Str.Tool.Diagnostics.Server": "שרת",
+    "Str.Tool.Diagnostics.Document": "מסמך",
+    "Str.Tool.Diagnostics.Line": "שורה",
+    "Str.Tool.Diagnostics.Message": "הודעה"
   }
 }

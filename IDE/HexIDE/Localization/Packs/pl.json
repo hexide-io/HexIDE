@@ -961,6 +961,21 @@
     "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Koloruj nawiasy według głębokości zagnieżdżenia",
     "Str.Dialog.Print.Configuration": "Kopie: 1; orientacja: pionowa.",
     "Str.Dialog.Print.Unavailable": "Drukowanie nie jest zaimplementowane. OK zwraca tylko ustawienia okna dialogowego.",
-    "Str.Dialog.Color.Rgb": "RGB (#RRGGBB)"
+    "Str.Dialog.Color.Rgb": "RGB (#RRGGBB)",
+    "Str.Tool.Diagnostics.Severity": "Ważność",
+    "Str.Tool.Diagnostics.Severity.Error": "Błąd",
+    "Str.Tool.Diagnostics.Severity.Warning": "Ostrzeżenie",
+    "Str.Tool.Diagnostics.Severity.Information": "Informacja",
+    "Str.Tool.Diagnostics.Severity.Hint": "Wskazówka",
+    "Str.Tool.Diagnostics.Title": "Diagnostyka",
+    "Str.Tool.Diagnostics.Errors": "Błędy",
+    "Str.Tool.Diagnostics.Warnings": "Ostrzeżenia",
+    "Str.Tool.Diagnostics.Information": "Informacje",
+    "Str.Tool.Diagnostics.Hints": "Wskazówki",
+    "Str.Tool.Diagnostics.CurrentDocument": "Bieżący dokument",
+    "Str.Tool.Diagnostics.Server": "Serwer",
+    "Str.Tool.Diagnostics.Document": "Dokument",
+    "Str.Tool.Diagnostics.Line": "Wiersz",
+    "Str.Tool.Diagnostics.Message": "Komunikat"
   }
 }
