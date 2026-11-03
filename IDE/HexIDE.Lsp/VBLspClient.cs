@@ -1202,12 +1202,15 @@ public sealed class VBLspClient : ILspClient
 
         // Every outbound frame passes here, including cancellation notifications and handler replies.
         // Keep the check and base send together so a concurrent sender cannot slip behind shutdown.
+        // LSP forbids requests and notifications other than exit after shutdown, not replies: a server may
+        // ask something before it answers shutdown (RDCore sends workspace/diagnostic/refresh), and a
+        // reply withheld there makes StreamJsonRpc drop the connection before exit can go (#2924).
         protected override ValueTask SendAsync(StreamJsonRpc.Protocol.JsonRpcMessage message, CancellationToken cancellationToken)
         {
             lock (_sendGate)
             {
                 var method = (message as StreamJsonRpc.Protocol.JsonRpcRequest)?.Method;
-                if (_shutdownSent && method != "exit")
+                if (_shutdownSent && method is not null && method != "exit")
                     return ValueTask.FromCanceled(new CancellationToken(true));
                 if (method == "shutdown") _shutdownSent = true;
                 return base.SendAsync(message, cancellationToken);

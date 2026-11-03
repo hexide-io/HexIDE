@@ -162,6 +162,32 @@ public sealed class ProjectImportWireTests : IAsyncDisposable
             .Outcome.Should().Be(HexIDE.Conversations.ConversationOutcome.Abandoned);
     }
 
+    [Fact]
+    public async Task AServerRequestBeforeShutdownIsAnsweredIsStillRepliedToThenExit()
+    {
+        // LSP forbids requests and notifications after shutdown, not replies. RDCore asks for a diagnostic refresh
+        // before it answers shutdown; withholding the reply dropped the connection and exit never went (#2924).
+        _holdShutdown = true;
+        await StartAsync();
+        var stopping = _registry!.StopAsync();
+        await _shutdownSeen.Task.WaitAsync(_cts.Token);
+        await SendAsync("{\"jsonrpc\":\"2.0\",\"id\":\"late\",\"method\":\"workspace/diagnostic/refresh\"}");
+        await UntilAsync(() =>
+        {
+            lock (_frames) return _frames.Any(f => f.TryGetProperty("id", out var id)
+                && id.ValueKind == JsonValueKind.String && id.GetString() == "late" && f.TryGetProperty("result", out _));
+        });
+        await SendAsync("{\"jsonrpc\":\"2.0\",\"id\":" + _shutdownId + ",\"result\":null}");
+        await stopping;
+        await UntilAsync(() => Frames("exit").Length > 0);
+        JsonElement[] frames;
+        lock (_frames) frames = _frames.ToArray();
+        var shutdown = Array.FindIndex(frames, f => f.TryGetProperty("method", out var m) && m.GetString() == "shutdown");
+        frames.Skip(shutdown + 1)
+            .Select(f => f.TryGetProperty("method", out var m) ? m.GetString() : "response:" + f.GetProperty("id").GetRawText())
+            .Should().Equal("response:\"late\"", "exit");
+    }
+
     private async Task SendAsync(string text)
     {
         await _write.WaitAsync(_cts.Token);
