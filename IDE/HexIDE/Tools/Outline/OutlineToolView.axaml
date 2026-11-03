@@ -1,0 +1,32 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:tools="clr-namespace:HexIDE.Tools"
+             x:Class="HexIDE.Tools.OutlineToolView"
+             x:DataType="tools:OutlineToolViewModel">
+    <Grid RowDefinitions="Auto,*">
+        <ComboBox ItemsSource="{CompiledBinding Kinds}" SelectedItem="{CompiledBinding SelectedKind, Mode=TwoWay}"
+                  HorizontalAlignment="Stretch" ToolTip.Tip="{DynamicResource Str.Tool.Outline.Filter}"
+                  AutomationProperties.Name="{DynamicResource Str.Tool.Outline.Filter}">
+            <ComboBox.ItemTemplate>
+                <DataTemplate x:DataType="tools:OutlineKind">
+                    <TextBlock Text="{CompiledBinding Name}" />
+                </DataTemplate>
+            </ComboBox.ItemTemplate>
+        </ComboBox>
+        <TreeView Grid.Row="1" AutoScrollToSelectedItem="True" ItemsSource="{CompiledBinding Roots}"
+                  SelectedItem="{CompiledBinding SelectedNode, Mode=TwoWay}"
+                  PointerReleased="OnPointerReleased" KeyDown="OnKeyDown">
+            <TreeView.Styles>
+                <Style Selector="TreeViewItem">
+                    <Setter Property="IsExpanded" Value="{ReflectionBinding IsExpanded, Mode=TwoWay}" />
+                    <Setter Property="AutomationProperties.Name" Value="{ReflectionBinding Name}" />
+                </Style>
+            </TreeView.Styles>
+            <TreeView.ItemTemplate>
+                <TreeDataTemplate x:DataType="tools:OutlineNode" ItemsSource="{CompiledBinding Children}">
+                    <TextBlock Text="{CompiledBinding Name}" />
+                </TreeDataTemplate>
+            </TreeView.ItemTemplate>
+        </TreeView>
+    </Grid>
+</UserControl>

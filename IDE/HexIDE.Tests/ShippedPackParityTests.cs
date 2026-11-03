@@ -401,6 +401,7 @@ public class ShippedPackParityTests
                 "Str.StatusBar.LanguageServerProgress", "Str.Options.Node.Editor",
                 "Str.Document.UserControlSuffix", "Str.Document.PropertyPageSuffix",
                 "Str.Dialog.Color.Rgb",
+                "Str.Tool.Outline.Kind.Interface", "Str.Tool.Outline.Kind.Variable",
             });
     }
 
