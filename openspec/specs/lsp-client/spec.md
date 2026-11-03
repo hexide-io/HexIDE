@@ -1441,6 +1441,15 @@ An empty or failed answer SHALL leave lexical colouring, log once per document o
 permit the next change to ask again. Invalid ranges SHALL be discarded. Responses for an earlier document
 version or detached view SHALL NOT be applied. Delta, range and refresh requests are not supported.
 
+Content Modified (`-32801`) replies SHALL retry with exponential backoff from 250 ms to a 4-second cap,
+without spending the per-document warning. Cancellation, a changed or closed document, or a changed
+connection SHALL stop the retry.
+
+#### Scenario: A semantic answer was overtaken
+- **WHEN** a full semantic-token request receives Content Modified
+- **THEN** the client asks again without requiring an edit
+- **AND** applies the eventual successful answer if the request is still current
+
 #### Scenario: A server colours a name differently from the lexical rules
 - **WHEN** a full response classifies a range as a class
 - **THEN** that range uses the theme's type colour
