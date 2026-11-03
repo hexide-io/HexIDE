@@ -57,6 +57,24 @@ public class InBoxToolboxTests
             .And.Contain("_Version        =   393216" + Environment.NewLine + "   End");
     }
 
+    [AvaloniaFact]
+    public void FlatScrollBar_toolbox_default_is_horizontal_and_centred_as_if_750_twips_high()
+    {
+        var (_, toolbox, vm, form) = Designer(ControlLibraries.MSComCtl2);
+        var tool = toolbox.Components.Single(c => c.VBTypeName == "MSComCtl2.FlatScrollBar");
+        vm.Form.Width = 480;
+        vm.Form.Height = 360;
+        vm.SpawnControlCenter((ComponentBaseClass)tool.BaseClass!, ControlLibraries.MSComCtl2);
+        vm.CommitLayout();
+        var output = new FormSerializer().Serialize(form, "Form1.frm").frmText.ReplaceLineEndings();
+        output.Should().Contain("Height          =   255").And.Contain("Width           =   1500")
+            .And.Contain("Left            =   2850").And.Contain("Top             =   2325")
+            .And.Contain("_ExtentX        =   2646").And.Contain("_ExtentY        =   450")
+            .And.Contain("Arrows          =   65536" + Environment.NewLine + "      Orientation     =   1638401")
+            .And.NotContain("Appearance");
+        form.HeaderLines.Should().Contain(l => l.Contains("MSCOMCT2.OCX"));
+    }
+
     private static (ProjectDefinition project, ToolBoxToolViewModel toolbox, FormEditViewModel vm, FormDefinition form) Designer(
         params RuntimeLibrary[] referenced)
     {
