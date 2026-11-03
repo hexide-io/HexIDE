@@ -622,7 +622,7 @@ using numeric codes is as usable as one using names, and neither can throw on th
 
 Diagnostic codes reach the automation server's `get_diagnostics`, the add-in API and the AI-chat tool.
 The editor's squiggle tooltip shows overlapping messages and supplied sources alongside quick info in
-every personality, including Classic (#451), even with Auto Quick Info disabled. Codes and navigation
+every profile (#451), even with Auto Quick Info disabled. Codes and navigation
 still need an error list; that larger surface remains separate from the tooltip.
 
 Still dropped: `tags`, `relatedInformation` and `data`, each for a different reason and tracked as
