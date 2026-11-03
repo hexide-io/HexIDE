@@ -125,6 +125,12 @@ Changing the UI language does not automatically restart servers (#2210).
 
 On stop, once `initialize` has been answered, the client allows two seconds for the parameterless
 `shutdown` request to answer, then attempts the parameterless `exit` notification even if shutdown timed out or failed (#392).
+Once `shutdown` is sent, the common outbound RPC gate permits no request or notification but `exit`, including
+during a workspace-root restart (#2924). Replies still go: a server may ask something before it answers
+`shutdown`, as RDCore's does with `workspace/diagnostic/refresh`, and a reply withheld there dropped the
+connection before `exit` could be sent. Pending folder updates and imports for that connection are dropped; the replacement
+receives the current folders in `initialize` and its own project import. When the connection ends,
+unanswered requests are marked Abandoned in the protocol inspector.
 Before an initialize reply, neither message is sent. An externally owned pipe server receives neither
 on stop: HexIDE closes only its connection. A launched pipe server gets two seconds to exit before
 HexIDE kills its remaining process tree, including during bring-up (#313).
@@ -226,6 +232,12 @@ an answer. Cancellation sends `$/cancelRequest` best effort; returning never dep
 StreamJsonRpc retains abandoned pending entries until the connection ends. That connection-lifetime leak
 is accepted so one silent method cannot block the caller or disable a healthy connection.
 
+Full semantic-token requests answered with Content Modified (`-32801`) retry after 250 ms,
+with exponential backoff capped at 4 seconds (#2913). These replies do not spend the document's
+once-only warning. Cancellation, a document change or close, or a connection change stops the retry.
+The backoff uses an injectable `TimeProvider` (system time by default); retry tests advance it by hand.
+Semantic-token refresh requests remain unsupported.
+
 Before a document change, the client cancels outstanding diagnostic pulls, full semantic-token requests
 and folding requests for that document and waits for their cancellation frames to be sent before
 `didChange` (#2365). Hover, completion and other user requests are left alone, as are requests for other
@@ -280,7 +292,14 @@ to be the *startup* one, and changing that silently re-rooted every server — i
 had not moved ([#261](https://github.com/hexide-io/HexIDE/issues/261)). Folders sharing a directory collapse
 to one entry, so a server does not index the same tree twice.
 
-`workspaceFolders` is **null, never an empty array**, when no project is open: the protocol gives those two
+An unsaved project with neither a project file nor a chosen folder has no root. Querying the workspace
+chooses no scratch folder. A pipe server requiring `{workspaceUri}` or `{workspaceDir}` waits in
+`NotStarted`, retaining the refusal reason in the Language Servers window. The warning is logged once
+per entry; later opens retry, and the first project save starts it without reopening a document.
+Scratch file storage never supplies a workspace or artifact root. Other startup failures remain
+terminal for the session (#1382).
+
+`workspaceFolders` is **null, never an empty array**, when no project has a chosen folder: the protocol gives those two
 different meanings, and "no folders are open" is the true one.
 
 `workspace/didChangeWorkspaceFolders` is sent on that trigger only when the server declares
@@ -396,7 +415,11 @@ crossing the flush that superseded it cannot send a lower version after the flus
 
 **On reconnect, tracked documents are replayed** through the same code path as a first open, carrying the
 version this connection has been tracking rather than `1`. Resetting to `1` would put the client's count
-behind the session's, so the next change would arrive bearing a version the server had already seen.
+behind the session's, so the next change would arrive bearing a version the server had already seen. Requests
+about a tracked document wait for that document's `didOpen` write on the current connection, including
+requests made from the initialized state change before replay begins. Reserving an open for replay is
+not enough to release a request. Pending waits respect caller cancellation and the request timeout
+([#2920](https://github.com/hexide-io/HexIDE/issues/2920)).
 
 That replay used to be a *second* implementation, and it drifted: it hardcoded the language identifier to
 `vb6` and skipped the capability gate, so after any reconnect an attached foreign server was told every one
@@ -576,6 +599,18 @@ server is expected to keep off them — the bundled one does, by the rule in
 
 ---
 
+## Diagnostics panel
+
+Tools → Diagnostics shows the registry's current diagnostic store, including reports for unopened
+workspace documents. Each row names its publishing server (the configured display name), document,
+severity, line and message. Documents use the loaded member name or outside file name, with the full
+path in a tooltip; navigation retains the URI. Severity captions are singular and headers size to
+their localized text. Severity switches and a current-document filter narrow the list; the latter
+retains the last editor while the panel has focus. Reports replace their publisher's previous rows and
+withdrawals clear them without reopening the panel. Double-click a row to open the project document at
+its reported position, including carried files. Navigation uses the existing project resolver: a URI
+outside loaded projects cannot be opened by this panel. No additional diagnostic requests are issued.
+
 ## Diagnostics have an owner
 
 More than one source publishes onto the one diagnostics channel: each attached server, and the real VB6
@@ -618,7 +653,7 @@ using numeric codes is as usable as one using names, and neither can throw on th
 
 Diagnostic codes reach the automation server's `get_diagnostics`, the add-in API and the AI-chat tool.
 The editor's squiggle tooltip shows overlapping messages and supplied sources alongside quick info in
-every personality, including Classic (#451), even with Auto Quick Info disabled. Codes and navigation
+every profile (#451), even with Auto Quick Info disabled. Codes and navigation
 still need an error list; that larger surface remains separate from the tooltip.
 
 Still dropped: `tags`, `relatedInformation` and `data`, each for a different reason and tracked as
@@ -888,6 +923,13 @@ documents run together are not a third one.
 format's claim is that it replays into a client, and a conversation with every reply missing replays into
 nothing. The reply's manifest row carries `answerTo` and the opposite direction.
 
+The Outline tool window (View → Outline) consumes document symbols for the active code or carried-file
+editor. It preserves hierarchy, accepts flat replies, follows the caret, navigates to selection ranges,
+filters by kind while retaining ancestors, and refreshes after edits independently of diagnostics (#1992).
+Symbol refreshes flush only unsent edits; an unchanged buffer sends no `didChange`, so diagnostics
+cannot feed a change/request loop. A diagnostic-driven symbol update also cancels the Outline’s pending
+refresh for that edit. It displays the server’s structure; it does not infer missing symbols or regions.
+
 Signature help asks eligible document claimants concurrently within one shared one-second budget
 (#2027). A typed `(` or `,` goes only to servers advertising that character in
 `signatureHelpProvider.triggerCharacters`; explicit parameter info asks all claimants. The highest-priority
@@ -903,7 +945,8 @@ The editor flushes its debounced document change before requesting completion (f
 advertised triggers) or signature help, so the server receives the current typed text first (#2227).
 Document formatting (including format-on-save) sends the editor’s Tab Width as `options.tabSize`
 and `insertSpaces: true`, matching the editor’s conversion of tabs to spaces (#2669).
-On-type formatting is not implemented.
+Wire tests cover widths 2 and 8 with both `insertSpaces` values; editor delegation tests cover
+both widths with spaces. On-type formatting is not implemented.
 
 Completion asks every document claimant concurrently, with a shared **one-second popup budget**.
 It returns when all answers arrive or that budget expires, taking only answers received in time. Items
@@ -1010,6 +1053,21 @@ quietly; it would run something.
 document symbol produce one duplicated dropdown entry; two servers offering a lens on the same line offer
 two genuinely different things, and dropping either would hide something the user could have done.
 
+## Inlay hints
+
+The client declares `textDocument.inlayHint` and requests `textDocument/inlayHint` only from servers
+advertising `inlayHintProvider` (a flag or options object). Matching servers' labels are gathered for the
+whole open document after edits settle and after a connection starts. Edits clear old labels and obsolete
+replies are discarded. String labels and label-part arrays render after their source line in the theme's
+read-only text colour, without inserting text, affecting undo or adding caret columns. An interior hint
+position still places its label after that line; several labels on one line are joined in server order.
+Options → Editor → General → **Show inlay hints** hides them and stops requests; it defaults on.
+
+The bundled server supplies syntactic block-end labels (#1998), an explicit exception to the analysis
+boundary below. Parameter names and inferred types still need binding and remain a backend's job.
+Labels alone are consumed: `inlayHint/resolve`, refresh requests, tooltips, navigation, commands and
+hint text edits are not supported or advertised.
+
 ## Custom methods
 
 `vb/builtinSymbols` is HexIDE's own method, not an LSP one. It is gated on the server advertising it under
@@ -1034,7 +1092,7 @@ specification's own [`metaModel.json`](https://raw.githubusercontent.com/microso
 the canonical machine-readable list, so the method names and directions are the specification's rather than
 this document's recollection of them.
 
-**HexIDE implements 36 of the 93.** That is not a deficiency in itself — no client implements them all, and
+**HexIDE implements 37 of the 93.** That is not a deficiency in itself — no client implements them all, and
 most of the remainder are features no VB6 IDE needs. It is here so the shape of the gap is visible rather
 than inferred.
 
@@ -1056,7 +1114,7 @@ than inferred.
 | ✅ | `initialized` | → |  |
 | ✅ | `shutdown` | → |  |
 
-### `textDocument/*` — 18 of 41
+### `textDocument/*` — 19 of 41
 
 | | Method | Dir | Notes |
 |---|---|---|---|
@@ -1079,7 +1137,7 @@ than inferred.
 | ✅ | `textDocument/formatting` | → |  |
 | ✅ | `textDocument/hover` | → |  |
 | ○ | `textDocument/implementation` | → |  |
-| ○ | `textDocument/inlayHint` | → | Needs a bound AST — a backend's job, see below |
+| ✅ | `textDocument/inlayHint` | → | Labels after the line; syntactic block ends from the bundled server |
 | ○ | `textDocument/inlineCompletion` | → |  |
 | ○ | `textDocument/inlineValue` | → |  |
 | ○ | `textDocument/linkedEditingRange` | → |  |
@@ -1247,10 +1305,11 @@ These are notifications and carry no request id. Wire tests read the frames and 
 as a barrier when asserting silence.
 
 The registry fans out to every running server whose operation filter matches, regardless of its document
-language claims, except entries with `workspaceArtifact`: those receive no create, rename or delete
-notifications. HexIDE's generated artefact already describes their project, so only one writer maintains
-it. When RDCore switches to `rdcore.importProject`, its entry drops `workspaceArtifact` and starts
-receiving matching notifications. File events do not start servers. Initialize advertises the three
+language claims, except entries with `workspaceArtifact` and no `projectImport`: those receive no create,
+rename or delete notifications. HexIDE's generated artefact already describes their project, so only one
+writer maintains it. A declared `projectImport` replaces generation, so an entry that declares it, as RDCore's
+does ([language-servers.md](language-servers.md#rdcore)), receives matching notifications, whether or not it
+also declares `workspaceArtifact` (#2915). File events do not start servers. Initialize advertises the three
 notification capabilities.
 First saves and Save As to a destination that does not exist report creation after the write succeeds;
 ordinary overwrites and temporary Make EXE copies report nothing. Save As keeps the original file, so it
@@ -1268,7 +1327,7 @@ registry routes are ready.
 
 Three clusters account for nearly all of the gap:
 
-- **Features needing a bound AST** — references, code actions, inlay hints, call hierarchy
+- **Features needing a bound AST** — references, code actions, call hierarchy
   and their `*/resolve` companions. Not wired because nothing here would answer them; see *What the client
   would consume* below. `workspace/symbol` used to sit in this list and no longer does: the client speaks it
   and the Object Browser surfaces it, so the missing half is a *server*, which is exactly the point of the
@@ -1299,7 +1358,7 @@ Three clusters account for nearly all of the gap:
 
 ## What the client would consume, given a server that offers it
 
-These are ordinary LSP features that HexIDE's **own** server will never implement. They require a bound AST,
+These are ordinary LSP features or analysis depths that HexIDE's **own** server will never implement. They require a bound AST,
 which is outside its hard limit and belongs to a real language engine delivered over this seam. They are
 listed here rather than as a roadmap because the distinction is the point: they are not HexIDE features
 awaiting effort, they are **server** features awaiting a server.
@@ -1309,7 +1368,7 @@ awaiting effort, they are **server** features awaiting a server.
 | Find all references | `textDocument/references` | Not wired |
 | Code actions / quick fixes | `textDocument/codeAction` | Not wired |
 | Semantic tokens | `textDocument/semanticTokens/full` | **Wired** — full only; delta, range and refresh remain unwired (#2054) |
-| Inlay hints | `textDocument/inlayHint` | Not wired |
+| Parameter-name and inferred-type hints | `textDocument/inlayHint` | **Wired** — labels from any offering server; these binding-dependent hints remain outside the bundled server |
 | Call hierarchy | `textDocument/prepareCallHierarchy` | Not wired |
 | Workspace symbols | `workspace/symbol` | **Wired** — see below |
 
@@ -1340,7 +1399,10 @@ The client prepares it before launching the server, once per workspace project, 
 `IWorkspaceArtifactProvider` / DI seam. Core owns path containment (including links), per-server and
 per-workspace consent, hash-based ownership, and regeneration 300 ms after the last material project change.
 The debounce uses an injectable `TimeProvider`; tests advance its clock and await the pending regeneration
-task before checking the generated file and provider call count.
+task before checking the generated file and provider call count. An entry that sets `restartOnChange`
+has its server restarted, alone, when a regeneration changes the file (#2072).
+Artefact and moved-root restarts share the stop/reopen path and run serially; when both are queued,
+each restarts in turn. Requests wait for the replacement connection to reopen their document.
 A refusal or a foreign file does not prevent launch; its reason is logged and recorded as a local
 failure note on that server’s connection in the protocol inspector. Notes name only the configured
 workspace-relative artefact path and exception type; absolute targets and exception messages stay in
@@ -1351,7 +1413,8 @@ describe returns null: nothing is prompted or written, and a target HexIDE still
 confinement and ownership check as a replace, while an edited one is left alone with its reason. Providers return
 content and never write files. The first provider, `clangd`, projects carried C/C++ files into `compile_commands.json`.
 The second, `rdcore`, projects the project's code files, references and Conditional Compilation Arguments into the
-`.rdproj` RDCore's language server needs at the workspace root, which it reads only when it starts.
+`.rdproj` RDCore's language server needs at the workspace root. Current RDCore builds take a project import
+instead (below).
 
 This implements generation only (#455). Regeneration sends no `workspace/didChangeWatchedFiles` until
 #456; there is no public add-in contract (#457), no undeclared generation,

@@ -4,6 +4,8 @@ namespace HexIDE.Lsp;
 
 public interface ILspClient : IAsyncDisposable
 {
+    /// <summary>The last launch was refused solely because no workspace directory was chosen yet.</summary>
+    bool WaitingForWorkspace => false;
     /// <summary>Reports successfully created disk files; the connection applies its server filters.</summary>
     Task DidCreateFilesAsync(string[] uris, CancellationToken cancellationToken = default) => Task.CompletedTask;
     /// <summary>Reports successfully renamed disk files, carrying both absolute URIs.</summary>
@@ -272,6 +274,9 @@ public interface ILspClient : IAsyncDisposable
 
     /// <summary>Sends textDocument/formatting and returns text edits, or empty.</summary>
     Task<TextEdit[]> RequestFormattingAsync(string uri, FormattingOptions options, CancellationToken cancellationToken = default);
+
+    /// <summary>Requests display labels in a document range from offering servers.</summary>
+    Task<InlayHint[]> RequestInlayHintsAsync(string uri, HexIDE.Lsp.Messages.Range range, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Sends <c>textDocument/codeLens</c> and returns the lenses, or empty.

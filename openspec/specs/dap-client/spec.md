@@ -233,11 +233,19 @@ directory; command arguments and adapter launch fields SHALL pass unchanged with
 ### Requirement: Remote debugger presentation
 The IDE SHALL populate Call Stack and Locals asynchronously from the current stop, reject stale inspection
 results, and fetch aggregate children without blocking the UI. It SHALL expose output and failures and SHALL
-refuse unsupported remote operations rather than applying them to the interpreter.
+refuse unsupported remote operations rather than applying them to the interpreter. Pending resume commands
+SHALL retain the displayed inspection while disallowing evaluation. A definitive refusal without an intervening
+execution event SHALL preserve frames, selected frame, locals and execution location under the fresh stop
+identity. An accepted resume SHALL clear inspection even when the adapter sends no continued event.
 
 #### Scenario: Resume during inspection
-- **WHEN** the user continues while a locals request is pending
+- **WHEN** the adapter accepts continue while a locals request is pending
 - **THEN** the old locals are cleared and the late response does not repaint them
+
+#### Scenario: Adapter refuses a resume
+- **WHEN** a continue or step request fails definitively without a new stopped or continued event
+- **THEN** the displayed stop and selected caller remain visible and usable, and the refusal is reported
+- **AND** pending inspection results from before the request remain expired
 
 ### Requirement: External session visibility and cleanup
 The IDE SHALL expose its current or most recent external debug connection in the shared servers view and
@@ -249,7 +257,7 @@ the owned adapter and return run controls to their idle route.
 - **THEN** startup is cancelled and the adapter is cleaned up without starting an interpreter run
 
 ### Requirement: Selected external frame inspection
-The IDE SHALL select the top frame at every new external stop and SHALL allow selection of another frame
+The IDE SHALL select the top frame at every new external stopped event and SHALL allow selection of another frame
 from that stop in Call Stack. Locals SHALL clear immediately and asynchronously display the selected frame's
 non-expensive scopes. Late results from an earlier selection or expired stop SHALL NOT replace current
 locals. Unrelated session notifications SHALL preserve selection.
@@ -370,3 +378,51 @@ The editor MUST discard pending and displayed external tips when the pointer mov
 #### Scenario: Visible tip after resume
 - **WHEN** execution resumes with a data tip visible
 - **THEN** the tip closes and its attached text is cleared
+
+### Requirement: External inspection invalidation
+The client SHALL advertise `supportsInvalidatedEvent` during initialization. An `invalidated` event while
+stopped SHALL expire pending inspection replies and refresh the stopped stack, scopes, variables and watch
+values without resuming execution. The IDE SHALL retain the selected frame ID if present in the refreshed
+stack, otherwise select the top frame. The single-thread inspection SHALL refresh in full regardless of
+area, thread or frame hints, including omitted, empty and unknown areas. Events without a current stop
+SHALL NOT initiate stopped inspection.
+
+#### Scenario: Adapter changes stopped values
+- **WHEN** the adapter emits `invalidated` while a caller is selected
+- **THEN** the stack and selected caller's scopes, Locals and Watches refresh
+- **AND** replies belonging to the earlier inspection cannot repaint the refreshed values
+
+#### Scenario: Invalidation while running
+- **WHEN** the adapter emits `invalidated` while execution is running
+- **THEN** no stopped frame inspection is requested
+- **AND** the next stop refreshes normally
+
+### Requirement: External Set Next Statement
+The IDE SHALL gate external Set Next Statement on `supportsGotoTargetsRequest`. While stopped it SHALL
+request `gotoTargets` with the active editor's source path and one-based caret line, then send `goto` with
+the first target ID and stopped thread ID. Without the capability it SHALL retain the existing unsupported
+command message and send neither request. Empty targets or a refused request SHALL report the adapter's
+message and preserve stopped inspection and location. A successful move SHALL use the following stopped
+event for its new location, with the same inspection lifetime rules as other resumes.
+
+#### Scenario: Move to the caret
+- **WHEN** a capable stopped adapter returns multiple targets for the caret line
+- **THEN** goto receives the first target and the stopped thread
+- **AND** the next stopped event supplies the displayed current line
+
+#### Scenario: Move refused
+- **WHEN** gotoTargets returns no targets or either request is refused
+- **THEN** Immediate reports the adapter's message and the stopped inspection remains available
+
+#### Scenario: Refused resume does not navigate the editor
+- **WHEN** a goto, continue or step request is refused without an adapter stopped event
+- **THEN** the IDE SHALL retain the editor caret and scroll position alongside the stopped inspection
+
+### Requirement: Explicit refusal of external breakpoint conditions
+The IDE SHALL reject a launch breakpoint entry containing `condition`, `hitCondition` or `logMessage` before starting an adapter, with a
+localized diagnostic naming the launch file and one-based breakpoint entry. It SHALL NOT expose the
+serializer's internal type name for this refusal.
+
+#### Scenario: A condition is present
+- **WHEN** a launch breakpoint entry contains condition, hitCondition or logMessage, including a null value
+- **THEN** no adapter starts and Immediate identifies the unsupported option, file and entry

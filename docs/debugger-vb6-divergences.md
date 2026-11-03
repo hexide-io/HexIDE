@@ -180,17 +180,17 @@ some are refinements we may take. Format: **What → VB6 → HexIDE → Why → 
 Font reads on the supported intrinsic controls now return the shared Font object (#934), rather than a String or Null. Its Locals
 property expansion remains unimplemented; the object is currently a leaf labelled Font.
 
-### D9. Locals show only already-executed `Dim`s; value formatting is approximate
+### D9. Locals value formatting is approximate
 - **VB6:** the Locals window lists **every** declared local from procedure entry (unset ones show as `Empty`/0/""),
   and formats values per the VBA locale conventions.
-- **HexIDE:** locals appear **only once their `Dim` statement has executed** (the interpreter allocates a local's
-  slot lazily when its `Dim` runs), so a local declared later in the proc is absent until stepped past. Value
-  formatting is a close-but-not-identical approximation (strings quoted; `True`/`False`; `#yyyy-MM-dd HH:mm:ss#`
-  dates in the invariant culture; `Nothing`/`Empty`/`Null`; objects/arrays/UDTs show their type and expand). An
-  object- or UDT-typed array labels its header as `Variant()` (the element class/type name isn't recoverable from
-  the array's stored element type) while its populated elements label correctly.
-- **Why:** lazy `Dim` allocation is the interpreter's execution model; exact VBA value formatting is a rabbit hole
-  not worth chasing for a tyre-kicking debugger.
+- **HexIDE:** every declared local is allocated at procedure entry, before the body runs, including one in a branch
+  that is never taken (#172), so Locals lists it from the start as VB6 does. This entry used to record the opposite:
+  the interpreter once allocated a local only when its `Dim` ran. Value formatting is a close-but-not-identical
+  approximation (strings quoted; `True`/`False`; `#yyyy-MM-dd HH:mm:ss#` dates in the invariant culture;
+  `Nothing`/`Empty`/`Null`; objects/arrays/UDTs show their type and expand). An array of objects or of a class
+  gives its element type and bounds in its header, `Class1(1 to 2)`, since #2700 (see D30), where it used to read
+  `Variant()`. Whether a UDT-typed array's header still reads `Variant()` has not been re-checked.
+- **Why:** exact VBA value formatting is a rabbit hole not worth chasing for a tyre-kicking debugger.
 - **Status:** **by design** (approximation). Arrays are capped at 500 shown elements with a "… N more" marker (a
   visible, non-silent cap).
 
@@ -331,6 +331,11 @@ recorded in #1866; the dockable pane uses selection/double-click rather than VB6
   approximation-only boundary). Parked as the "CFG-rewrite wall."
 - **Status:** **by design** (a real tree-walker limit, not an artificial cap). Run To Cursor (P7a) has no such limit —
   it's a one-shot breakpoint, matched by line at any depth.
+
+External sessions delegate Set Next Statement to adapters advertising `supportsGotoTargetsRequest`
+via `gotoTargets` and `goto`; the interpreter granularity limit above does not constrain the adapter
+([#2914](https://github.com/hexide-io/HexIDE/issues/2914)). A refused move keeps the caret and scroll
+position, and so does a refused step. What VB6 does with the caret there hasn't been measured.
 
 ### D19. Step Into from design mode runs the program without breaking
 - **VB6:** F8 in design mode starts the program and breaks on the first executable line, so the developer watches

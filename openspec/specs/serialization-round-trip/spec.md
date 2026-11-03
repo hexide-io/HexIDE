@@ -78,6 +78,15 @@ subset — and the developer discovers which parts by finding out what stopped w
   scalar properties and Buttons, until those edits can be saved faithfully; editing a surrounding form property
   SHALL survive save and reload without changing the carried Toolbar blocks or companion bytes
 
+#### Scenario: Runtime-only MonthView loading (#1095 A)
+- **WHEN** a form contains a top-level, non-array `MSComCtl2.MonthView` block
+- **THEN** its runtime SHALL create a MonthView with CurrentDate, date bounds and measured scalar settings loaded,
+  interpreting StartOfWeek by its low word and exposing Value as its default member
+- **AND** the designer SHALL retain the block verbatim and view-only, including the StartOfWeek high word,
+  until its file-writing slice can save edits faithfully
+- **AND** unsupported own members and saved properties SHALL refuse explicitly rather than supply invented values
+- **AND** input, events, drawing, nested and arrayed instances remain pending subsequent slices
+
 #### Scenario: A section left by another tool
 - **WHEN** a project file ends in a section belonging to some other tool
 - **THEN** that section is written back
@@ -805,7 +814,9 @@ The serializer SHALL carry a loaded MSComctlLib ListView's own property runs and
 including repeated OLEDragMode/OLEDropMode lines and binary citations, while writing editable extender
 properties from the designer model. A resize SHALL recompute extents from whole pixels. Own properties
 and columns without an edit writer SHALL remain unavailable for designer editing. ImageList bindings
-SHALL be preserved without implying runtime binding support.
+SHALL be preserved; saved Icons, SmallIcons and ColHdrIcons names SHALL resolve after runtime controls
+are created, with column ImageIndex selectors validated against ColumnHeaderIcons. Unmeasured bindings
+SHALL refuse rather than silently omit images.
 
 #### Scenario: Saving a designed ListView without edits
 - **WHEN** either saved ListView corpus form is loaded and saved without edits
@@ -820,6 +831,18 @@ SHALL be preserved without implying runtime binding support.
 - **WHEN** a loaded ListView is displayed in the designer
 - **THEN** the preview shows its name and optional checkbox without resolving ImageList bindings
 - **AND** report headers are not displayed
+
+### Requirement: Loaded ListViews use measured client edges
+
+A loaded MSComctlLib ListView SHALL use a client inset of 2 pixels for Appearance 1 plus 1 pixel
+for BorderStyle 1, including when the BorderStyle line is omitted and loads as 0. Drawing, hit testing
+and MouseDown/MouseMove/MouseUp coordinates SHALL use that same inset. These four combinations are
+measured in [#2730](https://github.com/hexide-io/HexIDE/issues/2730) (oracle PR #2732).
+
+#### Scenario: Running the saved ListView forms
+- **WHEN** either saved ListView corpus form runs without changing its saved properties
+- **THEN** its ListViews load, including Appearance 1 with omitted BorderStyle
+- **AND** its saved ImageList bindings resolve and the form can unload normally
 
 ### Requirement: PropertyPage saves distinguish HelpContextID from StandardSize
 A PropertyPage designer SHALL expose HelpContextID as an editable integer property and save its value

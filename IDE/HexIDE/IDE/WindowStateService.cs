@@ -11,6 +11,8 @@ public sealed class WindowStateService : IWindowStateService
     private readonly ISettingsService _settings;
     private readonly string _dockLayoutPath;
     private readonly object _writeLock = new();
+    private readonly bool _recoveryMode = Static.IsRecoveryMode;
+    private string? _sessionLayoutJson;
 
     public WindowStateService(ISettingsService settings)
     {
@@ -53,6 +55,12 @@ public sealed class WindowStateService : IWindowStateService
 
     public void SaveLayoutManifestJson(string json)
     {
+        if (_recoveryMode)
+        {
+            lock (_writeLock)
+                _sessionLayoutJson = json;
+            return;
+        }
         try
         {
             // Lock so a background (debounced) write and the synchronous on-close write never collide.
@@ -68,6 +76,11 @@ public sealed class WindowStateService : IWindowStateService
 
     public LayoutManifest? LoadLayoutManifest()
     {
+        if (_recoveryMode)
+        {
+            lock (_writeLock)
+                return _sessionLayoutJson is { } json ? LayoutManifestJson.Deserialize(json) : null;
+        }
         if (!File.Exists(_dockLayoutPath))
             return null;
         try
@@ -86,6 +99,12 @@ public sealed class WindowStateService : IWindowStateService
 
     public void ResetLayoutManifest()
     {
+        if (_recoveryMode)
+        {
+            lock (_writeLock)
+                _sessionLayoutJson = null;
+            return;
+        }
         try
         {
             if (File.Exists(_dockLayoutPath))

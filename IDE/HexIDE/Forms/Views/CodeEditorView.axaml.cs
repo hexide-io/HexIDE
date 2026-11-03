@@ -95,6 +95,9 @@ public partial class CodeEditorView : UserControl
     private Action? _onExternalDebugChanged;
     private Action<HexIDE.Runtime.Debugging.StoppedInfo>? _onDebugStopped;
     private Action? _onDebugContinued;
+    private InlayHintRenderer? _inlayHintRenderer;
+    private System.ComponentModel.PropertyChangedEventHandler? _inlaySettingsChanged;
+    private int _inlayRevision;
     private System.ComponentModel.PropertyChangedEventHandler? _vmSelectionSync;
     private EventHandler? _editorSelectionSync;
     private bool _syncingSelection;
@@ -323,6 +326,14 @@ public partial class CodeEditorView : UserControl
             _watchedDocument.UpdateStarted += OnDocumentUpdateStartedForFolding;
             _watchedDocument.Changing += OnDocumentChangingForFolding;
 
+            _inlayHintRenderer = new InlayHintRenderer(TextEditor);
+            TextEditor.TextArea.TextView.BackgroundRenderers.Add(_inlayHintRenderer);
+            _inlaySettingsChanged = (_, e) =>
+            {
+                if (e.PropertyName != nameof(vm.Settings.ShowInlayHints)) return;
+                ScheduleFolding(vm);
+            };
+            vm.Settings.PropertyChanged += _inlaySettingsChanged;
             // Attach LSP text marker service (squiggles) and diagnostics colorizer (red text)
             _markerService = new LspTextMarkerService(TextEditor);
             TextEditor.TextArea.TextView.BackgroundRenderers.Add(_markerService);
@@ -579,6 +590,9 @@ public partial class CodeEditorView : UserControl
                 _watchedDocument = null;
             }
             vm.LanguageServerStateChanged -= OnLanguageServerStateChanged;
+            if (_inlaySettingsChanged is not null)
+                vm.Settings.PropertyChanged -= _inlaySettingsChanged;
+            _inlaySettingsChanged = null;
             if (_vmSelectionSync is not null)
             {
                 vm.PropertyChanged -= _vmSelectionSync;
@@ -590,6 +604,12 @@ public partial class CodeEditorView : UserControl
             vm.StatusBar.Column = null;
         }
 
+        ++_inlayRevision;
+        if (_inlayHintRenderer is not null)
+        {
+            TextEditor.TextArea.TextView.BackgroundRenderers.Remove(_inlayHintRenderer);
+            _inlayHintRenderer = null;
+        }
         if (_markerService is not null)
         {
             TextEditor.TextArea.TextView.BackgroundRenderers.Remove(_markerService);
@@ -756,6 +776,11 @@ public partial class CodeEditorView : UserControl
     {
         if (_readOnlyColorizer is null) return;
         _readOnlyColorizer.Brush = brush;
+        if (_inlayHintRenderer is not null)
+        {
+            _inlayHintRenderer.Brush = brush;
+            TextEditor.TextArea.TextView.InvalidateLayer(_inlayHintRenderer.Layer);
+        }
         TextEditor.TextArea.TextView.Redraw();
     }
 
@@ -1157,6 +1182,8 @@ public partial class CodeEditorView : UserControl
 
     private void ScheduleFolding(CodeEditorViewModel vm)
     {
+        ++_inlayRevision;
+        _inlayHintRenderer?.SetHints([]);
         _foldCts?.Cancel();
         _foldCts?.Dispose();
         _foldCts = new CancellationTokenSource();
@@ -1195,6 +1222,7 @@ public partial class CodeEditorView : UserControl
     private async Task RequestFoldingsAsync(CodeEditorViewModel vm, CancellationToken token)
     {
         if (_foldingManager is null) return;
+        _ = RequestInlayHintsAsync(vm, token);
         try
         {
             var ranges = await vm.RequestFoldingRangesAsync(token);
@@ -1212,6 +1240,22 @@ public partial class CodeEditorView : UserControl
         {
             Log.Debug("[folding] {ErrorMessage}", ex.Message);
         }
+    }
+
+    private async Task RequestInlayHintsAsync(CodeEditorViewModel vm, CancellationToken token)
+    {
+        var revision = _inlayRevision;
+        try
+        {
+            var hints = await vm.RequestInlayHintsAsync(token);
+            await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                if (token.IsCancellationRequested || revision != _inlayRevision || DataContext != vm) return;
+                _inlayHintRenderer?.SetHints(vm.Settings.ShowInlayHints ? hints : []);
+            });
+        }
+        catch (OperationCanceledException) { }
+        catch (Exception ex) { Log.Debug("[inlay hints] {ErrorMessage}", ex.Message); }
     }
 
     private void OnPointerMoved(object? sender, PointerEventArgs e)
@@ -1233,31 +1277,93 @@ public partial class CodeEditorView : UserControl
 
         // GetPosition expects document coordinates, while pointer events are relative to the viewport.
         var tvPos = TextEditor.TextArea.TextView.GetPosition(point + TextEditor.TextArea.TextView.ScrollOffset);
-        if (tvPos is null) return;
-
-        if (_externalDebugger is { Stop: not null, SelectedFrame: not null })
+        switch (CurrentRoute(tvPos is not null))
         {
-            if (_externalDebugger.CanEvaluateHover)
-            {
-                var word = WordAt(TextEditor.Document.GetOffset(tvPos.Value.Line, tvPos.Value.Column));
-                if (!string.IsNullOrEmpty(word)) _ = ShowExternalDataTipAsync(word, token);
-            }
-            return;
+            case HoverRoute.NotOverText:
+                return;
+            case HoverRoute.ExternalDataTip:
+                if (_externalDebugger!.CanEvaluateHover)
+                {
+                    var word = WordAt(TextEditor.Document.GetOffset(tvPos!.Value.Line, tvPos.Value.Column));
+                    if (!string.IsNullOrEmpty(word)) _ = ShowExternalDataTipAsync(word, token);
+                }
+                return;
+            // Break-mode Auto Data Tip: hovering an identifier while the debugger is Paused shows its LIVE value
+            // (evaluated against the paused frame), taking precedence over LSP quick-info — VB6's Auto Data Tips.
+            case HoverRoute.DataTip:
+                _ = ShowDataTipAsync(TextEditor.Document.GetOffset(tvPos!.Value.Line, tvPos.Value.Column), token);
+                return;
         }
 
-        // Break-mode Auto Data Tip: hovering an identifier while the debugger is Paused shows its LIVE value
-        // (evaluated against the paused frame), taking precedence over LSP quick-info — VB6's Auto Data Tips.
-        if (_debugController is { State: HexIDE.Runtime.Debugging.DebugState.Paused })
-        {
-            int offset = TextEditor.Document.GetOffset(tvPos.Value.Line, tvPos.Value.Column);
-            _ = ShowDataTipAsync(offset, token);
-            return;
-        }
-
-        var lspPos = new Position(tvPos.Value.Line - 1, tvPos.Value.Column - 1);
+        var lspPos = new Position(tvPos!.Value.Line - 1, tvPos.Value.Column - 1);
         if (DataContext is not CodeEditorViewModel vm) return;
 
+        // Quick info, or with Auto Quick Info off only a diagnostic at the point: the delay reads the setting itself.
         _ = HoverAfterDelayAsync(vm, lspPos, token);
+    }
+
+    /// <summary>Which tip a pointer resting on the text asks for.</summary>
+    /// <remarks>
+    /// One decision, read by the pointer handler that acts on it and by the automation's <c>hover</c>, which reports it
+    /// when no tip opened (#2574). A reply that worked the route out again for itself could disagree with what the editor
+    /// did, which is the ambiguity the report exists to remove.
+    /// </remarks>
+    internal enum HoverRoute
+    {
+        /// <summary>The point is past the last line, so nothing is asked.</summary>
+        NotOverText,
+
+        /// <summary>An external debugger has the program stopped: its evaluate is asked for the word, when it evaluates for hovers.</summary>
+        ExternalDataTip,
+
+        /// <summary>The interpreter is paused: the word is evaluated for an Auto Data Tip, and no language server is asked.</summary>
+        DataTip,
+
+        /// <summary>The language servers are asked for quick info after the dwell.</summary>
+        QuickInfo,
+
+        /// <summary>Auto Quick Info is off, so only a diagnostic at the point can open a tip.</summary>
+        QuickInfoOff,
+    }
+
+    /// <summary>The route for a point, from what decides it. Pure, so the order of the checks is testable.</summary>
+    internal static HoverRoute RouteFor(bool overText, bool externalStop, bool paused, bool autoQuickInfo) =>
+        !overText ? HoverRoute.NotOverText
+        : externalStop ? HoverRoute.ExternalDataTip
+        : paused ? HoverRoute.DataTip
+        : autoQuickInfo ? HoverRoute.QuickInfo
+        : HoverRoute.QuickInfoOff;
+
+    private HoverRoute CurrentRoute(bool overText) => RouteFor(
+        overText,
+        _externalDebugger is { Stop: not null, SelectedFrame: not null },
+        _debugController is { State: HexIDE.Runtime.Debugging.DebugState.Paused },
+        (DataContext as CodeEditorViewModel)?.Settings.AutoQuickInfo ?? SettingsDefaults.AutoQuickInfo);
+
+    /// <summary>What a hover at a point asked for: the route, the 1-based line and column, the word there, and the document's URI.</summary>
+    /// <param name="ExternalEvaluates">For <see cref="HoverRoute.ExternalDataTip"/>, whether the debugger evaluates for hovers at all.</param>
+    internal readonly record struct HoverRouteAt(
+        HoverRoute Route, int? Line, int? Column, string? Word, string? DocumentUri, bool ExternalEvaluates);
+
+    /// <summary>
+    /// The route a hover took at <paramref name="point"/> on <paramref name="receiver"/>, or null when the receiver is not
+    /// in a code window. For the automation's <c>hover</c> (#2574); call on the UI thread.
+    /// </summary>
+    internal static HoverRouteAt? RouteUnder(Control receiver, Point point)
+    {
+        var view = receiver as CodeEditorView
+            ?? Avalonia.VisualTree.VisualExtensions.FindAncestorOfType<CodeEditorView>(receiver);
+        if (view is null) return null;
+        var textView = view.TextEditor.TextArea.TextView;
+        if (receiver.TranslatePoint(point, textView) is not { } local) return null;
+        var position = textView.GetPosition(local + textView.ScrollOffset);
+        var uri = (view.DataContext as CodeEditorViewModel)?.LiveDocumentUri;
+        var route = view.CurrentRoute(position is not null);
+        if (position is not { } at)
+            return new HoverRouteAt(route, null, null, null, uri, false);
+        var word = view.WordAt(view.TextEditor.Document.GetOffset(at.Line, at.Column));
+        return new HoverRouteAt(route, at.Line, at.Column, string.IsNullOrEmpty(word) ? null : word, uri,
+            view._externalDebugger?.CanEvaluateHover == true);
     }
 
     private async Task ShowExternalDataTipAsync(string word, CancellationToken token)

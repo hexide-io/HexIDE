@@ -22,7 +22,9 @@ file. The executable must be a file path, not a shell command or a PATH lookup. 
 strings; no shell expansion or variable substitution occurs. Argument contents and launch properties are
 adapter-specific and passed unchanged, so use absolute workspace paths there. Environment entries override
 inherited variables; a null value removes a variable. Lines are one-based and include source file headers.
-Unknown top-level properties and invalid breakpoint lines are rejected. Configuration failures appear in
+Unknown top-level properties and invalid breakpoint lines are rejected. A breakpoint entry containing
+`condition`, `hitCondition` or `logMessage` is refused before the adapter starts, with a localized diagnostic naming the launch file and
+the one-based breakpoint entry; external breakpoint conditions, hit conditions and log messages are not supported yet. Configuration failures appear in
 the Immediate window. Only explicitly listed breakpoints are installed initially; saved interpreter gutter
 marks are not imported. External breakpoint edits are session-only and never rewrite the launch file.
 
@@ -39,7 +41,17 @@ During the session:
 - Call Stack initially selects the stopped thread's top frame. Select a caller to inspect its non-expensive
   scopes in Locals and reveal its loaded source. Locals clears while the new request is pending; late results
   from older selections are rejected. Expanding a remote aggregate fetches its children asynchronously.
-  Resuming clears inspection, and the next stop selects its top frame again.
+  An accepted resume clears inspection, and the next stop selects its top frame again. While a resume is
+  pending, inspection remains visible but cannot be evaluated. A refused continue or step keeps the stack,
+  selected frame, locals and current-line mark, and reports the adapter's refusal in Immediate
+  ([#2912](https://github.com/hexide-io/HexIDE/issues/2912)).
+- HexIDE advertises `supportsInvalidatedEvent`. An `invalidated` event while stopped refreshes Call Stack,
+  scopes, Locals and Watches without resuming. The selected caller is retained if its frame ID still exists;
+  otherwise the top frame is selected. Pending replies from before invalidation are discarded. This single-thread
+  integration refreshes the whole stopped inspection even when area/thread/frame hints narrow the event.
+  Events while running do not inspect frames; the next stop refreshes normally (#2914).
+  See the [DAP invalidated event definition](https://microsoft.github.io/debug-adapter-protocol/specification#Events_Invalidated)
+  for these refresh hints.
 - A stop opens Call Stack and Locals. When the source is already part of a loaded IDE project, its code
   window is revealed and marks the current line. The amber execution highlight and Show Next Statement
   continue to identify the top frame even when inspecting a caller. Sources outside loaded projects are not opened automatically.
@@ -71,9 +83,52 @@ not selected expressions or member chains. While the external program runs, hove
 quick info.
 
 This integration inspects one stopped program thread. It does not implement thread selection,
-restart, Run To Cursor or Set Next Statement.
-Conditions and hit counts are not yet supported. Sources without a saved file path cannot receive external
-breakpoints. Editing source does not update the running backend.
+restart or Run To Cursor. Sources without a saved file path cannot receive external breakpoints.
+
+The adapter determines which operations it can perform. RDCore `84278aea` advertised goto targets and
+conditional breakpoints and applied saved edits in the measurements recorded in [#2914](https://github.com/hexide-io/HexIDE/issues/2914):
+
+- **Set Next Statement** while stopped sends `gotoTargets` for the active editor's saved source path and
+  caret line, then `goto` with the first returned target and the stopped thread. This requires
+  `supportsGotoTargetsRequest`; without it, the command reports that it is unavailable and sends nothing.
+  Empty targets or a refused request report the adapter's message in Immediate and retain inspection and
+  the current line, without moving the caret or scrolling the editor on refusal. A successful move displays the location from the following `stopped` event (#2914).
+- **Breakpoint conditions are not sent.** An external breakpoint carries a line only, and nothing in the IDE
+  gives it a condition or a hit count. A launch file whose breakpoint entry has a `condition`, `hitCondition` or `logMessage` is refused
+  before launch (#2914).
+- **Edits reach the program only through the adapter.** HexIDE sends nothing when you edit. An adapter that
+  reads the saved sources when the program resumes, as RDCore's does, runs an edit you saved while stopped,
+  so save before you step. Use **Save Project**: Ctrl+S does not save a module (#244), and where no blank
+  line separates a module's declarations from its first procedure it inserts one, which moves every
+  statement below it. An adapter that
+  can't apply an edit refuses the step and leaves the program stopped. HexIDE prints its message in
+  Immediate, and keeps Call Stack, Locals, the selected frame and the current line as they were, without moving the caret or scrolling the editor (#2912, #2914).
+  Undo the edit and save again, or End. When an adapter sends `invalidated` while the program is stopped,
+  HexIDE refreshes Call Stack, Locals and Watches, keeping the selected frame where it still exists
+  (#2914). RDCore's adapter sends it only after it applies a saved edit, just before that resume's
+  `stopped`, so with RDCore the refresh arrives with the stop (measured against RDCore 84278ae, 2026-11-03).
+
+Two behaviours of RDCore's adapter affect these commands. Both were measured against RDCore `84278aea` on
+2026-11-03. Both are RDCore's own, so a later RDCore build may change either:
+
+- **Break doesn't interrupt a running program.** RDCore handles one request at a time, so `pause` and
+  `disconnect` wait behind the request that runs the program. In a loop that ran for about 7 s, Break's
+  `pause` was answered only when the loop finished. No `stopped` event followed, and the program ran to its
+  end ([#2976](https://github.com/hexide-io/HexIDE/pull/2976)). End still ends a program that never
+  finishes. RDCore doesn't answer its `disconnect`, so HexIDE stops waiting after 5 s and closes the
+  connection, then ends the adapter's process tree if it hasn't exited 5 s later. With an endless loop, the
+  adapter and its host process were gone 10.1 s after End
+  ([#2980](https://github.com/hexide-io/HexIDE/issues/2980)).
+- **Set Next Statement can land somewhere other than the target line.** RDCore moves to the first statement
+  of the stopped procedure at or after the target line. So it refuses a line below the stopped procedure,
+  and moves a line above it to that procedure's first statement. RDCore's own probe, reported in #2964,
+  found that it reads only the line number, not the file, so a line in another file is treated as the same
+  line of the stopped procedure's file. RDCore's `gotoTargets` reply labels such a target with the requested
+  line, so HexIDE can't tell it from an ordinary move, and shows the line that RDCore's next `stopped` event
+  reports ([#2964](https://github.com/hexide-io/HexIDE/pull/2964)).
+
+Breakpoints stay on the line numbers they were set on. An edit that adds or removes lines above one leaves it
+on a different statement.
 
 The existing debugger MCP commands remain interpreter-oriented. During an external run, `get_debug_state`
 reports external state and `stop_project` stops it; other execution/inspection tools explicitly refuse remote

@@ -43,10 +43,10 @@ public class ListViewRuntimeTests
     }
 
     [AvaloniaFact]
-    public void Saved_ImageList_bindings_refuse_until_binding_is_implemented()
+    public void Unresolved_saved_ImageList_binding_refuses()
     {
         Action load = () => ContainerRuntimeHarness.Spawn(Form.Replace("Height = 3000", "Height = 3000\nIcons = \"ImageList1\""));
-        load.Should().Throw<NotImplementedException>().WithMessage("*ListView file Icons*#1085*");
+        load.Should().Throw<NotImplementedException>().WithMessage("*ListView saved ImageList reference*#1085*");
     }
 
     [AvaloniaFact]

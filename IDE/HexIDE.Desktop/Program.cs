@@ -29,6 +29,14 @@ sealed class Program
             return;
         }
 
+        if (ServerOptions.ProfileArgumentError is { } profileError)
+        {
+            var localization = new HexIDE.Localization.LocalizationService();
+            ConsoleOutput.Write(localization.GetStringFrom("system", profileError) + Environment.NewLine);
+            Environment.ExitCode = 2;
+            return;
+        }
+
         if (ServerOptions.UserDataDirectoryMissing)
         {
             ConsoleOutput.Write(
@@ -71,6 +79,19 @@ sealed class Program
         // Before anything else starts: UserDataPath refuses a redirect once any per-user file has been looked up.
         if (ServerOptions.UserDataDirectory is { } userData)
             HexIDE.IDE.UserDataPath.RedirectTo(userData);
+
+        try
+        {
+            HexIDE.Static.Profile = ServerOptions.ResolveProfile(invocationDirectory, HexIDE.IDE.UserDataPath.Directory);
+        }
+        catch (HexIDE.Profiles.ProfileLoadException ex)
+        {
+            var localization = new HexIDE.Localization.LocalizationService();
+            var message = string.Format(localization.GetStringFrom("system", "Str.Profiles.LoadError"), ex.SourceId, ex.File);
+            ConsoleOutput.Write(message + Environment.NewLine);
+            Environment.ExitCode = 2;
+            return;
+        }
 
         DesktopStartup.Register();
         // The lifetime returns the code the app shut down with. Discarding it made every exit 0, including

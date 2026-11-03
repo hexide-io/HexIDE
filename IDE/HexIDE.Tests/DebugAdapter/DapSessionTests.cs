@@ -48,6 +48,50 @@ public class DapSessionTests
     }
 
     [Fact]
+    public async Task Initialize_advertises_invalidated_events()
+    {
+        await using var peer = new Peer();
+        await using var session = new DapSession(peer.Client);
+        var pending = session.LaunchAsync("external", Args, [], Token);
+        var initialize = await peer.Receive();
+        var advertised = initialize.GetProperty("arguments").TryGetProperty("supportsInvalidatedEvent", out var value)
+            && value.ValueKind == JsonValueKind.True;
+        await peer.Reply(initialize);
+        var launch = await peer.Receive();
+        await peer.Send("""{"seq":2,"type":"event","event":"initialized"}""");
+        await peer.Reply(launch);
+        await pending.WaitAsync(Patience, Token);
+        advertised.Should().BeTrue();
+    }
+
+    [Theory]
+    [InlineData("stackTrace")]
+    [InlineData("scopes")]
+    [InlineData("variables")]
+    public async Task Invalidated_expires_pending_inspection_without_resuming(string command)
+    {
+        await using var peer = new Peer();
+        await using var session = new DapSession(peer.Client);
+        await Launch(peer, session);
+        var stop = await Stop(peer, session);
+        var pending = command switch
+        {
+            "stackTrace" => session.StackTraceAsync(stop, 1, Token),
+            "scopes" => session.ScopesAsync(stop, 0, Token),
+            _ => session.VariablesAsync(stop, 1, Token),
+        };
+        var request = await peer.Receive();
+        await peer.Send("""{"seq":12,"type":"event","event":"invalidated","body":{"areas":["variables"]}}""");
+        var update = await Until(session, u => u.Event?.Event == "invalidated");
+        await peer.Reply(request);
+        await ((Func<Task>)(() => pending)).Should().ThrowAsync<InvalidOperationException>();
+        update.Snapshot.State.Should().Be(DapSessionState.Stopped);
+        update.Snapshot.Stop!.ThreadId.Should().Be(stop.ThreadId);
+        update.Snapshot.Stop.Reason.Should().Be(stop.Reason);
+        session.IsCurrent(update.Snapshot.Stop).Should().BeTrue();
+    }
+
+    [Fact]
     public async Task Configures_before_awaiting_launch_and_preserves_breakpoint_verification()
     {
         await using var peer = new Peer();

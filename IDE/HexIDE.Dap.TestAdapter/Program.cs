@@ -47,6 +47,8 @@ public static class Program
         string callerValue = "42";
         JsonElement? heldBreakpoints = null;
         bool heldBreakpointsOnce = false;
+        bool refusedResume = false;
+        int currentLine = 6;
         while (true)
         {
             var header = new StringBuilder();
@@ -88,9 +90,29 @@ public static class Program
                 if (command == "disconnect") return 0;
                 continue;
             }
-            if (mode is "session" or "frames" or "frames-delayed" or "evaluate" or "evaluate-running" or "breakpoints" or "breakpoints-delayed" or "breakpoints-refuse-clear")
+            if (mode is "goto" or "goto-empty" or "goto-refuse" or "goto-targets-refuse" or "invalidated" or "session" or "frames" or "frames-delayed" or "evaluate" or "evaluate-running" or "breakpoints" or "breakpoints-delayed" or "breakpoints-refuse-clear" or "resume-refusal")
             {
                 var command = request.RootElement.GetProperty("command").GetString();
+                if (mode == "resume-refusal" && !refusedResume && command is "continue" or "next" or "stepIn" or "stepOut")
+                {
+                    refusedResume = true;
+                    await Send(new { seq = 24, type = "event", @event = "output", body = new { output = "resume-pending\n" } });
+                    await Send(new { seq = 25, type = "response", request_seq = request.RootElement.GetProperty("seq").GetInt32(),
+                        command, success = false, message = "fixture resume refusal" });
+                    continue;
+                }
+                if (command is "gotoTargets" or "goto")
+                {
+                    var arguments = request.RootElement.GetProperty("arguments");
+                    if (command == "goto" && mode != "goto-refuse") currentLine = arguments.GetProperty("targetId").GetInt32();
+                    await Send(new { seq = 40, type = "response", request_seq = request.RootElement.GetProperty("seq").GetInt32(),
+                        command, success = !(command == "goto" && mode == "goto-refuse" || command == "gotoTargets" && mode == "goto-targets-refuse"),
+                        message = "fixture goto refusal", body = new { targets = mode == "goto-empty" ? Array.Empty<object>() :
+                            new object[] { new { id = arguments.TryGetProperty("line", out var line) ? line.GetInt32() : 0, label = "first" }, new { id = 99, label = "second" } } } });
+                    if (command == "goto" && mode != "goto-refuse")
+                        await Send(new { seq = 41, type = "event", @event = "stopped", body = new { threadId = 1, reason = "goto" } });
+                    continue;
+                }
                 if (command == "setBreakpoints")
                 {
                     var lines = request.RootElement.GetProperty("arguments").GetProperty("breakpoints").EnumerateArray()
@@ -111,6 +133,12 @@ public static class Program
                     var expression = arguments.GetProperty("expression").GetString();
                     var frame = arguments.GetProperty("frameId").GetInt32();
                     var context = arguments.GetProperty("context").GetString();
+                    if (mode == "invalidated" && expression?.StartsWith("invalidate:", StringComparison.Ordinal) == true)
+                    {
+                        callerValue = "99";
+                        await Send(new { seq = 30, type = "event", @event = "invalidated",
+                            body = JsonSerializer.Deserialize<JsonElement>(expression[11..]) });
+                    }
                     if (expression == "wait")
                     {
                         heldEvaluation = request.RootElement.GetProperty("seq").GetInt32();
@@ -120,7 +148,7 @@ public static class Program
                     if (expression == "callerValue = 99" && frame == 7) callerValue = "99";
                     await Send(new { seq = 11, type = "response", request_seq = request.RootElement.GetProperty("seq").GetInt32(),
                         command, success = expression != "reject" && context is "repl" or "watch" or "hover",
-                        message = "fixture refusal", body = new { result = $"frame:{frame}:{expression}", type = "Long", variablesReference = expression == "aggregate" ? 8 : 0 } });
+                        message = "fixture refusal", body = new { result = mode == "invalidated" && expression == "value" ? callerValue : $"frame:{frame}:{expression}", type = "Long", variablesReference = expression == "aggregate" ? 8 : 0 } });
                     continue;
                 }
                 if (mode == "frames-delayed" && command == "variables" &&
@@ -132,12 +160,12 @@ public static class Program
                 }
                 object reply = command switch
                 {
-                    "initialize" => new { supportsConfigurationDoneRequest = true, supportsEvaluateForHovers = mode is "evaluate" or "evaluate-running" },
+                    "initialize" => new { supportsConfigurationDoneRequest = true, supportsGotoTargetsRequest = mode.StartsWith("goto", StringComparison.Ordinal), supportsEvaluateForHovers = mode is "invalidated" or "evaluate" or "evaluate-running" },
                     "threads" => new { threads = new[] { new { id = 1, name = "Main" } } },
                     "stackTrace" when mode != "session" => new { stackFrames = new[]
                     {
-                        new { id = 0, name = "Callee", line = 6, column = 1, source = new { path = Path.GetFullPath("Callee.bas") } },
-                        new { id = 7, name = "Caller", line = 12, column = 1, source = new { path = Path.GetFullPath("Caller.bas") } },
+                        new { id = 0, name = "Callee", line = currentLine, column = 1, source = new { path = Path.GetFullPath("Callee.bas") } },
+                        new { id = 7, name = "Caller", line = mode == "invalidated" && callerValue == "99" ? 13 : 12, column = 1, source = new { path = Path.GetFullPath("Caller.bas") } },
                     } },
                     "scopes" when mode != "session" => new { scopes = new[] { new { name = "Locals", variablesReference = request.RootElement.GetProperty("arguments").GetProperty("frameId").GetInt32() + 1, expensive = false } } },
                     "variables" when mode != "session" => FrameVariables(request.RootElement.GetProperty("arguments").GetProperty("variablesReference").GetInt32(), callerValue),

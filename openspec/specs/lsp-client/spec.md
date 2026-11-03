@@ -220,6 +220,30 @@ document for both (hexide-io/HexIDE#721).
 - **WHEN** a document is closed
 - **THEN** the server is notified, so it can release any state held for that document
 
+### Requirement: A request about a document SHALL follow its open
+
+A request about a document SHALL reach a server only after that server has been sent the document's
+`didOpen`, as LSP requires. A request made while that open is still to come SHALL wait for it and SHALL still
+be answered. One server still starting SHALL NOT hold up another server's answers (hexide-io/HexIDE#2909).
+
+#### Scenario: Asked during a server's project import
+- **WHEN** the code window asks for folds and semantic tokens while its server's project import is outstanding
+- **THEN** the server is sent the document's open before either request, and both are answered
+
+#### Scenario: Asked while a second server starts
+- **WHEN** two servers claim a document and the code window asks about it while the second is still starting
+- **THEN** the first server is sent the document's open before the requests, and answers them without waiting
+  for the second
+
+#### Scenario: Asked during a restart
+- **WHEN** the workspace moves and a document already open is asked about while its server starts again
+- **THEN** the restarted server is sent the document's open before the requests
+
+#### Scenario: Asked during the client's own reconnect replay
+- **WHEN** a client reconnects with several tracked documents and a request is made before its document is replayed
+- **THEN** the request waits until that document's `didOpen` has been written on the new connection
+- **AND** an open reserved but not yet written does not release the request
+
 ### Requirement: Diagnostics SHALL be pushed through a single channel from more than one source
 The client SHALL expose one diagnostics channel that carries both server-published diagnostics and
 diagnostics injected by the IDE, and SHALL raise on it rather than requiring a consumer to poll.
@@ -300,6 +324,10 @@ SHALL omit the `params` member. The stdio transport SHALL allow two seconds for 
 kill the remaining process tree and wait up to two seconds for termination before disposing the process
 handle. On Linux and macOS, both transports SHALL allow an additional two seconds for the guard's
 group cleanup before killing it. The process exit code SHALL remain observable in the conversation during client stop.
+After sending `shutdown`, the client SHALL send no request or notification but `exit` on that connection.
+Pending workspace-folder updates, project imports and cancellations SHALL be dropped for the old
+connection rather than queued for it. Replies to the server's own requests SHALL still be sent. When a connection ends, its unanswered requests SHALL be recorded as Abandoned.
+
 Both process-owning transports SHALL retain the process exit handler until disposal has recorded the
 exit, and SHALL record it once. During deliberate disposal, they SHALL log the exit code at information
 level with the server identity and SHALL log a timeout kill separately. Deliberate disposal SHALL NOT
@@ -326,6 +354,19 @@ the group are outside this guarantee.
 An orphaned server process outliving the IDE would hold file handles and consume memory with nothing to
 serve. Asking first and terminating second means a well-behaved server exits cleanly while a wedged one
 still goes away.
+
+#### Scenario: First save races the project-change debounce
+- **WHEN** the first save moves the workspace root while the old server is awaiting shutdown
+- **THEN** the old server receives only `exit` after `shutdown`
+- **AND** the replacement receives the current workspace folders in `initialize` and the project import
+
+#### Scenario: The server asks something before it answers shutdown
+- **WHEN** a server sends a request after receiving `shutdown` and before answering it
+- **THEN** the client replies to it, and then sends `exit`
+
+#### Scenario: A request outlives its connection
+- **WHEN** a connection ends with an unanswered project import
+- **THEN** the protocol inspector records that request as Abandoned
 
 #### Scenario: A launched pipe server exits during disposal
 - **WHEN** a launched pipe server exits during its disposal grace period
@@ -521,9 +562,7 @@ directory, so this is the ordinary path rather than a corner.
 **Where that directory does not exist, the server SHALL still be started**, inheriting the IDE's own working
 directory, and SHALL still be told the project's directory as its workspace root. The two are separate
 questions — *where the process runs* and *which tree it analyses* — and they only coincide by accident. A
-project that has not been saved yet has a directory that is real as an answer to the second and not yet real
-as an answer to the first: it is where the project's files will be written the moment the user adds a
-module. A form or module with no file yet is outside it, and so is a document adopted from somewhere else.
+chosen directory may name a folder that does not exist yet.
 Starting a process there instead fails outright, which costs the whole connection and every language feature with it.
 
 The IDE SHALL NOT create the directory in order to launch there. Nothing reaps these directories, so one
@@ -539,15 +578,26 @@ Where a server cannot be started, the reported reason SHALL name the working dir
 in. The operating system's own message for an unusable working directory does not name it, so a report
 without it points at the executable for a fault that has nothing to do with it.
 
+Where a project has neither a project file nor a chosen folder, the workspace query SHALL return no root
+and SHALL NOT allocate a scratch folder. That project SHALL contribute no workspace folder. A launch
+refused solely because a workspace placeholder cannot be filled SHALL leave the registry entry
+`NotStarted`, retain its last failure, and log the warning only once per entry. A later document open
+SHALL retry it. The first project save SHALL start a waiting entry for known open documents without
+requiring another document open. Scratch file storage SHALL NOT supply a workspace or artifact root. The reason SHALL explain that no project
+is open or the project has not been saved yet. Other startup failures SHALL remain terminal.
+
 #### Scenario: A server that reads its own configuration from the workspace
 - **WHEN** a server is started for a project
 - **THEN** its working directory and workspace root are the project's working directory
 
 #### Scenario: A project that has not been saved yet
-- **WHEN** a server is started for a project whose directory does not exist
-- **THEN** the server starts, inheriting the IDE's working directory
-- **AND** it is still told the project's directory as its workspace root
-- **AND** the directory is not created
+- **WHEN** the workspace is queried for a project with neither a project file nor a chosen folder
+- **THEN** no root or workspace folder is returned and no folder is chosen
+
+#### Scenario: A placeholder server waits for the first save
+- **WHEN** a launch requires a workspace and the project has no chosen folder
+- **THEN** the connection remains NotStarted with the refusal reason retained
+- **AND** writing the first project file starts the server in its saved folder and reopens known documents
 
 #### Scenario: An entry naming a working directory that is not there
 - **WHEN** a server's own entry names a working directory that does not exist
@@ -1258,6 +1308,12 @@ anyway, so it is recorded rather than defended.
 - **THEN** the artefact is regenerated after debouncing, subject to the same consent and ownership checks
 - **AND** regeneration sends no watched-file notification in this phase (#456)
 
+#### Scenario: Restart on change
+- **WHEN** an entry sets `restartOnChange` and a regeneration changes its artefact's bytes, including taking the file back
+- **THEN** that server alone is restarted, once for the debounced batch of changes, and its open documents are opened on it again
+- **AND** the write before the first launch, an identical regeneration and a refused or denied write restart nothing
+- **AND** an entry that doesn't set it is never restarted for its artefact
+
 #### Scenario: Clangd compilation database
 - **WHEN** the clangd provider is configured
 - **THEN** it emits one compilation command per carried C/C++ file, using configured compiler arguments followed by that file, with its containing directory as working directory
@@ -1371,6 +1427,62 @@ deadline and caller cancellation.
 - **WHEN** the editor receives a character in the union of the document claimants' completion triggers
 - **THEN** it requests completion only from claimants advertising that character
 - **AND** letters continue to use the ordinary completion route
+
+### Requirement: Project diagnostics panel
+
+The IDE SHALL provide a Diagnostics panel listing current diagnostics across documents with publisher,
+severity, document, line and message. It SHALL filter by severity and current document, update when
+reports change, and navigate a double-clicked row through the project document resolver.
+Document cells SHALL show the loaded member name, or the file name for an outside file, with the full
+path only in a tooltip and the URI retained for navigation. Severity cells SHALL use localized singular
+names under a dedicated severity header. Headers SHALL fit their localized captions.
+
+#### Scenario: Reports precede opening the panel
+- **WHEN** an attached server has reported diagnostics for an unopened workspace document
+- **AND** the user opens Tools → Diagnostics
+- **THEN** its current diagnostics appear with the publishing server's configured display name
+
+#### Scenario: A publisher replaces or clears its report
+- **WHEN** a server replaces or withdraws diagnostics while the panel is open
+- **THEN** its rows update without disturbing other publishers' current reports
+
+#### Scenario: Current document while the panel has focus
+- **WHEN** the user enables the current-document filter and focuses the Diagnostics panel
+- **THEN** the filter retains the last active editor's document
+
+#### Scenario: Navigate to a carried file
+- **WHEN** the user double-clicks a row naming a loaded project's carried file
+- **THEN** that file opens with the caret at the diagnostic's start position
+
+### Requirement: Inlay hints SHALL render without changing caret columns
+
+The client SHALL declare inlay-hint support and request `textDocument/inlayHint` only from matching servers
+advertising `inlayHintProvider`. It SHALL render string or label-part labels after the corresponding line,
+without changing document text or caret columns. An Editor General option SHALL hide hints and suppress
+requests. Edits SHALL clear stale hints and prevent obsolete replies from restoring them.
+
+#### Scenario: An offering server returns a label
+- **WHEN** a server offering inlay hints returns a label for an open document
+- **THEN** the label appears after its line in the read-only text colour
+- **AND** the document, undo history and caret columns are unchanged
+
+#### Scenario: Hints are disabled or unsupported
+- **WHEN** the user disables inlay hints or no matching server offers them
+- **THEN** no hint request is sent and no hints are shown
+
+### Requirement: The bundled server SHALL name closed syntactic blocks
+
+The bundled server SHALL advertise and supply block-end inlay hints from its cached CST for procedures,
+multiline If, Do, For, For Each, While, Select Case and With. It SHALL respect the requested range and SHALL
+NOT offer binding-dependent parameter-name or inferred-type hints.
+
+#### Scenario: Nested blocks close
+- **WHEN** nested blocks close in an open document
+- **THEN** each closing line has a hint naming its own opener
+
+#### Scenario: A single-line If occurs
+- **WHEN** an If has its body on the same line
+- **THEN** it has no block-end hint
 ### Requirement: Refuse multi-document rename answers
 
 The code window SHALL inspect the whole rename WorkspaceEdit before applying any edits. If any URI
@@ -1416,6 +1528,15 @@ only on their ranges; read-only region and diagnostic colours SHALL retain their
 An empty or failed answer SHALL leave lexical colouring, log once per document on that connection, and
 permit the next change to ask again. Invalid ranges SHALL be discarded. Responses for an earlier document
 version or detached view SHALL NOT be applied. Delta, range and refresh requests are not supported.
+
+Content Modified (`-32801`) replies SHALL retry with exponential backoff from 250 ms to a 4-second cap,
+without spending the per-document warning. Cancellation, a changed or closed document, or a changed
+connection SHALL stop the retry.
+
+#### Scenario: A semantic answer was overtaken
+- **WHEN** a full semantic-token request receives Content Modified
+- **THEN** the client asks again without requiring an edit
+- **AND** applies the eventual successful answer if the request is still current
 
 #### Scenario: A server colours a name differently from the lexical rules
 - **WHEN** a full response classifies a range as a class
@@ -1522,9 +1643,10 @@ A missing registration or an empty matching batch SHALL send no notification.
 
 The client SHALL advertise support for the three notifications in initialize. The registry SHALL route
 file operations to every running connection whose operation filter matches, independently of document
-language claims. Entries with `workspaceArtifact` SHALL receive no file-operation notifications:
-HexIDE's generated artefact describes their project. An entry without `workspaceArtifact` SHALL remain
-eligible for matching notifications. File operations SHALL NOT start a server.
+language claims. Entries with `workspaceArtifact` and no `projectImport` SHALL receive no file-operation
+notifications: HexIDE's generated artefact describes their project. An entry without `workspaceArtifact`,
+or with `projectImport` replacing generation, SHALL remain eligible for matching notifications.
+File operations SHALL NOT start a server.
 
 Successful first saves and Save As writes to a new destination SHALL report creation after the bytes
 reach disk. Overwriting an existing file SHALL NOT report creation. Temporary Make EXE copies SHALL NOT
@@ -1555,9 +1677,14 @@ names and membership only.
 - **AND** saving it again reports no file creation
 
 #### Scenario: HexIDE generates the server's workspace artefact
-- **GIVEN** a running server with `workspaceArtifact` and matching file-operation filters
+- **GIVEN** a running server with `workspaceArtifact`, no `projectImport` and matching file-operation filters
 - **WHEN** a file is created, renamed or deleted
 - **THEN** the server receives no file-operation notification
+
+#### Scenario: Project import replaces workspace artefact generation
+- **GIVEN** a running server declaring both `workspaceArtifact` and `projectImport`, with matching file-operation filters
+- **WHEN** a file is created, renamed or deleted
+- **THEN** the server receives the corresponding notification
 
 #### Scenario: The server owns its workspace artefact
 - **GIVEN** a running server without `workspaceArtifact` and with matching file-operation filters

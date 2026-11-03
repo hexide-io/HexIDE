@@ -2,11 +2,11 @@
 
 ## Purpose
 
-Record the standalone catalog foundation for #2621. The IDE still uses personalities. The approved
-bundle design and remaining loader work are in
-`openspec/changes/2026-10-25-profiles-supersede-personalities/`. This component does not apply profiles
-or parse CLI selectors. It validates parsed manifest declarations and provides a contained byte reader,
-bundle JSON assembly and name resolution with directory replacement protection, without IDE consumers.
+Provide the shared catalog and contained bundle loader introduced by #2621/#2714. The selector and
+consumer adapter in `HexIDE.Profiles.ProfileResolver` uses this loader for session profiles (#504).
+This component validates declarations and captures JSON without applying services or parsing CLI
+selectors. The approved bundle design and remaining surface work are in
+`openspec/changes/2026-10-25-profiles-supersede-personalities/`.
 
 ## Requirements
 
@@ -26,7 +26,7 @@ File references SHALL confer no permission to open a file.
 
 The catalog SHALL read embedded JSON manifests through an explicit index containing `vb6`, `vbaode`
 and `vba`, in that order. They SHALL declare schema version 1 and only the project types and menu
-visibility specified by the approved bundle design. No IDE consumer SHALL be wired by this foundation.
+visibility specified by the approved bundle design.
 
 #### Scenario: Built-in declarations are inspected
 
@@ -131,6 +131,24 @@ files SHALL remain declarations pending loader validation. Preflight SHALL NOT a
 - **WHEN** a directory manifest references a file through a symlink, dangling link or junction
 - **THEN** parsing refuses it with the manifest file and field attributed
 
+### Requirement: Trusted profile directory resolution
+
+The reader SHALL resolve the profile directory once to an opened directory before walking references
+with no-follow semantics. Symbolic links above the profile directory SHALL be allowed; links inside it SHALL remain
+refused. Windows resolution SHALL retain the resolving directory handle and canonical ancestor handles
+without write/delete sharing for the reader's lifetime.
+
+#### Scenario: Symlinked user-data ancestor
+
+- **WHEN** the profile directory is reached through a symbolic link in an ancestor directory
+- **THEN** direct reads and bundle assembly read ordinary contained files
+- **AND** a symbolic link in a payload reference is still refused
+
+#### Scenario: Ancestor link retargeted after opening
+
+- **WHEN** an ancestor symbolic link is retargeted after the bundle reader opens its directory
+- **THEN** subsequent reads remain in the originally opened directory
+
 ### Requirement: Handle-relative Unix containment
 
 On Linux and macOS the standalone byte reader SHALL open each directory and file relative to the preceding
@@ -202,8 +220,8 @@ It SHALL NOT close the caller's handle during fallback validation.
 ### Requirement: Detached bundle assembly
 
 The standalone assembler SHALL read the manifest and every declared payload through the contained
-reader before returning an immutable map of detached JSON objects. It SHALL NOT be connected to IDE
-consumers by this component.
+reader before returning an immutable map of detached JSON objects. It SHALL NOT apply captured data
+to IDE services.
 
 #### Scenario: Payload changes after assembly
 

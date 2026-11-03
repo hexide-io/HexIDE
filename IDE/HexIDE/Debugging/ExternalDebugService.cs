@@ -8,6 +8,7 @@ using Avalonia.Threading;
 using HexIDE.Conversations;
 using HexIDE.Dap;
 using HexIDE.Lsp;
+using HexIDE.Localization;
 
 namespace HexIDE.Debugging;
 
@@ -15,11 +16,12 @@ public sealed record ExternalVariable(string Name, string Value, string Type, in
 public sealed record ExternalEvaluation(string Text, bool Expired = false);
 
 /// <summary>One external run. Public state and events belong to the UI thread; wire reads never block it.</summary>
-public sealed partial class ExternalDebugService(ConversationLog capture)
+public sealed partial class ExternalDebugService(ConversationLog capture, ILocalizationService? localization = null)
 {
     private DapSession? session;
     private CancellationTokenSource? cancellation;
     private Task? stopping;
+    private bool resumePending;
     private long inspectionVersion;
     private long selectionVersion;
     public bool IsActive { get; private set; }
@@ -40,6 +42,8 @@ public sealed partial class ExternalDebugService(ConversationLog capture)
 
     public bool IsCurrent(DapStop stop) => session?.IsCurrent(stop) == true;
     public long WatchVersion => inspectionVersion;
+
+    public bool SupportsSetNextStatement => session?.Supports("supportsGotoTargetsRequest") == true;
 
     public bool CanEvaluateHover => CanEvaluate && session?.Supports("supportsEvaluateForHovers") == true;
 
@@ -152,6 +156,14 @@ public sealed partial class ExternalDebugService(ConversationLog capture)
             }
         }
         catch (OperationCanceledException) when (cancellation.IsCancellationRequested) { }
+        catch (DapBreakpointConditionException exception)
+        {
+            State = DapSessionState.Faulted;
+            var strings = localization ?? new LocalizationService();
+            Failed?.Invoke(exception.Option.Equals("condition", StringComparison.OrdinalIgnoreCase)
+                ? string.Format(strings.GetString("Str.Debug.External.BreakpointConditionUnsupported"), exception.File, exception.Entry)
+                : string.Format(strings.GetString("Str.Debug.External.BreakpointOptionUnsupported"), exception.Option, exception.File, exception.Entry));
+        }
         catch (Exception exception)
         {
             State = DapSessionState.Faulted;
@@ -164,7 +176,7 @@ public sealed partial class ExternalDebugService(ConversationLog capture)
             session = null;
             cancellation.Dispose();
             cancellation = null;
-            IsActive = IsBusy = IsEvaluating = false;
+            IsActive = IsBusy = IsEvaluating = resumePending = false;
             Stop = null;
             ThreadId = null;
             ClearInspection();
@@ -193,24 +205,42 @@ public sealed partial class ExternalDebugService(ConversationLog capture)
             await Dispatcher.UIThread.InvokeAsync(() =>
             {
                 if (session != current) return;
+                var selectedId = update.Event?.Event == "invalidated"
+                    ? SelectedFrame?.GetProperty("id").GetInt32() : null;
                 State = update.Snapshot.State;
-                if (Stop != update.Snapshot.Stop) ClearInspection();
-                Stop = update.Snapshot.Stop;
+                var refusedResume = resumePending && State == DapSessionState.Stopped && update.Event is null;
+                if (update.Snapshot.ResumePending)
+                {
+                    // Keep completed inspection visible until execution is confirmed; pending replies are stale.
+                    if (!resumePending) { ++inspectionVersion; ++selectionVersion; }
+                }
+                else
+                {
+                    if (Stop != update.Snapshot.Stop && !refusedResume) ClearInspection();
+                    Stop = update.Snapshot.Stop;
+                }
+                resumePending = update.Snapshot.ResumePending;
                 if (Stop?.ThreadId is { } thread) ThreadId = thread;
                 if (update.Event?.Event == "output" && update.Event.Body is { } body && body.TryGetProperty("output", out var output))
                     Output?.Invoke(output.GetString() ?? "");
                 if (update.Event?.Event == "breakpoint" && update.Event.Body is { } breakpointEvent)
                     ApplyBreakpointEvent(breakpointEvent);
-                if (update.Snapshot.Stop is null) ClearInspection();
+                if (Stop is null) ClearInspection();
                 UpdateConnection();
                 Changed?.Invoke();
-                if (update.Event?.Event == "stopped" && Stop is { } stop) _ = InspectAsync(current, stop);
+                if (Stop is { } stop)
+                {
+                    if (update.Event?.Event is "stopped" or "invalidated" || refusedResume && Frames.Count == 0)
+                        _ = InspectAsync(current, stop, selectedId);
+                    else if (refusedResume && Variables.Count == 0 && SelectedFrame is { } frame)
+                        _ = RefreshSelectedFrameAsync(current, stop, frame.GetProperty("id").GetInt32());
+                }
             });
             if (update.Event?.Event == "terminated") await StopAsync();
         }
     }
 
-    private async Task InspectAsync(DapSession current, DapStop stop)
+    private async Task InspectAsync(DapSession current, DapStop stop, int? selectedId = null)
     {
         try
         {
@@ -222,7 +252,12 @@ public sealed partial class ExternalDebugService(ConversationLog capture)
             if (session != current || !current.IsCurrent(stop)) return;
             ThreadId = thread;
             Frames = frames;
-            if (frames.Length > 0) await SelectFrameAsync(stop, frames[0].GetProperty("id").GetInt32());
+            if (frames.Length > 0)
+            {
+                var selected = frames.FirstOrDefault(frame => frame.GetProperty("id").GetInt32() == selectedId);
+                await SelectFrameAsync(stop, (selected.ValueKind == JsonValueKind.Object ? selected : frames[0])
+                    .GetProperty("id").GetInt32());
+            }
             else Changed?.Invoke();
         }
         catch (Exception exception)
@@ -329,6 +364,17 @@ public sealed partial class ExternalDebugService(ConversationLog capture)
             if (command == "pause") await current.PauseAsync(thread);
             else if (Stop is { } stop) await current.ResumeAsync(stop, command, thread);
         }
+        catch (Exception exception) { Failed?.Invoke(exception.Message); }
+        finally { if (session == current) { IsBusy = false; Changed?.Invoke(); } }
+    }
+
+    public async Task SetNextStatementAsync(string uri, int line)
+    {
+        if (!SupportsSetNextStatement || session is not { } current || IsBusy || Stop is not { } stop ||
+            ThreadId is not { } thread || !Uri.TryCreate(uri, UriKind.Absolute, out var source) || !source.IsFile) return;
+        IsBusy = true;
+        Changed?.Invoke();
+        try { await current.SetNextStatementAsync(stop, source.LocalPath, line, thread); }
         catch (Exception exception) { Failed?.Invoke(exception.Message); }
         finally { if (session == current) { IsBusy = false; Changed?.Invoke(); } }
     }

@@ -6,7 +6,7 @@ This document catalogues the real-world VB6 projects used to verify round-trip s
 
 ## How to use this corpus
 
-Round-trip fidelity is verified by the `HexIDE.Runtime.Tests` xUnit harness (see `RoundTripTests.cs`). For each project, the harness asserts:
+Round-trip fidelity is verified by the `HexIDE.Runtime.Tests` xUnit harness (see `SerializationCorpusTests.cs`; inline regression cases are in `SerializationRoundTripTests.cs`). For each project, the harness asserts:
 
 1. **Deserialise succeeds** — no exception, no error-sink entries for known-format files
 2. **Re-serialise is parseable** — output of `Serialize()` can be fed back into `Deserialize()` without error

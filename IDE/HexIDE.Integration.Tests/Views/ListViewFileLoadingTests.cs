@@ -37,10 +37,11 @@ public class ListViewFileLoadingTests
     [AvaloniaTheory]
     [InlineData("")]
     [InlineData("BorderStyle = 0")]
-    public void Three_dimensional_appearance_without_a_border_is_refused(string border)
+    public void Three_dimensional_appearance_without_a_border_loads_with_its_measured_edge(string border)
     {
-        Action load = () => Load("Appearance = 1\n" + border);
-        load.Should().Throw<NotImplementedException>().WithMessage("*Appearance*BorderStyle*unmeasured*");
+        var view = Load("Appearance = 1\n" + border);
+        Read(view, "BorderStyle").Should().Be(0L);
+        VBProps.GetClientInset(view).Should().Be(2);
     }
 
     [AvaloniaFact]

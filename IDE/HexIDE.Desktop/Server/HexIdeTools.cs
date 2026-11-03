@@ -1916,6 +1916,10 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     {
         return await Dispatcher.UIThread.InvokeAsync(() =>
         {
+            // An external session is not the interpreter's run, so the check below would answer "No project is
+            // running" straight after get_debug_state said Paused (#2966).
+            if (ctx.RootViewModel.ExternalDebugger?.IsActive == true)
+                return new MutateResult(false, ctx.Localization.GetString("Str.Debug.External.Unsupported"));
             var lookup = ResolveDocument(module, project);
             if (lookup.Document is not { } document)
                 return new MutateResult(false, lookup.Error);
@@ -2109,16 +2113,16 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     }
 
     [McpServerTool(Name = "get_new_project_templates")]
-    [Description("Returns the list of project templates that would appear in the New Project dialog, including personality templates and any add-in registered templates.")]
+    [Description("Returns the list of project templates that would appear in the New Project dialog. Each template source is profile or addin.")]
     public Task<NewProjectTemplatesResult> GetNewProjectTemplatesAsync(CancellationToken ct)
     {
-        var personality = ctx.PersonalityService.AvailableProjectTypes
-            .Select(t => new TemplateInfo(t.Name, t.Supported, "personality"))
+        var profile = ctx.ProfileService.AvailableProjectTypes
+            .Select(t => new TemplateInfo(t.Name, t.Supported, "profile"))
             .ToArray();
         var addin = ctx.AddinProjectTemplateService.Templates
             .Select(t => new TemplateInfo(t.Name, t.Supported, "addin"))
             .ToArray();
-        return Task.FromResult(new NewProjectTemplatesResult([.. personality, .. addin]));
+        return Task.FromResult(new NewProjectTemplatesResult([.. profile, .. addin]));
     }
 
     [McpServerTool(Name = "shutdown_ide")]
@@ -2181,7 +2185,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
         [("pseudo", "Pseudo (LTR)"), ("pseudo-rtl", "Pseudo (RTL)")];
 
     [McpServerTool(Name = "set_ide_language")]
-    [Description("Switches the IDE chrome language by pack id ('en', 'pseudo', 'pseudo-rtl', or an installed pack id), driving the exact live-apply + countdown-revert confirmation gate the Options dropdown uses. Returns immediately; the gate stays open and auto-reverts after its countdown. Keep on the gate also saves the language for later starts, as OK in Options does; Revert or the countdown saves nothing. Asking for the language already in use opens no gate and saves it. While a gate is open, another call is refused and names the language it is waiting on. Call take_snapshot right after to capture the gate, or wait for it to time out to see the reverted chrome.")]
+    [Description("Switches the IDE chrome language by pack id ('en', 'pseudo', 'pseudo-rtl', or an installed pack id), driving the exact live-apply + countdown-revert confirmation gate the Options dropdown uses. Returns immediately; the gate stays open and auto-reverts after its countdown. Keep on the gate also saves the language for later starts, as OK in Options does (in --profile none it lasts only this session); Revert or the countdown saves nothing. Asking for the language already in use opens no gate and saves it. While a gate is open, another call is refused and names the language it is waiting on. Call take_snapshot right after to capture the gate, or wait for it to time out to see the reverted chrome.")]
     public async Task<MutateResult> SetIdeLanguageAsync(string id, CancellationToken ct)
     {
         // Checked first against what the Language page offers, languages and their regions. An unknown id used
@@ -2227,11 +2231,13 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
                     ?? match;
         if (string.Equals(previous, match, StringComparison.OrdinalIgnoreCase))
             return new MutateResult(true, null,
-                $"{shown} ('{match}') is already the IDE's language, so no confirmation gate was opened. It is saved "
-                + "for later starts.");
+                $"{shown} ('{match}') is already the IDE's language, so no confirmation gate was opened. "
+                + (Static.IsRecoveryMode ? "This language change lasts only this session." : "It is saved for later starts."));
         return new MutateResult(true, null,
-            $"Switching to {shown} ('{match}'). A confirmation gate is open: Keep saves {shown} for later starts, as "
-            + $"OK in Options does, and Revert or its countdown goes back to '{previous}' and saves nothing. "
+            $"Switching to {shown} ('{match}'). A confirmation gate is open: "
+            + (Static.IsRecoveryMode ? "This language change lasts only this session." + " "
+                : $"Keep saves {shown} for later starts, as OK in Options does, and ")
+            + $"Revert or its countdown goes back to '{previous}' and saves nothing. "
             + "take_snapshot captures it. Another switch is refused until it closes.");
     }
 
@@ -2819,6 +2825,8 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
         if (resolved.Item1 is not { } found)
             return new InteractOutcome(false, "pointer", null, resolved.Item2);
         await Dispatcher.UIThread.InvokeAsync(() => UiAutomationDriver.NextFrameDrawnAsync(found, UiAutomationDriver.ClickFrameWait));
+        // Everything the capture holds by now is before this hover, so a quick-info request above it is this hover's (#2574).
+        var watermark = await ctx.Capture.DrainAsync();
 
         var raised = await Dispatcher.UIThread.InvokeAsync(() =>
         {
@@ -2852,6 +2860,8 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
         (Rect Bounds, Point Hovered)? placed = null;
         // What 'stay' adds to the reply, once the watch has run to its end (#2562).
         string? stayed = null;
+        // In a code window, why no tip opened (#2574).
+        string? quickInfo = null;
         try
         {
             var deadline = Environment.TickCount64 + dwellMs;
@@ -2882,8 +2892,12 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
             // purpose: "tip:" means a popup was observed open, "declared tip:" means only that the text is set.
             // Collapsing them would turn a limitation into a passing assertion.
             if (tip is null)
+            {
                 (declared, enabled) = await Dispatcher.UIThread.InvokeAsync(
                     () => (UiAutomationDriver.DeclaredToolTipAt(at.Receiver, at.Point), at.Receiver.IsEffectivelyEnabled));
+                // Read before the pointer leaves, which cancels a request still waiting and would report it as cancelled.
+                quickInfo = await QuickInfoNoteAsync(at, watermark, dwellMs);
+            }
         }
         finally
         {
@@ -2929,7 +2943,8 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
         // declared: quick info and Auto Data Tips declare none, and missed the same way (#2376). Not for a disabled target,
         // which opened none to take, and whose reply already says why.
         var took = enabled ? moved : null;
-        var unopened = raised.Detail + "; no tip opened within " + dwellMs + "ms" + (took is null ? string.Empty : " (" + took + ")");
+        var unopened = raised.Detail + "; no tip opened within " + dwellMs + "ms" + (took is null ? string.Empty : " (" + took + ")")
+                       + (quickInfo is null ? string.Empty : "; " + quickInfo);
         return raised with
         {
             Detail = (declared is null
@@ -2946,6 +2961,30 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     // The watch is bounded so a mistyped value cannot hold a call open for minutes. Refused rather than
     // clamped, because a clamped value left the reply quoting a dwell that never happened (#610).
     private const int MaxHoverDwellMs = 10_000;
+
+    /// <summary>
+    /// For a hover in a code window, what the editor asked for at the point and what became of it; null anywhere else.
+    /// </summary>
+    private async Task<string?> QuickInfoNoteAsync(UiAutomationDriver.HoverLanding at, long watermark, int dwellMs)
+    {
+        try
+        {
+            var route = await Dispatcher.UIThread.InvokeAsync(
+                () => HexIDE.Forms.Views.CodeEditorView.RouteUnder(at.Receiver, at.Point));
+            if (route is not { } where) return null;
+            await ctx.Capture.DrainAsync();
+            var asked = HoverQuickInfoNote.AskedSince(ctx.Capture.Snapshot(), watermark, DateTimeOffset.UtcNow);
+            var extension = DocumentLanguage.ExtensionOf(where.DocumentUri);
+            var registered = asked.Count > 0 ? [] : HoverQuickInfoNote.RegisteredFor(
+                (ctx.LspClient as ILanguageConnectionRegistry)?.Connections ?? [], extension);
+            return HoverQuickInfoNote.Describe(where, dwellMs, asked, registered, extension);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            // The account is an addition to the reply; the hover's own result stands without it.
+            return "quick info: could not be read (" + ex.GetType().Name + ")";
+        }
+    }
 
     /// <summary>
     /// The text of a tooltip currently OPEN on a control, one of its ancestors, or one of its

@@ -8,7 +8,7 @@ namespace HexIDE.Tests.Infrastructure;
 /// </summary>
 public class MissingLanguageDocTests
 {
-    private sealed record Table(string Heading, string[] Columns, List<string[]> Rows);
+    private sealed record Table(string Heading, int HeadingIndex, string[] Columns, List<string[]> Rows);
     private static string Clean(string text)
     {
         text = text.Trim();
@@ -17,23 +17,42 @@ public class MissingLanguageDocTests
         return text.Trim('`');
     }
 
-    private static List<Table> Tables(string text)
+    private static List<Table> Tables(string text, Dictionary<string[], Group[]>? locations = null)
     {
         var tables = new List<Table>();
         var heading = "";
+        var headingIndex = 0;
         Table? table = null;
-        // Normalize before splitting: the guard also runs in Windows CRLF checkouts.
-        foreach (var line in text.ReplaceLineEndings("\n").Split('\n'))
+        // Keep original offsets so fixes preserve formatting and line endings.
+        var cellPattern = new Regex(@"(?<!\\)\|((?:\\.|[^|\r\n])*)");
+        foreach (Match lineMatch in Regex.Matches(text, @"(?m)^[^\r\n]*"))
         {
-            if (line.StartsWith('#')) heading = line.TrimStart('#', ' ');
+            var line = lineMatch.Value;
+            if (line.StartsWith('#'))
+            {
+                heading = line.TrimStart('#', ' ');
+                headingIndex = lineMatch.Index + line.Length - heading.Length;
+            }
             if (!line.StartsWith('|')) { table = null; continue; }
-            var cells = Regex.Split(line.Trim('|'), @"(?<!\\)\|").Select(Clean).ToArray();
+            var cellGroups = new List<Group>();
+            var cellMatch = cellPattern.Match(text, lineMatch.Index, line.Length - 1);
+            while (cellMatch.Success)
+            {
+                cellGroups.Add(cellMatch.Groups[1]);
+                cellMatch = cellMatch.NextMatch();
+                if (cellMatch.Index >= lineMatch.Index + line.Length - 1) break;
+            }
+            var cells = cellGroups.Select(g => Clean(g.Value)).ToArray();
             if (table is null)
             {
-                table = new Table(heading, cells, []);
+                table = new Table(heading, headingIndex, cells, []);
                 tables.Add(table);
             }
-            else if (!cells.All(c => Regex.IsMatch(c, @"^:?-+:?$"))) table.Rows.Add(cells);
+            else if (!cells.All(c => Regex.IsMatch(c, @"^:?-+:?$")))
+            {
+                table.Rows.Add(cells);
+                locations?.Add(cells, cellGroups.ToArray());
+            }
         }
         return tables;
     }
@@ -43,8 +62,64 @@ public class MissingLanguageDocTests
     [InlineData("\r\n")]
     public void CountsRatingsAndStatusSectionsAgreeWithTheInventory(string lineEnding)
     {
-        var text = File.ReadAllText(Path.Combine(RepoTree.Root(), "docs", "MISSING_LANGUAGE.md")).ReplaceLineEndings(lineEnding);
-        var tables = Tables(text);
+        var path = Path.Combine(RepoTree.Root(), "docs", "MISSING_LANGUAGE.md");
+        var text = File.ReadAllText(path);
+        if (Environment.GetEnvironmentVariable("HEXIDE_MISSING_LANGUAGE_FIX") == "1")
+        {
+            var fixedText = Recount(text, true, Console.WriteLine);
+            if (fixedText != text) File.WriteAllText(path, fixedText);
+            text = fixedText;
+        }
+        Recount(text.ReplaceLineEndings(lineEnding), false);
+    }
+
+    [Theory]
+    [InlineData("\n")]
+    [InlineData("\r\n")]
+    public void FixRecountsWrongFiguresAndTheGuardAcceptsTheResult(string lineEnding)
+    {
+        var original = Recount(File.ReadAllText(Path.Combine(RepoTree.Root(), "docs", "MISSING_LANGUAGE.md")), true).ReplaceLineEndings(lineEnding);
+        var locations = new Dictionary<string[], Group[]>();
+        var tables = Tables(original, locations);
+        var summary = tables.Single(t => t.Columns[0] == "Category");
+        var families = tables.Single(t => t.Columns[0] == "Family (VB6 enum)");
+        var figures = summary.Rows.SelectMany(r => locations[r].Skip(1))
+            .Concat(families.Rows.Select(r => locations[r][^1]));
+        var wrong = original;
+        foreach (var figure in figures.OrderByDescending(g => g.Index))
+        {
+            var number = Regex.Match(figure.Value, @"\d+");
+            wrong = wrong.Remove(figure.Index + number.Index, number.Length).Insert(figure.Index + number.Index, "999");
+        }
+        wrong = Regex.Replace(wrong, @"(?m)^(#{2,3} [^\r\n]*?— )\d+", "${1}999");
+        wrong = Regex.Replace(wrong, @"\d+ (silently wrong|absent|partial|no-op|supported|families)", "999 $1");
+        wrong = Regex.Replace(wrong, @"\*\*\d+ names\*\*", "**999 names**");
+        wrong = Regex.Replace(wrong, @"The \w+( Silently wrong rows? below)", "The nineteen$1");
+        wrong = Regex.Replace(wrong, @"(?m)^(\*\*[^*\r\n]+\*\* \()\d+(\)\r?$)", "${1}999$2");
+        wrong = Regex.Replace(wrong, @"(Operators are nearly complete\*\* — )\d+ absent of \d+", "${1}999 absent of 999");
+        wrong = Regex.Replace(wrong, @"\d+% of VB6's statements \(\d+(\s+)of \d+", "999% of VB6's statements (999${1}of 999");
+        wrong = Regex.Replace(wrong, @"\d+% of the(\s+)in-box surface \((.*?); \d+ of \d+\)", "999% of the${1}in-box surface ($2; 999 of 999)");
+        var check = () => Recount(wrong, false);
+        check.Should().Throw<Exception>();
+        var fixedText = Recount(wrong, true);
+        Recount(fixedText, false).Should().Be(fixedText);
+        fixedText.Should().Be(original);
+    }
+
+    [Theory]
+    [InlineData("\n")]
+    [InlineData("\r\n")]
+    public void FixLeavesCorrectDocumentByteIdentical(string lineEnding)
+    {
+        var text = Recount(File.ReadAllText(Path.Combine(RepoTree.Root(), "docs", "MISSING_LANGUAGE.md")), true).ReplaceLineEndings(lineEnding);
+        System.Text.Encoding.UTF8.GetBytes(Recount(text, true)).Should().Equal(System.Text.Encoding.UTF8.GetBytes(text));
+    }
+
+    private static string Recount(string text, bool fix, Action<string>? report = null)
+    {
+        var locations = new Dictionary<string[], Group[]>();
+        var tables = Tables(text, locations);
+        var edits = new Dictionary<int, (int Length, string Value)>();
         var legend = tables.Single(t => t.Columns[0] == "Status").Rows.Select(r => r[0]).ToArray();
         legend.Should().HaveCount(6, "How to read this defines the six ratings");
         var summary = tables.Single(t => t.Columns[0] == "Category");
@@ -68,14 +143,14 @@ public class MissingLanguageDocTests
             var match = Regex.Match(group.Key, @"— (\d+)(?: names)?");
             if (!match.Success) continue;
             var count = group.Sum(t => t.Rows.Count);
-            Check(group.Key, int.Parse(match.Groups[1].Value), count);
+            Check(group.Key, match.Groups[1], count, group.First().HeadingIndex);
             // The parenthetical breakdown uses 'absent' for Dies + Won't load.
             foreach (Match part in Regex.Matches(group.Key, @"(\d+) (silently wrong|absent|partial|no-op|supported)"))
             {
                 var label = part.Groups[2].Value;
                 var actual = group.SelectMany(t => t.Rows).Count(r => label == "absent"
                     ? r[1] is "Dies" or "Won't load" : r[1].Equals(label, StringComparison.OrdinalIgnoreCase));
-                Check($"{group.Key}: {label}", int.Parse(part.Groups[1].Value), actual);
+                Check($"{group.Key}: {label}", part.Groups[1], actual, group.First().HeadingIndex);
             }
         }
 
@@ -94,25 +169,24 @@ public class MissingLanguageDocTests
             }
             for (var i = 0; i < legend.Length; i++)
             {
-                Check($"At a glance: {category[0]} / {legend[i]}", int.Parse(category[i + 1]), counts[i]);
+                Check($"At a glance: {category[0]} / {legend[i]}", locations[category][i + 1], counts[i]);
                 totals[i] += counts[i];
             }
-            Check($"At a glance: {category[0]} / Total", int.Parse(category[^1]), counts.Sum());
+            Check($"At a glance: {category[0]} / Total", locations[category][^1], counts.Sum());
         }
         summary.Rows.Count(r => r[0] == "Total").Should().Be(1, "At a glance needs exactly one Total row");
         var total = summary.Rows.Single(r => r[0] == "Total");
-        for (var i = 0; i < legend.Length; i++) Check($"At a glance: Total / {legend[i]}", int.Parse(total[i + 1]), totals[i]);
-        Check("At a glance: Total / Total", int.Parse(total[^1]), totals.Sum());
-        var intro = Regex.Matches(text.ReplaceLineEndings("\n").Split("\n\n")[1], @"\*\*(\d+) names\*\*");
+        for (var i = 0; i < legend.Length; i++) Check($"At a glance: Total / {legend[i]}", locations[total][i + 1], totals[i]);
+        Check("At a glance: Total / Total", locations[total][^1], totals.Sum());
+        var intro = Regex.Matches(text, @"\*\*(\d+) names\*\*");
         intro.Should().ContainSingle("the opening blockquote declares the inventory size in bold");
-        Check("Intro names (At a glance Total)", int.Parse(intro[0].Groups[1].Value), int.Parse(total[^1]));
+        Check("Intro names (At a glance Total)", intro[0].Groups[1], totals.Sum());
 
         var wrongProse = Regex.Match(text, @"The (\w+) Silently wrong rows? below");
         wrongProse.Success.Should().BeTrue("the prose declares the Silently wrong count");
         var numberWords = new[] { "zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine",
             "ten", "eleven", "twelve", "thirteen", "fourteen", "fifteen", "sixteen", "seventeen", "eighteen", "nineteen" };
-        var wrongCount = wrongProse.Groups[1].Value;
-        Check("Silently wrong prose", int.TryParse(wrongCount, out var numeric) ? numeric : Array.IndexOf(numberWords, wrongCount), totals[0]);
+        Check("Silently wrong prose", wrongProse.Groups[1], totals[0], words: numberWords);
 
         // These prose summaries repeat category totals and absent counts outside the tables/headings.
         foreach (var (category, pattern) in new[]
@@ -126,10 +200,10 @@ public class MissingLanguageDocTests
             prose.Success.Should().BeTrue($"the damage summary declares {category} counts");
             var rows = inventory.Where(t => t.Heading.StartsWith(category + " —", StringComparison.Ordinal)).SelectMany(t => t.Rows).ToArray();
             var absent = rows.Count(r => r[1] is "Dies" or "Won't load");
-            Check($"Damage summary: {category} / absent", int.Parse(prose.Groups[^2].Value), absent);
-            Check($"Damage summary: {category} / Total", int.Parse(prose.Groups[^1].Value), rows.Length);
+            Check($"Damage summary: {category} / absent", prose.Groups[^2], absent);
+            Check($"Damage summary: {category} / Total", prose.Groups[^1], rows.Length);
             if (prose.Groups.Count == 4)
-                Check($"Damage summary: {category} / percent", int.Parse(prose.Groups[1].Value), (int)Math.Round(100.0 * absent / rows.Length));
+                Check($"Damage summary: {category} / percent", prose.Groups[1], (int)Math.Round(100.0 * absent / rows.Length));
         }
         var functionGroups = Regex.Matches(text, @"(?m)^\*\*([^*\r\n]+)\*\* \((\d+)\)\r?$");
         functionGroups.Should().NotBeEmpty("intrinsic function groups declare their sizes in prose");
@@ -138,15 +212,17 @@ public class MissingLanguageDocTests
             var group = functionGroups[i];
             var end = i + 1 < functionGroups.Count ? functionGroups[i + 1].Index : text.IndexOf("### Keywords and modifiers", group.Index, StringComparison.Ordinal);
             var rows = Tables(text[group.Index..end]).SelectMany(t => t.Rows).Count();
-            Check($"Intrinsic function group {group.Groups[1].Value}", int.Parse(group.Groups[2].Value), rows);
+            Check($"Intrinsic function group {group.Groups[1].Value}", group.Groups[2], rows);
         }
         var familyHeading = Regex.Match(families.Heading, @"— (\d+) names in (\d+) families");
         familyHeading.Success.Should().BeTrue("the constants heading declares names and families");
-        Check("Intrinsic constants names", int.Parse(familyHeading.Groups[1].Value), families.Rows.Sum(r => int.Parse(r[4])));
-        Check("Intrinsic constants families", int.Parse(familyHeading.Groups[2].Value), families.Rows.Count);
+        Check("Intrinsic constants names", familyHeading.Groups[1], families.Rows.Sum(r => r.Skip(1).Take(3).Sum(int.Parse)), families.HeadingIndex);
+        Check("Intrinsic constants families", familyHeading.Groups[2], families.Rows.Count, families.HeadingIndex);
         foreach (var family in families.Rows)
-            Check($"Constant family {family[0]}", int.Parse(family[4]), family.Skip(1).Take(3).Sum(int.Parse));
-        Check("Absent constants", families.Rows.Sum(r => int.Parse(r[3])), inventory.Where(t => t.Heading.StartsWith("Constants by name", StringComparison.Ordinal)).SelectMany(t => t.Rows).Count(r => r[1] == "Dies"));
+            Check($"Constant family {family[0]}", locations[family][4], family.Skip(1).Take(3).Sum(int.Parse));
+        var absentConstants = inventory.Where(t => t.Heading.StartsWith("Constants by name", StringComparison.Ordinal)).SelectMany(t => t.Rows).Count(r => r[1] == "Dies");
+        if (families.Rows.Sum(r => int.Parse(r[3])) != absentConstants)
+            errors.Add("Absent constants: family Dies counts disagree with the named inventory");
 
         foreach (var status in legend.Take(3))
         {
@@ -160,9 +236,20 @@ public class MissingLanguageDocTests
                 errors.Add($"{status}: '{row[0]}' has status '{row[1]}' in the wrong section");
         }
         errors.Should().BeEmpty("docs/MISSING_LANGUAGE.md must be recounted from its rows: " + string.Join("; ", errors));
-        void Check(string label, int documented, int actual)
+        foreach (var (index, edit) in edits.OrderByDescending(e => e.Key))
+            text = text.Remove(index, edit.Length).Insert(index, edit.Value);
+        return text;
+
+        void Check(string label, Group value, int actual, int offset = 0, string[]? words = null)
         {
-            if (documented != actual) errors.Add($"{label}: says {documented}, rows give {actual}");
+            var token = Clean(value.Value);
+            var documented = int.TryParse(token, out var numeric) ? numeric : Array.IndexOf(words!, token);
+            if (documented == actual) return;
+            var message = $"{label}: says {documented}, rows give {actual}";
+            if (!fix) { errors.Add(message); return; }
+            var replacement = words is not null && actual < words.Length ? words[actual] : actual.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            edits.Add(offset + value.Index + value.Value.IndexOf(token, StringComparison.Ordinal), (token.Length, replacement));
+            report?.Invoke(message);
         }
     }
 }

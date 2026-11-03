@@ -57,6 +57,7 @@ public partial class DISetup
             .Bind().As(Singleton).To<FormLayoutToolViewModel>()
             .Bind().As(Singleton).To<ImmediateToolViewModel>()
             .Bind().As(Singleton).To<LocalsToolViewModel>()
+            .Bind().As(Singleton).To<OutlineToolViewModel>()
             .Bind<WatchesToolViewModel>().As(Singleton).To(ctx =>
             {
                 // Make the optional debugger dependency explicit instead of expanding constructor alternatives.
@@ -95,6 +96,7 @@ public partial class DISetup
             .Bind().As(Singleton).To<ObjectBrowserToolViewModel>()
             .Bind().As(Singleton).To<TranslationEditorViewModel>()
             .Bind().As(Singleton).To<LanguageServersToolViewModel>()
+            .Bind().As(Singleton).To<HexIDE.Tools.Diagnostics.DiagnosticsToolViewModel>()
             .Bind().As(Singleton).To<HexIDE.Tools.ProtocolInspector.ProtocolInspectorToolViewModel>()
             .Bind().As(Singleton).To<WindowManager>()
             .Bind().As(Singleton).To<ProjectManager>()
@@ -271,15 +273,20 @@ public partial class DISetup
             })
             .Bind<ILoggerFactory>().As(Singleton).To(_ => LoggingSetup.LoggerFactory)
             .Bind<ILogger<TT>>().As(Singleton).To<Logger<TT>>()
-            // Personality
-            .Bind<IPersonalityService>().As(Singleton).To<PersonalityService>()
+            // Profiles
+            .Bind<IProfileService>().As(Singleton).To<ProfileService>()
             // Theming
             .Bind<IThemeService>().As(Singleton).To<ThemeService>()
             // Keymaps
             .Bind<IKeymapService>().As(Singleton).To(_ => new KeymapService())
             // Localization
             .Bind<IUserTranslationsService>().As(Singleton).To<UserTranslationsService>()
-            .Bind<ILocalizationService>().As(Singleton).To<LocalizationService>()
+            .Bind<ILocalizationService>().As(Singleton).To(ctx =>
+            {
+                ctx.Inject<IUserTranslationsService>(out var translations);
+                ctx.Inject<IDeveloperModeService>(out var developerMode);
+                return new LocalizationService(Static.Profile, translations, developerMode);
+            })
             .Bind<ILanguageSwitchService>().As(Singleton).To<LanguageSwitchService>()
             // Developer mode (session state from --developer-mode)
             .Bind<IDeveloperModeService>().As(Singleton).To<DeveloperModeService>()
@@ -345,7 +352,7 @@ public partial class DISetup
             .Root<TranslationEditorViewModel>("TranslationEditorViewModel")
             .Root<LanguageServersToolViewModel>("LanguageServersToolViewModel")
             .Root<HexIDE.Tools.ProtocolInspector.ProtocolInspectorToolViewModel>("ProtocolInspectorToolViewModel")
-            .Root<IPersonalityService>("PersonalityService")
+            .Root<IProfileService>("ProfileService")
             .Root<AddinProjectTemplateService>("AddinProjectTemplateService");
 
     public static MainViewViewModel DesignTimeRootViewModel => new DISetup().Root;

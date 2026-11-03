@@ -12,6 +12,7 @@ internal sealed class ListViewItems(VBListView owner) : ICSharpAsyncProxy, IName
 
     internal static VBRunTimeException Error(int number) => new ListViewError(number, number switch
     {
+        35610 => "Invalid object",
         35604 => "The first column in a ListView control must be left aligned",
         382 => "Property cannot be set at runtime",
         35605 => "This item's control has been deleted",
@@ -121,9 +122,13 @@ internal sealed class ListViewItems(VBListView owner) : ICSharpAsyncProxy, IName
                 var key = Argument(args, 1).IsMissing ? "" : Text(args[1]);
                 CheckKey(key);
                 var at = Argument(args, 0).IsMissing ? Entries.Count : Position(args[0], adding: true);
-                if (!Argument(args, 3).IsMissing || !Argument(args, 4).IsMissing)
-                    throw Error(35613);
+                var icon = Argument(args, 3);
+                var smallIcon = Argument(args, 4);
+                if (!icon.IsMissing) owner.ValidateImage("Icons", icon);
+                if (!smallIcon.IsMissing) owner.ValidateImage("SmallIcons", smallIcon);
                 var item = new ListViewItem(owner, this, key, Argument(args, 2).IsMissing ? "" : Text(args[2]), !owner.Checkboxes);
+                if (!icon.IsMissing) item.Icon = icon;
+                if (!smallIcon.IsMissing) item.SmallIcon = smallIcon;
                 var first = Entries.Count == 0;
                 Entries.Insert(owner.Sorted ? Entries.Count : at, item);
                 try { owner.ItemAdded(item); }
@@ -190,7 +195,9 @@ internal sealed class ListViewItem(VBListView owner, ListViewItems items, string
     {
         if (!items.Entries.Contains(this))
             throw new NotImplementedException("ListSubItems after removing its owner is unmeasured (#1085)");
-    }, owner.InvalidateVisual);
+    }, owner.InvalidateVisual, value => owner.ValidateImage("SmallIcons", value));
+    internal Vb6Value Icon = Vb6Value.Variant;
+    internal Vb6Value SmallIcon = Vb6Value.Variant;
     private bool ghosted;
     private bool bold;
     private long foreColor = unchecked((int)0x80000008);
@@ -245,7 +252,7 @@ internal sealed class ListViewItem(VBListView owner, ListViewItems items, string
             "index" => new Vb6Value((long)items.Entries.IndexOf(this) + 1),
             "selected" => new Vb6Value(IsSelected),
             "checked" => new Vb6Value(check),
-            "icon" or "smallicon" => Vb6Value.Variant,
+            "icon" => Icon, "smallicon" => SmallIcon,
             _ => throw new NotImplementedException($"ListItem.{name} is not implemented (#1085)"),
         };
         return true;
@@ -284,7 +291,8 @@ internal sealed class ListViewItem(VBListView owner, ListViewItems items, string
                 foreColor = 255;
                 break;
             case "tooltiptext": throw new NotImplementedException("ListItem.ToolTipText assignment is unmeasured (#1085)");
-            case "icon" or "smallicon": throw ListViewItems.Error(35613);
+            case "icon": Icon = owner.ValidateImage("Icons", value); break;
+            case "smallicon": SmallIcon = owner.ValidateImage("SmallIcons", value); break;
             case "index" or "width": throw new VBRunTimeException(VBStandardError.PropertySetCantBeUsedWithAReadOnlyProperty);
             case "left": break;
             default: throw new NotImplementedException($"ListItem.{name} is not implemented (#1085)");

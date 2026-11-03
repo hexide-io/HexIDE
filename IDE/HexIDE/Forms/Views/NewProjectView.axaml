@@ -25,7 +25,12 @@
             <!-- =============== NEW TAB =============== -->
             <TabItem Header="{DynamicResource Str.Dialog.NewProject.Tab.New}">
                 <Grid RowDefinitions="*,9,Auto">
-                    <ListBox ItemsSource="{CompiledBinding Templates}"
+                    <TextBlock x:Name="NoProjectTemplates"
+                               IsVisible="{CompiledBinding HasNoTemplates}"
+                               Text="{DynamicResource Str.NewProject.NoTemplates}"
+                               TextWrapping="Wrap" Margin="8" VerticalAlignment="Center" />
+                    <ListBox IsVisible="{CompiledBinding !HasNoTemplates}"
+                             ItemsSource="{CompiledBinding Templates}"
                              SelectedItem="{CompiledBinding SelectedTemplate}"
                              DoubleTapped="TemplateDoubleTap">
                         <ListBox.Styles>

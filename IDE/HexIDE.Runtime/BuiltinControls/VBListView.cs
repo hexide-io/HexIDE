@@ -20,13 +20,13 @@ public sealed partial class VBListView : Decorator, ICSharpPropertyBag, INamedPa
     public VBListView()
     {
         Items = new ListViewItems(this);
-        Columns = new ListViewColumns(InvalidateVisual);
+        Columns = new ListViewColumns(InvalidateVisual, value => ValidateImage("ColumnHeaderIcons", value));
         Focusable = true;
         UpdateClientInset();
     }
 
     private void UpdateClientInset() =>
-        VBProps.SetClientInset(this, Number("BorderStyle") != 0 && Number("Appearance") == 1 ? 3 : 0);
+        VBProps.SetClientInset(this, (Number("Appearance") == 1 ? 2 : 0) + (Number("BorderStyle") == 1 ? 1 : 0));
 
     protected override void OnKeyDown(KeyEventArgs e)
     {
@@ -300,6 +300,11 @@ public sealed partial class VBListView : Decorator, ICSharpPropertyBag, INamedPa
     {
         CheckSort();
         InvalidateVisual();
+        if (IsImageListMember(name))
+        {
+            BindImages(name, value);
+            return true;
+        }
         if (properties.TryGetValue(name, out var previous))
         {
             if (name.Equals("TabStop", StringComparison.OrdinalIgnoreCase))

@@ -127,10 +127,12 @@ equally a LaTeX class file, so claiming `.cls` is not enough to receive the proj
 a claim on VB6 would hand a LaTeX server your source. The entry must also establish that it serves VB6, by
 claiming one of `.bas`, `.frm`, `.ctl`, `.pag`, `.dob` or `.dsr`, or by declaring `languageId: vb6`. That is
 the only thing routing ever reads `languageId` for, and it never makes a claim on its own: an entry declaring
-`vb6` that claims no VB6 extension is still sent nothing. It applies only to documents of the project. A
-`.cls` the project merely carries goes to every entry that claims `.cls`, because nothing says it is VB6.
-That includes the bundled VB6 server, so a LaTeX class file the project carries is parsed as VB6 and shown
-with errors it does not have ([#279](https://github.com/hexide-io/HexIDE/issues/279), open).
+`vb6` that claims no VB6 extension is still sent nothing. A `.cls` the project merely carries is judged by
+its content instead: an entry that serves VB6 receives it only when its first non-blank line is
+`VERSION 1.0 CLASS`, so a LaTeX class file the project carries no longer reaches the bundled VB6 server
+([#279](https://github.com/hexide-io/HexIDE/issues/279)). Every other entry claiming `.cls` still receives
+it by extension. The check is made when the file opens, and editing it does not change where it goes until
+it is opened again.
 
 > Earlier revisions of this section said HexIDE's forms and modules had no extension on the wire, and that
 > an entry naming the language `vb6` received them whatever extensions it claimed. Both were true while those
@@ -225,9 +227,10 @@ on one machine — and a `.vbg` group or a second checkout would silently point 
 matters more than it sounds: a server told one directory on its command line and a different one at
 initialize does not fail — it loads one workspace and answers questions about the other.
 
-**With no project open, an entry using either workspace placeholder is not launched**, and the reason says
-so. Substituting nothing would hand the server a flag with no value and let it fail in its own vocabulary,
-which the reader then has to translate back into "no project was open".
+**With no project open, or a project not yet saved and no folder chosen, an entry using either workspace
+placeholder waits without launching.** The Language Servers window keeps it `NotStarted` and shows why.
+A later document open retries it; the first project save supplies the root and starts it without a reopen. The warning is logged once
+per entry. Substituting nothing would hand the server a flag with no value.
 
 `{pid}` lets a server that supports watching its owner exit when HexIDE crashes or is forcibly stopped.
 On Windows, HexIDE also assigns stdio and launched pipe servers to a kill-on-close job, so assigned
@@ -252,12 +255,12 @@ Leave `workingDirectory` out and the server runs in the open project's directory
 it when the server needs to be somewhere specific — some servers resolve their own configuration relative
 to where they were started, and that is part of whether they work at all.
 
-**One exception, and it is the common case for a new project.** A project you have not saved yet has a
-directory that does not exist on disk — it is created the moment something is written into it. A server
-cannot be launched in a directory that is not there, so HexIDE starts it in HexIDE's own directory instead
-and says so in the log. It is still told your project's directory as the workspace to analyse, so
-`{workspaceUri}` and `rootUri` are unaffected. Once you save, the server is restarted at the saved project's
-directory the next time a document is opened; a save that gives a document its first file is such an open.
+**An unsaved project has no workspace root until a folder is chosen.** Servers that need no workspace
+argument can start, inheriting HexIDE's working directory. Once you save, running servers are restarted
+at the saved project's directory the next time a document is opened; a save that gives a document its first
+file is such an open. Servers waiting for a workspace argument can start then too. If a chosen project
+directory does not exist, HexIDE also inherits its own working directory without creating the folder;
+the chosen workspace root is still sent to the server.
 
 A `workingDirectory` **you** set is never second-guessed this way. If it does not exist the server does not
 start, and the reason names the directory — because you meant that directory, and quietly running somewhere
@@ -359,10 +362,11 @@ command and its arguments; the filename is appended as a separate argument, and 
 `["clang"]`. This is a core provider seam, not yet a public add-in contract (#457).
 
 The `rdcore` provider writes the `.rdproj` that RDCore's language server reads from the workspace root,
-without which it analyses nothing:
+without which it analyses nothing. Current RDCore builds import the project instead
+([below](#rdcore)); the provider is for a build that can't:
 
 ```json
-"workspaceArtifact": { "path": ".rdproj", "provider": "rdcore" }
+"workspaceArtifact": { "path": ".rdproj", "provider": "rdcore", "restartOnChange": true }
 ```
 
 It lists every form, module, class and user control the project carries by its path relative to the
@@ -370,8 +374,17 @@ workspace root, including one in a subfolder or beside the project's folder, and
 references and its Conditional Compilation Arguments. It lists no other files, because RDCore parses
 anything listed as code. `settings.version` sets the file's `Version`, which must be no newer than the
 server reading it; the default, `0.1.0`, suits every RDCore build so far. A `.rdproj` you wrote yourself
-is left alone. RDCore reads the file only when it starts, so a module added while it runs is analysed
-from its next start.
+is left alone. For a build that reads the file only when it starts, the entry should also set
+`"restartOnChange": true`: then a module added while it runs is analysed after a restart, rather than from its
+next start.
+
+`restartOnChange` restarts the server when a regeneration changes the file's bytes, for a server that reads its
+artefact only when it starts (#2072). It is off unless set, and a server that watches its own artefact, as clangd
+does its compilation database, should leave it off. The write before the first launch, an identical regeneration,
+and a refused or denied write don't count; taking the file back when there is nothing to describe does. The
+debounce that batches regeneration batches restarts too, so several quick project changes give one restart. Only
+that server is restarted, its open documents are opened on it again, and the restart is recorded on its
+connection in **Tools → Protocol Inspector**. It is a stopgap until such a server re-reads the file itself.
 
 Before launch, HexIDE asks: “Server X has requested to write local file Y.” **Allow** permits that
 server in that workspace for this session; **Allow Always** remembers that server/workspace pair.
@@ -428,5 +441,36 @@ saved path appear as configuration problems in Tools → Language Servers; the s
 After a successful import, open documents are pulled for diagnostics without previous result IDs, until
 that connection receives `workspace/diagnostic/refresh`; subsequent refreshes are then the server's job.
 Automatic transport reconnect re-imports only on the next project change; immediate imports currently
-cover registry startup and workspace-root replacement. Workspace-folder changes before imports are tracked in #2364. File-operation routing under #2248 is not
-present on this branch yet; importing does not make HexIDE an artefact writer.
+cover registry startup and workspace-root replacement. Workspace-folder changes are sent before the import on
+the same debounce (#2364). Importing does not make HexIDE an artefact writer, so an entry that declares
+`projectImport` also receives the file-operation notifications its server asks for (#2248), whether or not it
+also declares `workspaceArtifact` (#2915).
+
+#### RDCore
+
+RDCore's language server takes its project this way. The entry it needs today runs it over a named pipe and
+imports the project with `rdcore.importProject`:
+
+```json
+{
+  "id": "rdcore-vba",
+  "displayName": "RD-VBA (RDCore)",
+  "extensions": [".bas", ".cls", ".frm"],
+  "languageId": "vba",
+  "transport": "pipe",
+  "pipeName": "RDCore.HexIDE",
+  "pipeRole": "connect",
+  "command": "path/to/RDCore.LanguageServer.exe",
+  "arguments": "--pipe-name {pipe} --workspace {workspaceUri}",
+  "priority": 10,
+  "projectImport": {
+    "command": "rdcore.importProject",
+    "arguments": [{ "uri": "{uri}", "text": "{text}", "overwrite": true }]
+  }
+}
+```
+
+Give `command` the absolute path of your build. The import needs a saved project: an unsaved one is reported
+in Tools → Language Servers rather than given an invented URI. If your build doesn't advertise
+`rdcore.importProject`, the same window reports the command as unavailable: use the
+[`rdcore` workspace-artefact provider](#generated-workspace-files) in place of `projectImport`.
