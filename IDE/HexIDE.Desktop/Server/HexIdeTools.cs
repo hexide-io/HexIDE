@@ -1707,7 +1707,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     }
 
     [McpServerTool(Name = "break_program")]
-    [Description("Pauses the running project at the next executed statement (VB6 Break / Ctrl+Break). Error if not running or already paused. The reply's 'note' gives where it paused (the module and the line, counted from the top of the file as the code window numbers it) or, when the program is waiting for an event, says it will pause at the next statement that runs.")]
+    [Description("Pauses the running project at the next executed statement (VB6 Break / Ctrl+Break). External sessions send the command to the debug adapter and report its next stop (source file path and line), running or ended after up to 2 s; adapter refusals report the message and whether inspection was kept. Error if not running or already paused. The reply's 'note' gives where it paused (the module and the line, counted from the top of the file as the code window numbers it) or, when the program is waiting for an event, says it will pause at the next statement that runs.")]
     public async Task<MutateResult> BreakProgramAsync(CancellationToken ct)
     {
         var (refused, outcome) = await StartAndAwaitStopAsync(() =>
@@ -1716,7 +1716,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
                 return new MutateResult(false, ctx.ProjectRunnerService.IsRunning ? "Already paused" : "No project is running");
             ctx.ProjectRunnerService.BreakCurrentProject();
             return null;
-        }, StepReplyWait, ct);
+        }, StepReplyWait, ct, externalControl: true);
         if (refused is not null)
             return refused;
 
@@ -1729,7 +1729,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     }
 
     [McpServerTool(Name = "continue_program")]
-    [Description("Resumes a paused project (VB6 Continue / F5 in break mode). Error if not currently paused. The reply's 'note' says, after up to 2 s, whether it paused again (with the module and the line, counted from the top of the file as the code window numbers it), is running, or ended.")]
+    [Description("Resumes a paused project (VB6 Continue / F5 in break mode). External sessions send the command to the debug adapter and report its next stop (source file path and line), running or ended after up to 2 s; adapter refusals report the message and whether inspection was kept. Error if not currently paused. The reply's 'note' says, after up to 2 s, whether it paused again (with the module and the line, counted from the top of the file as the code window numbers it), is running, or ended.")]
     public async Task<MutateResult> ContinueProgramAsync(CancellationToken ct)
     {
         var (refused, outcome) = await StartAndAwaitStopAsync(() =>
@@ -1738,7 +1738,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
                 return new MutateResult(false, "Project is not paused");
             ctx.ProjectRunnerService.ContinueProject();
             return null;
-        }, RunReplyWait, ct);
+        }, RunReplyWait, ct, externalControl: true);
         if (refused is not null)
             return refused;
 
@@ -1779,8 +1779,17 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     /// <paramref name="startOnUi"/> returns a refusal, or null once it has started something.
     /// </remarks>
     private async Task<(MutateResult? Refused, RunOutcome Outcome)> StartAndAwaitStopAsync(
-        Func<MutateResult?> startOnUi, TimeSpan wait, CancellationToken ct)
+        Func<MutateResult?> startOnUi, TimeSpan wait, CancellationToken ct, bool externalControl = false)
     {
+        var externalReply = await Dispatcher.UIThread.InvokeAsync<Task<MutateResult>?>(() =>
+            ctx.RootViewModel.ExternalDebugger is { IsActive: true } external
+                ? externalControl
+                    ? AwaitExternalStopAsync(external, startOnUi, wait, ct)
+                    : Task.FromResult(new MutateResult(false, ctx.Localization.GetString("Str.Debug.External.Unsupported")))
+                : null);
+        if (externalReply is not null)
+            return (await externalReply, default);
+
         var stopped = new TaskCompletionSource<StoppedInfo>(TaskCreationOptions.RunContinuationsAsynchronously);
         void OnStopped(StoppedInfo info) => stopped.TrySetResult(info);
         int? errorBefore = null;
@@ -1826,6 +1835,53 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
         }
     }
 
+    // Subscribe before the menu route starts: an adapter can stop before its command reply arrives.
+    private static async Task<MutateResult> AwaitExternalStopAsync(HexIDE.Debugging.ExternalDebugService external,
+        Func<MutateResult?> start, TimeSpan wait, CancellationToken ct)
+    {
+        var before = external.Stop;
+        var inspection = external.Frames;
+        string? failure = null;
+        var completed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        void Changed()
+        {
+            if (!external.IsActive || external.State is HexIDE.Dap.DapSessionState.Ended or HexIDE.Dap.DapSessionState.Faulted
+                || !external.IsBusy && (failure is not null ||
+                external.Stop is not null && external.Stop != before && external.Frames.Count > 0))
+                completed.TrySetResult();
+        }
+        void Failed(string message) { failure = message; Changed(); }
+        external.Changed += Changed;
+        external.Failed += Failed;
+        try
+        {
+            if (start() is { } refused) return refused;
+            Changed();
+            await Task.WhenAny(completed.Task, Task.Delay(wait, ct));
+            ct.ThrowIfCancellationRequested();
+            var frame = external.Frames.FirstOrDefault();
+            var location = frame.ValueKind == System.Text.Json.JsonValueKind.Object &&
+                frame.TryGetProperty("source", out var source) && source.TryGetProperty("path", out var path) &&
+                frame.TryGetProperty("line", out var line)
+                    ? $"{path.GetString()} line {line.GetInt32()}" : null;
+            var state = !external.IsActive || external.State is HexIDE.Dap.DapSessionState.Ended or HexIDE.Dap.DapSessionState.Faulted
+                ? "The program ended."
+                : external.Stop is not null && (external.Stop != before || failure is not null)
+                    ? location is not null
+                        ? $"Paused at {location} ({external.Stop.Reason})."
+                        : "Paused; the adapter supplied no source location."
+                    : $"Running; no pause within {wait.TotalSeconds:0} s.";
+            return failure is null ? new MutateResult(true, null, state)
+                : new MutateResult(false, failure, state + (external.Stop is not null && before is not null && ReferenceEquals(external.Frames, inspection)
+                    ? " The stopped inspection was kept." : " Inspection follows the adapter's current state."));
+        }
+        finally
+        {
+            external.Changed -= Changed;
+            external.Failed -= Failed;
+        }
+    }
+
     private string PausedAt(StoppedInfo at) => $"Paused at {ctx.ProjectRunnerService.RunningProject?.Name}/{at.Module} line {at.Line} ({at.Reason}).";
 
     /// <summary>A successful run, step, break or stop reply with what the program printed since its run began or a reply
@@ -1847,8 +1903,11 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     private async Task<MutateResult> StepAndReportAsync(Func<bool> can, Action start, CancellationToken ct)
     {
         var (refused, outcome) = await StartAndAwaitStopAsync(
-            () => can() ? StartFailure(start) : new MutateResult(false, "No project to step — load a project first"),
-            StepReplyWait, ct);
+            () => can() ? StartFailure(start) : new MutateResult(false,
+                ctx.RootViewModel.ExternalDebugger?.IsActive == true
+                    ? "The external session must be paused and the adapter ready before stepping."
+                    : "No project to step — load a project first"),
+            StepReplyWait, ct, externalControl: true);
         if (refused is not null)
             return refused;
 
@@ -1861,24 +1920,26 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     }
 
     [McpServerTool(Name = "step_into")]
-    [Description("Step Into (F8): from idle, starts the project and breaks at the first executed statement; while paused, executes the next statement and breaks (descending into any called Sub/Function); while running, breaks at the next statement. The reply's 'note' says where it paused (module, line counted from the top of the file as the code window numbers it, and reason) or, when no pause comes within 2 s, whether the program is still running or has ended.")]
+    [Description("Step Into (F8): from idle, starts the project and breaks at the first executed statement; while paused, executes the next statement and breaks (descending into any called Sub/Function); while running, breaks at the next statement. External sessions send the command to the debug adapter and report its next stop (source file path and line), running or ended after up to 2 s; adapter refusals report the message and whether inspection was kept. The reply's 'note' says where it paused (module, line counted from the top of the file as the code window numbers it, and reason) or, when no pause comes within 2 s, whether the program is still running or has ended.")]
     public Task<MutateResult> StepIntoAsync(CancellationToken ct) =>
         StepAndReportAsync(() => ctx.ProjectRunnerService.CanStepIntoProject, () => ctx.ProjectRunnerService.StepIntoProject(), ct);
 
     [McpServerTool(Name = "step_over")]
-    [Description("Step Over (Shift+F8): while paused, executes the next statement and breaks in the SAME frame — a called Sub/Function runs to completion without descending (unlike step_into). On a non-call statement it behaves like step_into. From idle, starts the project and breaks at the first statement. The reply's 'note' says where it paused (module, line counted from the top of the file as the code window numbers it, and reason) or, when no pause comes within 2 s, whether the program is still running or has ended.")]
+    [Description("Step Over (Shift+F8): while paused, executes the next statement and breaks in the SAME frame — a called Sub/Function runs to completion without descending (unlike step_into). On a non-call statement it behaves like step_into. From idle, starts the project and breaks at the first statement. The reply's 'note' says where it paused (module, line counted from the top of the file as the code window numbers it, and reason) or, when no pause comes within 2 s, whether the program is still running or has ended. External sessions send the command to the debug adapter and report its next stop (source file path and line), running or ended after up to 2 s; adapter refusals report the message and whether inspection was kept.")]
     public Task<MutateResult> StepOverAsync(CancellationToken ct) =>
         StepAndReportAsync(() => ctx.ProjectRunnerService.CanStepOverProject, () => ctx.ProjectRunnerService.StepOverProject(), ct);
 
     [McpServerTool(Name = "step_out")]
-    [Description("Step Out (Ctrl+Shift+F8): while paused, runs the rest of the current procedure and breaks at the statement in the CALLER after it returns. Stepping out of the outermost frame runs that event/procedure to completion. From idle it starts the project (like Step Into); while running it requests a pause. The reply's 'note' says where it paused (module, line counted from the top of the file as the code window numbers it, and reason) or, when no pause comes within 2 s, whether the program is still running or has ended.")]
+    [Description("Step Out (Ctrl+Shift+F8): while paused, runs the rest of the current procedure and breaks at the statement in the CALLER after it returns. External sessions send the command to the debug adapter and report its next stop (source file path and line), running or ended after up to 2 s; adapter refusals report the message and whether inspection was kept. Stepping out of the outermost frame runs that event/procedure to completion. From idle it starts the project (like Step Into); while running it requests a pause. The reply's 'note' says where it paused (module, line counted from the top of the file as the code window numbers it, and reason) or, when no pause comes within 2 s, whether the program is still running or has ended.")]
     public Task<MutateResult> StepOutAsync(CancellationToken ct) =>
         StepAndReportAsync(() => ctx.ProjectRunnerService.CanStepOutProject, () => ctx.ProjectRunnerService.StepOutProject(), ct);
 
     [McpServerTool(Name = "run_to_cursor")]
-    [Description("Run To Cursor (Ctrl+F8): run until (module, 1-based line, counted from the top of the file with its header included (a form's designer block, a class's header and the Attribute lines), as the code window numbers them) then break — a one-shot temporary breakpoint. While paused it continues to the target; while running it arms the target; from idle it starts the project and runs to the target (a real breakpoint hit first stays paused there; continue proceeds toward the target). The reply's 'note' says where it paused or, within 2 s, that it has not got there yet, and 'project' and 'document' name the target's document as the IDE spells them. Pass `project` when a group holds two documents of one name; without it an ambiguous name is refused and the reply lists them.")]
+    [Description("Run To Cursor (Ctrl+F8): run until (module, 1-based line, counted from the top of the file with its header included (a form's designer block, a class's header and the Attribute lines), as the code window numbers them) then break — a one-shot temporary breakpoint. While paused it continues to the target; while running it arms the target; from idle it starts the project and runs to the target (a real breakpoint hit first stays paused there; continue proceeds toward the target). The reply's 'note' says where it paused or, within 2 s, that it has not got there yet, and 'project' and 'document' name the target's document as the IDE spells them. Pass `project` when a group holds two documents of one name; without it an ambiguous name is refused and the reply lists them. External sessions refuse this command because they lack one-shot breakpoint support; set a breakpoint in the editor and use continue_program instead.")]
     public async Task<MutateResult> RunToCursorAsync(string module, int line, string? project = null, CancellationToken ct = default)
     {
+        if (await Dispatcher.UIThread.InvokeAsync(() => ctx.RootViewModel.ExternalDebugger?.IsActive == true))
+            return new MutateResult(false, "Run To Cursor is unavailable for external sessions: the external route has no one-shot breakpoint support. Set a breakpoint in the editor and use continue_program instead.");
         string? target = null;
         DocumentIdentity? named = null;
         var (refused, outcome) = await StartAndAwaitStopAsync(() =>
@@ -1911,15 +1972,39 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     }
 
     [McpServerTool(Name = "set_next_statement")]
-    [Description("Set Next Statement (Ctrl+F9): move the execution point to (module, 1-based line, counted from the top of the file with its header included (a form's designer block, a class's header and the Attribute lines), as the code window numbers them) WITHOUT running the statements in between — the next step_into/continue executes from there. Only while paused, and only to a TOP-LEVEL statement of the currently paused procedure (a target nested inside an If/For/Do/Select block, or a move while paused inside such a block, is refused — a tree-walker limit, not VB6's). Returns an error result if refused. The reply's 'note' names the new next statement, and 'project' and 'document' name its document as the IDE spells them. Pass `project` when a group holds two documents of one name; without it an ambiguous name is refused and the reply lists them.")]
+    [Description("Set Next Statement (Ctrl+F9): move the execution point to (module, 1-based line, counted from the top of the file with its header included (a form's designer block, a class's header and the Attribute lines), as the code window numbers them) WITHOUT running the statements in between — the next step_into/continue executes from there. External sessions send the command to the debug adapter and report its next stop (source file path and line), running or ended after up to 2 s; adapter refusals report the message and whether inspection was kept. External Set Next Statement requires gotoTargets support and a saved target document; pass the module name, not the source path returned by get_debug_state. For the interpreter, only while paused, and only to a TOP-LEVEL statement of the currently paused procedure (a target nested inside an If/For/Do/Select block, or a move while paused inside such a block, is refused — a tree-walker limit, not VB6's). Returns an error result if refused. The reply's 'note' names the new next statement, and 'project' and 'document' name its document as the IDE spells them. Pass `project` when a group holds two documents of one name; without it an ambiguous name is refused and the reply lists them.")]
     public async Task<MutateResult> SetNextStatementAsync(string module, int line, string? project = null, CancellationToken ct = default)
     {
+        DocumentIdentity? externalDocument = null;
+        var externalReply = await Dispatcher.UIThread.InvokeAsync<Task<MutateResult>?>(() =>
+        {
+            if (ctx.RootViewModel.ExternalDebugger is not { IsActive: true } external)
+                return null;
+            if (!external.SupportsSetNextStatement)
+                return Task.FromResult(new MutateResult(false, ctx.Localization.GetString("Str.Debug.External.Unsupported")));
+            return AwaitExternalStopAsync(external, () =>
+            {
+                if (!ctx.ProjectRunnerService.CanContinueProject)
+                    return new MutateResult(false, "Project is not paused or the adapter is busy");
+                var lookup = ResolveDocument(module, project);
+                if (lookup.Document is not { } document)
+                    return new MutateResult(false, lookup.Error);
+                externalDocument = document;
+                if (OutsideDocument(document, [line], first: 1, "line") is { } outside)
+                    return Naming(new MutateResult(false, outside), document);
+                if (document.AbsolutePath is not { } path)
+                    return Naming(new MutateResult(false, "The target document must be saved so the adapter can address its source file."), document);
+                _ = external.SetNextStatementAsync(new Uri(System.IO.Path.GetFullPath(path)).AbsoluteUri, line);
+                return null;
+            }, StepReplyWait, ct);
+        });
+        if (externalReply is not null) return Naming(await externalReply, externalDocument);
         return await Dispatcher.UIThread.InvokeAsync(() =>
         {
             // An external session is not the interpreter's run, so the check below would answer "No project is
             // running" straight after get_debug_state said Paused (#2966).
             if (ctx.RootViewModel.ExternalDebugger?.IsActive == true)
-                return new MutateResult(false, ctx.Localization.GetString("Str.Debug.External.Unsupported"));
+                return Naming(new MutateResult(false, ctx.Localization.GetString("Str.Debug.External.Unsupported")), externalDocument);
             var lookup = ResolveDocument(module, project);
             if (lookup.Document is not { } document)
                 return new MutateResult(false, lookup.Error);
