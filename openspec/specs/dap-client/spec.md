@@ -396,3 +396,19 @@ SHALL NOT initiate stopped inspection.
 - **WHEN** the adapter emits `invalidated` while execution is running
 - **THEN** no stopped frame inspection is requested
 - **AND** the next stop refreshes normally
+
+### Requirement: External run state in the IDE chrome
+The IDE SHALL derive the title tag and status message from the external session while it is active,
+without changing the interpreter debugger's state. External state changes SHALL refresh the title and
+OS window title. A stopped session SHALL show the localized break tag and clear the status message to
+Ready, as an interpreter break does; a running session SHALL show the run tag and running message.
+Ending the session SHALL immediately restore the design tag and Ready when its state becomes Ended
+or Faulted, even while adapter cleanup remains active (#2965).
+
+#### Scenario: External stop, resume and end
+- **WHEN** an external session stops at a breakpoint or after a step
+- **THEN** the title shows the break tag and the status bar shows Ready
+- **WHEN** the external program resumes
+- **THEN** the title shows the run tag and the running status message returns
+- **WHEN** the session ends
+- **THEN** the title shows the design tag and the status bar shows Ready before adapter cleanup completes

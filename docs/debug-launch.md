@@ -1,5 +1,10 @@
 # External debug sessions
 
+The title shows `[break]` while the external session is stopped and the status bar shows Ready,
+as for an interpreter break. While the program runs they show `[run]` and the running message;
+ending the session immediately returns the title to `[design]` and the status to Ready, even while
+the adapter is still disconnecting (#2965).
+
 Choose **Run → Start External Debug Session…** and select a JSON launch configuration. The selected file
 starts a separate adapter process; opening a project never executes such a file automatically. One debug
 session runs at a time. The configuration does not convert or save the open VB6 project: prepare an existing

@@ -152,13 +152,20 @@ public partial class MainViewViewModel : ObservableObject
     public ObservableCollection<RecentProjectItemViewModel> RecentProjects { get; } = new();
     public bool HasRecentProjects => RecentProjects.Count > 0;
 
+    private bool IsInBreakMode => ExternalDebugger?.IsActive == true
+        ? ExternalDebugger.State == HexIDE.Dap.DapSessionState.Stopped
+        : debugController.State == DebugState.Paused;
+
+    private bool IsProgramRunning => ExternalDebugger?.State is HexIDE.Dap.DapSessionState.Starting
+        or HexIDE.Dap.DapSessionState.Running or HexIDE.Dap.DapSessionState.Stopped || projectRunnerService.IsRunning;
+
     private void UpdateRunState()
     {
         // Break is bound directly so a running form's focus cannot divert it from the IDE (#2179).
         BreakProjectCommand.RaiseCanExecutedChanged();
         OnPropertyChanged(nameof(Title));
         OnPropertyChanged(nameof(WindowTitle));
-        if (projectRunnerService.IsRunning && debugController.State != DebugState.Paused)
+        if (IsProgramRunning && !IsInBreakMode)
             StatusBar.SetMessage(localization.GetString("Str.StatusBar.Running"));
         else
             StatusBar.ClearMessage();
@@ -172,9 +179,9 @@ public partial class MainViewViewModel : ObservableObject
                       ?? FocusedProjectUtil.FocusedOrStartupProject?.Name;
             return prefix == null
                 ? localization.GetString("Str.MainWindow.NoProjectTitle")
-                : $"{prefix} - HexIDE " + localization.GetString(debugController.State == DebugState.Paused
+                : $"{prefix} - HexIDE " + localization.GetString(IsInBreakMode
                     ? "Str.MainWindow.BreakTag"
-                    : projectRunnerService.IsRunning ? "Str.MainWindow.RunTag" : "Str.MainWindow.DesignTag");
+                    : IsProgramRunning ? "Str.MainWindow.RunTag" : "Str.MainWindow.DesignTag");
         }
     }
 
@@ -1305,6 +1312,7 @@ public partial class MainViewViewModel : ObservableObject
             int? revealedFrame = null;
             externalDebugger.Changed += () =>
             {
+                UpdateRunState();
                 if (externalDebugger.Stop is not { } stop || externalDebugger.SelectedFrame is not { } frame)
                 { revealed = null; revealedFrame = null; return; }
                 var frameId = frame.GetProperty("id").GetInt32();
