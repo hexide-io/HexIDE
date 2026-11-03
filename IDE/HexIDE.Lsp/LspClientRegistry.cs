@@ -106,7 +106,7 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
     private readonly DiagnosticLifecycle _diagnosticLifecycle = new();
 
     public event EventHandler<PublishDiagnosticsParams>? DiagnosticsPublished;
-    public event EventHandler<string>? DocumentClosed;
+    public event EventHandler<string>? DocumentRetired;
     public event EventHandler<ShowMessageParams>? MessageShown;
     public event EventHandler<ProgressParams>? ProgressReceived;
     public event EventHandler<LogMessageParams>? MessageLogged;
@@ -361,7 +361,7 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
         _diagnosticLifecycle.Rename(uri, () =>
         {
             ForgetDiagnosticsFor(uri);
-            DocumentClosed?.Invoke(this, uri);
+            DocumentRetired?.Invoke(this, uri);
         });
         ConnectionsChanged?.Invoke(this, EventArgs.Empty);
     }

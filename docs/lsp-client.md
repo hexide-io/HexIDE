@@ -599,6 +599,8 @@ server is expected to keep off them — the bundled one does, by the rule in
 
 ---
 
+## Diagnostics for a renamed document
+
 The automation diagnostics cache forgets a URI when the client closes it for a rename, including the old
 `untitled:` name on save and the old file name on Save As (#2975). An empty diagnostic
 publication alone still means an analysed, clean document. After a rename close, the client
