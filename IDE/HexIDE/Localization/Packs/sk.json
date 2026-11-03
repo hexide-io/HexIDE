@@ -2,6 +2,7 @@
   "name": "Slovak",
   "direction": "ltr",
   "strings": {
+    "Str.MainWindow.RecoveryNotice": "Relácia obnovenia — zmeny nastavení sa neuložia",
     "Str.Profiles.LoadError": "Nemožno načítať profil „{0}“, súbor „{1}“. Skontrolujte formát balíka a cesty k súborom.",
     "Str.Profiles.HelpSummary": "Základný profil: názov, cesta k adresáru alebo none (núdzový režim).",
     "Str.Profiles.PersonalityRemoved": "--personality bol odstránený. Použite --profile vb6, --profile vbaode alebo --profile vba.",

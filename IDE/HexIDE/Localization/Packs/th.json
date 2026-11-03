@@ -2,6 +2,7 @@
   "name": "Thai",
   "direction": "ltr",
   "strings": {
+    "Str.MainWindow.RecoveryNotice": "เซสชันการกู้คืน — การเปลี่ยนแปลงการตั้งค่าจะไม่ถูกบันทึก",
     "Str.Profiles.LoadError": "ไม่สามารถโหลดโปรไฟล์ '{0}' ไฟล์ '{1}' ได้ ตรวจสอบรูปแบบชุดและเส้นทางไฟล์",
     "Str.Profiles.HelpSummary": "โปรไฟล์พื้นฐาน: ชื่อ เส้นทางไดเรกทอรี หรือ none (โหมดปลอดภัย)",
     "Str.Profiles.PersonalityRemoved": "นำ --personality ออกแล้ว ใช้ --profile vb6, --profile vbaode หรือ --profile vba",

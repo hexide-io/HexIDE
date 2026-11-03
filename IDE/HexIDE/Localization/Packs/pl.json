@@ -2,6 +2,7 @@
   "name": "Polish",
   "direction": "ltr",
   "strings": {
+    "Str.MainWindow.RecoveryNotice": "Sesja odzyskiwania — zmiany ustawień nie zostaną zapisane",
     "Str.Profiles.LoadError": "Nie można wczytać profilu '{0}', plik '{1}'. Sprawdź format pakietu i ścieżki plików.",
     "Str.Profiles.HelpSummary": "Profil podstawowy: nazwa, ścieżka katalogu lub none (tryb awaryjny).",
     "Str.Profiles.PersonalityRemoved": "Usunięto --personality. Użyj --profile vb6, --profile vbaode lub --profile vba.",

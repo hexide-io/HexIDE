@@ -2,6 +2,7 @@
   "name": "Dutch",
   "direction": "ltr",
   "strings": {
+    "Str.MainWindow.RecoveryNotice": "Herstelsessie — wijzigingen in instellingen worden niet opgeslagen",
     "Str.Profiles.LoadError": "Kan profiel '{0}', bestand '{1}' niet laden. Controleer de bundelindeling en bestandspaden.",
     "Str.Profiles.HelpSummary": "Basisprofiel: naam, mappad of none (veilige modus).",
     "Str.Profiles.PersonalityRemoved": "--personality is verwijderd. Gebruik --profile vb6, --profile vbaode of --profile vba.",

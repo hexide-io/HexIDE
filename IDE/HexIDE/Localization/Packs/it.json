@@ -2,6 +2,7 @@
   "name": "Italian",
   "direction": "ltr",
   "strings": {
+    "Str.MainWindow.RecoveryNotice": "Sessione di ripristino — le modifiche alle impostazioni non verranno salvate",
     "Str.Profiles.LoadError": "Impossibile caricare il profilo '{0}', file '{1}'. Controllare il formato del pacchetto e i percorsi dei file.",
     "Str.Profiles.HelpSummary": "Profilo di base: nome, percorso di cartella o none (modalità provvisoria).",
     "Str.Profiles.PersonalityRemoved": "--personality è stato rimosso. Usare --profile vb6, --profile vbaode o --profile vba.",

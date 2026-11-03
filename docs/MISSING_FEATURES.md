@@ -38,7 +38,7 @@
 
 | Item | Shortcut | Status | Notes |
 |---|---|---|---|
-| `--profile none` | — | Done | HexIDE recovery mode (#504): bypasses saved settings/layout, user keymap discovery, user translations and add-ins; starts with Classic, Default and neutral English. Settings, layout and translation edits stay in memory and layout reset preserves saved state. Explicit project paths and new-project flags remain available. This does not sandbox language servers. See [command-line.md](command-line.md). |
+| `--profile none` | — | Done | HexIDE recovery mode (#504): bypasses saved settings/layout, user keymap discovery, user translations and add-ins; starts with Classic, Default and neutral English. Settings, layout and translation edits stay in memory and layout reset preserves saved state. A persistent localized window-title notice identifies recovery sessions and warns that settings changes will not be saved (#2888). Explicit project paths and new-project flags remain available. This does not sandbox language servers. See [command-line.md](command-line.md). |
 
 ---
 

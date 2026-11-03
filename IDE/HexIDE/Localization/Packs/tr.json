@@ -2,6 +2,7 @@
   "name": "Turkish",
   "direction": "ltr",
   "strings": {
+    "Str.MainWindow.RecoveryNotice": "Kurtarma oturumu — ayar değişiklikleri kaydedilmeyecek",
     "Str.Profiles.LoadError": "'{0}' profili, '{1}' dosyası yüklenemiyor. Paket biçimini ve dosya yollarını kontrol edin.",
     "Str.Profiles.HelpSummary": "Temel profil: ad, dizin yolu veya none (güvenli mod).",
     "Str.Profiles.PersonalityRemoved": "--personality kaldırıldı. --profile vb6, --profile vbaode veya --profile vba kullanın.",

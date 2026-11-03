@@ -2,6 +2,7 @@
   "name": "Latvian",
   "direction": "ltr",
   "strings": {
+    "Str.MainWindow.RecoveryNotice": "Atkopšanas sesija — iestatījumu izmaiņas netiks saglabātas",
     "Str.Profiles.LoadError": "Nevar ielādēt profilu “{0}”, failu “{1}”. Pārbaudiet pakotnes formātu un failu ceļus.",
     "Str.Profiles.HelpSummary": "Pamatprofils: nosaukums, direktorija ceļš vai none (drošais režīms).",
     "Str.Profiles.PersonalityRemoved": "--personality ir noņemts. Izmantojiet --profile vb6, --profile vbaode vai --profile vba.",

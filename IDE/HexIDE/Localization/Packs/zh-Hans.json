@@ -2,6 +2,7 @@
   "name": "Chinese (Simplified)",
   "direction": "ltr",
   "strings": {
+    "Str.MainWindow.RecoveryNotice": "恢复会话 — 设置更改不会保存",
     "Str.Profiles.LoadError": "无法加载配置文件包 '{0}' 中的文件 '{1}'。请检查包格式和文件路径。",
     "Str.Profiles.HelpSummary": "基础配置：名称、目录路径或 none（安全模式）。",
     "Str.Profiles.PersonalityRemoved": "--personality 已移除。请使用 --profile vb6、--profile vbaode 或 --profile vba。",

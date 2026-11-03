@@ -2,6 +2,7 @@
   "name": "Vietnamese",
   "direction": "ltr",
   "strings": {
+    "Str.MainWindow.RecoveryNotice": "Phiên khôi phục — các thay đổi cài đặt sẽ không được lưu",
     "Str.Profiles.LoadError": "Không thể tải hồ sơ '{0}', tệp '{1}'. Kiểm tra định dạng gói và đường dẫn tệp.",
     "Str.Profiles.HelpSummary": "Hồ sơ cơ sở: tên, đường dẫn thư mục hoặc none (chế độ an toàn).",
     "Str.Profiles.PersonalityRemoved": "--personality đã bị loại bỏ. Hãy dùng --profile vb6, --profile vbaode hoặc --profile vba.",

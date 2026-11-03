@@ -2,6 +2,7 @@
   "name": "Basque",
   "direction": "ltr",
   "strings": {
+    "Str.MainWindow.RecoveryNotice": "Berreskuratze-saioa — ezarpenen aldaketak ez dira gordeko",
     "Str.Profiles.LoadError": "Ezin da «{0}» profila kargatu, «{1}» fitxategia. Egiaztatu paketearen formatua eta fitxategien bideak.",
     "Str.Profiles.HelpSummary": "Oinarrizko profila: izena, direktorioaren bidea edo none (modu segurua).",
     "Str.Profiles.PersonalityRemoved": "--personality kendu da. Erabili --profile vb6, --profile vbaode edo --profile vba.",

@@ -2,6 +2,7 @@
   "name": "English",
   "direction": "ltr",
   "strings": {
+    "Str.MainWindow.RecoveryNotice": "Recovery session — settings changes won't be saved",
     "Str.Profiles.LoadError": "Cannot load profile '{0}', file '{1}'. Check the bundle format and file paths.",
     "Str.Profiles.HelpSummary": "Base profile: name, directory path, or none (safe mode).",
     "Str.Profiles.PersonalityRemoved": "--personality has been removed. Use --profile vb6, --profile vbaode or --profile vba.",
