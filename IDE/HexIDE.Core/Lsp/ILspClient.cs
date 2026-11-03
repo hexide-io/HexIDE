@@ -4,6 +4,8 @@ namespace HexIDE.Lsp;
 
 public interface ILspClient : IAsyncDisposable
 {
+    /// <summary>The last launch was refused solely because no workspace directory was chosen yet.</summary>
+    bool WaitingForWorkspace => false;
     /// <summary>Reports successfully created disk files; the connection applies its server filters.</summary>
     Task DidCreateFilesAsync(string[] uris, CancellationToken cancellationToken = default) => Task.CompletedTask;
     /// <summary>Reports successfully renamed disk files, carrying both absolute URIs.</summary>

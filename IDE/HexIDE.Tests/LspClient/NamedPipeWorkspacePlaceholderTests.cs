@@ -1,3 +1,6 @@
+using HexIDE.Projects;
+using HexIDE.IDE;
+using HexIDE.Runtime.ProjectElements;
 using System.Globalization;
 using HexIDE.Lsp;
 using Microsoft.Extensions.Logging;
@@ -200,9 +203,66 @@ public class NamedPipeWorkspacePlaceholderTests
             new SystemTextJsonFormatter(), TestContext.Current.CancellationToken);
 
         handler.Should().BeNull();
-        transport.LastFailure.Should().Contain("no project is open",
+        transport.WaitingForWorkspace.Should().BeTrue();
+        var client = new VBLspClient(transport, Substitute.For<ILogger<VBLspClient>>(), DocumentLanguage.Vb6);
+        client.WaitingForWorkspace.Should().BeTrue();
+        transport.LastFailure.Should().Contain("no project is open or the project has not been saved yet",
             "the refusal names the actual cause rather than reporting a connect timeout thirty "
             + "seconds later, which would describe the wrong problem");
+    }
+
+    [Theory]
+    [InlineData("secondOpen")]
+    [InlineData("laterProject")]
+    [InlineData("workspaceArtifact")]
+    public async Task AnUnsavedProjectNeverLaunchesWithAScratchRoot(string route)
+    {
+        var manager = Substitute.For<IProjectManager>();
+        var project = TestHelpers.CreateProject("First");
+        manager.StartupProject.Returns(_ => project);
+        manager.LoadedProjects.Returns(_ => new[] { project });
+        var workspace = new ProjectLspWorkspace(() => manager);
+        if (route == "secondOpen")
+        {
+            await using var first = new NamedPipeLspTransport(
+                "hexide-first-open-" + Guid.NewGuid().ToString("N"), NamedPipeRole.Connect,
+                Substitute.For<ILogger<NamedPipeLspTransport>>(), Echoing("--workspace {workspaceUri}"),
+                workspace, connectTimeout: TimeSpan.FromSeconds(1));
+            await first.ConnectAsync(new SystemTextJsonFormatter(), TestContext.Current.CancellationToken);
+            first.WaitingForWorkspace.Should().BeTrue();
+        }
+        // A running bundled server begins observing projects after the first document opens.
+        if (route != "workspaceArtifact") _ = workspace.Projects;
+        if (route == "laterProject")
+        {
+            project = TestHelpers.CreateProject("Later");
+            manager.ProjectLoaded += Raise.Event<Action<ProjectDefinition>>(project);
+            _ = ProjectService.ProjectFilesDirectory(project);
+        }
+        if (route == "workspaceArtifact")
+        {
+            using var artifacts = new WorkspaceArtifactService(workspace,
+                Substitute.For<IWorkspaceArtifactProviderRegistry>(), Substitute.For<IWorkspaceArtifactConsent>(),
+                Substitute.For<ILogger<WorkspaceArtifactService>>());
+            await artifacts.PrepareAsync(new LanguageServerRegistration("artifact", "artifact", [".bas"], "vb6",
+                () => Substitute.For<ILspClient>(), WorkspaceArtifact: new("probe.json", "probe")),
+                TestContext.Current.CancellationToken);
+        }
+        await using var transport = new NamedPipeLspTransport(
+            "hexide-unsaved-" + Guid.NewGuid().ToString("N"), NamedPipeRole.Connect,
+            Substitute.For<ILogger<NamedPipeLspTransport>>(), Echoing("--workspace {workspaceUri}"),
+            workspace, connectTimeout: TimeSpan.FromSeconds(1));
+        var launched = new List<string>();
+        transport.Notice += (_, notice) =>
+        {
+            if (notice.Kind == TransportNoticeKind.StandardError) launched.Add(notice.Text);
+        };
+        await transport.ConnectAsync(new SystemTextJsonFormatter(), TestContext.Current.CancellationToken);
+        launched.Should().BeEmpty("no scratch root may reach launch arguments");
+        transport.WaitingForWorkspace.Should().BeTrue();
+        workspace.Directory.Should().BeNull();
+        workspace.Projects.Should().BeEmpty();
+        workspace.Dispose();
     }
 
     [Fact]
