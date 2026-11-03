@@ -2,6 +2,7 @@
   "name": "Catalan",
   "direction": "ltr",
   "strings": {
+    "Str.Debug.External.EndTimeout": "L’adaptador de depuració {0} no ha respost a Finalitza i s’ha aturat després d’esperar {1} segons.",
     "Str.Debug.External.BreakpointConditionUnsupported": "Les condicions dels punts d’interrupció encara no s’admeten en sessions externes. Fitxer '{0}', entrada de punt d’interrupció {1}.",
     "Str.Debug.External.BreakpointOptionUnsupported": "L'opció de punt d'interrupció '{0}' encara no s'admet en sessions externes. Fitxer '{1}', entrada {2}.",
     "Str.MainWindow.RecoveryNotice": "Sessió de recuperació — els canvis de configuració no es desaran",

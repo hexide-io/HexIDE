@@ -2,6 +2,7 @@
   "name": "Chinese (Simplified)",
   "direction": "ltr",
   "strings": {
+    "Str.Debug.External.EndTimeout": "调试适配器 {0} 未响应结束命令，已在等待 {1} 秒后停止。",
     "Str.Debug.External.BreakpointConditionUnsupported": "外部会话尚不支持断点条件。文件 '{0}'，断点条目 {1}。",
     "Str.Debug.External.BreakpointOptionUnsupported": "外部会话尚不支持断点选项 '{0}'。文件 '{1}'，断点条目 {2}。",
     "Str.MainWindow.RecoveryNotice": "恢复会话 — 设置更改不会保存",

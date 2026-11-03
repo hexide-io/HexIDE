@@ -2,6 +2,7 @@
   "name": "Polish",
   "direction": "ltr",
   "strings": {
+    "Str.Debug.External.EndTimeout": "Adapter debugowania {0} nie odpowiedział na polecenie Zakończ i został zatrzymany po {1} sekundach oczekiwania.",
     "Str.Debug.External.BreakpointConditionUnsupported": "Warunki punktów przerwania nie są jeszcze obsługiwane w sesjach zewnętrznych. Plik '{0}', wpis punktu przerwania {1}.",
     "Str.Debug.External.BreakpointOptionUnsupported": "Opcja punktu przerwania '{0}' nie jest jeszcze obsługiwana w sesjach zewnętrznych. Plik '{1}', wpis punktu przerwania {2}.",
     "Str.MainWindow.RecoveryNotice": "Sesja odzyskiwania — zmiany ustawień nie zostaną zapisane",

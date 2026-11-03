@@ -2,6 +2,7 @@
   "name": "French",
   "direction": "ltr",
   "strings": {
+    "Str.Debug.External.EndTimeout": "L’adaptateur de débogage {0} n’a pas répondu à Terminer et a été arrêté après {1} secondes d’attente.",
     "Str.Debug.External.BreakpointConditionUnsupported": "Les conditions de points d’arrêt ne sont pas encore prises en charge pour les sessions externes. Fichier '{0}', entrée de point d’arrêt {1}.",
     "Str.Debug.External.BreakpointOptionUnsupported": "L'option de point d'arrêt '{0}' n'est pas encore prise en charge pour les sessions externes. Fichier '{1}', entrée {2}.",
     "Str.MainWindow.RecoveryNotice": "Session de récupération — les modifications des paramètres ne seront pas enregistrées",

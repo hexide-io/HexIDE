@@ -2,6 +2,7 @@
   "name": "Hebrew",
   "direction": "rtl",
   "strings": {
+    "Str.Debug.External.EndTimeout": "מתאם ניפוי הבאגים {0} לא הגיב לפקודת הסיום ונעצר לאחר המתנה של {1} שניות.",
     "Str.Debug.External.BreakpointConditionUnsupported": "תנאים לנקודות עצירה עדיין אינם נתמכים בהפעלות חיצוניות. קובץ '{0}', רשומת נקודת עצירה {1}.",
     "Str.Debug.External.BreakpointOptionUnsupported": "אפשרות נקודת העצירה '{0}' עדיין אינה נתמכת בהפעלות חיצוניות. קובץ '{1}', רשומה {2}.",
     "Str.MainWindow.RecoveryNotice": "הפעלת שחזור — שינויים בהגדרות לא יישמרו",
