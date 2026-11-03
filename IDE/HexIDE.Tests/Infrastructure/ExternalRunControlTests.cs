@@ -11,6 +11,62 @@ namespace HexIDE.Tests.Infrastructure;
 public class ExternalRunControlTests : CompositionTestBase
 {
     [AvaloniaTheory]
+    [InlineData("goto")]
+    [InlineData("disconnect-held")]
+    public async Task Debug_state_and_stop_describe_the_external_session(string mode)
+    {
+        var composition = Composition;
+        var external = composition.ExternalDebugger;
+        var directory = Path.Combine(Path.GetTempPath(), "hexide-state-dap-" + Guid.NewGuid());
+        Directory.CreateDirectory(directory);
+        using var context = new IdeContext(Substitute.For<IProjectManager>(), Substitute.For<IDocumentDockService>(),
+            Substitute.For<ILspClient>(), null!, composition.ProjectRunnerService, null!, null!, null!, null!,
+            composition.DebugController, composition.Root, null!, null!, null!, null!, composition.Capture,
+            null!, composition.LocalizationService, null!);
+        var tools = new HexIdeTools(context);
+        var run = external.StartAsync(await ExternalDebugServiceTests.Configuration(directory, mode));
+        try
+        {
+            await ExternalDebugServiceTests.WaitFor(external, () => external.CanEvaluate);
+            var state = await tools.GetDebugStateAsync(TestContext.Current.CancellationToken);
+            state.Running.Should().BeTrue();
+            state.State.Should().Be("Paused");
+            state.StopReason.Should().Be("Breakpoint");
+            state.AdapterStopReason.Should().Be("breakpoint");
+            state.Module.Should().Be(Path.Combine(directory, "Callee.bas"));
+            state.Project.Should().BeNull();
+            if (mode == "goto")
+            {
+                await external.SetNextStatementAsync(new Uri(Path.Combine(directory, "Callee.bas")).AbsoluteUri, 19);
+                await ExternalDebugServiceTests.WaitFor(external, () => external.Stop?.Reason == "goto" && external.CanEvaluate);
+                state = await tools.GetDebugStateAsync(TestContext.Current.CancellationToken);
+                state.StopReason.Should().Be("Step");
+                state.AdapterStopReason.Should().Be("goto");
+            }
+            var reply = await tools.StopProjectAsync(TestContext.Current.CancellationToken);
+            reply.Success.Should().BeTrue();
+            reply.Note.Should().Contain("External session output is not captured");
+            reply.Printed.Should().BeNull();
+            await ExternalDebugServiceTests.WaitFor(external, () => external.State == HexIDE.Dap.DapSessionState.Ended);
+            state = await tools.GetDebugStateAsync(TestContext.Current.CancellationToken);
+            state.Running.Should().BeFalse();
+            state.State.Should().Be("Ended");
+            state.StopReason.Should().BeNull();
+            state.AdapterStopReason.Should().BeNull();
+            await run.WaitAsync(TimeSpan.FromSeconds(20), TestContext.Current.CancellationToken);
+            state = await tools.GetDebugStateAsync(TestContext.Current.CancellationToken);
+            state.Running.Should().BeFalse();
+            state.State.Should().Be("Ended");
+        }
+        finally
+        {
+            await external.StopAsync();
+            await run.WaitAsync(TimeSpan.FromSeconds(20), TestContext.Current.CancellationToken);
+            Directory.Delete(directory, true);
+        }
+    }
+
+    [AvaloniaTheory]
     [InlineData("step_into", "stepIn", "run-control")]
     [InlineData("step_into", "stepIn", "run-control-delayed")]
     [InlineData("step_over", "next", "run-control")]
