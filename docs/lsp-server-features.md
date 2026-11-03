@@ -12,6 +12,10 @@ server in the box.
 [`lsp-servers.json`](./language-servers.md)'s defaults rather than a special case beside them, so it can be
 replaced or switched off like any other.
 
+After `shutdown` and `exit`, the server stops reading input and exits with code 0 without writing to
+stderr (#2956), whether the client closes stdin or leaves it open. EOF without `exit` still reports
+the read fault on stderr.
+
 **Visitor hardening (#1894):** symbol, declaration and Option Explicit walks bound recursion in
 `VisitChildren` at 500 levels, including left-associated operator trees. The 100,000-addition
 [probe](parse-depth-probes.md) now retains statement-level declarations and symbols without crashing;

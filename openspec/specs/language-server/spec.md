@@ -13,6 +13,19 @@ the kind of thing that erodes silently unless it is a requirement.
 
 ## Requirements
 
+### Requirement: Clean exit stops the input loop quietly
+After answering `shutdown` and receiving `exit`, the server SHALL stop its input loop and exit with
+code 0 and empty stderr, whether the client closes stdin or leaves it open. EOF without a preceding
+`exit` SHALL still report the input fault on stderr.
+
+#### Scenario: A client stops the server normally
+- **WHEN** the client receives the `shutdown` response and sends `exit`
+- **THEN** the server exits with code 0 and empty stderr without waiting for EOF
+
+#### Scenario: Input closes unexpectedly
+- **WHEN** stdin closes without an `exit` notification
+- **THEN** stderr reports the read fault
+
 ### Requirement: Startup is visible without tracing
 The server SHALL send an informational `window/logMessage` after the client's `initialized`
 notification, confirming startup with the same name and version advertised by `initialize`.

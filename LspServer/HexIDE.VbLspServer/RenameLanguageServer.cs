@@ -13,6 +13,14 @@ internal sealed class RenameLanguageServer(Stream input, Stream output, Document
 {
     protected override bool BaseHandle(Message message)
     {
+        if (message is NotificationMessage { Method: "exit" })
+        {
+            // Framework 0.9.2 records exit but keeps reading. Cancel on the read loop so its
+            // next iteration stops before another header read (and before stdin can reach EOF).
+            Exit();
+            return true;
+        }
+
         if (message is not RequestMessage { Method: "textDocument/rename" } request)
             return base.BaseHandle(message);
 
