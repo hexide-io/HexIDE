@@ -390,6 +390,103 @@ public class MainViewViewModelTests
             Arg.Any<string>(), Arg.Any<string?>(), Arg.Any<MessageBoxButtons>(), Arg.Any<MessageBoxIcon>());
     }
 
+    // Regression for hexide-io/HexIDE#2965; the final comment specifies Ready at a stop.
+    [AvaloniaTheory]
+    [InlineData("stopped", "[break]", "Ready")]
+    [InlineData("running", "[run]", "Running…")]
+    [InlineData("ended", "[design]", "Ready")]
+    public async Task External_session_refreshes_titles_and_status(string state, string tag, string message)
+    {
+        var directory = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "hexide-dap-title-" + System.Guid.NewGuid());
+        System.IO.Directory.CreateDirectory(directory);
+        await using var log = new ConversationLog();
+        var external = new HexIDE.Debugging.ExternalDebugService(log);
+        _focusedProjectUtil.FocusedOrStartupProject.Returns(new ProjectDefinition(VBProjectType.EXE, "MyApp"));
+        var sut = Build(_runnerService, external: external);
+        var status = "stale";
+        _statusBarService.When(x => x.ClearMessage()).Do(_ => status = "Ready");
+        _statusBarService.When(x => x.SetMessage(Arg.Any<string>())).Do(c => status = c.Arg<string>());
+        var changed = new List<string?>();
+        sut.PropertyChanged += (_, e) => changed.Add(e.PropertyName);
+        var run = external.StartAsync(await DebugAdapter.ExternalDebugServiceTests.Configuration(directory, "evaluate-running"));
+        try
+        {
+            await DebugAdapter.ExternalDebugServiceTests.WaitFor(external, () => external.CanEvaluate);
+            changed.Clear();
+            status = "stale";
+            if (state == "ended")
+            {
+                await external.StopAsync();
+                await run;
+            }
+            else if (state == "running")
+            {
+                await external.CommandAsync("continue");
+                await DebugAdapter.ExternalDebugServiceTests.WaitFor(external, () => external.State == HexIDE.Dap.DapSessionState.Running);
+            }
+            else
+            {
+                var stop = external.Stop;
+                await external.CommandAsync("next");
+                await DebugAdapter.ExternalDebugServiceTests.WaitFor(external, () => external.Stop != stop && external.CanEvaluate);
+            }
+            sut.Title.Should().Be("MyApp - HexIDE " + tag);
+            sut.WindowTitle.Should().Be(sut.Title);
+            status.Should().Be(message);
+            changed.Should().Contain(nameof(sut.Title)).And.Contain(nameof(sut.WindowTitle));
+        }
+        finally
+        {
+            await external.StopAsync();
+            await run;
+            System.IO.Directory.Delete(directory, true);
+        }
+    }
+
+    [AvaloniaFact]
+    public async Task Ending_external_session_restores_design_before_disconnect_completes()
+    {
+        var directory = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "hexide-dap-end-" + System.Guid.NewGuid());
+        System.IO.Directory.CreateDirectory(directory);
+        await using var log = new ConversationLog();
+        var external = new HexIDE.Debugging.ExternalDebugService(log);
+        // As the real ProjectRunnerService does: an external session counts as running until its cleanup ends.
+        _runnerService.IsRunning.Returns(_ => external.IsActive);
+        _focusedProjectUtil.FocusedOrStartupProject.Returns(new ProjectDefinition(VBProjectType.EXE, "MyApp"));
+        var sut = Build(_runnerService, external: external);
+        var status = "stale";
+        _statusBarService.When(x => x.ClearMessage()).Do(_ => status = "Ready");
+        _statusBarService.When(x => x.SetMessage(Arg.Any<string>())).Do(c => status = c.Arg<string>());
+        var changed = new List<string?>();
+        sut.PropertyChanged += (_, e) => changed.Add(e.PropertyName);
+        var disconnectPending = false;
+        external.Output += text => disconnectPending |= text.Contains("disconnect-pending", StringComparison.Ordinal);
+        var run = external.StartAsync(await DebugAdapter.ExternalDebugServiceTests.Configuration(directory, "disconnect-held"));
+        try
+        {
+            await DebugAdapter.ExternalDebugServiceTests.WaitFor(external, () => external.CanEvaluate);
+            changed.Clear();
+            status = "stale";
+            var ending = external.StopAsync();
+            await DebugAdapter.ExternalDebugServiceTests.WaitFor(external, () => disconnectPending);
+
+            external.State.Should().Be(HexIDE.Dap.DapSessionState.Ended);
+            external.IsActive.Should().BeTrue("adapter cleanup is still pending");
+            ending.IsCompleted.Should().BeFalse();
+            run.IsCompleted.Should().BeFalse();
+            sut.Title.Should().Be("MyApp - HexIDE [design]");
+            sut.WindowTitle.Should().Be(sut.Title);
+            status.Should().Be("Ready");
+            changed.Should().Contain(nameof(sut.Title)).And.Contain(nameof(sut.WindowTitle));
+        }
+        finally
+        {
+            await external.StopAsync();
+            await run;
+            System.IO.Directory.Delete(directory, true);
+        }
+    }
+
     // --- Title ---
 
     [AvaloniaFact]
