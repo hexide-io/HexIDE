@@ -34,17 +34,19 @@ under **MIT**. A few hard rules:
 Requires the **.NET 10 SDK** (no Java needed — the ANTLR tool is bundled). From the repo root:
 
 ```sh
-cd IDE && dotnet build HexIDE.Desktop/HexIDE.Desktop.csproj   # build the IDE
-cd IDE && dotnet run  --project HexIDE.Desktop/               # run it
+cd IDE
+dotnet build HexIDE.Desktop/HexIDE.Desktop.csproj   # build the IDE
+dotnet run  --project HexIDE.Desktop/               # run it
 ```
 
-Tests:
+Tests, also from the repo root:
 
 ```sh
-cd IDE       && dotnet test HexIDE.Runtime.Tests/        # VB6 interpreter
-cd IDE       && dotnet test HexIDE.Tests/                # IDE view-models
-cd IDE       && dotnet test HexIDE.Integration.Tests/    # headless Avalonia UI
-cd LspServer && dotnet test HexIDE.VbLspServer.Tests/    # LSP server
+cd IDE
+dotnet test HexIDE.Runtime.Tests/                        # VB6 interpreter
+dotnet test HexIDE.Tests/                                # IDE view-models
+dotnet test HexIDE.Integration.Tests/                    # headless Avalonia UI
+cd ../LspServer && dotnet test HexIDE.VbLspServer.Tests/ # LSP server
 ```
 
 > **First-party add-ins:** the Desktop build only signs/bundles the bundled add-ins when a first-party
@@ -129,8 +131,9 @@ but nobody will block your PR for omitting it.
 
 If you do use the tooling: `npm install -g @fission-ai/openspec`, then `openspec validate --specs --strict`.
 Note that it reports anonymous usage stats by default — `openspec config set telemetry.enabled false` turns
-that off. That setting is per-machine, so it does not travel with this repo; HexIDE itself makes no network
-calls of any kind.
+that off. That setting is per-machine, so it does not travel with this repo. HexIDE itself sends no telemetry and
+makes no network call you have not configured: it fetches the add-in revocation list only when `RevocationListUrl`
+is set, and the AI Chat add-in and a remote language server connect only to the address you give them.
 
 ## Making a change
 
