@@ -353,7 +353,7 @@ public class ExternalDebugServiceTests
     private static CancellationToken Token => TestContext.Current.CancellationToken;
     private static readonly TimeSpan Patience = TimeSpan.FromSeconds(20);
 
-    private static async Task<string> Configuration(string directory, string mode, DapSourceBreakpoints[]? breakpoints = null)
+    internal static async Task<string> Configuration(string directory, string mode, DapSourceBreakpoints[]? breakpoints = null)
     {
         var executable = Path.GetFullPath("../../../dotnet" + (OperatingSystem.IsWindows() ? ".exe" : ""), RuntimeEnvironment.GetRuntimeDirectory());
         var file = Path.Combine(directory, "launch.json");
@@ -365,7 +365,7 @@ public class ExternalDebugServiceTests
         return file;
     }
 
-    private static Task WaitFor(ExternalDebugService service, Func<bool> predicate)
+    internal static Task WaitFor(ExternalDebugService service, Func<bool> predicate)
     {
         var ready = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         void Changed() { if (predicate()) ready.TrySetResult(); }
