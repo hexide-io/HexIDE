@@ -24,6 +24,7 @@ public sealed class VBLspClient : ILspClient
     // What each source currently says about each document. This connection's server is one source; an
     // external compiler injecting through this client is another, and neither may erase the other.
     private readonly DiagnosticLedger _diagnostics = new();
+    private readonly DiagnosticLifecycle _diagnosticLifecycle = new();
     private readonly object _reconnectGate = new();
     private JsonRpc? _rpc;
     private volatile bool _initialized;
@@ -69,6 +70,7 @@ public sealed class VBLspClient : ILspClient
     private int _connection;
 
     public event EventHandler<PublishDiagnosticsParams>? DiagnosticsPublished;
+    public event EventHandler<string>? DocumentClosed;
     public event EventHandler<ShowMessageParams>? MessageShown;
     public event EventHandler<ProgressParams>? ProgressReceived;
     public event EventHandler<LogMessageParams>? MessageLogged;
@@ -875,6 +877,7 @@ public sealed class VBLspClient : ILspClient
     {
         // Tracked BEFORE the gate, deliberately: a document opened while no server is up must still be
         // replayed when one arrives, which is what makes lazy start and reconnect work at all.
+        _diagnosticLifecycle.Open(uri);
         var (document, alreadyOpen) = TrackOpen(uri, text);
 
         // The replay at the end of this connection's handshake has opened it already, and asked for its
@@ -980,7 +983,10 @@ public sealed class VBLspClient : ILspClient
         finally { _changeGate.Release(); }
     }
 
-    public async Task CloseDocumentAsync(string uri, CancellationToken cancellationToken = default)
+    public Task CloseDocumentAsync(string uri, CancellationToken cancellationToken = default) =>
+        CloseDocumentCoreAsync(uri, cancellationToken);
+
+    private async Task CloseDocumentCoreAsync(string uri, CancellationToken cancellationToken)
     {
         _openDocuments.TryRemove(uri, out _);
         if (_writtenOpens.TryRemove(uri, out var written)) written.TrySetCanceled();
@@ -1080,13 +1086,18 @@ public sealed class VBLspClient : ILspClient
     /// The clearing publication is unconditional here, where <see cref="ForgetPullState"/> raises it only
     /// for a server that answers when asked. For an ordinary close that gate is right: a PUSH server clears
     /// a document by publishing an empty set itself, and pre-empting it would fight a server that has a
-    /// view. For a rename it is wrong — the name is going away, so there is no later publication to wait
-    /// for and a push server will never send one about a document it was told to close.
+    /// view. For a rename the old name is going away, so consumers must clear it even if the server says
+    /// nothing. Later publications for the retired URI are ignored until it is opened again (#2975).
     /// </remarks>
     public async Task CloseDocumentForRenameAsync(string uri, CancellationToken cancellationToken = default)
     {
-        await CloseDocumentAsync(uri, cancellationToken);
-        RaisePublishDiagnostics(DiagnosticOwner.LanguageServer, new PublishDiagnosticsParams(uri, []));
+        _diagnosticLifecycle.Retire(uri);
+        await CloseDocumentCoreAsync(uri, cancellationToken);
+        _diagnosticLifecycle.Rename(uri, () =>
+        {
+            RaisePublishDiagnostics(DiagnosticOwner.LanguageServer, new PublishDiagnosticsParams(uri, []));
+            DocumentClosed?.Invoke(this, uri);
+        });
     }
 
     private void ForgetPullState(string uri)
@@ -2170,6 +2181,9 @@ public sealed class VBLspClient : ILspClient
     internal void RaisePublishDiagnostics(string owner, PublishDiagnosticsParams p) =>
         DiagnosticsPublished?.Invoke(this, _diagnostics.Record(p.Uri, owner, p.Diagnostics));
 
+    internal void PublishServerDiagnostics(PublishDiagnosticsParams p) =>
+        _diagnosticLifecycle.Publish(p.Uri, () => RaisePublishDiagnostics(DiagnosticOwner.LanguageServer, p));
+
     private void ClearProgress()
     {
         foreach (var key in _progressTokens.Keys)
@@ -2286,7 +2300,7 @@ public sealed class VBLspClient : ILspClient
                 return;
             }
 
-            _client.RaisePublishDiagnostics(DiagnosticOwner.LanguageServer, p);
+            _client.PublishServerDiagnostics(p);
         }
 
         /// <summary>

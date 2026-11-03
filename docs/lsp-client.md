@@ -599,6 +599,15 @@ server is expected to keep off them — the bundled one does, by the rule in
 
 ---
 
+The automation diagnostics cache forgets a URI when the client closes it for a rename, including the old
+`untitled:` name on save and the old file name on Save As (#2975). An empty diagnostic
+publication alone still means an analysed, clean document. After a rename close, the client
+ignores server publications for that URI until it is reopened, including empty sets sent in
+response to `didClose`. URI identity uses `LspDocumentUri.Comparer`; unopened workspace
+documents can still receive diagnostics. Ordinary editor closes retain cached analysis and accept
+later server publications. The Diagnostics panel reads the registry ledger
+instead; rename withdraws its old rows, and late server publications cannot restore them.
+
 ## Diagnostics panel
 
 Tools → Diagnostics shows the registry's current diagnostic store, including reports for unopened
