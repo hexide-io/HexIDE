@@ -678,7 +678,7 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
     /// and a client that dropped either would be hiding a thing the user could have done.
     /// </remarks>
     public Task<InlayHint[]> RequestInlayHintsAsync(string uri, HexIDE.Lsp.Messages.Range range, CancellationToken ct = default) =>
-        GatherAsync(uri, c => c.RequestInlayHintsAsync(uri, range, ct));
+        GatherAsync(uri, c => c.RequestInlayHintsAsync(uri, range, ct), ct);
 
     public Task<CodeLens[]> RequestCodeLensesAsync(string uri, CancellationToken ct = default) =>
         GatherAsync(uri, c => c.RequestCodeLensesAsync(uri, ct), ct);
