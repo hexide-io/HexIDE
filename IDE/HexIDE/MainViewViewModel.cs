@@ -156,8 +156,12 @@ public partial class MainViewViewModel : ObservableObject
         ? ExternalDebugger.State == HexIDE.Dap.DapSessionState.Stopped
         : debugController.State == DebugState.Paused;
 
-    private bool IsProgramRunning => ExternalDebugger?.State is HexIDE.Dap.DapSessionState.Starting
-        or HexIDE.Dap.DapSessionState.Running or HexIDE.Dap.DapSessionState.Stopped || projectRunnerService.IsRunning;
+    // The runner's IsRunning counts an external session as running until its cleanup ends, which can be seconds
+    // after End when an adapter doesn't answer disconnect (#2965), so while one is active its state decides.
+    private bool IsProgramRunning => ExternalDebugger?.IsActive == true
+        ? ExternalDebugger.State is HexIDE.Dap.DapSessionState.Starting or HexIDE.Dap.DapSessionState.Running
+            or HexIDE.Dap.DapSessionState.Stopped
+        : projectRunnerService.IsRunning;
 
     private void UpdateRunState()
     {

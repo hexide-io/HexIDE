@@ -368,6 +368,8 @@ public class MainViewViewModelTests
         System.IO.Directory.CreateDirectory(directory);
         await using var log = new ConversationLog();
         var external = new HexIDE.Debugging.ExternalDebugService(log);
+        // As the real ProjectRunnerService does: an external session counts as running until its cleanup ends.
+        _runnerService.IsRunning.Returns(_ => external.IsActive);
         _focusedProjectUtil.FocusedOrStartupProject.Returns(new ProjectDefinition(VBProjectType.EXE, "MyApp"));
         var sut = Build(_runnerService, externalDebugger: external);
         var status = "stale";
