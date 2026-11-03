@@ -43,6 +43,13 @@ During the session:
   pending, inspection remains visible but cannot be evaluated. A refused continue or step keeps the stack,
   selected frame, locals and current-line mark, and reports the adapter's refusal in Immediate
   ([#2912](https://github.com/hexide-io/HexIDE/issues/2912)).
+- HexIDE advertises `supportsInvalidatedEvent`. An `invalidated` event while stopped refreshes Call Stack,
+  scopes, Locals and Watches without resuming. The selected caller is retained if its frame ID still exists;
+  otherwise the top frame is selected. Pending replies from before invalidation are discarded. This single-thread
+  integration refreshes the whole stopped inspection even when area/thread/frame hints narrow the event.
+  Events while running do not inspect frames; the next stop refreshes normally (#2914).
+  See the [DAP invalidated event definition](https://microsoft.github.io/debug-adapter-protocol/specification#Events_Invalidated)
+  for these refresh hints.
 - A stop opens Call Stack and Locals. When the source is already part of a loaded IDE project, its code
   window is revealed and marks the current line. The amber execution highlight and Show Next Statement
   continue to identify the top frame even when inspecting a caller. Sources outside loaded projects are not opened automatically.
@@ -91,8 +98,8 @@ whose adapter supports all three:
   statement below it. An adapter that
   can't apply an edit refuses the step and leaves the program stopped. HexIDE prints its message in
   Immediate, but also clears Call Stack, Locals and the current line until the next stop (#2912). Undo the
-  edit and save again, or End. HexIDE doesn't advertise `supportsInvalidatedEvent`, so the adapter sends
-  no `invalidated`; what is shown refreshes at the next stop (#2914).
+  edit and save again, or End. An adapter can also send `invalidated` to refresh a stopped inspection
+  without waiting for another stop (#2914).
 
 Breakpoints stay on the line numbers they were set on. An edit that adds or removes lines above one leaves it
 on a different statement.
