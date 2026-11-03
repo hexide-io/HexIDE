@@ -2,6 +2,7 @@
   "name": "Korean",
   "direction": "ltr",
   "strings": {
+    "Str.Debug.External.EndTimeout": "디버그 어댑터 {0}이(가) 종료 명령에 응답하지 않아 {1}초 동안 기다린 후 중지되었습니다.",
     "Str.Debug.External.BreakpointConditionUnsupported": "외부 세션에서는 아직 중단점 조건을 지원하지 않습니다. 파일 '{0}', 중단점 항목 {1}.",
     "Str.Debug.External.BreakpointOptionUnsupported": "중단점 옵션 '{0}'은(는) 외부 세션에서 아직 지원되지 않습니다. 파일 '{1}', 중단점 항목 {2}.",
     "Str.MainWindow.RecoveryNotice": "복구 세션 — 설정 변경 사항은 저장되지 않습니다",

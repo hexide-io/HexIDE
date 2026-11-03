@@ -2,6 +2,7 @@
   "name": "Portuguese",
   "direction": "ltr",
   "strings": {
+    "Str.Debug.External.EndTimeout": "O adaptador de depuração {0} não respondeu a Terminar e foi parado após {1} segundos de espera.",
     "Str.Debug.External.BreakpointConditionUnsupported": "As condições de pontos de interrupção ainda não são suportadas em sessões externas. Ficheiro '{0}', entrada de ponto de interrupção {1}.",
     "Str.Debug.External.BreakpointOptionUnsupported": "A opção de ponto de interrupção '{0}' ainda não é suportada em sessões externas. Ficheiro '{1}', entrada {2}.",
     "Str.MainWindow.RecoveryNotice": "Sessão de recuperação — as alterações às definições não serão guardadas",

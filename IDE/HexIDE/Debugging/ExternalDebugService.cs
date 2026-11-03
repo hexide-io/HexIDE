@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Text.Json;
 using System.Threading;
@@ -21,6 +22,7 @@ public sealed partial class ExternalDebugService(ConversationLog capture, ILocal
     private DapSession? session;
     private CancellationTokenSource? cancellation;
     private Task? stopping;
+    private long endStarted;
     private bool resumePending;
     private long inspectionVersion;
     private long selectionVersion;
@@ -152,7 +154,19 @@ public sealed partial class ExternalDebugService(ConversationLog capture, ILocal
             {
                 var result = await completion;
                 if (result.ExitCode is not (null or 0) || result.ForcedTermination || result.CleanupFailure is not null)
-                    Failed?.Invoke($"Debug adapter exit: {result.ExitCode}; forced: {result.ForcedTermination}; {result.CleanupFailure}\n{result.StandardErrorTail}");
+                {
+                    Serilog.Log.Warning("Debug adapter {Adapter} exit: {ExitCode}; forced: {Forced}; {CleanupFailure}\n{StandardError}",
+                        configuration.AdapterId, result.ExitCode, result.ForcedTermination, result.CleanupFailure, result.StandardErrorTail);
+                    if (stopping is not null && result.ForcedTermination)
+                    {
+                        var strings = localization ?? new LocalizationService();
+                        Failed?.Invoke(string.Format(strings.GetString("Str.Debug.External.EndTimeout"),
+                            configuration.AdapterId, Math.Round(Stopwatch.GetElapsedTime(endStarted).TotalSeconds)));
+                    }
+                    else
+                        Failed?.Invoke($"Debug adapter exit: {result.ExitCode}; forced: {result.ForcedTermination}; {result.CleanupFailure}");
+                    if (!string.IsNullOrEmpty(result.StandardErrorTail)) Output?.Invoke(result.StandardErrorTail + "\n");
+                }
             }
         }
         catch (OperationCanceledException) when (cancellation.IsCancellationRequested) { }
@@ -385,10 +399,15 @@ public sealed partial class ExternalDebugService(ConversationLog capture, ILocal
     {
         cancellation?.Cancel();
         if (session is not { } current) return;
+        endStarted = Stopwatch.GetTimestamp();
+        using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(5));
         try
         {
-            using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(5));
             await current.DisconnectAsync(deadline.Token);
+        }
+        catch (OperationCanceledException exception) when (deadline.IsCancellationRequested)
+        {
+            Serilog.Log.Warning(exception, "Debug adapter did not answer End before the disconnect deadline.");
         }
         catch (Exception exception) { Output?.Invoke(exception.Message + "\n"); }
         finally { await current.DisposeAsync(); }

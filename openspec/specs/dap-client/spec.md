@@ -442,3 +442,14 @@ or Faulted, even while adapter cleanup remains active (#2965).
 - **THEN** the title shows the run tag and the running status message returns
 - **WHEN** the session ends
 - **THEN** the title shows the design tag and the status bar shows Ready before adapter cleanup completes
+
+### Requirement: Unresponsive adapter End notice
+When End requires forced adapter termination, Immediate SHALL show one localized sentence naming the
+adapter and elapsed wait in seconds, without the cancelled disconnect exception or raw exit diagnostics.
+Nonempty standard error SHALL follow as a separate block; empty standard error SHALL add no output.
+Raw exit and forced-termination details SHALL remain in the log and protocol inspector (#2980).
+
+#### Scenario: Adapter does not answer End
+- **WHEN** the disconnect deadline expires and cleanup kills the adapter
+- **THEN** Immediate reports the adapter name and wait once in the selected IDE language
+- **AND** the protocol inspector retains the exit code and forced-termination detail

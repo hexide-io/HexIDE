@@ -2,6 +2,7 @@
   "name": "English",
   "direction": "ltr",
   "strings": {
+    "Str.Debug.External.EndTimeout": "Debug adapter {0} did not respond to End and was stopped after waiting {1} seconds.",
     "Str.Debug.External.BreakpointConditionUnsupported": "Breakpoint conditions aren't supported for external sessions yet. File '{0}', breakpoint entry {1}.",
     "Str.Debug.External.BreakpointOptionUnsupported": "Breakpoint option '{0}' isn't supported for external sessions yet. File '{1}', breakpoint entry {2}.",
     "Str.MainWindow.RecoveryNotice": "Recovery session — settings changes won't be saved",

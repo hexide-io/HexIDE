@@ -2,6 +2,7 @@
   "name": "Danish",
   "direction": "ltr",
   "strings": {
+    "Str.Debug.External.EndTimeout": "Fejlfindingsadapteren {0} svarede ikke på Afslut og blev stoppet efter {1} sekunders ventetid.",
     "Str.Debug.External.BreakpointConditionUnsupported": "Betingelser for breakpoints understøttes endnu ikke i eksterne sessioner. Fil '{0}', breakpointpost {1}.",
     "Str.Debug.External.BreakpointOptionUnsupported": "Pausepunktsindstillingen '{0}' understøttes endnu ikke for eksterne sessioner. Fil '{1}', pausepunktspost {2}.",
     "Str.MainWindow.RecoveryNotice": "Gendannelsessession — ændringer af indstillinger gemmes ikke",

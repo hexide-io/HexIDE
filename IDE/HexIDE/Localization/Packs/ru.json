@@ -2,6 +2,7 @@
   "name": "Russian",
   "direction": "ltr",
   "strings": {
+    "Str.Debug.External.EndTimeout": "Адаптер отладки {0} не ответил на команду завершения и был остановлен после ожидания в течение {1} секунд.",
     "Str.Debug.External.BreakpointConditionUnsupported": "Условия точек останова пока не поддерживаются для внешних сеансов. Файл '{0}', запись точки останова {1}.",
     "Str.Debug.External.BreakpointOptionUnsupported": "Параметр точки останова '{0}' пока не поддерживается для внешних сеансов. Файл '{1}', запись точки останова {2}.",
     "Str.MainWindow.RecoveryNotice": "Сеанс восстановления — изменения настроек не будут сохранены",

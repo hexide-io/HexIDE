@@ -149,3 +149,7 @@ includes its message and says whether stopped inspection was kept. `set_next_sta
 path; an unsaved target is refused. The interpreter's top-level-statement restriction does not
 apply to the adapter. `run_to_cursor` refuses external sessions because the external route has
 no one-shot breakpoint support; set a breakpoint in the editor and continue instead.
+
+If an adapter does not answer **End** and must be killed after cleanup waits, Immediate shows one
+localized notice with its name and elapsed wait in seconds. Any nonempty standard-error tail follows
+separately. Exit codes and forced-termination details remain in the log and Protocol Inspector (#2980).

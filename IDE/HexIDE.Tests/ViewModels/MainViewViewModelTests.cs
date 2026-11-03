@@ -487,6 +487,45 @@ public class MainViewViewModelTests
         }
     }
 
+    [AvaloniaTheory]
+    [InlineData("disconnect-held", "")]
+    [InlineData("disconnect-held-stderr", "fixture stderr")]
+    public async Task End_of_unresponsive_adapter_shows_one_localized_Immediate_notice(string mode, string stderr)
+    {
+        var directory = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "hexide-dap-end-notice-" + System.Guid.NewGuid());
+        System.IO.Directory.CreateDirectory(directory);
+        await using var log = new ConversationLog();
+        _localization.GetString("Str.Debug.External.EndTimeout").Returns("localized End: {0}; waited {1} seconds.");
+        var external = new HexIDE.Debugging.ExternalDebugService(log, _localization);
+        var sut = Build(_runnerService, external: external);
+        var run = external.StartAsync(await DebugAdapter.ExternalDebugServiceTests.Configuration(directory, mode));
+        try
+        {
+            await DebugAdapter.ExternalDebugServiceTests.WaitFor(external, () => external.CanEvaluate);
+            var id = external.Connection!.Id;
+            var waited = System.Diagnostics.Stopwatch.StartNew();
+            await external.StopAsync().WaitAsync(System.TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken);
+            await run.WaitAsync(System.TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken);
+
+            var lines = sut.Immediate.Document.Text.ReplaceLineEndings("\n").Split('\n');
+            lines[0].Should().Be("disconnect-pending");
+            var notice = System.Text.RegularExpressions.Regex.Match(lines[1], @"^localized End: fixture; waited ([0-9]+) seconds\.$");
+            notice.Success.Should().BeTrue(lines[1]);
+            double.Parse(notice.Groups[1].Value, System.Globalization.CultureInfo.InvariantCulture).Should()
+                .BeApproximately(waited.Elapsed.TotalSeconds, 1);
+            lines.Skip(2).Should().Equal(stderr.Length == 0 ? [""] : [stderr, ""]);
+            await log.DrainAsync();
+            log.Snapshot(id).Should().Contain(e => e.Detail != null &&
+                e.Detail.StartsWith("DAP process ended:") && e.Detail.Contains("forced termination: True"));
+        }
+        finally
+        {
+            await external.StopAsync();
+            await run;
+            System.IO.Directory.Delete(directory, true);
+        }
+    }
+
     // --- Title ---
 
     [AvaloniaFact]
