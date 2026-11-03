@@ -5,9 +5,10 @@ namespace HexIDE.Dap;
 
 public enum DapSessionState { Created, Starting, Running, Stopped, Ended, Faulted }
 
-/// <summary>A stop identity, scoped to one session. Never reuse frame/variable IDs across these identities.</summary>
+/// <summary>A stop identity, scoped to one session. Never apply inspection replies across these identities.</summary>
 public sealed record DapStop(Guid SessionId, long Generation, int? ThreadId, string Reason);
-public sealed record DapSessionSnapshot(DapSessionState State, DapStop? Stop, Exception? Failure);
+/// <summary>ResumePending invalidates requests while consumers retain the last displayed inspection.</summary>
+public sealed record DapSessionSnapshot(DapSessionState State, DapStop? Stop, Exception? Failure, bool ResumePending = false);
 public sealed record DapSessionUpdate(DapSessionSnapshot Snapshot, DapEvent? Event);
 public sealed record DapSourceBreakpoints(string Path, IReadOnlyList<int> Lines);
 
@@ -194,7 +195,7 @@ public sealed class DapSession : IAsyncDisposable
             {
                 CheckStop(stop);
                 token.ThrowIfCancellationRequested();
-                Change(DapSessionState.Running);
+                Change(DapSessionState.Running, resumePending: true);
                 generation = _generation;
             }
             try { await Request(command, new { threadId }, token).ConfigureAwait(false); }
@@ -215,7 +216,10 @@ public sealed class DapSession : IAsyncDisposable
                 await DisposeAsync().ConfigureAwait(false);
                 throw;
             }
-            // No post-response Running transition: a fast stopped event may already have arrived.
+            lock (_sync)
+                if (_generation == generation && _snapshot.ResumePending)
+                    Change(DapSessionState.Running);
+            // A continued or fast stopped event wins over the response.
         }
         finally { _commands.Release(); }
     }
@@ -288,10 +292,11 @@ public sealed class DapSession : IAsyncDisposable
         }
     }
 
-    private void Change(DapSessionState state, DapStop? stop = null, Exception? failure = null, DapEvent? message = null)
+    private void Change(DapSessionState state, DapStop? stop = null, Exception? failure = null, DapEvent? message = null,
+        bool resumePending = false)
     {
         ++_generation;
-        _snapshot = new(state, stop, failure);
+        _snapshot = new(state, stop, failure, resumePending);
         Publish(message);
     }
 
