@@ -18,6 +18,23 @@ public sealed record DapLaunchConfiguration
     {
         var directory = Path.GetDirectoryName(Path.GetFullPath(file))!;
         var text = await File.ReadAllTextAsync(file, token).ConfigureAwait(false);
+        using var document = JsonDocument.Parse(text);
+        if (document.RootElement.ValueKind == JsonValueKind.Object &&
+            document.RootElement.EnumerateObject().FirstOrDefault(property =>
+                property.Name.Equals("breakpoints", StringComparison.OrdinalIgnoreCase)).Value is { ValueKind: JsonValueKind.Array } breakpoints)
+        {
+            var entry = 0;
+            foreach (var breakpoint in breakpoints.EnumerateArray())
+            {
+                ++entry;
+                if (breakpoint.ValueKind != JsonValueKind.Object) continue;
+                foreach (var property in breakpoint.EnumerateObject())
+                    if (property.Name.Equals("condition", StringComparison.OrdinalIgnoreCase) ||
+                        property.Name.Equals("hitCondition", StringComparison.OrdinalIgnoreCase) ||
+                        property.Name.Equals("logMessage", StringComparison.OrdinalIgnoreCase))
+                        throw new DapBreakpointConditionException(file, entry, property.Name);
+            }
+        }
         var configuration = JsonSerializer.Deserialize<DapLaunchConfiguration>(text, new JsonSerializerOptions(JsonSerializerDefaults.Web)
         {
             UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow,
@@ -46,4 +63,11 @@ public sealed record DapLaunchConfiguration
         Arguments = Arguments, WorkingDirectory = WorkingDirectory, Environment = Environment, Capture = capture,
         ShutdownTimeout = TimeSpan.FromSeconds(5),
     };
+}
+
+public sealed class DapBreakpointConditionException(string file, int entry, string option) : Exception
+{
+    public string File { get; } = file;
+    public int Entry { get; } = entry;
+    public string Option { get; } = option;
 }

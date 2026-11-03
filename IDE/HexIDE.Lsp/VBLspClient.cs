@@ -504,6 +504,7 @@ public sealed class VBLspClient : ILspClient
 
     private void OnRpcDisconnected(object? sender, JsonRpcDisconnectedEventArgs e)
     {
+        EndConnectionRequests();
         _initializeAnswered = false;
         ClearProgress();
         _initialized = false;
@@ -587,7 +588,13 @@ public sealed class VBLspClient : ILspClient
         {
             rpc.Disconnected -= OnRpcDisconnected;
             rpc.Dispose();
+            EndConnectionRequests();
         }
+    }
+
+    private void EndConnectionRequests()
+    {
+        if (_connectionId is { } id) _capture?.EndRequests(id);
     }
 
     private async Task InitializeAsync(CancellationToken cancellationToken, AttemptRecorder attempt)
@@ -1190,6 +1197,26 @@ public sealed class VBLspClient : ILspClient
 
     private sealed class LspJsonRpc(IJsonRpcMessageHandler handler, object target) : JsonRpc(handler, target)
     {
+        private readonly object _sendGate = new();
+        private bool _shutdownSent;
+
+        // Every outbound frame passes here, including cancellation notifications and handler replies.
+        // Keep the check and base send together so a concurrent sender cannot slip behind shutdown.
+        // LSP forbids requests and notifications other than exit after shutdown, not replies: a server may
+        // ask something before it answers shutdown (RDCore sends workspace/diagnostic/refresh), and a
+        // reply withheld there makes StreamJsonRpc drop the connection before exit can go (#2924).
+        protected override ValueTask SendAsync(StreamJsonRpc.Protocol.JsonRpcMessage message, CancellationToken cancellationToken)
+        {
+            lock (_sendGate)
+            {
+                var method = (message as StreamJsonRpc.Protocol.JsonRpcRequest)?.Method;
+                if (_shutdownSent && method is not null && method != "exit")
+                    return ValueTask.FromCanceled(new CancellationToken(true));
+                if (method == "shutdown") _shutdownSent = true;
+                return base.SendAsync(message, cancellationToken);
+            }
+        }
+
         // The default CommonErrorData discards LSP's retriggerRequest field.
         protected override Type? GetErrorDetailsDataType(StreamJsonRpc.Protocol.JsonRpcError error) =>
             error.Error?.Code == (StreamJsonRpc.Protocol.JsonRpcErrorCode)(-32802) ? typeof(JsonElement) : base.GetErrorDetailsDataType(error);
@@ -2120,6 +2147,7 @@ public sealed class VBLspClient : ILspClient
 
     private void OnTransportClosed(object? sender, EventArgs e)
     {
+        EndConnectionRequests();
         _initialized = false;
         _capabilities = null;
         _warnedCapabilities.Clear();

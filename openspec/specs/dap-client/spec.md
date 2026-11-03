@@ -397,6 +397,36 @@ SHALL NOT initiate stopped inspection.
 - **THEN** no stopped frame inspection is requested
 - **AND** the next stop refreshes normally
 
+### Requirement: External Set Next Statement
+The IDE SHALL gate external Set Next Statement on `supportsGotoTargetsRequest`. While stopped it SHALL
+request `gotoTargets` with the active editor's source path and one-based caret line, then send `goto` with
+the first target ID and stopped thread ID. Without the capability it SHALL retain the existing unsupported
+command message and send neither request. Empty targets or a refused request SHALL report the adapter's
+message and preserve stopped inspection and location. A successful move SHALL use the following stopped
+event for its new location, with the same inspection lifetime rules as other resumes.
+
+#### Scenario: Move to the caret
+- **WHEN** a capable stopped adapter returns multiple targets for the caret line
+- **THEN** goto receives the first target and the stopped thread
+- **AND** the next stopped event supplies the displayed current line
+
+#### Scenario: Move refused
+- **WHEN** gotoTargets returns no targets or either request is refused
+- **THEN** Immediate reports the adapter's message and the stopped inspection remains available
+
+#### Scenario: Refused resume does not navigate the editor
+- **WHEN** a goto, continue or step request is refused without an adapter stopped event
+- **THEN** the IDE SHALL retain the editor caret and scroll position alongside the stopped inspection
+
+### Requirement: Explicit refusal of external breakpoint conditions
+The IDE SHALL reject a launch breakpoint entry containing `condition`, `hitCondition` or `logMessage` before starting an adapter, with a
+localized diagnostic naming the launch file and one-based breakpoint entry. It SHALL NOT expose the
+serializer's internal type name for this refusal.
+
+#### Scenario: A condition is present
+- **WHEN** a launch breakpoint entry contains condition, hitCondition or logMessage, including a null value
+- **THEN** no adapter starts and Immediate identifies the unsupported option, file and entry
+
 ### Requirement: External run state in the IDE chrome
 The IDE SHALL derive the title tag and status message from the external session while it is active,
 without changing the interpreter debugger's state. External state changes SHALL refresh the title and

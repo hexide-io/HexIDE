@@ -164,7 +164,7 @@ public class MainViewViewModelTests
     private MainViewViewModel Build(IProjectRunnerService runner, IDocumentDockService? dock = null,
         HexIDE.Debugging.IBreakpointService? breakpoints = null, IProjectService? projects = null,
         HexIDE.Recovery.IRecoveryOffers? recoveryOffers = null,
-        HexIDE.Debugging.ExternalDebugService? externalDebugger = null)
+        HexIDE.Debugging.ExternalDebugService? external = null, IEditorService? editor = null)
     {
         projects ??= _projectService;
         var mockDocDock = dock ?? Substitute.For<IDocumentDockService>();
@@ -186,7 +186,7 @@ public class MainViewViewModelTests
         var locals = new LocalsToolViewModel(loc, Substitute.For<HexIDE.Runtime.Debugging.IDebugController>());
         var watches = new WatchesToolViewModel(loc, new HexIDE.Debugging.WatchService(), Substitute.For<HexIDE.Runtime.Debugging.IDebugController>(), Substitute.For<HexIDE.IDE.IWindowManager>());
         var callStack = new CallStackToolViewModel(loc, Substitute.For<HexIDE.Runtime.Debugging.IDebugController>());
-        var editorService = Substitute.For<IEditorService>();
+        var editorService = editor ?? Substitute.For<IEditorService>();
         var projectExplorer = new ProjectToolViewModel(_projectManager, _eventBus, projects, editorService, loc);
         var colorPalette = new ColorPaletteToolViewModel(mockDocDock);
         var objectBrowser = new ObjectBrowserToolViewModel(_projectManager, Substitute.For<ILspClient>(), editorService, Substitute.For<IComponentRegistry>(), Substitute.For<ITypeLibraryService>(), Substitute.For<IFocusedProjectUtil>(), loc,
@@ -264,7 +264,89 @@ public class MainViewViewModelTests
             breakpoints ?? Substitute.For<HexIDE.Debugging.IBreakpointService>(),
             _debugController,
             new RecentEditsToolViewModel(new RecentEditHistory(_eventBus), () => editorService, loc),
-            recoveryOffers: recoveryOffers, externalDebugger: externalDebugger);
+            recoveryOffers: recoveryOffers, externalDebugger: external);
+    }
+
+    [AvaloniaTheory]
+    [InlineData("goto-refuse", "goto")]
+    [InlineData("resume-refusal", "next")]
+    public async Task Refused_external_move_keeps_caret_scroll_and_inspection(string mode, string command)
+    {
+        var directory = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "hexide-reveal-" + Guid.NewGuid());
+        System.IO.Directory.CreateDirectory(directory);
+        await using var log = new ConversationLog();
+        var external = new HexIDE.Debugging.ExternalDebugService(log);
+        using var theme = MenuTheme();
+        var editorTheme = new Avalonia.Markup.Xaml.Styling.StyleInclude(new Uri("avares://AvaloniaEdit/"))
+        {
+            Source = new Uri("avares://AvaloniaEdit/Themes/Simple/AvaloniaEdit.xaml"),
+        };
+        Avalonia.Application.Current!.Styles.Add(editorTheme);
+        var editor = new AvaloniaEdit.TextEditor { Text = string.Join("\n", Enumerable.Repeat("Debug.Print 1", 200)) };
+        var window = new Avalonia.Controls.Window { Width = 400, Height = 200, Content = editor };
+        var navigation = Substitute.For<IEditorService>();
+        navigation.NavigateTo(Arg.Any<string>(), Arg.Any<int>(), Arg.Any<int>()).Returns(call =>
+        {
+            editor.TextArea.Caret.Line = call.ArgAt<int>(1);
+            editor.ScrollToLine(call.ArgAt<int>(1));
+            return true;
+        });
+        var sut = Build(_runnerService, external: external, editor: navigation);
+        window.Show();
+        var executable = System.IO.Path.GetFullPath("../../../dotnet" + (OperatingSystem.IsWindows() ? ".exe" : ""),
+            System.Runtime.InteropServices.RuntimeEnvironment.GetRuntimeDirectory());
+        var file = System.IO.Path.Combine(directory, "launch.json");
+        await System.IO.File.WriteAllTextAsync(file, System.Text.Json.JsonSerializer.Serialize(new
+        {
+            executable, arguments = new[] { typeof(HexIDE.Dap.TestAdapter.Program).Assembly.Location, mode },
+            adapterId = "fixture", launch = new { },
+        }));
+        var run = external.StartAsync(file);
+        async Task Until(Func<bool> done)
+        {
+            var deadline = DateTime.UtcNow.AddSeconds(20);
+            while (!done())
+            {
+                DateTime.UtcNow.Should().BeBefore(deadline);
+                await Task.Delay(10, TestContext.Current.CancellationToken);
+            }
+        }
+        try
+        {
+            await Until(() => external.CanEvaluate && external.Variables.Count == 1);
+            navigation.Received().NavigateTo(Arg.Any<string>(), 6, 1);
+            editor.TextArea.Caret.Line = 100;
+            editor.ScrollToLine(100);
+            window.UpdateLayout();
+            var caret = editor.CaretOffset;
+            var scroll = editor.VerticalOffset;
+            scroll.Should().BeGreaterThan(0);
+            var frames = external.Frames;
+            var variables = external.Variables;
+            var location = external.CurrentLocation;
+            var stop = external.Stop;
+            navigation.ClearReceivedCalls();
+
+            if (command == "goto") await external.SetNextStatementAsync(new Uri(System.IO.Path.Combine(directory, "Module1.bas")).AbsoluteUri, 100);
+            else await external.CommandAsync(command);
+            await Until(() => external.CanEvaluate && external.Stop != stop);
+
+            editor.CaretOffset.Should().Be(caret);
+            editor.VerticalOffset.Should().Be(scroll);
+            navigation.DidNotReceive().NavigateTo(Arg.Any<string>(), Arg.Any<int>(), Arg.Any<int>());
+            external.Frames.Should().BeSameAs(frames);
+            external.Variables.Should().BeSameAs(variables);
+            external.CurrentLocation.Should().Be(location);
+            GC.KeepAlive(sut);
+        }
+        finally
+        {
+            window.Close();
+            Avalonia.Application.Current!.Styles.Remove(editorTheme);
+            await external.StopAsync();
+            await run.WaitAsync(TimeSpan.FromSeconds(20), TestContext.Current.CancellationToken);
+            System.IO.Directory.Delete(directory, true);
+        }
     }
 
     // --- Add File: a file that joined read byte for byte ---
@@ -320,7 +402,7 @@ public class MainViewViewModelTests
         await using var log = new ConversationLog();
         var external = new HexIDE.Debugging.ExternalDebugService(log);
         _focusedProjectUtil.FocusedOrStartupProject.Returns(new ProjectDefinition(VBProjectType.EXE, "MyApp"));
-        var sut = Build(_runnerService, externalDebugger: external);
+        var sut = Build(_runnerService, external: external);
         var status = "stale";
         _statusBarService.When(x => x.ClearMessage()).Do(_ => status = "Ready");
         _statusBarService.When(x => x.SetMessage(Arg.Any<string>())).Do(c => status = c.Arg<string>());
@@ -371,7 +453,7 @@ public class MainViewViewModelTests
         // As the real ProjectRunnerService does: an external session counts as running until its cleanup ends.
         _runnerService.IsRunning.Returns(_ => external.IsActive);
         _focusedProjectUtil.FocusedOrStartupProject.Returns(new ProjectDefinition(VBProjectType.EXE, "MyApp"));
-        var sut = Build(_runnerService, externalDebugger: external);
+        var sut = Build(_runnerService, external: external);
         var status = "stale";
         _statusBarService.When(x => x.ClearMessage()).Do(_ => status = "Ready");
         _statusBarService.When(x => x.SetMessage(Arg.Any<string>())).Do(c => status = c.Arg<string>());

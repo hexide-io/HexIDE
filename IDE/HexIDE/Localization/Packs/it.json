@@ -2,6 +2,8 @@
   "name": "Italian",
   "direction": "ltr",
   "strings": {
+    "Str.Debug.External.BreakpointConditionUnsupported": "Le condizioni dei punti di interruzione non sono ancora supportate per le sessioni esterne. File '{0}', voce del punto di interruzione {1}.",
+    "Str.Debug.External.BreakpointOptionUnsupported": "L'opzione del punto di interruzione '{0}' non è ancora supportata per le sessioni esterne. File '{1}', voce {2}.",
     "Str.MainWindow.RecoveryNotice": "Sessione di ripristino — le modifiche alle impostazioni non verranno salvate",
     "Str.Profiles.LoadError": "Impossibile caricare il profilo '{0}', file '{1}'. Controllare il formato del pacchetto e i percorsi dei file.",
     "Str.Profiles.HelpSummary": "Profilo di base: nome, percorso di cartella o none (modalità provvisoria).",

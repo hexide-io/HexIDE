@@ -1320,8 +1320,10 @@ public partial class MainViewViewModel : ObservableObject
                 if (externalDebugger.Stop is not { } stop || externalDebugger.SelectedFrame is not { } frame)
                 { revealed = null; revealedFrame = null; return; }
                 var frameId = frame.GetProperty("id").GetInt32();
-                if (stop == revealed && frameId == revealedFrame) return;
-                if (stop != revealed) { OpenLocalsTool(); OpenCallStackTool(); }
+                var sameLocation = revealed is not null && stop.SessionId == revealed.SessionId &&
+                    stop.NavigationGeneration == revealed.NavigationGeneration;
+                if (sameLocation && frameId == revealedFrame) return;
+                if (!sameLocation) { OpenLocalsTool(); OpenCallStackTool(); }
                 revealed = stop;
                 revealedFrame = frameId;
                 if (externalDebugger.SelectedLocation is { } location)
@@ -1766,7 +1768,11 @@ public partial class MainViewViewModel : ObservableObject
     {
         if (ExternalDebugger?.IsActive == true)
         {
-            windowManager.MessageBox(localization.GetString("Str.Debug.External.Unsupported"), icon: MessageBoxIcon.Information).ListenErrors();
+            if (!ExternalDebugger.SupportsSetNextStatement)
+                windowManager.MessageBox(localization.GetString("Str.Debug.External.Unsupported"), icon: MessageBoxIcon.Information).ListenErrors();
+            else if (documentDockService.ActiveDocument is HexIDE.Forms.ViewModels.CodeEditorViewModel externalCode)
+                ExternalDebugger.SetNextStatementAsync(externalCode.GetDocumentUriPublic(),
+                    externalCode.Document.GetLineByOffset(externalCode.CaretOffset).LineNumber).ListenErrors();
             return;
         }
         if (documentDockService.ActiveDocument is HexIDE.Forms.ViewModels.CodeEditorViewModel code)

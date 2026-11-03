@@ -2,6 +2,8 @@
   "name": "Arabic",
   "direction": "rtl",
   "strings": {
+    "Str.Debug.External.BreakpointConditionUnsupported": "شروط نقاط التوقف غير مدعومة بعد للجلسات الخارجية. الملف '{0}'، إدخال نقطة التوقف {1}.",
+    "Str.Debug.External.BreakpointOptionUnsupported": "خيار نقطة التوقف '{0}' غير مدعوم للجلسات الخارجية بعد. الملف '{1}'، إدخال نقطة التوقف {2}.",
     "Str.MainWindow.RecoveryNotice": "جلسة استرداد — لن تُحفظ تغييرات الإعدادات",
     "Str.Profiles.LoadError": "تعذر تحميل ملف التعريف '{0}'، الملف '{1}'. تحقق من تنسيق الحزمة ومسارات الملفات.",
     "Str.Profiles.HelpSummary": "الملف التعريفي الأساسي: اسم أو مسار مجلد أو none (الوضع الآمن).",

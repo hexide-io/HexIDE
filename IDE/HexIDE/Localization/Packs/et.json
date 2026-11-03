@@ -2,6 +2,8 @@
   "name": "Estonian",
   "direction": "ltr",
   "strings": {
+    "Str.Debug.External.BreakpointConditionUnsupported": "Katkestuspunktide tingimusi välisseanssides veel ei toetata. Fail '{0}', katkestuspunkti kirje {1}.",
+    "Str.Debug.External.BreakpointOptionUnsupported": "Katkestuspunkti valik '{0}' pole väliste seansside jaoks veel toetatud. Fail '{1}', kirje {2}.",
     "Str.MainWindow.RecoveryNotice": "Taasteseanss — sätete muudatusi ei salvestata",
     "Str.Profiles.LoadError": "Profiili „{0}”, faili „{1}” ei saa laadida. Kontrollige paketi vormingut ja failiteid.",
     "Str.Profiles.HelpSummary": "Baasprofiil: nimi, kataloogitee või none (turvarežiim).",

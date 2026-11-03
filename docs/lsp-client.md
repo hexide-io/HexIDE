@@ -125,6 +125,12 @@ Changing the UI language does not automatically restart servers (#2210).
 
 On stop, once `initialize` has been answered, the client allows two seconds for the parameterless
 `shutdown` request to answer, then attempts the parameterless `exit` notification even if shutdown timed out or failed (#392).
+Once `shutdown` is sent, the common outbound RPC gate permits no request or notification but `exit`, including
+during a workspace-root restart (#2924). Replies still go: a server may ask something before it answers
+`shutdown`, as RDCore's does with `workspace/diagnostic/refresh`, and a reply withheld there dropped the
+connection before `exit` could be sent. Pending folder updates and imports for that connection are dropped; the replacement
+receives the current folders in `initialize` and its own project import. When the connection ends,
+unanswered requests are marked Abandoned in the protocol inspector.
 Before an initialize reply, neither message is sent. An externally owned pipe server receives neither
 on stop: HexIDE closes only its connection. A launched pipe server gets two seconds to exit before
 HexIDE kills its remaining process tree, including during bring-up (#313).
@@ -1393,7 +1399,10 @@ The client prepares it before launching the server, once per workspace project, 
 `IWorkspaceArtifactProvider` / DI seam. Core owns path containment (including links), per-server and
 per-workspace consent, hash-based ownership, and regeneration 300 ms after the last material project change.
 The debounce uses an injectable `TimeProvider`; tests advance its clock and await the pending regeneration
-task before checking the generated file and provider call count.
+task before checking the generated file and provider call count. An entry that sets `restartOnChange`
+has its server restarted, alone, when a regeneration changes the file (#2072).
+Artefact and moved-root restarts share the stop/reopen path and run serially; when both are queued,
+each restarts in turn. Requests wait for the replacement connection to reopen their document.
 A refusal or a foreign file does not prevent launch; its reason is logged and recorded as a local
 failure note on that server’s connection in the protocol inspector. Notes name only the configured
 workspace-relative artefact path and exception type; absolute targets and exception messages stay in

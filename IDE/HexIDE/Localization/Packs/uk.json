@@ -2,6 +2,8 @@
   "name": "Ukrainian",
   "direction": "ltr",
   "strings": {
+    "Str.Debug.External.BreakpointConditionUnsupported": "Умови точок зупину ще не підтримуються для зовнішніх сеансів. Файл '{0}', запис точки зупину {1}.",
+    "Str.Debug.External.BreakpointOptionUnsupported": "Параметр точки зупину '{0}' ще не підтримується для зовнішніх сеансів. Файл '{1}', запис точки зупину {2}.",
     "Str.MainWindow.RecoveryNotice": "Сеанс відновлення — зміни налаштувань не буде збережено",
     "Str.Profiles.LoadError": "Не вдалося завантажити профіль '{0}', файл '{1}'. Перевірте формат пакунка та шляхи до файлів.",
     "Str.Profiles.HelpSummary": "Базовий профіль: назва, шлях до каталогу або none (безпечний режим).",

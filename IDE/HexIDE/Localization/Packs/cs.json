@@ -2,6 +2,8 @@
   "name": "Czech",
   "direction": "ltr",
   "strings": {
+    "Str.Debug.External.BreakpointConditionUnsupported": "Podmínky bodů přerušení zatím nejsou pro externí relace podporovány. Soubor '{0}', položka bodu přerušení {1}.",
+    "Str.Debug.External.BreakpointOptionUnsupported": "Možnost zarážky '{0}' zatím není podporována pro externí relace. Soubor '{1}', položka zarážky {2}.",
     "Str.MainWindow.RecoveryNotice": "Relace obnovení — změny nastavení nebudou uloženy",
     "Str.Profiles.LoadError": "Nelze načíst profil '{0}', soubor '{1}'. Zkontrolujte formát balíčku a cesty k souborům.",
     "Str.Profiles.HelpSummary": "Základní profil: název, cesta k adresáři nebo none (nouzový režim).",

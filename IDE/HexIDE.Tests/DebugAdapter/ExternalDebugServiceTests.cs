@@ -16,6 +16,130 @@ namespace HexIDE.Tests.DebugAdapter;
 public class ExternalDebugServiceTests
 {
     [AvaloniaTheory]
+    [InlineData("goto")]
+    [InlineData("goto-empty")]
+    [InlineData("goto-refuse")]
+    [InlineData("goto-targets-refuse")]
+    public async Task Set_next_statement_uses_caret_source_first_target_and_stopped_thread_or_keeps_inspection(string mode)
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "hexide-dap-goto-" + Guid.NewGuid());
+        Directory.CreateDirectory(directory);
+        await using var log = new ConversationLog { ArmsEveryConnection = true };
+        var service = new ExternalDebugService(log);
+        var failures = new List<string>();
+        service.Failed += failures.Add;
+        var run = service.StartAsync(await Configuration(directory, mode));
+        try
+        {
+            await WaitFor(service, () => service.CanEvaluate);
+            service.SupportsSetNextStatement.Should().BeTrue();
+            var stop = service.Stop;
+            var frames = service.Frames;
+            var variables = service.Variables;
+            var path = Path.Combine(directory, "Caret source.bas");
+            await service.SetNextStatementAsync(new Uri(path).AbsoluteUri, 19);
+            if (mode == "goto")
+            {
+                await WaitFor(service, () => service.CurrentLocation?.Line == 19 && service.CanEvaluate);
+                service.Stop.Should().NotBe(stop);
+                failures.Should().BeEmpty();
+            }
+            else
+            {
+                await WaitFor(service, () => service.CanEvaluate);
+                service.State.Should().Be(DapSessionState.Stopped);
+                service.CurrentLocation!.Value.Line.Should().Be(6);
+                service.Frames.Should().BeSameAs(frames);
+                service.Variables.Should().BeSameAs(variables);
+                failures.Should().Equal("fixture goto refusal");
+            }
+            var id = service.Connection!.Id;
+            await log.DrainAsync();
+            var requests = log.Snapshot(id).Where(entry => entry.Kind == ConversationEntryKind.Request &&
+                entry.Method is "gotoTargets" or "goto").ToArray();
+            requests.Select(entry => entry.Method).Should().Equal(mode is "goto-empty" or "goto-targets-refuse" ? ["gotoTargets"] : ["gotoTargets", "goto"]);
+            if (requests.Length > 0)
+            {
+                using var frame = JsonDocument.Parse(log.Body(id, requests[0].Sequence)!.Head);
+                var arguments = frame.RootElement.GetProperty("arguments");
+                arguments.GetProperty("source").GetProperty("path").GetString().Should().Be(path);
+                arguments.GetProperty("line").GetInt32().Should().Be(19);
+            }
+            if (requests.Length > 1)
+            {
+                using var frame = JsonDocument.Parse(log.Body(id, requests[1].Sequence)!.Head);
+                var arguments = frame.RootElement.GetProperty("arguments");
+                arguments.GetProperty("targetId").GetInt32().Should().Be(19);
+                arguments.GetProperty("threadId").GetInt32().Should().Be(1);
+            }
+        }
+        finally { await service.StopAsync(); await run.WaitAsync(Patience, Token); Directory.Delete(directory, true); }
+    }
+
+    [AvaloniaTheory]
+    [InlineData("\"i = 3\"")]
+    [InlineData("null")]
+    public async Task Breakpoint_condition_is_refused_before_launch_with_localized_file_and_entry(string condition)
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "hexide-dap-condition-" + Guid.NewGuid());
+        Directory.CreateDirectory(directory);
+        await using var log = new ConversationLog();
+        var localization = Substitute.For<ILocalizationService>();
+        localization.GetString("Str.Debug.External.BreakpointConditionUnsupported").Returns("conditions unavailable: {0}, entry {1}");
+        var service = new ExternalDebugService(log, localization);
+        var failures = new List<string>();
+        service.Failed += failures.Add;
+        try
+        {
+            var file = Path.Combine(directory, "launch.json");
+            await File.WriteAllTextAsync(file, """
+                {"executable":"must-not-start","adapterId":"fixture","launch":{},
+                 "breakpoints":[{"path":"first.bas","lines":[1]},
+                                {"path":"second.bas","lines":[2],"condition":CONDITION}]}
+                """.Replace("CONDITION", condition), Token);
+            await service.StartAsync(file).WaitAsync(Patience, Token);
+            failures.Should().Equal($"conditions unavailable: {file}, entry 2");
+            service.Connection.Should().BeNull();
+            service.IsActive.Should().BeFalse();
+        }
+        finally { await service.StopAsync(); Directory.Delete(directory, true); }
+    }
+
+    [AvaloniaTheory]
+    [InlineData("hitCondition", "en")]
+    [InlineData("hitCondition", "de")]
+    [InlineData("logMessage", "en")]
+    [InlineData("logMessage", "de")]
+    public async Task Unsupported_breakpoint_option_is_localized_before_launch(string option, string language)
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "hexide-dap-option-" + Guid.NewGuid());
+        Directory.CreateDirectory(directory);
+        await using var log = new ConversationLog();
+        var localization = new LocalizationService();
+        localization.Apply(language);
+        var service = new ExternalDebugService(log, localization);
+        var failures = new List<string>();
+        service.Failed += failures.Add;
+        try
+        {
+            var file = Path.Combine(directory, "launch.json");
+            await File.WriteAllTextAsync(file, """
+                {"executable":"must-not-start","adapterId":"fixture","launch":{},
+                 "breakpoints":[{"path":"first.bas","lines":[1]},
+                                {"path":"second.bas","lines":[2],"OPTION":"3"}]}
+                """.Replace("OPTION", option), Token);
+            await service.StartAsync(file).WaitAsync(Patience, Token);
+            var expected = language == "de"
+                ? $"Die Haltepunktoption '{option}' wird für externe Sitzungen noch nicht unterstützt. Datei '{file}', Haltepunkteintrag 2."
+                : $"Breakpoint option '{option}' isn't supported for external sessions yet. File '{file}', breakpoint entry 2.";
+            failures.Should().Equal(expected);
+            service.Connection.Should().BeNull();
+            service.IsActive.Should().BeFalse();
+        }
+        finally { await service.StopAsync(); Directory.Delete(directory, true); localization.Apply("en"); }
+    }
+
+    [AvaloniaTheory]
     [InlineData("{}")]
     [InlineData("{\"areas\":[]}")]
     [InlineData("{\"areas\":[\"stacks\"]}")]
@@ -72,6 +196,15 @@ public class ExternalDebugServiceTests
         {
             await WaitFor(service, () => service.CanEvaluate);
             service.CanEvaluateHover.Should().Be(mode == "evaluate");
+            if (mode == "frames")
+            {
+                service.SupportsSetNextStatement.Should().BeFalse();
+                var stop = service.Stop;
+                await service.SetNextStatementAsync(new Uri(Path.Combine(directory, "Callee.bas")).AbsoluteUri, 19);
+                service.Stop.Should().Be(stop);
+                await log.DrainAsync();
+                log.Snapshot(service.Connection!.Id).Should().NotContain(entry => entry.Method == "gotoTargets" || entry.Method == "goto");
+            }
             (await service.EvaluateHoverAsync("answer", Token)).Should().Be(mode == "evaluate" ? "frame:0:answer" : null);
             await service.SelectFrameAsync(service.Stop!, 7);
             (await service.EvaluateHoverAsync("answer", Token)).Should().Be(mode == "evaluate" ? "frame:7:answer" : null);
