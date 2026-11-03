@@ -604,11 +604,19 @@ server is expected to keep off them — the bundled one does, by the rule in
 The automation diagnostics cache forgets a URI when the client closes it for a rename, including the old
 `untitled:` name on save and the old file name on Save As (#2975). An empty diagnostic
 publication alone still means an analysed, clean document. After a rename close, the client
-ignores server publications for that URI until it is reopened, including empty sets sent in
+ignores push publications and pull reports for that URI until it is reopened, including empty sets sent in
 response to `didClose`. URI identity uses `LspDocumentUri.Comparer`; unopened workspace
 documents can still receive diagnostics. Ordinary editor closes retain cached analysis and accept
 later server publications. The Diagnostics panel reads the registry ledger
 instead; rename withdraws its old rows, and late server publications cannot restore them.
+
+Delivery is queued in acceptance order, outside the lifecycle lock. A throwing delivery is logged and
+remaining deliveries still run (#2985). If a delivery is already in progress, rename returns before
+its clear runs: the clear follows that delivery. Waiting would deadlock when a publication handler
+waits for a rename on another thread. Consumers must observe `DocumentRetired` for cache eviction
+rather than assume a cache snapshot immediately after rename is current. The save caller
+(`LspDocumentSession.RenameAsync`) opens the new URI without reading the diagnostics cache; the registry
+queues its own ledger/cache retirement after closing its claimants.
 
 ## Diagnostics panel
 

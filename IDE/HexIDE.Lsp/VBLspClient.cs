@@ -24,7 +24,7 @@ public sealed class VBLspClient : ILspClient
     // What each source currently says about each document. This connection's server is one source; an
     // external compiler injecting through this client is another, and neither may erase the other.
     private readonly DiagnosticLedger _diagnostics = new();
-    private readonly DiagnosticLifecycle _diagnosticLifecycle = new();
+    private readonly DiagnosticLifecycle _diagnosticLifecycle;
     private readonly object _reconnectGate = new();
     private JsonRpc? _rpc;
     private volatile bool _initialized;
@@ -191,6 +191,7 @@ public sealed class VBLspClient : ILspClient
     {
         _transport = transport;
         _logger = logger;
+        _diagnosticLifecycle = new(logger);
         _languageId = languageId;
         _workspace = workspace;
         _initializeTimeout = initializeTimeout ?? DefaultRequestTimeout;
@@ -1116,7 +1117,8 @@ public sealed class VBLspClient : ILspClient
             // server that only answers when asked has no way to say anything about a document we have stopped
             // asking about — so the marks would outlive the editor that showed them.
             if (CanServeQuietly("diagnosticProvider"))
-                RaisePublishDiagnostics(DiagnosticOwner.LanguageServer, new PublishDiagnosticsParams(uri, []));
+                _diagnosticLifecycle.Publish(uri, () =>
+                    RaisePublishDiagnostics(DiagnosticOwner.LanguageServer, new PublishDiagnosticsParams(uri, [])));
         }
     }
 
@@ -1281,7 +1283,8 @@ public sealed class VBLspClient : ILspClient
             ? ReadDiagnostics(items)
             : [];
 
-        RaisePublishDiagnostics(DiagnosticOwner.LanguageServer, new PublishDiagnosticsParams(uri, diagnostics));
+        _diagnosticLifecycle.Publish(uri, () =>
+            RaisePublishDiagnostics(DiagnosticOwner.LanguageServer, new PublishDiagnosticsParams(uri, diagnostics)));
     }
 
     /// <summary>
