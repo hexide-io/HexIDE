@@ -2,6 +2,7 @@
   "name": "Catalan",
   "direction": "ltr",
   "strings": {
+    "Str.MainWindow.RecoveryNotice": "Sessió de recuperació — els canvis de configuració no es desaran",
     "Str.Profiles.LoadError": "No es pot carregar el perfil «{0}», fitxer «{1}». Comproveu el format del paquet i els camins dels fitxers.",
     "Str.Profiles.HelpSummary": "Perfil base: nom, camí de directori o none (mode segur).",
     "Str.Profiles.PersonalityRemoved": "--personality s'ha eliminat. Feu servir --profile vb6, --profile vbaode o --profile vba.",

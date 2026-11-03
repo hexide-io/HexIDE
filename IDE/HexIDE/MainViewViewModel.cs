@@ -175,12 +175,18 @@ public partial class MainViewViewModel : ObservableObject
         }
     }
 
-    /// <summary>The OS window title: <see cref="Title"/> plus a loud developer-mode suffix when the
-    /// session is in developer mode. Bound by the window chrome; recomputed when <see cref="Title"/>
-    /// changes (dev mode is session-fixed). Kept separate from <see cref="Title"/> so the VB6 Caption
-    /// proxy (Get/SetPropertyValue) is unaffected.</summary>
-    public string WindowTitle =>
-        developerModeService.IsEnabled ? $"{Title}  *** DEVELOPER MODE ***" : Title;
+    /// <summary>The OS window title adds session notices to <see cref="Title"/>. Kept separate
+    /// so the VB6 Caption proxy (Get/SetPropertyValue) is unaffected.</summary>
+    public string WindowTitle
+    {
+        get
+        {
+            var title = Static.IsRecoveryMode
+                ? $"{Title} — {localization.GetString("Str.MainWindow.RecoveryNotice")}"
+                : Title;
+            return developerModeService.IsEnabled ? $"{title}  *** DEVELOPER MODE ***" : title;
+        }
+    }
 
     public string SaveProjectMenuHeader =>
         projectManager.CurrentGroup != null

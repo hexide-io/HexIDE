@@ -2,6 +2,7 @@
   "name": "Swedish",
   "direction": "ltr",
   "strings": {
+    "Str.MainWindow.RecoveryNotice": "Återställningssession — inställningsändringar sparas inte",
     "Str.Profiles.LoadError": "Kan inte läsa in profilen '{0}', filen '{1}'. Kontrollera paketformatet och filsökvägarna.",
     "Str.Profiles.HelpSummary": "Basprofil: namn, katalogsökväg eller none (felsäkert läge).",
     "Str.Profiles.PersonalityRemoved": "--personality har tagits bort. Använd --profile vb6, --profile vbaode eller --profile vba.",

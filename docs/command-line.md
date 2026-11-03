@@ -128,7 +128,8 @@ entries with Project References; `vbaode` offers Standard EXE with Tools Referen
 with Tools References. The toolbar Add Project flyout uses the same ordered offerings, with a disabled explanation when none are offered (#418).
 `--profile none` is a recovery launch: it loads no bundle, discovered user keymaps, user translations,
 saved settings/layout or add-ins. It starts with baseline project offerings and References placement,
-Default keymap, Classic theme and neutral English. Settings, layout and translation edits stay in
+Default keymap, Classic theme and neutral English. A persistent localized window-title notice identifies
+the recovery session and says settings changes will not be saved (#2888). Settings, layout and translation edits stay in
 memory; the language confirmation gate and automation reply describe language changes as session-only. Those saved files are neither overwritten nor deleted, including when resetting the layout.
 Explicit project paths and the new-project flags still work. This bypasses customization only: language
 server configuration and launch retain their usual behaviour, and this is no network/process sandbox.

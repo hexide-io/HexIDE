@@ -2,6 +2,7 @@
   "name": "Finnish",
   "direction": "ltr",
   "strings": {
+    "Str.MainWindow.RecoveryNotice": "Palautusistunto — asetusten muutoksia ei tallenneta",
     "Str.Profiles.LoadError": "Profiilia '{0}', tiedostoa '{1}' ei voi ladata. Tarkista paketin muoto ja tiedostopolut.",
     "Str.Profiles.HelpSummary": "Perusprofiili: nimi, hakemistopolku tai none (vikasietotila).",
     "Str.Profiles.PersonalityRemoved": "--personality on poistettu. Käytä --profile vb6, --profile vbaode tai --profile vba.",

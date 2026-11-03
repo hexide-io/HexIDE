@@ -2,6 +2,7 @@
   "name": "Slovenian",
   "direction": "ltr",
   "strings": {
+    "Str.MainWindow.RecoveryNotice": "Obnovitvena seja — spremembe nastavitev ne bodo shranjene",
     "Str.Profiles.LoadError": "Profila »{0}«, datoteke »{1}«, ni mogoče naložiti. Preverite obliko paketa in poti datotek.",
     "Str.Profiles.HelpSummary": "Osnovni profil: ime, pot do imenika ali none (varni način).",
     "Str.Profiles.PersonalityRemoved": "--personality je odstranjen. Uporabite --profile vb6, --profile vbaode ali --profile vba.",

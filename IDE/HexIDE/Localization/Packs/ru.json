@@ -2,6 +2,7 @@
   "name": "Russian",
   "direction": "ltr",
   "strings": {
+    "Str.MainWindow.RecoveryNotice": "Сеанс восстановления — изменения настроек не будут сохранены",
     "Str.Profiles.LoadError": "Не удалось загрузить профиль '{0}', файл '{1}'. Проверьте формат пакета и пути к файлам.",
     "Str.Profiles.HelpSummary": "Базовый профиль: имя, путь к каталогу или none (безопасный режим).",
     "Str.Profiles.PersonalityRemoved": "Параметр --personality удалён. Используйте --profile vb6, --profile vbaode или --profile vba.",

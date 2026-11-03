@@ -2,6 +2,7 @@
   "name": "Norwegian Bokmål",
   "direction": "ltr",
   "strings": {
+    "Str.MainWindow.RecoveryNotice": "Gjenopprettingsøkt — endringer i innstillinger blir ikke lagret",
     "Str.Profiles.LoadError": "Kan ikke laste profilen '{0}', filen '{1}'. Kontroller pakkeformatet og filbanene.",
     "Str.Profiles.HelpSummary": "Basisprofil: navn, mappebane eller none (sikkermodus).",
     "Str.Profiles.PersonalityRemoved": "--personality er fjernet. Bruk --profile vb6, --profile vbaode eller --profile vba.",

@@ -162,6 +162,12 @@ flags and SHALL NOT claim to sandbox language servers.
 - **THEN** customization inputs are bypassed and the saved configuration remains intact
 - **AND** layout reset and automatic saves change only this session's state
 
+#### Scenario: Persistent recovery notice
+- **WHEN** the user launches with `--profile none`
+- **THEN** the window title SHALL identify the recovery session and state that settings changes will not be saved
+- **AND** the localized notice SHALL remain through project selection, run/break/design state changes and language changes
+- **AND** launches with other profile selections SHALL omit the recovery notice
+
 #### Scenario: Language confirmation during recovery
 - **WHEN** a recovery session changes the IDE language
 - **THEN** the confirmation gate and automation reply use a localized notice that the change lasts only this session

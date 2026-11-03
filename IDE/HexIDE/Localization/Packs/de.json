@@ -2,6 +2,7 @@
   "name": "German",
   "direction": "ltr",
   "strings": {
+    "Str.MainWindow.RecoveryNotice": "Wiederherstellungssitzung — Einstellungsänderungen werden nicht gespeichert",
     "Str.Profiles.LoadError": "Profil '{0}', Datei '{1}' kann nicht geladen werden. Prüfen Sie das Paketformat und die Dateipfade.",
     "Str.Profiles.HelpSummary": "Basisprofil: Name, Verzeichnispfad oder none (abgesicherter Modus).",
     "Str.Profiles.PersonalityRemoved": "--personality wurde entfernt. Verwenden Sie --profile vb6, --profile vbaode oder --profile vba.",
