@@ -187,6 +187,7 @@ public partial class ProjectRunnerService : IProjectRunnerService
     public void RunProject(ProjectDefinition projectDefinition, bool stepInto = false)
     {
         if (externalDebugger?.IsActive == true) return;
+        externalDebugger?.ClearSessionResult();
         eventBus.Publish(new ApplyAllUnsavedChangesEvent());
 
         // An idle Run To Cursor's target belongs to this start alone. Taken here, so a start that fails leaves

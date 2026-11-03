@@ -24,6 +24,8 @@ public sealed partial class ExternalDebugService(ConversationLog capture, ILocal
     private bool resumePending;
     private long inspectionVersion;
     private long selectionVersion;
+    public bool HasSessionResult { get; private set; }
+    internal void ClearSessionResult() => HasSessionResult = false;
     public bool IsActive { get; private set; }
     public bool IsBusy { get; private set; }
     public bool IsEvaluating { get; private set; }
@@ -114,6 +116,7 @@ public sealed partial class ExternalDebugService(ConversationLog capture, ILocal
     public async Task StartAsync(string configurationFile)
     {
         if (IsActive) return;
+        HasSessionResult = true;
         IsActive = true;
         State = DapSessionState.Starting;
         stopping = null;

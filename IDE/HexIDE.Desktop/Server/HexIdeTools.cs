@@ -981,14 +981,19 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     }
 
     [McpServerTool(Name = "stop_project")]
-    [Description("Stops the currently running VB6 project in the IDE. The reply's 'note' says whether the IDE is back in design mode, and how much Debug.Print wrote since the run began or a reply last reported it, which 'printed' holds.")]
+    [Description("Stops the currently running VB6 project in the IDE. The reply's 'note' says whether the IDE is back in design mode, and how much Debug.Print wrote since the run began or a reply last reported it, which 'printed' holds. For an external debug session, output is not captured by this tool; read the Immediate window instead.")]
     public async Task<MutateResult> StopProjectAsync(CancellationToken ct)
     {
         return await Dispatcher.UIThread.InvokeAsync(() =>
         {
             if (!ctx.ProjectRunnerService.CanEndProject)
                 return new MutateResult(false, "No project is currently running");
+            var isExternal = ctx.RootViewModel.ExternalDebugger?.IsActive == true;
             ctx.ProjectRunnerService.EndProject();
+            if (isExternal)
+                return new MutateResult(true, null,
+                    "Stop requested for the external session; get_debug_state reports when it has ended. " +
+                    "External session output is not captured by this tool; read the Immediate window instead.");
             return WithPrinted(new MutateResult(true, null, ctx.ProjectRunnerService.IsRunning
                 ? "Stop requested; the program has not ended yet. get_debug_state says when it has."
                 : "Stopped; the IDE is back in design mode."));
@@ -2029,17 +2034,34 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     [McpServerTool(Name = "get_debug_state")]
     [DescribesEnum(typeof(DebugState))]
     [DescribesEnum(typeof(StopReason))]
-    [Description("Returns the interpreter debug state: whether a project is running, the controller state (Running/Paused/Stopped), and — when paused — the break location (module, 1-based line counted from the top of the file, header included, as the code window and set_breakpoints number it, and 'project', the running project the module is in) and reason. 'stopReason' is Breakpoint (a breakpoint, or the line Run To Cursor was aiming for; a breakpoint wins even mid-step), Watch (a Break When True or Break When Changed watch fired), Step (a step completed), StopStatement (a VB6 Stop statement ran), Assertion (a Debug.Assert whose condition did not hold), Pause (a break was requested, as by break_program) or RuntimeError (a run-time error nothing handled raised the run-time error dialog, Debug was chosen there, and the break is on the statement that raised it, which runs again on continue_program); it is null unless Paused.")]
+    [DescribesEnum(typeof(HexIDE.Dap.DapSessionState), "Created", "Stopped")]
+    [Description("Returns the current or most recent session's debug state. Interpreter states: Running/Paused/Stopped. External states: Starting/Running/Paused (adapter Stopped)/Ended/Faulted; running is true only for Starting, Running or Paused, even during adapter cleanup. When paused, module and 1-based line locate the break, counted from the file top, header included, as the code window numbers it. Interpreter module is a module name and project names its running project. External module is the adapter's source file path, project is absent; set_next_statement takes a module name, not that path. stopReason is Breakpoint (breakpoint or Run To Cursor), Watch (a break watch), Step (step completed), StopStatement (VB6 Stop), Assertion (failed Debug.Assert), Pause (requested break), or RuntimeError (unhandled error, Debug chosen). External reasons map breakpoint/function breakpoint to Breakpoint, data breakpoint to Watch, step/goto to Step, pause to Pause, exception to RuntimeError; unknown reasons give null. adapterStopReason retains the external adapter's raw reason. Both reasons are null unless Paused.")]
     public async Task<DebugStateResult> GetDebugStateAsync(CancellationToken ct)
     {
         return await Dispatcher.UIThread.InvokeAsync(() =>
         {
-            if (ctx.RootViewModel.ExternalDebugger is { IsActive: true } external)
+            if (ctx.RootViewModel.ExternalDebugger is { HasSessionResult: true } external)
             {
-                var frame = external.Frames.FirstOrDefault();
-                return new DebugStateResult(true, external.State == HexIDE.Dap.DapSessionState.Stopped ? "Paused" : external.State.ToString(),
-                    external.Stop?.Reason, frame.ValueKind == System.Text.Json.JsonValueKind.Object && frame.TryGetProperty("source", out var source) && source.TryGetProperty("path", out var path) ? path.GetString() : null,
-                    frame.ValueKind == System.Text.Json.JsonValueKind.Object ? frame.GetProperty("line").GetInt32() : null);
+                var paused = external.State == HexIDE.Dap.DapSessionState.Stopped;
+                var reason = paused ? external.Stop?.Reason : null;
+                var mapped = reason switch
+                {
+                    "breakpoint" or "function breakpoint" => StopReason.Breakpoint,
+                    "data breakpoint" => StopReason.Watch,
+                    "step" or "goto" => StopReason.Step,
+                    "pause" => StopReason.Pause,
+                    "exception" => StopReason.RuntimeError,
+                    _ => (StopReason?)null,
+                };
+                var frame = paused ? external.Frames.FirstOrDefault() : default;
+                return new DebugStateResult(
+                    external.State is HexIDE.Dap.DapSessionState.Starting or HexIDE.Dap.DapSessionState.Running
+                        or HexIDE.Dap.DapSessionState.Stopped,
+                    paused ? "Paused" : external.State.ToString(), mapped?.ToString(),
+                    frame.ValueKind == System.Text.Json.JsonValueKind.Object && frame.TryGetProperty("source", out var source)
+                        && source.TryGetProperty("path", out var path) ? path.GetString() : null,
+                    frame.ValueKind == System.Text.Json.JsonValueKind.Object ? frame.GetProperty("line").GetInt32() : null,
+                    AdapterStopReason: reason);
             }
             var stop = ctx.DebugController.CurrentStop;
             // A controller that has no session reads Running until its first run ends: it starts there so the
@@ -4055,7 +4077,8 @@ internal record BreakpointsResult(string? Project, string? Document, string? Uri
 /// of one name, so the pair is what says which.
 /// </param>
 internal record DebugStateResult(
-    bool Running, string State, string? StopReason, string? Module, int? Line, string? Project = null);
+    bool Running, string State, string? StopReason, string? Module, int? Line, string? Project = null,
+    string? AdapterStopReason = null);
 
 internal record LocalsResult(bool Success, string? Error, string? Context, LocalsRow[]? Locals, string? Project = null);
 
