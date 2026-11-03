@@ -1725,3 +1725,14 @@ suppress subsequent server publications.
 - **WHEN** a document is closed without a rename
 - **THEN** its cached analysis remains
 - **AND** later server publications still update the cache and reach registry subscribers
+
+### Requirement: Readable and current server cards
+
+The Language & Debug Servers view SHALL size each card's label column to its contents,
+keep the values aligned with a gap, and refresh state ages once per second while visible.
+Its age timer SHALL stop when the view is hidden or detached.
+
+#### Scenario: A long label and an idle running server
+
+- **WHEN** a server card is shown with a long translated label and no registry events arrive
+- **THEN** the label and value SHALL remain separately readable and the displayed age SHALL advance

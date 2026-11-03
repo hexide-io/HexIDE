@@ -158,6 +158,10 @@ type 5 needs `HEXIDE_LOG_LEVEL=Verbose`. The second goes there **and** to the
 status bar, because a message the user never sees was the bug and a message with no trace afterwards
 is the next one.
 
+Server-card labels share a content-sized column, keeping their values aligned with a gap even
+for longer translations. State ages refresh once per second while the view is visible; the
+view stops its timer when hidden or detached (#2865, #2866).
+
 **Live server output** (#2388): Tools → Language & Debug Servers shows an Output box on each
 server's card, beside its existing protocol-inspector link. It updates as `window/logMessage`, stderr,
 the notes a server returns from its project-import command (under that command's name) and HexIDE's
