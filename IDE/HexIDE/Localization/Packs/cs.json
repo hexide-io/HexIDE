@@ -2,6 +2,7 @@
   "name": "Czech",
   "direction": "ltr",
   "strings": {
+    "Str.Debug.External.EndTimeout": "Ladicí adaptér {0} neodpověděl na příkaz Ukončit a byl zastaven po čekání {1} sekund.",
     "Str.Debug.External.BreakpointConditionUnsupported": "Podmínky bodů přerušení zatím nejsou pro externí relace podporovány. Soubor '{0}', položka bodu přerušení {1}.",
     "Str.Debug.External.BreakpointOptionUnsupported": "Možnost zarážky '{0}' zatím není podporována pro externí relace. Soubor '{1}', položka zarážky {2}.",
     "Str.MainWindow.RecoveryNotice": "Relace obnovení — změny nastavení nebudou uloženy",

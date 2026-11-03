@@ -2,6 +2,7 @@
   "name": "Hungarian",
   "direction": "ltr",
   "strings": {
+    "Str.Debug.External.EndTimeout": "A(z) {0} hibakeresési adapter nem válaszolt a Befejezés parancsra, és {1} másodperc várakozás után leállt.",
     "Str.Debug.External.BreakpointConditionUnsupported": "A külső munkamenetek még nem támogatják a feltételes töréspontokat. Fájl: '{0}', töréspontbejegyzés: {1}.",
     "Str.Debug.External.BreakpointOptionUnsupported": "A(z) '{0}' töréspont-beállítás külső munkamenetekben még nem támogatott. Fájl: '{1}', töréspontbejegyzés: {2}.",
     "Str.MainWindow.RecoveryNotice": "Helyreállítási munkamenet — a beállítások módosításai nem lesznek mentve",

@@ -2,6 +2,7 @@
   "name": "Indonesian",
   "direction": "ltr",
   "strings": {
+    "Str.Debug.External.EndTimeout": "Adaptor debug {0} tidak merespons Akhiri dan dihentikan setelah menunggu {1} detik.",
     "Str.Debug.External.BreakpointConditionUnsupported": "Kondisi breakpoint belum didukung untuk sesi eksternal. Berkas '{0}', entri breakpoint {1}.",
     "Str.Debug.External.BreakpointOptionUnsupported": "Opsi titik henti '{0}' belum didukung untuk sesi eksternal. Berkas '{1}', entri titik henti {2}.",
     "Str.MainWindow.RecoveryNotice": "Sesi pemulihan — perubahan pengaturan tidak akan disimpan",

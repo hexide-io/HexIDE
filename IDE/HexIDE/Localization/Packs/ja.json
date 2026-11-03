@@ -2,6 +2,7 @@
   "name": "Japanese",
   "direction": "ltr",
   "strings": {
+    "Str.Debug.External.EndTimeout": "デバッグ アダプター {0} が終了コマンドに応答しなかったため、{1} 秒待機した後に停止しました。",
     "Str.Debug.External.BreakpointConditionUnsupported": "外部セッションでは、ブレークポイントの条件はまだサポートされていません。ファイル '{0}'、ブレークポイント項目 {1}。",
     "Str.Debug.External.BreakpointOptionUnsupported": "ブレークポイントのオプション '{0}' は外部セッションではまだサポートされていません。ファイル '{1}'、ブレークポイント項目 {2}。",
     "Str.MainWindow.RecoveryNotice": "回復セッション — 設定の変更は保存されません",

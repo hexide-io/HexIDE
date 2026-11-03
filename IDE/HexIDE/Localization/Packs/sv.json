@@ -2,6 +2,7 @@
   "name": "Swedish",
   "direction": "ltr",
   "strings": {
+    "Str.Debug.External.EndTimeout": "Felsökningsadaptern {0} svarade inte på Avsluta och stoppades efter {1} sekunders väntan.",
     "Str.Debug.External.BreakpointConditionUnsupported": "Villkor för brytpunkter stöds ännu inte för externa sessioner. Fil '{0}', brytpunktspost {1}.",
     "Str.Debug.External.BreakpointOptionUnsupported": "Brytpunktsalternativet '{0}' stöds ännu inte för externa sessioner. Fil '{1}', brytpunktspost {2}.",
     "Str.MainWindow.RecoveryNotice": "Återställningssession — inställningsändringar sparas inte",

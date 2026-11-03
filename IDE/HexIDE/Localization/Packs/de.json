@@ -2,6 +2,7 @@
   "name": "German",
   "direction": "ltr",
   "strings": {
+    "Str.Debug.External.EndTimeout": "Der Debugadapter {0} hat auf Beenden nicht geantwortet und wurde nach {1} Sekunden Wartezeit gestoppt.",
     "Str.Debug.External.BreakpointConditionUnsupported": "Haltepunktbedingungen werden für externe Sitzungen noch nicht unterstützt. Datei '{0}', Haltepunkteintrag {1}.",
     "Str.Debug.External.BreakpointOptionUnsupported": "Die Haltepunktoption '{0}' wird für externe Sitzungen noch nicht unterstützt. Datei '{1}', Haltepunkteintrag {2}.",
     "Str.MainWindow.RecoveryNotice": "Wiederherstellungssitzung — Einstellungsänderungen werden nicht gespeichert",

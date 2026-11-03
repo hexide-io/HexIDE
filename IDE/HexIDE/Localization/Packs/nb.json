@@ -2,6 +2,7 @@
   "name": "Norwegian Bokmål",
   "direction": "ltr",
   "strings": {
+    "Str.Debug.External.EndTimeout": "Feilsøkingsadapteren {0} svarte ikke på Avslutt og ble stoppet etter {1} sekunders venting.",
     "Str.Debug.External.BreakpointConditionUnsupported": "Vilkår for stoppunkter støttes ennå ikke for eksterne økter. Fil '{0}', stoppunktoppføring {1}.",
     "Str.Debug.External.BreakpointOptionUnsupported": "Stoppunktalternativet '{0}' støttes ikke for eksterne økter ennå. Fil '{1}', stoppunktoppføring {2}.",
     "Str.MainWindow.RecoveryNotice": "Gjenopprettingsøkt — endringer i innstillinger blir ikke lagret",

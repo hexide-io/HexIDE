@@ -90,14 +90,16 @@ public static class Program
                 if (command == "disconnect") return 0;
                 continue;
             }
-            if (mode is "run-control-delayed" or "run-control" or "run-control-running" or "run-control-end" or "goto" or "goto-empty" or "goto-refuse" or "goto-targets-refuse" or "invalidated" or "session" or "frames" or "frames-delayed" or "evaluate" or "evaluate-running" or "breakpoints" or "breakpoints-delayed" or "breakpoints-refuse-clear" or "resume-refusal" or "disconnect-held")
+            if (mode is "run-control-delayed" or "run-control" or "run-control-running" or "run-control-end" or "goto" or "goto-empty" or "goto-refuse" or "goto-targets-refuse" or "invalidated" or "session" or "frames" or "frames-delayed" or "evaluate" or "evaluate-running" or "breakpoints" or "breakpoints-delayed" or "breakpoints-refuse-clear" or "resume-refusal" or "disconnect-held" or "disconnect-held-stderr")
             {
                 var command = request.RootElement.GetProperty("command").GetString();
                 if (mode == "run-control-delayed" && command == "stepIn") continue;
-                if (mode == "disconnect-held" && command == "disconnect")
+                if (mode is "disconnect-held" or "disconnect-held-stderr" && command == "disconnect")
                 {
                     await Send(new { seq = 26, type = "event", @event = "output", body = new { output = "disconnect-pending\n" } });
-                    continue;
+                    if (mode == "disconnect-held-stderr") await Console.Error.WriteAsync("fixture stderr");
+                    await Task.Delay(TimeSpan.FromMinutes(1));
+                    return 0;
                 }
                 if (mode == "resume-refusal" && !refusedResume && command is "continue" or "next" or "stepIn" or "stepOut")
                 {

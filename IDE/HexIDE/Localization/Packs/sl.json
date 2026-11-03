@@ -2,6 +2,7 @@
   "name": "Slovenian",
   "direction": "ltr",
   "strings": {
+    "Str.Debug.External.EndTimeout": "Razhroščevalni vmesnik {0} se ni odzval na ukaz za konec in je bil ustavljen po {1} sekundah čakanja.",
     "Str.Debug.External.BreakpointConditionUnsupported": "Pogoji prekinitvenih točk še niso podprti za zunanje seje. Datoteka '{0}', vnos prekinitvene točke {1}.",
     "Str.Debug.External.BreakpointOptionUnsupported": "Možnost prekinitvene točke '{0}' še ni podprta za zunanje seje. Datoteka '{1}', vnos {2}.",
     "Str.MainWindow.RecoveryNotice": "Obnovitvena seja — spremembe nastavitev ne bodo shranjene",

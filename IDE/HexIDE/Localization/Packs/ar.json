@@ -2,6 +2,7 @@
   "name": "Arabic",
   "direction": "rtl",
   "strings": {
+    "Str.Debug.External.EndTimeout": "لم يستجب محول التصحيح {0} لأمر الإنهاء، وتم إيقافه بعد انتظار {1} ثانية.",
     "Str.Debug.External.BreakpointConditionUnsupported": "شروط نقاط التوقف غير مدعومة بعد للجلسات الخارجية. الملف '{0}'، إدخال نقطة التوقف {1}.",
     "Str.Debug.External.BreakpointOptionUnsupported": "خيار نقطة التوقف '{0}' غير مدعوم للجلسات الخارجية بعد. الملف '{1}'، إدخال نقطة التوقف {2}.",
     "Str.MainWindow.RecoveryNotice": "جلسة استرداد — لن تُحفظ تغييرات الإعدادات",

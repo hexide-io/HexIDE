@@ -2,6 +2,7 @@
   "name": "Vietnamese",
   "direction": "ltr",
   "strings": {
+    "Str.Debug.External.EndTimeout": "Bộ điều hợp gỡ lỗi {0} không phản hồi lệnh Kết thúc và đã bị dừng sau khi chờ {1} giây.",
     "Str.Debug.External.BreakpointConditionUnsupported": "Điều kiện điểm dừng chưa được hỗ trợ cho phiên bên ngoài. Tệp '{0}', mục điểm dừng {1}.",
     "Str.Debug.External.BreakpointOptionUnsupported": "Tùy chọn điểm ngắt '{0}' chưa được hỗ trợ cho phiên bên ngoài. Tệp '{1}', mục điểm ngắt {2}.",
     "Str.MainWindow.RecoveryNotice": "Phiên khôi phục — các thay đổi cài đặt sẽ không được lưu",

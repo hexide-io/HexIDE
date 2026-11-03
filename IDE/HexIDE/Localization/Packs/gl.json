@@ -2,6 +2,7 @@
   "name": "Galician",
   "direction": "ltr",
   "strings": {
+    "Str.Debug.External.EndTimeout": "O adaptador de depuración {0} non respondeu a Finalizar e detívose tras agardar {1} segundos.",
     "Str.Debug.External.BreakpointConditionUnsupported": "As condicións dos puntos de interrupción aínda non se admiten nas sesións externas. Ficheiro '{0}', entrada de punto de interrupción {1}.",
     "Str.Debug.External.BreakpointOptionUnsupported": "A opción de punto de interrupción '{0}' aínda non se admite nas sesións externas. Ficheiro '{1}', entrada {2}.",
     "Str.MainWindow.RecoveryNotice": "Sesión de recuperación — os cambios de configuración non se gardarán",

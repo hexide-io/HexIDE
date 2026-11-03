@@ -2,6 +2,7 @@
   "name": "Ukrainian",
   "direction": "ltr",
   "strings": {
+    "Str.Debug.External.EndTimeout": "Адаптер налагодження {0} не відповів на команду завершення й був зупинений після очікування протягом {1} секунд.",
     "Str.Debug.External.BreakpointConditionUnsupported": "Умови точок зупину ще не підтримуються для зовнішніх сеансів. Файл '{0}', запис точки зупину {1}.",
     "Str.Debug.External.BreakpointOptionUnsupported": "Параметр точки зупину '{0}' ще не підтримується для зовнішніх сеансів. Файл '{1}', запис точки зупину {2}.",
     "Str.MainWindow.RecoveryNotice": "Сеанс відновлення — зміни налаштувань не буде збережено",

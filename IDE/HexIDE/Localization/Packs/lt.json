@@ -2,6 +2,7 @@
   "name": "Lithuanian",
   "direction": "ltr",
   "strings": {
+    "Str.Debug.External.EndTimeout": "Derinimo adapteris {0} neatsakė į baigimo komandą ir buvo sustabdytas palaukus {1} sekundžių.",
     "Str.Debug.External.BreakpointConditionUnsupported": "Išorinėse sesijose stabdos taškų sąlygos dar nepalaikomos. Failas '{0}', stabdos taško įrašas {1}.",
     "Str.Debug.External.BreakpointOptionUnsupported": "Lūžio taško parinktis '{0}' išorinėse sesijose dar nepalaikoma. Failas '{1}', lūžio taško įrašas {2}.",
     "Str.MainWindow.RecoveryNotice": "Atkūrimo seansas — nuostatų pakeitimai nebus išsaugoti",
