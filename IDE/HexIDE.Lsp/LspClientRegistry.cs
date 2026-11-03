@@ -104,7 +104,10 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
 
     public IReadOnlyList<OwnedDiagnostic> Diagnostics => _diagnostics.Snapshot();
 
+    private readonly DiagnosticLifecycle _diagnosticLifecycle = new();
+
     public event EventHandler<PublishDiagnosticsParams>? DiagnosticsPublished;
+    public event EventHandler<string>? DocumentRetired;
     public event EventHandler<ShowMessageParams>? MessageShown;
     public event EventHandler<ProgressParams>? ProgressReceived;
     public event EventHandler<LogMessageParams>? MessageLogged;
@@ -239,6 +242,7 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
     public async Task OpenDocumentAsync(
         string uri, string text, bool isProjectMember, CancellationToken cancellationToken = default)
     {
+        _diagnosticLifecycle.Open(uri);
         // Recorded before routing, so change, close and save answer the same question this open did. The
         // registry deliberately holds no model of the project, and it could not work membership out for
         // itself: an `untitled:` name would have to be parsed back into project and document names, which
@@ -348,13 +352,18 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
 
     public async Task CloseDocumentForRenameAsync(string uri, CancellationToken cancellationToken = default)
     {
+        _diagnosticLifecycle.Retire(uri);
         // The connections first, so each drops its own state and a push server stops republishing under the
         // old name; then the ledger, which is what actually clears a mark no single connection owns.
         await Task.WhenAll(StartedClaimantsFor(uri)
             .Select(c => c.CloseDocumentForRenameAsync(uri, cancellationToken)));
         _open.TryRemove(uri, out _);
         ReleaseOpens(uri);
-        ForgetDiagnosticsFor(uri);
+        _diagnosticLifecycle.Rename(uri, () =>
+        {
+            ForgetDiagnosticsFor(uri);
+            DocumentRetired?.Invoke(this, uri);
+        });
         ConnectionsChanged?.Invoke(this, EventArgs.Empty);
     }
 
@@ -1234,11 +1243,12 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
     /// document's whole set — which is the shape subscribers were already written for.
     /// </para>
     /// </summary>
-    private void OnInnerDiagnostics(object? sender, PublishDiagnosticsParams p)
-    {
-        var published = _diagnostics.Record(p.Uri, OwnerOf(sender), p.Diagnostics);
-        DiagnosticsPublished?.Invoke(this, published);
-    }
+    private void OnInnerDiagnostics(object? sender, PublishDiagnosticsParams p) =>
+        _diagnosticLifecycle.Publish(p.Uri, () =>
+        {
+            var published = _diagnostics.Record(p.Uri, OwnerOf(sender), p.Diagnostics);
+            DiagnosticsPublished?.Invoke(this, published);
+        });
 
     /// <summary>
     /// The owner key for a connection: its registration id, which is unique across the registry and is

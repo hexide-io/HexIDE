@@ -19,6 +19,9 @@ public interface ILspClient : IAsyncDisposable
     /// <summary>Fired when the server sends textDocument/publishDiagnostics.</summary>
     event EventHandler<PublishDiagnosticsParams>? DiagnosticsPublished;
 
+    /// <summary>The client has retired this URI for a rename; cached analysis for the old name is no longer current.</summary>
+    event EventHandler<string>? DocumentRetired;
+
     /// <summary>
     /// Fired when the server asks for the user's attention about <em>itself</em> — <c>window/showMessage</c>.
     ///
