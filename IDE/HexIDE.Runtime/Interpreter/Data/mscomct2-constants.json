@@ -1,0 +1,28 @@
+{
+  "note": "FlatScrollBar enums measured from MSCOMCT2.OCX 6.01.9782; issue #1097 group 1, oracle in-box-controls-the-flatscrollbar.md.",
+  "containers": {
+    "OrientationConstants": {
+      "kind": "enum",
+      "members": {
+        "cc2OrientationVertical": 0,
+        "cc2OrientationHorizontal": 1
+      }
+    },
+    "FlatScrollBarAppearanceConstants": {
+      "kind": "enum",
+      "members": {
+        "fsb3D": 0,
+        "fsbFlat": 1,
+        "fsbTrack3D": 2
+      }
+    },
+    "ArrowsConstants": {
+      "kind": "enum",
+      "members": {
+        "cc2Both": 0,
+        "cc2LeftUp": 1,
+        "cc2RightDown": 2
+      }
+    }
+  }
+}
