@@ -43,6 +43,13 @@ During the session:
   pending, inspection remains visible but cannot be evaluated. A refused continue or step keeps the stack,
   selected frame, locals and current-line mark, and reports the adapter's refusal in Immediate
   ([#2912](https://github.com/hexide-io/HexIDE/issues/2912)).
+- HexIDE advertises `supportsInvalidatedEvent`. An `invalidated` event while stopped refreshes Call Stack,
+  scopes, Locals and Watches without resuming. The selected caller is retained if its frame ID still exists;
+  otherwise the top frame is selected. Pending replies from before invalidation are discarded. This single-thread
+  integration refreshes the whole stopped inspection even when area/thread/frame hints narrow the event.
+  Events while running do not inspect frames; the next stop refreshes normally (#2914).
+  See the [DAP invalidated event definition](https://microsoft.github.io/debug-adapter-protocol/specification#Events_Invalidated)
+  for these refresh hints.
 - A stop opens Call Stack and Locals. When the source is already part of a loaded IDE project, its code
   window is revealed and marks the current line. The amber execution highlight and Show Next Statement
   continue to identify the top frame even when inspecting a caller. Sources outside loaded projects are not opened automatically.
@@ -90,9 +97,11 @@ whose adapter supports all three:
   line separates a module's declarations from its first procedure it inserts one, which moves every
   statement below it. An adapter that
   can't apply an edit refuses the step and leaves the program stopped. HexIDE prints its message in
-  Immediate, but also clears Call Stack, Locals and the current line until the next stop (#2912). Undo the
-  edit and save again, or End. HexIDE doesn't advertise `supportsInvalidatedEvent`, so the adapter sends
-  no `invalidated`; what is shown refreshes at the next stop (#2914).
+  Immediate, and keeps Call Stack, Locals, the selected frame and the current line as they were (#2912).
+  Undo the edit and save again, or End. When an adapter sends `invalidated` while the program is stopped,
+  HexIDE refreshes Call Stack, Locals and Watches, keeping the selected frame where it still exists
+  (#2914). RDCore's adapter sends it only after it applies a saved edit, just before that resume's
+  `stopped`, so with RDCore the refresh arrives with the stop (measured against RDCore 84278ae, 2026-11-03).
 
 Breakpoints stay on the line numbers they were set on. An edit that adds or removes lines above one leaves it
 on a different statement.

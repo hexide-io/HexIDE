@@ -378,3 +378,21 @@ The editor MUST discard pending and displayed external tips when the pointer mov
 #### Scenario: Visible tip after resume
 - **WHEN** execution resumes with a data tip visible
 - **THEN** the tip closes and its attached text is cleared
+
+### Requirement: External inspection invalidation
+The client SHALL advertise `supportsInvalidatedEvent` during initialization. An `invalidated` event while
+stopped SHALL expire pending inspection replies and refresh the stopped stack, scopes, variables and watch
+values without resuming execution. The IDE SHALL retain the selected frame ID if present in the refreshed
+stack, otherwise select the top frame. The single-thread inspection SHALL refresh in full regardless of
+area, thread or frame hints, including omitted, empty and unknown areas. Events without a current stop
+SHALL NOT initiate stopped inspection.
+
+#### Scenario: Adapter changes stopped values
+- **WHEN** the adapter emits `invalidated` while a caller is selected
+- **THEN** the stack and selected caller's scopes, Locals and Watches refresh
+- **AND** replies belonging to the earlier inspection cannot repaint the refreshed values
+
+#### Scenario: Invalidation while running
+- **WHEN** the adapter emits `invalidated` while execution is running
+- **THEN** no stopped frame inspection is requested
+- **AND** the next stop refreshes normally
