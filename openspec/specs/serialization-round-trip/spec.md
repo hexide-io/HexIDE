@@ -78,6 +78,15 @@ subset — and the developer discovers which parts by finding out what stopped w
   scalar properties and Buttons, until those edits can be saved faithfully; editing a surrounding form property
   SHALL survive save and reload without changing the carried Toolbar blocks or companion bytes
 
+#### Scenario: Runtime-only MonthView loading (#1095 A)
+- **WHEN** a form contains a top-level, non-array `MSComCtl2.MonthView` block
+- **THEN** its runtime SHALL create a MonthView with CurrentDate, date bounds and measured scalar settings loaded,
+  interpreting StartOfWeek by its low word and exposing Value as its default member
+- **AND** the designer SHALL retain the block verbatim and view-only, including the StartOfWeek high word,
+  until its file-writing slice can save edits faithfully
+- **AND** unsupported own members and saved properties SHALL refuse explicitly rather than supply invented values
+- **AND** input, events, drawing, nested and arrayed instances remain pending subsequent slices
+
 #### Scenario: A section left by another tool
 - **WHEN** a project file ends in a section belonging to some other tool
 - **THEN** that section is written back
