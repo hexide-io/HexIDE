@@ -127,10 +127,12 @@ equally a LaTeX class file, so claiming `.cls` is not enough to receive the proj
 a claim on VB6 would hand a LaTeX server your source. The entry must also establish that it serves VB6, by
 claiming one of `.bas`, `.frm`, `.ctl`, `.pag`, `.dob` or `.dsr`, or by declaring `languageId: vb6`. That is
 the only thing routing ever reads `languageId` for, and it never makes a claim on its own: an entry declaring
-`vb6` that claims no VB6 extension is still sent nothing. It applies only to documents of the project. A
-`.cls` the project merely carries goes to every entry that claims `.cls`, because nothing says it is VB6.
-That includes the bundled VB6 server, so a LaTeX class file the project carries is parsed as VB6 and shown
-with errors it does not have ([#279](https://github.com/hexide-io/HexIDE/issues/279), open).
+`vb6` that claims no VB6 extension is still sent nothing. A `.cls` the project merely carries is judged by
+its content instead: an entry that serves VB6 receives it only when its first non-blank line is
+`VERSION 1.0 CLASS`, so a LaTeX class file the project carries no longer reaches the bundled VB6 server
+([#279](https://github.com/hexide-io/HexIDE/issues/279)). Every other entry claiming `.cls` still receives
+it by extension. The check is made when the file opens, and editing it does not change where it goes until
+it is opened again.
 
 > Earlier revisions of this section said HexIDE's forms and modules had no extension on the wire, and that
 > an entry naming the language `vb6` received them whatever extensions it claimed. Both were true while those
