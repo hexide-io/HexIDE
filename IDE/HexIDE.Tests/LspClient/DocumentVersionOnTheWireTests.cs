@@ -29,12 +29,12 @@ namespace HexIDE.Tests.LspClient;
 public class DocumentVersionOnTheWireTests : IAsyncDisposable
 {
     private const string Uri = "file:///c:/proj/Module1.bas";
-    private const string SyncCapabilities = """{"textDocumentSync":{"openClose":true,"change":1}}""";
+    private const string SyncCapabilities = """{"textDocumentSync":{"openClose":true,"change":1,"save":true}}""";
 
     private readonly List<IAsyncDisposable> _disposables = [];
     private readonly List<IDisposable> _sessions = [];
 
-    private sealed record Received(string Method, int Version, string Text);
+    private sealed record Received(string Method, int? Version, string Text);
 
     /// <summary>
     /// Records every open and change. Holds a document as a server that orders by version does: a change
@@ -46,10 +46,12 @@ public class DocumentVersionOnTheWireTests : IAsyncDisposable
         private readonly List<Received> received = [];
         private readonly TaskCompletionSource opened = new(TaskCreationOptions.RunContinuationsAsynchronously);
         private readonly TaskCompletionSource changed = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private readonly TaskCompletionSource saved = new(TaskCreationOptions.RunContinuationsAsynchronously);
         private int heldVersion;
 
         public Task Opened => opened.Task;
         public Task Changed => changed.Task;
+        public Task Saved => saved.Task;
         public string HeldText { get; private set; } = "";
 
         public IReadOnlyList<Received> Messages
@@ -94,6 +96,15 @@ public class DocumentVersionOnTheWireTests : IAsyncDisposable
                 }
             }
             changed.TrySetResult();
+        }
+
+        [JsonRpcMethod("textDocument/didSave", UseSingleObjectParameterDeserialization = true)]
+        public void DidSave(JsonElement p)
+        {
+            var item = p.GetProperty("textDocument");
+            int? version = item.TryGetProperty("version", out var value) ? value.GetInt32() : null;
+            lock (gate) received.Add(new Received("didSave", version, ""));
+            saved.TrySetResult();
         }
 
         [JsonRpcMethod("textDocument/didClose", UseSingleObjectParameterDeserialization = true)]
@@ -163,23 +174,44 @@ public class DocumentVersionOnTheWireTests : IAsyncDisposable
 
         var (open, change) = (server.Messages[0], server.Messages[1]);
         change.Method.Should().Be("didChange");
-        change.Version.Should().BeGreaterThan(open.Version, "a change carries the version after the change, and the open's is already taken");
+        change.Version.Should().BeGreaterThan(open.Version!.Value, "a change carries the version after the change, and the open's is already taken");
         change.Text.Should().Be("'Sub Main()\r\nEnd Sub\r\n");
     }
 
     [AvaloniaFact]
-    public async Task ASaveBeforeAnyEditFlushesAtAVersionAfterTheOpens()
+    public async Task ASaveBeforeAnyEditSendsOnlyTheSave()
     {
-        // The second path #470 named: saving flushes first, and a flush before any edit was the first change.
+        // #470 protects the first change's version. PR #2019 makes a flush send only pending edits:
+        // saving an unchanged document now sends didSave alone, which carries no version to repeat.
+        var cancellationToken = TestContext.Current.CancellationToken;
         var (client, server) = await Connected();
         var (session, _) = await Opened(client, server, "Sub Main()\r\nEnd Sub\r\n");
 
-        // The flush reads the buffer before its first await, so this is still the document's own thread.
-        await session.NotifySavedAsync(TestContext.Current.CancellationToken);
-        await FirstChange(server);
+        await session.NotifySavedAsync(cancellationToken);
+        await server.Saved.WaitAsync(TimeSpan.FromSeconds(10), cancellationToken);
 
-        server.Messages[1].Method.Should().Be("didChange");
-        server.Messages[1].Version.Should().BeGreaterThan(server.Messages[0].Version);
+        server.Messages.Select(m => m.Method).Should().Equal("didOpen", "didSave");
+        server.Messages.Skip(1).Should().OnlyContain(m => m.Version == null);
+    }
+
+    [AvaloniaFact]
+    public async Task ASaveAfterAnUnsentEditSendsOneChangeBeforeTheSaveAtAVersionAfterTheOpens()
+    {
+        // Keep #470's guarantee on the save/flush path as well as the debounced edit path.
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var (client, server) = await Connected();
+        var (session, document) = await Opened(client, server, "Sub Main()\r\nEnd Sub\r\n");
+
+        document.Insert(0, "'");
+        await session.NotifySavedAsync(cancellationToken);
+        await server.Saved.WaitAsync(TimeSpan.FromSeconds(10), cancellationToken);
+
+        server.Messages.Select(m => m.Method).Should().Equal("didOpen", "didChange", "didSave");
+        server.Messages[2].Version.Should().BeNull("didSave carries no version");
+        var change = server.Messages[1];
+        change.Version.Should().BeGreaterThan(server.Messages[0].Version!.Value);
+        change.Text.Should().Be("'Sub Main()\r\nEnd Sub\r\n");
+        server.HeldText.Should().Be(change.Text);
     }
 
     [AvaloniaFact]

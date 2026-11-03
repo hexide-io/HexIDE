@@ -892,6 +892,13 @@ documents run together are not a third one.
 format's claim is that it replays into a client, and a conversation with every reply missing replays into
 nothing. The reply's manifest row carries `answerTo` and the opposite direction.
 
+The Outline tool window (View → Outline) consumes document symbols for the active code or carried-file
+editor. It preserves hierarchy, accepts flat replies, follows the caret, navigates to selection ranges,
+filters by kind while retaining ancestors, and refreshes after edits independently of diagnostics (#1992).
+Symbol refreshes flush only unsent edits; an unchanged buffer sends no `didChange`, so diagnostics
+cannot feed a change/request loop. A diagnostic-driven symbol update also cancels the Outline’s pending
+refresh for that edit. It displays the server’s structure; it does not infer missing symbols or regions.
+
 Signature help asks eligible document claimants concurrently within one shared one-second budget
 (#2027). A typed `(` or `,` goes only to servers advertising that character in
 `signatureHelpProvider.triggerCharacters`; explicit parameter info asks all claimants. The highest-priority
