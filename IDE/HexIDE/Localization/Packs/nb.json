@@ -3,8 +3,8 @@
   "direction": "ltr",
   "strings": {
     "Str.Debug.External.EndTimeout": "Feilsøkingsadapteren {0} svarte ikke på Avslutt og ble stoppet etter {1} sekunders venting.",
-    "Str.Debug.External.BreakpointConditionUnsupported": "Vilkår for stoppunkter støttes ennå ikke for eksterne økter. Fil '{0}', stoppunktoppføring {1}.",
-    "Str.Debug.External.BreakpointOptionUnsupported": "Stoppunktalternativet '{0}' støttes ikke for eksterne økter ennå. Fil '{1}', stoppunktoppføring {2}.",
+    "Str.Debug.External.BreakpointConditionUnsupported": "Angi betingelser med Betingelse… i menyen i stoppunktmargen. Fil '{0}', stoppunktoppføring {1}.",
+    "Str.Debug.External.BreakpointOptionUnsupported": "Stoppunktalternativet '{0}' støttes ikke for eksterne økter ennå. Fil '{1}', stoppunktoppføring {2}. Angi betingelser med Betingelse… i menyen i stoppunktmargen.",
     "Str.MainWindow.RecoveryNotice": "Gjenopprettingsøkt — endringer i innstillinger blir ikke lagret",
     "Str.Profiles.LoadError": "Kan ikke laste profilen '{0}', filen '{1}'. Kontroller pakkeformatet og filbanene.",
     "Str.Profiles.HelpSummary": "Basisprofil: navn, mappebane eller none (sikkermodus).",
@@ -1009,6 +1009,10 @@
     "Str.Tool.Outline.Kind.Struct": "Struktur",
     "Str.Tool.Outline.Kind.Event": "Hendelse",
     "Str.Tool.Outline.Kind.Operator": "Operator",
-    "Str.Tool.Outline.Kind.TypeParameter": "Typeparameter"
+    "Str.Tool.Outline.Kind.TypeParameter": "Typeparameter",
+    "Str.Debug.Conditions.Prompt": "Stopp på denne linjen bare når dette uttrykket er sant:",
+    "Str.Debug.Conditions.Edit": "Betingelse…",
+    "Str.Debug.Conditions.AdapterIgnored": "Denne adapteren ignorerer betingelser og stopper hver gang.",
+    "Str.Debug.Conditions.InterpreterIgnored": "Tolken ignorerer betingelser og stopper hver gang."
   }
 }

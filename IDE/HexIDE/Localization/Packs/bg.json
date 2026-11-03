@@ -3,8 +3,8 @@
   "direction": "ltr",
   "strings": {
     "Str.Debug.External.EndTimeout": "Адаптерът за отстраняване на грешки {0} не отговори на командата за край и бе спрян след изчакване от {1} секунди.",
-    "Str.Debug.External.BreakpointConditionUnsupported": "Условията за точки на прекъсване все още не се поддържат за външни сесии. Файл '{0}', запис за точка на прекъсване {1}.",
-    "Str.Debug.External.BreakpointOptionUnsupported": "Опцията за точка на прекъсване '{0}' все още не се поддържа за външни сесии. Файл '{1}', запис {2}.",
+    "Str.Debug.External.BreakpointConditionUnsupported": "Задайте условия чрез „Условие…“ в менюто на полето за точки на прекъсване. Файл '{0}', запис за точка на прекъсване {1}.",
+    "Str.Debug.External.BreakpointOptionUnsupported": "Опцията за точка на прекъсване '{0}' все още не се поддържа за външни сесии. Файл '{1}', запис {2}. Задайте условия чрез „Условие…“ в менюто на полето за точки на прекъсване.",
     "Str.MainWindow.RecoveryNotice": "Сесия за възстановяване — промените в настройките няма да бъдат запазени",
     "Str.Profiles.LoadError": "Профилът „{0}“, файл „{1}“, не може да се зареди. Проверете формата на пакета и пътищата на файловете.",
     "Str.Profiles.HelpSummary": "Основен профил: име, път до директория или none (безопасен режим).",
@@ -1009,6 +1009,10 @@
     "Str.Tool.Outline.Kind.Struct": "Структура",
     "Str.Tool.Outline.Kind.Event": "Събитие",
     "Str.Tool.Outline.Kind.Operator": "Оператор",
-    "Str.Tool.Outline.Kind.TypeParameter": "Параметър на тип"
+    "Str.Tool.Outline.Kind.TypeParameter": "Параметър на тип",
+    "Str.Debug.Conditions.Prompt": "Спиране на този ред само когато този израз е истина:",
+    "Str.Debug.Conditions.Edit": "Условие…",
+    "Str.Debug.Conditions.AdapterIgnored": "Този адаптер игнорира условията и спира всеки път.",
+    "Str.Debug.Conditions.InterpreterIgnored": "Интерпретаторът игнорира условията и спира всеки път."
   }
 }

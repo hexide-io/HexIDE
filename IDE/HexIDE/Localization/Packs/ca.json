@@ -3,8 +3,8 @@
   "direction": "ltr",
   "strings": {
     "Str.Debug.External.EndTimeout": "L’adaptador de depuració {0} no ha respost a Finalitza i s’ha aturat després d’esperar {1} segons.",
-    "Str.Debug.External.BreakpointConditionUnsupported": "Les condicions dels punts d’interrupció encara no s’admeten en sessions externes. Fitxer '{0}', entrada de punt d’interrupció {1}.",
-    "Str.Debug.External.BreakpointOptionUnsupported": "L'opció de punt d'interrupció '{0}' encara no s'admet en sessions externes. Fitxer '{1}', entrada {2}.",
+    "Str.Debug.External.BreakpointConditionUnsupported": "Definiu condicions amb Condició… al menú del marge dels punts d’interrupció. Fitxer '{0}', entrada de punt d’interrupció {1}.",
+    "Str.Debug.External.BreakpointOptionUnsupported": "L'opció de punt d'interrupció '{0}' encara no s'admet en sessions externes. Fitxer '{1}', entrada {2}. Definiu condicions amb Condició… al menú del marge dels punts d’interrupció.",
     "Str.MainWindow.RecoveryNotice": "Sessió de recuperació — els canvis de configuració no es desaran",
     "Str.Profiles.LoadError": "No es pot carregar el perfil «{0}», fitxer «{1}». Comproveu el format del paquet i els camins dels fitxers.",
     "Str.Profiles.HelpSummary": "Perfil base: nom, camí de directori o none (mode segur).",
@@ -1009,6 +1009,10 @@
     "Str.Tool.Outline.Kind.Struct": "Estructura",
     "Str.Tool.Outline.Kind.Event": "Esdeveniment",
     "Str.Tool.Outline.Kind.Operator": "Operador",
-    "Str.Tool.Outline.Kind.TypeParameter": "Paràmetre de tipus"
+    "Str.Tool.Outline.Kind.TypeParameter": "Paràmetre de tipus",
+    "Str.Debug.Conditions.Prompt": "Atura en aquesta línia només quan aquesta expressió sigui certa:",
+    "Str.Debug.Conditions.Edit": "Condició…",
+    "Str.Debug.Conditions.AdapterIgnored": "Aquest adaptador ignora les condicions i s’atura sempre.",
+    "Str.Debug.Conditions.InterpreterIgnored": "L’intèrpret ignora les condicions i s’atura sempre."
   }
 }

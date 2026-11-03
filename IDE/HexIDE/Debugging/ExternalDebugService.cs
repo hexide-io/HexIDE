@@ -17,7 +17,7 @@ public sealed record ExternalVariable(string Name, string Value, string Type, in
 public sealed record ExternalEvaluation(string Text, bool Expired = false);
 
 /// <summary>One external run. Public state and events belong to the UI thread; wire reads never block it.</summary>
-public sealed partial class ExternalDebugService(ConversationLog capture, ILocalizationService? localization = null)
+public sealed partial class ExternalDebugService(ConversationLog capture, ILocalizationService? localization = null, IBreakpointService? breakpoints = null)
 {
     private DapSession? session;
     private CancellationTokenSource? cancellation;
@@ -142,6 +142,7 @@ public sealed partial class ExternalDebugService(ConversationLog capture, ILocal
             for (var index = 0; index < replies.Count; index++)
                 ApplyBreakpointReply(breakpointSources[sources[index].Path], sources[index].Lines, replies[index]);
             breakpointsReady = true;
+            NoticeIgnoredConditions();
             Connection = Connection with { Capabilities = current.Capabilities };
             if (current.Snapshot.State is DapSessionState.Running or DapSessionState.Stopped)
             {

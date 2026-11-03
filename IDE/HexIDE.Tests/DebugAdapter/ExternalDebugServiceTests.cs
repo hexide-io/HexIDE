@@ -16,6 +16,68 @@ namespace HexIDE.Tests.DebugAdapter;
 public class ExternalDebugServiceTests
 {
     [AvaloniaTheory]
+    [InlineData("conditions", true, true)]
+    [InlineData("conditions", true, false)]
+    [InlineData("breakpoints", false, true)]
+    [InlineData("breakpoints", false, false)]
+    public async Task Conditional_breakpoints_send_capability_gated_expressions_and_notice_once_per_session(string mode, bool capable, bool initiallyConditional)
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "hexide-conditions-" + Guid.NewGuid());
+        Directory.CreateDirectory(directory);
+        var module = TestHelpers.CreateModule();
+        module.AbsolutePath = Path.Combine(directory, "Module1.bas");
+        var document = HexIDE.Runtime.ProjectElements.DocumentIdentity.For(module);
+        var store = new BreakpointService();
+        store.SetDocument(document, [6, 20]);
+        if (initiallyConditional) store.SetCondition(document, 6, "i = 3");
+        var strings = Substitute.For<ILocalizationService>();
+        strings.GetString("Str.Debug.Conditions.AdapterIgnored").Returns("conditions ignored");
+        await using var log = new ConversationLog { ArmsEveryConnection = true };
+        var service = new ExternalDebugService(log, strings, store);
+        var output = new List<string>();
+        service.Output += output.Add;
+        var file = await Configuration(directory, mode);
+        try
+        {
+            for (var iteration = 0; iteration < 2; ++iteration)
+            {
+                var run = service.StartAsync(file);
+                await WaitFor(service, () => service.CanEditBreakpoints && service.Variables.Count > 0);
+                var uri = new Uri(module.AbsolutePath).AbsoluteUri;
+                service.GetCondition(uri, 6).Should().Be(initiallyConditional ? "i = 3" : null);
+                service.GetBreakpoints(uri).Single(row => row.RequestedLine == 20).Verified.Should().BeFalse();
+                service.GetBreakpoints(uri).Single(row => row.RequestedLine == 20).Message.Should().NotBeEmpty();
+                service.SetCondition(uri, 6, "j = 4");
+                await WaitFor(service, () => service.GetBreakpoints(uri).All(row => !row.Pending));
+                service.SetCondition(uri, 6, "");
+                await WaitFor(service, () => service.GetBreakpoints(uri).All(row => !row.Pending));
+                service.GetCondition(uri, 6).Should().BeNull();
+                service.GetBreakpoints(uri).Should().Contain(row => row.RequestedLine == 6);
+                await log.DrainAsync();
+                var frames = log.Snapshot(service.Connection!.Id)
+                    .Where(row => row.Method == "setBreakpoints" && row.Kind == ConversationEntryKind.Request).ToArray();
+                frames.Should().HaveCount(3);
+                for (var index = 0; index < frames.Length; ++index)
+                {
+                    using var frame = JsonDocument.Parse(log.Body(service.Connection.Id, frames[index].Sequence)!.Head);
+                    var arguments = frame.RootElement.GetProperty("arguments");
+                    arguments.GetProperty("source").GetProperty("path").GetString().Should().Be(module.AbsolutePath);
+                    var items = arguments.GetProperty("breakpoints");
+                    items[0].GetProperty("line").GetInt32().Should().Be(6);
+                    items[1].EnumerateObject().Select(property => property.Name).Should().Equal("line");
+                    if (capable && (index == 1 || index == 0 && initiallyConditional))
+                        items[0].GetProperty("condition").GetString().Should().Be(index == 0 ? "i = 3" : "j = 4");
+                    else items[0].EnumerateObject().Select(property => property.Name).Should().Equal("line");
+                }
+                output.Count(line => line.Contains("conditions ignored", StringComparison.Ordinal)).Should().Be(capable ? 0 : iteration + 1);
+                await service.StopAsync();
+                await run.WaitAsync(Patience, Token);
+            }
+        }
+        finally { await service.StopAsync(); Directory.Delete(directory, true); }
+    }
+
+    [AvaloniaTheory]
     [InlineData("goto")]
     [InlineData("goto-empty")]
     [InlineData("goto-refuse")]
@@ -106,6 +168,8 @@ public class ExternalDebugServiceTests
     }
 
     [AvaloniaTheory]
+    [InlineData("condition", "en")]
+    [InlineData("condition", "de")]
     [InlineData("hitCondition", "en")]
     [InlineData("hitCondition", "de")]
     [InlineData("logMessage", "en")]
@@ -129,9 +193,13 @@ public class ExternalDebugServiceTests
                                 {"path":"second.bas","lines":[2],"OPTION":"3"}]}
                 """.Replace("OPTION", option), Token);
             await service.StartAsync(file).WaitAsync(Patience, Token);
-            var expected = language == "de"
-                ? $"Die Haltepunktoption '{option}' wird für externe Sitzungen noch nicht unterstützt. Datei '{file}', Haltepunkteintrag 2."
-                : $"Breakpoint option '{option}' isn't supported for external sessions yet. File '{file}', breakpoint entry 2.";
+            var expected = option == "condition"
+                ? language == "de"
+                    ? $"Legen Sie Bedingungen über Bedingung… im Kontextmenü der Haltepunktleiste fest. Datei '{file}', Haltepunkteintrag 2."
+                    : $"Set conditions with Condition… in the breakpoint gutter menu. File '{file}', breakpoint entry 2."
+                : language == "de"
+                    ? $"Die Haltepunktoption '{option}' wird für externe Sitzungen noch nicht unterstützt. Datei '{file}', Haltepunkteintrag 2. Legen Sie Bedingungen über Bedingung… im Kontextmenü der Haltepunktleiste fest."
+                    : $"Breakpoint option '{option}' isn't supported for external sessions yet. File '{file}', breakpoint entry 2. Set conditions with Condition… in the breakpoint gutter menu.";
             failures.Should().Equal(expected);
             service.Connection.Should().BeNull();
             service.IsActive.Should().BeFalse();

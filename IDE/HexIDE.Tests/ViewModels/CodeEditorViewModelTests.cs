@@ -52,6 +52,25 @@ public class CodeEditorViewModelTests : IDisposable
         _sut?.Dispose();
     }
 
+    [AvaloniaTheory]
+    [InlineData("i = 3")]
+    [InlineData("")]
+    [InlineData(null)]
+    public async Task Condition_dialog_uses_existing_expression_and_applies_confirmation_only(string? answer)
+    {
+        var vm = CreateSut().Initialize(TestHelpers.CreateModule());
+        _breakpointService.IsBreakpoint(vm.Identity, 9).Returns(true);
+        _breakpointService.GetCondition(vm.Identity, 9).Returns("j = 4");
+        _localization.GetString("Str.Debug.Conditions.Edit").Returns("Condition…");
+        _localization.GetString("Str.Debug.Conditions.Prompt").Returns("Break only when True:");
+        _windowManager.InputBox("Break only when True:", "Condition…", "j = 4").Returns(Task.FromResult(answer));
+        await vm.EditBreakpointConditionAsync(9);
+        await _windowManager.Received().InputBox("Break only when True:", "Condition…", "j = 4");
+        vm.DescribeExternalBreakpoint(9).Should().Be("j = 4");
+        if (answer is null) _breakpointService.DidNotReceive().SetCondition(vm.Identity, 9, Arg.Any<string?>());
+        else _breakpointService.Received().SetCondition(vm.Identity, 9, answer);
+    }
+
     [AvaloniaFact]
     public async Task InlayHintsUseTheWholeDocumentAndRespectTheToggle()
     {

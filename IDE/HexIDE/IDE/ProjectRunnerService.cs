@@ -134,7 +134,10 @@ public partial class ProjectRunnerService : IProjectRunnerService
             // because a run is one project; so a toggle in a group's OTHER project, which may hold a module
             // of the same name, would otherwise move the running project's breakpoints.
             if (RunningProject is { } running && document.IsIn(running))
+            {
+                NoticeIgnoredCondition(document);
                 debugController.SetBreakpoints(document.Name, breakpointService.GetBreakpoints(document));
+            }
         };
 
         // A break-type watch added / edited / removed while running takes effect immediately (VB6 evaluates watches
@@ -153,6 +156,16 @@ public partial class ProjectRunnerService : IProjectRunnerService
 
     private void OnIsRunningChanged() => CommandManager.InvalidateRequerySuggested();
 
+    private bool conditionNoticeShown;
+
+    private void NoticeIgnoredCondition(DocumentIdentity document)
+    {
+        if (conditionNoticeShown || !breakpointService.GetBreakpoints(document)
+            .Any(line => breakpointService.GetCondition(document, line) is not null)) return;
+        conditionNoticeShown = true;
+        VBDebugConsole.Write(localization.GetString("Str.Debug.Conditions.InterpreterIgnored") + "\r\n");
+    }
+
     private void ApplyBreakpoints(ProjectDefinition project)
     {
         // Full resync from the store (a document cleared since the last run must not keep a stale controller set —
@@ -166,6 +179,7 @@ public partial class ProjectRunnerService : IProjectRunnerService
 
         void PushBreakpoints(DocumentIdentity document)
         {
+            NoticeIgnoredCondition(document);
             var lines = breakpointService.GetBreakpoints(document);
             if (lines.Count > 0)
                 debugController.SetBreakpoints(document.Name, lines);
@@ -216,6 +230,7 @@ public partial class ProjectRunnerService : IProjectRunnerService
 
                 // Fresh debug session: clear any prior break/abort state, then apply the current breakpoints so the
                 // very first statement can already be a break.
+                conditionNoticeShown = false;
                 debugController.Reset();
                 var session = debugController.Session;
                 ApplyBreakpoints(projectDefinition);
@@ -393,6 +408,7 @@ public partial class ProjectRunnerService : IProjectRunnerService
             // Claimed before anything can execute — see the same line on the startup-form path.
             RunningProject = projectDefinition;
 
+            conditionNoticeShown = false;
             debugController.Reset();
             var session = debugController.Session;
             ApplyBreakpoints(projectDefinition);

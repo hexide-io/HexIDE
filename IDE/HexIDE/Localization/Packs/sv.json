@@ -3,8 +3,8 @@
   "direction": "ltr",
   "strings": {
     "Str.Debug.External.EndTimeout": "Felsökningsadaptern {0} svarade inte på Avsluta och stoppades efter {1} sekunders väntan.",
-    "Str.Debug.External.BreakpointConditionUnsupported": "Villkor för brytpunkter stöds ännu inte för externa sessioner. Fil '{0}', brytpunktspost {1}.",
-    "Str.Debug.External.BreakpointOptionUnsupported": "Brytpunktsalternativet '{0}' stöds ännu inte för externa sessioner. Fil '{1}', brytpunktspost {2}.",
+    "Str.Debug.External.BreakpointConditionUnsupported": "Ange villkor med Villkor… i brytpunktsmarginalens meny. Fil '{0}', brytpunktspost {1}.",
+    "Str.Debug.External.BreakpointOptionUnsupported": "Brytpunktsalternativet '{0}' stöds ännu inte för externa sessioner. Fil '{1}', brytpunktspost {2}. Ange villkor med Villkor… i brytpunktsmarginalens meny.",
     "Str.MainWindow.RecoveryNotice": "Återställningssession — inställningsändringar sparas inte",
     "Str.Profiles.LoadError": "Kan inte läsa in profilen '{0}', filen '{1}'. Kontrollera paketformatet och filsökvägarna.",
     "Str.Profiles.HelpSummary": "Basprofil: namn, katalogsökväg eller none (felsäkert läge).",
@@ -1009,6 +1009,10 @@
     "Str.Tool.Outline.Kind.Struct": "Struktur",
     "Str.Tool.Outline.Kind.Event": "Händelse",
     "Str.Tool.Outline.Kind.Operator": "Operator",
-    "Str.Tool.Outline.Kind.TypeParameter": "Typparameter"
+    "Str.Tool.Outline.Kind.TypeParameter": "Typparameter",
+    "Str.Debug.Conditions.Prompt": "Stanna på den här raden endast när detta uttryck är sant:",
+    "Str.Debug.Conditions.Edit": "Villkor…",
+    "Str.Debug.Conditions.AdapterIgnored": "Denna adapter ignorerar villkor och stannar varje gång.",
+    "Str.Debug.Conditions.InterpreterIgnored": "Tolken ignorerar villkor och stannar varje gång."
   }
 }

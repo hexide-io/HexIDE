@@ -3,8 +3,8 @@
   "direction": "ltr",
   "strings": {
     "Str.Debug.External.EndTimeout": "Ο προσαρμογέας αποσφαλμάτωσης {0} δεν ανταποκρίθηκε στον τερματισμό και διακόπηκε μετά από αναμονή {1} δευτερολέπτων.",
-    "Str.Debug.External.BreakpointConditionUnsupported": "Οι συνθήκες σημείων διακοπής δεν υποστηρίζονται ακόμη για εξωτερικές συνεδρίες. Αρχείο '{0}', καταχώριση σημείου διακοπής {1}.",
-    "Str.Debug.External.BreakpointOptionUnsupported": "Η επιλογή σημείου διακοπής '{0}' δεν υποστηρίζεται ακόμη για εξωτερικές συνεδρίες. Αρχείο '{1}', καταχώριση {2}.",
+    "Str.Debug.External.BreakpointConditionUnsupported": "Ορίστε συνθήκες από το Συνθήκη… στο μενού περιθωρίου σημείων διακοπής. Αρχείο '{0}', καταχώριση σημείου διακοπής {1}.",
+    "Str.Debug.External.BreakpointOptionUnsupported": "Η επιλογή σημείου διακοπής '{0}' δεν υποστηρίζεται ακόμη για εξωτερικές συνεδρίες. Αρχείο '{1}', καταχώριση {2}. Ορίστε συνθήκες από το Συνθήκη… στο μενού περιθωρίου σημείων διακοπής.",
     "Str.MainWindow.RecoveryNotice": "Συνεδρία ανάκτησης — οι αλλαγές ρυθμίσεων δεν θα αποθηκευτούν",
     "Str.Profiles.LoadError": "Δεν είναι δυνατή η φόρτωση του προφίλ '{0}', αρχείο '{1}'. Ελέγξτε τη μορφή του πακέτου και τις διαδρομές αρχείων.",
     "Str.Profiles.HelpSummary": "Βασικό προφίλ: όνομα, διαδρομή καταλόγου ή none (ασφαλής λειτουργία).",
@@ -1009,6 +1009,10 @@
     "Str.Tool.Outline.Kind.Struct": "Δομή",
     "Str.Tool.Outline.Kind.Event": "Συμβάν",
     "Str.Tool.Outline.Kind.Operator": "Τελεστής",
-    "Str.Tool.Outline.Kind.TypeParameter": "Παράμετρος τύπου"
+    "Str.Tool.Outline.Kind.TypeParameter": "Παράμετρος τύπου",
+    "Str.Debug.Conditions.Prompt": "Διακοπή σε αυτή τη γραμμή μόνο όταν αυτή η έκφραση είναι αληθής:",
+    "Str.Debug.Conditions.Edit": "Συνθήκη…",
+    "Str.Debug.Conditions.AdapterIgnored": "Αυτός ο προσαρμογέας αγνοεί τις συνθήκες και σταματά κάθε φορά.",
+    "Str.Debug.Conditions.InterpreterIgnored": "Ο διερμηνευτής αγνοεί τις συνθήκες και σταματά κάθε φορά."
   }
 }

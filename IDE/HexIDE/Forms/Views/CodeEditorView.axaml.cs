@@ -398,7 +398,8 @@ public partial class CodeEditorView : UserControl
             // Debugger: breakpoint gutter (red dots, click-to-toggle) + the amber current-statement bar.
             _breakpointMargin = new HexIDE.Debugging.BreakpointMargin(vm.BreakpointService, vm.Identity, vm.ToggleBreakpoint,
                 () => vm.ExternalDebugger?.IsActive == true,
-                () => vm.ExternalDebugger?.GetBreakpoints(vm.GetDocumentUriPublic()) ?? [], vm.DescribeExternalBreakpoint);
+                () => vm.ExternalDebugger?.GetBreakpoints(vm.GetDocumentUriPublic()) ?? [], vm.DescribeExternalBreakpoint,
+                vm.BreakpointCondition, vm.EditBreakpointConditionAsync, vm.HasBreakpoint);
             TextEditor.TextArea.LeftMargins.Insert(0, _breakpointMargin);
             _currentLineRenderer = new HexIDE.Debugging.CurrentLineRenderer(TextEditor);
             TextEditor.TextArea.TextView.BackgroundRenderers.Insert(0, _currentLineRenderer);

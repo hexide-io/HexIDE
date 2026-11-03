@@ -3,8 +3,8 @@
   "direction": "ltr",
   "strings": {
     "Str.Debug.External.EndTimeout": "L’adattatore di debug {0} non ha risposto a Termina ed è stato arrestato dopo un’attesa di {1} secondi.",
-    "Str.Debug.External.BreakpointConditionUnsupported": "Le condizioni dei punti di interruzione non sono ancora supportate per le sessioni esterne. File '{0}', voce del punto di interruzione {1}.",
-    "Str.Debug.External.BreakpointOptionUnsupported": "L'opzione del punto di interruzione '{0}' non è ancora supportata per le sessioni esterne. File '{1}', voce {2}.",
+    "Str.Debug.External.BreakpointConditionUnsupported": "Impostare le condizioni con Condizione… nel menu del margine dei punti di interruzione. File '{0}', voce del punto di interruzione {1}.",
+    "Str.Debug.External.BreakpointOptionUnsupported": "L'opzione del punto di interruzione '{0}' non è ancora supportata per le sessioni esterne. File '{1}', voce {2}. Impostare le condizioni con Condizione… nel menu del margine dei punti di interruzione.",
     "Str.MainWindow.RecoveryNotice": "Sessione di ripristino — le modifiche alle impostazioni non verranno salvate",
     "Str.Profiles.LoadError": "Impossibile caricare il profilo '{0}', file '{1}'. Controllare il formato del pacchetto e i percorsi dei file.",
     "Str.Profiles.HelpSummary": "Profilo di base: nome, percorso di cartella o none (modalità provvisoria).",
@@ -1009,6 +1009,10 @@
     "Str.Tool.Outline.Kind.Struct": "Struttura",
     "Str.Tool.Outline.Kind.Event": "Evento",
     "Str.Tool.Outline.Kind.Operator": "Operatore",
-    "Str.Tool.Outline.Kind.TypeParameter": "Parametro di tipo"
+    "Str.Tool.Outline.Kind.TypeParameter": "Parametro di tipo",
+    "Str.Debug.Conditions.Prompt": "Interrompi su questa riga solo quando questa espressione è vera:",
+    "Str.Debug.Conditions.Edit": "Condizione…",
+    "Str.Debug.Conditions.AdapterIgnored": "Questo adattatore ignora le condizioni e si arresta ogni volta.",
+    "Str.Debug.Conditions.InterpreterIgnored": "L’interprete ignora le condizioni e si arresta ogni volta."
   }
 }

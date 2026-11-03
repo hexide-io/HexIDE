@@ -3,8 +3,8 @@
   "direction": "ltr",
   "strings": {
     "Str.Debug.External.EndTimeout": "Razhroščevalni vmesnik {0} se ni odzval na ukaz za konec in je bil ustavljen po {1} sekundah čakanja.",
-    "Str.Debug.External.BreakpointConditionUnsupported": "Pogoji prekinitvenih točk še niso podprti za zunanje seje. Datoteka '{0}', vnos prekinitvene točke {1}.",
-    "Str.Debug.External.BreakpointOptionUnsupported": "Možnost prekinitvene točke '{0}' še ni podprta za zunanje seje. Datoteka '{1}', vnos {2}.",
+    "Str.Debug.External.BreakpointConditionUnsupported": "Pogoje nastavite z ukazom Pogoj… v meniju roba prekinitvenih točk. Datoteka '{0}', vnos prekinitvene točke {1}.",
+    "Str.Debug.External.BreakpointOptionUnsupported": "Možnost prekinitvene točke '{0}' še ni podprta za zunanje seje. Datoteka '{1}', vnos {2}. Pogoje nastavite z ukazom Pogoj… v meniju roba prekinitvenih točk.",
     "Str.MainWindow.RecoveryNotice": "Obnovitvena seja — spremembe nastavitev ne bodo shranjene",
     "Str.Profiles.LoadError": "Profila »{0}«, datoteke »{1}«, ni mogoče naložiti. Preverite obliko paketa in poti datotek.",
     "Str.Profiles.HelpSummary": "Osnovni profil: ime, pot do imenika ali none (varni način).",
@@ -1009,6 +1009,10 @@
     "Str.Tool.Outline.Kind.Struct": "Struktura",
     "Str.Tool.Outline.Kind.Event": "Dogodek",
     "Str.Tool.Outline.Kind.Operator": "Operator",
-    "Str.Tool.Outline.Kind.TypeParameter": "Parameter tipa"
+    "Str.Tool.Outline.Kind.TypeParameter": "Parameter tipa",
+    "Str.Debug.Conditions.Prompt": "Ustavi se v tej vrstici samo, ko je ta izraz resničen:",
+    "Str.Debug.Conditions.Edit": "Pogoj…",
+    "Str.Debug.Conditions.AdapterIgnored": "Ta adapter prezre pogoje in se vsakič ustavi.",
+    "Str.Debug.Conditions.InterpreterIgnored": "Tolmač prezre pogoje in se vsakič ustavi."
   }
 }

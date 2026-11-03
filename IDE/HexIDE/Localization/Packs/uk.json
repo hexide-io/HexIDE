@@ -3,8 +3,8 @@
   "direction": "ltr",
   "strings": {
     "Str.Debug.External.EndTimeout": "Адаптер налагодження {0} не відповів на команду завершення й був зупинений після очікування протягом {1} секунд.",
-    "Str.Debug.External.BreakpointConditionUnsupported": "Умови точок зупину ще не підтримуються для зовнішніх сеансів. Файл '{0}', запис точки зупину {1}.",
-    "Str.Debug.External.BreakpointOptionUnsupported": "Параметр точки зупину '{0}' ще не підтримується для зовнішніх сеансів. Файл '{1}', запис точки зупину {2}.",
+    "Str.Debug.External.BreakpointConditionUnsupported": "Задайте умови через «Умова…» в меню поля точок зупинки. Файл '{0}', запис точки зупину {1}.",
+    "Str.Debug.External.BreakpointOptionUnsupported": "Параметр точки зупину '{0}' ще не підтримується для зовнішніх сеансів. Файл '{1}', запис точки зупину {2}. Задайте умови через «Умова…» в меню поля точок зупинки.",
     "Str.MainWindow.RecoveryNotice": "Сеанс відновлення — зміни налаштувань не буде збережено",
     "Str.Profiles.LoadError": "Не вдалося завантажити профіль '{0}', файл '{1}'. Перевірте формат пакунка та шляхи до файлів.",
     "Str.Profiles.HelpSummary": "Базовий профіль: назва, шлях до каталогу або none (безпечний режим).",
@@ -1009,6 +1009,10 @@
     "Str.Tool.Outline.Kind.Struct": "Структура",
     "Str.Tool.Outline.Kind.Event": "Подія",
     "Str.Tool.Outline.Kind.Operator": "Оператор",
-    "Str.Tool.Outline.Kind.TypeParameter": "Параметр типу"
+    "Str.Tool.Outline.Kind.TypeParameter": "Параметр типу",
+    "Str.Debug.Conditions.Prompt": "Зупинятися на цьому рядку, лише коли цей вираз істинний:",
+    "Str.Debug.Conditions.Edit": "Умова…",
+    "Str.Debug.Conditions.AdapterIgnored": "Цей адаптер ігнорує умови й зупиняється щоразу.",
+    "Str.Debug.Conditions.InterpreterIgnored": "Інтерпретатор ігнорує умови й зупиняється щоразу."
   }
 }
