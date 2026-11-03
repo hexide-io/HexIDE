@@ -445,6 +445,7 @@
     "Str.Options.EditorGeneral.CodeSettings.FormatOnSave": "จัดรูปแบบเมื่อบันทึก",
     "Str.Options.EditorGeneral.Display.Header": "การแสดงผล",
     "Str.Options.EditorGeneral.Display.ShowMinimap": "แสดงแผนที่ย่อ",
+    "Str.Options.EditorGeneral.Display.ShowInlayHints": "แสดงคำแนะนำในบรรทัด",
     "Str.Options.EditorFormatting.Indentation.Header": "การเยื้อง",
     "Str.Options.EditorFormatting.Indentation.TabWidth": "ความกว้างแท็บ:",
     "Str.Options.Grid.GroupHeader": "การตั้งค่าตารางฟอร์ม",

@@ -445,6 +445,7 @@
     "Str.Options.EditorGeneral.CodeSettings.FormatOnSave": "Форматиране при записване",
     "Str.Options.EditorGeneral.Display.Header": "Показване",
     "Str.Options.EditorGeneral.Display.ShowMinimap": "Показване на миникарта",
+    "Str.Options.EditorGeneral.Display.ShowInlayHints": "Показване на вградени подсказки",
     "Str.Options.EditorFormatting.Indentation.Header": "Отстъпи",
     "Str.Options.EditorFormatting.Indentation.TabWidth": "Ширина на табулацията:",
     "Str.Options.Grid.GroupHeader": "Настройки на мрежата на формуляра",

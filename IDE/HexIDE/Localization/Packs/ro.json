@@ -445,6 +445,7 @@
     "Str.Options.EditorGeneral.CodeSettings.FormatOnSave": "Formatare la salvare",
     "Str.Options.EditorGeneral.Display.Header": "Afișare",
     "Str.Options.EditorGeneral.Display.ShowMinimap": "Afișează miniharta",
+    "Str.Options.EditorGeneral.Display.ShowInlayHints": "Afișează indiciile în linie",
     "Str.Options.EditorFormatting.Indentation.Header": "Indentare",
     "Str.Options.EditorFormatting.Indentation.TabWidth": "Lățimea tabulatorului:",
     "Str.Options.Grid.GroupHeader": "Setările grilei formularului",

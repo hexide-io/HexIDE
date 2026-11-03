@@ -445,6 +445,7 @@
     "Str.Options.EditorGeneral.CodeSettings.FormatOnSave": "Eman formatua gordetzean",
     "Str.Options.EditorGeneral.Display.Header": "Bistaratzea",
     "Str.Options.EditorGeneral.Display.ShowMinimap": "Erakutsi minimapa",
+    "Str.Options.EditorGeneral.Display.ShowInlayHints": "Erakutsi lerro barruko argibideak",
     "Str.Options.EditorFormatting.Indentation.Header": "Koskatzea",
     "Str.Options.EditorFormatting.Indentation.TabWidth": "Tabulazioaren zabalera:",
     "Str.Options.Grid.GroupHeader": "Inprimakiaren sareta-ezarpenak",
