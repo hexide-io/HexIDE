@@ -396,7 +396,11 @@ crossing the flush that superseded it cannot send a lower version after the flus
 
 **On reconnect, tracked documents are replayed** through the same code path as a first open, carrying the
 version this connection has been tracking rather than `1`. Resetting to `1` would put the client's count
-behind the session's, so the next change would arrive bearing a version the server had already seen.
+behind the session's, so the next change would arrive bearing a version the server had already seen. Requests
+about a tracked document wait for that document's `didOpen` write on the current connection, including
+requests made from the initialized state change before replay begins. Reserving an open for replay is
+not enough to release a request. Pending waits respect caller cancellation and the request timeout
+([#2920](https://github.com/hexide-io/HexIDE/issues/2920)).
 
 That replay used to be a *second* implementation, and it drifted: it hardcoded the language identifier to
 `vb6` and skipped the capability gate, so after any reconnect an attached foreign server was told every one

@@ -239,6 +239,11 @@ be answered. One server still starting SHALL NOT hold up another server's answer
 - **WHEN** the workspace moves and a document already open is asked about while its server starts again
 - **THEN** the restarted server is sent the document's open before the requests
 
+#### Scenario: Asked during the client's own reconnect replay
+- **WHEN** a client reconnects with several tracked documents and a request is made before its document is replayed
+- **THEN** the request waits until that document's `didOpen` has been written on the new connection
+- **AND** an open reserved but not yet written does not release the request
+
 ### Requirement: Diagnostics SHALL be pushed through a single channel from more than one source
 The client SHALL expose one diagnostics channel that carries both server-published diagnostics and
 diagnostics injected by the IDE, and SHALL raise on it rather than requiring a consumer to poll.
