@@ -266,9 +266,10 @@ public sealed class CommandManager : AvaloniaObject
     
     private void RaiseRequerySuggested()
     {
-        if (_requerySuggestedOperation == null)
+        var dispatcher = Dispatcher.UIThread; // should be CurrentDispatcher
+        // Headless tests replace the dispatcher while retaining this thread-local manager (#2921).
+        if (_requerySuggestedOperation == null || _requerySuggestedOperation.Dispatcher != dispatcher)
         {
-            var dispatcher = Dispatcher.UIThread; // should be CurrentDispatcher
             _requerySuggestedOperation = dispatcher.InvokeAsync(RaiseRequerySuggestedImpl, DispatcherPriority.Background);
         }
 
