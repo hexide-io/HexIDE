@@ -2,6 +2,8 @@
   "name": "English",
   "direction": "ltr",
   "strings": {
+    "Str.Debug.External.BreakpointConditionUnsupported": "Breakpoint conditions aren't supported for external sessions yet. File '{0}', breakpoint entry {1}.",
+    "Str.Debug.External.BreakpointOptionUnsupported": "Breakpoint option '{0}' isn't supported for external sessions yet. File '{1}', breakpoint entry {2}.",
     "Str.MainWindow.RecoveryNotice": "Recovery session — settings changes won't be saved",
     "Str.Profiles.LoadError": "Cannot load profile '{0}', file '{1}'. Check the bundle format and file paths.",
     "Str.Profiles.HelpSummary": "Base profile: name, directory path, or none (safe mode).",

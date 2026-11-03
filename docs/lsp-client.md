@@ -1399,7 +1399,10 @@ The client prepares it before launching the server, once per workspace project, 
 `IWorkspaceArtifactProvider` / DI seam. Core owns path containment (including links), per-server and
 per-workspace consent, hash-based ownership, and regeneration 300 ms after the last material project change.
 The debounce uses an injectable `TimeProvider`; tests advance its clock and await the pending regeneration
-task before checking the generated file and provider call count.
+task before checking the generated file and provider call count. An entry that sets `restartOnChange`
+has its server restarted, alone, when a regeneration changes the file (#2072).
+Artefact and moved-root restarts share the stop/reopen path and run serially; when both are queued,
+each restarts in turn. Requests wait for the replacement connection to reopen their document.
 A refusal or a foreign file does not prevent launch; its reason is logged and recorded as a local
 failure note on that server’s connection in the protocol inspector. Notes name only the configured
 workspace-relative artefact path and exception type; absolute targets and exception messages stay in

@@ -2,6 +2,8 @@
   "name": "Serbian (Latin)",
   "direction": "ltr",
   "strings": {
+    "Str.Debug.External.BreakpointConditionUnsupported": "Uslovi tačaka prekida još nisu podržani za spoljne sesije. Datoteka '{0}', stavka tačke prekida {1}.",
+    "Str.Debug.External.BreakpointOptionUnsupported": "Opcija tačke prekida '{0}' još nije podržana za spoljne sesije. Datoteka '{1}', stavka {2}.",
     "Str.MainWindow.RecoveryNotice": "Sesija oporavka — promene podešavanja neće biti sačuvane",
     "Str.Profiles.LoadError": "Nije moguće učitati profil „{0}”, datoteku „{1}”. Proverite format paketa i putanje datoteka.",
     "Str.Profiles.HelpSummary": "Osnovni profil: naziv, putanja direktorijuma ili none (bezbedni režim).",

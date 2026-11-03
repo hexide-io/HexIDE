@@ -2,6 +2,8 @@
   "name": "Danish",
   "direction": "ltr",
   "strings": {
+    "Str.Debug.External.BreakpointConditionUnsupported": "Betingelser for breakpoints understøttes endnu ikke i eksterne sessioner. Fil '{0}', breakpointpost {1}.",
+    "Str.Debug.External.BreakpointOptionUnsupported": "Pausepunktsindstillingen '{0}' understøttes endnu ikke for eksterne sessioner. Fil '{1}', pausepunktspost {2}.",
     "Str.MainWindow.RecoveryNotice": "Gendannelsessession — ændringer af indstillinger gemmes ikke",
     "Str.Profiles.LoadError": "Kan ikke indlæse profilen '{0}', filen '{1}'. Kontrollér pakkens format og filstier.",
     "Str.Profiles.HelpSummary": "Basisprofil: navn, mappesti eller none (sikker tilstand).",

@@ -2,6 +2,8 @@
   "name": "Turkish",
   "direction": "ltr",
   "strings": {
+    "Str.Debug.External.BreakpointConditionUnsupported": "Dış oturumlarda kesme noktası koşulları henüz desteklenmiyor. Dosya '{0}', kesme noktası girdisi {1}.",
+    "Str.Debug.External.BreakpointOptionUnsupported": "'{0}' kesme noktası seçeneği henüz harici oturumlarda desteklenmiyor. Dosya '{1}', kesme noktası girdisi {2}.",
     "Str.MainWindow.RecoveryNotice": "Kurtarma oturumu — ayar değişiklikleri kaydedilmeyecek",
     "Str.Profiles.LoadError": "'{0}' profili, '{1}' dosyası yüklenemiyor. Paket biçimini ve dosya yollarını kontrol edin.",
     "Str.Profiles.HelpSummary": "Temel profil: ad, dizin yolu veya none (güvenli mod).",
