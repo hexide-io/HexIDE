@@ -204,6 +204,9 @@ public sealed record ServerIdentity(string? Name, string? Version);
 /// </summary>
 public interface ILanguageConnectionRegistry
 {
+    /// <summary>Current diagnostics, attributed to the publisher rather than diagnostic.source.</summary>
+    IReadOnlyList<OwnedDiagnostic> Diagnostics { get; }
+
     /// <summary>Every registered connection, including those deliberately not started.</summary>
     IReadOnlyList<LanguageServerConnection> Connections { get; }
 
@@ -226,3 +229,6 @@ public interface ILanguageConnectionRegistry
     /// <summary>Raised when any connection's state or advertised capabilities change.</summary>
     event EventHandler? ConnectionsChanged;
 }
+
+/// <summary>One current diagnostic and the publisher that owns it.</summary>
+public sealed record OwnedDiagnostic(string Uri, string Owner, Messages.Diagnostic Diagnostic);
