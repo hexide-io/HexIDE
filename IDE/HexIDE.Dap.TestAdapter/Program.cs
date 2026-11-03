@@ -90,9 +90,14 @@ public static class Program
                 if (command == "disconnect") return 0;
                 continue;
             }
-            if (mode is "goto" or "goto-empty" or "goto-refuse" or "goto-targets-refuse" or "invalidated" or "session" or "frames" or "frames-delayed" or "evaluate" or "evaluate-running" or "breakpoints" or "breakpoints-delayed" or "breakpoints-refuse-clear" or "resume-refusal")
+            if (mode is "goto" or "goto-empty" or "goto-refuse" or "goto-targets-refuse" or "invalidated" or "session" or "frames" or "frames-delayed" or "evaluate" or "evaluate-running" or "breakpoints" or "breakpoints-delayed" or "breakpoints-refuse-clear" or "resume-refusal" or "disconnect-held")
             {
                 var command = request.RootElement.GetProperty("command").GetString();
+                if (mode == "disconnect-held" && command == "disconnect")
+                {
+                    await Send(new { seq = 26, type = "event", @event = "output", body = new { output = "disconnect-pending\n" } });
+                    continue;
+                }
                 if (mode == "resume-refusal" && !refusedResume && command is "continue" or "next" or "stepIn" or "stepOut")
                 {
                     refusedResume = true;
