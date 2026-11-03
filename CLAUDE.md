@@ -211,9 +211,14 @@ which **moved from 24.04 to 26.04 from 2026-10-19**: the job log's "Operating Sy
 
 | | Ubuntu | ICU | glibc |
 |---|---|---|---|
-| CI (`build-ide`, `ubuntu-latest`) and the container below, since 2026-10-19 | **26.04** | not yet measured on the runner | not yet measured |
+| CI (`build-ide`, `ubuntu-latest`) and the container below, since 2026-10-19 | **26.04** | **libicu78** | 2.43 |
 | WSL | **26.04 LTS** | **libicu78** | 2.43 |
 | CI before 2026-10-19 | 24.04 | libicu74 | 2.39 |
+
+The CI row was checked on 2026-11-03. Run 41671865048's `build-ide (linux)` log names image `ubuntu-26.04`
+20261025.179.1 on Ubuntu 26.04.1 LTS, but prints neither library. ICU 78.2 is from the runner image's
+published readme (20261026.180.1, the next build), and glibc 2.43 from Ubuntu 26.04's archive. The
+container's base image installs `libicu78` and `libc6` from the same release.
 
 Before the move they were four ICU major versions apart. .NET takes string comparison, casing and
 culture-sensitive formatting from the platform's ICU, and this project compares VB6 identifiers
