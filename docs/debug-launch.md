@@ -97,9 +97,11 @@ whose adapter supports all three:
   line separates a module's declarations from its first procedure it inserts one, which moves every
   statement below it. An adapter that
   can't apply an edit refuses the step and leaves the program stopped. HexIDE prints its message in
-  Immediate, but also clears Call Stack, Locals and the current line until the next stop (#2912). Undo the
-  edit and save again, or End. An adapter can also send `invalidated` to refresh a stopped inspection
-  without waiting for another stop (#2914).
+  Immediate, and keeps Call Stack, Locals, the selected frame and the current line as they were (#2912).
+  Undo the edit and save again, or End. When an adapter sends `invalidated` while the program is stopped,
+  HexIDE refreshes Call Stack, Locals and Watches, keeping the selected frame where it still exists
+  (#2914). RDCore's adapter sends it only after it applies a saved edit, just before that resume's
+  `stopped`, so with RDCore the refresh arrives with the stop (measured against RDCore 84278ae, 2026-11-03).
 
 Breakpoints stay on the line numbers they were set on. An edit that adds or removes lines above one leaves it
 on a different statement.
