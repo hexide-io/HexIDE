@@ -233,11 +233,19 @@ directory; command arguments and adapter launch fields SHALL pass unchanged with
 ### Requirement: Remote debugger presentation
 The IDE SHALL populate Call Stack and Locals asynchronously from the current stop, reject stale inspection
 results, and fetch aggregate children without blocking the UI. It SHALL expose output and failures and SHALL
-refuse unsupported remote operations rather than applying them to the interpreter.
+refuse unsupported remote operations rather than applying them to the interpreter. Pending resume commands
+SHALL retain the displayed inspection while disallowing evaluation. A definitive refusal without an intervening
+execution event SHALL preserve frames, selected frame, locals and execution location under the fresh stop
+identity. An accepted resume SHALL clear inspection even when the adapter sends no continued event.
 
 #### Scenario: Resume during inspection
-- **WHEN** the user continues while a locals request is pending
+- **WHEN** the adapter accepts continue while a locals request is pending
 - **THEN** the old locals are cleared and the late response does not repaint them
+
+#### Scenario: Adapter refuses a resume
+- **WHEN** a continue or step request fails definitively without a new stopped or continued event
+- **THEN** the displayed stop and selected caller remain visible and usable, and the refusal is reported
+- **AND** pending inspection results from before the request remain expired
 
 ### Requirement: External session visibility and cleanup
 The IDE SHALL expose its current or most recent external debug connection in the shared servers view and
@@ -249,7 +257,7 @@ the owned adapter and return run controls to their idle route.
 - **THEN** startup is cancelled and the adapter is cleaned up without starting an interpreter run
 
 ### Requirement: Selected external frame inspection
-The IDE SHALL select the top frame at every new external stop and SHALL allow selection of another frame
+The IDE SHALL select the top frame at every new external stopped event and SHALL allow selection of another frame
 from that stop in Call Stack. Locals SHALL clear immediately and asynchronously display the selected frame's
 non-expensive scopes. Late results from an earlier selection or expired stop SHALL NOT replace current
 locals. Unrelated session notifications SHALL preserve selection.

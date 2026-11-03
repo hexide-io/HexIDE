@@ -53,13 +53,16 @@ public partial class CallStackToolViewModel : Tool
         if (externalDebugger is not null)
         {
             IReadOnlyList<System.Text.Json.JsonElement>? displayedFrames = null;
+            HexIDE.Dap.DapStop? displayedStop = null;
             externalDebugger.Changed += () =>
             {
                 synchronizingSelection = true;
                 try
                 {
-                    if (externalDebugger.Frames.Count == 0 || !ReferenceEquals(displayedFrames, externalDebugger.Frames))
+                    if (externalDebugger.Frames.Count == 0 || !ReferenceEquals(displayedFrames, externalDebugger.Frames)
+                        || displayedStop != externalDebugger.Stop)
                     {
+                        displayedStop = externalDebugger.Stop;
                         displayedFrames = externalDebugger.Frames;
                         Frames = displayedFrames.Select((frame, index) => CreateRow(
                             (index == 0 ? "→ " : "   ") + frame.GetProperty("name").GetString(), frame.GetProperty("line").GetInt32(),

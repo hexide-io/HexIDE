@@ -45,6 +45,7 @@ public static class Program
         string callerValue = "42";
         JsonElement? heldBreakpoints = null;
         bool heldBreakpointsOnce = false;
+        bool refusedResume = false;
         while (true)
         {
             var header = new StringBuilder();
@@ -61,9 +62,17 @@ public static class Program
             catch (EndOfStreamException) { return 0; }
             using var request = JsonDocument.Parse(body);
             if (mode == "silent") continue;
-            if (mode is "session" or "frames" or "frames-delayed" or "evaluate" or "evaluate-running" or "breakpoints" or "breakpoints-delayed" or "breakpoints-refuse-clear")
+            if (mode is "session" or "frames" or "frames-delayed" or "evaluate" or "evaluate-running" or "breakpoints" or "breakpoints-delayed" or "breakpoints-refuse-clear" or "resume-refusal")
             {
                 var command = request.RootElement.GetProperty("command").GetString();
+                if (mode == "resume-refusal" && !refusedResume && command is "continue" or "next" or "stepIn" or "stepOut")
+                {
+                    refusedResume = true;
+                    await Send(new { seq = 24, type = "event", @event = "output", body = new { output = "resume-pending\n" } });
+                    await Send(new { seq = 25, type = "response", request_seq = request.RootElement.GetProperty("seq").GetInt32(),
+                        command, success = false, message = "fixture resume refusal" });
+                    continue;
+                }
                 if (command == "setBreakpoints")
                 {
                     var lines = request.RootElement.GetProperty("arguments").GetProperty("breakpoints").EnumerateArray()

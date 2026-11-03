@@ -203,6 +203,79 @@ public class ExternalDebugServiceTests
         }
     }
 
+    // Regression for the measured adapter refusal in hexide-io/HexIDE#2912.
+    [AvaloniaTheory]
+    [InlineData("continue", 0)]
+    [InlineData("next", 0)]
+    [InlineData("stepIn", 0)]
+    [InlineData("stepOut", 0)]
+    [InlineData("continue", 7)]
+    [InlineData("next", 7)]
+    [InlineData("stepIn", 7)]
+    [InlineData("stepOut", 7)]
+    public async Task Refused_resume_preserves_inspection_and_selection_until_an_accepted_resume(string command, int frameId)
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "hexide-dap-refusal-" + Guid.NewGuid());
+        Directory.CreateDirectory(directory);
+        await using var log = new ConversationLog();
+        var service = new ExternalDebugService(log);
+        var localization = Substitute.For<ILocalizationService>();
+        var interpreter = Substitute.For<IDebugController>();
+        var locals = new LocalsToolViewModel(localization, interpreter, service);
+        var stack = new CallStackToolViewModel(localization, interpreter, service);
+        var failures = new List<string>();
+        service.Failed += failures.Add;
+        var run = service.StartAsync(await Configuration(directory, "resume-refusal"));
+        try
+        {
+            await WaitFor(service, () => service.CanEvaluate && service.Variables.Count == 1);
+            await service.SelectFrameAsync(service.Stop!, frameId);
+            var stop = service.Stop!;
+            var frames = service.Frames;
+            var variables = service.Variables;
+            var location = service.CurrentLocation;
+            var selectedLocation = service.SelectedLocation;
+            var pendingWasReadOnly = false;
+            var lostInspection = false;
+            void Observe()
+            {
+                lostInspection |= service.Frames.Count == 0 || service.Variables.Count == 0 || service.CurrentLocation is null;
+                if (service.State == DapSessionState.Running && service.Stop == stop)
+                    pendingWasReadOnly |= !service.CanEvaluate && !service.IsCurrent(stop);
+            }
+            service.Changed += Observe;
+            await service.CommandAsync(command);
+            await WaitFor(service, () => service.State == DapSessionState.Stopped && service.Stop != stop);
+            service.Changed -= Observe;
+            lostInspection.Should().BeFalse();
+            pendingWasReadOnly.Should().BeTrue();
+            service.Frames.Should().BeSameAs(frames);
+            service.Variables.Should().BeSameAs(variables);
+            service.CurrentLocation.Should().Be(location);
+            service.SelectedLocation.Should().Be(selectedLocation);
+            stack.SelectedFrame!.FrameId.Should().Be(frameId);
+            locals.Roots.Single().Value.Should().Be(frameId == 0 ? "41" : "42");
+            service.IsCurrent(stop).Should().BeFalse();
+            service.CanSelectFrame(stop, frameId).Should().BeFalse();
+            service.CanEvaluate.Should().BeTrue();
+            stack.SelectedFrame!.Stop.Should().Be(service.Stop);
+            stack.SelectedFrame = stack.Frames.Single(row => row.FrameId != frameId);
+            await WaitFor(service, () => service.CanEvaluate && service.SelectedFrame?.GetProperty("id").GetInt32() != frameId);
+            failures.Should().ContainSingle().Which.Should().Contain("fixture resume refusal");
+            var refusedStop = service.Stop;
+            await service.CommandAsync("next");
+            await WaitFor(service, () => service.CanEvaluate && service.Variables.Count == 1 && service.Stop != refusedStop && service.SelectedFrame?.GetProperty("id").GetInt32() == 0);
+            service.Frames.Should().NotBeSameAs(frames);
+            locals.Roots.Single().Value.Should().Be("41");
+            await service.CommandAsync("stepIn"); // Accepted without a continued or stopped event.
+            await WaitFor(service, () => service.State == DapSessionState.Running && service.Stop is null);
+            service.Frames.Should().BeEmpty();
+            service.Variables.Should().BeEmpty();
+            service.CurrentLocation.Should().BeNull();
+        }
+        finally { await service.StopAsync(); await run.WaitAsync(Patience, Token); Directory.Delete(directory, true); }
+    }
+
     [AvaloniaFact]
     public async Task Real_process_populates_existing_windows_on_UI_thread_then_clears_after_continue()
     {
