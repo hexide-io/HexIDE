@@ -2,6 +2,8 @@
   "name": "Japanese",
   "direction": "ltr",
   "strings": {
+    "Str.Debug.External.BreakpointConditionUnsupported": "外部セッションでは、ブレークポイントの条件はまだサポートされていません。ファイル '{0}'、ブレークポイント項目 {1}。",
+    "Str.Debug.External.BreakpointOptionUnsupported": "ブレークポイントのオプション '{0}' は外部セッションではまだサポートされていません。ファイル '{1}'、ブレークポイント項目 {2}。",
     "Str.MainWindow.RecoveryNotice": "回復セッション — 設定の変更は保存されません",
     "Str.Profiles.LoadError": "プロファイル '{0}' のファイル '{1}' を読み込めません。バンドルの形式とファイルのパスを確認してください。",
     "Str.Profiles.HelpSummary": "基本プロファイル：名前、ディレクトリパス、または none（セーフモード）。",

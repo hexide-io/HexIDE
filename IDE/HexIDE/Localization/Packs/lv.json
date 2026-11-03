@@ -2,6 +2,8 @@
   "name": "Latvian",
   "direction": "ltr",
   "strings": {
+    "Str.Debug.External.BreakpointConditionUnsupported": "Ārējās sesijās pārtraukumpunktu nosacījumi vēl netiek atbalstīti. Fails '{0}', pārtraukumpunkta ieraksts {1}.",
+    "Str.Debug.External.BreakpointOptionUnsupported": "Pārtraukumpunkta opcija '{0}' ārējām sesijām vēl netiek atbalstīta. Fails '{1}', pārtraukumpunkta ieraksts {2}.",
     "Str.MainWindow.RecoveryNotice": "Atkopšanas sesija — iestatījumu izmaiņas netiks saglabātas",
     "Str.Profiles.LoadError": "Nevar ielādēt profilu “{0}”, failu “{1}”. Pārbaudiet pakotnes formātu un failu ceļus.",
     "Str.Profiles.HelpSummary": "Pamatprofils: nosaukums, direktorija ceļš vai none (drošais režīms).",

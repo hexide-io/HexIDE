@@ -2,6 +2,8 @@
   "name": "Catalan",
   "direction": "ltr",
   "strings": {
+    "Str.Debug.External.BreakpointConditionUnsupported": "Les condicions dels punts d’interrupció encara no s’admeten en sessions externes. Fitxer '{0}', entrada de punt d’interrupció {1}.",
+    "Str.Debug.External.BreakpointOptionUnsupported": "L'opció de punt d'interrupció '{0}' encara no s'admet en sessions externes. Fitxer '{1}', entrada {2}.",
     "Str.MainWindow.RecoveryNotice": "Sessió de recuperació — els canvis de configuració no es desaran",
     "Str.Profiles.LoadError": "No es pot carregar el perfil «{0}», fitxer «{1}». Comproveu el format del paquet i els camins dels fitxers.",
     "Str.Profiles.HelpSummary": "Perfil base: nom, camí de directori o none (mode segur).",

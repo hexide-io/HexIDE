@@ -332,6 +332,11 @@ recorded in #1866; the dockable pane uses selection/double-click rather than VB6
 - **Status:** **by design** (a real tree-walker limit, not an artificial cap). Run To Cursor (P7a) has no such limit —
   it's a one-shot breakpoint, matched by line at any depth.
 
+External sessions delegate Set Next Statement to adapters advertising `supportsGotoTargetsRequest`
+via `gotoTargets` and `goto`; the interpreter granularity limit above does not constrain the adapter
+([#2914](https://github.com/hexide-io/HexIDE/issues/2914)). A refused move keeps the caret and scroll
+position, and so does a refused step. What VB6 does with the caret there hasn't been measured.
+
 ### D19. Step Into from design mode runs the program without breaking
 - **VB6:** F8 in design mode starts the program and breaks on the first executable line, so the developer watches
   it begin one statement at a time.

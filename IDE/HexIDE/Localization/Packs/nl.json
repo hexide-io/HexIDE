@@ -2,6 +2,8 @@
   "name": "Dutch",
   "direction": "ltr",
   "strings": {
+    "Str.Debug.External.BreakpointConditionUnsupported": "Voorwaarden voor onderbrekingspunten worden nog niet ondersteund voor externe sessies. Bestand '{0}', onderbrekingspuntvermelding {1}.",
+    "Str.Debug.External.BreakpointOptionUnsupported": "De onderbrekingspuntoptie '{0}' wordt nog niet ondersteund voor externe sessies. Bestand '{1}', onderbrekingspuntitem {2}.",
     "Str.MainWindow.RecoveryNotice": "Herstelsessie — wijzigingen in instellingen worden niet opgeslagen",
     "Str.Profiles.LoadError": "Kan profiel '{0}', bestand '{1}' niet laden. Controleer de bundelindeling en bestandspaden.",
     "Str.Profiles.HelpSummary": "Basisprofiel: naam, mappad of none (veilige modus).",

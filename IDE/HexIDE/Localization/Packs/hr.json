@@ -2,6 +2,8 @@
   "name": "Croatian",
   "direction": "ltr",
   "strings": {
+    "Str.Debug.External.BreakpointConditionUnsupported": "Uvjeti prijelomnih točaka još nisu podržani za vanjske sesije. Datoteka '{0}', unos prijelomne točke {1}.",
+    "Str.Debug.External.BreakpointOptionUnsupported": "Mogućnost prekidne točke '{0}' još nije podržana za vanjske sesije. Datoteka '{1}', stavka {2}.",
     "Str.MainWindow.RecoveryNotice": "Sesija oporavka — promjene postavki neće se spremiti",
     "Str.Profiles.LoadError": "Nije moguće učitati profil „{0}”, datoteku „{1}”. Provjerite format paketa i putanje datoteka.",
     "Str.Profiles.HelpSummary": "Osnovni profil: naziv, putanja direktorija ili none (sigurni način rada).",
