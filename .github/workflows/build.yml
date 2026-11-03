@@ -539,6 +539,10 @@ jobs:
       - name: Guard the 100%-MIT tree (no GPL, no unknown-licence dependency)
         run: bash scripts/check-licences.sh
 
+      # The guard's Python detection is shell, so its self-test runs here rather than in a test project (#2897).
+      - name: Self-test the licence guard's Python detection
+        run: bash scripts/check-licences.selftest.sh
+
   # Repo-wide guard: the checks that used to run only when this tree was produced by a
   # copy-in from elsewhere. There is no copy-in any more, so they run here.
   guard-hygiene:
