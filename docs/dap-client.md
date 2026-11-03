@@ -184,3 +184,10 @@ components. It is not downloaded or run by ordinary CI; the smoke executable is 
 - Add-in registration through [#891](https://github.com/hexide-io/HexIDE/issues/891).
 
 Protocol reference: [Debug Adapter Protocol specification](https://microsoft.github.io/debug-adapter-protocol/specification).
+
+MCP run control follows the menu routes for `step_into` (`stepIn`), `step_over` (`next`),
+`step_out` (`stepOut`), `continue_program` (`continue`) and `break_program` (`pause`). Replies
+wait up to two seconds for the new stopped stack, report its top source frame or running/ended,
+and preserve the adapter's refusal message. `set_next_statement` resolves a saved module to its
+source path for the capability-gated `gotoTargets`/`goto` route. External `run_to_cursor` remains
+unavailable: this route has no one-shot breakpoint lifecycle (#2968).
