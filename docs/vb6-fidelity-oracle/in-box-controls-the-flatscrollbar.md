@@ -139,7 +139,7 @@ set at load. Screenshots were taken at 96 dpi, without visual styles, native and
 - **A seventh,** double-clicked from the toolbox.
 
 The form was dirtied with a comment and saved, and VB6 wrote no load log. VB6's save is
-`corpus/inbox-controls/pending/flatscrollbar/`. **A second IDE session, opening the same hand-written form, saved the same
+`corpus/inbox-controls/saved/flatscrollbar/`. **A second IDE session, opening the same hand-written form, saved the same
 bytes.** The hand-written form and the save were then read at run time, native and p-code, which logged the same values.
 
 **VB6's blocks, as it wrote them:**

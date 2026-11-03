@@ -39,12 +39,15 @@ internal static class ObjectAsValue
     {
         VbObject obj when obj.ClassDef.PrePass.DeclaresDefaultMember => throw DefaultMemberRefused(obj),
         VbObject => throw new VBRunTimeException(context, VBStandardError.ObjectDoesntSupportThisPropertyOrMethod),
+        VBAnimation => throw new VBRunTimeException(context, VBStandardError.ObjectDoesntSupportThisPropertyOrMethod),
+        VBFlatScrollBar bar => new Vb6Value(bar.Value),
         VBDTPicker picker => PickerValue(picker),
         VBUpDown upDown => new Vb6Value((long)upDown.Value),
         Components.InBox.TabStripTab tab => new Vb6Value(tab.Tab.Caption),
         VBTabStrip => throw new VBRunTimeException(context, VBStandardError.ObjectDoesntSupportThisPropertyOrMethod),
         VBCommonDialog => throw new VBRunTimeException(new VBStandardError(394, "Property is write-only")),
         ToolbarItem item => item.DefaultValue,
+        VBMonthView monthView => monthView.DefaultValue,
         Components.InBox.TreeNode node => new Vb6Value(node.Text),
         VBMaskEdBox box => new Vb6Value(box.Model.Text),
         VBSSTab => new Vb6Value((short)0),
@@ -54,6 +57,8 @@ internal static class ObjectAsValue
         ListViewTextObject item => item.DefaultText,
         VBRichTextBox box => new Vb6Value(box.WriteRtf()),
         StatusBarPanel panel => new Vb6Value(panel.Text),
+        ImageComboItem item => new Vb6Value(item.Text),
+        ImageComboItems => throw ImageComboItems.Unmeasured(),
         // VB6 refuses both before the program runs: Debug is only ever Debug.Print or Debug.Assert ("Syntax error"),
         // and a control array needs an index ("Argument not optional"). Raised here as the statement runs.
         DebugProxy => throw new VBCompileErrorException("Syntax error"),
@@ -77,9 +82,11 @@ internal static class ObjectAsValue
     public static Vb6Value DefaultMemberIfAny(Vb6Value value) => value.Value switch
     {
         VbObject obj when obj.ClassDef.PrePass.DeclaresDefaultMember => throw DefaultMemberRefused(obj),
+        VBFlatScrollBar bar => new Vb6Value(bar.Value),
         VBDTPicker picker => PickerValue(picker),
         VBUpDown upDown => new Vb6Value((long)upDown.Value),
         ToolbarItem item => item.DefaultValue,
+        VBMonthView monthView => monthView.DefaultValue,
         Components.InBox.TreeNode node => new Vb6Value(node.Text),
         VBMaskEdBox box => new Vb6Value(box.Model.Text),
         VBSSTab => new Vb6Value((short)0),
@@ -89,6 +96,8 @@ internal static class ObjectAsValue
         ListViewTextObject item => item.DefaultText,
         VBRichTextBox box => new Vb6Value(box.WriteRtf()),
         StatusBarPanel panel => new Vb6Value(panel.Text),
+        ImageComboItem item => new Vb6Value(item.Text),
+        ImageComboItems => throw ImageComboItems.Unmeasured(),
         _ => value,
     };
 
