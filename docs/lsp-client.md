@@ -125,6 +125,12 @@ Changing the UI language does not automatically restart servers (#2210).
 
 On stop, once `initialize` has been answered, the client allows two seconds for the parameterless
 `shutdown` request to answer, then attempts the parameterless `exit` notification even if shutdown timed out or failed (#392).
+Once `shutdown` is sent, the common outbound RPC gate permits no request or notification but `exit`, including
+during a workspace-root restart (#2924). Replies still go: a server may ask something before it answers
+`shutdown`, as RDCore's does with `workspace/diagnostic/refresh`, and a reply withheld there dropped the
+connection before `exit` could be sent. Pending folder updates and imports for that connection are dropped; the replacement
+receives the current folders in `initialize` and its own project import. When the connection ends,
+unanswered requests are marked Abandoned in the protocol inspector.
 Before an initialize reply, neither message is sent. An externally owned pipe server receives neither
 on stop: HexIDE closes only its connection. A launched pipe server gets two seconds to exit before
 HexIDE kills its remaining process tree, including during bring-up (#313).

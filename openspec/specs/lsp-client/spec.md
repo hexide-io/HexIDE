@@ -324,6 +324,10 @@ SHALL omit the `params` member. The stdio transport SHALL allow two seconds for 
 kill the remaining process tree and wait up to two seconds for termination before disposing the process
 handle. On Linux and macOS, both transports SHALL allow an additional two seconds for the guard's
 group cleanup before killing it. The process exit code SHALL remain observable in the conversation during client stop.
+After sending `shutdown`, the client SHALL send no request or notification but `exit` on that connection.
+Pending workspace-folder updates, project imports and cancellations SHALL be dropped for the old
+connection rather than queued for it. Replies to the server's own requests SHALL still be sent. When a connection ends, its unanswered requests SHALL be recorded as Abandoned.
+
 Both process-owning transports SHALL retain the process exit handler until disposal has recorded the
 exit, and SHALL record it once. During deliberate disposal, they SHALL log the exit code at information
 level with the server identity and SHALL log a timeout kill separately. Deliberate disposal SHALL NOT
@@ -350,6 +354,19 @@ the group are outside this guarantee.
 An orphaned server process outliving the IDE would hold file handles and consume memory with nothing to
 serve. Asking first and terminating second means a well-behaved server exits cleanly while a wedged one
 still goes away.
+
+#### Scenario: First save races the project-change debounce
+- **WHEN** the first save moves the workspace root while the old server is awaiting shutdown
+- **THEN** the old server receives only `exit` after `shutdown`
+- **AND** the replacement receives the current workspace folders in `initialize` and the project import
+
+#### Scenario: The server asks something before it answers shutdown
+- **WHEN** a server sends a request after receiving `shutdown` and before answering it
+- **THEN** the client replies to it, and then sends `exit`
+
+#### Scenario: A request outlives its connection
+- **WHEN** a connection ends with an unanswered project import
+- **THEN** the protocol inspector records that request as Abandoned
 
 #### Scenario: A launched pipe server exits during disposal
 - **WHEN** a launched pipe server exits during its disposal grace period
