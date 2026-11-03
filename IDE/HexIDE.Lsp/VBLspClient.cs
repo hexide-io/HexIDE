@@ -1497,13 +1497,35 @@ public sealed class VBLspClient : ILspClient
 
     public async Task<SemanticTokenResult?> RequestSemanticTokensAsync(string uri, CancellationToken cancellationToken = default)
     {
-        if (_rpc is null || !_initialized || !ServerCapabilities.SupportsSemanticTokensFull(AdvertisedCapabilities)) return null;
+        var rpc = _rpc;
+        if (rpc is null || !_initialized || !ServerCapabilities.SupportsSemanticTokensFull(AdvertisedCapabilities)) return null;
+        var connection = Volatile.Read(ref _connection);
+        _openDocuments.TryGetValue(uri, out var document);
         try
         {
             var legend = AdvertisedCapabilities!.Value.GetProperty("semanticTokensProvider").GetProperty("legend")
                 .GetProperty("tokenTypes").EnumerateArray().Select(t => t.GetString()!).ToArray();
-            var result = await InvokeRequestAsync<SemanticTokens>(_rpc, "textDocument/semanticTokens/full",
-                new SemanticTokensParams(new TextDocumentIdentifier(uri)), cancellationToken, supersededUri: uri);
+            SemanticTokens? result;
+            var delay = 250;
+            while (true)
+            {
+                try
+                {
+                    result = await InvokeRequestAsync<SemanticTokens>(rpc, "textDocument/semanticTokens/full",
+                        new SemanticTokensParams(new TextDocumentIdentifier(uri)), cancellationToken, supersededUri: uri);
+                    break;
+                }
+                catch (RemoteInvocationException ex) when (ex.ErrorCode == -32801)
+                {
+                    await Task.Delay(delay, cancellationToken);
+                    delay = Math.Min(delay * 2, 4000);
+                    _openDocuments.TryGetValue(uri, out var current);
+                    // An edit, close/reopen or reconnect must not revive the overtaken request.
+                    if (!_initialized || !ReferenceEquals(rpc, _rpc)
+                        || connection != Volatile.Read(ref _connection) || !ReferenceEquals(current, document))
+                        return null;
+                }
+            }
             if (result?.Data is not { Length: > 0 })
             {
                 if (_semanticWarnings.TryAdd(uri, 0))

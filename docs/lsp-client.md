@@ -226,6 +226,11 @@ an answer. Cancellation sends `$/cancelRequest` best effort; returning never dep
 StreamJsonRpc retains abandoned pending entries until the connection ends. That connection-lifetime leak
 is accepted so one silent method cannot block the caller or disable a healthy connection.
 
+Full semantic-token requests answered with Content Modified (`-32801`) retry after 250 ms,
+with exponential backoff capped at 4 seconds (#2913). These replies do not spend the document's
+once-only warning. Cancellation, a document change or close, or a connection change stops the retry.
+Semantic-token refresh requests remain unsupported.
+
 Before a document change, the client cancels outstanding diagnostic pulls, full semantic-token requests
 and folding requests for that document and waits for their cancellation frames to be sent before
 `didChange` (#2365). Hover, completion and other user requests are left alone, as are requests for other

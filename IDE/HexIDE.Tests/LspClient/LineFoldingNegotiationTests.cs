@@ -15,6 +15,7 @@ public class LineFoldingNegotiationTests : IAsyncDisposable
 {
     private readonly List<IAsyncDisposable> _disposables = [];
     private LspClientRegistry? _registry;
+    private readonly List<IDisposable> _servers = [];
 
     /// <summary>Captures the <c>initialize</c> parameters the client sends.</summary>
     private sealed class HandshakeRecorder
@@ -23,6 +24,9 @@ public class LineFoldingNegotiationTests : IAsyncDisposable
             new(TaskCreationOptions.RunContinuationsAsynchronously);
 
         public bool FailTokens { get; set; }
+        public int TransientFailures { get; set; }
+        public TaskCompletionSource FirstTokenRequest { get; } =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
         public bool EmptyTokens { get; set; }
         public int TokenRequests { get; private set; }
         public string? TokenUri { get; private set; }
@@ -31,7 +35,10 @@ public class LineFoldingNegotiationTests : IAsyncDisposable
         public JsonElement Tokens(JsonElement p)
         {
             TokenRequests++;
+            FirstTokenRequest.TrySetResult();
             TokenUri = p.GetProperty("textDocument").GetProperty("uri").GetString();
+            if (TokenRequests <= TransientFailures)
+                throw new LocalRpcException("Content Modified") { ErrorCode = -32801 };
             if (FailTokens) throw new InvalidOperationException("analysis still starting");
             return JsonDocument.Parse(EmptyTokens ? """{"data":[]}""" : """{"data":[0,0,3,0,0]}""").RootElement.Clone();
         }
@@ -106,6 +113,71 @@ public class LineFoldingNegotiationTests : IAsyncDisposable
             .Should().Be(1, "errors and empty results are logged once per document");
     }
 
+    [Fact]
+    public async Task ContentModifiedTokensAreRetriedUntilAnAnswerArrives()
+    {
+        var server = new HandshakeRecorder { TransientFailures = 2 };
+        var (client, logger) = await TokenClient(server);
+
+        var tokens = await client.RequestSemanticTokensAsync("untitled:Module1.bas", TestContext.Current.CancellationToken)
+            .WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
+
+        tokens.Should().NotBeNull();
+        tokens!.Data.Should().Equal(0, 0, 3, 0, 0);
+        server.TokenRequests.Should().Be(3, "the server must receive both retries without an edit");
+        logger.ReceivedCalls().Count(call => call.GetMethodInfo().Name == "Log"
+            && call.GetArguments()[0] is LogLevel.Warning).Should().Be(0);
+    }
+
+    private async Task<(VBLspClient Client, ILogger<VBLspClient> Logger)> TokenClient(HandshakeRecorder server)
+    {
+        var (clientSide, serverSide) = FullDuplexStream.CreatePair();
+        var serverRpc = new JsonRpc(
+            new HeaderDelimitedMessageHandler(serverSide, serverSide, new SystemTextJsonFormatter()), server);
+        serverRpc.StartListening();
+        var transport = Substitute.For<ILspTransport>();
+        transport.IsAlive.Returns(true);
+        transport.ConnectAsync(Arg.Any<IJsonRpcMessageFormatter>(), Arg.Any<CancellationToken>())
+            .Returns(ci => Task.FromResult<IJsonRpcMessageHandler?>(
+                new HeaderDelimitedMessageHandler(clientSide, clientSide, ci.Arg<IJsonRpcMessageFormatter>())));
+        var logger = Substitute.For<ILogger<VBLspClient>>();
+        var client = new VBLspClient(transport, logger, "markdown");
+        _disposables.Add(client);
+        await client.StartAsync(TestContext.Current.CancellationToken);
+
+        _servers.Add(serverRpc);
+        return (client, logger);
+    }
+
+    [Theory]
+    [InlineData("cancel")]
+    [InlineData("change")]
+    [InlineData("close")]
+    [InlineData("stop")]
+    public async Task AnObsoleteTokenRetryStops(string action)
+    {
+        var server = new HandshakeRecorder { TransientFailures = int.MaxValue };
+        var (client, _) = await TokenClient(server);
+        const string uri = "untitled:Module1.bas";
+        await client.OpenDocumentAsync(uri, "x", TestContext.Current.CancellationToken);
+        using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        var request = client.RequestSemanticTokensAsync(uri, cancellation.Token);
+        await server.FirstTokenRequest.Task.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
+        // Let the error arrive; the retry should still be waiting for its backoff.
+        await Task.Delay(100, TestContext.Current.CancellationToken);
+        server.TokenRequests.Should().Be(1);
+        request.IsCompleted.Should().BeFalse();
+        switch (action)
+        {
+            case "cancel": cancellation.Cancel(); break;
+            case "change": await client.ChangeDocumentAsync(uri, 2, "y", TestContext.Current.CancellationToken); break;
+            case "close": await client.CloseDocumentAsync(uri, TestContext.Current.CancellationToken); break;
+            case "stop": await client.StopAsync(); break;
+        }
+        (await request.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken)).Should().BeNull();
+        server.TokenRequests.Should().Be(1, "obsolete work must not reach the server again");
+    }
+
     // A function whose closing brace has a line of its own, and no #include, for the reason
     // DeclarationIsNotDefinitionTests gives. Measured against clangd: its fold ends on line 3, the brace's line, for a
     // client that does not declare lineFoldingOnly, and on line 2 for one that does.
@@ -163,6 +235,7 @@ public class LineFoldingNegotiationTests : IAsyncDisposable
         {
             try { await d.DisposeAsync(); } catch { /* teardown is best effort */ }
         }
+        foreach (var server in _servers) server.Dispose();
         GC.SuppressFinalize(this);
     }
 }
