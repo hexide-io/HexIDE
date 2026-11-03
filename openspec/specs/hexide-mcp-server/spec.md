@@ -1343,3 +1343,31 @@ disabled-window refusals.
 
 - **WHEN** a caller clicks an unnamed button whose automation id is `Standard.OpenProject`
 - **THEN** the reply describes it as `Button[Standard.OpenProject]`
+
+### Requirement: External session run control
+
+The run-control tools SHALL use the Debug menu's external routes for Step Into, Step Over,
+Step Out, Continue and Break. Set Next Statement SHALL use capability-gated gotoTargets/goto
+with the named saved document's source path. Replies SHALL wait up to two seconds for the
+new stop's stack and report its top source frame, running or ended. Adapter refusals SHALL
+include the adapter's message and say whether stopped inspection was kept. External Run To
+Cursor SHALL refuse with an explanation that the route lacks one-shot breakpoint support.
+
+#### Scenario: Step an external session
+
+- **GIVEN** an external debug session is stopped
+- **WHEN** `step_into` is called
+- **THEN** the menu route sends `stepIn`
+- **AND** the reply reports the next stopped frame's source path and line when available within the wait
+
+#### Scenario: Adapter refuses a resume
+
+- **GIVEN** a stopped external session with inspection visible
+- **WHEN** the adapter refuses the tool's resume command
+- **THEN** the reply includes the adapter's message and says that inspection was kept
+
+#### Scenario: Move to a named source document
+
+- **GIVEN** an external adapter supporting gotoTargets and a saved module
+- **WHEN** `set_next_statement` names that module and a valid source line
+- **THEN** gotoTargets receives the document's file path and line, followed by goto for the returned target

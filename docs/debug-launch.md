@@ -135,9 +135,17 @@ Two behaviours of RDCore's adapter affect these commands. Both were measured aga
 Breakpoints stay on the line numbers they were set on. An edit that adds or removes lines above one leaves it
 on a different statement.
 
-The existing debugger MCP commands remain interpreter-oriented. During an external run, `get_debug_state`
-reports external state and `stop_project` stops it; other execution/inspection tools explicitly refuse remote
-operations. Use the normal UI or generic MCP UI interaction for this slice. Remote command-specific MCP
-routing is follow-up work.
+During an external run, `get_debug_state` reports the adapter's state and `stop_project` stops it.
+The inspection tools (`get_locals`, `get_call_stack`, the watch tools and `evaluate`) still refuse
+external sessions; use the IDE's inspection windows through generic MCP UI interaction instead.
 
 See [the measured external adapter setup](dap-adapter-smoke.md) for a reproducible workspace and platform.
+
+The MCP tools `step_into`, `step_over`, `step_out`, `continue_program` and `break_program`
+use these same external commands. Their replies wait up to two seconds for a new stop and its
+stack, then report the top frame's source path and line, running, or ended. An adapter refusal
+includes its message and says whether stopped inspection was kept. `set_next_statement` uses
+`gotoTargets` then `goto` when supported, resolving its module name to the saved document's file
+path; an unsaved target is refused. The interpreter's top-level-statement restriction does not
+apply to the adapter. `run_to_cursor` refuses external sessions because the external route has
+no one-shot breakpoint support; set a breakpoint in the editor and continue instead.
