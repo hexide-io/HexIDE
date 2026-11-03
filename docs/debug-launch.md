@@ -108,6 +108,25 @@ conditional breakpoints and applied saved edits in the measurements recorded in 
   (#2914). RDCore's adapter sends it only after it applies a saved edit, just before that resume's
   `stopped`, so with RDCore the refresh arrives with the stop (measured against RDCore 84278ae, 2026-11-03).
 
+Two behaviours of RDCore's adapter affect these commands. Both were measured against RDCore `84278aea` on
+2026-11-03. Both are RDCore's own, so a later RDCore build may change either:
+
+- **Break doesn't interrupt a running program.** RDCore handles one request at a time, so `pause` and
+  `disconnect` wait behind the request that runs the program. In a loop that ran for about 7 s, Break's
+  `pause` was answered only when the loop finished. No `stopped` event followed, and the program ran to its
+  end ([#2976](https://github.com/hexide-io/HexIDE/pull/2976)). End still ends a program that never
+  finishes. RDCore doesn't answer its `disconnect`, so HexIDE stops waiting after 5 s and closes the
+  connection, then ends the adapter's process tree if it hasn't exited 5 s later. With an endless loop, the
+  adapter and its host process were gone 10.1 s after End
+  ([#2980](https://github.com/hexide-io/HexIDE/issues/2980)).
+- **Set Next Statement can land somewhere other than the target line.** RDCore moves to the first statement
+  of the stopped procedure at or after the target line. So it refuses a line below the stopped procedure,
+  and moves a line above it to that procedure's first statement. RDCore's own probe, reported in #2964,
+  found that it reads only the line number, not the file, so a line in another file is treated as the same
+  line of the stopped procedure's file. RDCore's `gotoTargets` reply labels such a target with the requested
+  line, so HexIDE can't tell it from an ordinary move, and shows the line that RDCore's next `stopped` event
+  reports ([#2964](https://github.com/hexide-io/HexIDE/pull/2964)).
+
 Breakpoints stay on the line numbers they were set on. An edit that adds or removes lines above one leaves it
 on a different statement.
 
