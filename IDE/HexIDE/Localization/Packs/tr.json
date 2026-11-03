@@ -3,8 +3,8 @@
   "direction": "ltr",
   "strings": {
     "Str.Debug.External.EndTimeout": "{0} hata ayıklama bağdaştırıcısı Sonlandır komutuna yanıt vermedi ve {1} saniye beklendikten sonra durduruldu.",
-    "Str.Debug.External.BreakpointConditionUnsupported": "Dış oturumlarda kesme noktası koşulları henüz desteklenmiyor. Dosya '{0}', kesme noktası girdisi {1}.",
-    "Str.Debug.External.BreakpointOptionUnsupported": "'{0}' kesme noktası seçeneği henüz harici oturumlarda desteklenmiyor. Dosya '{1}', kesme noktası girdisi {2}.",
+    "Str.Debug.External.BreakpointConditionUnsupported": "Koşulları kesme noktası kenar boşluğu menüsündeki Koşul… ile ayarlayın. Dosya '{0}', kesme noktası girdisi {1}.",
+    "Str.Debug.External.BreakpointOptionUnsupported": "'{0}' kesme noktası seçeneği henüz harici oturumlarda desteklenmiyor. Dosya '{1}', kesme noktası girdisi {2}. Koşulları kesme noktası kenar boşluğu menüsündeki Koşul… ile ayarlayın.",
     "Str.MainWindow.RecoveryNotice": "Kurtarma oturumu — ayar değişiklikleri kaydedilmeyecek",
     "Str.Profiles.LoadError": "'{0}' profili, '{1}' dosyası yüklenemiyor. Paket biçimini ve dosya yollarını kontrol edin.",
     "Str.Profiles.HelpSummary": "Temel profil: ad, dizin yolu veya none (güvenli mod).",
@@ -1009,6 +1009,10 @@
     "Str.Tool.Outline.Kind.Struct": "Yapı",
     "Str.Tool.Outline.Kind.Event": "Olay",
     "Str.Tool.Outline.Kind.Operator": "İşleç",
-    "Str.Tool.Outline.Kind.TypeParameter": "Tür parametresi"
+    "Str.Tool.Outline.Kind.TypeParameter": "Tür parametresi",
+    "Str.Debug.Conditions.Prompt": "Bu satırda yalnızca bu ifade doğru olduğunda dur:",
+    "Str.Debug.Conditions.Edit": "Koşul…",
+    "Str.Debug.Conditions.AdapterIgnored": "Bu bağdaştırıcı koşulları yok sayar ve her seferinde durur.",
+    "Str.Debug.Conditions.InterpreterIgnored": "Yorumlayıcı koşulları yok sayar ve her seferinde durur."
   }
 }

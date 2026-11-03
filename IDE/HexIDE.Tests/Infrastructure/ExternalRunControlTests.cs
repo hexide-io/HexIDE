@@ -10,6 +10,101 @@ namespace HexIDE.Tests.Infrastructure;
 
 public class ExternalRunControlTests : CompositionTestBase
 {
+    [Fact]
+    public void Source_paths_resolve_symlinked_parent_directories()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "hexide-source-path-" + Guid.NewGuid());
+        var root = Path.Combine(directory, "root");
+        var rootLink = Path.Combine(directory, "root-link");
+        var real = Path.Combine(rootLink, "real");
+        var link = Path.Combine(rootLink, "link");
+        Directory.CreateDirectory(Path.Combine(root, "real", "nested"));
+        try
+        {
+            Directory.CreateSymbolicLink(rootLink, root);
+            Directory.CreateSymbolicLink(link, real);
+            var expected = ResolvePath(Path.Combine(real, "nested", "Callee.bas"));
+            ResolvePath(Path.Combine(link, "nested", "Callee.bas")).Should().Be(expected);
+            ResolvePath(Path.Combine(link, "nested", "Other.bas")).Should().NotBe(expected);
+        }
+        finally
+        {
+            if (Directory.Exists(link)) Directory.Delete(link);
+            if (Directory.Exists(rootLink)) Directory.Delete(rootLink);
+            Directory.Delete(directory, true);
+        }
+    }
+
+    // The adapter builds source paths from its process cwd, which resolves macOS's /var symlink.
+    // Walk parents too: the fixture reports source filenames without creating the files.
+    private static string ResolvePath(string path)
+    {
+        var full = Path.GetFullPath(path);
+        var parent = Path.GetDirectoryName(full);
+        if (parent is null) return full;
+        var resolved = Path.Combine(ResolvePath(parent), Path.GetFileName(full));
+        FileSystemInfo info = Directory.Exists(resolved) ? new DirectoryInfo(resolved) : new FileInfo(resolved);
+        var target = info.Exists ? info.ResolveLinkTarget(true) : null;
+        return target is null ? resolved : ResolvePath(target.FullName);
+    }
+
+    [AvaloniaTheory]
+    [InlineData("goto")]
+    [InlineData("disconnect-held")]
+    public async Task Debug_state_and_stop_describe_the_external_session(string mode)
+    {
+        var composition = Composition;
+        var external = composition.ExternalDebugger;
+        var directory = Path.Combine(Path.GetTempPath(), "hexide-state-dap-" + Guid.NewGuid());
+        Directory.CreateDirectory(directory);
+        using var context = new IdeContext(Substitute.For<IProjectManager>(), Substitute.For<IDocumentDockService>(),
+            Substitute.For<ILspClient>(), null!, composition.ProjectRunnerService, null!, null!, null!, null!,
+            composition.DebugController, composition.Root, null!, null!, null!, null!, composition.Capture,
+            null!, composition.LocalizationService, null!);
+        var tools = new HexIdeTools(context);
+        var run = external.StartAsync(await ExternalDebugServiceTests.Configuration(directory, mode));
+        try
+        {
+            await ExternalDebugServiceTests.WaitFor(external, () => external.CanEvaluate);
+            var state = await tools.GetDebugStateAsync(TestContext.Current.CancellationToken);
+            state.Running.Should().BeTrue();
+            state.State.Should().Be("Paused");
+            state.StopReason.Should().Be("Breakpoint");
+            state.AdapterStopReason.Should().Be("breakpoint");
+            state.Module.Should().Be(external.Frames[0].GetProperty("source").GetProperty("path").GetString());
+            ResolvePath(state.Module!).Should().Be(ResolvePath(Path.Combine(directory, "Callee.bas")));
+            state.Project.Should().BeNull();
+            if (mode == "goto")
+            {
+                await external.SetNextStatementAsync(new Uri(Path.Combine(directory, "Callee.bas")).AbsoluteUri, 19);
+                await ExternalDebugServiceTests.WaitFor(external, () => external.Stop?.Reason == "goto" && external.CanEvaluate);
+                state = await tools.GetDebugStateAsync(TestContext.Current.CancellationToken);
+                state.StopReason.Should().Be("Step");
+                state.AdapterStopReason.Should().Be("goto");
+            }
+            var reply = await tools.StopProjectAsync(TestContext.Current.CancellationToken);
+            reply.Success.Should().BeTrue();
+            reply.Note.Should().Contain("External session output is not captured");
+            reply.Printed.Should().BeNull();
+            await ExternalDebugServiceTests.WaitFor(external, () => external.State == HexIDE.Dap.DapSessionState.Ended);
+            state = await tools.GetDebugStateAsync(TestContext.Current.CancellationToken);
+            state.Running.Should().BeFalse();
+            state.State.Should().Be("Ended");
+            state.StopReason.Should().BeNull();
+            state.AdapterStopReason.Should().BeNull();
+            await run.WaitAsync(TimeSpan.FromSeconds(20), TestContext.Current.CancellationToken);
+            state = await tools.GetDebugStateAsync(TestContext.Current.CancellationToken);
+            state.Running.Should().BeFalse();
+            state.State.Should().Be("Ended");
+        }
+        finally
+        {
+            await external.StopAsync();
+            await run.WaitAsync(TimeSpan.FromSeconds(20), TestContext.Current.CancellationToken);
+            Directory.Delete(directory, true);
+        }
+    }
+
     [AvaloniaTheory]
     [InlineData("step_into", "stepIn", "run-control")]
     [InlineData("step_into", "stepIn", "run-control-delayed")]

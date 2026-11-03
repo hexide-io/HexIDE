@@ -46,7 +46,7 @@ namespace HexIDE.Sidecar;
 /// See <see cref="UserSidecarData"/> and <see cref="Apply"/>.
 /// </para>
 /// </remarks>
-public class UserSidecarService : IUserSidecarService
+public partial class UserSidecarService : IUserSidecarService
 {
     /// <summary>
     /// The format this build writes: code-relative marks and separate file-relative header marks.
@@ -393,6 +393,8 @@ public class UserSidecarService : IUserSidecarService
         foreach (var (document, lines) in breakpoints)
             breakpointService.SetDocument(document, lines);
 
+        ApplyConditions(project, data, owned);
+
         var migrated = new UserSidecarData
         {
             Version = data.Version,
@@ -402,6 +404,8 @@ public class UserSidecarService : IUserSidecarService
             Breakpoints = oldBreakpoints.Count > 0 ? oldBreakpoints : null,
             CodeBookmarks = data.CodeBookmarks,
             CodeBreakpoints = data.CodeBreakpoints,
+            CodeBreakpointConditions = data.CodeBreakpointConditions,
+            HeaderBreakpointConditions = data.HeaderBreakpointConditions,
             HeaderBookmarks = data.HeaderBookmarks,
             HeaderBreakpoints = data.HeaderBreakpoints,
             Extra = data.Extra,
@@ -715,6 +719,8 @@ public class UserSidecarService : IUserSidecarService
             Carry(source?.HeaderBookmarks, state.Owned, state.WroteHeader?.Bookmarks, headerBookmarks);
             Carry(source?.CodeBreakpoints, state.Owned, state.Wrote?.Breakpoints, breakpoints);
             Carry(source?.HeaderBreakpoints, state.Owned, state.WroteHeader?.Breakpoints, headerBreakpoints);
+            var codeConditions = CollectConditions(project, source?.CodeBreakpointConditions, state, header: false);
+            var headerConditions = CollectConditions(project, source?.HeaderBreakpointConditions, state, header: true);
             var fileBookmarks = Unconsumed(source?.FileBookmarks, state.ConsumedFile?.Bookmarks);
             var fileBreakpoints = Unconsumed(source?.FileBreakpoints, state.ConsumedFile?.Breakpoints);
             var oldBookmarks = Unconsumed(source?.Bookmarks, state.Consumed?.Bookmarks);
@@ -730,7 +736,8 @@ public class UserSidecarService : IUserSidecarService
             // does not understand, and it is a file the user may have committed.
             if (!exists && bookmarks.Count == 0 && breakpoints.Count == 0 && oldBookmarks == null &&
                 oldBreakpoints == null && fileBookmarks == null && fileBreakpoints == null &&
-                headerBookmarks.Count == 0 && headerBreakpoints.Count == 0 && extra == null && version == CurrentVersion)
+                headerBookmarks.Count == 0 && headerBreakpoints.Count == 0 &&
+                codeConditions.Count == 0 && headerConditions.Count == 0 && extra == null && version == CurrentVersion)
             {
                 // Nothing lies here, so the place is the project's own from now on: a sidecar that appears here
                 // later is kept as its own, as it is for a project opened where none was.
@@ -743,6 +750,8 @@ public class UserSidecarService : IUserSidecarService
                 Version = version,
                 CodeBookmarks = bookmarks.Count > 0 ? bookmarks : null,
                 CodeBreakpoints = breakpoints.Count > 0 ? breakpoints : null,
+                CodeBreakpointConditions = codeConditions.Count > 0 ? codeConditions : null,
+                HeaderBreakpointConditions = headerConditions.Count > 0 ? headerConditions : null,
                 HeaderBookmarks = headerBookmarks.Count > 0 ? headerBookmarks : null,
                 HeaderBreakpoints = headerBreakpoints.Count > 0 ? headerBreakpoints : null,
                 FileBookmarks = fileBookmarks,
@@ -992,6 +1001,12 @@ internal class UserSidecarData
     /// <summary>Version 3 breakpoints, 1-based from the first line after the full read-only header.</summary>
     [JsonPropertyName("codeBreakpoints")]
     public Dictionary<string, List<int>>? CodeBreakpoints { get; set; }
+
+    [JsonPropertyName("codeBreakpointConditions")]
+    public Dictionary<string, Dictionary<int, string>>? CodeBreakpointConditions { get; set; }
+
+    [JsonPropertyName("headerBreakpointConditions")]
+    public Dictionary<string, Dictionary<int, string>>? HeaderBreakpointConditions { get; set; }
 
     /// <summary>Version 3 header bookmarks, 0-based from the top of the file.</summary>
     [JsonPropertyName("headerBookmarks")]

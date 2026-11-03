@@ -645,14 +645,34 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
         return true;
     }
 
+    public string? BreakpointCondition(int line) => ExternalDebugger?.IsActive == true
+        ? ExternalDebugger.GetCondition(GetDocumentUriPublic(), line) : breakpointService.GetCondition(Identity, line);
+
+    public bool HasBreakpoint(int line) => ExternalDebugger?.IsActive == true
+        ? ExternalDebugger.GetBreakpoints(GetDocumentUriPublic()).Any(row => row.RequestedLine == line)
+        : breakpointService.IsBreakpoint(Identity, line);
+
+    public async Task EditBreakpointConditionAsync(int line)
+    {
+        if (!HasBreakpoint(line)) return;
+        var caption = localization.GetString("Str.Debug.Conditions.Edit");
+        var condition = await windowManager.InputBox(localization.GetString("Str.Debug.Conditions.Prompt"), caption, BreakpointCondition(line) ?? "");
+        if (condition is null) return;
+        if (ExternalDebugger?.IsActive == true)
+            ExternalDebugger.SetCondition(GetDocumentUriPublic(), line, condition);
+        else breakpointService.SetCondition(Identity, line, condition);
+    }
+
     public string? DescribeExternalBreakpoint(int line)
     {
-        if (ExternalDebugger?.IsActive != true) return null;
+        var condition = BreakpointCondition(line);
+        if (ExternalDebugger?.IsActive != true) return condition;
         var row = ExternalDebugger.GetBreakpoints(GetDocumentUriPublic()).FirstOrDefault(item => item.RequestedLine == line);
         if (row is null) return null;
         return string.Format(localization.GetString("Str.Debug.External.Breakpoint"), row.RequestedLine,
             row.Line?.ToString() ?? "—", row.Pending ? "…" : row.Verified ? "✓" : "×",
-            row.Pending ? localization.GetString("Str.Debug.External.BreakpointPending") : row.Message);
+            row.Pending ? localization.GetString("Str.Debug.External.BreakpointPending") : row.Message)
+            + (condition is null ? "" : "\n" + condition);
     }
 
     /// <summary>

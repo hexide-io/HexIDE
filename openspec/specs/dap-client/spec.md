@@ -302,7 +302,7 @@ evaluation, which can have side effects.
 - **THEN** Immediate displays its error and permits another submission
 
 ### Requirement: Session-only external breakpoint editing
-The IDE SHALL initialize external source breakpoints from launch JSON and SHALL route gutter/F9 and Clear All
+The IDE SHALL initialize external source breakpoints from launch JSON and saved IDE marks and SHALL route gutter/F9 and Clear All
 to the active external session once launch configuration is complete. Changes SHALL NOT modify the launch file
 or saved interpreter marks. Per-source replacements SHALL include the complete desired set, including an empty
 set for removal, and SHALL be allowed while running or stopped. Late replies SHALL NOT replace newer intent
@@ -421,7 +421,7 @@ event for its new location, with the same inspection lifetime rules as other res
 ### Requirement: Explicit refusal of external breakpoint conditions
 The IDE SHALL reject a launch breakpoint entry containing `condition`, `hitCondition` or `logMessage` before starting an adapter, with a
 localized diagnostic naming the launch file and one-based breakpoint entry. It SHALL NOT expose the
-serializer's internal type name for this refusal.
+serializer's internal type name for this refusal. The diagnostic SHALL direct users to Condition… in the gutter menu.
 
 #### Scenario: A condition is present
 - **WHEN** a launch breakpoint entry contains condition, hitCondition or logMessage, including a null value
@@ -453,3 +453,35 @@ Raw exit and forced-termination details SHALL remain in the log and protocol ins
 - **WHEN** the disconnect deadline expires and cleanup kills the adapter
 - **THEN** Immediate reports the adapter name and wait once in the selected IDE language
 - **AND** the protocol inspector retains the exit code and forced-termination detail
+
+### Requirement: IDE breakpoint condition storage
+The IDE breakpoint store SHALL retain an optional condition expression on an existing breakpoint and
+SHALL persist it in the per-user sidecar with the breakpoint's header-relative code line (or file-relative
+header line). Removing a breakpoint SHALL forget its condition; an empty expression SHALL remove only
+the condition. The gutter context menu SHALL offer Condition… with one expression field; confirming an empty expression
+SHALL remove the condition, while cancelling SHALL keep it. A conditional breakpoint SHALL have a distinct
+glyph and a tooltip showing its expression and adapter verification/message (#2914).
+
+#### Scenario: Header changes without losing a condition
+- **GIVEN** an IDE breakpoint has a condition expression
+- **WHEN** a header refresh moves its line
+- **THEN** the condition moves with the breakpoint and survives saving and reopening the project
+
+#### Scenario: Clearing a condition
+- **WHEN** an existing breakpoint receives an empty condition expression
+- **THEN** its line remains a breakpoint and reopening the project does not restore the condition
+
+### Requirement: Conditional breakpoint capability and fallback
+The IDE SHALL include breakpoint conditions in initial and live `setBreakpoints` requests only when the
+adapter advertises `supportsConditionalBreakpoints`. Without that capability it SHALL send line-only
+breakpoints and explain once per session in localized Immediate output that conditions are ignored and
+stops are unconditional. Interpreter runs SHALL also stop unconditionally and show a corresponding
+once-per-run notice. Launch-file conditions SHALL remain refused.
+
+#### Scenario: Capable adapter
+- **WHEN** an IDE breakpoint with a condition is sent to a capable adapter
+- **THEN** its source breakpoint contains the line and condition expression
+
+#### Scenario: Incapable adapter or interpreter
+- **WHEN** a run first receives a conditional breakpoint without condition evaluation support
+- **THEN** it keeps the unconditional breakpoint and emits one localized notice for that run

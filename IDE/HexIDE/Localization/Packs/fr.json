@@ -3,8 +3,8 @@
   "direction": "ltr",
   "strings": {
     "Str.Debug.External.EndTimeout": "L’adaptateur de débogage {0} n’a pas répondu à Terminer et a été arrêté après {1} secondes d’attente.",
-    "Str.Debug.External.BreakpointConditionUnsupported": "Les conditions de points d’arrêt ne sont pas encore prises en charge pour les sessions externes. Fichier '{0}', entrée de point d’arrêt {1}.",
-    "Str.Debug.External.BreakpointOptionUnsupported": "L'option de point d'arrêt '{0}' n'est pas encore prise en charge pour les sessions externes. Fichier '{1}', entrée {2}.",
+    "Str.Debug.External.BreakpointConditionUnsupported": "Définissez les conditions via Condition… dans le menu de la marge des points d’arrêt. Fichier '{0}', entrée de point d’arrêt {1}.",
+    "Str.Debug.External.BreakpointOptionUnsupported": "L'option de point d'arrêt '{0}' n'est pas encore prise en charge pour les sessions externes. Fichier '{1}', entrée {2}. Définissez les conditions via Condition… dans le menu de la marge des points d’arrêt.",
     "Str.MainWindow.RecoveryNotice": "Session de récupération — les modifications des paramètres ne seront pas enregistrées",
     "Str.Profiles.LoadError": "Impossible de charger le profil '{0}', fichier '{1}'. Vérifiez le format du paquet et les chemins des fichiers.",
     "Str.Profiles.HelpSummary": "Profil de base : nom, chemin de dossier ou none (mode sans échec).",
@@ -1009,6 +1009,10 @@
     "Str.Tool.Outline.Kind.Struct": "Structure",
     "Str.Tool.Outline.Kind.Event": "Événement",
     "Str.Tool.Outline.Kind.Operator": "Opérateur",
-    "Str.Tool.Outline.Kind.TypeParameter": "Paramètre de type"
+    "Str.Tool.Outline.Kind.TypeParameter": "Paramètre de type",
+    "Str.Debug.Conditions.Prompt": "Arrêter à cette ligne uniquement lorsque cette expression est vraie :",
+    "Str.Debug.Conditions.Edit": "Condition…",
+    "Str.Debug.Conditions.AdapterIgnored": "Cet adaptateur ignore les conditions des points d’arrêt et s’arrête à chaque passage.",
+    "Str.Debug.Conditions.InterpreterIgnored": "L’interpréteur ignore les conditions des points d’arrêt et s’arrête à chaque passage."
   }
 }

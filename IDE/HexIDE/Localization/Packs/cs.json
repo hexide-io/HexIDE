@@ -3,8 +3,8 @@
   "direction": "ltr",
   "strings": {
     "Str.Debug.External.EndTimeout": "Ladicí adaptér {0} neodpověděl na příkaz Ukončit a byl zastaven po čekání {1} sekund.",
-    "Str.Debug.External.BreakpointConditionUnsupported": "Podmínky bodů přerušení zatím nejsou pro externí relace podporovány. Soubor '{0}', položka bodu přerušení {1}.",
-    "Str.Debug.External.BreakpointOptionUnsupported": "Možnost zarážky '{0}' zatím není podporována pro externí relace. Soubor '{1}', položka zarážky {2}.",
+    "Str.Debug.External.BreakpointConditionUnsupported": "Podmínky nastavte příkazem Podmínka… v nabídce okraje zarážek. Soubor '{0}', položka bodu přerušení {1}.",
+    "Str.Debug.External.BreakpointOptionUnsupported": "Možnost zarážky '{0}' zatím není podporována pro externí relace. Soubor '{1}', položka zarážky {2}. Podmínky nastavte příkazem Podmínka… v nabídce okraje zarážek.",
     "Str.MainWindow.RecoveryNotice": "Relace obnovení — změny nastavení nebudou uloženy",
     "Str.Profiles.LoadError": "Nelze načíst profil '{0}', soubor '{1}'. Zkontrolujte formát balíčku a cesty k souborům.",
     "Str.Profiles.HelpSummary": "Základní profil: název, cesta k adresáři nebo none (nouzový režim).",
@@ -1009,6 +1009,10 @@
     "Str.Tool.Outline.Kind.Struct": "Struktura",
     "Str.Tool.Outline.Kind.Event": "Událost",
     "Str.Tool.Outline.Kind.Operator": "Operátor",
-    "Str.Tool.Outline.Kind.TypeParameter": "Parametr typu"
+    "Str.Tool.Outline.Kind.TypeParameter": "Parametr typu",
+    "Str.Debug.Conditions.Prompt": "Zastavit na tomto řádku pouze tehdy, když je tento výraz pravdivý:",
+    "Str.Debug.Conditions.Edit": "Podmínka…",
+    "Str.Debug.Conditions.AdapterIgnored": "Tento adaptér ignoruje podmínky a zastaví pokaždé.",
+    "Str.Debug.Conditions.InterpreterIgnored": "Interpret ignoruje podmínky a zastaví pokaždé."
   }
 }

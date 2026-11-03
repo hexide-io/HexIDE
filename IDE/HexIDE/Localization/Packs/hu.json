@@ -3,8 +3,8 @@
   "direction": "ltr",
   "strings": {
     "Str.Debug.External.EndTimeout": "A(z) {0} hibakeresési adapter nem válaszolt a Befejezés parancsra, és {1} másodperc várakozás után leállt.",
-    "Str.Debug.External.BreakpointConditionUnsupported": "A külső munkamenetek még nem támogatják a feltételes töréspontokat. Fájl: '{0}', töréspontbejegyzés: {1}.",
-    "Str.Debug.External.BreakpointOptionUnsupported": "A(z) '{0}' töréspont-beállítás külső munkamenetekben még nem támogatott. Fájl: '{1}', töréspontbejegyzés: {2}.",
+    "Str.Debug.External.BreakpointConditionUnsupported": "A feltételeket a töréspontsáv menüjének Feltétel… elemével adhatja meg. Fájl: '{0}', töréspontbejegyzés: {1}.",
+    "Str.Debug.External.BreakpointOptionUnsupported": "A(z) '{0}' töréspont-beállítás külső munkamenetekben még nem támogatott. Fájl: '{1}', töréspontbejegyzés: {2}. A feltételeket a töréspontsáv menüjének Feltétel… elemével adhatja meg.",
     "Str.MainWindow.RecoveryNotice": "Helyreállítási munkamenet — a beállítások módosításai nem lesznek mentve",
     "Str.Profiles.LoadError": "Nem tölthető be a(z) „{0}” profil „{1}” fájlja. Ellenőrizze a csomag formátumát és a fájlok elérési útját.",
     "Str.Profiles.HelpSummary": "Alapprofil: név, könyvtárútvonal vagy none (csökkentett mód).",
@@ -1009,6 +1009,10 @@
     "Str.Tool.Outline.Kind.Struct": "Struktúra",
     "Str.Tool.Outline.Kind.Event": "Esemény",
     "Str.Tool.Outline.Kind.Operator": "Operátor",
-    "Str.Tool.Outline.Kind.TypeParameter": "Típusparaméter"
+    "Str.Tool.Outline.Kind.TypeParameter": "Típusparaméter",
+    "Str.Debug.Conditions.Prompt": "Csak akkor álljon meg ennél a sornál, ha ez a kifejezés igaz:",
+    "Str.Debug.Conditions.Edit": "Feltétel…",
+    "Str.Debug.Conditions.AdapterIgnored": "Ez az adapter figyelmen kívül hagyja a feltételeket, és mindig megáll.",
+    "Str.Debug.Conditions.InterpreterIgnored": "Az értelmező figyelmen kívül hagyja a feltételeket, és mindig megáll."
   }
 }

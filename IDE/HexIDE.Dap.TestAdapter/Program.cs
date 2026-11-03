@@ -90,7 +90,7 @@ public static class Program
                 if (command == "disconnect") return 0;
                 continue;
             }
-            if (mode is "run-control-delayed" or "run-control" or "run-control-running" or "run-control-end" or "goto" or "goto-empty" or "goto-refuse" or "goto-targets-refuse" or "invalidated" or "session" or "frames" or "frames-delayed" or "evaluate" or "evaluate-running" or "breakpoints" or "breakpoints-delayed" or "breakpoints-refuse-clear" or "resume-refusal" or "disconnect-held" or "disconnect-held-stderr")
+            if (mode is "run-control-delayed" or "run-control" or "run-control-running" or "run-control-end" or "goto" or "goto-empty" or "goto-refuse" or "goto-targets-refuse" or "invalidated" or "session" or "frames" or "frames-delayed" or "evaluate" or "evaluate-running" or "conditions" or "breakpoints" or "breakpoints-delayed" or "breakpoints-refuse-clear" or "resume-refusal" or "disconnect-held" or "disconnect-held-stderr")
             {
                 var command = request.RootElement.GetProperty("command").GetString();
                 if (mode == "run-control-delayed" && command == "stepIn") continue;
@@ -170,7 +170,7 @@ public static class Program
                     currentLine = 9;
                 object reply = command switch
                 {
-                    "initialize" => new { supportsConfigurationDoneRequest = true, supportsGotoTargetsRequest = mode.StartsWith("goto", StringComparison.Ordinal), supportsEvaluateForHovers = mode is "invalidated" or "evaluate" or "evaluate-running" },
+                    "initialize" => new { supportsConfigurationDoneRequest = true, supportsGotoTargetsRequest = mode.StartsWith("goto", StringComparison.Ordinal), supportsConditionalBreakpoints = mode == "conditions", supportsEvaluateForHovers = mode is "invalidated" or "evaluate" or "evaluate-running" },
                     "threads" => new { threads = new[] { new { id = 1, name = "Main" } } },
                     "stackTrace" when mode != "session" => new { stackFrames = new[]
                     {

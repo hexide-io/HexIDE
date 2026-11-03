@@ -1040,10 +1040,11 @@ handlers it let finish.
 - **THEN** the reply says the program opened `Form2 ("Second")`
 
 ### Requirement: Run-control replies SHALL say what the program printed
-A successful reply from `run_project`, `stop_project`, `continue_program`, `break_program`, a step or `run_to_cursor`
-SHALL give in `printed` what the program wrote with `Debug.Print` since its run began or a reply last reported it, and
-its note SHALL say how much, or that it wrote nothing. Output past 4000 characters SHALL keep its end, with the note
-saying how much was left out.
+For interpreter sessions, a successful reply from `run_project`, `stop_project`, `continue_program`,
+`break_program`, a step or `run_to_cursor` SHALL give in `printed` what the program wrote with `Debug.Print`
+since its run began or a reply last reported it, and its note SHALL say how much, or that it wrote nothing.
+Output past 4000 characters SHALL keep its end, with the note saying how much was left out. For an external debug session, `stop_project` SHALL instead state that external
+session output is not captured by this tool and direct the caller to the Immediate window.
 
 #### Scenario: A program that prints as it loads
 - **WHEN** `run_project` starts a program whose `Form_Load` prints two lines
@@ -1052,6 +1053,20 @@ saying how much was left out.
 #### Scenario: Nothing printed
 - **WHEN** a program prints nothing before `stop_project`
 - **THEN** the reply has no `printed`, and its note says Debug.Print wrote nothing
+
+### Requirement: Debug state SHALL describe the external session consistently
+During an external debug session and after it ends, until another run starts, `get_debug_state` SHALL
+report that session's state: Starting, Running, Paused (the adapter's Stopped), Ended or Faulted.
+`running` SHALL be true only for Starting, Running or Paused, including while adapter cleanup is pending.
+Known adapter reasons SHALL map to the documented stop-reason vocabulary; an unmapped reason SHALL
+have a null `stopReason`. `adapterStopReason` SHALL retain the raw reason while paused.
+The description SHALL explain that external `module` is a source path, `project` is absent, and
+`set_next_statement` takes a module name instead.
+
+#### Scenario: Disconnect is still pending after End
+- **WHEN** the external session has ended but its adapter has not acknowledged disconnect
+- **THEN** `get_debug_state` reports `running: false` and `state: Ended`
+- **AND** `stop_project` does not claim that Debug.Print wrote nothing
 
 ### Requirement: Realized items SHALL be listed in item order
 The control-view collector shared by `dump_visual_tree` and path resolution SHALL order an items

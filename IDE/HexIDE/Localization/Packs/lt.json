@@ -3,8 +3,8 @@
   "direction": "ltr",
   "strings": {
     "Str.Debug.External.EndTimeout": "Derinimo adapteris {0} neatsakė į baigimo komandą ir buvo sustabdytas palaukus {1} sekundžių.",
-    "Str.Debug.External.BreakpointConditionUnsupported": "Išorinėse sesijose stabdos taškų sąlygos dar nepalaikomos. Failas '{0}', stabdos taško įrašas {1}.",
-    "Str.Debug.External.BreakpointOptionUnsupported": "Lūžio taško parinktis '{0}' išorinėse sesijose dar nepalaikoma. Failas '{1}', lūžio taško įrašas {2}.",
+    "Str.Debug.External.BreakpointConditionUnsupported": "Sąlygas nustatykite lūžio taškų paraštės meniu komanda Sąlyga…. Failas '{0}', stabdos taško įrašas {1}.",
+    "Str.Debug.External.BreakpointOptionUnsupported": "Lūžio taško parinktis '{0}' išorinėse sesijose dar nepalaikoma. Failas '{1}', lūžio taško įrašas {2}. Sąlygas nustatykite lūžio taškų paraštės meniu komanda Sąlyga….",
     "Str.MainWindow.RecoveryNotice": "Atkūrimo seansas — nuostatų pakeitimai nebus išsaugoti",
     "Str.Profiles.LoadError": "Nepavyko įkelti profilio „{0}“, failo „{1}“. Patikrinkite paketo formatą ir failų kelius.",
     "Str.Profiles.HelpSummary": "Bazinis profilis: vardas, katalogo kelias arba none (saugusis režimas).",
@@ -1009,6 +1009,10 @@
     "Str.Tool.Outline.Kind.Struct": "Struktūra",
     "Str.Tool.Outline.Kind.Event": "Įvykis",
     "Str.Tool.Outline.Kind.Operator": "Operatorius",
-    "Str.Tool.Outline.Kind.TypeParameter": "Tipo parametras"
+    "Str.Tool.Outline.Kind.TypeParameter": "Tipo parametras",
+    "Str.Debug.Conditions.Prompt": "Sustoti šioje eilutėje tik tada, kai ši išraiška yra teisinga:",
+    "Str.Debug.Conditions.Edit": "Sąlyga…",
+    "Str.Debug.Conditions.AdapterIgnored": "Šis adapteris nepaiso sąlygų ir sustoja kiekvieną kartą.",
+    "Str.Debug.Conditions.InterpreterIgnored": "Interpretatorius nepaiso sąlygų ir sustoja kiekvieną kartą."
   }
 }

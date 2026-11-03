@@ -3,8 +3,8 @@
   "direction": "ltr",
   "strings": {
     "Str.Debug.External.EndTimeout": "Debugadapter {0} reageerde niet op Beëindigen en is na {1} seconden wachten gestopt.",
-    "Str.Debug.External.BreakpointConditionUnsupported": "Voorwaarden voor onderbrekingspunten worden nog niet ondersteund voor externe sessies. Bestand '{0}', onderbrekingspuntvermelding {1}.",
-    "Str.Debug.External.BreakpointOptionUnsupported": "De onderbrekingspuntoptie '{0}' wordt nog niet ondersteund voor externe sessies. Bestand '{1}', onderbrekingspuntitem {2}.",
+    "Str.Debug.External.BreakpointConditionUnsupported": "Stel voorwaarden in via Voorwaarde… in het menu van de onderbrekingspuntmarge. Bestand '{0}', onderbrekingspuntvermelding {1}.",
+    "Str.Debug.External.BreakpointOptionUnsupported": "De onderbrekingspuntoptie '{0}' wordt nog niet ondersteund voor externe sessies. Bestand '{1}', onderbrekingspuntitem {2}. Stel voorwaarden in via Voorwaarde… in het menu van de onderbrekingspuntmarge.",
     "Str.MainWindow.RecoveryNotice": "Herstelsessie — wijzigingen in instellingen worden niet opgeslagen",
     "Str.Profiles.LoadError": "Kan profiel '{0}', bestand '{1}' niet laden. Controleer de bundelindeling en bestandspaden.",
     "Str.Profiles.HelpSummary": "Basisprofiel: naam, mappad of none (veilige modus).",
@@ -1009,6 +1009,10 @@
     "Str.Tool.Outline.Kind.Struct": "Structuur",
     "Str.Tool.Outline.Kind.Event": "Gebeurtenis",
     "Str.Tool.Outline.Kind.Operator": "Operator",
-    "Str.Tool.Outline.Kind.TypeParameter": "Typeparameter"
+    "Str.Tool.Outline.Kind.TypeParameter": "Typeparameter",
+    "Str.Debug.Conditions.Prompt": "Alleen op deze regel stoppen als deze expressie waar is:",
+    "Str.Debug.Conditions.Edit": "Voorwaarde…",
+    "Str.Debug.Conditions.AdapterIgnored": "Deze adapter negeert voorwaarden en stopt elke keer.",
+    "Str.Debug.Conditions.InterpreterIgnored": "De interpreter negeert voorwaarden en stopt elke keer."
   }
 }

@@ -3,8 +3,8 @@
   "direction": "rtl",
   "strings": {
     "Str.Debug.External.EndTimeout": "מתאם ניפוי הבאגים {0} לא הגיב לפקודת הסיום ונעצר לאחר המתנה של {1} שניות.",
-    "Str.Debug.External.BreakpointConditionUnsupported": "תנאים לנקודות עצירה עדיין אינם נתמכים בהפעלות חיצוניות. קובץ '{0}', רשומת נקודת עצירה {1}.",
-    "Str.Debug.External.BreakpointOptionUnsupported": "אפשרות נקודת העצירה '{0}' עדיין אינה נתמכת בהפעלות חיצוניות. קובץ '{1}', רשומה {2}.",
+    "Str.Debug.External.BreakpointConditionUnsupported": "הגדר תנאים דרך תנאי… בתפריט שולי נקודות העצירה. קובץ '{0}', רשומת נקודת עצירה {1}.",
+    "Str.Debug.External.BreakpointOptionUnsupported": "אפשרות נקודת העצירה '{0}' עדיין אינה נתמכת בהפעלות חיצוניות. קובץ '{1}', רשומה {2}. הגדר תנאים דרך תנאי… בתפריט שולי נקודות העצירה.",
     "Str.MainWindow.RecoveryNotice": "הפעלת שחזור — שינויים בהגדרות לא יישמרו",
     "Str.Profiles.LoadError": "לא ניתן לטעון את הפרופיל '{0}', קובץ '{1}'. יש לבדוק את מבנה החבילה ואת נתיבי הקבצים.",
     "Str.Profiles.HelpSummary": "פרופיל בסיס: שם, נתיב תיקייה או none (מצב בטוח).",
@@ -1009,6 +1009,10 @@
     "Str.Tool.Outline.Kind.Struct": "מבנה",
     "Str.Tool.Outline.Kind.Event": "אירוע",
     "Str.Tool.Outline.Kind.Operator": "אופרטור",
-    "Str.Tool.Outline.Kind.TypeParameter": "פרמטר טיפוס"
+    "Str.Tool.Outline.Kind.TypeParameter": "פרמטר טיפוס",
+    "Str.Debug.Conditions.Prompt": "עצור בשורה זו רק כאשר ביטוי זה הוא אמת:",
+    "Str.Debug.Conditions.Edit": "תנאי…",
+    "Str.Debug.Conditions.AdapterIgnored": "מתאם זה מתעלם מהתנאים ועוצר בכל פעם.",
+    "Str.Debug.Conditions.InterpreterIgnored": "המפרש מתעלם מהתנאים ועוצר בכל פעם."
   }
 }

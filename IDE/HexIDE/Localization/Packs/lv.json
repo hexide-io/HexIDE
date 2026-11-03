@@ -3,8 +3,8 @@
   "direction": "ltr",
   "strings": {
     "Str.Debug.External.EndTimeout": "Atkļūdošanas adapteris {0} neatbildēja uz beigšanas komandu un tika apturēts pēc {1} sekunžu gaidīšanas.",
-    "Str.Debug.External.BreakpointConditionUnsupported": "Ārējās sesijās pārtraukumpunktu nosacījumi vēl netiek atbalstīti. Fails '{0}', pārtraukumpunkta ieraksts {1}.",
-    "Str.Debug.External.BreakpointOptionUnsupported": "Pārtraukumpunkta opcija '{0}' ārējām sesijām vēl netiek atbalstīta. Fails '{1}', pārtraukumpunkta ieraksts {2}.",
+    "Str.Debug.External.BreakpointConditionUnsupported": "Iestatiet nosacījumus pārtraukumpunktu piemales izvēlnē ar Nosacījums…. Fails '{0}', pārtraukumpunkta ieraksts {1}.",
+    "Str.Debug.External.BreakpointOptionUnsupported": "Pārtraukumpunkta opcija '{0}' ārējām sesijām vēl netiek atbalstīta. Fails '{1}', pārtraukumpunkta ieraksts {2}. Iestatiet nosacījumus pārtraukumpunktu piemales izvēlnē ar Nosacījums….",
     "Str.MainWindow.RecoveryNotice": "Atkopšanas sesija — iestatījumu izmaiņas netiks saglabātas",
     "Str.Profiles.LoadError": "Nevar ielādēt profilu “{0}”, failu “{1}”. Pārbaudiet pakotnes formātu un failu ceļus.",
     "Str.Profiles.HelpSummary": "Pamatprofils: nosaukums, direktorija ceļš vai none (drošais režīms).",
@@ -1009,6 +1009,10 @@
     "Str.Tool.Outline.Kind.Struct": "Struktūra",
     "Str.Tool.Outline.Kind.Event": "Notikums",
     "Str.Tool.Outline.Kind.Operator": "Operators",
-    "Str.Tool.Outline.Kind.TypeParameter": "Tipa parametrs"
+    "Str.Tool.Outline.Kind.TypeParameter": "Tipa parametrs",
+    "Str.Debug.Conditions.Prompt": "Apstāties šajā rindā tikai tad, ja šī izteiksme ir patiesa:",
+    "Str.Debug.Conditions.Edit": "Nosacījums…",
+    "Str.Debug.Conditions.AdapterIgnored": "Šis adapteris ignorē nosacījumus un apstājas katru reizi.",
+    "Str.Debug.Conditions.InterpreterIgnored": "Interpretators ignorē nosacījumus un apstājas katru reizi."
   }
 }
