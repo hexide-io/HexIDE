@@ -3,6 +3,7 @@
 ## Scope and authority
 
 All four policy questions are decided, and this design note is ready to become an OpenSpec change.
+The handoff is [2026-11-03-package-format](../../openspec/changes/2026-11-03-package-format/proposal.md).
 This is the document-only deliverable requested by the supervisor’s 2026-10-29 comment and
 2026-11-02 and 2026-11-03 review revisions on
 [#1210](https://github.com/hexide-io/HexIDE/issues/1210). It makes no new decisions and authorizes no
