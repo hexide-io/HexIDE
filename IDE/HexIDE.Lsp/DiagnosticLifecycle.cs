@@ -1,8 +1,10 @@
+using Microsoft.Extensions.Logging;
+
 namespace HexIDE.Lsp;
 
 // A rename retires a name; an ordinary editor close does not. Queue delivery in acceptance order
 // so a publication accepted before rename is cleared after delivery, without calling handlers under a lock.
-internal sealed class DiagnosticLifecycle
+internal sealed class DiagnosticLifecycle(ILogger logger)
 {
     private readonly object _gate = new();
     private readonly HashSet<string> _renamed = new(LspDocumentUri.Comparer);
@@ -21,6 +23,8 @@ internal sealed class DiagnosticLifecycle
 
     public void Publish(string uri, Action deliver) => Enqueue(uri, deliver, rename: false);
 
+    // A handler can wait for a rename on another thread. Waiting for its clear here would
+    // deadlock: the clear is ordered after that handler, but may run after Rename returns.
     public void Rename(string uri, Action clear) => Enqueue(uri, clear, rename: true);
 
     private void Enqueue(string uri, Action action, bool rename)
@@ -34,26 +38,19 @@ internal sealed class DiagnosticLifecycle
             _delivering = true;
         }
 
-        try
+        while (true)
         {
-            while (true)
+            Action next;
+            lock (_gate)
             {
-                Action next;
-                lock (_gate)
+                if (!_pending.TryDequeue(out next!))
                 {
-                    if (!_pending.TryDequeue(out next!))
-                    {
-                        _delivering = false;
-                        return;
-                    }
+                    _delivering = false;
+                    return;
                 }
-                next();
             }
-        }
-        catch
-        {
-            lock (_gate) _delivering = false;
-            throw;
+            try { next(); }
+            catch (Exception ex) { logger.LogDebug(ex, "A diagnostic lifecycle handler threw"); }
         }
     }
 }

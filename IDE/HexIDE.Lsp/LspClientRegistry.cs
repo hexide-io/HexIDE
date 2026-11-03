@@ -89,6 +89,7 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
         TimeProvider? timeProvider = null)
     {
         _logger = logger;
+        _diagnosticLifecycle = new(logger);
         _timeProvider = timeProvider ?? TimeProvider.System;
         _workspace = workspace;
         _artifacts = artifacts;
@@ -104,7 +105,7 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
 
     public IReadOnlyList<OwnedDiagnostic> Diagnostics => _diagnostics.Snapshot();
 
-    private readonly DiagnosticLifecycle _diagnosticLifecycle = new();
+    private readonly DiagnosticLifecycle _diagnosticLifecycle;
 
     public event EventHandler<PublishDiagnosticsParams>? DiagnosticsPublished;
     public event EventHandler<string>? DocumentRetired;
