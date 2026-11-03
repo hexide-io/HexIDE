@@ -923,13 +923,8 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
     {
         var current = _workspace!.Directory;
 
-        // Nothing is running, so whatever the workspace is now is what the first server will be told.
-        if (!_entries.Any(e => e.Client is not null))
-        {
-            _rootedAt = current;
-            return;
-        }
-
+        // A waiting entry has no client yet, but a first save supplies the root it needs. Reopen the
+        // known documents even when there is nothing to stop (#1382).
         if (SameDirectory(current, _rootedAt)) return;
 
         _logger.LogInformation(
@@ -1049,6 +1044,7 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
             e.StateSince = DateTimeOffset.UtcNow;
             ConnectionsChanged?.Invoke(this, EventArgs.Empty);
 
+            e.LastAttempt = null;
             if (_artifacts is not null && e.Registration.ProjectImport is null)
             {
                 try { await _artifacts.PrepareAsync(e.Registration, cancellationToken); }
@@ -1069,6 +1065,27 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
             e.Client = client;
 
             await client.StartAsync(cancellationToken);
+            if (!client.IsRunning && client.WaitingForWorkspace)
+            {
+                e.LastAttempt = client.LastAttempt;
+                client.DiagnosticsPublished -= OnInnerDiagnostics;
+                client.MessageShown -= OnInnerMessage;
+                client.MessageLogged -= OnInnerLogMessage;
+                client.TraceReceived -= OnInnerTrace;
+                client.StateChanged -= OnInnerStateChanged;
+                await client.DisposeAsync();
+                e.Client = null;
+                e.State = LanguageConnectionState.NotStarted;
+                e.StateSince = DateTimeOffset.UtcNow;
+                if (!e.WarnedWaitingForWorkspace)
+                {
+                    _logger.LogWarning("Language server '{Id}' is waiting for a workspace: {Reason}",
+                        e.Registration.Id, e.LastAttempt?.Steps.LastOrDefault()?.Detail);
+                    e.WarnedWaitingForWorkspace = true;
+                }
+                return;
+            }
+
             e.State = client.IsRunning ? LanguageConnectionState.Running : LanguageConnectionState.Failed;
             e.StateSince = DateTimeOffset.UtcNow;
             if (client.IsRunning && _artifacts is not null)
@@ -1186,14 +1203,15 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
     {
         public LanguageServerRegistration Registration { get; } = registration;
         public ILspClient? Client;
+        public bool WarnedWaitingForWorkspace;
         public LanguageConnectionState State = LanguageConnectionState.NotStarted;
 
         /// <summary>When <see cref="State"/> was last written. Null until something happens, which is
         /// itself the honest answer for a registration nothing has started yet.</summary>
         public DateTimeOffset? StateSince;
 
-        /// <summary>Set when the attempt failed before a client existed to hold it — a throw inside
-        /// CreateClient, for instance. The client's own record wins whenever there is one.</summary>
+        /// <summary>A failure before a client existed, or a workspace refusal whose client was released.
+        /// The client's own record wins whenever there is one.</summary>
         public LanguageConnectionAttempt? LastAttempt;
 
         public readonly SemaphoreSlim Gate = new(1, 1);

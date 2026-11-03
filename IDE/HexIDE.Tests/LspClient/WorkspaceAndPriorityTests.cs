@@ -247,6 +247,49 @@ public class WorkspaceAndPriorityTests : IAsyncDisposable
     }
 
     [Fact]
+    public async Task WaitingForTheFirstSaveStartsWithoutAnotherOpen()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "hexide-first-save-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        try
+        {
+            var project = TestHelpers.CreateProject("P");
+            var manager = Substitute.For<IProjectManager>();
+            manager.StartupProject.Returns(project);
+            manager.LoadedProjects.Returns(new[] { project });
+            var workspace = new ProjectLspWorkspace(() => manager);
+            var server = new RootRecordingServer();
+            var waiting = Substitute.For<ILspClient>();
+            waiting.WaitingForWorkspace.Returns(true);
+            var registrations = new List<LanguageServerRegistration>
+            {
+                new("pipe", "pipe", [".bas"], "vb6", () => workspace.Directory is null
+                    ? waiting : ClientRootedAt(workspace, server))
+            };
+            await using var registry = new LspClientRegistry(registrations,
+                Substitute.For<ILogger<LspClientRegistry>>(), workspace);
+            var token = TestContext.Current.CancellationToken;
+            await registry.OpenDocumentAsync("untitled:P/One.bas", "latest", token);
+            var windows = Substitute.For<IWindowManager>();
+            windows.SaveFilePickerAsync(Arg.Any<Avalonia.Platform.Storage.FilePickerSaveOptions>())
+                .Returns(Path.Combine(root, "P.vbp"));
+            var service = new ProjectService(() => throw new InvalidOperationException(), windows,
+                Substitute.For<IEventBus>(), manager, Substitute.For<IRecentProjectsService>(),
+                Substitute.For<IReferenceLibraryService>(), Substitute.For<IUserSidecarService>(),
+                new FileBaselineStore(), Substitute.For<HexIDE.Localization.ILocalizationService>(),
+                Substitute.For<IHeaderRefresher>(), lspClient: () => registry);
+            await service.SaveProject(project, false);
+            File.Exists(project.AbsolutePath).Should().BeTrue();
+            var uri = await server.RootUri.WaitAsync(TimeSpan.FromSeconds(5), token);
+            new Uri(uri!).LocalPath.TrimEnd('/', '\\').Should().Be(root);
+            var opened = await server.Opens.Reader.ReadAsync(token);
+            opened.GetProperty("textDocument").GetProperty("text").GetString().Should().Be("latest");
+            workspace.Dispose();
+        }
+        finally { Directory.Delete(root, true); }
+    }
+
+    [Fact]
     public async Task TheServerIsToldTheWorkspaceAsAFileUri()
     {
         // rootUri was hardcoded null, so no server had ever been told where it was working. A linter that

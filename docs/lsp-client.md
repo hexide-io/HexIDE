@@ -280,7 +280,14 @@ to be the *startup* one, and changing that silently re-rooted every server — i
 had not moved ([#261](https://github.com/hexide-io/HexIDE/issues/261)). Folders sharing a directory collapse
 to one entry, so a server does not index the same tree twice.
 
-`workspaceFolders` is **null, never an empty array**, when no project is open: the protocol gives those two
+An unsaved project with neither a project file nor a chosen folder has no root. Querying the workspace
+chooses no scratch folder. A pipe server requiring `{workspaceUri}` or `{workspaceDir}` waits in
+`NotStarted`, retaining the refusal reason in the Language Servers window. The warning is logged once
+per entry; later opens retry, and the first project save starts it without reopening a document.
+Scratch file storage never supplies a workspace or artifact root. Other startup failures remain
+terminal for the session (#1382).
+
+`workspaceFolders` is **null, never an empty array**, when no project has a chosen folder: the protocol gives those two
 different meanings, and "no folders are open" is the true one.
 
 `workspace/didChangeWorkspaceFolders` is sent on that trigger only when the server declares

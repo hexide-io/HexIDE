@@ -1700,6 +1700,8 @@ public partial class ProjectService : IProjectService
     {
         if (ChosenFilesDirectory(project) is { } chosen)
             return chosen;
+        if (project.WorkingDirectory is { Length: > 0 } existing)
+            return existing;
 
         // The suffix is what makes it private. The name is kept in front of it so a user who goes looking
         // in TEMP can still tell which directory belongs to what.
@@ -1712,13 +1714,11 @@ public partial class ProjectService : IProjectService
     }
 
     /// <summary>
-    /// The folder <see cref="ProjectFilesDirectory"/> answers once one is chosen: the project file's, or the scratch
-    /// folder it was given. Null for a project with neither, rather than choosing one.
+    /// The project file's folder once saved. Scratch file storage is not a folder the developer chose,
+    /// and must not become a language server's workspace root (#1382).
     /// </summary>
-    private static string? ChosenFilesDirectory(ProjectDefinition project) =>
-        project.AbsolutePath is { } p ? Path.GetDirectoryName(p)!
-        : project.WorkingDirectory is { Length: > 0 } existing ? existing
-        : null;
+    internal static string? ChosenFilesDirectory(ProjectDefinition project) =>
+        project.AbsolutePath is { } p ? Path.GetDirectoryName(p)! : null;
 
     /// <summary>
     /// Makes a project name safe to embed in a directory name.
