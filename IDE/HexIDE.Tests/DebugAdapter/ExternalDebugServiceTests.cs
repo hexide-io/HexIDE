@@ -31,7 +31,7 @@ public class ExternalDebugServiceTests
         var run = service.StartAsync(await Configuration(directory, mode));
         try
         {
-            await WaitFor(service, () => service.CanEvaluate);
+            await WaitFor(service, () => service.CanEvaluate && service.Variables.Count > 0);
             service.SupportsSetNextStatement.Should().BeTrue();
             var stop = service.Stop;
             var frames = service.Frames;
