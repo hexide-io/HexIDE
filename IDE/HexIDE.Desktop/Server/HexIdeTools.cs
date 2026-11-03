@@ -1916,6 +1916,10 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     {
         return await Dispatcher.UIThread.InvokeAsync(() =>
         {
+            // An external session is not the interpreter's run, so the check below would answer "No project is
+            // running" straight after get_debug_state said Paused (#2966).
+            if (ctx.RootViewModel.ExternalDebugger?.IsActive == true)
+                return new MutateResult(false, ctx.Localization.GetString("Str.Debug.External.Unsupported"));
             var lookup = ResolveDocument(module, project);
             if (lookup.Document is not { } document)
                 return new MutateResult(false, lookup.Error);
