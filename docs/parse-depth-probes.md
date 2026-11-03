@@ -118,4 +118,5 @@ comment directs.
 The symbol, declaration collector and Option Explicit visitors now bound `VisitChildren`
 recursion at 500 levels. Regression tests cover 100,000 additions, declarations and symbols
 following the chain, and an undeclared reference in a later statement. The original measurements
-above describe the pre-fix build; the interpreter execution overflow remains outstanding.
+above describe the pre-fix build. The interpreter's execution overflow was fixed separately, in #1893: a
+long operator chain now raises VB6's error 28, Out of stack space, where it used to end the process.
