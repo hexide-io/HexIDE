@@ -3,8 +3,8 @@
   "direction": "ltr",
   "strings": {
     "Str.Debug.External.EndTimeout": "Adapter debugowania {0} nie odpowiedział na polecenie Zakończ i został zatrzymany po {1} sekundach oczekiwania.",
-    "Str.Debug.External.BreakpointConditionUnsupported": "Warunki punktów przerwania nie są jeszcze obsługiwane w sesjach zewnętrznych. Plik '{0}', wpis punktu przerwania {1}.",
-    "Str.Debug.External.BreakpointOptionUnsupported": "Opcja punktu przerwania '{0}' nie jest jeszcze obsługiwana w sesjach zewnętrznych. Plik '{1}', wpis punktu przerwania {2}.",
+    "Str.Debug.External.BreakpointConditionUnsupported": "Ustaw warunki przez Warunek… w menu marginesu punktów przerwania. Plik '{0}', wpis punktu przerwania {1}.",
+    "Str.Debug.External.BreakpointOptionUnsupported": "Opcja punktu przerwania '{0}' nie jest jeszcze obsługiwana w sesjach zewnętrznych. Plik '{1}', wpis punktu przerwania {2}. Ustaw warunki przez Warunek… w menu marginesu punktów przerwania.",
     "Str.MainWindow.RecoveryNotice": "Sesja odzyskiwania — zmiany ustawień nie zostaną zapisane",
     "Str.Profiles.LoadError": "Nie można wczytać profilu '{0}', plik '{1}'. Sprawdź format pakietu i ścieżki plików.",
     "Str.Profiles.HelpSummary": "Profil podstawowy: nazwa, ścieżka katalogu lub none (tryb awaryjny).",
@@ -1009,6 +1009,10 @@
     "Str.Tool.Outline.Kind.Struct": "Struktura",
     "Str.Tool.Outline.Kind.Event": "Zdarzenie",
     "Str.Tool.Outline.Kind.Operator": "Operator",
-    "Str.Tool.Outline.Kind.TypeParameter": "Parametr typu"
+    "Str.Tool.Outline.Kind.TypeParameter": "Parametr typu",
+    "Str.Debug.Conditions.Prompt": "Zatrzymaj w tym wierszu tylko wtedy, gdy to wyrażenie jest prawdziwe:",
+    "Str.Debug.Conditions.Edit": "Warunek…",
+    "Str.Debug.Conditions.AdapterIgnored": "Ten adapter ignoruje warunki i zatrzymuje się za każdym razem.",
+    "Str.Debug.Conditions.InterpreterIgnored": "Interpreter ignoruje warunki i zatrzymuje się za każdym razem."
   }
 }

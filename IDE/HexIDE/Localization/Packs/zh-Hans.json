@@ -3,8 +3,8 @@
   "direction": "ltr",
   "strings": {
     "Str.Debug.External.EndTimeout": "调试适配器 {0} 未响应结束命令，已在等待 {1} 秒后停止。",
-    "Str.Debug.External.BreakpointConditionUnsupported": "外部会话尚不支持断点条件。文件 '{0}'，断点条目 {1}。",
-    "Str.Debug.External.BreakpointOptionUnsupported": "外部会话尚不支持断点选项 '{0}'。文件 '{1}'，断点条目 {2}。",
+    "Str.Debug.External.BreakpointConditionUnsupported": "请通过断点边栏菜单中的“条件…”设置条件。 文件 '{0}'，断点条目 {1}。",
+    "Str.Debug.External.BreakpointOptionUnsupported": "外部会话尚不支持断点选项 '{0}'。文件 '{1}'，断点条目 {2}。 请通过断点边栏菜单中的“条件…”设置条件。",
     "Str.MainWindow.RecoveryNotice": "恢复会话 — 设置更改不会保存",
     "Str.Profiles.LoadError": "无法加载配置文件包 '{0}' 中的文件 '{1}'。请检查包格式和文件路径。",
     "Str.Profiles.HelpSummary": "基础配置：名称、目录路径或 none（安全模式）。",
@@ -1009,6 +1009,10 @@
     "Str.Tool.Outline.Kind.Struct": "结构",
     "Str.Tool.Outline.Kind.Event": "事件",
     "Str.Tool.Outline.Kind.Operator": "运算符",
-    "Str.Tool.Outline.Kind.TypeParameter": "类型参数"
+    "Str.Tool.Outline.Kind.TypeParameter": "类型参数",
+    "Str.Debug.Conditions.Prompt": "仅当此表达式为 True 时在此行中断：",
+    "Str.Debug.Conditions.Edit": "条件…",
+    "Str.Debug.Conditions.AdapterIgnored": "此适配器忽略条件，每次都会停止。",
+    "Str.Debug.Conditions.InterpreterIgnored": "解释器忽略条件，每次都会停止。"
   }
 }

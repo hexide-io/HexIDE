@@ -3,8 +3,8 @@
   "direction": "ltr",
   "strings": {
     "Str.Debug.External.EndTimeout": "อะแดปเตอร์ดีบัก {0} ไม่ตอบสนองต่อคำสั่งจบ และถูกหยุดหลังจากรอ {1} วินาที",
-    "Str.Debug.External.BreakpointConditionUnsupported": "ยังไม่รองรับเงื่อนไขจุดพักสำหรับเซสชันภายนอก ไฟล์ '{0}' รายการจุดพัก {1}",
-    "Str.Debug.External.BreakpointOptionUnsupported": "ยังไม่รองรับตัวเลือกจุดพัก '{0}' สำหรับเซสชันภายนอก ไฟล์ '{1}' รายการจุดพัก {2}",
+    "Str.Debug.External.BreakpointConditionUnsupported": "ตั้งเงื่อนไขผ่าน เงื่อนไข… ในเมนูขอบจุดหยุด ไฟล์ '{0}' รายการจุดพัก {1}",
+    "Str.Debug.External.BreakpointOptionUnsupported": "ยังไม่รองรับตัวเลือกจุดพัก '{0}' สำหรับเซสชันภายนอก ไฟล์ '{1}' รายการจุดพัก {2} ตั้งเงื่อนไขผ่าน เงื่อนไข… ในเมนูขอบจุดหยุด",
     "Str.MainWindow.RecoveryNotice": "เซสชันการกู้คืน — การเปลี่ยนแปลงการตั้งค่าจะไม่ถูกบันทึก",
     "Str.Profiles.LoadError": "ไม่สามารถโหลดโปรไฟล์ '{0}' ไฟล์ '{1}' ได้ ตรวจสอบรูปแบบชุดและเส้นทางไฟล์",
     "Str.Profiles.HelpSummary": "โปรไฟล์พื้นฐาน: ชื่อ เส้นทางไดเรกทอรี หรือ none (โหมดปลอดภัย)",
@@ -1009,6 +1009,10 @@
     "Str.Tool.Outline.Kind.Struct": "โครงสร้าง",
     "Str.Tool.Outline.Kind.Event": "เหตุการณ์",
     "Str.Tool.Outline.Kind.Operator": "ตัวดำเนินการ",
-    "Str.Tool.Outline.Kind.TypeParameter": "พารามิเตอร์ชนิด"
+    "Str.Tool.Outline.Kind.TypeParameter": "พารามิเตอร์ชนิด",
+    "Str.Debug.Conditions.Prompt": "หยุดที่บรรทัดนี้เฉพาะเมื่อนิพจน์นี้เป็นจริง:",
+    "Str.Debug.Conditions.Edit": "เงื่อนไข…",
+    "Str.Debug.Conditions.AdapterIgnored": "อะแดปเตอร์นี้ละเว้นเงื่อนไขและหยุดทุกครั้ง",
+    "Str.Debug.Conditions.InterpreterIgnored": "ตัวแปลภาษาละเว้นเงื่อนไขและหยุดทุกครั้ง"
   }
 }

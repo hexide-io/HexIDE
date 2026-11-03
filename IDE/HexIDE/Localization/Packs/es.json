@@ -3,8 +3,8 @@
   "direction": "ltr",
   "strings": {
     "Str.Debug.External.EndTimeout": "El adaptador de depuración {0} no respondió a Finalizar y se detuvo tras esperar {1} segundos.",
-    "Str.Debug.External.BreakpointConditionUnsupported": "Las condiciones de puntos de interrupción aún no se admiten en sesiones externas. Archivo '{0}', entrada de punto de interrupción {1}.",
-    "Str.Debug.External.BreakpointOptionUnsupported": "La opción de punto de interrupción '{0}' aún no se admite en sesiones externas. Archivo '{1}', entrada {2}.",
+    "Str.Debug.External.BreakpointConditionUnsupported": "Defina condiciones con Condición… en el menú del margen de puntos de interrupción. Archivo '{0}', entrada de punto de interrupción {1}.",
+    "Str.Debug.External.BreakpointOptionUnsupported": "La opción de punto de interrupción '{0}' aún no se admite en sesiones externas. Archivo '{1}', entrada {2}. Defina condiciones con Condición… en el menú del margen de puntos de interrupción.",
     "Str.MainWindow.RecoveryNotice": "Sesión de recuperación — los cambios de configuración no se guardarán",
     "Str.Profiles.LoadError": "No se puede cargar el perfil '{0}', archivo '{1}'. Compruebe el formato del paquete y las rutas de archivo.",
     "Str.Profiles.HelpSummary": "Perfil base: nombre, ruta de directorio o none (modo seguro).",
@@ -1009,6 +1009,10 @@
     "Str.Tool.Outline.Kind.Struct": "Estructura",
     "Str.Tool.Outline.Kind.Event": "Evento",
     "Str.Tool.Outline.Kind.Operator": "Operador",
-    "Str.Tool.Outline.Kind.TypeParameter": "Parámetro de tipo"
+    "Str.Tool.Outline.Kind.TypeParameter": "Parámetro de tipo",
+    "Str.Debug.Conditions.Prompt": "Detener en esta línea solo cuando esta expresión sea verdadera:",
+    "Str.Debug.Conditions.Edit": "Condición…",
+    "Str.Debug.Conditions.AdapterIgnored": "Este adaptador ignora las condiciones y se detiene siempre.",
+    "Str.Debug.Conditions.InterpreterIgnored": "El intérprete ignora las condiciones y se detiene siempre."
   }
 }

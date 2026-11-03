@@ -14,7 +14,11 @@ public sealed record DapStop(Guid SessionId, long Generation, int? ThreadId, str
 /// <summary>ResumePending invalidates requests while consumers retain the last displayed inspection.</summary>
 public sealed record DapSessionSnapshot(DapSessionState State, DapStop? Stop, Exception? Failure, bool ResumePending = false);
 public sealed record DapSessionUpdate(DapSessionSnapshot Snapshot, DapEvent? Event);
-public sealed record DapSourceBreakpoints(string Path, IReadOnlyList<int> Lines);
+public sealed record DapSourceBreakpoints(string Path, IReadOnlyList<int> Lines)
+{
+    [System.Text.Json.Serialization.JsonIgnore]
+    public IReadOnlyDictionary<int, string> Conditions { get; init; } = new Dictionary<int, string>();
+}
 
 /// <summary>
 /// Owns a connection (optionally its process), consumes its events, and coordinates one launch.
@@ -73,7 +77,7 @@ public sealed class DapSession : IAsyncDisposable
         if (arguments.ValueKind != JsonValueKind.Object) throw new ArgumentException("Launch arguments must be an object.", nameof(arguments));
         ArgumentNullException.ThrowIfNull(breakpoints);
         // Copy caller-owned collections before the first await.
-        var sources = breakpoints.Select(source => new DapSourceBreakpoints(source.Path, source.Lines.ToArray())).ToArray();
+        var sources = breakpoints.Select(source => new DapSourceBreakpoints(source.Path, source.Lines.ToArray()) { Conditions = new Dictionary<int, string>(source.Conditions) }).ToArray();
         foreach (var source in sources)
         {
             ArgumentException.ThrowIfNullOrWhiteSpace(source.Path);
@@ -102,7 +106,7 @@ public sealed class DapSession : IAsyncDisposable
             var replies = new List<DapResponse>();
             foreach (var source in sources)
                 replies.Add(await Request("setBreakpoints", new { source = new { path = source.Path },
-                    breakpoints = source.Lines.Select(line => new { line }).ToArray() }, token).ConfigureAwait(false));
+                    breakpoints = BreakpointArguments(source.Lines, source.Conditions) }, token).ConfigureAwait(false));
             var filters = Capabilities.TryGetProperty("exceptionBreakpointFilters", out var advertised)
                 ? advertised.EnumerateArray().Where(filter => filter.TryGetProperty("default", out var enabled) && enabled.ValueKind == JsonValueKind.True)
                     .Select(filter => filter.GetProperty("filter").GetString()).ToArray() : [];
@@ -140,7 +144,7 @@ public sealed class DapSession : IAsyncDisposable
     public Task<DapResponse> VariablesAsync(DapStop stop, int variablesReference, CancellationToken token = default) => Inspect(stop, "variables", new { variablesReference }, token);
 
     /// <summary>Replace one source's entire set, including an empty set to clear it, while running or stopped.</summary>
-    public Task<DapResponse> SetBreakpointsAsync(string path, IReadOnlyList<int> lines, CancellationToken token = default)
+    public Task<DapResponse> SetBreakpointsAsync(string path, IReadOnlyList<int> lines, CancellationToken token = default, IReadOnlyDictionary<int, string>? conditions = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(path);
         ArgumentNullException.ThrowIfNull(lines);
@@ -148,8 +152,12 @@ public sealed class DapSession : IAsyncDisposable
         if (copy.Any(line => line < 1)) throw new ArgumentOutOfRangeException(nameof(lines));
         if (Snapshot.State is not (DapSessionState.Running or DapSessionState.Stopped))
             throw new InvalidOperationException("The debug session is not active.");
-        return Request("setBreakpoints", new { source = new { path }, breakpoints = copy.Select(line => new { line }).ToArray() }, token);
+        return Request("setBreakpoints", new { source = new { path }, breakpoints = BreakpointArguments(copy, conditions) }, token);
     }
+
+    private object[] BreakpointArguments(IReadOnlyList<int> lines, IReadOnlyDictionary<int, string>? conditions) =>
+        lines.Select(line => Supports("supportsConditionalBreakpoints") && conditions?.TryGetValue(line, out _) == true
+            ? (object)new { line, condition = conditions[line] } : new { line }).ToArray();
 
     /// <summary>Execute adapter-specific Immediate syntax in a stopped frame. REPL evaluation may have side effects.</summary>
     public Task<DapResponse> EvaluateAsync(DapStop stop, int frameId, string expression, CancellationToken token = default)

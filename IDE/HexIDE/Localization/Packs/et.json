@@ -3,8 +3,8 @@
   "direction": "ltr",
   "strings": {
     "Str.Debug.External.EndTimeout": "Silumisadapter {0} ei vastanud lõpetamiskäsule ja peatati pärast {1} sekundi pikkust ootamist.",
-    "Str.Debug.External.BreakpointConditionUnsupported": "Katkestuspunktide tingimusi välisseanssides veel ei toetata. Fail '{0}', katkestuspunkti kirje {1}.",
-    "Str.Debug.External.BreakpointOptionUnsupported": "Katkestuspunkti valik '{0}' pole väliste seansside jaoks veel toetatud. Fail '{1}', kirje {2}.",
+    "Str.Debug.External.BreakpointConditionUnsupported": "Määrake tingimused katkestuspunktide veerise menüüs käsuga Tingimus…. Fail '{0}', katkestuspunkti kirje {1}.",
+    "Str.Debug.External.BreakpointOptionUnsupported": "Katkestuspunkti valik '{0}' pole väliste seansside jaoks veel toetatud. Fail '{1}', kirje {2}. Määrake tingimused katkestuspunktide veerise menüüs käsuga Tingimus….",
     "Str.MainWindow.RecoveryNotice": "Taasteseanss — sätete muudatusi ei salvestata",
     "Str.Profiles.LoadError": "Profiili „{0}”, faili „{1}” ei saa laadida. Kontrollige paketi vormingut ja failiteid.",
     "Str.Profiles.HelpSummary": "Baasprofiil: nimi, kataloogitee või none (turvarežiim).",
@@ -1009,6 +1009,10 @@
     "Str.Tool.Outline.Kind.Struct": "Struktuur",
     "Str.Tool.Outline.Kind.Event": "Sündmus",
     "Str.Tool.Outline.Kind.Operator": "Operaator",
-    "Str.Tool.Outline.Kind.TypeParameter": "Tüübiparameeter"
+    "Str.Tool.Outline.Kind.TypeParameter": "Tüübiparameeter",
+    "Str.Debug.Conditions.Prompt": "Peatu sellel real ainult siis, kui see avaldis on tõene:",
+    "Str.Debug.Conditions.Edit": "Tingimus…",
+    "Str.Debug.Conditions.AdapterIgnored": "See adapter eirab tingimusi ja peatub iga kord.",
+    "Str.Debug.Conditions.InterpreterIgnored": "Interpretaator eirab tingimusi ja peatub iga kord."
   }
 }

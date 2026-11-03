@@ -29,9 +29,9 @@ adapter-specific and passed unchanged, so use absolute workspace paths there. En
 inherited variables; a null value removes a variable. Lines are one-based and include source file headers.
 Unknown top-level properties and invalid breakpoint lines are rejected. A breakpoint entry containing
 `condition`, `hitCondition` or `logMessage` is refused before the adapter starts, with a localized diagnostic naming the launch file and
-the one-based breakpoint entry; external breakpoint conditions, hit conditions and log messages are not supported yet. Configuration failures appear in
-the Immediate window. Only explicitly listed breakpoints are installed initially; saved interpreter gutter
-marks are not imported. External breakpoint edits are session-only and never rewrite the launch file.
+the one-based breakpoint entry. Set conditions through **Condition…** in the gutter context menu; hit conditions and log messages remain unsupported. Configuration failures appear in
+the Immediate window. The initial set combines explicitly listed breakpoints with saved IDE gutter marks and their conditions.
+External breakpoint edits are session-only and never rewrite the launch file or saved IDE marks.
 
 During the session:
 
@@ -39,7 +39,7 @@ During the session:
   Step Into/Over/Out send the corresponding remote commands. Starting an interpreter run is disabled.
 - Once launch configuration completes, gutter clicks and F9 replace the external breakpoint set for that
   source, while running or stopped. Clear All removes the external session's sets. Saved interpreter marks
-  reappear after the external session ends; the next launch reads its initial set from JSON again.
+  reappear after the external session ends; the next launch rebuilds its initial set from JSON and saved IDE marks.
   External markers stay on requested lines: a solid circle is verified, a diamond means the adapter moved
   it, a hollow circle is pending, and a cross is unverified. Hover for requested/adapter lines and the adapter's
   message. A rejected removal keeps the uncertain marker visible; inspect the failure in Immediate and retry.
@@ -98,9 +98,10 @@ conditional breakpoints and applied saved edits in the measurements recorded in 
   `supportsGotoTargetsRequest`; without it, the command reports that it is unavailable and sends nothing.
   Empty targets or a refused request report the adapter's message in Immediate and retain inspection and
   the current line, without moving the caret or scrolling the editor on refusal. A successful move displays the location from the following `stopped` event (#2914).
-- **Breakpoint conditions are not sent.** An external breakpoint carries a line only, and nothing in the IDE
-  gives it a condition or a hit count. A launch file whose breakpoint entry has a `condition`, `hitCondition` or `logMessage` is refused
-  before launch (#2914).
+- **Breakpoint conditions** come from **Condition…** on a breakpoint's gutter context menu. They are sent
+  only when the adapter advertises `supportsConditionalBreakpoints`. Otherwise the breakpoint still stops
+  every time, and Immediate explains this once per session. Launch-file `condition`, `hitCondition` and
+  `logMessage` remain refused before launch (#2914).
 - **Edits reach the program only through the adapter.** HexIDE sends nothing when you edit. An adapter that
   reads the saved sources when the program resumes, as RDCore's does, runs an edit you saved while stopped,
   so save before you step. Use **Save Project**: Ctrl+S does not save a module (#244), and where no blank
@@ -153,3 +154,20 @@ no one-shot breakpoint support; set a breakpoint in the editor and continue inst
 If an adapter does not answer **End** and must be killed after cleanup waits, Immediate shows one
 localized notice with its name and elapsed wait in seconds. Any nonempty standard-error tail follows
 separately. Exit codes and forced-termination details remain in the log and Protocol Inspector (#2980).
+
+### Breakpoint conditions (#2914)
+
+Right-click an existing breakpoint in the gutter and choose **Condition…**. The dialog prompts for an
+expression that must be True to break at that line. Enter an expression in the
+adapter's language; an empty field removes the condition, keeping the breakpoint. Cancel keeps the previous
+expression. A square around the breakpoint glyph marks a condition, and hovering shows the expression
+alongside any adapter verification or message.
+
+IDE breakpoints and their conditions survive in the per-user `.user.hexproj` sidecar, including document
+renames and header shifts. They join the launch file's initial source breakpoints; editing them during an
+external session follows the existing session-only breakpoint behavior.
+
+A capable adapter receives the expression with `setBreakpoints`. An adapter without conditional breakpoint
+support receives only the line. Interpreter runs also stop unconditionally: conditions are not evaluated
+there yet. Immediate reports either fallback once per session, including when the first condition is added
+while running.

@@ -3,8 +3,8 @@
   "direction": "ltr",
   "strings": {
     "Str.Debug.External.EndTimeout": "Virheenkorjaussovitin {0} ei vastannut Lopeta-komentoon, ja se pysäytettiin {1} sekunnin odotuksen jälkeen.",
-    "Str.Debug.External.BreakpointConditionUnsupported": "Keskeytyskohtien ehtoja ei vielä tueta ulkoisissa istunnoissa. Tiedosto '{0}', keskeytyskohtamerkintä {1}.",
-    "Str.Debug.External.BreakpointOptionUnsupported": "Keskeytyskohdan asetusta '{0}' ei vielä tueta ulkoisissa istunnoissa. Tiedosto '{1}', keskeytyskohtamerkintä {2}.",
+    "Str.Debug.External.BreakpointConditionUnsupported": "Aseta ehdot keskeytyskohtamarginaalin valikon Ehto…-komennolla. Tiedosto '{0}', keskeytyskohtamerkintä {1}.",
+    "Str.Debug.External.BreakpointOptionUnsupported": "Keskeytyskohdan asetusta '{0}' ei vielä tueta ulkoisissa istunnoissa. Tiedosto '{1}', keskeytyskohtamerkintä {2}. Aseta ehdot keskeytyskohtamarginaalin valikon Ehto…-komennolla.",
     "Str.MainWindow.RecoveryNotice": "Palautusistunto — asetusten muutoksia ei tallenneta",
     "Str.Profiles.LoadError": "Profiilia '{0}', tiedostoa '{1}' ei voi ladata. Tarkista paketin muoto ja tiedostopolut.",
     "Str.Profiles.HelpSummary": "Perusprofiili: nimi, hakemistopolku tai none (vikasietotila).",
@@ -1009,6 +1009,10 @@
     "Str.Tool.Outline.Kind.Struct": "Tietue",
     "Str.Tool.Outline.Kind.Event": "Tapahtuma",
     "Str.Tool.Outline.Kind.Operator": "Operaattori",
-    "Str.Tool.Outline.Kind.TypeParameter": "Tyyppiparametri"
+    "Str.Tool.Outline.Kind.TypeParameter": "Tyyppiparametri",
+    "Str.Debug.Conditions.Prompt": "Pysähdy tällä rivillä vain, kun tämä lauseke on tosi:",
+    "Str.Debug.Conditions.Edit": "Ehto…",
+    "Str.Debug.Conditions.AdapterIgnored": "Tämä sovitin ohittaa ehdot ja pysähtyy joka kerta.",
+    "Str.Debug.Conditions.InterpreterIgnored": "Tulkki ohittaa ehdot ja pysähtyy joka kerta."
   }
 }
