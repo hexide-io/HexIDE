@@ -38,6 +38,7 @@ internal class DocumentStore
     public Dictionary<string, string> Source { get; } = new();
     public Dictionary<string, List<LspDiagnostic>> Diagnostics { get; } = new();
     public Dictionary<string, List<LspSymbol>> Symbols { get; } = new();
+    public Dictionary<string, List<LspInlayHint>> InlayHints { get; } = new();
     public Dictionary<string, List<LspFoldingRange>> Foldings { get; } = new();
     // Values are built completely before publication and never mutated afterwards.
     public ConcurrentDictionary<string, IReadOnlyDictionary<string, VbDeclaration>> DeclaredTypes { get; } = new();
@@ -49,8 +50,10 @@ internal class DocumentStore
         new Dictionary<string, VbDeclaration>();
 
     /// <summary>
-    /// Parse the document ONCE (off-thread, under a wall-clock budget), refresh every cache, and return
-    /// the diagnostics for the caller to publish. If the parse exceeds
+    /// Analyse the document ONCE (off-thread, under a wall-clock budget), refresh every cache from the one
+    /// tree that analysis keeps, and return the diagnostics for the caller to publish. The analysis may parse
+    /// more than once to recover, as the language-server spec's "analyse a document once per change"
+    /// requirement lists; every cache still reads the same tree. If the parse exceeds
     /// <see cref="VbDiagnosticsProvider.ParseBudget"/> the revision is treated as "analysis pending":
     /// every cache is left untouched (so the editor keeps its last-good markers rather than flickering to
     /// empty) and the last-known diagnostics are returned. The source itself is always updated first, so
@@ -120,12 +123,14 @@ internal class DocumentStore
         Diagnostics.Remove(uri);
         Symbols.Remove(uri);
         Foldings.Remove(uri);
+        InlayHints.Remove(uri);
         DeclaredTypes.TryRemove(uri, out _);
     }
 
     private void Refresh(string uri, string source, List<LspDiagnostic> diagnostics,
                          VisualBasic6Parser.StartRuleContext? tree)
     {
+        InlayHints[uri]    = VbInlayHintProvider.GetHints(tree, source);
         Diagnostics[uri]   = diagnostics;
         Symbols[uri]       = VbSymbolProvider.GetSymbols(tree);      // shares the tree (no reparse)
         Foldings[uri]      = VbFoldingProvider.GetFoldings(source);  // regex, no parse

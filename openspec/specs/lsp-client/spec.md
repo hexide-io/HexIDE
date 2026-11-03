@@ -1395,6 +1395,62 @@ deadline and caller cancellation.
 - **WHEN** the editor receives a character in the union of the document claimants' completion triggers
 - **THEN** it requests completion only from claimants advertising that character
 - **AND** letters continue to use the ordinary completion route
+
+### Requirement: Project diagnostics panel
+
+The IDE SHALL provide a Diagnostics panel listing current diagnostics across documents with publisher,
+severity, document, line and message. It SHALL filter by severity and current document, update when
+reports change, and navigate a double-clicked row through the project document resolver.
+Document cells SHALL show the loaded member name, or the file name for an outside file, with the full
+path only in a tooltip and the URI retained for navigation. Severity cells SHALL use localized singular
+names under a dedicated severity header. Headers SHALL fit their localized captions.
+
+#### Scenario: Reports precede opening the panel
+- **WHEN** an attached server has reported diagnostics for an unopened workspace document
+- **AND** the user opens Tools → Diagnostics
+- **THEN** its current diagnostics appear with the publishing server's configured display name
+
+#### Scenario: A publisher replaces or clears its report
+- **WHEN** a server replaces or withdraws diagnostics while the panel is open
+- **THEN** its rows update without disturbing other publishers' current reports
+
+#### Scenario: Current document while the panel has focus
+- **WHEN** the user enables the current-document filter and focuses the Diagnostics panel
+- **THEN** the filter retains the last active editor's document
+
+#### Scenario: Navigate to a carried file
+- **WHEN** the user double-clicks a row naming a loaded project's carried file
+- **THEN** that file opens with the caret at the diagnostic's start position
+
+### Requirement: Inlay hints SHALL render without changing caret columns
+
+The client SHALL declare inlay-hint support and request `textDocument/inlayHint` only from matching servers
+advertising `inlayHintProvider`. It SHALL render string or label-part labels after the corresponding line,
+without changing document text or caret columns. An Editor General option SHALL hide hints and suppress
+requests. Edits SHALL clear stale hints and prevent obsolete replies from restoring them.
+
+#### Scenario: An offering server returns a label
+- **WHEN** a server offering inlay hints returns a label for an open document
+- **THEN** the label appears after its line in the read-only text colour
+- **AND** the document, undo history and caret columns are unchanged
+
+#### Scenario: Hints are disabled or unsupported
+- **WHEN** the user disables inlay hints or no matching server offers them
+- **THEN** no hint request is sent and no hints are shown
+
+### Requirement: The bundled server SHALL name closed syntactic blocks
+
+The bundled server SHALL advertise and supply block-end inlay hints from its cached CST for procedures,
+multiline If, Do, For, For Each, While, Select Case and With. It SHALL respect the requested range and SHALL
+NOT offer binding-dependent parameter-name or inferred-type hints.
+
+#### Scenario: Nested blocks close
+- **WHEN** nested blocks close in an open document
+- **THEN** each closing line has a hint naming its own opener
+
+#### Scenario: A single-line If occurs
+- **WHEN** an If has its body on the same line
+- **THEN** it has no block-end hint
 ### Requirement: Refuse multi-document rename answers
 
 The code window SHALL inspect the whole rename WorkspaceEdit before applying any edits. If any URI
@@ -1440,6 +1496,15 @@ only on their ranges; read-only region and diagnostic colours SHALL retain their
 An empty or failed answer SHALL leave lexical colouring, log once per document on that connection, and
 permit the next change to ask again. Invalid ranges SHALL be discarded. Responses for an earlier document
 version or detached view SHALL NOT be applied. Delta, range and refresh requests are not supported.
+
+Content Modified (`-32801`) replies SHALL retry with exponential backoff from 250 ms to a 4-second cap,
+without spending the per-document warning. Cancellation, a changed or closed document, or a changed
+connection SHALL stop the retry.
+
+#### Scenario: A semantic answer was overtaken
+- **WHEN** a full semantic-token request receives Content Modified
+- **THEN** the client asks again without requiring an edit
+- **AND** applies the eventual successful answer if the request is still current
 
 #### Scenario: A server colours a name differently from the lexical rules
 - **WHEN** a full response classifies a range as a class

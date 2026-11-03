@@ -87,7 +87,7 @@ public sealed class DapSession : IAsyncDisposable
         try
         {
             var initialize = await Request("initialize", new { clientID = "hexide", adapterID = adapterId,
-                linesStartAt1 = true, columnsStartAt1 = true, pathFormat = "path" }, token).ConfigureAwait(false);
+                linesStartAt1 = true, columnsStartAt1 = true, pathFormat = "path", supportsInvalidatedEvent = true }, token).ConfigureAwait(false);
             lock (_sync) _capabilities = initialize.Body ?? JsonSerializer.SerializeToElement(new { });
             // Some adapters answer launch only AFTER configurationDone. Never await it before configuration.
             launch = _connection.RequestAsync("launch", arguments, token);
@@ -266,6 +266,10 @@ public sealed class DapSession : IAsyncDisposable
                             int? thread = body is { } b && b.TryGetProperty("threadId", out var id) ? id.GetInt32() : null;
                             var reason = body is { } r && r.TryGetProperty("reason", out var why) ? why.GetString() ?? "unknown" : "unknown";
                             Change(DapSessionState.Stopped, new(Id, _generation + 1, thread, reason), message: message);
+                            continue;
+                        case "invalidated" when _snapshot.Stop is { } stop:
+                            // Area/thread/frame hints may narrow a refresh; our single-stop view refreshes in full.
+                            Change(DapSessionState.Stopped, stop with { Generation = _generation + 1 }, message: message);
                             continue;
                         case "continued": Change(DapSessionState.Running, message: message); continue;
                         case "terminated": Change(DapSessionState.Ended, message: message); continue;

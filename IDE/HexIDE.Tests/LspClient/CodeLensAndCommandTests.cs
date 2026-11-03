@@ -62,6 +62,33 @@ public class CodeLensAndCommandTests : IAsyncDisposable
         return client;
     }
 
+    [Theory]
+    [InlineData("{\"inlayHintProvider\":true}")]
+    [InlineData("{\"inlayHintProvider\":{\"resolveProvider\":false}}")]
+    public async Task InlayHintsSendTheDocumentAndRange(string capabilities)
+    {
+        var server = new StubServer(capabilities, "[]");
+        var client = await ConnectedToAsync(server);
+        var range = new HexIDE.Lsp.Messages.Range(new Position(2, 0), new Position(8, 7));
+        var hints = await client.RequestInlayHintsAsync("file:///test.bas", range, TestContext.Current.CancellationToken);
+        hints.Should().ContainSingle();
+        hints[0].Text.Should().Be("' Sub Foo");
+        server.LastInitializeParams!.Value.GetProperty("capabilities").GetProperty("textDocument")
+            .GetProperty("inlayHint").ValueKind.Should().Be(JsonValueKind.Object);
+        server.LastInlayParams!.Value.GetProperty("textDocument").GetProperty("uri").GetString()
+            .Should().Be("file:///test.bas");
+        server.LastInlayParams.Value.GetProperty("range").GetProperty("end").GetProperty("line").GetInt32()
+            .Should().Be(8);
+        foreach (var unsupported in new[] { "{}", "{\"inlayHintProvider\":false}" })
+        {
+            var silent = new StubServer(unsupported, "[]");
+            var gated = await ConnectedToAsync(silent);
+            (await gated.RequestInlayHintsAsync("file:///test.bas", range,
+                TestContext.Current.CancellationToken)).Should().BeEmpty();
+            silent.LastInlayParams.Should().BeNull();
+        }
+    }
+
     // ── codeLens ────────────────────────────────────────────────────────────────────────────────────
 
     [Fact]
@@ -245,6 +272,17 @@ public class CodeLensAndCommandTests : IAsyncDisposable
     /// </summary>
     private sealed class StubServer(string capabilities, string lenses)
     {
+        public JsonElement? LastInlayParams { get; private set; }
+        public JsonElement? LastInitializeParams { get; private set; }
+
+        [JsonRpcMethod("textDocument/inlayHint", UseSingleObjectParameterDeserialization = true)]
+        public JsonElement InlayHint(JsonElement p)
+        {
+            LastInlayParams = p.Clone();
+            return JsonDocument.Parse("""[{"position":{"line":8,"character":7},"label":"' Sub Foo"}]""")
+                .RootElement.Clone();
+        }
+
         public int CodeLensCalls { get; private set; }
         public int ResolveCalls { get; private set; }
         public JsonElement? LastResolveParams { get; private set; }
@@ -252,8 +290,11 @@ public class CodeLensAndCommandTests : IAsyncDisposable
         public JsonElement? LastCommandParams { get; private set; }
 
         [JsonRpcMethod("initialize", UseSingleObjectParameterDeserialization = true)]
-        public JsonElement Initialize(JsonElement _) =>
-            JsonDocument.Parse($$"""{"capabilities":{{capabilities}}}""").RootElement.Clone();
+        public JsonElement Initialize(JsonElement p)
+        {
+            LastInitializeParams = p.Clone();
+            return JsonDocument.Parse($$"""{"capabilities":{{capabilities}}}""").RootElement.Clone();
+        }
 
         [JsonRpcMethod("initialized")]
         public void Initialized(JsonElement _) { }

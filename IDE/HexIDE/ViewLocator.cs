@@ -62,6 +62,7 @@ public class ViewLocator : IDataTemplate
         Register<TrustChainViewModel, TrustChainView>();
         Register<RuntimeErrorViewModel, RuntimeErrorView>();
         Register<LocalsToolViewModel, LocalsToolView>();
+        Register<OutlineToolViewModel, OutlineToolView>();
         Register<WatchesToolViewModel, WatchesToolView>();
         Register<CallStackToolViewModel, CallStackToolView>();
         Register<RecentEditsToolViewModel, RecentEditsToolView>();
@@ -71,6 +72,7 @@ public class ViewLocator : IDataTemplate
         Register<TranslationEditorViewModel, TranslationEditorView>();
         Register<LanguageServersToolViewModel, LanguageServersToolView>();
         Register<ProtocolInspectorToolViewModel, ProtocolInspectorToolView>();
+        Register<HexIDE.Tools.Diagnostics.DiagnosticsToolViewModel, HexIDE.Tools.Diagnostics.DiagnosticsToolView>();
         Register<NewProjectViewModel, NewProjectView>();
         Register<FindReplaceViewModel, FindReplaceView>();
         Register<SaveChangesViewModel, SaveChangesView>();

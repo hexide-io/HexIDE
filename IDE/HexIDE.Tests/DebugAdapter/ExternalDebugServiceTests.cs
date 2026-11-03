@@ -16,6 +16,49 @@ namespace HexIDE.Tests.DebugAdapter;
 public class ExternalDebugServiceTests
 {
     [AvaloniaTheory]
+    [InlineData("{}")]
+    [InlineData("{\"areas\":[]}")]
+    [InlineData("{\"areas\":[\"stacks\"]}")]
+    [InlineData("{\"areas\":[\"variables\"],\"stackFrameId\":7}")]
+    [InlineData("{\"areas\":[\"all\"],\"threadId\":1}")]
+    [InlineData("{\"areas\":[\"future-area\"]}")]
+    public async Task Invalidated_refreshes_stopped_inspection_preserves_caller_and_expires_hover(string body)
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "hexide-dap-invalidated-" + Guid.NewGuid());
+        Directory.CreateDirectory(directory);
+        await using var log = new ConversationLog();
+        var service = new ExternalDebugService(log);
+        var watches = new WatchesToolViewModel(Substitute.For<ILocalizationService>(), new WatchService(),
+            Substitute.For<IDebugController>(), Substitute.For<IWindowManager>(), service);
+        watches.ExternalService.Add(new("value", WatchType.Expression, "Caller"));
+        var failures = new List<string>();
+        service.Failed += failures.Add;
+        var pending = false;
+        service.Output += output => { if (output == "evaluation-pending\n") pending = true; };
+        var run = service.StartAsync(await Configuration(directory, "invalidated"));
+        try
+        {
+            await WaitFor(service, () => service.Variables.Count == 1);
+            await service.SelectFrameAsync(service.Stop!, 7);
+            await WatchUpdated(() => watches.Rows.Single().Value == "42");
+            var stop = service.Stop!;
+            var hover = service.EvaluateHoverAsync("wait", Token);
+            await WaitFor(service, () => pending);
+            await service.EvaluateHoverAsync("invalidate:" + body, Token);
+            await WaitFor(service, () => service.Stop != stop && service.Variables.Count == 1);
+            service.State.Should().Be(DapSessionState.Stopped);
+            service.SelectedFrame!.Value.GetProperty("id").GetInt32().Should().Be(7);
+            service.SelectedLocation!.Value.Line.Should().Be(13);
+            service.CurrentLocation!.Value.Line.Should().Be(6);
+            service.Variables.Single().Value.Should().Be("99");
+            (await hover.WaitAsync(Patience, Token)).Should().BeNull();
+            await WatchUpdated(() => watches.Rows.Single().Value == "99");
+            failures.Should().BeEmpty();
+        }
+        finally { await service.StopAsync(); await run.WaitAsync(Patience, Token); Directory.Delete(directory, true); }
+    }
+
+    [AvaloniaTheory]
     [InlineData("evaluate")]
     [InlineData("frames")]
     public async Task Hover_uses_selected_frame_refuses_errors_and_gates_capability(string mode)

@@ -164,6 +164,10 @@ public class ProjectLoadWarningTests : IDisposable
     [InlineData("Begin VB.Form Form1\r\nBegin MSComctlLib.Toolbar Bars\r\nIndex = 0\r\nEnd\r\nEnd", "Bars")]
     [InlineData("Begin VB.Form Form1\r\nBegin MSComctlLib.Toolbar Bar\r\nBegin VB.CommandButton Command1\r\nEnd\r\nEnd\r\nEnd", "Bar")]
     [InlineData("Begin VB.Form Form1\r\nBegin MSComCtl2.UpDown Spins\r\nIndex = 0\r\nEnd\r\nEnd", "Spins", "MSComCtl2.UpDown")]
+    [InlineData("Begin VB.Form Form1\r\nBegin MSComCtl2.Animation Animation1\r\nEnd\r\nEnd", null)]
+    [InlineData("Begin VB.Form Form1\r\nBegin mscomctl2.animation Animation1\r\nEnd\r\nEnd", null)]
+    [InlineData("Begin VB.Form Form1\r\nBegin MSComCtl2.Animation Clips\r\nIndex = 0\r\nEnd\r\nEnd", "Clips", "MSComCtl2.Animation")]
+    [InlineData("Begin VB.Form Form1\r\nBegin MSComCtl2.Animation Clip\r\nBegin VB.CommandButton Command1\r\nEnd\r\nEnd\r\nEnd", "Clip", "MSComCtl2.Animation")]
     public void A_carried_control_warns_only_when_HexIDE_does_not_run_it(string source, string? warned,
         string warnedType = "MSComctlLib.Toolbar")
     {
@@ -177,6 +181,19 @@ public class ProjectLoadWarningTests : IDisposable
             sink.Key.Should().Be("Str.ProjectLoad.UnknownControl");
             sink.Arguments.Should().Equal(warnedType, warned);
         }
+    }
+
+    [Fact]
+    public async Task VB6s_saved_FlatScrollBars_load_without_a_warning()
+    {
+        var path = Path.Combine(RepoTree.Root(), "corpus", "inbox-controls", "saved", "flatscrollbar", "Form1.frm");
+        var sink = new Sink();
+        var form = new FormDeserializer().Deserialize(new ProjectDefinition(VBProjectType.EXE, "P"),
+            await File.ReadAllTextAsync(path, TestContext.Current.CancellationToken), sink, new Dictionary<int, byte[]>());
+        form.Should().NotBeNull();
+        form!.UnknownChildSubtreeTexts.Should().BeEmpty();
+        form.Components.Count(c => c.BaseClass is HexIDE.Runtime.Components.InBox.FlatScrollBarComponentClass).Should().Be(7);
+        sink.Keys.Should().BeEmpty();
     }
 
     // #1093: VB6's own save of four UpDowns, one bound to a TextBox and one double-clicked from the toolbox, loads without

@@ -35,8 +35,35 @@ namespace HexIDE.Forms.ViewModels;
 /// </summary>
 public partial class RelatedDocumentEditorViewModel(ILspClient lspClient, IWindowManager windowManager,
     ILocalizationService localization)
-    : BaseEditorWindowViewModel, ISearchableDocument
+    : BaseEditorWindowViewModel, ISearchableDocument, IOutlineDocument
 {
+    public IReadOnlyList<DocumentSymbol> OutlineSymbols { get; private set; } = [];
+    public event Action? LanguageServerStateChanged;
+    private int symbolRefreshVersion;
+
+    async Task IOutlineDocument.RefreshSymbolsAsync()
+    {
+        if (session is not { } open) return;
+        var version = ++symbolRefreshVersion;
+        var text = Document.Text;
+        await open.FlushAsync();
+        var symbols = await lspClient.RequestDocumentSymbolsAsync(open.Uri);
+        Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+        {
+            if (version != symbolRefreshVersion || session != open || text != Document.Text) return;
+            OutlineSymbols = symbols;
+            OnPropertyChanged(nameof(OutlineSymbols));
+        });
+    }
+
+    void IOutlineDocument.NavigateToSymbol(DocumentSymbol symbol)
+    {
+        var position = symbol.SelectionRange.Start;
+        if (position.Line < 0 || position.Line >= Document.LineCount) return;
+        var line = Document.GetLineByNumber(position.Line + 1);
+        CaretOffset = Math.Clamp(line.Offset + Math.Max(0, position.Character), line.Offset, line.EndOffset);
+    }
+
     private RelatedDocumentDefinition? document;
     private Vb6TextEncoding encoding = Vb6TextEncoding.Utf8;
     private string savedText = string.Empty;
@@ -180,6 +207,10 @@ public partial class RelatedDocumentEditorViewModel(ILspClient lspClient, IWindo
             Markers = markers;
             MarkersChanged?.Invoke(markers);
         };
+        EventHandler stateChanged = (_, _) => Avalonia.Threading.Dispatcher.UIThread.Post(
+            () => LanguageServerStateChanged?.Invoke());
+        lspClient.StateChanged += stateChanged;
+        AutoDispose(new ActionDisposable(() => lspClient.StateChanged -= stateChanged));
         session.Start();
     }
 

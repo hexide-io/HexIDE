@@ -194,6 +194,8 @@ public sealed partial class ExternalDebugService(ConversationLog capture)
             await Dispatcher.UIThread.InvokeAsync(() =>
             {
                 if (session != current) return;
+                var selectedId = update.Event?.Event == "invalidated"
+                    ? SelectedFrame?.GetProperty("id").GetInt32() : null;
                 State = update.Snapshot.State;
                 var refusedResume = resumePending && State == DapSessionState.Stopped && update.Event is null;
                 if (update.Snapshot.ResumePending)
@@ -217,8 +219,8 @@ public sealed partial class ExternalDebugService(ConversationLog capture)
                 Changed?.Invoke();
                 if (Stop is { } stop)
                 {
-                    if (update.Event?.Event == "stopped" || refusedResume && Frames.Count == 0)
-                        _ = InspectAsync(current, stop);
+                    if (update.Event?.Event is "stopped" or "invalidated" || refusedResume && Frames.Count == 0)
+                        _ = InspectAsync(current, stop, selectedId);
                     else if (refusedResume && Variables.Count == 0 && SelectedFrame is { } frame)
                         _ = RefreshSelectedFrameAsync(current, stop, frame.GetProperty("id").GetInt32());
                 }
@@ -227,7 +229,7 @@ public sealed partial class ExternalDebugService(ConversationLog capture)
         }
     }
 
-    private async Task InspectAsync(DapSession current, DapStop stop)
+    private async Task InspectAsync(DapSession current, DapStop stop, int? selectedId = null)
     {
         try
         {
@@ -239,7 +241,12 @@ public sealed partial class ExternalDebugService(ConversationLog capture)
             if (session != current || !current.IsCurrent(stop)) return;
             ThreadId = thread;
             Frames = frames;
-            if (frames.Length > 0) await SelectFrameAsync(stop, frames[0].GetProperty("id").GetInt32());
+            if (frames.Length > 0)
+            {
+                var selected = frames.FirstOrDefault(frame => frame.GetProperty("id").GetInt32() == selectedId);
+                await SelectFrameAsync(stop, (selected.ValueKind == JsonValueKind.Object ? selected : frames[0])
+                    .GetProperty("id").GetInt32());
+            }
             else Changed?.Invoke();
         }
         catch (Exception exception)

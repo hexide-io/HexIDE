@@ -85,6 +85,8 @@ public partial class MainViewViewModel : ObservableObject
     public ImmediateToolViewModel Immediate { get; }
     public FormLayoutToolViewModel FormLayout { get; }
     public LocalsToolViewModel Locals { get; }
+    public OutlineToolViewModel Outline => dockFactory.Outline;
+    public ICommand OpenOutlineCommand { get; private set; } = null!;
     public WatchesToolViewModel Watches { get; }
     public CallStackToolViewModel CallStack { get; }
     public RecentEditsToolViewModel RecentEdits { get; }
@@ -96,6 +98,7 @@ public partial class MainViewViewModel : ObservableObject
 
     /// <summary>What actually went over the wire to a language server.</summary>
     public HexIDE.Tools.ProtocolInspector.ProtocolInspectorToolViewModel ProtocolInspector { get; }
+    public HexIDE.Tools.Diagnostics.DiagnosticsToolViewModel Diagnostics { get; }
     public IFocusedProjectUtil FocusedProjectUtil { get; }
 
     public IStatusBarService StatusBar { get; }
@@ -284,6 +287,8 @@ public partial class MainViewViewModel : ObservableObject
         public ProportionalDock? MiddleDock;
         public DocumentDock? DocumentDock { get; private set; }
 
+        public OutlineToolViewModel Outline { get; }
+
         public DockFactory(ToolBoxToolViewModel toolBox,
             ProjectToolViewModel project,
             PropertiesToolViewModel properties,
@@ -298,7 +303,8 @@ public partial class MainViewViewModel : ObservableObject
             LanguageServersToolViewModel languageServers,
             HexIDE.Tools.ProtocolInspector.ProtocolInspectorToolViewModel protocolInspector,
             IWindowStateService windowStateService,
-            DockFactoryReference documentDockFactory)
+            DockFactoryReference documentDockFactory,
+            OutlineToolViewModel outline)
         {
             ArgumentNullException.ThrowIfNull(toolBox);
             ArgumentNullException.ThrowIfNull(project);
@@ -315,7 +321,9 @@ public partial class MainViewViewModel : ObservableObject
             ArgumentNullException.ThrowIfNull(protocolInspector);
             ArgumentNullException.ThrowIfNull(windowStateService);
             ArgumentNullException.ThrowIfNull(documentDockFactory);
+            ArgumentNullException.ThrowIfNull(outline);
 
+            Outline = outline;
             this.windowStateService = windowStateService;
             toolsByKey = new Dictionary<string, IDockable>
             {
@@ -325,6 +333,7 @@ public partial class MainViewViewModel : ObservableObject
                 ["formLayout"]        = formLayout,
                 ["immediate"]         = immediate,
                 ["locals"]            = locals,
+                ["outline"]           = outline,
                 ["watches"]           = watches,
                 ["callStack"]         = callStack,
                 ["colorPalette"]      = colorPalette,
@@ -1085,6 +1094,7 @@ public partial class MainViewViewModel : ObservableObject
         TranslationEditorViewModel translationEditor,
         LanguageServersToolViewModel languageServers,
         HexIDE.Tools.ProtocolInspector.ProtocolInspectorToolViewModel protocolInspector,
+        HexIDE.Tools.Diagnostics.DiagnosticsToolViewModel diagnostics,
         IProjectManager projectManager,
         IFocusedProjectUtil focusedProjectUtil,
         IProjectService projectService,
@@ -1166,6 +1176,7 @@ public partial class MainViewViewModel : ObservableObject
         Immediate = immediate;
         FormLayout = formLayout;
         Locals = locals;
+        OpenOutlineCommand = new DelegateCommand(() => OpenOrActivateTool(Outline, true));
         Watches = watches;
         CallStack = callStack;
         callStack.FrameShown += () =>
@@ -1179,6 +1190,8 @@ public partial class MainViewViewModel : ObservableObject
         LanguageServers = languageServers;
         OpenLanguageServersCommand = new DelegateCommand(OpenLanguageServers);
         ProtocolInspector = protocolInspector;
+        Diagnostics = diagnostics;
+        OpenDiagnosticsCommand = new DelegateCommand(OpenDiagnostics);
         OpenProtocolInspectorCommand = new DelegateCommand(OpenProtocolInspector);
         FocusedProjectUtil = focusedProjectUtil;
 
@@ -2081,6 +2094,14 @@ public partial class MainViewViewModel : ObservableObject
     }
     /// <summary>Opens the language-server view, or brings it forward if it is already open.</summary>
     public ICommand OpenLanguageServersCommand { get; private set; } = null!;
+
+    public ICommand OpenDiagnosticsCommand { get; }
+
+    public void OpenDiagnostics()
+    {
+        Diagnostics.Refresh();
+        OpenOrActivateTool(Diagnostics, false);
+    }
 
     /// <summary>Opens the protocol inspector, or brings it forward if it is already open.</summary>
     /// <remarks>
