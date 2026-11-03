@@ -1704,3 +1704,24 @@ refreshes SHALL request tokens and folds for the changed text.
 - **THEN** their $/cancelRequest frames precede that document's didChange
 - **AND** pending hover or completion requests and requests for other documents are not cancelled
 - **AND** a fresh diagnostic pull follows didChange
+
+### Requirement: Server publications SHALL respect renamed document URIs
+
+After the client closes a document for a rename, it SHALL evict its cached analysis and ignore server
+diagnostic publications for that URI until the document is reopened, using `LspDocumentUri.Comparer` for URI identity. This
+SHALL apply to empty and non-empty diagnostic sets and SHALL NOT exclude workspace documents
+that have never been renamed away. Ordinary closes SHALL retain cached analysis and SHALL NOT
+suppress subsequent server publications.
+
+#### Scenario: A server publishes diagnostics after a rename close
+- **WHEN** a server publishes diagnostics for a URI after its rename close
+- **THEN** the publication does not restore that URI to the automation diagnostics cache or registry ledger
+
+#### Scenario: A renamed-away URI is reopened
+- **WHEN** the same URI is reopened and the server publishes diagnostics
+- **THEN** the publication is accepted again, including an empty set representing a clean document
+
+#### Scenario: An ordinary editor close
+- **WHEN** a document is closed without a rename
+- **THEN** its cached analysis remains
+- **AND** later server publications still update the cache and reach registry subscribers
