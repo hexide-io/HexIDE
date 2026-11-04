@@ -548,6 +548,49 @@ public class HoverThroughWindowInputTests
     }
 
     [AvaloniaFact]
+    public async Task RelatedDiagnosticLocationsStayOpenAndNavigateOnClick()
+    {
+        var editors = Substitute.For<IEditorService>();
+        const string target = "file:///tmp/related.bas";
+        const string unknown = "untitled:Related";
+        editors.DocumentNameForUri(target).Returns("Module2");
+        editors.DocumentNameForUri(unknown).Returns((string?)null);
+        var (window, editor, vm) = ShowEditor(editors: editors);
+        var range = new HexIDE.Lsp.Messages.Range(new Position(4, 2), new Position(4, 6));
+        var caret = editor.Document.GetLocation(editor.CaretOffset);
+        var primary = new HexIDE.Lsp.Messages.Range(new Position(caret.Line - 1, caret.Column - 1),
+            new Position(caret.Line - 1, caret.Column + 1));
+        try
+        {
+            lsp.DiagnosticsPublished += Raise.Event<EventHandler<PublishDiagnosticsParams>>(lsp,
+                new PublishDiagnosticsParams(vm.GetDocumentUriPublic(), [new Diagnostic(
+                    primary, "primary",
+                    RelatedInformation: [new(new(target, range), "first site"), new(new(unknown, range), "second site")])]));
+            Dispatcher.UIThread.RunJobs();
+            ((CodeEditorView)window.Content!).TriggerQuickInfo();
+            await WaitForTip(editor);
+            var tip = ToolTip.GetTip(editor).Should().BeOfType<ToolTip>().Subject;
+            var panel = ((StackPanel)tip.Content!).Children.OfType<StackPanel>().First();
+            ((TextBlock)panel.Children[0]).Text.Should().Contain("primary");
+            var rows = panel.Children.OfType<StackPanel>().ToArray();
+            rows.Should().HaveCount(2);
+            var links = rows.Select(r => (HyperlinkButton)r.Children[0]).ToArray();
+            links.Select(l => l.Content).Should().Equal("Module2:5", unknown + ":5");
+            rows.Select(r => ((TextBlock)r.Children[1]).Text).Should().Equal("first site", "second site");
+            UiAutomationDriver.Hover(links[0], null, null, null, out _).Success.Should().BeTrue();
+            await Settle(250);
+            ToolTip.GetIsOpen(editor).Should().BeTrue();
+            editors.DidNotReceive().NavigateTo(Arg.Any<string>(), Arg.Any<int>(), Arg.Any<int>());
+            foreach (var link in links) link.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            editors.Received(1).NavigateTo(target, 5, 3);
+            editors.Received(1).NavigateTo(unknown, 5, 3);
+            UiAutomationDriver.EndHover(links[0]);
+            await WaitForTip(editor, () => ToolTip.GetTip(editor) is null, "related tooltip to close after exit");
+        }
+        finally { window.Close(); vm.Dispose(); }
+    }
+
+    [AvaloniaFact]
     public async Task Markdown_hover_links_can_be_reached_without_closing_the_tip()
     {
         var editors = Substitute.For<IEditorService>();

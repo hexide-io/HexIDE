@@ -617,7 +617,7 @@ public sealed class VBLspClient : ILspClient
             Locale: _locale(),
             Capabilities: new ClientCapabilities(
                 new TextDocumentClientCapabilities(
-                    PublishDiagnostics: new PublishDiagnosticsClientCapabilities(),
+                    PublishDiagnostics: new PublishDiagnosticsClientCapabilities(true, new DiagnosticTagSupport([1, 2])),
                     Hover: new HoverClientCapabilities(ContentFormat: HoverContentRenderer.Formats.ToArray()),
                     // Claimed here so the server has something to answer. Declaring and gating are two
                     // halves of one negotiation: gate without declare and a conformant server withholds
@@ -1356,7 +1356,10 @@ public sealed class VBLspClient : ILspClient
             : null;
 
         return new Diagnostic(range, message, severity, source, code,
-            href is null ? null : new CodeDescription(href));
+            href is null ? null : new CodeDescription(href),
+            element.TryGetProperty("tags", out var tags) ? DiagnosticTagsConverter.ReadItems(tags) : null,
+            element.TryGetProperty("relatedInformation", out var related)
+                ? DiagnosticRelatedInformationConverter.ReadItems(related) : null);
     }
 
     public async Task DidCreateFilesAsync(string[] uris, CancellationToken cancellationToken = default)

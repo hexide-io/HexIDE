@@ -1564,38 +1564,36 @@ public partial class CodeEditorView : UserControl
     private void ShowDiagnosticTip(Position pos, MarkupContent? quickInfo)
     {
         var offset = TextEditor.Document.GetOffset(pos.Line + 1, pos.Character + 1);
-        var parts = new List<string>();
-        if (_markerService is { } service)
+        if (DataContext is not CodeEditorViewModel vm) return;
+        var markers = _markerService?.Markers.Where(m => offset >= m.StartOffset && offset < m.EndOffset).ToArray() ?? [];
+        if (quickInfo?.Kind != "markdown" && !markers.Any(m => m.RelatedInformation is { Length: > 0 }))
         {
-            foreach (var marker in service.Markers)
-            {
-                if (offset >= marker.StartOffset && offset < marker.EndOffset)
-                    parts.Add(string.IsNullOrEmpty(marker.Source)
-                        ? marker.Message : $"{marker.Source}: {marker.Message}");
-            }
-        }
-        if (quickInfo is { Kind: "markdown", Value.Length: > 0 })
-        {
-            var panel = new StackPanel { Spacing = 8 };
-            foreach (var part in parts)
-                panel.Children.Add(new TextBlock { Text = part, TextWrapping = TextWrapping.Wrap, MaxWidth = 700 });
-            panel.Children.Add(HoverContentView.Render(quickInfo, TextEditor, uri =>
-            {
-                if (uri.IsFile && DataContext is CodeEditorViewModel vm)
-                    vm.OpenHoverFile(uri);
-                else if (uri.Scheme is "http" or "https" && TopLevel.GetTopLevel(this) is { } top)
-                    _ = top.Launcher.LaunchUriAsync(uri);
-            }));
-            var richTip = new ToolTip { Content = panel };
-            richTip.PointerEntered += (_, _) => _hoverCts?.Cancel();
-            richTip.PointerExited += (_, _) => _ = CloseRichTipAfterExitAsync(richTip);
-            ToolTip.SetTip(TextEditor, richTip);
+            var parts = markers.Select(m => string.IsNullOrEmpty(m.Source) ? m.Message : $"{m.Source}: {m.Message}").ToList();
+            if (!string.IsNullOrEmpty(quickInfo?.Value)) parts.Add(quickInfo.Value);
+            if (parts.Count == 0) { CloseTip(); return; }
+            ToolTip.SetTip(TextEditor, string.Join(Environment.NewLine + Environment.NewLine, parts));
             ToolTip.SetIsOpen(TextEditor, true);
             return;
         }
-        if (!string.IsNullOrEmpty(quickInfo?.Value)) parts.Add(quickInfo.Value);
-        if (parts.Count == 0) { CloseTip(); return; }
-        ToolTip.SetTip(TextEditor, string.Join(Environment.NewLine + Environment.NewLine, parts));
+        var panel = new StackPanel { Spacing = 8 };
+        if (_markerService is { } service)
+        {
+            foreach (var marker in service.Markers)
+                if (offset >= marker.StartOffset && offset < marker.EndOffset)
+                    panel.Children.Add(vm.DiagnosticContent(marker));
+        }
+        if (quickInfo is { Value.Length: > 0 })
+            panel.Children.Add(HoverContentView.Render(quickInfo, TextEditor, uri =>
+            {
+                if (uri.IsFile) vm.OpenHoverFile(uri);
+                else if (uri.Scheme is "http" or "https" && TopLevel.GetTopLevel(this) is { } top)
+                    _ = top.Launcher.LaunchUriAsync(uri);
+            }));
+        if (panel.Children.Count == 0) { CloseTip(); return; }
+        var richTip = new ToolTip { Content = panel };
+        richTip.PointerEntered += (_, _) => _hoverCts?.Cancel();
+        richTip.PointerExited += (_, _) => _ = CloseRichTipAfterExitAsync(richTip);
+        ToolTip.SetTip(TextEditor, richTip);
         ToolTip.SetIsOpen(TextEditor, true);
     }
 

@@ -12,6 +12,34 @@ namespace HexIDE.Integration.Tests.Views;
 
 public class DiagnosticsPresentationTests
 {
+    [AvaloniaTheory]
+    [InlineData(1)]
+    [InlineData(2)]
+    [InlineData(3)]
+    [InlineData(0)]
+    public void TaggedMessagesAreStyledInTheList(int tag)
+    {
+        var view = new DiagnosticsToolView();
+        var grid = (DataGrid)((Grid)view.Content!).Children[1];
+        grid.ItemsSource = new[] { new DiagnosticRow("file:///outside/a.txt", "s",
+            new Diagnostic(new HexIDE.Lsp.Messages.Range(new Position(0, 0), new Position(0, 1)), "tagged",
+                Tags: tag == 3 ? [1, 2] : tag == 0 ? null : [tag]), "Hint") };
+        var window = new Window { Content = view, Width = 1000, Height = 400 };
+        try
+        {
+            window.Show();
+            Dispatcher.UIThread.RunJobs();
+            var cell = view.GetVisualDescendants().OfType<DataGridRow>().Single()
+                .GetVisualDescendants().OfType<DataGridCell>().ElementAt(4);
+            var text = cell.GetVisualDescendants().OfType<TextBlock>().Single();
+            text.Text.Should().Be("tagged");
+            text.Opacity.Should().Be(tag is 1 or 3 ? 0.5 : 1);
+            (text.TextDecorations?.Any(d => d.Location == Avalonia.Media.TextDecorationLocation.Strikethrough) == true)
+                .Should().Be(tag is 2 or 3);
+        }
+        finally { window.Close(); }
+    }
+
     [AvaloniaFact]
     public void DocumentCellKeepsTheFullPathInItsTooltip()
     {

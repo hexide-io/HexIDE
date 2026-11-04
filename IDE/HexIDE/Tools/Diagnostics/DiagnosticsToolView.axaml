@@ -24,7 +24,14 @@
                     </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
                 <DataGridTextColumn Header="{DynamicResource Str.Tool.Diagnostics.Line}" Binding="{CompiledBinding Line, x:DataType=vm:DiagnosticRow}" Width="Auto" />
-                <DataGridTextColumn Header="{DynamicResource Str.Tool.Diagnostics.Message}" Binding="{CompiledBinding Message, x:DataType=vm:DiagnosticRow}" Width="Auto" />
+                <DataGridTemplateColumn Header="{DynamicResource Str.Tool.Diagnostics.Message}" SortMemberPath="Message" Width="Auto">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate x:DataType="vm:DiagnosticRow">
+                            <TextBlock Text="{CompiledBinding Message}" Opacity="{CompiledBinding MessageOpacity}"
+                                       TextDecorations="{CompiledBinding MessageDecorations}" Margin="4,0" VerticalAlignment="Center" />
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
             </DataGrid.Columns>
         </DataGrid>
     </Grid>
