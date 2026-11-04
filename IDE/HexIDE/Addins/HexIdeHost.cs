@@ -56,24 +56,9 @@ internal sealed class HexIdeHost(
     [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
     public IAddinServerConnection RegisterLanguageServer(AddinLanguageServer server)
     {
-        var connection = languageServers.Register(server, OriginOf(System.Reflection.Assembly.GetCallingAssembly()));
+        var origin = AddinOrigin.Of(System.Reflection.Assembly.GetCallingAssembly(), Registry);
+        var connection = languageServers.Register(server, origin.Title);
         AddinInitializationScope.Record(connection.Dispose);
         return connection;
-    }
-
-    // The title of the add-in an assembly is, as the add-in manager shows it; the assembly's name when no add-in is it.
-    private string OriginOf(System.Reflection.Assembly assembly)
-    {
-        var path = FullPath(assembly.Location);
-        return (path.Length == 0 ? null : Registry.GetAll().FirstOrDefault(addin =>
-                   string.Equals(FullPath(addin.AssemblyPath), path, StringComparison.OrdinalIgnoreCase))?.Title)
-               ?? assembly.GetName().Name
-               ?? "An add-in";
-
-        static string FullPath(string path)
-        {
-            try { return string.IsNullOrEmpty(path) ? "" : System.IO.Path.GetFullPath(path); }
-            catch (Exception ex) when (ex is ArgumentException or NotSupportedException or System.IO.PathTooLongException) { return path; }
-        }
     }
 }

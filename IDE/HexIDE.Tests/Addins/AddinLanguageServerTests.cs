@@ -57,11 +57,42 @@ public sealed class AddinLanguageServerTests : IDisposable
     });
 
     [Fact]
-    public void AContributedServer_IsListedUnderTheTitleOfTheAddinThatContributedIt()
+    public void AServerContributedFromOutsideAnyAddin_IsListedUnderItsAssemblysName()
     {
+        // This test assembly is in no add-in's load context, whatever the registry lists (AddinOrigin is the add-in's).
         using var connection = _host.RegisterLanguageServer(Probe());
 
-        _router.Connections.Should().ContainSingle().Which.Origin.Should().Be("Probe Add-in");
+        _router.Connections.Should().ContainSingle().Which.Origin.Should().Be(typeof(AddinLanguageServerTests).Assembly.GetName().Name);
+    }
+
+    // An assembly loaded as an add-in's: the DAP test adapter, which nothing shares with the host. From its bytes, so no
+    // file stays locked behind the test.
+    private static System.Reflection.Assembly LoadedAsAddin(string id, string packageDir)
+    {
+        var context = new AddinLoadContext(packageDir, new AddinManifest
+        {
+            Id = id,
+            Files = [new AddinFileHash { Path = "HexIDE.Dap.TestAdapter.dll", Sha256 = new string('0', 64) }],
+        });
+        using var bytes = new MemoryStream(File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "HexIDE.Dap.TestAdapter.dll")));
+        return context.LoadFromStream(bytes);
+    }
+
+    [Fact]
+    public void AnAddinIsNamedByTheManifestItsCodeWasLoadedUnder_NotByItsFiles()
+    {
+        // The registry lists an add-in by its package's folder, never by a DLL, and two add-ins may ship one assembly name.
+        var first = LoadedAsAddin("com.example.first", Path.Combine(_root, "first"));
+        var second = LoadedAsAddin("com.example.second", Path.Combine(_root, "second"));
+        _addins.GetAll().Returns(
+        [
+            new AddinInfo(Path.Combine(_root, "first"), "First Add-in", "", "1.0", "", Id: "com.example.first"),
+            new AddinInfo(Path.Combine(_root, "second"), "", "", "1.0", "", Id: "com.example.second"),
+        ]);
+
+        AddinOrigin.Of(first, _addins).Should().Be(new AddinOrigin("com.example.first", "First Add-in"));
+        AddinOrigin.Of(second, _addins).Should().Be(new AddinOrigin("com.example.second", "com.example.second"),
+            "an untitled add-in is called by its id, and the same assembly name in another add-in is another add-in");
     }
 
     [Fact]

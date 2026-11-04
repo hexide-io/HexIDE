@@ -48,9 +48,13 @@ internal sealed class AddinLoadContext : AssemblyLoadContext
 
     private readonly List<string> _shadowedByHost = [];
 
+    /// <summary>The id of the add-in whose manifest this context loads, which names what its code contributes.</summary>
+    public string AddinId { get; }
+
     public AddinLoadContext(string packageDir, AddinManifest manifest)
         : base(name: $"Addin:{manifest.Id}", isCollectible: true)
     {
+        AddinId = manifest.Id;
         _managedByName = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         foreach (var f in manifest.Files)
         {
