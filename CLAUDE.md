@@ -179,8 +179,11 @@ Gotchas). Run the suites under WSL rather than discovering it a push later:
 wsl -e bash -lc 'sudo apt-get update && sudo apt-get install -y dotnet-sdk-10.0 rsync'
 
 # From the root of any checkout or worktree: copy it to WSL's own filesystem and run one suite there.
-wsl -e bash scripts/test-linux.sh IDE/HexIDE.Runtime.Tests/
-wsl -e bash scripts/test-linux.sh IDE/HexIDE.Tests/ -- --filter-class "*CodeEditorViewModelTests"
+# The export drops the Windows PATH entries WSL appends. With them, every process start searches the 9p
+# mount, and test workers took 65 to 72 s to start instead of 2.6 s (measured 2026-11-02), which is what
+# timed out ProjectSmokeRunnerTests and the corpus smoke test there.
+wsl -e bash -c 'export PATH="$(printf "%s" "$PATH" | tr ":" "\n" | grep -v "^/mnt/" | paste -sd:)"; bash scripts/test-linux.sh IDE/HexIDE.Runtime.Tests/'
+wsl -e bash -c 'export PATH="$(printf "%s" "$PATH" | tr ":" "\n" | grep -v "^/mnt/" | paste -sd:)"; bash scripts/test-linux.sh IDE/HexIDE.Tests/ -- --filter-class "*CodeEditorViewModelTests"'
 ```
 
 **Use the script, not a build on `/mnt/c`.** It copies the tree as it stands on disk, uncommitted edits
@@ -208,13 +211,18 @@ which **moved from 24.04 to 26.04 from 2026-10-19**: the job log's "Operating Sy
 
 | | Ubuntu | ICU | glibc |
 |---|---|---|---|
-| CI (`build-ide`, `ubuntu-latest`) and the container below, since 2026-10-19 | **26.04** | not yet measured on the runner | not yet measured |
+| CI (`build-ide`, `ubuntu-latest`) and the container below, since 2026-10-19 | **26.04** | **libicu78** | 2.43 |
 | WSL | **26.04 LTS** | **libicu78** | 2.43 |
 | CI before 2026-10-19 | 24.04 | libicu74 | 2.39 |
 
+The CI row was checked on 2026-11-03. Run 41671865048's `build-ide (linux)` log names image `ubuntu-26.04`
+20261025.179.1 on Ubuntu 26.04.1 LTS, but prints neither library. ICU 78.2 is from the runner image's
+published readme (20261026.180.1, the next build), and glibc 2.43 from Ubuntu 26.04's archive. The
+container's base image installs `libicu78` and `libc6` from the same release.
+
 Before the move they were four ICU major versions apart. .NET takes string comparison, casing and
 culture-sensitive formatting from the platform's ICU, and this project compares VB6 identifiers
-case-insensitively everywhere, ships 27 language packs, and round-trips culture-sensitive values into
+case-insensitively everywhere, ships a language pack for every Windows tier-1 language, and round-trips culture-sensitive values into
 Windows-native files. So a divergence there would present exactly as the original bug class did: green
 locally, red on CI. **The container's tag follows CI's release.** Check the job log's `Image:` line when a
 Linux failure won't reproduce under WSL, and move the tag below when `ubuntu-latest` moves again; a
@@ -289,6 +297,14 @@ looking for one. The duration correlation was real but incidental: a run that fa
 constructors finishes sooner because it does less work. Diagnosed properly on 2026-09-06 by reading a CI
 log instead of the note.
 
+**When tests that wait for a command requery fail together, rule out a requery stuck on a replaced
+dispatcher (#2921, fixed).** `CommandManager` is per thread, and headless Avalonia replaces the dispatcher
+under it. A requery left pending on the old dispatcher never ran, and while it was pending no new one was
+queued, so every later requery was lost and `FormatSelectionTests`' nine predicate cases failed together.
+`RaiseRequerySuggested` now coalesces only with a requery pending on the current dispatcher.
+`TestApp.BuildAvaloniaApp` seeds a pending requery before headless starts, so a regression fails those
+nine cases at once.
+
 **An Integration run that ends hundreds short and still says `Passed!` lost those tests to xunit errors,
 which MTP does not count** ([#2486](https://github.com/hexide-io/HexIDE/issues/2486)). xunit records a
 test case that throws before its test starts as an error, not a failure, and its MTP adapter drops that
@@ -356,6 +372,11 @@ So, for any tool added here:
 - **Enumerate the vocabulary a reply uses.** A `kind` of `Unconsumed` means nothing to somebody who was
   never told the set. Where the reply renders an enum, put `[DescribesEnum(typeof(T))]` on the tool:
   `ToolDescriptionEnumTests` then fails the build if the description leaves a member out (#400).
+- **After editing a tool's or parameter's description, run every class that pins it**:
+  `cd IDE && dotnet test HexIDE.Tests/ -- --filter-trait "Category=ToolDescription"` (#2903). The pins sit
+  in classes whose names share no pattern, so a filter by class name misses some. `[ToolDescription]` marks
+  each one, the length cap's `ToolDescriptionLengthTests` included, and `ToolDescriptionMarkerTests` fails
+  when a class reads a tool's description without it.
 - **Explain anything that looks like a defect and is not.** Sequence gaps beside a field called
   `framesDropped` read as data loss.
 - **A reply that mutates reports the new state**, and reports it even when that state is empty.
@@ -452,8 +473,8 @@ The third is less obvious and used to be a comment nothing checked. `--help` put
 option list only while the widest rendered row fits, with the mark's 24 cells and the gutter's 2 in front
 of it, inside a 120-column console — so **no option row may exceed 94 columns**. A row is
 `2 + the value column + 2 + the summary`, and the value column is the longest `--name <value>` spelling in
-the table, so a wider value name costs every row at once (which is why `--personality` renders `<name>` and
-lists its values in its summary). The same test measures this and names the offending option. Miss it and
+the table, so a wider value name costs every row at once (which is why `--profile` renders `<value>` and
+names what it takes in its summary). The same test measures this and names the offending option. Miss it and
 every default-sized window silently drops to the stacked layout, which is what the beside path exists to
 avoid.
 
@@ -573,7 +594,7 @@ one reads fresh only in a session that has not loaded it yet. See the restart no
 
 | Folder | License | Purpose |
 |--------|---------|---------|
-| `IDE/` | MIT | IDE application (14 projects) |
+| `IDE/` | MIT | IDE application: its libraries, entry points, tests and helper tools |
 | `LspServer/` | MIT | Out-of-process VB6/VBA LSP server (EmmyLua shell + proleap grammar) |
 | `HexIDE.slnx` | — | Master solution (Visual Studio 2022+) |
 | `.github/` | — | CI workflows |
@@ -582,7 +603,8 @@ one reads fresh only in a session that has not loaded it yet. See the restart no
 
 ### Key IDE projects (`IDE/`)
 
-Package versions are centralized in `IDE/Directory.Build.props` (Avalonia, Dock, .NET TFMs, Serilog).
+Package versions are pinned centrally in the root `Directory.Packages.props` (Avalonia, Dock, Serilog and the rest).
+`IDE/Directory.Build.props` sets the target frameworks, the app version and the shared global usings.
 
 | Project | Role |
 |---------|------|
@@ -599,7 +621,7 @@ Package versions are centralized in `IDE/Directory.Build.props` (Avalonia, Dock,
 
 ### LSP architecture
 
-- **Server** (`LspServer/HexIDE.VbLspServer`): out-of-process console app built on **EmmyLua.LanguageServer.Framework** (MIT); handlers wired in `LspServerHost.cs` (stdio, `SingleThreadScheduler`, `AddRequestHandler`/`AddNotificationHandler`). Parses with the **proleap / grammars-v4** VB6 grammar (`VisualBasic6Lexer.g4` + `VisualBasic6Parser.g4`) via a two-stage SLL→LL strategy + a wall-clock parse backstop (`VbDiagnosticsProvider`). Diagnostics = collecting ANTLR error listener + `Option Explicit` undeclared-variable checks (`VbScopeAnalyzer`), messages via `VbErrorMessages.Prettify()`. Run standalone with `dotnet run --project HexIDE.VbLspServer/`.
+- **Server** (`LspServer/HexIDE.VbLspServer`): out-of-process console app built on **EmmyLua.LanguageServer.Framework** (MIT); handlers wired in `LspServerHost.cs` (stdio, `SingleThreadScheduler`, `AddRequestHandler`/`AddNotificationHandler`). Parses with the **proleap / grammars-v4** VB6 grammar (`VisualBasic6Lexer.g4` + `VisualBasic6Parser.g4`) via a two-stage SLL→LL strategy + a wall-clock parse backstop (`VbDiagnosticsProvider`). Diagnostics = collecting ANTLR error listener, messages via `VbErrorMessages.Prettify()`. The `Option Explicit` undeclared-variable check (`VbScopeAnalyzer`) is compiled out; see the language-analysis boundary below. Run standalone with `dotnet run --project HexIDE.VbLspServer/`.
 - **Client** (`HexIDE.Lsp`): `VBLspClient` uses `StreamJsonRpc` + `SystemTextJsonFormatter`. Auto-started by `App.axaml.cs`, stopped on `ShutdownRequested`. Desktop-only.
 - **Diagnostics flow**: server → `publishDiagnostics` → `VBLspClient.DiagnosticsPublished` → `CodeEditorViewModel.OnDiagnosticsPublished` (on `Dispatcher.UIThread.Post`) → AvaloniaEdit offsets → `LspTextMarkerService.SetMarkers()` → wavy underlines.
 - **AOT**: `StreamJsonRpc` IL warnings suppressed in Desktop. `LspJsonContext` (source-gen `JsonSerializerContext`) covers all LSP types.
@@ -801,6 +823,9 @@ it's a mitigation.**
   **An unknown licence is refused as firmly as a copyleft one.** `NOASSERTION` is not a mild finding: GPL
   terms are at least knowable, whereas an unresolved licence is unbounded and cannot be undone once shipped.
   The guard used to check only for GPL, which caught the last problem rather than the next one.
+  **The guard needs Python 3** for its source-notice check. It runs the first of `python3`, `python` and
+  `py -3` whose `--version` reports Python 3, which passes over the Windows Store's `python3` stub, and it
+  fails when none does. `scripts/check-licences.selftest.sh` tests that choice in CI's `guard-mit` job (#2897).
 - **Code travels OUT to licence-ambiguous neighbours, never back in.** Contributing to a project whose CLA
   permits relicensing is a decision the maintainer is free to make; importing from a repository whose licence
   no tool can resolve is irreversible and breaks a promise made to everyone downstream. So anything wanted in
@@ -866,8 +891,8 @@ When a new `HexIDE.*` namespace becomes widely used in a project, add it to that
 
 ### Adding a new LSP method (5-step recipe)
 
-1. **Server handler** in `LspServer/HexIDE.VbLspServer/LspServer.cs` — add `case "textDocument/yourMethod":` and `HandleYourMethod(idNode, paramsNode)`.
-2. **Server capability** in `BuildInitializeResult()` in the same file.
+1. **Server handler**: register the method in `LspServer/HexIDE.VbLspServer/LspServerHost.cs`, as `Request(ls, "textDocument/yourMethod", (s, p) => LspRequestHandlers.YourMethod(s, p));` (or `ls.AddNotificationHandler` for a notification), and implement `YourMethod(DocumentStore store, JsonElement p)` in `LspRequestHandlers.cs`.
+2. **Server capability** in `VbServerCapabilities.RegisterCapability()` (`VbServerCapabilities.cs`).
 3. **Message types** in `IDE/HexIDE.Core/Lsp/Messages/LspMessages.cs` — `record` types with `[JsonPropertyName]` on every property. (`HexIDE.Lsp/Messages/` holds only the serializer context; the records are in Core.)
 4. **Serializer registration** in `IDE/HexIDE.Lsp/Messages/LspJsonContext.cs` — `[JsonSerializable(typeof(YourResponseType))]`. **Not optional, and not only an AOT concern** — `VBLspClient` builds its `JsonSerializerOptions` *from* this context, whose generated resolver ends in `return null` with nothing chained behind it, so an unregistered type throws under plain JIT too. The throw lands in a debug-level catch, which turns the omission into a server that connects, initializes and then answers nothing — indistinguishable from a broken server, and it has cost real time twice.
 5. **Client** in `IDE/HexIDE.Lsp/ILspClient.cs` + `VBLspClient.cs` — add interface method, implement with `_rpc.InvokeWithParameterObjectAsync<T>(...)`.
@@ -899,10 +924,9 @@ user-facing string is a localization key, never a hardcoded literal.**
    (CONTRIBUTING.md), and on their PRs `build.yml` runs that test as a non-blocking warning. The maintainer
    translates before merging, and the push to `main` runs the test as a blocking check. The exemption is
    keyed on `author_association`, not on the PR coming from a fork: maintainers' PRs come from forks too,
-   show as `MEMBER`, and stay blocking. Work in this tree still translates in the same change. The moment you add a `Str.*` key to `en`, add its translation to each shipped
-   full-translation pack (the supported set:
-   `ar, cs, da, de, el, eo, es, fa, fi, fr, he, hi, id, it, ja, ko, la, nb, nl, pl, pt, ru, sv, tr, uk, ur,
-   vi, zh-Hans, zh-Hant` — **29**) so non-English IDEs never show English fall-through. A missing key *inherits* English
+   show as `MEMBER`, and stay blocking. Work in this tree still translates in the same change. The moment you add a `Str.*` key to `en`, add its translation to every neutral pack
+   `LanguageManifest.Packs` declares (`IDE/HexIDE/Localization/LanguagePack.cs`), so non-English IDEs never
+   show English fall-through. That list is the shipped set, and it is deliberately not copied here. A missing key *inherits* English
    (no blank control), but that drift must not ship — close it at the point of creation. For more than a
    couple of keys, use the language-packs workflow (one agent per pack: translate the new keys,
    **preserving `{0}`/`{1}` placeholders and each pack's mnemonic convention** — `_` kept for Latin scripts,
@@ -913,30 +937,33 @@ user-facing string is a localization key, never a hardcoded literal.**
    ```sh
    cd tools/TranslationCoverage && dotnet run
    ```
-**The shipped set is closed, `LanguagePack.cs` is its single source of truth, and that is now checked.**
-This list, that file and the coverage tool must agree; they did not for a while, which is how `la` and `eo`
-came to be translated in every pass without anyone having decided they were shipped. `ShippedPackParityTests`
-closes both directions — a declared language with no pack, and a full translation on disk that nothing
-declares — so the disagreement cannot recur silently. The prose list above is the one part still kept by
-hand.
+**The shipped set is closed, `LanguagePack.cs` is its single source of truth, and that is checked.**
+`ShippedPackParityTests` closes both directions — a declared language with no pack, and a full translation on
+disk that nothing declares — so the manifest and the packs cannot disagree silently. This file used to keep a
+copy of the list by hand, and the copy drifted: it went on naming five languages after they had left the box.
+
+**Which languages ship follows Microsoft's language tiers for Windows** (the maintainer's decision, 2026-10-30): an outside bar for
+"would a real person pick it", in place of judging each language on its own.
+
+- **Tier 1, in the box:** Windows' full language packs. Each ships in this tree, complete, under
+  `ShippedPackParityTests`, with the regional variants that override it.
+- **Tier 2, installable:** Windows 11's Language Interface Packs. They live in
+  [hexide-io/HexIDE.Localisation](https://github.com/hexide-io/HexIDE.Localisation), best-effort and outside
+  the parity guarantee. Hindi, Persian and Urdu moved there from the box (#2817, #2876).
+- **Novelty and constructed languages ship from neither.** Latin and Esperanto left the box at the same time
+  and are kept out of the public tree. Klingon, Na'vi, Tolkien's languages and their relatives are refused on
+  request, and this line is the maintainer's own standing instruction to refuse them.
 
 **A region is a country variant, not a dialect.** `fr-CA`, `pt-BR` and `en-GB` are regions and override only
 what differs from their neutral, so they are exempt from parity. A *language* is a neutral pack however
-small its speaker base — Basque would be `eu`, not a region of Spanish — and a neutral is bound by parity
+small its speaker base — Basque is `eu`, not a region of Spanish — and a neutral is bound by parity
 the moment it is declared.
 
-**No more languages "for fun" — the bar is whether a real person would pick it, not whether it is a real
-language.** `la` (Latin) and `eo` (Esperanto) stay, as a recorded decision rather than an accident: Latin is
-the Holy See's official language, Esperanto has a genuine localisation community, and both are already
-complete. Nothing further of that kind is added — Klingon, Na'vi, Tolkien's languages and their relatives are
-refused on request, and this line is the maintainer's own standing instruction to refuse them.
-
-The reason is cost, not taste. Every pack is a permanent tax on every new key: adding two keys today cost 58
-translations, and the guarantee that makes this system worth anything is that **every shipped pack is 100%
-complete, enforced at build** — by `ShippedPackParityTests`, which is what makes this argument something
-other than an assertion. A pack nobody selects still has to be kept complete forever, or the guarantee
-weakens for the packs that people do use. A legitimacy test ("is it a real language of a real state") gets
-this backwards — it admits Latin, which nobody will select, and excludes Esperanto, which someone might.
+The reason for the tiers is cost, not taste. Every in-box pack is a permanent tax on every new key, and the
+guarantee that makes this system worth anything is that **every shipped pack is 100% complete, enforced at
+build** — by `ShippedPackParityTests`, which is what makes this argument something other than an assertion.
+A pack nobody selects still has to be kept complete forever, or the guarantee weakens for the packs that
+people do use. That is why only tier 1 carries it.
 
 5. **Verify** nothing was missed: switch to **Pseudo (LTR)** in Options → Language — any plain-English
    (un-`⟦bracketed⟧`) chrome is a string you forgot to key.
