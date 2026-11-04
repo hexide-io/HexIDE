@@ -27,6 +27,20 @@ internal sealed class DiagnosticLifecycle(ILogger logger)
     // deadlock: the clear is ordered after that handler, but may run after Rename returns.
     public void Rename(string uri, Action clear) => Enqueue(uri, clear, rename: true);
 
+    // Queued now, under whatever lock the caller holds, and delivered by DeliverQueued once the caller has let go of it:
+    // its place in the order is fixed where the caller decides it, and no handler runs under the caller's lock. True
+    // when the caller is the one to deliver; otherwise a delivery already running reaches it.
+    public bool Queue(Action action)
+    {
+        lock (_gate)
+        {
+            _pending.Enqueue(action);
+            if (_delivering) return false;
+            _delivering = true;
+            return true;
+        }
+    }
+
     private void Enqueue(string uri, Action action, bool rename)
     {
         lock (_gate)
@@ -38,6 +52,11 @@ internal sealed class DiagnosticLifecycle(ILogger logger)
             _delivering = true;
         }
 
+        DeliverQueued();
+    }
+
+    public void DeliverQueued()
+    {
         while (true)
         {
             Action next;

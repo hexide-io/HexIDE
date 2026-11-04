@@ -1222,13 +1222,29 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
                 await beforeLaunch(starting);
 
             var client = e.Registration.CreateClient();
-            client.DiagnosticsPublished += OnInnerDiagnostics;
-            client.MessageShown += OnInnerMessage;
-            client.ProgressReceived += OnInnerProgress;
-            client.MessageLogged += OnInnerLogMessage;
-            client.TraceReceived += OnInnerTrace;
-            client.StateChanged += OnInnerStateChanged;
-            e.Client = client;
+
+            // Heard only while it is listed. A removal takes the server out of the list and stops hearing its client under
+            // the same lock, so a client made after that, by a start the removal has not yet called off, is let go unheard.
+            bool listed;
+            lock (_entriesGate)
+            {
+                listed = _entries.Contains(e);
+                if (listed)
+                {
+                    client.DiagnosticsPublished += OnInnerDiagnostics;
+                    client.MessageShown += OnInnerMessage;
+                    client.ProgressReceived += OnInnerProgress;
+                    client.MessageLogged += OnInnerLogMessage;
+                    client.TraceReceived += OnInnerTrace;
+                    client.StateChanged += OnInnerStateChanged;
+                    e.Client = client;
+                }
+            }
+            if (!listed)
+            {
+                await client.DisposeAsync();
+                return;
+            }
 
             await client.StartAsync(starting);
             // A client stopped during its handshake returns rather than throws; the start was called off all the same.
@@ -1364,12 +1380,24 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
     /// document's whole set — which is the shape subscribers were already written for.
     /// </para>
     /// </summary>
-    private void OnInnerDiagnostics(object? sender, PublishDiagnosticsParams p) =>
+    private void OnInnerDiagnostics(object? sender, PublishDiagnosticsParams p)
+    {
+        // Whose it is, decided as it arrives: by the time it is delivered its server may have been taken out, and its id
+        // given to another. A server the registry no longer lists says nothing more, then or now (#2760).
+        if (_entries.FirstOrDefault(e => ReferenceEquals(e.Client, sender)) is not { } from)
+        {
+            _logger.LogDebug("Diagnostics arrived from a connection this registry no longer lists.");
+            return;
+        }
+
         _diagnosticLifecycle.Publish(p.Uri, () =>
         {
-            var published = _diagnostics.Record(p.Uri, OwnerOf(sender), p.Diagnostics);
+            // In the order deliveries run, a removal's withdrawal among them: listed here, this comes before it.
+            if (!_entries.Contains(from)) return;
+            var published = _diagnostics.Record(p.Uri, from.Registration.Id, p.Diagnostics);
             DiagnosticsPublished?.Invoke(this, published);
         });
+    }
 
     /// <summary>
     /// The owner key for a connection: its registration id, which is unique across the registry and is
@@ -1511,16 +1539,21 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
     {
         // The withdrawals with the removal, under the lock Add takes: the id is free from here, and a server added under
         // it again says its own things, which a withdrawal by id after the old one's shutdown would take away with it.
-        IReadOnlyList<PublishDiagnosticsParams> withdrawn;
+        // The diagnostics' is queued with the deliveries rather than raised here, so it comes after whatever the old
+        // server said before this and before anything a new one says, and no handler runs under the lock.
+        bool deliver;
         lock (_entriesGate)
         {
             _entries = _entries.Where(e => !ReferenceEquals(e, entry)).ToList();
             if (entry.Client is { } speaking) speaking.DiagnosticsPublished -= OnInnerDiagnostics;
-            withdrawn = _diagnostics.Withdraw(entry.Registration.Id).ToList();
             ForgetContributionProblems(entry.Registration.Id);
+            deliver = _diagnosticLifecycle.Queue(() =>
+            {
+                foreach (var p in _diagnostics.Withdraw(entry.Registration.Id))
+                    DiagnosticsPublished?.Invoke(this, p);
+            });
         }
-        foreach (var p in withdrawn)
-            DiagnosticsPublished?.Invoke(this, p);
+        if (deliver) _diagnosticLifecycle.DeliverQueued();
 
         // Before the wait, not after: the start holds the gate, and would hold it for as long as an add-in's gate waits.
         await entry.Lifetime.CancelAsync();

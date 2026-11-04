@@ -129,6 +129,65 @@ public class AddinServerRegistrationTests : IDisposable
     }
 
     [Fact]
+    public async Task WhatAServerSaidJustBeforeItWasTakenOut_IsNotDeliveredAfterIt()
+    {
+        const string uri = "file:///c:/p/README.md";
+        var router = Router();
+        await router.OpenDocumentAsync(uri, "# hi", Token);
+        var (factory, made) = FakeClients();
+        var old = router.Add(Markdown(factory));
+        await old.Opened.WaitAsync(TimeSpan.FromSeconds(30), Token);
+        var client = made.Single();
+        static PublishDiagnosticsParams Saying(string message) =>
+            new(uri, [new(new(new(0, 0), new(0, 1)), message, DiagnosticSeverity.Warning)]);
+
+        // While its first publication is being delivered, the server says something more and is then taken out: the
+        // second one is queued behind the delivery, so it arrived before the removal and reaches the registry after it.
+        var events = new List<PublishDiagnosticsParams>();
+        Task? removing = null;
+        router.DiagnosticsPublished += (_, p) =>
+        {
+            events.Add(p);
+            if (removing is not null) return;
+            client.DiagnosticsPublished += Raise.Event<EventHandler<PublishDiagnosticsParams>>(client, Saying("late"));
+            removing = old.DisposeAsync().AsTask();
+        };
+        client.DiagnosticsPublished += Raise.Event<EventHandler<PublishDiagnosticsParams>>(client, Saying("first"));
+        await removing!.WaitAsync(TimeSpan.FromSeconds(30), Token);
+
+        router.Diagnostics.Should().BeEmpty("a server taken out has nothing left on the books, under any owner");
+        events.Select(p => p.Diagnostics.Select(d => d.Message).ToArray()).Should().BeEquivalentTo(
+            new[] { new[] { "first" }, Array.Empty<string>() }, options => options.WithStrictOrdering(),
+            "what it said, then its withdrawal, in that order, and nothing after");
+    }
+
+    [Fact]
+    public async Task AClientMadeAfterItsServerWasTakenOut_IsNeverHeard_AndLetGo()
+    {
+        var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var (factory, made) = FakeClients();
+        var router = Router();
+        // A gate deaf to its token: the start goes on to make its client after the removal has begun.
+        var added = router.Add(Markdown(factory) with
+        {
+            BeforeLaunch = async _ => { entered.TrySetResult(); await release.Task; },
+        });
+        var opening = router.OpenDocumentAsync("file:///c:/p/README.md", "# hi", Token);
+        await entered.Task.WaitAsync(TimeSpan.FromSeconds(30), Token);
+
+        var removing = added.DisposeAsync().AsTask();
+        release.SetResult();
+        await removing.WaitAsync(TimeSpan.FromSeconds(30), Token);
+        await opening.WaitAsync(TimeSpan.FromSeconds(30), Token);
+
+        var late = made.Should().ContainSingle().Subject;
+        await late.DidNotReceive().StartAsync(Arg.Any<CancellationToken>());
+        await late.Received(1).DisposeAsync();
+        router.Connections.Should().BeEmpty();
+    }
+
+    [Fact]
     public async Task AServerTakenOutAndAddedAgain_KeepsTheNewOnesConfigurationProblems_HoweverLongTheOldOneTakesToStop()
     {
         var router = Router();
