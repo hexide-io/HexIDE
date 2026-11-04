@@ -428,6 +428,66 @@ public class AddinServerRegistrationTests : IDisposable
         router.Connections.Should().BeEmpty();
     }
 
+    /// <summary>
+    /// Every method of the Language Server Protocol 3.17, its requests and its notifications, as its meta-model lists
+    /// them. <c>initialize</c>, <c>initialized</c>, <c>shutdown</c> and <c>exit</c> have no namespace, and a prefix,
+    /// which ends with <c>/</c>, cannot be one of them.
+    /// </summary>
+    private static readonly string[] Lsp317Methods =
+    [
+        "$/cancelRequest", "$/logTrace", "$/progress", "$/setTrace",
+        "callHierarchy/incomingCalls", "callHierarchy/outgoingCalls",
+        "client/registerCapability", "client/unregisterCapability",
+        "codeAction/resolve", "codeLens/resolve", "completionItem/resolve", "documentLink/resolve", "inlayHint/resolve",
+        "notebookDocument/didChange", "notebookDocument/didClose", "notebookDocument/didOpen", "notebookDocument/didSave",
+        "telemetry/event",
+        "textDocument/codeAction", "textDocument/codeLens", "textDocument/colorPresentation", "textDocument/completion",
+        "textDocument/declaration", "textDocument/definition", "textDocument/diagnostic", "textDocument/didChange",
+        "textDocument/didClose", "textDocument/didOpen", "textDocument/didSave", "textDocument/documentColor",
+        "textDocument/documentHighlight", "textDocument/documentLink", "textDocument/documentSymbol",
+        "textDocument/foldingRange", "textDocument/formatting", "textDocument/hover", "textDocument/implementation",
+        "textDocument/inlayHint", "textDocument/inlineValue", "textDocument/linkedEditingRange", "textDocument/moniker",
+        "textDocument/onTypeFormatting", "textDocument/prepareCallHierarchy", "textDocument/prepareRename",
+        "textDocument/prepareTypeHierarchy", "textDocument/publishDiagnostics", "textDocument/rangeFormatting",
+        "textDocument/references", "textDocument/rename", "textDocument/selectionRange", "textDocument/semanticTokens/full",
+        "textDocument/semanticTokens/full/delta", "textDocument/semanticTokens/range", "textDocument/signatureHelp",
+        "textDocument/typeDefinition", "textDocument/willSave", "textDocument/willSaveWaitUntil",
+        "typeHierarchy/subtypes", "typeHierarchy/supertypes",
+        "window/logMessage", "window/showDocument", "window/showMessage", "window/showMessageRequest",
+        "window/workDoneProgress/cancel", "window/workDoneProgress/create",
+        "workspace/applyEdit", "workspace/codeLens/refresh", "workspace/configuration", "workspace/diagnostic",
+        "workspace/diagnostic/refresh", "workspace/didChangeConfiguration", "workspace/didChangeWatchedFiles",
+        "workspace/didChangeWorkspaceFolders", "workspace/didCreateFiles", "workspace/didDeleteFiles",
+        "workspace/didRenameFiles", "workspace/executeCommand", "workspace/inlayHint/refresh",
+        "workspace/inlineValue/refresh", "workspace/semanticTokens/refresh", "workspace/symbol", "workspace/willCreateFiles",
+        "workspace/willDeleteFiles", "workspace/willRenameFiles", "workspace/workspaceFolders",
+        "workspaceSymbol/resolve",
+    ];
+
+    private static string NamespaceOf(string method) => method[..(method.IndexOf('/') + 1)];
+
+    [Fact]
+    public void TheReservedNamespaces_AreExactlyTheOnesTheProtocolsMethodsAreIn() =>
+        LanguageServerContributions.ProtocolNamespaces.Should().BeEquivalentTo(Lsp317Methods.Select(NamespaceOf).Distinct(),
+            "a namespace left out lets an add-in answer for HexIDE's client, and one too many refuses an add-in for nothing");
+
+    public static TheoryData<string> ProtocolMethods => new(Lsp317Methods);
+
+    [Theory]
+    [MemberData(nameof(ProtocolMethods))]
+    public void APrefixInAnyNamespaceOfTheProtocols_IsRefused(string method)
+    {
+        var router = Router();
+
+        foreach (var prefix in new[] { NamespaceOf(method), NamespaceOf(method) + "mine/" })
+        {
+            var registering = () => Contributions(router).Register(
+                new AddinLanguageServer(PipeEntry("probe", "unused")) { MessagePrefix = prefix }, "My Add-in");
+            registering.Should().Throw<ArgumentException>($"{prefix} is where {method} is");
+        }
+        router.Connections.Should().BeEmpty();
+    }
+
     [Fact]
     public void AMethodClaimedOutsideThePrefix_IsRefused()
     {
