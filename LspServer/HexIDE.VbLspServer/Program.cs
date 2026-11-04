@@ -43,8 +43,9 @@ Log.Information("HexIDE VB6 LSP server (MIT shell) starting");
 
 try
 {
-    var server = LspServerHost.Create(Console.OpenStandardInput(), Console.OpenStandardOutput());
+    var server = LspServerHost.Create(Console.OpenStandardInput(), Console.OpenStandardOutput(), new DocumentStore());
     await server.Run();
+    Environment.ExitCode = server.ExitCode;
 }
 catch (Exception ex)
 {
