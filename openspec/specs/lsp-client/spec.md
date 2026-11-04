@@ -270,6 +270,10 @@ sources when supplied, combined with any quick info for that position. Diagnosti
 in every personality, including Classic, even when Auto Quick Info is disabled. Marker ranges SHALL
 include their start and exclude their end, including ranges widened for zero-width diagnostics.
 
+#### Scenario: Quick info arrives after the diagnostic tip opens
+- **WHEN** a diagnostic tip is already open and the server returns quick info for that position
+- **THEN** the displayed tip content updates to show the diagnostic messages first, followed by the quick info
+
 #### Scenario: Overlapping diagnostics and quick info
 - **WHEN** the pointer dwells over overlapping diagnostic markers and quick info is available
 - **THEN** the tooltip shows every matching message, its source when supplied, and the quick info

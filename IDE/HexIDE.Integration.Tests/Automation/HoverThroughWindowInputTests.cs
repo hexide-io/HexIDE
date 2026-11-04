@@ -1,5 +1,6 @@
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Diagnostics;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
@@ -710,6 +711,46 @@ public class HoverThroughWindowInputTests
             var panel = tip.Content.Should().BeOfType<StackPanel>().Subject;
             panel.Children.OfType<StackPanel>().Single().Children.Single()
                 .Should().BeOfType<TextBlock>().Which.Inlines!.Text.Should().Be("<b>x</b>");
+        }
+        finally { window.Close(); vm.Dispose(); }
+    }
+
+    [AvaloniaTheory]
+    [InlineData("markdown")]
+    [InlineData("plaintext")]
+    public async Task An_open_diagnostic_tip_displays_the_hover_when_it_arrives(string kind)
+    {
+        var (window, editor, vm) = ShowEditor();
+        var answer = new TaskCompletionSource<HoverResult?>();
+        lsp.RequestHoverAsync(Arg.Any<string>(), Arg.Any<Position>(), Arg.Any<CancellationToken>())
+            .Returns(answer.Task);
+        var line = editor.Document.GetLocation(editor.CaretOffset).Line - 1;
+        ToolTip OpenTip() => editor.GetValue(ToolTipDiagnostics.ToolTipProperty).Should().BeOfType<ToolTip>().Subject;
+        try
+        {
+            lsp.DiagnosticsPublished += Raise.Event<EventHandler<PublishDiagnosticsParams>>(lsp,
+                new PublishDiagnosticsParams(vm.GetDocumentUriPublic(), [
+                    new Diagnostic(new HexIDE.Lsp.Messages.Range(new Position(line, 4), new Position(line, 7)),
+                        "Diagnostic first", DiagnosticSeverity.Warning)]));
+            Dispatcher.UIThread.RunJobs();
+            UiAutomationDriver.Hover(editor, null, null, null, out _).Success.Should().BeTrue();
+            await WaitForTip(editor);
+            OpenTip().Content.Should().Be("Diagnostic first");
+
+            answer.SetResult(new HoverResult(new MarkupContent(kind, "Server hover")));
+            await Settle(100);
+            ToolTip.GetIsOpen(editor).Should().BeTrue();
+            var content = OpenTip().Content;
+            if (kind == "plaintext")
+                content.Should().Be("Diagnostic first" + Environment.NewLine + Environment.NewLine + "Server hover");
+            else
+            {
+                var panel = content.Should().BeOfType<StackPanel>().Subject;
+                panel.Children[0].Should().BeOfType<StackPanel>().Which.Children.Single()
+                    .Should().BeOfType<TextBlock>().Which.Text.Should().Be("Diagnostic first");
+                panel.Children[1].Should().BeOfType<StackPanel>().Which.Children.Single()
+                    .Should().BeOfType<TextBlock>().Which.Inlines!.Text.Should().Be("Server hover");
+            }
         }
         finally { window.Close(); vm.Dispose(); }
     }

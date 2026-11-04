@@ -1605,6 +1605,8 @@ public partial class CodeEditorView : UserControl
         var richTip = new ToolTip { Content = panel };
         richTip.PointerEntered += (_, _) => _hoverCts?.Cancel();
         richTip.PointerExited += (_, _) => _ = CloseRichTipAfterExitAsync(richTip);
+        // Replacing the tip instance does not update the popup that is already open.
+        ToolTip.SetIsOpen(TextEditor, false);
         ToolTip.SetTip(TextEditor, richTip);
         ToolTip.SetIsOpen(TextEditor, true);
     }
