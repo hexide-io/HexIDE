@@ -657,6 +657,8 @@ public sealed class VBLspClient : ILspClient
                     // nothing goes silent without this. What goes is the nesting, because a server that
                     // honours it sends the flat form to a client that never said it could take the tree.
                     DocumentSymbol: new DocumentSymbolClientCapabilities(HierarchicalDocumentSymbolSupport: true),
+                    Implementation: new NavigationClientCapabilities(),
+                    TypeDefinition: new NavigationClientCapabilities(),
                     InlayHint: new InlayHintClientCapabilities(),
                     RangeFormatting: EmptyParams.Instance,
                     Completion: new CompletionClientCapabilities(new CompletionItemKindClientCapabilities(
@@ -1742,6 +1744,30 @@ public sealed class VBLspClient : ILspClient
         }
     }
 
+    public bool SupportsCapability(string uri, string capability) => IsRunning && CanServeQuietly(capability);
+
+    public Task<Location[]?> RequestImplementationAsync(string uri, Position position, CancellationToken cancellationToken = default) =>
+        CanServe("implementationProvider") ? RequestNavigationAsync(uri, position, "implementation", cancellationToken) : Task.FromResult<Location[]?>(null);
+
+    public Task<Location[]?> RequestTypeDefinitionAsync(string uri, Position position, CancellationToken cancellationToken = default) =>
+        CanServe("typeDefinitionProvider") ? RequestNavigationAsync(uri, position, "typeDefinition", cancellationToken) : Task.FromResult<Location[]?>(null);
+
+    private async Task<Location[]?> RequestNavigationAsync(string uri, Position position, string method, CancellationToken ct)
+    {
+        if (_rpc is null || !_initialized) return null;
+        try
+        {
+            var raw = await InvokeRequestAsync<JsonElement?>(_rpc, "textDocument/" + method,
+                new TextDocumentPositionParams(new TextDocumentIdentifier(uri), position), ct, documentUri: uri);
+            return ReadLocations(raw);
+        }
+        catch (Exception ex)
+        {
+            WarnRequestFailedOnce("textDocument/" + method, ex, ct);
+            return null;
+        }
+    }
+
     public async Task<Location[]?> RequestDeclarationAsync(string uri, Position position, CancellationToken cancellationToken = default)
     {
         // Gated on declarationProvider, not definitionProvider. Falling back to the definition capability
@@ -2613,6 +2639,8 @@ public sealed class VBLspClient : ILspClient
     [
         "codeLensProvider",
         "completionProvider",
+        "implementationProvider",
+        "typeDefinitionProvider",
         "declarationProvider",
         "definitionProvider",
         // Consumed, but gated quietly — see CanServeQuietly. It belongs here because a server that

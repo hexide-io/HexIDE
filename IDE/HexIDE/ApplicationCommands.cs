@@ -74,6 +74,8 @@ public class ApplicationCommands
     public static readonly RoutedCommand ClearAllBookmarksCommand = new RoutedCommand(nameof(ClearAllBookmarksCommand), new KeyGesture(Key.F2, GetPlatformCommandKey() | KeyModifiers.Shift));
     public static readonly RoutedCommand FindReferencesCommand = new RoutedCommand(nameof(FindReferencesCommand), new KeyGesture(Key.F12, KeyModifiers.Shift));
     public static readonly RoutedCommand GoToDefinitionCommand = new RoutedCommand(nameof(GoToDefinitionCommand));
+    public static readonly RoutedCommand GoToImplementationCommand = new RoutedCommand(nameof(GoToImplementationCommand));
+    public static readonly RoutedCommand GoToTypeDefinitionCommand = new RoutedCommand(nameof(GoToTypeDefinitionCommand));
     public static readonly RoutedCommand GoToDeclarationCommand = new RoutedCommand(nameof(GoToDeclarationCommand));
     public static readonly RoutedCommand RenameSymbolCommand = new RoutedCommand(nameof(RenameSymbolCommand));
     public static readonly RoutedCommand FormatSelectionCommand = new RoutedCommand(nameof(FormatSelectionCommand));

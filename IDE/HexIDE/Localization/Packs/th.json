@@ -387,6 +387,8 @@
     "Str.CodeEditor.Context.PreviousBookmark": "ที่คั่นหน้าก่อนหน้า",
     "Str.CodeEditor.Context.ClearAllBookmarks": "ล้างที่คั่นหน้าทั้งหมด",
     "Str.CodeEditor.Context.GoToDefinition": "ไปที่นิยาม",
+    "Str.CodeEditor.Context.GoToImplementation": "ไปยังการนำไปใช้",
+    "Str.CodeEditor.Context.GoToTypeDefinition": "ไปยังคำนิยามชนิด",
     "Str.CodeEditor.Context.GoToDeclaration": "ไปที่การประกาศ",
     "Str.CodeEditor.Context.Rename": "เปลี่ยนชื่อ...",
     "Str.CodeEditor.Context.FormatDocument": "จัดรูปแบบเอกสาร",

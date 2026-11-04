@@ -424,6 +424,8 @@
     "Str.CodeEditor.Context.PreviousBookmark": "Попередня закладка",
     "Str.CodeEditor.Context.ClearAllBookmarks": "Очистити всі закладки",
     "Str.CodeEditor.Context.GoToDefinition": "Перейти до визначення",
+    "Str.CodeEditor.Context.GoToImplementation": "Перейти до реалізації",
+    "Str.CodeEditor.Context.GoToTypeDefinition": "Перейти до визначення типу",
     "Str.CodeEditor.Context.GoToDeclaration": "Перейти до оголошення",
     "Str.CodeEditor.Context.Rename": "Перейменувати...",
     "Str.CodeEditor.Context.FormatDocument": "Форматувати документ",

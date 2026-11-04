@@ -2132,6 +2132,17 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     public Task<Location[]?> RequestDefinitionAsync(Position position, CancellationToken ct = default)
         => LiveDocumentUri is { } uri ? lspClient.RequestDefinitionAsync(uri, position, ct) : Task.FromResult<Location[]?>(null);
 
+    public bool CanGoToImplementation() => LiveDocumentUri is { } uri && lspClient.SupportsCapability(uri, "implementationProvider");
+    public bool CanGoToTypeDefinition() => LiveDocumentUri is { } uri && lspClient.SupportsCapability(uri, "typeDefinitionProvider");
+
+    public Task<Location[]?> RequestImplementationAsync(Position position, CancellationToken ct = default) =>
+        LiveDocumentUri is { } uri ? lspClient.RequestImplementationAsync(uri, position, ct) : Task.FromResult<Location[]?>(null);
+
+    public Task<Location[]?> RequestTypeDefinitionAsync(Position position, CancellationToken ct = default) =>
+        LiveDocumentUri is { } uri ? lspClient.RequestTypeDefinitionAsync(uri, position, ct) : Task.FromResult<Location[]?>(null);
+
+    public void ShowNavigationLocations(Location[] locations) => eventBus.Publish(new NavigationLocationsEvent(locations));
+
     public Task<Location[]?> RequestDeclarationAsync(Position position, CancellationToken ct = default)
         => LiveDocumentUri is { } uri ? lspClient.RequestDeclarationAsync(uri, position, ct) : Task.FromResult<Location[]?>(null);
 

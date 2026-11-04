@@ -387,6 +387,8 @@
     "Str.CodeEditor.Context.PreviousBookmark": "_Prejšnji zaznamek",
     "Str.CodeEditor.Context.ClearAllBookmarks": "_Počisti vse zaznamke",
     "Str.CodeEditor.Context.GoToDefinition": "_Pojdi na definicijo",
+    "Str.CodeEditor.Context.GoToImplementation": "Pojdi na implementacijo",
+    "Str.CodeEditor.Context.GoToTypeDefinition": "Pojdi na definicijo tipa",
     "Str.CodeEditor.Context.GoToDeclaration": "Pojdi na dek_laracijo",
     "Str.CodeEditor.Context.Rename": "_Preimenuj...",
     "Str.CodeEditor.Context.FormatDocument": "_Oblikuj dokument",
