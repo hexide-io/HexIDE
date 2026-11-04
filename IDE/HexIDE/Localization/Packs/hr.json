@@ -57,6 +57,7 @@
     "Str.Archive.OpenErrorFormat": "Nije moguće otvoriti {0}:\n{1}",
     "Str.ContributedProject.OpenError": "Nije moguće otvoriti {0} pomoću {1}:\n{2}",
     "Str.ContributedProject.MembershipReadOnly": "{0} je projekt vrste {1}: datoteke mu dodaje i uklanja program kojem pripada, a ne HexIDE.",
+    "Str.ContributedProject.NameTaken": "{0} je izostavljen: {1} već je naziv modula u {2}.",
     "Str.ContributedProject.SettingsReadOnly": "{0} je projekt vrste {1}: svojstva, reference i komponente postavlja mu program kojem pripada, a ne HexIDE.",
     "Str.ContributedProject.NotMade": "{0} je projekt vrste {1}. Izrađuje ga i pokreće program kojem pripada, a ne HexIDE.",
     "Str.ContributedProject.NoReader": "{0} otvara dodatak koji nije učitan. HexIDE sam otvara projekte .vbp, .vbg i .twinproj.",

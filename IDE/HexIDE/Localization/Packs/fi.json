@@ -53,6 +53,7 @@
     "Str.Archive.OpenErrorFormat": "Tiedostoa {0} ei voitu avata:\n{1}",
     "Str.ContributedProject.OpenError": "Kohdetta {0} ei voitu avata kohteella {1}:\n{2}",
     "Str.ContributedProject.MembershipReadOnly": "{0} on {1}-projekti: sen tiedostot lisää ja poistaa ohjelma, johon se kuuluu, ei HexIDE.",
+    "Str.ContributedProject.NameTaken": "{0} jätettiin pois: {1} on jo projektin {2} moduulin nimi.",
     "Str.ContributedProject.SettingsReadOnly": "{0} on {1}-projekti: sen ominaisuudet, viittaukset ja komponentit määrittää ohjelma, johon se kuuluu, ei HexIDE.",
     "Str.ContributedProject.NotMade": "{0} on {1}-projekti. Sen kääntää ja suorittaa ohjelma, johon se kuuluu, ei HexIDE.",
     "Str.ContributedProject.NoReader": "{0} avataan apuohjelmalla, jota ei ole ladattu. HexIDE avaa itse .vbp-, .vbg- ja .twinproj-projektit.",

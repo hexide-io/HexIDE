@@ -23,6 +23,7 @@ public sealed class ContributedProjectTests : IDisposable
     private readonly IWindowManager _windows = Substitute.For<IWindowManager>();
     private readonly IRecentProjectsService _recent = Substitute.For<IRecentProjectsService>();
     private readonly ContributedProjects _types = new();
+    private readonly IProjectManager _projects = Substitute.For<IProjectManager>();
     private readonly ProjectService _service;
     private IAddinProjectChanges? _changes;
 
@@ -39,7 +40,7 @@ public sealed class ContributedProjectTests : IDisposable
             "Attribute VB_Name = \"Sheet1\"\r\nAttribute VB_Base = \"0{00020820-0000-0000-C000-000000000046}\"\r\nPrivate Sub Worksheet_Activate()\r\nEnd Sub\r\n");
         File.WriteAllText(Path.Join(_dir, "README.md"), "# Ledger");
 
-        var projects = Substitute.For<IProjectManager>();
+        var projects = _projects;
         projects.LoadedProjects.Returns(_ => _loaded);
         projects.When(m => m.AddProject(Arg.Any<ProjectDefinition>())).Do(call => _loaded.Add(call.Arg<ProjectDefinition>()));
         var sidecar = Substitute.For<IUserSidecarService>();
@@ -219,10 +220,84 @@ public sealed class ContributedProjectTests : IDisposable
         deleted.Should().Equal("Helpers");
     }
 
-    // The reports are applied on the UI thread, posted; this runs its queue until they are.
+    [AvaloniaFact]
+    public async Task Reports_are_applied_in_order_and_a_member_is_added_once_and_never_under_a_name_taken()
+    {
+        using var type = Contribute();
+        var project = await Opened();
+        string Module(string file, string name)
+        {
+            var path = Path.Join(_dir, "src", file);
+            File.WriteAllText(path, $"Attribute VB_Name = \"{name}\"\r\n");
+            return path;
+        }
+        var helpers = Module("Helpers.bas", "Helpers");
+        var temporary = Module("Scratch.bas", "Scratch");
+        var copy = Module("AccountCopy.bas", "Account");
+        var last = Module("Last.bas", "Last");
+
+        _changes!.MemberAdded(new(helpers, AddinMemberKind.StandardModule));
+        _changes.MemberAdded(new(helpers, AddinMemberKind.StandardModule));
+        _changes.MemberAdded(new(temporary, AddinMemberKind.StandardModule));
+        _changes.MemberRemoved(temporary);
+        _changes.MemberAdded(new(copy, AddinMemberKind.StandardModule));
+        _changes.MemberAdded(new(last, AddinMemberKind.StandardModule));
+        await WhenSettled(() => project.Modules.Any(module => module.Name == "Last"));
+
+        project.Modules.Select(module => module.Name).Should().Equal("Startup", "Account", "Sheet1", "Helpers", "Last");
+        // The one name taken is Account's: a file reported twice is the same member, not one that takes its own name.
+        await _windows.Received(1).MessageBox(Arg.Any<string>(),
+            Arg.Any<string?>(), Arg.Any<MessageBoxButtons>(), Arg.Any<MessageBoxIcon>(), Arg.Any<Avalonia.Controls.Window?>(), Arg.Any<bool>());
+        await _windows.Received(1).MessageBox(Arg.Is<string>(text => text == "Str.ContributedProject.NameTaken AccountCopy.bas Account"),
+            Arg.Any<string?>(), Arg.Any<MessageBoxButtons>(), Arg.Any<MessageBoxIcon>(), Arg.Any<Avalonia.Controls.Window?>(), Arg.Any<bool>());
+    }
+
+    [AvaloniaFact]
+    public async Task A_member_whose_name_another_has_is_left_out_of_the_open_and_named()
+    {
+        File.WriteAllText(Path.Join(_dir, "src", "Startup.bas"), "Attribute VB_Name = \"Startup\"\r\n");
+        using var type = Contribute(_ => Content() with
+        {
+            Members = [.. Content().Members, new(Path.Join(_dir, "src", "Startup.bas"), AddinMemberKind.StandardModule)],
+        });
+
+        var project = await Opened();
+
+        project.Modules.Should().ContainSingle(module => module.Name == "Startup")
+            .Which.AbsolutePath.Should().Be(Path.Join(_dir, "src", "Main.bas"));
+        await _windows.Received(1).MessageBox(Arg.Is<string>(text => text.Contains("Str.ContributedProject.NameTaken Startup.bas Startup")),
+            Arg.Any<string?>(), Arg.Any<MessageBoxButtons>(), Arg.Any<MessageBoxIcon>(), Arg.Any<Avalonia.Controls.Window?>(), Arg.Any<bool>());
+    }
+
+    [AvaloniaFact]
+    public async Task The_add_in_is_told_when_the_project_is_closed_or_its_open_failed_and_later_reports_are_ignored()
+    {
+        using (Contribute(_ => throw new InvalidDataException("not a project file")))
+            await _service.OpenProject(ProjectFile);
+        _changes!.Closed.IsCancellationRequested.Should().BeTrue("the open failed");
+
+        using var type = Contribute();
+        var project = await Opened();
+        var changes = _changes;
+        changes.Closed.IsCancellationRequested.Should().BeFalse();
+        _loaded.Remove(project);
+        _projects.ProjectUnloaded += Raise.Event<Action<ProjectDefinition>>(project);
+
+        changes.Closed.IsCancellationRequested.Should().BeTrue("the project was closed");
+        _loaded.Add(project);
+        changes.MemberRemoved(Path.Join(_dir, "src", "Main.bas"));
+        changes.ReferencesChanged([]);
+        Dispatcher.UIThread.RunJobs();
+        project.Modules.Should().HaveCount(3, "a report after the project closed is ignored");
+        project.References.Should().ContainSingle();
+    }
+
+    // The reports are applied on the UI thread, posted, each after the file reads of those before it; this runs its queue
+    // until they are. The deadline is only how long a report that never lands is waited for.
     private static async Task WhenSettled(Func<bool> settled)
     {
-        for (var turns = 0; !settled() && turns < 200; turns++)
+        var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(30);
+        while (!settled() && DateTime.UtcNow < deadline)
         {
             Dispatcher.UIThread.RunJobs();
             await Task.Yield();

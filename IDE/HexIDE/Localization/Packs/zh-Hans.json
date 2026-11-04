@@ -53,6 +53,7 @@
     "Str.Archive.OpenErrorFormat": "无法打开 {0}：\n{1}",
     "Str.ContributedProject.OpenError": "无法使用 {1} 打开 {0}：\n{2}",
     "Str.ContributedProject.MembershipReadOnly": "{0} 是 {1} 项目，其文件由它所属的程序添加和删除，而不是由 HexIDE。",
+    "Str.ContributedProject.NameTaken": "已略过 {0}：{1} 已是 {2} 中某个模块的名称。",
     "Str.ContributedProject.SettingsReadOnly": "{0} 是 {1} 项目，其属性、引用和部件由它所属的程序设置，而不是由 HexIDE。",
     "Str.ContributedProject.NotMade": "{0} 是 {1} 项目。由它所属的程序生成和运行它，而不是 HexIDE。",
     "Str.ContributedProject.NoReader": "{0} 需由未加载的加载项打开。HexIDE 本身可打开 .vbp、.vbg 和 .twinproj 项目。",

@@ -57,6 +57,7 @@
     "Str.Archive.OpenErrorFormat": "Neizdevās atvērt {0}:\n{1}",
     "Str.ContributedProject.OpenError": "Neizdevās atvērt {0} ar {1}:\n{2}",
     "Str.ContributedProject.MembershipReadOnly": "{0} ir {1} projekts: tā failus pievieno un noņem programma, kurai tas pieder, nevis HexIDE.",
+    "Str.ContributedProject.NameTaken": "{0} tika izlaists: {1} jau ir moduļa nosaukums projektā {2}.",
     "Str.ContributedProject.SettingsReadOnly": "{0} ir {1} projekts: tā rekvizītus, atsauces un komponentus iestata programma, kurai tas pieder, nevis HexIDE.",
     "Str.ContributedProject.NotMade": "{0} ir {1} projekts. To izveido un palaiž programma, kurai tas pieder, nevis HexIDE.",
     "Str.ContributedProject.NoReader": "{0} atver pievienojumprogramma, kas nav ielādēta. HexIDE pats atver .vbp, .vbg un .twinproj projektus.",

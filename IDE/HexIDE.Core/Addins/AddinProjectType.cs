@@ -80,6 +80,12 @@ public sealed record AddinProjectReference(string Name, Guid? Guid = null, int? 
 /// </summary>
 public interface IAddinProjectChanges
 {
+    /// <summary>
+    /// Cancelled once HexIDE no longer has the project open: it was closed, or its open failed. A change reported after
+    /// that is ignored, so an add-in can stop watching the project's files.
+    /// </summary>
+    CancellationToken Closed { get; }
+
     /// <summary>A member joined the project.</summary>
     void MemberAdded(AddinProjectMember member);
 

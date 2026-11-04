@@ -53,6 +53,7 @@
     "Str.Archive.OpenErrorFormat": "Nie można otworzyć {0}:\n{1}",
     "Str.ContributedProject.OpenError": "Nie można otworzyć {0} za pomocą {1}:\n{2}",
     "Str.ContributedProject.MembershipReadOnly": "{0} to projekt {1}: jego pliki dodaje i usuwa program, do którego należy, a nie HexIDE.",
+    "Str.ContributedProject.NameTaken": "Pominięto {0}: {1} jest już nazwą modułu w {2}.",
     "Str.ContributedProject.SettingsReadOnly": "{0} to projekt {1}: jego właściwości, odwołania i składniki ustawia program, do którego należy, a nie HexIDE.",
     "Str.ContributedProject.NotMade": "{0} to projekt {1}. Tworzy i uruchamia go program, do którego należy, a nie HexIDE.",
     "Str.ContributedProject.NoReader": "{0} otwiera dodatek, który nie jest załadowany. HexIDE sam otwiera projekty .vbp, .vbg i .twinproj.",

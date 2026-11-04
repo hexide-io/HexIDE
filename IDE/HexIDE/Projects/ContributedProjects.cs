@@ -1,6 +1,7 @@
 using System.Text.RegularExpressions;
 using HexIDE.Addins;
 using HexIDE.IDE;
+using HexIDE.Localization;
 using HexIDE.Runtime.ProjectElements;
 using HexIDE.Runtime.Serialization;
 using HexIDE.Utils;
@@ -98,10 +99,11 @@ public sealed partial class ContributedProjects
 
     /// <summary>
     /// Builds the project for what the add-in read, its modules loaded from their files as a .vbp's are. A member that
-    /// cannot be read is left out and named in the returned problems.
+    /// cannot be read, or whose name another member has, is left out and named in the returned problems.
     /// </summary>
     internal static async Task<(ProjectDefinition Project, IReadOnlyList<string> Problems)> BuildAsync(
-        string path, AddinProjectContent content, string origin, Vb6TextEncoding hostAnsi, Action<string, byte[]>? fileRead)
+        string path, AddinProjectContent content, string origin, Vb6TextEncoding hostAnsi, Action<string, byte[]>? fileRead,
+        ILocalizationService localization)
     {
         var project = new ProjectDefinition(VBProjectType.EXE, content.Name)
         {
@@ -117,7 +119,11 @@ public sealed partial class ContributedProjects
         {
             try
             {
-                await AddMemberAsync(project, member, hostAnsi, fileRead);
+                await AddMemberAsync(project, member, hostAnsi, fileRead, localization);
+            }
+            catch (MemberNameTakenException ex)
+            {
+                problems.Add(ex.Message);
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException)
             {
@@ -127,24 +133,38 @@ public sealed partial class ContributedProjects
         return (project, problems);
     }
 
-    internal static async Task AddMemberAsync(ProjectDefinition project, AddinProjectMember member, Vb6TextEncoding hostAnsi,
-        Action<string, byte[]>? fileRead)
+    /// <summary>
+    /// Adds a member as a .vbp's is loaded. One already in the project at the same path is not added again.
+    /// </summary>
+    /// <returns>The module or other file added, or null when the project had it already.</returns>
+    /// <exception cref="MemberNameTakenException">
+    /// Another member has its name, which VB6 refuses as <c>Name conflicts with existing module</c>: it is left out.
+    /// </exception>
+    internal static async Task<object?> AddMemberAsync(ProjectDefinition project, AddinProjectMember member, Vb6TextEncoding hostAnsi,
+        Action<string, byte[]>? fileRead, ILocalizationService localization)
     {
         if (!Path.IsPathFullyQualified(member.Path))
             throw new ArgumentException($"'{member.Path}' is not a full path.");
+        if (MemberAt(project, member.Path) is not null)
+            return null;
         if (member.Kind == AddinMemberKind.Other)
         {
-            project.AddRelatedDocument(new RelatedDocumentDefinition(project, Path.GetFileName(member.Path), member.Path));
-            return;
+            var document = new RelatedDocumentDefinition(project, Path.GetFileName(member.Path), member.Path);
+            project.AddRelatedDocument(document);
+            return document;
         }
 
         // A document module is kept as a class module with its header as it came: it is the host document's code,
         // for reading and editing, and nothing runs or instantiates it.
         var kind = member.Kind == AddinMemberKind.StandardModule ? ModuleKind.StandardModule : ModuleKind.ClassModule;
         var read = await Vb6TextFile.ReadDocumentAsync(member.Path, null, hostAnsi);
+        var name = NameOf(read.Text) ?? Path.GetFileNameWithoutExtension(member.Path);
+        if (ProjectNaming.IsNameTaken(project, name))
+            throw new MemberNameTakenException(string.Format(localization.GetString("Str.ContributedProject.NameTaken"),
+                Path.GetFileName(member.Path), name, project.Name));
         fileRead?.Invoke(member.Path, read.Bytes);
         var (header, body) = ModuleFileFormat.SplitHeader(read.Text, kind);
-        var module = new ModuleDefinition(project, NameOf(read.Text) ?? Path.GetFileNameWithoutExtension(member.Path), kind)
+        var module = new ModuleDefinition(project, name, kind)
         {
             AbsolutePath = member.Path,
             TextEncoding = read.Encoding,
@@ -152,7 +172,20 @@ public sealed partial class ContributedProjects
         module.RecordOriginalHeader(header);
         module.UpdateCode(body);
         project.AddModule(module);
+        return module;
     }
+
+    /// <summary>The module or other file of <paramref name="project"/> at <paramref name="path"/>, or null.</summary>
+    internal static object? MemberAt(ProjectDefinition project, string path) =>
+        (object?)project.Modules.FirstOrDefault(module => SamePath(module.AbsolutePath, path))
+        ?? project.RelatedDocuments.FirstOrDefault(document => SamePath(document.AbsolutePath, path));
+
+    private static bool SamePath(string? a, string b) =>
+        a is not null && string.Equals(Path.GetFullPath(a), Path.GetFullPath(b),
+            OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal);
+
+    /// <summary>A member left out because another has its name; the message says which, for the user.</summary>
+    internal sealed class MemberNameTakenException(string message) : Exception(message);
 
     // The module's Attribute VB_Name, which names it; the project file does not.
     private static string? NameOf(string source) => VbName().Match(source) is { Success: true } match ? match.Groups[1].Value : null;

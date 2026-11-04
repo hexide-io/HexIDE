@@ -410,26 +410,40 @@ public partial class ProjectService : IProjectService
         }
 
         var changes = new ContributedProjectChanges(this);
+        var attached = false;
         AddinProjectContent content;
+        ProjectDefinition project;
+        IReadOnlyList<string> problems;
         try
         {
-            content = await type.Type.OpenAsync(projectPath, changes, CancellationToken.None);
-        }
-        catch (Exception ex) when (ex is not OperationCanceledException)
-        {
-            Log.Error(ex, "{Origin} could not read {ProjectPath}", type.Origin, projectPath);
-            await windowManager.MessageBox(
-                string.Format(localization.GetString("Str.ContributedProject.OpenError"), Path.GetFileName(projectPath), type.Origin, ex.Message),
-                icon: MessageBoxIcon.Error);
-            return;
-        }
+            try
+            {
+                content = await type.Type.OpenAsync(projectPath, changes, CancellationToken.None);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                Log.Error(ex, "{Origin} could not read {ProjectPath}", type.Origin, projectPath);
+                await windowManager.MessageBox(
+                    string.Format(localization.GetString("Str.ContributedProject.OpenError"), Path.GetFileName(projectPath), type.Origin, ex.Message),
+                    icon: MessageBoxIcon.Error);
+                return;
+            }
 
-        var (project, problems) = await ContributedProjects.BuildAsync(projectPath, content, type.Type.Title, HostAnsi, baselineStore.Record);
-        projectManager.AddProject(project);
-        recentProjects.Add(projectPath);
-        await sidecar.LoadAsync(project);
-        SnapshotRenderBaselines(project);
-        changes.Attach(project);
+            (project, problems) = await ContributedProjects.BuildAsync(projectPath, content, type.Type.Title, HostAnsi,
+                baselineStore.Record, localization);
+            projectManager.AddProject(project);
+            recentProjects.Add(projectPath);
+            await sidecar.LoadAsync(project);
+            SnapshotRenderBaselines(project);
+            changes.Attach(project);
+            attached = true;
+        }
+        finally
+        {
+            // An open that failed tells the add-in so, and nothing it reports is kept for a project that never was.
+            if (!attached)
+                changes.Close();
+        }
 
         if (problems.Count > 0)
             await windowManager.MessageBox(
@@ -439,18 +453,38 @@ public partial class ProjectService : IProjectService
     }
 
     // What an add-in reports about a project it opened, applied on the UI thread through the same membership changes a
-    // .vbp's go through, so every view of the project follows. Reports before the project exists wait for it; those for
-    // a project since closed are dropped.
+    // .vbp's go through, so every view of the project follows. Each is applied once the one reported before it is, as an
+    // add awaits its file and a remove of the same member must find it added. Reports before the project exists wait for
+    // it; those after it closed, or after its open failed, are dropped.
     private sealed class ContributedProjectChanges(ProjectService owner) : IAddinProjectChanges
     {
         private readonly List<Func<ProjectDefinition, Task>> _early = [];
+        private readonly CancellationTokenSource _closed = new();
         private ProjectDefinition? _project;
+        private Task _applied = Task.CompletedTask;
+
+        public CancellationToken Closed => _closed.Token;
 
         public void Attach(ProjectDefinition project)
         {
             _project = project;
-            foreach (var change in _early) _ = Apply(change);
+            owner.projectManager.ProjectUnloaded += OnUnloaded;
+            foreach (var change in _early) Enqueue(change);
             _early.Clear();
+        }
+
+        // On the UI thread, as every report is handled.
+        public void Close()
+        {
+            if (_closed.IsCancellationRequested) return;
+            owner.projectManager.ProjectUnloaded -= OnUnloaded;
+            _early.Clear();
+            _closed.Cancel();
+        }
+
+        private void OnUnloaded(ProjectDefinition project)
+        {
+            if (project == _project) Close();
         }
 
         public void MemberAdded(AddinProjectMember member) => Post(project => owner.AddContributedMember(project, member));
@@ -479,13 +513,28 @@ public partial class ProjectService : IProjectService
 
         private void Post(Func<ProjectDefinition, Task> change) => Avalonia.Threading.Dispatcher.UIThread.Post(() =>
         {
+            if (_closed.IsCancellationRequested) return;
             if (_project is null) _early.Add(change);
-            else _ = Apply(change);
+            else Enqueue(change);
         });
 
+        private void Enqueue(Func<ProjectDefinition, Task> change)
+        {
+            var previous = _applied;
+            _applied = After(previous);
+
+            async Task After(Task before)
+            {
+                await before;
+                await Apply(change);
+            }
+        }
+
+        // Never throws, so a change that fails leaves the next one to be applied.
         private async Task Apply(Func<ProjectDefinition, Task> change)
         {
-            if (_project is not { } project || !owner.projectManager.LoadedProjects.Contains(project)) return;
+            if (_closed.IsCancellationRequested || _project is not { } project || !owner.projectManager.LoadedProjects.Contains(project))
+                return;
             try
             {
                 await change(project);
@@ -499,15 +548,24 @@ public partial class ProjectService : IProjectService
 
     private async Task AddContributedMember(ProjectDefinition project, AddinProjectMember member)
     {
-        if (FindContributedMember(project, member.Path) is not null) return;
-        await ContributedProjects.AddMemberAsync(project, member, HostAnsi, baselineStore.Record);
-        if (project.Modules.LastOrDefault() is { } added && SamePath(added.AbsolutePath, member.Path))
-            SnapshotRenderBaseline(added);
+        object? added;
+        try
+        {
+            added = await ContributedProjects.AddMemberAsync(project, member, HostAnsi, baselineStore.Record, localization);
+        }
+        catch (ContributedProjects.MemberNameTakenException ex)
+        {
+            await windowManager.MessageBox(ex.Message, icon: MessageBoxIcon.Warning);
+            return;
+        }
+        // Only a module this added: one the project had already keeps its baseline, and with it any unsaved edits.
+        if (added is ModuleDefinition module)
+            SnapshotRenderBaseline(module);
     }
 
     private void RemoveContributedMember(ProjectDefinition project, string path)
     {
-        switch (FindContributedMember(project, path))
+        switch (ContributedProjects.MemberAt(project, path))
         {
             case ModuleDefinition module:
                 project.DeleteModule(module);
@@ -520,7 +578,7 @@ public partial class ProjectService : IProjectService
 
     private void MoveContributedMember(ProjectDefinition project, string oldPath, string newPath)
     {
-        switch (FindContributedMember(project, oldPath))
+        switch (ContributedProjects.MemberAt(project, oldPath))
         {
             case ModuleDefinition module:
                 module.AbsolutePath = newPath;
@@ -532,14 +590,6 @@ public partial class ProjectService : IProjectService
                 break;
         }
     }
-
-    private static object? FindContributedMember(ProjectDefinition project, string path) =>
-        (object?)project.Modules.FirstOrDefault(module => SamePath(module.AbsolutePath, path))
-        ?? project.RelatedDocuments.FirstOrDefault(document => SamePath(document.AbsolutePath, path));
-
-    private static bool SamePath(string? a, string b) =>
-        a is not null && string.Equals(Path.GetFullPath(a), Path.GetFullPath(b),
-            OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal);
 
     private async Task OpenGroupFromPath(string groupPath)
     {
