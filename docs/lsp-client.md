@@ -70,11 +70,17 @@ the production formatter and source-generated context to guard absence and prese
 | Actions | `codeLens/resolve`, `workspace/executeCommand` — see *Commands and lenses* |
 | Custom | `vb/builtinSymbols` — see *Custom methods* |
 
-Initialize declares `textDocument.completion` with the six completion kinds currently named by the
-client (Text, Function, Variable, Property, Keyword and Constant), and default `insertTextMode: 1`
-(`asIs`). Other optional completion capabilities remain absent: snippets, insert/replace edits,
-resolve, commit characters, documentation formats, context and list item defaults are not advertised
-(#2670, first slice). This follows the [LSP 3.17 completion capability contract](https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#completionClientCapabilities).
+Initialize declares `textDocument.completion` with all 25 LSP completion kinds, `preselectSupport: true`,
+`documentationFormat: ["plaintext"]`, and default `insertTextMode: 1` (`asIs`). Snippets, insert/replace
+edits, resolve, commit characters, context and list item defaults are not advertised (#2670).
+This follows the [LSP 3.17 completion capability contract](https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#completionClientCapabilities).
+Items from all servers are ordered by `sortText ?? label`, ordinal. Filtering uses `filterText ?? label`,
+while the displayed label and insertion fallback remain the label. On opening, the first preselected
+item matching the typed prefix is selected; otherwise AvaloniaEdit keeps its best match. If no item
+matches the opening word, the server's list remains available; subsequent typing filters it normally. Descriptions
+show detail alongside string or MarkupContent documentation, rendered as plain text (including markdown
+source until a markdown renderer is available). Kind glyphs reuse the Object Browser's member and class
+glyphs; kinds without a counterpart have none.
 The editor applies a completion's `textEdit` in preference to `insertText` or `label`; without
 a `textEdit`, it replaces the completion segment. `additionalTextEdits` use the same original
 document coordinates and commit with the main edit as one undo step. The caret follows the main
@@ -181,10 +187,8 @@ latest 65,536 characters, with an ellipsis at the start when older output was di
 verbatim text; the pseudonymised Copy Report does not include it.
 
 The metamodel guard also checks the numeric values of the wire enums (`DiagnosticSeverity`,
-`MessageType`, `SymbolKind` and `CompletionItemKind`). Completion display kinds still declare only
-six of the 25 specification values; the guard explicitly defers the existing 19 omissions as a separate
-display-model follow-up, while detecting newly added values. `SaveNotification` describes local save
-negotiation state rather than a wire enum.
+`MessageType`, `SymbolKind` and `CompletionItemKind`), including all 25 completion kinds.
+`SaveNotification` describes local save negotiation state rather than a wire enum.
 
 **Server-initiated requests.** Four are handled: `client/registerCapability` and
 `client/unregisterCapability` (refused, with the refusal recorded rather than silent) and

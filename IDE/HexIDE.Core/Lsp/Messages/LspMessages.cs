@@ -285,7 +285,13 @@ public record TextDocumentClientCapabilities(
 
 public record CompletionClientCapabilities(
     [property: JsonPropertyName("completionItemKind")] CompletionItemKindClientCapabilities CompletionItemKind,
-    [property: JsonPropertyName("insertTextMode")] int InsertTextMode = 1);
+    [property: JsonPropertyName("insertTextMode")] int InsertTextMode = 1,
+    [property: JsonPropertyName("completionItem")]
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] CompletionItemClientCapabilities? CompletionItem = null);
+
+public record CompletionItemClientCapabilities(
+    [property: JsonPropertyName("preselectSupport")] bool PreselectSupport,
+    [property: JsonPropertyName("documentationFormat")] string[] DocumentationFormat);
 
 public record CompletionItemKindClientCapabilities(
     [property: JsonPropertyName("valueSet")] CompletionItemKind[] ValueSet);
@@ -780,12 +786,31 @@ public record CompletionParams(
 
 public enum CompletionItemKind
 {
-    Text        = 1,
-    Function    = 3,
-    Variable    = 6,
-    Property    = 10,
-    Keyword     = 14,
-    Constant    = 21,
+    Text = 1,
+    Method = 2,
+    Function = 3,
+    Constructor = 4,
+    Field = 5,
+    Variable = 6,
+    Class = 7,
+    Interface = 8,
+    Module = 9,
+    Property = 10,
+    Unit = 11,
+    Value = 12,
+    Enum = 13,
+    Keyword = 14,
+    Snippet = 15,
+    Color = 16,
+    File = 17,
+    Reference = 18,
+    Folder = 19,
+    EnumMember = 20,
+    Constant = 21,
+    Struct = 22,
+    Event = 23,
+    Operator = 24,
+    TypeParameter = 25,
 }
 
 public record CompletionItem(
@@ -800,7 +825,26 @@ public record CompletionItem(
     [property: JsonPropertyName("additionalTextEdits")]
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] TextEdit[]? AdditionalTextEdits = null,
     [property: JsonPropertyName("insertTextFormat")]
-    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] int? InsertTextFormat = null);
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] int? InsertTextFormat = null,
+    [property: JsonPropertyName("sortText")]
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? SortText = null,
+    [property: JsonPropertyName("filterText")]
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? FilterText = null,
+    [property: JsonPropertyName("preselect")]
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] bool? Preselect = null,
+    [property: JsonPropertyName("documentation"), JsonConverter(typeof(CompletionDocumentationConverter))]
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] MarkupContent? Documentation = null);
+
+public sealed class CompletionDocumentationConverter : JsonConverter<MarkupContent>
+{
+    public override MarkupContent? Read(ref Utf8JsonReader reader, Type type, JsonSerializerOptions options) =>
+        reader.TokenType == JsonTokenType.String
+            ? new("plaintext", reader.GetString()!)
+            : JsonSerializer.Deserialize<MarkupContent>(ref reader, options);
+
+    public override void Write(Utf8JsonWriter writer, MarkupContent value, JsonSerializerOptions options) =>
+        JsonSerializer.Serialize(writer, value, options);
+}
 
 public record CompletionList(
     [property: JsonPropertyName("isIncomplete")] bool IsIncomplete,

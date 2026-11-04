@@ -1403,13 +1403,13 @@ anyway, so it is recorded rather than defended.
 
 ### Requirement: Completion capabilities describe current insertion support
 The client SHALL declare `textDocument.completion` in initialize with default `insertTextMode: 1`
-(asIs) and a completion kind value set of Text, Function, Variable, Property, Keyword and Constant.
+(asIs), all 25 completion kinds, preselect support and plaintext documentation support.
 It SHALL omit optional completion capabilities it does not implement, including snippet support and
 insert/replace support.
 
 #### Scenario: A server inspects completion capabilities
 - **WHEN** the client sends initialize
-- **THEN** completion declares kind values `[1, 3, 6, 10, 14, 21]` and default insertion mode `1`
+- **THEN** completion declares kind values 1 through 25, preselect support, plaintext documentation and default insertion mode `1`
 - **AND** snippet, insert/replace, resolve, context and list item default support are absent
 
 ### Requirement: Completion text edits commit together
@@ -1440,6 +1440,25 @@ and variables are unfinished.
 - **WHEN** a snippet contains `${1:Item}` followed by `$1` and `${2:c}`
 - **THEN** the default Item is selected and editing it changes both occurrences
 - **AND** Tab selects c and a further Tab finishes at the final stop
+
+### Requirement: Completion presentation honours server metadata
+The client SHALL sort merged completion items ordinally by `sortText ?? label` and filter using
+`filterText ?? label`. The editor SHALL initially select the first preselected prefix match, otherwise
+its best match. It SHALL show string or MarkupContent documentation with detail as plain text and reuse
+Object Browser glyphs for corresponding kinds, using none without a counterpart.
+If no item matches the opening word, the editor SHALL retain the server's list and filter subsequent typing normally.
+
+#### Scenario: Server ranking and selection
+- **WHEN** A has sortText `b` and preselect true, and B has sortText `a`, with an empty prefix
+- **THEN** B appears before A and A is selected
+
+#### Scenario: Filter text differs from label
+- **WHEN** an item labelled `Display` has filterText `needle` and the user types `nee`
+- **THEN** it matches while its displayed label and insertion fallback remain `Display`
+
+#### Scenario: Server replacements do not match the opening word
+- **WHEN** the server offers a snippet replacement labelled `zsnip` over the word `M` and no item matches `M`
+- **THEN** the item remains available to accept and its snippet fields activate normally
 
 ### Requirement: Completion snippet choices
 The editor SHALL expand a numbered choice placeholder to its first value and offer its values in
