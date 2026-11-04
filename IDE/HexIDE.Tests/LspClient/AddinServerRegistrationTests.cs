@@ -49,6 +49,16 @@ public class AddinServerRegistrationTests : IDisposable
             configured.ToHashSet(StringComparer.Ordinal),
             _loggerFactory.CreateLogger<LanguageServerContributions>());
 
+    /// <summary>The 43 characters a pipe name has on the macOS runner (<see cref="PipeNameLimit"/>), the least of any host.</summary>
+    internal const int ShortestPipeNameBudget = 43;
+
+    /// <summary>A pipe of a test's own, named to fit every host's budget.</summary>
+    internal static string PipeName() => "hexide-addin-" + Guid.NewGuid().ToString("N")[..8];
+
+    [Fact]
+    public void TheseTestsPipeNames_FitTheShortestBudgetOfAnyHost() =>
+        PipeName().Length.Should().BeLessThanOrEqualTo(ShortestPipeNameBudget, "on macOS a named pipe is a socket under a long temp path");
+
     private static LanguageServerEntry PipeEntry(string id, string pipeName) => new()
     {
         Id = id,
@@ -464,7 +474,7 @@ public class AddinServerRegistrationTests : IDisposable
     [Fact]
     public async Task TheAddinsMessages_GoOverHexIdesConnection_BothWays_AndAreCaptured()
     {
-        var pipeName = "hexide-addin-" + Guid.NewGuid().ToString("N");
+        var pipeName = PipeName();
         var server = new ProbeServer();
         using var pipe = new NamedPipeServerStream(pipeName, PipeDirection.InOut, 1, PipeTransmissionMode.Byte, PipeOptions.Asynchronous);
         var serving = pipe.WaitForConnectionAsync(Token).ContinueWith(_ =>
@@ -579,7 +589,7 @@ public class AddinServerRegistrationTests : IDisposable
     [Fact]
     public async Task AMethodAddedToTheAddinsDictionaryAfterRegistering_IsNotClaimed()
     {
-        var pipeName = "hexide-addin-" + Guid.NewGuid().ToString("N");
+        var pipeName = PipeName();
         var initialized = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         await using var pipe = new ProbePipe(pipeName, () => new ProbeServer { OnStarted = () => initialized.TrySetResult() });
         var (contributions, router) = WiredContributions();
@@ -602,7 +612,7 @@ public class AddinServerRegistrationTests : IDisposable
     [Fact]
     public async Task AHandlerThatThrows_IsAnsweredWithItsMessageOnly_AndTheConnectionStaysUp()
     {
-        var pipeName = "hexide-addin-" + Guid.NewGuid().ToString("N");
+        var pipeName = PipeName();
         var initialized = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         await using var pipe = new ProbePipe(pipeName, () => new ProbeServer { OnStarted = () => initialized.TrySetResult() });
         var (contributions, router) = WiredContributions();
@@ -611,7 +621,7 @@ public class AddinServerRegistrationTests : IDisposable
             MessagePrefix = "probe/",
             ServerMethods = new Dictionary<string, AddinServerMethod>
             {
-                ["probe/boom"] = (_, _) => throw new InvalidOperationException(@"the add-in fell over in C:\Users\someone\addin"),
+                ["probe/boom"] = (_, _) => throw new InvalidOperationException("the add-in fell over reading its settings"),
             },
         }, "My Add-in");
         await router.OpenDocumentAsync("file:///c:/p/README.md", "# hi", Token);
@@ -620,7 +630,7 @@ public class AddinServerRegistrationTests : IDisposable
         var boom = () => pipe.Latest.InvokeWithParameterObjectAsync<JsonElement>("probe/boom", new { }, Token);
 
         var thrown = (await boom.Should().ThrowAsync<RemoteInvocationException>()).Which;
-        thrown.Message.Should().Be(@"the add-in fell over in C:\Users\someone\addin", "the message is the add-in's to word");
+        thrown.Message.Should().Be("the add-in fell over reading its settings", "the message is the add-in's to word");
         thrown.ErrorData.Should().BeNull("no type, stack or file of the add-in's goes to the server");
         connection.IsRunning.Should().BeTrue();
     }
@@ -628,7 +638,7 @@ public class AddinServerRegistrationTests : IDisposable
     [Fact]
     public async Task ARequestWaitsAsLongAsTheAddinSays_AndHexIdesOwnTimeoutOtherwise()
     {
-        var pipeName = "hexide-addin-" + Guid.NewGuid().ToString("N");
+        var pipeName = PipeName();
         var initialized = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var held = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -660,7 +670,7 @@ public class AddinServerRegistrationTests : IDisposable
     [Fact]
     public async Task WhatRunsAfterAStart_RunsAfterEachOne_ARestartIncluded_OverTheConnection()
     {
-        var pipeName = "hexide-addin-" + Guid.NewGuid().ToString("N");
+        var pipeName = PipeName();
         await using var pipe = new ProbePipe(pipeName, () => new ProbeServer());
         var dir = "c:/p";
         var workspace = Substitute.For<ILspWorkspace>();

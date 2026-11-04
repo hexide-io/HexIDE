@@ -53,7 +53,7 @@ public sealed class AddinLanguageServerTests : IDisposable
         Extensions = [".md"],
         LanguageId = "markdown",
         Transport = "pipe",
-        PipeName = "hexide-unused-" + Guid.NewGuid().ToString("N"),
+        PipeName = HexIDE.Tests.LspClient.AddinServerRegistrationTests.PipeName(),
     });
 
     [Fact]
