@@ -2,6 +2,11 @@
   "name": "German",
   "direction": "ltr",
   "strings": {
+    "Str.Tool.CallHierarchy.Title": "Aufrufhierarchie",
+    "Str.Tool.CallHierarchy.CallsTo": "Aufrufe an",
+    "Str.Tool.CallHierarchy.CallsFrom": "Aufrufe von",
+    "Str.Tool.CallHierarchy.Empty": "Keine Aufrufe gefunden.",
+    "Str.Tool.CallHierarchy.CallSite": "Aufruf bei {0}:{1}",
     "Str.Tool.FindReferences.Title": "Verweise suchen",
     "Str.Tool.FindReferences.Empty": "Keine Verweise",
     "Str.Tool.FindReferences.Error": "{0}: {1}",

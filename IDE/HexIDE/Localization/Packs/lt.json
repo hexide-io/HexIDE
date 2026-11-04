@@ -2,6 +2,11 @@
   "name": "Lithuanian",
   "direction": "ltr",
   "strings": {
+    "Str.Tool.CallHierarchy.Title": "Iškvietimų hierarchija",
+    "Str.Tool.CallHierarchy.CallsTo": "Iškvietimai į",
+    "Str.Tool.CallHierarchy.CallsFrom": "Iškvietimai iš",
+    "Str.Tool.CallHierarchy.Empty": "Iškvietimų nerasta.",
+    "Str.Tool.CallHierarchy.CallSite": "Iškvietimas ties {0}:{1}",
     "Str.Tool.FindReferences.Title": "Rasti nuorodas",
     "Str.Tool.FindReferences.Empty": "Nuorodų nėra",
     "Str.Tool.FindReferences.Error": "{0}: {1}",

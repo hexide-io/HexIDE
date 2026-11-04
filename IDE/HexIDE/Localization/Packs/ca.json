@@ -2,6 +2,11 @@
   "name": "Catalan",
   "direction": "ltr",
   "strings": {
+    "Str.Tool.CallHierarchy.Title": "Jerarquia de crides",
+    "Str.Tool.CallHierarchy.CallsTo": "Crides a",
+    "Str.Tool.CallHierarchy.CallsFrom": "Crides des de",
+    "Str.Tool.CallHierarchy.Empty": "No s’ha trobat cap crida.",
+    "Str.Tool.CallHierarchy.CallSite": "Crida a {0}:{1}",
     "Str.Tool.FindReferences.Title": "Cerca referències",
     "Str.Tool.FindReferences.Empty": "No hi ha referències",
     "Str.Tool.FindReferences.Error": "{0}: {1}",

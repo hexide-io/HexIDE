@@ -2,6 +2,11 @@
   "name": "Basque",
   "direction": "ltr",
   "strings": {
+    "Str.Tool.CallHierarchy.Title": "Deien hierarkia",
+    "Str.Tool.CallHierarchy.CallsTo": "Honetarako deiak",
+    "Str.Tool.CallHierarchy.CallsFrom": "Hemendik egindako deiak",
+    "Str.Tool.CallHierarchy.Empty": "Ez da deirik aurkitu.",
+    "Str.Tool.CallHierarchy.CallSite": "Deia {0}:{1} kokapenean",
     "Str.Tool.FindReferences.Title": "Bilatu erreferentziak",
     "Str.Tool.FindReferences.Empty": "Ez dago erreferentziarik",
     "Str.Tool.FindReferences.Error": "{0}: {1}",

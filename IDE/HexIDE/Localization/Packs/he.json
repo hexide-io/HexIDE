@@ -2,6 +2,11 @@
   "name": "Hebrew",
   "direction": "rtl",
   "strings": {
+    "Str.Tool.CallHierarchy.Title": "היררכיית קריאות",
+    "Str.Tool.CallHierarchy.CallsTo": "קריאות אל",
+    "Str.Tool.CallHierarchy.CallsFrom": "קריאות מתוך",
+    "Str.Tool.CallHierarchy.Empty": "לא נמצאו קריאות.",
+    "Str.Tool.CallHierarchy.CallSite": "קריאה במיקום {0}:{1}",
     "Str.Tool.FindReferences.Title": "חיפוש הפניות",
     "Str.Tool.FindReferences.Empty": "אין הפניות",
     "Str.Tool.FindReferences.Error": "{0}: {1}",

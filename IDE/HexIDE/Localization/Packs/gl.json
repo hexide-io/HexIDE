@@ -2,6 +2,11 @@
   "name": "Galician",
   "direction": "ltr",
   "strings": {
+    "Str.Tool.CallHierarchy.Title": "Xerarquía de chamadas",
+    "Str.Tool.CallHierarchy.CallsTo": "Chamadas a",
+    "Str.Tool.CallHierarchy.CallsFrom": "Chamadas desde",
+    "Str.Tool.CallHierarchy.Empty": "Non se atoparon chamadas.",
+    "Str.Tool.CallHierarchy.CallSite": "Chamada en {0}:{1}",
     "Str.Tool.FindReferences.Title": "Buscar referencias",
     "Str.Tool.FindReferences.Empty": "Non hai referencias",
     "Str.Tool.FindReferences.Error": "{0}: {1}",

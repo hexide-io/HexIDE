@@ -2,6 +2,11 @@
   "name": "Indonesian",
   "direction": "ltr",
   "strings": {
+    "Str.Tool.CallHierarchy.Title": "Hierarki Panggilan",
+    "Str.Tool.CallHierarchy.CallsTo": "Panggilan Ke",
+    "Str.Tool.CallHierarchy.CallsFrom": "Panggilan Dari",
+    "Str.Tool.CallHierarchy.Empty": "Tidak ada panggilan ditemukan.",
+    "Str.Tool.CallHierarchy.CallSite": "Panggilan di {0}:{1}",
     "Str.Tool.FindReferences.Title": "Cari referensi",
     "Str.Tool.FindReferences.Empty": "Tidak ada referensi",
     "Str.Tool.FindReferences.Error": "{0}: {1}",

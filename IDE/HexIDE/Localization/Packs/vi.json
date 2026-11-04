@@ -2,6 +2,11 @@
   "name": "Vietnamese",
   "direction": "ltr",
   "strings": {
+    "Str.Tool.CallHierarchy.Title": "Phân cấp lời gọi",
+    "Str.Tool.CallHierarchy.CallsTo": "Lời gọi đến",
+    "Str.Tool.CallHierarchy.CallsFrom": "Lời gọi từ",
+    "Str.Tool.CallHierarchy.Empty": "Không tìm thấy lời gọi.",
+    "Str.Tool.CallHierarchy.CallSite": "Lời gọi tại {0}:{1}",
     "Str.Tool.FindReferences.Title": "Tìm tham chiếu",
     "Str.Tool.FindReferences.Empty": "Không có tham chiếu",
     "Str.Tool.FindReferences.Error": "{0}: {1}",

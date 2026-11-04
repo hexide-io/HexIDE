@@ -2,6 +2,11 @@
   "name": "Romanian",
   "direction": "ltr",
   "strings": {
+    "Str.Tool.CallHierarchy.Title": "Ierarhia apelurilor",
+    "Str.Tool.CallHierarchy.CallsTo": "Apeluri către",
+    "Str.Tool.CallHierarchy.CallsFrom": "Apeluri din",
+    "Str.Tool.CallHierarchy.Empty": "Nu s-au găsit apeluri.",
+    "Str.Tool.CallHierarchy.CallSite": "Apel la {0}:{1}",
     "Str.Tool.FindReferences.Title": "Găsește referințe",
     "Str.Tool.FindReferences.Empty": "Nicio referință",
     "Str.Tool.FindReferences.Error": "{0}: {1}",

@@ -2,6 +2,11 @@
   "name": "Dutch",
   "direction": "ltr",
   "strings": {
+    "Str.Tool.CallHierarchy.Title": "Aanroephiërarchie",
+    "Str.Tool.CallHierarchy.CallsTo": "Aanroepen naar",
+    "Str.Tool.CallHierarchy.CallsFrom": "Aanroepen vanuit",
+    "Str.Tool.CallHierarchy.Empty": "Geen aanroepen gevonden.",
+    "Str.Tool.CallHierarchy.CallSite": "Aanroep op {0}:{1}",
     "Str.Tool.FindReferences.Title": "Verwijzingen zoeken",
     "Str.Tool.FindReferences.Empty": "Geen verwijzingen",
     "Str.Tool.FindReferences.Error": "{0}: {1}",

@@ -2,6 +2,11 @@
   "name": "Slovak",
   "direction": "ltr",
   "strings": {
+    "Str.Tool.CallHierarchy.Title": "Hierarchia volaní",
+    "Str.Tool.CallHierarchy.CallsTo": "Volania do",
+    "Str.Tool.CallHierarchy.CallsFrom": "Volania z",
+    "Str.Tool.CallHierarchy.Empty": "Nenašli sa žiadne volania.",
+    "Str.Tool.CallHierarchy.CallSite": "Volanie na {0}:{1}",
     "Str.Tool.FindReferences.Title": "Nájsť odkazy",
     "Str.Tool.FindReferences.Empty": "Žiadne odkazy",
     "Str.Tool.FindReferences.Error": "{0}: {1}",

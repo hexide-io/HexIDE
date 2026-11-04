@@ -2,6 +2,11 @@
   "name": "Italian",
   "direction": "ltr",
   "strings": {
+    "Str.Tool.CallHierarchy.Title": "Gerarchia delle chiamate",
+    "Str.Tool.CallHierarchy.CallsTo": "Chiamate a",
+    "Str.Tool.CallHierarchy.CallsFrom": "Chiamate da",
+    "Str.Tool.CallHierarchy.Empty": "Nessuna chiamata trovata.",
+    "Str.Tool.CallHierarchy.CallSite": "Chiamata in {0}:{1}",
     "Str.Tool.FindReferences.Title": "Trova riferimenti",
     "Str.Tool.FindReferences.Empty": "Nessun riferimento",
     "Str.Tool.FindReferences.Error": "{0}: {1}",

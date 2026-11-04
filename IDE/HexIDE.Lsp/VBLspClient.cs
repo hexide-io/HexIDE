@@ -658,6 +658,7 @@ public sealed class VBLspClient : ILspClient
                     // honours it sends the flat form to a client that never said it could take the tree.
                     DocumentSymbol: new DocumentSymbolClientCapabilities(HierarchicalDocumentSymbolSupport: true),
                     InlayHint: new InlayHintClientCapabilities(),
+                    CallHierarchy: EmptyParams.Instance,
                     RangeFormatting: EmptyParams.Instance,
                     Completion: new CompletionClientCapabilities(new CompletionItemKindClientCapabilities(
                         Enum.GetValues<CompletionItemKind>()),
@@ -1706,6 +1707,33 @@ public sealed class VBLspClient : ILspClient
         }
     }
 
+    public async Task<CallHierarchyItem[]> PrepareCallHierarchyAsync(string uri, Position position,
+        CancellationToken cancellationToken = default)
+    {
+        if (_rpc is null || !_initialized || !CanServe("callHierarchyProvider")) return [];
+        var p = new TextDocumentPositionParams(new TextDocumentIdentifier(uri), position);
+        return await InvokeRequestAsync<CallHierarchyItem[]?>(_rpc,
+            "textDocument/prepareCallHierarchy", p, cancellationToken, documentUri: uri) ?? [];
+    }
+
+    public async Task<CallHierarchyIncomingCall[]> RequestIncomingCallsAsync(CallHierarchyItem item,
+        CancellationToken cancellationToken = default)
+    {
+        if (_rpc is null || !_initialized || !CanServe("callHierarchyProvider")) return [];
+        return await InvokeRequestAsync<CallHierarchyIncomingCall[]?>(_rpc,
+            "callHierarchy/incomingCalls", new CallHierarchyCallsParams(item), cancellationToken,
+            documentUri: item.Uri) ?? [];
+    }
+
+    public async Task<CallHierarchyOutgoingCall[]> RequestOutgoingCallsAsync(CallHierarchyItem item,
+        CancellationToken cancellationToken = default)
+    {
+        if (_rpc is null || !_initialized || !CanServe("callHierarchyProvider")) return [];
+        return await InvokeRequestAsync<CallHierarchyOutgoingCall[]?>(_rpc,
+            "callHierarchy/outgoingCalls", new CallHierarchyCallsParams(item), cancellationToken,
+            documentUri: item.Uri) ?? [];
+    }
+
     public async Task<Location[]> RequestReferencesAsync(string uri, Position position, CancellationToken cancellationToken = default)
     {
         if (_rpc is null || !_initialized || !CanServe("referencesProvider")) return [];
@@ -2630,6 +2658,7 @@ public sealed class VBLspClient : ILspClient
         "hoverProvider",
         "inlayHintProvider",
         "referencesProvider",
+        "callHierarchyProvider",
         "renameProvider",
         "signatureHelpProvider",
         // Read by the sync readers rather than a gate, because its two shapes mean different things — and

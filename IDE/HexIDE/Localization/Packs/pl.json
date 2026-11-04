@@ -2,6 +2,11 @@
   "name": "Polish",
   "direction": "ltr",
   "strings": {
+    "Str.Tool.CallHierarchy.Title": "Hierarchia wywołań",
+    "Str.Tool.CallHierarchy.CallsTo": "Wywołania do",
+    "Str.Tool.CallHierarchy.CallsFrom": "Wywołania z",
+    "Str.Tool.CallHierarchy.Empty": "Nie znaleziono wywołań.",
+    "Str.Tool.CallHierarchy.CallSite": "Wywołanie w {0}:{1}",
     "Str.Tool.FindReferences.Title": "Znajdź odwołania",
     "Str.Tool.FindReferences.Empty": "Brak odwołań",
     "Str.Tool.FindReferences.Error": "{0}: {1}",

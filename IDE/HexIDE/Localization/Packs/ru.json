@@ -2,6 +2,11 @@
   "name": "Russian",
   "direction": "ltr",
   "strings": {
+    "Str.Tool.CallHierarchy.Title": "Иерархия вызовов",
+    "Str.Tool.CallHierarchy.CallsTo": "Вызовы к",
+    "Str.Tool.CallHierarchy.CallsFrom": "Вызовы из",
+    "Str.Tool.CallHierarchy.Empty": "Вызовы не найдены.",
+    "Str.Tool.CallHierarchy.CallSite": "Вызов в {0}:{1}",
     "Str.Tool.FindReferences.Title": "Найти ссылки",
     "Str.Tool.FindReferences.Empty": "Нет ссылок",
     "Str.Tool.FindReferences.Error": "{0}: {1}",

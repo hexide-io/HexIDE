@@ -2,6 +2,11 @@
   "name": "Ukrainian",
   "direction": "ltr",
   "strings": {
+    "Str.Tool.CallHierarchy.Title": "Ієрархія викликів",
+    "Str.Tool.CallHierarchy.CallsTo": "Виклики до",
+    "Str.Tool.CallHierarchy.CallsFrom": "Виклики з",
+    "Str.Tool.CallHierarchy.Empty": "Викликів не знайдено.",
+    "Str.Tool.CallHierarchy.CallSite": "Виклик у {0}:{1}",
     "Str.Tool.FindReferences.Title": "Знайти посилання",
     "Str.Tool.FindReferences.Empty": "Немає посилань",
     "Str.Tool.FindReferences.Error": "{0}: {1}",

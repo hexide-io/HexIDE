@@ -2,6 +2,11 @@
   "name": "Latvian",
   "direction": "ltr",
   "strings": {
+    "Str.Tool.CallHierarchy.Title": "Izsaukumu hierarhija",
+    "Str.Tool.CallHierarchy.CallsTo": "Izsaukumi uz",
+    "Str.Tool.CallHierarchy.CallsFrom": "Izsaukumi no",
+    "Str.Tool.CallHierarchy.Empty": "Nav atrasts neviens izsaukums.",
+    "Str.Tool.CallHierarchy.CallSite": "Izsaukums vietā {0}:{1}",
     "Str.Tool.FindReferences.Title": "Atrast atsauces",
     "Str.Tool.FindReferences.Empty": "Nav atsauču",
     "Str.Tool.FindReferences.Error": "{0}: {1}",

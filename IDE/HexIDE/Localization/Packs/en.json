@@ -2,6 +2,11 @@
   "name": "English",
   "direction": "ltr",
   "strings": {
+    "Str.Tool.CallHierarchy.Title": "Call Hierarchy",
+    "Str.Tool.CallHierarchy.CallsTo": "Calls To",
+    "Str.Tool.CallHierarchy.CallsFrom": "Calls From",
+    "Str.Tool.CallHierarchy.Empty": "No calls found.",
+    "Str.Tool.CallHierarchy.CallSite": "Call at {0}:{1}",
     "Str.Tool.FindReferences.Title": "Find References",
     "Str.Tool.FindReferences.Empty": "No references",
     "Str.Tool.FindReferences.Error": "{0}: {1}",

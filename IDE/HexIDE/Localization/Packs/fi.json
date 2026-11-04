@@ -2,6 +2,11 @@
   "name": "Finnish",
   "direction": "ltr",
   "strings": {
+    "Str.Tool.CallHierarchy.Title": "Kutsuhierarkia",
+    "Str.Tool.CallHierarchy.CallsTo": "Kutsut kohteeseen",
+    "Str.Tool.CallHierarchy.CallsFrom": "Kutsut kohteesta",
+    "Str.Tool.CallHierarchy.Empty": "Kutsuja ei löytynyt.",
+    "Str.Tool.CallHierarchy.CallSite": "Kutsu kohdassa {0}:{1}",
     "Str.Tool.FindReferences.Title": "Etsi viittaukset",
     "Str.Tool.FindReferences.Empty": "Ei viittauksia",
     "Str.Tool.FindReferences.Error": "{0}: {1}",

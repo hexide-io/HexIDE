@@ -2,6 +2,11 @@
   "name": "Danish",
   "direction": "ltr",
   "strings": {
+    "Str.Tool.CallHierarchy.Title": "Kaldhierarki",
+    "Str.Tool.CallHierarchy.CallsTo": "Kald til",
+    "Str.Tool.CallHierarchy.CallsFrom": "Kald fra",
+    "Str.Tool.CallHierarchy.Empty": "Ingen kald fundet.",
+    "Str.Tool.CallHierarchy.CallSite": "Kald ved {0}:{1}",
     "Str.Tool.FindReferences.Title": "Find referencer",
     "Str.Tool.FindReferences.Empty": "Ingen referencer",
     "Str.Tool.FindReferences.Error": "{0}: {1}",
