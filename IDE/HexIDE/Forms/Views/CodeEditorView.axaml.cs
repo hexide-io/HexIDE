@@ -1439,6 +1439,14 @@ public partial class CodeEditorView : UserControl
         ToolTip.SetTip(TextEditor, null);
     }
 
+    private void DismissHover()
+    {
+        _hoverCts?.Cancel();
+        _hoverCts?.Dispose();
+        _hoverCts = null;
+        CloseTip();
+    }
+
     private void OnPointerExited(object? sender, PointerEventArgs e)
     {
         // Forgotten, not just cancelled: a pointer coming back to the same point is a new hover, not jitter in the last one,
@@ -1611,6 +1619,9 @@ public partial class CodeEditorView : UserControl
 
     private void OnTextEntering(object? sender, TextInputEventArgs e)
     {
+        if (e.Text is { Length: > 0 })
+            DismissHover();
+
         // Editing while the project is running/paused can't be hot-patched. Let the edit land (VB6 shows it), and
         // pop VB6's reset prompt — OK keeps the edit + resets the project, Cancel reverts it (see ShowResetPromptAsync).
         // Armed, not raised: whether the text lands is decided after this, by the read-only section provider.
@@ -2414,6 +2425,8 @@ public partial class CodeEditorView : UserControl
             {
                 if (token.IsCancellationRequested) return;
 
+                DismissHover();
+
                 // If a window is already open, close it first
                 _completionWindow?.Close();
 
@@ -2488,6 +2501,7 @@ public partial class CodeEditorView : UserControl
                     return;
                 }
 
+                DismissHover();
                 _insightWindow?.Close();
                 var provider = new VbSignatureProvider(help);
                 _insightWindow = new OverloadInsightWindow(TextEditor.TextArea)

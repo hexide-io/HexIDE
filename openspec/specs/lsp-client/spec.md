@@ -159,6 +159,19 @@ for other languages. Plain text SHALL stay literal; normalized marked strings SH
 - **WHEN** a Markdown hover contains a `vba` fenced signature and a paragraph naming its module
 - **THEN** the tip shows coloured code in the editor's font followed by the paragraph, with no fence characters
 
+### Requirement: Hover dismissal while editing
+
+Typing in the editor SHALL close its hover tip and cancel pending hover requests. Opening a completion
+list or signature help SHALL do the same. Moving the pointer into the tip SHALL keep it open for links.
+
+#### Scenario: Typing with a hover open
+- **WHEN** the developer types a character while a hover tip is open
+- **THEN** the tip closes
+
+#### Scenario: An editing popup opens
+- **WHEN** completion or signature help opens while a hover tip is open
+- **THEN** the hover tip closes
+
 ### Requirement: Safe hover content
 
 Raw HTML and diagnostic messages SHALL remain literal text. HTTP(S) links SHALL open in the browser

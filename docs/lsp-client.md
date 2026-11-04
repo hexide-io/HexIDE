@@ -121,7 +121,8 @@ The renderer owns the advertised `contentFormat` preference: `["markdown", "plai
 `vb` and `vba` fences use the editor's font and shared VB6 colours; other fences use its font
 without highlighting. Raw HTML is literal text. HTTP(S) links open through the browser only on
 click. A file link opens only a document the project already holds, and does nothing for any other file.
-Command links remain inert text. Plain-text content stays literal.
+Command links remain inert text. Plain-text content stays literal. Typing closes the hover tip, as does
+opening completion or signature help; moving into the tip keeps its links reachable (#3042).
 
 `initialize.locale` carries the resolved Options → Language UI language as a BCP 47 tag.
 System default uses the localization service's system resolution; pseudo-locales send `en`.
