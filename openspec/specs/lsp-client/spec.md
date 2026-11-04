@@ -601,8 +601,10 @@ it outranks a default: what a user wrote is what runs.
 An add-in may register after documents are open — one whose first run waited for consent initialises after the
 window opens — so the documents already open that a contributed server claims SHALL be opened on it, which starts it
 as the first document it claims would. Withdrawing the contribution SHALL stop the server and remove its row, and its
-workspace artefact SHALL not be generated again. What it reported SHALL be withdrawn with it, so a server contributed
-again under its identifier while the old one is still stopping keeps what it reports.
+workspace artefact SHALL not be generated again from the moment the withdrawal begins, its stop included. What it
+reported, its diagnostics and its configuration problems, SHALL be withdrawn with it, and nothing it says after SHALL be
+kept: a server contributed again under its identifier while the old one is still stopping keeps what it reports, and an
+artefact restart asked for the old server SHALL NOT restart the new one.
 
 #### Scenario: An add-in contributes a server after documents are open
 - **WHEN** an add-in contributes a server for a language whose documents are already open
@@ -623,7 +625,8 @@ again under its identifier while the old one is still stopping keeps what it rep
 
 #### Scenario: The add-in contributes its server again before the old one has stopped
 - **WHEN** the add-in withdraws its server and contributes one under the same identifier while the old one stops
-- **THEN** what the new server reports is kept when the old one's stop completes
+- **THEN** what the new server reports, its diagnostics and its configuration problems, is kept when the old one's stop
+  completes
 
 ### Requirement: A contributed server SHALL be gated before it launches
 A contributed server MAY carry a gate the IDE SHALL run before it starts the server's process, every time it starts
