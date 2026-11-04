@@ -234,6 +234,8 @@ internal sealed class LspDocumentSession : IDisposable
     /// </summary>
     public event Action? DiagnosticsApplied;
 
+    public event Action? ChangeSent;
+
     /// <summary>
     /// Opens the document to the language layer and begins tracking edits.
     ///
@@ -295,7 +297,16 @@ internal sealed class LspDocumentSession : IDisposable
         if (pendingChange is not { } pending) return changeInFlight;
         pendingChange = null;
         Volatile.Write(ref shared.SentVersion, pending.Version);
-        return changeInFlight = client.ChangeDocumentAsync(Uri, pending.Version, pending.Text, cancellationToken);
+        return changeInFlight = SendChangeAsync(pending, cancellationToken);
+    }
+
+    private async Task SendChangeAsync((int Version, string Text) pending, CancellationToken cancellationToken)
+    {
+        await client.ChangeDocumentAsync(Uri, pending.Version, pending.Text, cancellationToken);
+        postToUiThread(() =>
+        {
+            if (!disposed) ChangeSent?.Invoke();
+        });
     }
 
     /// <summary>

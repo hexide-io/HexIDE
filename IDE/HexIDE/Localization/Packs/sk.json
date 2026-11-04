@@ -463,6 +463,8 @@
     "Str.Options.EditorGeneral.Display.Header": "Zobrazenie",
     "Str.Options.EditorGeneral.Display.ShowMinimap": "Zobraziť minimapu",
     "Str.Options.EditorGeneral.Display.ShowInlayHints": "Zobraziť vložené nápovedy",
+    "Str.Options.EditorGeneral.Display.ShowCodeLenses": "Zobraziť šošovky kódu",
+    "Str.Editor.RunCodeLens": "Spustiť šošovku kódu",
     "Str.Options.EditorFormatting.Indentation.Header": "Odsadenie",
     "Str.Options.EditorFormatting.Indentation.TabWidth": "Šírka tabulátora:",
     "Str.Options.Grid.GroupHeader": "Nastavenia mriežky formulára",

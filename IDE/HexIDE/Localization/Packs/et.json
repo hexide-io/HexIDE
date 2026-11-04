@@ -463,6 +463,8 @@
     "Str.Options.EditorGeneral.Display.Header": "Kuvamine",
     "Str.Options.EditorGeneral.Display.ShowMinimap": "Näita miniülevaadet",
     "Str.Options.EditorGeneral.Display.ShowInlayHints": "Kuva reasiseseid vihjeid",
+    "Str.Options.EditorGeneral.Display.ShowCodeLenses": "Kuva koodiläätsed",
+    "Str.Editor.RunCodeLens": "Käivita koodilääts",
     "Str.Options.EditorFormatting.Indentation.Header": "Taanded",
     "Str.Options.EditorFormatting.Indentation.TabWidth": "Tabelduslaius:",
     "Str.Options.Grid.GroupHeader": "Vormi ruudustiku sätted",

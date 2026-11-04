@@ -463,6 +463,8 @@
     "Str.Options.EditorGeneral.Display.Header": "Megjelenítés",
     "Str.Options.EditorGeneral.Display.ShowMinimap": "Minitérkép megjelenítése",
     "Str.Options.EditorGeneral.Display.ShowInlayHints": "Beágyazott tippek megjelenítése",
+    "Str.Options.EditorGeneral.Display.ShowCodeLenses": "Kódlencsék megjelenítése",
+    "Str.Editor.RunCodeLens": "Kódlencse futtatása",
     "Str.Options.EditorFormatting.Indentation.Header": "Behúzás",
     "Str.Options.EditorFormatting.Indentation.TabWidth": "Tabulátorszélesség:",
     "Str.Options.Grid.GroupHeader": "Űrlaprács beállításai",

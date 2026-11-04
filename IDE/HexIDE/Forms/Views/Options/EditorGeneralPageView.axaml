@@ -28,6 +28,7 @@
         <HeaderedContentControl Header="{DynamicResource Str.Options.EditorGeneral.Display.Header}" Padding="10">
             <StackPanel Orientation="Vertical" Spacing="6">
                 <CheckBox IsChecked="{CompiledBinding ShowInlayHints}" Content="{DynamicResource Str.Options.EditorGeneral.Display.ShowInlayHints}" />
+                <CheckBox IsChecked="{CompiledBinding ShowCodeLenses}" Content="{DynamicResource Str.Options.EditorGeneral.Display.ShowCodeLenses}" />
                 <CheckBox IsChecked="{CompiledBinding ShowIndentGuides}" Content="{DynamicResource Str.Options.EditorGeneral.Display.ShowIndentGuides}" />
                 <CheckBox IsChecked="{CompiledBinding IsStickyScrollEnabled}" Content="{DynamicResource Str.Options.EditorGeneral.Display.StickyScroll}" />
                 <StackPanel Orientation="Horizontal" Spacing="8">

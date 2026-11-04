@@ -463,6 +463,8 @@
     "Str.Options.EditorGeneral.Display.Header": "Prikaz",
     "Str.Options.EditorGeneral.Display.ShowMinimap": "Prikaži pomanjšan pregled",
     "Str.Options.EditorGeneral.Display.ShowInlayHints": "Pokaži vstavljene namige",
+    "Str.Options.EditorGeneral.Display.ShowCodeLenses": "Pokaži leče kode",
+    "Str.Editor.RunCodeLens": "Zaženi lečo kode",
     "Str.Options.EditorFormatting.Indentation.Header": "Zamikanje",
     "Str.Options.EditorFormatting.Indentation.TabWidth": "Širina tabulatorja:",
     "Str.Options.Grid.GroupHeader": "Nastavitve mreže obrazca",

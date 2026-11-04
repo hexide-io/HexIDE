@@ -62,6 +62,7 @@ public class EditorRedockTests
         await client.StartAsync(cancellation);
         var settings = Substitute.For<ISettingsService>();
         settings.TabWidth.Returns(4);
+        typeof(ISettingsService).GetProperty("ShowCodeLenses")?.SetValue(settings, true);
         settings.ShowInlayHints.Returns(true);
         var localization = new LocalizationService();
         localization.Apply("en");
@@ -130,9 +131,21 @@ public class EditorRedockTests
             await Settle();
             CheckAnswers();
             var changes = server.Count("textDocument/didChange");
-            vm.Document.Insert(vm.Document.TextLength, "' edited\r\n");
+            var diagnostics = server.Count("textDocument/diagnostic");
+            var lensesBeforeEdit = server.Count("textDocument/codeLens");
+            for (var i = 0; i < 3; i++)
+            {
+                vm.Document.Insert(vm.Document.TextLength, "' edited\r\n");
+                await Task.Delay(50, cancellation);
+            }
+            await Until(() => server.Count("textDocument/diagnostic") > diagnostics);
+            // Lenses follow the same sync as diagnostics, rather than the view's later folding pause.
+            await Until(() => server.Count("textDocument/codeLens") > lensesBeforeEdit, 120);
+            server.Count("textDocument/codeLens").Should().Be(lensesBeforeEdit + 1);
             await Until(() => server.Count("textDocument/didChange") > changes && server.Count(method) > before);
             server.LastChange.Should().Contain("' edited");
+            server.Count("textDocument/codeLens").Should().Be(lensesBeforeEdit + 1,
+                "the later folding pause must not rediscover lenses a second time");
             var lensRequests = server.Count("textDocument/codeLens");
             await rpc.InvokeWithParameterObjectAsync<object?>("workspace/codeLens/refresh", null, cancellation);
             await Until(() => server.Count("textDocument/codeLens") > lensRequests);
@@ -160,9 +173,9 @@ public class EditorRedockTests
             ((FoldingManager)textView.GetService(typeof(FoldingManager))!).AllFoldings.Should().ContainSingle();
         }
 
-        async Task Until(Func<bool> ready)
+        async Task Until(Func<bool> ready, int milliseconds = 10000)
         {
-            var deadline = DateTime.UtcNow.AddSeconds(10);
+            var deadline = DateTime.UtcNow.AddMilliseconds(milliseconds);
             while (!ready() && DateTime.UtcNow < deadline)
             {
                 Dispatcher.UIThread.RunJobs();
@@ -198,6 +211,7 @@ public class EditorRedockTests
         {
             capabilities = new
             {
+                diagnosticProvider = new { interFileDependencies = false, workspaceDiagnostics = false },
                 textDocumentSync = 1, codeLensProvider = new { resolveProvider = false },
                 semanticTokensProvider = new { legend = new { tokenTypes = new[] { "keyword" }, tokenModifiers = Array.Empty<string>() }, full = true },
                 inlayHintProvider = true, foldingRangeProvider = true,
@@ -215,6 +229,12 @@ public class EditorRedockTests
         }
         [JsonRpcMethod("textDocument/didClose", UseSingleObjectParameterDeserialization = true)]
         public void Close(JsonElement _) { }
+        [JsonRpcMethod("textDocument/diagnostic", UseSingleObjectParameterDeserialization = true)]
+        public JsonElement Diagnostics(JsonElement _)
+        {
+            Seen("textDocument/diagnostic");
+            return JsonSerializer.SerializeToElement(new { kind = "full", items = Array.Empty<object>() });
+        }
         [JsonRpcMethod("textDocument/codeLens", UseSingleObjectParameterDeserialization = true)]
         public async Task<JsonElement> Lenses(JsonElement _)
         {

@@ -458,6 +458,8 @@
     "Str.Options.EditorGeneral.CodeSettings.FormatOnSave": "Beim Speichern formatieren",
     "Str.Options.EditorGeneral.Display.Header": "Anzeige",
     "Str.Options.EditorGeneral.Display.ShowInlayHints": "Inline-Hinweise anzeigen",
+    "Str.Options.EditorGeneral.Display.ShowCodeLenses": "Code-Linsen anzeigen",
+    "Str.Editor.RunCodeLens": "Code-Linse ausführen",
     "Str.Options.EditorGeneral.Display.ShowMinimap": "Minimap anzeigen",
     "Str.Options.EditorFormatting.Indentation.Header": "Einzug",
     "Str.Options.EditorFormatting.Indentation.TabWidth": "Tabulatorbreite:",

@@ -65,6 +65,9 @@
                               ExecutingCommand="{CompiledBinding #Root.PreviousBookmark}" />
         <input:CommandBinding Command="{x:Static vb:ApplicationCommands.ClearAllBookmarksCommand}"
                               ExecutingCommand="{CompiledBinding #Root.ClearAllBookmarks}" />
+        <input:CommandBinding Command="{x:Static vb:ApplicationCommands.RunCodeLensCommand}"
+                              CanExecute="CanRunCodeLens"
+                              ExecutingCommand="{CompiledBinding #Root.RunCodeLens}" />
         <input:CommandBinding Command="{x:Static vb:ApplicationCommands.FindReferencesCommand}"
                               ExecutingCommand="{CompiledBinding #Root.FindReferences}" />
         <input:CommandBinding Command="{x:Static vb:ApplicationCommands.GoToDefinitionCommand}"
@@ -180,6 +183,7 @@
                         </MenuItem>
                         <Separator />
                         <MenuItem Header="{DynamicResource Str.Tool.FindReferences.Title}" Command="{x:Static vb:ApplicationCommands.FindReferencesCommand}" />
+                        <MenuItem Header="{DynamicResource Str.Editor.RunCodeLens}" Command="{x:Static vb:ApplicationCommands.RunCodeLensCommand}" />
                         <MenuItem Header="{DynamicResource Str.CodeEditor.Context.GoToDefinition}" Command="{x:Static vb:ApplicationCommands.GoToDefinitionCommand}" />
                         <MenuItem Header="{DynamicResource Str.CodeEditor.Context.GoToImplementation}" Command="{x:Static vb:ApplicationCommands.GoToImplementationCommand}" />
                         <MenuItem Header="{DynamicResource Str.CodeEditor.Context.GoToTypeDefinition}" Command="{x:Static vb:ApplicationCommands.GoToTypeDefinitionCommand}" />

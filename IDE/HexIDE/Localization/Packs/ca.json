@@ -463,6 +463,8 @@
     "Str.Options.EditorGeneral.Display.Header": "Visualització",
     "Str.Options.EditorGeneral.Display.ShowMinimap": "Mostra el minimapa",
     "Str.Options.EditorGeneral.Display.ShowInlayHints": "Mostra les pistes en línia",
+    "Str.Options.EditorGeneral.Display.ShowCodeLenses": "Mostra les lents de codi",
+    "Str.Editor.RunCodeLens": "Executa la lent de codi",
     "Str.Options.EditorFormatting.Indentation.Header": "Sagnat",
     "Str.Options.EditorFormatting.Indentation.TabWidth": "Amplada de la tabulació:",
     "Str.Options.Grid.GroupHeader": "Configuració de la quadrícula del formulari",

@@ -463,6 +463,8 @@
     "Str.Options.EditorGeneral.Display.Header": "Rodymas",
     "Str.Options.EditorGeneral.Display.ShowMinimap": "Rodyti miniatiūrinį žemėlapį",
     "Str.Options.EditorGeneral.Display.ShowInlayHints": "Rodyti įterptąsias užuominas",
+    "Str.Options.EditorGeneral.Display.ShowCodeLenses": "Rodyti kodo lęšius",
+    "Str.Editor.RunCodeLens": "Vykdyti kodo lęšį",
     "Str.Options.EditorFormatting.Indentation.Header": "Įtraukos",
     "Str.Options.EditorFormatting.Indentation.TabWidth": "Tabuliavimo plotis:",
     "Str.Options.Grid.GroupHeader": "Formos tinklelio nuostatos",
