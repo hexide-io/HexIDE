@@ -75,6 +75,19 @@ public partial class ProjectDefinition : INotifyPropertyChanged
     }
 
     /// <summary>
+    /// The project type an add-in contributed that opened this project, such as <c>"RDCore projects"</c>, or null for a
+    /// project HexIDE read itself. A contributed project's file is its add-in's program's to write: HexIDE saves its modules,
+    /// never the project file, and changes its membership only as the add-in reports a change.
+    /// </summary>
+    public string? ContributedBy { get; init; }
+
+    /// <summary>
+    /// The folders a contributed project lists, relative to its file's folder, which the Project Explorer shows even when
+    /// they hold nothing. Empty for a .vbp, whose folders are those of its members.
+    /// </summary>
+    public IReadOnlyList<string> ListedFolders { get; set; } = [];
+
+    /// <summary>
     /// Where a never-saved project's files actually live, unique to this project instance.
     ///
     /// <para>

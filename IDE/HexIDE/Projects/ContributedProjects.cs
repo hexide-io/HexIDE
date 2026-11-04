@@ -1,0 +1,167 @@
+using System.Text.RegularExpressions;
+using HexIDE.Addins;
+using HexIDE.IDE;
+using HexIDE.Runtime.ProjectElements;
+using HexIDE.Runtime.Serialization;
+using HexIDE.Utils;
+
+namespace HexIDE.Projects;
+
+/// <summary>A project type an add-in contributed, under the name of the add-in that did.</summary>
+public sealed record ContributedProjectType(AddinProjectType Type, string Origin);
+
+/// <summary>
+/// The project types add-ins contribute (<see cref="IHexIdeHost.RegisterProjectType"/>), and the reading of a project file
+/// of one into a <see cref="ProjectDefinition"/> whose membership the add-in's program owns.
+/// </summary>
+public sealed partial class ContributedProjects
+{
+    // HexIDE's own, which no add-in reads in its place.
+    private static readonly string[] OwnPatterns = ["*.vbp", "*.vbg", "*.twinproj"];
+
+    private readonly object _gate = new();
+    private readonly List<ContributedProjectType> _types = [];
+
+    /// <summary>Raised when a type is contributed or taken out.</summary>
+    public event Action? TypesChanged;
+
+    /// <summary>Every contributed type, in the order they were contributed.</summary>
+    public IReadOnlyList<ContributedProjectType> Types
+    {
+        get
+        {
+            lock (_gate) return [.. _types];
+        }
+    }
+
+    internal IDisposable Register(AddinProjectType type, AddinOrigin origin) => Register(type, origin.Title);
+
+    /// <summary>Adds an add-in's project type.</summary>
+    /// <returns>What takes it out again.</returns>
+    public IDisposable Register(AddinProjectType type, string origin)
+    {
+        ArgumentNullException.ThrowIfNull(type);
+        ArgumentException.ThrowIfNullOrWhiteSpace(type.Title, nameof(type));
+        ArgumentException.ThrowIfNullOrWhiteSpace(origin);
+        if (type.OpenAsync is null || type.FileNames is not { Count: > 0 } names)
+            throw new ArgumentException("A project type needs the files it reads and what reads them.", nameof(type));
+        foreach (var name in names)
+            if (!IsFileNameOrPattern(name))
+                throw new ArgumentException($"'{name}' is neither a file name nor a pattern of the form '*.ext'.", nameof(type));
+
+        var contributed = new ContributedProjectType(type, origin);
+        lock (_gate)
+        {
+            var taken = names.FirstOrDefault(name =>
+                OwnPatterns.Any(own => Overlaps(own, name)) || _types.Any(known => known.Type.FileNames.Any(other => Overlaps(other, name))));
+            if (taken is not null)
+                throw new InvalidOperationException($"{origin} contributes a project type for '{taken}', which another project type reads already.");
+            _types.Add(contributed);
+        }
+        TypesChanged?.Invoke();
+
+        var handle = new ActionDisposable(() =>
+        {
+            bool removed;
+            lock (_gate) removed = _types.Remove(contributed);
+            if (removed) TypesChanged?.Invoke();
+        });
+        // An add-in whose initialisation fails has its type taken out with its other contributions.
+        AddinInitializationScope.Record(handle.Dispose);
+        return handle;
+    }
+
+    /// <summary>The contributed type that reads this file, or null when none does.</summary>
+    public ContributedProjectType? Find(string path)
+    {
+        var fileName = Path.GetFileName(path);
+        lock (_gate)
+            return _types.FirstOrDefault(known => known.Type.FileNames.Any(name => Matches(name, fileName)));
+    }
+
+    private static bool IsFileNameOrPattern(string name) =>
+        !string.IsNullOrWhiteSpace(name) && name.IndexOfAny(Path.GetInvalidFileNameChars().Where(c => c != '*').ToArray()) < 0 &&
+        (!name.Contains('*') || PatternForm().IsMatch(name));
+
+    [GeneratedRegex(@"^\*\.[^*.]+$")]
+    private static partial Regex PatternForm();
+
+    private static bool Matches(string nameOrPattern, string fileName) =>
+        nameOrPattern.StartsWith("*.", StringComparison.Ordinal)
+            ? fileName.EndsWith(nameOrPattern[1..], StringComparison.OrdinalIgnoreCase)
+              && fileName.Length > nameOrPattern.Length - 1
+            : string.Equals(nameOrPattern, fileName, StringComparison.OrdinalIgnoreCase);
+
+    // Whether some file is read by both: a name either one matches, or two patterns of one extension.
+    private static bool Overlaps(string a, string b) =>
+        Matches(a, b.TrimStart('*')) || Matches(b, a.TrimStart('*')) || string.Equals(a, b, StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Builds the project for what the add-in read, its modules loaded from their files as a .vbp's are. A member that
+    /// cannot be read is left out and named in the returned problems.
+    /// </summary>
+    internal static async Task<(ProjectDefinition Project, IReadOnlyList<string> Problems)> BuildAsync(
+        string path, AddinProjectContent content, string origin, Vb6TextEncoding hostAnsi, Action<string, byte[]>? fileRead)
+    {
+        var project = new ProjectDefinition(VBProjectType.EXE, content.Name)
+        {
+            ContributedBy = origin,
+        };
+        project.AbsolutePath = path;
+        project.ItemLinesDirectory = Path.GetDirectoryName(path)!;
+        project.ListedFolders = [.. content.Folders];
+        project.SetReferences(content.References.Select(ToVbReference));
+
+        var problems = new List<string>();
+        foreach (var member in content.Members)
+        {
+            try
+            {
+                await AddMemberAsync(project, member, hostAnsi, fileRead);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException)
+            {
+                problems.Add($"{member.Path}: {ex.Message}");
+            }
+        }
+        return (project, problems);
+    }
+
+    internal static async Task AddMemberAsync(ProjectDefinition project, AddinProjectMember member, Vb6TextEncoding hostAnsi,
+        Action<string, byte[]>? fileRead)
+    {
+        if (!Path.IsPathFullyQualified(member.Path))
+            throw new ArgumentException($"'{member.Path}' is not a full path.");
+        if (member.Kind == AddinMemberKind.Other)
+        {
+            project.AddRelatedDocument(new RelatedDocumentDefinition(project, Path.GetFileName(member.Path), member.Path));
+            return;
+        }
+
+        // A document module is kept as a class module with its header as it came: it is the host document's code,
+        // for reading and editing, and nothing runs or instantiates it.
+        var kind = member.Kind == AddinMemberKind.StandardModule ? ModuleKind.StandardModule : ModuleKind.ClassModule;
+        var read = await Vb6TextFile.ReadDocumentAsync(member.Path, null, hostAnsi);
+        fileRead?.Invoke(member.Path, read.Bytes);
+        var (header, body) = ModuleFileFormat.SplitHeader(read.Text, kind);
+        var module = new ModuleDefinition(project, NameOf(read.Text) ?? Path.GetFileNameWithoutExtension(member.Path), kind)
+        {
+            AbsolutePath = member.Path,
+            TextEncoding = read.Encoding,
+        };
+        module.RecordOriginalHeader(header);
+        module.UpdateCode(body);
+        project.AddModule(module);
+    }
+
+    // The module's Attribute VB_Name, which names it; the project file does not.
+    private static string? NameOf(string source) => VbName().Match(source) is { Success: true } match ? match.Groups[1].Value : null;
+
+    [GeneratedRegex(@"^\s*Attribute\s+VB_Name\s*=\s*""([^""]+)""", RegexOptions.Multiline | RegexOptions.IgnoreCase)]
+    private static partial Regex VbName();
+
+    internal static VbReference ToVbReference(AddinProjectReference reference) => new(
+        reference.Guid is { } guid ? "{" + guid.ToString().ToUpperInvariant() + "}" : "",
+        reference.Major is { } major ? $"{major:x}.{reference.Minor ?? 0:x}" : "",
+        0, reference.Path, reference.Name);
+}

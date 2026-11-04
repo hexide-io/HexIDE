@@ -154,7 +154,8 @@ public partial class ProjectViewModel : ObservableObject, IDisposable, IProjectT
                 .Concat(preservedItems),
             projectDefinition.AbsolutePath is { } vbpPath ? Path.GetDirectoryName(vbpPath) : null,
             directoryExpansion,
-            this);
+            this,
+            projectDefinition.ListedFolders);
 
         Elements.Clear();
         foreach (var child in children)

@@ -32,8 +32,8 @@ and would leave add-in authors depending on things that were never meant to be c
 - **THEN** the capability is added to the host surface rather than the add-in reaching past it
 
 ### Requirement: Contributions SHALL be removable by the contributor
-Registering a menu item, tool window, command, control, or project template SHALL return a handle that
-removes the contribution when disposed.
+Registering a menu item, tool window, command, control, project template or project type (`contributed-projects`)
+SHALL return a handle that removes the contribution when disposed.
 
 Add-ins are loaded and unloaded, enabled and disabled, and may contribute conditionally. Without a removal
 handle the only way to withdraw a contribution is to restart the IDE, and every contribution point would

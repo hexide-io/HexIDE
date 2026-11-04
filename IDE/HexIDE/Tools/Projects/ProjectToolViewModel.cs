@@ -64,7 +64,10 @@ public partial class ProjectToolViewModel : Tool
         SelectedForm?.Name is { } n ? string.Format(localization.GetString("Str.Tool.Project.SaveFormFormat"), n) : "";
     public string SaveFormAsHeader =>
         SelectedForm?.Name is { } n ? string.Format(localization.GetString("Str.Tool.Project.SaveFormAsFormat"), n) : "";
-    public bool HasRemovableSelection => SelectedForm != null || SelectedModule != null;
+    // Not from a project an add-in opened: its membership is its add-in's program's to change.
+    public bool HasRemovableSelection =>
+        SelectedForm is { FormDefinition.Owner.ContributedBy: null }
+        || SelectedModule is { ModuleDefinition.Owner.ContributedBy: null };
     public string RemoveFormHeader =>
         (SelectedForm?.Name ?? SelectedModule?.Name) is { } n ? string.Format(localization.GetString("Str.Tool.Project.RemoveFormFormat"), n) : "";
 

@@ -35,6 +35,7 @@ public partial class ProjectService : IProjectService
     private readonly IHeaderRefresher headerRefresher;
     private readonly ArchiveProjectService? archives;
     private readonly Func<ILspClient>? lspClient;
+    private readonly ContributedProjects? contributed;
 
     public ProjectService(Func<NewProjectViewModel> newProjectVm,
         IWindowManager windowManager,
@@ -47,8 +48,10 @@ public partial class ProjectService : IProjectService
         ILocalizationService localization,
         IHeaderRefresher headerRefresher,
         ArchiveProjectService? archives = null,
-        Func<ILspClient>? lspClient = null)
+        Func<ILspClient>? lspClient = null,
+        ContributedProjects? contributed = null)
     {
+        this.contributed = contributed;
         this.newProjectVm = newProjectVm;
         this.windowManager = windowManager;
         this.eventBus = eventBus;
@@ -246,6 +249,13 @@ public partial class ProjectService : IProjectService
     {
         if (!DocumentLookup.DocumentsOf(document.Project).Contains(document))
             return;
+        if (document.Project.ContributedBy is { } type)
+        {
+            await windowManager.MessageBox(
+                string.Format(localization.GetString("Str.ContributedProject.MembershipReadOnly"), document.Project.Name, type),
+                icon: MessageBoxIcon.Information);
+            return;
+        }
 
         eventBus.Publish(new ApplyAllUnsavedChangesEvent());
         var changed = new SaveChangesViewModel();
@@ -312,14 +322,20 @@ public partial class ProjectService : IProjectService
             throw new OperationCanceledException();
         }
 
+        // The add-ins' project types beside HexIDE's own, each with its own filter as well. A whole file name that is all
+        // extension, such as ".rdproj", is offered as "*.rdproj", which is how a picker matches it; opening checks the name.
+        var types = contributed?.Types ?? [];
+        static IReadOnlyList<string> Picked(ContributedProjectType type) =>
+            [.. type.Type.FileNames.Select(name => name.StartsWith('.') ? "*" + name : name)];
         var files = await windowManager.OpenFilePickerAsync(new FilePickerOpenOptions
         {
             Title = "Open Project",
             FileTypeFilter =
             [
-                new("Project Files") { Patterns = ["*.vbp", "*.vbg", "*.twinproj"] },
+                new("Project Files") { Patterns = ["*.vbp", "*.vbg", "*.twinproj", .. types.SelectMany(Picked)] },
                 new("Project Group") { Patterns = ["*.vbg"] },
                 new("Project")       { Patterns = ["*.vbp"] },
+                .. types.Select(type => new FilePickerFileType(type.Type.Title) { Patterns = Picked(type) }),
                 new("All Files")     { Patterns = ["*.*"] }
             ],
             AllowMultiple = false
@@ -337,6 +353,11 @@ public partial class ProjectService : IProjectService
 
     public async Task OpenProject(string projectPath)
     {
+        if (contributed?.Find(projectPath) is { } type)
+        {
+            await OpenContributed(type, projectPath);
+            return;
+        }
         if (string.Equals(Path.GetExtension(projectPath), ".twinproj", StringComparison.OrdinalIgnoreCase))
         {
             if (archives == null) throw new NotSupportedException("Archive project service is unavailable.");
@@ -360,6 +381,149 @@ public partial class ProjectService : IProjectService
         }
         await LoadProjectFromDisk(projectPath);
     }
+
+    // A project file an add-in reads: its content becomes a ProjectDefinition, loaded as a .vbp's is from there on, with
+    // its membership the add-in's to change.
+    private async Task OpenContributed(ContributedProjectType type, string projectPath)
+    {
+        Log.Information("ProjectService: Opening {ProjectPath} as {Type}, from {Origin}", projectPath, type.Type.Title, type.Origin);
+        if (projectManager.LoadedProjects.Any(p => p.AbsolutePath != null && Path.GetFullPath(projectPath) == Path.GetFullPath(p.AbsolutePath)))
+        {
+            await windowManager.MessageBox($"Project {Path.GetFileName(projectPath)} is already opened.", icon: MessageBoxIcon.Information);
+            throw new OperationCanceledException();
+        }
+
+        var changes = new ContributedProjectChanges(this);
+        AddinProjectContent content;
+        try
+        {
+            content = await type.Type.OpenAsync(projectPath, changes, CancellationToken.None);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            Log.Error(ex, "{Origin} could not read {ProjectPath}", type.Origin, projectPath);
+            await windowManager.MessageBox(
+                string.Format(localization.GetString("Str.ContributedProject.OpenError"), Path.GetFileName(projectPath), type.Origin, ex.Message),
+                icon: MessageBoxIcon.Error);
+            return;
+        }
+
+        var (project, problems) = await ContributedProjects.BuildAsync(projectPath, content, type.Type.Title, HostAnsi, baselineStore.Record);
+        projectManager.AddProject(project);
+        recentProjects.Add(projectPath);
+        await sidecar.LoadAsync(project);
+        SnapshotRenderBaselines(project);
+        changes.Attach(project);
+
+        if (problems.Count > 0)
+            await windowManager.MessageBox(
+                localization.GetString("Str.ProjectLoad.Heading") + "\n" + string.Join("\n", problems), icon: MessageBoxIcon.Warning);
+
+        eventBus.Publish(new ProjectOpenedEvent(project));
+    }
+
+    // What an add-in reports about a project it opened, applied on the UI thread through the same membership changes a
+    // .vbp's go through, so every view of the project follows. Reports before the project exists wait for it; those for
+    // a project since closed are dropped.
+    private sealed class ContributedProjectChanges(ProjectService owner) : IAddinProjectChanges
+    {
+        private readonly List<Func<ProjectDefinition, Task>> _early = [];
+        private ProjectDefinition? _project;
+
+        public void Attach(ProjectDefinition project)
+        {
+            _project = project;
+            foreach (var change in _early) _ = Apply(change);
+            _early.Clear();
+        }
+
+        public void MemberAdded(AddinProjectMember member) => Post(project => owner.AddContributedMember(project, member));
+
+        public void MemberRemoved(string path) => Post(project =>
+        {
+            owner.RemoveContributedMember(project, path);
+            return Task.CompletedTask;
+        });
+
+        public void MemberMoved(string oldPath, string newPath) => Post(project =>
+        {
+            owner.MoveContributedMember(project, oldPath, newPath);
+            return Task.CompletedTask;
+        });
+
+        public void ReferencesChanged(IReadOnlyList<AddinProjectReference> references)
+        {
+            var copy = references.ToArray();
+            Post(project =>
+            {
+                project.SetReferences(copy.Select(ContributedProjects.ToVbReference));
+                return Task.CompletedTask;
+            });
+        }
+
+        private void Post(Func<ProjectDefinition, Task> change) => Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+        {
+            if (_project is null) _early.Add(change);
+            else _ = Apply(change);
+        });
+
+        private async Task Apply(Func<ProjectDefinition, Task> change)
+        {
+            if (_project is not { } project || !owner.projectManager.LoadedProjects.Contains(project)) return;
+            try
+            {
+                await change(project);
+            }
+            catch (Exception ex)
+            {
+                Log.Warning(ex, "A change {Origin} reported to {Project} could not be applied", project.ContributedBy, project.Name);
+            }
+        }
+    }
+
+    private async Task AddContributedMember(ProjectDefinition project, AddinProjectMember member)
+    {
+        if (FindContributedMember(project, member.Path) is not null) return;
+        await ContributedProjects.AddMemberAsync(project, member, HostAnsi, baselineStore.Record);
+        if (project.Modules.LastOrDefault() is { } added && SamePath(added.AbsolutePath, member.Path))
+            SnapshotRenderBaseline(added);
+    }
+
+    private void RemoveContributedMember(ProjectDefinition project, string path)
+    {
+        switch (FindContributedMember(project, path))
+        {
+            case ModuleDefinition module:
+                project.DeleteModule(module);
+                break;
+            case RelatedDocumentDefinition document:
+                project.DeleteRelatedDocument(document);
+                break;
+        }
+    }
+
+    private void MoveContributedMember(ProjectDefinition project, string oldPath, string newPath)
+    {
+        switch (FindContributedMember(project, oldPath))
+        {
+            case ModuleDefinition module:
+                module.AbsolutePath = newPath;
+                SnapshotRenderBaseline(module);
+                break;
+            case RelatedDocumentDefinition document:
+                document.AbsolutePath = newPath;
+                document.Name = Path.GetFileName(newPath);
+                break;
+        }
+    }
+
+    private static object? FindContributedMember(ProjectDefinition project, string path) =>
+        (object?)project.Modules.FirstOrDefault(module => SamePath(module.AbsolutePath, path))
+        ?? project.RelatedDocuments.FirstOrDefault(document => SamePath(document.AbsolutePath, path));
+
+    private static bool SamePath(string? a, string b) =>
+        a is not null && string.Equals(Path.GetFullPath(a), Path.GetFullPath(b),
+            OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal);
 
     private async Task OpenGroupFromPath(string groupPath)
     {
@@ -2133,6 +2297,11 @@ public partial class ProjectService : IProjectService
 
     private void SerializeOnlyProjectToFile(ProjectDefinition definition, string projectPath, bool includeRelatedDocuments = true)
     {
+        // A contributed project's file is its add-in's program's to write, in its own format: its modules are saved, and
+        // never it, whatever route reaches here.
+        if (definition.ContributedBy is not null)
+            return;
+
         // The second check, at the write, for a route that reaches it without SaveFiles: that refuses before
         // anything is written (EnsureEveryMemberListed), and by here every member it wrote has its path. Not in
         // the serializer, which also renders for the dirty check, where a project holding a form with no file
@@ -2162,6 +2331,10 @@ public partial class ProjectService : IProjectService
 
     private bool IsDirty(ProjectDefinition project)
     {
+        // Its file is never written, so it is never edited: its membership changes only as its add-in reports it.
+        if (project.ContributedBy is not null)
+            return false;
+
         var path = project.AbsolutePath;
         if (path is null || IsScratchFile(project, path))
             return true; // never saved

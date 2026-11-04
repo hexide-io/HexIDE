@@ -134,7 +134,9 @@ public partial class DISetup
                 ctx.Inject<IHeaderRefresher>(out var headerRefresher);
                 ctx.Inject<ArchiveProjectService>(out var archives);
                 ctx.Inject<Func<ILspClient>>(out var lspClient);
-                return new ProjectService(newProjectVm, windowManager, eventBus, projectManager, recentProjects, referenceLibraryService, sidecar, baselineStore, localization, headerRefresher, archives, lspClient);
+                ctx.Inject<HexIDE.Projects.ContributedProjects>(out var contributed);
+                return new ProjectService(newProjectVm, windowManager, eventBus, projectManager, recentProjects, referenceLibraryService, sidecar, baselineStore, localization, headerRefresher, archives, lspClient,
+                    contributed);
             })
             .Bind().As(Singleton).To<ArchiveProjectService>()
             .Bind<IFileBaselineStore>().As(Singleton).To<FileBaselineStore>()
@@ -307,6 +309,8 @@ public partial class DISetup
             .Bind().As(Singleton).To<LanguageServerMessageReporter>()
             .Bind().As(Singleton).To<AddinCommandService>()
             .Bind().As(Singleton).To<AddinProjectTemplateService>()
+            // The project types add-ins contribute, which Open Project and the recent list open as projects.
+            .Bind().As(Singleton).To<HexIDE.Projects.ContributedProjects>()
             .Bind().As(Singleton).To<AddinOptionsService>()
             .Bind<IPackageVerifier>().As(Singleton).To<PackageVerifier>()
             .Bind<IAddinRegistry, IAddinLoader>().As(Singleton).To(ctx =>
