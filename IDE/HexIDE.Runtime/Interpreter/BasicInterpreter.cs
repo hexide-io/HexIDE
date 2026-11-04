@@ -737,7 +737,6 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         Resources = Win32Resources.Load(info.ResourceFilePath);
         App = new VbApp(info, BuiltIns.Files);
         SeedProgramGlobal("App", () => new Vb6Value(App));
-        BuiltIns.CommonDialogReferenced = info.CommonDialogReferenced;
         BuiltIns.ControlLibraries = info.ControlLibraries ?? [];
         BuiltIns.CommandLine = info.CommandLine;
     }

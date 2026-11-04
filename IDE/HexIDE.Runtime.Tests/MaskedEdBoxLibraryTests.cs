@@ -28,10 +28,8 @@ public class MaskedEdBoxLibraryTests
     {
         var library = ControlLibraries.All.SingleOrDefault(l => l.Name == "MSMask");
         library.Should().NotBeNull();
-        var dir = new DirectoryInfo(AppContext.BaseDirectory);
-        while (dir is not null && !Directory.Exists(Path.Join(dir.FullName, "corpus", "inbox-controls"))) dir = dir.Parent;
-        dir.Should().NotBeNull();
-        var rows = File.ReadAllLines(Path.Join(dir!.FullName, "corpus", "inbox-controls", "typelib", "MSMASK32-constants.jsonl"))
+        var dir = RepoTree.Root();
+        var rows = File.ReadAllLines(Path.Join(dir, "corpus", "inbox-controls", "typelib", "MSMASK32-constants.jsonl"))
             .Where(l => l.Length > 0).Select(l => JsonDocument.Parse(l).RootElement)
             .Where(r => r.GetProperty("kind").GetString() == "ENUM").ToList();
         rows.Should().HaveCount(66);

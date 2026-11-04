@@ -27,9 +27,38 @@ internal sealed record SmokeStage(string Status, string? Detail = null)
         ? new("refused", exception.Message) : new("crashed", exception.ToString());
 }
 
+internal sealed class SmokeStageRecorder(string output)
+{
+    private readonly object gate = new();
+    private bool recorded;
+
+    public void Record(SmokeStage stage)
+    {
+        lock (gate)
+        {
+            if (recorded) return; // The first fault wins; later reports describe its aftermath (#3019).
+            AtomicFileWriter.WriteAllText(output, JsonSerializer.Serialize(stage));
+            recorded = true;
+        }
+    }
+}
+
 internal static class ProjectSmokeRunner
 {
     internal const int StartupSeconds = 3;
+
+    internal static async Task<SmokeStage> ReadResult(string result, Func<string, string>? read = null)
+    {
+        var clock = Stopwatch.StartNew();
+        while (true)
+        {
+            try { return JsonSerializer.Deserialize<SmokeStage>((read ?? File.ReadAllText)(result))!; }
+            catch (IOException) when (clock.Elapsed < TimeSpan.FromSeconds(2))
+            {
+                await Task.Delay(20, CancellationToken.None);
+            }
+        }
+    }
 
     // A separate process bounds even a synchronous infinite loop in a startup event.
     public static async Task<SmokeStage> Run(string project, int startupSeconds = StartupSeconds)
@@ -60,7 +89,7 @@ internal static class ProjectSmokeRunner
             while (!process.HasExited && !File.Exists(result) && clock.Elapsed < TimeSpan.FromSeconds(startupSeconds))
                 await Task.Delay(20, CancellationToken.None);
             if (File.Exists(result))
-                return JsonSerializer.Deserialize<SmokeStage>(File.ReadAllText(result))!;
+                return await ReadResult(result);
             return process.HasExited
                 ? new("crashed", $"Startup worker exited {process.ExitCode}: {await stdout}\n{await stderr}")
                 : new("ran to the time limit");
@@ -141,7 +170,8 @@ public class ProjectSmokeRunnerTests
                 Source = new Uri("avares://HexIDE.Runtime/BuiltinControls/" + dictionary)
             });
         var output = Environment.GetEnvironmentVariable("HEXIDE_SMOKE_RESULT")!;
-        void Record(SmokeStage stage) => AtomicFileWriter.WriteAllText(output, JsonSerializer.Serialize(stage));
+        var recorder = new SmokeStageRecorder(output);
+        void Record(SmokeStage stage) => recorder.Record(stage);
         void Fault(VBWindowContext _, Exception exception) => Record(SmokeStage.FromException(exception));
         void RuntimeFault(VBWindowContext context, VBRunTimeException exception) => Fault(context, exception);
         void CompileFault(VBWindowContext context, VBCompileErrorException exception) => Fault(context, exception);
@@ -168,7 +198,7 @@ public class ProjectSmokeRunnerTests
             File.WriteAllText(output + ".ready", "ready");
             // This is the entry point used by HexIDE.Standalone.App.
             await VBLoader.RunMadeProgram(project, TestContext.Current.CancellationToken, out _);
-            if (!File.Exists(output)) Record(new("ran to completion"));
+            Record(new("ran to completion"));
         }
         catch (Exception exception)
         {

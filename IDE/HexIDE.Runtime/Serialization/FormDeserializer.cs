@@ -94,24 +94,27 @@ public class FormDeserializer
         Components.InBox.StatusBarComponentClass.Instance,
         Components.InBox.ImageListComponentClass.Instance,
         Components.InBox.ToolbarComponentClass.Instance,
+        Components.InBox.MonthViewComponentClass.Instance,
         Components.InBox.SSTabComponentClass.Instance,
         Components.InBox.CommonDialogComponentClass.Instance,
         Components.InBox.MaskedEdBoxComponentClass.Instance,
         RichTextBoxComponentClass.Instance,
+        Components.InBox.FlatScrollBarComponentClass.Instance,
     ];
 
     /// <summary>
-    /// Whether a control the designer carries as a block is one HexIDE runs (#2327): a CommonDialog (#1084), or a Toolbar
-    /// (#1088), an UpDown (#1093) or a DTPicker (#1094) that holds no controls and is no control array's element.
-    /// Loading one warns of nothing, and the designer's box says it is view-only there rather than unsupported. A nested or arrayed Toolbar or
-    /// UpDown or DTPicker is still refused at run time.
+    /// Whether a control the designer carries as a block is one HexIDE runs (#2327): a Toolbar
+    /// (#1088), an UpDown (#1093), a DTPicker (#1094), a MonthView (#1095), an Animation (#1096) or a FlatScrollBar (#1097) that holds no controls and is no control array's element.
+    /// Loading one warns of nothing, and the designer's box says it is view-only there rather than unsupported.
+    /// Nested or arrayed Toolbars, UpDowns, DTPickers, MonthViews, Animations and FlatScrollBars are still refused at run time.
     /// </summary>
     public static bool RunsWhenCarried(string type, bool holdsControls, bool inArray) =>
-        type.Equals("MSComDlg.CommonDialog", StringComparison.OrdinalIgnoreCase)
-        || !holdsControls && !inArray
+        !holdsControls && !inArray
             && (type.Equals("MSComCtl2.UpDown", StringComparison.OrdinalIgnoreCase)
+                || type.Equals("MSComCtl2.Animation", StringComparison.OrdinalIgnoreCase)
+                || type.Equals("MSComCtl2.FlatScrollBar", StringComparison.OrdinalIgnoreCase)
                 || type.Equals("MSComCtl2.DTPicker", StringComparison.OrdinalIgnoreCase)
-                || componentsByTypeNames.TryGetValue(type, out var known) && known is Components.InBox.ToolbarComponentClass);
+                || componentsByTypeNames.TryGetValue(type, out var known) && known is Components.InBox.ToolbarComponentClass or Components.InBox.MonthViewComponentClass);
 
     public FormDefinition? Deserialize(ProjectDefinition owner, string source, IDeserializeErrorSink errorSink,
         IReadOnlyDictionary<int, byte[]>? frxBlobs = null,
@@ -170,8 +173,9 @@ public class FormDeserializer
         {
             var known = componentsByTypeNames.TryGetValue(serializedComponent.Type, out var componentClass)
                 || extraComponents != null && extraComponents.TryGetValue(serializedComponent.Type, out componentClass);
-            // The designer carries Toolbar blocks verbatim; the runtime explicitly reads their property bags.
-            if (!known || componentClass is null || componentClass is Components.InBox.ToolbarComponentClass
+            // The designer carries Toolbar and MonthView blocks verbatim; the runtime reads their property bags.
+            if (!known || componentClass is null || componentClass is Components.InBox.FlatScrollBarComponentClass && !Components.InBox.FlatScrollBarComponentClass.CanModel(serializedComponent)
+                || componentClass is (Components.InBox.ToolbarComponentClass or Components.InBox.MonthViewComponentClass)
                 && (extraComponents is null || !extraComponents.ContainsKey(serializedComponent.Type)
                     || serializedComponent.SubComponents.Count != 0
                     || serializedComponent.Properties.Keys.Any(name => name.Equals("Index", StringComparison.OrdinalIgnoreCase))))
@@ -229,6 +233,9 @@ public class FormDeserializer
             // Every component stays in the flat list, menus included. The tree below is additive, so
             // nothing that reads FormDefinition.Components needs to know it exists.
             components.Add(instance);
+
+            if (componentClass is Components.InBox.FlatScrollBarComponentClass)
+                instance.SetProperty(Components.InBox.FlatScrollBarComponentClass.SavedProperty, serializedComponent);
 
             var isMenu = componentClass is MenuComponentClass;
             var parentIsMenu = parent?.BaseClass is MenuComponentClass;

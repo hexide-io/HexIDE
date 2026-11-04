@@ -60,7 +60,7 @@ public sealed record WatchedFileTarget(
 
 /// <summary>
 /// Classifies an externally-changed file as a clean reload, a conflict, or indeterminate, using the
-/// editor buffer / designer undo state for open files. For not-open files there are no views to consult:
+/// editor buffer / designer undo state for open files as well as the saved model baseline:
 /// a module is compared against the on-disk baseline, and a form — whose serialized layout+code cannot be
 /// hashed against a buffer — is compared render-to-render via <see cref="IProjectService"/>.
 /// All view access happens on the UI thread (the watcher dispatches there before calling this).
@@ -84,10 +84,8 @@ public sealed class DirtyDetector(IFileBaselineStore baselineStore, IProjectServ
         // its undo stack signals unsaved layout edits, mirroring the form case.
         var designerDirty = t.Designer is { CanUndo: true };
 
-        // While a window is open, the question is whether it holds anything the model does not: the code
-        // window's code section against module.Code, and the designer's undo stack for layout. The disk is not
-        // consulted. (This used to say a file's content was exactly module.Code, which is true of no kind that
-        // splits a header off at load: module.Code is the code section, the header held apart.)
+        // Open views can hold edits not yet copied into the model. Even when they agree, the model
+        // must still be checked against its saved baseline below: applying a buffer is not a save (#2862).
         if (t.CodeEditor is not null || t.Designer is not null)
         {
             // BufferBody, not Document.Text: since #273 task 3.2 the buffer is the whole file, so
@@ -97,7 +95,8 @@ public sealed class DirtyDetector(IFileBaselineStore baselineStore, IProjectServ
             // never be reached. The editor owns the split so the two cannot disagree about where it is.
             var codeDirty = t.CodeEditor is not null
                 && !string.Equals(t.CodeEditor.BufferBody, module.Code, StringComparison.Ordinal);
-            return (codeDirty || designerDirty) ? ReloadDecision.Conflict : ReloadDecision.CleanReload;
+            if (codeDirty || designerDirty)
+                return ReloadDecision.Conflict;
         }
 
         // Designer modules hold only the code body; compare complete renders as for a not-open form.
@@ -108,7 +107,8 @@ public sealed class DirtyDetector(IFileBaselineStore baselineStore, IProjectServ
 
         var baseline = baselineStore.TryGet(t.SourcePath);
         if (baseline is null)
-            return ReloadDecision.Indeterminate; // unknown saved state — don't risk clobbering edits
+            // Preserve the open-view verdict when no model baseline is available.
+            return t.IsOpen ? ReloadDecision.CleanReload : ReloadDecision.Indeterminate;
         // Rebuild header + body as a save writes it, in the file's retained encoding (including its BOM).
         var modelOnDisk = ModuleFileFormat.HandlesHeader(module.Kind)
             ? ModuleFileFormat.ToFileContent(module.Code, module.Name, module.Kind, module.OriginalHeader)
@@ -134,20 +134,14 @@ public sealed class DirtyDetector(IFileBaselineStore baselineStore, IProjectServ
         // still in the designer. Use the buffer's code section vs the model code for code dirtiness and the
         // designer undo stack for layout dirtiness — both only meaningful while the file is open.
         //
-        // With no views to consult, ask the project service the render-vs-render question the save
-        // prompt uses: has the model changed since it was last loaded, saved, or reloaded? That sidesteps
-        // the round-trip-fidelity problem, because both sides of the comparison are our own render.
-        // Skipping here instead would leave the cached model stale — and since SaveProject writes every
-        // form unconditionally, the next save would put the stale model back over the external change.
-        if (!t.IsOpen)
-            return projectService.HasUnsavedChanges(t.Form!)
-                ? ReloadDecision.Conflict
-                : ReloadDecision.CleanReload;
-
+        // Also ask the save prompt's render-vs-render question, even with open views: a buffer
+        // applied to the model can agree with it while both still contain unsaved code (#2862).
         // BufferBody rather than the raw buffer -- see the note in ClassifyModule.
         var codeDirty = t.CodeEditor is not null
             && !string.Equals(t.CodeEditor.BufferBody, t.Form!.Code, StringComparison.Ordinal);
         var designerDirty = t.Designer is { CanUndo: true };
-        return (codeDirty || designerDirty) ? ReloadDecision.Conflict : ReloadDecision.CleanReload;
+        return (codeDirty || designerDirty || projectService.HasUnsavedChanges(t.Form!))
+            ? ReloadDecision.Conflict
+            : ReloadDecision.CleanReload;
     }
 }

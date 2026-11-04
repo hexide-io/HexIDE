@@ -15,11 +15,27 @@ public static class AvaloniaMethodsInteroperability
     public static Vb6Value Call(this Control c, string method, IReadOnlyList<Vb6Value> args)
     {
         VBProps.RefuseIfRemoved(c);
+        if (c is VBMonthView monthView && (Components.InBox.MonthViewComponentClass.Instance.Member(method) is not null
+            || method.Equals("AboutBox", StringComparison.OrdinalIgnoreCase)))
+        {
+            monthView.Call(method, args.ToList());
+            return Vb6Value.Nothing;
+        }
         if (c is VBListView listView && Components.InBox.ListViewComponentClass.Instance.Member(method) is not null)
             return listView.CallMember(method, args);
         if (c is VBUpDown && (method.Equals("OLEDrag", StringComparison.OrdinalIgnoreCase)
                               || method.Equals("AboutBox", StringComparison.OrdinalIgnoreCase)))
             throw new NotImplementedException($"UpDown {method} is not implemented (#1093)");
+        if (c is VBAnimation animation && method.ToLowerInvariant() is "open" or "play" or "stop" or "close" or "oledrag" or "aboutbox")
+            return animation.Call(method, args);
+        if (c is VBFlatScrollBar)
+        {
+            if (method.Equals("SetFocus", StringComparison.OrdinalIgnoreCase))
+                throw new VBRunTimeException(VBStandardError.ObjectDoesntSupportThisPropertyOrMethod);
+            if (method.Equals("Refresh", StringComparison.OrdinalIgnoreCase)
+                || method.Equals("AboutBox", StringComparison.OrdinalIgnoreCase))
+                throw new NotImplementedException($"FlatScrollBar {method} is not implemented (#1097)");
+        }
         if (c is VBDTPicker && (method.Equals("OLEDrag", StringComparison.OrdinalIgnoreCase)
                                 || method.Equals("AboutBox", StringComparison.OrdinalIgnoreCase)))
             throw new NotImplementedException($"DTPicker {method} is not implemented (#1094)");

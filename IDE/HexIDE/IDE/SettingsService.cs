@@ -6,6 +6,7 @@ using System.Text.Json.Serialization;
 using System.Text.Json.Nodes;
 using CommunityToolkit.Mvvm.ComponentModel;
 using Serilog;
+using HexIDE.Profiles;
 
 namespace HexIDE.IDE;
 
@@ -16,8 +17,14 @@ namespace HexIDE.IDE;
 public partial class SettingsService : ObservableObject, ISettingsService
 {
     private readonly string _filePath;
+    private readonly bool _recoveryMode = Static.IsRecoveryMode;
     private readonly HashSet<string> _changedProperties = new();
     private bool _loading;
+    private bool _hasSavedTheme;
+    private bool _hasSavedKeymap;
+    internal bool HasExplicitKeymapChoice => _hasSavedKeymap || _changedProperties.Contains("activeKeymap");
+    internal bool HasExplicitThemeChoice => _hasSavedTheme || _changedProperties.Contains("activeTheme");
+    private readonly ProfilePayload? _profileDefaults;
     private static readonly JsonSerializerOptions s_jsonOptions = new() { WriteIndented = true };
 
     // Defaults derive from SettingsDefaults (the single source of truth).
@@ -56,6 +63,7 @@ public partial class SettingsService : ObservableObject, ISettingsService
     private bool _isFormEditorToolbarVisible = SettingsDefaults.IsFormEditorToolbarVisible;
 
     // ── Editor extras defaults ──────────────────────────────────
+    private bool _showInlayHints = SettingsDefaults.ShowInlayHints;
     private bool _showIndentGuides = SettingsDefaults.ShowIndentGuides;
     private bool _isMinimapVisible = SettingsDefaults.IsMinimapVisible;
     private bool _colorBracketsByDepth = SettingsDefaults.ColorBracketsByDepth;
@@ -206,6 +214,12 @@ public partial class SettingsService : ObservableObject, ISettingsService
 
     // ── Editor extras properties ────────────────────────────────
 
+    public bool ShowInlayHints
+    {
+        get => _showInlayHints;
+        set { if (SetProperty(ref _showInlayHints, value)) Save(); }
+    }
+
     public bool ShowIndentGuides
     {
         get => _showIndentGuides;
@@ -238,18 +252,24 @@ public partial class SettingsService : ObservableObject, ISettingsService
 
     // ── Constructor ─────────────────────────────────────────────
 
-    public SettingsService() : this(DefaultFilePath()) { }
+    public SettingsService() : this(DefaultFilePath(), Static.Profile) { }
 
-    public SettingsService(string filePath)
+    public SettingsService(string filePath) : this(filePath, null) { }
+
+    internal SettingsService(string filePath, ProfileSnapshot? profile)
     {
         _filePath = filePath;
+        _profileDefaults = profile?.SettingsDefaults;
+        if (_recoveryMode)
+            _activeLanguage = "en";
         Load();
     }
 
     private static string DefaultFilePath()
     {
         var hexIdeDir = UserDataPath.Directory;
-        Directory.CreateDirectory(hexIdeDir);
+        if (!Static.IsRecoveryMode)
+            Directory.CreateDirectory(hexIdeDir);
         return Path.Combine(hexIdeDir, "settings.json");
     }
 
@@ -264,7 +284,7 @@ public partial class SettingsService : ObservableObject, ISettingsService
 
     public void Save()
     {
-        if (_loading || _changedProperties.Count == 0)
+        if (_recoveryMode || _loading || _changedProperties.Count == 0)
             return;
 
         try
@@ -294,6 +314,7 @@ public partial class SettingsService : ObservableObject, ISettingsService
                 IsFormEditorToolbarVisible = _isFormEditorToolbarVisible,
                 ShowIndentGuides = _showIndentGuides,
                 IsMinimapVisible = _isMinimapVisible,
+                ShowInlayHints = _showInlayHints,
                 ColorBracketsByDepth = _colorBracketsByDepth,
                 IsStickyScrollEnabled = _isStickyScrollEnabled,
                 StickyScrollDepth = _stickyScrollDepth,
@@ -317,6 +338,8 @@ public partial class SettingsService : ObservableObject, ISettingsService
                 if (current.ContainsKey(name))
                     latest[name] = current[name]?.DeepClone();
             AtomicFileWriter.WriteAllText(_filePath, latest.ToJsonString(s_jsonOptions));
+            _hasSavedTheme = HasExplicitThemeChoice;
+            _hasSavedKeymap = HasExplicitKeymapChoice;
             _changedProperties.Clear();
             Log.Debug("SettingsService: Saved to {Path}", _filePath);
         }
@@ -328,16 +351,31 @@ public partial class SettingsService : ObservableObject, ISettingsService
 
     public void Load()
     {
+        if (_recoveryMode)
+            return;
         _loading = true;
+        _hasSavedTheme = false;
+        _hasSavedKeymap = false;
         try
         {
-            if (!File.Exists(_filePath))
+            if (!File.Exists(_filePath) && _profileDefaults is null)
             {
                 Log.Debug("SettingsService: No settings file found, using defaults");
                 return;
             }
 
-            var json = File.ReadAllText(_filePath);
+            var json = File.Exists(_filePath) ? File.ReadAllText(_filePath) : "{}";
+            using var saved = JsonDocument.Parse(json);
+            var hasSavedTheme = saved.RootElement.TryGetProperty("activeTheme", out _);
+            var hasSavedKeymap = saved.RootElement.TryGetProperty("activeKeymap", out _);
+            if (_profileDefaults is { } defaults)
+            {
+                // Presence, not equality with host defaults, makes a saved value explicit.
+                var merged = JsonNode.Parse(defaults.Content.GetRawText())!.AsObject();
+                foreach (var (name, value) in JsonNode.Parse(json)!.AsObject())
+                    merged[name] = value?.DeepClone();
+                json = merged.ToJsonString();
+            }
             var data = JsonSerializer.Deserialize<SettingsData>(json);
             if (data == null)
             {
@@ -345,6 +383,8 @@ public partial class SettingsService : ObservableObject, ISettingsService
                 return;
             }
 
+            _hasSavedTheme = hasSavedTheme;
+            _hasSavedKeymap = hasSavedKeymap;
             RequireVariableDeclaration = data.RequireVariableDeclaration;
             AutoListMembers = data.AutoListMembers;
             AutoQuickInfo = data.AutoQuickInfo;
@@ -368,6 +408,7 @@ public partial class SettingsService : ObservableObject, ISettingsService
             _isFormEditorToolbarVisible = data.IsFormEditorToolbarVisible;
             ShowIndentGuides = data.ShowIndentGuides;
             _isMinimapVisible = data.IsMinimapVisible;
+            _showInlayHints = data.ShowInlayHints;
             _colorBracketsByDepth = data.ColorBracketsByDepth;
             IsStickyScrollEnabled = data.IsStickyScrollEnabled;
             StickyScrollDepth = data.StickyScrollDepth;
@@ -454,6 +495,8 @@ public partial class SettingsService : ObservableObject, ISettingsService
         [JsonPropertyName("isFormEditorToolbarVisible")]
         public bool IsFormEditorToolbarVisible { get; set; } = SettingsDefaults.IsFormEditorToolbarVisible;
 
+        [JsonPropertyName("showInlayHints")]
+        public bool ShowInlayHints { get; set; } = SettingsDefaults.ShowInlayHints;
         [JsonPropertyName("showIndentGuides")]
         public bool ShowIndentGuides { get; set; } = SettingsDefaults.ShowIndentGuides;
 

@@ -12,6 +12,7 @@ namespace HexIDE.Tests.Infrastructure;
 /// as Tab". <see cref="ToolSource"/> decodes each literal as the compiler does, so a description here is the text a
 /// client is sent. A blank line, <c>\n\n</c>, is how five descriptions break a paragraph, and is the one use allowed.
 /// </remarks>
+[ToolDescription]
 public class ToolDescriptionTextTests
 {
     private static IEnumerable<(string Where, string Text)> Descriptions() =>

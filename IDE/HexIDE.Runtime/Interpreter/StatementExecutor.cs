@@ -961,8 +961,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             await interpreter.CallProxy((ICSharpProxy)value.Value!, identifier, callArgs);
         else if (value.Type == Vb6Value.ValueType.Control)
         {
-            UserControlMembers.Check(value, identifier);
-            await ((Control)value.Value!).CallAsync(identifier, callArgs);
+            await CallControl(value, identifier, callArgs);
         }
         else
             throw new VBRunTimeException(context, $"Unknown method {identifier} on {value}");
@@ -1993,6 +1992,74 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             || currentModule.ModuleEnv.TryGetVariableLocation(name, out var moduleLocation) && moduleLocation == location;
     }
 
+    private static ValueTask<Vb6Value> CallControl(Vb6Value reference, string member, IReadOnlyList<Vb6Value> args)
+    {
+        VBFlatScrollBar.RefuseEarlyBound(reference, member);
+        UserControlMembers.Check(reference, member);
+        return ((Control)reference.Value!).CallAsync(member, args);
+    }
+
+    // Object-default assignment is off the scalar assignment's recursive frame (#2827).
+    private bool TryLetIntoObject(Vb6Value oldLet, Vb6Value value, int letSlot, string identifier, ParserRuleContext context)
+    {
+        if (interpreter.ExecutionContext.State.DeclaredClassOf(letSlot) is { } letClass && ExpressionExecutor.IsCollectionType(letClass))
+            throw new VBCompileErrorException("Argument not optional");
+        if (TrySetInBoxDefaultValue(oldLet, value))
+            return true;
+        if (oldLet.Value is VBRichTextBox richTextBox)
+        {
+            VBProps.RefuseIfRemoved(richTextBox);
+            RichTextBoxMembers.TrySet(richTextBox, "TextRTF", value);
+            return true;
+        }
+        if (oldLet.Value is ToolbarItem toolbarItem)
+        {
+            toolbarItem.SetDefault(value);
+            return true;
+        }
+        if (oldLet.Value is StatusBarPanel panel)
+        {
+            panel.SetText(value);
+            return true;
+        }
+        if (oldLet.Value is VBDTPicker picker)
+        {
+            picker.TrySetProperty("Value", value);
+            return true;
+        }
+        if (oldLet.Value is VBUpDown upDown)
+        {
+            upDown.TrySetProperty("Value", value);
+            return true;
+        }
+        RefuseLetIntoObject(oldLet, identifier, context);
+        return false;
+    }
+
+    private static bool TrySetInBoxDefaultValue(Vb6Value target, Vb6Value value)
+    {
+        if (target.Value is VBMonthView monthView)
+        {
+            monthView.TrySetProperty("Value", value);
+            return true;
+        }
+        if (target.Value is VBFlatScrollBar flat)
+        {
+            flat.TrySetProperty("Value", value);
+            return true;
+        }
+        return false;
+    }
+
+    // ImageCombo's SelectedItem put takes the object even without Set (#1092).
+    private bool IsImageComboSelectedItem(VB6Parser.LetStmtContext context) =>
+        context.implicitCallStmt_InStmt().iCS_S_MembersCall() is { } comboTarget
+        && comboTarget.iCS_S_VariableOrProcedureCall() is { } comboLead
+        && comboTarget.iCS_S_MemberCall() is { Length: 1 } comboMembers
+        && UdtFieldName(comboMembers[0]).Equals("SelectedItem", StringComparison.OrdinalIgnoreCase)
+        && interpreter.ExecutionContext.TryInspectVariable(currentEnv, comboLead.GetText(), out var combo)
+        && combo.Value is ImageComboModel or VBImageCombo;
+
     // The value a Let stores, with the refusals every Let makes of it.
     private async Task<Vb6Value> LetValue(VB6Parser.LetStmtContext context, bool intoArray = false)
     {
@@ -2000,6 +2067,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
 
         if (context.PLUS_EQ() != null || context.MINUS_EQ() != null)
             throw new NotImplementedException("+-/-= not implemented in variable assignment");
+
         if (value.Type == Vb6Value.ValueType.Object && (intoArray || IsBareUdtArrayField(context.implicitCallStmt_InStmt())))
             return value;   // ArrayStore refuses it
 
@@ -2013,10 +2081,24 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             && buddyTarget.Value is VBUpDown)
             return value;
 
+        // Icons accepts a reference through Let too (#1085, Icons probe).
+        if (value.Value is VBImageList
+            && context.implicitCallStmt_InStmt().iCS_S_MembersCall() is { } imageCall
+            && imageCall.iCS_S_VariableOrProcedureCall() is { } imageLead
+            && imageCall.iCS_S_MemberCall() is [var imageMember]
+            && VBListView.IsImageListMember(UdtFieldName(imageMember))
+            && interpreter.ExecutionContext.TryGetVariable(currentEnv, imageLead.GetText(), out var imageTarget)
+            && imageTarget.Value is VBListView)
+        {
+            if (UdtFieldName(imageMember).Equals("Icons", StringComparison.OrdinalIgnoreCase))
+                return value;
+            throw new NotImplementedException("ListView Let binding of SmallIcons or ColumnHeaderIcons is unmeasured (#1085)");
+        }
+
         if (context.implicitCallStmt_InStmt().iCS_S_MembersCall() is { } selectionTarget
             && selectionTarget.iCS_S_MemberCall().LastOrDefault() is { } lastSelection
             && UdtFieldName(lastSelection).Equals("SelectedItem", StringComparison.OrdinalIgnoreCase)
-            && value.Value is Components.InBox.TabStripTab)
+            && (value.Value is Components.InBox.TabStripTab || IsImageComboSelectedItem(context)))
             return value;
         // #1485/#878: only the measured direct temporary / App forms clear a Variant on a failed
         // default-value read. Keep the original exception, including its number and message.
@@ -2246,38 +2328,9 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             // A Let into a variable declared As Collection assigns its default member, which needs an index: VB6's "Argument
             // not optional" (measured, #1471). Into any other object variable it is the held object's default member, and a
             // Variant simply takes the value (#1493).
-            if (currentEnv.TryGetVariableLocation(identifier, out var letSlot) && IsObjectVariable(currentEnv, identifier, letSlot))
-            {
-                if (interpreter.ExecutionContext.State.DeclaredClassOf(letSlot) is { } letClass && ExpressionExecutor.IsCollectionType(letClass))
-                    throw new VBCompileErrorException("Argument not optional");
-                if (oldLet.Value is VBRichTextBox richTextBox)
-                {
-                    VBProps.RefuseIfRemoved(richTextBox);
-                    RichTextBoxMembers.TrySet(richTextBox, "TextRTF", value);
-                    return default;
-                }
-                if (oldLet.Value is ToolbarItem toolbarItem)
-                {
-                    toolbarItem.SetDefault(value);
-                    return default;
-                }
-                if (oldLet.Value is StatusBarPanel panel)
-                {
-                    panel.SetText(value);
-                    return default;
-                }
-                if (oldLet.Value is VBDTPicker picker)
-                {
-                    picker.TrySetProperty("Value", value);
-                    return default;
-                }
-                if (oldLet.Value is VBUpDown upDown)
-                {
-                    upDown.TrySetProperty("Value", value);
-                    return default;
-                }
-                RefuseLetIntoObject(oldLet, identifier, context);
-            }
+            if (currentEnv.TryGetVariableLocation(identifier, out var letSlot) && IsObjectVariable(currentEnv, identifier, letSlot)
+                && TryLetIntoObject(oldLet, value, letSlot, identifier, context))
+                return default;
             if (checkedArrayReturn is { } declaredReturn && string.Equals(identifier, procName, StringComparison.OrdinalIgnoreCase))
                 value = ArrayStore(declaredReturn, value, context, (oldLet.Value as VBArray)?.DeclaredClass);
             else if (currentEnv.TryGetVariableLocation(identifier, out var letLocation)
@@ -3663,7 +3716,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 if (target.Value is VBStatusBar bar && StatusBarMembers.TrySet(bar, name, value) == true) return default;
                 throw new NotImplementedException($"Set on StatusBar member {name} is not implemented (#1087)");
             }
-            if (setLead && target.Value is VBImageList or ImageListImages or ImageListImage or VBUpDown)
+            if (setLead && target.Value is VBImageList or ImageListImages or ImageListImage or VBUpDown or ImageComboModel or VBImageCombo or ImageComboItems or ImageComboItem)
             {
                 var imageMembers = membersCall.iCS_S_MemberCall();
                 var receiver = await expressionExecutor.ResolveMemberChain(target, imageMembers[..^1], 0, context);
@@ -4724,8 +4777,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         }
         else if (value.Type == Vb6Value.ValueType.Control)
         {
-            UserControlMembers.Check(value, identifier);
-            await ((Control)value.Value!).CallAsync(identifier, callArgs);
+            await CallControl(value, identifier, callArgs);
         }
         else
             throw new VBRunTimeException(context, $"Unknown method {identifier} on {value}");

@@ -9,7 +9,6 @@
              xmlns:input="clr-namespace:Avalonia.Labs.Input"
              xmlns:ide="clr-namespace:HexIDE.IDE;assembly=HexIDE.Core"
              xmlns:dockSettings="clr-namespace:Dock.Settings;assembly=Dock.Settings"
-             xmlns:projects="clr-namespace:HexIDE.Projects"
              xmlns:forms="clr-namespace:HexIDE.Forms.ViewModels"
              mc:Ignorable="d" d:DesignWidth="1080" d:DesignHeight="551"
              x:DataType="vb:MainViewViewModel"
@@ -200,6 +199,7 @@
                             <MenuItem Command="{x:Static vb:ApplicationCommands.SelectAllCommand}" Header="{DynamicResource Str.Menu.Edit.SelectAll}" />
                             <Separator />
                             <MenuItem Command="{x:Static vb:ApplicationCommands.FindCommand}" Header="{DynamicResource Str.Menu.Edit.Find}" utils:MenuUtils.MenuIcon="{StaticResource Geo.Find}" />
+                            <MenuItem Header="{DynamicResource Str.Tool.FindReferences.Title}" Command="{x:Static vb:ApplicationCommands.FindReferencesCommand}" />
                             <MenuItem Command="{x:Static vb:ApplicationCommands.FindNextCommand}" Header="{DynamicResource Str.Menu.Edit.FindNext}" />
                             <MenuItem Command="{x:Static vb:ApplicationCommands.ReplaceCommand}" Header="{DynamicResource Str.Menu.Edit.Replace}" />
                             <Separator />
@@ -235,6 +235,7 @@
                             <MenuItem Header="{DynamicResource Str.Menu.View.ObjectBrowser}" utils:MenuUtils.MenuIcon="{StaticResource Geo.Objectbrowser}" Command="{x:Static vb:ApplicationCommands.OpenObjectBrowserCommand}" />
                             <Separator />
                             <MenuItem Header="{DynamicResource Str.Menu.View.ImmediateWindow}" utils:MenuUtils.MenuIcon="{StaticResource Geo.Immediatewindow}" Command="{x:Static vb:ApplicationCommands.OpenImmediateCommand}" />
+                            <MenuItem Header="{DynamicResource Str.Tool.Outline.Title}" Command="{CompiledBinding OpenOutlineCommand}" />
                             <MenuItem Header="{DynamicResource Str.Menu.View.LocalsWindow}" utils:MenuUtils.MenuIcon="{StaticResource Geo.Localswindow}" Command="{x:Static vb:ApplicationCommands.OpenLocalsCommand}" />
                             <MenuItem Header="{DynamicResource Str.Menu.View.WatchWindow}" utils:MenuUtils.MenuIcon="{StaticResource Geo.Watchwindow}" Command="{x:Static vb:ApplicationCommands.OpenWatchesCommand}" />
                             <MenuItem Header="{DynamicResource Str.Menu.View.CallStack}" Command="{x:Static vb:ApplicationCommands.OpenCallStackCommand}" />
@@ -267,7 +268,7 @@
                             <Separator />
                             <MenuItem x:Name="RemoveProjectMemberMenuItem" Header="{CompiledBinding RemoveFormMenuHeader}" Command="{CompiledBinding RemoveDocumentCommand}" />
                             <Separator />
-                            <MenuItem Header="{DynamicResource Str.Menu.Project.References}" utils:MenuUtils.MenuIcon="{StaticResource Geo.References}" Command="{x:Static vb:ApplicationCommands.ProjectReferencesCommand}" IsVisible="{CompiledBinding Personality.IsProjectReferencesVisible}" />
+                            <MenuItem Header="{DynamicResource Str.Menu.Project.References}" utils:MenuUtils.MenuIcon="{StaticResource Geo.References}" Command="{x:Static vb:ApplicationCommands.ProjectReferencesCommand}" IsVisible="{CompiledBinding Profile.IsProjectReferencesVisible}" />
                             <MenuItem Header="{DynamicResource Str.Menu.Project.Components}" Command="{x:Static vb:ApplicationCommands.ProjectComponentsCommand}" />
                             <Separator />
                             <MenuItem Header="{CompiledBinding ProjectPropertiesMenuHeader}"
@@ -376,13 +377,14 @@
                             <Separator />
                             <MenuItem Header="{DynamicResource Str.Menu.Tools.MenuEditor}" utils:MenuUtils.MenuIcon="{StaticResource Geo.Menubar}" Command="{x:Static vb:ApplicationCommands.EditMenuCommand}" />
                             <Separator />
-                            <MenuItem Header="{DynamicResource Str.Menu.Project.References}" utils:MenuUtils.MenuIcon="{StaticResource Geo.References}" Command="{x:Static vb:ApplicationCommands.ProjectReferencesCommand}" IsVisible="{CompiledBinding Personality.IsToolsReferencesVisible}" />
-                            <Separator IsVisible="{CompiledBinding Personality.IsToolsReferencesVisible}" />
+                            <MenuItem Header="{DynamicResource Str.Menu.Project.References}" utils:MenuUtils.MenuIcon="{StaticResource Geo.References}" Command="{x:Static vb:ApplicationCommands.ProjectReferencesCommand}" IsVisible="{CompiledBinding Profile.IsToolsReferencesVisible}" />
+                            <Separator IsVisible="{CompiledBinding Profile.IsToolsReferencesVisible}" />
                             <MenuItem Header="{DynamicResource Str.Menu.Tools.Options}" Command="{x:Static vb:ApplicationCommands.OpenOptionsCommand}"/>
                             <Separator />
                             <!-- Under Tools rather than View: the View menu is the VB6 tool-window list, and
                                  both in-tree routes to a non-VB6 panel avoid it. -->
                             <MenuItem Header="{DynamicResource Str.Menu.Tools.LanguageServers}" x:Name="LanguageServersMenuItem" Command="{CompiledBinding OpenLanguageServersCommand}" />
+                            <MenuItem Header="{DynamicResource Str.Tool.Diagnostics.Title}" Command="{CompiledBinding OpenDiagnosticsCommand}" />
                             <MenuItem Header="{DynamicResource Str.Menu.Tools.ProtocolInspector}" x:Name="ProtocolInspectorMenuItem" Command="{CompiledBinding OpenProtocolInspectorCommand}" />
                         </MenuItem>
                         <MenuItem Header="{DynamicResource Str.Menu.AddIns}" x:Name="AddInsMenuItem">
@@ -421,14 +423,9 @@
                                         AutomationProperties.AutomationId="StandardToolbar"
                                         Classes="toolbar">
                     <StackPanel Orientation="Horizontal" Margin="0,1">
-                        <Button Width="22" Height="22" Padding="3" ToolTip.Tip="{DynamicResource Str.Toolbar.Tip.AddProject}" AutomationProperties.AutomationId="Standard.AddProject">
+                        <Button Width="22" Height="22" Padding="3" ToolTip.Tip="{DynamicResource Str.Toolbar.Tip.AddProject}" x:Name="AddProjectButton" AutomationProperties.AutomationId="Standard.AddProject">
                             <Button.Flyout>
-                                <MenuFlyout>
-                                    <MenuItem Header="{DynamicResource Str.ProjectType.StandardEXE}" Command="{x:Static vb:ApplicationCommands.AddProjectCommand}" CommandParameter="{x:Static projects:IProjectTemplate.StandardEXE}" utils:MenuUtils.MenuIcon="{StaticResource Geo.Standardexe16}" />
-                                    <MenuItem Header="{DynamicResource Str.ProjectType.ActiveXEXE}" Command="{x:Static vb:ApplicationCommands.AddProjectCommand}" CommandParameter="{x:Static projects:IProjectTemplate.ActiveXEXE}" utils:MenuUtils.MenuIcon="{StaticResource Geo.Activexexe16}" />
-                                    <MenuItem Header="{DynamicResource Str.ProjectType.ActiveXDLL}" Command="{x:Static vb:ApplicationCommands.AddProjectCommand}" CommandParameter="{x:Static projects:IProjectTemplate.ActiveXDLL}" utils:MenuUtils.MenuIcon="{StaticResource Geo.Activexdll16}" />
-                                    <MenuItem Header="{DynamicResource Str.ProjectType.ActiveXControl}" Command="{x:Static vb:ApplicationCommands.AddProjectCommand}" CommandParameter="{x:Static projects:IProjectTemplate.ActiveXControl}" utils:MenuUtils.MenuIcon="{StaticResource Geo.Activexcontrol16}" />
-                                </MenuFlyout>
+                                <MenuFlyout Opening="ProjectFlyoutOpening" />
                             </Button.Flyout>
                             <Path Data="{StaticResource Geo.Addproject}" Fill="{DynamicResource IconInk}" Width="16" Height="16" Stretch="Uniform" />
                         </Button>

@@ -133,6 +133,9 @@ public static class UiAutomationDriver
                 value = shown;
         }
 
+        if (value is not null)
+            value = Capped(value);
+
         // An editor has no value provider, so the Immediate window's text could be read only from its view's members, on
         // another node, and nothing said so (#2513). A code window's document is a project file, which get_file_content
         // returns with its open edits, so that one is still left out (#562). Its writability goes with it, as a value
@@ -182,6 +185,14 @@ public static class UiAutomationDriver
         else if (omitted > 0)
             note = $"{omitted} member(s) declared by the Dock framework's base types (layout plumbing such as "
                  + "Proportion and CanFloat) are not listed; set_property still reaches them by name.";
+
+        var cut = members.Count(m => m.Value is { Length: > MaxMemberValueLength });
+        if (cut > 0)
+            note = string.Join(" ", new[] { note,
+                $"{cut} member value{(cut == 1 ? "" : "s")} over {MaxMemberValueLength} characters {(cut == 1 ? "was" : "were")} cut; "
+                + "a control that shows one, such as a text box or the Immediate window, gives up to "
+                + $"{MaxValueLength.ToString("N0", System.Globalization.CultureInfo.InvariantCulture)} characters as its value." }
+                .Where(n => n is not null));
 
         if (ResolvedCommand(control) is { } bound)
         {
@@ -361,8 +372,10 @@ public static class UiAutomationDriver
     /// <summary>Cap on a reported value, in characters. The Immediate buffer is unbounded.</summary>
     private const int MaxValueLength = 4000;
 
-    private static string Capped(string text) => text.Length > MaxValueLength
-        ? text[..MaxValueLength] + $"… [truncated at {MaxValueLength} of {text.Length} chars]"
+    private const int MaxMemberValueLength = 200;
+
+    private static string Capped(string text, int limit = MaxValueLength) => text.Length > limit
+        ? text[..limit] + $"… [truncated at {limit} of {text.Length} chars]"
         : text;
 
     /// <summary>
@@ -392,7 +405,7 @@ public static class UiAutomationDriver
 
         // An editor's document is a project file, which get_file_content already returns, open edits included.
         // Rendering it here put a whole source file into every inspection of the editor (#562). The Immediate
-        // window's document is not a file and has no other reader, so it is still rendered below.
+        // window's document is not a file; its editor also reports it as value (#2513).
         if (dataContext is HexIDE.Forms.ViewModels.ISearchableDocument searchable
             && p.Name == nameof(HexIDE.Forms.ViewModels.ISearchableDocument.Document))
             return Safe(() =>
@@ -419,7 +432,7 @@ public static class UiAutomationDriver
                 IFormattable f => f.ToString(null, CultureInfo.InvariantCulture),
                 _ => raw.ToString(),
             };
-            return text is null ? null : Capped(text);
+            return text is null ? null : Capped(text, MaxMemberValueLength);
         }, null);
     }
 
@@ -5036,7 +5049,10 @@ public static class UiAutomationDriver
         if (seg.Discriminator is { } disc)
         {
             var (matches, facet) = MatchByDiscriminator(typed, disc);
-            return Pick(matches, raw, parentPath, facet);
+            var result = Pick(matches, raw, parentPath, facet);
+            if (matches.Count == 0 && seg.Type is not null && typed.Any(m => HasDataBoundText(m.Control)))
+                return (null, result.error + ". Data-bound text changes, so it is addressed by position; run dump_visual_tree again with interactiveOnly: false for its current path.");
+            return result;
         }
 
         return Pick([.. typed.Select(m => m.Control)], raw, parentPath, seg.Type ?? "child");
@@ -5447,8 +5463,15 @@ public static class UiAutomationDriver
     {
         if (m.Info.AutoId is { } autoId) yield return autoId;
         if (NullIfEmpty(m.Control.Name) is { } xname) yield return xname;
-        if (MeaningfulLabelOf(m.Info.Peer) is { } label) yield return label;
+        if (!HasDataBoundText(m.Control) && MeaningfulLabelOf(m.Info.Peer) is { } label) yield return label;
     }
+
+    // Avalonia's public query also returns resource/template expressions. The concrete types are internal;
+    // pin the two data-binding types, leaving resources and TemplateBinding as stable labels (#3028).
+    private static bool HasDataBoundText(Control control) =>
+        control is TextBlock
+        && Avalonia.Data.BindingOperations.GetBindingExpressionBase(control, TextBlock.TextProperty)?.GetType().FullName
+            is "Avalonia.Data.Core.BindingExpression" or "Avalonia.Data.Core.MultiBindingExpression";
 
     private readonly record struct NodeClass(
         AutomationPeer? Peer, string[] Providers, string Type, string? Name, string? AutoId, bool Focusable, bool Structural);

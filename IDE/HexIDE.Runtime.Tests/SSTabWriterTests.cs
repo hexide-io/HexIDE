@@ -15,11 +15,8 @@ public class SSTabWriterTests
     [InlineData("sstab-resaved")]
     public void MeasuredCorpusWritesBackExactlyIncludingCompanion(string directory)
     {
-        var root = new DirectoryInfo(AppContext.BaseDirectory);
-        while (root is not null && !Directory.Exists(Path.Combine(root.FullName, "corpus")))
-            root = root.Parent;
-        root.Should().NotBeNull();
-        var path = Path.Combine(root!.FullName, "corpus", "inbox-controls", "pending", directory, "Form1.frm");
+        var root = RepoTree.Root();
+        var path = Path.Combine(root, "corpus", "inbox-controls", "pending", directory, "Form1.frm");
         var source = File.ReadAllText(path);
         var companion = File.ReadAllBytes(Path.ChangeExtension(path, ".frx"));
         var form = new FormDeserializer().Deserialize(new ProjectDefinition(VBProjectType.EXE, "Probe"),

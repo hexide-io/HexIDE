@@ -70,7 +70,7 @@ public class OptionsViewIntegrationTests
             var loc = new LocalizationService();
             foreach (var id in LanguageManifest.Packs.Select(p => p.Id).Append("en-GB"))
             {
-                var caption = loc.GetStringFrom(id, "Str.Options.EditorGeneral.Display.StickyDepth");
+                var caption = ResolvedString(loc, id, "Str.Options.EditorGeneral.Display.StickyDepth");
                 view.Resources["Str.Options.EditorGeneral.Display.StickyDepth"] = caption;
                 Dispatcher.UIThread.RunJobs();
                 var spinner = view.GetVisualDescendants().OfType<NumericUpDown>().Single();
@@ -82,7 +82,7 @@ public class OptionsViewIntegrationTests
         finally { window.Close(); }
     }
 
-    [Theory]
+    [AvaloniaTheory]
     [InlineData("de", "Erhöhen", "Verringern")]
     [InlineData("nl", "Verhogen", "Verlagen")]
     [InlineData("id", "Tambah", "Kurangi")]
@@ -91,9 +91,26 @@ public class OptionsViewIntegrationTests
     [InlineData("da", "Forøg", "Reducer")]
     public void SpinnerTranslations_DescribeChangingANumber(string pack, string increase, string decrease)
     {
+        Dispatcher.UIThread.CheckAccess().Should().BeTrue("language packs must load on the Avalonia thread (#2856)");
         var loc = new LocalizationService();
-        loc.GetStringFrom(pack, "Str.Spinner.Increase").Should().Be(increase);
-        loc.GetStringFrom(pack, "Str.Spinner.Decrease").Should().Be(decrease);
+        ResolvedString(loc, pack, "Str.Spinner.Increase").Should().Be(increase);
+        ResolvedString(loc, pack, "Str.Spinner.Decrease").Should().Be(decrease);
+    }
+
+    private static string ResolvedString(LocalizationService loc, string pack, string key)
+    {
+        loc.TryResolveMap(pack, out var map, out _).Should().BeTrue("language pack '{0}' must resolve before comparing translations", pack);
+        return map.TryGetValue(key, out var value) ? value : key;
+    }
+
+    [AvaloniaFact]
+    public void UnresolvedPack_FailsBeforeComparingTranslations()
+    {
+        var loc = LocalizationService.CreateWithPackUris(id =>
+            new Uri($"avares://HexIDE/Localization/Packs/missing-{id}.json"));
+        Action read = () => ResolvedString(loc, "cs", "Str.Spinner.Increase");
+        read.Should().Throw<Exception>().WithMessage("*language pack 'cs' must resolve*");
+        loc.GetStringFrom("cs", "Str.Spinner.Increase").Should().Be("Increase");
     }
 
     [AvaloniaTheory]
@@ -143,8 +160,8 @@ public class OptionsViewIntegrationTests
         {
             foreach (var id in LanguageManifest.Packs.Select(p => p.Id).Append("en-GB"))
             {
-                var language = loc.GetStringFrom(id, "Str.Options.Language.LanguageLabel");
-                var region = loc.GetStringFrom(id, "Str.Options.Language.RegionLabel");
+                var language = ResolvedString(loc, id, "Str.Options.Language.LanguageLabel");
+                var region = ResolvedString(loc, id, "Str.Options.Language.RegionLabel");
                 view.Resources["Str.Options.Language.LanguageLabel"] = language;
                 view.Resources["Str.Options.Language.RegionLabel"] = region;
                 Dispatcher.UIThread.RunJobs();
@@ -179,7 +196,7 @@ public class OptionsViewIntegrationTests
         {
             foreach (var id in LanguageManifest.Packs.Select(p => p.Id).Append("en-GB"))
             {
-                var caption = loc.GetStringFrom(id, key);
+                var caption = ResolvedString(loc, id, key);
                 view.Resources[key] = caption;
                 Dispatcher.UIThread.RunJobs();
                 var box = view.GetVisualDescendants().OfType<ComboBox>().Single();

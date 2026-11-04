@@ -62,15 +62,18 @@ public class ViewLocator : IDataTemplate
         Register<TrustChainViewModel, TrustChainView>();
         Register<RuntimeErrorViewModel, RuntimeErrorView>();
         Register<LocalsToolViewModel, LocalsToolView>();
+        Register<OutlineToolViewModel, OutlineToolView>();
         Register<WatchesToolViewModel, WatchesToolView>();
         Register<CallStackToolViewModel, CallStackToolView>();
         Register<RecentEditsToolViewModel, RecentEditsToolView>();
         Register<ImmediateToolViewModel, ImmediateToolView>();
+        Register<FindReferencesToolViewModel, FindReferencesToolView>();
         Register<ColorPaletteToolViewModel, ColorPaletteToolView>();
         Register<ObjectBrowserToolViewModel, ObjectBrowserToolView>();
         Register<TranslationEditorViewModel, TranslationEditorView>();
         Register<LanguageServersToolViewModel, LanguageServersToolView>();
         Register<ProtocolInspectorToolViewModel, ProtocolInspectorToolView>();
+        Register<HexIDE.Tools.Diagnostics.DiagnosticsToolViewModel, HexIDE.Tools.Diagnostics.DiagnosticsToolView>();
         Register<NewProjectViewModel, NewProjectView>();
         Register<FindReplaceViewModel, FindReplaceView>();
         Register<SaveChangesViewModel, SaveChangesView>();

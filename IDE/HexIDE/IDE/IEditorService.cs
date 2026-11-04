@@ -15,6 +15,15 @@ public interface IEditorService
     /// <summary>The loaded member name for a URI, or null when nothing loaded answers.</summary>
     string? DocumentNameForUri(string uri);
 
+    /// <summary>Opens a loaded code member by URI, or returns null when none answers.</summary>
+    Forms.ViewModels.CodeEditorViewModel? OpenCodeForUri(string uri);
+
+    /// <summary>Finds a loaded code member without opening or activating a window.</summary>
+    DocumentIdentity? CodeDocumentForUri(string uri);
+
+    /// <summary>Finds an existing code window without activating it.</summary>
+    Forms.ViewModels.CodeEditorViewModel? FindOpenCode(DocumentIdentity document);
+
     void RestoreCaret(DocumentIdentity document, int offset);
     void RestoreCaret(RelatedDocumentDefinition document, int offset);
 
@@ -35,4 +44,7 @@ public interface IEditorService
     /// </para>
     /// </remarks>
     bool NavigateTo(string uri, int line, int column);
+
+    /// <summary>Opens a loaded member with the server-requested range and focus; refuses external URIs.</summary>
+    bool ShowDocument(HexIDE.Lsp.Messages.ShowDocumentParams request);
 }

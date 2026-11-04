@@ -27,6 +27,7 @@ public sealed class ProjectImportWireTests : IAsyncDisposable
     private int _pulls;
     private readonly List<string> _notes = [];
     private readonly OutputLogger _output = new();
+    private readonly HexIDE.Conversations.ConversationLog _capture = new();
     private string _replyNotes = "[\"Imported project\"]";
 
     private JsonElement[] Frames(string method)
@@ -34,12 +35,38 @@ public sealed class ProjectImportWireTests : IAsyncDisposable
         lock (_frames) return _frames.Where(f => f.TryGetProperty("method", out var m) && m.GetString() == method).ToArray();
     }
 
-    private async Task StartAsync()
+    private async Task StartAsync(bool unsaved = false)
     {
         Directory.CreateDirectory(_root);
-        _workspace.Directory = _root;
-        _workspace.Folders = [new("Probe", _root)];
-        _workspace.Projects = [new(_root, new("Probe", Path.Combine(_root, "Probe.vbp"), [], []), ProjectText: _ => Task.FromResult("Name=\"Unsaved\"\r\n"))];
+        _workspace.Directory = unsaved ? null : _root;
+        _workspace.Folders = unsaved ? [] : [new("Probe", _root)];
+        _workspace.Projects = [new(_root, new("Probe", unsaved ? null : Path.Combine(_root, "Probe.vbp"), [], []), ProjectText: _ => Task.FromResult("Name=\"Unsaved\"\r\n"))];
+        var clients = new Queue<VBLspClient>();
+        clients.Enqueue(CreateClient());
+        if (_replacement is not null) clients.Enqueue(_replacement.CreateClient(_workspace));
+        using var arguments = JsonDocument.Parse("[{\"uri\":\"{uri}\",\"text\":\"{text}\",\"overwrite\":true}]");
+        var registration = new LanguageServerRegistration("probe", "Probe server", [".bas"], "vb6", () => clients.Dequeue(),
+            WorkspaceArtifact: _useImport ? new("generated.json", "probe") : null, ProjectImport: _useImport ? new("probe.import", arguments.RootElement.Clone()) : null);
+        var providers = new WorkspaceArtifactProviderRegistry([new Provider()]);
+        var consent = Substitute.For<IWorkspaceArtifactConsent>();
+        consent.AllowAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<WorkspaceArtifactSpec>()).Returns(true);
+        var artifacts = _artifacts = new WorkspaceArtifactService(_workspace, providers, consent, NullLogger<WorkspaceArtifactService>.Instance);
+        _registry = new([registration], NullLogger<LspClientRegistry>.Instance, _workspace, artifacts: artifacts);
+        _registry.MessageLogged += (_, p) => _notes.Add(p.Message);
+        await _registry.OpenDocumentAsync(new Uri(Path.Combine(_root, "Caller.bas")).AbsoluteUri, "Sub Main()\r\nEnd Sub", true, _cts.Token);
+    }
+
+    private WorkspaceArtifactService? _artifacts;
+    private ProjectImportWireTests? _replacement;
+    private string? _shutdownId;
+    private readonly TaskCompletionSource _shutdownSeen = new(TaskCreationOptions.RunContinuationsAsynchronously);
+    private bool _holdShutdown;
+    private bool _holdImport;
+    private bool _serverClosed;
+    private VBLspClient? _client;
+
+    private VBLspClient CreateClient(Workspace? workspace = null)
+    {
         var (local, remote) = FullDuplexStream.CreatePair();
         _server = remote;
         _loop = Task.Run(async () =>
@@ -53,6 +80,12 @@ public sealed class ProjectImportWireTests : IAsyncDisposable
                     lock (_frames) _frames.Add(frame);
                     if (!frame.TryGetProperty("method", out var method) || !frame.TryGetProperty("id", out var id)) continue;
                     var name = method.GetString();
+                    if (name == "shutdown")
+                    {
+                        _shutdownSeen.TrySetResult();
+                        if (_holdShutdown) { _shutdownId = id.GetRawText(); continue; }
+                    }
+                    if (name == "workspace/executeCommand" && _holdImport) continue;
                     var result = name switch
                     {
                         "initialize" => "{\"capabilities\":{\"workspace\":{\"workspaceFolders\":{\"supported\":true,\"changeNotifications\":" + _folderNotifications + "}},\"textDocumentSync\":1,\"diagnosticProvider\":{\"interFileDependencies\":true,\"workspaceDiagnostics\":false},\"executeCommandProvider\":{\"commands\":" + (_declareCommand ? "[\"probe.import\"]" : "[]") + "}}}",
@@ -68,22 +101,91 @@ public sealed class ProjectImportWireTests : IAsyncDisposable
             catch (OperationCanceledException) { }
             catch (IOException) { }
             catch (ObjectDisposedException) { }
+            catch (InvalidOperationException) when (_serverClosed) { }
         }, _cts.Token);
         var transport = Substitute.For<ILspTransport>();
         transport.IsAlive.Returns(true);
         transport.ConnectAsync(Arg.Any<IJsonRpcMessageFormatter>(), Arg.Any<CancellationToken>())
             .Returns(ci => Task.FromResult<IJsonRpcMessageHandler?>(new HeaderDelimitedMessageHandler(local, local, ci.Arg<IJsonRpcMessageFormatter>())));
-        var client = new VBLspClient(transport, _output, "vb6", workspace: _workspace);
-        using var arguments = JsonDocument.Parse("[{\"uri\":\"{uri}\",\"text\":\"{text}\",\"overwrite\":true}]");
-        var registration = new LanguageServerRegistration("probe", "Probe server", [".bas"], "vb6", () => client,
-            WorkspaceArtifact: _useImport ? new("generated.json", "probe") : null, ProjectImport: _useImport ? new("probe.import", arguments.RootElement.Clone()) : null);
-        var providers = new WorkspaceArtifactProviderRegistry([new Provider()]);
-        var consent = Substitute.For<IWorkspaceArtifactConsent>();
-        consent.AllowAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<WorkspaceArtifactSpec>()).Returns(true);
-        var artifacts = new WorkspaceArtifactService(_workspace, providers, consent, NullLogger<WorkspaceArtifactService>.Instance);
-        _registry = new([registration], NullLogger<LspClientRegistry>.Instance, _workspace, artifacts: artifacts);
-        _registry.MessageLogged += (_, p) => _notes.Add(p.Message);
-        await _registry.OpenDocumentAsync(new Uri(Path.Combine(_root, "Caller.bas")).AbsoluteUri, "Sub Main()\r\nEnd Sub", true, _cts.Token);
+        return _client = new VBLspClient(transport, _output, "vb6", workspace: workspace ?? _workspace, capture: _capture, connectionId: "probe");
+    }
+
+    [Fact]
+    public async Task FirstSaveSendsOnlyExitAfterShutdownAndImportsOnTheReplacement()
+    {
+        await using var replacement = new ProjectImportWireTests();
+        _replacement = replacement;
+        _holdShutdown = true;
+        await StartAsync(unsaved: true);
+        _workspace.Directory = Path.Combine(_root, "Saved");
+        _workspace.Folders = [new("Saved", _workspace.Directory)];
+        _workspace.Projects = [new(_workspace.Directory,
+            new("Saved", Path.Combine(_workspace.Directory, "Saved.vbp"), [], []),
+            ProjectText: _ => Task.FromResult("Name=\"Saved\""))];
+        var moving = _registry!.WorkspaceChangedAsync(_cts.Token);
+        await _shutdownSeen.Task.WaitAsync(_cts.Token);
+        // Run the real project-change debounce while the old server holds shutdown open.
+        _workspace.Change();
+        await _artifacts!.PendingRegeneration.WaitAsync(_cts.Token);
+        await SendAsync("{\"jsonrpc\":\"2.0\",\"id\":" + _shutdownId + ",\"result\":null}");
+        await moving;
+        await _loop!;
+        JsonElement[] frames;
+        lock (_frames) frames = _frames.ToArray();
+        var shutdown = Array.FindIndex(frames, f => f.TryGetProperty("method", out var m) && m.GetString() == "shutdown");
+        frames.Skip(shutdown + 1).Select(f => f.TryGetProperty("method", out var m) ? m.GetString() : "response")
+            .Should().Equal("exit");
+        replacement.Frames("initialize").Single().GetProperty("params").GetProperty("workspaceFolders")[0]
+            .GetProperty("uri").GetString().Should().Be(new Uri(_workspace.Directory).AbsoluteUri);
+        replacement.Frames("workspace/executeCommand").Should().ContainSingle();
+        await _registry.StopAsync();
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task AnImportStillInFlightWhenTheConnectionEndsIsAbandoned(bool orderly)
+    {
+        await StartAsync();
+        _holdImport = true;
+        _workspace.Change();
+        await UntilAsync(() => Frames("workspace/executeCommand").Length == 2);
+        if (orderly) await _registry!.StopAsync();
+        else
+        {
+            _serverClosed = true;
+            await _server!.DisposeAsync();
+            await UntilAsync(() => !_client!.IsRunning);
+        }
+        await _capture.DrainAsync();
+        _capture.Snapshot("probe").Where(e => e.Method == "workspace/executeCommand").Last()
+            .Outcome.Should().Be(HexIDE.Conversations.ConversationOutcome.Abandoned);
+    }
+
+    [Fact]
+    public async Task AServerRequestBeforeShutdownIsAnsweredIsStillRepliedToThenExit()
+    {
+        // LSP forbids requests and notifications after shutdown, not replies. RDCore asks for a diagnostic refresh
+        // before it answers shutdown; withholding the reply dropped the connection and exit never went (#2924).
+        _holdShutdown = true;
+        await StartAsync();
+        var stopping = _registry!.StopAsync();
+        await _shutdownSeen.Task.WaitAsync(_cts.Token);
+        await SendAsync("{\"jsonrpc\":\"2.0\",\"id\":\"late\",\"method\":\"workspace/diagnostic/refresh\"}");
+        await UntilAsync(() =>
+        {
+            lock (_frames) return _frames.Any(f => f.TryGetProperty("id", out var id)
+                && id.ValueKind == JsonValueKind.String && id.GetString() == "late" && f.TryGetProperty("result", out _));
+        });
+        await SendAsync("{\"jsonrpc\":\"2.0\",\"id\":" + _shutdownId + ",\"result\":null}");
+        await stopping;
+        await UntilAsync(() => Frames("exit").Length > 0);
+        JsonElement[] frames;
+        lock (_frames) frames = _frames.ToArray();
+        var shutdown = Array.FindIndex(frames, f => f.TryGetProperty("method", out var m) && m.GetString() == "shutdown");
+        frames.Skip(shutdown + 1)
+            .Select(f => f.TryGetProperty("method", out var m) ? m.GetString() : "response:" + f.GetProperty("id").GetRawText())
+            .Should().Equal("response:\"late\"", "exit");
     }
 
     private async Task SendAsync(string text)
@@ -140,6 +242,14 @@ public sealed class ProjectImportWireTests : IAsyncDisposable
         await StartAsync();
         _output.Messages.Should().Contain("[vb6 server] Imported project");
         _output.Messages.Should().NotContain(m => m.Contains("\"kind\""));
+    }
+
+    // #2388: the server's card in Language & Debug Servers shows its import notes, named for the command they answered.
+    [Fact]
+    public async Task ImportNotesReachTheServersOutputUnderTheImportCommand()
+    {
+        await StartAsync();
+        _capture.Output.Text("probe").Should().Contain("[probe.import] Imported project");
     }
 
     [Fact]
@@ -308,6 +418,7 @@ public sealed class ProjectImportWireTests : IAsyncDisposable
         if (_server is not null) await _server.DisposeAsync();
         _cts.Dispose();
         _write.Dispose();
+        await _capture.DisposeAsync();
         if (Directory.Exists(_root)) Directory.Delete(_root, true);
     }
 

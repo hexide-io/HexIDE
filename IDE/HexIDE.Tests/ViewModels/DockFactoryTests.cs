@@ -66,8 +66,36 @@ public class DockFactoryTests
         var factory = new MainViewViewModel.DockFactory(
             toolBox, projectExplorer, properties, formLayout,
             immediate, locals, watches, callStack, colorPalette, objectBrowser, translationEditor,
-            languageServers, protocolInspector, wss, new DockFactoryReference());
+            languageServers, protocolInspector, wss, new DockFactoryReference(), new HexIDE.Tools.OutlineToolViewModel(
+                Substitute.For<HexIDE.Localization.ILocalizationService>(), Substitute.For<IDocumentDockService>()));
         return (factory, immediate);
+    }
+
+    [AvaloniaFact]
+    public void ServerNavigationCanOpenAndReuseATabWithoutTakingFocus()
+    {
+        var (factory, _) = CreateFactory();
+        factory.InitLayout(factory.CreateLayout());
+        using var service = new DocumentDockService(new DockFactoryReference { Value = factory },
+            Substitute.For<IEventBus>());
+        using var first = new HexIDE.Forms.ViewModels.RelatedDocumentEditorViewModel(
+            Substitute.For<ILspClient>(), Substitute.For<IWindowManager>(), Substitute.For<ILocalizationService>());
+        using var second = new HexIDE.Forms.ViewModels.RelatedDocumentEditorViewModel(
+            Substitute.For<ILspClient>(), Substitute.For<IWindowManager>(), Substitute.For<ILocalizationService>());
+        service.OpenDocument(first);
+        var focused = factory.DocumentDock!.FocusedDockable;
+
+        service.OpenDocument(second, takeFocus: false);
+        service.OpenDocuments.Should().Contain(second);
+        factory.DocumentDock.ActiveDockable.Should().BeSameAs(first);
+        factory.DocumentDock.FocusedDockable.Should().BeSameAs(focused);
+        service.TryActivate<HexIDE.Forms.ViewModels.RelatedDocumentEditorViewModel>(vm => vm == second, false)
+            .Should().BeTrue();
+        factory.DocumentDock.ActiveDockable.Should().BeSameAs(first);
+
+        service.TryActivate<HexIDE.Forms.ViewModels.RelatedDocumentEditorViewModel>(vm => vm == second, true)
+            .Should().BeTrue();
+        factory.DocumentDock.ActiveDockable.Should().BeSameAs(second);
     }
 
     private static void LayoutWindow(Avalonia.Controls.Window window)
@@ -461,10 +489,30 @@ public class DockFactoryTests
         var m = factory.CaptureManifest(root);
 
         m.Tools.Where(t => t.Open).Select(t => t.Key)
-            .Should().BeEquivalentTo("toolbox", "project", "properties", "formLayout");
+            .Should().BeEquivalentTo("toolbox", "project", "properties");
         m.Tools.Single(t => t.Key == "properties").Region.Should().Be(DockRegion.Right);
         m.Tools.Single(t => t.Key == "properties").Order.Should().Be(1);
         m.Tools.Single(t => t.Key == "immediate").Open.Should().BeFalse();
+    }
+
+    [Fact]
+    public void ResetLayout_ClosesSavedOpenFormLayout()
+    {
+        var saved = LayoutManifest.Default with
+        {
+            Tools = LayoutManifest.Default.Tools.Select(t => t.Key == "formLayout"
+                ? t with { Open = true } : t).ToArray()
+        };
+        var (factory, _) = CreateFactory(LayoutManifestJson.Deserialize(LayoutManifestJson.Serialize(saved)));
+        var root = factory.CreateLayout();
+        factory.InitLayout(root);
+        factory.CaptureManifest(root).Tools.Single(t => t.Key == "formLayout").Open.Should().BeTrue();
+
+        root = factory.ResetLayout(root);
+        factory.InitLayout(root);
+
+        factory.CaptureManifest(root).Tools.Single(t => t.Key == "formLayout").Should().Be(
+            new ToolLayoutState("formLayout", false, DockRegion.Right, 2, null));
     }
 
     [Fact]

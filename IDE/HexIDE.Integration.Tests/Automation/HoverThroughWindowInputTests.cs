@@ -344,7 +344,7 @@ public class HoverThroughWindowInputTests
     private readonly ILspClient lsp = Substitute.For<ILspClient>();
     private readonly List<Position> hoverAsks = [];
 
-    private (Window Window, TextEditor Editor, CodeEditorViewModel Vm) ShowEditor(ExternalDebugService? external = null)
+    private (Window Window, TextEditor Editor, CodeEditorViewModel Vm) ShowEditor(ExternalDebugService? external = null, IEditorService? editors = null)
     {
         lsp.IsRunning.Returns(true);
         lsp.RequestDocumentSymbolsAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(Array.Empty<DocumentSymbol>());
@@ -364,7 +364,7 @@ public class HoverThroughWindowInputTests
         settings.TabWidth.Returns(4);
         settings.AutoQuickInfo.Returns(true);
         var vm = new CodeEditorViewModel(
-            Substitute.For<IWindowManager>(), Substitute.For<IEditorService>(), Substitute.For<IProjectService>(),
+            Substitute.For<IWindowManager>(), editors ?? Substitute.For<IEditorService>(), Substitute.For<IProjectService>(),
             eventBus, lsp, settings, Substitute.For<IStatusBarService>(), new BookmarkService(), new BreakpointService(),
             Substitute.For<IDebugController>(), new RunScope(), Substitute.For<ILocalizationService>(), externalDebugger: external);
         var module = new ModuleDefinition(new ProjectDefinition(VBProjectType.EXE, "P"), "Module1", ModuleKind.StandardModule);
@@ -378,6 +378,43 @@ public class HoverThroughWindowInputTests
         editor.TextArea.Caret.Offset = editor.Document.Text.IndexOf("    Mid", StringComparison.Ordinal) + 5;
         for (var i = 0; i < 5; i++) { Avalonia.Headless.AvaloniaHeadlessPlatform.ForceRenderTimerTick(); Dispatcher.UIThread.RunJobs(); }
         return (window, editor, vm);
+    }
+
+    // What the hover tool reports when no tip opened is the editor's own route at the point, read through the landing the
+    // move made, not one the tool works out again (#2574).
+    [AvaloniaFact]
+    public void The_route_under_a_hover_is_the_one_the_editor_takes()
+    {
+        var (window, editor, vm) = ShowEditor();
+        try
+        {
+            UiAutomationDriver.Hover(editor, null, null, null, out var landing).Success.Should().BeTrue();
+            var onWord = CodeEditorView.RouteUnder(landing!.Value.Receiver, landing.Value.Point);
+            UiAutomationDriver.EndHover(editor);
+            onWord.Should().NotBeNull();
+            onWord!.Value.Route.Should().Be(CodeEditorView.HoverRoute.QuickInfo);
+            onWord.Value.Word.Should().Be("Mid");
+            onWord.Value.Line.Should().Be(editor.Document.GetLocation(editor.CaretOffset).Line);
+            onWord.Value.DocumentUri.Should().NotBeNull();
+
+            var view = editor.TextArea.TextView;
+            var blankLine = editor.Document.Lines.First(l => l.Length == 0).LineNumber;
+            var blank = view.GetVisualPosition(new AvaloniaEdit.TextViewPosition(blankLine, 1),
+                AvaloniaEdit.Rendering.VisualYPosition.TextMiddle) - view.ScrollOffset;
+            var onBlank = CodeEditorView.RouteUnder(view, blank)!.Value;
+            onBlank.Line.Should().Be(blankLine);
+            onBlank.Word.Should().BeNull();
+
+            var below = CodeEditorView.RouteUnder(view, new Point(20, view.Bounds.Height - 2))!.Value;
+            below.Route.Should().Be(CodeEditorView.HoverRoute.NotOverText);
+            below.Line.Should().BeNull();
+
+            vm.Settings.AutoQuickInfo.Returns(false);
+            CodeEditorView.RouteUnder(view, blank)!.Value.Route.Should().Be(CodeEditorView.HoverRoute.QuickInfoOff);
+
+            CodeEditorView.RouteUnder(window, new Point(1, 1)).Should().BeNull("a window holding a code window is not in one");
+        }
+        finally { window.Close(); vm.Dispose(); }
     }
 
     [AvaloniaFact]
@@ -485,6 +522,194 @@ public class HoverThroughWindowInputTests
             ToolTip.GetIsOpen(editor).Should().BeTrue();
             ToolTip.GetTip(editor)?.ToString().Should().Contain("Sub Foo()");
             hoverAsks.Should().HaveCount(endedBetween ? 2 : 1);
+        }
+        finally { window.Close(); vm.Dispose(); }
+    }
+
+    [AvaloniaTheory]
+    [InlineData("typing")]
+    [InlineData("completion")]
+    [InlineData("signature")]
+    public async Task Editing_popups_dismiss_an_open_markdown_hover(string action)
+    {
+        var (window, editor, vm) = ShowEditor();
+        vm.Settings.AutoListMembers.Returns(action == "completion");
+        lsp.RequestHoverAsync(Arg.Any<string>(), Arg.Any<Position>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<HoverResult?>(new HoverResult(new MarkupContent("markdown", "**Foo**"))));
+        lsp.RequestCompletionAsync(Arg.Any<string>(), Arg.Any<Position>(), Arg.Any<CancellationToken>())
+            .Returns(new[] { new CompletionItem("Foo", CompletionItemKind.Function) });
+        lsp.RequestSignatureHelpAsync(Arg.Any<string>(), Arg.Any<Position>(), Arg.Any<CancellationToken>(), Arg.Any<string?>())
+            .Returns((SignatureHelp?)new SignatureHelp([new SignatureInformation("Foo(value)", null,
+                [new ParameterInformation("value")])], 0, 0));
+        try
+        {
+            editor.Focus();
+            UiAutomationDriver.Hover(editor, null, null, null, out _).Success.Should().BeTrue();
+            await WaitForTip(editor);
+            ToolTip.GetIsOpen(editor).Should().BeTrue();
+            if (action == "typing")
+            {
+                (await UiAutomationDriver.TypeKeysAsync(editor, "x")).Success.Should().BeTrue();
+                editor.Text.Should().Contain("Mxid");
+            }
+            else
+            {
+                var view = (CodeEditorView)window.Content!;
+                if (action == "completion") view.TriggerCompletion();
+                else view.TriggerSignatureHelp();
+                if (CodeEditorView.PendingPopupsOf(editor) is { } pending) await pending;
+                CodeEditorView.OpenPopupsOf(editor).Should().ContainSingle();
+            }
+            ToolTip.GetIsOpen(editor).Should().BeFalse();
+            ToolTip.GetTip(editor).Should().BeNull();
+        }
+        finally { window.Close(); vm.Dispose(); }
+    }
+
+    [AvaloniaTheory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void Hover_file_links_open_only_documents_the_project_holds(bool loaded)
+    {
+        var editors = Substitute.For<IEditorService>();
+        var (window, _, vm) = ShowEditor(editors: editors);
+        var path = Path.Combine(Path.GetTempPath(), $"hexide-hover-{Guid.NewGuid():N}.txt");
+        File.WriteAllText(path, "help");
+        var uri = new Uri(path);
+        editors.NavigateTo(uri.AbsoluteUri, 1, 1).Returns(loaded);
+        try
+        {
+            vm.OpenHoverFile(uri);
+            editors.Received(1).NavigateTo(uri.AbsoluteUri, 1, 1);
+            // Never an editor for an arbitrary file: a server's link is not the user choosing one.
+            editors.DidNotReceive().EditRelatedDocument(Arg.Any<RelatedDocumentDefinition>());
+        }
+        finally { window.Close(); vm.Dispose(); File.Delete(path); }
+    }
+
+    [AvaloniaFact]
+    public async Task RelatedDiagnosticLocationsStayOpenAndNavigateOnClick()
+    {
+        var editors = Substitute.For<IEditorService>();
+        const string target = "file:///tmp/related.bas";
+        const string unknown = "untitled:Related";
+        editors.DocumentNameForUri(target).Returns("Module2");
+        editors.DocumentNameForUri(unknown).Returns((string?)null);
+        var (window, editor, vm) = ShowEditor(editors: editors);
+        var range = new HexIDE.Lsp.Messages.Range(new Position(4, 2), new Position(4, 6));
+        var caret = editor.Document.GetLocation(editor.CaretOffset);
+        var primary = new HexIDE.Lsp.Messages.Range(new Position(caret.Line - 1, caret.Column - 1),
+            new Position(caret.Line - 1, caret.Column + 1));
+        try
+        {
+            lsp.DiagnosticsPublished += Raise.Event<EventHandler<PublishDiagnosticsParams>>(lsp,
+                new PublishDiagnosticsParams(vm.GetDocumentUriPublic(), [new Diagnostic(
+                    primary, "primary",
+                    RelatedInformation: [new(new(target, range), "first site"), new(new(unknown, range), "second site")])]));
+            Dispatcher.UIThread.RunJobs();
+            ((CodeEditorView)window.Content!).TriggerQuickInfo();
+            await WaitForTip(editor);
+            var tip = ToolTip.GetTip(editor).Should().BeOfType<ToolTip>().Subject;
+            var panel = ((StackPanel)tip.Content!).Children.OfType<StackPanel>().First();
+            ((TextBlock)panel.Children[0]).Text.Should().Contain("primary");
+            var rows = panel.Children.OfType<StackPanel>().ToArray();
+            rows.Should().HaveCount(2);
+            var links = rows.Select(r => (HyperlinkButton)r.Children[0]).ToArray();
+            links.Select(l => l.Content).Should().Equal("Module2:5", unknown + ":5");
+            rows.Select(r => ((TextBlock)r.Children[1]).Text).Should().Equal("first site", "second site");
+            UiAutomationDriver.Hover(links[0], null, null, null, out _).Success.Should().BeTrue();
+            await Settle(250);
+            ToolTip.GetIsOpen(editor).Should().BeTrue();
+            editors.DidNotReceive().NavigateTo(Arg.Any<string>(), Arg.Any<int>(), Arg.Any<int>());
+            foreach (var link in links) link.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            editors.Received(1).NavigateTo(target, 5, 3);
+            editors.Received(1).NavigateTo(unknown, 5, 3);
+            UiAutomationDriver.EndHover(links[0]);
+            await WaitForTip(editor, () => ToolTip.GetTip(editor) is null, "related tooltip to close after exit");
+        }
+        finally { window.Close(); vm.Dispose(); }
+    }
+
+    [AvaloniaFact]
+    public async Task Markdown_hover_links_can_be_reached_without_closing_the_tip()
+    {
+        var editors = Substitute.For<IEditorService>();
+        const string target = "file:///tmp/hexide-hover-test.bas";
+        editors.NavigateTo(target, 1, 1).Returns(true);
+        var (window, editor, vm) = ShowEditor(editors: editors);
+        lsp.RequestHoverAsync(Arg.Any<string>(), Arg.Any<Position>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<HoverResult?>(new HoverResult(new MarkupContent("markdown", $"[Help]({target})"))));
+        try
+        {
+            UiAutomationDriver.Hover(editor, null, null, null, out _).Success.Should().BeTrue();
+            await WaitForTip(editor);
+            var tip = ToolTip.GetTip(editor).Should().BeOfType<ToolTip>().Subject;
+            var panel = (StackPanel)((StackPanel)tip.Content!).Children.Single();
+            var text = (TextBlock)panel.Children.Single();
+            var link = (HyperlinkButton)text.Inlines!.OfType<Avalonia.Controls.Documents.InlineUIContainer>().Single().Child!;
+            UiAutomationDriver.Hover(link, null, null, null, out _).Success.Should().BeTrue();
+            await Settle(250);
+            link.IsPointerOver.Should().BeTrue();
+            ToolTip.GetIsOpen(editor).Should().BeTrue();
+            editors.DidNotReceive().NavigateTo(Arg.Any<string>(), Arg.Any<int>(), Arg.Any<int>());
+            (await UiAutomationDriver.FinishAsync(await UiAutomationDriver.InteractAsync(link, "click", null)))
+                .Success.Should().BeTrue();
+            editors.Received(1).NavigateTo(target, 1, 1);
+            UiAutomationDriver.EndHover(link);
+            await WaitForTip(editor, () => ToolTip.GetTip(editor) is null, "the rich tooltip to close after pointer exit");
+        }
+        finally { window.Close(); vm.Dispose(); }
+    }
+
+    [AvaloniaTheory]
+    [InlineData("vb")]
+    [InlineData("vba")]
+    [InlineData("other")]
+    public async Task Markdown_hover_renders_fences_as_editor_code(string language)
+    {
+        var (window, editor, vm) = ShowEditor();
+        lsp.RequestHoverAsync(Arg.Any<string>(), Arg.Any<Position>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<HoverResult?>(new HoverResult(new MarkupContent("markdown",
+                $"```{language}\nPublic Sub Greet(ByVal who As String)\n```\n\nMember of Module2"))));
+        try
+        {
+            ((CodeEditorView)window.Content!).TriggerQuickInfo();
+            await WaitForTip(editor);
+            var tip = ToolTip.GetTip(editor).Should().BeOfType<ToolTip>().Subject;
+            var panel = tip.Content.Should().BeOfType<StackPanel>().Subject;
+            var blocks = panel.Children.OfType<StackPanel>().Single();
+            var code = blocks.Children[0].Should().BeOfType<TextEditor>().Subject;
+            code.Text.Should().Be("Public Sub Greet(ByVal who As String)");
+            code.FontFamily.Should().Be(editor.FontFamily);
+            code.FontSize.Should().Be(editor.FontSize);
+            code.IsReadOnly.Should().BeTrue();
+            if (language == "other") code.SyntaxHighlighting.Should().BeNull();
+            else
+            {
+                code.SyntaxHighlighting.Should().BeSameAs(HexIDE.Themes.SyntaxHighlightingTheme.Definition);
+                using var highlighter = new AvaloniaEdit.Highlighting.DocumentHighlighter(code.Document, code.SyntaxHighlighting);
+                highlighter.HighlightLine(1).Sections.Should().Contain(section =>
+                    section.Color == code.SyntaxHighlighting.GetNamedColor("Keyword"));
+            }
+            blocks.Children[1].Should().BeOfType<TextBlock>().Which.Inlines!.Text.Should().Be("Member of Module2");
+        }
+        finally { window.Close(); vm.Dispose(); }
+    }
+
+    [AvaloniaFact]
+    public async Task Markdown_hover_keeps_html_as_literal_text()
+    {
+        var (window, editor, vm) = ShowEditor();
+        lsp.RequestHoverAsync(Arg.Any<string>(), Arg.Any<Position>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<HoverResult?>(new HoverResult(new MarkupContent("markdown", "<b>x</b>"))));
+        try
+        {
+            ((CodeEditorView)window.Content!).TriggerQuickInfo();
+            await WaitForTip(editor);
+            var tip = ToolTip.GetTip(editor).Should().BeOfType<ToolTip>().Subject;
+            var panel = tip.Content.Should().BeOfType<StackPanel>().Subject;
+            panel.Children.OfType<StackPanel>().Single().Children.Single()
+                .Should().BeOfType<TextBlock>().Which.Inlines!.Text.Should().Be("<b>x</b>");
         }
         finally { window.Close(); vm.Dispose(); }
     }

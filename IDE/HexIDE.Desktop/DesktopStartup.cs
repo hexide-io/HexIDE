@@ -16,9 +16,7 @@ internal static class DesktopStartup
 {
     public static void Register()
     {
-        if (ServerOptions.Personality is { } p &&
-            System.Enum.TryParse<PersonalityName>(p, ignoreCase: true, out var name))
-            HexIDE.Static.Personality = name;
+        HexIDE.Static.IsRecoveryMode = ServerOptions.Profile == "none";
 
         // Deliberately OUTSIDE the #if DEBUG below, and the asymmetry is the point: developer mode is
         // inert in a distributed build by design, while the capture ships in one. Gating this the same way
@@ -64,7 +62,7 @@ internal static class DesktopStartup
 
         HexIDE.Static.DesktopStartupHook = (setup, desktop) =>
         {
-            // Always: load add-ins from the addins/ folder beside the exe.
+            // The registry also guards loading in recovery sessions.
             var loader = setup.AddinLoader;
             loader.LoadAll(setup.HexIdeHost);
             desktop.ShutdownRequested += (_, _) => loader.Dispose();
@@ -82,7 +80,7 @@ internal static class DesktopStartup
             if (ServerOptions.Port is not { } port)
                 return;
 
-            var ctx = new IdeContext(setup.ProjectManager, setup.DocumentDockService, setup.LspClient, setup.EditorService, setup.ProjectRunnerService, setup.ProjectService, setup.EventBus, setup.BookmarkService, setup.BreakpointService, setup.DebugController, HexIDE.Static.RootViewModel!, setup.ToolBoxViewModel, setup.PersonalityService, setup.AddinProjectTemplateService, setup.LanguageSwitchService, setup.Capture, setup.Pseudonyms, setup.LocalizationService, setup.SettingsService);
+            var ctx = new IdeContext(setup.ProjectManager, setup.DocumentDockService, setup.LspClient, setup.EditorService, setup.ProjectRunnerService, setup.ProjectService, setup.EventBus, setup.BookmarkService, setup.BreakpointService, setup.DebugController, HexIDE.Static.RootViewModel!, setup.ToolBoxViewModel, setup.ProfileService, setup.AddinProjectTemplateService, setup.LanguageSwitchService, setup.Capture, setup.Pseudonyms, setup.LocalizationService, setup.SettingsService);
             var cts = new CancellationTokenSource();
             var termination = OperatingSystem.IsWindows() ? null :
                 PosixSignalRegistration.Create(PosixSignal.SIGTERM, signal =>

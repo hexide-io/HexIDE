@@ -19,9 +19,8 @@ public class MaskedEdBoxSerializationTests
 
     private static string Corpus(string folder)
     {
-        var dir = new DirectoryInfo(AppContext.BaseDirectory);
-        while (dir is not null && !Directory.Exists(Path.Join(dir.FullName, "corpus", "inbox-controls"))) dir = dir.Parent;
-        return Vb6TextFile.ReadAllText(Path.Join(dir!.FullName, "corpus", "inbox-controls", folder, "maskedbox", "Form1.frm"));
+        var dir = RepoTree.Root();
+        return Vb6TextFile.ReadAllText(Path.Join(dir, "corpus", "inbox-controls", folder, "maskedbox", "Form1.frm"));
     }
 
     private static FormDefinition Read(string source) => new FormDeserializer().Deserialize(

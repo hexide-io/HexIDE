@@ -16,11 +16,25 @@ public sealed class VBLspClient : ILspClient
     private readonly ILogger<VBLspClient> _logger;
     // Currently-open documents (uri -> latest version+text), so they can be replayed after a reconnect.
     private readonly ConcurrentDictionary<string, TrackedDocument> _openDocuments = new();
+    private readonly ConcurrentDictionary<string, (int Connection, int Version, string Text)> _sentDocumentVersions = new();
+
+    private RenameDocumentSnapshot? SentDocumentSnapshot(string uri)
+    {
+        if (!_initialized) return null;
+        foreach (var entry in _sentDocumentVersions)
+            if (entry.Value.Connection == Volatile.Read(ref _connection) && LspDocumentUri.AreSame(entry.Key, uri))
+                return new RenameDocumentSnapshot(entry.Value.Version, entry.Value.Text);
+        return null;
+    }
+    // OpenedOn reserves an open before it is sent; requests need the completed write instead (#2920).
+    private ConcurrentDictionary<string, TaskCompletionSource> _writtenOpens = new();
+
     private readonly ConcurrentDictionary<string, JsonElement> _progressTokens = new();
     private readonly SemaphoreSlim _changeGate = new(1, 1);
     // What each source currently says about each document. This connection's server is one source; an
     // external compiler injecting through this client is another, and neither may erase the other.
     private readonly DiagnosticLedger _diagnostics = new();
+    private readonly DiagnosticLifecycle _diagnosticLifecycle;
     private readonly object _reconnectGate = new();
     private JsonRpc? _rpc;
     private volatile bool _initialized;
@@ -66,6 +80,7 @@ public sealed class VBLspClient : ILspClient
     private int _connection;
 
     public event EventHandler<PublishDiagnosticsParams>? DiagnosticsPublished;
+    public event EventHandler<string>? DocumentRetired;
     public event EventHandler<ShowMessageParams>? MessageShown;
     public event EventHandler<ProgressParams>? ProgressReceived;
     public event EventHandler<LogMessageParams>? MessageLogged;
@@ -82,6 +97,7 @@ public sealed class VBLspClient : ILspClient
 
     /// <summary>The chain of the last connect attempt, and where it stopped.</summary>
     public LanguageConnectionAttempt? LastAttempt => _attempt;
+    public bool WaitingForWorkspace => _transport.WaitingForWorkspace;
 
     /// <summary>
     /// How many documents this client currently has open on the server.
@@ -180,10 +196,14 @@ public sealed class VBLspClient : ILspClient
         ILspWorkspace? workspace = null, TimeSpan? initializeTimeout = null,
         string trace = LspTraceValue.Off,
         ConversationLog? capture = null, string? connectionId = null,
-        ConversationRedactor? workspaceNames = null, Func<string>? locale = null)
+        ConversationRedactor? workspaceNames = null, Func<string>? locale = null, HexIDE.IDE.ISettingsService? settings = null,
+        TimeProvider? timeProvider = null,
+        Func<ShowDocumentParams, CancellationToken, Task<bool>>? showDocument = null)
     {
+        _showDocument = showDocument;
         _transport = transport;
         _logger = logger;
+        _diagnosticLifecycle = new(logger);
         _languageId = languageId;
         _workspace = workspace;
         _initializeTimeout = initializeTimeout ?? DefaultRequestTimeout;
@@ -192,9 +212,14 @@ public sealed class VBLspClient : ILspClient
         _connectionId = connectionId;
         _workspaceNames = workspaceNames;
         _locale = locale ?? (() => "en");
+        _settings = settings;
+        _timeProvider = timeProvider ?? TimeProvider.System;
     }
 
+    private readonly Func<ShowDocumentParams, CancellationToken, Task<bool>>? _showDocument;
+    private readonly TimeProvider _timeProvider;
     private readonly Func<string> _locale;
+    private readonly HexIDE.IDE.ISettingsService? _settings;
 
     /// <summary>
     /// Where this connection's conversation is recorded, and under what name. Null when nothing is
@@ -253,9 +278,21 @@ public sealed class VBLspClient : ILspClient
         await Task.WhenAll(sends);
     }
 
+    private static TaskCompletionSource WrittenOpen(
+        ConcurrentDictionary<string, TaskCompletionSource> opens, string uri) =>
+        opens.GetOrAdd(uri, static _ => new(TaskCreationOptions.RunContinuationsAsynchronously));
+
     private async Task<T> InvokeRequestAsync<T>(JsonRpc rpc, string method, object? parameters,
-        CancellationToken cancellationToken = default, TimeSpan? timeout = null, string? supersededUri = null)
+        CancellationToken cancellationToken = default, TimeSpan? timeout = null, string? supersededUri = null,
+        string? documentUri = null)
     {
+        if (documentUri is not null && _openDocuments.ContainsKey(documentUri)
+            && ServerCapabilities.AcceptsOpenClose(_capabilities?.Value))
+        {
+            await WrittenOpen(_writtenOpens, documentUri).Task.WaitAsync(timeout ?? RequestTimeout, cancellationToken);
+            if (!ReferenceEquals(rpc, _rpc) || !_initialized)
+                throw new OperationCanceledException("The document's connection closed.");
+        }
         using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         var scope = new RequestCancellation(_capture, _connectionId);
         var previous = RequestCancellation.Current.Value;
@@ -300,6 +337,7 @@ public sealed class VBLspClient : ILspClient
     {
         // Channel-level death signal (e.g. stdio server process exit). WebSocket drops surface via
         // JsonRpc.Disconnected instead, wired per-connection in ConnectAndInitializeAsync.
+        if (_settings is not null) _settings.PropertyChanged += OnSettingsChanged;
         _transport.Closed += OnTransportClosed;
         _transport.Notice += OnTransportNotice;
 
@@ -445,11 +483,22 @@ public sealed class VBLspClient : ILspClient
         var rpc = _rpc;
         if (rpc is null || !_initialized || !ServerCapabilities.AcceptsOpenClose(_capabilities?.Value)) return;
 
+        var written = WrittenOpen(_writtenOpens, uri);
+        var connection = Volatile.Read(ref _connection);
         var p = new DidOpenTextDocumentParams(new TextDocumentItem(uri, _languageId, version, text));
-        try { await rpc.NotifyWithParameterObjectAsync("textDocument/didOpen", p); }
+        try
+        {
+            await rpc.NotifyWithParameterObjectAsync("textDocument/didOpen", p);
+            _sentDocumentVersions[uri] = (connection, version, text);
+            written.TrySetResult();
+        }
         // No token: this path is the reconnect replay as well as the first open, and neither is cancelled
         // by a caller — so anything thrown here is a real failure rather than a superseded request.
-        catch (Exception ex) { WarnRequestFailedOnce("textDocument/didOpen", ex, CancellationToken.None); }
+        catch (Exception ex)
+        {
+            written.TrySetCanceled();
+            WarnRequestFailedOnce("textDocument/didOpen", ex, CancellationToken.None);
+        }
     }
 
     /// <summary>
@@ -492,6 +541,7 @@ public sealed class VBLspClient : ILspClient
 
     private void OnRpcDisconnected(object? sender, JsonRpcDisconnectedEventArgs e)
     {
+        EndConnectionRequests();
         _initializeAnswered = false;
         ClearProgress();
         _initialized = false;
@@ -568,13 +618,20 @@ public sealed class VBLspClient : ILspClient
     private void DisposeRpc()
     {
         _initializeAnswered = false;
+        foreach (var written in _writtenOpens.Values) written.TrySetCanceled();
         var rpc = _rpc;
         _rpc = null;
         if (rpc is not null)
         {
             rpc.Disconnected -= OnRpcDisconnected;
             rpc.Dispose();
+            EndConnectionRequests();
         }
+    }
+
+    private void EndConnectionRequests()
+    {
+        if (_connectionId is { } id) _capture?.EndRequests(id);
     }
 
     private async Task InitializeAsync(CancellationToken cancellationToken, AttemptRecorder attempt)
@@ -594,8 +651,8 @@ public sealed class VBLspClient : ILspClient
             Locale: _locale(),
             Capabilities: new ClientCapabilities(
                 new TextDocumentClientCapabilities(
-                    PublishDiagnostics: new PublishDiagnosticsClientCapabilities(),
-                    Hover: new HoverClientCapabilities(ContentFormat: ["plaintext"]),
+                    PublishDiagnostics: new PublishDiagnosticsClientCapabilities(true, new DiagnosticTagSupport([1, 2])),
+                    Hover: new HoverClientCapabilities(ContentFormat: HoverContentRenderer.Formats.ToArray()),
                     // Claimed here so the server has something to answer. Declaring and gating are two
                     // halves of one negotiation: gate without declare and a conformant server withholds
                     // `save` because nothing asked for it, while we decline to send because it did not
@@ -615,6 +672,10 @@ public sealed class VBLspClient : ILspClient
                     // nothing goes silent without this. What goes is the nesting, because a server that
                     // honours it sends the flat form to a client that never said it could take the tree.
                     DocumentSymbol: new DocumentSymbolClientCapabilities(HierarchicalDocumentSymbolSupport: true),
+                    InlayHint: new InlayHintClientCapabilities(),
+                    Completion: new CompletionClientCapabilities(new CompletionItemKindClientCapabilities(
+                        Enum.GetValues<CompletionItemKind>()),
+                        CompletionItem: new CompletionItemClientCapabilities(true, ["plaintext"])),
                     SemanticTokens: new SemanticTokensClientCapabilities(new(),
                         ["namespace", "type", "class", "enum", "interface", "struct", "typeParameter",
                          "parameter", "variable", "property", "enumMember", "event", "function", "method",
@@ -624,10 +685,12 @@ public sealed class VBLspClient : ILspClient
                 new WorkspaceClientCapabilities(
                     ExecuteCommand: new ExecuteCommandClientCapabilities(),
                     WorkspaceFolders: true,
+                    Configuration: true,
+                    WorkspaceEdit: new WorkspaceEditClientCapabilities(),
                     Diagnostics: new WorkspaceDiagnosticsClientCapabilities(),
                     FileOperations: new FileOperationsClientCapabilities()),
                 // The same declare-and-gate bargain as save and codeLens: silence otherwise is correct.
-                Window: new WindowClientCapabilities()));
+                Window: new WindowClientCapabilities(ShowDocument: new ShowDocumentClientCapabilities())));
 
         // Deliberately received as a raw JsonElement, and interpreted separately below.
         //
@@ -688,6 +751,7 @@ public sealed class VBLspClient : ILspClient
         _identity = ReadServerIdentity(raw);
         attempt.Reached(LanguageConnectionStage.Initialized);
         _attempt = attempt.Build();
+        _writtenOpens = new();
         Interlocked.Increment(ref _connection);
         _initialized = true;
         NoteHandshake();
@@ -849,6 +913,7 @@ public sealed class VBLspClient : ILspClient
     {
         // Tracked BEFORE the gate, deliberately: a document opened while no server is up must still be
         // replayed when one arrives, which is what makes lazy start and reconnect work at all.
+        _diagnosticLifecycle.Open(uri);
         var (document, alreadyOpen) = TrackOpen(uri, text);
 
         // The replay at the end of this connection's handshake has opened it already, and asked for its
@@ -944,7 +1009,12 @@ public sealed class VBLspClient : ILspClient
                 new VersionedTextDocumentIdentifier(uri, version),
                 [new TextDocumentContentChangeEvent(text)]);
             await CancelSupersededAsync(uri);
-            try { await rpc.NotifyWithParameterObjectAsync("textDocument/didChange", p); }
+            var connection = Volatile.Read(ref _connection);
+            try
+            {
+                await rpc.NotifyWithParameterObjectAsync("textDocument/didChange", p);
+                _sentDocumentVersions[uri] = (connection, version, text);
+            }
             catch (Exception ex) { WarnRequestFailedOnce("textDocument/didChange", ex, cancellationToken); }
 
             // After the notification rather than before it: the answer is supposed to describe the text the
@@ -954,9 +1024,14 @@ public sealed class VBLspClient : ILspClient
         finally { _changeGate.Release(); }
     }
 
-    public async Task CloseDocumentAsync(string uri, CancellationToken cancellationToken = default)
+    public Task CloseDocumentAsync(string uri, CancellationToken cancellationToken = default) =>
+        CloseDocumentCoreAsync(uri, cancellationToken);
+
+    private async Task CloseDocumentCoreAsync(string uri, CancellationToken cancellationToken)
     {
         _openDocuments.TryRemove(uri, out _);
+        _sentDocumentVersions.TryRemove(uri, out _);
+        if (_writtenOpens.TryRemove(uri, out var written)) written.TrySetCanceled();
         ForgetPullState(uri);
         var rpc = _rpc;
         if (rpc is null || !_initialized || !ServerCapabilities.AcceptsOpenClose(_capabilities?.Value)) return;
@@ -1053,13 +1128,18 @@ public sealed class VBLspClient : ILspClient
     /// The clearing publication is unconditional here, where <see cref="ForgetPullState"/> raises it only
     /// for a server that answers when asked. For an ordinary close that gate is right: a PUSH server clears
     /// a document by publishing an empty set itself, and pre-empting it would fight a server that has a
-    /// view. For a rename it is wrong — the name is going away, so there is no later publication to wait
-    /// for and a push server will never send one about a document it was told to close.
+    /// view. For a rename the old name is going away, so consumers must clear it even if the server says
+    /// nothing. Later publications for the retired URI are ignored until it is opened again (#2975).
     /// </remarks>
     public async Task CloseDocumentForRenameAsync(string uri, CancellationToken cancellationToken = default)
     {
-        await CloseDocumentAsync(uri, cancellationToken);
-        RaisePublishDiagnostics(DiagnosticOwner.LanguageServer, new PublishDiagnosticsParams(uri, []));
+        _diagnosticLifecycle.Retire(uri);
+        await CloseDocumentCoreAsync(uri, cancellationToken);
+        _diagnosticLifecycle.Rename(uri, () =>
+        {
+            RaisePublishDiagnostics(DiagnosticOwner.LanguageServer, new PublishDiagnosticsParams(uri, []));
+            DocumentRetired?.Invoke(this, uri);
+        });
     }
 
     private void ForgetPullState(string uri)
@@ -1078,7 +1158,8 @@ public sealed class VBLspClient : ILspClient
             // server that only answers when asked has no way to say anything about a document we have stopped
             // asking about — so the marks would outlive the editor that showed them.
             if (CanServeQuietly("diagnosticProvider"))
-                RaisePublishDiagnostics(DiagnosticOwner.LanguageServer, new PublishDiagnosticsParams(uri, []));
+                _diagnosticLifecycle.Publish(uri, () =>
+                    RaisePublishDiagnostics(DiagnosticOwner.LanguageServer, new PublishDiagnosticsParams(uri, [])));
         }
     }
 
@@ -1128,7 +1209,7 @@ public sealed class VBLspClient : ILspClient
         {
             try
             {
-                raw = await InvokeRequestAsync<JsonElement?>(rpc, "textDocument/diagnostic", p, supersededUri: uri);
+                raw = await InvokeRequestAsync<JsonElement?>(rpc, "textDocument/diagnostic", p, supersededUri: uri, documentUri: uri);
                 break;
             }
             catch (RemoteInvocationException ex) when (ShouldRetryDiagnostic(ex))
@@ -1170,6 +1251,26 @@ public sealed class VBLspClient : ILspClient
 
     private sealed class LspJsonRpc(IJsonRpcMessageHandler handler, object target) : JsonRpc(handler, target)
     {
+        private readonly object _sendGate = new();
+        private bool _shutdownSent;
+
+        // Every outbound frame passes here, including cancellation notifications and handler replies.
+        // Keep the check and base send together so a concurrent sender cannot slip behind shutdown.
+        // LSP forbids requests and notifications other than exit after shutdown, not replies: a server may
+        // ask something before it answers shutdown (RDCore sends workspace/diagnostic/refresh), and a
+        // reply withheld there makes StreamJsonRpc drop the connection before exit can go (#2924).
+        protected override ValueTask SendAsync(StreamJsonRpc.Protocol.JsonRpcMessage message, CancellationToken cancellationToken)
+        {
+            lock (_sendGate)
+            {
+                var method = (message as StreamJsonRpc.Protocol.JsonRpcRequest)?.Method;
+                if (_shutdownSent && method is not null && method != "exit")
+                    return ValueTask.FromCanceled(new CancellationToken(true));
+                if (method == "shutdown") _shutdownSent = true;
+                return base.SendAsync(message, cancellationToken);
+            }
+        }
+
         // The default CommonErrorData discards LSP's retriggerRequest field.
         protected override Type? GetErrorDetailsDataType(StreamJsonRpc.Protocol.JsonRpcError error) =>
             error.Error?.Code == (StreamJsonRpc.Protocol.JsonRpcErrorCode)(-32802) ? typeof(JsonElement) : base.GetErrorDetailsDataType(error);
@@ -1223,7 +1324,8 @@ public sealed class VBLspClient : ILspClient
             ? ReadDiagnostics(items)
             : [];
 
-        RaisePublishDiagnostics(DiagnosticOwner.LanguageServer, new PublishDiagnosticsParams(uri, diagnostics));
+        _diagnosticLifecycle.Publish(uri, () =>
+            RaisePublishDiagnostics(DiagnosticOwner.LanguageServer, new PublishDiagnosticsParams(uri, diagnostics)));
     }
 
     /// <summary>
@@ -1295,7 +1397,10 @@ public sealed class VBLspClient : ILspClient
             : null;
 
         return new Diagnostic(range, message, severity, source, code,
-            href is null ? null : new CodeDescription(href));
+            href is null ? null : new CodeDescription(href),
+            element.TryGetProperty("tags", out var tags) ? DiagnosticTagsConverter.ReadItems(tags) : null,
+            element.TryGetProperty("relatedInformation", out var related)
+                ? DiagnosticRelatedInformationConverter.ReadItems(related) : null);
     }
 
     public async Task DidCreateFilesAsync(string[] uris, CancellationToken cancellationToken = default)
@@ -1373,7 +1478,7 @@ public sealed class VBLspClient : ILspClient
         try
         {
             var result = await InvokeRequestAsync<HoverResult?>(_rpc!,
-                "textDocument/hover", p, cancellationToken);
+                "textDocument/hover", p, cancellationToken, documentUri: uri);
             if (result is null) _logger.LogDebug("textDocument/hover: server returned null");
             return result;
         }
@@ -1407,7 +1512,7 @@ public sealed class VBLspClient : ILspClient
         try
         {
             var raw = await InvokeRequestAsync<JsonElement?>(_rpc,
-                "textDocument/documentSymbol", p, cancellationToken);
+                "textDocument/documentSymbol", p, cancellationToken, documentUri: uri);
             return ReadDocumentSymbols(raw);
         }
         catch (Exception ex)
@@ -1509,13 +1614,35 @@ public sealed class VBLspClient : ILspClient
 
     public async Task<SemanticTokenResult?> RequestSemanticTokensAsync(string uri, CancellationToken cancellationToken = default)
     {
-        if (_rpc is null || !_initialized || !ServerCapabilities.SupportsSemanticTokensFull(AdvertisedCapabilities)) return null;
+        var rpc = _rpc;
+        if (rpc is null || !_initialized || !ServerCapabilities.SupportsSemanticTokensFull(AdvertisedCapabilities)) return null;
+        var connection = Volatile.Read(ref _connection);
+        _openDocuments.TryGetValue(uri, out var document);
         try
         {
             var legend = AdvertisedCapabilities!.Value.GetProperty("semanticTokensProvider").GetProperty("legend")
                 .GetProperty("tokenTypes").EnumerateArray().Select(t => t.GetString()!).ToArray();
-            var result = await InvokeRequestAsync<SemanticTokens>(_rpc, "textDocument/semanticTokens/full",
-                new SemanticTokensParams(new TextDocumentIdentifier(uri)), cancellationToken, supersededUri: uri);
+            SemanticTokens? result;
+            var delay = 250;
+            while (true)
+            {
+                try
+                {
+                    result = await InvokeRequestAsync<SemanticTokens>(rpc, "textDocument/semanticTokens/full",
+                        new SemanticTokensParams(new TextDocumentIdentifier(uri)), cancellationToken, supersededUri: uri, documentUri: uri);
+                    break;
+                }
+                catch (RemoteInvocationException ex) when (ex.ErrorCode == -32801)
+                {
+                    await Task.Delay(TimeSpan.FromMilliseconds(delay), _timeProvider, cancellationToken);
+                    delay = Math.Min(delay * 2, 4000);
+                    _openDocuments.TryGetValue(uri, out var current);
+                    // An edit, close/reopen or reconnect must not revive the overtaken request.
+                    if (!_initialized || !ReferenceEquals(rpc, _rpc)
+                        || connection != Volatile.Read(ref _connection) || !ReferenceEquals(current, document))
+                        return null;
+                }
+            }
             if (result?.Data is not { Length: > 0 })
             {
                 if (_semanticWarnings.TryAdd(uri, 0))
@@ -1539,7 +1666,7 @@ public sealed class VBLspClient : ILspClient
         try
         {
             return await InvokeRequestAsync<FoldingRange[]>(_rpc,
-                "textDocument/foldingRange", p, cancellationToken, supersededUri: uri) ?? [];
+                "textDocument/foldingRange", p, cancellationToken, supersededUri: uri, documentUri: uri) ?? [];
         }
         catch (Exception ex)
         {
@@ -1559,7 +1686,7 @@ public sealed class VBLspClient : ILspClient
         try
         {
             var raw = await InvokeRequestAsync<JsonElement?>(_rpc,
-                "textDocument/completion", p, cancellationToken);
+                "textDocument/completion", p, cancellationToken, documentUri: uri);
             var result = raw is not { } value || value.ValueKind == JsonValueKind.Null
                 ? null
                 : value.ValueKind == JsonValueKind.Array
@@ -1582,13 +1709,21 @@ public sealed class VBLspClient : ILspClient
         try
         {
             return await InvokeRequestAsync<SignatureHelp?>(_rpc,
-                "textDocument/signatureHelp", p, cancellationToken);
+                "textDocument/signatureHelp", p, cancellationToken, documentUri: uri);
         }
         catch (Exception ex)
         {
             WarnRequestFailedOnce("textDocument/signatureHelp", ex, cancellationToken);
             return null;
         }
+    }
+
+    public async Task<Location[]> RequestReferencesAsync(string uri, Position position, CancellationToken cancellationToken = default)
+    {
+        if (_rpc is null || !_initialized || !CanServe("referencesProvider")) return [];
+        var p = new ReferenceParams(new TextDocumentIdentifier(uri), position, new ReferenceContext(true));
+        return await InvokeRequestAsync<Location[]?>(_rpc,
+            "textDocument/references", p, cancellationToken, documentUri: uri) ?? [];
     }
 
     /// <summary>
@@ -1609,7 +1744,7 @@ public sealed class VBLspClient : ILspClient
         try
         {
             var raw = await InvokeRequestAsync<JsonElement?>(_rpc,
-                "textDocument/definition", p, cancellationToken);
+                "textDocument/definition", p, cancellationToken, documentUri: uri);
             return ReadLocations(raw);
         }
         catch (Exception ex)
@@ -1630,7 +1765,7 @@ public sealed class VBLspClient : ILspClient
         try
         {
             var raw = await InvokeRequestAsync<JsonElement?>(_rpc,
-                "textDocument/declaration", p, cancellationToken);
+                "textDocument/declaration", p, cancellationToken, documentUri: uri);
             return ReadLocations(raw);
         }
         catch (Exception ex)
@@ -1691,7 +1826,7 @@ public sealed class VBLspClient : ILspClient
         try
         {
             return await InvokeRequestAsync<DocumentHighlight[]?>(_rpc,
-                "textDocument/documentHighlight", p, cancellationToken);
+                "textDocument/documentHighlight", p, cancellationToken, documentUri: uri);
         }
         catch (Exception ex)
         {
@@ -1707,8 +1842,8 @@ public sealed class VBLspClient : ILspClient
         try
         {
             var edit = await InvokeRequestAsync<WorkspaceEdit?>(_rpc,
-                "textDocument/rename", p, cancellationToken);
-            return edit is null ? null : new RenameResult(edit, null);
+                "textDocument/rename", p, cancellationToken, documentUri: uri);
+            return edit is null ? null : new RenameResult(edit, null, SentDocumentSnapshot);
         }
         catch (RemoteInvocationException ex) when (!cancellationToken.IsCancellationRequested)
         {
@@ -1740,11 +1875,26 @@ public sealed class VBLspClient : ILspClient
         try
         {
             return await InvokeRequestAsync<TextEdit[]?>(_rpc,
-                "textDocument/formatting", p, cancellationToken) ?? [];
+                "textDocument/formatting", p, cancellationToken, documentUri: uri) ?? [];
         }
         catch (Exception ex)
         {
             WarnRequestFailedOnce("textDocument/formatting", ex, cancellationToken);
+            return [];
+        }
+    }
+
+    public async Task<InlayHint[]> RequestInlayHintsAsync(string uri, HexIDE.Lsp.Messages.Range range, CancellationToken cancellationToken = default)
+    {
+        if (_rpc is null || !_initialized || !CanServe("inlayHintProvider")) return [];
+        try
+        {
+            return await InvokeRequestAsync<InlayHint[]?>(_rpc, "textDocument/inlayHint",
+                new InlayHintParams(new TextDocumentIdentifier(uri), range), cancellationToken) ?? [];
+        }
+        catch (Exception ex)
+        {
+            WarnRequestFailedOnce("textDocument/inlayHint", ex, cancellationToken);
             return [];
         }
     }
@@ -1758,7 +1908,7 @@ public sealed class VBLspClient : ILspClient
         try
         {
             lenses = await InvokeRequestAsync<CodeLens[]?>(_rpc,
-                "textDocument/codeLens", p, cancellationToken) ?? [];
+                "textDocument/codeLens", p, cancellationToken, documentUri: uri) ?? [];
         }
         catch (Exception ex)
         {
@@ -1852,7 +2002,7 @@ public sealed class VBLspClient : ILspClient
                 var textValue = note.ValueKind == JsonValueKind.Object && note.TryGetProperty("message", out var message)
                     ? message : note;
                 if (textValue.ValueKind != JsonValueKind.String) continue;
-                LogServerMessage(new LogMessageParams(LspMessageType.Info, textValue.GetString()!));
+                LogServerMessage(new LogMessageParams(LspMessageType.Info, textValue.GetString()!), spec.Command);
             }
         }
         if (!_serverRefreshesDiagnostics)
@@ -2048,6 +2198,7 @@ public sealed class VBLspClient : ILspClient
 
     public async Task StopAsync()
     {
+        if (_settings is not null) _settings.PropertyChanged -= OnSettingsChanged;
         ClearProgress();
         _stopping = true;
         // Safe even if the reconnect loop already disposed the CTS in its finally.
@@ -2126,11 +2277,14 @@ public sealed class VBLspClient : ILspClient
         // A non-zero exit is a fault (#945), while this client stops the server too (#1314). LSP has a server exit 0
         // when a shutdown preceded exit and non-zero otherwise, so the code is the server's account of how the stop
         // went. Stdio disposal also reports the observed exit after its grace period or process-tree kill.
+        if (notice.Kind == TransportNoticeKind.StandardError && _connectionId is { } id)
+            _capture?.Output.Append(id, "stderr", notice.Text);
         Note(direction, kind, null, notice.Text, fault: notice.Fault);
     }
 
     private void OnTransportClosed(object? sender, EventArgs e)
     {
+        EndConnectionRequests();
         _initialized = false;
         _capabilities = null;
         _warnedCapabilities.Clear();
@@ -2153,6 +2307,9 @@ public sealed class VBLspClient : ILspClient
     internal void RaisePublishDiagnostics(string owner, PublishDiagnosticsParams p) =>
         DiagnosticsPublished?.Invoke(this, _diagnostics.Record(p.Uri, owner, p.Diagnostics));
 
+    internal void PublishServerDiagnostics(PublishDiagnosticsParams p) =>
+        _diagnosticLifecycle.Publish(p.Uri, () => RaisePublishDiagnostics(DiagnosticOwner.LanguageServer, p));
+
     private void ClearProgress()
     {
         foreach (var key in _progressTokens.Keys)
@@ -2162,9 +2319,12 @@ public sealed class VBLspClient : ILspClient
 
     internal void RaiseMessageShown(ShowMessageParams p) => MessageShown?.Invoke(this, p);
 
-    private void LogServerMessage(LogMessageParams p)
+    // Also kept for the server's card in Language & Debug Servers, under the source it came from (#2388).
+    private void LogServerMessage(LogMessageParams p, string source)
     {
         _logger.Log(LspNotificationReceiver.LevelOf(p.Type), "[{Language} server] {Message}", _languageId, p.Message);
+        if (_connectionId is { } id)
+            _capture?.Output.Append(id, source, p.Message);
         RaiseMessageLogged(p);
     }
 
@@ -2219,11 +2379,33 @@ public sealed class VBLspClient : ILspClient
         return Task.CompletedTask;
     }
 
+    private async void OnSettingsChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName is not (nameof(HexIDE.IDE.ISettingsService.TabWidth) or null or "")) return;
+        var rpc = _rpc;
+        if (!IsRunning || rpc is null) return;
+        try
+        {
+            await rpc.NotifyWithParameterObjectAsync("workspace/didChangeConfiguration",
+                new DidChangeConfigurationParams(EmptyParams.Instance));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Could not send workspace/didChangeConfiguration to the {Language} server", _languageId);
+        }
+    }
+
     private sealed class LspNotificationReceiver
     {
         private readonly VBLspClient _client;
 
         public LspNotificationReceiver(VBLspClient client) => _client = client;
+
+        [JsonRpcMethod("workspace/configuration", UseSingleObjectParameterDeserialization = true)]
+        public JsonElement[] OnConfiguration(ConfigurationParams p) => p.Items.Select(item =>
+            JsonSerializer.SerializeToElement<int?>(item.Section == "editor.tabSize"
+                ? _client._settings?.TabWidth ?? HexIDE.IDE.SettingsDefaults.TabWidth
+                : null, LspJsonContext.Default.NullableInt32)).ToArray();
 
         [JsonRpcMethod("textDocument/publishDiagnostics", UseSingleObjectParameterDeserialization = true)]
         public void OnPublishDiagnostics(PublishDiagnosticsParams p)
@@ -2244,23 +2426,17 @@ public sealed class VBLspClient : ILspClient
                 return;
             }
 
-            _client.RaisePublishDiagnostics(DiagnosticOwner.LanguageServer, p);
+            _client.PublishServerDiagnostics(p);
         }
 
         /// <summary>
-        /// The server's own log output. Log is retained at Information; Debug goes to Trace.
-        ///
-        /// <para>
-        /// Logged and not surfaced: this channel is where servers put detail, and a server in a bad state
-        /// can be voluble on it. Putting that in front of a user would trade one bad experience for
-        /// another. The log is where someone goes when features are missing, which is exactly the moment
-        /// this matters.
-        /// </para>
+        /// The server's own log output, also retained for the live per-server output view.
+        /// Log is retained at Information; Debug goes to Trace.
         /// </summary>
         [JsonRpcMethod("window/logMessage", UseSingleObjectParameterDeserialization = true)]
         public void OnLogMessage(LogMessageParams p)
         {
-            _client.LogServerMessage(p);
+            _client.LogServerMessage(p, $"window/logMessage ({(int)p.Type})");
         }
 
         /// <summary>
@@ -2315,6 +2491,11 @@ public sealed class VBLspClient : ILspClient
             }
             _client.ProgressReceived?.Invoke(_client, p);
         }
+
+        [JsonRpcMethod("window/showDocument", UseSingleObjectParameterDeserialization = true)]
+        public async Task<ShowDocumentResult> OnShowDocument(ShowDocumentParams p, CancellationToken cancellationToken) =>
+            new(!p.External && _client._showDocument is { } show
+                && await show(p, cancellationToken));
 
         /// <summary>
         /// The server asking for the user's attention. Logged <b>and</b> raised, because a message the user
@@ -2513,6 +2694,8 @@ public sealed class VBLspClient : ILspClient
         "foldingRangeProvider",
         "semanticTokensProvider",
         "hoverProvider",
+        "inlayHintProvider",
+        "referencesProvider",
         "renameProvider",
         "signatureHelpProvider",
         // Read by the sync readers rather than a gate, because its two shapes mean different things — and

@@ -6,6 +6,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Layout;
+using Avalonia.Media;
 using Avalonia.Platform;
 using Avalonia.Platform.Storage;
 using HexIDE.Controls;
@@ -240,7 +241,7 @@ public class WindowManager : IWindowManager
 
     public async Task ShowAbout(AboutDialogOptions options)
     {
-        var vm = new AboutDialogViewModel(options);
+        var vm = new AboutDialogViewModel(options, _localization);
         var dialog = new AboutDialog { DataContext = vm };
         var title = string.Format(_localization.GetString("Str.WindowManager.AboutTitle"), options.Title);
 
@@ -430,10 +431,13 @@ public class WindowManager : IWindowManager
         return await window.ShowDialog<bool>(owner);
     }
 
-    private static Window MakeDialogWindow(string title, Control content) => new Window
+    internal Window MakeDialogWindow(string title, Control content) => new Window
     {
         Title = title,
         Content = content,
+        FlowDirection = content is MessageBox { IsProgramDialog: true } or InputBox { IsProgramDialog: true }
+            ? FlowDirection.LeftToRight
+            : _localization.FlowDirection,
         SizeToContent = SizeToContent.WidthAndHeight,
         WindowStartupLocation = WindowStartupLocation.CenterOwner,
         CanResize = false,

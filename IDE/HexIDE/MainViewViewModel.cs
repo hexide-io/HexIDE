@@ -85,6 +85,8 @@ public partial class MainViewViewModel : ObservableObject
     public ImmediateToolViewModel Immediate { get; }
     public FormLayoutToolViewModel FormLayout { get; }
     public LocalsToolViewModel Locals { get; }
+    public OutlineToolViewModel Outline => dockFactory.Outline;
+    public ICommand OpenOutlineCommand { get; private set; } = null!;
     public WatchesToolViewModel Watches { get; }
     public CallStackToolViewModel CallStack { get; }
     public RecentEditsToolViewModel RecentEdits { get; }
@@ -96,6 +98,7 @@ public partial class MainViewViewModel : ObservableObject
 
     /// <summary>What actually went over the wire to a language server.</summary>
     public HexIDE.Tools.ProtocolInspector.ProtocolInspectorToolViewModel ProtocolInspector { get; }
+    public HexIDE.Tools.Diagnostics.DiagnosticsToolViewModel Diagnostics { get; }
     public IFocusedProjectUtil FocusedProjectUtil { get; }
 
     public IStatusBarService StatusBar { get; }
@@ -149,13 +152,24 @@ public partial class MainViewViewModel : ObservableObject
     public ObservableCollection<RecentProjectItemViewModel> RecentProjects { get; } = new();
     public bool HasRecentProjects => RecentProjects.Count > 0;
 
+    private bool IsInBreakMode => ExternalDebugger?.IsActive == true
+        ? ExternalDebugger.State == HexIDE.Dap.DapSessionState.Stopped
+        : debugController.State == DebugState.Paused;
+
+    // The runner's IsRunning counts an external session as running until its cleanup ends, which can be seconds
+    // after End when an adapter doesn't answer disconnect (#2965), so while one is active its state decides.
+    private bool IsProgramRunning => ExternalDebugger?.IsActive == true
+        ? ExternalDebugger.State is HexIDE.Dap.DapSessionState.Starting or HexIDE.Dap.DapSessionState.Running
+            or HexIDE.Dap.DapSessionState.Stopped
+        : projectRunnerService.IsRunning;
+
     private void UpdateRunState()
     {
         // Break is bound directly so a running form's focus cannot divert it from the IDE (#2179).
         BreakProjectCommand.RaiseCanExecutedChanged();
         OnPropertyChanged(nameof(Title));
         OnPropertyChanged(nameof(WindowTitle));
-        if (projectRunnerService.IsRunning && debugController.State != DebugState.Paused)
+        if (IsProgramRunning && !IsInBreakMode)
             StatusBar.SetMessage(localization.GetString("Str.StatusBar.Running"));
         else
             StatusBar.ClearMessage();
@@ -169,18 +183,24 @@ public partial class MainViewViewModel : ObservableObject
                       ?? FocusedProjectUtil.FocusedOrStartupProject?.Name;
             return prefix == null
                 ? localization.GetString("Str.MainWindow.NoProjectTitle")
-                : $"{prefix} - HexIDE " + localization.GetString(debugController.State == DebugState.Paused
+                : $"{prefix} - HexIDE " + localization.GetString(IsInBreakMode
                     ? "Str.MainWindow.BreakTag"
-                    : projectRunnerService.IsRunning ? "Str.MainWindow.RunTag" : "Str.MainWindow.DesignTag");
+                    : IsProgramRunning ? "Str.MainWindow.RunTag" : "Str.MainWindow.DesignTag");
         }
     }
 
-    /// <summary>The OS window title: <see cref="Title"/> plus a loud developer-mode suffix when the
-    /// session is in developer mode. Bound by the window chrome; recomputed when <see cref="Title"/>
-    /// changes (dev mode is session-fixed). Kept separate from <see cref="Title"/> so the VB6 Caption
-    /// proxy (Get/SetPropertyValue) is unaffected.</summary>
-    public string WindowTitle =>
-        developerModeService.IsEnabled ? $"{Title}  *** DEVELOPER MODE ***" : Title;
+    /// <summary>The OS window title adds session notices to <see cref="Title"/>. Kept separate
+    /// so the VB6 Caption proxy (Get/SetPropertyValue) is unaffected.</summary>
+    public string WindowTitle
+    {
+        get
+        {
+            var title = Static.IsRecoveryMode
+                ? $"{Title} — {localization.GetString("Str.MainWindow.RecoveryNotice")}"
+                : Title;
+            return developerModeService.IsEnabled ? $"{title}  *** DEVELOPER MODE ***" : title;
+        }
+    }
 
     public string SaveProjectMenuHeader =>
         projectManager.CurrentGroup != null
@@ -244,7 +264,7 @@ public partial class MainViewViewModel : ObservableObject
 
     public ISettingsService Settings => settingsService;
 
-    public IPersonalityService Personality { get; }
+    public IProfileService Profile { get; }
 
     internal AddinMenuService AddinMenuService { get; }
 
@@ -278,6 +298,8 @@ public partial class MainViewViewModel : ObservableObject
         public ProportionalDock? MiddleDock;
         public DocumentDock? DocumentDock { get; private set; }
 
+        public OutlineToolViewModel Outline { get; }
+
         public DockFactory(ToolBoxToolViewModel toolBox,
             ProjectToolViewModel project,
             PropertiesToolViewModel properties,
@@ -292,7 +314,8 @@ public partial class MainViewViewModel : ObservableObject
             LanguageServersToolViewModel languageServers,
             HexIDE.Tools.ProtocolInspector.ProtocolInspectorToolViewModel protocolInspector,
             IWindowStateService windowStateService,
-            DockFactoryReference documentDockFactory)
+            DockFactoryReference documentDockFactory,
+            OutlineToolViewModel outline)
         {
             ArgumentNullException.ThrowIfNull(toolBox);
             ArgumentNullException.ThrowIfNull(project);
@@ -309,7 +332,9 @@ public partial class MainViewViewModel : ObservableObject
             ArgumentNullException.ThrowIfNull(protocolInspector);
             ArgumentNullException.ThrowIfNull(windowStateService);
             ArgumentNullException.ThrowIfNull(documentDockFactory);
+            ArgumentNullException.ThrowIfNull(outline);
 
+            Outline = outline;
             this.windowStateService = windowStateService;
             toolsByKey = new Dictionary<string, IDockable>
             {
@@ -319,6 +344,7 @@ public partial class MainViewViewModel : ObservableObject
                 ["formLayout"]        = formLayout,
                 ["immediate"]         = immediate,
                 ["locals"]            = locals,
+                ["outline"]           = outline,
                 ["watches"]           = watches,
                 ["callStack"]         = callStack,
                 ["colorPalette"]      = colorPalette,
@@ -1079,6 +1105,7 @@ public partial class MainViewViewModel : ObservableObject
         TranslationEditorViewModel translationEditor,
         LanguageServersToolViewModel languageServers,
         HexIDE.Tools.ProtocolInspector.ProtocolInspectorToolViewModel protocolInspector,
+        HexIDE.Tools.Diagnostics.DiagnosticsToolViewModel diagnostics,
         IProjectManager projectManager,
         IFocusedProjectUtil focusedProjectUtil,
         IProjectService projectService,
@@ -1099,7 +1126,7 @@ public partial class MainViewViewModel : ObservableObject
         AddinOptionsService addinOptionsService,
         IDeveloperModeService developerModeService,
         IStatusBarService statusBarService,
-        IPersonalityService personalityService,
+        IProfileService profileService,
         AddinMenuService addinMenuService,
         AddinCommandService addinCommandService,
         AddinToolWindowService addinToolWindowService,
@@ -1107,15 +1134,30 @@ public partial class MainViewViewModel : ObservableObject
         HexIDE.Debugging.IBreakpointService breakpointService,
         HexIDE.Runtime.Debugging.IDebugController debugController,
         RecentEditsToolViewModel recentEdits,
+        FindReferencesToolViewModel? findReferences,
         HexIDE.Debugging.ExternalDebugService? externalDebugger = null,
         HexIDE.Recovery.IRecoveryOffers? recoveryOffers = null)
     {
+        if (findReferences is not null)
+        {
+            eventBus.Subscribe<FindReferencesEvent>(e => findReferences.SearchAsync(e.Uri, e.Position).ListenErrors());
+            findReferences.ShowRequested += () =>
+            {
+                if (FindDock<IDockable>(d => ReferenceEquals(d, findReferences)) is null)
+                {
+                    OpenImmediateTool();
+                    dockFactory.AddDockable((IToolDock)immediate.Owner!, findReferences);
+                }
+                ((IDock)findReferences.Owner!).ActiveDockable = findReferences;
+                dockFactory.SetFocusedDockable((IDock)findReferences.Owner!, findReferences);
+            };
+        }
         this.recoveryOffers = recoveryOffers;
         RecoverUnsavedWorkCommand = new DelegateCommand(
             () => (recoveryOffers?.ShowPendingAsync() ?? Task.CompletedTask).ListenErrors(),
             () => recoveryOffers is not null);
         RecentEdits = recentEdits;
-        Personality = personalityService;
+        Profile = profileService;
         AddinMenuService = addinMenuService;
         AddinCommandService = addinCommandService;
         _addinToolWindowService = addinToolWindowService;
@@ -1160,6 +1202,7 @@ public partial class MainViewViewModel : ObservableObject
         Immediate = immediate;
         FormLayout = formLayout;
         Locals = locals;
+        OpenOutlineCommand = new DelegateCommand(() => OpenOrActivateTool(Outline, true));
         Watches = watches;
         CallStack = callStack;
         callStack.FrameShown += () =>
@@ -1173,6 +1216,8 @@ public partial class MainViewViewModel : ObservableObject
         LanguageServers = languageServers;
         OpenLanguageServersCommand = new DelegateCommand(OpenLanguageServers);
         ProtocolInspector = protocolInspector;
+        Diagnostics = diagnostics;
+        OpenDiagnosticsCommand = new DelegateCommand(OpenDiagnostics);
         OpenProtocolInspectorCommand = new DelegateCommand(OpenProtocolInspector);
         FocusedProjectUtil = focusedProjectUtil;
 
@@ -1286,11 +1331,14 @@ public partial class MainViewViewModel : ObservableObject
             int? revealedFrame = null;
             externalDebugger.Changed += () =>
             {
+                UpdateRunState();
                 if (externalDebugger.Stop is not { } stop || externalDebugger.SelectedFrame is not { } frame)
                 { revealed = null; revealedFrame = null; return; }
                 var frameId = frame.GetProperty("id").GetInt32();
-                if (stop == revealed && frameId == revealedFrame) return;
-                if (stop != revealed) { OpenLocalsTool(); OpenCallStackTool(); }
+                var sameLocation = revealed is not null && stop.SessionId == revealed.SessionId &&
+                    stop.NavigationGeneration == revealed.NavigationGeneration;
+                if (sameLocation && frameId == revealedFrame) return;
+                if (!sameLocation) { OpenLocalsTool(); OpenCallStackTool(); }
                 revealed = stop;
                 revealedFrame = frameId;
                 if (externalDebugger.SelectedLocation is { } location)
@@ -1735,7 +1783,11 @@ public partial class MainViewViewModel : ObservableObject
     {
         if (ExternalDebugger?.IsActive == true)
         {
-            windowManager.MessageBox(localization.GetString("Str.Debug.External.Unsupported"), icon: MessageBoxIcon.Information).ListenErrors();
+            if (!ExternalDebugger.SupportsSetNextStatement)
+                windowManager.MessageBox(localization.GetString("Str.Debug.External.Unsupported"), icon: MessageBoxIcon.Information).ListenErrors();
+            else if (documentDockService.ActiveDocument is HexIDE.Forms.ViewModels.CodeEditorViewModel externalCode)
+                ExternalDebugger.SetNextStatementAsync(externalCode.GetDocumentUriPublic(),
+                    externalCode.Document.GetLineByOffset(externalCode.CaretOffset).LineNumber).ListenErrors();
             return;
         }
         if (documentDockService.ActiveDocument is HexIDE.Forms.ViewModels.CodeEditorViewModel code)
@@ -2075,6 +2127,14 @@ public partial class MainViewViewModel : ObservableObject
     }
     /// <summary>Opens the language-server view, or brings it forward if it is already open.</summary>
     public ICommand OpenLanguageServersCommand { get; private set; } = null!;
+
+    public ICommand OpenDiagnosticsCommand { get; }
+
+    public void OpenDiagnostics()
+    {
+        Diagnostics.Refresh();
+        OpenOrActivateTool(Diagnostics, false);
+    }
 
     /// <summary>Opens the protocol inspector, or brings it forward if it is already open.</summary>
     /// <remarks>

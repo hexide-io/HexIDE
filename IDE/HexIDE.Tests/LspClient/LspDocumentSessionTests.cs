@@ -318,6 +318,24 @@ public class LspDocumentSessionTests : IDisposable
     }
 
     [AvaloniaFact]
+    public async Task FlushAfterDebounceDoesNotSendTheEditAgain()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var sent = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        _client.When(c => c.ChangeDocumentAsync(Arg.Any<string>(), Arg.Any<int>(), Arg.Any<string>(),
+                Arg.Any<CancellationToken>()))
+            .Do(_ => sent.TrySetResult());
+        var session = Session("a");
+        session.Start();
+        _document.Insert(0, "'");
+        await sent.Task.WaitAsync(TimeSpan.FromSeconds(5), cancellationToken);
+
+        await session.FlushAsync(cancellationToken);
+
+        await _client.Received(1).ChangeDocumentAsync(Uri, Arg.Any<int>(), "'a", Arg.Any<CancellationToken>());
+    }
+
+    [AvaloniaFact]
     public async Task EachFlushCarriesAHigherVersion()
     {
         // The version is the server's only way to order what it receives. A repeated number lets a server
@@ -329,7 +347,9 @@ public class LspDocumentSessionTests : IDisposable
                 Arg.Any<string>(), Arg.Any<int>(), Arg.Any<string>(), Arg.Any<CancellationToken>()))
             .Do(call => versions.Add(call.ArgAt<int>(1)));
 
+        _document.Insert(0, "'");
         await session.FlushAsync(TestContext.Current.CancellationToken);
+        _document.Insert(0, "'");
         await session.FlushAsync(TestContext.Current.CancellationToken);
 
         versions.Should().HaveCount(2);
@@ -348,6 +368,7 @@ public class LspDocumentSessionTests : IDisposable
                 Arg.Any<string>(), Arg.Any<int>(), Arg.Any<string>(), Arg.Any<CancellationToken>()))
             .Do(call => versions.Add(call.ArgAt<int>(1)));
 
+        _document.Insert(0, "'");
         await session.FlushAsync(TestContext.Current.CancellationToken);
 
         versions.Should().Equal(LspDocumentVersion.Opening + 1);
@@ -397,13 +418,18 @@ public class LspDocumentSessionTests : IDisposable
     public async Task TwoWindowsOverTheSameNameDrawOneSequenceOfVersions()
     {
         // Two counts interleaving, 2, 2, 3, are what a server ordering by version discards half of.
-        var first = SessionOver(new TextDocument("a"));
-        var second = SessionOver(new TextDocument("b"));
+        var firstDocument = new TextDocument("a");
+        var secondDocument = new TextDocument("b");
+        var first = SessionOver(firstDocument);
+        var second = SessionOver(secondDocument);
         first.Start();
         second.Start();
 
+        firstDocument.Insert(0, "'");
         await first.FlushAsync(TestContext.Current.CancellationToken);
+        secondDocument.Insert(0, "'");
         await second.FlushAsync(TestContext.Current.CancellationToken);
+        firstDocument.Insert(0, "'");
         await first.FlushAsync(TestContext.Current.CancellationToken);
 
         VersionsChangedTo().Should().Equal(

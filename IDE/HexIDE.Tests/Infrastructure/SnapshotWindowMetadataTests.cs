@@ -4,6 +4,7 @@ using HexIDE.Desktop.Server;
 namespace HexIDE.Tests.Infrastructure;
 
 /// <summary>A snapshot names its window and explains the missing native frame (#2078).</summary>
+[ToolDescription]
 public class SnapshotWindowMetadataTests
 {
     [Fact]

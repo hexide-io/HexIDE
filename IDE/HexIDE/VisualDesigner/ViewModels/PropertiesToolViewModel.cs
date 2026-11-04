@@ -289,6 +289,11 @@ public partial class PropertiesToolViewModel : Tool
             instance.SetUntypedProperty(property, record);
             document.PushSetPropertyCommand(instance, property, before, record);
         }
+        catch (NotImplementedException e)
+        {
+            await windowManager.MessageBox(string.Format(localization.GetString("Str.ProjectRunner.NotImplementedYet"),
+                e.Message), icon: MessageBoxIcon.Error);
+        }
         catch (Exception)
         {
             await windowManager.MessageBox(string.Format(localization.GetString("Str.Tool.Properties.LoadPictureFailed"),
@@ -317,9 +322,25 @@ public partial class PropertiesToolViewModel : Tool
             {
                 Title = localization.GetString("Str.Tool.Properties.ExportPicture"),
                 SuggestedFileName = property.Name + "." + extension,
+                ShowOverwritePrompt = false,
                 DefaultExtension = extension,
             });
-            if (path != null) AtomicFileWriter.WriteAllBytes(path, payload);
+            if (path == null) return;
+            var existing = File.Exists(path);
+            if (existing && await windowManager.MessageBox(
+                    string.Format(localization.GetString("Str.Tool.Properties.ReplacePicture"), path),
+                    localization.GetString("Str.Tool.Properties.ExportPictureTitle"),
+                    MessageBoxButtons.YesNo, MessageBoxIcon.Warning) != MessageBoxResult.Yes)
+                return;
+
+            if (existing) AtomicFileWriter.WriteAllBytes(path, payload);
+            else
+            {
+                // A file arriving after the check was not included in the user's consent.
+                using var stream = new FileStream(path, FileMode.CreateNew, FileAccess.Write, FileShare.None);
+                stream.Write(payload);
+                stream.Flush(flushToDisk: true);
+            }
         }
         catch (Exception e)
         {

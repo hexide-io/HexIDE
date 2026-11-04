@@ -22,7 +22,7 @@ public static class Program
             using var child = Process.Start(start)!;
             await Console.Error.WriteLineAsync($"child:{child.Id}");
         }
-        await Console.Error.WriteLineAsync($"pid:{Environment.ProcessId}");
+        if (mode != "logging") await Console.Error.WriteLineAsync($"pid:{Environment.ProcessId}");
         var input = Console.OpenStandardInput();
         var output = Console.OpenStandardOutput();
         var shutdown = false;
@@ -47,6 +47,11 @@ public static class Program
             var method = root.GetProperty("method").GetString();
             if (method == "exit")
             {
+                if (mode == "logging")
+                {
+                    await Console.Error.WriteLineAsync("stack-frame");
+                    return 3;
+                }
                 if (mode is "ignore" or "tree") continue;
                 // Ensure disposal really allows an orderly exit rather than winning a scheduling race.
                 await Task.Delay(150);
@@ -60,6 +65,8 @@ public static class Program
                 return 23;
             }
             if (method == "textDocument/hover" && mode == "nonzero") return 17;
+            if (method == "textDocument/hover" && mode == "exit1") return 1;
+            if (method == "textDocument/hover" && mode == "exit2") return 2;
             if (method == "shutdown") shutdown = true;
             var result = method == "initialize" ? "{\"capabilities\":{\"hoverProvider\":true}}" : "null";
             var reply = Encoding.UTF8.GetBytes($"{{\"jsonrpc\":\"2.0\",\"id\":{root.GetProperty("id").GetRawText()},\"result\":{result}}}");

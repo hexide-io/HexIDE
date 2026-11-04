@@ -92,9 +92,11 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
         TimeProvider? timeProvider = null)
     {
         _logger = logger;
+        _diagnosticLifecycle = new(logger);
         _timeProvider = timeProvider ?? TimeProvider.System;
         _workspace = workspace;
         _artifacts = artifacts;
+        if (artifacts is not null) artifacts.RestartRequested += OnArtifactRestartRequested;
         _configurationProblems = configurationProblems ?? [];
         // Ordered once. OrderByDescending is stable, so equal priorities keep registration order — which is
         // the documented fallback rather than an accident of how the sort happened to behave.
@@ -104,7 +106,12 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
             .ToList();
     }
 
+    public IReadOnlyList<OwnedDiagnostic> Diagnostics => _diagnostics.Snapshot();
+
+    private readonly DiagnosticLifecycle _diagnosticLifecycle;
+
     public event EventHandler<PublishDiagnosticsParams>? DiagnosticsPublished;
+    public event EventHandler<string>? DocumentRetired;
     public event EventHandler<ShowMessageParams>? MessageShown;
     public event EventHandler<ProgressParams>? ProgressReceived;
     public event EventHandler<LogMessageParams>? MessageLogged;
@@ -280,6 +287,7 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
     public async Task OpenDocumentAsync(
         string uri, string text, bool isProjectMember, CancellationToken cancellationToken = default)
     {
+        _diagnosticLifecycle.Open(uri);
         // Recorded before routing, so change, close and save answer the same question this open did. The
         // registry deliberately holds no model of the project, and it could not work membership out for
         // itself: an `untitled:` name would have to be parsed back into project and document names, which
@@ -292,23 +300,62 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
         _open[uri] = new OpenDocument(isProjectMember, text,
             !isProjectMember && DocumentLanguage.ExtensionOf(uri) == ".cls" && HasVb6ClassHeader(text));
 
-        // Before anything starts or is used: a server told about one project must not go on serving
-        // another. This document is named so the replay inside can skip it — it is opened below either
-        // way, and opening it twice is the failure this argument exists to prevent.
-        await RestartIfWorkspaceMovedAsync(uri, cancellationToken);
-
-        // The one place a server starts. Opening a document is the first moment its language is known to be
-        // present, which is exactly the trigger lazy start is defined against.
+        // Also before the first await: from here until each claimant has been opened on the document, a request
+        // about it waits rather than reaching a server that has not been told it is open (#2909). A code window
+        // asks as soon as it is shown, and this method has a server's start, its workspace folders and its
+        // project import to get through first.
         var claimants = ClaimantsFor(uri, isProjectMember);
-        foreach (var e in claimants) await EnsureStartedAsync(e, cancellationToken);
+        foreach (var e in claimants) HoldOpen(e, uri);
+        try
+        {
+            // Before anything starts or is used: a server told about one project must not go on serving
+            // another. This document is named so the replay inside can skip it — it is opened below either
+            // way, and opening it twice is the failure this argument exists to prevent.
+            await RestartIfWorkspaceMovedAsync(uri, cancellationToken);
 
-        // The text as recorded now rather than as it was when this began. Starting a server takes long enough
-        // for the developer to type, and a change made meanwhile is newer than `text`: sending `text` would
-        // undo it on every server that had not yet recorded it for itself (#719).
-        var current = _open.TryGetValue(uri, out var known) ? known.Text : text;
-        await Task.WhenAll(claimants
-            .Where(e => e.Client is not null)
-            .Select(e => e.Client!.OpenDocumentAsync(uri, current, cancellationToken)));
+            // The one place a server starts. Opening a document is the first moment its language is known to be
+            // present, which is exactly the trigger lazy start is defined against.
+            //
+            // Each claimant is opened as soon as it has started, not once all of them have. A request now waits
+            // for its server's open, so waiting for every start would make the first server's answers wait for
+            // the slowest server's start as well (#2909).
+            foreach (var e in claimants)
+            {
+                await EnsureStartedAsync(e, cancellationToken);
+
+                // The text as recorded now rather than as it was when this began. Starting a server takes long
+                // enough for the developer to type, and a change made meanwhile is newer than `text`: sending
+                // `text` would undo it on every server that had not yet recorded it for itself (#719).
+                var current = _open.TryGetValue(uri, out var known) ? known.Text : text;
+                if (e.Client is { } client) await client.OpenDocumentAsync(uri, current, cancellationToken);
+                ReleaseOpen(e, uri);
+            }
+        }
+        finally
+        {
+            // A start that threw or was cancelled opens nothing more, so nothing may go on waiting for it.
+            foreach (var e in claimants) ReleaseOpen(e, uri);
+        }
+        // Startup was announced before the document was tracked. Refresh the card's count too (#2485).
+        ConnectionsChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    /// <summary>
+    /// Makes a request about <paramref name="uri"/> to <paramref name="e"/>'s server wait until
+    /// <see cref="ReleaseOpen"/>, which follows the document's open there (hexide-io/HexIDE#2909).
+    /// </summary>
+    private static void HoldOpen(Entry e, string uri) =>
+        e.PendingOpens.GetOrAdd(uri, _ => new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously));
+
+    private static void ReleaseOpen(Entry e, string uri)
+    {
+        if (e.PendingOpens.TryRemove(uri, out var held)) held.TrySetResult();
+    }
+
+    /// <summary>Releases every request waiting on an open of <paramref name="uri"/>, on any server.</summary>
+    private void ReleaseOpens(string uri)
+    {
+        foreach (var e in _entries) ReleaseOpen(e, uri);
     }
 
     public Task ChangeDocumentAsync(string uri, int version, string text, CancellationToken cancellationToken = default)
@@ -350,21 +397,31 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
 
     public async Task CloseDocumentForRenameAsync(string uri, CancellationToken cancellationToken = default)
     {
+        _diagnosticLifecycle.Retire(uri);
         // The connections first, so each drops its own state and a push server stops republishing under the
         // old name; then the ledger, which is what actually clears a mark no single connection owns.
         await Task.WhenAll(StartedClaimantsFor(uri)
             .Select(c => c.CloseDocumentForRenameAsync(uri, cancellationToken)));
         _open.TryRemove(uri, out _);
-        ForgetDiagnosticsFor(uri);
+        ReleaseOpens(uri);
+        _diagnosticLifecycle.Rename(uri, () =>
+        {
+            ForgetDiagnosticsFor(uri);
+            DocumentRetired?.Invoke(this, uri);
+        });
+        ConnectionsChanged?.Invoke(this, EventArgs.Empty);
     }
 
-    public Task CloseDocumentAsync(string uri, CancellationToken cancellationToken = default)
+    public async Task CloseDocumentAsync(string uri, CancellationToken cancellationToken = default)
     {
         // Routed BEFORE the record is dropped, or the close would be offered to a different set of servers
         // than the open was -- the exact asymmetry that leaves a server holding a document forever.
         var closing = Task.WhenAll(StartedClaimantsFor(uri).Select(c => c.CloseDocumentAsync(uri, cancellationToken)));
         _open.TryRemove(uri, out _);
-        return closing;
+        // A request still waiting for this document's open has nothing left to wait for.
+        ReleaseOpens(uri);
+        await closing;
+        ConnectionsChanged?.Invoke(this, EventArgs.Empty);
     }
 
     public Task SaveDocumentAsync(string uri, CancellationToken cancellationToken = default) =>
@@ -390,7 +447,7 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
         Func<ILspClient, T[], Task> send, Func<T, string>? newUri = null) =>
         // Generated workspace artefacts already describe the project; keep a single writer (#2248).
         // Other workspace events follow operation filters, not language claims, and never launch a server.
-        Task.WhenAll(_entries.Where(e => e.Registration.WorkspaceArtifact is null
+        Task.WhenAll(_entries.Where(e => (e.Registration.WorkspaceArtifact is null || e.Registration.ProjectImport is not null)
             && e.Client is { IsRunning: true }).Select(e =>
         {
             var client = e.Client!;
@@ -406,24 +463,26 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
     // servers answering describe the same thing twice, so the answers do not merge — they duplicate.
     // Asking only the top-priority claimant is what makes a second server attached to `.bas` an addition
     // rather than a corruption of what was already working.
-    public Task<DocumentSymbol[]> RequestDocumentSymbolsAsync(string uri, CancellationToken ct = default) =>
-        TopClaimantAdvertising(uri, "documentSymbolProvider") is { } c
-            ? c.RequestDocumentSymbolsAsync(uri, ct)
-            : Task.FromResult<DocumentSymbol[]>([]);
+    public async Task<DocumentSymbol[]> RequestDocumentSymbolsAsync(string uri, CancellationToken ct = default) =>
+        await TopClaimantAdvertisingAsync(uri, "documentSymbolProvider", ct) is { } c
+            ? await c.RequestDocumentSymbolsAsync(uri, ct)
+            : [];
 
     // Folds have a second, sharper reason. AvaloniaEdit's FoldingManager takes a single ordered set of
     // sections; two servers' folds partially overlap in general, and a partially-overlapping section is
     // not merely a duplicate — it can take out folding for the whole document behind the debug-level
     // catch that wraps the update.
-    public Task<FoldingRange[]> RequestFoldingRangesAsync(string uri, CancellationToken ct = default) =>
-        TopClaimantAdvertising(uri, "foldingRangeProvider") is { } c
-            ? c.RequestFoldingRangesAsync(uri, ct)
-            : Task.FromResult<FoldingRange[]>([]);
+    public async Task<FoldingRange[]> RequestFoldingRangesAsync(string uri, CancellationToken ct = default) =>
+        await TopClaimantAdvertisingAsync(uri, "foldingRangeProvider", ct) is { } c
+            ? await c.RequestFoldingRangesAsync(uri, ct)
+            : [];
 
-    public Task<SemanticTokenResult?> RequestSemanticTokensAsync(string uri, CancellationToken ct = default) =>
-        StartedClaimantsFor(uri).FirstOrDefault(c => ServerCapabilities.SupportsSemanticTokensFull(c.AdvertisedCapabilities)) is { } client
-            ? client.RequestSemanticTokensAsync(uri, ct)
-            : Task.FromResult<SemanticTokenResult?>(null);
+    public async Task<SemanticTokenResult?> RequestSemanticTokensAsync(string uri, CancellationToken ct = default) =>
+        ClaimantsFor(uri, IsProjectMember(uri))
+                .FirstOrDefault(e => e.Client is { } c && ServerCapabilities.SupportsSemanticTokensFull(c.AdvertisedCapabilities)) is { } entry
+            && await OpenedOnAsync(entry, uri, ct) is { } client
+            ? await client.RequestSemanticTokensAsync(uri, ct)
+            : null;
 
     // ── Merged features ─────────────────────────────────────────────────────────────────────────────
     // Completions genuinely combine: two servers offer different candidates for one prefix, and dropping
@@ -458,9 +517,9 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
         var started = _timeProvider.GetTimestamp();
         using var waiting = CancellationTokenSource.CreateLinkedTokenSource(ct);
         var deadline = Task.Delay(budget, _timeProvider, waiting.Token);
-        var pending = StartedClaimantsFor(uri)
-            .Where(c => triggerCharacter is null
-                || CompletionTriggers(c).Contains(triggerCharacter, StringComparer.Ordinal))
+        var pending = ClaimantsFor(uri, IsProjectMember(uri))
+            .Where(e => e.Client is { } c && (triggerCharacter is null
+                || CompletionTriggers(c).Contains(triggerCharacter, StringComparer.Ordinal)))
             .Select(AskAsync).ToArray();
         try
         {
@@ -472,8 +531,11 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
         }
         finally { waiting.Cancel(); }
 
-        async Task<CompletionItem[]> AskAsync(ILspClient client)
+        async Task<CompletionItem[]> AskAsync(Entry e)
         {
+            // A server whose open of this document is still to come is waited for within the popup's budget, as
+            // its answer is, so one server's import never holds up another's candidates (#2909).
+            if (await OpenedOnAsync(e, uri, waiting.Token) is not { } client) return [];
             try
             {
                 // Keep the request's own deadline and cancellation; the popup budget only stops waiting.
@@ -499,7 +561,7 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
     // Nothing here can usefully merge two answers into one, but any claimant may legitimately have it, so
     // the highest-priority server that actually answers wins rather than the highest-priority server alone.
     public Task<HoverResult?> RequestHoverAsync(string uri, Position position, CancellationToken ct = default) =>
-        FirstAnswerAsync(uri, c => c.RequestHoverAsync(uri, position, ct));
+        FirstAnswerAsync(uri, c => c.RequestHoverAsync(uri, position, ct), ct);
 
     public async Task<SignatureHelp?> RequestSignatureHelpAsync(
         string uri, Position position, CancellationToken ct = default, string? triggerCharacter = null)
@@ -508,15 +570,17 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
         budget.CancelAfter(TimeSpan.FromSeconds(1));
 
         // Start every eligible request before waiting. WhenAll preserves priority order, not reply order.
-        var requests = StartedClaimantsFor(uri)
-            .Where(c => triggerCharacter is null || AdvertisesSignatureTrigger(c, triggerCharacter))
+        var requests = ClaimantsFor(uri, IsProjectMember(uri))
+            .Where(e => e.Client is { } c && (triggerCharacter is null || AdvertisesSignatureTrigger(c, triggerCharacter)))
             .Select(AskAsync).ToArray();
         var answers = await Task.WhenAll(requests);
         ct.ThrowIfCancellationRequested();
         return answers.FirstOrDefault(a => a is { Signatures.Length: > 0 });
 
-        async Task<SignatureHelp?> AskAsync(ILspClient client)
+        async Task<SignatureHelp?> AskAsync(Entry e)
         {
+            // Within the same budget as the answer, for the reason completion gives (#2909).
+            if (await OpenedOnAsync(e, uri, budget.Token) is not { } client) return null;
             try
             {
                 // WaitAsync also bounds a client that ignores cancellation.
@@ -535,24 +599,45 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
         triggers.ValueKind == JsonValueKind.Array &&
         triggers.EnumerateArray().Any(t => t.ValueKind == JsonValueKind.String && t.GetString() == triggerCharacter);
 
+    public async Task<Location[]> RequestReferencesAsync(string uri, Position position, CancellationToken ct = default) =>
+        (await FindReferencesAsync(uri, position, ct)).Locations;
+
+    public async Task<ReferenceSearchResult> FindReferencesAsync(string uri, Position position, CancellationToken ct = default)
+    {
+        var answers = await GatherAsync(uri, async client =>
+        {
+            try
+            {
+                return new[] { new ReferenceSearchResult(await client.RequestReferencesAsync(uri, position, ct), []) };
+            }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
+            catch (Exception ex)
+            {
+                return new[] { new ReferenceSearchResult([], [new ReferenceSearchError(OwnerOf(client), ex.Message)]) };
+            }
+        }, ct);
+        return new ReferenceSearchResult(answers.SelectMany(a => a.Locations).Distinct().ToArray(),
+            answers.SelectMany(a => a.Errors).ToArray());
+    }
+
     public Task<Location[]?> RequestDefinitionAsync(string uri, Position position, CancellationToken ct = default) =>
-        FirstAnswerAsync(uri, c => c.RequestDefinitionAsync(uri, position, ct));
+        FirstAnswerAsync(uri, c => c.RequestDefinitionAsync(uri, position, ct), ct);
 
     public Task<Location[]?> RequestDeclarationAsync(string uri, Position position, CancellationToken ct = default) =>
-        FirstAnswerAsync(uri, c => c.RequestDeclarationAsync(uri, position, ct));
+        FirstAnswerAsync(uri, c => c.RequestDeclarationAsync(uri, position, ct), ct);
 
     public Task<DocumentHighlight[]?> RequestDocumentHighlightAsync(string uri, Position position, CancellationToken ct = default) =>
-        FirstAnswerAsync(uri, c => c.RequestDocumentHighlightAsync(uri, position, ct));
+        FirstAnswerAsync(uri, c => c.RequestDocumentHighlightAsync(uri, position, ct), ct);
 
     // ── Pick-one features ───────────────────────────────────────────────────────────────────────────
     // Two sets of edits to one document cannot both be applied, so these need a winner rather than a merge.
     // Only the top-priority claimant is asked; a second server's edits are not a fallback, they are a
     // different opinion about the same text.
-    public Task<RenameResult?> RequestRenameAsync(string uri, Position position, string newName, CancellationToken ct = default) =>
-        TopClaimantAdvertising(uri, "renameProvider") is { } c ? c.RequestRenameAsync(uri, position, newName, ct) : Task.FromResult<RenameResult?>(null);
+    public async Task<RenameResult?> RequestRenameAsync(string uri, Position position, string newName, CancellationToken ct = default) =>
+        await TopClaimantAdvertisingAsync(uri, "renameProvider", ct) is { } c ? await c.RequestRenameAsync(uri, position, newName, ct) : null;
 
-    public Task<TextEdit[]> RequestFormattingAsync(string uri, FormattingOptions options, CancellationToken ct = default) =>
-        TopClaimantAdvertising(uri, "documentFormattingProvider") is { } c ? c.RequestFormattingAsync(uri, options, ct) : Task.FromResult<TextEdit[]>([]);
+    public async Task<TextEdit[]> RequestFormattingAsync(string uri, FormattingOptions options, CancellationToken ct = default) =>
+        await TopClaimantAdvertisingAsync(uri, "documentFormattingProvider", ct) is { } c ? await c.RequestFormattingAsync(uri, options, ct) : [];
 
     /// <summary>
     /// Routed by advertised capability rather than by language, because it has no document to route by.
@@ -670,8 +755,11 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
     /// produce two genuinely different offers — "Run test" from one and "Show references" from another —
     /// and a client that dropped either would be hiding a thing the user could have done.
     /// </remarks>
+    public Task<InlayHint[]> RequestInlayHintsAsync(string uri, HexIDE.Lsp.Messages.Range range, CancellationToken ct = default) =>
+        GatherAsync(uri, c => c.RequestInlayHintsAsync(uri, range, ct), ct);
+
     public Task<CodeLens[]> RequestCodeLensesAsync(string uri, CancellationToken ct = default) =>
-        GatherAsync(uri, c => c.RequestCodeLensesAsync(uri, ct));
+        GatherAsync(uri, c => c.RequestCodeLensesAsync(uri, ct), ct);
 
     /// <summary>
     /// Sends a command to the server that declared it.
@@ -710,7 +798,8 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
     /// </summary>
     public Task InjectDiagnosticsAsync(string uri, Diagnostic[] diagnostics, string owner)
     {
-        DiagnosticsPublished?.Invoke(this, _diagnostics.Record(uri, owner, diagnostics));
+        var published = _diagnostics.Record(uri, owner, diagnostics);
+        DiagnosticsPublished?.Invoke(this, published);
         return Task.CompletedTask;
     }
 
@@ -728,11 +817,16 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
 
     public async ValueTask DisposeAsync()
     {
+        if (_artifacts is not null) _artifacts.RestartRequested -= OnArtifactRestartRequested;
         if (_artifacts is IDisposable disposable) disposable.Dispose();
         foreach (var e in _entries) await e.Lifetime.CancelAsync();
         await StopAsync();
         // Lifetime is cancelled, not disposed: a replay still finishing reads its token, and it holds no timer to release.
-        foreach (var e in _entries) e.Gate.Dispose();
+        foreach (var e in _entries)
+        {
+            foreach (var uri in e.PendingOpens.Keys) ReleaseOpen(e, uri);
+            e.Gate.Dispose();
+        }
     }
 
     // ── Routing ─────────────────────────────────────────────────────────────────────────────────────
@@ -787,37 +881,84 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
         ClaimantsFor(uri, IsProjectMember(uri)).Select(e => e.Client).Where(c => c is not null).Select(c => c!);
 
     /// <summary>
+    /// The servers to ask about <paramref name="uri"/>, in priority order, each only once this registry has
+    /// opened the document on it (hexide-io/HexIDE#2909).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// LSP has a client open a document before asking about it (3.17, Text Document Synchronization). The code
+    /// window asks for folds and semantic tokens as soon as it is shown, and again after any server's state
+    /// changes, so without this a request reached a running server during its project import, or while a second
+    /// server claiming the same document started, before the document's <c>didOpen</c>.
+    /// </para>
+    /// <para>
+    /// A server that is running and has an open of this document still to come is waited for. One still starting
+    /// is left out, as it was before this existed: it has not answered <c>initialize</c>, so it has nothing to say
+    /// yet, and asking it now could race the end of its handshake.
+    /// </para>
+    /// </remarks>
+    private async Task<List<ILspClient>> OpenedClaimantsAsync(string uri, CancellationToken ct)
+    {
+        var opened = new List<ILspClient>();
+        foreach (var e in ClaimantsFor(uri, IsProjectMember(uri)))
+            if (await OpenedOnAsync(e, uri, ct) is { } client) opened.Add(client);
+        return opened;
+    }
+
+    /// <summary>
+    /// <paramref name="e"/>'s server once <paramref name="uri"/> is open on it, or null if it is still starting
+    /// or has no client. See <see cref="OpenedClaimantsAsync"/>.
+    /// </summary>
+    /// <remarks>
+    /// Null too when <paramref name="ct"/> is cancelled during the wait, so the request answers as a cancelled
+    /// request to a server already does: each client catches its own cancellation and returns its empty answer.
+    /// </remarks>
+    private static async Task<ILspClient?> OpenedOnAsync(Entry e, string uri, CancellationToken ct)
+    {
+        if (e.PendingOpens.TryGetValue(uri, out var held))
+        {
+            if (e.Client is not { IsRunning: true }) return null;
+            try { await held.Task.WaitAsync(ct); }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested) { return null; }
+        }
+        return e.Client;
+    }
+
+    /// <summary>
     /// The one server chosen for a feature that cannot merge two answers. Selection is among claimants that
     /// actually ADVERTISE the feature, not simply the top-priority claimant: otherwise a higher-priority
     /// server with no formatter would silently block a lower one that has it. That is also how the
     /// established editor ecosystem behaves — its formatter conflict prompt lists only formatters.
     /// </summary>
-    private ILspClient? TopClaimantAdvertising(string? uri, string capability)
+    private async Task<ILspClient?> TopClaimantAdvertisingAsync(string uri, string capability, CancellationToken ct)
     {
-        var advertisers = StartedClaimantsFor(uri)
-            .Where(c => ServerCapabilities.Supports(c.AdvertisedCapabilities, capability)).ToList();
+        // Chosen by what each server advertised, which a server still starting has not done, so the winner is
+        // known before any open is waited for, and only the winner's is (#2909).
+        var advertisers = ClaimantsFor(uri, IsProjectMember(uri))
+            .Where(e => e.Client is { } c && ServerCapabilities.Supports(c.AdvertisedCapabilities, capability)).ToList();
         if (advertisers.Count == 0) return null;
 
         var winner = advertisers[0];
         foreach (var skipped in advertisers.Skip(1))
-            skipped.NotePrioritySkip(capability, OwnerOf(winner));
-        return winner;
+            skipped.Client!.NotePrioritySkip(capability, OwnerOf(winner.Client!));
+        return await OpenedOnAsync(winner, uri, ct);
     }
 
-    private async Task<T[]> GatherAsync<T>(string uri, Func<ILspClient, Task<T[]>> call)
+    private async Task<T[]> GatherAsync<T>(string uri, Func<ILspClient, Task<T[]>> call, CancellationToken ct)
     {
-        var clients = StartedClaimantsFor(uri).ToList();
+        var clients = await OpenedClaimantsAsync(uri, ct);
         if (clients.Count == 0) return [];
         if (clients.Count == 1) return await call(clients[0]);
         var results = await Task.WhenAll(clients.Select(call));
         return results.SelectMany(r => r).ToArray();
     }
 
-    private async Task<T?> FirstAnswerAsync<T>(string uri, Func<ILspClient, Task<T?>> call) where T : class
+    private async Task<T?> FirstAnswerAsync<T>(string uri, Func<ILspClient, Task<T?>> call, CancellationToken ct) where T : class
     {
-        foreach (var client in StartedClaimantsFor(uri))
+        // Each server waited for in turn, so a lower-priority server's open never holds up a higher one's answer.
+        foreach (var e in ClaimantsFor(uri, IsProjectMember(uri)))
         {
-            if (await call(client) is { } answer) return answer;
+            if (await OpenedOnAsync(e, uri, ct) is { } client && await call(client) is { } answer) return answer;
         }
         return null;
     }
@@ -852,73 +993,115 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
     {
         if (_workspace is null) return;
 
-        bool moved;
         await _restartGate.WaitAsync(cancellationToken);
         try
         {
-            moved = await RestartIfWorkspaceMovedCoreAsync();
+            await RestartIfWorkspaceMovedCoreAsync(triggeringUri, cancellationToken);
         }
         finally
         {
             _restartGate.Release();
         }
-
-        // Re-open everything that was open. The teardown covers EVERY entry, while the caller goes on to start and open
-        // only the claimants of the one document that triggered it — so without this a Markdown server holding a carried
-        // file is stopped with nothing to re-open it, and every later change to those documents reaches a server that
-        // never saw them opened (hexide-io/HexIDE#469). A first save of a never-saved project moves the root, so since
-        // #489 this is the ordinary path rather than an edge case.
-        //
-        // After the gate, not under it (#2760). Every open passes through the gate, and the replay starts servers, an
-        // add-in's gate before launch included, which waits as long as the add-in takes: under the gate that stalled every
-        // open of every language. Nothing here needs it. A change forwarded meanwhile is tracked by the client and not
-        // sent to a server that has not been opened on the document (#719), and the open carries it; an open of the same
-        // document reaches the same client, which opens a document once.
-        if (moved) await ReopenKnownDocumentsAsync(triggeringUri, cancellationToken);
     }
 
-    // The teardown, under _restartGate: whether the workspace moved, and if it did, every running server stopped.
-    private async Task<bool> RestartIfWorkspaceMovedCoreAsync()
+    private async Task RestartIfWorkspaceMovedCoreAsync(string? triggeringUri, CancellationToken cancellationToken)
     {
         var current = _workspace!.Directory;
 
-        // Nothing is running, so whatever the workspace is now is what the first server will be told.
-        if (!_entries.Any(e => e.Client is not null))
-        {
-            _rootedAt = current;
-            return false;
-        }
-
-        if (SameDirectory(current, _rootedAt)) return false;
+        // A waiting entry has no client yet, but a first save supplies the root it needs. Reopen the
+        // known documents even when there is nothing to stop (#1382).
+        if (SameDirectory(current, _rootedAt)) return;
 
         _logger.LogInformation(
             "The workspace moved; restarting language servers so none keeps serving a project that is gone.");
 
+        // Every open document is about to be opened again, on servers that start afresh, so a request about one
+        // waits for that as it does for a first open (#2909). The triggering document's opener holds its own.
+        foreach (var (uri, known) in _open)
+        {
+            if (triggeringUri is not null && string.Equals(uri, triggeringUri, StringComparison.Ordinal)) continue;
+            foreach (var e in ClaimantsFor(uri, known.IsProjectMember)) HoldOpen(e, uri);
+        }
+
         foreach (var e in _entries)
         {
-            if (e.Client is not { } client) continue;
+            if (e.Client is null) continue;
 
             // A failed entry keeps its client and its state. It is not restarted, so it must not be reset to
             // NotStarted — that would make it eligible to start again, which is the retry this is avoiding.
             if (e.State == LanguageConnectionState.Failed) continue;
 
-            client.DiagnosticsPublished -= OnInnerDiagnostics;
-            client.MessageShown -= OnInnerMessage;
-            client.MessageLogged -= OnInnerLogMessage;
-            client.TraceReceived -= OnInnerTrace;
-            client.StateChanged -= OnInnerStateChanged;
-            try { await client.StopAsync(); }
-            catch (Exception ex) { _logger.LogDebug(ex, "Stop failed for {Id}", e.Registration.Id); }
-            client.ProgressReceived -= OnInnerProgress;
-            e.Client = null;
-            // NotStarted rather than Stopped: this one is eligible to run again, at the new root.
-            e.State = LanguageConnectionState.NotStarted;
-            e.StateSince = DateTimeOffset.UtcNow;
+            await StopForRestartAsync(e);
         }
 
         _rootedAt = current;
+
+        // Re-open everything that was open, before anything else is forwarded. The teardown above covers
+        // EVERY entry, while the caller goes on to start and open only the claimants of the one document
+        // that triggered it — so without this a Markdown server holding a carried file is stopped with
+        // nothing to re-open it, and every later change to those documents reaches a server that never saw
+        // them opened (hexide-io/HexIDE#469). A first save of a never-saved project moves the root, so
+        // since #489 this is the ordinary path rather than an edge case.
+        //
+        // Under the gate, which every open passes through: a server with an add-in's gate before launch is
+        // reopened off it (#2760), since that gate waits as long as the add-in takes, and holding every open of
+        // every language for it would stall the editor.
+        await ReopenKnownDocumentsAsync(triggeringUri, cancellationToken);
+
         ConnectionsChanged?.Invoke(this, EventArgs.Empty);
-        return true;
+    }
+
+    /// <summary>
+    /// Stops a connection so that it can run again: NotStarted rather than Stopped, so the next document it claims, or
+    /// the re-open that follows, starts it afresh.
+    /// </summary>
+    private async Task StopForRestartAsync(Entry e)
+    {
+        if (e.Client is not { } client) return;
+        client.DiagnosticsPublished -= OnInnerDiagnostics;
+        client.MessageShown -= OnInnerMessage;
+        client.MessageLogged -= OnInnerLogMessage;
+        client.TraceReceived -= OnInnerTrace;
+        client.StateChanged -= OnInnerStateChanged;
+        try { await client.StopAsync(); }
+        catch (Exception ex) { _logger.LogDebug(ex, "Stop failed for {Id}", e.Registration.Id); }
+        client.ProgressReceived -= OnInnerProgress;
+        e.Client = null;
+        e.State = LanguageConnectionState.NotStarted;
+        e.StateSince = DateTimeOffset.UtcNow;
+    }
+
+    private void OnArtifactRestartRequested(string serverId) => _ = RestartForArtifactAsync(serverId);
+
+    /// <summary>
+    /// Restarts the one server whose workspace artefact a regeneration changed, for a server that reads it only when it
+    /// starts and asked for this (#2072), then re-opens the documents it held.
+    /// </summary>
+    /// <remarks>
+    /// Only that server: the others neither read its file nor should lose their state. One that isn't running is left
+    /// alone, since it reads the new file when it next starts, and a failed one stays failed. Serialised with a workspace
+    /// move, which restarts everything.
+    /// </remarks>
+    private async Task RestartForArtifactAsync(string serverId)
+    {
+        try
+        {
+            await _restartGate.WaitAsync();
+            try
+            {
+                if (_entries.FirstOrDefault(x => x.Registration.Id == serverId) is not
+                    { Client: not null, State: LanguageConnectionState.Running } e) return;
+                _logger.LogInformation("Restarting {Server}: its workspace artefact changed.", serverId);
+                foreach (var (uri, known) in _open)
+                    if (ClaimantsFor(uri, known.IsProjectMember).Contains(e)) HoldOpen(e, uri);
+                await StopForRestartAsync(e);
+                await ReopenKnownDocumentsAsync(null, CancellationToken.None, only: e);
+                ConnectionsChanged?.Invoke(this, EventArgs.Empty);
+            }
+            finally { _restartGate.Release(); }
+        }
+        catch (ObjectDisposedException) { }
+        catch (Exception ex) { _logger.LogWarning(ex, "Restarting {Server} for its workspace artefact failed.", serverId); }
     }
 
     /// <summary>
@@ -932,34 +1115,55 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
     /// already in the record, which its caller writes first, so without the skip it would be sent twice.
     /// </para>
     /// <para>
+    /// <paramref name="only"/> limits it to one connection, restarted alone: the others still hold their documents, and a
+    /// second didOpen for a URI is not something a server has to tolerate.
+    /// </para>
+    /// <para>
     /// A server with an add-in's gate before launch is reopened on its own, as a late registration's is, and this does
     /// not wait for it: the gate takes as long as the add-in takes, and the open that moved the workspace is of some
-    /// other document. The rest are reopened before this returns.
+    /// other document. Its documents stay held until that reopen reaches them. The rest are reopened before this returns.
     /// </para>
     /// </remarks>
-    private async Task ReopenKnownDocumentsAsync(string? triggeringUri, CancellationToken cancellationToken)
+    private async Task ReopenKnownDocumentsAsync(string? triggeringUri, CancellationToken cancellationToken,
+        Entry? only = null)
     {
         var gated = new HashSet<Entry>();
-        foreach (var (uri, known) in _open)
+        try
         {
-            if (triggeringUri is not null && string.Equals(uri, triggeringUri, StringComparison.Ordinal))
-                continue;
-
-            foreach (var e in ClaimantsFor(uri, known.IsProjectMember))
+            foreach (var (uri, known) in _open)
             {
-                if (e.Registration.BeforeLaunch is not null)
-                {
-                    gated.Add(e);
+                if (triggeringUri is not null && string.Equals(uri, triggeringUri, StringComparison.Ordinal))
                     continue;
+
+                foreach (var e in ClaimantsFor(uri, known.IsProjectMember))
+                {
+                    if (only is not null && e != only) continue;
+                    if (e.Registration.BeforeLaunch is not null)
+                    {
+                        gated.Add(e);
+                        continue;
+                    }
+
+                    // A failed entry is not revived by a document arriving, which is the rule EnsureStartedAsync
+                    // already applies; the null check is what keeps that true here rather than restating it.
+                    await EnsureStartedAsync(e, cancellationToken);
+
+                    // Read again after the start: the text may have changed, or the document closed.
+                    if (e.Client is { } client && _open.TryGetValue(uri, out var current))
+                        await client.OpenDocumentAsync(uri, current.Text, cancellationToken);
+                    ReleaseOpen(e, uri);
                 }
-
-                // A failed entry is not revived by a document arriving, which is the rule EnsureStartedAsync
-                // already applies; the null check is what keeps that true here rather than restating it.
-                await EnsureStartedAsync(e, cancellationToken);
-
-                // Read again after the start: the text may have changed, or the document closed.
-                if (e.Client is { } client && _open.TryGetValue(uri, out var current))
-                    await client.OpenDocumentAsync(uri, current.Text, cancellationToken);
+            }
+        }
+        finally
+        {
+            // What the restart held and this did not reach, because a start threw or was cancelled. A gated server's
+            // are released by its own reopen.
+            foreach (var uri in _open.Keys)
+            {
+                if (triggeringUri is not null && string.Equals(uri, triggeringUri, StringComparison.Ordinal)) continue;
+                foreach (var e in _entries)
+                    if ((only is null || e == only) && !gated.Contains(e)) ReleaseOpen(e, uri);
             }
         }
 
@@ -998,6 +1202,7 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
             e.StateSince = DateTimeOffset.UtcNow;
             ConnectionsChanged?.Invoke(this, EventArgs.Empty);
 
+            e.LastAttempt = null;
             if (_artifacts is not null && e.Registration.ProjectImport is null)
             {
                 try { await _artifacts.PrepareAsync(e.Registration, starting); }
@@ -1025,6 +1230,27 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
             await client.StartAsync(starting);
             // A client stopped during its handshake returns rather than throws; the start was called off all the same.
             starting.ThrowIfCancellationRequested();
+            if (!client.IsRunning && client.WaitingForWorkspace)
+            {
+                e.LastAttempt = client.LastAttempt;
+                client.DiagnosticsPublished -= OnInnerDiagnostics;
+                client.MessageShown -= OnInnerMessage;
+                client.MessageLogged -= OnInnerLogMessage;
+                client.TraceReceived -= OnInnerTrace;
+                client.StateChanged -= OnInnerStateChanged;
+                await client.DisposeAsync();
+                e.Client = null;
+                e.State = LanguageConnectionState.NotStarted;
+                e.StateSince = DateTimeOffset.UtcNow;
+                if (!e.WarnedWaitingForWorkspace)
+                {
+                    _logger.LogWarning("Language server '{Id}' is waiting for a workspace: {Reason}",
+                        e.Registration.Id, e.LastAttempt?.Steps.LastOrDefault()?.Detail);
+                    e.WarnedWaitingForWorkspace = true;
+                }
+                return;
+            }
+
             e.State = client.IsRunning ? LanguageConnectionState.Running : LanguageConnectionState.Failed;
             e.StateSince = DateTimeOffset.UtcNow;
             if (client.IsRunning && _artifacts is not null)
@@ -1136,7 +1362,11 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
     /// </para>
     /// </summary>
     private void OnInnerDiagnostics(object? sender, PublishDiagnosticsParams p) =>
-        DiagnosticsPublished?.Invoke(this, _diagnostics.Record(p.Uri, OwnerOf(sender), p.Diagnostics));
+        _diagnosticLifecycle.Publish(p.Uri, () =>
+        {
+            var published = _diagnostics.Record(p.Uri, OwnerOf(sender), p.Diagnostics);
+            DiagnosticsPublished?.Invoke(this, published);
+        });
 
     /// <summary>
     /// The owner key for a connection: its registration id, which is unique across the registry and is
@@ -1161,14 +1391,15 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
     {
         public LanguageServerRegistration Registration { get; } = registration;
         public ILspClient? Client;
+        public bool WarnedWaitingForWorkspace;
         public LanguageConnectionState State = LanguageConnectionState.NotStarted;
 
         /// <summary>When <see cref="State"/> was last written. Null until something happens, which is
         /// itself the honest answer for a registration nothing has started yet.</summary>
         public DateTimeOffset? StateSince;
 
-        /// <summary>Set when the attempt failed before a client existed to hold it — a throw inside
-        /// CreateClient, for instance. The client's own record wins whenever there is one.</summary>
+        /// <summary>A failure before a client existed, or a workspace refusal whose client was released.
+        /// The client's own record wins whenever there is one.</summary>
         public LanguageConnectionAttempt? LastAttempt;
 
         public readonly SemaphoreSlim Gate = new(1, 1);
@@ -1181,6 +1412,12 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
         /// waits for the start under <see cref="Gate"/>, and a gate nobody could cancel would make it wait for good.
         /// </summary>
         public readonly CancellationTokenSource Lifetime = new();
+
+        /// <summary>
+        /// Documents this registry has begun opening on this entry's server and has not yet opened there, each
+        /// with what a request about it waits on (hexide-io/HexIDE#2909).
+        /// </summary>
+        public readonly ConcurrentDictionary<string, TaskCompletionSource> PendingOpens = new(StringComparer.Ordinal);
     }
 
     // ── Servers that arrive while the IDE runs (#457, #2760) ─────────────────────────────────────────
@@ -1223,25 +1460,35 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
     // `skip` is then the document whose open moved it, which that open sends itself.
     private async Task OpenKnownDocumentsOnAsync(Entry entry, string? skip = null)
     {
+        // Held before the first await, as an open holds them, so a request about one waits for its open here (#2909).
+        var held = _open.Where(d => !string.Equals(d.Key, skip, StringComparison.Ordinal)
+                                    && ClaimantsFor(d.Key, d.Value.IsProjectMember).Contains(entry))
+            .Select(d => d.Key).ToList();
+        foreach (var uri in held) HoldOpen(entry, uri);
+
         // Off the caller's stack: the caller is an add-in's initialisation, which must not wait for a server to start.
         await Task.Yield();
         try
         {
-            foreach (var uri in _open.Keys)
+            foreach (var uri in held)
             {
-                if (string.Equals(uri, skip, StringComparison.Ordinal)) continue;
-                if (!_open.TryGetValue(uri, out var known) || !ClaimantsFor(uri, known.IsProjectMember).Contains(entry)) continue;
+                if (!_open.ContainsKey(uri)) continue;
 
                 await EnsureStartedAsync(entry, CancellationToken.None);
 
                 // Read again after the start, which can take a while: the text may have changed, or the document closed.
                 if (entry.Client is { } client && _open.TryGetValue(uri, out var current))
                     await client.OpenDocumentAsync(uri, current.Text);
+                ReleaseOpen(entry, uri);
             }
         }
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "The documents already open could not all be opened on '{Id}'.", entry.Registration.Id);
+        }
+        finally
+        {
+            foreach (var uri in held) ReleaseOpen(entry, uri);
         }
     }
 

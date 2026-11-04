@@ -28,7 +28,7 @@ using Serilog;
 
 namespace HexIDE.Forms.ViewModels;
 
-public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchableDocument
+public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchableDocument, IOutlineDocument
 {
     private readonly IWindowManager windowManager;
     private readonly HexIDE.Debugging.IRunScope runScope;
@@ -184,6 +184,8 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     private const string DeclarationsProc = "(Declarations)";
 
     private DocumentSymbol[]? _symbols;
+    public IReadOnlyList<DocumentSymbol> OutlineSymbols => _symbols ?? [];
+    private int symbolRefreshVersion;
 
     /// <summary>
     /// This document's conversation with the language layer, shared with the carried-file editor.
@@ -643,14 +645,34 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
         return true;
     }
 
+    public string? BreakpointCondition(int line) => ExternalDebugger?.IsActive == true
+        ? ExternalDebugger.GetCondition(GetDocumentUriPublic(), line) : breakpointService.GetCondition(Identity, line);
+
+    public bool HasBreakpoint(int line) => ExternalDebugger?.IsActive == true
+        ? ExternalDebugger.GetBreakpoints(GetDocumentUriPublic()).Any(row => row.RequestedLine == line)
+        : breakpointService.IsBreakpoint(Identity, line);
+
+    public async Task EditBreakpointConditionAsync(int line)
+    {
+        if (!HasBreakpoint(line)) return;
+        var caption = localization.GetString("Str.Debug.Conditions.Edit");
+        var condition = await windowManager.InputBox(localization.GetString("Str.Debug.Conditions.Prompt"), caption, BreakpointCondition(line) ?? "");
+        if (condition is null) return;
+        if (ExternalDebugger?.IsActive == true)
+            ExternalDebugger.SetCondition(GetDocumentUriPublic(), line, condition);
+        else breakpointService.SetCondition(Identity, line, condition);
+    }
+
     public string? DescribeExternalBreakpoint(int line)
     {
-        if (ExternalDebugger?.IsActive != true) return null;
+        var condition = BreakpointCondition(line);
+        if (ExternalDebugger?.IsActive != true) return condition;
         var row = ExternalDebugger.GetBreakpoints(GetDocumentUriPublic()).FirstOrDefault(item => item.RequestedLine == line);
         if (row is null) return null;
         return string.Format(localization.GetString("Str.Debug.External.Breakpoint"), row.RequestedLine,
             row.Line?.ToString() ?? "—", row.Pending ? "…" : row.Verified ? "✓" : "×",
-            row.Pending ? localization.GetString("Str.Debug.External.BreakpointPending") : row.Message);
+            row.Pending ? localization.GetString("Str.Debug.External.BreakpointPending") : row.Message)
+            + (condition is null ? "" : "\n" + condition);
     }
 
     /// <summary>
@@ -1140,19 +1162,40 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
         return LiveDocumentUri is { } uri ? await lspClient.RequestDocumentSymbolsAsync(uri) : [];
     }
 
-    private async Task RefreshSymbolsAsync()
+    Task IOutlineDocument.RefreshSymbolsAsync() => RefreshSymbolsAsync();
+    void IOutlineDocument.NavigateToSymbol(DocumentSymbol symbol) => NavigateToSymbol(symbol);
+
+    internal async Task RefreshSymbolsAsync()
     {
-        if (!lspClient.IsRunning) return;
-        if (LiveDocumentUri is not { } uri) return;
+        var version = ++symbolRefreshVersion;
+        if (!lspClient.IsRunning || LiveDocumentUri is not { } uri)
+        {
+            _symbols = [];
+            OnPropertyChanged(nameof(OutlineSymbols));
+            return;
+        }
+        var text = Document.Text;
+        await FlushDocumentAsync();
         var symbols = await lspClient.RequestDocumentSymbolsAsync(uri);
-        _symbols = symbols;
         Avalonia.Threading.Dispatcher.UIThread.Post(() =>
         {
+            if (version != symbolRefreshVersion || LiveDocumentUri != uri || text != Document.Text) return;
+            _symbols = symbols;
+            OnPropertyChanged(nameof(OutlineSymbols));
             // Event names come from the component, not symbols. Rebuilding that bound list reselects the
             // handler and moves a new stub's caret from its body to its declaration (#1865).
             if (SelectedObject == GeneralObject || SelectedObject is null)
                 RefreshProcedureNames();
         });
+    }
+
+    internal void NavigateToSymbol(DocumentSymbol symbol)
+    {
+        var position = symbol.SelectionRange.Start;
+        if (position.Line < 0 || position.Line >= Document.LineCount) return;
+        var line = Document.GetLineByNumber(position.Line + 1);
+        CaretOffset = Math.Clamp(line.Offset + Math.Max(0, position.Character), line.Offset, line.EndOffset);
+        FocusWindowRequest?.Invoke();
     }
 
     private void RefreshProcedureNames()
@@ -1237,7 +1280,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     /// mid-build would name a document the server never opened, twice.
     /// </para>
     /// </remarks>
-    private string? LiveDocumentUri => session is { IsOpen: true } open ? open.Uri : null;
+    internal string? LiveDocumentUri => session is { IsOpen: true } open ? open.Uri : null;
 
     public void SaveForm() => SaveWithFormattingAsync(() => projectService.SaveForm(formDefinition!, false)).ListenErrors();
     public void SaveModule() => SaveWithFormattingAsync(() => projectService.SaveModule(moduleDefinition!, false)).ListenErrors();
@@ -1333,13 +1376,15 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     /// <paramref name="edits"/> as offsets into the live buffer, last first, so each can be applied without
     /// moving the ones still to come.
     /// </summary>
-    private List<TextChange> Resolve(IReadOnlyList<TextEdit> edits)
+    private List<TextChange> Resolve(IReadOnlyList<TextEdit> edits) => Resolve(Document, edits);
+
+    private static List<TextChange> Resolve(TextDocument document, IReadOnlyList<TextEdit> edits)
     {
         int OffsetOf(Position position)
         {
-            if (position.Line >= Document.LineCount)
-                return Document.TextLength;
-            var line = Document.GetLineByNumber(position.Line + 1);
+            if (position.Line >= document.LineCount)
+                return document.TextLength;
+            var line = document.GetLineByNumber(position.Line + 1);
             return Math.Min(line.Offset + position.Character, line.EndOffset);
         }
 
@@ -1588,21 +1633,108 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
         return placed;
     }
 
-    /// <summary>Refuses answers reaching other documents before applying any of this document's edits.</summary>
-    internal string? ApplyRename(WorkspaceEdit edit, string oldName)
+    /// <summary>Checks every target before writing any buffer, then gives each its own undo step.</summary>
+    internal string? ApplyRename(WorkspaceEdit edit, string oldName, Func<string, RenameDocumentSnapshot?>? documentFor = null)
     {
-        if (edit.Changes is null) return null;
-        var uri = GetDocumentUriPublic();
-        var others = edit.Changes
-            .Where(c => c.Value.Length > 0 && !LspDocumentUri.AreSame(c.Key, uri))
-            .Select(c => editorService.DocumentNameForUri(c.Key) ?? c.Key)
-            .ToArray();
-        if (others.Length > 0)
-            return string.Format(localization.GetString("Str.CodeEditor.Msg.RenameReachesOtherDocuments"),
-                string.Join(", ", others));
+        string Refuse(string uri, string key = "Str.CodeEditor.Msg.RenameDocumentRefused") => string.Format(localization.GetString(key),
+            editorService.DocumentNameForUri(uri) ?? uri);
 
-        var edits = edit.Changes.FirstOrDefault(c => LspDocumentUri.AreSame(c.Key, uri)).Value;
-        return edits is null ? null : ApplyRename(edits, oldName);
+        var targets = new List<(string Uri, int? Version, TextEdit[] Edits)>();
+        // documentChanges takes precedence when a server supplies both representations (LSP 3.17).
+        if (edit.DocumentChanges is { } documentChanges)
+        {
+            foreach (var change in documentChanges)
+            {
+                if (change.Kind is not null || change.TextDocument is null || change.Edits is null)
+                    return Refuse(change.TextDocument?.Uri ?? change.Uri ?? change.OldUri ?? change.Kind ?? "?");
+                if (change.Edits.Length > 0)
+                    targets.Add((change.TextDocument.Uri, change.TextDocument.Version, change.Edits));
+            }
+        }
+        else if (edit.Changes is { } changes)
+        {
+            foreach (var change in changes)
+                if (change.Value.Length > 0) targets.Add((change.Key, null, change.Value));
+        }
+
+        // Snapshot the server's knowledge before OpenCodeForUri starts sessions for closed windows.
+        var versions = targets.Select(t => (Local: LspDocumentSession.VersionsFor(lspClient, t.Uri),
+            Server: documentFor?.Invoke(t.Uri))).ToArray();
+        var prepared = new List<(string Uri, DocumentIdentity Identity, List<TextChange> Changes)>();
+        for (var i = 0; i < targets.Count; i++)
+        {
+            var target = targets[i];
+            var identity = LspDocumentUri.AreSame(target.Uri, GetDocumentUriPublic())
+                ? Identity : editorService.CodeDocumentForUri(target.Uri);
+            if (identity is null) return Refuse(target.Uri);
+            var editor = identity == Identity ? this : editorService.FindOpenCode(identity);
+            var module = identity.Module;
+            var form = module is not null ? module.FormPart : identity.Form;
+            if (form is { CanSaveFaithfully: false }) return Refuse(target.Uri);
+            var prefix = editor?.bufferPrefix ?? (module is not null ? FormCodeText.Prefix(module) : FormCodeText.Prefix(form!));
+            var document = editor?.Document ?? new TextDocument(prefix + (module?.Code ?? form!.Code));
+            var (local, server) = versions[i];
+            var sent = documentFor is null ? local?.Sent : server?.Version;
+            if (target.Version is { } version && sent is { } lastSent)
+            {
+                if (version != lastSent || (local is { } known && known.Current != known.Sent)
+                    || (server is not null && server.Text != document.Text))
+                    return Refuse(target.Uri, "Str.CodeEditor.Msg.RenameStaleVersion");
+            }
+            else
+            {
+                editor?.RefreshModelModified();
+                var modified = editor?.IsModified ?? (module is not null
+                    ? projectService.HasUnsavedChanges(module) : projectService.HasUnsavedChanges(form!));
+                if (modified) return Refuse(target.Uri, "Str.CodeEditor.Msg.RenameUnsavedChanges");
+            }
+
+            // Duplicate aliases and malformed ranges cannot be allowed to turn a checked answer into
+            // a partial write. Resolve otherwise clamps positions, which is useful for other writers.
+            if (prepared.Any(p => p.Identity == identity)) return Refuse(target.Uri);
+            foreach (var textEdit in target.Edits)
+            {
+                bool Valid(Position p) => p.Line >= 0 && p.Line < document.LineCount
+                    && p.Character >= 0 && p.Character <= document.GetLineByNumber(p.Line + 1).Length;
+                if (textEdit.NewText is null || !Valid(textEdit.Range.Start) || !Valid(textEdit.Range.End)
+                    || textEdit.Range.End.Line < textEdit.Range.Start.Line
+                    || (textEdit.Range.End.Line == textEdit.Range.Start.Line
+                        && textEdit.Range.End.Character < textEdit.Range.Start.Character)) return Refuse(target.Uri);
+            }
+            var resolved = Resolve(document, target.Edits);
+            for (var j = 1; j < resolved.Count; j++)
+                if (resolved[j].Offset + resolved[j].Length > resolved[j - 1].Offset) return Refuse(target.Uri);
+            if (RefusedRenameEdit(document.Text, prefix.Length, resolved) is not null)
+                return Refuse(target.Uri);
+            prepared.Add((target.Uri, identity, resolved));
+        }
+
+        var caret = CaretOffset;
+        var sourceChanges = prepared.FirstOrDefault(p => p.Identity == Identity).Changes;
+        if (sourceChanges is not null)
+        {
+            var shift = 0;
+            foreach (var change in sourceChanges.OrderBy(c => c.Offset))
+            {
+                if (caret < change.Offset) break;
+                if (caret <= change.Offset + change.Length)
+                {
+                    caret = change.Offset + shift + Math.Min(caret - change.Offset, change.Text.Length);
+                    shift = 0;
+                    break;
+                }
+                shift += change.Text.Length - change.Length;
+            }
+            caret += shift;
+        }
+        foreach (var target in prepared)
+            (target.Identity == Identity ? this : editorService.OpenCodeForUri(target.Uri)!).ApplyAsOneStep(target.Changes);
+        if (prepared.Count > 0) editorService.OpenCodeForUri(GetDocumentUriPublic());
+        CaretOffset = Math.Clamp(caret, 0, Document.TextLength);
+        if (prepared.Count > 0)
+            statusBarService.SetTemporaryMessage(string.Format(localization.GetString("Str.CodeEditor.Msg.RenamedInModules"),
+                prepared.Count), TimeSpan.FromSeconds(5));
+        return null;
     }
 
     /// <summary>
@@ -1910,6 +2042,14 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     public Task<HoverResult?> RequestHoverAsync(Position position, CancellationToken ct = default)
         => LiveDocumentUri is { } uri ? lspClient.RequestHoverAsync(uri, position, ct) : Task.FromResult<HoverResult?>(null);
 
+    public async Task<InlayHint[]> RequestInlayHintsAsync(CancellationToken ct = default)
+    {
+        if (!Settings.ShowInlayHints || LiveDocumentUri is not { } uri) return [];
+        await FlushDocumentAsync(ct);
+        var last = Document.GetLineByNumber(Document.LineCount);
+        return await lspClient.RequestInlayHintsAsync(uri,
+            new(new Position(0, 0), new Position(last.LineNumber - 1, last.Length)), ct);
+    }
     public Task<SemanticTokenResult?> RequestSemanticTokensAsync(CancellationToken ct = default)
         => LiveDocumentUri is { } uri ? lspClient.RequestSemanticTokensAsync(uri, ct) : Task.FromResult<SemanticTokenResult?>(null);
 
@@ -1930,6 +2070,13 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
 
     public Task<SignatureHelp?> RequestSignatureHelpAsync(Position position, CancellationToken ct = default, string? triggerCharacter = null)
         => LiveDocumentUri is { } uri ? lspClient.RequestSignatureHelpAsync(uri, position, ct, triggerCharacter) : Task.FromResult<SignatureHelp?>(null);
+
+    public async Task FindReferencesAsync(Position position)
+    {
+        await FlushDocumentAsync();
+        if (LiveDocumentUri is { } uri)
+            eventBus.Publish(new FindReferencesEvent(uri, position));
+    }
 
     public Task<Location[]?> RequestDefinitionAsync(Position position, CancellationToken ct = default)
         => LiveDocumentUri is { } uri ? lspClient.RequestDefinitionAsync(uri, position, ct) : Task.FromResult<Location[]?>(null);
@@ -1977,6 +2124,17 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
         // protocol's zero-based Position.
         if (!editorService.NavigateTo(uri, line, col))
             Log.Debug("[definition] Nothing loaded answers to {Uri}", uri);
+    }
+
+    // A hover's file link opens a document the project already holds, and nothing else: a server's link is not the
+    // user choosing a file, the same rule #2908 applies to showDocument. Anything else is logged and left alone.
+    internal Avalonia.Controls.Control DiagnosticContent(LspMarker marker) => DiagnosticContentView.Render(marker, editorService);
+
+    internal void OpenHoverFile(Uri uri)
+    {
+        if (!uri.IsFile) return;
+        if (!editorService.NavigateTo(uri.AbsoluteUri, 1, 1))
+            Log.Debug("[hover] A file link names nothing the project holds, so it was not opened: {Uri}", uri);
     }
 
     private void OnSelectedProcedureChanged(string? oldValue, string? newValue)

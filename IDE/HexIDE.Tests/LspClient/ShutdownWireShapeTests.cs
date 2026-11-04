@@ -157,17 +157,19 @@ public class ShutdownWireShapeTests : IAsyncDisposable
     }
 
     [Theory]
-    [InlineData(true)]
-    [InlineData(false)]
-    public async Task FormattingCarriesTheRequestedIndentation(bool insertSpaces)
+    [InlineData(2, true)]
+    [InlineData(2, false)]
+    [InlineData(8, true)]
+    [InlineData(8, false)]
+    public async Task FormattingCarriesTheRequestedIndentation(int tabWidth, bool insertSpaces)
     {
         var client = await ConnectedAsync();
 
-        await client.RequestFormattingAsync("file:///M.bas", new FormattingOptions(2, insertSpaces),
+        await client.RequestFormattingAsync("file:///M.bas", new FormattingOptions(tabWidth, insertSpaces),
             TestContext.Current.CancellationToken);
 
         var options = FrameFor("textDocument/formatting").GetProperty("params").GetProperty("options");
-        options.GetProperty("tabSize").GetInt32().Should().Be(2);
+        options.GetProperty("tabSize").GetInt32().Should().Be(tabWidth);
         options.GetProperty("insertSpaces").GetBoolean().Should().Be(insertSpaces);
     }
 

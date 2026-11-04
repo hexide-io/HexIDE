@@ -55,8 +55,10 @@ public partial class DISetup
                 return new ProjectToolViewModel(projectManager, eventBus, projectService, editorService, localization, archives);
             })
             .Bind().As(Singleton).To<FormLayoutToolViewModel>()
+            .Bind().As(Singleton).To<FindReferencesToolViewModel>()
             .Bind().As(Singleton).To<ImmediateToolViewModel>()
             .Bind().As(Singleton).To<LocalsToolViewModel>()
+            .Bind().As(Singleton).To<OutlineToolViewModel>()
             .Bind<WatchesToolViewModel>().As(Singleton).To(ctx =>
             {
                 // Make the optional debugger dependency explicit instead of expanding constructor alternatives.
@@ -95,6 +97,7 @@ public partial class DISetup
             .Bind().As(Singleton).To<ObjectBrowserToolViewModel>()
             .Bind().As(Singleton).To<TranslationEditorViewModel>()
             .Bind().As(Singleton).To<LanguageServersToolViewModel>()
+            .Bind().As(Singleton).To<HexIDE.Tools.Diagnostics.DiagnosticsToolViewModel>()
             .Bind().As(Singleton).To<HexIDE.Tools.ProtocolInspector.ProtocolInspectorToolViewModel>()
             .Bind().As(Singleton).To<WindowManager>()
             .Bind().As(Singleton).To<ProjectManager>()
@@ -275,9 +278,13 @@ public partial class DISetup
                 ctx.Inject<HexIDE.Redaction.Pseudonymiser>(out var pseudonyms);
                 ctx.Inject<IWorkspaceArtifactProviderRegistry>(out var providers);
                 ctx.Inject<ILocalizationService>(out var localization);
+                ctx.Inject<ISettingsService>(out var settings);
+                ctx.Inject<Func<IEditorService>>(out var editors);
                 return new LanguageServerRegistrationFactory(loggerFactory, workspace, capture, providers,
                     workspaceNames: new HexIDE.Redaction.ConversationRedactor(pseudonyms),
-                    locale: () => localization.ResolvedLanguage);
+                    locale: () => localization.ResolvedLanguage, settings: settings,
+                    showDocument: (request, token) => Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(
+                        () => editors().ShowDocument(request), Avalonia.Threading.DispatcherPriority.Normal, token).GetTask());
             })
             // The servers add-ins contribute (#2760), added to the router above while the IDE runs. The ids the
             // configuration names, switched off or not, keep their entries.
@@ -297,15 +304,20 @@ public partial class DISetup
             })
             .Bind<ILoggerFactory>().As(Singleton).To(_ => LoggingSetup.LoggerFactory)
             .Bind<ILogger<TT>>().As(Singleton).To<Logger<TT>>()
-            // Personality
-            .Bind<IPersonalityService>().As(Singleton).To<PersonalityService>()
+            // Profiles
+            .Bind<IProfileService>().As(Singleton).To<ProfileService>()
             // Theming
             .Bind<IThemeService>().As(Singleton).To<ThemeService>()
             // Keymaps
             .Bind<IKeymapService>().As(Singleton).To(_ => new KeymapService())
             // Localization
             .Bind<IUserTranslationsService>().As(Singleton).To<UserTranslationsService>()
-            .Bind<ILocalizationService>().As(Singleton).To<LocalizationService>()
+            .Bind<ILocalizationService>().As(Singleton).To(ctx =>
+            {
+                ctx.Inject<IUserTranslationsService>(out var translations);
+                ctx.Inject<IDeveloperModeService>(out var developerMode);
+                return new LocalizationService(Static.Profile, translations, developerMode);
+            })
             .Bind<ILanguageSwitchService>().As(Singleton).To<LanguageSwitchService>()
             // Developer mode (session state from --developer-mode)
             .Bind<IDeveloperModeService>().As(Singleton).To<DeveloperModeService>()
@@ -371,7 +383,7 @@ public partial class DISetup
             .Root<TranslationEditorViewModel>("TranslationEditorViewModel")
             .Root<LanguageServersToolViewModel>("LanguageServersToolViewModel")
             .Root<HexIDE.Tools.ProtocolInspector.ProtocolInspectorToolViewModel>("ProtocolInspectorToolViewModel")
-            .Root<IPersonalityService>("PersonalityService")
+            .Root<IProfileService>("ProfileService")
             .Root<AddinProjectTemplateService>("AddinProjectTemplateService");
 
     public static MainViewViewModel DesignTimeRootViewModel => new DISetup().Root;

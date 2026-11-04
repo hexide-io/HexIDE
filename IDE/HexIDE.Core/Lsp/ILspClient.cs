@@ -4,6 +4,8 @@ namespace HexIDE.Lsp;
 
 public interface ILspClient : IAsyncDisposable
 {
+    /// <summary>The last launch was refused solely because no workspace directory was chosen yet.</summary>
+    bool WaitingForWorkspace => false;
     /// <summary>Reports successfully created disk files; the connection applies its server filters.</summary>
     Task DidCreateFilesAsync(string[] uris, CancellationToken cancellationToken = default) => Task.CompletedTask;
     /// <summary>Reports successfully renamed disk files, carrying both absolute URIs.</summary>
@@ -16,6 +18,9 @@ public interface ILspClient : IAsyncDisposable
 
     /// <summary>Fired when the server sends textDocument/publishDiagnostics.</summary>
     event EventHandler<PublishDiagnosticsParams>? DiagnosticsPublished;
+
+    /// <summary>The client has retired this URI for a rename; cached analysis for the old name is no longer current.</summary>
+    event EventHandler<string>? DocumentRetired;
 
     /// <summary>
     /// Fired when the server asks for the user's attention about <em>itself</em> — <c>window/showMessage</c>.
@@ -252,6 +257,13 @@ public interface ILspClient : IAsyncDisposable
     /// <summary>Sends textDocument/signatureHelp and returns signature information, or null.
     /// A typed trigger selects advertising servers in the registry; null means explicit invocation.</summary>
     Task<SignatureHelp?> RequestSignatureHelpAsync(string uri, Position position, CancellationToken cancellationToken = default, string? triggerCharacter = null);
+
+    /// <summary>Finds references, including the declaration, retaining per-server errors alongside locations.</summary>
+    async Task<ReferenceSearchResult> FindReferencesAsync(string uri, Position position, CancellationToken cancellationToken = default)
+        => new(await RequestReferencesAsync(uri, position, cancellationToken), []);
+
+    Task<Location[]> RequestReferencesAsync(string uri, Position position, CancellationToken cancellationToken = default);
+
     Task<Location[]?> RequestDefinitionAsync(string uri, Position position, CancellationToken cancellationToken = default);
 
     /// <summary>
@@ -272,6 +284,9 @@ public interface ILspClient : IAsyncDisposable
 
     /// <summary>Sends textDocument/formatting and returns text edits, or empty.</summary>
     Task<TextEdit[]> RequestFormattingAsync(string uri, FormattingOptions options, CancellationToken cancellationToken = default);
+
+    /// <summary>Requests display labels in a document range from offering servers.</summary>
+    Task<InlayHint[]> RequestInlayHintsAsync(string uri, HexIDE.Lsp.Messages.Range range, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Sends <c>textDocument/codeLens</c> and returns the lenses, or empty.

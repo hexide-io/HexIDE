@@ -28,7 +28,7 @@ namespace HexIDE.Tests.LspClient;
 /// asking is safe. The bug was never a wrong directory; it was that the question could not be asked.
 /// </para>
 /// </summary>
-public class LspWorkspaceWiringTests
+public class LspWorkspaceWiringTests : CompositionTestBase
 {
     /// <summary>
     /// The composition as the application builds it: <c>Root</c> first, then the question.
@@ -41,9 +41,9 @@ public class LspWorkspaceWiringTests
     /// have gone on being green while the IDE had no language features.
     /// </para>
     /// </summary>
-    private static DISetup AsTheApplicationBuildsIt()
+    private DISetup AsTheApplicationBuildsIt()
     {
-        var composition = new DISetup();
+        var composition = Composition;
         _ = composition.Root;
         return composition;
     }
@@ -97,6 +97,19 @@ public class LspWorkspaceWiringTests
         manager.LoadedProjects.Returns(projects);
         manager.StartupProject.Returns(projects.FirstOrDefault());
         return new ProjectLspWorkspace(() => manager);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void AnUnsavedProjectHasNoRootAndQueryingDoesNotChooseAFolder(bool folders)
+    {
+        var project = TestHelpers.CreateProject("Project1");
+        var workspace = WorkspaceOver(project);
+
+        if (folders) workspace.Folders.Should().BeEmpty();
+        else workspace.Directory.Should().BeNull();
+        project.WorkingDirectory.Should().BeNullOrEmpty();
     }
 
     [Fact]

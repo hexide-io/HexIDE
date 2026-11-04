@@ -14,6 +14,8 @@ public class StdioProcessFaultTests
     [InlineData("tree")]
     [InlineData("crash")]
     [InlineData("nonzero")]
+    [InlineData("exit1")]
+    [InlineData("exit2")]
     public async Task Process_lifecycle_is_observable_and_stop_leaves_no_server(string mode)
     {
         var token = TestContext.Current.CancellationToken;
@@ -35,11 +37,12 @@ public class StdioProcessFaultTests
                 var entry = await WaitFor(e => e.Detail?.StartsWith("child:", StringComparison.Ordinal) == true);
                 child = Process.GetProcessById(int.Parse(entry.Detail![6..]));
             }
-            if (mode is "crash" or "nonzero")
+            if (mode is "crash" or "nonzero" or "exit1" or "exit2")
             {
                 await client.RequestHoverAsync("file:///fault.vb", new Position(0, 0), token)
                     .WaitAsync(TimeSpan.FromSeconds(30), token);
-                var exit = await WaitFor(e => e.Detail == $"process exited with code {(mode == "crash" ? 23 : 17)}");
+                var code = mode switch { "crash" => 23, "exit1" => 1, "exit2" => 2, _ => 17 };
+                var exit = await WaitFor(e => e.Detail == $"process exited with code {code}");
                 exit.Fault.Should().BeTrue();
                 client.IsRunning.Should().BeFalse();
             }

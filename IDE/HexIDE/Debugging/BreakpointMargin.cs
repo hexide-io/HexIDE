@@ -31,6 +31,9 @@ public sealed class BreakpointMargin : AbstractMargin
     private readonly Func<IReadOnlyList<ExternalBreakpoint>>? _externalRows;
     private readonly Func<int, string?>? _describe;
     private int? hoverLine;
+    private readonly Func<int, string?>? _condition;
+    private readonly Func<int, System.Threading.Tasks.Task>? _editCondition;
+    private readonly Func<int, bool>? _hasBreakpoint;
     internal int? CallSiteLine { get; private set; }
 
     public void SetCallSite(int? line)
@@ -52,7 +55,8 @@ public sealed class BreakpointMargin : AbstractMargin
     /// </param>
     public BreakpointMargin(IBreakpointService breakpoints, DocumentIdentity document, Func<int, bool> toggle,
         Func<bool>? externalActive = null, Func<IReadOnlyList<ExternalBreakpoint>>? externalRows = null,
-        Func<int, string?>? describe = null)
+        Func<int, string?>? describe = null, Func<int, string?>? condition = null,
+        Func<int, System.Threading.Tasks.Task>? editCondition = null, Func<int, bool>? hasBreakpoint = null)
     {
         _breakpoints = breakpoints;
         _document = document;
@@ -60,6 +64,9 @@ public sealed class BreakpointMargin : AbstractMargin
         _externalActive = externalActive;
         _externalRows = externalRows;
         _describe = describe;
+        _condition = condition;
+        _editCondition = editCondition;
+        _hasBreakpoint = hasBreakpoint;
         AutomationProperties.SetAutomationId(this, "BreakpointMargin");
     }
 
@@ -102,7 +109,7 @@ public sealed class BreakpointMargin : AbstractMargin
     private void OnBreakpointsChanged(DocumentIdentity document)
     {
         if (document == _document)
-            InvalidateVisual();
+            RefreshExternal();
     }
 
     protected override Size MeasureOverride(Size availableSize) => new Size(MarginWidth, 0);
@@ -159,6 +166,9 @@ public sealed class BreakpointMargin : AbstractMargin
                 context.DrawLine(pen, new Point(cx - radius, cy), new Point(cx, cy - radius));
             }
             else context.DrawEllipse(BreakpointBrush, null, new Point(cx, cy), radius, radius);
+            if (_condition?.Invoke(lineNumber) is not null)
+                context.DrawRectangle(null, pen, new Rect(cx - radius - 1, cy - radius - 1,
+                    CircleDiameter + 2, CircleDiameter + 2));
         }
     }
 
@@ -175,7 +185,17 @@ public sealed class BreakpointMargin : AbstractMargin
         if (visualLine == null) return;
 
         int lineNumber = visualLine.FirstDocumentLine.LineNumber; // 1-based
-        _toggle(lineNumber);
+        if (e.GetCurrentPoint(this).Properties.IsRightButtonPressed)
+        {
+            ContextMenu = null;
+            if (_hasBreakpoint?.Invoke(lineNumber) != true || _editCondition is null) return;
+            var item = new MenuItem();
+            item.Bind(MenuItem.HeaderProperty, this.GetResourceObservable("Str.Debug.Conditions.Edit"));
+            item.Click += async (_, _) => await _editCondition(lineNumber);
+            ContextMenu = new ContextMenu { ItemsSource = new[] { item } };
+            ContextMenu.Open(this);
+        }
+        else if (e.GetCurrentPoint(this).Properties.IsLeftButtonPressed) _toggle(lineNumber);
         e.Handled = true;
     }
 }

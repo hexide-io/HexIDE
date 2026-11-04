@@ -3,6 +3,10 @@ using HexIDE.Lsp.Messages;
 
 namespace HexIDE.Lsp;
 
+[JsonSerializable(typeof(ConfigurationParams))]
+[JsonSerializable(typeof(DidChangeConfigurationParams))]
+[JsonSerializable(typeof(System.Text.Json.JsonElement[]))]
+[JsonSerializable(typeof(int?))]
 [JsonSerializable(typeof(FileOperationParams))]
 [JsonSerializable(typeof(RenameFilesParams))]
 [JsonSerializable(typeof(DidChangeWorkspaceFoldersParams))]
@@ -40,6 +44,8 @@ namespace HexIDE.Lsp;
 [JsonSerializable(typeof(SemanticTokens))]
 [JsonSerializable(typeof(FoldingRangeParams))]
 [JsonSerializable(typeof(FoldingRange[]))]
+[JsonSerializable(typeof(InlayHintParams))]
+[JsonSerializable(typeof(InlayHint[]))]
 [JsonSerializable(typeof(CodeLensParams))]
 [JsonSerializable(typeof(CodeLens))]
 [JsonSerializable(typeof(CodeLens[]))]
@@ -52,6 +58,7 @@ namespace HexIDE.Lsp;
 [JsonSerializable(typeof(SignatureHelp))]
 [JsonSerializable(typeof(SignatureInformation[]))]
 [JsonSerializable(typeof(ParameterInformation[]))]
+[JsonSerializable(typeof(ReferenceParams))]
 [JsonSerializable(typeof(Location[]))]
 [JsonSerializable(typeof(DocumentHighlight[]))]
 [JsonSerializable(typeof(RenameParams))]
@@ -63,6 +70,8 @@ namespace HexIDE.Lsp;
 [JsonSerializable(typeof(VbaBuiltinSymbol[]))]
 [JsonSerializable(typeof(WorkspaceSymbolParams))]
 [JsonSerializable(typeof(SymbolInformation[]))]
+[JsonSerializable(typeof(ShowDocumentParams))]
+[JsonSerializable(typeof(ShowDocumentResult))]
 [JsonSerializable(typeof(ProgressParams))]
 [JsonSerializable(typeof(WorkDoneProgressCreateParams))]
 [JsonSerializable(typeof(SetTraceParams))]

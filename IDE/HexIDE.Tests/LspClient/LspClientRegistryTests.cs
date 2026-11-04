@@ -59,6 +59,41 @@ public class LspClientRegistryTests
 
     private static LspRange Span(int line) => new(new Position(line, 0), new Position(line, 1));
 
+    [Fact]
+    public async Task ReferencesGatherAllServersAndDeduplicateLocations()
+    {
+        var first = FakeServer(capabilitiesJson: """{"referencesProvider":true}""");
+        var second = FakeServer(capabilitiesJson: """{"referencesProvider":{}}""");
+        var declaration = new Location(Vb6Doc, Span(1));
+        var call = new Location(Vb6Doc, Span(5));
+        first.RequestReferencesAsync(Vb6Doc, Arg.Any<Position>(), Arg.Any<CancellationToken>())
+            .Returns([declaration]);
+        second.RequestReferencesAsync(Vb6Doc, Arg.Any<Position>(), Arg.Any<CancellationToken>())
+            .Returns([new Location(Vb6Doc, Span(1)), call]);
+        ILspClient sut = Registry(Registration("first", first), Registration("second", second));
+        await sut.OpenDocumentAsync(Vb6Doc, "code", TestContext.Current.CancellationToken);
+
+        (await sut.RequestReferencesAsync(Vb6Doc, new Position(1, 0),
+            TestContext.Current.CancellationToken)).Should().Equal(declaration, call);
+    }
+
+    [Fact]
+    public async Task ReferencesKeepSuccessfulLocationsWhenAnotherServerFails()
+    {
+        var first = FakeServer(capabilitiesJson: """{"referencesProvider":true}""");
+        var second = FakeServer(capabilitiesJson: """{"referencesProvider":true}""");
+        var location = new Location(Vb6Doc, Span(2));
+        first.RequestReferencesAsync(Vb6Doc, Arg.Any<Position>(), Arg.Any<CancellationToken>()).Returns([location]);
+        second.RequestReferencesAsync(Vb6Doc, Arg.Any<Position>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromException<Location[]>(new InvalidOperationException("broken server")));
+        var sut = Registry(Registration("first", first), Registration("second", second));
+        await sut.OpenDocumentAsync(Vb6Doc, "code", TestContext.Current.CancellationToken);
+        var result = await sut.FindReferencesAsync(Vb6Doc, new Position(2, 0), TestContext.Current.CancellationToken);
+        result.Locations.Should().Equal(location);
+        result.Errors.Should().ContainSingle().Which.Message.Should().Be("broken server");
+        result.Errors[0].Server.Should().Be("second");
+    }
+
     [Theory]
     [InlineData("Create")]
     [InlineData("Rename")]
@@ -268,6 +303,45 @@ public class LspClientRegistryTests
         received.Select(p => p.Kind).Should().Equal("begin", "end");
         received.Should().OnlyContain(p => p.Name == "VB tools");
         received.Should().OnlyContain(p => ReferenceEquals(p.Sender, server));
+    }
+
+    [Fact]
+    public async Task ALaunchWaitingForAWorkspaceCanStartOnTheNextOpen()
+    {
+        var waiting = FakeServer(running: false);
+        waiting.WaitingForWorkspace.Returns(true);
+        var failure = new LanguageConnectionAttempt(LanguageConnectionStage.Connecting,
+            [new LanguageConnectionStep(LanguageConnectionStage.Connecting,
+                LanguageConnectionStepOutcome.StoppedHere, null, "project has not been saved yet")],
+            DateTimeOffset.UtcNow);
+        waiting.LastAttempt.Returns(failure);
+        var ready = FakeServer();
+        var attempts = 0;
+        var workspace = Substitute.For<ILspWorkspace>();
+        string? directory = null;
+        workspace.Directory.Returns(_ => directory);
+        var logger = Substitute.For<ILogger<LspClientRegistry>>();
+        var sut = new LspClientRegistry([new LanguageServerRegistration("vb6", "vb6",
+            DocumentLanguage.Vb6Extensions, DocumentLanguage.Vb6,
+            () =>
+            {
+                attempts++;
+                return directory is null ? waiting : ready;
+            })], logger, workspace);
+
+        await sut.OpenDocumentAsync(Vb6Doc, "first", TestContext.Current.CancellationToken);
+        sut.Connections.Single().State.Should().Be(LanguageConnectionState.NotStarted);
+        sut.Connections.Single().Attempt.Should().Be(failure);
+        await sut.OpenDocumentAsync("untitled:Project1/Module2.bas", "second", TestContext.Current.CancellationToken);
+        sut.Connections.Single().State.Should().Be(LanguageConnectionState.NotStarted);
+        directory = Path.Combine(Path.GetTempPath(), "hexide-saved-project");
+        await sut.OpenDocumentAsync("untitled:Project1/Module3.bas", "third", TestContext.Current.CancellationToken);
+
+        sut.Connections.Single().State.Should().Be(LanguageConnectionState.Running);
+        await ready.Received(1).OpenDocumentAsync("untitled:Project1/Module3.bas", "third", Arg.Any<CancellationToken>());
+        attempts.Should().Be(3);
+        logger.ReceivedCalls().Count(c => c.GetMethodInfo().Name == "Log"
+            && c.GetArguments()[0] is LogLevel.Warning).Should().Be(1);
     }
 
     [Fact]

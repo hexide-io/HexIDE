@@ -28,6 +28,20 @@ A single-selection list's `add_to_selection` refusal SHALL name that verb and po
 - **WHEN** the target list or tree row is not selected
 - **THEN** the selection remains unchanged and the reply says the target was not selected
 
+### Requirement: Inspection SHALL bound the values it reports
+`inspect_element` SHALL cut each `dataContextMembers` value after 200 characters and a control's own `value`
+after 4,000 characters, with a suffix stating the cap and full length. When members are cut, `dataContextNote`
+SHALL count them and explain that inspecting a control showing one gives up to 4,000 characters as its `value`,
+joined to any existing note. With no members cut it SHALL add no truncation sentence.
+
+#### Scenario: A templated card's long members
+- **WHEN** a card's text owns a DataContext with two 5,000-character member values
+- **THEN** each is cut at 200 with its full length stated, and the note counts two cuts and explains how to read more
+
+#### Scenario: A control's own long text
+- **WHEN** a TextBox or the Immediate window's editor holds 9,000 characters
+- **THEN** its `value` is cut at 4,000 with the full length stated
+
 ### Requirement: Inspection SHALL give the text of every item a list holds
 `inspect_element` on a list, an open dropdown or a tab control SHALL give `items`, the text of each item as `select`
 matches it, including items whose rows are scrolled out of view, and SHALL leave the list where it was. It SHALL
@@ -807,6 +821,31 @@ cause when no such input came, and SHALL NOT count routed pointer events a tool 
 - **WHEN** another hover moves the pointer elsewhere during the watch, and no tip opens
 - **THEN** the reply names the other hover, not the real mouse, and says to hover one control at a time
 
+### Requirement: hover SHALL say why a code window opened no tip
+When `hover` lands in a code window and no tip opens, the reply SHALL say where it landed, as a line, column and the word
+there or that the point is below the text, and what the editor asked for: each quick-info request recorded during the watch
+with how it ended, or why none was asked. It SHALL state only what the editor and the protocol capture recorded.
+
+#### Scenario: A server answers with nothing
+- **WHEN** `hover` rests on a word and the language server answers the quick-info request with nothing to show
+- **THEN** the reply names the word, the server and the request's capture sequence, and says it answered with nothing to show
+
+#### Scenario: No server for the document
+- **WHEN** no language server is registered for the document's extension
+- **THEN** the reply says none is registered for those files, so none was asked
+
+#### Scenario: A watch shorter than the editor's delay
+- **WHEN** `dwellMs` is no longer than the editor's 400ms quick-info delay
+- **THEN** the reply says nothing had been asked yet, and that `dwellMs` must exceed the delay plus the server's round trip
+
+#### Scenario: A request still waiting
+- **WHEN** the quick-info request has no answer when the watch ends
+- **THEN** the reply says so, with how long it had waited, and that a longer `dwellMs` may see the answer
+
+#### Scenario: A point below the text
+- **WHEN** the point is below the last line of text
+- **THEN** the reply says so, and that nothing was asked
+
 ### Requirement: Snapshot coordinates include popup overhang
 
 By default, a snapshot SHALL include the client area and its open native popups at their relative screen positions,
@@ -867,14 +906,25 @@ leave new documents pathless and explain the null path and how to save them in i
 ### Requirement: Named controls SHALL expose their visible labels
 The control tree and single-control inspection SHALL retain x:Name as `name` when present and report the
 peer's meaningful label as `label` when it differs. Paths SHALL retain their existing stable discriminators
-and accept a label as an alternative discriminator. Discovery searches SHALL include the label, and interaction
-replies SHALL use the meaningful label when available.
+and accept a label as an alternative discriminator; a TextBlock's data-bound text (SelectableTextBlock included)
+is not stable, so such a text SHALL be emitted by position unless an AutomationId or x:Name identifies it. Discovery
+searches SHALL include the label, and interaction replies SHALL use the meaningful label when available.
 
 #### Scenario: Discovering a named menu
 - **WHEN** a menu item has x:Name `ToolsMenuItem` and visible header `_Tools`
 - **THEN** its node and inspection report `name: "ToolsMenuItem"` and `label: "Tools"`
 - **AND** its emitted path ends in `MenuItem[ToolsMenuItem]`, while `MenuItem[Tools]` also resolves
 - **AND** expanding it names `Tools` in the reply
+
+#### Scenario: A data-bound text changes after discovery
+- **WHEN** an unnamed text bound to data is dumped beside another text
+- **THEN** its emitted path uses `Text[#index]`, and its `name` still reports its current text
+- **AND** the same path resolves to the same control after its text changes
+- **AND** its current label still resolves as an alternative discriminator
+- **AND** a unique unnamed text uses bare `Text`; other unnamed texts use `Text[#index]`
+- **AND** literals, resource references and TemplateBinding retain label discriminators
+- **AND** a missing typed label with a same-type data-bound text sibling explains that such text changes,
+  is addressed by position, and that the caller should dump again for its current path
 
 ### Requirement: Attribute window waits when settling running-form actions
 
@@ -1015,10 +1065,11 @@ handlers it let finish.
 - **THEN** the reply says the program opened `Form2 ("Second")`
 
 ### Requirement: Run-control replies SHALL say what the program printed
-A successful reply from `run_project`, `stop_project`, `continue_program`, `break_program`, a step or `run_to_cursor`
-SHALL give in `printed` what the program wrote with `Debug.Print` since its run began or a reply last reported it, and
-its note SHALL say how much, or that it wrote nothing. Output past 4000 characters SHALL keep its end, with the note
-saying how much was left out.
+For interpreter sessions, a successful reply from `run_project`, `stop_project`, `continue_program`,
+`break_program`, a step or `run_to_cursor` SHALL give in `printed` what the program wrote with `Debug.Print`
+since its run began or a reply last reported it, and its note SHALL say how much, or that it wrote nothing.
+Output past 4000 characters SHALL keep its end, with the note saying how much was left out. For an external debug session, `stop_project` SHALL instead state that external
+session output is not captured by this tool and direct the caller to the Immediate window.
 
 #### Scenario: A program that prints as it loads
 - **WHEN** `run_project` starts a program whose `Form_Load` prints two lines
@@ -1027,6 +1078,20 @@ saying how much was left out.
 #### Scenario: Nothing printed
 - **WHEN** a program prints nothing before `stop_project`
 - **THEN** the reply has no `printed`, and its note says Debug.Print wrote nothing
+
+### Requirement: Debug state SHALL describe the external session consistently
+During an external debug session and after it ends, until another run starts, `get_debug_state` SHALL
+report that session's state: Starting, Running, Paused (the adapter's Stopped), Ended or Faulted.
+`running` SHALL be true only for Starting, Running or Paused, including while adapter cleanup is pending.
+Known adapter reasons SHALL map to the documented stop-reason vocabulary; an unmapped reason SHALL
+have a null `stopReason`. `adapterStopReason` SHALL retain the raw reason while paused.
+The description SHALL explain that external `module` is a source path, `project` is absent, and
+`set_next_statement` takes a module name instead.
+
+#### Scenario: Disconnect is still pending after End
+- **WHEN** the external session has ended but its adapter has not acknowledged disconnect
+- **THEN** `get_debug_state` reports `running: false` and `state: Ended`
+- **AND** `stop_project` does not claim that Debug.Print wrote nothing
 
 ### Requirement: Realized items SHALL be listed in item order
 The control-view collector shared by `dump_visual_tree` and path resolution SHALL order an items
@@ -1318,3 +1383,31 @@ disabled-window refusals.
 
 - **WHEN** a caller clicks an unnamed button whose automation id is `Standard.OpenProject`
 - **THEN** the reply describes it as `Button[Standard.OpenProject]`
+
+### Requirement: External session run control
+
+The run-control tools SHALL use the Debug menu's external routes for Step Into, Step Over,
+Step Out, Continue and Break. Set Next Statement SHALL use capability-gated gotoTargets/goto
+with the named saved document's source path. Replies SHALL wait up to two seconds for the
+new stop's stack and report its top source frame, running or ended. Adapter refusals SHALL
+include the adapter's message and say whether stopped inspection was kept. External Run To
+Cursor SHALL refuse with an explanation that the route lacks one-shot breakpoint support.
+
+#### Scenario: Step an external session
+
+- **GIVEN** an external debug session is stopped
+- **WHEN** `step_into` is called
+- **THEN** the menu route sends `stepIn`
+- **AND** the reply reports the next stopped frame's source path and line when available within the wait
+
+#### Scenario: Adapter refuses a resume
+
+- **GIVEN** a stopped external session with inspection visible
+- **WHEN** the adapter refuses the tool's resume command
+- **THEN** the reply includes the adapter's message and says that inspection was kept
+
+#### Scenario: Move to a named source document
+
+- **GIVEN** an external adapter supporting gotoTargets and a saved module
+- **WHEN** `set_next_statement` names that module and a valid source line
+- **THEN** gotoTargets receives the document's file path and line, followed by goto for the returned target

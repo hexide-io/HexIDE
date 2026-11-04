@@ -16,12 +16,13 @@
         </Style>
         <Style Selector="TextBlock.label">
             <Setter Property="Opacity" Value="0.7" />
-            <Setter Property="Width" Value="96" />
+            <Setter Property="Margin" Value="0,0,12,0" />
         </Style>
     </UserControl.Styles>
 
-    <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto" Padding="10">
-        <StackPanel Spacing="14">
+    <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+        <!-- Keep the inset in the scrollable content so the extent includes it. -->
+        <StackPanel Spacing="14" Margin="10">
 
             <!-- Nothing attached at all. Its own message, because "no servers" and "servers, none working"
                  are different situations and an empty list says neither. -->
@@ -82,7 +83,7 @@
                                     <DataTemplate DataType="ls:LanguageServerRowViewModel">
                                         <Border BorderBrush="{DynamicResource DockTitleBarBrush}"
                                                 BorderThickness="1" Padding="8" Margin="0,0,0,6">
-                                            <StackPanel Spacing="3">
+                                            <StackPanel Spacing="3" Grid.IsSharedSizeScope="True">
 
                                                 <DockPanel>
                                                     <TextBlock DockPanel.Dock="Right" Classes="machine"
@@ -92,19 +93,31 @@
                                                                FontWeight="Bold" />
                                                 </DockPanel>
 
-                                                <Grid ColumnDefinitions="96,*">
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="Auto" SharedSizeGroup="CardLabel" />
+                                                        <ColumnDefinition Width="*" />
+                                                    </Grid.ColumnDefinitions>
                                                     <TextBlock Classes="label" Grid.Column="0"
                                                                Text="{DynamicResource Str.Tool.LanguageServers.Id}" />
                                                     <TextBlock Grid.Column="1" Classes="machine" Text="{CompiledBinding Id}" />
                                                 </Grid>
 
-                                                <Grid ColumnDefinitions="96,*" IsVisible="{CompiledBinding HasOrigin}">
+                                                <Grid IsVisible="{CompiledBinding HasOrigin}">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="Auto" SharedSizeGroup="CardLabel" />
+                                                        <ColumnDefinition Width="*" />
+                                                    </Grid.ColumnDefinitions>
                                                     <TextBlock Classes="label" Grid.Column="0"
                                                                Text="{DynamicResource Str.Tool.LanguageServers.Origin}" />
                                                     <TextBlock Grid.Column="1" Text="{CompiledBinding Origin}" />
                                                 </Grid>
 
-                                                <Grid ColumnDefinitions="96,*">
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="Auto" SharedSizeGroup="CardLabel" />
+                                                        <ColumnDefinition Width="*" />
+                                                    </Grid.ColumnDefinitions>
                                                     <TextBlock Classes="label" Grid.Column="0"
                                                                Text="{DynamicResource Str.Tool.LanguageServers.Transport}" />
                                                     <StackPanel Grid.Column="1">
@@ -115,19 +128,31 @@
                                                     </StackPanel>
                                                 </Grid>
 
-                                                <Grid ColumnDefinitions="96,*">
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="Auto" SharedSizeGroup="CardLabel" />
+                                                        <ColumnDefinition Width="*" />
+                                                    </Grid.ColumnDefinitions>
                                                     <TextBlock Classes="label" Grid.Column="0"
                                                                Text="{DynamicResource Str.Tool.LanguageServers.Claims}" />
                                                     <TextBlock Grid.Column="1" Classes="machine" Text="{CompiledBinding Claims}" />
                                                 </Grid>
 
-                                                <Grid ColumnDefinitions="96,*">
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="Auto" SharedSizeGroup="CardLabel" />
+                                                        <ColumnDefinition Width="*" />
+                                                    </Grid.ColumnDefinitions>
                                                     <TextBlock Classes="label" Grid.Column="0"
                                                                Text="{DynamicResource Str.Tool.LanguageServers.Priority}" />
                                                     <TextBlock Grid.Column="1" Classes="machine" Text="{CompiledBinding Priority}" />
                                                 </Grid>
 
-                                                <Grid ColumnDefinitions="96,*">
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="Auto" SharedSizeGroup="CardLabel" />
+                                                        <ColumnDefinition Width="*" />
+                                                    </Grid.ColumnDefinitions>
                                                     <TextBlock Classes="label" Grid.Column="0"
                                                                Text="{DynamicResource Str.Tool.LanguageServers.Status}" />
                                                     <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6">
@@ -136,7 +161,11 @@
                                                     </StackPanel>
                                                 </Grid>
 
-                                                <Grid ColumnDefinitions="96,*" IsVisible="{CompiledBinding HasReportedIdentity}">
+                                                <Grid IsVisible="{CompiledBinding HasReportedIdentity}">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="Auto" SharedSizeGroup="CardLabel" />
+                                                        <ColumnDefinition Width="*" />
+                                                    </Grid.ColumnDefinitions>
                                                     <TextBlock Classes="label" Grid.Column="0"
                                                                Text="{DynamicResource Str.Tool.LanguageServers.ReportedBy}" />
                                                     <TextBlock Grid.Column="1" Classes="machine" Text="{CompiledBinding ReportedBy}" />
@@ -171,7 +200,11 @@
 
                                                 <!-- Requests refused because the server never advertised them. Correct, deliberate, and otherwise
                                                      indistinguishable from the feature being broken. -->
-                                                <Grid ColumnDefinitions="96,*" IsVisible="{CompiledBinding HasDeclined}" Margin="0,4,0,0">
+                                                <Grid IsVisible="{CompiledBinding HasDeclined}" Margin="0,4,0,0">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="Auto" SharedSizeGroup="CardLabel" />
+                                                        <ColumnDefinition Width="*" />
+                                                    </Grid.ColumnDefinitions>
                                                     <TextBlock Classes="label" Grid.Column="0"
                                                                Text="{DynamicResource Str.Tool.LanguageServers.Declined}" />
                                                     <ItemsControl Grid.Column="1" ItemsSource="{CompiledBinding Declined}">
@@ -181,13 +214,21 @@
                                                     </ItemsControl>
                                                 </Grid>
 
-                                                <Grid ColumnDefinitions="96,*" IsVisible="{CompiledBinding ShowsDocumentCount}">
+                                                <Grid IsVisible="{CompiledBinding ShowsDocumentCount}">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="Auto" SharedSizeGroup="CardLabel" />
+                                                        <ColumnDefinition Width="*" />
+                                                    </Grid.ColumnDefinitions>
                                                     <TextBlock Classes="label" Grid.Column="0"
                                                                Text="{DynamicResource Str.Tool.LanguageServers.Documents}" />
                                                     <TextBlock Grid.Column="1" Classes="machine" Text="{CompiledBinding OpenDocumentCount}" />
                                                 </Grid>
 
-                                                <Grid ColumnDefinitions="96,*" IsVisible="{CompiledBinding HasWorkspaceRoot}">
+                                                <Grid IsVisible="{CompiledBinding HasWorkspaceRoot}">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="Auto" SharedSizeGroup="CardLabel" />
+                                                        <ColumnDefinition Width="*" />
+                                                    </Grid.ColumnDefinitions>
                                                     <TextBlock Classes="label" Grid.Column="0"
                                                                Text="{DynamicResource Str.Tool.LanguageServers.WorkspaceRoot}" />
                                                     <TextBlock Grid.Column="1" Classes="machine" Text="{CompiledBinding WorkspaceRoot}" />
@@ -226,6 +267,15 @@
                                                               IsChecked="{CompiledBinding IsArmed}"
                                                               Content="{DynamicResource Str.Tool.LanguageServers.KeepBodies}" />
                                                 </DockPanel>
+
+                                                <TextBlock FontWeight="Bold" Margin="0,8,0,0"
+                                                           Text="{DynamicResource Str.Tool.LanguageServers.Output}" />
+                                                <TextBox Text="{CompiledBinding OutputText, Mode=OneWay}"
+                                                         AutomationProperties.Name="{DynamicResource Str.Tool.LanguageServers.Output}"
+                                                         IsReadOnly="True" AcceptsReturn="True"
+                                                         FontFamily="Courier New" Height="160"
+                                                         ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                                                         ScrollViewer.VerticalScrollBarVisibility="Auto" />
 
                                                 <Expander IsVisible="{CompiledBinding HasCapabilities}"
                                                           Margin="0,4,0,0"

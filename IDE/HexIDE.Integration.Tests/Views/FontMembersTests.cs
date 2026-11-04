@@ -403,6 +403,24 @@ public class FontMembersTests
     }
 
     [AvaloniaFact]
+    public void Font_alias_Size_14_reads_the_measured_Arial_size_and_updates_shared_controls()
+    {
+        // vb6.exe native and p-code: docs/vb6-fidelity-oracle/a-controls-font-object.md.
+        Run("""
+                Label1.Font = "Arial"
+                Dim f As Object
+                Set f = Label1.Font
+                f.Size = 14
+                Debug.Print Label1.FontSize & " " & f.Size & " " & TypeName(f.Size)
+                Set Text1.Font = Label1.Font
+                Debug.Print Text1.FontName & " " & Text1.FontSize
+                Label1.Font.Size = 9
+                Debug.Print Text1.FontSize & " " & (Text1.Font Is f)
+
+            """).Should().Equal("14.25 14.25 Currency", "Arial 14.25", "9 True");
+    }
+
+    [AvaloniaFact]
     public void Set_Font_Nothing_raises_380_without_replacing_the_font()
     {
         Run("""

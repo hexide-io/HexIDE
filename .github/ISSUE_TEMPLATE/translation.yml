@@ -1,0 +1,38 @@
+name: Translation problem
+description: Suggest a correction to text in your language.
+labels: [translation]
+body:
+  - type: input
+    id: language
+    attributes:
+      label: Language
+      description: Give the language pack id, such as de for German.
+      placeholder: de
+    validations:
+      required: true
+  - type: input
+    id: location
+    attributes:
+      label: Where does the text appear?
+      placeholder: Options → Language
+    validations:
+      required: true
+  - type: textarea
+    id: current
+    attributes:
+      label: What does it say now?
+    validations:
+      required: true
+  - type: textarea
+    id: suggestion
+    attributes:
+      label: What should it say?
+    validations:
+      required: true
+  - type: input
+    id: key
+    attributes:
+      label: String key (optional)
+      description: If you know the Str.* key, include it here. Otherwise, leave this blank.
+    validations:
+      required: false

@@ -47,6 +47,9 @@ internal sealed class LspDocumentSession : IDisposable
     private readonly Action<Action> postToUiThread;
 
     private CancellationTokenSource? debounce;
+    private readonly object changeLock = new();
+    private (int Version, string Text)? pendingChange;
+    private Task changeInFlight = Task.CompletedTask;
     // This document as the client knows it, shared with every other session holding the same name on the same
     // client: how many hold it, and the version its last message carried. Null until Start. (#721)
     private SharedDocument? shared;
@@ -94,15 +97,28 @@ internal sealed class LspDocumentSession : IDisposable
     {
         public int Holders;
 
-        // The version the last message about this document carried: the open's until the first change, so that
-        // change carries the next one rather than repeating it. (#470)
+        // Versions are drawn with the text at edit time (#470); SentVersion trails while a debounce is pending.
         public int Version = LspDocumentVersion.Opening;
+        public int SentVersion = LspDocumentVersion.Opening;
 
         // What was last published for it, so a window that joins shows what the others already show.
         public PublishDiagnosticsParams? LastPublished;
     }
 
     private static readonly ConditionalWeakTable<ILspClient, Dictionary<string, SharedDocument>> SharedDocuments = new();
+
+    // Read before opening any target windows: a newly opened window was not the server's source.
+    internal static (int Sent, int Current)? VersionsFor(ILspClient client, string uri)
+    {
+        if (!SharedDocuments.TryGetValue(client, out var documents)) return null;
+        lock (documents)
+        {
+            foreach (var entry in documents)
+                if (LspDocumentUri.AreSame(entry.Key, uri))
+                    return (Volatile.Read(ref entry.Value.SentVersion), Volatile.Read(ref entry.Value.Version));
+        }
+        return null;
+    }
 
     /// <summary>Holds <paramref name="uri"/>'s document on this client, and says whether this is its first holder.</summary>
     private (SharedDocument Document, bool First) Hold(string uri)
@@ -129,7 +145,7 @@ internal sealed class LspDocumentSession : IDisposable
 
     /// <summary>
     /// The version the next message about this document carries, drawn now so that it goes with the text read now.
-    /// Atomic, because the debounced change draws it on a pool thread while a flush may draw it on the UI thread.
+    /// Shared by all windows holding this document, whether the edit is sent by the debounce or a flush.
     /// </summary>
     private int NextVersion() => Interlocked.Increment(ref shared!.Version);
 
@@ -247,7 +263,7 @@ internal sealed class LspDocumentSession : IDisposable
     }
 
     /// <summary>
-    /// Cancels any pending debounce and sends the current text immediately.
+    /// Cancels any pending debounce and sends unsent edits immediately.
     ///
     /// <para>
     /// For requests whose answer depends on the server holding what the user can see — signature help
@@ -262,12 +278,24 @@ internal sealed class LspDocumentSession : IDisposable
     /// here dropped the flush and the change it superseded together (hexide-io/HexIDE#719).
     /// </para>
     /// </summary>
-    public async Task FlushAsync(CancellationToken cancellationToken = default)
+    public Task FlushAsync(CancellationToken cancellationToken = default)
     {
-        debounce?.Cancel();
-        // Nothing to change before the document is held: no server has been told of it.
-        if (disposed || shared is null) return;
-        await client.ChangeDocumentAsync(Uri, NextVersion(), document.Text, cancellationToken);
+        lock (changeLock)
+        {
+            debounce?.Cancel();
+            return SendPendingChangeAsync(cancellationToken);
+        }
+    }
+
+    private Task SendPendingChangeAsync(CancellationToken cancellationToken = default)
+    {
+        // The debounce and a flush claim the same edit once. A refresh must also await a send already
+        // in flight, so its request cannot overtake the text it asks about.
+        if (disposed || shared is null) return Task.CompletedTask;
+        if (pendingChange is not { } pending) return changeInFlight;
+        pendingChange = null;
+        Volatile.Write(ref shared.SentVersion, pending.Version);
+        return changeInFlight = client.ChangeDocumentAsync(Uri, pending.Version, pending.Text, cancellationToken);
     }
 
     /// <summary>
@@ -345,7 +373,11 @@ internal sealed class LspDocumentSession : IDisposable
         if (disposed || !started || LspDocumentUri.AreSame(newUri, Uri)) return;
 
         // Any debounced change belongs to the old name and would arrive after its close.
-        debounce?.Cancel();
+        lock (changeLock)
+        {
+            debounce?.Cancel();
+            pendingChange = null;
+        }
 
         renaming = true;
         try
@@ -375,8 +407,8 @@ internal sealed class LspDocumentSession : IDisposable
 
         // Captured now rather than read in the continuation: by the time it runs the buffer may have moved
         // on, and a version number paired with the wrong text is worse than a stale one.
-        var pending = NextVersion();
-        var text = document.Text;
+        lock (changeLock)
+            pendingChange = (NextVersion(), document.Text);
 
         // Handed on whether or not a server is running yet. While one starts, nothing below can send it, but
         // the registry and the client record it, and the open that follows the start carries it. Gated here,
@@ -384,8 +416,11 @@ internal sealed class LspDocumentSession : IDisposable
         Task.Delay(DebounceMilliseconds, token).ContinueWith(
             _ =>
             {
-                if (!token.IsCancellationRequested && !disposed)
-                    client.ChangeDocumentAsync(Uri, pending, text).ListenErrors();
+                lock (changeLock)
+                {
+                    if (!token.IsCancellationRequested && !disposed)
+                        SendPendingChangeAsync().ListenErrors();
+                }
             },
             token,
             TaskContinuationOptions.OnlyOnRanToCompletion,
@@ -447,7 +482,8 @@ internal sealed class LspDocumentSession : IDisposable
             // A severity a server omits is an error: the protocol leaves it to the client, and treating an
             // unstated severity as a hint would hide real problems from a server that never sets it.
             var isError = diagnostic.Severity is null || diagnostic.Severity == DiagnosticSeverity.Error;
-            markers.Add(new LspMarker(startOffset, endOffset, isError, diagnostic.Message, diagnostic.Source));
+            markers.Add(new LspMarker(startOffset, endOffset, isError, diagnostic.Message, diagnostic.Source,
+                diagnostic.Tags, diagnostic.RelatedInformation));
         }
 
         return markers;

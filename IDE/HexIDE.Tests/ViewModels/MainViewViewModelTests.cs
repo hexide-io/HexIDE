@@ -78,6 +78,21 @@ public class MainViewViewModelTests
             Substitute.For<IHeaderRefresher>());
     }
 
+    [AvaloniaFact]
+    public void GivenReferencesOpenInTheImmediateWindowGroup()
+    {
+        var references = new FindReferencesToolViewModel(Substitute.For<ILspClient>(),
+            Substitute.For<IEditorService>(), _projectManager,
+            Substitute.For<IDocumentDockService>(), _localization);
+        var shell = Build(_runnerService, references: references);
+        references.ShowLocations([]);
+        references.Owner.Should().NotBeNull();
+        references.Owner.Should().BeSameAs(shell.Immediate.Owner);
+        var group = (Dock.Model.Controls.IToolDock)references.Owner!;
+        group.Alignment.Should().Be(Dock.Model.Core.Alignment.Bottom);
+        group.ActiveDockable.Should().BeSameAs(references);
+    }
+
     [AvaloniaTheory]
     [InlineData(null)]
     [InlineData(ModuleKind.StandardModule)]
@@ -163,7 +178,9 @@ public class MainViewViewModelTests
     /// </summary>
     private MainViewViewModel Build(IProjectRunnerService runner, IDocumentDockService? dock = null,
         HexIDE.Debugging.IBreakpointService? breakpoints = null, IProjectService? projects = null,
-        HexIDE.Recovery.IRecoveryOffers? recoveryOffers = null)
+        HexIDE.Recovery.IRecoveryOffers? recoveryOffers = null,
+        HexIDE.Debugging.ExternalDebugService? external = null, IEditorService? editor = null,
+        FindReferencesToolViewModel? references = null)
     {
         projects ??= _projectService;
         var mockDocDock = dock ?? Substitute.For<IDocumentDockService>();
@@ -185,7 +202,7 @@ public class MainViewViewModelTests
         var locals = new LocalsToolViewModel(loc, Substitute.For<HexIDE.Runtime.Debugging.IDebugController>());
         var watches = new WatchesToolViewModel(loc, new HexIDE.Debugging.WatchService(), Substitute.For<HexIDE.Runtime.Debugging.IDebugController>(), Substitute.For<HexIDE.IDE.IWindowManager>());
         var callStack = new CallStackToolViewModel(loc, Substitute.For<HexIDE.Runtime.Debugging.IDebugController>());
-        var editorService = Substitute.For<IEditorService>();
+        var editorService = editor ?? Substitute.For<IEditorService>();
         var projectExplorer = new ProjectToolViewModel(_projectManager, _eventBus, projects, editorService, loc);
         var colorPalette = new ColorPaletteToolViewModel(mockDocDock);
         var objectBrowser = new ObjectBrowserToolViewModel(_projectManager, Substitute.For<ILspClient>(), editorService, Substitute.For<IComponentRegistry>(), Substitute.For<ITypeLibraryService>(), Substitute.For<IFocusedProjectUtil>(), loc,
@@ -198,6 +215,7 @@ public class MainViewViewModelTests
         var lsRegistry = Substitute.For<ILanguageConnectionRegistry>();
         lsRegistry.Connections.Returns([]);
         lsRegistry.ConfigurationProblems.Returns([]);
+        lsRegistry.Diagnostics.Returns([]);
         var languageServers = new LanguageServersToolViewModel(
             lsRegistry, loc, new ConversationLog(), Substitute.For<IEventBus>(),
             new HexIDE.Redaction.Pseudonymiser());
@@ -209,7 +227,8 @@ public class MainViewViewModelTests
             immediate, locals, watches, callStack, colorPalette, objectBrowser, translationEditor,
             languageServers,
             protocolInspector,
-            windowStateService, new DockFactoryReference());
+            windowStateService, new DockFactoryReference(), new HexIDE.Tools.OutlineToolViewModel(
+                Substitute.For<HexIDE.Localization.ILocalizationService>(), Substitute.For<IDocumentDockService>()));
 
         var languageSwitch = Substitute.For<ILanguageSwitchService>();
         languageSwitch.ActiveLanguage.Returns("en");
@@ -231,6 +250,8 @@ public class MainViewViewModelTests
             translationEditor,
             languageServers,
             protocolInspector,
+            new HexIDE.Tools.Diagnostics.DiagnosticsToolViewModel(lsRegistry, Substitute.For<HexIDE.Lsp.ILspClient>(),
+                mockDocDock, editorService, loc),
             _projectManager,
             _focusedProjectUtil,
             projects,
@@ -251,7 +272,7 @@ public class MainViewViewModelTests
             new AddinOptionsService(),
             Substitute.For<IDeveloperModeService>(),
             _statusBarService,
-            Substitute.For<IPersonalityService>(),
+            Substitute.For<IProfileService>(),
             new AddinMenuService(),
             new AddinCommandService(),
             new AddinToolWindowService(),
@@ -259,7 +280,89 @@ public class MainViewViewModelTests
             breakpoints ?? Substitute.For<HexIDE.Debugging.IBreakpointService>(),
             _debugController,
             new RecentEditsToolViewModel(new RecentEditHistory(_eventBus), () => editorService, loc),
-            recoveryOffers: recoveryOffers);
+            recoveryOffers: recoveryOffers, externalDebugger: external, findReferences: references);
+    }
+
+    [AvaloniaTheory]
+    [InlineData("goto-refuse", "goto")]
+    [InlineData("resume-refusal", "next")]
+    public async Task Refused_external_move_keeps_caret_scroll_and_inspection(string mode, string command)
+    {
+        var directory = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "hexide-reveal-" + Guid.NewGuid());
+        System.IO.Directory.CreateDirectory(directory);
+        await using var log = new ConversationLog();
+        var external = new HexIDE.Debugging.ExternalDebugService(log);
+        using var theme = MenuTheme();
+        var editorTheme = new Avalonia.Markup.Xaml.Styling.StyleInclude(new Uri("avares://AvaloniaEdit/"))
+        {
+            Source = new Uri("avares://AvaloniaEdit/Themes/Simple/AvaloniaEdit.xaml"),
+        };
+        Avalonia.Application.Current!.Styles.Add(editorTheme);
+        var editor = new AvaloniaEdit.TextEditor { Text = string.Join("\n", Enumerable.Repeat("Debug.Print 1", 200)) };
+        var window = new Avalonia.Controls.Window { Width = 400, Height = 200, Content = editor };
+        var navigation = Substitute.For<IEditorService>();
+        navigation.NavigateTo(Arg.Any<string>(), Arg.Any<int>(), Arg.Any<int>()).Returns(call =>
+        {
+            editor.TextArea.Caret.Line = call.ArgAt<int>(1);
+            editor.ScrollToLine(call.ArgAt<int>(1));
+            return true;
+        });
+        var sut = Build(_runnerService, external: external, editor: navigation);
+        window.Show();
+        var executable = System.IO.Path.GetFullPath("../../../dotnet" + (OperatingSystem.IsWindows() ? ".exe" : ""),
+            System.Runtime.InteropServices.RuntimeEnvironment.GetRuntimeDirectory());
+        var file = System.IO.Path.Combine(directory, "launch.json");
+        await System.IO.File.WriteAllTextAsync(file, System.Text.Json.JsonSerializer.Serialize(new
+        {
+            executable, arguments = new[] { typeof(HexIDE.Dap.TestAdapter.Program).Assembly.Location, mode },
+            adapterId = "fixture", launch = new { },
+        }));
+        var run = external.StartAsync(file);
+        async Task Until(Func<bool> done)
+        {
+            var deadline = DateTime.UtcNow.AddSeconds(20);
+            while (!done())
+            {
+                DateTime.UtcNow.Should().BeBefore(deadline);
+                await Task.Delay(10, TestContext.Current.CancellationToken);
+            }
+        }
+        try
+        {
+            await Until(() => external.CanEvaluate && external.Variables.Count == 1);
+            navigation.Received().NavigateTo(Arg.Any<string>(), 6, 1);
+            editor.TextArea.Caret.Line = 100;
+            editor.ScrollToLine(100);
+            window.UpdateLayout();
+            var caret = editor.CaretOffset;
+            var scroll = editor.VerticalOffset;
+            scroll.Should().BeGreaterThan(0);
+            var frames = external.Frames;
+            var variables = external.Variables;
+            var location = external.CurrentLocation;
+            var stop = external.Stop;
+            navigation.ClearReceivedCalls();
+
+            if (command == "goto") await external.SetNextStatementAsync(new Uri(System.IO.Path.Combine(directory, "Module1.bas")).AbsoluteUri, 100);
+            else await external.CommandAsync(command);
+            await Until(() => external.CanEvaluate && external.Stop != stop);
+
+            editor.CaretOffset.Should().Be(caret);
+            editor.VerticalOffset.Should().Be(scroll);
+            navigation.DidNotReceive().NavigateTo(Arg.Any<string>(), Arg.Any<int>(), Arg.Any<int>());
+            external.Frames.Should().BeSameAs(frames);
+            external.Variables.Should().BeSameAs(variables);
+            external.CurrentLocation.Should().Be(location);
+            GC.KeepAlive(sut);
+        }
+        finally
+        {
+            window.Close();
+            Avalonia.Application.Current!.Styles.Remove(editorTheme);
+            await external.StopAsync();
+            await run.WaitAsync(TimeSpan.FromSeconds(20), TestContext.Current.CancellationToken);
+            System.IO.Directory.Delete(directory, true);
+        }
     }
 
     // --- Add File: a file that joined read byte for byte ---
@@ -301,6 +404,142 @@ public class MainViewViewModelTests
 
         _windowManager.DidNotReceive().MessageBox(
             Arg.Any<string>(), Arg.Any<string?>(), Arg.Any<MessageBoxButtons>(), Arg.Any<MessageBoxIcon>());
+    }
+
+    // Regression for hexide-io/HexIDE#2965; the final comment specifies Ready at a stop.
+    [AvaloniaTheory]
+    [InlineData("stopped", "[break]", "Ready")]
+    [InlineData("running", "[run]", "Running…")]
+    [InlineData("ended", "[design]", "Ready")]
+    public async Task External_session_refreshes_titles_and_status(string state, string tag, string message)
+    {
+        var directory = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "hexide-dap-title-" + System.Guid.NewGuid());
+        System.IO.Directory.CreateDirectory(directory);
+        await using var log = new ConversationLog();
+        var external = new HexIDE.Debugging.ExternalDebugService(log);
+        _focusedProjectUtil.FocusedOrStartupProject.Returns(new ProjectDefinition(VBProjectType.EXE, "MyApp"));
+        var sut = Build(_runnerService, external: external);
+        var status = "stale";
+        _statusBarService.When(x => x.ClearMessage()).Do(_ => status = "Ready");
+        _statusBarService.When(x => x.SetMessage(Arg.Any<string>())).Do(c => status = c.Arg<string>());
+        var changed = new List<string?>();
+        sut.PropertyChanged += (_, e) => changed.Add(e.PropertyName);
+        var run = external.StartAsync(await DebugAdapter.ExternalDebugServiceTests.Configuration(directory, "evaluate-running"));
+        try
+        {
+            await DebugAdapter.ExternalDebugServiceTests.WaitFor(external, () => external.CanEvaluate);
+            changed.Clear();
+            status = "stale";
+            if (state == "ended")
+            {
+                await external.StopAsync();
+                await run;
+            }
+            else if (state == "running")
+            {
+                await external.CommandAsync("continue");
+                await DebugAdapter.ExternalDebugServiceTests.WaitFor(external, () => external.State == HexIDE.Dap.DapSessionState.Running);
+            }
+            else
+            {
+                var stop = external.Stop;
+                await external.CommandAsync("next");
+                await DebugAdapter.ExternalDebugServiceTests.WaitFor(external, () => external.Stop != stop && external.CanEvaluate);
+            }
+            sut.Title.Should().Be("MyApp - HexIDE " + tag);
+            sut.WindowTitle.Should().Be(sut.Title);
+            status.Should().Be(message);
+            changed.Should().Contain(nameof(sut.Title)).And.Contain(nameof(sut.WindowTitle));
+        }
+        finally
+        {
+            await external.StopAsync();
+            await run;
+            System.IO.Directory.Delete(directory, true);
+        }
+    }
+
+    [AvaloniaFact]
+    public async Task Ending_external_session_restores_design_before_disconnect_completes()
+    {
+        var directory = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "hexide-dap-end-" + System.Guid.NewGuid());
+        System.IO.Directory.CreateDirectory(directory);
+        await using var log = new ConversationLog();
+        var external = new HexIDE.Debugging.ExternalDebugService(log);
+        // As the real ProjectRunnerService does: an external session counts as running until its cleanup ends.
+        _runnerService.IsRunning.Returns(_ => external.IsActive);
+        _focusedProjectUtil.FocusedOrStartupProject.Returns(new ProjectDefinition(VBProjectType.EXE, "MyApp"));
+        var sut = Build(_runnerService, external: external);
+        var status = "stale";
+        _statusBarService.When(x => x.ClearMessage()).Do(_ => status = "Ready");
+        _statusBarService.When(x => x.SetMessage(Arg.Any<string>())).Do(c => status = c.Arg<string>());
+        var changed = new List<string?>();
+        sut.PropertyChanged += (_, e) => changed.Add(e.PropertyName);
+        var disconnectPending = false;
+        external.Output += text => disconnectPending |= text.Contains("disconnect-pending", StringComparison.Ordinal);
+        var run = external.StartAsync(await DebugAdapter.ExternalDebugServiceTests.Configuration(directory, "disconnect-held"));
+        try
+        {
+            await DebugAdapter.ExternalDebugServiceTests.WaitFor(external, () => external.CanEvaluate);
+            changed.Clear();
+            status = "stale";
+            var ending = external.StopAsync();
+            await DebugAdapter.ExternalDebugServiceTests.WaitFor(external, () => disconnectPending);
+
+            external.State.Should().Be(HexIDE.Dap.DapSessionState.Ended);
+            external.IsActive.Should().BeTrue("adapter cleanup is still pending");
+            ending.IsCompleted.Should().BeFalse();
+            run.IsCompleted.Should().BeFalse();
+            sut.Title.Should().Be("MyApp - HexIDE [design]");
+            sut.WindowTitle.Should().Be(sut.Title);
+            status.Should().Be("Ready");
+            changed.Should().Contain(nameof(sut.Title)).And.Contain(nameof(sut.WindowTitle));
+        }
+        finally
+        {
+            await external.StopAsync();
+            await run;
+            System.IO.Directory.Delete(directory, true);
+        }
+    }
+
+    [AvaloniaTheory]
+    [InlineData("disconnect-held", "")]
+    [InlineData("disconnect-held-stderr", "fixture stderr")]
+    public async Task End_of_unresponsive_adapter_shows_one_localized_Immediate_notice(string mode, string stderr)
+    {
+        var directory = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "hexide-dap-end-notice-" + System.Guid.NewGuid());
+        System.IO.Directory.CreateDirectory(directory);
+        await using var log = new ConversationLog();
+        _localization.GetString("Str.Debug.External.EndTimeout").Returns("localized End: {0}; waited {1} seconds.");
+        var external = new HexIDE.Debugging.ExternalDebugService(log, _localization);
+        var sut = Build(_runnerService, external: external);
+        var run = external.StartAsync(await DebugAdapter.ExternalDebugServiceTests.Configuration(directory, mode));
+        try
+        {
+            await DebugAdapter.ExternalDebugServiceTests.WaitFor(external, () => external.CanEvaluate);
+            var id = external.Connection!.Id;
+            var waited = System.Diagnostics.Stopwatch.StartNew();
+            await external.StopAsync().WaitAsync(System.TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken);
+            await run.WaitAsync(System.TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken);
+
+            var lines = sut.Immediate.Document.Text.ReplaceLineEndings("\n").Split('\n');
+            lines[0].Should().Be("disconnect-pending");
+            var notice = System.Text.RegularExpressions.Regex.Match(lines[1], @"^localized End: fixture; waited ([0-9]+) seconds\.$");
+            notice.Success.Should().BeTrue(lines[1]);
+            double.Parse(notice.Groups[1].Value, System.Globalization.CultureInfo.InvariantCulture).Should()
+                .BeApproximately(waited.Elapsed.TotalSeconds, 1);
+            lines.Skip(2).Should().Equal(stderr.Length == 0 ? [""] : [stderr, ""]);
+            await log.DrainAsync();
+            log.Snapshot(id).Should().Contain(e => e.Detail != null &&
+                e.Detail.StartsWith("DAP process ended:") && e.Detail.Contains("forced termination: True"));
+        }
+        finally
+        {
+            await external.StopAsync();
+            await run;
+            System.IO.Directory.Delete(directory, true);
+        }
     }
 
     // --- Title ---
@@ -386,6 +625,39 @@ public class MainViewViewModelTests
         _sut.Title.Should().Be(expected);
         _sut.WindowTitle.Should().Be(expected);
         changed.Should().Contain(nameof(_sut.Title)).And.Contain(nameof(_sut.WindowTitle));
+    }
+
+    [AvaloniaTheory]
+    [InlineData(null, false, false)]
+    [InlineData("P", false, false)]
+    [InlineData("P", true, false)]
+    [InlineData("P", true, true)]
+    public void Recovery_window_title_keeps_notice_across_project_run_and_language_changes(string? project, bool running, bool paused)
+    {
+        var previous = Static.IsRecoveryMode;
+        try
+        {
+            Static.IsRecoveryMode = true;
+            _focusedProjectUtil.FocusedOrStartupProject.Returns(project == null ? null : TestHelpers.CreateProject(project));
+            _runnerService.IsRunning.Returns(running);
+            _debugController.State.Returns(paused ? HexIDE.Runtime.Debugging.DebugState.Paused : HexIDE.Runtime.Debugging.DebugState.Running);
+            _localization.GetString("Str.MainWindow.RecoveryNotice").Returns("Recovery session — settings changes won't be saved");
+            var changed = new List<string?>();
+            _sut.PropertyChanged += (_, e) => changed.Add(e.PropertyName);
+
+            _sut.WindowTitle.Should().Be(_sut.Title + " — Recovery session — settings changes won't be saved");
+            _localization.GetString("Str.MainWindow.RecoveryNotice").Returns("Translated recovery notice");
+            _localization.LanguageChanged += Raise.Event<System.Action>();
+
+            _sut.WindowTitle.Should().Be(_sut.Title + " — Translated recovery notice");
+            changed.Should().Contain(nameof(_sut.WindowTitle));
+            Static.IsRecoveryMode = false;
+            _sut.WindowTitle.Should().Be(_sut.Title);
+        }
+        finally
+        {
+            Static.IsRecoveryMode = previous;
+        }
     }
 
     // --- StartDefaultProjectCommand ---

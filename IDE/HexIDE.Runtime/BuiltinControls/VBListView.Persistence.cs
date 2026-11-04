@@ -35,9 +35,13 @@ public sealed partial class VBListView
             _ => throw new NotImplementedException("ListView file Boolean conversion is unmeasured (#1085)"),
         };
 
-        foreach (var name in new[] { "Icons", "SmallIcons", "ColHdrIcons", "Picture", "MouseIcon" })
+        foreach (var name in new[] { "Picture", "MouseIcon" })
             if (fields.ContainsKey(name))
                 throw new NotImplementedException($"ListView file {name} is not implemented (#1085)");
+
+        foreach (var name in new[] { "Icons", "SmallIcons", "ColHdrIcons" })
+            if (fields.TryGetValue(name, out var binding))
+                SavedImageLists[name == "ColHdrIcons" ? "ColumnHeaderIcons" : name] = Text(binding);
 
         foreach (var name in fields.Keys)
         {
@@ -63,8 +67,6 @@ public sealed partial class VBListView
                 throw new NotImplementedException($"ListView file {name} value is unmeasured (#1085)");
             properties[name] = new(number);
         }
-        if ((long)properties["Appearance"].Value! == 1 && (long)properties["BorderStyle"].Value! == 0)
-            throw new NotImplementedException("ListView Appearance 1 with BorderStyle 0 is unmeasured (#1085)");
         foreach (var name in new[] { "SortOrder", "TextBackground" })
             properties[name] = new(ReadNumber(name, 0) switch
             {
@@ -92,8 +94,7 @@ public sealed partial class VBListView
             var columnFields = (Dictionary<string, object>)block;
             object? Field(string name, string? alias = null) => columnFields.TryGetValue(name, out var value) ? value
                 : alias is not null && columnFields.TryGetValue(alias, out value) ? value : null;
-            if (Field("ImageIndex") is { } icon && Number(icon) != 0)
-                throw new NotImplementedException("ListView file column ImageIndex awaits ImageList binding (#1085)");
+
             if (Number(Field("SubItemIndex") ?? 0) != index - 1)
                 throw new NotImplementedException("ListView file nonsequential SubItemIndex is unmeasured (#1085)");
             var alignment = Number(Field("Alignment") ?? 0);
@@ -105,6 +106,7 @@ public sealed partial class VBListView
                 Key = Text(Field("Key")),
                 Text = Text(Field("Text")),
                 Alignment = (int)alignment,
+                Icon = new Vb6Value((int)Number(Field("ImageIndex") ?? 0)),
             };
             column.LoadProperties((float)(width * 1440d / 2540),
                 Text(Field("Object.Tag", "Tag")));

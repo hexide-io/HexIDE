@@ -8,6 +8,13 @@ public interface IWorkspaceArtifactService
     Task ImportAsync(LanguageServerRegistration server, Func<WorkspaceArtifactContext, CancellationToken, Task> import,
         CancellationToken cancellationToken);
     Task PrepareAsync(LanguageServerRegistration server, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// A regeneration changed this server's artefact, and the server asked to be restarted for it
+    /// (<see cref="WorkspaceArtifactSpec.RestartOnChange"/>). Raised with the server's id, once per regeneration, and
+    /// never for the write before a launch, an identical regeneration or a refused write.
+    /// </summary>
+    event Action<string>? RestartRequested;
 }
 
 public interface IWorkspaceArtifactWorkspace : ILspWorkspace

@@ -981,14 +981,19 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     }
 
     [McpServerTool(Name = "stop_project")]
-    [Description("Stops the currently running VB6 project in the IDE. The reply's 'note' says whether the IDE is back in design mode, and how much Debug.Print wrote since the run began or a reply last reported it, which 'printed' holds.")]
+    [Description("Stops the currently running VB6 project in the IDE. The reply's 'note' says whether the IDE is back in design mode, and how much Debug.Print wrote since the run began or a reply last reported it, which 'printed' holds. For an external debug session, output is not captured by this tool; read the Immediate window instead.")]
     public async Task<MutateResult> StopProjectAsync(CancellationToken ct)
     {
         return await Dispatcher.UIThread.InvokeAsync(() =>
         {
             if (!ctx.ProjectRunnerService.CanEndProject)
                 return new MutateResult(false, "No project is currently running");
+            var isExternal = ctx.RootViewModel.ExternalDebugger?.IsActive == true;
             ctx.ProjectRunnerService.EndProject();
+            if (isExternal)
+                return new MutateResult(true, null,
+                    "Stop requested for the external session; get_debug_state reports when it has ended. " +
+                    "External session output is not captured by this tool; read the Immediate window instead.");
             return WithPrinted(new MutateResult(true, null, ctx.ProjectRunnerService.IsRunning
                 ? "Stop requested; the program has not ended yet. get_debug_state says when it has."
                 : "Stopped; the IDE is back in design mode."));
@@ -1707,7 +1712,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     }
 
     [McpServerTool(Name = "break_program")]
-    [Description("Pauses the running project at the next executed statement (VB6 Break / Ctrl+Break). Error if not running or already paused. The reply's 'note' gives where it paused (the module and the line, counted from the top of the file as the code window numbers it) or, when the program is waiting for an event, says it will pause at the next statement that runs.")]
+    [Description("Pauses the running project at the next executed statement (VB6 Break / Ctrl+Break). External sessions send the command to the debug adapter and report its next stop (source file path and line), running or ended after up to 2 s; adapter refusals report the message and whether inspection was kept. Error if not running or already paused. The reply's 'note' gives where it paused (the module and the line, counted from the top of the file as the code window numbers it) or, when the program is waiting for an event, says it will pause at the next statement that runs.")]
     public async Task<MutateResult> BreakProgramAsync(CancellationToken ct)
     {
         var (refused, outcome) = await StartAndAwaitStopAsync(() =>
@@ -1716,7 +1721,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
                 return new MutateResult(false, ctx.ProjectRunnerService.IsRunning ? "Already paused" : "No project is running");
             ctx.ProjectRunnerService.BreakCurrentProject();
             return null;
-        }, StepReplyWait, ct);
+        }, StepReplyWait, ct, externalControl: true);
         if (refused is not null)
             return refused;
 
@@ -1729,7 +1734,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     }
 
     [McpServerTool(Name = "continue_program")]
-    [Description("Resumes a paused project (VB6 Continue / F5 in break mode). Error if not currently paused. The reply's 'note' says, after up to 2 s, whether it paused again (with the module and the line, counted from the top of the file as the code window numbers it), is running, or ended.")]
+    [Description("Resumes a paused project (VB6 Continue / F5 in break mode). External sessions send the command to the debug adapter and report its next stop (source file path and line), running or ended after up to 2 s; adapter refusals report the message and whether inspection was kept. Error if not currently paused. The reply's 'note' says, after up to 2 s, whether it paused again (with the module and the line, counted from the top of the file as the code window numbers it), is running, or ended.")]
     public async Task<MutateResult> ContinueProgramAsync(CancellationToken ct)
     {
         var (refused, outcome) = await StartAndAwaitStopAsync(() =>
@@ -1738,7 +1743,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
                 return new MutateResult(false, "Project is not paused");
             ctx.ProjectRunnerService.ContinueProject();
             return null;
-        }, RunReplyWait, ct);
+        }, RunReplyWait, ct, externalControl: true);
         if (refused is not null)
             return refused;
 
@@ -1779,8 +1784,17 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     /// <paramref name="startOnUi"/> returns a refusal, or null once it has started something.
     /// </remarks>
     private async Task<(MutateResult? Refused, RunOutcome Outcome)> StartAndAwaitStopAsync(
-        Func<MutateResult?> startOnUi, TimeSpan wait, CancellationToken ct)
+        Func<MutateResult?> startOnUi, TimeSpan wait, CancellationToken ct, bool externalControl = false)
     {
+        var externalReply = await Dispatcher.UIThread.InvokeAsync<Task<MutateResult>?>(() =>
+            ctx.RootViewModel.ExternalDebugger is { IsActive: true } external
+                ? externalControl
+                    ? AwaitExternalStopAsync(external, startOnUi, wait, ct)
+                    : Task.FromResult(new MutateResult(false, ctx.Localization.GetString("Str.Debug.External.Unsupported")))
+                : null);
+        if (externalReply is not null)
+            return (await externalReply, default);
+
         var stopped = new TaskCompletionSource<StoppedInfo>(TaskCreationOptions.RunContinuationsAsynchronously);
         void OnStopped(StoppedInfo info) => stopped.TrySetResult(info);
         int? errorBefore = null;
@@ -1826,6 +1840,53 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
         }
     }
 
+    // Subscribe before the menu route starts: an adapter can stop before its command reply arrives.
+    private static async Task<MutateResult> AwaitExternalStopAsync(HexIDE.Debugging.ExternalDebugService external,
+        Func<MutateResult?> start, TimeSpan wait, CancellationToken ct)
+    {
+        var before = external.Stop;
+        var inspection = external.Frames;
+        string? failure = null;
+        var completed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        void Changed()
+        {
+            if (!external.IsActive || external.State is HexIDE.Dap.DapSessionState.Ended or HexIDE.Dap.DapSessionState.Faulted
+                || !external.IsBusy && (failure is not null ||
+                external.Stop is not null && external.Stop != before && external.Frames.Count > 0))
+                completed.TrySetResult();
+        }
+        void Failed(string message) { failure = message; Changed(); }
+        external.Changed += Changed;
+        external.Failed += Failed;
+        try
+        {
+            if (start() is { } refused) return refused;
+            Changed();
+            await Task.WhenAny(completed.Task, Task.Delay(wait, ct));
+            ct.ThrowIfCancellationRequested();
+            var frame = external.Frames.FirstOrDefault();
+            var location = frame.ValueKind == System.Text.Json.JsonValueKind.Object &&
+                frame.TryGetProperty("source", out var source) && source.TryGetProperty("path", out var path) &&
+                frame.TryGetProperty("line", out var line)
+                    ? $"{path.GetString()} line {line.GetInt32()}" : null;
+            var state = !external.IsActive || external.State is HexIDE.Dap.DapSessionState.Ended or HexIDE.Dap.DapSessionState.Faulted
+                ? "The program ended."
+                : external.Stop is not null && (external.Stop != before || failure is not null)
+                    ? location is not null
+                        ? $"Paused at {location} ({external.Stop.Reason})."
+                        : "Paused; the adapter supplied no source location."
+                    : $"Running; no pause within {wait.TotalSeconds:0} s.";
+            return failure is null ? new MutateResult(true, null, state)
+                : new MutateResult(false, failure, state + (external.Stop is not null && before is not null && ReferenceEquals(external.Frames, inspection)
+                    ? " The stopped inspection was kept." : " Inspection follows the adapter's current state."));
+        }
+        finally
+        {
+            external.Changed -= Changed;
+            external.Failed -= Failed;
+        }
+    }
+
     private string PausedAt(StoppedInfo at) => $"Paused at {ctx.ProjectRunnerService.RunningProject?.Name}/{at.Module} line {at.Line} ({at.Reason}).";
 
     /// <summary>A successful run, step, break or stop reply with what the program printed since its run began or a reply
@@ -1847,8 +1908,11 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     private async Task<MutateResult> StepAndReportAsync(Func<bool> can, Action start, CancellationToken ct)
     {
         var (refused, outcome) = await StartAndAwaitStopAsync(
-            () => can() ? StartFailure(start) : new MutateResult(false, "No project to step — load a project first"),
-            StepReplyWait, ct);
+            () => can() ? StartFailure(start) : new MutateResult(false,
+                ctx.RootViewModel.ExternalDebugger?.IsActive == true
+                    ? "The external session must be paused and the adapter ready before stepping."
+                    : "No project to step — load a project first"),
+            StepReplyWait, ct, externalControl: true);
         if (refused is not null)
             return refused;
 
@@ -1861,24 +1925,26 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     }
 
     [McpServerTool(Name = "step_into")]
-    [Description("Step Into (F8): from idle, starts the project and breaks at the first executed statement; while paused, executes the next statement and breaks (descending into any called Sub/Function); while running, breaks at the next statement. The reply's 'note' says where it paused (module, line counted from the top of the file as the code window numbers it, and reason) or, when no pause comes within 2 s, whether the program is still running or has ended.")]
+    [Description("Step Into (F8): from idle, starts the project and breaks at the first executed statement; while paused, executes the next statement and breaks (descending into any called Sub/Function); while running, breaks at the next statement. External sessions send the command to the debug adapter and report its next stop (source file path and line), running or ended after up to 2 s; adapter refusals report the message and whether inspection was kept. The reply's 'note' says where it paused (module, line counted from the top of the file as the code window numbers it, and reason) or, when no pause comes within 2 s, whether the program is still running or has ended.")]
     public Task<MutateResult> StepIntoAsync(CancellationToken ct) =>
         StepAndReportAsync(() => ctx.ProjectRunnerService.CanStepIntoProject, () => ctx.ProjectRunnerService.StepIntoProject(), ct);
 
     [McpServerTool(Name = "step_over")]
-    [Description("Step Over (Shift+F8): while paused, executes the next statement and breaks in the SAME frame — a called Sub/Function runs to completion without descending (unlike step_into). On a non-call statement it behaves like step_into. From idle, starts the project and breaks at the first statement. The reply's 'note' says where it paused (module, line counted from the top of the file as the code window numbers it, and reason) or, when no pause comes within 2 s, whether the program is still running or has ended.")]
+    [Description("Step Over (Shift+F8): while paused, executes the next statement and breaks in the SAME frame — a called Sub/Function runs to completion without descending (unlike step_into). On a non-call statement it behaves like step_into. From idle, starts the project and breaks at the first statement. The reply's 'note' says where it paused (module, line counted from the top of the file as the code window numbers it, and reason) or, when no pause comes within 2 s, whether the program is still running or has ended. External sessions send the command to the debug adapter and report its next stop (source file path and line), running or ended after up to 2 s; adapter refusals report the message and whether inspection was kept.")]
     public Task<MutateResult> StepOverAsync(CancellationToken ct) =>
         StepAndReportAsync(() => ctx.ProjectRunnerService.CanStepOverProject, () => ctx.ProjectRunnerService.StepOverProject(), ct);
 
     [McpServerTool(Name = "step_out")]
-    [Description("Step Out (Ctrl+Shift+F8): while paused, runs the rest of the current procedure and breaks at the statement in the CALLER after it returns. Stepping out of the outermost frame runs that event/procedure to completion. From idle it starts the project (like Step Into); while running it requests a pause. The reply's 'note' says where it paused (module, line counted from the top of the file as the code window numbers it, and reason) or, when no pause comes within 2 s, whether the program is still running or has ended.")]
+    [Description("Step Out (Ctrl+Shift+F8): while paused, runs the rest of the current procedure and breaks at the statement in the CALLER after it returns. External sessions send the command to the debug adapter and report its next stop (source file path and line), running or ended after up to 2 s; adapter refusals report the message and whether inspection was kept. Stepping out of the outermost frame runs that event/procedure to completion. From idle it starts the project (like Step Into); while running it requests a pause. The reply's 'note' says where it paused (module, line counted from the top of the file as the code window numbers it, and reason) or, when no pause comes within 2 s, whether the program is still running or has ended.")]
     public Task<MutateResult> StepOutAsync(CancellationToken ct) =>
         StepAndReportAsync(() => ctx.ProjectRunnerService.CanStepOutProject, () => ctx.ProjectRunnerService.StepOutProject(), ct);
 
     [McpServerTool(Name = "run_to_cursor")]
-    [Description("Run To Cursor (Ctrl+F8): run until (module, 1-based line, counted from the top of the file with its header included (a form's designer block, a class's header and the Attribute lines), as the code window numbers them) then break — a one-shot temporary breakpoint. While paused it continues to the target; while running it arms the target; from idle it starts the project and runs to the target (a real breakpoint hit first stays paused there; continue proceeds toward the target). The reply's 'note' says where it paused or, within 2 s, that it has not got there yet, and 'project' and 'document' name the target's document as the IDE spells them. Pass `project` when a group holds two documents of one name; without it an ambiguous name is refused and the reply lists them.")]
+    [Description("Run To Cursor (Ctrl+F8): run until (module, 1-based line, counted from the top of the file with its header included (a form's designer block, a class's header and the Attribute lines), as the code window numbers them) then break — a one-shot temporary breakpoint. While paused it continues to the target; while running it arms the target; from idle it starts the project and runs to the target (a real breakpoint hit first stays paused there; continue proceeds toward the target). The reply's 'note' says where it paused or, within 2 s, that it has not got there yet, and 'project' and 'document' name the target's document as the IDE spells them. Pass `project` when a group holds two documents of one name; without it an ambiguous name is refused and the reply lists them. External sessions refuse this command because they lack one-shot breakpoint support; set a breakpoint in the editor and use continue_program instead.")]
     public async Task<MutateResult> RunToCursorAsync(string module, int line, string? project = null, CancellationToken ct = default)
     {
+        if (await Dispatcher.UIThread.InvokeAsync(() => ctx.RootViewModel.ExternalDebugger?.IsActive == true))
+            return new MutateResult(false, "Run To Cursor is unavailable for external sessions: the external route has no one-shot breakpoint support. Set a breakpoint in the editor and use continue_program instead.");
         string? target = null;
         DocumentIdentity? named = null;
         var (refused, outcome) = await StartAndAwaitStopAsync(() =>
@@ -1911,11 +1977,39 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     }
 
     [McpServerTool(Name = "set_next_statement")]
-    [Description("Set Next Statement (Ctrl+F9): move the execution point to (module, 1-based line, counted from the top of the file with its header included (a form's designer block, a class's header and the Attribute lines), as the code window numbers them) WITHOUT running the statements in between — the next step_into/continue executes from there. Only while paused, and only to a TOP-LEVEL statement of the currently paused procedure (a target nested inside an If/For/Do/Select block, or a move while paused inside such a block, is refused — a tree-walker limit, not VB6's). Returns an error result if refused. The reply's 'note' names the new next statement, and 'project' and 'document' name its document as the IDE spells them. Pass `project` when a group holds two documents of one name; without it an ambiguous name is refused and the reply lists them.")]
+    [Description("Set Next Statement (Ctrl+F9): move the execution point to (module, 1-based line, counted from the top of the file with its header included (a form's designer block, a class's header and the Attribute lines), as the code window numbers them) WITHOUT running the statements in between — the next step_into/continue executes from there. External sessions send the command to the debug adapter and report its next stop (source file path and line), running or ended after up to 2 s; adapter refusals report the message and whether inspection was kept. External Set Next Statement requires gotoTargets support and a saved target document; pass the module name, not the source path returned by get_debug_state. For the interpreter, only while paused, and only to a TOP-LEVEL statement of the currently paused procedure (a target nested inside an If/For/Do/Select block, or a move while paused inside such a block, is refused — a tree-walker limit, not VB6's). Returns an error result if refused. The reply's 'note' names the new next statement, and 'project' and 'document' name its document as the IDE spells them. Pass `project` when a group holds two documents of one name; without it an ambiguous name is refused and the reply lists them.")]
     public async Task<MutateResult> SetNextStatementAsync(string module, int line, string? project = null, CancellationToken ct = default)
     {
+        DocumentIdentity? externalDocument = null;
+        var externalReply = await Dispatcher.UIThread.InvokeAsync<Task<MutateResult>?>(() =>
+        {
+            if (ctx.RootViewModel.ExternalDebugger is not { IsActive: true } external)
+                return null;
+            if (!external.SupportsSetNextStatement)
+                return Task.FromResult(new MutateResult(false, ctx.Localization.GetString("Str.Debug.External.Unsupported")));
+            return AwaitExternalStopAsync(external, () =>
+            {
+                if (!ctx.ProjectRunnerService.CanContinueProject)
+                    return new MutateResult(false, "Project is not paused or the adapter is busy");
+                var lookup = ResolveDocument(module, project);
+                if (lookup.Document is not { } document)
+                    return new MutateResult(false, lookup.Error);
+                externalDocument = document;
+                if (OutsideDocument(document, [line], first: 1, "line") is { } outside)
+                    return Naming(new MutateResult(false, outside), document);
+                if (document.AbsolutePath is not { } path)
+                    return Naming(new MutateResult(false, "The target document must be saved so the adapter can address its source file."), document);
+                _ = external.SetNextStatementAsync(new Uri(System.IO.Path.GetFullPath(path)).AbsoluteUri, line);
+                return null;
+            }, StepReplyWait, ct);
+        });
+        if (externalReply is not null) return Naming(await externalReply, externalDocument);
         return await Dispatcher.UIThread.InvokeAsync(() =>
         {
+            // An external session is not the interpreter's run, so the check below would answer "No project is
+            // running" straight after get_debug_state said Paused (#2966).
+            if (ctx.RootViewModel.ExternalDebugger?.IsActive == true)
+                return Naming(new MutateResult(false, ctx.Localization.GetString("Str.Debug.External.Unsupported")), externalDocument);
             var lookup = ResolveDocument(module, project);
             if (lookup.Document is not { } document)
                 return new MutateResult(false, lookup.Error);
@@ -1940,17 +2034,34 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     [McpServerTool(Name = "get_debug_state")]
     [DescribesEnum(typeof(DebugState))]
     [DescribesEnum(typeof(StopReason))]
-    [Description("Returns the interpreter debug state: whether a project is running, the controller state (Running/Paused/Stopped), and — when paused — the break location (module, 1-based line counted from the top of the file, header included, as the code window and set_breakpoints number it, and 'project', the running project the module is in) and reason. 'stopReason' is Breakpoint (a breakpoint, or the line Run To Cursor was aiming for; a breakpoint wins even mid-step), Watch (a Break When True or Break When Changed watch fired), Step (a step completed), StopStatement (a VB6 Stop statement ran), Assertion (a Debug.Assert whose condition did not hold), Pause (a break was requested, as by break_program) or RuntimeError (a run-time error nothing handled raised the run-time error dialog, Debug was chosen there, and the break is on the statement that raised it, which runs again on continue_program); it is null unless Paused.")]
+    [DescribesEnum(typeof(HexIDE.Dap.DapSessionState), "Created", "Stopped")]
+    [Description("Returns the current or most recent session's debug state. Interpreter states: Running/Paused/Stopped. External states: Starting/Running/Paused (adapter Stopped)/Ended/Faulted; running is true only for Starting, Running or Paused, even during adapter cleanup. When paused, module and 1-based line locate the break, counted from the file top, header included, as the code window numbers it. Interpreter module is a module name and project names its running project. External module is the adapter's source file path, project is absent; set_next_statement takes a module name, not that path. stopReason is Breakpoint (breakpoint or Run To Cursor), Watch (a break watch), Step (step completed), StopStatement (VB6 Stop), Assertion (failed Debug.Assert), Pause (requested break), or RuntimeError (unhandled error, Debug chosen). External reasons map breakpoint/function breakpoint to Breakpoint, data breakpoint to Watch, step/goto to Step, pause to Pause, exception to RuntimeError; unknown reasons give null. adapterStopReason retains the external adapter's raw reason. Both reasons are null unless Paused.")]
     public async Task<DebugStateResult> GetDebugStateAsync(CancellationToken ct)
     {
         return await Dispatcher.UIThread.InvokeAsync(() =>
         {
-            if (ctx.RootViewModel.ExternalDebugger is { IsActive: true } external)
+            if (ctx.RootViewModel.ExternalDebugger is { HasSessionResult: true } external)
             {
-                var frame = external.Frames.FirstOrDefault();
-                return new DebugStateResult(true, external.State == HexIDE.Dap.DapSessionState.Stopped ? "Paused" : external.State.ToString(),
-                    external.Stop?.Reason, frame.ValueKind == System.Text.Json.JsonValueKind.Object && frame.TryGetProperty("source", out var source) && source.TryGetProperty("path", out var path) ? path.GetString() : null,
-                    frame.ValueKind == System.Text.Json.JsonValueKind.Object ? frame.GetProperty("line").GetInt32() : null);
+                var paused = external.State == HexIDE.Dap.DapSessionState.Stopped;
+                var reason = paused ? external.Stop?.Reason : null;
+                var mapped = reason switch
+                {
+                    "breakpoint" or "function breakpoint" => StopReason.Breakpoint,
+                    "data breakpoint" => StopReason.Watch,
+                    "step" or "goto" => StopReason.Step,
+                    "pause" => StopReason.Pause,
+                    "exception" => StopReason.RuntimeError,
+                    _ => (StopReason?)null,
+                };
+                var frame = paused ? external.Frames.FirstOrDefault() : default;
+                return new DebugStateResult(
+                    external.State is HexIDE.Dap.DapSessionState.Starting or HexIDE.Dap.DapSessionState.Running
+                        or HexIDE.Dap.DapSessionState.Stopped,
+                    paused ? "Paused" : external.State.ToString(), mapped?.ToString(),
+                    frame.ValueKind == System.Text.Json.JsonValueKind.Object && frame.TryGetProperty("source", out var source)
+                        && source.TryGetProperty("path", out var path) ? path.GetString() : null,
+                    frame.ValueKind == System.Text.Json.JsonValueKind.Object ? frame.GetProperty("line").GetInt32() : null,
+                    AdapterStopReason: reason);
             }
             var stop = ctx.DebugController.CurrentStop;
             // A controller that has no session reads Running until its first run ends: it starts there so the
@@ -2109,16 +2220,16 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     }
 
     [McpServerTool(Name = "get_new_project_templates")]
-    [Description("Returns the list of project templates that would appear in the New Project dialog, including personality templates and any add-in registered templates.")]
+    [Description("Returns the list of project templates that would appear in the New Project dialog. Each template source is profile or addin.")]
     public Task<NewProjectTemplatesResult> GetNewProjectTemplatesAsync(CancellationToken ct)
     {
-        var personality = ctx.PersonalityService.AvailableProjectTypes
-            .Select(t => new TemplateInfo(t.Name, t.Supported, "personality"))
+        var profile = ctx.ProfileService.AvailableProjectTypes
+            .Select(t => new TemplateInfo(t.Name, t.Supported, "profile"))
             .ToArray();
         var addin = ctx.AddinProjectTemplateService.Templates
             .Select(t => new TemplateInfo(t.Name, t.Supported, "addin"))
             .ToArray();
-        return Task.FromResult(new NewProjectTemplatesResult([.. personality, .. addin]));
+        return Task.FromResult(new NewProjectTemplatesResult([.. profile, .. addin]));
     }
 
     [McpServerTool(Name = "shutdown_ide")]
@@ -2181,7 +2292,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
         [("pseudo", "Pseudo (LTR)"), ("pseudo-rtl", "Pseudo (RTL)")];
 
     [McpServerTool(Name = "set_ide_language")]
-    [Description("Switches the IDE chrome language by pack id ('en', 'pseudo', 'pseudo-rtl', or an installed pack id), driving the exact live-apply + countdown-revert confirmation gate the Options dropdown uses. Returns immediately; the gate stays open and auto-reverts after its countdown. Keep on the gate also saves the language for later starts, as OK in Options does; Revert or the countdown saves nothing. Asking for the language already in use opens no gate and saves it. While a gate is open, another call is refused and names the language it is waiting on. Call take_snapshot right after to capture the gate, or wait for it to time out to see the reverted chrome.")]
+    [Description("Switches the IDE chrome language by pack id ('en', 'pseudo', 'pseudo-rtl', or an installed pack id), driving the exact live-apply + countdown-revert confirmation gate the Options dropdown uses. Returns immediately; the gate stays open and auto-reverts after its countdown. Keep on the gate also saves the language for later starts, as OK in Options does (in --profile none it lasts only this session); Revert or the countdown saves nothing. Asking for the language already in use opens no gate and saves it. While a gate is open, another call is refused and names the language it is waiting on. Call take_snapshot right after to capture the gate, or wait for it to time out to see the reverted chrome.")]
     public async Task<MutateResult> SetIdeLanguageAsync(string id, CancellationToken ct)
     {
         // Checked first against what the Language page offers, languages and their regions. An unknown id used
@@ -2227,11 +2338,13 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
                     ?? match;
         if (string.Equals(previous, match, StringComparison.OrdinalIgnoreCase))
             return new MutateResult(true, null,
-                $"{shown} ('{match}') is already the IDE's language, so no confirmation gate was opened. It is saved "
-                + "for later starts.");
+                $"{shown} ('{match}') is already the IDE's language, so no confirmation gate was opened. "
+                + (Static.IsRecoveryMode ? "This language change lasts only this session." : "It is saved for later starts."));
         return new MutateResult(true, null,
-            $"Switching to {shown} ('{match}'). A confirmation gate is open: Keep saves {shown} for later starts, as "
-            + $"OK in Options does, and Revert or its countdown goes back to '{previous}' and saves nothing. "
+            $"Switching to {shown} ('{match}'). A confirmation gate is open: "
+            + (Static.IsRecoveryMode ? "This language change lasts only this session." + " "
+                : $"Keep saves {shown} for later starts, as OK in Options does, and ")
+            + $"Revert or its countdown goes back to '{previous}' and saves nothing. "
             + "take_snapshot captures it. Another switch is refused until it closes.");
     }
 
@@ -2644,7 +2757,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     [DescribesEnum(typeof(WindowDecorations))]
     [DescribesEnum(typeof(WindowState))]
     [DescribesEnum(typeof(HexIDE.Automation.PointerSource))]
-    [Description("Deep-inspects one control addressed by 'target' (a path from dump_visual_tree): identity, providers, 'isFocused', 'isKeyboardFocusable', and 'boundingRect' (x, y, width, height in device-independent units from the window's top-left; map into a snapshot with take_snapshot's scale and offsets). Reports value with 'isReadOnly' (with a value provider), toggle state, 'expandCollapseState' (Collapsed, Expanded, PartiallyExpanded, LeafNode, with an expand/collapse provider), 'selectionItems', what is selected, not the list's items, which 'items' gives: each one's text for select, off-screen ones too (a dropdown only while open); 'itemCount', how many items a list, dropdown or tab holds, hidden ones too, a scroll bar/slider's 'range' (value, minimum, maximum, isReadOnly), and 'pointer': a running program's mousePointer, number and name, what it 'shows', and 'setBy' (Own, Override as Screen.MousePointer sets, Style) on 'setOn'; absent if none is set. A Window also reports 'frame': canResize, windowDecorations (None, BorderOnly, Full), canMinimize, canMaximize, showInTaskbar, windowState (Normal, Minimized, Maximized, FullScreen). On Windows, nativeStyle and nativeExStyle are the HWND's GWL_STYLE/GWL_EXSTYLE masks, or nativeStyleNote says why not. Lists the DataContext ViewModel's public commands, Command-bound methods and properties for interact's reflection actions, with values readable as text. A control that inherits its DataContext lists only its own resolved Command, if any, with binding details in 'dataContextNote'; 'dataContextOwner' gives the owner's path, and 'dataContextNote' counts omitted Dock base-type members. An editor's Document reads as a line count: get_file_content returns the whole text that CaretOffset, SelectionStart and SelectionLength count into; the Immediate window's reads as its text. Values over 4000 characters are cut and give their full length. Pass the same 'window' as the dump the path came from. 'isHidden' is true for a control in the tree that does not show, and absent when it does.")]
+    [Description("Deep-inspects one control addressed by 'target' (a path from dump_visual_tree): identity, providers, 'isFocused', 'isKeyboardFocusable', and 'boundingRect' (x, y, width, height in device-independent units from the window's top-left; map into a snapshot with take_snapshot's scale and offsets). Reports value with 'isReadOnly' (with a value provider), toggle state, 'expandCollapseState' (Collapsed, Expanded, PartiallyExpanded, LeafNode, with an expand/collapse provider), 'selectionItems', what is selected, not the list's items, which 'items' gives: each one's text for select, off-screen ones too (a dropdown only while open); 'itemCount', how many items a list, dropdown or tab holds, hidden ones too, a scroll bar/slider's 'range' (value, minimum, maximum, isReadOnly), and 'pointer': a running program's mousePointer, number and name, what it 'shows', and 'setBy' (Own, Override as Screen.MousePointer sets, Style) on 'setOn'; absent if none is set. A Window also reports 'frame': canResize, windowDecorations (None, BorderOnly, Full), canMinimize, canMaximize, showInTaskbar, windowState (Normal, Minimized, Maximized, FullScreen). On Windows, nativeStyle and nativeExStyle are the HWND's GWL_STYLE/GWL_EXSTYLE masks, or nativeStyleNote says why not. Lists the DataContext ViewModel's public commands, Command-bound methods and properties for interact's reflection actions, with values readable as text. A control that inherits its DataContext lists only its own resolved Command, if any, with binding details in 'dataContextNote'; 'dataContextOwner' gives the owner's path, and 'dataContextNote' counts omitted Dock base-type members. An editor's Document reads as a line count: get_file_content returns the whole text that CaretOffset, SelectionStart and SelectionLength count into; the Immediate window's reads as its text. Long values are cut and give their full length. Pass the same 'window' as the dump the path came from. 'isHidden' is true for a control in the tree that does not show, and absent when it does.")]
     public async Task<InspectResult> InspectElementAsync(
         string target, [Description(WindowParameter)] string? window = null, CancellationToken ct = default)
     {
@@ -2819,6 +2932,8 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
         if (resolved.Item1 is not { } found)
             return new InteractOutcome(false, "pointer", null, resolved.Item2);
         await Dispatcher.UIThread.InvokeAsync(() => UiAutomationDriver.NextFrameDrawnAsync(found, UiAutomationDriver.ClickFrameWait));
+        // Everything the capture holds by now is before this hover, so a quick-info request above it is this hover's (#2574).
+        var watermark = await ctx.Capture.DrainAsync();
 
         var raised = await Dispatcher.UIThread.InvokeAsync(() =>
         {
@@ -2852,6 +2967,8 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
         (Rect Bounds, Point Hovered)? placed = null;
         // What 'stay' adds to the reply, once the watch has run to its end (#2562).
         string? stayed = null;
+        // In a code window, why no tip opened (#2574).
+        string? quickInfo = null;
         try
         {
             var deadline = Environment.TickCount64 + dwellMs;
@@ -2882,8 +2999,12 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
             // purpose: "tip:" means a popup was observed open, "declared tip:" means only that the text is set.
             // Collapsing them would turn a limitation into a passing assertion.
             if (tip is null)
+            {
                 (declared, enabled) = await Dispatcher.UIThread.InvokeAsync(
                     () => (UiAutomationDriver.DeclaredToolTipAt(at.Receiver, at.Point), at.Receiver.IsEffectivelyEnabled));
+                // Read before the pointer leaves, which cancels a request still waiting and would report it as cancelled.
+                quickInfo = await QuickInfoNoteAsync(at, watermark, dwellMs);
+            }
         }
         finally
         {
@@ -2929,7 +3050,8 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
         // declared: quick info and Auto Data Tips declare none, and missed the same way (#2376). Not for a disabled target,
         // which opened none to take, and whose reply already says why.
         var took = enabled ? moved : null;
-        var unopened = raised.Detail + "; no tip opened within " + dwellMs + "ms" + (took is null ? string.Empty : " (" + took + ")");
+        var unopened = raised.Detail + "; no tip opened within " + dwellMs + "ms" + (took is null ? string.Empty : " (" + took + ")")
+                       + (quickInfo is null ? string.Empty : "; " + quickInfo);
         return raised with
         {
             Detail = (declared is null
@@ -2946,6 +3068,30 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     // The watch is bounded so a mistyped value cannot hold a call open for minutes. Refused rather than
     // clamped, because a clamped value left the reply quoting a dwell that never happened (#610).
     private const int MaxHoverDwellMs = 10_000;
+
+    /// <summary>
+    /// For a hover in a code window, what the editor asked for at the point and what became of it; null anywhere else.
+    /// </summary>
+    private async Task<string?> QuickInfoNoteAsync(UiAutomationDriver.HoverLanding at, long watermark, int dwellMs)
+    {
+        try
+        {
+            var route = await Dispatcher.UIThread.InvokeAsync(
+                () => HexIDE.Forms.Views.CodeEditorView.RouteUnder(at.Receiver, at.Point));
+            if (route is not { } where) return null;
+            await ctx.Capture.DrainAsync();
+            var asked = HoverQuickInfoNote.AskedSince(ctx.Capture.Snapshot(), watermark, DateTimeOffset.UtcNow);
+            var extension = DocumentLanguage.ExtensionOf(where.DocumentUri);
+            var registered = asked.Count > 0 ? [] : HoverQuickInfoNote.RegisteredFor(
+                (ctx.LspClient as ILanguageConnectionRegistry)?.Connections ?? [], extension);
+            return HoverQuickInfoNote.Describe(where, dwellMs, asked, registered, extension);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            // The account is an addition to the reply; the hover's own result stands without it.
+            return "quick info: could not be read (" + ex.GetType().Name + ")";
+        }
+    }
 
     /// <summary>
     /// The text of a tooltip currently OPEN on a control, one of its ancestors, or one of its
@@ -3383,7 +3529,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     [DescribesEnum(typeof(ConversationEntryKind))]
     [DescribesEnum(typeof(ConversationDirection))]
     [DescribesEnum(typeof(ConversationOutcome), "None")]
-    [Description("Lists recorded language-server envelopes — time, direction, method, id, size, outcome and latency — without content. Envelopes are recorded always, armed or not; call it with no arguments for the whole timeline.\n\nIF THE ANSWER IS EMPTY, READ 'note': it says which reason applies. The commonest is that no server has started, because a server starts on the first document of a language it claims, so open a file first.\n\n'direction' is Sent, Received (including a line the server wrote to standard error or standard output) or Local (observed, not exchanged). 'kind' is Request, Response, ErrorResponse or Notification on the wire, plus six found nowhere else: Lifecycle (a process starting or stopping, and its exit code), StandardError (a line the server wrote there, verbatim, often its only word on a crash), StandardOutput (a line a named-pipe server wrote to stdout, verbatim), NeverSent (a message this client declined or could not serialize, and why), Unconsumed (a capability the server advertised that this client does not use) and Note (the capture's own remarks, such as a frame it could not decode). 'detail' carries their text. 'outcome', on a request, is Answered, Failed (an error object), Cancelled (by this client), Abandoned (the connection went away first) or TimedOut (the local request deadline expired); absent while it waits.\n\nSequence numbers have GAPS that are not lost frames: a reply or an ending completes its request's row and uses up the sequence in 'completedSequence'. 'framesDropped' is the only report of real loss.\n\nA REQUEST'S REPLY IS ON THE REQUEST'S ROW: 'answerSizeBytes' is its size, and 'answerSequence', present only when its body was kept, is what get_lsp_message reads it by.\n\nNarrow with 'connectionId', 'method' and 'failuresOnly'. TO POLL, pass the last reply's 'latestSequence' as 'afterSequence': you get what was recorded since and, on their own rows, requests answered or ended since. 'truncated' and 'matched' say what 'limit' left out. Nothing returns bodies in bulk: list, then get_lsp_message.")]
+    [Description("Lists recorded language-server envelopes — time, direction, method, id, size, outcome and latency — without content. Envelopes are recorded always, armed or not; call it with no arguments for the whole timeline.\n\nIF THE ANSWER IS EMPTY, READ 'note': it says which reason applies. The commonest is that no server has started, because a server starts on the first document of a language it claims, so open a file first.\n\n'direction' is Sent, Received (including a line the server wrote to standard error or standard output) or Local (observed, not exchanged). 'kind' is Request, Response, ErrorResponse or Notification on the wire, plus six found nowhere else: Lifecycle (a process starting or stopping, and its exit code), StandardError (a line the server wrote there, verbatim, often its only word on a crash), StandardOutput (a line a named-pipe server wrote to stdout, verbatim), NeverSent (a message this client declined or could not serialize, and why), Unconsumed (a capability the server advertised that this client does not use) and Note (the capture's own remarks, such as a frame it could not decode). 'detail' carries their text. 'outcome', on a request, is Answered, Failed (an error object), Cancelled (by this client), Abandoned (the connection went away first) or TimedOut (the local request deadline expired); absent while it waits.\n\nA REQUEST'S REPLY IS ON THE REQUEST'S ROW, and sequence numbers have gaps that are not lost frames: the reply's 'rowsNote' explains both.\n\nNarrow with 'connectionId', 'method' and 'failuresOnly'; poll with 'afterSequence'. 'truncated' and 'matched' say what 'limit' left out. Nothing returns bodies in bulk: list, then get_lsp_message.")]
     public async Task<LspMessagesResult> ListLspMessagesAsync(
         [Description("One server's connection, as get_lsp_capture_state lists them; omit for every connection.")]
         string? connectionId = null,
@@ -3423,8 +3569,19 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
             Fault: e.Fault ? true : null)).ToArray();
 
         return new LspMessagesResult(
-            rows, page.Matched, page.Truncated, ctx.Capture.QueueDropped, page.Note, page.LatestSequence);
+            rows, page.Matched, page.Truncated, ctx.Capture.QueueDropped, page.Note, page.LatestSequence,
+            RowsNote: rows.Length > 0 ? LspRowsNote : null);
     }
+
+    /// <summary>
+    /// What a page of rows needs explained, beside the rows (#2564): where a request's reply is, and why the sequence
+    /// numbers have gaps, which beside a field called framesDropped read as data loss. The description used to say it.
+    /// </summary>
+    internal const string LspRowsNote =
+        "A request's reply is on the request's own row: answerSizeBytes is its size, and answerSequence, present only "
+        + "when its body was kept, is what get_lsp_message reads it by. Sequence numbers have gaps that are not lost "
+        + "frames: a reply or an ending completes its request's row and uses up the sequence in completedSequence. "
+        + "framesDropped is the only report of real loss.";
 
     [McpServerTool(Name = "get_lsp_message")]
     [Description("Returns one recorded message's body by its sequence number, as the bytes that crossed the wire. Get the sequence from list_lsp_messages; rows there carry 'hasBody', so you can tell before asking.\n\nTO READ A REPLY, pass the row's 'answerSequence' rather than its 'sequence' — a reply has no row of its own, because it completes its request's. The answer comes back with 'isAnswer' true and 'answerTo' naming the request; its 'method' is the request's method, since a response carries none on the wire.\n\nSEQUENCE NUMBERS ARE UNIQUE ACROSS THE WHOLE RECORD, not per connection — if you name the wrong connection for a real sequence, the reply says which connection it actually belongs to.\n\nBodies are kept only for a connection that has been armed (see arm_lsp_capture, or launch the IDE with --capture-lsp), except for the opening of every connection, which is always kept because a handshake cannot be captured after the fact. When there is no body, 'unavailable' explains which of the possible reasons applies as far as the record knows — including when the record cannot tell them apart, which it says rather than guessing.\n\nA body longer than the per-frame limit comes back as a head and a tail with the true length stated. It is NOT valid JSON in that case, and pretending otherwise would be a lie about what was sent. Not redacted: this is the developer's own machine, and export is where redaction belongs.")]
@@ -3678,7 +3835,9 @@ internal record LspMessagesResult(
     string? Note,
     // What to pass as afterSequence to poll for what is new. Not the highest row: a request answered since comes
     // back on its own, older row, and passing that would return it again every time (#961).
-    long? LatestSequence);
+    long? LatestSequence,
+    // Where a request's reply is and why sequences have gaps, with any rows (#2564).
+    string? RowsNote = null);
 
 internal record LspMessageRow(
     long Sequence,
@@ -3918,7 +4077,8 @@ internal record BreakpointsResult(string? Project, string? Document, string? Uri
 /// of one name, so the pair is what says which.
 /// </param>
 internal record DebugStateResult(
-    bool Running, string State, string? StopReason, string? Module, int? Line, string? Project = null);
+    bool Running, string State, string? StopReason, string? Module, int? Line, string? Project = null,
+    string? AdapterStopReason = null);
 
 internal record LocalsResult(bool Success, string? Error, string? Context, LocalsRow[]? Locals, string? Project = null);
 

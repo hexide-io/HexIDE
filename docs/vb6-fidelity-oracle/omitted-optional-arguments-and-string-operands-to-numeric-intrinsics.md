@@ -84,6 +84,27 @@ omitted", and an interior blank is the only case an implementation has to model.
 That is what makes the fix for #190 safe: `Supplied(a, i)` can test `a.Count > i` for the trailing case
 and `Missing` for the interior one, without a third possibility to worry about.
 
+#### And for the program's own procedures, in every call form (2026-11-03, #2938)
+
+**The question.** The `Join` row is an intrinsic. HexIDE keeps a trailing blank as a `Missing` slot when the program
+calls one of its own procedures (`OmittedArgumentTests.A_trailing_blank_is_still_a_slot`), and RDCore refuses that call
+before it runs. The RDCore parity rerun (#1368) needed to know which of the two VB6 agrees with.
+
+**The probe.** One project per call, each a `Sub Main` under `On Error Resume Next` beside `Sub Show(a, Optional b = 7)`,
+which appends `b` to a file, and `Function F(a, Optional b = 7)`, which returns it. VB6 SP6, `/make`, built as native code
+and as p-code.
+
+| Call in `Sub Main` | Native | P-code |
+|---|---|---|
+| `Show 1,` | Compile error at that line: Syntax error | Syntax error |
+| `Call Show(1, )` | Syntax error | Syntax error |
+| `x = F(1, )` | Syntax error | Syntax error |
+| `Show 1` | builds; writes `b=7` | builds; writes `b=7` |
+
+**What it shows.** The rule holds for the program's own procedures too, in a statement call, a `Call` and a function
+call: a dangling comma after the last supplied argument doesn't compile. RDCore's refusal is VB6's. HexIDE running it is
+#2938.
+
 ### Numeric line labels (2026-09-02)
 
 | probe | measured |

@@ -29,7 +29,9 @@ public sealed class LanguageServerRegistrationFactory(
     ConversationLog? capture = null,
     IWorkspaceArtifactProviderRegistry? artifactProviders = null,
     ConversationRedactor? workspaceNames = null,
-    Func<string>? locale = null)
+    Func<string>? locale = null,
+    HexIDE.IDE.ISettingsService? settings = null,
+    Func<ShowDocumentParams, CancellationToken, Task<bool>>? showDocument = null)
 {
     /// <summary>
     /// The registrations for these entries, skipping the ones that are switched off.
@@ -66,7 +68,7 @@ public sealed class LanguageServerRegistrationFactory(
                     trace: trace,
                     // The id, not the language: two servers can serve one language, and a record that
                     // could not tell them apart would be worse than no record.
-                    capture: capture, connectionId: id, workspaceNames: workspaceNames, locale: locale),
+                    capture: capture, connectionId: id, workspaceNames: workspaceNames, locale: locale, settings: settings, showDocument: showDocument),
                 Priority: entry.Priority ?? 0,
                 Transport: transport.Kind,
                 Endpoint: transport.Endpoint,

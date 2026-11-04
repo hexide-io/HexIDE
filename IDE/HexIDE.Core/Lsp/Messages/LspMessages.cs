@@ -30,9 +30,10 @@ public enum DiagnosticSeverity
 /// <see cref="CodeText"/> rather than by inspecting the element at each use.
 ///
 /// <para>
-/// The protocol also defines <c>tags</c>, <c>relatedInformation</c> and <c>data</c>, which are still
-/// dropped. <c>tags</c> would change how a diagnostic is drawn rather than add text to it, and that is a
-/// rendering decision rather than a plumbing one (hexide-io/HexIDE#426).
+/// Tags 1 and 2 and well-formed related locations are retained on both inbound paths (#453).
+/// Tags style editor text and list messages; related locations are clickable in diagnostic tips.
+/// Opaque <c>data</c> is still dropped
+/// until the code-action relay decision (q-453-code-actions).
 /// </para>
 /// </remarks>
 public record Diagnostic(
@@ -45,7 +46,13 @@ public record Diagnostic(
     [property: JsonPropertyName("code")]
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] System.Text.Json.JsonElement? Code = null,
     [property: JsonPropertyName("codeDescription")]
-    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] CodeDescription? CodeDescription = null)
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] CodeDescription? CodeDescription = null,
+    [property: JsonPropertyName("tags")]
+    [property: JsonConverter(typeof(DiagnosticTagsConverter))]
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] int[]? Tags = null,
+    [property: JsonPropertyName("relatedInformation")]
+    [property: JsonConverter(typeof(DiagnosticRelatedInformationConverter))]
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] DiagnosticRelatedInformation[]? RelatedInformation = null)
 {
     /// <summary>
     /// The code as text — <c>F401</c>, <c>MD012</c>, <c>VBC00001</c> — or null when the server sent none.
@@ -277,7 +284,30 @@ public record TextDocumentClientCapabilities(
     [property: JsonPropertyName("foldingRange")]
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] FoldingRangeClientCapabilities? FoldingRange = null,
     [property: JsonPropertyName("semanticTokens")]
-    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] SemanticTokensClientCapabilities? SemanticTokens = null);
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] SemanticTokensClientCapabilities? SemanticTokens = null,
+    [property: JsonPropertyName("completion")]
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] CompletionClientCapabilities? Completion = null,
+    [property: JsonPropertyName("inlayHint")]
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] InlayHintClientCapabilities? InlayHint = null);
+
+public record CompletionClientCapabilities(
+    [property: JsonPropertyName("completionItemKind")] CompletionItemKindClientCapabilities CompletionItemKind,
+    [property: JsonPropertyName("insertTextMode")] int InsertTextMode = 1,
+    [property: JsonPropertyName("completionItem")]
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] CompletionItemClientCapabilities? CompletionItem = null);
+
+public record CompletionItemClientCapabilities(
+    [property: JsonPropertyName("preselectSupport")] bool PreselectSupport,
+    [property: JsonPropertyName("documentationFormat")] string[] DocumentationFormat);
+
+public record CompletionItemKindClientCapabilities(
+    [property: JsonPropertyName("valueSet")] CompletionItemKind[] ValueSet);
+
+public record ConfigurationParams([property: JsonPropertyName("items")] ConfigurationItem[] Items);
+public record ConfigurationItem(
+    [property: JsonPropertyName("scopeUri")] string? ScopeUri = null,
+    [property: JsonPropertyName("section")] string? Section = null);
+public record DidChangeConfigurationParams([property: JsonPropertyName("settings")] EmptyParams Settings);
 
 /// <summary>
 /// What the client can do at workspace scope.
@@ -305,7 +335,14 @@ public record WorkspaceClientCapabilities(
     [property: JsonPropertyName("diagnostics")]
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] WorkspaceDiagnosticsClientCapabilities? Diagnostics = null,
     [property: JsonPropertyName("fileOperations")]
-    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] FileOperationsClientCapabilities? FileOperations = null);
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] FileOperationsClientCapabilities? FileOperations = null,
+    [property: JsonPropertyName("configuration")]
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] bool? Configuration = null,
+    [property: JsonPropertyName("workspaceEdit")]
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] WorkspaceEditClientCapabilities? WorkspaceEdit = null);
+
+public record WorkspaceEditClientCapabilities(
+    [property: JsonPropertyName("documentChanges")] bool DocumentChanges = true);
 
 public record WorkspaceDiagnosticsClientCapabilities(
     [property: JsonPropertyName("refreshSupport")] bool RefreshSupport = true);
@@ -358,7 +395,11 @@ public record TextDocumentSyncClientCapabilities(
     [property: JsonPropertyName("didSave")] bool DidSave = false);
 
 public record PublishDiagnosticsClientCapabilities(
-    [property: JsonPropertyName("relatedInformation")] bool RelatedInformation = false);
+    [property: JsonPropertyName("relatedInformation")] bool RelatedInformation = false,
+    [property: JsonPropertyName("tagSupport")]
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] DiagnosticTagSupport? TagSupport = null);
+
+public record DiagnosticTagSupport([property: JsonPropertyName("valueSet")] int[] ValueSet);
 
 /// <summary>
 /// Declares that the client will ask for diagnostics rather than only be told them.
@@ -504,7 +545,9 @@ public record ServerCapabilities(
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] System.Text.Json.JsonElement? DiagnosticProvider = null,
     [property: JsonPropertyName("executeCommandProvider")]
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] System.Text.Json.JsonElement? ExecuteCommandProvider = null,
-    [property: JsonPropertyName("experimental")]                System.Text.Json.JsonElement? Experimental = null)
+    [property: JsonPropertyName("experimental")]                System.Text.Json.JsonElement? Experimental = null,
+    [property: JsonPropertyName("inlayHintProvider")]
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] System.Text.Json.JsonElement? InlayHintProvider = null)
 {
     /// <summary>
     /// True when a capability is present and switched on, in either shape the protocol permits.
@@ -754,12 +797,31 @@ public record CompletionParams(
 
 public enum CompletionItemKind
 {
-    Text        = 1,
-    Function    = 3,
-    Variable    = 6,
-    Property    = 10,
-    Keyword     = 14,
-    Constant    = 21,
+    Text = 1,
+    Method = 2,
+    Function = 3,
+    Constructor = 4,
+    Field = 5,
+    Variable = 6,
+    Class = 7,
+    Interface = 8,
+    Module = 9,
+    Property = 10,
+    Unit = 11,
+    Value = 12,
+    Enum = 13,
+    Keyword = 14,
+    Snippet = 15,
+    Color = 16,
+    File = 17,
+    Reference = 18,
+    Folder = 19,
+    EnumMember = 20,
+    Constant = 21,
+    Struct = 22,
+    Event = 23,
+    Operator = 24,
+    TypeParameter = 25,
 }
 
 public record CompletionItem(
@@ -768,7 +830,32 @@ public record CompletionItem(
     [property: JsonPropertyName("detail")]
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Detail = null,
     [property: JsonPropertyName("insertText")]
-    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? InsertText = null);
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? InsertText = null,
+    [property: JsonPropertyName("textEdit")]
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] TextEdit? TextEdit = null,
+    [property: JsonPropertyName("additionalTextEdits")]
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] TextEdit[]? AdditionalTextEdits = null,
+    [property: JsonPropertyName("insertTextFormat")]
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] int? InsertTextFormat = null,
+    [property: JsonPropertyName("sortText")]
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? SortText = null,
+    [property: JsonPropertyName("filterText")]
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? FilterText = null,
+    [property: JsonPropertyName("preselect")]
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] bool? Preselect = null,
+    [property: JsonPropertyName("documentation"), JsonConverter(typeof(CompletionDocumentationConverter))]
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] MarkupContent? Documentation = null);
+
+public sealed class CompletionDocumentationConverter : JsonConverter<MarkupContent>
+{
+    public override MarkupContent? Read(ref Utf8JsonReader reader, Type type, JsonSerializerOptions options) =>
+        reader.TokenType == JsonTokenType.String
+            ? new("plaintext", reader.GetString()!)
+            : JsonSerializer.Deserialize<MarkupContent>(ref reader, options);
+
+    public override void Write(Utf8JsonWriter writer, MarkupContent value, JsonSerializerOptions options) =>
+        JsonSerializer.Serialize(writer, value, options);
+}
 
 public record CompletionList(
     [property: JsonPropertyName("isIncomplete")] bool IsIncomplete,
@@ -850,8 +937,8 @@ public record DocumentSymbol(
     /// This symbol and every symbol beneath it, depth first.
     /// </summary>
     /// <remarks>
-    /// Offered rather than flattening at the seam, because the two consumers here want a flat list and a
-    /// future outline view wants the tree — and only one of those can be reconstructed from the other.
+    /// Offered rather than flattening at the seam: the procedure list needs a flat list while the outline
+    /// keeps the tree, and only one of those can be reconstructed from the other.
     ///
     /// <para>
     /// The depth cap guards the walk, not the wire. Measured: a reply is bounded first by
@@ -945,6 +1032,14 @@ public sealed class HoverContentsConverter : JsonConverter<MarkupContent>
     }
 }
 
+public record ReferenceContext(
+    [property: JsonPropertyName("includeDeclaration")] bool IncludeDeclaration);
+
+public record ReferenceParams(
+    [property: JsonPropertyName("textDocument")] TextDocumentIdentifier TextDocument,
+    [property: JsonPropertyName("position")] Position Position,
+    [property: JsonPropertyName("context")] ReferenceContext Context);
+
 /// <summary>A location inside a resource, such as a line inside a text file.</summary>
 public record Location(
     [property: JsonPropertyName("uri")]   string Uri,
@@ -973,7 +1068,21 @@ public record TextEdit(
 /// </summary>
 public record WorkspaceEdit(
     [property: JsonPropertyName("changes")]
-    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] Dictionary<string, TextEdit[]>? Changes = null);
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] Dictionary<string, TextEdit[]>? Changes = null,
+    [property: JsonPropertyName("documentChanges")]
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] TextDocumentEdit[]? DocumentChanges = null);
+
+/// <summary>A text document edit, or an unsupported resource operation identified by Kind.</summary>
+public record TextDocumentEdit(
+    [property: JsonPropertyName("textDocument")] OptionalVersionedTextDocumentIdentifier? TextDocument = null,
+    [property: JsonPropertyName("edits")] TextEdit[]? Edits = null,
+    [property: JsonPropertyName("kind")] string? Kind = null,
+    [property: JsonPropertyName("uri")] string? Uri = null,
+    [property: JsonPropertyName("oldUri")] string? OldUri = null);
+
+public record OptionalVersionedTextDocumentIdentifier(
+    [property: JsonPropertyName("uri")] string Uri,
+    [property: JsonPropertyName("version")] int? Version);
 
 /// <summary>Formatting options sent by the client.</summary>
 public record FormattingOptions(
@@ -1135,7 +1244,8 @@ public sealed record CancelNumericRequestParams([property: JsonPropertyName("id"
 public sealed record CancelStringRequestParams([property: JsonPropertyName("id")] string Id);
 
 public record WindowClientCapabilities(
-    [property: JsonPropertyName("workDoneProgress")] bool WorkDoneProgress = true);
+    [property: JsonPropertyName("workDoneProgress")] bool WorkDoneProgress = true,
+    [property: JsonPropertyName("showDocument")] ShowDocumentClientCapabilities? ShowDocument = null);
 
 public record WorkDoneProgressCreateParams(
     [property: JsonPropertyName("token")] JsonElement Token);
@@ -1184,3 +1294,32 @@ public record WorkspaceFoldersChangeEvent(
 
 public record DidChangeWorkspaceFoldersParams(
     [property: JsonPropertyName("event")] WorkspaceFoldersChangeEvent Event);
+
+public record InlayHintClientCapabilities();
+
+public record InlayHintParams(
+    [property: JsonPropertyName("textDocument")] TextDocumentIdentifier TextDocument,
+    [property: JsonPropertyName("range")] Range Range);
+
+public record InlayHint(
+    [property: JsonPropertyName("position")] Position Position,
+    [property: JsonPropertyName("label")] System.Text.Json.JsonElement Label)
+{
+    [JsonIgnore]
+    public string Text => Label.ValueKind == System.Text.Json.JsonValueKind.String
+        ? Label.GetString() ?? ""
+        : Label.ValueKind == System.Text.Json.JsonValueKind.Array
+            ? string.Concat(Label.EnumerateArray().Select(part =>
+                part.TryGetProperty("value", out var value) ? value.GetString() : ""))
+            : "";
+}
+
+public record ShowDocumentClientCapabilities([property: JsonPropertyName("support")] bool Support = true);
+
+public record ShowDocumentParams(
+    [property: JsonPropertyName("uri")] string Uri,
+    [property: JsonPropertyName("external")] bool External = false,
+    [property: JsonPropertyName("takeFocus")] bool TakeFocus = false,
+    [property: JsonPropertyName("selection")] Range? Selection = null);
+
+public record ShowDocumentResult([property: JsonPropertyName("success")] bool Success);

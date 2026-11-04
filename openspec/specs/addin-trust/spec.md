@@ -197,7 +197,7 @@ no harm in a logo on a details page, which is a different moment with different 
 ### Requirement: Manifest compatibility precedes trust
 
 After guarding the entry path, verification SHALL refuse a manifest whose `schema` exceeds the current
-schema (1), whose `minHexideVersion` exceeds the running assembly version, or whose non-null minimum
+schema (2), whose `minHexideVersion` exceeds the running assembly version, or whose non-null minimum
 version cannot be parsed as a numeric `major.minor[.build[.revision]]` version. Missing components compare
 as zero. Older schemas and an absent minimum SHALL retain their existing behavior. The verdict SHALL be
 `Incompatible`, independent of signature trust, developer mode, unsigned loading and recorded consent.
@@ -220,4 +220,18 @@ minimum SHALL be rejected before changing the output directory.
 #### Scenario: Package declares a minimum host version
 
 - **WHEN** a publisher packs with `--min-hexide-version 1.4`
-- **THEN** the signed manifest records schema 1 and minimum HexIDE version `1.4`
+- **THEN** the signed manifest records schema 2 and minimum HexIDE version `1.4`
+
+### Requirement: Signing generators preserve existing output
+
+The add-in packer's `genkeys` and `sign-revocations` commands SHALL create their output files
+exclusively. If any destination already exists, the command SHALL fail without replacing that file
+or writing generated content to any of its other destinations. If a reservation or write fails,
+the command SHALL remove exactly the output files created by that call.
+
+#### Scenario: An existing private key or revocation output
+
+- **WHEN** a signing generator encounters an existing output file
+- **THEN** it reports failure and preserves that file's bytes
+- **AND** no generated key, trust record or signature is written to the other destinations
+- **AND** any output files reserved by this call are removed, including when the last destination collides

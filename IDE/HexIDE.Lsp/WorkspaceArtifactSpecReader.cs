@@ -94,7 +94,7 @@ public static class WorkspaceArtifactSpecReader
             return false;
         }
 
-        spec = new WorkspaceArtifactSpec(path, provider, declared.Settings);
+        spec = new WorkspaceArtifactSpec(path, provider, declared.Settings, declared.RestartOnChange == true);
         return true;
     }
 

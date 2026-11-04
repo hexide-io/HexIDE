@@ -62,6 +62,68 @@ public class CodeLensAndCommandTests : IAsyncDisposable
         return client;
     }
 
+    [Theory]
+    [InlineData("{\"inlayHintProvider\":true}")]
+    [InlineData("{\"inlayHintProvider\":{\"resolveProvider\":false}}")]
+    public async Task InlayHintsSendTheDocumentAndRange(string capabilities)
+    {
+        var server = new StubServer(capabilities, "[]");
+        var client = await ConnectedToAsync(server);
+        var range = new HexIDE.Lsp.Messages.Range(new Position(2, 0), new Position(8, 7));
+        var hints = await client.RequestInlayHintsAsync("file:///test.bas", range, TestContext.Current.CancellationToken);
+        hints.Should().ContainSingle();
+        hints[0].Text.Should().Be("' Sub Foo");
+        server.LastInitializeParams!.Value.GetProperty("capabilities").GetProperty("textDocument")
+            .GetProperty("inlayHint").ValueKind.Should().Be(JsonValueKind.Object);
+        server.LastInlayParams!.Value.GetProperty("textDocument").GetProperty("uri").GetString()
+            .Should().Be("file:///test.bas");
+        server.LastInlayParams.Value.GetProperty("range").GetProperty("end").GetProperty("line").GetInt32()
+            .Should().Be(8);
+        foreach (var unsupported in new[] { "{}", "{\"inlayHintProvider\":false}" })
+        {
+            var silent = new StubServer(unsupported, "[]");
+            var gated = await ConnectedToAsync(silent);
+            (await gated.RequestInlayHintsAsync("file:///test.bas", range,
+                TestContext.Current.CancellationToken)).Should().BeEmpty();
+            silent.LastInlayParams.Should().BeNull();
+        }
+    }
+
+    [Theory]
+    [InlineData("{\"referencesProvider\":true}")]
+    [InlineData("{\"referencesProvider\":{}}")]
+    public async Task ReferencesSendPositionAndIncludeDeclaration(string capabilities)
+    {
+        var server = new StubServer(capabilities, "[]");
+        ILspClient client = await ConnectedToAsync(server);
+        var locations = await client.RequestReferencesAsync("file:///test.bas", new Position(3, 7),
+            TestContext.Current.CancellationToken);
+        locations.Should().ContainSingle();
+        var sent = server.LastReferenceParams!.Value;
+        sent.GetProperty("textDocument").GetProperty("uri").GetString().Should().Be("file:///test.bas");
+        sent.GetProperty("position").GetProperty("line").GetInt32().Should().Be(3);
+        sent.GetProperty("position").GetProperty("character").GetInt32().Should().Be(7);
+        sent.GetProperty("context").GetProperty("includeDeclaration").GetBoolean().Should().BeTrue();
+        foreach (var unsupported in new[] { "{}", "{\"referencesProvider\":false}" })
+        {
+            var silent = new StubServer(unsupported, "[]");
+            ILspClient gated = await ConnectedToAsync(silent);
+            (await gated.RequestReferencesAsync("file:///test.bas", new Position(3, 7),
+                TestContext.Current.CancellationToken)).Should().BeEmpty();
+            silent.LastReferenceParams.Should().BeNull();
+        }
+    }
+
+    [Fact]
+    public async Task ReferenceServerErrorsReachTheCaller()
+    {
+        var server = new StubServer("""{"referencesProvider":true}""", "[]") { FailReferences = true };
+        ILspClient client = await ConnectedToAsync(server);
+        var request = () => client.RequestReferencesAsync("file:///test.bas", new Position(0, 0),
+            TestContext.Current.CancellationToken);
+        await request.Should().ThrowAsync<RemoteInvocationException>().WithMessage("*reference failure*");
+    }
+
     // ── codeLens ────────────────────────────────────────────────────────────────────────────────────
 
     [Fact]
@@ -245,6 +307,29 @@ public class CodeLensAndCommandTests : IAsyncDisposable
     /// </summary>
     private sealed class StubServer(string capabilities, string lenses)
     {
+        public JsonElement? LastInlayParams { get; private set; }
+        public JsonElement? LastInitializeParams { get; private set; }
+
+        [JsonRpcMethod("textDocument/inlayHint", UseSingleObjectParameterDeserialization = true)]
+        public JsonElement InlayHint(JsonElement p)
+        {
+            LastInlayParams = p.Clone();
+            return JsonDocument.Parse("""[{"position":{"line":8,"character":7},"label":"' Sub Foo"}]""")
+                .RootElement.Clone();
+        }
+
+        public bool FailReferences { get; init; }
+        public JsonElement? LastReferenceParams { get; private set; }
+
+        [JsonRpcMethod("textDocument/references", UseSingleObjectParameterDeserialization = true)]
+        public JsonElement References(JsonElement p)
+        {
+            LastReferenceParams = p.Clone();
+            if (FailReferences) throw new InvalidOperationException("reference failure");
+            return JsonDocument.Parse("""[{"uri":"file:///test.bas","range":{"start":{"line":3,"character":7},"end":{"line":3,"character":12}}}]""")
+                .RootElement.Clone();
+        }
+
         public int CodeLensCalls { get; private set; }
         public int ResolveCalls { get; private set; }
         public JsonElement? LastResolveParams { get; private set; }
@@ -252,8 +337,11 @@ public class CodeLensAndCommandTests : IAsyncDisposable
         public JsonElement? LastCommandParams { get; private set; }
 
         [JsonRpcMethod("initialize", UseSingleObjectParameterDeserialization = true)]
-        public JsonElement Initialize(JsonElement _) =>
-            JsonDocument.Parse($$"""{"capabilities":{{capabilities}}}""").RootElement.Clone();
+        public JsonElement Initialize(JsonElement p)
+        {
+            LastInitializeParams = p.Clone();
+            return JsonDocument.Parse($$"""{"capabilities":{{capabilities}}}""").RootElement.Clone();
+        }
 
         [JsonRpcMethod("initialized")]
         public void Initialized(JsonElement _) { }

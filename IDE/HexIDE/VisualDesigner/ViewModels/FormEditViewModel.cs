@@ -701,6 +701,13 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
             SpawnControlAt(componentClass, new Rect(0, Math.Floor((Form.Height - 25) / 2), Form.Width, 25), library: library);
             return;
         }
+        if (componentClass is FlatScrollBarComponentClass)
+        {
+            // VB6 centres the 1500 × 255 control as if it were 750 twips high (#1097).
+            SpawnControlAt(componentClass, new Rect(Pixels(Twips(Form.Width) / 2 - 750),
+                Pixels(Twips(Form.Height) / 2 - 375), 100, 17), library: library);
+            return;
+        }
         var (width, height) = componentClass.AddedSize;
         var left = Twips(Form.Width) / 2 - width / 2;
         var top = Twips(Form.Height) / 2 - height / 2;
@@ -1500,7 +1507,16 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
         if (Equals(before, after))
             return [];
         var command = new Commands.SetPropertyCommand(target, property, before, after);
-        var consequences = target.BaseClass.ApplyDesignerConsequences(target, property);
+        IReadOnlyList<PropertyChange> consequences;
+        try
+        {
+            consequences = target.BaseClass.ApplyDesignerConsequences(target, property);
+        }
+        catch (NotImplementedException)
+        {
+            target.SetUntypedProperty(property, before);
+            throw;
+        }
         if (consequences.Count == 0)
         {
             UndoStack.Push(command);

@@ -792,6 +792,131 @@ public class UiAutomationDriverTests
         finally { window.Close(); }
     }
 
+    [AvaloniaTheory]
+    [InlineData(0)]
+    [InlineData(4)]
+    [InlineData(5)]
+    [InlineData(6)]
+    public void Dump_DataBoundText_PathSurvivesValueChange(int index)
+    {
+        var vm = new TextPathVm();
+        var view = new BoundTextPathView { DataContext = vm };
+        var text = ((StackPanel)view.Content!).Children[index];
+        var window = new Window { Content = view, Width = 300, Height = 240 };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+        try
+        {
+            (BindingOperations.GetBindingExpressionBase(text, TextBlock.TextProperty)?.GetType().FullName).Should().Be(
+                index == 6 ? "Avalonia.Data.Core.MultiBindingExpression" : "Avalonia.Data.Core.BindingExpression");
+            var node = Flatten(UiAutomationDriver.Dump(window, "Window", 20, false))
+                .Single(n => n.Name == ((TextBlock)text).Text);
+            node.Path.Should().EndWith($"/Text[#{index}]");
+            node.Name.Should().Be(((TextBlock)text).Text);
+            vm.Tick();
+            Dispatcher.UIThread.RunJobs();
+            UiAutomationDriver.Resolve(window, node.Path).control.Should().BeSameAs(text);
+            ((TextBlock)text).Text.Should().Contain("32");
+            Flatten(UiAutomationDriver.Dump(window, "Window", 20, false))
+                .Single(n => n.Name == ((TextBlock)text).Text).Path.Should().Be(node.Path);
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaFact]
+    public void Dump_ResourceAndLiteralText_KeepLabelsBesideDataBinding()
+    {
+        var view = new BoundTextPathView { DataContext = new TextPathVm() };
+        var window = new Window { Content = view, Width = 300, Height = 240 };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+        try
+        {
+            var nodes = Flatten(UiAutomationDriver.Dump(window, "Window", 20, false)).ToList();
+            foreach (var text in view.GetVisualDescendants().OfType<TextBlock>()
+                         .Where(t => t.Text is "Literal" or "Transport" or "Static" or "Template"))
+                (BindingOperations.GetBindingExpressionBase(text, TextBlock.TextProperty)?.GetType().FullName).Should().Be(
+                    text.Text switch
+                    {
+                        "Transport" => "Avalonia.Markup.Xaml.MarkupExtensions.DynamicResourceExpression",
+                        "Template" => "Avalonia.Data.TemplateBindingExpression",
+                        _ => null,
+                    });
+            foreach (var label in new[] { "Literal", "Transport", "Static", "Template" })
+                nodes.Single(n => n.ControlType == "Text" && n.Name == label).Path.Should().EndWith($"/Text[{label}]");
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaFact]
+    public void Resolve_DataBoundText_CurrentLabelStillResolves()
+    {
+        var text = new TextBlock();
+        text.Bind(TextBlock.TextProperty, new Binding(nameof(TextPathVm.Caption)) { Source = new TextPathVm() });
+        var window = new Window { Content = text, Width = 300, Height = 120 };
+        window.Show();
+        try
+        {
+            UiAutomationDriver.Resolve(window, "Window/Text[for 1 m 31 s]").control.Should().BeSameAs(text);
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaTheory]
+    [InlineData(null, null, "Text")]
+    [InlineData("TextName", null, "Text[TextName]")]
+    [InlineData("TextName", "TextId", "Text[TextId]")]
+    public void Dump_DataBoundText_PrefersIdentityThenBareType(string? name, string? id, string segment)
+    {
+        var text = new TextBlock { Name = name };
+        AutomationProperties.SetAutomationId(text, id);
+        text.Bind(TextBlock.TextProperty, new Binding(nameof(TextPathVm.Caption)) { Source = new TextPathVm() });
+        var window = new Window { Content = text, Width = 300, Height = 120 };
+        window.Show();
+        try
+        {
+            Flatten(UiAutomationDriver.Dump(window, "Window", 20, false))
+                .Single(n => n.ControlType == "Text").Path.Should().Be($"Window/{segment}");
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaFact]
+    public void Resolve_DataBoundText_StaleLabelExplainsPositionalAddress()
+    {
+        var text = new TextBlock();
+        text.Bind(TextBlock.TextProperty, new Binding(nameof(TextPathVm.Caption)) { Source = new TextPathVm() });
+        var window = new Window { Content = text, Width = 300, Height = 120 };
+        window.Show();
+        try
+        {
+            var (control, error) = UiAutomationDriver.Resolve(window, "Window/Text[for 1 m 30 s]");
+            control.Should().BeNull();
+            error.Should().Contain("no child matching").And.Contain(
+                "Data-bound text changes, so it is addressed by position; run dump_visual_tree again with interactiveOnly: false for its current path.");
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaTheory]
+    [InlineData("Window/Button[Missing]")]
+    [InlineData("Window/#Missing")]
+    [InlineData("Window/Text[#2]")]
+    public void Resolve_DataBoundText_UnrelatedMissDoesNotSuggestTextChanged(string path)
+    {
+        var text = new TextBlock();
+        text.Bind(TextBlock.TextProperty, new Binding(nameof(TextPathVm.Caption)) { Source = new TextPathVm() });
+        var window = new Window { Content = text, Width = 300, Height = 120 };
+        window.Show();
+        try
+        {
+            var (control, error) = UiAutomationDriver.Resolve(window, path);
+            control.Should().BeNull();
+            error.Should().NotBeNull().And.NotContain("Data-bound text");
+        }
+        finally { window.Close(); }
+    }
+
     [AvaloniaFact]
     public void Dump_NameCollidesWithSiblingAutomationId_PathsStillRoundTripDistinctly()
     {

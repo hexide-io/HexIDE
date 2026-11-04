@@ -309,6 +309,11 @@ public class FormSerializer
                  || prop == VBProperties.VisibleProperty))
                 continue;
 
+            // The VB6 IDE drops even an explicit MousePointer = 0 (#1970).
+            if (prop == VBProperties.MousePointerProperty
+                && instance.GetPropertyOrDefault(VBProperties.MousePointerProperty) == VBCursorType.Default)
+                continue;
+
             if (prop == VBProperties.IntervalProperty && instance.BaseClass is TimerComponentClass
                 && instance.GetPropertyOrDefault(VBProperties.IntervalProperty) == 0)
                 continue;
@@ -516,6 +521,11 @@ public class FormSerializer
         else if (inBox is not ImageListComponentClass)
             vb.WriteProperty("_Version", typeof(int), inBox.LibraryOf(instance).PersistedVersion);
 
+        if (inBox is FlatScrollBarComponentClass && instance.GetPropertyOrDefault(FlatScrollBarComponentClass.SavedProperty) is null)
+        {
+            vb.WriteProperty("Arrows", typeof(int), 65536);
+            vb.WriteProperty("Orientation", typeof(int), 1638401);
+        }
         if (inBox is MaskedEdBoxComponentClass)
         {
             MaskedEdBoxPersistence.Write(vb, instance);

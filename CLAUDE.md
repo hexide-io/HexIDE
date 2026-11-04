@@ -40,6 +40,13 @@ cd IDE && dotnet publish HexIDE.Desktop -f net10.0 -o bin/
 cd LspServer && dotnet build HexIDE.VbLspServer/
 ```
 
+**A test run that could hang carries a hang-dump timeout**, as CI's Integration step does:
+`pwsh scripts/test.ps1 IDE/HexIDE.Integration.Tests/ -- --hangdump --hangdump-timeout 10m`. The timeout counts
+quiet time, minutes in which no test starts or finishes. So it ends a hang and names the tests still running,
+but it doesn't end a slow, healthy run (hexide-gen measured it in #2618). Only `HexIDE.Integration.Tests`
+references `Microsoft.Testing.Extensions.HangDump` today. Another project rejects the option until it has the
+package, with its licence line.
+
 CI runs two parallel jobs in `.github/workflows/build.yml`: `build-ide` (working dir `IDE/`) and `build-lsp-server` (working dir `LspServer/`), alongside two guard jobs.
 
 Failed test jobs upload their `TestResults` directories as `test-results-<job>-<OS>` artifacts, retained for
@@ -432,7 +439,7 @@ The signatures in this curated table are checked by `McpToolTableDocumentationTe
 - `--user-data-dir <path>` — keep this session's settings, layout, recents and `lsp-servers.json` in that directory instead of the user's own. **Use it for any demo or automation run that needs its own configuration**, rather than editing the real one and relying on someone to change it back. Works in Release. A relative path is relative to where HexIDE was started
 - `--developer-mode` — session developer mode; DEBUG-only and inert in a distributed build
 - `--ansi-code-page <n>` — read and write VB6 sources as a machine whose ANSI code page is `n` (e.g. `932`); DEBUG-only. The only way to reach the byte-for-byte read and its notice on a Western machine, where every byte decodes
-- `--personality <vb6|vbaode|vba>` — the IDE personality for the session
+- `--profile <value>` — a built-in/installed profile name, directory path, or `none`; omission selects `vb6`. The old personality flag refuses startup with a replacement diagnostic
 - Positional `.vbp` path — skip the startup dialog and open that project
 
 **Adding a flag is two places and a width budget, and the build enforces all three.** Declare it in
@@ -764,6 +771,13 @@ holds it. What is out of reach is:
 Before recording anything as walled, say which of the three it is. If the answer is "the diagnostic is
 walled but the construct is not", record exactly that — the distinction is what nine mis-filings turned on.
 
+## Claims Say What Was Checked
+
+**A claim says what was measured or read, and when. Otherwise it says "reasoned, not checked".** That holds in
+a PR body, an issue, a review, a Desk card and a reply to Jen. Give counts as counts ("4 of 61", not "both").
+"Unfixed upstream" needs a reproduction on the latest release first. Every session slipped here in the week of
+10-26 (#2467, #2582, #2635 and more).
+
 ## Currency & Best Practice
 
 **This project always aims for current best practice.** If you spot anything that looks even slightly
@@ -772,6 +786,10 @@ pin, a deprecated flag, or a convention that has since moved on — **flag it im
 quietly working around it. If it bears on a decision in flight, **pause and ask** before proceeding; if
 it's incidental, note it so it can be tracked. Staying current is a first-class quality bar here, not a
 nice-to-have.
+
+**Before writing a workaround, search the vendor's issue tracker and compare related version pins.** #2486 was a
+two-line fix behind a wrong comment. **A flake fix that only widens a timeout names the flake's cause, or says
+it's a mitigation.**
 
 ## Critical Constraints
 
@@ -797,6 +815,13 @@ nice-to-have.
   to a card by its id, and record only what can be public, such as "settled on the Team Desk". Where else it
   may go is her call. The repository is public, and a leak cannot be taken back: GitHub content is cached
   and indexed even after it is deleted.
+- **The Team Desk banner (`board/banner`) sets the week's pace. Read it before starting anything sizeable.**
+  **Yellow** (`warn`, from 75% of the Claude week, or when the pace alarm fires because the week's burn
+  projects 100% more than a day before the reset): review and polish only. Finish or park what's in flight,
+  push it, and start nothing new. **Red** (`pause`, from 85%): the team is paused, and nothing new starts. Jen
+  may still contact a session about a specific item. If she does, keep the reply short and token-light, and
+  don't wake other sessions unless it's urgent. Only Jen lifts the pause; the weekly reset doesn't. Codex
+  lanes keep running what's queued.
 
 - **Avalonia 12.0.5 / Dock 12.0.0.2** — the project is on Avalonia 12. `Classic.Avalonia.Theme 12.0.1-beta1` is kept as a **controls-only** dependency (provides `ClassicBorderDecorator`, `ClassicBorderStyle`). **Do not pin it back to 11.3.0.3**: that build was compiled against Avalonia 11, so `ClassicBorderDecorator.DrawRadioButtonBorder` called a `StreamGeometryContext.ArcTo` overload Avalonia 12 replaced, and **every VB6 option button killed the process on render** (`MissingMethodException`, thrown on the render thread — uncatchable, and nothing reaches the Serilog log; the stack only exists in the Windows Application event log). It is a prerelease because it is the only Avalonia-12 build published. `<ClassicTheme />` remains **NOT loaded** and this change does not re-open that question — do not add it back. The `Classic.Avalonia.Theme.Dock`, `.ColorPicker`, and `.DataGrid` sub-packages have been removed. `Avalonia.Themes.Simple 12.0.5` is the base theme (`<SimpleTheme />` in App.axaml).
 - **`Classic.CommonControls.Avalonia 12.0.1-beta1` controls** (`ToolBar`, `ToolBarButton`, `RebarHandle`, `ListView`, `ListViewItem`) are **NOT used** — the `TypeLoadException: PseudolassesExtensions` applied to the 11.x build, but they stay unused by design (removing VB6 chrome is intended, not incidental). Use standard Avalonia `StackPanel`/`Button`/`ToggleButton`/`ListBox` instead. The version follows `Classic.Avalonia.Theme` transitively; no project references it directly. `SystemColors` static resource keys from that assembly are still used for color lookups and do not crash.
@@ -964,6 +989,9 @@ widening visibility to `public` just for a test. When a new test project needs r
 - **Never use `System.IO.Path` on a path that came out of, or is going into, a VB6 file.** `.vbp`/`.vbg`/`.frm` are Windows-native formats: their paths are backslash-separated on every host, while `System.IO.Path` answers about the *host* filesystem. **`build-ide` runs on `ubuntu-latest`**, where a backslash is an ordinary filename character — so `Path.GetFileName(@"docs\README.md")` returns the whole string, and `Path.GetRelativePath` emits `docs/README.md` into a file that must say `docs\README.md`. Both are silent (each yields something that still looks like a path) and **both are invisible on a Windows dev box**. Use `SerializedProject.FileNameOf` / `.ToHostPath` / `.ToProjectFilePath`; convert to host separators only where a path is resolved against the filesystem, never for what gets written back.
 - **A test expectation about VB6-file *content* must be a literal backslashed string, never composed with `Path.Combine`.** An expectation built from a host path API follows whichever machine runs it, so it passes on Windows by accident and on Linux *certifies the bug*. Three `SerializationRoundTripTests` cases did exactly this — one of them named `..._PreservedVerbatim` — and read as cover for years. Test **inputs** are different: those are real filesystem paths and are rightly built with `Path.Combine`. That distinction is the whole rule.
 - **MVVM**: use `[Notify]` (PropertyChanged.SourceGenerator) for `INotifyPropertyChanged` properties.
+- **Code that touches screen positions is tested at a scaling other than 1.** Pointer coordinates, bounds and
+  anything converted between DIPs and pixels can be right at 100% and wrong at 150%, and headless tests run at
+  1 unless told otherwise (#2542).
 - **`DrawingContext.DrawImage(image, destRect)` samples the source's *device-independent* extent, not its pixels.** Composing a `RenderTargetBitmap` rendered at `96 * scaling` dpi into another therefore reads only the top-left `1/scaling` of it and stretches that to fill — on a 150% display, correctly placed and sized output with magnified, clipped contents inside. Use the three-argument overload with an explicit **pixel** source rect. Related: a `RenderTargetBitmap` at a DPI other than 96 is not safe either. Avalonia.Skia scales the first transform pushed after a popped clip twice there, so text a control draws after popping a clip lands outside the bitmap, and a running StatusBar's panels came out blank (#2293). To picture what the screen shows, take the compositor's snapshot (`Compositor.CreateCompositionVisualSnapshot`), as `SnapshotComposer` does. The `DrawImage` trap is invisible at 100% scaling and headlessly. The clip trap is invisible at 100% only, and `SnapshotScalingTests` reproduces it headlessly.
 - **A pump can change a test's `AsyncLocal`s, and its culture.** Avalonia runs each dispatcher job by *restoring* the `ExecutionContext` it was captured with (`ExecutionContext.Restore`, not `Run`) and leaves that context on the thread, and the headless session gives a test no context of its own, so a test also starts in whatever context the previous test's last job left. `RunJobs`, `PushFrame` and `DispatcherOperation.Wait()` on the UI thread all do this. After one, a value a test set before it reads as the last job's. A posted job captures its context when posted, and a `DispatcherTimer`'s when started or re-armed, so a repeating timer keeps its starter's. That is a flake that needs the job still queued, so it shows under load (#2029). An await taken before the pump is safe, since its continuation runs under its own context, but a pump inside a synchronous stretch carries the leaked context into that method's later awaits. Test code that reads an `AsyncLocal` after a pump should capture the context before and `ExecutionContext.Restore` it after, as `OpenDialogsTests.RunJobsKeepingContext` and `SelectVerifiedTests.RunJobsKeepingContext` do. The latter
   has a deterministic `AsyncLocal` regression for this context loss (#1296); draining jobs alone does not
@@ -1076,6 +1104,13 @@ the PR. Typo-level fixes need no issue.
   `in progress on branch <name>`. The branch name is what a second session can check. And never
   `git stash` or switch branches in a checkout you did not create: another session's uncommitted work may
   be sitting in it. Use a `git worktree` of your own instead.
+- **Search the open PRs by file before fixing a shared component.** #2685 and #2658 fixed the same fault. PR
+  search doesn't cover changed files, so ask for the files, with your file's name in place of
+  `LspClientRegistry.cs`:
+  `gh pr list --repo hexide-io/HexIDE --state open --limit 200 --json number,files -q '[.[] | select(any(.files[]; .path | endswith("LspClientRegistry.cs"))) | .number]'`
+- **A label you set is yours to remove**, and one that Jen or another session set is theirs (#499).
+- **Clear `bin/` and `obj/`, or remove the worktree, once its result is posted or its PR merges.** C: ran low
+  four times in the week of 10-26.
 
 **A changelog entry is a file in `changelog.d/`, named for the issue, never an edit to `CHANGELOG.md`.** Every
 PR adding to the same section of one file put every other open PR in conflict on each merge (#1375);
