@@ -57,6 +57,11 @@ public static class PipeNameLimit
     /// <summary>True when <paramref name="pipeName"/> cannot be used on this host.</summary>
     public static bool IsTooLong(string? pipeName) => pipeName is not null && pipeName.Length > Max;
 
+    internal static object[] RefusalArguments(string pipeName) => OperatingSystem.IsWindows()
+        ? ["pipeName", pipeName.Length, Max]
+        : ["pipeName", pipeName.Length, Max, $"{Path.GetTempPath()}{UnixPipePrefix}<pipeName>",
+            Path.GetTempPath().Length + UnixPipePrefix.Length, UnixSocketPathMax];
+
     /// <summary>
     /// Why a name was refused, in terms of the thing the reader controls. It names the budget, where the
     /// rest of it went, and that the number is this machine's rather than a property of the configuration

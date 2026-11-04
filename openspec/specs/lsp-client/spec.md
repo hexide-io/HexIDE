@@ -788,6 +788,14 @@ Changes to the configuration SHALL take effect when the IDE next starts. A langu
 rather than data, and partial live application — new entries taking effect while changed ones do not — would
 be indistinguishable from a defect.
 
+JSON syntax errors SHALL report the file, 1-based line and character column, and the JSON path
+verbatim through localized prose. UTF-8 byte offsets SHALL be converted to editor character columns.
+The log SHALL retain an English report.
+
+#### Scenario: A missing comma follows non-ASCII text
+- **WHEN** a JSON syntax error follows non-ASCII text on a line of the configuration
+- **THEN** the report names the 1-based character column rather than the UTF-8 byte offset
+
 #### Scenario: One entry is malformed
 - **WHEN** the configuration contains an entry that cannot be used
 - **THEN** every other entry still applies, and the failure is reported rather than only logged

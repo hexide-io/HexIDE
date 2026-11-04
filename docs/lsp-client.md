@@ -181,6 +181,12 @@ refreshes status, connect-chain stages, age and empty-output text immediately. A
 localized range formats, and the label column can shrink as well as grow without reopening the tab (#3012).
 Connect-chain elapsed times use a localized millisecond format that follows the same live language switch;
 digit grouping continues to use the process culture (#3026).
+Configuration problems likewise resolve message codes and verbatim arguments through the active language
+pack, and refresh on a language switch (#3031). Complete translated field-list headings replace English
+plural fragments. The original English messages remain in the registry for logging; exception details,
+JSON keys and values, paths and pointers remain verbatim in the translated display. JSON syntax
+errors use a separate code with a 1-based line and character column converted from the parser’s UTF-8
+byte offset; the labels are translated and the JSON path stays verbatim (#3065).
 
 **Live server output** (#2388): Tools → Language & Debug Servers shows an Output box on each
 server's card, beside its existing protocol-inspector link. It updates as `window/logMessage`, stderr,

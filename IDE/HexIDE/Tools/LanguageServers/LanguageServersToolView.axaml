@@ -293,9 +293,10 @@
                 <ItemsControl ItemsSource="{CompiledBinding Problems}">
                     <ItemsControl.ItemTemplate>
                         <DataTemplate>
-                            <!-- Message renders verbatim: it already names the file, the reason, and for a
-                                 JSON fault the pointer and line. Rewording it would lose all three. -->
+                            <!-- The view model translates prose while retaining the loader's verbatim
+                                 identifiers, paths and JSON diagnostic details as arguments. -->
                             <SelectableTextBlock Classes="machine" FontSize="11" Margin="0,0,0,4"
+                                                 TextWrapping="Wrap"
                                                  Text="{CompiledBinding Message}" />
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>
