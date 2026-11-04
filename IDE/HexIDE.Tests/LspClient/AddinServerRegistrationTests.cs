@@ -642,6 +642,35 @@ public class AddinServerRegistrationTests : IDisposable
         rpc.Dispose();
     }
 
+    [Fact]
+    public async Task APseudonymisedExport_ScrubsTheFilesAnAddinsOwnMessagesName_BothWays()
+    {
+        var pipeName = PipeName();
+        await using var pipe = new ProbePipe(pipeName, () => new ProbeServer());
+        await using var capture = new ConversationLog(armEveryConnection: true);
+        var router = Router();
+        var contributions = new LanguageServerContributions(router, new LanguageServerRegistrationFactory(_loggerFactory, capture: capture),
+            new LanguageServerConfigLoader(_loggerFactory.CreateLogger<LanguageServerConfigLoader>()),
+            new HashSet<string>(StringComparer.Ordinal), _loggerFactory.CreateLogger<LanguageServerContributions>());
+        await using var connection = contributions.Register(
+            new AddinLanguageServer(PipeEntry("probe", pipeName)) { MessagePrefix = "probe/" }, "My Add-in");
+        await router.OpenDocumentAsync("file:///c:/p/README.md", "# hi", Token);
+        await connection.Opened.WaitAsync(TimeSpan.FromSeconds(30), Token);
+
+        // The add-in's request names a file, as RDCore's add-in names the module it runs; the server echoes it back.
+        var named = JsonDocument.Parse("""
+            {"module":"file:///C:/Fixtures/quintana/InvoiceLedger/Module1.bas","workingFolder":"C:\\Fixtures\\quintana\\InvoiceLedger"}
+            """).RootElement;
+        await connection.RequestAsync("probe/echo", named, cancellationToken: Token);
+
+        var export = await ConversationExporter.ExportAsync(capture,
+            new HexIDE.Redaction.ConversationRedactor(new HexIDE.Redaction.Pseudonymiser(new Random(7)), pseudonymise: true), "probe");
+
+        export.Messages.Should().Contain("probe/echo", "the add-in's own messages are in the export");
+        export.Messages.Should().NotContain("quintana").And.NotContain("InvoiceLedger").And.NotContain("Fixtures",
+            "a file an add-in's message names is the user's, as one in textDocument/didOpen is");
+    }
+
     // Accepts each connection HexIDE makes to the pipe, a restart's included, each with a server of its own.
     private sealed class ProbePipe : IAsyncDisposable
     {
