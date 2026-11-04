@@ -2131,7 +2131,7 @@ The client SHALL provide a document lens session that resolves only lenses whose
 its supplied zero-based viewport. Leaving the viewport SHALL cancel pending resolution, and late replies
 from cancelled resolution or superseded discovery SHALL NOT replace the current lenses. Complete lenses
 SHALL NOT be resolved again. Disposing a session SHALL cancel its work and detach refresh subscriptions.
-This is the scheduling layer of #2906; editor rendering, commands, edit debounce and Options remain pending.
+The code window supplies the viewport and refetches after edit debounce; the Options toggle remains pending.
 
 #### Scenario: Ten visible members among fifty
 
@@ -2143,7 +2143,8 @@ This is the scheduling layer of #2906; editor rendering, commands, edit debounce
 
 The client SHALL declare `workspace.codeLens.refreshSupport: true`, answer parameterless
 `workspace/codeLens/refresh` with null, and notify consumers with the issuing connection as sender.
-Active lens sessions SHALL discover their lenses again on that notification.
+Active lens sessions SHALL discover their lenses again on that notification. Suspended sessions SHALL
+mark their answers stale and defer discovery until a view resumes them.
 
 #### Scenario: A server invalidates its lenses
 
@@ -2155,7 +2156,9 @@ Active lens sessions SHALL discover their lenses again on that notification.
 
 The code window SHALL draw each resolved lens above its range in the editor font, smaller and dimmed.
 Lens space SHALL add no document characters, selection content, caret stops or line numbers. The view
-SHALL supply its visible lines to the lens session on scrolling and dispose the session on detach.
+SHALL supply its visible lines to the lens session on scrolling and suspend new work on detach.
+The document SHALL own the session until disposal, retaining pending requests and completed answers
+across reattachment. Re-docking alone SHALL NOT rediscover lenses; edits SHALL refetch after debounce.
 Clicking a lens SHALL execute a server-declared command through the command router. The commands
 `rdcore.showReferences` and `editor.action.showReferences` SHALL instead fill the existing Find References
 pane from their third argument without sending a references request. Unknown commands SHALL do nothing

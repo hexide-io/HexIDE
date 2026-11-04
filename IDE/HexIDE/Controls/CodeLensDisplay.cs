@@ -36,7 +36,9 @@ internal sealed class CodeLensDisplay : VisualLineElementGenerator, IDisposable
         view.ScrollOffsetChanged += OnVisualLinesChanged;
         session.Changed += OnChanged;
         session.RequestFailed += OnFailed;
-        session.RefreshAsync().ListenErrors();
+        lenses = session.Lenses;
+        session.ResumeAsync().ListenErrors();
+        view.Redraw();
     }
 
     private void OnFailed(object? sender, Exception error) => Serilog.Log.Warning(error, "Code lens request failed");
@@ -127,7 +129,7 @@ internal sealed class CodeLensDisplay : VisualLineElementGenerator, IDisposable
         disposed = true;
         session.Changed -= OnChanged;
         session.RequestFailed -= OnFailed;
-        session.Dispose();
+        session.Suspend();
         var view = editor.TextArea.TextView;
         view.VisualLinesChanged -= OnVisualLinesChanged;
         view.ScrollOffsetChanged -= OnVisualLinesChanged;

@@ -1145,18 +1145,23 @@ identity, so equal lens values from different servers resolve independently. A c
 is refused by the registry. Already complete lenses need no round trip, and servers without resolve
 support are not asked. The code window draws resolved lenses above their member lines and runs their commands on click.
 The visual spacer reserves ascent using the editor font metrics so the whole lens row fits above the member text.
-The Options toggle and edit-debounce wiring remain unimplemented (#2906).
+Edits refetch lenses after the editor debounce (#3082). The Options toggle remains unimplemented (#2906).
 
 `CodeLensSession` supplies the viewport scheduling layer for that editor work: it fetches a document's
 lenses, resolves only starts inside the supplied zero-based visible line interval, cancels resolutions
 that leave view, and discards late replies after cancellation, rediscovery or disposal. Completed lenses
 are retained across viewport updates. `Changed` and `RequestFailed` are raised on the request context;
-UI consumers must dispatch them. Each attached code window owns a session and supplies its visible
-line interval as it scrolls, disposing the session when the view detaches.
+UI consumers must dispatch them. The code document owns the session and supplies its visible
+line interval through the attached view as it scrolls. Detach suspends new viewport work while retaining pending requests and completed lenses; reattachment resumes it without rediscovery (#3082).
+Tokens, folding ranges and inlay hints are also retained by the document, including pending requests,
+so rebuilding the visual tree for a tool pane does not send new requests or discard the last answers.
+An edit, URI change, hint setting change or server state transition invalidates those answers. A detached
+view removes its subscriptions and discards late replies intended for its previous attachment.
 
 The client declares `workspace.codeLens.refreshSupport: true` and answers parameterless
 `workspace/codeLens/refresh` with null. `CodeLensRefreshRequested` preserves the issuing connection through
-the registry; active code windows refetch on that event and unsubscribe when detached.
+the registry; active code windows refetch on that event. A suspended session only invalidates its answer
+until a view resumes it. Semantic-token and inlay-hint workspace refresh support is not advertised.
 
 `rdcore.showReferences` and `editor.action.showReferences` fill the existing Find References pane from
 the locations in the third argument, without asking for references again. Other lens commands use
