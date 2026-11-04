@@ -274,6 +274,8 @@ public partial class MainViewViewModel : ObservableObject
 
     public class DockFactory : Factory
     {
+        internal const double MinimumDocumentHeight = 120;
+
         private readonly IWindowStateService windowStateService;
         private readonly Dictionary<string, IDockable> toolsByKey;
         private readonly Dictionary<string, ToolLayoutState> deferredTools = new();
@@ -503,6 +505,7 @@ public partial class MainViewViewModel : ObservableObject
                     VisibleDockables = CreateList<IDockable>(),
                 };
             }
+            dd.MinHeight = Math.Max(MinimumDocumentHeight, double.IsFinite(dd.MinHeight) ? dd.MinHeight : 0);
             DocumentDock = dd;
 
             var documentTools = OpenIn(DockRegion.Document)
@@ -1140,6 +1143,7 @@ public partial class MainViewViewModel : ObservableObject
     {
         if (findReferences is not null)
         {
+            findReferences.LayoutResized += ScheduleLayoutSave;
             eventBus.Subscribe<ShowReferenceLocationsEvent>(e => findReferences.ShowLocations(e.Locations));
             eventBus.Subscribe<FindReferencesEvent>(e => findReferences.SearchAsync(e.Uri, e.Position).ListenErrors());
             findReferences.ShowRequested += () =>
@@ -2072,9 +2076,18 @@ public partial class MainViewViewModel : ObservableObject
         _layoutSaveTimer.Start();
     }
 
+    private bool CanSaveLayout()
+    {
+        if (dockFactory.DocumentDock is not { } document) return false;
+        document.GetVisibleBounds(out _, out _, out _, out var height);
+        return height >= Math.Max(DockFactory.MinimumDocumentHeight,
+            double.IsFinite(document.MinHeight) ? document.MinHeight : 0);
+    }
+
     private void FlushLayoutSaveDebounced()
     {
         _layoutSaveTimer.Stop();
+        if (!CanSaveLayout()) return;
         var json = LayoutManifestJson.Serialize(dockFactory.CaptureManifest(Layout));
         if (json == _lastSavedLayoutJson) return; // nothing actually changed since the last write
         _lastSavedLayoutJson = json;
@@ -2082,10 +2095,11 @@ public partial class MainViewViewModel : ObservableObject
     }
 
     /// <summary>Capture and persist the current dock layout synchronously (called on window close).
-    /// Unconditional, so the final state lands on disk even if a debounced write was still pending.</summary>
+    /// Keeps the last valid layout if the document area is below its minimum.</summary>
     public void SaveLayout()
     {
         _layoutSaveTimer.Stop();
+        if (!CanSaveLayout()) return;
         var json = LayoutManifestJson.Serialize(dockFactory.CaptureManifest(Layout));
         _lastSavedLayoutJson = json;
         windowStateService.SaveLayoutManifestJson(json);
