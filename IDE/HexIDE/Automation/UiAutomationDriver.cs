@@ -5049,7 +5049,10 @@ public static class UiAutomationDriver
         if (seg.Discriminator is { } disc)
         {
             var (matches, facet) = MatchByDiscriminator(typed, disc);
-            return Pick(matches, raw, parentPath, facet);
+            var result = Pick(matches, raw, parentPath, facet);
+            if (matches.Count == 0 && seg.Type is not null && typed.Any(m => HasDataBoundText(m.Control)))
+                return (null, result.error + ". Data-bound text changes, so it is addressed by position; run dump_visual_tree again with interactiveOnly: false for its current path.");
+            return result;
         }
 
         return Pick([.. typed.Select(m => m.Control)], raw, parentPath, seg.Type ?? "child");
@@ -5460,8 +5463,15 @@ public static class UiAutomationDriver
     {
         if (m.Info.AutoId is { } autoId) yield return autoId;
         if (NullIfEmpty(m.Control.Name) is { } xname) yield return xname;
-        if (MeaningfulLabelOf(m.Info.Peer) is { } label) yield return label;
+        if (!HasDataBoundText(m.Control) && MeaningfulLabelOf(m.Info.Peer) is { } label) yield return label;
     }
+
+    // Avalonia's public query also returns resource/template expressions. The concrete types are internal;
+    // pin the two data-binding types, leaving resources and TemplateBinding as stable labels (#3028).
+    private static bool HasDataBoundText(Control control) =>
+        control is TextBlock
+        && Avalonia.Data.BindingOperations.GetBindingExpressionBase(control, TextBlock.TextProperty)?.GetType().FullName
+            is "Avalonia.Data.Core.BindingExpression" or "Avalonia.Data.Core.MultiBindingExpression";
 
     private readonly record struct NodeClass(
         AutomationPeer? Peer, string[] Providers, string Type, string? Name, string? AutoId, bool Focusable, bool Structural);

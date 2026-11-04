@@ -906,14 +906,25 @@ leave new documents pathless and explain the null path and how to save them in i
 ### Requirement: Named controls SHALL expose their visible labels
 The control tree and single-control inspection SHALL retain x:Name as `name` when present and report the
 peer's meaningful label as `label` when it differs. Paths SHALL retain their existing stable discriminators
-and accept a label as an alternative discriminator. Discovery searches SHALL include the label, and interaction
-replies SHALL use the meaningful label when available.
+and accept a label as an alternative discriminator; a TextBlock's data-bound text (SelectableTextBlock included)
+is not stable, so such a text SHALL be emitted by position unless an AutomationId or x:Name identifies it. Discovery
+searches SHALL include the label, and interaction replies SHALL use the meaningful label when available.
 
 #### Scenario: Discovering a named menu
 - **WHEN** a menu item has x:Name `ToolsMenuItem` and visible header `_Tools`
 - **THEN** its node and inspection report `name: "ToolsMenuItem"` and `label: "Tools"`
 - **AND** its emitted path ends in `MenuItem[ToolsMenuItem]`, while `MenuItem[Tools]` also resolves
 - **AND** expanding it names `Tools` in the reply
+
+#### Scenario: A data-bound text changes after discovery
+- **WHEN** an unnamed text bound to data is dumped beside another text
+- **THEN** its emitted path uses `Text[#index]`, and its `name` still reports its current text
+- **AND** the same path resolves to the same control after its text changes
+- **AND** its current label still resolves as an alternative discriminator
+- **AND** a unique unnamed text uses bare `Text`; other unnamed texts use `Text[#index]`
+- **AND** literals, resource references and TemplateBinding retain label discriminators
+- **AND** a missing typed label with a same-type data-bound text sibling explains that such text changes,
+  is addressed by position, and that the caller should dump again for its current path
 
 ### Requirement: Attribute window waits when settling running-form actions
 
