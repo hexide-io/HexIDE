@@ -1166,7 +1166,7 @@ specification's own [`metaModel.json`](https://raw.githubusercontent.com/microso
 the canonical machine-readable list, so the method names and directions are the specification's rather than
 this document's recollection of them.
 
-**HexIDE implements 38 of the 93.** That is not a deficiency in itself — no client implements them all, and
+**HexIDE implements 39 of the 93.** That is not a deficiency in itself — no client implements them all, and
 most of the remainder are features no VB6 IDE needs. It is here so the shape of the gap is visible rather
 than inferred.
 
@@ -1223,11 +1223,9 @@ than inferred.
 | ✅ | `textDocument/publishDiagnostics` | ← |  |
 | ○ | `textDocument/rangeFormatting` | → |  |
 | ○ | `textDocument/rangesFormatting` | → |  |
-| ○ | `textDocument/references` | → | Needs a bound AST — a backend's job, see below |
 | ✅ | `textDocument/rename` | → | Atomic edits across loaded code members, with version checks and one undo step per member (#1024) |
 
 | ✅ | `textDocument/references` | → | Shift+F12 and menus; grouped results, navigation and per-server error rows; supplied locations reuse the pane (#2907) |
-| ✅ | `textDocument/rename` | → | Answers editing other documents are refused whole (#1024) |
 | ○ | `textDocument/selectionRange` | → |  |
 | ✅ | `textDocument/semanticTokens/full` | → | Full relative tokens, highest-priority full provider only; lexical colours remain outside token ranges (#2054) |
 | ○ | `textDocument/semanticTokens/full/delta` | → |  |
