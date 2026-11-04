@@ -21,6 +21,7 @@ public sealed class ContributedProjectTests : IDisposable
     private readonly string _dir = Path.Join(Path.GetTempPath(), "hexide-contributed-" + Guid.NewGuid().ToString("N"));
     private readonly List<ProjectDefinition> _loaded = [];
     private readonly IWindowManager _windows = Substitute.For<IWindowManager>();
+    private readonly IRecentProjectsService _recent = Substitute.For<IRecentProjectsService>();
     private readonly ContributedProjects _types = new();
     private readonly ProjectService _service;
     private IAddinProjectChanges? _changes;
@@ -54,7 +55,7 @@ public sealed class ContributedProjectTests : IDisposable
         var dock = Substitute.For<IDocumentDockService>();
         dock.OpenDocuments.Returns(new List<HexIDE.Forms.ViewModels.BaseEditorWindowViewModel>());
         _service = new ProjectService(() => throw new InvalidOperationException("no new-project dialog"), _windows,
-            Substitute.For<IEventBus>(), projects, Substitute.For<IRecentProjectsService>(),
+            Substitute.For<IEventBus>(), projects, _recent,
             Substitute.For<IReferenceLibraryService>(), sidecar, new FileBaselineStore(), strings,
             new HeaderRefresher(new EventBus(), dock, new BreakpointService(), new BookmarkService()),
             contributed: _types);
@@ -142,6 +143,27 @@ public sealed class ContributedProjectTests : IDisposable
         File.ReadAllText(Path.Join(_dir, "src", "Main.bas")).Should().Contain("Debug.Print 1");
         File.ReadAllText(ProjectFile).Should().Be(before, "the project file is its add-in's program's to write");
         File.Exists(Path.Join(_dir, ".vbp")).Should().BeFalse();
+    }
+
+    [AvaloniaFact]
+    public async Task Save_As_saves_the_edited_modules_and_puts_the_project_file_nowhere_new()
+    {
+        using var type = Contribute();
+        var project = await Opened();
+        var before = File.ReadAllText(ProjectFile);
+        _windows.SaveFilePickerAsync(Arg.Any<Avalonia.Platform.Storage.FilePickerSaveOptions>())
+            .Returns(Path.Join(_dir, "Ledger.vbp"));
+        _recent.ClearReceivedCalls();
+        project.Modules[0].UpdateCode("Sub Main()\r\n    Debug.Print 2\r\nEnd Sub\r\n");
+
+        await _service.SaveAllProjects(saveAs: true);
+
+        await _windows.DidNotReceive().SaveFilePickerAsync(Arg.Any<Avalonia.Platform.Storage.FilePickerSaveOptions>());
+        _recent.DidNotReceive().Add(Arg.Any<string>());
+        File.ReadAllText(Path.Join(_dir, "src", "Main.bas")).Should().Contain("Debug.Print 2");
+        File.ReadAllText(ProjectFile).Should().Be(before);
+        File.Exists(Path.Join(_dir, "Ledger.vbp")).Should().BeFalse();
+        project.AbsolutePath.Should().Be(ProjectFile);
     }
 
     [AvaloniaFact]

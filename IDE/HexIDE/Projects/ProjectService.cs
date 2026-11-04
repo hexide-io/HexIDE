@@ -884,7 +884,8 @@ public partial class ProjectService : IProjectService
 
     /// <summary>
     /// Where <paramref name="document"/> will be written, asking the developer when it has nowhere yet or
-    /// <paramref name="saveAs"/> is set. Null when HexIDE cannot reproduce it, which is banked as a refusal.
+    /// <paramref name="saveAs"/> is set. Null when HexIDE cannot reproduce it, which is banked as a refusal, and for a
+    /// contributed project's own file, which HexIDE never writes.
     /// </summary>
     /// <exception cref="OperationCanceledException">A picker was dismissed.</exception>
     private async Task<Destination?> DestinationOf(object document, bool saveAs, bool userSave)
@@ -919,6 +920,12 @@ public partial class ProjectService : IProjectService
                 return module.AbsolutePath is { } modulePath && !saveAs && (!userSave || !IsScratchFile(module.Owner, modulePath))
                     ? new Destination(module, modulePath)
                     : new Destination(module, await ChooseModulePath(module), Chosen: true);
+
+            // A contributed project's file is its add-in's program's to write, so a save never has it to write: no picker
+            // asks where it goes, no check renders it, and Save As puts it nowhere new or in the recent list. Its
+            // modules are saved as ever.
+            case ProjectDefinition { ContributedBy: not null }:
+                return null;
 
             case ProjectDefinition project:
                 return project.AbsolutePath is { } projectPath && !saveAs && (!userSave || !IsScratchFile(project, projectPath))
