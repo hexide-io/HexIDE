@@ -31,7 +31,8 @@ public sealed class LanguageServerRegistrationFactory(
     ConversationRedactor? workspaceNames = null,
     Func<string>? locale = null,
     HexIDE.IDE.ISettingsService? settings = null,
-    Func<ShowDocumentParams, CancellationToken, Task<bool>>? showDocument = null)
+    Func<ShowDocumentParams, CancellationToken, Task<bool>>? showDocument = null,
+    Func<string, ShowMessageRequestParams, CancellationToken, Task<MessageActionItem?>>? showMessageRequest = null)
 {
     /// <summary>
     /// The registrations for these entries, skipping the ones that are switched off.
@@ -68,7 +69,9 @@ public sealed class LanguageServerRegistrationFactory(
                     trace: trace,
                     // The id, not the language: two servers can serve one language, and a record that
                     // could not tell them apart would be worse than no record.
-                    capture: capture, connectionId: id, workspaceNames: workspaceNames, locale: locale, settings: settings, showDocument: showDocument),
+                    capture: capture, connectionId: id, workspaceNames: workspaceNames, locale: locale, settings: settings, showDocument: showDocument,
+                    showMessageRequest: showMessageRequest is null ? null :
+                        (request, token) => showMessageRequest(string.IsNullOrWhiteSpace(entry.DisplayName) ? id : entry.DisplayName, request, token)),
                 Priority: entry.Priority ?? 0,
                 Transport: transport.Kind,
                 Endpoint: transport.Endpoint,

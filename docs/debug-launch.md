@@ -5,6 +5,11 @@ as for an interpreter break. While the program runs they show `[run]` and the ru
 ending the session immediately returns the title to `[design]` and the status to Ready, even while
 the adapter is still disconnecting (#2965).
 
+When a stop opens Locals and Call Stack, re-docking the code editor does not interrupt frame and
+variable inspection or print an error in Immediate. Editor callbacks from a previous attachment are
+ignored (#3048). Inspection failures retain their exception and stack in the Debug-level log
+(`HEXIDE_LOG_LEVEL=Debug`), as well as reporting the message in Immediate.
+
 Choose **Run → Start External Debug Session…** and select a JSON launch configuration. The selected file
 starts a separate adapter process; opening a project never executes such a file automatically. One debug
 session runs at a time. The configuration does not convert or save the open VB6 project: prepare an existing

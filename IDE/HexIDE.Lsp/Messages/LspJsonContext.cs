@@ -70,6 +70,8 @@ namespace HexIDE.Lsp;
 [JsonSerializable(typeof(VbaBuiltinSymbol[]))]
 [JsonSerializable(typeof(WorkspaceSymbolParams))]
 [JsonSerializable(typeof(SymbolInformation[]))]
+[JsonSerializable(typeof(ShowMessageRequestParams))]
+[JsonSerializable(typeof(MessageActionItem))]
 [JsonSerializable(typeof(ShowDocumentParams))]
 [JsonSerializable(typeof(ShowDocumentResult))]
 [JsonSerializable(typeof(ProgressParams))]

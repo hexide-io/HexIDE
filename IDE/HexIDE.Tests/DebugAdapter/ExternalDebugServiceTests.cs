@@ -15,6 +15,48 @@ namespace HexIDE.Tests.DebugAdapter;
 
 public class ExternalDebugServiceTests
 {
+    private sealed class InspectionLog : Serilog.Core.ILogEventSink
+    {
+        public List<Serilog.Events.LogEvent> Events { get; } = [];
+        public void Emit(Serilog.Events.LogEvent logEvent) => Events.Add(logEvent);
+    }
+
+    [AvaloniaFact]
+    public async Task Inspection_failure_logs_the_exception_and_stack_at_debug_level()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "hexide-inspection-log-" + Guid.NewGuid());
+        Directory.CreateDirectory(directory);
+        await using var capture = new ConversationLog();
+        var service = new ExternalDebugService(capture);
+        var sink = new InspectionLog();
+        var previous = Serilog.Log.Logger;
+        using var logger = new Serilog.LoggerConfiguration().MinimumLevel.Debug().WriteTo.Sink(sink).CreateLogger();
+        Serilog.Log.Logger = logger;
+        var failure = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
+        service.Failed += message => failure.TrySetResult(message);
+        service.Changed += () =>
+        {
+            if (service.SelectedFrame is not null) throw new InvalidOperationException("inspection callback failed");
+        };
+        Task? run = null;
+        try
+        {
+            run = service.StartAsync(await Configuration(directory, "frames"));
+            (await failure.Task.WaitAsync(Patience, Token)).Should().Be("inspection callback failed");
+            var entry = sink.Events.Should().ContainSingle(item => item.Exception is InvalidOperationException).Subject;
+            entry.Level.Should().Be(Serilog.Events.LogEventLevel.Debug);
+            entry.Exception!.Message.Should().Be("inspection callback failed");
+            entry.Exception.StackTrace.Should().Contain(nameof(Inspection_failure_logs_the_exception_and_stack_at_debug_level));
+        }
+        finally
+        {
+            await service.StopAsync();
+            if (run is not null) await run.WaitAsync(Patience, Token);
+            Serilog.Log.Logger = previous;
+            Directory.Delete(directory, true);
+        }
+    }
+
     [AvaloniaTheory]
     [InlineData("conditions", true, true)]
     [InlineData("conditions", true, false)]

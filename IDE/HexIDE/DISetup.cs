@@ -280,11 +280,15 @@ public partial class DISetup
                 ctx.Inject<ILocalizationService>(out var localization);
                 ctx.Inject<ISettingsService>(out var settings);
                 ctx.Inject<Func<IEditorService>>(out var editors);
+                ctx.Inject<Func<IProjectRunnerService>>(out var runners);
+                ctx.Inject<IWindowManager>(out var windows);
+                var serverPrompts = new ServerMessagePrompt(() => runners().IsRunning || windows.IsNativeDialogOpen);
                 return new LanguageServerRegistrationFactory(loggerFactory, workspace, capture, providers,
                     workspaceNames: new HexIDE.Redaction.ConversationRedactor(pseudonyms),
                     locale: () => localization.ResolvedLanguage, settings: settings,
                     showDocument: (request, token) => Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(
-                        () => editors().ShowDocument(request), Avalonia.Threading.DispatcherPriority.Normal, token).GetTask());
+                        () => editors().ShowDocument(request), Avalonia.Threading.DispatcherPriority.Normal, token).GetTask(),
+                    showMessageRequest: serverPrompts.ShowAsync);
             })
             // The servers add-ins contribute (#2760), added to the router above while the IDE runs. The ids the
             // configuration names, switched off or not, keep their entries.

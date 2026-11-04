@@ -1,7 +1,9 @@
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Documents;
 using Avalonia.Headless.XUnit;
 using Avalonia.Interactivity;
+using Avalonia.Media;
 using AvaloniaEdit;
 using HexIDE.Controls;
 using HexIDE.Lsp;
@@ -24,6 +26,41 @@ public class HoverContentViewTests
         paragraph.Inlines!.OfType<Run>().Single(r => r.Text == "code").FontFamily.Should().Be(editor.FontFamily);
         ((TextBlock)panel.Children[1]).Inlines!.OfType<Run>().First().Text.Should().Be("• ");
         ((TextBlock)panel.Children[3]).Inlines!.OfType<Run>().First().Text.Should().Be("1. ");
+    }
+
+    [AvaloniaTheory]
+    [InlineData("-", "Default", 14)]
+    [InlineData("-", "Default", 28)]
+    [InlineData("1.", "Default", 14)]
+    [InlineData("1.", "Default", 28)]
+    [InlineData("-", "Times New Roman, DejaVu Serif", 14)]
+    [InlineData("-", "Times New Roman, DejaVu Serif", 28)]
+    [InlineData("1.", "Times New Roman, DejaVu Serif", 14)]
+    [InlineData("1.", "Times New Roman, DejaVu Serif", 28)]
+    [InlineData("-", "Courier New, DejaVu Sans Mono", 14)]
+    [InlineData("-", "Courier New, DejaVu Sans Mono", 28)]
+    [InlineData("1.", "Courier New, DejaVu Sans Mono", 14)]
+    [InlineData("1.", "Courier New, DejaVu Sans Mono", 28)]
+    public void List_marker_and_link_text_tops_align(string marker, string family, double size)
+    {
+        var panel = (StackPanel)HoverContentView.Render(new("markdown",
+            $"{marker} [Help](https://example.org/help)"), new TextEditor(), _ => { });
+        var window = new Window { Content = panel, Width = 400, Height = 100,
+            FontFamily = new FontFamily(family), FontSize = size };
+        try
+        {
+            window.Show();
+            window.UpdateLayout();
+            var item = (TextBlock)panel.Children.Single();
+            var link = (HyperlinkButton)item.Inlines!.OfType<InlineUIContainer>().Single().Child!;
+            var caption = (TextBlock)link.Content!;
+            var captionTop = caption.TranslatePoint(default, item)!.Value.Y;
+            // Both use the same font: remove its ordinary baseline to locate the marker's text top.
+            var markerTop = item.TextLayout.TextLines[0].Baseline - caption.TextLayout.Baseline;
+            Math.Abs(markerTop - captionTop).Should().BeLessThanOrEqualTo(1,
+                "the list marker and the link's text must share the first line (#3043)");
+        }
+        finally { window.Close(); }
     }
 
     [AvaloniaTheory]

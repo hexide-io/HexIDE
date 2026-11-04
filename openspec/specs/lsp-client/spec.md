@@ -12,6 +12,31 @@ later without the editor noticing.
 
 ## Requirements
 
+### Requirement: Server questions display backend actions
+The client SHALL declare `window.showMessage.messageActionItem` with additional property support and
+answer `window/showMessageRequest` using an IDE message box owned by the main window. Its title SHALL
+be the server's display name and its buttons SHALL be the server's actions.
+
+#### Scenario: A question is answered or dismissed
+- **WHEN** the user chooses an action
+- **THEN** the client returns that original action item, including additional properties
+- **WHEN** the user closes the box without choosing
+- **THEN** the client returns `null`
+
+### Requirement: Server questions queue without blocking the connection
+Prompts SHALL queue one at a time across connections and wait while a program runs or another modal is
+open. Other protocol messages SHALL continue flowing. Cancellation SHALL close or remove the prompt
+and answer error -32800.
+
+#### Scenario: Diagnostics arrive while a question waits
+- **WHEN** a server sends a question and then publishes diagnostics before the user answers
+- **THEN** the diagnostics are delivered while the question remains pending
+
+#### Scenario: A cancelled question yields its queue position
+- **WHEN** the server cancels an open or queued question
+- **THEN** that question closes or leaves the queue and its response has error code -32800
+- **AND** the next question may open when no program or other modal is active
+
 ### Requirement: Reference requests gather locations from offering servers
 The client SHALL expose `textDocument/references` at a document URI and position, sending
 `context.includeDeclaration: true` only to servers advertising `referencesProvider`. The registry
@@ -225,12 +250,17 @@ be preserved.
 
 The hover renderer SHALL own the ordered formats advertised by initialization, `markdown` then `plaintext`.
 The editor SHALL render Markdown paragraphs, emphasis, inline code, lists, links and fenced code blocks.
+List markers SHALL align with the first line of linked text across font families and sizes.
 Code fences SHALL use the editor's font, with VB6 highlighting for `vb` and `vba` and no highlighting
 for other languages. Plain text SHALL stay literal; normalized marked strings SHALL use this renderer.
 
 #### Scenario: A server supplies a VBA signature
 - **WHEN** a Markdown hover contains a `vba` fenced signature and a paragraph naming its module
 - **THEN** the tip shows coloured code in the editor's font followed by the paragraph, with no fence characters
+
+#### Scenario: A list item contains a link
+- **WHEN** a Markdown hover contains a bulleted or numbered item holding a link
+- **THEN** the marker and the link caption have text tops within one pixel
 
 ### Requirement: Hover dismissal while editing
 
@@ -269,6 +299,10 @@ The editor SHALL show the messages of all diagnostic markers covering the hovere
 sources when supplied, combined with any quick info for that position. Diagnostic tips SHALL be available
 in every personality, including Classic, even when Auto Quick Info is disabled. Marker ranges SHALL
 include their start and exclude their end, including ranges widened for zero-width diagnostics.
+
+#### Scenario: Quick info arrives after the diagnostic tip opens
+- **WHEN** a diagnostic tip is already open and the server returns quick info for that position
+- **THEN** the displayed tip content updates to show the diagnostic messages first, followed by the quick info
 
 #### Scenario: Overlapping diagnostics and quick info
 - **WHEN** the pointer dwells over overlapping diagnostic markers and quick info is available

@@ -1031,7 +1031,13 @@ public class AddinServerRegistrationTests : IDisposable
         await router.OpenDocumentAsync("file:///c:/p/README.md", "# hi", Token);
         await initialized.Task.WaitAsync(TimeSpan.FromSeconds(30), Token);
 
-        var hijack = () => pipe.Latest.InvokeWithParameterObjectAsync<JsonElement>("window/showMessageRequest", new { type = 3, message = "?" }, Token);
+        // HexIDE answers this one itself (#3069); with no one to ask here, it chooses nothing. The add-in's answer never
+        // comes back, and a method outside the prefix HexIDE doesn't answer is not found, as any unknown method is.
+        var asked = await pipe.Latest.InvokeWithParameterObjectAsync<JsonElement?>("window/showMessageRequest", new { type = 3, message = "?", actions = new[] { new { title = "mine" } } }, Token);
+        (asked is { ValueKind: JsonValueKind.Object } chosen && chosen.TryGetProperty("title", out var title) && title.GetString() == "mine")
+            .Should().BeFalse("a method outside the prefix is never the add-in's to answer");
+        methods["elsewhere/ask"] = (_, _) => Task.FromResult<JsonElement?>(JsonDocument.Parse("""{"title":"mine"}""").RootElement.Clone());
+        var hijack = () => pipe.Latest.InvokeWithParameterObjectAsync<JsonElement>("elsewhere/ask", new { }, Token);
         await hijack.Should().ThrowAsync<RemoteMethodNotFoundException>("a method outside the prefix is never the add-in's");
     }
 

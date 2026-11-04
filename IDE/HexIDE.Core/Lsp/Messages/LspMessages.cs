@@ -1245,7 +1245,8 @@ public sealed record CancelStringRequestParams([property: JsonPropertyName("id")
 
 public record WindowClientCapabilities(
     [property: JsonPropertyName("workDoneProgress")] bool WorkDoneProgress = true,
-    [property: JsonPropertyName("showDocument")] ShowDocumentClientCapabilities? ShowDocument = null);
+    [property: JsonPropertyName("showDocument")] ShowDocumentClientCapabilities? ShowDocument = null,
+    [property: JsonPropertyName("showMessage")] ShowMessageClientCapabilities? ShowMessage = null);
 
 public record WorkDoneProgressCreateParams(
     [property: JsonPropertyName("token")] JsonElement Token);
@@ -1323,3 +1324,19 @@ public record ShowDocumentParams(
     [property: JsonPropertyName("selection")] Range? Selection = null);
 
 public record ShowDocumentResult([property: JsonPropertyName("success")] bool Success);
+
+public record ShowMessageClientCapabilities(
+    [property: JsonPropertyName("messageActionItem")] MessageActionItemClientCapabilities MessageActionItem);
+
+public record MessageActionItemClientCapabilities(
+    [property: JsonPropertyName("additionalPropertiesSupport")] bool AdditionalPropertiesSupport = true);
+
+public record MessageActionItem([property: JsonPropertyName("title")] string Title)
+{
+    [JsonExtensionData] public Dictionary<string, JsonElement>? AdditionalProperties { get; set; }
+}
+
+public record ShowMessageRequestParams(
+    [property: JsonPropertyName("type")] int Type,
+    [property: JsonPropertyName("message")] string Message,
+    [property: JsonPropertyName("actions")] MessageActionItem[]? Actions = null);
