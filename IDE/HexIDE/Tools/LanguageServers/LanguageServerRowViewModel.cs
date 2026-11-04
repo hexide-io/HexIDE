@@ -83,6 +83,14 @@ public sealed partial class LanguageServerRowViewModel : ObservableObject
     public string OutputText => _capture.Output.Text(Id) is { Length: > 0 } text
         ? text : _localization.GetString("Str.Tool.LanguageServers.OutputEmpty");
 
+    internal void LanguageChanged()
+    {
+        OnPropertyChanged(nameof(State));
+        OnPropertyChanged(nameof(Age));
+        OnPropertyChanged(nameof(Chain));
+        OnPropertyChanged(nameof(OutputText));
+    }
+
     internal void AgeChanged() => OnPropertyChanged(nameof(Age));
 
     internal void OutputChanged() => OnPropertyChanged(nameof(OutputText));
@@ -189,9 +197,11 @@ public sealed partial class LanguageServerRowViewModel : ObservableObject
             if (_c.StateSince is not { } since) return "";
             var d = DateTimeOffset.UtcNow - since;
             if (d < TimeSpan.Zero) d = TimeSpan.Zero;
-            var text = d.TotalSeconds < 60 ? $"{(int)d.TotalSeconds} s"
-                     : d.TotalMinutes < 60 ? $"{(int)d.TotalMinutes} m {d.Seconds} s"
-                     : $"{(int)d.TotalHours} h {d.Minutes} m";
+            var text = d.TotalSeconds < 60
+                ? string.Format(_localization.GetString("Str.Tool.LanguageServers.Vm.Age.Seconds"), (int)d.TotalSeconds)
+                : d.TotalMinutes < 60
+                    ? string.Format(_localization.GetString("Str.Tool.LanguageServers.Vm.Age.Minutes"), (int)d.TotalMinutes, d.Seconds)
+                    : string.Format(_localization.GetString("Str.Tool.LanguageServers.Vm.Age.Hours"), (int)d.TotalHours, d.Minutes);
             return string.Format(
                 _localization.GetString("Str.Tool.LanguageServers.Vm.For"), text);
         }
