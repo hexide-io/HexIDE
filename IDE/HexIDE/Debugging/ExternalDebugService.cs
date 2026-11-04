@@ -115,15 +115,20 @@ public sealed partial class ExternalDebugService(ConversationLog capture, ILocal
         Variables = [];
     }
 
+    // The file's read heeds its token, so it is waited for: End lets it finish closing the file rather than leave it open.
     public Task StartAsync(string configurationFile) =>
-        StartAsync(token => DapLaunchConfiguration.ReadAsync(configurationFile, token));
+        StartAsync(token => DapLaunchConfiguration.ReadAsync(configurationFile, token), abandonOnEnd: false);
 
     /// <summary>
-    /// Starts a session from a configuration made when the session starts, such as an add-in's for the project: read
-    /// under the session's own cancellation, so ending it before it has started ends the making too. Everything after
-    /// is a file's start: one session at a time, the saved gutter marks merged, conditions refused.
+    /// Starts a session from a configuration made when the session starts, such as an add-in's for the project: made
+    /// under the session's own cancellation, and no longer waited for once the session is ended, so End ends the start
+    /// even if the maker never looks at its token. Everything after is a file's start: one session at a time, the
+    /// saved gutter marks merged, conditions refused.
     /// </summary>
-    public async Task StartAsync(Func<CancellationToken, Task<DapLaunchConfiguration>> configure)
+    public Task StartAsync(Func<CancellationToken, Task<DapLaunchConfiguration>> configure) =>
+        StartAsync(configure, abandonOnEnd: true);
+
+    private async Task StartAsync(Func<CancellationToken, Task<DapLaunchConfiguration>> configure, bool abandonOnEnd)
     {
         if (IsActive) return;
         HasSessionResult = true;
@@ -137,9 +142,10 @@ public sealed partial class ExternalDebugService(ConversationLog capture, ILocal
         Task? reader = null;
         try
         {
-            // Waited for under the cancellation, not only told it: a maker that ignores the token would otherwise hold the
-            // start, and End, which returns once it has cancelled, would leave the session active for good.
-            var configuration = await configure(cancellation.Token).WaitAsync(cancellation.Token);
+            // A made configuration is waited for under the cancellation, not only told it: a maker that ignores the token
+            // would otherwise hold the start, and End, which returns once it has cancelled, would leave it active for good.
+            var making = configure(cancellation.Token);
+            var configuration = abandonOnEnd ? await making.WaitAsync(cancellation.Token) : await making;
             cancellation.Token.ThrowIfCancellationRequested();
             var id = "dap-" + Guid.NewGuid().ToString("N");
             Connection = new(id, configuration.AdapterId, LanguageConnectionKind.DebugAdapter, LanguageConnectionState.Starting,
