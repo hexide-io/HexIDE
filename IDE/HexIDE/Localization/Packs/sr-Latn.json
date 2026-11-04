@@ -57,6 +57,7 @@
     "Str.Archive.OpenErrorFormat": "Nije moguće otvoriti {0}:\n{1}",
     "Str.ContributedProject.OpenError": "Nije moguće otvoriti {0} pomoću {1}:\n{2}",
     "Str.ContributedProject.MembershipReadOnly": "{0} je projekat tipa {1}: njegove datoteke dodaje i uklanja program kojem pripada, a ne HexIDE.",
+    "Str.ContributedProject.RemovedWithChanges": "Program kojem pripada {1} izbacio je {0} iz projekta. Da li najpre da sačuvate svoje izmene?",
     "Str.ContributedProject.NameTaken": "{0} je izostavljen: {1} je već naziv modula u {2}.",
     "Str.ContributedProject.SettingsReadOnly": "{0} je projekat tipa {1}: njegova svojstva, reference i komponente postavlja program kojem pripada, a ne HexIDE.",
     "Str.ContributedProject.NotMade": "{0} je projekat tipa {1}. Pravi ga i pokreće program kojem pripada, a ne HexIDE.",

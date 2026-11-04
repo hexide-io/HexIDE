@@ -57,6 +57,7 @@
     "Str.Archive.OpenErrorFormat": "Nepavyko atverti {0}:\n{1}",
     "Str.ContributedProject.OpenError": "Nepavyko atidaryti {0} naudojant {1}:\n{2}",
     "Str.ContributedProject.MembershipReadOnly": "{0} yra {1} projektas: jo failus prideda ir pašalina programa, kuriai jis priklauso, o ne HexIDE.",
+    "Str.ContributedProject.RemovedWithChanges": "Programa, kuriai priklauso {1}, pašalino {0} iš projekto. Pirmiausia įrašyti jūsų pakeitimus?",
     "Str.ContributedProject.NameTaken": "{0} praleistas: {1} jau yra modulio pavadinimas projekte {2}.",
     "Str.ContributedProject.SettingsReadOnly": "{0} yra {1} projektas: jo ypatybes, nuorodas ir komponentus nustato programa, kuriai jis priklauso, o ne HexIDE.",
     "Str.ContributedProject.NotMade": "{0} yra {1} projektas. Jį sukuria ir paleidžia programa, kuriai jis priklauso, o ne HexIDE.",

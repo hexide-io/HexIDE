@@ -57,6 +57,7 @@
     "Str.Archive.OpenErrorFormat": "{0} не може да се отвори:\n{1}",
     "Str.ContributedProject.OpenError": "{0} не може да се отвори с {1}:\n{2}",
     "Str.ContributedProject.MembershipReadOnly": "{0} е проект на {1}: файловете му се добавят и премахват от програмата, към която принадлежи, а не от HexIDE.",
+    "Str.ContributedProject.RemovedWithChanges": "Програмата, към която принадлежи {1}, извади {0} от проекта. Да се запишат ли първо промените ви в него?",
     "Str.ContributedProject.NameTaken": "{0} беше пропуснат: {1} вече е име на модул в {2}.",
     "Str.ContributedProject.SettingsReadOnly": "{0} е проект на {1}: свойствата, препратките и компонентите му се задават от програмата, към която принадлежи, а не от HexIDE.",
     "Str.ContributedProject.NotMade": "{0} е проект на {1}. Създава и изпълнява го програмата, към която принадлежи, а не HexIDE.",

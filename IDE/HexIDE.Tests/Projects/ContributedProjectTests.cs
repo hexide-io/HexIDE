@@ -24,6 +24,7 @@ public sealed class ContributedProjectTests : IDisposable
     private readonly IRecentProjectsService _recent = Substitute.For<IRecentProjectsService>();
     private readonly ContributedProjects _types = new();
     private readonly IProjectManager _projects = Substitute.For<IProjectManager>();
+    private readonly IEventBus _events = Substitute.For<IEventBus>();
     private readonly ProjectService _service;
     private IAddinProjectChanges? _changes;
 
@@ -56,7 +57,7 @@ public sealed class ContributedProjectTests : IDisposable
         var dock = Substitute.For<IDocumentDockService>();
         dock.OpenDocuments.Returns(new List<HexIDE.Forms.ViewModels.BaseEditorWindowViewModel>());
         _service = new ProjectService(() => throw new InvalidOperationException("no new-project dialog"), _windows,
-            Substitute.For<IEventBus>(), projects, _recent,
+            _events, projects, _recent,
             Substitute.For<IReferenceLibraryService>(), sidecar, new FileBaselineStore(), strings,
             new HeaderRefresher(new EventBus(), dock, new BreakpointService(), new BookmarkService()),
             contributed: _types);
@@ -250,6 +251,31 @@ public sealed class ContributedProjectTests : IDisposable
             Arg.Any<string?>(), Arg.Any<MessageBoxButtons>(), Arg.Any<MessageBoxIcon>(), Arg.Any<Avalonia.Controls.Window?>(), Arg.Any<bool>());
         await _windows.Received(1).MessageBox(Arg.Is<string>(text => text == "Str.ContributedProject.NameTaken AccountCopy.bas Account"),
             Arg.Any<string?>(), Arg.Any<MessageBoxButtons>(), Arg.Any<MessageBoxIcon>(), Arg.Any<Avalonia.Controls.Window?>(), Arg.Any<bool>());
+    }
+
+    [AvaloniaFact]
+    public async Task A_member_taken_out_is_unloaded_as_Remove_unloads_one_with_its_edits_saved_if_wanted()
+    {
+        using var type = Contribute();
+        var project = await Opened();
+        var startup = project.Modules[0];
+        var account = project.Modules[1];
+        startup.UpdateCode("Sub Main()\r\n    Debug.Print 3\r\nEnd Sub\r\n");
+        _windows.MessageBox(Arg.Is<string>(text => text.StartsWith("Str.ContributedProject.RemovedWithChanges")),
+                Arg.Any<string?>(), Arg.Any<MessageBoxButtons>(), Arg.Any<MessageBoxIcon>(), Arg.Any<Avalonia.Controls.Window?>(), Arg.Any<bool>())
+            .Returns(MessageBoxResult.Yes);
+
+        _changes!.MemberRemoved(Path.Join(_dir, "src", "Main.bas"));
+        _changes.MemberRemoved(Path.Join(_dir, "src", "Classes", "Account.cls"));
+        await WhenSettled(() => project.Modules.Count == 1);
+
+        await _windows.Received(1).MessageBox(Arg.Is<string>(text => text.StartsWith("Str.ContributedProject.RemovedWithChanges")),
+            Arg.Any<string?>(), Arg.Any<MessageBoxButtons>(), Arg.Any<MessageBoxIcon>(), Arg.Any<Avalonia.Controls.Window?>(), Arg.Any<bool>());
+        await _windows.Received(1).MessageBox("Str.ContributedProject.RemovedWithChanges Startup Ledger",
+            Arg.Any<string?>(), MessageBoxButtons.YesNo, Arg.Any<MessageBoxIcon>(), Arg.Any<Avalonia.Controls.Window?>(), Arg.Any<bool>());
+        File.ReadAllText(Path.Join(_dir, "src", "Main.bas")).Should().Contain("Debug.Print 3");
+        _events.Received(1).Publish(Arg.Is<ModuleUnloadedEvent>(e => e.Module == startup));
+        _events.Received(1).Publish(Arg.Is<ModuleUnloadedEvent>(e => e.Module == account));
     }
 
     [AvaloniaFact]

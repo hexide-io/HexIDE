@@ -53,6 +53,7 @@
     "Str.Archive.OpenErrorFormat": "Kunde inte öppna {0}:\n{1}",
     "Str.ContributedProject.OpenError": "Det gick inte att öppna {0} med {1}:\n{2}",
     "Str.ContributedProject.MembershipReadOnly": "{0} är ett {1}-projekt: dess filer läggs till och tas bort av programmet det hör till, inte av HexIDE.",
+    "Str.ContributedProject.RemovedWithChanges": "{0} togs bort ur {1} av programmet det hör till. Spara dina ändringar först?",
     "Str.ContributedProject.NameTaken": "{0} utelämnades: {1} är redan namnet på en modul i {2}.",
     "Str.ContributedProject.SettingsReadOnly": "{0} är ett {1}-projekt: dess egenskaper, referenser och komponenter anges av programmet det hör till, inte av HexIDE.",
     "Str.ContributedProject.NotMade": "{0} är ett {1}-projekt. Det skapas och körs av programmet det hör till, inte av HexIDE.",

@@ -57,6 +57,7 @@
     "Str.Archive.OpenErrorFormat": "No s'ha pogut obrir {0}:\n{1}",
     "Str.ContributedProject.OpenError": "No s'ha pogut obrir {0} amb {1}:\n{2}",
     "Str.ContributedProject.MembershipReadOnly": "{0} és un projecte de {1}: els seus fitxers els afegeix i els treu el programa al qual pertany, no pas HexIDE.",
+    "Str.ContributedProject.RemovedWithChanges": "El programa al qual pertany {1} ha tret {0} del projecte. Voleu desar primer els vostres canvis?",
     "Str.ContributedProject.NameTaken": "S'ha omès {0}: {1} ja és el nom d'un mòdul de {2}.",
     "Str.ContributedProject.SettingsReadOnly": "{0} és un projecte de {1}: les seves propietats, referències i components els defineix el programa al qual pertany, no pas HexIDE.",
     "Str.ContributedProject.NotMade": "{0} és un projecte de {1}. El genera i l'executa el programa al qual pertany, no pas HexIDE.",

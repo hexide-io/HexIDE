@@ -489,11 +489,7 @@ public partial class ProjectService : IProjectService
 
         public void MemberAdded(AddinProjectMember member) => Post(project => owner.AddContributedMember(project, member));
 
-        public void MemberRemoved(string path) => Post(project =>
-        {
-            owner.RemoveContributedMember(project, path);
-            return Task.CompletedTask;
-        });
+        public void MemberRemoved(string path) => Post(project => owner.RemoveContributedMember(project, path));
 
         public void MemberMoved(string oldPath, string newPath) => Post(project =>
         {
@@ -563,11 +559,20 @@ public partial class ProjectService : IProjectService
             SnapshotRenderBaseline(module);
     }
 
-    private void RemoveContributedMember(ProjectDefinition project, string path)
+    private async Task RemoveContributedMember(ProjectDefinition project, string path)
     {
         switch (ContributedProjects.MemberAt(project, path))
         {
             case ModuleDefinition module:
+                // Unloaded as Remove unloads a .vbp's module: its window closes and the language server lets it go. Its
+                // program has taken it out already, so the one question left is whether edits not yet saved are kept.
+                eventBus.Publish(new ApplyAllUnsavedChangesEvent());
+                if (IsDirty(module)
+                    && await windowManager.MessageBox(
+                        string.Format(localization.GetString("Str.ContributedProject.RemovedWithChanges"), module.Name, project.Name),
+                        buttons: MessageBoxButtons.YesNo, icon: MessageBoxIcon.Question) == MessageBoxResult.Yes)
+                    await SaveModule(module, saveAs: false);
+                eventBus.Publish(new ModuleUnloadedEvent(module));
                 project.DeleteModule(module);
                 break;
             case RelatedDocumentDefinition document:

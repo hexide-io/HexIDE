@@ -53,6 +53,7 @@
     "Str.Archive.OpenErrorFormat": "{0} açılamadı:\n{1}",
     "Str.ContributedProject.OpenError": "{0}, {1} ile açılamadı:\n{2}",
     "Str.ContributedProject.MembershipReadOnly": "{0} bir {1} projesidir: dosyalarını HexIDE değil, ait olduğu program ekler ve kaldırır.",
+    "Str.ContributedProject.RemovedWithChanges": "{0}, {1} projesinin ait olduğu program tarafından projeden çıkarıldı. Önce değişikliklerinizi kaydetmek ister misiniz?",
     "Str.ContributedProject.NameTaken": "{0} dışarıda bırakıldı: {1}, {2} içinde zaten bir modülün adı.",
     "Str.ContributedProject.SettingsReadOnly": "{0} bir {1} projesidir: özelliklerini, başvurularını ve bileşenlerini HexIDE değil, ait olduğu program belirler.",
     "Str.ContributedProject.NotMade": "{0} bir {1} projesidir. Onu HexIDE değil, ait olduğu program oluşturur ve çalıştırır.",

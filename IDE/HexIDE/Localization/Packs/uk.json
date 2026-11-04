@@ -53,6 +53,7 @@
     "Str.Archive.OpenErrorFormat": "Не вдалося відкрити {0}:\n{1}",
     "Str.ContributedProject.OpenError": "Не вдалося відкрити {0} за допомогою {1}:\n{2}",
     "Str.ContributedProject.MembershipReadOnly": "{0} — проєкт {1}: його файли додає та вилучає програма, до якої він належить, а не HexIDE.",
+    "Str.ContributedProject.RemovedWithChanges": "Програма, до якої належить {1}, вилучила {0} з проєкту. Спершу зберегти ваші зміни?",
     "Str.ContributedProject.NameTaken": "{0} пропущено: {1} уже є назвою модуля в {2}.",
     "Str.ContributedProject.SettingsReadOnly": "{0} — проєкт {1}: його властивості, посилання та компоненти задає програма, до якої він належить, а не HexIDE.",
     "Str.ContributedProject.NotMade": "{0} — проєкт {1}. Збирає та запускає його програма, до якої він належить, а не HexIDE.",

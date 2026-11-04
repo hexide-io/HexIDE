@@ -57,6 +57,7 @@
     "Str.Archive.OpenErrorFormat": "ไม่สามารถเปิด {0} ได้:\n{1}",
     "Str.ContributedProject.OpenError": "ไม่สามารถเปิด {0} ด้วย {1}:\n{2}",
     "Str.ContributedProject.MembershipReadOnly": "{0} เป็นโปรเจกต์ {1} ซึ่งไฟล์ของโปรเจกต์ถูกเพิ่มและลบโดยโปรแกรมที่เป็นเจ้าของ ไม่ใช่ HexIDE",
+    "Str.ContributedProject.RemovedWithChanges": "โปรแกรมที่ {1} เป็นของได้นำ {0} ออกจากโปรเจกต์ บันทึกการเปลี่ยนแปลงของคุณก่อนหรือไม่",
     "Str.ContributedProject.NameTaken": "ข้าม {0}: {1} เป็นชื่อของโมดูลใน {2} อยู่แล้ว",
     "Str.ContributedProject.SettingsReadOnly": "{0} เป็นโปรเจกต์ {1} ซึ่งคุณสมบัติ การอ้างอิง และคอมโพเนนต์ถูกกำหนดโดยโปรแกรมที่เป็นเจ้าของ ไม่ใช่ HexIDE",
     "Str.ContributedProject.NotMade": "{0} เป็นโปรเจกต์ {1} โปรแกรมที่เป็นเจ้าของเป็นผู้สร้างและเรียกใช้ ไม่ใช่ HexIDE",

@@ -57,6 +57,7 @@
     "Str.Archive.OpenErrorFormat": "Nem sikerült megnyitni: {0}\n{1}",
     "Str.ContributedProject.OpenError": "A(z) {0} nem nyitható meg ezzel: {1}\n{2}",
     "Str.ContributedProject.MembershipReadOnly": "A(z) {0} egy {1}-projekt: a fájljait az a program adja hozzá és távolítja el, amelyhez tartozik, nem a HexIDE.",
+    "Str.ContributedProject.RemovedWithChanges": "A(z) {0} elemet kivette a projektből az a program, amelyhez a(z) {1} tartozik. Előbb menti a módosításait?",
     "Str.ContributedProject.NameTaken": "A(z) {0} kimaradt: a(z) {1} már egy modul neve itt: {2}.",
     "Str.ContributedProject.SettingsReadOnly": "A(z) {0} egy {1}-projekt: a tulajdonságait, hivatkozásait és összetevőit az a program állítja be, amelyhez tartozik, nem a HexIDE.",
     "Str.ContributedProject.NotMade": "A(z) {0} egy {1}-projekt. Azt a program készíti el és futtatja, amelyhez tartozik, nem a HexIDE.",

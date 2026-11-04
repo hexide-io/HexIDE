@@ -53,6 +53,7 @@
     "Str.Archive.OpenErrorFormat": "לא ניתן לפתוח את {0}:\n{1}",
     "Str.ContributedProject.OpenError": "לא ניתן לפתוח את {0} באמצעות {1}:\n{2}",
     "Str.ContributedProject.MembershipReadOnly": "{0} הוא פרויקט {1}: הקבצים שלו נוספים ומוסרים על ידי התוכנית שהוא שייך אליה, ולא על ידי HexIDE.",
+    "Str.ContributedProject.RemovedWithChanges": "התוכנית ש-{1} שייך אליה הוציאה את {0} מהפרויקט. לשמור קודם את השינויים שלך בו?",
     "Str.ContributedProject.NameTaken": "{0} לא נכלל: {1} הוא כבר שם של מודול ב-{2}.",
     "Str.ContributedProject.SettingsReadOnly": "{0} הוא פרויקט {1}: המאפיינים, ההפניות והרכיבים שלו נקבעים על ידי התוכנית שהוא שייך אליה, ולא על ידי HexIDE.",
     "Str.ContributedProject.NotMade": "{0} הוא פרויקט {1}. התוכנית שהוא שייך אליה בונה ומריצה אותו, ולא HexIDE.",

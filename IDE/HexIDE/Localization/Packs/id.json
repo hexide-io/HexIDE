@@ -53,6 +53,7 @@
     "Str.Archive.OpenErrorFormat": "Tidak dapat membuka {0}:\n{1}",
     "Str.ContributedProject.OpenError": "Tidak dapat membuka {0} dengan {1}:\n{2}",
     "Str.ContributedProject.MembershipReadOnly": "{0} adalah proyek {1}: berkasnya ditambahkan dan dihapus oleh program pemiliknya, bukan oleh HexIDE.",
+    "Str.ContributedProject.RemovedWithChanges": "{0} dikeluarkan dari {1} oleh program pemiliknya. Simpan perubahan Anda terlebih dahulu?",
     "Str.ContributedProject.NameTaken": "{0} dilewati: {1} sudah menjadi nama modul di {2}.",
     "Str.ContributedProject.SettingsReadOnly": "{0} adalah proyek {1}: properti, referensi, dan komponennya diatur oleh program pemiliknya, bukan oleh HexIDE.",
     "Str.ContributedProject.NotMade": "{0} adalah proyek {1}. Program pemiliknya yang membuat dan menjalankannya, bukan HexIDE.",
