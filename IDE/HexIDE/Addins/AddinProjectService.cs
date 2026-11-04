@@ -13,7 +13,7 @@ public sealed class AddinProjectService(IProjectManager projectManager) : IProje
     public IReadOnlyList<AddinProjectInfo> GetProjects() =>
         [.. projectManager.LoadedProjects.Select(Describe)];
 
-    private static AddinProjectInfo Describe(ProjectDefinition project) =>
+    internal static AddinProjectInfo Describe(ProjectDefinition project) =>
         new(project.Name, project.AbsolutePath ?? string.Empty, FilesOf(project));
 
     /// <summary>
