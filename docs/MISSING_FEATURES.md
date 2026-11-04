@@ -173,7 +173,7 @@
 | Menu Editor… | Ctrl+E | Done | Full menu tree editor |
 | Options… | — | Done | 39 in-box languages and four regional override packs follow Windows 11 tier 1 (#2857); Hindi, Persian and Urdu move to HexIDE.Localisation, Latin and Esperanto are removed, and retired selections fall back to English (#2817). See the [language catalog](localization-regions.md) for all added languages and regions. 2-pane TreeView redesign (Phase 46, complete): Environment/Editor/Form Designer/Advanced pages; per-page + global reset-to-defaults; localized accessible names without trailing colons for Language, Region, Theme and Keymap lists and sticky-scroll depth (#2449, #2680); Add-Ins section with per-add-in details, activate/deactivate, and add-in-contributed settings pages (`host.Options.RegisterOptionsPage`) |
 | Galician UI language | — | Done | Complete `gl` translation with Latin-script access keys; Spain (`gl-ES`) inherits the neutral pack. Select Galician in Options → Environment → Language (#2774); [catalog](localization-regions.md) |
-| Language-server output | — | Done | HexIDE extension: each server card in Language & Debug Servers shows live log messages by numeric protocol type, stderr and workspace-generation notes; bounded session history works without capture arming, with the protocol inspector one click away (#2388) |
+| Language-server output | — | Done | HexIDE extension: each server card in Language & Debug Servers shows live log messages by numeric protocol type, stderr and workspace-generation notes; bounded session history works without capture arming, with the protocol inspector one click away (#2388). Card labels fit their contents with aligned values, and state ages refresh while visible (#2865, #2866) |
 
 ---
 

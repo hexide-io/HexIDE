@@ -21,6 +21,8 @@
 > in the terminal. The guard reports and rewrites derived counts
 > using its own recount, preserving line endings. It still rejects unknown ratings, duplicate names,
 > missing status rows and inconsistent constant-family ratings; fix those source rows by hand.
+> It also checks every table for an immediately following delimiter row, no misplaced delimiters,
+> and matching cell counts (escaped pipes stay inside cells), naming the heading and line on failure (#2902).
 > Diagnostic wording below reflects #935: missing-member messages omit receiver types, and value text
 > prints inner type names without Either wrappers. This wording is HexIDE's, not a VB6 measurement.
 

@@ -4,6 +4,7 @@ namespace HexIDE.Tests.Infrastructure;
 /// open_file's line and column (#700), read headlessly from its declaration, as no test project references
 /// HexIDE.Desktop. What it does with them is <c>CaretPlacementTests</c>'s.
 /// </summary>
+[ToolDescription]
 public class OpenFileCaretTests
 {
     private static ToolSource.Tool OpenFile => ToolSource.Tools.Single(t => t.Name == "open_file");

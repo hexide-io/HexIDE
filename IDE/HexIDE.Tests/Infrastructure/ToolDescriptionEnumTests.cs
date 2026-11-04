@@ -29,6 +29,7 @@ namespace HexIDE.Tests.Infrastructure;
 /// renamed member is caught all the same, because its new name is missing (hexide-io/HexIDE#549).
 /// </para>
 /// </remarks>
+[ToolDescription]
 public class ToolDescriptionEnumTests
 {
     private static readonly Lazy<IReadOnlyDictionary<string, List<Type>>> Enums = new(() =>

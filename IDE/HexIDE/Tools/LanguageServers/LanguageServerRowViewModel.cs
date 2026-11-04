@@ -83,6 +83,8 @@ public sealed partial class LanguageServerRowViewModel : ObservableObject
     public string OutputText => _capture.Output.Text(Id) is { Length: > 0 } text
         ? text : _localization.GetString("Str.Tool.LanguageServers.OutputEmpty");
 
+    internal void AgeChanged() => OnPropertyChanged(nameof(Age));
+
     internal void OutputChanged() => OnPropertyChanged(nameof(OutputText));
 
     /// <summary>

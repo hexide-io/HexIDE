@@ -17,6 +17,7 @@ namespace HexIDE.Tests.Infrastructure;
 /// Other clients may cut at a different length; this is the tightest known, not a budget to fill.
 /// </para>
 /// </remarks>
+[ToolDescription]
 public class ToolDescriptionLengthTests
 {
     private const int Limit = 2048;

@@ -11,6 +11,7 @@ namespace HexIDE.Tests.Infrastructure;
 /// gaps, which beside a field called framesDropped read as lost frames. Its description used to say it, at the cost of
 /// the room its vocabularies need.
 /// </summary>
+[ToolDescription]
 public class LspRowsNoteTests
 {
     private static (ConversationLog Capture, IdeContext Context, HexIdeTools Tools) Tools()
