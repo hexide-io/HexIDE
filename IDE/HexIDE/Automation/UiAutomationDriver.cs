@@ -133,6 +133,9 @@ public static class UiAutomationDriver
                 value = shown;
         }
 
+        if (value is not null)
+            value = Capped(value);
+
         // An editor has no value provider, so the Immediate window's text could be read only from its view's members, on
         // another node, and nothing said so (#2513). A code window's document is a project file, which get_file_content
         // returns with its open edits, so that one is still left out (#562). Its writability goes with it, as a value
@@ -182,6 +185,14 @@ public static class UiAutomationDriver
         else if (omitted > 0)
             note = $"{omitted} member(s) declared by the Dock framework's base types (layout plumbing such as "
                  + "Proportion and CanFloat) are not listed; set_property still reaches them by name.";
+
+        var cut = members.Count(m => m.Value is { Length: > MaxMemberValueLength });
+        if (cut > 0)
+            note = string.Join(" ", new[] { note,
+                $"{cut} member value{(cut == 1 ? "" : "s")} over {MaxMemberValueLength} characters {(cut == 1 ? "was" : "were")} cut; "
+                + "a control that shows one, such as a text box or the Immediate window, gives up to "
+                + $"{MaxValueLength.ToString("N0", System.Globalization.CultureInfo.InvariantCulture)} characters as its value." }
+                .Where(n => n is not null));
 
         if (ResolvedCommand(control) is { } bound)
         {
@@ -361,8 +372,10 @@ public static class UiAutomationDriver
     /// <summary>Cap on a reported value, in characters. The Immediate buffer is unbounded.</summary>
     private const int MaxValueLength = 4000;
 
-    private static string Capped(string text) => text.Length > MaxValueLength
-        ? text[..MaxValueLength] + $"… [truncated at {MaxValueLength} of {text.Length} chars]"
+    private const int MaxMemberValueLength = 200;
+
+    private static string Capped(string text, int limit = MaxValueLength) => text.Length > limit
+        ? text[..limit] + $"… [truncated at {limit} of {text.Length} chars]"
         : text;
 
     /// <summary>
@@ -392,7 +405,7 @@ public static class UiAutomationDriver
 
         // An editor's document is a project file, which get_file_content already returns, open edits included.
         // Rendering it here put a whole source file into every inspection of the editor (#562). The Immediate
-        // window's document is not a file and has no other reader, so it is still rendered below.
+        // window's document is not a file; its editor also reports it as value (#2513).
         if (dataContext is HexIDE.Forms.ViewModels.ISearchableDocument searchable
             && p.Name == nameof(HexIDE.Forms.ViewModels.ISearchableDocument.Document))
             return Safe(() =>
@@ -419,7 +432,7 @@ public static class UiAutomationDriver
                 IFormattable f => f.ToString(null, CultureInfo.InvariantCulture),
                 _ => raw.ToString(),
             };
-            return text is null ? null : Capped(text);
+            return text is null ? null : Capped(text, MaxMemberValueLength);
         }, null);
     }
 
