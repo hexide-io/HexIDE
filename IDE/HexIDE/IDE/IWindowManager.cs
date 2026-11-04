@@ -8,6 +8,7 @@ namespace HexIDE.IDE;
 
 public interface IWindowManager
 {
+    bool IsNativeDialogOpen { get; }
     Task<bool> ShowDialog(IDialog dialog);
     Task ShowWindow(IDialog window);
     Task ShowManagedWindow(MDIWindow window);

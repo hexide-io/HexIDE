@@ -21,6 +21,16 @@ namespace HexIDE.IDE;
 public class WindowManager : IWindowManager
 {
     private readonly ILocalizationService _localization;
+    private int _nativeDialogs;
+    public bool IsNativeDialogOpen => _nativeDialogs > 0;
+
+    internal async Task<T> TrackNativeDialog<T>(Func<Task<T>> show)
+    {
+        _nativeDialogs++;
+        try { return await show(); }
+        finally { _nativeDialogs--; }
+    }
+
 
     // Avalonia's modal windows use this native API, but its reference assembly hides it. Keep the bridge local
     // rather than opting the whole project into unstable APIs; desktop regression tests exercise it (#1366).
@@ -348,7 +358,7 @@ public class WindowManager : IWindowManager
 
         var topLevel = TopLevel.GetTopLevel(GetTopWindow(classic))!;
 
-        var files = await topLevel.StorageProvider.OpenFilePickerAsync(options);
+        var files = await TrackNativeDialog(() => topLevel.StorageProvider.OpenFilePickerAsync(options));
 
         return files.Select(f => f.TryGetLocalPath())
             .Where(x => x != null)
@@ -368,7 +378,7 @@ public class WindowManager : IWindowManager
 
         var topLevel = TopLevel.GetTopLevel(GetTopWindow(classic))!;
 
-        var file = await topLevel.StorageProvider.SaveFilePickerAsync(options);
+        var file = await TrackNativeDialog(() => topLevel.StorageProvider.SaveFilePickerAsync(options));
 
         return file?.TryGetLocalPath();
     }
