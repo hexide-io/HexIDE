@@ -24,6 +24,8 @@
     "Str.CodeEditor.ViewAs.TwinBasic64": "twinBASIC 64-розрядна",
     "Str.CodeEditor.ViewAs.Tooltip": "Показати умовну компіляцію для",
     "Str.Tool.Properties.ExportPicture": "Експортувати зображення...",
+    "Str.Tool.Properties.ExportPictureTitle": "Експорт зображення",
+    "Str.Tool.Properties.ReplacePicture": "{0} уже існує. Замінити його?",
     "Str.LspArtifact.Title": "Файли робочої області",
     "Str.LspArtifact.Prompt": "Сервер {0} запитав дозвіл на запис локального файлу {1}.",
     "Str.LspArtifact.Allow": "Дозволити",

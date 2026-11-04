@@ -24,6 +24,8 @@
     "Str.CodeEditor.ViewAs.TwinBasic64": "twinBASIC 64 bit",
     "Str.CodeEditor.ViewAs.Tooltip": "Προβολή μεταγλώττισης υπό συνθήκη ως",
     "Str.Tool.Properties.ExportPicture": "Εξαγωγή εικόνας...",
+    "Str.Tool.Properties.ExportPictureTitle": "Εξαγωγή εικόνας",
+    "Str.Tool.Properties.ReplacePicture": "Το {0} υπάρχει ήδη. Θέλετε να το αντικαταστήσετε;",
     "Str.LspArtifact.Title": "Αρχεία χώρου εργασίας",
     "Str.LspArtifact.Prompt": "Ο διακομιστής {0} ζήτησε να γράψει το τοπικό αρχείο {1}.",
     "Str.LspArtifact.Allow": "Να επιτραπεί",

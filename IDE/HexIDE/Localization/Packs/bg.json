@@ -28,6 +28,8 @@
     "Str.CodeEditor.ViewAs.TwinBasic64": "twinBASIC 64-битов",
     "Str.CodeEditor.ViewAs.Tooltip": "Преглед на условната компилация като",
     "Str.Tool.Properties.ExportPicture": "Експортиране на изображение...",
+    "Str.Tool.Properties.ExportPictureTitle": "Експортиране на картина",
+    "Str.Tool.Properties.ReplacePicture": "{0} вече съществува. Искате ли да го замените?",
     "Str.LspArtifact.Title": "Файлове на работното пространство",
     "Str.LspArtifact.Prompt": "Сървърът {0} поиска да запише локалния файл {1}.",
     "Str.LspArtifact.Allow": "Разрешаване",

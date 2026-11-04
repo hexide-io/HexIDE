@@ -28,6 +28,8 @@
     "Str.CodeEditor.ViewAs.TwinBasic64": "twinBASIC 64-bit",
     "Str.CodeEditor.ViewAs.Tooltip": "Prikaži uvjetno prevođenje kao",
     "Str.Tool.Properties.ExportPicture": "Izvezi sliku...",
+    "Str.Tool.Properties.ExportPictureTitle": "Izvoz slike",
+    "Str.Tool.Properties.ReplacePicture": "{0} već postoji. Želite li ga zamijeniti?",
     "Str.LspArtifact.Title": "Datoteke radnog prostora",
     "Str.LspArtifact.Prompt": "Poslužitelj {0} zatražio je pisanje lokalne datoteke {1}.",
     "Str.LspArtifact.Allow": "Dopusti",

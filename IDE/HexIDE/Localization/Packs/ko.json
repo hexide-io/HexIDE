@@ -24,6 +24,8 @@
     "Str.CodeEditor.ViewAs.TwinBasic64": "twinBASIC 64비트",
     "Str.CodeEditor.ViewAs.Tooltip": "조건부 컴파일 표시 대상",
     "Str.Tool.Properties.ExportPicture": "그림 내보내기...",
+    "Str.Tool.Properties.ExportPictureTitle": "그림 내보내기",
+    "Str.Tool.Properties.ReplacePicture": "{0}이(가) 이미 있습니다. 바꾸시겠습니까?",
     "Str.LspArtifact.Title": "작업 영역 파일",
     "Str.LspArtifact.Prompt": "서버 {0}에서 로컬 파일 {1} 쓰기를 요청했습니다.",
     "Str.LspArtifact.Allow": "허용",

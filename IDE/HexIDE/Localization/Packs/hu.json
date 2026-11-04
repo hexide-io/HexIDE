@@ -28,6 +28,8 @@
     "Str.CodeEditor.ViewAs.TwinBasic64": "twinBASIC 64 bites",
     "Str.CodeEditor.ViewAs.Tooltip": "Feltételes fordítás megjelenítése mint",
     "Str.Tool.Properties.ExportPicture": "Kép exportálása...",
+    "Str.Tool.Properties.ExportPictureTitle": "Kép exportálása",
+    "Str.Tool.Properties.ReplacePicture": "{0} már létezik. Szeretné lecserélni?",
     "Str.LspArtifact.Title": "Munkaterület fájljai",
     "Str.LspArtifact.Prompt": "A(z) {0} kiszolgáló a(z) {1} helyi fájl írását kérte.",
     "Str.LspArtifact.Allow": "Engedélyezés",

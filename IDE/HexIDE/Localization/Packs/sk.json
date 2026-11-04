@@ -28,6 +28,8 @@
     "Str.CodeEditor.ViewAs.TwinBasic64": "twinBASIC 64-bit",
     "Str.CodeEditor.ViewAs.Tooltip": "Zobraziť podmienenú kompiláciu ako",
     "Str.Tool.Properties.ExportPicture": "Exportovať obrázok...",
+    "Str.Tool.Properties.ExportPictureTitle": "Export obrázka",
+    "Str.Tool.Properties.ReplacePicture": "{0} už existuje. Chcete ho nahradiť?",
     "Str.LspArtifact.Title": "Súbory pracovného priestoru",
     "Str.LspArtifact.Prompt": "Server {0} požiadal o zápis do lokálneho súboru {1}.",
     "Str.LspArtifact.Allow": "Povoliť",
