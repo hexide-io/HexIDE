@@ -640,8 +640,8 @@ public sealed class VBLspClient : ILspClient
                     DocumentSymbol: new DocumentSymbolClientCapabilities(HierarchicalDocumentSymbolSupport: true),
                     InlayHint: new InlayHintClientCapabilities(),
                     Completion: new CompletionClientCapabilities(new CompletionItemKindClientCapabilities(
-                        [CompletionItemKind.Text, CompletionItemKind.Function, CompletionItemKind.Variable,
-                         CompletionItemKind.Property, CompletionItemKind.Keyword, CompletionItemKind.Constant])),
+                        Enum.GetValues<CompletionItemKind>()),
+                        CompletionItem: new CompletionItemClientCapabilities(true, ["plaintext"])),
                     SemanticTokens: new SemanticTokensClientCapabilities(new(),
                         ["namespace", "type", "class", "enum", "interface", "struct", "typeParameter",
                          "parameter", "variable", "property", "enumMember", "event", "function", "method",
