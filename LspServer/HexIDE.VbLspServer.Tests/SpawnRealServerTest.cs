@@ -91,6 +91,81 @@ public class SpawnRealServerTest
         }
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Clean_exit_ends_the_process_with_empty_stderr(bool closeInput)
+    {
+        await AssertExitAsync(clean: true, closeInput);
+    }
+
+    [Fact]
+    public async Task Input_closed_without_exit_still_reports_the_read_fault()
+    {
+        await AssertExitAsync(clean: false, closeInput: true);
+    }
+
+    private static async Task AssertExitAsync(bool clean, bool closeInput)
+    {
+        var (fileName, arguments) = ResolveServer();
+        using var process = new Process
+        {
+            StartInfo = new ProcessStartInfo(fileName, arguments)
+            {
+                UseShellExecute = false,
+                RedirectStandardInput = true,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                CreateNoWindow = true,
+            }
+        };
+        process.Start();
+        var stderr = process.StandardError.ReadToEndAsync(TestContext.Current.CancellationToken);
+        using var rpc = new JsonRpc(new HeaderDelimitedMessageHandler(
+            process.StandardInput.BaseStream, process.StandardOutput.BaseStream,
+            new SystemTextJsonFormatter()));
+        rpc.StartListening();
+        try
+        {
+            await rpc.InvokeWithParameterObjectAsync<JsonElement>("initialize",
+                new { processId = (int?)null, rootUri = (string?)null, capabilities = new { } },
+                TestContext.Current.CancellationToken).WaitAsync(Timeout, TestContext.Current.CancellationToken);
+            if (clean)
+            {
+                var response = await rpc.InvokeWithCancellationAsync<JsonElement>("shutdown", [],
+                    TestContext.Current.CancellationToken).WaitAsync(Timeout, TestContext.Current.CancellationToken);
+                response.ValueKind.Should().Be(JsonValueKind.Null);
+                // Flush the final wire frame before closing the byte stream.
+                var exit = "{\"jsonrpc\":\"2.0\",\"method\":\"exit\"}"u8.ToArray();
+                var header = System.Text.Encoding.ASCII.GetBytes($"Content-Length: {exit.Length}\r\n\r\n");
+                await process.StandardInput.BaseStream.WriteAsync(header, TestContext.Current.CancellationToken);
+                await process.StandardInput.BaseStream.WriteAsync(exit, TestContext.Current.CancellationToken);
+                await process.StandardInput.BaseStream.FlushAsync(TestContext.Current.CancellationToken);
+            }
+            if (closeInput)
+                process.StandardInput.BaseStream.Close();
+
+            await process.WaitForExitAsync(TestContext.Current.CancellationToken)
+                .WaitAsync(Timeout, TestContext.Current.CancellationToken);
+            var error = await stderr.WaitAsync(Timeout, TestContext.Current.CancellationToken);
+            if (clean)
+            {
+                process.ExitCode.Should().Be(0);
+                error.Should().BeEmpty("shutdown followed by exit is an ordinary stop (#2956)");
+            }
+            else
+                error.Should().Contain("Stream closed before all data could be read");
+        }
+        finally
+        {
+            if (!process.HasExited)
+            {
+                process.Kill();
+                await process.WaitForExitAsync(TestContext.Current.CancellationToken);
+            }
+        }
+    }
+
     private sealed class DiagTarget
     {
         public Channel<JsonElement> Channel { get; } = System.Threading.Channels.Channel.CreateUnbounded<JsonElement>();
