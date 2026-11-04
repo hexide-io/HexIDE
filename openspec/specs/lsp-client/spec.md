@@ -138,6 +138,13 @@ request failures SHALL be returned alongside successful locations, identified by
 ### Requirement: Find References presents navigable results
 The code editor SHALL offer Find References on Shift+F12, its context menu and the Edit menu,
 showing the shortcut. Results SHALL open at the bottom in the Immediate window's group.
+When opened or brought forward to show results, the list SHALL show at least six rows, growing its
+slot from the document area's height as far as that area's minimum permits. The document minimum SHALL
+be at least 120 DIP even without an explicit dock MinHeight. When space is insufficient, the results
+SHALL use only the space left above that minimum. Layouts below the document minimum SHALL NOT be saved;
+previously saved collapsed document areas SHALL regain their minimum on load, taking height from tools.
+A sufficiently tall slot
+SHALL retain its exact proportion. The resized proportions SHALL persist with the saved layout.
 A new search SHALL replace the previous results; an older request completing later SHALL NOT overwrite it.
 The list SHALL group locations by module in project order, show one-based line numbers and line text,
 and highlight the supplied range. Enter on a focused result row or a double-click SHALL navigate through
