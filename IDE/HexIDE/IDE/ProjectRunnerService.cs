@@ -36,6 +36,9 @@ public partial class ProjectRunnerService : IProjectRunnerService
     private readonly WatchService watchService;
     private readonly RunScope runScope;
     private readonly ExternalDebugService? externalDebugger;
+    private readonly DebugLaunchService? debugLaunches;
+    private readonly IRunChoiceStore? runChoices;
+    private readonly IStatusBarService? statusBar;
 
     // A Run-To-Cursor target requested while IDLE — applied AFTER the run-start Reset (which clears the controller's
     // target), so the fresh run breaks at it. Consumed once in RunProject.
@@ -91,8 +94,14 @@ public partial class ProjectRunnerService : IProjectRunnerService
         WatchService watchService,
         RunScope runScope,
         ExternalDebugService? externalDebugger = null,
-        HexIDE.Projects.ArchiveProjectService? archives = null)
+        HexIDE.Projects.ArchiveProjectService? archives = null,
+        DebugLaunchService? debugLaunches = null,
+        IRunChoiceStore? runChoices = null,
+        IStatusBarService? statusBar = null)
     {
+        this.debugLaunches = debugLaunches;
+        this.runChoices = runChoices;
+        this.statusBar = statusBar;
         this.eventBus = eventBus;
         this.windowManager = windowManager;
         this.projectManager = projectManager;
@@ -513,8 +522,34 @@ public partial class ProjectRunnerService : IProjectRunnerService
         if (archives?.IsActive == true) return;
         if (projectManager.StartupProject is {} startupProject)
         {
+            // F5 alone: stepping in from idle (F8) and Run To Cursor are the interpreter's, whatever F5 runs.
+            if (!stepInto && LaunchChosenFor(startupProject) is { } launch)
+            {
+                StartContributedLaunch(launch, startupProject);
+                return;
+            }
             RunProject(startupProject, stepInto);
         }
+    }
+
+    /// <inheritdoc />
+    public void StartContributedLaunch(ContributedDebugLaunch launch, ProjectDefinition project)
+    {
+        if (debugLaunches is null || IsRunning) return;
+        eventBus.Publish(new ApplyAllUnsavedChangesEvent());
+        debugLaunches.StartAsync(launch, project).ListenErrors();
+    }
+
+    // The add-in's launch this project's user chose for F5, or null for the interpreter. A choice whose launch is gone,
+    // or no longer runs this project, falls back to the interpreter and says so; it stays chosen, for when the add-in
+    // is back.
+    private ContributedDebugLaunch? LaunchChosenFor(ProjectDefinition project)
+    {
+        if (debugLaunches is null || runChoices?.Get(project) is not { } key) return null;
+        if (debugLaunches.Find(key) is { } launch && debugLaunches.Claims(launch, project)) return launch;
+        statusBar?.SetTemporaryMessage(
+            string.Format(localization.GetString("Str.Debug.RunWith.Unavailable"), key), TimeSpan.FromSeconds(10));
+        return null;
     }
 
     public void BreakCurrentProject()

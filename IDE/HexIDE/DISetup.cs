@@ -118,7 +118,11 @@ public partial class DISetup
                 ctx.Inject<RunScope>(out var runScope);
                 ctx.Inject<ExternalDebugService>(out var externalDebugger);
                 ctx.Inject<HexIDE.Projects.ArchiveProjectService>(out var archives);
-                return new ProjectRunnerService(eventBus, windowManager, projectManager, localization, debugController, breakpointService, watchService, runScope, externalDebugger, archives);
+                ctx.Inject<HexIDE.Debugging.DebugLaunchService>(out var debugLaunches);
+                ctx.Inject<HexIDE.Debugging.IRunChoiceStore>(out var runChoices);
+                ctx.Inject<IStatusBarService>(out var statusBar);
+                return new ProjectRunnerService(eventBus, windowManager, projectManager, localization, debugController, breakpointService, watchService, runScope, externalDebugger, archives,
+                    debugLaunches, runChoices, statusBar);
             })
             .Bind().As(Singleton).To(ctx =>
             {

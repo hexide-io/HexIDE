@@ -7,6 +7,13 @@ public interface IProjectRunnerService : INotifyPropertyChanged
 {
     void RunProject(ProjectDefinition projectDefinition, bool stepInto = false);
     void RunStartupProject(bool stepInto = false);
+
+    /// <summary>
+    /// Runs a project under the External Debug Session with a launch an add-in contributed, once, whatever F5 runs for
+    /// the project. Does nothing while something is running.
+    /// </summary>
+    void StartContributedLaunch(HexIDE.Debugging.ContributedDebugLaunch launch, ProjectDefinition project);
+
     void BreakCurrentProject();
     void ContinueProject();
     void StepIntoProject();
