@@ -23,7 +23,7 @@ public static class LspServerHost
     public static LanguageServer Create(Stream input, Stream output)
         => Create(input, output, new DocumentStore());
 
-    internal static LanguageServer Create(Stream input, Stream output, DocumentStore store)
+    internal static RenameLanguageServer Create(Stream input, Stream output, DocumentStore store)
     {
         var ls = new RenameLanguageServer(input, output, store);
 
