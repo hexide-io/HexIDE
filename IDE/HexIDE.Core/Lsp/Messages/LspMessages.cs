@@ -339,10 +339,15 @@ public record WorkspaceClientCapabilities(
     [property: JsonPropertyName("configuration")]
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] bool? Configuration = null,
     [property: JsonPropertyName("workspaceEdit")]
-    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] WorkspaceEditClientCapabilities? WorkspaceEdit = null);
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] WorkspaceEditClientCapabilities? WorkspaceEdit = null,
+    [property: JsonPropertyName("codeLens")]
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] WorkspaceCodeLensClientCapabilities? CodeLens = null);
 
 public record WorkspaceEditClientCapabilities(
     [property: JsonPropertyName("documentChanges")] bool DocumentChanges = true);
+
+public record WorkspaceCodeLensClientCapabilities(
+    [property: JsonPropertyName("refreshSupport")] bool RefreshSupport = true);
 
 public record WorkspaceDiagnosticsClientCapabilities(
     [property: JsonPropertyName("refreshSupport")] bool RefreshSupport = true);

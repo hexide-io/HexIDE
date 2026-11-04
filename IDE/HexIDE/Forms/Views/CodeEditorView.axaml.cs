@@ -36,6 +36,7 @@ namespace HexIDE.Forms.Views;
 public partial class CodeEditorView : UserControl
 {
     private IDisposable? sub;
+    private CodeLensDisplay? codeLenses;
     private LspTextMarkerService? _markerService;
     private LspDiagnosticsColorizer? _colorizer;
     private BracketDepthColorizer? _bracketDepthColorizer;
@@ -330,6 +331,9 @@ public partial class CodeEditorView : UserControl
             _watchedDocument.UpdateStarted += OnDocumentUpdateStartedForFolding;
             _watchedDocument.Changing += OnDocumentChangingForFolding;
 
+            codeLenses = new CodeLensDisplay(TextEditor, CodeLensLayer, vm.CreateCodeLensSession(),
+                command => vm.RunCodeLensAsync(command).ListenErrors());
+
             _inlayHintRenderer = new InlayHintRenderer(TextEditor);
             TextEditor.TextArea.TextView.BackgroundRenderers.Add(_inlayHintRenderer);
             _inlaySettingsChanged = (_, e) =>
@@ -574,6 +578,8 @@ public partial class CodeEditorView : UserControl
             TextEditor.TextArea.SelectionChanged -= _editorSelectionSync;
             _editorSelectionSync = null;
         }
+        codeLenses?.Dispose();
+        codeLenses = null;
         Minimap.Detach();
         _indentGuideRenderer?.Dispose();
         _indentGuideRenderer = null;
@@ -1188,7 +1194,13 @@ public partial class CodeEditorView : UserControl
     private void OnLanguageServerStateChanged()
     {
         _semanticVersion++;
-        if (DataContext is CodeEditorViewModel vm) ScheduleFolding(vm);
+        if (DataContext is CodeEditorViewModel vm)
+        {
+            codeLenses?.Dispose();
+            codeLenses = new CodeLensDisplay(TextEditor, CodeLensLayer, vm.CreateCodeLensSession(),
+                command => vm.RunCodeLensAsync(command).ListenErrors());
+            ScheduleFolding(vm);
+        }
     }
 
     private void ScheduleFolding(CodeEditorViewModel vm)

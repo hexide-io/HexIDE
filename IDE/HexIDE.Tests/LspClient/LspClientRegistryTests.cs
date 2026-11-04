@@ -60,6 +60,72 @@ public class LspClientRegistryTests
     private static LspRange Span(int line) => new(new Position(line, 0), new Position(line, 1));
 
     [Fact]
+    public async Task UnknownLensCommandIsNotSentAndIsLoggedOnce()
+    {
+        var server = FakeServer();
+        var logger = Substitute.For<ILogger<LspClientRegistry>>();
+        await using var registry = new LspClientRegistry([Registration("server", server)], logger);
+        await registry.OpenDocumentAsync(Vb6Doc, "code", TestContext.Current.CancellationToken);
+        logger.ClearReceivedCalls();
+        await registry.ExecuteCommandAsync("unknown.lens", ct: TestContext.Current.CancellationToken);
+        await registry.ExecuteCommandAsync("unknown.lens", ct: TestContext.Current.CancellationToken);
+        await server.DidNotReceive().ExecuteCommandAsync(Arg.Any<string>(), Arg.Any<JsonElement[]>(), Arg.Any<CancellationToken>());
+        logger.ReceivedCalls().Count(c => c.GetMethodInfo().Name == "Log"
+            && c.GetArguments()[2]?.ToString()?.Contains("unknown.lens", StringComparison.Ordinal) == true)
+            .Should().Be(1);
+    }
+
+    [Fact]
+    public async Task CodeLensRefreshKeepsItsIssuingConnectionThroughTheRegistry()
+    {
+        var first = FakeServer();
+        var second = FakeServer();
+        var sut = Registry(Registration("first", first), Registration("second", second));
+        await sut.OpenDocumentAsync(Vb6Doc, "code", TestContext.Current.CancellationToken);
+        var origins = new List<object?>();
+        sut.CodeLensRefreshRequested += (sender, _) => origins.Add(sender);
+        second.CodeLensRefreshRequested += Raise.Event<EventHandler>(second, EventArgs.Empty);
+        origins.Should().Equal(second);
+        await sut.DisposeAsync();
+        first.CodeLensRefreshRequested += Raise.Event<EventHandler>(first, EventArgs.Empty);
+        origins.Should().Equal(second);
+    }
+
+    [Fact]
+    public async Task EqualLensesResolveOnTheirOwnIssuingConnections()
+    {
+        var first = FakeServer();
+        var second = FakeServer();
+        var a = new CodeLens(Span(3));
+        var b = new CodeLens(Span(3));
+        a.Should().Be(b, "equal wire values can belong to different servers");
+        first.RequestCodeLensesAsync(Vb6Doc, Arg.Any<CancellationToken>()).Returns([a]);
+        second.RequestCodeLensesAsync(Vb6Doc, Arg.Any<CancellationToken>()).Returns([b]);
+        var resolvedA = a with { Command = new Command("First", "first.run") };
+        var resolvedB = b with { Command = new Command("Second", "second.run") };
+        first.ResolveCodeLensAsync(Arg.Is<CodeLens>(l => ReferenceEquals(l, a)), Arg.Any<CancellationToken>())
+            .Returns(resolvedA);
+        second.ResolveCodeLensAsync(Arg.Is<CodeLens>(l => ReferenceEquals(l, b)), Arg.Any<CancellationToken>())
+            .Returns(resolvedB);
+        var sut = Registry(Registration("first", first), Registration("second", second));
+        await sut.OpenDocumentAsync(Vb6Doc, "Sub M()\nEnd Sub", TestContext.Current.CancellationToken);
+        var lenses = await sut.RequestCodeLensesAsync(Vb6Doc, TestContext.Current.CancellationToken);
+        lenses.Should().HaveCount(2);
+        await first.DidNotReceive().ResolveCodeLensAsync(Arg.Any<CodeLens>(), Arg.Any<CancellationToken>());
+        await second.DidNotReceive().ResolveCodeLensAsync(Arg.Any<CodeLens>(), Arg.Any<CancellationToken>());
+
+        (await sut.ResolveCodeLensAsync(lenses[1], TestContext.Current.CancellationToken)).Should().BeSameAs(resolvedB);
+        await first.DidNotReceive().ResolveCodeLensAsync(Arg.Any<CodeLens>(), Arg.Any<CancellationToken>());
+        (await sut.ResolveCodeLensAsync(lenses[0], TestContext.Current.CancellationToken)).Should().BeSameAs(resolvedA);
+        await second.Received(1).ResolveCodeLensAsync(Arg.Any<CodeLens>(), Arg.Any<CancellationToken>());
+        await first.Received(1).ResolveCodeLensAsync(Arg.Any<CodeLens>(), Arg.Any<CancellationToken>());
+
+        // A value copied by a caller has no provenance, even when its fields match exactly.
+        (await sut.ResolveCodeLensAsync(a with { }, TestContext.Current.CancellationToken)).Should().BeNull();
+        await first.Received(1).ResolveCodeLensAsync(Arg.Any<CodeLens>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
     public async Task ReferencesGatherAllServersAndDeduplicateLocations()
     {
         var first = FakeServer(capabilitiesJson: """{"referencesProvider":true}""");
