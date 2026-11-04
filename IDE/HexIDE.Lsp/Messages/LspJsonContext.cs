@@ -37,6 +37,7 @@ namespace HexIDE.Lsp;
 // treatment `documentSymbol` and `definition` already get, for the same reason.
 [JsonSerializable(typeof(DocumentDiagnosticParams))]
 [JsonSerializable(typeof(TextDocumentPositionParams))]
+[JsonSerializable(typeof(HexIDE.Lsp.Messages.Range))]
 [JsonSerializable(typeof(HoverResult))]
 [JsonSerializable(typeof(DocumentSymbolParams))]
 [JsonSerializable(typeof(DocumentSymbol[]))]

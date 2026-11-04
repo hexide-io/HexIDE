@@ -12,6 +12,27 @@ later without the editor noticing.
 
 ## Requirements
 
+### Requirement: Prepare rename before prompting
+The client SHALL declare rename `prepareSupport: true` and `prepareSupportDefaultBehavior: 1`.
+After the code window's own refusals and a document flush, it SHALL ask every opened claimant advertising
+`renameProvider.prepareProvider: true` for `textDocument/prepareRename`. Any null or error answer SHALL
+prevent the prompt, displaying the server's reason when supplied. The first participating claimant's
+range or placeholder SHALL seed the prompt. Servers without preparation support and a reply of
+`defaultBehavior: true` SHALL retain the existing word default.
+
+#### Scenario: Server refuses preparation
+- **WHEN** a preparation request returns null or an error
+- **THEN** no rename input prompt opens
+- **AND** a supplied server error message is shown
+
+#### Scenario: Server supplies the name
+- **WHEN** preparation returns a range or a range with a placeholder
+- **THEN** the prompt starts with the placeholder or the document text in that range
+
+#### Scenario: Preparation is unsupported
+- **WHEN** no claimant advertises preparation
+- **THEN** no preparation request is sent and the existing prompt behavior remains
+
 ### Requirement: Format Selection through the advertising server
 The IDE SHALL offer Format Selection beside Format Document in the code editor context menu, enabled
 only for a nonempty selection in an editable document with an open language session and a claimant

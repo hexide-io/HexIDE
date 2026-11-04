@@ -282,6 +282,10 @@ public interface ILspClient : IAsyncDisposable
     Task<Location[]?> RequestDeclarationAsync(string uri, Position position, CancellationToken cancellationToken = default);
     Task<DocumentHighlight[]?> RequestDocumentHighlightAsync(string uri, Position position, CancellationToken cancellationToken = default);
 
+    /// <summary>Asks supporting servers before prompting; null means preparation is unsupported.</summary>
+    Task<PrepareRenameResult?> RequestPrepareRenameAsync(string uri, Position position, CancellationToken cancellationToken = default)
+        => Task.FromResult<PrepareRenameResult?>(null);
+
     /// <summary>Sends textDocument/rename and returns edits, a refusal, or null for no change.</summary>
     Task<RenameResult?> RequestRenameAsync(string uri, Position position, string newName, CancellationToken cancellationToken = default);
 

@@ -2802,7 +2802,22 @@ public partial class CodeEditorView : UserControl
     {
         try
         {
-            var newName = await vm.ShowRenameInputBoxAsync(oldName);
+            await vm.FlushDocumentAsync();
+            var preparation = await vm.RequestPrepareRenameAsync(position);
+            if (preparation is { Allowed: false })
+            {
+                if (preparation.Refusal is { } reason) await vm.ShowRefusalAsync(reason);
+                return;
+            }
+            var promptText = oldName;
+            if (preparation?.Placeholder is { } placeholder) promptText = placeholder;
+            else if (preparation?.Range is { } range)
+            {
+                var start = vm.Document.GetOffset(range.Start.Line + 1, range.Start.Character + 1);
+                var end = vm.Document.GetOffset(range.End.Line + 1, range.End.Character + 1);
+                promptText = vm.Document.GetText(start, end - start);
+            }
+            var newName = await vm.ShowRenameInputBoxAsync(promptText);
             if (newName is null || newName == oldName) return;
             // Before the request, so no server is asked to write a name VB6 would refuse (#273 task 4.4). An empty
             // answer is refused with the rest rather than taken for Cancel, which answers null.
