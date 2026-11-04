@@ -3,6 +3,10 @@ using HexIDE.Lsp.Messages;
 
 namespace HexIDE.Lsp;
 
+[JsonSerializable(typeof(CallHierarchyItem[]))]
+[JsonSerializable(typeof(CallHierarchyCallsParams))]
+[JsonSerializable(typeof(CallHierarchyIncomingCall[]))]
+[JsonSerializable(typeof(CallHierarchyOutgoingCall[]))]
 [JsonSerializable(typeof(ConfigurationParams))]
 [JsonSerializable(typeof(DidChangeConfigurationParams))]
 [JsonSerializable(typeof(System.Text.Json.JsonElement[]))]

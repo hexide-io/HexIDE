@@ -271,6 +271,19 @@ public interface ILspClient : IAsyncDisposable
     async Task<ReferenceSearchResult> FindReferencesAsync(string uri, Position position, CancellationToken cancellationToken = default)
         => new(await RequestReferencesAsync(uri, position, cancellationToken), []);
 
+    bool SupportsCallHierarchy(string uri) => IsRunning
+        && ServerCapabilities.Supports(AdvertisedCapabilities, "callHierarchyProvider");
+
+    Task<CallHierarchyItem[]> PrepareCallHierarchyAsync(string uri, Position position, CancellationToken ct = default)
+        => Task.FromResult<CallHierarchyItem[]>([]);
+    Task<CallHierarchyIncomingCall[]> RequestIncomingCallsAsync(CallHierarchyItem item, CancellationToken ct = default)
+        => Task.FromResult<CallHierarchyIncomingCall[]>([]);
+    Task<CallHierarchyOutgoingCall[]> RequestOutgoingCallsAsync(CallHierarchyItem item, CancellationToken ct = default)
+        => Task.FromResult<CallHierarchyOutgoingCall[]>([]);
+
+    async Task<CallHierarchyResult> FindCallHierarchyAsync(string uri, Position position, CancellationToken ct = default)
+        => new((await PrepareCallHierarchyAsync(uri, position, ct)).Select(item => new CallHierarchyRoot(this, item)).ToArray(), []);
+
     Task<Location[]> RequestReferencesAsync(string uri, Position position, CancellationToken cancellationToken = default);
 
     /// <summary>Whether a running server for this document offers the capability.</summary>
