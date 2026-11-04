@@ -72,10 +72,15 @@ public class ApplicationCommands
     public static readonly RoutedCommand NextBookmarkCommand = new RoutedCommand(nameof(NextBookmarkCommand));
     public static readonly RoutedCommand PreviousBookmarkCommand = new RoutedCommand(nameof(PreviousBookmarkCommand), new KeyGesture(Key.F2, KeyModifiers.Shift));
     public static readonly RoutedCommand ClearAllBookmarksCommand = new RoutedCommand(nameof(ClearAllBookmarksCommand), new KeyGesture(Key.F2, GetPlatformCommandKey() | KeyModifiers.Shift));
+    public static readonly RoutedCommand CallHierarchyCommand = new RoutedCommand(nameof(CallHierarchyCommand));
     public static readonly RoutedCommand FindReferencesCommand = new RoutedCommand(nameof(FindReferencesCommand), new KeyGesture(Key.F12, KeyModifiers.Shift));
     public static readonly RoutedCommand GoToDefinitionCommand = new RoutedCommand(nameof(GoToDefinitionCommand));
+    public static readonly RoutedCommand GoToImplementationCommand = new RoutedCommand(nameof(GoToImplementationCommand));
+    public static readonly RoutedCommand GoToTypeDefinitionCommand = new RoutedCommand(nameof(GoToTypeDefinitionCommand));
     public static readonly RoutedCommand GoToDeclarationCommand = new RoutedCommand(nameof(GoToDeclarationCommand));
     public static readonly RoutedCommand RenameSymbolCommand = new RoutedCommand(nameof(RenameSymbolCommand));
+    public static readonly RoutedCommand ExpandSelectionCommand = new RoutedCommand(nameof(ExpandSelectionCommand));
+    public static readonly RoutedCommand ShrinkSelectionCommand = new RoutedCommand(nameof(ShrinkSelectionCommand));
     public static readonly RoutedCommand FormatSelectionCommand = new RoutedCommand(nameof(FormatSelectionCommand));
     public static readonly RoutedCommand FormatDocumentCommand = new RoutedCommand(nameof(FormatDocumentCommand));
     public static readonly RoutedCommand BringToFrontCommand = new RoutedCommand(nameof(BringToFrontCommand), new KeyGesture(Key.J, GetPlatformCommandKey()));

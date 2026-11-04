@@ -3,6 +3,10 @@ using HexIDE.Lsp.Messages;
 
 namespace HexIDE.Lsp;
 
+[JsonSerializable(typeof(CallHierarchyItem[]))]
+[JsonSerializable(typeof(CallHierarchyCallsParams))]
+[JsonSerializable(typeof(CallHierarchyIncomingCall[]))]
+[JsonSerializable(typeof(CallHierarchyOutgoingCall[]))]
 [JsonSerializable(typeof(ConfigurationParams))]
 [JsonSerializable(typeof(DidChangeConfigurationParams))]
 [JsonSerializable(typeof(System.Text.Json.JsonElement[]))]
@@ -10,6 +14,7 @@ namespace HexIDE.Lsp;
 [JsonSerializable(typeof(FileOperationParams))]
 [JsonSerializable(typeof(RenameFilesParams))]
 [JsonSerializable(typeof(DidChangeWorkspaceFoldersParams))]
+[JsonSerializable(typeof(NavigationClientCapabilities))]
 [JsonSerializable(typeof(InitializeParams))]
 [JsonSerializable(typeof(InitializeResult))]
 [JsonSerializable(typeof(ServerCapabilities))]
@@ -37,11 +42,14 @@ namespace HexIDE.Lsp;
 // treatment `documentSymbol` and `definition` already get, for the same reason.
 [JsonSerializable(typeof(DocumentDiagnosticParams))]
 [JsonSerializable(typeof(TextDocumentPositionParams))]
+[JsonSerializable(typeof(HexIDE.Lsp.Messages.Range))]
 [JsonSerializable(typeof(HoverResult))]
 [JsonSerializable(typeof(DocumentSymbolParams))]
 [JsonSerializable(typeof(DocumentSymbol[]))]
 [JsonSerializable(typeof(SemanticTokensParams))]
 [JsonSerializable(typeof(SemanticTokens))]
+[JsonSerializable(typeof(SelectionRangeParams))]
+[JsonSerializable(typeof(SelectionRange[]))]
 [JsonSerializable(typeof(FoldingRangeParams))]
 [JsonSerializable(typeof(FoldingRange[]))]
 [JsonSerializable(typeof(InlayHintParams))]

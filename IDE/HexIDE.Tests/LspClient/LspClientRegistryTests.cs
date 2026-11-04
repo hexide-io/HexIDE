@@ -59,6 +59,30 @@ public class LspClientRegistryTests
 
     private static LspRange Span(int line) => new(new Position(line, 0), new Position(line, 1));
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task PreparationAsksEverySupportingClaimantAndAnyRefusalWins(bool refuse)
+    {
+        var caps = """{"renameProvider":{"prepareProvider":true}}""";
+        var first = FakeServer(capabilitiesJson: caps);
+        var second = FakeServer(capabilitiesJson: caps);
+        var unsupported = FakeServer();
+        first.RequestPrepareRenameAsync(Vb6Doc, Arg.Any<Position>(), Arg.Any<CancellationToken>())
+            .Returns(new PrepareRenameResult(!refuse, Placeholder: "First"));
+        second.RequestPrepareRenameAsync(Vb6Doc, Arg.Any<Position>(), Arg.Any<CancellationToken>())
+            .Returns(new PrepareRenameResult(!refuse, Placeholder: "Second", Refusal: refuse ? "Server reason" : null));
+        ILspClient sut = Registry(Registration("first", first, priority: 10), Registration("second", second), Registration("unsupported", unsupported));
+        await sut.OpenDocumentAsync(Vb6Doc, "code", TestContext.Current.CancellationToken);
+        var result = await sut.RequestPrepareRenameAsync(Vb6Doc, new(0, 0), TestContext.Current.CancellationToken);
+        result!.Allowed.Should().Be(!refuse);
+        result.Placeholder.Should().Be(refuse ? "Second" : "First");
+        result.Refusal.Should().Be(refuse ? "Server reason" : null);
+        await first.Received(1).RequestPrepareRenameAsync(Vb6Doc, Arg.Any<Position>(), Arg.Any<CancellationToken>());
+        await second.Received(1).RequestPrepareRenameAsync(Vb6Doc, Arg.Any<Position>(), Arg.Any<CancellationToken>());
+        await unsupported.DidNotReceiveWithAnyArgs().RequestPrepareRenameAsync(default!, default!, Arg.Any<CancellationToken>());
+    }
+
     private static Task<TextEdit[]> RangeFormat(ILspClient client, string uri, LspRange range, FormattingOptions options, CancellationToken ct)
     {
         var method = typeof(ILspClient).GetMethod("RequestRangeFormattingAsync");
@@ -71,6 +95,31 @@ public class LspClientRegistryTests
         var method = typeof(ILspClient).GetMethod("SupportsRangeFormatting");
         method.Should().NotBeNull();
         return (bool)method!.Invoke(client, [uri])!;
+    }
+
+    [Theory]
+    [InlineData("true")]
+    [InlineData("{}")]
+    public async Task CallHierarchyKeepsEveryAdvertisingOwnerAndPerServerErrors(string provider)
+    {
+        var first = FakeServer(capabilitiesJson: "{\"callHierarchyProvider\":" + provider + "}");
+        var second = FakeServer(capabilitiesJson: "{\"callHierarchyProvider\":true}");
+        var absent = FakeServer();
+        var item = new CallHierarchyItem("Root", 12, Vb6Doc, Span(1), Span(1),
+            Data: JsonDocument.Parse("{\"owner\":42}").RootElement.Clone());
+        first.PrepareCallHierarchyAsync(Vb6Doc, new Position(1, 2), Arg.Any<CancellationToken>()).Returns([item]);
+        second.PrepareCallHierarchyAsync(Vb6Doc, new Position(1, 2), Arg.Any<CancellationToken>())
+            .Returns(Task.FromException<CallHierarchyItem[]>(new InvalidOperationException("refused")));
+        await using var sut = Registry(Registration("first", first), Registration("second", second), Registration("absent", absent));
+        await sut.OpenDocumentAsync(Vb6Doc, "code", TestContext.Current.CancellationToken);
+        sut.SupportsCallHierarchy(Vb6Doc).Should().BeTrue();
+        sut.SupportsCallHierarchy("file:///unclaimed.txt").Should().BeFalse();
+        var result = await sut.FindCallHierarchyAsync(Vb6Doc, new Position(1, 2), TestContext.Current.CancellationToken);
+        result.Roots.Should().ContainSingle().Which.Client.Should().BeSameAs(first);
+        result.Roots[0].Item.Should().BeSameAs(item);
+        result.Roots[0].Server.Should().Be("first");
+        result.Errors.Should().ContainSingle().Which.Server.Should().Be("second");
+        await absent.DidNotReceive().PrepareCallHierarchyAsync(Arg.Any<string>(), Arg.Any<Position>(), Arg.Any<CancellationToken>());
     }
 
     [Theory]
@@ -679,6 +728,25 @@ public class LspClientRegistryTests
         (await sut.RequestSemanticTokensAsync(Vb6Doc, TestContext.Current.CancellationToken)).Should().BeSameAs(expected);
         await unsupported.DidNotReceive().RequestSemanticTokensAsync(Vb6Doc, Arg.Any<CancellationToken>());
         await second.DidNotReceive().RequestSemanticTokensAsync(Vb6Doc, Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task SelectionRangesComeFromTheHighestPriorityOfferingServer()
+    {
+        var unsupported = FakeServer();
+        var first = FakeServer(capabilitiesJson: """{"selectionRangeProvider":{}}""");
+        var second = FakeServer(capabilitiesJson: """{"selectionRangeProvider":true}""");
+        var positions = new[] { new Position(1, 2), new Position(3, 4) };
+        var expected = new[] { new SelectionRange(Span(1)) };
+        first.RequestSelectionRangesAsync(Vb6Doc, positions, Arg.Any<CancellationToken>()).Returns(expected);
+        var sut = Registry(Registration("unsupported", unsupported, priority: 10),
+            Registration("first", first, priority: 5), Registration("second", second));
+        await sut.OpenDocumentAsync(Vb6Doc, "code", TestContext.Current.CancellationToken);
+
+        (await sut.RequestSelectionRangesAsync(Vb6Doc, positions, TestContext.Current.CancellationToken))
+            .Should().BeSameAs(expected);
+        await unsupported.DidNotReceive().RequestSelectionRangesAsync(Vb6Doc, Arg.Any<Position[]>(), Arg.Any<CancellationToken>());
+        await second.DidNotReceive().RequestSelectionRangesAsync(Vb6Doc, Arg.Any<Position[]>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]

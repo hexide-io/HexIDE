@@ -66,7 +66,7 @@ the production formatter and source-generated context to guard absence and prese
 |---|---|
 | Lifecycle | `initialize`, `initialized`, `shutdown`, `exit` |
 | Document sync | `textDocument/didOpen`, `didChange`, `didClose`, `didSave` |
-| Language requests | `hover`, `documentSymbol`, `foldingRange`, `completion`, `signatureHelp`, `definition`, `declaration`, `references`, `documentHighlight`, `rename`, `formatting`, `rangeFormatting`, `codeLens` |
+| Language requests | `hover`, `documentSymbol`, `foldingRange`, `completion`, `signatureHelp`, `definition`, `declaration`, `implementation`, `typeDefinition`, `references`, `documentHighlight`, `rename`, `formatting`, `rangeFormatting`, `codeLens` |
 | Actions | `codeLens/resolve`, `workspace/executeCommand` — see *Commands and lenses* |
 | Custom | `vb/builtinSymbols` — see *Custom methods* |
 
@@ -1124,7 +1124,10 @@ caret position and `context.includeDeclaration: true`, gated on `referencesProvi
 The registry uses `GatherAsync` and record equality to deduplicate URI/range pairs. Null results become
 empty arrays. `FindReferencesAsync` preserves successful locations alongside per-server errors.
 Shift+F12, Edit → Find References and the code editor context menu open the results pane in the
-Immediate window's bottom group. Each search replaces the list, grouped by module in project order,
+Immediate window's bottom group. When opened or brought forward for results, the pane grows to
+show six rows, borrowing only available document height above the document area's minimum.
+A sufficiently tall slot keeps its exact proportion; growth is saved with the layout (#3094).
+Each search replaces the list, grouped by module in project order,
 with line numbers and the returned range emphasized. Enter or double-click navigates through
 `EditorService.NavigateTo`; empty answers and server errors appear as localized rows. Result rows
 expose their module, line number and line text as their accessible name.
@@ -1145,18 +1148,23 @@ identity, so equal lens values from different servers resolve independently. A c
 is refused by the registry. Already complete lenses need no round trip, and servers without resolve
 support are not asked. The code window draws resolved lenses above their member lines and runs their commands on click.
 The visual spacer reserves ascent using the editor font metrics so the whole lens row fits above the member text.
-The Options toggle and edit-debounce wiring remain unimplemented (#2906).
+Edits refetch lenses after the editor debounce (#3082). The Options toggle remains unimplemented (#2906).
 
 `CodeLensSession` supplies the viewport scheduling layer for that editor work: it fetches a document's
 lenses, resolves only starts inside the supplied zero-based visible line interval, cancels resolutions
 that leave view, and discards late replies after cancellation, rediscovery or disposal. Completed lenses
 are retained across viewport updates. `Changed` and `RequestFailed` are raised on the request context;
-UI consumers must dispatch them. Each attached code window owns a session and supplies its visible
-line interval as it scrolls, disposing the session when the view detaches.
+UI consumers must dispatch them. The code document owns the session and supplies its visible
+line interval through the attached view as it scrolls. Detach suspends new viewport work while retaining pending requests and completed lenses; reattachment resumes it without rediscovery (#3082).
+Tokens, folding ranges and inlay hints are also retained by the document, including pending requests,
+so rebuilding the visual tree for a tool pane does not send new requests or discard the last answers.
+An edit, URI change, hint setting change or server state transition invalidates those answers. A detached
+view removes its subscriptions and discards late replies intended for its previous attachment.
 
 The client declares `workspace.codeLens.refreshSupport: true` and answers parameterless
 `workspace/codeLens/refresh` with null. `CodeLensRefreshRequested` preserves the issuing connection through
-the registry; active code windows refetch on that event and unsubscribe when detached.
+the registry; active code windows refetch on that event. A suspended session only invalidates its answer
+until a view resumes it. Semantic-token and inlay-hint workspace refresh support is not advertised.
 
 `rdcore.showReferences` and `editor.action.showReferences` fill the existing Find References pane from
 the locations in the third argument, without asking for references again. Other lens commands use
@@ -1228,6 +1236,23 @@ flowing meanwhile. `$/cancelRequest` closes an open question or removes a queued
 `ShowMessageRequestWireTests` checks the frames and nonblocking queue; headless
 `ServerMessagePromptTests` checks ownership, title, buttons, message type icons, Escape dismissal and cancellation.
 
+Go to Implementation and Go to Type Definition appear beside Definition in the View and code context
+menus (#3074). The View menu uses bare nouns; context labels follow each pack’s existing go-to phrasing.
+In Latin-script packs, the four navigation entries have distinct access keys within each menu (#3096).
+Each is enabled only for a document whose running server advertises the corresponding
+provider. Both client capabilities declare `linkSupport`; neither command has a default key binding.
+Single locations navigate directly; multiple locations populate the existing Find References pane.
+HexIDE displays the server's answer without computing implementations or types itself.
+
+### Preparing a rename (#3073)
+
+After the code window's protected-line and declared-name checks, pending text is flushed and every
+opened claimant advertising `renameProvider.prepareProvider: true` is asked `textDocument/prepareRename`.
+Any null or error reply prevents the prompt; an error's reason uses the existing refusal dialog.
+The first participating claimant's range or placeholder seeds the prompt. A `defaultBehavior: true`
+reply keeps the existing word, as do servers without preparation support. Initialize declares
+`textDocument.rename.prepareSupport: true` and `prepareSupportDefaultBehavior: 1`.
+
 ## Coverage against the specification
 
 LSP 3.17 defines **93 messages** — 67 requests and 26 notifications. The table below is generated from the
@@ -1235,7 +1260,7 @@ specification's own [`metaModel.json`](https://raw.githubusercontent.com/microso
 the canonical machine-readable list, so the method names and directions are the specification's rather than
 this document's recollection of them.
 
-**HexIDE implements 42 of the 93.** That is not a deficiency in itself — no client implements them all, and
+**HexIDE implements 49 of the 93.** That is not a deficiency in itself — no client implements them all, and
 most of the remainder are features no VB6 IDE needs. It is here so the shape of the gap is visible rather
 than inferred.
 
@@ -1257,7 +1282,7 @@ than inferred.
 | ✅ | `initialized` | → |  |
 | ✅ | `shutdown` | → |  |
 
-### `textDocument/*` — 21 of 41
+### `textDocument/*` — 26 of 41
 
 | | Method | Dir | Notes |
 |---|---|---|---|
@@ -1279,27 +1304,27 @@ than inferred.
 | ✅ | `textDocument/foldingRange` | → | Asked when an editor attaches, 500 ms after a change, and when a server comes up — the first of those runs before the first server of a session has initialized. Character offsets are honoured, defaulting to each line’s length when absent. The temporary `lineFoldingOnly` declaration (#1363) is removed; same-start folds retain state by range ([#1022](https://github.com/hexide-io/HexIDE/issues/1022)) |
 | ✅ | `textDocument/formatting` | → |  |
 | ✅ | `textDocument/hover` | → |  |
-| ○ | `textDocument/implementation` | → |  |
+| ✅ | `textDocument/implementation` | → | Capability-gated navigation; all three location shapes, multiple results in Find References (#3074) |
 | ✅ | `textDocument/inlayHint` | → | Labels after the line; syntactic block ends from the bundled server |
 | ○ | `textDocument/inlineCompletion` | → |  |
 | ○ | `textDocument/inlineValue` | → |  |
 | ○ | `textDocument/linkedEditingRange` | → |  |
 | ○ | `textDocument/moniker` | → |  |
 | ○ | `textDocument/onTypeFormatting` | → |  |
-| ○ | `textDocument/prepareCallHierarchy` | → | Needs a bound AST — a backend's job, see below |
-| ○ | `textDocument/prepareRename` | → | No server is asked before the prompt; the code window itself refuses a protected line or a declared name |
+| ✅ | `textDocument/prepareCallHierarchy` | → | Shows the server's call hierarchy; computes none |
+| ✅ | `textDocument/prepareRename` | → | Asks every claimant advertising prepareProvider before the prompt; range/placeholder seeds it, null/error refuses it (#3073) |
 | ○ | `textDocument/prepareTypeHierarchy` | → |  |
 | ✅ | `textDocument/publishDiagnostics` | ← |  |
 | ✅ | `textDocument/rangeFormatting` | → |  |
 | ○ | `textDocument/rangesFormatting` | → |  |
 | ✅ | `textDocument/references` | → | Shift+F12 and menus; grouped results, navigation and per-server error rows; supplied locations reuse the pane (#2907) |
 | ✅ | `textDocument/rename` | → | Atomic edits across loaded code members, with version checks and one undo step per member (#1024) |
-| ○ | `textDocument/selectionRange` | → |  |
+| ✅ | `textDocument/selectionRange` | → | Expand/Shrink Selection commands and server parent chains (#3076) |
 | ✅ | `textDocument/semanticTokens/full` | → | Full relative tokens, highest-priority full provider only; lexical colours remain outside token ranges (#2054) |
 | ○ | `textDocument/semanticTokens/full/delta` | → |  |
 | ○ | `textDocument/semanticTokens/range` | → |  |
 | ✅ | `textDocument/signatureHelp` | → |  |
-| ○ | `textDocument/typeDefinition` | → |  |
+| ✅ | `textDocument/typeDefinition` | → | Capability-gated navigation; all three location shapes, multiple results in Find References (#3074) |
 | ○ | `textDocument/willSave` | → |  |
 | ○ | `textDocument/willSaveWaitUntil` | → |  |
 
@@ -1395,12 +1420,12 @@ than inferred.
 |---|---|---|---|
 | ○ | `inlayHint/resolve` | → |  |
 
-### `callHierarchy/*` — 0 of 2
+### `callHierarchy/*` — 2 of 2
 
 | | Method | Dir | Notes |
 |---|---|---|---|
-| ○ | `callHierarchy/incomingCalls` | → |  |
-| ○ | `callHierarchy/outgoingCalls` | → |  |
+| ✅ | `callHierarchy/incomingCalls` | → | Shows the server's call hierarchy; computes none |
+| ✅ | `callHierarchy/outgoingCalls` | → | Shows the server's call hierarchy; computes none |
 
 ### `typeHierarchy/*` — 0 of 2
 
@@ -1474,12 +1499,11 @@ registry routes are ready.
 
 Three clusters account for nearly all of the gap:
 
-- **Features needing a bound AST** — code actions, call hierarchy
-  and their `*/resolve` companions. Reference requests now have a client contract (#2907), with the UI
-  outstanding. The other methods are not wired because nothing here would answer them; see *What the client
-  would consume* below. `workspace/symbol` used to sit in this list and no longer does: the client speaks it
-  and the Object Browser surfaces it, so the missing half is a *server*, which is exactly the point of the
-  seam.
+- **Features needing a bound AST in the backend** — code actions and call hierarchy remain outside
+  the bundled server. The client shows references (#2907) and server call hierarchies (#3080) in
+  reusable tool panes. The client computes none of these relationships.
+  `workspace/symbol` is wired through the Object Browser. A backend offering deeper analysis can answer
+  these requests without changing HexIDE's own analysis boundary.
 - **Workspace-level protocol** — `workspace/*` is 7 of 21. The client sends project folders,
   updates them as group membership changes, sends file-operation notifications, and answers editor
   configuration requests. Watched-file notifications and server-initiated workspace edits remain absent.
@@ -1517,7 +1541,7 @@ awaiting effort, they are **server** features awaiting a server.
 | Code actions / quick fixes | `textDocument/codeAction` | Not wired |
 | Semantic tokens | `textDocument/semanticTokens/full` | **Wired** — full only; delta, range and refresh remain unwired (#2054) |
 | Parameter-name and inferred-type hints | `textDocument/inlayHint` | **Wired** — labels from any offering server; these binding-dependent hints remain outside the bundled server |
-| Call hierarchy | `textDocument/prepareCallHierarchy` | Not wired |
+| Call hierarchy | `textDocument/prepareCallHierarchy` | Shows the server’s call hierarchy; computes none (#3080). Provider-gated command, lazy Calls To / Calls From tree and node/call-site navigation |
 | Workspace symbols | `workspace/symbol` | **Wired** — see below |
 
 "Not wired" is a statement about the client, and it is the honest one: wiring each is a bounded piece of
@@ -1595,3 +1619,17 @@ and types use Type. Both palettes follow the theme. Read-only region and diagnos
 precedence. Uncovered text retains lexical colouring. Empty or failed answers clear the overlay and
 log once per document per connection; the next change retries. Invalid ranges are discarded and stale
 responses are ignored. No range request is sent (#2054).
+
+### Expand and Shrink Selection (#3076)
+
+The client declares `textDocument.selectionRange: {}` without dynamic registration and exposes
+`RequestSelectionRangesAsync` with a document URI and an ordered array of positions. The registry
+chooses one highest-priority claimant offering `selectionRangeProvider` (boolean or options object).
+The response retains each range's recursive parent chain; HexIDE computes no ranges itself. Null
+responses and failed requests yield empty arrays.
+
+Expand Selection and Shrink Selection are code-window context-menu and keymap commands, with no
+default shortcuts. Both require a provider for the current document. Expand asks at the caret or
+both selection endpoints, then selects the smallest enclosing range supplied for either endpoint;
+repeated invocations climb its parent chain. Shrink restores the previous selection, down to the original caret or selection.
+An edit or an outside caret/selection move clears the chain, and stale replies are ignored.

@@ -657,7 +657,12 @@ public sealed class VBLspClient : ILspClient
                     // nothing goes silent without this. What goes is the nesting, because a server that
                     // honours it sends the flat form to a client that never said it could take the tree.
                     DocumentSymbol: new DocumentSymbolClientCapabilities(HierarchicalDocumentSymbolSupport: true),
+                    Implementation: new NavigationClientCapabilities(),
+                    TypeDefinition: new NavigationClientCapabilities(),
                     InlayHint: new InlayHintClientCapabilities(),
+                    SelectionRange: new SelectionRangeClientCapabilities(),
+                    Rename: new RenameClientCapabilities(),
+                    CallHierarchy: EmptyParams.Instance,
                     RangeFormatting: EmptyParams.Instance,
                     Completion: new CompletionClientCapabilities(new CompletionItemKindClientCapabilities(
                         Enum.GetValues<CompletionItemKind>()),
@@ -1647,6 +1652,22 @@ public sealed class VBLspClient : ILspClient
         }
     }
 
+    public async Task<SelectionRange[]> RequestSelectionRangesAsync(string uri, Position[] positions, CancellationToken cancellationToken = default)
+    {
+        if (_rpc is null || !_initialized || !CanServe("selectionRangeProvider")) return [];
+        var p = new SelectionRangeParams(new TextDocumentIdentifier(uri), positions);
+        try
+        {
+            return await InvokeRequestAsync<SelectionRange[]>(_rpc,
+                "textDocument/selectionRange", p, cancellationToken, supersededUri: uri, documentUri: uri) ?? [];
+        }
+        catch (Exception ex)
+        {
+            WarnRequestFailedOnce("textDocument/selectionRange", ex, cancellationToken);
+            return [];
+        }
+    }
+
     public async Task<FoldingRange[]> RequestFoldingRangesAsync(string uri, CancellationToken cancellationToken = default)
     {
         if (_rpc is null || !_initialized || !CanServe("foldingRangeProvider")) return [];
@@ -1706,6 +1727,33 @@ public sealed class VBLspClient : ILspClient
         }
     }
 
+    public async Task<CallHierarchyItem[]> PrepareCallHierarchyAsync(string uri, Position position,
+        CancellationToken cancellationToken = default)
+    {
+        if (_rpc is null || !_initialized || !CanServe("callHierarchyProvider")) return [];
+        var p = new TextDocumentPositionParams(new TextDocumentIdentifier(uri), position);
+        return await InvokeRequestAsync<CallHierarchyItem[]?>(_rpc,
+            "textDocument/prepareCallHierarchy", p, cancellationToken, documentUri: uri) ?? [];
+    }
+
+    public async Task<CallHierarchyIncomingCall[]> RequestIncomingCallsAsync(CallHierarchyItem item,
+        CancellationToken cancellationToken = default)
+    {
+        if (_rpc is null || !_initialized || !CanServe("callHierarchyProvider")) return [];
+        return await InvokeRequestAsync<CallHierarchyIncomingCall[]?>(_rpc,
+            "callHierarchy/incomingCalls", new CallHierarchyCallsParams(item), cancellationToken,
+            documentUri: item.Uri) ?? [];
+    }
+
+    public async Task<CallHierarchyOutgoingCall[]> RequestOutgoingCallsAsync(CallHierarchyItem item,
+        CancellationToken cancellationToken = default)
+    {
+        if (_rpc is null || !_initialized || !CanServe("callHierarchyProvider")) return [];
+        return await InvokeRequestAsync<CallHierarchyOutgoingCall[]?>(_rpc,
+            "callHierarchy/outgoingCalls", new CallHierarchyCallsParams(item), cancellationToken,
+            documentUri: item.Uri) ?? [];
+    }
+
     public async Task<Location[]> RequestReferencesAsync(string uri, Position position, CancellationToken cancellationToken = default)
     {
         if (_rpc is null || !_initialized || !CanServe("referencesProvider")) return [];
@@ -1738,6 +1786,30 @@ public sealed class VBLspClient : ILspClient
         catch (Exception ex)
         {
             WarnRequestFailedOnce("textDocument/definition", ex, cancellationToken);
+            return null;
+        }
+    }
+
+    public bool SupportsCapability(string uri, string capability) => IsRunning && CanServeQuietly(capability);
+
+    public Task<Location[]?> RequestImplementationAsync(string uri, Position position, CancellationToken cancellationToken = default) =>
+        CanServe("implementationProvider") ? RequestNavigationAsync(uri, position, "implementation", cancellationToken) : Task.FromResult<Location[]?>(null);
+
+    public Task<Location[]?> RequestTypeDefinitionAsync(string uri, Position position, CancellationToken cancellationToken = default) =>
+        CanServe("typeDefinitionProvider") ? RequestNavigationAsync(uri, position, "typeDefinition", cancellationToken) : Task.FromResult<Location[]?>(null);
+
+    private async Task<Location[]?> RequestNavigationAsync(string uri, Position position, string method, CancellationToken ct)
+    {
+        if (_rpc is null || !_initialized) return null;
+        try
+        {
+            var raw = await InvokeRequestAsync<JsonElement?>(_rpc, "textDocument/" + method,
+                new TextDocumentPositionParams(new TextDocumentIdentifier(uri), position), ct, documentUri: uri);
+            return ReadLocations(raw);
+        }
+        catch (Exception ex)
+        {
+            WarnRequestFailedOnce("textDocument/" + method, ex, ct);
             return null;
         }
     }
@@ -1820,6 +1892,31 @@ public sealed class VBLspClient : ILspClient
         {
             WarnRequestFailedOnce("textDocument/documentHighlight", ex, cancellationToken);
             return null;
+        }
+    }
+
+    public async Task<PrepareRenameResult?> RequestPrepareRenameAsync(string uri, Position position, CancellationToken cancellationToken = default)
+    {
+        if (_rpc is null || !_initialized || AdvertisedCapabilities is not { } caps
+            || !caps.TryGetProperty("renameProvider", out var rename) || rename.ValueKind != JsonValueKind.Object
+            || !rename.TryGetProperty("prepareProvider", out var prepare) || prepare.ValueKind != JsonValueKind.True)
+            return null;
+        try
+        {
+            var answer = await InvokeRequestAsync<JsonElement>(_rpc, "textDocument/prepareRename",
+                new TextDocumentPositionParams(new TextDocumentIdentifier(uri), position), cancellationToken, documentUri: uri);
+            if (answer.ValueKind != JsonValueKind.Object) return new(false);
+            if (answer.TryGetProperty("defaultBehavior", out var behavior) && behavior.ValueKind == JsonValueKind.True)
+                return new(true);
+            var range = answer.TryGetProperty("range", out var nested) ? nested : answer;
+            var parsed = range.Deserialize<HexIDE.Lsp.Messages.Range>(LspJsonContext.Default.Options);
+            return new(true, parsed, answer.TryGetProperty("placeholder", out var placeholder) ? placeholder.GetString() : null);
+        }
+        catch (OperationCanceledException) { throw; }
+        catch (Exception ex)
+        {
+            WarnRequestFailedOnce("textDocument/prepareRename", ex, cancellationToken);
+            return new(false, Refusal: ex.Message);
         }
     }
 
@@ -2613,6 +2710,8 @@ public sealed class VBLspClient : ILspClient
     [
         "codeLensProvider",
         "completionProvider",
+        "implementationProvider",
+        "typeDefinitionProvider",
         "declarationProvider",
         "definitionProvider",
         // Consumed, but gated quietly — see CanServeQuietly. It belongs here because a server that
@@ -2626,10 +2725,12 @@ public sealed class VBLspClient : ILspClient
         // named it, so the question is never "does any server offer this" but "which one declared it".
         "executeCommandProvider",
         "foldingRangeProvider",
+        "selectionRangeProvider",
         "semanticTokensProvider",
         "hoverProvider",
         "inlayHintProvider",
         "referencesProvider",
+        "callHierarchyProvider",
         "renameProvider",
         "signatureHelpProvider",
         // Read by the sync readers rather than a gate, because its two shapes mean different things — and

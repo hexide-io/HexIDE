@@ -428,6 +428,14 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
             ? await c.RequestDocumentSymbolsAsync(uri, ct)
             : [];
 
+    public bool SupportsSelectionRanges(string uri) =>
+        StartedClaimantsFor(uri).Any(c => c.SupportsSelectionRanges(uri));
+
+    public async Task<SelectionRange[]> RequestSelectionRangesAsync(string uri, Position[] positions, CancellationToken ct = default) =>
+        await TopClaimantAdvertisingAsync(uri, "selectionRangeProvider", ct) is { } c
+            ? await c.RequestSelectionRangesAsync(uri, positions, ct)
+            : [];
+
     // Folds have a second, sharper reason. AvaloniaEdit's FoldingManager takes a single ordered set of
     // sections; two servers' folds partially overlap in general, and a partially-overlapping section is
     // not merely a duplicate — it can take out folding for the whole document behind the debug-level
@@ -580,8 +588,41 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
             answers.SelectMany(a => a.Errors).ToArray());
     }
 
+    public bool SupportsCallHierarchy(string uri) => ClaimantsFor(uri, IsProjectMember(uri))
+        .Any(e => e.Client is { IsRunning: true } c
+            && ServerCapabilities.Supports(c.AdvertisedCapabilities, "callHierarchyProvider"));
+
+    public async Task<CallHierarchyResult> FindCallHierarchyAsync(string uri, Position position, CancellationToken ct = default)
+    {
+        var answers = await GatherAsync(uri, async client =>
+        {
+            if (!ServerCapabilities.Supports(client.AdvertisedCapabilities, "callHierarchyProvider")) return Array.Empty<CallHierarchyResult>();
+            try
+            {
+                var items = await client.PrepareCallHierarchyAsync(uri, position, ct);
+                return new[] { new CallHierarchyResult(items.Select(i => new CallHierarchyRoot(client, i, OwnerOf(client))).ToArray(), []) };
+            }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
+            catch (Exception ex)
+            {
+                return new[] { new CallHierarchyResult([], [new ReferenceSearchError(OwnerOf(client), ex.Message)]) };
+            }
+        }, ct);
+        return new(answers.SelectMany(a => a.Roots).ToArray(), answers.SelectMany(a => a.Errors).ToArray());
+    }
+
     public Task<Location[]?> RequestDefinitionAsync(string uri, Position position, CancellationToken ct = default) =>
         FirstAnswerAsync(uri, c => c.RequestDefinitionAsync(uri, position, ct), ct);
+
+    public bool SupportsCapability(string uri, string capability) =>
+        ClaimantsFor(uri, IsProjectMember(uri)).Any(e =>
+            e.Client is { IsRunning: true } client && client.SupportsCapability(uri, capability));
+
+    public Task<Location[]?> RequestImplementationAsync(string uri, Position position, CancellationToken ct = default) =>
+        FirstAnswerAsync(uri, c => c.RequestImplementationAsync(uri, position, ct), ct);
+
+    public Task<Location[]?> RequestTypeDefinitionAsync(string uri, Position position, CancellationToken ct = default) =>
+        FirstAnswerAsync(uri, c => c.RequestTypeDefinitionAsync(uri, position, ct), ct);
 
     public Task<Location[]?> RequestDeclarationAsync(string uri, Position position, CancellationToken ct = default) =>
         FirstAnswerAsync(uri, c => c.RequestDeclarationAsync(uri, position, ct), ct);
@@ -590,6 +631,25 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
         FirstAnswerAsync(uri, c => c.RequestDocumentHighlightAsync(uri, position, ct), ct);
 
     // ── Pick-one features ───────────────────────────────────────────────────────────────────────────
+    public async Task<PrepareRenameResult?> RequestPrepareRenameAsync(string uri, Position position, CancellationToken ct = default)
+    {
+        PrepareRenameResult? first = null;
+        PrepareRenameResult? refusal = null;
+        foreach (var client in await OpenedClaimantsAsync(uri, ct))
+        {
+            if (client.AdvertisedCapabilities is not { } caps
+                || !caps.TryGetProperty("renameProvider", out var rename) || rename.ValueKind != JsonValueKind.Object
+                || !rename.TryGetProperty("prepareProvider", out var prepare) || prepare.ValueKind != JsonValueKind.True)
+                continue;
+            var answer = await client.RequestPrepareRenameAsync(uri, position, ct);
+            if (answer is null) continue;
+            first ??= answer;
+            if (!answer.Allowed && (refusal is null || refusal.Refusal is null && answer.Refusal is not null))
+                refusal = answer;
+        }
+        return refusal ?? first;
+    }
+
     // Two sets of edits to one document cannot both be applied, so these need a winner rather than a merge.
     // Only the top-priority claimant is asked; a second server's edits are not a fallback, they are a
     // different opinion about the same text.

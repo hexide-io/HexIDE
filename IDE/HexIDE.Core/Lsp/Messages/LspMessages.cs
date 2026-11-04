@@ -289,8 +289,24 @@ public record TextDocumentClientCapabilities(
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] CompletionClientCapabilities? Completion = null,
     [property: JsonPropertyName("inlayHint")]
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] InlayHintClientCapabilities? InlayHint = null,
+    [property: JsonPropertyName("implementation")]
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] NavigationClientCapabilities? Implementation = null,
+    [property: JsonPropertyName("typeDefinition")]
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] NavigationClientCapabilities? TypeDefinition = null,
+    [property: JsonPropertyName("selectionRange")]
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] SelectionRangeClientCapabilities? SelectionRange = null,
+    [property: JsonPropertyName("rename")]
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] RenameClientCapabilities? Rename = null,
+    [property: JsonPropertyName("callHierarchy")]
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] EmptyParams? CallHierarchy = null,
     [property: JsonPropertyName("rangeFormatting")]
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] EmptyParams? RangeFormatting = null);
+
+public record NavigationClientCapabilities([property: JsonPropertyName("linkSupport")] bool LinkSupport = true);
+
+public record RenameClientCapabilities(
+    [property: JsonPropertyName("prepareSupport")] bool PrepareSupport = true,
+    [property: JsonPropertyName("prepareSupportDefaultBehavior")] int PrepareSupportDefaultBehavior = 1);
 
 public record CompletionClientCapabilities(
     [property: JsonPropertyName("completionItemKind")] CompletionItemKindClientCapabilities CompletionItemKind,
@@ -1352,3 +1368,37 @@ public record ShowMessageRequestParams(
     [property: JsonPropertyName("type")] int Type,
     [property: JsonPropertyName("message")] string Message,
     [property: JsonPropertyName("actions")] MessageActionItem[]? Actions = null);
+
+public record SelectionRangeParams(
+    [property: JsonPropertyName("textDocument")] TextDocumentIdentifier TextDocument,
+    [property: JsonPropertyName("positions")] Position[] Positions);
+
+public record SelectionRange(
+    [property: JsonPropertyName("range")] Range Range,
+    [property: JsonPropertyName("parent")]
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] SelectionRange? Parent = null);
+
+public record SelectionRangeClientCapabilities;
+
+public record CallHierarchyItem(
+    [property: JsonPropertyName("name")] string Name,
+    [property: JsonPropertyName("kind")] int Kind,
+    [property: JsonPropertyName("uri")] string Uri,
+    [property: JsonPropertyName("range")] Range Range,
+    [property: JsonPropertyName("selectionRange")] Range SelectionRange,
+    [property: JsonPropertyName("tags")]
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] int[]? Tags = null,
+    [property: JsonPropertyName("detail")]
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Detail = null,
+    [property: JsonPropertyName("data")]
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] JsonElement Data = default);
+
+public record CallHierarchyCallsParams([property: JsonPropertyName("item")] CallHierarchyItem Item);
+
+public record CallHierarchyIncomingCall(
+    [property: JsonPropertyName("from")] CallHierarchyItem From,
+    [property: JsonPropertyName("fromRanges")] Range[] FromRanges);
+
+public record CallHierarchyOutgoingCall(
+    [property: JsonPropertyName("to")] CallHierarchyItem To,
+    [property: JsonPropertyName("fromRanges")] Range[] FromRanges);

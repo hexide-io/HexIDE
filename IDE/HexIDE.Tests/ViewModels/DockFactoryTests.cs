@@ -71,6 +71,125 @@ public class DockFactoryTests
         return (factory, immediate);
     }
 
+    [AvaloniaTheory]
+    [InlineData(false, 649, false)]
+    [InlineData(true, 649, false)]
+    [InlineData(true, 380, false)]
+    [InlineData(true, 380, true)]
+    public void ResultsHeightSurvivesSavedLayout(bool savedStack, double windowHeight, bool collapsed)
+    {
+        Avalonia.Application.Current!.Styles.Add(new Avalonia.Themes.Simple.SimpleTheme());
+        Avalonia.Application.Current.Styles.Add(new Dock.Avalonia.Themes.Simple.DockSimpleTheme());
+        var (factory, immediate) = CreateFactory();
+        var root = factory.CreateLayout();
+        factory.InitLayout(root);
+        factory.PlaceTool(root, immediate, rightFallback: false);
+        if (savedStack)
+        {
+            DockLayoutNode ToolNode(string key, double proportion) => new("tool", proportion,
+                Dock.Model.Core.Orientation.Horizontal, Alignment.Bottom, null, [key], key, []);
+            var original = factory.CaptureManifest(root);
+            DockLayoutNode Stack(DockLayoutNode node) => node.Context == nameof(factory.MiddleDock)
+                ? node with { Children = [new("document", collapsed ? 0 : 0.370, Dock.Model.Core.Orientation.Horizontal,
+                    Alignment.Unset, null, [], null, []), ToolNode("immediate", collapsed ? 0.481 : 0.111),
+                    ToolNode("locals", 0.144), ToolNode("callStack", 0.144), ToolNode("watches", 0.231)] }
+                : node with { Children = node.Children.Select(Stack).ToArray() };
+            var saved = original with
+            {
+                Tools = original.Tools.Select(t => t.Key is "locals" or "callStack" or "watches"
+                    ? t with { Open = true } : t).ToArray(),
+                Topology = Stack(original.Topology!)
+            };
+            (factory, immediate) = CreateFactory(LayoutManifestJson.Deserialize(LayoutManifestJson.Serialize(saved)));
+            root = factory.CreateLayout();
+            factory.InitLayout(root);
+        }
+        var loc = new LocalizationService();
+        loc.Apply("en");
+        var projects = Substitute.For<IProjectManager>();
+        projects.LoadedProjects.Returns([]);
+        var documents = Substitute.For<IDocumentDockService>();
+        documents.OpenDocuments.Returns([]);
+        var results = new FindReferencesToolViewModel(Substitute.For<ILspClient>(), Substitute.For<IEditorService>(),
+            projects, documents, loc);
+        var host = new Dock.Avalonia.Controls.DockControl { Layout = root };
+        host.DataTemplates.Add(new Avalonia.Controls.Templates.FuncDataTemplate<FindReferencesToolViewModel>(
+            (_, _) => new FindReferencesToolView()));
+        var window = new Avalonia.Controls.Window { Content = host, Width = 1280, Height = windowHeight };
+        try
+        {
+            window.Show();
+            LayoutWindow(window);
+            if (collapsed)
+            {
+                factory.DocumentDock!.GetVisibleBounds(out _, out _, out _, out var loadedHeight);
+                loadedHeight.Should().BeGreaterThanOrEqualTo(120);
+            }
+            var slot = (IToolDock)immediate.Owner!;
+            factory.AddDockable(slot, results);
+            slot.ActiveDockable = results;
+            results.ShowLocations(Enumerable.Range(0, 12).Select(i => new HexIDE.Lsp.Messages.Location(
+                "untitled:P/M.bas", new(new(i, 0), new(i, 1)))));
+            for (var i = 0; i < 5; i++) LayoutWindow(window);
+            var view = host.GetVisualDescendants().OfType<FindReferencesToolView>().Single();
+            var list = (Avalonia.Controls.ListBox)view.Content!;
+            var row = (Avalonia.Controls.ListBoxItem)list.ContainerFromIndex(0)!;
+            factory.DocumentDock!.GetVisibleBounds(out _, out _, out _, out var documentHeight);
+            documentHeight.Should().BeGreaterThanOrEqualTo(120);
+            if (windowHeight == 649)
+                list.GetVisualDescendants().OfType<Avalonia.Controls.ScrollViewer>().Single().Viewport.Height
+                    .Should().BeGreaterThanOrEqualTo(6 * row.Bounds.Height, $"savedStack={savedStack}, list height={list.Bounds.Height} DIP");
+            if (windowHeight == 380 && !collapsed)
+            {
+                documentHeight.Should().BeApproximately(120, 1);
+                var viewport = list.GetVisualDescendants().OfType<Avalonia.Controls.ScrollViewer>().Single().Viewport.Height;
+                viewport.Should().BeGreaterThan(0).And.BeLessThan(6 * row.Bounds.Height);
+            }
+            var saved = LayoutManifestJson.Deserialize(LayoutManifestJson.Serialize(factory.CaptureManifest(root)))!;
+            System.Collections.Generic.IEnumerable<DockLayoutNode> Descendants(DockLayoutNode node) =>
+                new[] { node }.Concat(node.Children.SelectMany(Descendants));
+            Descendants(saved.Topology!).Single(n => n.Kind == "document").Proportion.Should().BeGreaterThan(0);
+
+            saved.Tools.Single(t => t.Key == "immediate").Proportion.Should().Be(slot.Proportion);
+            var (restored, restoredImmediate) = CreateFactory(saved);
+            restored.InitLayout(restored.CreateLayout());
+            restoredImmediate.Owner!.Proportion.Should().Be(slot.Proportion);
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void CollapsedDocumentsAreNotSaved(bool debounced)
+    {
+        var (factory, _) = CreateFactory();
+        var layout = factory.CreateLayout();
+        factory.InitLayout(layout);
+        factory.DocumentDock!.SetVisibleBounds(0, 0, 800, 0);
+        var state = Substitute.For<IWindowStateService>();
+        var vm = (MainViewViewModel)RuntimeHelpers.GetUninitializedObject(typeof(MainViewViewModel));
+        void Set(string name, object value) => typeof(MainViewViewModel)
+            .GetField(name, System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
+            .SetValue(vm, value);
+        Set("dockFactory", factory);
+        Set("windowStateService", state);
+        Set("_lastSavedLayoutJson", "previous valid layout");
+        Set("_layoutSaveTimer", new Avalonia.Threading.DispatcherTimer());
+        Set("_layout", layout);
+
+        if (debounced)
+            typeof(MainViewViewModel).GetMethod("FlushLayoutSaveDebounced",
+                System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!.Invoke(vm, null);
+        else
+            vm.SaveLayout();
+
+        typeof(MainViewViewModel).GetField("_lastSavedLayoutJson",
+                System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!.GetValue(vm)
+            .Should().Be("previous valid layout");
+        state.DidNotReceive().SaveLayoutManifestJson(Arg.Any<string>());
+    }
+
     [AvaloniaFact]
     public void ServerNavigationCanOpenAndReuseATabWithoutTakingFocus()
     {

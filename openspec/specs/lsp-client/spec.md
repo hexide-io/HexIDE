@@ -12,6 +12,84 @@ later without the editor noticing.
 
 ## Requirements
 
+### Requirement: Expand and shrink selection commands
+The code window SHALL expose localized Expand Selection and Shrink Selection context-menu and
+keymap commands, with no default shortcuts, enabled only for a document with an advertising
+selection-range provider. Expand SHALL request the caret position, or both ends of a selection,
+and select the smallest strictly enclosing server-returned range from either endpoint. Repeated
+expansion SHALL climb the returned parent chain; Shrink SHALL restore the previous selection, including the original caret.
+An edit or a caret or selection move outside these commands SHALL discard the chain. A response
+made stale by such a change SHALL NOT alter the selection. HexIDE SHALL NOT compute language ranges.
+
+#### Scenario: Climbing and returning
+- **WHEN** Expand is invoked twice and Shrink once
+- **THEN** the selection returns to the first enclosing range supplied by the server
+
+#### Scenario: Editing invalidates the chain
+- **WHEN** text changes or the user moves the caret after expanding
+- **THEN** Shrink cannot restore the old chain and the next Expand requests fresh ranges
+
+#### Scenario: No provider
+- **WHEN** no claimant advertises selection ranges for the document
+- **THEN** both commands are disabled
+
+### Requirement: Selection range requests preserve backend chains
+The client SHALL declare `textDocument.selectionRange` without dynamic registration and expose
+`textDocument/selectionRange` requests for a document URI and positions. The registry SHALL route
+these requests to the highest-priority claimant advertising `selectionRangeProvider`, accepting
+both boolean and options advertisements. The client SHALL preserve the returned ranges and recursive
+parents without computing enclosing ranges locally. Null replies and failed requests SHALL yield
+empty arrays. Editor commands and selection history remain pending (#3076).
+
+#### Scenario: A server supplies enclosing ranges
+- **WHEN** a caller requests ranges at two selection endpoints from an offering server
+- **THEN** both positions reach that server in order and its two parent chains are returned
+
+#### Scenario: No server offers selection ranges
+- **WHEN** no claimant advertises the provider
+- **THEN** no selection range request is sent and the caller receives an empty array
+
+### Requirement: Prepare rename before prompting
+The client SHALL declare rename `prepareSupport: true` and `prepareSupportDefaultBehavior: 1`.
+After the code window's own refusals and a document flush, it SHALL ask every opened claimant advertising
+`renameProvider.prepareProvider: true` for `textDocument/prepareRename`. Any null or error answer SHALL
+prevent the prompt, displaying the server's reason when supplied. The first participating claimant's
+range or placeholder SHALL seed the prompt. Servers without preparation support and a reply of
+`defaultBehavior: true` SHALL retain the existing word default.
+
+#### Scenario: Server refuses preparation
+- **WHEN** a preparation request returns null or an error
+- **THEN** no rename input prompt opens
+- **AND** a supplied server error message is shown
+
+#### Scenario: Server supplies the name
+- **WHEN** preparation returns a range or a range with a placeholder
+- **THEN** the prompt starts with the placeholder or the document text in that range
+
+#### Scenario: Preparation is unsupported
+- **WHEN** no claimant advertises preparation
+- **THEN** no preparation request is sent and the existing prompt behavior remains
+
+### Requirement: Call hierarchy connection requests
+The connection client SHALL declare `textDocument.callHierarchy` and gate prepare, incoming and
+outgoing call requests on `callHierarchyProvider`. It SHALL preserve server item data on expansion
+and propagate errors to its caller. The registry SHALL ask every advertising claimant and retain the owning connection for each item.
+The IDE SHALL offer a provider-gated Call Hierarchy command beside Find References and in the code
+context menu, with a keymap entry and no default shortcut. Its reusable tool pane SHALL dock with
+Immediate, switch between Calls To and Calls From, expand nodes lazily, show empty answers and
+per-server errors, and navigate nodes and call sites on Enter or double-click. A rerun SHALL replace
+the tree. All chrome SHALL be translated in every shipped pack.
+
+#### Scenario: Expand a server item
+- **WHEN** a caller requests incoming or outgoing calls for a prepared item
+- **THEN** the connection sends that item, including opaque data, to its server
+- **AND** returns the server's items and call-site ranges without computing relationships
+#### Scenario: Inspect callers from the caret
+- **WHEN** a user invokes Call Hierarchy in a document with an advertising server
+- **THEN** the client prepares at the caret and replaces the reusable pane's roots with server answers
+- **AND** opening a node requests only that node's calls in the selected direction from its owning server
+- **AND** Enter or double-click navigates to the selected item or call-site range
+
 ### Requirement: Format Selection through the advertising server
 The IDE SHALL offer Format Selection beside Format Document in the code editor context menu, enabled
 only for a nonempty selection in an editable document with an open language session and a claimant
@@ -80,6 +158,13 @@ request failures SHALL be returned alongside successful locations, identified by
 ### Requirement: Find References presents navigable results
 The code editor SHALL offer Find References on Shift+F12, its context menu and the Edit menu,
 showing the shortcut. Results SHALL open at the bottom in the Immediate window's group.
+When opened or brought forward to show results, the list SHALL show at least six rows, growing its
+slot from the document area's height as far as that area's minimum permits. The document minimum SHALL
+be at least 120 DIP even without an explicit dock MinHeight. When space is insufficient, the results
+SHALL use only the space left above that minimum. Layouts below the document minimum SHALL NOT be saved;
+previously saved collapsed document areas SHALL regain their minimum on load, taking height from tools.
+A sufficiently tall slot
+SHALL retain its exact proportion. The resized proportions SHALL persist with the saved layout.
 A new search SHALL replace the previous results; an older request completing later SHALL NOT overwrite it.
 The list SHALL group locations by module in project order, show one-based line numbers and line text,
 and highlight the supplied range. Enter on a focused result row or a double-click SHALL navigate through
@@ -2052,13 +2137,33 @@ and SHALL open nothing. This is the project-member slice of #2908; external navi
 - **WHEN** a request has `external: true` or names no loaded member
 - **THEN** the response contains `success: false` and nothing opens
 
+### Requirement: Implementation and type definition navigation
+
+The client SHALL declare implementation and typeDefinition capabilities with linkSupport and SHALL offer
+Go to Implementation and Go to Type Definition in the View and code context menus, with keymap entries
+and no default gestures. Each command MUST be enabled only when a running server for that document
+advertises its corresponding provider. HexIDE SHALL display only the server's answer.
+
+The View menu SHALL use separate localized bare-noun labels for Implementation and Type Definition.
+The four navigation entries (Definition, Implementation, Type Definition and Declaration) SHALL have
+four distinct access keys within each menu in every shipped Latin-script pack. Access keys MAY be shared
+with other menu entries. Context labels SHALL use consistent navigation phrasing within each pack (#3096).
+
+#### Scenario: Navigate to a server answer
+- **WHEN** a capable server answers either request with a Location, Location array or LocationLink array
+- **THEN** one result navigates directly to its selection range and several populate the Find References pane
+
+#### Scenario: Independent providers
+- **WHEN** the document's servers advertise only one provider
+- **THEN** only that command is enabled and no request is sent for the other
+
 ### Requirement: Code lens sessions bound resolution to the viewport
 
 The client SHALL provide a document lens session that resolves only lenses whose starting lines are in
 its supplied zero-based viewport. Leaving the viewport SHALL cancel pending resolution, and late replies
 from cancelled resolution or superseded discovery SHALL NOT replace the current lenses. Complete lenses
 SHALL NOT be resolved again. Disposing a session SHALL cancel its work and detach refresh subscriptions.
-This is the scheduling layer of #2906; editor rendering, commands, edit debounce and Options remain pending.
+The code window supplies the viewport and refetches after edit debounce; the Options toggle remains pending.
 
 #### Scenario: Ten visible members among fifty
 
@@ -2070,7 +2175,8 @@ This is the scheduling layer of #2906; editor rendering, commands, edit debounce
 
 The client SHALL declare `workspace.codeLens.refreshSupport: true`, answer parameterless
 `workspace/codeLens/refresh` with null, and notify consumers with the issuing connection as sender.
-Active lens sessions SHALL discover their lenses again on that notification.
+Active lens sessions SHALL discover their lenses again on that notification. Suspended sessions SHALL
+mark their answers stale and defer discovery until a view resumes them.
 
 #### Scenario: A server invalidates its lenses
 
@@ -2082,7 +2188,9 @@ Active lens sessions SHALL discover their lenses again on that notification.
 
 The code window SHALL draw each resolved lens above its range in the editor font, smaller and dimmed.
 Lens space SHALL add no document characters, selection content, caret stops or line numbers. The view
-SHALL supply its visible lines to the lens session on scrolling and dispose the session on detach.
+SHALL supply its visible lines to the lens session on scrolling and suspend new work on detach.
+The document SHALL own the session until disposal, retaining pending requests and completed answers
+across reattachment. Re-docking alone SHALL NOT rediscover lenses; edits SHALL refetch after debounce.
 Clicking a lens SHALL execute a server-declared command through the command router. The commands
 `rdcore.showReferences` and `editor.action.showReferences` SHALL instead fill the existing Find References
 pane from their third argument without sending a references request. Unknown commands SHALL do nothing

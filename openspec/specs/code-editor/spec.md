@@ -657,3 +657,16 @@ VBA's constants are not measured, since there is no VBA oracle.
 - **AND** the build number is unknown, so conditions depending on it remain ungreyed
 - **AND** the build type is "Standard EXE", "ActiveX DLL" or "ActiveX Control" for the corresponding VB6 project type; otherwise it is unknown and conditions depending on it remain ungreyed
 - **AND** execution and language-server diagnostics retain their own constants
+
+### Requirement: Re-docking retains document analysis
+The code document SHALL retain its semantic tokens, folding ranges, inlay hints and code lenses across
+visual detach and reattachment, including replacement of the view by Dock. Re-docking alone SHALL NOT
+send new requests for these answers. Detached view handlers SHALL NOT touch the editor or start requests.
+Edits and server state changes SHALL invalidate analysis; scrolling SHALL continue to resolve newly
+visible lenses, and advertised code-lens refresh requests SHALL invalidate lenses even while suspended.
+
+#### Scenario: Opening the first bottom tool pane
+- **WHEN** a tool pane opens and Dock detaches and reattaches an unchanged code document
+- **THEN** the view reuses the document's answers without requesting tokens, folds, hints or lenses again
+- **AND WHEN** the developer edits the code after the re-dock
+- **THEN** the document sends didChange and requests fresh analysis after debounce

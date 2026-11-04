@@ -920,6 +920,45 @@ public class CodeEditorViewModelTests : IDisposable
         vm.Document.Text.Should().Be(before);
     }
 
+    [AvaloniaTheory]
+    [InlineData(null)]
+    [InlineData("Server refuses")]
+    public async Task PreparationRefusalNeverOpensThePrompt(string? reason)
+    {
+        var vm = CreateSut().Initialize(TestHelpers.CreateForm(name: "Form1"));
+        _lspClient.RequestPrepareRenameAsync(Arg.Any<string>(), Arg.Any<Position>(), Arg.Any<CancellationToken>())
+            .Returns(new PrepareRenameResult(false, Refusal: reason));
+        await new HexIDE.Forms.Views.CodeEditorView().RenameSymbolAsync(vm, new(0, 0), "Old");
+        await _windowManager.DidNotReceive().InputBox(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>());
+        if (reason is not null) await _windowManager.Received(1).MessageBox(reason, icon: MessageBoxIcon.Information);
+    }
+
+    [AvaloniaFact]
+    public async Task PreparationRangeStartsThePrompt()
+    {
+        var vm = CreateSut().Initialize(TestHelpers.CreateForm(name: "Form1"));
+        vm.Document.Text = "prefix ServerName suffix";
+        var expected = "ServerName";
+        _localization.GetString("Str.CodeEditor.Dialog.RenamePrompt").Returns("New name:");
+        _localization.GetString("Str.CodeEditor.Dialog.RenameTitle").Returns("Rename");
+        _lspClient.RequestPrepareRenameAsync(Arg.Any<string>(), Arg.Any<Position>(), Arg.Any<CancellationToken>())
+            .Returns(new PrepareRenameResult(true, new(new(0, 7), new(0, 17))));
+        await new HexIDE.Forms.Views.CodeEditorView().RenameSymbolAsync(vm, new(0, 0), "Old");
+        await _windowManager.Received(1).InputBox("New name:", "Rename", expected);
+    }
+
+    [AvaloniaFact]
+    public async Task PreparationPlaceholderStartsThePrompt()
+    {
+        var vm = CreateSut().Initialize(TestHelpers.CreateForm(name: "Form1"));
+        _localization.GetString("Str.CodeEditor.Dialog.RenamePrompt").Returns("New name:");
+        _localization.GetString("Str.CodeEditor.Dialog.RenameTitle").Returns("Rename");
+        _lspClient.RequestPrepareRenameAsync(Arg.Any<string>(), Arg.Any<Position>(), Arg.Any<CancellationToken>())
+            .Returns(new PrepareRenameResult(true, new(new(0, 0), new(0, 4)), "From server"));
+        await new HexIDE.Forms.Views.CodeEditorView().RenameSymbolAsync(vm, new(0, 0), "Old");
+        await _windowManager.Received(1).InputBox("New name:", "Rename", "From server");
+    }
+
     [AvaloniaFact]
     public async Task RenameShowsTheServersRefusal()
     {
