@@ -15,13 +15,21 @@ later without the editor noticing.
 ### Requirement: Server questions display backend actions
 The client SHALL declare `window.showMessage.messageActionItem` with additional property support and
 answer `window/showMessageRequest` using an IDE message box owned by the main window. Its title SHALL
-be the server's display name and its buttons SHALL be the server's actions.
+be the server's display name and its buttons SHALL be the server's actions. The box SHALL show the
+message type's icon (Error, Warning, Information for Info and Log), using the IDE message box's icons.
+Escape SHALL dismiss the box without choosing an action.
 
 #### Scenario: A question is answered or dismissed
 - **WHEN** the user chooses an action
 - **THEN** the client returns that original action item, including additional properties
 - **WHEN** the user closes the box without choosing
 - **THEN** the client returns `null`
+
+#### Scenario: Message type and keyboard dismissal
+- **WHEN** a server question is displayed
+- **THEN** its icon represents the message type
+- **WHEN** the user presses Escape
+- **THEN** the box closes and the client returns `null`
 
 ### Requirement: Server questions queue without blocking the connection
 Prompts SHALL queue one at a time across connections and wait while a program runs or another modal is

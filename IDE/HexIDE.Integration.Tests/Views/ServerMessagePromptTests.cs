@@ -14,6 +14,53 @@ namespace HexIDE.Integration.Tests.Views;
 public class ServerMessagePromptTests
 {
     [AvaloniaTheory]
+    [InlineData(1, "✕")]
+    [InlineData(2, "!")]
+    [InlineData(3, "i")]
+    [InlineData(4, "i")]
+    public async Task MessageTypeShowsItsIcon(int type, string symbol)
+    {
+        var owner = new Window();
+        owner.Show();
+        try
+        {
+            var pending = ServerMessagePrompt.Show(owner, "Server", new(type, "Message", []), CancellationToken.None);
+            var prompt = owner.OwnedWindows.Single();
+            try
+            {
+                prompt.GetVisualDescendants().OfType<TextBlock>().Should().Contain(t => t.Text == symbol);
+            }
+            finally { prompt.Close(); }
+            await pending;
+        }
+        finally { owner.Close(); }
+    }
+
+    [AvaloniaFact]
+    public async Task EscapeDismissesWithoutChoosingAnAction()
+    {
+        var owner = new Window();
+        owner.Show();
+        try
+        {
+            var pending = ServerMessagePrompt.Show(owner, "Server", new(3, "Message", [new("Choose")]), CancellationToken.None);
+            var prompt = owner.OwnedWindows.Single();
+            try
+            {
+                prompt.RaiseEvent(new Avalonia.Input.KeyEventArgs
+                {
+                    RoutedEvent = Avalonia.Input.InputElement.KeyDownEvent,
+                    Key = Avalonia.Input.Key.Escape
+                });
+                prompt.IsVisible.Should().BeFalse();
+                (await pending).Should().BeNull();
+            }
+            finally { prompt.Close(); }
+        }
+        finally { owner.Close(); }
+    }
+
+    [AvaloniaTheory]
     [InlineData(false)]
     [InlineData(true)]
     public async Task ServerTitleAndActionsAnswerTheOriginalItemOrDismiss(bool dismiss)

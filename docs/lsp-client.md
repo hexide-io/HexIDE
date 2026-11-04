@@ -1172,11 +1172,12 @@ and a policy decision.
 The client declares `window.showMessage.messageActionItem`, including additional property support.
 `window/showMessageRequest` queues an IDE message box owned by the main window, titled with the server's
 display name, with the server's actions as buttons. A click returns that original action item (including
-extra properties); closing without choosing returns `null`. Questions wait while a program runs or
+extra properties); closing without choosing or pressing Escape returns `null`. The box uses the IDE
+message box icons: Error, Warning, and Information for both Info and Log. Questions wait while a program runs or
 another modal is open, and queue one at a time across connections. Diagnostics and other messages keep
 flowing meanwhile. `$/cancelRequest` closes an open question or removes a queued one and answers -32800.
 `ShowMessageRequestWireTests` checks the frames and nonblocking queue; headless
-`ServerMessagePromptTests` checks ownership, title, buttons, dismissal and cancellation.
+`ServerMessagePromptTests` checks ownership, title, buttons, message type icons, Escape dismissal and cancellation.
 
 ## Coverage against the specification
 
