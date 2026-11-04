@@ -219,6 +219,22 @@ public sealed class ContributedProjectTests : IDisposable
     }
 
     [AvaloniaFact]
+    public async Task A_group_s_contributed_project_is_read_by_its_add_in_and_one_no_add_in_reads_is_refused()
+    {
+        using var type = Contribute();
+        File.WriteAllText(Path.Join(_dir, "Other.xproj"), "Type=Exe\r\nModule=Startup; src\\Main.bas\r\n");
+        var group = Path.Join(_dir, "Group1.vbg");
+        File.WriteAllText(group, "VBGROUP 5.0\r\nProject=.rdproj\r\nProject=Other.xproj\r\n");
+
+        await _service.OpenProject(group);
+
+        _loaded.Should().ContainSingle().Which.ContributedBy.Should().Be("RDCore projects",
+            "a group names a project file as Open Project does, and is read the same way");
+        await _windows.Received(1).MessageBox(Arg.Is<string>(text => text == "Str.ContributedProject.NoReader Other.xproj"),
+            Arg.Any<string?>(), Arg.Any<MessageBoxButtons>(), Arg.Any<MessageBoxIcon>(), Arg.Any<Avalonia.Controls.Window?>(), Arg.Any<bool>());
+    }
+
+    [AvaloniaFact]
     public async Task Make_is_refused_with_a_reason_before_it_asks_where_to_put_the_program()
     {
         using var type = Contribute();

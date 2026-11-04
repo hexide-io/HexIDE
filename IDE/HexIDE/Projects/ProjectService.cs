@@ -353,11 +353,6 @@ public partial class ProjectService : IProjectService
 
     public async Task OpenProject(string projectPath)
     {
-        if (contributed?.Find(projectPath) is { } type)
-        {
-            await OpenContributed(type, projectPath);
-            return;
-        }
         if (string.Equals(Path.GetExtension(projectPath), ".twinproj", StringComparison.OrdinalIgnoreCase))
         {
             if (archives == null) throw new NotSupportedException("Archive project service is unavailable.");
@@ -379,8 +374,20 @@ public partial class ProjectService : IProjectService
             await OpenGroupFromPath(projectPath);
             return;
         }
-        // Only a .vbp is HexIDE's to read now. Anything else reaching here, from the recent list or All Files, is a file no
-        // loaded project type reads, such as an add-in's whose add-in is not loaded: read as a .vbp it would open as junk.
+        await OpenProjectFile(projectPath);
+    }
+
+    // Every project file is read through here, whether Open Project, the recent list or a group names it: a project type an
+    // add-in contributed first, then a .vbp, which is HexIDE's own. Anything else is a file no loaded project type reads,
+    // such as an add-in's whose add-in is not loaded, and is refused: read as a .vbp it would open as junk, and a later save
+    // would write a .vbp over it.
+    private async Task OpenProjectFile(string projectPath)
+    {
+        if (contributed?.Find(projectPath) is { } type)
+        {
+            await OpenContributed(type, projectPath);
+            return;
+        }
         if (!string.Equals(Path.GetExtension(projectPath), ".vbp", StringComparison.OrdinalIgnoreCase))
         {
             await windowManager.MessageBox(
@@ -549,7 +556,7 @@ public partial class ProjectService : IProjectService
         foreach (var relPath in serializedGroup.ProjectRelativePaths)
         {
             var absPath = Path.GetFullPath(Path.Combine(groupDir, ToLocalRelativePath(relPath)));
-            await LoadProjectFromDisk(absPath);
+            await OpenProjectFile(absPath);
         }
 
         if (serializedGroup.StartupProjectRelativePath != null)
