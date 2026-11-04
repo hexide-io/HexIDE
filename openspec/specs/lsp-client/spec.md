@@ -148,6 +148,35 @@ be preserved.
 - **WHEN** hover contents is an array of Markdown strings and language-tagged values
 - **THEN** the client returns their Markdown text and fenced code blocks separated by blank lines
 
+### Requirement: Markdown hover presentation
+
+The hover renderer SHALL own the ordered formats advertised by initialization, `markdown` then `plaintext`.
+The editor SHALL render Markdown paragraphs, emphasis, inline code, lists, links and fenced code blocks.
+Code fences SHALL use the editor's font, with VB6 highlighting for `vb` and `vba` and no highlighting
+for other languages. Plain text SHALL stay literal; normalized marked strings SHALL use this renderer.
+
+#### Scenario: A server supplies a VBA signature
+- **WHEN** a Markdown hover contains a `vba` fenced signature and a paragraph naming its module
+- **THEN** the tip shows coloured code in the editor's font followed by the paragraph, with no fence characters
+
+### Requirement: Safe hover content
+
+Raw HTML and diagnostic messages SHALL remain literal text. HTTP(S) links SHALL open in the browser
+only on click. A file link SHALL open only a document the project already holds, and SHALL do nothing for any
+other file, because a server's link is not the user choosing a file. Command links SHALL remain inert text.
+
+#### Scenario: Untrusted hover content
+- **WHEN** Markdown contains `<b>x</b>` and a command link
+- **THEN** the HTML appears as those characters and the command cannot run
+
+#### Scenario: Link activation
+- **WHEN** the user clicks an HTTP(S) or file link in a hover
+- **THEN** it opens in the browser, or for a file link in the project's own document, with no navigation merely from hovering
+
+#### Scenario: A file link outside the project
+- **WHEN** the user clicks a hover's file link to a file the project does not hold
+- **THEN** nothing opens
+
 ### Requirement: Diagnostic hover messages
 
 The editor SHALL show the messages of all diagnostic markers covering the hovered offset, including
