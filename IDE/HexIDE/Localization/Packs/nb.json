@@ -24,6 +24,8 @@
     "Str.CodeEditor.ViewAs.TwinBasic64": "twinBASIC 64-bit",
     "Str.CodeEditor.ViewAs.Tooltip": "Vis betinget kompilering som",
     "Str.Tool.Properties.ExportPicture": "Eksporter bilde...",
+    "Str.Tool.Properties.ExportPictureTitle": "Eksporter bilde",
+    "Str.Tool.Properties.ReplacePicture": "{0} finnes allerede. Vil du erstatte den?",
     "Str.LspArtifact.Title": "Arbeidsområdefiler",
     "Str.LspArtifact.Prompt": "Server {0} har bedt om å skrive den lokale filen {1}.",
     "Str.LspArtifact.Allow": "Tillat",

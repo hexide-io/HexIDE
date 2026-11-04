@@ -24,6 +24,8 @@
     "Str.CodeEditor.ViewAs.TwinBasic64": "twinBASIC 64 bit",
     "Str.CodeEditor.ViewAs.Tooltip": "Visualizza compilazione condizionale come",
     "Str.Tool.Properties.ExportPicture": "Esporta immagine...",
+    "Str.Tool.Properties.ExportPictureTitle": "Esporta immagine",
+    "Str.Tool.Properties.ReplacePicture": "{0} esiste già. Sostituirlo?",
     "Str.LspArtifact.Title": "File dell’area di lavoro",
     "Str.LspArtifact.Prompt": "Il server {0} ha richiesto di scrivere il file locale {1}.",
     "Str.LspArtifact.Allow": "Consenti",

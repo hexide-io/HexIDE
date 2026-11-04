@@ -24,6 +24,8 @@
     "Str.CodeEditor.ViewAs.TwinBasic64": "twinBASIC 64-bit",
     "Str.CodeEditor.ViewAs.Tooltip": "Lihat kompilasi bersyarat sebagai",
     "Str.Tool.Properties.ExportPicture": "Ekspor gambar...",
+    "Str.Tool.Properties.ExportPictureTitle": "Ekspor Gambar",
+    "Str.Tool.Properties.ReplacePicture": "{0} sudah ada. Apakah Anda ingin menggantinya?",
     "Str.LspArtifact.Title": "Berkas ruang kerja",
     "Str.LspArtifact.Prompt": "Server {0} meminta untuk menulis berkas lokal {1}.",
     "Str.LspArtifact.Allow": "Izinkan",

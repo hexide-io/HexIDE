@@ -28,6 +28,8 @@
     "Str.CodeEditor.ViewAs.TwinBasic64": "twinBASIC 64 บิต",
     "Str.CodeEditor.ViewAs.Tooltip": "ดูการคอมไพล์แบบมีเงื่อนไขในรูปแบบ",
     "Str.Tool.Properties.ExportPicture": "ส่งออกรูปภาพ...",
+    "Str.Tool.Properties.ExportPictureTitle": "ส่งออกรูปภาพ",
+    "Str.Tool.Properties.ReplacePicture": "{0} มีอยู่แล้ว คุณต้องการแทนที่หรือไม่?",
     "Str.LspArtifact.Title": "ไฟล์ในพื้นที่ทำงาน",
     "Str.LspArtifact.Prompt": "เซิร์ฟเวอร์ {0} ขอเขียนไฟล์ภายในเครื่อง {1}",
     "Str.LspArtifact.Allow": "อนุญาต",

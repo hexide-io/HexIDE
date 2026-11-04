@@ -28,6 +28,8 @@
     "Str.CodeEditor.ViewAs.TwinBasic64": "twinBASIC 64 bitu",
     "Str.CodeEditor.ViewAs.Tooltip": "Skatīt nosacīto kompilāciju kā",
     "Str.Tool.Properties.ExportPicture": "Eksportēt attēlu...",
+    "Str.Tool.Properties.ExportPictureTitle": "Eksportēt attēlu",
+    "Str.Tool.Properties.ReplacePicture": "{0} jau pastāv. Vai vēlaties to aizstāt?",
     "Str.LspArtifact.Title": "Darbvietas faili",
     "Str.LspArtifact.Prompt": "Serveris {0} pieprasa rakstīt lokālajā failā {1}.",
     "Str.LspArtifact.Allow": "Atļaut",

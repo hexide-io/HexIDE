@@ -28,6 +28,8 @@
     "Str.CodeEditor.ViewAs.TwinBasic64": "twinBASIC 64-bitine",
     "Str.CodeEditor.ViewAs.Tooltip": "Kuva tingimuskompilatsiooni kui",
     "Str.Tool.Properties.ExportPicture": "Ekspordi pilt...",
+    "Str.Tool.Properties.ExportPictureTitle": "Pildi eksportimine",
+    "Str.Tool.Properties.ReplacePicture": "{0} on juba olemas. Kas soovite selle asendada?",
     "Str.LspArtifact.Title": "Tööruumi failid",
     "Str.LspArtifact.Prompt": "Server {0} soovib kirjutada kohaliku faili {1}.",
     "Str.LspArtifact.Allow": "Luba",

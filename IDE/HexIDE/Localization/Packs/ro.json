@@ -28,6 +28,8 @@
     "Str.CodeEditor.ViewAs.TwinBasic64": "twinBASIC pe 64 de biți",
     "Str.CodeEditor.ViewAs.Tooltip": "Vizualizează compilarea condiționată ca",
     "Str.Tool.Properties.ExportPicture": "Exportă imaginea...",
+    "Str.Tool.Properties.ExportPictureTitle": "Exportă imaginea",
+    "Str.Tool.Properties.ReplacePicture": "{0} există deja. Doriți să îl înlocuiți?",
     "Str.LspArtifact.Title": "Fișierele spațiului de lucru",
     "Str.LspArtifact.Prompt": "Serverul {0} a solicitat scrierea fișierului local {1}.",
     "Str.LspArtifact.Allow": "Permite",

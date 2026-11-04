@@ -64,7 +64,8 @@ public class PictureExportTests
     {
         var windows = Substitute.For<IWindowManager>();
         var localization = Substitute.For<ILocalizationService>();
-        localization.GetString("Str.Tool.ProtocolInspector.ReplaceFiles").Returns("Replace these existing files?\n{0}");
+        localization.GetString("Str.Tool.Properties.ReplacePicture").Returns("{0} already exists. Do you want to replace it?");
+        localization.GetString("Str.Tool.Properties.ExportPictureTitle").Returns("Export Picture");
         var path = Path.Combine(Path.GetTempPath(), Guid.NewGuid() + ".ico");
         windows.SaveFilePickerAsync(Arg.Any<FilePickerSaveOptions>()).Returns(path);
         windows.MessageBox(Arg.Any<string>(), Arg.Any<string>(), MessageBoxButtons.YesNo,
@@ -76,8 +77,10 @@ public class PictureExportTests
                 Substitute.For<IEventBus>(), windows, localization);
             await parent.ExportPictureAsync(VBProperties.PictureProperty, Record([42]));
             File.ReadAllBytes(path).Should().Equal(answer == MessageBoxResult.Yes ? new byte[] { 42 } : [99]);
-            await windows.Received(1).MessageBox(Arg.Is<string>(text => text.Contains(path)),
-                Arg.Any<string>(), MessageBoxButtons.YesNo, MessageBoxIcon.Warning);
+            await windows.Received(1).MessageBox($"{path} already exists. Do you want to replace it?",
+                "Export Picture", MessageBoxButtons.YesNo, MessageBoxIcon.Warning);
+            localization.Received(1).GetString("Str.Tool.Properties.ReplacePicture");
+            localization.Received(1).GetString("Str.Tool.Properties.ExportPictureTitle");
         }
         finally { File.Delete(path); }
     }

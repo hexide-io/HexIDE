@@ -28,6 +28,8 @@
     "Str.CodeEditor.ViewAs.TwinBasic64": "twinBASIC de 64 bits",
     "Str.CodeEditor.ViewAs.Tooltip": "Visualitza la compilació condicional com a",
     "Str.Tool.Properties.ExportPicture": "Exporta la imatge...",
+    "Str.Tool.Properties.ExportPictureTitle": "Exporta la imatge",
+    "Str.Tool.Properties.ReplacePicture": "{0} ja existeix. El voleu substituir?",
     "Str.LspArtifact.Title": "Fitxers de l'espai de treball",
     "Str.LspArtifact.Prompt": "El servidor {0} ha sol·licitat escriure el fitxer local {1}.",
     "Str.LspArtifact.Allow": "Permet",

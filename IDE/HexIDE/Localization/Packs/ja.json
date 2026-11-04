@@ -24,6 +24,8 @@
     "Str.CodeEditor.ViewAs.TwinBasic64": "twinBASIC 64 ビット",
     "Str.CodeEditor.ViewAs.Tooltip": "条件付きコンパイルの表示対象",
     "Str.Tool.Properties.ExportPicture": "画像をエクスポート...",
+    "Str.Tool.Properties.ExportPictureTitle": "画像のエクスポート",
+    "Str.Tool.Properties.ReplacePicture": "{0} は既に存在します。置き換えますか？",
     "Str.LspArtifact.Title": "ワークスペースのファイル",
     "Str.LspArtifact.Prompt": "サーバー {0} がローカルファイル {1} への書き込みを要求しています。",
     "Str.LspArtifact.Allow": "許可",

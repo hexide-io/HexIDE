@@ -296,7 +296,9 @@ The Properties window SHALL offer Export picture on modeled Picture, Icon, Mouse
 holding a nonempty, length-consistent VB6-framed StdPicture record. Export SHALL write only the image payload
 chosen by a save picker, without changing the property, designer history, form or companion file. It SHALL NOT
 export opaque OCX property bags, unframed bytes or malformed records. Cancellation SHALL write nothing, and a
-write failure SHALL be reported to the user.
+write failure SHALL be reported to the user. Before replacing an existing file, export SHALL ask
+"{0} already exists. Do you want to replace it?", with the full destination path substituted for {0},
+under the title "Export Picture" without an ellipsis. Both strings SHALL use dedicated localized keys.
 
 #### Scenario: Export a form's icon
 - **GIVEN** a form's Icon holds a VB6-framed StdPicture record

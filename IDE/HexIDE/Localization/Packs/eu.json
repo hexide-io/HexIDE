@@ -28,6 +28,8 @@
     "Str.CodeEditor.ViewAs.TwinBasic64": "twinBASIC 64 bit",
     "Str.CodeEditor.ViewAs.Tooltip": "Ikusi baldintzapeko konpilazioa honela",
     "Str.Tool.Properties.ExportPicture": "Esportatu irudia...",
+    "Str.Tool.Properties.ExportPictureTitle": "Esportatu irudia",
+    "Str.Tool.Properties.ReplacePicture": "{0} badago lehendik. Ordeztu nahi duzu?",
     "Str.LspArtifact.Title": "Lan-eremuko fitxategiak",
     "Str.LspArtifact.Prompt": "{0} zerbitzariak {1} fitxategi lokala idaztea eskatu du.",
     "Str.LspArtifact.Allow": "Baimendu",
