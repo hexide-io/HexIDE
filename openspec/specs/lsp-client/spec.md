@@ -12,6 +12,79 @@ later without the editor noticing.
 
 ## Requirements
 
+### Requirement: Reference requests gather locations from offering servers
+The client SHALL expose `textDocument/references` at a document URI and position, sending
+`context.includeDeclaration: true` only to servers advertising `referencesProvider`. The registry
+SHALL gather answers and deduplicate URI/range pairs. Null answers SHALL become empty arrays;
+request failures SHALL be returned alongside successful locations, identified by server (#2907).
+
+#### Scenario: Two servers return overlapping references
+- **WHEN** two offering servers return the same declaration and different call locations
+- **THEN** the registry returns the declaration once and both call locations
+
+#### Scenario: References are not advertised
+- **WHEN** a server omits `referencesProvider` or advertises false
+- **THEN** the client sends no reference request to that server
+
+
+### Requirement: Find References presents navigable results
+The code editor SHALL offer Find References on Shift+F12, its context menu and the Edit menu,
+showing the shortcut. Results SHALL open at the bottom in the Immediate window's group.
+A new search SHALL replace the previous results; an older request completing later SHALL NOT overwrite it.
+The list SHALL group locations by module in project order, show one-based line numbers and line text,
+and highlight the supplied range. Enter on a focused result row or a double-click SHALL navigate through
+EditorService.NavigateTo. Each result row SHALL expose an automation name containing its module,
+one-based line number and line text, rather than the location record's string representation.
+An empty answer SHALL show a localized no-references row. A failed server SHALL have an error row while
+successful servers' locations remain visible. Callers SHALL be able to supply locations without a request.
+
+#### Scenario: A reference in another module
+- **WHEN** the user presses Shift+F12 and selects a result from a second module
+- **THEN** Enter opens that module at the returned position
+
+#### Scenario: A server fails while another succeeds
+- **WHEN** one server returns locations and another reports an error
+- **THEN** the list contains both the locations and the failed server's error
+
+#### Scenario: A caller already has the locations
+- **WHEN** a caller fills the list from supplied locations
+- **THEN** those locations replace the list and no references request is sent
+
+
+### Requirement: Diagnostic metadata survives either inbound path
+The client SHALL retain diagnostic tags 1 and 2 and related-information locations and messages
+from both push notifications and pull replies. Unknown tags SHALL be ignored. A malformed
+related-information entry SHALL be skipped without dropping the diagnostic or valid sibling entries.
+
+#### Scenario: Metadata outlives the reply
+- **WHEN** a push or pull diagnostic contains both tags and two valid related locations
+- **THEN** both tags and locations remain readable after the reply document is disposed
+
+#### Scenario: An invalid related entry accompanies an unknown tag
+- **WHEN** a diagnostic includes tag 7 and a related entry with no location
+- **THEN** that tag and entry are ignored while the diagnostic remains available
+
+### Requirement: Diagnostic tags style text
+The client SHALL advertise `publishDiagnostics.relatedInformation: true` and `tagSupport.valueSet: [1, 2]`.
+Unnecessary ranges SHALL have faded text and deprecated ranges SHALL have strikethrough text in the editor
+and diagnostics list messages. These styles SHALL add to the existing severity squiggle. Opaque diagnostic
+`data` SHALL remain dropped pending the code-action relay decision (#453).
+
+#### Scenario: Both tags accompany a hint
+- **WHEN** a diagnostic has tags 1 and 2
+- **THEN** its editor range and list message are faded and struck through while its severity squiggle remains
+
+### Requirement: Related diagnostic locations are navigable
+Diagnostic tooltips SHALL list each related location and message below the primary message. Locations
+SHALL use the loaded member name or fall back to the URI, followed by a one-based line. Clicking a location
+SHALL use the editor navigation service at its range start. The tooltip SHALL remain open while the pointer
+moves from the editor onto its links.
+
+#### Scenario: A diagnostic points into another module
+- **WHEN** a tooltip contains a related location in a loaded module
+- **THEN** its link names that module and line and opens it at the related range start when clicked
+- **AND** an unresolved location uses its URI as the link label
+
 ### Requirement: Servers can request the editor tab size
 The client SHALL declare `workspace.configuration` support and SHALL answer `workspace/configuration`
 with one result per item in request order. Section `editor.tabSize` SHALL return the current editor
@@ -158,6 +231,19 @@ for other languages. Plain text SHALL stay literal; normalized marked strings SH
 #### Scenario: A server supplies a VBA signature
 - **WHEN** a Markdown hover contains a `vba` fenced signature and a paragraph naming its module
 - **THEN** the tip shows coloured code in the editor's font followed by the paragraph, with no fence characters
+
+### Requirement: Hover dismissal while editing
+
+Typing in the editor SHALL close its hover tip and cancel pending hover requests. Opening a completion
+list or signature help SHALL do the same. Moving the pointer into the tip SHALL keep it open for links.
+
+#### Scenario: Typing with a hover open
+- **WHEN** the developer types a character while a hover tip is open
+- **THEN** the tip closes
+
+#### Scenario: An editing popup opens
+- **WHEN** completion or signature help opens while a hover tip is open
+- **THEN** the hover tip closes
 
 ### Requirement: Safe hover content
 
@@ -1364,13 +1450,13 @@ anyway, so it is recorded rather than defended.
 
 ### Requirement: Completion capabilities describe current insertion support
 The client SHALL declare `textDocument.completion` in initialize with default `insertTextMode: 1`
-(asIs) and a completion kind value set of Text, Function, Variable, Property, Keyword and Constant.
+(asIs), all 25 completion kinds, preselect support and plaintext documentation support.
 It SHALL omit optional completion capabilities it does not implement, including snippet support and
 insert/replace support.
 
 #### Scenario: A server inspects completion capabilities
 - **WHEN** the client sends initialize
-- **THEN** completion declares kind values `[1, 3, 6, 10, 14, 21]` and default insertion mode `1`
+- **THEN** completion declares kind values 1 through 25, preselect support, plaintext documentation and default insertion mode `1`
 - **AND** snippet, insert/replace, resolve, context and list item default support are absent
 
 ### Requirement: Completion text edits commit together
@@ -1401,6 +1487,25 @@ and variables are unfinished.
 - **WHEN** a snippet contains `${1:Item}` followed by `$1` and `${2:c}`
 - **THEN** the default Item is selected and editing it changes both occurrences
 - **AND** Tab selects c and a further Tab finishes at the final stop
+
+### Requirement: Completion presentation honours server metadata
+The client SHALL sort merged completion items ordinally by `sortText ?? label` and filter using
+`filterText ?? label`. The editor SHALL initially select the first preselected prefix match, otherwise
+its best match. It SHALL show string or MarkupContent documentation with detail as plain text and reuse
+Object Browser glyphs for corresponding kinds, using none without a counterpart.
+If no item matches the opening word, the editor SHALL retain the server's list and filter subsequent typing normally.
+
+#### Scenario: Server ranking and selection
+- **WHEN** A has sortText `b` and preselect true, and B has sortText `a`, with an empty prefix
+- **THEN** B appears before A and A is selected
+
+#### Scenario: Filter text differs from label
+- **WHEN** an item labelled `Display` has filterText `needle` and the user types `nee`
+- **THEN** it matches while its displayed label and insertion fallback remain `Display`
+
+#### Scenario: Server replacements do not match the opening word
+- **WHEN** the server offers a snippet replacement labelled `zsnip` over the word `M` and no item matches `M`
+- **THEN** the item remains available to accept and its snippet fields activate normally
 
 ### Requirement: Completion snippet choices
 The editor SHALL expand a numbered choice placeholder to its first value and offer its values in
@@ -1805,3 +1910,27 @@ the final restart note, to scroll fully into its viewport at 100% and 150% displ
 - **WHEN** a server card and configuration problems make the view taller than its viewport
 - **AND** the user scrolls to the end
 - **THEN** the entire restart note SHALL be inside the viewport
+
+### Requirement: Server-requested project document navigation
+
+The client SHALL declare `window.showDocument.support: true` and answer `window/showDocument`
+with `{ success }`. A URI naming a loaded member by the same rule as `EditorService.NavigateTo`
+SHALL open its code or carried-file editor, apply the supplied selection, and take focus only when
+`takeFocus` is true. External requests and URIs naming no loaded member SHALL answer `success: false`
+and SHALL open nothing. This is the project-member slice of #2908; external navigation remains deferred.
+
+#### Scenario: A server selects a range in a module
+
+- **WHEN** a server requests a loaded module with a selection and `takeFocus: true`
+- **THEN** its code window opens, receives focus, and selects the requested range
+- **AND** the response contains `success: true`
+
+#### Scenario: Navigation without taking focus
+
+- **WHEN** a loaded member is requested without `takeFocus: true`
+- **THEN** its editor opens and applies the selection without changing the focused document
+
+#### Scenario: External or unknown URI
+
+- **WHEN** a request has `external: true` or names no loaded member
+- **THEN** the response contains `success: false` and nothing opens

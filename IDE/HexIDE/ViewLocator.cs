@@ -67,6 +67,7 @@ public class ViewLocator : IDataTemplate
         Register<CallStackToolViewModel, CallStackToolView>();
         Register<RecentEditsToolViewModel, RecentEditsToolView>();
         Register<ImmediateToolViewModel, ImmediateToolView>();
+        Register<FindReferencesToolViewModel, FindReferencesToolView>();
         Register<ColorPaletteToolViewModel, ColorPaletteToolView>();
         Register<ObjectBrowserToolViewModel, ObjectBrowserToolView>();
         Register<TranslationEditorViewModel, TranslationEditorView>();

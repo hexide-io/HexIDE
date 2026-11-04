@@ -2,6 +2,9 @@
   "name": "Czech",
   "direction": "ltr",
   "strings": {
+    "Str.Tool.FindReferences.Title": "Najít odkazy",
+    "Str.Tool.FindReferences.Empty": "Žádné odkazy",
+    "Str.Tool.FindReferences.Error": "{0}: {1}",
     "Str.Debug.External.EndTimeout": "Ladicí adaptér {0} neodpověděl na příkaz Ukončit a byl zastaven po čekání {1} sekund.",
     "Str.Debug.External.BreakpointConditionUnsupported": "Podmínky nastavte příkazem Podmínka… v nabídce okraje zarážek. Soubor '{0}', položka bodu přerušení {1}.",
     "Str.Debug.External.BreakpointOptionUnsupported": "Možnost zarážky '{0}' zatím není podporována pro externí relace. Soubor '{1}', položka zarážky {2}. Podmínky nastavte příkazem Podmínka… v nabídce okraje zarážek.",

@@ -1259,6 +1259,6 @@ public partial class FindReplaceViewModelTests
             windowStateService,
             Substitute.For<HexIDE.Debugging.IBreakpointService>(),
             Substitute.For<HexIDE.Runtime.Debugging.IDebugController>(),
-            new RecentEditsToolViewModel(new RecentEditHistory(eventBus), () => editorService, loc));
+            new RecentEditsToolViewModel(new RecentEditHistory(eventBus), () => editorService, loc), findReferences: null);
     }
 }

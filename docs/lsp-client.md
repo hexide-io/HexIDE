@@ -66,15 +66,21 @@ the production formatter and source-generated context to guard absence and prese
 |---|---|
 | Lifecycle | `initialize`, `initialized`, `shutdown`, `exit` |
 | Document sync | `textDocument/didOpen`, `didChange`, `didClose`, `didSave` |
-| Language requests | `hover`, `documentSymbol`, `foldingRange`, `completion`, `signatureHelp`, `definition`, `declaration`, `documentHighlight`, `rename`, `formatting`, `codeLens` |
+| Language requests | `hover`, `documentSymbol`, `foldingRange`, `completion`, `signatureHelp`, `definition`, `declaration`, `references`, `documentHighlight`, `rename`, `formatting`, `codeLens` |
 | Actions | `codeLens/resolve`, `workspace/executeCommand` — see *Commands and lenses* |
 | Custom | `vb/builtinSymbols` — see *Custom methods* |
 
-Initialize declares `textDocument.completion` with the six completion kinds currently named by the
-client (Text, Function, Variable, Property, Keyword and Constant), and default `insertTextMode: 1`
-(`asIs`). Other optional completion capabilities remain absent: snippets, insert/replace edits,
-resolve, commit characters, documentation formats, context and list item defaults are not advertised
-(#2670, first slice). This follows the [LSP 3.17 completion capability contract](https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#completionClientCapabilities).
+Initialize declares `textDocument.completion` with all 25 LSP completion kinds, `preselectSupport: true`,
+`documentationFormat: ["plaintext"]`, and default `insertTextMode: 1` (`asIs`). Snippets, insert/replace
+edits, resolve, commit characters, context and list item defaults are not advertised (#2670).
+This follows the [LSP 3.17 completion capability contract](https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#completionClientCapabilities).
+Items from all servers are ordered by `sortText ?? label`, ordinal. Filtering uses `filterText ?? label`,
+while the displayed label and insertion fallback remain the label. On opening, the first preselected
+item matching the typed prefix is selected; otherwise AvaloniaEdit keeps its best match. If no item
+matches the opening word, the server's list remains available; subsequent typing filters it normally. Descriptions
+show detail alongside string or MarkupContent documentation, rendered as plain text (including markdown
+source until a markdown renderer is available). Kind glyphs reuse the Object Browser's member and class
+glyphs; kinds without a counterpart have none.
 The editor applies a completion's `textEdit` in preference to `insertText` or `label`; without
 a `textEdit`, it replaces the completion segment. `additionalTextEdits` use the same original
 document coordinates and commit with the main edit as one undo step. The caret follows the main
@@ -121,7 +127,8 @@ The renderer owns the advertised `contentFormat` preference: `["markdown", "plai
 `vb` and `vba` fences use the editor's font and shared VB6 colours; other fences use its font
 without highlighting. Raw HTML is literal text. HTTP(S) links open through the browser only on
 click. A file link opens only a document the project already holds, and does nothing for any other file.
-Command links remain inert text. Plain-text content stays literal.
+Command links remain inert text. Plain-text content stays literal. Typing closes the hover tip, as does
+opening completion or signature help; moving into the tip keeps its links reachable (#3042).
 
 `initialize.locale` carries the resolved Options → Language UI language as a BCP 47 tag.
 System default uses the localization service's system resolution; pseudo-locales send `en`.
@@ -181,10 +188,8 @@ latest 65,536 characters, with an ellipsis at the start when older output was di
 verbatim text; the pseudonymised Copy Report does not include it.
 
 The metamodel guard also checks the numeric values of the wire enums (`DiagnosticSeverity`,
-`MessageType`, `SymbolKind` and `CompletionItemKind`). Completion display kinds still declare only
-six of the 25 specification values; the guard explicitly defers the existing 19 omissions as a separate
-display-model follow-up, while detecting newly added values. `SaveNotification` describes local save
-negotiation state rather than a wire enum.
+`MessageType`, `SymbolKind` and `CompletionItemKind`), including all 25 completion kinds.
+`SaveNotification` describes local save negotiation state rather than a wire enum.
 
 **Server-initiated requests.** Four are handled: `client/registerCapability` and
 `client/unregisterCapability` (refused, with the refusal recorded rather than silent) and
@@ -693,14 +698,17 @@ using numeric codes is as usable as one using names, and neither can throw on th
 
 Diagnostic codes reach the automation server's `get_diagnostics`, the add-in API and the AI-chat tool.
 The editor's squiggle tooltip shows overlapping messages and supplied sources alongside quick info in
-every profile (#451), even with Auto Quick Info disabled. Codes and navigation
-still need an error list; that larger surface remains separate from the tooltip.
+every profile (#451), even with Auto Quick Info disabled. The Diagnostics tool lists reports from
+all attached servers and navigates to their primary locations (#1991).
 
-Still dropped: `tags`, `relatedInformation` and `data`, each for a different reason and tracked as
-[#453](https://github.com/hexide-io/HexIDE/issues/453). `tags` would change how a diagnostic is drawn
-rather than add text to it, which is a rendering decision rather than a plumbing one;
-`relatedInformation` still needs a presentation beyond the message tooltip (#453); and `data` is only meaningful if
-code actions from a foreign server are relayed, which is an open question rather than a settled no.
+Both inbound paths retain `tags` 1 (Unnecessary) and 2 (Deprecated), ignoring unknown values,
+and `relatedInformation` locations and messages, skipping malformed entries (#453). Unnecessary
+text is faded and deprecated text is struck through in the editor and diagnostics list; the severity
+squiggle remains. The tooltip lists related messages below their diagnostic, with clickable locations
+labelled by loaded member name and one-based line, falling back to the URI. Links use the editor
+navigation service, and the tooltip stays open while the pointer moves into it. The client advertises
+`publishDiagnostics.relatedInformation: true` and `tagSupport.valueSet: [1, 2]`.
+Still dropped: `data`, until `q-453-code-actions` decides whether foreign code actions are relayed.
 
 ### Some servers publish; some only answer
 
@@ -1070,6 +1078,20 @@ driving the IDE by hand over `ws://` now needs a WebSocket server of your own.
 
 ---
 
+## Reference requests
+
+The reference-request contract (`RequestReferencesAsync`) sends `textDocument/references` with the
+caret position and `context.includeDeclaration: true`, gated on `referencesProvider` (true or options).
+The registry uses `GatherAsync` and record equality to deduplicate URI/range pairs. Null results become
+empty arrays. `FindReferencesAsync` preserves successful locations alongside per-server errors.
+Shift+F12, Edit → Find References and the code editor context menu open the results pane in the
+Immediate window's bottom group. Each search replaces the list, grouped by module in project order,
+with line numbers and the returned range emphasized. Enter or double-click navigates through
+`EditorService.NavigateTo`; empty answers and server errors appear as localized rows. Result rows
+expose their module, line number and line text as their accessible name.
+`FindReferencesToolViewModel.ShowLocations` fills the same pane without a request, for code-lens callers
+(#2906). Binding remains the server's responsibility.
+
 ## Commands and lenses
 
 `textDocument/codeLens` is how a server offers an action against a range — the protocol's affordance for
@@ -1125,6 +1147,18 @@ receive `workspace/didChangeConfiguration` with empty `settings` when Tab Width 
 can request its configuration again. New connections read the current value on their first request.
 `WorkspaceConfigurationWireTests` checks the capability, response array and change notification frames.
 
+### Server-requested document navigation (#2908)
+
+`window/showDocument.support` is declared. `window/showDocument` resolves URIs using
+`EditorService.NavigateTo`'s loaded-member rule, including unsaved members and carried files. It opens
+that editor, applies the optional selection using zero-based LSP positions (clamped to the buffer),
+and takes focus only when `takeFocus` is true. The response is `{ success: true }` for a loaded member;
+unknown URIs and `external: true` return `{ success: false }` without opening anything.
+`ShowDocumentWireTests` checks the declaration and response frames; `EditorServiceNavigationTests`
+checks the range, focus routing and URI refusal. Headless `CodeEditorSelectionTests` checks that both
+editor views restore a selection placed before they attach. `window/showMessageRequest` remains unwired for the
+next slice of #2908. `workspace/applyEdit` awaits #1024's applier and a policy decision.
+
 ## Coverage against the specification
 
 LSP 3.17 defines **93 messages** — 67 requests and 26 notifications. The table below is generated from the
@@ -1132,7 +1166,7 @@ specification's own [`metaModel.json`](https://raw.githubusercontent.com/microso
 the canonical machine-readable list, so the method names and directions are the specification's rather than
 this document's recollection of them.
 
-**HexIDE implements 37 of the 93.** That is not a deficiency in itself — no client implements them all, and
+**HexIDE implements 39 of the 93.** That is not a deficiency in itself — no client implements them all, and
 most of the remainder are features no VB6 IDE needs. It is here so the shape of the gap is visible rather
 than inferred.
 
@@ -1154,7 +1188,7 @@ than inferred.
 | ✅ | `initialized` | → |  |
 | ✅ | `shutdown` | → |  |
 
-### `textDocument/*` — 19 of 41
+### `textDocument/*` — 20 of 41
 
 | | Method | Dir | Notes |
 |---|---|---|---|
@@ -1189,8 +1223,9 @@ than inferred.
 | ✅ | `textDocument/publishDiagnostics` | ← |  |
 | ○ | `textDocument/rangeFormatting` | → |  |
 | ○ | `textDocument/rangesFormatting` | → |  |
-| ○ | `textDocument/references` | → | Needs a bound AST — a backend's job, see below |
 | ✅ | `textDocument/rename` | → | Atomic edits across loaded code members, with version checks and one undo step per member (#1024) |
+
+| ✅ | `textDocument/references` | → | Shift+F12 and menus; grouped results, navigation and per-server error rows; supplied locations reuse the pane (#2907) |
 | ○ | `textDocument/selectionRange` | → |  |
 | ✅ | `textDocument/semanticTokens/full` | → | Full relative tokens, highest-priority full provider only; lexical colours remain outside token ranges (#2054) |
 | ○ | `textDocument/semanticTokens/full/delta` | → |  |
@@ -1226,12 +1261,12 @@ than inferred.
 | ○ | `workspace/willRenameFiles` | → |  |
 | ○ | `workspace/workspaceFolders` | ← |  |
 
-### `window/*` — 3 of 6
+### `window/*` — 4 of 6
 
 | | Method | Dir | Notes |
 |---|---|---|---|
 | ✅ | `window/logMessage` | ← | Raised as an event **and** logged at the severity the server declared. It used to be logged only, at a level the default configuration discards |
-| ○ | `window/showDocument` | ← |  |
+| ◐ | `window/showDocument` | ← | Loaded project members, optional selection and focus; external and unknown URIs refused (#2908) |
 | ✅ | `window/showMessage` | ← | Shown in the status bar, and logged |
 | ○ | `window/showMessageRequest` | ← |  |
 | ○ | `window/workDoneProgress/cancel` | → | No cancellation UI; cancellable is not acted on |
@@ -1367,8 +1402,9 @@ registry routes are ready.
 
 Three clusters account for nearly all of the gap:
 
-- **Features needing a bound AST** — references, code actions, call hierarchy
-  and their `*/resolve` companions. Not wired because nothing here would answer them; see *What the client
+- **Features needing a bound AST** — code actions, call hierarchy
+  and their `*/resolve` companions. Reference requests now have a client contract (#2907), with the UI
+  outstanding. The other methods are not wired because nothing here would answer them; see *What the client
   would consume* below. `workspace/symbol` used to sit in this list and no longer does: the client speaks it
   and the Object Browser surfaces it, so the missing half is a *server*, which is exactly the point of the
   seam.
@@ -1380,7 +1416,7 @@ Three clusters account for nearly all of the gap:
   problems instead of appearing broken ([#289](https://github.com/hexide-io/HexIDE/issues/289)). Dynamic registration stays refused on
   purpose and is now logged rather than silent ([#288](https://github.com/hexide-io/HexIDE/issues/288)) — supporting it would mean
   declaring `dynamicRegistration` and honouring what arrives, which is real work with no server yet asking
-  for it. `showMessageRequest` and `showDocument` need UI decisions and are lower value.
+  for it. `showMessageRequest` still needs its queued IDE message-box flow (#2908).
 
 `notebookDocument/*` is 0 of 4 and will stay there — notebooks are not a VB6 concept.
 
@@ -1405,7 +1441,7 @@ awaiting effort, they are **server** features awaiting a server.
 
 | Feature | Method | Client support today |
 |---|---|---|
-| Find all references | `textDocument/references` | Not wired |
+| Find all references | `textDocument/references` | Shift+F12 and menus; grouped, navigable results and per-server errors (#2907) |
 | Code actions / quick fixes | `textDocument/codeAction` | Not wired |
 | Semantic tokens | `textDocument/semanticTokens/full` | **Wired** — full only; delta, range and refresh remain unwired (#2054) |
 | Parameter-name and inferred-type hints | `textDocument/inlayHint` | **Wired** — labels from any offering server; these binding-dependent hints remain outside the bundled server |

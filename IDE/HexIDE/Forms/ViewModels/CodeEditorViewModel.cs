@@ -2039,6 +2039,13 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     public Task<SignatureHelp?> RequestSignatureHelpAsync(Position position, CancellationToken ct = default, string? triggerCharacter = null)
         => LiveDocumentUri is { } uri ? lspClient.RequestSignatureHelpAsync(uri, position, ct, triggerCharacter) : Task.FromResult<SignatureHelp?>(null);
 
+    public async Task FindReferencesAsync(Position position)
+    {
+        await FlushDocumentAsync();
+        if (LiveDocumentUri is { } uri)
+            eventBus.Publish(new FindReferencesEvent(uri, position));
+    }
+
     public Task<Location[]?> RequestDefinitionAsync(Position position, CancellationToken ct = default)
         => LiveDocumentUri is { } uri ? lspClient.RequestDefinitionAsync(uri, position, ct) : Task.FromResult<Location[]?>(null);
 
@@ -2089,6 +2096,8 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
 
     // A hover's file link opens a document the project already holds, and nothing else: a server's link is not the
     // user choosing a file, the same rule #2908 applies to showDocument. Anything else is logged and left alone.
+    internal Avalonia.Controls.Control DiagnosticContent(LspMarker marker) => DiagnosticContentView.Render(marker, editorService);
+
     internal void OpenHoverFile(Uri uri)
     {
         if (!uri.IsFile) return;

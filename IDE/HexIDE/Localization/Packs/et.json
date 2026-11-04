@@ -2,6 +2,9 @@
   "name": "Estonian",
   "direction": "ltr",
   "strings": {
+    "Str.Tool.FindReferences.Title": "Otsi viiteid",
+    "Str.Tool.FindReferences.Empty": "Viiteid pole",
+    "Str.Tool.FindReferences.Error": "{0}: {1}",
     "Str.Debug.External.EndTimeout": "Silumisadapter {0} ei vastanud lõpetamiskäsule ja peatati pärast {1} sekundi pikkust ootamist.",
     "Str.Debug.External.BreakpointConditionUnsupported": "Määrake tingimused katkestuspunktide veerise menüüs käsuga Tingimus…. Fail '{0}', katkestuspunkti kirje {1}.",
     "Str.Debug.External.BreakpointOptionUnsupported": "Katkestuspunkti valik '{0}' pole väliste seansside jaoks veel toetatud. Fail '{1}', kirje {2}. Määrake tingimused katkestuspunktide veerise menüüs käsuga Tingimus….",

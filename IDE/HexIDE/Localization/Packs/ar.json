@@ -2,6 +2,9 @@
   "name": "Arabic",
   "direction": "rtl",
   "strings": {
+    "Str.Tool.FindReferences.Title": "البحث عن المراجع",
+    "Str.Tool.FindReferences.Empty": "لا توجد مراجع",
+    "Str.Tool.FindReferences.Error": "{0}: {1}",
     "Str.Debug.External.EndTimeout": "لم يستجب محول التصحيح {0} لأمر الإنهاء، وتم إيقافه بعد انتظار {1} ثانية.",
     "Str.Debug.External.BreakpointConditionUnsupported": "عيّن الشروط عبر شرط… في قائمة هامش نقاط التوقف. الملف '{0}'، إدخال نقطة التوقف {1}.",
     "Str.Debug.External.BreakpointOptionUnsupported": "خيار نقطة التوقف '{0}' غير مدعوم للجلسات الخارجية بعد. الملف '{1}'، إدخال نقطة التوقف {2}. عيّن الشروط عبر شرط… في قائمة هامش نقاط التوقف.",

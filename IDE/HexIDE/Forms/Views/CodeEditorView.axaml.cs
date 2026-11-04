@@ -26,6 +26,7 @@ using HexIDE.Lsp.Messages;
 using HexIDE.Runtime.Editor;
 using HexIDE.Runtime.Serialization;
 using HexIDE.Themes;
+using HexIDE.Tools.ObjectBrowser;
 using HexIDE.Utils;
 using R3;
 using Serilog;
@@ -302,6 +303,9 @@ public partial class CodeEditorView : UserControl
                 }
             };
             vm.PropertyChanged += _vmSelectionSync;
+            // Navigation can place a selection before the dock creates this view.
+            if (vm.SelectionLength > 0)
+                _vmSelectionSync(vm, new PropertyChangedEventArgs(nameof(CodeEditorViewModel.SelectionLength)));
             _editorSelectionSync = (_, _) =>
             {
                 if (_syncingSelection) return;
@@ -1439,6 +1443,14 @@ public partial class CodeEditorView : UserControl
         ToolTip.SetTip(TextEditor, null);
     }
 
+    private void DismissHover()
+    {
+        _hoverCts?.Cancel();
+        _hoverCts?.Dispose();
+        _hoverCts = null;
+        CloseTip();
+    }
+
     private void OnPointerExited(object? sender, PointerEventArgs e)
     {
         // Forgotten, not just cancelled: a pointer coming back to the same point is a new hover, not jitter in the last one,
@@ -1564,38 +1576,36 @@ public partial class CodeEditorView : UserControl
     private void ShowDiagnosticTip(Position pos, MarkupContent? quickInfo)
     {
         var offset = TextEditor.Document.GetOffset(pos.Line + 1, pos.Character + 1);
-        var parts = new List<string>();
-        if (_markerService is { } service)
+        if (DataContext is not CodeEditorViewModel vm) return;
+        var markers = _markerService?.Markers.Where(m => offset >= m.StartOffset && offset < m.EndOffset).ToArray() ?? [];
+        if (quickInfo?.Kind != "markdown" && !markers.Any(m => m.RelatedInformation is { Length: > 0 }))
         {
-            foreach (var marker in service.Markers)
-            {
-                if (offset >= marker.StartOffset && offset < marker.EndOffset)
-                    parts.Add(string.IsNullOrEmpty(marker.Source)
-                        ? marker.Message : $"{marker.Source}: {marker.Message}");
-            }
-        }
-        if (quickInfo is { Kind: "markdown", Value.Length: > 0 })
-        {
-            var panel = new StackPanel { Spacing = 8 };
-            foreach (var part in parts)
-                panel.Children.Add(new TextBlock { Text = part, TextWrapping = TextWrapping.Wrap, MaxWidth = 700 });
-            panel.Children.Add(HoverContentView.Render(quickInfo, TextEditor, uri =>
-            {
-                if (uri.IsFile && DataContext is CodeEditorViewModel vm)
-                    vm.OpenHoverFile(uri);
-                else if (uri.Scheme is "http" or "https" && TopLevel.GetTopLevel(this) is { } top)
-                    _ = top.Launcher.LaunchUriAsync(uri);
-            }));
-            var richTip = new ToolTip { Content = panel };
-            richTip.PointerEntered += (_, _) => _hoverCts?.Cancel();
-            richTip.PointerExited += (_, _) => _ = CloseRichTipAfterExitAsync(richTip);
-            ToolTip.SetTip(TextEditor, richTip);
+            var parts = markers.Select(m => string.IsNullOrEmpty(m.Source) ? m.Message : $"{m.Source}: {m.Message}").ToList();
+            if (!string.IsNullOrEmpty(quickInfo?.Value)) parts.Add(quickInfo.Value);
+            if (parts.Count == 0) { CloseTip(); return; }
+            ToolTip.SetTip(TextEditor, string.Join(Environment.NewLine + Environment.NewLine, parts));
             ToolTip.SetIsOpen(TextEditor, true);
             return;
         }
-        if (!string.IsNullOrEmpty(quickInfo?.Value)) parts.Add(quickInfo.Value);
-        if (parts.Count == 0) { CloseTip(); return; }
-        ToolTip.SetTip(TextEditor, string.Join(Environment.NewLine + Environment.NewLine, parts));
+        var panel = new StackPanel { Spacing = 8 };
+        if (_markerService is { } service)
+        {
+            foreach (var marker in service.Markers)
+                if (offset >= marker.StartOffset && offset < marker.EndOffset)
+                    panel.Children.Add(vm.DiagnosticContent(marker));
+        }
+        if (quickInfo is { Value.Length: > 0 })
+            panel.Children.Add(HoverContentView.Render(quickInfo, TextEditor, uri =>
+            {
+                if (uri.IsFile) vm.OpenHoverFile(uri);
+                else if (uri.Scheme is "http" or "https" && TopLevel.GetTopLevel(this) is { } top)
+                    _ = top.Launcher.LaunchUriAsync(uri);
+            }));
+        if (panel.Children.Count == 0) { CloseTip(); return; }
+        var richTip = new ToolTip { Content = panel };
+        richTip.PointerEntered += (_, _) => _hoverCts?.Cancel();
+        richTip.PointerExited += (_, _) => _ = CloseRichTipAfterExitAsync(richTip);
+        ToolTip.SetTip(TextEditor, richTip);
         ToolTip.SetIsOpen(TextEditor, true);
     }
 
@@ -1611,6 +1621,9 @@ public partial class CodeEditorView : UserControl
 
     private void OnTextEntering(object? sender, TextInputEventArgs e)
     {
+        if (e.Text is { Length: > 0 })
+            DismissHover();
+
         // Editing while the project is running/paused can't be hot-patched. Let the edit land (VB6 shows it), and
         // pop VB6's reset prompt — OK keeps the edit + resets the project, Cancel reverts it (see ShowResetPromptAsync).
         // Armed, not raised: whether the text lands is decided after this, by the read-only section provider.
@@ -1907,6 +1920,11 @@ public partial class CodeEditorView : UserControl
                     e.Handled = true;
                 }
             }
+        }
+        else if (e.Key == Key.F12 && e.KeyModifiers == KeyModifiers.Shift)
+        {
+            e.Handled = true;
+            FindReferences();
         }
         // F12 = go to definition
         else if (e.Key == Key.F12 && e.KeyModifiers == KeyModifiers.None)
@@ -2414,13 +2432,13 @@ public partial class CodeEditorView : UserControl
             {
                 if (token.IsCancellationRequested) return;
 
+                DismissHover();
+
                 // If a window is already open, close it first
                 _completionWindow?.Close();
 
                 _completionWindow = new CompletionWindow(TextEditor.TextArea);
-                var data = _completionWindow.CompletionList.CompletionData;
-                foreach (var item in items)
-                    data.Add(new VbCompletionData(item, vm.RefusesTyping));
+                FillCompletionList(_completionWindow, items, vm.RefusesTyping);
 
                 _completionWindow.Closed += (_, _) => _completionWindow = null;
                 _completionWindow.Show();
@@ -2431,6 +2449,38 @@ public partial class CodeEditorView : UserControl
         {
             Log.Debug("[completion] {ErrorMessage}", ex.Message);
         }
+    }
+
+    internal static void FillCompletionList(CompletionWindow window, CompletionItem[] items,
+        Func<int, int, bool> refusesTyping)
+    {
+        var area = window.TextArea;
+        var start = area.Caret.Offset;
+        while (start > 0 && (char.IsLetterOrDigit(area.Document.GetCharAt(start - 1))
+                            || area.Document.GetCharAt(start - 1) == '_'))
+            start--;
+        window.StartOffset = start;
+        var prefix = area.Document.GetText(start, area.Caret.Offset - start);
+        VbCompletionData? preselected = null;
+        foreach (var item in items.OrderBy(item => item.SortText ?? item.Label, StringComparer.Ordinal))
+        {
+            var data = new VbCompletionData(item, refusesTyping);
+            window.CompletionList.CompletionData.Add(data);
+            if (preselected is null && item.Preselect == true
+                && data.Text.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+                preselected = data;
+        }
+        window.CompletionList.SelectItem(prefix);
+        // A server replacement need not match the word at the caret. Keep it available to accept.
+        if (window.CompletionList.CurrentList.Count == 0)
+            window.CompletionList.SelectItem(string.Empty);
+        if (preselected is not null)
+            Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+            {
+                if (!window.IsOpen) return;
+                window.CompletionList.SelectedItem = preselected;
+                window.CompletionList.ScrollIntoView(preselected);
+            }, Avalonia.Threading.DispatcherPriority.Loaded);
     }
 
     // ── Signature help ───────────────────────────────────────────────────────
@@ -2488,6 +2538,7 @@ public partial class CodeEditorView : UserControl
                     return;
                 }
 
+                DismissHover();
                 _insightWindow?.Close();
                 var provider = new VbSignatureProvider(help);
                 _insightWindow = new OverloadInsightWindow(TextEditor.TextArea)
@@ -2558,6 +2609,13 @@ public partial class CodeEditorView : UserControl
     }
 
     // ── Go to definition (F12) and declaration (Ctrl+F12) ─────────────────────
+
+    public void FindReferences()
+    {
+        if (DataContext is CodeEditorViewModel vm)
+            vm.FindReferencesAsync(new Position(TextEditor.TextArea.Caret.Line - 1,
+                TextEditor.TextArea.Caret.Column - 1)).ListenErrors();
+    }
 
     public void GoToDefinition() => GoTo("definition", (vm, p) => vm.RequestDefinitionAsync(p));
 
@@ -2744,13 +2802,38 @@ public partial class CodeEditorView : UserControl
 /// </param>
 internal sealed class VbCompletionData(CompletionItem item, Func<int, int, bool> isReadOnlyRegion) : ICompletionData
 {
-    public string Text => item.Label;
-    public object Content => item.Label;
+    public string Text => item.FilterText ?? item.Label;
+    public object Content => KindGlyph is { } glyph
+        ? new StackPanel
+        {
+            Orientation = Avalonia.Layout.Orientation.Horizontal,
+            Spacing = 6,
+            Children = { new TextBlock { Text = glyph }, new TextBlock { Text = item.Label } }
+        }
+        : item.Label;
+
+    private string? KindGlyph => item.Kind switch
+    {
+        CompletionItemKind.Method or CompletionItemKind.Function or CompletionItemKind.Constructor
+            or CompletionItemKind.Operator => OBMemberViewModel.GlyphFor(OBMemberKind.Method),
+        CompletionItemKind.Field or CompletionItemKind.Variable or CompletionItemKind.Property
+            => OBMemberViewModel.GlyphFor(OBMemberKind.Property),
+        CompletionItemKind.Constant or CompletionItemKind.Value => OBMemberViewModel.GlyphFor(OBMemberKind.Constant),
+        CompletionItemKind.EnumMember => OBMemberViewModel.GlyphFor(OBMemberKind.EnumMember),
+        CompletionItemKind.Event => OBMemberViewModel.GlyphFor(OBMemberKind.Event),
+        CompletionItemKind.Module => OBClassViewModel.GlyphFor(OBClassKind.Module),
+        CompletionItemKind.Class or CompletionItemKind.Interface or CompletionItemKind.Struct
+            => OBClassViewModel.GlyphFor(OBClassKind.ClassModule),
+        CompletionItemKind.Enum => OBClassViewModel.GlyphFor(OBClassKind.Enum),
+        _ => null
+    };
 
     // What an item reads as to the automation surface, whose ListBoxItem holds this object rather than the text: an item
     // was named by its position alone, and selecting one by its text found none (#942 review).
-    public override string ToString() => Text;
-    public object? Description => item.Detail;
+    public override string ToString() => item.Label;
+    public object? Description => item.Documentation is { } documentation
+        ? string.IsNullOrEmpty(item.Detail) ? documentation.Value : item.Detail + "\n\n" + documentation.Value
+        : item.Detail;
     public double Priority => 0;
     public IImage? Image => null;
 

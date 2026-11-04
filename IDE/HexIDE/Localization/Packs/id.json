@@ -2,6 +2,9 @@
   "name": "Indonesian",
   "direction": "ltr",
   "strings": {
+    "Str.Tool.FindReferences.Title": "Cari referensi",
+    "Str.Tool.FindReferences.Empty": "Tidak ada referensi",
+    "Str.Tool.FindReferences.Error": "{0}: {1}",
     "Str.Debug.External.EndTimeout": "Adaptor debug {0} tidak merespons Akhiri dan dihentikan setelah menunggu {1} detik.",
     "Str.Debug.External.BreakpointConditionUnsupported": "Atur kondisi melalui Kondisi… pada menu margin titik henti. Berkas '{0}', entri breakpoint {1}.",
     "Str.Debug.External.BreakpointOptionUnsupported": "Opsi titik henti '{0}' belum didukung untuk sesi eksternal. Berkas '{1}', entri titik henti {2}. Atur kondisi melalui Kondisi… pada menu margin titik henti.",

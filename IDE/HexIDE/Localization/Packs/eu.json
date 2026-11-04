@@ -2,6 +2,9 @@
   "name": "Basque",
   "direction": "ltr",
   "strings": {
+    "Str.Tool.FindReferences.Title": "Bilatu erreferentziak",
+    "Str.Tool.FindReferences.Empty": "Ez dago erreferentziarik",
+    "Str.Tool.FindReferences.Error": "{0}: {1}",
     "Str.Debug.External.EndTimeout": "{0} arazketa-egokigailuak ez dio Amaitu aginduari erantzun eta {1} segundo itxaron ondoren gelditu da.",
     "Str.Debug.External.BreakpointConditionUnsupported": "Ezarri baldintzak eten-puntuen marjinako menuko Baldintza… aukerarekin. '{0}' fitxategia, {1}. eten-puntuaren sarrera.",
     "Str.Debug.External.BreakpointOptionUnsupported": "'{0}' eten-puntuaren aukera ez da oraindik onartzen kanpoko saioetan. '{1}' fitxategia, {2}. sarrera. Ezarri baldintzak eten-puntuen marjinako menuko Baldintza… aukerarekin.",

@@ -197,8 +197,10 @@ public sealed class VBLspClient : ILspClient
         string trace = LspTraceValue.Off,
         ConversationLog? capture = null, string? connectionId = null,
         ConversationRedactor? workspaceNames = null, Func<string>? locale = null, HexIDE.IDE.ISettingsService? settings = null,
-        TimeProvider? timeProvider = null)
+        TimeProvider? timeProvider = null,
+        Func<ShowDocumentParams, CancellationToken, Task<bool>>? showDocument = null)
     {
+        _showDocument = showDocument;
         _transport = transport;
         _logger = logger;
         _diagnosticLifecycle = new(logger);
@@ -214,6 +216,7 @@ public sealed class VBLspClient : ILspClient
         _timeProvider = timeProvider ?? TimeProvider.System;
     }
 
+    private readonly Func<ShowDocumentParams, CancellationToken, Task<bool>>? _showDocument;
     private readonly TimeProvider _timeProvider;
     private readonly Func<string> _locale;
     private readonly HexIDE.IDE.ISettingsService? _settings;
@@ -629,7 +632,7 @@ public sealed class VBLspClient : ILspClient
             Locale: _locale(),
             Capabilities: new ClientCapabilities(
                 new TextDocumentClientCapabilities(
-                    PublishDiagnostics: new PublishDiagnosticsClientCapabilities(),
+                    PublishDiagnostics: new PublishDiagnosticsClientCapabilities(true, new DiagnosticTagSupport([1, 2])),
                     Hover: new HoverClientCapabilities(ContentFormat: HoverContentRenderer.Formats.ToArray()),
                     // Claimed here so the server has something to answer. Declaring and gating are two
                     // halves of one negotiation: gate without declare and a conformant server withholds
@@ -652,8 +655,8 @@ public sealed class VBLspClient : ILspClient
                     DocumentSymbol: new DocumentSymbolClientCapabilities(HierarchicalDocumentSymbolSupport: true),
                     InlayHint: new InlayHintClientCapabilities(),
                     Completion: new CompletionClientCapabilities(new CompletionItemKindClientCapabilities(
-                        [CompletionItemKind.Text, CompletionItemKind.Function, CompletionItemKind.Variable,
-                         CompletionItemKind.Property, CompletionItemKind.Keyword, CompletionItemKind.Constant])),
+                        Enum.GetValues<CompletionItemKind>()),
+                        CompletionItem: new CompletionItemClientCapabilities(true, ["plaintext"])),
                     SemanticTokens: new SemanticTokensClientCapabilities(new(),
                         ["namespace", "type", "class", "enum", "interface", "struct", "typeParameter",
                          "parameter", "variable", "property", "enumMember", "event", "function", "method",
@@ -668,7 +671,7 @@ public sealed class VBLspClient : ILspClient
                     Diagnostics: new WorkspaceDiagnosticsClientCapabilities(),
                     FileOperations: new FileOperationsClientCapabilities()),
                 // The same declare-and-gate bargain as save and codeLens: silence otherwise is correct.
-                Window: new WindowClientCapabilities()));
+                Window: new WindowClientCapabilities(ShowDocument: new ShowDocumentClientCapabilities())));
 
         // Deliberately received as a raw JsonElement, and interpreted separately below.
         //
@@ -1375,7 +1378,10 @@ public sealed class VBLspClient : ILspClient
             : null;
 
         return new Diagnostic(range, message, severity, source, code,
-            href is null ? null : new CodeDescription(href));
+            href is null ? null : new CodeDescription(href),
+            element.TryGetProperty("tags", out var tags) ? DiagnosticTagsConverter.ReadItems(tags) : null,
+            element.TryGetProperty("relatedInformation", out var related)
+                ? DiagnosticRelatedInformationConverter.ReadItems(related) : null);
     }
 
     public async Task DidCreateFilesAsync(string[] uris, CancellationToken cancellationToken = default)
@@ -1691,6 +1697,14 @@ public sealed class VBLspClient : ILspClient
             WarnRequestFailedOnce("textDocument/signatureHelp", ex, cancellationToken);
             return null;
         }
+    }
+
+    public async Task<Location[]> RequestReferencesAsync(string uri, Position position, CancellationToken cancellationToken = default)
+    {
+        if (_rpc is null || !_initialized || !CanServe("referencesProvider")) return [];
+        var p = new ReferenceParams(new TextDocumentIdentifier(uri), position, new ReferenceContext(true));
+        return await InvokeRequestAsync<Location[]?>(_rpc,
+            "textDocument/references", p, cancellationToken, documentUri: uri) ?? [];
     }
 
     /// <summary>
@@ -2388,6 +2402,11 @@ public sealed class VBLspClient : ILspClient
             _client.ProgressReceived?.Invoke(_client, p);
         }
 
+        [JsonRpcMethod("window/showDocument", UseSingleObjectParameterDeserialization = true)]
+        public async Task<ShowDocumentResult> OnShowDocument(ShowDocumentParams p, CancellationToken cancellationToken) =>
+            new(!p.External && _client._showDocument is { } show
+                && await show(p, cancellationToken));
+
         /// <summary>
         /// The server asking for the user's attention. Logged <b>and</b> raised, because a message the user
         /// never sees is the bug, and a message with no trace afterwards is the next one.
@@ -2586,6 +2605,7 @@ public sealed class VBLspClient : ILspClient
         "semanticTokensProvider",
         "hoverProvider",
         "inlayHintProvider",
+        "referencesProvider",
         "renameProvider",
         "signatureHelpProvider",
         // Read by the sync readers rather than a gate, because its two shapes mean different things — and

@@ -55,6 +55,7 @@ public partial class DISetup
                 return new ProjectToolViewModel(projectManager, eventBus, projectService, editorService, localization, archives);
             })
             .Bind().As(Singleton).To<FormLayoutToolViewModel>()
+            .Bind().As(Singleton).To<FindReferencesToolViewModel>()
             .Bind().As(Singleton).To<ImmediateToolViewModel>()
             .Bind().As(Singleton).To<LocalsToolViewModel>()
             .Bind().As(Singleton).To<OutlineToolViewModel>()
@@ -247,9 +248,12 @@ public partial class DISetup
                     log.LogWarning("Language server configuration: {Message}", problem.Message);
 
                 ctx.Inject<ISettingsService>(out var settings);
+                ctx.Inject<Func<IEditorService>>(out var editors);
                 var registrations = new LanguageServerRegistrationFactory(loggerFactory, workspace, capture, providers,
                     new HexIDE.Redaction.ConversationRedactor(pseudonyms),
-                    () => localization.ResolvedLanguage, settings)
+                    () => localization.ResolvedLanguage, settings,
+                    (request, token) => Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(
+                        () => editors().ShowDocument(request), Avalonia.Threading.DispatcherPriority.Normal, token).GetTask())
                     .Create(configuration.Entries);
 
                 // Distinguishable from "servers fine, nothing to say" — the confusion #231 documents, and

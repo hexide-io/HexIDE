@@ -17,6 +17,9 @@ public sealed record DiagnosticRow(string Uri, string Server, Diagnostic Diagnos
     public string Document => DocumentName ?? FullPath.Replace('\\', '/').Split('/').Last();
     public int Line => Diagnostic.Range.Start.Line + 1;
     public string Message => Diagnostic.Message;
+    public double MessageOpacity => Diagnostic.Tags?.Contains(1) == true ? 0.5 : 1;
+    public Avalonia.Media.TextDecorationCollection? MessageDecorations => Diagnostic.Tags?.Contains(2) == true
+        ? Avalonia.Media.TextDecorations.Strikethrough : null;
     public DiagnosticSeverity Severity => Diagnostic.Severity ?? DiagnosticSeverity.Error;
 }
 
