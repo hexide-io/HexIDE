@@ -297,6 +297,14 @@ looking for one. The duration correlation was real but incidental: a run that fa
 constructors finishes sooner because it does less work. Diagnosed properly on 2026-09-06 by reading a CI
 log instead of the note.
 
+**When tests that wait for a command requery fail together, rule out a requery stuck on a replaced
+dispatcher (#2921, fixed).** `CommandManager` is per thread, and headless Avalonia replaces the dispatcher
+under it. A requery left pending on the old dispatcher never ran, and while it was pending no new one was
+queued, so every later requery was lost and `FormatSelectionTests`' nine predicate cases failed together.
+`RaiseRequerySuggested` now coalesces only with a requery pending on the current dispatcher.
+`TestApp.BuildAvaloniaApp` seeds a pending requery before headless starts, so a regression fails those
+nine cases at once.
+
 **An Integration run that ends hundreds short and still says `Passed!` lost those tests to xunit errors,
 which MTP does not count** ([#2486](https://github.com/hexide-io/HexIDE/issues/2486)). xunit records a
 test case that throws before its test starts as an error, not a failure, and its MTP adapter drops that
@@ -364,6 +372,11 @@ So, for any tool added here:
 - **Enumerate the vocabulary a reply uses.** A `kind` of `Unconsumed` means nothing to somebody who was
   never told the set. Where the reply renders an enum, put `[DescribesEnum(typeof(T))]` on the tool:
   `ToolDescriptionEnumTests` then fails the build if the description leaves a member out (#400).
+- **After editing a tool's or parameter's description, run every class that pins it**:
+  `cd IDE && dotnet test HexIDE.Tests/ -- --filter-trait "Category=ToolDescription"` (#2903). The pins sit
+  in classes whose names share no pattern, so a filter by class name misses some. `[ToolDescription]` marks
+  each one, the length cap's `ToolDescriptionLengthTests` included, and `ToolDescriptionMarkerTests` fails
+  when a class reads a tool's description without it.
 - **Explain anything that looks like a defect and is not.** Sequence gaps beside a field called
   `framesDropped` read as data loss.
 - **A reply that mutates reports the new state**, and reports it even when that state is empty.
@@ -810,6 +823,9 @@ it's a mitigation.**
   **An unknown licence is refused as firmly as a copyleft one.** `NOASSERTION` is not a mild finding: GPL
   terms are at least knowable, whereas an unresolved licence is unbounded and cannot be undone once shipped.
   The guard used to check only for GPL, which caught the last problem rather than the next one.
+  **The guard needs Python 3** for its source-notice check. It runs the first of `python3`, `python` and
+  `py -3` whose `--version` reports Python 3, which passes over the Windows Store's `python3` stub, and it
+  fails when none does. `scripts/check-licences.selftest.sh` tests that choice in CI's `guard-mit` job (#2897).
 - **Code travels OUT to licence-ambiguous neighbours, never back in.** Contributing to a project whose CLA
   permits relicensing is a decision the maintainer is free to make; importing from a repository whose licence
   no tool can resolve is irreversible and breaks a promise made to everyone downstream. So anything wanted in
