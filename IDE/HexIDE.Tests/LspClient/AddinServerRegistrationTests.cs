@@ -160,6 +160,50 @@ public class AddinServerRegistrationTests : IDisposable
     }
 
     [Fact]
+    public async Task AWorkspaceMoveCalledOffMidReopen_LeavesNoRequestWaitingOnAGatedServersDocuments()
+    {
+        const string first = "file:///c:/p/README.md";
+        var dir = "c:/p";
+        var workspace = Substitute.For<ILspWorkspace>();
+        workspace.Directory.Returns(_ => dir);
+        var (gatedFactory, gatedMade) = FakeClients();
+        var slowStarts = 0;
+        var slowStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var (slowFactory, _) = FakeClients();
+        // The gated server comes first, so the reopen has set it aside before the slow one's start is called off.
+        await using var router = new LspClientRegistry(
+        [
+            Markdown(gatedFactory, "gated") with { Priority = 10, BeforeLaunch = _ => Task.CompletedTask },
+            Markdown(() =>
+            {
+                var client = slowFactory();
+                // Its restart only: the one the move's reopen makes.
+                if (Interlocked.Increment(ref slowStarts) == 2)
+                    client.StartAsync(Arg.Any<CancellationToken>()).Returns(call =>
+                    {
+                        slowStarted.TrySetResult();
+                        return Task.Delay(Timeout.Infinite, call.Arg<CancellationToken>());
+                    });
+                return client;
+            }, "slow"),
+        ], _loggerFactory.CreateLogger<LspClientRegistry>(), workspace);
+        await router.OpenDocumentAsync(first, "# hi", Token);
+
+        dir = "c:/q";
+        using var calledOff = CancellationTokenSource.CreateLinkedTokenSource(Token);
+        var moving = router.WorkspaceChangedAsync(calledOff.Token);
+        await slowStarted.Task.WaitAsync(TimeSpan.FromSeconds(30), Token);
+        await calledOff.CancelAsync();
+        await FluentActions.Awaiting(() => moving).Should().ThrowAsync<OperationCanceledException>();
+
+        // The gated server starts again on another document, and a request about the first must not wait for a reopen
+        // that was never begun.
+        await router.OpenDocumentAsync("file:///c:/q/Other.md", "# again", Token);
+        gatedMade.Last().IsRunning.Should().BeTrue();
+        await router.RequestHoverAsync(first, new(0, 0), Token).WaitAsync(TimeSpan.FromSeconds(30), Token);
+    }
+
+    [Fact]
     public async Task AServerAddedWhileItsGateHoldsItsStart_StallsNoOtherDocumentsOpen()
     {
         // The workspace is what makes an open pass through the router's restart gate, which a replay must not hold.

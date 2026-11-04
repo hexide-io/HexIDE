@@ -1128,6 +1128,7 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
         Entry? only = null)
     {
         var gated = new HashSet<Entry>();
+        var reached = false;
         try
         {
             foreach (var (uri, known) in _open)
@@ -1154,16 +1155,18 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
                     ReleaseOpen(e, uri);
                 }
             }
+            reached = true;
         }
         finally
         {
             // What the restart held and this did not reach, because a start threw or was cancelled. A gated server's
-            // are released by its own reopen.
+            // are released by its own reopen, which begins only when this got to the end: otherwise nothing will reopen
+            // them, and theirs go too.
             foreach (var uri in _open.Keys)
             {
                 if (triggeringUri is not null && string.Equals(uri, triggeringUri, StringComparison.Ordinal)) continue;
                 foreach (var e in _entries)
-                    if ((only is null || e == only) && !gated.Contains(e)) ReleaseOpen(e, uri);
+                    if ((only is null || e == only) && !(reached && gated.Contains(e))) ReleaseOpen(e, uri);
             }
         }
 
