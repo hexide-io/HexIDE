@@ -1911,6 +1911,11 @@ public partial class CodeEditorView : UserControl
                 }
             }
         }
+        else if (e.Key == Key.F12 && e.KeyModifiers == KeyModifiers.Shift)
+        {
+            e.Handled = true;
+            FindReferences();
+        }
         // F12 = go to definition
         else if (e.Key == Key.F12 && e.KeyModifiers == KeyModifiers.None)
         {
@@ -2561,6 +2566,13 @@ public partial class CodeEditorView : UserControl
     }
 
     // ── Go to definition (F12) and declaration (Ctrl+F12) ─────────────────────
+
+    public void FindReferences()
+    {
+        if (DataContext is CodeEditorViewModel vm)
+            vm.FindReferencesAsync(new Position(TextEditor.TextArea.Caret.Line - 1,
+                TextEditor.TextArea.Caret.Column - 1)).ListenErrors();
+    }
 
     public void GoToDefinition() => GoTo("definition", (vm, p) => vm.RequestDefinitionAsync(p));
 

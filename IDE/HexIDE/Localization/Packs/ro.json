@@ -2,6 +2,9 @@
   "name": "Romanian",
   "direction": "ltr",
   "strings": {
+    "Str.Tool.FindReferences.Title": "Găsește referințe",
+    "Str.Tool.FindReferences.Empty": "Nicio referință",
+    "Str.Tool.FindReferences.Error": "{0}: {1}",
     "Str.Debug.External.EndTimeout": "Adaptorul de depanare {0} nu a răspuns la comanda de încheiere și a fost oprit după {1} secunde de așteptare.",
     "Str.Debug.External.BreakpointConditionUnsupported": "Definiți condiții prin Condiție… în meniul marginii punctelor de întrerupere. Fișierul '{0}', intrarea punctului de întrerupere {1}.",
     "Str.Debug.External.BreakpointOptionUnsupported": "Opțiunea punctului de întrerupere '{0}' nu este încă acceptată pentru sesiuni externe. Fișier '{1}', intrarea {2}. Definiți condiții prin Condiție… în meniul marginii punctelor de întrerupere.",

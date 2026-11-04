@@ -1696,6 +1696,14 @@ public sealed class VBLspClient : ILspClient
         }
     }
 
+    public async Task<Location[]> RequestReferencesAsync(string uri, Position position, CancellationToken cancellationToken = default)
+    {
+        if (_rpc is null || !_initialized || !CanServe("referencesProvider")) return [];
+        var p = new ReferenceParams(new TextDocumentIdentifier(uri), position, new ReferenceContext(true));
+        return await InvokeRequestAsync<Location[]?>(_rpc,
+            "textDocument/references", p, cancellationToken, documentUri: uri) ?? [];
+    }
+
     /// <summary>
     /// Where the symbol under the cursor is defined, in whichever of the protocol's three shapes the
     /// server answered in.
@@ -2594,6 +2602,7 @@ public sealed class VBLspClient : ILspClient
         "semanticTokensProvider",
         "hoverProvider",
         "inlayHintProvider",
+        "referencesProvider",
         "renameProvider",
         "signatureHelpProvider",
         // Read by the sync readers rather than a gate, because its two shapes mean different things — and

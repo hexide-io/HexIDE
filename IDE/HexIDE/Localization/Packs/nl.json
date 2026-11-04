@@ -2,6 +2,9 @@
   "name": "Dutch",
   "direction": "ltr",
   "strings": {
+    "Str.Tool.FindReferences.Title": "Verwijzingen zoeken",
+    "Str.Tool.FindReferences.Empty": "Geen verwijzingen",
+    "Str.Tool.FindReferences.Error": "{0}: {1}",
     "Str.Debug.External.EndTimeout": "Debugadapter {0} reageerde niet op Beëindigen en is na {1} seconden wachten gestopt.",
     "Str.Debug.External.BreakpointConditionUnsupported": "Stel voorwaarden in via Voorwaarde… in het menu van de onderbrekingspuntmarge. Bestand '{0}', onderbrekingspuntvermelding {1}.",
     "Str.Debug.External.BreakpointOptionUnsupported": "De onderbrekingspuntoptie '{0}' wordt nog niet ondersteund voor externe sessies. Bestand '{1}', onderbrekingspuntitem {2}. Stel voorwaarden in via Voorwaarde… in het menu van de onderbrekingspuntmarge.",

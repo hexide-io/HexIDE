@@ -2,6 +2,9 @@
   "name": "Russian",
   "direction": "ltr",
   "strings": {
+    "Str.Tool.FindReferences.Title": "Найти ссылки",
+    "Str.Tool.FindReferences.Empty": "Нет ссылок",
+    "Str.Tool.FindReferences.Error": "{0}: {1}",
     "Str.Debug.External.EndTimeout": "Адаптер отладки {0} не ответил на команду завершения и был остановлен после ожидания в течение {1} секунд.",
     "Str.Debug.External.BreakpointConditionUnsupported": "Задайте условия через «Условие…» в меню поля точек останова. Файл '{0}', запись точки останова {1}.",
     "Str.Debug.External.BreakpointOptionUnsupported": "Параметр точки останова '{0}' пока не поддерживается для внешних сеансов. Файл '{1}', запись точки останова {2}. Задайте условия через «Условие…» в меню поля точек останова.",

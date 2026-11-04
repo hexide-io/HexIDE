@@ -66,7 +66,7 @@ the production formatter and source-generated context to guard absence and prese
 |---|---|
 | Lifecycle | `initialize`, `initialized`, `shutdown`, `exit` |
 | Document sync | `textDocument/didOpen`, `didChange`, `didClose`, `didSave` |
-| Language requests | `hover`, `documentSymbol`, `foldingRange`, `completion`, `signatureHelp`, `definition`, `declaration`, `documentHighlight`, `rename`, `formatting`, `codeLens` |
+| Language requests | `hover`, `documentSymbol`, `foldingRange`, `completion`, `signatureHelp`, `definition`, `declaration`, `references`, `documentHighlight`, `rename`, `formatting`, `codeLens` |
 | Actions | `codeLens/resolve`, `workspace/executeCommand` — see *Commands and lenses* |
 | Custom | `vb/builtinSymbols` — see *Custom methods* |
 
@@ -1070,6 +1070,20 @@ driving the IDE by hand over `ws://` now needs a WebSocket server of your own.
 
 ---
 
+## Reference requests
+
+The reference-request contract (`RequestReferencesAsync`) sends `textDocument/references` with the
+caret position and `context.includeDeclaration: true`, gated on `referencesProvider` (true or options).
+The registry uses `GatherAsync` and record equality to deduplicate URI/range pairs. Null results become
+empty arrays. `FindReferencesAsync` preserves successful locations alongside per-server errors.
+Shift+F12, Edit → Find References and the code editor context menu open the results pane in the
+Immediate window's bottom group. Each search replaces the list, grouped by module in project order,
+with line numbers and the returned range emphasized. Enter or double-click navigates through
+`EditorService.NavigateTo`; empty answers and server errors appear as localized rows. Result rows
+expose their module, line number and line text as their accessible name.
+`FindReferencesToolViewModel.ShowLocations` fills the same pane without a request, for code-lens callers
+(#2906). Binding remains the server's responsibility.
+
 ## Commands and lenses
 
 `textDocument/codeLens` is how a server offers an action against a range — the protocol's affordance for
@@ -1166,7 +1180,7 @@ than inferred.
 | ✅ | `initialized` | → |  |
 | ✅ | `shutdown` | → |  |
 
-### `textDocument/*` — 19 of 41
+### `textDocument/*` — 20 of 41
 
 | | Method | Dir | Notes |
 |---|---|---|---|
@@ -1203,6 +1217,9 @@ than inferred.
 | ○ | `textDocument/rangesFormatting` | → |  |
 | ○ | `textDocument/references` | → | Needs a bound AST — a backend's job, see below |
 | ✅ | `textDocument/rename` | → | Atomic edits across loaded code members, with version checks and one undo step per member (#1024) |
+
+| ✅ | `textDocument/references` | → | Shift+F12 and menus; grouped results, navigation and per-server error rows; supplied locations reuse the pane (#2907) |
+| ✅ | `textDocument/rename` | → | Answers editing other documents are refused whole (#1024) |
 | ○ | `textDocument/selectionRange` | → |  |
 | ✅ | `textDocument/semanticTokens/full` | → | Full relative tokens, highest-priority full provider only; lexical colours remain outside token ranges (#2054) |
 | ○ | `textDocument/semanticTokens/full/delta` | → |  |
@@ -1379,8 +1396,9 @@ registry routes are ready.
 
 Three clusters account for nearly all of the gap:
 
-- **Features needing a bound AST** — references, code actions, call hierarchy
-  and their `*/resolve` companions. Not wired because nothing here would answer them; see *What the client
+- **Features needing a bound AST** — code actions, call hierarchy
+  and their `*/resolve` companions. Reference requests now have a client contract (#2907), with the UI
+  outstanding. The other methods are not wired because nothing here would answer them; see *What the client
   would consume* below. `workspace/symbol` used to sit in this list and no longer does: the client speaks it
   and the Object Browser surfaces it, so the missing half is a *server*, which is exactly the point of the
   seam.
@@ -1417,7 +1435,7 @@ awaiting effort, they are **server** features awaiting a server.
 
 | Feature | Method | Client support today |
 |---|---|---|
-| Find all references | `textDocument/references` | Not wired |
+| Find all references | `textDocument/references` | Shift+F12 and menus; grouped, navigable results and per-server errors (#2907) |
 | Code actions / quick fixes | `textDocument/codeAction` | Not wired |
 | Semantic tokens | `textDocument/semanticTokens/full` | **Wired** — full only; delta, range and refresh remain unwired (#2054) |
 | Parameter-name and inferred-type hints | `textDocument/inlayHint` | **Wired** — labels from any offering server; these binding-dependent hints remain outside the bundled server |

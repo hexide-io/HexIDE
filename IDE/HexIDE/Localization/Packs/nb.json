@@ -2,6 +2,9 @@
   "name": "Norwegian Bokmål",
   "direction": "ltr",
   "strings": {
+    "Str.Tool.FindReferences.Title": "Finn referanser",
+    "Str.Tool.FindReferences.Empty": "Ingen referanser",
+    "Str.Tool.FindReferences.Error": "{0}: {1}",
     "Str.Debug.External.EndTimeout": "Feilsøkingsadapteren {0} svarte ikke på Avslutt og ble stoppet etter {1} sekunders venting.",
     "Str.Debug.External.BreakpointConditionUnsupported": "Angi betingelser med Betingelse… i menyen i stoppunktmargen. Fil '{0}', stoppunktoppføring {1}.",
     "Str.Debug.External.BreakpointOptionUnsupported": "Stoppunktalternativet '{0}' støttes ikke for eksterne økter ennå. Fil '{1}', stoppunktoppføring {2}. Angi betingelser med Betingelse… i menyen i stoppunktmargen.",

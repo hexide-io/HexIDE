@@ -977,6 +977,14 @@ public sealed class HoverContentsConverter : JsonConverter<MarkupContent>
     }
 }
 
+public record ReferenceContext(
+    [property: JsonPropertyName("includeDeclaration")] bool IncludeDeclaration);
+
+public record ReferenceParams(
+    [property: JsonPropertyName("textDocument")] TextDocumentIdentifier TextDocument,
+    [property: JsonPropertyName("position")] Position Position,
+    [property: JsonPropertyName("context")] ReferenceContext Context);
+
 /// <summary>A location inside a resource, such as a line inside a text file.</summary>
 public record Location(
     [property: JsonPropertyName("uri")]   string Uri,

@@ -2,6 +2,9 @@
   "name": "Bulgarian",
   "direction": "ltr",
   "strings": {
+    "Str.Tool.FindReferences.Title": "Търсене на препратки",
+    "Str.Tool.FindReferences.Empty": "Няма препратки",
+    "Str.Tool.FindReferences.Error": "{0}: {1}",
     "Str.Debug.External.EndTimeout": "Адаптерът за отстраняване на грешки {0} не отговори на командата за край и бе спрян след изчакване от {1} секунди.",
     "Str.Debug.External.BreakpointConditionUnsupported": "Задайте условия чрез „Условие…“ в менюто на полето за точки на прекъсване. Файл '{0}', запис за точка на прекъсване {1}.",
     "Str.Debug.External.BreakpointOptionUnsupported": "Опцията за точка на прекъсване '{0}' все още не се поддържа за външни сесии. Файл '{1}', запис {2}. Задайте условия чрез „Условие…“ в менюто на полето за точки на прекъсване.",

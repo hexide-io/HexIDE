@@ -58,6 +58,7 @@ namespace HexIDE.Lsp;
 [JsonSerializable(typeof(SignatureHelp))]
 [JsonSerializable(typeof(SignatureInformation[]))]
 [JsonSerializable(typeof(ParameterInformation[]))]
+[JsonSerializable(typeof(ReferenceParams))]
 [JsonSerializable(typeof(Location[]))]
 [JsonSerializable(typeof(DocumentHighlight[]))]
 [JsonSerializable(typeof(RenameParams))]

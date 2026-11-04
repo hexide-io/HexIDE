@@ -2,6 +2,9 @@
   "name": "Turkish",
   "direction": "ltr",
   "strings": {
+    "Str.Tool.FindReferences.Title": "Başvuruları bul",
+    "Str.Tool.FindReferences.Empty": "Başvuru yok",
+    "Str.Tool.FindReferences.Error": "{0}: {1}",
     "Str.Debug.External.EndTimeout": "{0} hata ayıklama bağdaştırıcısı Sonlandır komutuna yanıt vermedi ve {1} saniye beklendikten sonra durduruldu.",
     "Str.Debug.External.BreakpointConditionUnsupported": "Koşulları kesme noktası kenar boşluğu menüsündeki Koşul… ile ayarlayın. Dosya '{0}', kesme noktası girdisi {1}.",
     "Str.Debug.External.BreakpointOptionUnsupported": "'{0}' kesme noktası seçeneği henüz harici oturumlarda desteklenmiyor. Dosya '{1}', kesme noktası girdisi {2}. Koşulları kesme noktası kenar boşluğu menüsündeki Koşul… ile ayarlayın.",

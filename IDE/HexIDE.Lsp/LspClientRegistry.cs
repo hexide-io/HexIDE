@@ -555,6 +555,27 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
         triggers.ValueKind == JsonValueKind.Array &&
         triggers.EnumerateArray().Any(t => t.ValueKind == JsonValueKind.String && t.GetString() == triggerCharacter);
 
+    public async Task<Location[]> RequestReferencesAsync(string uri, Position position, CancellationToken ct = default) =>
+        (await FindReferencesAsync(uri, position, ct)).Locations;
+
+    public async Task<ReferenceSearchResult> FindReferencesAsync(string uri, Position position, CancellationToken ct = default)
+    {
+        var answers = await GatherAsync(uri, async client =>
+        {
+            try
+            {
+                return new[] { new ReferenceSearchResult(await client.RequestReferencesAsync(uri, position, ct), []) };
+            }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
+            catch (Exception ex)
+            {
+                return new[] { new ReferenceSearchResult([], [new ReferenceSearchError(OwnerOf(client), ex.Message)]) };
+            }
+        }, ct);
+        return new ReferenceSearchResult(answers.SelectMany(a => a.Locations).Distinct().ToArray(),
+            answers.SelectMany(a => a.Errors).ToArray());
+    }
+
     public Task<Location[]?> RequestDefinitionAsync(string uri, Position position, CancellationToken ct = default) =>
         FirstAnswerAsync(uri, c => c.RequestDefinitionAsync(uri, position, ct), ct);
 
