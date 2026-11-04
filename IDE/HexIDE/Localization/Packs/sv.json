@@ -428,6 +428,8 @@
     "Str.CodeEditor.Context.GoToTypeDefinition": "Gå till typdefinition",
     "Str.CodeEditor.Context.GoToDeclaration": "Gå till dek_laration",
     "Str.CodeEditor.Context.Rename": "_Byt namn...",
+    "Str.CodeEditor.Context.ExpandSelection": "_Utöka markering",
+    "Str.CodeEditor.Context.ShrinkSelection": "_Minska markering",
     "Str.CodeEditor.Context.FormatDocument": "_Formatera dokument",
     "Str.CodeEditor.Context.FormatSelection": "_Formatera markering",
     "Str.Options.Shell.Buttons.ResetAll": "Återställ alla",

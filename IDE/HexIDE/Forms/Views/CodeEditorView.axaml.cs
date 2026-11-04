@@ -123,6 +123,9 @@ public partial class CodeEditorView : UserControl
 
     public CodeEditorView()
     {
+        ExpandSelection = new DelegateCommand(() => _ = ExpandSelectionAsync(), CanChangeSelection);
+        ShrinkSelection = new DelegateCommand(ShrinkSelectionCore, CanChangeSelection);
+
         // Through the view model, because a designer change reaches this window as a header write and a
         // header write is not an edit the developer made here (#273 task 3.8). TextEditor.Undo is still
         // what pops each entry -- it is AvaloniaEdit's own command route and does the caret and selection
@@ -198,6 +201,7 @@ public partial class CodeEditorView : UserControl
         TextEditor.TextChanged += OnTextChangedForFolding;
 
         TextEditor.TextArea.Caret.PositionChanged += OnCaretPositionChanged;
+        TextEditor.TextArea.SelectionChanged += (_, _) => ResetSelectionChain();
     }
 
     private void TextChanged(object? sender, EventArgs e)
@@ -232,6 +236,7 @@ public partial class CodeEditorView : UserControl
     protected override void OnDataContextChanged(EventArgs e)
     {
         base.OnDataContextChanged(e);
+        ResetSelectionChain();
         InstallReadOnlySections();
     }
 
@@ -756,6 +761,7 @@ public partial class CodeEditorView : UserControl
 
     private void OnCaretPositionChanged(object? sender, EventArgs e)
     {
+        ResetSelectionChain();
         if (DataContext is CodeEditorViewModel vm)
         {
             vm.CaretOffset = TextEditor.CaretOffset;
@@ -772,6 +778,7 @@ public partial class CodeEditorView : UserControl
 
     private void OnTextChangedForFolding(object? sender, EventArgs e)
     {
+        ResetSelectionChain();
         // Binding the document before attach is covered by the initial folding request on attach.
         if (_foldingManager is null || DataContext is not CodeEditorViewModel vm) return;
         // Not left to the debounced request below: a reload removes every fold, and the header would show
@@ -1196,6 +1203,9 @@ public partial class CodeEditorView : UserControl
     /// </remarks>
     private void OnLanguageServerStateChanged()
     {
+        ResetSelectionChain();
+        ExpandSelection.RaiseCanExecutedChanged();
+        ShrinkSelection.RaiseCanExecutedChanged();
         CommandManager.InvalidateRequerySuggested();
         _semanticVersion++;
         if (DataContext is CodeEditorViewModel vm)
@@ -1222,6 +1232,9 @@ public partial class CodeEditorView : UserControl
         try
         {
             await Task.Delay(500, token);
+            codeLenses?.Dispose();
+            codeLenses = new CodeLensDisplay(TextEditor, CodeLensLayer, vm.CreateCodeLensSession(),
+                command => vm.RunCodeLensAsync(command).ListenErrors());
             await Task.WhenAll(RequestFoldingsAsync(vm, token), RequestSemanticTokensAsync(vm, token));
         }
         catch (OperationCanceledException) { }
@@ -1234,7 +1247,7 @@ public partial class CodeEditorView : UserControl
         if (colorizer is null) return;
         try
         {
-            var result = await vm.RequestSemanticTokensAsync(token);
+            var result = await vm.Analysis.Tokens(token);
             await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
             {
                 if (token.IsCancellationRequested || version != _semanticVersion
@@ -1248,16 +1261,17 @@ public partial class CodeEditorView : UserControl
 
     private async Task RequestFoldingsAsync(CodeEditorViewModel vm, CancellationToken token)
     {
-        if (_foldingManager is null) return;
+        var manager = _foldingManager;
+        if (manager is null) return;
         _ = RequestInlayHintsAsync(vm, token);
         try
         {
-            var ranges = await vm.RequestFoldingRangesAsync(token);
+            var ranges = await vm.Analysis.Folds(token);
             if (token.IsCancellationRequested) return;
             var doc = TextEditor.Document;
             await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
             {
-                if (token.IsCancellationRequested || _foldingManager is null) return;
+                if (token.IsCancellationRequested || !ReferenceEquals(manager, _foldingManager)) return;
                 ApplyFolds(vm, Vb6FoldingAdapter.FromServer(doc, ranges));
                 _stickyScroll?.Refresh();
             });
@@ -1272,12 +1286,13 @@ public partial class CodeEditorView : UserControl
     private async Task RequestInlayHintsAsync(CodeEditorViewModel vm, CancellationToken token)
     {
         var revision = _inlayRevision;
+        var renderer = _inlayHintRenderer;
         try
         {
-            var hints = await vm.RequestInlayHintsAsync(token);
+            var hints = await vm.Analysis.Hints(token);
             await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
             {
-                if (token.IsCancellationRequested || revision != _inlayRevision || DataContext != vm) return;
+                if (token.IsCancellationRequested || revision != _inlayRevision || !ReferenceEquals(renderer, _inlayHintRenderer) || DataContext != vm) return;
                 _inlayHintRenderer?.SetHints(vm.Settings.ShowInlayHints ? hints : []);
             });
         }
@@ -2823,7 +2838,22 @@ public partial class CodeEditorView : UserControl
     {
         try
         {
-            var newName = await vm.ShowRenameInputBoxAsync(oldName);
+            await vm.FlushDocumentAsync();
+            var preparation = await vm.RequestPrepareRenameAsync(position);
+            if (preparation is { Allowed: false })
+            {
+                if (preparation.Refusal is { } reason) await vm.ShowRefusalAsync(reason);
+                return;
+            }
+            var promptText = oldName;
+            if (preparation?.Placeholder is { } placeholder) promptText = placeholder;
+            else if (preparation?.Range is { } range)
+            {
+                var start = vm.Document.GetOffset(range.Start.Line + 1, range.Start.Character + 1);
+                var end = vm.Document.GetOffset(range.End.Line + 1, range.End.Character + 1);
+                promptText = vm.Document.GetText(start, end - start);
+            }
+            var newName = await vm.ShowRenameInputBoxAsync(promptText);
             if (newName is null || newName == oldName) return;
             // Before the request, so no server is asked to write a name VB6 would refuse (#273 task 4.4). An empty
             // answer is refused with the rest rather than taken for Cancel, which answers null.

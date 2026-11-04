@@ -1056,7 +1056,11 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
             // Posted rather than raised inline: this arrives on whichever thread the connection is
             // running on, and every subscriber is a view.
             languageServerStateHandler = (_, _) =>
-                Avalonia.Threading.Dispatcher.UIThread.Post(() => LanguageServerStateChanged?.Invoke());
+                Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+                {
+                    analysis?.Invalidate();
+                    LanguageServerStateChanged?.Invoke();
+                });
             lspClient.StateChanged += languageServerStateHandler;
             AutoDispose(new ActionDisposable(() =>
             {
@@ -2089,7 +2093,21 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     public Task<SignatureHelp?> RequestSignatureHelpAsync(Position position, CancellationToken ct = default, string? triggerCharacter = null)
         => LiveDocumentUri is { } uri ? lspClient.RequestSignatureHelpAsync(uri, position, ct, triggerCharacter) : Task.FromResult<SignatureHelp?>(null);
 
-    internal CodeLensSession CreateCodeLensSession() => new(lspClient, GetDocumentUriPublic());
+    private CodeEditorAnalysis? analysis;
+    internal CodeEditorAnalysis Analysis
+    {
+        get
+        {
+            if (analysis is null)
+            {
+                analysis = new CodeEditorAnalysis(this, lspClient);
+                AutoDispose(analysis);
+            }
+            return analysis;
+        }
+    }
+
+    internal CodeLensSession CreateCodeLensSession() => Analysis.Lenses;
 
     internal async Task RunCodeLensAsync(Command command)
     {
@@ -2149,6 +2167,9 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     public Task<DocumentHighlight[]?> RequestDocumentHighlightAsync(Position position, CancellationToken ct = default)
         => LiveDocumentUri is { } uri ? lspClient.RequestDocumentHighlightAsync(uri, position, ct) : Task.FromResult<DocumentHighlight[]?>(null);
 
+    public Task<PrepareRenameResult?> RequestPrepareRenameAsync(Position position, CancellationToken ct = default)
+        => LiveDocumentUri is { } uri ? lspClient.RequestPrepareRenameAsync(uri, position, ct) : Task.FromResult<PrepareRenameResult?>(null);
+
     public Task<RenameResult?> RequestRenameAsync(Position position, string newName, CancellationToken ct = default)
         => LiveDocumentUri is { } uri ? lspClient.RequestRenameAsync(uri, position, newName, ct) : Task.FromResult<RenameResult?>(null);
 
@@ -2156,6 +2177,10 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
         => windowManager.InputBox(localization.GetString("Str.CodeEditor.Dialog.RenamePrompt"),
             localization.GetString("Str.CodeEditor.Dialog.RenameTitle"), defaultText);
 
+    public bool SupportsSelectionRanges => LiveDocumentUri is { } uri && lspClient.SupportsSelectionRanges(uri);
+
+    public Task<SelectionRange[]> RequestSelectionRangesAsync(Position[] positions) =>
+        LiveDocumentUri is { } uri ? lspClient.RequestSelectionRangesAsync(uri, positions) : Task.FromResult<SelectionRange[]>([]);
     public bool CanFormatSelection => !IsReadOnly && SelectionLength > 0 && LiveDocumentUri is { } uri
         && lspClient.SupportsRangeFormatting(uri);
 
