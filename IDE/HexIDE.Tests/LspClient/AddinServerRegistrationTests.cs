@@ -50,15 +50,24 @@ public class AddinServerRegistrationTests : IDisposable
             configured.ToHashSet(StringComparer.Ordinal),
             _loggerFactory.CreateLogger<LanguageServerContributions>());
 
-    /// <summary>The 43 characters a pipe name has on the macOS runner (<see cref="PipeNameLimit"/>), the least of any host.</summary>
-    internal const int ShortestPipeNameBudget = 43;
+    /// <summary>
+    /// A macOS runner's temp directory: a session's own folder under <c>/var/folders/</c>, 49 characters as the CI
+    /// runner's is. Its length is what decides a pipe name's budget there (<see cref="PipeNameLimit"/>): 43.
+    /// </summary>
+    private const string MacTempPath = "/var/folders/zz/zyxvpxvq6csfxvn_n0000000000000/T/";
 
     /// <summary>A pipe of a test's own, named to fit every host's budget.</summary>
     internal static string PipeName() => "hexide-addin-" + Guid.NewGuid().ToString("N")[..8];
 
     [Fact]
-    public void TheseTestsPipeNames_FitTheShortestBudgetOfAnyHost() =>
-        PipeName().Length.Should().BeLessThanOrEqualTo(ShortestPipeNameBudget, "on macOS a named pipe is a socket under a long temp path");
+    public void TheseTestsPipeNames_FitTheBudgetTheGuardAllowsOnMacOS_AndHere()
+    {
+        var name = PipeName();
+
+        name.Length.Should().BeLessThanOrEqualTo(PipeNameLimit.UnixMaxFor(MacTempPath),
+            "on macOS a named pipe is a socket under a long temp path, and the guard refuses a name past its budget");
+        PipeNameLimit.IsTooLong(name).Should().BeFalse();
+    }
 
     private static LanguageServerEntry PipeEntry(string id, string pipeName) => new()
     {
@@ -946,9 +955,15 @@ public class AddinServerRegistrationTests : IDisposable
             """).RootElement;
         await connection.RequestAsync("probe/echo", named, cancellationToken: Token);
 
-        var export = await ConversationExporter.ExportAsync(capture,
-            new HexIDE.Redaction.ConversationRedactor(new HexIDE.Redaction.Pseudonymiser(new Random(7)), pseudonymise: true), "probe");
+        Task<ConversationExport> Export(bool pseudonymise) => ConversationExporter.ExportAsync(capture,
+            new HexIDE.Redaction.ConversationRedactor(new HexIDE.Redaction.Pseudonymiser(new Random(7)), pseudonymise), "probe");
 
+        // The control: unredacted, the export holds the path in both directions, so its absence below is the redaction's.
+        var plain = await Export(pseudonymise: false);
+        plain.Messages.Split('\n').Count(line => line.Contains("quintana/InvoiceLedger/Module1.bas"))
+            .Should().Be(2, "the request names it, and the server's answer echoes it back");
+
+        var export = await Export(pseudonymise: true);
         export.Messages.Should().Contain("probe/echo", "the add-in's own messages are in the export");
         export.Messages.Should().NotContain("quintana").And.NotContain("InvoiceLedger").And.NotContain("Fixtures",
             "a file an add-in's message names is the user's, as one in textDocument/didOpen is");

@@ -50,9 +50,11 @@ public static class PipeNameLimit
     private const int WindowsPipeNameMax = 256 - 9;
 
     /// <summary>The longest pipe name that can work on this host.</summary>
-    public static int Max { get; } = OperatingSystem.IsWindows()
-        ? WindowsPipeNameMax
-        : Math.Max(1, UnixSocketPathMax - (Path.GetTempPath().Length + UnixPipePrefix.Length));
+    public static int Max { get; } = OperatingSystem.IsWindows() ? WindowsPipeNameMax : UnixMaxFor(Path.GetTempPath());
+
+    /// <summary>The longest pipe name that can work on a Unix host whose temp directory is <paramref name="tempPath"/>.</summary>
+    internal static int UnixMaxFor(string tempPath) =>
+        Math.Max(1, UnixSocketPathMax - (tempPath.Length + UnixPipePrefix.Length));
 
     /// <summary>True when <paramref name="pipeName"/> cannot be used on this host.</summary>
     public static bool IsTooLong(string? pipeName) => pipeName is not null && pipeName.Length > Max;
