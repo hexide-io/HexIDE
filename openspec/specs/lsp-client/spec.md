@@ -1744,3 +1744,14 @@ to the new widest label. Age seconds, minutes and hours SHALL use localized rang
 - **WHEN** the IDE language changes from English to Bulgarian and back while the card stays open
 - **THEN** status, stages and age SHALL follow the active language immediately
 - **AND** the label column SHALL return to its English width
+
+### Requirement: The complete server list is scrollable
+
+The Language & Debug Servers view SHALL allow all content, including configuration problems and
+the final restart note, to scroll fully into its viewport at 100% and 150% display scaling.
+
+#### Scenario: Configuration problems below a server card
+
+- **WHEN** a server card and configuration problems make the view taller than its viewport
+- **AND** the user scrolls to the end
+- **THEN** the entire restart note SHALL be inside the viewport
