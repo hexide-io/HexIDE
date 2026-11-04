@@ -72,6 +72,24 @@ public sealed class WorkspaceArtifactService : IWorkspaceArtifactService, IDispo
 
     public event Action<string>? RestartRequested;
 
+    public async Task ForgetAsync(LanguageServerRegistration server)
+    {
+        await _gate.WaitAsync();
+        try
+        {
+            if (_disposed || !IsActive(server)) return;
+            _active.Remove(server.Id);
+            _imports.Remove(server.Id);
+            _folderUpdates.Remove(server.Id);
+            _lastNote.Remove(server.Id);
+        }
+        finally { _gate.Release(); }
+    }
+
+    // Under _gate. By instance, not by id: a regeneration that began before a server was taken out holds the old one.
+    private bool IsActive(LanguageServerRegistration server) =>
+        _active.TryGetValue(server.Id, out var active) && ReferenceEquals(active, server);
+
     public Task PrepareAsync(LanguageServerRegistration server, CancellationToken cancellationToken) =>
         PrepareAsync(server, null, cancellationToken);
 
@@ -88,6 +106,8 @@ public sealed class WorkspaceArtifactService : IWorkspaceArtifactService, IDispo
         try
         {
             if (_disposed) return;
+            // A regeneration regenerates only the servers still here; a launch is what makes one active.
+            if (changed is not null && !IsActive(server)) return;
             _active[server.Id] = server;
             foreach (var project in _workspace.Projects)
             {
@@ -106,13 +126,18 @@ public sealed class WorkspaceArtifactService : IWorkspaceArtifactService, IDispo
         finally { _gate.Release(); }
     }
 
-    public async Task ImportAsync(LanguageServerRegistration server,
-        Func<WorkspaceArtifactContext, CancellationToken, Task> import, CancellationToken cancellationToken)
+    public Task ImportAsync(LanguageServerRegistration server,
+        Func<WorkspaceArtifactContext, CancellationToken, Task> import, CancellationToken cancellationToken) =>
+        ImportAsync(server, import, regenerating: false, cancellationToken);
+
+    private async Task ImportAsync(LanguageServerRegistration server,
+        Func<WorkspaceArtifactContext, CancellationToken, Task> import, bool regenerating, CancellationToken cancellationToken)
     {
         await _gate.WaitAsync(cancellationToken);
         try
         {
             if (_disposed) return;
+            if (regenerating && !IsActive(server)) return;
             _active[server.Id] = server;
             _imports[server.Id] = import;
             foreach (var project in _workspace.Projects) await import(project, cancellationToken);
@@ -362,7 +387,7 @@ public sealed class WorkspaceArtifactService : IWorkspaceArtifactService, IDispo
             {
                 if (folders is not null) await folders(token);
                 if (server.ProjectImport is not null && import is not null)
-                    await ImportAsync(server, import, token);
+                    await ImportAsync(server, import, regenerating: true, token);
                 else await PrepareAsync(server, changed, token);
             }
         }

@@ -10,6 +10,12 @@ public interface IWorkspaceArtifactService
     Task PrepareAsync(LanguageServerRegistration server, CancellationToken cancellationToken);
 
     /// <summary>
+    /// Forgets a server taken out while the IDE runs: its artefact is not regenerated, its project not imported and its
+    /// folders not tracked again. Only this registration: a later one under the same id is its own.
+    /// </summary>
+    Task ForgetAsync(LanguageServerRegistration server) => Task.CompletedTask;
+
+    /// <summary>
     /// A regeneration changed this server's artefact, and the server asked to be restarted for it
     /// (<see cref="WorkspaceArtifactSpec.RestartOnChange"/>). Raised with the server's id, once per regeneration, and
     /// never for the write before a launch, an identical regeneration or a refused write.

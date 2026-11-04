@@ -1529,6 +1529,10 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
             }
             ForgetContributionProblems(entry.Registration.Id);
 
+            // After the start has ended, which is what could make it active again: nothing is generated, imported or
+            // tracked for a server that is gone.
+            if (_artifacts is not null) await _artifacts.ForgetAsync(entry.Registration);
+
             entry.State = LanguageConnectionState.Stopped;
             entry.StateSince = DateTimeOffset.UtcNow;
         }

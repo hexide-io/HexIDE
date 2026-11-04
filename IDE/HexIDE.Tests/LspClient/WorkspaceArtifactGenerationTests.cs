@@ -350,6 +350,48 @@ public sealed class WorkspaceArtifactGenerationTests : IDisposable
         await other[0].DidNotReceive().StopAsync();
     }
 
+    [Fact]
+    public async Task AServerTakenOutGeneratesNothingMore_ThoughTheProjectChanges()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var clients = new List<ILspClient>();
+        await using var registry = new LspClientRegistry([], NullLogger<LspClientRegistry>.Instance, _workspace,
+            artifacts: _service);
+        var contribution = registry.Add(Server() with { CreateClient = () => Track(clients) });
+        await registry.OpenDocumentAsync(new Uri(Path.Combine(_root, "probe.c")).AbsoluteUri, "int x;", ct);
+        var target = Path.Combine(_root, "generated.json");
+        File.ReadAllText(target).Should().Be("first", "written before the server launched");
+
+        await contribution.DisposeAsync();
+        _provider.Content = "changed";
+        _workspace.Change();
+        await Debounce();
+
+        File.ReadAllText(target).Should().Be("first", "the server it was for is gone");
+    }
+
+    [Fact]
+    public async Task AServerTakenOutDuringARegeneration_IsNotRegeneratedByIt()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var first = Server("a.json") with { Id = "a" };
+        var second = Server("b.json") with { Id = "b" };
+        await _service.PrepareAsync(first, ct);
+        await _service.PrepareAsync(second, ct);
+        _provider.Content = "changed";
+
+        // Taken out while the pass writes the first server's file, after it has listed both: the forget waits for the
+        // pass's hold on the service and is next in line for it, ahead of the second server's write.
+        Task? forgotten = null;
+        _provider.OnProduce = () => { _provider.OnProduce = null; forgotten = _service.ForgetAsync(second); };
+        _workspace.Change();
+        await Debounce();
+        await forgotten!.WaitAsync(ct);
+
+        File.ReadAllText(Path.Combine(_root, "a.json")).Should().Be("changed");
+        File.ReadAllText(Path.Combine(_root, "b.json")).Should().Be("first", "the second server was gone before its turn");
+    }
+
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
@@ -744,9 +786,11 @@ public sealed class WorkspaceArtifactGenerationTests : IDisposable
         public string? Content { get; set; } = "first";
         public int Calls { get; private set; }
         public Exception? Failure { get; set; }
+        public Action? OnProduce { get; set; }
         public string? Produce(WorkspaceArtifactContext context)
         {
             Calls++;
+            OnProduce?.Invoke();
             if (Failure is not null) throw Failure;
             return Content is null || context.LibraryNames is not { } names ? Content
                 : Content + " " + names.NameOf(new WorkspaceProjectReference("library"));
