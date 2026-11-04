@@ -2,6 +2,9 @@
   "name": "Swedish",
   "direction": "ltr",
   "strings": {
+    "Str.Tool.FindReferences.Title": "Sök referenser",
+    "Str.Tool.FindReferences.Empty": "Inga referenser",
+    "Str.Tool.FindReferences.Error": "{0}: {1}",
     "Str.Debug.External.EndTimeout": "Felsökningsadaptern {0} svarade inte på Avsluta och stoppades efter {1} sekunders väntan.",
     "Str.Debug.External.BreakpointConditionUnsupported": "Ange villkor med Villkor… i brytpunktsmarginalens meny. Fil '{0}', brytpunktspost {1}.",
     "Str.Debug.External.BreakpointOptionUnsupported": "Brytpunktsalternativet '{0}' stöds ännu inte för externa sessioner. Fil '{1}', brytpunktspost {2}. Ange villkor med Villkor… i brytpunktsmarginalens meny.",

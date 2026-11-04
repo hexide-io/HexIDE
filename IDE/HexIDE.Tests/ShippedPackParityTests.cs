@@ -394,6 +394,7 @@ public class ShippedPackParityTests
         galician.Strings!.Where(pair => pair.Value == canonical.Strings![pair.Key])
             .Select(pair => pair.Key).Should().BeEquivalentTo(new[]
             {
+                "Str.Tool.FindReferences.Error",
                 "Str.CodeEditor.ViewAs.Vb6", "Str.Tool.Locals.Ellipsis",
                 "Str.Dialog.AddProcedure.Type.Sub", "Str.Dialog.MenuEditor.Visible",
                 "Str.Tool.ProtocolInspector.DetailHeader", "Str.StatusBar.Insert",

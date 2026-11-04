@@ -2,6 +2,9 @@
   "name": "Slovak",
   "direction": "ltr",
   "strings": {
+    "Str.Tool.FindReferences.Title": "Nájsť odkazy",
+    "Str.Tool.FindReferences.Empty": "Žiadne odkazy",
+    "Str.Tool.FindReferences.Error": "{0}: {1}",
     "Str.Debug.External.EndTimeout": "Ladiaci adaptér {0} neodpovedal na príkaz Ukončiť a bol zastavený po čakaní {1} sekúnd.",
     "Str.Debug.External.BreakpointConditionUnsupported": "Podmienky nastavte cez Podmienka… v ponuke okraja bodov prerušenia. Súbor '{0}', položka bodu prerušenia {1}.",
     "Str.Debug.External.BreakpointOptionUnsupported": "Možnosť bodu prerušenia '{0}' zatiaľ nie je podporovaná pre externé relácie. Súbor '{1}', položka {2}. Podmienky nastavte cez Podmienka… v ponuke okraja bodov prerušenia.",

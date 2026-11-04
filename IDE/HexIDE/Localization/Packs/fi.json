@@ -2,6 +2,9 @@
   "name": "Finnish",
   "direction": "ltr",
   "strings": {
+    "Str.Tool.FindReferences.Title": "Etsi viittaukset",
+    "Str.Tool.FindReferences.Empty": "Ei viittauksia",
+    "Str.Tool.FindReferences.Error": "{0}: {1}",
     "Str.Debug.External.EndTimeout": "Virheenkorjaussovitin {0} ei vastannut Lopeta-komentoon, ja se pysäytettiin {1} sekunnin odotuksen jälkeen.",
     "Str.Debug.External.BreakpointConditionUnsupported": "Aseta ehdot keskeytyskohtamarginaalin valikon Ehto…-komennolla. Tiedosto '{0}', keskeytyskohtamerkintä {1}.",
     "Str.Debug.External.BreakpointOptionUnsupported": "Keskeytyskohdan asetusta '{0}' ei vielä tueta ulkoisissa istunnoissa. Tiedosto '{1}', keskeytyskohtamerkintä {2}. Aseta ehdot keskeytyskohtamarginaalin valikon Ehto…-komennolla.",

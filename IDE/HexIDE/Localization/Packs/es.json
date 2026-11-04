@@ -2,6 +2,9 @@
   "name": "Spanish",
   "direction": "ltr",
   "strings": {
+    "Str.Tool.FindReferences.Title": "Buscar referencias",
+    "Str.Tool.FindReferences.Empty": "No hay referencias",
+    "Str.Tool.FindReferences.Error": "{0}: {1}",
     "Str.Debug.External.EndTimeout": "El adaptador de depuración {0} no respondió a Finalizar y se detuvo tras esperar {1} segundos.",
     "Str.Debug.External.BreakpointConditionUnsupported": "Defina condiciones con Condición… en el menú del margen de puntos de interrupción. Archivo '{0}', entrada de punto de interrupción {1}.",
     "Str.Debug.External.BreakpointOptionUnsupported": "La opción de punto de interrupción '{0}' aún no se admite en sesiones externas. Archivo '{1}', entrada {2}. Defina condiciones con Condición… en el menú del margen de puntos de interrupción.",

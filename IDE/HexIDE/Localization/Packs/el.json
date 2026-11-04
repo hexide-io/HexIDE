@@ -2,6 +2,9 @@
   "name": "Greek",
   "direction": "ltr",
   "strings": {
+    "Str.Tool.FindReferences.Title": "Εύρεση αναφορών",
+    "Str.Tool.FindReferences.Empty": "Δεν υπάρχουν αναφορές",
+    "Str.Tool.FindReferences.Error": "{0}: {1}",
     "Str.Debug.External.EndTimeout": "Ο προσαρμογέας αποσφαλμάτωσης {0} δεν ανταποκρίθηκε στον τερματισμό και διακόπηκε μετά από αναμονή {1} δευτερολέπτων.",
     "Str.Debug.External.BreakpointConditionUnsupported": "Ορίστε συνθήκες από το Συνθήκη… στο μενού περιθωρίου σημείων διακοπής. Αρχείο '{0}', καταχώριση σημείου διακοπής {1}.",
     "Str.Debug.External.BreakpointOptionUnsupported": "Η επιλογή σημείου διακοπής '{0}' δεν υποστηρίζεται ακόμη για εξωτερικές συνεδρίες. Αρχείο '{1}', καταχώριση {2}. Ορίστε συνθήκες από το Συνθήκη… στο μενού περιθωρίου σημείων διακοπής.",

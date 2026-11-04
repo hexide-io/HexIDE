@@ -2,6 +2,9 @@
   "name": "Slovenian",
   "direction": "ltr",
   "strings": {
+    "Str.Tool.FindReferences.Title": "Poišči sklice",
+    "Str.Tool.FindReferences.Empty": "Ni sklicev",
+    "Str.Tool.FindReferences.Error": "{0}: {1}",
     "Str.Debug.External.EndTimeout": "Razhroščevalni vmesnik {0} se ni odzval na ukaz za konec in je bil ustavljen po {1} sekundah čakanja.",
     "Str.Debug.External.BreakpointConditionUnsupported": "Pogoje nastavite z ukazom Pogoj… v meniju roba prekinitvenih točk. Datoteka '{0}', vnos prekinitvene točke {1}.",
     "Str.Debug.External.BreakpointOptionUnsupported": "Možnost prekinitvene točke '{0}' še ni podprta za zunanje seje. Datoteka '{1}', vnos {2}. Pogoje nastavite z ukazom Pogoj… v meniju roba prekinitvenih točk.",

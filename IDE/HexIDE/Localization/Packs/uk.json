@@ -2,6 +2,9 @@
   "name": "Ukrainian",
   "direction": "ltr",
   "strings": {
+    "Str.Tool.FindReferences.Title": "Знайти посилання",
+    "Str.Tool.FindReferences.Empty": "Немає посилань",
+    "Str.Tool.FindReferences.Error": "{0}: {1}",
     "Str.Debug.External.EndTimeout": "Адаптер налагодження {0} не відповів на команду завершення й був зупинений після очікування протягом {1} секунд.",
     "Str.Debug.External.BreakpointConditionUnsupported": "Задайте умови через «Умова…» в меню поля точок зупинки. Файл '{0}', запис точки зупину {1}.",
     "Str.Debug.External.BreakpointOptionUnsupported": "Параметр точки зупину '{0}' ще не підтримується для зовнішніх сеансів. Файл '{1}', запис точки зупину {2}. Задайте умови через «Умова…» в меню поля точок зупинки.",

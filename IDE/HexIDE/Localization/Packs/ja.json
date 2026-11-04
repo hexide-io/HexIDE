@@ -2,6 +2,9 @@
   "name": "Japanese",
   "direction": "ltr",
   "strings": {
+    "Str.Tool.FindReferences.Title": "参照の検索",
+    "Str.Tool.FindReferences.Empty": "参照がありません",
+    "Str.Tool.FindReferences.Error": "{0}: {1}",
     "Str.Debug.External.EndTimeout": "デバッグ アダプター {0} が終了コマンドに応答しなかったため、{1} 秒待機した後に停止しました。",
     "Str.Debug.External.BreakpointConditionUnsupported": "ブレークポイントの余白メニューの「条件…」で条件を設定してください。 ファイル '{0}'、ブレークポイント項目 {1}。",
     "Str.Debug.External.BreakpointOptionUnsupported": "ブレークポイントのオプション '{0}' は外部セッションではまだサポートされていません。ファイル '{1}'、ブレークポイント項目 {2}。 ブレークポイントの余白メニューの「条件…」で条件を設定してください。",

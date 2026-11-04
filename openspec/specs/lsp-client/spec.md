@@ -12,6 +12,45 @@ later without the editor noticing.
 
 ## Requirements
 
+### Requirement: Reference requests gather locations from offering servers
+The client SHALL expose `textDocument/references` at a document URI and position, sending
+`context.includeDeclaration: true` only to servers advertising `referencesProvider`. The registry
+SHALL gather answers and deduplicate URI/range pairs. Null answers SHALL become empty arrays;
+request failures SHALL be returned alongside successful locations, identified by server (#2907).
+
+#### Scenario: Two servers return overlapping references
+- **WHEN** two offering servers return the same declaration and different call locations
+- **THEN** the registry returns the declaration once and both call locations
+
+#### Scenario: References are not advertised
+- **WHEN** a server omits `referencesProvider` or advertises false
+- **THEN** the client sends no reference request to that server
+
+
+### Requirement: Find References presents navigable results
+The code editor SHALL offer Find References on Shift+F12, its context menu and the Edit menu,
+showing the shortcut. Results SHALL open at the bottom in the Immediate window's group.
+A new search SHALL replace the previous results; an older request completing later SHALL NOT overwrite it.
+The list SHALL group locations by module in project order, show one-based line numbers and line text,
+and highlight the supplied range. Enter on a focused result row or a double-click SHALL navigate through
+EditorService.NavigateTo. Each result row SHALL expose an automation name containing its module,
+one-based line number and line text, rather than the location record's string representation.
+An empty answer SHALL show a localized no-references row. A failed server SHALL have an error row while
+successful servers' locations remain visible. Callers SHALL be able to supply locations without a request.
+
+#### Scenario: A reference in another module
+- **WHEN** the user presses Shift+F12 and selects a result from a second module
+- **THEN** Enter opens that module at the returned position
+
+#### Scenario: A server fails while another succeeds
+- **WHEN** one server returns locations and another reports an error
+- **THEN** the list contains both the locations and the failed server's error
+
+#### Scenario: A caller already has the locations
+- **WHEN** a caller fills the list from supplied locations
+- **THEN** those locations replace the list and no references request is sent
+
+
 ### Requirement: Servers can request the editor tab size
 The client SHALL declare `workspace.configuration` support and SHALL answer `workspace/configuration`
 with one result per item in request order. Section `editor.tabSize` SHALL return the current editor

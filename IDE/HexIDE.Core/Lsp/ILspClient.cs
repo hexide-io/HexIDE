@@ -257,6 +257,13 @@ public interface ILspClient : IAsyncDisposable
     /// <summary>Sends textDocument/signatureHelp and returns signature information, or null.
     /// A typed trigger selects advertising servers in the registry; null means explicit invocation.</summary>
     Task<SignatureHelp?> RequestSignatureHelpAsync(string uri, Position position, CancellationToken cancellationToken = default, string? triggerCharacter = null);
+
+    /// <summary>Finds references, including the declaration, retaining per-server errors alongside locations.</summary>
+    async Task<ReferenceSearchResult> FindReferencesAsync(string uri, Position position, CancellationToken cancellationToken = default)
+        => new(await RequestReferencesAsync(uri, position, cancellationToken), []);
+
+    Task<Location[]> RequestReferencesAsync(string uri, Position position, CancellationToken cancellationToken = default);
+
     Task<Location[]?> RequestDefinitionAsync(string uri, Position position, CancellationToken cancellationToken = default);
 
     /// <summary>

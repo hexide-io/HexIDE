@@ -1134,9 +1134,24 @@ public partial class MainViewViewModel : ObservableObject
         HexIDE.Debugging.IBreakpointService breakpointService,
         HexIDE.Runtime.Debugging.IDebugController debugController,
         RecentEditsToolViewModel recentEdits,
+        FindReferencesToolViewModel? findReferences,
         HexIDE.Debugging.ExternalDebugService? externalDebugger = null,
         HexIDE.Recovery.IRecoveryOffers? recoveryOffers = null)
     {
+        if (findReferences is not null)
+        {
+            eventBus.Subscribe<FindReferencesEvent>(e => findReferences.SearchAsync(e.Uri, e.Position).ListenErrors());
+            findReferences.ShowRequested += () =>
+            {
+                if (FindDock<IDockable>(d => ReferenceEquals(d, findReferences)) is null)
+                {
+                    OpenImmediateTool();
+                    dockFactory.AddDockable((IToolDock)immediate.Owner!, findReferences);
+                }
+                ((IDock)findReferences.Owner!).ActiveDockable = findReferences;
+                dockFactory.SetFocusedDockable((IDock)findReferences.Owner!, findReferences);
+            };
+        }
         this.recoveryOffers = recoveryOffers;
         RecoverUnsavedWorkCommand = new DelegateCommand(
             () => (recoveryOffers?.ShowPendingAsync() ?? Task.CompletedTask).ListenErrors(),

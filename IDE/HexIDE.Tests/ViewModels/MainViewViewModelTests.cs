@@ -78,6 +78,21 @@ public class MainViewViewModelTests
             Substitute.For<IHeaderRefresher>());
     }
 
+    [AvaloniaFact]
+    public void GivenReferencesOpenInTheImmediateWindowGroup()
+    {
+        var references = new FindReferencesToolViewModel(Substitute.For<ILspClient>(),
+            Substitute.For<IEditorService>(), _projectManager,
+            Substitute.For<IDocumentDockService>(), _localization);
+        var shell = Build(_runnerService, references: references);
+        references.ShowLocations([]);
+        references.Owner.Should().NotBeNull();
+        references.Owner.Should().BeSameAs(shell.Immediate.Owner);
+        var group = (Dock.Model.Controls.IToolDock)references.Owner!;
+        group.Alignment.Should().Be(Dock.Model.Core.Alignment.Bottom);
+        group.ActiveDockable.Should().BeSameAs(references);
+    }
+
     [AvaloniaTheory]
     [InlineData(null)]
     [InlineData(ModuleKind.StandardModule)]
@@ -164,7 +179,8 @@ public class MainViewViewModelTests
     private MainViewViewModel Build(IProjectRunnerService runner, IDocumentDockService? dock = null,
         HexIDE.Debugging.IBreakpointService? breakpoints = null, IProjectService? projects = null,
         HexIDE.Recovery.IRecoveryOffers? recoveryOffers = null,
-        HexIDE.Debugging.ExternalDebugService? external = null, IEditorService? editor = null)
+        HexIDE.Debugging.ExternalDebugService? external = null, IEditorService? editor = null,
+        FindReferencesToolViewModel? references = null)
     {
         projects ??= _projectService;
         var mockDocDock = dock ?? Substitute.For<IDocumentDockService>();
@@ -264,7 +280,7 @@ public class MainViewViewModelTests
             breakpoints ?? Substitute.For<HexIDE.Debugging.IBreakpointService>(),
             _debugController,
             new RecentEditsToolViewModel(new RecentEditHistory(_eventBus), () => editorService, loc),
-            recoveryOffers: recoveryOffers, externalDebugger: external);
+            recoveryOffers: recoveryOffers, externalDebugger: external, findReferences: references);
     }
 
     [AvaloniaTheory]

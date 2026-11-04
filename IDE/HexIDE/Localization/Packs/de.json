@@ -2,6 +2,9 @@
   "name": "German",
   "direction": "ltr",
   "strings": {
+    "Str.Tool.FindReferences.Title": "Verweise suchen",
+    "Str.Tool.FindReferences.Empty": "Keine Verweise",
+    "Str.Tool.FindReferences.Error": "{0}: {1}",
     "Str.Debug.External.EndTimeout": "Der Debugadapter {0} hat auf Beenden nicht geantwortet und wurde nach {1} Sekunden Wartezeit gestoppt.",
     "Str.Debug.External.BreakpointConditionUnsupported": "Legen Sie Bedingungen über Bedingung… im Kontextmenü der Haltepunktleiste fest. Datei '{0}', Haltepunkteintrag {1}.",
     "Str.Debug.External.BreakpointOptionUnsupported": "Die Haltepunktoption '{0}' wird für externe Sitzungen noch nicht unterstützt. Datei '{1}', Haltepunkteintrag {2}. Legen Sie Bedingungen über Bedingung… im Kontextmenü der Haltepunktleiste fest.",

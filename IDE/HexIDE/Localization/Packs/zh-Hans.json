@@ -2,6 +2,9 @@
   "name": "Chinese (Simplified)",
   "direction": "ltr",
   "strings": {
+    "Str.Tool.FindReferences.Title": "查找引用",
+    "Str.Tool.FindReferences.Empty": "没有引用",
+    "Str.Tool.FindReferences.Error": "{0}: {1}",
     "Str.Debug.External.EndTimeout": "调试适配器 {0} 未响应结束命令，已在等待 {1} 秒后停止。",
     "Str.Debug.External.BreakpointConditionUnsupported": "请通过断点边栏菜单中的“条件…”设置条件。 文件 '{0}'，断点条目 {1}。",
     "Str.Debug.External.BreakpointOptionUnsupported": "外部会话尚不支持断点选项 '{0}'。文件 '{1}'，断点条目 {2}。 请通过断点边栏菜单中的“条件…”设置条件。",

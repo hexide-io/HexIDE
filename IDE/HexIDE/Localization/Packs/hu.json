@@ -2,6 +2,9 @@
   "name": "Hungarian",
   "direction": "ltr",
   "strings": {
+    "Str.Tool.FindReferences.Title": "Hivatkozások keresése",
+    "Str.Tool.FindReferences.Empty": "Nincsenek hivatkozások",
+    "Str.Tool.FindReferences.Error": "{0}: {1}",
     "Str.Debug.External.EndTimeout": "A(z) {0} hibakeresési adapter nem válaszolt a Befejezés parancsra, és {1} másodperc várakozás után leállt.",
     "Str.Debug.External.BreakpointConditionUnsupported": "A feltételeket a töréspontsáv menüjének Feltétel… elemével adhatja meg. Fájl: '{0}', töréspontbejegyzés: {1}.",
     "Str.Debug.External.BreakpointOptionUnsupported": "A(z) '{0}' töréspont-beállítás külső munkamenetekben még nem támogatott. Fájl: '{1}', töréspontbejegyzés: {2}. A feltételeket a töréspontsáv menüjének Feltétel… elemével adhatja meg.",

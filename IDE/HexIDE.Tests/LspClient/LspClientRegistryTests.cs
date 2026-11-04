@@ -59,6 +59,41 @@ public class LspClientRegistryTests
 
     private static LspRange Span(int line) => new(new Position(line, 0), new Position(line, 1));
 
+    [Fact]
+    public async Task ReferencesGatherAllServersAndDeduplicateLocations()
+    {
+        var first = FakeServer(capabilitiesJson: """{"referencesProvider":true}""");
+        var second = FakeServer(capabilitiesJson: """{"referencesProvider":{}}""");
+        var declaration = new Location(Vb6Doc, Span(1));
+        var call = new Location(Vb6Doc, Span(5));
+        first.RequestReferencesAsync(Vb6Doc, Arg.Any<Position>(), Arg.Any<CancellationToken>())
+            .Returns([declaration]);
+        second.RequestReferencesAsync(Vb6Doc, Arg.Any<Position>(), Arg.Any<CancellationToken>())
+            .Returns([new Location(Vb6Doc, Span(1)), call]);
+        ILspClient sut = Registry(Registration("first", first), Registration("second", second));
+        await sut.OpenDocumentAsync(Vb6Doc, "code", TestContext.Current.CancellationToken);
+
+        (await sut.RequestReferencesAsync(Vb6Doc, new Position(1, 0),
+            TestContext.Current.CancellationToken)).Should().Equal(declaration, call);
+    }
+
+    [Fact]
+    public async Task ReferencesKeepSuccessfulLocationsWhenAnotherServerFails()
+    {
+        var first = FakeServer(capabilitiesJson: """{"referencesProvider":true}""");
+        var second = FakeServer(capabilitiesJson: """{"referencesProvider":true}""");
+        var location = new Location(Vb6Doc, Span(2));
+        first.RequestReferencesAsync(Vb6Doc, Arg.Any<Position>(), Arg.Any<CancellationToken>()).Returns([location]);
+        second.RequestReferencesAsync(Vb6Doc, Arg.Any<Position>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromException<Location[]>(new InvalidOperationException("broken server")));
+        var sut = Registry(Registration("first", first), Registration("second", second));
+        await sut.OpenDocumentAsync(Vb6Doc, "code", TestContext.Current.CancellationToken);
+        var result = await sut.FindReferencesAsync(Vb6Doc, new Position(2, 0), TestContext.Current.CancellationToken);
+        result.Locations.Should().Equal(location);
+        result.Errors.Should().ContainSingle().Which.Message.Should().Be("broken server");
+        result.Errors[0].Server.Should().Be("second");
+    }
+
     [Theory]
     [InlineData("Create")]
     [InlineData("Rename")]
