@@ -1755,3 +1755,27 @@ the final restart note, to scroll fully into its viewport at 100% and 150% displ
 - **WHEN** a server card and configuration problems make the view taller than its viewport
 - **AND** the user scrolls to the end
 - **THEN** the entire restart note SHALL be inside the viewport
+
+### Requirement: Server-requested project document navigation
+
+The client SHALL declare `window.showDocument.support: true` and answer `window/showDocument`
+with `{ success }`. A URI naming a loaded member by the same rule as `EditorService.NavigateTo`
+SHALL open its code or carried-file editor, apply the supplied selection, and take focus only when
+`takeFocus` is true. External requests and URIs naming no loaded member SHALL answer `success: false`
+and SHALL open nothing. This is the project-member slice of #2908; external navigation remains deferred.
+
+#### Scenario: A server selects a range in a module
+
+- **WHEN** a server requests a loaded module with a selection and `takeFocus: true`
+- **THEN** its code window opens, receives focus, and selects the requested range
+- **AND** the response contains `success: true`
+
+#### Scenario: Navigation without taking focus
+
+- **WHEN** a loaded member is requested without `takeFocus: true`
+- **THEN** its editor opens and applies the selection without changing the focused document
+
+#### Scenario: External or unknown URI
+
+- **WHEN** a request has `external: true` or names no loaded member
+- **THEN** the response contains `success: false` and nothing opens

@@ -71,6 +71,33 @@ public class DockFactoryTests
         return (factory, immediate);
     }
 
+    [AvaloniaFact]
+    public void ServerNavigationCanOpenAndReuseATabWithoutTakingFocus()
+    {
+        var (factory, _) = CreateFactory();
+        factory.InitLayout(factory.CreateLayout());
+        using var service = new DocumentDockService(new DockFactoryReference { Value = factory },
+            Substitute.For<IEventBus>());
+        using var first = new HexIDE.Forms.ViewModels.RelatedDocumentEditorViewModel(
+            Substitute.For<ILspClient>(), Substitute.For<IWindowManager>(), Substitute.For<ILocalizationService>());
+        using var second = new HexIDE.Forms.ViewModels.RelatedDocumentEditorViewModel(
+            Substitute.For<ILspClient>(), Substitute.For<IWindowManager>(), Substitute.For<ILocalizationService>());
+        service.OpenDocument(first);
+        var focused = factory.DocumentDock!.FocusedDockable;
+
+        service.OpenDocument(second, takeFocus: false);
+        service.OpenDocuments.Should().Contain(second);
+        factory.DocumentDock.ActiveDockable.Should().BeSameAs(first);
+        factory.DocumentDock.FocusedDockable.Should().BeSameAs(focused);
+        service.TryActivate<HexIDE.Forms.ViewModels.RelatedDocumentEditorViewModel>(vm => vm == second, false)
+            .Should().BeTrue();
+        factory.DocumentDock.ActiveDockable.Should().BeSameAs(first);
+
+        service.TryActivate<HexIDE.Forms.ViewModels.RelatedDocumentEditorViewModel>(vm => vm == second, true)
+            .Should().BeTrue();
+        factory.DocumentDock.ActiveDockable.Should().BeSameAs(second);
+    }
+
     private static void LayoutWindow(Avalonia.Controls.Window window)
     {
         var context = System.Threading.ExecutionContext.Capture();

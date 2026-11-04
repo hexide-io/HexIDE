@@ -302,6 +302,9 @@ public partial class CodeEditorView : UserControl
                 }
             };
             vm.PropertyChanged += _vmSelectionSync;
+            // Navigation can place a selection before the dock creates this view.
+            if (vm.SelectionLength > 0)
+                _vmSelectionSync(vm, new PropertyChangedEventArgs(nameof(CodeEditorViewModel.SelectionLength)));
             _editorSelectionSync = (_, _) =>
             {
                 if (_syncingSelection) return;

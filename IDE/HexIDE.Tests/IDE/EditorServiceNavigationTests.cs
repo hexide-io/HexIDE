@@ -1,3 +1,7 @@
+using HexIDE.Bookmarks;
+using HexIDE.Debugging;
+using HexIDE.Events;
+using HexIDE.Sidecar;
 using HexIDE.Forms.ViewModels;
 using HexIDE.IDE;
 using HexIDE.Runtime.Components;
@@ -74,6 +78,40 @@ public class EditorServiceNavigationTests
             editor.CaretOffset.Should().Be(editor.Document.GetLineByNumber(2).Offset + 3);
         }
         finally { File.Delete(path); }
+    }
+
+    [AvaloniaTheory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void ShowDocumentSelectsTheModuleRangeWithTheRequestedFocus(bool takeFocus)
+    {
+        var project = ProjectWith(moduleName: "Module1");
+        var module = project.Modules.Single();
+        module.UpdateCode("Sub Example()\n    Debug.Print 1\nEnd Sub");
+        using var editor = new CodeEditorViewModel(
+            Substitute.For<IWindowManager>(), Substitute.For<IEditorService>(),
+            Substitute.For<IProjectService>(), Substitute.For<IEventBus>(), Substitute.For<HexIDE.Lsp.ILspClient>(),
+            Substitute.For<ISettingsService>(), Substitute.For<IStatusBarService>(),
+            Substitute.For<IBookmarkService>(), Substitute.For<IBreakpointService>(),
+            Substitute.For<HexIDE.Runtime.Debugging.IDebugController>(),
+            Substitute.For<IRunScope>(), Substitute.For<HexIDE.Localization.ILocalizationService>());
+        editor.Initialize(module);
+        _dock.TryActivate(Arg.Any<Func<CodeEditorViewModel, bool>>(), takeFocus).Returns(true);
+        _dock.OpenDocuments.Returns([editor]);
+        var line = editor.Document.Lines.First(l => editor.Document.GetText(l).Contains("Debug.Print"));
+        var range = new HexIDE.Lsp.Messages.Range(new(line.LineNumber - 1, 4), new(line.LineNumber - 1, 9));
+
+        Sut().ShowDocument(new("untitled:P/Module1.bas", TakeFocus: takeFocus, Selection: range)).Should().BeTrue();
+
+        editor.CaretOffset.Should().Be(line.Offset + 4);
+        editor.SelectionStart.Should().Be(line.Offset + 4);
+        editor.SelectionLength.Should().Be(5);
+        _dock.Received().TryActivate(Arg.Any<Func<CodeEditorViewModel, bool>>(), takeFocus);
+        _dock.ClearReceivedCalls();
+        Sut().ShowDocument(new("untitled:P/Module1.bas", External: true)).Should().BeFalse();
+        Sut().ShowDocument(new("untitled:P/Missing.bas")).Should().BeFalse();
+        _dock.DidNotReceive().TryActivate(Arg.Any<Func<CodeEditorViewModel, bool>>(), Arg.Any<bool>());
+        _dock.DidNotReceive().OpenDocument(Arg.Any<BaseEditorWindowViewModel>(), Arg.Any<bool>());
     }
 
     [Theory]

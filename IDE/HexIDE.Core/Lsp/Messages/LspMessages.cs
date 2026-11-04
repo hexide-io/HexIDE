@@ -1162,7 +1162,8 @@ public sealed record CancelNumericRequestParams([property: JsonPropertyName("id"
 public sealed record CancelStringRequestParams([property: JsonPropertyName("id")] string Id);
 
 public record WindowClientCapabilities(
-    [property: JsonPropertyName("workDoneProgress")] bool WorkDoneProgress = true);
+    [property: JsonPropertyName("workDoneProgress")] bool WorkDoneProgress = true,
+    [property: JsonPropertyName("showDocument")] ShowDocumentClientCapabilities? ShowDocument = null);
 
 public record WorkDoneProgressCreateParams(
     [property: JsonPropertyName("token")] JsonElement Token);
@@ -1230,3 +1231,13 @@ public record InlayHint(
                 part.TryGetProperty("value", out var value) ? value.GetString() : ""))
             : "";
 }
+
+public record ShowDocumentClientCapabilities([property: JsonPropertyName("support")] bool Support = true);
+
+public record ShowDocumentParams(
+    [property: JsonPropertyName("uri")] string Uri,
+    [property: JsonPropertyName("external")] bool External = false,
+    [property: JsonPropertyName("takeFocus")] bool TakeFocus = false,
+    [property: JsonPropertyName("selection")] Range? Selection = null);
+
+public record ShowDocumentResult([property: JsonPropertyName("success")] bool Success);

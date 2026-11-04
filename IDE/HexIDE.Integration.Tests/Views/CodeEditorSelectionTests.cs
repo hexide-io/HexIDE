@@ -90,6 +90,33 @@ public class CodeEditorSelectionTests : IDisposable
         return view;
     }
 
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void ServerSelectionPlacedBeforeTheViewAttachesIsShown(bool carried)
+    {
+        using BaseEditorWindowViewModel vm = carried
+            ? new RelatedDocumentEditorViewModel(_lspClient, Substitute.For<IWindowManager>(),
+                Substitute.For<ILocalizationService>())
+            : MakeViewModel().Initialize(AModule());
+        var searchable = (ISearchableDocument)vm;
+        searchable.Document.Text = "first line\nsecond line\n";
+        searchable.CaretOffset = 11;
+        searchable.SelectionStart = 11;
+        searchable.SelectionLength = 6;
+        UserControl view = carried ? new RelatedDocumentEditorView() : new CodeEditorView();
+        view.DataContext = vm;
+        var window = new Window { Width = 1200, Height = 800, Content = view };
+        _windows.Add(window);
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+
+        var editor = view.FindControl<TextEditor>("TextEditor")!;
+        editor.SelectionStart.Should().Be(11);
+        editor.SelectionLength.Should().Be(6);
+        editor.SelectedText.Should().Be("second");
+    }
+
     [AvaloniaFact]
     public void EditorSelectionKeepsViewModelAndAddinInStep()
     {

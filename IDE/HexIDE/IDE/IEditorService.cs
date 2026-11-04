@@ -35,4 +35,7 @@ public interface IEditorService
     /// </para>
     /// </remarks>
     bool NavigateTo(string uri, int line, int column);
+
+    /// <summary>Opens a loaded member with the server-requested range and focus; refuses external URIs.</summary>
+    bool ShowDocument(HexIDE.Lsp.Messages.ShowDocumentParams request);
 }
