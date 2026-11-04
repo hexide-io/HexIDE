@@ -262,7 +262,7 @@ public partial class DISetup
                         new LanguageServerConfigProblem(
                             null,
                             "No language servers are configured, so language features are unavailable.",
-                            false),
+                            false).WithDetails("NoServers"),
                     ];
                 }
 

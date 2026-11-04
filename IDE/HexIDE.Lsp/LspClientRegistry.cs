@@ -1302,7 +1302,9 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
                         lock (_entriesGate)
                         {
                             if (_entries.Contains(e))
-                                _importProblems[problemKey] = new(e.Registration.Id, $"Project import failed for {project.Project.Name}: {ex.Message}", false);
+                                _importProblems[problemKey] = new LanguageServerConfigProblem(e.Registration.Id,
+                                    $"Project import failed for {project.Project.Name}: {ex.Message}", false)
+                                    .WithDetails("ImportFailed", project.Project.Name, ex.Message);
                         }
                         _logger.LogWarning(ex, "Project import failed for {Server}.", e.Registration.Id);
                     }
