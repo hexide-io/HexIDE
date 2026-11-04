@@ -108,7 +108,10 @@ public sealed class LanguageServerContributions(
                 if (client is VBLspClient lsp)
                 {
                     if (claimed.Count > 0) lsp.Claim(claimed);
-                    if (afterStart is not null) lsp.Connected += (_, _) => _ = RunAfterStartAsync(afterStart, connection.Task, id);
+                    // On the pool, not after a yield: a yield returns to the context of the start, and a document opened
+                    // from the code window starts its server on the UI thread.
+                    if (afterStart is not null)
+                        lsp.Connected += (_, _) => _ = Task.Run(() => RunAfterStartAsync(afterStart, connection.Task, id));
                 }
                 return client;
             },
@@ -120,11 +123,10 @@ public sealed class LanguageServerContributions(
         return added;
     }
 
-    // Off the connecting thread, so a start never waits for an add-in.
+    // On the thread pool, so a start never waits for an add-in and the add-in never holds the UI thread.
     private async Task RunAfterStartAsync(
         Func<IAddinServerConnection, CancellationToken, Task> afterStart, Task<AddinServerConnection> connection, string id)
     {
-        await Task.Yield();
         try
         {
             var added = await connection;

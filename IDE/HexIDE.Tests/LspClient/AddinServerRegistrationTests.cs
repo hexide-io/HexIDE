@@ -706,6 +706,77 @@ public class AddinServerRegistrationTests : IDisposable
         (await waiting.WaitAsync(TimeSpan.FromSeconds(30), Token))!.Value.GetProperty("held").GetBoolean().Should().BeTrue();
     }
 
+    // The UI thread's stand-in: one thread, running in turn what is posted to it, as a dispatcher does.
+    private sealed class OneThreadContext : SynchronizationContext, IDisposable
+    {
+        private readonly System.Collections.Concurrent.BlockingCollection<(SendOrPostCallback Callback, object? State)> _queue = new();
+        private readonly Thread _thread;
+
+        public OneThreadContext()
+        {
+            _thread = new Thread(() =>
+            {
+                SetSynchronizationContext(this);
+                foreach (var (callback, state) in _queue.GetConsumingEnumerable()) callback(state);
+            }) { IsBackground = true, Name = "test dispatcher" };
+            _thread.Start();
+        }
+
+        public int ThreadId => _thread.ManagedThreadId;
+
+        public override void Post(SendOrPostCallback d, object? state)
+        {
+            if (_queue.IsAddingCompleted) return;
+            _queue.Add((d, state));
+        }
+
+        public Task Run(Func<Task> work)
+        {
+            var done = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            Post(async _ =>
+            {
+                try
+                {
+                    await work();
+                    done.SetResult();
+                }
+                catch (Exception ex)
+                {
+                    done.SetException(ex);
+                }
+            }, null);
+            return done.Task;
+        }
+
+        public void Dispose() => _queue.CompleteAdding();
+    }
+
+    [Fact]
+    public async Task WhatRunsAfterAStart_RunsOnThePool_NotOnTheThreadThatOpenedTheDocument()
+    {
+        var pipeName = PipeName();
+        await using var pipe = new ProbePipe(pipeName, () => new ProbeServer());
+        var (contributions, router) = WiredContributions();
+        using var ui = new OneThreadContext();
+        var ran = new TaskCompletionSource<(int Thread, SynchronizationContext? Context)>(TaskCreationOptions.RunContinuationsAsynchronously);
+        await using var connection = contributions.Register(new AddinLanguageServer(PipeEntry("probe", pipeName))
+        {
+            MessagePrefix = "probe/",
+            AfterStart = (_, _) =>
+            {
+                ran.TrySetResult((Environment.CurrentManagedThreadId, SynchronizationContext.Current));
+                return Task.CompletedTask;
+            },
+        }, "My Add-in");
+
+        // The code window opens its documents on the UI thread, and the start's awaits keep to it.
+        await ui.Run(() => router.OpenDocumentAsync("file:///c:/p/README.md", "# hi", Token)).WaitAsync(TimeSpan.FromSeconds(30), Token);
+        var (thread, context) = await ran.Task.WaitAsync(TimeSpan.FromSeconds(30), Token);
+
+        thread.Should().NotBe(ui.ThreadId, "an add-in's work after a start must never hold the editor");
+        context.Should().BeNull("it runs on the thread pool, which has no context to come back to");
+    }
+
     [Fact]
     public async Task WhatRunsAfterAStart_RunsAfterEachOne_ARestartIncluded_OverTheConnection()
     {
