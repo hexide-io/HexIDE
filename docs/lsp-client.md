@@ -1258,9 +1258,7 @@ specification's own [`metaModel.json`](https://raw.githubusercontent.com/microso
 the canonical machine-readable list, so the method names and directions are the specification's rather than
 this document's recollection of them.
 
-**HexIDE implements 46 of the 93.** That is not a deficiency in itself — no client implements them all, and
-
-**HexIDE implements 45 of the 93.** That is not a deficiency in itself — no client implements them all, and
+**HexIDE implements 49 of the 93.** That is not a deficiency in itself — no client implements them all, and
 most of the remainder are features no VB6 IDE needs. It is here so the shape of the gap is visible rather
 than inferred.
 
@@ -1282,9 +1280,7 @@ than inferred.
 | ✅ | `initialized` | → |  |
 | ✅ | `shutdown` | → |  |
 
-### `textDocument/*` — 25 of 41
-
-### `textDocument/*` — 22 of 41
+### `textDocument/*` — 26 of 41
 
 | | Method | Dir | Notes |
 |---|---|---|---|
@@ -1313,11 +1309,8 @@ than inferred.
 | ○ | `textDocument/linkedEditingRange` | → |  |
 | ○ | `textDocument/moniker` | → |  |
 | ○ | `textDocument/onTypeFormatting` | → |  |
-| ○ | `textDocument/prepareCallHierarchy` | → | Needs a bound AST — a backend's job, see below |
-| ✅ | `textDocument/prepareRename` | → | Asks every claimant advertising prepareProvider before the prompt; range/placeholder seeds it, null/error refuses it (#3073) |
-
 | ✅ | `textDocument/prepareCallHierarchy` | → | Shows the server's call hierarchy; computes none |
-| ○ | `textDocument/prepareRename` | → | No server is asked before the prompt; the code window itself refuses a protected line or a declared name |
+| ✅ | `textDocument/prepareRename` | → | Asks every claimant advertising prepareProvider before the prompt; range/placeholder seeds it, null/error refuses it (#3073) |
 | ○ | `textDocument/prepareTypeHierarchy` | → |  |
 | ✅ | `textDocument/publishDiagnostics` | ← |  |
 | ✅ | `textDocument/rangeFormatting` | → |  |
