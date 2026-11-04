@@ -527,6 +527,46 @@ public class HoverThroughWindowInputTests
     }
 
     [AvaloniaTheory]
+    [InlineData("typing")]
+    [InlineData("completion")]
+    [InlineData("signature")]
+    public async Task Editing_popups_dismiss_an_open_markdown_hover(string action)
+    {
+        var (window, editor, vm) = ShowEditor();
+        vm.Settings.AutoListMembers.Returns(action == "completion");
+        lsp.RequestHoverAsync(Arg.Any<string>(), Arg.Any<Position>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<HoverResult?>(new HoverResult(new MarkupContent("markdown", "**Foo**"))));
+        lsp.RequestCompletionAsync(Arg.Any<string>(), Arg.Any<Position>(), Arg.Any<CancellationToken>())
+            .Returns(new[] { new CompletionItem("Foo", CompletionItemKind.Function) });
+        lsp.RequestSignatureHelpAsync(Arg.Any<string>(), Arg.Any<Position>(), Arg.Any<CancellationToken>(), Arg.Any<string?>())
+            .Returns((SignatureHelp?)new SignatureHelp([new SignatureInformation("Foo(value)", null,
+                [new ParameterInformation("value")])], 0, 0));
+        try
+        {
+            editor.Focus();
+            UiAutomationDriver.Hover(editor, null, null, null, out _).Success.Should().BeTrue();
+            await WaitForTip(editor);
+            ToolTip.GetIsOpen(editor).Should().BeTrue();
+            if (action == "typing")
+            {
+                (await UiAutomationDriver.TypeKeysAsync(editor, "x")).Success.Should().BeTrue();
+                editor.Text.Should().Contain("Mxid");
+            }
+            else
+            {
+                var view = (CodeEditorView)window.Content!;
+                if (action == "completion") view.TriggerCompletion();
+                else view.TriggerSignatureHelp();
+                if (CodeEditorView.PendingPopupsOf(editor) is { } pending) await pending;
+                CodeEditorView.OpenPopupsOf(editor).Should().ContainSingle();
+            }
+            ToolTip.GetIsOpen(editor).Should().BeFalse();
+            ToolTip.GetTip(editor).Should().BeNull();
+        }
+        finally { window.Close(); vm.Dispose(); }
+    }
+
+    [AvaloniaTheory]
     [InlineData(true)]
     [InlineData(false)]
     public void Hover_file_links_open_only_documents_the_project_holds(bool loaded)
