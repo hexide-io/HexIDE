@@ -197,8 +197,10 @@ public sealed class VBLspClient : ILspClient
         string trace = LspTraceValue.Off,
         ConversationLog? capture = null, string? connectionId = null,
         ConversationRedactor? workspaceNames = null, Func<string>? locale = null, HexIDE.IDE.ISettingsService? settings = null,
-        TimeProvider? timeProvider = null)
+        TimeProvider? timeProvider = null,
+        Func<ShowDocumentParams, CancellationToken, Task<bool>>? showDocument = null)
     {
+        _showDocument = showDocument;
         _transport = transport;
         _logger = logger;
         _diagnosticLifecycle = new(logger);
@@ -214,6 +216,7 @@ public sealed class VBLspClient : ILspClient
         _timeProvider = timeProvider ?? TimeProvider.System;
     }
 
+    private readonly Func<ShowDocumentParams, CancellationToken, Task<bool>>? _showDocument;
     private readonly TimeProvider _timeProvider;
     private readonly Func<string> _locale;
     private readonly HexIDE.IDE.ISettingsService? _settings;
@@ -668,7 +671,7 @@ public sealed class VBLspClient : ILspClient
                     Diagnostics: new WorkspaceDiagnosticsClientCapabilities(),
                     FileOperations: new FileOperationsClientCapabilities()),
                 // The same declare-and-gate bargain as save and codeLens: silence otherwise is correct.
-                Window: new WindowClientCapabilities()));
+                Window: new WindowClientCapabilities(ShowDocument: new ShowDocumentClientCapabilities())));
 
         // Deliberately received as a raw JsonElement, and interpreted separately below.
         //
@@ -2387,6 +2390,11 @@ public sealed class VBLspClient : ILspClient
             }
             _client.ProgressReceived?.Invoke(_client, p);
         }
+
+        [JsonRpcMethod("window/showDocument", UseSingleObjectParameterDeserialization = true)]
+        public async Task<ShowDocumentResult> OnShowDocument(ShowDocumentParams p, CancellationToken cancellationToken) =>
+            new(!p.External && _client._showDocument is { } show
+                && await show(p, cancellationToken));
 
         /// <summary>
         /// The server asking for the user's attention. Logged <b>and</b> raised, because a message the user

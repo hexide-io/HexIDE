@@ -2,6 +2,7 @@ using System;
 using System.Linq;
 using HexIDE.Forms.ViewModels;
 using HexIDE.Lsp;
+using HexIDE.Lsp.Messages;
 using HexIDE.Runtime.ProjectElements;
 using HexIDE.VisualDesigner;
 using Serilog;
@@ -89,7 +90,43 @@ public class EditorService : IEditorService
     }
 
     /// <inheritdoc />
-    public bool NavigateTo(string uri, int line, int column)
+    public bool NavigateTo(string uri, int line, int column) => NavigateTo(uri, line, column, true);
+
+    public bool ShowDocument(ShowDocumentParams request)
+    {
+        if (request.External) return false;
+        var start = request.Selection?.Start;
+        if (!NavigateTo(request.Uri, (start?.Line ?? 0) + 1, (start?.Character ?? 0) + 1, request.TakeFocus))
+            return false;
+        if (request.Selection is not { } range) return true;
+        foreach (var open in documentDockService.OpenDocuments)
+        {
+            var matches = open switch
+            {
+                CodeEditorViewModel code => code.OpenDocument is { } identity
+                    && Names(request.Uri, identity, identity.AbsolutePath),
+                RelatedDocumentEditorViewModel related => related.RelatedDocument is { } document
+                    && Names(request.Uri, null, document.AbsolutePath),
+                _ => false
+            };
+            if (!matches || open is not ISearchableDocument editor) continue;
+            int Offset(Position position)
+            {
+                var line = editor.Document.GetLineByNumber(Math.Clamp(position.Line, 0, editor.Document.LineCount - 1) + 1);
+                return line.Offset + Math.Clamp(position.Character, 0, line.Length);
+            }
+            var from = Offset(range.Start);
+            var to = Math.Max(from, Offset(range.End));
+            editor.SelectionLength = 0;
+            editor.CaretOffset = from;
+            editor.SelectionStart = from;
+            editor.SelectionLength = to - from;
+            break;
+        }
+        return true;
+    }
+
+    private bool NavigateTo(string uri, int line, int column, bool takeFocus)
     {
         if (string.IsNullOrWhiteSpace(uri)) return false;
 
@@ -100,7 +137,7 @@ public class EditorService : IEditorService
             foreach (var module in project.Modules)
             {
                 if (!Names(uri, DocumentIdentity.For(module), module.AbsolutePath)) continue;
-                EditCode(module);
+                EditCode(module, takeFocus);
                 PlaceCaret(vm => vm.ModuleDefinition == module, line, column);
                 return true;
             }
@@ -108,7 +145,7 @@ public class EditorService : IEditorService
             foreach (var form in project.Forms)
             {
                 if (!Names(uri, DocumentIdentity.For(form), form.AbsolutePath)) continue;
-                EditCode(form);
+                EditCode(form, takeFocus);
                 // EditCode(form) redirects a UserControl or PropertyPage to its module, so the editor that
                 // opened may be keyed on the module rather than the form. Accept either.
                 PlaceCaret(
@@ -119,7 +156,7 @@ public class EditorService : IEditorService
             foreach (var carried in project.RelatedDocuments)
             {
                 if (!Names(uri, null, carried.AbsolutePath)) continue;
-                EditRelatedDocument(carried);
+                EditRelatedDocument(carried, takeFocus);
                 foreach (var open in documentDockService.OpenDocuments)
                 {
                     if (open is not RelatedDocumentEditorViewModel editor || editor.RelatedDocument != carried) continue;
@@ -210,15 +247,17 @@ public class EditorService : IEditorService
     /// a VB6 language server and a faithfulness gate. None of those describe a text file.
     /// </para>
     /// </summary>
-    public void EditRelatedDocument(RelatedDocumentDefinition? relatedDocument)
+    public void EditRelatedDocument(RelatedDocumentDefinition? relatedDocument) => EditRelatedDocument(relatedDocument, true);
+
+    private void EditRelatedDocument(RelatedDocumentDefinition? relatedDocument, bool takeFocus)
     {
         if (relatedDocument == null) return;
 
         Log.Debug("EditorService: EditRelatedDocument({Name})", relatedDocument.Name);
-        if (documentDockService.TryActivate<RelatedDocumentEditorViewModel>(vm => vm.RelatedDocument == relatedDocument))
+        if (documentDockService.TryActivate<RelatedDocumentEditorViewModel>(vm => vm.RelatedDocument == relatedDocument, takeFocus))
             return;
 
-        documentDockService.OpenDocument(relatedDocumentEditorViewModelFactory().Initialize(relatedDocument));
+        documentDockService.OpenDocument(relatedDocumentEditorViewModelFactory().Initialize(relatedDocument), takeFocus);
     }
 
     /// <summary>
@@ -239,7 +278,9 @@ public class EditorService : IEditorService
         documentDockService.OpenDocument(projectDocumentViewModelFactory().Initialize(project));
     }
 
-    public void EditCode(FormDefinition? form)
+    public void EditCode(FormDefinition? form) => EditCode(form, true);
+
+    private void EditCode(FormDefinition? form, bool takeFocus)
     {
         if (form == null) return;
 
@@ -256,30 +297,32 @@ public class EditorService : IEditorService
         {
             if (module.FormPart != form) continue;
             Log.Debug("EditorService: EditCode(form={FormName}) — routing to its module", form.Name);
-            EditCode(module);
+            EditCode(module, takeFocus);
             return;
         }
 
         Log.Debug("EditorService: EditCode(form={FormName})", form.Name);
-        if (documentDockService.TryActivate<CodeEditorViewModel>(vm => vm.FormDefinition == form))
+        if (documentDockService.TryActivate<CodeEditorViewModel>(vm => vm.FormDefinition == form, takeFocus))
         {
             Log.Debug("EditorService: EditCode — existing editor activated");
             return;
         }
         Log.Debug("EditorService: EditCode — opening new code editor");
-        documentDockService.OpenDocument(codeEditorViewModelFactory().Initialize(form));
+        documentDockService.OpenDocument(codeEditorViewModelFactory().Initialize(form), takeFocus);
     }
 
-    public void EditCode(ModuleDefinition? module)
+    public void EditCode(ModuleDefinition? module) => EditCode(module, true);
+
+    private void EditCode(ModuleDefinition? module, bool takeFocus)
     {
         if (module == null) return;
         Log.Debug("EditorService: EditCode(module={ModuleName})", module.Name);
-        if (documentDockService.TryActivate<CodeEditorViewModel>(vm => vm.ModuleDefinition == module))
+        if (documentDockService.TryActivate<CodeEditorViewModel>(vm => vm.ModuleDefinition == module, takeFocus))
         {
             Log.Debug("EditorService: EditCode — existing editor activated");
             return;
         }
         Log.Debug("EditorService: EditCode — opening new code editor");
-        documentDockService.OpenDocument(codeEditorViewModelFactory().Initialize(module));
+        documentDockService.OpenDocument(codeEditorViewModelFactory().Initialize(module), takeFocus);
     }
 }

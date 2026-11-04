@@ -1125,6 +1125,18 @@ receive `workspace/didChangeConfiguration` with empty `settings` when Tab Width 
 can request its configuration again. New connections read the current value on their first request.
 `WorkspaceConfigurationWireTests` checks the capability, response array and change notification frames.
 
+### Server-requested document navigation (#2908)
+
+`window/showDocument.support` is declared. `window/showDocument` resolves URIs using
+`EditorService.NavigateTo`'s loaded-member rule, including unsaved members and carried files. It opens
+that editor, applies the optional selection using zero-based LSP positions (clamped to the buffer),
+and takes focus only when `takeFocus` is true. The response is `{ success: true }` for a loaded member;
+unknown URIs and `external: true` return `{ success: false }` without opening anything.
+`ShowDocumentWireTests` checks the declaration and response frames; `EditorServiceNavigationTests`
+checks the range, focus routing and URI refusal. Headless `CodeEditorSelectionTests` checks that both
+editor views restore a selection placed before they attach. `window/showMessageRequest` remains unwired for the
+next slice of #2908. `workspace/applyEdit` awaits #1024's applier and a policy decision.
+
 ## Coverage against the specification
 
 LSP 3.17 defines **93 messages** — 67 requests and 26 notifications. The table below is generated from the
@@ -1132,7 +1144,7 @@ specification's own [`metaModel.json`](https://raw.githubusercontent.com/microso
 the canonical machine-readable list, so the method names and directions are the specification's rather than
 this document's recollection of them.
 
-**HexIDE implements 37 of the 93.** That is not a deficiency in itself — no client implements them all, and
+**HexIDE implements 38 of the 93.** That is not a deficiency in itself — no client implements them all, and
 most of the remainder are features no VB6 IDE needs. It is here so the shape of the gap is visible rather
 than inferred.
 
@@ -1226,12 +1238,12 @@ than inferred.
 | ○ | `workspace/willRenameFiles` | → |  |
 | ○ | `workspace/workspaceFolders` | ← |  |
 
-### `window/*` — 3 of 6
+### `window/*` — 4 of 6
 
 | | Method | Dir | Notes |
 |---|---|---|---|
 | ✅ | `window/logMessage` | ← | Raised as an event **and** logged at the severity the server declared. It used to be logged only, at a level the default configuration discards |
-| ○ | `window/showDocument` | ← |  |
+| ◐ | `window/showDocument` | ← | Loaded project members, optional selection and focus; external and unknown URIs refused (#2908) |
 | ✅ | `window/showMessage` | ← | Shown in the status bar, and logged |
 | ○ | `window/showMessageRequest` | ← |  |
 | ○ | `window/workDoneProgress/cancel` | → | No cancellation UI; cancellable is not acted on |
@@ -1380,7 +1392,7 @@ Three clusters account for nearly all of the gap:
   problems instead of appearing broken ([#289](https://github.com/hexide-io/HexIDE/issues/289)). Dynamic registration stays refused on
   purpose and is now logged rather than silent ([#288](https://github.com/hexide-io/HexIDE/issues/288)) — supporting it would mean
   declaring `dynamicRegistration` and honouring what arrives, which is real work with no server yet asking
-  for it. `showMessageRequest` and `showDocument` need UI decisions and are lower value.
+  for it. `showMessageRequest` still needs its queued IDE message-box flow (#2908).
 
 `notebookDocument/*` is 0 of 4 and will stay there — notebooks are not a VB6 concept.
 
