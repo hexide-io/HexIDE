@@ -1502,18 +1502,19 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
         client.StateChanged -= OnInnerStateChanged;
     }
 
-    // A server taken out: what it said about each document is withdrawn, a start in progress is called off — its gate
-    // before launch with it — and ends, then the server is stopped, and its row and its configuration problems go.
+    // A server taken out: what it said about each document and its configuration problems are withdrawn, a start in
+    // progress is called off — its gate before launch with it — and ends, then the server is stopped and its row goes.
     private async Task RemoveAsync(Entry entry)
     {
-        // The withdrawal with the removal, under the lock Add takes: the id is free from here, and a server added under it
-        // again says its own things, which a withdrawal by id after the old one's shutdown would take away with it.
+        // The withdrawals with the removal, under the lock Add takes: the id is free from here, and a server added under
+        // it again says its own things, which a withdrawal by id after the old one's shutdown would take away with it.
         IReadOnlyList<PublishDiagnosticsParams> withdrawn;
         lock (_entriesGate)
         {
             _entries = _entries.Where(e => !ReferenceEquals(e, entry)).ToList();
             if (entry.Client is { } speaking) speaking.DiagnosticsPublished -= OnInnerDiagnostics;
             withdrawn = _diagnostics.Withdraw(entry.Registration.Id).ToList();
+            ForgetContributionProblems(entry.Registration.Id);
         }
         foreach (var p in withdrawn)
             DiagnosticsPublished?.Invoke(this, p);
@@ -1536,7 +1537,6 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
                 client.ProgressReceived -= OnInnerProgress;
                 entry.Client = null;
             }
-            ForgetContributionProblems(entry.Registration.Id);
 
             // After the start has ended, which is what could make it active again: nothing is generated, imported or
             // tracked for a server that is gone.

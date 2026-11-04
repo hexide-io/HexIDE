@@ -129,6 +129,37 @@ public class AddinServerRegistrationTests : IDisposable
     }
 
     [Fact]
+    public async Task AServerTakenOutAndAddedAgain_KeepsTheNewOnesConfigurationProblems_HoweverLongTheOldOneTakesToStop()
+    {
+        var router = Router();
+        await router.OpenDocumentAsync("file:///c:/p/README.md", "# hi", Token);
+        var stopping = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var (oldFactory, _) = FakeClients();
+        router.ReportContributionProblems("md", [new LanguageServerConfigProblem("md", "the old one's warning", false)]);
+        var old = router.Add(Markdown(() =>
+        {
+            var client = oldFactory();
+            client.StopAsync().Returns(stopping.Task);
+            return client;
+        }));
+        await old.Opened.WaitAsync(TimeSpan.FromSeconds(30), Token);
+
+        var removing = old.DisposeAsync().AsTask();
+        router.ConfigurationProblems.Should().NotContain(p => p.Message == "the old one's warning", "they go with the removal");
+        // The add-in tries again while the old server stops, and what its new entry is worth a word about is reported
+        // before the server is added, as Register reports it.
+        router.ReportContributionProblems("md", [new LanguageServerConfigProblem("md", "the new one's warning", false)]);
+        var (newFactory, _) = FakeClients();
+        await using var replacement = router.Add(Markdown(newFactory));
+
+        stopping.SetResult();
+        await removing.WaitAsync(TimeSpan.FromSeconds(30), Token);
+
+        router.ConfigurationProblems.Should().ContainSingle(p => p.EntryId == "md").Which.Message.Should().Be(
+            "the new one's warning", "the old server's removal takes its own problems, not its successor's");
+    }
+
+    [Fact]
     public async Task AServerAddedWhileItsGateHoldsItsStart_StallsNoOtherDocumentsOpen()
     {
         // The workspace is what makes an open pass through the router's restart gate, which a replay must not hold.
