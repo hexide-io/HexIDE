@@ -357,6 +357,8 @@
     "Str.CodeEditor.Msg.RenameTouchesReadOnly": "Ümbernimetamist ei tehtud, sest see muudaks faili päist või liikme Attribute-ridu, mida haldab IDE.",
     "Str.CodeEditor.Msg.RenameReachesOtherDocuments": "Ümbernimetamist ei tehtud, sest see muudaks ka teisi dokumente: {0}",
     "Str.CodeEditor.Msg.RenameDocumentRefused": "Ümbernimetamist ei saa rakendada dokumendile {0}.",
+    "Str.CodeEditor.Msg.RenameStaleVersion": "Dokumenti {0} ei saa ümber nimetada: versioon on aegunud. Proovige uuesti.",
+    "Str.CodeEditor.Msg.RenameUnsavedChanges": "Dokumenti {0} ei saa ümber nimetada: on salvestamata muudatusi. Salvestage ja proovige uuesti.",
     "Str.CodeEditor.Msg.RenamedInModules": "Nimi muudetud {0} moodulis",
     "Str.CodeEditor.Msg.NoMarkOnReadOnlyLine": "Rida {0} kuulub faili päisesse või liikme Attribute-ridadesse, mida ei käivitata, seega ei saa sinna katkestuspunkti ega järjehoidjat seada.",
     "Str.CodeEditor.Dialog.InsertFileTitle": "Lisa fail",

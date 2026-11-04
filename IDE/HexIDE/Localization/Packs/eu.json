@@ -357,6 +357,8 @@
     "Str.CodeEditor.Msg.RenameTouchesReadOnly": "Ez da izena aldatu, fitxategi honen goiburua edo kide baten Attribute lerroak aldatuko lituzkeelako; IDEak mantentzen ditu horiek.",
     "Str.CodeEditor.Msg.RenameReachesOtherDocuments": "Ez da izena aldatu, beste dokumentu hauek ere editatzen dituelako: {0}",
     "Str.CodeEditor.Msg.RenameDocumentRefused": "Ezin da izen-aldaketa aplikatu {0} dokumentuan.",
+    "Str.CodeEditor.Msg.RenameStaleVersion": "Ezin da {0} berriz izendatu: bertsioa zaharkituta dago. Saiatu berriro.",
+    "Str.CodeEditor.Msg.RenameUnsavedChanges": "Ezin da {0} berriz izendatu: gorde gabeko aldaketak daude. Gorde eta saiatu berriro.",
     "Str.CodeEditor.Msg.RenamedInModules": "Izena aldatu da {0} modulutan",
     "Str.CodeEditor.Msg.NoMarkOnReadOnlyLine": "{0}. lerroa fitxategi honen goiburuaren edo kide baten Attribute lerroen parte da. Ez dira inoiz exekutatzen; beraz, ezin da eten-punturik edo laster-markarik ezarri bertan.",
     "Str.CodeEditor.Dialog.InsertFileTitle": "Txertatu fitxategia",

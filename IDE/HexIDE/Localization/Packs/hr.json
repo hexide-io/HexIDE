@@ -357,6 +357,8 @@
     "Str.CodeEditor.Msg.RenameTouchesReadOnly": "Preimenovanje nije provedeno jer bi promijenilo zaglavlje ove datoteke ili retke Attribute člana, koje održava IDE.",
     "Str.CodeEditor.Msg.RenameReachesOtherDocuments": "Preimenovanje nije provedeno jer mijenja i druge dokumente: {0}",
     "Str.CodeEditor.Msg.RenameDocumentRefused": "Nije moguće primijeniti preimenovanje na {0}.",
+    "Str.CodeEditor.Msg.RenameStaleVersion": "Nije moguće preimenovati {0}: verzija je zastarjela. Pokušajte ponovno.",
+    "Str.CodeEditor.Msg.RenameUnsavedChanges": "Nije moguće preimenovati {0}: postoje nespremljene promjene. Spremite i pokušajte ponovno.",
     "Str.CodeEditor.Msg.RenamedInModules": "Preimenovano u {0} modula",
     "Str.CodeEditor.Msg.NoMarkOnReadOnlyLine": "Redak {0} dio je zaglavlja ove datoteke ili redaka Attribute člana, koji se nikada ne izvršavaju, pa tamo nije moguće postaviti točku prekida ili knjižnu oznaku.",
     "Str.CodeEditor.Dialog.InsertFileTitle": "Umetni datoteku",

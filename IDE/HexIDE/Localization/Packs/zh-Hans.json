@@ -394,6 +394,8 @@
     "Str.CodeEditor.Msg.RenameTouchesReadOnly": "未执行重命名，因为这会更改此文件的标头或某个成员的 Attribute 行，而这些内容由 IDE 维护。",
     "Str.CodeEditor.Msg.RenameReachesOtherDocuments": "未重命名，因为此操作还会编辑其他文档：{0}",
     "Str.CodeEditor.Msg.RenameDocumentRefused": "无法对 {0} 应用重命名。",
+    "Str.CodeEditor.Msg.RenameStaleVersion": "无法重命名 {0}：版本已过期。请重试。",
+    "Str.CodeEditor.Msg.RenameUnsavedChanges": "无法重命名 {0}：有未保存的更改。请保存后重试。",
     "Str.CodeEditor.Msg.RenamedInModules": "已在 {0} 个模块中重命名",
     "Str.CodeEditor.Msg.NoMarkOnReadOnlyLine": "第 {0} 行属于此文件的标头或某个成员的 Attribute 行，这些行永远不会执行，因此无法在此设置断点或书签。",
     "Str.CodeEditor.Dialog.InsertFileTitle": "插入文件",

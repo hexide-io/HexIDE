@@ -357,6 +357,8 @@
     "Str.CodeEditor.Msg.RenameTouchesReadOnly": "Premenovanie sa nevykonalo, pretože by zmenilo hlavičku súboru alebo riadky Attribute člena, ktoré spravuje IDE.",
     "Str.CodeEditor.Msg.RenameReachesOtherDocuments": "Premenovanie sa nevykonalo, pretože by upravilo aj iné dokumenty: {0}",
     "Str.CodeEditor.Msg.RenameDocumentRefused": "Premenovanie nemožno použiť na {0}.",
+    "Str.CodeEditor.Msg.RenameStaleVersion": "Nemožno premenovať {0}: verzia je zastaraná. Skúste to znova.",
+    "Str.CodeEditor.Msg.RenameUnsavedChanges": "Nemožno premenovať {0}: existujú neuložené zmeny. Uložte ich a skúste to znova.",
     "Str.CodeEditor.Msg.RenamedInModules": "Premenované v {0} moduloch",
     "Str.CodeEditor.Msg.NoMarkOnReadOnlyLine": "Riadok {0} je súčasťou hlavičky súboru alebo riadkov Attribute člena, ktoré sa nikdy nevykonávajú, preto tu nemožno nastaviť bod prerušenia ani záložku.",
     "Str.CodeEditor.Dialog.InsertFileTitle": "Vložiť súbor",

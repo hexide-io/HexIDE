@@ -394,6 +394,8 @@
     "Str.CodeEditor.Msg.RenameTouchesReadOnly": "Le renommage n'a pas été effectué, car il modifierait l'en-tête de ce fichier ou les lignes Attribute d'un membre, que gère l'IDE.",
     "Str.CodeEditor.Msg.RenameReachesOtherDocuments": "Le renommage n’a pas été effectué car il modifie aussi d’autres documents : {0}",
     "Str.CodeEditor.Msg.RenameDocumentRefused": "Impossible d’appliquer le renommage à {0}.",
+    "Str.CodeEditor.Msg.RenameStaleVersion": "Impossible de renommer {0} : la version est obsolète. Réessayez.",
+    "Str.CodeEditor.Msg.RenameUnsavedChanges": "Impossible de renommer {0} : des modifications ne sont pas enregistrées. Enregistrez puis réessayez.",
     "Str.CodeEditor.Msg.RenamedInModules": "Renommé dans {0} modules",
     "Str.CodeEditor.Msg.NoMarkOnReadOnlyLine": "La ligne {0} fait partie de l'en-tête de ce fichier ou des lignes Attribute d'un membre, qui ne s'exécutent jamais : on ne peut donc y placer ni point d'arrêt ni signet.",
     "Str.CodeEditor.Dialog.InsertFileTitle": "Insérer un fichier",

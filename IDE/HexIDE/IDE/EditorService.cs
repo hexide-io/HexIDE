@@ -74,6 +74,22 @@ public class EditorService : IEditorService
         return null;
     }
 
+    public DocumentIdentity? CodeDocumentForUri(string uri)
+    {
+        foreach (var project in projectManager().LoadedProjects)
+        {
+            foreach (var module in project.Modules)
+                if (Names(uri, DocumentIdentity.For(module), module.AbsolutePath)) return DocumentIdentity.For(module);
+            foreach (var form in project.Forms)
+                if (Names(uri, DocumentIdentity.For(form), form.AbsolutePath)) return DocumentIdentity.For(form);
+        }
+        return null;
+    }
+
+    public CodeEditorViewModel? FindOpenCode(DocumentIdentity document) =>
+        documentDockService.OpenDocuments.OfType<CodeEditorViewModel>()
+            .FirstOrDefault(editor => editor.OpenDocument == document);
+
     public void RestoreCaret(DocumentIdentity document, int offset)
     {
         foreach (var editor in documentDockService.OpenDocuments)

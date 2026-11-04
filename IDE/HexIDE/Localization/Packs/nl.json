@@ -394,6 +394,8 @@
     "Str.CodeEditor.Msg.RenameTouchesReadOnly": "De naamswijziging is niet doorgevoerd, omdat die de header van dit bestand of de Attribute-regels van een lid zou wijzigen, die door de IDE worden beheerd.",
     "Str.CodeEditor.Msg.RenameReachesOtherDocuments": "De naam is niet gewijzigd omdat dit ook andere documenten wijzigt: {0}",
     "Str.CodeEditor.Msg.RenameDocumentRefused": "Kan de naamswijziging niet toepassen op {0}.",
+    "Str.CodeEditor.Msg.RenameStaleVersion": "Kan {0} niet hernoemen: de versie is verouderd. Probeer het opnieuw.",
+    "Str.CodeEditor.Msg.RenameUnsavedChanges": "Kan {0} niet hernoemen: er zijn niet-opgeslagen wijzigingen. Sla op en probeer het opnieuw.",
     "Str.CodeEditor.Msg.RenamedInModules": "Naam gewijzigd in {0} modules",
     "Str.CodeEditor.Msg.NoMarkOnReadOnlyLine": "Regel {0} hoort bij de header van dit bestand of bij de Attribute-regels van een lid, die nooit worden uitgevoerd; daar kan dus geen onderbrekingspunt of bladwijzer worden geplaatst.",
     "Str.CodeEditor.Dialog.InsertFileTitle": "Bestand invoegen",

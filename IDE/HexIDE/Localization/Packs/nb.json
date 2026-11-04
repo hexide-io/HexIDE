@@ -394,6 +394,8 @@
     "Str.CodeEditor.Msg.RenameTouchesReadOnly": "Navnet ble ikke endret, fordi det ville endre filens header eller et medlems Attribute-linjer, som IDE-et vedlikeholder.",
     "Str.CodeEditor.Msg.RenameReachesOtherDocuments": "Navneendringen ble ikke utført fordi den også endrer andre dokumenter: {0}",
     "Str.CodeEditor.Msg.RenameDocumentRefused": "Kan ikke bruke navneendring på {0}.",
+    "Str.CodeEditor.Msg.RenameStaleVersion": "Kan ikke endre navn på {0}: versjonen er utdatert. Prøv igjen.",
+    "Str.CodeEditor.Msg.RenameUnsavedChanges": "Kan ikke endre navn på {0}: det finnes ulagrede endringer. Lagre og prøv igjen.",
     "Str.CodeEditor.Msg.RenamedInModules": "Navn endret i {0} moduler",
     "Str.CodeEditor.Msg.NoMarkOnReadOnlyLine": "Linje {0} hører til filens header eller et medlems Attribute-linjer, som aldri kjøres, så det kan ikke settes et bruddpunkt eller et bokmerke der.",
     "Str.CodeEditor.Dialog.InsertFileTitle": "Sett inn fil",

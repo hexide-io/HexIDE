@@ -357,6 +357,8 @@
     "Str.CodeEditor.Msg.RenameTouchesReadOnly": "Az átnevezés nem történt meg, mert módosítaná a fájl fejlécét vagy egy tag Attribute sorait, amelyeket az IDE tart karban.",
     "Str.CodeEditor.Msg.RenameReachesOtherDocuments": "Az átnevezés nem történt meg, mert más dokumentumokat is módosítana: {0}",
     "Str.CodeEditor.Msg.RenameDocumentRefused": "Az átnevezés nem alkalmazható erre: {0}.",
+    "Str.CodeEditor.Msg.RenameStaleVersion": "{0} nem nevezhető át: a verzió elavult. Próbálja újra.",
+    "Str.CodeEditor.Msg.RenameUnsavedChanges": "{0} nem nevezhető át: mentetlen módosítások vannak. Mentse őket, és próbálja újra.",
     "Str.CodeEditor.Msg.RenamedInModules": "Átnevezve {0} modulban",
     "Str.CodeEditor.Msg.NoMarkOnReadOnlyLine": "A(z) {0}. sor a fájl fejlécének vagy egy tag Attribute sorainak része, amelyek soha nem futnak, ezért itt nem állítható be töréspont vagy könyvjelző.",
     "Str.CodeEditor.Dialog.InsertFileTitle": "Fájl beszúrása",

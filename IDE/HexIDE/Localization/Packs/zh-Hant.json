@@ -394,6 +394,8 @@
     "Str.CodeEditor.Msg.RenameTouchesReadOnly": "未執行重新命名，因為這會變更此檔案的標頭或某個成員的 Attribute 行，而這些內容由 IDE 維護。",
     "Str.CodeEditor.Msg.RenameReachesOtherDocuments": "未重新命名，因為此操作還會編輯其他文件：{0}",
     "Str.CodeEditor.Msg.RenameDocumentRefused": "無法對 {0} 套用重新命名。",
+    "Str.CodeEditor.Msg.RenameStaleVersion": "無法重新命名 {0}：版本已過期。請重試。",
+    "Str.CodeEditor.Msg.RenameUnsavedChanges": "無法重新命名 {0}：有未儲存的變更。請儲存後重試。",
     "Str.CodeEditor.Msg.RenamedInModules": "已在 {0} 個模組中重新命名",
     "Str.CodeEditor.Msg.NoMarkOnReadOnlyLine": "第 {0} 行屬於此檔案的標頭或某個成員的 Attribute 行，這些行永遠不會執行，因此無法在此設定中斷點或書籤。",
     "Str.CodeEditor.Dialog.InsertFileTitle": "插入檔案",

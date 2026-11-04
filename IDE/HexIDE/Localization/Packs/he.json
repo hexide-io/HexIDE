@@ -394,6 +394,8 @@
     "Str.CodeEditor.Msg.RenameTouchesReadOnly": "שינוי השם לא בוצע, כי הוא היה משנה את כותרת הקובץ הזה או את שורות ה-Attribute של אחד האיברים, שסביבת הפיתוח מנהלת.",
     "Str.CodeEditor.Msg.RenameReachesOtherDocuments": "שינוי השם לא בוצע משום שהוא עורך גם מסמכים אחרים: {0}",
     "Str.CodeEditor.Msg.RenameDocumentRefused": "לא ניתן להחיל שינוי שם על {0}.",
+    "Str.CodeEditor.Msg.RenameStaleVersion": "לא ניתן לשנות את השם של {0}: הגרסה מיושנת. יש לנסות שוב.",
+    "Str.CodeEditor.Msg.RenameUnsavedChanges": "לא ניתן לשנות את השם של {0}: יש שינויים שלא נשמרו. יש לשמור ולנסות שוב.",
     "Str.CodeEditor.Msg.RenamedInModules": "השם שונה ב־{0} מודולים",
     "Str.CodeEditor.Msg.NoMarkOnReadOnlyLine": "שורה {0} היא חלק מכותרת הקובץ הזה או משורות ה-Attribute של אחד האיברים, שלעולם אינן מורצות, ולכן אי אפשר להציב בה נקודת עצירה או סימנייה.",
     "Str.CodeEditor.Dialog.InsertFileTitle": "הוסף קובץ",

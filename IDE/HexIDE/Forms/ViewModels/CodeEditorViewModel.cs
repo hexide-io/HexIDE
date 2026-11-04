@@ -1376,13 +1376,15 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     /// <paramref name="edits"/> as offsets into the live buffer, last first, so each can be applied without
     /// moving the ones still to come.
     /// </summary>
-    private List<TextChange> Resolve(IReadOnlyList<TextEdit> edits)
+    private List<TextChange> Resolve(IReadOnlyList<TextEdit> edits) => Resolve(Document, edits);
+
+    private static List<TextChange> Resolve(TextDocument document, IReadOnlyList<TextEdit> edits)
     {
         int OffsetOf(Position position)
         {
-            if (position.Line >= Document.LineCount)
-                return Document.TextLength;
-            var line = Document.GetLineByNumber(position.Line + 1);
+            if (position.Line >= document.LineCount)
+                return document.TextLength;
+            var line = document.GetLineByNumber(position.Line + 1);
             return Math.Min(line.Offset + position.Character, line.EndOffset);
         }
 
@@ -1634,7 +1636,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     /// <summary>Checks every target before writing any buffer, then gives each its own undo step.</summary>
     internal string? ApplyRename(WorkspaceEdit edit, string oldName, Func<string, RenameDocumentSnapshot?>? documentFor = null)
     {
-        string Refuse(string uri) => string.Format(localization.GetString("Str.CodeEditor.Msg.RenameDocumentRefused"),
+        string Refuse(string uri, string key = "Str.CodeEditor.Msg.RenameDocumentRefused") => string.Format(localization.GetString(key),
             editorService.DocumentNameForUri(uri) ?? uri);
 
         var targets = new List<(string Uri, int? Version, TextEdit[] Edits)>();
@@ -1658,47 +1660,77 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
         // Snapshot the server's knowledge before OpenCodeForUri starts sessions for closed windows.
         var versions = targets.Select(t => (Local: LspDocumentSession.VersionsFor(lspClient, t.Uri),
             Server: documentFor?.Invoke(t.Uri))).ToArray();
-        var prepared = new List<(CodeEditorViewModel Editor, List<TextChange> Changes)>();
+        var prepared = new List<(string Uri, DocumentIdentity Identity, List<TextChange> Changes)>();
         for (var i = 0; i < targets.Count; i++)
         {
             var target = targets[i];
-            var editor = LspDocumentUri.AreSame(target.Uri, GetDocumentUriPublic())
-                ? this : editorService.OpenCodeForUri(target.Uri);
-            if (editor is null || editor.IsReadOnly) return Refuse(target.Uri);
+            var identity = LspDocumentUri.AreSame(target.Uri, GetDocumentUriPublic())
+                ? Identity : editorService.CodeDocumentForUri(target.Uri);
+            if (identity is null) return Refuse(target.Uri);
+            var editor = identity == Identity ? this : editorService.FindOpenCode(identity);
+            var module = identity.Module;
+            var form = module is not null ? module.FormPart : identity.Form;
+            if (form is { CanSaveFaithfully: false }) return Refuse(target.Uri);
+            var prefix = editor?.bufferPrefix ?? (module is not null ? FormCodeText.Prefix(module) : FormCodeText.Prefix(form!));
+            var document = editor?.Document ?? new TextDocument(prefix + (module?.Code ?? form!.Code));
             var (local, server) = versions[i];
             var sent = documentFor is null ? local?.Sent : server?.Version;
             if (target.Version is { } version && sent is { } lastSent)
             {
                 if (version != lastSent || (local is { } known && known.Current != known.Sent)
-                    || (server is not null && server.Text != editor.Document.Text)) return Refuse(target.Uri);
+                    || (server is not null && server.Text != document.Text))
+                    return Refuse(target.Uri, "Str.CodeEditor.Msg.RenameStaleVersion");
             }
             else
             {
-                editor.RefreshModelModified();
-                if (editor.IsModified) return Refuse(target.Uri);
+                editor?.RefreshModelModified();
+                var modified = editor?.IsModified ?? (module is not null
+                    ? projectService.HasUnsavedChanges(module) : projectService.HasUnsavedChanges(form!));
+                if (modified) return Refuse(target.Uri, "Str.CodeEditor.Msg.RenameUnsavedChanges");
             }
 
             // Duplicate aliases and malformed ranges cannot be allowed to turn a checked answer into
             // a partial write. Resolve otherwise clamps positions, which is useful for other writers.
-            if (prepared.Any(p => ReferenceEquals(p.Editor, editor))) return Refuse(target.Uri);
+            if (prepared.Any(p => p.Identity == identity)) return Refuse(target.Uri);
             foreach (var textEdit in target.Edits)
             {
-                bool Valid(Position p) => p.Line >= 0 && p.Line < editor.Document.LineCount
-                    && p.Character >= 0 && p.Character <= editor.Document.GetLineByNumber(p.Line + 1).Length;
+                bool Valid(Position p) => p.Line >= 0 && p.Line < document.LineCount
+                    && p.Character >= 0 && p.Character <= document.GetLineByNumber(p.Line + 1).Length;
                 if (textEdit.NewText is null || !Valid(textEdit.Range.Start) || !Valid(textEdit.Range.End)
                     || textEdit.Range.End.Line < textEdit.Range.Start.Line
                     || (textEdit.Range.End.Line == textEdit.Range.Start.Line
                         && textEdit.Range.End.Character < textEdit.Range.Start.Character)) return Refuse(target.Uri);
             }
-            var resolved = editor.Resolve(target.Edits);
+            var resolved = Resolve(document, target.Edits);
             for (var j = 1; j < resolved.Count; j++)
                 if (resolved[j].Offset + resolved[j].Length > resolved[j - 1].Offset) return Refuse(target.Uri);
-            if (RefusedRenameEdit(editor.Document.Text, editor.bufferPrefix.Length, resolved) is not null)
+            if (RefusedRenameEdit(document.Text, prefix.Length, resolved) is not null)
                 return Refuse(target.Uri);
-            prepared.Add((editor, resolved));
+            prepared.Add((target.Uri, identity, resolved));
         }
 
-        foreach (var target in prepared) target.Editor.ApplyAsOneStep(target.Changes);
+        var caret = CaretOffset;
+        var sourceChanges = prepared.FirstOrDefault(p => p.Identity == Identity).Changes;
+        if (sourceChanges is not null)
+        {
+            var shift = 0;
+            foreach (var change in sourceChanges.OrderBy(c => c.Offset))
+            {
+                if (caret < change.Offset) break;
+                if (caret <= change.Offset + change.Length)
+                {
+                    caret = change.Offset + shift + Math.Min(caret - change.Offset, change.Text.Length);
+                    shift = 0;
+                    break;
+                }
+                shift += change.Text.Length - change.Length;
+            }
+            caret += shift;
+        }
+        foreach (var target in prepared)
+            (target.Identity == Identity ? this : editorService.OpenCodeForUri(target.Uri)!).ApplyAsOneStep(target.Changes);
+        if (prepared.Count > 0) editorService.OpenCodeForUri(GetDocumentUriPublic());
+        CaretOffset = Math.Clamp(caret, 0, Document.TextLength);
         if (prepared.Count > 0)
             statusBarService.SetTemporaryMessage(string.Format(localization.GetString("Str.CodeEditor.Msg.RenamedInModules"),
                 prepared.Count), TimeSpan.FromSeconds(5));

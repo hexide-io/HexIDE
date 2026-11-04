@@ -357,6 +357,8 @@
     "Str.CodeEditor.Msg.RenameTouchesReadOnly": "No s'ha canviat el nom perquè modificaria la capçalera d'aquest fitxer o les línies Attribute d'un membre, que manté l'IDE.",
     "Str.CodeEditor.Msg.RenameReachesOtherDocuments": "No s'ha canviat el nom perquè també modificaria altres documents: {0}",
     "Str.CodeEditor.Msg.RenameDocumentRefused": "No es pot aplicar el canvi de nom a {0}.",
+    "Str.CodeEditor.Msg.RenameStaleVersion": "No es pot canviar el nom de {0}: la versió és antiga. Torneu-ho a provar.",
+    "Str.CodeEditor.Msg.RenameUnsavedChanges": "No es pot canviar el nom de {0}: hi ha canvis sense desar. Deseu-los i torneu-ho a provar.",
     "Str.CodeEditor.Msg.RenamedInModules": "Nom canviat en {0} mòduls",
     "Str.CodeEditor.Msg.NoMarkOnReadOnlyLine": "La línia {0} forma part de la capçalera d'aquest fitxer o de les línies Attribute d'un membre, que no s'executen mai; per això no s'hi pot establir cap punt d'interrupció ni marcador.",
     "Str.CodeEditor.Dialog.InsertFileTitle": "Insereix un fitxer",
