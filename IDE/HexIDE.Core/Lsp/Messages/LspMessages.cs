@@ -324,7 +324,12 @@ public record WorkspaceClientCapabilities(
     [property: JsonPropertyName("fileOperations")]
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] FileOperationsClientCapabilities? FileOperations = null,
     [property: JsonPropertyName("configuration")]
-    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] bool? Configuration = null);
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] bool? Configuration = null,
+    [property: JsonPropertyName("workspaceEdit")]
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] WorkspaceEditClientCapabilities? WorkspaceEdit = null);
+
+public record WorkspaceEditClientCapabilities(
+    [property: JsonPropertyName("documentChanges")] bool DocumentChanges = true);
 
 public record WorkspaceDiagnosticsClientCapabilities(
     [property: JsonPropertyName("refreshSupport")] bool RefreshSupport = true);
@@ -1000,7 +1005,21 @@ public record TextEdit(
 /// </summary>
 public record WorkspaceEdit(
     [property: JsonPropertyName("changes")]
-    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] Dictionary<string, TextEdit[]>? Changes = null);
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] Dictionary<string, TextEdit[]>? Changes = null,
+    [property: JsonPropertyName("documentChanges")]
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] TextDocumentEdit[]? DocumentChanges = null);
+
+/// <summary>A text document edit, or an unsupported resource operation identified by Kind.</summary>
+public record TextDocumentEdit(
+    [property: JsonPropertyName("textDocument")] OptionalVersionedTextDocumentIdentifier? TextDocument = null,
+    [property: JsonPropertyName("edits")] TextEdit[]? Edits = null,
+    [property: JsonPropertyName("kind")] string? Kind = null,
+    [property: JsonPropertyName("uri")] string? Uri = null,
+    [property: JsonPropertyName("oldUri")] string? OldUri = null);
+
+public record OptionalVersionedTextDocumentIdentifier(
+    [property: JsonPropertyName("uri")] string Uri,
+    [property: JsonPropertyName("version")] int? Version);
 
 /// <summary>Formatting options sent by the client.</summary>
 public record FormattingOptions(

@@ -356,6 +356,8 @@
     "Str.CodeEditor.FileNotSaved.Banner": "Non se gardará este ficheiro: HexIDE aínda non pode reproducilo fielmente, polo que gardalo alteraríao. O seu código forma parte do ficheiro, así que non se permite escribir nesta xanela.",
     "Str.CodeEditor.Msg.RenameTouchesReadOnly": "Non se cambiou o nome porque alteraría a cabeceira deste ficheiro ou as liñas Attribute dun membro, que mantén o IDE.",
     "Str.CodeEditor.Msg.RenameReachesOtherDocuments": "Non se cambiou o nome porque tamén modifica outros documentos: {0}",
+    "Str.CodeEditor.Msg.RenameDocumentRefused": "Non se pode aplicar o cambio de nome a {0}.",
+    "Str.CodeEditor.Msg.RenamedInModules": "Nome cambiado en {0} módulos",
     "Str.CodeEditor.Msg.NoMarkOnReadOnlyLine": "A liña {0} forma parte da cabeceira deste ficheiro ou das liñas Attribute dun membro, que nunca se executan, polo que non se pode establecer nela un punto de interrupción nin un marcador.",
     "Str.CodeEditor.Dialog.InsertFileTitle": "Inserir ficheiro",
     "Str.CodeEditor.Dialog.RenamePrompt": "Nome novo:",

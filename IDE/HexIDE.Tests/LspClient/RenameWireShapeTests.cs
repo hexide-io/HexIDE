@@ -167,9 +167,13 @@ public class RenameWireShapeTests : IAsyncDisposable
                     // put request frames between the two notifications and answer none of the question.
                     var head = "{\"jsonrpc\":\"2.0\",\"id\":" + id.GetRawText() + ",\"result\":";
                     var reply = m.GetString() == "initialize"
-                        ? head + "{\"capabilities\":{\"textDocumentSync\":{\"openClose\":true,\"change\":1}},"
+                        ? head + "{\"capabilities\":{\"renameProvider\":true,\"textDocumentSync\":{\"openClose\":true,\"change\":1}},"
                                + "\"serverInfo\":{\"name\":\"rename-probe\",\"version\":\"1.0.0\"}}}"
-                        : head + "null}";
+                        : m.GetString() == "textDocument/rename"
+                            ? head + "{\"documentChanges\":[{\"textDocument\":{\"uri\":\"file:///Module1.bas\",\"version\":2},"
+                                + "\"edits\":[{\"range\":{\"start\":{\"line\":1,\"character\":0},\"end\":{\"line\":1,\"character\":5}},\"newText\":\"Welcome\"}]},"
+                                + "{\"textDocument\":{\"uri\":\"file:///Module2.bas\",\"version\":null},\"edits\":[]}]} }"
+                            : head + "null}";
                     await WriteFrameAsync(serverSide, reply, _cts.Token);
                 }
             }
@@ -207,6 +211,37 @@ public class RenameWireShapeTests : IAsyncDisposable
     }
 
     // ── The sequence ──────────────────────────────────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task InitializeDeclaresVersionedDocumentEditsWithoutResourceOperations()
+    {
+        var client = await ConnectedAsync();
+        JsonElement initialize;
+        lock (_received) initialize = _received.Single(d => MethodOf(d.RootElement) == "initialize").RootElement;
+        var edit = initialize.GetProperty("params").GetProperty("capabilities")
+            .GetProperty("workspace").GetProperty("workspaceEdit");
+        edit.GetProperty("documentChanges").GetBoolean().Should().BeTrue();
+        edit.TryGetProperty("resourceOperations", out _).Should().BeFalse();
+        await client.OpenDocumentAsync(Old, "Sub Greet()", TestContext.Current.CancellationToken);
+        await ArrivedAsync("textDocument/didOpen", Old);
+        await client.ChangeDocumentAsync(Old, 2, "Sub Welcome()", TestContext.Current.CancellationToken);
+        await ArrivedAsync("textDocument/didChange", Old);
+        var answer = await client.RequestRenameAsync(Old, new(1, 0), "Welcome", TestContext.Current.CancellationToken);
+        answer.Should().NotBeNull();
+        answer!.Edit!.DocumentChanges.Should().HaveCount(2);
+        answer.Edit.DocumentChanges![0].TextDocument!.Version.Should().Be(2);
+        answer.Edit.DocumentChanges[0].Edits!.Single().NewText.Should().Be("Welcome");
+        answer.Edit.DocumentChanges[1].TextDocument!.Version.Should().BeNull();
+        answer.DocumentFor.Should().NotBeNull();
+        answer.DocumentFor!(Old).Should().Be(new RenameDocumentSnapshot(2, "Sub Welcome()"));
+        answer.DocumentFor("file:///never-opened.bas").Should().BeNull();
+        await client.CloseDocumentAsync(Old, TestContext.Current.CancellationToken);
+        await ArrivedAsync("textDocument/didClose", Old);
+        answer.DocumentFor(Old).Should().BeNull();
+        lock (_received)
+            _received.Should().Contain(d => MethodOf(d.RootElement) == "textDocument/rename"
+                && d.RootElement.GetProperty("params").GetProperty("newName").GetString() == "Welcome");
+    }
 
     [Fact]
     public async Task TheOldNameIsClosedBeforeTheNewOneIsOpened()

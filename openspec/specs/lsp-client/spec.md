@@ -1483,16 +1483,35 @@ NOT offer binding-dependent parameter-name or inferred-type hints.
 #### Scenario: A single-line If occurs
 - **WHEN** an If has its body on the same line
 - **THEN** it has no block-end hint
-### Requirement: Refuse multi-document rename answers
+### Requirement: Apply multi-document rename answers atomically
 
-The code window SHALL inspect the whole rename WorkspaceEdit before applying any edits. If any URI
-other than its own has a non-empty edit list, it SHALL refuse the whole answer and name those documents
-using loaded member names resolved by the navigation URI rule, falling back to the URI when unresolved.
-Empty lists for other documents SHALL NOT prevent applying edits to the current document.
+The code window SHALL resolve every non-empty rename target to a loaded code member using the
+navigation URI rule, open its window, and check every target before writing any buffer. An unresolved
+URI, read-only member, protected header or attribute edit, or stale document SHALL refuse the whole
+answer and identify the refusing member (or unresolved URI). Each edited document SHALL receive one
+independent undo step. The status bar SHALL say “Renamed in N modules”. Empty edit lists SHALL be ignored.
 
-#### Scenario: Rename reaches another document
-- **WHEN** a rename answer edits another document, whether or not it also edits the current document
-- **THEN** the current buffer remains unchanged and the refusal identifies the other documents
+The client SHALL declare `workspace.workspaceEdit.documentChanges: true`, accept text document edits,
+and refuse resource operations without applying text edits. `documentChanges` SHALL take precedence
+over `changes`; servers sending `changes` SHALL remain supported. A versioned edit for a document
+already opened to the answering server SHALL match the last version sent and have no newer unsent
+changes. A null version, or a document never opened to that server, SHALL require no unsaved member
+changes, since those edits describe the file on disk. Rename previews and change annotations are outside
+this requirement (#1024).
+
+#### Scenario: Rename reaches two open modules
+- **WHEN** a rename answer edits two loaded, writable modules at their current versions
+- **THEN** both buffers change and one undo in each reverts only that module
+- **AND** the status bar reports two modules
+
+#### Scenario: Rename reaches a closed clean member
+- **WHEN** a rename edits a loaded member whose window is closed and which has no unsaved changes
+- **THEN** its window opens, its edits apply, and its undo reverts them
+
+#### Scenario: A target refuses the rename
+- **WHEN** any target is unresolved, read-only, stale, or has a protected edit
+- **OR** a target edited against disk has unsaved changes
+- **THEN** no buffer changes and the refusal identifies that target
 
 #### Scenario: Another document has no edits
 - **WHEN** the answer edits the current document and has only empty lists for other documents

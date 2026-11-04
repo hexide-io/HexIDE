@@ -16,6 +16,16 @@ public sealed class VBLspClient : ILspClient
     private readonly ILogger<VBLspClient> _logger;
     // Currently-open documents (uri -> latest version+text), so they can be replayed after a reconnect.
     private readonly ConcurrentDictionary<string, TrackedDocument> _openDocuments = new();
+    private readonly ConcurrentDictionary<string, (int Connection, int Version, string Text)> _sentDocumentVersions = new();
+
+    private RenameDocumentSnapshot? SentDocumentSnapshot(string uri)
+    {
+        if (!_initialized) return null;
+        foreach (var entry in _sentDocumentVersions)
+            if (entry.Value.Connection == Volatile.Read(ref _connection) && LspDocumentUri.AreSame(entry.Key, uri))
+                return new RenameDocumentSnapshot(entry.Value.Version, entry.Value.Text);
+        return null;
+    }
     // OpenedOn reserves an open before it is sent; requests need the completed write instead (#2920).
     private ConcurrentDictionary<string, TaskCompletionSource> _writtenOpens = new();
 
@@ -452,10 +462,12 @@ public sealed class VBLspClient : ILspClient
         if (rpc is null || !_initialized || !ServerCapabilities.AcceptsOpenClose(_capabilities?.Value)) return;
 
         var written = WrittenOpen(_writtenOpens, uri);
+        var connection = Volatile.Read(ref _connection);
         var p = new DidOpenTextDocumentParams(new TextDocumentItem(uri, _languageId, version, text));
         try
         {
             await rpc.NotifyWithParameterObjectAsync("textDocument/didOpen", p);
+            _sentDocumentVersions[uri] = (connection, version, text);
             written.TrySetResult();
         }
         // No token: this path is the reconnect replay as well as the first open, and neither is cancelled
@@ -652,6 +664,7 @@ public sealed class VBLspClient : ILspClient
                     ExecuteCommand: new ExecuteCommandClientCapabilities(),
                     WorkspaceFolders: true,
                     Configuration: true,
+                    WorkspaceEdit: new WorkspaceEditClientCapabilities(),
                     Diagnostics: new WorkspaceDiagnosticsClientCapabilities(),
                     FileOperations: new FileOperationsClientCapabilities()),
                 // The same declare-and-gate bargain as save and codeLens: silence otherwise is correct.
@@ -974,7 +987,12 @@ public sealed class VBLspClient : ILspClient
                 new VersionedTextDocumentIdentifier(uri, version),
                 [new TextDocumentContentChangeEvent(text)]);
             await CancelSupersededAsync(uri);
-            try { await rpc.NotifyWithParameterObjectAsync("textDocument/didChange", p); }
+            var connection = Volatile.Read(ref _connection);
+            try
+            {
+                await rpc.NotifyWithParameterObjectAsync("textDocument/didChange", p);
+                _sentDocumentVersions[uri] = (connection, version, text);
+            }
             catch (Exception ex) { WarnRequestFailedOnce("textDocument/didChange", ex, cancellationToken); }
 
             // After the notification rather than before it: the answer is supposed to describe the text the
@@ -990,6 +1008,7 @@ public sealed class VBLspClient : ILspClient
     private async Task CloseDocumentCoreAsync(string uri, CancellationToken cancellationToken)
     {
         _openDocuments.TryRemove(uri, out _);
+        _sentDocumentVersions.TryRemove(uri, out _);
         if (_writtenOpens.TryRemove(uri, out var written)) written.TrySetCanceled();
         ForgetPullState(uri);
         var rpc = _rpc;
@@ -1791,7 +1810,7 @@ public sealed class VBLspClient : ILspClient
         {
             var edit = await InvokeRequestAsync<WorkspaceEdit?>(_rpc,
                 "textDocument/rename", p, cancellationToken, documentUri: uri);
-            return edit is null ? null : new RenameResult(edit, null);
+            return edit is null ? null : new RenameResult(edit, null, SentDocumentSnapshot);
         }
         catch (RemoteInvocationException ex) when (!cancellationToken.IsCancellationRequested)
         {

@@ -356,6 +356,8 @@
     "Str.CodeEditor.FileNotSaved.Banner": "Ez a fájl nem lesz mentve — a HexIDE még nem tudja hűen visszaadni, ezért a mentés módosítaná. A kód a fájl része, ezért ebbe az ablakba nem lehet gépelni.",
     "Str.CodeEditor.Msg.RenameTouchesReadOnly": "Az átnevezés nem történt meg, mert módosítaná a fájl fejlécét vagy egy tag Attribute sorait, amelyeket az IDE tart karban.",
     "Str.CodeEditor.Msg.RenameReachesOtherDocuments": "Az átnevezés nem történt meg, mert más dokumentumokat is módosítana: {0}",
+    "Str.CodeEditor.Msg.RenameDocumentRefused": "Az átnevezés nem alkalmazható erre: {0}.",
+    "Str.CodeEditor.Msg.RenamedInModules": "Átnevezve {0} modulban",
     "Str.CodeEditor.Msg.NoMarkOnReadOnlyLine": "A(z) {0}. sor a fájl fejlécének vagy egy tag Attribute sorainak része, amelyek soha nem futnak, ezért itt nem állítható be töréspont vagy könyvjelző.",
     "Str.CodeEditor.Dialog.InsertFileTitle": "Fájl beszúrása",
     "Str.CodeEditor.Dialog.RenamePrompt": "Új név:",
