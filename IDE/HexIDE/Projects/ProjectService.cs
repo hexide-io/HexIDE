@@ -322,11 +322,11 @@ public partial class ProjectService : IProjectService
             throw new OperationCanceledException();
         }
 
-        // The add-ins' project types beside HexIDE's own, each with its own filter as well. A whole file name that is all
-        // extension, such as ".rdproj", is offered as "*.rdproj", which is how a picker matches it; opening checks the name.
+        // The add-ins' project types beside HexIDE's own, each with its own filter as well, and each as it was contributed:
+        // a whole file name such as ".rdproj" is offered as that name, so the picker shows no Ledger.rdproj that the type
+        // would not read.
         var types = contributed?.Types ?? [];
-        static IReadOnlyList<string> Picked(ContributedProjectType type) =>
-            [.. type.Type.FileNames.Select(name => name.StartsWith('.') ? "*" + name : name)];
+        static IReadOnlyList<string> Picked(ContributedProjectType type) => type.Type.FileNames;
         var files = await windowManager.OpenFilePickerAsync(new FilePickerOpenOptions
         {
             Title = "Open Project",

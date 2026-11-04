@@ -123,6 +123,20 @@ public sealed class ContributedProjectTests : IDisposable
     }
 
     [AvaloniaFact]
+    public async Task Open_Project_offers_a_type_s_whole_file_name_as_that_name_not_as_a_pattern()
+    {
+        using var type = Contribute();
+        Avalonia.Platform.Storage.FilePickerOpenOptions? offered = null;
+        _windows.OpenFilePickerAsync(Arg.Do<Avalonia.Platform.Storage.FilePickerOpenOptions>(options => offered = options))
+            .Returns((IReadOnlyList<string>?)null);
+
+        await ((Func<Task>)(() => _service.OpenProject())).Should().ThrowAsync<OperationCanceledException>();
+
+        offered!.FileTypeFilter!.Single(filter => filter.Name == "RDCore projects").Patterns.Should().Equal(".rdproj");
+        offered.FileTypeFilter!.First().Patterns.Should().Contain(".rdproj").And.NotContain("*.rdproj");
+    }
+
+    [AvaloniaFact]
     public async Task Its_listed_folders_show_in_the_Project_Explorer_an_empty_one_included()
     {
         using var type = Contribute();
