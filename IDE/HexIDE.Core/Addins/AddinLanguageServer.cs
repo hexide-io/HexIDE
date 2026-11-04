@@ -43,6 +43,17 @@ public sealed record AddinLanguageServer(LanguageServerEntry Entry)
     /// How long the start waits for <see cref="BeforeLaunch"/>: a minute unless the add-in says otherwise. Positive and
     /// finite, so a gate that never finishes cannot leave its server starting for as long as the add-in is installed.
     /// </summary>
+    /// <remarks>
+    /// <para>
+    /// At the limit the start fails, with a message on the server's row that names the add-in, and the gate's token is
+    /// cancelled. The gate is not stopped: it runs on until it heeds the token or ends, and a failure it ends with then
+    /// is logged rather than lost.
+    /// </para>
+    /// <para>
+    /// A server whose start failed is not started again in that session, as with any launch that fails: the next
+    /// document it claims does not retry it. Set the limit for the longest the gate can reasonably take.
+    /// </para>
+    /// </remarks>
     public TimeSpan BeforeLaunchTimeout { get; init; } = DefaultBeforeLaunchTimeout;
 
     /// <summary>The wait for <see cref="BeforeLaunch"/> when the add-in names none.</summary>

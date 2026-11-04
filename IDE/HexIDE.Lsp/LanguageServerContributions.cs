@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text.Json;
 using HexIDE.Addins;
 using Microsoft.Extensions.Logging;
@@ -130,20 +131,49 @@ public sealed class LanguageServerContributions(
 
     // The add-in's gate, for as long as it said at most. Not by its token alone: a gate that never looks at it would
     // still hold the start, so the wait ends at the limit whether the gate does or not, and the token tells it to stop.
+    //
+    // The message is the row's detail, which is machine text quoted as it was said, never a localization key
+    // (LanguageConnectionStep), so its number is written the same in every culture.
     private async Task WithinAsync(Func<CancellationToken, Task> gate, TimeSpan limit, string? origin, string id,
         CancellationToken cancellationToken)
     {
-        using var bounded = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        var bounded = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        Task running;
         try
         {
-            await gate(bounded.Token).WaitAsync(limit, clock ?? TimeProvider.System, cancellationToken);
+            running = gate(bounded.Token);
         }
-        catch (TimeoutException)
+        catch
         {
-            await bounded.CancelAsync();
-            throw new TimeoutException(
-                $"{origin ?? "The add-in"} did not let '{id}' start within {limit.TotalSeconds:0.#} seconds.");
+            bounded.Dispose();
+            throw;
         }
+
+        try
+        {
+            await running.WaitAsync(limit, clock ?? TimeProvider.System, cancellationToken);
+        }
+        catch (TimeoutException ex) when (!ReferenceEquals(ex, running.Exception?.InnerException))
+        {
+            // The limit's, not one the gate threw itself, which is the gate's to word. The gate is told to stop and runs on
+            // until it does; its token's source lives as long, and what it ends with is logged rather than lost.
+            await bounded.CancelAsync();
+            _ = running.ContinueWith(ended =>
+            {
+                if (ended.Exception?.InnerException is { } late and not OperationCanceledException)
+                    logger.LogWarning(late, "{Origin}'s gate before launching '{Id}' failed after its limit.", origin ?? "An add-in", id);
+                bounded.Dispose();
+            }, CancellationToken.None, TaskContinuationOptions.None, TaskScheduler.Default);
+            throw new TimeoutException(string.Create(CultureInfo.InvariantCulture,
+                $"{origin ?? "The add-in"} did not let '{id}' start within {limit.TotalSeconds:0.#} seconds."));
+        }
+        catch
+        {
+            bounded.Dispose();
+            throw;
+        }
+
+        bounded.Dispose();
     }
 
     // On the thread pool, so a start never waits for an add-in and the add-in never holds the UI thread.

@@ -437,6 +437,64 @@ public class AddinServerRegistrationTests : IDisposable
         await told.Task.WaitAsync(TimeSpan.FromSeconds(30), Token);
     }
 
+    // Records what is logged, and says when a warning arrives.
+    private sealed class RecordingLogger<T> : ILogger<T>
+    {
+        private readonly TaskCompletionSource<Exception?> _warned = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public Task<Exception?> Warned => _warned.Task;
+        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+        public bool IsEnabled(LogLevel logLevel) => true;
+
+        public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception,
+            Func<TState, Exception?, string> formatter)
+        {
+            if (logLevel == LogLevel.Warning) _warned.TrySetResult(exception);
+        }
+    }
+
+    [Fact]
+    public async Task AGateThatFailsAfterItsLimit_HasItsFailureLogged_NotLost()
+    {
+        var clock = new ManualClock();
+        var logged = new RecordingLogger<LanguageServerContributions>();
+        var router = Router();
+        var contributions = new LanguageServerContributions(router, new LanguageServerRegistrationFactory(_loggerFactory),
+            new LanguageServerConfigLoader(_loggerFactory.CreateLogger<LanguageServerConfigLoader>()),
+            new HashSet<string>(StringComparer.Ordinal), logged, clock: clock);
+        var gate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        await using var connection = contributions.Register(new AddinLanguageServer(PipeEntry("probe", PipeName()))
+        {
+            BeforeLaunchTimeout = TimeSpan.FromSeconds(5),
+            BeforeLaunch = _ => gate.Task,
+        }, "My Add-in");
+        var opening = router.OpenDocumentAsync("file:///c:/p/README.md", "# hi", Token);
+        await clock.Armed.WaitAsync(TimeSpan.FromSeconds(30), Token);
+        clock.Fire();
+        await opening.WaitAsync(TimeSpan.FromSeconds(30), Token);
+
+        gate.SetException(new IOException("the add-in's share went away"));
+
+        (await logged.Warned.WaitAsync(TimeSpan.FromSeconds(30), Token)).Should().BeOfType<IOException>()
+            .Which.Message.Should().Be("the add-in's share went away");
+    }
+
+    [Fact]
+    public async Task AGateThatTimesOutOnItsOwn_IsReportedInItsOwnWords_NotAsHexIdesLimit()
+    {
+        var router = Router();
+        await using var connection = Contributions(router).Register(new AddinLanguageServer(PipeEntry("probe", PipeName()))
+        {
+            BeforeLaunch = _ => Task.FromException(new TimeoutException("the project server did not answer")),
+        }, "My Add-in");
+
+        await router.OpenDocumentAsync("file:///c:/p/README.md", "# hi", Token);
+
+        var row = router.Connections.Should().ContainSingle().Subject;
+        row.State.Should().Be(LanguageConnectionState.Failed);
+        row.Attempt!.Steps.Should().Contain(step => step.Detail == "the project server did not answer")
+            .And.NotContain(step => step.Detail != null && step.Detail.Contains("did not let"));
+    }
+
     public static TheoryData<TimeSpan> UnboundedWaits => new(TimeSpan.Zero, TimeSpan.FromSeconds(-1), Timeout.InfiniteTimeSpan);
 
     [Theory]
