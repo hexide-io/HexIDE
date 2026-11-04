@@ -2,6 +2,11 @@
   "name": "Slovenian",
   "direction": "ltr",
   "strings": {
+    "Str.Tool.CallHierarchy.Title": "Hierarhija klicev",
+    "Str.Tool.CallHierarchy.CallsTo": "Klici v",
+    "Str.Tool.CallHierarchy.CallsFrom": "Klici iz",
+    "Str.Tool.CallHierarchy.Empty": "Ni najdenih klicev.",
+    "Str.Tool.CallHierarchy.CallSite": "Klic na {0}:{1}",
     "Str.Tool.FindReferences.Title": "Poišči sklice",
     "Str.Tool.FindReferences.Empty": "Ni sklicev",
     "Str.Tool.FindReferences.Error": "{0}: {1}",

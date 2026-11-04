@@ -2,6 +2,11 @@
   "name": "Hungarian",
   "direction": "ltr",
   "strings": {
+    "Str.Tool.CallHierarchy.Title": "Hívási hierarchia",
+    "Str.Tool.CallHierarchy.CallsTo": "Bejövő hívások",
+    "Str.Tool.CallHierarchy.CallsFrom": "Kimenő hívások",
+    "Str.Tool.CallHierarchy.Empty": "Nem találhatók hívások.",
+    "Str.Tool.CallHierarchy.CallSite": "Hívás itt: {0}:{1}",
     "Str.Tool.FindReferences.Title": "Hivatkozások keresése",
     "Str.Tool.FindReferences.Empty": "Nincsenek hivatkozások",
     "Str.Tool.FindReferences.Error": "{0}: {1}",

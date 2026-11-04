@@ -2,6 +2,11 @@
   "name": "Norwegian Bokmål",
   "direction": "ltr",
   "strings": {
+    "Str.Tool.CallHierarchy.Title": "Kallhierarki",
+    "Str.Tool.CallHierarchy.CallsTo": "Kall til",
+    "Str.Tool.CallHierarchy.CallsFrom": "Kall fra",
+    "Str.Tool.CallHierarchy.Empty": "Ingen kall funnet.",
+    "Str.Tool.CallHierarchy.CallSite": "Kall ved {0}:{1}",
     "Str.Tool.FindReferences.Title": "Finn referanser",
     "Str.Tool.FindReferences.Empty": "Ingen referanser",
     "Str.Tool.FindReferences.Error": "{0}: {1}",

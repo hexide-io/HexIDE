@@ -70,6 +70,26 @@ range or placeholder SHALL seed the prompt. Servers without preparation support 
 - **WHEN** no claimant advertises preparation
 - **THEN** no preparation request is sent and the existing prompt behavior remains
 
+### Requirement: Call hierarchy connection requests
+The connection client SHALL declare `textDocument.callHierarchy` and gate prepare, incoming and
+outgoing call requests on `callHierarchyProvider`. It SHALL preserve server item data on expansion
+and propagate errors to its caller. The registry SHALL ask every advertising claimant and retain the owning connection for each item.
+The IDE SHALL offer a provider-gated Call Hierarchy command beside Find References and in the code
+context menu, with a keymap entry and no default shortcut. Its reusable tool pane SHALL dock with
+Immediate, switch between Calls To and Calls From, expand nodes lazily, show empty answers and
+per-server errors, and navigate nodes and call sites on Enter or double-click. A rerun SHALL replace
+the tree. All chrome SHALL be translated in every shipped pack.
+
+#### Scenario: Expand a server item
+- **WHEN** a caller requests incoming or outgoing calls for a prepared item
+- **THEN** the connection sends that item, including opaque data, to its server
+- **AND** returns the server's items and call-site ranges without computing relationships
+#### Scenario: Inspect callers from the caret
+- **WHEN** a user invokes Call Hierarchy in a document with an advertising server
+- **THEN** the client prepares at the caret and replaces the reusable pane's roots with server answers
+- **AND** opening a node requests only that node's calls in the selected direction from its owning server
+- **AND** Enter or double-click navigates to the selected item or call-site range
+
 ### Requirement: Format Selection through the advertising server
 The IDE SHALL offer Format Selection beside Format Document in the code editor context menu, enabled
 only for a nonempty selection in an editable document with an open language session and a claimant

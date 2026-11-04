@@ -2,6 +2,11 @@
   "name": "Croatian",
   "direction": "ltr",
   "strings": {
+    "Str.Tool.CallHierarchy.Title": "Hijerarhija poziva",
+    "Str.Tool.CallHierarchy.CallsTo": "Pozivi prema",
+    "Str.Tool.CallHierarchy.CallsFrom": "Pozivi iz",
+    "Str.Tool.CallHierarchy.Empty": "Nema pronađenih poziva.",
+    "Str.Tool.CallHierarchy.CallSite": "Poziv na {0}:{1}",
     "Str.Tool.FindReferences.Title": "Pronađi reference",
     "Str.Tool.FindReferences.Empty": "Nema referenci",
     "Str.Tool.FindReferences.Error": "{0}: {1}",

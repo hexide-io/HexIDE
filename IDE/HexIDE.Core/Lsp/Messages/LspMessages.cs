@@ -297,6 +297,8 @@ public record TextDocumentClientCapabilities(
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] SelectionRangeClientCapabilities? SelectionRange = null,
     [property: JsonPropertyName("rename")]
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] RenameClientCapabilities? Rename = null,
+    [property: JsonPropertyName("callHierarchy")]
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] EmptyParams? CallHierarchy = null,
     [property: JsonPropertyName("rangeFormatting")]
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] EmptyParams? RangeFormatting = null);
 
@@ -1377,3 +1379,26 @@ public record SelectionRange(
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] SelectionRange? Parent = null);
 
 public record SelectionRangeClientCapabilities;
+
+public record CallHierarchyItem(
+    [property: JsonPropertyName("name")] string Name,
+    [property: JsonPropertyName("kind")] int Kind,
+    [property: JsonPropertyName("uri")] string Uri,
+    [property: JsonPropertyName("range")] Range Range,
+    [property: JsonPropertyName("selectionRange")] Range SelectionRange,
+    [property: JsonPropertyName("tags")]
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] int[]? Tags = null,
+    [property: JsonPropertyName("detail")]
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Detail = null,
+    [property: JsonPropertyName("data")]
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] JsonElement Data = default);
+
+public record CallHierarchyCallsParams([property: JsonPropertyName("item")] CallHierarchyItem Item);
+
+public record CallHierarchyIncomingCall(
+    [property: JsonPropertyName("from")] CallHierarchyItem From,
+    [property: JsonPropertyName("fromRanges")] Range[] FromRanges);
+
+public record CallHierarchyOutgoingCall(
+    [property: JsonPropertyName("to")] CallHierarchyItem To,
+    [property: JsonPropertyName("fromRanges")] Range[] FromRanges);

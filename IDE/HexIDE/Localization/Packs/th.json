@@ -2,6 +2,11 @@
   "name": "Thai",
   "direction": "ltr",
   "strings": {
+    "Str.Tool.CallHierarchy.Title": "ลำดับชั้นการเรียก",
+    "Str.Tool.CallHierarchy.CallsTo": "การเรียกเข้า",
+    "Str.Tool.CallHierarchy.CallsFrom": "การเรียกออก",
+    "Str.Tool.CallHierarchy.Empty": "ไม่พบการเรียก",
+    "Str.Tool.CallHierarchy.CallSite": "การเรียกที่ {0}:{1}",
     "Str.Tool.FindReferences.Title": "ค้นหาการอ้างอิง",
     "Str.Tool.FindReferences.Empty": "ไม่มีการอ้างอิง",
     "Str.Tool.FindReferences.Error": "{0}: {1}",

@@ -2,6 +2,11 @@
   "name": "Swedish",
   "direction": "ltr",
   "strings": {
+    "Str.Tool.CallHierarchy.Title": "Anropshierarki",
+    "Str.Tool.CallHierarchy.CallsTo": "Anrop till",
+    "Str.Tool.CallHierarchy.CallsFrom": "Anrop från",
+    "Str.Tool.CallHierarchy.Empty": "Inga anrop hittades.",
+    "Str.Tool.CallHierarchy.CallSite": "Anrop vid {0}:{1}",
     "Str.Tool.FindReferences.Title": "Sök referenser",
     "Str.Tool.FindReferences.Empty": "Inga referenser",
     "Str.Tool.FindReferences.Error": "{0}: {1}",

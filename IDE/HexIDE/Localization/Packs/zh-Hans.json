@@ -2,6 +2,11 @@
   "name": "Chinese (Simplified)",
   "direction": "ltr",
   "strings": {
+    "Str.Tool.CallHierarchy.Title": "调用层次结构",
+    "Str.Tool.CallHierarchy.CallsTo": "传入调用",
+    "Str.Tool.CallHierarchy.CallsFrom": "传出调用",
+    "Str.Tool.CallHierarchy.Empty": "未找到调用。",
+    "Str.Tool.CallHierarchy.CallSite": "{0}:{1} 处的调用",
     "Str.Tool.FindReferences.Title": "查找引用",
     "Str.Tool.FindReferences.Empty": "没有引用",
     "Str.Tool.FindReferences.Error": "{0}: {1}",

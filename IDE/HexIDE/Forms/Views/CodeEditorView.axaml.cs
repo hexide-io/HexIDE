@@ -2696,6 +2696,19 @@ public partial class CodeEditorView : UserControl
 
     // ── Go to definition (F12) and declaration (Ctrl+F12) ─────────────────────
 
+    private void CanShowCallHierarchy(object? sender, Avalonia.Labs.Input.CanExecuteRoutedEventArgs e)
+    {
+        e.CanExecute = DataContext is CodeEditorViewModel { CanShowCallHierarchy: true };
+        e.Handled = true;
+    }
+
+    private void CallHierarchyExecuted(object? sender, Avalonia.Labs.Input.ExecutedRoutedEventArgs e)
+    {
+        if (DataContext is CodeEditorViewModel vm)
+            vm.ShowCallHierarchyAsync(new Position(TextEditor.TextArea.Caret.Line - 1,
+                TextEditor.TextArea.Caret.Column - 1)).ListenErrors();
+    }
+
     public void FindReferences()
     {
         if (DataContext is CodeEditorViewModel vm)

@@ -2,6 +2,11 @@
   "name": "Korean",
   "direction": "ltr",
   "strings": {
+    "Str.Tool.CallHierarchy.Title": "호출 계층 구조",
+    "Str.Tool.CallHierarchy.CallsTo": "수신 호출",
+    "Str.Tool.CallHierarchy.CallsFrom": "발신 호출",
+    "Str.Tool.CallHierarchy.Empty": "호출을 찾을 수 없습니다.",
+    "Str.Tool.CallHierarchy.CallSite": "{0}:{1}의 호출",
     "Str.Tool.FindReferences.Title": "참조 찾기",
     "Str.Tool.FindReferences.Empty": "참조 없음",
     "Str.Tool.FindReferences.Error": "{0}: {1}",

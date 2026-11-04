@@ -2,6 +2,11 @@
   "name": "Japanese",
   "direction": "ltr",
   "strings": {
+    "Str.Tool.CallHierarchy.Title": "呼び出し階層",
+    "Str.Tool.CallHierarchy.CallsTo": "呼び出し元",
+    "Str.Tool.CallHierarchy.CallsFrom": "呼び出し先",
+    "Str.Tool.CallHierarchy.Empty": "呼び出しが見つかりません。",
+    "Str.Tool.CallHierarchy.CallSite": "{0}:{1} の呼び出し",
     "Str.Tool.FindReferences.Title": "参照の検索",
     "Str.Tool.FindReferences.Empty": "参照がありません",
     "Str.Tool.FindReferences.Error": "{0}: {1}",

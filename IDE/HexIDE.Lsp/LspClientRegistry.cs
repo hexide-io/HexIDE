@@ -588,6 +588,29 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
             answers.SelectMany(a => a.Errors).ToArray());
     }
 
+    public bool SupportsCallHierarchy(string uri) => ClaimantsFor(uri, IsProjectMember(uri))
+        .Any(e => e.Client is { IsRunning: true } c
+            && ServerCapabilities.Supports(c.AdvertisedCapabilities, "callHierarchyProvider"));
+
+    public async Task<CallHierarchyResult> FindCallHierarchyAsync(string uri, Position position, CancellationToken ct = default)
+    {
+        var answers = await GatherAsync(uri, async client =>
+        {
+            if (!ServerCapabilities.Supports(client.AdvertisedCapabilities, "callHierarchyProvider")) return Array.Empty<CallHierarchyResult>();
+            try
+            {
+                var items = await client.PrepareCallHierarchyAsync(uri, position, ct);
+                return new[] { new CallHierarchyResult(items.Select(i => new CallHierarchyRoot(client, i, OwnerOf(client))).ToArray(), []) };
+            }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
+            catch (Exception ex)
+            {
+                return new[] { new CallHierarchyResult([], [new ReferenceSearchError(OwnerOf(client), ex.Message)]) };
+            }
+        }, ct);
+        return new(answers.SelectMany(a => a.Roots).ToArray(), answers.SelectMany(a => a.Errors).ToArray());
+    }
+
     public Task<Location[]?> RequestDefinitionAsync(string uri, Position position, CancellationToken ct = default) =>
         FirstAnswerAsync(uri, c => c.RequestDefinitionAsync(uri, position, ct), ct);
 

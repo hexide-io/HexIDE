@@ -200,6 +200,7 @@
                             <Separator />
                             <MenuItem Command="{x:Static vb:ApplicationCommands.FindCommand}" Header="{DynamicResource Str.Menu.Edit.Find}" utils:MenuUtils.MenuIcon="{StaticResource Geo.Find}" />
                             <MenuItem Header="{DynamicResource Str.Tool.FindReferences.Title}" Command="{x:Static vb:ApplicationCommands.FindReferencesCommand}" />
+                            <MenuItem Header="{DynamicResource Str.Tool.CallHierarchy.Title}" Command="{x:Static vb:ApplicationCommands.CallHierarchyCommand}" />
                             <MenuItem Command="{x:Static vb:ApplicationCommands.FindNextCommand}" Header="{DynamicResource Str.Menu.Edit.FindNext}" />
                             <MenuItem Command="{x:Static vb:ApplicationCommands.ReplaceCommand}" Header="{DynamicResource Str.Menu.Edit.Replace}" />
                             <Separator />
