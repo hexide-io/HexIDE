@@ -54,4 +54,33 @@ public class CompletionCapabilitiesWireTests
         completion.EnumerateObject().Select(property => property.Name).Should()
             .BeEquivalentTo("completionItemKind", "insertTextMode");
     }
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task InitializeDeclaresTheHoverRenderersFormats(bool compareWithRenderer)
+    {
+        var server = new HandshakeRecorder();
+        var (clientSide, serverSide) = FullDuplexStream.CreatePair();
+        var serverRpc = new JsonRpc(
+            new HeaderDelimitedMessageHandler(serverSide, serverSide, new SystemTextJsonFormatter()), server);
+        serverRpc.StartListening();
+
+        var transport = Substitute.For<ILspTransport>();
+        transport.IsAlive.Returns(true);
+        transport.ConnectAsync(Arg.Any<IJsonRpcMessageFormatter>(), Arg.Any<CancellationToken>())
+            .Returns(ci => Task.FromResult<IJsonRpcMessageHandler?>(
+                new HeaderDelimitedMessageHandler(clientSide, clientSide, ci.Arg<IJsonRpcMessageFormatter>())));
+
+        var logger = Substitute.For<ILogger<VBLspClient>>();
+        var client = new VBLspClient(transport, logger, "markdown");
+        await using var ownedClient = client;
+        using var ownedServer = serverRpc;
+        await client.StartAsync(TestContext.Current.CancellationToken);
+        var initialize = await server.InitializeParams.WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
+
+        var formats = initialize.GetProperty("capabilities").GetProperty("textDocument")
+            .GetProperty("hover").GetProperty("contentFormat").EnumerateArray().Select(value => value.GetString()).ToArray();
+        if (compareWithRenderer) formats.Should().Equal(HoverContentRenderer.Formats);
+        else formats.Should().Equal("markdown", "plaintext");
+    }
 }

@@ -462,6 +462,7 @@ public partial class CodeEditorView : UserControl
             // Hover tooltip
             ToolTip.SetPlacement(TextEditor, PlacementMode.Pointer);
             ToolTip.SetShowDelay(TextEditor, 0);
+            ToolTip.SetServiceEnabled(TextEditor, false);
             TextEditor.PointerMoved += OnPointerMoved;
             TextEditor.PointerExited += OnPointerExited;
 
@@ -1274,7 +1275,7 @@ public partial class CodeEditorView : UserControl
         _hoverCts = new CancellationTokenSource();
         var token = _hoverCts.Token;
 
-        CloseTip();
+        if (ToolTip.GetTip(TextEditor) is not ToolTip) CloseTip();
 
         // GetPosition expects document coordinates, while pointer events are relative to the viewport.
         var tvPos = TextEditor.TextArea.TextView.GetPosition(point + TextEditor.TextArea.TextView.ScrollOffset);
@@ -1445,7 +1446,16 @@ public partial class CodeEditorView : UserControl
         _hoverCts?.Cancel();
         _hoverCts?.Dispose();
         _hoverCts = null;
-        CloseTip();
+        if (ToolTip.GetTip(TextEditor) is ToolTip richTip)
+            _ = CloseRichTipAfterExitAsync(richTip);
+        else CloseTip();
+    }
+
+    private async Task CloseRichTipAfterExitAsync(ToolTip tip)
+    {
+        await Task.Delay(200);
+        if (ReferenceEquals(ToolTip.GetTip(TextEditor), tip) && !tip.IsPointerOver && !TextEditor.IsPointerOver)
+            CloseTip();
     }
 
     public void TriggerQuickInfo()
@@ -1541,7 +1551,7 @@ public partial class CodeEditorView : UserControl
             await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
             {
                 if (token.IsCancellationRequested) return;
-                ShowDiagnosticTip(pos, result?.Contents.Value);
+                ShowDiagnosticTip(pos, result?.Contents);
             });
         }
         catch (OperationCanceledException) { }
@@ -1551,7 +1561,7 @@ public partial class CodeEditorView : UserControl
         }
     }
 
-    private void ShowDiagnosticTip(Position pos, string? quickInfo)
+    private void ShowDiagnosticTip(Position pos, MarkupContent? quickInfo)
     {
         var offset = TextEditor.Document.GetOffset(pos.Line + 1, pos.Character + 1);
         var parts = new List<string>();
@@ -1564,7 +1574,26 @@ public partial class CodeEditorView : UserControl
                         ? marker.Message : $"{marker.Source}: {marker.Message}");
             }
         }
-        if (!string.IsNullOrEmpty(quickInfo)) parts.Add(quickInfo);
+        if (quickInfo is { Kind: "markdown", Value.Length: > 0 })
+        {
+            var panel = new StackPanel { Spacing = 8 };
+            foreach (var part in parts)
+                panel.Children.Add(new TextBlock { Text = part, TextWrapping = TextWrapping.Wrap, MaxWidth = 700 });
+            panel.Children.Add(HoverContentView.Render(quickInfo, TextEditor, uri =>
+            {
+                if (uri.IsFile && DataContext is CodeEditorViewModel vm)
+                    vm.OpenHoverFile(uri);
+                else if (uri.Scheme is "http" or "https" && TopLevel.GetTopLevel(this) is { } top)
+                    _ = top.Launcher.LaunchUriAsync(uri);
+            }));
+            var richTip = new ToolTip { Content = panel };
+            richTip.PointerEntered += (_, _) => _hoverCts?.Cancel();
+            richTip.PointerExited += (_, _) => _ = CloseRichTipAfterExitAsync(richTip);
+            ToolTip.SetTip(TextEditor, richTip);
+            ToolTip.SetIsOpen(TextEditor, true);
+            return;
+        }
+        if (!string.IsNullOrEmpty(quickInfo?.Value)) parts.Add(quickInfo.Value);
         if (parts.Count == 0) { CloseTip(); return; }
         ToolTip.SetTip(TextEditor, string.Join(Environment.NewLine + Environment.NewLine, parts));
         ToolTip.SetIsOpen(TextEditor, true);
