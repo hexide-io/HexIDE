@@ -1237,7 +1237,9 @@ flowing meanwhile. `$/cancelRequest` closes an open question or removes a queued
 `ServerMessagePromptTests` checks ownership, title, buttons, message type icons, Escape dismissal and cancellation.
 
 Go to Implementation and Go to Type Definition appear beside Definition in the View and code context
-menus (#3074). Each is enabled only for a document whose running server advertises the corresponding
+menus (#3074). The View menu uses bare nouns; context labels follow each pack’s existing go-to phrasing.
+In Latin-script packs, the four navigation entries have distinct access keys within each menu (#3096).
+Each is enabled only for a document whose running server advertises the corresponding
 provider. Both client capabilities declare `linkSupport`; neither command has a default key binding.
 Single locations navigate directly; multiple locations populate the existing Find References pane.
 HexIDE displays the server's answer without computing implementations or types itself.
