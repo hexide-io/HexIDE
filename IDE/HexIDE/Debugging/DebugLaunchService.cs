@@ -8,12 +8,16 @@ namespace HexIDE.Debugging;
 
 /// <summary>A launch an add-in contributed, under the name of the add-in that did.</summary>
 /// <param name="Key">
-/// What a project's choice of it is remembered as: the add-in's name and the launch's title, which stay the same from
-/// one session to the next, as the instance does not.
+/// What a project's choice of it is remembered as: the add-in's id and the launch's title, which stay the same from one
+/// session to the next, as the instance does not, and as the add-in's title need not.
 /// </param>
+/// <param name="Origin">The add-in's title, for display.</param>
 public sealed record ContributedDebugLaunch(string Key, string Origin, AddinDebugLaunch Launch)
 {
     public string Title => Launch.Title;
+
+    /// <summary>The launch title a remembered key names, to say which launch a choice was when it is gone.</summary>
+    public static string TitleOf(string key) => key.IndexOf('/') is var at and >= 0 ? key[(at + 1)..] : key;
 }
 
 /// <summary>
@@ -40,20 +44,24 @@ public sealed class DebugLaunchService(ExternalDebugService debugger, ILogger<De
         }
     }
 
+    internal IDisposable Register(AddinDebugLaunch launch, AddinOrigin origin) => Register(launch, origin.Id, origin.Title);
+
     /// <summary>Adds an add-in's launch.</summary>
-    /// <param name="origin">The add-in's title, which names the launch in the Run menu and in the remembered choice.</param>
+    /// <param name="originId">The add-in's id, which keys the remembered choice of the launch.</param>
+    /// <param name="origin">The add-in's title, which names the launch in the Run menu.</param>
     /// <returns>What takes it out again.</returns>
     /// <exception cref="ArgumentException">It has no title, or nothing makes its configuration.</exception>
     /// <exception cref="InvalidOperationException">The add-in contributed a launch with that title already.</exception>
-    public IDisposable Register(AddinDebugLaunch launch, string origin)
+    public IDisposable Register(AddinDebugLaunch launch, string originId, string origin)
     {
         ArgumentNullException.ThrowIfNull(launch);
         ArgumentException.ThrowIfNullOrWhiteSpace(launch.Title, nameof(launch));
+        ArgumentException.ThrowIfNullOrWhiteSpace(originId);
         ArgumentException.ThrowIfNullOrWhiteSpace(origin);
         if (launch.CreateConfigurationAsync is null || launch.Claims is null)
             throw new ArgumentException("A launch needs what makes its configuration, and what says which projects it runs.", nameof(launch));
 
-        var contributed = new ContributedDebugLaunch(origin + "/" + launch.Title, origin, launch);
+        var contributed = new ContributedDebugLaunch(originId + "/" + launch.Title, origin, launch);
         lock (_gate)
         {
             if (_launches.Any(known => known.Key == contributed.Key))

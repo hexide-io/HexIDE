@@ -76,6 +76,12 @@ public partial class MainView : UserControl
         (DataContext as MainViewViewModel)?.ScheduleLayoutSave();
     }
 
+    // The Run menu's launches are asked whether they run the startup project as it opens, never on a project's load.
+    private void OnRunMenuOpened(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (ReferenceEquals(e.Source, sender)) (DataContext as MainViewViewModel)?.RunWith?.Refresh();
+    }
+
     public MainView WindowInitialized()
     {
         if (DataContext is MainViewViewModel vm)

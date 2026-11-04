@@ -239,10 +239,14 @@ gutter marks of the project, as a launch file's is.
 
 F5 SHALL run the interpreter for a project until its user chooses otherwise under Run > Run With, which lists
 the interpreter and every contributed launch that runs the startup project. The choice SHALL be remembered
-per project, for that user, in the user sidecar. A chosen launch that is gone or no longer runs the project
-SHALL leave F5 to the interpreter, with a status message that says so, and SHALL stay chosen. Run > Start
-With SHALL run a contributed launch once without changing what F5 runs. Stepping in from idle and Run To
-Cursor SHALL stay the interpreter's.
+per project, for that user, in the user sidecar, by the contributing add-in's id and the launch's title. A
+chosen launch that is gone or no longer runs the project SHALL leave F5 to the interpreter, with a status
+message that says so, and SHALL stay chosen, shown under Run With as not available so the user can set it
+back. Run > Start With SHALL run a contributed launch once without changing what F5 runs. Only F5 and Run >
+Start SHALL follow the choice: stepping in from idle, Run To Cursor, Restart and Start With Full Compile SHALL
+stay the interpreter's. Whether a launch runs the project SHALL be asked when the Run menu opens or a run
+starts, never when a project opens. Ending a session whose configuration is still being made SHALL end it,
+whether or not the add-in heeds its cancellation.
 
 #### Scenario: An add-in offers a launch
 - **WHEN** an add-in contributes a launch that runs the startup project

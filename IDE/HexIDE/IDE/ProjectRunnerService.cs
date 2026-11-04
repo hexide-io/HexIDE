@@ -522,20 +522,28 @@ public partial class ProjectRunnerService : IProjectRunnerService
         if (archives?.IsActive == true) return;
         if (projectManager.StartupProject is {} startupProject)
         {
-            // F5 alone: stepping in from idle (F8) and Run To Cursor are the interpreter's, whatever F5 runs.
-            if (!stepInto && LaunchChosenFor(startupProject) is { } launch)
-            {
-                StartContributedLaunch(launch, startupProject);
-                return;
-            }
             RunProject(startupProject, stepInto);
         }
     }
 
     /// <inheritdoc />
+    public void StartDefaultProject()
+    {
+        if (archives?.IsActive == true) return;
+        if (projectManager.StartupProject is not { } startupProject) return;
+        if (LaunchChosenFor(startupProject) is { } launch)
+        {
+            StartContributedLaunch(launch, startupProject);
+            return;
+        }
+        RunProject(startupProject);
+    }
+
+    /// <inheritdoc />
     public void StartContributedLaunch(ContributedDebugLaunch launch, ProjectDefinition project)
     {
-        if (debugLaunches is null || IsRunning) return;
+        if (debugLaunches is null || archives?.IsActive == true || IsRunning) return;
+        externalDebugger?.ClearSessionResult();
         eventBus.Publish(new ApplyAllUnsavedChangesEvent());
         debugLaunches.StartAsync(launch, project).ListenErrors();
     }
@@ -548,7 +556,8 @@ public partial class ProjectRunnerService : IProjectRunnerService
         if (debugLaunches is null || runChoices?.Get(project) is not { } key) return null;
         if (debugLaunches.Find(key) is { } launch && debugLaunches.Claims(launch, project)) return launch;
         statusBar?.SetTemporaryMessage(
-            string.Format(localization.GetString("Str.Debug.RunWith.Unavailable"), key), TimeSpan.FromSeconds(10));
+            string.Format(localization.GetString("Str.Debug.RunWith.Unavailable"), ContributedDebugLaunch.TitleOf(key)),
+            TimeSpan.FromSeconds(10));
         return null;
     }
 

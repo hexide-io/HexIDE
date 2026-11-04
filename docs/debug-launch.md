@@ -180,18 +180,24 @@ an `AddinLaunchConfiguration`, holds a launch file's fields without its breakpoi
 directory, environment, adapter id and `launch` arguments. Its executable and working directory are fully qualified,
 since there is no file for them to be relative to; the working directory is the executable's folder when none is given.
 
-Nothing runs because an add-in is installed or a project opens. The add-in is asked for the configuration only when a
-run of its launch starts, under the session's cancellation, so End before the session has started calls the making off.
+The project is described to the add-in as `IProjectAccess` describes it, with its `StartupObject` too: `"Sub Main"`, the
+startup form's name, or null.
+
+Nothing runs because an add-in is installed or a project opens. Whether a launch runs the project is asked as the Run menu
+opens, and its configuration only when a run of it starts. That is under the session's cancellation, and End before the
+session has started ends it even if the add-in never looks at its token.
 The session is then the same as a launch file's: one at a time, with the project's saved gutter marks, and conditions
 refused in the configuration.
 
 **What F5 runs.** F5 runs the project in the IDE until its user chooses otherwise. **Run > Run With** lists the IDE and
 each contributed launch that runs the startup project, with the current choice checked. The choice is per project and
-per user, kept in the `.user.hexproj` sidecar as `runWith`; choosing the IDE removes it. **Run > Start With** runs a
-launch once without changing what F5 runs. Both appear only while an add-in offers a launch for the startup project.
+per user, kept in the `.user.hexproj` sidecar as `runWith` by the add-in's id and the launch's title; choosing the IDE
+removes it. **Run > Start With** runs a launch once without changing what F5 runs, and is shown while an add-in offers a
+launch for the startup project. Run With is also shown while the project has a choice whose launch is gone.
 
 If the chosen launch is gone, because its add-in was removed or turned off, or no longer runs the project, F5 runs the
-project in the IDE and the status bar says so. The choice stays, for when the add-in is back. Stepping in from idle (F8)
-and Run To Cursor are the IDE's, whatever F5 runs.
+project in the IDE and the status bar says so. The choice stays, for when the add-in is back, and shows under Run With as
+not available, beside the IDE, which sets it back. Only F5 and **Run > Start** follow the choice: stepping in from idle
+(F8), Run To Cursor, Restart and Start With Full Compile run in the IDE, whatever F5 runs.
 
 Disposing the handle `RegisterDebugLaunch` returns takes the launch out, as does a failed initialisation of its add-in.

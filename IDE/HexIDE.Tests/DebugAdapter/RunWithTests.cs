@@ -15,7 +15,7 @@ namespace HexIDE.Tests.DebugAdapter;
 /// </summary>
 public class RunWithTests : IAsyncDisposable
 {
-    private const string Key = "RDCore for HexIDE/RDCore";
+    private const string Key = "com.rdcore.hexide/RDCore";
 
     private readonly ConversationLog _log = new();
     private readonly ProjectDefinition _project = TestHelpers.CreateProject("Invoices");
@@ -57,14 +57,14 @@ public class RunWithTests : IAsyncDisposable
                 _asked.TrySetResult(project);
                 throw new InvalidOperationException("this test stops at the configuration");
             },
-        }, "RDCore for HexIDE");
+        }, "com.rdcore.hexide", "RDCore for HexIDE");
 
     [AvaloniaFact]
     public void F5_runs_the_interpreter_though_an_add_in_offers_a_launch_until_the_user_chooses_it()
     {
         Contribute();
 
-        _runner.RunStartupProject();
+        _runner.StartDefaultProject();
 
         _interpreterStarts.Should().ContainSingle();
         _asked.Task.IsCompleted.Should().BeFalse("installing an add-in changes nothing about F5");
@@ -76,21 +76,36 @@ public class RunWithTests : IAsyncDisposable
         Contribute();
         _choices.Set(_project, Key);
 
-        _runner.RunStartupProject();
+        _runner.StartDefaultProject();
 
         (await _asked.Task.WaitAsync(TimeSpan.FromSeconds(20), TestContext.Current.CancellationToken)).ProjectName.Should().Be("Invoices");
         _interpreterStarts.Should().BeEmpty();
     }
 
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void A_start_in_the_IDE_by_name_stays_the_interpreter_s_whatever_F5_runs(bool stepInto)
+    {
+        // RunStartupProject is what Restart, a full compile, Run To Cursor and F8 from idle start with.
+        Contribute();
+        _choices.Set(_project, Key);
+
+        _runner.RunStartupProject(stepInto);
+
+        _interpreterStarts.Should().ContainSingle();
+        _asked.Task.IsCompleted.Should().BeFalse();
+    }
+
     [AvaloniaFact]
-    public void Stepping_in_from_idle_stays_the_interpreter_s_whatever_F5_runs()
+    public void Run_To_Cursor_from_idle_stays_the_interpreter_s_whatever_F5_runs()
     {
         Contribute();
         _choices.Set(_project, Key);
 
-        _runner.RunStartupProject(stepInto: true);
+        _runner.RunToCursorProject(HexIDE.Runtime.ProjectElements.DocumentIdentity.For(TestHelpers.CreateModule()), 1);
 
-        _interpreterStarts.Should().ContainSingle();
+        _interpreterStarts.Should().ContainSingle("the cursor is the interpreter's to run to");
         _asked.Task.IsCompleted.Should().BeFalse();
     }
 
@@ -102,10 +117,10 @@ public class RunWithTests : IAsyncDisposable
         if (why != "gone") Contribute(claims: _ => false);
         _choices.Set(_project, Key);
 
-        _runner.RunStartupProject();
+        _runner.StartDefaultProject();
 
         _interpreterStarts.Should().ContainSingle();
-        _status.Received(1).SetTemporaryMessage($"{Key} isn't available", Arg.Any<TimeSpan>());
+        _status.Received(1).SetTemporaryMessage("RDCore isn't available", Arg.Any<TimeSpan>());
         _choices.Get(_project).Should().Be(Key, "the choice stays, for when the add-in is back");
     }
 }

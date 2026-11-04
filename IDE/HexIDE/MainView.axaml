@@ -361,7 +361,7 @@
                             <MenuItem Command="{x:Static vb:ApplicationCommands.SetNextStatementCommand}" Header="{DynamicResource Str.Menu.Debug.SetNextStatement}" />
                             <MenuItem Command="{x:Static vb:ApplicationCommands.ShowNextStatementCommand}" Header="{DynamicResource Str.Menu.Debug.ShowNextStatement}" />
                         </MenuItem>
-                        <MenuItem Header="{DynamicResource Str.Menu.Run}">
+                        <MenuItem Header="{DynamicResource Str.Menu.Run}" SubmenuOpened="OnRunMenuOpened">
                             <MenuItem Classes="play" Header="{DynamicResource Str.Menu.Run.Start}" utils:MenuUtils.MenuIcon="{StaticResource Geo.Play}" Command="{x:Static vb:ApplicationCommands.StartDefaultProjectCommand}" />
                             <MenuItem Header="{DynamicResource Str.Menu.Run.StartWithFullCompile}" Command="{x:Static vb:ApplicationCommands.StartDefaultProjectWithFullCompileCommand}" />
                             <MenuItem Header="{DynamicResource Str.Menu.Run.StartExternal}" Command="{CompiledBinding StartExternalDebugCommand}" />
@@ -375,7 +375,7 @@
                                 </MenuItem.ItemContainerTheme>
                             </MenuItem>
                             <MenuItem Header="{DynamicResource Str.Menu.Run.RunWith}" ItemsSource="{CompiledBinding RunWith.Choices}"
-                                      IsVisible="{CompiledBinding RunWith.HasLaunches, FallbackValue=False}">
+                                      IsVisible="{CompiledBinding RunWith.HasChoices, FallbackValue=False}">
                                 <MenuItem.ItemContainerTheme>
                                     <ControlTheme TargetType="MenuItem" BasedOn="{StaticResource {x:Type MenuItem}}" x:DataType="forms:RunMenuItemViewModel">
                                         <Setter Property="Header" Value="{CompiledBinding Header}" />

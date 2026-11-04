@@ -28,15 +28,15 @@ public class DebugLaunchServiceTests
         var changes = 0;
         service.LaunchesChanged += () => ++changes;
 
-        var handle = service.Register(Launch("RDCore"), "RDCore for HexIDE");
-        service.Register(Launch("RDCore"), "Another add-in");
+        var handle = service.Register(Launch("RDCore"), "com.rdcore.hexide", "RDCore for HexIDE");
+        service.Register(Launch("RDCore"), "com.example.another", "Another add-in");
 
-        service.Launches.Select(launch => launch.Key).Should().Equal("RDCore for HexIDE/RDCore", "Another add-in/RDCore");
-        service.Find("RDCore for HexIDE/RDCore")!.Origin.Should().Be("RDCore for HexIDE");
+        service.Launches.Select(launch => launch.Key).Should().Equal("com.rdcore.hexide/RDCore", "com.example.another/RDCore");
+        service.Find("com.rdcore.hexide/RDCore")!.Origin.Should().Be("RDCore for HexIDE");
         handle.Dispose();
         handle.Dispose();
         service.Launches.Should().ContainSingle().Which.Origin.Should().Be("Another add-in");
-        service.Find("RDCore for HexIDE/RDCore").Should().BeNull();
+        service.Find("com.rdcore.hexide/RDCore").Should().BeNull();
         changes.Should().Be(3, "two added and one taken out; a second dispose is nothing");
     }
 
@@ -45,13 +45,13 @@ public class DebugLaunchServiceTests
     {
         await using var log = new ConversationLog();
         var service = new DebugLaunchService(new ExternalDebugService(log));
-        service.Register(Launch("RDCore"), "RDCore for HexIDE");
+        service.Register(Launch("RDCore"), "com.rdcore.hexide", "RDCore for HexIDE");
 
-        var twice = () => service.Register(Launch("RDCore"), "RDCore for HexIDE");
+        var twice = () => service.Register(Launch("RDCore"), "com.rdcore.hexide", "RDCore for HexIDE");
         twice.Should().Throw<InvalidOperationException>();
-        var untitled = () => service.Register(Launch(" "), "RDCore for HexIDE");
+        var untitled = () => service.Register(Launch(" "), "com.rdcore.hexide", "RDCore for HexIDE");
         untitled.Should().Throw<ArgumentException>();
-        var unmade = () => service.Register(new AddinDebugLaunch("Other") { CreateConfigurationAsync = null! }, "RDCore for HexIDE");
+        var unmade = () => service.Register(new AddinDebugLaunch("Other") { CreateConfigurationAsync = null! }, "com.rdcore.hexide", "RDCore for HexIDE");
         unmade.Should().Throw<ArgumentException>();
         service.Launches.Should().ContainSingle();
     }
@@ -63,7 +63,7 @@ public class DebugLaunchServiceTests
         var service = new DebugLaunchService(new ExternalDebugService(log));
 
         using (new AddinInitializationScope())
-            service.Register(Launch("RDCore"), "RDCore for HexIDE");
+            service.Register(Launch("RDCore"), "com.rdcore.hexide", "RDCore for HexIDE");
 
         service.Launches.Should().BeEmpty("the scope was disposed without being completed, as a failed Initialize leaves it");
     }
@@ -74,9 +74,9 @@ public class DebugLaunchServiceTests
         await using var log = new ConversationLog();
         var service = new DebugLaunchService(new ExternalDebugService(log));
         var project = TestHelpers.CreateProject("Invoices");
-        service.Register(Launch("Runs it", claims: info => info.ProjectName == "Invoices"), "A");
-        service.Register(Launch("Not this one", claims: _ => false), "B");
-        service.Register(Launch("Throws", claims: _ => throw new InvalidOperationException("broken")), "C");
+        service.Register(Launch("Runs it", claims: info => info.ProjectName == "Invoices"), "a", "A");
+        service.Register(Launch("Not this one", claims: _ => false), "b", "B");
+        service.Register(Launch("Throws", claims: _ => throw new InvalidOperationException("broken")), "c", "C");
 
         service.For(project).Select(launch => launch.Title).Should().Equal("Runs it");
     }
@@ -88,13 +88,14 @@ public class DebugLaunchServiceTests
         var debugger = new ExternalDebugService(log);
         var service = new DebugLaunchService(debugger);
         var project = TestHelpers.CreateProject("Invoices");
+        project.StartsAtSubMain = true;
         AddinProjectInfo? asked = null;
         service.Register(Launch("RDCore", create: (info, _) =>
         {
             asked = info;
             throw new InvalidOperationException("rdcore.json was not found");
-        }), "RDCore for HexIDE");
-        var launch = service.Find("RDCore for HexIDE/RDCore")!;
+        }), "com.rdcore.hexide", "RDCore for HexIDE");
+        var launch = service.Find("com.rdcore.hexide/RDCore")!;
         asked.Should().BeNull("nothing is asked until a run starts");
         var failures = new List<string>();
         debugger.Failed += failures.Add;
@@ -102,6 +103,7 @@ public class DebugLaunchServiceTests
         await service.StartAsync(launch, project).WaitAsync(TimeSpan.FromSeconds(20), Token);
 
         asked!.ProjectName.Should().Be("Invoices");
+        asked.StartupObject.Should().Be("Sub Main", "what RDCore's launch needs to know what to run");
         debugger.IsActive.Should().BeFalse();
         failures.Should().ContainSingle().Which.Should().Contain("rdcore.json was not found");
     }

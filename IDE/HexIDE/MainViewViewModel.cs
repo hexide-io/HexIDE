@@ -1366,7 +1366,7 @@ public partial class MainViewViewModel : ObservableObject
                 if (projectRunnerService.CanContinueProject)
                     projectRunnerService.ContinueProject();
                 else
-                    projectRunnerService.RunStartupProject();
+                    projectRunnerService.StartDefaultProject();
             },
             () => projectRunnerService.CanStartDefaultProject || projectRunnerService.CanContinueProject);
         StartDefaultProjectWithFullCompileCommand = new DelegateCommand(() => projectRunnerService.RunStartupProject(),
