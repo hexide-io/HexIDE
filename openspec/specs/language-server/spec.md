@@ -31,6 +31,15 @@ code 0 and empty stderr, whether the client closes stdin or leaves it open. EOF 
 - **WHEN** stdin closes without an `exit` notification
 - **THEN** stderr reports the read fault
 
+### Requirement: Caught crashes have a distinct exit code
+An exception caught by the process entry point SHALL be logged as fatal and exit with code 2,
+distinct from code 0 after an answered `shutdown` and code 1 for `exit` without one.
+This requirement SHALL NOT change errors handled internally by the server framework.
+
+#### Scenario: The entry point catches a crash
+- **WHEN** server construction or execution throws an exception that reaches the entry point
+- **THEN** it logs the exception as fatal and the process exits with code 2
+
 ### Requirement: Startup is visible without tracing
 The server SHALL send an informational `window/logMessage` after the client's `initialized`
 notification, confirming startup with the same name and version advertised by `initialize`.
