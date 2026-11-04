@@ -782,6 +782,7 @@
     "Str.Tool.LanguageServers.Vm.State.Running": "Работает",
     "Str.Tool.LanguageServers.Vm.State.Failed": "Сбой",
     "Str.Tool.LanguageServers.Vm.State.Stopped": "Остановлен",
+    "Str.Tool.LanguageServers.Vm.Elapsed": "{0} мс",
     "Str.Tool.LanguageServers.Vm.Age.Seconds": "{0} с",
     "Str.Tool.LanguageServers.Vm.Age.Minutes": "{0} мин {1} с",
     "Str.Tool.LanguageServers.Vm.Age.Hours": "{0} ч {1} мин",

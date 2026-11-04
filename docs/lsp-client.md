@@ -173,6 +173,8 @@ for longer translations. State ages refresh once per second while the view is vi
 view stops its timer when hidden or detached (#2865, #2866). Switching the IDE language
 refreshes status, connect-chain stages, age and empty-output text immediately. Age units use
 localized range formats, and the label column can shrink as well as grow without reopening the tab (#3012).
+Connect-chain elapsed times use a localized millisecond format that follows the same live language switch;
+digit grouping continues to use the process culture (#3026).
 
 **Live server output** (#2388): Tools → Language & Debug Servers shows an Output box on each
 server's card, beside its existing protocol-inspector link. It updates as `window/logMessage`, stderr,
