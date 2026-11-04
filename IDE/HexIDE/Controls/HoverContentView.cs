@@ -49,6 +49,20 @@ internal static class HoverContentView
         return panel;
     }
 
+    private sealed class HoverLink : HyperlinkButton
+    {
+        protected override Type StyleKeyOverride => typeof(HyperlinkButton);
+
+        protected override Size MeasureOverride(Size availableSize)
+        {
+            var size = base.MeasureOverride(availableSize);
+            // Inline controls otherwise use their bottom edge as the text baseline.
+            TextBlock.SetBaselineOffset(this,
+                ((TextBlock)Content!).TextLayout.Baseline + Padding.Top + BorderThickness.Top);
+            return size;
+        }
+    }
+
     private static void AddInlines(InlineCollection target, string text, FontFamily font, Action<Uri> navigate, int depth = 0)
     {
         if (depth > 16) { target.Add(new Run(text)); return; }
@@ -68,7 +82,7 @@ internal static class HoverContentView
                 {
                     var caption = new TextBlock();
                     AddInlines(caption.Inlines!, label, font, navigate, depth + 1);
-                    var link = new HyperlinkButton { Content = caption, Padding = new Thickness(0) };
+                    var link = new HoverLink { Content = caption, Padding = new Thickness(0) };
                     link.Click += (_, _) => navigate(uri);
                     target.Add(new InlineUIContainer(link));
                 }
