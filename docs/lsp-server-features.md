@@ -15,7 +15,9 @@ replaced or switched off like any other.
 After `shutdown` and `exit`, the server stops reading input and exits with code 0 without writing to
 stderr (#2956), whether the client closes stdin or leaves it open. EOF without `exit` still reports
 the read fault on stderr. An `exit` without an answered `shutdown` exits with code 1 and
-empty stderr (#3007).
+empty stderr (#3007). An exception caught and logged as fatal by `Program.cs` exits with code 2
+(#3023), distinct from both lifecycle outcomes. Errors the framework handles internally do not reach
+that catch.
 
 **Visitor hardening (#1894):** symbol, declaration and Option Explicit walks bound recursion in
 `VisitChildren` at 500 levels, including left-associated operator trees. The 100,000-addition
