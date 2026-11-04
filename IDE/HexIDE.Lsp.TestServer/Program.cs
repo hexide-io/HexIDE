@@ -65,6 +65,8 @@ public static class Program
                 return 23;
             }
             if (method == "textDocument/hover" && mode == "nonzero") return 17;
+            if (method == "textDocument/hover" && mode == "exit1") return 1;
+            if (method == "textDocument/hover" && mode == "exit2") return 2;
             if (method == "shutdown") shutdown = true;
             var result = method == "initialize" ? "{\"capabilities\":{\"hoverProvider\":true}}" : "null";
             var reply = Encoding.UTF8.GetBytes($"{{\"jsonrpc\":\"2.0\",\"id\":{root.GetProperty("id").GetRawText()},\"result\":{result}}}");

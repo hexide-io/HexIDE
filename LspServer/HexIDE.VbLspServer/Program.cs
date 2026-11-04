@@ -43,13 +43,12 @@ Log.Information("HexIDE VB6 LSP server (MIT shell) starting");
 
 try
 {
-    var server = LspServerHost.Create(Console.OpenStandardInput(), Console.OpenStandardOutput(), new DocumentStore());
-    await server.Run();
-    Environment.ExitCode = server.ExitCode;
-}
-catch (Exception ex)
-{
-    Log.Fatal(ex, "LSP server crashed");
+    Environment.ExitCode = await RunServerAsync(async () =>
+    {
+        var server = LspServerHost.Create(Console.OpenStandardInput(), Console.OpenStandardOutput(), new DocumentStore());
+        await server.Run();
+        return server.ExitCode;
+    });
 }
 finally
 {
@@ -127,4 +126,20 @@ static string SessionKeyOf(string fileName, string prefix)
     }
 
     return stem[..underscore];
+}
+
+internal partial class Program
+{
+    internal static async Task<int> RunServerAsync(Func<Task<int>> run)
+    {
+        try
+        {
+            return await run();
+        }
+        catch (Exception ex)
+        {
+            Log.Fatal(ex, "LSP server crashed");
+            return 2;
+        }
+    }
 }
