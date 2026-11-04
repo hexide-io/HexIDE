@@ -605,10 +605,18 @@ server is expected to keep off them — the bundled one does, by the rule in
   (`-32800`, `-32801`) stay silent. A successful `null` result still means no change required (#1015).
 - **Diagnostics** inside the header or an attribute run are shown like any other, because they are a
   server's claim about the file. The bundled server raises none there.
-- **A rename reaching other documents is refused as a whole** (#1024). Non-empty edits under
-  any other URI leave the buffer unchanged, including an answer editing only other documents.
-  The refusal names loaded members using the navigation URI rule, and otherwise shows the URI.
-  Empty edit lists under other URIs do not prevent a single-document rename.
+- **Rename applies across loaded code members, all or none** (#1024). Every edited member's window
+  opens, using the navigation URI rule. Before any buffer changes, each target is checked for a
+  read-only form, protected header/attribute edits, and stale versions. A refusal names the member,
+  or the URI when no loaded code member answers. Each changed buffer has one independent undo step;
+  the status bar reports “Renamed in N modules”. Empty edit lists are ignored.
+- **Versioned workspace edits** are declared with `workspace.workspaceEdit.documentChanges: true`.
+  `documentChanges` takes precedence over `changes`, which remains supported. Only text document edits
+  are accepted; resource operations are neither declared nor applied. An edit with a version must
+  match the last version sent for a document already opened to the answering connection, with no newer
+  unsent edits or buffer text differing from that connection’s last sent copy. Null versions and documents not previously opened to that server refer to disk and
+  require a member with no unsaved changes. Rename previews and change annotations remain outside
+  this workflow.
 
 ---
 
@@ -1182,7 +1190,7 @@ than inferred.
 | ○ | `textDocument/rangeFormatting` | → |  |
 | ○ | `textDocument/rangesFormatting` | → |  |
 | ○ | `textDocument/references` | → | Needs a bound AST — a backend's job, see below |
-| ✅ | `textDocument/rename` | → | Answers editing other documents are refused whole (#1024) |
+| ✅ | `textDocument/rename` | → | Atomic edits across loaded code members, with version checks and one undo step per member (#1024) |
 | ○ | `textDocument/selectionRange` | → |  |
 | ✅ | `textDocument/semanticTokens/full` | → | Full relative tokens, highest-priority full provider only; lexical colours remain outside token ranges (#2054) |
 | ○ | `textDocument/semanticTokens/full/delta` | → |  |

@@ -2692,11 +2692,11 @@ public partial class CodeEditorView : UserControl
             }
             var edit = result?.Edit;
 
-            if (edit?.Changes is null) return;
+            if (edit is null) return;
 
             await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
             {
-                if (vm.ApplyRename(edit, oldName) is { } refusal)
+                if (vm.ApplyRename(edit, oldName, result?.DocumentFor) is { } refusal)
                     _ = vm.ShowRefusalAsync(refusal);
             });
         }

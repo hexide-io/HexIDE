@@ -356,6 +356,8 @@
     "Str.CodeEditor.FileNotSaved.Banner": "Acest fișier nu va fi salvat — HexIDE nu îl poate reproduce încă fidel, iar salvarea l-ar modifica. Codul face parte din fișier, așa că tastarea în această fereastră este refuzată.",
     "Str.CodeEditor.Msg.RenameTouchesReadOnly": "Redenumirea nu a fost efectuată deoarece ar modifica antetul acestui fișier sau liniile Attribute ale unui membru, pe care le întreține IDE-ul.",
     "Str.CodeEditor.Msg.RenameReachesOtherDocuments": "Redenumirea nu a fost efectuată deoarece modifică și alte documente: {0}",
+    "Str.CodeEditor.Msg.RenameDocumentRefused": "Nu se poate aplica redenumirea la {0}.",
+    "Str.CodeEditor.Msg.RenamedInModules": "Redenumit în {0} module",
     "Str.CodeEditor.Msg.NoMarkOnReadOnlyLine": "Linia {0} face parte din antetul acestui fișier sau din liniile Attribute ale unui membru, care nu se execută niciodată, așa că nu se poate seta aici un punct de întrerupere sau un semn de carte.",
     "Str.CodeEditor.Dialog.InsertFileTitle": "Inserează fișierul",
     "Str.CodeEditor.Dialog.RenamePrompt": "Nume nou:",

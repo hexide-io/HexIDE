@@ -356,6 +356,8 @@
     "Str.CodeEditor.FileNotSaved.Banner": "Ta datoteka ne bo shranjena — HexIDE je še ne more zvesto poustvariti, zato bi jo shranjevanje spremenilo. Njena koda je del datoteke, zato vnos v tem oknu ni dovoljen.",
     "Str.CodeEditor.Msg.RenameTouchesReadOnly": "Preimenovanje ni bilo izvedeno, ker bi spremenilo glavo te datoteke ali vrstice Attribute člana, ki jih vzdržuje IDE.",
     "Str.CodeEditor.Msg.RenameReachesOtherDocuments": "Preimenovanje ni bilo izvedeno, ker ureja tudi druge dokumente: {0}",
+    "Str.CodeEditor.Msg.RenameDocumentRefused": "Preimenovanja ni mogoče uporabiti za {0}.",
+    "Str.CodeEditor.Msg.RenamedInModules": "Preimenovano v {0} modulih",
     "Str.CodeEditor.Msg.NoMarkOnReadOnlyLine": "Vrstica {0} je del glave te datoteke ali vrstic Attribute člana, ki se nikoli ne izvajajo, zato tam ni mogoče nastaviti prekinitvene točke ali zaznamka.",
     "Str.CodeEditor.Dialog.InsertFileTitle": "Vstavi datoteko",
     "Str.CodeEditor.Dialog.RenamePrompt": "Novo ime:",
