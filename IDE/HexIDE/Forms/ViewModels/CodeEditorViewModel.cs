@@ -1056,7 +1056,11 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
             // Posted rather than raised inline: this arrives on whichever thread the connection is
             // running on, and every subscriber is a view.
             languageServerStateHandler = (_, _) =>
-                Avalonia.Threading.Dispatcher.UIThread.Post(() => LanguageServerStateChanged?.Invoke());
+                Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+                {
+                    analysis?.Invalidate();
+                    LanguageServerStateChanged?.Invoke();
+                });
             lspClient.StateChanged += languageServerStateHandler;
             AutoDispose(new ActionDisposable(() =>
             {
@@ -2089,7 +2093,21 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     public Task<SignatureHelp?> RequestSignatureHelpAsync(Position position, CancellationToken ct = default, string? triggerCharacter = null)
         => LiveDocumentUri is { } uri ? lspClient.RequestSignatureHelpAsync(uri, position, ct, triggerCharacter) : Task.FromResult<SignatureHelp?>(null);
 
-    internal CodeLensSession CreateCodeLensSession() => new(lspClient, GetDocumentUriPublic());
+    private CodeEditorAnalysis? analysis;
+    internal CodeEditorAnalysis Analysis
+    {
+        get
+        {
+            if (analysis is null)
+            {
+                analysis = new CodeEditorAnalysis(this, lspClient);
+                AutoDispose(analysis);
+            }
+            return analysis;
+        }
+    }
+
+    internal CodeLensSession CreateCodeLensSession() => Analysis.Lenses;
 
     internal async Task RunCodeLensAsync(Command command)
     {
