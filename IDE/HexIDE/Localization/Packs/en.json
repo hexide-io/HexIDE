@@ -358,6 +358,8 @@
     "Str.CodeEditor.Msg.RenameTouchesReadOnly": "The rename was not made because it would change this file's header or a member's Attribute lines, which the IDE maintains.",
     "Str.CodeEditor.Msg.RenameReachesOtherDocuments": "The rename was not made because it also edits other documents: {0}",
     "Str.CodeEditor.Msg.RenameDocumentRefused": "Cannot apply rename to {0}.",
+    "Str.CodeEditor.Msg.RenameStaleVersion": "Cannot rename {0}: the version is stale. Try again.",
+    "Str.CodeEditor.Msg.RenameUnsavedChanges": "Cannot rename {0}: there are unsaved changes. Save and try again.",
     "Str.CodeEditor.Msg.RenamedInModules": "Renamed in {0} modules",
     "Str.CodeEditor.Msg.NoMarkOnReadOnlyLine": "Line {0} is part of this file's header or a member's Attribute lines, which never run, so no breakpoint or bookmark can be set there.",
     "Str.CodeEditor.Dialog.InsertFileTitle": "Insert File",

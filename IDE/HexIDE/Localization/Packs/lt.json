@@ -360,6 +360,8 @@
     "Str.CodeEditor.Msg.RenameTouchesReadOnly": "Pavadinimas nepakeistas, nes būtų pakeista failo antraštė arba nario Attribute eilutės, kurias tvarko IDE.",
     "Str.CodeEditor.Msg.RenameReachesOtherDocuments": "Pavadinimas nepakeistas, nes taip pat būtų redaguojami kiti dokumentai: {0}",
     "Str.CodeEditor.Msg.RenameDocumentRefused": "Negalima pritaikyti pervardijimo dokumentui {0}.",
+    "Str.CodeEditor.Msg.RenameStaleVersion": "Negalima pervardyti {0}: versija pasenusi. Bandykite dar kartą.",
+    "Str.CodeEditor.Msg.RenameUnsavedChanges": "Negalima pervardyti {0}: yra neišsaugotų pakeitimų. Išsaugokite ir bandykite dar kartą.",
     "Str.CodeEditor.Msg.RenamedInModules": "Pervardinta {0} moduliuose",
     "Str.CodeEditor.Msg.NoMarkOnReadOnlyLine": "Eilutė {0} yra failo antraštės arba nario Attribute eilučių dalis. Jos niekada nevykdomos, todėl čia negalima nustatyti stabdos taško ar žymelės.",
     "Str.CodeEditor.Dialog.InsertFileTitle": "Įterpti failą",

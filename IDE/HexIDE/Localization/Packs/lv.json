@@ -360,6 +360,8 @@
     "Str.CodeEditor.Msg.RenameTouchesReadOnly": "Pārdēvēšana netika veikta, jo tā mainītu šī faila galveni vai dalībnieka Attribute rindas, kuras uztur IDE.",
     "Str.CodeEditor.Msg.RenameReachesOtherDocuments": "Pārdēvēšana netika veikta, jo tā rediģē arī citus dokumentus: {0}",
     "Str.CodeEditor.Msg.RenameDocumentRefused": "Nevar piemērot pārdēvēšanu dokumentam {0}.",
+    "Str.CodeEditor.Msg.RenameStaleVersion": "Nevar pārdēvēt {0}: versija ir novecojusi. Mēģiniet vēlreiz.",
+    "Str.CodeEditor.Msg.RenameUnsavedChanges": "Nevar pārdēvēt {0}: ir nesaglabātas izmaiņas. Saglabājiet un mēģiniet vēlreiz.",
     "Str.CodeEditor.Msg.RenamedInModules": "Pārdēvēts {0} moduļos",
     "Str.CodeEditor.Msg.NoMarkOnReadOnlyLine": "Rinda {0} ir daļa no faila galvenes vai dalībnieka Attribute rindām, kas nekad netiek izpildītas, tāpēc tur nevar iestatīt pārtraukumpunktu vai grāmatzīmi.",
     "Str.CodeEditor.Dialog.InsertFileTitle": "Ievietot failu",

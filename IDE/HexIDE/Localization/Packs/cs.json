@@ -397,6 +397,8 @@
     "Str.CodeEditor.Msg.RenameTouchesReadOnly": "Přejmenování nebylo provedeno, protože by změnilo záhlaví tohoto souboru nebo řádky Attribute některého člena, které spravuje IDE.",
     "Str.CodeEditor.Msg.RenameReachesOtherDocuments": "Přejmenování nebylo provedeno, protože upravuje i jiné dokumenty: {0}",
     "Str.CodeEditor.Msg.RenameDocumentRefused": "Přejmenování nelze použít na {0}.",
+    "Str.CodeEditor.Msg.RenameStaleVersion": "Nelze přejmenovat {0}: verze je zastaralá. Zkuste to znovu.",
+    "Str.CodeEditor.Msg.RenameUnsavedChanges": "Nelze přejmenovat {0}: existují neuložené změny. Uložte je a zkuste to znovu.",
     "Str.CodeEditor.Msg.RenamedInModules": "Přejmenováno v {0} modulech",
     "Str.CodeEditor.Msg.NoMarkOnReadOnlyLine": "Řádek {0} patří do záhlaví tohoto souboru nebo k řádkům Attribute některého člena, které se nikdy nespouštějí, takže na něj nelze umístit zarážku ani záložku.",
     "Str.CodeEditor.Dialog.InsertFileTitle": "Vložit soubor",

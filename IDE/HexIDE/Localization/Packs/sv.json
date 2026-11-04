@@ -397,6 +397,8 @@
     "Str.CodeEditor.Msg.RenameTouchesReadOnly": "Namnbytet genomfördes inte eftersom det skulle ändra filens huvud eller en medlems Attribute-rader, som IDE:n underhåller.",
     "Str.CodeEditor.Msg.RenameReachesOtherDocuments": "Namnbytet genomfördes inte eftersom det också ändrar andra dokument: {0}",
     "Str.CodeEditor.Msg.RenameDocumentRefused": "Det går inte att tillämpa namnbytet på {0}.",
+    "Str.CodeEditor.Msg.RenameStaleVersion": "Det går inte att byta namn på {0}: versionen är inaktuell. Försök igen.",
+    "Str.CodeEditor.Msg.RenameUnsavedChanges": "Det går inte att byta namn på {0}: det finns osparade ändringar. Spara och försök igen.",
     "Str.CodeEditor.Msg.RenamedInModules": "Namn ändrat i {0} moduler",
     "Str.CodeEditor.Msg.NoMarkOnReadOnlyLine": "Rad {0} hör till filens huvud eller till en medlems Attribute-rader, som aldrig körs, så det går inte att sätta en brytpunkt eller ett bokmärke där.",
     "Str.CodeEditor.Dialog.InsertFileTitle": "Infoga fil",

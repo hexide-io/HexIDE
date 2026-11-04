@@ -397,6 +397,8 @@
     "Str.CodeEditor.Msg.RenameTouchesReadOnly": "名前の変更は行われませんでした。このファイルのヘッダー、またはメンバーの Attribute 行が変更されるためです。これらは IDE が管理しています。",
     "Str.CodeEditor.Msg.RenameReachesOtherDocuments": "他のドキュメントも編集するため、名前の変更は行われませんでした: {0}",
     "Str.CodeEditor.Msg.RenameDocumentRefused": "{0} に名前の変更を適用できません。",
+    "Str.CodeEditor.Msg.RenameStaleVersion": "{0} の名前を変更できません。バージョンが古くなっています。もう一度お試しください。",
+    "Str.CodeEditor.Msg.RenameUnsavedChanges": "{0} の名前を変更できません。未保存の変更があります。保存してからもう一度お試しください。",
     "Str.CodeEditor.Msg.RenamedInModules": "{0} 個のモジュールで名前を変更しました",
     "Str.CodeEditor.Msg.NoMarkOnReadOnlyLine": "{0} 行目は、このファイルのヘッダーまたはメンバーの Attribute 行の一部です。これらの行は実行されないため、ブレークポイントやブックマークは設定できません。",
     "Str.CodeEditor.Dialog.InsertFileTitle": "ファイルの挿入",

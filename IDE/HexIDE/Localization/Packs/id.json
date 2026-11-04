@@ -397,6 +397,8 @@
     "Str.CodeEditor.Msg.RenameTouchesReadOnly": "Penggantian nama tidak dilakukan karena akan mengubah header berkas ini atau baris Attribute milik suatu anggota, yang dikelola oleh IDE.",
     "Str.CodeEditor.Msg.RenameReachesOtherDocuments": "Penggantian nama tidak dilakukan karena juga mengubah dokumen lain: {0}",
     "Str.CodeEditor.Msg.RenameDocumentRefused": "Tidak dapat menerapkan penggantian nama pada {0}.",
+    "Str.CodeEditor.Msg.RenameStaleVersion": "Tidak dapat mengganti nama {0}: versi sudah usang. Coba lagi.",
+    "Str.CodeEditor.Msg.RenameUnsavedChanges": "Tidak dapat mengganti nama {0}: ada perubahan yang belum disimpan. Simpan dan coba lagi.",
     "Str.CodeEditor.Msg.RenamedInModules": "Nama diganti dalam {0} modul",
     "Str.CodeEditor.Msg.NoMarkOnReadOnlyLine": "Baris {0} adalah bagian dari header berkas ini atau baris Attribute milik suatu anggota, yang tidak pernah dijalankan, sehingga tidak dapat diberi titik henti atau markah.",
     "Str.CodeEditor.Dialog.InsertFileTitle": "Sisipkan Berkas",

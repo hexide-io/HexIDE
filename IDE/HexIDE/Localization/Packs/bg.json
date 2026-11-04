@@ -360,6 +360,8 @@
     "Str.CodeEditor.Msg.RenameTouchesReadOnly": "Преименуването не е извършено, защото би променило заглавната част на файла или редовете Attribute на член, които IDE поддържа.",
     "Str.CodeEditor.Msg.RenameReachesOtherDocuments": "Преименуването не е извършено, защото редактира и други документи: {0}",
     "Str.CodeEditor.Msg.RenameDocumentRefused": "Преименуването не може да се приложи към {0}.",
+    "Str.CodeEditor.Msg.RenameStaleVersion": "Не може да се преименува {0}: версията е остаряла. Опитайте отново.",
+    "Str.CodeEditor.Msg.RenameUnsavedChanges": "Не може да се преименува {0}: има незаписани промени. Запишете и опитайте отново.",
     "Str.CodeEditor.Msg.RenamedInModules": "Преименувано в {0} модула",
     "Str.CodeEditor.Msg.NoMarkOnReadOnlyLine": "Ред {0} е част от заглавната част на файла или от редовете Attribute на член, които никога не се изпълняват, затова там не може да се постави точка на прекъсване или отметка.",
     "Str.CodeEditor.Dialog.InsertFileTitle": "Вмъкване на файл",
