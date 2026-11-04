@@ -116,7 +116,12 @@ coverage of unions inside every result member.
 Hover replies accept `MarkupContent`, a legacy `MarkedString` (Markdown string or `{language, value}`
 code block), or an array of marked strings (#2022). Legacy forms are normalized to Markdown markup
 content, with blank lines between array parts; `MarkupContent` keeps its kind and value. The editor's
-existing tooltip displays the resulting text, including Markdown notation, without rich rendering.
+tooltip renders Markdown paragraphs, emphasis, inline code, lists and fenced code blocks (#2905).
+The renderer owns the advertised `contentFormat` preference: `["markdown", "plaintext"]`.
+`vb` and `vba` fences use the editor's font and shared VB6 colours; other fences use its font
+without highlighting. Raw HTML is literal text. HTTP(S) links open through the browser only on
+click. A file link opens only a document the project already holds, and does nothing for any other file.
+Command links remain inert text. Plain-text content stays literal.
 
 `initialize.locale` carries the resolved Options → Language UI language as a BCP 47 tag.
 System default uses the localization service's system resolution; pseudo-locales send `en`.
@@ -163,6 +168,8 @@ for longer translations. State ages refresh once per second while the view is vi
 view stops its timer when hidden or detached (#2865, #2866). Switching the IDE language
 refreshes status, connect-chain stages, age and empty-output text immediately. Age units use
 localized range formats, and the label column can shrink as well as grow without reopening the tab (#3012).
+Connect-chain elapsed times use a localized millisecond format that follows the same live language switch;
+digit grouping continues to use the process culture (#3026).
 
 **Live server output** (#2388): Tools → Language & Debug Servers shows an Output box on each
 server's card, beside its existing protocol-inspector link. It updates as `window/logMessage`, stderr,

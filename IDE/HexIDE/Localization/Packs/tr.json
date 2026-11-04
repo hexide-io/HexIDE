@@ -782,6 +782,7 @@
     "Str.Tool.LanguageServers.Vm.State.Running": "Çalışıyor",
     "Str.Tool.LanguageServers.Vm.State.Failed": "Başarısız",
     "Str.Tool.LanguageServers.Vm.State.Stopped": "Durduruldu",
+    "Str.Tool.LanguageServers.Vm.Elapsed": "{0} ms",
     "Str.Tool.LanguageServers.Vm.Age.Seconds": "{0} sn",
     "Str.Tool.LanguageServers.Vm.Age.Minutes": "{0} dk {1} sn",
     "Str.Tool.LanguageServers.Vm.Age.Hours": "{0} sa {1} dk",

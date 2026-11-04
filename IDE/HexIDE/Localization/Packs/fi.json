@@ -782,6 +782,7 @@
     "Str.Tool.LanguageServers.Vm.State.Running": "Käynnissä",
     "Str.Tool.LanguageServers.Vm.State.Failed": "Epäonnistui",
     "Str.Tool.LanguageServers.Vm.State.Stopped": "Pysäytetty",
+    "Str.Tool.LanguageServers.Vm.Elapsed": "{0} ms",
     "Str.Tool.LanguageServers.Vm.Age.Seconds": "{0} s",
     "Str.Tool.LanguageServers.Vm.Age.Minutes": "{0} min {1} s",
     "Str.Tool.LanguageServers.Vm.Age.Hours": "{0} t {1} min",

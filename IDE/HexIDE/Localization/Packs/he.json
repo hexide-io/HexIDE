@@ -782,6 +782,7 @@
     "Str.Tool.LanguageServers.Vm.State.Running": "פועל",
     "Str.Tool.LanguageServers.Vm.State.Failed": "נכשל",
     "Str.Tool.LanguageServers.Vm.State.Stopped": "נעצר",
+    "Str.Tool.LanguageServers.Vm.Elapsed": "{0} מ״ש",
     "Str.Tool.LanguageServers.Vm.Age.Seconds": "{0} שנ׳",
     "Str.Tool.LanguageServers.Vm.Age.Minutes": "{0} דק׳ {1} שנ׳",
     "Str.Tool.LanguageServers.Vm.Age.Hours": "{0} שע׳ {1} דק׳",

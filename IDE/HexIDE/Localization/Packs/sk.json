@@ -781,6 +781,7 @@
     "Str.Tool.LanguageServers.Vm.State.Running": "Spustené",
     "Str.Tool.LanguageServers.Vm.State.Failed": "Zlyhanie",
     "Str.Tool.LanguageServers.Vm.State.Stopped": "Zastavené",
+    "Str.Tool.LanguageServers.Vm.Elapsed": "{0} ms",
     "Str.Tool.LanguageServers.Vm.Age.Seconds": "{0} s",
     "Str.Tool.LanguageServers.Vm.Age.Minutes": "{0} min {1} s",
     "Str.Tool.LanguageServers.Vm.Age.Hours": "{0} h {1} min",
