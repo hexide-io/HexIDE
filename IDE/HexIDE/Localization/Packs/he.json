@@ -427,6 +427,7 @@
     "Str.CodeEditor.Context.GoToDeclaration": "עבור להצהרה",
     "Str.CodeEditor.Context.Rename": "שנה שם...",
     "Str.CodeEditor.Context.FormatDocument": "עצב מסמך",
+    "Str.CodeEditor.Context.FormatSelection": "עצב בחירה",
     "Str.Options.Shell.Buttons.ResetAll": "אפס הכול",
     "Str.Options.Shell.Buttons.RestoreDefaults": "שחזר ברירות מחדל",
     "Str.Options.Shell.Buttons.Ok": "אישור",

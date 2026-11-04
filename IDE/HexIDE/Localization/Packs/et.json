@@ -390,6 +390,7 @@
     "Str.CodeEditor.Context.GoToDeclaration": "Mine _deklaratsiooni juurde",
     "Str.CodeEditor.Context.Rename": "_Nimeta ümber...",
     "Str.CodeEditor.Context.FormatDocument": "_Vorminda dokument",
+    "Str.CodeEditor.Context.FormatSelection": "_Vorminda valik",
     "Str.Options.Shell.Buttons.ResetAll": "Lähtesta kõik",
     "Str.Options.Shell.Buttons.RestoreDefaults": "Taasta vaikeväärtused",
     "Str.Options.Shell.Buttons.Ok": "OK",

@@ -36,6 +36,7 @@ namespace HexIDE.Forms.Views;
 public partial class CodeEditorView : UserControl
 {
     private IDisposable? sub;
+    private CodeLensDisplay? codeLenses;
     private LspTextMarkerService? _markerService;
     private LspDiagnosticsColorizer? _colorizer;
     private BracketDepthColorizer? _bracketDepthColorizer;
@@ -218,6 +219,8 @@ public partial class CodeEditorView : UserControl
 
     public void TriggerCompletion() => TriggerCompletionAsync();
 
+    public void CompleteWord() => TriggerCompletionAsync(completeWord: true);
+
     public void TriggerSignatureHelp() => TriggerSignatureHelpAsync();
 
     public async Task InsertFile()
@@ -308,6 +311,7 @@ public partial class CodeEditorView : UserControl
                 _vmSelectionSync(vm, new PropertyChangedEventArgs(nameof(CodeEditorViewModel.SelectionLength)));
             _editorSelectionSync = (_, _) =>
             {
+                CommandManager.InvalidateRequerySuggested();
                 if (_syncingSelection) return;
                 _syncingSelection = true;
                 try
@@ -329,6 +333,9 @@ public partial class CodeEditorView : UserControl
             _watchedDocument.Changing += OnDocumentChangingForResetPrompt;
             _watchedDocument.UpdateStarted += OnDocumentUpdateStartedForFolding;
             _watchedDocument.Changing += OnDocumentChangingForFolding;
+
+            codeLenses = new CodeLensDisplay(TextEditor, CodeLensLayer, vm.CreateCodeLensSession(),
+                command => vm.RunCodeLensAsync(command).ListenErrors());
 
             _inlayHintRenderer = new InlayHintRenderer(TextEditor);
             TextEditor.TextArea.TextView.BackgroundRenderers.Add(_inlayHintRenderer);
@@ -574,6 +581,8 @@ public partial class CodeEditorView : UserControl
             TextEditor.TextArea.SelectionChanged -= _editorSelectionSync;
             _editorSelectionSync = null;
         }
+        codeLenses?.Dispose();
+        codeLenses = null;
         Minimap.Detach();
         _indentGuideRenderer?.Dispose();
         _indentGuideRenderer = null;
@@ -1187,8 +1196,15 @@ public partial class CodeEditorView : UserControl
     /// </remarks>
     private void OnLanguageServerStateChanged()
     {
+        CommandManager.InvalidateRequerySuggested();
         _semanticVersion++;
-        if (DataContext is CodeEditorViewModel vm) ScheduleFolding(vm);
+        if (DataContext is CodeEditorViewModel vm)
+        {
+            codeLenses?.Dispose();
+            codeLenses = new CodeLensDisplay(TextEditor, CodeLensLayer, vm.CreateCodeLensSession(),
+                command => vm.RunCodeLensAsync(command).ListenErrors());
+            ScheduleFolding(vm);
+        }
     }
 
     private void ScheduleFolding(CodeEditorViewModel vm)
@@ -1873,6 +1889,29 @@ public partial class CodeEditorView : UserControl
             e.Handled = true;
             return;
         }
+        if (e.KeyModifiers == KeyModifiers.None)
+        {
+            if (e.Key == Key.Return && CompletionSnippet.OpenChoiceWindows(TextEditor.TextArea).FirstOrDefault() is { } choice)
+            {
+                choice.CompletionList.RequestInsertion(e);
+                e.Handled = true;
+                return;
+            }
+            if (_completionWindow is { } completion && e.Key is Key.Return or Key.Tab or Key.Space)
+            {
+                if (e.Key == Key.Tab && completion.CompletionList.SelectedItem is null)
+                    completion.CompletionList.SelectedItem = completion.CompletionList.CompletionData.FirstOrDefault();
+                if (completion.CompletionList.SelectedItem is not null)
+                    completion.CompletionList.RequestInsertion(e);
+                else
+                    completion.Close();
+                if (e.Key == Key.Tab)
+                {
+                    e.Handled = true;
+                    return;
+                }
+            }
+        }
         // Enter = auto-close block + auto-indent
         if (e.Key == Key.Return && e.KeyModifiers == KeyModifiers.None)
         {
@@ -2406,7 +2445,7 @@ public partial class CodeEditorView : UserControl
         return true;
     }
 
-    private void TriggerCompletionAsync(string? triggerCharacter = null)
+    private void TriggerCompletionAsync(string? triggerCharacter = null, bool completeWord = false)
     {
         if (DataContext is not CodeEditorViewModel vm) return;
         if (!vm.Settings.AutoListMembers) return;
@@ -2418,11 +2457,11 @@ public partial class CodeEditorView : UserControl
 
         var caret = TextEditor.TextArea.Caret.Position;
         var lspPos = new Position(caret.Line - 1, caret.Column - 1);
-        _completionShown = ShowCompletionAsync(vm, lspPos, token, triggerCharacter);
+        _completionShown = ShowCompletionAsync(vm, lspPos, token, triggerCharacter, completeWord);
     }
 
     private async Task ShowCompletionAsync(CodeEditorViewModel vm, Position position, CancellationToken token,
-        string? triggerCharacter)
+        string? triggerCharacter, bool completeWord)
     {
         try
         {
@@ -2444,6 +2483,19 @@ public partial class CodeEditorView : UserControl
                 // If a window is already open, close it first
                 _completionWindow?.Close();
 
+                if (completeWord)
+                {
+                    var (start, end) = CompletionWord(TextEditor.TextArea);
+                    var word = TextEditor.Document.GetText(start, end - start);
+                    var matches = items.Where(item => (item.FilterText ?? item.Label)
+                        .StartsWith(word, StringComparison.OrdinalIgnoreCase)).ToArray();
+                    if (word.Length > 0 && matches.Length == 1)
+                    {
+                        new VbCompletionData(matches[0], vm.RefusesTyping).Complete(TextEditor.TextArea,
+                            new TextSegment { StartOffset = start, Length = end - start }, EventArgs.Empty);
+                        return;
+                    }
+                }
                 _completionWindow = new CompletionWindow(TextEditor.TextArea);
                 FillCompletionList(_completionWindow, items, vm.RefusesTyping);
 
@@ -2462,32 +2514,44 @@ public partial class CodeEditorView : UserControl
         Func<int, int, bool> refusesTyping)
     {
         var area = window.TextArea;
-        var start = area.Caret.Offset;
-        while (start > 0 && (char.IsLetterOrDigit(area.Document.GetCharAt(start - 1))
-                            || area.Document.GetCharAt(start - 1) == '_'))
-            start--;
+        var (start, end) = CompletionWord(area);
         window.StartOffset = start;
-        var prefix = area.Document.GetText(start, area.Caret.Offset - start);
-        VbCompletionData? preselected = null;
+        window.EndOffset = end;
+        window.CloseWhenCaretAtBeginning = false;
+        window.CompletionList.IsFiltering = false;
         foreach (var item in items.OrderBy(item => item.SortText ?? item.Label, StringComparer.Ordinal))
+            window.CompletionList.CompletionData.Add(new VbCompletionData(item, refusesTyping));
+
+        void SelectWord(object? sender, EventArgs e)
         {
-            var data = new VbCompletionData(item, refusesTyping);
-            window.CompletionList.CompletionData.Add(data);
-            if (preselected is null && item.Preselect == true
-                && data.Text.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
-                preselected = data;
+            var (wordStart, wordEnd) = CompletionWord(area);
+            var word = area.Document.GetText(wordStart, wordEnd - wordStart);
+            var matches = window.CompletionList.CompletionData
+                .Where(data => word.Length > 0 && data.Text.StartsWith(word, StringComparison.OrdinalIgnoreCase));
+            window.CompletionList.SelectedItem = matches.FirstOrDefault(data =>
+                items.Any(item => item.Preselect == true && (item.FilterText ?? item.Label) == data.Text))
+                ?? matches.FirstOrDefault();
+            if (window.CompletionList.SelectedItem is { } selected)
+                window.CompletionList.ScrollIntoView(selected);
         }
-        window.CompletionList.SelectItem(prefix);
-        // A server replacement need not match the word at the caret. Keep it available to accept.
-        if (window.CompletionList.CurrentList.Count == 0)
-            window.CompletionList.SelectItem(string.Empty);
-        if (preselected is not null)
-            Avalonia.Threading.Dispatcher.UIThread.Post(() =>
-            {
-                if (!window.IsOpen) return;
-                window.CompletionList.SelectedItem = preselected;
-                window.CompletionList.ScrollIntoView(preselected);
-            }, Avalonia.Threading.DispatcherPriority.Loaded);
+        // Run after the popup's caret handler, which matches only the text before the caret.
+        window.Opened += (_, _) =>
+        {
+            area.Caret.PositionChanged += SelectWord;
+            SelectWord(null, EventArgs.Empty);
+        };
+        window.Closed += (_, _) => area.Caret.PositionChanged -= SelectWord;
+    }
+
+    private static (int Start, int End) CompletionWord(AvaloniaEdit.Editing.TextArea area)
+    {
+        var start = area.Caret.Offset;
+        var end = start;
+        while (start > 0 && IsWord(area.Document.GetCharAt(start - 1))) start--;
+        while (end < area.Document.TextLength && IsWord(area.Document.GetCharAt(end))) end++;
+        return (start, end);
+
+        static bool IsWord(char ch) => char.IsLetterOrDigit(ch) || ch == '_';
     }
 
     // ── Signature help ───────────────────────────────────────────────────────
@@ -2769,6 +2833,35 @@ public partial class CodeEditorView : UserControl
         catch (Exception ex)
         {
             Log.Debug("[rename] {ErrorMessage}", ex.Message);
+        }
+    }
+
+    private void CanFormatSelection(object? sender, Avalonia.Labs.Input.CanExecuteRoutedEventArgs e)
+    {
+        e.CanExecute = DataContext is CodeEditorViewModel { CanFormatSelection: true };
+        e.Handled = true;
+    }
+
+    private void FormatSelectionExecuted(object? sender, Avalonia.Labs.Input.ExecutedRoutedEventArgs e) => _ = FormatSelectionAsync();
+
+    internal async Task FormatSelectionAsync()
+    {
+        if (DataContext is not CodeEditorViewModel { CanFormatSelection: true } vm) return;
+        var start = vm.Document.GetLocation(vm.SelectionStart);
+        var end = vm.Document.GetLocation(vm.SelectionStart + vm.SelectionLength);
+        var range = new HexIDE.Lsp.Messages.Range(new Position(start.Line - 1, start.Column - 1),
+            new Position(end.Line - 1, end.Column - 1));
+        try
+        {
+            await vm.FlushDocumentAsync();
+            var edits = await vm.RequestRangeFormattingAsync(range);
+            if (edits.Length == 0) return;
+            await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => vm.ApplyFormatting(edits));
+        }
+        catch (OperationCanceledException) { }
+        catch (Exception ex)
+        {
+            Log.Debug("[rangeFormatting] {ErrorMessage}", ex.Message);
         }
     }
 

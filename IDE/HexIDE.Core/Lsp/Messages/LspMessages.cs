@@ -288,7 +288,9 @@ public record TextDocumentClientCapabilities(
     [property: JsonPropertyName("completion")]
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] CompletionClientCapabilities? Completion = null,
     [property: JsonPropertyName("inlayHint")]
-    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] InlayHintClientCapabilities? InlayHint = null);
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] InlayHintClientCapabilities? InlayHint = null,
+    [property: JsonPropertyName("rangeFormatting")]
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] EmptyParams? RangeFormatting = null);
 
 public record CompletionClientCapabilities(
     [property: JsonPropertyName("completionItemKind")] CompletionItemKindClientCapabilities CompletionItemKind,
@@ -339,10 +341,15 @@ public record WorkspaceClientCapabilities(
     [property: JsonPropertyName("configuration")]
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] bool? Configuration = null,
     [property: JsonPropertyName("workspaceEdit")]
-    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] WorkspaceEditClientCapabilities? WorkspaceEdit = null);
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] WorkspaceEditClientCapabilities? WorkspaceEdit = null,
+    [property: JsonPropertyName("codeLens")]
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] WorkspaceCodeLensClientCapabilities? CodeLens = null);
 
 public record WorkspaceEditClientCapabilities(
     [property: JsonPropertyName("documentChanges")] bool DocumentChanges = true);
+
+public record WorkspaceCodeLensClientCapabilities(
+    [property: JsonPropertyName("refreshSupport")] bool RefreshSupport = true);
 
 public record WorkspaceDiagnosticsClientCapabilities(
     [property: JsonPropertyName("refreshSupport")] bool RefreshSupport = true);
@@ -1090,6 +1097,11 @@ public record FormattingOptions(
     [property: JsonPropertyName("insertSpaces")]           bool InsertSpaces,
     [property: JsonPropertyName("trimTrailingWhitespace")]
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] bool? TrimTrailingWhitespace = null);
+
+public record DocumentRangeFormattingParams(
+    [property: JsonPropertyName("textDocument")] TextDocumentIdentifier TextDocument,
+    [property: JsonPropertyName("range")] Range Range,
+    [property: JsonPropertyName("options")] FormattingOptions Options);
 
 /// <summary>Document formatting request parameters.</summary>
 public record DocumentFormattingParams(

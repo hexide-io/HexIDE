@@ -1140,6 +1140,7 @@ public partial class MainViewViewModel : ObservableObject
     {
         if (findReferences is not null)
         {
+            eventBus.Subscribe<ShowReferenceLocationsEvent>(e => findReferences.ShowLocations(e.Locations));
             eventBus.Subscribe<FindReferencesEvent>(e => findReferences.SearchAsync(e.Uri, e.Position).ListenErrors());
             findReferences.ShowRequested += () =>
             {

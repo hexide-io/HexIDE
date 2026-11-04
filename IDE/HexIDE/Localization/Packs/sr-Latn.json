@@ -390,6 +390,7 @@
     "Str.CodeEditor.Context.GoToDeclaration": "Idi na _deklaraciju",
     "Str.CodeEditor.Context.Rename": "_Preimenuj...",
     "Str.CodeEditor.Context.FormatDocument": "_Oblikuj dokument",
+    "Str.CodeEditor.Context.FormatSelection": "_Oblikuj izbor",
     "Str.Options.Shell.Buttons.ResetAll": "Poništi sve",
     "Str.Options.Shell.Buttons.RestoreDefaults": "Vrati podrazumevano",
     "Str.Options.Shell.Buttons.Ok": "U redu",

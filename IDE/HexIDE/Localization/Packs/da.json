@@ -427,6 +427,7 @@
     "Str.CodeEditor.Context.GoToDeclaration": "Gå til dekl_aration",
     "Str.CodeEditor.Context.Rename": "_Omdøb...",
     "Str.CodeEditor.Context.FormatDocument": "_Formatér dokument",
+    "Str.CodeEditor.Context.FormatSelection": "_Formatér markering",
     "Str.Options.Shell.Buttons.ResetAll": "Nulstil alt",
     "Str.Options.Shell.Buttons.RestoreDefaults": "Gendan standarder",
     "Str.Options.Shell.Buttons.Ok": "OK",

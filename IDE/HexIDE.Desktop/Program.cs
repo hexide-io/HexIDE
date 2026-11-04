@@ -74,6 +74,16 @@ sealed class Program
             Environment.ExitCode = 2;
             return;
         }
+
+        if (ServerOptions.DpiUnaware && !OperatingSystem.IsWindows())
+        {
+            ConsoleOutput.Write(
+                "--dpi-unaware works on Windows only. HexIDE has not started, rather than start at the display's own "
+              + "scale and look as though the flag had worked. On Linux, Avalonia's X11 platform reads "
+              + "AVALONIA_GLOBAL_SCALE_FACTOR instead." + Environment.NewLine);
+            Environment.ExitCode = 2;
+            return;
+        }
 #endif
 
         // Before anything else starts: UserDataPath refuses a redirect once any per-user file has been looked up.
@@ -96,8 +106,14 @@ sealed class Program
         DesktopStartup.Register();
         // The lifetime returns the code the app shut down with. Discarding it made every exit 0, including
         // the one a server that could not bind asks for (hexide-io/HexIDE#53).
-        Environment.ExitCode = BuildAvaloniaApp()
-            .StartWithClassicDesktopLifetime(args);
+        var builder = BuildAvaloniaApp();
+#if DEBUG
+        // Avalonia's only scale override on Windows: unaware, Windows tells the process the display is at 96 DPI, so
+        // RenderScaling is 1 and Windows stretches the window on screen to the display's scaling (#3083).
+        if (ServerOptions.DpiUnaware)
+            builder = builder.With(new Win32PlatformOptions { DpiAwareness = Win32DpiAwareness.Unaware });
+#endif
+        Environment.ExitCode = builder.StartWithClassicDesktopLifetime(args);
     }
 
     private static void FixCurrentWorkingDictionary()

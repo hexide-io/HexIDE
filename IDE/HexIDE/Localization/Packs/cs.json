@@ -427,6 +427,7 @@
     "Str.CodeEditor.Context.GoToDeclaration": "Přejít na de_klaraci",
     "Str.CodeEditor.Context.Rename": "_Přejmenovat...",
     "Str.CodeEditor.Context.FormatDocument": "_Formátovat dokument",
+    "Str.CodeEditor.Context.FormatSelection": "_Formátovat výběr",
     "Str.Options.Shell.Buttons.ResetAll": "Obnovit vše",
     "Str.Options.Shell.Buttons.RestoreDefaults": "Obnovit výchozí",
     "Str.Options.Shell.Buttons.Ok": "OK",

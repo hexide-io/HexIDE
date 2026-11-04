@@ -427,6 +427,7 @@
     "Str.CodeEditor.Context.GoToDeclaration": "Gå til dek_larasjon",
     "Str.CodeEditor.Context.Rename": "_Gi nytt navn...",
     "Str.CodeEditor.Context.FormatDocument": "_Formater dokument",
+    "Str.CodeEditor.Context.FormatSelection": "_Formater merket område",
     "Str.Options.Shell.Buttons.ResetAll": "Tilbakestill alt",
     "Str.Options.Shell.Buttons.RestoreDefaults": "Gjenopprett standarder",
     "Str.Options.Shell.Buttons.Ok": "OK",
