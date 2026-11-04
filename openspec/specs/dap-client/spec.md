@@ -230,6 +230,34 @@ directory; command arguments and adapter launch fields SHALL pass unchanged with
 - **THEN** the IDE owns one external session and prevents concurrent interpreter runs
 - **AND** F5, Break, End and stepping route to that session according to its state
 
+### Requirement: A launch an add-in contributes SHALL run only when the user asks for it
+An add-in MAY contribute a debug launch: a title, which projects it runs, and what makes the launch
+configuration for a run. The IDE SHALL ask it for a configuration only when a run of it starts, never when a
+project opens, under the session's cancellation, and SHALL check the configuration as a launch file is
+checked, with its executable and working directory fully qualified. The session SHALL be given the saved
+gutter marks of the project, as a launch file's is.
+
+F5 SHALL run the interpreter for a project until its user chooses otherwise under Run > Run With, which lists
+the interpreter and every contributed launch that runs the startup project. The choice SHALL be remembered
+per project, for that user, in the user sidecar. A chosen launch that is gone or no longer runs the project
+SHALL leave F5 to the interpreter, with a status message that says so, and SHALL stay chosen. Run > Start
+With SHALL run a contributed launch once without changing what F5 runs. Stepping in from idle and Run To
+Cursor SHALL stay the interpreter's.
+
+#### Scenario: An add-in offers a launch
+- **WHEN** an add-in contributes a launch that runs the startup project
+- **THEN** F5 still runs the interpreter, and Run With and Start With list the launch
+
+#### Scenario: The user chooses the launch for F5
+- **WHEN** the user chooses the launch under Run With, and presses F5
+- **THEN** the add-in is asked for the configuration then, and an external session starts with the project's
+  saved gutter marks
+- **AND** the choice is there the next time the project opens
+
+#### Scenario: The chosen launch is gone
+- **WHEN** F5 is pressed for a project whose chosen launch is no longer contributed
+- **THEN** the interpreter runs, a status message says why, and the choice stays
+
 ### Requirement: Remote debugger presentation
 The IDE SHALL populate Call Stack and Locals asynchronously from the current stop, reject stale inspection
 results, and fetch aggregate children without blocking the UI. It SHALL expose output and failures and SHALL

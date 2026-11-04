@@ -169,6 +169,8 @@ public partial class DISetup
             .Bind<HexIDE.Runtime.Debugging.IDebugController>().As(Singleton).To<HexIDE.Runtime.Debugging.DebugController>()
             .Bind().As(Singleton).To<HexIDE.Debugging.ExternalDebugService>()
             .Bind<HexIDE.Debugging.IRunChoiceStore>().As(Singleton).To<HexIDE.Debugging.RunChoiceStore>()
+            // Bound, so the main view's optional parameter is given it rather than its default.
+            .Bind().As(Singleton).To<HexIDE.Forms.ViewModels.RunWithMenuViewModel>()
             // The launches add-ins contribute for that session; F5 runs one only for a project whose user chose it.
             .Bind().As(Singleton).To(ctx =>
             {
