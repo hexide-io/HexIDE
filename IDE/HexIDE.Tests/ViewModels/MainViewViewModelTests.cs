@@ -660,6 +660,27 @@ public class MainViewViewModelTests
         }
     }
 
+    // --- A project an add-in opened (contributed-projects) ---
+
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Adding_members_and_the_VB6_toolchain_are_offered_only_for_a_project_HexIDE_read_itself(bool contributed)
+    {
+        _vb6Toolchain.IsAvailable.Returns(true);
+        var project = new ProjectDefinition(VBProjectType.EXE, "Ledger") { ContributedBy = contributed ? "RDCore projects" : null };
+        _focusedProjectUtil.FocusedOrStartupProject.Returns(project);
+
+        var commands = new[]
+        {
+            _sut.AddFormCommand, _sut.AddModuleCommand, _sut.AddClassModuleCommand, _sut.AddUserControlCommand,
+            _sut.AddPropertyPageCommand, _sut.AddFileCommand, _sut.RunWithVb6Command, _sut.MakeWithVb6Command,
+        };
+
+        commands.Select(command => command.CanExecute(null)).Should().AllBeEquivalentTo(!contributed,
+            "a contributed project's membership is its add-in's program's, and VB6 cannot build what it does not read");
+    }
+
     // --- StartDefaultProjectCommand ---
 
     [AvaloniaTheory]
