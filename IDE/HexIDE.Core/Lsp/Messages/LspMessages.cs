@@ -289,6 +289,8 @@ public record TextDocumentClientCapabilities(
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] CompletionClientCapabilities? Completion = null,
     [property: JsonPropertyName("inlayHint")]
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] InlayHintClientCapabilities? InlayHint = null,
+    [property: JsonPropertyName("selectionRange")]
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] SelectionRangeClientCapabilities? SelectionRange = null,
     [property: JsonPropertyName("rangeFormatting")]
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] EmptyParams? RangeFormatting = null);
 
@@ -1352,3 +1354,14 @@ public record ShowMessageRequestParams(
     [property: JsonPropertyName("type")] int Type,
     [property: JsonPropertyName("message")] string Message,
     [property: JsonPropertyName("actions")] MessageActionItem[]? Actions = null);
+
+public record SelectionRangeParams(
+    [property: JsonPropertyName("textDocument")] TextDocumentIdentifier TextDocument,
+    [property: JsonPropertyName("positions")] Position[] Positions);
+
+public record SelectionRange(
+    [property: JsonPropertyName("range")] Range Range,
+    [property: JsonPropertyName("parent")]
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] SelectionRange? Parent = null);
+
+public record SelectionRangeClientCapabilities;

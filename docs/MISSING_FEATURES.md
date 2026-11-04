@@ -56,6 +56,7 @@
 | Remove | — | Stub | MenuItem present, no handler; context-dependent in VB6 |
 | Delete | Del | Done | Deletes the selection, or the next character when nothing is selected (#708). |
 | Select All | Ctrl+A | Done | |
+| Expand / Shrink Selection (additive) | — | Done | Localized context-menu and keymap commands climb server-returned parent ranges and shrink back to the original selection; edits and outside caret moves reset the chain. Requires a selection-range provider; no default shortcut (#3076). |
 | Find… | Ctrl+F | Done | |
 | Find Next | F3 | Done | |
 | Replace… | Ctrl+H | Done | |

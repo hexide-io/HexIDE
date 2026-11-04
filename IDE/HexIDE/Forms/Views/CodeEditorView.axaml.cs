@@ -123,6 +123,9 @@ public partial class CodeEditorView : UserControl
 
     public CodeEditorView()
     {
+        ExpandSelection = new DelegateCommand(() => _ = ExpandSelectionAsync(), CanChangeSelection);
+        ShrinkSelection = new DelegateCommand(ShrinkSelectionCore, CanChangeSelection);
+
         // Through the view model, because a designer change reaches this window as a header write and a
         // header write is not an edit the developer made here (#273 task 3.8). TextEditor.Undo is still
         // what pops each entry -- it is AvaloniaEdit's own command route and does the caret and selection
@@ -198,6 +201,7 @@ public partial class CodeEditorView : UserControl
         TextEditor.TextChanged += OnTextChangedForFolding;
 
         TextEditor.TextArea.Caret.PositionChanged += OnCaretPositionChanged;
+        TextEditor.TextArea.SelectionChanged += (_, _) => ResetSelectionChain();
     }
 
     private void TextChanged(object? sender, EventArgs e)
@@ -232,6 +236,7 @@ public partial class CodeEditorView : UserControl
     protected override void OnDataContextChanged(EventArgs e)
     {
         base.OnDataContextChanged(e);
+        ResetSelectionChain();
         InstallReadOnlySections();
     }
 
@@ -756,6 +761,7 @@ public partial class CodeEditorView : UserControl
 
     private void OnCaretPositionChanged(object? sender, EventArgs e)
     {
+        ResetSelectionChain();
         if (DataContext is CodeEditorViewModel vm)
         {
             vm.CaretOffset = TextEditor.CaretOffset;
@@ -772,6 +778,7 @@ public partial class CodeEditorView : UserControl
 
     private void OnTextChangedForFolding(object? sender, EventArgs e)
     {
+        ResetSelectionChain();
         // Binding the document before attach is covered by the initial folding request on attach.
         if (_foldingManager is null || DataContext is not CodeEditorViewModel vm) return;
         // Not left to the debounced request below: a reload removes every fold, and the header would show
@@ -1196,6 +1203,9 @@ public partial class CodeEditorView : UserControl
     /// </remarks>
     private void OnLanguageServerStateChanged()
     {
+        ResetSelectionChain();
+        ExpandSelection.RaiseCanExecutedChanged();
+        ShrinkSelection.RaiseCanExecutedChanged();
         CommandManager.InvalidateRequerySuggested();
         _semanticVersion++;
         if (DataContext is CodeEditorViewModel vm)

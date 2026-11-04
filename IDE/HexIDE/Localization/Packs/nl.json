@@ -426,6 +426,8 @@
     "Str.CodeEditor.Context.GoToDefinition": "_Ga naar definitie",
     "Str.CodeEditor.Context.GoToDeclaration": "Ga naar _declaratie",
     "Str.CodeEditor.Context.Rename": "_Naam wijzigen...",
+    "Str.CodeEditor.Context.ExpandSelection": "Selectie _uitbreiden",
+    "Str.CodeEditor.Context.ShrinkSelection": "Selectie _verkleinen",
     "Str.CodeEditor.Context.FormatDocument": "Document _opmaken",
     "Str.CodeEditor.Context.FormatSelection": "Selectie _opmaken",
     "Str.Options.Shell.Buttons.ResetAll": "Alles opnieuw instellen",

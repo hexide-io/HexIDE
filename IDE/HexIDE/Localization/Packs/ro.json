@@ -389,6 +389,8 @@
     "Str.CodeEditor.Context.GoToDefinition": "_Salt la definiție",
     "Str.CodeEditor.Context.GoToDeclaration": "Salt la dec_larație",
     "Str.CodeEditor.Context.Rename": "_Redenumește...",
+    "Str.CodeEditor.Context.ExpandSelection": "_Extinde selecția",
+    "Str.CodeEditor.Context.ShrinkSelection": "_Restrânge selecția",
     "Str.CodeEditor.Context.FormatDocument": "_Formatează documentul",
     "Str.CodeEditor.Context.FormatSelection": "_Formatează selecția",
     "Str.Options.Shell.Buttons.ResetAll": "Resetează tot",

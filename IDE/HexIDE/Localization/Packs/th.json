@@ -389,6 +389,8 @@
     "Str.CodeEditor.Context.GoToDefinition": "ไปที่นิยาม",
     "Str.CodeEditor.Context.GoToDeclaration": "ไปที่การประกาศ",
     "Str.CodeEditor.Context.Rename": "เปลี่ยนชื่อ...",
+    "Str.CodeEditor.Context.ExpandSelection": "ขยายการเลือก",
+    "Str.CodeEditor.Context.ShrinkSelection": "ย่อการเลือก",
     "Str.CodeEditor.Context.FormatDocument": "จัดรูปแบบเอกสาร",
     "Str.CodeEditor.Context.FormatSelection": "จัดรูปแบบส่วนที่เลือก",
     "Str.Options.Shell.Buttons.ResetAll": "รีเซ็ตทั้งหมด",

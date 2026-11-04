@@ -387,6 +387,8 @@
     "Str.CodeEditor.Context.GoToDefinition": "_Go to Definition",
     "Str.CodeEditor.Context.GoToDeclaration": "Go to Dec_laration",
     "Str.CodeEditor.Context.Rename": "_Rename...",
+    "Str.CodeEditor.Context.ExpandSelection": "_Expand Selection",
+    "Str.CodeEditor.Context.ShrinkSelection": "_Shrink Selection",
     "Str.CodeEditor.Context.FormatDocument": "_Format Document",
     "Str.CodeEditor.Context.FormatSelection": "_Format Selection",
     "Str.Options.Shell.Buttons.ResetAll": "Reset All",

@@ -426,6 +426,8 @@
     "Str.CodeEditor.Context.GoToDefinition": "정의로 이동",
     "Str.CodeEditor.Context.GoToDeclaration": "선언으로 이동",
     "Str.CodeEditor.Context.Rename": "이름 바꾸기...",
+    "Str.CodeEditor.Context.ExpandSelection": "선택 영역 확장",
+    "Str.CodeEditor.Context.ShrinkSelection": "선택 영역 축소",
     "Str.CodeEditor.Context.FormatDocument": "문서 서식 지정",
     "Str.CodeEditor.Context.FormatSelection": "선택 영역 서식 지정",
     "Str.Options.Shell.Buttons.ResetAll": "모두 재설정",

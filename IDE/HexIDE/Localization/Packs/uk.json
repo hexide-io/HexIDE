@@ -426,6 +426,8 @@
     "Str.CodeEditor.Context.GoToDefinition": "Перейти до визначення",
     "Str.CodeEditor.Context.GoToDeclaration": "Перейти до оголошення",
     "Str.CodeEditor.Context.Rename": "Перейменувати...",
+    "Str.CodeEditor.Context.ExpandSelection": "Розширити виділення",
+    "Str.CodeEditor.Context.ShrinkSelection": "Звузити виділення",
     "Str.CodeEditor.Context.FormatDocument": "Форматувати документ",
     "Str.CodeEditor.Context.FormatSelection": "Форматувати виділення",
     "Str.Options.Shell.Buttons.ResetAll": "Скинути все",

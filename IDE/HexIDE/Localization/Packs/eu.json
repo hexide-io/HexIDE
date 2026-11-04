@@ -389,6 +389,8 @@
     "Str.CodeEditor.Context.GoToDefinition": "_Joan definiziora",
     "Str.CodeEditor.Context.GoToDeclaration": "Joan _deklaraziora",
     "Str.CodeEditor.Context.Rename": "_Aldatu izena...",
+    "Str.CodeEditor.Context.ExpandSelection": "_Zabaldu hautapena",
+    "Str.CodeEditor.Context.ShrinkSelection": "_Murriztu hautapena",
     "Str.CodeEditor.Context.FormatDocument": "_Eman formatua dokumentuari",
     "Str.CodeEditor.Context.FormatSelection": "_Eman formatua hautapenari",
     "Str.Options.Shell.Buttons.ResetAll": "Berrezarri dena",

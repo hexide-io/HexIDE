@@ -428,6 +428,14 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
             ? await c.RequestDocumentSymbolsAsync(uri, ct)
             : [];
 
+    public bool SupportsSelectionRanges(string uri) =>
+        StartedClaimantsFor(uri).Any(c => c.SupportsSelectionRanges(uri));
+
+    public async Task<SelectionRange[]> RequestSelectionRangesAsync(string uri, Position[] positions, CancellationToken ct = default) =>
+        await TopClaimantAdvertisingAsync(uri, "selectionRangeProvider", ct) is { } c
+            ? await c.RequestSelectionRangesAsync(uri, positions, ct)
+            : [];
+
     // Folds have a second, sharper reason. AvaloniaEdit's FoldingManager takes a single ordered set of
     // sections; two servers' folds partially overlap in general, and a partially-overlapping section is
     // not merely a duplicate — it can take out folding for the whole document behind the debug-level

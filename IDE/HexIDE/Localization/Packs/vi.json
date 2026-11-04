@@ -426,6 +426,8 @@
     "Str.CodeEditor.Context.GoToDefinition": "_Đi đến định nghĩa",
     "Str.CodeEditor.Context.GoToDeclaration": "Đi đến k_hai báo",
     "Str.CodeEditor.Context.Rename": "Đổi _tên...",
+    "Str.CodeEditor.Context.ExpandSelection": "_Mở rộng vùng chọn",
+    "Str.CodeEditor.Context.ShrinkSelection": "_Thu hẹp vùng chọn",
     "Str.CodeEditor.Context.FormatDocument": "Định _dạng tài liệu",
     "Str.CodeEditor.Context.FormatSelection": "Định _dạng vùng chọn",
     "Str.Options.Shell.Buttons.ResetAll": "Đặt lại tất cả",

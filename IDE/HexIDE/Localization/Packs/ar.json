@@ -426,6 +426,8 @@
     "Str.CodeEditor.Context.GoToDefinition": "الانتقال إلى التعريف",
     "Str.CodeEditor.Context.GoToDeclaration": "الانتقال إلى الإعلان",
     "Str.CodeEditor.Context.Rename": "إعادة تسمية...",
+    "Str.CodeEditor.Context.ExpandSelection": "توسيع التحديد",
+    "Str.CodeEditor.Context.ShrinkSelection": "تقليص التحديد",
     "Str.CodeEditor.Context.FormatDocument": "تنسيق المستند",
     "Str.CodeEditor.Context.FormatSelection": "تنسيق التحديد",
     "Str.Options.Shell.Buttons.ResetAll": "إعادة تعيين الكل",

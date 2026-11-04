@@ -389,6 +389,8 @@
     "Str.CodeEditor.Context.GoToDefinition": "_Ir á definición",
     "Str.CodeEditor.Context.GoToDeclaration": "Ir á dec_laración",
     "Str.CodeEditor.Context.Rename": "_Cambiar nome...",
+    "Str.CodeEditor.Context.ExpandSelection": "_Ampliar selección",
+    "Str.CodeEditor.Context.ShrinkSelection": "_Reducir selección",
     "Str.CodeEditor.Context.FormatDocument": "_Formatar documento",
     "Str.CodeEditor.Context.FormatSelection": "_Formatar selección",
     "Str.Options.Shell.Buttons.ResetAll": "Restablecer todo",

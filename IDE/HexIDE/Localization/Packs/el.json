@@ -426,6 +426,8 @@
     "Str.CodeEditor.Context.GoToDefinition": "&Μετάβαση στον ορισμό",
     "Str.CodeEditor.Context.GoToDeclaration": "Μετάβαση στη δήλωση",
     "Str.CodeEditor.Context.Rename": "&Μετονομασία...",
+    "Str.CodeEditor.Context.ExpandSelection": "Επέκταση επιλογής",
+    "Str.CodeEditor.Context.ShrinkSelection": "Συρρίκνωση επιλογής",
     "Str.CodeEditor.Context.FormatDocument": "&Μορφοποίηση εγγράφου",
     "Str.CodeEditor.Context.FormatSelection": "&Μορφοποίηση επιλογής",
     "Str.Options.Shell.Buttons.ResetAll": "Επαναφορά όλων",

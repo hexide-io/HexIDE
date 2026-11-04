@@ -12,6 +12,43 @@ later without the editor noticing.
 
 ## Requirements
 
+### Requirement: Expand and shrink selection commands
+The code window SHALL expose localized Expand Selection and Shrink Selection context-menu and
+keymap commands, with no default shortcuts, enabled only for a document with an advertising
+selection-range provider. Expand SHALL request the caret position, or both ends of a selection,
+and select the smallest strictly enclosing server-returned range from either endpoint. Repeated
+expansion SHALL climb the returned parent chain; Shrink SHALL restore the previous selection, including the original caret.
+An edit or a caret or selection move outside these commands SHALL discard the chain. A response
+made stale by such a change SHALL NOT alter the selection. HexIDE SHALL NOT compute language ranges.
+
+#### Scenario: Climbing and returning
+- **WHEN** Expand is invoked twice and Shrink once
+- **THEN** the selection returns to the first enclosing range supplied by the server
+
+#### Scenario: Editing invalidates the chain
+- **WHEN** text changes or the user moves the caret after expanding
+- **THEN** Shrink cannot restore the old chain and the next Expand requests fresh ranges
+
+#### Scenario: No provider
+- **WHEN** no claimant advertises selection ranges for the document
+- **THEN** both commands are disabled
+
+### Requirement: Selection range requests preserve backend chains
+The client SHALL declare `textDocument.selectionRange` without dynamic registration and expose
+`textDocument/selectionRange` requests for a document URI and positions. The registry SHALL route
+these requests to the highest-priority claimant advertising `selectionRangeProvider`, accepting
+both boolean and options advertisements. The client SHALL preserve the returned ranges and recursive
+parents without computing enclosing ranges locally. Null replies and failed requests SHALL yield
+empty arrays. Editor commands and selection history remain pending (#3076).
+
+#### Scenario: A server supplies enclosing ranges
+- **WHEN** a caller requests ranges at two selection endpoints from an offering server
+- **THEN** both positions reach that server in order and its two parent chains are returned
+
+#### Scenario: No server offers selection ranges
+- **WHEN** no claimant advertises the provider
+- **THEN** no selection range request is sent and the caller receives an empty array
+
 ### Requirement: Format Selection through the advertising server
 The IDE SHALL offer Format Selection beside Format Document in the code editor context menu, enabled
 only for a nonempty selection in an editable document with an open language session and a claimant
