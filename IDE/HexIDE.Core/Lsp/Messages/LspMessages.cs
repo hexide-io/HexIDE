@@ -30,9 +30,10 @@ public enum DiagnosticSeverity
 /// <see cref="CodeText"/> rather than by inspecting the element at each use.
 ///
 /// <para>
-/// The protocol also defines <c>tags</c>, <c>relatedInformation</c> and <c>data</c>, which are still
-/// dropped. <c>tags</c> would change how a diagnostic is drawn rather than add text to it, and that is a
-/// rendering decision rather than a plumbing one (hexide-io/HexIDE#426).
+/// Tags 1 and 2 and well-formed related locations are retained on both inbound paths (#453).
+/// Tags style editor text and list messages; related locations are clickable in diagnostic tips.
+/// Opaque <c>data</c> is still dropped
+/// until the code-action relay decision (q-453-code-actions).
 /// </para>
 /// </remarks>
 public record Diagnostic(
@@ -45,7 +46,13 @@ public record Diagnostic(
     [property: JsonPropertyName("code")]
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] System.Text.Json.JsonElement? Code = null,
     [property: JsonPropertyName("codeDescription")]
-    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] CodeDescription? CodeDescription = null)
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] CodeDescription? CodeDescription = null,
+    [property: JsonPropertyName("tags")]
+    [property: JsonConverter(typeof(DiagnosticTagsConverter))]
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] int[]? Tags = null,
+    [property: JsonPropertyName("relatedInformation")]
+    [property: JsonConverter(typeof(DiagnosticRelatedInformationConverter))]
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] DiagnosticRelatedInformation[]? RelatedInformation = null)
 {
     /// <summary>
     /// The code as text — <c>F401</c>, <c>MD012</c>, <c>VBC00001</c> — or null when the server sent none.
@@ -388,7 +395,11 @@ public record TextDocumentSyncClientCapabilities(
     [property: JsonPropertyName("didSave")] bool DidSave = false);
 
 public record PublishDiagnosticsClientCapabilities(
-    [property: JsonPropertyName("relatedInformation")] bool RelatedInformation = false);
+    [property: JsonPropertyName("relatedInformation")] bool RelatedInformation = false,
+    [property: JsonPropertyName("tagSupport")]
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] DiagnosticTagSupport? TagSupport = null);
+
+public record DiagnosticTagSupport([property: JsonPropertyName("valueSet")] int[] ValueSet);
 
 /// <summary>
 /// Declares that the client will ask for diagnostics rather than only be told them.

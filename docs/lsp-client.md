@@ -697,14 +697,17 @@ using numeric codes is as usable as one using names, and neither can throw on th
 
 Diagnostic codes reach the automation server's `get_diagnostics`, the add-in API and the AI-chat tool.
 The editor's squiggle tooltip shows overlapping messages and supplied sources alongside quick info in
-every profile (#451), even with Auto Quick Info disabled. Codes and navigation
-still need an error list; that larger surface remains separate from the tooltip.
+every profile (#451), even with Auto Quick Info disabled. The Diagnostics tool lists reports from
+all attached servers and navigates to their primary locations (#1991).
 
-Still dropped: `tags`, `relatedInformation` and `data`, each for a different reason and tracked as
-[#453](https://github.com/hexide-io/HexIDE/issues/453). `tags` would change how a diagnostic is drawn
-rather than add text to it, which is a rendering decision rather than a plumbing one;
-`relatedInformation` still needs a presentation beyond the message tooltip (#453); and `data` is only meaningful if
-code actions from a foreign server are relayed, which is an open question rather than a settled no.
+Both inbound paths retain `tags` 1 (Unnecessary) and 2 (Deprecated), ignoring unknown values,
+and `relatedInformation` locations and messages, skipping malformed entries (#453). Unnecessary
+text is faded and deprecated text is struck through in the editor and diagnostics list; the severity
+squiggle remains. The tooltip lists related messages below their diagnostic, with clickable locations
+labelled by loaded member name and one-based line, falling back to the URI. Links use the editor
+navigation service, and the tooltip stays open while the pointer moves into it. The client advertises
+`publishDiagnostics.relatedInformation: true` and `tagSupport.valueSet: [1, 2]`.
+Still dropped: `data`, until `q-453-code-actions` decides whether foreign code actions are relayed.
 
 ### Some servers publish; some only answer
 

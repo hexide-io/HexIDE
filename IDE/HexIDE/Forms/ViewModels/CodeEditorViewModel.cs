@@ -2096,6 +2096,8 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
 
     // A hover's file link opens a document the project already holds, and nothing else: a server's link is not the
     // user choosing a file, the same rule #2908 applies to showDocument. Anything else is logged and left alone.
+    internal Avalonia.Controls.Control DiagnosticContent(LspMarker marker) => DiagnosticContentView.Render(marker, editorService);
+
     internal void OpenHoverFile(Uri uri)
     {
         if (!uri.IsFile) return;

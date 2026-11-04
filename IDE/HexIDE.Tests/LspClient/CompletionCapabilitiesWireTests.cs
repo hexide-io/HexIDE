@@ -58,6 +58,33 @@ public class CompletionCapabilitiesWireTests
         item.GetProperty("documentationFormat").EnumerateArray().Select(value => value.GetString())
             .Should().Equal("plaintext");
     }
+    [Fact]
+    public async Task InitializeDeclaresDiagnosticPresentationCapabilities()
+    {
+        var server = new HandshakeRecorder();
+        var (clientSide, serverSide) = FullDuplexStream.CreatePair();
+        var serverRpc = new JsonRpc(
+            new HeaderDelimitedMessageHandler(serverSide, serverSide, new SystemTextJsonFormatter()), server);
+        serverRpc.StartListening();
+
+        var transport = Substitute.For<ILspTransport>();
+        transport.IsAlive.Returns(true);
+        transport.ConnectAsync(Arg.Any<IJsonRpcMessageFormatter>(), Arg.Any<CancellationToken>())
+            .Returns(ci => Task.FromResult<IJsonRpcMessageHandler?>(
+                new HeaderDelimitedMessageHandler(clientSide, clientSide, ci.Arg<IJsonRpcMessageFormatter>())));
+
+        var logger = Substitute.For<ILogger<VBLspClient>>();
+        var client = new VBLspClient(transport, logger, "markdown");
+        await using var ownedClient = client;
+        using var ownedServer = serverRpc;
+        await client.StartAsync(TestContext.Current.CancellationToken);
+        var initialize = await server.InitializeParams.WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
+
+        var diagnostics = initialize.GetProperty("capabilities").GetProperty("textDocument").GetProperty("publishDiagnostics");
+        diagnostics.GetProperty("relatedInformation").GetBoolean().Should().BeTrue();
+        diagnostics.GetProperty("tagSupport").GetProperty("valueSet").EnumerateArray()
+            .Select(v => v.GetInt32()).Should().Equal(1, 2);
+    }
     [Theory]
     [InlineData(false)]
     [InlineData(true)]

@@ -51,6 +51,40 @@ successful servers' locations remain visible. Callers SHALL be able to supply lo
 - **THEN** those locations replace the list and no references request is sent
 
 
+### Requirement: Diagnostic metadata survives either inbound path
+The client SHALL retain diagnostic tags 1 and 2 and related-information locations and messages
+from both push notifications and pull replies. Unknown tags SHALL be ignored. A malformed
+related-information entry SHALL be skipped without dropping the diagnostic or valid sibling entries.
+
+#### Scenario: Metadata outlives the reply
+- **WHEN** a push or pull diagnostic contains both tags and two valid related locations
+- **THEN** both tags and locations remain readable after the reply document is disposed
+
+#### Scenario: An invalid related entry accompanies an unknown tag
+- **WHEN** a diagnostic includes tag 7 and a related entry with no location
+- **THEN** that tag and entry are ignored while the diagnostic remains available
+
+### Requirement: Diagnostic tags style text
+The client SHALL advertise `publishDiagnostics.relatedInformation: true` and `tagSupport.valueSet: [1, 2]`.
+Unnecessary ranges SHALL have faded text and deprecated ranges SHALL have strikethrough text in the editor
+and diagnostics list messages. These styles SHALL add to the existing severity squiggle. Opaque diagnostic
+`data` SHALL remain dropped pending the code-action relay decision (#453).
+
+#### Scenario: Both tags accompany a hint
+- **WHEN** a diagnostic has tags 1 and 2
+- **THEN** its editor range and list message are faded and struck through while its severity squiggle remains
+
+### Requirement: Related diagnostic locations are navigable
+Diagnostic tooltips SHALL list each related location and message below the primary message. Locations
+SHALL use the loaded member name or fall back to the URI, followed by a one-based line. Clicking a location
+SHALL use the editor navigation service at its range start. The tooltip SHALL remain open while the pointer
+moves from the editor onto its links.
+
+#### Scenario: A diagnostic points into another module
+- **WHEN** a tooltip contains a related location in a loaded module
+- **THEN** its link names that module and line and opens it at the related range start when clicked
+- **AND** an unresolved location uses its URI as the link label
+
 ### Requirement: Servers can request the editor tab size
 The client SHALL declare `workspace.configuration` support and SHALL answer `workspace/configuration`
 with one result per item in request order. Section `editor.tabSize` SHALL return the current editor
