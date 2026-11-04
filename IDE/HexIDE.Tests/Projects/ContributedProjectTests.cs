@@ -46,6 +46,7 @@ public sealed class ContributedProjectTests : IDisposable
         strings.GetString(Arg.Any<string>()).Returns(call => call.Arg<string>() switch
         {
             "Str.ContributedProject.OpenError" => "Could not open {0} with {1}: {2}",
+            "Str.ContributedProject.NoReader" => "Str.ContributedProject.NoReader {0}",
             var key => key + " {0} {1}",
         });
         var dock = Substitute.For<IDocumentDockService>();
@@ -202,6 +203,17 @@ public sealed class ContributedProjectTests : IDisposable
             Arg.Any<string?>(), Arg.Any<MessageBoxButtons>(), Arg.Any<MessageBoxIcon>(), Arg.Any<Avalonia.Controls.Window?>(), Arg.Any<bool>());
         type.Dispose();
         _types.Find(ProjectFile).Should().BeNull();
+    }
+
+    [AvaloniaFact]
+    public async Task A_contributed_file_whose_add_in_is_not_loaded_is_refused_not_read_as_a_vbp()
+    {
+        // As the recent list would reopen it, with no project type contributed for it now.
+        await _service.OpenProject(ProjectFile);
+
+        _loaded.Should().BeEmpty();
+        await _windows.Received(1).MessageBox(Arg.Is<string>(text => text.StartsWith("Str.ContributedProject.NoReader")),
+            Arg.Any<string?>(), Arg.Any<MessageBoxButtons>(), Arg.Any<MessageBoxIcon>(), Arg.Any<Avalonia.Controls.Window?>(), Arg.Any<bool>());
     }
 
     [Fact]

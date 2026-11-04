@@ -379,6 +379,15 @@ public partial class ProjectService : IProjectService
             await OpenGroupFromPath(projectPath);
             return;
         }
+        // Only a .vbp is HexIDE's to read now. Anything else reaching here, from the recent list or All Files, is a file no
+        // loaded project type reads, such as an add-in's whose add-in is not loaded: read as a .vbp it would open as junk.
+        if (!string.Equals(Path.GetExtension(projectPath), ".vbp", StringComparison.OrdinalIgnoreCase))
+        {
+            await windowManager.MessageBox(
+                string.Format(localization.GetString("Str.ContributedProject.NoReader"), Path.GetFileName(projectPath)),
+                icon: MessageBoxIcon.Information);
+            return;
+        }
         await LoadProjectFromDisk(projectPath);
     }
 
