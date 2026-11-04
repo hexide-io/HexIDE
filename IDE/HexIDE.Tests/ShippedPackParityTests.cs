@@ -403,6 +403,7 @@ public class ShippedPackParityTests
                 "Str.Dialog.Color.Rgb",
                 "Str.Tool.Outline.Kind.Interface", "Str.Tool.Outline.Kind.Variable",
                 "Str.Tool.LanguageServers.Vm.Age.Seconds",
+                "Str.Tool.LanguageServers.Vm.Elapsed",
             });
     }
 

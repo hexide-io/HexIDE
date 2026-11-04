@@ -782,6 +782,7 @@
     "Str.Tool.LanguageServers.Vm.State.Running": "Εκτελείται",
     "Str.Tool.LanguageServers.Vm.State.Failed": "Απέτυχε",
     "Str.Tool.LanguageServers.Vm.State.Stopped": "Διακόπηκε",
+    "Str.Tool.LanguageServers.Vm.Elapsed": "{0} ms",
     "Str.Tool.LanguageServers.Vm.Age.Seconds": "{0} δ",
     "Str.Tool.LanguageServers.Vm.Age.Minutes": "{0} λ {1} δ",
     "Str.Tool.LanguageServers.Vm.Age.Hours": "{0} ώ {1} λ",

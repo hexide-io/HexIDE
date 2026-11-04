@@ -782,6 +782,7 @@
     "Str.Tool.LanguageServers.Vm.State.Running": "実行中",
     "Str.Tool.LanguageServers.Vm.State.Failed": "失敗",
     "Str.Tool.LanguageServers.Vm.State.Stopped": "停止",
+    "Str.Tool.LanguageServers.Vm.Elapsed": "{0} ミリ秒",
     "Str.Tool.LanguageServers.Vm.Age.Seconds": "{0} 秒",
     "Str.Tool.LanguageServers.Vm.Age.Minutes": "{0} 分 {1} 秒",
     "Str.Tool.LanguageServers.Vm.Age.Hours": "{0} 時間 {1} 分",

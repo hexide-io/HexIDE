@@ -782,6 +782,7 @@
     "Str.Tool.LanguageServers.Vm.State.Running": "Berjalan",
     "Str.Tool.LanguageServers.Vm.State.Failed": "Gagal",
     "Str.Tool.LanguageServers.Vm.State.Stopped": "Berhenti",
+    "Str.Tool.LanguageServers.Vm.Elapsed": "{0} ms",
     "Str.Tool.LanguageServers.Vm.Age.Seconds": "{0} dtk",
     "Str.Tool.LanguageServers.Vm.Age.Minutes": "{0} mnt {1} dtk",
     "Str.Tool.LanguageServers.Vm.Age.Hours": "{0} j {1} mnt",
