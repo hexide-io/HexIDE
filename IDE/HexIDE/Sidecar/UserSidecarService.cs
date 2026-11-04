@@ -263,7 +263,8 @@ public partial class UserSidecarService : IUserSidecarService
                 try
                 {
                     var (migrated, consumed, consumedFile) = Apply(project, data, path, owned);
-                    runChoices?.Set(project, data.RunWith);
+                    // The file's choice unless the user made one while it was read, as a mark made meanwhile is kept.
+                    if (runChoices?.Get(project) is null) runChoices?.Set(project, data.RunWith);
                     state.Read = migrated;
                     if (!consumed.IsEmpty || !consumedFile.IsEmpty)
                     {

@@ -146,6 +146,27 @@ public sealed class UserSidecarSaveTests : IDisposable
     }
 
     [Fact]
+    public async Task AChoiceMadeWhileTheSidecarIsRead_IsKept_AsAMarkMadeThenIs()
+    {
+        var project = Project();
+        File.WriteAllText(SidecarOf(project), """{ "version": 3, "runWith": "com.example.old/Old" }""");
+        var reading = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var choices = new RunChoiceStore();
+        var sidecar = new UserSidecarService(new BookmarkService(), new BreakpointService(), projectManager, choices)
+        {
+            Debounce = debounce.Wait,
+            ReadText = _ => reading.Task,
+        };
+
+        var loading = sidecar.LoadAsync(project);
+        choices.Set(project, "com.rdcore.hexide/RDCore");
+        reading.SetResult(File.ReadAllText(SidecarOf(project)));
+        await loading;
+
+        choices.Get(project).Should().Be("com.rdcore.hexide/RDCore", "the user's choice is newer than the file's");
+    }
+
+    [Fact]
     public async Task TheInterpreter_WhichF5RunsUnlessTheUserSaysOtherwise_WritesNoSidecar()
     {
         var project = Project();
