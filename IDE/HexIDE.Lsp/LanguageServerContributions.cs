@@ -62,8 +62,10 @@ public sealed class LanguageServerContributions(
         // added to it later, outside the prefix, would otherwise be answered by the add-in in the client's place.
         var claimed = new Dictionary<string, AddinServerMethod>(server.ServerMethods, StringComparer.Ordinal);
         CheckMessages(server.MessagePrefix, claimed);
-        if (server.BeforeLaunchTimeout <= TimeSpan.Zero || server.BeforeLaunchTimeout == Timeout.InfiniteTimeSpan)
-            throw new ArgumentException("The wait for a gate before launch must be positive and finite.", nameof(server));
+        if (server.BeforeLaunchTimeout <= TimeSpan.Zero || server.BeforeLaunchTimeout > AddinLanguageServer.MaxBeforeLaunchTimeout)
+            throw new ArgumentException(
+                $"The wait for a gate before launch must be positive and at most {AddinLanguageServer.MaxBeforeLaunchTimeout}.",
+                nameof(server));
 
         var entry = server.Entry;
         var problems = new List<LanguageServerConfigProblem>();

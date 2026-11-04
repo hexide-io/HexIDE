@@ -40,8 +40,9 @@ public sealed record AddinLanguageServer(LanguageServerEntry Entry)
     public Func<CancellationToken, Task>? BeforeLaunch { get; init; }
 
     /// <summary>
-    /// How long the start waits for <see cref="BeforeLaunch"/>: a minute unless the add-in says otherwise. Positive and
-    /// finite, so a gate that never finishes cannot leave its server starting for as long as the add-in is installed.
+    /// How long the start waits for <see cref="BeforeLaunch"/>: a minute unless the add-in says otherwise. Positive and at
+    /// most <see cref="MaxBeforeLaunchTimeout"/>, so a gate that never finishes cannot leave its server starting for as long
+    /// as the add-in is installed; registering with any other value throws <see cref="ArgumentException"/>.
     /// </summary>
     /// <remarks>
     /// <para>
@@ -58,6 +59,11 @@ public sealed record AddinLanguageServer(LanguageServerEntry Entry)
 
     /// <summary>The wait for <see cref="BeforeLaunch"/> when the add-in names none.</summary>
     public static TimeSpan DefaultBeforeLaunchTimeout { get; } = TimeSpan.FromMinutes(1);
+
+    /// <summary>
+    /// The longest <see cref="BeforeLaunchTimeout"/> can be: the longest a timer waits, just under 50 days.
+    /// </summary>
+    public static TimeSpan MaxBeforeLaunchTimeout { get; } = TimeSpan.FromMilliseconds(uint.MaxValue - 1);
 
     /// <summary>
     /// Runs after each start's <c>initialize</c> handshake, once <c>initialized</c> is sent: the first start, a restart

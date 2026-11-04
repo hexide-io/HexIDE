@@ -632,9 +632,12 @@ as a launch that fails does, with its reason on the server's row. Withdrawing th
 that is running. A start that is cancelled SHALL leave the server not started, so the next document it claims starts
 it again, rather than failed. No open of another server's documents SHALL wait for the gate, a restart after the
 workspace moves included. The start SHALL wait for the gate no longer than a limit the add-in names, a minute unless it
-names one, and a limit that is not positive and finite SHALL be refused when the server is registered. A gate still
-running at its limit SHALL fail the start, whether or not it heeds its cancellation, with a reason on the row that
-names the add-in, and its cancellation SHALL be requested.
+names one, and a limit that is not positive, or is longer than the longest a timer waits (just under 50 days), SHALL be
+refused when the server is registered. A gate still running at its limit SHALL fail the start, whether or not it heeds
+its cancellation, with a reason on the row that names the add-in, and its cancellation SHALL be requested; a gate that
+fails on its own before then, a time-out of its own included, SHALL be reported in its own words. A gate past its limit
+goes on until it heeds the cancellation or ends, and a failure it ends with SHALL be logged. A server whose start
+failed this way is not started again in that session, as with any failed launch.
 
 A server starts lazily, on the first document it claims, so a notification that a project loaded is not a moment
 before the launch: the two happen in either order. Anything a server must find when it starts needs a gate, not a

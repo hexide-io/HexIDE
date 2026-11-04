@@ -495,7 +495,27 @@ public class AddinServerRegistrationTests : IDisposable
             .And.NotContain(step => step.Detail != null && step.Detail.Contains("did not let"));
     }
 
-    public static TheoryData<TimeSpan> UnboundedWaits => new(TimeSpan.Zero, TimeSpan.FromSeconds(-1), Timeout.InfiniteTimeSpan);
+    [Fact]
+    public async Task TheLongestWaitAllowed_StillLetsTheServerStart()
+    {
+        var pipeName = PipeName();
+        var initialized = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        await using var pipe = new ProbePipe(pipeName, () => new ProbeServer { OnStarted = () => initialized.TrySetResult() });
+        var (contributions, router) = WiredContributions();
+        await using var connection = contributions.Register(new AddinLanguageServer(PipeEntry("probe", pipeName))
+        {
+            BeforeLaunchTimeout = AddinLanguageServer.MaxBeforeLaunchTimeout,
+            BeforeLaunch = _ => Task.CompletedTask,
+        }, "My Add-in");
+
+        await router.OpenDocumentAsync("file:///c:/p/README.md", "# hi", Token);
+        await initialized.Task.WaitAsync(TimeSpan.FromSeconds(30), Token);
+
+        connection.IsRunning.Should().BeTrue("a wait the registration accepted is one every start can make");
+    }
+
+    public static TheoryData<TimeSpan> UnboundedWaits => new(TimeSpan.Zero, TimeSpan.FromSeconds(-1), Timeout.InfiniteTimeSpan,
+        TimeSpan.MaxValue, AddinLanguageServer.MaxBeforeLaunchTimeout + TimeSpan.FromMilliseconds(1));
 
     [Theory]
     [MemberData(nameof(UnboundedWaits))]
