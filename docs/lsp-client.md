@@ -1156,8 +1156,19 @@ and takes focus only when `takeFocus` is true. The response is `{ success: true 
 unknown URIs and `external: true` return `{ success: false }` without opening anything.
 `ShowDocumentWireTests` checks the declaration and response frames; `EditorServiceNavigationTests`
 checks the range, focus routing and URI refusal. Headless `CodeEditorSelectionTests` checks that both
-editor views restore a selection placed before they attach. `window/showMessageRequest` remains unwired for the
-next slice of #2908. `workspace/applyEdit` awaits #1024's applier and a policy decision.
+editor views restore a selection placed before they attach. `workspace/applyEdit` awaits #1024's applier
+and a policy decision.
+
+### Server questions (#2908)
+
+The client declares `window.showMessage.messageActionItem`, including additional property support.
+`window/showMessageRequest` queues an IDE message box owned by the main window, titled with the server's
+display name, with the server's actions as buttons. A click returns that original action item (including
+extra properties); closing without choosing returns `null`. Questions wait while a program runs or
+another modal is open, and queue one at a time across connections. Diagnostics and other messages keep
+flowing meanwhile. `$/cancelRequest` closes an open question or removes a queued one and answers -32800.
+`ShowMessageRequestWireTests` checks the frames and nonblocking queue; headless
+`ServerMessagePromptTests` checks ownership, title, buttons, dismissal and cancellation.
 
 ## Coverage against the specification
 
@@ -1166,7 +1177,7 @@ specification's own [`metaModel.json`](https://raw.githubusercontent.com/microso
 the canonical machine-readable list, so the method names and directions are the specification's rather than
 this document's recollection of them.
 
-**HexIDE implements 39 of the 93.** That is not a deficiency in itself — no client implements them all, and
+**HexIDE implements 40 of the 93.** That is not a deficiency in itself — no client implements them all, and
 most of the remainder are features no VB6 IDE needs. It is here so the shape of the gap is visible rather
 than inferred.
 
@@ -1261,14 +1272,14 @@ than inferred.
 | ○ | `workspace/willRenameFiles` | → |  |
 | ○ | `workspace/workspaceFolders` | ← |  |
 
-### `window/*` — 4 of 6
+### `window/*` — 5 of 6
 
 | | Method | Dir | Notes |
 |---|---|---|---|
 | ✅ | `window/logMessage` | ← | Raised as an event **and** logged at the severity the server declared. It used to be logged only, at a level the default configuration discards |
 | ◐ | `window/showDocument` | ← | Loaded project members, optional selection and focus; external and unknown URIs refused (#2908) |
 | ✅ | `window/showMessage` | ← | Shown in the status bar, and logged |
-| ○ | `window/showMessageRequest` | ← |  |
+| ✅ | `window/showMessageRequest` | ← |  |
 | ○ | `window/workDoneProgress/cancel` | → | No cancellation UI; cancellable is not acted on |
 | ✅ | `window/workDoneProgress/create` | ← | Registers string or integer tokens; replies with null |
 
@@ -1411,12 +1422,12 @@ Three clusters account for nearly all of the gap:
 - **Workspace-level protocol** — `workspace/*` is 7 of 21. The client sends project folders,
   updates them as group membership changes, sends file-operation notifications, and answers editor
   configuration requests. Watched-file notifications and server-initiated workspace edits remain absent.
-- **Server-to-client courtesy** — `window/*` and `client/*` are 3 of 8 between them. Alongside work-done progress (#360), the messages that landed
+- **Server-to-client courtesy** — `window/*` and `client/*` are 5 of 8 between them. Alongside work-done progress (#360), the messages that landed
   are the ones that cost no analysis depth and buy diagnosability: a server can now explain its own
   problems instead of appearing broken ([#289](https://github.com/hexide-io/HexIDE/issues/289)). Dynamic registration stays refused on
   purpose and is now logged rather than silent ([#288](https://github.com/hexide-io/HexIDE/issues/288)) — supporting it would mean
   declaring `dynamicRegistration` and honouring what arrives, which is real work with no server yet asking
-  for it. `showMessageRequest` still needs its queued IDE message-box flow (#2908).
+  for it. `showMessageRequest` uses a queued IDE message box (#2908).
 
 `notebookDocument/*` is 0 of 4 and will stay there — notebooks are not a VB6 concept.
 

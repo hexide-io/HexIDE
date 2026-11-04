@@ -198,9 +198,11 @@ public sealed class VBLspClient : ILspClient
         ConversationLog? capture = null, string? connectionId = null,
         ConversationRedactor? workspaceNames = null, Func<string>? locale = null, HexIDE.IDE.ISettingsService? settings = null,
         TimeProvider? timeProvider = null,
-        Func<ShowDocumentParams, CancellationToken, Task<bool>>? showDocument = null)
+        Func<ShowDocumentParams, CancellationToken, Task<bool>>? showDocument = null,
+        Func<ShowMessageRequestParams, CancellationToken, Task<MessageActionItem?>>? showMessageRequest = null)
     {
         _showDocument = showDocument;
+        _showMessageRequest = showMessageRequest;
         _transport = transport;
         _logger = logger;
         _diagnosticLifecycle = new(logger);
@@ -216,6 +218,7 @@ public sealed class VBLspClient : ILspClient
         _timeProvider = timeProvider ?? TimeProvider.System;
     }
 
+    private readonly Func<ShowMessageRequestParams, CancellationToken, Task<MessageActionItem?>>? _showMessageRequest;
     private readonly Func<ShowDocumentParams, CancellationToken, Task<bool>>? _showDocument;
     private readonly TimeProvider _timeProvider;
     private readonly Func<string> _locale;
@@ -671,7 +674,8 @@ public sealed class VBLspClient : ILspClient
                     Diagnostics: new WorkspaceDiagnosticsClientCapabilities(),
                     FileOperations: new FileOperationsClientCapabilities()),
                 // The same declare-and-gate bargain as save and codeLens: silence otherwise is correct.
-                Window: new WindowClientCapabilities(ShowDocument: new ShowDocumentClientCapabilities())));
+                Window: new WindowClientCapabilities(ShowDocument: new ShowDocumentClientCapabilities(),
+                    ShowMessage: new ShowMessageClientCapabilities(new MessageActionItemClientCapabilities()))));
 
         // Deliberately received as a raw JsonElement, and interpreted separately below.
         //
@@ -2400,6 +2404,19 @@ public sealed class VBLspClient : ILspClient
                     return; // Other $/progress payloads (e.g. partial results) are not work-done progress.
             }
             _client.ProgressReceived?.Invoke(_client, p);
+        }
+
+        [JsonRpcMethod("window/showMessageRequest", UseSingleObjectParameterDeserialization = true)]
+        public async Task<MessageActionItem?> OnShowMessageRequest(ShowMessageRequestParams p, CancellationToken cancellationToken)
+        {
+            try
+            {
+                return _client._showMessageRequest is { } show ? await show(p, cancellationToken) : null;
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                throw new LocalRpcException("Request cancelled") { ErrorCode = -32800 };
+            }
         }
 
         [JsonRpcMethod("window/showDocument", UseSingleObjectParameterDeserialization = true)]

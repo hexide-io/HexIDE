@@ -12,6 +12,31 @@ later without the editor noticing.
 
 ## Requirements
 
+### Requirement: Server questions display backend actions
+The client SHALL declare `window.showMessage.messageActionItem` with additional property support and
+answer `window/showMessageRequest` using an IDE message box owned by the main window. Its title SHALL
+be the server's display name and its buttons SHALL be the server's actions.
+
+#### Scenario: A question is answered or dismissed
+- **WHEN** the user chooses an action
+- **THEN** the client returns that original action item, including additional properties
+- **WHEN** the user closes the box without choosing
+- **THEN** the client returns `null`
+
+### Requirement: Server questions queue without blocking the connection
+Prompts SHALL queue one at a time across connections and wait while a program runs or another modal is
+open. Other protocol messages SHALL continue flowing. Cancellation SHALL close or remove the prompt
+and answer error -32800.
+
+#### Scenario: Diagnostics arrive while a question waits
+- **WHEN** a server sends a question and then publishes diagnostics before the user answers
+- **THEN** the diagnostics are delivered while the question remains pending
+
+#### Scenario: A cancelled question yields its queue position
+- **WHEN** the server cancels an open or queued question
+- **THEN** that question closes or leaves the queue and its response has error code -32800
+- **AND** the next question may open when no program or other modal is active
+
 ### Requirement: Reference requests gather locations from offering servers
 The client SHALL expose `textDocument/references` at a document URI and position, sending
 `context.includeDeclaration: true` only to servers advertising `referencesProvider`. The registry
