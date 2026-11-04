@@ -350,6 +350,61 @@ public sealed class WorkspaceArtifactGenerationTests : IDisposable
         await other[0].DidNotReceive().StopAsync();
     }
 
+    private LanguageServerRegistration Importing(ILspClient client) => Server() with
+    {
+        CreateClient = () => client,
+        WorkspaceArtifact = null,
+        ProjectImport = new("probe.import", JsonDocument.Parse("[]").RootElement.Clone()),
+    };
+
+    [Fact]
+    public async Task AServerTakenOutTakesItsProjectImportProblemsWithIt()
+    {
+        // Jen's probe on #2821: the workspace's project was never saved, so its import fails, and says so.
+        var ct = TestContext.Current.CancellationToken;
+        await using var registry = new LspClientRegistry([], NullLogger<LspClientRegistry>.Instance, _workspace,
+            artifacts: _service);
+        var contribution = registry.Add(Importing(Track([])));
+        await registry.OpenDocumentAsync(new Uri(Path.Combine(_root, "probe.c")).AbsoluteUri, "int x;", ct);
+        await contribution.Opened.WaitAsync(ct);
+        registry.ConfigurationProblems.Should().Contain(p => p.EntryId == "probe" && p.Message.StartsWith("Project import failed"));
+
+        await contribution.DisposeAsync();
+
+        registry.Knows("probe").Should().BeFalse();
+        registry.ConfigurationProblems.Should().NotContain(p => p.EntryId == "probe", "its configuration problems are withdrawn with it");
+    }
+
+    [Fact]
+    public async Task AnImportThatFailsAfterItsServerWasTakenOut_LeavesNoProblemBehind()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        _workspace.Projects = [new(_root, new("project", Path.Combine(_root, "project.vbp"), [], []),
+            ProjectText: _ => Task.FromResult("Name=\"project\"\r\n"))];
+        var importing = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var refuse = new TaskCompletionSource<JsonElement?>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var client = Track([]);
+        client.ImportProjectAsync(Arg.Any<ProjectImportSpec>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(_ =>
+            {
+                importing.TrySetResult();
+                return refuse.Task;
+            });
+        await using var registry = new LspClientRegistry([], NullLogger<LspClientRegistry>.Instance, _workspace,
+            artifacts: _service);
+        var contribution = registry.Add(Importing(client));
+        var opening = registry.OpenDocumentAsync(new Uri(Path.Combine(_root, "probe.c")).AbsoluteUri, "int x;", ct);
+        await importing.Task.WaitAsync(ct);
+
+        var removing = contribution.DisposeAsync().AsTask();
+        refuse.SetException(new InvalidOperationException("Import refused"));
+        await removing.WaitAsync(ct);
+        await opening.WaitAsync(ct);
+
+        registry.ConfigurationProblems.Should().NotContain(p => p.EntryId == "probe",
+            "an import that ends after its server was taken out reports to nobody");
+    }
+
     [Fact]
     public async Task AServerTakenOutGeneratesNothingMore_ThoughTheProjectChanges()
     {

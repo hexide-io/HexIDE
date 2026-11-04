@@ -193,6 +193,9 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
     private void ForgetContributionProblems(string id)
     {
         lock (_contributionProblems) _contributionProblems.RemoveAll(p => p.Id == id);
+        // Its project imports' too, keyed by the id and the project (EnsureStartedAsync).
+        foreach (var key in _importProblems.Keys)
+            if (key.StartsWith(id + "\0", StringComparison.Ordinal)) _importProblems.TryRemove(key, out _);
     }
 
     /// <summary>Whether a server with this id is known, configured or contributed.</summary>
@@ -1294,7 +1297,13 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
                     catch (OperationCanceledException) when (token.IsCancellationRequested) { throw; }
                     catch (Exception ex)
                     {
-                        _importProblems[problemKey] = new(e.Registration.Id, $"Project import failed for {project.Project.Name}: {ex.Message}", false);
+                        // Only for a server still listed, checked under the lock a removal withdraws its problems under: an
+                        // import that ends after its server was taken out reports to nobody.
+                        lock (_entriesGate)
+                        {
+                            if (_entries.Contains(e))
+                                _importProblems[problemKey] = new(e.Registration.Id, $"Project import failed for {project.Project.Name}: {ex.Message}", false);
+                        }
                         _logger.LogWarning(ex, "Project import failed for {Server}.", e.Registration.Id);
                     }
                     ConnectionsChanged?.Invoke(this, EventArgs.Empty);
