@@ -755,6 +755,7 @@
     "Str.Dialog.ExportPreview.Cancel": "Zrušit",
     "Str.Tool.LanguageServers.None": "Nejsou připojeny žádné jazykové servery. HexIDE obsluhuje VB6 sám; ostatní jazyky potřebují server, který připojíte vytvořením souboru lsp-servers.json.",
     "Str.Tool.LanguageServers.Id": "ID",
+    "Str.Tool.LanguageServers.Origin": "Přidal",
     "Str.Tool.LanguageServers.Transport": "Transport",
     "Str.Tool.LanguageServers.Claims": "Obsluhuje",
     "Str.Tool.LanguageServers.Priority": "Priorita",

@@ -754,6 +754,7 @@
     "Str.Dialog.ExportPreview.Cancel": "Utzi",
     "Str.Tool.LanguageServers.None": "Ez dago hizkuntza-zerbitzaririk konektatuta. HexIDEk berak eskaintzen du VB6; beste hizkuntzek zerbitzari bat behar dute, lsp-servers.json idatziz konektatzen dena.",
     "Str.Tool.LanguageServers.Id": "IDa",
+    "Str.Tool.LanguageServers.Origin": "Gehitzailea",
     "Str.Tool.LanguageServers.Transport": "Garraioa",
     "Str.Tool.LanguageServers.Claims": "Onartzen dituenak",
     "Str.Tool.LanguageServers.Priority": "Lehentasuna",

@@ -755,6 +755,7 @@
     "Str.Dialog.ExportPreview.Cancel": "Avbryt",
     "Str.Tool.LanguageServers.None": "Inga språkservrar är anslutna. HexIDE hanterar VB6 själv; andra språk behöver en server, som du ansluter genom att skriva lsp-servers.json.",
     "Str.Tool.LanguageServers.Id": "ID",
+    "Str.Tool.LanguageServers.Origin": "Tillagd av",
     "Str.Tool.LanguageServers.Transport": "Transport",
     "Str.Tool.LanguageServers.Claims": "Hanterar",
     "Str.Tool.LanguageServers.Priority": "Prioritet",

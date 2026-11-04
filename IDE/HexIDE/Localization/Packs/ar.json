@@ -755,6 +755,7 @@
     "Str.Dialog.ExportPreview.Cancel": "إلغاء",
     "Str.Tool.LanguageServers.None": "لا توجد خوادم لغات مرتبطة. يخدم HexIDE لغة VB6 بنفسه؛ أما اللغات الأخرى فتحتاج إلى خادم تربطه عن طريق كتابة الملف lsp-servers.json.",
     "Str.Tool.LanguageServers.Id": "المعرّف",
+    "Str.Tool.LanguageServers.Origin": "أُضيف بواسطة",
     "Str.Tool.LanguageServers.Transport": "النقل",
     "Str.Tool.LanguageServers.Claims": "النطاق",
     "Str.Tool.LanguageServers.Priority": "الأولوية",

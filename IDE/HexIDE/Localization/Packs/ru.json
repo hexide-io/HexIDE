@@ -755,6 +755,7 @@
     "Str.Dialog.ExportPreview.Cancel": "Отмена",
     "Str.Tool.LanguageServers.None": "Языковые серверы не подключены. VB6 обслуживает сам HexIDE, а для других языков нужен сервер — его подключают, создав файл lsp-servers.json.",
     "Str.Tool.LanguageServers.Id": "Идентификатор",
+    "Str.Tool.LanguageServers.Origin": "Кем добавлен",
     "Str.Tool.LanguageServers.Transport": "Транспорт",
     "Str.Tool.LanguageServers.Claims": "Заявленная область",
     "Str.Tool.LanguageServers.Priority": "Приоритет",

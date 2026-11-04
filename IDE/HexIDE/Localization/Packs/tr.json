@@ -755,6 +755,7 @@
     "Str.Dialog.ExportPreview.Cancel": "İptal",
     "Str.Tool.LanguageServers.None": "Bağlı dil sunucusu yok. VB6'ya HexIDE'nin kendisi hizmet verir; diğer diller bir sunucu gerektirir ve onu lsp-servers.json dosyasını yazarak bağlarsınız.",
     "Str.Tool.LanguageServers.Id": "Kimlik",
+    "Str.Tool.LanguageServers.Origin": "Ekleyen",
     "Str.Tool.LanguageServers.Transport": "Taşıma",
     "Str.Tool.LanguageServers.Claims": "Bildirilen Kapsam",
     "Str.Tool.LanguageServers.Priority": "Öncelik",

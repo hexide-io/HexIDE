@@ -755,6 +755,7 @@
     "Str.Dialog.ExportPreview.Cancel": "취소",
     "Str.Tool.LanguageServers.None": "연결된 언어 서버가 없습니다. VB6은 HexIDE가 직접 처리합니다. 다른 언어에는 서버가 필요하며, lsp-servers.json을 작성하여 연결합니다.",
     "Str.Tool.LanguageServers.Id": "ID",
+    "Str.Tool.LanguageServers.Origin": "추가 출처",
     "Str.Tool.LanguageServers.Transport": "전송 방식",
     "Str.Tool.LanguageServers.Claims": "담당 범위",
     "Str.Tool.LanguageServers.Priority": "우선순위",
