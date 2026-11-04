@@ -705,7 +705,8 @@ using numeric codes is as usable as one using names, and neither can throw on th
 
 Diagnostic codes reach the automation server's `get_diagnostics`, the add-in API and the AI-chat tool.
 The editor's squiggle tooltip shows overlapping messages and supplied sources alongside quick info in
-every profile (#451), even with Auto Quick Info disabled. The Diagnostics tool lists reports from
+every profile (#451), even with Auto Quick Info disabled. When quick info arrives after a diagnostic
+tip opens, the displayed content updates with diagnostics first, followed by the server hover (#3057). The Diagnostics tool lists reports from
 all attached servers and navigates to their primary locations (#1991).
 
 Both inbound paths retain `tags` 1 (Unnecessary) and 2 (Deprecated), ignoring unknown values,
