@@ -34,9 +34,19 @@ public sealed record AddinLanguageServer(LanguageServerEntry Entry)
     /// <summary>
     /// Runs before the server's process starts, every time it starts — the first document it claims, and a restart after
     /// the workspace moves. The start waits for it, with the start's own cancellation. One that throws fails the start as a
-    /// launch that fails does, with its message on the server's row.
+    /// launch that fails does, with its message on the server's row. One that has not finished within
+    /// <see cref="BeforeLaunchTimeout"/> fails the start too, and its token is cancelled.
     /// </summary>
     public Func<CancellationToken, Task>? BeforeLaunch { get; init; }
+
+    /// <summary>
+    /// How long the start waits for <see cref="BeforeLaunch"/>: a minute unless the add-in says otherwise. Positive and
+    /// finite, so a gate that never finishes cannot leave its server starting for as long as the add-in is installed.
+    /// </summary>
+    public TimeSpan BeforeLaunchTimeout { get; init; } = DefaultBeforeLaunchTimeout;
+
+    /// <summary>The wait for <see cref="BeforeLaunch"/> when the add-in names none.</summary>
+    public static TimeSpan DefaultBeforeLaunchTimeout { get; } = TimeSpan.FromMinutes(1);
 
     /// <summary>
     /// Runs after each start's <c>initialize</c> handshake, once <c>initialized</c> is sent: the first start, a restart

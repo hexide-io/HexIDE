@@ -600,7 +600,9 @@ it outranks a default: what a user wrote is what runs.
 
 An add-in may register after documents are open — one whose first run waited for consent initialises after the
 window opens — so the documents already open that a contributed server claims SHALL be opened on it, which starts it
-as the first document it claims would. Withdrawing the contribution SHALL stop the server and remove its row.
+as the first document it claims would. Withdrawing the contribution SHALL stop the server and remove its row, and its
+workspace artefact SHALL not be generated again. What it reported SHALL be withdrawn with it, so a server contributed
+again under its identifier while the old one is still stopping keeps what it reports.
 
 #### Scenario: An add-in contributes a server after documents are open
 - **WHEN** an add-in contributes a server for a language whose documents are already open
@@ -617,6 +619,11 @@ as the first document it claims would. Withdrawing the contribution SHALL stop t
 #### Scenario: The add-in withdraws its server
 - **WHEN** the add-in disposes the handle its registration returned
 - **THEN** the server is stopped, what it reported about each document is withdrawn, and its row goes
+- **AND** a later change to the project writes nothing for it
+
+#### Scenario: The add-in contributes its server again before the old one has stopped
+- **WHEN** the add-in withdraws its server and contributes one under the same identifier while the old one stops
+- **THEN** what the new server reports is kept when the old one's stop completes
 
 ### Requirement: A contributed server SHALL be gated before it launches
 A contributed server MAY carry a gate the IDE SHALL run before it starts the server's process, every time it starts
@@ -624,7 +631,10 @@ it. The start SHALL wait for the gate, with the start's own cancellation, and a 
 as a launch that fails does, with its reason on the server's row. Withdrawing the contribution SHALL cancel a gate
 that is running. A start that is cancelled SHALL leave the server not started, so the next document it claims starts
 it again, rather than failed. No open of another server's documents SHALL wait for the gate, a restart after the
-workspace moves included.
+workspace moves included. The start SHALL wait for the gate no longer than a limit the add-in names, a minute unless it
+names one, and a limit that is not positive and finite SHALL be refused when the server is registered. A gate still
+running at its limit SHALL fail the start, whether or not it heeds its cancellation, with a reason on the row that
+names the add-in, and its cancellation SHALL be requested.
 
 A server starts lazily, on the first document it claims, so a notification that a project loaded is not a moment
 before the launch: the two happen in either order. Anything a server must find when it starts needs a gate, not a
@@ -638,6 +648,11 @@ own server's start.
 #### Scenario: The gate fails
 - **WHEN** the gate fails
 - **THEN** no process is started, the server is failed, and its row says why
+
+#### Scenario: The gate never finishes
+- **WHEN** the gate is still running when its limit is reached
+- **THEN** no process is started, the server is failed, its row names the add-in that held it, and the gate is told
+  to stop
 
 #### Scenario: The add-in withdraws its server while the gate waits
 - **WHEN** the add-in disposes its handle while the gate is running
@@ -654,7 +669,8 @@ own server's start.
 ### Requirement: An add-in SHALL be told each time its server starts
 A contribution MAY carry a step the IDE SHALL run after each start's `initialize` handshake, once `initialized` is
 sent: the first start, a restart after the workspace moves, and a reconnect. The step SHALL be given the connection,
-and SHALL NOT hold the start.
+SHALL NOT hold the start, and SHALL run on the thread pool, never on the thread that opened the document, which is the
+UI thread when the code window opens it.
 
 Each start is a new server process with no memory of the last, so a handshake of the add-in's own with its server has
 to follow every one of them. Polling whether the server runs would race the documents the start sends.

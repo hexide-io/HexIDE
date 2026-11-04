@@ -353,6 +353,77 @@ public class AddinServerRegistrationTests : IDisposable
         order.Should().Equal("gate", "gate done", "client");
     }
 
+    // A clock that moves only when told: the one timer a wait arms, fired by the test.
+    private sealed class ManualClock : TimeProvider
+    {
+        private readonly TaskCompletionSource _armed = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private (TimerCallback Callback, object? State, TimeSpan Due)? _timer;
+
+        public Task Armed => _armed.Task;
+        public TimeSpan Due => _timer!.Value.Due;
+
+        public override ITimer CreateTimer(TimerCallback callback, object? state, TimeSpan dueTime, TimeSpan period)
+        {
+            _timer = (callback, state, dueTime);
+            _armed.TrySetResult();
+            return Substitute.For<ITimer>();
+        }
+
+        public void Fire() => _timer!.Value.Callback(_timer.Value.State);
+    }
+
+    [Fact]
+    public async Task AGateThatNeverFinishes_FailsTheStartAtItsLimit_AndIsToldToStop()
+    {
+        var clock = new ManualClock();
+        var router = Router();
+        var contributions = new LanguageServerContributions(router, new LanguageServerRegistrationFactory(_loggerFactory),
+            new LanguageServerConfigLoader(_loggerFactory.CreateLogger<LanguageServerConfigLoader>()),
+            new HashSet<string>(StringComparer.Ordinal), _loggerFactory.CreateLogger<LanguageServerContributions>(), clock: clock);
+        var told = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        await using var connection = contributions.Register(new AddinLanguageServer(PipeEntry("probe", PipeName()))
+        {
+            BeforeLaunchTimeout = TimeSpan.FromSeconds(5),
+            // Hung, and deaf to its token: the limit must not depend on the gate's cooperation.
+            BeforeLaunch = token =>
+            {
+                token.Register(() => told.TrySetResult());
+                return new TaskCompletionSource().Task;
+            },
+        }, "My Add-in");
+
+        var opening = router.OpenDocumentAsync("file:///c:/p/README.md", "# hi", Token);
+        await clock.Armed.WaitAsync(TimeSpan.FromSeconds(30), Token);
+        clock.Due.Should().Be(TimeSpan.FromSeconds(5), "the add-in's own limit");
+        opening.IsCompleted.Should().BeFalse("the start waits for the gate until then");
+
+        clock.Fire();
+        await opening.WaitAsync(TimeSpan.FromSeconds(30), Token);
+
+        var row = router.Connections.Should().ContainSingle().Subject;
+        row.State.Should().Be(LanguageConnectionState.Failed);
+        row.Attempt!.Steps.Should().Contain(step => step.Detail == "My Add-in did not let 'probe' start within 5 seconds.");
+        await told.Task.WaitAsync(TimeSpan.FromSeconds(30), Token);
+    }
+
+    public static TheoryData<TimeSpan> UnboundedWaits => new(TimeSpan.Zero, TimeSpan.FromSeconds(-1), Timeout.InfiniteTimeSpan);
+
+    [Theory]
+    [MemberData(nameof(UnboundedWaits))]
+    public void AWaitForTheGateThatIsNotPositiveAndFinite_IsRefused(TimeSpan wait)
+    {
+        var router = Router();
+
+        var registering = () => Contributions(router).Register(new AddinLanguageServer(PipeEntry("probe", "unused"))
+        {
+            BeforeLaunch = _ => Task.CompletedTask,
+            BeforeLaunchTimeout = wait,
+        }, "My Add-in");
+
+        registering.Should().Throw<ArgumentException>();
+        router.Connections.Should().BeEmpty();
+    }
+
     [Fact]
     public async Task AGateThatThrows_FailsTheStart_WithItsMessage()
     {

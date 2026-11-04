@@ -27,7 +27,8 @@ public sealed class LanguageServerContributions(
     IReadOnlyCollection<string> configuredIds,
     ILogger<LanguageServerContributions> logger,
     LanguageServerCommandStore? seen = null,
-    IWorkspaceArtifactProviderRegistry? artifactProviders = null)
+    IWorkspaceArtifactProviderRegistry? artifactProviders = null,
+    TimeProvider? clock = null)
 {
     /// <summary>
     /// The namespaces the Language Server Protocol's own methods are in (3.17): a prefix in one of them is not an add-in's.
@@ -60,6 +61,8 @@ public sealed class LanguageServerContributions(
         // added to it later, outside the prefix, would otherwise be answered by the add-in in the client's place.
         var claimed = new Dictionary<string, AddinServerMethod>(server.ServerMethods, StringComparer.Ordinal);
         CheckMessages(server.MessagePrefix, claimed);
+        if (server.BeforeLaunchTimeout <= TimeSpan.Zero || server.BeforeLaunchTimeout == Timeout.InfiniteTimeSpan)
+            throw new ArgumentException("The wait for a gate before launch must be positive and finite.", nameof(server));
 
         var entry = server.Entry;
         var problems = new List<LanguageServerConfigProblem>();
@@ -100,7 +103,9 @@ public sealed class LanguageServerContributions(
         var afterStart = server.AfterStart;
         var registration = made with
         {
-            BeforeLaunch = server.BeforeLaunch,
+            BeforeLaunch = server.BeforeLaunch is { } gate
+                ? token => WithinAsync(gate, server.BeforeLaunchTimeout, origin, id, token)
+                : null,
             Origin = origin,
             CreateClient = claimed.Count == 0 && afterStart is null ? made.CreateClient : () =>
             {
@@ -121,6 +126,24 @@ public sealed class LanguageServerContributions(
         var added = new AddinServerConnection(router.Add(registration), server.MessagePrefix, logger);
         connection.SetResult(added);
         return added;
+    }
+
+    // The add-in's gate, for as long as it said at most. Not by its token alone: a gate that never looks at it would
+    // still hold the start, so the wait ends at the limit whether the gate does or not, and the token tells it to stop.
+    private async Task WithinAsync(Func<CancellationToken, Task> gate, TimeSpan limit, string? origin, string id,
+        CancellationToken cancellationToken)
+    {
+        using var bounded = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        try
+        {
+            await gate(bounded.Token).WaitAsync(limit, clock ?? TimeProvider.System, cancellationToken);
+        }
+        catch (TimeoutException)
+        {
+            await bounded.CancelAsync();
+            throw new TimeoutException(
+                $"{origin ?? "The add-in"} did not let '{id}' start within {limit.TotalSeconds:0.#} seconds.");
+        }
     }
 
     // On the thread pool, so a start never waits for an add-in and the add-in never holds the UI thread.
