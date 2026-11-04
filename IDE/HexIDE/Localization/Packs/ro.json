@@ -387,6 +387,8 @@
     "Str.CodeEditor.Context.PreviousBookmark": "_Semnul de carte anterior",
     "Str.CodeEditor.Context.ClearAllBookmarks": "_Șterge toate semnele de carte",
     "Str.CodeEditor.Context.GoToDefinition": "_Salt la definiție",
+    "Str.CodeEditor.Context.GoToImplementation": "Salt la implementare",
+    "Str.CodeEditor.Context.GoToTypeDefinition": "Salt la definiția tipului",
     "Str.CodeEditor.Context.GoToDeclaration": "Salt la dec_larație",
     "Str.CodeEditor.Context.Rename": "_Redenumește...",
     "Str.CodeEditor.Context.FormatDocument": "_Formatează documentul",

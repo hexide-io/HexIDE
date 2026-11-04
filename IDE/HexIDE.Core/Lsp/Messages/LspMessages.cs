@@ -289,8 +289,14 @@ public record TextDocumentClientCapabilities(
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] CompletionClientCapabilities? Completion = null,
     [property: JsonPropertyName("inlayHint")]
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] InlayHintClientCapabilities? InlayHint = null,
+    [property: JsonPropertyName("implementation")]
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] NavigationClientCapabilities? Implementation = null,
+    [property: JsonPropertyName("typeDefinition")]
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] NavigationClientCapabilities? TypeDefinition = null,
     [property: JsonPropertyName("rangeFormatting")]
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] EmptyParams? RangeFormatting = null);
+
+public record NavigationClientCapabilities([property: JsonPropertyName("linkSupport")] bool LinkSupport = true);
 
 public record CompletionClientCapabilities(
     [property: JsonPropertyName("completionItemKind")] CompletionItemKindClientCapabilities CompletionItemKind,

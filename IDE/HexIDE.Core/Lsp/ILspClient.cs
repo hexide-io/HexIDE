@@ -267,6 +267,16 @@ public interface ILspClient : IAsyncDisposable
 
     Task<Location[]> RequestReferencesAsync(string uri, Position position, CancellationToken cancellationToken = default);
 
+    /// <summary>Whether a running server for this document offers the capability.</summary>
+    bool SupportsCapability(string uri, string capability) =>
+        IsRunning && ServerCapabilities.Supports(AdvertisedCapabilities, capability);
+
+    Task<Location[]?> RequestImplementationAsync(string uri, Position position, CancellationToken cancellationToken = default)
+        => Task.FromResult<Location[]?>(null);
+
+    Task<Location[]?> RequestTypeDefinitionAsync(string uri, Position position, CancellationToken cancellationToken = default)
+        => Task.FromResult<Location[]?>(null);
+
     Task<Location[]?> RequestDefinitionAsync(string uri, Position position, CancellationToken cancellationToken = default);
 
     /// <summary>

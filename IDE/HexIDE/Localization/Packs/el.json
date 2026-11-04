@@ -424,6 +424,8 @@
     "Str.CodeEditor.Context.PreviousBookmark": "&Προηγούμενος σελιδοδείκτης",
     "Str.CodeEditor.Context.ClearAllBookmarks": "&Εκκαθάριση όλων των σελιδοδεικτών",
     "Str.CodeEditor.Context.GoToDefinition": "&Μετάβαση στον ορισμό",
+    "Str.CodeEditor.Context.GoToImplementation": "Μετάβαση στην υλοποίηση",
+    "Str.CodeEditor.Context.GoToTypeDefinition": "Μετάβαση στον ορισμό τύπου",
     "Str.CodeEditor.Context.GoToDeclaration": "Μετάβαση στη δήλωση",
     "Str.CodeEditor.Context.Rename": "&Μετονομασία...",
     "Str.CodeEditor.Context.FormatDocument": "&Μορφοποίηση εγγράφου",

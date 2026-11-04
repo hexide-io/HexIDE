@@ -2188,6 +2188,21 @@ and SHALL open nothing. This is the project-member slice of #2908; external navi
 - **WHEN** a request has `external: true` or names no loaded member
 - **THEN** the response contains `success: false` and nothing opens
 
+### Requirement: Implementation and type definition navigation
+
+The client SHALL declare implementation and typeDefinition capabilities with linkSupport and SHALL offer
+Go to Implementation and Go to Type Definition in the View and code context menus, with keymap entries
+and no default gestures. Each command MUST be enabled only when a running server for that document
+advertises its corresponding provider. HexIDE SHALL display only the server's answer.
+
+#### Scenario: Navigate to a server answer
+- **WHEN** a capable server answers either request with a Location, Location array or LocationLink array
+- **THEN** one result navigates directly to its selection range and several populate the Find References pane
+
+#### Scenario: Independent providers
+- **WHEN** the document's servers advertise only one provider
+- **THEN** only that command is enabled and no request is sent for the other
+
 ### Requirement: Code lens sessions bound resolution to the viewport
 
 The client SHALL provide a document lens session that resolves only lenses whose starting lines are in

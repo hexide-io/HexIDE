@@ -387,6 +387,8 @@
     "Str.CodeEditor.Context.PreviousBookmark": "_Eelmine järjehoidja",
     "Str.CodeEditor.Context.ClearAllBookmarks": "_Eemalda kõik järjehoidjad",
     "Str.CodeEditor.Context.GoToDefinition": "_Mine definitsiooni juurde",
+    "Str.CodeEditor.Context.GoToImplementation": "Mine teostuse juurde",
+    "Str.CodeEditor.Context.GoToTypeDefinition": "Mine tüübimääratluse juurde",
     "Str.CodeEditor.Context.GoToDeclaration": "Mine _deklaratsiooni juurde",
     "Str.CodeEditor.Context.Rename": "_Nimeta ümber...",
     "Str.CodeEditor.Context.FormatDocument": "_Vorminda dokument",

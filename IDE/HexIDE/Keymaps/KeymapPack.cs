@@ -69,6 +69,8 @@ internal static class CommandKeyMapping
             ["ClearAllBookmarksCommand"]               = ApplicationCommands.ClearAllBookmarksCommand,
             ["FindReferencesCommand"]                   = ApplicationCommands.FindReferencesCommand,
             ["GoToDefinitionCommand"]                  = ApplicationCommands.GoToDefinitionCommand,
+            ["GoToImplementationCommand"]              = ApplicationCommands.GoToImplementationCommand,
+            ["GoToTypeDefinitionCommand"]              = ApplicationCommands.GoToTypeDefinitionCommand,
             ["GoToDeclarationCommand"]                 = ApplicationCommands.GoToDeclarationCommand,
             ["RenameSymbolCommand"]                    = ApplicationCommands.RenameSymbolCommand,
             ["FormatSelectionCommand"]                 = ApplicationCommands.FormatSelectionCommand,

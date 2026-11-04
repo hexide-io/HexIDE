@@ -630,6 +630,16 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
     public Task<Location[]?> RequestDefinitionAsync(string uri, Position position, CancellationToken ct = default) =>
         FirstAnswerAsync(uri, c => c.RequestDefinitionAsync(uri, position, ct), ct);
 
+    public bool SupportsCapability(string uri, string capability) =>
+        ClaimantsFor(uri, IsProjectMember(uri)).Any(e =>
+            e.Client is { IsRunning: true } client && client.SupportsCapability(uri, capability));
+
+    public Task<Location[]?> RequestImplementationAsync(string uri, Position position, CancellationToken ct = default) =>
+        FirstAnswerAsync(uri, c => c.RequestImplementationAsync(uri, position, ct), ct);
+
+    public Task<Location[]?> RequestTypeDefinitionAsync(string uri, Position position, CancellationToken ct = default) =>
+        FirstAnswerAsync(uri, c => c.RequestTypeDefinitionAsync(uri, position, ct), ct);
+
     public Task<Location[]?> RequestDeclarationAsync(string uri, Position position, CancellationToken ct = default) =>
         FirstAnswerAsync(uri, c => c.RequestDeclarationAsync(uri, position, ct), ct);
 

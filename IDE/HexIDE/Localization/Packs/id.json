@@ -424,6 +424,8 @@
     "Str.CodeEditor.Context.PreviousBookmark": "Penanda _Sebelumnya",
     "Str.CodeEditor.Context.ClearAllBookmarks": "_Hapus Semua Penanda",
     "Str.CodeEditor.Context.GoToDefinition": "_Buka Definisi",
+    "Str.CodeEditor.Context.GoToImplementation": "Ke Implementasi",
+    "Str.CodeEditor.Context.GoToTypeDefinition": "Ke Definisi Tipe",
     "Str.CodeEditor.Context.GoToDeclaration": "Buka Dek_larasi",
     "Str.CodeEditor.Context.Rename": "_Ganti Nama...",
     "Str.CodeEditor.Context.FormatDocument": "_Format Dokumen",

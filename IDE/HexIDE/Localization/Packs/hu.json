@@ -387,6 +387,8 @@
     "Str.CodeEditor.Context.PreviousBookmark": "_Előző könyvjelző",
     "Str.CodeEditor.Context.ClearAllBookmarks": "_Összes könyvjelző törlése",
     "Str.CodeEditor.Context.GoToDefinition": "Ugrás a _definícióhoz",
+    "Str.CodeEditor.Context.GoToImplementation": "Ugrás a megvalósításhoz",
+    "Str.CodeEditor.Context.GoToTypeDefinition": "Ugrás a típus definíciójához",
     "Str.CodeEditor.Context.GoToDeclaration": "Ugrás a dek_larációhoz",
     "Str.CodeEditor.Context.Rename": "Át_nevezés...",
     "Str.CodeEditor.Context.FormatDocument": "Dokumentum _formázása",

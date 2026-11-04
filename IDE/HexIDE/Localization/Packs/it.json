@@ -424,6 +424,8 @@
     "Str.CodeEditor.Context.PreviousBookmark": "Segnalibro _precedente",
     "Str.CodeEditor.Context.ClearAllBookmarks": "_Cancella tutti i segnalibri",
     "Str.CodeEditor.Context.GoToDefinition": "_Vai alla definizione",
+    "Str.CodeEditor.Context.GoToImplementation": "Vai all’implementazione",
+    "Str.CodeEditor.Context.GoToTypeDefinition": "Vai alla definizione del tipo",
     "Str.CodeEditor.Context.GoToDeclaration": "Vai alla dichiara_zione",
     "Str.CodeEditor.Context.Rename": "_Rinomina...",
     "Str.CodeEditor.Context.FormatDocument": "_Formatta documento",

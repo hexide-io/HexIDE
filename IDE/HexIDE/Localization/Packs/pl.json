@@ -424,6 +424,8 @@
     "Str.CodeEditor.Context.PreviousBookmark": "_Poprzednia zakładka",
     "Str.CodeEditor.Context.ClearAllBookmarks": "_Wyczyść wszystkie zakładki",
     "Str.CodeEditor.Context.GoToDefinition": "_Przejdź do definicji",
+    "Str.CodeEditor.Context.GoToImplementation": "Przejdź do implementacji",
+    "Str.CodeEditor.Context.GoToTypeDefinition": "Przejdź do definicji typu",
     "Str.CodeEditor.Context.GoToDeclaration": "Przejdź do _deklaracji",
     "Str.CodeEditor.Context.Rename": "_Zmień nazwę...",
     "Str.CodeEditor.Context.FormatDocument": "_Formatuj dokument",

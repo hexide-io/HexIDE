@@ -424,6 +424,8 @@
     "Str.CodeEditor.Context.PreviousBookmark": "上一个书签",
     "Str.CodeEditor.Context.ClearAllBookmarks": "清除所有书签",
     "Str.CodeEditor.Context.GoToDefinition": "转到定义",
+    "Str.CodeEditor.Context.GoToImplementation": "转到实现",
+    "Str.CodeEditor.Context.GoToTypeDefinition": "转到类型定义",
     "Str.CodeEditor.Context.GoToDeclaration": "转到声明",
     "Str.CodeEditor.Context.Rename": "重命名...",
     "Str.CodeEditor.Context.FormatDocument": "格式化文档",

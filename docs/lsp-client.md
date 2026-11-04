@@ -66,7 +66,7 @@ the production formatter and source-generated context to guard absence and prese
 |---|---|
 | Lifecycle | `initialize`, `initialized`, `shutdown`, `exit` |
 | Document sync | `textDocument/didOpen`, `didChange`, `didClose`, `didSave` |
-| Language requests | `hover`, `documentSymbol`, `foldingRange`, `completion`, `signatureHelp`, `definition`, `declaration`, `references`, `documentHighlight`, `rename`, `formatting`, `rangeFormatting`, `codeLens` |
+| Language requests | `hover`, `documentSymbol`, `foldingRange`, `completion`, `signatureHelp`, `definition`, `declaration`, `implementation`, `typeDefinition`, `references`, `documentHighlight`, `rename`, `formatting`, `rangeFormatting`, `codeLens` |
 | Actions | `codeLens/resolve`, `workspace/executeCommand` — see *Commands and lenses* |
 | Custom | `vb/builtinSymbols` — see *Custom methods* |
 
@@ -1228,6 +1228,12 @@ flowing meanwhile. `$/cancelRequest` closes an open question or removes a queued
 `ShowMessageRequestWireTests` checks the frames and nonblocking queue; headless
 `ServerMessagePromptTests` checks ownership, title, buttons, message type icons, Escape dismissal and cancellation.
 
+Go to Implementation and Go to Type Definition appear beside Definition in the View and code context
+menus (#3074). Each is enabled only for a document whose running server advertises the corresponding
+provider. Both client capabilities declare `linkSupport`; neither command has a default key binding.
+Single locations navigate directly; multiple locations populate the existing Find References pane.
+HexIDE displays the server's answer without computing implementations or types itself.
+
 ## Coverage against the specification
 
 LSP 3.17 defines **93 messages** — 67 requests and 26 notifications. The table below is generated from the
@@ -1235,7 +1241,7 @@ specification's own [`metaModel.json`](https://raw.githubusercontent.com/microso
 the canonical machine-readable list, so the method names and directions are the specification's rather than
 this document's recollection of them.
 
-**HexIDE implements 42 of the 93.** That is not a deficiency in itself — no client implements them all, and
+**HexIDE implements 44 of the 93.** That is not a deficiency in itself — no client implements them all, and
 most of the remainder are features no VB6 IDE needs. It is here so the shape of the gap is visible rather
 than inferred.
 
@@ -1257,7 +1263,7 @@ than inferred.
 | ✅ | `initialized` | → |  |
 | ✅ | `shutdown` | → |  |
 
-### `textDocument/*` — 21 of 41
+### `textDocument/*` — 23 of 41
 
 | | Method | Dir | Notes |
 |---|---|---|---|
@@ -1279,7 +1285,7 @@ than inferred.
 | ✅ | `textDocument/foldingRange` | → | Asked when an editor attaches, 500 ms after a change, and when a server comes up — the first of those runs before the first server of a session has initialized. Character offsets are honoured, defaulting to each line’s length when absent. The temporary `lineFoldingOnly` declaration (#1363) is removed; same-start folds retain state by range ([#1022](https://github.com/hexide-io/HexIDE/issues/1022)) |
 | ✅ | `textDocument/formatting` | → |  |
 | ✅ | `textDocument/hover` | → |  |
-| ○ | `textDocument/implementation` | → |  |
+| ✅ | `textDocument/implementation` | → | Capability-gated navigation; all three location shapes, multiple results in Find References (#3074) |
 | ✅ | `textDocument/inlayHint` | → | Labels after the line; syntactic block ends from the bundled server |
 | ○ | `textDocument/inlineCompletion` | → |  |
 | ○ | `textDocument/inlineValue` | → |  |
@@ -1299,7 +1305,7 @@ than inferred.
 | ○ | `textDocument/semanticTokens/full/delta` | → |  |
 | ○ | `textDocument/semanticTokens/range` | → |  |
 | ✅ | `textDocument/signatureHelp` | → |  |
-| ○ | `textDocument/typeDefinition` | → |  |
+| ✅ | `textDocument/typeDefinition` | → | Capability-gated navigation; all three location shapes, multiple results in Find References (#3074) |
 | ○ | `textDocument/willSave` | → |  |
 | ○ | `textDocument/willSaveWaitUntil` | → |  |
 

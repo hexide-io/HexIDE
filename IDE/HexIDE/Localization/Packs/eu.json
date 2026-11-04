@@ -387,6 +387,8 @@
     "Str.CodeEditor.Context.PreviousBookmark": "_Aurreko laster-marka",
     "Str.CodeEditor.Context.ClearAllBookmarks": "_Garbitu laster-marka guztiak",
     "Str.CodeEditor.Context.GoToDefinition": "_Joan definiziora",
+    "Str.CodeEditor.Context.GoToImplementation": "Joan inplementaziora",
+    "Str.CodeEditor.Context.GoToTypeDefinition": "Joan motaren definiziora",
     "Str.CodeEditor.Context.GoToDeclaration": "Joan _deklaraziora",
     "Str.CodeEditor.Context.Rename": "_Aldatu izena...",
     "Str.CodeEditor.Context.FormatDocument": "_Eman formatua dokumentuari",

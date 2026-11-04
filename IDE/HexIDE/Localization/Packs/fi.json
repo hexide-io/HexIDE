@@ -424,6 +424,8 @@
     "Str.CodeEditor.Context.PreviousBookmark": "_Edellinen kirjanmerkki",
     "Str.CodeEditor.Context.ClearAllBookmarks": "_Tyhjennä kaikki kirjanmerkit",
     "Str.CodeEditor.Context.GoToDefinition": "_Siirry määritykseen",
+    "Str.CodeEditor.Context.GoToImplementation": "Siirry toteutukseen",
+    "Str.CodeEditor.Context.GoToTypeDefinition": "Siirry tyypin määritykseen",
     "Str.CodeEditor.Context.GoToDeclaration": "Siir_ry esittelyyn",
     "Str.CodeEditor.Context.Rename": "_Nimeä uudelleen...",
     "Str.CodeEditor.Context.FormatDocument": "_Muotoile asiakirja",

@@ -424,6 +424,8 @@
     "Str.CodeEditor.Context.PreviousBookmark": "前のブックマーク",
     "Str.CodeEditor.Context.ClearAllBookmarks": "すべてのブックマークをクリア",
     "Str.CodeEditor.Context.GoToDefinition": "定義へ移動",
+    "Str.CodeEditor.Context.GoToImplementation": "実装へ移動",
+    "Str.CodeEditor.Context.GoToTypeDefinition": "型定義へ移動",
     "Str.CodeEditor.Context.GoToDeclaration": "宣言へ移動",
     "Str.CodeEditor.Context.Rename": "名前の変更...",
     "Str.CodeEditor.Context.FormatDocument": "ドキュメントの整形",

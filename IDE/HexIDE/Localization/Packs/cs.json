@@ -424,6 +424,8 @@
     "Str.CodeEditor.Context.PreviousBookmark": "_Předchozí záložka",
     "Str.CodeEditor.Context.ClearAllBookmarks": "_Vymazat všechny záložky",
     "Str.CodeEditor.Context.GoToDefinition": "_Přejít na definici",
+    "Str.CodeEditor.Context.GoToImplementation": "Přejít na implementaci",
+    "Str.CodeEditor.Context.GoToTypeDefinition": "Přejít na definici typu",
     "Str.CodeEditor.Context.GoToDeclaration": "Přejít na de_klaraci",
     "Str.CodeEditor.Context.Rename": "_Přejmenovat...",
     "Str.CodeEditor.Context.FormatDocument": "_Formátovat dokument",

@@ -387,6 +387,8 @@
     "Str.CodeEditor.Context.PreviousBookmark": "_Iepriekšējā grāmatzīme",
     "Str.CodeEditor.Context.ClearAllBookmarks": "_Notīrīt visas grāmatzīmes",
     "Str.CodeEditor.Context.GoToDefinition": "_Doties uz definīciju",
+    "Str.CodeEditor.Context.GoToImplementation": "Doties uz realizāciju",
+    "Str.CodeEditor.Context.GoToTypeDefinition": "Doties uz tipa definīciju",
     "Str.CodeEditor.Context.GoToDeclaration": "Doties uz dek_larāciju",
     "Str.CodeEditor.Context.Rename": "_Pārdēvēt...",
     "Str.CodeEditor.Context.FormatDocument": "_Formatēt dokumentu",

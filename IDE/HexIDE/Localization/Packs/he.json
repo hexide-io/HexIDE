@@ -424,6 +424,8 @@
     "Str.CodeEditor.Context.PreviousBookmark": "הסימנייה הקודמת",
     "Str.CodeEditor.Context.ClearAllBookmarks": "נקה את כל הסימניות",
     "Str.CodeEditor.Context.GoToDefinition": "עבור להגדרה",
+    "Str.CodeEditor.Context.GoToImplementation": "מעבר למימוש",
+    "Str.CodeEditor.Context.GoToTypeDefinition": "מעבר להגדרת הטיפוס",
     "Str.CodeEditor.Context.GoToDeclaration": "עבור להצהרה",
     "Str.CodeEditor.Context.Rename": "שנה שם...",
     "Str.CodeEditor.Context.FormatDocument": "עצב מסמך",

@@ -424,6 +424,8 @@
     "Str.CodeEditor.Context.PreviousBookmark": "_Önceki Yer İmi",
     "Str.CodeEditor.Context.ClearAllBookmarks": "_Tüm Yer İmlerini Temizle",
     "Str.CodeEditor.Context.GoToDefinition": "_Tanıma Git",
+    "Str.CodeEditor.Context.GoToImplementation": "Uygulamaya Git",
+    "Str.CodeEditor.Context.GoToTypeDefinition": "Tür Tanımına Git",
     "Str.CodeEditor.Context.GoToDeclaration": "B_ildirime Git",
     "Str.CodeEditor.Context.Rename": "_Yeniden Adlandır...",
     "Str.CodeEditor.Context.FormatDocument": "_Belgeyi Biçimlendir",

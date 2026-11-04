@@ -387,6 +387,8 @@
     "Str.CodeEditor.Context.PreviousBookmark": "_Predchádzajúca záložka",
     "Str.CodeEditor.Context.ClearAllBookmarks": "_Vymazať všetky záložky",
     "Str.CodeEditor.Context.GoToDefinition": "_Prejsť na definíciu",
+    "Str.CodeEditor.Context.GoToImplementation": "Prejsť na implementáciu",
+    "Str.CodeEditor.Context.GoToTypeDefinition": "Prejsť na definíciu typu",
     "Str.CodeEditor.Context.GoToDeclaration": "Prejsť na dek_laráciu",
     "Str.CodeEditor.Context.Rename": "_Premenovať...",
     "Str.CodeEditor.Context.FormatDocument": "_Formátovať dokument",
