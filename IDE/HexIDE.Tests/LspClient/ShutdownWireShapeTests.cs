@@ -91,7 +91,7 @@ public class ShutdownWireShapeTests : IAsyncDisposable
 
     private async Task<VBLspClient> ConnectedAsync(
         bool answerShutdown = true, bool answerInitialize = true, bool leaveServerRunning = false,
-        Func<string>? locale = null)
+        Func<string>? locale = null, string rangeProvider = "true")
     {
         var (clientSide, serverSide) = FullDuplexStream.CreatePair();
         _disposables.Add(serverSide);
@@ -130,7 +130,7 @@ public class ShutdownWireShapeTests : IAsyncDisposable
                     // result ends in three consecutive closing braces, which no $$"""...""" form accepts.
                     var head = "{\"jsonrpc\":\"2.0\",\"id\":" + id.GetRawText() + ",\"result\":";
                     var reply = m.GetString() == "initialize"
-                        ? head + "{\"capabilities\":{\"documentFormattingProvider\":true},\"serverInfo\":"
+                        ? head + "{\"capabilities\":{\"documentFormattingProvider\":true,\"documentRangeFormattingProvider\":" + rangeProvider + "},\"serverInfo\":"
                                + "{\"name\":\"wire-probe\",\"version\":\"1.0.0\"}}}"
                         : head + "null}";
                     await WriteFrameAsync(serverSide, reply, _cts.Token);
@@ -171,6 +171,44 @@ public class ShutdownWireShapeTests : IAsyncDisposable
         var options = FrameFor("textDocument/formatting").GetProperty("params").GetProperty("options");
         options.GetProperty("tabSize").GetInt32().Should().Be(tabWidth);
         options.GetProperty("insertSpaces").GetBoolean().Should().Be(insertSpaces);
+    }
+
+    [Fact]
+    public async Task RangeFormattingIsDeclaredAndCarriesSelectionAndOptions()
+    {
+        var client = await ConnectedAsync();
+        FrameFor("initialize").GetProperty("params").GetProperty("capabilities")
+            .GetProperty("textDocument").TryGetProperty("rangeFormatting", out _).Should().BeTrue();
+        var method = typeof(ILspClient).GetMethod("RequestRangeFormattingAsync");
+        method.Should().NotBeNull();
+        var range = new HexIDE.Lsp.Messages.Range(new Position(2, 3), new Position(4, 5));
+        await (Task<TextEdit[]>)method!.Invoke(client,
+            ["file:///M.bas", range, new FormattingOptions(8, true), TestContext.Current.CancellationToken])!;
+        var p = FrameFor("textDocument/rangeFormatting").GetProperty("params");
+        p.GetProperty("textDocument").GetProperty("uri").GetString().Should().Be("file:///M.bas");
+        p.GetProperty("range").GetProperty("start").GetProperty("line").GetInt32().Should().Be(2);
+        p.GetProperty("range").GetProperty("start").GetProperty("character").GetInt32().Should().Be(3);
+        p.GetProperty("range").GetProperty("end").GetProperty("line").GetInt32().Should().Be(4);
+        p.GetProperty("range").GetProperty("end").GetProperty("character").GetInt32().Should().Be(5);
+        p.GetProperty("options").GetProperty("tabSize").GetInt32().Should().Be(8);
+        p.GetProperty("options").GetProperty("insertSpaces").GetBoolean().Should().BeTrue();
+    }
+
+    [Theory]
+    [InlineData("false")]
+    [InlineData("null")]
+    public async Task RangeFormattingIsNotSentWithoutServerSupport(string provider)
+    {
+        var client = await ConnectedAsync(rangeProvider: provider);
+        var method = typeof(ILspClient).GetMethod("RequestRangeFormattingAsync");
+        method.Should().NotBeNull();
+        var range = new HexIDE.Lsp.Messages.Range(new Position(0, 0), new Position(1, 0));
+        var edits = await (Task<TextEdit[]>)method!.Invoke(client,
+            ["file:///M.bas", range, new FormattingOptions(4, true), TestContext.Current.CancellationToken])!;
+        edits.Should().BeEmpty();
+        await client.StopAsync();
+        await ExitArrivedAsync();
+        FrameFor("textDocument/rangeFormatting").ValueKind.Should().Be(JsonValueKind.Undefined);
     }
 
     [AvaloniaTheory]

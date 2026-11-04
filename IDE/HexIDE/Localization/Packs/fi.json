@@ -427,6 +427,7 @@
     "Str.CodeEditor.Context.GoToDeclaration": "Siir_ry esittelyyn",
     "Str.CodeEditor.Context.Rename": "_Nimeä uudelleen...",
     "Str.CodeEditor.Context.FormatDocument": "_Muotoile asiakirja",
+    "Str.CodeEditor.Context.FormatSelection": "_Muotoile valinta",
     "Str.Options.Shell.Buttons.ResetAll": "Palauta kaikki",
     "Str.Options.Shell.Buttons.RestoreDefaults": "Palauta oletukset",
     "Str.Options.Shell.Buttons.Ok": "OK",

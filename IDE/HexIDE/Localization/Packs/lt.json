@@ -390,6 +390,7 @@
     "Str.CodeEditor.Context.GoToDeclaration": "Pereiti prie _deklaracijos",
     "Str.CodeEditor.Context.Rename": "_Pervadinti...",
     "Str.CodeEditor.Context.FormatDocument": "_Formatuoti dokumentą",
+    "Str.CodeEditor.Context.FormatSelection": "_Formatuoti pažymėtą sritį",
     "Str.Options.Shell.Buttons.ResetAll": "Atkurti viską",
     "Str.Options.Shell.Buttons.RestoreDefaults": "Atkurti numatytąsias nuostatas",
     "Str.Options.Shell.Buttons.Ok": "Gerai",

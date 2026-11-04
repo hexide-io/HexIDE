@@ -282,6 +282,11 @@ public interface ILspClient : IAsyncDisposable
     /// <summary>Sends textDocument/rename and returns edits, a refusal, or null for no change.</summary>
     Task<RenameResult?> RequestRenameAsync(string uri, Position position, string newName, CancellationToken cancellationToken = default);
 
+    /// <summary>Whether an open document has a running claimant advertising range formatting.</summary>
+    bool SupportsRangeFormatting(string uri);
+    /// <summary>Sends textDocument/rangeFormatting to one advertising claimant.</summary>
+    Task<TextEdit[]> RequestRangeFormattingAsync(string uri, HexIDE.Lsp.Messages.Range range, FormattingOptions options, CancellationToken cancellationToken = default);
+
     /// <summary>Sends textDocument/formatting and returns text edits, or empty.</summary>
     Task<TextEdit[]> RequestFormattingAsync(string uri, FormattingOptions options, CancellationToken cancellationToken = default);
 

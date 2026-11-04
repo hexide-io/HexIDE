@@ -427,6 +427,7 @@
     "Str.CodeEditor.Context.GoToDeclaration": "Đi đến k_hai báo",
     "Str.CodeEditor.Context.Rename": "Đổi _tên...",
     "Str.CodeEditor.Context.FormatDocument": "Định _dạng tài liệu",
+    "Str.CodeEditor.Context.FormatSelection": "Định _dạng vùng chọn",
     "Str.Options.Shell.Buttons.ResetAll": "Đặt lại tất cả",
     "Str.Options.Shell.Buttons.RestoreDefaults": "Khôi phục mặc định",
     "Str.Options.Shell.Buttons.Ok": "OK",

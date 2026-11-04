@@ -427,6 +427,7 @@
     "Str.CodeEditor.Context.GoToDeclaration": "Buka Dek_larasi",
     "Str.CodeEditor.Context.Rename": "_Ganti Nama...",
     "Str.CodeEditor.Context.FormatDocument": "_Format Dokumen",
+    "Str.CodeEditor.Context.FormatSelection": "_Format Pilihan",
     "Str.Options.Shell.Buttons.ResetAll": "Atur Ulang Semua",
     "Str.Options.Shell.Buttons.RestoreDefaults": "Pulihkan Bawaan",
     "Str.Options.Shell.Buttons.Ok": "OK",

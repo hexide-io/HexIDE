@@ -427,6 +427,7 @@
     "Str.CodeEditor.Context.GoToDeclaration": "宣言へ移動",
     "Str.CodeEditor.Context.Rename": "名前の変更...",
     "Str.CodeEditor.Context.FormatDocument": "ドキュメントの整形",
+    "Str.CodeEditor.Context.FormatSelection": "選択範囲の整形",
     "Str.Options.Shell.Buttons.ResetAll": "すべてリセット",
     "Str.Options.Shell.Buttons.RestoreDefaults": "既定値に戻す",
     "Str.Options.Shell.Buttons.Ok": "OK",

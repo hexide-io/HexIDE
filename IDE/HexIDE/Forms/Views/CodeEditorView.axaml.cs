@@ -308,6 +308,7 @@ public partial class CodeEditorView : UserControl
                 _vmSelectionSync(vm, new PropertyChangedEventArgs(nameof(CodeEditorViewModel.SelectionLength)));
             _editorSelectionSync = (_, _) =>
             {
+                CommandManager.InvalidateRequerySuggested();
                 if (_syncingSelection) return;
                 _syncingSelection = true;
                 try
@@ -1187,6 +1188,7 @@ public partial class CodeEditorView : UserControl
     /// </remarks>
     private void OnLanguageServerStateChanged()
     {
+        CommandManager.InvalidateRequerySuggested();
         _semanticVersion++;
         if (DataContext is CodeEditorViewModel vm) ScheduleFolding(vm);
     }
@@ -2769,6 +2771,35 @@ public partial class CodeEditorView : UserControl
         catch (Exception ex)
         {
             Log.Debug("[rename] {ErrorMessage}", ex.Message);
+        }
+    }
+
+    private void CanFormatSelection(object? sender, Avalonia.Labs.Input.CanExecuteRoutedEventArgs e)
+    {
+        e.CanExecute = DataContext is CodeEditorViewModel { CanFormatSelection: true };
+        e.Handled = true;
+    }
+
+    private void FormatSelectionExecuted(object? sender, Avalonia.Labs.Input.ExecutedRoutedEventArgs e) => _ = FormatSelectionAsync();
+
+    internal async Task FormatSelectionAsync()
+    {
+        if (DataContext is not CodeEditorViewModel { CanFormatSelection: true } vm) return;
+        var start = vm.Document.GetLocation(vm.SelectionStart);
+        var end = vm.Document.GetLocation(vm.SelectionStart + vm.SelectionLength);
+        var range = new HexIDE.Lsp.Messages.Range(new Position(start.Line - 1, start.Column - 1),
+            new Position(end.Line - 1, end.Column - 1));
+        try
+        {
+            await vm.FlushDocumentAsync();
+            var edits = await vm.RequestRangeFormattingAsync(range);
+            if (edits.Length == 0) return;
+            await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => vm.ApplyFormatting(edits));
+        }
+        catch (OperationCanceledException) { }
+        catch (Exception ex)
+        {
+            Log.Debug("[rangeFormatting] {ErrorMessage}", ex.Message);
         }
     }
 

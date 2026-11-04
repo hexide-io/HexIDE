@@ -427,6 +427,7 @@
     "Str.CodeEditor.Context.GoToDeclaration": "Μετάβαση στη δήλωση",
     "Str.CodeEditor.Context.Rename": "&Μετονομασία...",
     "Str.CodeEditor.Context.FormatDocument": "&Μορφοποίηση εγγράφου",
+    "Str.CodeEditor.Context.FormatSelection": "&Μορφοποίηση επιλογής",
     "Str.Options.Shell.Buttons.ResetAll": "Επαναφορά όλων",
     "Str.Options.Shell.Buttons.RestoreDefaults": "Επαναφορά προεπιλογών",
     "Str.Options.Shell.Buttons.Ok": "OK",
