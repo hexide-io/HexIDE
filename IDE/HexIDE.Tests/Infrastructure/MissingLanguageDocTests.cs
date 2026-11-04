@@ -23,17 +23,28 @@ public class MissingLanguageDocTests
         var heading = "";
         var headingIndex = 0;
         Table? table = null;
+        var errors = new List<string>();
+        var lineNumber = 0;
+        var headerLine = 0;
+        var expectsDelimiter = false;
         // Keep original offsets so fixes preserve formatting and line endings.
         var cellPattern = new Regex(@"(?<!\\)\|((?:\\.|[^|\r\n])*)");
         foreach (Match lineMatch in Regex.Matches(text, @"(?m)^[^\r\n]*"))
         {
+            lineNumber++;
             var line = lineMatch.Value;
             if (line.StartsWith('#'))
             {
                 heading = line.TrimStart('#', ' ');
                 headingIndex = lineMatch.Index + line.Length - heading.Length;
             }
-            if (!line.StartsWith('|')) { table = null; continue; }
+            if (!line.StartsWith('|'))
+            {
+                if (expectsDelimiter) errors.Add($"{table!.Heading}: line {headerLine + 1} must be a delimiter row immediately after the header");
+                expectsDelimiter = false;
+                table = null;
+                continue;
+            }
             var cellGroups = new List<Group>();
             var cellMatch = cellPattern.Match(text, lineMatch.Index, line.Length - 1);
             while (cellMatch.Success)
@@ -43,18 +54,92 @@ public class MissingLanguageDocTests
                 if (cellMatch.Index >= lineMatch.Index + line.Length - 1) break;
             }
             var cells = cellGroups.Select(g => Clean(g.Value)).ToArray();
+            var isDelimiter = cells.Length > 0 && cellGroups.All(g => Regex.IsMatch(g.Value.Trim(), @"^:?-+:?$"));
             if (table is null)
             {
+                if (isDelimiter)
+                {
+                    errors.Add($"{heading}: line {lineNumber} has a delimiter row without a header");
+                    continue;
+                }
                 table = new Table(heading, headingIndex, cells, []);
                 tables.Add(table);
+                headerLine = lineNumber;
+                expectsDelimiter = true;
             }
-            else if (!cells.All(c => Regex.IsMatch(c, @"^:?-+:?$")))
+            else
             {
-                table.Rows.Add(cells);
-                locations?.Add(cells, cellGroups.ToArray());
+                if (cells.Length != table.Columns.Length)
+                    errors.Add($"{table.Heading}: line {lineNumber} has {cells.Length} cells; header has {table.Columns.Length}");
+                if (expectsDelimiter && !isDelimiter)
+                    errors.Add($"{table.Heading}: line {lineNumber} must be a delimiter row immediately after the header");
+                else if (!expectsDelimiter && isDelimiter)
+                    errors.Add($"{table.Heading}: line {lineNumber} has a delimiter row outside the position immediately after the header");
+                expectsDelimiter = false;
+                if (!isDelimiter)
+                {
+                    table.Rows.Add(cells);
+                    locations?.Add(cells, cellGroups.ToArray());
+                }
             }
         }
+        if (expectsDelimiter) errors.Add($"{table!.Heading}: line {headerLine + 1} must be a delimiter row immediately after the header");
+        errors.Should().BeEmpty("docs/MISSING_LANGUAGE.md tables must have valid structure: " + string.Join("; ", errors));
         return tables;
+    }
+
+    [Theory]
+    [InlineData("| Name | Status |\n| A | Dies |\n|---|---|", 3)]
+    [InlineData("| Name | Status |\n| A | Dies |", 3)]
+    [InlineData("| Name | Status |\n|---|---|\n| A | Dies | extra |", 4)]
+    [InlineData("| Name | Status |\n|---|---|\n|---|---|", 4)]
+    [InlineData("| Name | Status |\n|---|---|\n| A |", 4)]
+    [InlineData("| Name | Status |\nProse", 3)]
+    [InlineData("| Name | Status |", 3)]
+    [InlineData("|---|---|", 2)]
+    public void TableStructureRejectsMalformedRows(string table, int line)
+    {
+        // The first three shapes passed the old guard (#2902); duplicate prose is deliberately allowed.
+        foreach (var lineEnding in new[] { "\n", "\r\n" })
+        {
+            var check = () => CheckTableStructure(("## Sample\n" + table).ReplaceLineEndings(lineEnding));
+            check.Should().Throw<Exception>().WithMessage($"*Sample*line {line}*");
+        }
+    }
+
+    [Theory]
+    [InlineData("\n")]
+    [InlineData("\r\n")]
+    public void TableStructureAcceptsEscapedPipesAndSeparateTables(string lineEnding)
+    {
+        var text = """
+            ## Sample
+            | Name | Status |
+            |:---|---:|
+            | A \| B | Dies |
+
+            Repeated prose.
+            Repeated prose.
+
+            | Other |
+            |---|
+            | C |
+            """;
+        CheckTableStructure(text.ReplaceLineEndings(lineEnding));
+    }
+
+    [Theory]
+    [InlineData("\n")]
+    [InlineData("\r\n")]
+    public void DocumentTablesHaveValidStructure(string lineEnding)
+    {
+        var text = File.ReadAllText(Path.Combine(RepoTree.Root(), "docs", "MISSING_LANGUAGE.md"));
+        CheckTableStructure(text.ReplaceLineEndings(lineEnding));
+    }
+
+    private static void CheckTableStructure(string text)
+    {
+        Tables(text);
     }
 
     [Theory]
