@@ -128,9 +128,6 @@ public partial class App : Application
                 Static.SingleView = false;
                 Static.MainView = mainWindow.MainView;
 
-                var windowReady   = false;
-                var windowClosing = false;
-
                 // Restore must happen after Opened — setting WindowState before Show() has no effect
                 // in Avalonia 12 on Windows. Deferred to Background priority so the dock framework's
                 // first layout pass completes before we apply the saved state.
@@ -139,19 +136,7 @@ public partial class App : Application
                     await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(
                         () => windowStateService.RestoreWindowState(mainWindow),
                         Avalonia.Threading.DispatcherPriority.Background);
-                    windowReady = true;
-                };
-
-                // Crash-safe saves during normal use.
-                mainWindow.PropertyChanged += (_, e) =>
-                {
-                    if (windowReady && !windowClosing && e.Property == Window.WindowStateProperty)
-                        windowStateService.SaveWindowState(mainWindow);
-                };
-                mainWindow.Deactivated += (_, _) =>
-                {
-                    if (windowReady && !windowClosing && mainWindow.WindowState == Avalonia.Controls.WindowState.Normal)
-                        windowStateService.SaveWindowState(mainWindow);
+                    windowStateService.TrackWindowState(mainWindow);
                 };
 
                 var closeConfirmed = false;
@@ -170,7 +155,6 @@ public partial class App : Application
 
                     // Window state is captured here rather than later because Closing fires before the OS
                     // restores the window from Maximized.
-                    windowClosing = true;
                     windowStateService.SaveWindowState(mainWindow);
                     rootViewModel.SaveLayout();
                     // Personal state still waiting in a debounce. A close that unloaded every project has
