@@ -2690,6 +2690,21 @@ public partial class CodeEditorView : UserControl
 
     public void GoToDefinition() => GoTo("definition", (vm, p) => vm.RequestDefinitionAsync(p));
 
+    public void GoToImplementation() => GoTo("implementation", (vm, p) => vm.RequestImplementationAsync(p));
+    public void GoToTypeDefinition() => GoTo("typeDefinition", (vm, p) => vm.RequestTypeDefinitionAsync(p));
+
+    private void CanGoToImplementation(object? sender, Avalonia.Labs.Input.CanExecuteRoutedEventArgs e)
+    {
+        e.CanExecute = DataContext is CodeEditorViewModel vm && vm.CanGoToImplementation();
+        e.Handled = true;
+    }
+
+    private void CanGoToTypeDefinition(object? sender, Avalonia.Labs.Input.CanExecuteRoutedEventArgs e)
+    {
+        e.CanExecute = DataContext is CodeEditorViewModel vm && vm.CanGoToTypeDefinition();
+        e.Handled = true;
+    }
+
     /// <summary>
     /// Where the symbol is DECLARED, which is a different question from where it is defined.
     /// </summary>
@@ -2720,6 +2735,12 @@ public partial class CodeEditorView : UserControl
             if (locations is not { Length: > 0 })
                 return;
 
+            if (locations.Length > 1 && what is "implementation" or "typeDefinition")
+            {
+                await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => vm.ShowNavigationLocations(locations));
+                return;
+            }
+
             var loc = locations[0];
             var targetLine = loc.Range.Start.Line + 1; // AvaloniaEdit is 1-based
             var targetCol  = loc.Range.Start.Character;
@@ -2744,7 +2765,7 @@ public partial class CodeEditorView : UserControl
                 else
                 {
                     // Cross-file: ask the VM to navigate (uses IEditorService)
-                    vm.NavigateToUri(loc.Uri, targetLine, targetCol);
+                    vm.NavigateToUri(loc.Uri, targetLine, targetCol + 1);
                 }
             });
         }

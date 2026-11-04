@@ -424,6 +424,8 @@
     "Str.CodeEditor.Context.PreviousBookmark": "_Vorheriges Lesezeichen",
     "Str.CodeEditor.Context.ClearAllBookmarks": "_Alle Lesezeichen löschen",
     "Str.CodeEditor.Context.GoToDefinition": "_Gehe zu Definition",
+    "Str.CodeEditor.Context.GoToImplementation": "Zur Implementierung wechseln",
+    "Str.CodeEditor.Context.GoToTypeDefinition": "Zur Typdefinition wechseln",
     "Str.CodeEditor.Context.GoToDeclaration": "Gehe zu Dekla_ration",
     "Str.CodeEditor.Context.Rename": "_Umbenennen...",
     "Str.CodeEditor.Context.FormatDocument": "_Dokument formatieren",

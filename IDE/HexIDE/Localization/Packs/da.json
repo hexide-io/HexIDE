@@ -424,6 +424,8 @@
     "Str.CodeEditor.Context.PreviousBookmark": "_Forrige bogmærke",
     "Str.CodeEditor.Context.ClearAllBookmarks": "_Ryd alle bogmærker",
     "Str.CodeEditor.Context.GoToDefinition": "_Gå til definition",
+    "Str.CodeEditor.Context.GoToImplementation": "Gå til implementering",
+    "Str.CodeEditor.Context.GoToTypeDefinition": "Gå til typedefinition",
     "Str.CodeEditor.Context.GoToDeclaration": "Gå til dekl_aration",
     "Str.CodeEditor.Context.Rename": "_Omdøb...",
     "Str.CodeEditor.Context.FormatDocument": "_Formatér dokument",

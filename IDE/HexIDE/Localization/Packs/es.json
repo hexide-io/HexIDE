@@ -424,6 +424,8 @@
     "Str.CodeEditor.Context.PreviousBookmark": "Marcador _anterior",
     "Str.CodeEditor.Context.ClearAllBookmarks": "_Borrar todos los marcadores",
     "Str.CodeEditor.Context.GoToDefinition": "_Ir a la definición",
+    "Str.CodeEditor.Context.GoToImplementation": "Ir a la implementación",
+    "Str.CodeEditor.Context.GoToTypeDefinition": "Ir a la definición de tipo",
     "Str.CodeEditor.Context.GoToDeclaration": "Ir a la dec_laración",
     "Str.CodeEditor.Context.Rename": "Cambiar _nombre...",
     "Str.CodeEditor.Context.FormatDocument": "_Formatear documento",
