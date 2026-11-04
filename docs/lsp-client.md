@@ -130,6 +130,10 @@ click. A file link opens only a document the project already holds, and does not
 Command links remain inert text. Plain-text content stays literal. Typing closes the hover tip, as does
 opening completion or signature help; moving into the tip keeps its links reachable (#3042).
 
+Command links remain inert text. List markers align with the first line of linked text using the caption's measured baseline,
+including the link button's top inset, across font families and sizes (#3043).
+Plain-text content stays literal.
+
 `initialize.locale` carries the resolved Options → Language UI language as a BCP 47 tag.
 System default uses the localization service's system resolution; pseudo-locales send `en`.
 A language change takes effect on the next connection: reconnect the server to send the new locale.
