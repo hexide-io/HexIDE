@@ -156,6 +156,8 @@
     "Str.Menu.View.Code": "التعليمات البرمجية",
     "Str.Menu.View.Object": "الكائن",
     "Str.Menu.View.Definition": "التعريف",
+    "Str.Menu.View.Implementation": "التنفيذ",
+    "Str.Menu.View.TypeDefinition": "تعريف النوع",
     "Str.Menu.View.Declaration": "الإعلان",
     "Str.Menu.View.LastPosition": "الموضع الأخير",
     "Str.Tool.RecentEdits.Title": "التعديلات الأخيرة",

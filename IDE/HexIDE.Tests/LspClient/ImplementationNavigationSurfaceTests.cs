@@ -15,10 +15,11 @@ public class ImplementationNavigationSurfaceTests
         root.Should().NotBeNull();
         foreach (var file in new[] { "MainView.axaml", "Forms/Views/CodeEditorView.axaml" })
         {
+            var key = file == "MainView.axaml" ? "Str.Menu.View." + name : "Str.CodeEditor.Context.GoTo" + name;
             var document = XDocument.Load(Path.Combine(root!.FullName, "IDE/HexIDE", file));
             document.Descendants().Where(e => e.Name.LocalName == "MenuItem"
                 && (string?)e.Attribute("Command") == "{x:Static vb:ApplicationCommands.GoTo" + name + "Command}")
-                .Should().ContainSingle().Which.Attribute("Header")!.Value.Should().Be("{DynamicResource Str.CodeEditor.Context.GoTo" + name + "}");
+                .Should().ContainSingle().Which.Attribute("Header")!.Value.Should().Be("{DynamicResource " + key + "}");
         }
         CommandKeyMapping.Table.Should().ContainKey("GoTo" + name + "Command");
         CommandKeyMapping.Table["GoTo" + name + "Command"].Gestures.Should().BeEmpty();

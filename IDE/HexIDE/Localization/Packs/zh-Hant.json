@@ -156,6 +156,8 @@
     "Str.Menu.View.Code": "程式碼",
     "Str.Menu.View.Object": "物件",
     "Str.Menu.View.Definition": "定義",
+    "Str.Menu.View.Implementation": "實作",
+    "Str.Menu.View.TypeDefinition": "型別定義",
     "Str.Menu.View.Declaration": "宣告",
     "Str.Menu.View.LastPosition": "上一個位置",
     "Str.Tool.RecentEdits.Title": "最近編輯",
