@@ -47,7 +47,9 @@ public sealed class LanguageServerStepViewModel
     /// <summary>Cancelled is called out separately because it is NOT a fault: the IDE was shutting down.</summary>
     public bool IsCancelled => _s.Outcome == LanguageConnectionStepOutcome.Cancelled;
 
-    public string Elapsed => _s.At is { } at ? $"{at.TotalMilliseconds:N0} ms" : "";
+    public string Elapsed => _s.At is { } at
+        ? string.Format(_localization.GetString("Str.Tool.LanguageServers.Vm.Elapsed"), $"{at.TotalMilliseconds:N0}")
+        : "";
 
     /// <summary>Verbatim machine text — an exception message, an OS error. Never translated: it is the
     /// thing worth quoting to whoever wrote the server.</summary>

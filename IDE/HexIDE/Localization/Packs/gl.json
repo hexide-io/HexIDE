@@ -781,6 +781,7 @@
     "Str.Tool.LanguageServers.Vm.State.Running": "En execución",
     "Str.Tool.LanguageServers.Vm.State.Failed": "Fallou",
     "Str.Tool.LanguageServers.Vm.State.Stopped": "Detido",
+    "Str.Tool.LanguageServers.Vm.Elapsed": "{0} ms",
     "Str.Tool.LanguageServers.Vm.Age.Seconds": "{0} s",
     "Str.Tool.LanguageServers.Vm.Age.Minutes": "{0} min {1} s",
     "Str.Tool.LanguageServers.Vm.Age.Hours": "{0} h {1} min",

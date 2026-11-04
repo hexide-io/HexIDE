@@ -1733,6 +1733,8 @@ keep the values aligned with a gap, and refresh state ages once per second while
 Its age timer SHALL stop when the view is hidden or detached. A live IDE language change SHALL
 refresh status, connect-chain stages, age and empty-output text, and remeasure each label column
 to the new widest label. Age seconds, minutes and hours SHALL use localized range formats.
+Connect-chain elapsed times SHALL use a localized millisecond format and follow live language changes;
+their digit grouping SHALL continue to use the process culture.
 
 #### Scenario: A long label and an idle running server
 
@@ -1742,5 +1744,5 @@ to the new widest label. Age seconds, minutes and hours SHALL use localized rang
 #### Scenario: Switching a server card from English to Bulgarian and back
 
 - **WHEN** the IDE language changes from English to Bulgarian and back while the card stays open
-- **THEN** status, stages and age SHALL follow the active language immediately
+- **THEN** status, stages, stage elapsed-time units and age SHALL follow the active language immediately
 - **AND** the label column SHALL return to its English width
