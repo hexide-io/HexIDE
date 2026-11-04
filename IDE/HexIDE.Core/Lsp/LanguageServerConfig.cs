@@ -313,7 +313,15 @@ public sealed record LanguageServerConfigProblem(
     string? EntryId,
     string Message,
     bool EntryRejected,
-    LanguageServerConfigProblemKind Kind = LanguageServerConfigProblemKind.Configuration);
+    LanguageServerConfigProblemKind Kind = LanguageServerConfigProblemKind.Configuration)
+{
+    /// <summary>Display-time message code and verbatim arguments. Message remains English for logs.</summary>
+    public string? Code { get; init; }
+    public object[] Arguments { get; init; } = [];
+
+    public LanguageServerConfigProblem WithDetails(string code, params object[] arguments) =>
+        this with { Code = code, Arguments = arguments };
+}
 
 public enum LanguageServerConfigProblemKind
 {

@@ -37,6 +37,31 @@ public class LanguageServerConfigLoaderTests : IDisposable
         return new LanguageServerConfigLoader(path, _logger);
     }
 
+    [Theory]
+    [InlineData("demo-lsp", 24)]
+    [InlineData("démo-lsp", 24)]
+    [InlineData("服务-lsp", 22)]
+    public void JsonSyntaxErrorReportsEditorLineAndCharacterColumn(string id, int column)
+    {
+        // #3065: the missing comma is on line four; UTF-8 bytes are not editor columns.
+        var json = """
+            {
+              "servers": [
+                { "id": "hexide.vb6", "enabled": false },
+                { "id": "ID" "extensions": [".demo"] }
+              ]
+            }
+            """.Replace("ID", id);
+        var result = LoaderFor(json).Load([BundledVb6()]);
+
+        var problem = result.Problems.Should().ContainSingle().Which;
+        problem.Code.Should().Be("JsonSyntax");
+        problem.Arguments.Should().Equal(Path.Combine(_dir, "lsp-servers.json"), 4L, column, "$.servers[1]");
+        problem.Message.Should().Contain($"line 4, column {column}").And.Contain("$.servers[1]")
+            .And.NotContain("LineNumber").And.NotContain("BytePositionInLine");
+        result.Entries.Should().ContainSingle().Which.Id.Should().Be("hexide.vb6");
+    }
+
     /// <summary>The bundled row, in the shape a default is contributed in.</summary>
     private static LanguageServerEntry BundledVb6() => new()
     {

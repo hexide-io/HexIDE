@@ -199,6 +199,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     /// </para>
     /// </summary>
     private LspDocumentSession? session;
+    private bool unloading;
     private readonly HexIDE.Tools.RecentEditHistory? recentEditHistory;
 
     /// <summary>Whether this editor's text has diagnostics yet; see <see cref="LspDocumentSession.AwaitingDiagnostics"/>.</summary>
@@ -331,12 +332,26 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
         AutoDispose(this.eventBus.Subscribe<ModuleUnloadedEvent>(e =>
         {
             if (e.Module == moduleDefinition)
+            {
+                unloading = true;
                 RequestClose();
+            }
         }));
         AutoDispose(this.eventBus.Subscribe<FormUnloadedEvent>(e =>
         {
             if (e.Form == formDefinition)
+            {
+                unloading = true;
                 RequestClose();
+            }
+        }));
+        AutoDispose(this.eventBus.Subscribe<ProjectUnloadedEvent>(e =>
+        {
+            if (e.Project == Identity.Project)
+            {
+                unloading = true;
+                RequestClose();
+            }
         }));
         AutoDispose(new ActionDisposable(() =>
         {
@@ -347,7 +362,9 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
             // Disposed from HERE rather than AutoDispose'd from Initialize. Dispose walks its
             // disposables in REVERSE registration order, so a session registered later would close the
             // document BEFORE the buffer above was written back to the definition.
-            session?.Dispose();
+            RefreshModelModified();
+            if (session is { } closing)
+                ProjectLspDocument.CloseWindow(lspClient, Identity, closing, eventBus, IsModified && !unloading);
         }));
     }
 
@@ -1032,6 +1049,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
         session.DiagnosticsApplied += () => _ = RefreshSymbolsAsync();
 
         session.Start();
+        ProjectLspDocument.Reopened(lspClient, Identity);
 
         if (languageServerStateHandler is null)
         {

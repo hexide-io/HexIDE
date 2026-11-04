@@ -181,6 +181,12 @@ refreshes status, connect-chain stages, age and empty-output text immediately. A
 localized range formats, and the label column can shrink as well as grow without reopening the tab (#3012).
 Connect-chain elapsed times use a localized millisecond format that follows the same live language switch;
 digit grouping continues to use the process culture (#3026).
+Configuration problems likewise resolve message codes and verbatim arguments through the active language
+pack, and refresh on a language switch (#3031). Complete translated field-list headings replace English
+plural fragments. The original English messages remain in the registry for logging; exception details,
+JSON keys and values, paths and pointers remain verbatim in the translated display. JSON syntax
+errors use a separate code with a 1-based line and character column converted from the parser’s UTF-8
+byte offset; the labels are translated and the JSON path stays verbatim (#3065).
 
 **Live server output** (#2388): Tools → Language & Debug Servers shows an Output box on each
 server's card, beside its existing protocol-inspector link. It updates as `window/logMessage`, stderr,
@@ -422,13 +428,20 @@ before the edit ([#719](https://github.com/hexide-io/HexIDE/issues/719)).
 **Every window holding one name holds one document.** One file shared by two projects of a group opens two code
 windows that both name it by its file, and a server has one document for that name. So the windows' sessions share
 it, per client: the first window to hold it opens it, every window draws its versions from one sequence, and the
-last window to let go closes it. A rename closes the old name only for its last holder and opens the new one only
+last holder to let go closes it. A rename closes the old name only for its last holder and opens the new one only
 for its first. A window that joins an open document sends nothing of its own, because its copy as it opened could
 undo another window's unsaved edits on the server. It shows what was last published for the document, and its own
 edits reach the server as the next versions. The sequence is drawn where the edits are made, as above, so a send
 cannot renumber older text. Before this, each window kept its own count, the server was opened twice and discarded
 whichever count was behind, and either window's close closed the document for both
 ([#721](https://github.com/hexide-io/HexIDE/issues/721)).
+
+**Closing a dirty code window keeps its server document open** (#3064). The project holds an independent
+session with the edited text until save, discard/reload or removal. Closing still gives no save prompt.
+Pending edits are flushed before the window lets go; reopening joins the same document without a second
+`didOpen` or a version reset. A server starting later receives that retained text in `didOpen`.
+Saving a closed document updates its whole-file text and wire name, announces the save, then releases the
+project holder. A clean window still releases its document immediately.
 
 The client drops a change whose version is no later than the one it tracks, keeping the newer text and
 version for reconnect replay. Checking, tracking and sending changes are serialized, so a debounced change

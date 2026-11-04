@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Globalization;
 using Avalonia.Threading;
 using Dock.Model.Mvvm.Controls;
 using HexIDE.Conversations;
@@ -175,6 +176,7 @@ public partial class LanguageServersToolViewModel : Document
         void Apply()
         {
             foreach (var row in Groups.SelectMany(g => g.Rows)) row.LanguageChanged();
+            RefreshProblems();
             LanguageChanged?.Invoke();
         }
     }
@@ -216,11 +218,24 @@ public partial class LanguageServersToolViewModel : Document
                      .ToList()));
         }
 
-        Problems.Clear();
-        foreach (var p in _registry.ConfigurationProblems) Problems.Add(p);
-
-        HasProblems = Problems.Count > 0;
+        RefreshProblems();
         HasNoServers = Groups.Count == 0;
+    }
+
+    private void RefreshProblems()
+    {
+        Problems.Clear();
+        foreach (var problem in _registry.ConfigurationProblems)
+        {
+            var key = problem.Code == "NoServers"
+                ? "Str.Tool.LanguageServers.None"
+                : $"Str.Tool.LanguageServers.Problem.{problem.Code}";
+            Problems.Add(problem.Code is null ? problem : problem with
+            {
+                Message = string.Format(CultureInfo.InvariantCulture, _localization.GetString(key), problem.Arguments),
+            });
+        }
+        HasProblems = Problems.Count > 0;
     }
 
     /// <summary>

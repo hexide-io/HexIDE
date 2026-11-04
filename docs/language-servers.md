@@ -49,6 +49,10 @@ not; a language server is a process, so it belongs to the second group.
 
 Comments and trailing commas are allowed — this is a file you edit by hand, not a wire format.
 
+JSON errors in Tools → Language Servers name the file, a 1-based line and character column,
+and the JSON path. Non-ASCII text before the fault counts as characters, rather than UTF-8 bytes
+([#3065](https://github.com/hexide-io/HexIDE/issues/3065)). The log keeps the report in English.
+
 ## The fields
 
 | Field | Required | Meaning |
@@ -320,6 +324,16 @@ In order of likelihood:
 6. **A VB6 server claims `.cls` and is sent none of the project's class modules?** A `.cls` claim alone
    does not take them. Claim another VB6 extension it serves, or declare `vb6`; see *Extensions serve; the
    identifier names*.
+
+## Configuration problem language
+
+Tools → Language Servers translates configuration-problem prose into the active IDE language, updating
+when you switch languages (#3031). JSON keys and values, server ids, paths, pointers and locations remain
+as written. Field lists use each language's complete heading rather than English singular/plural fragments.
+A single unknown field uses a singular heading where the language distinguishes it. Quoted option
+values use the same quotation style as the other values in their message. Selectable problem lines wrap
+within the tab, including long paths and the final diagnostic location. Underlying exception details remain
+verbatim after a translated explanation. Logs retain English messages.
 
 ## What is deliberately not here
 

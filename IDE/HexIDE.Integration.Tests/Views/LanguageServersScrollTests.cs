@@ -18,6 +18,45 @@ namespace HexIDE.Integration.Tests.Views;
 public class LanguageServersScrollTests
 {
     [AvaloniaTheory]
+    [InlineData("en", 1.0)]
+    [InlineData("en", 1.5)]
+    [InlineData("bg", 1.0)]
+    [InlineData("bg", 1.5)]
+    public void LongProblemKeepsItsLastCharacterInsideTheTab(string language, double scaling)
+    {
+        var path = "/configuration/" + new string('x', 160) + "/lsp-servers.json";
+        var problem = new LanguageServerConfigProblem(null, "Read failed", true)
+            .WithDetails("ReadFailed", path, "Invalid JSON. Path: $.servers[0] | LineNumber: 123");
+        var registry = Substitute.For<ILanguageConnectionRegistry>();
+        registry.Connections.Returns([]);
+        registry.ConfigurationProblems.Returns([problem]);
+        var loc = new LocalizationService();
+        loc.Apply(language);
+        var capture = new ConversationLog();
+        var vm = new LanguageServersToolViewModel(registry, loc, capture,
+            Substitute.For<IEventBus>(), new Pseudonymiser());
+        var view = new LanguageServersToolView { DataContext = vm };
+        var window = new Window { Content = view, Width = 360, Height = 600 };
+        window.SetRenderScaling(scaling);
+        window.Show();
+        try
+        {
+            window.UpdateLayout();
+            var text = view.GetVisualDescendants().OfType<SelectableTextBlock>()
+                .Single(t => t.Text == vm.Problems.Single().Message);
+            text.Text.Should().Contain(path).And.EndWith("123");
+            var last = text.TextLayout.HitTestTextPosition(text.Text!.Length - 1);
+            var bottomRight = text.TranslatePoint(last.BottomRight, view)!.Value;
+            bottomRight.X.Should().BeLessThanOrEqualTo(view.Bounds.Width);
+            bottomRight.Y.Should().BeLessThanOrEqualTo(view.Bounds.Height);
+            text.SelectionStart = 0;
+            text.SelectionEnd = text.Text.Length;
+            text.SelectedText.Should().Be(text.Text);
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaTheory]
     [InlineData(1.0)]
     [InlineData(1.5)]
     public void ScrollingToEndShowsTheWholeRestartNote(double scaling)
