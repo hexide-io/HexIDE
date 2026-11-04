@@ -53,6 +53,7 @@
     "Str.Archive.OpenErrorFormat": "تعذر فتح {0}:\n{1}",
     "Str.ContributedProject.OpenError": "تعذّر فتح {0} باستخدام {1}:\n{2}",
     "Str.ContributedProject.MembershipReadOnly": "{0} مشروع من نوع {1}، يضيف ملفاته ويزيلها البرنامج الذي ينتمي إليه، لا HexIDE.",
+    "Str.ContributedProject.SettingsReadOnly": "{0} مشروع من نوع {1}، يحدد خصائصه ومراجعه ومكوّناته البرنامج الذي ينتمي إليه، لا HexIDE.",
     "Str.ContributedProject.NotMade": "{0} مشروع من نوع {1}. البرنامج الذي ينتمي إليه هو الذي ينشئه ويشغّله، لا HexIDE.",
     "Str.ContributedProject.NoReader": "يُفتح {0} بواسطة وظيفة إضافية غير محمّلة. يفتح HexIDE بنفسه مشاريع .vbp و.vbg و.twinproj.",
     "Str.Debug.External.Breakpoint": "نقطة توقف خارجية: السطر المطلوب {0}؛ سطر المحوّل {1}؛ تم التحقق: {2}.\n{3}",

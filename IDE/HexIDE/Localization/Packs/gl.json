@@ -57,6 +57,7 @@
     "Str.Archive.OpenErrorFormat": "Non se puido abrir {0}:\n{1}",
     "Str.ContributedProject.OpenError": "Non se puido abrir {0} con {1}:\n{2}",
     "Str.ContributedProject.MembershipReadOnly": "{0} é un proxecto de {1}: os seus ficheiros engádeos e quítaos o programa ao que pertence, non HexIDE.",
+    "Str.ContributedProject.SettingsReadOnly": "{0} é un proxecto de {1}: as súas propiedades, referencias e compoñentes defíneos o programa ao que pertence, non HexIDE.",
     "Str.ContributedProject.NotMade": "{0} é un proxecto de {1}. Xérao e execútao o programa ao que pertence, non HexIDE.",
     "Str.ContributedProject.NoReader": "{0} ábrese cun complemento que non está cargado. HexIDE abre por si mesmo os proxectos .vbp, .vbg e .twinproj.",
     "Str.Debug.External.Breakpoint": "Punto de interrupción externo: liña solicitada {0}; liña do adaptador {1}; verificado: {2}.\n{3}",

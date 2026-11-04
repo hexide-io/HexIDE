@@ -665,7 +665,7 @@ public class MainViewViewModelTests
     [AvaloniaTheory]
     [InlineData(false)]
     [InlineData(true)]
-    public void Adding_members_and_the_VB6_toolchain_are_offered_only_for_a_project_HexIDE_read_itself(bool contributed)
+    public void Membership_settings_and_builds_are_offered_only_for_a_project_HexIDE_read_itself(bool contributed)
     {
         _vb6Toolchain.IsAvailable.Returns(true);
         var project = new ProjectDefinition(VBProjectType.EXE, "Ledger") { ContributedBy = contributed ? "RDCore projects" : null };
@@ -675,7 +675,7 @@ public class MainViewViewModelTests
         {
             _sut.AddFormCommand, _sut.AddModuleCommand, _sut.AddClassModuleCommand, _sut.AddUserControlCommand,
             _sut.AddPropertyPageCommand, _sut.AddFileCommand, _sut.RunWithVb6Command, _sut.MakeWithVb6Command,
-            _sut.MakeProjectCommand,
+            _sut.MakeProjectCommand, _sut.ProjectPropertiesCommand, _sut.ProjectReferencesCommand, _sut.ProjectComponentsCommand,
         };
 
         commands.Select(command => command.CanExecute(null)).Should().AllBeEquivalentTo(!contributed,

@@ -53,6 +53,7 @@
     "Str.Archive.OpenErrorFormat": "{0} を開けませんでした:\n{1}",
     "Str.ContributedProject.OpenError": "{1} で {0} を開けませんでした:\n{2}",
     "Str.ContributedProject.MembershipReadOnly": "{0} は {1} のプロジェクトです。ファイルの追加と削除は HexIDE ではなく、所属するプログラムが行います。",
+    "Str.ContributedProject.SettingsReadOnly": "{0} は {1} のプロジェクトです。プロパティ、参照設定、コンポーネントは HexIDE ではなく、所属するプログラムが設定します。",
     "Str.ContributedProject.NotMade": "{0} は {1} のプロジェクトです。作成と実行は HexIDE ではなく、所属するプログラムが行います。",
     "Str.ContributedProject.NoReader": "{0} は、読み込まれていないアドインで開くファイルです。HexIDE 自体が開けるのは .vbp、.vbg、.twinproj プロジェクトです。",
     "Str.Debug.External.Breakpoint": "外部ブレークポイント: 要求行 {0}、アダプターの行 {1}、検証済み: {2}。\n{3}",

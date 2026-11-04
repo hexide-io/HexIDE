@@ -1373,12 +1373,13 @@ public partial class MainViewViewModel : ObservableObject
             () => projectRunnerService.CanEndProject);
         RestartProjectCommand = new DelegateCommand(projectRunnerService.RestartProject,
             () => projectRunnerService.CanRestartProject);
+        // A contributed project's settings are its add-in's program's, kept in a file HexIDE never writes.
         ProjectReferencesCommand = new DelegateCommand(() => projectService.EditProjectReferences(FocusedProjectUtil.FocusedOrStartupProject!),
-            () => FocusedProjectUtil.FocusedOrStartupProject != null);
+            () => FocusedProjectUtil.FocusedOrStartupProject is { ContributedBy: null });
         ProjectComponentsCommand = new DelegateCommand(() => projectService.EditProjectComponents(FocusedProjectUtil.FocusedOrStartupProject!),
-            () => FocusedProjectUtil.FocusedOrStartupProject != null);
+            () => FocusedProjectUtil.FocusedOrStartupProject is { ContributedBy: null });
         ProjectPropertiesCommand = new DelegateCommand(() => projectService.EditProjectProperties(FocusedProjectUtil.FocusedOrStartupProject!),
-            () => FocusedProjectUtil.FocusedOrStartupProject != null);
+            () => FocusedProjectUtil.FocusedOrStartupProject is { ContributedBy: null });
         MakeProjectCommand = new DelegateCommand(() => projectService.MakeProject(FocusedProjectUtil.FocusedOrStartupProject!).ListenErrors(),
             () => FocusedProjectUtil.FocusedOrStartupProject is { ContributedBy: null });
         RemoveProjectCommand = new DelegateCommand(() => projectService.UnloadProject(FocusedProjectUtil.FocusedOrStartupProject!).ListenErrors(),

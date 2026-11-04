@@ -1312,6 +1312,8 @@ public partial class ProjectService : IProjectService
 
     public async Task EditProjectProperties(ProjectDefinition project)
     {
+        if (await RefusedSettings(project))
+            return;
         var vm = new ProjectPropertiesViewModel(project, proposed =>
             !ProjectNaming.IsValidName(proposed)
                 ? string.Format(localization.GetString("Str.Naming.Msg.NotAVb6Name"), proposed)
@@ -1326,14 +1328,30 @@ public partial class ProjectService : IProjectService
 
     public async Task EditProjectReferences(ProjectDefinition project)
     {
+        if (await RefusedSettings(project))
+            return;
         var vm = new ReferencesViewModel(project, referenceLibraryService, windowManager);
         if (!await windowManager.ShowDialog(vm))
             return;
         vm.Apply(project);
     }
 
+    // A contributed project's properties, references and components are kept in its add-in's file, which HexIDE never
+    // writes: a change made here would be lost on close, unprompted, or overwritten by the add-in's next report.
+    private async Task<bool> RefusedSettings(ProjectDefinition project)
+    {
+        if (project.ContributedBy is not { } type)
+            return false;
+        await windowManager.MessageBox(
+            string.Format(localization.GetString("Str.ContributedProject.SettingsReadOnly"), project.Name, type),
+            icon: MessageBoxIcon.Information);
+        return true;
+    }
+
     public async Task EditProjectComponents(ProjectDefinition project)
     {
+        if (await RefusedSettings(project))
+            return;
         var vm = new ComponentsViewModel(project, windowManager, localization);
         await windowManager.ShowDialog(vm);
     }

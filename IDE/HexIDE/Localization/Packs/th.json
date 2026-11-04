@@ -57,6 +57,7 @@
     "Str.Archive.OpenErrorFormat": "ไม่สามารถเปิด {0} ได้:\n{1}",
     "Str.ContributedProject.OpenError": "ไม่สามารถเปิด {0} ด้วย {1}:\n{2}",
     "Str.ContributedProject.MembershipReadOnly": "{0} เป็นโปรเจกต์ {1} ซึ่งไฟล์ของโปรเจกต์ถูกเพิ่มและลบโดยโปรแกรมที่เป็นเจ้าของ ไม่ใช่ HexIDE",
+    "Str.ContributedProject.SettingsReadOnly": "{0} เป็นโปรเจกต์ {1} ซึ่งคุณสมบัติ การอ้างอิง และคอมโพเนนต์ถูกกำหนดโดยโปรแกรมที่เป็นเจ้าของ ไม่ใช่ HexIDE",
     "Str.ContributedProject.NotMade": "{0} เป็นโปรเจกต์ {1} โปรแกรมที่เป็นเจ้าของเป็นผู้สร้างและเรียกใช้ ไม่ใช่ HexIDE",
     "Str.ContributedProject.NoReader": "{0} ต้องเปิดด้วย Add-in ที่ยังไม่ได้โหลด HexIDE เปิดโปรเจกต์ .vbp, .vbg และ .twinproj ได้เอง",
     "Str.Debug.External.Breakpoint": "จุดพักภายนอก: บรรทัดที่ร้องขอ {0}; บรรทัดของอะแดปเตอร์ {1}; ยืนยันแล้ว: {2}\n{3}",

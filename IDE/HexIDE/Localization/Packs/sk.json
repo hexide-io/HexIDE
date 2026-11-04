@@ -57,6 +57,7 @@
     "Str.Archive.OpenErrorFormat": "Nepodarilo sa otvoriť {0}:\n{1}",
     "Str.ContributedProject.OpenError": "{0} sa nepodarilo otvoriť pomocou {1}:\n{2}",
     "Str.ContributedProject.MembershipReadOnly": "{0} je projekt typu {1}: jeho súbory pridáva a odstraňuje program, ku ktorému patrí, nie HexIDE.",
+    "Str.ContributedProject.SettingsReadOnly": "{0} je projekt typu {1}: jeho vlastnosti, odkazy a súčasti nastavuje program, ku ktorému patrí, nie HexIDE.",
     "Str.ContributedProject.NotMade": "{0} je projekt typu {1}. Zostavuje a spúšťa ho program, ku ktorému patrí, nie HexIDE.",
     "Str.ContributedProject.NoReader": "{0} otvára doplnok, ktorý nie je načítaný. HexIDE sám otvára projekty .vbp, .vbg a .twinproj.",
     "Str.Debug.External.Breakpoint": "Externý bod prerušenia: požadovaný riadok {0}; riadok adaptéra {1}; overený: {2}.\n{3}",

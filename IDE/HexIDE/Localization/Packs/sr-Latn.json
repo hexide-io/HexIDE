@@ -57,6 +57,7 @@
     "Str.Archive.OpenErrorFormat": "Nije moguće otvoriti {0}:\n{1}",
     "Str.ContributedProject.OpenError": "Nije moguće otvoriti {0} pomoću {1}:\n{2}",
     "Str.ContributedProject.MembershipReadOnly": "{0} je projekat tipa {1}: njegove datoteke dodaje i uklanja program kojem pripada, a ne HexIDE.",
+    "Str.ContributedProject.SettingsReadOnly": "{0} je projekat tipa {1}: njegova svojstva, reference i komponente postavlja program kojem pripada, a ne HexIDE.",
     "Str.ContributedProject.NotMade": "{0} je projekat tipa {1}. Pravi ga i pokreće program kojem pripada, a ne HexIDE.",
     "Str.ContributedProject.NoReader": "{0} otvara dodatak koji nije učitan. HexIDE sam otvara projekte .vbp, .vbg i .twinproj.",
     "Str.Debug.External.Breakpoint": "Spoljna tačka prekida: traženi red {0}; red adaptera {1}; potvrđena: {2}.\n{3}",

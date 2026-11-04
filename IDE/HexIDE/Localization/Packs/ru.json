@@ -53,6 +53,7 @@
     "Str.Archive.OpenErrorFormat": "Не удалось открыть {0}:\n{1}",
     "Str.ContributedProject.OpenError": "Не удалось открыть {0} с помощью {1}:\n{2}",
     "Str.ContributedProject.MembershipReadOnly": "{0} — проект {1}: его файлы добавляет и удаляет программа, к которой он относится, а не HexIDE.",
+    "Str.ContributedProject.SettingsReadOnly": "{0} — проект {1}: его свойства, ссылки и компоненты задаёт программа, к которой он относится, а не HexIDE.",
     "Str.ContributedProject.NotMade": "{0} — проект {1}. Собирает и запускает его программа, к которой он относится, а не HexIDE.",
     "Str.ContributedProject.NoReader": "{0} открывается надстройкой, которая не загружена. Сама HexIDE открывает проекты .vbp, .vbg и .twinproj.",
     "Str.Debug.External.Breakpoint": "Внешняя точка останова: запрошенная строка {0}; строка адаптера {1}; подтверждена: {2}.\n{3}",

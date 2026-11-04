@@ -53,6 +53,7 @@
     "Str.Archive.OpenErrorFormat": "{0}을(를) 열 수 없습니다:\n{1}",
     "Str.ContributedProject.OpenError": "{1}(으)로 {0}을(를) 열 수 없습니다:\n{2}",
     "Str.ContributedProject.MembershipReadOnly": "{0}은(는) {1} 프로젝트입니다. 파일은 HexIDE가 아니라 소속된 프로그램이 추가하고 제거합니다.",
+    "Str.ContributedProject.SettingsReadOnly": "{0}은(는) {1} 프로젝트입니다. 속성, 참조, 구성 요소는 HexIDE가 아니라 소속된 프로그램이 설정합니다.",
     "Str.ContributedProject.NotMade": "{0}은(는) {1} 프로젝트입니다. 만들기와 실행은 HexIDE가 아니라 소속된 프로그램이 합니다.",
     "Str.ContributedProject.NoReader": "{0}은(는) 로드되지 않은 추가 기능으로 여는 파일입니다. HexIDE는 .vbp, .vbg, .twinproj 프로젝트를 직접 엽니다.",
     "Str.Debug.External.Breakpoint": "외부 중단점: 요청한 줄 {0}; 어댑터 줄 {1}; 확인됨: {2}.\n{3}",

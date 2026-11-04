@@ -53,6 +53,7 @@
     "Str.Archive.OpenErrorFormat": "לא ניתן לפתוח את {0}:\n{1}",
     "Str.ContributedProject.OpenError": "לא ניתן לפתוח את {0} באמצעות {1}:\n{2}",
     "Str.ContributedProject.MembershipReadOnly": "{0} הוא פרויקט {1}: הקבצים שלו נוספים ומוסרים על ידי התוכנית שהוא שייך אליה, ולא על ידי HexIDE.",
+    "Str.ContributedProject.SettingsReadOnly": "{0} הוא פרויקט {1}: המאפיינים, ההפניות והרכיבים שלו נקבעים על ידי התוכנית שהוא שייך אליה, ולא על ידי HexIDE.",
     "Str.ContributedProject.NotMade": "{0} הוא פרויקט {1}. התוכנית שהוא שייך אליה בונה ומריצה אותו, ולא HexIDE.",
     "Str.ContributedProject.NoReader": "{0} נפתח באמצעות תוסף שאינו טעון. HexIDE עצמו פותח פרויקטים מסוג .vbp, .vbg ו-.twinproj.",
     "Str.Debug.External.Breakpoint": "נקודת עצירה חיצונית: שורה מבוקשת {0}; שורת המתאם {1}; אומתה: {2}.\n{3}",

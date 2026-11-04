@@ -167,6 +167,21 @@ public sealed class ContributedProjectTests : IDisposable
     }
 
     [AvaloniaFact]
+    public async Task Its_properties_references_and_components_are_refused_with_a_reason_from_every_route()
+    {
+        using var type = Contribute();
+        var project = await Opened();
+
+        await _service.EditProjectProperties(project);
+        await _service.EditProjectReferences(project);
+        await _service.EditProjectComponents(project);
+
+        await _windows.DidNotReceive().ShowDialog(Arg.Any<IDialog>());
+        await _windows.Received(3).MessageBox(Arg.Is<string>(text => text == "Str.ContributedProject.SettingsReadOnly Ledger RDCore projects"),
+            Arg.Any<string?>(), Arg.Any<MessageBoxButtons>(), Arg.Any<MessageBoxIcon>(), Arg.Any<Avalonia.Controls.Window?>(), Arg.Any<bool>());
+    }
+
+    [AvaloniaFact]
     public async Task Removing_a_member_is_refused_with_a_reason()
     {
         using var type = Contribute();
