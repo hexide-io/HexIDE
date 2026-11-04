@@ -15,6 +15,9 @@ public interface IEditorService
     /// <summary>The loaded member name for a URI, or null when nothing loaded answers.</summary>
     string? DocumentNameForUri(string uri);
 
+    /// <summary>Opens a loaded code member by URI, or returns null when none answers.</summary>
+    Forms.ViewModels.CodeEditorViewModel? OpenCodeForUri(string uri);
+
     void RestoreCaret(DocumentIdentity document, int offset);
     void RestoreCaret(RelatedDocumentDefinition document, int offset);
 
