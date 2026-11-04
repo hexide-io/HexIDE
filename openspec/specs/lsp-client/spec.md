@@ -12,6 +12,32 @@ later without the editor noticing.
 
 ## Requirements
 
+### Requirement: User-requested server code actions
+
+The client SHALL request code actions only when the user opens Quick Fixes on a diagnostic in the code
+window, sending its range and the diagnostics there, including opaque data unchanged, to every capable
+claimant, including only that claimant’s own diagnostics and data. It SHALL group answers by server display name, show disabled reasons without allowing selection, and declare
+literal, data, disabled and edit-resolution support, including diagnostic data preservation. Distinct
+server ids SHALL remain separate groups even when their display names match. It SHALL compute no fixes itself.
+
+#### Scenario: Selecting a lazy edit with a command
+
+- **WHEN** the user selects an action from a server offering resolution
+- **THEN** the action is resolved on that server before applying its workspace edit atomically, with one undo step per module and no edits to IDE-only lines
+- **AND** pending changes to every edited module are flushed before its command runs
+- **AND** only commands declared by that server are sent back; known rename and show-references client commands run through the shared lens handler, while other unlisted commands receive a localized refusal naming the command
+- **AND** a refusal explains why and executes no command
+
+#### Scenario: A rename action names a document using a different drive-letter case
+
+- **WHEN** a rename client command supplies a URI and zero-based position
+- **THEN** the URI comparer identifies the loaded document and HexIDE opens its existing rename flow at that position, including prepareRename before the prompt
+
+#### Scenario: No user request or no applicable fix
+
+- **WHEN** the user has not opened Quick Fixes
+- **THEN** no code-action request is sent in the background
+- **AND** opening an empty list or choosing an action without an edit or command reports that no applicable fix was supplied
 ### Requirement: Expand and shrink selection commands
 The code window SHALL expose localized Expand Selection and Shrink Selection context-menu and
 keymap commands, with no default shortcuts, enabled only for a document with an advertising
@@ -179,11 +205,19 @@ related-information entry SHALL be skipped without dropping the diagnostic or va
 - **WHEN** a diagnostic includes tag 7 and a related entry with no location
 - **THEN** that tag and entry are ignored while the diagnostic remains available
 
+### Requirement: Opaque diagnostic data survives either inbound path
+The client SHALL retain diagnostic `data` from push notifications and pull replies without interpreting
+or changing its JSON token, including explicit null. It SHALL remain readable after the reply document
+is disposed. An absent `data` member SHALL remain absent when the diagnostic is serialized (#453).
+
+#### Scenario: A server attaches an opaque token
+- **WHEN** a push or pull diagnostic carries an object, array, string, number, boolean or null as `data`
+- **THEN** serializing the retained diagnostic preserves the token's JSON spelling after the reply is disposed
+
 ### Requirement: Diagnostic tags style text
 The client SHALL advertise `publishDiagnostics.relatedInformation: true` and `tagSupport.valueSet: [1, 2]`.
 Unnecessary ranges SHALL have faded text and deprecated ranges SHALL have strikethrough text in the editor
-and diagnostics list messages. These styles SHALL add to the existing severity squiggle. Opaque diagnostic
-`data` SHALL remain dropped pending the code-action relay decision (#453).
+and diagnostics list messages. These styles SHALL add to the existing severity squiggle.
 
 #### Scenario: Both tags accompany a hint
 - **WHEN** a diagnostic has tags 1 and 2

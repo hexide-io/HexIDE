@@ -32,8 +32,7 @@ public enum DiagnosticSeverity
 /// <para>
 /// Tags 1 and 2 and well-formed related locations are retained on both inbound paths (#453).
 /// Tags style editor text and list messages; related locations are clickable in diagnostic tips.
-/// Opaque <c>data</c> is still dropped
-/// until the code-action relay decision (q-453-code-actions).
+/// Opaque <c>data</c> is retained unchanged for the server's code-action tokens.
 /// </para>
 /// </remarks>
 public record Diagnostic(
@@ -52,7 +51,10 @@ public record Diagnostic(
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] int[]? Tags = null,
     [property: JsonPropertyName("relatedInformation")]
     [property: JsonConverter(typeof(DiagnosticRelatedInformationConverter))]
-    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] DiagnosticRelatedInformation[]? RelatedInformation = null)
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] DiagnosticRelatedInformation[]? RelatedInformation = null,
+    [property: JsonPropertyName("data")]
+    [property: JsonConverter(typeof(DiagnosticDataConverter))]
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] System.Text.Json.JsonElement? Data = null)
 {
     /// <summary>
     /// The code as text — <c>F401</c>, <c>MD012</c>, <c>VBC00001</c> — or null when the server sent none.
@@ -289,6 +291,8 @@ public record TextDocumentClientCapabilities(
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] CompletionClientCapabilities? Completion = null,
     [property: JsonPropertyName("inlayHint")]
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] InlayHintClientCapabilities? InlayHint = null,
+    [property: JsonPropertyName("codeAction")]
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] CodeActionClientCapabilities? CodeAction = null,
     [property: JsonPropertyName("implementation")]
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] NavigationClientCapabilities? Implementation = null,
     [property: JsonPropertyName("typeDefinition")]
@@ -418,7 +422,8 @@ public record TextDocumentSyncClientCapabilities(
 public record PublishDiagnosticsClientCapabilities(
     [property: JsonPropertyName("relatedInformation")] bool RelatedInformation = false,
     [property: JsonPropertyName("tagSupport")]
-    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] DiagnosticTagSupport? TagSupport = null);
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] DiagnosticTagSupport? TagSupport = null,
+    [property: JsonPropertyName("dataSupport")] bool DataSupport = true);
 
 public record DiagnosticTagSupport([property: JsonPropertyName("valueSet")] int[] ValueSet);
 
@@ -1351,6 +1356,25 @@ public record ShowDocumentParams(
 
 public record ShowDocumentResult([property: JsonPropertyName("success")] bool Success);
 
+
+public record CodeActionParams(
+    [property: JsonPropertyName("textDocument")] TextDocumentIdentifier TextDocument,
+    [property: JsonPropertyName("range")] Range Range,
+    [property: JsonPropertyName("context")] CodeActionContext Context);
+
+public record CodeActionContext(
+    [property: JsonPropertyName("diagnostics")] Diagnostic[] Diagnostics,
+    [property: JsonPropertyName("triggerKind")] int TriggerKind = 1);
+
+public record CodeActionClientCapabilities(
+    [property: JsonPropertyName("codeActionLiteralSupport")] CodeActionLiteralSupport CodeActionLiteralSupport,
+    [property: JsonPropertyName("dataSupport")] bool DataSupport = true,
+    [property: JsonPropertyName("disabledSupport")] bool DisabledSupport = true,
+    [property: JsonPropertyName("resolveSupport")] CodeActionResolveSupport? ResolveSupport = null);
+
+public record CodeActionLiteralSupport([property: JsonPropertyName("codeActionKind")] CodeActionKindSupport CodeActionKind);
+public record CodeActionKindSupport([property: JsonPropertyName("valueSet")] string[] ValueSet);
+public record CodeActionResolveSupport([property: JsonPropertyName("properties")] string[] Properties);
 public record ShowMessageClientCapabilities(
     [property: JsonPropertyName("messageActionItem")] MessageActionItemClientCapabilities MessageActionItem);
 
