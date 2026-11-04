@@ -151,6 +151,8 @@
     "Str.Menu.View.Code": "代码",
     "Str.Menu.View.Object": "对象",
     "Str.Menu.View.Definition": "定义",
+    "Str.Menu.View.Implementation": "实现",
+    "Str.Menu.View.TypeDefinition": "类型定义",
     "Str.Menu.View.Declaration": "声明",
     "Str.Menu.View.LastPosition": "上一位置",
     "Str.Tool.RecentEdits.Title": "最近编辑",

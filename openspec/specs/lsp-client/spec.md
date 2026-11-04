@@ -2059,6 +2059,11 @@ Go to Implementation and Go to Type Definition in the View and code context menu
 and no default gestures. Each command MUST be enabled only when a running server for that document
 advertises its corresponding provider. HexIDE SHALL display only the server's answer.
 
+The View menu SHALL use separate localized bare-noun labels for Implementation and Type Definition.
+The four navigation entries (Definition, Implementation, Type Definition and Declaration) SHALL have
+four distinct access keys within each menu in every shipped Latin-script pack. Access keys MAY be shared
+with other menu entries. Context labels SHALL use consistent navigation phrasing within each pack (#3096).
+
 #### Scenario: Navigate to a server answer
 - **WHEN** a capable server answers either request with a Location, Location array or LocationLink array
 - **THEN** one result navigates directly to its selection range and several populate the Find References pane

@@ -151,6 +151,8 @@
     "Str.Menu.View.Code": "コード",
     "Str.Menu.View.Object": "オブジェクト",
     "Str.Menu.View.Definition": "定義",
+    "Str.Menu.View.Implementation": "実装",
+    "Str.Menu.View.TypeDefinition": "型定義",
     "Str.Menu.View.Declaration": "宣言",
     "Str.Menu.View.LastPosition": "最後の位置",
     "Str.Tool.RecentEdits.Title": "最近の編集",

@@ -151,6 +151,8 @@
     "Str.Menu.View.Code": "Κώδικας",
     "Str.Menu.View.Object": "Αντικείμενο",
     "Str.Menu.View.Definition": "Ορισμός",
+    "Str.Menu.View.Implementation": "Υλοποίηση",
+    "Str.Menu.View.TypeDefinition": "Ορισμός τύπου",
     "Str.Menu.View.Declaration": "Δήλωση",
     "Str.Menu.View.LastPosition": "Τελευταία θέση",
     "Str.Tool.RecentEdits.Title": "Πρόσφατες αλλαγές",

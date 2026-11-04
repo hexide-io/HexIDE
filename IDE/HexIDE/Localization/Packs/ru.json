@@ -151,6 +151,8 @@
     "Str.Menu.View.Code": "Код",
     "Str.Menu.View.Object": "Объект",
     "Str.Menu.View.Definition": "Определение",
+    "Str.Menu.View.Implementation": "Реализация",
+    "Str.Menu.View.TypeDefinition": "Определение типа",
     "Str.Menu.View.Declaration": "Объявление",
     "Str.Menu.View.LastPosition": "Последняя позиция",
     "Str.Tool.RecentEdits.Title": "Последние изменения",

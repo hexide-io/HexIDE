@@ -228,8 +228,8 @@
                             <MenuItem Header="{DynamicResource Str.Menu.View.Object}" utils:MenuUtils.MenuIcon="{StaticResource Geo.Viewobject}" Command="{x:Static vb:ApplicationCommands.ViewObjectCommand}"  />
                             <Separator />
                             <MenuItem Header="{DynamicResource Str.Menu.View.Definition}" Command="{x:Static vb:ApplicationCommands.GoToDefinitionCommand}" />
-                            <MenuItem Header="{DynamicResource Str.CodeEditor.Context.GoToImplementation}" Command="{x:Static vb:ApplicationCommands.GoToImplementationCommand}" />
-                            <MenuItem Header="{DynamicResource Str.CodeEditor.Context.GoToTypeDefinition}" Command="{x:Static vb:ApplicationCommands.GoToTypeDefinitionCommand}" />
+                            <MenuItem Header="{DynamicResource Str.Menu.View.Implementation}" Command="{x:Static vb:ApplicationCommands.GoToImplementationCommand}" />
+                            <MenuItem Header="{DynamicResource Str.Menu.View.TypeDefinition}" Command="{x:Static vb:ApplicationCommands.GoToTypeDefinitionCommand}" />
                             <MenuItem Header="{DynamicResource Str.Menu.View.Declaration}" Command="{x:Static vb:ApplicationCommands.GoToDeclarationCommand}" />
                             <MenuItem Header="{DynamicResource Str.Menu.View.LastPosition}" IsEnabled="False" />
                             <MenuItem Header="{DynamicResource Str.Tool.RecentEdits.Title}" Command="{CompiledBinding OpenRecentEditsTool}" />

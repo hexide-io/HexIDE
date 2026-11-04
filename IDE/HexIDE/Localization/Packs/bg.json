@@ -115,6 +115,8 @@
     "Str.Menu.View.Code": "Код",
     "Str.Menu.View.Object": "Обект",
     "Str.Menu.View.Definition": "Дефиниция",
+    "Str.Menu.View.Implementation": "Реализация",
+    "Str.Menu.View.TypeDefinition": "Дефиниция на типа",
     "Str.Menu.View.Declaration": "Декларация",
     "Str.Menu.View.LastPosition": "Последна позиция",
     "Str.Tool.RecentEdits.Title": "Последни редакции",
