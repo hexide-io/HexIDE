@@ -391,6 +391,8 @@
     "Str.CodeEditor.Context.GoToTypeDefinition": "Към дефиницията на типа",
     "Str.CodeEditor.Context.GoToDeclaration": "Към декларацията",
     "Str.CodeEditor.Context.Rename": "Преименуване...",
+    "Str.CodeEditor.Context.ExpandSelection": "Разширяване на селекцията",
+    "Str.CodeEditor.Context.ShrinkSelection": "Свиване на селекцията",
     "Str.CodeEditor.Context.FormatDocument": "Форматиране на документа",
     "Str.CodeEditor.Context.FormatSelection": "Форматиране на селекцията",
     "Str.Options.Shell.Buttons.ResetAll": "Нулиране на всичко",

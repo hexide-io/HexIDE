@@ -391,6 +391,8 @@
     "Str.CodeEditor.Context.GoToTypeDefinition": "Pojdi na definicijo tipa",
     "Str.CodeEditor.Context.GoToDeclaration": "Pojdi na dek_laracijo",
     "Str.CodeEditor.Context.Rename": "_Preimenuj...",
+    "Str.CodeEditor.Context.ExpandSelection": "_Razširi izbor",
+    "Str.CodeEditor.Context.ShrinkSelection": "_Skrči izbor",
     "Str.CodeEditor.Context.FormatDocument": "_Oblikuj dokument",
     "Str.CodeEditor.Context.FormatSelection": "_Oblikuj izbor",
     "Str.Options.Shell.Buttons.ResetAll": "Ponastavi vse",

@@ -1300,7 +1300,7 @@ than inferred.
 | ○ | `textDocument/rangesFormatting` | → |  |
 | ✅ | `textDocument/references` | → | Shift+F12 and menus; grouped results, navigation and per-server error rows; supplied locations reuse the pane (#2907) |
 | ✅ | `textDocument/rename` | → | Atomic edits across loaded code members, with version checks and one undo step per member (#1024) |
-| ○ | `textDocument/selectionRange` | → |  |
+| ✅ | `textDocument/selectionRange` | → | Expand/Shrink Selection commands and server parent chains (#3076) |
 | ✅ | `textDocument/semanticTokens/full` | → | Full relative tokens, highest-priority full provider only; lexical colours remain outside token ranges (#2054) |
 | ○ | `textDocument/semanticTokens/full/delta` | → |  |
 | ○ | `textDocument/semanticTokens/range` | → |  |
@@ -1601,3 +1601,17 @@ and types use Type. Both palettes follow the theme. Read-only region and diagnos
 precedence. Uncovered text retains lexical colouring. Empty or failed answers clear the overlay and
 log once per document per connection; the next change retries. Invalid ranges are discarded and stale
 responses are ignored. No range request is sent (#2054).
+
+### Expand and Shrink Selection (#3076)
+
+The client declares `textDocument.selectionRange: {}` without dynamic registration and exposes
+`RequestSelectionRangesAsync` with a document URI and an ordered array of positions. The registry
+chooses one highest-priority claimant offering `selectionRangeProvider` (boolean or options object).
+The response retains each range's recursive parent chain; HexIDE computes no ranges itself. Null
+responses and failed requests yield empty arrays.
+
+Expand Selection and Shrink Selection are code-window context-menu and keymap commands, with no
+default shortcuts. Both require a provider for the current document. Expand asks at the caret or
+both selection endpoints, then selects the smallest enclosing range supplied for either endpoint;
+repeated invocations climb its parent chain. Shrink restores the previous selection, down to the original caret or selection.
+An edit or an outside caret/selection move clears the chain, and stale replies are ignored.

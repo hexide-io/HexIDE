@@ -428,6 +428,8 @@
     "Str.CodeEditor.Context.GoToTypeDefinition": "转到类型定义",
     "Str.CodeEditor.Context.GoToDeclaration": "转到声明",
     "Str.CodeEditor.Context.Rename": "重命名...",
+    "Str.CodeEditor.Context.ExpandSelection": "扩大选择范围",
+    "Str.CodeEditor.Context.ShrinkSelection": "缩小选择范围",
     "Str.CodeEditor.Context.FormatDocument": "格式化文档",
     "Str.CodeEditor.Context.FormatSelection": "格式化选定内容",
     "Str.Options.Shell.Buttons.ResetAll": "全部重置",

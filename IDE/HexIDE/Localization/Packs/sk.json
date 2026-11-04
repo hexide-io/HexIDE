@@ -391,6 +391,8 @@
     "Str.CodeEditor.Context.GoToTypeDefinition": "Prejsť na definíciu typu",
     "Str.CodeEditor.Context.GoToDeclaration": "Prejsť na dek_laráciu",
     "Str.CodeEditor.Context.Rename": "_Premenovať...",
+    "Str.CodeEditor.Context.ExpandSelection": "_Rozšíriť výber",
+    "Str.CodeEditor.Context.ShrinkSelection": "_Zúžiť výber",
     "Str.CodeEditor.Context.FormatDocument": "_Formátovať dokument",
     "Str.CodeEditor.Context.FormatSelection": "_Formátovať výber",
     "Str.Options.Shell.Buttons.ResetAll": "Obnoviť všetko",

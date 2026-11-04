@@ -682,6 +682,25 @@ public class LspClientRegistryTests
     }
 
     [Fact]
+    public async Task SelectionRangesComeFromTheHighestPriorityOfferingServer()
+    {
+        var unsupported = FakeServer();
+        var first = FakeServer(capabilitiesJson: """{"selectionRangeProvider":{}}""");
+        var second = FakeServer(capabilitiesJson: """{"selectionRangeProvider":true}""");
+        var positions = new[] { new Position(1, 2), new Position(3, 4) };
+        var expected = new[] { new SelectionRange(Span(1)) };
+        first.RequestSelectionRangesAsync(Vb6Doc, positions, Arg.Any<CancellationToken>()).Returns(expected);
+        var sut = Registry(Registration("unsupported", unsupported, priority: 10),
+            Registration("first", first, priority: 5), Registration("second", second));
+        await sut.OpenDocumentAsync(Vb6Doc, "code", TestContext.Current.CancellationToken);
+
+        (await sut.RequestSelectionRangesAsync(Vb6Doc, positions, TestContext.Current.CancellationToken))
+            .Should().BeSameAs(expected);
+        await unsupported.DidNotReceive().RequestSelectionRangesAsync(Vb6Doc, Arg.Any<Position[]>(), Arg.Any<CancellationToken>());
+        await second.DidNotReceive().RequestSelectionRangesAsync(Vb6Doc, Arg.Any<Position[]>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
     public async Task FoldsComeFromOneServerToo()
     {
         // Sharper than the symbol case: AvaloniaEdit's FoldingManager takes one ordered set of sections,

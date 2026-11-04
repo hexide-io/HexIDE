@@ -2156,6 +2156,10 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
         => windowManager.InputBox(localization.GetString("Str.CodeEditor.Dialog.RenamePrompt"),
             localization.GetString("Str.CodeEditor.Dialog.RenameTitle"), defaultText);
 
+    public bool SupportsSelectionRanges => LiveDocumentUri is { } uri && lspClient.SupportsSelectionRanges(uri);
+
+    public Task<SelectionRange[]> RequestSelectionRangesAsync(Position[] positions) =>
+        LiveDocumentUri is { } uri ? lspClient.RequestSelectionRangesAsync(uri, positions) : Task.FromResult<SelectionRange[]>([]);
     public bool CanFormatSelection => !IsReadOnly && SelectionLength > 0 && LiveDocumentUri is { } uri
         && lspClient.SupportsRangeFormatting(uri);
 

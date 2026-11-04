@@ -660,6 +660,7 @@ public sealed class VBLspClient : ILspClient
                     Implementation: new NavigationClientCapabilities(),
                     TypeDefinition: new NavigationClientCapabilities(),
                     InlayHint: new InlayHintClientCapabilities(),
+                    SelectionRange: new SelectionRangeClientCapabilities(),
                     RangeFormatting: EmptyParams.Instance,
                     Completion: new CompletionClientCapabilities(new CompletionItemKindClientCapabilities(
                         Enum.GetValues<CompletionItemKind>()),
@@ -1646,6 +1647,22 @@ public sealed class VBLspClient : ILspClient
             if (ex is not OperationCanceledException && !cancellationToken.IsCancellationRequested && _semanticWarnings.TryAdd(uri, 0))
                 _logger.LogWarning(ex, "[LSP] Semantic tokens failed for {Uri}; keeping lexical colours", uri);
             return null;
+        }
+    }
+
+    public async Task<SelectionRange[]> RequestSelectionRangesAsync(string uri, Position[] positions, CancellationToken cancellationToken = default)
+    {
+        if (_rpc is null || !_initialized || !CanServe("selectionRangeProvider")) return [];
+        var p = new SelectionRangeParams(new TextDocumentIdentifier(uri), positions);
+        try
+        {
+            return await InvokeRequestAsync<SelectionRange[]>(_rpc,
+                "textDocument/selectionRange", p, cancellationToken, supersededUri: uri, documentUri: uri) ?? [];
+        }
+        catch (Exception ex)
+        {
+            WarnRequestFailedOnce("textDocument/selectionRange", ex, cancellationToken);
+            return [];
         }
     }
 
@@ -2654,6 +2671,7 @@ public sealed class VBLspClient : ILspClient
         // named it, so the question is never "does any server offer this" but "which one declared it".
         "executeCommandProvider",
         "foldingRangeProvider",
+        "selectionRangeProvider",
         "semanticTokensProvider",
         "hoverProvider",
         "inlayHintProvider",

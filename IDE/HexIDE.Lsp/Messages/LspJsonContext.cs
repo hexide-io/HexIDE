@@ -43,6 +43,8 @@ namespace HexIDE.Lsp;
 [JsonSerializable(typeof(DocumentSymbol[]))]
 [JsonSerializable(typeof(SemanticTokensParams))]
 [JsonSerializable(typeof(SemanticTokens))]
+[JsonSerializable(typeof(SelectionRangeParams))]
+[JsonSerializable(typeof(SelectionRange[]))]
 [JsonSerializable(typeof(FoldingRangeParams))]
 [JsonSerializable(typeof(FoldingRange[]))]
 [JsonSerializable(typeof(InlayHintParams))]
