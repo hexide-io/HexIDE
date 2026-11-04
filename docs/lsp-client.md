@@ -74,10 +74,13 @@ Initialize declares `textDocument.completion` with all 25 LSP completion kinds, 
 `documentationFormat: ["plaintext"]`, and default `insertTextMode: 1` (`asIs`). Snippets, insert/replace
 edits, resolve, commit characters, context and list item defaults are not advertised (#2670).
 This follows the [LSP 3.17 completion capability contract](https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#completionClientCapabilities).
-Items from all servers are ordered by `sortText ?? label`, ordinal. Filtering uses `filterText ?? label`,
-while the displayed label and insertion fallback remain the label. On opening, the first preselected
-item matching the typed prefix is selected; otherwise AvaloniaEdit keeps its best match. If no item
-matches the opening word, the server's list remains available; subsequent typing filters it normally. Descriptions
+Items from all servers are ordered by `sortText ?? label`, ordinal. Matching uses `filterText ?? label`,
+while the displayed label and insertion fallback remain the label. The full list stays visible. The first
+preselected prefix match is selected, otherwise the first prefix match, using the whole word around the
+caret. An empty or unmatched word leaves no item selected. Enter accepts a selected item then commits a
+new line; Space accepts then types a space; with no selection those keys only type. Tab accepts the
+selected item or, with no selection, the first outlined item, replacing the whole word. Escape closes
+without accepting. Complete Word inserts a unique prefix match immediately (#3056). Descriptions
 show detail alongside string or MarkupContent documentation, rendered as plain text (including markdown
 source until a markdown renderer is available). Kind glyphs reuse the Object Browser's member and class
 glyphs; kinds without a counterpart have none.
@@ -93,7 +96,7 @@ finishes at `$0` (or the insertion end); Escape ends linking. Multiline whitespa
 Unsupported or malformed snippet syntax refuses the whole completion before applying additional edits.
 Choice placeholders offer their values in the completion picker; selecting a value updates linked
 occurrences. Choice pickers also appear under their editor in automation dumps and snapshots,
-with each choice named by its text. Commas and pipes can be escaped within choices.
+with each choice named by its text. Enter accepts a choice without a line break and keeps snippet navigation active (#3056). Commas and pipes can be escaped within choices.
 After typing in a placeholder, Tab advances when no completion list is open. With a completion
 list open, Tab accepts its selected item, following the editor's ordinary completion rule;
 close that list before using Tab to navigate the snippet.
