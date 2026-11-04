@@ -24,6 +24,8 @@
     "Str.CodeEditor.ViewAs.TwinBasic64": "twinBASIC 64 位元",
     "Str.CodeEditor.ViewAs.Tooltip": "條件式編譯檢視目標",
     "Str.Tool.Properties.ExportPicture": "匯出圖片...",
+    "Str.Tool.Properties.ExportPictureTitle": "匯出圖片",
+    "Str.Tool.Properties.ReplacePicture": "{0} 已存在。是否要取代它？",
     "Str.LspArtifact.Title": "工作區檔案",
     "Str.LspArtifact.Prompt": "伺服器 {0} 要求寫入本機檔案 {1}。",
     "Str.LspArtifact.Allow": "允許",

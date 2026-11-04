@@ -24,6 +24,8 @@
     "Str.CodeEditor.ViewAs.TwinBasic64": "twinBASIC 64-bittinen",
     "Str.CodeEditor.ViewAs.Tooltip": "Näytä ehdollinen käännös kohteelle",
     "Str.Tool.Properties.ExportPicture": "Vie kuva...",
+    "Str.Tool.Properties.ExportPictureTitle": "Vie kuva",
+    "Str.Tool.Properties.ReplacePicture": "{0} on jo olemassa. Haluatko korvata sen?",
     "Str.LspArtifact.Title": "Työtilan tiedostot",
     "Str.LspArtifact.Prompt": "Palvelin {0} on pyytänyt lupaa kirjoittaa paikallisen tiedoston {1}.",
     "Str.LspArtifact.Allow": "Salli",

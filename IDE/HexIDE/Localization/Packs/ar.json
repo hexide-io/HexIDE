@@ -24,6 +24,8 @@
     "Str.CodeEditor.ViewAs.TwinBasic64": "twinBASIC 64 بت",
     "Str.CodeEditor.ViewAs.Tooltip": "عرض الترجمة الشرطية وفق",
     "Str.Tool.Properties.ExportPicture": "تصدير الصورة...",
+    "Str.Tool.Properties.ExportPictureTitle": "تصدير الصورة",
+    "Str.Tool.Properties.ReplacePicture": "{0} موجود بالفعل. هل تريد استبداله؟",
     "Str.LspArtifact.Title": "ملفات مساحة العمل",
     "Str.LspArtifact.Prompt": "طلب الخادم {0} كتابة الملف المحلي {1}.",
     "Str.LspArtifact.Allow": "السماح",

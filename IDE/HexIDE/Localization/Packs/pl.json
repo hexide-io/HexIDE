@@ -24,6 +24,8 @@
     "Str.CodeEditor.ViewAs.TwinBasic64": "twinBASIC 64-bitowy",
     "Str.CodeEditor.ViewAs.Tooltip": "Pokaż kompilację warunkową jako",
     "Str.Tool.Properties.ExportPicture": "Eksportuj obraz...",
+    "Str.Tool.Properties.ExportPictureTitle": "Eksportuj obraz",
+    "Str.Tool.Properties.ReplacePicture": "{0} już istnieje. Czy chcesz go zastąpić?",
     "Str.LspArtifact.Title": "Pliki obszaru roboczego",
     "Str.LspArtifact.Prompt": "Serwer {0} poprosił o zapisanie lokalnego pliku {1}.",
     "Str.LspArtifact.Allow": "Zezwól",

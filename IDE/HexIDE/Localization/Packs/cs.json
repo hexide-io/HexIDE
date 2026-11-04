@@ -24,6 +24,8 @@
     "Str.CodeEditor.ViewAs.TwinBasic64": "twinBASIC 64bitové",
     "Str.CodeEditor.ViewAs.Tooltip": "Zobrazit podmíněný překlad jako",
     "Str.Tool.Properties.ExportPicture": "Exportovat obrázek...",
+    "Str.Tool.Properties.ExportPictureTitle": "Export obrázku",
+    "Str.Tool.Properties.ReplacePicture": "{0} již existuje. Chcete jej nahradit?",
     "Str.LspArtifact.Title": "Soubory pracovního prostoru",
     "Str.LspArtifact.Prompt": "Server {0} požádal o zápis místního souboru {1}.",
     "Str.LspArtifact.Allow": "Povolit",

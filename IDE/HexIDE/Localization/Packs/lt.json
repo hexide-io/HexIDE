@@ -28,6 +28,8 @@
     "Str.CodeEditor.ViewAs.TwinBasic64": "twinBASIC 64 bitų",
     "Str.CodeEditor.ViewAs.Tooltip": "Sąlyginį kompiliavimą rodyti kaip",
     "Str.Tool.Properties.ExportPicture": "Eksportuoti paveikslėlį...",
+    "Str.Tool.Properties.ExportPictureTitle": "Eksportuoti paveikslėlį",
+    "Str.Tool.Properties.ReplacePicture": "{0} jau yra. Ar norite jį pakeisti?",
     "Str.LspArtifact.Title": "Darbo srities failai",
     "Str.LspArtifact.Prompt": "Serveris {0} prašo įrašyti vietinį failą {1}.",
     "Str.LspArtifact.Allow": "Leisti",

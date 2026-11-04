@@ -24,6 +24,8 @@
     "Str.CodeEditor.ViewAs.TwinBasic64": "twinBASIC 64-bits",
     "Str.CodeEditor.ViewAs.Tooltip": "Voorwaardelijke compilatie weergeven als",
     "Str.Tool.Properties.ExportPicture": "Afbeelding exporteren...",
+    "Str.Tool.Properties.ExportPictureTitle": "Afbeelding exporteren",
+    "Str.Tool.Properties.ReplacePicture": "{0} bestaat al. Wilt u dit vervangen?",
     "Str.LspArtifact.Title": "Werkruimtebestanden",
     "Str.LspArtifact.Prompt": "Server {0} heeft gevraagd om het lokale bestand {1} te schrijven.",
     "Str.LspArtifact.Allow": "Toestaan",

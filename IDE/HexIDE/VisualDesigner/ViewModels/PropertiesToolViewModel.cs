@@ -328,8 +328,8 @@ public partial class PropertiesToolViewModel : Tool
             if (path == null) return;
             var existing = File.Exists(path);
             if (existing && await windowManager.MessageBox(
-                    string.Format(localization.GetString("Str.Tool.ProtocolInspector.ReplaceFiles"), path),
-                    localization.GetString("Str.Tool.Properties.ExportPicture"),
+                    string.Format(localization.GetString("Str.Tool.Properties.ReplacePicture"), path),
+                    localization.GetString("Str.Tool.Properties.ExportPictureTitle"),
                     MessageBoxButtons.YesNo, MessageBoxIcon.Warning) != MessageBoxResult.Yes)
                 return;
 
