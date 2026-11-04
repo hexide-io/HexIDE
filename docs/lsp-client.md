@@ -1234,6 +1234,15 @@ provider. Both client capabilities declare `linkSupport`; neither command has a 
 Single locations navigate directly; multiple locations populate the existing Find References pane.
 HexIDE displays the server's answer without computing implementations or types itself.
 
+### Preparing a rename (#3073)
+
+After the code window's protected-line and declared-name checks, pending text is flushed and every
+opened claimant advertising `renameProvider.prepareProvider: true` is asked `textDocument/prepareRename`.
+Any null or error reply prevents the prompt; an error's reason uses the existing refusal dialog.
+The first participating claimant's range or placeholder seeds the prompt. A `defaultBehavior: true`
+reply keeps the existing word, as do servers without preparation support. Initialize declares
+`textDocument.rename.prepareSupport: true` and `prepareSupportDefaultBehavior: 1`.
+
 ## Coverage against the specification
 
 LSP 3.17 defines **93 messages** — 67 requests and 26 notifications. The table below is generated from the
@@ -1293,7 +1302,7 @@ than inferred.
 | ○ | `textDocument/moniker` | → |  |
 | ○ | `textDocument/onTypeFormatting` | → |  |
 | ○ | `textDocument/prepareCallHierarchy` | → | Needs a bound AST — a backend's job, see below |
-| ○ | `textDocument/prepareRename` | → | No server is asked before the prompt; the code window itself refuses a protected line or a declared name |
+| ✅ | `textDocument/prepareRename` | → | Asks every claimant advertising prepareProvider before the prompt; range/placeholder seeds it, null/error refuses it (#3073) |
 | ○ | `textDocument/prepareTypeHierarchy` | → |  |
 | ✅ | `textDocument/publishDiagnostics` | ← |  |
 | ✅ | `textDocument/rangeFormatting` | → |  |

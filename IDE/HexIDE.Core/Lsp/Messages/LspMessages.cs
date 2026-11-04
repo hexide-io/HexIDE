@@ -295,10 +295,16 @@ public record TextDocumentClientCapabilities(
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] NavigationClientCapabilities? TypeDefinition = null,
     [property: JsonPropertyName("selectionRange")]
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] SelectionRangeClientCapabilities? SelectionRange = null,
+    [property: JsonPropertyName("rename")]
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] RenameClientCapabilities? Rename = null,
     [property: JsonPropertyName("rangeFormatting")]
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] EmptyParams? RangeFormatting = null);
 
 public record NavigationClientCapabilities([property: JsonPropertyName("linkSupport")] bool LinkSupport = true);
+
+public record RenameClientCapabilities(
+    [property: JsonPropertyName("prepareSupport")] bool PrepareSupport = true,
+    [property: JsonPropertyName("prepareSupportDefaultBehavior")] int PrepareSupportDefaultBehavior = 1);
 
 public record CompletionClientCapabilities(
     [property: JsonPropertyName("completionItemKind")] CompletionItemKindClientCapabilities CompletionItemKind,

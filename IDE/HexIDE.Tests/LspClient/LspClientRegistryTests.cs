@@ -59,6 +59,30 @@ public class LspClientRegistryTests
 
     private static LspRange Span(int line) => new(new Position(line, 0), new Position(line, 1));
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task PreparationAsksEverySupportingClaimantAndAnyRefusalWins(bool refuse)
+    {
+        var caps = """{"renameProvider":{"prepareProvider":true}}""";
+        var first = FakeServer(capabilitiesJson: caps);
+        var second = FakeServer(capabilitiesJson: caps);
+        var unsupported = FakeServer();
+        first.RequestPrepareRenameAsync(Vb6Doc, Arg.Any<Position>(), Arg.Any<CancellationToken>())
+            .Returns(new PrepareRenameResult(!refuse, Placeholder: "First"));
+        second.RequestPrepareRenameAsync(Vb6Doc, Arg.Any<Position>(), Arg.Any<CancellationToken>())
+            .Returns(new PrepareRenameResult(!refuse, Placeholder: "Second", Refusal: refuse ? "Server reason" : null));
+        ILspClient sut = Registry(Registration("first", first, priority: 10), Registration("second", second), Registration("unsupported", unsupported));
+        await sut.OpenDocumentAsync(Vb6Doc, "code", TestContext.Current.CancellationToken);
+        var result = await sut.RequestPrepareRenameAsync(Vb6Doc, new(0, 0), TestContext.Current.CancellationToken);
+        result!.Allowed.Should().Be(!refuse);
+        result.Placeholder.Should().Be(refuse ? "Second" : "First");
+        result.Refusal.Should().Be(refuse ? "Server reason" : null);
+        await first.Received(1).RequestPrepareRenameAsync(Vb6Doc, Arg.Any<Position>(), Arg.Any<CancellationToken>());
+        await second.Received(1).RequestPrepareRenameAsync(Vb6Doc, Arg.Any<Position>(), Arg.Any<CancellationToken>());
+        await unsupported.DidNotReceiveWithAnyArgs().RequestPrepareRenameAsync(default!, default!, Arg.Any<CancellationToken>());
+    }
+
     private static Task<TextEdit[]> RangeFormat(ILspClient client, string uri, LspRange range, FormattingOptions options, CancellationToken ct)
     {
         var method = typeof(ILspClient).GetMethod("RequestRangeFormattingAsync");

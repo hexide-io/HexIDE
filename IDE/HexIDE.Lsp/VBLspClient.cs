@@ -661,6 +661,7 @@ public sealed class VBLspClient : ILspClient
                     TypeDefinition: new NavigationClientCapabilities(),
                     InlayHint: new InlayHintClientCapabilities(),
                     SelectionRange: new SelectionRangeClientCapabilities(),
+                    Rename: new RenameClientCapabilities(),
                     RangeFormatting: EmptyParams.Instance,
                     Completion: new CompletionClientCapabilities(new CompletionItemKindClientCapabilities(
                         Enum.GetValues<CompletionItemKind>()),
@@ -1863,6 +1864,31 @@ public sealed class VBLspClient : ILspClient
         {
             WarnRequestFailedOnce("textDocument/documentHighlight", ex, cancellationToken);
             return null;
+        }
+    }
+
+    public async Task<PrepareRenameResult?> RequestPrepareRenameAsync(string uri, Position position, CancellationToken cancellationToken = default)
+    {
+        if (_rpc is null || !_initialized || AdvertisedCapabilities is not { } caps
+            || !caps.TryGetProperty("renameProvider", out var rename) || rename.ValueKind != JsonValueKind.Object
+            || !rename.TryGetProperty("prepareProvider", out var prepare) || prepare.ValueKind != JsonValueKind.True)
+            return null;
+        try
+        {
+            var answer = await InvokeRequestAsync<JsonElement>(_rpc, "textDocument/prepareRename",
+                new TextDocumentPositionParams(new TextDocumentIdentifier(uri), position), cancellationToken, documentUri: uri);
+            if (answer.ValueKind != JsonValueKind.Object) return new(false);
+            if (answer.TryGetProperty("defaultBehavior", out var behavior) && behavior.ValueKind == JsonValueKind.True)
+                return new(true);
+            var range = answer.TryGetProperty("range", out var nested) ? nested : answer;
+            var parsed = range.Deserialize<HexIDE.Lsp.Messages.Range>(LspJsonContext.Default.Options);
+            return new(true, parsed, answer.TryGetProperty("placeholder", out var placeholder) ? placeholder.GetString() : null);
+        }
+        catch (OperationCanceledException) { throw; }
+        catch (Exception ex)
+        {
+            WarnRequestFailedOnce("textDocument/prepareRename", ex, cancellationToken);
+            return new(false, Refusal: ex.Message);
         }
     }
 

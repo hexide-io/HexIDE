@@ -608,6 +608,25 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
         FirstAnswerAsync(uri, c => c.RequestDocumentHighlightAsync(uri, position, ct), ct);
 
     // ── Pick-one features ───────────────────────────────────────────────────────────────────────────
+    public async Task<PrepareRenameResult?> RequestPrepareRenameAsync(string uri, Position position, CancellationToken ct = default)
+    {
+        PrepareRenameResult? first = null;
+        PrepareRenameResult? refusal = null;
+        foreach (var client in await OpenedClaimantsAsync(uri, ct))
+        {
+            if (client.AdvertisedCapabilities is not { } caps
+                || !caps.TryGetProperty("renameProvider", out var rename) || rename.ValueKind != JsonValueKind.Object
+                || !rename.TryGetProperty("prepareProvider", out var prepare) || prepare.ValueKind != JsonValueKind.True)
+                continue;
+            var answer = await client.RequestPrepareRenameAsync(uri, position, ct);
+            if (answer is null) continue;
+            first ??= answer;
+            if (!answer.Allowed && (refusal is null || refusal.Refusal is null && answer.Refusal is not null))
+                refusal = answer;
+        }
+        return refusal ?? first;
+    }
+
     // Two sets of edits to one document cannot both be applied, so these need a winner rather than a merge.
     // Only the top-priority claimant is asked; a second server's edits are not a fallback, they are a
     // different opinion about the same text.
