@@ -1,6 +1,9 @@
 using System.Text.Json;
 using AvaloniaEdit.Document;
 using HexIDE.Forms.ViewModels;
+using HexIDE.Events;
+using HexIDE.IDE;
+using HexIDE.Runtime.ProjectElements;
 using HexIDE.Lsp;
 using Microsoft.Extensions.Logging;
 using Nerdbank.Streams;
@@ -52,6 +55,8 @@ public class DocumentVersionOnTheWireTests : IAsyncDisposable
         public Task Opened => opened.Task;
         public Task Changed => changed.Task;
         public Task Saved => saved.Task;
+        private readonly TaskCompletionSource closed = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public Task Closed => closed.Task;
         public string HeldText { get; private set; } = "";
 
         public IReadOnlyList<Received> Messages
@@ -108,11 +113,16 @@ public class DocumentVersionOnTheWireTests : IAsyncDisposable
         }
 
         [JsonRpcMethod("textDocument/didClose", UseSingleObjectParameterDeserialization = true)]
-        public void DidClose(JsonElement _) { }
+        public void DidClose(JsonElement _)
+        {
+            lock (gate) received.Add(new Received("didClose", null, ""));
+            closed.TrySetResult();
+        }
+
     }
 
     /// <summary>A started client connected to a fresh server.</summary>
-    private async Task<(VBLspClient Client, VersionRecordingServer Server)> Connected()
+    private async Task<(VBLspClient Client, VersionRecordingServer Server)> Connected(bool start = true)
     {
         var server = new VersionRecordingServer();
         var (clientSide, serverSide) = FullDuplexStream.CreatePair();
@@ -128,7 +138,7 @@ public class DocumentVersionOnTheWireTests : IAsyncDisposable
 
         var client = new VBLspClient(transport, Substitute.For<ILogger<VBLspClient>>(), "vb6");
         _disposables.Add(client);
-        await client.StartAsync(TestContext.Current.CancellationToken);
+        if (start) await client.StartAsync(TestContext.Current.CancellationToken);
         return (client, server);
     }
 
@@ -228,6 +238,107 @@ public class DocumentVersionOnTheWireTests : IAsyncDisposable
         server.HeldText.Should().Be(
             "Sub Main()\r\n    Debug.Print 1\r\nEnd Sub\r\n",
             "a server that discards a change no later than what it holds must still be given the edit");
+    }
+
+    private static DocumentIdentity ProjectDocument()
+    {
+        var project = new ProjectDefinition(VBProjectType.EXE, "Project1");
+        var module = new ModuleDefinition(project, "Module1", ModuleKind.StandardModule)
+        {
+            AbsolutePath = OperatingSystem.IsWindows() ? @"C:\proj\Module1.bas" : "/c:/proj/Module1.bas"
+        };
+        return DocumentIdentity.For(module);
+    }
+
+    private static async Task Settle() => await Task.Delay(250, TestContext.Current.CancellationToken);
+
+    [AvaloniaFact]
+    public async Task ClosingADirtyWindowKeepsItsPendingTextAndTheServerDocument()
+    {
+        var (client, server) = await Connected();
+        var (session, document) = await Opened(client, server, "before");
+        var identity = ProjectDocument();
+        var events = new EventBus();
+        document.Text = "after";
+        identity.Module!.RecordOriginalHeader("");
+        identity.Module.UpdateCode("after");
+        ProjectLspDocument.CloseWindow(client, identity, session, events, dirty: true);
+        await Settle();
+        server.Messages.Should().NotContain(m => m.Method == "didClose");
+        events.Publish(new DocumentSavedEvent(null, identity.Module));
+        await server.Closed.WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
+
+        server.Messages.Select(m => m.Method).Should().Equal("didOpen", "didChange", "didSave", "didClose");
+        server.HeldText.Should().Be("after");
+    }
+
+    [AvaloniaFact]
+    public async Task ReopeningADirtyWindowKeepsTheOpenAndVersionSequence()
+    {
+        var (client, server) = await Connected();
+        var (session, document) = await Opened(client, server, "before");
+        var identity = ProjectDocument();
+        document.Text = "after";
+        await session.FlushAsync(TestContext.Current.CancellationToken);
+        ProjectLspDocument.CloseWindow(client, identity, session, new EventBus(), dirty: true);
+        var reopened = new LspDocumentSession(client, new TextDocument("after"), Uri, postToUiThread: work => work());
+        _sessions.Add(reopened);
+        reopened.Start();
+        ProjectLspDocument.Reopened(client, identity);
+        await Settle();
+
+        server.Messages.Select(m => m.Method).Should().Equal("didOpen", "didChange");
+        LspDocumentSession.VersionsFor(client, Uri)!.Value.Current.Should().Be(2);
+    }
+
+    [AvaloniaFact]
+    public async Task AServerStartingAfterTheDirtyWindowClosesGetsTheProjectText()
+    {
+        var (client, server) = await Connected(start: false);
+        var document = new TextDocument("before");
+        var session = new LspDocumentSession(client, document, Uri, postToUiThread: work => work());
+        _sessions.Add(session);
+        session.Start();
+        document.Text = "after";
+        var identity = ProjectDocument();
+        var events = new EventBus();
+        ProjectLspDocument.CloseWindow(client, identity, session, events, dirty: true);
+        await client.StartAsync(TestContext.Current.CancellationToken);
+        await server.Opened.WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
+
+        server.Messages.Should().ContainSingle().Which.Should().Be(new Received("didOpen", 2, "after"));
+        events.Publish(new ModuleUnloadedEvent(identity.Module!));
+    }
+
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task RemovingOrDiscardingAClosedDirtyDocumentReleasesIt(bool discard)
+    {
+        var (client, server) = await Connected();
+        var (session, document) = await Opened(client, server, "before");
+        var identity = ProjectDocument();
+        var events = new EventBus();
+        document.Text = "after";
+        ProjectLspDocument.CloseWindow(client, identity, session, events, dirty: true);
+        await Settle();
+        server.Messages.Should().NotContain(m => m.Method == "didClose");
+
+        if (discard) events.Publish(new FileReloadedFromDiskEvent(identity.AbsolutePath!));
+        else events.Publish(new ModuleUnloadedEvent(identity.Module!));
+        await server.Closed.WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
+        server.Messages.Select(m => m.Method).Should().Equal("didOpen", "didChange", "didClose");
+    }
+
+    [AvaloniaFact]
+    public async Task ClosingACleanWindowStillClosesTheServerDocument()
+    {
+        var (client, server) = await Connected();
+        var (session, _) = await Opened(client, server, "before");
+        ProjectLspDocument.CloseWindow(client, ProjectDocument(), session, new EventBus(), dirty: false);
+        await server.Closed.WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
+
+        server.Messages.Select(m => m.Method).Should().Equal("didOpen", "didClose");
     }
 
     public async ValueTask DisposeAsync()

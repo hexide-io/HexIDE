@@ -52,6 +52,22 @@ public class CodeEditorViewModelTests : IDisposable
         _sut?.Dispose();
     }
 
+    [AvaloniaFact]
+    public async Task ClosingADirtyCodeWindowKeepsItsProjectTextOnTheLanguageLayer()
+    {
+        var module = TestHelpers.CreateModule();
+        var vm = CreateSut().Initialize(module);
+        _projectService.HasUnsavedChanges(module).Returns(true);
+        vm.Document.Insert(vm.Document.TextLength, "' retained");
+        var uri = vm.GetDocumentUriPublic();
+
+        vm.Dispose();
+
+        module.Code.Should().EndWith("' retained");
+        await _lspClient.DidNotReceive().CloseDocumentAsync(uri, Arg.Any<CancellationToken>());
+        ProjectLspDocument.Reopened(_lspClient, vm.Identity); // release the test's project holder
+    }
+
     [AvaloniaTheory]
     [InlineData("i = 3")]
     [InlineData("")]

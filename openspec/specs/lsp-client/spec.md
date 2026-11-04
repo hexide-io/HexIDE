@@ -306,6 +306,17 @@ it, every holder SHALL draw its versions from one sequence, and its last holder 
 file kept two version counts, so a server discarded whichever was behind, and either window's close closed the
 document for both (hexide-io/HexIDE#721).
 
+The project SHALL retain a dirty code document after its last window closes, flushing pending edits and
+keeping the shared version sequence. Save, discard/reload or removal SHALL release that project holder.
+Reopening SHALL join the same document without a second open or version reset. A server starting later
+SHALL receive the retained project text in its open (#3064). Closing a window SHALL NOT add a save prompt.
+
+#### Scenario: Closing and reopening a dirty code window
+- **WHEN** a code window closes with unsaved edits
+- **THEN** the server document remains open with those edits
+- **AND** reopening reuses its open and version sequence
+- **AND** saving while its window is closed announces the current text and save before closing it
+
 #### Scenario: Editing a document
 - **WHEN** the developer edits an open document
 - **THEN** the complete new text is sent with a version that increases
@@ -324,7 +335,7 @@ document for both (hexide-io/HexIDE#721).
 - **WHEN** a second editor opens a document whose name another editor already holds, and either then edits it
 - **THEN** the server has been opened on the document once, and every change carries a later version than the one
   before, whichever editor it came from
-- **AND** closing one editor leaves the document open for the other, and closing the last closes it
+- **AND** closing one editor leaves the document open for the other, and closing the last clean editor closes it
 
 #### Scenario: A debounced change overtaken by a flush
 - **WHEN** a change arrives with a version no later than the one the client already tracks
