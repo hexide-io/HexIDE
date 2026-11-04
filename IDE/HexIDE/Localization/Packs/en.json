@@ -385,6 +385,8 @@
     "Str.CodeEditor.Context.PreviousBookmark": "_Previous Bookmark",
     "Str.CodeEditor.Context.ClearAllBookmarks": "_Clear All Bookmarks",
     "Str.CodeEditor.Context.GoToDefinition": "_Go to Definition",
+    "Str.CodeEditor.Context.GoToImplementation": "Go to Implementation",
+    "Str.CodeEditor.Context.GoToTypeDefinition": "Go to Type Definition",
     "Str.CodeEditor.Context.GoToDeclaration": "Go to Dec_laration",
     "Str.CodeEditor.Context.Rename": "_Rename...",
     "Str.CodeEditor.Context.FormatDocument": "_Format Document",
