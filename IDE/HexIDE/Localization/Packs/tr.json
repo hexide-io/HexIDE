@@ -2,6 +2,11 @@
   "name": "Turkish",
   "direction": "ltr",
   "strings": {
+    "Str.Tool.CallHierarchy.Title": "Çağrı Hiyerarşisi",
+    "Str.Tool.CallHierarchy.CallsTo": "Gelen Çağrılar",
+    "Str.Tool.CallHierarchy.CallsFrom": "Giden Çağrılar",
+    "Str.Tool.CallHierarchy.Empty": "Çağrı bulunamadı.",
+    "Str.Tool.CallHierarchy.CallSite": "{0}:{1} konumunda çağrı",
     "Str.Tool.FindReferences.Title": "Başvuruları bul",
     "Str.Tool.FindReferences.Empty": "Başvuru yok",
     "Str.Tool.FindReferences.Error": "{0}: {1}",

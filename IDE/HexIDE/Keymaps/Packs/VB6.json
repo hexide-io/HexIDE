@@ -9,6 +9,7 @@
     "StepOutCommand":        "Ctrl+Shift+F8",
     "RunToCursorCommand":    "Ctrl+F8",
     "SetNextStatementCommand": "Ctrl+F9",
+    "CallHierarchyCommand": "",
     "FormatSelectionCommand": ""
   }
 }

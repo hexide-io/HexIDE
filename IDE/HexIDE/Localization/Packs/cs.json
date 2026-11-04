@@ -2,6 +2,11 @@
   "name": "Czech",
   "direction": "ltr",
   "strings": {
+    "Str.Tool.CallHierarchy.Title": "Hierarchie volání",
+    "Str.Tool.CallHierarchy.CallsTo": "Volání do",
+    "Str.Tool.CallHierarchy.CallsFrom": "Volání z",
+    "Str.Tool.CallHierarchy.Empty": "Nebyla nalezena žádná volání.",
+    "Str.Tool.CallHierarchy.CallSite": "Volání na {0}:{1}",
     "Str.Tool.FindReferences.Title": "Najít odkazy",
     "Str.Tool.FindReferences.Empty": "Žádné odkazy",
     "Str.Tool.FindReferences.Error": "{0}: {1}",

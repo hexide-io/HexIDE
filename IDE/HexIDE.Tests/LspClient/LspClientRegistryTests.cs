@@ -100,6 +100,31 @@ public class LspClientRegistryTests
     [Theory]
     [InlineData("true")]
     [InlineData("{}")]
+    public async Task CallHierarchyKeepsEveryAdvertisingOwnerAndPerServerErrors(string provider)
+    {
+        var first = FakeServer(capabilitiesJson: "{\"callHierarchyProvider\":" + provider + "}");
+        var second = FakeServer(capabilitiesJson: "{\"callHierarchyProvider\":true}");
+        var absent = FakeServer();
+        var item = new CallHierarchyItem("Root", 12, Vb6Doc, Span(1), Span(1),
+            Data: JsonDocument.Parse("{\"owner\":42}").RootElement.Clone());
+        first.PrepareCallHierarchyAsync(Vb6Doc, new Position(1, 2), Arg.Any<CancellationToken>()).Returns([item]);
+        second.PrepareCallHierarchyAsync(Vb6Doc, new Position(1, 2), Arg.Any<CancellationToken>())
+            .Returns(Task.FromException<CallHierarchyItem[]>(new InvalidOperationException("refused")));
+        await using var sut = Registry(Registration("first", first), Registration("second", second), Registration("absent", absent));
+        await sut.OpenDocumentAsync(Vb6Doc, "code", TestContext.Current.CancellationToken);
+        sut.SupportsCallHierarchy(Vb6Doc).Should().BeTrue();
+        sut.SupportsCallHierarchy("file:///unclaimed.txt").Should().BeFalse();
+        var result = await sut.FindCallHierarchyAsync(Vb6Doc, new Position(1, 2), TestContext.Current.CancellationToken);
+        result.Roots.Should().ContainSingle().Which.Client.Should().BeSameAs(first);
+        result.Roots[0].Item.Should().BeSameAs(item);
+        result.Roots[0].Server.Should().Be("first");
+        result.Errors.Should().ContainSingle().Which.Server.Should().Be("second");
+        await absent.DidNotReceive().PrepareCallHierarchyAsync(Arg.Any<string>(), Arg.Any<Position>(), Arg.Any<CancellationToken>());
+    }
+
+    [Theory]
+    [InlineData("true")]
+    [InlineData("{}")]
     public async Task RangeFormattingSelectsExactlyOneAdvertisingClaimant(string provider)
     {
         typeof(ILspClient).GetMethod("RequestRangeFormattingAsync").Should().NotBeNull();

@@ -1258,7 +1258,7 @@ specification's own [`metaModel.json`](https://raw.githubusercontent.com/microso
 the canonical machine-readable list, so the method names and directions are the specification's rather than
 this document's recollection of them.
 
-**HexIDE implements 46 of the 93.** That is not a deficiency in itself — no client implements them all, and
+**HexIDE implements 49 of the 93.** That is not a deficiency in itself — no client implements them all, and
 most of the remainder are features no VB6 IDE needs. It is here so the shape of the gap is visible rather
 than inferred.
 
@@ -1280,7 +1280,7 @@ than inferred.
 | ✅ | `initialized` | → |  |
 | ✅ | `shutdown` | → |  |
 
-### `textDocument/*` — 25 of 41
+### `textDocument/*` — 26 of 41
 
 | | Method | Dir | Notes |
 |---|---|---|---|
@@ -1309,7 +1309,7 @@ than inferred.
 | ○ | `textDocument/linkedEditingRange` | → |  |
 | ○ | `textDocument/moniker` | → |  |
 | ○ | `textDocument/onTypeFormatting` | → |  |
-| ○ | `textDocument/prepareCallHierarchy` | → | Needs a bound AST — a backend's job, see below |
+| ✅ | `textDocument/prepareCallHierarchy` | → | Shows the server's call hierarchy; computes none |
 | ✅ | `textDocument/prepareRename` | → | Asks every claimant advertising prepareProvider before the prompt; range/placeholder seeds it, null/error refuses it (#3073) |
 | ○ | `textDocument/prepareTypeHierarchy` | → |  |
 | ✅ | `textDocument/publishDiagnostics` | ← |  |
@@ -1418,12 +1418,12 @@ than inferred.
 |---|---|---|---|
 | ○ | `inlayHint/resolve` | → |  |
 
-### `callHierarchy/*` — 0 of 2
+### `callHierarchy/*` — 2 of 2
 
 | | Method | Dir | Notes |
 |---|---|---|---|
-| ○ | `callHierarchy/incomingCalls` | → |  |
-| ○ | `callHierarchy/outgoingCalls` | → |  |
+| ✅ | `callHierarchy/incomingCalls` | → | Shows the server's call hierarchy; computes none |
+| ✅ | `callHierarchy/outgoingCalls` | → | Shows the server's call hierarchy; computes none |
 
 ### `typeHierarchy/*` — 0 of 2
 
@@ -1497,12 +1497,11 @@ registry routes are ready.
 
 Three clusters account for nearly all of the gap:
 
-- **Features needing a bound AST** — code actions, call hierarchy
-  and their `*/resolve` companions. Reference requests now have a client contract (#2907), with the UI
-  outstanding. The other methods are not wired because nothing here would answer them; see *What the client
-  would consume* below. `workspace/symbol` used to sit in this list and no longer does: the client speaks it
-  and the Object Browser surfaces it, so the missing half is a *server*, which is exactly the point of the
-  seam.
+- **Features needing a bound AST in the backend** — code actions and call hierarchy remain outside
+  the bundled server. The client shows references (#2907) and server call hierarchies (#3080) in
+  reusable tool panes. The client computes none of these relationships.
+  `workspace/symbol` is wired through the Object Browser. A backend offering deeper analysis can answer
+  these requests without changing HexIDE's own analysis boundary.
 - **Workspace-level protocol** — `workspace/*` is 7 of 21. The client sends project folders,
   updates them as group membership changes, sends file-operation notifications, and answers editor
   configuration requests. Watched-file notifications and server-initiated workspace edits remain absent.
@@ -1540,7 +1539,7 @@ awaiting effort, they are **server** features awaiting a server.
 | Code actions / quick fixes | `textDocument/codeAction` | Not wired |
 | Semantic tokens | `textDocument/semanticTokens/full` | **Wired** — full only; delta, range and refresh remain unwired (#2054) |
 | Parameter-name and inferred-type hints | `textDocument/inlayHint` | **Wired** — labels from any offering server; these binding-dependent hints remain outside the bundled server |
-| Call hierarchy | `textDocument/prepareCallHierarchy` | Not wired |
+| Call hierarchy | `textDocument/prepareCallHierarchy` | Shows the server’s call hierarchy; computes none (#3080). Provider-gated command, lazy Calls To / Calls From tree and node/call-site navigation |
 | Workspace symbols | `workspace/symbol` | **Wired** — see below |
 
 "Not wired" is a statement about the client, and it is the honest one: wiring each is a bounded piece of

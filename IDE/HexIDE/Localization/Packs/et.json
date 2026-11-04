@@ -2,6 +2,11 @@
   "name": "Estonian",
   "direction": "ltr",
   "strings": {
+    "Str.Tool.CallHierarchy.Title": "Kutsete hierarhia",
+    "Str.Tool.CallHierarchy.CallsTo": "Kutsed sihtkohta",
+    "Str.Tool.CallHierarchy.CallsFrom": "Kutsed lähtekohast",
+    "Str.Tool.CallHierarchy.Empty": "Kutseid ei leitud.",
+    "Str.Tool.CallHierarchy.CallSite": "Kutse asukohas {0}:{1}",
     "Str.Tool.FindReferences.Title": "Otsi viiteid",
     "Str.Tool.FindReferences.Empty": "Viiteid pole",
     "Str.Tool.FindReferences.Error": "{0}: {1}",

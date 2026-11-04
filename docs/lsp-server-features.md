@@ -538,6 +538,7 @@ reference implementation the client half is proved against.
 | Rename | `textDocument/rename` | 🔧 Wired | ■ semantic rename, ◐ no prepareRename |
 | Formatting | `textDocument/formatting` | 🔶 Partial | ◐ spacing, range |
 | Block-end hints | `textDocument/inlayHint` | ✅ Full | ■ parameter names and inferred types |
+| Call hierarchy | `textDocument/prepareCallHierarchy`, `callHierarchy/*` | Not provided | ■ call relationships |
 
 Legend: ◐ depth (outstanding work) · ■ boundary (belongs to a language engine).
 

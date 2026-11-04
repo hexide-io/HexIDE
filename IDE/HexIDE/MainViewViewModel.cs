@@ -1094,6 +1094,17 @@ public partial class MainViewViewModel : ObservableObject
     private readonly HexIDE.Debugging.IBreakpointService breakpointService;
     private readonly HexIDE.Runtime.Debugging.IDebugController debugController;
 
+    private void ShowResultsTool(Tool tool)
+    {
+        if (FindDock<IDockable>(d => ReferenceEquals(d, tool)) is null)
+        {
+            OpenImmediateTool();
+            dockFactory.AddDockable((IToolDock)Immediate.Owner!, tool);
+        }
+        ((IDock)tool.Owner!).ActiveDockable = tool;
+        dockFactory.SetFocusedDockable((IDock)tool.Owner!, tool);
+    }
+
     public MainViewViewModel(IWindowManager windowManager,
         ToolBoxToolViewModel toolBox,
         PropertiesToolViewModel properties,
@@ -1138,6 +1149,7 @@ public partial class MainViewViewModel : ObservableObject
         HexIDE.Runtime.Debugging.IDebugController debugController,
         RecentEditsToolViewModel recentEdits,
         FindReferencesToolViewModel? findReferences,
+        CallHierarchyToolViewModel? callHierarchy,
         HexIDE.Debugging.ExternalDebugService? externalDebugger = null,
         HexIDE.Recovery.IRecoveryOffers? recoveryOffers = null)
     {
@@ -1147,16 +1159,12 @@ public partial class MainViewViewModel : ObservableObject
             findReferences.LayoutResized += ScheduleLayoutSave;
             eventBus.Subscribe<ShowReferenceLocationsEvent>(e => findReferences.ShowLocations(e.Locations));
             eventBus.Subscribe<FindReferencesEvent>(e => findReferences.SearchAsync(e.Uri, e.Position).ListenErrors());
-            findReferences.ShowRequested += () =>
-            {
-                if (FindDock<IDockable>(d => ReferenceEquals(d, findReferences)) is null)
-                {
-                    OpenImmediateTool();
-                    dockFactory.AddDockable((IToolDock)immediate.Owner!, findReferences);
-                }
-                ((IDock)findReferences.Owner!).ActiveDockable = findReferences;
-                dockFactory.SetFocusedDockable((IDock)findReferences.Owner!, findReferences);
-            };
+            findReferences.ShowRequested += () => ShowResultsTool(findReferences);
+        }
+        if (callHierarchy is not null)
+        {
+            eventBus.Subscribe<CallHierarchyEvent>(e => callHierarchy.SearchAsync(e.Uri, e.Position).ListenErrors());
+            callHierarchy.ShowRequested += () => ShowResultsTool(callHierarchy);
         }
         this.recoveryOffers = recoveryOffers;
         RecoverUnsavedWorkCommand = new DelegateCommand(

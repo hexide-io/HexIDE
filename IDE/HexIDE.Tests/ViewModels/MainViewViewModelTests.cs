@@ -93,6 +93,24 @@ public class MainViewViewModelTests
         group.ActiveDockable.Should().BeSameAs(references);
     }
 
+    [AvaloniaFact]
+    public async Task CallHierarchyRerunsReuseTheImmediateGroupPane()
+    {
+        var client = Substitute.For<ILspClient>();
+        client.FindCallHierarchyAsync(Arg.Any<string>(), Arg.Any<HexIDE.Lsp.Messages.Position>(), Arg.Any<CancellationToken>())
+            .Returns(new CallHierarchyResult([], []));
+        var pane = new CallHierarchyToolViewModel(client, Substitute.For<IEditorService>(), _localization);
+        var shell = Build(_runnerService, hierarchy: pane);
+        await pane.SearchAsync("untitled:P/Module1.bas", new(0, 0), TestContext.Current.CancellationToken);
+        var group = (Dock.Model.Controls.IToolDock)pane.Owner!;
+        pane.Owner.Should().BeSameAs(shell.Immediate.Owner);
+        group.Alignment.Should().Be(Dock.Model.Core.Alignment.Bottom);
+        await pane.SearchAsync("untitled:P/Module1.bas", new(1, 0), TestContext.Current.CancellationToken);
+        pane.Owner.Should().BeSameAs(group);
+        group.VisibleDockables!.Count(d => ReferenceEquals(d, pane)).Should().Be(1);
+        group.ActiveDockable.Should().BeSameAs(pane);
+    }
+
     [AvaloniaTheory]
     [InlineData(null)]
     [InlineData(ModuleKind.StandardModule)]
@@ -180,7 +198,7 @@ public class MainViewViewModelTests
         HexIDE.Debugging.IBreakpointService? breakpoints = null, IProjectService? projects = null,
         HexIDE.Recovery.IRecoveryOffers? recoveryOffers = null,
         HexIDE.Debugging.ExternalDebugService? external = null, IEditorService? editor = null,
-        FindReferencesToolViewModel? references = null)
+        FindReferencesToolViewModel? references = null, CallHierarchyToolViewModel? hierarchy = null)
     {
         projects ??= _projectService;
         var mockDocDock = dock ?? Substitute.For<IDocumentDockService>();
@@ -280,7 +298,7 @@ public class MainViewViewModelTests
             breakpoints ?? Substitute.For<HexIDE.Debugging.IBreakpointService>(),
             _debugController,
             new RecentEditsToolViewModel(new RecentEditHistory(_eventBus), () => editorService, loc),
-            recoveryOffers: recoveryOffers, externalDebugger: external, findReferences: references);
+            recoveryOffers: recoveryOffers, externalDebugger: external, findReferences: references, callHierarchy: hierarchy);
     }
 
     [AvaloniaTheory]

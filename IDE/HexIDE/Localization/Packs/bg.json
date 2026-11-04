@@ -2,6 +2,11 @@
   "name": "Bulgarian",
   "direction": "ltr",
   "strings": {
+    "Str.Tool.CallHierarchy.Title": "Йерархия на извикванията",
+    "Str.Tool.CallHierarchy.CallsTo": "Извиквания към",
+    "Str.Tool.CallHierarchy.CallsFrom": "Извиквания от",
+    "Str.Tool.CallHierarchy.Empty": "Няма намерени извиквания.",
+    "Str.Tool.CallHierarchy.CallSite": "Извикване на {0}:{1}",
     "Str.Tool.FindReferences.Title": "Търсене на препратки",
     "Str.Tool.FindReferences.Empty": "Няма препратки",
     "Str.Tool.FindReferences.Error": "{0}: {1}",

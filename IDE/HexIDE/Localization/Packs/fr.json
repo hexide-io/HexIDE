@@ -2,6 +2,11 @@
   "name": "French",
   "direction": "ltr",
   "strings": {
+    "Str.Tool.CallHierarchy.Title": "Hiérarchie des appels",
+    "Str.Tool.CallHierarchy.CallsTo": "Appels vers",
+    "Str.Tool.CallHierarchy.CallsFrom": "Appels depuis",
+    "Str.Tool.CallHierarchy.Empty": "Aucun appel trouvé.",
+    "Str.Tool.CallHierarchy.CallSite": "Appel à {0}:{1}",
     "Str.Tool.FindReferences.Title": "Rechercher les références",
     "Str.Tool.FindReferences.Empty": "Aucune référence",
     "Str.Tool.FindReferences.Error": "{0}: {1}",

@@ -2140,6 +2140,15 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
         await lspClient.ExecuteCommandAsync(command.CommandName, command.Arguments);
     }
 
+    public bool CanShowCallHierarchy => LiveDocumentUri is { } uri && lspClient.SupportsCallHierarchy(uri);
+
+    public async Task ShowCallHierarchyAsync(Position position)
+    {
+        if (!CanShowCallHierarchy) return;
+        await FlushDocumentAsync();
+        if (LiveDocumentUri is { } uri) eventBus.Publish(new CallHierarchyEvent(uri, position));
+    }
+
     public async Task FindReferencesAsync(Position position)
     {
         await FlushDocumentAsync();

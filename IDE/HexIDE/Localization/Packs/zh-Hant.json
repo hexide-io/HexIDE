@@ -2,6 +2,11 @@
   "name": "Chinese (Traditional)",
   "direction": "ltr",
   "strings": {
+    "Str.Tool.CallHierarchy.Title": "呼叫階層",
+    "Str.Tool.CallHierarchy.CallsTo": "傳入呼叫",
+    "Str.Tool.CallHierarchy.CallsFrom": "傳出呼叫",
+    "Str.Tool.CallHierarchy.Empty": "找不到呼叫。",
+    "Str.Tool.CallHierarchy.CallSite": "{0}:{1} 的呼叫",
     "Str.Tool.FindReferences.Title": "尋找參照",
     "Str.Tool.FindReferences.Empty": "沒有參照",
     "Str.Tool.FindReferences.Error": "{0}: {1}",
