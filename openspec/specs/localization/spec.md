@@ -185,6 +185,14 @@ controls to the other side of a form whose layout they did not change.
 - **WHEN** a right-to-left language is active
 - **THEN** the IDE's panels, menus and dialogs mirror
 
+#### Scenario: Opening a shared desktop dialog under a right-to-left interface
+- **WHEN** Arabic or Hebrew is active and the IDE opens About, InputBox, MessageBox, Font, Color or Print
+- **THEN** the shared dialog window SHALL take the active language pack's flow direction
+- **AND** its content SHALL inherit that right-to-left direction (#2874)
+- **AND** program MessageBox and InputBox windows and their content SHALL remain left-to-right: their prompts belong to the program, and Windows lays out MessageBox left-to-right unless the program requests RTL reading (#3014)
+- **AND** Font, Color and Print SHALL stay mirrored even when opened by a running program’s CommonDialog: they stand in for system dialogs, follow the interface language, and use IDE language-pack text
+- **NOTE** this is the chosen scope, not a measurement on Hebrew Windows; neither dialog distinction has been measured there
+
 #### Scenario: Designing a form under a right-to-left interface
 - **WHEN** a form is open on the design surface under a right-to-left language
 - **THEN** the canvas and the controls on it are not mirrored
