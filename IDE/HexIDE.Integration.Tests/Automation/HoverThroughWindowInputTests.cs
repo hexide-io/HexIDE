@@ -441,6 +441,80 @@ public class HoverThroughWindowInputTests
         finally { window.Close(); vm.Dispose(); }
     }
 
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task External_stop_ignores_the_editor_callback_from_a_previous_attachment(bool reattach)
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var directory = Path.Combine(Path.GetTempPath(), "hexide-redock-" + Guid.NewGuid());
+        Directory.CreateDirectory(directory);
+        await using var log = new HexIDE.Conversations.ConversationLog();
+        var external = new ExternalDebugService(log);
+        var localization = Substitute.For<ILocalizationService>();
+        var controller = Substitute.For<IDebugController>();
+        var immediate = new HexIDE.Tools.ImmediateToolViewModel(localization, controller, external);
+        external.Failed += message => immediate.Document.Insert(immediate.Document.TextLength, message);
+        external.Output += text => immediate.Document.Insert(immediate.Document.TextLength, text);
+        var locals = new HexIDE.Tools.LocalsToolViewModel(localization, controller, external);
+        var stack = new HexIDE.Tools.CallStackToolViewModel(localization, controller, external);
+        Window? host = null;
+        CodeEditorView? view = null;
+        var redocked = false;
+        bool? staleCallbackCancelledHover = null;
+        using var hover = new CancellationTokenSource();
+        // MainViewViewModel subscribes before the editor. Opening inspection tools re-parents the editor
+        // during this invocation, whose delegate list still includes the old attachment's callback (#3048).
+        external.Changed += () =>
+        {
+            if (redocked || external.SelectedFrame is null) return;
+            redocked = true;
+            host!.Content = null;
+            if (reattach) host.Content = view;
+            typeof(CodeEditorView).GetField("_hoverCts", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
+                .SetValue(view, hover);
+        };
+        var (window, _, vm) = ShowEditor(external);
+        host = window;
+        view = (CodeEditorView)window.Content!;
+        external.Changed += () =>
+        {
+            if (redocked && staleCallbackCancelledHover is null)
+                staleCallbackCancelledHover = hover.IsCancellationRequested;
+        };
+        var config = Path.Combine(directory, "launch.json");
+        var executable = Path.GetFullPath("../../../dotnet" + (OperatingSystem.IsWindows() ? ".exe" : ""),
+            System.Runtime.InteropServices.RuntimeEnvironment.GetRuntimeDirectory());
+        await File.WriteAllTextAsync(config, System.Text.Json.JsonSerializer.Serialize(new
+        {
+            executable, arguments = new[] { typeof(HexIDE.Dap.TestAdapter.Program).Assembly.Location, "frames" },
+            adapterId = "fixture", launch = new { },
+        }), cancellationToken);
+        var run = external.StartAsync(config);
+        try
+        {
+            await WaitForTip(view.FindControl<TextEditor>("TextEditor")!, () => external.Variables.Count == 1 || immediate.Document.TextLength > 0,
+                "the stopped frame inspection to finish after re-docking");
+            redocked.Should().BeTrue();
+            immediate.Document.Text.Should().BeEmpty();
+            staleCallbackCancelledHover.Should().BeFalse("an obsolete callback must not touch the new attachment's hover");
+            locals.ContextLabel.Should().Be("Callee");
+            var variable = locals.Roots.Should().ContainSingle().Subject;
+            variable.Expression.Should().Be("calleeValue");
+            variable.Value.Should().Be("41");
+            stack.Frames.Should().HaveCount(2);
+            stack.SelectedFrame?.FrameId.Should().Be(0);
+            external.SelectedFrame!.Value.GetProperty("id").GetInt32().Should().Be(0);
+        }
+        finally
+        {
+            window.Close(); vm.Dispose();
+            await external.StopAsync();
+            await run.WaitAsync(TimeSpan.FromSeconds(20), cancellationToken);
+            Directory.Delete(directory, true);
+        }
+    }
+
     [AvaloniaFact]
     public async Task External_hover_uses_a_stopped_frame_and_quick_info_after_continue()
     {
