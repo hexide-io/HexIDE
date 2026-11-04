@@ -249,10 +249,11 @@ public partial class ProjectService : IProjectService
     {
         if (!DocumentLookup.DocumentsOf(document.Project).Contains(document))
             return;
-        if (document.Project.ContributedBy is { } type)
+        if (document.Project.ContributedBy is not null)
         {
             await windowManager.MessageBox(
-                string.Format(localization.GetString("Str.ContributedProject.MembershipReadOnly"), document.Project.Name, type),
+                string.Format(localization.GetString("Str.ContributedProject.MembershipReadOnly"), document.Project.Name,
+                    document.Project.ContributorTitle),
                 icon: MessageBoxIcon.Information);
             return;
         }
@@ -418,7 +419,8 @@ public partial class ProjectService : IProjectService
         {
             try
             {
-                content = await type.Type.OpenAsync(projectPath, changes, CancellationToken.None);
+                // Called off if the type is taken out meanwhile, as when its add-in is unloaded.
+                content = await type.Type.OpenAsync(projectPath, changes, type.Withdrawn);
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
@@ -429,7 +431,7 @@ public partial class ProjectService : IProjectService
                 return;
             }
 
-            (project, problems) = await ContributedProjects.BuildAsync(projectPath, content, type.Type.Title, HostAnsi,
+            (project, problems) = await ContributedProjects.BuildAsync(projectPath, content, type, HostAnsi,
                 baselineStore.Record, localization);
             projectManager.AddProject(project);
             recentProjects.Add(projectPath);
@@ -1404,10 +1406,10 @@ public partial class ProjectService : IProjectService
     // writes: a change made here would be lost on close, unprompted, or overwritten by the add-in's next report.
     private async Task<bool> RefusedSettings(ProjectDefinition project)
     {
-        if (project.ContributedBy is not { } type)
+        if (project.ContributedBy is null)
             return false;
         await windowManager.MessageBox(
-            string.Format(localization.GetString("Str.ContributedProject.SettingsReadOnly"), project.Name, type),
+            string.Format(localization.GetString("Str.ContributedProject.SettingsReadOnly"), project.Name, project.ContributorTitle),
             icon: MessageBoxIcon.Information);
         return true;
     }
@@ -1451,9 +1453,9 @@ public partial class ProjectService : IProjectService
         // in place of the file the add-in owns.
         if (projectDefinition.ContributedBy is { } contributor)
         {
-            make.NotMade($"{projectDefinition.Name} is a {contributor} project, which HexIDE doesn't make", true);
+            make.NotMade($"{projectDefinition.Name} is opened by the {contributor} add-in, so HexIDE doesn't make it", true);
             await windowManager.MessageBox(string.Format(localization.GetString("Str.ContributedProject.NotMade"),
-                projectDefinition.Name, contributor), icon: MessageBoxIcon.Information);
+                projectDefinition.Name, projectDefinition.ContributorTitle), icon: MessageBoxIcon.Information);
             throw new OperationCanceledException();
         }
 

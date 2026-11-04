@@ -92,7 +92,10 @@ public sealed class ContributedProjectTests : IDisposable
             _changes = changes;
             return Task.FromResult((read ?? (_ => Content()))(path));
         },
-    }, "RDCore for HexIDE");
+    }, RDCore);
+
+    private static readonly AddinOrigin RDCore = new("rdcore", "RDCore for HexIDE");
+    private static readonly AddinOrigin Other = new("other", "Other add-in");
 
     private async Task<ProjectDefinition> Opened()
     {
@@ -108,7 +111,8 @@ public sealed class ContributedProjectTests : IDisposable
         var project = await Opened();
 
         project.Name.Should().Be("Ledger");
-        project.ContributedBy.Should().Be("RDCore projects");
+        project.ContributedBy.Should().Be("rdcore", "an add-in is known by its manifest id");
+        project.ContributorTitle.Should().Be("RDCore for HexIDE");
         project.AbsolutePath.Should().Be(ProjectFile);
         project.Modules.Select(module => (module.Name, module.Kind)).Should().Equal(
             ("Startup", ModuleKind.StandardModule), ("Account", ModuleKind.ClassModule), ("Sheet1", ModuleKind.ClassModule));
@@ -194,7 +198,7 @@ public sealed class ContributedProjectTests : IDisposable
         await _service.EditProjectComponents(project);
 
         await _windows.DidNotReceive().ShowDialog(Arg.Any<IDialog>());
-        await _windows.Received(3).MessageBox(Arg.Is<string>(text => text == "Str.ContributedProject.SettingsReadOnly Ledger RDCore projects"),
+        await _windows.Received(3).MessageBox(Arg.Is<string>(text => text == "Str.ContributedProject.SettingsReadOnly Ledger RDCore for HexIDE"),
             Arg.Any<string?>(), Arg.Any<MessageBoxButtons>(), Arg.Any<MessageBoxIcon>(), Arg.Any<Avalonia.Controls.Window?>(), Arg.Any<bool>());
     }
 
@@ -406,7 +410,7 @@ public sealed class ContributedProjectTests : IDisposable
 
         await _service.OpenProject(group);
 
-        _loaded.Should().ContainSingle().Which.ContributedBy.Should().Be("RDCore projects",
+        _loaded.Should().ContainSingle().Which.ContributedBy.Should().Be("rdcore",
             "a group names a project file as Open Project does, and is read the same way");
         await _windows.Received(1).MessageBox(Arg.Is<string>(text => text == "Str.ContributedProject.NoReader Other.xproj"),
             Arg.Any<string?>(), Arg.Any<MessageBoxButtons>(), Arg.Any<MessageBoxIcon>(), Arg.Any<Avalonia.Controls.Window?>(), Arg.Any<bool>());
@@ -424,7 +428,7 @@ public sealed class ContributedProjectTests : IDisposable
         await ((Func<Task>)(() => _service.MakeProject(project))).Should().ThrowAsync<OperationCanceledException>();
 
         await _windows.DidNotReceive().SaveFilePickerAsync(Arg.Any<Avalonia.Platform.Storage.FilePickerSaveOptions>());
-        await _windows.Received(1).MessageBox(Arg.Is<string>(text => text.StartsWith("Str.ContributedProject.NotMade Ledger RDCore projects")),
+        await _windows.Received(1).MessageBox(Arg.Is<string>(text => text.StartsWith("Str.ContributedProject.NotMade Ledger RDCore for HexIDE")),
             Arg.Any<string?>(), Arg.Any<MessageBoxButtons>(), Arg.Any<MessageBoxIcon>(), Arg.Any<Avalonia.Controls.Window?>(), Arg.Any<bool>());
         File.ReadAllText(ProjectFile).Should().Be(before);
     }
@@ -456,13 +460,56 @@ public sealed class ContributedProjectTests : IDisposable
         using var first = Contribute();
         AddinProjectType Reading(params string[] names) => new("Other") { FileNames = names, OpenAsync = (_, _, _) => throw new NotImplementedException() };
 
-        ((Action)(() => _types.Register(Reading("*.vbp"), "Other add-in"))).Should().Throw<InvalidOperationException>();
-        ((Action)(() => _types.Register(Reading(".rdproj"), "Other add-in"))).Should().Throw<InvalidOperationException>();
-        ((Action)(() => _types.Register(Reading("*.rdproj"), "Other add-in"))).Should().Throw<InvalidOperationException>();
-        ((Action)(() => _types.Register(Reading("*.*"), "Other add-in"))).Should().Throw<ArgumentException>();
-        ((Action)(() => _types.Register(Reading(), "Other add-in"))).Should().Throw<ArgumentException>();
-        using var fine = _types.Register(Reading("*.mypro"), "Other add-in");
+        ((Action)(() => _types.Register(Reading("*.vbp"), Other))).Should().Throw<InvalidOperationException>();
+        ((Action)(() => _types.Register(Reading(".rdproj"), Other))).Should().Throw<InvalidOperationException>();
+        ((Action)(() => _types.Register(Reading("*.rdproj"), Other))).Should().Throw<InvalidOperationException>();
+        ((Action)(() => _types.Register(Reading("*.*"), Other))).Should().Throw<ArgumentException>();
+        ((Action)(() => _types.Register(Reading(), Other))).Should().Throw<ArgumentException>();
+        using var fine = _types.Register(Reading("*.mypro"), Other);
         _types.Find(Path.Join(_dir, "x.mypro"))!.Origin.Should().Be("Other add-in");
+    }
+
+    [Fact]
+    public void A_type_reads_the_file_names_it_was_registered_with_whatever_its_list_holds_later()
+    {
+        var names = new List<string> { "*.mypro" };
+        using var type = _types.Register(new AddinProjectType("Other") { FileNames = names, OpenAsync = (_, _, _) => throw new NotImplementedException() }, Other);
+
+        names[0] = "*.vbp";
+        names.Add(".rdproj");
+
+        _types.Find(Path.Join(_dir, "x.mypro")).Should().NotBeNull();
+        _types.Find(Path.Join(_dir, "x.vbp")).Should().BeNull("a type never takes HexIDE's own files, however it is changed");
+        using var rdcore = Contribute();
+        _types.Find(ProjectFile)!.Origin.Should().Be("RDCore for HexIDE");
+    }
+
+    [AvaloniaFact]
+    public async Task An_open_in_progress_is_called_off_when_its_type_is_taken_out()
+    {
+        var reading = new TaskCompletionSource<AddinProjectContent>();
+        var token = CancellationToken.None;
+        var type = _types.Register(new AddinProjectType("RDCore projects")
+        {
+            FileNames = [".rdproj"],
+            OpenAsync = (_, changes, cancellation) =>
+            {
+                _changes = changes;
+                token = cancellation;
+                cancellation.Register(() => reading.TrySetCanceled(cancellation));
+                return reading.Task;
+            },
+        }, RDCore);
+
+        var open = _service.OpenProject(ProjectFile);
+        token.IsCancellationRequested.Should().BeFalse();
+        type.Dispose();
+
+        // The deadline only bounds an open that is never called off, which then fails as a TimeoutException.
+        await ((Func<Task>)(() => open.WaitAsync(TimeSpan.FromSeconds(30)))).Should().ThrowAsync<OperationCanceledException>();
+        token.IsCancellationRequested.Should().BeTrue();
+        _loaded.Should().BeEmpty();
+        _changes!.Closed.IsCancellationRequested.Should().BeTrue();
     }
 
     [Fact]

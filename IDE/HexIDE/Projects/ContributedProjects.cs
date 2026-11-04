@@ -8,8 +8,19 @@ using HexIDE.Utils;
 
 namespace HexIDE.Projects;
 
-/// <summary>A project type an add-in contributed, under the name of the add-in that did.</summary>
-public sealed record ContributedProjectType(AddinProjectType Type, string Origin);
+/// <summary>A project type an add-in contributed, with the add-in that did.</summary>
+/// <param name="Type">The type, its file names copied when it was contributed.</param>
+/// <param name="AddinId">The add-in's manifest id, which stays the same.</param>
+/// <param name="Origin">The add-in's title, for display.</param>
+public sealed record ContributedProjectType(AddinProjectType Type, string AddinId, string Origin)
+{
+    private readonly CancellationTokenSource _withdrawn = new();
+
+    /// <summary>Cancelled once the type is taken out, as when its add-in is unloaded; an open in progress is called off.</summary>
+    public CancellationToken Withdrawn => _withdrawn.Token;
+
+    internal void Withdraw() => _withdrawn.Cancel();
+}
 
 /// <summary>
 /// The project types add-ins contribute (<see cref="IHexIdeHost.RegisterProjectType"/>), and the reading of a project file
@@ -35,28 +46,28 @@ public sealed partial class ContributedProjects
         }
     }
 
-    internal IDisposable Register(AddinProjectType type, AddinOrigin origin) => Register(type, origin.Title);
-
     /// <summary>Adds an add-in's project type.</summary>
     /// <returns>What takes it out again.</returns>
-    public IDisposable Register(AddinProjectType type, string origin)
+    internal IDisposable Register(AddinProjectType type, AddinOrigin origin)
     {
         ArgumentNullException.ThrowIfNull(type);
         ArgumentException.ThrowIfNullOrWhiteSpace(type.Title, nameof(type));
-        ArgumentException.ThrowIfNullOrWhiteSpace(origin);
-        if (type.OpenAsync is null || type.FileNames is not { Count: > 0 } names)
+        ArgumentException.ThrowIfNullOrWhiteSpace(origin.Id);
+        if (type.OpenAsync is null || type.FileNames is not { Count: > 0 })
             throw new ArgumentException("A project type needs the files it reads and what reads them.", nameof(type));
+        // Copied, so the names checked below are the names read: a list the add-in changes later changes neither.
+        IReadOnlyList<string> names = [.. type.FileNames];
         foreach (var name in names)
             if (!IsFileNameOrPattern(name))
                 throw new ArgumentException($"'{name}' is neither a file name nor a pattern of the form '*.ext'.", nameof(type));
 
-        var contributed = new ContributedProjectType(type, origin);
+        var contributed = new ContributedProjectType(type with { FileNames = names }, origin.Id, origin.Title);
         lock (_gate)
         {
             var taken = names.FirstOrDefault(name =>
                 OwnPatterns.Any(own => Overlaps(own, name)) || _types.Any(known => known.Type.FileNames.Any(other => Overlaps(other, name))));
             if (taken is not null)
-                throw new InvalidOperationException($"{origin} contributes a project type for '{taken}', which another project type reads already.");
+                throw new InvalidOperationException($"{origin.Title} contributes a project type for '{taken}', which another project type reads already.");
             _types.Add(contributed);
         }
         TypesChanged?.Invoke();
@@ -65,7 +76,9 @@ public sealed partial class ContributedProjects
         {
             bool removed;
             lock (_gate) removed = _types.Remove(contributed);
-            if (removed) TypesChanged?.Invoke();
+            if (!removed) return;
+            contributed.Withdraw();
+            TypesChanged?.Invoke();
         });
         // An add-in whose initialisation fails has its type taken out with its other contributions.
         AddinInitializationScope.Record(handle.Dispose);
@@ -102,12 +115,13 @@ public sealed partial class ContributedProjects
     /// cannot be read, or whose name another member has, is left out and named in the returned problems.
     /// </summary>
     internal static async Task<(ProjectDefinition Project, IReadOnlyList<string> Problems)> BuildAsync(
-        string path, AddinProjectContent content, string origin, Vb6TextEncoding hostAnsi, Action<string, byte[]>? fileRead,
-        ILocalizationService localization)
+        string path, AddinProjectContent content, ContributedProjectType type, Vb6TextEncoding hostAnsi,
+        Action<string, byte[]>? fileRead, ILocalizationService localization)
     {
         var project = new ProjectDefinition(VBProjectType.EXE, content.Name)
         {
-            ContributedBy = origin,
+            ContributedBy = type.AddinId,
+            ContributorTitle = type.Origin,
         };
         project.AbsolutePath = path;
         project.ItemLinesDirectory = Path.GetDirectoryName(path)!;

@@ -7,12 +7,14 @@ namespace HexIDE.Addins;
 /// <remarks>
 /// <para>
 /// <b>Read-only membership.</b> The project file is the add-in's program's to write, never HexIDE's: saving writes the
-/// modules that were edited and not the project file, and Add File, Remove and Rename are not offered for the project. A
-/// change to the project's membership reaches HexIDE the other way, through <see cref="IAddinProjectChanges"/>.
+/// modules that were edited and not the project file. Adding and removing members, Project Properties, References and
+/// Components are not offered for the project, and HexIDE neither makes nor runs it. Renaming a module is offered, as its
+/// name is the <c>Attribute VB_Name</c> in its own file. A change to the project's membership reaches HexIDE the other way,
+/// through <see cref="IAddinProjectChanges"/>.
 /// </para>
 /// <para>
-/// <b>Opened only when the user opens one.</b> HexIDE asks the add-in to read a file it names, from Open Project or the
-/// recent projects list, and at no other time.
+/// <b>Opened only when the user opens one.</b> HexIDE asks the add-in to read a file it names, from Open Project, the
+/// recent projects list or a project group, and at no other time.
 /// </para>
 /// </remarks>
 /// <param name="Title">What the Open Project dialog calls the files, such as <c>"RDCore projects"</c>.</param>
@@ -20,14 +22,14 @@ public sealed record AddinProjectType(string Title)
 {
     /// <summary>
     /// The files it reads: whole file names, such as <c>".rdproj"</c>, or patterns of the form <c>"*.ext"</c>. Compared
-    /// case-insensitively.
+    /// case-insensitively, and copied when the type is registered.
     /// </summary>
     public required IReadOnlyList<string> FileNames { get; init; }
 
     /// <summary>
     /// Reads the project file at a full path. The changes handle is how the add-in tells HexIDE, for as long as the project
     /// stays open, that its membership or references changed. One that throws leaves nothing opened, and its message is
-    /// shown.
+    /// shown. The token is cancelled if the type is taken out before the read ends, as when the add-in is unloaded.
     /// </summary>
     public required Func<string, IAddinProjectChanges, CancellationToken, Task<AddinProjectContent>> OpenAsync { get; init; }
 }
