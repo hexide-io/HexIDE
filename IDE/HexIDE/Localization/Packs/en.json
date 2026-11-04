@@ -53,6 +53,7 @@
     "Str.Archive.OpenErrorFormat": "Could not open {0}:\n{1}",
     "Str.ContributedProject.OpenError": "Could not open {0} with {1}:\n{2}",
     "Str.ContributedProject.MembershipReadOnly": "{0} is a {1} project, whose files are added and removed by the program it belongs to, not by HexIDE.",
+    "Str.ContributedProject.NoReader": "{0} is opened by an add-in that isn't loaded. HexIDE itself opens .vbp, .vbg and .twinproj projects.",
     "Str.Debug.External.Breakpoint": "External breakpoint: requested line {0}; adapter line {1}; verified: {2}.\n{3}",
     "Str.Debug.External.BreakpointPending": "Waiting for breakpoint verification.",
     "Str.Tool.Immediate.Expired": "The evaluation context changed; its reply was discarded.",
