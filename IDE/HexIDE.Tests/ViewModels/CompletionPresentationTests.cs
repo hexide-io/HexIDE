@@ -48,11 +48,11 @@ public class CompletionPresentationTests
     }
 
     [AvaloniaTheory]
-    [InlineData("", "B,A", "A")]
-    [InlineData("B", "B", "B")]
-    [InlineData("nee", "A", "A")]
-    [InlineData("unmatched", "B,A", "B")]
-    public void ListUsesOrdinalServerRankingAndMatchingPreselection(string prefix, string visible, string selected)
+    [InlineData("", "B,A", null)]
+    [InlineData("B", "B,A", "B")]
+    [InlineData("nee", "B,A", "A")]
+    [InlineData("unmatched", "B,A", null)]
+    public void ListUsesOrdinalServerRankingAndMatchingPreselection(string prefix, string visible, string? selected)
     {
         var theme = new Avalonia.Themes.Simple.SimpleTheme();
         var editorTheme = new Avalonia.Markup.Xaml.Styling.StyleInclude(new Uri("avares://AvaloniaEdit/"))
@@ -78,7 +78,8 @@ public class CompletionPresentationTests
             Avalonia.Threading.Dispatcher.UIThread.RunJobs();
             popup.CompletionList.CompletionData.Select(data => data.ToString()).Should().Equal("B", "A");
             popup.CompletionList.CurrentList.Select(data => data.ToString()).Should().Equal(visible.Split(','));
-            popup.CompletionList.SelectedItem.ToString().Should().Be(selected);
+            // Parenthesised: `SelectedItem?.ToString().Should()` would skip the assertion whenever nothing is selected.
+            (popup.CompletionList.SelectedItem?.ToString()).Should().Be(selected);
         }
         finally
         {

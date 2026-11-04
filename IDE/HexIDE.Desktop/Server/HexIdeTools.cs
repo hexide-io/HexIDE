@@ -1073,8 +1073,16 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
         var client = window.IsVisible && window.WindowState != Avalonia.Controls.WindowState.Minimized
             ? WindowRect.Of(window.PointToScreen(new Avalonia.Point(0, 0)), size, scale) : null;
         return new WindowStateResult(state, pos.X, pos.Y, (int)size.Width, (int)size.Height, name,
-            Scale: Math.Round(scale, 3), Outer: outer, Frame: frame, Client: client, Units: WindowStateUnits);
+            Scale: Math.Round(scale, 3), Outer: outer, Frame: frame, Client: client, Units: WindowStateUnits,
+            Note: ServerOptions.DpiUnaware ? DpiUnawareNote : null);
     }
+
+    /// <summary>Why the scale is 1 on a scaled display, for an IDE started with --dpi-unaware (#3083).</summary>
+    internal const string DpiUnawareNote =
+        "This IDE was started with --dpi-unaware, so Windows tells it the display is at 96 DPI: scale is 1 whatever the "
+        + "display's own scaling, and every number here is in pixels Windows has scaled to match. On the screen, Windows "
+        + "stretches the window to the display's scaling, so it looks blurred there; take_snapshot draws it as a display at "
+        + "100% would show it.";
 
     /// <summary>What every get_window_state reply says of its numbers, since two of them are in one unit and two in another.</summary>
     internal const string WindowStateUnits =
@@ -4015,7 +4023,8 @@ internal record AddFileResult(
 /// <summary>A window's state, as <c>get_window_state</c> reports it. <c>Name</c> is what reaches it as 'window' again;
 /// <c>Error</c> says why no window was read.</summary>
 internal record WindowStateResult(string State, int X, int Y, int Width, int Height, string? Name = null, string? Error = null,
-    double? Scale = null, WindowRect? Outer = null, WindowRect? Frame = null, WindowRect? Client = null, string? Units = null);
+    double? Scale = null, WindowRect? Outer = null, WindowRect? Frame = null, WindowRect? Client = null, string? Units = null,
+    string? Note = null);
 
 /// <summary>A rectangle on the screen in device-independent pixels, to a tenth (#2454).</summary>
 internal record WindowRect(double X, double Y, double Width, double Height)

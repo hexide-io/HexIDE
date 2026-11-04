@@ -79,6 +79,7 @@ public sealed class VBLspClient : ILspClient
     /// </summary>
     private int _connection;
 
+    public event EventHandler? CodeLensRefreshRequested;
     public event EventHandler<PublishDiagnosticsParams>? DiagnosticsPublished;
     public event EventHandler<string>? DocumentRetired;
     public event EventHandler<ShowMessageParams>? MessageShown;
@@ -657,6 +658,7 @@ public sealed class VBLspClient : ILspClient
                     // honours it sends the flat form to a client that never said it could take the tree.
                     DocumentSymbol: new DocumentSymbolClientCapabilities(HierarchicalDocumentSymbolSupport: true),
                     InlayHint: new InlayHintClientCapabilities(),
+                    RangeFormatting: EmptyParams.Instance,
                     Completion: new CompletionClientCapabilities(new CompletionItemKindClientCapabilities(
                         Enum.GetValues<CompletionItemKind>()),
                         CompletionItem: new CompletionItemClientCapabilities(true, ["plaintext"])),
@@ -672,6 +674,7 @@ public sealed class VBLspClient : ILspClient
                     Configuration: true,
                     WorkspaceEdit: new WorkspaceEditClientCapabilities(),
                     Diagnostics: new WorkspaceDiagnosticsClientCapabilities(),
+                    CodeLens: new WorkspaceCodeLensClientCapabilities(),
                     FileOperations: new FileOperationsClientCapabilities()),
                 // The same declare-and-gate bargain as save and codeLens: silence otherwise is correct.
                 Window: new WindowClientCapabilities(ShowDocument: new ShowDocumentClientCapabilities(),
@@ -1851,6 +1854,27 @@ public sealed class VBLspClient : ILspClient
         }
     }
 
+    public bool SupportsRangeFormatting(string uri) => IsRunning
+        && ServerCapabilities.Supports(AdvertisedCapabilities, "documentRangeFormattingProvider");
+
+    public async Task<TextEdit[]> RequestRangeFormattingAsync(string uri, HexIDE.Lsp.Messages.Range range, FormattingOptions options, CancellationToken cancellationToken = default)
+    {
+        if (_rpc is null || !_initialized || !CanServe("documentRangeFormattingProvider")) return [];
+        var p = new DocumentRangeFormattingParams(
+            new TextDocumentIdentifier(uri), range,
+            options);
+        try
+        {
+            return await InvokeRequestAsync<TextEdit[]?>(_rpc,
+                "textDocument/rangeFormatting", p, cancellationToken, documentUri: uri) ?? [];
+        }
+        catch (Exception ex)
+        {
+            WarnRequestFailedOnce("textDocument/rangeFormatting", ex, cancellationToken);
+            return [];
+        }
+    }
+
     public async Task<TextEdit[]> RequestFormattingAsync(string uri, FormattingOptions options, CancellationToken cancellationToken = default)
     {
         if (_rpc is null || !_initialized || !CanServe("documentFormattingProvider")) return [];
@@ -1901,33 +1925,14 @@ public sealed class VBLspClient : ILspClient
             return [];
         }
 
-        // Resolve here, on the connection that issued the lens. A lens with no command is not broken, it is
-        // deferred -- and a caller cannot resolve it, because by the time lenses from several servers have
-        // been gathered into one list nothing records which connection produced which. Doing it here is what
-        // lets the rest of the client treat a lens as a plain value.
-        if (!ServerCapabilities.ResolvesCodeLenses(AdvertisedCapabilities)) return lenses;
-
-        var resolved = new CodeLens[lenses.Length];
-        for (var i = 0; i < lenses.Length; i++)
-        {
-            // Already actionable. Asking again would be a round trip for an answer we hold.
-            if (lenses[i].Command is not null) { resolved[i] = lenses[i]; continue; }
-            resolved[i] = await ResolveCodeLensAsync(lenses[i], cancellationToken) ?? lenses[i];
-        }
-        return resolved;
+        return lenses;
     }
 
-    /// <summary>
-    /// Fills in one lens's command via <c>codeLens/resolve</c>, or null when the server could not.
-    /// </summary>
-    /// <remarks>
-    /// Deliberately not on <see cref="ILspClient"/>. Exposing it would invite a caller to resolve a lens
-    /// against the wrong connection, which is exactly the mistake the gathering step makes possible and
-    /// this class exists to prevent.
-    /// </remarks>
-    private async Task<CodeLens?> ResolveCodeLensAsync(CodeLens lens, CancellationToken cancellationToken)
+    public async Task<CodeLens?> ResolveCodeLensAsync(CodeLens lens, CancellationToken cancellationToken = default)
     {
-        if (_rpc is null) return null;
+        if (cancellationToken.IsCancellationRequested || _rpc is null || !_initialized) return null;
+        if (lens.Command is not null) return lens;
+        if (!CanServe("codeLensProvider") || !ServerCapabilities.ResolvesCodeLenses(AdvertisedCapabilities)) return null;
         try
         {
             return await InvokeRequestAsync<CodeLens?>(_rpc,
@@ -1935,9 +1940,6 @@ public sealed class VBLspClient : ILspClient
         }
         catch (Exception ex)
         {
-            // The unresolved lens is still returned by the caller. A lens that cannot be resolved is one
-            // the user cannot click, which is poor -- and dropping it would hide that the server offered
-            // something here at all, which is worse.
             WarnRequestFailedOnce("codeLens/resolve", ex, cancellationToken);
             return null;
         }
@@ -2469,6 +2471,10 @@ public sealed class VBLspClient : ILspClient
             };
         }
 
+        [JsonRpcMethod("workspace/codeLens/refresh")]
+        public void OnCodeLensRefresh() =>
+            _client.CodeLensRefreshRequested?.Invoke(_client, EventArgs.Empty);
+
         /// <summary>
         /// The server asking to be asked again — <c>workspace/diagnostic/refresh</c>.
         /// </summary>
@@ -2613,6 +2619,7 @@ public sealed class VBLspClient : ILspClient
         // advertises it IS taken up on it; the absence of a warning is about what its ABSENCE means.
         "diagnosticProvider",
         "documentFormattingProvider",
+        "documentRangeFormattingProvider",
         "documentHighlightProvider",
         "documentSymbolProvider",
         // Read by the command-routing reader rather than a gate: a command is routed to the server that

@@ -66,7 +66,7 @@ the production formatter and source-generated context to guard absence and prese
 |---|---|
 | Lifecycle | `initialize`, `initialized`, `shutdown`, `exit` |
 | Document sync | `textDocument/didOpen`, `didChange`, `didClose`, `didSave` |
-| Language requests | `hover`, `documentSymbol`, `foldingRange`, `completion`, `signatureHelp`, `definition`, `declaration`, `references`, `documentHighlight`, `rename`, `formatting`, `codeLens` |
+| Language requests | `hover`, `documentSymbol`, `foldingRange`, `completion`, `signatureHelp`, `definition`, `declaration`, `references`, `documentHighlight`, `rename`, `formatting`, `rangeFormatting`, `codeLens` |
 | Actions | `codeLens/resolve`, `workspace/executeCommand` — see *Commands and lenses* |
 | Custom | `vb/builtinSymbols` — see *Custom methods* |
 
@@ -74,10 +74,13 @@ Initialize declares `textDocument.completion` with all 25 LSP completion kinds, 
 `documentationFormat: ["plaintext"]`, and default `insertTextMode: 1` (`asIs`). Snippets, insert/replace
 edits, resolve, commit characters, context and list item defaults are not advertised (#2670).
 This follows the [LSP 3.17 completion capability contract](https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#completionClientCapabilities).
-Items from all servers are ordered by `sortText ?? label`, ordinal. Filtering uses `filterText ?? label`,
-while the displayed label and insertion fallback remain the label. On opening, the first preselected
-item matching the typed prefix is selected; otherwise AvaloniaEdit keeps its best match. If no item
-matches the opening word, the server's list remains available; subsequent typing filters it normally. Descriptions
+Items from all servers are ordered by `sortText ?? label`, ordinal. Matching uses `filterText ?? label`,
+while the displayed label and insertion fallback remain the label. The full list stays visible. The first
+preselected prefix match is selected, otherwise the first prefix match, using the whole word around the
+caret. An empty or unmatched word leaves no item selected. Enter accepts a selected item then commits a
+new line; Space accepts then types a space; with no selection those keys only type. Tab accepts the
+selected item or, with no selection, the first outlined item, replacing the whole word. Escape closes
+without accepting. Complete Word inserts a unique prefix match immediately (#3056). Descriptions
 show detail alongside string or MarkupContent documentation, rendered as plain text (including markdown
 source until a markdown renderer is available). Kind glyphs reuse the Object Browser's member and class
 glyphs; kinds without a counterpart have none.
@@ -93,7 +96,7 @@ finishes at `$0` (or the insertion end); Escape ends linking. Multiline whitespa
 Unsupported or malformed snippet syntax refuses the whole completion before applying additional edits.
 Choice placeholders offer their values in the completion picker; selecting a value updates linked
 occurrences. Choice pickers also appear under their editor in automation dumps and snapshots,
-with each choice named by its text. Commas and pipes can be escaped within choices.
+with each choice named by its text. Enter accepts a choice without a line break and keeps snippet navigation active (#3056). Commas and pipes can be escaped within choices.
 After typing in a placeholder, Tab advances when no completion list is open. With a completion
 list open, Tab accepts its selected item, following the editor's ordinary completion rule;
 close that list before using Tab to navigate the snippet.
@@ -871,6 +874,15 @@ after a project save has assigned the `.vbp` its path and when the startup proje
 and reopens the held documents immediately; no new editor needs to open. An unchanged root does not restart
 anything, and failed entries remain failed.
 
+### Real-server close and teardown coverage
+
+`RealServerShutdownTests` reads retained wire bodies for non-empty diagnostics before closing and
+for publications after `didClose`, then asserts the observed integer exit code after normal
+`StopAsync` teardown. All five pinned foreign servers and the bundled server exited 0 on Linux
+(2026-11-04, #491). Close publications differ: texlab retains its diagnostic, the JSON server
+publishes nothing within three seconds, and rumdl, clangd, ruff and the bundled server publish empty
+sets. See [the measurements](foreign-language-servers.md#normal-teardown-and-document-close-2026-11-04-491).
+
 ### Transports
 
 `stdio`, `pipe` (named pipe, connecting or listening) and `websocket` (connecting by default, or listening with `websocketRole: "listen"`) are all supported. Only `stdio` is
@@ -1015,7 +1027,13 @@ advertised triggers) or signature help, so the server receives the current typed
 Document formatting (including format-on-save) sends the editor’s Tab Width as `options.tabSize`
 and `insertSpaces: true`, matching the editor’s conversion of tabs to spaces (#2669).
 Wire tests cover widths 2 and 8 with both `insertSpaces` values; editor delegation tests cover
-both widths with spaces. On-type formatting is not implemented.
+both widths with spaces. Format Selection appears beside Format Document in the code editor's
+context menu. It requires a nonempty selection and a claimant advertising
+`documentRangeFormattingProvider` (boolean or options object). The highest-priority advertiser receives
+`textDocument/rangeFormatting` with the selection's zero-based UTF-16 range and the same formatting
+options. The client declares `textDocument.rangeFormatting` at initialization. Returned edits use
+Format Document's guarded path: one undo step, with IDE-only header and member attribute lines protected.
+The keymap command `FormatSelectionCommand` has no default shortcut. On-type formatting is not implemented.
 
 Completion asks every document claimant concurrently, with a shared **one-second popup budget**.
 It returns when all answers arrive or that budget expires, taking only answers received in time. Items
@@ -1120,11 +1138,29 @@ expose their module, line number and line text as their accessible name.
 implemented as a pair because neither is useful alone: a lens carries a command, and a command with
 nothing to trigger it is unreachable.
 
-**A lens is resolved before it is handed on.** The protocol lets a server return the ranges cheaply and
-compute each command only when asked, via `codeLens/resolve`. An unresolved lens is one the user can see
-and cannot click, so the client resolves its own before answering. That has to happen *inside* the client
-rather than at a call site: once lenses from several servers are gathered into one list, nothing records
-which connection produced which, and a resolve sent to the wrong server is meaningless.
+**Fetching and resolving are separate.** `RequestCodeLensesAsync` returns ranges without resolving
+commands. `ResolveCodeLensAsync` resolves an individual lens when requested; a caller can pass a
+cancellation token when visibility changes. The registry retains the issuing connection by object
+identity, so equal lens values from different servers resolve independently. A copied or unknown lens
+is refused by the registry. Already complete lenses need no round trip, and servers without resolve
+support are not asked. The code window draws resolved lenses above their member lines and runs their commands on click.
+The visual spacer reserves ascent using the editor font metrics so the whole lens row fits above the member text.
+The Options toggle and edit-debounce wiring remain unimplemented (#2906).
+
+`CodeLensSession` supplies the viewport scheduling layer for that editor work: it fetches a document's
+lenses, resolves only starts inside the supplied zero-based visible line interval, cancels resolutions
+that leave view, and discards late replies after cancellation, rediscovery or disposal. Completed lenses
+are retained across viewport updates. `Changed` and `RequestFailed` are raised on the request context;
+UI consumers must dispatch them. Each attached code window owns a session and supplies its visible
+line interval as it scrolls, disposing the session when the view detaches.
+
+The client declares `workspace.codeLens.refreshSupport: true` and answers parameterless
+`workspace/codeLens/refresh` with null. `CodeLensRefreshRequested` preserves the issuing connection through
+the registry; active code windows refetch on that event and unsubscribe when detached.
+
+`rdcore.showReferences` and `editor.action.showReferences` fill the existing Find References pane from
+the locations in the third argument, without asking for references again. Other lens commands use
+the declared-command routing below; undeclared commands are logged once per command.
 
 **A command is routed by who declared it, not by the document.** Every other request here is about a file,
 so "which server" is answered by "which one claims this file". A command has no file. The only thing that
@@ -1198,7 +1234,7 @@ specification's own [`metaModel.json`](https://raw.githubusercontent.com/microso
 the canonical machine-readable list, so the method names and directions are the specification's rather than
 this document's recollection of them.
 
-**HexIDE implements 40 of the 93.** That is not a deficiency in itself — no client implements them all, and
+**HexIDE implements 42 of the 93.** That is not a deficiency in itself — no client implements them all, and
 most of the remainder are features no VB6 IDE needs. It is here so the shape of the gap is visible rather
 than inferred.
 
@@ -1220,7 +1256,7 @@ than inferred.
 | ✅ | `initialized` | → |  |
 | ✅ | `shutdown` | → |  |
 
-### `textDocument/*` — 20 of 41
+### `textDocument/*` — 21 of 41
 
 | | Method | Dir | Notes |
 |---|---|---|---|
@@ -1253,11 +1289,10 @@ than inferred.
 | ○ | `textDocument/prepareRename` | → | No server is asked before the prompt; the code window itself refuses a protected line or a declared name |
 | ○ | `textDocument/prepareTypeHierarchy` | → |  |
 | ✅ | `textDocument/publishDiagnostics` | ← |  |
-| ○ | `textDocument/rangeFormatting` | → |  |
+| ✅ | `textDocument/rangeFormatting` | → |  |
 | ○ | `textDocument/rangesFormatting` | → |  |
-| ✅ | `textDocument/rename` | → | Atomic edits across loaded code members, with version checks and one undo step per member (#1024) |
-
 | ✅ | `textDocument/references` | → | Shift+F12 and menus; grouped results, navigation and per-server error rows; supplied locations reuse the pane (#2907) |
+| ✅ | `textDocument/rename` | → | Atomic edits across loaded code members, with version checks and one undo step per member (#1024) |
 | ○ | `textDocument/selectionRange` | → |  |
 | ✅ | `textDocument/semanticTokens/full` | → | Full relative tokens, highest-priority full provider only; lexical colours remain outside token ranges (#2054) |
 | ○ | `textDocument/semanticTokens/full/delta` | → |  |
@@ -1267,12 +1302,12 @@ than inferred.
 | ○ | `textDocument/willSave` | → |  |
 | ○ | `textDocument/willSaveWaitUntil` | → |  |
 
-### `workspace/*` — 7 of 21
+### `workspace/*` — 8 of 21
 
 | | Method | Dir | Notes |
 |---|---|---|---|
 | ○ | `workspace/applyEdit` | ← | A server cannot ask the IDE to edit a document |
-| ○ | `workspace/codeLens/refresh` | ← |  |
+| ✅ | `workspace/codeLens/refresh` | ← | Answers null and refetches lenses in attached code windows |
 | ✅ | `workspace/configuration` | ← | Returns editor.tabSize from Tab Width; unknown items return null |
 | ○ | `workspace/diagnostic` | → | The pull model, workspace-wide ([#284](https://github.com/hexide-io/HexIDE/issues/284)) |
 | ✅ | `workspace/diagnostic/refresh` | ← | Re-asks every open document; the only way a pull-model server can report a change that is not a document |
@@ -1345,7 +1380,7 @@ than inferred.
 
 | | Method | Dir | Notes |
 |---|---|---|---|
-| ✅ | `codeLens/resolve` | → | Resolved by the issuing client before a lens is handed on |
+| ✅ | `codeLens/resolve` | → | Requested individually on the issuing connection |
 
 ### `documentLink/*` — 0 of 1
 
@@ -1400,6 +1435,10 @@ that, which is CI.
 
 **Regenerate rather than hand-edit.** Adding a row by hand is how the counts and the directions drift apart
 in the first place; the guard will catch it, but the guard is a backstop, not a workflow.
+
+Run `python3 scripts/regenerate-lsp-coverage.py <cached-metaModel.json>` to regenerate while retaining
+coverage marks and notes. Supply `--set METHOD MARK NOTES` to change a method's status as part of generation.
+The script verifies the same pinned model digest as the tests.
 
 ### File-operation notifications (#2248)
 

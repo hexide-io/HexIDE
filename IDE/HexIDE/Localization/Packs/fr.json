@@ -427,6 +427,7 @@
     "Str.CodeEditor.Context.GoToDeclaration": "Atteindre la déclarat_ion",
     "Str.CodeEditor.Context.Rename": "_Renommer...",
     "Str.CodeEditor.Context.FormatDocument": "_Mettre en forme le document",
+    "Str.CodeEditor.Context.FormatSelection": "_Mettre en forme la sélection",
     "Str.Options.Shell.Buttons.ResetAll": "Tout réinitialiser",
     "Str.Options.Shell.Buttons.RestoreDefaults": "Rétablir les valeurs par défaut",
     "Str.Options.Shell.Buttons.Ok": "OK",

@@ -59,3 +59,9 @@ array to T's ParamArray. Writes through that nested array leave the caller's Par
 
 The #2497 correction to form termination order, measured by #2496 in native and p-code builds, is recorded in
 [The Forms collection](vb6-fidelity-oracle/the-forms-collection.md#the-terminates-at-the-runs-end).
+
+Completion acceptance now follows the selected/unselected Enter, Tab and Space behavior and unique-prefix
+Complete Word behavior measured by hexide-int in VB6 SP6 for
+[#3056](https://github.com/hexide-io/HexIDE/issues/3056#issuecomment-6633933454).
+The issue contains the measurement; this run changes the editor, not the measurement record.
+Snippet-choice Enter accepts without a line break by the supervisor's decision in that issue (VB6 has no snippets).

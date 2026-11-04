@@ -696,6 +696,14 @@ where the platform reports no frame.
 - **WHEN** `set_window_state` moves `window: "Form1"` to `x` 720, `y` 360 on a 150% display
 - **THEN** the reply's `outer` starts at 480, 240 and its `frame` and `client` inside it, with `scale` 1.5
 
+### Requirement: A DPI-unaware IDE's window state SHALL say why its scale is 1
+An IDE started with `--dpi-unaware` SHALL give every window-state rectangle in the pixels Windows reports to it, the
+frame included, and its window-state reply SHALL carry a `note` saying why `scale` is 1 on a scaled display.
+
+#### Scenario: The IDE started DPI-unaware on a 150% display
+- **WHEN** `set_window_state` gives `window: "ide"` a client area of 860 by 640 in an IDE started with `--dpi-unaware`
+- **THEN** the reply's `scale` is 1, its `frame` and `client` lie inside its `outer`, and its `note` says why the scale is 1
+
 ### Requirement: Another window SHALL change as a person changes it
 `set_window_state` SHALL change a window other than the IDE's own as its minimize, maximize or restore box or its frame
 would, so a running form's own events run, and SHALL wait for the program as `interact`'s does. It SHALL refuse what a

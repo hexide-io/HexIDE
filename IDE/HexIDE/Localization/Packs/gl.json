@@ -390,6 +390,7 @@
     "Str.CodeEditor.Context.GoToDeclaration": "Ir á dec_laración",
     "Str.CodeEditor.Context.Rename": "_Cambiar nome...",
     "Str.CodeEditor.Context.FormatDocument": "_Formatar documento",
+    "Str.CodeEditor.Context.FormatSelection": "_Formatar selección",
     "Str.Options.Shell.Buttons.ResetAll": "Restablecer todo",
     "Str.Options.Shell.Buttons.RestoreDefaults": "Restaurar valores predeterminados",
     "Str.Options.Shell.Buttons.Ok": "Aceptar",

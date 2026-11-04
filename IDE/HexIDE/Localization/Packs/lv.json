@@ -390,6 +390,7 @@
     "Str.CodeEditor.Context.GoToDeclaration": "Doties uz dek_larāciju",
     "Str.CodeEditor.Context.Rename": "_Pārdēvēt...",
     "Str.CodeEditor.Context.FormatDocument": "_Formatēt dokumentu",
+    "Str.CodeEditor.Context.FormatSelection": "_Formatēt atlasi",
     "Str.Options.Shell.Buttons.ResetAll": "Atiestatīt visu",
     "Str.Options.Shell.Buttons.RestoreDefaults": "Atjaunot noklusējumus",
     "Str.Options.Shell.Buttons.Ok": "Labi",
