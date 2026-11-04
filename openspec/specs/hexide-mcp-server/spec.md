@@ -28,6 +28,20 @@ A single-selection list's `add_to_selection` refusal SHALL name that verb and po
 - **WHEN** the target list or tree row is not selected
 - **THEN** the selection remains unchanged and the reply says the target was not selected
 
+### Requirement: Inspection SHALL bound the values it reports
+`inspect_element` SHALL cut each `dataContextMembers` value after 200 characters and a control's own `value`
+after 4,000 characters, with a suffix stating the cap and full length. When members are cut, `dataContextNote`
+SHALL count them and explain that inspecting a control showing one gives up to 4,000 characters as its `value`,
+joined to any existing note. With no members cut it SHALL add no truncation sentence.
+
+#### Scenario: A templated card's long members
+- **WHEN** a card's text owns a DataContext with two 5,000-character member values
+- **THEN** each is cut at 200 with its full length stated, and the note counts two cuts and explains how to read more
+
+#### Scenario: A control's own long text
+- **WHEN** a TextBox or the Immediate window's editor holds 9,000 characters
+- **THEN** its `value` is cut at 4,000 with the full length stated
+
 ### Requirement: Inspection SHALL give the text of every item a list holds
 `inspect_element` on a list, an open dropdown or a tab control SHALL give `items`, the text of each item as `select`
 matches it, including items whose rows are scrolled out of view, and SHALL leave the list where it was. It SHALL
