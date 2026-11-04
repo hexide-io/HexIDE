@@ -428,6 +428,8 @@
     "Str.CodeEditor.Context.GoToTypeDefinition": "Gå til typedefinition",
     "Str.CodeEditor.Context.GoToDeclaration": "Gå til dekl_aration",
     "Str.CodeEditor.Context.Rename": "_Omdøb...",
+    "Str.CodeEditor.Context.ExpandSelection": "_Udvid markering",
+    "Str.CodeEditor.Context.ShrinkSelection": "_Formindsk markering",
     "Str.CodeEditor.Context.FormatDocument": "_Formatér dokument",
     "Str.CodeEditor.Context.FormatSelection": "_Formatér markering",
     "Str.Options.Shell.Buttons.ResetAll": "Nulstil alt",

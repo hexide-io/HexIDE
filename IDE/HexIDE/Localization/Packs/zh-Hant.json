@@ -428,6 +428,8 @@
     "Str.CodeEditor.Context.GoToTypeDefinition": "移至型別定義",
     "Str.CodeEditor.Context.GoToDeclaration": "移至宣告",
     "Str.CodeEditor.Context.Rename": "重新命名...",
+    "Str.CodeEditor.Context.ExpandSelection": "擴大選取範圍",
+    "Str.CodeEditor.Context.ShrinkSelection": "縮小選取範圍",
     "Str.CodeEditor.Context.FormatDocument": "格式化文件",
     "Str.CodeEditor.Context.FormatSelection": "格式化選取範圍",
     "Str.Options.Shell.Buttons.ResetAll": "全部重設",

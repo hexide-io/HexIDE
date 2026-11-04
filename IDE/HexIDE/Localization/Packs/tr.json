@@ -428,6 +428,8 @@
     "Str.CodeEditor.Context.GoToTypeDefinition": "Tür Tanımına Git",
     "Str.CodeEditor.Context.GoToDeclaration": "B_ildirime Git",
     "Str.CodeEditor.Context.Rename": "_Yeniden Adlandır...",
+    "Str.CodeEditor.Context.ExpandSelection": "Seçimi _Genişlet",
+    "Str.CodeEditor.Context.ShrinkSelection": "Seçimi _Daralt",
     "Str.CodeEditor.Context.FormatDocument": "_Belgeyi Biçimlendir",
     "Str.CodeEditor.Context.FormatSelection": "_Seçimi Biçimlendir",
     "Str.Options.Shell.Buttons.ResetAll": "Tümünü Sıfırla",

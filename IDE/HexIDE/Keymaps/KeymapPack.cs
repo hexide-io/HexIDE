@@ -73,6 +73,8 @@ internal static class CommandKeyMapping
             ["GoToTypeDefinitionCommand"]              = ApplicationCommands.GoToTypeDefinitionCommand,
             ["GoToDeclarationCommand"]                 = ApplicationCommands.GoToDeclarationCommand,
             ["RenameSymbolCommand"]                    = ApplicationCommands.RenameSymbolCommand,
+            ["ExpandSelectionCommand"]                 = ApplicationCommands.ExpandSelectionCommand,
+            ["ShrinkSelectionCommand"]                 = ApplicationCommands.ShrinkSelectionCommand,
             ["FormatSelectionCommand"]                 = ApplicationCommands.FormatSelectionCommand,
             ["FormatDocumentCommand"]                  = ApplicationCommands.FormatDocumentCommand,
             // ── View ──────────────────────────────────────────────

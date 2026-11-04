@@ -428,6 +428,8 @@
     "Str.CodeEditor.Context.GoToTypeDefinition": "Перейти к определению типа",
     "Str.CodeEditor.Context.GoToDeclaration": "Перейти к объявлению",
     "Str.CodeEditor.Context.Rename": "Переименовать...",
+    "Str.CodeEditor.Context.ExpandSelection": "Расширить выделение",
+    "Str.CodeEditor.Context.ShrinkSelection": "Сузить выделение",
     "Str.CodeEditor.Context.FormatDocument": "Форматировать документ",
     "Str.CodeEditor.Context.FormatSelection": "Форматировать выделение",
     "Str.Options.Shell.Buttons.ResetAll": "Сбросить всё",

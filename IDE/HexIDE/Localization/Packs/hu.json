@@ -391,6 +391,8 @@
     "Str.CodeEditor.Context.GoToTypeDefinition": "Ugrás a típus definíciójához",
     "Str.CodeEditor.Context.GoToDeclaration": "Ugrás a dek_larációhoz",
     "Str.CodeEditor.Context.Rename": "Át_nevezés...",
+    "Str.CodeEditor.Context.ExpandSelection": "Kijelölés _bővítése",
+    "Str.CodeEditor.Context.ShrinkSelection": "Kijelölés _szűkítése",
     "Str.CodeEditor.Context.FormatDocument": "Dokumentum _formázása",
     "Str.CodeEditor.Context.FormatSelection": "Kijelölés _formázása",
     "Str.Options.Shell.Buttons.ResetAll": "Összes visszaállítása",

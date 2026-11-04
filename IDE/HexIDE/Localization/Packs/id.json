@@ -428,6 +428,8 @@
     "Str.CodeEditor.Context.GoToTypeDefinition": "Ke Definisi Tipe",
     "Str.CodeEditor.Context.GoToDeclaration": "Buka Dek_larasi",
     "Str.CodeEditor.Context.Rename": "_Ganti Nama...",
+    "Str.CodeEditor.Context.ExpandSelection": "Per_luas Pilihan",
+    "Str.CodeEditor.Context.ShrinkSelection": "Per_sempit Pilihan",
     "Str.CodeEditor.Context.FormatDocument": "_Format Dokumen",
     "Str.CodeEditor.Context.FormatSelection": "_Format Pilihan",
     "Str.Options.Shell.Buttons.ResetAll": "Atur Ulang Semua",

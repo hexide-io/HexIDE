@@ -28,6 +28,23 @@ public sealed class CodeLensSession : IDisposable
     private int firstLine = -1;
     private int lastLine = -1;
     private bool disposed;
+    private bool suspended;
+    private bool current;
+
+    public void Suspend()
+    {
+        lock (gate) suspended = true;
+    }
+
+    public Task ResumeAsync()
+    {
+        lock (gate)
+        {
+            suspended = false;
+            if (current || discovery is { IsCancellationRequested: false }) return Task.CompletedTask;
+        }
+        return RefreshAsync();
+    }
 
     private sealed class Entry(CodeLens lens)
     {
@@ -50,6 +67,12 @@ public sealed class CodeLensSession : IDisposable
         lock (gate)
         {
             if (disposed) return;
+            current = false;
+            if (suspended)
+            {
+                discovery?.Cancel();
+                return;
+            }
             discovery?.Cancel();
             CancelResolutions();
             entries = [];
@@ -63,6 +86,7 @@ public sealed class CodeLensSession : IDisposable
             {
                 if (disposed || request.IsCancellationRequested || discovery != request) return;
                 entries = lenses.Select(l => new Entry(l)).ToArray();
+                current = true;
             }
             Changed?.Invoke(this, EventArgs.Empty);
             await ResolveVisibleAsync();
@@ -82,7 +106,7 @@ public sealed class CodeLensSession : IDisposable
     {
         lock (gate)
         {
-            if (disposed) return Task.CompletedTask;
+            if (disposed || suspended) return Task.CompletedTask;
             this.firstLine = firstLine;
             this.lastLine = lastLine;
             foreach (var entry in entries)
@@ -104,7 +128,7 @@ public sealed class CodeLensSession : IDisposable
         var work = new List<(Entry Entry, CancellationTokenSource Request)>();
         lock (gate)
         {
-            if (disposed) return Task.CompletedTask;
+            if (disposed || suspended) return Task.CompletedTask;
             foreach (var entry in entries)
             {
                 if (!IsVisible(entry) || entry.Attempted || entry.Lens.Command is not null) continue;

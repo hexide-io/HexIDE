@@ -391,6 +391,8 @@
     "Str.CodeEditor.Context.GoToTypeDefinition": "Doties uz tipa definīciju",
     "Str.CodeEditor.Context.GoToDeclaration": "Doties uz dek_larāciju",
     "Str.CodeEditor.Context.Rename": "_Pārdēvēt...",
+    "Str.CodeEditor.Context.ExpandSelection": "_Paplašināt atlasi",
+    "Str.CodeEditor.Context.ShrinkSelection": "_Sašaurināt atlasi",
     "Str.CodeEditor.Context.FormatDocument": "_Formatēt dokumentu",
     "Str.CodeEditor.Context.FormatSelection": "_Formatēt atlasi",
     "Str.Options.Shell.Buttons.ResetAll": "Atiestatīt visu",

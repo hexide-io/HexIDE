@@ -428,6 +428,8 @@
     "Str.CodeEditor.Context.GoToTypeDefinition": "Zur Typdefinition wechseln",
     "Str.CodeEditor.Context.GoToDeclaration": "Gehe zu Dekla_ration",
     "Str.CodeEditor.Context.Rename": "_Umbenennen...",
+    "Str.CodeEditor.Context.ExpandSelection": "Auswahl _erweitern",
+    "Str.CodeEditor.Context.ShrinkSelection": "Auswahl _verkleinern",
     "Str.CodeEditor.Context.FormatDocument": "_Dokument formatieren",
     "Str.CodeEditor.Context.FormatSelection": "_Auswahl formatieren",
     "Str.Options.Shell.Buttons.ResetAll": "Alle zurücksetzen",

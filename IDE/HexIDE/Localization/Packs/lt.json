@@ -391,6 +391,8 @@
     "Str.CodeEditor.Context.GoToTypeDefinition": "Eiti į tipo apibrėžimą",
     "Str.CodeEditor.Context.GoToDeclaration": "Pereiti prie _deklaracijos",
     "Str.CodeEditor.Context.Rename": "_Pervadinti...",
+    "Str.CodeEditor.Context.ExpandSelection": "_Išplėsti pažymėjimą",
+    "Str.CodeEditor.Context.ShrinkSelection": "_Susiaurinti pažymėjimą",
     "Str.CodeEditor.Context.FormatDocument": "_Formatuoti dokumentą",
     "Str.CodeEditor.Context.FormatSelection": "_Formatuoti pažymėtą sritį",
     "Str.Options.Shell.Buttons.ResetAll": "Atkurti viską",

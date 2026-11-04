@@ -102,6 +102,9 @@ public interface ILspClient : IAsyncDisposable
 
     bool IsRunning { get; }
 
+    bool SupportsSelectionRanges(string uri) =>
+        IsRunning && ServerCapabilities.Supports(AdvertisedCapabilities, "selectionRangeProvider");
+
     /// <summary>
     /// What the server called itself during <c>initialize</c>, or null if it said nothing or nothing is
     /// connected. Reported, never trusted: it is the only answer to "which build am I talking to", and it
@@ -232,6 +235,9 @@ public interface ILspClient : IAsyncDisposable
     /// <summary>Sends textDocument/foldingRange and returns the list of fold ranges, or empty.</summary>
     Task<SemanticTokenResult?> RequestSemanticTokensAsync(string uri, CancellationToken cancellationToken = default);
 
+    /// <summary>Returns the server's enclosing range chains at the supplied positions.</summary>
+    Task<SelectionRange[]> RequestSelectionRangesAsync(string uri, Position[] positions, CancellationToken cancellationToken = default);
+
     Task<FoldingRange[]> RequestFoldingRangesAsync(string uri, CancellationToken cancellationToken = default);
 
     /// <summary>Sends textDocument/completion and returns completion items, or empty.</summary>
@@ -291,6 +297,10 @@ public interface ILspClient : IAsyncDisposable
     /// </remarks>
     Task<Location[]?> RequestDeclarationAsync(string uri, Position position, CancellationToken cancellationToken = default);
     Task<DocumentHighlight[]?> RequestDocumentHighlightAsync(string uri, Position position, CancellationToken cancellationToken = default);
+
+    /// <summary>Asks supporting servers before prompting; null means preparation is unsupported.</summary>
+    Task<PrepareRenameResult?> RequestPrepareRenameAsync(string uri, Position position, CancellationToken cancellationToken = default)
+        => Task.FromResult<PrepareRenameResult?>(null);
 
     /// <summary>Sends textDocument/rename and returns edits, a refusal, or null for no change.</summary>
     Task<RenameResult?> RequestRenameAsync(string uri, Position position, string newName, CancellationToken cancellationToken = default);

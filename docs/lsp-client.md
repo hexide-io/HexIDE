@@ -1124,7 +1124,10 @@ caret position and `context.includeDeclaration: true`, gated on `referencesProvi
 The registry uses `GatherAsync` and record equality to deduplicate URI/range pairs. Null results become
 empty arrays. `FindReferencesAsync` preserves successful locations alongside per-server errors.
 Shift+F12, Edit → Find References and the code editor context menu open the results pane in the
-Immediate window's bottom group. Each search replaces the list, grouped by module in project order,
+Immediate window's bottom group. When opened or brought forward for results, the pane grows to
+show six rows, borrowing only available document height above the document area's minimum.
+A sufficiently tall slot keeps its exact proportion; growth is saved with the layout (#3094).
+Each search replaces the list, grouped by module in project order,
 with line numbers and the returned range emphasized. Enter or double-click navigates through
 `EditorService.NavigateTo`; empty answers and server errors appear as localized rows. Result rows
 expose their module, line number and line text as their accessible name.
@@ -1145,18 +1148,23 @@ identity, so equal lens values from different servers resolve independently. A c
 is refused by the registry. Already complete lenses need no round trip, and servers without resolve
 support are not asked. The code window draws resolved lenses above their member lines and runs their commands on click.
 The visual spacer reserves ascent using the editor font metrics so the whole lens row fits above the member text.
-The Options toggle and edit-debounce wiring remain unimplemented (#2906).
+Edits refetch lenses after the editor debounce (#3082). The Options toggle remains unimplemented (#2906).
 
 `CodeLensSession` supplies the viewport scheduling layer for that editor work: it fetches a document's
 lenses, resolves only starts inside the supplied zero-based visible line interval, cancels resolutions
 that leave view, and discards late replies after cancellation, rediscovery or disposal. Completed lenses
 are retained across viewport updates. `Changed` and `RequestFailed` are raised on the request context;
-UI consumers must dispatch them. Each attached code window owns a session and supplies its visible
-line interval as it scrolls, disposing the session when the view detaches.
+UI consumers must dispatch them. The code document owns the session and supplies its visible
+line interval through the attached view as it scrolls. Detach suspends new viewport work while retaining pending requests and completed lenses; reattachment resumes it without rediscovery (#3082).
+Tokens, folding ranges and inlay hints are also retained by the document, including pending requests,
+so rebuilding the visual tree for a tool pane does not send new requests or discard the last answers.
+An edit, URI change, hint setting change or server state transition invalidates those answers. A detached
+view removes its subscriptions and discards late replies intended for its previous attachment.
 
 The client declares `workspace.codeLens.refreshSupport: true` and answers parameterless
 `workspace/codeLens/refresh` with null. `CodeLensRefreshRequested` preserves the issuing connection through
-the registry; active code windows refetch on that event and unsubscribe when detached.
+the registry; active code windows refetch on that event. A suspended session only invalidates its answer
+until a view resumes it. Semantic-token and inlay-hint workspace refresh support is not advertised.
 
 `rdcore.showReferences` and `editor.action.showReferences` fill the existing Find References pane from
 the locations in the third argument, without asking for references again. Other lens commands use
@@ -1234,6 +1242,15 @@ provider. Both client capabilities declare `linkSupport`; neither command has a 
 Single locations navigate directly; multiple locations populate the existing Find References pane.
 HexIDE displays the server's answer without computing implementations or types itself.
 
+### Preparing a rename (#3073)
+
+After the code window's protected-line and declared-name checks, pending text is flushed and every
+opened claimant advertising `renameProvider.prepareProvider: true` is asked `textDocument/prepareRename`.
+Any null or error reply prevents the prompt; an error's reason uses the existing refusal dialog.
+The first participating claimant's range or placeholder seeds the prompt. A `defaultBehavior: true`
+reply keeps the existing word, as do servers without preparation support. Initialize declares
+`textDocument.rename.prepareSupport: true` and `prepareSupportDefaultBehavior: 1`.
+
 ## Coverage against the specification
 
 LSP 3.17 defines **93 messages** — 67 requests and 26 notifications. The table below is generated from the
@@ -1241,7 +1258,7 @@ specification's own [`metaModel.json`](https://raw.githubusercontent.com/microso
 the canonical machine-readable list, so the method names and directions are the specification's rather than
 this document's recollection of them.
 
-**HexIDE implements 44 of the 93.** That is not a deficiency in itself — no client implements them all, and
+**HexIDE implements 46 of the 93.** That is not a deficiency in itself — no client implements them all, and
 most of the remainder are features no VB6 IDE needs. It is here so the shape of the gap is visible rather
 than inferred.
 
@@ -1263,7 +1280,7 @@ than inferred.
 | ✅ | `initialized` | → |  |
 | ✅ | `shutdown` | → |  |
 
-### `textDocument/*` — 23 of 41
+### `textDocument/*` — 25 of 41
 
 | | Method | Dir | Notes |
 |---|---|---|---|
@@ -1293,14 +1310,14 @@ than inferred.
 | ○ | `textDocument/moniker` | → |  |
 | ○ | `textDocument/onTypeFormatting` | → |  |
 | ○ | `textDocument/prepareCallHierarchy` | → | Needs a bound AST — a backend's job, see below |
-| ○ | `textDocument/prepareRename` | → | No server is asked before the prompt; the code window itself refuses a protected line or a declared name |
+| ✅ | `textDocument/prepareRename` | → | Asks every claimant advertising prepareProvider before the prompt; range/placeholder seeds it, null/error refuses it (#3073) |
 | ○ | `textDocument/prepareTypeHierarchy` | → |  |
 | ✅ | `textDocument/publishDiagnostics` | ← |  |
 | ✅ | `textDocument/rangeFormatting` | → |  |
 | ○ | `textDocument/rangesFormatting` | → |  |
 | ✅ | `textDocument/references` | → | Shift+F12 and menus; grouped results, navigation and per-server error rows; supplied locations reuse the pane (#2907) |
 | ✅ | `textDocument/rename` | → | Atomic edits across loaded code members, with version checks and one undo step per member (#1024) |
-| ○ | `textDocument/selectionRange` | → |  |
+| ✅ | `textDocument/selectionRange` | → | Expand/Shrink Selection commands and server parent chains (#3076) |
 | ✅ | `textDocument/semanticTokens/full` | → | Full relative tokens, highest-priority full provider only; lexical colours remain outside token ranges (#2054) |
 | ○ | `textDocument/semanticTokens/full/delta` | → |  |
 | ○ | `textDocument/semanticTokens/range` | → |  |
@@ -1601,3 +1618,17 @@ and types use Type. Both palettes follow the theme. Read-only region and diagnos
 precedence. Uncovered text retains lexical colouring. Empty or failed answers clear the overlay and
 log once per document per connection; the next change retries. Invalid ranges are discarded and stale
 responses are ignored. No range request is sent (#2054).
+
+### Expand and Shrink Selection (#3076)
+
+The client declares `textDocument.selectionRange: {}` without dynamic registration and exposes
+`RequestSelectionRangesAsync` with a document URI and an ordered array of positions. The registry
+chooses one highest-priority claimant offering `selectionRangeProvider` (boolean or options object).
+The response retains each range's recursive parent chain; HexIDE computes no ranges itself. Null
+responses and failed requests yield empty arrays.
+
+Expand Selection and Shrink Selection are code-window context-menu and keymap commands, with no
+default shortcuts. Both require a provider for the current document. Expand asks at the caret or
+both selection endpoints, then selects the smallest enclosing range supplied for either endpoint;
+repeated invocations climb its parent chain. Shrink restores the previous selection, down to the original caret or selection.
+An edit or an outside caret/selection move clears the chain, and stale replies are ignored.
