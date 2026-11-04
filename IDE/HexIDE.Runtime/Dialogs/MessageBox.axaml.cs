@@ -143,7 +143,7 @@ public partial class MessageBox : UserControl
         if (PART_Buttons.Children.Count > 0)
             return;
         if (Icon != MessageBoxIcon.None)
-            PART_Content.Children.Add(BuildIconElement());
+            PART_Content.Children.Add(BuildIconElement(Icon));
 
         PART_Content.Children.Add(new TextBlock
         {
@@ -165,9 +165,9 @@ public partial class MessageBox : UserControl
         }
     }
 
-    private Control BuildIconElement()
+    public static Control BuildIconElement(MessageBoxIcon icon)
     {
-        var (symbol, bg) = Icon switch
+        var (symbol, bg) = icon switch
         {
             MessageBoxIcon.Error       => ("✕", new SolidColorBrush(Colors.Crimson)),
             MessageBoxIcon.Warning     => ("!", new SolidColorBrush(Color.FromRgb(220, 120, 0))),
