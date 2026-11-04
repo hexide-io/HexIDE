@@ -970,6 +970,33 @@ public class ExternalDebugServiceTests
         service.IsActive.Should().BeFalse();
     }
 
+    [AvaloniaFact]
+    public async Task Ending_while_a_maker_that_ignores_its_token_makes_the_configuration_still_ends_the_session()
+    {
+        await using var log = new ConversationLog();
+        var service = new ExternalDebugService(log);
+        var making = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var never = new TaskCompletionSource<DapLaunchConfiguration>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        var run = service.StartAsync(_ =>
+        {
+            making.TrySetResult();
+            return never.Task;
+        });
+        await making.Task.WaitAsync(Patience, Token);
+        await service.StopAsync();
+        await run.WaitAsync(Patience, Token);
+        service.IsActive.Should().BeFalse("End must end it, whether or not the add-in listens");
+
+        var asked = false;
+        await service.StartAsync(_ =>
+        {
+            asked = true;
+            throw new InvalidOperationException("the next start is asked for its configuration");
+        }).WaitAsync(Patience, Token);
+        asked.Should().BeTrue("the session is idle again, so a new start is not ignored");
+    }
+
     [Fact]
     public void A_contributed_configuration_is_checked_as_a_file_is_but_takes_its_paths_whole()
     {
@@ -992,5 +1019,7 @@ public class ExternalDebugServiceTests
             Launch = JsonDocument.Parse("[]").RootElement,
         });
         notAnObject.Should().Throw<InvalidDataException>();
+        var noAdapter = () => DapLaunchConfiguration.FromContributed(Contributed("silent") with { AdapterId = " " });
+        noAdapter.Should().ThrowExactly<InvalidDataException>("refused as its xmldoc says, as every other part is");
     }
 }

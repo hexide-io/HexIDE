@@ -137,7 +137,9 @@ public sealed partial class ExternalDebugService(ConversationLog capture, ILocal
         Task? reader = null;
         try
         {
-            var configuration = await configure(cancellation.Token);
+            // Waited for under the cancellation, not only told it: a maker that ignores the token would otherwise hold the
+            // start, and End, which returns once it has cancelled, would leave the session active for good.
+            var configuration = await configure(cancellation.Token).WaitAsync(cancellation.Token);
             cancellation.Token.ThrowIfCancellationRequested();
             var id = "dap-" + Guid.NewGuid().ToString("N");
             Connection = new(id, configuration.AdapterId, LanguageConnectionKind.DebugAdapter, LanguageConnectionState.Starting,

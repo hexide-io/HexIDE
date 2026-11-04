@@ -63,12 +63,14 @@ public sealed record DapLaunchConfiguration
     /// the executable and working directory are fully qualified, or it is refused. It carries no breakpoints; the
     /// session is given the IDE's.
     /// </summary>
-    /// <exception cref="InvalidDataException">A path is not fully qualified, or the launch arguments are not an object.</exception>
+    /// <exception cref="InvalidDataException">
+    /// The executable or adapter id is missing, a path is not fully qualified, or the launch arguments are not an object.
+    /// </exception>
     public static DapLaunchConfiguration FromContributed(HexIDE.Addins.AddinLaunchConfiguration contributed)
     {
         ArgumentNullException.ThrowIfNull(contributed);
-        ArgumentException.ThrowIfNullOrWhiteSpace(contributed.Executable);
-        ArgumentException.ThrowIfNullOrWhiteSpace(contributed.AdapterId);
+        if (string.IsNullOrWhiteSpace(contributed.Executable) || string.IsNullOrWhiteSpace(contributed.AdapterId))
+            throw new InvalidDataException("A debug launch configuration needs an executable and an adapter id.");
         if (!Path.IsPathFullyQualified(contributed.Executable))
             throw new InvalidDataException($"The debug adapter's executable is not a full path: {contributed.Executable}");
         if (contributed.WorkingDirectory is { } directory && !Path.IsPathFullyQualified(directory))
