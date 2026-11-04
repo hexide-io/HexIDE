@@ -390,6 +390,7 @@
     "Str.CodeEditor.Context.GoToDeclaration": "ไปที่การประกาศ",
     "Str.CodeEditor.Context.Rename": "เปลี่ยนชื่อ...",
     "Str.CodeEditor.Context.FormatDocument": "จัดรูปแบบเอกสาร",
+    "Str.CodeEditor.Context.FormatSelection": "จัดรูปแบบส่วนที่เลือก",
     "Str.Options.Shell.Buttons.ResetAll": "รีเซ็ตทั้งหมด",
     "Str.Options.Shell.Buttons.RestoreDefaults": "คืนค่าเริ่มต้น",
     "Str.Options.Shell.Buttons.Ok": "ตกลง",

@@ -658,6 +658,7 @@ public sealed class VBLspClient : ILspClient
                     // honours it sends the flat form to a client that never said it could take the tree.
                     DocumentSymbol: new DocumentSymbolClientCapabilities(HierarchicalDocumentSymbolSupport: true),
                     InlayHint: new InlayHintClientCapabilities(),
+                    RangeFormatting: EmptyParams.Instance,
                     Completion: new CompletionClientCapabilities(new CompletionItemKindClientCapabilities(
                         Enum.GetValues<CompletionItemKind>()),
                         CompletionItem: new CompletionItemClientCapabilities(true, ["plaintext"])),
@@ -1853,6 +1854,27 @@ public sealed class VBLspClient : ILspClient
         }
     }
 
+    public bool SupportsRangeFormatting(string uri) => IsRunning
+        && ServerCapabilities.Supports(AdvertisedCapabilities, "documentRangeFormattingProvider");
+
+    public async Task<TextEdit[]> RequestRangeFormattingAsync(string uri, HexIDE.Lsp.Messages.Range range, FormattingOptions options, CancellationToken cancellationToken = default)
+    {
+        if (_rpc is null || !_initialized || !CanServe("documentRangeFormattingProvider")) return [];
+        var p = new DocumentRangeFormattingParams(
+            new TextDocumentIdentifier(uri), range,
+            options);
+        try
+        {
+            return await InvokeRequestAsync<TextEdit[]?>(_rpc,
+                "textDocument/rangeFormatting", p, cancellationToken, documentUri: uri) ?? [];
+        }
+        catch (Exception ex)
+        {
+            WarnRequestFailedOnce("textDocument/rangeFormatting", ex, cancellationToken);
+            return [];
+        }
+    }
+
     public async Task<TextEdit[]> RequestFormattingAsync(string uri, FormattingOptions options, CancellationToken cancellationToken = default)
     {
         if (_rpc is null || !_initialized || !CanServe("documentFormattingProvider")) return [];
@@ -2597,6 +2619,7 @@ public sealed class VBLspClient : ILspClient
         // advertises it IS taken up on it; the absence of a warning is about what its ABSENCE means.
         "diagnosticProvider",
         "documentFormattingProvider",
+        "documentRangeFormattingProvider",
         "documentHighlightProvider",
         "documentSymbolProvider",
         // Read by the command-routing reader rather than a gate: a command is routed to the server that

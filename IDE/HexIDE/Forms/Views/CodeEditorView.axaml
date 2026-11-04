@@ -73,6 +73,8 @@
                               ExecutingCommand="{CompiledBinding #Root.GoToDeclaration}" />
         <input:CommandBinding Command="{x:Static vb:ApplicationCommands.RenameSymbolCommand}"
                               ExecutingCommand="{CompiledBinding #Root.RenameSymbol}" />
+        <input:CommandBinding Command="{x:Static vb:ApplicationCommands.FormatSelectionCommand}"
+                              CanExecute="CanFormatSelection" Executed="FormatSelectionExecuted" />
         <input:CommandBinding Command="{x:Static vb:ApplicationCommands.FormatDocumentCommand}"
                               ExecutingCommand="{CompiledBinding #Root.FormatDocument}" />
 
@@ -172,6 +174,7 @@
                         <MenuItem Header="{DynamicResource Str.CodeEditor.Context.GoToDeclaration}" Command="{x:Static vb:ApplicationCommands.GoToDeclarationCommand}" />
                         <MenuItem Header="{DynamicResource Str.CodeEditor.Context.Rename}"        Command="{x:Static vb:ApplicationCommands.RenameSymbolCommand}" />
                         <MenuItem Header="{DynamicResource Str.CodeEditor.Context.FormatDocument}"  Command="{x:Static vb:ApplicationCommands.FormatDocumentCommand}" />
+                        <MenuItem Header="{DynamicResource Str.CodeEditor.Context.FormatSelection}" Command="{x:Static vb:ApplicationCommands.FormatSelectionCommand}" />
                     </MenuFlyout>
                 </avaloniaEdit:TextEditor.ContextFlyout>
             </avaloniaEdit:TextEditor>

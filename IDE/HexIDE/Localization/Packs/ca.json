@@ -390,6 +390,7 @@
     "Str.CodeEditor.Context.GoToDeclaration": "Ves a la dec_laració",
     "Str.CodeEditor.Context.Rename": "_Canvia el nom...",
     "Str.CodeEditor.Context.FormatDocument": "_Dona format al document",
+    "Str.CodeEditor.Context.FormatSelection": "_Dona format a la selecció",
     "Str.Options.Shell.Buttons.ResetAll": "Restableix-ho tot",
     "Str.Options.Shell.Buttons.RestoreDefaults": "Restaura els valors per defecte",
     "Str.Options.Shell.Buttons.Ok": "D'acord",

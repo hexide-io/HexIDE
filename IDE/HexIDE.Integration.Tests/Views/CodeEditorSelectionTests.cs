@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
@@ -88,6 +89,108 @@ public class CodeEditorSelectionTests : IDisposable
         window.Content = view;
         Dispatcher.UIThread.RunJobs();
         return view;
+    }
+
+    [AvaloniaFact]
+    public void FormatSelectionHasACapabilityGatedCommandBesideFormatDocument()
+    {
+        using var vm = MakeViewModel().Initialize(AModule());
+        var view = Show(vm);
+        var editor = view.FindControl<TextEditor>("TextEditor")!;
+        var items = ((MenuFlyout)editor.ContextFlyout!).Items.OfType<MenuItem>().ToList();
+        var document = items.FindIndex(i => ReferenceEquals(i.Command, ApplicationCommands.FormatDocumentCommand));
+        document.Should().BeGreaterThanOrEqualTo(0);
+        items[document + 1].Command.Should().NotBeNull();
+        ((Avalonia.Labs.Input.RoutedCommand)items[document + 1].Command!).Name.Should().Be("FormatSelectionCommand");
+        items[document + 1].Command!.CanExecute(null).Should().BeFalse();
+    }
+
+    [AvaloniaTheory]
+    [InlineData(2)]
+    [InlineData(8)]
+    public async System.Threading.Tasks.Task FormatSelectionSendsRangeAndAppliesGuardedEditsAsOneUndoStep(int tabWidth)
+    {
+        using var vm = MakeViewModel().Initialize(AModule());
+        var view = Show(vm);
+        var editor = view.FindControl<TextEditor>("TextEditor")!;
+        vm.Settings.TabWidth.Returns(tabWidth);
+        var declaration = vm.Document.GetLineByOffset(vm.Document.Text.IndexOf("Sub Main", StringComparison.Ordinal));
+        vm.Document.Insert(declaration.EndOffset, "\r\nAttribute Main.VB_Description = \"keep\"");
+        var before = vm.Document.Text;
+        var offset = before.IndexOf("Sub Main", StringComparison.Ordinal);
+        editor.Select(offset, "Sub Main()".Length);
+        var start = vm.Document.GetLocation(offset);
+        var endLine = vm.Document.GetLocation(before.IndexOf("End Sub", StringComparison.Ordinal)).Line - 1;
+        var range = new HexIDE.Lsp.Messages.Range(new Position(start.Line - 1, 0),
+            new Position(start.Line - 1, 10));
+        _lspClient.SupportsRangeFormatting(Arg.Any<string>()).Returns(true);
+        _lspClient.RequestRangeFormattingAsync(Arg.Any<string>(), range, new FormattingOptions(tabWidth, true), Arg.Any<CancellationToken>())
+            .Returns([new TextEdit(new HexIDE.Lsp.Messages.Range(new Position(start.Line - 1, 0),
+                new Position(start.Line - 1, 10)), "Sub MAIN()"),
+                new TextEdit(new HexIDE.Lsp.Messages.Range(new Position(endLine, 0),
+                    new Position(endLine, 7)), "End SUB"),
+                new TextEdit(new HexIDE.Lsp.Messages.Range(new Position(start.Line, 0),
+                    new Position(start.Line, 9)), "FORBIDDEN"),
+                new TextEdit(new HexIDE.Lsp.Messages.Range(new Position(0, 0), new Position(0, 0)), "' forbidden\r\n")]);
+        vm.Document.UndoStack.ClearAll();
+
+        var format = typeof(CodeEditorView).GetMethod("FormatSelectionAsync",
+            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+        format.Should().NotBeNull();
+        await (System.Threading.Tasks.Task)format!.Invoke(view, null)!;
+
+        await _lspClient.Received(1).RequestRangeFormattingAsync(vm.GetDocumentUriPublic(), range,
+            new FormattingOptions(tabWidth, true), Arg.Any<CancellationToken>());
+        vm.Document.Text.Should().Be(before.Replace("Sub Main()", "Sub MAIN()").Replace("End Sub", "End SUB"));
+        vm.Document.UndoStack.Undo();
+        vm.Document.Text.Should().Be(before);
+        vm.Document.UndoStack.CanUndo.Should().BeFalse();
+    }
+
+    [AvaloniaTheory]
+    [InlineData(false, 0, false)]
+    [InlineData(true, 0, false)]
+    [InlineData(false, 3, false)]
+    [InlineData(true, 3, true)]
+    public void FormatSelectionCommandRequiresSelectionAndRangeProvider(bool provider, int length, bool expected)
+    {
+        using var vm = MakeViewModel().Initialize(AModule());
+        var view = Show(vm);
+        var editor = view.FindControl<TextEditor>("TextEditor")!;
+        _lspClient.SupportsRangeFormatting(Arg.Any<string>()).Returns(provider);
+        editor.Select(vm.Document.Text.IndexOf("Sub Main", StringComparison.Ordinal), length);
+        var field = typeof(ApplicationCommands).GetField("FormatSelectionCommand");
+        field.Should().NotBeNull();
+        var command = (Avalonia.Labs.Input.RoutedCommand)field!.GetValue(null)!;
+        command.CanExecute(null, editor).Should().Be(expected);
+    }
+
+    [AvaloniaFact]
+    public async System.Threading.Tasks.Task FormatSelectionRequeriesWhenServerCapabilitiesChange()
+    {
+        using var vm = MakeViewModel().Initialize(AModule());
+        var view = Show(vm);
+        var editor = view.FindControl<TextEditor>("TextEditor")!;
+        editor.Focus();
+        await Dispatcher.UIThread.InvokeAsync(() => { }, DispatcherPriority.SystemIdle);
+        var field = typeof(ApplicationCommands).GetField("FormatSelectionCommand");
+        field.Should().NotBeNull();
+        var command = (System.Windows.Input.ICommand)field!.GetValue(null)!;
+        var requeries = 0;
+        EventHandler handler = (_, _) => ++requeries;
+        command.CanExecuteChanged += handler;
+        try
+        {
+            _lspClient.StateChanged += Raise.EventWith(_lspClient, EventArgs.Empty);
+            await Dispatcher.UIThread.InvokeAsync(() => { }, DispatcherPriority.SystemIdle);
+            requeries.Should().BeGreaterThan(0);
+            requeries = 0;
+            vm.SelectionStart = vm.Document.Text.IndexOf("Sub Main", StringComparison.Ordinal);
+            vm.SelectionLength = 3;
+            await Dispatcher.UIThread.InvokeAsync(() => { }, DispatcherPriority.SystemIdle);
+            requeries.Should().BeGreaterThan(0);
+        }
+        finally { command.CanExecuteChanged -= handler; }
     }
 
     [AvaloniaTheory]

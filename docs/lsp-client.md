@@ -66,7 +66,7 @@ the production formatter and source-generated context to guard absence and prese
 |---|---|
 | Lifecycle | `initialize`, `initialized`, `shutdown`, `exit` |
 | Document sync | `textDocument/didOpen`, `didChange`, `didClose`, `didSave` |
-| Language requests | `hover`, `documentSymbol`, `foldingRange`, `completion`, `signatureHelp`, `definition`, `declaration`, `references`, `documentHighlight`, `rename`, `formatting`, `codeLens` |
+| Language requests | `hover`, `documentSymbol`, `foldingRange`, `completion`, `signatureHelp`, `definition`, `declaration`, `references`, `documentHighlight`, `rename`, `formatting`, `rangeFormatting`, `codeLens` |
 | Actions | `codeLens/resolve`, `workspace/executeCommand` — see *Commands and lenses* |
 | Custom | `vb/builtinSymbols` — see *Custom methods* |
 
@@ -1024,7 +1024,13 @@ advertised triggers) or signature help, so the server receives the current typed
 Document formatting (including format-on-save) sends the editor’s Tab Width as `options.tabSize`
 and `insertSpaces: true`, matching the editor’s conversion of tabs to spaces (#2669).
 Wire tests cover widths 2 and 8 with both `insertSpaces` values; editor delegation tests cover
-both widths with spaces. On-type formatting is not implemented.
+both widths with spaces. Format Selection appears beside Format Document in the code editor's
+context menu. It requires a nonempty selection and a claimant advertising
+`documentRangeFormattingProvider` (boolean or options object). The highest-priority advertiser receives
+`textDocument/rangeFormatting` with the selection's zero-based UTF-16 range and the same formatting
+options. The client declares `textDocument.rangeFormatting` at initialization. Returned edits use
+Format Document's guarded path: one undo step, with IDE-only header and member attribute lines protected.
+The keymap command `FormatSelectionCommand` has no default shortcut. On-type formatting is not implemented.
 
 Completion asks every document claimant concurrently, with a shared **one-second popup budget**.
 It returns when all answers arrive or that budget expires, taking only answers received in time. Items
@@ -1225,7 +1231,7 @@ specification's own [`metaModel.json`](https://raw.githubusercontent.com/microso
 the canonical machine-readable list, so the method names and directions are the specification's rather than
 this document's recollection of them.
 
-**HexIDE implements 40 of the 93.** That is not a deficiency in itself — no client implements them all, and
+**HexIDE implements 41 of the 93.** That is not a deficiency in itself — no client implements them all, and
 most of the remainder are features no VB6 IDE needs. It is here so the shape of the gap is visible rather
 than inferred.
 
@@ -1247,7 +1253,7 @@ than inferred.
 | ✅ | `initialized` | → |  |
 | ✅ | `shutdown` | → |  |
 
-### `textDocument/*` — 20 of 41
+### `textDocument/*` — 21 of 41
 
 | | Method | Dir | Notes |
 |---|---|---|---|
@@ -1280,7 +1286,7 @@ than inferred.
 | ○ | `textDocument/prepareRename` | → | No server is asked before the prompt; the code window itself refuses a protected line or a declared name |
 | ○ | `textDocument/prepareTypeHierarchy` | → |  |
 | ✅ | `textDocument/publishDiagnostics` | ← |  |
-| ○ | `textDocument/rangeFormatting` | → |  |
+| ✅ | `textDocument/rangeFormatting` | → |  |
 | ○ | `textDocument/rangesFormatting` | → |  |
 | ✅ | `textDocument/references` | → | Shift+F12 and menus; grouped results, navigation and per-server error rows; supplied locations reuse the pane (#2907) |
 | ✅ | `textDocument/rename` | → | Atomic edits across loaded code members, with version checks and one undo step per member (#1024) |

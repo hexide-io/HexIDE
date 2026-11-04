@@ -76,6 +76,7 @@ public class ApplicationCommands
     public static readonly RoutedCommand GoToDefinitionCommand = new RoutedCommand(nameof(GoToDefinitionCommand));
     public static readonly RoutedCommand GoToDeclarationCommand = new RoutedCommand(nameof(GoToDeclarationCommand));
     public static readonly RoutedCommand RenameSymbolCommand = new RoutedCommand(nameof(RenameSymbolCommand));
+    public static readonly RoutedCommand FormatSelectionCommand = new RoutedCommand(nameof(FormatSelectionCommand));
     public static readonly RoutedCommand FormatDocumentCommand = new RoutedCommand(nameof(FormatDocumentCommand));
     public static readonly RoutedCommand BringToFrontCommand = new RoutedCommand(nameof(BringToFrontCommand), new KeyGesture(Key.J, GetPlatformCommandKey()));
     public static readonly RoutedCommand SendToBackCommand = new RoutedCommand(nameof(SendToBackCommand), new KeyGesture(Key.K, GetPlatformCommandKey()));

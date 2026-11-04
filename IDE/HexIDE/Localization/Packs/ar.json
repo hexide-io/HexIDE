@@ -427,6 +427,7 @@
     "Str.CodeEditor.Context.GoToDeclaration": "الانتقال إلى الإعلان",
     "Str.CodeEditor.Context.Rename": "إعادة تسمية...",
     "Str.CodeEditor.Context.FormatDocument": "تنسيق المستند",
+    "Str.CodeEditor.Context.FormatSelection": "تنسيق التحديد",
     "Str.Options.Shell.Buttons.ResetAll": "إعادة تعيين الكل",
     "Str.Options.Shell.Buttons.RestoreDefaults": "استعادة الإعدادات الافتراضية",
     "Str.Options.Shell.Buttons.Ok": "موافق",

@@ -2145,6 +2145,13 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
         => windowManager.InputBox(localization.GetString("Str.CodeEditor.Dialog.RenamePrompt"),
             localization.GetString("Str.CodeEditor.Dialog.RenameTitle"), defaultText);
 
+    public bool CanFormatSelection => !IsReadOnly && SelectionLength > 0 && LiveDocumentUri is { } uri
+        && lspClient.SupportsRangeFormatting(uri);
+
+    public Task<TextEdit[]> RequestRangeFormattingAsync(HexIDE.Lsp.Messages.Range range, CancellationToken ct = default)
+        => LiveDocumentUri is { } uri ? lspClient.RequestRangeFormattingAsync(uri, range,
+            new FormattingOptions(Settings.TabWidth, true), ct) : Task.FromResult<TextEdit[]>([]);
+
     public Task<TextEdit[]> RequestFormattingAsync(CancellationToken ct = default)
         => LiveDocumentUri is { } uri ? lspClient.RequestFormattingAsync(uri, new FormattingOptions(Settings.TabWidth, true), ct) : Task.FromResult<TextEdit[]>([]);
 

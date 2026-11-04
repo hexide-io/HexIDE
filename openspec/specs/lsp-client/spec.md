@@ -12,6 +12,23 @@ later without the editor noticing.
 
 ## Requirements
 
+### Requirement: Format Selection through the advertising server
+The IDE SHALL offer Format Selection beside Format Document in the code editor context menu, enabled
+only for a nonempty selection in an editable document with an open language session and a claimant
+advertising `documentRangeFormattingProvider`. It SHALL declare `textDocument.rangeFormatting`, send
+`textDocument/rangeFormatting` to exactly the highest-priority advertising claimant with the selected
+UTF-16 range and Format Document's options, and apply returned edits through the same guarded path as
+Format Document in one undo step. The command SHALL be localized in every shipped pack and have a
+keymap entry with no default shortcut.
+
+#### Scenario: A lower-priority server offers range formatting
+- **WHEN** the highest-priority claimant offers only document formatting and another offers range formatting
+- **THEN** Format Selection sends only the range formatter a request with the selection and configured Tab Width
+
+#### Scenario: The formatter edits IDE-only lines
+- **WHEN** a range formatting response attempts to rewrite the header or member attribute lines
+- **THEN** those lines remain unchanged and accepted code edits form one undo step
+
 ### Requirement: Server questions display backend actions
 The client SHALL declare `window.showMessage.messageActionItem` with additional property support and
 answer `window/showMessageRequest` using an IDE message box owned by the main window. Its title SHALL

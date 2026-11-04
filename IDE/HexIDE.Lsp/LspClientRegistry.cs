@@ -596,6 +596,13 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
     public async Task<RenameResult?> RequestRenameAsync(string uri, Position position, string newName, CancellationToken ct = default) =>
         await TopClaimantAdvertisingAsync(uri, "renameProvider", ct) is { } c ? await c.RequestRenameAsync(uri, position, newName, ct) : null;
 
+    public bool SupportsRangeFormatting(string uri) => ClaimantsFor(uri, IsProjectMember(uri))
+        .Any(e => e.Client is { IsRunning: true } c
+            && ServerCapabilities.Supports(c.AdvertisedCapabilities, "documentRangeFormattingProvider"));
+
+    public async Task<TextEdit[]> RequestRangeFormattingAsync(string uri, HexIDE.Lsp.Messages.Range range, FormattingOptions options, CancellationToken ct = default) =>
+        await TopClaimantAdvertisingAsync(uri, "documentRangeFormattingProvider", ct) is { } c ? await c.RequestRangeFormattingAsync(uri, range, options, ct) : [];
+
     public async Task<TextEdit[]> RequestFormattingAsync(string uri, FormattingOptions options, CancellationToken ct = default) =>
         await TopClaimantAdvertisingAsync(uri, "documentFormattingProvider", ct) is { } c ? await c.RequestFormattingAsync(uri, options, ct) : [];
 

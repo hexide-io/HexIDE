@@ -427,6 +427,7 @@
     "Str.CodeEditor.Context.GoToDeclaration": "Ga naar _declaratie",
     "Str.CodeEditor.Context.Rename": "_Naam wijzigen...",
     "Str.CodeEditor.Context.FormatDocument": "Document _opmaken",
+    "Str.CodeEditor.Context.FormatSelection": "Selectie _opmaken",
     "Str.Options.Shell.Buttons.ResetAll": "Alles opnieuw instellen",
     "Str.Options.Shell.Buttons.RestoreDefaults": "Standaardwaarden herstellen",
     "Str.Options.Shell.Buttons.Ok": "OK",

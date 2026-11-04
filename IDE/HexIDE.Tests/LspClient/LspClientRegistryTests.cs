@@ -59,6 +59,44 @@ public class LspClientRegistryTests
 
     private static LspRange Span(int line) => new(new Position(line, 0), new Position(line, 1));
 
+    private static Task<TextEdit[]> RangeFormat(ILspClient client, string uri, LspRange range, FormattingOptions options, CancellationToken ct)
+    {
+        var method = typeof(ILspClient).GetMethod("RequestRangeFormattingAsync");
+        method.Should().NotBeNull();
+        return (Task<TextEdit[]>)method!.Invoke(client, [uri, range, options, ct])!;
+    }
+
+    private static bool SupportsRange(ILspClient client, string uri)
+    {
+        var method = typeof(ILspClient).GetMethod("SupportsRangeFormatting");
+        method.Should().NotBeNull();
+        return (bool)method!.Invoke(client, [uri])!;
+    }
+
+    [Theory]
+    [InlineData("true")]
+    [InlineData("{}")]
+    public async Task RangeFormattingSelectsExactlyOneAdvertisingClaimant(string provider)
+    {
+        typeof(ILspClient).GetMethod("RequestRangeFormattingAsync").Should().NotBeNull();
+        var cannot = FakeServer(capabilitiesJson: """{"documentFormattingProvider":true}""");
+        var high = FakeServer(capabilitiesJson: "{\"documentRangeFormattingProvider\":" + provider + "}");
+        var low = FakeServer(capabilitiesJson: """{"documentRangeFormattingProvider":true}""");
+        var range = Span(2);
+        var options = new FormattingOptions(8, true);
+        RangeFormat(high, Vb6Doc, range, options, Arg.Any<CancellationToken>())
+            .Returns([new TextEdit(range, "formatted")]);
+        var sut = Registry(Registration("cannot", cannot, priority: 20),
+            Registration("high", high, priority: 10), Registration("low", low));
+        await sut.OpenDocumentAsync(Vb6Doc, "code", TestContext.Current.CancellationToken);
+        SupportsRange(sut, Vb6Doc).Should().BeTrue();
+        (await RangeFormat(sut, Vb6Doc, range, options, TestContext.Current.CancellationToken))
+            .Should().ContainSingle().Which.NewText.Should().Be("formatted");
+        await RangeFormat(cannot.DidNotReceive(), Arg.Any<string>(), Arg.Any<LspRange>(), Arg.Any<FormattingOptions>(), Arg.Any<CancellationToken>());
+        await RangeFormat(low.DidNotReceive(), Arg.Any<string>(), Arg.Any<LspRange>(), Arg.Any<FormattingOptions>(), Arg.Any<CancellationToken>());
+        SupportsRange(sut, "file:///unclaimed.txt").Should().BeFalse();
+    }
+
     [Fact]
     public async Task UnknownLensCommandIsNotSentAndIsLoggedOnce()
     {

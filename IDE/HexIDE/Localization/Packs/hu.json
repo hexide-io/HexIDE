@@ -390,6 +390,7 @@
     "Str.CodeEditor.Context.GoToDeclaration": "Ugrás a dek_larációhoz",
     "Str.CodeEditor.Context.Rename": "Át_nevezés...",
     "Str.CodeEditor.Context.FormatDocument": "Dokumentum _formázása",
+    "Str.CodeEditor.Context.FormatSelection": "Kijelölés _formázása",
     "Str.Options.Shell.Buttons.ResetAll": "Összes visszaállítása",
     "Str.Options.Shell.Buttons.RestoreDefaults": "Alapértékek visszaállítása",
     "Str.Options.Shell.Buttons.Ok": "OK",

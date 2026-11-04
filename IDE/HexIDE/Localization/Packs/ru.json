@@ -427,6 +427,7 @@
     "Str.CodeEditor.Context.GoToDeclaration": "Перейти к объявлению",
     "Str.CodeEditor.Context.Rename": "Переименовать...",
     "Str.CodeEditor.Context.FormatDocument": "Форматировать документ",
+    "Str.CodeEditor.Context.FormatSelection": "Форматировать выделение",
     "Str.Options.Shell.Buttons.ResetAll": "Сбросить всё",
     "Str.Options.Shell.Buttons.RestoreDefaults": "Восстановить значения по умолчанию",
     "Str.Options.Shell.Buttons.Ok": "ОК",
