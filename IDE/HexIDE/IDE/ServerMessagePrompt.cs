@@ -6,6 +6,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Layout;
+using Avalonia.Input;
 using Avalonia.Media;
 using Avalonia.Threading;
 using HexIDE.Lsp.Messages;
@@ -54,12 +55,27 @@ internal sealed class ServerMessagePrompt
     {
         var buttons = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, HorizontalAlignment = HorizontalAlignment.Right };
         var content = new StackPanel { Margin = new Thickness(12), Spacing = 12 };
-        content.Children.Add(new TextBlock { Text = request.Message, TextWrapping = TextWrapping.Wrap, MaxWidth = 480 });
+        var message = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 12 };
+        var icon = request.Type switch
+        {
+            1 => MessageBoxIcon.Error,
+            2 => MessageBoxIcon.Warning,
+            _ => MessageBoxIcon.Information
+        };
+        message.Children.Add(HexIDE.Runtime.Dialogs.MessageBox.BuildIconElement(icon));
+        message.Children.Add(new TextBlock { Text = request.Message, TextWrapping = TextWrapping.Wrap, MaxWidth = 480 });
+        content.Children.Add(message);
         content.Children.Add(buttons);
         var window = new Window
         {
             Title = title, Content = content, FlowDirection = owner.FlowDirection, SizeToContent = SizeToContent.WidthAndHeight,
             CanResize = false, WindowStartupLocation = WindowStartupLocation.CenterOwner
+        };
+        window.KeyDown += (_, e) =>
+        {
+            if (e.Key != Key.Escape) return;
+            e.Handled = true;
+            window.Close();
         };
         MessageActionItem? answer = null;
         foreach (var action in request.Actions ?? [])
