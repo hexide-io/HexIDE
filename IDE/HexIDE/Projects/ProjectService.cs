@@ -585,9 +585,18 @@ public partial class ProjectService : IProjectService
     {
         switch (ContributedProjects.MemberAt(project, oldPath))
         {
-            case ModuleDefinition module:
+            case ModuleDefinition { AbsolutePath: { } from } module:
+                // Its file moved with the code in it as it was, so what HexIDE last read and wrote there moves too: edits
+                // not yet saved stay unsaved, and the file isn't taken for one changed outside HexIDE.
+                if (renderBaselines.Remove(from, out var rendered))
+                    renderBaselines[newPath] = rendered;
+                if (baselineStore.TryGet(from) is { } onDisk)
+                {
+                    baselineStore.Remove(from);
+                    baselineStore.Record(newPath, onDisk);
+                }
                 module.AbsolutePath = newPath;
-                SnapshotRenderBaseline(module);
+                eventBus.Publish(new ModuleMovedEvent(module));
                 break;
             case RelatedDocumentDefinition document:
                 document.AbsolutePath = newPath;

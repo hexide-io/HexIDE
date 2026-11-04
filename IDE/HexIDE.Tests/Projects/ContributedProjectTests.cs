@@ -25,6 +25,7 @@ public sealed class ContributedProjectTests : IDisposable
     private readonly ContributedProjects _types = new();
     private readonly IProjectManager _projects = Substitute.For<IProjectManager>();
     private readonly IEventBus _events = Substitute.For<IEventBus>();
+    private readonly FileBaselineStore _baselines = new();
     private readonly ProjectService _service;
     private IAddinProjectChanges? _changes;
 
@@ -58,7 +59,7 @@ public sealed class ContributedProjectTests : IDisposable
         dock.OpenDocuments.Returns(new List<HexIDE.Forms.ViewModels.BaseEditorWindowViewModel>());
         _service = new ProjectService(() => throw new InvalidOperationException("no new-project dialog"), _windows,
             _events, projects, _recent,
-            Substitute.For<IReferenceLibraryService>(), sidecar, new FileBaselineStore(), strings,
+            Substitute.For<IReferenceLibraryService>(), sidecar, _baselines, strings,
             new HeaderRefresher(new EventBus(), dock, new BreakpointService(), new BookmarkService()),
             contributed: _types);
     }
@@ -276,6 +277,31 @@ public sealed class ContributedProjectTests : IDisposable
         File.ReadAllText(Path.Join(_dir, "src", "Main.bas")).Should().Contain("Debug.Print 3");
         _events.Received(1).Publish(Arg.Is<ModuleUnloadedEvent>(e => e.Module == startup));
         _events.Received(1).Publish(Arg.Is<ModuleUnloadedEvent>(e => e.Module == account));
+    }
+
+    [AvaloniaFact]
+    public async Task A_member_moved_keeps_its_baselines_so_its_edits_stay_unsaved_and_its_new_name_is_announced()
+    {
+        using var type = Contribute();
+        var project = await Opened();
+        var startup = project.Modules[0];
+        var account = project.Modules[1];
+        startup.UpdateCode("Sub Main()\r\n    Debug.Print 4\r\nEnd Sub\r\n");
+        var (main, program) = (Path.Join(_dir, "src", "Main.bas"), Path.Join(_dir, "src", "Program.bas"));
+        var (accountFile, ledger) = (Path.Join(_dir, "src", "Classes", "Account.cls"), Path.Join(_dir, "src", "Ledger.cls"));
+        File.Move(main, program);
+        File.Move(accountFile, ledger);
+
+        _changes!.MemberMoved(main, program);
+        _changes.MemberMoved(accountFile, ledger);
+        await WhenSettled(() => account.AbsolutePath == ledger);
+
+        _service.HasUnsavedChanges(startup).Should().BeTrue("its edits were not saved, wherever its file is");
+        _service.HasUnsavedChanges(account).Should().BeFalse("its file holds what HexIDE read, now at its new path");
+        _baselines.Matches(ledger, File.ReadAllBytes(ledger)).Should().BeTrue();
+        _baselines.TryGet(accountFile).Should().BeNull();
+        _events.Received(1).Publish(Arg.Is<ModuleMovedEvent>(e => e.Module == startup));
+        _events.Received(1).Publish(Arg.Is<ModuleMovedEvent>(e => e.Module == account));
     }
 
     [AvaloniaFact]
