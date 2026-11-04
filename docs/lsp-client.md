@@ -857,6 +857,15 @@ after a project save has assigned the `.vbp` its path and when the startup proje
 and reopens the held documents immediately; no new editor needs to open. An unchanged root does not restart
 anything, and failed entries remain failed.
 
+### Real-server close and teardown coverage
+
+`RealServerShutdownTests` reads retained wire bodies for non-empty diagnostics before closing and
+for publications after `didClose`, then asserts the observed integer exit code after normal
+`StopAsync` teardown. All five pinned foreign servers and the bundled server exited 0 on Linux
+(2026-11-04, #491). Close publications differ: texlab retains its diagnostic, the JSON server
+publishes nothing within three seconds, and rumdl, clangd, ruff and the bundled server publish empty
+sets. See [the measurements](foreign-language-servers.md#normal-teardown-and-document-close-2026-11-04-491).
+
 ### Transports
 
 `stdio`, `pipe` (named pipe, connecting or listening) and `websocket` (connecting by default, or listening with `websocketRole: "listen"`) are all supported. Only `stdio` is
