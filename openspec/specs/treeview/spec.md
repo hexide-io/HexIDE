@@ -2,8 +2,9 @@
 
 ## Purpose
 
-Describe the runtime drawing, input and native file persistence of MSComctlLib.TreeView (#1086). ImageList binding awaits
-#1083; remaining runtime members and the sample-node designer preview remain later slices.
+Describe the runtime drawing, input and native file persistence of MSComctlLib.TreeView (#1086). ImageList binding, now
+that #1083 has modelled the ImageList, remaining runtime members and the sample-node designer preview remain later slices
+of #1086.
 
 ## Requirements
 
