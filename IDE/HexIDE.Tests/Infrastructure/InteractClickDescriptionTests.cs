@@ -7,6 +7,7 @@ namespace HexIDE.Tests.Infrastructure;
 /// written in different projects, and only the description reaches a caller before the first call, so a grammar that
 /// changed in one and not the other would be learned from a refusal.
 /// </summary>
+[ToolDescription]
 public class InteractClickDescriptionTests
 {
     private static ToolSource.Tool Interact => ToolSource.Tools.Single(t => t.Name == "interact");

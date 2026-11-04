@@ -12,6 +12,7 @@ namespace HexIDE.Tests.Infrastructure;
 /// attribute carried any other property was never found, and its <c>[DescribesEnum]</c> fell into the previous
 /// tool's block after that tool's method, where nothing read it.
 /// </remarks>
+[ToolDescription]
 public class ToolSourceTests
 {
     private static int Count(string pattern) =>
