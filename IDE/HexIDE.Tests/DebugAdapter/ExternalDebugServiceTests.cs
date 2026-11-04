@@ -914,4 +914,83 @@ public class ExternalDebugServiceTests
         }
         finally { Directory.Delete(directory, true); }
     }
+
+    private static HexIDE.Addins.AddinLaunchConfiguration Contributed(string mode) => new()
+    {
+        Executable = Path.GetFullPath("../../../dotnet" + (OperatingSystem.IsWindows() ? ".exe" : ""), RuntimeEnvironment.GetRuntimeDirectory()),
+        Arguments = [typeof(Dap.TestAdapter.Program).Assembly.Location, mode],
+        AdapterId = "fixture",
+        Launch = JsonDocument.Parse("{}").RootElement,
+    };
+
+    [AvaloniaFact]
+    public async Task A_configuration_made_as_the_session_starts_is_given_the_saved_gutter_marks()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "hexide-dap-made-" + Guid.NewGuid());
+        Directory.CreateDirectory(directory);
+        var module = TestHelpers.CreateModule();
+        module.AbsolutePath = Path.Combine(directory, "Module1.bas");
+        var store = new BreakpointService();
+        store.SetDocument(HexIDE.Runtime.ProjectElements.DocumentIdentity.For(module), [6]);
+        await using var log = new ConversationLog();
+        var service = new ExternalDebugService(log, breakpoints: store);
+        var run = service.StartAsync(_ => Task.FromResult(DapLaunchConfiguration.FromContributed(Contributed("breakpoints"))));
+        try
+        {
+            await WaitFor(service, () => service.CanEditBreakpoints);
+            service.GetBreakpoints(new Uri(module.AbsolutePath).AbsoluteUri).Should().ContainSingle(row => row.RequestedLine == 6,
+                "the configuration carries no breakpoints; the session is given the IDE's");
+        }
+        finally
+        {
+            await service.StopAsync();
+            await run.WaitAsync(Patience, Token);
+            Directory.Delete(directory, true);
+        }
+    }
+
+    [AvaloniaFact]
+    public async Task Ending_while_the_configuration_is_being_made_calls_the_making_off()
+    {
+        await using var log = new ConversationLog();
+        var service = new ExternalDebugService(log);
+        var making = new TaskCompletionSource<CancellationToken>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        var run = service.StartAsync(async token =>
+        {
+            making.TrySetResult(token);
+            await Task.Delay(Timeout.Infinite, token);
+            throw new InvalidOperationException("unreachable");
+        });
+        var token = await making.Task.WaitAsync(Patience, Token);
+        await service.StopAsync();
+        await run.WaitAsync(Patience, Token);
+
+        token.IsCancellationRequested.Should().BeTrue();
+        service.IsActive.Should().BeFalse();
+    }
+
+    [Fact]
+    public void A_contributed_configuration_is_checked_as_a_file_is_but_takes_its_paths_whole()
+    {
+        var made = DapLaunchConfiguration.FromContributed(Contributed("silent") with
+        {
+            Arguments = ["two words", "$literal"],
+            Environment = new Dictionary<string, string?> { ["RDCORE_ROOT"] = "x", ["GONE"] = null },
+        });
+        made.WorkingDirectory.Should().Be(Path.GetDirectoryName(made.Executable), "the executable's folder when none is given");
+        made.Arguments.Should().Equal("two words", "$literal");
+        made.Environment.Should().Contain("GONE", null);
+        made.Breakpoints.Should().BeEmpty();
+
+        var relative = () => DapLaunchConfiguration.FromContributed(Contributed("silent") with { Executable = "adapter.exe" });
+        relative.Should().Throw<InvalidDataException>("there is no file for a relative path to be relative to");
+        var relativeFolder = () => DapLaunchConfiguration.FromContributed(Contributed("silent") with { WorkingDirectory = "bin" });
+        relativeFolder.Should().Throw<InvalidDataException>();
+        var notAnObject = () => DapLaunchConfiguration.FromContributed(Contributed("silent") with
+        {
+            Launch = JsonDocument.Parse("[]").RootElement,
+        });
+        notAnObject.Should().Throw<InvalidDataException>();
+    }
 }

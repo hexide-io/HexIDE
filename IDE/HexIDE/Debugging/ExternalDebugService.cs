@@ -115,7 +115,15 @@ public sealed partial class ExternalDebugService(ConversationLog capture, ILocal
         Variables = [];
     }
 
-    public async Task StartAsync(string configurationFile)
+    public Task StartAsync(string configurationFile) =>
+        StartAsync(token => DapLaunchConfiguration.ReadAsync(configurationFile, token));
+
+    /// <summary>
+    /// Starts a session from a configuration made when the session starts, such as an add-in's for the project: read
+    /// under the session's own cancellation, so ending it before it has started ends the making too. Everything after
+    /// is a file's start: one session at a time, the saved gutter marks merged, conditions refused.
+    /// </summary>
+    public async Task StartAsync(Func<CancellationToken, Task<DapLaunchConfiguration>> configure)
     {
         if (IsActive) return;
         HasSessionResult = true;
@@ -129,7 +137,7 @@ public sealed partial class ExternalDebugService(ConversationLog capture, ILocal
         Task? reader = null;
         try
         {
-            var configuration = await DapLaunchConfiguration.ReadAsync(configurationFile, cancellation.Token);
+            var configuration = await configure(cancellation.Token);
             cancellation.Token.ThrowIfCancellationRequested();
             var id = "dap-" + Guid.NewGuid().ToString("N");
             Connection = new(id, configuration.AdapterId, LanguageConnectionKind.DebugAdapter, LanguageConnectionState.Starting,
