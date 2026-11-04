@@ -1957,6 +1957,24 @@ their digit grouping SHALL continue to use the process culture.
 - **THEN** status, stages, stage elapsed-time units and age SHALL follow the active language immediately
 - **AND** the label column SHALL return to its English width
 
+### Requirement: Code lens resolution SHALL be requested separately from discovery
+
+The client SHALL fetch code lenses without resolving them. It SHALL expose per-lens resolution with
+cancellation and retain the issuing connection when gathering results from multiple servers. The
+registry SHALL refuse lenses for which it has no issuing connection. Complete lenses SHALL require no
+resolve request, and a server without resolve support SHALL receive none.
+
+#### Scenario: A caller needs ten commands from fifty lenses
+
+- **WHEN** a server returns fifty unresolved lenses and the caller requests resolution for ten
+- **THEN** fetching SHALL send no `codeLens/resolve` requests and resolution SHALL send ten
+
+#### Scenario: Equal lenses from different servers
+
+- **WHEN** two servers return lenses with equal ranges and data
+- **THEN** each lens SHALL resolve on its own issuing connection
+- **AND** a copied lens without provenance SHALL send no request
+
 ### Requirement: The complete server list is scrollable
 
 The Language & Debug Servers view SHALL allow all content, including configuration problems and
@@ -1991,3 +2009,54 @@ and SHALL open nothing. This is the project-member slice of #2908; external navi
 
 - **WHEN** a request has `external: true` or names no loaded member
 - **THEN** the response contains `success: false` and nothing opens
+
+### Requirement: Code lens sessions bound resolution to the viewport
+
+The client SHALL provide a document lens session that resolves only lenses whose starting lines are in
+its supplied zero-based viewport. Leaving the viewport SHALL cancel pending resolution, and late replies
+from cancelled resolution or superseded discovery SHALL NOT replace the current lenses. Complete lenses
+SHALL NOT be resolved again. Disposing a session SHALL cancel its work and detach refresh subscriptions.
+This is the scheduling layer of #2906; editor rendering, commands, edit debounce and Options remain pending.
+
+#### Scenario: Ten visible members among fifty
+
+- **WHEN** discovery returns fifty unresolved lenses and the supplied viewport contains ten
+- **THEN** the session SHALL request only those ten resolutions
+- **AND** scrolling SHALL request newly visible lenses without resolving completed ones again
+
+### Requirement: Workspace code lens refresh invalidates lens sessions
+
+The client SHALL declare `workspace.codeLens.refreshSupport: true`, answer parameterless
+`workspace/codeLens/refresh` with null, and notify consumers with the issuing connection as sender.
+Active lens sessions SHALL discover their lenses again on that notification.
+
+#### Scenario: A server invalidates its lenses
+
+- **WHEN** a server sends `workspace/codeLens/refresh` without params
+- **THEN** the client SHALL answer null and its active lens sessions SHALL fetch fresh lenses
+- **AND** a registry SHALL retain the originating connection in the notification
+
+### Requirement: Code window lenses are visual actions above member lines
+
+The code window SHALL draw each resolved lens above its range in the editor font, smaller and dimmed.
+Lens space SHALL add no document characters, selection content, caret stops or line numbers. The view
+SHALL supply its visible lines to the lens session on scrolling and dispose the session on detach.
+Clicking a lens SHALL execute a server-declared command through the command router. The commands
+`rdcore.showReferences` and `editor.action.showReferences` SHALL instead fill the existing Find References
+pane from their third argument without sending a references request. Unknown commands SHALL do nothing
+and be logged once per command.
+
+#### Scenario: Lens space follows the editor font metrics
+
+- **GIVEN** a resolved lens in a code window
+- **WHEN** the editor lays out its member line
+- **THEN** the entire lens row SHALL fit above the member text, within one device pixel of layout rounding
+- **AND** this placement SHALL hold with both the editor font and a platform fallback font
+
+#### Scenario: A reference-count lens is clicked
+
+- **GIVEN** a resolved show-references lens above a member
+- **WHEN** the user clicks its label
+- **THEN** the existing Find References pane SHALL show its supplied locations
+- **AND** the document text and numbered lines SHALL remain unchanged
+- **AND** no `textDocument/references` request SHALL be sent

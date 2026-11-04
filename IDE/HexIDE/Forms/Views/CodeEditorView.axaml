@@ -175,6 +175,7 @@
                     </MenuFlyout>
                 </avaloniaEdit:TextEditor.ContextFlyout>
             </avaloniaEdit:TextEditor>
+            <Canvas x:Name="CodeLensLayer" ClipToBounds="True" />
             <StackPanel x:Name="StickyHeaders" VerticalAlignment="Top" ClipToBounds="True" />
             </Grid>
         </ClassicBorderDecorator>

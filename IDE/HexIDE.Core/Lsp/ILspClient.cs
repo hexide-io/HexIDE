@@ -16,6 +16,9 @@ public interface ILspClient : IAsyncDisposable
     /// <summary>Rechecks the workspace root and reopens held documents if it moved.</summary>
     Task WorkspaceChangedAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
 
+    /// <summary>The server invalidated code lenses; sender identifies the issuing connection.</summary>
+    event EventHandler? CodeLensRefreshRequested;
+
     /// <summary>Fired when the server sends textDocument/publishDiagnostics.</summary>
     event EventHandler<PublishDiagnosticsParams>? DiagnosticsPublished;
 
@@ -291,14 +294,13 @@ public interface ILspClient : IAsyncDisposable
     /// <summary>
     /// Sends <c>textDocument/codeLens</c> and returns the lenses, or empty.
     /// </summary>
-    /// <remarks>
-    /// <b>Every lens that comes back is resolved.</b> The protocol lets a server return a lens with no
-    /// command and expect a <c>codeLens/resolve</c> round trip, and an unresolved lens is one the user can
-    /// see and cannot click — the worst of the three states. An implementation therefore resolves its own
-    /// before answering, which keeps the resolve on the connection that issued the lens without any caller
-    /// having to know that lenses have provenance.
-    /// </remarks>
     Task<CodeLens[]> RequestCodeLensesAsync(string uri, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Resolves a previously fetched lens on its issuing connection, or returns null if unavailable.
+    /// Callers request resolution only while the lens is visible and cancel when it leaves the viewport.
+    /// </summary>
+    Task<CodeLens?> ResolveCodeLensAsync(CodeLens lens, CancellationToken cancellationToken = default);
 
     /// <summary>Notifies opted-in servers of workspace folder changes before project import.</summary>
     Task UpdateWorkspaceFoldersAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;

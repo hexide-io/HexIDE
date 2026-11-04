@@ -2089,6 +2089,39 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     public Task<SignatureHelp?> RequestSignatureHelpAsync(Position position, CancellationToken ct = default, string? triggerCharacter = null)
         => LiveDocumentUri is { } uri ? lspClient.RequestSignatureHelpAsync(uri, position, ct, triggerCharacter) : Task.FromResult<SignatureHelp?>(null);
 
+    internal CodeLensSession CreateCodeLensSession() => new(lspClient, GetDocumentUriPublic());
+
+    internal async Task RunCodeLensAsync(Command command)
+    {
+        if (command.CommandName is "rdcore.showReferences" or "editor.action.showReferences")
+        {
+            if (command.Arguments is not { Length: >= 3 } arguments
+                || arguments[2].ValueKind != System.Text.Json.JsonValueKind.Array) return;
+            try
+            {
+                var locations = arguments[2].EnumerateArray().Select(item =>
+                {
+                    var range = item.GetProperty("range");
+                    Position ReadPosition(string name)
+                    {
+                        var p = range.GetProperty(name);
+                        return new Position(p.GetProperty("line").GetInt32(), p.GetProperty("character").GetInt32());
+                    }
+                    return new Location(item.GetProperty("uri").GetString()!,
+                        new HexIDE.Lsp.Messages.Range(ReadPosition("start"), ReadPosition("end")));
+                }).ToArray();
+                eventBus.Publish(new ShowReferenceLocationsEvent(locations));
+            }
+            catch (Exception error) when (error is System.Text.Json.JsonException or InvalidOperationException
+                or KeyNotFoundException or FormatException)
+            {
+                Log.Warning(error, "Invalid show-references code lens arguments");
+            }
+            return;
+        }
+        await lspClient.ExecuteCommandAsync(command.CommandName, command.Arguments);
+    }
+
     public async Task FindReferencesAsync(Position position)
     {
         await FlushDocumentAsync();
