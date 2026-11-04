@@ -49,9 +49,13 @@ public class CompletionCapabilitiesWireTests
 
         var completion = initialize.GetProperty("capabilities").GetProperty("textDocument").GetProperty("completion");
         completion.GetProperty("completionItemKind").GetProperty("valueSet")
-            .EnumerateArray().Select(value => value.GetInt32()).Should().Equal(1, 3, 6, 10, 14, 21);
+            .EnumerateArray().Select(value => value.GetInt32()).Should().Equal(Enumerable.Range(1, 25));
         completion.GetProperty("insertTextMode").GetInt32().Should().Be(1);
         completion.EnumerateObject().Select(property => property.Name).Should()
-            .BeEquivalentTo("completionItemKind", "insertTextMode");
+            .BeEquivalentTo("completionItemKind", "insertTextMode", "completionItem");
+        var item = completion.GetProperty("completionItem");
+        item.GetProperty("preselectSupport").GetBoolean().Should().BeTrue();
+        item.GetProperty("documentationFormat").EnumerateArray().Select(value => value.GetString())
+            .Should().Equal("plaintext");
     }
 }

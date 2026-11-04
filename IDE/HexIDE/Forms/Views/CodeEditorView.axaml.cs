@@ -26,6 +26,7 @@ using HexIDE.Lsp.Messages;
 using HexIDE.Runtime.Editor;
 using HexIDE.Runtime.Serialization;
 using HexIDE.Themes;
+using HexIDE.Tools.ObjectBrowser;
 using HexIDE.Utils;
 using R3;
 using Serilog;
@@ -2389,9 +2390,7 @@ public partial class CodeEditorView : UserControl
                 _completionWindow?.Close();
 
                 _completionWindow = new CompletionWindow(TextEditor.TextArea);
-                var data = _completionWindow.CompletionList.CompletionData;
-                foreach (var item in items)
-                    data.Add(new VbCompletionData(item, vm.RefusesTyping));
+                FillCompletionList(_completionWindow, items, vm.RefusesTyping);
 
                 _completionWindow.Closed += (_, _) => _completionWindow = null;
                 _completionWindow.Show();
@@ -2402,6 +2401,35 @@ public partial class CodeEditorView : UserControl
         {
             Log.Debug("[completion] {ErrorMessage}", ex.Message);
         }
+    }
+
+    internal static void FillCompletionList(CompletionWindow window, CompletionItem[] items,
+        Func<int, int, bool> refusesTyping)
+    {
+        var area = window.TextArea;
+        var start = area.Caret.Offset;
+        while (start > 0 && (char.IsLetterOrDigit(area.Document.GetCharAt(start - 1))
+                            || area.Document.GetCharAt(start - 1) == '_'))
+            start--;
+        window.StartOffset = start;
+        var prefix = area.Document.GetText(start, area.Caret.Offset - start);
+        VbCompletionData? preselected = null;
+        foreach (var item in items.OrderBy(item => item.SortText ?? item.Label, StringComparer.Ordinal))
+        {
+            var data = new VbCompletionData(item, refusesTyping);
+            window.CompletionList.CompletionData.Add(data);
+            if (preselected is null && item.Preselect == true
+                && data.Text.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+                preselected = data;
+        }
+        window.CompletionList.SelectItem(prefix);
+        if (preselected is not null)
+            Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+            {
+                if (!window.IsOpen) return;
+                window.CompletionList.SelectedItem = preselected;
+                window.CompletionList.ScrollIntoView(preselected);
+            }, Avalonia.Threading.DispatcherPriority.Loaded);
     }
 
     // ── Signature help ───────────────────────────────────────────────────────
@@ -2715,13 +2743,38 @@ public partial class CodeEditorView : UserControl
 /// </param>
 internal sealed class VbCompletionData(CompletionItem item, Func<int, int, bool> isReadOnlyRegion) : ICompletionData
 {
-    public string Text => item.Label;
-    public object Content => item.Label;
+    public string Text => item.FilterText ?? item.Label;
+    public object Content => KindGlyph is { } glyph
+        ? new StackPanel
+        {
+            Orientation = Avalonia.Layout.Orientation.Horizontal,
+            Spacing = 6,
+            Children = { new TextBlock { Text = glyph }, new TextBlock { Text = item.Label } }
+        }
+        : item.Label;
+
+    private string? KindGlyph => item.Kind switch
+    {
+        CompletionItemKind.Method or CompletionItemKind.Function or CompletionItemKind.Constructor
+            or CompletionItemKind.Operator => OBMemberViewModel.GlyphFor(OBMemberKind.Method),
+        CompletionItemKind.Field or CompletionItemKind.Variable or CompletionItemKind.Property
+            => OBMemberViewModel.GlyphFor(OBMemberKind.Property),
+        CompletionItemKind.Constant or CompletionItemKind.Value => OBMemberViewModel.GlyphFor(OBMemberKind.Constant),
+        CompletionItemKind.EnumMember => OBMemberViewModel.GlyphFor(OBMemberKind.EnumMember),
+        CompletionItemKind.Event => OBMemberViewModel.GlyphFor(OBMemberKind.Event),
+        CompletionItemKind.Module => OBClassViewModel.GlyphFor(OBClassKind.Module),
+        CompletionItemKind.Class or CompletionItemKind.Interface or CompletionItemKind.Struct
+            => OBClassViewModel.GlyphFor(OBClassKind.ClassModule),
+        CompletionItemKind.Enum => OBClassViewModel.GlyphFor(OBClassKind.Enum),
+        _ => null
+    };
 
     // What an item reads as to the automation surface, whose ListBoxItem holds this object rather than the text: an item
     // was named by its position alone, and selecting one by its text found none (#942 review).
-    public override string ToString() => Text;
-    public object? Description => item.Detail;
+    public override string ToString() => item.Label;
+    public object? Description => item.Documentation is { } documentation
+        ? string.IsNullOrEmpty(item.Detail) ? documentation.Value : item.Detail + "\n\n" + documentation.Value
+        : item.Detail;
     public double Priority => 0;
     public IImage? Image => null;
 
