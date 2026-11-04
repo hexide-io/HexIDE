@@ -356,6 +356,8 @@
     "Str.CodeEditor.FileNotSaved.Banner": "Този файл няма да бъде записан — HexIDE все още не може да го възпроизведе точно, така че записването би го променило. Кодът му е част от файла, затова въвеждането в този прозорец е забранено.",
     "Str.CodeEditor.Msg.RenameTouchesReadOnly": "Преименуването не е извършено, защото би променило заглавната част на файла или редовете Attribute на член, които IDE поддържа.",
     "Str.CodeEditor.Msg.RenameReachesOtherDocuments": "Преименуването не е извършено, защото редактира и други документи: {0}",
+    "Str.CodeEditor.Msg.RenameDocumentRefused": "Преименуването не може да се приложи към {0}.",
+    "Str.CodeEditor.Msg.RenamedInModules": "Преименувано в {0} модула",
     "Str.CodeEditor.Msg.NoMarkOnReadOnlyLine": "Ред {0} е част от заглавната част на файла или от редовете Attribute на член, които никога не се изпълняват, затова там не може да се постави точка на прекъсване или отметка.",
     "Str.CodeEditor.Dialog.InsertFileTitle": "Вмъкване на файл",
     "Str.CodeEditor.Dialog.RenamePrompt": "Ново име:",

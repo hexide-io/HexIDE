@@ -356,6 +356,8 @@
     "Str.CodeEditor.FileNotSaved.Banner": "Aquest fitxer no es desarà: HexIDE encara no el pot reproduir fidelment i desar-lo el canviaria. El codi forma part del fitxer; per això no es permet escriure en aquesta finestra.",
     "Str.CodeEditor.Msg.RenameTouchesReadOnly": "No s'ha canviat el nom perquè modificaria la capçalera d'aquest fitxer o les línies Attribute d'un membre, que manté l'IDE.",
     "Str.CodeEditor.Msg.RenameReachesOtherDocuments": "No s'ha canviat el nom perquè també modificaria altres documents: {0}",
+    "Str.CodeEditor.Msg.RenameDocumentRefused": "No es pot aplicar el canvi de nom a {0}.",
+    "Str.CodeEditor.Msg.RenamedInModules": "Nom canviat en {0} mòduls",
     "Str.CodeEditor.Msg.NoMarkOnReadOnlyLine": "La línia {0} forma part de la capçalera d'aquest fitxer o de les línies Attribute d'un membre, que no s'executen mai; per això no s'hi pot establir cap punt d'interrupció ni marcador.",
     "Str.CodeEditor.Dialog.InsertFileTitle": "Insereix un fitxer",
     "Str.CodeEditor.Dialog.RenamePrompt": "Nom nou:",

@@ -843,7 +843,7 @@ public class CodeEditorViewModelTests : IDisposable
     [InlineData(true, false)]
     [InlineData(false, false)]
     [InlineData(true, true)]
-    public async Task RenameAcrossDocuments_RefusesWholeAnswer(bool includesOwnDocument, bool loaded)
+    public async Task RenameWithUnresolvedDocument_RefusesWholeAnswer(bool includesOwnDocument, bool loaded)
     {
         var vm = CreateSut().Initialize(TestHelpers.CreateForm(name: "Form1"));
         var before = vm.Document.Text;
@@ -855,7 +855,7 @@ public class CodeEditorViewModelTests : IDisposable
         };
         if (includesOwnDocument)
             changes[vm.GetDocumentUriPublic()] = [new(new(new(0, 0), new(0, 0)), "NewName")];
-        _localization.GetString("Str.CodeEditor.Msg.RenameReachesOtherDocuments").Returns("Rename refused: {0}");
+        _localization.GetString("Str.CodeEditor.Msg.RenameDocumentRefused").Returns("Rename refused: {0}");
         _lspClient.RequestRenameAsync(vm.GetDocumentUriPublic(), Arg.Any<Position>(), "NewName", Arg.Any<CancellationToken>())
             .Returns(new RenameResult(new WorkspaceEdit(changes), null));
 
@@ -880,6 +880,26 @@ public class CodeEditorViewModelTests : IDisposable
 
         vm.ApplyRename(edit, "OldName").Should().BeNull();
         vm.Document.Text.Should().Contain("Renamed");
+        vm.Document.UndoStack.Undo();
+        vm.Document.Text.Should().Be(before);
+    }
+
+    [AvaloniaFact]
+    public async Task RenameViewAppliesDocumentChangesWithoutChangesDictionary()
+    {
+        var vm = CreateSut().Initialize(TestHelpers.CreateModule());
+        var before = vm.Document.Text;
+        _localization.GetString("Str.CodeEditor.Dialog.RenamePrompt").Returns("New name:");
+        _localization.GetString("Str.CodeEditor.Dialog.RenameTitle").Returns("Rename");
+        _windowManager.InputBox("New name:", "Rename", "Greet").Returns("Welcome");
+        var line = vm.Document.LineCount - 1;
+        _lspClient.RequestRenameAsync(Arg.Any<string>(), Arg.Any<Position>(), "Welcome", Arg.Any<CancellationToken>())
+            .Returns(new RenameResult(new WorkspaceEdit(DocumentChanges:
+                [new(new(vm.GetDocumentUriPublic(), 1), [new(new(new(line, 0), new(line, 0)), "Welcome")])]), null));
+
+        await new HexIDE.Forms.Views.CodeEditorView().RenameSymbolAsync(vm, new(0, 0), "Greet");
+
+        vm.Document.Text.Should().Contain("Welcome");
         vm.Document.UndoStack.Undo();
         vm.Document.Text.Should().Be(before);
     }

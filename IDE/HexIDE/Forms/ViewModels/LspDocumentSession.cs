@@ -97,15 +97,28 @@ internal sealed class LspDocumentSession : IDisposable
     {
         public int Holders;
 
-        // The version the last message about this document carried: the open's until the first change, so that
-        // change carries the next one rather than repeating it. (#470)
+        // Versions are drawn with the text at edit time (#470); SentVersion trails while a debounce is pending.
         public int Version = LspDocumentVersion.Opening;
+        public int SentVersion = LspDocumentVersion.Opening;
 
         // What was last published for it, so a window that joins shows what the others already show.
         public PublishDiagnosticsParams? LastPublished;
     }
 
     private static readonly ConditionalWeakTable<ILspClient, Dictionary<string, SharedDocument>> SharedDocuments = new();
+
+    // Read before opening any target windows: a newly opened window was not the server's source.
+    internal static (int Sent, int Current)? VersionsFor(ILspClient client, string uri)
+    {
+        if (!SharedDocuments.TryGetValue(client, out var documents)) return null;
+        lock (documents)
+        {
+            foreach (var entry in documents)
+                if (LspDocumentUri.AreSame(entry.Key, uri))
+                    return (Volatile.Read(ref entry.Value.SentVersion), Volatile.Read(ref entry.Value.Version));
+        }
+        return null;
+    }
 
     /// <summary>Holds <paramref name="uri"/>'s document on this client, and says whether this is its first holder.</summary>
     private (SharedDocument Document, bool First) Hold(string uri)
@@ -281,6 +294,7 @@ internal sealed class LspDocumentSession : IDisposable
         if (disposed || shared is null) return Task.CompletedTask;
         if (pendingChange is not { } pending) return changeInFlight;
         pendingChange = null;
+        Volatile.Write(ref shared.SentVersion, pending.Version);
         return changeInFlight = client.ChangeDocumentAsync(Uri, pending.Version, pending.Text, cancellationToken);
     }
 

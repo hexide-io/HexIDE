@@ -356,6 +356,8 @@
     "Str.CodeEditor.FileNotSaved.Banner": "ไฟล์นี้จะไม่ถูกบันทึก — HexIDE ยังไม่สามารถสร้างซ้ำได้อย่างถูกต้องครบถ้วน การบันทึกจึงจะเปลี่ยนไฟล์ โค้ดเป็นส่วนหนึ่งของไฟล์นี้ จึงไม่อนุญาตให้พิมพ์ในหน้าต่างนี้",
     "Str.CodeEditor.Msg.RenameTouchesReadOnly": "ไม่ได้เปลี่ยนชื่อ เนื่องจากจะเปลี่ยนส่วนหัวของไฟล์หรือบรรทัด Attribute ของสมาชิก ซึ่ง IDE เป็นผู้ดูแล",
     "Str.CodeEditor.Msg.RenameReachesOtherDocuments": "ไม่ได้เปลี่ยนชื่อ เนื่องจากจะต้องแก้ไขเอกสารอื่นด้วย: {0}",
+    "Str.CodeEditor.Msg.RenameDocumentRefused": "ไม่สามารถใช้การเปลี่ยนชื่อกับ {0} ได้",
+    "Str.CodeEditor.Msg.RenamedInModules": "เปลี่ยนชื่อใน {0} โมดูลแล้ว",
     "Str.CodeEditor.Msg.NoMarkOnReadOnlyLine": "บรรทัด {0} เป็นส่วนหนึ่งของส่วนหัวไฟล์หรือบรรทัด Attribute ของสมาชิก ซึ่งไม่เคยถูกเรียกใช้ จึงไม่สามารถตั้งจุดพักหรือที่คั่นหน้าที่นั่นได้",
     "Str.CodeEditor.Dialog.InsertFileTitle": "แทรกไฟล์",
     "Str.CodeEditor.Dialog.RenamePrompt": "ชื่อใหม่:",

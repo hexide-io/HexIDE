@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using HexIDE.Forms.ViewModels;
 using HexIDE.Lsp;
 using HexIDE.Runtime.ProjectElements;
@@ -47,6 +48,28 @@ public class EditorService : IEditorService
                 if (Names(uri, DocumentIdentity.For(form), form.AbsolutePath)) return form.Name;
             foreach (var carried in project.RelatedDocuments)
                 if (Names(uri, null, carried.AbsolutePath)) return carried.Name;
+        }
+        return null;
+    }
+
+    public CodeEditorViewModel? OpenCodeForUri(string uri)
+    {
+        foreach (var project in projectManager().LoadedProjects)
+        {
+            foreach (var module in project.Modules)
+            {
+                if (!Names(uri, DocumentIdentity.For(module), module.AbsolutePath)) continue;
+                EditCode(module);
+                return documentDockService.OpenDocuments.OfType<CodeEditorViewModel>()
+                    .FirstOrDefault(vm => vm.ModuleDefinition == module);
+            }
+            foreach (var form in project.Forms)
+            {
+                if (!Names(uri, DocumentIdentity.For(form), form.AbsolutePath)) continue;
+                EditCode(form);
+                return documentDockService.OpenDocuments.OfType<CodeEditorViewModel>()
+                    .FirstOrDefault(vm => vm.FormDefinition == form || vm.ModuleDefinition?.FormPart == form);
+            }
         }
         return null;
     }
