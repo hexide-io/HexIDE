@@ -3,6 +3,7 @@ using System.Text.Json;
 using HexIDE.Addins;
 using HexIDE.Conversations;
 using HexIDE.Lsp;
+using HexIDE.Lsp.Messages;
 using Microsoft.Extensions.Logging;
 using StreamJsonRpc;
 
@@ -87,6 +88,44 @@ public class AddinServerRegistrationTests : IDisposable
         await client.Received(1).OpenDocumentAsync("file:///c:/p/README.md", "# hi", Arg.Any<CancellationToken>());
         await client.DidNotReceive().OpenDocumentAsync("file:///c:/p/Module1.bas", Arg.Any<string>(), Arg.Any<CancellationToken>());
         router.Connections.Should().ContainSingle(c => c.Id == "md");
+    }
+
+    [Fact]
+    public async Task AServerTakenOutAndAddedAgain_KeepsTheNewOnesDiagnostics_HoweverLongTheOldOneTakesToStop()
+    {
+        // An add-in reloaded: its server's id is free again before the old one has finished shutting down.
+        const string uri = "file:///c:/p/README.md";
+        var router = Router();
+        await router.OpenDocumentAsync(uri, "# hi", Token);
+        var stopping = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var (oldFactory, oldMade) = FakeClients();
+        var old = router.Add(Markdown(() =>
+        {
+            var client = oldFactory();
+            client.StopAsync().Returns(stopping.Task);
+            return client;
+        }));
+        await old.Opened.WaitAsync(TimeSpan.FromSeconds(30), Token);
+        var oldClient = oldMade.Single();
+        oldClient.DiagnosticsPublished += Raise.Event<EventHandler<PublishDiagnosticsParams>>(oldClient,
+            new PublishDiagnosticsParams(uri, [new(new(new(0, 0), new(0, 1)), "old", DiagnosticSeverity.Warning)]));
+        router.Diagnostics.Should().ContainSingle(d => d.Diagnostic.Message == "old");
+
+        var removing = old.DisposeAsync().AsTask();
+        router.Diagnostics.Should().BeEmpty("what a server said goes with it");
+        var (newFactory, newMade) = FakeClients();
+        var replacement = router.Add(Markdown(newFactory));
+        await replacement.Opened.WaitAsync(TimeSpan.FromSeconds(30), Token);
+        var newClient = newMade.Single();
+        newClient.DiagnosticsPublished += Raise.Event<EventHandler<PublishDiagnosticsParams>>(newClient,
+            new PublishDiagnosticsParams(uri, [new(new(new(0, 0), new(0, 1)), "new", DiagnosticSeverity.Warning)]));
+
+        stopping.SetResult();
+        await removing.WaitAsync(TimeSpan.FromSeconds(30), Token);
+
+        router.Diagnostics.Should().ContainSingle().Which.Diagnostic.Message.Should().Be("new",
+            "the old server's removal withdraws what it said, not what the server now under its id says");
+        await replacement.DisposeAsync();
     }
 
     [Fact]

@@ -1502,12 +1502,21 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
         client.StateChanged -= OnInnerStateChanged;
     }
 
-    // A server taken out: a start in progress is called off — its gate before launch with it — and ends, then the server
-    // is stopped, what it said about each document is withdrawn, and its row and its configuration problems go.
+    // A server taken out: what it said about each document is withdrawn, a start in progress is called off — its gate
+    // before launch with it — and ends, then the server is stopped, and its row and its configuration problems go.
     private async Task RemoveAsync(Entry entry)
     {
+        // The withdrawal with the removal, under the lock Add takes: the id is free from here, and a server added under it
+        // again says its own things, which a withdrawal by id after the old one's shutdown would take away with it.
+        IReadOnlyList<PublishDiagnosticsParams> withdrawn;
         lock (_entriesGate)
+        {
             _entries = _entries.Where(e => !ReferenceEquals(e, entry)).ToList();
+            if (entry.Client is { } speaking) speaking.DiagnosticsPublished -= OnInnerDiagnostics;
+            withdrawn = _diagnostics.Withdraw(entry.Registration.Id).ToList();
+        }
+        foreach (var p in withdrawn)
+            DiagnosticsPublished?.Invoke(this, p);
 
         // Before the wait, not after: the start holds the gate, and would hold it for as long as an add-in's gate waits.
         await entry.Lifetime.CancelAsync();
@@ -1541,8 +1550,6 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
             entry.Gate.Release();
         }
 
-        foreach (var p in _diagnostics.Withdraw(entry.Registration.Id))
-            DiagnosticsPublished?.Invoke(this, p);
         ConnectionsChanged?.Invoke(this, EventArgs.Empty);
     }
 
