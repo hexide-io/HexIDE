@@ -54,7 +54,7 @@
         <input:CommandBinding Command="{x:Static vb:ApplicationCommands.ParameterInfoCommand}"
                               ExecutingCommand="{CompiledBinding #Root.TriggerSignatureHelp}" />
         <input:CommandBinding Command="{x:Static vb:ApplicationCommands.CompleteWordCommand}"
-                              ExecutingCommand="{CompiledBinding #Root.TriggerCompletion}" />
+                              ExecutingCommand="{CompiledBinding #Root.CompleteWord}" />
         <input:CommandBinding Command="{x:Static vb:ApplicationCommands.ToggleFoldCommand}"
                               ExecutingCommand="{CompiledBinding #Root.ToggleFold}" />
         <input:CommandBinding Command="{x:Static vb:ApplicationCommands.ToggleBookmarkCommand}"

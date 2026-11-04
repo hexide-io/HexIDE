@@ -1523,15 +1523,15 @@ and variables are unfinished.
 - **AND** Tab selects c and a further Tab finishes at the final stop
 
 ### Requirement: Completion presentation honours server metadata
-The client SHALL sort merged completion items ordinally by `sortText ?? label` and filter using
-`filterText ?? label`. The editor SHALL initially select the first preselected prefix match, otherwise
-its best match. It SHALL show string or MarkupContent documentation with detail as plain text and reuse
+The client SHALL sort merged completion items ordinally by `sortText ?? label` and match the whole word around the caret using
+`filterText ?? label`, keeping the full list visible. The editor SHALL initially select the first preselected prefix match, otherwise
+its first prefix match, leaving no selection for an empty or unmatched word. It SHALL show string or MarkupContent documentation with detail as plain text and reuse
 Object Browser glyphs for corresponding kinds, using none without a counterpart.
-If no item matches the opening word, the editor SHALL retain the server's list and filter subsequent typing normally.
+If no item matches the opening word, the editor SHALL retain the server's list for explicit acceptance with Tab.
 
 #### Scenario: Server ranking and selection
 - **WHEN** A has sortText `b` and preselect true, and B has sortText `a`, with an empty prefix
-- **THEN** B appears before A and A is selected
+- **THEN** B appears before A and neither item is selected
 
 #### Scenario: Filter text differs from label
 - **WHEN** an item labelled `Display` has filterText `needle` and the user types `nee`
@@ -1540,6 +1540,23 @@ If no item matches the opening word, the editor SHALL retain the server's list a
 #### Scenario: Server replacements do not match the opening word
 - **WHEN** the server offers a snippet replacement labelled `zsnip` over the word `M` and no item matches `M`
 - **THEN** the item remains available to accept and its snippet fields activate normally
+
+### Requirement: Completion acceptance keys
+The editor SHALL follow the VB6 SP6 measurements linked in issue #3056: Enter accepts a selected
+ordinary completion and then commits a new line; Tab accepts without a break; Space accepts and
+then types a space; Escape closes without accepting. With no selection, Enter and Space SHALL close
+the list and only type their character, while Tab SHALL accept the first outlined item, replacing the
+whole word including text after the caret. The first Down SHALL highlight that first item.
+Complete Word SHALL immediately insert a unique prefix match without opening a list.
+A snippet choice picker's Enter SHALL accept without a line break and keep snippet navigation active.
+
+#### Scenario: Enter after a matching prefix
+- **WHEN** Print is selected after `Debug.Pr` and the user presses Enter
+- **THEN** the editor contains `Debug.Print` followed by a real new line
+
+#### Scenario: Enter in a snippet choice picker
+- **WHEN** the user selects `two` in a snippet choice picker and presses Enter
+- **THEN** `two` replaces the placeholder and its linked occurrences, without inserting a line break
 
 ### Requirement: Completion snippet choices
 The editor SHALL expand a numbered choice placeholder to its first value and offer its values in
