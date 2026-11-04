@@ -20,8 +20,9 @@
         </Style>
     </UserControl.Styles>
 
-    <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto" Padding="10">
-        <StackPanel Spacing="14">
+    <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+        <!-- Keep the inset in the scrollable content so the extent includes it. -->
+        <StackPanel Spacing="14" Margin="10">
 
             <!-- Nothing attached at all. Its own message, because "no servers" and "servers, none working"
                  are different situations and an empty list says neither. -->
