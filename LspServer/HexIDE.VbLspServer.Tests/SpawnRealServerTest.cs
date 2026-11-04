@@ -99,13 +99,21 @@ public class SpawnRealServerTest
         await AssertExitAsync(clean: true, closeInput);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Exit_without_shutdown_ends_the_process_with_code_1(bool closeInput)
+    {
+        await AssertExitAsync(clean: false, closeInput, sendExit: true);
+    }
+
     [Fact]
     public async Task Input_closed_without_exit_still_reports_the_read_fault()
     {
         await AssertExitAsync(clean: false, closeInput: true);
     }
 
-    private static async Task AssertExitAsync(bool clean, bool closeInput)
+    private static async Task AssertExitAsync(bool clean, bool closeInput, bool sendExit = false)
     {
         var (fileName, arguments) = ResolveServer();
         using var process = new Process
@@ -135,6 +143,9 @@ public class SpawnRealServerTest
                 var response = await rpc.InvokeWithCancellationAsync<JsonElement>("shutdown", [],
                     TestContext.Current.CancellationToken).WaitAsync(Timeout, TestContext.Current.CancellationToken);
                 response.ValueKind.Should().Be(JsonValueKind.Null);
+            }
+            if (clean || sendExit)
+            {
                 // Flush the final wire frame before closing the byte stream.
                 var exit = "{\"jsonrpc\":\"2.0\",\"method\":\"exit\"}"u8.ToArray();
                 var header = System.Text.Encoding.ASCII.GetBytes($"Content-Length: {exit.Length}\r\n\r\n");
@@ -152,6 +163,11 @@ public class SpawnRealServerTest
             {
                 process.ExitCode.Should().Be(0);
                 error.Should().BeEmpty("shutdown followed by exit is an ordinary stop (#2956)");
+            }
+            else if (sendExit)
+            {
+                process.ExitCode.Should().Be(1, "exit without an answered shutdown is abnormal (#3007)");
+                error.Should().BeEmpty();
             }
             else
                 error.Should().Contain("Stream closed before all data could be read");

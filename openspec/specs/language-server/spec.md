@@ -16,11 +16,16 @@ the kind of thing that erodes silently unless it is a requirement.
 ### Requirement: Clean exit stops the input loop quietly
 After answering `shutdown` and receiving `exit`, the server SHALL stop its input loop and exit with
 code 0 and empty stderr, whether the client closes stdin or leaves it open. EOF without a preceding
-`exit` SHALL still report the input fault on stderr.
+`exit` SHALL still report the input fault on stderr. An `exit` without a previously answered
+`shutdown` SHALL stop the input loop with code 1 and empty stderr.
 
 #### Scenario: A client stops the server normally
 - **WHEN** the client receives the `shutdown` response and sends `exit`
 - **THEN** the server exits with code 0 and empty stderr without waiting for EOF
+
+#### Scenario: A client exits without shutdown
+- **WHEN** the client sends `exit` without an answered `shutdown`
+- **THEN** the server exits with code 1 and empty stderr without waiting for EOF
 
 #### Scenario: Input closes unexpectedly
 - **WHEN** stdin closes without an `exit` notification
