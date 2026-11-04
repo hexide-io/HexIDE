@@ -397,6 +397,8 @@
     "Str.CodeEditor.Msg.RenameTouchesReadOnly": "Η μετονομασία δεν εφαρμόστηκε, επειδή θα άλλαζε την κεφαλίδα αυτού του αρχείου ή τις γραμμές Attribute ενός μέλους, τις οποίες διαχειρίζεται το IDE.",
     "Str.CodeEditor.Msg.RenameReachesOtherDocuments": "Η μετονομασία δεν έγινε επειδή τροποποιεί και άλλα έγγραφα: {0}",
     "Str.CodeEditor.Msg.RenameDocumentRefused": "Δεν είναι δυνατή η εφαρμογή μετονομασίας στο {0}.",
+    "Str.CodeEditor.Msg.RenameStaleVersion": "Δεν είναι δυνατή η μετονομασία του {0}: η έκδοση είναι παλιά. Δοκιμάστε ξανά.",
+    "Str.CodeEditor.Msg.RenameUnsavedChanges": "Δεν είναι δυνατή η μετονομασία του {0}: υπάρχουν μη αποθηκευμένες αλλαγές. Αποθηκεύστε και δοκιμάστε ξανά.",
     "Str.CodeEditor.Msg.RenamedInModules": "Μετονομάστηκε σε {0} λειτουργικές μονάδες",
     "Str.CodeEditor.Msg.NoMarkOnReadOnlyLine": "Η γραμμή {0} ανήκει στην κεφαλίδα αυτού του αρχείου ή στις γραμμές Attribute ενός μέλους, οι οποίες δεν εκτελούνται ποτέ, οπότε δεν μπορεί να οριστεί εκεί σημείο διακοπής ή σελιδοδείκτης.",
     "Str.CodeEditor.Dialog.InsertFileTitle": "Εισαγωγή αρχείου",

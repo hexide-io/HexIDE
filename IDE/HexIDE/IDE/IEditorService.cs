@@ -18,6 +18,12 @@ public interface IEditorService
     /// <summary>Opens a loaded code member by URI, or returns null when none answers.</summary>
     Forms.ViewModels.CodeEditorViewModel? OpenCodeForUri(string uri);
 
+    /// <summary>Finds a loaded code member without opening or activating a window.</summary>
+    DocumentIdentity? CodeDocumentForUri(string uri);
+
+    /// <summary>Finds an existing code window without activating it.</summary>
+    Forms.ViewModels.CodeEditorViewModel? FindOpenCode(DocumentIdentity document);
+
     void RestoreCaret(DocumentIdentity document, int offset);
     void RestoreCaret(RelatedDocumentDefinition document, int offset);
 

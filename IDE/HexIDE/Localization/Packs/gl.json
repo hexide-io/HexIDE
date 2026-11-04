@@ -360,6 +360,8 @@
     "Str.CodeEditor.Msg.RenameTouchesReadOnly": "Non se cambiou o nome porque alteraría a cabeceira deste ficheiro ou as liñas Attribute dun membro, que mantén o IDE.",
     "Str.CodeEditor.Msg.RenameReachesOtherDocuments": "Non se cambiou o nome porque tamén modifica outros documentos: {0}",
     "Str.CodeEditor.Msg.RenameDocumentRefused": "Non se pode aplicar o cambio de nome a {0}.",
+    "Str.CodeEditor.Msg.RenameStaleVersion": "Non se pode cambiar o nome de {0}: a versión está desactualizada. Ténteo de novo.",
+    "Str.CodeEditor.Msg.RenameUnsavedChanges": "Non se pode cambiar o nome de {0}: hai cambios sen gardar. Garde e ténteo de novo.",
     "Str.CodeEditor.Msg.RenamedInModules": "Nome cambiado en {0} módulos",
     "Str.CodeEditor.Msg.NoMarkOnReadOnlyLine": "A liña {0} forma parte da cabeceira deste ficheiro ou das liñas Attribute dun membro, que nunca se executan, polo que non se pode establecer nela un punto de interrupción nin un marcador.",
     "Str.CodeEditor.Dialog.InsertFileTitle": "Inserir ficheiro",

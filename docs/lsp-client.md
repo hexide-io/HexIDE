@@ -611,9 +611,12 @@ server is expected to keep off them — the bundled one does, by the rule in
 - **Diagnostics** inside the header or an attribute run are shown like any other, because they are a
   server's claim about the file. The bundled server raises none there.
 - **Rename applies across loaded code members, all or none** (#1024). Every edited member's window
-  opens, using the navigation URI rule. Before any buffer changes, each target is checked for a
-  read-only form, protected header/attribute edits, and stale versions. A refusal names the member,
-  or the URI when no loaded code member answers. Each changed buffer has one independent undo step;
+  opens, using the navigation URI rule. Before any window opens or buffer changes, each target is checked
+  for a read-only form, protected header/attribute edits, and stale versions. A refusal names the member,
+  or the URI when no loaded code member answers. Stale-version and unsaved-change refusals explain the
+  reason in the IDE language and ask the user to try again, or save and try again (#3047). A successful
+  rename returns to its source window with the caret at the renamed name. Each changed buffer has one
+  independent undo step;
   the status bar reports “Renamed in N modules”. Empty edit lists are ignored.
 - **Versioned workspace edits** are declared with `workspace.workspaceEdit.documentChanges: true`.
   `documentChanges` takes precedence over `changes`, which remains supported. Only text document edits

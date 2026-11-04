@@ -19,6 +19,7 @@ public class WorkspaceRenameTests : IDisposable
     private readonly IDocumentDockService dock = Substitute.For<IDocumentDockService>();
     private readonly List<BaseEditorWindowViewModel> windows = [];
     private readonly EditorService editors;
+    private BaseEditorWindowViewModel? active;
     private readonly ModuleDefinition first;
     private readonly ModuleDefinition second;
 
@@ -37,12 +38,20 @@ public class WorkspaceRenameTests : IDisposable
         manager.LoadedProjects.Returns([project]);
         dock.OpenDocuments.Returns(windows);
         dock.When(d => d.OpenDocument(Arg.Any<BaseEditorWindowViewModel>()))
-            .Do(c => windows.Add(c.Arg<BaseEditorWindowViewModel>()));
+            .Do(c => { active = c.Arg<BaseEditorWindowViewModel>(); windows.Add(active); });
         dock.TryActivate(Arg.Any<Func<CodeEditorViewModel, bool>>())
-            .Returns(c => windows.OfType<CodeEditorViewModel>().Any(c.Arg<Func<CodeEditorViewModel, bool>>()));
+            .Returns(c =>
+            {
+                var found = windows.OfType<CodeEditorViewModel>().FirstOrDefault(c.Arg<Func<CodeEditorViewModel, bool>>());
+                if (found is null) return false;
+                active = found;
+                return true;
+            });
         editors = new EditorService(dock, NewEditor, () => throw new InvalidOperationException(),
             () => throw new InvalidOperationException(), () => throw new InvalidOperationException(), () => manager);
         localization.GetString("Str.CodeEditor.Msg.RenameDocumentRefused").Returns("Rename refused: {0}");
+        localization.GetString("Str.CodeEditor.Msg.RenameStaleVersion").Returns("Cannot rename {0}: stale version. Try again.");
+        localization.GetString("Str.CodeEditor.Msg.RenameUnsavedChanges").Returns("Cannot rename {0}: unsaved changes. Save and try again.");
         localization.GetString("Str.CodeEditor.Msg.RenamedInModules").Returns("Renamed in {0} modules");
     }
 
@@ -79,6 +88,39 @@ public class WorkspaceRenameTests : IDisposable
             .Returns(new RenameResult(edit, null, documentFor));
         var answer = await source.RequestRenameAsync(new(1, 11), "Welcome");
         return source.ApplyRename(answer!.Edit!, "Greet", answer.DocumentFor);
+    }
+
+    [AvaloniaFact]
+    public async Task StaleRefusalNamesTheMemberReasonAndAction()
+    {
+        var a = Open(first);
+        var b = Open(second);
+        (await Answer(a, new(DocumentChanges: [new(new(UriOf(second), 99), [Rename(b)])])))
+            .Should().Be("Cannot rename Module2: stale version. Try again.");
+    }
+
+    [AvaloniaFact]
+    public async Task RefusedRenameOpensNoWindow()
+    {
+        var a = Open(first);
+        dock.ClearReceivedCalls();
+        (await Answer(a, new(DocumentChanges:
+            [new(new(UriOf(second), null), [RenameClosed()]), new(new(UriOf(first), 99), [Rename(a)])])))
+            .Should().NotBeNull();
+        dock.DidNotReceive().OpenDocument(Arg.Any<BaseEditorWindowViewModel>());
+        windows.Should().ContainSingle().Which.Should().BeSameAs(a);
+        active.Should().BeSameAs(a);
+    }
+
+    [AvaloniaFact]
+    public async Task SuccessfulRenameReturnsToItsSourceAtTheRenamedName()
+    {
+        var a = Open(first);
+        a.CaretOffset = a.Document.Text.IndexOf("Greet", StringComparison.Ordinal);
+        (await Answer(a, new(new() { [UriOf(first)] = [Rename(a)], [UriOf(second)] = [RenameClosed()] })))
+            .Should().BeNull();
+        active.Should().BeSameAs(a);
+        a.Document.GetText(a.CaretOffset, "Welcome".Length).Should().Be("Welcome");
     }
 
     [AvaloniaFact]
@@ -122,7 +164,7 @@ public class WorkspaceRenameTests : IDisposable
         var beforeB = b.Document.Text;
         var edit = new WorkspaceEdit(DocumentChanges:
             [new(new(UriOf(first), 1), [Rename(a)]), new(new(UriOf(second), null), [Rename(b)])]);
-        (await Answer(a, edit)).Should().Be("Rename refused: Module2");
+        (await Answer(a, edit)).Should().Be("Cannot rename Module2: unsaved changes. Save and try again.");
         a.Document.Text.Should().Be(beforeA);
         b.Document.Text.Should().Be(beforeB);
     }
@@ -136,7 +178,7 @@ public class WorkspaceRenameTests : IDisposable
         var beforeB = b.Document.Text;
         (await Answer(a, new(DocumentChanges:
             [new(new(UriOf(first), 1), [Rename(a)]), new(new(UriOf(second), 99), [Rename(b)])])))
-            .Should().Be("Rename refused: Module2");
+            .Should().Be("Cannot rename Module2: stale version. Try again.");
         a.Document.Text.Should().Be(beforeA);
         b.Document.Text.Should().Be(beforeB);
     }
@@ -178,7 +220,7 @@ public class WorkspaceRenameTests : IDisposable
         var before = a.Document.Text;
         (await Answer(a, new(DocumentChanges:
             [new(new(UriOf(first), 1), [Rename(a)]), new(new(UriOf(second), 1), [RenameClosed()])])))
-            .Should().Be("Rename refused: Module2");
+            .Should().Be("Cannot rename Module2: unsaved changes. Save and try again.");
         a.Document.Text.Should().Be(before);
     }
 
@@ -224,7 +266,7 @@ public class WorkspaceRenameTests : IDisposable
         var before = a.Document.Text;
         (await Answer(a, new(DocumentChanges:
             [new(new(UriOf(first), 1), [Rename(a)]), new(new(UriOf(second), 1), [Rename(b)])])))
-            .Should().Be("Rename refused: Module2");
+            .Should().Be("Cannot rename Module2: stale version. Try again.");
         a.Document.Text.Should().Be(before);
         b.Document.Text.Should().Contain("Sub Greet()");
     }
@@ -280,7 +322,7 @@ public class WorkspaceRenameTests : IDisposable
         var before = a.Document.Text;
         (await Answer(a, new(DocumentChanges:
             [new(new(UriOf(first), 1), [Rename(a)]), new(new(UriOf(second), 2), [Rename(b)])]),
-            uri => uri == UriOf(first) ? new(1, a.Document.Text) : null)).Should().Be("Rename refused: Module2");
+            uri => uri == UriOf(first) ? new(1, a.Document.Text) : null)).Should().Be("Cannot rename Module2: unsaved changes. Save and try again.");
         a.Document.Text.Should().Be(before);
         b.Document.Text.Should().Contain("Sub Greet()");
     }
@@ -305,7 +347,7 @@ public class WorkspaceRenameTests : IDisposable
         await b.FlushDocumentAsync();
         var before = b.Document.Text;
         (await Answer(a, new(DocumentChanges: [new(new(UriOf(second), 1), [Rename(b)])]),
-            _ => new(1, serverText))).Should().Be("Rename refused: Module2");
+            _ => new(1, serverText))).Should().Be("Cannot rename Module2: stale version. Try again.");
         b.Document.Text.Should().Be(before);
     }
 

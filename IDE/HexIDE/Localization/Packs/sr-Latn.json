@@ -360,6 +360,8 @@
     "Str.CodeEditor.Msg.RenameTouchesReadOnly": "Ime nije promenjeno jer bi to izmenilo zaglavlje ove datoteke ili redove Attribute člana, koje održava IDE.",
     "Str.CodeEditor.Msg.RenameReachesOtherDocuments": "Ime nije promenjeno jer bi se time izmenili i drugi dokumenti: {0}",
     "Str.CodeEditor.Msg.RenameDocumentRefused": "Nije moguće primeniti preimenovanje na {0}.",
+    "Str.CodeEditor.Msg.RenameStaleVersion": "Nije moguće preimenovati {0}: verzija je zastarela. Pokušajte ponovo.",
+    "Str.CodeEditor.Msg.RenameUnsavedChanges": "Nije moguće preimenovati {0}: postoje nesačuvane izmene. Sačuvajte i pokušajte ponovo.",
     "Str.CodeEditor.Msg.RenamedInModules": "Preimenovano u {0} modula",
     "Str.CodeEditor.Msg.NoMarkOnReadOnlyLine": "Red {0} je deo zaglavlja ove datoteke ili redova Attribute člana, koji se nikada ne izvršavaju, pa tu nije moguće postaviti tačku prekida ili obeleživač.",
     "Str.CodeEditor.Dialog.InsertFileTitle": "Umetni datoteku",

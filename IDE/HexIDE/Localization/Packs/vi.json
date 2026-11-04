@@ -397,6 +397,8 @@
     "Str.CodeEditor.Msg.RenameTouchesReadOnly": "Không đổi tên vì thao tác này sẽ thay đổi phần đầu tệp này hoặc các dòng Attribute của một thành viên, vốn do IDE quản lý.",
     "Str.CodeEditor.Msg.RenameReachesOtherDocuments": "Không đổi tên vì thao tác này cũng chỉnh sửa các tài liệu khác: {0}",
     "Str.CodeEditor.Msg.RenameDocumentRefused": "Không thể áp dụng đổi tên cho {0}.",
+    "Str.CodeEditor.Msg.RenameStaleVersion": "Không thể đổi tên {0}: phiên bản đã cũ. Hãy thử lại.",
+    "Str.CodeEditor.Msg.RenameUnsavedChanges": "Không thể đổi tên {0}: có thay đổi chưa lưu. Hãy lưu rồi thử lại.",
     "Str.CodeEditor.Msg.RenamedInModules": "Đã đổi tên trong {0} mô-đun",
     "Str.CodeEditor.Msg.NoMarkOnReadOnlyLine": "Dòng {0} thuộc phần đầu tệp này hoặc các dòng Attribute của một thành viên, vốn không bao giờ được chạy, nên không thể đặt điểm dừng hay dấu trang tại đó.",
     "Str.CodeEditor.Dialog.InsertFileTitle": "Chèn tệp",

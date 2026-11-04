@@ -397,6 +397,8 @@
     "Str.CodeEditor.Msg.RenameTouchesReadOnly": "Omdøbningen blev ikke udført, fordi den ville ændre filens header eller et medlems Attribute-linjer, som IDE'et vedligeholder.",
     "Str.CodeEditor.Msg.RenameReachesOtherDocuments": "Omdøbningen blev ikke udført, fordi den også ændrer andre dokumenter: {0}",
     "Str.CodeEditor.Msg.RenameDocumentRefused": "Kan ikke anvende omdøbning på {0}.",
+    "Str.CodeEditor.Msg.RenameStaleVersion": "Kan ikke omdøbe {0}: versionen er forældet. Prøv igen.",
+    "Str.CodeEditor.Msg.RenameUnsavedChanges": "Kan ikke omdøbe {0}: der er ændringer, som ikke er gemt. Gem og prøv igen.",
     "Str.CodeEditor.Msg.RenamedInModules": "Omdøbt i {0} moduler",
     "Str.CodeEditor.Msg.NoMarkOnReadOnlyLine": "Linje {0} hører til filens header eller et medlems Attribute-linjer, som aldrig udføres, så der kan ikke sættes et pausepunkt eller et bogmærke på den.",
     "Str.CodeEditor.Dialog.InsertFileTitle": "Indsæt fil",

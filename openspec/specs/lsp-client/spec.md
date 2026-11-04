@@ -1620,10 +1620,13 @@ NOT offer binding-dependent parameter-name or inferred-type hints.
 ### Requirement: Apply multi-document rename answers atomically
 
 The code window SHALL resolve every non-empty rename target to a loaded code member using the
-navigation URI rule, open its window, and check every target before writing any buffer. An unresolved
-URI, read-only member, protected header or attribute edit, or stale document SHALL refuse the whole
-answer and identify the refusing member (or unresolved URI). Each edited document SHALL receive one
-independent undo step. The status bar SHALL say “Renamed in N modules”. Empty edit lists SHALL be ignored.
+navigation URI rule and check every target before opening any window or writing any buffer.
+Only after all targets pass SHALL their windows open. An unresolved URI, read-only member, protected
+header or attribute edit, or stale document SHALL refuse the whole
+answer and identify the refusing member (or unresolved URI). A stale-version or unsaved-change refusal
+SHALL give a localized reason and ask the user to try again, or save and try again, respectively.
+A successful rename SHALL return to the source window with the caret at the renamed name (#3047).
+Each edited document SHALL receive one independent undo step. The status bar SHALL say “Renamed in N modules”. Empty edit lists SHALL be ignored.
 
 The client SHALL declare `workspace.workspaceEdit.documentChanges: true`, accept text document edits,
 and refuse resource operations without applying text edits. `documentChanges` SHALL take precedence
@@ -1645,7 +1648,8 @@ this requirement (#1024).
 #### Scenario: A target refuses the rename
 - **WHEN** any target is unresolved, read-only, stale, or has a protected edit
 - **OR** a target edited against disk has unsaved changes
-- **THEN** no buffer changes and the refusal identifies that target
+- **THEN** no window opens, no buffer changes, and the refusal identifies that target
+- **AND** a stale-version or unsaved-change refusal explains the reason and next action in the IDE language
 
 #### Scenario: Another document has no edits
 - **WHEN** the answer edits the current document and has only empty lists for other documents
