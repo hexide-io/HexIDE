@@ -276,7 +276,7 @@ public sealed class WorkspaceArtifactGenerationTests : IDisposable
     public async Task AChangedRegenerationAsksOnceToRestartAServerThatOptedIn()
     {
         var restarts = new List<string>();
-        _service.RestartRequested += restarts.Add;
+        _service.RestartRequested += restarted => restarts.Add(restarted.Id);
         await _service.PrepareAsync(Restarting(), TestContext.Current.CancellationToken);
         restarts.Should().BeEmpty("the write before a launch is read when the server starts");
         _provider.Content = "changed";
@@ -295,7 +295,7 @@ public sealed class WorkspaceArtifactGenerationTests : IDisposable
     public async Task NoRestartIsAskedWhenTheFileDidNotChangeOrTheServerDidNotAsk(string reason)
     {
         var restarts = new List<string>();
-        _service.RestartRequested += restarts.Add;
+        _service.RestartRequested += restarted => restarts.Add(restarted.Id);
         var server = reason == "not opted in" ? Server() : Restarting();
         await _service.PrepareAsync(server, TestContext.Current.CancellationToken);
         if (reason != "identical") _provider.Content = "changed";
@@ -311,7 +311,7 @@ public sealed class WorkspaceArtifactGenerationTests : IDisposable
     public async Task TakingTheFileBackIsAChangeToo()
     {
         var restarts = new List<string>();
-        _service.RestartRequested += restarts.Add;
+        _service.RestartRequested += restarted => restarts.Add(restarted.Id);
         await _service.PrepareAsync(Restarting(), TestContext.Current.CancellationToken);
         _provider.Content = null;
         _workspace.Change();
@@ -368,6 +368,70 @@ public sealed class WorkspaceArtifactGenerationTests : IDisposable
         await Debounce();
 
         File.ReadAllText(target).Should().Be("first", "the server it was for is gone");
+    }
+
+    [Fact]
+    public async Task AServerBeingTakenOut_GeneratesNothing_WhileItsStopTakesItsTime()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var stopping = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var stopEntered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var clients = new List<ILspClient>();
+        await using var registry = new LspClientRegistry([], NullLogger<LspClientRegistry>.Instance, _workspace,
+            artifacts: _service);
+        var contribution = registry.Add(Server() with
+        {
+            CreateClient = () =>
+            {
+                var client = Track(clients);
+                client.StopAsync().Returns(_ =>
+                {
+                    stopEntered.TrySetResult();
+                    return stopping.Task;
+                });
+                return client;
+            },
+        });
+        await registry.OpenDocumentAsync(new Uri(Path.Combine(_root, "probe.c")).AbsoluteUri, "int x;", ct);
+        var target = Path.Combine(_root, "generated.json");
+
+        var removing = contribution.DisposeAsync().AsTask();
+        await stopEntered.Task.WaitAsync(ct);
+        _provider.Content = "changed";
+        _workspace.Change();
+        await Debounce();
+        stopping.SetResult();
+        await removing.WaitAsync(ct);
+
+        File.ReadAllText(target).Should().Be("first", "the server it was for was going");
+    }
+
+    [Fact]
+    public async Task AnArtefactRestartForAServerTakenOut_LeavesTheOneAddedUnderItsIdSinceAlone()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var artifacts = Substitute.For<IWorkspaceArtifactService>();
+        var replacements = new List<ILspClient>();
+        await using var registry = new LspClientRegistry([], NullLogger<LspClientRegistry>.Instance, _workspace,
+            artifacts: artifacts);
+        var old = Restarting(() => Track([]));
+        await (await Added(registry, old)).DisposeAsync();
+        await using var replacement = await Added(registry, Restarting(() => Track(replacements)));
+
+        // A regeneration that wrote the old server's file before it went asks for its restart after.
+        artifacts.RestartRequested += Raise.Event<Action<LanguageServerRegistration>>(old);
+        await registry.WorkspaceChangedAsync(ct);   // serialised behind the restart, so it has run once this returns
+
+        await replacements.Single().DidNotReceive().StopAsync();
+    }
+
+    private async Task<LspClientRegistry.Contribution> Added(LspClientRegistry registry, LanguageServerRegistration server)
+    {
+        var added = registry.Add(server);
+        await registry.OpenDocumentAsync(new Uri(Path.Combine(_root, "probe.c")).AbsoluteUri, "int x;",
+            TestContext.Current.CancellationToken);
+        await added.Opened.WaitAsync(TestContext.Current.CancellationToken);
+        return added;
     }
 
     [Fact]

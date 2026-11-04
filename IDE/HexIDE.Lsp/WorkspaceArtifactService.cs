@@ -70,7 +70,7 @@ public sealed class WorkspaceArtifactService : IWorkspaceArtifactService, IDispo
         finally { _gate.Release(); }
     }
 
-    public event Action<string>? RestartRequested;
+    public event Action<LanguageServerRegistration>? RestartRequested;
 
     public async Task ForgetAsync(LanguageServerRegistration server)
     {
@@ -408,7 +408,7 @@ public sealed class WorkspaceArtifactService : IWorkspaceArtifactService, IDispo
         if (_disposed || server.WorkspaceArtifact is not { RestartOnChange: true } spec) return;
         _log.LogInformation("Restarting {Server}: its workspace artefact {Path} changed.", server.Id, spec.RelativePath);
         Note(server, $"Workspace artefact {spec.RelativePath} changed; restarting the server to read it.", fault: false);
-        RestartRequested?.Invoke(server.Id);
+        RestartRequested?.Invoke(server);
     }
 
     public void Dispose()

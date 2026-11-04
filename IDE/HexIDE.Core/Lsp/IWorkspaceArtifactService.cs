@@ -17,10 +17,12 @@ public interface IWorkspaceArtifactService
 
     /// <summary>
     /// A regeneration changed this server's artefact, and the server asked to be restarted for it
-    /// (<see cref="WorkspaceArtifactSpec.RestartOnChange"/>). Raised with the server's id, once per regeneration, and
-    /// never for the write before a launch, an identical regeneration or a refused write.
+    /// (<see cref="WorkspaceArtifactSpec.RestartOnChange"/>). Raised with the server's registration, once per
+    /// regeneration, and never for the write before a launch, an identical regeneration or a refused write. The
+    /// registration, not its id: a server taken out while the IDE runs can have its id taken by another, and the file
+    /// that changed was the first one's.
     /// </summary>
-    event Action<string>? RestartRequested;
+    event Action<LanguageServerRegistration>? RestartRequested;
 }
 
 public interface IWorkspaceArtifactWorkspace : ILspWorkspace

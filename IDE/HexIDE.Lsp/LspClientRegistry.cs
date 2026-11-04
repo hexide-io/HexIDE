@@ -1071,7 +1071,7 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
         e.StateSince = DateTimeOffset.UtcNow;
     }
 
-    private void OnArtifactRestartRequested(string serverId) => _ = RestartForArtifactAsync(serverId);
+    private void OnArtifactRestartRequested(LanguageServerRegistration server) => _ = RestartForArtifactAsync(server);
 
     /// <summary>
     /// Restarts the one server whose workspace artefact a regeneration changed, for a server that reads it only when it
@@ -1082,14 +1082,16 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
     /// alone, since it reads the new file when it next starts, and a failed one stays failed. Serialised with a workspace
     /// move, which restarts everything.
     /// </remarks>
-    private async Task RestartForArtifactAsync(string serverId)
+    private async Task RestartForArtifactAsync(LanguageServerRegistration server)
     {
+        var serverId = server.Id;
         try
         {
             await _restartGate.WaitAsync();
             try
             {
-                if (_entries.FirstOrDefault(x => x.Registration.Id == serverId) is not
+                // By registration: one added again under the id since is another server, whose file did not change.
+                if (_entries.FirstOrDefault(x => ReferenceEquals(x.Registration, server)) is not
                     { Client: not null, State: LanguageConnectionState.Running } e) return;
                 _logger.LogInformation("Restarting {Server}: its workspace artefact changed.", serverId);
                 foreach (var (uri, known) in _open)
@@ -1561,6 +1563,11 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
         try
         {
             entry.Removed = true;
+
+            // After the start has ended, which is what could make it active again, and before the stop, which can take
+            // the whole of a shutdown's time: nothing is generated, imported or tracked for a server that is going.
+            if (_artifacts is not null) await _artifacts.ForgetAsync(entry.Registration);
+
             if (entry.Client is { } client)
             {
                 client.DiagnosticsPublished -= OnInnerDiagnostics;
@@ -1573,10 +1580,6 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
                 client.ProgressReceived -= OnInnerProgress;
                 entry.Client = null;
             }
-
-            // After the start has ended, which is what could make it active again: nothing is generated, imported or
-            // tracked for a server that is gone.
-            if (_artifacts is not null) await _artifacts.ForgetAsync(entry.Registration);
 
             entry.State = LanguageConnectionState.Stopped;
             entry.StateSince = DateTimeOffset.UtcNow;
