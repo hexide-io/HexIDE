@@ -409,8 +409,12 @@ public partial class CodeEditorView : UserControl
             if (_externalDebugger is not null)
             {
                 int? displayedExecutionLine = null;
-                _onExternalDebugChanged = () =>
+                Action? onExternalDebugChanged = null;
+                onExternalDebugChanged = () =>
                 {
+                    // Re-docking can detach and re-attach us during this event's invocation. Only this
+                    // attachment's callback may touch the view, even if the old delegate is still queued.
+                    if (!ReferenceEquals(_onExternalDebugChanged, onExternalDebugChanged)) return;
                     _hoverCts?.Cancel();
                     _hoverCts?.Dispose();
                     _hoverCts = null;
@@ -428,6 +432,7 @@ public partial class CodeEditorView : UserControl
                         TextEditor.ScrollToLine(line.Value);
                     displayedExecutionLine = line;
                 };
+                _onExternalDebugChanged = onExternalDebugChanged;
                 _externalDebugger.Changed += _onExternalDebugChanged;
                 _onExternalDebugChanged();
             }
