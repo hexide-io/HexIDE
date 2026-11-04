@@ -225,12 +225,17 @@ be preserved.
 
 The hover renderer SHALL own the ordered formats advertised by initialization, `markdown` then `plaintext`.
 The editor SHALL render Markdown paragraphs, emphasis, inline code, lists, links and fenced code blocks.
+List markers SHALL align with the first line of linked text across font families and sizes.
 Code fences SHALL use the editor's font, with VB6 highlighting for `vb` and `vba` and no highlighting
 for other languages. Plain text SHALL stay literal; normalized marked strings SHALL use this renderer.
 
 #### Scenario: A server supplies a VBA signature
 - **WHEN** a Markdown hover contains a `vba` fenced signature and a paragraph naming its module
 - **THEN** the tip shows coloured code in the editor's font followed by the paragraph, with no fence characters
+
+#### Scenario: A list item contains a link
+- **WHEN** a Markdown hover contains a bulleted or numbered item holding a link
+- **THEN** the marker and the link caption have text tops within one pixel
 
 ### Requirement: Hover dismissal while editing
 
