@@ -53,6 +53,7 @@
     "Str.Archive.OpenErrorFormat": "Kunne ikke åpne {0}:\n{1}",
     "Str.ContributedProject.OpenError": "Kan ikke åpne {0} med {1}:\n{2}",
     "Str.ContributedProject.MembershipReadOnly": "{0} er et {1}-prosjekt: filene legges til og fjernes av programmet det hører til, ikke av HexIDE.",
+    "Str.ContributedProject.NotMade": "{0} er et {1}-prosjekt. Det lages og kjøres av programmet det hører til, ikke av HexIDE.",
     "Str.ContributedProject.NoReader": "{0} åpnes av et tillegg som ikke er lastet inn. HexIDE åpner selv .vbp-, .vbg- og .twinproj-prosjekter.",
     "Str.Debug.External.Breakpoint": "Eksternt stoppunkt: forespurt linje {0}; adapterlinje {1}; bekreftet: {2}.\n{3}",
     "Str.Debug.External.BreakpointPending": "Venter på bekreftelse av stoppunkt.",

@@ -53,6 +53,7 @@
     "Str.Archive.OpenErrorFormat": "Nie można otworzyć {0}:\n{1}",
     "Str.ContributedProject.OpenError": "Nie można otworzyć {0} za pomocą {1}:\n{2}",
     "Str.ContributedProject.MembershipReadOnly": "{0} to projekt {1}: jego pliki dodaje i usuwa program, do którego należy, a nie HexIDE.",
+    "Str.ContributedProject.NotMade": "{0} to projekt {1}. Tworzy i uruchamia go program, do którego należy, a nie HexIDE.",
     "Str.ContributedProject.NoReader": "{0} otwiera dodatek, który nie jest załadowany. HexIDE sam otwiera projekty .vbp, .vbg i .twinproj.",
     "Str.Debug.External.Breakpoint": "Zewnętrzny punkt przerwania: żądany wiersz {0}; wiersz adaptera {1}; zweryfikowany: {2}.\n{3}",
     "Str.Debug.External.BreakpointPending": "Oczekiwanie na weryfikację punktu przerwania.",

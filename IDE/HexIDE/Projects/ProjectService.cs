@@ -1351,6 +1351,16 @@ public partial class ProjectService : IProjectService
 
     private async Task MakeProjectInternal(ProjectDefinition projectDefinition, MakeOutcomes.Make make)
     {
+        // Make writes the project's own file into the package, which for a project an add-in read would be a .vbp
+        // in place of the file the add-in owns.
+        if (projectDefinition.ContributedBy is { } contributor)
+        {
+            make.NotMade($"{projectDefinition.Name} is a {contributor} project, which HexIDE doesn't make", true);
+            await windowManager.MessageBox(string.Format(localization.GetString("Str.ContributedProject.NotMade"),
+                projectDefinition.Name, contributor), icon: MessageBoxIcon.Information);
+            throw new OperationCanceledException();
+        }
+
         if (OperatingSystem.IsBrowser())
         {
             make.NotMade("a program can't be made in the browser", true);

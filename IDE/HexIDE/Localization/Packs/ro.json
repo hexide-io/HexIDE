@@ -57,6 +57,7 @@
     "Str.Archive.OpenErrorFormat": "Nu s-a putut deschide {0}:\n{1}",
     "Str.ContributedProject.OpenError": "Nu s-a putut deschide {0} cu {1}:\n{2}",
     "Str.ContributedProject.MembershipReadOnly": "{0} este un proiect {1}: fișierele sale sunt adăugate și eliminate de programul căruia îi aparține, nu de HexIDE.",
+    "Str.ContributedProject.NotMade": "{0} este un proiect {1}. Programul căruia îi aparține îl generează și îl rulează, nu HexIDE.",
     "Str.ContributedProject.NoReader": "{0} se deschide cu un supliment care nu este încărcat. HexIDE deschide singur proiectele .vbp, .vbg și .twinproj.",
     "Str.Debug.External.Breakpoint": "Punct de întrerupere extern: linia solicitată {0}; linia adaptorului {1}; verificat: {2}.\n{3}",
     "Str.Debug.External.BreakpointPending": "Se așteaptă verificarea punctului de întrerupere.",

@@ -4,7 +4,9 @@ using Avalonia.Threading;
 using HexIDE.Addins;
 using HexIDE.Bookmarks;
 using HexIDE.Debugging;
+using HexIDE.Events;
 using HexIDE.Localization;
+using HexIDE.Runtime.Debugging;
 using HexIDE.Projects;
 using HexIDE.Sidecar;
 
@@ -214,6 +216,44 @@ public sealed class ContributedProjectTests : IDisposable
         _loaded.Should().BeEmpty();
         await _windows.Received(1).MessageBox(Arg.Is<string>(text => text.StartsWith("Str.ContributedProject.NoReader")),
             Arg.Any<string?>(), Arg.Any<MessageBoxButtons>(), Arg.Any<MessageBoxIcon>(), Arg.Any<Avalonia.Controls.Window?>(), Arg.Any<bool>());
+    }
+
+    [AvaloniaFact]
+    public async Task Make_is_refused_with_a_reason_before_it_asks_where_to_put_the_program()
+    {
+        using var type = Contribute();
+        var project = await Opened();
+        var before = File.ReadAllText(ProjectFile);
+        _windows.SaveFilePickerAsync(Arg.Any<Avalonia.Platform.Storage.FilePickerSaveOptions>())
+            .Returns(Path.Join(_dir, "Ledger.exe"));
+
+        await ((Func<Task>)(() => _service.MakeProject(project))).Should().ThrowAsync<OperationCanceledException>();
+
+        await _windows.DidNotReceive().SaveFilePickerAsync(Arg.Any<Avalonia.Platform.Storage.FilePickerSaveOptions>());
+        await _windows.Received(1).MessageBox(Arg.Is<string>(text => text.StartsWith("Str.ContributedProject.NotMade Ledger RDCore projects")),
+            Arg.Any<string?>(), Arg.Any<MessageBoxButtons>(), Arg.Any<MessageBoxIcon>(), Arg.Any<Avalonia.Controls.Window?>(), Arg.Any<bool>());
+        File.ReadAllText(ProjectFile).Should().Be(before);
+    }
+
+    [AvaloniaTheory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void HexIDE_s_interpreter_starts_only_a_project_HexIDE_read_itself(bool contributed)
+    {
+        var project = new ProjectDefinition(VBProjectType.EXE, "Ledger") { ContributedBy = contributed ? "RDCore projects" : null };
+        var projects = Substitute.For<IProjectManager>();
+        projects.StartupProject.Returns(project);
+        var events = Substitute.For<IEventBus>();
+        var interpreter = Substitute.For<IDebugController>();
+        var runner = new HexIDE.IDE.ProjectRunnerService(events, _windows, projects, Substitute.For<ILocalizationService>(),
+            interpreter, Substitute.For<IBreakpointService>(), new WatchService(), new RunScope());
+
+        runner.CanStartDefaultProject.Should().Be(!contributed);
+        if (!contributed)
+            return;
+        runner.RunProject(project);
+        events.DidNotReceive().Publish(Arg.Any<ApplyAllUnsavedChangesEvent>());
+        interpreter.DidNotReceive().Reset();
     }
 
     [Fact]

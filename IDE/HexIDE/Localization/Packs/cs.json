@@ -53,6 +53,7 @@
     "Str.Archive.OpenErrorFormat": "Nelze otevřít {0}:\n{1}",
     "Str.ContributedProject.OpenError": "{0} nelze otevřít pomocí {1}:\n{2}",
     "Str.ContributedProject.MembershipReadOnly": "{0} je projekt typu {1}: jeho soubory přidává a odebírá program, ke kterému patří, nikoli HexIDE.",
+    "Str.ContributedProject.NotMade": "{0} je projekt typu {1}. Sestavuje a spouští ho program, ke kterému patří, nikoli HexIDE.",
     "Str.ContributedProject.NoReader": "{0} otevírá doplněk, který není načten. HexIDE sám otevírá projekty .vbp, .vbg a .twinproj.",
     "Str.Debug.External.Breakpoint": "Externí bod přerušení: požadovaný řádek {0}; řádek adaptéru {1}; ověřeno: {2}.\n{3}",
     "Str.Debug.External.BreakpointPending": "Čeká se na ověření bodu přerušení.",

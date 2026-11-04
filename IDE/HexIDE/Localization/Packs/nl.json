@@ -53,6 +53,7 @@
     "Str.Archive.OpenErrorFormat": "Kan {0} niet openen:\n{1}",
     "Str.ContributedProject.OpenError": "Kan {0} niet openen met {1}:\n{2}",
     "Str.ContributedProject.MembershipReadOnly": "{0} is een {1}-project: de bestanden ervan worden toegevoegd en verwijderd door het programma waartoe het behoort, niet door HexIDE.",
+    "Str.ContributedProject.NotMade": "{0} is een {1}-project. Het programma waartoe het behoort, maakt en start het, niet HexIDE.",
     "Str.ContributedProject.NoReader": "{0} wordt geopend door een invoegtoepassing die niet is geladen. HexIDE opent zelf .vbp-, .vbg- en .twinproj-projecten.",
     "Str.Debug.External.Breakpoint": "Extern onderbrekingspunt: aangevraagde regel {0}; adapterregel {1}; geverifieerd: {2}.\n{3}",
     "Str.Debug.External.BreakpointPending": "Wachten op verificatie van het onderbrekingspunt.",

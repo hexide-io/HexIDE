@@ -675,10 +675,11 @@ public class MainViewViewModelTests
         {
             _sut.AddFormCommand, _sut.AddModuleCommand, _sut.AddClassModuleCommand, _sut.AddUserControlCommand,
             _sut.AddPropertyPageCommand, _sut.AddFileCommand, _sut.RunWithVb6Command, _sut.MakeWithVb6Command,
+            _sut.MakeProjectCommand,
         };
 
         commands.Select(command => command.CanExecute(null)).Should().AllBeEquivalentTo(!contributed,
-            "a contributed project's membership is its add-in's program's, and VB6 cannot build what it does not read");
+            "a contributed project's membership is its add-in's program's, and neither HexIDE nor VB6 builds what it did not read");
     }
 
     // --- StartDefaultProjectCommand ---

@@ -201,6 +201,12 @@ public partial class ProjectRunnerService : IProjectRunnerService
     public void RunProject(ProjectDefinition projectDefinition, bool stepInto = false)
     {
         if (externalDebugger?.IsActive == true) return;
+        if (projectDefinition.ContributedBy is { } contributor)
+        {
+            Serilog.Log.Warning("{Project} was not run: {Contributor} read it, and HexIDE's interpreter runs only the projects it read itself",
+                projectDefinition.Name, contributor);
+            return;
+        }
         externalDebugger?.ClearSessionResult();
         eventBus.Publish(new ApplyAllUnsavedChangesEvent());
 
@@ -616,7 +622,8 @@ public partial class ProjectRunnerService : IProjectRunnerService
         RunStartupProject();
     }
 
-    public bool CanStartDefaultProject => archives?.IsActive != true && !IsRunning && projectManager.StartupProject != null;
+    // A project an add-in read is run by the program it belongs to, never by HexIDE's interpreter.
+    public bool CanStartDefaultProject => archives?.IsActive != true && !IsRunning && projectManager.StartupProject is { ContributedBy: null };
     public bool CanStartDefaultProjectWithFullCompile => CanStartDefaultProject;
     public bool CanBreakProject => externalDebugger?.IsActive == true
         ? !externalDebugger.IsBusy && externalDebugger.State == Dap.DapSessionState.Running && externalDebugger.ThreadId is not null

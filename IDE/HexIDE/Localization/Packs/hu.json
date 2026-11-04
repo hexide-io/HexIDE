@@ -57,6 +57,7 @@
     "Str.Archive.OpenErrorFormat": "Nem sikerült megnyitni: {0}\n{1}",
     "Str.ContributedProject.OpenError": "A(z) {0} nem nyitható meg ezzel: {1}\n{2}",
     "Str.ContributedProject.MembershipReadOnly": "A(z) {0} egy {1}-projekt: a fájljait az a program adja hozzá és távolítja el, amelyhez tartozik, nem a HexIDE.",
+    "Str.ContributedProject.NotMade": "A(z) {0} egy {1}-projekt. Azt a program készíti el és futtatja, amelyhez tartozik, nem a HexIDE.",
     "Str.ContributedProject.NoReader": "A(z) {0} fájlt egy be nem töltött bővítmény nyitja meg. A HexIDE maga a .vbp, .vbg és .twinproj projekteket nyitja meg.",
     "Str.Debug.External.Breakpoint": "Külső töréspont: kért sor: {0}; adapter sora: {1}; ellenőrizve: {2}.\n{3}",
     "Str.Debug.External.BreakpointPending": "Várakozás a töréspont ellenőrzésére.",

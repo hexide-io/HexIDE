@@ -53,6 +53,7 @@
     "Str.Archive.OpenErrorFormat": "Impossibile aprire {0}:\n{1}",
     "Str.ContributedProject.OpenError": "Impossibile aprire {0} con {1}:\n{2}",
     "Str.ContributedProject.MembershipReadOnly": "{0} è un progetto {1}: i suoi file vengono aggiunti e rimossi dal programma a cui appartiene, non da HexIDE.",
+    "Str.ContributedProject.NotMade": "{0} è un progetto {1}. A crearlo ed eseguirlo è il programma a cui appartiene, non HexIDE.",
     "Str.ContributedProject.NoReader": "{0} si apre con un componente aggiuntivo non caricato. HexIDE apre direttamente i progetti .vbp, .vbg e .twinproj.",
     "Str.Debug.External.Breakpoint": "Punto di interruzione esterno: riga richiesta {0}; riga dell’adattatore {1}; verificato: {2}.\n{3}",
     "Str.Debug.External.BreakpointPending": "In attesa della verifica del punto di interruzione.",

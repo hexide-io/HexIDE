@@ -53,6 +53,7 @@
     "Str.Archive.OpenErrorFormat": "無法開啟 {0}：\n{1}",
     "Str.ContributedProject.OpenError": "無法使用 {1} 開啟 {0}：\n{2}",
     "Str.ContributedProject.MembershipReadOnly": "{0} 是 {1} 專案，其檔案由它所屬的程式新增與移除，而非由 HexIDE。",
+    "Str.ContributedProject.NotMade": "{0} 是 {1} 專案。由它所屬的程式產生與執行它，而非 HexIDE。",
     "Str.ContributedProject.NoReader": "{0} 需由未載入的增益集開啟。HexIDE 本身可開啟 .vbp、.vbg 與 .twinproj 專案。",
     "Str.Debug.External.Breakpoint": "外部中斷點：要求行 {0}；配接器行 {1}；已驗證：{2}。\n{3}",
     "Str.Debug.External.BreakpointPending": "正在等待中斷點驗證。",
