@@ -249,11 +249,14 @@ public partial class DISetup
 
                 ctx.Inject<ISettingsService>(out var settings);
                 ctx.Inject<Func<IEditorService>>(out var editors);
+                ctx.Inject<Func<IProjectRunnerService>>(out var runners);
+                var serverPrompts = new ServerMessagePrompt(() => runners().IsRunning || windows.IsNativeDialogOpen);
                 var registrations = new LanguageServerRegistrationFactory(loggerFactory, workspace, capture, providers,
                     new HexIDE.Redaction.ConversationRedactor(pseudonyms),
                     () => localization.ResolvedLanguage, settings,
                     (request, token) => Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(
-                        () => editors().ShowDocument(request), Avalonia.Threading.DispatcherPriority.Normal, token).GetTask())
+                        () => editors().ShowDocument(request), Avalonia.Threading.DispatcherPriority.Normal, token).GetTask(),
+                    serverPrompts.ShowAsync)
                     .Create(configuration.Entries);
 
                 // Distinguishable from "servers fine, nothing to say" — the confusion #231 documents, and
