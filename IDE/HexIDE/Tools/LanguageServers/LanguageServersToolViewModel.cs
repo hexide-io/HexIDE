@@ -54,6 +54,8 @@ public partial class LanguageServersToolViewModel : Document
     private readonly IProjectManager? _projects;
     private readonly HashSet<string> _pendingOutput = new(StringComparer.Ordinal);
 
+    internal event Action? LanguageChanged;
+
     public ObservableCollection<LanguageServerGroupViewModel> Groups { get; } = [];
     public ObservableCollection<LanguageServerConfigProblem> Problems { get; } = [];
 
@@ -104,6 +106,7 @@ public partial class LanguageServersToolViewModel : Document
 
         armsFutureServers = capture.ArmsEveryConnection;
 
+        _localization.LanguageChanged += OnLanguageChanged;
         _registry.ConnectionsChanged += OnConnectionsChanged;
         _capture.ArmingChanged += OnArmingChanged;
         _capture.Output.Changed += OnOutputChanged;
@@ -162,6 +165,18 @@ public partial class LanguageServersToolViewModel : Document
             foreach (var row in Groups.SelectMany(g => g.Rows))
                 if (changed.Contains(row.Id)) row.OutputChanged();
         });
+    }
+
+    private void OnLanguageChanged()
+    {
+        if (Dispatcher.UIThread.CheckAccess()) Apply();
+        else Dispatcher.UIThread.Post(Apply);
+
+        void Apply()
+        {
+            foreach (var row in Groups.SelectMany(g => g.Rows)) row.LanguageChanged();
+            LanguageChanged?.Invoke();
+        }
     }
 
     private void OnArmsFutureServersChanged() => _capture.ArmsEveryConnection = ArmsFutureServers;

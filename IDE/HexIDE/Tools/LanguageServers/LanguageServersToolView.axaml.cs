@@ -14,6 +14,7 @@ namespace HexIDE.Tools.LanguageServers;
 public partial class LanguageServersToolView : UserControl
 {
     private readonly DispatcherTimer _ageTimer;
+    private LanguageServersToolViewModel? _languageSource;
     private readonly List<Visual> _visibilitySources = [];
 
     public LanguageServersToolView()
@@ -32,17 +33,41 @@ public partial class LanguageServersToolView : UserControl
             visual.PropertyChanged += OnVisibilityChanged;
         }
         PropertyChanged += OnVisibilityChanged;
+        DataContextChanged += OnDataContextChanged;
+        OnDataContextChanged(this, EventArgs.Empty);
         UpdateAgeTimer();
     }
 
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
         _ageTimer.Stop();
+        DataContextChanged -= OnDataContextChanged;
+        if (_languageSource is not null) _languageSource.LanguageChanged -= ResetLabelScopes;
+        _languageSource = null;
         PropertyChanged -= OnVisibilityChanged;
         foreach (var visual in _visibilitySources)
             visual.PropertyChanged -= OnVisibilityChanged;
         _visibilitySources.Clear();
         base.OnDetachedFromVisualTree(e);
+    }
+
+    private void OnDataContextChanged(object? sender, EventArgs e)
+    {
+        if (_languageSource is not null) _languageSource.LanguageChanged -= ResetLabelScopes;
+        _languageSource = DataContext as LanguageServersToolViewModel;
+        if (_languageSource is not null) _languageSource.LanguageChanged += ResetLabelScopes;
+        ResetLabelScopes();
+    }
+
+    private void ResetLabelScopes()
+    {
+        // A shared size scope retains its widest measurement, even after a label gets shorter.
+        foreach (var visual in this.GetVisualDescendants())
+        {
+            if (visual is not Control control || !Grid.GetIsSharedSizeScope(control)) continue;
+            Grid.SetIsSharedSizeScope(control, false);
+            Grid.SetIsSharedSizeScope(control, true);
+        }
     }
 
     private void OnVisibilityChanged(object? sender, AvaloniaPropertyChangedEventArgs e)
