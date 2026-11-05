@@ -660,6 +660,7 @@ public sealed class VBLspClient : ILspClient
                     Implementation: new NavigationClientCapabilities(),
                     TypeDefinition: new NavigationClientCapabilities(),
                     InlayHint: new InlayHintClientCapabilities(),
+                    CodeAction: new CodeActionClientCapabilities(new(new(["quickfix"])), ResolveSupport: new(["edit"])),
                     SelectionRange: new SelectionRangeClientCapabilities(),
                     Rename: new RenameClientCapabilities(),
                     CallHierarchy: EmptyParams.Instance,
@@ -1393,7 +1394,8 @@ public sealed class VBLspClient : ILspClient
             href is null ? null : new CodeDescription(href),
             element.TryGetProperty("tags", out var tags) ? DiagnosticTagsConverter.ReadItems(tags) : null,
             element.TryGetProperty("relatedInformation", out var related)
-                ? DiagnosticRelatedInformationConverter.ReadItems(related) : null);
+                ? DiagnosticRelatedInformationConverter.ReadItems(related) : null,
+            element.TryGetProperty("data", out var data) ? data.Clone() : null);
     }
 
     public async Task DidCreateFilesAsync(string[] uris, CancellationToken cancellationToken = default)
@@ -1893,6 +1895,45 @@ public sealed class VBLspClient : ILspClient
             WarnRequestFailedOnce("textDocument/documentHighlight", ex, cancellationToken);
             return null;
         }
+    }
+
+    public async Task<OfferedCodeAction[]> RequestCodeActionsAsync(string uri, HexIDE.Lsp.Messages.Range range, Diagnostic[] diagnostics,
+        CancellationToken cancellationToken = default)
+    {
+        if (_rpc is not { } rpc || !_initialized || !CanServe("codeActionProvider")) return [];
+        var snapshots = _openDocuments.Keys.ToDictionary(key => key, SentDocumentSnapshot);
+        RenameDocumentSnapshot? DocumentFor(string target) => snapshots.FirstOrDefault(p => LspDocumentUri.AreSame(p.Key, target)).Value;
+        var resolve = AdvertisedCapabilities is { } caps && caps.TryGetProperty("codeActionProvider", out var provider)
+            && provider.ValueKind == JsonValueKind.Object && provider.TryGetProperty("resolveProvider", out var flag)
+            && flag.ValueKind == JsonValueKind.True;
+
+        OfferedCodeAction Read(JsonElement payload, bool allowResolve)
+        {
+            var title = payload.GetProperty("title").GetString()!;
+            var bareCommand = payload.TryGetProperty("command", out var command) && command.ValueKind == JsonValueKind.String;
+            var spec = bareCommand ? payload.Deserialize<Command>(LspJsonContext.Default.Options)
+                : command.ValueKind == JsonValueKind.Object ? command.Deserialize<Command>(LspJsonContext.Default.Options) : null;
+            var edit = payload.TryGetProperty("edit", out var edits) && edits.ValueKind == JsonValueKind.Object
+                ? edits.Deserialize<WorkspaceEdit>(LspJsonContext.Default.Options) : null;
+            var disabled = payload.TryGetProperty("disabled", out var reason) ? reason.GetProperty("reason").GetString() : null;
+            var owned = payload.Clone();
+            return new OfferedCodeAction("", title, disabled, edit, spec,
+                allowResolve && resolve && !bareCommand ? async ct =>
+                {
+                    var resolved = await InvokeRequestAsync<JsonElement>(rpc, "codeAction/resolve", owned, ct);
+                    return Read(resolved, false);
+                } : null,
+                async (cmd, ct) =>
+                {
+                    if (!ServerCapabilities.DeclaresCommand(AdvertisedCapabilities, cmd.CommandName)) return;
+                    await InvokeRequestAsync<JsonElement?>(rpc, "workspace/executeCommand",
+                        new ExecuteCommandParams(cmd.CommandName, cmd.Arguments), ct);
+                }, DocumentFor, cmd => ServerCapabilities.DeclaresCommand(AdvertisedCapabilities, cmd.CommandName));
+        }
+
+        var response = await InvokeRequestAsync<JsonElement?>(rpc, "textDocument/codeAction",
+            new CodeActionParams(new(uri), range, new(diagnostics)), cancellationToken, documentUri: uri);
+        return response is { ValueKind: JsonValueKind.Array } actions ? actions.EnumerateArray().Select(a => Read(a, true)).ToArray() : [];
     }
 
     public async Task<PrepareRenameResult?> RequestPrepareRenameAsync(string uri, Position position, CancellationToken cancellationToken = default)
@@ -2708,6 +2749,7 @@ public sealed class VBLspClient : ILspClient
     /// </remarks>
     internal static readonly string[] ConsumedCapabilities =
     [
+        "codeActionProvider",
         "codeLensProvider",
         "completionProvider",
         "implementationProvider",

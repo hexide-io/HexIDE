@@ -116,7 +116,7 @@ nested content union is handled by its converter. Diagnostic reports are read by
 help, highlights, rename, formatting and code lenses accept their single non-null result shape or
 `null`. Resolve requests have a single result shape.
 
-`textDocument/codeAction` (including its mixed Command/CodeAction array) and the other unimplemented
+`textDocument/codeAction` accepts its mixed Command/CodeAction array or null (#453). Other unimplemented
 request methods remain outside this fix. Nested signature-help unions also remain outstanding:
 signature/parameter documentation accepts only strings, and parameter labels only strings rather
 than offset pairs. These need separate changes and wire tests; this audit does not claim full
@@ -732,7 +732,9 @@ squiggle remains. The tooltip lists related messages below their diagnostic, wit
 labelled by loaded member name and one-based line, falling back to the URI. Links use the editor
 navigation service, and the tooltip stays open while the pointer moves into it. The client advertises
 `publishDiagnostics.relatedInformation: true` and `tagSupport.valueSet: [1, 2]`.
-Still dropped: `data`, until `q-453-code-actions` decides whether foreign code actions are relayed.
+Both paths also retain opaque `data`, including explicit JSON null, without changing the token's
+JSON spelling (#453). Pull values are cloned so they outlive the reply document. The code-action relay
+echoes it verbatim in `context.diagnostics` when the user opens Quick Fixes. The client computes no fixes itself.
 
 ### Some servers publish; some only answer
 
@@ -1250,7 +1252,8 @@ After the code window's protected-line and declared-name checks, pending text is
 opened claimant advertising `renameProvider.prepareProvider: true` is asked `textDocument/prepareRename`.
 Any null or error reply prevents the prompt; an error's reason uses the existing refusal dialog.
 The first participating claimant's range or placeholder seeds the prompt. A `defaultBehavior: true`
-reply keeps the existing word, as do servers without preparation support. Initialize declares
+reply keeps the existing word, as do servers without preparation support. Menu and keymap Rename and
+the `rdcore.rename` / `editor.action.rename` client commands share this preparation and prompt flow. Initialize declares
 `textDocument.rename.prepareSupport: true` and `prepareSupportDefaultBehavior: 1`.
 
 ## Coverage against the specification
@@ -1261,6 +1264,8 @@ the canonical machine-readable list, so the method names and directions are the 
 this document's recollection of them.
 
 **HexIDE implements 49 of the 93.** That is not a deficiency in itself — no client implements them all, and
+
+**HexIDE implements 48 of the 93.** That is not a deficiency in itself — no client implements them all, and
 most of the remainder are features no VB6 IDE needs. It is here so the shape of the gap is visible rather
 than inferred.
 
@@ -1286,7 +1291,7 @@ than inferred.
 
 | | Method | Dir | Notes |
 |---|---|---|---|
-| ○ | `textDocument/codeAction` | → | Needs a bound AST — a backend's job, see below |
+| ✅ | `textDocument/codeAction` | → | Relays the server's fixes on request; computes none |
 | ✅ | `textDocument/codeLens` | → |  |
 | ○ | `textDocument/colorPresentation` | → |  |
 | ✅ | `textDocument/completion` | → |  |
@@ -1396,11 +1401,11 @@ than inferred.
 |---|---|---|---|
 | ○ | `completionItem/resolve` | → |  |
 
-### `codeAction/*` — 0 of 1
+### `codeAction/*` — 1 of 1
 
 | | Method | Dir | Notes |
 |---|---|---|---|
-| ○ | `codeAction/resolve` | → |  |
+| ✅ | `codeAction/resolve` | → | Resolves the selected action on its originating server |
 
 ### `codeLens/*` — 1 of 1
 
@@ -1504,6 +1509,14 @@ Three clusters account for nearly all of the gap:
   reusable tool panes. The client computes none of these relationships.
   `workspace/symbol` is wired through the Object Browser. A backend offering deeper analysis can answer
   these requests without changing HexIDE's own analysis boundary.
+
+- **Features needing a bound AST in the bundled server** — call hierarchy
+  and its `*/resolve` companions. Code actions are now relayed from foreign servers on request (#453);
+  computing fixes remains a backend boundary. Reference requests now have a client contract (#2907), with the UI
+  outstanding. The other methods are not wired because nothing here would answer them; see *What the client
+  would consume* below. `workspace/symbol` used to sit in this list and no longer does: the client speaks it
+  and the Object Browser surfaces it, so the missing half is a *server*, which is exactly the point of the
+  seam.
 - **Workspace-level protocol** — `workspace/*` is 7 of 21. The client sends project folders,
   updates them as group membership changes, sends file-operation notifications, and answers editor
   configuration requests. Watched-file notifications and server-initiated workspace edits remain absent.
@@ -1538,7 +1551,7 @@ awaiting effort, they are **server** features awaiting a server.
 | Feature | Method | Client support today |
 |---|---|---|
 | Find all references | `textDocument/references` | Shift+F12 and menus; grouped, navigable results and per-server errors (#2907) |
-| Code actions / quick fixes | `textDocument/codeAction` | Not wired |
+| Code actions / quick fixes | `textDocument/codeAction` | Relays the server’s fixes on request; computes none (#453) |
 | Semantic tokens | `textDocument/semanticTokens/full` | **Wired** — full only; delta, range and refresh remain unwired (#2054) |
 | Parameter-name and inferred-type hints | `textDocument/inlayHint` | **Wired** — labels from any offering server; these binding-dependent hints remain outside the bundled server |
 | Call hierarchy | `textDocument/prepareCallHierarchy` | Shows the server’s call hierarchy; computes none (#3080). Provider-gated command, lazy Calls To / Calls From tree and node/call-site navigation |
@@ -1620,6 +1633,30 @@ precedence. Uncovered text retains lexical colouring. Empty or failed answers cl
 log once per document per connection; the next change retries. Invalid ranges are discarded and stale
 responses are ignored. No range request is sent (#2054).
 
+
+## Quick Fixes on request
+
+With the caret inside a current diagnostic, open **Quick Fixes** in the code window’s context menu
+(#453). Only opening that list sends `textDocument/codeAction`, to every document claimant advertising
+`codeActionProvider`, with the diagnostic range and only that server’s diagnostics there, including their
+opaque data. It sends nothing in the background. Answers are grouped by server id with display names
+as headers, so servers with equal names remain separate. Disabled actions show their reason and cannot
+be selected. An empty answer or an action with neither edit nor command explains that no applicable fix
+was supplied.
+
+Selecting a lazy action resolves it with its originating server when `resolveProvider` is advertised.
+Edits use the workspace-edit applier: validate every loaded target before writing, one undo step per
+module, and refuse IDE-only lines, stale versions, unsaved disk targets and resource operations. A refusal
+shows its reason and does not execute a command. After an edit succeeds, pending document changes are
+flushed before its command runs. A command is sent to the originating server only when it declares that
+command in `executeCommandProvider.commands`.
+Client commands share the code-lens handler: `rdcore.rename` and `editor.action.rename` open HexIDE’s
+rename at the supplied URI and position; the show-references aliases display the supplied locations.
+Other unlisted commands produce a localized refusal naming the command. Server-initiated
+`workspace/applyEdit` is outside this slice (#2908).
+
+The client declares `codeActionLiteralSupport`, `dataSupport`, `disabledSupport` and `resolveSupport`
+for `edit`, plus `publishDiagnostics.dataSupport` for diagnostic tokens. The bundled server supplies no code actions. A keyboard route remains for a later slice.
 ### Expand and Shrink Selection (#3076)
 
 The client declares `textDocument.selectionRange: {}` without dynamic registration and exposes
