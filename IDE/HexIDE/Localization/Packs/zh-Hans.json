@@ -2,6 +2,8 @@
   "name": "Chinese (Simplified)",
   "direction": "ltr",
   "strings": {
+    "Str.Menu.Edit.CallHierarchy": "调用层次结构",
+    "Str.CodeEditor.Context.CallHierarchy": "调用层次结构",
     "Str.Lsp.OpenExternalUri": "在 HexIDE 外部打开此 URI？\n\n{0}",
     "Str.Tool.CallHierarchy.Title": "调用层次结构",
     "Str.Tool.CallHierarchy.CallsTo": "传入调用",

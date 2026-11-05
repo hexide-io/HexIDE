@@ -2,6 +2,8 @@
   "name": "Norwegian Bokmål",
   "direction": "ltr",
   "strings": {
+    "Str.Menu.Edit.CallHierarchy": "Kallhie_rarki",
+    "Str.CodeEditor.Context.CallHierarchy": "K_allhierarki",
     "Str.Lsp.OpenExternalUri": "Åpne denne URI-en utenfor HexIDE?\n\n{0}",
     "Str.Tool.CallHierarchy.Title": "Kallhierarki",
     "Str.Tool.CallHierarchy.CallsTo": "Kall til",

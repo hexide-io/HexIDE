@@ -117,6 +117,35 @@ public class NavigationAccessKeyTests
             view.Should().Contain($"Header=\"{{DynamicResource Str.Menu.View.{command}}}\" Command=\"{{x:Static vb:ApplicationCommands.GoTo{command}Command}}\"");
     }
 
+    [Theory]
+    [MemberData(nameof(LatinMenus))]
+    public void CallHierarchyHasAnUnusedMenuAccessKey(string packId, bool editMenu)
+    {
+        var strings = JsonSerializer.Deserialize(File.ReadAllText(Path.Combine(PacksDirectory(), packId + ".json")),
+            LocalizationJsonContext.Default.LanguagePackRecord)!.Strings!;
+        var key = editMenu ? "Str.Menu.Edit.CallHierarchy" : "Str.CodeEditor.Context.CallHierarchy";
+        strings.Should().ContainKey(key);
+        var label = strings[key];
+        label.Count(c => c == '_').Should().Be(1);
+        var mnemonic = char.ToUpperInvariant(label[label.IndexOf('_') + 1]);
+        var root = Directory.GetParent(Directory.GetParent(PacksDirectory())!.FullName)!.FullName;
+        XNamespace ns = "https://github.com/avaloniaui";
+        var xml = XDocument.Load(Path.Combine(root, editMenu ? "MainView.axaml" : "Forms/Views/CodeEditorView.axaml"));
+        var menu = editMenu
+            ? xml.Descendants(ns + "MenuItem").Single(e => (string?)e.Attribute("Header") == "{DynamicResource Str.Menu.Edit}")
+            : xml.Descendants(ns + "MenuFlyout").Single();
+        menu.Elements(ns + "MenuItem").Single(e => (string?)e.Attribute("Command") ==
+            "{x:Static vb:ApplicationCommands.CallHierarchyCommand}").Attribute("Header")!.Value
+            .Should().Be("{DynamicResource " + key + "}");
+        var menuKeys = menu.Elements(ns + "MenuItem").Select(e => (string?)e.Attribute("Header"))
+            .Where(h => h?.StartsWith("{DynamicResource Str.", StringComparison.Ordinal) == true)
+            .Select(h => h![17..^1]).Where(k => k != key).ToList();
+        if (editMenu) menuKeys.AddRange(["Str.Menu.Edit.Undo", "Str.Menu.Edit.Redo"]);
+        var used = menuKeys.Select(k => strings[k]).Where(v => v.Contains('_'))
+            .Select(v => char.ToUpperInvariant(v[v.IndexOf('_') + 1]));
+        used.Should().NotContain(mnemonic, $"{packId}: Call Hierarchy should use a free menu letter");
+    }
+
     private static string PacksDirectory()
     {
         for (var dir = new DirectoryInfo(AppContext.BaseDirectory); dir is not null; dir = dir.Parent)

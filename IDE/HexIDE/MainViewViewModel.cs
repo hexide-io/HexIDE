@@ -1094,7 +1094,7 @@ public partial class MainViewViewModel : ObservableObject
     private readonly HexIDE.Debugging.IBreakpointService breakpointService;
     private readonly HexIDE.Runtime.Debugging.IDebugController debugController;
 
-    private void ShowResultsTool(Tool tool)
+    private void ShowResultsTool(ResultsToolViewModel tool)
     {
         if (FindDock<IDockable>(d => ReferenceEquals(d, tool)) is null)
         {
@@ -1164,6 +1164,7 @@ public partial class MainViewViewModel : ObservableObject
         if (callHierarchy is not null)
         {
             eventBus.Subscribe<CallHierarchyEvent>(e => callHierarchy.SearchAsync(e.Uri, e.Position).ListenErrors());
+            callHierarchy.LayoutResized += ScheduleLayoutSave;
             callHierarchy.ShowRequested += () => ShowResultsTool(callHierarchy);
         }
         this.recoveryOffers = recoveryOffers;
