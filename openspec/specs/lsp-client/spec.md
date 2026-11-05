@@ -15,10 +15,19 @@ later without the editor noticing.
 ### Requirement: User-requested server code actions
 
 The client SHALL request code actions only when the user opens Quick Fixes on a diagnostic in the code
-window, sending its range and the diagnostics there, including opaque data unchanged, to every capable
-claimant, including only that claimant’s own diagnostics and data. It SHALL group answers by server display name, show disabled reasons without allowing selection, and declare
-literal, data, disabled and edit-resolution support, including diagnostic data preservation. Distinct
+window, sending each capable claimant the range of its own first diagnostic under the caret and only
+that claimant’s diagnostics there, including opaque data unchanged. A claimant with no diagnostic under
+the caret SHALL NOT receive a request. It SHALL group answers by server display name, show disabled
+reasons without allowing selection, and declare literal, data, disabled and edit-resolution support,
+including diagnostic data preservation. Distinct
 server ids SHALL remain separate groups even when their display names match. It SHALL compute no fixes itself.
+
+#### Scenario: Two servers diagnose the caret differently
+
+- **WHEN** two capable claimants publish diagnostics with different ranges containing the caret
+- **AND** the user opens Quick Fixes
+- **THEN** each request carries that server’s own first diagnostic range and only its diagnostics
+- **AND** a claimant without a diagnostic under the caret receives no request
 
 #### Scenario: Selecting a lazy edit with a command
 

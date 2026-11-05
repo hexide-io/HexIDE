@@ -1666,9 +1666,10 @@ responses are ignored. No range request is sent (#2054).
 
 With the caret inside a current diagnostic, open **Quick Fixes** in the code window’s context menu
 (#453). Only opening that list sends `textDocument/codeAction`, to every document claimant advertising
-`codeActionProvider`, with the diagnostic range and only that server’s diagnostics there, including their
-opaque data. It sends nothing in the background. Answers are grouped by server id with display names
-as headers, so servers with equal names remain separate. Disabled actions show their reason and cannot
+`codeActionProvider` that has a diagnostic under the caret, with that server’s own first diagnostic
+range and only its diagnostics there, including their opaque data (#3120). A server with no diagnostic
+under the caret is not asked, matching the lone-server behaviour. It sends nothing in the background.
+Answers are grouped by server id with display names as headers, so servers with equal names remain separate. Disabled actions show their reason and cannot
 be selected. An empty answer or an action with neither edit nor command explains that no applicable fix
 was supplied.
 
