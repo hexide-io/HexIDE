@@ -39,6 +39,8 @@ dotnet build HexIDE.Desktop/HexIDE.Desktop.csproj   # build the IDE
 dotnet run  --project HexIDE.Desktop/               # run it
 ```
 
+On Windows, you can also open `HexIDE.slnx` in Visual Studio and build the solution.
+
 Tests, also from the repo root:
 
 ```sh
