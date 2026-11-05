@@ -2215,13 +2215,14 @@ The shared command sender SHALL track unanswered user-started commands per serve
 is running SHALL `workspace/applyEdit` use the workspace rename applier. Otherwise it SHALL answer
 `applied: false` with a `failureReason` explaining the user-command rule and change nothing.
 Internal project imports SHALL NOT authorize server edits.
-Applying a server workspace edit SHALL preserve the active document tab.
+Applying a server workspace edit SHALL preserve the active document tab, keyboard focus and the
+originating code window's caret, without activating target tabs.
 
 #### Scenario: A lens command requests an edit before answering
 
 - **WHEN** the user runs a code lens command and its server requests an edit before answering
 - **THEN** the checked edit applies with independent undo per module and answers `applied: true`
-- **AND** the tab active before the edit remains active
+- **AND** the tab active before the edit remains active, with keyboard focus and its caret preserved
 
 #### Scenario: Unsolicited or late edits
 
