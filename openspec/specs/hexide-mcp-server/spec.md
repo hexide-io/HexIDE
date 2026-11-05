@@ -58,7 +58,13 @@ A single-selection list's `add_to_selection` refusal SHALL name that verb and po
 
 ### Requirement: Inspection SHALL bound the values it reports
 `inspect_element` SHALL cut each `dataContextMembers` value after 200 characters and a control's own `value`
-after 4,000 characters, with a suffix stating the cap and full length. When members are cut, `dataContextNote`
+after 4,000 characters, with a suffix stating which end was dropped, how many characters were dropped,
+and the full length.
+Non-project `TextDocument` buffers, including the Immediate window, SHALL retain their end, both as an
+editor's `value` and as a reflected member. Other values SHALL retain their start. A cut document member
+SHALL point to inspecting its editor for the last 4,000 characters; a cut editor value SHALL explain that
+`inspect_element` has no paging. Both SHALL direct the caller to copy the displayed text to read all of it.
+When members are cut, `dataContextNote`
 SHALL count them and explain that inspecting a control showing one gives up to 4,000 characters as its `value`,
 joined to any existing note. With no members cut it SHALL add no truncation sentence.
 
@@ -68,7 +74,11 @@ joined to any existing note. With no members cut it SHALL add no truncation sent
 
 #### Scenario: A control's own long text
 - **WHEN** a TextBox or the Immediate window's editor holds 9,000 characters
-- **THEN** its `value` is cut at 4,000 with the full length stated
+- **THEN** its `value` retains 4,000 characters with the full length and dropped end stated: the start for a TextBox, the end for the Immediate window
+
+#### Scenario: An output document member
+- **WHEN** the Immediate window holds 9,000 characters
+- **THEN** its owner's `Document` member retains the last 200, states that the first 8,800 were cut, and explains how to read more
 
 ### Requirement: Inspection SHALL give the text of every item a list holds
 `inspect_element` on a list, an open dropdown or a tab control SHALL give `items`, the text of each item as `select`

@@ -2804,7 +2804,7 @@ public class UiAutomationDriverTests
         var value = Member(UiAutomationDriver.ReflectDataContextMembers(vm), "Text").Value;
 
         value!.Length.Should().BeLessThan(9000);
-        value.Should().EndWith("chars]").And.Contain("truncated");
+        value.Should().EndWith("[last 8800 of 9000 chars cut]");
     }
 
     // ── DataGrid rows ────────────────────────────────────────────────────────
