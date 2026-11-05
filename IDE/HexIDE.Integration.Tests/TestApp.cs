@@ -41,6 +41,10 @@ public class TestApp : Application
         {
             Source = new Uri("avares://HexIDE/Themes/CodeDirection.axaml"),
         }) ; Console.Error.WriteLine("1085 probe: resource 3");
+        Styles.Add(new StyleInclude(new Uri("avares://HexIDE.Integration.Tests/"))
+        {
+            Source = new Uri("avares://HexIDE/Themes/MenuNavigation.axaml"),
+        });
         // As App.axaml does: access-key captions name their controls without the "_" marker (#578).
         Styles.Add(new StyleInclude(new Uri("avares://HexIDE.Integration.Tests/"))
         {
