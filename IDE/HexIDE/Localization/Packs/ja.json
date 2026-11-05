@@ -777,6 +777,7 @@
     "Str.Dialog.ExportPreview.Cancel": "キャンセル",
     "Str.Tool.LanguageServers.None": "言語サーバーは接続されていません。VB6 には HexIDE 自身が対応します。他の言語にはサーバーが必要で、lsp-servers.json を記述して接続します。",
     "Str.Tool.LanguageServers.Id": "ID",
+    "Str.Tool.LanguageServers.Origin": "追加元",
     "Str.Tool.LanguageServers.Transport": "トランスポート",
     "Str.Tool.LanguageServers.Claims": "担当範囲",
     "Str.Tool.LanguageServers.Priority": "優先順位",

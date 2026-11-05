@@ -776,6 +776,7 @@
     "Str.Dialog.ExportPreview.Cancel": "Anulare",
     "Str.Tool.LanguageServers.None": "Nu există servere de limbaj conectate. HexIDE deservește singur VB6; alte limbaje necesită un server, pe care îl conectezi configurând lsp-servers.json.",
     "Str.Tool.LanguageServers.Id": "ID",
+    "Str.Tool.LanguageServers.Origin": "Adăugat de",
     "Str.Tool.LanguageServers.Transport": "Transport",
     "Str.Tool.LanguageServers.Claims": "Limbaje deservite",
     "Str.Tool.LanguageServers.Priority": "Prioritate",

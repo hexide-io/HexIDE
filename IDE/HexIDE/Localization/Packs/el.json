@@ -777,6 +777,7 @@
     "Str.Dialog.ExportPreview.Cancel": "Άκυρο",
     "Str.Tool.LanguageServers.None": "Δεν έχει συνδεθεί κανένας διακομιστής γλώσσας. Το HexIDE εξυπηρετεί το ίδιο το VB6. Οι άλλες γλώσσες χρειάζονται διακομιστή, τον οποίο συνδέετε γράφοντας το lsp-servers.json.",
     "Str.Tool.LanguageServers.Id": "Αναγνωριστικό",
+    "Str.Tool.LanguageServers.Origin": "Προστέθηκε από",
     "Str.Tool.LanguageServers.Transport": "Μεταφορά",
     "Str.Tool.LanguageServers.Claims": "Δηλωμένη εμβέλεια",
     "Str.Tool.LanguageServers.Priority": "Προτεραιότητα",

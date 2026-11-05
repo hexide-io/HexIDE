@@ -32,7 +32,10 @@ namespace HexIDE.Lsp;
 /// </summary>
 public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
 {
-    private readonly List<Entry> _entries;
+    // Replaced whole, never changed in place: an add-in's server arrives while documents are being routed (#2760), and a
+    // reader holding the old list keeps a consistent one. Written only under _entriesGate.
+    private volatile IReadOnlyList<Entry> _entries;
+    private readonly object _entriesGate = new();
     private readonly ILogger<LspClientRegistry> _logger;
     private readonly HashSet<string> _unknownCommands = new(StringComparer.Ordinal);
     private readonly TimeProvider _timeProvider;
@@ -156,8 +159,51 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
 
     private readonly ConcurrentDictionary<string, LanguageServerConfigProblem> _importProblems = new();
     private readonly IReadOnlyList<LanguageServerConfigProblem> _configurationProblems;
-    public IReadOnlyList<LanguageServerConfigProblem> ConfigurationProblems =>
-        _configurationProblems.Concat(_importProblems.Values).ToArray();
+    public IReadOnlyList<LanguageServerConfigProblem> ConfigurationProblems
+    {
+        get
+        {
+            LanguageServerConfigProblem[] contributed;
+            lock (_contributionProblems) contributed = _contributionProblems.SelectMany(p => p.Problems).ToArray();
+            return _configurationProblems.Concat(contributed).Concat(_importProblems.Values).ToArray();
+        }
+    }
+
+    // What was wrong with the servers add-ins contributed (#2760), by the id each was contributed under, in the order they
+    // were found: reported beside the file's, since a contributed entry is checked as one of the file's is. Only the latest
+    // attempt's are kept, so an add-in that tries again replaces what its last try reported rather than adding to it.
+    private readonly List<(string Id, LanguageServerConfigProblem[] Problems)> _contributionProblems = [];
+
+    /// <summary>
+    /// Reports what was wrong with a server an add-in contributed, beside the configuration file's problems. It replaces
+    /// what was reported for the same id before, and goes when that server is taken out.
+    /// </summary>
+    public void ReportContributionProblems(string id, IEnumerable<LanguageServerConfigProblem> problems)
+    {
+        ArgumentNullException.ThrowIfNull(id);
+        ArgumentNullException.ThrowIfNull(problems);
+        var reported = problems.ToArray();
+        bool changed;
+        lock (_contributionProblems)
+        {
+            changed = _contributionProblems.RemoveAll(p => p.Id == id) > 0 | reported.Length > 0;
+            if (reported.Length > 0) _contributionProblems.Add((id, reported));
+        }
+
+        if (changed) ConnectionsChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    private void ForgetContributionProblems(string id)
+    {
+        lock (_contributionProblems) _contributionProblems.RemoveAll(p => p.Id == id);
+        // Its project imports' too, keyed by the id and the project (EnsureStartedAsync).
+        foreach (var key in _importProblems.Keys)
+            if (key.StartsWith(id + "\0", StringComparison.Ordinal)) _importProblems.TryRemove(key, out _);
+    }
+
+    /// <summary>Whether a server with this id is known, configured or contributed.</summary>
+    public bool Knows(string id) =>
+        _entries.Any(e => string.Equals(e.Registration.Id, id, StringComparison.Ordinal));
 
     public IReadOnlyList<LanguageServerConnection> Connections =>
         _entries.Select(e => new LanguageServerConnection(
@@ -176,7 +222,8 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
             e.Client?.LastAttempt ?? e.LastAttempt,
             e.Client?.DeclinedCapabilities,
             (e.Client as VBLspClient)?.OpenDocumentCount ?? 0,
-            (e.Client as VBLspClient)?.SentWorkspaceRootUri)).ToList();
+            (e.Client as VBLspClient)?.SentWorkspaceRootUri,
+            e.Registration.Origin)).ToList();
 
     /// <summary>
     /// What a connection's state is <em>now</em>, rather than what it was when something last wrote it down.
@@ -882,7 +929,9 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
     {
         if (_artifacts is not null) _artifacts.RestartRequested -= OnArtifactRestartRequested;
         if (_artifacts is IDisposable disposable) disposable.Dispose();
+        foreach (var e in _entries) await e.Lifetime.CancelAsync();
         await StopAsync();
+        // Lifetime is cancelled, not disposed: a replay still finishing reads its token, and it holds no timer to release.
         foreach (var e in _entries)
         {
             foreach (var uri in e.PendingOpens.Keys) ReleaseOpen(e, uri);
@@ -1103,6 +1152,10 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
         // nothing to re-open it, and every later change to those documents reaches a server that never saw
         // them opened (hexide-io/HexIDE#469). A first save of a never-saved project moves the root, so
         // since #489 this is the ordinary path rather than an edge case.
+        //
+        // Under the gate, which every open passes through: a server with an add-in's gate before launch is
+        // reopened off it (#2760), since that gate waits as long as the add-in takes, and holding every open of
+        // every language for it would stall the editor.
         await ReopenKnownDocumentsAsync(triggeringUri, cancellationToken);
 
         ConnectionsChanged?.Invoke(this, EventArgs.Empty);
@@ -1129,7 +1182,7 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
         e.StateSince = DateTimeOffset.UtcNow;
     }
 
-    private void OnArtifactRestartRequested(string serverId) => _ = RestartForArtifactAsync(serverId);
+    private void OnArtifactRestartRequested(LanguageServerRegistration server) => _ = RestartForArtifactAsync(server);
 
     /// <summary>
     /// Restarts the one server whose workspace artefact a regeneration changed, for a server that reads it only when it
@@ -1140,14 +1193,16 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
     /// alone, since it reads the new file when it next starts, and a failed one stays failed. Serialised with a workspace
     /// move, which restarts everything.
     /// </remarks>
-    private async Task RestartForArtifactAsync(string serverId)
+    private async Task RestartForArtifactAsync(LanguageServerRegistration server)
     {
+        var serverId = server.Id;
         try
         {
             await _restartGate.WaitAsync();
             try
             {
-                if (_entries.FirstOrDefault(x => x.Registration.Id == serverId) is not
+                // By registration: one added again under the id since is another server, whose file did not change.
+                if (_entries.FirstOrDefault(x => ReferenceEquals(x.Registration, server)) is not
                     { Client: not null, State: LanguageConnectionState.Running } e) return;
                 _logger.LogInformation("Restarting {Server}: its workspace artefact changed.", serverId);
                 foreach (var (uri, known) in _open)
@@ -1176,10 +1231,17 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
     /// <paramref name="only"/> limits it to one connection, restarted alone: the others still hold their documents, and a
     /// second didOpen for a URI is not something a server has to tolerate.
     /// </para>
+    /// <para>
+    /// A server with an add-in's gate before launch is reopened on its own, as a late registration's is, and this does
+    /// not wait for it: the gate takes as long as the add-in takes, and the open that moved the workspace is of some
+    /// other document. Its documents stay held until that reopen reaches them. The rest are reopened before this returns.
+    /// </para>
     /// </remarks>
     private async Task ReopenKnownDocumentsAsync(string? triggeringUri, CancellationToken cancellationToken,
         Entry? only = null)
     {
+        var gated = new HashSet<Entry>();
+        var reached = false;
         try
         {
             foreach (var (uri, known) in _open)
@@ -1190,25 +1252,38 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
                 foreach (var e in ClaimantsFor(uri, known.IsProjectMember))
                 {
                     if (only is not null && e != only) continue;
+                    if (e.Registration.BeforeLaunch is not null)
+                    {
+                        gated.Add(e);
+                        continue;
+                    }
+
                     // A failed entry is not revived by a document arriving, which is the rule EnsureStartedAsync
                     // already applies; the null check is what keeps that true here rather than restating it.
                     await EnsureStartedAsync(e, cancellationToken);
-                    if (e.Client is { } client)
-                        await client.OpenDocumentAsync(uri, known.Text, cancellationToken);
+
+                    // Read again after the start: the text may have changed, or the document closed.
+                    if (e.Client is { } client && _open.TryGetValue(uri, out var current))
+                        await client.OpenDocumentAsync(uri, current.Text, cancellationToken);
                     ReleaseOpen(e, uri);
                 }
             }
+            reached = true;
         }
         finally
         {
-            // What the restart held and this did not reach, because a start threw or was cancelled.
+            // What the restart held and this did not reach, because a start threw or was cancelled. A gated server's
+            // are released by its own reopen, which begins only when this got to the end: otherwise nothing will reopen
+            // them, and theirs go too.
             foreach (var uri in _open.Keys)
             {
                 if (triggeringUri is not null && string.Equals(uri, triggeringUri, StringComparison.Ordinal)) continue;
-                if (only is null) ReleaseOpens(uri);
-                else ReleaseOpen(only, uri);
+                foreach (var e in _entries)
+                    if ((only is null || e == only) && !(reached && gated.Contains(e))) ReleaseOpen(e, uri);
             }
         }
+
+        foreach (var e in gated) _ = OpenKnownDocumentsOnAsync(e, triggeringUri);
     }
 
     /// <summary>
@@ -1232,9 +1307,12 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
         if (e.State is LanguageConnectionState.Running or LanguageConnectionState.Failed) return;
 
         await e.Gate.WaitAsync(cancellationToken);
+        // The caller's token, and the server's own lifetime: taking the server out ends a start it is waiting for.
+        using var start = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, e.Lifetime.Token);
+        var starting = start.Token;
         try
         {
-            if (e.Client is not null) return;
+            if (e.Client is not null || e.Removed) return;
 
             e.State = LanguageConnectionState.Starting;
             e.StateSince = DateTimeOffset.UtcNow;
@@ -1243,25 +1321,48 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
             e.LastAttempt = null;
             if (_artifacts is not null && e.Registration.ProjectImport is null)
             {
-                try { await _artifacts.PrepareAsync(e.Registration, cancellationToken); }
-                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { throw; }
+                try { await _artifacts.PrepareAsync(e.Registration, starting); }
+                catch (OperationCanceledException) when (starting.IsCancellationRequested) { throw; }
                 catch (Exception ex)
                 {
                     _logger.LogWarning(ex, "Workspace artefact for {Server} failed; launching anyway.", e.Registration.Id);
                 }
             }
 
-            var client = e.Registration.CreateClient();
-            client.DiagnosticsPublished += OnInnerDiagnostics;
-            client.CodeLensRefreshRequested += OnInnerCodeLensRefresh;
-            client.MessageShown += OnInnerMessage;
-            client.ProgressReceived += OnInnerProgress;
-            client.MessageLogged += OnInnerLogMessage;
-            client.TraceReceived += OnInnerTrace;
-            client.StateChanged += OnInnerStateChanged;
-            e.Client = client;
+            // An add-in's gate (#2760), unlike the artefact above, decides whether the server starts: one that throws
+            // fails the start, below, as a launch that fails does, and its message is the attempt's.
+            if (e.Registration.BeforeLaunch is { } beforeLaunch)
+                await beforeLaunch(starting);
 
-            await client.StartAsync(cancellationToken);
+            var client = e.Registration.CreateClient();
+
+            // Heard only while it is listed. A removal takes the server out of the list and stops hearing its client under
+            // the same lock, so a client made after that, by a start the removal has not yet called off, is let go unheard.
+            bool listed;
+            lock (_entriesGate)
+            {
+                listed = _entries.Contains(e);
+                if (listed)
+                {
+                    client.DiagnosticsPublished += OnInnerDiagnostics;
+                    client.CodeLensRefreshRequested += OnInnerCodeLensRefresh;
+                    client.MessageShown += OnInnerMessage;
+                    client.ProgressReceived += OnInnerProgress;
+                    client.MessageLogged += OnInnerLogMessage;
+                    client.TraceReceived += OnInnerTrace;
+                    client.StateChanged += OnInnerStateChanged;
+                    e.Client = client;
+                }
+            }
+            if (!listed)
+            {
+                await client.DisposeAsync();
+                return;
+            }
+
+            await client.StartAsync(starting);
+            // A client stopped during its handshake returns rather than throws; the start was called off all the same.
+            starting.ThrowIfCancellationRequested();
             if (!client.IsRunning && client.WaitingForWorkspace)
             {
                 e.LastAttempt = client.LastAttempt;
@@ -1306,9 +1407,15 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
                     catch (OperationCanceledException) when (token.IsCancellationRequested) { throw; }
                     catch (Exception ex)
                     {
-                        _importProblems[problemKey] = new LanguageServerConfigProblem(e.Registration.Id,
-                            $"Project import failed for {project.Project.Name}: {ex.Message}", false)
-                            .WithDetails("ImportFailed", project.Project.Name, ex.Message);
+                        // Only for a server still listed, checked under the lock a removal withdraws its problems under: an
+                        // import that ends after its server was taken out reports to nobody.
+                        lock (_entriesGate)
+                        {
+                            if (_entries.Contains(e))
+                                _importProblems[problemKey] = new LanguageServerConfigProblem(e.Registration.Id,
+                                    $"Project import failed for {project.Project.Name}: {ex.Message}", false)
+                                    .WithDetails("ImportFailed", project.Project.Name, ex.Message);
+                        }
                         _logger.LogWarning(ex, "Project import failed for {Server}.", e.Registration.Id);
                     }
                     ConnectionsChanged?.Invoke(this, EventArgs.Empty);
@@ -1317,6 +1424,25 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
             if (!client.IsRunning)
                 _logger.LogWarning("Language server '{Id}' did not start; its languages have no support.",
                     e.Registration.Id);
+        }
+        catch (OperationCanceledException) when (starting.IsCancellationRequested)
+        {
+            // Called off, not failed: an open that was given up, or the server being taken out. Failed is never retried,
+            // so a cancelled open would otherwise have cost the server its languages for the session; NotStarted lets the
+            // next document it claims start it again. A removal writes its own state after this.
+            if (e.Client is { } abandoned)
+            {
+                Unsubscribe(abandoned);
+                try { await abandoned.StopAsync(); }
+                catch (Exception ex) { _logger.LogDebug(ex, "Stop failed for {Id}", e.Registration.Id); }
+                e.Client = null;
+            }
+            e.State = LanguageConnectionState.NotStarted;
+            e.StateSince = DateTimeOffset.UtcNow;
+
+            // The caller's cancellation is the caller's to see. A removal is not: the open that was starting this server
+            // goes on to its other servers, as it would had this one never been there.
+            if (cancellationToken.IsCancellationRequested) throw;
         }
         catch (Exception ex)
         {
@@ -1380,12 +1506,24 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
     /// document's whole set — which is the shape subscribers were already written for.
     /// </para>
     /// </summary>
-    private void OnInnerDiagnostics(object? sender, PublishDiagnosticsParams p) =>
+    private void OnInnerDiagnostics(object? sender, PublishDiagnosticsParams p)
+    {
+        // Whose it is, decided as it arrives: by the time it is delivered its server may have been taken out, and its id
+        // given to another. A server the registry no longer lists says nothing more, then or now (#2760).
+        if (_entries.FirstOrDefault(e => ReferenceEquals(e.Client, sender)) is not { } from)
+        {
+            _logger.LogDebug("Diagnostics arrived from a connection this registry no longer lists.");
+            return;
+        }
+
         _diagnosticLifecycle.Publish(p.Uri, () =>
         {
-            var published = _diagnostics.Record(p.Uri, OwnerOf(sender), p.Diagnostics);
+            // In the order deliveries run, a removal's withdrawal among them: listed here, this comes before it.
+            if (!_entries.Contains(from)) return;
+            var published = _diagnostics.Record(p.Uri, from.Registration.Id, p.Diagnostics);
             DiagnosticsPublished?.Invoke(this, published);
         });
+    }
 
     /// <summary>
     /// The owner key for a connection: its registration id, which is unique across the registry and is
@@ -1406,7 +1544,7 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
         return DiagnosticOwner.LanguageServer;
     }
 
-    private sealed class Entry(LanguageServerRegistration registration)
+    internal sealed class Entry(LanguageServerRegistration registration)
     {
         public LanguageServerRegistration Registration { get; } = registration;
         public ILspClient? Client;
@@ -1423,10 +1561,193 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
 
         public readonly SemaphoreSlim Gate = new(1, 1);
 
+        /// <summary>Set, under <see cref="Gate"/>, when the server is taken out: nothing starts it again.</summary>
+        public bool Removed;
+
+        /// <summary>
+        /// Cancelled when the server is taken out, which ends a start in progress, an add-in's gate included: a removal
+        /// waits for the start under <see cref="Gate"/>, and a gate nobody could cancel would make it wait for good.
+        /// </summary>
+        public readonly CancellationTokenSource Lifetime = new();
+
         /// <summary>
         /// Documents this registry has begun opening on this entry's server and has not yet opened there, each
         /// with what a request about it waits on (hexide-io/HexIDE#2909).
         /// </summary>
         public readonly ConcurrentDictionary<string, TaskCompletionSource> PendingOpens = new(StringComparer.Ordinal);
+    }
+
+    // ── Servers that arrive while the IDE runs (#457, #2760) ─────────────────────────────────────────
+
+    /// <summary>
+    /// Adds a server while the IDE runs: an add-in's, which registers after this router is built — at start-up, or on
+    /// the consent pass after the window opens. The documents already open that it claims are opened on it, which starts
+    /// it, as the first document it claims would.
+    /// </summary>
+    /// <returns>The server as it was added: what takes it out again, and what says when the open documents reached it.</returns>
+    /// <exception cref="InvalidOperationException">A server with the registration's id is known already.</exception>
+    public Contribution Add(LanguageServerRegistration registration)
+    {
+        ArgumentNullException.ThrowIfNull(registration);
+        var entry = new Entry(registration);
+        lock (_entriesGate)
+        {
+            if (_entries.Any(e => string.Equals(e.Registration.Id, registration.Id, StringComparison.Ordinal)))
+                throw new InvalidOperationException($"A language server with the id '{registration.Id}' is known already.");
+
+            // Ordered as the constructor orders them, and as stably: an equal priority comes after the ones already here.
+            _entries = _entries.Append(entry).OrderByDescending(e => e.Registration.Priority).ToList();
+        }
+
+        _logger.LogInformation("Language server '{Id}' was added while running, from {Origin}.",
+            registration.Id, registration.Origin ?? "the host");
+        ConnectionsChanged?.Invoke(this, EventArgs.Empty);
+        return new Contribution(this, entry, OpenKnownDocumentsOnAsync(entry));
+    }
+
+    // Each document already open that the new server claims, opened on it.
+    //
+    // NOT under _restartGate, though a workspace move's replay is. Every open passes through that gate, and holding it
+    // while this server starts — its gate before launch included — would stall the opening of every other document, of
+    // any language, for as long as one add-in's server takes to come up. Nothing here needs it: an open of the same
+    // document racing in from the editor reaches the same client, which opens a document once and keeps the newest text
+    // it was given (VBLspClient.TrackOpen), and a document closed meanwhile is not in _open when it is read again below.
+    //
+    // A workspace move reopens an add-in's gated server this way too, for the same reason (ReopenKnownDocumentsAsync);
+    // `skip` is then the document whose open moved it, which that open sends itself.
+    private async Task OpenKnownDocumentsOnAsync(Entry entry, string? skip = null)
+    {
+        // Held before the first await, as an open holds them, so a request about one waits for its open here (#2909).
+        var held = _open.Where(d => !string.Equals(d.Key, skip, StringComparison.Ordinal)
+                                    && ClaimantsFor(d.Key, d.Value.IsProjectMember).Contains(entry))
+            .Select(d => d.Key).ToList();
+        foreach (var uri in held) HoldOpen(entry, uri);
+
+        // Off the caller's stack: the caller is an add-in's initialisation, which must not wait for a server to start.
+        await Task.Yield();
+        try
+        {
+            foreach (var uri in held)
+            {
+                if (!_open.ContainsKey(uri)) continue;
+
+                await EnsureStartedAsync(entry, CancellationToken.None);
+
+                // Read again after the start, which can take a while: the text may have changed, or the document closed.
+                if (entry.Client is { } client && _open.TryGetValue(uri, out var current))
+                    await client.OpenDocumentAsync(uri, current.Text);
+                ReleaseOpen(entry, uri);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "The documents already open could not all be opened on '{Id}'.", entry.Registration.Id);
+        }
+        finally
+        {
+            foreach (var uri in held) ReleaseOpen(entry, uri);
+        }
+    }
+
+    private void Unsubscribe(ILspClient client)
+    {
+        client.DiagnosticsPublished -= OnInnerDiagnostics;
+        client.CodeLensRefreshRequested -= OnInnerCodeLensRefresh;
+        client.MessageShown -= OnInnerMessage;
+        client.ProgressReceived -= OnInnerProgress;
+        client.MessageLogged -= OnInnerLogMessage;
+        client.TraceReceived -= OnInnerTrace;
+        client.StateChanged -= OnInnerStateChanged;
+    }
+
+    // A server taken out: what it said about each document and its configuration problems are withdrawn, a start in
+    // progress is called off — its gate before launch with it — and ends, then the server is stopped and its row goes.
+    private async Task RemoveAsync(Entry entry)
+    {
+        // The withdrawals with the removal, under the lock Add takes: the id is free from here, and a server added under
+        // it again says its own things, which a withdrawal by id after the old one's shutdown would take away with it.
+        // The diagnostics' is queued with the deliveries rather than raised here, so it comes after whatever the old
+        // server said before this and before anything a new one says, and no handler runs under the lock.
+        bool deliver;
+        lock (_entriesGate)
+        {
+            _entries = _entries.Where(e => !ReferenceEquals(e, entry)).ToList();
+            if (entry.Client is { } speaking) speaking.DiagnosticsPublished -= OnInnerDiagnostics;
+            ForgetContributionProblems(entry.Registration.Id);
+            deliver = _diagnosticLifecycle.Queue(() =>
+            {
+                foreach (var p in _diagnostics.Withdraw(entry.Registration.Id))
+                    DiagnosticsPublished?.Invoke(this, p);
+            });
+        }
+        if (deliver) _diagnosticLifecycle.DeliverQueued();
+
+        // Before the wait, not after: the start holds the gate, and would hold it for as long as an add-in's gate waits.
+        await entry.Lifetime.CancelAsync();
+        await entry.Gate.WaitAsync();
+        try
+        {
+            entry.Removed = true;
+
+            // After the start has ended, which is what could make it active again, and before the stop, which can take
+            // the whole of a shutdown's time: nothing is generated, imported or tracked for a server that is going.
+            if (_artifacts is not null) await _artifacts.ForgetAsync(entry.Registration);
+
+            if (entry.Client is { } client)
+            {
+                client.DiagnosticsPublished -= OnInnerDiagnostics;
+                client.CodeLensRefreshRequested -= OnInnerCodeLensRefresh;
+                client.MessageShown -= OnInnerMessage;
+                client.MessageLogged -= OnInnerLogMessage;
+                client.TraceReceived -= OnInnerTrace;
+                client.StateChanged -= OnInnerStateChanged;
+                try { await client.StopAsync(); }
+                catch (Exception ex) { _logger.LogDebug(ex, "Stop failed for {Id}", entry.Registration.Id); }
+                client.ProgressReceived -= OnInnerProgress;
+                entry.Client = null;
+            }
+
+            entry.State = LanguageConnectionState.Stopped;
+            entry.StateSince = DateTimeOffset.UtcNow;
+        }
+        finally
+        {
+            entry.Gate.Release();
+        }
+
+        ConnectionsChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    /// <summary>
+    /// A server added while the IDE runs (<see cref="Add"/>): its client, once it has one, and what takes it out.
+    /// </summary>
+    public sealed class Contribution : IAsyncDisposable
+    {
+        private readonly LspClientRegistry _registry;
+        private readonly Entry _entry;
+        private int _disposed;
+
+        internal Contribution(LspClientRegistry registry, Entry entry, Task opened)
+        {
+            _registry = registry;
+            _entry = entry;
+            Opened = opened;
+        }
+
+        /// <summary>The id it was added under.</summary>
+        public string Id => _entry.Registration.Id;
+
+        /// <summary>Completes when the documents that were open when it was added have been opened on it.</summary>
+        public Task Opened { get; }
+
+        /// <summary>Its client, once it has started; null before, and after it is taken out.</summary>
+        public ILspClient? Client => _entry.Client;
+
+        /// <summary>Cancelled when it is taken out.</summary>
+        public CancellationToken Lifetime => _entry.Lifetime.Token;
+
+        /// <summary>Stops the server, if it is running, and takes it out. Once; a second call does nothing.</summary>
+        public ValueTask DisposeAsync() =>
+            Interlocked.Exchange(ref _disposed, 1) == 0 ? new ValueTask(_registry.RemoveAsync(_entry)) : ValueTask.CompletedTask;
     }
 }

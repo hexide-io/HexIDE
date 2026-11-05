@@ -777,6 +777,7 @@
     "Str.Dialog.ExportPreview.Cancel": "Batal",
     "Str.Tool.LanguageServers.None": "Tidak ada server bahasa yang terpasang. VB6 dilayani oleh HexIDE sendiri; bahasa lain memerlukan server, yang Anda pasang dengan menulis lsp-servers.json.",
     "Str.Tool.LanguageServers.Id": "Id",
+    "Str.Tool.LanguageServers.Origin": "Ditambahkan oleh",
     "Str.Tool.LanguageServers.Transport": "Transport",
     "Str.Tool.LanguageServers.Claims": "Cakupan",
     "Str.Tool.LanguageServers.Priority": "Prioritas",

@@ -777,6 +777,7 @@
     "Str.Dialog.ExportPreview.Cancel": "Hủy",
     "Str.Tool.LanguageServers.None": "Chưa có máy chủ ngôn ngữ nào được gắn kết. HexIDE tự phục vụ VB6. Các ngôn ngữ khác cần một máy chủ, bạn gắn kết bằng cách viết lsp-servers.json.",
     "Str.Tool.LanguageServers.Id": "ID",
+    "Str.Tool.LanguageServers.Origin": "Được thêm bởi",
     "Str.Tool.LanguageServers.Transport": "Kênh truyền",
     "Str.Tool.LanguageServers.Claims": "Khai báo",
     "Str.Tool.LanguageServers.Priority": "Ưu tiên",
