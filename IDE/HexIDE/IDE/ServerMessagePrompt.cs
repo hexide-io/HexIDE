@@ -71,6 +71,7 @@ internal sealed class ServerMessagePrompt
         content.Children.Add(buttons);
         var window = new Window
         {
+            Classes = { "ideDialog" },
             Title = title, Content = content, FlowDirection = owner.FlowDirection, SizeToContent = SizeToContent.WidthAndHeight,
             CanResize = false, WindowStartupLocation = WindowStartupLocation.CenterOwner
         };
@@ -87,7 +88,7 @@ internal sealed class ServerMessagePrompt
             button.Click += (_, _) => { answer = action; window.Close(); };
             buttons.Children.Add(button);
         }
-        window.Opened += (_, _) => buttons.Children.OfType<Button>().ElementAtOrDefault(defaultAction)?.Focus();
+        window.Opened += (_, _) => buttons.Children.OfType<Button>().ElementAtOrDefault(defaultAction)?.Focus(NavigationMethod.Tab);
         using var cancellation = token.Register(() => Dispatcher.UIThread.Post(window.Close));
         token.ThrowIfCancellationRequested();
         await window.ShowDialog(owner);

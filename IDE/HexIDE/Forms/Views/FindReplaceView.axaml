@@ -29,7 +29,7 @@
                 <!-- Each box is named by its caption, without the access-key underscore, so a screen reader and the automation
                      tree know which box takes what (#2717). -->
                 <TextBlock x:Name="FindWhatLabel" DockPanel.Dock="Left" Text="{DynamicResource Str.Dialog.FindReplace.Label.FindWhat}" VerticalAlignment="Center" Width="75" />
-                <TextBox Text="{CompiledBinding SearchText, Mode=TwoWay}" FlowDirection="LeftToRight"
+                <TextBox Classes="dialogInitialFocus" Text="{CompiledBinding SearchText, Mode=TwoWay}" FlowDirection="LeftToRight"
                          AutomationProperties.Name="{CompiledBinding #FindWhatLabel.Text, Converter={x:Static converters:AccessKeyNameConverter.Instance}}" />
             </DockPanel>
 
