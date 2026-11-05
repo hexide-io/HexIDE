@@ -87,7 +87,7 @@ public class QuickFixTests : IDisposable
             Action(disabled: "Save first") with { Server = "other", ServerDisplayName = "Same display name" });
         editor.ContextFlyout!.ShowAt(editor);
         Dispatcher.UIThread.RunJobs();
-        menu.Header.Should().Be("Quick Fixes");
+        menu.Header.Should().Be("Quick Fi_xes");
         menu.RaiseEvent(new RoutedEventArgs(MenuItem.SubmenuOpenedEvent));
         for (var i = 0; i < 10 && menu.Items.Count != 2; i++) await Task.Yield();
         await client.Received(1).RequestCodeActionsAsync(uri, diagnostic.Range,
@@ -116,7 +116,7 @@ public class QuickFixTests : IDisposable
         editor.CaretOffset = vm.Document.TextLength;
         await view.LoadQuickFixesAsync();
         await client.DidNotReceive().RequestCodeActionsAsync(Arg.Any<string>(), Arg.Any<HexIDE.Lsp.Messages.Range>(), Arg.Any<Diagnostic[]>(), Arg.Any<CancellationToken>());
-        menu.Items.Cast<MenuItem>().Should().ContainSingle().Which.Header.Should().Be("No applicable fix was supplied.");
+        menu.Items.Cast<MenuItem>().Should().ContainSingle().Which.Header.Should().Be("_No applicable fix was supplied.");
     }
 
     [AvaloniaFact]

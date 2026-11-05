@@ -7,6 +7,7 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Threading;
 using Avalonia.Utilities;
+using Avalonia.VisualTree;
 
 namespace Avalonia.Labs.Input;
 
@@ -19,6 +20,13 @@ public sealed class CommandManager : AvaloniaObject
     [ThreadStatic]
     private static CommandManager? s_commandManager;
     private static readonly WeakReference<IInputElement?> s_inputElement = new(default);
+
+    private sealed class MenuOpening
+    {
+        public bool ByPointer;
+    }
+
+    private static readonly ConditionalWeakTable<object, MenuOpening> s_menuOpenings = new();
 
     private DispatcherOperation? _requerySuggestedOperation;
     private event EventHandler? PrivateRequerySuggested;
@@ -113,6 +121,48 @@ public sealed class CommandManager : AvaloniaObject
         ExecutedEvent.AddClassHandler<InputElement>(ExecutedEventHandler);
         InputElement.GotFocusEvent.AddClassHandler<InputElement>(GotFocusEventHandler);
         Control.UnloadedEvent.AddClassHandler<Control>(UnloadedEventHandler);
+        Control.ContextRequestedEvent.AddClassHandler<Control>((control, args) =>
+        {
+            if (args.Handled) return;
+            var byPointer = args.TryGetPosition(null, out _);
+            if (control.ContextMenu is { } menu)
+                s_menuOpenings.GetValue(menu, _ => new MenuOpening()).ByPointer = byPointer;
+            else if (control.ContextFlyout is MenuFlyout flyout)
+            {
+                var opening = s_menuOpenings.GetValue(flyout, _ =>
+                {
+                    var state = new MenuOpening();
+                    flyout.Opening += (_, _) =>
+                    {
+                        if (flyout.Popup.Child is MenuFlyoutPresenter presenter)
+                        {
+                            // Focus the menu itself for pointer input, so Enter has no item to
+                            // invoke and the first arrow key starts navigation from no selection.
+                            presenter.Focusable = state.ByPointer;
+                            if (state.ByPointer) presenter.SelectedIndex = -1;
+                        }
+                        state.ByPointer = false;
+                    };
+                    return state;
+                });
+                opening.ByPointer = byPointer;
+            }
+        });
+        ContextMenu.OpenedEvent.AddClassHandler<ContextMenu>((menu, args) =>
+        {
+            if (args.Source != menu) return;
+            if (s_menuOpenings.TryGetValue(menu, out var opening) && opening.ByPointer)
+            {
+                opening.ByPointer = false;
+                return;
+            }
+            menu.UpdateLayout();
+            foreach (var container in menu.GetRealizedContainers())
+            {
+                if (container is MenuItem { IsEffectivelyEnabled: true, IsEffectivelyVisible: true } item && item.Focus())
+                    break;
+            }
+        });
         InputElement.KeyDownEvent.AddClassHandler<InputElement>(KeyDownEventHandler, RoutingStrategies.Tunnel);
     }
 
@@ -138,8 +188,14 @@ public sealed class CommandManager : AvaloniaObject
 
     private static void GotFocusEventHandler(InputElement targetElement, FocusChangedEventArgs args)
     {
-        if (args.Source is MenuItem)
-            return;
+        // Menu chrome (including scroll buttons and submenu templates) must not replace the
+        // document target while a routed command is being chosen.
+        for (var visual = args.Source as Visual; visual is not null; visual = visual.GetVisualParent())
+        {
+            if (visual is MenuItem or MenuBase ||
+                visual is Control { TemplatedParent: MenuItem or MenuBase })
+                return;
+        }
 
         s_inputElement.SetTarget(args.Source as IInputElement);
         Current.RaiseRequerySuggested();

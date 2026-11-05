@@ -1095,6 +1095,10 @@
     "Str.Debug.Conditions.Prompt": "Зупинятися на цьому рядку, лише коли цей вираз істинний:",
     "Str.Debug.Conditions.Edit": "Умова…",
     "Str.Debug.Conditions.AdapterIgnored": "Цей адаптер ігнорує умови й зупиняється щоразу.",
-    "Str.Debug.Conditions.InterpreterIgnored": "Інтерпретатор ігнорує умови й зупиняється щоразу."
+    "Str.Debug.Conditions.InterpreterIgnored": "Інтерпретатор ігнорує умови й зупиняється щоразу.",
+    "Str.Menu.View.Outline": "Структура",
+    "Str.Menu.View.RecentEdits": "Останні зміни",
+    "Str.CodeEditor.Context.FindReferences": "Знайти посилання",
+    "Str.CodeEditor.Context.NoQuickFix": "Придатне виправлення не надано."
   }
 }
