@@ -14,6 +14,18 @@ agent that wrote the code can open the IDE, drive it, and look at the result.
 
 ## Requirements
 
+### Requirement: Inspected popup bounds share the window coordinate space
+
+`inspect_element` SHALL report `boundingRect` in device-independent client coordinates of the selected
+window, including controls hosted in a separate popup top-level. If that rectangle cannot be related to
+the window, it SHALL leave `boundingRect` unavailable (null or omitted) and explain the missing position
+in `boundingRectNote`.
+
+#### Scenario: Inspect a context-menu item away from the window origin
+- **WHEN** a context menu opens at an offset inside the selected window and its item is inspected
+- **THEN** its bounds include that offset and map into `take_snapshot` using the reported scale and offsets
+
+
 ### Requirement: Click updates pointer popup placement
 
 A click SHALL update Avalonia's pointer placement position through the window's input before pressing.
@@ -1363,13 +1375,20 @@ holds, in a live, focused window as in a headless one, and not the text it held 
 ### Requirement: Escape SHALL retain focus in an ancestor's attached popup
 For unmodified Escape, `press_key` SHALL retain keyboard focus in an open attached menu or flyout whose
 placement target contains the addressed control, and SHALL name the popup receiver's window-rooted path
-in the reply. Other keys SHALL keep their existing focus routing.
+in the reply. Other keys SHALL keep their existing focus routing. An addressing walk that stalls SHALL
+return the current node's path only if the receiver is its visual descendant (folded into that addressable
+ancestor); otherwise it SHALL omit the path rather than name an unrelated control.
 
 #### Scenario: A tree node with its tree's context flyout open
 
 - **WHEN** the TreeView's ContextFlyout has keyboard focus and `press_key` sends Escape to a node under that tree
 - **THEN** Escape reaches the focused popup control without moving focus to the node first
 - **AND** the flyout closes and the reply names the popup receiver's path
+
+#### Scenario: A Watches row with its tree's context menu placed inside the row
+
+- **WHEN** the Watches tree's ContextMenu has focus and `press_key` sends Escape to its watch row
+- **THEN** the reply names the menu at the tree's `ContextMenu` path, and the menu closes
 
 ### Requirement: press_key reads a chord written as one key
 `press_key` SHALL read a `key` written as a chord, such as `Ctrl+H`, as its last part, with the parts before it

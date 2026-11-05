@@ -167,7 +167,7 @@ public static class UiAutomationDriver
             ? Safe<RangeState?>(() => new RangeState(rp.Value, rp.Minimum, rp.Maximum, rp.IsReadOnly), null)
             : null;
 
-        var rect = Safe(() => peer.GetBoundingRectangle(), default(Rect));
+        var (rect, rectNote) = WindowBounds(control, peer, root);
 
         // Members are listed where the DataContext is set, not on every control that inherits it. A scroll bar
         // inside a code window used to report the whole CodeEditorViewModel, source file included, ahead of
@@ -218,7 +218,7 @@ public static class UiAutomationDriver
             control.IsFocused,
             Safe(() => peer.IsOffscreen(), false),
             Hidden(control),
-            [rect.X, rect.Y, rect.Width, rect.Height],
+            rect,
             selection,
             value,
             toggle,
@@ -236,7 +236,32 @@ public static class UiAutomationDriver
             itemsNote,
             // The pointer it shows, and where that is set (#2453).
             Safe(() => PointerReader.Read(control, c => root is null ? Describe(c) : PathWithin(root, "Window", c)), null),
-            control.IsPointerOver);
+            control.IsPointerOver,
+            rectNote);
+    }
+
+    private static (double[]? Rect, string? Note) WindowBounds(Control control, AutomationPeer peer, Control? root)
+    {
+        // Peers measure from their own top-level: a popup has a different origin from the window (#3149).
+        try
+        {
+            var source = TopLevel.GetTopLevel(control);
+            var window = root is null ? source as Window : TopLevel.GetTopLevel(root);
+            if (source is not null && window is not null)
+            {
+                var rect = peer.GetBoundingRectangle();
+                if (!ReferenceEquals(source, window))
+                {
+                    var origin = window.PointToClient(source.PointToScreen(rect.Position));
+                    var scale = source.RenderScaling / window.RenderScaling;
+                    rect = new Rect(origin, new Size(rect.Width * scale, rect.Height * scale));
+                }
+                return ([rect.X, rect.Y, rect.Width, rect.Height], null);
+            }
+        }
+        catch { }
+        return (null, "The control's position could not be related to the selected window; boundingRect is unavailable. "
+                    + "A popup-relative rectangle would not map into take_snapshot.");
     }
 
     /// <summary>How many items <see cref="ItemTexts"/> reads at most.</summary>
@@ -4896,7 +4921,8 @@ public static class UiAutomationDriver
     private static string AddressOf(Control addressed, string? addressedPath, Control receiver) =>
         addressedPath is { Length: > 0 }
         && AnchorOf(addressed, receiver) is { } anchor
-        && PathWithin(addressed, addressedPath, anchor) is { } path
+        && (PathWithin(addressed, addressedPath, anchor)
+            ?? (TopLevel.GetTopLevel(addressed) is { } window ? PathWithin(window, "Window", anchor) : null)) is { } path
             ? $", at {path}"
             : string.Empty;
 
@@ -4958,8 +4984,9 @@ public static class UiAutomationDriver
     /// The control-view path of <paramref name="target"/>, walked down from <paramref name="from"/> (whose own
     /// path is <paramref name="fromPath"/>) choosing each segment exactly as <c>dump_visual_tree</c> does, so it
     /// round-trips through <see cref="Resolve"/>. A target the control view folds into a wrapper -- a TextArea
-    /// inside its TextEditor -- gets the path of its nearest addressable ancestor, which press_key and
-    /// type_text resolve back to the same receiver. Null when the target is not below <paramref name="from"/>.
+    /// inside its TextEditor -- gets the path of its nearest addressable visual ancestor, which press_key and
+    /// type_text resolve back to the same receiver. Null when the target is not below <paramref name="from"/>
+    /// or the walk stalls at a node that is not its visual ancestor.
     /// </summary>
     internal static string? PathWithin(Control from, string fromPath, Control target)
     {
@@ -4975,7 +5002,7 @@ public static class UiAutomationDriver
             var next = siblings.FirstOrDefault(m =>
                 ReferenceEquals(m.Control, target) || IsUnderInView(m.Control, target));
             if (next is null)
-                break;
+                return current.IsVisualAncestorOf(target) ? path : null;
             path += "/" + BestSegment(next, siblings);
             current = next.Control;
         }
@@ -5664,7 +5691,7 @@ public record UiNodeDetail(
     bool IsFocused,
     bool IsOffscreen,
     bool? IsHidden,
-    double[] BoundingRect,
+    double[]? BoundingRect,
     string[] SelectionItems,
     string? Value,
     bool? ToggleState,
@@ -5691,7 +5718,8 @@ public record UiNodeDetail(
     PointerState? Pointer = null,
     // Whether the pointer is over it, as its :pointerover style reads it (#2562): a hover that stays sets it, and the real
     // mouse's next move takes it back.
-    bool IsPointerOver = false);
+    bool IsPointerOver = false,
+    string? BoundingRectNote = null);
 
 /// <summary>The inspected Window's Avalonia frame properties and, on Windows, its native style masks.</summary>
 public record WindowFrameState(bool CanResize, string WindowDecorations, bool CanMinimize, bool CanMaximize,
