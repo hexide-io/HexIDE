@@ -1082,6 +1082,10 @@
     "Str.Debug.Conditions.Prompt": "หยุดที่บรรทัดนี้เฉพาะเมื่อนิพจน์นี้เป็นจริง:",
     "Str.Debug.Conditions.Edit": "เงื่อนไข…",
     "Str.Debug.Conditions.AdapterIgnored": "อะแดปเตอร์นี้ละเว้นเงื่อนไขและหยุดทุกครั้ง",
-    "Str.Debug.Conditions.InterpreterIgnored": "ตัวแปลภาษาละเว้นเงื่อนไขและหยุดทุกครั้ง"
+    "Str.Debug.Conditions.InterpreterIgnored": "ตัวแปลภาษาละเว้นเงื่อนไขและหยุดทุกครั้ง",
+    "Str.Menu.View.Outline": "โครงร่าง",
+    "Str.Menu.View.RecentEdits": "การแก้ไขล่าสุด",
+    "Str.CodeEditor.Context.FindReferences": "ค้นหาการอ้างอิง",
+    "Str.CodeEditor.Context.NoQuickFix": "ไม่มีการแก้ไขที่ใช้ได้"
   }
 }
