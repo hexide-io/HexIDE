@@ -999,6 +999,7 @@
     "Str.Dialog.MessageBox.Button.Abort": "Abandonner",
     "Str.Dialog.MessageBox.Button.Retry": "Réessayer",
     "Str.Dialog.MessageBox.Button.Ignore": "Ignorer",
+    "Str.Addins.ServerLaunchRefused": "Le démarrage du serveur de langage du complément « {0} » a été refusé.",
     "Str.Addins.Incompatible": "Impossible de charger le complément : schéma requis {0}, HexIDE minimum {1} ; cette compilation prend en charge le schéma {2}, HexIDE {3}. Le schéma ou la version exigés ne sont pas pris en charge ou sont invalides.",
     "Str.MakeProject.NoStartup": "Aucun projet de démarrage trouvé.",
     "Str.MakeProject.Browser": "La création d’un programme n’est pas disponible dans un navigateur. Utilisez la version de bureau de HexIDE.",
