@@ -19,6 +19,7 @@ public class RunWithTests : IAsyncDisposable
 
     private readonly ConversationLog _log = new();
     private readonly ProjectDefinition _project = TestHelpers.CreateProject("Invoices");
+    private readonly IProjectManager _projects = Substitute.For<IProjectManager>();
     private readonly RunChoiceStore _choices = new();
     private readonly IStatusBarService _status = Substitute.For<IStatusBarService>();
     private readonly DebugLaunchService _launches;
@@ -30,11 +31,10 @@ public class RunWithTests : IAsyncDisposable
     {
         var debugger = new ExternalDebugService(_log);
         _launches = new DebugLaunchService(debugger);
-        var projects = Substitute.For<IProjectManager>();
-        projects.StartupProject.Returns(_project);
+        _projects.StartupProject.Returns(_project);
         var strings = Substitute.For<ILocalizationService>();
         strings.GetString("Str.Debug.RunWith.Unavailable").Returns("{0} isn't available");
-        _runner = new ProjectRunnerService(Substitute.For<IEventBus>(), Substitute.For<IWindowManager>(), projects, strings,
+        _runner = new ProjectRunnerService(Substitute.For<IEventBus>(), Substitute.For<IWindowManager>(), _projects, strings,
             Substitute.For<IDebugController>(), Substitute.For<IBreakpointService>(), new WatchService(), new RunScope(), debugger,
             debugLaunches: _launches, runChoices: _choices, statusBar: _status);
         // The test project has no startup form, so the interpreter's start fails at once and says so: that is how a
@@ -122,5 +122,40 @@ public class RunWithTests : IAsyncDisposable
         _interpreterStarts.Should().ContainSingle();
         _status.Received(1).SetTemporaryMessage("RDCore isn't available", Arg.Any<TimeSpan>());
         _choices.Get(_project).Should().Be(Key, "the choice stays, for when the add-in is back");
+    }
+
+    [AvaloniaTheory]
+    [InlineData("no choice", false)]
+    [InlineData("chosen", true)]
+    [InlineData("chosen, gone", false)]
+    [InlineData("chosen, no longer claims it", false)]
+    public void F5_starts_a_project_an_add_in_read_only_with_the_launch_its_user_chose_for_it(string state, bool starts)
+    {
+        var contributed = new ProjectDefinition(VBProjectType.EXE, "Ledger") { ContributedBy = "RDCore projects" };
+        _projects.StartupProject.Returns(contributed);
+        if (state != "chosen, gone") Contribute(claims: _ => state != "chosen, no longer claims it");
+        if (state != "no choice") _choices.Set(contributed, Key);
+
+        _runner.CanStartDefaultProject.Should().Be(starts);
+        _runner.CanRunStartupProject.Should().BeFalse("HexIDE's interpreter runs only the projects it read itself");
+        _runner.CanStartDefaultProjectWithFullCompile.Should().BeFalse();
+        _runner.CanStepIntoProject.Should().BeFalse("F8 from idle starts the interpreter");
+        _runner.CanRunToCursor.Should().BeFalse();
+    }
+
+    [AvaloniaFact]
+    public void Choosing_a_launch_or_its_coming_and_going_says_whether_F5_can_start()
+    {
+        var changed = new List<string?>();
+        _runner.PropertyChanged += (_, e) => changed.Add(e.PropertyName);
+
+        using (_launches.Register(new AddinDebugLaunch("RDCore") { Claims = _ => true, CreateConfigurationAsync = (_, _) => throw new NotSupportedException() },
+            "com.rdcore.hexide", "RDCore for HexIDE"))
+        {
+            _choices.Set(_project, Key);
+        }
+
+        changed.Should().Equal(Enumerable.Repeat(nameof(ProjectRunnerService.CanStartDefaultProject), 3),
+            "the launch came, was chosen and went");
     }
 }

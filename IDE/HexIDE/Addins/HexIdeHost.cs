@@ -41,7 +41,7 @@ internal sealed class HexIdeHost(
 
     public bool RunProject() => Dispatcher.UIThread.Invoke(() =>
     {
-        if (!projectRunner.CanStartDefaultProject) return false;
+        if (!projectRunner.CanRunStartupProject) return false;
         projectRunner.RunStartupProject();
         return true;
     });

@@ -112,11 +112,10 @@ public partial class ProjectRunnerService : IProjectRunnerService
         this.runScope = runScope;
         this.externalDebugger = externalDebugger;
         this.archives = archives;
-        if (archives != null) archives.FocusChanged += () =>
-        {
-            PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(nameof(CanStartDefaultProject)));
-            CommandManager.InvalidateRequerySuggested();
-        };
+        if (archives != null) archives.FocusChanged += RequeryStart;
+        // What F5 starts for a project an add-in read is the launch its user chose, while that launch is registered.
+        if (runChoices != null) runChoices.ChoiceChanged += _ => RequeryStart();
+        if (debugLaunches != null) debugLaunches.LaunchesChanged += RequeryStart;
         if (externalDebugger is not null)
             externalDebugger.Changed += () =>
             {
@@ -164,6 +163,12 @@ public partial class ProjectRunnerService : IProjectRunnerService
     }
 
     private void OnIsRunningChanged() => CommandManager.InvalidateRequerySuggested();
+
+    private void RequeryStart()
+    {
+        PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(nameof(CanStartDefaultProject)));
+        CommandManager.InvalidateRequerySuggested();
+    }
 
     private bool conditionNoticeShown;
 
@@ -560,12 +565,19 @@ public partial class ProjectRunnerService : IProjectRunnerService
     private ContributedDebugLaunch? LaunchChosenFor(ProjectDefinition project)
     {
         if (debugLaunches is null || runChoices?.Get(project) is not { } key) return null;
-        if (debugLaunches.Find(key) is { } launch && debugLaunches.Claims(launch, project)) return launch;
+        if (ChosenLaunch(project) is { } launch) return launch;
         statusBar?.SetTemporaryMessage(
             string.Format(localization.GetString("Str.Debug.RunWith.Unavailable"), ContributedDebugLaunch.TitleOf(key)),
             TimeSpan.FromSeconds(10));
         return null;
     }
+
+    // The launch this project's user chose for F5, while it is registered and runs the project; null otherwise.
+    private ContributedDebugLaunch? ChosenLaunch(ProjectDefinition project) =>
+        debugLaunches is not null && runChoices?.Get(project) is { } key
+            && debugLaunches.Find(key) is { } launch && debugLaunches.Claims(launch, project)
+            ? launch
+            : null;
 
     public void BreakCurrentProject()
     {
@@ -666,9 +678,12 @@ public partial class ProjectRunnerService : IProjectRunnerService
         RunStartupProject();
     }
 
-    // A project an add-in read is run by the program it belongs to, never by HexIDE's interpreter.
-    public bool CanStartDefaultProject => archives?.IsActive != true && !IsRunning && projectManager.StartupProject is { ContributedBy: null };
-    public bool CanStartDefaultProjectWithFullCompile => CanStartDefaultProject;
+    // A project an add-in read is run by the program it belongs to, never by HexIDE's interpreter: F5 starts one only
+    // with the add-in's launch its user chose for it under Run > F5 Runs.
+    public bool CanStartDefaultProject => archives?.IsActive != true && !IsRunning
+        && projectManager.StartupProject is { } project && (project.ContributedBy is null || ChosenLaunch(project) is not null);
+    public bool CanRunStartupProject => archives?.IsActive != true && !IsRunning && projectManager.StartupProject is { ContributedBy: null };
+    public bool CanStartDefaultProjectWithFullCompile => CanRunStartupProject;
     public bool CanBreakProject => externalDebugger?.IsActive == true
         ? !externalDebugger.IsBusy && externalDebugger.State == Dap.DapSessionState.Running && externalDebugger.ThreadId is not null
         : IsRunning && debugController.State == DebugState.Running;
@@ -676,10 +691,10 @@ public partial class ProjectRunnerService : IProjectRunnerService
         ? !externalDebugger.IsBusy && externalDebugger.State == Dap.DapSessionState.Stopped && externalDebugger.ThreadId is not null
         : IsRunning && debugController.State == DebugState.Paused;
     // F8 works from idle (start-and-step, needs a startup project) or any running/paused state.
-    public bool CanStepIntoProject => externalDebugger?.IsActive == true ? CanContinueProject : CanStartDefaultProject || IsRunning;
+    public bool CanStepIntoProject => externalDebugger?.IsActive == true ? CanContinueProject : CanRunStartupProject || IsRunning;
     public bool CanStepOverProject => CanStepIntoProject;
     public bool CanStepOutProject => CanStepIntoProject;
-    public bool CanRunToCursor => externalDebugger?.IsActive != true && (CanStartDefaultProject || IsRunning);
+    public bool CanRunToCursor => externalDebugger?.IsActive != true && (CanRunStartupProject || IsRunning);
     public bool CanEndProject => IsRunning;
     public bool CanRestartProject => IsRunning && externalDebugger?.IsActive != true;
 

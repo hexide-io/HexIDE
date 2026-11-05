@@ -30,7 +30,13 @@ public interface IProjectRunnerService : INotifyPropertyChanged
     void RunToCursorProject(DocumentIdentity document, int line);
     void EndProject();
     void RestartProject();
+    /// <summary>
+    /// Whether F5 can start the startup project: one HexIDE read itself, or one an add-in read whose user chose a launch
+    /// for it that is registered and runs it.
+    /// </summary>
     bool CanStartDefaultProject { get; }
+    /// <summary>Whether the IDE's own interpreter can run the startup project (<see cref="RunStartupProject"/>): one HexIDE read itself.</summary>
+    bool CanRunStartupProject { get; }
     bool CanStartDefaultProjectWithFullCompile { get; }
     bool CanBreakProject { get; }
     bool CanContinueProject { get; }

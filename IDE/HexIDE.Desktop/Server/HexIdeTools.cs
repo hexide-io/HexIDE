@@ -916,7 +916,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     {
         var (refused, outcome) = await StartAndAwaitStopAsync(() =>
         {
-            if (!ctx.ProjectRunnerService.CanStartDefaultProject)
+            if (!ctx.ProjectRunnerService.CanRunStartupProject)
             {
                 var reason = ctx.ProjectManager.StartupProject is null
                     ? "No project loaded"
