@@ -7,6 +7,7 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Threading;
 using Avalonia.Utilities;
+using Avalonia.VisualTree;
 
 namespace Avalonia.Labs.Input;
 
@@ -113,6 +114,16 @@ public sealed class CommandManager : AvaloniaObject
         ExecutedEvent.AddClassHandler<InputElement>(ExecutedEventHandler);
         InputElement.GotFocusEvent.AddClassHandler<InputElement>(GotFocusEventHandler);
         Control.UnloadedEvent.AddClassHandler<Control>(UnloadedEventHandler);
+        ContextMenu.OpenedEvent.AddClassHandler<ContextMenu>((menu, args) =>
+        {
+            if (args.Source != menu) return;
+            menu.UpdateLayout();
+            foreach (var container in menu.GetRealizedContainers())
+            {
+                if (container is MenuItem { IsEffectivelyEnabled: true, IsEffectivelyVisible: true } item && item.Focus())
+                    break;
+            }
+        });
         InputElement.KeyDownEvent.AddClassHandler<InputElement>(KeyDownEventHandler, RoutingStrategies.Tunnel);
     }
 
@@ -138,8 +149,14 @@ public sealed class CommandManager : AvaloniaObject
 
     private static void GotFocusEventHandler(InputElement targetElement, FocusChangedEventArgs args)
     {
-        if (args.Source is MenuItem)
-            return;
+        // Menu chrome (including scroll buttons and submenu templates) must not replace the
+        // document target while a routed command is being chosen.
+        for (var visual = args.Source as Visual; visual is not null; visual = visual.GetVisualParent())
+        {
+            if (visual is MenuItem or MenuBase ||
+                visual is Control { TemplatedParent: MenuItem or MenuBase })
+                return;
+        }
 
         s_inputElement.SetTarget(args.Source as IInputElement);
         Current.RaiseRequerySuggested();
