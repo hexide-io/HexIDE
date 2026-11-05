@@ -41,14 +41,19 @@ public class ServerApplyEditTests : IAsyncDisposable
         var manager = Substitute.For<IProjectManager>();
         manager.LoadedProjects.Returns([project]);
         dock.OpenDocuments.Returns(windows);
-        dock.When(d => d.OpenDocument(Arg.Any<BaseEditorWindowViewModel>()))
-            .Do(c => { active = c.Arg<BaseEditorWindowViewModel>(); windows.Add(active); });
-        dock.TryActivate(Arg.Any<Func<CodeEditorViewModel, bool>>())
+        dock.When(d => d.OpenDocument(Arg.Any<BaseEditorWindowViewModel>(), Arg.Any<bool>()))
+            .Do(c =>
+            {
+                var editor = c.Arg<BaseEditorWindowViewModel>();
+                windows.Add(editor);
+                if (c.Arg<bool>()) active = editor;
+            });
+        dock.TryActivate(Arg.Any<Func<CodeEditorViewModel, bool>>(), Arg.Any<bool>())
             .Returns(c =>
             {
                 var found = windows.OfType<CodeEditorViewModel>().FirstOrDefault(c.Arg<Func<CodeEditorViewModel, bool>>());
                 if (found is null) return false;
-                active = found;
+                if (c.Arg<bool>()) active = found;
                 return true;
             });
         editors = new EditorService(dock, NewEditor, () => throw new InvalidOperationException(),

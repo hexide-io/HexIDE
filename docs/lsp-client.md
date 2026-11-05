@@ -1240,7 +1240,8 @@ real dialog's full URI and Yes/No launch routing headlessly.
 
 ### Server-requested workspace edits (#2908)
 
-Applying an accepted edit preserves the active document tab.
+Applying an accepted edit preserves the active document tab, keyboard focus and the originating
+code window's caret. Targets are opened without activating their tabs (#3123).
 
 The client declares `workspace.applyEdit: true` and retains `workspaceEdit.documentChanges`.
 `workspace/applyEdit` is accepted only while that connection has an unanswered user-started
@@ -1253,6 +1254,8 @@ and text, unsaved-buffer checks, protected IDE lines and read-only forms. Both `
 it with one undo step per module and answers `applied: true`. Resource operations remain refused.
 `ServerApplyEditTests` drives a scripted server through a code lens command and checks the wire answers,
 per-server permission, stale-version refusal, both edit representations and independent undo.
+`ServerApplyEditFocusTests` checks the production dock with two code windows: editing the other
+member keeps keyboard focus and the originating caret without a focus loss.
 
 ### Server questions (#2908)
 
