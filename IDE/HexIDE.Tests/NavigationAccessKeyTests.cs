@@ -36,6 +36,54 @@ public class NavigationAccessKeyTests
             otherKeys.Should().NotContain(AccessKey(label), $"{packId}: {key} has a free letter in its menu, counting disabled entries too (#3110)");
     }
 
+    // VB6's own mnemonics were not measured; this guards HexIDE's collision policy (#3121).
+    [Theory]
+    [MemberData(nameof(LatinMenus))]
+    [InlineData("pt-BR", false)]
+    public void MenuAccessKeyClashesHaveNoFreeLetter(string packId, bool viewMenu)
+    {
+        var strings = JsonSerializer.Deserialize(File.ReadAllText(Path.Combine(PacksDirectory(), packId + ".json")),
+            LocalizationJsonContext.Default.LanguagePackRecord)!.Strings!;
+        if (packId == "pt-BR")
+        {
+            var neutral = JsonSerializer.Deserialize(File.ReadAllText(Path.Combine(PacksDirectory(), packId.Split('-')[0] + ".json")),
+                LocalizationJsonContext.Default.LanguagePackRecord)!.Strings!;
+            foreach (var (key, value) in strings) neutral[key] = value;
+            strings = neutral;
+        }
+        var root = Directory.GetParent(Directory.GetParent(PacksDirectory())!.FullName)!.FullName;
+        var document = XDocument.Load(Path.Combine(root, viewMenu ? "MainView.axaml" : "Forms/Views/CodeEditorView.axaml"));
+        var anchor = viewMenu ? "Str.Menu.View.Code" : "Str.CodeEditor.Context.Cut";
+        var item = document.Descendants().Single(e => (string?)e.Attribute("Header") == "{DynamicResource " + anchor + "}");
+        foreach (var menu in item.Parent!.DescendantsAndSelf().Where(e => e.Elements().Any(c => c.Name.LocalName == "MenuItem")))
+        {
+            var labels = menu.Elements().Where(e => e.Name.LocalName == "MenuItem")
+                .Select(e => (string?)e.Attribute("Header"))
+                .Where(h => h is not null && h.StartsWith("{DynamicResource Str.", StringComparison.Ordinal))
+                .Select(h => strings[h![17..^1]]).ToArray();
+            var used = labels.Select(AccessKey).ToHashSet();
+            var seen = new HashSet<char>();
+            foreach (var label in labels)
+            {
+                if (AccessKey(label) is not { } key || seen.Add(key)) continue;
+                label.Where(char.IsLetter).Select(char.ToUpperInvariant).Should().OnlyContain(c => used.Contains(c),
+                    $"{packId}: {label} shares a key but must use a free letter if one exists, including disabled siblings (#3121)");
+            }
+        }
+    }
+
+    [Theory]
+    [InlineData("en", "Str.Menu.View.ColorPalette", "Colo_r Palette")]
+    [InlineData("en", "Str.CodeEditor.Context.ListPropertiesMethods", "List Properties/Met_hods")]
+    [InlineData("sl", "Str.Menu.View.LastPosition", "_Zadnji položaj")]
+    [InlineData("pt", "Str.Menu.View.WatchWindow", "_Janela de Inspeção")]
+    public void LaterClashingLabelsUseFirstFreeLetterPreferringWordStarts(string packId, string key, string expected)
+    {
+        var strings = JsonSerializer.Deserialize(File.ReadAllText(Path.Combine(PacksDirectory(), packId + ".json")),
+            LocalizationJsonContext.Default.LanguagePackRecord)!.Strings!;
+        strings[key].Should().Be(expected);
+    }
+
     private static char? AccessKey(string label)
     {
         var index = label.IndexOf('_');

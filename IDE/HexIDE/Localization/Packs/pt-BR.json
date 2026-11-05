@@ -2,6 +2,7 @@
   "name": "Portuguese (Brazil)",
   "direction": "ltr",
   "strings": {
+    "Str.CodeEditor.Context.Bookmarks": "_Marcadores",
     "Str.LspArtifact.Title": "Arquivos da área de trabalho",
     "Str.LspArtifact.Prompt": "O servidor {0} pediu para escrever o arquivo local {1}.",
     "Str.LspArtifact.Grants": "Abaixo estão os servidores autorizados a gerar arquivos na área de trabalho. Redefina uma autorização para voltar a perguntar na próxima sessão.",
@@ -38,7 +39,7 @@
     "Str.CodeEditor.Msg.RenameTouchesReadOnly": "O nome não foi mudado, porque isso alteraria o cabeçalho deste arquivo ou as linhas Attribute de um membro, que são geridos pelo IDE.",
     "Str.CodeEditor.Msg.NoMarkOnReadOnlyLine": "A linha {0} faz parte do cabeçalho deste arquivo ou das linhas Attribute de um membro, que nunca são executadas, pelo que não pode receber um ponto de interrupção nem um marcador.",
     "Str.CodeEditor.Dialog.InsertFileTitle": "Inserir Arquivo",
-    "Str.CodeEditor.Context.InsertFile": "Inserir _Arquivo",
+    "Str.CodeEditor.Context.InsertFile": "In_serir Arquivo",
     "Str.Options.Shell.Buttons.ResetAll": "Redefinir Tudo",
     "Str.Options.EditorGeneral.CodeSettings.FormatOnSave": "Formatar ao Salvar",
     "Str.Options.Grid.GroupHeader": "Definições da Grade do Formulário",
