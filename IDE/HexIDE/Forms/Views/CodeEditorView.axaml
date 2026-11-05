@@ -187,6 +187,10 @@
                         <MenuItem Header="{DynamicResource Str.CodeEditor.Context.GoToImplementation}" Command="{x:Static vb:ApplicationCommands.GoToImplementationCommand}" />
                         <MenuItem Header="{DynamicResource Str.CodeEditor.Context.GoToTypeDefinition}" Command="{x:Static vb:ApplicationCommands.GoToTypeDefinitionCommand}" />
                         <MenuItem Header="{DynamicResource Str.CodeEditor.Context.GoToDeclaration}" Command="{x:Static vb:ApplicationCommands.GoToDeclarationCommand}" />
+                        <MenuItem x:Name="QuickFixesMenu" Header="{DynamicResource Str.CodeEditor.QuickFix.Title}"
+                                  SubmenuOpened="OnQuickFixesOpened">
+                            <MenuItem Header="{DynamicResource Str.CodeEditor.QuickFix.NoEdit}" IsEnabled="False" />
+                        </MenuItem>
                         <MenuItem Header="{DynamicResource Str.CodeEditor.Context.Rename}"        Command="{x:Static vb:ApplicationCommands.RenameSymbolCommand}" />
                         <MenuItem Header="{DynamicResource Str.CodeEditor.Context.ExpandSelection}" Command="{x:Static vb:ApplicationCommands.ExpandSelectionCommand}" />
                         <MenuItem Header="{DynamicResource Str.CodeEditor.Context.ShrinkSelection}" Command="{x:Static vb:ApplicationCommands.ShrinkSelectionCommand}" />
