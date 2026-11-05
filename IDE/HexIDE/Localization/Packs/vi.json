@@ -2,6 +2,8 @@
   "name": "Vietnamese",
   "direction": "ltr",
   "strings": {
+    "Str.Menu.Edit.CallHierarchy": "Ph_ân cấp lời gọi",
+    "Str.CodeEditor.Context.CallHierarchy": "Ph_ân cấp lời gọi",
     "Str.Lsp.OpenExternalUri": "Mở URI này bên ngoài HexIDE?\n\n{0}",
     "Str.Tool.CallHierarchy.Title": "Phân cấp lời gọi",
     "Str.Tool.CallHierarchy.CallsTo": "Lời gọi đến",

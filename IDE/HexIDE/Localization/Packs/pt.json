@@ -2,6 +2,8 @@
   "name": "Portuguese",
   "direction": "ltr",
   "strings": {
+    "Str.Menu.Edit.CallHierarchy": "_Hierarquia de chamadas",
+    "Str.CodeEditor.Context.CallHierarchy": "_Hierarquia de chamadas",
     "Str.Lsp.OpenExternalUri": "Abrir este URI fora do HexIDE?\n\n{0}",
     "Str.Tool.CallHierarchy.Title": "Hierarquia de chamadas",
     "Str.Tool.CallHierarchy.CallsTo": "Chamadas para",

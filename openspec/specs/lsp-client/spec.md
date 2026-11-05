@@ -195,16 +195,30 @@ request failures SHALL be returned alongside successful locations, identified by
 - **THEN** the client sends no reference request to that server
 
 
+### Requirement: Results panes share usable height and menu access keys
+Every results pane opened beside Immediate, including Call Hierarchy, SHALL use the same six-row
+target and persisted resizing policy as Find References, taking height only from the document area
+above its 120 DIP floor. A sufficiently tall pane SHALL keep its existing proportion.
+Call Hierarchy's Edit and code context entries SHALL use separate localized keys from its pane title,
+with an access key in every Latin-script pack, preferring a letter unused in the respective menu.
+
+#### Scenario: Call Hierarchy opens in a short window
+- **WHEN** Call Hierarchy opens in a short window whose document area has reached its 120 DIP floor
+- **THEN** its slot uses only spare document height and accepts fewer than six rows
+- **AND** the resized proportions are saved as for a user resize
+
 ### Requirement: Find References presents navigable results
 The code editor SHALL offer Find References on Shift+F12, its context menu and the Edit menu,
 showing the shortcut. Results SHALL open at the bottom in the Immediate window's group.
-When opened or brought forward to show results, the list SHALL show at least six rows, growing its
-slot from the document area's height as far as that area's minimum permits. The document minimum SHALL
-be at least 120 DIP even without an explicit dock MinHeight. When space is insufficient, the results
-SHALL use only the space left above that minimum. Layouts below the document minimum SHALL NOT be saved;
-previously saved collapsed document areas SHALL regain their minimum on load, taking height from tools.
-A sufficiently tall slot
-SHALL retain its exact proportion. The resized proportions SHALL persist with the saved layout.
+When opened or brought forward to show results, the list SHALL target six rows, growing its
+slot only from the document area's height as far as that area's minimum permits. The document minimum SHALL
+be at least 120 DIP even without an explicit dock MinHeight. When space is insufficient, results SHALL
+accept fewer than six rows and sibling tool proportions SHALL remain unchanged.
+Layouts below the document minimum SHALL NOT be saved; previously saved collapsed document areas SHALL
+regain their minimum on load. A sufficiently tall slot SHALL retain its exact proportion.
+The target SHALL use the laid-out row height under the current font. Each show or activation with results
+SHALL apply at most one posted adjustment; layout updates SHALL NOT synchronously change proportions or
+re-arm adjustment in response to the resize itself. The resized proportions SHALL persist with the saved layout.
 A new search SHALL replace the previous results; an older request completing later SHALL NOT overwrite it.
 The list SHALL group locations by module in project order, show one-based line numbers and line text,
 and highlight the supplied range. Enter on a focused result row or a double-click SHALL navigate through
@@ -225,6 +239,11 @@ successful servers' locations remain visible. Callers SHALL be able to supply lo
 - **WHEN** a caller fills the list from supplied locations
 - **THEN** those locations replace the list and no references request is sent
 
+
+#### Scenario: Results settle without a layout loop
+- **WHEN** results open in a saved layout or after resetting the window layout
+- **THEN** layout and render passes settle without an infinite layout loop
+- **AND** at most one posted proportion adjustment occurs per show
 
 ### Requirement: Diagnostic metadata survives either inbound path
 The client SHALL retain diagnostic tags 1 and 2 and related-information locations and messages
@@ -2215,13 +2234,14 @@ The shared command sender SHALL track unanswered user-started commands per serve
 is running SHALL `workspace/applyEdit` use the workspace rename applier. Otherwise it SHALL answer
 `applied: false` with a `failureReason` explaining the user-command rule and change nothing.
 Internal project imports SHALL NOT authorize server edits.
-Applying a server workspace edit SHALL preserve the active document tab.
+Applying a server workspace edit SHALL preserve the active document tab, keyboard focus and the
+originating code window's caret, without activating target tabs.
 
 #### Scenario: A lens command requests an edit before answering
 
 - **WHEN** the user runs a code lens command and its server requests an edit before answering
 - **THEN** the checked edit applies with independent undo per module and answers `applied: true`
-- **AND** the tab active before the edit remains active
+- **AND** the tab active before the edit remains active, with keyboard focus and its caret preserved
 
 #### Scenario: Unsolicited or late edits
 

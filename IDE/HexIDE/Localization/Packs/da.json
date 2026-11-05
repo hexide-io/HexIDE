@@ -2,6 +2,8 @@
   "name": "Danish",
   "direction": "ltr",
   "strings": {
+    "Str.Menu.Edit.CallHierarchy": "Kal_dhierarki",
+    "Str.CodeEditor.Context.CallHierarchy": "Kal_dhierarki",
     "Str.Lsp.OpenExternalUri": "Åbn denne URI uden for HexIDE?\n\n{0}",
     "Str.Tool.CallHierarchy.Title": "Kaldhierarki",
     "Str.Tool.CallHierarchy.CallsTo": "Kald til",

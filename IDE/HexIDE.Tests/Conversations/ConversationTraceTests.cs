@@ -1,3 +1,4 @@
+using System.Globalization;
 using HexIDE.Conversations;
 
 namespace HexIDE.Tests.Conversations;
@@ -110,10 +111,11 @@ public class ConversationTraceTests
         // The one deviation from the borrowed shape, and it is forced: Visual Studio Code names the server
         // in the output channel, while this window shows every server on one timeline. A line with no
         // server on it is ambiguous the moment two are attached, which is the case this exists for.
-        var text = ConversationTrace.ToTraceText(
-            Envelope(ConversationDirection.Sent, ConversationEntryKind.Request), null);
+        var envelope = Envelope(ConversationDirection.Sent, ConversationEntryKind.Request);
+        var text = ConversationTrace.ToTraceText(envelope, null);
+        var localTime = envelope.Timestamp.ToLocalTime().ToString("HH:mm:ss.fff", CultureInfo.InvariantCulture);
 
-        text.Should().StartWith("[Trace - 0").And.Contain("[hexide.vb6]");
+        text.Should().StartWith($"[Trace - {localTime}] [hexide.vb6]");
     }
 
     [Fact]

@@ -2,6 +2,8 @@
   "name": "Slovak",
   "direction": "ltr",
   "strings": {
+    "Str.Menu.Edit.CallHierarchy": "H_ierarchia volaní",
+    "Str.CodeEditor.Context.CallHierarchy": "_Hierarchia volaní",
     "Str.Lsp.OpenExternalUri": "Otvoriť tento identifikátor URI mimo HexIDE?\n\n{0}",
     "Str.Tool.CallHierarchy.Title": "Hierarchia volaní",
     "Str.Tool.CallHierarchy.CallsTo": "Volania do",

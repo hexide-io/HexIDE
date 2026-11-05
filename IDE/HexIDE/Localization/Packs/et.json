@@ -2,6 +2,8 @@
   "name": "Estonian",
   "direction": "ltr",
   "strings": {
+    "Str.Menu.Edit.CallHierarchy": "K_utsete hierarhia",
+    "Str.CodeEditor.Context.CallHierarchy": "K_utsete hierarhia",
     "Str.Lsp.OpenExternalUri": "Kas avada see URI väljaspool HexIDE-d?\n\n{0}",
     "Str.Tool.CallHierarchy.Title": "Kutsete hierarhia",
     "Str.Tool.CallHierarchy.CallsTo": "Kutsed sihtkohta",

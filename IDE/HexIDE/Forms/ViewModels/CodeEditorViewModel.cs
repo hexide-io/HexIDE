@@ -1701,7 +1701,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     }
 
     /// <summary>Checks every target before writing any buffer, then gives each its own undo step.</summary>
-    internal string? ApplyRename(WorkspaceEdit edit, string oldName, Func<string, RenameDocumentSnapshot?>? documentFor = null, bool codeAction = false)
+    internal string? ApplyRename(WorkspaceEdit edit, string oldName, Func<string, RenameDocumentSnapshot?>? documentFor = null, bool codeAction = false, bool takeFocus = true)
     {
         string Refuse(string uri, string key = "Str.CodeEditor.Msg.RenameDocumentRefused")
         {
@@ -1802,8 +1802,9 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
             caret += shift;
         }
         foreach (var target in prepared)
-            (target.Identity == Identity ? this : editorService.OpenCodeForUri(target.Uri)!).ApplyAsOneStep(target.Changes);
-        if (prepared.Count > 0) editorService.OpenCodeForUri(GetDocumentUriPublic());
+            (target.Identity == Identity ? this : takeFocus ? editorService.OpenCodeForUri(target.Uri)!
+                : editorService.OpenCodeForUri(target.Uri, false)!).ApplyAsOneStep(target.Changes);
+        if (prepared.Count > 0 && takeFocus) editorService.OpenCodeForUri(GetDocumentUriPublic());
         CaretOffset = Math.Clamp(caret, 0, Document.TextLength);
         if (prepared.Count > 0 && !codeAction)
             statusBarService.SetTemporaryMessage(string.Format(localization.GetString("Str.CodeEditor.Msg.RenamedInModules"),
