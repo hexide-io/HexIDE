@@ -155,7 +155,7 @@ public partial class ProjectToolViewModel : Tool
                 projectService.SaveForm(SelectedForm.FormDefinition, true).ListenErrors();
         }, () => SelectedForm != null);
         AddFormCommand = new DelegateCommand(() => AddFormAsync(GetSelectedProject()!.Definition).ListenErrors(),
-            () => GetSelectedProject() != null);
+            () => GetSelectedProject() is { Definition.ContributedBy: null });
 
         projectManager.ProjectLoaded += OnProjectLoaded;
         projectManager.ProjectUnloaded += OnProjectUnloaded;

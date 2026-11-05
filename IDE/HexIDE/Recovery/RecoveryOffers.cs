@@ -333,14 +333,15 @@ public sealed class RecoveryOffers : IRecoveryOffers
         return true;
     }
 
-    // Puts each backed-up document into the open project, and adds back any it no longer holds.
+    // Puts each backed-up document into the open project, and adds back any it no longer holds, except to a contributed
+    // project, whose membership is its add-in's: a document it no longer lists is left out, and the overlay isn't whole.
     private async Task<bool> OverlayAsync(ProjectDefinition project, UnsavedProject backup)
     {
         var whole = true;
         foreach (var document in backup.Documents)
         {
             var target = Find(project, document);
-            if (target is null && document.Path is { } path && File.Exists(path))
+            if (target is null && project.ContributedBy is null && document.Path is { } path && File.Exists(path))
                 target = await AddExistingAsync(project, document, path);
             if (document.Content is not { } content)
                 continue;

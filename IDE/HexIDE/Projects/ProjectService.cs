@@ -1762,7 +1762,28 @@ public partial class ProjectService : IProjectService
             || project.PreservedItemLines.Any(line => KeptLineNames(project, line, path));
     }
 
-    public Task<FormDefinition> AddNewForm(ProjectDefinition project, string name, bool interactive = true) =>
+    // A contributed project's membership is its add-in's program's, so every add is refused here, whichever route reaches
+    // it: a member HexIDE added would be one the project file never lists, which the next save writes all the same. A
+    // caller with someone to tell is told why; an automation caller is given the reason in the exception.
+    private async Task RefuseContributedMembership(ProjectDefinition project, bool interactive)
+    {
+        if (project.ContributedBy is null)
+            return;
+        var reason = string.Format(localization.GetString("Str.ContributedProject.MembershipReadOnly"), project.Name,
+            project.ContributorTitle);
+        if (!interactive)
+            throw new InvalidOperationException(reason);
+        await windowManager.MessageBox(reason, icon: MessageBoxIcon.Information);
+        throw new OperationCanceledException();
+    }
+
+    public async Task<FormDefinition> AddNewForm(ProjectDefinition project, string name, bool interactive = true)
+    {
+        await RefuseContributedMembership(project, interactive);
+        return await AddNewFormCore(project, name, interactive);
+    }
+
+    private Task<FormDefinition> AddNewFormCore(ProjectDefinition project, string name, bool interactive) =>
         WithSaveRefusals(() =>
         {
             var form = FormDefinition.NewForm(project, FormComponentClass.Instance, name);
@@ -1776,10 +1797,13 @@ public partial class ProjectService : IProjectService
             return Task.FromResult(form);
         }, interactive);
 
-    public Task<ModuleDefinition> AddNewModule(ProjectDefinition project, string name, ModuleKind kind,
-        bool interactive = true) =>
-        WithSaveRefusals(() => Task.FromResult(
+    public async Task<ModuleDefinition> AddNewModule(ProjectDefinition project, string name, ModuleKind kind,
+        bool interactive = true)
+    {
+        await RefuseContributedMembership(project, interactive);
+        return await WithSaveRefusals(() => Task.FromResult(
             AddNewModuleToProject(project, new ModuleDefinition(project, name, kind) { TextEncoding = HostAnsi })), interactive);
+    }
 
     public Task<ModuleDefinition> AddNewUserControl(ProjectDefinition project, string name, bool interactive = true) =>
         AddNewDesignerModule(project, name, ModuleKind.UserControl, interactive);
@@ -1787,7 +1811,14 @@ public partial class ProjectService : IProjectService
     public Task<ModuleDefinition> AddNewPropertyPage(ProjectDefinition project, string name, bool interactive = true) =>
         AddNewDesignerModule(project, name, ModuleKind.PropertyPage, interactive);
 
-    private Task<ModuleDefinition> AddNewDesignerModule(
+    private async Task<ModuleDefinition> AddNewDesignerModule(
+        ProjectDefinition project, string name, ModuleKind kind, bool interactive)
+    {
+        await RefuseContributedMembership(project, interactive);
+        return await AddNewDesignerModuleCore(project, name, kind, interactive);
+    }
+
+    private Task<ModuleDefinition> AddNewDesignerModuleCore(
         ProjectDefinition project, string name, ModuleKind kind, bool interactive) =>
         WithSaveRefusals(() =>
         {
@@ -1846,6 +1877,7 @@ public partial class ProjectService : IProjectService
 
     public async Task<Adopted<FormDefinition>> AddExistingForm(ProjectDefinition project, string absolutePath)
     {
+        await RefuseContributedMembership(project, interactive: true);
         var (source, bytes, sourceEncoding, byteForByte) = await ReadSourceAsync(absolutePath);
 
         // Form text before companion: the .frm's cited offsets partition the .frx.
@@ -1875,6 +1907,7 @@ public partial class ProjectService : IProjectService
     public async Task<Adopted<ModuleDefinition>> AddExistingModule(
         ProjectDefinition project, string absolutePath, ModuleKind kind)
     {
+        await RefuseContributedMembership(project, interactive: true);
         var (source, bytes, sourceEncoding, byteForByte) = await ReadSourceAsync(absolutePath);
 
         // .bas/.cls: strip the VB6 header so Code is the body only (a no-op for .ctl/.pag).
@@ -1917,15 +1950,16 @@ public partial class ProjectService : IProjectService
         return Adopted<ModuleDefinition>.Added(module, name, byteForByte ? HostAnsi.CodePage : null);
     }
 
-    public Task<RelatedDocumentDefinition> AddExistingRelatedDocument(
+    public async Task<RelatedDocumentDefinition> AddExistingRelatedDocument(
         ProjectDefinition project, string absolutePath)
     {
+        await RefuseContributedMembership(project, interactive: true);
         // No OriginalItemLine. This document is joining the project now, so there is no line to preserve
         // and RelatedDoc= is exactly what should be written. The preserved-line case belongs to entries
         // RECLASSIFIED on read, where rewriting would edit the .vbp on the strength of an inference.
         var document = new RelatedDocumentDefinition(project, Path.GetFileName(absolutePath), absolutePath);
         project.AddRelatedDocument(document);
-        return Task.FromResult(document);
+        return document;
     }
 
     /// <summary>

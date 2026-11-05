@@ -203,6 +203,42 @@ public sealed class ContributedProjectTests : IDisposable
     }
 
     [AvaloniaFact]
+    public async Task Every_add_is_refused_at_the_service_with_the_reason_whichever_route_reaches_it()
+    {
+        using var type = Contribute();
+        var project = await Opened();
+        var stray = Path.Join(_dir, "Stray.bas");
+        File.WriteAllText(stray, "Attribute VB_Name = \"Stray\"\r\n");
+        const string reason = "Str.ContributedProject.MembershipReadOnly Ledger RDCore for HexIDE";
+
+        // As the Project Explorer, the menus and Add File add: someone is told why.
+        Func<Task>[] interactive =
+        [
+            () => _service.AddNewForm(project, "Form1"),
+            () => _service.AddNewModule(project, "Module1", ModuleKind.StandardModule),
+            () => _service.AddNewUserControl(project, "UserControl1"),
+            () => _service.AddNewPropertyPage(project, "PropertyPage1"),
+            () => _service.AddExistingForm(project, stray),
+            () => _service.AddExistingModule(project, stray, ModuleKind.StandardModule),
+            () => _service.AddExistingRelatedDocument(project, stray),
+        ];
+        foreach (var add in interactive)
+            await add.Should().ThrowAsync<OperationCanceledException>();
+        // As automation's add_file adds: the reason is handed back.
+        await ((Func<Task>)(() => _service.AddNewModule(project, "Class1", ModuleKind.ClassModule, interactive: false)))
+            .Should().ThrowAsync<InvalidOperationException>().WithMessage(reason);
+        // As crash recovery would add back a member the add-in no longer lists.
+        _service.AddRecovered(project, new HexIDE.Recovery.UnsavedDocument("Lost", nameof(ModuleKind.StandardModule), null,
+            Vb6TextEncoding.Utf8WithBom, new HexIDE.Recovery.UnsavedFile("Lost.bas", "Attribute VB_Name = \"Lost\"\r\n"))).Should().BeNull();
+
+        project.Forms.Should().BeEmpty();
+        project.Modules.Select(module => module.Name).Should().Equal("Startup", "Account", "Sheet1");
+        project.RelatedDocuments.Should().ContainSingle();
+        await _windows.Received(interactive.Length).MessageBox(reason,
+            Arg.Any<string?>(), Arg.Any<MessageBoxButtons>(), Arg.Any<MessageBoxIcon>(), Arg.Any<Avalonia.Controls.Window?>(), Arg.Any<bool>());
+    }
+
+    [AvaloniaFact]
     public async Task Removing_a_member_is_refused_with_a_reason()
     {
         using var type = Contribute();
