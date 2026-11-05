@@ -6,6 +6,9 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using Avalonia.Controls;
+using Avalonia.LogicalTree;
+using Avalonia.Markup.Xaml.Styling;
+using Avalonia.Threading;
 using AvaloniaEdit;
 using HexIDE.Forms.ViewModels;
 using HexIDE.Forms.Views;
@@ -40,6 +43,40 @@ public sealed class ArchiveProjectBrowsingTests : IDisposable
         localization.GetString("Str.Archive.FolderReadyFormat").Returns("Ready: {0}");
         localization.GetString("Str.Archive.FolderErrorFormat").Returns("Stopped: {0}");
         archives = new(dock, recent, localization, windows);
+    }
+
+    [AvaloniaFact]
+    public void Ordinary_project_menu_hides_archive_toggle_and_focuses_first_visible_entry()
+    {
+        var manager = Substitute.For<IProjectManager>();
+        manager.LoadedProjects.Returns(new[] { new ProjectDefinition(VBProjectType.EXE, "Ordinary") });
+        var model = new ProjectToolViewModel(manager, Substitute.For<IEventBus>(),
+            Substitute.For<IProjectService>(), Substitute.For<IEditorService>(), localization, archives);
+        model.SelectedItem = model.LoadedProjects.Single();
+        var view = new ProjectToolView { DataContext = model };
+        view.Resources.MergedDictionaries.Add(new ResourceInclude(new Uri("avares://HexIDE/"))
+        {
+            Source = new Uri("avares://HexIDE/Themes/IconGeometry.axaml"),
+        });
+        var window = new Window { Content = view, Width = 600, Height = 400 };
+        window.Show();
+        var tree = view.GetLogicalDescendants().OfType<TreeView>().Single();
+        var menu = (MenuFlyout)tree.ContextFlyout!;
+        try
+        {
+            Dispatcher.UIThread.RunJobs();
+            tree.ContainerFromIndex(0)!.Focus().Should().BeTrue();
+            menu.ShowAt(tree);
+            Dispatcher.UIThread.RunJobs();
+            var items = menu.Items.OfType<MenuItem>().ToArray();
+            items[0].IsVisible.Should().BeFalse("the hidden-entry toggle applies only to archive selections (#3131)");
+            window.FocusManager!.GetFocusedElement().Should().BeSameAs(items.First(item => item.IsVisible));
+        }
+        finally
+        {
+            menu.Hide();
+            window.Close();
+        }
     }
 
     [AvaloniaFact]
