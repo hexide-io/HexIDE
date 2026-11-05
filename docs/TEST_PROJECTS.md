@@ -104,7 +104,9 @@ Three evidence-writing regression cases cover changed, added and deleted files o
 After comparing the saved bytes, each scratch project starts through `VBLoader.RunMadeProgram`, the
 entry point used by `HexIDE.Standalone.App`, in an isolated Avalonia headless worker process. The
 `ProjectSmokeRunner.StartupSeconds` constant bounds startup at **3 seconds**, including synchronous
-loops; worker initialization has a separate 60-second watchdog. Regression fixtures allow 30 seconds for
+loops; worker preparation has a separate 60-second watchdog starting when the worker writes its entry
+marker. The test host has up to 300 seconds to enter the worker, so its own startup does not spend the
+project's preparation budget (#2934). Both waits are bounded. Regression fixtures allow 30 seconds for
 cold JIT work when asserting completion/refusal/fault results; the infinite-loop fixture uses the corpus
 limit. MsgBox chooses its first offered button;
 InputBox accepts its default text. These are scripted smoke inputs, not VB6 fidelity expectations.
