@@ -3807,7 +3807,10 @@ public static class UiAutomationDriver
             var top = TopLevel.GetTopLevel(control);
             var before = top?.FocusManager?.GetFocusedElement() as Control;
             // A container means the keyboard as it stands, not its first focusable descendant.
-            var retained = before is not null && (ReferenceEquals(before, control) || IsUnderInView(control, before));
+            var dismissingAncestorPopup = parsedKey == Key.Escape && mods == KeyModifiers.None
+                && before is not null && InAttachedPopupOver(control, before);
+            var retained = before is not null && (ReferenceEquals(before, control) || IsUnderInView(control, before)
+                || dismissingAncestorPopup);
             if ((retained ? before : FindKeyTarget(control)) is not { } target)
                 return new InteractOutcome(false, "keyboard", null,
                     control.GetVisualDescendants().OfType<Control>()
@@ -3849,9 +3852,12 @@ public static class UiAutomationDriver
                   ?? PathWithin(TopLevel.GetTopLevel(before) ?? before, "Window", before) ?? Describe(before);
             // Named before the key goes, as the receiver was when it was pressed: Escape on a flyout's item closes the flyout,
             // and the item has no path once it has (#2030).
+            var receiverAddress = dismissingAncestorPopup && top is not null
+                && PathWithin(top, "Window", target) is { } popupPath
+                    ? $", at {popupPath}" : AddressOf(control, controlPath, target);
             var where = ReferenceEquals(target, control)
                 ? string.Empty
-                : $" on {Describe(target)}{AddressOf(control, controlPath, target)}";
+                : $" on {Describe(target)}{receiverAddress}";
             var focused = target.IsFocused || target.Focus();
             var after = top?.FocusManager?.GetFocusedElement() as Control;
             var focusMove = !ReferenceEquals(before, after)
@@ -4878,6 +4884,14 @@ public static class UiAutomationDriver
         return addressed.GetVisualDescendants().OfType<TextEditor>()
             .FirstOrDefault(e => ReferenceEquals(e.TextArea, receiver));
     }
+
+    // A tree's ContextFlyout is placed on the tree, not the node that opened it. Escape sent to that node
+    // must stay in its focused popup; moving focus to the node first leaves the menu open (#3129).
+    private static bool InAttachedPopupOver(Control target, Control focused) =>
+        focused.GetSelfAndVisualAncestors().OfType<Control>().Any(c =>
+            c.Parent is Popup { IsOpen: true, PlacementTarget: Control owner } popup
+            && (ReferenceEquals(owner, target) || IsUnderInView(owner, target))
+            && OwnedPopupsOf(owner).Contains(popup));
 
     // Asked of the TARGET's ancestor chain, explicitly. `IsVisualAncestorOf` was tried first and answered false for a
     // window over a control inside it (measured in the headless tests), so it is not relied on.
