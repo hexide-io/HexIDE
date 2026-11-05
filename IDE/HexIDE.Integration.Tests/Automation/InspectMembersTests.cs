@@ -120,7 +120,7 @@ public class InspectMembersTests(ITestOutputHelper output)
     public void A_cut_value_states_its_full_length()
     {
         UiAutomationDriver.ReflectDataContextMembers(new LongVm()).Single().Value
-            .Should().EndWith("[truncated at 200 of 9000 chars]");
+            .Should().EndWith("[last 8800 of 9000 chars cut]");
     }
 
     private sealed class CardVm
@@ -213,26 +213,35 @@ public class InspectMembersTests(ITestOutputHelper output)
     [AvaloniaFact]
     public void A_text_box_caps_its_own_value_at_4000()
     {
-        var text = new TextBox { Text = new string('x', 9000) };
+        var text = new TextBox { Text = new string('a', 4000) + new string('z', 5000) };
         var window = Show(text);
         try
         {
             UiAutomationDriver.Inspect(text, "Window/Edit", window).Value
-                .Should().EndWith("[truncated at 4000 of 9000 chars]");
+                .Should().Be(new string('a', 4000) + "… [last 5000 of 9000 chars cut]");
         }
         finally { window.Close(); }
     }
 
     [AvaloniaFact]
-    public void A_non_project_editor_keeps_its_4000_character_value_cap()
+    public void A_non_project_editor_keeps_its_latest_4000_characters()
     {
-        var editor = new TextEditor { Text = new string('x', 9000) };
+        var editor = new TextEditor { Text = new string('a', 5000) + new string('z', 4000) };
         var window = Show(editor);
         try
         {
             UiAutomationDriver.Inspect(editor, "Window/Editor", window).Value
-                .Should().EndWith("[truncated at 4000 of 9000 chars]");
+                .Should().Be(new string('z', 4000) + "… [first 5000 of 9000 chars cut; inspect_element has no paging; copy the displayed text to read all]");
         }
         finally { window.Close(); }
+    }
+
+    [AvaloniaFact]
+    public void An_output_document_member_keeps_its_latest_200_characters()
+    {
+        var vm = new ImmediateLikeVm();
+        vm.Document.Text = new string('a', 8800) + new string('z', 200);
+        UiAutomationDriver.ReflectDataContextMembers(vm).Single(m => m.Name == "Document").Value
+            .Should().Be(new string('z', 200) + "… [first 8800 of 9000 chars cut; inspect its editor for the last 4000; copy the displayed text to read all]");
     }
 }
