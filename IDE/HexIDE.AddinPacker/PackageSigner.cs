@@ -95,6 +95,90 @@ public static class PackageSigner
         Console.WriteLine($"Signed revocation list -> {Path.Combine(outDir, "revocations.json")}");
     }
 
+    /// <summary>Issues a publisher's public key using an offline intermediate signing key.</summary>
+    public static void SignPublisher(string rootPublicKeyPath, string intermediateKeyPath, string intermediateDir,
+        string publisherId, string displayName, string publicKeyPath, string outDir)
+    {
+        if (!PublisherId.IsValid(publisherId))
+            throw new ArgumentException("invalid publisher id (expected 3–64 lowercase letters/digits joined by single dots or hyphens)");
+        // The trust inspector shows this name to users, so a bidi override or other invisible format character
+        // (U+202E, U+200B, U+FEFF, ...) could make one publisher's name read as another's. Refuse them with the controls.
+        if (string.IsNullOrWhiteSpace(displayName) || displayName != displayName.Trim()
+            || displayName.Length > 128 || displayName.Any(c => char.IsControl(c)
+                || char.GetUnicodeCategory(c) is System.Globalization.UnicodeCategory.Format
+                    or System.Globalization.UnicodeCategory.LineSeparator
+                    or System.Globalization.UnicodeCategory.ParagraphSeparator))
+            throw new ArgumentException("invalid display name (expected 1–128 trimmed characters without control or invisible format characters)");
+
+        var interBytes = File.ReadAllBytes(Path.Combine(intermediateDir, "intermediate.json"));
+        var interSig = File.ReadAllText(Path.Combine(intermediateDir, "intermediate.sig")).Trim();
+        using var root = ReadKey(rootPublicKeyPath, privateKey: false, "root public key");
+        if (!PackageCrypto.Verify(root, interBytes, interSig))
+            throw new ArgumentException("intermediate signature does not verify against the supplied root");
+        var inter = JsonSerializer.Deserialize(interBytes, AddinJsonContext.Default.IntermediateRecord)
+                    ?? throw new ArgumentException("invalid intermediate record");
+        if (!PublisherId.IsValid(inter.IntermediateId))
+            throw new ArgumentException("invalid intermediate id");
+        using var interPublic = PackageCrypto.ImportPublicKey(inter.PublicKey);
+        RequireP256(interPublic, "intermediate public key");
+        using var key = ReadKey(intermediateKeyPath, privateKey: true, "intermediate private key");
+        if (PackageCrypto.ExportPublicKey(key) != PackageCrypto.ExportPublicKey(interPublic))
+            throw new ArgumentException("intermediate private key does not match the intermediate record");
+        using var publisher = ReadKey(publicKeyPath, privateKey: false, "publisher public key");
+        var record = new PublisherRecord
+        {
+            PublisherId = publisherId,
+            DisplayName = displayName,
+            PublicKey = PackageCrypto.ExportPublicKey(publisher),
+            IntermediateId = inter.IntermediateId,
+        };
+        var bytes = JsonSerializer.SerializeToUtf8Bytes(record, AddinJsonContext.Default.PublisherRecord);
+        var signature = PackageCrypto.Sign(key, bytes);
+        Directory.CreateDirectory(outDir);
+        WriteNewFiles(outDir, new Dictionary<string, byte[]>
+        {
+            ["publisher.json"] = bytes,
+            ["publisher.sig"] = Encoding.UTF8.GetBytes(signature),
+        });
+        if (!PackageCrypto.Verify(root, File.ReadAllBytes(Path.Combine(intermediateDir, "intermediate.json")),
+                File.ReadAllText(Path.Combine(intermediateDir, "intermediate.sig")).Trim())
+            || !PackageCrypto.Verify(interPublic, File.ReadAllBytes(Path.Combine(outDir, "publisher.json")),
+                File.ReadAllText(Path.Combine(outDir, "publisher.sig")).Trim()))
+            throw new InvalidOperationException("written publisher chain verification failed");
+        Console.WriteLine("Verified publisher record against the intermediate and supplied root public key");
+    }
+
+    private static ECDsa ReadKey(string path, bool privateKey, string label)
+    {
+        try
+        {
+            var text = File.ReadAllText(path).Trim();
+            var bytes = Convert.FromBase64String(text);
+            var key = ECDsa.Create();
+            try
+            {
+                int consumed;
+                if (privateKey) key.ImportPkcs8PrivateKey(bytes, out consumed);
+                else key.ImportSubjectPublicKeyInfo(bytes, out consumed);
+                if (consumed != bytes.Length) throw new ArgumentException("trailing key data");
+                RequireP256(key, label);
+                return key;
+            }
+            catch { key.Dispose(); throw; }
+        }
+        catch (Exception ex) when (ex is CryptographicException or FormatException or ArgumentException)
+        {
+            // Key parser diagnostics must never echo key material.
+            throw new ArgumentException($"invalid {label} (expected base64 ECDSA P-256 {(privateKey ? "PKCS#8" : "SPKI")})");
+        }
+    }
+
+    private static void RequireP256(ECDsa key, string label)
+    {
+        if (key.ExportParameters(false).Curve.Oid.Value != ECCurve.NamedCurves.nistP256.Oid.Value)
+            throw new ArgumentException($"invalid {label}: expected ECDSA P-256");
+    }
+
     private static void WriteNewFiles(string directory, Dictionary<string, byte[]> outputs)
     {
         var streams = new Dictionary<string, FileStream>();

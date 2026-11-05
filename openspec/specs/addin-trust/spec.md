@@ -224,7 +224,7 @@ minimum SHALL be rejected before changing the output directory.
 
 ### Requirement: Signing generators preserve existing output
 
-The add-in packer's `genkeys` and `sign-revocations` commands SHALL create their output files
+The add-in packer's `genkeys`, `sign-publisher` and `sign-revocations` commands SHALL create their output files
 exclusively. If any destination already exists, the command SHALL fail without replacing that file
 or writing generated content to any of its other destinations. If a reservation or write fails,
 the command SHALL remove exactly the output files created by that call.
@@ -235,3 +235,26 @@ the command SHALL remove exactly the output files created by that call.
 - **THEN** it reports failure and preserves that file's bytes
 - **AND** no generated key, trust record or signature is written to the other destinations
 - **AND** any output files reserved by this call are removed, including when the last destination collides
+
+### Requirement: Offline publisher issuance
+
+The packer's `sign-publisher` command SHALL issue a publisher record offline using an explicit root
+public key, the intermediate private key and public record, and the publisher's public key, id and
+display name. It SHALL validate inputs before writing, preserve existing files, write only
+`publisher.json` and `publisher.sig`, verify the written chain and report success without exposing
+private key material.
+
+#### Scenario: Issuing a third-party publisher
+
+- **WHEN** a maintainer supplies valid inputs to `sign-publisher` offline
+- **THEN** the issued record signs the publisher's own public key and references the verified intermediate
+- **AND** a package signed by that publisher verifies against the supplied root
+
+#### Scenario: Invalid issuance inputs
+
+- **GIVEN** publisher and intermediate ids must be 3–64 lowercase letters/digits joined by single dots or hyphens
+- **AND** display names must be trimmed, non-empty, at most 128 characters and free of control characters
+- **AND** keys must be ECDSA P-256, the intermediate signature must verify against the supplied root,
+  and the private key must match the intermediate public record
+- **WHEN** any of these checks fails
+- **THEN** issuance fails before writing publisher files
