@@ -2,6 +2,8 @@
   "name": "Serbian (Latin)",
   "direction": "ltr",
   "strings": {
+    "Str.Menu.Edit.CallHierarchy": "_Hijerarhija poziva",
+    "Str.CodeEditor.Context.CallHierarchy": "_Hijerarhija poziva",
     "Str.Lsp.OpenExternalUri": "Otvoriti ovaj URI izvan HexIDE-a?\n\n{0}",
     "Str.Tool.CallHierarchy.Title": "Hijerarhija poziva",
     "Str.Tool.CallHierarchy.CallsTo": "Pozivi ka",

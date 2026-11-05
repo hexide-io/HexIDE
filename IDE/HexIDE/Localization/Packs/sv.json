@@ -2,6 +2,8 @@
   "name": "Swedish",
   "direction": "ltr",
   "strings": {
+    "Str.Menu.Edit.CallHierarchy": "Anro_pshierarki",
+    "Str.CodeEditor.Context.CallHierarchy": "_Anropshierarki",
     "Str.Lsp.OpenExternalUri": "Öppna denna URI utanför HexIDE?\n\n{0}",
     "Str.Tool.CallHierarchy.Title": "Anropshierarki",
     "Str.Tool.CallHierarchy.CallsTo": "Anrop till",

@@ -2,6 +2,8 @@
   "name": "Chinese (Traditional)",
   "direction": "ltr",
   "strings": {
+    "Str.Menu.Edit.CallHierarchy": "呼叫階層",
+    "Str.CodeEditor.Context.CallHierarchy": "呼叫階層",
     "Str.Lsp.OpenExternalUri": "在 HexIDE 外部開啟此 URI？\n\n{0}",
     "Str.Tool.CallHierarchy.Title": "呼叫階層",
     "Str.Tool.CallHierarchy.CallsTo": "傳入呼叫",

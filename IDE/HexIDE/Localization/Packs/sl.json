@@ -2,6 +2,8 @@
   "name": "Slovenian",
   "direction": "ltr",
   "strings": {
+    "Str.Menu.Edit.CallHierarchy": "Hi_erarhija klicev",
+    "Str.CodeEditor.Context.CallHierarchy": "Hi_erarhija klicev",
     "Str.Lsp.OpenExternalUri": "Želite odpreti ta URI zunaj HexIDE?\n\n{0}",
     "Str.Tool.CallHierarchy.Title": "Hierarhija klicev",
     "Str.Tool.CallHierarchy.CallsTo": "Klici v",

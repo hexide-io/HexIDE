@@ -2,6 +2,8 @@
   "name": "Japanese",
   "direction": "ltr",
   "strings": {
+    "Str.Menu.Edit.CallHierarchy": "呼び出し階層",
+    "Str.CodeEditor.Context.CallHierarchy": "呼び出し階層",
     "Str.Lsp.OpenExternalUri": "この URI を HexIDE の外部で開きますか？\n\n{0}",
     "Str.Tool.CallHierarchy.Title": "呼び出し階層",
     "Str.Tool.CallHierarchy.CallsTo": "呼び出し元",

@@ -2,6 +2,8 @@
   "name": "Lithuanian",
   "direction": "ltr",
   "strings": {
+    "Str.Menu.Edit.CallHierarchy": "Iškvi_etimų hierarchija",
+    "Str.CodeEditor.Context.CallHierarchy": "I_škvietimų hierarchija",
     "Str.Lsp.OpenExternalUri": "Atverti šį URI už HexIDE ribų?\n\n{0}",
     "Str.Tool.CallHierarchy.Title": "Iškvietimų hierarchija",
     "Str.Tool.CallHierarchy.CallsTo": "Iškvietimai į",

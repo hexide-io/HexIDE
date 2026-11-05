@@ -2,6 +2,8 @@
   "name": "Dutch",
   "direction": "ltr",
   "strings": {
+    "Str.Menu.Edit.CallHierarchy": "Aan_roephiërarchie",
+    "Str.CodeEditor.Context.CallHierarchy": "Aan_roephiërarchie",
     "Str.Lsp.OpenExternalUri": "Deze URI buiten HexIDE openen?\n\n{0}",
     "Str.Tool.CallHierarchy.Title": "Aanroephiërarchie",
     "Str.Tool.CallHierarchy.CallsTo": "Aanroepen naar",

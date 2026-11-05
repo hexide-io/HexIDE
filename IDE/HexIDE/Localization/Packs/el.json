@@ -2,6 +2,8 @@
   "name": "Greek",
   "direction": "ltr",
   "strings": {
+    "Str.Menu.Edit.CallHierarchy": "Ιεραρχία κλήσεων",
+    "Str.CodeEditor.Context.CallHierarchy": "Ιεραρχία κλήσεων",
     "Str.Lsp.OpenExternalUri": "Άνοιγμα αυτού του URI εκτός του HexIDE;\n\n{0}",
     "Str.Tool.CallHierarchy.Title": "Ιεραρχία κλήσεων",
     "Str.Tool.CallHierarchy.CallsTo": "Κλήσεις προς",
