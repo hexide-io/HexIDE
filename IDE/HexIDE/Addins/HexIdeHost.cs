@@ -17,7 +17,8 @@ internal sealed class HexIdeHost(
     AddinProjectTemplateService projectTemplateService,
     AddinOptionsService optionsService,
     IComponentRegistry componentRegistry,
-    IProjectRunnerService projectRunner) : IHexIdeHost
+    IProjectRunnerService projectRunner,
+    HexIDE.Lsp.LanguageServerContributions languageServers) : IHexIdeHost
 {
     public IMenuContributor Menus { get; } = menuService;
     public IToolWindowContributor ToolWindows { get; } = toolWindowService;
@@ -50,4 +51,14 @@ internal sealed class HexIdeHost(
         projectRunner.EndProject();
         return true;
     });
+
+    // NoInlining keeps this a real frame, so GetCallingAssembly is the add-in's, which names the server's origin.
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+    public IAddinServerConnection RegisterLanguageServer(AddinLanguageServer server)
+    {
+        var origin = AddinOrigin.Of(System.Reflection.Assembly.GetCallingAssembly(), Registry);
+        var connection = languageServers.Register(server, origin.Title);
+        AddinInitializationScope.Record(connection.Dispose);
+        return connection;
+    }
 }

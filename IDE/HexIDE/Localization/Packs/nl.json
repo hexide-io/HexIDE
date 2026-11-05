@@ -777,6 +777,7 @@
     "Str.Dialog.ExportPreview.Cancel": "Annuleren",
     "Str.Tool.LanguageServers.None": "Er zijn geen taalservers gekoppeld. HexIDE bedient VB6 zelf; andere talen hebben een server nodig, die u koppelt door lsp-servers.json te schrijven.",
     "Str.Tool.LanguageServers.Id": "ID",
+    "Str.Tool.LanguageServers.Origin": "Toegevoegd door",
     "Str.Tool.LanguageServers.Transport": "Transport",
     "Str.Tool.LanguageServers.Claims": "Claimt",
     "Str.Tool.LanguageServers.Priority": "Prioriteit",

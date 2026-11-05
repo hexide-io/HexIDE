@@ -776,6 +776,7 @@
     "Str.Dialog.ExportPreview.Cancel": "Cancel·la",
     "Str.Tool.LanguageServers.None": "No hi ha cap servidor de llenguatge connectat. HexIDE proporciona el servei de VB6; els altres llenguatges necessiten un servidor, que es connecta escrivint lsp-servers.json.",
     "Str.Tool.LanguageServers.Id": "Id",
+    "Str.Tool.LanguageServers.Origin": "Afegit per",
     "Str.Tool.LanguageServers.Transport": "Transport",
     "Str.Tool.LanguageServers.Claims": "Llenguatges admesos",
     "Str.Tool.LanguageServers.Priority": "Prioritat",

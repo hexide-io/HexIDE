@@ -776,6 +776,7 @@
     "Str.Dialog.ExportPreview.Cancel": "Atcelt",
     "Str.Tool.LanguageServers.None": "Nav pievienots neviens valodu serveris. HexIDE pats apkalpo VB6; citām valodām nepieciešams serveris, kuru pievieno, izveidojot lsp-servers.json.",
     "Str.Tool.LanguageServers.Id": "ID",
+    "Str.Tool.LanguageServers.Origin": "Pievienoja",
     "Str.Tool.LanguageServers.Transport": "Transports",
     "Str.Tool.LanguageServers.Claims": "Atbalstītās valodas",
     "Str.Tool.LanguageServers.Priority": "Prioritāte",

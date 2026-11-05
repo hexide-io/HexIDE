@@ -777,6 +777,7 @@
     "Str.Dialog.ExportPreview.Cancel": "ביטול",
     "Str.Tool.LanguageServers.None": "לא מחוברים שרתי שפה. HexIDE משרת את VB6 בעצמו; שפות אחרות זקוקות לשרת, שאותו מחברים באמצעות כתיבת הקובץ lsp-servers.json.",
     "Str.Tool.LanguageServers.Id": "מזהה",
+    "Str.Tool.LanguageServers.Origin": "נוסף על ידי",
     "Str.Tool.LanguageServers.Transport": "תעבורה",
     "Str.Tool.LanguageServers.Claims": "תחום",
     "Str.Tool.LanguageServers.Priority": "עדיפות",

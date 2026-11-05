@@ -777,6 +777,7 @@
     "Str.Dialog.ExportPreview.Cancel": "取消",
     "Str.Tool.LanguageServers.None": "尚未附加任何語言伺服器。HexIDE 自行為 VB6 提供服務；其他語言需要一個伺服器，可透過編寫 lsp-servers.json 來附加。",
     "Str.Tool.LanguageServers.Id": "ID",
+    "Str.Tool.LanguageServers.Origin": "新增者",
     "Str.Tool.LanguageServers.Transport": "傳輸方式",
     "Str.Tool.LanguageServers.Claims": "宣告範圍",
     "Str.Tool.LanguageServers.Priority": "優先順序",
