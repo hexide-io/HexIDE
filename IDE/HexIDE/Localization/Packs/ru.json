@@ -1082,6 +1082,10 @@
     "Str.Debug.Conditions.Prompt": "Останавливаться на этой строке, только когда это выражение истинно:",
     "Str.Debug.Conditions.Edit": "Условие…",
     "Str.Debug.Conditions.AdapterIgnored": "Этот адаптер игнорирует условия и останавливается каждый раз.",
-    "Str.Debug.Conditions.InterpreterIgnored": "Интерпретатор игнорирует условия и останавливается каждый раз."
+    "Str.Debug.Conditions.InterpreterIgnored": "Интерпретатор игнорирует условия и останавливается каждый раз.",
+    "Str.Menu.View.Outline": "Структура",
+    "Str.Menu.View.RecentEdits": "Последние изменения",
+    "Str.CodeEditor.Context.FindReferences": "Найти ссылки",
+    "Str.CodeEditor.Context.NoQuickFix": "Подходящее исправление не предоставлено."
   }
 }

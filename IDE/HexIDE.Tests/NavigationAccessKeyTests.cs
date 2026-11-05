@@ -9,7 +9,8 @@ public class NavigationAccessKeyTests
 {
     public static IEnumerable<object[]> LatinMenus() => LanguageManifest.Packs
         .Where(p => p.Id is not ("ar" or "bg" or "el" or "he" or "ja" or "ko" or "ru" or "th" or "uk" or "zh-Hans" or "zh-Hant"))
-        .SelectMany(p => new[] { new object[] { p.Id, false }, new object[] { p.Id, true } });
+        .Select(p => p.Id).Concat(["en-GB", "es-MX", "fr-CA", "pt-BR"])
+        .SelectMany(id => new[] { new object[] { id, false }, new object[] { id, true } });
 
     public static IEnumerable<object[]> NewNavigationEntries() => LatinMenus()
         .SelectMany(menu => new[] { new object[] { menu[0], menu[1], "Implementation" },
@@ -19,8 +20,7 @@ public class NavigationAccessKeyTests
     [MemberData(nameof(NewNavigationEntries))]
     public void NewNavigationAccessKeyIsUniqueWhenLabelHasAFreeLetter(string packId, bool viewMenu, string entry)
     {
-        var strings = JsonSerializer.Deserialize(File.ReadAllText(Path.Combine(PacksDirectory(), packId + ".json")),
-            LocalizationJsonContext.Default.LanguagePackRecord)!.Strings!;
+        var strings = PackStrings(packId);
         var root = Directory.GetParent(Directory.GetParent(PacksDirectory())!.FullName)!.FullName;
         var document = XDocument.Load(Path.Combine(root, viewMenu ? "MainView.axaml" : "Forms/Views/CodeEditorView.axaml"));
         var key = viewMenu ? "Str.Menu.View." + entry : "Str.CodeEditor.Context.GoTo" + entry;
@@ -36,6 +36,46 @@ public class NavigationAccessKeyTests
             otherKeys.Should().NotContain(AccessKey(label), $"{packId}: {key} has a free letter in its menu, counting disabled entries too (#3110)");
     }
 
+    // VB6's own mnemonics were not measured; this guards HexIDE's collision policy (#3121).
+    [Theory]
+    [MemberData(nameof(LatinMenus))]
+    public void MenuAccessKeysAreUniqueAndMissingOnlyWhenNoLetterIsFree(string packId, bool viewMenu)
+    {
+        var strings = PackStrings(packId);
+        var root = Directory.GetParent(Directory.GetParent(PacksDirectory())!.FullName)!.FullName;
+        var document = XDocument.Load(Path.Combine(root, viewMenu ? "MainView.axaml" : "Forms/Views/CodeEditorView.axaml"));
+        var anchor = viewMenu ? "Str.Menu.View.Code" : "Str.CodeEditor.Context.Cut";
+        var item = document.Descendants().Single(e => (string?)e.Attribute("Header") == "{DynamicResource " + anchor + "}");
+        foreach (var menu in item.Parent!.DescendantsAndSelf().Where(e => e.Elements().Any(c => c.Name.LocalName == "MenuItem")))
+        {
+            var labels = menu.Elements().Where(e => e.Name.LocalName == "MenuItem")
+                .Select(e => (string?)e.Attribute("Header"))
+                .Where(h => h is not null && h.StartsWith("{DynamicResource Str.", StringComparison.Ordinal))
+                .Select(h => strings[h![17..^1]]).ToArray();
+            var used = labels.Select(AccessKey).ToHashSet();
+            var seen = new HashSet<char>();
+            foreach (var label in labels)
+            {
+                if (AccessKey(label) is { } key)
+                    seen.Add(key).Should().BeTrue($"{packId}: {label} must have a unique key, including disabled siblings (#3121)");
+                else
+                    label.Where(char.IsLetter).Select(char.ToUpperInvariant).Should().OnlyContain(c => used.Contains(c),
+                        $"{packId}: {label} may omit its key only when no letter is free (#3121)");
+            }
+        }
+    }
+
+    [Theory]
+    [InlineData("en", "Str.Menu.View.ColorPalette", "Colo_r Palette")]
+    [InlineData("en", "Str.CodeEditor.Context.ListPropertiesMethods", "List Properties/Met_hods")]
+    [InlineData("sl", "Str.Menu.View.LastPosition", "_Zadnji položaj")]
+    [InlineData("pt", "Str.Menu.View.WatchWindow", "_Janela de Inspeção")]
+    public void LaterClashingLabelsUseFirstFreeLetterPreferringWordStarts(string packId, string key, string expected)
+    {
+        var strings = PackStrings(packId);
+        strings[key].Should().Be(expected);
+    }
+
     private static char? AccessKey(string label)
     {
         var index = label.IndexOf('_');
@@ -46,8 +86,7 @@ public class NavigationAccessKeyTests
     [MemberData(nameof(LatinMenus))]
     public void NavigationEntriesHaveDistinctAccessKeys(string packId, bool viewMenu)
     {
-        var strings = JsonSerializer.Deserialize(File.ReadAllText(Path.Combine(PacksDirectory(), packId + ".json")),
-            LocalizationJsonContext.Default.LanguagePackRecord)!.Strings!;
+        var strings = PackStrings(packId);
         var keys = viewMenu
             ? new[] { "Str.Menu.View.Definition", "Str.Menu.View.Implementation", "Str.Menu.View.TypeDefinition", "Str.Menu.View.Declaration" }
             : new[] { "Str.CodeEditor.Context.GoToDefinition", "Str.CodeEditor.Context.GoToImplementation", "Str.CodeEditor.Context.GoToTypeDefinition", "Str.CodeEditor.Context.GoToDeclaration" };
@@ -56,7 +95,8 @@ public class NavigationAccessKeyTests
         {
             strings.Should().ContainKey(key);
             var label = strings[key];
-            label.Count(c => c == '_').Should().Be(1, $"{packId}: {key}");
+            label.Count(c => c == '_').Should().BeLessThanOrEqualTo(1, $"{packId}: {key}");
+            if (AccessKey(label) is null) continue; // The menu-wide guard checks that no letter is free.
             var index = label.IndexOf('_');
             index.Should().BeLessThan(label.Length - 1);
             accessKeys.Add(char.ToUpperInvariant(label[index + 1]));
@@ -73,8 +113,7 @@ public class NavigationAccessKeyTests
     [InlineData("pt", "Ir para a Implementação", "Ir para a Definição do Tipo")]
     public void NewLabelsKeepTheExistingNavigationPhrasing(string packId, string implementation, string typeDefinition)
     {
-        var strings = JsonSerializer.Deserialize(File.ReadAllText(Path.Combine(PacksDirectory(), packId + ".json")),
-            LocalizationJsonContext.Default.LanguagePackRecord)!.Strings!;
+        var strings = PackStrings(packId);
         strings["Str.CodeEditor.Context.GoToImplementation"].Replace("_", "").Should().Be(implementation);
         strings["Str.CodeEditor.Context.GoToTypeDefinition"].Replace("_", "").Should().Be(typeDefinition);
     }
@@ -93,8 +132,7 @@ public class NavigationAccessKeyTests
     [InlineData("zh-Hant")]
     public void NonLatinNewLabelsHaveNoAccessKeyMarkers(string packId)
     {
-        var strings = JsonSerializer.Deserialize(File.ReadAllText(Path.Combine(PacksDirectory(), packId + ".json")),
-            LocalizationJsonContext.Default.LanguagePackRecord)!.Strings!;
+        var strings = PackStrings(packId);
         foreach (var key in new[] { "Str.CodeEditor.Context.GoToImplementation", "Str.CodeEditor.Context.GoToTypeDefinition",
                      "Str.Menu.View.Implementation", "Str.Menu.View.TypeDefinition" })
         {
@@ -121,8 +159,7 @@ public class NavigationAccessKeyTests
     [MemberData(nameof(LatinMenus))]
     public void CallHierarchyHasAnUnusedMenuAccessKey(string packId, bool editMenu)
     {
-        var strings = JsonSerializer.Deserialize(File.ReadAllText(Path.Combine(PacksDirectory(), packId + ".json")),
-            LocalizationJsonContext.Default.LanguagePackRecord)!.Strings!;
+        var strings = PackStrings(packId);
         var key = editMenu ? "Str.Menu.Edit.CallHierarchy" : "Str.CodeEditor.Context.CallHierarchy";
         strings.Should().ContainKey(key);
         var label = strings[key];
@@ -144,6 +181,34 @@ public class NavigationAccessKeyTests
         var used = menuKeys.Select(k => strings[k]).Where(v => v.Contains('_'))
             .Select(v => char.ToUpperInvariant(v[v.IndexOf('_') + 1]));
         used.Should().NotContain(mnemonic, $"{packId}: Call Hierarchy should use a free menu letter");
+    }
+
+    // These menus use their own collision guard instead of English marker-count parity.
+    internal static readonly HashSet<string> CollisionPolicyKeys = LatinMenuKeys().ToHashSet();
+
+    private static IEnumerable<string> LatinMenuKeys()
+    {
+        var root = Directory.GetParent(Directory.GetParent(PacksDirectory())!.FullName)!.FullName;
+        foreach (var viewMenu in new[] { true, false })
+        {
+            var document = XDocument.Load(Path.Combine(root, viewMenu ? "MainView.axaml" : "Forms/Views/CodeEditorView.axaml"));
+            var anchor = viewMenu ? "Str.Menu.View.Code" : "Str.CodeEditor.Context.Cut";
+            var item = document.Descendants().Single(e => (string?)e.Attribute("Header") == "{DynamicResource " + anchor + "}");
+            foreach (var header in item.Parent!.Descendants().Where(e => e.Name.LocalName == "MenuItem")
+                         .Select(e => (string?)e.Attribute("Header"))
+                         .Where(h => h?.StartsWith("{DynamicResource Str.", StringComparison.Ordinal) == true))
+                yield return header![17..^1];
+        }
+    }
+
+    private static Dictionary<string, string> PackStrings(string packId)
+    {
+        var strings = JsonSerializer.Deserialize(File.ReadAllText(Path.Combine(PacksDirectory(), packId + ".json")),
+            LocalizationJsonContext.Default.LanguagePackRecord)!.Strings!;
+        if (packId is not ("en-GB" or "es-MX" or "fr-CA" or "pt-BR")) return strings;
+        var neutral = PackStrings(packId.Split('-')[0]);
+        foreach (var (key, value) in strings) neutral[key] = value;
+        return neutral;
     }
 
     private static string PacksDirectory()
