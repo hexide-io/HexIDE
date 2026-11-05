@@ -224,7 +224,7 @@ minimum SHALL be rejected before changing the output directory.
 
 ### Requirement: Signing generators preserve existing output
 
-The add-in packer's `genkeys`, `sign-publisher` and `sign-revocations` commands SHALL create their output files
+The add-in packer's `genkeys`, `genkeys-release`, `sign-publisher` and `sign-revocations` commands SHALL create their output files
 exclusively. If any destination already exists, the command SHALL fail without replacing that file
 or writing generated content to any of its other destinations. If a reservation or write fails,
 the command SHALL remove exactly the output files created by that call.
@@ -235,6 +235,32 @@ the command SHALL remove exactly the output files created by that call.
 - **THEN** it reports failure and preserves that file's bytes
 - **AND** no generated key, trust record or signature is written to the other destinations
 - **AND** any output files reserved by this call are removed, including when the last destination collides
+
+### Requirement: Release signing chains have explicit identities and separate key outputs
+
+The packer SHALL provide `genkeys-release` with explicit intermediate and publisher identities and
+separate root, intermediate, first-party and public output directories. It SHALL validate ids with
+`PublisherId.IsValid` and names as trimmed, non-empty strings of at most 128 characters without controls,
+Unicode format, line-separator or paragraph-separator characters.
+This issuance validation SHALL NOT change package verification. Development generation SHALL retain
+its defaults.
+
+#### Scenario: Invalid signing identity
+
+- **WHEN** an id is not 3–64 lowercase ASCII letters or digits joined by single dots or hyphens,
+  or a display name is invalid
+- **THEN** generation is refused before writing any files
+
+#### Scenario: A release chain is generated
+
+- **WHEN** all identities and four non-overlapping output directories are supplied
+- **THEN** each private key is written to its own directory, public keys and signed records go to the
+  public directory, and all three public-key fingerprints are printed without private key material
+
+#### Scenario: An output file already exists
+
+- **WHEN** any release-chain destination file already exists
+- **THEN** it is preserved and no partial new chain is left behind
 
 ### Requirement: Offline publisher issuance
 
@@ -253,7 +279,8 @@ private key material.
 #### Scenario: Invalid issuance inputs
 
 - **GIVEN** publisher and intermediate ids must be 3–64 lowercase letters/digits joined by single dots or hyphens
-- **AND** display names must be trimmed, non-empty, at most 128 characters and free of control characters
+- **AND** display names must be trimmed, non-empty, at most 128 characters and free of control, Unicode format,
+  line-separator or paragraph-separator characters
 - **AND** keys must be ECDSA P-256, the intermediate signature must verify against the supplied root,
   and the private key must match the intermediate public record
 - **WHEN** any of these checks fails
