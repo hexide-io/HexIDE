@@ -99,6 +99,17 @@ writes the pack, without a per-language ruling.
 - **WHEN** a pack is written in a non-Latin script
 - **THEN** it carries no access-key markers
 
+### Requirement: New navigation access keys SHALL use a free letter where available
+In Latin-script packs, Implementation and Type Definition in the View menu and their Go to entries in
+the code context menu SHALL have a unique access key whenever their label contains a letter unused by
+any other entry's access key in that menu. All sibling entries SHALL count, including disabled entries
+and submenu headers; entries inside a submenu belong to that submenu. The four go-to entries SHALL
+retain distinct keys within each menu. A key already unique SHALL be preserved (#3110).
+
+#### Scenario: A colliding navigation key with a free letter
+- **WHEN** a new navigation entry shares a key and its label contains a letter unused by every other menu entry
+- **THEN** its access key uses a free letter, independently in each menu
+
 ### Requirement: Chinese SHALL be split by script rather than by region
 Chinese SHALL ship as separate Simplified and Traditional packs, and a Chinese-speaking region SHALL resolve
 to the pack matching the script it uses.

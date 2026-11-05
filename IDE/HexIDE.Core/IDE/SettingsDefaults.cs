@@ -23,6 +23,7 @@ public static class SettingsDefaults
 
     public const bool IsMinimapVisible = true;
     public const bool ShowInlayHints = true;
+    public const bool ShowCodeLenses = true;
     public const bool ColorBracketsByDepth = true;
     public const bool IsStickyScrollEnabled = true;
     public const int StickyScrollDepth = 3;

@@ -1150,7 +1150,14 @@ identity, so equal lens values from different servers resolve independently. A c
 is refused by the registry. Already complete lenses need no round trip, and servers without resolve
 support are not asked. The code window draws resolved lenses above their member lines and runs their commands on click.
 The visual spacer reserves ascent using the editor font metrics so the whole lens row fits above the member text.
-Edits refetch lenses after the editor debounce (#3082). The Options toggle remains unimplemented (#2906).
+Edits refetch lenses after the same 300 ms document-change debounce that triggers diagnostics pull,
+after the new text is sent. The old labels remain until the replacement answer arrives. Options →
+Editor → General offers **Show code lenses**, on by default and persisted with editor settings. Turning
+it off removes the rows and cancels lens work, including server refresh requests; turning it on asks again.
+**Run code lens** in the code context menu acts on the caret's line, offering a menu when several lenses
+share it. `RunCodeLensCommand` is assignable in the keymap, with no default shortcut. It uses the click
+handler, including supplied Find References locations. Selection and current-line backgrounds do not
+cover lens rows; those retain the editor background (#2906).
 
 `CodeLensSession` supplies the viewport scheduling layer for that editor work: it fetches a document's
 lenses, resolves only starts inside the supplied zero-based visible line interval, cancels resolutions

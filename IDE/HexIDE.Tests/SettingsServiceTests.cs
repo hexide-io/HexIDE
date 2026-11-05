@@ -47,6 +47,25 @@ public class SettingsServiceTests : IDisposable
     }
 
     [Fact]
+    public void CodeLensesToggleIsStagedPersistedAndRestored()
+    {
+        var setting = typeof(SettingsService).GetProperty("ShowCodeLenses");
+        var option = typeof(HexIDE.Forms.ViewModels.Options.EditorGeneralPageViewModel).GetProperty("ShowCodeLenses");
+        setting.Should().NotBeNull();
+        option.Should().NotBeNull();
+        var settings = CreateSut();
+        setting!.GetValue(settings).Should().Be(true);
+        var page = new HexIDE.Forms.ViewModels.Options.EditorGeneralPageViewModel(settings);
+        option!.SetValue(page, false);
+        setting.GetValue(settings).Should().Be(true);
+        page.SaveToSettings();
+        setting.GetValue(CreateSut()).Should().Be(false);
+        page.RestoreDefaults();
+        page.SaveToSettings();
+        setting.GetValue(CreateSut()).Should().Be(true);
+    }
+
+    [Fact]
     public void SavingPreservesFileAtOldStagingName()
     {
         var settings = CreateSut();

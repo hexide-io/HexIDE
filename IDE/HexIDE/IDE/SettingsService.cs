@@ -64,6 +64,7 @@ public partial class SettingsService : ObservableObject, ISettingsService
 
     // ── Editor extras defaults ──────────────────────────────────
     private bool _showInlayHints = SettingsDefaults.ShowInlayHints;
+    private bool _showCodeLenses = SettingsDefaults.ShowCodeLenses;
     private bool _showIndentGuides = SettingsDefaults.ShowIndentGuides;
     private bool _isMinimapVisible = SettingsDefaults.IsMinimapVisible;
     private bool _colorBracketsByDepth = SettingsDefaults.ColorBracketsByDepth;
@@ -214,6 +215,12 @@ public partial class SettingsService : ObservableObject, ISettingsService
 
     // ── Editor extras properties ────────────────────────────────
 
+    public bool ShowCodeLenses
+    {
+        get => _showCodeLenses;
+        set { if (SetProperty(ref _showCodeLenses, value)) Save(); }
+    }
+
     public bool ShowInlayHints
     {
         get => _showInlayHints;
@@ -315,6 +322,7 @@ public partial class SettingsService : ObservableObject, ISettingsService
                 ShowIndentGuides = _showIndentGuides,
                 IsMinimapVisible = _isMinimapVisible,
                 ShowInlayHints = _showInlayHints,
+                ShowCodeLenses = _showCodeLenses,
                 ColorBracketsByDepth = _colorBracketsByDepth,
                 IsStickyScrollEnabled = _isStickyScrollEnabled,
                 StickyScrollDepth = _stickyScrollDepth,
@@ -409,6 +417,7 @@ public partial class SettingsService : ObservableObject, ISettingsService
             ShowIndentGuides = data.ShowIndentGuides;
             _isMinimapVisible = data.IsMinimapVisible;
             _showInlayHints = data.ShowInlayHints;
+            _showCodeLenses = data.ShowCodeLenses;
             _colorBracketsByDepth = data.ColorBracketsByDepth;
             IsStickyScrollEnabled = data.IsStickyScrollEnabled;
             StickyScrollDepth = data.StickyScrollDepth;
@@ -494,6 +503,9 @@ public partial class SettingsService : ObservableObject, ISettingsService
 
         [JsonPropertyName("isFormEditorToolbarVisible")]
         public bool IsFormEditorToolbarVisible { get; set; } = SettingsDefaults.IsFormEditorToolbarVisible;
+
+        [JsonPropertyName("showCodeLenses")]
+        public bool ShowCodeLenses { get; set; } = SettingsDefaults.ShowCodeLenses;
 
         [JsonPropertyName("showInlayHints")]
         public bool ShowInlayHints { get; set; } = SettingsDefaults.ShowInlayHints;
