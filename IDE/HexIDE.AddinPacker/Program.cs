@@ -6,6 +6,8 @@ using HexIDE.AddinPacker;
 if (args.Length == 0)
 {
     Console.Error.WriteLine("usage: genkeys <outDir> | sign-publisher --root-public-key .. --intermediate-key .. --intermediate .. --publisher-id .. --display-name .. --public-key .. --out .. | pack --src .. --out .. --id .. --title .. --version .. --entry .. --trust ..");
+    Console.Error.WriteLine("       genkeys-release --root-out .. --intermediate-out .. --firstparty-out .. --public-out ..");
+    Console.Error.WriteLine("         --intermediate-id .. --intermediate-name .. --firstparty-id .. --firstparty-name ..");
     return 1;
 }
 
@@ -16,6 +18,21 @@ try
         case "genkeys":
             if (args.Length < 2) { Console.Error.WriteLine("genkeys: missing <outDir>"); return 1; }
             PackageSigner.GenerateDevTrust(args[1]);
+            return 0;
+
+        case "genkeys-release":
+            var release = ParseOptions(args.AsSpan(1));
+            PackageSigner.GenerateReleaseTrust(new ReleaseTrustRequest
+            {
+                RootOut = Required(release, "root-out"),
+                IntermediateOut = Required(release, "intermediate-out"),
+                FirstPartyOut = Required(release, "firstparty-out"),
+                PublicOut = Required(release, "public-out"),
+                IntermediateId = Required(release, "intermediate-id"),
+                IntermediateName = Required(release, "intermediate-name"),
+                FirstPartyId = Required(release, "firstparty-id"),
+                FirstPartyName = Required(release, "firstparty-name"),
+            });
             return 0;
 
         case "sign-publisher":

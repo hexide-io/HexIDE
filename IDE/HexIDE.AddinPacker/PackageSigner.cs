@@ -80,6 +80,80 @@ public static class PackageSigner
         Console.WriteLine($"Generated dev trust chain in {outDir}");
     }
 
+    /// <summary>Generates a release chain with explicit identities and separate private-key outputs.</summary>
+    public static void GenerateReleaseTrust(ReleaseTrustRequest r)
+    {
+        if (!PublisherId.IsValid(r.IntermediateId) || !PublisherId.IsValid(r.FirstPartyId))
+            throw new ArgumentException("invalid publisher or intermediate id");
+        ValidateDisplayName(r.IntermediateName);
+        ValidateDisplayName(r.FirstPartyName);
+
+        var directories = new[] { r.RootOut, r.IntermediateOut, r.FirstPartyOut, r.PublicOut }
+            .Select(path => ResolveOutputDirectory(path)).ToArray();
+        var prefixes = directories.Select(path => Path.EndsInDirectorySeparator(path)
+            ? path : path + Path.DirectorySeparatorChar).ToArray();
+        var comparison = OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
+        for (var i = 0; i < directories.Length; i++)
+            for (var j = i + 1; j < directories.Length; j++)
+                if (string.Equals(directories[i], directories[j], comparison) ||
+                    directories[i].StartsWith(prefixes[j], comparison) ||
+                    directories[j].StartsWith(prefixes[i], comparison))
+                    throw new ArgumentException("output directories must not overlap");
+
+        using var root = ECDsa.Create(ECCurve.NamedCurves.nistP256);
+        using var intermediate = ECDsa.Create(ECCurve.NamedCurves.nistP256);
+        using var firstParty = ECDsa.Create(ECCurve.NamedCurves.nistP256);
+        var rootPublic = PackageCrypto.ExportPublicKey(root);
+        var intermediatePublic = PackageCrypto.ExportPublicKey(intermediate);
+        var firstPartyPublic = PackageCrypto.ExportPublicKey(firstParty);
+        var interBytes = JsonSerializer.SerializeToUtf8Bytes(new IntermediateRecord
+        {
+            IntermediateId = r.IntermediateId,
+            DisplayName = r.IntermediateName,
+            PublicKey = intermediatePublic,
+        }, AddinJsonContext.Default.IntermediateRecord);
+        var pubBytes = JsonSerializer.SerializeToUtf8Bytes(new PublisherRecord
+        {
+            PublisherId = r.FirstPartyId,
+            DisplayName = r.FirstPartyName,
+            PublicKey = firstPartyPublic,
+            IntermediateId = r.IntermediateId,
+        }, AddinJsonContext.Default.PublisherRecord);
+
+        var outputs = new Dictionary<string, byte[]>
+        {
+            [Path.Combine(directories[0], "root.key")] = Encoding.UTF8.GetBytes(PackageCrypto.ExportPrivateKey(root)),
+            [Path.Combine(directories[1], "intermediate.key")] = Encoding.UTF8.GetBytes(PackageCrypto.ExportPrivateKey(intermediate)),
+            [Path.Combine(directories[2], "firstparty.key")] = Encoding.UTF8.GetBytes(PackageCrypto.ExportPrivateKey(firstParty)),
+            [Path.Combine(directories[3], "hexide-root.pub")] = Encoding.UTF8.GetBytes(rootPublic),
+            [Path.Combine(directories[3], "hexide-firstparty.pub")] = Encoding.UTF8.GetBytes(firstPartyPublic),
+            [Path.Combine(directories[3], "intermediate.json")] = interBytes,
+            [Path.Combine(directories[3], "intermediate.sig")] = Encoding.UTF8.GetBytes(PackageCrypto.Sign(root, interBytes)),
+            [Path.Combine(directories[3], "publisher.json")] = pubBytes,
+            [Path.Combine(directories[3], "publisher.sig")] = Encoding.UTF8.GetBytes(PackageCrypto.Sign(intermediate, pubBytes)),
+        };
+        foreach (var directory in directories) Directory.CreateDirectory(directory);
+        // Absolute paths let the existing reservation/cleanup cover all four directories together.
+        WriteNewFiles("", outputs);
+        Console.WriteLine($"Root: {PackageCrypto.KeyFingerprint(rootPublic)}");
+        Console.WriteLine($"Intermediate: {PackageCrypto.KeyFingerprint(intermediatePublic)}");
+        Console.WriteLine($"Publisher: {PackageCrypto.KeyFingerprint(firstPartyPublic)}");
+    }
+
+    private static string ResolveOutputDirectory(string path, int links = 0)
+    {
+        if (links > 40) throw new IOException("too many symbolic links in output directory");
+        var full = Path.GetFullPath(path);
+        var current = Path.GetPathRoot(full)!;
+        foreach (var part in full[current.Length..].Split(Path.DirectorySeparatorChar, StringSplitOptions.RemoveEmptyEntries))
+        {
+            var directory = new DirectoryInfo(Path.Combine(current, part));
+            current = directory.LinkTarget is null ? directory.FullName
+                : ResolveOutputDirectory(directory.ResolveLinkTarget(true)!.FullName, links + 1);
+        }
+        return Path.TrimEndingDirectorySeparator(current);
+    }
+
     /// <summary>Signs a revocation list with the HexIDE root key: copies the input JSON verbatim to
     /// <c>revocations.json</c> and writes the detached root signature to <c>revocations.sig</c>.</summary>
     public static void SignRevocations(string inJsonPath, string rootKeyPath, string outDir)
@@ -101,14 +175,7 @@ public static class PackageSigner
     {
         if (!PublisherId.IsValid(publisherId))
             throw new ArgumentException("invalid publisher id (expected 3–64 lowercase letters/digits joined by single dots or hyphens)");
-        // The trust inspector shows this name to users, so a bidi override or other invisible format character
-        // (U+202E, U+200B, U+FEFF, ...) could make one publisher's name read as another's. Refuse them with the controls.
-        if (string.IsNullOrWhiteSpace(displayName) || displayName != displayName.Trim()
-            || displayName.Length > 128 || displayName.Any(c => char.IsControl(c)
-                || char.GetUnicodeCategory(c) is System.Globalization.UnicodeCategory.Format
-                    or System.Globalization.UnicodeCategory.LineSeparator
-                    or System.Globalization.UnicodeCategory.ParagraphSeparator))
-            throw new ArgumentException("invalid display name (expected 1–128 trimmed characters without control or invisible format characters)");
+        ValidateDisplayName(displayName);
 
         var interBytes = File.ReadAllBytes(Path.Combine(intermediateDir, "intermediate.json"));
         var interSig = File.ReadAllText(Path.Combine(intermediateDir, "intermediate.sig")).Trim();
@@ -146,6 +213,18 @@ public static class PackageSigner
                 File.ReadAllText(Path.Combine(outDir, "publisher.sig")).Trim()))
             throw new InvalidOperationException("written publisher chain verification failed");
         Console.WriteLine("Verified publisher record against the intermediate and supplied root public key");
+    }
+
+    private static void ValidateDisplayName(string displayName)
+    {
+        // The trust inspector shows this name to users, so a bidi override or other invisible format character
+        // (U+202E, U+200B, U+FEFF, ...) could make one publisher's name read as another's. Refuse them with the controls.
+        if (string.IsNullOrWhiteSpace(displayName) || displayName != displayName.Trim()
+            || displayName.Length > 128 || displayName.Any(c => char.IsControl(c)
+                || char.GetUnicodeCategory(c) is System.Globalization.UnicodeCategory.Format
+                    or System.Globalization.UnicodeCategory.LineSeparator
+                    or System.Globalization.UnicodeCategory.ParagraphSeparator))
+            throw new ArgumentException("invalid display name (expected 1–128 trimmed characters without control or invisible format characters)");
     }
 
     private static ECDsa ReadKey(string path, bool privateKey, string label)
