@@ -1089,6 +1089,10 @@
     "Str.Debug.Conditions.Prompt": "僅當此運算式為 True 時在此行中斷：",
     "Str.Debug.Conditions.Edit": "條件…",
     "Str.Debug.Conditions.AdapterIgnored": "此配接器忽略條件，每次都會停止。",
-    "Str.Debug.Conditions.InterpreterIgnored": "直譯器忽略條件，每次都會停止。"
+    "Str.Debug.Conditions.InterpreterIgnored": "直譯器忽略條件，每次都會停止。",
+    "Str.Menu.View.Outline": "大綱",
+    "Str.Menu.View.RecentEdits": "最近編輯",
+    "Str.CodeEditor.Context.FindReferences": "尋找參照",
+    "Str.CodeEditor.Context.NoQuickFix": "未提供適用的修正。"
   }
 }

@@ -184,7 +184,7 @@
                             <MenuItem Header="{DynamicResource Str.CodeEditor.Context.ClearAllBookmarks}" Command="{x:Static vb:ApplicationCommands.ClearAllBookmarksCommand}" />
                         </MenuItem>
                         <Separator />
-                        <MenuItem Header="{DynamicResource Str.Tool.FindReferences.Title}" Command="{x:Static vb:ApplicationCommands.FindReferencesCommand}" />
+                        <MenuItem Header="{DynamicResource Str.CodeEditor.Context.FindReferences}" Command="{x:Static vb:ApplicationCommands.FindReferencesCommand}" />
                         <MenuItem Header="{DynamicResource Str.CodeEditor.Context.CallHierarchy}" Command="{x:Static vb:ApplicationCommands.CallHierarchyCommand}" />
                         <MenuItem Header="{DynamicResource Str.Editor.RunCodeLens}" Command="{x:Static vb:ApplicationCommands.RunCodeLensCommand}" />
                         <MenuItem Header="{DynamicResource Str.CodeEditor.Context.GoToDefinition}" Command="{x:Static vb:ApplicationCommands.GoToDefinitionCommand}" />
@@ -193,7 +193,7 @@
                         <MenuItem Header="{DynamicResource Str.CodeEditor.Context.GoToDeclaration}" Command="{x:Static vb:ApplicationCommands.GoToDeclarationCommand}" />
                         <MenuItem x:Name="QuickFixesMenu" Header="{DynamicResource Str.CodeEditor.QuickFix.Title}"
                                   SubmenuOpened="OnQuickFixesOpened">
-                            <MenuItem Header="{DynamicResource Str.CodeEditor.QuickFix.NoEdit}" IsEnabled="False" />
+                            <MenuItem Header="{DynamicResource Str.CodeEditor.Context.NoQuickFix}" IsEnabled="False" />
                         </MenuItem>
                         <MenuItem Header="{DynamicResource Str.CodeEditor.Context.Rename}"        Command="{x:Static vb:ApplicationCommands.RenameSymbolCommand}" />
                         <MenuItem Header="{DynamicResource Str.CodeEditor.Context.ExpandSelection}" Command="{x:Static vb:ApplicationCommands.ExpandSelectionCommand}" />

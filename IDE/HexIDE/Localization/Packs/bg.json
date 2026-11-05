@@ -1089,6 +1089,10 @@
     "Str.Debug.Conditions.Prompt": "Спиране на този ред само когато този израз е истина:",
     "Str.Debug.Conditions.Edit": "Условие…",
     "Str.Debug.Conditions.AdapterIgnored": "Този адаптер игнорира условията и спира всеки път.",
-    "Str.Debug.Conditions.InterpreterIgnored": "Интерпретаторът игнорира условията и спира всеки път."
+    "Str.Debug.Conditions.InterpreterIgnored": "Интерпретаторът игнорира условията и спира всеки път.",
+    "Str.Menu.View.Outline": "Структура",
+    "Str.Menu.View.RecentEdits": "Последни редакции",
+    "Str.CodeEditor.Context.FindReferences": "Търсене на препратки",
+    "Str.CodeEditor.Context.NoQuickFix": "Няма приложима корекция."
   }
 }

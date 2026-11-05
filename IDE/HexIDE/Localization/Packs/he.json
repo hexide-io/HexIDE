@@ -1089,6 +1089,10 @@
     "Str.Debug.Conditions.Prompt": "עצור בשורה זו רק כאשר ביטוי זה הוא אמת:",
     "Str.Debug.Conditions.Edit": "תנאי…",
     "Str.Debug.Conditions.AdapterIgnored": "מתאם זה מתעלם מהתנאים ועוצר בכל פעם.",
-    "Str.Debug.Conditions.InterpreterIgnored": "המפרש מתעלם מהתנאים ועוצר בכל פעם."
+    "Str.Debug.Conditions.InterpreterIgnored": "המפרש מתעלם מהתנאים ועוצר בכל פעם.",
+    "Str.Menu.View.Outline": "חלוקה לרמות",
+    "Str.Menu.View.RecentEdits": "עריכות אחרונות",
+    "Str.CodeEditor.Context.FindReferences": "חיפוש הפניות",
+    "Str.CodeEditor.Context.NoQuickFix": "לא סופק תיקון מתאים."
   }
 }
