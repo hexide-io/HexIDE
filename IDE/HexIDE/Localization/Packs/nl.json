@@ -431,7 +431,7 @@
     "Str.CodeEditor.Context.PreviousBookmark": "Vo_rige bladwijzer",
     "Str.CodeEditor.Context.ClearAllBookmarks": "Alle bladwijzers _wissen",
     "Str.CodeEditor.Context.GoToDefinition": "_Ga naar definitie",
-    "Str.CodeEditor.Context.GoToImplementation": "Ga naar _implementatie",
+    "Str.CodeEditor.Context.GoToImplementation": "G_a naar implementatie",
     "Str.CodeEditor.Context.GoToTypeDefinition": "Ga naar _typedefinitie",
     "Str.CodeEditor.Context.GoToDeclaration": "Ga naar _declaratie",
     "Str.CodeEditor.Context.Rename": "_Naam wijzigen...",

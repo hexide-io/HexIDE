@@ -1,5 +1,6 @@
 using System.IO;
 using System.Text.Json;
+using System.Xml.Linq;
 using HexIDE.Localization;
 
 namespace HexIDE.Tests;
@@ -9,6 +10,37 @@ public class NavigationAccessKeyTests
     public static IEnumerable<object[]> LatinMenus() => LanguageManifest.Packs
         .Where(p => p.Id is not ("ar" or "bg" or "el" or "he" or "ja" or "ko" or "ru" or "th" or "uk" or "zh-Hans" or "zh-Hant"))
         .SelectMany(p => new[] { new object[] { p.Id, false }, new object[] { p.Id, true } });
+
+    public static IEnumerable<object[]> NewNavigationEntries() => LatinMenus()
+        .SelectMany(menu => new[] { new object[] { menu[0], menu[1], "Implementation" },
+            new object[] { menu[0], menu[1], "TypeDefinition" } });
+
+    [Theory]
+    [MemberData(nameof(NewNavigationEntries))]
+    public void NewNavigationAccessKeyIsUniqueWhenLabelHasAFreeLetter(string packId, bool viewMenu, string entry)
+    {
+        var strings = JsonSerializer.Deserialize(File.ReadAllText(Path.Combine(PacksDirectory(), packId + ".json")),
+            LocalizationJsonContext.Default.LanguagePackRecord)!.Strings!;
+        var root = Directory.GetParent(Directory.GetParent(PacksDirectory())!.FullName)!.FullName;
+        var document = XDocument.Load(Path.Combine(root, viewMenu ? "MainView.axaml" : "Forms/Views/CodeEditorView.axaml"));
+        var key = viewMenu ? "Str.Menu.View." + entry : "Str.CodeEditor.Context.GoTo" + entry;
+        var item = document.Descendants().Single(e => (string?)e.Attribute("Header") == "{DynamicResource " + key + "}");
+        var otherKeys = item.Parent!.Elements()
+            .Where(e => e != item && e.Name.LocalName == "MenuItem")
+            .Select(e => (string?)e.Attribute("Header"))
+            .Where(h => h is not null && h.StartsWith("{DynamicResource Str.", StringComparison.Ordinal))
+            .Select(h => strings[h![17..^1]])
+            .Select(AccessKey).Where(c => c is not null).ToArray();
+        var label = strings[key];
+        if (label.Any(c => char.IsLetter(c) && !otherKeys.Contains(char.ToUpperInvariant(c))))
+            otherKeys.Should().NotContain(AccessKey(label), $"{packId}: {key} has a free letter in its menu, counting disabled entries too (#3110)");
+    }
+
+    private static char? AccessKey(string label)
+    {
+        var index = label.IndexOf('_');
+        return index >= 0 && index < label.Length - 1 ? char.ToUpperInvariant(label[index + 1]) : null;
+    }
 
     [Theory]
     [MemberData(nameof(LatinMenus))]

@@ -120,7 +120,7 @@
     "Str.Menu.View.Code": "_Kood",
     "Str.Menu.View.Object": "_Objekt",
     "Str.Menu.View.Definition": "_Definitsioon",
-    "Str.Menu.View.Implementation": "_Teostus",
+    "Str.Menu.View.Implementation": "Teo_stus",
     "Str.Menu.View.TypeDefinition": "T_üübimääratlus",
     "Str.Menu.View.Declaration": "D_eklaratsioon",
     "Str.Menu.View.LastPosition": "_Viimane asukoht",
