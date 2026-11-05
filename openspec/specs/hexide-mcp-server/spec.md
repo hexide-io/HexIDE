@@ -14,6 +14,22 @@ agent that wrote the code can open the IDE, drive it, and look at the result.
 
 ## Requirements
 
+### Requirement: Click updates pointer popup placement
+
+A click SHALL update Avalonia's pointer placement position through the window's input before pressing.
+A click's press SHALL cancel the tooltip timer started by its arrival, as a real mouse press does.
+
+#### Scenario: Right-click opens a context popup
+
+- **WHEN** `interact` right-clicks a control with a ContextMenu or ContextFlyout
+- **THEN** the popup opens at the click point, subject to screen placement constraints
+
+#### Scenario: Clicking a control with a tooltip
+
+- **WHEN** `interact` clicks a control whose tooltip has a show delay
+- **THEN** the arrival's tooltip remains closed after that delay
+
+
 ### Requirement: Removing a selected list or tree item SHALL report the resulting selection
 `interact` with `remove_from_selection` SHALL clear a selected item in a single-selection list or tree,
 report the resulting selection even when empty, and leave an unselected item unchanged with an explanation.
