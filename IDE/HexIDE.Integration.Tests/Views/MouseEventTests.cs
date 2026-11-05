@@ -535,12 +535,25 @@ public class MouseEventTests
     }
 
     [AvaloniaTheory]
-    [InlineData(15L)]
-    [InlineData(-1L)]
-    public async Task Automation_click_double_runs_the_forms_DblClick_once_in_the_measured_order(long timeSliceMs)
+    [InlineData(15L, false)]
+    [InlineData(-1L, false)]
+    [InlineData(15L, true)]
+    [InlineData(-1L, true)]
+    public async Task Automation_click_double_runs_the_forms_DblClick_once_in_the_measured_order(long timeSliceMs, bool slow)
     {
         // Real-input oracle #2417: arrival, then a move after the first release, none after the second.
         using var run = Start(Form(Twips, Controls), Handlers("Form", dblClick: true), Debugger(timeSliceMs));
+        // #3167: handler time must not decide whether automation sends a double click.
+        if (slow)
+        {
+            var releases = 0;
+            run.Window.AddHandler(InputElement.PointerReleasedEvent, (_, _) =>
+            {
+                if (++releases == 1)
+                    Thread.Sleep(Application.Current!.PlatformSettings!.GetDoubleTapTime(PointerType.Mouse)
+                        + System.TimeSpan.FromMilliseconds(50));
+            }, Avalonia.Interactivity.RoutingStrategies.Tunnel, handledEventsToo: true);
+        }
         var outcome = await AutomationClick(run, "300,10 double");
         outcome.Success.Should().BeTrue(outcome.Error);
         outcome.Detail.Should().Contain("double-clicked").And.Contain("left button").And.Contain("(300, 10)");

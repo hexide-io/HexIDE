@@ -1262,6 +1262,15 @@ sent, with a click count of 2, even when the first click replaced what it landed
 refused only when the window is hidden or closed, or nothing takes the pointer there. When the second press reached a
 different element from the first, the reply SHALL say so and name it.
 
+For a double click, the driver SHALL control raw button-event timestamps so that the second press stays within the
+host's double-click interval regardless of time spent in handlers or waiting for frames. Plain clicks SHALL retain
+real timestamps (#3167).
+
+#### Scenario: A slow first click
+- **WHEN** the first click's handlers block longer than the host's double-click interval
+- **THEN** the second press still has click count 2 at the same point
+- **AND** a running form receives exactly one DblClick in the measured event order
+
 #### Scenario: A control that rebuilds itself on a click
 - **WHEN** `click` with `double` targets a Toolbar that replaces its buttons on each release
 - **THEN** the second press reaches the new button at that point, with a click count of 2

@@ -174,7 +174,8 @@ public class ShippedPackParityTests
             translated.Should().NotBeNullOrWhiteSpace(key);
             Regex.Matches(translated, @"\{\d+\}").Select(m => m.Value).Should()
                 .BeEquivalentTo(Regex.Matches(english, @"\{\d+\}").Select(m => m.Value), key);
-            translated.Count(c => c == '_').Should().Be(english.Count(c => c == '_'), key);
+            if (!NavigationAccessKeyTests.CollisionPolicyKeys.Contains(key))
+                translated.Count(c => c == '_').Should().Be(english.Count(c => c == '_'), key);
         }
     }
 
@@ -199,7 +200,8 @@ public class ShippedPackParityTests
                 .Select(m => m.Value).Should().BeEquivalentTo(
                     System.Text.RegularExpressions.Regex.Matches(original, @"\{[0-9]+[^}]*\}")
                         .Select(m => m.Value), key);
-            translated.Count(c => c == '_').Should().Be(original.Count(c => c == '_'), key);
+            if (!NavigationAccessKeyTests.CollisionPolicyKeys.Contains(key))
+                translated.Count(c => c == '_').Should().Be(original.Count(c => c == '_'), key);
         }
     }
 
@@ -247,7 +249,8 @@ public class ShippedPackParityTests
             translated.Should().NotBeNullOrWhiteSpace(key);
             Regex.Matches(translated, @"\{[0-9]+[^}]*\}").Select(m => m.Value).Should()
                 .BeEquivalentTo(Regex.Matches(value, @"\{[0-9]+[^}]*\}").Select(m => m.Value), key);
-            translated.Count(c => c == '_').Should().Be(value.Count(c => c == '_'), key);
+            if (!NavigationAccessKeyTests.CollisionPolicyKeys.Contains(key))
+                translated.Count(c => c == '_').Should().Be(value.Count(c => c == '_'), key);
         }
     }
 
@@ -278,8 +281,9 @@ public class ShippedPackParityTests
                 .Select(m => m.Value).Should().BeEquivalentTo(
                     System.Text.RegularExpressions.Regex.Matches(original, @"\{\d+[^}]*\}")
                         .Select(m => m.Value), $"Lithuanian key {key}");
-            translated.Count(c => c == '_').Should().Be(original.Count(c => c == '_'),
-                $"Lithuanian key {key} keeps the Latin-script access-key convention");
+            if (!NavigationAccessKeyTests.CollisionPolicyKeys.Contains(key))
+                translated.Count(c => c == '_').Should().Be(original.Count(c => c == '_'),
+                    $"Lithuanian key {key} keeps the Latin-script access-key convention");
         }
     }
 
@@ -301,7 +305,8 @@ public class ShippedPackParityTests
                 .Select(m => m.Value);
             System.Text.RegularExpressions.Regex.Matches(translated, @"\{\d+\}")
                 .Select(m => m.Value).Should().BeEquivalentTo(placeholders, key);
-            translated.Count(c => c == '_').Should().Be(original.Count(c => c == '_'), key);
+            if (!NavigationAccessKeyTests.CollisionPolicyKeys.Contains(key))
+                translated.Count(c => c == '_').Should().Be(original.Count(c => c == '_'), key);
         }
     }
 
@@ -323,7 +328,7 @@ public class ShippedPackParityTests
             translated.Should().NotBeNullOrWhiteSpace(key);
             Regex.Matches(translated, @"\{\d+[^{}]*\}").Select(m => m.Value).Should()
                 .BeEquivalentTo(Regex.Matches(original, @"\{\d+[^{}]*\}").Select(m => m.Value), key);
-            if (original.Contains('_'))
+            if (original.Contains('_') && !NavigationAccessKeyTests.CollisionPolicyKeys.Contains(key))
                 translated.Should().Contain("_", key);
         }
     }
@@ -350,7 +355,7 @@ public class ShippedPackParityTests
                 .Select(m => m.Value).Should().BeEquivalentTo(
                     System.Text.RegularExpressions.Regex.Matches(value, @"\{\d+\}")
                         .Select(m => m.Value), key);
-            if (value.Contains('_'))
+            if (value.Contains('_') && !NavigationAccessKeyTests.CollisionPolicyKeys.Contains(key))
                 translated.Count(c => c == '_').Should().Be(value.Count(c => c == '_'), key);
         }
     }
@@ -375,8 +380,9 @@ public class ShippedPackParityTests
                 .Select(m => m.Value).Should().BeEquivalentTo(
                     Regex.Matches(value, @"\{\d+\}")
                         .Select(m => m.Value), $"Catalan key {key}");
-            translated.Count(c => c == '_').Should().Be(value.Count(c => c == '_'),
-                $"Catalan key {key} must preserve access keys");
+            if (!NavigationAccessKeyTests.CollisionPolicyKeys.Contains(key))
+                translated.Count(c => c == '_').Should().Be(value.Count(c => c == '_'),
+                    $"Catalan key {key} must preserve access keys");
         }
     }
 
@@ -426,8 +432,9 @@ public class ShippedPackParityTests
                 .Select(match => match.Value).Should().BeEquivalentTo(
                     System.Text.RegularExpressions.Regex.Matches(value, @"\{\d+(?:[^{}]*)\}")
                         .Select(match => match.Value), key);
-            translated.Count(character => character == '_').Should()
-                .Be(value.Count(character => character == '_'), key);
+            if (!NavigationAccessKeyTests.CollisionPolicyKeys.Contains(key))
+                translated.Count(character => character == '_').Should()
+                    .Be(value.Count(character => character == '_'), key);
         }
     }
 
@@ -448,7 +455,8 @@ public class ShippedPackParityTests
                 .Select(match => match.Value).Should().BeEquivalentTo(
                     Regex.Matches(value, @"\{[0-9]+\}")
                         .Select(match => match.Value), key);
-            translated.Count(c => c == '_').Should().Be(value.Count(c => c == '_'), key);
+            if (!NavigationAccessKeyTests.CollisionPolicyKeys.Contains(key))
+                translated.Count(c => c == '_').Should().Be(value.Count(c => c == '_'), key);
         }
     }
 
