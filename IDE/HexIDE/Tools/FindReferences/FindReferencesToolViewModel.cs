@@ -5,7 +5,6 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using AvaloniaEdit.Document;
-using Dock.Model.Mvvm.Controls;
 using HexIDE.Forms.ViewModels;
 using HexIDE.IDE;
 using HexIDE.Localization;
@@ -23,7 +22,7 @@ public sealed record ReferenceRow(Location? Location, string Module, string Befo
     public string AccessibleName { get; init; } = $"{Module}{Before}{Highlight}{After}";
 }
 
-public partial class FindReferencesToolViewModel : Tool
+public partial class FindReferencesToolViewModel : ResultsToolViewModel
 {
     private readonly ILspClient client;
     private readonly IEditorService editors;
@@ -32,9 +31,6 @@ public partial class FindReferencesToolViewModel : Tool
     private readonly ILocalizationService localization;
     private int generation;
     private ReferenceSearchResult result = new([], []);
-    public event Action? ShowRequested;
-    internal event Action? LayoutResized;
-    internal void NotifyLayoutResized() => LayoutResized?.Invoke();
     public ObservableCollection<ReferenceRow> Rows { get; } = [];
     [Notify] private ReferenceRow? selectedRow;
 
@@ -56,7 +52,7 @@ public partial class FindReferencesToolViewModel : Tool
     {
         var current = ++generation;
         Rows.Clear();
-        ShowRequested?.Invoke();
+        RequestShow();
         ReferenceSearchResult answer;
         try { answer = await client.FindReferencesAsync(uri, position, ct); }
         catch (OperationCanceledException) when (ct.IsCancellationRequested) { return; }
@@ -72,7 +68,7 @@ public partial class FindReferencesToolViewModel : Tool
         ++generation;
         result = new(locations.Distinct().ToArray(), []);
         Refresh();
-        ShowRequested?.Invoke();
+        RequestShow();
     }
 
     private IEnumerable<DocumentIdentity> Members() => projects.LoadedProjects.SelectMany(p =>

@@ -53,21 +53,23 @@ public class EditorService : IEditorService
         return null;
     }
 
-    public CodeEditorViewModel? OpenCodeForUri(string uri)
+    public CodeEditorViewModel? OpenCodeForUri(string uri) => OpenCodeForUri(uri, true);
+
+    public CodeEditorViewModel? OpenCodeForUri(string uri, bool takeFocus)
     {
         foreach (var project in projectManager().LoadedProjects)
         {
             foreach (var module in project.Modules)
             {
                 if (!Names(uri, DocumentIdentity.For(module), module.AbsolutePath)) continue;
-                EditCode(module);
+                EditCode(module, takeFocus);
                 return documentDockService.OpenDocuments.OfType<CodeEditorViewModel>()
                     .FirstOrDefault(vm => vm.ModuleDefinition == module);
             }
             foreach (var form in project.Forms)
             {
                 if (!Names(uri, DocumentIdentity.For(form), form.AbsolutePath)) continue;
-                EditCode(form);
+                EditCode(form, takeFocus);
                 return documentDockService.OpenDocuments.OfType<CodeEditorViewModel>()
                     .FirstOrDefault(vm => vm.FormDefinition == form || vm.ModuleDefinition?.FormPart == form);
             }
@@ -110,18 +112,10 @@ public class EditorService : IEditorService
 
     public string? ApplyWorkspaceEdit(WorkspaceEdit edit, Func<string, RenameDocumentSnapshot?> documentFor)
     {
-        var source = documentDockService.OpenDocuments.OfType<CodeEditorViewModel>().FirstOrDefault();
-        var activeTab = documentDockService.ActiveTab;
-        try
-        {
-            return source is null ? "No workspace editor is available."
-                : source.ApplyRename(edit, "", documentFor, codeAction: true);
-        }
-        finally
-        {
-            if (activeTab is not null && documentDockService.ActiveTab != activeTab)
-                documentDockService.TryActivateAny(tab => tab == activeTab);
-        }
+        var source = documentDockService.ActiveTab as CodeEditorViewModel
+            ?? documentDockService.OpenDocuments.OfType<CodeEditorViewModel>().FirstOrDefault();
+        return source is null ? "No workspace editor is available."
+            : source.ApplyRename(edit, "", documentFor, codeAction: true, takeFocus: false);
     }
 
     public bool ShowDocument(ShowDocumentParams request)

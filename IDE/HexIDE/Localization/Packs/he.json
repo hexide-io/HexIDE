@@ -2,6 +2,8 @@
   "name": "Hebrew",
   "direction": "rtl",
   "strings": {
+    "Str.Menu.Edit.CallHierarchy": "היררכיית קריאות",
+    "Str.CodeEditor.Context.CallHierarchy": "היררכיית קריאות",
     "Str.Lsp.OpenExternalUri": "לפתוח כתובת זו מחוץ ל־HexIDE?\n\n{0}",
     "Str.Tool.CallHierarchy.Title": "היררכיית קריאות",
     "Str.Tool.CallHierarchy.CallsTo": "קריאות אל",

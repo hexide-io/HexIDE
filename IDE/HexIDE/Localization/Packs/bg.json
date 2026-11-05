@@ -2,6 +2,8 @@
   "name": "Bulgarian",
   "direction": "ltr",
   "strings": {
+    "Str.Menu.Edit.CallHierarchy": "Йерархия на извикванията",
+    "Str.CodeEditor.Context.CallHierarchy": "Йерархия на извикванията",
     "Str.Lsp.OpenExternalUri": "Отваряне на този URI извън HexIDE?\n\n{0}",
     "Str.Tool.CallHierarchy.Title": "Йерархия на извикванията",
     "Str.Tool.CallHierarchy.CallsTo": "Извиквания към",

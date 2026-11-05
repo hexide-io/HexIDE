@@ -2,6 +2,8 @@
   "name": "Korean",
   "direction": "ltr",
   "strings": {
+    "Str.Menu.Edit.CallHierarchy": "호출 계층 구조",
+    "Str.CodeEditor.Context.CallHierarchy": "호출 계층 구조",
     "Str.Lsp.OpenExternalUri": "이 URI를 HexIDE 외부에서 여시겠습니까?\n\n{0}",
     "Str.Tool.CallHierarchy.Title": "호출 계층 구조",
     "Str.Tool.CallHierarchy.CallsTo": "수신 호출",

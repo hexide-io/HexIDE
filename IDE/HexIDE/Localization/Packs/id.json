@@ -2,6 +2,8 @@
   "name": "Indonesian",
   "direction": "ltr",
   "strings": {
+    "Str.Menu.Edit.CallHierarchy": "Hi_erarki Panggilan",
+    "Str.CodeEditor.Context.CallHierarchy": "_Hierarki Panggilan",
     "Str.Lsp.OpenExternalUri": "Buka URI ini di luar HexIDE?\n\n{0}",
     "Str.Tool.CallHierarchy.Title": "Hierarki Panggilan",
     "Str.Tool.CallHierarchy.CallsTo": "Panggilan Ke",
