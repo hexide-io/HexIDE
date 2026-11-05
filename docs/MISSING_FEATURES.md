@@ -332,6 +332,7 @@
 | Add Form (context menu) | Done | The same operation as Project > Add Form: the form's file is written and its designer opens (#468). It used to add a form with no file and open nothing. |
 | Remove Form/module | Partial | Explorer removal handles forms, standard modules, classes, UserControls and property pages, offering to save unsaved edits and retaining the file on disk (#835, first slice). Main-menu routing, designers and related documents remain |
 | Project Properties (context menu) | Done | |
+| Show hidden archive entries (context menu) | Done | Visible only for an archive root or node selection; ordinary projects open the menu on its first applicable entry (#3131) |
 | Toggle folders | Removed | VB6's button toggled the virtual type folders; both removed with the filesystem-hierarchy rendering (labelled commit, Classic-fork revertible) — [project-explorer](../openspec/specs/project-explorer/spec.md) Phase 1 |
 | Save *{file}* (context menu) | Done | Saves the selected form through the designer's save service; flushes open buffers, without format-on-save (#902). |
 | Save *{file}* As… (context menu) | Done | Saves the selected form at a new path through the same service (#902). |

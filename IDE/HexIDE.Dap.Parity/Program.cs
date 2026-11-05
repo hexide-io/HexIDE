@@ -18,6 +18,7 @@ if (options is null)
     Console.Error.WriteLine("""
         Usage: HexIDE.Dap.Parity <dump.jsonl> [--label <text>] [--timeout <seconds>] [--parallel <n>]
                                  [--project-template <file>] [--out <dir>] [--dry-run]
+                                 [--erl-line-numbering <LineLabel|DocumentLine>]
 
         Set HEXIDE_PARITY_ADAPTER to the debug adapter's executable. --dry-run writes the workspaces and starts nothing.
         Results go to <out>/results.jsonl, one line per program as it finishes, and the counts to <out>/summary.json.
@@ -57,6 +58,8 @@ Write(new JsonObject
     ["adapter"] = adapter is null ? null : Path.GetFileName(adapter),
     ["timeoutSeconds"] = options.TimeoutSeconds,
     ["parallel"] = options.Parallel,
+    ["erlLineNumbering"] = options.ErlLineNumbering,
+    ["erlLineNumberingReason"] = "vb6.exe's Erl returns the line label; RDCore's default DocumentLine is by design (RD-VBAL 6.1.2.7.1.14).",
     ["programs"] = cases.Count,
 });
 
@@ -205,6 +208,7 @@ async Task<Engine> RunEngine(string workspace, string module)
             // The case's own workspace, so a relative path the engine resolves lands there. Programs that touch the
             // file system are left out anyway (Effects); this is the second line.
             WorkingDirectory = workspace,
+            Environment = new Dictionary<string, string?> { ["Configuration__Environment__ErlLineNumbering"] = options.ErlLineNumbering },
             ShutdownTimeout = TimeSpan.FromSeconds(5),
         });
         var running = session;
@@ -366,13 +370,14 @@ partial class Program
         """;
 }
 
-sealed record Options(string Dump, string? Label, int TimeoutSeconds, int Parallel, string? ProjectTemplate, string? Out, bool DryRun)
+sealed record Options(string Dump, string? Label, int TimeoutSeconds, int Parallel, string? ProjectTemplate, string? Out, bool DryRun, string ErlLineNumbering)
 {
     public static Options? Parse(string[] args)
     {
         string? dump = null, label = null, template = null, output = null;
         int timeout = 60, parallel = 1;
         var dryRun = false;
+        var erlLineNumbering = "LineLabel";
         for (var i = 0; i < args.Length; i++)
         {
             string? Next() => i + 1 < args.Length ? args[++i] : null;
@@ -384,6 +389,12 @@ sealed record Options(string Dump, string? Label, int TimeoutSeconds, int Parall
                 case "--project-template": template = Next(); break;
                 case "--out": output = Next(); break;
                 case "--dry-run": dryRun = true; break;
+                case "--erl-line-numbering":
+                    var numbering = Next();
+                    if (numbering is not ("LineLabel" or "DocumentLine"))
+                        return null;
+                    erlLineNumbering = numbering;
+                    break;
                 default:
                     if (args[i].StartsWith("--", StringComparison.Ordinal) || dump is not null)
                         return null;
@@ -391,7 +402,7 @@ sealed record Options(string Dump, string? Label, int TimeoutSeconds, int Parall
                     break;
             }
         }
-        return dump is not null && File.Exists(dump) ? new Options(dump, label, timeout, parallel, template, output, dryRun) : null;
+        return dump is not null && File.Exists(dump) ? new Options(dump, label, timeout, parallel, template, output, dryRun, erlLineNumbering) : null;
     }
 }
 
