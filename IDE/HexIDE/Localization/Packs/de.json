@@ -999,6 +999,7 @@
     "Str.Dialog.MessageBox.Button.Abort": "Abbrechen",
     "Str.Dialog.MessageBox.Button.Retry": "Wiederholen",
     "Str.Dialog.MessageBox.Button.Ignore": "Ignorieren",
+    "Str.Addins.ServerLaunchRefused": "Der Start des Sprachservers für das Add-in „{0}“ wurde verweigert.",
     "Str.Addins.Incompatible": "Add-In kann nicht geladen werden: erforderliches Schema {0}, mindestens HexIDE {1}; dieser Build unterstützt Schema {2}, HexIDE {3}. Die Schema- oder Versionsanforderung wird nicht unterstützt oder ist ungültig.",
     "Str.MakeProject.NoStartup": "Kein Startprojekt gefunden.",
     "Str.MakeProject.Browser": "Das Erstellen eines Programms ist im Browser nicht verfügbar. Verwenden Sie die Desktopversion von HexIDE.",

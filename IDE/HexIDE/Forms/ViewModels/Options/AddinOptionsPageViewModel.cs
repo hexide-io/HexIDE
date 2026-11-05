@@ -108,7 +108,7 @@ public partial class AddinOptionsPageViewModel : ObservableObject
     private void RevokeConsent()
     {
         _registry.RevokeConsent(_manifestHash);
-        ConsentRevoked = true;   // hide the button; revoke takes effect on next launch
+        ConsentRevoked = true;   // hide the button; in-process add-in code unloads on restart
         RestartNoteVisible = true;
     }
 

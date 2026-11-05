@@ -936,6 +936,13 @@ assertion would be guarding against nothing.
 
 ---
 
+### Add-in server trust
+
+Add-in-contributed servers re-check the contributing add-in’s enabled state, consent and active
+revocation list before launch, including after its own asynchronous gate returns (#3177). A refusal
+names the add-in in the connection attempt. Disabling an add-in or revoking its consent unregisters
+its servers immediately; already loaded in-process add-in code still requires a restart to unload.
+
 ## Reading the conversation
 
 Conversation exports ask before replacing any existing messages or derived manifest file, naming both

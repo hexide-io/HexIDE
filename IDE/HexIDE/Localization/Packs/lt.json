@@ -1000,6 +1000,7 @@
     "Str.Dialog.MessageBox.Button.Abort": "Nutraukti",
     "Str.Dialog.MessageBox.Button.Retry": "Bandyti dar kartą",
     "Str.Dialog.MessageBox.Button.Ignore": "Nepaisyti",
+    "Str.Addins.ServerLaunchRefused": "Priedo „{0}“ kalbos serverio paleidimas atmestas.",
     "Str.Addins.Incompatible": "Nepavyko įkelti priedo: reikia schemos {0}, bent HexIDE {1}; ši versija palaiko schemą {2}, HexIDE {3}. Schemos arba versijos reikalavimas nepalaikomas arba netinkamas.",
     "Str.MakeProject.NoStartup": "Nerastas pradinis projektas.",
     "Str.MakeProject.Browser": "Naršyklėje programos kurti negalima. Naudokite darbalaukiui skirtą HexIDE versiją.",

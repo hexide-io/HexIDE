@@ -999,6 +999,7 @@
     "Str.Dialog.MessageBox.Button.Abort": "中止",
     "Str.Dialog.MessageBox.Button.Retry": "重試",
     "Str.Dialog.MessageBox.Button.Ignore": "忽略",
+    "Str.Addins.ServerLaunchRefused": "已拒絕啟動增益集「{0}」的語言伺服器。",
     "Str.Addins.Incompatible": "無法載入增益集：要求結構描述 {0}、最低 HexIDE {1}；此組建支援結構描述 {2}、HexIDE {3}。結構描述或版本要求不受支援或無效。",
     "Str.MakeProject.NoStartup": "找不到啟動專案。",
     "Str.MakeProject.Browser": "無法在瀏覽器中產生程式。請使用桌面版 HexIDE。",

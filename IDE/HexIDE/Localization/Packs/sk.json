@@ -1000,6 +1000,7 @@
     "Str.Dialog.MessageBox.Button.Abort": "Prerušiť",
     "Str.Dialog.MessageBox.Button.Retry": "Opakovať",
     "Str.Dialog.MessageBox.Button.Ignore": "Ignorovať",
+    "Str.Addins.ServerLaunchRefused": "Spustenie jazykového servera doplnku „{0}“ bolo odmietnuté.",
     "Str.Addins.Incompatible": "Doplnok sa nedá načítať: požadovaná schéma {0}, minimálna verzia HexIDE {1}; táto zostava podporuje schému {2}, HexIDE {3}. Požiadavka na schému alebo verziu je nepodporovaná alebo neplatná.",
     "Str.MakeProject.NoStartup": "Nenašiel sa žiadny spúšťací projekt.",
     "Str.MakeProject.Browser": "Zostavenie programu nie je dostupné v prehliadači. Použite počítačovú verziu HexIDE.",

@@ -999,6 +999,7 @@
     "Str.Dialog.MessageBox.Button.Abort": "Interrompi",
     "Str.Dialog.MessageBox.Button.Retry": "Riprova",
     "Str.Dialog.MessageBox.Button.Ignore": "Ignora",
+    "Str.Addins.ServerLaunchRefused": "Avvio del server di linguaggio per il componente aggiuntivo «{0}» rifiutato.",
     "Str.Addins.Incompatible": "Impossibile caricare il componente aggiuntivo: schema richiesto {0}, HexIDE minimo {1}; questa build supporta lo schema {2}, HexIDE {3}. Il requisito di schema o versione non è supportato o non è valido.",
     "Str.MakeProject.NoStartup": "Nessun progetto di avvio trovato.",
     "Str.MakeProject.Browser": "La creazione di un programma non è disponibile nel browser. Utilizzare la versione desktop di HexIDE.",

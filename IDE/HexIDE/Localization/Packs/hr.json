@@ -1000,6 +1000,7 @@
     "Str.Dialog.MessageBox.Button.Abort": "Prekini",
     "Str.Dialog.MessageBox.Button.Retry": "Pokušaj ponovno",
     "Str.Dialog.MessageBox.Button.Ignore": "Zanemari",
+    "Str.Addins.ServerLaunchRefused": "Pokretanje jezičnog poslužitelja za dodatak „{0}” odbijeno je.",
     "Str.Addins.Incompatible": "Nije moguće učitati dodatak: potrebna shema {0}, najmanja verzija HexIDE-a {1}; ova izgradnja podržava shemu {2}, HexIDE {3}. Zahtjev za shemom ili verzijom nije podržan ili nije valjan.",
     "Str.MakeProject.NoStartup": "Početni projekt nije pronađen.",
     "Str.MakeProject.Browser": "Izgradnja programa nije dostupna u pregledniku. Koristite stolnu verziju HexIDE-a.",
