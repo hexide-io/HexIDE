@@ -76,24 +76,25 @@ public repository. Do not reason about whether yours is "obviously" generic; jus
 
 ### The foreign-server tests fetch real third-party language servers
 
-`HexIDE.Tests` includes twenty-four tests that drive language servers **HexIDE did not write** — the only
+`HexIDE.Tests` drives language servers **HexIDE did not write** — the only
 check that the client speaks LSP to something that does not accommodate it. A client and server by one hand
 agree with each other rather than with the specification, which is how three defects hid until a foreign
 server was pointed at (`ForeignServerFixture.cs` has the history).
 
-**They do not cover teardown, and a fourth defect hid there.** Both end-to-end tests dispose the
-registry as best-effort (`ForeignServerIntegrationTests.cs`, `TwoForeignServersTests.cs`), and
-`VBLspClient.StopAsync` swallows its own exceptions — so a `shutdown` that **two of the three** reject
-(rumdl, and a second server on another framework; texlab happens to accept it) was invisible to all of
-them. Worse, two tests in
-`HexIDE.VbLspServer.Tests` sent the same non-conformant request themselves, and the bundled server accepts
-it — so the suite agreed with the bug. It was found by driving a *fourth*, externally-authored server and
-reading its **exit code**: LSP has a server exit 0 when a shutdown preceded exit and 1 otherwise, which
-made HexIDE's every clean exit look like a crash to any supervisor (hexide-io/HexIDE#312).
+**Teardown is covered by `RealServerShutdownTests`** (#491): all five foreign servers and the bundled
+one go through `didClose`, `shutdown` and `exit`, with the shutdown reply checked and each process's
+exit code read. The results are in [`docs/foreign-language-servers.md`](docs/foreign-language-servers.md).
+
+That coverage was missing when a non-conformant `shutdown` hid behind best-effort registry disposal
+and `VBLspClient.StopAsync` swallowing its own exceptions. Tests in `HexIDE.VbLspServer.Tests` sent the
+same request themselves, and the bundled server accepted it — so the suite agreed with the bug. It was
+found by driving an externally-authored server and reading its **exit code**: LSP has a server exit 0
+when a shutdown preceded exit and 1 otherwise, which made HexIDE's every clean exit look like a crash to
+any supervisor (hexide-io/HexIDE#312).
 
 The lesson generalises past the one bug: **an assertion that a request did not throw is not an
-assertion that the server accepted it**, and teardown is where this suite is weakest. When adding a
-protocol test, prefer asserting the wire frame or an observable server-side consequence over asserting
+assertion that the server accepted it**. When adding a protocol test, prefer asserting the wire frame
+or an observable server-side consequence over asserting
 that our own call returned. `ShutdownWireShapeTests` is the worked example — it reads the bytes,
 because a `[JsonRpcMethod]` handler cannot tell you whether `params` arrived as `[]`, `{}`, `null`, or not at
 all, and those four are not interchangeable to a real server. Measured against rumdl 0.2.64,
@@ -103,13 +104,13 @@ Five servers. Four are chosen for **framework** diversity rather than language d
 come from the server's LSP library, not from the language being analysed — and the fifth for a delivery
 *model* nothing else uses:
 
-| Server | Tests | Framework | Obtained as |
-|---|---|---|---|
-| rumdl (Markdown) | 6 | `tower-lsp` | pinned binary download |
-| texlab (LaTeX) | 5 | `lsp-server` | pinned binary download |
-| vscode-json-language-server | 3 | `vscode-languageserver-node` | `npm ci` against a committed lockfile |
-| clangd (C/C++) | 2 | LLVM's own | pinned binary download |
-| ruff (Python) | 2 | `lsp-server` (shared with texlab) | pinned binary download |
+| Server | Framework | Obtained as |
+|---|---|---|
+| rumdl (Markdown) | `tower-lsp` | pinned binary download |
+| texlab (LaTeX) | `lsp-server` | pinned binary download |
+| vscode-json-language-server | `vscode-languageserver-node` | `npm ci` against a committed lockfile |
+| clangd (C/C++) | LLVM's own | pinned binary download |
+| ruff (Python) | `lsp-server` (shared with texlab) | pinned binary download |
 
 **Read [`docs/foreign-language-servers.md`](docs/foreign-language-servers.md) before adding a sixth** — it
 carries the full reasoning, including why a GPL-licensed server is consistent with a 100%-MIT tree, and the
@@ -133,9 +134,15 @@ ever lands beside tracked files.
 - **Forbid skipping**: `HEXIDE_REQUIRE_FOREIGN_LSP=1` turns "no server available" into a failure. CI sets
   this, because a silently skipped proof is the failure mode this whole fixture exists to avoid.
 
-**The three JSON tests need Node on `PATH`** — it is a harness dependency only, and nothing in HexIDE
+Every test that drives one carries `[ForeignServerFact]` or `[ForeignServerTheory]`, so
+`git grep -l -E '\[ForeignServer(Fact|Theory)' -- IDE/HexIDE.Tests` lists them; a hand-kept list or count
+drifts, which is why there is none here. `ForeignServerFixture.cs` defines the servers and the availability
+attributes, `RequiredServersTests` guards acquisition, and
+[`docs/foreign-language-servers.md`](docs/foreign-language-servers.md) says what each server proves.
+
+**The JSON-server tests need Node on `PATH`** — it is a harness dependency only, and nothing in HexIDE
 requires it. A machine without Node skips them, except under `HEXIDE_REQUIRE_FOREIGN_LSP=1`, where they
-fail. **WSL has no Node by default, so a WSL run fails those three under that variable** until
+fail. **WSL has no Node by default, so a WSL run fails those tests under that variable** until
 `sudo apt-get install -y nodejs npm` is run there; CI installs it explicitly.
 
 Bumping a version means editing the version and digests in `ForeignServerAcquisition.cs`. **Digest
@@ -250,9 +257,10 @@ podman run --rm \
   `GrammarParityTests.RepoRoot()` finds no directory holding both `IDE/` and `LspServer/`.
 - **Mount the NuGet volume.** `--rm` discards the container's filesystem, so without it every run
   re-restores from scratch.
-- **Expect 4 skips in `HexIDE.Tests`, not 1.** The SDK image has no Node, so the three
-  reference-implementation tests skip on top of the usual `[WindowsOnlyFact]`. CI installs Node explicitly
-  and runs them; do not set `HEXIDE_REQUIRE_FOREIGN_LSP=1` here unless you have added Node to the image.
+- **The SDK image has no Node**, so JSON-server tests skip, as do `[WindowsOnlyFact]` tests on Linux.
+  See the foreign-server classes above and [`docs/foreign-language-servers.md`](docs/foreign-language-servers.md)
+  for coverage. CI installs Node explicitly; do not set `HEXIDE_REQUIRE_FOREIGN_LSP=1` here unless you
+  have added Node to the image.
 
 **Measured on first setup (2026-09-06): no divergence.** `HexIDE.Tests` 961/965 and
 `HexIDE.Runtime.Tests` 1432/1432 in the container, matching CI exactly, against 965 and 1432 under WSL. So
