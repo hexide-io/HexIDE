@@ -21,6 +21,13 @@ public sealed class CommandManager : AvaloniaObject
     private static CommandManager? s_commandManager;
     private static readonly WeakReference<IInputElement?> s_inputElement = new(default);
 
+    private sealed class MenuOpening
+    {
+        public bool ByPointer;
+    }
+
+    private static readonly ConditionalWeakTable<object, MenuOpening> s_menuOpenings = new();
+
     private DispatcherOperation? _requerySuggestedOperation;
     private event EventHandler? PrivateRequerySuggested;
     // The wrapper must live as long as the listener, without the event rooting that listener.
@@ -114,9 +121,41 @@ public sealed class CommandManager : AvaloniaObject
         ExecutedEvent.AddClassHandler<InputElement>(ExecutedEventHandler);
         InputElement.GotFocusEvent.AddClassHandler<InputElement>(GotFocusEventHandler);
         Control.UnloadedEvent.AddClassHandler<Control>(UnloadedEventHandler);
+        Control.ContextRequestedEvent.AddClassHandler<Control>((control, args) =>
+        {
+            if (args.Handled) return;
+            var byPointer = args.TryGetPosition(null, out _);
+            if (control.ContextMenu is { } menu)
+                s_menuOpenings.GetValue(menu, _ => new MenuOpening()).ByPointer = byPointer;
+            else if (control.ContextFlyout is MenuFlyout flyout)
+            {
+                var opening = s_menuOpenings.GetValue(flyout, _ =>
+                {
+                    var state = new MenuOpening();
+                    flyout.Opening += (_, _) =>
+                    {
+                        if (flyout.Popup.Child is MenuFlyoutPresenter presenter)
+                        {
+                            // Focus the menu itself for pointer input, so Enter has no item to
+                            // invoke and the first arrow key starts navigation from no selection.
+                            presenter.Focusable = state.ByPointer;
+                            if (state.ByPointer) presenter.SelectedIndex = -1;
+                        }
+                        state.ByPointer = false;
+                    };
+                    return state;
+                });
+                opening.ByPointer = byPointer;
+            }
+        });
         ContextMenu.OpenedEvent.AddClassHandler<ContextMenu>((menu, args) =>
         {
             if (args.Source != menu) return;
+            if (s_menuOpenings.TryGetValue(menu, out var opening) && opening.ByPointer)
+            {
+                opening.ByPointer = false;
+                return;
+            }
             menu.UpdateLayout();
             foreach (var container in menu.GetRealizedContainers())
             {
