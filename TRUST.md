@@ -56,3 +56,16 @@ first-party status. Pack with your own key, and keep it private.
 Publish your add-in signing key's fingerprint somewhere users already trust you (your website, repo, or
 release notes). A user can then compare it against the **Publisher** row in HexIDE's trust inspector.
 The fingerprint identifies the key independently of the issued display name.
+
+## Signing record identifiers
+
+New publisher and intermediate ids issued by the packer use 3–64 characters: lowercase ASCII letters
+and digits, in parts joined by single dots or hyphens (`^[a-z0-9]+([.-][a-z0-9]+)*$`). Leading, trailing
+or repeated separators, path separators, whitespace and control characters are refused. This issuance
+rule does not change verification of existing packages. Both issuance commands require display names
+to be trimmed, non-empty, at most 128 characters and free of control, Unicode format, line-separator
+and paragraph-separator characters.
+
+Release key generation, the self-contained Windows publish command and the root rotation file checklist
+are in the [packer README](IDE/HexIDE.AddinPacker/README.md). The embedded revocation floor must be
+re-signed when rotating the root: `RevocationStore` verifies its signature against that root.
