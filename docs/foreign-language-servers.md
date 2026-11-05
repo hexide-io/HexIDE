@@ -185,6 +185,13 @@ history is a fraction of that, and every version bump would add the same again p
 
 Linux uses musl builds where offered, so one binary runs on any distribution.
 
+The advisory `build-ide (windows-arm, advisory)` job runs on `windows-11-arm` (#3139).
+For rumdl, texlab, clangd and ruff, `win-arm64` deliberately selects the existing Windows x64
+archive under Windows' emulation, retaining its digest and provenance. The JSON server uses the
+Node runtime installed by `actions/setup-node` and the same npm lockfile. The leg keeps
+`HEXIDE_REQUIRE_FOREIGN_LSP=1`; an unavailable server fails visibly. Execution on Arm awaits
+its first CI run; the Linux asset tests check the pin choices, not emulation.
+
 A checksum mismatch deletes the download and records the expected and actual digests. The affected
 foreign-server tests skip with a checksum-specific reason; an ordinary test in `RequiredServersTests`
 fails even when `HEXIDE_REQUIRE_FOREIGN_LSP` is unset. Discovery never throws for a mismatch (#487).
@@ -211,7 +218,7 @@ letting a row of hex imply they are the same thing.
 
 ## Bumping a version
 
-Edit the version and the five digests in `ForeignServerAcquisition.cs`. Take each digest from the
-publisher's own checksum file where one exists — never from a file you downloaded yourself, which verifies
+Edit the version and digests in `ForeignServerAcquisition.cs`, including the Windows on Arm aliases.
+Take each digest from the publisher's own checksum file where one exists — never from a file you downloaded yourself, which verifies
 nothing beyond that the download completed. Where the publisher offers none, compute it and leave the
 provenance marked as computed here.

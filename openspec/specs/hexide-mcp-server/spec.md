@@ -1344,6 +1344,17 @@ holds, in a live, focused window as in a headless one, and not the text it held 
 - **WHEN** `type_text` in its default mode writes `Form` into the focused Find What box
 - **THEN** a snapshot of the dialog shows `Form` in the box, with the caret after it
 
+### Requirement: Escape SHALL retain focus in an ancestor's attached popup
+For unmodified Escape, `press_key` SHALL retain keyboard focus in an open attached menu or flyout whose
+placement target contains the addressed control, and SHALL name the popup receiver's window-rooted path
+in the reply. Other keys SHALL keep their existing focus routing.
+
+#### Scenario: A tree node with its tree's context flyout open
+
+- **WHEN** the TreeView's ContextFlyout has keyboard focus and `press_key` sends Escape to a node under that tree
+- **THEN** Escape reaches the focused popup control without moving focus to the node first
+- **AND** the flyout closes and the reply names the popup receiver's path
+
 ### Requirement: press_key reads a chord written as one key
 `press_key` SHALL read a `key` written as a chord, such as `Ctrl+H`, as its last part, with the parts before it
 as modifiers added to any `modifiers` given, and its reply SHALL say how it read the chord. A chord whose leading

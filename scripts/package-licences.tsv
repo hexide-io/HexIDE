@@ -35,6 +35,7 @@ Dock.Model.MVVM	MIT
 EmmyLua.LanguageServer.Framework	MIT
 LanguageExt.Core	MIT
 MessagePack	MIT
+Microsoft.CodeAnalysis.CSharp	MIT
 Microsoft.Extensions.Logging.Abstractions	MIT
 Microsoft.Testing.Extensions.HangDump	MIT
 ModelContextProtocol.AspNetCore	Apache-2.0

@@ -194,6 +194,36 @@ public class LogicallyParentedPopupTests
         finally { window.Close(); }
     }
 
+    [AvaloniaFact]
+    public void Escape_on_a_tree_node_closes_its_ancestors_context_flyout()
+    {
+        var command = new MenuItem { Header = "Properties" };
+        var flyout = new MenuFlyout { Items = { command } };
+        var item = new TreeViewItem { Header = "Form1", IsSelected = true };
+        Avalonia.Automation.AutomationProperties.SetAutomationId(item, "Node");
+        var tree = new TreeView { Items = { item }, ContextFlyout = flyout };
+        var window = Show(tree);
+        try
+        {
+            var path = UiAutomationDriver.PathWithin(window, "Window", item)!;
+            var target = UiAutomationDriver.Resolve(window, path).control!;
+            flyout.ShowAt(tree);
+            Dispatcher.UIThread.RunJobs();
+            command.Focus().Should().BeTrue();
+            var menuPath = UiAutomationDriver.PathWithin(window, "Window", command)!;
+            UiAutomationDriver.Resolve(window, path).control.Should().BeSameAs(target);
+
+            var outcome = UiAutomationDriver.PressKey(target, "Escape", null, path);
+            Dispatcher.UIThread.RunJobs();
+
+            outcome.Success.Should().BeTrue(outcome.Error);
+            flyout.IsOpen.Should().BeFalse();
+            outcome.Detail.Should().Contain(menuPath).And.NotContain("moved focus");
+            Find(UiAutomationDriver.Dump(window, "Window", 20, false), "Properties").Should().BeNull();
+        }
+        finally { flyout.Hide(); window.Close(); }
+    }
+
     [AvaloniaTheory]
     [InlineData("resolve")]
     [InlineData("invoke")]
