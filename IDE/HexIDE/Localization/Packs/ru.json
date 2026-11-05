@@ -999,6 +999,7 @@
     "Str.Dialog.MessageBox.Button.Abort": "Прервать",
     "Str.Dialog.MessageBox.Button.Retry": "Повторить",
     "Str.Dialog.MessageBox.Button.Ignore": "Пропустить",
+    "Str.Addins.ServerLaunchRefused": "Запуск языкового сервера надстройки «{0}» запрещён.",
     "Str.Addins.Incompatible": "Не удалось загрузить надстройку: требуется схема {0}, минимум HexIDE {1}; эта сборка поддерживает схему {2}, HexIDE {3}. Требование к схеме или версии не поддерживается или некорректно.",
     "Str.MakeProject.NoStartup": "Стартовый проект не найден.",
     "Str.MakeProject.Browser": "Создание программы недоступно в браузере. Используйте настольную версию HexIDE.",
