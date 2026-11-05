@@ -35,6 +35,7 @@ public partial class ProjectService : IProjectService
     private readonly IHeaderRefresher headerRefresher;
     private readonly ArchiveProjectService? archives;
     private readonly Func<ILspClient>? lspClient;
+    private readonly ContributedProjects? contributed;
 
     public ProjectService(Func<NewProjectViewModel> newProjectVm,
         IWindowManager windowManager,
@@ -47,8 +48,10 @@ public partial class ProjectService : IProjectService
         ILocalizationService localization,
         IHeaderRefresher headerRefresher,
         ArchiveProjectService? archives = null,
-        Func<ILspClient>? lspClient = null)
+        Func<ILspClient>? lspClient = null,
+        ContributedProjects? contributed = null)
     {
+        this.contributed = contributed;
         this.newProjectVm = newProjectVm;
         this.windowManager = windowManager;
         this.eventBus = eventBus;
@@ -246,6 +249,14 @@ public partial class ProjectService : IProjectService
     {
         if (!DocumentLookup.DocumentsOf(document.Project).Contains(document))
             return;
+        if (document.Project.ContributedBy is not null)
+        {
+            await windowManager.MessageBox(
+                string.Format(localization.GetString("Str.ContributedProject.MembershipReadOnly"), document.Project.Name,
+                    document.Project.ContributorTitle),
+                icon: MessageBoxIcon.Information);
+            return;
+        }
 
         eventBus.Publish(new ApplyAllUnsavedChangesEvent());
         var changed = new SaveChangesViewModel();
@@ -312,14 +323,20 @@ public partial class ProjectService : IProjectService
             throw new OperationCanceledException();
         }
 
+        // The add-ins' project types beside HexIDE's own, each with its own filter as well, and each as it was contributed:
+        // a whole file name such as ".rdproj" is offered as that name, so the picker shows no Ledger.rdproj that the type
+        // would not read.
+        var types = contributed?.Types ?? [];
+        static IReadOnlyList<string> Picked(ContributedProjectType type) => type.Type.FileNames;
         var files = await windowManager.OpenFilePickerAsync(new FilePickerOpenOptions
         {
             Title = "Open Project",
             FileTypeFilter =
             [
-                new("Project Files") { Patterns = ["*.vbp", "*.vbg", "*.twinproj"] },
+                new("Project Files") { Patterns = ["*.vbp", "*.vbg", "*.twinproj", .. types.SelectMany(Picked)] },
                 new("Project Group") { Patterns = ["*.vbg"] },
                 new("Project")       { Patterns = ["*.vbp"] },
+                .. types.Select(type => new FilePickerFileType(type.Type.Title) { Patterns = Picked(type) }),
                 new("All Files")     { Patterns = ["*.*"] }
             ],
             AllowMultiple = false
@@ -358,7 +375,239 @@ public partial class ProjectService : IProjectService
             await OpenGroupFromPath(projectPath);
             return;
         }
+        await OpenProjectFile(projectPath);
+    }
+
+    // Every project file is read through here, whether Open Project, the recent list or a group names it: a project type an
+    // add-in contributed first, then a .vbp, which is HexIDE's own. Anything else is a file no loaded project type reads,
+    // such as an add-in's whose add-in is not loaded, and is refused: read as a .vbp it would open as junk, and a later save
+    // would write a .vbp over it.
+    private async Task OpenProjectFile(string projectPath)
+    {
+        if (contributed?.Find(projectPath) is { } type)
+        {
+            await OpenContributed(type, projectPath);
+            return;
+        }
+        if (!string.Equals(Path.GetExtension(projectPath), ".vbp", StringComparison.OrdinalIgnoreCase))
+        {
+            await windowManager.MessageBox(
+                string.Format(localization.GetString("Str.ContributedProject.NoReader"), Path.GetFileName(projectPath)),
+                icon: MessageBoxIcon.Information);
+            return;
+        }
         await LoadProjectFromDisk(projectPath);
+    }
+
+    // A project file an add-in reads: its content becomes a ProjectDefinition, loaded as a .vbp's is from there on, with
+    // its membership the add-in's to change.
+    private async Task OpenContributed(ContributedProjectType type, string projectPath)
+    {
+        Log.Information("ProjectService: Opening {ProjectPath} as {Type}, from {Origin}", projectPath, type.Type.Title, type.Origin);
+        if (projectManager.LoadedProjects.Any(p => p.AbsolutePath != null && Path.GetFullPath(projectPath) == Path.GetFullPath(p.AbsolutePath)))
+        {
+            await windowManager.MessageBox($"Project {Path.GetFileName(projectPath)} is already opened.", icon: MessageBoxIcon.Information);
+            throw new OperationCanceledException();
+        }
+
+        var changes = new ContributedProjectChanges(this);
+        var attached = false;
+        AddinProjectContent content;
+        ProjectDefinition project;
+        IReadOnlyList<string> problems;
+        try
+        {
+            try
+            {
+                // Called off if the type is taken out meanwhile, as when its add-in is unloaded.
+                content = await type.Type.OpenAsync(projectPath, changes, type.Withdrawn);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                Log.Error(ex, "{Origin} could not read {ProjectPath}", type.Origin, projectPath);
+                await windowManager.MessageBox(
+                    string.Format(localization.GetString("Str.ContributedProject.OpenError"), Path.GetFileName(projectPath), type.Origin, ex.Message),
+                    icon: MessageBoxIcon.Error);
+                return;
+            }
+
+            (project, problems) = await ContributedProjects.BuildAsync(projectPath, content, type, HostAnsi,
+                baselineStore.Record, localization);
+            projectManager.AddProject(project);
+            recentProjects.Add(projectPath);
+            await sidecar.LoadAsync(project);
+            SnapshotRenderBaselines(project);
+            changes.Attach(project);
+            attached = true;
+        }
+        finally
+        {
+            // An open that failed tells the add-in so, and nothing it reports is kept for a project that never was.
+            if (!attached)
+                changes.Close();
+        }
+
+        if (problems.Count > 0)
+            await windowManager.MessageBox(
+                localization.GetString("Str.ProjectLoad.Heading") + "\n" + string.Join("\n", problems), icon: MessageBoxIcon.Warning);
+
+        eventBus.Publish(new ProjectOpenedEvent(project));
+    }
+
+    // What an add-in reports about a project it opened, applied on the UI thread through the same membership changes a
+    // .vbp's go through, so every view of the project follows. Each is applied once the one reported before it is, as an
+    // add awaits its file and a remove of the same member must find it added. Reports before the project exists wait for
+    // it; those after it closed, or after its open failed, are dropped.
+    private sealed class ContributedProjectChanges(ProjectService owner) : IAddinProjectChanges
+    {
+        private readonly List<Func<ProjectDefinition, Task>> _early = [];
+        private readonly CancellationTokenSource _closed = new();
+        private ProjectDefinition? _project;
+        private Task _applied = Task.CompletedTask;
+
+        public CancellationToken Closed => _closed.Token;
+
+        public void Attach(ProjectDefinition project)
+        {
+            _project = project;
+            owner.projectManager.ProjectUnloaded += OnUnloaded;
+            foreach (var change in _early) Enqueue(change);
+            _early.Clear();
+        }
+
+        // On the UI thread, as every report is handled. The add-in's callbacks on Closed run off it, so one that throws
+        // can't stop the unload, or the exit, that closed the project; it is logged.
+        public void Close()
+        {
+            if (_closed.IsCancellationRequested) return;
+            owner.projectManager.ProjectUnloaded -= OnUnloaded;
+            _early.Clear();
+            _ = _closed.CancelAsync().ContinueWith(
+                cancelled => Log.Warning(cancelled.Exception, "An add-in's handler of a closed project failed"),
+                CancellationToken.None, TaskContinuationOptions.OnlyOnFaulted, TaskScheduler.Default);
+        }
+
+        private void OnUnloaded(ProjectDefinition project)
+        {
+            if (project == _project) Close();
+        }
+
+        public void MemberAdded(AddinProjectMember member) => Post(project => owner.AddContributedMember(project, member));
+
+        public void MemberRemoved(string path) => Post(project => owner.RemoveContributedMember(project, path));
+
+        public void MemberMoved(string oldPath, string newPath) => Post(project =>
+        {
+            owner.MoveContributedMember(project, oldPath, newPath);
+            return Task.CompletedTask;
+        });
+
+        public void ReferencesChanged(IReadOnlyList<AddinProjectReference> references)
+        {
+            var copy = references.ToArray();
+            Post(project =>
+            {
+                project.SetReferences(copy.Select(ContributedProjects.ToVbReference));
+                return Task.CompletedTask;
+            });
+        }
+
+        private void Post(Func<ProjectDefinition, Task> change) => Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+        {
+            if (_closed.IsCancellationRequested) return;
+            if (_project is null) _early.Add(change);
+            else Enqueue(change);
+        });
+
+        private void Enqueue(Func<ProjectDefinition, Task> change)
+        {
+            var previous = _applied;
+            _applied = After(previous);
+
+            async Task After(Task before)
+            {
+                await before;
+                await Apply(change);
+            }
+        }
+
+        // Never throws, so a change that fails leaves the next one to be applied.
+        private async Task Apply(Func<ProjectDefinition, Task> change)
+        {
+            if (_closed.IsCancellationRequested || _project is not { } project || !owner.projectManager.LoadedProjects.Contains(project))
+                return;
+            try
+            {
+                await change(project);
+            }
+            catch (Exception ex)
+            {
+                Log.Warning(ex, "A change {Origin} reported to {Project} could not be applied", project.ContributedBy, project.Name);
+            }
+        }
+    }
+
+    private async Task AddContributedMember(ProjectDefinition project, AddinProjectMember member)
+    {
+        object? added;
+        try
+        {
+            added = await ContributedProjects.AddMemberAsync(project, member, HostAnsi, baselineStore.Record, localization);
+        }
+        catch (ContributedProjects.MemberNameTakenException ex)
+        {
+            await windowManager.MessageBox(ex.Message, icon: MessageBoxIcon.Warning);
+            return;
+        }
+        // Only a module this added: one the project had already keeps its baseline, and with it any unsaved edits.
+        if (added is ModuleDefinition module)
+            SnapshotRenderBaseline(module);
+    }
+
+    private async Task RemoveContributedMember(ProjectDefinition project, string path)
+    {
+        switch (ContributedProjects.MemberAt(project, path))
+        {
+            case ModuleDefinition module:
+                // Unloaded as Remove unloads a .vbp's module: its window closes and the language server lets it go. Its
+                // program has taken it out already, so the one question left is whether edits not yet saved are kept.
+                eventBus.Publish(new ApplyAllUnsavedChangesEvent());
+                if (IsDirty(module)
+                    && await windowManager.MessageBox(
+                        string.Format(localization.GetString("Str.ContributedProject.RemovedWithChanges"), module.Name, project.Name),
+                        buttons: MessageBoxButtons.YesNo, icon: MessageBoxIcon.Question) == MessageBoxResult.Yes)
+                    await SaveModule(module, saveAs: false);
+                eventBus.Publish(new ModuleUnloadedEvent(module));
+                project.DeleteModule(module);
+                break;
+            case RelatedDocumentDefinition document:
+                project.DeleteRelatedDocument(document);
+                break;
+        }
+    }
+
+    private void MoveContributedMember(ProjectDefinition project, string oldPath, string newPath)
+    {
+        switch (ContributedProjects.MemberAt(project, oldPath))
+        {
+            case ModuleDefinition { AbsolutePath: { } from } module:
+                // Its file moved with the code in it as it was, so what HexIDE last read and wrote there moves too: edits
+                // not yet saved stay unsaved, and the file isn't taken for one changed outside HexIDE.
+                if (renderBaselines.Remove(from, out var rendered))
+                    renderBaselines[newPath] = rendered;
+                if (baselineStore.TryGet(from) is { } onDisk)
+                {
+                    baselineStore.Remove(from);
+                    baselineStore.Record(newPath, onDisk);
+                }
+                module.AbsolutePath = newPath;
+                eventBus.Publish(new ModuleMovedEvent(module));
+                break;
+            case RelatedDocumentDefinition document:
+                document.AbsolutePath = newPath;
+                document.Name = Path.GetFileName(newPath);
+                break;
+        }
     }
 
     private async Task OpenGroupFromPath(string groupPath)
@@ -376,7 +625,7 @@ public partial class ProjectService : IProjectService
         foreach (var relPath in serializedGroup.ProjectRelativePaths)
         {
             var absPath = Path.GetFullPath(Path.Combine(groupDir, ToLocalRelativePath(relPath)));
-            await LoadProjectFromDisk(absPath);
+            await OpenProjectFile(absPath);
         }
 
         if (serializedGroup.StartupProjectRelativePath != null)
@@ -704,7 +953,8 @@ public partial class ProjectService : IProjectService
 
     /// <summary>
     /// Where <paramref name="document"/> will be written, asking the developer when it has nowhere yet or
-    /// <paramref name="saveAs"/> is set. Null when HexIDE cannot reproduce it, which is banked as a refusal.
+    /// <paramref name="saveAs"/> is set. Null when HexIDE cannot reproduce it, which is banked as a refusal, and for a
+    /// contributed project's own file, which HexIDE never writes.
     /// </summary>
     /// <exception cref="OperationCanceledException">A picker was dismissed.</exception>
     private async Task<Destination?> DestinationOf(object document, bool saveAs, bool userSave)
@@ -739,6 +989,12 @@ public partial class ProjectService : IProjectService
                 return module.AbsolutePath is { } modulePath && !saveAs && (!userSave || !IsScratchFile(module.Owner, modulePath))
                     ? new Destination(module, modulePath)
                     : new Destination(module, await ChooseModulePath(module), Chosen: true);
+
+            // A contributed project's file is its add-in's program's to write, so a save never has it to write: no picker
+            // asks where it goes, no check renders it, and Save As puts it nowhere new or in the recent list. Its
+            // modules are saved as ever.
+            case ProjectDefinition { ContributedBy: not null }:
+                return null;
 
             case ProjectDefinition project:
                 return project.AbsolutePath is { } projectPath && !saveAs && (!userSave || !IsScratchFile(project, projectPath))
@@ -1125,6 +1381,8 @@ public partial class ProjectService : IProjectService
 
     public async Task EditProjectProperties(ProjectDefinition project)
     {
+        if (await RefusedSettings(project))
+            return;
         var vm = new ProjectPropertiesViewModel(project, proposed =>
             !ProjectNaming.IsValidName(proposed)
                 ? string.Format(localization.GetString("Str.Naming.Msg.NotAVb6Name"), proposed)
@@ -1139,14 +1397,30 @@ public partial class ProjectService : IProjectService
 
     public async Task EditProjectReferences(ProjectDefinition project)
     {
+        if (await RefusedSettings(project))
+            return;
         var vm = new ReferencesViewModel(project, referenceLibraryService, windowManager);
         if (!await windowManager.ShowDialog(vm))
             return;
         vm.Apply(project);
     }
 
+    // A contributed project's properties, references and components are kept in its add-in's file, which HexIDE never
+    // writes: a change made here would be lost on close, unprompted, or overwritten by the add-in's next report.
+    private async Task<bool> RefusedSettings(ProjectDefinition project)
+    {
+        if (project.ContributedBy is null)
+            return false;
+        await windowManager.MessageBox(
+            string.Format(localization.GetString("Str.ContributedProject.SettingsReadOnly"), project.Name, project.ContributorTitle),
+            icon: MessageBoxIcon.Information);
+        return true;
+    }
+
     public async Task EditProjectComponents(ProjectDefinition project)
     {
+        if (await RefusedSettings(project))
+            return;
         var vm = new ComponentsViewModel(project, windowManager, localization);
         await windowManager.ShowDialog(vm);
     }
@@ -1178,6 +1452,16 @@ public partial class ProjectService : IProjectService
 
     private async Task MakeProjectInternal(ProjectDefinition projectDefinition, MakeOutcomes.Make make)
     {
+        // Make writes the project's own file into the package, which for a project an add-in read would be a .vbp
+        // in place of the file the add-in owns.
+        if (projectDefinition.ContributedBy is { } contributor)
+        {
+            make.NotMade($"{projectDefinition.Name} is opened by the {contributor} add-in, so HexIDE doesn't make it", true);
+            await windowManager.MessageBox(string.Format(localization.GetString("Str.ContributedProject.NotMade"),
+                projectDefinition.Name, projectDefinition.ContributorTitle), icon: MessageBoxIcon.Information);
+            throw new OperationCanceledException();
+        }
+
         if (OperatingSystem.IsBrowser())
         {
             make.NotMade("a program can't be made in the browser", true);
@@ -1481,7 +1765,28 @@ public partial class ProjectService : IProjectService
             || project.PreservedItemLines.Any(line => KeptLineNames(project, line, path));
     }
 
-    public Task<FormDefinition> AddNewForm(ProjectDefinition project, string name, bool interactive = true) =>
+    // A contributed project's membership is its add-in's program's, so every add is refused here, whichever route reaches
+    // it: a member HexIDE added would be one the project file never lists, which the next save writes all the same. A
+    // caller with someone to tell is told why; an automation caller is given the reason in the exception.
+    private async Task RefuseContributedMembership(ProjectDefinition project, bool interactive)
+    {
+        if (project.ContributedBy is null)
+            return;
+        var reason = string.Format(localization.GetString("Str.ContributedProject.MembershipReadOnly"), project.Name,
+            project.ContributorTitle);
+        if (!interactive)
+            throw new InvalidOperationException(reason);
+        await windowManager.MessageBox(reason, icon: MessageBoxIcon.Information);
+        throw new OperationCanceledException();
+    }
+
+    public async Task<FormDefinition> AddNewForm(ProjectDefinition project, string name, bool interactive = true)
+    {
+        await RefuseContributedMembership(project, interactive);
+        return await AddNewFormCore(project, name, interactive);
+    }
+
+    private Task<FormDefinition> AddNewFormCore(ProjectDefinition project, string name, bool interactive) =>
         WithSaveRefusals(() =>
         {
             var form = FormDefinition.NewForm(project, FormComponentClass.Instance, name);
@@ -1495,10 +1800,13 @@ public partial class ProjectService : IProjectService
             return Task.FromResult(form);
         }, interactive);
 
-    public Task<ModuleDefinition> AddNewModule(ProjectDefinition project, string name, ModuleKind kind,
-        bool interactive = true) =>
-        WithSaveRefusals(() => Task.FromResult(
+    public async Task<ModuleDefinition> AddNewModule(ProjectDefinition project, string name, ModuleKind kind,
+        bool interactive = true)
+    {
+        await RefuseContributedMembership(project, interactive);
+        return await WithSaveRefusals(() => Task.FromResult(
             AddNewModuleToProject(project, new ModuleDefinition(project, name, kind) { TextEncoding = HostAnsi })), interactive);
+    }
 
     public Task<ModuleDefinition> AddNewUserControl(ProjectDefinition project, string name, bool interactive = true) =>
         AddNewDesignerModule(project, name, ModuleKind.UserControl, interactive);
@@ -1506,7 +1814,14 @@ public partial class ProjectService : IProjectService
     public Task<ModuleDefinition> AddNewPropertyPage(ProjectDefinition project, string name, bool interactive = true) =>
         AddNewDesignerModule(project, name, ModuleKind.PropertyPage, interactive);
 
-    private Task<ModuleDefinition> AddNewDesignerModule(
+    private async Task<ModuleDefinition> AddNewDesignerModule(
+        ProjectDefinition project, string name, ModuleKind kind, bool interactive)
+    {
+        await RefuseContributedMembership(project, interactive);
+        return await AddNewDesignerModuleCore(project, name, kind, interactive);
+    }
+
+    private Task<ModuleDefinition> AddNewDesignerModuleCore(
         ProjectDefinition project, string name, ModuleKind kind, bool interactive) =>
         WithSaveRefusals(() =>
         {
@@ -1565,6 +1880,7 @@ public partial class ProjectService : IProjectService
 
     public async Task<Adopted<FormDefinition>> AddExistingForm(ProjectDefinition project, string absolutePath)
     {
+        await RefuseContributedMembership(project, interactive: true);
         var (source, bytes, sourceEncoding, byteForByte) = await ReadSourceAsync(absolutePath);
 
         // Form text before companion: the .frm's cited offsets partition the .frx.
@@ -1594,6 +1910,7 @@ public partial class ProjectService : IProjectService
     public async Task<Adopted<ModuleDefinition>> AddExistingModule(
         ProjectDefinition project, string absolutePath, ModuleKind kind)
     {
+        await RefuseContributedMembership(project, interactive: true);
         var (source, bytes, sourceEncoding, byteForByte) = await ReadSourceAsync(absolutePath);
 
         // .bas/.cls: strip the VB6 header so Code is the body only (a no-op for .ctl/.pag).
@@ -1636,15 +1953,16 @@ public partial class ProjectService : IProjectService
         return Adopted<ModuleDefinition>.Added(module, name, byteForByte ? HostAnsi.CodePage : null);
     }
 
-    public Task<RelatedDocumentDefinition> AddExistingRelatedDocument(
+    public async Task<RelatedDocumentDefinition> AddExistingRelatedDocument(
         ProjectDefinition project, string absolutePath)
     {
+        await RefuseContributedMembership(project, interactive: true);
         // No OriginalItemLine. This document is joining the project now, so there is no line to preserve
         // and RelatedDoc= is exactly what should be written. The preserved-line case belongs to entries
         // RECLASSIFIED on read, where rewriting would edit the .vbp on the strength of an inference.
         var document = new RelatedDocumentDefinition(project, Path.GetFileName(absolutePath), absolutePath);
         project.AddRelatedDocument(document);
-        return Task.FromResult(document);
+        return document;
     }
 
     /// <summary>
@@ -2133,6 +2451,11 @@ public partial class ProjectService : IProjectService
 
     private void SerializeOnlyProjectToFile(ProjectDefinition definition, string projectPath, bool includeRelatedDocuments = true)
     {
+        // A contributed project's file is its add-in's program's to write, in its own format: its modules are saved, and
+        // never it, whatever route reaches here.
+        if (definition.ContributedBy is not null)
+            return;
+
         // The second check, at the write, for a route that reaches it without SaveFiles: that refuses before
         // anything is written (EnsureEveryMemberListed), and by here every member it wrote has its path. Not in
         // the serializer, which also renders for the dirty check, where a project holding a form with no file
@@ -2162,6 +2485,10 @@ public partial class ProjectService : IProjectService
 
     private bool IsDirty(ProjectDefinition project)
     {
+        // Its file is never written, so it is never edited: its membership changes only as its add-in reports it.
+        if (project.ContributedBy is not null)
+            return false;
+
         var path = project.AbsolutePath;
         if (path is null || IsScratchFile(project, path))
             return true; // never saved

@@ -1298,9 +1298,12 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
                     var problemKey = e.Registration.Id + "\0" + (project.Project.DefinitionPath ?? project.WorkspaceRoot);
                     try
                     {
-                        if (project.Project.DefinitionPath is not { } path || project.ProjectText is not { } render)
+                        if (project.Project.DefinitionPath is not { } path)
                             throw new InvalidOperationException("Project import requires a saved project path and in-memory project text.");
-                        await client.ImportProjectAsync(spec, new Uri(path).AbsoluteUri, await render(token), token);
+                        // A saved project HexIDE has no text of its own for, such as an add-in's project type's, whose
+                        // file is in its add-in's format, has nothing to import, and isn't a problem.
+                        if (project.ProjectText is { } render)
+                            await client.ImportProjectAsync(spec, new Uri(path).AbsoluteUri, await render(token), token);
                         _importProblems.TryRemove(problemKey, out _);
                     }
                     catch (OperationCanceledException) when (token.IsCancellationRequested) { throw; }

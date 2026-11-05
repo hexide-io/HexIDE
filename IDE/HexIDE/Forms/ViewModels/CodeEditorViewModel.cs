@@ -328,6 +328,11 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
             // other order tells a server about a write to a document it has just been told to forget.
             if (mine && session is { } open) ReconcileThenAnnounceSaveAsync(open).ListenErrors();
         }));
+        // A module whose file moved with no save, as a contributed project's program reports one, is named anew all the same.
+        AutoDispose(this.eventBus.Subscribe<ModuleMovedEvent>(e =>
+        {
+            if (moduleDefinition is not null && ReferenceEquals(e.Module, moduleDefinition)) ReconcileWireName();
+        }));
 
         AutoDispose(this.eventBus.Subscribe<ModuleUnloadedEvent>(e =>
         {

@@ -1392,14 +1392,15 @@ public partial class MainViewViewModel : ObservableObject
             () => projectRunnerService.CanEndProject);
         RestartProjectCommand = new DelegateCommand(projectRunnerService.RestartProject,
             () => projectRunnerService.CanRestartProject);
+        // A contributed project's settings are its add-in's program's, kept in a file HexIDE never writes.
         ProjectReferencesCommand = new DelegateCommand(() => projectService.EditProjectReferences(FocusedProjectUtil.FocusedOrStartupProject!),
-            () => FocusedProjectUtil.FocusedOrStartupProject != null);
+            () => FocusedProjectUtil.FocusedOrStartupProject is { ContributedBy: null });
         ProjectComponentsCommand = new DelegateCommand(() => projectService.EditProjectComponents(FocusedProjectUtil.FocusedOrStartupProject!),
-            () => FocusedProjectUtil.FocusedOrStartupProject != null);
+            () => FocusedProjectUtil.FocusedOrStartupProject is { ContributedBy: null });
         ProjectPropertiesCommand = new DelegateCommand(() => projectService.EditProjectProperties(FocusedProjectUtil.FocusedOrStartupProject!),
-            () => FocusedProjectUtil.FocusedOrStartupProject != null);
+            () => FocusedProjectUtil.FocusedOrStartupProject is { ContributedBy: null });
         MakeProjectCommand = new DelegateCommand(() => projectService.MakeProject(FocusedProjectUtil.FocusedOrStartupProject!).ListenErrors(),
-            () => FocusedProjectUtil.FocusedOrStartupProject != null);
+            () => FocusedProjectUtil.FocusedOrStartupProject is { ContributedBy: null });
         RemoveProjectCommand = new DelegateCommand(() => projectService.UnloadProject(FocusedProjectUtil.FocusedOrStartupProject!).ListenErrors(),
             () => FocusedProjectUtil.FocusedOrStartupProject != null);
         // Offered only with a group open, as VB6 offers it (measured, #746). Two projects loaded are a group, even before
@@ -1410,29 +1411,29 @@ public partial class MainViewViewModel : ObservableObject
         projectManager.ProjectUnloaded += _ => MakeProjectGroupCommand.RaiseCanExecutedChanged();
         RunWithVb6Command = new DelegateCommand(
             () => vb6Toolchain.RunWithVb6Async(FocusedProjectUtil.FocusedOrStartupProject!).ListenErrors(),
-            () => FocusedProjectUtil.FocusedOrStartupProject != null && vb6Toolchain.IsAvailable);
+            () => FocusedProjectUtil.FocusedOrStartupProject is { ContributedBy: null } && vb6Toolchain.IsAvailable);
         MakeWithVb6Command = new DelegateCommand(
             () => vb6Toolchain.MakeWithVb6Async(FocusedProjectUtil.FocusedOrStartupProject!).ListenErrors(),
-            () => FocusedProjectUtil.FocusedOrStartupProject != null && vb6Toolchain.IsAvailable);
+            () => FocusedProjectUtil.FocusedOrStartupProject is { ContributedBy: null } && vb6Toolchain.IsAvailable);
 
         AddFormCommand = new DelegateCommand(
             () => AddFormAsync().ListenErrors(),
-            () => FocusedProjectUtil.FocusedOrStartupProject != null);
+            () => FocusedProjectUtil.FocusedOrStartupProject is { ContributedBy: null });
         AddModuleCommand = new DelegateCommand(
             () => AddModuleAsync(ModuleKind.StandardModule).ListenErrors(),
-            () => FocusedProjectUtil.FocusedOrStartupProject != null);
+            () => FocusedProjectUtil.FocusedOrStartupProject is { ContributedBy: null });
         AddClassModuleCommand = new DelegateCommand(
             () => AddModuleAsync(ModuleKind.ClassModule).ListenErrors(),
-            () => FocusedProjectUtil.FocusedOrStartupProject != null);
+            () => FocusedProjectUtil.FocusedOrStartupProject is { ContributedBy: null });
         AddUserControlCommand = new DelegateCommand(
             () => AddUserControlAsync().ListenErrors(),
-            () => FocusedProjectUtil.FocusedOrStartupProject != null);
+            () => FocusedProjectUtil.FocusedOrStartupProject is { ContributedBy: null });
         AddPropertyPageCommand = new DelegateCommand(
             () => AddPropertyPageAsync().ListenErrors(),
-            () => FocusedProjectUtil.FocusedOrStartupProject != null);
+            () => FocusedProjectUtil.FocusedOrStartupProject is { ContributedBy: null });
         AddFileCommand = new DelegateCommand(
             () => AddFileAsync().ListenErrors(),
-            () => FocusedProjectUtil.FocusedOrStartupProject != null);
+            () => FocusedProjectUtil.FocusedOrStartupProject is { ContributedBy: null });
 
         bool CanSearchActiveDocument() =>
             documentDockService.ActiveDocument is HexIDE.Forms.ViewModels.ISearchableDocument;

@@ -38,4 +38,17 @@ public interface IHexIdeHost
     /// <exception cref="ArgumentException">It has no title, or nothing makes its configuration.</exception>
     /// <exception cref="InvalidOperationException">This add-in contributed a launch with that title already.</exception>
     IDisposable RegisterDebugLaunch(AddinDebugLaunch launch);
+
+    /// <summary>
+    /// Contributes a kind of project file HexIDE then opens, from Open Project, the recent projects list or a project group,
+    /// as a project whose membership is the add-in's program's to change (<see cref="AddinProjectType"/>).
+    /// </summary>
+    /// <remarks>
+    /// The capability design will need a name for this member; none is checked today, as that design's host checks are not
+    /// built.
+    /// </remarks>
+    /// <returns>What takes the type out again: its files are no longer offered, and a project of it already open stays.</returns>
+    /// <exception cref="ArgumentException">It has no title, no file names, a malformed pattern, or nothing that reads it.</exception>
+    /// <exception cref="InvalidOperationException">Another project type, an add-in's or HexIDE's own, reads one of its file names.</exception>
+    IDisposable RegisterProjectType(AddinProjectType type);
 }
