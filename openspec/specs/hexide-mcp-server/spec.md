@@ -738,6 +738,15 @@ to a disabled window or one under a modal dialog.
 An open context menu or flyout SHALL appear under the control that owns it in `dump_visual_tree`, with its items
 addressable, and SHALL be drawn in `take_snapshot`, however it is attached: a ContextMenu, a Button's Flyout, a
 ContextFlyout, or a flyout attached with `FlyoutBase.SetAttachedFlyout`, to a Button as to any other control.
+An attached context menu or flyout SHALL keep its content below a distinct `ContextMenu` or `Flyout` segment
+under its owner, without changing paths or sibling indexes in the owner's own subtree. These paths SHALL
+resolve for `inspect_element`, `interact` and `press_key`.
+
+#### Scenario: Open a context menu after discovering its owner
+- **WHEN** a caller keeps a path into a tree and opens its attached context menu
+- **THEN** the saved path still resolves to the same control and the owner's children keep their indexes
+- **AND** the menu's items are addressable below its popup segment and can be invoked
+
 
 #### Scenario: A running Toolbar's dropdown
 - **WHEN** a running form's Toolbar opens a dropdown's menu, a flyout attached to its button
