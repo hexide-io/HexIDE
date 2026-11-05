@@ -2,6 +2,8 @@
   "name": "Catalan",
   "direction": "ltr",
   "strings": {
+    "Str.Menu.Edit.CallHierarchy": "_Jerarquia de crides",
+    "Str.CodeEditor.Context.CallHierarchy": "_Jerarquia de crides",
     "Str.Lsp.OpenExternalUri": "Voleu obrir aquest URI fora del HexIDE?\n\n{0}",
     "Str.Tool.CallHierarchy.Title": "Jerarquia de crides",
     "Str.Tool.CallHierarchy.CallsTo": "Crides a",

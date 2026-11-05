@@ -9,6 +9,7 @@ public partial class CallHierarchyToolView : UserControl
     public CallHierarchyToolView()
     {
         AvaloniaXamlLoader.Load(this);
+        _ = new ResultsToolHeight(this);
         AddHandler(KeyDownEvent, OnKeyDown, handledEventsToo: true);
     }
 

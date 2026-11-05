@@ -2,6 +2,8 @@
   "name": "English",
   "direction": "ltr",
   "strings": {
+    "Str.Menu.Edit.CallHierarchy": "Call Hierarch_y",
+    "Str.CodeEditor.Context.CallHierarchy": "C_all Hierarchy",
     "Str.Lsp.OpenExternalUri": "Open this URI outside HexIDE?\n\n{0}",
     "Str.Tool.CallHierarchy.Title": "Call Hierarchy",
     "Str.Tool.CallHierarchy.CallsTo": "Calls To",

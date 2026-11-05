@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
@@ -31,20 +32,72 @@ public class TreeViewLabelMouseTests
     }
 
     private static TimeSpan DoubleClickTime => Application.Current!.PlatformSettings!.GetDoubleTapTime(PointerType.Mouse);
-    private static Task WaitForEdit() => Task.Delay(DoubleClickTime + TimeSpan.FromMilliseconds(100), TestContext.Current.CancellationToken);
+    // The product still supplies the host interval; only the scheduler's clock is controlled (#3143).
+    private sealed class EditClock : IDisposable
+    {
+        private TimeSpan now;
+        private Pending? pending;
+        private Action? restoreInput;
+
+        public void Attach(Window window)
+        {
+            var platform = window.PlatformImpl!;
+            var property = platform.GetType().GetProperty("Input")!;
+            var input = (Action<RawInputEventArgs>)property.GetValue(platform)!;
+            var timestampProperty = typeof(RawInputEventArgs).GetProperty("Timestamp")!;
+            property.SetValue(platform, (Action<RawInputEventArgs>)(e =>
+            {
+                if (e is RawPointerEventArgs)
+                    timestampProperty.SetValue(e, (ulong)Math.Ceiling(now.TotalMilliseconds) + 100);
+                input(e);
+            }));
+            restoreInput = () => property.SetValue(platform, input);
+        }
+
+        public void Dispose() => restoreInput?.Invoke();
+
+        public IDisposable Schedule(Action action, TimeSpan delay)
+        {
+            pending = new Pending(action, now + delay);
+            return pending;
+        }
+
+        public void Advance(TimeSpan by)
+        {
+            now += by;
+            if (pending is { Cancelled: false } edit && edit.Due <= now)
+            {
+                pending = null;
+                edit.Action();
+            }
+            var context = ExecutionContext.Capture();
+            try { Avalonia.Threading.Dispatcher.UIThread.RunJobs(); }
+            finally { if (context is not null) ExecutionContext.Restore(context); }
+        }
+
+        private sealed class Pending(Action action, TimeSpan due) : IDisposable
+        {
+            public Action Action { get; } = action;
+            public TimeSpan Due { get; } = due;
+            public bool Cancelled { get; private set; }
+            public void Dispose() => Cancelled = true;
+        }
+    }
 
     [AvaloniaTheory]
     [InlineData(false)]
     [InlineData(true)]
-    public async Task Selected_label_opens_after_release_and_host_double_click_time(bool selectByClick)
+    public void Selected_label_opens_after_release_and_host_double_click_time(bool selectByClick)
     {
-        var tree = new VBTreeView { Width = 300, Height = 200 };
+        using var clock = new EditClock();
+        var tree = new VBTreeView { Width = 300, Height = 200, ScheduleLabelEdit = clock.Schedule };
         VBProps.SetName(tree, "TreeView1");
         var first = tree.Nodes.Add(text: "Node 1");
         var node = tree.Nodes.Add(text: "Node 2");
         var root = new Root { Child = tree };
         var window = new Window { Content = root };
         window.Show();
+        clock.Attach(window);
         try
         {
             tree.Focus();
@@ -54,7 +107,7 @@ public class TreeViewLabelMouseTests
             {
                 window.MouseDown(point, MouseButton.Left);
                 window.MouseUp(point, MouseButton.Left);
-                await WaitForEdit();
+                clock.Advance(DoubleClickTime + TimeSpan.FromTicks(1));
                 tree.Nodes.SelectedItem.Should().BeSameAs(node);
                 tree.GetVisualDescendants().OfType<LabelEditor>().Should().BeEmpty();
                 root.Calls.Should().NotContain("TreeView1_BeforeLabelEdit");
@@ -70,13 +123,13 @@ public class TreeViewLabelMouseTests
                 Canvas.GetTop(pending).Should().Be(0);
             };
             window.MouseDown(point, MouseButton.Left);
-            await WaitForEdit();
+            clock.Advance(DoubleClickTime + TimeSpan.FromTicks(1));
             tree.GetVisualDescendants().OfType<LabelEditor>().Should().BeEmpty();
             window.MouseUp(point, MouseButton.Left);
             root.Calls.Should().Equal("TreeView1_MouseDown", "TreeView1_NodeClick", "TreeView1_MouseUp", "TreeView1_Click");
-            await Task.Delay(DoubleClickTime / 2, TestContext.Current.CancellationToken);
+            clock.Advance(DoubleClickTime - TimeSpan.FromTicks(1));
             tree.GetVisualDescendants().OfType<LabelEditor>().Should().BeEmpty();
-            await WaitForEdit();
+            clock.Advance(TimeSpan.FromTicks(1));
             var editor = tree.GetVisualDescendants().OfType<LabelEditor>().Single();
             root.Calls.Last().Should().Be("TreeView1_BeforeLabelEdit");
             Canvas.GetLeft(editor).Should().BeApproximately(tree.ClientEdge + 1000 * 96.0 / 2540 - 2, 0.01);
@@ -101,9 +154,10 @@ public class TreeViewLabelMouseTests
     [AvaloniaTheory]
     [InlineData(0)]
     [InlineData(1)]
-    public async Task Double_click_does_not_start_an_edit(int mode)
+    public void Double_click_does_not_start_an_edit(int mode)
     {
-        var tree = new VBTreeView { Width = 300, Height = 200 };
+        using var clock = new EditClock();
+        var tree = new VBTreeView { Width = 300, Height = 200, ScheduleLabelEdit = clock.Schedule };
         VBProps.SetName(tree, "TreeView1");
         tree.TrySetProperty("LabelEdit", new Vb6Value(mode));
         tree.Nodes.Add(text: "Node 2");
@@ -135,7 +189,7 @@ public class TreeViewLabelMouseTests
                 window.MouseUp(point, MouseButton.Left);
             }
             finally { property.SetValue(platform, input); }
-            await WaitForEdit();
+            clock.Advance(DoubleClickTime + TimeSpan.FromTicks(1));
             root.Calls.Should().Equal("TreeView1_MouseDown", "TreeView1_NodeClick", "TreeView1_MouseUp", "TreeView1_Click",
                 "TreeView1_Expand", "TreeView1_DblClick", "TreeView1_MouseUp");
             tree.GetVisualDescendants().OfType<LabelEditor>().Should().BeEmpty();

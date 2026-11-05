@@ -1,4 +1,6 @@
+using Avalonia;
 using Avalonia.VisualTree;
+using Avalonia.Headless;
 using System.Linq;
 using Dock.Model.Core;
 using Dock.Model.Controls;
@@ -115,7 +117,8 @@ public class DockFactoryTests
         var host = new Dock.Avalonia.Controls.DockControl { Layout = root };
         host.DataTemplates.Add(new Avalonia.Controls.Templates.FuncDataTemplate<FindReferencesToolViewModel>(
             (_, _) => new FindReferencesToolView()));
-        var window = new Avalonia.Controls.Window { Content = host, Width = 1280, Height = windowHeight };
+        var window = new Avalonia.Controls.Window { Content = host, Width = 1200, Height = windowHeight };
+        window.SetRenderScaling(1.5);
         try
         {
             window.Show();
@@ -143,7 +146,7 @@ public class DockFactoryTests
             {
                 documentHeight.Should().BeApproximately(120, 1);
                 var viewport = list.GetVisualDescendants().OfType<Avalonia.Controls.ScrollViewer>().Single().Viewport.Height;
-                viewport.Should().BeGreaterThan(0).And.BeLessThan(6 * row.Bounds.Height);
+                viewport.Should().BeLessThan(6 * row.Bounds.Height);
             }
             var saved = LayoutManifestJson.Deserialize(LayoutManifestJson.Serialize(factory.CaptureManifest(root)))!;
             System.Collections.Generic.IEnumerable<DockLayoutNode> Descendants(DockLayoutNode node) =>

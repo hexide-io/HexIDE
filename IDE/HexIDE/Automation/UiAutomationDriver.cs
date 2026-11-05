@@ -1824,6 +1824,7 @@ public static class UiAutomationDriver
 
         var watch = WatchProgram(topLevel as Window);
         var pointer = new Avalonia.Input.Pointer(Avalonia.Input.Pointer.GetNextFreeId(), PointerType.Mouse, isPrimary: true);
+        var mouse = RawPointer.MouseFor(pointer);
         var (held, pressKind, releaseKind, name) = button switch
         {
             MouseButton.Right => (RawInputModifiers.RightMouseButton, PointerUpdateKind.RightButtonPressed,
@@ -1855,17 +1856,20 @@ public static class UiAutomationDriver
         // MouseMove before MouseDown. A click raised no move, so a program's MouseMove never ran from one (#2407). A still
         // pointer sends none, so a click where the last one left it moves nothing.
         var arrived = !PointerAlreadyAt(topLevel, inWindow);
-        if (arrived)
+        // Raw input also records the screen position used by pointer-placed context popups (#3130).
+        if (arrived && !RawPointer.Move(topLevel, inWindow, rawKeys))
             hit.RaiseEvent(new PointerEventArgs(InputElement.PointerMovedEvent, hit, pointer, topLevel, inWindow,
                 (ulong)Environment.TickCount64, new PointerPointProperties(rawKeys, PointerUpdateKind.Other), keys));
         var arrival = arrived ? "; the pointer moved there first, as a person's does"
             : "; the pointer was already there from the last click, so it did not move first";
-        // MouseDevice implicitly captures the hit element before a real press. A routed event alone does not:
-        // without this, a Label loses its MouseUp when the drag leaves it (#1373). A handler can replace or drop it.
-        if (destination is not null)
-            pointer.Capture(hit as IInputElement);
-        hit.RaiseEvent(new PointerPressedEventArgs(hit, pointer, topLevel, inWindow, (ulong)Environment.TickCount64,
-            new PointerPointProperties(held | rawKeys, pressKind), keys));
+        // Raw presses cancel the tooltip timer started by arrival and implicitly capture the hit element (#3130, #1373).
+        if (!RawPointer.Button(topLevel, inWindow, button, down: true, held | rawKeys, mouse))
+        {
+            if (destination is not null)
+                pointer.Capture(hit as IInputElement);
+            hit.RaiseEvent(new PointerPressedEventArgs(hit, pointer, topLevel, inWindow, (ulong)Environment.TickCount64,
+                new PointerPointProperties(held | rawKeys, pressKind), keys));
+        }
 
         var landed = hit as Control;
         var landing = landed is null || ReferenceEquals(landed, control) ? ""
@@ -1912,8 +1916,9 @@ public static class UiAutomationDriver
                     ?? topLevel.InputHitTest(releasePoint) as Avalonia.Interactivity.Interactive;
                 if (releasedOn is null)
                     return Fail($"pressed {pressed}; nothing takes the pointer at the release point {releaseWhere}");
-                releasedOn.RaiseEvent(new PointerReleasedEventArgs(releasedOn, pointer, topLevel, releasePoint,
-                    (ulong)Environment.TickCount64, new PointerPointProperties(rawKeys, releaseKind), keys, button));
+                if (!RawPointer.Button(topLevel, releasePoint, button, down: false, rawKeys, mouse))
+                    releasedOn.RaiseEvent(new PointerReleasedEventArgs(releasedOn, pointer, topLevel, releasePoint,
+                        (ulong)Environment.TickCount64, new PointerPointProperties(rawKeys, releaseKind), keys, button));
                 PointerNowAt(topLevel, releasePoint);
                 var recipient = destination is null ? "" : releasedOn is Control releasedControl
                     ? $"'{Describe(releasedControl)}'{AddressOf(topLevel, "Window", releasedControl)}"
@@ -1956,8 +1961,9 @@ public static class UiAutomationDriver
                 return Fail($"clicked {pressed}; the second click was not sent because the window is hidden or closed");
             if (topLevel.InputHitTest(inWindow) is not Avalonia.Interactivity.Interactive again)
                 return Fail($"clicked {pressed}; the second click was not sent because nothing takes the pointer at that point now");
-            again.RaiseEvent(new PointerPressedEventArgs(again, pointer, topLevel, inWindow, (ulong)Environment.TickCount64,
-                new PointerPointProperties(held | rawKeys, pressKind), keys, clickCount: 2));
+            if (!RawPointer.Button(topLevel, inWindow, button, down: true, held | rawKeys, mouse))
+                again.RaiseEvent(new PointerPressedEventArgs(again, pointer, topLevel, inWindow, (ulong)Environment.TickCount64,
+                    new PointerPointProperties(held | rawKeys, pressKind), keys, clickCount: 2));
             if (!ReferenceEquals(again, hit))
                 secondLanding = again is Control replacement
                     ? $"; the first click replaced what it landed on, so the second press went to '{Describe(replacement)}'"
@@ -4368,8 +4374,8 @@ public static class UiAutomationDriver
     /// window's coordinates. Either takes the tip with it.
     /// </summary>
     /// <remarks>
-    /// Read from the input manager's stream, which is what Avalonia's tooltip service follows, so the routed pointer events
-    /// that click and drag raise on a control, which cannot move a tip, are not counted. The real mouse, resting over the
+    /// Read from the input manager's stream, which is what Avalonia's tooltip service follows. Click arrival uses the same
+    /// device as hover; the routed events that drag raises on a control are not counted. The real mouse, resting over the
     /// window, gets moves from the platform as windows change around it, a tip's own popup among them, and the reply said no
     /// tip opened without being able to say why (#2376). Tool calls run concurrently, so another hover can move the pointer
     /// too, and that is not the real mouse's doing. Created, read and disposed on the UI thread, where input arrives.
@@ -4551,7 +4557,28 @@ public static class UiAutomationDriver
 
         /// <summary>Sends a move to <paramref name="at"/>, in the window's coordinates. False, having sent nothing, when a
         /// member it needs cannot be reached.</summary>
-        public static bool Move(TopLevel topLevel, Point at) => Send(topLevel, Avalonia.Input.Raw.RawPointerEventType.Move, at);
+        public static bool Move(TopLevel topLevel, Point at, RawInputModifiers modifiers = RawInputModifiers.None) =>
+            Send(topLevel, Avalonia.Input.Raw.RawPointerEventType.Move, at, modifiers);
+
+        // Keep one device for a click's press, held moves and release, including its second press.
+        public static IInputDevice? MouseFor(Avalonia.Input.Pointer pointer) =>
+            Reach(() => Members.NewMouse?.Invoke([pointer]) as IInputDevice);
+
+        public static bool Button(TopLevel topLevel, Point at, MouseButton button, bool down,
+            RawInputModifiers modifiers, IInputDevice? device)
+        {
+            if (device is null) return false;
+            var type = (button, down) switch
+            {
+                (MouseButton.Right, true) => Avalonia.Input.Raw.RawPointerEventType.RightButtonDown,
+                (MouseButton.Right, false) => Avalonia.Input.Raw.RawPointerEventType.RightButtonUp,
+                (MouseButton.Middle, true) => Avalonia.Input.Raw.RawPointerEventType.MiddleButtonDown,
+                (MouseButton.Middle, false) => Avalonia.Input.Raw.RawPointerEventType.MiddleButtonUp,
+                (_, true) => Avalonia.Input.Raw.RawPointerEventType.LeftButtonDown,
+                _ => Avalonia.Input.Raw.RawPointerEventType.LeftButtonUp,
+            };
+            return Send(topLevel, type, at, modifiers, device);
+        }
 
         public static void Leave(TopLevel topLevel) => Send(topLevel, Avalonia.Input.Raw.RawPointerEventType.LeaveWindow, default);
 
@@ -4598,7 +4625,8 @@ public static class UiAutomationDriver
             }
         }
 
-        private static bool Send(TopLevel topLevel, Avalonia.Input.Raw.RawPointerEventType type, Point at)
+        private static bool Send(TopLevel topLevel, Avalonia.Input.Raw.RawPointerEventType type, Point at,
+            RawInputModifiers modifiers = RawInputModifiers.None, IInputDevice? device = null)
         {
             Action<Avalonia.Input.Raw.RawInputEventArgs> input;
             Avalonia.Input.Raw.RawInputEventArgs args;
@@ -4609,11 +4637,11 @@ public static class UiAutomationDriver
                     || Members.PlatformInput?.GetValue(impl) is not Action<Avalonia.Input.Raw.RawInputEventArgs> found
                     || Members.InputRoot?.GetValue(topLevel) is not IInputRoot root)
                     return false;
-                mouse ??= (IInputDevice)newMouse.Invoke(
+                device ??= mouse ??= (IInputDevice)newMouse.Invoke(
                     [new Avalonia.Input.Pointer(Avalonia.Input.Pointer.GetNextFreeId(), PointerType.Mouse, isPrimary: true)]);
                 input = found;
                 args = (Avalonia.Input.Raw.RawInputEventArgs)newEvent.Invoke(
-                    [mouse, (ulong)Environment.TickCount64, root, type, at, RawInputModifiers.None]);
+                    [device, (ulong)Environment.TickCount64, root, type, at, modifiers]);
             }
             catch (Exception ex) when (ex is System.Reflection.TargetInvocationException or TypeInitializationException
                                            or MemberAccessException or InvalidCastException or ArgumentException)

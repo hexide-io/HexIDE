@@ -205,8 +205,13 @@ already built.
    - Every rewrite must hold the source's tokens. Where the source doesn't parse, they must also stay in the source's
      order, since a recovered parse can drop or misplace code without saying so.
 
+   Pin the test process culture to `en-US` with xUnit's `-culture en-US`, running the test executable directly
+   after building it (commands below use a POSIX shell). Otherwise the dump inherits the machine's locale,
+   and the parity runner marks rows recorded under another locale `locale-differs` instead of comparing them.
+
    ```text
-   HEXIDE_DUMP_PROGRAMS=corpus-1 dotnet test IDE/HexIDE.Runtime.Tests/
+   dotnet build IDE/HexIDE.Runtime.Tests/
+   HEXIDE_DUMP_PROGRAMS=corpus-1 dotnet IDE/HexIDE.Runtime.Tests/bin/Debug/net10.0/HexIDE.Runtime.Tests.dll -culture en-US
    ```
 
 2. Run it. Set `HEXIDE_PARITY_ADAPTER` to the adapter executable and `RDCORE_PLATFORM_ROOT` as above, then:
