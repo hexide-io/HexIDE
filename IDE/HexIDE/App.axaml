@@ -28,6 +28,7 @@
         <StyleInclude Source="avares://HexIDE/Themes/DialogButtons.axaml" />
         <StyleInclude Source="avares://HexIDE/Themes/IconDirection.axaml" />
         <StyleInclude Source="avares://HexIDE/Themes/CodeDirection.axaml" />
+        <StyleInclude Source="avares://HexIDE/Themes/MenuNavigation.axaml" />
         <dockSimple:DockSimpleTheme />
         <StyleInclude Source="avares://AvaloniaEdit/Themes/Simple/AvaloniaEdit.xaml" />
         <StyleInclude Source="avares://Avalonia.Controls.DataGrid/Themes/Simple.xaml" />
