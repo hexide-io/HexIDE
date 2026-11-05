@@ -111,6 +111,12 @@ host checks are not built.
 - **WHEN** an add-in's initialisation fails after it registered a language server
 - **THEN** the server is taken out with its other contributions
 
+#### Scenario: Trust changes during a session
+- **WHEN** an add-in is disabled or its consent is revoked
+- **THEN** its contributed language servers SHALL be unregistered immediately
+- **AND** a launch SHALL check the add-in is still enabled, consented and not revoked, before and after its own gate
+- **AND** a refused launch SHALL name the contributing add-in in the connection attempt
+
 ### Requirement: Add-ins SHALL be able to observe IDE lifecycle events
 The host surface SHALL raise events for project load and unload, file open and close, and run start and
 stop, delivered on the UI thread.

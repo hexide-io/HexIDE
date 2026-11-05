@@ -1012,6 +1012,7 @@
     "Str.Dialog.MessageBox.Button.Abort": "בטל פעולה",
     "Str.Dialog.MessageBox.Button.Retry": "נסה שוב",
     "Str.Dialog.MessageBox.Button.Ignore": "התעלם",
+    "Str.Addins.ServerLaunchRefused": "הפעלת שרת השפה עבור התוספת '{0}' נדחתה.",
     "Str.Addins.Incompatible": "לא ניתן לטעון את התוסף: הסכמה הנדרשת {0}, גרסת HexIDE מזערית {1}; בנייה זו תומכת בסכמה {2}, HexIDE {3}. דרישת הסכמה או הגרסה אינה נתמכת או אינה תקינה.",
     "Str.MakeProject.NoStartup": "לא נמצא פרויקט אתחול.",
     "Str.MakeProject.Browser": "יצירת תוכנית אינה זמינה בדפדפן. יש להשתמש בגרסת שולחן העבודה של HexIDE.",

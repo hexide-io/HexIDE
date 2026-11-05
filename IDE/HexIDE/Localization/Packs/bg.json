@@ -1013,6 +1013,7 @@
     "Str.Dialog.MessageBox.Button.Abort": "Прекратяване",
     "Str.Dialog.MessageBox.Button.Retry": "Повторен опит",
     "Str.Dialog.MessageBox.Button.Ignore": "Игнориране",
+    "Str.Addins.ServerLaunchRefused": "Стартирането на езиковия сървър за добавката „{0}“ е отказано.",
     "Str.Addins.Incompatible": "Добавката не може да се зареди: изисква се схема {0}, минимална версия на HexIDE {1}; тази компилация поддържа схема {2}, HexIDE {3}. Изискването за схема или версия е неподдържано или невалидно.",
     "Str.MakeProject.NoStartup": "Не е намерен начален проект.",
     "Str.MakeProject.Browser": "Създаването на програма е недостъпно в браузър. Използвайте настолната версия на HexIDE.",

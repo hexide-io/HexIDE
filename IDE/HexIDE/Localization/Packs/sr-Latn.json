@@ -1013,6 +1013,7 @@
     "Str.Dialog.MessageBox.Button.Abort": "Obustavi",
     "Str.Dialog.MessageBox.Button.Retry": "Pokušaj ponovo",
     "Str.Dialog.MessageBox.Button.Ignore": "Zanemari",
+    "Str.Addins.ServerLaunchRefused": "Pokretanje jezičkog servera za dodatak „{0}” je odbijeno.",
     "Str.Addins.Incompatible": "Nije moguće učitati dodatak: potrebna šema {0}, najmanja verzija HexIDE-a {1}; ova verzija podržava šemu {2}, HexIDE {3}. Zahtev za šemu ili verziju nije podržan ili nije važeći.",
     "Str.MakeProject.NoStartup": "Početni projekat nije pronađen.",
     "Str.MakeProject.Browser": "Izrada programa nije dostupna u pregledaču. Koristite desktop verziju HexIDE-a.",

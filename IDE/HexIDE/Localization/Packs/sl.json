@@ -1013,6 +1013,7 @@
     "Str.Dialog.MessageBox.Button.Abort": "Prekini",
     "Str.Dialog.MessageBox.Button.Retry": "Poskusi znova",
     "Str.Dialog.MessageBox.Button.Ignore": "Prezri",
+    "Str.Addins.ServerLaunchRefused": "Zagon jezikovnega strežnika za dodatek »{0}« je bil zavrnjen.",
     "Str.Addins.Incompatible": "Dodatka ni mogoče naložiti: zahtevana shema {0}, najmanj HexIDE {1}; ta gradnja podpira shemo {2}, HexIDE {3}. Zahteva za shemo ali različico ni podprta ali ni veljavna.",
     "Str.MakeProject.NoStartup": "Zagonski projekt ni bil najden.",
     "Str.MakeProject.Browser": "Gradnja programa v brskalniku ni na voljo. Uporabite namizno različico HexIDE.",

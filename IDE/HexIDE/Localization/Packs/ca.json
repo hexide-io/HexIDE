@@ -1013,6 +1013,7 @@
     "Str.Dialog.MessageBox.Button.Abort": "Interromp",
     "Str.Dialog.MessageBox.Button.Retry": "Reintenta",
     "Str.Dialog.MessageBox.Button.Ignore": "Ignora",
+    "Str.Addins.ServerLaunchRefused": "S'ha refusat l'inici del servidor de llenguatge del complement «{0}».",
     "Str.Addins.Incompatible": "No es pot carregar el complement: requereix l'esquema {0} i HexIDE {1} com a mínim; aquesta compilació admet l'esquema {2}, HexIDE {3}. El requisit d'esquema o de versió no és admès o no és vàlid.",
     "Str.MakeProject.NoStartup": "No s'ha trobat cap projecte inicial.",
     "Str.MakeProject.Browser": "La generació de programes no està disponible en un navegador. Utilitzeu la versió d'escriptori d'HexIDE.",

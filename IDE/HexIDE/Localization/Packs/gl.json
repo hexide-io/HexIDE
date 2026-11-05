@@ -1013,6 +1013,7 @@
     "Str.Dialog.MessageBox.Button.Abort": "Abortar",
     "Str.Dialog.MessageBox.Button.Retry": "Reintentar",
     "Str.Dialog.MessageBox.Button.Ignore": "Ignorar",
+    "Str.Addins.ServerLaunchRefused": "Rexeitouse o inicio do servidor de linguaxe do complemento «{0}».",
     "Str.Addins.Incompatible": "Non se pode cargar o complemento: require o esquema {0} e HexIDE {1} como mínimo; esta compilación admite o esquema {2}, HexIDE {3}. O requisito de esquema ou versión non se admite ou non é válido.",
     "Str.MakeProject.NoStartup": "Non se atopou ningún proxecto de inicio.",
     "Str.MakeProject.Browser": "Non se pode crear un programa nun navegador. Use a versión de escritorio de HexIDE.",

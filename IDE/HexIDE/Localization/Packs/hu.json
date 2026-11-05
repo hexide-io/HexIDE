@@ -1013,6 +1013,7 @@
     "Str.Dialog.MessageBox.Button.Abort": "Megszakítás",
     "Str.Dialog.MessageBox.Button.Retry": "Újra",
     "Str.Dialog.MessageBox.Button.Ignore": "Kihagyás",
+    "Str.Addins.ServerLaunchRefused": "A(z) „{0}” bővítmény nyelvi kiszolgálójának indítása megtagadva.",
     "Str.Addins.Incompatible": "A bővítmény nem tölthető be: szükséges séma: {0}, minimális HexIDE: {1}; ez a fordítás a(z) {2} sémát és a(z) {3} HexIDE-verziót támogatja. A séma- vagy verziókövetelmény nem támogatott vagy érvénytelen.",
     "Str.MakeProject.NoStartup": "Nem található indítási projekt.",
     "Str.MakeProject.Browser": "Böngészőben nem érhető el programkészítés. Használja a HexIDE asztali verzióját.",

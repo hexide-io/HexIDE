@@ -1013,6 +1013,7 @@
     "Str.Dialog.MessageBox.Button.Abort": "ยุติ",
     "Str.Dialog.MessageBox.Button.Retry": "ลองใหม่",
     "Str.Dialog.MessageBox.Button.Ignore": "ละเว้น",
+    "Str.Addins.ServerLaunchRefused": "ปฏิเสธการเริ่มเซิร์ฟเวอร์ภาษาสำหรับ Add-in '{0}'",
     "Str.Addins.Incompatible": "ไม่สามารถโหลดส่วนเสริมได้: ต้องใช้สคีมา {0}, HexIDE ขั้นต่ำ {1}; รุ่นนี้รองรับสคีมา {2}, HexIDE {3} ข้อกำหนดสคีมาหรือรุ่นไม่รองรับหรือไม่ถูกต้อง",
     "Str.MakeProject.NoStartup": "ไม่พบโครงการเริ่มต้น",
     "Str.MakeProject.Browser": "ไม่สามารถสร้างโปรแกรมในเบราว์เซอร์ได้ ใช้ HexIDE รุ่นเดสก์ท็อป",

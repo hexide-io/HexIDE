@@ -1012,6 +1012,7 @@
     "Str.Dialog.MessageBox.Button.Abort": "إيقاف",
     "Str.Dialog.MessageBox.Button.Retry": "إعادة المحاولة",
     "Str.Dialog.MessageBox.Button.Ignore": "تجاهل",
+    "Str.Addins.ServerLaunchRefused": "تم رفض تشغيل خادم اللغة للوظيفة الإضافية '{0}'.",
     "Str.Addins.Incompatible": "تعذر تحميل الإضافة: المخطط المطلوب {0}، والحد الأدنى من HexIDE هو {1}؛ يدعم هذا الإصدار المخطط {2} وHexIDE {3}. متطلب المخطط أو الإصدار غير مدعوم أو غير صالح.",
     "Str.MakeProject.NoStartup": "لم يُعثر على مشروع بدء التشغيل.",
     "Str.MakeProject.Browser": "إنشاء برنامج غير متاح في المتصفح. استخدم إصدار سطح المكتب من HexIDE.",
