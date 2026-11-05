@@ -1088,6 +1088,10 @@
     "Str.Debug.Conditions.Prompt": "이 식이 True일 때만 이 줄에서 중단:",
     "Str.Debug.Conditions.Edit": "조건…",
     "Str.Debug.Conditions.AdapterIgnored": "이 어댑터는 조건을 무시하고 매번 중지합니다.",
-    "Str.Debug.Conditions.InterpreterIgnored": "인터프리터는 조건을 무시하고 매번 중지합니다."
+    "Str.Debug.Conditions.InterpreterIgnored": "인터프리터는 조건을 무시하고 매번 중지합니다.",
+    "Str.Menu.View.Outline": "개요",
+    "Str.Menu.View.RecentEdits": "최근 편집",
+    "Str.CodeEditor.Context.FindReferences": "참조 찾기",
+    "Str.CodeEditor.Context.NoQuickFix": "적용 가능한 수정이 제공되지 않았습니다."
   }
 }

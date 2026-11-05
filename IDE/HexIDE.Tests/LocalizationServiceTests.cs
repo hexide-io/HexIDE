@@ -805,7 +805,8 @@ public class LocalizationServiceTests
                 .Select(m => m.Value).Should().BeEquivalentTo(
                     System.Text.RegularExpressions.Regex.Matches(original, @"\{\d+\}")
                         .Select(m => m.Value), key);
-            translated.Count(c => c == '_').Should().Be(original.Count(c => c == '_'), key);
+            if (!NavigationAccessKeyTests.CollisionPolicyKeys.Contains(key))
+                translated.Count(c => c == '_').Should().Be(original.Count(c => c == '_'), key);
         }
     }
 
@@ -1063,8 +1064,9 @@ public class LocalizationServiceTests
             System.Text.RegularExpressions.Regex.Matches(value, @"\{\d+\}").Select(m => m.Value)
                 .Should().BeEquivalentTo(System.Text.RegularExpressions.Regex.Matches(parentValue, @"\{\d+\}")
                     .Select(m => m.Value), $"{region}/{entry.Name} preserves placeholders");
-            value.Count(c => c == '_').Should().Be(parentValue.Count(c => c == '_'),
-                $"{region}/{entry.Name} preserves mnemonics");
+            if (!NavigationAccessKeyTests.CollisionPolicyKeys.Contains(entry.Name))
+                value.Count(c => c == '_').Should().Be(parentValue.Count(c => c == '_'),
+                    $"{region}/{entry.Name} preserves mnemonics");
         }
     }
 }

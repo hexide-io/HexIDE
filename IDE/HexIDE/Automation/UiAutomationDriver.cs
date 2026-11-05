@@ -1862,12 +1862,24 @@ public static class UiAutomationDriver
                 (ulong)Environment.TickCount64, new PointerPointProperties(rawKeys, PointerUpdateKind.Other), keys));
         var arrival = arrived ? "; the pointer moved there first, as a person's does"
             : "; the pointer was already there from the last click, so it did not move first";
+        // MouseDevice compares press timestamps and positions, not clickCount (#3167). Keep a double click's four
+        // button events close together even when handlers or frame waits take longer than the host's double-tap time.
+        var buttonTime = (ulong)Environment.TickCount64;
+        var buttonStep = Application.Current?.PlatformSettings?.GetDoubleTapTime(PointerType.Mouse).TotalMilliseconds >= 2 ? 1UL : 0UL;
+        ulong ButtonTimestamp()
+        {
+            if (!twice) return (ulong)Environment.TickCount64;
+            var timestamp = buttonTime;
+            buttonTime += buttonStep;
+            return timestamp;
+        }
+        var pressTime = ButtonTimestamp();
         // Raw presses cancel the tooltip timer started by arrival and implicitly capture the hit element (#3130, #1373).
-        if (!RawPointer.Button(topLevel, inWindow, button, down: true, held | rawKeys, mouse))
+        if (!RawPointer.Button(topLevel, inWindow, button, down: true, held | rawKeys, mouse, pressTime))
         {
             if (destination is not null)
                 pointer.Capture(hit as IInputElement);
-            hit.RaiseEvent(new PointerPressedEventArgs(hit, pointer, topLevel, inWindow, (ulong)Environment.TickCount64,
+            hit.RaiseEvent(new PointerPressedEventArgs(hit, pointer, topLevel, inWindow, pressTime,
                 new PointerPointProperties(held | rawKeys, pressKind), keys));
         }
 
@@ -1916,9 +1928,10 @@ public static class UiAutomationDriver
                     ?? topLevel.InputHitTest(releasePoint) as Avalonia.Interactivity.Interactive;
                 if (releasedOn is null)
                     return Fail($"pressed {pressed}; nothing takes the pointer at the release point {releaseWhere}");
-                if (!RawPointer.Button(topLevel, releasePoint, button, down: false, rawKeys, mouse))
+                var releaseTime = ButtonTimestamp();
+                if (!RawPointer.Button(topLevel, releasePoint, button, down: false, rawKeys, mouse, releaseTime))
                     releasedOn.RaiseEvent(new PointerReleasedEventArgs(releasedOn, pointer, topLevel, releasePoint,
-                        (ulong)Environment.TickCount64, new PointerPointProperties(rawKeys, releaseKind), keys, button));
+                        releaseTime, new PointerPointProperties(rawKeys, releaseKind), keys, button));
                 PointerNowAt(topLevel, releasePoint);
                 var recipient = destination is null ? "" : releasedOn is Control releasedControl
                     ? $"'{Describe(releasedControl)}'{AddressOf(topLevel, "Window", releasedControl)}"
@@ -1961,8 +1974,9 @@ public static class UiAutomationDriver
                 return Fail($"clicked {pressed}; the second click was not sent because the window is hidden or closed");
             if (topLevel.InputHitTest(inWindow) is not Avalonia.Interactivity.Interactive again)
                 return Fail($"clicked {pressed}; the second click was not sent because nothing takes the pointer at that point now");
-            if (!RawPointer.Button(topLevel, inWindow, button, down: true, held | rawKeys, mouse))
-                again.RaiseEvent(new PointerPressedEventArgs(again, pointer, topLevel, inWindow, (ulong)Environment.TickCount64,
+            var secondPressTime = ButtonTimestamp();
+            if (!RawPointer.Button(topLevel, inWindow, button, down: true, held | rawKeys, mouse, secondPressTime))
+                again.RaiseEvent(new PointerPressedEventArgs(again, pointer, topLevel, inWindow, secondPressTime,
                     new PointerPointProperties(held | rawKeys, pressKind), keys, clickCount: 2));
             if (!ReferenceEquals(again, hit))
                 secondLanding = again is Control replacement
@@ -4565,7 +4579,7 @@ public static class UiAutomationDriver
             Reach(() => Members.NewMouse?.Invoke([pointer]) as IInputDevice);
 
         public static bool Button(TopLevel topLevel, Point at, MouseButton button, bool down,
-            RawInputModifiers modifiers, IInputDevice? device)
+            RawInputModifiers modifiers, IInputDevice? device, ulong? timestamp = null)
         {
             if (device is null) return false;
             var type = (button, down) switch
@@ -4577,7 +4591,7 @@ public static class UiAutomationDriver
                 (_, true) => Avalonia.Input.Raw.RawPointerEventType.LeftButtonDown,
                 _ => Avalonia.Input.Raw.RawPointerEventType.LeftButtonUp,
             };
-            return Send(topLevel, type, at, modifiers, device);
+            return Send(topLevel, type, at, modifiers, device, timestamp);
         }
 
         public static void Leave(TopLevel topLevel) => Send(topLevel, Avalonia.Input.Raw.RawPointerEventType.LeaveWindow, default);
@@ -4626,7 +4640,7 @@ public static class UiAutomationDriver
         }
 
         private static bool Send(TopLevel topLevel, Avalonia.Input.Raw.RawPointerEventType type, Point at,
-            RawInputModifiers modifiers = RawInputModifiers.None, IInputDevice? device = null)
+            RawInputModifiers modifiers = RawInputModifiers.None, IInputDevice? device = null, ulong? timestamp = null)
         {
             Action<Avalonia.Input.Raw.RawInputEventArgs> input;
             Avalonia.Input.Raw.RawInputEventArgs args;
@@ -4641,7 +4655,7 @@ public static class UiAutomationDriver
                     [new Avalonia.Input.Pointer(Avalonia.Input.Pointer.GetNextFreeId(), PointerType.Mouse, isPrimary: true)]);
                 input = found;
                 args = (Avalonia.Input.Raw.RawInputEventArgs)newEvent.Invoke(
-                    [device, (ulong)Environment.TickCount64, root, type, at, modifiers]);
+                    [device, timestamp ?? (ulong)Environment.TickCount64, root, type, at, modifiers]);
             }
             catch (Exception ex) when (ex is System.Reflection.TargetInvocationException or TypeInitializationException
                                            or MemberAccessException or InvalidCastException or ArgumentException)

@@ -1088,6 +1088,10 @@
     "Str.Debug.Conditions.Prompt": "توقف عند هذا السطر فقط عندما يكون هذا التعبير صحيحًا:",
     "Str.Debug.Conditions.Edit": "شرط…",
     "Str.Debug.Conditions.AdapterIgnored": "يتجاهل هذا المحول الشروط ويتوقف كل مرة.",
-    "Str.Debug.Conditions.InterpreterIgnored": "يتجاهل المفسر الشروط ويتوقف كل مرة."
+    "Str.Debug.Conditions.InterpreterIgnored": "يتجاهل المفسر الشروط ويتوقف كل مرة.",
+    "Str.Menu.View.Outline": "المخطط",
+    "Str.Menu.View.RecentEdits": "التعديلات الأخيرة",
+    "Str.CodeEditor.Context.FindReferences": "البحث عن المراجع",
+    "Str.CodeEditor.Context.NoQuickFix": "لم يتم تقديم إصلاح قابل للتطبيق."
   }
 }

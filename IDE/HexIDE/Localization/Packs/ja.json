@@ -1088,6 +1088,10 @@
     "Str.Debug.Conditions.Prompt": "この式が True の場合にのみ、この行で停止します:",
     "Str.Debug.Conditions.Edit": "条件…",
     "Str.Debug.Conditions.AdapterIgnored": "このアダプターは条件を無視し、毎回停止します。",
-    "Str.Debug.Conditions.InterpreterIgnored": "インタープリターは条件を無視し、毎回停止します。"
+    "Str.Debug.Conditions.InterpreterIgnored": "インタープリターは条件を無視し、毎回停止します。",
+    "Str.Menu.View.Outline": "アウトライン",
+    "Str.Menu.View.RecentEdits": "最近の編集",
+    "Str.CodeEditor.Context.FindReferences": "参照の検索",
+    "Str.CodeEditor.Context.NoQuickFix": "適用可能な修正がありません。"
   }
 }

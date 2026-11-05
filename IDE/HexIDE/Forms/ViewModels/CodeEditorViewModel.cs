@@ -1656,6 +1656,8 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
         return placed;
     }
 
+    internal string NoQuickFixMenuLabel => localization.GetString("Str.CodeEditor.Context.NoQuickFix");
+
     internal string NoQuickFix => localization.GetString("Str.CodeEditor.QuickFix.NoEdit");
 
     internal async Task<OfferedCodeAction[]> RequestCodeActionsAsync(int offset, CancellationToken ct = default)
