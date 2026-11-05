@@ -18,22 +18,39 @@ public class WorkflowActionTests
         docs.Should().Contain("needs: changes");
         docs.Should().Contain("if: ${{ !cancelled() && needs.changes.outputs.skip == 'true' }}");
         builds.Should().Contain("if: ${{ !cancelled() && needs.changes.outputs.skip != 'true' }}");
-        docs.Should().Contain("name: build-ide (${{ matrix.name }})");
-        builds.Should().Contain("name: build-ide (${{ matrix.name }})");
+        docs.Should().Contain("name: build-ide (${{ matrix.name }}${{ matrix.name == 'windows-arm' && ', advisory' || '' }})");
+        builds.Should().Contain("name: build-ide (${{ matrix.name }}${{ matrix.name == 'windows-arm' && ', advisory' || '' }})");
         docs.Should().Contain("runs-on: ubuntu-latest");
         builds.Should().Contain("runs-on: ${{ matrix.runner }}");
 
-        var names = Regex.Matches(builds, @"\{ name: (\w+), runner: ([\w-]+) \}");
-        names.Select(match => match.Groups[1].Value).Should().BeEquivalentTo(new[] { "windows", "macos" });
+        var names = Regex.Matches(builds, @"\{ name: ([\w-]+), runner: ([\w-]+) \}");
+        names.Select(match => match.Groups[1].Value).Should().BeEquivalentTo(new[] { "windows", "macos", "windows-arm" });
         foreach (Match name in names)
         {
             docs.Should().MatchRegex(@"(?m)^          - \{ name: " + name.Groups[1].Value + @" \}$");
-            name.Groups[2].Value.Should().Be(name.Groups[1].Value + "-latest");
+            name.Groups[2].Value.Should().Be(name.Groups[1].Value == "windows-arm"
+                ? "windows-11-arm" : name.Groups[1].Value + "-latest");
         }
 
         docs.Should().NotContain("uses:");
         Regex.Matches(docs, @"(?m)^        run: (.+)$").Select(match => match.Groups[1].Value)
             .Should().Equal("echo 'Build skipped for a docs-only change.'");
+    }
+
+    [Fact]
+    public void WindowsArmIsAdvisoryAndKeepsTheWindowsProofsRequired()
+    {
+        var workflow = File.ReadAllText(Path.Combine(RepoTree.Root(), ".github", "workflows", "build.yml"))
+            .ReplaceLineEndings("\n");
+        var build = Regex.Match(workflow, @"(?ms)^  build-ide-desktop:\n(.*?)(?=^  [\w-]+:|\z)").Value;
+
+        build.Should().Contain("continue-on-error: ${{ matrix.name == 'windows-arm' }}");
+        build.Should().Contain("fail-fast: false");
+        build.Should().Contain("- { name: windows-arm, runner: windows-11-arm }");
+        build.Should().Contain("name: Publish the standalone runner (for the made-program test)\n        if: runner.os == 'Windows'");
+        build.Should().Contain("HEXIDE_REQUIRE_MADE_PROGRAM: ${{ runner.os == 'Windows' && '1' || '0' }}");
+        build.Should().Contain("HEXIDE_REQUIRE_FOREIGN_LSP: '1'");
+        build.Should().Contain("foreign-lsp-${{ matrix.name }}-${{ hashFiles(");
     }
 
     [Theory]
