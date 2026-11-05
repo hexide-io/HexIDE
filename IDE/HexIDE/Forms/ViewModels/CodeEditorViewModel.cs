@@ -1660,11 +1660,59 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
         return placed;
     }
 
-    /// <summary>Checks every target before writing any buffer, then gives each its own undo step.</summary>
-    internal string? ApplyRename(WorkspaceEdit edit, string oldName, Func<string, RenameDocumentSnapshot?>? documentFor = null)
+    internal string NoQuickFix => localization.GetString("Str.CodeEditor.QuickFix.NoEdit");
+
+    internal async Task<OfferedCodeAction[]> RequestCodeActionsAsync(int offset, CancellationToken ct = default)
     {
-        string Refuse(string uri, string key = "Str.CodeEditor.Msg.RenameDocumentRefused") => string.Format(localization.GetString(key),
-            editorService.DocumentNameForUri(uri) ?? uri);
+        if (LiveDocumentUri is not { } uri || session is null) return [];
+        var location = Document.GetLocation(offset);
+        var position = new Position(location.Line - 1, location.Column - 1);
+        static int Compare(Position a, Position b) => a.Line != b.Line ? a.Line.CompareTo(b.Line) : a.Character.CompareTo(b.Character);
+        var diagnostics = session.Diagnostics.Where(d => Compare(d.Range.Start, position) <= 0
+            && (Compare(position, d.Range.End) < 0 || d.Range.Start == d.Range.End && position == d.Range.Start)).ToArray();
+        if (diagnostics.Length == 0) return [];
+        await FlushDocumentAsync(ct);
+        return await lspClient.RequestCodeActionsAsync(uri, diagnostics[0].Range, diagnostics, ct);
+    }
+
+    internal async Task<string?> ApplyCodeActionAsync(OfferedCodeAction action, CancellationToken ct = default)
+    {
+        if (action.DisabledReason is { } disabled) return disabled;
+        if (action.Resolve is { } resolve) action = await resolve(ct);
+        if (action.DisabledReason is { } resolvedReason) return resolvedReason;
+        if (action.Edit is null && action.Command is null) return NoQuickFix;
+        if (action.Edit is { } edit && ApplyRename(edit, "", action.DocumentFor, codeAction: true) is { } refusal) return refusal;
+        if (action.Command is { } command)
+        {
+            if (action.Edit is { } applied)
+            {
+                var uris = applied.DocumentChanges is { } changes
+                    ? changes.Where(c => c.TextDocument is not null).Select(c => c.TextDocument!.Uri)
+                    : applied.Changes?.Keys.AsEnumerable() ?? [];
+                foreach (var uri in uris.Distinct(LspDocumentUri.Comparer))
+                {
+                    var target = LspDocumentUri.AreSame(uri, GetDocumentUriPublic()) ? this
+                        : editorService.CodeDocumentForUri(uri) is { } identity ? editorService.FindOpenCode(identity) : null;
+                    if (target is not null) await target.FlushDocumentAsync(ct);
+                }
+            }
+            if (await TryRunClientCommandAsync(command)) return null;
+            if (action.CanExecute?.Invoke(command) != true || action.Execute is not { } execute)
+                return string.Format(localization.GetString("Str.CodeEditor.QuickFix.UnsupportedCommand"), command.CommandName);
+            await execute(command, ct);
+        }
+        return null;
+    }
+
+    /// <summary>Checks every target before writing any buffer, then gives each its own undo step.</summary>
+    internal string? ApplyRename(WorkspaceEdit edit, string oldName, Func<string, RenameDocumentSnapshot?>? documentFor = null, bool codeAction = false)
+    {
+        string Refuse(string uri, string key = "Str.CodeEditor.Msg.RenameDocumentRefused")
+        {
+            if (codeAction) key = key == "Str.CodeEditor.Msg.RenameDocumentRefused"
+                ? "Str.CodeEditor.QuickFix.Refused" : "Str.CodeEditor.QuickFix.ChangedTarget";
+            return string.Format(localization.GetString(key), editorService.DocumentNameForUri(uri) ?? uri);
+        }
 
         var targets = new List<(string Uri, int? Version, TextEdit[] Edits)>();
         // documentChanges takes precedence when a server supplies both representations (LSP 3.17).
@@ -1701,6 +1749,8 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
             var prefix = editor?.bufferPrefix ?? (module is not null ? FormCodeText.Prefix(module) : FormCodeText.Prefix(form!));
             var document = editor?.Document ?? new TextDocument(prefix + (module?.Code ?? form!.Code));
             var (local, server) = versions[i];
+            if (codeAction && server is not null && server.Text != document.Text)
+                return Refuse(target.Uri, "Str.CodeEditor.Msg.RenameStaleVersion");
             var sent = documentFor is null ? local?.Sent : server?.Version;
             if (target.Version is { } version && sent is { } lastSent)
             {
@@ -1731,7 +1781,8 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
             var resolved = Resolve(document, target.Edits);
             for (var j = 1; j < resolved.Count; j++)
                 if (resolved[j].Offset + resolved[j].Length > resolved[j - 1].Offset) return Refuse(target.Uri);
-            if (RefusedRenameEdit(document.Text, prefix.Length, resolved) is not null)
+            if (codeAction ? resolved.Any(c => ReadOnlyRegions.Changes(ReadOnlyRegions.Of(document.Text, prefix.Length), c.Offset, c.Length))
+                : RefusedRenameEdit(document.Text, prefix.Length, resolved) is not null)
                 return Refuse(target.Uri);
             prepared.Add((target.Uri, identity, resolved));
         }
@@ -1758,7 +1809,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
             (target.Identity == Identity ? this : editorService.OpenCodeForUri(target.Uri)!).ApplyAsOneStep(target.Changes);
         if (prepared.Count > 0) editorService.OpenCodeForUri(GetDocumentUriPublic());
         CaretOffset = Math.Clamp(caret, 0, Document.TextLength);
-        if (prepared.Count > 0)
+        if (prepared.Count > 0 && !codeAction)
             statusBarService.SetTemporaryMessage(string.Format(localization.GetString("Str.CodeEditor.Msg.RenamedInModules"),
                 prepared.Count), TimeSpan.FromSeconds(5));
         return null;
@@ -2116,10 +2167,41 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
 
     internal async Task RunCodeLensAsync(Command command)
     {
+        if (!await TryRunClientCommandAsync(command))
+            await lspClient.ExecuteCommandAsync(command.CommandName, command.Arguments);
+    }
+
+    private async Task<bool> TryRunClientCommandAsync(Command command)
+    {
+        if (command.CommandName is "rdcore.rename" or "editor.action.rename")
+        {
+            try
+            {
+                if (command.Arguments is not { Length: >= 2 } args) return false;
+                var uri = args[0].GetString();
+                if (uri is null) return false;
+                var position = new Position(args[1].GetProperty("line").GetInt32(), args[1].GetProperty("character").GetInt32());
+                var target = LspDocumentUri.AreSame(uri, GetDocumentUriPublic()) ? this : editorService.OpenCodeForUri(uri);
+                if (target is null || position.Line < 0 || position.Line >= target.Document.LineCount
+                    || position.Character < 0 || position.Character > target.Document.GetLineByNumber(position.Line + 1).Length) return false;
+                var offset = target.Document.GetOffset(position.Line + 1, position.Character + 1);
+                target.CaretOffset = offset;
+                if (WordAt(target.Document, offset) is not { } name) return true;
+                if (target.RenameRefusalAt(offset, name) is { } refusal) await target.ShowRefusalAsync(refusal);
+                else await target.RenameSymbolAsync(position, name);
+                return true;
+            }
+            catch (Exception error) when (error is System.Text.Json.JsonException or InvalidOperationException
+                or KeyNotFoundException or FormatException)
+            {
+                Log.Warning(error, "Invalid rename client command arguments");
+                return false;
+            }
+        }
         if (command.CommandName is "rdcore.showReferences" or "editor.action.showReferences")
         {
             if (command.Arguments is not { Length: >= 3 } arguments
-                || arguments[2].ValueKind != System.Text.Json.JsonValueKind.Array) return;
+                || arguments[2].ValueKind != System.Text.Json.JsonValueKind.Array) return true;
             try
             {
                 var locations = arguments[2].EnumerateArray().Select(item =>
@@ -2140,9 +2222,9 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
             {
                 Log.Warning(error, "Invalid show-references code lens arguments");
             }
-            return;
+            return true;
         }
-        await lspClient.ExecuteCommandAsync(command.CommandName, command.Arguments);
+        return false;
     }
 
     public bool CanShowCallHierarchy => LiveDocumentUri is { } uri && lspClient.SupportsCallHierarchy(uri);
@@ -2186,6 +2268,76 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
 
     public Task<RenameResult?> RequestRenameAsync(Position position, string newName, CancellationToken ct = default)
         => LiveDocumentUri is { } uri ? lspClient.RequestRenameAsync(uri, position, newName, ct) : Task.FromResult<RenameResult?>(null);
+
+    internal static string? WordAt(TextDocument doc, int offset)
+    {
+        if (offset < 0 || offset > doc.TextLength) return null;
+
+        int start = offset;
+        while (start > 0 && IsVbIdentifierChar(doc.GetCharAt(start - 1)))
+            start--;
+
+        int end = offset;
+        while (end < doc.TextLength && IsVbIdentifierChar(doc.GetCharAt(end)))
+            end++;
+
+        return start < end ? doc.GetText(start, end - start) : null;
+
+        static bool IsVbIdentifierChar(char c) => char.IsLetterOrDigit(c) || c == '_';
+    }
+
+    internal async Task RenameSymbolAsync(Position position, string oldName)
+    {
+        try
+        {
+            await FlushDocumentAsync();
+            var preparation = await RequestPrepareRenameAsync(position);
+            if (preparation is { Allowed: false })
+            {
+                if (preparation.Refusal is { } reason) await ShowRefusalAsync(reason);
+                return;
+            }
+            var promptText = oldName;
+            if (preparation?.Placeholder is { } placeholder) promptText = placeholder;
+            else if (preparation?.Range is { } range)
+            {
+                var start = Document.GetOffset(range.Start.Line + 1, range.Start.Character + 1);
+                var end = Document.GetOffset(range.End.Line + 1, range.End.Character + 1);
+                promptText = Document.GetText(start, end - start);
+            }
+            var newName = await ShowRenameInputBoxAsync(promptText);
+            if (newName is null || newName == oldName) return;
+            // Before the request, so no server is asked to write a name VB6 would refuse (#273 task 4.4). An empty
+            // answer is refused with the rest rather than taken for Cancel, which answers null.
+            if (NewNameRefusal(newName) is { } notAName)
+            {
+                await ShowRefusalAsync(notAName);
+                return;
+            }
+
+            await FlushDocumentAsync();
+            var result = await RequestRenameAsync(position, newName);
+            if (result?.Refusal is { } serverRefusal)
+            {
+                await ShowRefusalAsync(serverRefusal);
+                return;
+            }
+            var edit = result?.Edit;
+
+            if (edit is null) return;
+
+            await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                if (ApplyRename(edit, oldName, result?.DocumentFor) is { } refusal)
+                    _ = ShowRefusalAsync(refusal);
+            });
+        }
+        catch (OperationCanceledException) { }
+        catch (Exception ex)
+        {
+            Log.Debug("[rename] {ErrorMessage}", ex.Message);
+        }
+    }
 
     public Task<string?> ShowRenameInputBoxAsync(string defaultText)
         => windowManager.InputBox(localization.GetString("Str.CodeEditor.Dialog.RenamePrompt"),

@@ -62,6 +62,7 @@ public sealed record LayoutManifest(
 
 public interface IWindowStateService
 {
+    void TrackWindowState(Window mainWindow);
     void SaveWindowState(Window mainWindow);
     void RestoreWindowState(Window mainWindow);
 
