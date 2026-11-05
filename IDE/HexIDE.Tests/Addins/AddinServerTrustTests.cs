@@ -53,7 +53,9 @@ public sealed class AddinServerTrustTests : IDisposable
             new AddinOptionsService(), new ComponentRegistry(), runner,
             new LanguageServerContributions(_router, new LanguageServerRegistrationFactory(NullLoggerFactory.Instance),
                 new LanguageServerConfigLoader(NullLogger<LanguageServerConfigLoader>.Instance), [],
-                NullLogger<LanguageServerContributions>.Instance));
+                NullLogger<LanguageServerContributions>.Instance),
+            new HexIDE.Debugging.DebugLaunchService(new HexIDE.Debugging.ExternalDebugService(new HexIDE.Conversations.ConversationLog())),
+            new HexIDE.Projects.ContributedProjects());
     }
 
     private IAddinServerConnection Register(Func<CancellationToken, Task>? gate = null) =>
