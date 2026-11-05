@@ -6,7 +6,22 @@ namespace HexIDE.IDE;
 public interface IProjectRunnerService : INotifyPropertyChanged
 {
     void RunProject(ProjectDefinition projectDefinition, bool stepInto = false);
+    /// <summary>Runs the startup project in the IDE, as Run To Cursor, Restart, a full compile and F8 from idle do.</summary>
     void RunStartupProject(bool stepInto = false);
+
+    /// <summary>
+    /// What F5 and Run &gt; Start do from idle: the startup project with the add-in launch its user chose for it, or in
+    /// the IDE when there is none. A chosen launch that is gone, or no longer runs the project, leaves it to the IDE, and
+    /// the status bar says so.
+    /// </summary>
+    void StartDefaultProject();
+
+    /// <summary>
+    /// Runs a project under the External Debug Session with a launch an add-in contributed, once, whatever F5 runs for
+    /// the project. Does nothing while something is running.
+    /// </summary>
+    void StartContributedLaunch(HexIDE.Debugging.ContributedDebugLaunch launch, ProjectDefinition project);
+
     void BreakCurrentProject();
     void ContinueProject();
     void StepIntoProject();

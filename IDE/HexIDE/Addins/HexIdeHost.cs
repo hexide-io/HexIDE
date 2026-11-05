@@ -17,7 +17,8 @@ internal sealed class HexIdeHost(
     AddinProjectTemplateService projectTemplateService,
     AddinOptionsService optionsService,
     IComponentRegistry componentRegistry,
-    IProjectRunnerService projectRunner) : IHexIdeHost
+    IProjectRunnerService projectRunner,
+    HexIDE.Debugging.DebugLaunchService debugLaunches) : IHexIdeHost
 {
     public IMenuContributor Menus { get; } = menuService;
     public IToolWindowContributor ToolWindows { get; } = toolWindowService;
@@ -50,4 +51,9 @@ internal sealed class HexIdeHost(
         projectRunner.EndProject();
         return true;
     });
+
+    // NoInlining keeps this a real frame, so GetCallingAssembly is the add-in's, which names the launch's origin.
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+    public IDisposable RegisterDebugLaunch(AddinDebugLaunch launch) =>
+        debugLaunches.Register(launch, AddinOrigin.Of(System.Reflection.Assembly.GetCallingAssembly(), Registry));
 }

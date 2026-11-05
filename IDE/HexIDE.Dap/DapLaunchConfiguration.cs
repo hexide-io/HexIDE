@@ -58,6 +58,37 @@ public sealed record DapLaunchConfiguration
         };
     }
 
+    /// <summary>
+    /// A configuration an add-in made for a run, checked as a file's is but with no file to resolve its paths against:
+    /// the executable and working directory are fully qualified, or it is refused. It carries no breakpoints; the
+    /// session is given the IDE's.
+    /// </summary>
+    /// <exception cref="InvalidDataException">
+    /// The executable or adapter id is missing, a path is not fully qualified, or the launch arguments are not an object.
+    /// </exception>
+    public static DapLaunchConfiguration FromContributed(HexIDE.Addins.AddinLaunchConfiguration contributed)
+    {
+        ArgumentNullException.ThrowIfNull(contributed);
+        if (string.IsNullOrWhiteSpace(contributed.Executable) || string.IsNullOrWhiteSpace(contributed.AdapterId))
+            throw new InvalidDataException("A debug launch configuration needs an executable and an adapter id.");
+        if (!Path.IsPathFullyQualified(contributed.Executable))
+            throw new InvalidDataException($"The debug adapter's executable is not a full path: {contributed.Executable}");
+        if (contributed.WorkingDirectory is { } directory && !Path.IsPathFullyQualified(directory))
+            throw new InvalidDataException($"The debug adapter's working directory is not a full path: {directory}");
+        if (contributed.Launch.ValueKind != JsonValueKind.Object || contributed.Arguments is null ||
+            contributed.Environment is null || contributed.Arguments.Any(argument => argument is null))
+            throw new InvalidDataException("Invalid debug launch arguments or environment.");
+        return new DapLaunchConfiguration
+        {
+            Executable = Path.GetFullPath(contributed.Executable),
+            Arguments = [.. contributed.Arguments],
+            WorkingDirectory = Path.GetFullPath(contributed.WorkingDirectory ?? Path.GetDirectoryName(contributed.Executable)!),
+            Environment = new Dictionary<string, string?>(contributed.Environment),
+            AdapterId = contributed.AdapterId,
+            Launch = contributed.Launch.Clone(),
+        };
+    }
+
     public DapProcessOptions ProcessOptions(DapCapture capture) => new(Executable)
     {
         Arguments = Arguments, WorkingDirectory = WorkingDirectory, Environment = Environment, Capture = capture,

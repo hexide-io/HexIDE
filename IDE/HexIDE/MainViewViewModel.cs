@@ -54,6 +54,9 @@ public partial class MainViewViewModel : ObservableObject
     private readonly IDocumentDockService documentDockService;
     public DelegateCommand ReopenClosedDocumentCommand { get; }
     public ObservableCollection<RecentProjectItemViewModel> ClosedDocumentMenuItems { get; } = new();
+
+    /// <summary>The Run menu's F5 Runs and Start Once With, for the launches add-ins contribute; null when none can be.</summary>
+    public RunWithMenuViewModel? RunWith { get; }
     private readonly DockFactory dockFactory;
     private readonly IProjectRunnerService projectRunnerService;
     private readonly IEventBus eventBus;
@@ -1151,8 +1154,10 @@ public partial class MainViewViewModel : ObservableObject
         FindReferencesToolViewModel? findReferences,
         CallHierarchyToolViewModel? callHierarchy,
         HexIDE.Debugging.ExternalDebugService? externalDebugger = null,
-        HexIDE.Recovery.IRecoveryOffers? recoveryOffers = null)
+        HexIDE.Recovery.IRecoveryOffers? recoveryOffers = null,
+        RunWithMenuViewModel? runWith = null)
     {
+        RunWith = runWith;
         if (findReferences is not null)
         {
             eventBus.Subscribe<NavigationLocationsEvent>(e => findReferences.ShowLocations(e.Locations));
@@ -1376,7 +1381,7 @@ public partial class MainViewViewModel : ObservableObject
                 if (projectRunnerService.CanContinueProject)
                     projectRunnerService.ContinueProject();
                 else
-                    projectRunnerService.RunStartupProject();
+                    projectRunnerService.StartDefaultProject();
             },
             () => projectRunnerService.CanStartDefaultProject || projectRunnerService.CanContinueProject);
         StartDefaultProjectWithFullCompileCommand = new DelegateCommand(() => projectRunnerService.RunStartupProject(),
