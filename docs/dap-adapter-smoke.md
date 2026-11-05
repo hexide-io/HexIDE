@@ -225,6 +225,15 @@ already built.
    Use a fresh `--out` directory after a successful run.
    A serial retry reuses the workspace created by its parallel attempt.
 
+   The adapter child receives `Configuration__Environment__ErlLineNumbering=LineLabel` by default
+   ([#3133](https://github.com/hexide-io/HexIDE/issues/3133)): vb6.exe's `Erl` returns the line label.
+   RDCore's `DocumentLine` default is a configuration choice by design (RD-VBAL 6.1.2.7.1.14), not a defect.
+   Use `--erl-line-numbering DocumentLine` for that comparison, or `--erl-line-numbering LineLabel` explicitly.
+   This setting overrides any inherited value only in the adapter's environment; the runner's environment is unchanged.
+   The results header records the selected value and the reason for the default.
+   Issue #3133 records RDCore 0e1afe06 matching three of five Erl rows with `LineLabel`; line numbers above
+   65535 and `Err.Clear` remain RDCore findings, not changes made by this runner.
+
 Outcomes compare HexIDE's Immediate output lines with RDCore's `stdout` lines, trimmed. Individual printed items
 retain their types and use the same formatter as `Debug.Print`, including Null and numeric spacing (#2119).
 Older dumps without lines fall back to individual items; regenerate them for statement-level comparisons.
