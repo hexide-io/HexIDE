@@ -686,7 +686,8 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
             .Where(d => d.Owner == owner && LspDocumentUri.AreSame(d.Uri, uri)
                 && diagnostics.Any(candidate => ReferenceEquals(candidate, d.Diagnostic)))
             .Select(d => d.Diagnostic).ToArray();
-        var actions = await client.RequestCodeActionsAsync(uri, range, ownDiagnostics, ct);
+        if (ownDiagnostics.Length == 0) return [];
+        var actions = await client.RequestCodeActionsAsync(uri, ownDiagnostics[0].Range, ownDiagnostics, ct);
         var name = _entries.First(e => ReferenceEquals(e.Client, client)).Registration.DisplayName;
         return actions.Select(action => action with { Server = owner, ServerDisplayName = name }).ToArray();
     }, ct);

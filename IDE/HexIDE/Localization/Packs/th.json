@@ -2,6 +2,7 @@
   "name": "Thai",
   "direction": "ltr",
   "strings": {
+    "Str.Lsp.OpenExternalUri": "เปิด URI นี้ภายนอก HexIDE หรือไม่?\n\n{0}",
     "Str.Tool.CallHierarchy.Title": "ลำดับชั้นการเรียก",
     "Str.Tool.CallHierarchy.CallsTo": "การเรียกเข้า",
     "Str.Tool.CallHierarchy.CallsFrom": "การเรียกออก",
@@ -475,6 +476,8 @@
     "Str.Options.EditorGeneral.Display.Header": "การแสดงผล",
     "Str.Options.EditorGeneral.Display.ShowMinimap": "แสดงแผนที่ย่อ",
     "Str.Options.EditorGeneral.Display.ShowInlayHints": "แสดงคำแนะนำในบรรทัด",
+    "Str.Options.EditorGeneral.Display.ShowCodeLenses": "แสดงเลนส์โค้ด",
+    "Str.Editor.RunCodeLens": "เรียกใช้เลนส์โค้ด",
     "Str.Options.EditorFormatting.Indentation.Header": "การเยื้อง",
     "Str.Options.EditorFormatting.Indentation.TabWidth": "ความกว้างแท็บ:",
     "Str.Options.Grid.GroupHeader": "การตั้งค่าตารางฟอร์ม",

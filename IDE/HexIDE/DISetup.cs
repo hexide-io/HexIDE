@@ -284,12 +284,20 @@ public partial class DISetup
                 ctx.Inject<Func<IProjectRunnerService>>(out var runners);
                 ctx.Inject<IWindowManager>(out var windows);
                 var serverPrompts = new ServerMessagePrompt(() => runners().IsRunning || windows.IsNativeDialogOpen);
+                var serverDocuments = new ServerDocumentNavigation(serverPrompts, localization,
+                    (uri, token) => Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(
+                        () => Avalonia.Controls.TopLevel.GetTopLevel(Static.MainView)!.Launcher.LaunchUriAsync(uri),
+                        Avalonia.Threading.DispatcherPriority.Normal, token).GetTask().Unwrap());
                 return new LanguageServerRegistrationFactory(loggerFactory, workspace, capture, providers,
-                    workspaceNames: new HexIDE.Redaction.ConversationRedactor(pseudonyms),
-                    locale: () => localization.ResolvedLanguage, settings: settings,
-                    showDocument: (request, token) => Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(
-                        () => editors().ShowDocument(request), Avalonia.Threading.DispatcherPriority.Normal, token).GetTask(),
-                    showMessageRequest: serverPrompts.ShowAsync);
+                    new HexIDE.Redaction.ConversationRedactor(pseudonyms),
+                    () => localization.ResolvedLanguage, settings,
+                    async (title, request, token) => request.External
+                        ? await serverDocuments.ShowExternalAsync(title, request.Uri, token)
+                        : await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(
+                            () => editors().ShowDocument(request), Avalonia.Threading.DispatcherPriority.Normal, token),
+                    serverPrompts.ShowAsync,
+                    (edit, documentFor, token) => Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(
+                        () => editors().ApplyWorkspaceEdit(edit, documentFor), Avalonia.Threading.DispatcherPriority.Normal, token).GetTask());
             })
             // The servers add-ins contribute (#2760), added to the router above while the IDE runs. The ids the
             // configuration names, switched off or not, keep their entries.

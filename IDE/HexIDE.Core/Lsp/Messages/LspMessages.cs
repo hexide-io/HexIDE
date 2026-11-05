@@ -341,6 +341,8 @@ public record DidChangeConfigurationParams([property: JsonPropertyName("settings
 /// </para>
 /// </summary>
 public record WorkspaceClientCapabilities(
+    [property: JsonPropertyName("applyEdit")]
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] bool? ApplyEdit = null,
     [property: JsonPropertyName("executeCommand")]
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] ExecuteCommandClientCapabilities? ExecuteCommand = null,
     /// <summary>
@@ -1404,6 +1406,15 @@ public record SelectionRange(
 
 public record SelectionRangeClientCapabilities;
 
+public record ApplyWorkspaceEditParams(
+    [property: JsonPropertyName("edit")] WorkspaceEdit Edit,
+    [property: JsonPropertyName("label")]
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Label = null);
+
+public record ApplyWorkspaceEditResult(
+    [property: JsonPropertyName("applied")] bool Applied,
+    [property: JsonPropertyName("failureReason")]
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? FailureReason = null);
 public record CallHierarchyItem(
     [property: JsonPropertyName("name")] string Name,
     [property: JsonPropertyName("kind")] int Kind,

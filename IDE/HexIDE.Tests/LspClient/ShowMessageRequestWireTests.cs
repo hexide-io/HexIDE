@@ -131,7 +131,7 @@ public class ShowMessageRequestWireTests : IAsyncDisposable
         var first = new TaskCompletionSource<HexIDE.Lsp.Messages.MessageActionItem?>();
         var second = new TaskCompletionSource<HexIDE.Lsp.Messages.MessageActionItem?>();
         var count = 0;
-        var queue = new ServerMessagePrompt((_, _, _) =>
+        var queue = new ServerMessagePrompt((_, _, _, _) =>
         {
             var pending = Interlocked.Increment(ref count) == 1 ? first.Task : second.Task;
             entered.TrySetResult();
@@ -164,7 +164,7 @@ public class ShowMessageRequestWireTests : IAsyncDisposable
         var held = true;
         var checkedState = new TaskCompletionSource();
         var shown = new TaskCompletionSource();
-        var queue = new ServerMessagePrompt((_, _, _) =>
+        var queue = new ServerMessagePrompt((_, _, _, _) =>
         {
             var blocked = ServerMessagePrompt.IsBlocked(running && held, [], !running && held);
             checkedState.TrySetResult();

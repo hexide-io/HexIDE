@@ -1048,6 +1048,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
         // the document, which is the cheapest signal that its symbols are worth asking for again.
         session.DiagnosticsApplied += () => _ = RefreshSymbolsAsync();
 
+        session.ChangeSent += () => analysis?.RefreshLenses();
         session.Start();
         ProjectLspDocument.Reopened(lspClient, Identity);
 

@@ -47,6 +47,7 @@ internal sealed class CodeLensDisplay : VisualLineElementGenerator, IDisposable
     {
         if (disposed) return;
         lenses = session.Lenses;
+        Avalonia.Labs.Input.CommandManager.InvalidateRequerySuggested();
         editor.TextArea.TextView.Redraw();
     });
 
@@ -86,9 +87,16 @@ internal sealed class CodeLensDisplay : VisualLineElementGenerator, IDisposable
                 };
                 button.Classes.Add("codeLens");
                 button.Click += (_, _) => execute(command);
+                layer.Children.Add(new Border { Background = editor.Background, IsHitTestVisible = false });
                 layer.Children.Add(button);
             }
-            else button = (Button)layer.Children[i];
+            else button = (Button)layer.Children[i * 2 + 1];
+            var background = (Border)layer.Children[i * 2];
+            background.Background = editor.Background;
+            background.Width = view.Bounds.Width;
+            background.Height = RowHeight;
+            Canvas.SetLeft(background, origin.X);
+            Canvas.SetTop(background, top);
             button.FontFamily = editor.FontFamily;
             button.FontSize = editor.FontSize * .8;
             button.Foreground = editor.Foreground;
@@ -97,6 +105,10 @@ internal sealed class CodeLensDisplay : VisualLineElementGenerator, IDisposable
             Canvas.SetTop(button, top);
         }
     }
+
+    internal CodeLensSession Session => session;
+
+    internal Command[] CommandsOnLine(int line) => OnLine(line).Select(l => l.Command!).ToArray();
 
     private double RowHeight => editor.FontSize * 1.2;
     private CodeLens[] OnLine(int line) => lenses.Where(l => l.Range.Start.Line == line - 1 && l.Command is not null).ToArray();

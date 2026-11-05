@@ -34,6 +34,12 @@ public class CodeLensTests
     [InlineData("click")]
     [InlineData("click-editor")]
     [InlineData("click-server")]
+    [InlineData("keyboard")]
+    [InlineData("keyboard-multiple")]
+    [InlineData("toggle")]
+    [InlineData("off")]
+    [InlineData("background-selection")]
+    [InlineData("background-current-line")]
     public void LensInCodeWindow(string check)
     {
         var client = Substitute.For<ILspClient>();
@@ -48,6 +54,7 @@ public class CodeLensTests
         var results = new FindReferencesToolViewModel(client, editors, projects, documents, localization);
         var settings = Substitute.For<ISettingsService>();
         settings.TabWidth.Returns(4);
+        typeof(ISettingsService).GetProperty("ShowCodeLenses")?.SetValue(settings, check != "off");
         var events = new EventBus();
         using var vm = new CodeEditorViewModel(Substitute.For<IWindowManager>(), editors,
             Substitute.For<IProjectService>(), events, client, settings,
@@ -72,6 +79,9 @@ public class CodeLensTests
             : [new CodeLens(location.Range, command)]);
         client.ResolveCodeLensAsync(Arg.Any<CodeLens>(), Arg.Any<CancellationToken>())
             .Returns(call => call.Arg<CodeLens>() with { Command = command });
+        if (check == "keyboard-multiple")
+            client.RequestCodeLensesAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
+                .Returns([new CodeLens(location.Range, command), new CodeLens(location.Range, command with { Title = "other" })]);
         var originalText = vm.Document.Text;
         var originalLineCount = vm.Document.LineCount;
         var view = new CodeEditorView { DataContext = vm };
@@ -87,6 +97,12 @@ public class CodeLensTests
             Dispatcher.UIThread.RunJobs();
             window.UpdateLayout();
             var editor = view.FindControl<AvaloniaEdit.TextEditor>("TextEditor")!;
+            if (check == "off")
+            {
+                client.DidNotReceive().RequestCodeLensesAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
+                view.GetVisualDescendants().OfType<Button>().Should().NotContain(b => Equals(b.Content, "1 reference"));
+                return;
+            }
             if (check == "viewport")
             {
                 int[] ResolvedLines() => client.ReceivedCalls().Where(c => c.GetMethodInfo().Name == nameof(ILspClient.ResolveCodeLensAsync))
@@ -104,7 +120,79 @@ public class CodeLensTests
             label.Should().NotBeNull();
             label!.Bounds.Width.Should().BeGreaterThan(0);
             label.Bounds.Height.Should().BeGreaterThan(0);
-            if (check == "drawing")
+            if (check == "toggle")
+            {
+                var property = typeof(ISettingsService).GetProperty("ShowCodeLenses");
+                property.Should().NotBeNull();
+                property!.SetValue(settings, false);
+                settings.PropertyChanged += Raise.Event<PropertyChangedEventHandler>(settings,
+                    new PropertyChangedEventArgs("ShowCodeLenses"));
+                Dispatcher.UIThread.RunJobs();
+                window.UpdateLayout();
+                view.GetVisualDescendants().OfType<Button>().Should().NotContain(b => Equals(b.Content, "1 reference"));
+                var requests = client.ReceivedCalls().Count(c => c.GetMethodInfo().Name == nameof(ILspClient.RequestCodeLensesAsync));
+                client.CodeLensRefreshRequested += Raise.Event<EventHandler>(client, EventArgs.Empty);
+                vm.Document.Insert(vm.Document.TextLength, "' edited\r\n");
+                vm.FlushDocumentAsync().GetAwaiter().GetResult();
+                Dispatcher.UIThread.RunJobs();
+                client.ReceivedCalls().Count(c => c.GetMethodInfo().Name == nameof(ILspClient.RequestCodeLensesAsync)).Should().Be(requests);
+                property.SetValue(settings, true);
+                settings.PropertyChanged += Raise.Event<PropertyChangedEventHandler>(settings,
+                    new PropertyChangedEventArgs("ShowCodeLenses"));
+                Dispatcher.UIThread.RunJobs();
+                window.UpdateLayout();
+                view.GetVisualDescendants().OfType<Button>().Should().Contain(b => Equals(b.Content, "1 reference"));
+                client.ReceivedCalls().Count(c => c.GetMethodInfo().Name == nameof(ILspClient.RequestCodeLensesAsync)).Should().Be(requests + 1);
+            }
+            else if (check.StartsWith("keyboard", StringComparison.Ordinal))
+            {
+                var field = typeof(ApplicationCommands).GetField("RunCodeLensCommand");
+                field.Should().NotBeNull();
+                var routed = (Avalonia.Labs.Input.RoutedCommand)field!.GetValue(null)!;
+                routed.Gestures.Should().BeEmpty();
+                editor.TextArea.Caret.Line = line + 1;
+                routed.CanExecute(null, editor.TextArea).Should().BeTrue();
+                routed.Execute(null, editor.TextArea);
+                Dispatcher.UIThread.RunJobs();
+                if (check == "keyboard-multiple")
+                {
+                    var menu = editor.ContextMenu!;
+                    menu.IsOpen.Should().BeTrue();
+                    var item = menu.Items.OfType<MenuItem>().Single(item => Equals(item.Header, "1 reference"));
+                    menu.Items.Should().HaveCount(2);
+                    var popup = TopLevel.GetTopLevel(item)!;
+                    popup.KeyPress(Key.Down, RawInputModifiers.None, PhysicalKey.ArrowDown, null);
+                    popup.KeyRelease(Key.Down, RawInputModifiers.None, PhysicalKey.ArrowDown, null);
+                    popup.KeyPress(Key.Enter, RawInputModifiers.None, PhysicalKey.Enter, null);
+                    popup.KeyRelease(Key.Enter, RawInputModifiers.None, PhysicalKey.Enter, null);
+                }
+                results.Rows.Should().Contain(r => r.Location == location);
+                editor.TextArea.Caret.Line = line + 2;
+                routed.CanExecute(null, editor.TextArea).Should().BeFalse();
+                client.DidNotReceive().FindReferencesAsync(Arg.Any<string>(), Arg.Any<Position>(), Arg.Any<CancellationToken>());
+            }
+            else if (check.StartsWith("background-", StringComparison.Ordinal))
+            {
+                editor.Background = Avalonia.Media.Brushes.White;
+                editor.TextArea.SelectionBrush = Avalonia.Media.Brushes.Red;
+                editor.TextArea.SelectionCornerRadius = 0;
+                editor.TextArea.TextView.CurrentLineBackground = Avalonia.Media.Brushes.Blue;
+                editor.TextArea.TextView.CurrentLineBorder = null;
+                editor.Options.HighlightCurrentLine = true;
+                editor.TextArea.Caret.Line = line + 1;
+                if (check == "background-selection") editor.SelectAll();
+                window.UpdateLayout();
+                Dispatcher.UIThread.RunJobs();
+                using var frame = window.CaptureRenderedFrame();
+                frame.Should().NotBeNull();
+                // Sample well clear of the lens text, in the row that highlights used to cover.
+                var point = label.TranslatePoint(new Point(2, label.Bounds.Height - 2), window)!.Value;
+                using var buffer = frame!.Lock();
+                var offset = (int)(point.Y * window.RenderScaling) * buffer.RowBytes + (int)(point.X * window.RenderScaling) * 4;
+                for (var channel = 0; channel < 3; channel++)
+                    System.Runtime.InteropServices.Marshal.ReadByte(buffer.Address, offset + channel).Should().Be(255);
+            }
+            else if (check == "drawing")
             {
                 var textView = editor.TextArea.TextView;
                 var visualLine = textView.GetVisualLine(line + 1)!;

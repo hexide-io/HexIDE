@@ -2,6 +2,7 @@
   "name": "Danish",
   "direction": "ltr",
   "strings": {
+    "Str.Lsp.OpenExternalUri": "Åbn denne URI uden for HexIDE?\n\n{0}",
     "Str.Tool.CallHierarchy.Title": "Kaldhierarki",
     "Str.Tool.CallHierarchy.CallsTo": "Kald til",
     "Str.Tool.CallHierarchy.CallsFrom": "Kald fra",
@@ -470,6 +471,8 @@
     "Str.Options.EditorGeneral.CodeSettings.FormatOnSave": "Formatér ved gem",
     "Str.Options.EditorGeneral.Display.Header": "Visning",
     "Str.Options.EditorGeneral.Display.ShowInlayHints": "Vis indlejrede tip",
+    "Str.Options.EditorGeneral.Display.ShowCodeLenses": "Vis kodelinser",
+    "Str.Editor.RunCodeLens": "Kør kodelinse",
     "Str.Options.EditorGeneral.Display.ShowMinimap": "Vis minikort",
     "Str.Options.EditorFormatting.Indentation.Header": "Indrykning",
     "Str.Options.EditorFormatting.Indentation.TabWidth": "Tabulatorbredde:",
