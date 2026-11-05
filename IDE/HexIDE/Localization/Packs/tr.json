@@ -2,6 +2,7 @@
   "name": "Turkish",
   "direction": "ltr",
   "strings": {
+    "Str.Lsp.OpenExternalUri": "Bu URI HexIDE dışında açılsın mı?\n\n{0}",
     "Str.Tool.CallHierarchy.Title": "Çağrı Hiyerarşisi",
     "Str.Tool.CallHierarchy.CallsTo": "Gelen Çağrılar",
     "Str.Tool.CallHierarchy.CallsFrom": "Giden Çağrılar",
@@ -477,6 +478,8 @@
     "Str.Options.EditorGeneral.CodeSettings.FormatOnSave": "Kaydederken Biçimlendir",
     "Str.Options.EditorGeneral.Display.Header": "Görüntü",
     "Str.Options.EditorGeneral.Display.ShowInlayHints": "Satır içi ipuçlarını göster",
+    "Str.Options.EditorGeneral.Display.ShowCodeLenses": "Kod merceklerini göster",
+    "Str.Editor.RunCodeLens": "Kod merceğini çalıştır",
     "Str.Options.EditorGeneral.Display.ShowMinimap": "Mini Haritayı Göster",
     "Str.Options.EditorFormatting.Indentation.Header": "Girinti",
     "Str.Options.EditorFormatting.Indentation.TabWidth": "Sekme Genişliği:",

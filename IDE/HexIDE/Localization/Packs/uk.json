@@ -2,6 +2,7 @@
   "name": "Ukrainian",
   "direction": "ltr",
   "strings": {
+    "Str.Lsp.OpenExternalUri": "Відкрити цей URI поза HexIDE?\n\n{0}",
     "Str.Tool.CallHierarchy.Title": "Ієрархія викликів",
     "Str.Tool.CallHierarchy.CallsTo": "Виклики до",
     "Str.Tool.CallHierarchy.CallsFrom": "Виклики з",
@@ -477,6 +478,8 @@
     "Str.Options.EditorGeneral.CodeSettings.FormatOnSave": "Форматувати під час збереження",
     "Str.Options.EditorGeneral.Display.Header": "Відображення",
     "Str.Options.EditorGeneral.Display.ShowInlayHints": "Показувати вбудовані підказки",
+    "Str.Options.EditorGeneral.Display.ShowCodeLenses": "Показувати лінзи коду",
+    "Str.Editor.RunCodeLens": "Виконати лінзу коду",
     "Str.Options.EditorGeneral.Display.ShowMinimap": "Показувати мінікарту",
     "Str.Options.EditorFormatting.Indentation.Header": "Відступи",
     "Str.Options.EditorFormatting.Indentation.TabWidth": "Ширина табуляції:",

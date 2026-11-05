@@ -2,6 +2,7 @@
   "name": "Vietnamese",
   "direction": "ltr",
   "strings": {
+    "Str.Lsp.OpenExternalUri": "Mở URI này bên ngoài HexIDE?\n\n{0}",
     "Str.Tool.CallHierarchy.Title": "Phân cấp lời gọi",
     "Str.Tool.CallHierarchy.CallsTo": "Lời gọi đến",
     "Str.Tool.CallHierarchy.CallsFrom": "Lời gọi từ",
@@ -477,6 +478,8 @@
     "Str.Options.EditorGeneral.CodeSettings.FormatOnSave": "Định dạng khi lưu",
     "Str.Options.EditorGeneral.Display.Header": "Hiển thị",
     "Str.Options.EditorGeneral.Display.ShowInlayHints": "Hiện gợi ý nội tuyến",
+    "Str.Options.EditorGeneral.Display.ShowCodeLenses": "Hiện thấu kính mã",
+    "Str.Editor.RunCodeLens": "Chạy thấu kính mã",
     "Str.Options.EditorGeneral.Display.ShowMinimap": "Hiện bản đồ thu nhỏ",
     "Str.Options.EditorFormatting.Indentation.Header": "Thụt lề",
     "Str.Options.EditorFormatting.Indentation.TabWidth": "Độ rộng tab:",

@@ -194,6 +194,88 @@ public class LogicallyParentedPopupTests
         finally { window.Close(); }
     }
 
+    [AvaloniaTheory]
+    [InlineData("resolve")]
+    [InlineData("invoke")]
+    [InlineData("indexes")]
+    public void Attached_menu_preserves_its_owners_paths(string check)
+    {
+        var invoked = false;
+        var command = new MenuItem { Header = "Properties" };
+        command.Click += (_, _) => invoked = true;
+        var menu = new ContextMenu { Items = { command } };
+        var item = new TreeViewItem { Header = "Form1", IsSelected = true };
+        var tree = new TreeView { Items = { item }, ContextMenu = menu };
+        var window = Show(tree);
+        try
+        {
+            var before = UiAutomationDriver.Dump(window, "Window", 20, false);
+            var itemPath = Find(before, "Form1")!.Path;
+            var savedControl = UiAutomationDriver.Resolve(window, itemPath).control;
+            savedControl.Should().NotBeNull();
+            var ownerPath = UiAutomationDriver.PathWithin(window, "Window", tree)!;
+            var owner = UiAutomationDriver.Dump(tree, ownerPath, 20, false);
+            var paths = owner.Children.Select(c => c.Path).ToArray();
+            paths.Should().NotBeEmpty();
+            var controls = paths.Select(p => UiAutomationDriver.Resolve(window, p).control).ToArray();
+
+            menu.Open(tree);
+            Dispatcher.UIThread.RunJobs();
+
+            if (check == "resolve")
+            {
+                UiAutomationDriver.Resolve(window, itemPath).control.Should().BeSameAs(savedControl);
+                UiAutomationDriver.Resolve(window, paths[0]).control.Should().BeSameAs(controls[0]);
+            }
+            else if (check == "invoke")
+            {
+                var opened = UiAutomationDriver.Dump(tree, ownerPath, 20, false);
+                var popup = opened.Children.SingleOrDefault(c => c.ControlType == "ContextMenu");
+                popup.Should().NotBeNull();
+                var path = Find(popup!, "Properties")!.Path;
+                var resolved = UiAutomationDriver.Resolve(window, path);
+                resolved.error.Should().BeNull();
+                resolved.control.Should().BeSameAs(command);
+                UiAutomationDriver.Inspect(command, path).Path.Should().Be(path);
+                UiAutomationDriver.PressKey(resolved.control!, "Home", null, path).Success.Should().BeTrue();
+                UiAutomationDriver.Interact(resolved.control!, "invoke", null).Success.Should().BeTrue();
+                invoked.Should().BeTrue();
+            }
+            else
+            {
+                var opened = UiAutomationDriver.Dump(tree, ownerPath, 20, false);
+                opened.Children.Where(c => c.ControlType != "ContextMenu").Select(c => c.Path)
+                    .Should().Equal(paths);
+            }
+        }
+        finally { menu.Close(); window.Close(); }
+    }
+
+    [AvaloniaTheory]
+    [InlineData(PopupRoute.ContextFlyout)]
+    [InlineData(PopupRoute.AttachedFlyout)]
+    [InlineData(PopupRoute.ButtonFlyout)]
+    public void A_flyout_keeps_an_addressable_root(PopupRoute route)
+    {
+        var (target, _) = Owning(route);
+        var window = Show(target);
+        try
+        {
+            UiAutomationDriver.Interact(target, "expand", null).Success.Should().BeTrue();
+            Dispatcher.UIThread.RunJobs();
+            var ownerPath = UiAutomationDriver.PathWithin(window, "Window", target)!;
+            var dump = UiAutomationDriver.Dump(target, ownerPath, 20, false);
+            var popup = dump.Children.SingleOrDefault(c => c.ControlType == "Flyout");
+            popup.Should().NotBeNull();
+            var item = Find(popup!, "Properties")!;
+            UiAutomationDriver.Resolve(window, popup!.Path).control.Should().NotBeNull();
+            UiAutomationDriver.Resolve(window, item.Path).control.Should().BeOfType<MenuItem>();
+            UiAutomationDriver.Inspect(UiAutomationDriver.Resolve(window, popup.Path).control!, popup.Path)
+                .Path.Should().Be(popup.Path);
+        }
+        finally { UiAutomationDriver.Interact(target, "collapse", null); window.Close(); }
+    }
+
     public enum PopupRoute { ContextMenu, ContextFlyout, AttachedFlyout, ButtonFlyout }
 
     private static (Control Target, Func<bool> IsOpen) Owning(PopupRoute route)

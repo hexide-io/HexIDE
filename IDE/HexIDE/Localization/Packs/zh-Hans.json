@@ -2,6 +2,7 @@
   "name": "Chinese (Simplified)",
   "direction": "ltr",
   "strings": {
+    "Str.Lsp.OpenExternalUri": "在 HexIDE 外部打开此 URI？\n\n{0}",
     "Str.Tool.CallHierarchy.Title": "调用层次结构",
     "Str.Tool.CallHierarchy.CallsTo": "传入调用",
     "Str.Tool.CallHierarchy.CallsFrom": "传出调用",
@@ -477,6 +478,8 @@
     "Str.Options.EditorGeneral.CodeSettings.FormatOnSave": "保存时格式化",
     "Str.Options.EditorGeneral.Display.Header": "显示",
     "Str.Options.EditorGeneral.Display.ShowInlayHints": "显示内嵌提示",
+    "Str.Options.EditorGeneral.Display.ShowCodeLenses": "显示代码透镜",
+    "Str.Editor.RunCodeLens": "运行代码透镜",
     "Str.Options.EditorGeneral.Display.ShowMinimap": "显示缩略图",
     "Str.Options.EditorFormatting.Indentation.Header": "缩进",
     "Str.Options.EditorFormatting.Indentation.TabWidth": "制表符宽度：",

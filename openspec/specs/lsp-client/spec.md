@@ -15,10 +15,19 @@ later without the editor noticing.
 ### Requirement: User-requested server code actions
 
 The client SHALL request code actions only when the user opens Quick Fixes on a diagnostic in the code
-window, sending its range and the diagnostics there, including opaque data unchanged, to every capable
-claimant, including only that claimant’s own diagnostics and data. It SHALL group answers by server display name, show disabled reasons without allowing selection, and declare
-literal, data, disabled and edit-resolution support, including diagnostic data preservation. Distinct
+window, sending each capable claimant the range of its own first diagnostic under the caret and only
+that claimant’s diagnostics there, including opaque data unchanged. A claimant with no diagnostic under
+the caret SHALL NOT receive a request. It SHALL group answers by server display name, show disabled
+reasons without allowing selection, and declare literal, data, disabled and edit-resolution support,
+including diagnostic data preservation. Distinct
 server ids SHALL remain separate groups even when their display names match. It SHALL compute no fixes itself.
+
+#### Scenario: Two servers diagnose the caret differently
+
+- **WHEN** two capable claimants publish diagnostics with different ranges containing the caret
+- **AND** the user opens Quick Fixes
+- **THEN** each request carries that server’s own first diagnostic range and only its diagnostics
+- **AND** a claimant without a diagnostic under the caret receives no request
 
 #### Scenario: Selecting a lazy edit with a command
 
@@ -139,6 +148,7 @@ answer `window/showMessageRequest` using an IDE message box owned by the main wi
 be the server's display name and its buttons SHALL be the server's actions. The box SHALL show the
 message type's icon (Error, Warning, Information for Info and Log), using the IDE message box's icons.
 Escape SHALL dismiss the box without choosing an action.
+The first action button SHALL receive focus when the box opens, so Enter chooses that action.
 
 #### Scenario: A question is answered or dismissed
 - **WHEN** the user chooses an action
@@ -151,6 +161,10 @@ Escape SHALL dismiss the box without choosing an action.
 - **THEN** its icon represents the message type
 - **WHEN** the user presses Escape
 - **THEN** the box closes and the client returns `null`
+
+#### Scenario: Enter answers a newly opened question
+- **WHEN** a server question with actions opens and the user presses Enter without moving focus
+- **THEN** the client returns the first action item and closes the box
 
 ### Requirement: Server questions queue without blocking the connection
 Prompts SHALL queue one at a time across connections and wait while a program runs or another modal is
@@ -2150,10 +2164,9 @@ the final restart note, to scroll fully into its viewport at 100% and 150% displ
 ### Requirement: Server-requested project document navigation
 
 The client SHALL declare `window.showDocument.support: true` and answer `window/showDocument`
-with `{ success }`. A URI naming a loaded member by the same rule as `EditorService.NavigateTo`
-SHALL open its code or carried-file editor, apply the supplied selection, and take focus only when
-`takeFocus` is true. External requests and URIs naming no loaded member SHALL answer `success: false`
-and SHALL open nothing. This is the project-member slice of #2908; external navigation remains deferred.
+with `{ success }`. A URI naming a loaded member by `EditorService.NavigateTo`'s rule SHALL open
+its code or carried-file editor, apply the supplied selection, and take focus only when requested.
+A non-external URI naming no loaded member SHALL answer `success: false` without opening or prompting.
 
 #### Scenario: A server selects a range in a module
 
@@ -2166,10 +2179,73 @@ and SHALL open nothing. This is the project-member slice of #2908; external navi
 - **WHEN** a loaded member is requested without `takeFocus: true`
 - **THEN** its editor opens and applies the selection without changing the focused document
 
-#### Scenario: External or unknown URI
+#### Scenario: Unknown project URI
 
-- **WHEN** a request has `external: true` or names no loaded member
-- **THEN** the response contains `success: false` and nothing opens
+- **WHEN** a non-external request names no loaded member
+- **THEN** the response contains `success: false` and nothing opens or prompts
+
+### Requirement: External document navigation requires consent
+
+External requests SHALL ask every time in the shared server-question queue, under the server's display
+name and with the full URI. They SHALL wait out a running program or another modal without blocking
+messages. No SHALL receive initial focus, so Enter and Escape decline.
+Only Yes SHALL launch the URI through the system launcher. The answer SHALL be true only
+when launched; No, dismissal, invalid URI or launch failure SHALL answer false. Only `http`, `https` and
+`mailto` URIs SHALL be offered; any other scheme, such as `file:` naming a program, SHALL be refused with
+`success: false` without asking or launching.
+
+#### Scenario: External navigation requires consent each time
+
+- **WHEN** a server requests an external URI
+- **THEN** a queued IDE message box shows the full URI with Yes and No actions
+- **AND** No is initially focused; Enter, Escape or dismissal returns `success: false` without launching anything
+- **AND** Yes invokes the system launcher and returns its success
+- **AND** requesting the same URI again asks again
+
+#### Scenario: Only web and mail links are offered
+
+- **WHEN** a server requests an external `file:` URI, or any scheme other than `http`, `https` or `mailto`
+- **THEN** no question is asked and nothing is launched
+- **AND** the answer is `success: false`
+
+### Requirement: Server workspace edits require a running user command
+
+The client SHALL declare `workspace.applyEdit: true` alongside `workspaceEdit.documentChanges`.
+The shared command sender SHALL track unanswered user-started commands per server. Only while one
+is running SHALL `workspace/applyEdit` use the workspace rename applier. Otherwise it SHALL answer
+`applied: false` with a `failureReason` explaining the user-command rule and change nothing.
+Internal project imports SHALL NOT authorize server edits.
+Applying a server workspace edit SHALL preserve the active document tab.
+
+#### Scenario: A lens command requests an edit before answering
+
+- **WHEN** the user runs a code lens command and its server requests an edit before answering
+- **THEN** the checked edit applies with independent undo per module and answers `applied: true`
+- **AND** the tab active before the edit remains active
+
+#### Scenario: Unsolicited or late edits
+
+- **WHEN** a server requests edits without its own unanswered user command, including after its answer
+- **THEN** no buffer changes and it receives `applied: false` with a `failureReason`
+- **AND** a command running on another connection does not authorize it
+
+### Requirement: Server workspace edits share rename checks
+
+The applier SHALL preflight all documents using the requesting connection's sent versions and text,
+refuse stale or unsent changes and protected or read-only regions, and apply all edits or none.
+A refusal SHALL return `applied: false` with the applier's text as `failureReason`.
+Success SHALL return `applied: true` with one undo step per module. Both edit representations
+SHALL be supported; resource operations SHALL remain refused.
+
+#### Scenario: A checked workspace edit succeeds
+
+- **WHEN** an authorized edit passes every document's checks
+- **THEN** all edits apply, with one independent undo step per module, and the response is `applied: true`
+
+#### Scenario: One stale document refuses the whole edit
+
+- **WHEN** an authorized edit includes a stale document version
+- **THEN** all buffers remain unchanged and the refusal text is returned as `failureReason`
 
 ### Requirement: Implementation and type definition navigation
 
@@ -2197,13 +2273,44 @@ The client SHALL provide a document lens session that resolves only lenses whose
 its supplied zero-based viewport. Leaving the viewport SHALL cancel pending resolution, and late replies
 from cancelled resolution or superseded discovery SHALL NOT replace the current lenses. Complete lenses
 SHALL NOT be resolved again. Disposing a session SHALL cancel its work and detach refresh subscriptions.
-The code window supplies the viewport and refetches after edit debounce; the Options toggle remains pending.
+The code window SHALL supply the viewport. Lens discovery after edits SHALL follow the same document
+change debounce as diagnostics pull, rather than the folding pause. Old lenses SHALL remain drawn until
+the replacement answer arrives; only the new viewport SHALL be resolved.
 
 #### Scenario: Ten visible members among fifty
 
 - **WHEN** discovery returns fifty unresolved lenses and the supplied viewport contains ten
 - **THEN** the session SHALL request only those ten resolutions
 - **AND** scrolling SHALL request newly visible lenses without resolving completed ones again
+
+#### Scenario: Typing settles once
+
+- **WHEN** a burst of edits is synchronized after the diagnostics debounce
+- **THEN** the document SHALL request lenses once after sending the change
+- **AND** rebuilding its view without editing SHALL NOT request lenses again
+
+### Requirement: Code lens visibility is an editor setting
+
+Options SHALL offer a localized Show code lenses toggle beside inlay hints, enabled by default and
+persisted with editor settings. Disabling it SHALL remove lens lines and cancel discovery and resolution;
+no lens requests SHALL be sent while disabled, including server refresh. Enabling it SHALL rediscover lenses.
+
+#### Scenario: Toggle lenses without reopening the editor
+
+- **WHEN** the user disables code lenses
+- **THEN** the open editor SHALL remove its lens rows immediately
+- **AND** enabling them again SHALL request and display fresh lenses
+
+### Requirement: Code lens actions are reachable from the keyboard
+
+The keymap SHALL expose RunCodeLensCommand with no default gesture. Its context-menu entry SHALL be
+enabled only when a resolved lens sits on the caret's line. It SHALL run the single lens or offer the
+line's commands in a keyboard-accessible list when several exist, using the same handler as a click.
+
+#### Scenario: Show references from a lens without a pointer
+
+- **WHEN** the user runs the lens command on a line with a show-references lens
+- **THEN** the existing Find References pane SHALL receive its locations without a references request
 
 ### Requirement: Workspace code lens refresh invalidates lens sessions
 
@@ -2221,7 +2328,9 @@ mark their answers stale and defer discovery until a view resumes them.
 ### Requirement: Code window lenses are visual actions above member lines
 
 The code window SHALL draw each resolved lens above its range in the editor font, smaller and dimmed.
-Lens space SHALL add no document characters, selection content, caret stops or line numbers. The view
+Lens space SHALL add no document characters, selection content, caret stops or line numbers.
+Selection and current-line highlighting SHALL leave lens rows on the editor background, including at
+150% display scaling. The view
 SHALL supply its visible lines to the lens session on scrolling and suspend new work on detach.
 The document SHALL own the session until disposal, retaining pending requests and completed answers
 across reattachment. Re-docking alone SHALL NOT rediscover lenses; edits SHALL refetch after debounce.

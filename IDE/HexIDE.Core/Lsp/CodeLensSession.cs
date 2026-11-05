@@ -30,6 +30,26 @@ public sealed class CodeLensSession : IDisposable
     private bool disposed;
     private bool suspended;
     private bool current;
+    private bool enabled = true;
+
+    public Task SetEnabledAsync(bool value)
+    {
+        lock (gate)
+        {
+            if (disposed || enabled == value) return Task.CompletedTask;
+            enabled = value;
+            if (!value)
+            {
+                current = false;
+                discovery?.Cancel();
+                CancelResolutions();
+                entries = [];
+            }
+        }
+        if (value) return RefreshAsync();
+        Changed?.Invoke(this, EventArgs.Empty);
+        return Task.CompletedTask;
+    }
 
     public void Suspend()
     {
@@ -66,7 +86,7 @@ public sealed class CodeLensSession : IDisposable
         CancellationTokenSource request;
         lock (gate)
         {
-            if (disposed) return;
+            if (disposed || !enabled) return;
             current = false;
             if (suspended)
             {
@@ -75,10 +95,8 @@ public sealed class CodeLensSession : IDisposable
             }
             discovery?.Cancel();
             CancelResolutions();
-            entries = [];
             discovery = request = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         }
-        Changed?.Invoke(this, EventArgs.Empty);
         try
         {
             var lenses = await client.RequestCodeLensesAsync(uri, request.Token);
@@ -106,7 +124,7 @@ public sealed class CodeLensSession : IDisposable
     {
         lock (gate)
         {
-            if (disposed || suspended) return Task.CompletedTask;
+            if (disposed || suspended || !enabled) return Task.CompletedTask;
             this.firstLine = firstLine;
             this.lastLine = lastLine;
             foreach (var entry in entries)
@@ -128,7 +146,7 @@ public sealed class CodeLensSession : IDisposable
         var work = new List<(Entry Entry, CancellationTokenSource Request)>();
         lock (gate)
         {
-            if (disposed || suspended) return Task.CompletedTask;
+            if (disposed || suspended || !enabled) return Task.CompletedTask;
             foreach (var entry in entries)
             {
                 if (!IsVisible(entry) || entry.Attempted || entry.Lens.Command is not null) continue;
