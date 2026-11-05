@@ -144,7 +144,7 @@ public static class UiAutomationDriver
         if (value is null && control is TextEditor { Document: { } document } shownEditor
             && control.DataContext is not HexIDE.Forms.ViewModels.ISearchableDocument)
         {
-            value = Safe<string?>(() => Capped(document.Text), null);
+            value = Safe<string?>(() => Capped(document.Text, keepEnd: true), null);
             editorReadOnly = shownEditor.IsReadOnly;
         }
 
@@ -399,9 +399,19 @@ public static class UiAutomationDriver
 
     private const int MaxMemberValueLength = 200;
 
-    private static string Capped(string text, int limit = MaxValueLength) => text.Length > limit
-        ? text[..limit] + $"… [truncated at {limit} of {text.Length} chars]"
-        : text;
+    private static string Capped(string text, int limit = MaxValueLength, bool keepEnd = false)
+    {
+        if (text.Length <= limit) return text;
+        if (!keepEnd)
+            return text[..limit] + $"… [last {text.Length - limit} of {text.Length} chars cut]";
+
+        // Output buffers keep their newest text, as run_project's printed does (#3035).
+        var more = limit == MaxMemberValueLength
+            ? "inspect its editor for the last 4000"
+            : "inspect_element has no paging";
+        return text[^limit..] + $"… [first {text.Length - limit} of {text.Length} chars cut; "
+             + $"{more}; copy the displayed text to read all]";
+    }
 
     /// <summary>
     /// A property's current value as text, or null when it cannot be read as text.
@@ -457,7 +467,7 @@ public static class UiAutomationDriver
                 IFormattable f => f.ToString(null, CultureInfo.InvariantCulture),
                 _ => raw.ToString(),
             };
-            return text is null ? null : Capped(text, MaxMemberValueLength);
+            return text is null ? null : Capped(text, MaxMemberValueLength, keepEnd: raw is AvaloniaEdit.Document.TextDocument);
         }, null);
     }
 
