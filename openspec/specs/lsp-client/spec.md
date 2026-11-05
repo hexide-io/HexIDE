@@ -1879,9 +1879,32 @@ The client SHALL declare `workspace.workspaceEdit.documentChanges: true`, accept
 and refuse resource operations without applying text edits. `documentChanges` SHALL take precedence
 over `changes`; servers sending `changes` SHALL remain supported. A versioned edit for a document
 already opened to the answering server SHALL match the last version sent and have no newer unsent
-changes. A null version, or a document never opened to that server, SHALL require no unsaved member
-changes, since those edits describe the file on disk. Rename previews and change annotations are outside
+changes. An unversioned edit (`changes` or a null-version `TextDocumentEdit`) to an open
+document SHALL compare its buffer with the answering connection’s snapshot when the producing request
+was sent. For server-initiated `workspace/applyEdit`, the baseline SHALL be the snapshot taken when
+the oldest unanswered user command on that connection was sent, never the latest `didChange`.
+With no unanswered user command, the client SHALL refuse the edit, including targets with unsaved changes.
+Unsaved changes alone SHALL NOT refuse an authorized edit; a buffer changed since that baseline SHALL
+refuse the whole edit with the existing changed-target wording, including when undo restores identical
+text at a newer document version.
+A document never opened to that server SHALL require no unsaved member changes, since those edits
+describe the file on disk. Rename previews and change annotations are outside
 this requirement (#1024).
+
+#### Scenario: Consecutive unversioned edits to an unsaved open target
+- **WHEN** two unversioned server edits target an open buffer, each against the content sent to that server
+- **THEN** both apply without a save between them
+- **AND** typing after the producing request was sent refuses its edit with the changed-target wording,
+  even if the typing has already reached the server via `didChange`
+
+#### Scenario: Overlapping commands use the oldest baseline
+- **WHEN** an unversioned workspace edit arrives while multiple user commands on its connection are unanswered
+- **THEN** the target is checked against the oldest command's snapshot
+- **AND** a newer command cannot authorize an edit computed before intervening typing
+
+#### Scenario: Unsolicited edit to an unsaved target
+- **WHEN** an unversioned workspace edit targets an unsaved buffer with no unanswered user command
+- **THEN** the edit is refused and the buffer remains unchanged
 
 #### Scenario: Rename reaches two open modules
 - **WHEN** a rename answer edits two loaded, writable modules at their current versions
@@ -2251,8 +2274,9 @@ originating code window's caret, without activating target tabs.
 
 ### Requirement: Server workspace edits share rename checks
 
-The applier SHALL preflight all documents using the requesting connection's sent versions and text,
-refuse stale or unsent changes and protected or read-only regions, and apply all edits or none.
+The applier SHALL preflight all documents using the requesting connection's latest sent versions for
+versioned edits and its oldest unanswered user command's snapshot for unversioned edits. It SHALL
+refuse changes since the applicable baseline and protected or read-only regions, and apply all edits or none.
 A refusal SHALL return `applied: false` with the applier's text as `failureReason`.
 Success SHALL return `applied: true` with one undo step per module. Both edit representations
 SHALL be supported; resource operations SHALL remain refused.

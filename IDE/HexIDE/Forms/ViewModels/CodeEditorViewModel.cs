@@ -1756,6 +1756,11 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
                     || (server is not null && server.Text != document.Text))
                     return Refuse(target.Uri, "Str.CodeEditor.Msg.RenameStaleVersion");
             }
+            else if (target.Version is null && server is not null)
+            {
+                if (server.VersionChanged || server.Text != document.Text || (local is { } known && known.Current != known.Sent))
+                    return Refuse(target.Uri, "Str.CodeEditor.Msg.RenameStaleVersion");
+            }
             else
             {
                 editor?.RefreshModelModified();

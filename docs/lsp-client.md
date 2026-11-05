@@ -642,8 +642,11 @@ server is expected to keep off them — the bundled one does, by the rule in
   `documentChanges` takes precedence over `changes`, which remains supported. Only text document edits
   are accepted; resource operations are neither declared nor applied. An edit with a version must
   match the last version sent for a document already opened to the answering connection, with no newer
-  unsent edits or buffer text differing from that connection’s last sent copy. Null versions and documents not previously opened to that server refer to disk and
-  require a member with no unsaved changes. Rename previews and change annotations remain outside
+  unsent edits or buffer text differing from that connection’s last sent copy. Unversioned edits to open
+  documents compare against the answering connection’s snapshot taken when the request was sent
+  (the last sent `didChange` for server-initiated edits). Unsaved changes alone do not refuse an edit;
+  a buffer changed since that baseline does, even if undo restores identical text. Documents not
+  previously opened to that server require a member with no unsaved changes. Rename previews and change annotations remain outside
   this workflow.
 
 ---
@@ -1251,12 +1254,18 @@ The client declares `workspace.applyEdit: true` and retains `workspaceEdit.docum
 `workspace/executeCommand`. The shared command sender tracks overlapping commands per server; other
 connections, unsolicited edits and edits after the command answer receive `applied: false` with a
 `failureReason`. Internal project-import commands do not grant this permission.
-Authorized edits use the rename workspace applier, including its answering connection's sent versions
-and text, unsaved-buffer checks, protected IDE lines and read-only forms. Both `changes` and
+Authorized edits use the rename workspace applier, including the answering connection's version and
+snapshot checks, buffer freshness checks, protected IDE lines and read-only forms. Both `changes` and
 `documentChanges` are supported. Preflight refuses the whole edit with the applier's reason, or applies
 it with one undo step per module and answers `applied: true`. Resource operations remain refused.
 `ServerApplyEditTests` drives a scripted server through a code lens command and checks the wire answers,
 per-server permission, stale-version refusal, both edit representations and independent undo.
+Consecutive unversioned edits can change an unsaved open target without saving between commands
+(#3154). The baseline is captured when the command is sent, and overlapping commands use the oldest
+unanswered command's snapshot on that connection. Typing after that snapshot refuses the whole edit
+with `ChangedTarget`, whether or not its `didChange` has already been sent. Versioned edits still check
+the latest sent version. With no unanswered user command, edits remain refused, including dirty targets;
+the latest `didChange` alone does not establish a baseline.
 `ServerApplyEditFocusTests` checks the production dock with two code windows: editing the other
 member keeps keyboard focus and the originating caret without a focus loss.
 

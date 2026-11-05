@@ -189,6 +189,187 @@ public class ServerApplyEditTests : IAsyncDisposable
     [AvaloniaTheory]
     [InlineData(false)]
     [InlineData(true)]
+    [InlineData(false, true)]
+    public async Task ConsecutiveUnversionedEditsApplyWithoutSaving(bool documentChanges, bool codeAction = false)
+    {
+        var connection = await ConnectAsync();
+        var a = Open(first);
+        var b = Open(second);
+        for (var i = 0; i < 2; i++)
+        {
+            await a.FlushDocumentAsync();
+            await b.FlushDocumentAsync();
+            var edit = UnversionedEdit(b, documentChanges, i == 0 ? "Welcome" : "Again");
+            server.DuringCommand = async () => await SendEdit(server, edit);
+            if (codeAction)
+            {
+                var action = (await connection.RequestCodeActionsAsync(UriOf(first), new(new(1, 0), new(1, 1)), [], timeout.Token)).Single();
+                await a.ApplyCodeActionAsync(action, timeout.Token);
+            }
+            else await connection.ExecuteCommandAsync("test.edit", cancellationToken: timeout.Token);
+            server.EditAnswer.GetProperty("applied").GetBoolean().Should().BeTrue();
+            b.Document.Text.Should().Contain(i == 0 ? "Sub Welcome()" : "Sub Again()");
+            b.IsModified.Should().BeTrue();
+        }
+    }
+
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task UnversionedEditRefusesTypingNotYetSentToServer(bool documentChanges)
+    {
+        var connection = await ConnectAsync();
+        var a = Open(first);
+        var b = Open(second);
+        await a.FlushDocumentAsync();
+        await b.FlushDocumentAsync();
+        var edit = UnversionedEdit(b, documentChanges, "Welcome");
+        server.DuringCommand = async () =>
+        {
+            await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
+                b.Document.Insert(b.Document.TextLength, "' typed during command\r\n"));
+            return await SendEdit(server, edit);
+        };
+        await connection.ExecuteCommandAsync("test.edit", cancellationToken: timeout.Token);
+        server.EditAnswer.GetProperty("applied").GetBoolean().Should().BeFalse();
+        server.EditAnswer.GetProperty("failureReason").GetString().Should().Be("Module2 changed since the server read it. Try again.");
+        b.Document.Text.Should().Contain("Sub Greet()");
+        b.Document.Text.Should().Contain("' typed during command");
+    }
+
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task CommandSnapshotPredatesTypingSentWhileEditIsHeld(bool documentChanges)
+    {
+        var connection = await ConnectAsync();
+        var a = Open(first);
+        var b = Open(second);
+        await a.FlushDocumentAsync();
+        await b.FlushDocumentAsync();
+        var edit = UnversionedEdit(b, documentChanges, "Welcome");
+        server.DuringCommand = async () =>
+        {
+            await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(async () =>
+            {
+                b.Document.Insert(b.Document.TextLength, "' typed during command\r\n");
+                await b.FlushDocumentAsync();
+            });
+            await server.TypedChange.Task.WaitAsync(timeout.Token);
+            return await SendEdit(server, edit);
+        };
+        await connection.ExecuteCommandAsync("test.edit", cancellationToken: timeout.Token);
+        server.EditAnswer.GetProperty("applied").GetBoolean().Should().BeFalse();
+        server.EditAnswer.GetProperty("failureReason").GetString().Should().Be("Module2 changed since the server read it. Try again.");
+        b.Document.Text.Should().Contain("Sub Greet()");
+        b.Document.Text.Should().Contain("' typed during command");
+    }
+
+    [AvaloniaFact]
+    public async Task OverlappingCommandsUseOldestSnapshot()
+    {
+        var connection = await ConnectAsync();
+        var b = Open(second);
+        await b.FlushDocumentAsync();
+        var edit = UnversionedEdit(b, false, "Welcome");
+        server.DuringCommand = async () =>
+        {
+            await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(async () =>
+            {
+                b.Document.Insert(b.Document.TextLength, "' typed during command\r\n");
+                await b.FlushDocumentAsync();
+            });
+            await server.TypedChange.Task.WaitAsync(timeout.Token);
+            server.DuringCommand = async () => await SendEdit(server, edit);
+            await connection.ExecuteCommandAsync("test.edit", cancellationToken: timeout.Token);
+            return server.EditAnswer;
+        };
+        await connection.ExecuteCommandAsync("test.edit", cancellationToken: timeout.Token);
+        server.EditAnswer.GetProperty("applied").GetBoolean().Should().BeFalse();
+        server.EditAnswer.GetProperty("failureReason").GetString().Should().Be("Module2 changed since the server read it. Try again.");
+        b.Document.Text.Should().Contain("Sub Greet()");
+    }
+
+    [AvaloniaFact]
+    public async Task UnsolicitedUnversionedEditRefusesDirtyTarget()
+    {
+        await ConnectAsync();
+        var b = Open(second);
+        b.Document.Insert(b.Document.TextLength, "' unsaved\r\n");
+        await b.FlushDocumentAsync();
+        var before = b.Document.Text;
+        var answer = await SendEdit(server, UnversionedEdit(b, false, "Welcome"));
+        answer.GetProperty("applied").GetBoolean().Should().BeFalse();
+        b.Document.Text.Should().Be(before);
+    }
+
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    [InlineData(false, true)]
+    [InlineData(true, true)]
+    public async Task RenameSnapshotPredatesTypingSentWhileRequestIsPending(bool documentChanges, bool undo = false)
+    {
+        var connection = await ConnectAsync();
+        var a = Open(first);
+        var b = Open(second);
+        await a.FlushDocumentAsync();
+        await b.FlushDocumentAsync();
+        var before = b.Document.Text;
+        var edit = UnversionedEdit(b, documentChanges, "Welcome");
+        server.DuringRename = async () =>
+        {
+            await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(async () =>
+            {
+                b.Document.Insert(b.Document.TextLength, "' typed during request\r\n");
+                if (undo) b.Document.UndoStack.Undo();
+                await b.FlushDocumentAsync();
+            });
+            return edit;
+        };
+        var answer = await connection.RequestRenameAsync(UriOf(first), new(1, 11), "Welcome", timeout.Token);
+        answer!.DocumentFor!(UriOf(second))!.Text.Should().Be(before);
+        a.ApplyRename(answer.Edit!, "", answer.DocumentFor, codeAction: true)
+            .Should().Be("Module2 changed since the server read it. Try again.");
+        b.Document.Text.Should().Contain("Sub Greet()");
+        if (undo) b.Document.Text.Should().Be(before);
+        else b.Document.Text.Should().Contain("' typed during request");
+    }
+
+    [AvaloniaFact]
+    public async Task VersionedRenameStillUsesLatestSentVersion()
+    {
+        var connection = await ConnectAsync();
+        var a = Open(first);
+        var b = Open(second);
+        await a.FlushDocumentAsync();
+        await b.FlushDocumentAsync();
+        var edit = new WorkspaceEdit(DocumentChanges: [new(new(UriOf(second), 2), [Rename(b)])]);
+        server.DuringRename = async () =>
+        {
+            await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(async () =>
+            {
+                b.Document.Insert(b.Document.TextLength, "' sent during request\r\n");
+                await b.FlushDocumentAsync();
+            });
+            return edit;
+        };
+        var answer = await connection.RequestRenameAsync(UriOf(first), new(1, 11), "Welcome", timeout.Token);
+        a.ApplyRename(answer!.Edit!, "Greet", answer.DocumentFor).Should().BeNull();
+        b.Document.Text.Should().Contain("Sub Welcome()");
+    }
+
+    private WorkspaceEdit UnversionedEdit(CodeEditorViewModel target, bool documentChanges, string name)
+    {
+        var line = target.Document.Lines.Single(l => target.Document.GetText(l).StartsWith("Public Sub ", StringComparison.Ordinal));
+        TextEdit edit = new(new(new(line.LineNumber - 1, 11), new(line.LineNumber - 1, line.Length - 2)), name);
+        return documentChanges ? new(DocumentChanges: [new(new(UriOf(second), null), [edit])])
+            : new(new() { [UriOf(second)] = [edit] });
+    }
+
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
     public async Task OutsideACommandRefusesAndChangesNothing(bool afterAnswer)
     {
         var connection = await ConnectAsync();
@@ -247,21 +428,31 @@ public class ServerApplyEditTests : IAsyncDisposable
         public JsonElement InitializeParams;
         public JsonElement EditAnswer;
         public Func<Task<JsonElement>>? DuringCommand;
+        public Func<Task<WorkspaceEdit>>? DuringRename;
+        public readonly TaskCompletionSource TypedChange = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
         [JsonRpcMethod("initialize", UseSingleObjectParameterDeserialization = true)]
         public JsonElement Initialize(JsonElement p)
         {
             InitializeParams = p.Clone();
-            return JsonDocument.Parse("""{"capabilities":{"textDocumentSync":1,"codeLensProvider":{},"executeCommandProvider":{"commands":["test.edit"]}}}""").RootElement.Clone();
+            return JsonDocument.Parse("""{"capabilities":{"textDocumentSync":1,"renameProvider":true,"codeActionProvider":true,"codeLensProvider":{},"executeCommandProvider":{"commands":["test.edit"]}}}""").RootElement.Clone();
         }
         [JsonRpcMethod("initialized", UseSingleObjectParameterDeserialization = true)]
         public void Initialized(JsonElement p) { }
         [JsonRpcMethod("textDocument/didOpen", UseSingleObjectParameterDeserialization = true)]
         public void Open(JsonElement p) { }
         [JsonRpcMethod("textDocument/didChange", UseSingleObjectParameterDeserialization = true)]
-        public void Change(JsonElement p) { }
+        public void Change(JsonElement p)
+        {
+            if (p.GetProperty("contentChanges")[0].GetProperty("text").GetString()!.Contains("' typed during command", StringComparison.Ordinal))
+                TypedChange.TrySetResult();
+        }
         [JsonRpcMethod("textDocument/codeLens", UseSingleObjectParameterDeserialization = true)]
         public JsonElement Lenses(JsonElement p) => JsonDocument.Parse("""[{"range":{"start":{"line":1,"character":0},"end":{"line":1,"character":0}},"command":{"title":"Edit","command":"test.edit"}}]""").RootElement.Clone();
+        [JsonRpcMethod("textDocument/codeAction", UseSingleObjectParameterDeserialization = true)]
+        public JsonElement Actions(JsonElement p) => JsonDocument.Parse("""[{"title":"Edit","command":"test.edit"}]""").RootElement.Clone();
+        [JsonRpcMethod("textDocument/rename", UseSingleObjectParameterDeserialization = true)]
+        public Task<WorkspaceEdit> Rename(JsonElement p) => DuringRename!();
         [JsonRpcMethod("workspace/executeCommand", UseSingleObjectParameterDeserialization = true)]
         public async Task<JsonElement?> Execute(JsonElement p)
         {
