@@ -22,6 +22,10 @@ public class TestApp : Application
         RequestedThemeVariant = ThemeVariant.Light;
         Console.Error.WriteLine("1085 probe: theme start");
         Styles.Add(new SimpleTheme());
+        Styles.Add(new StyleInclude(new Uri("avares://HexIDE/"))
+        {
+            Source = new Uri("avares://HexIDE/Themes/DialogButtons.axaml"),
+        });
         Console.Error.WriteLine("1085 probe: theme end");
         Styles.Add(new Dock.Avalonia.Themes.Simple.DockSimpleTheme());
         Console.Error.WriteLine("1085 probe: dock theme end");

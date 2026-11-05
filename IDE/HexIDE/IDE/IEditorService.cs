@@ -18,6 +18,9 @@ public interface IEditorService
     /// <summary>Opens a loaded code member by URI, or returns null when none answers.</summary>
     Forms.ViewModels.CodeEditorViewModel? OpenCodeForUri(string uri);
 
+    /// <summary>Opens a loaded code member, optionally preserving the active tab and focus.</summary>
+    Forms.ViewModels.CodeEditorViewModel? OpenCodeForUri(string uri, bool takeFocus);
+
     /// <summary>Finds a loaded code member without opening or activating a window.</summary>
     DocumentIdentity? CodeDocumentForUri(string uri);
 

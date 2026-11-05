@@ -90,6 +90,8 @@ public class WindowManager : IWindowManager
             HorizontalAlignment = HorizontalAlignment.Center,
             VerticalAlignment = VerticalAlignment.Center
         };
+        if (content is not (MessageBox { IsProgramDialog: true } or InputBox { IsProgramDialog: true }))
+            window.Classes.Add("ideDialog");
         return ShowManagedWindow(window);
     }
 
@@ -441,16 +443,22 @@ public class WindowManager : IWindowManager
         return await window.ShowDialog<bool>(owner);
     }
 
-    internal Window MakeDialogWindow(string title, Control content) => new Window
+    internal Window MakeDialogWindow(string title, Control content)
     {
-        Title = title,
-        Content = content,
-        FlowDirection = content is MessageBox { IsProgramDialog: true } or InputBox { IsProgramDialog: true }
-            ? FlowDirection.LeftToRight
-            : _localization.FlowDirection,
-        SizeToContent = SizeToContent.WidthAndHeight,
-        WindowStartupLocation = WindowStartupLocation.CenterOwner,
-        CanResize = false,
-        ShowActivated = true
-    };
+        var window = new Window
+        {
+            Title = title,
+            Content = content,
+            FlowDirection = content is MessageBox { IsProgramDialog: true } or InputBox { IsProgramDialog: true }
+                ? FlowDirection.LeftToRight
+                : _localization.FlowDirection,
+            SizeToContent = SizeToContent.WidthAndHeight,
+            WindowStartupLocation = WindowStartupLocation.CenterOwner,
+            CanResize = false,
+            ShowActivated = true
+        };
+        if (content is not (MessageBox { IsProgramDialog: true } or InputBox { IsProgramDialog: true }))
+            IdeDialogChrome.Apply(window);
+        return window;
+    }
 }

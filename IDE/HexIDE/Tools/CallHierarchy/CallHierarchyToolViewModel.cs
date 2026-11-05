@@ -4,7 +4,6 @@ using System.Collections.ObjectModel;
 using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
-using Dock.Model.Mvvm.Controls;
 using HexIDE.IDE;
 using HexIDE.Localization;
 using HexIDE.Lsp;
@@ -38,7 +37,7 @@ public partial class CallHierarchyNode : ObservableObject
     }
 }
 
-public partial class CallHierarchyToolViewModel : Tool
+public partial class CallHierarchyToolViewModel : ResultsToolViewModel
 {
     private readonly ILspClient client;
     private readonly IEditorService editors;
@@ -46,7 +45,6 @@ public partial class CallHierarchyToolViewModel : Tool
     private CallHierarchyResult result = new([], []);
     private int generation;
     private int searchGeneration;
-    public event Action? ShowRequested;
     public ObservableCollection<CallHierarchyNode> Roots { get; } = [];
     [Notify] private CallHierarchyNode? selectedNode;
     [Notify] private bool callsFrom;
@@ -73,7 +71,7 @@ public partial class CallHierarchyToolViewModel : Tool
         result = new([], []);
         Roots.Clear();
         SelectedNode = null;
-        ShowRequested?.Invoke();
+        RequestShow();
         CallHierarchyResult answer;
         try { answer = await client.FindCallHierarchyAsync(uri, position, ct); }
         catch (OperationCanceledException) when (ct.IsCancellationRequested) { return; }
