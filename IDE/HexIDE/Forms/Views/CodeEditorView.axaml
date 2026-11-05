@@ -185,7 +185,7 @@
                         </MenuItem>
                         <Separator />
                         <MenuItem Header="{DynamicResource Str.Tool.FindReferences.Title}" Command="{x:Static vb:ApplicationCommands.FindReferencesCommand}" />
-                        <MenuItem Header="{DynamicResource Str.Tool.CallHierarchy.Title}" Command="{x:Static vb:ApplicationCommands.CallHierarchyCommand}" />
+                        <MenuItem Header="{DynamicResource Str.CodeEditor.Context.CallHierarchy}" Command="{x:Static vb:ApplicationCommands.CallHierarchyCommand}" />
                         <MenuItem Header="{DynamicResource Str.Editor.RunCodeLens}" Command="{x:Static vb:ApplicationCommands.RunCodeLensCommand}" />
                         <MenuItem Header="{DynamicResource Str.CodeEditor.Context.GoToDefinition}" Command="{x:Static vb:ApplicationCommands.GoToDefinitionCommand}" />
                         <MenuItem Header="{DynamicResource Str.CodeEditor.Context.GoToImplementation}" Command="{x:Static vb:ApplicationCommands.GoToImplementationCommand}" />

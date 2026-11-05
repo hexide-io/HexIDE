@@ -2,6 +2,8 @@
   "name": "Czech",
   "direction": "ltr",
   "strings": {
+    "Str.Menu.Edit.CallHierarchy": "H_ierarchie volání",
+    "Str.CodeEditor.Context.CallHierarchy": "_Hierarchie volání",
     "Str.Lsp.OpenExternalUri": "Otevřít tento identifikátor URI mimo HexIDE?\n\n{0}",
     "Str.Tool.CallHierarchy.Title": "Hierarchie volání",
     "Str.Tool.CallHierarchy.CallsTo": "Volání do",
