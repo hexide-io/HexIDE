@@ -2197,13 +2197,44 @@ The client SHALL provide a document lens session that resolves only lenses whose
 its supplied zero-based viewport. Leaving the viewport SHALL cancel pending resolution, and late replies
 from cancelled resolution or superseded discovery SHALL NOT replace the current lenses. Complete lenses
 SHALL NOT be resolved again. Disposing a session SHALL cancel its work and detach refresh subscriptions.
-The code window supplies the viewport and refetches after edit debounce; the Options toggle remains pending.
+The code window SHALL supply the viewport. Lens discovery after edits SHALL follow the same document
+change debounce as diagnostics pull, rather than the folding pause. Old lenses SHALL remain drawn until
+the replacement answer arrives; only the new viewport SHALL be resolved.
 
 #### Scenario: Ten visible members among fifty
 
 - **WHEN** discovery returns fifty unresolved lenses and the supplied viewport contains ten
 - **THEN** the session SHALL request only those ten resolutions
 - **AND** scrolling SHALL request newly visible lenses without resolving completed ones again
+
+#### Scenario: Typing settles once
+
+- **WHEN** a burst of edits is synchronized after the diagnostics debounce
+- **THEN** the document SHALL request lenses once after sending the change
+- **AND** rebuilding its view without editing SHALL NOT request lenses again
+
+### Requirement: Code lens visibility is an editor setting
+
+Options SHALL offer a localized Show code lenses toggle beside inlay hints, enabled by default and
+persisted with editor settings. Disabling it SHALL remove lens lines and cancel discovery and resolution;
+no lens requests SHALL be sent while disabled, including server refresh. Enabling it SHALL rediscover lenses.
+
+#### Scenario: Toggle lenses without reopening the editor
+
+- **WHEN** the user disables code lenses
+- **THEN** the open editor SHALL remove its lens rows immediately
+- **AND** enabling them again SHALL request and display fresh lenses
+
+### Requirement: Code lens actions are reachable from the keyboard
+
+The keymap SHALL expose RunCodeLensCommand with no default gesture. Its context-menu entry SHALL be
+enabled only when a resolved lens sits on the caret's line. It SHALL run the single lens or offer the
+line's commands in a keyboard-accessible list when several exist, using the same handler as a click.
+
+#### Scenario: Show references from a lens without a pointer
+
+- **WHEN** the user runs the lens command on a line with a show-references lens
+- **THEN** the existing Find References pane SHALL receive its locations without a references request
 
 ### Requirement: Workspace code lens refresh invalidates lens sessions
 
@@ -2221,7 +2252,9 @@ mark their answers stale and defer discovery until a view resumes them.
 ### Requirement: Code window lenses are visual actions above member lines
 
 The code window SHALL draw each resolved lens above its range in the editor font, smaller and dimmed.
-Lens space SHALL add no document characters, selection content, caret stops or line numbers. The view
+Lens space SHALL add no document characters, selection content, caret stops or line numbers.
+Selection and current-line highlighting SHALL leave lens rows on the editor background, including at
+150% display scaling. The view
 SHALL supply its visible lines to the lens session on scrolling and suspend new work on detach.
 The document SHALL own the session until disposal, retaining pending requests and completed answers
 across reattachment. Re-docking alone SHALL NOT rediscover lenses; edits SHALL refetch after debounce.

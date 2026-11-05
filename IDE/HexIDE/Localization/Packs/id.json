@@ -470,6 +470,8 @@
     "Str.Options.EditorGeneral.CodeSettings.FormatOnSave": "Format saat Menyimpan",
     "Str.Options.EditorGeneral.Display.Header": "Tampilan",
     "Str.Options.EditorGeneral.Display.ShowInlayHints": "Tampilkan petunjuk sebaris",
+    "Str.Options.EditorGeneral.Display.ShowCodeLenses": "Tampilkan lensa kode",
+    "Str.Editor.RunCodeLens": "Jalankan lensa kode",
     "Str.Options.EditorGeneral.Display.ShowMinimap": "Tampilkan Minimap",
     "Str.Options.EditorFormatting.Indentation.Header": "Indentasi",
     "Str.Options.EditorFormatting.Indentation.TabWidth": "Lebar Tab:",

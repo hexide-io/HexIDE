@@ -470,6 +470,8 @@
     "Str.Options.EditorGeneral.CodeSettings.FormatOnSave": "Formatuj przy zapisie",
     "Str.Options.EditorGeneral.Display.Header": "Wyświetlanie",
     "Str.Options.EditorGeneral.Display.ShowInlayHints": "Pokaż wskazówki w kodzie",
+    "Str.Options.EditorGeneral.Display.ShowCodeLenses": "Pokaż soczewki kodu",
+    "Str.Editor.RunCodeLens": "Uruchom soczewkę kodu",
     "Str.Options.EditorGeneral.Display.ShowMinimap": "Pokaż minimapę",
     "Str.Options.EditorFormatting.Indentation.Header": "Wcięcia",
     "Str.Options.EditorFormatting.Indentation.TabWidth": "Szerokość tabulatora:",

@@ -475,6 +475,8 @@
     "Str.Options.EditorGeneral.Display.Header": "Prikaz",
     "Str.Options.EditorGeneral.Display.ShowMinimap": "Prikaži minimapu",
     "Str.Options.EditorGeneral.Display.ShowInlayHints": "Prikaži umetnute nagoveštaje",
+    "Str.Options.EditorGeneral.Display.ShowCodeLenses": "Prikaži sočiva koda",
+    "Str.Editor.RunCodeLens": "Pokreni sočivo koda",
     "Str.Options.EditorFormatting.Indentation.Header": "Uvlačenje",
     "Str.Options.EditorFormatting.Indentation.TabWidth": "Širina tabulatora:",
     "Str.Options.Grid.GroupHeader": "Podešavanja mreže obrasca",

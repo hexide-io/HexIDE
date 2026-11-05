@@ -475,6 +475,8 @@
     "Str.Options.EditorGeneral.Display.Header": "Afișare",
     "Str.Options.EditorGeneral.Display.ShowMinimap": "Afișează miniharta",
     "Str.Options.EditorGeneral.Display.ShowInlayHints": "Afișează indiciile în linie",
+    "Str.Options.EditorGeneral.Display.ShowCodeLenses": "Afișează lentilele de cod",
+    "Str.Editor.RunCodeLens": "Execută lentila de cod",
     "Str.Options.EditorFormatting.Indentation.Header": "Indentare",
     "Str.Options.EditorFormatting.Indentation.TabWidth": "Lățimea tabulatorului:",
     "Str.Options.Grid.GroupHeader": "Setările grilei formularului",

@@ -475,6 +475,8 @@
     "Str.Options.EditorGeneral.Display.Header": "Visualización",
     "Str.Options.EditorGeneral.Display.ShowMinimap": "Mostrar minimapa",
     "Str.Options.EditorGeneral.Display.ShowInlayHints": "Amosar as indicacións en liña",
+    "Str.Options.EditorGeneral.Display.ShowCodeLenses": "Amosar lentes de código",
+    "Str.Editor.RunCodeLens": "Executar lente de código",
     "Str.Options.EditorFormatting.Indentation.Header": "Sangría",
     "Str.Options.EditorFormatting.Indentation.TabWidth": "Largura da tabulación:",
     "Str.Options.Grid.GroupHeader": "Configuración da grade do formulario",
