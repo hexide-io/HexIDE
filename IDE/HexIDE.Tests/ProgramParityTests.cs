@@ -5,6 +5,29 @@ namespace HexIDE.Tests;
 public class ProgramParityTests
 {
     [Theory]
+    [InlineData(false, "LineLabel")]
+    [InlineData(true, "DocumentLine")]
+    public async Task The_launched_adapter_receives_the_selected_Erl_numbering(bool overrideDefault, string expected)
+    {
+        var adapter = Path.ChangeExtension(typeof(Dap.TestAdapter.Program).Assembly.Location, OperatingSystem.IsWindows() ? ".exe" : null);
+        await RunTool("""
+            {"modules":[{"name":"Module1","kind":"startup","source":"","wrapped":"Public Sub HexDumpMain()\nEnd Sub"}],"printed":[]}
+            """, overrideDefault ? ["--erl-line-numbering", expected] : [], new()
+        {
+            ["HEXIDE_PARITY_ADAPTER"] = adapter,
+            ["HEXIDE_DAP_FIXTURE_MODE"] = "erl-environment",
+            ["Configuration__Environment__ErlLineNumbering"] = "inherited",
+        }, (results, _) =>
+        {
+            // Read back from the real child over DAP, rather than only inspecting launch options (#3133).
+            JsonNode.Parse(results[1])!["engine"]!["stdout"]!.GetValue<string>().Should().Be(expected + "\n");
+            var header = JsonNode.Parse(results[0])!;
+            header["erlLineNumbering"]!.GetValue<string>().Should().Be(expected);
+            header["erlLineNumberingReason"]!.GetValue<string>().Should().ContainAll("vb6.exe", "line label", "DocumentLine", "by design", "RD-VBAL 6.1.2.7.1.14");
+        });
+    }
+
+    [Theory]
     [InlineData("Run-time error '11': Division by zero")]
     [InlineData("Application error '11': Division by zero")]
     public void Both_error_prefixes_compare_the_number(string message)
