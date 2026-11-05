@@ -18,6 +18,7 @@ internal sealed class HexIdeHost(
     AddinOptionsService optionsService,
     IComponentRegistry componentRegistry,
     IProjectRunnerService projectRunner,
+    HexIDE.Lsp.LanguageServerContributions languageServers,
     HexIDE.Debugging.DebugLaunchService debugLaunches,
     HexIDE.Projects.ContributedProjects contributedProjects) : IHexIdeHost
 {
@@ -52,6 +53,16 @@ internal sealed class HexIdeHost(
         projectRunner.EndProject();
         return true;
     });
+
+    // NoInlining keeps this a real frame, so GetCallingAssembly is the add-in's, which names the server's origin.
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+    public IAddinServerConnection RegisterLanguageServer(AddinLanguageServer server)
+    {
+        var origin = AddinOrigin.Of(System.Reflection.Assembly.GetCallingAssembly(), Registry);
+        var connection = languageServers.Register(server, origin.Title);
+        AddinInitializationScope.Record(connection.Dispose);
+        return connection;
+    }
 
     // NoInlining keeps this a real frame, so GetCallingAssembly is the add-in's, which names the launch's origin.
     [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]

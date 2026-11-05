@@ -789,6 +789,7 @@
     "Str.Dialog.ExportPreview.Cancel": "Loobu",
     "Str.Tool.LanguageServers.None": "Ükski keeleserver pole ühendatud. HexIDE teenindab VB6 ise; teiste keelte jaoks on vaja serverit, mille saab ühendada faili lsp-servers.json abil.",
     "Str.Tool.LanguageServers.Id": "ID",
+    "Str.Tool.LanguageServers.Origin": "Lisaja",
     "Str.Tool.LanguageServers.Transport": "Transport",
     "Str.Tool.LanguageServers.Claims": "Toetatud keeled ja laiendid",
     "Str.Tool.LanguageServers.Priority": "Prioriteet",

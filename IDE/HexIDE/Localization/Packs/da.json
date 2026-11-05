@@ -790,6 +790,7 @@
     "Str.Dialog.ExportPreview.Cancel": "Annuller",
     "Str.Tool.LanguageServers.None": "Der er ikke tilknyttet nogen sprogservere. HexIDE betjener selv VB6; andre sprog kræver en server, som du tilknytter ved at skrive lsp-servers.json.",
     "Str.Tool.LanguageServers.Id": "ID",
+    "Str.Tool.LanguageServers.Origin": "Tilføjet af",
     "Str.Tool.LanguageServers.Transport": "Transport",
     "Str.Tool.LanguageServers.Claims": "Håndterer",
     "Str.Tool.LanguageServers.Priority": "Prioritet",

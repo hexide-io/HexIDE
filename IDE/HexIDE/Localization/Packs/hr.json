@@ -789,6 +789,7 @@
     "Str.Dialog.ExportPreview.Cancel": "Odustani",
     "Str.Tool.LanguageServers.None": "Nema povezanih jezičnih poslužitelja. HexIDE sam podržava VB6; drugim jezicima potreban je poslužitelj, koji povezujete pisanjem datoteke lsp-servers.json.",
     "Str.Tool.LanguageServers.Id": "Id",
+    "Str.Tool.LanguageServers.Origin": "Dodao",
     "Str.Tool.LanguageServers.Transport": "Prijenos",
     "Str.Tool.LanguageServers.Claims": "Podržani jezici",
     "Str.Tool.LanguageServers.Priority": "Prioritet",

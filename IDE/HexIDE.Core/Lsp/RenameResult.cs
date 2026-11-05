@@ -6,5 +6,5 @@ namespace HexIDE.Lsp;
 public sealed record RenameResult(WorkspaceEdit? Edit, string? Refusal,
     Func<string, RenameDocumentSnapshot?>? DocumentFor = null);
 
-/// <summary>The last text and version written to the answering connection, not the registry's copy.</summary>
-public sealed record RenameDocumentSnapshot(int Version, string Text);
+/// <summary>The answering connection's text and version at request time, and whether its sent version has since changed.</summary>
+public sealed record RenameDocumentSnapshot(int Version, string Text, bool VersionChanged = false);

@@ -789,6 +789,7 @@
     "Str.Dialog.ExportPreview.Cancel": "ยกเลิก",
     "Str.Tool.LanguageServers.None": "ไม่มีเซิร์ฟเวอร์ภาษาเชื่อมต่ออยู่ HexIDE ให้บริการ VB6 เอง ภาษาอื่นต้องใช้เซิร์ฟเวอร์ ซึ่งคุณเชื่อมต่อได้โดยเขียน lsp-servers.json",
     "Str.Tool.LanguageServers.Id": "รหัส",
+    "Str.Tool.LanguageServers.Origin": "เพิ่มโดย",
     "Str.Tool.LanguageServers.Transport": "การรับส่งข้อมูล",
     "Str.Tool.LanguageServers.Claims": "ภาษาที่ให้บริการ",
     "Str.Tool.LanguageServers.Priority": "ลำดับความสำคัญ",

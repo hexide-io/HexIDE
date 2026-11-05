@@ -271,25 +271,8 @@ public partial class DISetup
                 foreach (var problem in configuration.Problems)
                     log.LogWarning("Language server configuration: {Message}", problem.Message);
 
-                ctx.Inject<ISettingsService>(out var settings);
-                ctx.Inject<Func<IEditorService>>(out var editors);
-                ctx.Inject<Func<IProjectRunnerService>>(out var runners);
-                var serverPrompts = new ServerMessagePrompt(() => runners().IsRunning || windows.IsNativeDialogOpen);
-                var serverDocuments = new ServerDocumentNavigation(serverPrompts, localization,
-                    (uri, token) => Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(
-                        () => Avalonia.Controls.TopLevel.GetTopLevel(Static.MainView)!.Launcher.LaunchUriAsync(uri),
-                        Avalonia.Threading.DispatcherPriority.Normal, token).GetTask().Unwrap());
-                var registrations = new LanguageServerRegistrationFactory(loggerFactory, workspace, capture, providers,
-                    new HexIDE.Redaction.ConversationRedactor(pseudonyms),
-                    () => localization.ResolvedLanguage, settings,
-                    async (title, request, token) => request.External
-                        ? await serverDocuments.ShowExternalAsync(title, request.Uri, token)
-                        : await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(
-                            () => editors().ShowDocument(request), Avalonia.Threading.DispatcherPriority.Normal, token),
-                    serverPrompts.ShowAsync,
-                    (edit, documentFor, token) => Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(
-                        () => editors().ApplyWorkspaceEdit(edit, documentFor), Avalonia.Threading.DispatcherPriority.Normal, token).GetTask())
-                    .Create(configuration.Entries);
+                ctx.Inject<LanguageServerRegistrationFactory>(out var factory);
+                var registrations = factory.Create(configuration.Entries);
 
                 // Distinguishable from "servers fine, nothing to say" — the confusion #231 documents, and
                 // which a user has no way to tell apart from inside the editor.
@@ -309,6 +292,51 @@ public partial class DISetup
 
                 return new LspClientRegistry(
                     registrations, loggerFactory.CreateLogger<LspClientRegistry>(), workspace, problems, artifacts);
+            })
+            // One factory for the configured servers and the ones add-ins contribute, so both are made the same way.
+            .Bind<LanguageServerRegistrationFactory>().As(Singleton).To(ctx =>
+            {
+                ctx.Inject<ILoggerFactory>(out var loggerFactory);
+                ctx.Inject<ILspWorkspace>(out var workspace);
+                ctx.Inject<ConversationLog>(out var capture);
+                ctx.Inject<HexIDE.Redaction.Pseudonymiser>(out var pseudonyms);
+                ctx.Inject<IWorkspaceArtifactProviderRegistry>(out var providers);
+                ctx.Inject<ILocalizationService>(out var localization);
+                ctx.Inject<ISettingsService>(out var settings);
+                ctx.Inject<Func<IEditorService>>(out var editors);
+                ctx.Inject<Func<IProjectRunnerService>>(out var runners);
+                ctx.Inject<IWindowManager>(out var windows);
+                var serverPrompts = new ServerMessagePrompt(() => runners().IsRunning || windows.IsNativeDialogOpen);
+                var serverDocuments = new ServerDocumentNavigation(serverPrompts, localization,
+                    (uri, token) => Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(
+                        () => Avalonia.Controls.TopLevel.GetTopLevel(Static.MainView)!.Launcher.LaunchUriAsync(uri),
+                        Avalonia.Threading.DispatcherPriority.Normal, token).GetTask().Unwrap());
+                return new LanguageServerRegistrationFactory(loggerFactory, workspace, capture, providers,
+                    new HexIDE.Redaction.ConversationRedactor(pseudonyms),
+                    () => localization.ResolvedLanguage, settings,
+                    async (title, request, token) => request.External
+                        ? await serverDocuments.ShowExternalAsync(title, request.Uri, token)
+                        : await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(
+                            () => editors().ShowDocument(request), Avalonia.Threading.DispatcherPriority.Normal, token),
+                    serverPrompts.ShowAsync,
+                    (edit, documentFor, token) => Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(
+                        () => editors().ApplyWorkspaceEdit(edit, documentFor), Avalonia.Threading.DispatcherPriority.Normal, token).GetTask());
+            })
+            // The servers add-ins contribute (#2760), added to the router above while the IDE runs. The ids the
+            // configuration names, switched off or not, keep their entries.
+            .Bind<LanguageServerContributions>().As(Singleton).To(ctx =>
+            {
+                ctx.Inject<ILspClient>(out var router);
+                ctx.Inject<LanguageServerRegistrationFactory>(out var factory);
+                ctx.Inject<LanguageServerConfigResult>(out var configuration);
+                ctx.Inject<IWorkspaceArtifactProviderRegistry>(out var providers);
+                ctx.Inject<ILoggerFactory>(out var loggerFactory);
+                return new LanguageServerContributions(
+                    (LspClientRegistry)router, factory,
+                    new LanguageServerConfigLoader(loggerFactory.CreateLogger<LanguageServerConfigLoader>()),
+                    configuration.Entries.Select(entry => entry.Id).OfType<string>().ToHashSet(StringComparer.Ordinal),
+                    loggerFactory.CreateLogger<LanguageServerContributions>(),
+                    new LanguageServerCommandStore(), providers);
             })
             .Bind<ILoggerFactory>().As(Singleton).To(_ => LoggingSetup.LoggerFactory)
             .Bind<ILogger<TT>>().As(Singleton).To<Logger<TT>>()

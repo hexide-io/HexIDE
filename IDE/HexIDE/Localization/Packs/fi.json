@@ -790,6 +790,7 @@
     "Str.Dialog.ExportPreview.Cancel": "Peruuta",
     "Str.Tool.LanguageServers.None": "Kielipalvelimia ei ole liitetty. HexIDE hoitaa VB6:n itse; muut kielet tarvitsevat palvelimen, jonka liität kirjoittamalla tiedoston lsp-servers.json.",
     "Str.Tool.LanguageServers.Id": "ID",
+    "Str.Tool.LanguageServers.Origin": "Lisääjä",
     "Str.Tool.LanguageServers.Transport": "Yhteystapa",
     "Str.Tool.LanguageServers.Claims": "Käsittelee",
     "Str.Tool.LanguageServers.Priority": "Prioriteetti",
