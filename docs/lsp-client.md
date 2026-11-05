@@ -1127,8 +1127,11 @@ The registry uses `GatherAsync` and record equality to deduplicate URI/range pai
 empty arrays. `FindReferencesAsync` preserves successful locations alongside per-server errors.
 Shift+F12, Edit → Find References and the code editor context menu open the results pane in the
 Immediate window's bottom group. When opened or brought forward for results, the pane grows to
-show six rows, borrowing only available document height above the document area's minimum.
-A sufficiently tall slot keeps its exact proportion; growth is saved with the layout (#3094).
+show six rows, borrowing available document height above the document area's minimum (at least
+120 DIP), then height from sibling tools in the same dock down to their minimums. Call Hierarchy
+uses the same policy. A sufficiently tall slot keeps its exact proportion; growth is saved with
+the layout (#3094, #3114). Call Hierarchy's Edit and code context entries use separate localized
+menu labels with access keys in Latin-script packs; its pane title has no access key marker.
 Each search replaces the list, grouped by module in project order,
 with line numbers and the returned range emphasized. Enter or double-click navigates through
 `EditorService.NavigateTo`; empty answers and server errors appear as localized rows. Result rows
