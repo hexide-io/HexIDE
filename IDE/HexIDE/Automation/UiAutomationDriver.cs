@@ -5215,15 +5215,15 @@ public static class UiAutomationDriver
     // first one, for a caller asking only whether there are any: the dump at its maxDepth cut-off (#953).
     private static void CollectMeaningfulChildren(Visual parent, List<MeaningfulChild> acc, bool firstOnly = false)
     {
-        // Asked of the PARENT, not of each child, and the difference is where the items end up. A flyout's
-        // popup is not a visual child of its button, so grafting it while iterating the button's siblings
-        // put eight Add commands next to the toolbar buttons instead of inside the one that owns them --
-        // and left a dump rooted AT the button reporting no children at all, because the button's own
-        // popup was never considered. Here they are children of their owner, which is both where they
-        // appear on screen and what makes the path round-trip.
+        // Attached menus and flyouts keep their own root, so opening one cannot renumber the owner's children.
         if (parent is Control owner)
             foreach (var attached in AttachedPopupsOf(owner))
-                CollectPopupChildren(attached, acc, firstOnly);
+            {
+                if (attached is { IsOpen: true, Child: Control content } && AttachedPopupType(content) is not null)
+                    acc.Add(new MeaningfulChild(content, Classify(content)));
+                else
+                    CollectPopupChildren(attached, acc, firstOnly);
+            }
 
         // Virtualizing panels keep containers in creation order, which changes after scrolling (#1966).
         var children = parent.GetVisualChildren();
@@ -5476,6 +5476,16 @@ public static class UiAutomationDriver
     private readonly record struct NodeClass(
         AutomationPeer? Peer, string[] Providers, string Type, string? Name, string? AutoId, bool Focusable, bool Structural);
 
+    private static string? AttachedPopupType(Control content)
+    {
+        if (content.Parent is not Popup popup) return null;
+        if (content is ContextMenu) return "ContextMenu";
+        if (popup.PlacementTarget is Control owner
+            && FlyoutsOf(owner).Any(f => f is PopupFlyoutBase flyout && ReferenceEquals(flyout.Popup, popup)))
+            return "Flyout";
+        return null;
+    }
+
     private static NodeClass Classify(Control control)
     {
         AutomationPeer? peer = null;
@@ -5503,6 +5513,9 @@ public static class UiAutomationDriver
         // agrees; it has a Separator control type rather than treating one as a wrapper.
         if (control is Separator)
             return new NodeClass(peer, providers, "Separator", name, autoId, focusable, false);
+
+        if (AttachedPopupType(control) is { } popupType)
+            return new NodeClass(peer, providers, popupType, name, autoId, focusable, false);
 
         return new NodeClass(peer, providers, type, name, autoId, focusable, structural);
     }
