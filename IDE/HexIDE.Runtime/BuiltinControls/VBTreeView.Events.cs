@@ -121,6 +121,9 @@ internal sealed partial class VBTreeView
         }
     }
 
+    internal Func<Action, TimeSpan, IDisposable> ScheduleLabelEdit { get; set; } =
+        (action, delay) => Avalonia.Threading.DispatcherTimer.RunOnce(action, delay);
+
     protected override void OnPointerReleased(PointerReleasedEventArgs e)
     {
         base.OnPointerReleased(e);
@@ -128,7 +131,7 @@ internal sealed partial class VBTreeView
         if (editOnRelease is { } node && e.InitialPressMouseButton == MouseButton.Left)
         {
             editOnRelease = null;
-            pendingLabelEdit = Avalonia.Threading.DispatcherTimer.RunOnce(async () =>
+            pendingLabelEdit = ScheduleLabelEdit(async () =>
             {
                 pendingLabelEdit = null;
                 if (IsFocused && labelEdit == 0 && editor is null && ReferenceEquals(Nodes.SelectedItem, node))
