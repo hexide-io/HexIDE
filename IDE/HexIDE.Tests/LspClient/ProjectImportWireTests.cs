@@ -409,6 +409,8 @@ public sealed class ProjectImportWireTests : IAsyncDisposable
             _workspace.Projects[0] with { ProjectText = _ => Task.FromResult("Name=\"Changed\"\r\n") },
         ];
         _workspace.Change();
+        // The projects are imported one at a time, in this order, over one stream: an import of the .rdproj, or its
+        // problem, would come before the .vbp's frame this waits for.
         await UntilAsync(() => Frames("workspace/executeCommand").Length == 2);
 
         Frames("workspace/executeCommand").Select(frame => frame.GetRawText()).Should().NotContain(text => text.Contains("rdproj"));

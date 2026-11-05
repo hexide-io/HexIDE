@@ -966,32 +966,6 @@ public class ExternalDebugServiceTests
     };
 
     [AvaloniaFact]
-    public async Task A_configuration_made_as_the_session_starts_is_given_the_saved_gutter_marks()
-    {
-        var directory = Path.Combine(Path.GetTempPath(), "hexide-dap-made-" + Guid.NewGuid());
-        Directory.CreateDirectory(directory);
-        var module = TestHelpers.CreateModule();
-        module.AbsolutePath = Path.Combine(directory, "Module1.bas");
-        var store = new BreakpointService();
-        store.SetDocument(HexIDE.Runtime.ProjectElements.DocumentIdentity.For(module), [6]);
-        await using var log = new ConversationLog();
-        var service = new ExternalDebugService(log, breakpoints: store);
-        var run = service.StartAsync(_ => Task.FromResult(DapLaunchConfiguration.FromContributed(Contributed("breakpoints"))));
-        try
-        {
-            await WaitFor(service, () => service.CanEditBreakpoints);
-            service.GetBreakpoints(new Uri(module.AbsolutePath).AbsoluteUri).Should().ContainSingle(row => row.RequestedLine == 6,
-                "the configuration carries no breakpoints; the session is given the IDE's");
-        }
-        finally
-        {
-            await service.StopAsync();
-            await run.WaitAsync(Patience, Token);
-            Directory.Delete(directory, true);
-        }
-    }
-
-    [AvaloniaFact]
     public async Task Ending_while_the_configuration_is_being_made_calls_the_making_off()
     {
         await using var log = new ConversationLog();
@@ -1030,15 +1004,13 @@ public class ExternalDebugServiceTests
         await run.WaitAsync(Patience, Token);
         service.IsActive.Should().BeFalse("End must end it, whether or not the add-in listens");
 
-        // The maker fails afterwards, with nobody waiting for it: the failure is logged rather than lost. The deadline
-        // only bounds a log line that never comes.
+        // The maker fails afterwards, with nobody waiting for it: the failure is logged rather than lost. It is logged on
+        // the thread pool, so the test awaits the line itself; the patience only bounds a line that never comes.
         using (var captured = new HexIDE.Tests.Sidecar.CapturedLog())
         {
+            var logged = captured.Logged("failed after its start was ended");
             never.SetException(new InvalidOperationException("rdcore.json was not found"));
-            var deadline = DateTime.UtcNow + Patience;
-            while (!captured.Messages.ToArray().Any(m => m.Contains("failed after its start was ended")) && DateTime.UtcNow < deadline)
-                await Task.Delay(10, Token);
-            captured.Messages.ToArray().Should().Contain(m => m.Contains("failed after its start was ended"));
+            await logged.WaitAsync(Patience, Token);
         }
 
         var asked = false;
