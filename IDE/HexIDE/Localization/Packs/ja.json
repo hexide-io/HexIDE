@@ -2,6 +2,7 @@
   "name": "Japanese",
   "direction": "ltr",
   "strings": {
+    "Str.Lsp.OpenExternalUri": "この URI を HexIDE の外部で開きますか？\n\n{0}",
     "Str.Tool.CallHierarchy.Title": "呼び出し階層",
     "Str.Tool.CallHierarchy.CallsTo": "呼び出し元",
     "Str.Tool.CallHierarchy.CallsFrom": "呼び出し先",
@@ -476,6 +477,8 @@
     "Str.Options.EditorGeneral.CodeSettings.FormatOnSave": "保存時に整形",
     "Str.Options.EditorGeneral.Display.Header": "表示",
     "Str.Options.EditorGeneral.Display.ShowInlayHints": "インレイヒントを表示",
+    "Str.Options.EditorGeneral.Display.ShowCodeLenses": "コード レンズを表示",
+    "Str.Editor.RunCodeLens": "コード レンズを実行",
     "Str.Options.EditorGeneral.Display.ShowMinimap": "ミニマップを表示",
     "Str.Options.EditorFormatting.Indentation.Header": "インデント",
     "Str.Options.EditorFormatting.Indentation.TabWidth": "タブ幅:",

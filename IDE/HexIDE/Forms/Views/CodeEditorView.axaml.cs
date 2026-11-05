@@ -762,6 +762,7 @@ public partial class CodeEditorView : UserControl
     private void OnCaretPositionChanged(object? sender, EventArgs e)
     {
         ResetSelectionChain();
+        CommandManager.InvalidateRequerySuggested();
         if (DataContext is CodeEditorViewModel vm)
         {
             vm.CaretOffset = TextEditor.CaretOffset;
@@ -1232,9 +1233,13 @@ public partial class CodeEditorView : UserControl
         try
         {
             await Task.Delay(500, token);
-            codeLenses?.Dispose();
-            codeLenses = new CodeLensDisplay(TextEditor, CodeLensLayer, vm.CreateCodeLensSession(),
-                command => vm.RunCodeLensAsync(command).ListenErrors());
+            var session = vm.CreateCodeLensSession();
+            if (codeLenses?.Session != session)
+            {
+                codeLenses?.Dispose();
+                codeLenses = new CodeLensDisplay(TextEditor, CodeLensLayer, session,
+                    command => vm.RunCodeLensAsync(command).ListenErrors());
+            }
             await Task.WhenAll(RequestFoldingsAsync(vm, token), RequestSemanticTokensAsync(vm, token));
         }
         catch (OperationCanceledException) { }
@@ -2707,6 +2712,33 @@ public partial class CodeEditorView : UserControl
         if (DataContext is CodeEditorViewModel vm)
             vm.ShowCallHierarchyAsync(new Position(TextEditor.TextArea.Caret.Line - 1,
                 TextEditor.TextArea.Caret.Column - 1)).ListenErrors();
+    }
+
+    private void CanRunCodeLens(object? sender, Avalonia.Labs.Input.CanExecuteRoutedEventArgs e)
+    {
+        e.CanExecute = codeLenses?.CommandsOnLine(TextEditor.TextArea.Caret.Line).Length > 0;
+        e.Handled = true;
+    }
+
+    public void RunCodeLens()
+    {
+        if (DataContext is not CodeEditorViewModel vm) return;
+        var commands = codeLenses?.CommandsOnLine(TextEditor.TextArea.Caret.Line) ?? [];
+        if (commands.Length == 1) vm.RunCodeLensAsync(commands[0]).ListenErrors();
+        else if (commands.Length > 1)
+        {
+            var menu = new ContextMenu();
+            foreach (var command in commands)
+            {
+                var item = new MenuItem { Header = command.Title };
+                item.Click += (_, _) => vm.RunCodeLensAsync(command).ListenErrors();
+                menu.Items.Add(item);
+            }
+            var originalMenu = TextEditor.ContextMenu;
+            TextEditor.ContextMenu = menu;
+            menu.Closed += (_, _) => TextEditor.ContextMenu = originalMenu;
+            menu.Open(TextEditor);
+        }
     }
 
     public void FindReferences()

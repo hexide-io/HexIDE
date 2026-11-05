@@ -2,6 +2,7 @@
   "name": "Slovenian",
   "direction": "ltr",
   "strings": {
+    "Str.Lsp.OpenExternalUri": "Želite odpreti ta URI zunaj HexIDE?\n\n{0}",
     "Str.Tool.CallHierarchy.Title": "Hierarhija klicev",
     "Str.Tool.CallHierarchy.CallsTo": "Klici v",
     "Str.Tool.CallHierarchy.CallsFrom": "Klici iz",
@@ -481,6 +482,8 @@
     "Str.Options.EditorGeneral.Display.Header": "Prikaz",
     "Str.Options.EditorGeneral.Display.ShowMinimap": "Prikaži pomanjšan pregled",
     "Str.Options.EditorGeneral.Display.ShowInlayHints": "Pokaži vstavljene namige",
+    "Str.Options.EditorGeneral.Display.ShowCodeLenses": "Pokaži leče kode",
+    "Str.Editor.RunCodeLens": "Zaženi lečo kode",
     "Str.Options.EditorFormatting.Indentation.Header": "Zamikanje",
     "Str.Options.EditorFormatting.Indentation.TabWidth": "Širina tabulatorja:",
     "Str.Options.Grid.GroupHeader": "Nastavitve mreže obrazca",

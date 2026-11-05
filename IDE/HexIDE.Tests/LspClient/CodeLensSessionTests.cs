@@ -21,6 +21,21 @@ public class CodeLensSessionTests
     }
 
     [Fact]
+    public async Task RefreshKeepsDrawnLensesUntilReplacementArrives()
+    {
+        var client = Client([Lens(0, "old")]);
+        using var session = new CodeLensSession(client, Uri);
+        await session.RefreshAsync(TestContext.Current.CancellationToken);
+        var answer = new TaskCompletionSource<CodeLens[]>();
+        client.RequestCodeLensesAsync(Uri, Arg.Any<CancellationToken>()).Returns(answer.Task);
+        var refresh = session.RefreshAsync(TestContext.Current.CancellationToken);
+        session.Lenses.Should().ContainSingle().Which.Command!.Title.Should().Be("old");
+        answer.SetResult([Lens(1, "new")]);
+        await refresh;
+        session.Lenses.Should().ContainSingle().Which.Command!.Title.Should().Be("new");
+    }
+
+    [Fact]
     public async Task ServerRefreshFetchesAgainAndDisposeUnsubscribes()
     {
         var client = Client([Lens(0)]);

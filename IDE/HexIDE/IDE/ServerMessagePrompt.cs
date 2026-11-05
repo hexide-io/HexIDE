@@ -17,11 +17,11 @@ namespace HexIDE.IDE;
 internal sealed class ServerMessagePrompt
 {
     private readonly SemaphoreSlim _queue = new(1);
-    private readonly Func<string, ShowMessageRequestParams, CancellationToken, Task<Task<MessageActionItem?>?>> _tryShow;
+    private readonly Func<string, ShowMessageRequestParams, CancellationToken, int, Task<Task<MessageActionItem?>?>> _tryShow;
 
-    internal ServerMessagePrompt(Func<string, ShowMessageRequestParams, CancellationToken, Task<Task<MessageActionItem?>?>> tryShow) => _tryShow = tryShow;
+    internal ServerMessagePrompt(Func<string, ShowMessageRequestParams, CancellationToken, int, Task<Task<MessageActionItem?>?>> tryShow) => _tryShow = tryShow;
 
-    public ServerMessagePrompt(Func<bool> isRunning) : this(async (title, request, token) =>
+    public ServerMessagePrompt(Func<bool> isRunning) : this(async (title, request, token, defaultAction) =>
         await Dispatcher.UIThread.InvokeAsync<Task<MessageActionItem?>?>(() =>
         {
             token.ThrowIfCancellationRequested();
@@ -30,20 +30,23 @@ internal sealed class ServerMessagePrompt
                 return Task.FromResult<MessageActionItem?>(null);
             if (IsBlocked(isRunning(), desktop.Windows, Static.MainView.PART_ModalHost.Children.Count > 0))
                 return null;
-            return Show(owner, title, request, token);
+            return Show(owner, title, request, token, defaultAction);
         })) { }
 
     internal static bool IsBlocked(bool running, System.Collections.Generic.IReadOnlyList<Window> windows, bool managedModal) =>
         running || managedModal || windows.Any(w => w.IsVisible && w.IsDialog);
 
-    public async Task<MessageActionItem?> ShowAsync(string title, ShowMessageRequestParams request, CancellationToken token)
+    public Task<MessageActionItem?> ShowAsync(string title, ShowMessageRequestParams request, CancellationToken token) =>
+        ShowAsync(title, request, token, 0);
+
+    internal async Task<MessageActionItem?> ShowAsync(string title, ShowMessageRequestParams request, CancellationToken token, int defaultAction)
     {
         await _queue.WaitAsync(token);
         try
         {
             while (true)
             {
-                var pending = await _tryShow(title, request, token);
+                var pending = await _tryShow(title, request, token, defaultAction);
                 if (pending is not null) return await pending;
                 await Task.Delay(50, token);
             }
@@ -51,7 +54,7 @@ internal sealed class ServerMessagePrompt
         finally { _queue.Release(); }
     }
 
-    internal static async Task<MessageActionItem?> Show(Window owner, string title, ShowMessageRequestParams request, CancellationToken token)
+    internal static async Task<MessageActionItem?> Show(Window owner, string title, ShowMessageRequestParams request, CancellationToken token, int defaultAction = 0)
     {
         var buttons = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, HorizontalAlignment = HorizontalAlignment.Right };
         var content = new StackPanel { Margin = new Thickness(12), Spacing = 12 };
@@ -84,6 +87,7 @@ internal sealed class ServerMessagePrompt
             button.Click += (_, _) => { answer = action; window.Close(); };
             buttons.Children.Add(button);
         }
+        window.Opened += (_, _) => buttons.Children.OfType<Button>().ElementAtOrDefault(defaultAction)?.Focus();
         using var cancellation = token.Register(() => Dispatcher.UIThread.Post(window.Close));
         token.ThrowIfCancellationRequested();
         await window.ShowDialog(owner);

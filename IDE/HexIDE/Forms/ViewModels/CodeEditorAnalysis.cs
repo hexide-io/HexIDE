@@ -7,8 +7,24 @@ using HexIDE.Lsp.Messages;
 namespace HexIDE.Forms.ViewModels;
 
 // Answers belong to the document, not to a visual attachment: Dock may replace the entire view.
-internal sealed class CodeEditorAnalysis(CodeEditorViewModel owner, ILspClient client) : IDisposable
+internal sealed class CodeEditorAnalysis : IDisposable
 {
+    private readonly CodeEditorViewModel owner;
+    private readonly ILspClient client;
+
+    public CodeEditorAnalysis(CodeEditorViewModel owner, ILspClient client)
+    {
+        this.owner = owner;
+        this.client = client;
+        owner.Settings.PropertyChanged += OnSettingsChanged;
+    }
+
+    private void OnSettingsChanged(object? sender, PropertyChangedEventArgs args)
+    {
+        if (args.PropertyName == nameof(owner.Settings.ShowCodeLenses))
+            lenses?.SetEnabledAsync(owner.Settings.ShowCodeLenses).ListenErrors();
+    }
+
     private bool disposed;
     private object? version;
     private string? uri;
@@ -24,7 +40,7 @@ internal sealed class CodeEditorAnalysis(CodeEditorViewModel owner, ILspClient c
         var currentUri = owner.GetDocumentUriPublic();
         if (ReferenceEquals(version, owner.Document.Version) && uri == currentUri
             && showHints == owner.Settings.ShowInlayHints) return;
-        Invalidate();
+        Invalidate(resetLenses: false);
         version = owner.Document.Version;
         uri = currentUri;
         showHints = owner.Settings.ShowInlayHints;
@@ -53,11 +69,29 @@ internal sealed class CodeEditorAnalysis(CodeEditorViewModel owner, ILspClient c
         get
         {
             CheckDocument();
-            return lenses ??= new CodeLensSession(client, uri!);
+            if (lenses is not null && lensUri != uri)
+            {
+                lenses.Dispose();
+                lenses = null;
+            }
+            lensUri = uri;
+            if (lenses is null)
+            {
+                lenses = new CodeLensSession(client, uri!);
+                lenses.SetEnabledAsync(owner.Settings.ShowCodeLenses).ListenErrors();
+            }
+            return lenses;
         }
     }
 
-    public void Invalidate()
+    private string? lensUri;
+
+    public void RefreshLenses()
+    {
+        if (lenses is not null) lenses.RefreshAsync().ListenErrors();
+    }
+
+    public void Invalidate(bool resetLenses = true)
     {
         if (disposed) return;
         version = null;
@@ -67,14 +101,18 @@ internal sealed class CodeEditorAnalysis(CodeEditorViewModel owner, ILspClient c
         tokens = null;
         folds = null;
         hints = null;
-        lenses?.Dispose();
-        lenses = null;
+        if (resetLenses)
+        {
+            lenses?.Dispose();
+            lenses = null;
+        }
     }
 
     public void Dispose()
     {
         if (disposed) return;
         disposed = true;
+        owner.Settings.PropertyChanged -= OnSettingsChanged;
         lifetime.Cancel();
         lifetime.Dispose();
         lenses?.Dispose();

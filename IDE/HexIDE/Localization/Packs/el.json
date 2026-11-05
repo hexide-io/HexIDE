@@ -2,6 +2,7 @@
   "name": "Greek",
   "direction": "ltr",
   "strings": {
+    "Str.Lsp.OpenExternalUri": "Άνοιγμα αυτού του URI εκτός του HexIDE;\n\n{0}",
     "Str.Tool.CallHierarchy.Title": "Ιεραρχία κλήσεων",
     "Str.Tool.CallHierarchy.CallsTo": "Κλήσεις προς",
     "Str.Tool.CallHierarchy.CallsFrom": "Κλήσεις από",
@@ -476,6 +477,8 @@
     "Str.Options.EditorGeneral.CodeSettings.FormatOnSave": "Μορφοποίηση κατά την αποθήκευση",
     "Str.Options.EditorGeneral.Display.Header": "Εμφάνιση",
     "Str.Options.EditorGeneral.Display.ShowInlayHints": "Εμφάνιση ενσωματωμένων υποδείξεων",
+    "Str.Options.EditorGeneral.Display.ShowCodeLenses": "Εμφάνιση φακών κώδικα",
+    "Str.Editor.RunCodeLens": "Εκτέλεση φακού κώδικα",
     "Str.Options.EditorGeneral.Display.ShowMinimap": "Εμφάνιση μικρογραφίας",
     "Str.Options.EditorFormatting.Indentation.Header": "Εσοχή",
     "Str.Options.EditorFormatting.Indentation.TabWidth": "Πλάτος στηλοθέτη:",
