@@ -22,16 +22,24 @@ that the developer could not see them was a limitation of its code window, and t
 ## Requirements
 
 ### Requirement: Scrolling context menus preserve editor commands
-The code window's context menu SHALL open with focus on its first enabled visible item, even when
-it scrolls. Routed commands SHALL retain the editor as their target when focus moves within the
-menu, including to a scroll button or a submenu. Each command's existing predicate SHALL continue
+The code window's context menu SHALL open with focus on its first enabled visible item when opened
+by the keyboard, even when it scrolls. A pointer-opened menu SHALL start with no item selected; Enter
+SHALL execute nothing until an item is selected, and the first Down or Up SHALL select the first or
+last enabled visible item respectively (#3164). Routed commands SHALL retain the editor as their
+target when focus moves within the menu, including to a scroll button or a submenu. Each command's existing predicate SHALL continue
 to determine its availability.
 
 #### Scenario: A short viewport makes the code menu scroll
-- **WHEN** the focused code editor's context menu opens with more items than fit in its viewport
+- **WHEN** the focused code editor's context menu opens by keyboard with more items than fit in its viewport
 - **THEN** focus starts on its first enabled visible item
 - **AND** commands that can execute at the caret remain enabled and execute against the editor
 - **AND** focusing a menu scroll button does not change their target
+
+#### Scenario: A pointer opens the menu
+- **WHEN** the developer opens the context menu with the mouse
+- **THEN** no item is selected and Enter executes no command
+- **AND** Down selects the first enabled visible item, or Up selects the last
+- **AND** reopening the menu by keyboard selects its first enabled visible item
 
 ### Requirement: Syntax keywords match regardless of case
 The editor SHALL apply the VB6 syntax definition's keyword colours regardless of keyword casing. Standalone `End` and every `END_*` block terminator from the MIT lexer SHALL receive the `Keyword` colour in every theme.

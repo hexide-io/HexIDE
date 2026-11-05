@@ -1,7 +1,10 @@
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
+using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
+using Avalonia.Input;
+using Avalonia.Input.Raw;
 using Avalonia.Labs.Input;
 using Avalonia.Layout;
 using Avalonia.Styling;
@@ -25,6 +28,90 @@ namespace HexIDE.Integration.Tests.Views;
 
 public class ScrollingCommandMenuTests
 {
+    [AvaloniaTheory]
+    [InlineData(false, false, Key.Down)]
+    [InlineData(false, true, Key.Down)]
+    [InlineData(true, false, Key.Down)]
+    [InlineData(true, true, Key.Down)]
+    [InlineData(false, true, Key.Up)]
+    [InlineData(true, true, Key.Up)]
+    public void ContextRequestSelectsItemsAccordingToOpeningInput(bool contextMenu, bool pointer, Key arrow)
+    {
+        var owner = new TextBox { Text = "target" };
+        var window = new Window { Content = owner, Width = 400, Height = 240 };
+        var command = new RoutedCommand("OpeningInputTest");
+        var executions = 0;
+        CommandManager.SetCommandBindings(owner, new List<CommandBinding>
+        {
+            new(command, (_, e) => { executions++; e.Handled = true; },
+                (_, e) => { e.CanExecute = true; e.Handled = true; })
+        });
+        var items = new[]
+        {
+            new MenuItem { Header = "Hidden", IsVisible = false },
+            new MenuItem { Header = "Disabled", IsEnabled = false },
+            new MenuItem { Header = "First", Command = command },
+            new MenuItem { Header = "Last", Command = command }
+        };
+        var menu = new ContextMenu();
+        var flyout = new MenuFlyout();
+        foreach (var item in items)
+            if (contextMenu) menu.Items.Add(item); else flyout.Items.Add(item);
+        if (contextMenu) owner.ContextMenu = menu; else owner.ContextFlyout = flyout;
+        try
+        {
+            window.Show();
+            Open(pointer);
+            var presenter = items[2].GetVisualAncestors().OfType<MenuBase>().First();
+            if (pointer)
+            {
+                items.Should().OnlyContain(i => !i.IsSelected);
+                window.KeyPress(Key.Enter, RawInputModifiers.None, PhysicalKey.Enter, null);
+                executions.Should().Be(0);
+                presenter.IsVisible.Should().BeTrue();
+                window.KeyPress(arrow, RawInputModifiers.None, PhysicalKey.None, null);
+                Dispatcher.UIThread.RunJobs();
+            }
+            var selected = pointer && arrow == Key.Up ? items[3] : items[2];
+            selected.IsSelected.Should().BeTrue();
+            window.FocusManager!.GetFocusedElement().Should().BeSameAs(selected);
+            items[2].IsEffectivelyEnabled.Should().BeTrue();
+            items[3].IsEffectivelyEnabled.Should().BeTrue();
+            window.KeyPress(Key.Enter, RawInputModifiers.None, PhysicalKey.Enter, null);
+            executions.Should().Be(1);
+            Open(true);
+            items.Should().OnlyContain(i => !i.IsSelected);
+            window.KeyPress(Key.Enter, RawInputModifiers.None, PhysicalKey.Enter, null);
+            executions.Should().Be(1);
+            menu.Close();
+            flyout.Hide();
+            Open(false);
+            items[2].IsSelected.Should().BeTrue();
+            window.KeyPress(Key.Enter, RawInputModifiers.None, PhysicalKey.Enter, null);
+            executions.Should().Be(2);
+        }
+        finally
+        {
+            menu.Close();
+            flyout.Hide();
+            window.Close();
+        }
+
+        void Open(bool byPointer)
+        {
+            owner.Focus();
+            Dispatcher.UIThread.RunJobs();
+            if (byPointer)
+            {
+                window.MouseDown(new Point(200, 120), MouseButton.Right);
+                window.MouseUp(new Point(200, 120), MouseButton.Right);
+            }
+            else
+                owner.RaiseEvent(new ContextRequestedEventArgs());
+            Dispatcher.UIThread.RunJobs();
+        }
+    }
+
     [AvaloniaTheory]
     [InlineData(true)]
     [InlineData(false)]
