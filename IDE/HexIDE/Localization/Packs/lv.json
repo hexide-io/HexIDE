@@ -2,6 +2,7 @@
   "name": "Latvian",
   "direction": "ltr",
   "strings": {
+    "Str.Lsp.OpenExternalUri": "Vai atvērt šo URI ārpus HexIDE?\n\n{0}",
     "Str.Tool.CallHierarchy.Title": "Izsaukumu hierarhija",
     "Str.Tool.CallHierarchy.CallsTo": "Izsaukumi uz",
     "Str.Tool.CallHierarchy.CallsFrom": "Izsaukumi no",

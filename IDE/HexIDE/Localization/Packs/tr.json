@@ -2,6 +2,7 @@
   "name": "Turkish",
   "direction": "ltr",
   "strings": {
+    "Str.Lsp.OpenExternalUri": "Bu URI HexIDE dışında açılsın mı?\n\n{0}",
     "Str.Tool.CallHierarchy.Title": "Çağrı Hiyerarşisi",
     "Str.Tool.CallHierarchy.CallsTo": "Gelen Çağrılar",
     "Str.Tool.CallHierarchy.CallsFrom": "Giden Çağrılar",

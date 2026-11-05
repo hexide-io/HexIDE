@@ -18,7 +18,7 @@ public class ShowDocumentWireTests : IAsyncDisposable
     private VBLspClient? _client;
     private CancellationToken Token => _timeout.Token;
 
-    private async Task<JsonElement> ConnectAsync()
+    private async Task<JsonElement> ConnectAsync(Func<HexIDE.Lsp.Messages.ShowDocumentParams, CancellationToken, Task<bool>>? show = null)
     {
 
         var (local, peer) = FullDuplexStream.CreatePair();
@@ -29,7 +29,7 @@ public class ShowDocumentWireTests : IAsyncDisposable
         transport.ConnectAsync(Arg.Any<IJsonRpcMessageFormatter>(), Arg.Any<CancellationToken>())
             .Returns(ci => Task.FromResult<IJsonRpcMessageHandler?>(
                 new HeaderDelimitedMessageHandler(local, local, ci.Arg<IJsonRpcMessageFormatter>())));
-        _client = new VBLspClient(transport, Substitute.For<ILogger<VBLspClient>>(), "vb6", showDocument: _show);
+        _client = new VBLspClient(transport, Substitute.For<ILogger<VBLspClient>>(), "vb6", showDocument: show ?? _show);
         var starting = _client.StartAsync(Token);
         var initialize = await ReadAsync();
         await WriteFrameAsync(peer, "{\"jsonrpc\":\"2.0\",\"id\":" + initialize.GetProperty("id").GetRawText()
@@ -75,18 +75,71 @@ public class ShowDocumentWireTests : IAsyncDisposable
             && p.Selection.End.Line == 2 && p.Selection.End.Character == 3), Arg.Any<CancellationToken>());
     }
 
-    [Fact]
-    public async Task ExternalDocumentIsRefusedWithoutNavigation()
+    [Theory]
+    [InlineData("no", false, false)]
+    [InlineData("dismiss", false, false)]
+    [InlineData("yes", true, true)]
+    [InlineData("yes", false, false)]
+    public async Task ExternalDocumentAsksEveryTimeAndLaunchesOnlyOnYes(string choice, bool launched, bool success)
     {
-        await ConnectAsync();
-        await WriteFrameAsync(_peer!, """
-            {"jsonrpc":"2.0","id":3,"method":"window/showDocument",
-             "params":{"uri":"https://example.com/","external":true,"takeFocus":true}}
-            """, Token);
-        var frame = await ReadAsync();
-        frame.GetProperty("id").GetInt32().Should().Be(3);
-        frame.GetProperty("result").GetProperty("success").GetBoolean().Should().BeFalse();
+        const string uri = "https://example.com/full/path?query=whole#fragment";
+        var localization = Substitute.For<HexIDE.Localization.ILocalizationService>();
+        localization.GetString("Str.Dialog.MessageBox.Button.Yes").Returns("Yes");
+        localization.GetString("Str.Dialog.MessageBox.Button.No").Returns("No");
+        localization.GetString("Str.Lsp.OpenExternalUri").Returns("Open outside HexIDE?\n\n{0}");
+        var questions = new List<HexIDE.Lsp.Messages.ShowMessageRequestParams>();
+        var launcher = Substitute.For<Func<Uri, CancellationToken, Task<bool>>>();
+        launcher(Arg.Any<Uri>(), Arg.Any<CancellationToken>()).Returns(Task.FromResult(launched));
+        var prompts = new ServerMessagePrompt((title, request, _, _) =>
+        {
+            title.Should().Be("Test server");
+            questions.Add(request);
+            var answer = choice == "dismiss" ? null : request.Actions![choice == "yes" ? 0 : 1];
+            return Task.FromResult<Task<HexIDE.Lsp.Messages.MessageActionItem?>?>(Task.FromResult(answer));
+        });
+        var navigation = new ServerDocumentNavigation(prompts, localization, launcher);
+        await ConnectAsync((request, token) => request.External
+            ? navigation.ShowExternalAsync("Test server", request.Uri, token) : _show(request, token));
+        for (var i = 0; i < 2; i++)
+        {
+            await WriteFrameAsync(_peer!, """
+                {"jsonrpc":"2.0","id":3,"method":"window/showDocument",
+                 "params":{"uri":"https://example.com/full/path?query=whole#fragment","external":true}}
+                """, Token);
+            var frame = await ReadAsync();
+            frame.GetProperty("result").GetProperty("success").GetBoolean().Should().Be(success);
+            questions.Should().HaveCount(i + 1);
+            questions[i].Message.Should().Be("Open outside HexIDE?\n\n" + uri);
+            questions[i].Actions!.Select(a => a.Title).Should().Equal("Yes", "No");
+        }
+        await launcher.Received(choice == "yes" ? 2 : 0)(Arg.Is<Uri>(u => u.OriginalString == uri), Arg.Any<CancellationToken>());
         await _show.DidNotReceive()(Arg.Any<HexIDE.Lsp.Messages.ShowDocumentParams>(), Arg.Any<CancellationToken>());
+    }
+
+    [Theory]
+    [InlineData("file:///C:/Windows/System32/calc.exe")]
+    [InlineData("ms-settings:privacy")]
+    [InlineData("javascript:alert(1)")]
+    [InlineData("not a uri")]
+    public async Task ExternalDocumentOffersOnlyWebAndMailLinks(string uri)
+    {
+        var localization = Substitute.For<HexIDE.Localization.ILocalizationService>();
+        var asked = 0;
+        var launcher = Substitute.For<Func<Uri, CancellationToken, Task<bool>>>();
+        var prompts = new ServerMessagePrompt((_, request, _, _) =>
+        {
+            asked++;
+            return Task.FromResult<Task<HexIDE.Lsp.Messages.MessageActionItem?>?>(Task.FromResult(request.Actions?[0]));
+        });
+        var navigation = new ServerDocumentNavigation(prompts, localization, launcher);
+        await ConnectAsync((request, token) => request.External
+            ? navigation.ShowExternalAsync("Test server", request.Uri, token) : _show(request, token));
+        var param = System.Text.Json.JsonSerializer.Serialize(new Dictionary<string, object> { ["uri"] = uri, ["external"] = true });
+        await WriteFrameAsync(_peer!, "{\"jsonrpc\":\"2.0\",\"id\":4,\"method\":\"window/showDocument\",\"params\":" + param + "}", Token);
+        var frame = await ReadAsync();
+        frame.GetProperty("result").GetProperty("success").GetBoolean().Should().BeFalse();
+        asked.Should().Be(0);
+        await launcher.DidNotReceive()(Arg.Any<Uri>(), Arg.Any<CancellationToken>());
     }
 
     public async ValueTask DisposeAsync()

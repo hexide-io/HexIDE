@@ -2,6 +2,7 @@
   "name": "Greek",
   "direction": "ltr",
   "strings": {
+    "Str.Lsp.OpenExternalUri": "Άνοιγμα αυτού του URI εκτός του HexIDE;\n\n{0}",
     "Str.Tool.CallHierarchy.Title": "Ιεραρχία κλήσεων",
     "Str.Tool.CallHierarchy.CallsTo": "Κλήσεις προς",
     "Str.Tool.CallHierarchy.CallsFrom": "Κλήσεις από",

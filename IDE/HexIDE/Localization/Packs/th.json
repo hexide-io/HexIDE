@@ -2,6 +2,7 @@
   "name": "Thai",
   "direction": "ltr",
   "strings": {
+    "Str.Lsp.OpenExternalUri": "เปิด URI นี้ภายนอก HexIDE หรือไม่?\n\n{0}",
     "Str.Tool.CallHierarchy.Title": "ลำดับชั้นการเรียก",
     "Str.Tool.CallHierarchy.CallsTo": "การเรียกเข้า",
     "Str.Tool.CallHierarchy.CallsFrom": "การเรียกออก",

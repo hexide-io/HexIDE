@@ -2,6 +2,7 @@
   "name": "Finnish",
   "direction": "ltr",
   "strings": {
+    "Str.Lsp.OpenExternalUri": "Avataanko tämä URI HexIDE:n ulkopuolella?\n\n{0}",
     "Str.Tool.CallHierarchy.Title": "Kutsuhierarkia",
     "Str.Tool.CallHierarchy.CallsTo": "Kutsut kohteeseen",
     "Str.Tool.CallHierarchy.CallsFrom": "Kutsut kohteesta",

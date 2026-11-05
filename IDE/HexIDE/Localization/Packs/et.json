@@ -2,6 +2,7 @@
   "name": "Estonian",
   "direction": "ltr",
   "strings": {
+    "Str.Lsp.OpenExternalUri": "Kas avada see URI väljaspool HexIDE-d?\n\n{0}",
     "Str.Tool.CallHierarchy.Title": "Kutsete hierarhia",
     "Str.Tool.CallHierarchy.CallsTo": "Kutsed sihtkohta",
     "Str.Tool.CallHierarchy.CallsFrom": "Kutsed lähtekohast",

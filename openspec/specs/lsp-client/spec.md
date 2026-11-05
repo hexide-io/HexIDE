@@ -139,6 +139,7 @@ answer `window/showMessageRequest` using an IDE message box owned by the main wi
 be the server's display name and its buttons SHALL be the server's actions. The box SHALL show the
 message type's icon (Error, Warning, Information for Info and Log), using the IDE message box's icons.
 Escape SHALL dismiss the box without choosing an action.
+The first action button SHALL receive focus when the box opens, so Enter chooses that action.
 
 #### Scenario: A question is answered or dismissed
 - **WHEN** the user chooses an action
@@ -151,6 +152,10 @@ Escape SHALL dismiss the box without choosing an action.
 - **THEN** its icon represents the message type
 - **WHEN** the user presses Escape
 - **THEN** the box closes and the client returns `null`
+
+#### Scenario: Enter answers a newly opened question
+- **WHEN** a server question with actions opens and the user presses Enter without moving focus
+- **THEN** the client returns the first action item and closes the box
 
 ### Requirement: Server questions queue without blocking the connection
 Prompts SHALL queue one at a time across connections and wait while a program runs or another modal is
@@ -2150,10 +2155,9 @@ the final restart note, to scroll fully into its viewport at 100% and 150% displ
 ### Requirement: Server-requested project document navigation
 
 The client SHALL declare `window.showDocument.support: true` and answer `window/showDocument`
-with `{ success }`. A URI naming a loaded member by the same rule as `EditorService.NavigateTo`
-SHALL open its code or carried-file editor, apply the supplied selection, and take focus only when
-`takeFocus` is true. External requests and URIs naming no loaded member SHALL answer `success: false`
-and SHALL open nothing. This is the project-member slice of #2908; external navigation remains deferred.
+with `{ success }`. A URI naming a loaded member by `EditorService.NavigateTo`'s rule SHALL open
+its code or carried-file editor, apply the supplied selection, and take focus only when requested.
+A non-external URI naming no loaded member SHALL answer `success: false` without opening or prompting.
 
 #### Scenario: A server selects a range in a module
 
@@ -2166,10 +2170,73 @@ and SHALL open nothing. This is the project-member slice of #2908; external navi
 - **WHEN** a loaded member is requested without `takeFocus: true`
 - **THEN** its editor opens and applies the selection without changing the focused document
 
-#### Scenario: External or unknown URI
+#### Scenario: Unknown project URI
 
-- **WHEN** a request has `external: true` or names no loaded member
-- **THEN** the response contains `success: false` and nothing opens
+- **WHEN** a non-external request names no loaded member
+- **THEN** the response contains `success: false` and nothing opens or prompts
+
+### Requirement: External document navigation requires consent
+
+External requests SHALL ask every time in the shared server-question queue, under the server's display
+name and with the full URI. They SHALL wait out a running program or another modal without blocking
+messages. No SHALL receive initial focus, so Enter and Escape decline.
+Only Yes SHALL launch the URI through the system launcher. The answer SHALL be true only
+when launched; No, dismissal, invalid URI or launch failure SHALL answer false. Only `http`, `https` and
+`mailto` URIs SHALL be offered; any other scheme, such as `file:` naming a program, SHALL be refused with
+`success: false` without asking or launching.
+
+#### Scenario: External navigation requires consent each time
+
+- **WHEN** a server requests an external URI
+- **THEN** a queued IDE message box shows the full URI with Yes and No actions
+- **AND** No is initially focused; Enter, Escape or dismissal returns `success: false` without launching anything
+- **AND** Yes invokes the system launcher and returns its success
+- **AND** requesting the same URI again asks again
+
+#### Scenario: Only web and mail links are offered
+
+- **WHEN** a server requests an external `file:` URI, or any scheme other than `http`, `https` or `mailto`
+- **THEN** no question is asked and nothing is launched
+- **AND** the answer is `success: false`
+
+### Requirement: Server workspace edits require a running user command
+
+The client SHALL declare `workspace.applyEdit: true` alongside `workspaceEdit.documentChanges`.
+The shared command sender SHALL track unanswered user-started commands per server. Only while one
+is running SHALL `workspace/applyEdit` use the workspace rename applier. Otherwise it SHALL answer
+`applied: false` with a `failureReason` explaining the user-command rule and change nothing.
+Internal project imports SHALL NOT authorize server edits.
+Applying a server workspace edit SHALL preserve the active document tab.
+
+#### Scenario: A lens command requests an edit before answering
+
+- **WHEN** the user runs a code lens command and its server requests an edit before answering
+- **THEN** the checked edit applies with independent undo per module and answers `applied: true`
+- **AND** the tab active before the edit remains active
+
+#### Scenario: Unsolicited or late edits
+
+- **WHEN** a server requests edits without its own unanswered user command, including after its answer
+- **THEN** no buffer changes and it receives `applied: false` with a `failureReason`
+- **AND** a command running on another connection does not authorize it
+
+### Requirement: Server workspace edits share rename checks
+
+The applier SHALL preflight all documents using the requesting connection's sent versions and text,
+refuse stale or unsent changes and protected or read-only regions, and apply all edits or none.
+A refusal SHALL return `applied: false` with the applier's text as `failureReason`.
+Success SHALL return `applied: true` with one undo step per module. Both edit representations
+SHALL be supported; resource operations SHALL remain refused.
+
+#### Scenario: A checked workspace edit succeeds
+
+- **WHEN** an authorized edit passes every document's checks
+- **THEN** all edits apply, with one independent undo step per module, and the response is `applied: true`
+
+#### Scenario: One stale document refuses the whole edit
+
+- **WHEN** an authorized edit includes a stale document version
+- **THEN** all buffers remain unchanged and the refusal text is returned as `failureReason`
 
 ### Requirement: Implementation and type definition navigation
 

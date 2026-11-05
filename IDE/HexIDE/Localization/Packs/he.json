@@ -2,6 +2,7 @@
   "name": "Hebrew",
   "direction": "rtl",
   "strings": {
+    "Str.Lsp.OpenExternalUri": "לפתוח כתובת זו מחוץ ל־HexIDE?\n\n{0}",
     "Str.Tool.CallHierarchy.Title": "היררכיית קריאות",
     "Str.Tool.CallHierarchy.CallsTo": "קריאות אל",
     "Str.Tool.CallHierarchy.CallsFrom": "קריאות מתוך",
