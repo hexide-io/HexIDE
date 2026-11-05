@@ -22,7 +22,8 @@ public sealed class ContributedProjectTests : IDisposable
     private readonly List<ProjectDefinition> _loaded = [];
     private readonly IWindowManager _windows = Substitute.For<IWindowManager>();
     private readonly IRecentProjectsService _recent = Substitute.For<IRecentProjectsService>();
-    private readonly ContributedProjects _types = new();
+    private readonly ContributedProjects _types;
+    private readonly HeldReads _reads = new();
     private readonly IProjectManager _projects = Substitute.For<IProjectManager>();
     private readonly IEventBus _events = Substitute.For<IEventBus>();
     private readonly FileBaselineStore _baselines = new();
@@ -31,6 +32,7 @@ public sealed class ContributedProjectTests : IDisposable
 
     public ContributedProjectTests()
     {
+        _types = new ContributedProjects { ReadFile = _reads.Read };
         Directory.CreateDirectory(Path.Join(_dir, "src", "Classes"));
         Directory.CreateDirectory(Path.Join(_dir, "docs"));
         File.WriteAllText(ProjectFile, """{ "ProjectInfo": { "Name": "Ledger" } }""");
@@ -266,13 +268,15 @@ public sealed class ContributedProjectTests : IDisposable
         _changes.MemberMoved(Path.Join(_dir, "src", "Main.bas"), Path.Join(_dir, "src", "Program.bas"));
         _changes.MemberRemoved(Path.Join(_dir, "README.md"));
         _changes.ReferencesChanged([]);
-        await WhenSettled(() => added.Count == 1 && project.RelatedDocuments.Count == 0 && project.References.Count == 0);
+        Dispatcher.UIThread.RunJobs();
 
         added.Should().Equal("Helpers");
         deleted.Should().BeEmpty();
+        project.RelatedDocuments.Should().BeEmpty();
+        project.References.Should().BeEmpty();
         project.Modules.Single(module => module.Name == "Startup").AbsolutePath.Should().Be(Path.Join(_dir, "src", "Program.bas"));
         _changes.MemberRemoved(Path.Join(_dir, "src", "Helpers.bas"));
-        await WhenSettled(() => deleted.Count == 1);
+        Dispatcher.UIThread.RunJobs();
         deleted.Should().Equal("Helpers");
     }
 
@@ -291,6 +295,7 @@ public sealed class ContributedProjectTests : IDisposable
         var temporary = Module("Scratch.bas", "Scratch");
         var copy = Module("AccountCopy.bas", "Account");
         var last = Module("Last.bas", "Last");
+        _reads.Hold(temporary);
 
         _changes!.MemberAdded(new(helpers, AddinMemberKind.StandardModule));
         _changes.MemberAdded(new(helpers, AddinMemberKind.StandardModule));
@@ -298,7 +303,12 @@ public sealed class ContributedProjectTests : IDisposable
         _changes.MemberRemoved(temporary);
         _changes.MemberAdded(new(copy, AddinMemberKind.StandardModule));
         _changes.MemberAdded(new(last, AddinMemberKind.StandardModule));
-        await WhenSettled(() => project.Modules.Any(module => module.Name == "Last"));
+        Dispatcher.UIThread.RunJobs();
+
+        project.Modules.Select(module => module.Name).Should().Equal(["Startup", "Account", "Sheet1", "Helpers"],
+            "the reports after an add wait for its file to be read");
+        _reads.Release(temporary);
+        Dispatcher.UIThread.RunJobs();
 
         project.Modules.Select(module => module.Name).Should().Equal("Startup", "Account", "Sheet1", "Helpers", "Last");
         // The one name taken is Account's: a file reported twice is the same member, not one that takes its own name.
@@ -322,7 +332,9 @@ public sealed class ContributedProjectTests : IDisposable
 
         _changes!.MemberRemoved(Path.Join(_dir, "src", "Main.bas"));
         _changes.MemberRemoved(Path.Join(_dir, "src", "Classes", "Account.cls"));
-        await WhenSettled(() => project.Modules.Count == 1);
+        Dispatcher.UIThread.RunJobs();
+
+        project.Modules.Should().ContainSingle();
 
         await _windows.Received(1).MessageBox(Arg.Is<string>(text => text.StartsWith("Str.ContributedProject.RemovedWithChanges")),
             Arg.Any<string?>(), Arg.Any<MessageBoxButtons>(), Arg.Any<MessageBoxIcon>(), Arg.Any<Avalonia.Controls.Window?>(), Arg.Any<bool>());
@@ -348,8 +360,9 @@ public sealed class ContributedProjectTests : IDisposable
 
         _changes!.MemberMoved(main, program);
         _changes.MemberMoved(accountFile, ledger);
-        await WhenSettled(() => account.AbsolutePath == ledger);
+        Dispatcher.UIThread.RunJobs();
 
+        account.AbsolutePath.Should().Be(ledger);
         _service.HasUnsavedChanges(startup).Should().BeTrue("its edits were not saved, wherever its file is");
         _service.HasUnsavedChanges(account).Should().BeFalse("its file holds what HexIDE read, now at its new path");
         _baselines.Matches(ledger, File.ReadAllBytes(ledger)).Should().BeTrue();
@@ -400,17 +413,23 @@ public sealed class ContributedProjectTests : IDisposable
         project.References.Should().ContainSingle();
     }
 
-    // The reports are applied on the UI thread, posted, each after the file reads of those before it; this runs its queue
-    // until they are. The deadline is only how long a report that never lands is waited for.
-    private static async Task WhenSettled(Func<bool> settled)
+    // A member's file read completes at once, so the reports posted to the UI thread are all applied by the RunJobs that
+    // runs them. A read held completes only when the test releases it, and RunJobs then applies what waited for it: the
+    // test, not the thread pool, decides the order the reads finish in.
+    private sealed class HeldReads
     {
-        var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(30);
-        while (!settled() && DateTime.UtcNow < deadline)
+        private readonly Dictionary<string, TaskCompletionSource> _held = new(StringComparer.OrdinalIgnoreCase);
+
+        public void Hold(string path) => _held[path] = new TaskCompletionSource();
+
+        public void Release(string path) => _held[path].SetResult();
+
+        public async Task<byte[]> Read(string path)
         {
-            Dispatcher.UIThread.RunJobs();
-            await Task.Yield();
+            if (_held.TryGetValue(path, out var held))
+                await held.Task;
+            return File.ReadAllBytes(path);
         }
-        settled().Should().BeTrue("the add-in's reports were applied");
     }
 
     [AvaloniaFact]

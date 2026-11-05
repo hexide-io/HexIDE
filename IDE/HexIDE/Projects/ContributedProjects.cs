@@ -37,6 +37,12 @@ public sealed partial class ContributedProjects
     /// <summary>Raised when a type is contributed or taken out.</summary>
     public event Action? TypesChanged;
 
+    /// <summary>
+    /// Reads a member's file as it is added. The file system's read, except under test, where the test decides when each
+    /// read completes and so in what order the add-in's reports finish.
+    /// </summary>
+    internal Func<string, Task<byte[]>> ReadFile { get; set; } = path => File.ReadAllBytesAsync(path);
+
     /// <summary>Every contributed type, in the order they were contributed.</summary>
     public IReadOnlyList<ContributedProjectType> Types
     {
@@ -114,7 +120,7 @@ public sealed partial class ContributedProjects
     /// Builds the project for what the add-in read, its modules loaded from their files as a .vbp's are. A member that
     /// cannot be read, or whose name another member has, is left out and named in the returned problems.
     /// </summary>
-    internal static async Task<(ProjectDefinition Project, IReadOnlyList<string> Problems)> BuildAsync(
+    internal async Task<(ProjectDefinition Project, IReadOnlyList<string> Problems)> BuildAsync(
         string path, AddinProjectContent content, ContributedProjectType type, Vb6TextEncoding hostAnsi,
         Action<string, byte[]>? fileRead, ILocalizationService localization)
     {
@@ -154,7 +160,7 @@ public sealed partial class ContributedProjects
     /// <exception cref="MemberNameTakenException">
     /// Another member has its name, which VB6 refuses as <c>Name conflicts with existing module</c>: it is left out.
     /// </exception>
-    internal static async Task<object?> AddMemberAsync(ProjectDefinition project, AddinProjectMember member, Vb6TextEncoding hostAnsi,
+    internal async Task<object?> AddMemberAsync(ProjectDefinition project, AddinProjectMember member, Vb6TextEncoding hostAnsi,
         Action<string, byte[]>? fileRead, ILocalizationService localization)
     {
         if (!Path.IsPathFullyQualified(member.Path))
@@ -171,12 +177,13 @@ public sealed partial class ContributedProjects
         // A document module is kept as a class module with its header as it came: it is the host document's code,
         // for reading and editing, and nothing runs or instantiates it.
         var kind = member.Kind == AddinMemberKind.StandardModule ? ModuleKind.StandardModule : ModuleKind.ClassModule;
-        var read = await Vb6TextFile.ReadDocumentAsync(member.Path, null, hostAnsi);
+        var bytes = await ReadFile(member.Path);
+        var read = Vb6TextFile.ReadDocument(bytes, null, hostAnsi);
         var name = NameOf(read.Text) ?? Path.GetFileNameWithoutExtension(member.Path);
         if (ProjectNaming.IsNameTaken(project, name))
             throw new MemberNameTakenException(string.Format(localization.GetString("Str.ContributedProject.NameTaken"),
                 Path.GetFileName(member.Path), name, project.Name));
-        fileRead?.Invoke(member.Path, read.Bytes);
+        fileRead?.Invoke(member.Path, bytes);
         var (header, body) = ModuleFileFormat.SplitHeader(read.Text, kind);
         var module = new ModuleDefinition(project, name, kind)
         {

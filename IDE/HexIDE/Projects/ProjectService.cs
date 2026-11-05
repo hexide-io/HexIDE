@@ -431,7 +431,7 @@ public partial class ProjectService : IProjectService
                 return;
             }
 
-            (project, problems) = await ContributedProjects.BuildAsync(projectPath, content, type, HostAnsi,
+            (project, problems) = await contributed!.BuildAsync(projectPath, content, type, HostAnsi,
                 baselineStore.Record, localization);
             projectManager.AddProject(project);
             recentProjects.Add(projectPath);
@@ -552,7 +552,7 @@ public partial class ProjectService : IProjectService
         object? added;
         try
         {
-            added = await ContributedProjects.AddMemberAsync(project, member, HostAnsi, baselineStore.Record, localization);
+            added = await contributed!.AddMemberAsync(project, member, HostAnsi, baselineStore.Record, localization);
         }
         catch (ContributedProjects.MemberNameTakenException ex)
         {
