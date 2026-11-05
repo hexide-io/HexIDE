@@ -84,8 +84,13 @@ public interface IAddinProjectChanges
 {
     /// <summary>
     /// Cancelled once HexIDE no longer has the project open: it was closed, or its open failed. A change reported after
-    /// that is ignored, so an add-in can stop watching the project's files.
+    /// that is ignored, so an add-in can stop watching the project's files. Its callbacks run on the thread pool, and one
+    /// that throws is logged.
     /// </summary>
+    /// <remarks>
+    /// An exit that closes no project, as an exit forced without the save prompt is, ends the process with the project
+    /// still open, and the add-in with it, so this is not cancelled then.
+    /// </remarks>
     CancellationToken Closed { get; }
 
     /// <summary>A member joined the project.</summary>

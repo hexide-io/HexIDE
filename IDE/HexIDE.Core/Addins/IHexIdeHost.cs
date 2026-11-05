@@ -27,8 +27,8 @@ public interface IHexIdeHost
     bool StopProject();
 
     /// <summary>
-    /// Contributes a kind of project file HexIDE then opens, from Open Project and the recent projects list, as a project
-    /// whose membership is the add-in's program's to change (<see cref="AddinProjectType"/>).
+    /// Contributes a kind of project file HexIDE then opens, from Open Project, the recent projects list or a project group,
+    /// as a project whose membership is the add-in's program's to change (<see cref="AddinProjectType"/>).
     /// </summary>
     /// <remarks>
     /// The capability design will need a name for this member; none is checked today, as that design's host checks are not

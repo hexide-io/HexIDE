@@ -51,8 +51,9 @@ manifest id, and show its title.
 Saving a contributed project, Save As included, SHALL write its edited modules and SHALL NOT write the project file,
 ask where it goes, or add it to the recent list; the file SHALL NOT count as edited. Adding or removing its members,
 Project Properties, References and Components SHALL NOT be offered, and SHALL be refused with a reason from any other
-route. The IDE's Make SHALL refuse it with a reason, and the IDE's interpreter SHALL NOT start it: its program builds and
-runs it, through its add-in.
+route, automation and crash recovery included. The IDE's Make SHALL refuse it with a reason, and the IDE's interpreter
+SHALL NOT start it: its program builds and runs it, through its add-in. The IDE SHALL NOT render it as a `.vbp`, for a
+language server's project import or otherwise.
 
 #### Scenario: Saving
 - **WHEN** the user edits a module of a contributed project and saves
@@ -71,7 +72,9 @@ follow it:
   offer to save its unsaved edits;
 - a member moved SHALL keep its unsaved edits unsaved, and its window and the language server SHALL take its new name.
 
-The changes handle SHALL say when the project is closed or its open failed; reports after that SHALL be dropped.
+The changes handle SHALL say when the project is closed or its open failed, without running the add-in's handlers on
+the thread that closed it; reports after that SHALL be dropped. An exit that closes no project, as one forced without the
+save prompt, ends the add-in with the process and SHALL NOT be signalled.
 
 #### Scenario: The add-in's program adds a module
 - **WHEN** the add-in reports a module added to an open contributed project
