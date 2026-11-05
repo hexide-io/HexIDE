@@ -2,7 +2,9 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Avalonia.Controls;
+using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
+using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
@@ -13,6 +15,30 @@ namespace HexIDE.Integration.Tests.Views;
 
 public class ServerMessagePromptTests
 {
+    [AvaloniaFact]
+    public async Task EnterOnANewPromptAnswersTheFirstAction()
+    {
+        var owner = new Window();
+        owner.Show();
+        try
+        {
+            var first = new MessageActionItem("First");
+            var pending = ServerMessagePrompt.Show(owner, "Server", new(3, "Choose", [first, new("Second")]), CancellationToken.None);
+            var prompt = owner.OwnedWindows.Single();
+            try
+            {
+                Dispatcher.UIThread.RunJobs();
+                prompt.GetVisualDescendants().OfType<Button>().First().IsFocused.Should().BeTrue();
+                prompt.KeyPress(Key.Enter, RawInputModifiers.None, PhysicalKey.Enter, null);
+                owner.KeyRelease(Key.Enter, RawInputModifiers.None, PhysicalKey.Enter, null);
+                (await pending.WaitAsync(System.TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken))
+                    .Should().BeSameAs(first);
+            }
+            finally { prompt.Close(); }
+        }
+        finally { owner.Close(); }
+    }
+
     [AvaloniaTheory]
     [InlineData(1, "✕")]
     [InlineData(2, "!")]

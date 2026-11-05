@@ -2,6 +2,7 @@
   "name": "Lithuanian",
   "direction": "ltr",
   "strings": {
+    "Str.Lsp.OpenExternalUri": "Atverti šį URI už HexIDE ribų?\n\n{0}",
     "Str.Tool.CallHierarchy.Title": "Iškvietimų hierarchija",
     "Str.Tool.CallHierarchy.CallsTo": "Iškvietimai į",
     "Str.Tool.CallHierarchy.CallsFrom": "Iškvietimai iš",

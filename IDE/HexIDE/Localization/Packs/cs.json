@@ -2,6 +2,7 @@
   "name": "Czech",
   "direction": "ltr",
   "strings": {
+    "Str.Lsp.OpenExternalUri": "Otevřít tento identifikátor URI mimo HexIDE?\n\n{0}",
     "Str.Tool.CallHierarchy.Title": "Hierarchie volání",
     "Str.Tool.CallHierarchy.CallsTo": "Volání do",
     "Str.Tool.CallHierarchy.CallsFrom": "Volání z",

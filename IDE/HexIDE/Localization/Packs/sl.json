@@ -2,6 +2,7 @@
   "name": "Slovenian",
   "direction": "ltr",
   "strings": {
+    "Str.Lsp.OpenExternalUri": "Želite odpreti ta URI zunaj HexIDE?\n\n{0}",
     "Str.Tool.CallHierarchy.Title": "Hierarhija klicev",
     "Str.Tool.CallHierarchy.CallsTo": "Klici v",
     "Str.Tool.CallHierarchy.CallsFrom": "Klici iz",

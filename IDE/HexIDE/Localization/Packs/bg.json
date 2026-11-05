@@ -2,6 +2,7 @@
   "name": "Bulgarian",
   "direction": "ltr",
   "strings": {
+    "Str.Lsp.OpenExternalUri": "Отваряне на този URI извън HexIDE?\n\n{0}",
     "Str.Tool.CallHierarchy.Title": "Йерархия на извикванията",
     "Str.Tool.CallHierarchy.CallsTo": "Извиквания към",
     "Str.Tool.CallHierarchy.CallsFrom": "Извиквания от",

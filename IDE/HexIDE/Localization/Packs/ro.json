@@ -2,6 +2,7 @@
   "name": "Romanian",
   "direction": "ltr",
   "strings": {
+    "Str.Lsp.OpenExternalUri": "Deschideți acest URI în afara HexIDE?\n\n{0}",
     "Str.Tool.CallHierarchy.Title": "Ierarhia apelurilor",
     "Str.Tool.CallHierarchy.CallsTo": "Apeluri către",
     "Str.Tool.CallHierarchy.CallsFrom": "Apeluri din",

@@ -2,6 +2,7 @@
   "name": "Swedish",
   "direction": "ltr",
   "strings": {
+    "Str.Lsp.OpenExternalUri": "Öppna denna URI utanför HexIDE?\n\n{0}",
     "Str.Tool.CallHierarchy.Title": "Anropshierarki",
     "Str.Tool.CallHierarchy.CallsTo": "Anrop till",
     "Str.Tool.CallHierarchy.CallsFrom": "Anrop från",

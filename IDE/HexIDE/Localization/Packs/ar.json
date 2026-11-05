@@ -2,6 +2,7 @@
   "name": "Arabic",
   "direction": "rtl",
   "strings": {
+    "Str.Lsp.OpenExternalUri": "هل تريد فتح هذا العنوان خارج HexIDE؟\n\n{0}",
     "Str.Tool.CallHierarchy.Title": "التسلسل الهرمي للاستدعاءات",
     "Str.Tool.CallHierarchy.CallsTo": "الاستدعاءات إلى",
     "Str.Tool.CallHierarchy.CallsFrom": "الاستدعاءات من",

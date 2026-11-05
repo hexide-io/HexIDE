@@ -14,7 +14,7 @@ public class CodeActionTests : IAsyncDisposable
     private VBLspClient? client;
     private static readonly HexIDE.Lsp.Messages.Range Range = new(new(2, 1), new(2, 5));
 
-    private async Task<ILspClient> Connect()
+    private async Task<ILspClient> Connect(bool start = true)
     {
         var (local, remote) = FullDuplexStream.CreatePair();
         server = new JsonRpc(new HeaderDelimitedMessageHandler(remote, remote, new SystemTextJsonFormatter()), peer);
@@ -24,7 +24,7 @@ public class CodeActionTests : IAsyncDisposable
         transport.ConnectAsync(Arg.Any<IJsonRpcMessageFormatter>(), Arg.Any<CancellationToken>())
             .Returns(ci => Task.FromResult<IJsonRpcMessageHandler?>(new HeaderDelimitedMessageHandler(local, local, ci.Arg<IJsonRpcMessageFormatter>())));
         client = new VBLspClient(transport, Substitute.For<ILogger<VBLspClient>>(), "vb6");
-        await client.StartAsync(TestContext.Current.CancellationToken);
+        if (start) await client.StartAsync(TestContext.Current.CancellationToken);
         return client;
     }
 
@@ -115,13 +115,16 @@ public class CodeActionTests : IAsyncDisposable
         }
         var silent = Substitute.For<ILspClient>();
         silent.IsRunning.Returns(true);
-        await using ILspClient registry = new LspClientRegistry([
+        await using var registry = new LspClientRegistry([
             new LanguageServerRegistration("first", "First", [".bas"], "vb6", () => capable[0]),
             new LanguageServerRegistration("second", "Second", [".bas"], "vb6", () => capable[1]),
             new LanguageServerRegistration("silent", "Silent", [".bas"], "vb6", () => silent)],
             Substitute.For<ILogger<LspClientRegistry>>());
         await registry.OpenDocumentAsync("file:///a.bas", "code", TestContext.Current.CancellationToken);
-        var actions = await registry.RequestCodeActionsAsync("file:///a.bas", Range, [], TestContext.Current.CancellationToken);
+        var diagnostic = new Diagnostic(Range, "problem");
+        foreach (var owner in new[] { "first", "second" })
+            await registry.InjectDiagnosticsAsync("file:///a.bas", [diagnostic], owner);
+        var actions = await registry.RequestCodeActionsAsync("file:///a.bas", Range, [diagnostic], TestContext.Current.CancellationToken);
         actions.Select(a => a.Server).Should().BeEquivalentTo("first", "second");
         await silent.DidNotReceive().RequestCodeActionsAsync(Arg.Any<string>(), Arg.Any<HexIDE.Lsp.Messages.Range>(), Arg.Any<Diagnostic[]>(), Arg.Any<CancellationToken>());
     }
@@ -169,6 +172,49 @@ public class CodeActionTests : IAsyncDisposable
     }
 
     [Fact]
+    public async Task EachClaimantReceivesItsOwnFirstDiagnosticRangeOnTheWire()
+    {
+        await using var first = new CodeActionTests();
+        await using var second = new CodeActionTests();
+        var clients = new[] { await first.Connect(false), await second.Connect(false) };
+        await using var registry = new LspClientRegistry([
+            new LanguageServerRegistration("one", "One", [".bas"], "vb6", () => clients[0]),
+            new LanguageServerRegistration("two", "Two", [".bas"], "vb6", () => clients[1])],
+            Substitute.For<ILogger<LspClientRegistry>>());
+        const string uri = "file:///a.bas";
+        await registry.OpenDocumentAsync(uri, "code", TestContext.Current.CancellationToken);
+        var published = new TaskCompletionSource<Diagnostic[]>(TaskCreationOptions.RunContinuationsAsynchronously);
+        registry.DiagnosticsPublished += (_, p) =>
+        {
+            if (p.Diagnostics.Length == 2) published.TrySetResult(p.Diagnostics);
+        };
+        var otherRange = new HexIDE.Lsp.Messages.Range(new(2, 0), new(2, 8));
+        await first.server!.NotifyWithParameterObjectAsync("textDocument/publishDiagnostics",
+            new PublishDiagnosticsParams(uri, [new Diagnostic(Range, "first")]));
+        await second.server!.NotifyWithParameterObjectAsync("textDocument/publishDiagnostics",
+            new PublishDiagnosticsParams(uri, [new Diagnostic(otherRange, "second")]));
+        var diagnostics = await published.Task.WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
+        await registry.RequestCodeActionsAsync(uri, Range, diagnostics, TestContext.Current.CancellationToken);
+        first.peer.Request!.Value.GetProperty("range").Deserialize<HexIDE.Lsp.Messages.Range>().Should().Be(Range);
+        second.peer.Request!.Value.GetProperty("range").Deserialize<HexIDE.Lsp.Messages.Range>().Should().Be(otherRange);
+        first.peer.Request.Value.GetProperty("context").GetProperty("diagnostics")[0].GetProperty("message").GetString().Should().Be("first");
+        second.peer.Request.Value.GetProperty("context").GetProperty("diagnostics")[0].GetProperty("message").GetString().Should().Be("second");
+    }
+
+    [Fact]
+    public async Task ClaimantWithoutADiagnosticAtTheCaretIsNotAsked()
+    {
+        var sut = await Connect(false);
+        await using var registry = new LspClientRegistry([
+            new LanguageServerRegistration("one", "One", [".bas"], "vb6", () => sut)],
+            Substitute.For<ILogger<LspClientRegistry>>());
+        const string uri = "file:///a.bas";
+        await registry.OpenDocumentAsync(uri, "code", TestContext.Current.CancellationToken);
+        await registry.RequestCodeActionsAsync(uri, Range, [new Diagnostic(Range, "another server")], TestContext.Current.CancellationToken);
+        peer.Request.Should().BeNull();
+    }
+
+    [Fact]
     public async Task ActionGroupUsesTheServerDisplayName()
     {
         var source = Substitute.For<ILspClient>();
@@ -181,7 +227,9 @@ public class CodeActionTests : IAsyncDisposable
             new LanguageServerRegistration("rdcore-vba", "RDCore VBA", [".bas"], "vb6", () => source)],
             Substitute.For<ILogger<LspClientRegistry>>());
         await registry.OpenDocumentAsync("file:///a.bas", "code", TestContext.Current.CancellationToken);
-        var actions = await registry.RequestCodeActionsAsync("file:///a.bas", Range, [], TestContext.Current.CancellationToken);
+        var diagnostic = new Diagnostic(Range, "problem");
+        await registry.InjectDiagnosticsAsync("file:///a.bas", [diagnostic], "rdcore-vba");
+        var actions = await registry.RequestCodeActionsAsync("file:///a.bas", Range, [diagnostic], TestContext.Current.CancellationToken);
         var action = actions.Should().ContainSingle().Which;
         action.Server.Should().Be("rdcore-vba");
         action.ServerDisplayName.Should().Be("RDCore VBA");

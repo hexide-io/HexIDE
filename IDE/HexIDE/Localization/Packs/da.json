@@ -2,6 +2,7 @@
   "name": "Danish",
   "direction": "ltr",
   "strings": {
+    "Str.Lsp.OpenExternalUri": "Åbn denne URI uden for HexIDE?\n\n{0}",
     "Str.Tool.CallHierarchy.Title": "Kaldhierarki",
     "Str.Tool.CallHierarchy.CallsTo": "Kald til",
     "Str.Tool.CallHierarchy.CallsFrom": "Kald fra",

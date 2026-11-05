@@ -2,6 +2,7 @@
   "name": "Ukrainian",
   "direction": "ltr",
   "strings": {
+    "Str.Lsp.OpenExternalUri": "Відкрити цей URI поза HexIDE?\n\n{0}",
     "Str.Tool.CallHierarchy.Title": "Ієрархія викликів",
     "Str.Tool.CallHierarchy.CallsTo": "Виклики до",
     "Str.Tool.CallHierarchy.CallsFrom": "Виклики з",

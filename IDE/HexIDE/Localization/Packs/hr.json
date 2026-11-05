@@ -2,6 +2,7 @@
   "name": "Croatian",
   "direction": "ltr",
   "strings": {
+    "Str.Lsp.OpenExternalUri": "Otvoriti ovaj URI izvan HexIDE-a?\n\n{0}",
     "Str.Tool.CallHierarchy.Title": "Hijerarhija poziva",
     "Str.Tool.CallHierarchy.CallsTo": "Pozivi prema",
     "Str.Tool.CallHierarchy.CallsFrom": "Pozivi iz",
