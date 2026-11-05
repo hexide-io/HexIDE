@@ -157,7 +157,7 @@
     "Str.Menu.View.Object": "O_bjekt",
     "Str.Menu.View.Definition": "_Definition",
     "Str.Menu.View.Implementation": "_Implementierung",
-    "Str.Menu.View.TypeDefinition": "_Typdefinition",
+    "Str.Menu.View.TypeDefinition": "T_ypdefinition",
     "Str.Menu.View.Declaration": "D_eklaration",
     "Str.Menu.View.LastPosition": "Letzte Positio_n",
     "Str.Tool.RecentEdits.Title": "Letzte Änderungen",
