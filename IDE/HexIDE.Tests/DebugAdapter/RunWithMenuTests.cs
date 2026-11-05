@@ -10,8 +10,9 @@ using HexIDE.Runtime.ProjectElements;
 namespace HexIDE.Tests.DebugAdapter;
 
 /// <summary>
-/// The Run menu's Run With and Start With: hidden until an add-in offers a launch for the startup project, then the
-/// interpreter and each launch, with what F5 runs checked.
+/// The Run menu's F5 Runs and Start Once With: hidden until an add-in offers a launch for the startup project, or, for F5
+/// Runs, until the project has a choice; then the interpreter and each launch, with what F5 runs checked. Built only as
+/// the Run menu opens.
 /// </summary>
 public class RunWithMenuTests : CompositionTestBase
 {
@@ -54,7 +55,7 @@ public class RunWithMenuTests : CompositionTestBase
             Launches = new DebugLaunchService(new ExternalDebugService(Log));
             Projects.StartupProject.Returns(Project);
             var strings = Substitute.For<ILocalizationService>();
-            strings.GetString("Str.Menu.Run.RunWith.Interpreter").Returns("The IDE");
+            strings.GetString("Str.Menu.Run.RunWith.Interpreter").Returns("In the IDE");
             strings.GetString("Str.Menu.Run.RunWith.Launch").Returns("{0} (from {1})");
             strings.GetString("Str.Menu.Run.RunWith.Unavailable").Returns("{0} (not available)");
             Menu = new RunWithMenuViewModel(Launches, Choices, Projects, Runner, strings);
@@ -72,7 +73,7 @@ public class RunWithMenuTests : CompositionTestBase
         fixture.Menu.Refresh();
 
         fixture.Menu.Choices.Select(item => (item.Header, item.IsChecked)).Should().Equal(
-            ("The IDE", true), ("RDCore (from RDCore for HexIDE)", false));
+            ("In the IDE", true), ("RDCore (from RDCore for HexIDE)", false));
         fixture.Menu.Starts.Select(item => item.Header).Should().Equal("RDCore (from RDCore for HexIDE)");
 
         fixture.Menu.Choices[1].Command.Execute(null);
@@ -110,7 +111,7 @@ public class RunWithMenuTests : CompositionTestBase
         fixture.Menu.HasLaunches.Should().BeFalse("there is nothing to start");
         fixture.Menu.HasChoices.Should().BeTrue("the fallback message sends the user here");
         fixture.Menu.Choices.Select(item => (item.Header, item.IsChecked, item.Command.CanExecute(null))).Should().Equal(
-            ("The IDE", false, true), ("RDCore (not available)", true, false));
+            ("In the IDE", false, true), ("RDCore (not available)", true, false));
         fixture.Menu.Choices[0].Command.Execute(null);
         fixture.Choices.Get(fixture.Project).Should().BeNull();
     }

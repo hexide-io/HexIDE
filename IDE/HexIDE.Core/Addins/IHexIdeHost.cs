@@ -27,8 +27,8 @@ public interface IHexIdeHost
     bool StopProject();
 
     /// <summary>
-    /// Contributes a way to run a project under the External Debug Session: it appears as its own Run menu command and
-    /// as a choice under Run &gt; Run With…, and F5 runs it only for a project whose user chose it there.
+    /// Contributes a way to run a project under the External Debug Session: it appears under Run &gt; Start Once With and
+    /// as a choice under Run &gt; F5 Runs, and F5 runs it only for a project whose user chose it there.
     /// </summary>
     /// <remarks>
     /// The capability design will need a name for this member, separate from <c>program.run</c>; none is checked today,

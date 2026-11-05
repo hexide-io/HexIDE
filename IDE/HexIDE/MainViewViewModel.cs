@@ -55,7 +55,7 @@ public partial class MainViewViewModel : ObservableObject
     public DelegateCommand ReopenClosedDocumentCommand { get; }
     public ObservableCollection<RecentProjectItemViewModel> ClosedDocumentMenuItems { get; } = new();
 
-    /// <summary>The Run menu's Run With and Start With, for the launches add-ins contribute; null when none can be.</summary>
+    /// <summary>The Run menu's F5 Runs and Start Once With, for the launches add-ins contribute; null when none can be.</summary>
     public RunWithMenuViewModel? RunWith { get; }
     private readonly DockFactory dockFactory;
     private readonly IProjectRunnerService projectRunnerService;

@@ -8,17 +8,17 @@ namespace HexIDE.Addins;
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>F5 stays the interpreter's unless the user says otherwise.</b> A launch is offered under Run &gt; Run With…, where
+/// <b>F5 stays the interpreter's unless the user says otherwise.</b> A launch is offered under Run &gt; F5 Runs, where
 /// the user chooses, per project, what F5 runs; the choice is remembered beside the project, for that user. Installing
-/// an add-in changes nothing until then. Each launch is also its own Run &gt; Start command, which runs it once without
-/// touching F5.
+/// an add-in changes nothing until then. Each launch is also listed under Run &gt; Start Once With, which runs it once
+/// without touching F5.
 /// </para>
 /// <para>
 /// <b>The breakpoints are the IDE's.</b> The session is given the gutter marks saved for the project, with their
 /// conditions refused as an external session refuses them, so the configuration carries none.
 /// </para>
 /// </remarks>
-/// <param name="Title">What the Run menu and the Run With… choice call it, such as <c>"RDCore"</c>.</param>
+/// <param name="Title">What the Run menu's F5 Runs and Start Once With call it, such as <c>"RDCore"</c>.</param>
 public sealed record AddinDebugLaunch(string Title)
 {
     /// <summary>

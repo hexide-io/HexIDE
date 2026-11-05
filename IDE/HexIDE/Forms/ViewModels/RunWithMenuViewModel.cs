@@ -18,12 +18,12 @@ public sealed class RunMenuItemViewModel(string header, ICommand command, bool i
 }
 
 /// <summary>
-/// The Run menu's part in the launches add-ins contribute: Run With, which sets what F5 runs for the startup project,
-/// and Start With, which runs a launch once.
+/// The Run menu's part in the launches add-ins contribute: F5 Runs, which sets what F5 runs for the startup project,
+/// and Start Once With, which runs a launch once.
 /// </summary>
 /// <remarks>
 /// Built when the Run menu opens (<see cref="Refresh"/>), so a launch is asked whether it runs the project then, and not
-/// when a project loads or the startup project changes. Run With is shown while a launch runs the project, or while the
+/// when a project loads or the startup project changes. F5 Runs is shown while a launch runs the project, or while the
 /// project has a choice, a gone launch's included, so the user can always set it back.
 /// </remarks>
 public sealed class RunWithMenuViewModel(DebugLaunchService launches, IRunChoiceStore choices, IProjectManager projects,
@@ -37,10 +37,10 @@ public sealed class RunWithMenuViewModel(DebugLaunchService launches, IRunChoice
     /// <summary>Each launch that runs the startup project, to start once.</summary>
     public ObservableCollection<RunMenuItemViewModel> Starts { get; } = [];
 
-    /// <summary>Whether Run With is shown: a launch runs the startup project, or the project has a choice.</summary>
+    /// <summary>Whether F5 Runs is shown: a launch runs the startup project, or the project has a choice.</summary>
     public bool HasChoices => Choices.Count > 0;
 
-    /// <summary>Whether Start With is shown: a launch runs the startup project.</summary>
+    /// <summary>Whether Start Once With is shown: a launch runs the startup project.</summary>
     public bool HasLaunches => Starts.Count > 0;
 
     /// <summary>Builds the lists for the startup project as it is now; called as the Run menu opens.</summary>
