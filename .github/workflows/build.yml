@@ -308,10 +308,10 @@ jobs:
   # [WindowsOnlyFact] and skip here entirely. None of that was covered by "the maintainer develops on
   # Windows" once an outside contributor's pull request could land on ubuntu-only CI.
   #
-  # Also newly exercised: the win-x64 and osx-arm64 foreign-server assets. Twelve digests are pinned
-  # across the four servers for those two platforms and not one has ever been downloaded, let alone
-  # verified. HEXIDE_REQUIRE_FOREIGN_LSP below turns a failed acquisition into a red job rather than a
-  # silent skip, so the first run of this is also the first proof those pins are right.
+  # Windows on Arm starts advisory (#3139), explicitly named for the merge tooling, with job-level
+  # continue-on-error. Its foreign servers deliberately use the existing win-x64 pins under emulation;
+  # the JSON server uses the Node installed below. HEXIDE_REQUIRE_FOREIGN_LSP stays set: acquisition
+  # failures must be visible, not silent skips. The first Arm run supplies the first platform test data.
   #
   # NOT a substitute for the maintainer's own machine, and this is the honest limit: a GitHub runner
   # has no VB6, so every test gated on the VB98 Template tree returns early here exactly as it does on
@@ -324,18 +324,19 @@ jobs:
   build-ide-desktop:
     needs: changes
     if: ${{ !cancelled() && needs.changes.outputs.skip != 'true' }}
-    name: build-ide (${{ matrix.name }})
+    name: build-ide (${{ matrix.name }}${{ matrix.name == 'windows-arm' && ', advisory' || '' }})
+    continue-on-error: ${{ matrix.name == 'windows-arm' }}
     runs-on: ${{ matrix.runner }}
     defaults:
       run:
         working-directory: IDE
     strategy:
-      # One platform's failure must not hide the other's result, which is the whole point of running
-      # two platforms nobody has test data for.
+      # One platform's failure must not hide the other platforms' results.
       fail-fast: false
       matrix:
         include:
           - { name: windows, runner: windows-latest }
+          - { name: windows-arm, runner: windows-11-arm }
           - { name: macos, runner: macos-latest }
 
     steps:
@@ -354,14 +355,13 @@ jobs:
         with:
           node-version: '22'
 
-      # runner.os is already in the key, so each platform gets its own cache without inventing a second
-      # convention. The first run on each is a cold fetch of that platform's assets.
+      # Separate the Windows architectures so their parallel jobs do not race to save one cache.
       - name: Cache the foreign language servers
         uses: actions/cache@v6
         with:
           path: artifacts/foreign-lsp
           key: >-
-            foreign-lsp-${{ runner.os }}-${{ hashFiles(
+            foreign-lsp-${{ matrix.name }}-${{ hashFiles(
               'IDE/HexIDE.Tests/LspClient/ForeignServerAcquisition.cs',
               'tools/node-lsp/package-lock.json') }}
 
@@ -390,9 +390,9 @@ jobs:
       # One test makes a program with the real runner and starts it (#1971): every earlier Make test copied stand-in files
       # and ran nothing, which is how made programs that could not start shipped in v0.2.0. Nothing else in this job
       # publishes the runner. Windows only, since the test needs a desktop session to start a program and skips
-      # elsewhere; HEXIDE_REQUIRE_MADE_PROGRAM below turns a missing runner from that skip into a failure.
+      # elsewhere; both Windows architectures publish it and require the test below (#3139).
       - name: Publish the standalone runner (for the made-program test)
-        if: matrix.name == 'windows'
+        if: runner.os == 'Windows'
         run: dotnet publish HexIDE.Standalone -f net10.0 -o ../artifacts/make-runtime/standalone/
 
       # The macOS runner was lost four times on 2026-10-26, each time 40 minutes or more into the ViewModel tests, and each
@@ -439,7 +439,7 @@ jobs:
         timeout-minutes: 30
         env:
           HEXIDE_REQUIRE_FOREIGN_LSP: '1'
-          HEXIDE_REQUIRE_MADE_PROGRAM: ${{ matrix.name == 'windows' && '1' || '0' }}
+          HEXIDE_REQUIRE_MADE_PROGRAM: ${{ runner.os == 'Windows' && '1' || '0' }}
         run: >-
           dotnet test HexIDE.Tests/HexIDE.Tests.csproj -- --filter-not-method "*EveryShippedTranslationHasEveryCanonicalKey"
           --minimum-expected-tests ${{ env.MIN_TESTS_IDE }} --long-running 120
@@ -471,7 +471,7 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@v7
         with:
-          name: test-results-${{ github.job }}-${{ runner.os }}
+          name: test-results-${{ github.job }}-${{ matrix.name }}
           path: IDE/**/TestResults/**
           retention-days: 7
 
@@ -480,12 +480,13 @@ jobs:
   build-ide-desktop-docs:
     needs: changes
     if: ${{ !cancelled() && needs.changes.outputs.skip == 'true' }}
-    name: build-ide (${{ matrix.name }})
+    name: build-ide (${{ matrix.name }}${{ matrix.name == 'windows-arm' && ', advisory' || '' }})
     runs-on: ubuntu-latest
     strategy:
       matrix:
         include:
           - { name: windows }
+          - { name: windows-arm }
           - { name: macos }
     steps:
       - name: Report the skipped build
