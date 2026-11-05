@@ -988,6 +988,17 @@ public class ExternalDebugServiceTests
         await run.WaitAsync(Patience, Token);
         service.IsActive.Should().BeFalse("End must end it, whether or not the add-in listens");
 
+        // The maker fails afterwards, with nobody waiting for it: the failure is logged rather than lost. The deadline
+        // only bounds a log line that never comes.
+        using (var captured = new HexIDE.Tests.Sidecar.CapturedLog())
+        {
+            never.SetException(new InvalidOperationException("rdcore.json was not found"));
+            var deadline = DateTime.UtcNow + Patience;
+            while (!captured.Messages.ToArray().Any(m => m.Contains("failed after its start was ended")) && DateTime.UtcNow < deadline)
+                await Task.Delay(10, Token);
+            captured.Messages.ToArray().Should().Contain(m => m.Contains("failed after its start was ended"));
+        }
+
         var asked = false;
         await service.StartAsync(_ =>
         {

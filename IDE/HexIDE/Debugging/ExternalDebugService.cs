@@ -145,6 +145,17 @@ public sealed partial class ExternalDebugService(ConversationLog capture, ILocal
             // A made configuration is waited for under the cancellation, not only told it: a maker that ignores the token
             // would otherwise hold the start, and End, which returns once it has cancelled, would leave it active for good.
             var making = configure(cancellation.Token);
+            if (abandonOnEnd)
+            {
+                // A maker End stopped waiting for can still fail later, and nothing would then see it: it is logged, as
+                // it is an add-in's code. One that fails while it is waited for fails the start and is reported there.
+                var abandoned = cancellation.Token;
+                _ = making.ContinueWith(made =>
+                {
+                    if (abandoned.IsCancellationRequested)
+                        Serilog.Log.Warning(made.Exception, "A debug launch's configuration failed after its start was ended");
+                }, CancellationToken.None, TaskContinuationOptions.OnlyOnFaulted, TaskScheduler.Default);
+            }
             var configuration = abandonOnEnd ? await making.WaitAsync(cancellation.Token) : await making;
             cancellation.Token.ThrowIfCancellationRequested();
             var id = "dap-" + Guid.NewGuid().ToString("N");
