@@ -1,5 +1,6 @@
 using System.Text.RegularExpressions;
 using System.Xml.Linq;
+using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 
@@ -67,8 +68,8 @@ public class NativeInteropTests
     {
         var tree = CSharpSyntaxTree.ParseText(source, cancellationToken: TestContext.Current.CancellationToken);
         var root = tree.GetRoot(TestContext.Current.CancellationToken);
-        return root.DescendantTokens().Any(token => token.Kind() == SyntaxKind.UnsafeKeyword)
-            || root.DescendantTrivia().Where(trivia => trivia.Kind() == SyntaxKind.DisabledTextTrivia)
+        return root.DescendantTokens().Any(token => token.IsKind(SyntaxKind.UnsafeKeyword))
+            || root.DescendantTrivia().Where(trivia => trivia.IsKind(SyntaxKind.DisabledTextTrivia))
                 .Any(trivia => ContainsUnsafe(trivia.ToFullString()));
     }
 

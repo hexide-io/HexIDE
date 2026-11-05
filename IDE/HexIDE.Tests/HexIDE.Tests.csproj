@@ -56,9 +56,8 @@
         <FrameworkReference Include="Microsoft.AspNetCore.App" />
         <PackageReference Include="ModelContextProtocol.AspNetCore" />
         <ProjectReference Include="../HexIDE.Desktop/HexIDE.Desktop.csproj" SetConfiguration="Configuration=Debug" />
-        <!-- The SDK compiler parses the unsafe-code guard; no extra package is needed. -->
-        <Reference Include="Microsoft.CodeAnalysis" HintPath="$(MSBuildToolsPath)/Roslyn/bincore/Microsoft.CodeAnalysis.dll" />
-        <Reference Include="Microsoft.CodeAnalysis.CSharp" HintPath="$(MSBuildToolsPath)/Roslyn/bincore/Microsoft.CodeAnalysis.CSharp.dll" />
+        <!-- Use the same parser under dotnet and Visual Studio MSBuild. -->
+        <PackageReference Include="Microsoft.CodeAnalysis.CSharp" />
     </ItemGroup>
 
     <!-- VB6's Template tree is found one way in both test projects: the folder or the one above it, a set variable
