@@ -286,8 +286,12 @@ cannot rebuild the signed packages. That does not stop you working on an add-in.
 2. Tick **Options → Developer → Load unsigned add-in packages**, then restart.
 
 The add-in then loads and is marked as unsigned. This is the setting for testing your own changes. It is
-not a way to ship an add-in. A **third-party** add-in is signed with its author's own key, and
-[TRUST.md](TRUST.md) explains how users check who published one.
+not a way to ship an add-in. To ship a **third-party** add-in, send the maintainer your public key,
+publisher id and display name. The maintainer issues `publisher.json` and `publisher.sig` offline,
+along with the public intermediate chain files. You then use `pack --trust` with those records and
+your own private key (currently named `firstparty.key` by the packer). Never send your private key.
+[TRUST.md](TRUST.md#for-third-party-publishers) describes the request, accepted inputs and how users
+check who published an add-in.
 
 ### Driving the IDE from an AI coding agent
 
