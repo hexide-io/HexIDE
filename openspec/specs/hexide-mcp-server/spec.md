@@ -14,6 +14,18 @@ agent that wrote the code can open the IDE, drive it, and look at the result.
 
 ## Requirements
 
+### Requirement: Inspected popup bounds share the window coordinate space
+
+`inspect_element` SHALL report `boundingRect` in device-independent client coordinates of the selected
+window, including controls hosted in a separate popup top-level. If that rectangle cannot be related to
+the window, it SHALL leave `boundingRect` unavailable (null or omitted) and explain the missing position
+in `boundingRectNote`.
+
+#### Scenario: Inspect a context-menu item away from the window origin
+- **WHEN** a context menu opens at an offset inside the selected window and its item is inspected
+- **THEN** its bounds include that offset and map into `take_snapshot` using the reported scale and offsets
+
+
 ### Requirement: Removing a selected list or tree item SHALL report the resulting selection
 `interact` with `remove_from_selection` SHALL clear a selected item in a single-selection list or tree,
 report the resulting selection even when empty, and leave an unselected item unchanged with an explanation.
