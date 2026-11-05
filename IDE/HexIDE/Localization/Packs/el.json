@@ -1083,6 +1083,10 @@
     "Str.Debug.Conditions.Prompt": "Διακοπή σε αυτή τη γραμμή μόνο όταν αυτή η έκφραση είναι αληθής:",
     "Str.Debug.Conditions.Edit": "Συνθήκη…",
     "Str.Debug.Conditions.AdapterIgnored": "Αυτός ο προσαρμογέας αγνοεί τις συνθήκες και σταματά κάθε φορά.",
-    "Str.Debug.Conditions.InterpreterIgnored": "Ο διερμηνευτής αγνοεί τις συνθήκες και σταματά κάθε φορά."
+    "Str.Debug.Conditions.InterpreterIgnored": "Ο διερμηνευτής αγνοεί τις συνθήκες και σταματά κάθε φορά.",
+    "Str.Menu.View.Outline": "Διάρθρωση",
+    "Str.Menu.View.RecentEdits": "Πρόσφατες αλλαγές",
+    "Str.CodeEditor.Context.FindReferences": "Εύρεση αναφορών",
+    "Str.CodeEditor.Context.NoQuickFix": "Δεν δόθηκε εφαρμόσιμη διόρθωση."
   }
 }

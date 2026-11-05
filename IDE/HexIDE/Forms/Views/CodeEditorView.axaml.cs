@@ -2846,7 +2846,7 @@ public partial class CodeEditorView : UserControl
         if (DataContext is not CodeEditorViewModel vm) return;
         QuickFixesMenu.Items.Clear();
         // Keep a child while the request is pending so this remains a submenu.
-        QuickFixesMenu.Items.Add(new MenuItem { Header = vm.NoQuickFix, IsEnabled = false });
+        QuickFixesMenu.Items.Add(new MenuItem { Header = vm.NoQuickFixMenuLabel, IsEnabled = false });
         try
         {
             var actions = await vm.RequestCodeActionsAsync(TextEditor.CaretOffset);
@@ -2875,7 +2875,7 @@ public partial class CodeEditorView : UserControl
                 QuickFixesMenu.Items.Add(server);
             }
             if (actions.Length == 0)
-                QuickFixesMenu.Items.Add(new MenuItem { Header = vm.NoQuickFix, IsEnabled = false });
+                QuickFixesMenu.Items.Add(new MenuItem { Header = vm.NoQuickFixMenuLabel, IsEnabled = false });
         }
         catch (Exception ex)
         {

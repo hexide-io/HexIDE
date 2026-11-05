@@ -1083,6 +1083,10 @@
     "Str.Debug.Conditions.Prompt": "仅当此表达式为 True 时在此行中断：",
     "Str.Debug.Conditions.Edit": "条件…",
     "Str.Debug.Conditions.AdapterIgnored": "此适配器忽略条件，每次都会停止。",
-    "Str.Debug.Conditions.InterpreterIgnored": "解释器忽略条件，每次都会停止。"
+    "Str.Debug.Conditions.InterpreterIgnored": "解释器忽略条件，每次都会停止。",
+    "Str.Menu.View.Outline": "大纲",
+    "Str.Menu.View.RecentEdits": "最近编辑",
+    "Str.CodeEditor.Context.FindReferences": "查找引用",
+    "Str.CodeEditor.Context.NoQuickFix": "未提供适用的修复。"
   }
 }
