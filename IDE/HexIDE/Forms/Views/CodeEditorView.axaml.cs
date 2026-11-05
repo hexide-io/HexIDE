@@ -2804,6 +2804,54 @@ public partial class CodeEditorView : UserControl
         }
     }
 
+    private async void OnQuickFixesOpened(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (ReferenceEquals(e.Source, QuickFixesMenu)) await LoadQuickFixesAsync();
+    }
+
+    internal async Task LoadQuickFixesAsync()
+    {
+        if (DataContext is not CodeEditorViewModel vm) return;
+        QuickFixesMenu.Items.Clear();
+        // Keep a child while the request is pending so this remains a submenu.
+        QuickFixesMenu.Items.Add(new MenuItem { Header = vm.NoQuickFix, IsEnabled = false });
+        try
+        {
+            var actions = await vm.RequestCodeActionsAsync(TextEditor.CaretOffset);
+            if (!ReferenceEquals(DataContext, vm)) return;
+            QuickFixesMenu.Items.Clear();
+            foreach (var group in actions.GroupBy(a => a.Server))
+            {
+                var server = new MenuItem { Header = group.First().ServerDisplayName ?? group.Key };
+                foreach (var action in group)
+                {
+                    var item = new MenuItem
+                    {
+                        Header = action.DisabledReason is { } reason ? $"{action.Title} — {reason}" : action.Title,
+                        IsEnabled = action.DisabledReason is null
+                    };
+                    item.Click += async (_, _) =>
+                    {
+                        try
+                        {
+                            if (await vm.ApplyCodeActionAsync(action) is { } refusal) await vm.ShowRefusalAsync(refusal);
+                        }
+                        catch (Exception ex) { await vm.ShowRefusalAsync(ex.Message); }
+                    };
+                    server.Items.Add(item);
+                }
+                QuickFixesMenu.Items.Add(server);
+            }
+            if (actions.Length == 0)
+                QuickFixesMenu.Items.Add(new MenuItem { Header = vm.NoQuickFix, IsEnabled = false });
+        }
+        catch (Exception ex)
+        {
+            QuickFixesMenu.Items.Clear();
+            QuickFixesMenu.Items.Add(new MenuItem { Header = ex.Message, IsEnabled = false });
+        }
+    }
+
     // ── Rename symbol (F2) ────────────────────────────────────────────────────
 
     public void RenameSymbol()
@@ -2829,76 +2877,10 @@ public partial class CodeEditorView : UserControl
 
     // The VB6 identifier (letters / digits / underscore) spanning a document offset, or null if the offset isn't on
     // one. Shared by Rename (caret offset) and the break-mode data tip (pointer offset).
-    private string? WordAt(int offset)
-    {
-        var doc = TextEditor.Document;
-        if (offset < 0 || offset > doc.TextLength) return null;
+    private string? WordAt(int offset) => CodeEditorViewModel.WordAt(TextEditor.Document, offset);
 
-        int start = offset;
-        while (start > 0 && IsVbIdentifierChar(doc.GetCharAt(start - 1)))
-            start--;
-
-        int end = offset;
-        while (end < doc.TextLength && IsVbIdentifierChar(doc.GetCharAt(end)))
-            end++;
-
-        return start < end ? doc.GetText(start, end - start) : null;
-
-        static bool IsVbIdentifierChar(char c) => char.IsLetterOrDigit(c) || c == '_';
-    }
-
-    internal async Task RenameSymbolAsync(CodeEditorViewModel vm, Position position, string oldName)
-    {
-        try
-        {
-            await vm.FlushDocumentAsync();
-            var preparation = await vm.RequestPrepareRenameAsync(position);
-            if (preparation is { Allowed: false })
-            {
-                if (preparation.Refusal is { } reason) await vm.ShowRefusalAsync(reason);
-                return;
-            }
-            var promptText = oldName;
-            if (preparation?.Placeholder is { } placeholder) promptText = placeholder;
-            else if (preparation?.Range is { } range)
-            {
-                var start = vm.Document.GetOffset(range.Start.Line + 1, range.Start.Character + 1);
-                var end = vm.Document.GetOffset(range.End.Line + 1, range.End.Character + 1);
-                promptText = vm.Document.GetText(start, end - start);
-            }
-            var newName = await vm.ShowRenameInputBoxAsync(promptText);
-            if (newName is null || newName == oldName) return;
-            // Before the request, so no server is asked to write a name VB6 would refuse (#273 task 4.4). An empty
-            // answer is refused with the rest rather than taken for Cancel, which answers null.
-            if (vm.NewNameRefusal(newName) is { } notAName)
-            {
-                await vm.ShowRefusalAsync(notAName);
-                return;
-            }
-
-            await vm.FlushDocumentAsync();
-            var result = await vm.RequestRenameAsync(position, newName);
-            if (result?.Refusal is { } serverRefusal)
-            {
-                await vm.ShowRefusalAsync(serverRefusal);
-                return;
-            }
-            var edit = result?.Edit;
-
-            if (edit is null) return;
-
-            await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
-            {
-                if (vm.ApplyRename(edit, oldName, result?.DocumentFor) is { } refusal)
-                    _ = vm.ShowRefusalAsync(refusal);
-            });
-        }
-        catch (OperationCanceledException) { }
-        catch (Exception ex)
-        {
-            Log.Debug("[rename] {ErrorMessage}", ex.Message);
-        }
-    }
+    internal Task RenameSymbolAsync(CodeEditorViewModel vm, Position position, string oldName)
+        => vm.RenameSymbolAsync(position, oldName);
 
     private void CanFormatSelection(object? sender, Avalonia.Labs.Input.CanExecuteRoutedEventArgs e)
     {

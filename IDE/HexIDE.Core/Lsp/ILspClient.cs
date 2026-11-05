@@ -311,6 +311,9 @@ public interface ILspClient : IAsyncDisposable
     Task<Location[]?> RequestDeclarationAsync(string uri, Position position, CancellationToken cancellationToken = default);
     Task<DocumentHighlight[]?> RequestDocumentHighlightAsync(string uri, Position position, CancellationToken cancellationToken = default);
 
+    /// <summary>Requests server fixes on demand, retaining their origin for resolution and execution.</summary>
+    Task<OfferedCodeAction[]> RequestCodeActionsAsync(string uri, HexIDE.Lsp.Messages.Range range, Diagnostic[] diagnostics,
+        CancellationToken cancellationToken = default) => Task.FromResult<OfferedCodeAction[]>([]);
     /// <summary>Asks supporting servers before prompting; null means preparation is unsupported.</summary>
     Task<PrepareRenameResult?> RequestPrepareRenameAsync(string uri, Position position, CancellationToken cancellationToken = default)
         => Task.FromResult<PrepareRenameResult?>(null);

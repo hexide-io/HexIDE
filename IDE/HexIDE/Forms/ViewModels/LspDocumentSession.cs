@@ -442,6 +442,8 @@ internal sealed class LspDocumentSession : IDisposable
             TaskScheduler.Default);
     }
 
+    internal Diagnostic[] Diagnostics { get; private set; } = [];
+
     private void OnDiagnosticsPublished(object? sender, PublishDiagnosticsParams p)
     {
         if (disposed) return;
@@ -458,6 +460,7 @@ internal sealed class LspDocumentSession : IDisposable
         postToUiThread(() =>
         {
             if (disposed) return;
+            Diagnostics = p.Diagnostics;
             MarkersChanged?.Invoke(ToMarkers(p.Diagnostics));
             DiagnosticsApplied?.Invoke();
         });

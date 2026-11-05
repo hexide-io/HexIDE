@@ -41,7 +41,8 @@ replaceable LSP seam, which is the whole reason the seam exists.
 
 A boundary item is therefore **not** a to-do. Anything phrased as "requires a workspace model" or "requires
 type inference" is describing a different program's job, not a queue this one is standing in. The
-[client document](./lsp-client.md) lists what HexIDE would consume from such an engine.
+[client document](./lsp-client.md) lists what HexIDE consumes from such an engine, including server-supplied
+code actions on request (#453). Computing fixes remains a ■ boundary here.
 
 This document previously listed six of those as *Planned* and *Future*. That was written before the limit
 was decided, and it made promises the architecture has since ruled out.

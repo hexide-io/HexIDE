@@ -677,6 +677,20 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
     public Task<DocumentHighlight[]?> RequestDocumentHighlightAsync(string uri, Position position, CancellationToken ct = default) =>
         FirstAnswerAsync(uri, c => c.RequestDocumentHighlightAsync(uri, position, ct), ct);
 
+    public Task<OfferedCodeAction[]> RequestCodeActionsAsync(string uri, HexIDE.Lsp.Messages.Range range, Diagnostic[] diagnostics,
+        CancellationToken ct = default) => GatherAsync(uri, async client =>
+    {
+        if (!ServerCapabilities.Supports(client.AdvertisedCapabilities, "codeActionProvider")) return [];
+        var owner = OwnerOf(client);
+        var ownDiagnostics = _diagnostics.Snapshot()
+            .Where(d => d.Owner == owner && LspDocumentUri.AreSame(d.Uri, uri)
+                && diagnostics.Any(candidate => ReferenceEquals(candidate, d.Diagnostic)))
+            .Select(d => d.Diagnostic).ToArray();
+        var actions = await client.RequestCodeActionsAsync(uri, range, ownDiagnostics, ct);
+        var name = _entries.First(e => ReferenceEquals(e.Client, client)).Registration.DisplayName;
+        return actions.Select(action => action with { Server = owner, ServerDisplayName = name }).ToArray();
+    }, ct);
+
     // ── Pick-one features ───────────────────────────────────────────────────────────────────────────
     public async Task<PrepareRenameResult?> RequestPrepareRenameAsync(string uri, Position position, CancellationToken ct = default)
     {
