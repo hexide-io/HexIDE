@@ -369,6 +369,7 @@ public partial class DISetup
             .Root<HexIDE.Debugging.IBreakpointService>("BreakpointService")
             .Root<HexIDE.Runtime.Debugging.IDebugController>("DebugController")
             .Root<HexIDE.Debugging.ExternalDebugService>("ExternalDebugger")
+            .Root<HexIDE.Debugging.IRunChoiceStore>("RunChoices")
             .Root<IWindowStateService>("WindowStateService")
             .Root<IAddinRegistry>("AddinRegistry")
             .Root<IAddinLoader>("AddinLoader")

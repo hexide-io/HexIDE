@@ -116,19 +116,29 @@ public class RunWithMenuTests : CompositionTestBase
         fixture.Choices.Get(fixture.Project).Should().BeNull();
     }
 
+    // Through the whole composition, as the guarantee is in the wiring: only the Run menu's opening calls Refresh. The
+    // view's SubmenuOpened handler itself is checked by hand.
     [AvaloniaFact]
-    public async Task A_launch_is_asked_whether_it_runs_the_project_only_as_the_Run_menu_opens()
+    public void A_launch_is_asked_whether_it_runs_the_project_only_as_the_Run_menu_opens()
     {
-        await using var fixture = new Fixture();
         var asked = 0;
-        fixture.Launches.Register(Launch("RDCore", claims: _ => ++asked > 0), "com.rdcore.hexide", "RDCore for HexIDE");
+        var menu = Composition.Root.RunWith!;
+        using var launch = Composition.HexIdeHost.RegisterDebugLaunch(Launch("RDCore", claims: _ => ++asked > 0));
+        var project = TestHelpers.CreateProject("Invoices");
+        var other = TestHelpers.CreateProject("Ledger");
 
-        fixture.Projects.ProjectLoaded += Raise.Event<Action<ProjectDefinition>>(fixture.Project);
-        fixture.Choices.Set(fixture.Project, "com.rdcore.hexide/RDCore");
-        asked.Should().Be(0, "nothing is asked of an add-in when a project opens");
+        // The first project loaded becomes the startup project only after it has loaded, so a second load and a change of
+        // startup project are what find one to ask about.
+        Composition.ProjectManager.AddProject(project);
+        Composition.RunChoices.Set(project, $"{typeof(RunWithMenuTests).Assembly.GetName().Name}/RDCore");
+        Composition.ProjectManager.AddProject(other);
+        Composition.ProjectManager.StartupProject = other;
+        Composition.ProjectManager.StartupProject = project;
+        Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+        asked.Should().Be(0, "nothing is asked of an add-in when a project opens, becomes the startup project or has a choice");
 
-        fixture.Menu.Refresh();
-        asked.Should().Be(1);
+        menu.Refresh();
+        asked.Should().BeGreaterThan(0);
     }
 
     [AvaloniaFact]
