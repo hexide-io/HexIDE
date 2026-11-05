@@ -126,7 +126,8 @@ public sealed class ProjectLspWorkspace(Func<IProjectManager> projectManager) : 
             var arguments = CompilationArguments.TryForProject(project, out var parsed) ? parsed : CompilationArguments.None;
             contexts.Add(new WorkspaceArtifactContext(root,
                 new WorkspaceProjectSnapshot(project.Name, project.AbsolutePath, files, references, arguments.Values),
-                ProjectText: project.AbsolutePath is { } path
+                // None for a contributed project: its file is its add-in's, in its add-in's format, and never a .vbp.
+                ProjectText: project is { AbsolutePath: { } path, ContributedBy: null }
                     ? async token => await Dispatcher.UIThread.InvokeAsync<string>(
                         () => new ProjectSerializer().Serialize(project, path), DispatcherPriority.Normal, token)
                     : null));
