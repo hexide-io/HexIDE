@@ -475,13 +475,16 @@ public partial class ProjectService : IProjectService
             _early.Clear();
         }
 
-        // On the UI thread, as every report is handled.
+        // On the UI thread, as every report is handled. The add-in's callbacks on Closed run off it, so one that throws
+        // can't stop the unload, or the exit, that closed the project; it is logged.
         public void Close()
         {
             if (_closed.IsCancellationRequested) return;
             owner.projectManager.ProjectUnloaded -= OnUnloaded;
             _early.Clear();
-            _closed.Cancel();
+            _ = _closed.CancelAsync().ContinueWith(
+                cancelled => Log.Warning(cancelled.Exception, "An add-in's handler of a closed project failed"),
+                CancellationToken.None, TaskContinuationOptions.OnlyOnFaulted, TaskScheduler.Default);
         }
 
         private void OnUnloaded(ProjectDefinition project)

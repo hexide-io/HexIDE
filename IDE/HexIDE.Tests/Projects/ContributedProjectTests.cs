@@ -386,8 +386,10 @@ public sealed class ContributedProjectTests : IDisposable
         var project = await Opened();
         var changes = _changes;
         changes.Closed.IsCancellationRequested.Should().BeFalse();
+        // An add-in's handler that fails must not stop the unload that tells it, or the exit beyond.
+        changes.Closed.Register(() => throw new InvalidOperationException("an add-in's own failure"));
         _loaded.Remove(project);
-        _projects.ProjectUnloaded += Raise.Event<Action<ProjectDefinition>>(project);
+        ((Action)(() => _projects.ProjectUnloaded += Raise.Event<Action<ProjectDefinition>>(project))).Should().NotThrow();
 
         changes.Closed.IsCancellationRequested.Should().BeTrue("the project was closed");
         _loaded.Add(project);
