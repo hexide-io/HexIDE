@@ -4868,7 +4868,8 @@ public static class UiAutomationDriver
     private static string AddressOf(Control addressed, string? addressedPath, Control receiver) =>
         addressedPath is { Length: > 0 }
         && AnchorOf(addressed, receiver) is { } anchor
-        && PathWithin(addressed, addressedPath, anchor) is { } path
+        && (PathWithin(addressed, addressedPath, anchor)
+            ?? (TopLevel.GetTopLevel(addressed) is { } window ? PathWithin(window, "Window", anchor) : null)) is { } path
             ? $", at {path}"
             : string.Empty;
 
@@ -4930,8 +4931,9 @@ public static class UiAutomationDriver
     /// The control-view path of <paramref name="target"/>, walked down from <paramref name="from"/> (whose own
     /// path is <paramref name="fromPath"/>) choosing each segment exactly as <c>dump_visual_tree</c> does, so it
     /// round-trips through <see cref="Resolve"/>. A target the control view folds into a wrapper -- a TextArea
-    /// inside its TextEditor -- gets the path of its nearest addressable ancestor, which press_key and
-    /// type_text resolve back to the same receiver. Null when the target is not below <paramref name="from"/>.
+    /// inside its TextEditor -- gets the path of its nearest addressable visual ancestor, which press_key and
+    /// type_text resolve back to the same receiver. Null when the target is not below <paramref name="from"/>
+    /// or the walk stalls at a node that is not its visual ancestor.
     /// </summary>
     internal static string? PathWithin(Control from, string fromPath, Control target)
     {
@@ -4947,7 +4949,7 @@ public static class UiAutomationDriver
             var next = siblings.FirstOrDefault(m =>
                 ReferenceEquals(m.Control, target) || IsUnderInView(m.Control, target));
             if (next is null)
-                break;
+                return current.IsVisualAncestorOf(target) ? path : null;
             path += "/" + BestSegment(next, siblings);
             current = next.Control;
         }
