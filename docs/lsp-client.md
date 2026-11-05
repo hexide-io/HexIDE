@@ -66,7 +66,7 @@ the production formatter and source-generated context to guard absence and prese
 |---|---|
 | Lifecycle | `initialize`, `initialized`, `shutdown`, `exit` |
 | Document sync | `textDocument/didOpen`, `didChange`, `didClose`, `didSave` |
-| Language requests | `hover`, `documentSymbol`, `foldingRange`, `completion`, `signatureHelp`, `definition`, `declaration`, `references`, `documentHighlight`, `rename`, `formatting`, `codeLens` |
+| Language requests | `hover`, `documentSymbol`, `foldingRange`, `completion`, `signatureHelp`, `definition`, `declaration`, `implementation`, `typeDefinition`, `references`, `documentHighlight`, `rename`, `formatting`, `rangeFormatting`, `codeLens` |
 | Actions | `codeLens/resolve`, `workspace/executeCommand` — see *Commands and lenses* |
 | Custom | `vb/builtinSymbols` — see *Custom methods* |
 
@@ -74,10 +74,13 @@ Initialize declares `textDocument.completion` with all 25 LSP completion kinds, 
 `documentationFormat: ["plaintext"]`, and default `insertTextMode: 1` (`asIs`). Snippets, insert/replace
 edits, resolve, commit characters, context and list item defaults are not advertised (#2670).
 This follows the [LSP 3.17 completion capability contract](https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#completionClientCapabilities).
-Items from all servers are ordered by `sortText ?? label`, ordinal. Filtering uses `filterText ?? label`,
-while the displayed label and insertion fallback remain the label. On opening, the first preselected
-item matching the typed prefix is selected; otherwise AvaloniaEdit keeps its best match. If no item
-matches the opening word, the server's list remains available; subsequent typing filters it normally. Descriptions
+Items from all servers are ordered by `sortText ?? label`, ordinal. Matching uses `filterText ?? label`,
+while the displayed label and insertion fallback remain the label. The full list stays visible. The first
+preselected prefix match is selected, otherwise the first prefix match, using the whole word around the
+caret. An empty or unmatched word leaves no item selected. Enter accepts a selected item then commits a
+new line; Space accepts then types a space; with no selection those keys only type. Tab accepts the
+selected item or, with no selection, the first outlined item, replacing the whole word. Escape closes
+without accepting. Complete Word inserts a unique prefix match immediately (#3056). Descriptions
 show detail alongside string or MarkupContent documentation, rendered as plain text (including markdown
 source until a markdown renderer is available). Kind glyphs reuse the Object Browser's member and class
 glyphs; kinds without a counterpart have none.
@@ -93,7 +96,7 @@ finishes at `$0` (or the insertion end); Escape ends linking. Multiline whitespa
 Unsupported or malformed snippet syntax refuses the whole completion before applying additional edits.
 Choice placeholders offer their values in the completion picker; selecting a value updates linked
 occurrences. Choice pickers also appear under their editor in automation dumps and snapshots,
-with each choice named by its text. Commas and pipes can be escaped within choices.
+with each choice named by its text. Enter accepts a choice without a line break and keeps snippet navigation active (#3056). Commas and pipes can be escaped within choices.
 After typing in a placeholder, Tab advances when no completion list is open. With a completion
 list open, Tab accepts its selected item, following the editor's ordinary completion rule;
 close that list before using Tab to navigate the snippet.
@@ -113,7 +116,7 @@ nested content union is handled by its converter. Diagnostic reports are read by
 help, highlights, rename, formatting and code lenses accept their single non-null result shape or
 `null`. Resolve requests have a single result shape.
 
-`textDocument/codeAction` (including its mixed Command/CodeAction array) and the other unimplemented
+`textDocument/codeAction` accepts its mixed Command/CodeAction array or null (#453). Other unimplemented
 request methods remain outside this fix. Nested signature-help unions also remain outstanding:
 signature/parameter documentation accepts only strings, and parameter labels only strings rather
 than offset pairs. These need separate changes and wire tests; this audit does not claim full
@@ -129,6 +132,10 @@ without highlighting. Raw HTML is literal text. HTTP(S) links open through the b
 click. A file link opens only a document the project already holds, and does nothing for any other file.
 Command links remain inert text. Plain-text content stays literal. Typing closes the hover tip, as does
 opening completion or signature help; moving into the tip keeps its links reachable (#3042).
+
+Command links remain inert text. List markers align with the first line of linked text using the caption's measured baseline,
+including the link button's top inset, across font families and sizes (#3043).
+Plain-text content stays literal.
 
 `initialize.locale` carries the resolved Options → Language UI language as a BCP 47 tag.
 System default uses the localization service's system resolution; pseudo-locales send `en`.
@@ -177,6 +184,12 @@ refreshes status, connect-chain stages, age and empty-output text immediately. A
 localized range formats, and the label column can shrink as well as grow without reopening the tab (#3012).
 Connect-chain elapsed times use a localized millisecond format that follows the same live language switch;
 digit grouping continues to use the process culture (#3026).
+Configuration problems likewise resolve message codes and verbatim arguments through the active language
+pack, and refresh on a language switch (#3031). Complete translated field-list headings replace English
+plural fragments. The original English messages remain in the registry for logging; exception details,
+JSON keys and values, paths and pointers remain verbatim in the translated display. JSON syntax
+errors use a separate code with a 1-based line and character column converted from the parser’s UTF-8
+byte offset; the labels are translated and the JSON path stays verbatim (#3065).
 
 **Live server output** (#2388): Tools → Language & Debug Servers shows an Output box on each
 server's card, beside its existing protocol-inspector link. It updates as `window/logMessage`, stderr,
@@ -418,13 +431,20 @@ before the edit ([#719](https://github.com/hexide-io/HexIDE/issues/719)).
 **Every window holding one name holds one document.** One file shared by two projects of a group opens two code
 windows that both name it by its file, and a server has one document for that name. So the windows' sessions share
 it, per client: the first window to hold it opens it, every window draws its versions from one sequence, and the
-last window to let go closes it. A rename closes the old name only for its last holder and opens the new one only
+last holder to let go closes it. A rename closes the old name only for its last holder and opens the new one only
 for its first. A window that joins an open document sends nothing of its own, because its copy as it opened could
 undo another window's unsaved edits on the server. It shows what was last published for the document, and its own
 edits reach the server as the next versions. The sequence is drawn where the edits are made, as above, so a send
 cannot renumber older text. Before this, each window kept its own count, the server was opened twice and discarded
 whichever count was behind, and either window's close closed the document for both
 ([#721](https://github.com/hexide-io/HexIDE/issues/721)).
+
+**Closing a dirty code window keeps its server document open** (#3064). The project holds an independent
+session with the edited text until save, discard/reload or removal. Closing still gives no save prompt.
+Pending edits are flushed before the window lets go; reopening joins the same document without a second
+`didOpen` or a version reset. A server starting later receives that retained text in `didOpen`.
+Saving a closed document updates its whole-file text and wire name, announces the save, then releases the
+project holder. A clean window still releases its document immediately.
 
 The client drops a change whose version is no later than the one it tracks, keeping the newer text and
 version for reconnect replay. Checking, tracking and sending changes are serialized, so a debounced change
@@ -701,7 +721,8 @@ using numeric codes is as usable as one using names, and neither can throw on th
 
 Diagnostic codes reach the automation server's `get_diagnostics`, the add-in API and the AI-chat tool.
 The editor's squiggle tooltip shows overlapping messages and supplied sources alongside quick info in
-every profile (#451), even with Auto Quick Info disabled. The Diagnostics tool lists reports from
+every profile (#451), even with Auto Quick Info disabled. When quick info arrives after a diagnostic
+tip opens, the displayed content updates with diagnostics first, followed by the server hover (#3057). The Diagnostics tool lists reports from
 all attached servers and navigates to their primary locations (#1991).
 
 Both inbound paths retain `tags` 1 (Unnecessary) and 2 (Deprecated), ignoring unknown values,
@@ -711,7 +732,9 @@ squiggle remains. The tooltip lists related messages below their diagnostic, wit
 labelled by loaded member name and one-based line, falling back to the URI. Links use the editor
 navigation service, and the tooltip stays open while the pointer moves into it. The client advertises
 `publishDiagnostics.relatedInformation: true` and `tagSupport.valueSet: [1, 2]`.
-Still dropped: `data`, until `q-453-code-actions` decides whether foreign code actions are relayed.
+Both paths also retain opaque `data`, including explicit JSON null, without changing the token's
+JSON spelling (#453). Pull values are cloned so they outlive the reply document. The code-action relay
+echoes it verbatim in `context.diagnostics` when the user opens Quick Fixes. The client computes no fixes itself.
 
 ### Some servers publish; some only answer
 
@@ -852,6 +875,15 @@ teardown stops every server and the triggering document's claimants are a smalle
 after a project save has assigned the `.vbp` its path and when the startup project changes, as well as when a document opens (#1051). Saving only the project file therefore restarts
 and reopens the held documents immediately; no new editor needs to open. An unchanged root does not restart
 anything, and failed entries remain failed.
+
+### Real-server close and teardown coverage
+
+`RealServerShutdownTests` reads retained wire bodies for non-empty diagnostics before closing and
+for publications after `didClose`, then asserts the observed integer exit code after normal
+`StopAsync` teardown. All five pinned foreign servers and the bundled server exited 0 on Linux
+(2026-11-04, #491). Close publications differ: texlab retains its diagnostic, the JSON server
+publishes nothing within three seconds, and rumdl, clangd, ruff and the bundled server publish empty
+sets. See [the measurements](foreign-language-servers.md#normal-teardown-and-document-close-2026-11-04-491).
 
 ### Transports
 
@@ -997,7 +1029,13 @@ advertised triggers) or signature help, so the server receives the current typed
 Document formatting (including format-on-save) sends the editor’s Tab Width as `options.tabSize`
 and `insertSpaces: true`, matching the editor’s conversion of tabs to spaces (#2669).
 Wire tests cover widths 2 and 8 with both `insertSpaces` values; editor delegation tests cover
-both widths with spaces. On-type formatting is not implemented.
+both widths with spaces. Format Selection appears beside Format Document in the code editor's
+context menu. It requires a nonempty selection and a claimant advertising
+`documentRangeFormattingProvider` (boolean or options object). The highest-priority advertiser receives
+`textDocument/rangeFormatting` with the selection's zero-based UTF-16 range and the same formatting
+options. The client declares `textDocument.rangeFormatting` at initialization. Returned edits use
+Format Document's guarded path: one undo step, with IDE-only header and member attribute lines protected.
+The keymap command `FormatSelectionCommand` has no default shortcut. On-type formatting is not implemented.
 
 Completion asks every document claimant concurrently, with a shared **one-second popup budget**.
 It returns when all answers arrive or that budget expires, taking only answers received in time. Items
@@ -1088,7 +1126,10 @@ caret position and `context.includeDeclaration: true`, gated on `referencesProvi
 The registry uses `GatherAsync` and record equality to deduplicate URI/range pairs. Null results become
 empty arrays. `FindReferencesAsync` preserves successful locations alongside per-server errors.
 Shift+F12, Edit → Find References and the code editor context menu open the results pane in the
-Immediate window's bottom group. Each search replaces the list, grouped by module in project order,
+Immediate window's bottom group. When opened or brought forward for results, the pane grows to
+show six rows, borrowing only available document height above the document area's minimum.
+A sufficiently tall slot keeps its exact proportion; growth is saved with the layout (#3094).
+Each search replaces the list, grouped by module in project order,
 with line numbers and the returned range emphasized. Enter or double-click navigates through
 `EditorService.NavigateTo`; empty answers and server errors appear as localized rows. Result rows
 expose their module, line number and line text as their accessible name.
@@ -1102,11 +1143,34 @@ expose their module, line number and line text as their accessible name.
 implemented as a pair because neither is useful alone: a lens carries a command, and a command with
 nothing to trigger it is unreachable.
 
-**A lens is resolved before it is handed on.** The protocol lets a server return the ranges cheaply and
-compute each command only when asked, via `codeLens/resolve`. An unresolved lens is one the user can see
-and cannot click, so the client resolves its own before answering. That has to happen *inside* the client
-rather than at a call site: once lenses from several servers are gathered into one list, nothing records
-which connection produced which, and a resolve sent to the wrong server is meaningless.
+**Fetching and resolving are separate.** `RequestCodeLensesAsync` returns ranges without resolving
+commands. `ResolveCodeLensAsync` resolves an individual lens when requested; a caller can pass a
+cancellation token when visibility changes. The registry retains the issuing connection by object
+identity, so equal lens values from different servers resolve independently. A copied or unknown lens
+is refused by the registry. Already complete lenses need no round trip, and servers without resolve
+support are not asked. The code window draws resolved lenses above their member lines and runs their commands on click.
+The visual spacer reserves ascent using the editor font metrics so the whole lens row fits above the member text.
+Edits refetch lenses after the editor debounce (#3082). The Options toggle remains unimplemented (#2906).
+
+`CodeLensSession` supplies the viewport scheduling layer for that editor work: it fetches a document's
+lenses, resolves only starts inside the supplied zero-based visible line interval, cancels resolutions
+that leave view, and discards late replies after cancellation, rediscovery or disposal. Completed lenses
+are retained across viewport updates. `Changed` and `RequestFailed` are raised on the request context;
+UI consumers must dispatch them. The code document owns the session and supplies its visible
+line interval through the attached view as it scrolls. Detach suspends new viewport work while retaining pending requests and completed lenses; reattachment resumes it without rediscovery (#3082).
+Tokens, folding ranges and inlay hints are also retained by the document, including pending requests,
+so rebuilding the visual tree for a tool pane does not send new requests or discard the last answers.
+An edit, URI change, hint setting change or server state transition invalidates those answers. A detached
+view removes its subscriptions and discards late replies intended for its previous attachment.
+
+The client declares `workspace.codeLens.refreshSupport: true` and answers parameterless
+`workspace/codeLens/refresh` with null. `CodeLensRefreshRequested` preserves the issuing connection through
+the registry; active code windows refetch on that event. A suspended session only invalidates its answer
+until a view resumes it. Semantic-token and inlay-hint workspace refresh support is not advertised.
+
+`rdcore.showReferences` and `editor.action.showReferences` fill the existing Find References pane from
+the locations in the third argument, without asking for references again. Other lens commands use
+the declared-command routing below; undeclared commands are logged once per command.
 
 **A command is routed by who declared it, not by the document.** Every other request here is about a file,
 so "which server" is answered by "which one claims this file". A command has no file. The only thing that
@@ -1159,8 +1223,38 @@ and takes focus only when `takeFocus` is true. The response is `{ success: true 
 unknown URIs and `external: true` return `{ success: false }` without opening anything.
 `ShowDocumentWireTests` checks the declaration and response frames; `EditorServiceNavigationTests`
 checks the range, focus routing and URI refusal. Headless `CodeEditorSelectionTests` checks that both
-editor views restore a selection placed before they attach. `window/showMessageRequest` remains unwired for the
-next slice of #2908. `workspace/applyEdit` awaits #1024's applier and a policy decision.
+editor views restore a selection placed before they attach. `workspace/applyEdit` awaits #1024's applier
+and a policy decision.
+
+### Server questions (#2908)
+
+The client declares `window.showMessage.messageActionItem`, including additional property support.
+`window/showMessageRequest` queues an IDE message box owned by the main window, titled with the server's
+display name, with the server's actions as buttons. A click returns that original action item (including
+extra properties); closing without choosing or pressing Escape returns `null`. The box uses the IDE
+message box icons: Error, Warning, and Information for both Info and Log. Questions wait while a program runs or
+another modal is open, and queue one at a time across connections. Diagnostics and other messages keep
+flowing meanwhile. `$/cancelRequest` closes an open question or removes a queued one and answers -32800.
+`ShowMessageRequestWireTests` checks the frames and nonblocking queue; headless
+`ServerMessagePromptTests` checks ownership, title, buttons, message type icons, Escape dismissal and cancellation.
+
+Go to Implementation and Go to Type Definition appear beside Definition in the View and code context
+menus (#3074). The View menu uses bare nouns; context labels follow each pack’s existing go-to phrasing.
+In Latin-script packs, the four navigation entries have distinct access keys within each menu (#3096).
+Each is enabled only for a document whose running server advertises the corresponding
+provider. Both client capabilities declare `linkSupport`; neither command has a default key binding.
+Single locations navigate directly; multiple locations populate the existing Find References pane.
+HexIDE displays the server's answer without computing implementations or types itself.
+
+### Preparing a rename (#3073)
+
+After the code window's protected-line and declared-name checks, pending text is flushed and every
+opened claimant advertising `renameProvider.prepareProvider: true` is asked `textDocument/prepareRename`.
+Any null or error reply prevents the prompt; an error's reason uses the existing refusal dialog.
+The first participating claimant's range or placeholder seeds the prompt. A `defaultBehavior: true`
+reply keeps the existing word, as do servers without preparation support. Menu and keymap Rename and
+the `rdcore.rename` / `editor.action.rename` client commands share this preparation and prompt flow. Initialize declares
+`textDocument.rename.prepareSupport: true` and `prepareSupportDefaultBehavior: 1`.
 
 ## Coverage against the specification
 
@@ -1169,7 +1263,7 @@ specification's own [`metaModel.json`](https://raw.githubusercontent.com/microso
 the canonical machine-readable list, so the method names and directions are the specification's rather than
 this document's recollection of them.
 
-**HexIDE implements 39 of the 93.** That is not a deficiency in itself — no client implements them all, and
+**HexIDE implements 51 of the 93.** That is not a deficiency in itself — no client implements them all, and
 most of the remainder are features no VB6 IDE needs. It is here so the shape of the gap is visible rather
 than inferred.
 
@@ -1191,11 +1285,11 @@ than inferred.
 | ✅ | `initialized` | → |  |
 | ✅ | `shutdown` | → |  |
 
-### `textDocument/*` — 20 of 41
+### `textDocument/*` — 27 of 41
 
 | | Method | Dir | Notes |
 |---|---|---|---|
-| ○ | `textDocument/codeAction` | → | Needs a bound AST — a backend's job, see below |
+| ✅ | `textDocument/codeAction` | → | Relays the server's fixes on request; computes none |
 | ✅ | `textDocument/codeLens` | → |  |
 | ○ | `textDocument/colorPresentation` | → |  |
 | ✅ | `textDocument/completion` | → |  |
@@ -1213,37 +1307,36 @@ than inferred.
 | ✅ | `textDocument/foldingRange` | → | Asked when an editor attaches, 500 ms after a change, and when a server comes up — the first of those runs before the first server of a session has initialized. Character offsets are honoured, defaulting to each line’s length when absent. The temporary `lineFoldingOnly` declaration (#1363) is removed; same-start folds retain state by range ([#1022](https://github.com/hexide-io/HexIDE/issues/1022)) |
 | ✅ | `textDocument/formatting` | → |  |
 | ✅ | `textDocument/hover` | → |  |
-| ○ | `textDocument/implementation` | → |  |
+| ✅ | `textDocument/implementation` | → | Capability-gated navigation; all three location shapes, multiple results in Find References (#3074) |
 | ✅ | `textDocument/inlayHint` | → | Labels after the line; syntactic block ends from the bundled server |
 | ○ | `textDocument/inlineCompletion` | → |  |
 | ○ | `textDocument/inlineValue` | → |  |
 | ○ | `textDocument/linkedEditingRange` | → |  |
 | ○ | `textDocument/moniker` | → |  |
 | ○ | `textDocument/onTypeFormatting` | → |  |
-| ○ | `textDocument/prepareCallHierarchy` | → | Needs a bound AST — a backend's job, see below |
-| ○ | `textDocument/prepareRename` | → | No server is asked before the prompt; the code window itself refuses a protected line or a declared name |
+| ✅ | `textDocument/prepareCallHierarchy` | → | Shows the server's call hierarchy; computes none |
+| ✅ | `textDocument/prepareRename` | → | Asks every claimant advertising prepareProvider before the prompt; range/placeholder seeds it, null/error refuses it (#3073) |
 | ○ | `textDocument/prepareTypeHierarchy` | → |  |
 | ✅ | `textDocument/publishDiagnostics` | ← |  |
-| ○ | `textDocument/rangeFormatting` | → |  |
+| ✅ | `textDocument/rangeFormatting` | → |  |
 | ○ | `textDocument/rangesFormatting` | → |  |
-| ✅ | `textDocument/rename` | → | Atomic edits across loaded code members, with version checks and one undo step per member (#1024) |
-
 | ✅ | `textDocument/references` | → | Shift+F12 and menus; grouped results, navigation and per-server error rows; supplied locations reuse the pane (#2907) |
-| ○ | `textDocument/selectionRange` | → |  |
+| ✅ | `textDocument/rename` | → | Atomic edits across loaded code members, with version checks and one undo step per member (#1024) |
+| ✅ | `textDocument/selectionRange` | → | Expand/Shrink Selection commands and server parent chains (#3076) |
 | ✅ | `textDocument/semanticTokens/full` | → | Full relative tokens, highest-priority full provider only; lexical colours remain outside token ranges (#2054) |
 | ○ | `textDocument/semanticTokens/full/delta` | → |  |
 | ○ | `textDocument/semanticTokens/range` | → |  |
 | ✅ | `textDocument/signatureHelp` | → |  |
-| ○ | `textDocument/typeDefinition` | → |  |
+| ✅ | `textDocument/typeDefinition` | → | Capability-gated navigation; all three location shapes, multiple results in Find References (#3074) |
 | ○ | `textDocument/willSave` | → |  |
 | ○ | `textDocument/willSaveWaitUntil` | → |  |
 
-### `workspace/*` — 7 of 21
+### `workspace/*` — 8 of 21
 
 | | Method | Dir | Notes |
 |---|---|---|---|
 | ○ | `workspace/applyEdit` | ← | A server cannot ask the IDE to edit a document |
-| ○ | `workspace/codeLens/refresh` | ← |  |
+| ✅ | `workspace/codeLens/refresh` | ← | Answers null and refetches lenses in attached code windows |
 | ✅ | `workspace/configuration` | ← | Returns editor.tabSize from Tab Width; unknown items return null |
 | ○ | `workspace/diagnostic` | → | The pull model, workspace-wide ([#284](https://github.com/hexide-io/HexIDE/issues/284)) |
 | ✅ | `workspace/diagnostic/refresh` | ← | Re-asks every open document; the only way a pull-model server can report a change that is not a document |
@@ -1264,14 +1357,14 @@ than inferred.
 | ○ | `workspace/willRenameFiles` | → |  |
 | ○ | `workspace/workspaceFolders` | ← |  |
 
-### `window/*` — 4 of 6
+### `window/*` — 5 of 6
 
 | | Method | Dir | Notes |
 |---|---|---|---|
 | ✅ | `window/logMessage` | ← | Raised as an event **and** logged at the severity the server declared. It used to be logged only, at a level the default configuration discards |
 | ◐ | `window/showDocument` | ← | Loaded project members, optional selection and focus; external and unknown URIs refused (#2908) |
 | ✅ | `window/showMessage` | ← | Shown in the status bar, and logged |
-| ○ | `window/showMessageRequest` | ← |  |
+| ✅ | `window/showMessageRequest` | ← |  |
 | ○ | `window/workDoneProgress/cancel` | → | No cancellation UI; cancellable is not acted on |
 | ✅ | `window/workDoneProgress/create` | ← | Registers string or integer tokens; replies with null |
 
@@ -1306,17 +1399,17 @@ than inferred.
 |---|---|---|---|
 | ○ | `completionItem/resolve` | → |  |
 
-### `codeAction/*` — 0 of 1
+### `codeAction/*` — 1 of 1
 
 | | Method | Dir | Notes |
 |---|---|---|---|
-| ○ | `codeAction/resolve` | → |  |
+| ✅ | `codeAction/resolve` | → | Resolves the selected action on its originating server |
 
 ### `codeLens/*` — 1 of 1
 
 | | Method | Dir | Notes |
 |---|---|---|---|
-| ✅ | `codeLens/resolve` | → | Resolved by the issuing client before a lens is handed on |
+| ✅ | `codeLens/resolve` | → | Requested individually on the issuing connection |
 
 ### `documentLink/*` — 0 of 1
 
@@ -1330,12 +1423,12 @@ than inferred.
 |---|---|---|---|
 | ○ | `inlayHint/resolve` | → |  |
 
-### `callHierarchy/*` — 0 of 2
+### `callHierarchy/*` — 2 of 2
 
 | | Method | Dir | Notes |
 |---|---|---|---|
-| ○ | `callHierarchy/incomingCalls` | → |  |
-| ○ | `callHierarchy/outgoingCalls` | → |  |
+| ✅ | `callHierarchy/incomingCalls` | → | Shows the server's call hierarchy; computes none |
+| ✅ | `callHierarchy/outgoingCalls` | → | Shows the server's call hierarchy; computes none |
 
 ### `typeHierarchy/*` — 0 of 2
 
@@ -1372,6 +1465,10 @@ that, which is CI.
 **Regenerate rather than hand-edit.** Adding a row by hand is how the counts and the directions drift apart
 in the first place; the guard will catch it, but the guard is a backstop, not a workflow.
 
+Run `python3 scripts/regenerate-lsp-coverage.py <cached-metaModel.json>` to regenerate while retaining
+coverage marks and notes. Supply `--set METHOD MARK NOTES` to change a method's status as part of generation.
+The script verifies the same pinned model digest as the tests.
+
 ### File-operation notifications (#2248)
 
 `VBLspClient` has explicit `DidCreateFilesAsync`, `DidRenameFilesAsync` and `DidDeleteFilesAsync`
@@ -1405,8 +1502,15 @@ registry routes are ready.
 
 Three clusters account for nearly all of the gap:
 
-- **Features needing a bound AST** — code actions, call hierarchy
-  and their `*/resolve` companions. Reference requests now have a client contract (#2907), with the UI
+- **Features needing a bound AST in the backend** — code actions and call hierarchy remain outside
+  the bundled server. The client shows references (#2907) and server call hierarchies (#3080) in
+  reusable tool panes. The client computes none of these relationships.
+  `workspace/symbol` is wired through the Object Browser. A backend offering deeper analysis can answer
+  these requests without changing HexIDE's own analysis boundary.
+
+- **Features needing a bound AST in the bundled server** — call hierarchy
+  and its `*/resolve` companions. Code actions are now relayed from foreign servers on request (#453);
+  computing fixes remains a backend boundary. Reference requests now have a client contract (#2907), with the UI
   outstanding. The other methods are not wired because nothing here would answer them; see *What the client
   would consume* below. `workspace/symbol` used to sit in this list and no longer does: the client speaks it
   and the Object Browser surfaces it, so the missing half is a *server*, which is exactly the point of the
@@ -1414,12 +1518,12 @@ Three clusters account for nearly all of the gap:
 - **Workspace-level protocol** — `workspace/*` is 7 of 21. The client sends project folders,
   updates them as group membership changes, sends file-operation notifications, and answers editor
   configuration requests. Watched-file notifications and server-initiated workspace edits remain absent.
-- **Server-to-client courtesy** — `window/*` and `client/*` are 3 of 8 between them. Alongside work-done progress (#360), the messages that landed
+- **Server-to-client courtesy** — `window/*` and `client/*` are 5 of 8 between them. Alongside work-done progress (#360), the messages that landed
   are the ones that cost no analysis depth and buy diagnosability: a server can now explain its own
   problems instead of appearing broken ([#289](https://github.com/hexide-io/HexIDE/issues/289)). Dynamic registration stays refused on
   purpose and is now logged rather than silent ([#288](https://github.com/hexide-io/HexIDE/issues/288)) — supporting it would mean
   declaring `dynamicRegistration` and honouring what arrives, which is real work with no server yet asking
-  for it. `showMessageRequest` still needs its queued IDE message-box flow (#2908).
+  for it. `showMessageRequest` uses a queued IDE message box (#2908).
 
 `notebookDocument/*` is 0 of 4 and will stay there — notebooks are not a VB6 concept.
 
@@ -1445,10 +1549,10 @@ awaiting effort, they are **server** features awaiting a server.
 | Feature | Method | Client support today |
 |---|---|---|
 | Find all references | `textDocument/references` | Shift+F12 and menus; grouped, navigable results and per-server errors (#2907) |
-| Code actions / quick fixes | `textDocument/codeAction` | Not wired |
+| Code actions / quick fixes | `textDocument/codeAction` | Relays the server’s fixes on request; computes none (#453) |
 | Semantic tokens | `textDocument/semanticTokens/full` | **Wired** — full only; delta, range and refresh remain unwired (#2054) |
 | Parameter-name and inferred-type hints | `textDocument/inlayHint` | **Wired** — labels from any offering server; these binding-dependent hints remain outside the bundled server |
-| Call hierarchy | `textDocument/prepareCallHierarchy` | Not wired |
+| Call hierarchy | `textDocument/prepareCallHierarchy` | Shows the server’s call hierarchy; computes none (#3080). Provider-gated command, lazy Calls To / Calls From tree and node/call-site navigation |
 | Workspace symbols | `workspace/symbol` | **Wired** — see below |
 
 "Not wired" is a statement about the client, and it is the honest one: wiring each is a bounded piece of
@@ -1526,3 +1630,41 @@ and types use Type. Both palettes follow the theme. Read-only region and diagnos
 precedence. Uncovered text retains lexical colouring. Empty or failed answers clear the overlay and
 log once per document per connection; the next change retries. Invalid ranges are discarded and stale
 responses are ignored. No range request is sent (#2054).
+
+
+## Quick Fixes on request
+
+With the caret inside a current diagnostic, open **Quick Fixes** in the code window’s context menu
+(#453). Only opening that list sends `textDocument/codeAction`, to every document claimant advertising
+`codeActionProvider`, with the diagnostic range and only that server’s diagnostics there, including their
+opaque data. It sends nothing in the background. Answers are grouped by server id with display names
+as headers, so servers with equal names remain separate. Disabled actions show their reason and cannot
+be selected. An empty answer or an action with neither edit nor command explains that no applicable fix
+was supplied.
+
+Selecting a lazy action resolves it with its originating server when `resolveProvider` is advertised.
+Edits use the workspace-edit applier: validate every loaded target before writing, one undo step per
+module, and refuse IDE-only lines, stale versions, unsaved disk targets and resource operations. A refusal
+shows its reason and does not execute a command. After an edit succeeds, pending document changes are
+flushed before its command runs. A command is sent to the originating server only when it declares that
+command in `executeCommandProvider.commands`.
+Client commands share the code-lens handler: `rdcore.rename` and `editor.action.rename` open HexIDE’s
+rename at the supplied URI and position; the show-references aliases display the supplied locations.
+Other unlisted commands produce a localized refusal naming the command. Server-initiated
+`workspace/applyEdit` is outside this slice (#2908).
+
+The client declares `codeActionLiteralSupport`, `dataSupport`, `disabledSupport` and `resolveSupport`
+for `edit`, plus `publishDiagnostics.dataSupport` for diagnostic tokens. The bundled server supplies no code actions. A keyboard route remains for a later slice.
+### Expand and Shrink Selection (#3076)
+
+The client declares `textDocument.selectionRange: {}` without dynamic registration and exposes
+`RequestSelectionRangesAsync` with a document URI and an ordered array of positions. The registry
+chooses one highest-priority claimant offering `selectionRangeProvider` (boolean or options object).
+The response retains each range's recursive parent chain; HexIDE computes no ranges itself. Null
+responses and failed requests yield empty arrays.
+
+Expand Selection and Shrink Selection are code-window context-menu and keymap commands, with no
+default shortcuts. Both require a provider for the current document. Expand asks at the caret or
+both selection endpoints, then selects the smallest enclosing range supplied for either endpoint;
+repeated invocations climb its parent chain. Shrink restores the previous selection, down to the original caret or selection.
+An edit or an outside caret/selection move clears the chain, and stale replies are ignored.

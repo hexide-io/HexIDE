@@ -728,3 +728,4 @@ added afterwards.
 - [A label on a closing or middle line of a block (2026-10-28, #2529)](a-label-on-a-closing-or-middle-line-of-a-block.md#a-label-on-a-closing-or-middle-line-of-a-block-2026-10-28-2529)
 - [Me in the Locals window (2026-10-28, #2329)](me-in-the-locals-window.md#me-in-the-locals-window-2026-10-28-2329)
 - [Object rows in the Locals window (2026-10-28, #2700)](object-rows-in-the-locals-window.md#object-rows-in-the-locals-window-2026-10-28-2700)
+- [List Members and Complete Word: Enter, Tab and Space (2026-11-04, #3056)](list-members-and-complete-word-enter-tab-and-space.md#list-members-and-complete-word-enter-tab-and-space-2026-11-04-3056)

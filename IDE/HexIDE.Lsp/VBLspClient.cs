@@ -79,6 +79,7 @@ public sealed class VBLspClient : ILspClient
     /// </summary>
     private int _connection;
 
+    public event EventHandler? CodeLensRefreshRequested;
     public event EventHandler<PublishDiagnosticsParams>? DiagnosticsPublished;
     public event EventHandler<string>? DocumentRetired;
     public event EventHandler<ShowMessageParams>? MessageShown;
@@ -198,9 +199,11 @@ public sealed class VBLspClient : ILspClient
         ConversationLog? capture = null, string? connectionId = null,
         ConversationRedactor? workspaceNames = null, Func<string>? locale = null, HexIDE.IDE.ISettingsService? settings = null,
         TimeProvider? timeProvider = null,
-        Func<ShowDocumentParams, CancellationToken, Task<bool>>? showDocument = null)
+        Func<ShowDocumentParams, CancellationToken, Task<bool>>? showDocument = null,
+        Func<ShowMessageRequestParams, CancellationToken, Task<MessageActionItem?>>? showMessageRequest = null)
     {
         _showDocument = showDocument;
+        _showMessageRequest = showMessageRequest;
         _transport = transport;
         _logger = logger;
         _diagnosticLifecycle = new(logger);
@@ -216,6 +219,7 @@ public sealed class VBLspClient : ILspClient
         _timeProvider = timeProvider ?? TimeProvider.System;
     }
 
+    private readonly Func<ShowMessageRequestParams, CancellationToken, Task<MessageActionItem?>>? _showMessageRequest;
     private readonly Func<ShowDocumentParams, CancellationToken, Task<bool>>? _showDocument;
     private readonly TimeProvider _timeProvider;
     private readonly Func<string> _locale;
@@ -653,7 +657,14 @@ public sealed class VBLspClient : ILspClient
                     // nothing goes silent without this. What goes is the nesting, because a server that
                     // honours it sends the flat form to a client that never said it could take the tree.
                     DocumentSymbol: new DocumentSymbolClientCapabilities(HierarchicalDocumentSymbolSupport: true),
+                    Implementation: new NavigationClientCapabilities(),
+                    TypeDefinition: new NavigationClientCapabilities(),
                     InlayHint: new InlayHintClientCapabilities(),
+                    CodeAction: new CodeActionClientCapabilities(new(new(["quickfix"])), ResolveSupport: new(["edit"])),
+                    SelectionRange: new SelectionRangeClientCapabilities(),
+                    Rename: new RenameClientCapabilities(),
+                    CallHierarchy: EmptyParams.Instance,
+                    RangeFormatting: EmptyParams.Instance,
                     Completion: new CompletionClientCapabilities(new CompletionItemKindClientCapabilities(
                         Enum.GetValues<CompletionItemKind>()),
                         CompletionItem: new CompletionItemClientCapabilities(true, ["plaintext"])),
@@ -669,9 +680,11 @@ public sealed class VBLspClient : ILspClient
                     Configuration: true,
                     WorkspaceEdit: new WorkspaceEditClientCapabilities(),
                     Diagnostics: new WorkspaceDiagnosticsClientCapabilities(),
+                    CodeLens: new WorkspaceCodeLensClientCapabilities(),
                     FileOperations: new FileOperationsClientCapabilities()),
                 // The same declare-and-gate bargain as save and codeLens: silence otherwise is correct.
-                Window: new WindowClientCapabilities(ShowDocument: new ShowDocumentClientCapabilities())));
+                Window: new WindowClientCapabilities(ShowDocument: new ShowDocumentClientCapabilities(),
+                    ShowMessage: new ShowMessageClientCapabilities(new MessageActionItemClientCapabilities()))));
 
         // Deliberately received as a raw JsonElement, and interpreted separately below.
         //
@@ -1381,7 +1394,8 @@ public sealed class VBLspClient : ILspClient
             href is null ? null : new CodeDescription(href),
             element.TryGetProperty("tags", out var tags) ? DiagnosticTagsConverter.ReadItems(tags) : null,
             element.TryGetProperty("relatedInformation", out var related)
-                ? DiagnosticRelatedInformationConverter.ReadItems(related) : null);
+                ? DiagnosticRelatedInformationConverter.ReadItems(related) : null,
+            element.TryGetProperty("data", out var data) ? data.Clone() : null);
     }
 
     public async Task DidCreateFilesAsync(string[] uris, CancellationToken cancellationToken = default)
@@ -1640,6 +1654,22 @@ public sealed class VBLspClient : ILspClient
         }
     }
 
+    public async Task<SelectionRange[]> RequestSelectionRangesAsync(string uri, Position[] positions, CancellationToken cancellationToken = default)
+    {
+        if (_rpc is null || !_initialized || !CanServe("selectionRangeProvider")) return [];
+        var p = new SelectionRangeParams(new TextDocumentIdentifier(uri), positions);
+        try
+        {
+            return await InvokeRequestAsync<SelectionRange[]>(_rpc,
+                "textDocument/selectionRange", p, cancellationToken, supersededUri: uri, documentUri: uri) ?? [];
+        }
+        catch (Exception ex)
+        {
+            WarnRequestFailedOnce("textDocument/selectionRange", ex, cancellationToken);
+            return [];
+        }
+    }
+
     public async Task<FoldingRange[]> RequestFoldingRangesAsync(string uri, CancellationToken cancellationToken = default)
     {
         if (_rpc is null || !_initialized || !CanServe("foldingRangeProvider")) return [];
@@ -1699,6 +1729,33 @@ public sealed class VBLspClient : ILspClient
         }
     }
 
+    public async Task<CallHierarchyItem[]> PrepareCallHierarchyAsync(string uri, Position position,
+        CancellationToken cancellationToken = default)
+    {
+        if (_rpc is null || !_initialized || !CanServe("callHierarchyProvider")) return [];
+        var p = new TextDocumentPositionParams(new TextDocumentIdentifier(uri), position);
+        return await InvokeRequestAsync<CallHierarchyItem[]?>(_rpc,
+            "textDocument/prepareCallHierarchy", p, cancellationToken, documentUri: uri) ?? [];
+    }
+
+    public async Task<CallHierarchyIncomingCall[]> RequestIncomingCallsAsync(CallHierarchyItem item,
+        CancellationToken cancellationToken = default)
+    {
+        if (_rpc is null || !_initialized || !CanServe("callHierarchyProvider")) return [];
+        return await InvokeRequestAsync<CallHierarchyIncomingCall[]?>(_rpc,
+            "callHierarchy/incomingCalls", new CallHierarchyCallsParams(item), cancellationToken,
+            documentUri: item.Uri) ?? [];
+    }
+
+    public async Task<CallHierarchyOutgoingCall[]> RequestOutgoingCallsAsync(CallHierarchyItem item,
+        CancellationToken cancellationToken = default)
+    {
+        if (_rpc is null || !_initialized || !CanServe("callHierarchyProvider")) return [];
+        return await InvokeRequestAsync<CallHierarchyOutgoingCall[]?>(_rpc,
+            "callHierarchy/outgoingCalls", new CallHierarchyCallsParams(item), cancellationToken,
+            documentUri: item.Uri) ?? [];
+    }
+
     public async Task<Location[]> RequestReferencesAsync(string uri, Position position, CancellationToken cancellationToken = default)
     {
         if (_rpc is null || !_initialized || !CanServe("referencesProvider")) return [];
@@ -1731,6 +1788,30 @@ public sealed class VBLspClient : ILspClient
         catch (Exception ex)
         {
             WarnRequestFailedOnce("textDocument/definition", ex, cancellationToken);
+            return null;
+        }
+    }
+
+    public bool SupportsCapability(string uri, string capability) => IsRunning && CanServeQuietly(capability);
+
+    public Task<Location[]?> RequestImplementationAsync(string uri, Position position, CancellationToken cancellationToken = default) =>
+        CanServe("implementationProvider") ? RequestNavigationAsync(uri, position, "implementation", cancellationToken) : Task.FromResult<Location[]?>(null);
+
+    public Task<Location[]?> RequestTypeDefinitionAsync(string uri, Position position, CancellationToken cancellationToken = default) =>
+        CanServe("typeDefinitionProvider") ? RequestNavigationAsync(uri, position, "typeDefinition", cancellationToken) : Task.FromResult<Location[]?>(null);
+
+    private async Task<Location[]?> RequestNavigationAsync(string uri, Position position, string method, CancellationToken ct)
+    {
+        if (_rpc is null || !_initialized) return null;
+        try
+        {
+            var raw = await InvokeRequestAsync<JsonElement?>(_rpc, "textDocument/" + method,
+                new TextDocumentPositionParams(new TextDocumentIdentifier(uri), position), ct, documentUri: uri);
+            return ReadLocations(raw);
+        }
+        catch (Exception ex)
+        {
+            WarnRequestFailedOnce("textDocument/" + method, ex, ct);
             return null;
         }
     }
@@ -1816,6 +1897,70 @@ public sealed class VBLspClient : ILspClient
         }
     }
 
+    public async Task<OfferedCodeAction[]> RequestCodeActionsAsync(string uri, HexIDE.Lsp.Messages.Range range, Diagnostic[] diagnostics,
+        CancellationToken cancellationToken = default)
+    {
+        if (_rpc is not { } rpc || !_initialized || !CanServe("codeActionProvider")) return [];
+        var snapshots = _openDocuments.Keys.ToDictionary(key => key, SentDocumentSnapshot);
+        RenameDocumentSnapshot? DocumentFor(string target) => snapshots.FirstOrDefault(p => LspDocumentUri.AreSame(p.Key, target)).Value;
+        var resolve = AdvertisedCapabilities is { } caps && caps.TryGetProperty("codeActionProvider", out var provider)
+            && provider.ValueKind == JsonValueKind.Object && provider.TryGetProperty("resolveProvider", out var flag)
+            && flag.ValueKind == JsonValueKind.True;
+
+        OfferedCodeAction Read(JsonElement payload, bool allowResolve)
+        {
+            var title = payload.GetProperty("title").GetString()!;
+            var bareCommand = payload.TryGetProperty("command", out var command) && command.ValueKind == JsonValueKind.String;
+            var spec = bareCommand ? payload.Deserialize<Command>(LspJsonContext.Default.Options)
+                : command.ValueKind == JsonValueKind.Object ? command.Deserialize<Command>(LspJsonContext.Default.Options) : null;
+            var edit = payload.TryGetProperty("edit", out var edits) && edits.ValueKind == JsonValueKind.Object
+                ? edits.Deserialize<WorkspaceEdit>(LspJsonContext.Default.Options) : null;
+            var disabled = payload.TryGetProperty("disabled", out var reason) ? reason.GetProperty("reason").GetString() : null;
+            var owned = payload.Clone();
+            return new OfferedCodeAction("", title, disabled, edit, spec,
+                allowResolve && resolve && !bareCommand ? async ct =>
+                {
+                    var resolved = await InvokeRequestAsync<JsonElement>(rpc, "codeAction/resolve", owned, ct);
+                    return Read(resolved, false);
+                } : null,
+                async (cmd, ct) =>
+                {
+                    if (!ServerCapabilities.DeclaresCommand(AdvertisedCapabilities, cmd.CommandName)) return;
+                    await InvokeRequestAsync<JsonElement?>(rpc, "workspace/executeCommand",
+                        new ExecuteCommandParams(cmd.CommandName, cmd.Arguments), ct);
+                }, DocumentFor, cmd => ServerCapabilities.DeclaresCommand(AdvertisedCapabilities, cmd.CommandName));
+        }
+
+        var response = await InvokeRequestAsync<JsonElement?>(rpc, "textDocument/codeAction",
+            new CodeActionParams(new(uri), range, new(diagnostics)), cancellationToken, documentUri: uri);
+        return response is { ValueKind: JsonValueKind.Array } actions ? actions.EnumerateArray().Select(a => Read(a, true)).ToArray() : [];
+    }
+
+    public async Task<PrepareRenameResult?> RequestPrepareRenameAsync(string uri, Position position, CancellationToken cancellationToken = default)
+    {
+        if (_rpc is null || !_initialized || AdvertisedCapabilities is not { } caps
+            || !caps.TryGetProperty("renameProvider", out var rename) || rename.ValueKind != JsonValueKind.Object
+            || !rename.TryGetProperty("prepareProvider", out var prepare) || prepare.ValueKind != JsonValueKind.True)
+            return null;
+        try
+        {
+            var answer = await InvokeRequestAsync<JsonElement>(_rpc, "textDocument/prepareRename",
+                new TextDocumentPositionParams(new TextDocumentIdentifier(uri), position), cancellationToken, documentUri: uri);
+            if (answer.ValueKind != JsonValueKind.Object) return new(false);
+            if (answer.TryGetProperty("defaultBehavior", out var behavior) && behavior.ValueKind == JsonValueKind.True)
+                return new(true);
+            var range = answer.TryGetProperty("range", out var nested) ? nested : answer;
+            var parsed = range.Deserialize<HexIDE.Lsp.Messages.Range>(LspJsonContext.Default.Options);
+            return new(true, parsed, answer.TryGetProperty("placeholder", out var placeholder) ? placeholder.GetString() : null);
+        }
+        catch (OperationCanceledException) { throw; }
+        catch (Exception ex)
+        {
+            WarnRequestFailedOnce("textDocument/prepareRename", ex, cancellationToken);
+            return new(false, Refusal: ex.Message);
+        }
+    }
+
     public async Task<RenameResult?> RequestRenameAsync(string uri, Position position, string newName, CancellationToken cancellationToken = default)
     {
         if (_rpc is null || !_initialized || !CanServe("renameProvider")) return null;
@@ -1844,6 +1989,27 @@ public sealed class VBLspClient : ILspClient
         {
             WarnRequestFailedOnce("textDocument/rename", ex, cancellationToken);
             return null;
+        }
+    }
+
+    public bool SupportsRangeFormatting(string uri) => IsRunning
+        && ServerCapabilities.Supports(AdvertisedCapabilities, "documentRangeFormattingProvider");
+
+    public async Task<TextEdit[]> RequestRangeFormattingAsync(string uri, HexIDE.Lsp.Messages.Range range, FormattingOptions options, CancellationToken cancellationToken = default)
+    {
+        if (_rpc is null || !_initialized || !CanServe("documentRangeFormattingProvider")) return [];
+        var p = new DocumentRangeFormattingParams(
+            new TextDocumentIdentifier(uri), range,
+            options);
+        try
+        {
+            return await InvokeRequestAsync<TextEdit[]?>(_rpc,
+                "textDocument/rangeFormatting", p, cancellationToken, documentUri: uri) ?? [];
+        }
+        catch (Exception ex)
+        {
+            WarnRequestFailedOnce("textDocument/rangeFormatting", ex, cancellationToken);
+            return [];
         }
     }
 
@@ -1897,33 +2063,14 @@ public sealed class VBLspClient : ILspClient
             return [];
         }
 
-        // Resolve here, on the connection that issued the lens. A lens with no command is not broken, it is
-        // deferred -- and a caller cannot resolve it, because by the time lenses from several servers have
-        // been gathered into one list nothing records which connection produced which. Doing it here is what
-        // lets the rest of the client treat a lens as a plain value.
-        if (!ServerCapabilities.ResolvesCodeLenses(AdvertisedCapabilities)) return lenses;
-
-        var resolved = new CodeLens[lenses.Length];
-        for (var i = 0; i < lenses.Length; i++)
-        {
-            // Already actionable. Asking again would be a round trip for an answer we hold.
-            if (lenses[i].Command is not null) { resolved[i] = lenses[i]; continue; }
-            resolved[i] = await ResolveCodeLensAsync(lenses[i], cancellationToken) ?? lenses[i];
-        }
-        return resolved;
+        return lenses;
     }
 
-    /// <summary>
-    /// Fills in one lens's command via <c>codeLens/resolve</c>, or null when the server could not.
-    /// </summary>
-    /// <remarks>
-    /// Deliberately not on <see cref="ILspClient"/>. Exposing it would invite a caller to resolve a lens
-    /// against the wrong connection, which is exactly the mistake the gathering step makes possible and
-    /// this class exists to prevent.
-    /// </remarks>
-    private async Task<CodeLens?> ResolveCodeLensAsync(CodeLens lens, CancellationToken cancellationToken)
+    public async Task<CodeLens?> ResolveCodeLensAsync(CodeLens lens, CancellationToken cancellationToken = default)
     {
-        if (_rpc is null) return null;
+        if (cancellationToken.IsCancellationRequested || _rpc is null || !_initialized) return null;
+        if (lens.Command is not null) return lens;
+        if (!CanServe("codeLensProvider") || !ServerCapabilities.ResolvesCodeLenses(AdvertisedCapabilities)) return null;
         try
         {
             return await InvokeRequestAsync<CodeLens?>(_rpc,
@@ -1931,9 +2078,6 @@ public sealed class VBLspClient : ILspClient
         }
         catch (Exception ex)
         {
-            // The unresolved lens is still returned by the caller. A lens that cannot be resolved is one
-            // the user cannot click, which is poor -- and dropping it would hide that the server offered
-            // something here at all, which is worse.
             WarnRequestFailedOnce("codeLens/resolve", ex, cancellationToken);
             return null;
         }
@@ -2402,6 +2546,19 @@ public sealed class VBLspClient : ILspClient
             _client.ProgressReceived?.Invoke(_client, p);
         }
 
+        [JsonRpcMethod("window/showMessageRequest", UseSingleObjectParameterDeserialization = true)]
+        public async Task<MessageActionItem?> OnShowMessageRequest(ShowMessageRequestParams p, CancellationToken cancellationToken)
+        {
+            try
+            {
+                return _client._showMessageRequest is { } show ? await show(p, cancellationToken) : null;
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                throw new LocalRpcException("Request cancelled") { ErrorCode = -32800 };
+            }
+        }
+
         [JsonRpcMethod("window/showDocument", UseSingleObjectParameterDeserialization = true)]
         public async Task<ShowDocumentResult> OnShowDocument(ShowDocumentParams p, CancellationToken cancellationToken) =>
             new(!p.External && _client._showDocument is { } show
@@ -2451,6 +2608,10 @@ public sealed class VBLspClient : ILspClient
                 ErrorCode = (int)StreamJsonRpc.Protocol.JsonRpcErrorCode.MethodNotFound,
             };
         }
+
+        [JsonRpcMethod("workspace/codeLens/refresh")]
+        public void OnCodeLensRefresh() =>
+            _client.CodeLensRefreshRequested?.Invoke(_client, EventArgs.Empty);
 
         /// <summary>
         /// The server asking to be asked again — <c>workspace/diagnostic/refresh</c>.
@@ -2588,24 +2749,30 @@ public sealed class VBLspClient : ILspClient
     /// </remarks>
     internal static readonly string[] ConsumedCapabilities =
     [
+        "codeActionProvider",
         "codeLensProvider",
         "completionProvider",
+        "implementationProvider",
+        "typeDefinitionProvider",
         "declarationProvider",
         "definitionProvider",
         // Consumed, but gated quietly — see CanServeQuietly. It belongs here because a server that
         // advertises it IS taken up on it; the absence of a warning is about what its ABSENCE means.
         "diagnosticProvider",
         "documentFormattingProvider",
+        "documentRangeFormattingProvider",
         "documentHighlightProvider",
         "documentSymbolProvider",
         // Read by the command-routing reader rather than a gate: a command is routed to the server that
         // named it, so the question is never "does any server offer this" but "which one declared it".
         "executeCommandProvider",
         "foldingRangeProvider",
+        "selectionRangeProvider",
         "semanticTokensProvider",
         "hoverProvider",
         "inlayHintProvider",
         "referencesProvider",
+        "callHierarchyProvider",
         "renameProvider",
         "signatureHelpProvider",
         // Read by the sync readers rather than a gate, because its two shapes mean different things — and

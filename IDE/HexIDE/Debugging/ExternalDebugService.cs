@@ -307,6 +307,7 @@ public sealed partial class ExternalDebugService(ConversationLog capture, ILocal
         }
         catch (Exception exception)
         {
+            Serilog.Log.Debug(exception, "External debug frame inspection failed.");
             if (session == current && current.IsCurrent(stop)) Failed?.Invoke(exception.Message);
         }
     }

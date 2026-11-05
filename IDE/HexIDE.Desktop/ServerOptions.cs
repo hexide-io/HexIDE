@@ -115,6 +115,16 @@ internal static class ServerOptions
     /// </remarks>
     public static string? AnsiCodePageInvalid { get; private set; }
 
+    /// <summary><c>--dpi-unaware</c>: run the IDE DPI-unaware on Windows, so it renders at scale 1 whatever the
+    /// display's scaling, and a layout can be checked as a 100% display shows it (hexide-io/HexIDE#3083).</summary>
+    /// <remarks>
+    /// <b>Scale 1 only, and Windows only.</b> Avalonia's Win32 platform offers no other scale override: its options
+    /// give unaware, system-aware or per-monitor-aware, and <c>AVALONIA_GLOBAL_SCALE_FACTOR</c> is read by the X11
+    /// platform alone. Elsewhere the flag is refused rather than skipped, as <see cref="AnsiCodePageInvalid"/> is: it
+    /// is given to see the IDE at scale 1, and ignoring it would show another scale while looking as though it had worked.
+    /// </remarks>
+    public static bool DpiUnaware { get; private set; }
+
     /// <summary>
     /// Every option the IDE accepts, in the order <c>--help</c> lists them.
     /// </summary>
@@ -243,6 +253,10 @@ internal static class ServerOptions
                     AnsiCodePageInvalid = value ?? "";
                 return value is not null;
             }),
+
+        new("dpi-unaware", null,
+            "Render at scale 1 on a scaled Windows display. Debug builds only.",
+            _ => { DpiUnaware = true; return false; }),
     ];
 
     /// <param name="args">The command line.</param>

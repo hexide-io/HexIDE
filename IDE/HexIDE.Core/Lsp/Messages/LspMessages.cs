@@ -32,8 +32,7 @@ public enum DiagnosticSeverity
 /// <para>
 /// Tags 1 and 2 and well-formed related locations are retained on both inbound paths (#453).
 /// Tags style editor text and list messages; related locations are clickable in diagnostic tips.
-/// Opaque <c>data</c> is still dropped
-/// until the code-action relay decision (q-453-code-actions).
+/// Opaque <c>data</c> is retained unchanged for the server's code-action tokens.
 /// </para>
 /// </remarks>
 public record Diagnostic(
@@ -52,7 +51,10 @@ public record Diagnostic(
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] int[]? Tags = null,
     [property: JsonPropertyName("relatedInformation")]
     [property: JsonConverter(typeof(DiagnosticRelatedInformationConverter))]
-    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] DiagnosticRelatedInformation[]? RelatedInformation = null)
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] DiagnosticRelatedInformation[]? RelatedInformation = null,
+    [property: JsonPropertyName("data")]
+    [property: JsonConverter(typeof(DiagnosticDataConverter))]
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] System.Text.Json.JsonElement? Data = null)
 {
     /// <summary>
     /// The code as text — <c>F401</c>, <c>MD012</c>, <c>VBC00001</c> — or null when the server sent none.
@@ -288,7 +290,27 @@ public record TextDocumentClientCapabilities(
     [property: JsonPropertyName("completion")]
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] CompletionClientCapabilities? Completion = null,
     [property: JsonPropertyName("inlayHint")]
-    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] InlayHintClientCapabilities? InlayHint = null);
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] InlayHintClientCapabilities? InlayHint = null,
+    [property: JsonPropertyName("codeAction")]
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] CodeActionClientCapabilities? CodeAction = null,
+    [property: JsonPropertyName("implementation")]
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] NavigationClientCapabilities? Implementation = null,
+    [property: JsonPropertyName("typeDefinition")]
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] NavigationClientCapabilities? TypeDefinition = null,
+    [property: JsonPropertyName("selectionRange")]
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] SelectionRangeClientCapabilities? SelectionRange = null,
+    [property: JsonPropertyName("rename")]
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] RenameClientCapabilities? Rename = null,
+    [property: JsonPropertyName("callHierarchy")]
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] EmptyParams? CallHierarchy = null,
+    [property: JsonPropertyName("rangeFormatting")]
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] EmptyParams? RangeFormatting = null);
+
+public record NavigationClientCapabilities([property: JsonPropertyName("linkSupport")] bool LinkSupport = true);
+
+public record RenameClientCapabilities(
+    [property: JsonPropertyName("prepareSupport")] bool PrepareSupport = true,
+    [property: JsonPropertyName("prepareSupportDefaultBehavior")] int PrepareSupportDefaultBehavior = 1);
 
 public record CompletionClientCapabilities(
     [property: JsonPropertyName("completionItemKind")] CompletionItemKindClientCapabilities CompletionItemKind,
@@ -339,10 +361,15 @@ public record WorkspaceClientCapabilities(
     [property: JsonPropertyName("configuration")]
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] bool? Configuration = null,
     [property: JsonPropertyName("workspaceEdit")]
-    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] WorkspaceEditClientCapabilities? WorkspaceEdit = null);
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] WorkspaceEditClientCapabilities? WorkspaceEdit = null,
+    [property: JsonPropertyName("codeLens")]
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] WorkspaceCodeLensClientCapabilities? CodeLens = null);
 
 public record WorkspaceEditClientCapabilities(
     [property: JsonPropertyName("documentChanges")] bool DocumentChanges = true);
+
+public record WorkspaceCodeLensClientCapabilities(
+    [property: JsonPropertyName("refreshSupport")] bool RefreshSupport = true);
 
 public record WorkspaceDiagnosticsClientCapabilities(
     [property: JsonPropertyName("refreshSupport")] bool RefreshSupport = true);
@@ -397,7 +424,8 @@ public record TextDocumentSyncClientCapabilities(
 public record PublishDiagnosticsClientCapabilities(
     [property: JsonPropertyName("relatedInformation")] bool RelatedInformation = false,
     [property: JsonPropertyName("tagSupport")]
-    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] DiagnosticTagSupport? TagSupport = null);
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] DiagnosticTagSupport? TagSupport = null,
+    [property: JsonPropertyName("dataSupport")] bool DataSupport = true);
 
 public record DiagnosticTagSupport([property: JsonPropertyName("valueSet")] int[] ValueSet);
 
@@ -1091,6 +1119,11 @@ public record FormattingOptions(
     [property: JsonPropertyName("trimTrailingWhitespace")]
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] bool? TrimTrailingWhitespace = null);
 
+public record DocumentRangeFormattingParams(
+    [property: JsonPropertyName("textDocument")] TextDocumentIdentifier TextDocument,
+    [property: JsonPropertyName("range")] Range Range,
+    [property: JsonPropertyName("options")] FormattingOptions Options);
+
 /// <summary>Document formatting request parameters.</summary>
 public record DocumentFormattingParams(
     [property: JsonPropertyName("textDocument")] TextDocumentIdentifier TextDocument,
@@ -1245,7 +1278,8 @@ public sealed record CancelStringRequestParams([property: JsonPropertyName("id")
 
 public record WindowClientCapabilities(
     [property: JsonPropertyName("workDoneProgress")] bool WorkDoneProgress = true,
-    [property: JsonPropertyName("showDocument")] ShowDocumentClientCapabilities? ShowDocument = null);
+    [property: JsonPropertyName("showDocument")] ShowDocumentClientCapabilities? ShowDocument = null,
+    [property: JsonPropertyName("showMessage")] ShowMessageClientCapabilities? ShowMessage = null);
 
 public record WorkDoneProgressCreateParams(
     [property: JsonPropertyName("token")] JsonElement Token);
@@ -1323,3 +1357,72 @@ public record ShowDocumentParams(
     [property: JsonPropertyName("selection")] Range? Selection = null);
 
 public record ShowDocumentResult([property: JsonPropertyName("success")] bool Success);
+
+
+public record CodeActionParams(
+    [property: JsonPropertyName("textDocument")] TextDocumentIdentifier TextDocument,
+    [property: JsonPropertyName("range")] Range Range,
+    [property: JsonPropertyName("context")] CodeActionContext Context);
+
+public record CodeActionContext(
+    [property: JsonPropertyName("diagnostics")] Diagnostic[] Diagnostics,
+    [property: JsonPropertyName("triggerKind")] int TriggerKind = 1);
+
+public record CodeActionClientCapabilities(
+    [property: JsonPropertyName("codeActionLiteralSupport")] CodeActionLiteralSupport CodeActionLiteralSupport,
+    [property: JsonPropertyName("dataSupport")] bool DataSupport = true,
+    [property: JsonPropertyName("disabledSupport")] bool DisabledSupport = true,
+    [property: JsonPropertyName("resolveSupport")] CodeActionResolveSupport? ResolveSupport = null);
+
+public record CodeActionLiteralSupport([property: JsonPropertyName("codeActionKind")] CodeActionKindSupport CodeActionKind);
+public record CodeActionKindSupport([property: JsonPropertyName("valueSet")] string[] ValueSet);
+public record CodeActionResolveSupport([property: JsonPropertyName("properties")] string[] Properties);
+public record ShowMessageClientCapabilities(
+    [property: JsonPropertyName("messageActionItem")] MessageActionItemClientCapabilities MessageActionItem);
+
+public record MessageActionItemClientCapabilities(
+    [property: JsonPropertyName("additionalPropertiesSupport")] bool AdditionalPropertiesSupport = true);
+
+public record MessageActionItem([property: JsonPropertyName("title")] string Title)
+{
+    [JsonExtensionData] public Dictionary<string, JsonElement>? AdditionalProperties { get; set; }
+}
+
+public record ShowMessageRequestParams(
+    [property: JsonPropertyName("type")] int Type,
+    [property: JsonPropertyName("message")] string Message,
+    [property: JsonPropertyName("actions")] MessageActionItem[]? Actions = null);
+
+public record SelectionRangeParams(
+    [property: JsonPropertyName("textDocument")] TextDocumentIdentifier TextDocument,
+    [property: JsonPropertyName("positions")] Position[] Positions);
+
+public record SelectionRange(
+    [property: JsonPropertyName("range")] Range Range,
+    [property: JsonPropertyName("parent")]
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] SelectionRange? Parent = null);
+
+public record SelectionRangeClientCapabilities;
+
+public record CallHierarchyItem(
+    [property: JsonPropertyName("name")] string Name,
+    [property: JsonPropertyName("kind")] int Kind,
+    [property: JsonPropertyName("uri")] string Uri,
+    [property: JsonPropertyName("range")] Range Range,
+    [property: JsonPropertyName("selectionRange")] Range SelectionRange,
+    [property: JsonPropertyName("tags")]
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] int[]? Tags = null,
+    [property: JsonPropertyName("detail")]
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Detail = null,
+    [property: JsonPropertyName("data")]
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] JsonElement Data = default);
+
+public record CallHierarchyCallsParams([property: JsonPropertyName("item")] CallHierarchyItem Item);
+
+public record CallHierarchyIncomingCall(
+    [property: JsonPropertyName("from")] CallHierarchyItem From,
+    [property: JsonPropertyName("fromRanges")] Range[] FromRanges);
+
+public record CallHierarchyOutgoingCall(
+    [property: JsonPropertyName("to")] CallHierarchyItem To,
+    [property: JsonPropertyName("fromRanges")] Range[] FromRanges);

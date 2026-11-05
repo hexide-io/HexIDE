@@ -47,6 +47,27 @@ set of translatable strings is enumerable, which is what every other guarantee h
 - **AND** the row's string representation uses the same text for selection summaries without a container
 - **AND** a language change while stopped is reflected when the rows are next rebuilt
 
+### Requirement: Language-server configuration problems SHALL use the active IDE language
+The LSP configuration loader and its readers SHALL return a message code and separate arguments for each
+problem. The Language Servers view SHALL resolve the code through the active language pack, including
+when the language changes while the view is open. Logged messages SHALL remain English.
+JSON field names, values, server identifiers, paths, pointers and diagnostic locations SHALL remain
+verbatim arguments. Field-list headings SHALL be complete localized strings, without English singular,
+plural or verb fragments assembled by the loader. Exception details SHALL remain verbatim after a
+localized explanation of the failed operation. A single unknown field SHALL select a complete singular
+heading where the language distinguishes it. Quotation marks around option values SHALL come from the
+pack template and match the other quoted values in that message. Problem lines SHALL wrap within the
+tab while remaining selectable, including the final diagnostic location.
+
+#### Scenario: A disabled server in Bulgarian
+- **WHEN** the Language Servers view changes from English to Bulgarian
+- **THEN** its disabled-server problem uses Bulgarian prose and preserves the server id and `"enabled": false`
+- **AND** the loader's original English message remains available for logging
+
+#### Scenario: Multiple unknown fields in Japanese
+- **WHEN** an entry contains multiple unknown JSON fields and the active language is Japanese
+- **THEN** a Japanese field-list heading precedes the original field names, without English plural fragments
+
 ### Requirement: Program message box buttons SHALL use the IDE language
 Message boxes opened through the IDE SHALL resolve their OK, Cancel, Abort, Retry, Ignore, Yes and No
 captions through the localization service when shown. The program's prompt and title SHALL remain its

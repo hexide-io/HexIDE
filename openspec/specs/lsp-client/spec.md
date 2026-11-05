@@ -12,6 +12,160 @@ later without the editor noticing.
 
 ## Requirements
 
+### Requirement: User-requested server code actions
+
+The client SHALL request code actions only when the user opens Quick Fixes on a diagnostic in the code
+window, sending its range and the diagnostics there, including opaque data unchanged, to every capable
+claimant, including only that claimant’s own diagnostics and data. It SHALL group answers by server display name, show disabled reasons without allowing selection, and declare
+literal, data, disabled and edit-resolution support, including diagnostic data preservation. Distinct
+server ids SHALL remain separate groups even when their display names match. It SHALL compute no fixes itself.
+
+#### Scenario: Selecting a lazy edit with a command
+
+- **WHEN** the user selects an action from a server offering resolution
+- **THEN** the action is resolved on that server before applying its workspace edit atomically, with one undo step per module and no edits to IDE-only lines
+- **AND** pending changes to every edited module are flushed before its command runs
+- **AND** only commands declared by that server are sent back; known rename and show-references client commands run through the shared lens handler, while other unlisted commands receive a localized refusal naming the command
+- **AND** a refusal explains why and executes no command
+
+#### Scenario: A rename action names a document using a different drive-letter case
+
+- **WHEN** a rename client command supplies a URI and zero-based position
+- **THEN** the URI comparer identifies the loaded document and HexIDE opens its existing rename flow at that position, including prepareRename before the prompt
+
+#### Scenario: No user request or no applicable fix
+
+- **WHEN** the user has not opened Quick Fixes
+- **THEN** no code-action request is sent in the background
+- **AND** opening an empty list or choosing an action without an edit or command reports that no applicable fix was supplied
+### Requirement: Expand and shrink selection commands
+The code window SHALL expose localized Expand Selection and Shrink Selection context-menu and
+keymap commands, with no default shortcuts, enabled only for a document with an advertising
+selection-range provider. Expand SHALL request the caret position, or both ends of a selection,
+and select the smallest strictly enclosing server-returned range from either endpoint. Repeated
+expansion SHALL climb the returned parent chain; Shrink SHALL restore the previous selection, including the original caret.
+An edit or a caret or selection move outside these commands SHALL discard the chain. A response
+made stale by such a change SHALL NOT alter the selection. HexIDE SHALL NOT compute language ranges.
+
+#### Scenario: Climbing and returning
+- **WHEN** Expand is invoked twice and Shrink once
+- **THEN** the selection returns to the first enclosing range supplied by the server
+
+#### Scenario: Editing invalidates the chain
+- **WHEN** text changes or the user moves the caret after expanding
+- **THEN** Shrink cannot restore the old chain and the next Expand requests fresh ranges
+
+#### Scenario: No provider
+- **WHEN** no claimant advertises selection ranges for the document
+- **THEN** both commands are disabled
+
+### Requirement: Selection range requests preserve backend chains
+The client SHALL declare `textDocument.selectionRange` without dynamic registration and expose
+`textDocument/selectionRange` requests for a document URI and positions. The registry SHALL route
+these requests to the highest-priority claimant advertising `selectionRangeProvider`, accepting
+both boolean and options advertisements. The client SHALL preserve the returned ranges and recursive
+parents without computing enclosing ranges locally. Null replies and failed requests SHALL yield
+empty arrays. Editor commands and selection history remain pending (#3076).
+
+#### Scenario: A server supplies enclosing ranges
+- **WHEN** a caller requests ranges at two selection endpoints from an offering server
+- **THEN** both positions reach that server in order and its two parent chains are returned
+
+#### Scenario: No server offers selection ranges
+- **WHEN** no claimant advertises the provider
+- **THEN** no selection range request is sent and the caller receives an empty array
+
+### Requirement: Prepare rename before prompting
+The client SHALL declare rename `prepareSupport: true` and `prepareSupportDefaultBehavior: 1`.
+After the code window's own refusals and a document flush, it SHALL ask every opened claimant advertising
+`renameProvider.prepareProvider: true` for `textDocument/prepareRename`. Any null or error answer SHALL
+prevent the prompt, displaying the server's reason when supplied. The first participating claimant's
+range or placeholder SHALL seed the prompt. Servers without preparation support and a reply of
+`defaultBehavior: true` SHALL retain the existing word default.
+
+#### Scenario: Server refuses preparation
+- **WHEN** a preparation request returns null or an error
+- **THEN** no rename input prompt opens
+- **AND** a supplied server error message is shown
+
+#### Scenario: Server supplies the name
+- **WHEN** preparation returns a range or a range with a placeholder
+- **THEN** the prompt starts with the placeholder or the document text in that range
+
+#### Scenario: Preparation is unsupported
+- **WHEN** no claimant advertises preparation
+- **THEN** no preparation request is sent and the existing prompt behavior remains
+
+### Requirement: Call hierarchy connection requests
+The connection client SHALL declare `textDocument.callHierarchy` and gate prepare, incoming and
+outgoing call requests on `callHierarchyProvider`. It SHALL preserve server item data on expansion
+and propagate errors to its caller. The registry SHALL ask every advertising claimant and retain the owning connection for each item.
+The IDE SHALL offer a provider-gated Call Hierarchy command beside Find References and in the code
+context menu, with a keymap entry and no default shortcut. Its reusable tool pane SHALL dock with
+Immediate, switch between Calls To and Calls From, expand nodes lazily, show empty answers and
+per-server errors, and navigate nodes and call sites on Enter or double-click. A rerun SHALL replace
+the tree. All chrome SHALL be translated in every shipped pack.
+
+#### Scenario: Expand a server item
+- **WHEN** a caller requests incoming or outgoing calls for a prepared item
+- **THEN** the connection sends that item, including opaque data, to its server
+- **AND** returns the server's items and call-site ranges without computing relationships
+#### Scenario: Inspect callers from the caret
+- **WHEN** a user invokes Call Hierarchy in a document with an advertising server
+- **THEN** the client prepares at the caret and replaces the reusable pane's roots with server answers
+- **AND** opening a node requests only that node's calls in the selected direction from its owning server
+- **AND** Enter or double-click navigates to the selected item or call-site range
+
+### Requirement: Format Selection through the advertising server
+The IDE SHALL offer Format Selection beside Format Document in the code editor context menu, enabled
+only for a nonempty selection in an editable document with an open language session and a claimant
+advertising `documentRangeFormattingProvider`. It SHALL declare `textDocument.rangeFormatting`, send
+`textDocument/rangeFormatting` to exactly the highest-priority advertising claimant with the selected
+UTF-16 range and Format Document's options, and apply returned edits through the same guarded path as
+Format Document in one undo step. The command SHALL be localized in every shipped pack and have a
+keymap entry with no default shortcut.
+
+#### Scenario: A lower-priority server offers range formatting
+- **WHEN** the highest-priority claimant offers only document formatting and another offers range formatting
+- **THEN** Format Selection sends only the range formatter a request with the selection and configured Tab Width
+
+#### Scenario: The formatter edits IDE-only lines
+- **WHEN** a range formatting response attempts to rewrite the header or member attribute lines
+- **THEN** those lines remain unchanged and accepted code edits form one undo step
+
+### Requirement: Server questions display backend actions
+The client SHALL declare `window.showMessage.messageActionItem` with additional property support and
+answer `window/showMessageRequest` using an IDE message box owned by the main window. Its title SHALL
+be the server's display name and its buttons SHALL be the server's actions. The box SHALL show the
+message type's icon (Error, Warning, Information for Info and Log), using the IDE message box's icons.
+Escape SHALL dismiss the box without choosing an action.
+
+#### Scenario: A question is answered or dismissed
+- **WHEN** the user chooses an action
+- **THEN** the client returns that original action item, including additional properties
+- **WHEN** the user closes the box without choosing
+- **THEN** the client returns `null`
+
+#### Scenario: Message type and keyboard dismissal
+- **WHEN** a server question is displayed
+- **THEN** its icon represents the message type
+- **WHEN** the user presses Escape
+- **THEN** the box closes and the client returns `null`
+
+### Requirement: Server questions queue without blocking the connection
+Prompts SHALL queue one at a time across connections and wait while a program runs or another modal is
+open. Other protocol messages SHALL continue flowing. Cancellation SHALL close or remove the prompt
+and answer error -32800.
+
+#### Scenario: Diagnostics arrive while a question waits
+- **WHEN** a server sends a question and then publishes diagnostics before the user answers
+- **THEN** the diagnostics are delivered while the question remains pending
+
+#### Scenario: A cancelled question yields its queue position
+- **WHEN** the server cancels an open or queued question
+- **THEN** that question closes or leaves the queue and its response has error code -32800
+- **AND** the next question may open when no program or other modal is active
+
 ### Requirement: Reference requests gather locations from offering servers
 The client SHALL expose `textDocument/references` at a document URI and position, sending
 `context.includeDeclaration: true` only to servers advertising `referencesProvider`. The registry
@@ -30,6 +184,13 @@ request failures SHALL be returned alongside successful locations, identified by
 ### Requirement: Find References presents navigable results
 The code editor SHALL offer Find References on Shift+F12, its context menu and the Edit menu,
 showing the shortcut. Results SHALL open at the bottom in the Immediate window's group.
+When opened or brought forward to show results, the list SHALL show at least six rows, growing its
+slot from the document area's height as far as that area's minimum permits. The document minimum SHALL
+be at least 120 DIP even without an explicit dock MinHeight. When space is insufficient, the results
+SHALL use only the space left above that minimum. Layouts below the document minimum SHALL NOT be saved;
+previously saved collapsed document areas SHALL regain their minimum on load, taking height from tools.
+A sufficiently tall slot
+SHALL retain its exact proportion. The resized proportions SHALL persist with the saved layout.
 A new search SHALL replace the previous results; an older request completing later SHALL NOT overwrite it.
 The list SHALL group locations by module in project order, show one-based line numbers and line text,
 and highlight the supplied range. Enter on a focused result row or a double-click SHALL navigate through
@@ -64,11 +225,19 @@ related-information entry SHALL be skipped without dropping the diagnostic or va
 - **WHEN** a diagnostic includes tag 7 and a related entry with no location
 - **THEN** that tag and entry are ignored while the diagnostic remains available
 
+### Requirement: Opaque diagnostic data survives either inbound path
+The client SHALL retain diagnostic `data` from push notifications and pull replies without interpreting
+or changing its JSON token, including explicit null. It SHALL remain readable after the reply document
+is disposed. An absent `data` member SHALL remain absent when the diagnostic is serialized (#453).
+
+#### Scenario: A server attaches an opaque token
+- **WHEN** a push or pull diagnostic carries an object, array, string, number, boolean or null as `data`
+- **THEN** serializing the retained diagnostic preserves the token's JSON spelling after the reply is disposed
+
 ### Requirement: Diagnostic tags style text
 The client SHALL advertise `publishDiagnostics.relatedInformation: true` and `tagSupport.valueSet: [1, 2]`.
 Unnecessary ranges SHALL have faded text and deprecated ranges SHALL have strikethrough text in the editor
-and diagnostics list messages. These styles SHALL add to the existing severity squiggle. Opaque diagnostic
-`data` SHALL remain dropped pending the code-action relay decision (#453).
+and diagnostics list messages. These styles SHALL add to the existing severity squiggle.
 
 #### Scenario: Both tags accompany a hint
 - **WHEN** a diagnostic has tags 1 and 2
@@ -225,12 +394,17 @@ be preserved.
 
 The hover renderer SHALL own the ordered formats advertised by initialization, `markdown` then `plaintext`.
 The editor SHALL render Markdown paragraphs, emphasis, inline code, lists, links and fenced code blocks.
+List markers SHALL align with the first line of linked text across font families and sizes.
 Code fences SHALL use the editor's font, with VB6 highlighting for `vb` and `vba` and no highlighting
 for other languages. Plain text SHALL stay literal; normalized marked strings SHALL use this renderer.
 
 #### Scenario: A server supplies a VBA signature
 - **WHEN** a Markdown hover contains a `vba` fenced signature and a paragraph naming its module
 - **THEN** the tip shows coloured code in the editor's font followed by the paragraph, with no fence characters
+
+#### Scenario: A list item contains a link
+- **WHEN** a Markdown hover contains a bulleted or numbered item holding a link
+- **THEN** the marker and the link caption have text tops within one pixel
 
 ### Requirement: Hover dismissal while editing
 
@@ -270,6 +444,10 @@ sources when supplied, combined with any quick info for that position. Diagnosti
 in every personality, including Classic, even when Auto Quick Info is disabled. Marker ranges SHALL
 include their start and exclude their end, including ranges widened for zero-width diagnostics.
 
+#### Scenario: Quick info arrives after the diagnostic tip opens
+- **WHEN** a diagnostic tip is already open and the server returns quick info for that position
+- **THEN** the displayed tip content updates to show the diagnostic messages first, followed by the quick info
+
 #### Scenario: Overlapping diagnostics and quick info
 - **WHEN** the pointer dwells over overlapping diagnostic markers and quick info is available
 - **THEN** the tooltip shows every matching message, its source when supplied, and the quick info
@@ -306,6 +484,17 @@ it, every holder SHALL draw its versions from one sequence, and its last holder 
 file kept two version counts, so a server discarded whichever was behind, and either window's close closed the
 document for both (hexide-io/HexIDE#721).
 
+The project SHALL retain a dirty code document after its last window closes, flushing pending edits and
+keeping the shared version sequence. Save, discard/reload or removal SHALL release that project holder.
+Reopening SHALL join the same document without a second open or version reset. A server starting later
+SHALL receive the retained project text in its open (#3064). Closing a window SHALL NOT add a save prompt.
+
+#### Scenario: Closing and reopening a dirty code window
+- **WHEN** a code window closes with unsaved edits
+- **THEN** the server document remains open with those edits
+- **AND** reopening reuses its open and version sequence
+- **AND** saving while its window is closed announces the current text and save before closing it
+
 #### Scenario: Editing a document
 - **WHEN** the developer edits an open document
 - **THEN** the complete new text is sent with a version that increases
@@ -324,7 +513,7 @@ document for both (hexide-io/HexIDE#721).
 - **WHEN** a second editor opens a document whose name another editor already holds, and either then edits it
 - **THEN** the server has been opened on the document once, and every change carries a later version than the one
   before, whichever editor it came from
-- **AND** closing one editor leaves the document open for the other, and closing the last closes it
+- **AND** closing one editor leaves the document open for the other, and closing the last clean editor closes it
 
 #### Scenario: A debounced change overtaken by a flush
 - **WHEN** a change arrives with a version no later than the one the client already tracks
@@ -753,6 +942,14 @@ say, present identically to the user, and there is already a defect of exactly t
 Changes to the configuration SHALL take effect when the IDE next starts. A language server is a process
 rather than data, and partial live application — new entries taking effect while changed ones do not — would
 be indistinguishable from a defect.
+
+JSON syntax errors SHALL report the file, 1-based line and character column, and the JSON path
+verbatim through localized prose. UTF-8 byte offsets SHALL be converted to editor character columns.
+The log SHALL retain an English report.
+
+#### Scenario: A missing comma follows non-ASCII text
+- **WHEN** a JSON syntax error follows non-ASCII text on a line of the configuration
+- **THEN** the report names the 1-based character column rather than the UTF-8 byte offset
 
 #### Scenario: One entry is malformed
 - **WHEN** the configuration contains an entry that cannot be used
@@ -1489,15 +1686,15 @@ and variables are unfinished.
 - **AND** Tab selects c and a further Tab finishes at the final stop
 
 ### Requirement: Completion presentation honours server metadata
-The client SHALL sort merged completion items ordinally by `sortText ?? label` and filter using
-`filterText ?? label`. The editor SHALL initially select the first preselected prefix match, otherwise
-its best match. It SHALL show string or MarkupContent documentation with detail as plain text and reuse
+The client SHALL sort merged completion items ordinally by `sortText ?? label` and match the whole word around the caret using
+`filterText ?? label`, keeping the full list visible. The editor SHALL initially select the first preselected prefix match, otherwise
+its first prefix match, leaving no selection for an empty or unmatched word. It SHALL show string or MarkupContent documentation with detail as plain text and reuse
 Object Browser glyphs for corresponding kinds, using none without a counterpart.
-If no item matches the opening word, the editor SHALL retain the server's list and filter subsequent typing normally.
+If no item matches the opening word, the editor SHALL retain the server's list for explicit acceptance with Tab.
 
 #### Scenario: Server ranking and selection
 - **WHEN** A has sortText `b` and preselect true, and B has sortText `a`, with an empty prefix
-- **THEN** B appears before A and A is selected
+- **THEN** B appears before A and neither item is selected
 
 #### Scenario: Filter text differs from label
 - **WHEN** an item labelled `Display` has filterText `needle` and the user types `nee`
@@ -1506,6 +1703,23 @@ If no item matches the opening word, the editor SHALL retain the server's list a
 #### Scenario: Server replacements do not match the opening word
 - **WHEN** the server offers a snippet replacement labelled `zsnip` over the word `M` and no item matches `M`
 - **THEN** the item remains available to accept and its snippet fields activate normally
+
+### Requirement: Completion acceptance keys
+The editor SHALL follow the VB6 SP6 measurements linked in issue #3056: Enter accepts a selected
+ordinary completion and then commits a new line; Tab accepts without a break; Space accepts and
+then types a space; Escape closes without accepting. With no selection, Enter and Space SHALL close
+the list and only type their character, while Tab SHALL accept the first outlined item, replacing the
+whole word including text after the caret. The first Down SHALL highlight that first item.
+Complete Word SHALL immediately insert a unique prefix match without opening a list.
+A snippet choice picker's Enter SHALL accept without a line break and keep snippet navigation active.
+
+#### Scenario: Enter after a matching prefix
+- **WHEN** Print is selected after `Debug.Pr` and the user presses Enter
+- **THEN** the editor contains `Debug.Print` followed by a real new line
+
+#### Scenario: Enter in a snippet choice picker
+- **WHEN** the user selects `two` in a snippet choice picker and presses Enter
+- **THEN** `two` replaces the placeholder and its linked occurrences, without inserting a line break
 
 ### Requirement: Completion snippet choices
 The editor SHALL expand a numbered choice placeholder to its first value and offer its values in
@@ -1904,6 +2118,24 @@ their digit grouping SHALL continue to use the process culture.
 - **THEN** status, stages, stage elapsed-time units and age SHALL follow the active language immediately
 - **AND** the label column SHALL return to its English width
 
+### Requirement: Code lens resolution SHALL be requested separately from discovery
+
+The client SHALL fetch code lenses without resolving them. It SHALL expose per-lens resolution with
+cancellation and retain the issuing connection when gathering results from multiple servers. The
+registry SHALL refuse lenses for which it has no issuing connection. Complete lenses SHALL require no
+resolve request, and a server without resolve support SHALL receive none.
+
+#### Scenario: A caller needs ten commands from fifty lenses
+
+- **WHEN** a server returns fifty unresolved lenses and the caller requests resolution for ten
+- **THEN** fetching SHALL send no `codeLens/resolve` requests and resolution SHALL send ten
+
+#### Scenario: Equal lenses from different servers
+
+- **WHEN** two servers return lenses with equal ranges and data
+- **THEN** each lens SHALL resolve on its own issuing connection
+- **AND** a copied lens without provenance SHALL send no request
+
 ### Requirement: The complete server list is scrollable
 
 The Language & Debug Servers view SHALL allow all content, including configuration problems and
@@ -1938,3 +2170,77 @@ and SHALL open nothing. This is the project-member slice of #2908; external navi
 
 - **WHEN** a request has `external: true` or names no loaded member
 - **THEN** the response contains `success: false` and nothing opens
+
+### Requirement: Implementation and type definition navigation
+
+The client SHALL declare implementation and typeDefinition capabilities with linkSupport and SHALL offer
+Go to Implementation and Go to Type Definition in the View and code context menus, with keymap entries
+and no default gestures. Each command MUST be enabled only when a running server for that document
+advertises its corresponding provider. HexIDE SHALL display only the server's answer.
+
+The View menu SHALL use separate localized bare-noun labels for Implementation and Type Definition.
+The four navigation entries (Definition, Implementation, Type Definition and Declaration) SHALL have
+four distinct access keys within each menu in every shipped Latin-script pack. Access keys MAY be shared
+with other menu entries. Context labels SHALL use consistent navigation phrasing within each pack (#3096).
+
+#### Scenario: Navigate to a server answer
+- **WHEN** a capable server answers either request with a Location, Location array or LocationLink array
+- **THEN** one result navigates directly to its selection range and several populate the Find References pane
+
+#### Scenario: Independent providers
+- **WHEN** the document's servers advertise only one provider
+- **THEN** only that command is enabled and no request is sent for the other
+
+### Requirement: Code lens sessions bound resolution to the viewport
+
+The client SHALL provide a document lens session that resolves only lenses whose starting lines are in
+its supplied zero-based viewport. Leaving the viewport SHALL cancel pending resolution, and late replies
+from cancelled resolution or superseded discovery SHALL NOT replace the current lenses. Complete lenses
+SHALL NOT be resolved again. Disposing a session SHALL cancel its work and detach refresh subscriptions.
+The code window supplies the viewport and refetches after edit debounce; the Options toggle remains pending.
+
+#### Scenario: Ten visible members among fifty
+
+- **WHEN** discovery returns fifty unresolved lenses and the supplied viewport contains ten
+- **THEN** the session SHALL request only those ten resolutions
+- **AND** scrolling SHALL request newly visible lenses without resolving completed ones again
+
+### Requirement: Workspace code lens refresh invalidates lens sessions
+
+The client SHALL declare `workspace.codeLens.refreshSupport: true`, answer parameterless
+`workspace/codeLens/refresh` with null, and notify consumers with the issuing connection as sender.
+Active lens sessions SHALL discover their lenses again on that notification. Suspended sessions SHALL
+mark their answers stale and defer discovery until a view resumes them.
+
+#### Scenario: A server invalidates its lenses
+
+- **WHEN** a server sends `workspace/codeLens/refresh` without params
+- **THEN** the client SHALL answer null and its active lens sessions SHALL fetch fresh lenses
+- **AND** a registry SHALL retain the originating connection in the notification
+
+### Requirement: Code window lenses are visual actions above member lines
+
+The code window SHALL draw each resolved lens above its range in the editor font, smaller and dimmed.
+Lens space SHALL add no document characters, selection content, caret stops or line numbers. The view
+SHALL supply its visible lines to the lens session on scrolling and suspend new work on detach.
+The document SHALL own the session until disposal, retaining pending requests and completed answers
+across reattachment. Re-docking alone SHALL NOT rediscover lenses; edits SHALL refetch after debounce.
+Clicking a lens SHALL execute a server-declared command through the command router. The commands
+`rdcore.showReferences` and `editor.action.showReferences` SHALL instead fill the existing Find References
+pane from their third argument without sending a references request. Unknown commands SHALL do nothing
+and be logged once per command.
+
+#### Scenario: Lens space follows the editor font metrics
+
+- **GIVEN** a resolved lens in a code window
+- **WHEN** the editor lays out its member line
+- **THEN** the entire lens row SHALL fit above the member text, within one device pixel of layout rounding
+- **AND** this placement SHALL hold with both the editor font and a platform fallback font
+
+#### Scenario: A reference-count lens is clicked
+
+- **GIVEN** a resolved show-references lens above a member
+- **WHEN** the user clicks its label
+- **THEN** the existing Find References pane SHALL show its supplied locations
+- **AND** the document text and numbered lines SHALL remain unchanged
+- **AND** no `textDocument/references` request SHALL be sent

@@ -21,6 +21,45 @@ This is the adjustment everyone makes first and notices most. Restoring the maxi
 the size matters: a window restored to its pre-maximised bounds by a developer who always works maximised
 looks like the setting did not take.
 
+The saved geometry SHALL be the normal restore bounds even while maximised. State, move and resize
+changes SHALL be saved after a 250 ms debounce so restoring waits for settled bounds; clean shutdown
+SHALL flush pending geometry. A forced stop can lose changes within that interval.
+Normal bounds SHALL be sampled at save time, after state transitions settle, rather than from individual
+move/resize events that can precede the maximised state notification. On a maximised launch, the saved
+normal size SHALL be applied by layout to the platform window before requesting maximisation.
+Restored normal bounds, including defaults, SHALL fit the selected screen's working area, accounting
+for screen scaling and window decorations. On Windows the fit SHALL exclude invisible resize borders,
+measured by comparing GetWindowRect with DWM extended frame bounds. If that measurement is unavailable,
+and on other platforms, the fit SHALL use Avalonia FrameSize. The size SHALL NOT be reduced below the window's minimum
+size; when that minimum exceeds the working area, its position SHALL use that area's origin.
+A position on a disconnected monitor SHALL use the primary working area. Bounds already fitting the
+working area SHALL remain unchanged.
+
+#### Scenario: Restoring onto a smaller working area
+- **WHEN** default 1280 by 800 or saved 1600 by 1000 normal bounds are restored onto a 1280 by 720 DIP working area
+- **THEN** the normal size is reduced to fit, subject to the window's minimum size
+- **AND** the position is adjusted to keep the whole window inside the working area
+- **AND** a saved Maximized flag still opens the window maximised
+
+#### Scenario: Preserving bounds that fit
+- **WHEN** saved 860 by 640 normal bounds at (0,0) fit the working area
+- **THEN** they are restored unchanged
+
+#### Scenario: Reopening after a forced stop
+- **WHEN** the IDE is restored from maximised, resized or moved, and forcibly stopped after the debounce
+- **THEN** the next launch uses the settled normal bounds
+- **AND** a maximised session retains those bounds for a later restore
+
+#### Scenario: Native maximisation reports geometry before state
+- **WHEN** the host sends maximised move/resize events while the window still reports Normal
+- **AND** reports Maximized before the debounce expires
+- **THEN** the saved geometry retains the previous normal bounds with the Maximized flag
+
+#### Scenario: Restoring after a maximised relaunch
+- **WHEN** the IDE launches with saved Maximized state and normal bounds of 860 by 640
+- **AND** the developer un-maximises it
+- **THEN** its normal client size is 860 by 640
+
 #### Scenario: Reopening after resizing
 - **WHEN** the IDE is resized or moved and then restarted
 - **THEN** it reopens with the same geometry

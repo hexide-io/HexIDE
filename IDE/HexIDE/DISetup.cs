@@ -56,6 +56,7 @@ public partial class DISetup
             })
             .Bind().As(Singleton).To<FormLayoutToolViewModel>()
             .Bind().As(Singleton).To<FindReferencesToolViewModel>()
+            .Bind().As(Singleton).To<CallHierarchyToolViewModel>()
             .Bind().As(Singleton).To<ImmediateToolViewModel>()
             .Bind().As(Singleton).To<LocalsToolViewModel>()
             .Bind().As(Singleton).To<OutlineToolViewModel>()
@@ -270,11 +271,14 @@ public partial class DISetup
 
                 ctx.Inject<ISettingsService>(out var settings);
                 ctx.Inject<Func<IEditorService>>(out var editors);
+                ctx.Inject<Func<IProjectRunnerService>>(out var runners);
+                var serverPrompts = new ServerMessagePrompt(() => runners().IsRunning || windows.IsNativeDialogOpen);
                 var registrations = new LanguageServerRegistrationFactory(loggerFactory, workspace, capture, providers,
                     new HexIDE.Redaction.ConversationRedactor(pseudonyms),
                     () => localization.ResolvedLanguage, settings,
                     (request, token) => Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(
-                        () => editors().ShowDocument(request), Avalonia.Threading.DispatcherPriority.Normal, token).GetTask())
+                        () => editors().ShowDocument(request), Avalonia.Threading.DispatcherPriority.Normal, token).GetTask(),
+                    serverPrompts.ShowAsync)
                     .Create(configuration.Entries);
 
                 // Distinguishable from "servers fine, nothing to say" — the confusion #231 documents, and
@@ -289,7 +293,7 @@ public partial class DISetup
                         new LanguageServerConfigProblem(
                             null,
                             "No language servers are configured, so language features are unavailable.",
-                            false),
+                            false).WithDetails("NoServers"),
                     ];
                 }
 

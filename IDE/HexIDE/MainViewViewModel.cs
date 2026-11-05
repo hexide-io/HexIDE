@@ -277,6 +277,8 @@ public partial class MainViewViewModel : ObservableObject
 
     public class DockFactory : Factory
     {
+        internal const double MinimumDocumentHeight = 120;
+
         private readonly IWindowStateService windowStateService;
         private readonly Dictionary<string, IDockable> toolsByKey;
         private readonly Dictionary<string, ToolLayoutState> deferredTools = new();
@@ -506,6 +508,7 @@ public partial class MainViewViewModel : ObservableObject
                     VisibleDockables = CreateList<IDockable>(),
                 };
             }
+            dd.MinHeight = Math.Max(MinimumDocumentHeight, double.IsFinite(dd.MinHeight) ? dd.MinHeight : 0);
             DocumentDock = dd;
 
             var documentTools = OpenIn(DockRegion.Document)
@@ -1094,6 +1097,17 @@ public partial class MainViewViewModel : ObservableObject
     private readonly HexIDE.Debugging.IBreakpointService breakpointService;
     private readonly HexIDE.Runtime.Debugging.IDebugController debugController;
 
+    private void ShowResultsTool(Tool tool)
+    {
+        if (FindDock<IDockable>(d => ReferenceEquals(d, tool)) is null)
+        {
+            OpenImmediateTool();
+            dockFactory.AddDockable((IToolDock)Immediate.Owner!, tool);
+        }
+        ((IDock)tool.Owner!).ActiveDockable = tool;
+        dockFactory.SetFocusedDockable((IDock)tool.Owner!, tool);
+    }
+
     public MainViewViewModel(IWindowManager windowManager,
         ToolBoxToolViewModel toolBox,
         PropertiesToolViewModel properties,
@@ -1138,6 +1152,7 @@ public partial class MainViewViewModel : ObservableObject
         HexIDE.Runtime.Debugging.IDebugController debugController,
         RecentEditsToolViewModel recentEdits,
         FindReferencesToolViewModel? findReferences,
+        CallHierarchyToolViewModel? callHierarchy,
         HexIDE.Debugging.ExternalDebugService? externalDebugger = null,
         HexIDE.Recovery.IRecoveryOffers? recoveryOffers = null,
         RunWithMenuViewModel? runWith = null)
@@ -1145,17 +1160,16 @@ public partial class MainViewViewModel : ObservableObject
         RunWith = runWith;
         if (findReferences is not null)
         {
+            eventBus.Subscribe<NavigationLocationsEvent>(e => findReferences.ShowLocations(e.Locations));
+            findReferences.LayoutResized += ScheduleLayoutSave;
+            eventBus.Subscribe<ShowReferenceLocationsEvent>(e => findReferences.ShowLocations(e.Locations));
             eventBus.Subscribe<FindReferencesEvent>(e => findReferences.SearchAsync(e.Uri, e.Position).ListenErrors());
-            findReferences.ShowRequested += () =>
-            {
-                if (FindDock<IDockable>(d => ReferenceEquals(d, findReferences)) is null)
-                {
-                    OpenImmediateTool();
-                    dockFactory.AddDockable((IToolDock)immediate.Owner!, findReferences);
-                }
-                ((IDock)findReferences.Owner!).ActiveDockable = findReferences;
-                dockFactory.SetFocusedDockable((IDock)findReferences.Owner!, findReferences);
-            };
+            findReferences.ShowRequested += () => ShowResultsTool(findReferences);
+        }
+        if (callHierarchy is not null)
+        {
+            eventBus.Subscribe<CallHierarchyEvent>(e => callHierarchy.SearchAsync(e.Uri, e.Position).ListenErrors());
+            callHierarchy.ShowRequested += () => ShowResultsTool(callHierarchy);
         }
         this.recoveryOffers = recoveryOffers;
         RecoverUnsavedWorkCommand = new DelegateCommand(
@@ -2076,9 +2090,18 @@ public partial class MainViewViewModel : ObservableObject
         _layoutSaveTimer.Start();
     }
 
+    private bool CanSaveLayout()
+    {
+        if (dockFactory.DocumentDock is not { } document) return false;
+        document.GetVisibleBounds(out _, out _, out _, out var height);
+        return height >= Math.Max(DockFactory.MinimumDocumentHeight,
+            double.IsFinite(document.MinHeight) ? document.MinHeight : 0);
+    }
+
     private void FlushLayoutSaveDebounced()
     {
         _layoutSaveTimer.Stop();
+        if (!CanSaveLayout()) return;
         var json = LayoutManifestJson.Serialize(dockFactory.CaptureManifest(Layout));
         if (json == _lastSavedLayoutJson) return; // nothing actually changed since the last write
         _lastSavedLayoutJson = json;
@@ -2086,10 +2109,11 @@ public partial class MainViewViewModel : ObservableObject
     }
 
     /// <summary>Capture and persist the current dock layout synchronously (called on window close).
-    /// Unconditional, so the final state lands on disk even if a debounced write was still pending.</summary>
+    /// Keeps the last valid layout if the document area is below its minimum.</summary>
     public void SaveLayout()
     {
         _layoutSaveTimer.Stop();
+        if (!CanSaveLayout()) return;
         var json = LayoutManifestJson.Serialize(dockFactory.CaptureManifest(Layout));
         _lastSavedLayoutJson = json;
         windowStateService.SaveLayoutManifestJson(json);

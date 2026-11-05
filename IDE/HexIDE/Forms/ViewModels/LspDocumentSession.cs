@@ -13,7 +13,7 @@ namespace HexIDE.Forms.ViewModels;
 
 /// <summary>
 /// One open document's conversation with the language layer: opened, kept synchronized while it is
-/// edited, closed when its editor closes, and its diagnostics turned into editor markers.
+/// edited, closed when its last editor or project holder lets go, and its diagnostics turned into editor markers.
 ///
 /// <para>
 /// <b>Shared rather than copied, and the reason is the subtle parts.</b> Ninety lines is small enough to
@@ -66,14 +66,14 @@ internal sealed class LspDocumentSession : IDisposable
     /// pump it.
     /// </param>
     /// <summary>
-    /// One name's document on one client, however many editors hold it.
+    /// One name's document on one client, however many editors or projects hold it.
     /// </summary>
     /// <remarks>
     /// <para>
     /// <b>Why it is shared.</b> Two code windows can hold one name. One file shared by two projects of a group
     /// does, and a project group's two <c>Form1</c>s did before #273. A server has one document for a name, so
-    /// it must be opened once, given one sequence of versions, and closed when the last window holding it
-    /// closes. Each session used to keep its own: the server was opened twice, saw two counts interleave and
+    /// it must be opened once, given one sequence of versions, and closed when its last holder lets go.
+    /// A project holding unsaved text counts even with no window (#3064). Each session used to keep its own: the server was opened twice, saw two counts interleave and
     /// discarded whichever was behind, and lost the document when either window closed
     /// (hexide-io/HexIDE#721).
     /// </para>
@@ -324,6 +324,21 @@ internal sealed class LspDocumentSession : IDisposable
         await client.SaveDocumentAsync(Uri, cancellationToken);
     }
 
+    /// <summary>A project holder uses its own buffer, so it does not keep a closed editor alive.</summary>
+    internal LspDocumentSession CreateProjectHolder()
+    {
+        var holder = new LspDocumentSession(client, new TextDocument(document.Text), Uri, isProjectMember);
+        holder.Start();
+        // A save through the project holder must wait for the closing window's pending send too.
+        holder.changeInFlight = FlushAsync();
+        return holder;
+    }
+
+    internal void UpdateText(string text)
+    {
+        if (!disposed && document.Text != text) document.Text = text;
+    }
+
     public void Dispose()
     {
         if (disposed) return;
@@ -427,6 +442,8 @@ internal sealed class LspDocumentSession : IDisposable
             TaskScheduler.Default);
     }
 
+    internal Diagnostic[] Diagnostics { get; private set; } = [];
+
     private void OnDiagnosticsPublished(object? sender, PublishDiagnosticsParams p)
     {
         if (disposed) return;
@@ -443,6 +460,7 @@ internal sealed class LspDocumentSession : IDisposable
         postToUiThread(() =>
         {
             if (disposed) return;
+            Diagnostics = p.Diagnostics;
             MarkersChanged?.Invoke(ToMarkers(p.Diagnostics));
             DiagnosticsApplied?.Invoke();
         });

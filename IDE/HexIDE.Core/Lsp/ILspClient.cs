@@ -16,6 +16,9 @@ public interface ILspClient : IAsyncDisposable
     /// <summary>Rechecks the workspace root and reopens held documents if it moved.</summary>
     Task WorkspaceChangedAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
 
+    /// <summary>The server invalidated code lenses; sender identifies the issuing connection.</summary>
+    event EventHandler? CodeLensRefreshRequested;
+
     /// <summary>Fired when the server sends textDocument/publishDiagnostics.</summary>
     event EventHandler<PublishDiagnosticsParams>? DiagnosticsPublished;
 
@@ -98,6 +101,9 @@ public interface ILspClient : IAsyncDisposable
     event EventHandler? StateChanged;
 
     bool IsRunning { get; }
+
+    bool SupportsSelectionRanges(string uri) =>
+        IsRunning && ServerCapabilities.Supports(AdvertisedCapabilities, "selectionRangeProvider");
 
     /// <summary>
     /// What the server called itself during <c>initialize</c>, or null if it said nothing or nothing is
@@ -229,6 +235,9 @@ public interface ILspClient : IAsyncDisposable
     /// <summary>Sends textDocument/foldingRange and returns the list of fold ranges, or empty.</summary>
     Task<SemanticTokenResult?> RequestSemanticTokensAsync(string uri, CancellationToken cancellationToken = default);
 
+    /// <summary>Returns the server's enclosing range chains at the supplied positions.</summary>
+    Task<SelectionRange[]> RequestSelectionRangesAsync(string uri, Position[] positions, CancellationToken cancellationToken = default);
+
     Task<FoldingRange[]> RequestFoldingRangesAsync(string uri, CancellationToken cancellationToken = default);
 
     /// <summary>Sends textDocument/completion and returns completion items, or empty.</summary>
@@ -262,7 +271,30 @@ public interface ILspClient : IAsyncDisposable
     async Task<ReferenceSearchResult> FindReferencesAsync(string uri, Position position, CancellationToken cancellationToken = default)
         => new(await RequestReferencesAsync(uri, position, cancellationToken), []);
 
+    bool SupportsCallHierarchy(string uri) => IsRunning
+        && ServerCapabilities.Supports(AdvertisedCapabilities, "callHierarchyProvider");
+
+    Task<CallHierarchyItem[]> PrepareCallHierarchyAsync(string uri, Position position, CancellationToken ct = default)
+        => Task.FromResult<CallHierarchyItem[]>([]);
+    Task<CallHierarchyIncomingCall[]> RequestIncomingCallsAsync(CallHierarchyItem item, CancellationToken ct = default)
+        => Task.FromResult<CallHierarchyIncomingCall[]>([]);
+    Task<CallHierarchyOutgoingCall[]> RequestOutgoingCallsAsync(CallHierarchyItem item, CancellationToken ct = default)
+        => Task.FromResult<CallHierarchyOutgoingCall[]>([]);
+
+    async Task<CallHierarchyResult> FindCallHierarchyAsync(string uri, Position position, CancellationToken ct = default)
+        => new((await PrepareCallHierarchyAsync(uri, position, ct)).Select(item => new CallHierarchyRoot(this, item)).ToArray(), []);
+
     Task<Location[]> RequestReferencesAsync(string uri, Position position, CancellationToken cancellationToken = default);
+
+    /// <summary>Whether a running server for this document offers the capability.</summary>
+    bool SupportsCapability(string uri, string capability) =>
+        IsRunning && ServerCapabilities.Supports(AdvertisedCapabilities, capability);
+
+    Task<Location[]?> RequestImplementationAsync(string uri, Position position, CancellationToken cancellationToken = default)
+        => Task.FromResult<Location[]?>(null);
+
+    Task<Location[]?> RequestTypeDefinitionAsync(string uri, Position position, CancellationToken cancellationToken = default)
+        => Task.FromResult<Location[]?>(null);
 
     Task<Location[]?> RequestDefinitionAsync(string uri, Position position, CancellationToken cancellationToken = default);
 
@@ -279,8 +311,20 @@ public interface ILspClient : IAsyncDisposable
     Task<Location[]?> RequestDeclarationAsync(string uri, Position position, CancellationToken cancellationToken = default);
     Task<DocumentHighlight[]?> RequestDocumentHighlightAsync(string uri, Position position, CancellationToken cancellationToken = default);
 
+    /// <summary>Requests server fixes on demand, retaining their origin for resolution and execution.</summary>
+    Task<OfferedCodeAction[]> RequestCodeActionsAsync(string uri, HexIDE.Lsp.Messages.Range range, Diagnostic[] diagnostics,
+        CancellationToken cancellationToken = default) => Task.FromResult<OfferedCodeAction[]>([]);
+    /// <summary>Asks supporting servers before prompting; null means preparation is unsupported.</summary>
+    Task<PrepareRenameResult?> RequestPrepareRenameAsync(string uri, Position position, CancellationToken cancellationToken = default)
+        => Task.FromResult<PrepareRenameResult?>(null);
+
     /// <summary>Sends textDocument/rename and returns edits, a refusal, or null for no change.</summary>
     Task<RenameResult?> RequestRenameAsync(string uri, Position position, string newName, CancellationToken cancellationToken = default);
+
+    /// <summary>Whether an open document has a running claimant advertising range formatting.</summary>
+    bool SupportsRangeFormatting(string uri);
+    /// <summary>Sends textDocument/rangeFormatting to one advertising claimant.</summary>
+    Task<TextEdit[]> RequestRangeFormattingAsync(string uri, HexIDE.Lsp.Messages.Range range, FormattingOptions options, CancellationToken cancellationToken = default);
 
     /// <summary>Sends textDocument/formatting and returns text edits, or empty.</summary>
     Task<TextEdit[]> RequestFormattingAsync(string uri, FormattingOptions options, CancellationToken cancellationToken = default);
@@ -291,14 +335,13 @@ public interface ILspClient : IAsyncDisposable
     /// <summary>
     /// Sends <c>textDocument/codeLens</c> and returns the lenses, or empty.
     /// </summary>
-    /// <remarks>
-    /// <b>Every lens that comes back is resolved.</b> The protocol lets a server return a lens with no
-    /// command and expect a <c>codeLens/resolve</c> round trip, and an unresolved lens is one the user can
-    /// see and cannot click — the worst of the three states. An implementation therefore resolves its own
-    /// before answering, which keeps the resolve on the connection that issued the lens without any caller
-    /// having to know that lenses have provenance.
-    /// </remarks>
     Task<CodeLens[]> RequestCodeLensesAsync(string uri, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Resolves a previously fetched lens on its issuing connection, or returns null if unavailable.
+    /// Callers request resolution only while the lens is visible and cancel when it leaves the viewport.
+    /// </summary>
+    Task<CodeLens?> ResolveCodeLensAsync(CodeLens lens, CancellationToken cancellationToken = default);
 
     /// <summary>Notifies opted-in servers of workspace folder changes before project import.</summary>
     Task UpdateWorkspaceFoldersAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;

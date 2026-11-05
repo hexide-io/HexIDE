@@ -36,6 +36,7 @@ namespace HexIDE.Forms.Views;
 public partial class CodeEditorView : UserControl
 {
     private IDisposable? sub;
+    private CodeLensDisplay? codeLenses;
     private LspTextMarkerService? _markerService;
     private LspDiagnosticsColorizer? _colorizer;
     private BracketDepthColorizer? _bracketDepthColorizer;
@@ -122,6 +123,9 @@ public partial class CodeEditorView : UserControl
 
     public CodeEditorView()
     {
+        ExpandSelection = new DelegateCommand(() => _ = ExpandSelectionAsync(), CanChangeSelection);
+        ShrinkSelection = new DelegateCommand(ShrinkSelectionCore, CanChangeSelection);
+
         // Through the view model, because a designer change reaches this window as a header write and a
         // header write is not an edit the developer made here (#273 task 3.8). TextEditor.Undo is still
         // what pops each entry -- it is AvaloniaEdit's own command route and does the caret and selection
@@ -197,6 +201,7 @@ public partial class CodeEditorView : UserControl
         TextEditor.TextChanged += OnTextChangedForFolding;
 
         TextEditor.TextArea.Caret.PositionChanged += OnCaretPositionChanged;
+        TextEditor.TextArea.SelectionChanged += (_, _) => ResetSelectionChain();
     }
 
     private void TextChanged(object? sender, EventArgs e)
@@ -218,6 +223,8 @@ public partial class CodeEditorView : UserControl
 
     public void TriggerCompletion() => TriggerCompletionAsync();
 
+    public void CompleteWord() => TriggerCompletionAsync(completeWord: true);
+
     public void TriggerSignatureHelp() => TriggerSignatureHelpAsync();
 
     public async Task InsertFile()
@@ -229,6 +236,7 @@ public partial class CodeEditorView : UserControl
     protected override void OnDataContextChanged(EventArgs e)
     {
         base.OnDataContextChanged(e);
+        ResetSelectionChain();
         InstallReadOnlySections();
     }
 
@@ -308,6 +316,7 @@ public partial class CodeEditorView : UserControl
                 _vmSelectionSync(vm, new PropertyChangedEventArgs(nameof(CodeEditorViewModel.SelectionLength)));
             _editorSelectionSync = (_, _) =>
             {
+                CommandManager.InvalidateRequerySuggested();
                 if (_syncingSelection) return;
                 _syncingSelection = true;
                 try
@@ -329,6 +338,9 @@ public partial class CodeEditorView : UserControl
             _watchedDocument.Changing += OnDocumentChangingForResetPrompt;
             _watchedDocument.UpdateStarted += OnDocumentUpdateStartedForFolding;
             _watchedDocument.Changing += OnDocumentChangingForFolding;
+
+            codeLenses = new CodeLensDisplay(TextEditor, CodeLensLayer, vm.CreateCodeLensSession(),
+                command => vm.RunCodeLensAsync(command).ListenErrors());
 
             _inlayHintRenderer = new InlayHintRenderer(TextEditor);
             TextEditor.TextArea.TextView.BackgroundRenderers.Add(_inlayHintRenderer);
@@ -413,8 +425,12 @@ public partial class CodeEditorView : UserControl
             if (_externalDebugger is not null)
             {
                 int? displayedExecutionLine = null;
-                _onExternalDebugChanged = () =>
+                Action? onExternalDebugChanged = null;
+                onExternalDebugChanged = () =>
                 {
+                    // Re-docking can detach and re-attach us during this event's invocation. Only this
+                    // attachment's callback may touch the view, even if the old delegate is still queued.
+                    if (!ReferenceEquals(_onExternalDebugChanged, onExternalDebugChanged)) return;
                     _hoverCts?.Cancel();
                     _hoverCts?.Dispose();
                     _hoverCts = null;
@@ -432,6 +448,7 @@ public partial class CodeEditorView : UserControl
                         TextEditor.ScrollToLine(line.Value);
                     displayedExecutionLine = line;
                 };
+                _onExternalDebugChanged = onExternalDebugChanged;
                 _externalDebugger.Changed += _onExternalDebugChanged;
                 _onExternalDebugChanged();
             }
@@ -569,6 +586,8 @@ public partial class CodeEditorView : UserControl
             TextEditor.TextArea.SelectionChanged -= _editorSelectionSync;
             _editorSelectionSync = null;
         }
+        codeLenses?.Dispose();
+        codeLenses = null;
         Minimap.Detach();
         _indentGuideRenderer?.Dispose();
         _indentGuideRenderer = null;
@@ -742,6 +761,7 @@ public partial class CodeEditorView : UserControl
 
     private void OnCaretPositionChanged(object? sender, EventArgs e)
     {
+        ResetSelectionChain();
         if (DataContext is CodeEditorViewModel vm)
         {
             vm.CaretOffset = TextEditor.CaretOffset;
@@ -758,6 +778,7 @@ public partial class CodeEditorView : UserControl
 
     private void OnTextChangedForFolding(object? sender, EventArgs e)
     {
+        ResetSelectionChain();
         // Binding the document before attach is covered by the initial folding request on attach.
         if (_foldingManager is null || DataContext is not CodeEditorViewModel vm) return;
         // Not left to the debounced request below: a reload removes every fold, and the header would show
@@ -1182,8 +1203,18 @@ public partial class CodeEditorView : UserControl
     /// </remarks>
     private void OnLanguageServerStateChanged()
     {
+        ResetSelectionChain();
+        ExpandSelection.RaiseCanExecutedChanged();
+        ShrinkSelection.RaiseCanExecutedChanged();
+        CommandManager.InvalidateRequerySuggested();
         _semanticVersion++;
-        if (DataContext is CodeEditorViewModel vm) ScheduleFolding(vm);
+        if (DataContext is CodeEditorViewModel vm)
+        {
+            codeLenses?.Dispose();
+            codeLenses = new CodeLensDisplay(TextEditor, CodeLensLayer, vm.CreateCodeLensSession(),
+                command => vm.RunCodeLensAsync(command).ListenErrors());
+            ScheduleFolding(vm);
+        }
     }
 
     private void ScheduleFolding(CodeEditorViewModel vm)
@@ -1201,6 +1232,9 @@ public partial class CodeEditorView : UserControl
         try
         {
             await Task.Delay(500, token);
+            codeLenses?.Dispose();
+            codeLenses = new CodeLensDisplay(TextEditor, CodeLensLayer, vm.CreateCodeLensSession(),
+                command => vm.RunCodeLensAsync(command).ListenErrors());
             await Task.WhenAll(RequestFoldingsAsync(vm, token), RequestSemanticTokensAsync(vm, token));
         }
         catch (OperationCanceledException) { }
@@ -1213,7 +1247,7 @@ public partial class CodeEditorView : UserControl
         if (colorizer is null) return;
         try
         {
-            var result = await vm.RequestSemanticTokensAsync(token);
+            var result = await vm.Analysis.Tokens(token);
             await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
             {
                 if (token.IsCancellationRequested || version != _semanticVersion
@@ -1227,16 +1261,17 @@ public partial class CodeEditorView : UserControl
 
     private async Task RequestFoldingsAsync(CodeEditorViewModel vm, CancellationToken token)
     {
-        if (_foldingManager is null) return;
+        var manager = _foldingManager;
+        if (manager is null) return;
         _ = RequestInlayHintsAsync(vm, token);
         try
         {
-            var ranges = await vm.RequestFoldingRangesAsync(token);
+            var ranges = await vm.Analysis.Folds(token);
             if (token.IsCancellationRequested) return;
             var doc = TextEditor.Document;
             await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
             {
-                if (token.IsCancellationRequested || _foldingManager is null) return;
+                if (token.IsCancellationRequested || !ReferenceEquals(manager, _foldingManager)) return;
                 ApplyFolds(vm, Vb6FoldingAdapter.FromServer(doc, ranges));
                 _stickyScroll?.Refresh();
             });
@@ -1251,12 +1286,13 @@ public partial class CodeEditorView : UserControl
     private async Task RequestInlayHintsAsync(CodeEditorViewModel vm, CancellationToken token)
     {
         var revision = _inlayRevision;
+        var renderer = _inlayHintRenderer;
         try
         {
-            var hints = await vm.RequestInlayHintsAsync(token);
+            var hints = await vm.Analysis.Hints(token);
             await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
             {
-                if (token.IsCancellationRequested || revision != _inlayRevision || DataContext != vm) return;
+                if (token.IsCancellationRequested || revision != _inlayRevision || !ReferenceEquals(renderer, _inlayHintRenderer) || DataContext != vm) return;
                 _inlayHintRenderer?.SetHints(vm.Settings.ShowInlayHints ? hints : []);
             });
         }
@@ -1605,6 +1641,8 @@ public partial class CodeEditorView : UserControl
         var richTip = new ToolTip { Content = panel };
         richTip.PointerEntered += (_, _) => _hoverCts?.Cancel();
         richTip.PointerExited += (_, _) => _ = CloseRichTipAfterExitAsync(richTip);
+        // Replacing the tip instance does not update the popup that is already open.
+        ToolTip.SetIsOpen(TextEditor, false);
         ToolTip.SetTip(TextEditor, richTip);
         ToolTip.SetIsOpen(TextEditor, true);
     }
@@ -1865,6 +1903,29 @@ public partial class CodeEditorView : UserControl
         {
             e.Handled = true;
             return;
+        }
+        if (e.KeyModifiers == KeyModifiers.None)
+        {
+            if (e.Key == Key.Return && CompletionSnippet.OpenChoiceWindows(TextEditor.TextArea).FirstOrDefault() is { } choice)
+            {
+                choice.CompletionList.RequestInsertion(e);
+                e.Handled = true;
+                return;
+            }
+            if (_completionWindow is { } completion && e.Key is Key.Return or Key.Tab or Key.Space)
+            {
+                if (e.Key == Key.Tab && completion.CompletionList.SelectedItem is null)
+                    completion.CompletionList.SelectedItem = completion.CompletionList.CompletionData.FirstOrDefault();
+                if (completion.CompletionList.SelectedItem is not null)
+                    completion.CompletionList.RequestInsertion(e);
+                else
+                    completion.Close();
+                if (e.Key == Key.Tab)
+                {
+                    e.Handled = true;
+                    return;
+                }
+            }
         }
         // Enter = auto-close block + auto-indent
         if (e.Key == Key.Return && e.KeyModifiers == KeyModifiers.None)
@@ -2399,7 +2460,7 @@ public partial class CodeEditorView : UserControl
         return true;
     }
 
-    private void TriggerCompletionAsync(string? triggerCharacter = null)
+    private void TriggerCompletionAsync(string? triggerCharacter = null, bool completeWord = false)
     {
         if (DataContext is not CodeEditorViewModel vm) return;
         if (!vm.Settings.AutoListMembers) return;
@@ -2411,11 +2472,11 @@ public partial class CodeEditorView : UserControl
 
         var caret = TextEditor.TextArea.Caret.Position;
         var lspPos = new Position(caret.Line - 1, caret.Column - 1);
-        _completionShown = ShowCompletionAsync(vm, lspPos, token, triggerCharacter);
+        _completionShown = ShowCompletionAsync(vm, lspPos, token, triggerCharacter, completeWord);
     }
 
     private async Task ShowCompletionAsync(CodeEditorViewModel vm, Position position, CancellationToken token,
-        string? triggerCharacter)
+        string? triggerCharacter, bool completeWord)
     {
         try
         {
@@ -2437,6 +2498,19 @@ public partial class CodeEditorView : UserControl
                 // If a window is already open, close it first
                 _completionWindow?.Close();
 
+                if (completeWord)
+                {
+                    var (start, end) = CompletionWord(TextEditor.TextArea);
+                    var word = TextEditor.Document.GetText(start, end - start);
+                    var matches = items.Where(item => (item.FilterText ?? item.Label)
+                        .StartsWith(word, StringComparison.OrdinalIgnoreCase)).ToArray();
+                    if (word.Length > 0 && matches.Length == 1)
+                    {
+                        new VbCompletionData(matches[0], vm.RefusesTyping).Complete(TextEditor.TextArea,
+                            new TextSegment { StartOffset = start, Length = end - start }, EventArgs.Empty);
+                        return;
+                    }
+                }
                 _completionWindow = new CompletionWindow(TextEditor.TextArea);
                 FillCompletionList(_completionWindow, items, vm.RefusesTyping);
 
@@ -2455,32 +2529,44 @@ public partial class CodeEditorView : UserControl
         Func<int, int, bool> refusesTyping)
     {
         var area = window.TextArea;
-        var start = area.Caret.Offset;
-        while (start > 0 && (char.IsLetterOrDigit(area.Document.GetCharAt(start - 1))
-                            || area.Document.GetCharAt(start - 1) == '_'))
-            start--;
+        var (start, end) = CompletionWord(area);
         window.StartOffset = start;
-        var prefix = area.Document.GetText(start, area.Caret.Offset - start);
-        VbCompletionData? preselected = null;
+        window.EndOffset = end;
+        window.CloseWhenCaretAtBeginning = false;
+        window.CompletionList.IsFiltering = false;
         foreach (var item in items.OrderBy(item => item.SortText ?? item.Label, StringComparer.Ordinal))
+            window.CompletionList.CompletionData.Add(new VbCompletionData(item, refusesTyping));
+
+        void SelectWord(object? sender, EventArgs e)
         {
-            var data = new VbCompletionData(item, refusesTyping);
-            window.CompletionList.CompletionData.Add(data);
-            if (preselected is null && item.Preselect == true
-                && data.Text.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
-                preselected = data;
+            var (wordStart, wordEnd) = CompletionWord(area);
+            var word = area.Document.GetText(wordStart, wordEnd - wordStart);
+            var matches = window.CompletionList.CompletionData
+                .Where(data => word.Length > 0 && data.Text.StartsWith(word, StringComparison.OrdinalIgnoreCase));
+            window.CompletionList.SelectedItem = matches.FirstOrDefault(data =>
+                items.Any(item => item.Preselect == true && (item.FilterText ?? item.Label) == data.Text))
+                ?? matches.FirstOrDefault();
+            if (window.CompletionList.SelectedItem is { } selected)
+                window.CompletionList.ScrollIntoView(selected);
         }
-        window.CompletionList.SelectItem(prefix);
-        // A server replacement need not match the word at the caret. Keep it available to accept.
-        if (window.CompletionList.CurrentList.Count == 0)
-            window.CompletionList.SelectItem(string.Empty);
-        if (preselected is not null)
-            Avalonia.Threading.Dispatcher.UIThread.Post(() =>
-            {
-                if (!window.IsOpen) return;
-                window.CompletionList.SelectedItem = preselected;
-                window.CompletionList.ScrollIntoView(preselected);
-            }, Avalonia.Threading.DispatcherPriority.Loaded);
+        // Run after the popup's caret handler, which matches only the text before the caret.
+        window.Opened += (_, _) =>
+        {
+            area.Caret.PositionChanged += SelectWord;
+            SelectWord(null, EventArgs.Empty);
+        };
+        window.Closed += (_, _) => area.Caret.PositionChanged -= SelectWord;
+    }
+
+    private static (int Start, int End) CompletionWord(AvaloniaEdit.Editing.TextArea area)
+    {
+        var start = area.Caret.Offset;
+        var end = start;
+        while (start > 0 && IsWord(area.Document.GetCharAt(start - 1))) start--;
+        while (end < area.Document.TextLength && IsWord(area.Document.GetCharAt(end))) end++;
+        return (start, end);
+
+        static bool IsWord(char ch) => char.IsLetterOrDigit(ch) || ch == '_';
     }
 
     // ── Signature help ───────────────────────────────────────────────────────
@@ -2610,6 +2696,19 @@ public partial class CodeEditorView : UserControl
 
     // ── Go to definition (F12) and declaration (Ctrl+F12) ─────────────────────
 
+    private void CanShowCallHierarchy(object? sender, Avalonia.Labs.Input.CanExecuteRoutedEventArgs e)
+    {
+        e.CanExecute = DataContext is CodeEditorViewModel { CanShowCallHierarchy: true };
+        e.Handled = true;
+    }
+
+    private void CallHierarchyExecuted(object? sender, Avalonia.Labs.Input.ExecutedRoutedEventArgs e)
+    {
+        if (DataContext is CodeEditorViewModel vm)
+            vm.ShowCallHierarchyAsync(new Position(TextEditor.TextArea.Caret.Line - 1,
+                TextEditor.TextArea.Caret.Column - 1)).ListenErrors();
+    }
+
     public void FindReferences()
     {
         if (DataContext is CodeEditorViewModel vm)
@@ -2618,6 +2717,21 @@ public partial class CodeEditorView : UserControl
     }
 
     public void GoToDefinition() => GoTo("definition", (vm, p) => vm.RequestDefinitionAsync(p));
+
+    public void GoToImplementation() => GoTo("implementation", (vm, p) => vm.RequestImplementationAsync(p));
+    public void GoToTypeDefinition() => GoTo("typeDefinition", (vm, p) => vm.RequestTypeDefinitionAsync(p));
+
+    private void CanGoToImplementation(object? sender, Avalonia.Labs.Input.CanExecuteRoutedEventArgs e)
+    {
+        e.CanExecute = DataContext is CodeEditorViewModel vm && vm.CanGoToImplementation();
+        e.Handled = true;
+    }
+
+    private void CanGoToTypeDefinition(object? sender, Avalonia.Labs.Input.CanExecuteRoutedEventArgs e)
+    {
+        e.CanExecute = DataContext is CodeEditorViewModel vm && vm.CanGoToTypeDefinition();
+        e.Handled = true;
+    }
 
     /// <summary>
     /// Where the symbol is DECLARED, which is a different question from where it is defined.
@@ -2649,6 +2763,12 @@ public partial class CodeEditorView : UserControl
             if (locations is not { Length: > 0 })
                 return;
 
+            if (locations.Length > 1 && what is "implementation" or "typeDefinition")
+            {
+                await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => vm.ShowNavigationLocations(locations));
+                return;
+            }
+
             var loc = locations[0];
             var targetLine = loc.Range.Start.Line + 1; // AvaloniaEdit is 1-based
             var targetCol  = loc.Range.Start.Character;
@@ -2673,7 +2793,7 @@ public partial class CodeEditorView : UserControl
                 else
                 {
                     // Cross-file: ask the VM to navigate (uses IEditorService)
-                    vm.NavigateToUri(loc.Uri, targetLine, targetCol);
+                    vm.NavigateToUri(loc.Uri, targetLine, targetCol + 1);
                 }
             });
         }
@@ -2681,6 +2801,54 @@ public partial class CodeEditorView : UserControl
         catch (Exception ex)
         {
             Log.Debug("[{What}] {ErrorMessage}", what, ex.Message);
+        }
+    }
+
+    private async void OnQuickFixesOpened(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (ReferenceEquals(e.Source, QuickFixesMenu)) await LoadQuickFixesAsync();
+    }
+
+    internal async Task LoadQuickFixesAsync()
+    {
+        if (DataContext is not CodeEditorViewModel vm) return;
+        QuickFixesMenu.Items.Clear();
+        // Keep a child while the request is pending so this remains a submenu.
+        QuickFixesMenu.Items.Add(new MenuItem { Header = vm.NoQuickFix, IsEnabled = false });
+        try
+        {
+            var actions = await vm.RequestCodeActionsAsync(TextEditor.CaretOffset);
+            if (!ReferenceEquals(DataContext, vm)) return;
+            QuickFixesMenu.Items.Clear();
+            foreach (var group in actions.GroupBy(a => a.Server))
+            {
+                var server = new MenuItem { Header = group.First().ServerDisplayName ?? group.Key };
+                foreach (var action in group)
+                {
+                    var item = new MenuItem
+                    {
+                        Header = action.DisabledReason is { } reason ? $"{action.Title} — {reason}" : action.Title,
+                        IsEnabled = action.DisabledReason is null
+                    };
+                    item.Click += async (_, _) =>
+                    {
+                        try
+                        {
+                            if (await vm.ApplyCodeActionAsync(action) is { } refusal) await vm.ShowRefusalAsync(refusal);
+                        }
+                        catch (Exception ex) { await vm.ShowRefusalAsync(ex.Message); }
+                    };
+                    server.Items.Add(item);
+                }
+                QuickFixesMenu.Items.Add(server);
+            }
+            if (actions.Length == 0)
+                QuickFixesMenu.Items.Add(new MenuItem { Header = vm.NoQuickFix, IsEnabled = false });
+        }
+        catch (Exception ex)
+        {
+            QuickFixesMenu.Items.Clear();
+            QuickFixesMenu.Items.Add(new MenuItem { Header = ex.Message, IsEnabled = false });
         }
     }
 
@@ -2709,59 +2877,37 @@ public partial class CodeEditorView : UserControl
 
     // The VB6 identifier (letters / digits / underscore) spanning a document offset, or null if the offset isn't on
     // one. Shared by Rename (caret offset) and the break-mode data tip (pointer offset).
-    private string? WordAt(int offset)
+    private string? WordAt(int offset) => CodeEditorViewModel.WordAt(TextEditor.Document, offset);
+
+    internal Task RenameSymbolAsync(CodeEditorViewModel vm, Position position, string oldName)
+        => vm.RenameSymbolAsync(position, oldName);
+
+    private void CanFormatSelection(object? sender, Avalonia.Labs.Input.CanExecuteRoutedEventArgs e)
     {
-        var doc = TextEditor.Document;
-        if (offset < 0 || offset > doc.TextLength) return null;
-
-        int start = offset;
-        while (start > 0 && IsVbIdentifierChar(doc.GetCharAt(start - 1)))
-            start--;
-
-        int end = offset;
-        while (end < doc.TextLength && IsVbIdentifierChar(doc.GetCharAt(end)))
-            end++;
-
-        return start < end ? doc.GetText(start, end - start) : null;
-
-        static bool IsVbIdentifierChar(char c) => char.IsLetterOrDigit(c) || c == '_';
+        e.CanExecute = DataContext is CodeEditorViewModel { CanFormatSelection: true };
+        e.Handled = true;
     }
 
-    internal async Task RenameSymbolAsync(CodeEditorViewModel vm, Position position, string oldName)
+    private void FormatSelectionExecuted(object? sender, Avalonia.Labs.Input.ExecutedRoutedEventArgs e) => _ = FormatSelectionAsync();
+
+    internal async Task FormatSelectionAsync()
     {
+        if (DataContext is not CodeEditorViewModel { CanFormatSelection: true } vm) return;
+        var start = vm.Document.GetLocation(vm.SelectionStart);
+        var end = vm.Document.GetLocation(vm.SelectionStart + vm.SelectionLength);
+        var range = new HexIDE.Lsp.Messages.Range(new Position(start.Line - 1, start.Column - 1),
+            new Position(end.Line - 1, end.Column - 1));
         try
         {
-            var newName = await vm.ShowRenameInputBoxAsync(oldName);
-            if (newName is null || newName == oldName) return;
-            // Before the request, so no server is asked to write a name VB6 would refuse (#273 task 4.4). An empty
-            // answer is refused with the rest rather than taken for Cancel, which answers null.
-            if (vm.NewNameRefusal(newName) is { } notAName)
-            {
-                await vm.ShowRefusalAsync(notAName);
-                return;
-            }
-
             await vm.FlushDocumentAsync();
-            var result = await vm.RequestRenameAsync(position, newName);
-            if (result?.Refusal is { } serverRefusal)
-            {
-                await vm.ShowRefusalAsync(serverRefusal);
-                return;
-            }
-            var edit = result?.Edit;
-
-            if (edit is null) return;
-
-            await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
-            {
-                if (vm.ApplyRename(edit, oldName, result?.DocumentFor) is { } refusal)
-                    _ = vm.ShowRefusalAsync(refusal);
-            });
+            var edits = await vm.RequestRangeFormattingAsync(range);
+            if (edits.Length == 0) return;
+            await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => vm.ApplyFormatting(edits));
         }
         catch (OperationCanceledException) { }
         catch (Exception ex)
         {
-            Log.Debug("[rename] {ErrorMessage}", ex.Message);
+            Log.Debug("[rangeFormatting] {ErrorMessage}", ex.Message);
         }
     }
 

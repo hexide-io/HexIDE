@@ -64,6 +64,37 @@ vscode-json-language-server 4.10.0 returned `result:null` for all four spellings
 relying on a permissive server. StreamJsonRpc's null argument object in its parameter-object overload
 omits the member; it does not serialize `"params":null`.
 
+## Normal teardown and document close (2026-11-04, #491)
+
+`RealServerShutdownTests` drives the normal HexIDE client over stdio on Linux, with the pinned
+versions unchanged and Node installed. Each test opens a real temporary file containing a defect,
+reads non-empty diagnostics from a recorded publication or pull response, sends `didClose`, and
+observes incoming wire frames for three seconds. It then calls `StopAsync`, checks the recorded
+`shutdown` reply (`result:null`) and subsequent `exit`, and reads the process lifecycle record.
+
+| Server | Exit code after normal teardown | `publishDiagnostics` after `didClose` |
+|---|---|---|
+| rumdl 0.2.79 | 0 | Empty diagnostics for the closed URI |
+| texlab 5.26.0 | 0 | Non-empty: code 3, “Mismatched environment”, source `texlab` |
+| vscode-json-language-server 4.10.0 | 0 | No publication in the three-second window |
+| clangd 22.1.6 | 0 | Empty diagnostics for the closed URI |
+| ruff 0.16.7 | 0 | Empty diagnostics for the closed URI, version 1 |
+| Bundled VB6 server | 0 | Empty diagnostics for the closed URI |
+
+None needed the transport's kill fallback. The older #491 measurement found rumdl **0.2.64**
+failed to exit within ten seconds; that is not the result of the current **0.2.79** pin. The same
+issue records ruff returning **2** after a refused shutdown or an exit without shutdown, so neither
+an assumed two-value rule nor a boolean is used for exit-code coverage.
+
+The inputs are a malformed Markdown heading with extra blank lines, mismatched LaTeX environments,
+a JSON trailing comma, an undeclared C++ name, an unused Python import, and an incomplete VB6 `Dim`
+declaration. Texlab's one diagnostic remains after close; one or more identical publications were
+observed, so the tests pin their contents rather than their scheduling-dependent count. The JSON
+server's silence is bounded evidence, not a claim that it can never publish after close. Ruff's
+silence described above concerns diagnostics while a document is open under pull negotiation;
+it does publish an empty set on close. No locally synthesised diagnostics event is counted as a
+server publication.
+
 ## What they do with a document that has no file (2026-09-20)
 
 hexide-io/HexIDE#273 names a never-saved document `untitled:<Project>/<Name>.<ext>`, which is a scheme
@@ -121,7 +152,7 @@ the repository; the installed tree does not, and is put under `artifacts/` rathe
 lockfile so `node_modules` can never appear in the tree even briefly.
 
 **Node is a harness dependency, not a shipped one.** Nothing in HexIDE requires it. A machine without Node
-skips these three tests, visibly — except where `HEXIDE_REQUIRE_FOREIGN_LSP=1` is set, which is CI, and
+skips the JSON-server tests, visibly — except where `HEXIDE_REQUIRE_FOREIGN_LSP=1` is set, which is CI, and
 where the whole point is that coverage cannot quietly disappear. CI installs Node explicitly rather than
 relying on the runner image happening to have it.
 

@@ -27,13 +27,14 @@ most people will type today.
 | `--session` | a name | Serves automation only to the agent session of that name. **Debug builds only** — see below. |
 | `--developer-mode` | — | Turns on session developer mode. **Debug builds only** — see below. |
 | `--ansi-code-page` | a Windows code page number, such as `932` | Reads and writes VB6 sources as a machine whose ANSI code page is that one would. **Debug builds only** — see below. |
+| `--dpi-unaware` | — | Runs the IDE at scale 1 on a Windows display scaled above 100%, so a layout can be checked as a 100% display shows it. Windows only. **Debug builds only** — see below. |
 | *(positional)* | a path ending `.vbp`, `.vbg` or `.twinproj` | Opens that project or project group instead of showing the startup dialog; a `.twinproj` opens read-only. Absolute paths are accepted, including Unix paths beginning `/`; relative paths are relative to where you ran HexIDE from. |
 
 ## The ones that behave differently in a distributed build
 
 This asymmetry is deliberate and it is easy to read the wrong way round.
 
-**`--server-port`, `--session`, `--developer-mode` and `--ansi-code-page` are inert in a release build.** The automation
+**`--server-port`, `--session`, `--developer-mode`, `--ansi-code-page` and `--dpi-unaware` are inert in a release build.** The automation
 server is compiled out entirely, and developer mode is hard-disabled, so a distributed binary opens no port
 and cannot be put into developer mode however it is launched. Nor can it be told to read files as another
 machine would: what a release reads a file as is what the machine it runs on reads it as. None of the four
@@ -52,6 +53,15 @@ decodes, so that path cannot otherwise be reached there. `--ansi-code-page 932` 
 changing the machine's own settings. A value that is not a code page this platform has a table for stops
 HexIDE starting, with exit code 2, rather than run as this machine and look as though it had worked. That
 includes 65001: what VB6 does on a Windows set to UTF-8 is not settled.
+
+**`--dpi-unaware` shows the IDE as a 100% display would.** On a display scaled to 150%, HexIDE renders at scale
+1.5, and `take_snapshot` returns 1.5 image pixels for every device-independent one. With this flag Windows tells HexIDE
+the display is at 96 DPI. So it renders at scale 1, `take_snapshot` of an 860 × 640 window is 860 × 640, and the
+layout reads as it would at 100%. On the screen itself, Windows stretches the window to the display's scaling, so it
+looks blurred there, and `get_window_state` says so. It gives scale 1 and nothing else: Avalonia's Windows platform offers
+no other scale, so there is no way to show 150% on a display at 100%. `AVALONIA_GLOBAL_SCALE_FACTOR` is read only
+by Avalonia's X11 platform. On Linux and macOS the flag stops HexIDE starting, with exit code 2, rather than run at the
+display's own scale and look as though it had worked.
 
 **`--user-data-dir` keeps a session away from your real settings.** Everything HexIDE stores per user
 lives in one directory — `settings.json`, the window layout, recent projects, [`lsp-servers.json`](language-servers.md),
@@ -150,7 +160,7 @@ sources (#1189). Any other path is not taken as a project.
 place, or a path that isn't a project — is skipped in silence and the IDE starts normally. The
 exceptions are the flags whose whole purpose would be defeated by carrying on without them: a
 `--user-data-dir` with no directory, a `--session` with no name, a `--server-port` with no usable port, and an
-`--ansi-code-page` HexIDE has no table for, malformed profile selection, a rejected profile bundle, or
+`--ansi-code-page` HexIDE has no table for, `--dpi-unaware` anywhere but Windows, malformed profile selection, a rejected profile bundle, or
 the removed personality flag. So a flag
 that appears to have done nothing has usually not been read at all. Worth checking the spelling before
 looking for a deeper cause, and `--help` will tell you how a flag is spelled.
@@ -179,7 +189,7 @@ next mark row down, which arrives as the mark sliced into bands with text betwee
 | Code | Meaning |
 |---|---|
 | 0 | HexIDE ran and closed normally, or `--help` answered. |
-| 2 | The command line was refused before anything started: `--user-data-dir` without a directory, `--session` without a name, `--server-port` without a port from 1 to 65535, or `--ansi-code-page` without a code page this platform can read (the last three in Debug builds only); also malformed profile selection, a rejected bundle, or the removed personality flag. |
+| 2 | The command line was refused before anything started: `--user-data-dir` without a directory, `--session` without a name, `--server-port` without a port from 1 to 65535, `--ansi-code-page` without a code page this platform can read, or `--dpi-unaware` anywhere but Windows (the last four in Debug builds only); also malformed profile selection, a rejected bundle, or the removed personality flag. |
 | 3 | The automation server's port was already in use. Debug builds only. |
 | 4 | The automation server could not start for any other reason; the message gives the cause. Debug builds only. |
 

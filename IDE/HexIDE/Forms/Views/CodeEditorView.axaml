@@ -54,7 +54,7 @@
         <input:CommandBinding Command="{x:Static vb:ApplicationCommands.ParameterInfoCommand}"
                               ExecutingCommand="{CompiledBinding #Root.TriggerSignatureHelp}" />
         <input:CommandBinding Command="{x:Static vb:ApplicationCommands.CompleteWordCommand}"
-                              ExecutingCommand="{CompiledBinding #Root.TriggerCompletion}" />
+                              ExecutingCommand="{CompiledBinding #Root.CompleteWord}" />
         <input:CommandBinding Command="{x:Static vb:ApplicationCommands.ToggleFoldCommand}"
                               ExecutingCommand="{CompiledBinding #Root.ToggleFold}" />
         <input:CommandBinding Command="{x:Static vb:ApplicationCommands.ToggleBookmarkCommand}"
@@ -65,14 +65,28 @@
                               ExecutingCommand="{CompiledBinding #Root.PreviousBookmark}" />
         <input:CommandBinding Command="{x:Static vb:ApplicationCommands.ClearAllBookmarksCommand}"
                               ExecutingCommand="{CompiledBinding #Root.ClearAllBookmarks}" />
+        <input:CommandBinding Command="{x:Static vb:ApplicationCommands.CallHierarchyCommand}"
+                              CanExecute="CanShowCallHierarchy" Executed="CallHierarchyExecuted" />
         <input:CommandBinding Command="{x:Static vb:ApplicationCommands.FindReferencesCommand}"
                               ExecutingCommand="{CompiledBinding #Root.FindReferences}" />
         <input:CommandBinding Command="{x:Static vb:ApplicationCommands.GoToDefinitionCommand}"
                               ExecutingCommand="{CompiledBinding #Root.GoToDefinition}" />
+        <input:CommandBinding Command="{x:Static vb:ApplicationCommands.GoToImplementationCommand}"
+                              CanExecute="CanGoToImplementation"
+                              ExecutingCommand="{CompiledBinding #Root.GoToImplementation}" />
+        <input:CommandBinding Command="{x:Static vb:ApplicationCommands.GoToTypeDefinitionCommand}"
+                              CanExecute="CanGoToTypeDefinition"
+                              ExecutingCommand="{CompiledBinding #Root.GoToTypeDefinition}" />
         <input:CommandBinding Command="{x:Static vb:ApplicationCommands.GoToDeclarationCommand}"
                               ExecutingCommand="{CompiledBinding #Root.GoToDeclaration}" />
         <input:CommandBinding Command="{x:Static vb:ApplicationCommands.RenameSymbolCommand}"
                               ExecutingCommand="{CompiledBinding #Root.RenameSymbol}" />
+        <input:CommandBinding Command="{x:Static vb:ApplicationCommands.ExpandSelectionCommand}"
+                              ExecutingCommand="{CompiledBinding #Root.ExpandSelection}" />
+        <input:CommandBinding Command="{x:Static vb:ApplicationCommands.ShrinkSelectionCommand}"
+                              ExecutingCommand="{CompiledBinding #Root.ShrinkSelection}" />
+        <input:CommandBinding Command="{x:Static vb:ApplicationCommands.FormatSelectionCommand}"
+                              CanExecute="CanFormatSelection" Executed="FormatSelectionExecuted" />
         <input:CommandBinding Command="{x:Static vb:ApplicationCommands.FormatDocumentCommand}"
                               ExecutingCommand="{CompiledBinding #Root.FormatDocument}" />
 
@@ -168,13 +182,24 @@
                         </MenuItem>
                         <Separator />
                         <MenuItem Header="{DynamicResource Str.Tool.FindReferences.Title}" Command="{x:Static vb:ApplicationCommands.FindReferencesCommand}" />
+                        <MenuItem Header="{DynamicResource Str.Tool.CallHierarchy.Title}" Command="{x:Static vb:ApplicationCommands.CallHierarchyCommand}" />
                         <MenuItem Header="{DynamicResource Str.CodeEditor.Context.GoToDefinition}" Command="{x:Static vb:ApplicationCommands.GoToDefinitionCommand}" />
+                        <MenuItem Header="{DynamicResource Str.CodeEditor.Context.GoToImplementation}" Command="{x:Static vb:ApplicationCommands.GoToImplementationCommand}" />
+                        <MenuItem Header="{DynamicResource Str.CodeEditor.Context.GoToTypeDefinition}" Command="{x:Static vb:ApplicationCommands.GoToTypeDefinitionCommand}" />
                         <MenuItem Header="{DynamicResource Str.CodeEditor.Context.GoToDeclaration}" Command="{x:Static vb:ApplicationCommands.GoToDeclarationCommand}" />
+                        <MenuItem x:Name="QuickFixesMenu" Header="{DynamicResource Str.CodeEditor.QuickFix.Title}"
+                                  SubmenuOpened="OnQuickFixesOpened">
+                            <MenuItem Header="{DynamicResource Str.CodeEditor.QuickFix.NoEdit}" IsEnabled="False" />
+                        </MenuItem>
                         <MenuItem Header="{DynamicResource Str.CodeEditor.Context.Rename}"        Command="{x:Static vb:ApplicationCommands.RenameSymbolCommand}" />
+                        <MenuItem Header="{DynamicResource Str.CodeEditor.Context.ExpandSelection}" Command="{x:Static vb:ApplicationCommands.ExpandSelectionCommand}" />
+                        <MenuItem Header="{DynamicResource Str.CodeEditor.Context.ShrinkSelection}" Command="{x:Static vb:ApplicationCommands.ShrinkSelectionCommand}" />
                         <MenuItem Header="{DynamicResource Str.CodeEditor.Context.FormatDocument}"  Command="{x:Static vb:ApplicationCommands.FormatDocumentCommand}" />
+                        <MenuItem Header="{DynamicResource Str.CodeEditor.Context.FormatSelection}" Command="{x:Static vb:ApplicationCommands.FormatSelectionCommand}" />
                     </MenuFlyout>
                 </avaloniaEdit:TextEditor.ContextFlyout>
             </avaloniaEdit:TextEditor>
+            <Canvas x:Name="CodeLensLayer" ClipToBounds="True" />
             <StackPanel x:Name="StickyHeaders" VerticalAlignment="Top" ClipToBounds="True" />
             </Grid>
         </ClassicBorderDecorator>

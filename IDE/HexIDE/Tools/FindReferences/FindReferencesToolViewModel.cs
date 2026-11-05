@@ -33,6 +33,8 @@ public partial class FindReferencesToolViewModel : Tool
     private int generation;
     private ReferenceSearchResult result = new([], []);
     public event Action? ShowRequested;
+    internal event Action? LayoutResized;
+    internal void NotifyLayoutResized() => LayoutResized?.Invoke();
     public ObservableCollection<ReferenceRow> Rows { get; } = [];
     [Notify] private ReferenceRow? selectedRow;
 

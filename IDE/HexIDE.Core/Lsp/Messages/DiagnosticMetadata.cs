@@ -99,3 +99,21 @@ public sealed class DiagnosticRelatedInformationConverter : JsonConverter<Diagno
         writer.WriteEndObject();
     }
 }
+
+public sealed class DiagnosticDataConverter : JsonConverter<JsonElement?>
+{
+    public override bool HandleNull => true;
+
+    public override JsonElement? Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        using var document = JsonDocument.ParseValue(ref reader);
+        return document.RootElement.Clone();
+    }
+
+    public override void Write(Utf8JsonWriter writer, JsonElement? value, JsonSerializerOptions options)
+    {
+        // Preserve the server's token, including number spelling, escapes and internal whitespace.
+        if (value is { } data) writer.WriteRawValue(data.GetRawText());
+        else writer.WriteNullValue();
+    }
+}
