@@ -2,6 +2,7 @@
   "name": "Galician",
   "direction": "ltr",
   "strings": {
+    "Str.Lsp.OpenExternalUri": "Abrir este URI fóra de HexIDE?\n\n{0}",
     "Str.Tool.CallHierarchy.Title": "Xerarquía de chamadas",
     "Str.Tool.CallHierarchy.CallsTo": "Chamadas a",
     "Str.Tool.CallHierarchy.CallsFrom": "Chamadas desde",

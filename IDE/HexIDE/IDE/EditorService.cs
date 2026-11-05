@@ -108,6 +108,22 @@ public class EditorService : IEditorService
     /// <inheritdoc />
     public bool NavigateTo(string uri, int line, int column) => NavigateTo(uri, line, column, true);
 
+    public string? ApplyWorkspaceEdit(WorkspaceEdit edit, Func<string, RenameDocumentSnapshot?> documentFor)
+    {
+        var source = documentDockService.OpenDocuments.OfType<CodeEditorViewModel>().FirstOrDefault();
+        var activeTab = documentDockService.ActiveTab;
+        try
+        {
+            return source is null ? "No workspace editor is available."
+                : source.ApplyRename(edit, "", documentFor, codeAction: true);
+        }
+        finally
+        {
+            if (activeTab is not null && documentDockService.ActiveTab != activeTab)
+                documentDockService.TryActivateAny(tab => tab == activeTab);
+        }
+    }
+
     public bool ShowDocument(ShowDocumentParams request)
     {
         if (request.External) return false;

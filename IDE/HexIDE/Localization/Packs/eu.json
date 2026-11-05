@@ -2,6 +2,7 @@
   "name": "Basque",
   "direction": "ltr",
   "strings": {
+    "Str.Lsp.OpenExternalUri": "URI hau HexIDE-tik kanpo ireki?\n\n{0}",
     "Str.Tool.CallHierarchy.Title": "Deien hierarkia",
     "Str.Tool.CallHierarchy.CallsTo": "Honetarako deiak",
     "Str.Tool.CallHierarchy.CallsFrom": "Hemendik egindako deiak",

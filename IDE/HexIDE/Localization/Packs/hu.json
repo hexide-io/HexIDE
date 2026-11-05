@@ -2,6 +2,7 @@
   "name": "Hungarian",
   "direction": "ltr",
   "strings": {
+    "Str.Lsp.OpenExternalUri": "Megnyitja ezt az URI-t a HexIDE-on kívül?\n\n{0}",
     "Str.Tool.CallHierarchy.Title": "Hívási hierarchia",
     "Str.Tool.CallHierarchy.CallsTo": "Bejövő hívások",
     "Str.Tool.CallHierarchy.CallsFrom": "Kimenő hívások",

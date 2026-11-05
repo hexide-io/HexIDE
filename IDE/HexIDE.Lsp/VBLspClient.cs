@@ -200,9 +200,11 @@ public sealed class VBLspClient : ILspClient
         ConversationRedactor? workspaceNames = null, Func<string>? locale = null, HexIDE.IDE.ISettingsService? settings = null,
         TimeProvider? timeProvider = null,
         Func<ShowDocumentParams, CancellationToken, Task<bool>>? showDocument = null,
-        Func<ShowMessageRequestParams, CancellationToken, Task<MessageActionItem?>>? showMessageRequest = null)
+        Func<ShowMessageRequestParams, CancellationToken, Task<MessageActionItem?>>? showMessageRequest = null,
+        Func<WorkspaceEdit, Func<string, RenameDocumentSnapshot?>, CancellationToken, Task<string?>>? applyEdit = null)
     {
         _showDocument = showDocument;
+        _applyEdit = applyEdit;
         _showMessageRequest = showMessageRequest;
         _transport = transport;
         _logger = logger;
@@ -221,6 +223,9 @@ public sealed class VBLspClient : ILspClient
 
     private readonly Func<ShowMessageRequestParams, CancellationToken, Task<MessageActionItem?>>? _showMessageRequest;
     private readonly Func<ShowDocumentParams, CancellationToken, Task<bool>>? _showDocument;
+    private readonly Func<WorkspaceEdit, Func<string, RenameDocumentSnapshot?>, CancellationToken, Task<string?>>? _applyEdit;
+    private sealed class UserCommand { public Task? Pending; }
+    private readonly ConcurrentDictionary<UserCommand, byte> _userCommands = new();
     private readonly TimeProvider _timeProvider;
     private readonly Func<string> _locale;
     private readonly HexIDE.IDE.ISettingsService? _settings;
@@ -288,7 +293,7 @@ public sealed class VBLspClient : ILspClient
 
     private async Task<T> InvokeRequestAsync<T>(JsonRpc rpc, string method, object? parameters,
         CancellationToken cancellationToken = default, TimeSpan? timeout = null, string? supersededUri = null,
-        string? documentUri = null)
+        string? documentUri = null, Action<Task>? requestStarted = null)
     {
         if (documentUri is not null && _openDocuments.ContainsKey(documentUri)
             && ServerCapabilities.AcceptsOpenClose(_capabilities?.Value))
@@ -307,6 +312,7 @@ public sealed class VBLspClient : ILspClient
         {
             RequestCancellation.Current.Value = scope;
             pending = rpc.InvokeWithParameterObjectAsync<T>(method, parameters, cancellation.Token);
+            requestStarted?.Invoke(pending);
         }
         catch
         {
@@ -676,6 +682,7 @@ public sealed class VBLspClient : ILspClient
                          "async", "modification", "documentation", "defaultLibrary"], ["relative"])),
                 new WorkspaceClientCapabilities(
                     ExecuteCommand: new ExecuteCommandClientCapabilities(),
+                    ApplyEdit: true,
                     WorkspaceFolders: true,
                     Configuration: true,
                     WorkspaceEdit: new WorkspaceEditClientCapabilities(),
@@ -2150,16 +2157,20 @@ public sealed class VBLspClient : ILspClient
             || !ServerCapabilities.DeclaresCommand(AdvertisedCapabilities, command)) return null;
 
         var p = new ExecuteCommandParams(command, arguments);
+        var running = new UserCommand();
+        _userCommands.TryAdd(running, 0);
         try
         {
             return await InvokeRequestAsync<System.Text.Json.JsonElement?>(_rpc,
-                "workspace/executeCommand", p, cancellationToken);
+                "workspace/executeCommand", p, cancellationToken,
+                requestStarted: pending => Volatile.Write(ref running.Pending, pending));
         }
         catch (Exception ex)
         {
             WarnRequestFailedOnce("workspace/executeCommand", ex, cancellationToken);
             return null;
         }
+        finally { _userCommands.TryRemove(running, out _); }
     }
 
     public async Task<VbaBuiltinSymbol[]> RequestBuiltinSymbolsAsync(CancellationToken cancellationToken = default)
@@ -2559,9 +2570,21 @@ public sealed class VBLspClient : ILspClient
             }
         }
 
+        [JsonRpcMethod("workspace/applyEdit", UseSingleObjectParameterDeserialization = true)]
+        public async Task<ApplyWorkspaceEditResult> OnApplyEdit(ApplyWorkspaceEditParams p, CancellationToken cancellationToken)
+        {
+            // Inspect the wire request's task: the UI continuation can still be queued after its answer.
+            if (!_client._userCommands.Keys.Any(command => Volatile.Read(ref command.Pending) is not { IsCompleted: true }))
+                return new(false, "HexIDE applies a server's edits only while a command the user started is running.");
+            if (_client._applyEdit is not { } apply)
+                return new(false, "No workspace editor is available.");
+            var refusal = await apply(p.Edit, _client.SentDocumentSnapshot, cancellationToken);
+            return new(refusal is null, refusal);
+        }
+
         [JsonRpcMethod("window/showDocument", UseSingleObjectParameterDeserialization = true)]
         public async Task<ShowDocumentResult> OnShowDocument(ShowDocumentParams p, CancellationToken cancellationToken) =>
-            new(!p.External && _client._showDocument is { } show
+            new(_client._showDocument is { } show
                 && await show(p, cancellationToken));
 
         /// <summary>

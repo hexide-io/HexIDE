@@ -1227,23 +1227,46 @@ can request its configuration again. New connections read the current value on t
 `EditorService.NavigateTo`'s loaded-member rule, including unsaved members and carried files. It opens
 that editor, applies the optional selection using zero-based LSP positions (clamped to the buffer),
 and takes focus only when `takeFocus` is true. The response is `{ success: true }` for a loaded member;
-unknown URIs and `external: true` return `{ success: false }` without opening anything.
+unknown URIs without `external: true` return `{ success: false }` without opening anything.
+An external request asks every time in the shared server-question queue, showing the full URI under the
+server's display name. No receives initial focus, so Enter and Escape decline. Only Yes invokes the
+system launcher; No, dismissal, an invalid URI or launch failure returns `{ success: false }`. A successful launch returns `{ success: true }`. Only `http`, `https`
+and `mailto` links are offered: any other scheme, such as a `file:` URI naming a program, is refused with
+`{ success: false }` without asking, because the system launcher would run it.
 `ShowDocumentWireTests` checks the declaration and response frames; `EditorServiceNavigationTests`
 checks the range, focus routing and URI refusal. Headless `CodeEditorSelectionTests` checks that both
-editor views restore a selection placed before they attach. `workspace/applyEdit` awaits #1024's applier
-and a policy decision.
+editor views restore a selection placed before they attach. `ExternalServerDocumentTests` checks the
+real dialog's full URI and Yes/No launch routing headlessly.
+
+### Server-requested workspace edits (#2908)
+
+Applying an accepted edit preserves the active document tab.
+
+The client declares `workspace.applyEdit: true` and retains `workspaceEdit.documentChanges`.
+`workspace/applyEdit` is accepted only while that connection has an unanswered user-started
+`workspace/executeCommand`. The shared command sender tracks overlapping commands per server; other
+connections, unsolicited edits and edits after the command answer receive `applied: false` with a
+`failureReason`. Internal project-import commands do not grant this permission.
+Authorized edits use the rename workspace applier, including its answering connection's sent versions
+and text, unsaved-buffer checks, protected IDE lines and read-only forms. Both `changes` and
+`documentChanges` are supported. Preflight refuses the whole edit with the applier's reason, or applies
+it with one undo step per module and answers `applied: true`. Resource operations remain refused.
+`ServerApplyEditTests` drives a scripted server through a code lens command and checks the wire answers,
+per-server permission, stale-version refusal, both edit representations and independent undo.
 
 ### Server questions (#2908)
 
 The client declares `window.showMessage.messageActionItem`, including additional property support.
 `window/showMessageRequest` queues an IDE message box owned by the main window, titled with the server's
 display name, with the server's actions as buttons. A click returns that original action item (including
-extra properties); closing without choosing or pressing Escape returns `null`. The box uses the IDE
+extra properties); its first action receives focus on opening, so Enter chooses it (#3095).
+Closing without choosing or pressing Escape returns `null`. The box uses the IDE
 message box icons: Error, Warning, and Information for both Info and Log. Questions wait while a program runs or
 another modal is open, and queue one at a time across connections. Diagnostics and other messages keep
 flowing meanwhile. `$/cancelRequest` closes an open question or removes a queued one and answers -32800.
 `ShowMessageRequestWireTests` checks the frames and nonblocking queue; headless
-`ServerMessagePromptTests` checks ownership, title, buttons, message type icons, Escape dismissal and cancellation.
+`ServerMessagePromptTests` checks ownership, title, buttons, message type icons, initial focus and Enter,
+Escape dismissal and cancellation.
 
 Go to Implementation and Go to Type Definition appear beside Definition in the View and code context
 menus (#3074). The View menu uses bare nouns; context labels follow each pack’s existing go-to phrasing.
@@ -1270,7 +1293,7 @@ specification's own [`metaModel.json`](https://raw.githubusercontent.com/microso
 the canonical machine-readable list, so the method names and directions are the specification's rather than
 this document's recollection of them.
 
-**HexIDE implements 51 of the 93.** That is not a deficiency in itself — no client implements them all, and
+**HexIDE implements 50 of the 93.** That is not a deficiency in itself — no client implements them all, and
 most of the remainder are features no VB6 IDE needs. It is here so the shape of the gap is visible rather
 than inferred.
 
@@ -1338,11 +1361,11 @@ than inferred.
 | ○ | `textDocument/willSave` | → |  |
 | ○ | `textDocument/willSaveWaitUntil` | → |  |
 
-### `workspace/*` — 8 of 21
+### `workspace/*` — 9 of 21
 
 | | Method | Dir | Notes |
 |---|---|---|---|
-| ○ | `workspace/applyEdit` | ← | A server cannot ask the IDE to edit a document |
+| ✅ | `workspace/applyEdit` | ← | Checked workspace edits during a user command on that server; otherwise refused with a reason (#2908) |
 | ✅ | `workspace/codeLens/refresh` | ← | Answers null and refetches lenses in attached code windows |
 | ✅ | `workspace/configuration` | ← | Returns editor.tabSize from Tab Width; unknown items return null |
 | ○ | `workspace/diagnostic` | → | The pull model, workspace-wide ([#284](https://github.com/hexide-io/HexIDE/issues/284)) |
@@ -1369,7 +1392,7 @@ than inferred.
 | | Method | Dir | Notes |
 |---|---|---|---|
 | ✅ | `window/logMessage` | ← | Raised as an event **and** logged at the severity the server declared. It used to be logged only, at a level the default configuration discards |
-| ◐ | `window/showDocument` | ← | Loaded project members, optional selection and focus; external and unknown URIs refused (#2908) |
+| ✅ | `window/showDocument` | ← | Loaded members with selection/focus; external URIs require consent every time (#2908) |
 | ✅ | `window/showMessage` | ← | Shown in the status bar, and logged |
 | ✅ | `window/showMessageRequest` | ← |  |
 | ○ | `window/workDoneProgress/cancel` | → | No cancellation UI; cancellable is not acted on |

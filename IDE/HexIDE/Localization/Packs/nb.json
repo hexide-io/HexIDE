@@ -2,6 +2,7 @@
   "name": "Norwegian Bokmål",
   "direction": "ltr",
   "strings": {
+    "Str.Lsp.OpenExternalUri": "Åpne denne URI-en utenfor HexIDE?\n\n{0}",
     "Str.Tool.CallHierarchy.Title": "Kallhierarki",
     "Str.Tool.CallHierarchy.CallsTo": "Kall til",
     "Str.Tool.CallHierarchy.CallsFrom": "Kall fra",

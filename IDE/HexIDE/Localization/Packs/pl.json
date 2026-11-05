@@ -2,6 +2,7 @@
   "name": "Polish",
   "direction": "ltr",
   "strings": {
+    "Str.Lsp.OpenExternalUri": "Otworzyć ten identyfikator URI poza HexIDE?\n\n{0}",
     "Str.Tool.CallHierarchy.Title": "Hierarchia wywołań",
     "Str.Tool.CallHierarchy.CallsTo": "Wywołania do",
     "Str.Tool.CallHierarchy.CallsFrom": "Wywołania z",

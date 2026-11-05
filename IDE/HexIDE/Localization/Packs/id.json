@@ -2,6 +2,7 @@
   "name": "Indonesian",
   "direction": "ltr",
   "strings": {
+    "Str.Lsp.OpenExternalUri": "Buka URI ini di luar HexIDE?\n\n{0}",
     "Str.Tool.CallHierarchy.Title": "Hierarki Panggilan",
     "Str.Tool.CallHierarchy.CallsTo": "Panggilan Ke",
     "Str.Tool.CallHierarchy.CallsFrom": "Panggilan Dari",
