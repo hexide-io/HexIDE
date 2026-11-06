@@ -620,7 +620,7 @@ class factories for separate instances.
 - **AND** the implicit instance remains held until Sub Main returns
 
 ### Requirement: Interpreter parsing uses SLL with an LL fallback
-Module, standalone expression and standalone statement parsing SHALL first try SLL prediction with a
+Module, syntax-check, standalone expression and standalone statement parsing SHALL first try SLL prediction with a
 bailing error strategy, then retry from the beginning with LL on a cancelled parse or an incomplete standalone entry. Each pass SHALL use
 a fresh nesting guard. The LL pass SHALL preserve the entry point's existing error policy: throwing
 syntax errors for modules and expressions, and returning null for unparseable standalone statements.
@@ -1433,3 +1433,29 @@ and unmeasured combinations remain outside this additional code-mapping slice.
 #### Scenario: Numeric keypad Clear
 - **WHEN** the host reports keypad 5 with NumLock off as Clear
 - **THEN** the TextBox's KeyDown and KeyUp handlers receive KeyCode 12
+
+### Requirement: Runtime parsing has a sized synchronous stack
+
+Module parsing and PrePass, SyntaxChecker and standalone expression/statement parsing SHALL run on a
+dedicated 64 MiB thread, joined synchronously by the caller. Parser guards SHALL combine a count derived
+from this stack and #3210's measured costs with a physical stack probe, refusing excess depth with a
+catchable compile error. Execution SHALL keep its current thread and stack checks.
+Parenthesis depth SHALL be checked before prediction. Conditional-expression limits remain unchanged.
+For the reference nested-If shape, prediction SHALL use bounded lookahead per decision and a DFA state
+count independent of nesting depth, rather than scanning to each matching End If. Adjacent module
+statements SHALL remain in one module block; named module members separate those blocks.
+
+
+#### Scenario: Measured VB6 nesting parses
+- **WHEN** a Sub contains 7,643 nested parentheses or 7,227 nested If blocks (the #3210 reference shapes)
+- **THEN** runtime parsing and declaration collection accept the module without executing its body
+
+#### Scenario: Syntax checking runs off the caller
+- **WHEN** syntax checking reports a parser error
+- **THEN** the parser error callback runs on the sized worker rather than the caller or thread pool
+- **AND** the error is rethrown synchronously to the caller
+
+#### Scenario: Nested-block prediction cost
+- **WHEN** cold SLL-first runtime parses contain 100 and 400 nested If blocks
+- **THEN** prediction lookahead grows linearly with the input
+- **AND** the DFA cache size remains bounded independently of these depths
