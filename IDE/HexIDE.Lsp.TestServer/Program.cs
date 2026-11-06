@@ -60,7 +60,6 @@ public static class Program
                     return 3;
                 }
                 if (mode is "ignore" or "tree" or "unanswered") continue;
-                if (mode == "slow") await Task.Delay(TimeSpan.FromMinutes(1));
                 // Ensure disposal really allows an orderly exit rather than winning a scheduling race.
                 await Task.Delay(150);
                 return shutdown ? 0 : 1;
@@ -79,9 +78,30 @@ public static class Program
             if (method == "shutdown") shutdown = true;
             var result = method == "initialize" ? "{\"capabilities\":{\"hoverProvider\":true}}" : "null";
             var reply = Encoding.UTF8.GetBytes($"{{\"jsonrpc\":\"2.0\",\"id\":{root.GetProperty("id").GetRawText()},\"result\":{result}}}");
-            await output.WriteAsync(Encoding.ASCII.GetBytes($"Content-Length: {reply.Length}\r\n\r\n"));
-            await output.WriteAsync(reply);
-            await output.FlushAsync();
+            try
+            {
+                await output.WriteAsync(Encoding.ASCII.GetBytes($"Content-Length: {reply.Length}\r\n\r\n"));
+                await output.WriteAsync(reply);
+                await output.FlushAsync();
+            }
+            finally
+            {
+                // Teardown can break a Windows pipe before exit is read (or the reply flush completes).
+                // Drain so Windows pipe flushes can finish, then outlast the exit wait (#3244).
+                if (mode == "slow" && shutdown)
+                {
+                    try
+                    {
+                        await input.CopyToAsync(Stream.Null);
+                    }
+                    catch (IOException)
+                    {
+                        // A broken pipe is also a disconnect.
+                    }
+                    await Task.Delay(TimeSpan.FromMinutes(1));
+                }
+            }
+            if (mode == "slow" && shutdown) return 0;
         }
     }
 }

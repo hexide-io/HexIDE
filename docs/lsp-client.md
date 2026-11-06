@@ -175,7 +175,11 @@ elsewhere in `HexIDE.Tests`; this guards ownership rather than enumerating all t
 A test-only process server covers orderly exit, ignored
 exit, wrapper children, a truncated reply followed by a crash, and an unsolicited non-zero exit.
 Stdio and launched-pipe tests also cover a delayed exit after an answered shutdown and a server
-that never answers shutdown (#3217).
+that never answers shutdown (#3217). Slow mode holds the process and pipe open after answering
+shutdown while draining and discarding input, then waits up to one minute after disconnect.
+Disconnect regressions cover both transports with bounded writes and flushes, including data larger
+than the pipe buffer so a stalled reader fails on Linux too. Timeout-kill assertions first check that
+a kill occurred and report the stop duration if it did not (#3244).
 
 **Consumed from the server:** `textDocument/publishDiagnostics`, `$/logTrace`, `$/progress` (work-done
 progress below), plus `window/logMessage` and
