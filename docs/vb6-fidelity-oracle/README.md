@@ -731,3 +731,4 @@ added afterwards.
 - [List Members and Complete Word: Enter, Tab and Space (2026-11-04, #3056)](list-members-and-complete-word-enter-tab-and-space.md#list-members-and-complete-word-enter-tab-and-space-2026-11-04-3056)
 - [Long lines, line continuations and long expressions (2026-11-06, #3202)](long-lines-line-continuations-and-long-expressions.md#long-lines-line-continuations-and-long-expressions-2026-11-06-3202)
 - [Nested `If` blocks (2026-11-06, #3210)](long-lines-line-continuations-and-long-expressions.md#nested-if-blocks-2026-11-06-3210)
+- [`For Each` collections that vb6.exe refuses to compile (2026-11-06, #3213)](resume-next-into-a-block.md#for-each-collections-that-vb6exe-refuses-to-compile-2026-11-06-3213)
