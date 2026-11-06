@@ -1,4 +1,4 @@
-using System.ComponentModel;
+using HexIDE.IDE;
 using HexIDE.Desktop.Server;
 
 namespace HexIDE.Tests.Server;
@@ -9,19 +9,6 @@ namespace HexIDE.Tests.Server;
 /// </summary>
 public class ProgramPrintedTests
 {
-    private sealed class Runner : INotifyPropertyChanged
-    {
-        public bool IsRunning { get; private set; }
-
-        public event PropertyChangedEventHandler? PropertyChanged;
-
-        public void Set(bool running)
-        {
-            IsRunning = running;
-            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsRunning)));
-        }
-    }
-
     [Fact]
     public void What_was_printed_is_taken_once_with_its_line_breaks_as_the_Immediate_window_shows_them()
     {
@@ -37,13 +24,16 @@ public class ProgramPrintedTests
     public void A_run_that_begins_starts_afresh_and_one_that_ends_keeps_its_output_for_the_stop_reply()
     {
         var printed = new ProgramPrinted();
-        var runner = new Runner();
-        printed.FollowRuns(runner, () => runner.IsRunning);
+        var runner = Substitute.For<IProjectRunnerService>();
+        printed.FollowRuns(runner);
         printed.Append("an earlier run's line\r\n");
 
-        runner.Set(true);
+        runner.RunStarting += Raise.Event<Action>();
         printed.Append("this run's line\r\n");
-        runner.Set(false);
+        runner.IsRunning.Returns(true);
+        runner.PropertyChanged += Raise.Event<PropertyChangedEventHandler>(runner, new PropertyChangedEventArgs("IsRunning"));
+        runner.IsRunning.Returns(false);
+        runner.PropertyChanged += Raise.Event<PropertyChangedEventHandler>(runner, new PropertyChangedEventArgs("IsRunning"));
 
         printed.Take().Should().Be("this run's line\n");
     }

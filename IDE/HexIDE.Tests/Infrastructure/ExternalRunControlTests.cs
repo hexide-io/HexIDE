@@ -66,10 +66,15 @@ public class ExternalRunControlTests : CompositionTestBase
             composition.DebugController, composition.Root, null!, null!, null!, null!, composition.Capture,
             null!, composition.LocalizationService, null!);
         var tools = new HexIdeTools(context);
+        var printed = new ProgramPrinted();
+        printed.FollowRuns(composition.ProjectRunnerService);
+        printed.Append("earlier run\r\n");
         var run = external.StartAsync(await ExternalDebugServiceTests.Configuration(directory, mode));
         try
         {
             await ExternalDebugServiceTests.WaitFor(external, () => external.CanEvaluate);
+            printed.Take().Should().BeEmpty("an external session also begins with a fresh output buffer");
+            printed.Append("pending\r\n");
             var state = await tools.GetDebugStateAsync(TestContext.Current.CancellationToken);
             state.Running.Should().BeTrue();
             state.State.Should().Be("Paused");
@@ -93,6 +98,7 @@ public class ExternalRunControlTests : CompositionTestBase
             reply.Success.Should().BeTrue();
             reply.Note.Should().Contain("External session output is not captured");
             reply.Printed.Should().BeNull();
+            printed.Take().Should().Be("pending\n", "ending a session must not reset the buffer");
             await ExternalDebugServiceTests.WaitFor(external, () => external.State == HexIDE.Dap.DapSessionState.Ended);
             state = await tools.GetDebugStateAsync(TestContext.Current.CancellationToken);
             state.Running.Should().BeFalse();
