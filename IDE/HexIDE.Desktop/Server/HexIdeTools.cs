@@ -460,7 +460,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     }
 
     [McpServerTool(Name = "get_form_controls")]
-    [Description("Returns all controls on a form or UserControl with their key design-time properties (name, type, position, size, caption, text, visible, enabled, and a control array element's index, which name(index) takes); with 'controlName', that one control with every property it has, in the text set_control_property takes where it takes one. Position and size in that summary are in PIXELS, left/top relative to the control's container; a .frm stores twips, 15 to a pixel. The 'properties' rows give Left, Top, Width and Height as the Properties window does instead, in twips or the container's ScaleMode, each naming its unit. Searches every loaded project, without regard to case; pass `project` when a group holds two documents of one name, and without it an ambiguous name is refused and the reply lists them. The reply's 'project' and 'document' name the form, as the IDE spells them; visible, enabled, caption and text are left out where the control's class has no such property.")]
+    [Description("Returns all controls on a form or UserControl with their key design-time properties (name, type, position, size, caption, text, visible, enabled, and a control array element's index, which name(index) takes); with 'controlName', that one control with every property it has, in the text set_control_property takes where it takes one. Position and size in that summary are in PIXELS, left/top relative to the control's container; a .frm stores twips, 15 to a pixel. The 'properties' rows give Left, Top, Width and Height as the Properties window does instead, in twips or the container's ScaleMode, each naming its unit. Searches every loaded project, without regard to case; pass `project` when a group holds two documents of one name, and without it an ambiguous name is refused and the reply lists them. The reply's 'project' and 'document' name the form, as the IDE spells them; visible, enabled, caption and text are left out where the control's class has no such property. Carried controls appear with carried: true, their name, block type, position and size, and a note: HexIDE draws but does not model them, so they cannot be moved, sized or set. controlName also finds these rows, with the same note and no properties.")]
     public async Task<FormControlsResult> GetFormControlsAsync(
         string formName,
         string? project = null,
@@ -492,6 +492,23 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
             var components = designerVm is not null
                 ? (IEnumerable<ComponentInstance>)designerVm.AllComponents.Select(v => v.Instance).ToList()
                 : form.Components;
+            const string carriedNote = "HexIDE draws this carried control but does not model it; it cannot be moved, sized or set.";
+            var carried = new List<ControlInfo>();
+            foreach (var parent in components)
+            {
+                foreach (var block in parent.PreservedChildSubtrees)
+                {
+                    if (HexIDE.Runtime.Serialization.UnmodelledControl.Read(block.Text) is not { } control)
+                        continue;
+                    var twipsPerPixel = HexIDE.Runtime.BuiltinTypes.VBScaleModeExtensions.PixelToTwips;
+                    carried.Add(new ControlInfo(control.Name, control.TypeName,
+                        control.Left / twipsPerPixel, control.Top / twipsPerPixel,
+                        control.Width / twipsPerPixel, control.Height / twipsPerPixel,
+                        null, null, null, null,
+                        parent.BaseClass is FormComponentClass ? null : parent.GetPropertyOrDefault(VBProperties.NameProperty),
+                        Carried: true, Note: carriedNote));
+                }
+            }
 
             ControlInfo Info(ComponentInstance c)
             {
@@ -535,10 +552,17 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
                 var all = components.ToList();
                 var matches = PropertyText.Named(all, controlName);
                 if (matches.Count == 0)
+                {
+                    var carriedControl = carried.FirstOrDefault(c => c.Name.Equals(controlName, StringComparison.OrdinalIgnoreCase));
+                    if (carriedControl is not null)
+                        return new FormControlsResult(null, [carriedControl], document.Project.Name, document.Name,
+                            Note: carriedNote);
                     return new FormControlsResult(
                         $"No control named '{controlName}' on {document.Display}; its controls are "
-                        + string.Join(", ", all.Select(c => c.GetPropertyOrDefault(VBProperties.NameProperty)).Distinct(StringComparer.OrdinalIgnoreCase)),
+                        + string.Join(", ", all.Select(c => c.GetPropertyOrDefault(VBProperties.NameProperty))
+                            .Concat(carried.Select(c => c.Name)).Distinct(StringComparer.OrdinalIgnoreCase)),
                         [], document.Project.Name, document.Name);
+                }
                 var control = matches[0];
                 // A control array's elements share the name; say so rather than answer for one of them silently.
                 var note = matches.Count == 1 ? null
@@ -550,7 +574,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
                         ? (DesignPositions.Shown(form, control, property, pixels), DesignPositions.Unit(form, control, property))
                         : null), note);
             }
-            return new FormControlsResult(null, components.Select(Info).ToArray(), document.Project.Name, document.Name);
+            return new FormControlsResult(null, components.Select(Info).Concat(carried).ToArray(), document.Project.Name, document.Name);
         });
     }
 
@@ -3955,7 +3979,9 @@ internal record ControlInfo(
     string? Container,
     // A control array element's Index, which the elements' shared Name alone does not tell apart; null when it is
     // no element. name(index) addresses it in get_form_controls, set_control_property and move_control (#1252 review).
-    int? Index = null);
+    int? Index = null,
+    bool? Carried = null,
+    string? Note = null);
 
 /// <param name="Scale">Image pixels per device-independent unit, the unit inspect_element's boundingRect is in.</param>
 internal record SnapshotResult(

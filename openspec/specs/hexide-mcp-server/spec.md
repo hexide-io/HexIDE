@@ -14,6 +14,21 @@ agent that wrote the code can open the IDE, drive it, and look at the result.
 
 ## Requirements
 
+### Requirement: Form inspection includes carried controls
+
+`get_form_controls` SHALL include controls carried as preserved blocks alongside modelled controls,
+with their name, block type, container-relative pixel position and size, `carried: true`, and a note
+explaining that HexIDE draws but does not model them, so they cannot be moved, sized or set.
+`controlName` SHALL find a carried control without regard to case and return its row and note.
+
+#### Scenario: Inspect a form containing view-only controls
+- **WHEN** a caller lists controls on a form containing carried ImageCombos
+- **THEN** the reply includes their carried rows alongside the modelled controls
+
+#### Scenario: Inspect one carried control
+- **WHEN** a caller names a carried control with `controlName`
+- **THEN** the reply contains that row and its read-only note rather than a missing-control error
+
 ### Requirement: Code edits during a run explain the running snapshot
 
 During a running or paused project, `set_file_content` and document-mode `type_text` SHALL edit without
