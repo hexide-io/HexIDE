@@ -25,6 +25,13 @@ that catch.
 expression interiors beyond the bound are skipped. The interpreter's expression walk no longer overflows
 the process stack either: before it runs out, it raises VB6's error 28, Out of stack space (#1893).
 
+**For Each collection syntax (#3213):** the collection must be a reference (including calls,
+indexes, member and With access). Parenthesised expressions, number/string literals, the bare keywords `Nothing`, `True`, `False`, `Null` and `Empty`, `New`
+and operators report Syntax error, following [the measured rule](https://github.com/hexide-io/HexIDE/issues/3213)
+and [its oracle tables](https://github.com/hexide-io/HexIDE/pull/3215). Declared scalar collections
+need binding to diagnose before execution; the bundled server does not check those declarations.
+`True`, `False`, `Null` and `Empty` remain accepted by the parser; their VB6 collection syntax is unmeasured.
+
 ---
 
 ## Two limits, and only one of them is a backlog
