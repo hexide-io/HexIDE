@@ -48,6 +48,9 @@ public partial class ProjectRunnerService : IProjectRunnerService
     public bool IsRunning => runHandle != null || externalDebugger?.IsActive == true;
 
     /// <inheritdoc />
+    public event Action? RunStarting;
+
+    /// <inheritdoc />
     public event Action<string>? StartFailed;
 
     /// <inheritdoc />
@@ -77,7 +80,16 @@ public partial class ProjectRunnerService : IProjectRunnerService
     public ProjectDefinition? RunningProject
     {
         get => runScope.RunningProject;
-        private set => runScope.RunningProject = value;
+        private set
+        {
+            runScope.RunningProject = value;
+            if (value is null) runScope.End();
+            else
+            {
+                runScope.Begin(projectManager.LoadedProjects.Contains(value) ? projectManager.LoadedProjects : [value]);
+                RunStarting?.Invoke();
+            }
+        }
     }
 
     private readonly HexIDE.Projects.ArchiveProjectService? archives;
@@ -111,11 +123,26 @@ public partial class ProjectRunnerService : IProjectRunnerService
         if (externalDebugger is not null)
             externalDebugger.Changed += () =>
             {
+                var running = externalDebugger.IsActive && externalDebugger.State is
+                    HexIDE.Dap.DapSessionState.Starting or HexIDE.Dap.DapSessionState.Running or HexIDE.Dap.DapSessionState.Stopped;
+                if (running && !externalRunTracked)
+                {
+                    runScope.Begin(projectManager.LoadedProjects);
+                    externalRunTracked = true;
+                    RunStarting?.Invoke();
+                }
+                else if (!running && externalRunTracked)
+                {
+                    runScope.End();
+                    externalRunTracked = false;
+                }
                 PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(nameof(IsRunning)));
                 CommandManager.InvalidateRequerySuggested();
             };
         // A running program's CommonDialog shows the IDE's own dialogs (#1084), whichever window the form runs in.
         HostDialogs.File = request => MDIStandaloneStandardLib.ShowFileDialog(windowManager, request);
+        HostDialogs.Print = windowManager.ShowPrintDialog;
+        HostDialogs.Color = windowManager.ShowColorDialog;
         HostDialogs.Font = initial => MDIStandaloneStandardLib.ShowFontDialog(windowManager, initial);
 
         // Break/Continue toggle the debug state without touching `runningProject`, so re-query the run commands
@@ -132,7 +159,10 @@ public partial class ProjectRunnerService : IProjectRunnerService
             // because a run is one project; so a toggle in a group's OTHER project, which may hold a module
             // of the same name, would otherwise move the running project's breakpoints.
             if (RunningProject is { } running && document.IsIn(running))
+            {
+                NoticeIgnoredCondition(document);
                 debugController.SetBreakpoints(document.Name, breakpointService.GetBreakpoints(document));
+            }
         };
 
         // A break-type watch added / edited / removed while running takes effect immediately (VB6 evaluates watches
@@ -151,6 +181,22 @@ public partial class ProjectRunnerService : IProjectRunnerService
 
     private void OnIsRunningChanged() => CommandManager.InvalidateRequerySuggested();
 
+    private bool externalRunTracked;
+
+    public string? CodeEditNote(bool edit = false) => runScope.Note(
+        externalDebugger?.IsActive == true ? externalDebugger.State == HexIDE.Dap.DapSessionState.Stopped
+            : debugController.State == DebugState.Paused, edit);
+
+    private bool conditionNoticeShown;
+
+    private void NoticeIgnoredCondition(DocumentIdentity document)
+    {
+        if (conditionNoticeShown || !breakpointService.GetBreakpoints(document)
+            .Any(line => breakpointService.GetCondition(document, line) is not null)) return;
+        conditionNoticeShown = true;
+        VBDebugConsole.Write(localization.GetString("Str.Debug.Conditions.InterpreterIgnored") + "\r\n");
+    }
+
     private void ApplyBreakpoints(ProjectDefinition project)
     {
         // Full resync from the store (a document cleared since the last run must not keep a stale controller set —
@@ -164,6 +210,7 @@ public partial class ProjectRunnerService : IProjectRunnerService
 
         void PushBreakpoints(DocumentIdentity document)
         {
+            NoticeIgnoredCondition(document);
             var lines = breakpointService.GetBreakpoints(document);
             if (lines.Count > 0)
                 debugController.SetBreakpoints(document.Name, lines);
@@ -185,6 +232,7 @@ public partial class ProjectRunnerService : IProjectRunnerService
     public void RunProject(ProjectDefinition projectDefinition, bool stepInto = false)
     {
         if (externalDebugger?.IsActive == true) return;
+        externalDebugger?.ClearSessionResult();
         eventBus.Publish(new ApplyAllUnsavedChangesEvent());
 
         // An idle Run To Cursor's target belongs to this start alone. Taken here, so a start that fails leaves
@@ -213,6 +261,7 @@ public partial class ProjectRunnerService : IProjectRunnerService
 
                 // Fresh debug session: clear any prior break/abort state, then apply the current breakpoints so the
                 // very first statement can already be a break.
+                conditionNoticeShown = false;
                 debugController.Reset();
                 var session = debugController.Session;
                 ApplyBreakpoints(projectDefinition);
@@ -390,6 +439,7 @@ public partial class ProjectRunnerService : IProjectRunnerService
             // Claimed before anything can execute — see the same line on the startup-form path.
             RunningProject = projectDefinition;
 
+            conditionNoticeShown = false;
             debugController.Reset();
             var session = debugController.Session;
             ApplyBreakpoints(projectDefinition);
@@ -727,8 +777,8 @@ public partial class ProjectRunnerService : IProjectRunnerService
 
         public bool Handles(string name) => windowContext.Handles(name);
 
-        public void ExecuteEvent(string name, Func<IReadOnlyList<Vb6Value>> args, EventCoalescing coalescing = EventCoalescing.None) =>
-            windowContext.ExecuteEvent(name, args, coalescing);
+        public void ExecuteEvent(string name, Func<IReadOnlyList<Vb6Value>> args, EventCoalescing coalescing = EventCoalescing.None, Func<bool>? when = null) =>
+            windowContext.ExecuteEvent(name, args, coalescing, when);
 
         public void ExecuteTimer(string name, IReadOnlyList<Vb6Value>? args = null) => windowContext.ExecuteTimer(name, args);
 
@@ -828,6 +878,10 @@ public partial class ProjectRunnerService : IProjectRunnerService
         /// with answer_next_file_dialog as it answers the IDE's.
         /// </summary>
         public Task<VbFileDialogAnswer?> ShowFileDialog(VbFileDialogRequest request) => ShowFileDialog(windowManager, request);
+
+        public Task<bool> ShowPrintDialog() => windowManager.ShowPrintDialog();
+
+        public Task<int?> ShowColorDialog(int initial) => windowManager.ShowColorDialog(initial);
 
         public Task<VbFontChoice?> ShowFontDialog(VbFontChoice initial) => ShowFontDialog(windowManager, initial);
 

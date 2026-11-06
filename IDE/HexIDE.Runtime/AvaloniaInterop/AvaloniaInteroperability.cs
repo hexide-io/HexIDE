@@ -96,6 +96,10 @@ public static class AvaloniaInteroperability
 
     static AvaloniaInteroperability()
     {
+        Register<Window, double>(VBProperties.LeftProperty, w => FormPosition.Read(w, false) / VBScaleModeExtensions.PixelToTwips,
+            (w, value) => FormPosition.Write(w, false, value));
+        Register<Window, double>(VBProperties.TopProperty, w => FormPosition.Read(w, true) / VBScaleModeExtensions.PixelToTwips,
+            (w, value) => FormPosition.Write(w, true, value));
         Register<Control, double>(VBProperties.LeftProperty, w => Canvas.GetLeft(w).OrZero(), Canvas.SetLeft);
         Register<Control, double>(VBProperties.TopProperty, w => Canvas.GetTop(w).OrZero(), Canvas.SetTop);
         Register<Control, double>(VBProperties.WidthProperty, Layoutable.WidthProperty);
@@ -126,6 +130,8 @@ public static class AvaloniaInteroperability
         RegisterToolTipText<VBLabel>();
         RegisterToolTipText<VBImage>();
         RegisterToolTipText<VBStatusBar>();
+        RegisterToolTipText<VBAnimation>();
+        RegisterToolTipText<VBFlatScrollBar>();
         // TabIndex and TabStop, on the controls VB6 gives them (measured, #1974). A TabIndex set renumbers the form.
         RegisterTabOrder<VBCommandButton>(tabStop: true);
         RegisterTabOrder<VBTextBox>(tabStop: true);
@@ -138,6 +144,9 @@ public static class AvaloniaInteroperability
         RegisterTabOrder<VBFrame>(tabStop: false);
         RegisterTabOrder<VBLabel>(tabStop: false);
         RegisterTabOrder<VBProgressBar>(tabStop: false);
+        RegisterTabOrder<VBUpDown>(tabStop: true);
+        RegisterTabOrder<VBAnimation>(tabStop: true);
+        RegisterTabOrder<VBDTPicker>(tabStop: true);
         RegisterTabOrder<VBStatusBar>(tabStop: false);
         RegisterTabOrder<VBSSTab>(tabStop: true);
         // A Label paints its own BackColor (VBLabel.Render), not the attached one every other control's template
@@ -268,6 +277,14 @@ public static class AvaloniaInteroperability
         RefuseUnmeasuredColour(control, property);
         if (control is VBTimer && ControlPositions.IsPosition(property))
             throw IdentityMembers.ReadOnlyAtRunTime(property.Name);
+        if (ReferenceEquals(property, VBProperties.FontProperty) && ControlFont.AppliesTo(control))
+        {
+            if (value.Type != Vb6Value.ValueType.String)
+                throw new NotImplementedException("Font value conversion is not implemented (#934)");
+            // A value assignment writes Name; Set is handled separately by the statement executor.
+            _ = ControlFont.Get(control);
+            return FontMembers.TrySet(control, "FontName", value);
+        }
         if (control is VBLine line && LineMembers.TrySet(line, property, value) is { } lineMember)
             return lineMember;
         if (MenuMembers.IsMenu(control) && MenuMembers.TrySet(control, property, value) is { } menuMember)
@@ -312,7 +329,10 @@ public static class AvaloniaInteroperability
                 // first, so one VB6 refuses is still refused.
                 if (control is VBLabel { BackStyle: BackStyles.Transparent } && ReferenceEquals(property, VBProperties.BackColorProperty))
                     return true;
-                prop.SetUntyped(control, converted);
+                // A VB size assignment raises Resize inside the setter; native window notifications settle together (#2389).
+                using (control is VBFormRuntime runtime && (ReferenceEquals(property, VBProperties.WidthProperty)
+                    || ReferenceEquals(property, VBProperties.HeightProperty)) ? runtime.ResizeOnce() : null)
+                    prop.SetUntyped(control, converted);
                 // VB6 resets BackColor with a Label's Appearance (measured, #796).
                 if (control is VBLabel label && ReferenceEquals(property, VBProperties.AppearanceProperty))
                     label.BackColor = VBColor.FromSystemColor(label.Appearance == VBAppearance._3D
@@ -496,6 +516,11 @@ public static class AvaloniaInteroperability
             value = new Vb6Value((long)timer.Interval);
             return true;
         }
+        if (ReferenceEquals(property, VBProperties.FontProperty) && ControlFont.AppliesTo(c))
+        {
+            value = new Vb6Value(ControlFont.Get(c));
+            return true;
+        }
         // Only the read is measured for Shape (#2070); keep its unmeasured assignment behaviour unchanged.
         if (c is VBShape shape && ReferenceEquals(property, VBProperties.BackColorProperty))
         {
@@ -555,7 +580,7 @@ public static class AvaloniaInteroperability
     /// control's runtime members; duplicates by name are collapsed.</summary>
     /// <remarks>
     /// A property whose read raises is listed with the raised error's own description and no value, rather than ending
-    /// the read (#2289). A Timer's designer positions and absent members aren't listed by VB6's Locals (#801).
+    /// the read (#2289). Locals lists a Timer by VB6's measured rows instead (<see cref="TimerMembers.LocalsRows"/>, #2329).
     /// </remarks>
     public static IReadOnlyList<(string Name, Vb6Value Value, string? Error)> ReadProperties(Control c)
     {
@@ -564,12 +589,11 @@ public static class AvaloniaInteroperability
         {
             if (byName.ContainsKey(property.Name))
                 continue;
-            if (c is VBTimer && (!TimerMembers.HasProperty(property.Name)
-                                 || ReferenceEquals(property, VBProperties.LeftProperty)
-                                 || ReferenceEquals(property, VBProperties.TopProperty)))
-                continue;
             if (c is VBScrollBar && (ReferenceEquals(property, VBProperties.BackColorProperty)
                                     || ReferenceEquals(property, VBProperties.ForeColorProperty)))
+                continue;
+            // A control with no Font doesn't list one, rather than listing the 438 a read of it raises (#934).
+            if (ReferenceEquals(property, VBProperties.FontProperty) && ControlFont.IsAbsent(c))
                 continue;
             try
             {

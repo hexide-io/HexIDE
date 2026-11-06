@@ -232,11 +232,14 @@ public partial class RelatedDocumentEditorView : UserControl
         // once laid out, and scrolls to it, as the code window does: the document arrives by binding, and moving the caret
         // before it has would be lost.
         var placed = vm.CaretOffset;
-        if (placed > 0)
+        if (placed > 0 || vm.SelectionLength > 0)
             Avalonia.Threading.Dispatcher.UIThread.Post(() =>
             {
-                if (DataContext == vm)
-                    MoveCaret(editor, Math.Clamp(placed, 0, editor.Document.TextLength));
+                if (DataContext != vm) return;
+                MoveCaret(editor, Math.Clamp(placed, 0, editor.Document.TextLength));
+                if (vm.SelectionLength > 0)
+                    _vmCaretSync?.Invoke(vm, new System.ComponentModel.PropertyChangedEventArgs(
+                        nameof(RelatedDocumentEditorViewModel.SelectionLength)));
             }, Avalonia.Threading.DispatcherPriority.Loaded);
 
         _caretMoved = (_, _) => vm.CaretOffset = editor.CaretOffset;

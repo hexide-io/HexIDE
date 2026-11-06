@@ -1,0 +1,87 @@
+diff --git a/IDE/HexIDE.Integration.Tests/Views/EditorRedockTests.cs b/IDE/HexIDE.Integration.Tests/Views/EditorRedockTests.cs
+index 22ef2f44..a2b517ce 100644
+--- a/IDE/HexIDE.Integration.Tests/Views/EditorRedockTests.cs
++++ b/IDE/HexIDE.Integration.Tests/Views/EditorRedockTests.cs
+@@ -60,6 +60,7 @@ public class EditorRedockTests
+                 clientStream, clientStream, call.Arg<IJsonRpcMessageFormatter>())));
+         await using var client = new VBLspClient(transport, Substitute.For<ILogger<VBLspClient>>(), DocumentLanguage.Vb6);
+         await client.StartAsync(cancellation);
++        client.CodeLensRefreshRequested += (_, _) => server.Record("refresh received");
+         var settings = Substitute.For<ISettingsService>();
+         settings.TabWidth.Returns(4);
+         typeof(ISettingsService).GetProperty("ShowCodeLenses")?.SetValue(settings, true);
+@@ -76,6 +77,7 @@ public class EditorRedockTests
+         var module = new ModuleDefinition(project, "Module1", ModuleKind.StandardModule);
+         module.UpdateCode("Sub Greet()\r\nEnd Sub\r\n");
+         vm.Initialize(module);
++        vm.CreateCodeLensSession().Changed += (_, _) => server.Record("lens client applied");
+         var factory = new Factory();
+         var documents = new DocumentDock
+         {
+@@ -136,7 +138,8 @@ public class EditorRedockTests
+             for (var i = 0; i < 3; i++)
+             {
+                 vm.Document.Insert(vm.Document.TextLength, "' edited\r\n");
+-                await Task.Delay(50, cancellation);
++                if (Environment.GetEnvironmentVariable("REDOCK_SINGLE_TURN") != "1")
++                    await Task.Delay(50, cancellation);
+             }
+             await Until(() => server.Count("textDocument/diagnostic") > diagnostics);
+             // Lenses follow the same sync as diagnostics, rather than the view's later folding pause.
+@@ -147,19 +150,30 @@ public class EditorRedockTests
+             server.Count("textDocument/codeLens").Should().Be(lensesBeforeEdit + 1,
+                 "the later folding pause must not rediscover lenses a second time");
+             var lensRequests = server.Count("textDocument/codeLens");
++            server.Record("baseline count=" + lensRequests);
++            server.Record("refresh sent");
+             await rpc.InvokeWithParameterObjectAsync<object?>("workspace/codeLens/refresh", null, cancellation);
++            server.Record("refresh reply");
+             await Until(() => server.Count("textDocument/codeLens") > lensRequests);
+             host.GetVisualDescendants().OfType<CodeEditorView>().Should().ContainSingle();
+ 
++            server.Record("detach begin");
+             window.Content = null;
++            server.Record("detach end");
+             lensRequests = server.Count("textDocument/codeLens");
++            server.Record("baseline count=" + lensRequests);
++            server.Record("refresh sent");
+             await rpc.InvokeWithParameterObjectAsync<object?>("workspace/codeLens/refresh", null, cancellation);
++            server.Record("refresh reply");
++            server.Record("assert count=" + server.Count("textDocument/codeLens"));
+             server.Count("textDocument/codeLens").Should().Be(lensRequests,
+                 "a suspended document must not request lenses through a detached view");
+             window.Content = host;
+             await Until(() => server.Count("textDocument/codeLens") > lensRequests);
+         }
+-        finally { server.ReleaseAnswers(); window.Close(); }
++        finally { server.ReleaseAnswers(); window.Close();
++            System.IO.File.AppendAllLines("redock-timeline.log", new[] { method + " pending=" + answersPending }.Concat(server.Timeline));
++            }
+ 
+         void CheckAnswers()
+         {
+@@ -199,12 +213,15 @@ public class EditorRedockTests
+ 
+     private sealed class Server
+     {
++        private readonly System.Diagnostics.Stopwatch clock = System.Diagnostics.Stopwatch.StartNew();
++        public ConcurrentQueue<string> Timeline { get; } = new();
++        public void Record(string name) => Timeline.Enqueue($"{clock.Elapsed.TotalMilliseconds:F3} {name}");
+         private readonly ConcurrentDictionary<string, int> counts = new();
+         private readonly TaskCompletionSource answers = new(TaskCreationOptions.RunContinuationsAsynchronously);
+         public void ReleaseAnswers() => answers.TrySetResult();
+         public string? LastChange { get; private set; }
+         public int Count(string method) => counts.GetValueOrDefault(method);
+-        private void Seen(string method) => counts.AddOrUpdate(method, 1, (_, count) => count + 1);
++        private void Seen(string method) { Record(method + " start"); counts.AddOrUpdate(method, 1, (_, count) => count + 1); }
+ 
+         [JsonRpcMethod("initialize", UseSingleObjectParameterDeserialization = true)]
+         public JsonElement Initialize(JsonElement _) => JsonSerializer.SerializeToElement(new
+@@ -240,6 +257,7 @@ public class EditorRedockTests
+         {
+             Seen("textDocument/codeLens");
+             await answers.Task;
++            Record("textDocument/codeLens server complete");
+             return JsonSerializer.SerializeToElement(new[] { new
+             {
+                 range = new { start = new { line = 1, character = 0 }, end = new { line = 1, character = 3 } },

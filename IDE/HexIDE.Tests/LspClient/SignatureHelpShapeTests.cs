@@ -1,3 +1,6 @@
+using Avalonia.Controls;
+using Avalonia.Controls.Documents;
+using Avalonia.Media;
 using System.Text;
 using System.Text.Json;
 using HexIDE.Conversations;
@@ -23,7 +26,7 @@ public class SignatureHelpShapeTests
                 TestContext.Current.CancellationToken);
             help.Should().NotBeNull();
             var provider = new VbSignatureProvider(help!);
-            provider.CurrentHeader.Should().Be(label.StartsWith('[') ? "F(x As T, [x] As T)" : "F([x] As T, x As T)");
+            CheckHeader(provider, "F(x As T, x As T)", label.StartsWith('[') ? 10 : 2, "x");
             provider.CurrentContent.Should().Be("x: parameter docs");
             using var roundTrip = JsonDocument.Parse(JsonSerializer.Serialize(help, LspJsonContext.Default.SignatureHelp));
             roundTrip.RootElement.GetProperty("signatures")[0].GetProperty("parameters")[0]
@@ -36,6 +39,34 @@ public class SignatureHelpShapeTests
             frame.RootElement.GetProperty("result").GetProperty("signatures")[0]
                 .GetProperty("parameters")[0].GetProperty("label").GetRawText().Should().Be(label);
         });
+    }
+
+    // Measured Quick Info presentation and examples: hexide-io/HexIDE#2632.
+    [Theory]
+    [InlineData("Mid(String, Start As Long, [Length] As Long) As String", "[Length] As Long", 2)]
+    [InlineData("CallByName(Object, ProcName, CallType, Args...)", "Object", 0)]
+    public void ActiveParameterIsBoldWithoutChangingTheLabel(string label, string parameter, int active)
+    {
+        var parameters = active == 0
+            ? new[] { new ParameterInformation(parameter) }
+            : [new ParameterInformation("String"), new ParameterInformation("Start As Long"), new ParameterInformation(parameter)];
+        var provider = new VbSignatureProvider(new SignatureHelp(
+            [new SignatureInformation(label, null, parameters)], 0, active));
+
+        CheckHeader(provider, label, label.IndexOf(parameter, StringComparison.Ordinal), parameter);
+    }
+
+    private static void CheckHeader(VbSignatureProvider provider, string label, int start, string parameter)
+    {
+        var header = provider.CurrentHeader.Should().BeOfType<TextBlock>().Which;
+        var runs = header.Inlines!.Cast<Run>().ToArray();
+        string.Concat(runs.Select(r => r.Text)).Should().Be(label);
+        runs.Should().HaveCount(3);
+        runs[0].Text.Should().Be(label[..start]);
+        runs[1].Text.Should().Be(parameter);
+        runs[2].Text.Should().Be(label[(start + parameter.Length)..]);
+        runs[1].FontWeight.Should().Be(FontWeight.Bold);
+        runs.Where((_, i) => i != 1).Should().OnlyContain(r => r.FontWeight == FontWeight.Normal);
     }
 
     [Fact]

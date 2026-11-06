@@ -91,4 +91,24 @@ public class EventPumpTests
 
         ran.Should().Equal("busy");
     }
+
+    // A reply that named a handler running says when the action let it end; a Timer's walks are left out, since one ticks on
+    // its own and would be named on most replies (#2720).
+    [Fact]
+    public void FinishedSince_names_the_walks_that_ended_and_leaves_out_a_Timer_s()
+    {
+        var pump = new EventPump();
+        var ran = new List<string>();
+        var gate = new TaskCompletionSource();
+        var timerGate = new TaskCompletionSource();
+        RaiseBusy(pump, ran, gate);
+        pump.Raise("Timer1_Timer", async () => await pump.WhileSuspended(new ValueTask(timerGate.Task)), EventCoalescing.Timer);
+        var before = pump.Live.ToList();
+
+        pump.FinishedSince(before).Should().BeEmpty("nothing has ended yet");
+        gate.SetResult();
+        timerGate.SetResult();
+
+        pump.FinishedSince(before).Should().Equal("Busy_Click");
+    }
 }

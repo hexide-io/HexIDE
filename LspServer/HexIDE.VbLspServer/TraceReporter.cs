@@ -43,8 +43,8 @@ internal enum LspTraceLevel
 /// </remarks>
 internal sealed class TraceReporter(LanguageServer server)
 {
-    // Unsynchronized deliberately, for the same reason DocumentStore's caches are: the SingleThreadScheduler
-    // awaits each handler to completion before dispatching the next, so a $/setTrace write is strictly
+    // Unsynchronized deliberately: the sequential worker awaits each trace-using handler to completion
+    // (completion bypasses it but never reads this state), so a $/setTrace write is strictly
     // ordered against every read rather than racing one. Reads do happen on pool threads — a parse hops
     // off-thread and its continuation may resume anywhere — but the await chain carries the happens-before
     // edge. Marking this volatile would advertise a concurrency the scheduler forbids.

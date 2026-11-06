@@ -5,6 +5,9 @@ namespace HexIDE.IDE;
 
 public interface IProjectRunnerService : INotifyPropertyChanged
 {
+    /// <summary>A new run has been claimed, before interpreter code can execute; also raised when an external session starts.</summary>
+    event Action? RunStarting;
+
     void RunProject(ProjectDefinition projectDefinition, bool stepInto = false);
     void RunStartupProject(bool stepInto = false);
     void BreakCurrentProject();
@@ -26,6 +29,9 @@ public interface IProjectRunnerService : INotifyPropertyChanged
     bool CanEndProject { get; }
     bool CanRestartProject { get; }
     bool IsRunning { get; }
+
+    /// <summary>The running snapshot and documents edited since start, for automation replies.</summary>
+    string? CodeEditNote(bool edit = false);
 
     /// <summary>
     /// A start that never became a run: a module the run loads has a syntax error (the text names the module), the

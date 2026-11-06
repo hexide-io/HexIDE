@@ -14,17 +14,17 @@ namespace HexIDE.Debugging;
 /// </summary>
 public sealed class BreakpointService : IBreakpointService
 {
-    // document → 1-based line set. Keyed by identity, so a rename moves nothing.
-    private readonly Dictionary<DocumentIdentity, SortedSet<int>> _breakpoints = new();
+    // document → 1-based line and optional condition. Keyed by identity, so a rename moves nothing.
+    private readonly Dictionary<DocumentIdentity, SortedDictionary<int, string?>> _breakpoints = new();
 
     public event Action<DocumentIdentity>? BreakpointsChanged;
 
     public void Toggle(DocumentIdentity document, int line)
     {
         if (!_breakpoints.TryGetValue(document, out var set))
-            _breakpoints[document] = set = new SortedSet<int>();
+            _breakpoints[document] = set = new SortedDictionary<int, string?>();
         if (!set.Remove(line))
-            set.Add(line);
+            set.Add(line, null);
         if (set.Count == 0)
             _breakpoints.Remove(document);
         BreakpointsChanged?.Invoke(document);
@@ -32,7 +32,9 @@ public sealed class BreakpointService : IBreakpointService
 
     public void SetDocument(DocumentIdentity document, IEnumerable<int> lines)
     {
-        var set = new SortedSet<int>(lines);
+        var set = new SortedDictionary<int, string?>();
+        foreach (var line in lines)
+            set[line] = GetCondition(document, line);
         if (set.Count == 0)
             _breakpoints.Remove(document);
         else
@@ -41,10 +43,35 @@ public sealed class BreakpointService : IBreakpointService
     }
 
     public bool IsBreakpoint(DocumentIdentity document, int line)
-        => _breakpoints.TryGetValue(document, out var set) && set.Contains(line);
+        => _breakpoints.TryGetValue(document, out var set) && set.ContainsKey(line);
 
     public IReadOnlyList<int> GetBreakpoints(DocumentIdentity document)
-        => _breakpoints.TryGetValue(document, out var set) ? set.ToList() : Array.Empty<int>();
+        => _breakpoints.TryGetValue(document, out var set) ? set.Keys.ToList() : Array.Empty<int>();
+
+    public string? GetCondition(DocumentIdentity document, int line)
+        => _breakpoints.TryGetValue(document, out var set) && set.TryGetValue(line, out var condition) ? condition : null;
+
+    public void SetCondition(DocumentIdentity document, int line, string? condition)
+    {
+        if (!_breakpoints.TryGetValue(document, out var set) || !set.ContainsKey(line))
+            return;
+        condition = string.IsNullOrWhiteSpace(condition) ? null : condition;
+        if (set[line] == condition)
+            return;
+        set[line] = condition;
+        BreakpointsChanged?.Invoke(document);
+    }
+
+    public void MoveLines(DocumentIdentity document, int firstLine, int delta)
+    {
+        if (!_breakpoints.TryGetValue(document, out var set) || delta == 0)
+            return;
+        var moved = new SortedDictionary<int, string?>();
+        foreach (var (line, condition) in set)
+            moved[line >= firstLine ? line + delta : line] = condition;
+        _breakpoints[document] = moved;
+        BreakpointsChanged?.Invoke(document);
+    }
 
     public void ClearDocument(DocumentIdentity document)
     {
@@ -73,5 +100,5 @@ public sealed class BreakpointService : IBreakpointService
     }
 
     public IReadOnlyDictionary<DocumentIdentity, IReadOnlyList<int>> All()
-        => _breakpoints.ToDictionary(kv => kv.Key, kv => (IReadOnlyList<int>)kv.Value.ToList());
+        => _breakpoints.ToDictionary(kv => kv.Key, kv => (IReadOnlyList<int>)kv.Value.Keys.ToList());
 }

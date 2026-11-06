@@ -1,0 +1,20 @@
+READY
+measured: managed=4, pool=False, bytes=8388608
+TREE_DEPTH=300
+PARSE_GUARD=pass
+TRY_PARSE=True
+PASS
+READY
+measured: managed=4, pool=False, bytes=8388608
+TREE_DEPTH=301
+PARSE_GUARD=pass
+TRY_PARSE=False
+PASS
+READY
+measured: managed=4, pool=False, bytes=8388608
+TREE_DEPTH=302
+PARSE_GUARD=Compile error:
+
+Expression or block nesting too deep (exceeds 300 levels)
+TRY_PARSE=False
+PASS

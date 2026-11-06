@@ -87,6 +87,16 @@ public sealed class WorkspaceArtifactEntry
     [JsonPropertyName("provider")]
     public string? Provider { get; set; }
 
+    /// <summary>
+    /// Restart the server when a regeneration changes the file, for a server that reads it only when it starts (#2072).
+    /// </summary>
+    /// <remarks>
+    /// Off unless set: a server that watches its own artefact, as clangd does its compilation database, loses its state
+    /// for nothing when restarted. A stopgap for servers that don't yet re-read the file themselves.
+    /// </remarks>
+    [JsonPropertyName("restartOnChange")]
+    public bool? RestartOnChange { get; set; }
+
     /// <summary>Anything unrecognised inside this object, so a misspelling here is reportable too.</summary>
     [JsonExtensionData]
     public Dictionary<string, JsonElement>? Unrecognized { get; set; }
@@ -303,7 +313,15 @@ public sealed record LanguageServerConfigProblem(
     string? EntryId,
     string Message,
     bool EntryRejected,
-    LanguageServerConfigProblemKind Kind = LanguageServerConfigProblemKind.Configuration);
+    LanguageServerConfigProblemKind Kind = LanguageServerConfigProblemKind.Configuration)
+{
+    /// <summary>Display-time message code and verbatim arguments. Message remains English for logs.</summary>
+    public string? Code { get; init; }
+    public object[] Arguments { get; init; } = [];
+
+    public LanguageServerConfigProblem WithDetails(string code, params object[] arguments) =>
+        this with { Code = code, Arguments = arguments };
+}
 
 public enum LanguageServerConfigProblemKind
 {

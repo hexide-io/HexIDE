@@ -17,13 +17,10 @@ public class StatusBarPersistenceTests
 
     internal static string Corpus(string folder)
     {
-        for (var at = new DirectoryInfo(AppContext.BaseDirectory); at != null; at = at.Parent)
+        foreach (var half in new[] { "saved", "pending" })
         {
-            foreach (var half in new[] { "saved", "pending" })
-            {
-                var path = Path.Join(at.FullName, "corpus", "inbox-controls", half, folder, "Form1.frm");
-                if (File.Exists(path)) return path;
-            }
+            var path = Path.Join(RepoTree.Root(), "corpus", "inbox-controls", half, folder, "Form1.frm");
+            if (File.Exists(path)) return path;
         }
         throw new FileNotFoundException(folder);
     }

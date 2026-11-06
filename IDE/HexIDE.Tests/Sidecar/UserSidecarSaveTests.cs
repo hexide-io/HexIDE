@@ -118,6 +118,22 @@ public sealed class UserSidecarSaveTests : IDisposable
     // ── A. A save rewrites the sidecar; it does not rebuild it ───────────────────────────────────────────
 
     [Fact]
+    public async Task SavingPreservesFileAtOldStagingName()
+    {
+        var project = Project();
+        var bookmarks = new BookmarkService();
+        var sidecar = Service(bookmarks);
+        await sidecar.LoadAsync(project);
+        bookmarks.SetBookmarks(Form1(project), [1]);
+        File.WriteAllText(SidecarOf(project) + ".tmp", "user file");
+
+        await sidecar.SaveAsync(project);
+
+        Lines(Read(SidecarOf(project)), "codeBookmarks", "Form1").Should().Equal(1);
+        File.ReadAllText(SidecarOf(project) + ".tmp").Should().Be("user file");
+    }
+
+    [Fact]
     public async Task ContentThisVersionDoesNotRecogniseSurvivesASave()
     {
         // The user-sidecar spec's scenario, exactly as #466 reports it: the watches key used to vanish. The file is
@@ -540,7 +556,7 @@ public sealed class UserSidecarSaveTests : IDisposable
         await sidecar.LoadAsync(project);
 
         project.AbsolutePath = Elsewhere(project);
-        var blocker = SidecarOf(project) + ".tmp";
+        var blocker = SidecarOf(project);
         Directory.CreateDirectory(blocker);
         await sidecar.SaveAsync(project);
         Directory.Delete(blocker);
@@ -752,11 +768,11 @@ public sealed class UserSidecarSaveTests : IDisposable
     public async Task AWriteThatFailsIsMadeAgainWhenTheProjectCloses()
     {
         // Another program holding the file, say. The change stays owed rather than being dropped with the attempt.
-        // Here the temporary file's path is a directory, which no write can replace, on any system.
+        // Here the destination is a directory, which no write can replace, on any system.
         var project = Project();
         var bookmarks = new BookmarkService();
         var sidecar = Service(bookmarks);
-        var blocker = SidecarOf(project) + ".tmp";
+        var blocker = SidecarOf(project);
         Directory.CreateDirectory(blocker);
 
         bookmarks.SetBookmarks(Form1(project), [3]);

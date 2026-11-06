@@ -130,7 +130,11 @@ What it still does not do:
   positions, naming #990, rather than guess.
 - **The form's own size is the client size**, now in twips: VB6's 4800 is HexIDE's 4680, the frame being #852's, as
   is the form's own Left and Top.
-- **A TextBox's and CommandButton's floors** (#1029): `Text1.Width = 7` reads 7, where VB6 gives 150.
+- **Minimum sizes (#1029):** the existing intrinsic controls now apply the measured floors at assignment (and
+  through Move). TextBox and CommandButton use only the recorded font/border combinations; other fonts retain
+  their previous behaviour. ComboBox Height assignment raises 383. DriveListBox, DirListBox, FileListBox and Data
+  still have no runtime control implementation, so their measured floors remain outstanding. The form's
+  desktop-dependent floor is unchanged. ListBox/FileListBox IntegralHeight snapping is outside this slice.
 - **Mouse X and Y**, `Move`, and the Scale* properties are not converted here: #974, and #990.
 
 

@@ -92,6 +92,31 @@ harmless disposable handle.
 - **WHEN** a form nests a control under a class an add-in contributed
 - **THEN** the form opens read-only and the save is refused, with the reason given
 
+### Requirement: Add-ins SHALL be able to contribute a language server
+The host surface SHALL let an add-in contribute a language server registration, with a gate that runs before the
+server launches and a message channel of the add-in's own on the server's connection, as `lsp-client` specifies. The
+registration SHALL return a handle that stops the server and removes it when disposed, and SHALL be accepted after
+start-up, since an add-in whose first run waits for consent initialises after the window opens.
+
+An add-in exists to make a server one thing to install rather than an entry to write by hand (#457), and it cannot
+do that if the server it brings has to be written into the user's configuration behind their back. The capability
+design maps this member to `languageServer.contribute`; the member checks no declaration today, since that design's
+host checks are not built.
+
+#### Scenario: Contributing a server
+- **WHEN** an add-in registers a language server
+- **THEN** the server is launched, routed to and listed as a configured server is, under the add-in's name
+
+#### Scenario: A failed initialisation rolls the server back
+- **WHEN** an add-in's initialisation fails after it registered a language server
+- **THEN** the server is taken out with its other contributions
+
+#### Scenario: Trust changes during a session
+- **WHEN** an add-in is disabled or its consent is revoked
+- **THEN** its contributed language servers SHALL be unregistered immediately
+- **AND** a launch SHALL check the add-in is still enabled, consented and not revoked, before and after its own gate
+- **AND** a refused launch SHALL name the contributing add-in in the connection attempt
+
 ### Requirement: Add-ins SHALL be able to observe IDE lifecycle events
 The host surface SHALL raise events for project load and unload, file open and close, and run start and
 stop, delivered on the UI thread.
@@ -254,3 +279,47 @@ keep their existing sizing.
 #### Scenario: The developer narrows the dock afterwards
 - **WHEN** the developer resizes a dock after its initial usable width has been applied
 - **THEN** subsequent layout passes and showing that tool again retain the chosen width
+
+### Requirement: Schema 2 capability declaration validation and packing
+Schema 2 manifests SHALL contain a top-level `capabilities` array containing only unique,
+case-sensitive identifiers from `project.read`, `project.write`, `program.run`, `ui.contribute` and
+`languageServer.contribute`. Invalid or missing declarations SHALL be incompatible before trust
+verification, including in developer mode. The declaration SHALL be covered by the existing raw-byte
+manifest signature and hash. Schema 1 and older manifests SHALL retain compatibility without requiring
+this field. Host enforcement is tracked separately in #459's unarchived change.
+
+The packer SHALL emit schema 2 with an explicit array (empty when none are requested), sort identifiers
+ordinally, accept repeated `--capability` arguments, and validate before modifying its output directory.
+Bundled add-ins SHALL declare their own current host use.
+
+#### Scenario: Invalid declaration
+- **WHEN** a schema 2 manifest has no declaration, null, a non-array, a non-string entry, a duplicate or an unknown identifier
+- **THEN** verification returns Incompatible before trust checks
+
+#### Scenario: Packing without capabilities
+- **WHEN** a publisher packs an add-in without `--capability` arguments
+- **THEN** its signed manifest contains schema 2 and an empty capabilities array
+
+#### Scenario: Packing an invalid declaration
+- **WHEN** a publisher passes an unknown or duplicate capability
+- **THEN** packing fails before touching the output directory
+
+### Requirement: Verified declaration metadata preserves build provenance
+Successful package verification SHALL produce an immutable declaration snapshot containing the add-in
+id, publisher id, manifest hash, legacy state and declared capabilities. Registry metadata SHALL expose
+that snapshot before consent. Failed verification SHALL NOT produce a verified declaration snapshot.
+Legacy schemas SHALL be identified as lacking a declaration, even if a stray capabilities field exists;
+an explicit schema-2 empty list SHALL remain distinguishable from that absence. This metadata SHALL
+represent declarations, not capability grants or observed host use.
+
+#### Scenario: Inspecting a build before consent
+- **WHEN** a verified schema-2 package awaits consent
+- **THEN** registry metadata exposes its declaration and exact manifest hash without executing its code
+
+#### Scenario: Legacy declaration absence
+- **WHEN** a schema-0 or schema-1 package verifies successfully
+- **THEN** its snapshot identifies legacy absence and contains no declared capabilities
+
+#### Scenario: Verification fails
+- **WHEN** a package is untrusted or incompatible
+- **THEN** it has no verified declaration snapshot

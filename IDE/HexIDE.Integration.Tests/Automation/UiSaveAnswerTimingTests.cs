@@ -38,7 +38,8 @@ public class UiSaveAnswerTimingTests
     [InlineData("invoke", false)]
     public async Task Project_save_reports_an_answer_only_when_it_opened_no_picker(string route, bool opensPicker)
     {
-        var composition = new DISetup();
+        await using var owned = new RealComposition();
+        var composition = owned.Composition;
         var root = composition.Root;
         var project = new ProjectDefinition(VBProjectType.EXE, "Timing");
         if (opensPicker) composition.ProjectManager.AddProject(project);
@@ -98,7 +99,8 @@ public class UiSaveAnswerTimingTests
     [InlineData(true)]
     public async Task Save_key_picker_timing_depends_on_formatting(bool formatOnSave)
     {
-        var composition = new DISetup();
+        await using var owned = new RealComposition();
+        var composition = owned.Composition;
         _ = composition.Root;
         var project = new ProjectDefinition(VBProjectType.EXE, "Timing");
         var form = new FormDefinition(project, FormComponentClass.Instance, "Form1");
@@ -107,7 +109,7 @@ public class UiSaveAnswerTimingTests
         var lsp = Substitute.For<ILspClient>();
         lsp.IsRunning.Returns(true);
         var formatting = new TaskCompletionSource<TextEdit[]>();
-        lsp.RequestFormattingAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(formatting.Task);
+        lsp.RequestFormattingAsync(Arg.Any<string>(), Arg.Any<FormattingOptions>(), Arg.Any<CancellationToken>()).Returns(formatting.Task);
         lsp.RequestDocumentSymbolsAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(Array.Empty<DocumentSymbol>());
         var settings = Substitute.For<ISettingsService>();
         settings.TabWidth.Returns(4);

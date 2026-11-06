@@ -1200,6 +1200,7 @@ public partial class FindReplaceViewModelTests
         var lsRegistry = Substitute.For<ILanguageConnectionRegistry>();
         lsRegistry.Connections.Returns([]);
         lsRegistry.ConfigurationProblems.Returns([]);
+        lsRegistry.Diagnostics.Returns([]);
         var languageServers = new LanguageServersToolViewModel(
             lsRegistry, loc, new ConversationLog(), Substitute.For<IEventBus>(),
             new HexIDE.Redaction.Pseudonymiser());
@@ -1211,7 +1212,8 @@ public partial class FindReplaceViewModelTests
             immediate, locals, watches, callStack, colorPalette, objectBrowser, translationEditor,
             languageServers,
             protocolInspector,
-            windowStateService, new DockFactoryReference());
+            windowStateService, new DockFactoryReference(), new HexIDE.Tools.OutlineToolViewModel(
+                Substitute.For<HexIDE.Localization.ILocalizationService>(), Substitute.For<IDocumentDockService>()));
 
         return new MainViewViewModel(
             windowManager,
@@ -1228,6 +1230,8 @@ public partial class FindReplaceViewModelTests
             translationEditor,
             languageServers,
             protocolInspector,
+            new HexIDE.Tools.Diagnostics.DiagnosticsToolViewModel(lsRegistry, Substitute.For<HexIDE.Lsp.ILspClient>(),
+                mockDocDock, editorService, loc),
             projectManager,
             Substitute.For<IFocusedProjectUtil>(),
             projectService,
@@ -1248,13 +1252,13 @@ public partial class FindReplaceViewModelTests
             new AddinOptionsService(),
             Substitute.For<IDeveloperModeService>(),
             Substitute.For<IStatusBarService>(),
-            Substitute.For<IPersonalityService>(),
+            Substitute.For<IProfileService>(),
             new AddinMenuService(),
             new AddinCommandService(),
             new AddinToolWindowService(),
             windowStateService,
             Substitute.For<HexIDE.Debugging.IBreakpointService>(),
             Substitute.For<HexIDE.Runtime.Debugging.IDebugController>(),
-            new RecentEditsToolViewModel(new RecentEditHistory(eventBus), () => editorService, loc));
+            new RecentEditsToolViewModel(new RecentEditHistory(eventBus), () => editorService, loc), findReferences: null, callHierarchy: null);
     }
 }

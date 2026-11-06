@@ -301,7 +301,7 @@ public class VbAutoCloseProviderTests
     [InlineData("    ", "        ")]
     public void GetBodyIndent_AddsIndentSize(string current, string expected)
     {
-        VbAutoCloseProvider.GetBodyIndent(current).Should().Be(expected);
+        VbAutoCloseProvider.GetBodyIndent(current, 4).Should().Be(expected);
     }
 
     // ── Inline comment stripping ─────────────────────────────────────────────

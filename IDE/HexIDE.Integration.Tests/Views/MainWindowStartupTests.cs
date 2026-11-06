@@ -6,7 +6,7 @@ namespace HexIDE.Integration.Tests.Views;
 public class MainWindowStartupTests : WindowTestFixture
 {
     [AvaloniaFact]
-    public void Opening_without_activation_runs_the_startup_hook_once()
+    public async Task Opening_without_activation_runs_the_startup_hook_once()
     {
         var previous = Static.StartupProjectHook;
         var calls = 0;
@@ -17,7 +17,8 @@ public class MainWindowStartupTests : WindowTestFixture
         };
         try
         {
-            var composition = new DISetup();
+            await using var owned = new RealComposition();
+            var composition = owned.Composition;
             var window = new MainWindow { DataContext = composition.Root, ShowActivated = false };
             var activations = 0;
             window.Activated += (_, _) => activations++;

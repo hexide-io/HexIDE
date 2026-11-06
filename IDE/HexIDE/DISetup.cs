@@ -55,8 +55,11 @@ public partial class DISetup
                 return new ProjectToolViewModel(projectManager, eventBus, projectService, editorService, localization, archives);
             })
             .Bind().As(Singleton).To<FormLayoutToolViewModel>()
+            .Bind<FindReferencesToolViewModel>().As(Singleton).To<FindReferencesToolViewModel>()
+            .Bind<CallHierarchyToolViewModel>().As(Singleton).To<CallHierarchyToolViewModel>()
             .Bind().As(Singleton).To<ImmediateToolViewModel>()
             .Bind().As(Singleton).To<LocalsToolViewModel>()
+            .Bind().As(Singleton).To<OutlineToolViewModel>()
             .Bind<WatchesToolViewModel>().As(Singleton).To(ctx =>
             {
                 // Make the optional debugger dependency explicit instead of expanding constructor alternatives.
@@ -95,6 +98,7 @@ public partial class DISetup
             .Bind().As(Singleton).To<ObjectBrowserToolViewModel>()
             .Bind().As(Singleton).To<TranslationEditorViewModel>()
             .Bind().As(Singleton).To<LanguageServersToolViewModel>()
+            .Bind().As(Singleton).To<HexIDE.Tools.Diagnostics.DiagnosticsToolViewModel>()
             .Bind().As(Singleton).To<HexIDE.Tools.ProtocolInspector.ProtocolInspectorToolViewModel>()
             .Bind().As(Singleton).To<WindowManager>()
             .Bind().As(Singleton).To<ProjectManager>()
@@ -142,6 +146,14 @@ public partial class DISetup
             .Bind<IHeaderRefresher>().As(Singleton).To<HeaderRefresher>()
             .Bind<IClock>().As(Singleton).To<SystemClock>()
             .Bind<IFileWatcherService>().As(Singleton).To<FileWatcherService>()
+            // One per session: the run's recovery folder is made once, at start, and a second timer would back up twice.
+            .Bind<HexIDE.Recovery.IRecoveryOffers>().As(Singleton).To<HexIDE.Recovery.RecoveryOffers>()
+            .Bind<HexIDE.Recovery.IRecoveryService>().As(Singleton).To(ctx =>
+            {
+                ctx.Inject<IProjectService>(out var projects);
+                ctx.Inject<IClock>(out var clock);
+                return new HexIDE.Recovery.RecoveryService(projects, clock);
+            })
             .Bind<ISettingsService>().As(Singleton).To<SettingsService>()
             .Bind<IWindowStateService>().As(Singleton).To<WindowStateService>()
             .Bind<IStatusBarService>().As(Singleton).To<StatusBarService>()
@@ -236,10 +248,8 @@ public partial class DISetup
                 foreach (var problem in configuration.Problems)
                     log.LogWarning("Language server configuration: {Message}", problem.Message);
 
-                var registrations = new LanguageServerRegistrationFactory(loggerFactory, workspace, capture, providers,
-                    workspaceNames: new HexIDE.Redaction.ConversationRedactor(pseudonyms),
-                    locale: () => localization.ResolvedLanguage)
-                    .Create(configuration.Entries);
+                ctx.Inject<LanguageServerRegistrationFactory>(out var factory);
+                var registrations = factory.Create(configuration.Entries);
 
                 // Distinguishable from "servers fine, nothing to say" — the confusion #231 documents, and
                 // which a user has no way to tell apart from inside the editor.
@@ -253,24 +263,74 @@ public partial class DISetup
                         new LanguageServerConfigProblem(
                             null,
                             "No language servers are configured, so language features are unavailable.",
-                            false),
+                            false).WithDetails("NoServers"),
                     ];
                 }
 
                 return new LspClientRegistry(
                     registrations, loggerFactory.CreateLogger<LspClientRegistry>(), workspace, problems, artifacts);
             })
+            // One factory for the configured servers and the ones add-ins contribute, so both are made the same way.
+            .Bind<LanguageServerRegistrationFactory>().As(Singleton).To(ctx =>
+            {
+                ctx.Inject<ILoggerFactory>(out var loggerFactory);
+                ctx.Inject<ILspWorkspace>(out var workspace);
+                ctx.Inject<ConversationLog>(out var capture);
+                ctx.Inject<HexIDE.Redaction.Pseudonymiser>(out var pseudonyms);
+                ctx.Inject<IWorkspaceArtifactProviderRegistry>(out var providers);
+                ctx.Inject<ILocalizationService>(out var localization);
+                ctx.Inject<ISettingsService>(out var settings);
+                ctx.Inject<Func<IEditorService>>(out var editors);
+                ctx.Inject<Func<IProjectRunnerService>>(out var runners);
+                ctx.Inject<IWindowManager>(out var windows);
+                var serverPrompts = new ServerMessagePrompt(() => runners().IsRunning || windows.IsNativeDialogOpen);
+                var serverDocuments = new ServerDocumentNavigation(serverPrompts, localization,
+                    (uri, token) => Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(
+                        () => Avalonia.Controls.TopLevel.GetTopLevel(Static.MainView)!.Launcher.LaunchUriAsync(uri),
+                        Avalonia.Threading.DispatcherPriority.Normal, token).GetTask().Unwrap());
+                return new LanguageServerRegistrationFactory(loggerFactory, workspace, capture, providers,
+                    new HexIDE.Redaction.ConversationRedactor(pseudonyms),
+                    () => localization.ResolvedLanguage, settings,
+                    async (title, request, token) => request.External
+                        ? await serverDocuments.ShowExternalAsync(title, request.Uri, token)
+                        : await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(
+                            () => editors().ShowDocument(request), Avalonia.Threading.DispatcherPriority.Normal, token),
+                    serverPrompts.ShowAsync,
+                    (edit, documentFor, token) => Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(
+                        () => editors().ApplyWorkspaceEdit(edit, documentFor), Avalonia.Threading.DispatcherPriority.Normal, token).GetTask());
+            })
+            // The servers add-ins contribute (#2760), added to the router above while the IDE runs. The ids the
+            // configuration names, switched off or not, keep their entries.
+            .Bind<LanguageServerContributions>().As(Singleton).To(ctx =>
+            {
+                ctx.Inject<ILspClient>(out var router);
+                ctx.Inject<LanguageServerRegistrationFactory>(out var factory);
+                ctx.Inject<LanguageServerConfigResult>(out var configuration);
+                ctx.Inject<IWorkspaceArtifactProviderRegistry>(out var providers);
+                ctx.Inject<ILoggerFactory>(out var loggerFactory);
+                return new LanguageServerContributions(
+                    (LspClientRegistry)router, factory,
+                    new LanguageServerConfigLoader(loggerFactory.CreateLogger<LanguageServerConfigLoader>()),
+                    configuration.Entries.Select(entry => entry.Id).OfType<string>().ToHashSet(StringComparer.Ordinal),
+                    loggerFactory.CreateLogger<LanguageServerContributions>(),
+                    new LanguageServerCommandStore(), providers);
+            })
             .Bind<ILoggerFactory>().As(Singleton).To(_ => LoggingSetup.LoggerFactory)
             .Bind<ILogger<TT>>().As(Singleton).To<Logger<TT>>()
-            // Personality
-            .Bind<IPersonalityService>().As(Singleton).To<PersonalityService>()
+            // Profiles
+            .Bind<IProfileService>().As(Singleton).To<ProfileService>()
             // Theming
             .Bind<IThemeService>().As(Singleton).To<ThemeService>()
             // Keymaps
             .Bind<IKeymapService>().As(Singleton).To(_ => new KeymapService())
             // Localization
             .Bind<IUserTranslationsService>().As(Singleton).To<UserTranslationsService>()
-            .Bind<ILocalizationService>().As(Singleton).To<LocalizationService>()
+            .Bind<ILocalizationService>().As(Singleton).To(ctx =>
+            {
+                ctx.Inject<IUserTranslationsService>(out var translations);
+                ctx.Inject<IDeveloperModeService>(out var developerMode);
+                return new LocalizationService(Static.Profile, translations, developerMode);
+            })
             .Bind<ILanguageSwitchService>().As(Singleton).To<LanguageSwitchService>()
             // Developer mode (session state from --developer-mode)
             .Bind<IDeveloperModeService>().As(Singleton).To<DeveloperModeService>()
@@ -322,6 +382,8 @@ public partial class DISetup
             .Root<IEventBus>("EventBus")
             .Root<IUserSidecarService>("UserSidecarService")
             .Root<IFileWatcherService>("FileWatcherService")
+            .Root<HexIDE.Recovery.IRecoveryService>("Recovery")
+            .Root<HexIDE.Recovery.IRecoveryOffers>("RecoveryOffers")
             .Root<IBookmarkService>("BookmarkService")
             .Root<HexIDE.Debugging.IBreakpointService>("BreakpointService")
             .Root<HexIDE.Runtime.Debugging.IDebugController>("DebugController")
@@ -334,7 +396,7 @@ public partial class DISetup
             .Root<TranslationEditorViewModel>("TranslationEditorViewModel")
             .Root<LanguageServersToolViewModel>("LanguageServersToolViewModel")
             .Root<HexIDE.Tools.ProtocolInspector.ProtocolInspectorToolViewModel>("ProtocolInspectorToolViewModel")
-            .Root<IPersonalityService>("PersonalityService")
+            .Root<IProfileService>("ProfileService")
             .Root<AddinProjectTemplateService>("AddinProjectTemplateService");
 
     public static MainViewViewModel DesignTimeRootViewModel => new DISetup().Root;

@@ -97,6 +97,12 @@ public sealed class NamedPipeLspTransport : ILspTransport
 
     private PipeStream? _pipe;
     private Process? _process;
+    private readonly Lock _exitGate = new();
+    private bool _exitReported;
+    private volatile bool _shutdownCompleted;
+    private volatile bool _endedAfterShutdown;
+
+    private bool _disposing;
     private ChildProcessJob? _job;
 
     /// <summary>
@@ -146,12 +152,21 @@ public sealed class NamedPipeLspTransport : ILspTransport
         _connectTimeout = connectTimeout ?? TimeSpan.FromSeconds(DefaultConnectTimeoutSeconds);
     }
 
+    // Test seam for checking exit-lock ownership and flag publication at termination (#3217).
+    internal Action<Process> KillProcess { get; set; } = LaunchedServerGuard.Kill;
+
     public bool IsAlive => _pipe is { IsConnected: true } && _process is not { HasExited: true };
+
+    public void ShutdownCompleted()
+    {
+        _shutdownCompleted = true;
+    }
 
     // A server this transport launched is one-shot, matching StdioProcessLspTransport: a crash does
     // not auto-respawn. A pre-existing endpoint we merely dialled can be re-dialled.
     /// <summary>Why the last connect attempt failed, in this transport's words. See ILspTransport.</summary>
     public string? LastFailure { get; private set; }
+    public bool WaitingForWorkspace { get; private set; }
 
     /// <summary>
     /// Nothing when HexIDE launched the server behind this pipe and can see it, and the process half when
@@ -210,10 +225,19 @@ public sealed class NamedPipeLspTransport : ILspTransport
         // Drop any previous connection (reconnect) so the far side observes the close and frees its
         // endpoint, rather than leaking a half-open pipe that the next dial would collide with.
         await DisposeAsync();
+        lock (_exitGate)
+        {
+            _disposing = false;
+            _exitReported = false;
+            _shutdownCompleted = false;
+            _endedAfterShutdown = false;
+        }
 
         // Resolved before the pipe exists and before anything is started, because a placeholder that
         // cannot be filled is a knowable precondition rather than a connect failure — and reporting it as
         // a timeout thirty seconds later would describe the wrong problem.
+        WaitingForWorkspace = false;
+        LastFailure = null;
         string? arguments = null;
         string[]? argumentList = null;
         if (_launch?.ArgumentList is { } list)
@@ -332,10 +356,10 @@ public sealed class NamedPipeLspTransport : ILspTransport
         var directory = WorkspaceDirectory();
         if (string.IsNullOrWhiteSpace(directory))
         {
+            WaitingForWorkspace = true;
             LastFailure =
-                $"'{_launch!.FileName}' is configured with a workspace placeholder and no project is open, "
-                + "so there is no workspace to give it";
-            _logger.LogWarning("{Failure}.", LastFailure);
+                $"'{_launch!.FileName}' is configured with a workspace placeholder and "
+                + "no project is open or the project has not been saved yet, so there is no workspace to give it";
             return null;
         }
 
@@ -449,6 +473,7 @@ public sealed class NamedPipeLspTransport : ILspTransport
         }
 
         _process = process;
+        LaunchedServerGuard.NoteStarted(process);
         _job.Assign(process);
         process.EnableRaisingEvents = true;
 
@@ -475,12 +500,25 @@ public sealed class NamedPipeLspTransport : ILspTransport
 
     private void OnServerExited(object? sender, EventArgs e)
     {
-        // Read first: Kill() and Dispose() are both moments away, and ExitCode throws once the handle
-        // is gone.
         var code = ExitCode();
+        bool disposing;
+        lock (_exitGate)
+        {
+            if (!ReferenceEquals(sender, _process)) return;
+            ReportExit(code);
+            disposing = _disposing;
+        }
+        if (!disposing) Closed?.Invoke(this, EventArgs.Empty);
+    }
 
-        _logger.LogWarning(
-            "Language server process exited{Code}", code is null ? "" : $" with code {code}");
+    private void ReportExit(int? code)
+    {
+        if (_exitReported) return;
+        _exitReported = true;
+        if (_endedAfterShutdown) return;
+        _logger.Log(_disposing ? LogLevel.Information : LogLevel.Warning,
+            "[{Server}] Language server process exited{Code}", _launch!.FileName,
+            code is null ? "" : $" with code {code}");
 
         // BEFORE Closed, which is what tears the connection down. An exit code arriving after the record
         // stopped accepting entries would be the one fact nobody could see — and for a pipe server that
@@ -489,8 +527,6 @@ public sealed class NamedPipeLspTransport : ILspTransport
             TransportNoticeKind.Lifecycle,
             code is null ? "process exited" : $"process exited with code {code}",
             Fault: code is not (null or 0)));
-
-        Closed?.Invoke(this, EventArgs.Empty);
     }
 
     /// <summary>The exit code, or null when the process cannot tell us.</summary>
@@ -509,7 +545,7 @@ public sealed class NamedPipeLspTransport : ILspTransport
         var pipe = _pipe;
         var process = _process;
         _pipe = null;
-        _process = null;
+        lock (_exitGate) _disposing = true;
 
         if (pipe is not null)
         {
@@ -523,14 +559,7 @@ public sealed class NamedPipeLspTransport : ILspTransport
             return;
         }
 
-        // Killing the child is required, not tidy-up. A real third-party server was measured taking a
-        // client PID on its command line, silently ignoring it, logging that it "will not be able to
-        // automatically exit", and then outliving every client — leaving orphaned server processes on
-        // each run. A transport that owns a child has to assume nothing else will reap it.
-        //
-        // Unsubscribe first: the kill would otherwise raise Closed during teardown and invite the
-        // client to reconnect to a transport that is being disposed.
-        process.Exited -= OnServerExited;
+        // Keep observing the child through the grace period; deliberate teardown must not raise Closed.
         try
         {
             // A server may still be starting children after initialize answers (#313).
@@ -542,12 +571,36 @@ public sealed class NamedPipeLspTransport : ILspTransport
         {
             if (!process.HasExited)
             {
-                LaunchedServerGuard.Kill(process);
+                // Publish before Kill: the exit callback must see this without waiting on its gate.
+                _endedAfterShutdown = _shutdownCompleted;
+                KillProcess(process);
+                if (_endedAfterShutdown)
+                {
+                    var detail = $"stopped after shutdown; still exiting after {LaunchedServerGuard.ExitTimeout.TotalSeconds:g} s, so ended";
+                    Notice?.Invoke(this, new TransportNotice(TransportNoticeKind.Lifecycle, detail));
+                    _logger.LogInformation("[{Server}] {Detail}", _launch!.FileName, detail);
+                }
+                if (!_endedAfterShutdown)
+                {
+                    _logger.LogInformation("[{Server}] Language server process killed after waiting {Timeout:g} for exit.",
+                        _launch!.FileName, LaunchedServerGuard.ExitTimeout);
+                    Notice?.Invoke(this, new TransportNotice(TransportNoticeKind.Lifecycle,
+                        "process killed after waiting for exit"));
+                }
                 await process.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(2));
             }
         }
         catch { /* already gone */ }
 
+        // Process queries can wait on Windows; never hold the exit callback's gate over them.
+        var hasExited = process.HasExited;
+        var code = ExitCode();
+        lock (_exitGate)
+        {
+            if (hasExited) ReportExit(code);
+            _process = null;
+        }
+        process.Exited -= OnServerExited;
         process.Dispose();
         _job?.Dispose();
         _job = null;

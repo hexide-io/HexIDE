@@ -47,7 +47,8 @@ public sealed record LayoutManifest(
             new("toolbox",           true,  DockRegion.Left,     0, null),
             new("project",           true,  DockRegion.Right,    0, null),
             new("properties",        true,  DockRegion.Right,    1, null),
-            new("formLayout",        true,  DockRegion.Right,    2, null),
+            new("outline",           false, DockRegion.Right,    3, null),
+            new("formLayout",        false, DockRegion.Right,    2, null),
             new("immediate",         false, DockRegion.Bottom,   0, 0.3),
             new("locals",            false, DockRegion.Bottom,   1, 0.3),
             new("watches",           false, DockRegion.Bottom,   2, 0.3),
@@ -61,6 +62,7 @@ public sealed record LayoutManifest(
 
 public interface IWindowStateService
 {
+    void TrackWindowState(Window mainWindow);
     void SaveWindowState(Window mainWindow);
     void RestoreWindowState(Window mainWindow);
 

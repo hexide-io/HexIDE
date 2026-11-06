@@ -6,6 +6,7 @@ using Avalonia.Automation;
 using Avalonia.Automation.Peers;
 using Avalonia.Automation.Provider;
 using Avalonia.Controls;
+using Avalonia.Controls.Presenters;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.LogicalTree;
@@ -132,6 +133,9 @@ public static class UiAutomationDriver
                 value = shown;
         }
 
+        if (value is not null)
+            value = Capped(value);
+
         // An editor has no value provider, so the Immediate window's text could be read only from its view's members, on
         // another node, and nothing said so (#2513). A code window's document is a project file, which get_file_content
         // returns with its open edits, so that one is still left out (#562). Its writability goes with it, as a value
@@ -140,7 +144,7 @@ public static class UiAutomationDriver
         if (value is null && control is TextEditor { Document: { } document } shownEditor
             && control.DataContext is not HexIDE.Forms.ViewModels.ISearchableDocument)
         {
-            value = Safe<string?>(() => Capped(document.Text), null);
+            value = Safe<string?>(() => Capped(document.Text, keepEnd: true), null);
             editorReadOnly = shownEditor.IsReadOnly;
         }
 
@@ -163,7 +167,7 @@ public static class UiAutomationDriver
             ? Safe<RangeState?>(() => new RangeState(rp.Value, rp.Minimum, rp.Maximum, rp.IsReadOnly), null)
             : null;
 
-        var rect = Safe(() => peer.GetBoundingRectangle(), default(Rect));
+        var (rect, rectNote) = WindowBounds(control, peer, root);
 
         // Members are listed where the DataContext is set, not on every control that inherits it. A scroll bar
         // inside a code window used to report the whole CodeEditorViewModel, source file included, ahead of
@@ -181,6 +185,14 @@ public static class UiAutomationDriver
         else if (omitted > 0)
             note = $"{omitted} member(s) declared by the Dock framework's base types (layout plumbing such as "
                  + "Proportion and CanFloat) are not listed; set_property still reaches them by name.";
+
+        var cut = members.Count(m => m.Value is { Length: > MaxMemberValueLength });
+        if (cut > 0)
+            note = string.Join(" ", new[] { note,
+                $"{cut} member value{(cut == 1 ? "" : "s")} over {MaxMemberValueLength} characters {(cut == 1 ? "was" : "were")} cut; "
+                + "a control that shows one, such as a text box or the Immediate window, gives up to "
+                + $"{MaxValueLength.ToString("N0", System.Globalization.CultureInfo.InvariantCulture)} characters as its value." }
+                .Where(n => n is not null));
 
         if (ResolvedCommand(control) is { } bound)
         {
@@ -206,7 +218,7 @@ public static class UiAutomationDriver
             control.IsFocused,
             Safe(() => peer.IsOffscreen(), false),
             Hidden(control),
-            [rect.X, rect.Y, rect.Width, rect.Height],
+            rect,
             selection,
             value,
             toggle,
@@ -223,7 +235,33 @@ public static class UiAutomationDriver
             itemTexts,
             itemsNote,
             // The pointer it shows, and where that is set (#2453).
-            Safe(() => PointerReader.Read(control, c => root is null ? Describe(c) : PathWithin(root, "Window", c)), null));
+            Safe(() => PointerReader.Read(control, c => root is null ? Describe(c) : PathWithin(root, "Window", c)), null),
+            control.IsPointerOver,
+            rectNote);
+    }
+
+    private static (double[]? Rect, string? Note) WindowBounds(Control control, AutomationPeer peer, Control? root)
+    {
+        // Peers measure from their own top-level: a popup has a different origin from the window (#3149).
+        try
+        {
+            var source = TopLevel.GetTopLevel(control);
+            var window = root is null ? source as Window : TopLevel.GetTopLevel(root);
+            if (source is not null && window is not null)
+            {
+                var rect = peer.GetBoundingRectangle();
+                if (!ReferenceEquals(source, window))
+                {
+                    var origin = window.PointToClient(source.PointToScreen(rect.Position));
+                    var scale = source.RenderScaling / window.RenderScaling;
+                    rect = new Rect(origin, new Size(rect.Width * scale, rect.Height * scale));
+                }
+                return ([rect.X, rect.Y, rect.Width, rect.Height], null);
+            }
+        }
+        catch { }
+        return (null, "The control's position could not be related to the selected window; boundingRect is unavailable. "
+                    + "A popup-relative rectangle would not map into take_snapshot.");
     }
 
     /// <summary>How many items <see cref="ItemTexts"/> reads at most.</summary>
@@ -359,9 +397,21 @@ public static class UiAutomationDriver
     /// <summary>Cap on a reported value, in characters. The Immediate buffer is unbounded.</summary>
     private const int MaxValueLength = 4000;
 
-    private static string Capped(string text) => text.Length > MaxValueLength
-        ? text[..MaxValueLength] + $"… [truncated at {MaxValueLength} of {text.Length} chars]"
-        : text;
+    private const int MaxMemberValueLength = 200;
+
+    private static string Capped(string text, int limit = MaxValueLength, bool keepEnd = false)
+    {
+        if (text.Length <= limit) return text;
+        if (!keepEnd)
+            return text[..limit] + $"… [last {text.Length - limit} of {text.Length} chars cut]";
+
+        // Output buffers keep their newest text, as run_project's printed does (#3035).
+        var more = limit == MaxMemberValueLength
+            ? "inspect its editor for the last 4000"
+            : "inspect_element has no paging";
+        return text[^limit..] + $"… [first {text.Length - limit} of {text.Length} chars cut; "
+             + $"{more}; copy the displayed text to read all]";
+    }
 
     /// <summary>
     /// A property's current value as text, or null when it cannot be read as text.
@@ -390,7 +440,7 @@ public static class UiAutomationDriver
 
         // An editor's document is a project file, which get_file_content already returns, open edits included.
         // Rendering it here put a whole source file into every inspection of the editor (#562). The Immediate
-        // window's document is not a file and has no other reader, so it is still rendered below.
+        // window's document is not a file; its editor also reports it as value (#2513).
         if (dataContext is HexIDE.Forms.ViewModels.ISearchableDocument searchable
             && p.Name == nameof(HexIDE.Forms.ViewModels.ISearchableDocument.Document))
             return Safe(() =>
@@ -417,7 +467,7 @@ public static class UiAutomationDriver
                 IFormattable f => f.ToString(null, CultureInfo.InvariantCulture),
                 _ => raw.ToString(),
             };
-            return text is null ? null : Capped(text);
+            return text is null ? null : Capped(text, MaxMemberValueLength, keepEnd: raw is AvaloniaEdit.Document.TextDocument);
         }, null);
     }
 
@@ -799,7 +849,7 @@ public static class UiAutomationDriver
                     // menu, rather than an action the control does not support (#949).
                     // But the code window's completion list and parameter info are listed under its editor and are not
                     // the editor's flyout, so with one open, "nothing to close" would deny what the dump shows.
-                    if (AttachedPopupsOf(control).Count > 0)
+                    if (AttachedPopupsOf(control).Any(p => p.Child is not ToolTip))
                         return Err($"'{LabelOf(control, peer)}' has a popup open that collapse does not close, such as "
                                    + "the completion list; press_key Escape closes it");
                     if (control.ContextMenu is not null || FlyoutsOf(control).Any())
@@ -1762,6 +1812,8 @@ public static class UiAutomationDriver
             return Fail(problem);
         if (TopLevel.GetTopLevel(control) is not { } topLevel)
             return Fail("the control is not attached to a window, so it has no coordinates to click at");
+        // A hover left there by 'stay' ends first, as a person's pointer leaves what it was over to press elsewhere (#2562).
+        EndStayingHover(topLevel);
         var local = at ?? new Point(control.Bounds.Width / 2, control.Bounds.Height / 2);
         if (control.TranslatePoint(local, topLevel) is not { } inWindow)
             return Fail($"could not translate ({local.X.ToString("0.#", CultureInfo.InvariantCulture)}, {local.Y.ToString("0.#", CultureInfo.InvariantCulture)}) on '{Describe(control)}' into window coordinates");
@@ -1782,6 +1834,7 @@ public static class UiAutomationDriver
 
         var watch = WatchProgram(topLevel as Window);
         var pointer = new Avalonia.Input.Pointer(Avalonia.Input.Pointer.GetNextFreeId(), PointerType.Mouse, isPrimary: true);
+        var mouse = RawPointer.MouseFor(pointer);
         var (held, pressKind, releaseKind, name) = button switch
         {
             MouseButton.Right => (RawInputModifiers.RightMouseButton, PointerUpdateKind.RightButtonPressed,
@@ -1813,17 +1866,32 @@ public static class UiAutomationDriver
         // MouseMove before MouseDown. A click raised no move, so a program's MouseMove never ran from one (#2407). A still
         // pointer sends none, so a click where the last one left it moves nothing.
         var arrived = !PointerAlreadyAt(topLevel, inWindow);
-        if (arrived)
+        // Raw input also records the screen position used by pointer-placed context popups (#3130).
+        if (arrived && !RawPointer.Move(topLevel, inWindow, rawKeys))
             hit.RaiseEvent(new PointerEventArgs(InputElement.PointerMovedEvent, hit, pointer, topLevel, inWindow,
                 (ulong)Environment.TickCount64, new PointerPointProperties(rawKeys, PointerUpdateKind.Other), keys));
         var arrival = arrived ? "; the pointer moved there first, as a person's does"
             : "; the pointer was already there from the last click, so it did not move first";
-        // MouseDevice implicitly captures the hit element before a real press. A routed event alone does not:
-        // without this, a Label loses its MouseUp when the drag leaves it (#1373). A handler can replace or drop it.
-        if (destination is not null)
-            pointer.Capture(hit as IInputElement);
-        hit.RaiseEvent(new PointerPressedEventArgs(hit, pointer, topLevel, inWindow, (ulong)Environment.TickCount64,
-            new PointerPointProperties(held | rawKeys, pressKind), keys));
+        // MouseDevice compares press timestamps and positions, not clickCount (#3167). Keep a double click's four
+        // button events close together even when handlers or frame waits take longer than the host's double-tap time.
+        var buttonTime = (ulong)Environment.TickCount64;
+        var buttonStep = Application.Current?.PlatformSettings?.GetDoubleTapTime(PointerType.Mouse).TotalMilliseconds >= 2 ? 1UL : 0UL;
+        ulong ButtonTimestamp()
+        {
+            if (!twice) return (ulong)Environment.TickCount64;
+            var timestamp = buttonTime;
+            buttonTime += buttonStep;
+            return timestamp;
+        }
+        var pressTime = ButtonTimestamp();
+        // Raw presses cancel the tooltip timer started by arrival and implicitly capture the hit element (#3130, #1373).
+        if (!RawPointer.Button(topLevel, inWindow, button, down: true, held | rawKeys, mouse, pressTime))
+        {
+            if (destination is not null)
+                pointer.Capture(hit as IInputElement);
+            hit.RaiseEvent(new PointerPressedEventArgs(hit, pointer, topLevel, inWindow, pressTime,
+                new PointerPointProperties(held | rawKeys, pressKind), keys));
+        }
 
         var landed = hit as Control;
         var landing = landed is null || ReferenceEquals(landed, control) ? ""
@@ -1870,8 +1938,10 @@ public static class UiAutomationDriver
                     ?? topLevel.InputHitTest(releasePoint) as Avalonia.Interactivity.Interactive;
                 if (releasedOn is null)
                     return Fail($"pressed {pressed}; nothing takes the pointer at the release point {releaseWhere}");
-                releasedOn.RaiseEvent(new PointerReleasedEventArgs(releasedOn, pointer, topLevel, releasePoint,
-                    (ulong)Environment.TickCount64, new PointerPointProperties(rawKeys, releaseKind), keys, button));
+                var releaseTime = ButtonTimestamp();
+                if (!RawPointer.Button(topLevel, releasePoint, button, down: false, rawKeys, mouse, releaseTime))
+                    releasedOn.RaiseEvent(new PointerReleasedEventArgs(releasedOn, pointer, topLevel, releasePoint,
+                        releaseTime, new PointerPointProperties(rawKeys, releaseKind), keys, button));
                 PointerNowAt(topLevel, releasePoint);
                 var recipient = destination is null ? "" : releasedOn is Control releasedControl
                     ? $"'{Describe(releasedControl)}'{AddressOf(topLevel, "Window", releasedControl)}"
@@ -1914,8 +1984,10 @@ public static class UiAutomationDriver
                 return Fail($"clicked {pressed}; the second click was not sent because the window is hidden or closed");
             if (topLevel.InputHitTest(inWindow) is not Avalonia.Interactivity.Interactive again)
                 return Fail($"clicked {pressed}; the second click was not sent because nothing takes the pointer at that point now");
-            again.RaiseEvent(new PointerPressedEventArgs(again, pointer, topLevel, inWindow, (ulong)Environment.TickCount64,
-                new PointerPointProperties(held | rawKeys, pressKind), keys, clickCount: 2));
+            var secondPressTime = ButtonTimestamp();
+            if (!RawPointer.Button(topLevel, inWindow, button, down: true, held | rawKeys, mouse, secondPressTime))
+                again.RaiseEvent(new PointerPressedEventArgs(again, pointer, topLevel, inWindow, secondPressTime,
+                    new PointerPointProperties(held | rawKeys, pressKind), keys, clickCount: 2));
             if (!ReferenceEquals(again, hit))
                 secondLanding = again is Control replacement
                     ? $"; the first click replaced what it landed on, so the second press went to '{Describe(replacement)}'"
@@ -2389,12 +2461,15 @@ public static class UiAutomationDriver
                         // A program's own box holds its handler; another window, such as the IDE's compile error, may not.
                         Box = dialog?.Content is HexIDE.Runtime.Dialogs.MessageBox or HexIDE.Runtime.Dialogs.InputBox,
                         Opened = OpenedForms(watch),
+                        Finished = watch.Pump.FinishedSince(watch.LiveBefore),
+                        // Read here, on the UI thread, as the reply below is composed off it.
+                        Title = dialog?.Title,
                     };
                 },
                 Avalonia.Threading.DispatcherPriority.Send).GetTask().ConfigureAwait(false);
             var opened = state.Opened.Count == 0
                 ? ""
-                : $"; the program opened {string.Join(", ", state.Opened.Select(t => $"'{t}'"))}";
+                : $"; the program opened {Joined(state.Opened)}";
             var waiting = state.Waiting.Length == 0 ? "" : $", with {state.Waiting} waiting to run";
             if (state.Idle)
             {
@@ -2403,9 +2478,13 @@ public static class UiAutomationDriver
                     ? await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(read, Avalonia.Threading.DispatcherPriority.Send)
                         .GetTask().ConfigureAwait(false)
                     : null;
+                // A handler found running, held at a MsgBox or paused, that this action let finish: said, since a reply that
+                // named it running would otherwise leave its end to be inferred (#2720).
+                var finished = state.Finished.Count == 0 ? "" : $"{Joined(state.Finished)} finished";
+                var after = string.Join("; ", new[] { finished, opened.Length == 0 ? "" : opened[2..] }.Where(p => p.Length > 0));
                 return outcome with
                 {
-                    Detail = outcome.Detail + settled + (opened.Length == 0 ? "" : $" ({opened[2..]})"),
+                    Detail = outcome.Detail + settled + (after.Length == 0 ? "" : $" ({after})"),
                     Settled = null,
                 };
             }
@@ -2423,13 +2502,16 @@ public static class UiAutomationDriver
             {
                 // Named here, so the reply's note of open dialogs leaves it out (#1253).
                 OpenDialogs.NamedInReply(dialog);
+                // How to reach it, which a caller met with a box for the first time had to guess (#2720): by its title, which a
+                // window it is over may share, or by "auto" when it has none.
+                var reach = string.IsNullOrWhiteSpace(state.Title) ? "\"auto\"" : $"\"{state.Title}\"";
                 return outcome with
                 {
                     Detail = outcome.Detail + $" (the program is still running {state.Busy}{waiting}, and has a window open over "
                              + "its form, " + state.Description
                              + (state.Box ? "; a MsgBox holds its handler until it is answered, so the form may change after that"
                                  : "; it may hold the program until it is answered, so the form may change after that")
-                             + $"{opened})",
+                             + $"; window {reach} reaches it{opened})",
                 };
             }
             if (Environment.TickCount64 >= deadline)
@@ -2495,9 +2577,25 @@ public static class UiAutomationDriver
             .FirstOrDefault(w => w.IsVisible && w != watch.Form && w is not HexIDE.Runtime.IModuleExecutionRoot
                                  && (watch.WaitingOnWindowBefore || !watch.Before.Contains(w)));
 
-    /// <summary>The titles of the program's forms that have opened since the action began.</summary>
+    /// <summary>
+    /// The program's forms that have opened since the action began, each by its name, which reaches it as a window and which
+    /// a program can't change, with its caption beside it where that differs: <c>Form2 ("Second")</c> (#2720).
+    /// </summary>
     private static List<string> OpenedForms(ProgramWatch watch) =>
-        [.. OpenWindows().Where(w => w is HexIDE.Runtime.IModuleExecutionRoot && !watch.Before.Contains(w)).Select(w => w.Title ?? "")];
+        [.. OpenWindows().Where(w => w is HexIDE.Runtime.IModuleExecutionRoot && !watch.Before.Contains(w)).Select(FormLabel)];
+
+    private static string FormLabel(Window form) =>
+        HexIDE.Runtime.BuiltinControls.VBProps.GetName(form) is not { Length: > 0 } name ? $"'{form.Title}'"
+        : string.Equals(name, form.Title, StringComparison.OrdinalIgnoreCase) ? name
+        : $"{name} (\"{form.Title}\")";
+
+    // Names as a sentence lists them: "A", "A and B", "A, B and C".
+    private static string Joined(IReadOnlyList<string> names) =>
+        names.Count == 1 ? names[0] : $"{string.Join(", ", names.Take(names.Count - 1))} and {names[^1]}";
+
+    /// <summary>The running program's event pump, read from any of its open forms, or null when none is open.</summary>
+    internal static HexIDE.Runtime.EventPump? RunningPump() =>
+        OpenWindows().OfType<HexIDE.Runtime.IModuleExecutionRoot>().Select(r => r.Events).FirstOrDefault(e => e is not null);
 
     // `click`'s value: an optional point, a button and the keys held, in any order (ClickValue).
     private static bool TryParseClick(string? value, out Point? at, out MouseButton button, out KeyModifiers keys, out bool twice, out string? destination, out bool hold, out string problem)
@@ -3364,9 +3462,21 @@ public static class UiAutomationDriver
                                         Math.Clamp(Math.Max(textBox.SelectionStart, textBox.SelectionEnd), 0, current.Length));
                     if (start == end)
                         start = end = Math.Clamp(textBox.CaretIndex, 0, current.Length);
-                    textBox.Text = current.Remove(start, end - start).Insert(start, text);
-                    textBox.CaretIndex = start + text.Length;
-                    textBox.SelectionStart = textBox.SelectionEnd = start + text.Length;
+                    var typed = current.Remove(start, end - start).Insert(start, text);
+                    // Committed in the order TextBox's own text input commits a key: the text, the selection cleared, the
+                    // presenter's text and caret, then the box's caret. Assigning Text, then the caret and selection, left a
+                    // live, focused box drawing the previous text's glyphs until its text next changed, though it held the
+                    // new text (#2737). Invalidating the presenter's TextRunCache cleared that and a fresh render did not, so
+                    // the cache held the old text's runs. Avalonia 12.0.4 and 12.0.5 do this to a focused box given its text
+                    // and then its caret; 12.1.0 on draws it either way, so after #868 this order is no longer needed.
+                    textBox.SetCurrentValue(TextBox.TextProperty, typed);
+                    textBox.ClearSelection();
+                    if (textBox.GetVisualDescendants().OfType<TextPresenter>().FirstOrDefault() is { } presenter)
+                    {
+                        presenter.SetCurrentValue(TextPresenter.TextProperty, typed);
+                        presenter.MoveCaretToTextPosition(start + text.Length);
+                    }
+                    textBox.SetCurrentValue(TextBox.CaretIndexProperty, start + text.Length);
                     replacing = end > start ? $", replacing the {end - start} selected char(s)" : "";
                     break;
             }
@@ -3752,7 +3862,10 @@ public static class UiAutomationDriver
             var top = TopLevel.GetTopLevel(control);
             var before = top?.FocusManager?.GetFocusedElement() as Control;
             // A container means the keyboard as it stands, not its first focusable descendant.
-            var retained = before is not null && (ReferenceEquals(before, control) || IsUnderInView(control, before));
+            var dismissingAncestorPopup = parsedKey == Key.Escape && mods == KeyModifiers.None
+                && before is not null && InAttachedPopupOver(control, before);
+            var retained = before is not null && (ReferenceEquals(before, control) || IsUnderInView(control, before)
+                || dismissingAncestorPopup);
             if ((retained ? before : FindKeyTarget(control)) is not { } target)
                 return new InteractOutcome(false, "keyboard", null,
                     control.GetVisualDescendants().OfType<Control>()
@@ -3794,9 +3907,12 @@ public static class UiAutomationDriver
                   ?? PathWithin(TopLevel.GetTopLevel(before) ?? before, "Window", before) ?? Describe(before);
             // Named before the key goes, as the receiver was when it was pressed: Escape on a flyout's item closes the flyout,
             // and the item has no path once it has (#2030).
+            var receiverAddress = dismissingAncestorPopup && top is not null
+                && PathWithin(top, "Window", target) is { } popupPath
+                    ? $", at {popupPath}" : AddressOf(control, controlPath, target);
             var where = ReferenceEquals(target, control)
                 ? string.Empty
-                : $" on {Describe(target)}{AddressOf(control, controlPath, target)}";
+                : $" on {Describe(target)}{receiverAddress}";
             var focused = target.IsFocused || target.Focus();
             var after = top?.FocusManager?.GetFocusedElement() as Control;
             var focusMove = !ReferenceEquals(before, after)
@@ -4119,6 +4235,7 @@ public static class UiAutomationDriver
             var target = FindHoverTarget(control);
             if (Shows(target) is not true and var shows)
                 return new InteractOutcome(false, "pointer", null, NotShowingRefusal(target, "hover", shows));
+            EndStayingHover(topLevel);
             var local = HoverPoint(target, x, y);
             if (target.TranslatePoint(local, topLevel) is not { } atTopLevel)
                 return new InteractOutcome(false, "pointer", null,
@@ -4214,6 +4331,56 @@ public static class UiAutomationDriver
         }
     }
 
+    /// <summary>
+    /// Leaves a hover's pointer where it went, for 'stay' (#2562): what it landed on keeps its pointer-over look and any
+    /// tip it opened, so a snapshot shows them. The next click, drag or hover in the window ends it first, as
+    /// <see cref="EndHover"/> would have, and the real mouse's next move over the window takes it back.
+    /// </summary>
+    public static void StayHover(Control hovered)
+    {
+        if (TopLevel.GetTopLevel(hovered) is not { } topLevel)
+            return;
+        ClickPointer.Remove(topLevel);
+        Stayed.AddOrUpdate(topLevel, hovered);
+    }
+
+    /// <summary>
+    /// How long a staying hover is watched before its state is read. A tip's popup opening under a real mouse resting on the
+    /// window makes the platform send a move where that mouse is, and it arrives a moment after the tip: read sooner, the
+    /// reply said the control was under the pointer when it no longer was (#2562).
+    /// </summary>
+    public static readonly TimeSpan StaySettle = TimeSpan.FromMilliseconds(200);
+
+    /// <summary>
+    /// What a reply says of a staying hover, read after <see cref="StaySettle"/>: whether <paramref name="hovered"/> reads
+    /// as under the pointer and how long that lasts, or, when it does not, what took it. <paramref name="moved"/> is the
+    /// foreign-pointer watch's account; <paramref name="saidAlready"/> when the reply already gives it.
+    /// </summary>
+    public static string StayedNote(Control hovered, string? moved, bool saidAlready)
+    {
+        if (hovered.IsPointerOver)
+            return $"; the pointer stays there and '{Describe(hovered)}' reads as under it (isPointerOver), so take_snapshot "
+                   + "shows its pointer-over look and any tip, until the next click, drag or hover in this window or the real "
+                   + "mouse's next move over it";
+        var why = moved is null ? "input the hover did not send has moved it"
+            : saidAlready ? "what moved the pointer, above, took it" : moved;
+        return $"; the pointer was left there, but '{Describe(hovered)}' does not read as under it (isPointerOver is false): "
+               + why;
+    }
+
+    // The windows a hover was left in by 'stay', with what it landed on (#2562).
+    private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<TopLevel, Control> Stayed = new();
+
+    /// <summary>Ends a hover 'stay' left in <paramref name="topLevel"/>: the pointer leaves the window, as a hover's end
+    /// takes it. Nothing when there is none.</summary>
+    internal static void EndStayingHover(TopLevel topLevel)
+    {
+        if (!Stayed.TryGetValue(topLevel, out _))
+            return;
+        Stayed.Remove(topLevel);
+        RawPointer.Leave(topLevel);
+    }
+
     // Where each window last had a click's pointer, so a click there again moves nothing first, as a still mouse sends no
     // move. A hover's end takes the pointer out of the window, and forgets it (#2407).
     private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<TopLevel, System.Runtime.CompilerServices.StrongBox<Point>>
@@ -4231,8 +4398,8 @@ public static class UiAutomationDriver
     /// window's coordinates. Either takes the tip with it.
     /// </summary>
     /// <remarks>
-    /// Read from the input manager's stream, which is what Avalonia's tooltip service follows, so the routed pointer events
-    /// that click and drag raise on a control, which cannot move a tip, are not counted. The real mouse, resting over the
+    /// Read from the input manager's stream, which is what Avalonia's tooltip service follows. Click arrival uses the same
+    /// device as hover; the routed events that drag raises on a control are not counted. The real mouse, resting over the
     /// window, gets moves from the platform as windows change around it, a tip's own popup among them, and the reply said no
     /// tip opened without being able to say why (#2376). Tool calls run concurrently, so another hover can move the pointer
     /// too, and that is not the real mouse's doing. Created, read and disposed on the UI thread, where input arrives.
@@ -4414,7 +4581,28 @@ public static class UiAutomationDriver
 
         /// <summary>Sends a move to <paramref name="at"/>, in the window's coordinates. False, having sent nothing, when a
         /// member it needs cannot be reached.</summary>
-        public static bool Move(TopLevel topLevel, Point at) => Send(topLevel, Avalonia.Input.Raw.RawPointerEventType.Move, at);
+        public static bool Move(TopLevel topLevel, Point at, RawInputModifiers modifiers = RawInputModifiers.None) =>
+            Send(topLevel, Avalonia.Input.Raw.RawPointerEventType.Move, at, modifiers);
+
+        // Keep one device for a click's press, held moves and release, including its second press.
+        public static IInputDevice? MouseFor(Avalonia.Input.Pointer pointer) =>
+            Reach(() => Members.NewMouse?.Invoke([pointer]) as IInputDevice);
+
+        public static bool Button(TopLevel topLevel, Point at, MouseButton button, bool down,
+            RawInputModifiers modifiers, IInputDevice? device, ulong? timestamp = null)
+        {
+            if (device is null) return false;
+            var type = (button, down) switch
+            {
+                (MouseButton.Right, true) => Avalonia.Input.Raw.RawPointerEventType.RightButtonDown,
+                (MouseButton.Right, false) => Avalonia.Input.Raw.RawPointerEventType.RightButtonUp,
+                (MouseButton.Middle, true) => Avalonia.Input.Raw.RawPointerEventType.MiddleButtonDown,
+                (MouseButton.Middle, false) => Avalonia.Input.Raw.RawPointerEventType.MiddleButtonUp,
+                (_, true) => Avalonia.Input.Raw.RawPointerEventType.LeftButtonDown,
+                _ => Avalonia.Input.Raw.RawPointerEventType.LeftButtonUp,
+            };
+            return Send(topLevel, type, at, modifiers, device, timestamp);
+        }
 
         public static void Leave(TopLevel topLevel) => Send(topLevel, Avalonia.Input.Raw.RawPointerEventType.LeaveWindow, default);
 
@@ -4461,7 +4649,8 @@ public static class UiAutomationDriver
             }
         }
 
-        private static bool Send(TopLevel topLevel, Avalonia.Input.Raw.RawPointerEventType type, Point at)
+        private static bool Send(TopLevel topLevel, Avalonia.Input.Raw.RawPointerEventType type, Point at,
+            RawInputModifiers modifiers = RawInputModifiers.None, IInputDevice? device = null, ulong? timestamp = null)
         {
             Action<Avalonia.Input.Raw.RawInputEventArgs> input;
             Avalonia.Input.Raw.RawInputEventArgs args;
@@ -4472,11 +4661,11 @@ public static class UiAutomationDriver
                     || Members.PlatformInput?.GetValue(impl) is not Action<Avalonia.Input.Raw.RawInputEventArgs> found
                     || Members.InputRoot?.GetValue(topLevel) is not IInputRoot root)
                     return false;
-                mouse ??= (IInputDevice)newMouse.Invoke(
+                device ??= mouse ??= (IInputDevice)newMouse.Invoke(
                     [new Avalonia.Input.Pointer(Avalonia.Input.Pointer.GetNextFreeId(), PointerType.Mouse, isPrimary: true)]);
                 input = found;
                 args = (Avalonia.Input.Raw.RawInputEventArgs)newEvent.Invoke(
-                    [mouse, (ulong)Environment.TickCount64, root, type, at, RawInputModifiers.None]);
+                    [device, timestamp ?? (ulong)Environment.TickCount64, root, type, at, modifiers]);
             }
             catch (Exception ex) when (ex is System.Reflection.TargetInvocationException or TypeInitializationException
                                            or MemberAccessException or InvalidCastException or ArgumentException)
@@ -4756,7 +4945,8 @@ public static class UiAutomationDriver
     private static string AddressOf(Control addressed, string? addressedPath, Control receiver) =>
         addressedPath is { Length: > 0 }
         && AnchorOf(addressed, receiver) is { } anchor
-        && PathWithin(addressed, addressedPath, anchor) is { } path
+        && (PathWithin(addressed, addressedPath, anchor)
+            ?? (TopLevel.GetTopLevel(addressed) is { } window ? PathWithin(window, "Window", anchor) : null)) is { } path
             ? $", at {path}"
             : string.Empty;
 
@@ -4772,6 +4962,14 @@ public static class UiAutomationDriver
         return addressed.GetVisualDescendants().OfType<TextEditor>()
             .FirstOrDefault(e => ReferenceEquals(e.TextArea, receiver));
     }
+
+    // A tree's ContextFlyout is placed on the tree, not the node that opened it. Escape sent to that node
+    // must stay in its focused popup; moving focus to the node first leaves the menu open (#3129).
+    private static bool InAttachedPopupOver(Control target, Control focused) =>
+        focused.GetSelfAndVisualAncestors().OfType<Control>().Any(c =>
+            c.Parent is Popup { IsOpen: true, PlacementTarget: Control owner } popup
+            && (ReferenceEquals(owner, target) || IsUnderInView(owner, target))
+            && OwnedPopupsOf(owner).Contains(popup));
 
     // Asked of the TARGET's ancestor chain, explicitly. `IsVisualAncestorOf` was tried first and answered false for a
     // window over a control inside it (measured in the headless tests), so it is not relied on.
@@ -4810,8 +5008,9 @@ public static class UiAutomationDriver
     /// The control-view path of <paramref name="target"/>, walked down from <paramref name="from"/> (whose own
     /// path is <paramref name="fromPath"/>) choosing each segment exactly as <c>dump_visual_tree</c> does, so it
     /// round-trips through <see cref="Resolve"/>. A target the control view folds into a wrapper -- a TextArea
-    /// inside its TextEditor -- gets the path of its nearest addressable ancestor, which press_key and
-    /// type_text resolve back to the same receiver. Null when the target is not below <paramref name="from"/>.
+    /// inside its TextEditor -- gets the path of its nearest addressable visual ancestor, which press_key and
+    /// type_text resolve back to the same receiver. Null when the target is not below <paramref name="from"/>
+    /// or the walk stalls at a node that is not its visual ancestor.
     /// </summary>
     internal static string? PathWithin(Control from, string fromPath, Control target)
     {
@@ -4827,7 +5026,7 @@ public static class UiAutomationDriver
             var next = siblings.FirstOrDefault(m =>
                 ReferenceEquals(m.Control, target) || IsUnderInView(m.Control, target));
             if (next is null)
-                break;
+                return current.IsVisualAncestorOf(target) ? path : null;
             path += "/" + BestSegment(next, siblings);
             current = next.Control;
         }
@@ -4943,7 +5142,10 @@ public static class UiAutomationDriver
         if (seg.Discriminator is { } disc)
         {
             var (matches, facet) = MatchByDiscriminator(typed, disc);
-            return Pick(matches, raw, parentPath, facet);
+            var result = Pick(matches, raw, parentPath, facet);
+            if (matches.Count == 0 && seg.Type is not null && typed.Any(m => HasDataBoundText(m.Control)))
+                return (null, result.error + ". Data-bound text changes, so it is addressed by position; run dump_visual_tree again with interactiveOnly: false for its current path.");
+            return result;
         }
 
         return Pick([.. typed.Select(m => m.Control)], raw, parentPath, seg.Type ?? "child");
@@ -5106,15 +5308,15 @@ public static class UiAutomationDriver
     // first one, for a caller asking only whether there are any: the dump at its maxDepth cut-off (#953).
     private static void CollectMeaningfulChildren(Visual parent, List<MeaningfulChild> acc, bool firstOnly = false)
     {
-        // Asked of the PARENT, not of each child, and the difference is where the items end up. A flyout's
-        // popup is not a visual child of its button, so grafting it while iterating the button's siblings
-        // put eight Add commands next to the toolbar buttons instead of inside the one that owns them --
-        // and left a dump rooted AT the button reporting no children at all, because the button's own
-        // popup was never considered. Here they are children of their owner, which is both where they
-        // appear on screen and what makes the path round-trip.
+        // Attached menus and flyouts keep their own root, so opening one cannot renumber the owner's children.
         if (parent is Control owner)
             foreach (var attached in AttachedPopupsOf(owner))
-                CollectPopupChildren(attached, acc, firstOnly);
+            {
+                if (attached is { IsOpen: true, Child: Control content } && AttachedPopupType(content) is not null)
+                    acc.Add(new MeaningfulChild(content, Classify(content)));
+                else
+                    CollectPopupChildren(attached, acc, firstOnly);
+            }
 
         // Virtualizing panels keep containers in creation order, which changes after scrolling (#1966).
         var children = parent.GetVisualChildren();
@@ -5188,7 +5390,7 @@ public static class UiAutomationDriver
     /// are attached with <c>ISetLogicalParent.SetParent</c> instead: the popup is never a visual child of
     /// anything, so a visual walk cannot reach it however deep it goes. That asymmetry is what made menus
     /// look like they worked while context menus and toolbar flyouts reported <c>children: []</c> — one
-    /// cause wearing two faces, recorded as two separate entries in docs/mcp-server-gaps.md.</para>
+    /// cause wearing two faces, recorded as two separate entries in docs/mcp-gaps/.</para>
     ///
     /// <para><b>Found from the owner, not by enumerating popup roots.</b> Avalonia exposes no public list of
     /// live <c>PopupRoot</c>s, but every one of these popups is reachable from the control that owns it —
@@ -5211,7 +5413,22 @@ public static class UiAutomationDriver
 
     // One popup for a menu or a flyout; the code window can have two open at once, its completion list under the
     // parameter info of the call being typed into, and reporting only the list left the signature unseen (#942 review).
+    // An open tip is one too: a hover left by 'stay' keeps it open for a snapshot, which draws it with the others, and a
+    // dump lists its text under its owner (#2562).
     private static IReadOnlyList<Popup> AttachedPopupsOf(Control c)
+    {
+        var owned = OwnedPopupsOf(c);
+        return OpenTipPopupOf(c) is { } tip ? [.. owned, tip] : owned;
+    }
+
+    // The popup a tip open on the control is shown in. Avalonia keeps the tip in an internal attached property; none when
+    // a later Avalonia renames it, and the snapshot then leaves the tip out, as it did before.
+    private static Popup? OpenTipPopupOf(Control c) =>
+        ToolTipInstanceProperty is not null && ToolTip.GetIsOpen(c)
+        && c.GetValue(ToolTipInstanceProperty) is ToolTip tip && tip.GetLogicalParent() is Popup { IsOpen: true } popup
+            ? popup : null;
+
+    private static IReadOnlyList<Popup> OwnedPopupsOf(Control c)
     {
         if (c.ContextMenu is { } menu && IsOpenOn(menu, c))
             return menu.GetLogicalParent() is Popup menuPopup ? [menuPopup] : [];
@@ -5339,11 +5556,28 @@ public static class UiAutomationDriver
     {
         if (m.Info.AutoId is { } autoId) yield return autoId;
         if (NullIfEmpty(m.Control.Name) is { } xname) yield return xname;
-        if (MeaningfulLabelOf(m.Info.Peer) is { } label) yield return label;
+        if (!HasDataBoundText(m.Control) && MeaningfulLabelOf(m.Info.Peer) is { } label) yield return label;
     }
+
+    // Avalonia's public query also returns resource/template expressions. The concrete types are internal;
+    // pin the two data-binding types, leaving resources and TemplateBinding as stable labels (#3028).
+    private static bool HasDataBoundText(Control control) =>
+        control is TextBlock
+        && Avalonia.Data.BindingOperations.GetBindingExpressionBase(control, TextBlock.TextProperty)?.GetType().FullName
+            is "Avalonia.Data.Core.BindingExpression" or "Avalonia.Data.Core.MultiBindingExpression";
 
     private readonly record struct NodeClass(
         AutomationPeer? Peer, string[] Providers, string Type, string? Name, string? AutoId, bool Focusable, bool Structural);
+
+    private static string? AttachedPopupType(Control content)
+    {
+        if (content.Parent is not Popup popup) return null;
+        if (content is ContextMenu) return "ContextMenu";
+        if (popup.PlacementTarget is Control owner
+            && FlyoutsOf(owner).Any(f => f is PopupFlyoutBase flyout && ReferenceEquals(flyout.Popup, popup)))
+            return "Flyout";
+        return null;
+    }
 
     private static NodeClass Classify(Control control)
     {
@@ -5372,6 +5606,9 @@ public static class UiAutomationDriver
         // agrees; it has a Separator control type rather than treating one as a wrapper.
         if (control is Separator)
             return new NodeClass(peer, providers, "Separator", name, autoId, focusable, false);
+
+        if (AttachedPopupType(control) is { } popupType)
+            return new NodeClass(peer, providers, popupType, name, autoId, focusable, false);
 
         return new NodeClass(peer, providers, type, name, autoId, focusable, structural);
     }
@@ -5478,7 +5715,7 @@ public record UiNodeDetail(
     bool IsFocused,
     bool IsOffscreen,
     bool? IsHidden,
-    double[] BoundingRect,
+    double[]? BoundingRect,
     string[] SelectionItems,
     string? Value,
     bool? ToggleState,
@@ -5502,7 +5739,11 @@ public record UiNodeDetail(
     string? ItemsNote = null,
     // The mouse pointer it shows: a running program's MousePointer by number and name, and where it is set (#2453). Absent
     // when none is set on it or above it, and the platform's arrow shows.
-    PointerState? Pointer = null);
+    PointerState? Pointer = null,
+    // Whether the pointer is over it, as its :pointerover style reads it (#2562): a hover that stays sets it, and the real
+    // mouse's next move takes it back.
+    bool IsPointerOver = false,
+    string? BoundingRectNote = null);
 
 /// <summary>The inspected Window's Avalonia frame properties and, on Windows, its native style masks.</summary>
 public record WindowFrameState(bool CanResize, string WindowDecorations, bool CanMinimize, bool CanMaximize,

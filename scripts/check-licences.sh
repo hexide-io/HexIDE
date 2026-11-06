@@ -74,7 +74,7 @@ if [ ! -f "$MANIFEST" ]; then
 else
   while IFS= read -r pkg; do
     [ -n "$pkg" ] || continue
-    lic=$(awk -F'	' -v p="$pkg" '$1==p{print $2}' "$MANIFEST" | head -n1)
+    lic=$(awk -F'	' -v p="$pkg" '{sub(/\r$/,"")} $1==p{print $2}' "$MANIFEST" | head -n1)
     if [ -z "$lic" ]; then
       note "package has no recorded licence: $pkg (add it to $MANIFEST)"
     elif ! printf '%s' "$lic" | grep -Eq "$PERMITTED"; then
@@ -95,7 +95,19 @@ while IFS= read -r hit; do
 done < <(git grep -nIE '(using|namespace)[[:space:]]+RDCore(\.|;|[[:space:]])' -- . "${EXCLUDE[@]}")
 
 # 8. Source notices must use a permitted licence or name a credited third-party file.
-if ! python3 scripts/check-source-licences.py; then
+# Windows Store aliases can exist on PATH without running Python.
+PYTHON=()
+for candidate in python3 python py; do
+  command=("$candidate")
+  [ "$candidate" != py ] || command+=(-3)
+  if version=$("${command[@]}" --version 2>&1) && [[ "$version" == Python\ 3.* ]]; then
+    PYTHON=("${command[@]}")
+    break
+  fi
+done
+if [ -z "${PYTHON[0]:-}" ]; then
+  note "Python 3 is required for source licence checks; tried python3, python and py -3 (--version). Install Python 3 and add it to PATH."
+elif ! "${PYTHON[@]}" scripts/check-source-licences.py; then
   fail=1
 fi
 
