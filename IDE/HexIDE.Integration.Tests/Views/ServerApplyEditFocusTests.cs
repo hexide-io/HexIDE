@@ -26,7 +26,8 @@ public class ServerApplyEditFocusTests
     [AvaloniaFact]
     public async Task LensEditingAnotherOpenMemberKeepsKeyboardFocusAndCaret()
     {
-        var composition = new DISetup();
+        await using var owned = new RealComposition();
+        var composition = owned.Composition;
         var dock = composition.DocumentDockService;
         var host = new DockControl { Layout = composition.Root.Layout };
         host.DataTemplates.Add(new FuncDataTemplate<CodeEditorViewModel>((model, _) =>

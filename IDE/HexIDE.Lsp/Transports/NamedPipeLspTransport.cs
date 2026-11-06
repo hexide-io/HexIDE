@@ -473,6 +473,7 @@ public sealed class NamedPipeLspTransport : ILspTransport
         }
 
         _process = process;
+        LaunchedServerGuard.NoteStarted(process);
         _job.Assign(process);
         process.EnableRaisingEvents = true;
 
