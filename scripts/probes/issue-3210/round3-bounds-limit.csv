@@ -1,0 +1,5 @@
+stage,shape,stack_bytes,depth,repeat,outcome,seconds
+bounds-procedure,parens,1048576,498,0,pass,0.7
+bounds-procedure,parens,1048576,498,1,pass,0.74
+bounds-procedure,parens,1048576,499,1,depth-refusal,0.81
+bounds-procedure,parens,1048576,499,0,depth-refusal,0.89

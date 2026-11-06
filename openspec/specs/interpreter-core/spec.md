@@ -29,6 +29,26 @@ worse than one that is obviously incomplete.
 
 ## Requirements
 
+### Requirement: For Each collection references and declarations
+
+The interpreter SHALL parse a For Each collection as a reference, refusing parenthesised expressions,
+number/string literals, the bare keywords Nothing, True, False, Null and Empty, New expressions and operators as syntax errors (#3213, measured in
+[the issue](https://github.com/hexide-io/HexIDE/issues/3213) and [PR #3215](https://github.com/hexide-io/HexIDE/pull/3215)).
+When execution finds a known declared scalar collection, it SHALL raise a compile refusal with
+"For Each may only iterate over a collection object or an array". This check occurs on execution,
+so it does not diagnose a never-taken path. A late-bound member SHALL count as Variant when a
+raised collection under Resume Next determines whether to empty the loop element.
+
+#### Scenario: Typed array element is not a collection
+- **WHEN** execution reaches `For Each x In Items(Boom())` with `Dim Items(1) As Long`
+- **THEN** it refuses with "For Each may only iterate over a collection object or an array"
+- **AND** it does not evaluate Boom
+
+#### Scenario: Late-bound array Function raises under Resume Next
+- **WHEN** `o.Items()` through untyped `Dim o` raises and Items is declared As Long()
+- **THEN** the failed loop runs its body once and Next empties the loop element and raises 92
+
+
 ### Requirement: Read-only project resources
 
 The interpreter SHALL load the project's `ResFile32` file read-only when configured for a run,

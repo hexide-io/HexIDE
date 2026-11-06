@@ -1,0 +1,7 @@
+stage,shape,stack_mib,pass_depth,overflow_depth,trials,seconds
+cc-runtime-parse,parens,0.25,66,67,11,5.03
+cc-runtime-parse,parens,0.0625,11,12,11,5.3
+cc-runtime-parse,parens,0.125,29,30,11,6.15
+cc-lsp-parse,parens,0.0625,11,12,11,5.17
+cc-lsp-parse,parens,0.125,29,30,11,5.04
+cc-lsp-parse,parens,0.25,65,66,11,5.24
