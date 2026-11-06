@@ -57,7 +57,11 @@ public class ExternalRunControlTests : CompositionTestBase
         var external = composition.ExternalDebugger;
         var directory = Path.Combine(Path.GetTempPath(), "hexide-state-dap-" + Guid.NewGuid());
         Directory.CreateDirectory(directory);
-        using var context = new IdeContext(Substitute.For<IProjectManager>(), Substitute.For<IDocumentDockService>(),
+        var projects = Substitute.For<IProjectManager>();
+        var project = TestHelpers.CreateProjectWithModule("P", "ChangedModule");
+        projects.LoadedProjects.Returns([project]);
+        composition.ProjectManager.AddProject(project);
+        using var context = new IdeContext(projects, Substitute.For<IDocumentDockService>(),
             Substitute.For<ILspClient>(), null!, composition.ProjectRunnerService, null!, null!, null!, null!,
             composition.DebugController, composition.Root, null!, null!, null!, null!, composition.Capture,
             null!, composition.LocalizationService, null!);
@@ -82,6 +86,9 @@ public class ExternalRunControlTests : CompositionTestBase
                 state.StopReason.Should().Be("Step");
                 state.AdapterStopReason.Should().Be("goto");
             }
+            project.Modules[0].UpdateCode("' prepared for the next run");
+            var edited = JsonSerializer.Serialize(await tools.GetDebugStateAsync(TestContext.Current.CancellationToken));
+            edited.Should().Contain("changed since").And.Contain("P.ChangedModule");
             var reply = await tools.StopProjectAsync(TestContext.Current.CancellationToken);
             reply.Success.Should().BeTrue();
             reply.Note.Should().Contain("External session output is not captured");
@@ -90,12 +97,14 @@ public class ExternalRunControlTests : CompositionTestBase
             state = await tools.GetDebugStateAsync(TestContext.Current.CancellationToken);
             state.Running.Should().BeFalse();
             state.State.Should().Be("Ended");
+            JsonSerializer.Serialize(state).Should().NotContain("changed since");
             state.StopReason.Should().BeNull();
             state.AdapterStopReason.Should().BeNull();
             await run.WaitAsync(TimeSpan.FromSeconds(20), TestContext.Current.CancellationToken);
             state = await tools.GetDebugStateAsync(TestContext.Current.CancellationToken);
             state.Running.Should().BeFalse();
             state.State.Should().Be("Ended");
+            JsonSerializer.Serialize(state).Should().NotContain("changed since");
         }
         finally
         {

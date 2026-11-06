@@ -248,6 +248,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
         CancellationToken ct = default)
     {
         var restoredHeader = false;
+        string? editNote = null;
         DocumentIdentity? target = null;
         NamedDocument found = default;
         var (form, module, error) = await Dispatcher.UIThread.InvokeAsync<(FormDefinition?, ModuleDefinition?, string?)>(() =>
@@ -290,6 +291,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
             // designer block is always put back in front of code sent alone. The block is the form's identity,
             // and leaving it out used to delete it with no warning, straight to disk (gap 14).
             restoredHeader = HexIDE.IDE.DocumentContent.LeftOutAttributeLines(document, content);
+            editNote = ctx.ProjectRunnerService.CodeEditNote(edit: true);
             return (document.Form, document.Module, null);
         });
 
@@ -316,23 +318,23 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
                 : module is not null ? ctx.ProjectService.SaveModule(module, false, interactive: false, rewrites: rewrites) : Task.FromResult(false));
             if (refused is not null)
                 // Not "the new code was refused": the character can be anywhere in the file. The message quotes its line.
-                return Naming(new MutateResult(false, cancel.After($"The new code is in the IDE, but the file was not written. {refused.Message}")), target);
+                return Naming(new MutateResult(false, cancel.After($"The new code is in the IDE, but the file was not written. {refused.Message}"), editNote?.TrimStart()), target);
             return Naming(written
-                ? new MutateResult(true, null, cancel.After(await Dispatcher.UIThread.InvokeAsync(() => WrittenNote(target!)) + rewrites.Note
+                ? new MutateResult(true, null, cancel.After(await Dispatcher.UIThread.InvokeAsync(() => WrittenNote(target!)) + editNote + rewrites.Note
                     + (restoredHeader
                         ? " Kept the form's Attribute header, which the content omitted. VB_Name is the form's "
                           + "identity; without this the write would have destroyed it. Call get_file_content "
                           + "first and edit what it returns, which includes the header."
                         : "")))
                 : new MutateResult(false, cancel.After("HexIDE cannot reproduce this file faithfully, so it was not "
-                                        + "written and the copy on disk is unchanged.")), target);
+                                        + "written and the copy on disk is unchanged."), editNote?.TrimStart()), target);
         }
         catch (OperationCanceledException) when (cancel.Cancelled || cancel.Refused)
         {
             var kind = form is not null ? "Form" : "Module";
             var kept = $"The new code is in the IDE. {kind} '{form?.Name ?? module!.Name}' still has no file: "
                        + $"{cancel.HowAnswered}, so nothing was written. To write it, arm answer_next_file_dialog with a "
-                       + "path and call set_file_content again.";
+                       + "path and call set_file_content again." + editNote;
             // An armed cancel was asked for; several paths for a save were not, so that one did not do what was asked.
             return Naming(cancel.Refused ? new MutateResult(false, cancel.After(kept)) : new MutateResult(true, null, kept), target);
         }
@@ -1689,16 +1691,16 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
         return await Dispatcher.UIThread.InvokeAsync(() =>
         {
             if (ctx.RootViewModel.ExternalDebugger?.IsActive == true)
-                return new MutateResult(false, ctx.Localization.GetString("Str.Debug.External.Unsupported"));
+                return new MutateResult(false, ctx.Localization.GetString("Str.Debug.External.Unsupported"), ctx.ProjectRunnerService.CodeEditNote()?.TrimStart());
             var lookup = ResolveDocument(name, project);
             if (lookup.Document is not { } document)
                 return new MutateResult(false, lookup.Error);
 
             if (OutsideDocument(document, lines, first: 1, "breakpoint", ctx.BreakpointService.GetBreakpoints(document)) is { } outside)
-                return Naming(new MutateResult(false, outside), document);
+                return Naming(new MutateResult(false, outside, ctx.ProjectRunnerService.CodeEditNote()?.TrimStart()), document);
 
             ctx.BreakpointService.SetDocument(document, lines);
-            return Naming(new MutateResult(true, null, Held(document, ctx.BreakpointService.GetBreakpoints(document), "breakpoint")), document);
+            return Naming(new MutateResult(true, null, Held(document, ctx.BreakpointService.GetBreakpoints(document), "breakpoint") + ctx.ProjectRunnerService.CodeEditNote()), document);
         });
     }
 
@@ -2069,7 +2071,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
                     frame.ValueKind == System.Text.Json.JsonValueKind.Object && frame.TryGetProperty("source", out var source)
                         && source.TryGetProperty("path", out var path) ? path.GetString() : null,
                     frame.ValueKind == System.Text.Json.JsonValueKind.Object ? frame.GetProperty("line").GetInt32() : null,
-                    AdapterStopReason: reason);
+                    AdapterStopReason: reason, Note: ctx.ProjectRunnerService.CodeEditNote()?.TrimStart());
             }
             var stop = ctx.DebugController.CurrentStop;
             // A controller that has no session reads Running until its first run ends: it starts there so the
@@ -2083,7 +2085,9 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
                 stop?.Module,
                 stop?.Line,
                 // The module is a bare name, and a group may hold two of it: the running project says which.
-                stop is null ? null : ctx.ProjectRunnerService.RunningProject?.Name);
+                stop is null ? null : ctx.ProjectRunnerService.RunningProject?.Name,
+                // The note is written to follow another sentence; standing alone, it starts with no space.
+                Note: ctx.ProjectRunnerService.CodeEditNote()?.TrimStart());
         });
     }
 
@@ -2891,9 +2895,27 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
             watch = UiAutomationDriver.WatchProgram(active, () => ctx.DebugController.CurrentStop);
             return keyboard.Value
                 ? await UiAutomationDriver.TypeKeysAsync(control, text, target, ct)
-                : UiAutomationDriver.TypeText(control, text, target);
+                : TypeDocumentText(control, text, target);
         });
         return await UiAutomationDriver.WaitForProgramAsync(watch, outcome, ct: ct);
+    }
+
+    internal InteractOutcome TypeDocumentText(Control control, string text, string target)
+    {
+        var typed = UiAutomationDriver.TypeText(control, text, target);
+        var surface = UiAutomationDriver.FindTextSurface(control);
+        var document = surface switch
+        {
+            AvaloniaEdit.TextEditor editor => editor.Document,
+            AvaloniaEdit.Editing.TextArea textArea => textArea.Document,
+            _ => null,
+        };
+        if (typed.Success && surface?.DataContext is CodeEditorViewModel code
+            && ReferenceEquals(code.Document, document)
+            && ctx.ProjectRunnerService.CodeEditNote(edit: true) is { } note)
+            // The detail is a phrase with no full stop of its own ("typed 24 char(s) into TextEditor").
+            typed = typed with { Detail = typed.Detail + "." + note };
+        return typed;
     }
 
     [McpServerTool(Name = "hover")]
@@ -4088,7 +4110,7 @@ internal record BreakpointsResult(string? Project, string? Document, string? Uri
 /// </param>
 internal record DebugStateResult(
     bool Running, string State, string? StopReason, string? Module, int? Line, string? Project = null,
-    string? AdapterStopReason = null);
+    string? AdapterStopReason = null, string? Note = null);
 
 internal record LocalsResult(bool Success, string? Error, string? Context, LocalsRow[]? Locals, string? Project = null);
 

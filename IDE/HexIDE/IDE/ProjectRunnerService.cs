@@ -81,7 +81,12 @@ public partial class ProjectRunnerService : IProjectRunnerService
     public ProjectDefinition? RunningProject
     {
         get => runScope.RunningProject;
-        private set => runScope.RunningProject = value;
+        private set
+        {
+            runScope.RunningProject = value;
+            if (value is null) runScope.End();
+            else runScope.Begin(projectManager.LoadedProjects.Contains(value) ? projectManager.LoadedProjects : [value]);
+        }
     }
 
     private readonly HexIDE.Projects.ArchiveProjectService? archives;
@@ -125,6 +130,18 @@ public partial class ProjectRunnerService : IProjectRunnerService
         if (externalDebugger is not null)
             externalDebugger.Changed += () =>
             {
+                var running = externalDebugger.IsActive && externalDebugger.State is
+                    HexIDE.Dap.DapSessionState.Starting or HexIDE.Dap.DapSessionState.Running or HexIDE.Dap.DapSessionState.Stopped;
+                if (running && !externalRunTracked)
+                {
+                    runScope.Begin(projectManager.LoadedProjects);
+                    externalRunTracked = true;
+                }
+                else if (!running && externalRunTracked)
+                {
+                    runScope.End();
+                    externalRunTracked = false;
+                }
                 PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(nameof(IsRunning)));
                 CommandManager.InvalidateRequerySuggested();
             };
@@ -175,6 +192,12 @@ public partial class ProjectRunnerService : IProjectRunnerService
         PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(nameof(CanStartDefaultProject)));
         CommandManager.InvalidateRequerySuggested();
     }
+
+    private bool externalRunTracked;
+
+    public string? CodeEditNote(bool edit = false) => runScope.Note(
+        externalDebugger?.IsActive == true ? externalDebugger.State == HexIDE.Dap.DapSessionState.Stopped
+            : debugController.State == DebugState.Paused, edit);
 
     private bool conditionNoticeShown;
 

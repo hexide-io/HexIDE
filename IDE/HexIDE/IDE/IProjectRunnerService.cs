@@ -48,6 +48,9 @@ public interface IProjectRunnerService : INotifyPropertyChanged
     bool CanRestartProject { get; }
     bool IsRunning { get; }
 
+    /// <summary>The running snapshot and documents edited since start, for automation replies.</summary>
+    string? CodeEditNote(bool edit = false);
+
     /// <summary>
     /// A start that never became a run: a module the run loads has a syntax error (the text names the module), the
     /// project has no startup form, a Sub Main project has no usable Main or two of them, the startup form could not

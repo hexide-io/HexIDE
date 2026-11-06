@@ -237,7 +237,12 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
         this.runScope = runScope;
         this.statusBarService = statusBarService;
         this.localization = localization;
-        Document.TextChanged += (_, _) => RefreshBufferModified();
+        Document.TextChanged += (_, _) =>
+        {
+            RefreshBufferModified();
+            if (identity is { } document && DocumentContent.CodeAheadOfModel(document, this))
+                runScope.RecordEdit(document);
+        };
 
         // Refresh the tab title (its "(Code)" suffix is localized) when the language changes. Unsubscribe on Dispose
         // (tab close) — a raw `+=` kept every closed code-editor VM (each holding a full document buffer) reachable
