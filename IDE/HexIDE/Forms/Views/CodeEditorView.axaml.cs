@@ -1233,6 +1233,7 @@ public partial class CodeEditorView : UserControl
         try
         {
             await Task.Delay(500, token);
+            token.ThrowIfCancellationRequested();
             var session = vm.CreateCodeLensSession();
             if (codeLenses?.Session != session)
             {
