@@ -30,7 +30,6 @@ indexes, member and With access). Parenthesised expressions, number/string liter
 and operators report Syntax error, following [the measured rule](https://github.com/hexide-io/HexIDE/issues/3213)
 and [its oracle tables](https://github.com/hexide-io/HexIDE/pull/3215). Declared scalar collections
 need binding to diagnose before execution; the bundled server does not check those declarations.
-`True`, `False`, `Null` and `Empty` remain accepted by the parser; their VB6 collection syntax is unmeasured.
 
 ---
 
