@@ -113,7 +113,7 @@ public sealed class DocumentDockService : IDocumentDockService, IDisposable
 
     private DocumentDock? Dock => factory.Value?.DocumentDock;
 
-    public bool TryActivate<T>(Func<T, bool> predicate) where T : BaseEditorWindowViewModel
+    public bool TryActivate<T>(Func<T, bool> predicate, bool takeFocus = true) where T : BaseEditorWindowViewModel
     {
         var dock = Dock;
         if (dock is null) return false;
@@ -121,12 +121,13 @@ public sealed class DocumentDockService : IDocumentDockService, IDisposable
         var match = openDocuments.OfType<T>().FirstOrDefault(predicate);
         if (match is null) return false;
 
+        if (!takeFocus) return true;
         factory.Value!.SetFocusedDockable(dock, match);
         dock.ActiveDockable = match;
         return true;
     }
 
-    public void OpenDocument(BaseEditorWindowViewModel vm)
+    public void OpenDocument(BaseEditorWindowViewModel vm, bool takeFocus = true)
     {
         var dock = Dock;
         if (dock is null)
@@ -142,12 +143,15 @@ public sealed class DocumentDockService : IDocumentDockService, IDisposable
         vm.CloseRequest += OnCloseRequest;
 
         vm.IsOpen = true;
-        vm.IsActive = true;
+        vm.IsActive = takeFocus;
 
         dock.VisibleDockables!.Add(vm);
         factory.Value!.InitDockable(vm, dock);
-        factory.Value!.SetFocusedDockable(dock, vm);
-        dock.ActiveDockable = vm;
+        if (takeFocus)
+        {
+            factory.Value!.SetFocusedDockable(dock, vm);
+            dock.ActiveDockable = vm;
+        }
     }
 
     private void EnsureDockSubscription(DocumentDock dock)

@@ -124,4 +124,6 @@ public sealed class WorkspaceArtifactProviderRegistry : IWorkspaceArtifactProvid
 /// </remarks>
 /// <param name="RelativePath">Where the file goes, relative to the workspace root.</param>
 /// <param name="ProviderName">The provider that produces it.</param>
-public sealed record WorkspaceArtifactSpec(string RelativePath, string ProviderName, JsonElement? Settings = null);
+/// <param name="RestartOnChange">Restart the server when a regeneration changes the file (#2072).</param>
+public sealed record WorkspaceArtifactSpec(string RelativePath, string ProviderName, JsonElement? Settings = null,
+    bool RestartOnChange = false);

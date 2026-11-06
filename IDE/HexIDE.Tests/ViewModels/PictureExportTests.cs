@@ -56,6 +56,35 @@ public class PictureExportTests
         finally { File.Delete(path); }
     }
 
+    [Theory]
+    [InlineData(MessageBoxResult.Yes)]
+    [InlineData(MessageBoxResult.No)]
+    [InlineData(MessageBoxResult.Cancel)]
+    public async Task ExistingDestinationRequiresExplicitConsent(MessageBoxResult answer)
+    {
+        var windows = Substitute.For<IWindowManager>();
+        var localization = Substitute.For<ILocalizationService>();
+        localization.GetString("Str.Tool.Properties.ReplacePicture").Returns("{0} already exists. Do you want to replace it?");
+        localization.GetString("Str.Tool.Properties.ExportPictureTitle").Returns("Export Picture");
+        var path = Path.Combine(Path.GetTempPath(), Guid.NewGuid() + ".ico");
+        windows.SaveFilePickerAsync(Arg.Any<FilePickerSaveOptions>()).Returns(path);
+        windows.MessageBox(Arg.Any<string>(), Arg.Any<string>(), MessageBoxButtons.YesNo,
+            MessageBoxIcon.Warning).Returns(answer);
+        try
+        {
+            File.WriteAllBytes(path, [99]);
+            var parent = new PropertiesToolViewModel(Substitute.For<IDocumentDockService>(),
+                Substitute.For<IEventBus>(), windows, localization);
+            await parent.ExportPictureAsync(VBProperties.PictureProperty, Record([42]));
+            File.ReadAllBytes(path).Should().Equal(answer == MessageBoxResult.Yes ? new byte[] { 42 } : [99]);
+            await windows.Received(1).MessageBox($"{path} already exists. Do you want to replace it?",
+                "Export Picture", MessageBoxButtons.YesNo, MessageBoxIcon.Warning);
+            localization.Received(1).GetString("Str.Tool.Properties.ReplacePicture");
+            localization.Received(1).GetString("Str.Tool.Properties.ExportPictureTitle");
+        }
+        finally { File.Delete(path); }
+    }
+
     [Fact]
     public async Task CancelWritesNothing()
     {

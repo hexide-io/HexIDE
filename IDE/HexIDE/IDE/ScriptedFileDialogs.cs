@@ -88,8 +88,8 @@ public static class ScriptedFileDialogs
     }
 
     /// <summary>
-    /// True when saving a document at this path would put a real picker on screen: it has no file yet and
-    /// nothing is armed to answer for it.
+    /// True when internal persistence (not Save As) at this path would put a real picker on screen:
+    /// it has no file yet and nothing is armed to answer for it.
     /// </summary>
     /// <remarks>
     /// <b>A tool asks this before a save, and refuses rather than blocks when it is true</b>

@@ -1,5 +1,6 @@
 using System.Diagnostics.CodeAnalysis;
 using HexIDE.Runtime.BuiltinTypes;
+using HexIDE.Runtime.Serialization;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
@@ -72,6 +73,33 @@ public class PictureBoxComponentClass : ComponentBaseClass
             (VBBorder.FixedSingle, _) => (ClassicBorderStyle.Thin, new Thickness(1)),
             _ => (ClassicBorderStyle.None, new Thickness(0)),
         };
+
+    // #922: docs/vb6-fidelity-oracle/autosize-on-a-label-and-a-picturebox.md.
+    public override IReadOnlyList<PropertyChange> ApplyDesignerConsequences(ComponentInstance instance, PropertyClass property)
+    {
+        if (!ReferenceEquals(property, PictureProperty) || !instance.GetPropertyOrDefault(AutoSizeProperty))
+            return [];
+        var data = instance.GetPropertyOrDefault(PictureProperty);
+        if (data is null || data.Length == 0)
+            return [];
+        var payload = FrxImageHelper.PicturePayload(data) ?? data;
+        if (FrxImageHelper.DetectKind(payload) != FrxImageHelper.FrxBlobKind.Bitmap)
+            throw new NotImplementedException("PictureBox AutoSize for a non-bitmap picture is not measured (#922)");
+        var border = instance.GetPropertyOrDefault(BorderStyleProperty);
+        if (border == VBBorder.FixedSingle && instance.GetPropertyOrDefault(AppearanceProperty) != VBAppearance._3D)
+            throw new NotImplementedException("PictureBox AutoSize with a flat border is not measured (#922)");
+        using var bitmap = FrxImageHelper.TryDecodeToAvaloniaBitmap(data);
+        if (bitmap is null)
+            return [];
+        var extra = border == VBBorder.FixedSingle ? 4 : 0;
+        var width = (double)bitmap.PixelSize.Width + extra;
+        var height = (double)bitmap.PixelSize.Height + extra;
+        var oldWidth = instance.GetPropertyOrDefault(WidthProperty);
+        var oldHeight = instance.GetPropertyOrDefault(HeightProperty);
+        instance.SetProperty(WidthProperty, width);
+        instance.SetProperty(HeightProperty, height);
+        return [new PropertyChange(WidthProperty, oldWidth, width), new PropertyChange(HeightProperty, oldHeight, height)];
+    }
 
     public override bool TryGetChildHost(Control control, [NotNullWhen(true)] out Canvas? host)
     {

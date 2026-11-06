@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Text.Json;
 using System.Threading;
@@ -8,6 +9,7 @@ using Avalonia.Threading;
 using HexIDE.Conversations;
 using HexIDE.Dap;
 using HexIDE.Lsp;
+using HexIDE.Localization;
 
 namespace HexIDE.Debugging;
 
@@ -15,13 +17,17 @@ public sealed record ExternalVariable(string Name, string Value, string Type, in
 public sealed record ExternalEvaluation(string Text, bool Expired = false);
 
 /// <summary>One external run. Public state and events belong to the UI thread; wire reads never block it.</summary>
-public sealed partial class ExternalDebugService(ConversationLog capture)
+public sealed partial class ExternalDebugService(ConversationLog capture, ILocalizationService? localization = null, IBreakpointService? breakpoints = null)
 {
     private DapSession? session;
     private CancellationTokenSource? cancellation;
     private Task? stopping;
+    private long endStarted;
+    private bool resumePending;
     private long inspectionVersion;
     private long selectionVersion;
+    public bool HasSessionResult { get; private set; }
+    internal void ClearSessionResult() => HasSessionResult = false;
     public bool IsActive { get; private set; }
     public bool IsBusy { get; private set; }
     public bool IsEvaluating { get; private set; }
@@ -40,6 +46,8 @@ public sealed partial class ExternalDebugService(ConversationLog capture)
 
     public bool IsCurrent(DapStop stop) => session?.IsCurrent(stop) == true;
     public long WatchVersion => inspectionVersion;
+
+    public bool SupportsSetNextStatement => session?.Supports("supportsGotoTargetsRequest") == true;
 
     public bool CanEvaluateHover => CanEvaluate && session?.Supports("supportsEvaluateForHovers") == true;
 
@@ -110,6 +118,7 @@ public sealed partial class ExternalDebugService(ConversationLog capture)
     public async Task StartAsync(string configurationFile)
     {
         if (IsActive) return;
+        HasSessionResult = true;
         IsActive = true;
         State = DapSessionState.Starting;
         stopping = null;
@@ -133,6 +142,7 @@ public sealed partial class ExternalDebugService(ConversationLog capture)
             for (var index = 0; index < replies.Count; index++)
                 ApplyBreakpointReply(breakpointSources[sources[index].Path], sources[index].Lines, replies[index]);
             breakpointsReady = true;
+            NoticeIgnoredConditions();
             Connection = Connection with { Capabilities = current.Capabilities };
             if (current.Snapshot.State is DapSessionState.Running or DapSessionState.Stopped)
             {
@@ -148,10 +158,30 @@ public sealed partial class ExternalDebugService(ConversationLog capture)
             {
                 var result = await completion;
                 if (result.ExitCode is not (null or 0) || result.ForcedTermination || result.CleanupFailure is not null)
-                    Failed?.Invoke($"Debug adapter exit: {result.ExitCode}; forced: {result.ForcedTermination}; {result.CleanupFailure}\n{result.StandardErrorTail}");
+                {
+                    Serilog.Log.Warning("Debug adapter {Adapter} exit: {ExitCode}; forced: {Forced}; {CleanupFailure}\n{StandardError}",
+                        configuration.AdapterId, result.ExitCode, result.ForcedTermination, result.CleanupFailure, result.StandardErrorTail);
+                    if (stopping is not null && result.ForcedTermination)
+                    {
+                        var strings = localization ?? new LocalizationService();
+                        Failed?.Invoke(string.Format(strings.GetString("Str.Debug.External.EndTimeout"),
+                            configuration.AdapterId, Math.Round(Stopwatch.GetElapsedTime(endStarted).TotalSeconds)));
+                    }
+                    else
+                        Failed?.Invoke($"Debug adapter exit: {result.ExitCode}; forced: {result.ForcedTermination}; {result.CleanupFailure}");
+                    if (!string.IsNullOrEmpty(result.StandardErrorTail)) Output?.Invoke(result.StandardErrorTail + "\n");
+                }
             }
         }
         catch (OperationCanceledException) when (cancellation.IsCancellationRequested) { }
+        catch (DapBreakpointConditionException exception)
+        {
+            State = DapSessionState.Faulted;
+            var strings = localization ?? new LocalizationService();
+            Failed?.Invoke(exception.Option.Equals("condition", StringComparison.OrdinalIgnoreCase)
+                ? string.Format(strings.GetString("Str.Debug.External.BreakpointConditionUnsupported"), exception.File, exception.Entry)
+                : string.Format(strings.GetString("Str.Debug.External.BreakpointOptionUnsupported"), exception.Option, exception.File, exception.Entry));
+        }
         catch (Exception exception)
         {
             State = DapSessionState.Faulted;
@@ -164,7 +194,7 @@ public sealed partial class ExternalDebugService(ConversationLog capture)
             session = null;
             cancellation.Dispose();
             cancellation = null;
-            IsActive = IsBusy = IsEvaluating = false;
+            IsActive = IsBusy = IsEvaluating = resumePending = false;
             Stop = null;
             ThreadId = null;
             ClearInspection();
@@ -193,24 +223,42 @@ public sealed partial class ExternalDebugService(ConversationLog capture)
             await Dispatcher.UIThread.InvokeAsync(() =>
             {
                 if (session != current) return;
+                var selectedId = update.Event?.Event == "invalidated"
+                    ? SelectedFrame?.GetProperty("id").GetInt32() : null;
                 State = update.Snapshot.State;
-                if (Stop != update.Snapshot.Stop) ClearInspection();
-                Stop = update.Snapshot.Stop;
+                var refusedResume = resumePending && State == DapSessionState.Stopped && update.Event is null;
+                if (update.Snapshot.ResumePending)
+                {
+                    // Keep completed inspection visible until execution is confirmed; pending replies are stale.
+                    if (!resumePending) { ++inspectionVersion; ++selectionVersion; }
+                }
+                else
+                {
+                    if (Stop != update.Snapshot.Stop && !refusedResume) ClearInspection();
+                    Stop = update.Snapshot.Stop;
+                }
+                resumePending = update.Snapshot.ResumePending;
                 if (Stop?.ThreadId is { } thread) ThreadId = thread;
                 if (update.Event?.Event == "output" && update.Event.Body is { } body && body.TryGetProperty("output", out var output))
                     Output?.Invoke(output.GetString() ?? "");
                 if (update.Event?.Event == "breakpoint" && update.Event.Body is { } breakpointEvent)
                     ApplyBreakpointEvent(breakpointEvent);
-                if (update.Snapshot.Stop is null) ClearInspection();
+                if (Stop is null) ClearInspection();
                 UpdateConnection();
                 Changed?.Invoke();
-                if (update.Event?.Event == "stopped" && Stop is { } stop) _ = InspectAsync(current, stop);
+                if (Stop is { } stop)
+                {
+                    if (update.Event?.Event is "stopped" or "invalidated" || refusedResume && Frames.Count == 0)
+                        _ = InspectAsync(current, stop, selectedId);
+                    else if (refusedResume && Variables.Count == 0 && SelectedFrame is { } frame)
+                        _ = RefreshSelectedFrameAsync(current, stop, frame.GetProperty("id").GetInt32());
+                }
             });
             if (update.Event?.Event == "terminated") await StopAsync();
         }
     }
 
-    private async Task InspectAsync(DapSession current, DapStop stop)
+    private async Task InspectAsync(DapSession current, DapStop stop, int? selectedId = null)
     {
         try
         {
@@ -222,11 +270,17 @@ public sealed partial class ExternalDebugService(ConversationLog capture)
             if (session != current || !current.IsCurrent(stop)) return;
             ThreadId = thread;
             Frames = frames;
-            if (frames.Length > 0) await SelectFrameAsync(stop, frames[0].GetProperty("id").GetInt32());
+            if (frames.Length > 0)
+            {
+                var selected = frames.FirstOrDefault(frame => frame.GetProperty("id").GetInt32() == selectedId);
+                await SelectFrameAsync(stop, (selected.ValueKind == JsonValueKind.Object ? selected : frames[0])
+                    .GetProperty("id").GetInt32());
+            }
             else Changed?.Invoke();
         }
         catch (Exception exception)
         {
+            Serilog.Log.Debug(exception, "External debug frame inspection failed.");
             if (session == current && current.IsCurrent(stop)) Failed?.Invoke(exception.Message);
         }
     }
@@ -333,16 +387,32 @@ public sealed partial class ExternalDebugService(ConversationLog capture)
         finally { if (session == current) { IsBusy = false; Changed?.Invoke(); } }
     }
 
+    public async Task SetNextStatementAsync(string uri, int line)
+    {
+        if (!SupportsSetNextStatement || session is not { } current || IsBusy || Stop is not { } stop ||
+            ThreadId is not { } thread || !Uri.TryCreate(uri, UriKind.Absolute, out var source) || !source.IsFile) return;
+        IsBusy = true;
+        Changed?.Invoke();
+        try { await current.SetNextStatementAsync(stop, source.LocalPath, line, thread); }
+        catch (Exception exception) { Failed?.Invoke(exception.Message); }
+        finally { if (session == current) { IsBusy = false; Changed?.Invoke(); } }
+    }
+
     public Task StopAsync() => stopping ??= StopCoreAsync();
 
     private async Task StopCoreAsync()
     {
         cancellation?.Cancel();
         if (session is not { } current) return;
+        endStarted = Stopwatch.GetTimestamp();
+        using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(5));
         try
         {
-            using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(5));
             await current.DisconnectAsync(deadline.Token);
+        }
+        catch (OperationCanceledException exception) when (deadline.IsCancellationRequested)
+        {
+            Serilog.Log.Warning(exception, "Debug adapter did not answer End before the disconnect deadline.");
         }
         catch (Exception exception) { Output?.Invoke(exception.Message + "\n"); }
         finally { await current.DisposeAsync(); }

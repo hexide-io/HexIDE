@@ -15,6 +15,283 @@ namespace HexIDE.Tests.DebugAdapter;
 
 public class ExternalDebugServiceTests
 {
+    private sealed class InspectionLog : Serilog.Core.ILogEventSink
+    {
+        public List<Serilog.Events.LogEvent> Events { get; } = [];
+        public void Emit(Serilog.Events.LogEvent logEvent) => Events.Add(logEvent);
+    }
+
+    [AvaloniaFact]
+    public async Task Inspection_failure_logs_the_exception_and_stack_at_debug_level()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "hexide-inspection-log-" + Guid.NewGuid());
+        Directory.CreateDirectory(directory);
+        await using var capture = new ConversationLog();
+        var service = new ExternalDebugService(capture);
+        var sink = new InspectionLog();
+        var previous = Serilog.Log.Logger;
+        using var logger = new Serilog.LoggerConfiguration().MinimumLevel.Debug().WriteTo.Sink(sink).CreateLogger();
+        Serilog.Log.Logger = logger;
+        var failure = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
+        service.Failed += message => failure.TrySetResult(message);
+        service.Changed += () =>
+        {
+            if (service.SelectedFrame is not null) throw new InvalidOperationException("inspection callback failed");
+        };
+        Task? run = null;
+        try
+        {
+            run = service.StartAsync(await Configuration(directory, "frames"));
+            (await failure.Task.WaitAsync(Patience, Token)).Should().Be("inspection callback failed");
+            var entry = sink.Events.Should().ContainSingle(item => item.Exception is InvalidOperationException).Subject;
+            entry.Level.Should().Be(Serilog.Events.LogEventLevel.Debug);
+            entry.Exception!.Message.Should().Be("inspection callback failed");
+            entry.Exception.StackTrace.Should().Contain(nameof(Inspection_failure_logs_the_exception_and_stack_at_debug_level));
+        }
+        finally
+        {
+            await service.StopAsync();
+            if (run is not null) await run.WaitAsync(Patience, Token);
+            Serilog.Log.Logger = previous;
+            Directory.Delete(directory, true);
+        }
+    }
+
+    [AvaloniaTheory]
+    [InlineData("conditions", true, true)]
+    [InlineData("conditions", true, false)]
+    [InlineData("breakpoints", false, true)]
+    [InlineData("breakpoints", false, false)]
+    public async Task Conditional_breakpoints_send_capability_gated_expressions_and_notice_once_per_session(string mode, bool capable, bool initiallyConditional)
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "hexide-conditions-" + Guid.NewGuid());
+        Directory.CreateDirectory(directory);
+        var module = TestHelpers.CreateModule();
+        module.AbsolutePath = Path.Combine(directory, "Module1.bas");
+        var document = HexIDE.Runtime.ProjectElements.DocumentIdentity.For(module);
+        var store = new BreakpointService();
+        store.SetDocument(document, [6, 20]);
+        if (initiallyConditional) store.SetCondition(document, 6, "i = 3");
+        var strings = Substitute.For<ILocalizationService>();
+        strings.GetString("Str.Debug.Conditions.AdapterIgnored").Returns("conditions ignored");
+        await using var log = new ConversationLog { ArmsEveryConnection = true };
+        var service = new ExternalDebugService(log, strings, store);
+        var output = new List<string>();
+        service.Output += output.Add;
+        var file = await Configuration(directory, mode);
+        try
+        {
+            for (var iteration = 0; iteration < 2; ++iteration)
+            {
+                var run = service.StartAsync(file);
+                await WaitFor(service, () => service.CanEditBreakpoints && service.Variables.Count > 0);
+                var uri = new Uri(module.AbsolutePath).AbsoluteUri;
+                service.GetCondition(uri, 6).Should().Be(initiallyConditional ? "i = 3" : null);
+                service.GetBreakpoints(uri).Single(row => row.RequestedLine == 20).Verified.Should().BeFalse();
+                service.GetBreakpoints(uri).Single(row => row.RequestedLine == 20).Message.Should().NotBeEmpty();
+                service.SetCondition(uri, 6, "j = 4");
+                await WaitFor(service, () => service.GetBreakpoints(uri).All(row => !row.Pending));
+                service.SetCondition(uri, 6, "");
+                await WaitFor(service, () => service.GetBreakpoints(uri).All(row => !row.Pending));
+                service.GetCondition(uri, 6).Should().BeNull();
+                service.GetBreakpoints(uri).Should().Contain(row => row.RequestedLine == 6);
+                await log.DrainAsync();
+                var frames = log.Snapshot(service.Connection!.Id)
+                    .Where(row => row.Method == "setBreakpoints" && row.Kind == ConversationEntryKind.Request).ToArray();
+                frames.Should().HaveCount(3);
+                for (var index = 0; index < frames.Length; ++index)
+                {
+                    using var frame = JsonDocument.Parse(log.Body(service.Connection.Id, frames[index].Sequence)!.Head);
+                    var arguments = frame.RootElement.GetProperty("arguments");
+                    arguments.GetProperty("source").GetProperty("path").GetString().Should().Be(module.AbsolutePath);
+                    var items = arguments.GetProperty("breakpoints");
+                    items[0].GetProperty("line").GetInt32().Should().Be(6);
+                    items[1].EnumerateObject().Select(property => property.Name).Should().Equal("line");
+                    if (capable && (index == 1 || index == 0 && initiallyConditional))
+                        items[0].GetProperty("condition").GetString().Should().Be(index == 0 ? "i = 3" : "j = 4");
+                    else items[0].EnumerateObject().Select(property => property.Name).Should().Equal("line");
+                }
+                output.Count(line => line.Contains("conditions ignored", StringComparison.Ordinal)).Should().Be(capable ? 0 : iteration + 1);
+                await service.StopAsync();
+                await run.WaitAsync(Patience, Token);
+            }
+        }
+        finally { await service.StopAsync(); Directory.Delete(directory, true); }
+    }
+
+    [AvaloniaTheory]
+    [InlineData("goto")]
+    [InlineData("goto-empty")]
+    [InlineData("goto-refuse")]
+    [InlineData("goto-targets-refuse")]
+    public async Task Set_next_statement_uses_caret_source_first_target_and_stopped_thread_or_keeps_inspection(string mode)
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "hexide-dap-goto-" + Guid.NewGuid());
+        Directory.CreateDirectory(directory);
+        await using var log = new ConversationLog { ArmsEveryConnection = true };
+        var service = new ExternalDebugService(log);
+        var failures = new List<string>();
+        service.Failed += failures.Add;
+        var run = service.StartAsync(await Configuration(directory, mode));
+        try
+        {
+            await WaitFor(service, () => service.CanEvaluate && service.Variables.Count > 0);
+            service.SupportsSetNextStatement.Should().BeTrue();
+            var stop = service.Stop;
+            var frames = service.Frames;
+            var variables = service.Variables;
+            var path = Path.Combine(directory, "Caret source.bas");
+            await service.SetNextStatementAsync(new Uri(path).AbsoluteUri, 19);
+            if (mode == "goto")
+            {
+                await WaitFor(service, () => service.CurrentLocation?.Line == 19 && service.CanEvaluate);
+                service.Stop.Should().NotBe(stop);
+                failures.Should().BeEmpty();
+            }
+            else
+            {
+                await WaitFor(service, () => service.CanEvaluate);
+                service.State.Should().Be(DapSessionState.Stopped);
+                service.CurrentLocation!.Value.Line.Should().Be(6);
+                service.Frames.Should().BeSameAs(frames);
+                service.Variables.Should().BeSameAs(variables);
+                failures.Should().Equal("fixture goto refusal");
+            }
+            var id = service.Connection!.Id;
+            await log.DrainAsync();
+            var requests = log.Snapshot(id).Where(entry => entry.Kind == ConversationEntryKind.Request &&
+                entry.Method is "gotoTargets" or "goto").ToArray();
+            requests.Select(entry => entry.Method).Should().Equal(mode is "goto-empty" or "goto-targets-refuse" ? ["gotoTargets"] : ["gotoTargets", "goto"]);
+            if (requests.Length > 0)
+            {
+                using var frame = JsonDocument.Parse(log.Body(id, requests[0].Sequence)!.Head);
+                var arguments = frame.RootElement.GetProperty("arguments");
+                arguments.GetProperty("source").GetProperty("path").GetString().Should().Be(path);
+                arguments.GetProperty("line").GetInt32().Should().Be(19);
+            }
+            if (requests.Length > 1)
+            {
+                using var frame = JsonDocument.Parse(log.Body(id, requests[1].Sequence)!.Head);
+                var arguments = frame.RootElement.GetProperty("arguments");
+                arguments.GetProperty("targetId").GetInt32().Should().Be(19);
+                arguments.GetProperty("threadId").GetInt32().Should().Be(1);
+            }
+        }
+        finally { await service.StopAsync(); await run.WaitAsync(Patience, Token); Directory.Delete(directory, true); }
+    }
+
+    [AvaloniaTheory]
+    [InlineData("\"i = 3\"")]
+    [InlineData("null")]
+    public async Task Breakpoint_condition_is_refused_before_launch_with_localized_file_and_entry(string condition)
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "hexide-dap-condition-" + Guid.NewGuid());
+        Directory.CreateDirectory(directory);
+        await using var log = new ConversationLog();
+        var localization = Substitute.For<ILocalizationService>();
+        localization.GetString("Str.Debug.External.BreakpointConditionUnsupported").Returns("conditions unavailable: {0}, entry {1}");
+        var service = new ExternalDebugService(log, localization);
+        var failures = new List<string>();
+        service.Failed += failures.Add;
+        try
+        {
+            var file = Path.Combine(directory, "launch.json");
+            await File.WriteAllTextAsync(file, """
+                {"executable":"must-not-start","adapterId":"fixture","launch":{},
+                 "breakpoints":[{"path":"first.bas","lines":[1]},
+                                {"path":"second.bas","lines":[2],"condition":CONDITION}]}
+                """.Replace("CONDITION", condition), Token);
+            await service.StartAsync(file).WaitAsync(Patience, Token);
+            failures.Should().Equal($"conditions unavailable: {file}, entry 2");
+            service.Connection.Should().BeNull();
+            service.IsActive.Should().BeFalse();
+        }
+        finally { await service.StopAsync(); Directory.Delete(directory, true); }
+    }
+
+    [AvaloniaTheory]
+    [InlineData("condition", "en")]
+    [InlineData("condition", "de")]
+    [InlineData("hitCondition", "en")]
+    [InlineData("hitCondition", "de")]
+    [InlineData("logMessage", "en")]
+    [InlineData("logMessage", "de")]
+    public async Task Unsupported_breakpoint_option_is_localized_before_launch(string option, string language)
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "hexide-dap-option-" + Guid.NewGuid());
+        Directory.CreateDirectory(directory);
+        await using var log = new ConversationLog();
+        var localization = new LocalizationService();
+        localization.Apply(language);
+        var service = new ExternalDebugService(log, localization);
+        var failures = new List<string>();
+        service.Failed += failures.Add;
+        try
+        {
+            var file = Path.Combine(directory, "launch.json");
+            await File.WriteAllTextAsync(file, """
+                {"executable":"must-not-start","adapterId":"fixture","launch":{},
+                 "breakpoints":[{"path":"first.bas","lines":[1]},
+                                {"path":"second.bas","lines":[2],"OPTION":"3"}]}
+                """.Replace("OPTION", option), Token);
+            await service.StartAsync(file).WaitAsync(Patience, Token);
+            var expected = option == "condition"
+                ? language == "de"
+                    ? $"Legen Sie Bedingungen über Bedingung… im Kontextmenü der Haltepunktleiste fest. Datei '{file}', Haltepunkteintrag 2."
+                    : $"Set conditions with Condition… in the breakpoint gutter menu. File '{file}', breakpoint entry 2."
+                : language == "de"
+                    ? $"Die Haltepunktoption '{option}' wird für externe Sitzungen noch nicht unterstützt. Datei '{file}', Haltepunkteintrag 2. Legen Sie Bedingungen über Bedingung… im Kontextmenü der Haltepunktleiste fest."
+                    : $"Breakpoint option '{option}' isn't supported for external sessions yet. File '{file}', breakpoint entry 2. Set conditions with Condition… in the breakpoint gutter menu.";
+            failures.Should().Equal(expected);
+            service.Connection.Should().BeNull();
+            service.IsActive.Should().BeFalse();
+        }
+        finally { await service.StopAsync(); Directory.Delete(directory, true); localization.Apply("en"); }
+    }
+
+    [AvaloniaTheory]
+    [InlineData("{}")]
+    [InlineData("{\"areas\":[]}")]
+    [InlineData("{\"areas\":[\"stacks\"]}")]
+    [InlineData("{\"areas\":[\"variables\"],\"stackFrameId\":7}")]
+    [InlineData("{\"areas\":[\"all\"],\"threadId\":1}")]
+    [InlineData("{\"areas\":[\"future-area\"]}")]
+    public async Task Invalidated_refreshes_stopped_inspection_preserves_caller_and_expires_hover(string body)
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "hexide-dap-invalidated-" + Guid.NewGuid());
+        Directory.CreateDirectory(directory);
+        await using var log = new ConversationLog();
+        var service = new ExternalDebugService(log);
+        var watches = new WatchesToolViewModel(Substitute.For<ILocalizationService>(), new WatchService(),
+            Substitute.For<IDebugController>(), Substitute.For<IWindowManager>(), service);
+        watches.ExternalService.Add(new("value", WatchType.Expression, "Caller"));
+        var failures = new List<string>();
+        service.Failed += failures.Add;
+        var pending = false;
+        service.Output += output => { if (output == "evaluation-pending\n") pending = true; };
+        var run = service.StartAsync(await Configuration(directory, "invalidated"));
+        try
+        {
+            await WaitFor(service, () => service.Variables.Count == 1);
+            await service.SelectFrameAsync(service.Stop!, 7);
+            await WatchUpdated(() => watches.Rows.Single().Value == "42");
+            var stop = service.Stop!;
+            var hover = service.EvaluateHoverAsync("wait", Token);
+            await WaitFor(service, () => pending);
+            await service.EvaluateHoverAsync("invalidate:" + body, Token);
+            await WaitFor(service, () => service.Stop != stop && service.Variables.Count == 1);
+            service.State.Should().Be(DapSessionState.Stopped);
+            service.SelectedFrame!.Value.GetProperty("id").GetInt32().Should().Be(7);
+            service.SelectedLocation!.Value.Line.Should().Be(13);
+            service.CurrentLocation!.Value.Line.Should().Be(6);
+            service.Variables.Single().Value.Should().Be("99");
+            (await hover.WaitAsync(Patience, Token)).Should().BeNull();
+            await WatchUpdated(() => watches.Rows.Single().Value == "99");
+            failures.Should().BeEmpty();
+        }
+        finally { await service.StopAsync(); await run.WaitAsync(Patience, Token); Directory.Delete(directory, true); }
+    }
+
     [AvaloniaTheory]
     [InlineData("evaluate")]
     [InlineData("frames")]
@@ -29,6 +306,15 @@ public class ExternalDebugServiceTests
         {
             await WaitFor(service, () => service.CanEvaluate);
             service.CanEvaluateHover.Should().Be(mode == "evaluate");
+            if (mode == "frames")
+            {
+                service.SupportsSetNextStatement.Should().BeFalse();
+                var stop = service.Stop;
+                await service.SetNextStatementAsync(new Uri(Path.Combine(directory, "Callee.bas")).AbsoluteUri, 19);
+                service.Stop.Should().Be(stop);
+                await log.DrainAsync();
+                log.Snapshot(service.Connection!.Id).Should().NotContain(entry => entry.Method == "gotoTargets" || entry.Method == "goto");
+            }
             (await service.EvaluateHoverAsync("answer", Token)).Should().Be(mode == "evaluate" ? "frame:0:answer" : null);
             await service.SelectFrameAsync(service.Stop!, 7);
             (await service.EvaluateHoverAsync("answer", Token)).Should().Be(mode == "evaluate" ? "frame:7:answer" : null);
@@ -177,7 +463,7 @@ public class ExternalDebugServiceTests
     private static CancellationToken Token => TestContext.Current.CancellationToken;
     private static readonly TimeSpan Patience = TimeSpan.FromSeconds(20);
 
-    private static async Task<string> Configuration(string directory, string mode, DapSourceBreakpoints[]? breakpoints = null)
+    internal static async Task<string> Configuration(string directory, string mode, DapSourceBreakpoints[]? breakpoints = null)
     {
         var executable = Path.GetFullPath("../../../dotnet" + (OperatingSystem.IsWindows() ? ".exe" : ""), RuntimeEnvironment.GetRuntimeDirectory());
         var file = Path.Combine(directory, "launch.json");
@@ -189,7 +475,7 @@ public class ExternalDebugServiceTests
         return file;
     }
 
-    private static Task WaitFor(ExternalDebugService service, Func<bool> predicate)
+    internal static Task WaitFor(ExternalDebugService service, Func<bool> predicate)
     {
         var ready = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         void Changed() { if (predicate()) ready.TrySetResult(); }
@@ -201,6 +487,79 @@ public class ExternalDebugServiceTests
             try { await ready.Task.WaitAsync(Patience, Token); }
             finally { service.Changed -= Changed; }
         }
+    }
+
+    // Regression for the measured adapter refusal in hexide-io/HexIDE#2912.
+    [AvaloniaTheory]
+    [InlineData("continue", 0)]
+    [InlineData("next", 0)]
+    [InlineData("stepIn", 0)]
+    [InlineData("stepOut", 0)]
+    [InlineData("continue", 7)]
+    [InlineData("next", 7)]
+    [InlineData("stepIn", 7)]
+    [InlineData("stepOut", 7)]
+    public async Task Refused_resume_preserves_inspection_and_selection_until_an_accepted_resume(string command, int frameId)
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "hexide-dap-refusal-" + Guid.NewGuid());
+        Directory.CreateDirectory(directory);
+        await using var log = new ConversationLog();
+        var service = new ExternalDebugService(log);
+        var localization = Substitute.For<ILocalizationService>();
+        var interpreter = Substitute.For<IDebugController>();
+        var locals = new LocalsToolViewModel(localization, interpreter, service);
+        var stack = new CallStackToolViewModel(localization, interpreter, service);
+        var failures = new List<string>();
+        service.Failed += failures.Add;
+        var run = service.StartAsync(await Configuration(directory, "resume-refusal"));
+        try
+        {
+            await WaitFor(service, () => service.CanEvaluate && service.Variables.Count == 1);
+            await service.SelectFrameAsync(service.Stop!, frameId);
+            var stop = service.Stop!;
+            var frames = service.Frames;
+            var variables = service.Variables;
+            var location = service.CurrentLocation;
+            var selectedLocation = service.SelectedLocation;
+            var pendingWasReadOnly = false;
+            var lostInspection = false;
+            void Observe()
+            {
+                lostInspection |= service.Frames.Count == 0 || service.Variables.Count == 0 || service.CurrentLocation is null;
+                if (service.State == DapSessionState.Running && service.Stop == stop)
+                    pendingWasReadOnly |= !service.CanEvaluate && !service.IsCurrent(stop);
+            }
+            service.Changed += Observe;
+            await service.CommandAsync(command);
+            await WaitFor(service, () => service.State == DapSessionState.Stopped && service.Stop != stop);
+            service.Changed -= Observe;
+            lostInspection.Should().BeFalse();
+            pendingWasReadOnly.Should().BeTrue();
+            service.Frames.Should().BeSameAs(frames);
+            service.Variables.Should().BeSameAs(variables);
+            service.CurrentLocation.Should().Be(location);
+            service.SelectedLocation.Should().Be(selectedLocation);
+            stack.SelectedFrame!.FrameId.Should().Be(frameId);
+            locals.Roots.Single().Value.Should().Be(frameId == 0 ? "41" : "42");
+            service.IsCurrent(stop).Should().BeFalse();
+            service.CanSelectFrame(stop, frameId).Should().BeFalse();
+            service.CanEvaluate.Should().BeTrue();
+            stack.SelectedFrame!.Stop.Should().Be(service.Stop);
+            stack.SelectedFrame = stack.Frames.Single(row => row.FrameId != frameId);
+            await WaitFor(service, () => service.CanEvaluate && service.SelectedFrame?.GetProperty("id").GetInt32() != frameId);
+            failures.Should().ContainSingle().Which.Should().Contain("fixture resume refusal");
+            var refusedStop = service.Stop;
+            await service.CommandAsync("next");
+            await WaitFor(service, () => service.CanEvaluate && service.Variables.Count == 1 && service.Stop != refusedStop && service.SelectedFrame?.GetProperty("id").GetInt32() == 0);
+            service.Frames.Should().NotBeSameAs(frames);
+            locals.Roots.Single().Value.Should().Be("41");
+            await service.CommandAsync("stepIn"); // Accepted without a continued or stopped event.
+            await WaitFor(service, () => service.State == DapSessionState.Running && service.Stop is null);
+            service.Frames.Should().BeEmpty();
+            service.Variables.Should().BeEmpty();
+            service.CurrentLocation.Should().BeNull();
+        }
+        finally { await service.StopAsync(); await run.WaitAsync(Patience, Token); Directory.Delete(directory, true); }
     }
 
     [AvaloniaFact]

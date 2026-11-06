@@ -115,10 +115,12 @@ public class UnmodelledControlTests
         UnmodelledControl.Read("").Should().BeNull();
     }
 
-    // #2327: HexIDE runs a CommonDialog and a top-level Toolbar though the designer only carries their blocks, so the box
-    // says they are view-only there. A Toolbar holding controls, or in a control array, is still refused at run time.
+    // #2327: A carried top-level Toolbar or UpDown is view-only. CommonDialog uses its registered component (#1962),
+    // so an unknown block has no runtime fallback. A Toolbar or an UpDown in a control array is still refused.
     [Theory]
-    [InlineData("   Begin MSComDlg.CommonDialog CommonDialog1 \r\n      Left            =   600\r\n   End", true)]
+    [InlineData("   Begin MSComDlg.CommonDialog CommonDialog1 \r\n      Left            =   600\r\n   End", false)]
+    [InlineData("   Begin MSComCtl2.UpDown UpDown1 \r\n      Left            =   3000\r\n   End", true)]
+    [InlineData("   Begin MSComCtl2.UpDown Spins \r\n      Index           =   0\r\n   End", false)]
     [InlineData("   Begin MSComctlLib.Toolbar Bars \r\n      Index           =   0\r\n   End", false)]
     [InlineData("   Begin MSComctlLib.Toolbar Bar \r\n      Begin VB.CommandButton Command1 \r\n      End\r\n   End", false)]
     [InlineData("   Begin MSComctlLib.ListView lvwItems \r\n      Left            =   0\r\n   End", false)]

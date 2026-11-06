@@ -106,14 +106,8 @@ public class WholeFileGrammarTests
 
     private static string? FindUpwards(string folderName)
     {
-        var dir = new DirectoryInfo(AppContext.BaseDirectory);
-        while (dir is not null)
-        {
-            var candidate = Path.Join(dir.FullName, folderName);
-            if (Directory.Exists(candidate)) return candidate;
-            dir = dir.Parent;
-        }
-        return null;
+        var candidate = Path.Join(RepoTree.Root(), folderName);
+        return Directory.Exists(candidate) ? candidate : null;
     }
 
     private static IReadOnlyList<string> CorpusFiles()

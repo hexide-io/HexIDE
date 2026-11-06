@@ -28,6 +28,15 @@ namespace HexIDE.Runtime.Tests;
 public class StackSpaceTests : BaseVBTestFixture
 {
     [Fact]
+    public void PointerIdentities_DoNotGrowValuesOnTheRecursiveWalk()
+    {
+        // #2622: a fourth reference in Vb6Value made every by-value copy on the walk heavier.
+        // Keep main's three references and two flags (including alignment), on either pointer width.
+        var size = System.Runtime.CompilerServices.Unsafe.SizeOf<Vb6Value>();
+        size.Should().BeLessThanOrEqualTo(4 * IntPtr.Size, "pointer identities must not enlarge values on the recursive walk");
+    }
+
+    [Fact]
     public async Task UnboundedRecursion_RaisesError28_InsteadOfKillingTheProcess()
     {
         // The whole of the bug, in five lines. Before the guard this test did not fail — the test HOST died,
@@ -113,31 +122,70 @@ public class StackSpaceTests : BaseVBTestFixture
         AssertDebugLog([5040]);
     }
 
+    /// <summary>The stack <see cref="DeepButFiniteRecursion_Completes"/> runs on (#2953).</summary>
+    private const int DeepRecursionStackBytes = 4 * 1024 * 1024;
+
+    /// <summary>How deep <c>Down</c> must get on that stack.</summary>
+    private const int DeepRecursionFloor = 68;
+
     [Fact]
     public async Task DeepButFiniteRecursion_Completes()
     {
-        // A FLOOR, not a ceiling, and deliberately well below the real one — the point is that a regression
-        // which makes frames much fatter gets caught by a test rather than by a user whose working program
-        // stopped working.
+        // A FLOOR, not a ceiling. It is here so that frames growing much fatter fail a test, not a user's
+        // working program.
         //
-        // It cannot assert the real number, because the real number is not a property of HexIDE. Measured on
-        // Windows against a 1 MB thread stack: about 202 frames for a bare `Call A(n + 1)` sub, and between
-        // 60 and 80 for a recursive FUNCTION like this one, whose frame carries an expression evaluation as
-        // well. CI runs Linux, where the main thread gets 8 MB and the same code goes several times deeper.
-        // Pinning either figure would encode a platform's default as if it were a behaviour.
+        // It runs on a thread of its own with a stack of a stated size (#2953). It used to run on whichever
+        // thread the test landed on, so its depth followed that thread's stack, and CI passed and failed the
+        // same code an hour apart. On a fixed stack the depth depends on the frames, and in Debug, which CI
+        // tests, it varies by three levels at most between runs.
         //
-        // That HexIDE manages ~70 frames where vb6.exe manages 258,825 is a real and large divergence,
-        // tracked separately. It is NOT a regression from this change: the process was already dying at
-        // that same depth, so nothing that used to work stopped working — a crash became a trappable error.
-        await Run(
-            "Debug.Print Down(30)\n" +
+        // Measured on main 85d64b98b, 2026-11-03, Debug, on GitHub's windows-latest, ubuntu-latest and
+        // macos-latest runners: the largest n for which Down(n) completes.
+        //
+        //   Stack   Windows x64   Linux x64   macOS arm64
+        //   1 MB         19           22          20
+        //   4 MB       89-92         108          95
+        //
+        // The floor is about three quarters of the smallest, so frames a third fatter than today's fail it.
+        // Today's frames are a regression already: interpreter-gaps.md recorded 74 levels for a recursive
+        // Function on a 1 MB Windows stack in September, and #2953 tracks finding what grew them. Raise the
+        // floor when they shrink. vb6.exe reaches 258,825 (out-of-stack-space--error-28.md in the oracle).
+        await RunOnOwnStack(
+            $"Debug.Print Down({DeepRecursionFloor})\n" +
             "Function Down(n)\n" +
             "  If n <= 0 Then\n" +
             "    Down = 0\n" +
             "  Else\n" +
             "    Down = Down(n - 1) + 1\n" +
             "  End If\n" +
-            "End Function\n");
-        AssertDebugLog([30]);
+            "End Function\n",
+            DeepRecursionStackBytes);
+        AssertDebugLog([DeepRecursionFloor]);
+    }
+
+    /// <summary>Run <paramref name="code"/> on a new thread whose stack is <paramref name="stackBytes"/>. A run with
+    /// no debugger attached never yields, so all of its recursion is on that stack.</summary>
+    private async Task RunOnOwnStack(string code, int stackBytes)
+    {
+        var completion = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var thread = new Thread(() =>
+        {
+            try
+            {
+                var run = Run(code);
+                // After a yield the rest of the run would go on a pool thread, whose stack this test doesn't size.
+                // Fail and say so, rather than pass or fail by which thread that was.
+                if (!run.IsCompleted)
+                    throw new InvalidOperationException("The run yielded, so its recursion left the thread this test sized.");
+                run.GetAwaiter().GetResult();
+                completion.SetResult();
+            }
+            catch (Exception error)
+            {
+                completion.SetException(error);
+            }
+        }, stackBytes);
+        thread.Start();
+        await completion.Task;
     }
 }

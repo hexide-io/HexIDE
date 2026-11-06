@@ -5,7 +5,7 @@ using HexIDE;
 
 namespace HexIDE.Tests.ViewModels;
 
-public class DockFactoryWiringTests
+public class DockFactoryWiringTests : CompositionTestBase
 {
     [Fact]
     public void ApplicationComposition_RegistersEveryLayoutToolByIdentity()
@@ -14,7 +14,7 @@ public class DockFactoryWiringTests
         typeof(DocumentDockService).GetConstructors().Single().GetParameters()
             .Should().NotContain(p => MentionsFactory(p.ParameterType));
 
-        var composition = new DISetup();
+        var composition = Composition;
         var root = composition.Root;
         var factory = (MainViewViewModel.DockFactory)typeof(MainViewViewModel)
             .GetField("dockFactory", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(root)!;

@@ -29,6 +29,10 @@ internal sealed class AddinRegistry : IAddinRegistry, IAddinLoader
     private readonly HashSet<string> _disabled;
     private IHexIdeHost? _host;
     private bool _disposed;
+    private readonly object _serverTrustGate = new();
+    private readonly HashSet<string> _revokedConsent = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, List<IDisposable>> _languageServers = new(StringComparer.OrdinalIgnoreCase);
+    private readonly bool _recoveryMode = Static.IsRecoveryMode;
 
     private static readonly JsonSerializerOptions s_jsonOptions = new() { WriteIndented = true };
 
@@ -59,13 +63,15 @@ internal sealed class AddinRegistry : IAddinRegistry, IAddinLoader
         _revocations = revocations;
         _stateFilePath = stateFilePath;
         _addinsDirectory = addinsDirectory;
-        _disabled = LoadDisabledSet();
+        _disabled = _recoveryMode ? new HashSet<string>(StringComparer.OrdinalIgnoreCase) : LoadDisabledSet();
     }
 
     // ── IAddinLoader ─────────────────────────────────────────────
 
     public void LoadAll(IHexIdeHost host)
     {
+        if (_recoveryMode)
+            return;
         _host = host;   // retained for the post-window consent pass (late-loading consented add-ins)
 
         var dir = _addinsDirectory;
@@ -300,8 +306,9 @@ internal sealed class AddinRegistry : IAddinRegistry, IAddinLoader
             if (_disposed)
                 return;   // the IDE was shut down while the consent dialog was open — do not load anything
 
-            _consent.Record(ctx.Info.Id, result.PublisherId ?? "", result.ManifestHash ?? "",
-                allowed ? ConsentDecisions.Allow : ConsentDecisions.Block);
+            lock (_serverTrustGate)
+                _consent.Record(ctx.Info.Id, result.PublisherId ?? "", result.ManifestHash ?? "",
+                    allowed ? ConsentDecisions.Allow : ConsentDecisions.Block);
 
             if (!allowed)
             {
@@ -362,29 +369,85 @@ internal sealed class AddinRegistry : IAddinRegistry, IAddinLoader
 
     public void SetEnabled(string assemblyPath, bool enabled)
     {
-        var norm = Path.GetFullPath(assemblyPath);
-        if (enabled)
-            _disabled.Remove(norm);
-        else
-            _disabled.Add(norm);
+        lock (_serverTrustGate)
+        {
+            var norm = Path.GetFullPath(assemblyPath);
+            if (enabled)
+                _disabled.Remove(norm);
+            else
+                _disabled.Add(norm);
 
-        SaveDisabledSet();
+            if (!enabled)
+                foreach (var addin in _contexts.Where(c => string.Equals(c.Info.AssemblyPath, norm, StringComparison.OrdinalIgnoreCase)))
+                    RemoveLanguageServers(addin.Info.Id);
 
-        var ctx = _contexts.FirstOrDefault(c =>
-            string.Equals(c.Info.AssemblyPath, norm, StringComparison.OrdinalIgnoreCase));
-        if (ctx is not null)
-            ctx.Status = !enabled ? AddinStatus.Disabled
-                : ctx.Info.CompatibilityError is not null ? AddinStatus.Incompatible : AddinStatus.Loaded;
+            SaveDisabledSet();
+
+            var ctx = _contexts.FirstOrDefault(c =>
+                string.Equals(c.Info.AssemblyPath, norm, StringComparison.OrdinalIgnoreCase));
+            if (ctx is not null)
+                ctx.Status = !enabled ? AddinStatus.Disabled
+                    : ctx.Info.CompatibilityError is not null ? AddinStatus.Incompatible : AddinStatus.Loaded;
+        }
     }
 
     public void RevokeConsent(string manifestHash)
     {
-        if (string.IsNullOrEmpty(manifestHash))
-            return;
-        _consent.Revoke(manifestHash);
-        var ctx = _contexts.FirstOrDefault(c => c.Info.ManifestHash == manifestHash);
-        Log.Information("AddinRegistry: consent revoked for {Title} — re-prompts next launch",
-            ctx?.Info.Title ?? manifestHash);
+        lock (_serverTrustGate)
+        {
+            if (_recoveryMode || string.IsNullOrEmpty(manifestHash))
+                return;
+            _revokedConsent.Add(manifestHash);
+            _consent.Revoke(manifestHash);
+            foreach (var addin in _contexts.Where(c => c.Info.ManifestHash == manifestHash))
+                RemoveLanguageServers(addin.Info.Id);
+            var ctx = _contexts.FirstOrDefault(c => c.Info.ManifestHash == manifestHash);
+            Log.Information("AddinRegistry: consent revoked for {Title} — re-prompts next launch",
+                ctx?.Info.Title ?? manifestHash);
+        }
+    }
+
+    internal void CheckLanguageServerLaunch(string id)
+    {
+        lock (_serverTrustGate)
+        {
+            var ctx = _contexts.FirstOrDefault(c => string.Equals(c.Info.Id, id, StringComparison.OrdinalIgnoreCase));
+            if (ctx is null) return; // Host/test assemblies outside an add-in context retain their existing behaviour.
+            var info = ctx.Info;
+            var chain = info.Chain;
+            if (!_disposed && !_disabled.Contains(ctx.PackageDirectory)
+                && !_revokedConsent.Contains(info.ManifestHash)
+                && (chain?.IsFirstParty == true || _consent.GetDecision(info.ManifestHash) == ConsentDecisions.Allow)
+                && _revocations.IsRevoked(info.ManifestHash, chain?.Publisher.Id, chain?.Intermediate.Id,
+                    chain?.IsFirstParty == true) is null)
+                return;
+
+            var title = string.IsNullOrWhiteSpace(info.Title) ? info.Id : info.Title;
+            throw new InvalidOperationException(string.Format(_localization.GetString("Str.Addins.ServerLaunchRefused"), title));
+        }
+    }
+
+    internal void TrackLanguageServer(string id, IDisposable connection)
+    {
+        lock (_serverTrustGate)
+        {
+            var ctx = _contexts.FirstOrDefault(c => string.Equals(c.Info.Id, id, StringComparison.OrdinalIgnoreCase));
+            if (_disposed || ctx is not null && (_disabled.Contains(ctx.PackageDirectory)
+                || _revokedConsent.Contains(ctx.Info.ManifestHash)))
+            {
+                connection.Dispose();
+                return;
+            }
+            if (!_languageServers.TryGetValue(id, out var servers))
+                _languageServers[id] = servers = [];
+            servers.Add(connection);
+        }
+    }
+
+    private void RemoveLanguageServers(string id)
+    {
+        if (!_languageServers.Remove(id, out var servers)) return;
+        foreach (var server in servers) server.Dispose();
     }
 
     // ── Metadata helpers ─────────────────────────────────────────
@@ -393,7 +456,7 @@ internal sealed class AddinRegistry : IAddinRegistry, IAddinLoader
         result.Manifest is { } m
             ? new AddinInfo(packageDir, m.Title, m.Description, m.Version, m.Author,
                             result.PublisherDisplayName ?? "", m.Id, result.ManifestHash ?? "",
-                            result.LogoPath, result.Chain)
+                            result.LogoPath, result.Chain) { VerifiedDeclaration = result.VerifiedDeclaration }
             : ShallowInfo(packageDir);
 
     private static AddinInfo ShallowInfo(string packageDir) =>
@@ -428,6 +491,7 @@ internal sealed class AddinRegistry : IAddinRegistry, IAddinLoader
 
     private void SaveDisabledSet()
     {
+        if (_recoveryMode) return;
         try
         {
             var data = new AddinStateData { Disabled = [.. _disabled] };

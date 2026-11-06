@@ -1,0 +1,18 @@
+textDocument/codeLens pending=False
+2382.5 textDocument/didOpen
+2439.8 textDocument/diagnostic
+6643.9 textDocument/codeLens
+7004.3 textDocument/semanticTokens/full
+7040.8 textDocument/inlayHint
+7061.3 textDocument/foldingRange
+14979.4 edit 0
+15041.8 edit 1
+15059.5 edit 2
+15441.2 textDocument/didChange
+15442.5 textDocument/diagnostic
+15511.9 textDocument/codeLens
+15579.8 textDocument/inlayHint
+15580.5 textDocument/foldingRange
+15589.9 textDocument/semanticTokens/full
+15738.7 textDocument/codeLens
+16018.9 textDocument/codeLens

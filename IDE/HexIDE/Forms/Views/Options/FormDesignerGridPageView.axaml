@@ -13,12 +13,12 @@
             <DockPanel Margin="20,0,0,0">
                 <AccessText x:Name="GridWidthLabel" VerticalAlignment="Center" Width="80" Text="{DynamicResource Str.Options.Grid.Width}" />
                 <TextBox Width="60" HorizontalAlignment="Left" Text="{CompiledBinding GridWidth}"
-                         AutomationProperties.Name="{CompiledBinding #GridWidthLabel.Text, Converter={x:Static converters:AccessKeyNameConverter.Instance}}" />
+                         AutomationProperties.Name="{CompiledBinding #GridWidthLabel.Text, Converter={x:Static converters:AccessKeyNameConverter.Instance}, ConverterParameter=TrimColon}" />
             </DockPanel>
             <DockPanel Margin="20,0,0,0">
                 <AccessText x:Name="GridHeightLabel" VerticalAlignment="Center" Width="80" Text="{DynamicResource Str.Options.Grid.Height}" />
                 <TextBox Width="60" HorizontalAlignment="Left" Text="{CompiledBinding GridHeight}"
-                         AutomationProperties.Name="{CompiledBinding #GridHeightLabel.Text, Converter={x:Static converters:AccessKeyNameConverter.Instance}}" />
+                         AutomationProperties.Name="{CompiledBinding #GridHeightLabel.Text, Converter={x:Static converters:AccessKeyNameConverter.Instance}, ConverterParameter=TrimColon}" />
             </DockPanel>
             <CheckBox IsChecked="{CompiledBinding AlignToGrid}" Content="{DynamicResource Str.Options.Grid.AlignControls}" />
         </StackPanel>

@@ -34,6 +34,7 @@ public partial class TraceOnTheWireTests : IAsyncDisposable
     private readonly List<JsonDocument> _received = [];
     private readonly SemaphoreSlim _writeLock = new(1, 1);
     private Stream? _serverSide;
+    private ILspTransport? _transport;
 
     public async ValueTask DisposeAsync()
     {
@@ -57,7 +58,7 @@ public partial class TraceOnTheWireTests : IAsyncDisposable
     }
 
     /// <summary>A minimal server, spoken by hand: it answers initialize, records everything, interprets nothing.</summary>
-    private async Task<VBLspClient> ConnectedAsync(string trace = LspTraceValue.Off, bool start = true)
+    private async Task<VBLspClient> ConnectedAsync(string trace = LspTraceValue.Off, bool start = true, HexIDE.Conversations.ConversationLog? capture = null)
     {
         var (clientSide, serverSide) = FullDuplexStream.CreatePair();
         _serverSide = serverSide;
@@ -90,13 +91,14 @@ public partial class TraceOnTheWireTests : IAsyncDisposable
         }, _cts.Token);
 
         var transport = Substitute.For<ILspTransport>();
+        _transport = transport;
         transport.IsAlive.Returns(true);
         transport.ConnectAsync(Arg.Any<IJsonRpcMessageFormatter>(), Arg.Any<CancellationToken>())
             .Returns(ci => Task.FromResult<IJsonRpcMessageHandler?>(
                 new HeaderDelimitedMessageHandler(clientSide, clientSide, ci.Arg<IJsonRpcMessageFormatter>())));
 
         var client = new VBLspClient(
-            transport, Substitute.For<ILogger<VBLspClient>>(), "vb6", trace: trace);
+            transport, Substitute.For<ILogger<VBLspClient>>(), "vb6", trace: trace, capture: capture, connectionId: "probe");
         _disposables.Add(client);
         if (start) await client.StartAsync();
         return client;
@@ -264,6 +266,36 @@ public partial class TraceOnTheWireTests : IAsyncDisposable
 
         await EventuallyAsync(() => seen is not null);
         seen!.Type.Should().Be(LspMessageType.Debug);
+    }
+
+    [Theory]
+    [InlineData(1)]
+    [InlineData(2)]
+    [InlineData(3)]
+    [InlineData(4)]
+    [InlineData(5)]
+    [InlineData(99)]
+    public async Task ServerOutputKeepsLogMessageWithoutArming(int type)
+    {
+        await using var capture = new HexIDE.Conversations.ConversationLog();
+        var client = await ConnectedAsync(capture: capture);
+        var received = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        client.MessageLogged += (_, _) => received.TrySetResult();
+        await SendAsync($$$"""{"jsonrpc":"2.0","method":"window/logMessage","params":{"type":{{{type}}},"message":"import note"}}""");
+        await received.Task.WaitAsync(_cts.Token);
+        capture.Output.Text("probe").Should().Contain($"[window/logMessage ({type})] import note");
+        capture.Output.Text("other").Should().BeEmpty();
+        capture.IsArmed("probe").Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task ServerOutputKeepsTransportStandardError()
+    {
+        await using var capture = new HexIDE.Conversations.ConversationLog();
+        await ConnectedAsync(capture: capture);
+        _transport!.Notice += Raise.Event<EventHandler<TransportNotice>>(_transport,
+            new TransportNotice(TransportNoticeKind.StandardError, "startup failure"));
+        capture.Output.Text("probe").Should().Contain("[stderr] startup failure");
     }
 
     // ---- LSP framing, by hand ------------------------------------------------------------------

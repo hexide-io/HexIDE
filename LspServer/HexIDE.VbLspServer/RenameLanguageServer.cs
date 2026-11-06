@@ -11,8 +11,29 @@ namespace HexIDE.VbLspServer;
 internal sealed class RenameLanguageServer(Stream input, Stream output, DocumentStore store)
     : LanguageServer(input, output, new LanguageServerOptions())
 {
+    private bool _shutdownAnswered;
+
+    internal int ExitCode { get; private set; }
+
     protected override bool BaseHandle(Message message)
     {
+        if (message is RequestMessage { Method: "shutdown" })
+        {
+            // Framework 0.9.2 writes the shutdown response synchronously on this read loop.
+            var handled = base.BaseHandle(message);
+            _shutdownAnswered = handled;
+            return handled;
+        }
+
+        if (message is NotificationMessage { Method: "exit" })
+        {
+            // Framework 0.9.2 records exit but keeps reading. Cancel on the read loop so its
+            // next iteration stops before another header read (and before stdin can reach EOF).
+            ExitCode = _shutdownAnswered ? 0 : 1;
+            Exit();
+            return true;
+        }
+
         if (message is not RequestMessage { Method: "textDocument/rename" } request)
             return base.BaseHandle(message);
 

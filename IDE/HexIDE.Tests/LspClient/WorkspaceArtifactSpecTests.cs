@@ -117,6 +117,19 @@ public class WorkspaceArtifactSpecTests : IDisposable
             .Should().BeTrue();
         spec!.RelativePath.Should().Be("compile_commands.json");
         spec.ProviderName.Should().Be("p");
+        spec.RestartOnChange.Should().BeFalse("a server is restarted for its artefact only when it asks to be");
+    }
+
+    [Fact]
+    public void RestartOnChangeIsRead()
+    {
+        var result = Load("""{ "path": ".rdproj", "provider": "p", "restartOnChange": true }""", Registry("p"));
+
+        result.Problems.Should().NotContain(p => p.EntryId == "probe");
+        WorkspaceArtifactSpecReader.TryRead(
+            "probe", result.Entries[0].WorkspaceArtifact, Registry("p"), out var spec, out _)
+            .Should().BeTrue();
+        spec!.RestartOnChange.Should().BeTrue();
     }
 
     [Fact]

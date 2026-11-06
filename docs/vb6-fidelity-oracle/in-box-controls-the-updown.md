@@ -274,7 +274,7 @@ Screenshots at 96 dpi, one fresh form per state:
 
 **The programs:**
 - **The save:** a form written by hand, opened in VB6's IDE and saved. VB6's save is in
-  `corpus/inbox-controls/pending/updown/`. It held:
+  `corpus/inbox-controls/saved/updown/`. It held:
   - Text1, then UpDown1 with every property but the buddy's off its default and its lines reversed: horizontal, 495 ×
     255;
   - UpDown2, with only its position, extents and `_Version`;
@@ -387,5 +387,11 @@ Screenshots at 96 dpi, one fresh form per state:
 
 ### In HexIDE
 
-HexIDE doesn't know MSCOMCT2.OCX. `ControlLibraries` lists only MSCOMCTL.OCX and COMCTL32.OCX, so nothing maps an UpDown
-to this issue (#1093).
+HexIDE registers MSCOMCT2.OCX as `MSComCtl2`, using the identity in VB6's save above (#1093). The Components
+dialog can add and remove its reference. Part A implements the runtime object model; part B implements
+pointer input, hold repeat, buddy text conversion and vertical/horizontal drawing without pinned pixel
+metrics. The follow-up measurements in #1093 (issuecomment-6446090132, native and p-code)
+add zero Increment clicks without Change, stored-and-ignored Acceleration, and synchronized reads and writes
+through Label Caption (including its default member) and TextBox Tag. Other runtime buddy properties remain refused. Part C loads saved properties and buddy bindings without moving controls, preserves the file blocks
+verbatim, and offers the measured toolbox default. Loaded blocks remain read-only in the designer;
+unmeasured saved BuddyProperty DISPIDs refuse explicitly.

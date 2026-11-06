@@ -28,6 +28,7 @@ public class ProjectToolViewModelTests
     private ProjectToolViewModel CreateVm()
     {
         var localization = Substitute.For<ILocalizationService>();
+        localization.GetString("Str.Tool.Project.RemoveFormFormat").Returns("Remove {0}");
         localization.GetString("Str.Tool.Project.Title").Returns("Project Group - Group1");
         return new(projectManager, eventBus, projectService, editorService, localization);
     }
@@ -430,31 +431,27 @@ public class ProjectToolViewModelTests
         projectManager.DidNotReceive().StartupProject = Arg.Any<ProjectDefinition>();
     }
 
-    // ── DeleteForm ────────────────────────────────────────────────
-
-    [Fact]
-    public void DeleteForm_PublishesFormUnloadedEvent()
+    [Theory]
+    [InlineData("Form")]
+    [InlineData("Module")]
+    [InlineData("Class")]
+    [InlineData("UserControl")]
+    [InlineData("PropertyPage")]
+    public async Task ExplorerRemove_UsesTheSharedService(string kind)
     {
-        var proj = TestHelpers.CreateProjectWithForm("P", "F1");
-        var form = proj.Forms[0];
-        var vm = CreateVmWithLoadedProject(proj, out var projVm);
-        vm.SelectedItem = FirstForm(projVm);
+        var project = TestHelpers.CreateProjectWithForm("P", "Form1");
+        var module = new ModuleDefinition(project, kind + "1",
+            kind == "Class" ? ModuleKind.ClassModule : kind == "UserControl" ? ModuleKind.UserControl
+                : kind == "PropertyPage" ? ModuleKind.PropertyPage : ModuleKind.StandardModule);
+        project.AddModule(module);
+        var vm = CreateVmWithLoadedProject(project, out var projectVm);
+        vm.SelectedItem = kind == "Form" ? (object)FirstForm(projectVm) : FirstModule(projectVm);
+        var document = kind == "Form" ? DocumentIdentity.For(project.Forms[0]) : DocumentIdentity.For(module);
 
+        vm.RemoveFormHeader.Should().Be("Remove " + document.Name);
         vm.DeleteForm();
 
-        eventBus.Received(1).Publish(Arg.Is<FormUnloadedEvent>(e => e.Form == form));
-    }
-
-    [Fact]
-    public void DeleteForm_RemovesFormFromProjectDefinition()
-    {
-        var proj = TestHelpers.CreateProjectWithForm("P", "F1");
-        var vm = CreateVmWithLoadedProject(proj, out var projVm);
-        vm.SelectedItem = FirstForm(projVm);
-
-        vm.DeleteForm();
-
-        proj.Forms.Should().BeEmpty();
+        await projectService.Received(1).RemoveDocument(document);
     }
 
     [Fact]

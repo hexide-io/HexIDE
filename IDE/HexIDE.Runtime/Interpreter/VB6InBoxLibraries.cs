@@ -109,7 +109,7 @@ internal static class VB6InBoxLibraries
                     // keeps its text, control characters and all: vbTab really is a tab.
                     var v = m.Value.ValueKind == JsonValueKind.Number
                         ? new Vb6Value(m.Value.GetInt64())
-                        : new Vb6Value(m.Value.GetString());
+                        : m.Name == "vbNullString" ? Vb6Value.NullString : new Vb6Value(m.Value.GetString());
                     members[m.Name] = v;
                     if (!bare.ContainsKey(m.Name)) bare[m.Name] = v;
                 }

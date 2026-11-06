@@ -1,5 +1,6 @@
 using Avalonia;
 using Avalonia.Headless;
+using Avalonia.Labs.Input;
 
 [assembly: AvaloniaTestApplication(typeof(HexIDE.Tests.TestApp))]
 
@@ -44,6 +45,11 @@ namespace HexIDE.Tests;
 /// </summary>
 public class TestApp : Application
 {
-    public static AppBuilder BuildAvaloniaApp() =>
-        AppBuilder.Configure<TestApp>().UseHeadless(new AvaloniaHeadlessPlatformOptions());
+    public static AppBuilder BuildAvaloniaApp()
+    {
+        // Seed a pending requery before headless replaces the dispatcher (#2921). A pool thread can
+        // carry CommandManager state from an earlier plain test into this session's first test.
+        CommandManager.InvalidateRequerySuggested();
+        return AppBuilder.Configure<TestApp>().UseHeadless(new AvaloniaHeadlessPlatformOptions());
+    }
 }

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json;
+using System.Threading.Tasks;
 using Avalonia.Controls;
 using Avalonia.Threading;
 using HexIDE.Automation;
@@ -29,9 +30,10 @@ public class ActiveDocumentDumpTests
     private sealed record Scene(UiNode Tree, string Path, int Size);
 
     // The whole IDE, as its first dump sees it, with a designer holding this many buttons open in front.
-    private static Scene Dumped(int buttons, bool interactiveOnly)
+    private static async Task<Scene> Dumped(int buttons, bool interactiveOnly)
     {
-        var composition = new DISetup();
+        await using var owned = new RealComposition();
+        var composition = owned.Composition;
         var window = ToolbarAutomationNameTests.ShowMainView();
         var app = new App();
         app.LoadMarkup();
@@ -84,20 +86,20 @@ public class ActiveDocumentDumpTests
     [AvaloniaTheory]
     [InlineData(true)]
     [InlineData(false)]
-    public void Whole_IDE_dump_keeps_the_open_designers_controls(bool interactiveOnly)
+    public async Task Whole_IDE_dump_keeps_the_open_designers_controls(bool interactiveOnly)
     {
         // A button's cost is measured between two counts above zero: the first one also brings what only an occupied
         // designer has, so measuring from an empty one overestimates it. Then a few secant steps close on the target.
         const int target = Budget / 2;
-        var one = SizeOf(DocumentOf(Dumped(1, interactiveOnly)));
-        var perButton = (SizeOf(DocumentOf(Dumped(11, interactiveOnly))) - one) / 10;
+        var one = SizeOf(DocumentOf(await Dumped(1, interactiveOnly)));
+        var perButton = (SizeOf(DocumentOf(await Dumped(11, interactiveOnly))) - one) / 10;
         perButton.Should().BePositive();
         var buttons = Math.Max(1, 1 + (target - one) / perButton);
-        var scene = Dumped(buttons, interactiveOnly);
+        var scene = await Dumped(buttons, interactiveOnly);
         for (var round = 0; round < 4 && Math.Abs(SizeOf(DocumentOf(scene)) - target) > perButton; round++)
         {
             buttons = Math.Max(1, buttons + (target - SizeOf(DocumentOf(scene))) / perButton);
-            scene = Dumped(buttons, interactiveOnly);
+            scene = await Dumped(buttons, interactiveOnly);
         }
 
         scene.Size.Should().BeGreaterThan(Budget, "the whole IDE is more than a reply takes, so fitting has to cut");

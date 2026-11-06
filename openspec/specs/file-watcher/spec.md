@@ -88,6 +88,11 @@ reading, which converts a careful design back into data loss.
 - **WHEN** a file with unsaved edits changes on disk
 - **THEN** the developer is asked whether to take the disk version or keep their edits, and neither is discarded until they choose
 
+#### Scenario: Open code applied to the model without saving
+- **WHEN** an open module or form's edited code is copied into its model without saving, and its file changes externally
+- **THEN** the model's unsaved changes still make it a conflict, even though the editor and model now agree
+- **AND** after saving those edits, a subsequent external change is adopted silently if there are no further edits
+
 #### Scenario: Several conflicts at once
 - **WHEN** several files with unsaved edits change together
 - **THEN** they are presented as one decision rather than one prompt per file
@@ -157,6 +162,12 @@ read.
 #### Scenario: Changes arriving while the IDE is in the background
 - **WHEN** conflicting changes arrive while the IDE is not focused
 - **THEN** the prompt waits until the developer returns to the IDE
+
+#### Scenario: Returning to deferred conflicts
+- **WHEN** the main window is activated with conflicts waiting, including when the activation event precedes
+  the window's active-state update
+- **THEN** the IDE shows the consolidated conflict prompt once after the active-state update, without another
+  disk change being needed
 
 #### Scenario: Turning watching off
 - **WHEN** the developer disables external-change watching

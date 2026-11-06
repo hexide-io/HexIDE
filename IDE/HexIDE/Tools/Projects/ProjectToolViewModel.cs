@@ -33,7 +33,7 @@ public partial class ProjectToolViewModel : Tool
     public ObservableCollection<ProjectViewModel> LoadedProjects { get; } = new();
     public ObservableCollection<object> RootItems { get; } = new();
 
-    [Notify] [AlsoNotify(nameof(HasArchiveSelection), nameof(SelectedForm), nameof(SelectedProject), nameof(SelectedFormOrFormPart), nameof(SelectedModule), nameof(ProjectPropertiesHeader), nameof(SaveFormHeader), nameof(SaveFormAsHeader), nameof(RemoveFormHeader))] private object? selectedItem;
+    [Notify] [AlsoNotify(nameof(HasArchiveSelection), nameof(SelectedForm), nameof(SelectedProject), nameof(SelectedFormOrFormPart), nameof(SelectedModule), nameof(ProjectPropertiesHeader), nameof(SaveFormHeader), nameof(SaveFormAsHeader), nameof(RemoveFormHeader), nameof(HasRemovableSelection))] private object? selectedItem;
 
     public FormViewModel? SelectedForm
     {
@@ -64,8 +64,9 @@ public partial class ProjectToolViewModel : Tool
         SelectedForm?.Name is { } n ? string.Format(localization.GetString("Str.Tool.Project.SaveFormFormat"), n) : "";
     public string SaveFormAsHeader =>
         SelectedForm?.Name is { } n ? string.Format(localization.GetString("Str.Tool.Project.SaveFormAsFormat"), n) : "";
+    public bool HasRemovableSelection => SelectedForm != null || SelectedModule != null;
     public string RemoveFormHeader =>
-        SelectedForm?.Name is { } n ? string.Format(localization.GetString("Str.Tool.Project.RemoveFormFormat"), n) : "";
+        (SelectedForm?.Name ?? SelectedModule?.Name) is { } n ? string.Format(localization.GetString("Str.Tool.Project.RemoveFormFormat"), n) : "";
 
     public DelegateCommand ViewObjectCommand { get; }
 
@@ -322,13 +323,17 @@ public partial class ProjectToolViewModel : Tool
         projectService.EditProjectProperties(SelectedProject.Definition).ListenErrors();
     }
 
-    public void DeleteForm()
-    {
-        if (SelectedForm == null)
-            return;
+    public void DeleteForm() => RemoveSelectedDocument().ListenErrors();
 
-        // TODO: this logic doesn't belong to a VM, maybe some service?
-        eventBus.Publish(new FormUnloadedEvent(SelectedForm.FormDefinition));
-        SelectedForm.Project.Definition.DeleteForm(SelectedForm.FormDefinition);
+    public async Task RemoveSelectedDocument()
+    {
+        var selection = SelectedItem;
+        var document = SelectedForm is { } form ? DocumentIdentity.For(form.FormDefinition)
+            : SelectedModule is { } module ? DocumentIdentity.For(module.ModuleDefinition) : null;
+        if (document == null) return;
+
+        await projectService.RemoveDocument(document);
+        if (SelectedItem == selection && !DocumentLookup.DocumentsOf(document.Project).Contains(document))
+            SelectedItem = null;
     }
 }

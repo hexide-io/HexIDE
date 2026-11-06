@@ -27,7 +27,7 @@ public sealed class ProgressBarComponentClass : InBoxComponentClass
 
     static ProgressBarComponentClass()
     {
-        // 0, ccDefault, where the shared property's is the intrinsics' Arrow (measured: a ProgressBar's MousePointer reads 0).
+        // 0, ccDefault (measured: a ProgressBar's MousePointer reads 0).
         MousePointerProperty.OverrideDefault<ProgressBarComponentClass>(BuiltinTypes.VBCursorType.Default);
     }
 

@@ -57,9 +57,14 @@ internal static class LanguageManifest
         new LanguageInfo("zh-Hant", "Chinese (Traditional)", "ltr"),
         new LanguageInfo("de", "German", "ltr"),
         new LanguageInfo("es", "Spanish", "ltr"),
+        new LanguageInfo("ca", "Catalan", "ltr"),
+        new LanguageInfo("gl", "Galician", "ltr"),
         new LanguageInfo("ja", "Japanese", "ltr"),
         new LanguageInfo("he", "Hebrew", "rtl"),
+        new LanguageInfo("bg", "Bulgarian", "ltr"),
         new LanguageInfo("cs", "Czech", "ltr"),
+        new LanguageInfo("hr", "Croatian", "ltr"),
+        new LanguageInfo("sk", "Slovak", "ltr"),
         new LanguageInfo("it", "Italian", "ltr"),
         new LanguageInfo("ko", "Korean", "ltr"),
         new LanguageInfo("ru", "Russian", "ltr"),
@@ -67,29 +72,30 @@ internal static class LanguageManifest
         new LanguageInfo("pl", "Polish", "ltr"),
         new LanguageInfo("pt", "Portuguese", "ltr"),
         new LanguageInfo("tr", "Turkish", "ltr"),
+        new LanguageInfo("th", "Thai", "ltr"),
         // Batch 2 — ordered by developer-community size (see openspec/specs/language-packs/spec.md).
-        new LanguageInfo("hi", "Hindi", "ltr"),
-        new LanguageInfo("ur", "Urdu", "rtl"),
         new LanguageInfo("id", "Indonesian", "ltr"),
         new LanguageInfo("vi", "Vietnamese", "ltr"),
-        new LanguageInfo("fa", "Persian", "rtl"),
         new LanguageInfo("nl", "Dutch", "ltr"),
         new LanguageInfo("sv", "Swedish", "ltr"),
         new LanguageInfo("el", "Greek", "ltr"),
         new LanguageInfo("nb", "Norwegian Bokmål", "ltr"),
         new LanguageInfo("da", "Danish", "ltr"),
         new LanguageInfo("fi", "Finnish", "ltr"),
-        // Latin — a full-translation pack. Loaded purely by string id (no CultureInfo("la") is ever
-        // constructed), so it works regardless of .NET's Latin culture support.
-        new LanguageInfo("la", "Latin", "ltr"),
-        // Esperanto — likewise a full-translation pack loaded by string id.
-        new LanguageInfo("eo", "Esperanto", "ltr"),
+        new LanguageInfo("et", "Estonian", "ltr"),
+        new LanguageInfo("sr-Latn", "Serbian (Latin)", "ltr"),
+        new LanguageInfo("ro", "Romanian", "ltr"),
+        new LanguageInfo("hu", "Hungarian", "ltr"),
+        new LanguageInfo("sl", "Slovenian", "ltr"),
+        new LanguageInfo("lt", "Lithuanian", "ltr"),
+        new LanguageInfo("lv", "Latvian", "ltr"),
+        new LanguageInfo("eu", "Basque", "ltr"),
     ];
 
     // Regions under each language (the dependent Region combo), keyed by neutral id. The VM prepends a
-    // synthetic "(Standard)" entry (the bare neutral). All region ids here are fileless except `en-GB`,
-    // which ships a real pack; the rest resolve through their neutral via 3-tier fallback (Chinese region
-    // → script neutral). Listed for UI consistency + "we support this region" signal.
+    // synthetic "(Standard)" entry (the bare neutral). Only regions with terminology overrides ship a
+    // real pack; the rest resolve through their neutral via 3-tier fallback (Chinese region → script
+    // neutral). Listed for UI consistency + "we support this region" signal.
     internal static readonly IReadOnlyDictionary<string, IReadOnlyList<RegionInfo>> Regions =
         new Dictionary<string, IReadOnlyList<RegionInfo>>
         {
@@ -135,9 +141,13 @@ internal static class LanguageManifest
                 new("es-PA", "Panama"), new("es-PY", "Paraguay"), new("es-SV", "El Salvador"),
                 new("es-UY", "Uruguay"),
             ],
+            ["gl"] = [new("gl-ES", "Spain")],
             ["ja"] = [new("ja-JP", "Japan")],
             ["he"] = [new("he-IL", "Israel")],
+            ["bg"] = [new("bg-BG", "Bulgaria")],
             ["cs"] = [new("cs-CZ", "Czechia")],
+            ["hr"] = [new("hr-HR", "Croatia")],
+            ["sk"] = [new("sk-SK", "Slovakia")],
             ["it"] = [new("it-IT", "Italy"), new("it-CH", "Switzerland"), new("it-SM", "San Marino")],
             ["ko"] = [new("ko-KR", "Korea"), new("ko-KP", "North Korea")],
             ["ru"] =
@@ -155,18 +165,20 @@ internal static class LanguageManifest
                 new("pt-GQ", "Equatorial Guinea"),
             ],
             ["tr"] = [new("tr-TR", "Türkiye"), new("tr-CY", "Cyprus")],
-            ["hi"] = [new("hi-IN", "India")],
-            ["ur"] = [new("ur-PK", "Pakistan"), new("ur-IN", "India")],
+            ["th"] = [new("th-TH", "Thailand")],
             ["id"] = [new("id-ID", "Indonesia")],
             ["vi"] = [new("vi-VN", "Vietnam")],
-            ["fa"] = [new("fa-IR", "Iran"), new("fa-AF", "Afghanistan")],
             ["nl"] = [new("nl-NL", "Netherlands"), new("nl-BE", "Belgium"), new("nl-SR", "Suriname")],
             ["sv"] = [new("sv-SE", "Sweden"), new("sv-FI", "Finland")],
             ["el"] = [new("el-GR", "Greece"), new("el-CY", "Cyprus")],
             ["nb"] = [new("nb-NO", "Norway")],
             ["da"] = [new("da-DK", "Denmark")],
             ["fi"] = [new("fi-FI", "Finland")],
-            ["la"] = [new("la-VA", "Vatican City")],
-            ["eo"] = [new("eo-001", "World")],
+            ["et"] = [new("et-EE", "Estonia")],
+            ["ro"] = [new("ro-RO", "Romania"), new("ro-MD", "Moldova")],
+            ["hu"] = [new("hu-HU", "Hungary")],
+            ["sl"] = [new("sl-SI", "Slovenia")],
+            ["lt"] = [new("lt-LT", "Lithuania")],
+            ["lv"] = [new("lv-LV", "Latvia")],
         };
 }

@@ -5,8 +5,11 @@ using System.Linq;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
+using Avalonia.Input;
 using Avalonia.Media;
 using Avalonia.Threading;
 using AvaloniaEdit;
@@ -20,6 +23,7 @@ using HexIDE.Localization;
 using HexIDE.Lsp;
 using HexIDE.Lsp.Messages;
 using HexIDE.Projects;
+using HexIDE.Runtime;
 using HexIDE.Runtime.Debugging;
 using HexIDE.Runtime.ProjectElements;
 using HexIDE.Runtime.Serialization;
@@ -142,6 +146,102 @@ public sealed class BreakpointByNameTests : IDisposable
             .Select(d => d.Geometry!.Bounds.Center.Y)
             .Select(y => textView.GetVisualLineFromVisualTop(y + textView.VerticalOffset)!.FirstDocumentLine.LineNumber)
             .ToList();
+    }
+
+    [AvaloniaFact]
+    public void Conditional_breakpoint_has_distinct_glyph_and_hover_expression()
+    {
+        var project = new ProjectDefinition(VBProjectType.EXE, "P");
+        var form = new FormDeserializer().Deserialize(project, Frm, NullSink.Instance)!;
+        var store = new BreakpointService();
+        var vm = OpenCodeWindow(form, store, new BookmarkService());
+        var editor = Show(vm);
+        store.SetDocument(vm.Identity, [Line]);
+        var margin = editor.TextArea.LeftMargins.OfType<BreakpointMargin>().Single();
+        int DrawingCount()
+        {
+            var drawing = new DrawingGroup();
+            using (var context = drawing.Open()) margin.Render(context);
+            return drawing.Children.Count;
+        }
+        var plain = DrawingCount();
+        store.SetCondition(vm.Identity, Line, "i = 3");
+        DrawingCount().Should().BeGreaterThan(plain);
+        var visual = editor.TextArea.TextView.GetVisualLine(Line)!;
+        var point = margin.TranslatePoint(new Point(7, visual.VisualTop + visual.Height / 2), windows[0])!.Value;
+        windows[0].MouseMove(point);
+        ToolTip.GetTip(margin).Should().Be("i = 3");
+        store.SetCondition(vm.Identity, Line, "");
+        DrawingCount().Should().Be(plain);
+        ToolTip.GetTip(margin).Should().BeNull();
+    }
+
+    [AvaloniaFact]
+    public void Right_click_offers_condition_without_toggling_the_breakpoint()
+    {
+        var project = new ProjectDefinition(VBProjectType.EXE, "P");
+        var form = new FormDeserializer().Deserialize(project, Frm, NullSink.Instance)!;
+        var store = new BreakpointService();
+        var vm = OpenCodeWindow(form, store, new BookmarkService());
+        var editor = Show(vm);
+        store.SetDocument(vm.Identity, [Line]);
+        var margin = editor.TextArea.LeftMargins.OfType<BreakpointMargin>().Single();
+        margin.Resources["Str.Debug.Conditions.Edit"] = "Condition…";
+        var visual = editor.TextArea.TextView.GetVisualLine(Line)!;
+        var point = margin.TranslatePoint(new Point(7, visual.VisualTop + visual.Height / 2), windows[0])!.Value;
+        windows[0].MouseDown(point, MouseButton.Right);
+        windows[0].MouseUp(point, MouseButton.Right);
+        margin.ContextMenu.Should().NotBeNull();
+        margin.ContextMenu!.IsOpen.Should().BeTrue();
+        margin.ContextMenu.ItemsSource!.OfType<MenuItem>().Should().ContainSingle()
+            .Which.Header.Should().Be("Condition…");
+        store.IsBreakpoint(vm.Identity, Line).Should().BeTrue();
+        margin.ContextMenu.Close();
+    }
+
+    [AvaloniaFact]
+    public async Task Interpreter_conditions_stop_unconditionally_and_notice_once_per_run()
+    {
+        var project = new ProjectDefinition(VBProjectType.EXE, "P");
+        var form = new FormDeserializer().Deserialize(project, Frm, NullSink.Instance)!;
+        project.AddForm(form);
+        var store = new BreakpointService();
+        var document = DocumentIdentity.For(form);
+        store.SetDocument(document, [Line]);
+        store.SetCondition(document, Line, "False");
+        var debugger = new DebugController();
+        var strings = Substitute.For<ILocalizationService>();
+        strings.GetString("Str.Debug.Conditions.InterpreterIgnored").Returns("conditions ignored");
+        var runner = new ProjectRunnerService(Substitute.For<IEventBus>(), Substitute.For<IWindowManager>(),
+            Substitute.For<IProjectManager>(), strings, debugger, store, new WatchService(), new RunScope());
+        var notices = new List<string>();
+        void Capture(string text) { if (text.Contains("conditions ignored", StringComparison.Ordinal)) notices.Add(text); }
+        VBDebugConsole.Written += Capture;
+        try
+        {
+            for (var iteration = 0; iteration < 2; ++iteration)
+            {
+                var stopped = new TaskCompletionSource<StoppedInfo>(TaskCreationOptions.RunContinuationsAsynchronously);
+                void Stopped(StoppedInfo info) => stopped.TrySetResult(info);
+                debugger.Stopped += Stopped;
+                try
+                {
+                    runner.RunProject(project);
+                    var at = await stopped.Task.WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
+                    at.Line.Should().Be(Line);
+                    at.Reason.Should().Be(StopReason.Breakpoint);
+                    store.SetCondition(document, Line, "1 = 0");
+                    notices.Should().HaveCount(iteration + 1);
+                }
+                finally
+                {
+                    runner.EndProject();
+                    debugger.Stopped -= Stopped;
+                    Dispatcher.UIThread.RunJobs();
+                }
+            }
+        }
+        finally { VBDebugConsole.Written -= Capture; runner.EndProject(); }
     }
 
     [AvaloniaFact]

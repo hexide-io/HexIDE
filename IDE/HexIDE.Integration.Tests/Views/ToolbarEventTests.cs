@@ -61,7 +61,7 @@ public class ToolbarEventTests
         {
             window.Show();
             window.UpdateLayout();
-            var visual = bar.GetVisualDescendants().OfType<StackPanel>().First().Children[0];
+            var visual = bar.GetVisualDescendants().OfType<Canvas>().First().Children[0];
             var p = visual.TranslatePoint(new Point(2, visual.Bounds.Height / 2), window)!.Value;
             window.MouseDown(p, MouseButton.Left);
             window.MouseUp(p, MouseButton.Left);
@@ -125,8 +125,9 @@ public class ToolbarEventTests
             }
             root.Calls.Select(c => c.Name).Should().Equal("Toolbar1_MouseDown", "Toolbar1_MouseUp", "Toolbar1_Click", "Toolbar1_ButtonClick", "Toolbar1_ButtonClick");
             root.Calls.Clear();
-            window.MouseDown(new Point(350, 5), MouseButton.Right);
-            window.MouseUp(new Point(350, 5), MouseButton.Right);
+            var empty = bar.TranslatePoint(new Point(350, 5), window)!.Value;
+            window.MouseDown(empty, MouseButton.Right);
+            window.MouseUp(empty, MouseButton.Right);
             root.Calls.Select(c => c.Name).Should().Equal("Toolbar1_MouseDown", "Toolbar1_MouseUp", "Toolbar1_Click");
             var item = (ToolbarItem)bar.Buttons.Item([new(1)]).Value!;
             item.TrySetProperty("Enabled", new(false));

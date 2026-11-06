@@ -14,6 +14,8 @@ public class StdioProcessFaultTests
     [InlineData("tree")]
     [InlineData("crash")]
     [InlineData("nonzero")]
+    [InlineData("exit1")]
+    [InlineData("exit2")]
     public async Task Process_lifecycle_is_observable_and_stop_leaves_no_server(string mode)
     {
         var token = TestContext.Current.CancellationToken;
@@ -35,11 +37,12 @@ public class StdioProcessFaultTests
                 var entry = await WaitFor(e => e.Detail?.StartsWith("child:", StringComparison.Ordinal) == true);
                 child = Process.GetProcessById(int.Parse(entry.Detail![6..]));
             }
-            if (mode is "crash" or "nonzero")
+            if (mode is "crash" or "nonzero" or "exit1" or "exit2")
             {
                 await client.RequestHoverAsync("file:///fault.vb", new Position(0, 0), token)
                     .WaitAsync(TimeSpan.FromSeconds(30), token);
-                var exit = await WaitFor(e => e.Detail == $"process exited with code {(mode == "crash" ? 23 : 17)}");
+                var code = mode switch { "crash" => 23, "exit1" => 1, "exit2" => 2, _ => 17 };
+                var exit = await WaitFor(e => e.Detail == $"process exited with code {code}");
                 exit.Fault.Should().BeTrue();
                 client.IsRunning.Should().BeFalse();
             }
@@ -47,7 +50,8 @@ public class StdioProcessFaultTests
             await client.StopAsync().WaitAsync(TimeSpan.FromSeconds(15), token);
             timer.Elapsed.Should().BeLessThan(TimeSpan.FromSeconds(10));
             if (mode is "ignore" or "tree")
-                timer.Elapsed.Should().BeGreaterThanOrEqualTo(TimeSpan.FromSeconds(2));
+                // The runtime's timer can fire a fraction of a millisecond early by the high-resolution counter.
+                timer.Elapsed.Should().BeGreaterThanOrEqualTo(LaunchedServerGuard.ExitTimeout - TimeSpan.FromMilliseconds(50));
             // On Unix the server is now the guard's child; a group kill reparents it just like
             // its descendant below, so check the kernel's exited state as well as .NET's handle.
             await WaitUntilGone(process);
@@ -61,8 +65,12 @@ public class StdioProcessFaultTests
                 (await WaitFor(e => e.Detail == "process exited with code 0")).Fault.Should().BeFalse();
             }
             else if (mode is "ignore" or "tree")
-                (await WaitFor(e => e.Detail?.StartsWith("process exited with code ", StringComparison.Ordinal) == true))
-                    .Fault.Should().BeTrue();
+            {
+                var end = await WaitFor(e => e.Detail?.StartsWith("stopped after shutdown;", StringComparison.Ordinal) == true
+                    || e.Detail?.StartsWith("process exited with code ", StringComparison.Ordinal) == true);
+                end.Fault.Should().BeFalse();
+                end.Detail.Should().StartWith("stopped after shutdown;");
+            }
         }
         finally
         {

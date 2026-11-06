@@ -21,7 +21,7 @@ using Serilog;
 
 namespace HexIDE.Projects;
 
-public class ProjectService : IProjectService
+public partial class ProjectService : IProjectService
 {
     private readonly Func<NewProjectViewModel> newProjectVm;
     private readonly IWindowManager windowManager;
@@ -242,6 +242,41 @@ public class ProjectService : IProjectService
         if (archives != null) await archives.Close();
     }
 
+    public async Task RemoveDocument(DocumentIdentity document)
+    {
+        if (!DocumentLookup.DocumentsOf(document.Project).Contains(document))
+            return;
+
+        eventBus.Publish(new ApplyAllUnsavedChangesEvent());
+        var changed = new SaveChangesViewModel();
+        if (document.Form is { } form && IsDirty(form)) changed.Add(form);
+        if (document.Module is { } module && IsDirty(module)) changed.Add(module);
+        if (changed.ChangedFiles.Count > 0)
+        {
+            changed.SelectedFiles.AddRange(changed.ChangedFiles);
+            if (!await windowManager.ShowDialog(changed))
+                throw new OperationCanceledException();
+            if (changed.SaveChanges && changed.SelectedFiles.Count > 0)
+            {
+                var saved = document.Form is { } toSave
+                    ? await SaveForm(toSave, false)
+                    : await SaveModule(document.Module!, false);
+                if (!saved) return;
+            }
+        }
+
+        if (document.Form is { } removedForm)
+        {
+            eventBus.Publish(new FormUnloadedEvent(removedForm));
+            document.Project.DeleteForm(removedForm);
+        }
+        else if (document.Module is { } removedModule)
+        {
+            eventBus.Publish(new ModuleUnloadedEvent(removedModule));
+            document.Project.DeleteModule(removedModule);
+        }
+    }
+
     public async Task UnloadProject(ProjectDefinition project)
     {
         eventBus.Publish(new ApplyAllUnsavedChangesEvent());
@@ -374,7 +409,7 @@ public class ProjectService : IProjectService
     private async Task LoadProjectFromDisk(string projectPath)
     {
         Log.Information("ProjectService: Opening project {ProjectPath}", projectPath);
-        if (projectManager.LoadedProjects.Any(p => p.AbsolutePath != null && Path.GetFullPath(projectPath) == Path.GetFullPath(p.AbsolutePath)))
+        if (projectManager.LoadedProjects.Any(p => p.AbsolutePath != null && HexIDE.IO.HostFilePath.Equals(projectPath, p.AbsolutePath)))
         {
             await windowManager.MessageBox($"Project {Path.GetFileName(projectPath)} is already opened.", icon: MessageBoxIcon.Information);
             throw new OperationCanceledException();
@@ -382,11 +417,13 @@ public class ProjectService : IProjectService
         var errorSink = new DeserializeErrorSink(localization);
         // The load itself is shared with the Standalone host a made program runs in (#1062). What the IDE adds is its own
         // record of what it read, which the save-changes prompt and the file watcher compare against.
-        var (project, serializedProject, readByteForByteList) = await new ProjectLoader
+        var (project, serializedProject, readByteForByteList, projectFileBytes) = await new ProjectLoader
         {
             HostAnsi = HostAnsi,
             FileRead = baselineStore.Record,
         }.LoadAsync(projectPath, errorSink);
+        // The project file too, as a save records it: crash recovery matches a moved project by it (#499).
+        baselineStore.Record(projectPath, projectFileBytes);
         var readByteForByte = readByteForByteList.ToList();
 
         projectManager.AddProject(project);
@@ -419,6 +456,8 @@ public class ProjectService : IProjectService
         await ReportReadByteForByte(readByteForByte);
         if (conflictingNames.Count > 0)
             await windowManager.MessageBox(string.Join("\n\n", conflictingNames), icon: MessageBoxIcon.Warning);
+
+        eventBus.Publish(new ProjectOpenedEvent(project));
     }
 
     /// <summary>
@@ -498,7 +537,8 @@ public class ProjectService : IProjectService
     /// False for an automation caller: no refusal is shown as a dialog, an unfaithful refusal comes back as
     /// <see langword="false"/>, and an encoding refusal as the <see cref="SourceEncodingRefusal"/>, which
     /// names the character. A dialog would hold the caller's reply until a person dismissed it. The picker
-    /// is not suppressed; see <see cref="ScriptedFileDialogs.WouldShowPicker"/>.
+    /// is not suppressed for pathless documents or Save As. Existing scratch files are persisted in place;
+    /// see <see cref="ScriptedFileDialogs.WouldShowPicker"/>.
     /// </param>
     public async Task<bool> SaveForm(FormDefinition form, bool saveAs, bool interactive = true, SaveRewriteReport? rewrites = null)
     {
@@ -507,7 +547,7 @@ public class ProjectService : IProjectService
             // Returned so a non-interactive caller can tell a refusal from a save. The MCP write tools reported
             // success unconditionally, which told an agent a file had been written when it had not — and an
             // agent, unlike a developer, has no dialog to read and will build on the answer.
-            return (await WithSaveRefusals(() => SaveFiles([(form, saveAs)], ownCommand: true, rewrites: rewrites), interactive)).Count > 0;
+            return (await WithSaveRefusals(() => SaveFiles([(form, saveAs)], ownCommand: true, rewrites: rewrites, userSave: interactive), interactive)).Count > 0;
         }
         finally
         {
@@ -530,7 +570,8 @@ public class ProjectService : IProjectService
     /// Rethrown rather than turned into false: a close-time save that carried on would unload the project and
     /// discard the edit the developer had just asked to keep.
     /// </remarks>
-    private async Task<T> WithSaveRefusals<T>(Func<Task<T>> operation, bool interactive = true)
+    private async Task<T> WithSaveRefusals<T>(Func<Task<T>> operation, bool interactive = true,
+        Action<string, bool>? refusing = null)
     {
         try
         {
@@ -540,6 +581,8 @@ public class ProjectService : IProjectService
         {
             Log.Warning("Cannot save {Document} in code page {CodePage}: it holds {CodePoint}",
                 refusal.Document, refusal.CodePage, refusal.CodePoint);
+            refusing?.Invoke($"{refusal.Document} holds {refusal.CodePoint}, which code page {refusal.CodePage} can't "
+                             + "hold, so nothing was written", interactive);
             // Says that nothing was written, rather than that one document was not: the operation checked every
             // file before writing any. The line is quoted because the character may not be in anything the
             // person just edited: a form is written whole, and a project file names its members by file.
@@ -555,6 +598,8 @@ public class ProjectService : IProjectService
         {
             Log.Warning("Not saving {Project}: its project file would leave out {Members}, which have no file",
                 refusal.Project, refusal.Members);
+            refusing?.Invoke($"{refusal.Project}'s project file would leave out {string.Join(", ", refusal.Members)}, "
+                             + "which have no file, so nothing was written", interactive);
             if (interactive)
                 await windowManager.MessageBox(
                     string.Format(localization.GetString("Str.Dialog.UnsavedMembers.NothingWritten"),
@@ -565,12 +610,12 @@ public class ProjectService : IProjectService
     }
 
     /// <inheritdoc cref="WithSaveRefusals{T}"/>
-    private Task WithSaveRefusals(Func<Task> operation, bool interactive = true) =>
+    private Task WithSaveRefusals(Func<Task> operation, bool interactive = true, Action<string, bool>? refusing = null) =>
         WithSaveRefusals(async () =>
         {
             await operation();
             return true;
-        }, interactive);
+        }, interactive, refusing);
 
     // ── Saving: every file chosen and checked before any is written ─────────────────────────────────
 
@@ -589,6 +634,7 @@ public class ProjectService : IProjectService
     /// a write rewrites the document's attribute qualifiers whether or not it has unsaved changes, as VB6's does;
     /// see <see cref="RewrittenQualifiers"/>.
     /// </param>
+    /// <param name="userSave">False for internal persistence: an existing scratch path remains its destination.</param>
     /// <returns>What was written. A document HexIDE cannot reproduce is left out, and banked for the
     /// caller's <see cref="ReportRefusedSaves"/>.</returns>
     /// <remarks>
@@ -605,7 +651,7 @@ public class ProjectService : IProjectService
     /// If one stops holding, each writer's own encode still refuses, but files written before it stay written.
     /// </remarks>
     private async Task<IReadOnlyList<Destination>> SaveFiles(
-        IReadOnlyList<(object Document, bool SaveAs)> files, bool announceSave = true, bool ownCommand = false, SaveRewriteReport? rewrites = null)
+        IReadOnlyList<(object Document, bool SaveAs)> files, bool announceSave = true, bool ownCommand = false, SaveRewriteReport? rewrites = null, bool userSave = true)
     {
         // A UserControl's or PropertyPage's designer half is one file with its module, and the file the project names is
         // the module's. Saved as a form, a new one has no path (#500) and asked for a .frm, and wrote the edit there
@@ -620,7 +666,7 @@ public class ProjectService : IProjectService
 
         var destinations = new List<Destination>();
         foreach (var (document, saveAs) in files)
-            if (await DestinationOf(document, saveAs) is { } destination)
+            if (await DestinationOf(document, saveAs, userSave) is { } destination)
                 destinations.Add(destination);
 
         // The gate in DestinationOf keeps a picker from asking about a file that will not be written; this one
@@ -661,7 +707,7 @@ public class ProjectService : IProjectService
     /// <paramref name="saveAs"/> is set. Null when HexIDE cannot reproduce it, which is banked as a refusal.
     /// </summary>
     /// <exception cref="OperationCanceledException">A picker was dismissed.</exception>
-    private async Task<Destination?> DestinationOf(object document, bool saveAs)
+    private async Task<Destination?> DestinationOf(object document, bool saveAs, bool userSave)
     {
         switch (document)
         {
@@ -680,7 +726,7 @@ public class ProjectService : IProjectService
                 // docs/serialization-outcomes.md says is never acceptable. (#143)
                 if (RefusesUnfaithful(form))
                     return null;
-                return form.AbsolutePath is { } formPath && !saveAs
+                return form.AbsolutePath is { } formPath && !saveAs && (!userSave || !IsScratchFile(form.Owner, formPath))
                     ? new Destination(form, formPath)
                     : new Destination(form, await ChooseFormPath(form), Chosen: true);
 
@@ -690,12 +736,12 @@ public class ProjectService : IProjectService
                 // module has no designer half yet, or a fresh one with no unfaithful causes.
                 if (RefusesUnfaithful(module))
                     return null;
-                return module.AbsolutePath is { } modulePath && !saveAs
+                return module.AbsolutePath is { } modulePath && !saveAs && (!userSave || !IsScratchFile(module.Owner, modulePath))
                     ? new Destination(module, modulePath)
                     : new Destination(module, await ChooseModulePath(module), Chosen: true);
 
             case ProjectDefinition project:
-                return project.AbsolutePath is { } projectPath && !saveAs
+                return project.AbsolutePath is { } projectPath && !saveAs && (!userSave || !IsScratchFile(project, projectPath))
                     ? new Destination(project, projectPath)
                     : new Destination(project, await ChooseProjectPath(project), Chosen: true);
 
@@ -707,6 +753,17 @@ public class ProjectService : IProjectService
             default:
                 throw new ArgumentException($"HexIDE does not save a {document?.GetType().Name ?? "null"}.", nameof(document));
         }
+    }
+
+    // A file written for --newproject still has no user-chosen home (#2678). Use the recorded
+    // scratch directory, not a TEMP/name heuristic that could catch a project the user saved there.
+    private static bool IsScratchFile(ProjectDefinition project, string? path)
+    {
+        if (path is null || project.WorkingDirectory is not { } scratch)
+            return false;
+        var relative = Path.GetRelativePath(scratch, path);
+        return !Path.IsPathRooted(relative) && relative != ".."
+            && !relative.StartsWith(".." + Path.DirectorySeparatorChar, StringComparison.Ordinal);
     }
 
     /// <summary>The designer half a UserControl or PropertyPage is written from; null for any other module.</summary>
@@ -1096,28 +1153,34 @@ public class ProjectService : IProjectService
 
     public async Task MakeProject(ProjectDefinition projectDefinition)
     {
+        // Begun before the first await, so an automation caller that ran the menu command knows a Make started (#2671).
+        var make = MakeOutcomes.Begin();
         try
         {
             // The warning every other save shows. The refusal is an OperationCanceledException, so it then leaves
             // through the cancellation arm below. A form or the project file used to reach the fatal-error box
             // instead, with .NET's message in place of the document and the code page.
-            await WithSaveRefusals(() => MakeProjectInternal(projectDefinition));
+            await WithSaveRefusals(() => MakeProjectInternal(projectDefinition, make), refusing: make.NotMade);
         }
         catch (OperationCanceledException)
         {
+            // Every refusal said why already, so only a dismissed picker reaches this unexplained.
+            make.NotMade("the save dialog was cancelled, so nothing was written", false);
             throw;
         }
         catch (Exception e)
         {
+            make.NotMade($"Make failed: {e.Message}", true);
             await windowManager.MessageBox(string.Format(localization.GetString("Str.MakeProject.Failed"), e.Message), icon: MessageBoxIcon.Error);
             throw;
         }
     }
 
-    private async Task MakeProjectInternal(ProjectDefinition projectDefinition)
+    private async Task MakeProjectInternal(ProjectDefinition projectDefinition, MakeOutcomes.Make make)
     {
         if (OperatingSystem.IsBrowser())
         {
+            make.NotMade("a program can't be made in the browser", true);
             await windowManager.MessageBox(localization.GetString("Str.MakeProject.Browser"), icon: MessageBoxIcon.Information);
             throw new OperationCanceledException();
         }
@@ -1133,6 +1196,7 @@ public class ProjectService : IProjectService
         if (projectDefinition.Forms.Cast<object>().Concat(projectDefinition.Modules).Where(RefusesUnfaithful).ToList()
             is { Count: > 0 })
         {
+            make.NotMade(Unfaithful(), true);
             await ReportRefusedSaves();
             throw new OperationCanceledException();
         }
@@ -1152,6 +1216,7 @@ public class ProjectService : IProjectService
             new Destination(projectDefinition, Path.Join(tempPath, projectDefinition.Name + ".vbp"))
         ]);
 
+        make.Reached(MakeOutcomes.Stage.AtPicker);
         var exePath = await windowManager.SaveFilePickerAsync(new FilePickerSaveOptions()
         {
             DefaultExtension = OperatingSystem.IsWindows() ? "exe" : "",
@@ -1162,8 +1227,10 @@ public class ProjectService : IProjectService
         if (exePath == null)
             throw new OperationCanceledException();
 
+        make.Reached(MakeOutcomes.Stage.Writing);
         if (StandaloneRunnerName() is not { } runnerName)
         {
+            make.NotMade("HexIDE has no standalone runner for this platform, so nothing was written", true);
             await windowManager.MessageBox(localization.GetString("Str.MakeProject.UnsupportedPlatform"), icon: MessageBoxIcon.Information);
             throw new OperationCanceledException();
         }
@@ -1172,9 +1239,29 @@ public class ProjectService : IProjectService
         var runner = new FileInfo(Path.Join(standaloneFolder, runnerName));
         if (!runner.Exists)
         {
+            // A Debug build has none until HexIDE.Standalone is published into it.
+            make.NotMade($"the standalone runner, {runnerName}, isn't in {standaloneFolder}, so nothing was written to "
+                         + $"{exePath}, which the save dialog gave", true);
             await windowManager.MessageBox(string.Format(localization.GetString("Str.MakeProject.RuntimeNotFound"),
                 standaloneFolder, runnerName), icon: MessageBoxIcon.Information);
             throw new OperationCanceledException();
+        }
+
+        // The picker only confirms the executable; the interpreter's archive is a separate output (#2504).
+        var archivePath = Path.ChangeExtension(exePath, "dll")!;
+        if (File.Exists(archivePath))
+        {
+            // Make waits on the question, and an automation caller is told so (#2718). A No used to leave through the
+            // cancelled-picker arm, and was reported as a save dialog cancelled.
+            make.Asking(archivePath);
+            if (await windowManager.MessageBox(
+                    string.Format(localization.GetString("Str.Tool.ProtocolInspector.ReplaceFiles"), archivePath),
+                    buttons: MessageBoxButtons.YesNo, icon: MessageBoxIcon.Warning) != MessageBoxResult.Yes)
+            {
+                make.NotMade($"replacing {archivePath}, which was already there, was declined, so nothing was written", false);
+                throw new OperationCanceledException();
+            }
+            make.Reached(MakeOutcomes.Stage.Writing);
         }
 
         var exeFileName = Path.GetFileNameWithoutExtension(exePath);
@@ -1226,6 +1313,7 @@ public class ProjectService : IProjectService
             {
                 foreach (var name in refused)
                     RecordRefusal(name);
+                make.NotMade(Unfaithful(), true);
                 await ReportRefusedSaves();
                 throw new OperationCanceledException();
             }
@@ -1236,17 +1324,7 @@ public class ProjectService : IProjectService
             EncodePackageSources(projectDefinition);
 
             // This is not a .dll file, but it will look better :wink: :wink:
-            var archivePath = Path.ChangeExtension(exePath, "dll")!;
-            var stagedArchivePath = archivePath + "." + Guid.NewGuid().ToString("N") + ".tmp";
-            try
-            {
-                ZipFile.CreateFromDirectory(tempPath, stagedArchivePath);
-                File.Move(stagedArchivePath, archivePath, overwrite: true);
-            }
-            finally
-            {
-                try { File.Delete(stagedArchivePath); } catch { /* best effort — the staged archive is disposable */ }
-            }
+            AtomicFileWriter.Write(archivePath, stream => ZipFile.CreateFromDirectory(tempPath, stream));
         }
         finally
         {
@@ -1264,8 +1342,14 @@ public class ProjectService : IProjectService
         // its own assemblies and the native libraries, so nothing else goes with it (#1971). It used to be the runner's
         // apphost and three native libraries, which ran only while the runner was compiled AOT; since #30 the apphost has
         // needed HexIDE.Standalone.dll beside it, and no made program started.
-        runner.CopyTo(exePath, overwrite: true);
+        var replaced = File.Exists(exePath);
+        AtomicFileWriter.Copy(runner.FullName, exePath);
+        make.Made(exePath, Path.ChangeExtension(exePath, "dll"), replaced);
     }
+
+    /// <summary>Why a Make refused the forms and modules banked for <see cref="ReportRefusedSaves"/>, for its outcome.</summary>
+    private string Unfaithful() =>
+        $"HexIDE can't write {string.Join(", ", refusedThisSave)} as they were read, so nothing was written";
 
     /// <summary>The folder Make finds the standalone runtime in: the IDE's own, whatever the current directory is (#1947).</summary>
     internal string RuntimeDirectory { get; set; } = AppContext.BaseDirectory;
@@ -1291,7 +1375,7 @@ public class ProjectService : IProjectService
         static void Convert(string path, Vb6TextEncoding encoding)
         {
             var text = Vb6TextFile.Decode(File.ReadAllBytes(path), encoding);
-            File.WriteAllBytes(path, Vb6TextFile.Encode(text, Vb6TextEncoding.Utf8WithBom));
+            AtomicFileWriter.WriteAllBytes(path, Vb6TextFile.Encode(text, Vb6TextEncoding.Utf8WithBom));
         }
     }
 
@@ -1502,6 +1586,7 @@ public class ProjectService : IProjectService
         form.AbsolutePath = absolutePath;
         form.TextEncoding = sourceEncoding;
         project.AddForm(form);
+        SnapshotRenderBaseline(form);
         ForgetKeptLineFor(project, absolutePath);
         return Adopted<FormDefinition>.Added(form, name, byteForByte ? HostAnsi.CodePage : null);
     }
@@ -1546,6 +1631,7 @@ public class ProjectService : IProjectService
         }
 
         project.AddModule(module);
+        SnapshotRenderBaseline(module);
         ForgetKeptLineFor(project, absolutePath);
         return Adopted<ModuleDefinition>.Added(module, name, byteForByte ? HostAnsi.CodePage : null);
     }
@@ -1614,6 +1700,8 @@ public class ProjectService : IProjectService
     {
         if (ChosenFilesDirectory(project) is { } chosen)
             return chosen;
+        if (project.WorkingDirectory is { Length: > 0 } existing)
+            return existing;
 
         // The suffix is what makes it private. The name is kept in front of it so a user who goes looking
         // in TEMP can still tell which directory belongs to what.
@@ -1626,13 +1714,11 @@ public class ProjectService : IProjectService
     }
 
     /// <summary>
-    /// The folder <see cref="ProjectFilesDirectory"/> answers once one is chosen: the project file's, or the scratch
-    /// folder it was given. Null for a project with neither, rather than choosing one.
+    /// The project file's folder once saved. Scratch file storage is not a folder the developer chose,
+    /// and must not become a language server's workspace root (#1382).
     /// </summary>
-    private static string? ChosenFilesDirectory(ProjectDefinition project) =>
-        project.AbsolutePath is { } p ? Path.GetDirectoryName(p)!
-        : project.WorkingDirectory is { Length: > 0 } existing ? existing
-        : null;
+    internal static string? ChosenFilesDirectory(ProjectDefinition project) =>
+        project.AbsolutePath is { } p ? Path.GetDirectoryName(p)! : null;
 
     /// <summary>
     /// Makes a project name safe to embed in a directory name.
@@ -1944,41 +2030,16 @@ public class ProjectService : IProjectService
     // document (Vb6TextFile.EncodeDocument) and every refusal names it.
     private void AtomicWriteText(string targetPath, string content, byte[] bytes)
     {
-        var tmp = targetPath + ".tmp";
-        try
-        {
-            // Encode once and record the SAME bytes. FileHasher.Hash(string) hashes the UTF-8 encoding,
-            // which stopped matching the file the moment VB6 source began being written as ANSI — the
-            // watcher would re-hash from disk, see a different hash, and report every save as an external
-            // change. Recording the actual bytes keeps self-write suppression correct.
-            File.WriteAllBytes(tmp, bytes);
-            File.Move(tmp, targetPath, overwrite: true);
-            baselineStore.Record(targetPath, bytes);
-            // Render baselines are only ever compared against other renders, so a string hash is fine.
-            renderBaselines[targetPath] = FileHasher.Hash(content);
-        }
-        catch
-        {
-            if (File.Exists(tmp)) File.Delete(tmp);
-            throw;
-        }
+        AtomicFileWriter.WriteAllBytes(targetPath, bytes);
+        baselineStore.Record(targetPath, bytes);
+        renderBaselines[targetPath] = FileHasher.Hash(content);
     }
 
     private void AtomicWriteBytes(string targetPath, byte[] content)
     {
-        var tmp = targetPath + ".tmp";
-        try
-        {
-            File.WriteAllBytes(tmp, content);
-            File.Move(tmp, targetPath, overwrite: true);
-            baselineStore.Record(targetPath, content);
-            renderBaselines[targetPath] = FileHasher.Hash(content);
-        }
-        catch
-        {
-            if (File.Exists(tmp)) File.Delete(tmp);
-            throw;
-        }
+        AtomicFileWriter.WriteAllBytes(targetPath, content);
+        baselineStore.Record(targetPath, content);
+        renderBaselines[targetPath] = FileHasher.Hash(content);
     }
 
     /// <summary>The file extension VB6 gives a module of this kind.</summary>
@@ -2010,7 +2071,7 @@ public class ProjectService : IProjectService
     {
         try
         {
-            return await WithSaveRefusals(() => SaveModuleCore(module, saveAs, rewrites: rewrites), interactive);
+            return await WithSaveRefusals(() => SaveModuleCore(module, saveAs, rewrites: rewrites, userSave: interactive), interactive);
         }
         finally
         {
@@ -2035,8 +2096,8 @@ public class ProjectService : IProjectService
     /// way, because a write that adopts no header rewrites no qualifier.
     /// </para>
     /// </remarks>
-    internal async Task<bool> SaveModuleCore(ModuleDefinition module, bool saveAs, bool announceSave = true, SaveRewriteReport? rewrites = null) =>
-        (await SaveFiles([(module, saveAs)], announceSave, ownCommand: true, rewrites: rewrites)).Count > 0;
+    internal async Task<bool> SaveModuleCore(ModuleDefinition module, bool saveAs, bool announceSave = true, SaveRewriteReport? rewrites = null, bool userSave = true) =>
+        (await SaveFiles([(module, saveAs)], announceSave, ownCommand: true, rewrites: rewrites, userSave: userSave && announceSave)).Count > 0;
 
     /// <summary>Writes a module the caller has decided HexIDE can reproduce, and repoints it there.</summary>
     /// <param name="ownCommand">As <see cref="SaveFiles"/>'s: the module is written by its own Save or Save As.</param>
@@ -2102,7 +2163,7 @@ public class ProjectService : IProjectService
     private bool IsDirty(ProjectDefinition project)
     {
         var path = project.AbsolutePath;
-        if (path is null)
+        if (path is null || IsScratchFile(project, path))
             return true; // never saved
 
         // A member with no file changes the project file for certain, since the next save lists it, and the render
@@ -2118,10 +2179,108 @@ public class ProjectService : IProjectService
     public bool HasUnsavedChanges(FormDefinition form) => IsDirty(form);
     public bool HasUnsavedChanges(ModuleDefinition module) => IsDirty(module);
 
+    /// <inheritdoc/>
+    /// <remarks>
+    /// <para>
+    /// <b>Dirty means what it means to the save prompt,</b> and each unsaved file is rendered by the helper its save
+    /// uses, so a backup holds exactly what a save would have written. A file with no path yet is named as
+    /// <c>Name.ext</c>, and a form's text cites its companion by that name.
+    /// </para>
+    /// <para>
+    /// <b>Only what has run ahead is flushed.</b> This runs every few seconds, and an unconditional flush would
+    /// rebuild every open designer each time (<see cref="ApplyAllUnsavedChangesEvent.OnlyWhereAhead"/>).
+    /// </para>
+    /// <para>
+    /// <b>A member with no file is named in the project file's text where a save would put it, beside the project
+    /// file,</b> or the serializer leaves it out (#1359). A project that was never saved has no folder, so its text
+    /// is rendered as though it were in the temporary directory. Only the relative paths of members that have files
+    /// depend on that, and a restore takes those from <see cref="UnsavedDocument.Path"/> instead.
+    /// </para>
+    /// </remarks>
+    public IReadOnlyList<HexIDE.Recovery.UnsavedProject> CaptureUnsavedWork()
+    {
+        eventBus.Publish(new ApplyAllUnsavedChangesEvent { OnlyWhereAhead = true });
+
+        var captured = new List<HexIDE.Recovery.UnsavedProject>();
+        foreach (var project in projectManager.LoadedProjects)
+        {
+            var documents = new List<HexIDE.Recovery.UnsavedDocument>();
+            foreach (var form in project.Forms)
+            {
+                var fileName = form.AbsolutePath is { } path ? Path.GetFileName(path) : form.Name + ".frm";
+                documents.Add(new(form.Name, "Form", form.AbsolutePath, form.TextEncoding,
+                    IsDirty(form) ? Unsaved(fileName, RenderForm(form, fileName)) : null, DiskHashOf(form.AbsolutePath)));
+            }
+            foreach (var module in project.Modules)
+            {
+                var fileName = module.AbsolutePath is { } path
+                    ? Path.GetFileName(path)
+                    : module.Name + "." + ModuleExtension(module.Kind);
+                documents.Add(new(module.Name, module.Kind.ToString(), module.AbsolutePath, module.TextEncoding,
+                    IsDirty(module) ? Unsaved(fileName, RenderModule(module, fileName)) : null, DiskHashOf(module.AbsolutePath)));
+            }
+
+            var projectDirty = IsDirty(project);
+            if (!projectDirty && documents.All(document => document.Content is null))
+                continue;
+
+            var projectPath = project.AbsolutePath ?? NotionalProjectPath(project);
+            var directory = Path.GetDirectoryName(projectPath) ?? "";
+            string? PathOf(object member) => member switch
+            {
+                FormDefinition { AbsolutePath: null } form => Path.Combine(directory, form.Name + ".frm"),
+                ModuleDefinition { AbsolutePath: null } module =>
+                    Path.Combine(directory, module.Name + "." + ModuleExtension(module.Kind)),
+                _ => null,
+            };
+
+            captured.Add(new(project.Name, project.AbsolutePath,
+                project.AbsolutePath is { } projectFile ? baselineStore.TryGet(projectFile)?.Hash : null,
+                project.TextEncoding,
+                projectDirty
+                    ? new HexIDE.Recovery.UnsavedFile(Path.GetFileName(projectPath),
+                        new ProjectSerializer().Serialize(project, projectPath, PathOf))
+                    : null,
+                documents,
+                projectPath,
+                IsInScratchFolder(project)));
+        }
+        return captured;
+    }
+
+    private string? DiskHashOf(string? path) => path is null ? null : baselineStore.TryGet(path)?.Hash;
+
+    /// <summary>Whether <paramref name="project"/>'s file is in the scratch folder the IDE made for it, as <c>--newproject</c> saves it.</summary>
+    private static bool IsInScratchFolder(ProjectDefinition project) =>
+        project.AbsolutePath is { } saved && project.WorkingDirectory is { Length: > 0 } scratch
+        && string.Equals(Path.TrimEndingDirectorySeparator(Path.GetDirectoryName(saved) ?? ""),
+            Path.TrimEndingDirectorySeparator(scratch), StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// A private place, kept for the session, to render a never-saved project's file against: its members are named
+    /// relative to it, so a restore that puts the files back there finds each of them again.
+    /// </summary>
+    /// <remarks>
+    /// One per project instance, as <see cref="ProjectFilesDirectory"/> is, and for its reason: two never-saved
+    /// projects are both called Project1. Not that directory itself, whose assignment the language layer would hear as
+    /// a new working directory.
+    /// </remarks>
+    private static string NotionalProjectPath(ProjectDefinition project) =>
+        NotionalProjectPaths.GetValue(project, p => Path.Combine(Path.GetTempPath(),
+            $"hexide_recovered_{Guid.NewGuid():N}", SanitiseForPath(p.Name) + ".vbp"));
+
+    private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<ProjectDefinition, string>
+        NotionalProjectPaths = new();
+
+    private static HexIDE.Recovery.UnsavedFile Unsaved(string fileName, (string Text, byte[]? Companion) rendered) =>
+        rendered.Companion is { Length: > 0 } companion
+            ? new(fileName, rendered.Text, Path.ChangeExtension(fileName, CompanionBinaryExtension(fileName)), companion)
+            : new(fileName, rendered.Text);
+
     private bool IsDirty(FormDefinition form)
     {
         var path = form.AbsolutePath;
-        if (path is null)
+        if (path is null || IsScratchFile(form.Owner, path))
             return true;
 
         var (text, binary) = new FormSerializer().Serialize(form, Path.GetFileName(path));
@@ -2131,7 +2290,7 @@ public class ProjectService : IProjectService
     private bool IsDirty(ModuleDefinition module)
     {
         var path = module.AbsolutePath;
-        if (path is null)
+        if (path is null || IsScratchFile(module.Owner, path))
             return true;
 
         if (module.FormPart is { } formPart && module.Kind is ModuleKind.UserControl or ModuleKind.PropertyPage)
