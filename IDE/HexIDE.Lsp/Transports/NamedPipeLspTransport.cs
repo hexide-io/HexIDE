@@ -99,6 +99,9 @@ public sealed class NamedPipeLspTransport : ILspTransport
     private Process? _process;
     private readonly Lock _exitGate = new();
     private bool _exitReported;
+    private volatile bool _shutdownCompleted;
+    private volatile bool _endedAfterShutdown;
+
     private bool _disposing;
     private ChildProcessJob? _job;
 
@@ -149,7 +152,15 @@ public sealed class NamedPipeLspTransport : ILspTransport
         _connectTimeout = connectTimeout ?? TimeSpan.FromSeconds(DefaultConnectTimeoutSeconds);
     }
 
+    // Test seam for checking exit-lock ownership and flag publication at termination (#3217).
+    internal Action<Process> KillProcess { get; set; } = LaunchedServerGuard.Kill;
+
     public bool IsAlive => _pipe is { IsConnected: true } && _process is not { HasExited: true };
+
+    public void ShutdownCompleted()
+    {
+        _shutdownCompleted = true;
+    }
 
     // A server this transport launched is one-shot, matching StdioProcessLspTransport: a crash does
     // not auto-respawn. A pre-existing endpoint we merely dialled can be re-dialled.
@@ -218,6 +229,8 @@ public sealed class NamedPipeLspTransport : ILspTransport
         {
             _disposing = false;
             _exitReported = false;
+            _shutdownCompleted = false;
+            _endedAfterShutdown = false;
         }
 
         // Resolved before the pipe exists and before anything is started, because a placeholder that
@@ -486,24 +499,22 @@ public sealed class NamedPipeLspTransport : ILspTransport
 
     private void OnServerExited(object? sender, EventArgs e)
     {
+        var code = ExitCode();
         bool disposing;
         lock (_exitGate)
         {
             if (!ReferenceEquals(sender, _process)) return;
-            ReportExit();
+            ReportExit(code);
             disposing = _disposing;
         }
         if (!disposing) Closed?.Invoke(this, EventArgs.Empty);
     }
 
-    private void ReportExit()
+    private void ReportExit(int? code)
     {
         if (_exitReported) return;
         _exitReported = true;
-        // Read first: Kill() and Dispose() are both moments away, and ExitCode throws once the handle
-        // is gone.
-        var code = ExitCode();
-
+        if (_endedAfterShutdown) return;
         _logger.Log(_disposing ? LogLevel.Information : LogLevel.Warning,
             "[{Server}] Language server process exited{Code}", _launch!.FileName,
             code is null ? "" : $" with code {code}");
@@ -559,23 +570,37 @@ public sealed class NamedPipeLspTransport : ILspTransport
         {
             if (!process.HasExited)
             {
-                LaunchedServerGuard.Kill(process);
-                _logger.LogInformation("[{Server}] Language server process killed after waiting {Timeout:g} for exit.",
-                    _launch!.FileName, LaunchedServerGuard.ExitTimeout);
-                Notice?.Invoke(this, new TransportNotice(TransportNoticeKind.Lifecycle,
-                    "process killed after waiting for exit"));
+                // Publish before Kill: the exit callback must see this without waiting on its gate.
+                _endedAfterShutdown = _shutdownCompleted;
+                KillProcess(process);
+                if (_endedAfterShutdown)
+                {
+                    var detail = $"stopped after shutdown; still exiting after {LaunchedServerGuard.ExitTimeout.TotalSeconds:g} s, so ended";
+                    Notice?.Invoke(this, new TransportNotice(TransportNoticeKind.Lifecycle, detail));
+                    _logger.LogInformation("[{Server}] {Detail}", _launch!.FileName, detail);
+                }
+                if (!_endedAfterShutdown)
+                {
+                    _logger.LogInformation("[{Server}] Language server process killed after waiting {Timeout:g} for exit.",
+                        _launch!.FileName, LaunchedServerGuard.ExitTimeout);
+                    Notice?.Invoke(this, new TransportNotice(TransportNoticeKind.Lifecycle,
+                        "process killed after waiting for exit"));
+                }
                 await process.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(2));
             }
         }
         catch { /* already gone */ }
 
+        // Process queries can wait on Windows; never hold the exit callback's gate over them.
+        var hasExited = process.HasExited;
+        var code = ExitCode();
         lock (_exitGate)
         {
-            if (process.HasExited) ReportExit();
-            process.Exited -= OnServerExited;
-            process.Dispose();
+            if (hasExited) ReportExit(code);
             _process = null;
         }
+        process.Exited -= OnServerExited;
+        process.Dispose();
         _job?.Dispose();
         _job = null;
     }

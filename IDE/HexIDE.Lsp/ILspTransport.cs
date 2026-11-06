@@ -34,6 +34,9 @@ public interface ILspTransport : IAsyncDisposable
     /// <summary>The last launch was refused solely because no workspace directory was chosen yet.</summary>
     bool WaitingForWorkspace => false;
 
+    /// <summary>Called after shutdown answered successfully and exit was sent.</summary>
+    void ShutdownCompleted() { }
+
     /// <summary>True while the underlying channel is connected and usable.</summary>
     bool IsAlive { get; }
 
