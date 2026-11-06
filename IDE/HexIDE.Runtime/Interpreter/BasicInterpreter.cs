@@ -232,8 +232,8 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
     /// above both, so the cap doesn't change what that choice gave. A cheaper frame, a bare recursive Sub, is cut
     /// short by it in Release: 64 MiB would hold about 11,260 of those at 5,958 bytes each.</item>
     /// <item><b>What a runaway costs once it's held across yields.</b> In the IDE, commit grew by about 14 KB a level,
-    /// linearly (#3250's live check), so 5,000 levels is about 70 MB. It descended at about 2,350 levels a second, so
-    /// the cap is reached in about 2 seconds.</item>
+    /// linearly (#3250's live check), so 5,000 levels should be about 70 MB. The live recheck at the cap peaked about
+    /// 170 MB above idle in the IDE and 140 MB in a made EXE, and reached Error 28 in about 2.5 seconds.</item>
     /// </list>
     /// <para>vb6.exe goes deeper, to 258,825 frames, so this is a divergence, recorded in interpreter-gaps.md.</para>
     /// </remarks>
