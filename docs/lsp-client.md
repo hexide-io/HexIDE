@@ -252,8 +252,8 @@ null result has not been reproduced or attributed to a cause.
 
 A failed request returns an empty or absent result and warns once per method per connection; further
 failures of that method are logged at debug. Local cancellation and server error replies `-32801`
-(ContentModified) or `-32800` (RequestCancelled) are logged at debug as superseded requests. They leave
-that method's warning available for a later genuine failure (#723). Document diagnostic pulls instead
+(ContentModified), `-32800` (RequestCancelled), or `-32802` (ServerCancelled) are logged at debug as superseded requests. They leave
+that method's warning available for a later genuine failure (#723, #3190). Document diagnostic pulls instead
 retry ContentModified and retriggerable ServerCancelled replies as described below (#2209).
 
 Every outbound request has a 30-second local deadline, using the same named default as `initialize`
