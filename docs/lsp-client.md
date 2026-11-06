@@ -1183,6 +1183,8 @@ Tokens, folding ranges and inlay hints are also retained by the document, includ
 so rebuilding the visual tree for a tool pane does not send new requests or discard the last answers.
 An edit, URI change, hint setting change or server state transition invalidates those answers. A detached
 view removes its subscriptions and discards late replies intended for its previous attachment.
+A queued folding continuation checks cancellation again before touching the lens session, so a timer
+that expired before detach cannot resume the detached view (#3205).
 
 The client declares `workspace.codeLens.refreshSupport: true` and answers parameterless
 `workspace/codeLens/refresh` with null. `CodeLensRefreshRequested` preserves the issuing connection through

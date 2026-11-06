@@ -409,7 +409,7 @@ public partial class ProjectService : IProjectService
     private async Task LoadProjectFromDisk(string projectPath)
     {
         Log.Information("ProjectService: Opening project {ProjectPath}", projectPath);
-        if (projectManager.LoadedProjects.Any(p => p.AbsolutePath != null && Path.GetFullPath(projectPath) == Path.GetFullPath(p.AbsolutePath)))
+        if (projectManager.LoadedProjects.Any(p => p.AbsolutePath != null && HexIDE.IO.HostFilePath.Equals(projectPath, p.AbsolutePath)))
         {
             await windowManager.MessageBox($"Project {Path.GetFileName(projectPath)} is already opened.", icon: MessageBoxIcon.Information);
             throw new OperationCanceledException();

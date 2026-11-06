@@ -1,6 +1,7 @@
 using System;
 using System.Linq;
 using System.Threading;
+using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless;
@@ -38,6 +39,7 @@ public class CodeLensTests
     [InlineData("keyboard-multiple")]
     [InlineData("toggle")]
     [InlineData("off")]
+    [InlineData("cancelled-fold")]
     [InlineData("background-selection")]
     [InlineData("background-current-line")]
     public void LensInCodeWindow(string check)
@@ -101,6 +103,34 @@ public class CodeLensTests
             {
                 client.DidNotReceive().RequestCodeLensesAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
                 view.GetVisualDescendants().OfType<Button>().Should().NotContain(b => Equals(b.Content, "1 reference"));
+                return;
+            }
+            if (check == "cancelled-fold")
+            {
+                using var cancelled = new CancellationTokenSource();
+                var held = new HeldContinuation();
+                var context = SynchronizationContext.Current;
+                Task folding;
+                try
+                {
+                    SynchronizationContext.SetSynchronizationContext(held);
+                    folding = (Task)typeof(CodeEditorView).GetMethod("FoldAfterDelayAsync",
+                        System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
+                        .Invoke(view, [vm, cancelled.Token])!;
+                }
+                finally { SynchronizationContext.SetSynchronizationContext(context); }
+
+                // The timer has completed, but its UI continuation has not run when detach cancels it.
+                var continuation = held.Posted.Task.WaitAsync(TimeSpan.FromSeconds(10),
+                    TestContext.Current.CancellationToken).GetAwaiter().GetResult();
+                window.Content = null;
+                var requests = client.ReceivedCalls().Count(c => c.GetMethodInfo().Name == nameof(ILspClient.RequestCodeLensesAsync));
+                client.CodeLensRefreshRequested += Raise.Event<EventHandler>(client, EventArgs.Empty);
+                cancelled.Cancel();
+                continuation.Callback(continuation.State);
+                folding.GetAwaiter().GetResult();
+                client.ReceivedCalls().Count(c => c.GetMethodInfo().Name == nameof(ILspClient.RequestCodeLensesAsync))
+                    .Should().Be(requests, "a cancelled folding continuation must not resume the detached lens session");
                 return;
             }
             if (check == "viewport")
@@ -226,5 +256,14 @@ public class CodeLensTests
             }
         }
         finally { window.Close(); }
+    }
+
+    private sealed class HeldContinuation : SynchronizationContext
+    {
+        public TaskCompletionSource<(SendOrPostCallback Callback, object? State)> Posted { get; } =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public override void Post(SendOrPostCallback callback, object? state) =>
+            Posted.TrySetResult((callback, state));
     }
 }

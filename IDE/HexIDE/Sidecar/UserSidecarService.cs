@@ -677,7 +677,7 @@ public partial class UserSidecarService : IUserSidecarService
             // could be read says nothing about the new place. The new place becomes the project's own only once
             // it has been written, or found empty, so a write that fails there is not followed by a save that
             // takes the sidecar lying there for the project's own.
-            var elsewhere = !string.Equals(state.ReadFrom, path, PathComparison);
+            var elsewhere = state.ReadFrom == null || !HexIDE.IO.HostFilePath.Equals(state.ReadFrom, path);
 
             if (state.ReadFailed && !elsewhere)
             {
@@ -871,10 +871,6 @@ public partial class UserSidecarService : IUserSidecarService
         state.Consumed = null;
         state.ConsumedFile = null;
     }
-
-    /// <summary>How sidecar paths compare: as the file system compares them, as other path checks here do.</summary>
-    private static readonly StringComparison PathComparison =
-        OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
 
     private static UserSidecarData? TryRead(string json)
     {

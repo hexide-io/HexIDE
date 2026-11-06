@@ -210,9 +210,15 @@ letting a row of hex imply they are the same thing.
 
 ### Environment variables
 
+By default, resolution checks the per-server variable, then PATH, then the pinned download. An explicit
+variable remains authoritative even when its file is missing; it does not silently fall back. The JSON
+server instead resolves its pinned script and Node after checking its variable.
+
 | Variable | Effect |
 |---|---|
 | `HEXIDE_MARKDOWN_LSP`, `HEXIDE_LATEX_LSP`, `HEXIDE_JSON_LSP`, `HEXIDE_CPP_LSP`, `HEXIDE_PYTHON_LSP` | Point at your own build. Checked before the download, so an explicit choice is never silently replaced. |
+| `HEXIDE_FOREIGN_LSP_NO_PATH=1` | Skip PATH copies of servers, while keeping the per-server variables above first. **CI sets this** so a runner image’s preinstalled server cannot replace the pinned, digest-verified download (#3211). Node remains a harness runtime found on PATH for the pinned JSON script. |
+| `HEXIDE_FOREIGN_LSP_REPORT` | Write the resolved servers to this file. CI prints it after the tests, even on failure: server name, source (variable, PATH or pinned download), executable path and version. The JSON entry also names the script and reads its installed package version. A failed version probe is reported as unavailable. |
 | `HEXIDE_FOREIGN_LSP_DOWNLOAD=0` | Stay off the network. The affected tests then skip, visibly. |
 | `HEXIDE_REQUIRE_FOREIGN_LSP=1` | Turn "unavailable" into a failure. **CI sets this**, because a silently skipped proof is the failure mode this whole fixture exists to prevent. |
 

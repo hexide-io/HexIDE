@@ -1,0 +1,269 @@
+textDocument/codeLens pending=False
+3720.889 textDocument/didOpen start
+3780.042 textDocument/diagnostic start
+9597.228 textDocument/codeLens start
+9597.247 textDocument/codeLens server complete
+10012.702 textDocument/semanticTokens/full start
+10044.615 textDocument/inlayHint start
+10092.770 textDocument/foldingRange start
+11590.660 lens client applied
+18949.156 textDocument/didChange start
+18950.731 textDocument/diagnostic start
+18972.212 textDocument/codeLens start
+18972.234 textDocument/codeLens server complete
+19005.596 lens client applied
+19040.547 baseline count=2
+19040.561 refresh sent
+19044.354 refresh received
+19047.339 textDocument/codeLens start
+19047.357 textDocument/codeLens server complete
+19051.559 refresh reply
+19053.149 detach begin
+19056.217 lens client applied
+19080.262 textDocument/semanticTokens/full start
+19080.747 textDocument/inlayHint start
+19081.107 textDocument/foldingRange start
+19206.944 detach end
+19206.969 baseline count=3
+19206.970 refresh sent
+19207.970 refresh received
+19215.691 refresh reply
+19215.718 assert count=3
+19280.993 textDocument/codeLens start
+19281.013 textDocument/codeLens server complete
+19281.392 lens client applied
+textDocument/codeLens pending=True
+35.166 textDocument/didOpen start
+35.228 textDocument/diagnostic start
+222.476 textDocument/codeLens start
+234.575 textDocument/semanticTokens/full start
+234.721 textDocument/inlayHint start
+234.766 textDocument/foldingRange start
+2562.552 textDocument/codeLens server complete
+2564.795 lens client applied
+4289.013 textDocument/didChange start
+4289.074 textDocument/diagnostic start
+4298.476 textDocument/codeLens start
+4298.493 textDocument/codeLens server complete
+4301.706 lens client applied
+4382.929 baseline count=2
+4382.942 refresh sent
+4386.662 refresh received
+4387.488 textDocument/codeLens start
+4387.526 textDocument/codeLens server complete
+4388.306 refresh reply
+4388.484 lens client applied
+4389.173 detach begin
+4438.335 textDocument/semanticTokens/full start
+4438.493 textDocument/inlayHint start
+4438.556 textDocument/foldingRange start
+4528.690 detach end
+4528.710 baseline count=3
+4528.711 refresh sent
+4530.497 refresh received
+4543.704 refresh reply
+4543.724 assert count=3
+4618.525 textDocument/codeLens start
+4618.545 textDocument/codeLens server complete
+textDocument/semanticTokens/full pending=False
+11.547 textDocument/didOpen start
+11.580 textDocument/diagnostic start
+171.595 textDocument/codeLens start
+171.609 textDocument/codeLens server complete
+171.786 textDocument/semanticTokens/full start
+172.125 textDocument/inlayHint start
+172.214 textDocument/foldingRange start
+257.053 lens client applied
+5488.331 textDocument/didChange start
+5488.434 textDocument/diagnostic start
+5549.938 textDocument/codeLens start
+5549.963 textDocument/codeLens server complete
+5562.354 lens client applied
+5695.563 textDocument/inlayHint start
+5699.467 textDocument/foldingRange start
+5699.623 textDocument/semanticTokens/full start
+5725.011 baseline count=2
+5725.026 refresh sent
+5727.538 refresh received
+5728.018 textDocument/codeLens start
+5728.029 textDocument/codeLens server complete
+5728.341 lens client applied
+5736.575 refresh reply
+5737.382 detach begin
+5835.151 detach end
+5835.174 baseline count=3
+5835.175 refresh sent
+5839.605 refresh received
+5860.685 refresh reply
+5860.709 assert count=3
+5907.564 textDocument/codeLens start
+5907.584 textDocument/codeLens server complete
+5915.730 lens client applied
+textDocument/semanticTokens/full pending=True
+20.573 textDocument/didOpen start
+20.593 textDocument/diagnostic start
+268.109 textDocument/codeLens start
+268.144 textDocument/semanticTokens/full start
+268.294 textDocument/inlayHint start
+268.319 textDocument/foldingRange start
+2652.130 textDocument/codeLens server complete
+2661.444 lens client applied
+4706.507 textDocument/didChange start
+4706.533 textDocument/diagnostic start
+4712.084 textDocument/codeLens start
+4712.101 textDocument/codeLens server complete
+4757.062 lens client applied
+4920.251 textDocument/inlayHint start
+4922.151 textDocument/foldingRange start
+4922.247 textDocument/semanticTokens/full start
+4980.129 baseline count=2
+4980.140 refresh sent
+4981.876 refresh received
+4982.225 textDocument/codeLens start
+4982.234 textDocument/codeLens server complete
+4982.440 lens client applied
+4982.496 refresh reply
+4982.726 detach begin
+5117.562 detach end
+5117.583 baseline count=3
+5117.585 refresh sent
+5119.955 refresh received
+5130.299 refresh reply
+5130.324 assert count=3
+5188.614 textDocument/codeLens start
+5188.633 textDocument/codeLens server complete
+textDocument/inlayHint pending=False
+31.983 textDocument/didOpen start
+32.046 textDocument/diagnostic start
+228.030 textDocument/codeLens start
+228.045 textDocument/codeLens server complete
+228.222 textDocument/semanticTokens/full start
+228.617 textDocument/inlayHint start
+228.684 textDocument/foldingRange start
+291.996 lens client applied
+5879.535 textDocument/didChange start
+5879.569 textDocument/diagnostic start
+5889.325 textDocument/codeLens start
+5889.341 textDocument/codeLens server complete
+5890.903 lens client applied
+6089.078 textDocument/inlayHint start
+6089.529 textDocument/foldingRange start
+6089.614 textDocument/semanticTokens/full start
+6116.551 baseline count=2
+6116.563 refresh sent
+6119.979 refresh received
+6120.382 textDocument/codeLens start
+6120.392 textDocument/codeLens server complete
+6120.600 lens client applied
+6130.282 refresh reply
+6130.654 detach begin
+6184.955 detach end
+6184.979 baseline count=3
+6184.980 refresh sent
+6188.017 refresh received
+6206.245 refresh reply
+6206.267 assert count=3
+6296.577 textDocument/codeLens start
+6296.596 textDocument/codeLens server complete
+6312.282 lens client applied
+textDocument/inlayHint pending=True
+27.123 textDocument/didOpen start
+27.157 textDocument/diagnostic start
+119.687 textDocument/codeLens start
+119.728 textDocument/semanticTokens/full start
+119.736 textDocument/inlayHint start
+119.743 textDocument/foldingRange start
+2607.541 textDocument/codeLens server complete
+2611.337 lens client applied
+5004.057 textDocument/didChange start
+5004.079 textDocument/diagnostic start
+5019.961 textDocument/codeLens start
+5019.976 textDocument/codeLens server complete
+5044.217 lens client applied
+5200.595 textDocument/inlayHint start
+5201.152 textDocument/foldingRange start
+5201.229 textDocument/semanticTokens/full start
+5208.668 baseline count=2
+5208.680 refresh sent
+5217.981 refresh received
+5218.518 textDocument/codeLens start
+5218.533 textDocument/codeLens server complete
+5218.826 lens client applied
+5254.978 refresh reply
+5266.222 detach begin
+5400.401 detach end
+5400.423 baseline count=3
+5400.425 refresh sent
+5404.730 refresh received
+5432.503 refresh reply
+5432.525 assert count=3
+5451.645 textDocument/codeLens start
+5451.660 textDocument/codeLens server complete
+textDocument/foldingRange pending=False
+42.559 textDocument/didOpen start
+42.595 textDocument/diagnostic start
+179.554 textDocument/codeLens start
+179.567 textDocument/codeLens server complete
+180.008 textDocument/semanticTokens/full start
+180.072 textDocument/inlayHint start
+180.107 textDocument/foldingRange start
+298.654 lens client applied
+6571.218 textDocument/didChange start
+6571.272 textDocument/diagnostic start
+6574.261 textDocument/codeLens start
+6574.271 textDocument/codeLens server complete
+6607.485 lens client applied
+6786.198 textDocument/inlayHint start
+6786.400 textDocument/foldingRange start
+6786.968 textDocument/semanticTokens/full start
+6808.134 baseline count=2
+6810.846 refresh sent
+6814.061 refresh received
+6814.574 textDocument/codeLens start
+6814.587 textDocument/codeLens server complete
+6814.831 lens client applied
+6825.476 refresh reply
+6825.825 detach begin
+6974.810 detach end
+6974.826 baseline count=3
+6974.828 refresh sent
+6980.377 refresh received
+6990.527 refresh reply
+6990.545 assert count=3
+7040.080 textDocument/codeLens start
+7040.098 textDocument/codeLens server complete
+7071.839 lens client applied
+textDocument/foldingRange pending=True
+10.187 textDocument/didOpen start
+10.207 textDocument/diagnostic start
+97.493 textDocument/codeLens start
+97.536 textDocument/semanticTokens/full start
+97.546 textDocument/inlayHint start
+110.125 textDocument/foldingRange start
+2626.340 textDocument/codeLens server complete
+2628.121 lens client applied
+4638.415 textDocument/didChange start
+4638.442 textDocument/diagnostic start
+4638.621 textDocument/codeLens start
+4638.624 textDocument/codeLens server complete
+4650.761 lens client applied
+4866.182 textDocument/inlayHint start
+4866.663 textDocument/foldingRange start
+4866.726 textDocument/semanticTokens/full start
+4910.044 baseline count=2
+4910.052 refresh sent
+4914.151 refresh received
+4914.473 textDocument/codeLens start
+4914.482 textDocument/codeLens server complete
+4914.658 lens client applied
+4922.716 refresh reply
+4922.981 detach begin
+4977.224 detach end
+4977.233 baseline count=3
+4977.234 refresh sent
+4990.575 refresh received
+5008.363 refresh reply
+5008.373 assert count=3
+5091.720 textDocument/codeLens start
+5091.733 textDocument/codeLens server complete
+5158.914 lens client applied

@@ -198,6 +198,8 @@ jobs:
         timeout-minutes: 30
         env:
           HEXIDE_REQUIRE_FOREIGN_LSP: '1'
+          HEXIDE_FOREIGN_LSP_NO_PATH: '1'
+          HEXIDE_FOREIGN_LSP_REPORT: ${{ runner.temp }}/foreign-lsp.txt
           CONTRIBUTOR_PR: ${{ github.event_name == 'pull_request' && !contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.pull_request.author_association) }}
         run: |
           if [ "$CONTRIBUTOR_PR" = "true" ]; then
@@ -205,6 +207,18 @@ jobs:
             dotnet test HexIDE.Tests/HexIDE.Tests.csproj -- --filter-not-method "*EveryShippedTranslationHasEveryCanonicalKey" --minimum-expected-tests ${{ env.MIN_TESTS_IDE }}
           else
             dotnet test HexIDE.Tests/HexIDE.Tests.csproj -- --minimum-expected-tests ${{ env.MIN_TESTS_IDE }}
+          fi
+
+      - name: Report resolved foreign servers
+        if: always()
+        shell: bash
+        env:
+          FOREIGN_LSP_REPORT: ${{ runner.temp }}/foreign-lsp.txt
+        run: |
+          if [ -f "$FOREIGN_LSP_REPORT" ]; then
+            cat "$FOREIGN_LSP_REPORT"
+          else
+            echo "No foreign-server report was written."
           fi
 
       - name: Report translation completeness (outside contributors' pull requests, non-blocking)
@@ -450,10 +464,24 @@ jobs:
         timeout-minutes: 30
         env:
           HEXIDE_REQUIRE_FOREIGN_LSP: '1'
+          HEXIDE_FOREIGN_LSP_NO_PATH: '1'
+          HEXIDE_FOREIGN_LSP_REPORT: ${{ runner.temp }}/foreign-lsp.txt
           HEXIDE_REQUIRE_MADE_PROGRAM: ${{ runner.os == 'Windows' && '1' || '0' }}
         run: >-
           dotnet test HexIDE.Tests/HexIDE.Tests.csproj -- --filter-not-method "*EveryShippedTranslationHasEveryCanonicalKey"
           --minimum-expected-tests ${{ env.MIN_TESTS_IDE }} --long-running 120
+
+      - name: Report resolved foreign servers
+        if: always()
+        shell: bash
+        env:
+          FOREIGN_LSP_REPORT: ${{ runner.temp }}/foreign-lsp.txt
+        run: |
+          if [ -f "$FOREIGN_LSP_REPORT" ]; then
+            cat "$FOREIGN_LSP_REPORT"
+          else
+            echo "No foreign-server report was written."
+          fi
 
       # --hangdump: after 10 minutes in which no test starts or finishes, write a mini dump and the names of the tests
       # still running, then end the run. A hang used to run out the 30-minute step limit with no report (#2530).
