@@ -234,12 +234,13 @@ jobs:
         if: steps.translations.outcome == 'failure'
         run: echo "::warning title=Translations needed before merge::One or more shipped language packs lack keys added to en.json. Expected for a contribution. The maintainer adds them on merge. The step above names the packs and keys."
 
-      # --hangdump: after 10 minutes in which no test starts or finishes, write a mini dump and the names of the tests
-      # still running, then end the run. A hang used to run out the 30-minute step limit with no report (#2530).
+      # --hangdump: after 10 minutes in which no test starts or finishes, write a dump and the names of the tests still
+      # running, then end the run. A hang used to run out the 30-minute step limit with no report (#2530). The dump
+      # keeps the heap: a mini dump has none, so it can't name the test case that was running.
       - name: Run Integration Tests (headless Avalonia UI)
         id: integration
         timeout-minutes: 30
-        run: dotnet test HexIDE.Integration.Tests/HexIDE.Integration.Tests.csproj -- --minimum-expected-tests ${{ env.MIN_TESTS_INTEGRATION }} --results-directory TestResults --report-xunit --report-xunit-filename integration-results.xml --hangdump --hangdump-timeout 10m --hangdump-type Mini
+        run: dotnet test HexIDE.Integration.Tests/HexIDE.Integration.Tests.csproj -- --minimum-expected-tests ${{ env.MIN_TESTS_INTEGRATION }} --results-directory TestResults --report-xunit --report-xunit-filename integration-results.xml --hangdump --hangdump-timeout 10m --hangdump-type Heap
 
       # xunit records a test case that threw before its test started as an error, and MTP never counts it, so a run
       # could lose hundreds of tests and still pass (#2486). xunit's own report keeps the count.
@@ -483,12 +484,13 @@ jobs:
             echo "No foreign-server report was written."
           fi
 
-      # --hangdump: after 10 minutes in which no test starts or finishes, write a mini dump and the names of the tests
-      # still running, then end the run. A hang used to run out the 30-minute step limit with no report (#2530).
+      # --hangdump: after 10 minutes in which no test starts or finishes, write a dump and the names of the tests still
+      # running, then end the run. A hang used to run out the 30-minute step limit with no report (#2530). The dump
+      # keeps the heap: a mini dump has none, so it can't name the test case that was running.
       - name: Run Integration Tests (headless Avalonia UI)
         id: integration
         timeout-minutes: 30
-        run: dotnet test HexIDE.Integration.Tests/HexIDE.Integration.Tests.csproj -- --minimum-expected-tests ${{ env.MIN_TESTS_INTEGRATION }} --results-directory TestResults --report-xunit --report-xunit-filename integration-results.xml --hangdump --hangdump-timeout 10m --hangdump-type Mini
+        run: dotnet test HexIDE.Integration.Tests/HexIDE.Integration.Tests.csproj -- --minimum-expected-tests ${{ env.MIN_TESTS_INTEGRATION }} --results-directory TestResults --report-xunit --report-xunit-filename integration-results.xml --hangdump --hangdump-timeout 10m --hangdump-type Heap
 
       # As in build-ide: errors xunit records and MTP never counts (#2486).
       - name: Check xunit's report for errors MTP does not count
