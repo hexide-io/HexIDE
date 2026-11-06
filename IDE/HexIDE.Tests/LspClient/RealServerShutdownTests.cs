@@ -44,6 +44,13 @@ public class RealServerShutdownTests
             capture: capture, connectionId: id);
         var file = Path.Combine(dir, name);
         await File.WriteAllTextAsync(file, text, token);
+        if (server == ForeignServer.Cpp)
+            // clangd indexes the standard library in the background after the first file opens, and doesn't exit
+            // until that's done. On a loaded runner it can still be indexing when exit arrives, past HexIDE's exit
+            // wait (2 s on Windows), and gets killed (#3187). Measured on Windows: a busy clangd exits in 1.4 to 5.9 s with the index
+            // and within 12 ms without it. That race is a question about the wait (#3217), not about teardown,
+            // so this test turns the index off and still demands exit code 0.
+            await File.WriteAllTextAsync(Path.Combine(dir, ".clangd"), "Index:\n  StandardLibrary: No\n", token);
         var uri = LspDocumentUri.ForFile(file);
         try
         {
