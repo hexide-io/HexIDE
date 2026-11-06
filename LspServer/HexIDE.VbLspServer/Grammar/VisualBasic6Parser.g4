@@ -25,6 +25,79 @@ options {
     tokenVocab = VisualBasic6Lexer;
 }
 
+@members {
+    // Keep inline-If branches and a continued Debug.Print statement outside the preceding list.
+    // Both refusals are measured in corpus/conformance/results.json.
+    private bool OutputAdjacentAhead()
+    {
+        var i = TokenStream.LA(1) == WS ? 2 : 1;
+        // A left-recursive value attaches on exit; only a positioning token admits another signed item.
+        if (TokenStream.LA(i) is PLUS or MINUS)
+        {
+            for (var parent = Context; parent != null; parent = parent.Parent as ParserRuleContext)
+            {
+                if (parent is not OutputListContext list) continue;
+                for (var child = list.ChildCount - 1; child >= 0; child--)
+                    if (list.GetChild(child) is OutputList_ExpressionContext item)
+                        return item.SPC() != null || item.TAB() != null;
+                break;
+            }
+        }
+        if (TokenStream.LA(i) is ELSE or ELSEIF) return false;
+        if (!string.Equals(TokenStream.LT(i).Text, "Debug", StringComparison.OrdinalIgnoreCase)) return true;
+        i++;
+        if (TokenStream.LA(i) == WS) i++;
+        return TokenStream.LA(i) != DOT || TokenStream.LA(i + 1) != PRINT;
+    }
+
+    // In output lists a name followed by parentheses stays a call (#3248), never two items.
+    private bool OutputBareNameAhead()
+    {
+        var inOutput = false;
+        for (var parent = Context; parent != null; parent = parent.Parent as ParserRuleContext)
+        {
+            if (parent is OutputList_ExpressionContext) { inOutput = true; break; }
+            if (parent is BlockStmtContext) break;
+        }
+        if (!inOutput) return true;
+        var i = 2;
+        if (TokenStream.LA(1) == L_SQUARE_BRACKET)
+        {
+            while (TokenStream.LA(i) is not (R_SQUARE_BRACKET or TokenConstants.EOF)) i++;
+            if (TokenStream.LA(i) == R_SQUARE_BRACKET) i++;
+        }
+        if (Atn.NextTokens(Atn.ruleToStartState[RULE_typeHint]).Contains(TokenStream.LA(i))) i++;
+        if (TokenStream.LA(i) == WS) i++;
+        return TokenStream.LA(i) != LPAREN;
+    }
+
+    // Only the measured +, -, & and = boundaries change here (#3248, measuring PR #3249).
+    // Other operators after a positioning clause retain their existing expression parse until measured.
+    private bool OutputValueAhead()
+    {
+        if (TokenStream.LA(1) is not (SPC or TAB)) return true;
+        var i = 2;
+        if (TokenStream.LA(i) == WS) i++;
+        if (TokenStream.LA(i) == LPAREN)
+        {
+            var argument = i + 1;
+            if (TokenStream.LA(argument) == WS) argument++;
+            if (TokenStream.LA(argument) == RPAREN) return true; // Empty calls retain their unmeasured expression fallback.
+            var depth = 0;
+            do
+            {
+                var token = TokenStream.LA(i++);
+                if (token == TokenConstants.EOF) return false;
+                if (token == LPAREN) depth++;
+                if (token == RPAREN) depth--;
+            } while (depth > 0);
+            if (TokenStream.LA(i) == WS) i++;
+        }
+        return TokenStream.LA(i) is POW or MULT or DIV or IDIV or MOD or NEQ or LT or GT or LEQ or GEQ
+            or LIKE or IS or AND or OR or XOR or EQV or IMP;
+    }
+}
+
 // module ----------------------------------
 
 startRule
@@ -536,13 +609,14 @@ openStmt
     ;
 
 outputList
-    : outputList_Expression (WS? (SEMICOLON | COMMA) WS? outputList_Expression?)*
-    | outputList_Expression? (WS? (SEMICOLON | COMMA) WS? outputList_Expression?)+
+    : outputList_Expression (WS? (SEMICOLON | COMMA) WS? outputList_Expression? | {OutputAdjacentAhead()}? WS? outputList_Expression)*
+    | (SEMICOLON | COMMA) WS? outputList_Expression? (WS? (SEMICOLON | COMMA) WS? outputList_Expression? | {OutputAdjacentAhead()}? WS? outputList_Expression)*
     ;
 
 outputList_Expression
-    : (SPC | TAB) (WS? LPAREN WS? argsCall WS? RPAREN)?
-    | valueStmt
+    : {!OutputValueAhead()}? (SPC | TAB) (WS? LPAREN WS? argsCall WS? RPAREN
+        | {TokenStream.LA(TokenStream.LA(1) == WS ? 2 : 1) != LPAREN}?)
+    | {OutputValueAhead()}? valueStmt
     ;
 
 printStmt
@@ -788,10 +862,9 @@ iCS_B_ProcedureCall
 
 // Without WS, only a parenthesised argument is admitted; keep the parentheses as an expression (#1064).
 iCS_B_MemberProcedureCall
-    : implicitCallStmt_InStmt? DOT ambiguousIdentifier typeHint? ((WS | {TokenStream.LA(1) == LPAREN}?) argsCall)? dictionaryCallStmt?
-    // Print's output list may be separators alone, `Debug.Print ,`, where any other call's arguments may not: `Foo ,` is
-    // VB6's "Syntax error" (measured, #1409).
-    | implicitCallStmt_InStmt? DOT PRINT WS? (COMMA | SEMICOLON) (WS? (COMMA | SEMICOLON))*
+    : implicitCallStmt_InStmt? DOT
+        (PRINT (WS? outputList)?
+        | {TokenStream.LA(1) != PRINT}? ambiguousIdentifier typeHint? ((WS | {TokenStream.LA(1) == LPAREN}?) argsCall)? dictionaryCallStmt?)
     ;
 
 // iCS_S_MembersCall first, so that member calls are not resolved as separate iCS_S_VariableOrProcedureCalls
@@ -803,7 +876,9 @@ implicitCallStmt_InStmt
     ;
 
 iCS_S_VariableOrProcedureCall
-    : ambiguousIdentifier typeHint? dictionaryCallStmt?
+    : {OutputBareNameAhead()}? ambiguousIdentifier
+        // A bang before a key stays dictionary access, rather than a Single suffix and another item.
+        ({TokenStream.LA(1) != EXCLAMATIONMARK || !Atn.NextTokens(Atn.ruleToStartState[RULE_ambiguousIdentifier]).Contains(TokenStream.LA(2))}? typeHint)? dictionaryCallStmt?
     ;
 
 iCS_S_ProcedureOrArrayCall
