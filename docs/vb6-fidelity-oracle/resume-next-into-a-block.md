@@ -378,7 +378,8 @@ loop variable. It was wrong on all three of those rows.** vb6.exe compiles none 
 collects `x`, and a line after it logs the passes, the trail, `x` and `Err.Number`. The module declared
 `Dim Items(1) As Long`. `BoomV()` is a Variant Function that raises 11, and `BoomArr()` is a Function `As Long()` that
 raises 11. The `42` program has no handler. Each was built with `/make` as native code and
-as p-code, and run in the IDE with `/run`. All three answers agreed.
+as p-code, and the two agreed. Three of the refusals, `(BoomV())`, the typed element and `42`, and the `BoomV()` control
+were also run in the IDE with `/run`, which agreed.
 
 | `For Each x In ...` | vb6.exe |
 |---|---|
@@ -392,7 +393,7 @@ as p-code, and run in the IDE with `/run`. All three answers agreed.
 | control: `Items(Boom())`, with untyped `Items(1)` | builds; `1: [pre]:\|92` |
 | control: `Items(5)`, with untyped `Items(1)` | builds; `1: [pre]:\|92` |
 
-In the IDE, each refusal came at Run, as a "Compile error" box.
+In the IDE, each of those refusals came at Run, as a "Compile error" box.
 
 **What this shows:**
 - **A parenthesised expression and a literal can't stand as a `For Each` collection.** A call and an indexed name
