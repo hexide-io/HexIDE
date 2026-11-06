@@ -395,18 +395,83 @@ were also run in the IDE with `/run`, which agreed.
 
 In the IDE, each of those refusals came at Run, as a "Compile error" box.
 
-**What this shows:**
-- **A parenthesised expression and a literal can't stand as a `For Each` collection.** A call and an indexed name
-  can.
-- **An element of an array declared with a type, such as `Items(1) As Long`, is refused at compile.** An element of
-  an untyped array compiles, since a Variant might hold an array.
+**Round two: more forms, and the ones #969 extended the rule to.** The program, the logged line and both builds were the
+same. Native code and p-code agreed on every case. Where the collection needed somewhere to live, it was a second
+module, `Module2`, or a class, `Source`.
+
+The forms of the collection:
+
+| `For Each x In ...` | vb6.exe |
+|---|---|
+| `arr`, an untyped `Dim arr(1)` | builds; `2: [] []:\|0` |
+| `(arr)` | **Syntax error** |
+| `BoomV() + 0` | **Syntax error** |
+| `BoomV() & ""` | **Syntax error** |
+| `-BoomV()` | **Syntax error** |
+| `"abc"` | **Syntax error** |
+| `Nothing` | **Syntax error** |
+| `New Collection` | **Syntax error** |
+| `Array(1, 2)` | builds; `2: [1] [2]:\|0` |
+| `Split("a b")` | builds; `2: [a] [b]:\|0` |
+| `MakeArr(2)`, a Function returning `Array(k, k + 1)` | builds; `2: [2] [3]:\|0` |
+| `c!k`, where Collection `c` holds `Array(5, 6)` under the key `k` | builds; `2: [5] [6]:\|0` |
+| `.Item("k")`, inside `With c` | builds; `2: [5] [6]:\|0` |
+| `Module2.Items()`, returning `Array(7, 8)` | builds; `2: [7] [8]:\|0` |
+| `o.Items`, where the class has `Public Items As New Collection` holding `a` and `b` | builds; `2: [a] [b]:\|0` |
+| `Me`, in a method of a class with no enumerator | builds; `1: [pre]:\|92` |
+| `Me.Items`, in the same class with its Collection | builds; `2: [a] [b]:\|0` |
+
+The collection's declared type:
+
+| `For Each x In ...` | vb6.exe |
+|---|---|
+| `s`, declared `As String` | **"For Each may only iterate over a collection object or an array"** |
+| `k`, declared `As Long` | the same |
+| `Boom()`, a `Function ... As Long` | the same |
+| `o.Items()`, with `o` declared `As Source`, early-bound, and `Function Items() As Long` | the same |
+| `o.Items()`, with `o` untyped, late-bound, and the same Function | builds; `1: [pre]:\|92` |
+| `v`, untyped and Empty | builds; `1: [pre]:\|92` |
+| `ob`, declared `As Object` and Nothing | builds; `1: [pre]:\|92` |
+| `al`, declared `Dim al(1) As Long` | builds; `2: [0] [0]:\|0` |
+
+#969's forms, each a collection that raises 11 under Resume Next:
+
+| `For Each x In ...` | vb6.exe |
+|---|---|
+| `Module2.Items()`, a Variant Function | `1: [pre]:\|92` |
+| `Module2.Items()`, a Function `As Long()` | `1: [pre]:pre\|92` |
+| `o.Items()`, late-bound, a Variant Function | `1: [pre]:\|92` |
+| `o.Items()`, late-bound, a Function `As Long()` | **`1: [pre]:\|92`**, so the element is emptied, unlike the module's Function |
+| `o.Items`, late-bound, a Variant `Property Get` | `1: [pre]:\|92` |
+| `o.Items`, late-bound, a `Property Get ... As Long()` | **`1: [pre]:\|92`** |
+| `o.Items()`, early-bound, a Function `As Long()` | `1: [pre]:pre\|92` |
+| `o.Items(Boom())`, a class field `Public Items(1)` or `Public Items() As Long` | **the class doesn't compile**: "Constants, fixed-length strings, arrays, user-defined types and Declare statements not allowed as Public members of object modules" |
+
+**The rule, from both rounds.** It holds for every case measured:
+- **What can stand as the collection, syntactically, is a reference.** That is a name; `Me`; a member access, such as
+  `o.Items` or `Module2.Items`; a call or an index, with or without arguments, such as `BoomV()`, `Items(5)` or
+  `Array(1, 2)`; a `!` access; or a `With` member access. The combinations measured are a member call, a module-qualified
+  call and a `With` member call.
+- **Anything else is a Syntax error.** That covers a parenthesised expression, a literal (a number, a string or
+  `Nothing`), a `New` expression, and any expression with a unary or binary operator.
+- **The declared type is checked when the module compiles.** Where the collection's type is known then, it must be an
+  array, an object or a Variant. Otherwise the error is "For Each may only iterate over a collection object or an
+  array". A late-bound member has no type to know, so it compiles.
+- **Where the collection raises, whether `Next` keeps the element follows that same compile-time type.** A late-bound
+  member counts as a Variant, so the element is emptied, even when the class declares `As Long()`. Early-bound, it is
+  kept.
 
 **Not measured:**
-- other collection forms, such as `BoomV() + 0`, a member access `o.Items`, `Me` and a string literal;
-- the class-member, field-element and module-qualified forms #969 also extended the rule to.
+- deeper chains such as `a.b.c`;
+- a call on a call, such as `F()(0)`;
+- `Me` in a class that has an enumerator.
 
 **In HexIDE,** at the time of measuring:
-- the interpreter ran the first two and the typed element, and raised run-time 13 for `42`;
-- the bundled server reported nothing for any of them.
+- **First round:** the interpreter ran `(BoomV())`, `((BoomArr()))` and the typed element, and raised run-time 13 for
+  `42`. The bundled server reported nothing for any of them.
+- **Round two, from HexIDE's tests:** `ResumeNextIntoABlockTests` pins two things this round contradicts.
+  - It expects a late-bound class `Function` or `Property Get ... As Long()` to keep the element. VB6 empties it.
+  - It runs field elements of classes with `Public Items(1)` and `Public Items() As Long`. VB6 doesn't compile those
+    classes at all.
 
-That, and the test that pins the three as running, is #3213.
+All of this, and the tests, is #3213.
