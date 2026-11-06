@@ -58,10 +58,12 @@ public sealed class LanguageServerMessageReporter : IDisposable
         // whitespace keeps a multi-line message from pushing the status bar around, and the length cap
         // stops a runaway one from filling it — neither is sanitisation, because nothing here interprets
         // the string; it is only ever displayed.
-        var text = Flatten(p.Message);
+        var text = Flatten(p.LocalizationKey is { } key ? _localization.GetString(key) : p.Message);
         if (text.Length == 0) return;
 
-        _statusBar.SetTemporaryMessage(Prefixed(p.Type, text), DwellFor(p.Type));
+        var formatKey = p.IsEditRefusal ? "Str.Lsp.EditNotApplied"
+            : p.Type == LspMessageType.Error ? "Str.Lsp.ServerError" : "Str.Lsp.ServerMessage";
+        _statusBar.SetTemporaryMessage(string.Format(_localization.GetString(formatKey), text), DwellFor(p.Type));
     }
 
     private void OnProgress(object? sender, ProgressParams p)
@@ -106,13 +108,6 @@ public sealed class LanguageServerMessageReporter : IDisposable
             _statusBar.SetMessage(_displayedProgress);
         }
     }
-
-    private static string Prefixed(LspMessageType type, string text) => type switch
-    {
-        LspMessageType.Error => "Language server error: " + text,
-        LspMessageType.Warning => "Language server: " + text,
-        _ => "Language server: " + text,
-    };
 
     private const int MaxLength = 200;
 

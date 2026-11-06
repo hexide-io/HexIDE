@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 
 namespace HexIDE.Runtime.Interpreter;
@@ -67,6 +68,9 @@ public interface IFormProgram
 
     /// <summary>Load <paramref name="form"/> if it isn't loaded: Form_Load runs here. A form that unloaded gets a new window.</summary>
     Task Load(VbObject form);
+
+    /// <summary>The loaded forms, in the order they loaded: what the global <c>Forms</c> holds (#2496).</summary>
+    IReadOnlyList<VbObject> LoadedForms { get; }
 
     /// <summary><c>Screen.ActiveForm</c> (#2431): the form last activated, until another is or it unloads.</summary>
     VbObject? ActiveForm { get; }

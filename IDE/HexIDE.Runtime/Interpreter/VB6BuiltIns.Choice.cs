@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 
 namespace HexIDE.Runtime.Interpreter;
 
@@ -10,6 +11,30 @@ public partial class VB6BuiltIns
 {
     private static void RegisterChoice(Dictionary<string, BuiltinFn> d)
     {
+        // #2526, SP6 native and p-code: CLng arguments, Null propagation, and fields as wide as Stop + 1.
+        d["Partition"] = (_, a, _) =>
+        {
+            // Null as Number or Start is measured to return Null; as Stop or Interval it was not measured.
+            if (a[2].IsNull || a[3].IsNull)
+                throw new NotImplementedException("Partition: Null as Stop or Interval has not been measured (#2526)");
+            if (a[0].IsNull || a[1].IsNull)
+                return Vb6Value.Null;
+            var number = (long)NarrowNum(a[0], Vb6Value.ValueType.Long).Value!;
+            var start = (long)NarrowNum(a[1], Vb6Value.ValueType.Long).Value!;
+            var stop = (long)NarrowNum(a[2], Vb6Value.ValueType.Long).Value!;
+            var interval = (long)NarrowNum(a[3], Vb6Value.ValueType.Long).Value!;
+            if (start < 0 || stop <= start || interval < 1)
+                throw InvalidCall();
+            var width = (stop + 1).ToString(CultureInfo.InvariantCulture).Length;
+            string Field(long value) => value.ToString(CultureInfo.InvariantCulture).PadLeft(width);
+            var blank = new string(' ', width);
+            if (number < start)
+                return new Vb6Value(blank + ":" + Field(start - 1));
+            if (number > stop)
+                return new Vb6Value(Field(stop + 1) + ":" + blank);
+            var lower = start + (number - start) / interval * interval;
+            return new Vb6Value(Field(lower) + ":" + Field(Math.Min(stop, lower + interval - 1)));
+        };
         // Both parts are evaluated before IIf is called, as every argument is, so `IIf(n <> 0, 1 / n, 0)` with n 0 raises
         // 11 (measured). The condition is read as CBool reads it, except that Null is False, with no error: `IIf("abc", …)`
         // is 13, `IIf("0", …)`, `IIf(Empty, …)` and `IIf(Null, …)` the false part, and `IIf(0.4, …)` the true part. The

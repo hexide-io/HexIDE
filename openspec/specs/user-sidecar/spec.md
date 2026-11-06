@@ -48,6 +48,18 @@ mark is missing on the next opening.
 - **WHEN** another program holds the sidecar as a change is written, and the project is closed afterwards
 - **THEN** the change is in the sidecar when the project is next opened
 
+### Requirement: What F5 runs SHALL be per-user project state
+The user's choice of what F5 runs for a project, the interpreter or a launch an add-in contributes (`dap-client`),
+SHALL be kept in the sidecar as `runWith`, by the launch's add-in and title, and absent for the interpreter. The
+interpreter is the default, so it SHALL NOT cause a sidecar to be written.
+
+One developer runs a project under an add-in's debugger and another in the IDE, so the choice is theirs, not the
+project's, and it belongs with their breakpoints.
+
+#### Scenario: Choosing a launch for F5
+- **WHEN** the user chooses an add-in's launch for F5 and later reopens the project
+- **THEN** F5 is still set to run that launch
+
 ### Requirement: The sidecar SHALL be named predictably from the project
 The sidecar SHALL be named from the project file's name with a distinct extension, in the same directory.
 

@@ -1,0 +1,9 @@
+stage,shape,boundary,sizes,bytes_per_level,intercept,reference_depth,twice_model_mib
+bounds-guard,parens,Error 28,3,704.1470,140125.5314,7643,10.5322
+bounds-procedure,parens,CLR overflow,3,352.3305,9574.8025,7643,5.1545
+cc-lsp-eval,parens,CLR overflow,3,1276.0760,27436.5223,7643,18.6548
+cc-lsp-parse,parens,CLR overflow,3,3640.8889,21845.3333,7643,53.1181
+cc-runtime-eval,parens,CLR overflow,3,2131.2051,67493.9364,7643,31.1972
+cc-runtime-parse,parens,CLR overflow,3,3569.8923,23211.2454,7643,52.0857
+execute-guard,if,Error 28,3,2911.4886,154952.1425,7227,40.4287
+execute-guard,parens,Error 28,3,560.0185,155750.2631,7643,8.4609

@@ -22,7 +22,7 @@ internal sealed class IdeContext : IDisposable
     public MainViewViewModel RootViewModel { get; }
     public DiagnosticsCache Diagnostics { get; }
     public ToolBoxToolViewModel ToolBoxViewModel { get; }
-    public IPersonalityService PersonalityService { get; }
+    public IProfileService ProfileService { get; }
     public AddinProjectTemplateService AddinProjectTemplateService { get; }
     public ILanguageSwitchService LanguageSwitch { get; }
 
@@ -51,7 +51,7 @@ internal sealed class IdeContext : IDisposable
         HexIDE.Runtime.Debugging.IDebugController debugController,
         MainViewViewModel rootViewModel,
         ToolBoxToolViewModel toolBoxViewModel,
-        IPersonalityService personalityService,
+        IProfileService profileService,
         AddinProjectTemplateService addinProjectTemplateService,
         ILanguageSwitchService languageSwitch,
         HexIDE.Conversations.ConversationLog capture,
@@ -72,7 +72,7 @@ internal sealed class IdeContext : IDisposable
         RootViewModel = rootViewModel;
         Diagnostics = new DiagnosticsCache(lspClient);
         ToolBoxViewModel = toolBoxViewModel;
-        PersonalityService = personalityService;
+        ProfileService = profileService;
         AddinProjectTemplateService = addinProjectTemplateService;
         LanguageSwitch = languageSwitch;
         Capture = capture;

@@ -21,6 +21,26 @@ that the developer could not see them was a limitation of its code window, and t
 
 ## Requirements
 
+### Requirement: Scrolling context menus preserve editor commands
+The code window's context menu SHALL open with focus on its first enabled visible item when opened
+by the keyboard, even when it scrolls. A pointer-opened menu SHALL start with no item selected; Enter
+SHALL execute nothing until an item is selected, and the first Down or Up SHALL select the first or
+last enabled visible item respectively (#3164). Routed commands SHALL retain the editor as their
+target when focus moves within the menu, including to a scroll button or a submenu. Each command's existing predicate SHALL continue
+to determine its availability.
+
+#### Scenario: A short viewport makes the code menu scroll
+- **WHEN** the focused code editor's context menu opens by keyboard with more items than fit in its viewport
+- **THEN** focus starts on its first enabled visible item
+- **AND** commands that can execute at the caret remain enabled and execute against the editor
+- **AND** focusing a menu scroll button does not change their target
+
+#### Scenario: A pointer opens the menu
+- **WHEN** the developer opens the context menu with the mouse
+- **THEN** no item is selected and Enter executes no command
+- **AND** Down selects the first enabled visible item, or Up selects the last
+- **AND** reopening the menu by keyboard selects its first enabled visible item
+
 ### Requirement: Syntax keywords match regardless of case
 The editor SHALL apply the VB6 syntax definition's keyword colours regardless of keyword casing. Standalone `End` and every `END_*` block terminator from the MIT lexer SHALL receive the `Keyword` colour in every theme.
 
@@ -418,6 +438,59 @@ The status bar SHALL reflect the new mode immediately, without requiring the car
 - **WHEN** the developer presses Insert again
 - **THEN** insert mode is restored and the status bar displays the localized insert label
 
+### Requirement: Language-server document outline
+
+The IDE SHALL offer a docked Outline window from the View menu for the active code or carried-file
+editor. It SHALL render the document symbols supplied by that document's language server with their
+hierarchy intact, accepting flat replies as top-level nodes. It SHALL request updated symbols after
+edits without requiring a diagnostics notification. It SHALL discard replies superseded by a newer
+request or buffer contents.
+
+#### Scenario: Refresh without a notification loop
+
+- **WHEN** opening diagnostics trigger a symbol refresh for an unchanged buffer
+- **THEN** the refresh SHALL send no `didChange` and SHALL populate the procedure list and Outline tree
+- **AND** the symbol update SHALL cancel the Outline's pending refresh
+- **WHEN** a refresh follows an unsent edit
+- **THEN** the edit SHALL be sent once before the symbol request
+- **AND** subsequent refreshes without further edits SHALL send no `didChange`
+
+#### Scenario: Browse and filter the active document
+
+- **WHEN** the user opens View → Outline
+- **THEN** the active document's symbols appear as a tree
+- **AND** selecting a kind retains matching symbols and the ancestors needed to reach them
+- **AND** selecting All kinds restores the whole tree
+
+#### Scenario: Follow and navigate
+
+- **WHEN** the caret moves inside a symbol's range
+- **THEN** the outline selects the innermost containing symbol without moving the caret
+- **WHEN** the user clicks a node or presses Enter on it
+- **THEN** the editor navigates to the start of that symbol's selection range
+
+#### Scenario: Change the active document
+
+- **WHEN** the active editor changes
+- **THEN** the outline shows the new editor's symbols and stops following the previous editor
+- **AND** a document without outline support clears the tree
+
+### Requirement: Formatting and auto-close use the configured indentation
+
+Document formatting, including format-on-save, SHALL send the editor's configured Tab Width as
+`FormattingOptions.tabSize` and SHALL set `insertSpaces` to true, matching the editor's conversion of
+tabs to spaces. Auto-close SHALL indent the inserted body by that Tab Width in spaces and leave the
+closer at the opener's indentation (#2669).
+
+#### Scenario: Formatting with a two-space tab width
+- **WHEN** the editor requests formatting with Tab Width set to 2
+- **THEN** the request carries `tabSize: 2` and `insertSpaces: true`
+
+#### Scenario: Auto-close with a configured tab width
+- **WHEN** Enter inserts a block closer with Tab Width set to 2 or 8
+- **THEN** the body is respectively 2 or 8 spaces deeper than the opener
+- **AND** the closer retains the opener's indentation
+
 ### Requirement: Indentation guides
 
 The code window SHALL draw vertical guides at each complete indentation level, using the configured tab width and tab stops. The innermost indentation block containing the caret SHALL use the active-guide theme colour; other guides SHALL use the normal-guide theme colour. Blank lines SHALL continue indentation shared by the surrounding nonblank lines. Options → Editor → General SHALL offer a persisted Show indent guides toggle, enabled by default.
@@ -507,6 +580,16 @@ editor and select the matching text. Forms, modules and carried files SHALL part
 - **THEN** Current Project names and searches that document's project
 - **AND** All Projects searches every loaded project
 
+### Requirement: Code-window selections SHALL stay in step with the view-model
+Keyboard and mouse selections SHALL update the code-window view-model's selection start and length,
+including when cleared, for Selected Text searches and the add-in selection API. View-model selections
+SHALL still select text in the editor. Neither direction SHALL re-enter the other.
+
+#### Scenario: A developer selects code
+- **WHEN** the developer selects text in the code window
+- **THEN** the view-model and add-in API report that span
+- **AND** Selected Text Find searches within that span
+
 ### Requirement: Structural and selection scopes SHALL restrict every search and replacement
 Current Procedure and Current Module SHALL use containing procedure or module ranges reported by the
 active document's language server, including nested symbols, and SHALL fall back to Current Document
@@ -594,3 +677,16 @@ VBA's constants are not measured, since there is no VBA oracle.
 - **AND** the build number is unknown, so conditions depending on it remain ungreyed
 - **AND** the build type is "Standard EXE", "ActiveX DLL" or "ActiveX Control" for the corresponding VB6 project type; otherwise it is unknown and conditions depending on it remain ungreyed
 - **AND** execution and language-server diagnostics retain their own constants
+
+### Requirement: Re-docking retains document analysis
+The code document SHALL retain its semantic tokens, folding ranges, inlay hints and code lenses across
+visual detach and reattachment, including replacement of the view by Dock. Re-docking alone SHALL NOT
+send new requests for these answers. Detached view handlers SHALL NOT touch the editor or start requests.
+Edits and server state changes SHALL invalidate analysis; scrolling SHALL continue to resolve newly
+visible lenses, and advertised code-lens refresh requests SHALL invalidate lenses even while suspended.
+
+#### Scenario: Opening the first bottom tool pane
+- **WHEN** a tool pane opens and Dock detaches and reattaches an unchanged code document
+- **THEN** the view reuses the document's answers without requesting tokens, folds, hints or lenses again
+- **AND WHEN** the developer edits the code after the re-dock
+- **THEN** the document sends didChange and requests fresh analysis after debounce

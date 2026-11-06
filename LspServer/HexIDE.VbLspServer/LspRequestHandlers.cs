@@ -10,6 +10,39 @@ namespace HexIDE.VbLspServer;
 
 internal static class LspRequestHandlers
 {
+    public static JsonDocument InlayHint(DocumentStore store, JsonElement p)
+    {
+        if (!TryUri(p, out var uri) || !store.InlayHints.TryGetValue(uri, out var hints)
+            || !p.TryGetProperty("range", out var range)) return LspJson.EmptyArray();
+        var start = range.GetProperty("start");
+        var end = range.GetProperty("end");
+        var startLine = start.GetProperty("line").GetInt32();
+        var startCharacter = start.GetProperty("character").GetInt32();
+        var endLine = end.GetProperty("line").GetInt32();
+        var endCharacter = end.GetProperty("character").GetInt32();
+        return LspJson.Doc(w =>
+        {
+            w.WriteStartArray();
+            foreach (var hint in hints)
+            {
+                var pos = hint.Position;
+                if (pos.Line < startLine || pos.Line > endLine
+                    || (pos.Line == startLine && pos.Character < startCharacter)
+                    || (pos.Line == endLine && pos.Character > endCharacter)) continue;
+                w.WriteStartObject();
+                w.WritePropertyName("position");
+                w.WriteStartObject();
+                w.WriteNumber("line", pos.Line);
+                w.WriteNumber("character", pos.Character);
+                w.WriteEndObject();
+                w.WriteString("label", hint.Label);
+                w.WriteBoolean("paddingLeft", true);
+                w.WriteEndObject();
+            }
+            w.WriteEndArray();
+        });
+    }
+
     // ── textDocument/hover → MarkupContent (plaintext) or null ──────────────────────────────────
     public static JsonDocument Hover(DocumentStore store, JsonElement p)
     {
@@ -169,7 +202,10 @@ internal static class LspRequestHandlers
             }
             w.WriteEndArray();
             w.WriteNumber("activeSignature", 0);
-            w.WriteNumber("activeParameter", activeParameter);
+            // Past a list's end the list is still active; past any other signature's end the index is sent as it is, so
+            // no parameter is marked for an argument VB6 would refuse (#2599).
+            var last = entries[0].Parameters.Length - 1;
+            w.WriteNumber("activeParameter", entries[0].LastIsList && last >= 0 ? Math.Min(activeParameter, last) : activeParameter);
             w.WriteEndObject();
         });
     }

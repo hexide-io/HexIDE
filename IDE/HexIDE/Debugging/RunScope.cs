@@ -1,4 +1,8 @@
 using HexIDE.Runtime.ProjectElements;
+using System;
+using System.Collections.Generic;
+using System.ComponentModel;
+using System.Linq;
 
 namespace HexIDE.Debugging;
 
@@ -32,6 +36,9 @@ public interface IRunScope
 {
     /// <summary>The project currently running, or null when nothing is.</summary>
     ProjectDefinition? RunningProject { get; }
+
+    /// <summary>Records an editor-buffer edit while a run is active.</summary>
+    void RecordEdit(DocumentIdentity document);
 }
 
 /// <inheritdoc cref="IRunScope"/>
@@ -39,4 +46,58 @@ public sealed class RunScope : IRunScope
 {
     /// <summary>Set by the project runner as a run starts and ends. Nothing else writes it.</summary>
     public ProjectDefinition? RunningProject { get; set; }
+
+    private readonly HashSet<DocumentIdentity> changed = [];
+    private readonly List<Action> unsubscribe = [];
+    private bool active;
+
+    internal void Begin(IEnumerable<ProjectDefinition> projects)
+    {
+        End();
+        active = true;
+        foreach (var project in projects)
+        {
+            foreach (var form in project.Forms) Watch(form, DocumentIdentity.For(form));
+            foreach (var module in project.Modules) Watch(module, DocumentIdentity.For(module));
+        }
+    }
+
+    private void Watch(INotifyPropertyChanged model, DocumentIdentity document)
+    {
+        void Changed(object? sender, PropertyChangedEventArgs e)
+        {
+            if (e.PropertyName == "Code") RecordEdit(document);
+        }
+        model.PropertyChanged += Changed;
+        unsubscribe.Add(() => model.PropertyChanged -= Changed);
+    }
+
+    public void RecordEdit(DocumentIdentity document)
+    {
+        if (active) changed.Add(document);
+    }
+
+    internal void End()
+    {
+        active = false;
+        foreach (var detach in unsubscribe) detach();
+        unsubscribe.Clear();
+        changed.Clear();
+    }
+
+    internal string? Note(bool paused, bool edit)
+    {
+        if (!active || (!edit && changed.Count == 0)) return null;
+        // Breakpoints are stale while running too, not only while paused: one set on the new text's line 42 never
+        // fired, because the running code's line 42 is another procedure (#3191).
+        var note = " The project is " + (paused ? "paused" : "running")
+            + ". It keeps the code it started with; " + (edit ? "this change takes" : "a change made during the run takes")
+            + " effect at the next run: stop_project ends this run, then start it again the same way. "
+            + (paused ? "The break location and breakpoints keep" : "Breakpoints keep")
+            + " the running code's line numbers, so they may not match the new text until the next run.";
+        if (changed.Count > 0)
+            note += " Documents changed since the run started: "
+                + string.Join(", ", changed.Select(d => d.Project.Name + "." + d.Name).OrderBy(n => n, StringComparer.Ordinal)) + ".";
+        return note;
+    }
 }

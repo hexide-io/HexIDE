@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -101,6 +102,20 @@ public class ReadOnlyGreyingTests : IDisposable
         RunJobsKeepingContext();
 
         marker.Value.Should().Be("current test");
+    }
+
+    private static async Task WaitForConditionalEvaluation(CodeEditorView view)
+    {
+        var elapsed = Stopwatch.StartNew();
+        var timeout = TimeSpan.FromSeconds(10);
+        while (view.IsConditionalCompilationPending && elapsed.Elapsed < timeout)
+        {
+            // A dispatcher job can carry another test's TestContext (#2473); this wait has its own upper bound.
+            await Task.Delay(10, CancellationToken.None);
+            RunJobsKeepingContext();
+        }
+        view.IsConditionalCompilationPending.Should().BeFalse(
+            "the debounced conditional-compilation evaluation should complete within {0}", timeout);
     }
 
     /// <summary>A fold-label brush no theme and no library default uses.</summary>
@@ -290,8 +305,7 @@ public class ReadOnlyGreyingTests : IDisposable
         selector.Should().NotBeNull();
         selector!.SelectedIndex.Should().Be(0);
         selector.SelectedIndex = target;
-        await Task.Delay(350, TestContext.Current.CancellationToken);
-        RunJobsKeepingContext();
+        await WaitForConditionalEvaluation(view);
         var grey = ((ISolidColorBrush)view.FindResource("InactiveCodeTextBrush")!).Color;
         grey.Should().Be(((ISolidColorBrush)view.FindResource("ReadOnlyTextBrush")!).Color);
         foreach (var line in new[] { 2, 4, 6 })
@@ -332,8 +346,7 @@ public class ReadOnlyGreyingTests : IDisposable
         var selector = view.FindControl<ComboBox>("ConditionalTargetCombo");
         selector.Should().NotBeNull();
         selector!.SelectedIndex = target;
-        await Task.Delay(350, TestContext.Current.CancellationToken);
-        RunJobsKeepingContext();
+        await WaitForConditionalEvaluation(view);
         var grey = ((ISolidColorBrush)view.FindResource("InactiveCodeTextBrush")!).Color;
         ColoursOn(editor, LineOf(editor, active ? "Debug.Print 32" : "Debug.Print 64"))
             .Should().OnlyContain(c => c == grey);
@@ -368,12 +381,10 @@ public class ReadOnlyGreyingTests : IDisposable
         var selector = view.FindControl<ComboBox>("ConditionalTargetCombo")!;
         var grey = ((ISolidColorBrush)view.FindResource("InactiveCodeTextBrush")!).Color;
         ColoursOn(editor, LineOf(editor, "Debug.Print 101")).Should().Contain(c => c != grey);
-        await Task.Delay(350, TestContext.Current.CancellationToken);
-        RunJobsKeepingContext();
+        await WaitForConditionalEvaluation(view);
         lsp.ClearReceivedCalls();
         selector.SelectedIndex = target;
-        await Task.Delay(350, TestContext.Current.CancellationToken);
-        RunJobsKeepingContext();
+        await WaitForConditionalEvaluation(view);
         selector.SelectedIndex.Should().Be(target);
         ColoursOn(editor, LineOf(editor, "Debug.Print 101")).Should().OnlyContain(c => c == grey);
         ColoursOn(editor, LineOf(editor, "Debug.Print 102")).Should().Contain(c => c != grey);
@@ -403,8 +414,7 @@ public class ReadOnlyGreyingTests : IDisposable
         var selector = view.FindControl<ComboBox>("ConditionalTargetCombo")!;
         selector.SelectedIndex = 3;
         selector.SelectedIndex.Should().Be(3);
-        await Task.Delay(350, TestContext.Current.CancellationToken);
-        RunJobsKeepingContext();
+        await WaitForConditionalEvaluation(view);
         var grey = ((ISolidColorBrush)view.FindResource("InactiveCodeTextBrush")!).Color;
         if (buildType is null)
         {
@@ -426,8 +436,7 @@ public class ReadOnlyGreyingTests : IDisposable
         var vm = OpenModule(ModuleKind.StandardModule, "Targets", "#If VBA7 Then\nDebug.Print 7\n#Else\nDebug.Print 6\n#End If\n");
         var editor = Show(vm);
         var view = (CodeEditorView)windows.Last().Content!;
-        await Task.Delay(350, TestContext.Current.CancellationToken);
-        RunJobsKeepingContext();
+        await WaitForConditionalEvaluation(view);
         var grey = ((ISolidColorBrush)view.FindResource("InactiveCodeTextBrush")!).Color;
         ColoursOn(editor, LineOf(editor, "Debug.Print 7")).Should().OnlyContain(c => c == grey);
 
@@ -442,8 +451,7 @@ public class ReadOnlyGreyingTests : IDisposable
         // Read the synchronous redraw before pumping can run the debounce timer.
         ColoursOn(editor, LineOf(editor, "#If VBA7 Then")).Should().Contain(c => c != grey);
         ColoursOn(editor, LineOf(editor, "Debug.Print 7")).Should().Contain(c => c != grey);
-        await Task.Delay(350, TestContext.Current.CancellationToken);
-        RunJobsKeepingContext();
+        await WaitForConditionalEvaluation(view);
         ColoursOn(editor, LineOf(editor, "Debug.Print 7")).Should().OnlyContain(c => c == grey);
     }
 
@@ -457,18 +465,15 @@ public class ReadOnlyGreyingTests : IDisposable
         selector.Should().NotBeNull();
         selector!.IsVisible.Should().BeFalse();
         vm.ReplaceBody("#If VBA7 Then\nDebug.Print 7\n#Else\nDebug.Print 6\n#End If\n");
-        await Task.Delay(350, TestContext.Current.CancellationToken);
-        RunJobsKeepingContext();
+        await WaitForConditionalEvaluation(view);
         selector.IsVisible.Should().BeTrue();
         var grey = ((ISolidColorBrush)view.FindResource("InactiveCodeTextBrush")!).Color;
         ColoursOn(editor, LineOf(editor, "Debug.Print 7")).Should().OnlyContain(c => c == grey);
         vm.ReplaceBody("#If VBA7 Then\nDebug.Print 7\n");
-        await Task.Delay(350, TestContext.Current.CancellationToken);
-        RunJobsKeepingContext();
+        await WaitForConditionalEvaluation(view);
         ColoursOn(editor, LineOf(editor, "Debug.Print 7")).Should().Contain(c => c != grey);
         vm.ReplaceBody("Debug.Print 6\n");
-        await Task.Delay(350, TestContext.Current.CancellationToken);
-        RunJobsKeepingContext();
+        await WaitForConditionalEvaluation(view);
         selector.IsVisible.Should().BeFalse();
     }
 

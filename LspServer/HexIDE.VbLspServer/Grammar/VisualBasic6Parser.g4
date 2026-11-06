@@ -377,7 +377,8 @@ filecopyStmt
 
 // `For _ Each` - WS? between the two keywords; see the note on selectCaseStmt.
 forEachStmt
-    : FOR WS? EACH WS ambiguousIdentifier typeHint? WS IN WS valueStmt blockSep (block blockSep)? NEXT (
+    : FOR WS? EACH WS ambiguousIdentifier typeHint? WS IN WS collection=implicitCallStmt_InStmt
+       {!System.Array.Exists(new[] { "Nothing", "True", "False", "Null", "Empty" }, keyword => string.Equals($collection.text, keyword, System.StringComparison.OrdinalIgnoreCase))}? blockSep (block blockSep)? NEXT (
         WS ambiguousIdentifier
     )?
     ;
@@ -478,7 +479,7 @@ loadStmt
     ;
 
 lockStmt
-    : LOCK WS valueStmt (WS? COMMA WS? valueStmt (WS TO WS valueStmt)?)?
+    : LOCK WS number=valueStmt (WS? COMMA WS? (start=valueStmt (WS TO WS end=valueStmt)? | TO WS end=valueStmt))?
     ;
 
 lsetStmt
@@ -696,7 +697,7 @@ unloadStmt
     ;
 
 unlockStmt
-    : UNLOCK WS valueStmt (WS? COMMA WS? valueStmt (WS TO WS valueStmt)?)?
+    : UNLOCK WS number=valueStmt (WS? COMMA WS? (start=valueStmt (WS TO WS end=valueStmt)? | TO WS end=valueStmt))?
     ;
 
 // operator precedence is represented by rule order

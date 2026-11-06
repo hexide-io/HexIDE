@@ -53,13 +53,13 @@ internal static class VbIntrinsicNames
 
     private static readonly HashSet<string> ObjectNames = new(StringComparer.OrdinalIgnoreCase)
     {
-        "Clipboard", "Printer", "Printers", "Forms"
+        "Clipboard", "Printer", "Printers"
     };
 
     /// <summary>
     /// Called only after normal name resolution fails. These VB6 globals are objects, never implicitly
-    /// declared Empty variables (#871). A declared name, a program global seeded as App is, and Screen, reached where
-    /// nothing else claims the name (#2431), have already won before this guard. Option Explicit does not make a built-in object undeclared.
+    /// declared Empty variables (#871). A declared name, a program global seeded as App is, and Screen and Forms, reached
+    /// where nothing else claims the name (#2431, #2496), have already won before this guard. Option Explicit does not make a built-in object undeclared.
     /// </summary>
     internal static void RefuseMissingObject(string name)
     {

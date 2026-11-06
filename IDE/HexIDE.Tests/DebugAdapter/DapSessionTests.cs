@@ -48,6 +48,50 @@ public class DapSessionTests
     }
 
     [Fact]
+    public async Task Initialize_advertises_invalidated_events()
+    {
+        await using var peer = new Peer();
+        await using var session = new DapSession(peer.Client);
+        var pending = session.LaunchAsync("external", Args, [], Token);
+        var initialize = await peer.Receive();
+        var advertised = initialize.GetProperty("arguments").TryGetProperty("supportsInvalidatedEvent", out var value)
+            && value.ValueKind == JsonValueKind.True;
+        await peer.Reply(initialize);
+        var launch = await peer.Receive();
+        await peer.Send("""{"seq":2,"type":"event","event":"initialized"}""");
+        await peer.Reply(launch);
+        await pending.WaitAsync(Patience, Token);
+        advertised.Should().BeTrue();
+    }
+
+    [Theory]
+    [InlineData("stackTrace")]
+    [InlineData("scopes")]
+    [InlineData("variables")]
+    public async Task Invalidated_expires_pending_inspection_without_resuming(string command)
+    {
+        await using var peer = new Peer();
+        await using var session = new DapSession(peer.Client);
+        await Launch(peer, session);
+        var stop = await Stop(peer, session);
+        var pending = command switch
+        {
+            "stackTrace" => session.StackTraceAsync(stop, 1, Token),
+            "scopes" => session.ScopesAsync(stop, 0, Token),
+            _ => session.VariablesAsync(stop, 1, Token),
+        };
+        var request = await peer.Receive();
+        await peer.Send("""{"seq":12,"type":"event","event":"invalidated","body":{"areas":["variables"]}}""");
+        var update = await Until(session, u => u.Event?.Event == "invalidated");
+        await peer.Reply(request);
+        await ((Func<Task>)(() => pending)).Should().ThrowAsync<InvalidOperationException>();
+        update.Snapshot.State.Should().Be(DapSessionState.Stopped);
+        update.Snapshot.Stop!.ThreadId.Should().Be(stop.ThreadId);
+        update.Snapshot.Stop.Reason.Should().Be(stop.Reason);
+        session.IsCurrent(update.Snapshot.Stop).Should().BeTrue();
+    }
+
+    [Fact]
     public async Task Configures_before_awaiting_launch_and_preserves_breakpoint_verification()
     {
         await using var peer = new Peer();
@@ -403,6 +447,50 @@ public class DapSessionTests
         await secondPeer.Output.DisposeAsync();
         await second.Completion.WaitAsync(Patience, Token);
         second.Snapshot.Failure.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task Exception_info_asks_for_the_stopped_thread_only_when_the_adapter_advertises_it()
+    {
+        await using var peer = new Peer();
+        await using var session = new DapSession(peer.Client);
+        await Launch(peer, session, capabilities: """{"supportsConfigurationDoneRequest":true,"supportsExceptionInfoRequest":true}""");
+        await peer.Send("""{"seq":11,"type":"event","event":"stopped","body":{"threadId":3,"reason":"exception"}}""");
+        var stop = (await Until(session, u => u.Event?.Event == "stopped")).Snapshot.Stop!;
+        var pending = session.ExceptionInfoAsync(stop, stop.ThreadId!.Value, Token);
+        var request = await peer.Receive();
+        request.GetProperty("command").GetString().Should().Be("exceptionInfo");
+        request.GetProperty("arguments").GetProperty("threadId").GetInt32().Should().Be(3);
+        await peer.Reply(request, """{"exceptionId":"6","description":"Overflow","breakMode":"unhandled"}""");
+        (await pending).Body!.Value.GetProperty("description").GetString().Should().Be("Overflow");
+
+        await using var silentPeer = new Peer();
+        await using var silent = new DapSession(silentPeer.Client);
+        await Launch(silentPeer, silent);
+        var silentStop = await Stop(silentPeer, silent);
+        await ((Func<Task>)(() => silent.ExceptionInfoAsync(silentStop, 1, Token))).Should().ThrowExactlyAsync<InvalidOperationException>();
+    }
+
+    [Fact]
+    public async Task Terminate_is_sent_only_when_the_adapter_advertises_it_and_leaves_the_session_open()
+    {
+        await using var peer = new Peer();
+        await using var session = new DapSession(peer.Client);
+        await Launch(peer, session, capabilities: """{"supportsConfigurationDoneRequest":true,"supportsTerminateRequest":true}""");
+        await Stop(peer, session);
+        var terminate = session.TerminateAsync(Token);
+        var request = await peer.Receive();
+        request.GetProperty("command").GetString().Should().Be("terminate");
+        await peer.Reply(request);
+        await terminate.WaitAsync(Patience, Token);
+        await peer.Send("""{"seq":12,"type":"event","event":"terminated"}""");
+        await Until(session, u => u.Event?.Event == "terminated");
+        peer.Client.Completion.IsCompleted.Should().BeFalse("the disconnect that follows still needs the connection");
+
+        await using var silentPeer = new Peer();
+        await using var silent = new DapSession(silentPeer.Client);
+        await Launch(silentPeer, silent);
+        await ((Func<Task>)(() => silent.TerminateAsync(Token))).Should().ThrowExactlyAsync<InvalidOperationException>();
     }
 
     [Fact]

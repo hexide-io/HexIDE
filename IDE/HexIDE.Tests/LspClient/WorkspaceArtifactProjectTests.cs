@@ -99,6 +99,20 @@ public sealed class WorkspaceArtifactProjectTests
         sut.Dispose();
     }
 
+    [Fact]
+    public void A_contributed_project_is_never_rendered_as_a_vbp_for_a_server()
+    {
+        var path = Path.Combine(Path.GetTempPath(), "hexide-projection-" + Guid.NewGuid().ToString("N"), ".rdproj");
+        var project = new ProjectDefinition(VBProjectType.EXE, "Ledger") { AbsolutePath = path, ContributedBy = "rdcore" };
+        var manager = Substitute.For<IProjectManager>();
+        manager.LoadedProjects.Returns(new[] { project });
+        var sut = new ProjectLspWorkspace(() => manager);
+
+        sut.Projects[0].Project.DefinitionPath.Should().Be(path);
+        sut.Projects[0].ProjectText.Should().BeNull("its file is its add-in's, in its add-in's format");
+        sut.Dispose();
+    }
+
     [AvaloniaFact]
     public async Task ProjectTextTracksUnsavedSettingsAndMembershipWithoutWritingTheProject()
     {

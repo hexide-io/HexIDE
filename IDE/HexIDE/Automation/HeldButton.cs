@@ -79,8 +79,24 @@ public sealed class HeldButton
     /// <summary>How long a hold lasts with no tool call before it is abandoned. Shortened by tests.</summary>
     public static TimeSpan IdleLimit { get; internal set; } = TimeSpan.FromSeconds(120);
 
+    /// <summary>The idle clock and its timer. Replaced by tests, to make the timer fire before the clock agrees (#2514).</summary>
+    internal static TimeProvider Time
+    {
+        get => time;
+        set
+        {
+            lock (Gate)
+            {
+                idle?.Dispose();
+                idle = null;
+                time = value;
+            }
+        }
+    }
+
     private static readonly Lock Gate = new();
-    private static Timer? idle;
+    private static TimeProvider time = TimeProvider.System;
+    private static ITimer? idle;
     private static long lastCall;
     // What became of a hold that ended without a release, for the next reply, once.
     private static string? ended;
@@ -92,7 +108,7 @@ public sealed class HeldButton
             window.Closed += held.OnWindowClosed;
         lock (Gate)
         {
-            lastCall = Stopwatch.GetTimestamp();
+            lastCall = time.GetTimestamp();
             Schedule();
         }
     }
@@ -105,7 +121,7 @@ public sealed class HeldButton
     {
         lock (Gate)
         {
-            lastCall = Stopwatch.GetTimestamp();
+            lastCall = time.GetTimestamp();
             if (Current is not null)
                 Schedule();
         }
@@ -114,16 +130,30 @@ public sealed class HeldButton
     // Under Gate. The abandon checks the hold is still idle when it runs, so a call that lands after the timer fires wins.
     private static void Schedule()
     {
-        idle ??= new Timer(state => Dispatcher.UIThread.Post(
-            () => _ = UiAutomationDriver.AbandonHeldAsync(idleOnly: true), DispatcherPriority.Input));
+        idle ??= time.CreateTimer(state => Dispatcher.UIThread.Post(
+            () => _ = UiAutomationDriver.AbandonHeldAsync(idleOnly: true), DispatcherPriority.Input),
+            null, Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan);
         idle.Change(IdleLimit, Timeout.InfiniteTimeSpan);
     }
 
-    /// <summary>Whether <see cref="IdleLimit"/> has passed since the last call. A call that came in after the timer fired keeps the hold.</summary>
-    internal static bool Idle()
+    /// <summary>
+    /// Whether <see cref="IdleLimit"/> has passed since the last call, and if it has not, arms the timer again for what is
+    /// left. A call that came in after the timer fired keeps the hold, and has armed the timer already. But a timer can also
+    /// fire a few microseconds before the clock says the limit has passed, 299.986 ms against 300 in one measurement, and
+    /// with nothing to arm it again that hold was never abandoned (#2514). What is left is rounded up to a whole
+    /// millisecond, the timer's resolution, so a sliver is not armed as zero.
+    /// </summary>
+    internal static bool IdleElseRearm()
     {
         lock (Gate)
-            return Stopwatch.GetElapsedTime(lastCall) >= IdleLimit;
+        {
+            var left = IdleLimit - time.GetElapsedTime(lastCall);
+            if (left <= TimeSpan.Zero)
+                return true;
+            if (Current is not null)
+                idle?.Change(TimeSpan.FromMilliseconds(Math.Ceiling(left.TotalMilliseconds)), Timeout.InfiniteTimeSpan);
+            return false;
+        }
     }
 
     /// <summary>The moves from where the button is held to <paramref name="to"/>, for <see cref="UiAutomationDriver.FinishAsync"/>.</summary>
@@ -143,7 +173,7 @@ public sealed class HeldButton
         if (Window is Window window)
             window.Closed -= OnWindowClosed;
         lock (Gate)
-            idle?.Change(Timeout.Infinite, Timeout.Infinite);
+            idle?.Change(Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan);
     }
 
     /// <summary>Records what became of a hold that ended without a release, for the next reply.</summary>

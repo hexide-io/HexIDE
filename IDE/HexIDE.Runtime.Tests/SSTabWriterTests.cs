@@ -15,11 +15,8 @@ public class SSTabWriterTests
     [InlineData("sstab-resaved")]
     public void MeasuredCorpusWritesBackExactlyIncludingCompanion(string directory)
     {
-        var root = new DirectoryInfo(AppContext.BaseDirectory);
-        while (root is not null && !Directory.Exists(Path.Combine(root.FullName, "corpus")))
-            root = root.Parent;
-        root.Should().NotBeNull();
-        var path = Path.Combine(root!.FullName, "corpus", "inbox-controls", "pending", directory, "Form1.frm");
+        var root = RepoTree.Root();
+        var path = Path.Combine(root, "corpus", "inbox-controls", "pending", directory, "Form1.frm");
         var source = File.ReadAllText(path);
         var companion = File.ReadAllBytes(Path.ChangeExtension(path, ".frx"));
         var form = new FormDeserializer().Deserialize(new ProjectDefinition(VBProjectType.EXE, "Probe"),
@@ -58,8 +55,8 @@ public class SSTabWriterTests
         lines.IndexOf("TabHeight", StringComparison.Ordinal).Should().BeLessThan(lines.IndexOf("TabCaption(0)", StringComparison.Ordinal));
         lines.IndexOf("TabCaption(0)", StringComparison.Ordinal).Should().BeLessThan(lines.IndexOf("Tab(0).ControlEnabled", StringComparison.Ordinal));
         lines.IndexOf("Tab(0).ControlCount", StringComparison.Ordinal).Should().BeLessThan(lines.IndexOf("TabCaption(1)", StringComparison.Ordinal));
-        // Membership-changing designer edits are still refused until the designer can maintain these lists.
-        form.CanSaveFaithfully.Should().BeFalse();
+        // The designer now maintains page metadata when membership changes (#2301).
+        form.CanSaveFaithfully.Should().BeTrue();
     }
 
     private sealed class Sink : IDeserializeErrorSink

@@ -1,7 +1,10 @@
 using System;
 using System.Collections.Generic;
-using System.Threading.Tasks;
 using System.Linq;
+using Avalonia.Controls;
+using Avalonia.LogicalTree;
+using HexIDE.Runtime.AvaloniaInterop;
+using System.Threading.Tasks;
 using HexIDE.Runtime.BuiltinControls;
 using HexIDE.Runtime.Interpreter;
 using HexIDE.Runtime.Utils;
@@ -206,7 +209,36 @@ public class VBWindowContext : IModuleExecutionRoot
         ExecutionContext.State.ClearPendingControls(form);
         Program?.Loaded(this);
         await StartControls();
-        await Report(() => interpreter!.RaiseFormEvent(form, "Form_Load"));
+        await Report(() => RaiseLoad(form));
+    }
+
+    internal bool Loading { get; private set; }
+
+    private async Task RaiseLoad(VbObject form)
+    {
+        Loading = true;
+        try
+        {
+            await interpreter!.RaiseFormEvent(form, "Form_Load");
+        }
+        finally
+        {
+            Loading = false;
+        }
+    }
+
+    private bool initiallyFocused;
+
+    internal void FocusFirstControl()
+    {
+        if (initiallyFocused || Window is null)
+            return;
+        initiallyFocused = true;
+        // The first eligible tab stop takes the focus after Activate, including a Show inside Load (#2436).
+        Window.GetLogicalDescendants().OfType<Control>()
+            .Where(c => TabOrder.HasTabStop(c) && TabOrder.GetTabStop(c)
+                && c is { Focusable: true, IsEffectivelyVisible: true, IsEffectivelyEnabled: true })
+            .OrderBy(TabOrder.Get).FirstOrDefault()?.Focus();
     }
 
     internal async Task ControlEvent(string name, IReadOnlyList<Vb6Value>? args = null)
@@ -293,15 +325,20 @@ public class VBWindowContext : IModuleExecutionRoot
     /// A size setter also reports while hidden (#1570), inside the assignment; Show still raises its own Resize.
     /// And a Move to the size the form has raises none in VB6 (measured).
     /// </summary>
-    public void WindowResized(bool sizeSet = false)
+    public void WindowResized(bool sizeSet = false, bool paintGrowth = false)
     {
         if ((!shownSinceLoad && !sizeSet) || instance is not { FormLoaded: true } || Window is not IFormView view)
             return;
         var now = view.Extent;
         if (now == resizedAt)
             return;
+        // Mixed growth and shrinkage was not measured; keep its existing lack of Paint (#2389).
+        var grew = now.Size.Width >= resizedAt.Size.Width && now.Size.Height >= resizedAt.Size.Height
+            && (now.Size.Width > resizedAt.Size.Width || now.Size.Height > resizedAt.Size.Height);
         resizedAt = now;
         ExecuteSub("Form_Resize");
+        if (paintGrowth && grew)
+            ExecuteSub("Form_Paint");
     }
 
     /// <summary>Run the form's Terminate, as the program does at its end for a form whose instance it still holds.</summary>
@@ -505,7 +542,7 @@ public class VBWindowContext : IModuleExecutionRoot
                     ExecutionContext.State.ClearPendingControls(form);
                     Program?.Loaded(this);
                     await StartControls();
-                    if (await Report(() => interpreter.RaiseFormEvent(form, "Form_Load")) == Outcome.Over)
+                    if (await Report(() => RaiseLoad(form)) == Outcome.Over)
                         return false;
                 }
                 // A form that unloaded itself in Load, as `Unload Me` there does, is not shown (measured, #1046 review).
@@ -550,11 +587,40 @@ public class VBWindowContext : IModuleExecutionRoot
         });
     }
 
+    public async Task ExecuteEditEventAsync(string name, IList<Vb6Value> args)
+    {
+        if (interpreter is null) return;
+        await Events.Run(name, async () =>
+        {
+            var form = EnsureInstance();
+            if (RunIsOver() || form.FormUnloaded) return false;
+            return await Dispatch(async () =>
+            {
+                if (!started) await EnsureDeclarations();
+                var callArgs = new List<CallArg>();
+                for (var i = 0; i < args.Count; i++)
+                    callArgs.Add(new CallArg(args[i], null, new EditArgument(args, i)));
+                await interpreter.RaiseFormEvent(form, name, callArgs);
+            });
+        });
+    }
+
+    private sealed record EditArgument(IList<Vb6Value> Arguments, int Index) : IByRefTarget
+    {
+        public Vb6Value.ValueType? DeclaredType => Arguments[Index].Type;
+        public bool IsVariant => false;
+        public Vb6Value Read() => Arguments[Index];
+        public void Write(Vb6Value value) => Arguments[Index] = value;
+    }
+
     public void ExecuteSub(string name, IReadOnlyList<Vb6Value>? args = null)
     {
         var argList = args is null ? null : new List<Vb6Value>(args);
         Raise(name, () => argList);
     }
+
+    public void ExecuteEventByRef(string name, IReadOnlyList<Vb6Value> args, int byRefIndex, Action<Vb6Value> completed) =>
+        Raise(name, () => args, byRefIndex: byRefIndex, completed: completed);
 
     /// <inheritdoc/>
     public void ExecuteSubIf(string name, IReadOnlyList<Vb6Value>? args, Func<bool> when)
@@ -564,8 +630,16 @@ public class VBWindowContext : IModuleExecutionRoot
     }
 
     /// <inheritdoc/>
-    public void ExecuteEvent(string name, Func<IReadOnlyList<Vb6Value>> args, EventCoalescing coalescing = EventCoalescing.None) =>
-        Raise(name, args, coalescing);
+    public void ExecuteEvent(string name, Func<IReadOnlyList<Vb6Value>> args, EventCoalescing coalescing = EventCoalescing.None, Func<bool>? when = null) =>
+        Raise(name, args, coalescing, when: when);
+
+    public async Task ExecuteControlEventAsync(string name, IReadOnlyList<CallArg> args)
+    {
+        if (interpreter is null)
+            return;
+        await EnsureDeclarations();
+        await interpreter.RaiseFormEvent(EnsureInstance(), name, args);
+    }
 
     /// <inheritdoc/>
     public bool Handles(string name) => interpreter is not null && EnsureInstance().ClassDef.PrePass.Procedures.ContainsKey(name);
@@ -598,7 +672,8 @@ public class VBWindowContext : IModuleExecutionRoot
     }
 
     private void Raise(string name, Func<IReadOnlyList<Vb6Value>?> args,
-        EventCoalescing coalescing = EventCoalescing.None, string? key = null, Func<bool>? when = null)
+        EventCoalescing coalescing = EventCoalescing.None, string? key = null, Func<bool>? when = null,
+        int? byRefIndex = null, Action<Vb6Value>? completed = null)
     {
         // An event raised before SetCode has no code to run, as when a form's controls fail to build and the
         // run is abandoned half way. It used to reach here anyway and log a NullReferenceException after the
@@ -624,7 +699,23 @@ public class VBWindowContext : IModuleExecutionRoot
             {
                 if (!started)
                     await EnsureDeclarations();
-                await interpreter.RaiseFormEvent(form, name, args());
+                var values = args();
+                if (byRefIndex is not { } index)
+                    await interpreter.RaiseFormEvent(form, name, values);
+                else
+                {
+                    var state = ExecutionContext.State;
+                    var slot = state.Alloc(values![index]);
+                    try
+                    {
+                        var callArgs = new List<CallArg>();
+                        for (var i = 0; i < values.Count; i++)
+                            callArgs.Add(new CallArg(values[i], i == index ? slot : null));
+                        await interpreter.RaiseFormEvent(form, name, callArgs);
+                        completed!(state[slot]);
+                    }
+                    finally { state.Free(slot); }
+                }
             });
         }
 
@@ -638,6 +729,8 @@ public class VBWindowContext : IModuleExecutionRoot
         // One handler at a time: at once if nothing runs or the running handler's own code raised it, else in turn (#766).
         Events.Raise(key ?? name, Work, coalescing);
     }
+
+    internal Task DispatchInput(Func<Task> work) => Dispatch(work);
 
     // How a piece of a dispatch ended: it finished; it stopped on a run-time or compile error, which was reported and
     // leaves the run going (D22, D23); or the run is over, after a fault, a cancellation, or the debugger's Stop.

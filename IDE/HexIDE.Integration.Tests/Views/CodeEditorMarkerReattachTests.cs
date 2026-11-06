@@ -124,6 +124,39 @@ public class CodeEditorMarkerReattachTests : IDisposable
         Dispatcher.UIThread.RunJobs();
     }
 
+    [AvaloniaTheory]
+    [InlineData(1, false)]
+    [InlineData(2, false)]
+    [InlineData(3, false)]
+    [InlineData(1, true)]
+    [InlineData(2, true)]
+    [InlineData(3, true)]
+    [InlineData(0, false)]
+    public void DiagnosticTagsStyleTheActualTextRuns(int tag, bool error)
+    {
+        using var vm = MakeViewModel();
+        vm.Initialize(AModule());
+        var view = Show(vm);
+        var tags = tag == 3 ? new[] { 1, 2 } : tag == 0 ? null : new[] { tag };
+        _lspClient.DiagnosticsPublished += Raise.Event<EventHandler<PublishDiagnosticsParams>>(
+            _lspClient, new PublishDiagnosticsParams(vm.GetDocumentUriPublic(), [new Diagnostic(
+                new LspRange(new Position(0, 4), new Position(0, 8)), "tagged",
+                error ? DiagnosticSeverity.Error : DiagnosticSeverity.Hint, Tags: tags)]));
+        Dispatcher.UIThread.RunJobs();
+        var textView = TextViewOf(view);
+        var line = textView.GetOrConstructVisualLine(vm.Document.GetLineByNumber(1));
+        var runs = line.Elements.Where(e => e.DocumentLength > 0)
+            .SelectMany(e => Enumerable.Repeat(e.TextRunProperties, e.DocumentLength)).ToArray();
+        var brush = (Avalonia.Media.ISolidColorBrush)runs[4].ForegroundBrush!;
+        brush.Opacity.Should().Be(tag is 1 or 3 ? 0.5 : 1);
+        (runs[4].TextDecorations?.Any(d => d.Location == Avalonia.Media.TextDecorationLocation.Strikethrough) == true)
+            .Should().Be(tag is 2 or 3);
+        if (error) brush.Color.Should().Be(Avalonia.Media.Colors.Red);
+        runs[0].ForegroundBrush!.Opacity.Should().Be(1);
+        textView.BackgroundRenderers.OfType<LspTextMarkerService>().Single().Markers
+            .Should().ContainSingle().Which.IsError.Should().Be(error);
+    }
+
     [AvaloniaFact]
     public void AViewBuiltAfterTheDiagnosticsArrivedStillDrawsThem()
     {

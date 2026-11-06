@@ -14,7 +14,8 @@ its own lifecycle and trust rules.
 ## Directory and manifest
 
 A directory contains `profile.json` and its referenced JSON files. Built-ins use the same shape as
-installed bundles and are shipped in a read-only, explicitly indexed embedded resource set; no
+installed bundles and are shipped in a read-only, explicitly indexed embedded resource set at
+`IDE/HexIDE/IDE/Profiles/Builtins/<id>.json`; no
 `avares://` directory enumeration is assumed. Installed bundles are copied directories, not archives
 that the IDE extracts. Version 1 has no inheritance, composition, remote URLs or executable hooks.
 
@@ -60,8 +61,11 @@ paths, server configuration, unsigned-add-in policy and revocation URLs cannot b
 manifest supplies a theme or keymap file, it takes precedence over the corresponding profile settings
 default; an explicit saved user choice still wins.
 
-All file references are relative to the bundle root. Rooted paths, traversal and symlink escapes are
-rejected, including cross-platform path spellings. Reading a profile never writes back into it.
+All file references are relative to the bundle root. Rooted paths, traversal and links inside a bundle are
+rejected, including cross-platform path spellings. The shared #2621/#2714 reader refuses even contained
+links, caps each file at 1 MiB and retains the directory across reads, checking the manifest again before
+returning. Arbitrary in-place payload writes with unchanged manifest bytes are not a transaction.
+Reading a profile never writes back into it.
 Unknown manifest fields, schema versions, ids, surface ids, disallowed settings and missing or invalid
 referenced files reject the selected bundle before application. Existing pack-level warn-and-skip
 rules for unknown colour/command/translation keys remain unchanged; warnings identify the bundle and

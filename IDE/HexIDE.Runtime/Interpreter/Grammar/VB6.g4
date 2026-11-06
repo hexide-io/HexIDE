@@ -21,6 +21,54 @@
 
 grammar VB6;
 
+@lexer::members {
+    // Whether the character just before the current token ends a word: a letter, a digit or an underscore. Called
+    // only from the predicate at the right edge of IDENTIFIER_CONTINUATION, after the whole token has matched.
+    private bool WordEndsBeforeToken()
+    {
+        var before = TokenStartCharIndex - 1;
+        if (before < 0) return false;
+        var c = InputStream.LA(before - InputStream.Index);
+        return char.IsLetterOrDigit((char)c) || c == '_';
+    }
+}
+
+@parser::members {
+    // After factoring ifBlockBody, keep a closing line's head outside its body (#223, #3210).
+    private bool IfClosingHeadAhead()
+    {
+        var i = 1;
+        var newline = false;
+        while (TokenStream.LA(i) is WS or COLON or NEWLINE)
+            newline |= TokenStream.LA(i++) == NEWLINE;
+        if (!newline)
+            return false;
+        var head = false;
+        if (TokenStream.LA(i) == INTEGERLITERAL)
+        {
+            head = true;
+            i++;
+            if (TokenStream.LA(i) == WS) i++;
+            if (TokenStream.LA(i) == COLON) i++;
+            if (TokenStream.LA(i) == WS) i++;
+        }
+        if (Atn.NextTokens(Atn.ruleToStartState[RULE_labelName]).Contains(TokenStream.LA(i)))
+        {
+            i++;
+            if (TokenStream.LA(i) == WS) i++;
+            if (TokenStream.LA(i) != COLON)
+                return false;
+            head = true;
+            do
+            {
+                i++;
+                if (TokenStream.LA(i) == WS) i++;
+            } while (TokenStream.LA(i) == COLON);
+        }
+        return head && TokenStream.LA(i) is END_IF or ELSEIF or ELSE;
+    }
+}
+
 // module ----------------------------------
 
 startRule
@@ -61,7 +109,7 @@ moduleConfig
 // newline actually follows it, so the spaces before a comment are tokenized as WS and the rule has to
 // accept them. Without this, every .cls VB6 ever wrote fails to parse at line 3.
 moduleConfigElement
-   : ambiguousIdentifier WS? EQ WS? literal WS? NEWLINE
+   : ambiguousIdentifier WS? EQ WS? signedLiteral WS? NEWLINE
    ;
 
 moduleAttributes
@@ -81,13 +129,15 @@ moduleOption
    | OPTION_PRIVATE_MODULE # optionPrivateModuleStmt
    ;
 
+// A module block consumes adjacent statements together. Allowing another immediately after it
+// makes prediction scan entire nested blocks to choose between continuing and starting a new block (#3210).
 moduleBody
-   : moduleBodyElement (blockSep moduleBodyElement)*
+   : moduleBlock (blockSep moduleBodyElement (blockSep moduleBlock)?)*
+   | moduleBodyElement (blockSep moduleBlock)? (blockSep moduleBodyElement (blockSep moduleBlock)?)*
    ;
 
 moduleBodyElement
-   : moduleBlock
-   | moduleOption
+   : moduleOption
    | declareStmt
    | enumerationStmt
    | eventStmt
@@ -124,11 +174,11 @@ cp_SingleProperty
 	;
 
 cp_PropertyName
-	: (OBJECT DOT)? ambiguousIdentifier (LPAREN literal RPAREN)? (DOT ambiguousIdentifier (LPAREN literal RPAREN)?)*
+	: (OBJECT DOT)? ambiguousIdentifier (LPAREN signedLiteral RPAREN)? (DOT ambiguousIdentifier (LPAREN signedLiteral RPAREN)?)*
 	;
 
 cp_PropertyValue
-    : DOLLAR? (literal | (LBRACE ambiguousIdentifier RBRACE) | POW ambiguousIdentifier)
+    : DOLLAR? (signedLiteral | (LBRACE ambiguousIdentifier RBRACE) | POW ambiguousIdentifier)
     ;
 
 cp_NestedProperty
@@ -150,14 +200,14 @@ moduleBlock
    ;
 
 attributeStmt
-   : ATTRIBUTE WS implicitCallStmt_InStmt WS? EQ WS? literal (WS? COMMA WS? literal)*
+   : ATTRIBUTE WS implicitCallStmt_InStmt WS? EQ WS? signedLiteral (WS? COMMA WS? signedLiteral)*
    ;
 
 block
    : colonSep? emptyLineNumber* lineHead? blockStmt
-     ( colonSep blockStmt
+     ( {!IfClosingHeadAhead()}? (colonSep blockStmt
      | lineSep emptyLineNumber* lineHead? blockStmt
-     )*
+     ))*
      blockSep?
    ;
 
@@ -332,9 +382,9 @@ deleteSettingStmt
    ;
 
 doLoopStmt
-   : DO blockSep (block blockSep)? LOOP # doBlockLoop
-   | DO WS (WHILE | UNTIL) WS valueStmt blockSep (block blockSep)? LOOP # doWhileBlockLoop
-   | DO blockSep (block blockSep) LOOP WS (WHILE | UNTIL) WS valueStmt # doBlockWhileLoop
+   : DO (lineSep lineHead | blockSep (block lineSep lineHead | block blockSep)?) LOOP # doBlockLoop
+   | DO WS (WHILE | UNTIL) WS valueStmt (lineSep lineHead | blockSep (block lineSep lineHead | block blockSep)?) LOOP # doWhileBlockLoop
+   | DO blockSep (block lineSep lineHead | block blockSep) LOOP WS (WHILE | UNTIL) WS valueStmt # doBlockWhileLoop
    ;
 
 endStmt
@@ -381,11 +431,12 @@ filecopyStmt
 
 // `For _ Each` — WS? between the two keywords; see the note on selectCaseStmt for why that is not a widening.
 forEachStmt
-   : FOR WS? EACH WS ambiguousIdentifier typeHint? WS IN WS valueStmt blockSep (block blockSep)? NEXT (WS ambiguousIdentifier)?
+   : FOR WS? EACH WS ambiguousIdentifier typeHint? WS IN WS collection=implicitCallStmt_InStmt
+       {!System.Array.Exists(new[] { "Nothing", "True", "False", "Null", "Empty" }, keyword => string.Equals($collection.text, keyword, System.StringComparison.OrdinalIgnoreCase))}? (lineSep lineHead | blockSep (block lineSep lineHead | block blockSep)?) NEXT (WS ambiguousIdentifier)?
    ;
 
 forNextStmt
-   : FOR WS iCS_S_VariableOrProcedureCall typeHint? (WS asTypeClause)? WS? EQ WS? valueStmt WS TO WS valueStmt (WS STEP WS valueStmt)? blockSep (block blockSep)? NEXT (WS ambiguousIdentifier typeHint?)?
+   : FOR WS iCS_S_VariableOrProcedureCall typeHint? (WS asTypeClause)? WS? EQ WS? valueStmt WS TO WS valueStmt (WS STEP WS valueStmt)? (lineSep lineHead | blockSep (block lineSep lineHead | block blockSep)?) NEXT (WS ambiguousIdentifier typeHint?)?
    ;
 
 functionStmt
@@ -434,13 +485,14 @@ ifThenElseStmt
    ;
 
 ifBlockStmt
-   : IF WS ifConditionStmt WS THEN blockSep ifBlockBody?
+   : IF WS ifConditionStmt WS THEN (lineSep lineHead | blockSep ifBlockBody?)
    ;
 
-// Prefer a trailing label to a bare call whose colon would otherwise end the body (#223).
+// Prefer a head on the next line, `Skip: Else` or `30 End If`, to a bare call whose colon would otherwise end the body
+// (#223). A head follows a real line break only, as in `block`: after a colon VB6 reads `Skip` as a call (#2529).
+// Factor the shared body so prediction does not scan to End If at every nesting level (#3210).
 ifBlockBody
-   : block lineLabel WS?
-   | block blockSep
+   : block (lineSep lineHead | blockSep)
    ;
 
 ifConditionStmt
@@ -448,11 +500,11 @@ ifConditionStmt
    ;
 
 ifElseIfBlockStmt
-   : ELSEIF WS ifConditionStmt WS THEN blockSep ifBlockBody?
+   : ELSEIF WS ifConditionStmt WS THEN (lineSep lineHead | blockSep ifBlockBody?)
    ;
 
 ifElseBlockStmt
-   : ELSE blockSep ifBlockBody?
+   : ELSE (lineSep lineHead | blockSep ifBlockBody?)
    ;
 
 implementsStmt
@@ -480,7 +532,7 @@ loadStmt
    ;
 
 lockStmt
-   : LOCK WS valueStmt (WS? COMMA WS? valueStmt (WS TO WS valueStmt)?)?
+   : LOCK WS number=valueStmt (WS? COMMA WS? (start=valueStmt (WS TO WS end=valueStmt)? | TO WS end=valueStmt))?
    ;
 
 lsetStmt
@@ -633,8 +685,10 @@ selectCaseStmt
    : SELECT WS? CASE WS valueStmt blockSep sC_Case* WS? END_SELECT
    ;
 
+// A head on the line of the next Case, or of End Select, belongs to the Case before it. None may stand before the first
+// Case: vb6.exe refuses one, "Statements and labels invalid between Select Case and first Case" (measured, #2529).
 sC_Case
-   : CASE WS sC_Cond WS? (COLON? NEWLINE* | blockSep) (block blockSep)?
+   : CASE WS sC_Cond WS? (lineSep lineHead | (COLON? NEWLINE* | blockSep) (block lineSep lineHead | block blockSep)?)
    ;
 
 // ELSE first, so that it is not interpreted as a variable call
@@ -691,7 +745,7 @@ unloadStmt
    ;
 
 unlockStmt
-   : UNLOCK WS valueStmt (WS? COMMA WS? valueStmt (WS TO WS valueStmt)?)?
+   : UNLOCK WS number=valueStmt (WS? COMMA WS? (start=valueStmt (WS TO WS end=valueStmt)? | TO WS end=valueStmt))?
    ;
 
 // operator precedence is represented by rule order
@@ -740,7 +794,7 @@ variableSubStmt
    ;
 
 whileWendStmt
-   : WHILE WS valueStmt blockSep (block blockSep)? WEND
+   : WHILE WS valueStmt (lineSep lineHead | blockSep (block lineSep lineHead | block blockSep)?) WEND
    ;
 
 widthStmt
@@ -748,7 +802,7 @@ widthStmt
    ;
 
 withStmt
-   : WITH WS (NEW WS)? implicitCallStmt_InStmt blockSep (block blockSep)? END_WITH
+   : WITH WS (NEW WS)? implicitCallStmt_InStmt (lineSep lineHead | blockSep (block lineSep lineHead | block blockSep)?) END_WITH
    ;
 
 writeStmt
@@ -968,6 +1022,12 @@ labelName
 // statement.
 lineNumber
    : INTEGERLITERAL
+   ;
+
+// File metadata keeps signed numeric values without giving expression literals a leading sign.
+signedLiteral
+   : literal
+   | (PLUS | MINUS) (INTEGERLITERAL | DOUBLELITERAL | OCTALLITERAL)
    ;
 
 literal
@@ -2310,13 +2370,14 @@ HEXLITERAL
 // it (measured, #1611). A .frx offset such as `:0D2C` is unaffected: FRX_OFFSET takes its colon too, so it is the
 // longer match there. A literal may end in its point, `5.` or `5.E1`, as vb6.exe compiles it (measured, #1615); `5..5`
 // is then two literals side by side, which the parser refuses, as vb6.exe does.
+// Leading signs are operators (#1073); exponent signs remain part of the literal.
 INTEGERLITERAL
-   : (PLUS | MINUS)? ('0' .. '9') + (('e' | 'E' | 'd' | 'D') INTEGERLITERAL)* (HASH | AMPERSAND | EXCLAMATIONMARK | AT | PERCENT)?
+   : ('0' .. '9') + (('e' | 'E' | 'd' | 'D') (PLUS | MINUS)? INTEGERLITERAL)* (HASH | AMPERSAND | EXCLAMATIONMARK | AT | PERCENT)?
    ;
 
 
 DOUBLELITERAL
-   : (PLUS | MINUS)? (('0' .. '9') + DOT ('0' .. '9')* | DOT ('0' .. '9') +) (('e' | 'E' | 'd' | 'D') (PLUS | MINUS)? ('0' .. '9') +)* (HASH | AMPERSAND | EXCLAMATIONMARK | AT | PERCENT)?
+   : (('0' .. '9') + DOT ('0' .. '9')* | DOT ('0' .. '9') +) (('e' | 'E' | 'd' | 'D') (PLUS | MINUS)? ('0' .. '9') +)* (HASH | AMPERSAND | EXCLAMATIONMARK | AT | PERCENT)?
    ;
 
 
@@ -2325,7 +2386,7 @@ FILENUMBER
    ;
 
 OCTALLITERAL
-   : (PLUS | MINUS)? '&O' [0-7] + (AMPERSAND | PERCENT)?
+   : '&O' [0-7] + (AMPERSAND | PERCENT)?
    ;
 
 // misc
@@ -2384,10 +2445,12 @@ IDENTIFIER
 
 // A continuation between word fragments must separate names rather than concatenate them (#224).
 // Other continuations retain their existing handling, including KWSEP inside multi-word keywords.
+// Both checks sit at the RIGHT edge. ANTLR evaluates a predicate at a lexer rule's left edge at the start of
+// every token, and caches no DFA edge it computed through one, so the first check, once written there, made the
+// whole lexer about 350 times slower (#2676).
 IDENTIFIER_CONTINUATION
-   : {char.IsLetterOrDigit((char)InputStream.LA(-1)) || InputStream.LA(-1) == '_'}?
-     [ \t]+ '_' [ \t]* ('\r'? '\n' | '\r') [ \t]*
-     {char.IsLetterOrDigit((char)InputStream.LA(1))}? -> type(WS)
+   : [ \t]+ '_' [ \t]* ('\r'? '\n' | '\r') [ \t]*
+     {WordEndsBeforeToken() && char.IsLetterOrDigit((char)InputStream.LA(1))}? -> type(WS)
    ;
 
 // A whitespace RUN before the underscore, and any whitespace after it. This used to demand exactly one

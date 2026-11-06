@@ -29,8 +29,8 @@ public sealed class ToolbarComponentClass : InBoxComponentClass
         Property("Appearance"), Property("AllowCustomize"), Property("BorderStyle"), Property("ButtonHeight"),
         Property("ButtonWidth"), Property("Enabled"), Property("ShowTips"), Property("Style"), Property("TextAlignment"),
         Property("Wrappable"), Property("HelpContextID"), Property("HelpFile"), Property("MousePointer"), Property("OLEDropMode"),
-        Property("Buttons"), Property("Controls", false), Property("ImageList", false),
-        Property("DisabledImageList", false), Property("HotImageList", false), Property("MouseIcon", false), Property("hWnd", false),
+        Property("Buttons"), Property("Controls", false), Property("ImageList"),
+        Property("DisabledImageList"), Property("HotImageList"), Property("MouseIcon", false), Property("hWnd", false),
         new("Refresh", MemberKind.Method, MemberOrigin.Version6, false, false),
         new("Customize", MemberKind.Method, MemberOrigin.Version6, false, false),
         new("SaveToolbar", MemberKind.Method, MemberOrigin.Version6, false, false),
@@ -74,8 +74,10 @@ public sealed class ToolbarComponentClass : InBoxComponentClass
                 case "helpcontextid": case "mousepointer": case "oledropmode":
                     toolbar.TrySetProperty(name, new Vb6Value((long)ToolbarItems.FileInteger(value))); break;
                 case "helpfile": toolbar.TrySetProperty(name, new Vb6Value(value is string text ? text : throw ToolbarItems.Unmeasured())); break;
-                // The name is retained in the carried block; images remain undrawn until #1083.
-                case "imagelist": break;
+                // Resolve the saved name after every form control has been created (#2334).
+                case "imagelist":
+                    toolbar.SavedImageListName = value is string listName ? listName : throw ToolbarItems.Unmeasured();
+                    break;
                 // Saved sizes are HIMETRIC, not runtime assignments. Contents determine runtime geometry.
                 case "buttonwidth": case "buttonheight": break;
                 default: VBToolbar.RefusePending(name); break;
