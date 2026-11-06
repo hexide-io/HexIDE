@@ -33,6 +33,17 @@ public class LanguageServersToolViewModelTests : IAsyncDisposable
         GC.SuppressFinalize(this);
     }
 
+    [Fact]
+    public async Task ServerOutputReceivedBeforeOpeningSurvivesProtocolClear()
+    {
+        _capture.Output.Append("probe", "stderr", "startup");
+        await _capture.ClearAsync("probe");
+        var (vm, _) = Sut(Conn("probe", "vb6"));
+        vm.Groups.Single().Rows.Single().OutputText.Should().Contain("startup");
+        var (reopened, _) = Sut(Conn("probe", "vb6"));
+        reopened.Groups.Single().Rows.Single().OutputText.Should().Contain("startup");
+    }
+
     private const string FullCapabilities =
         """{"textDocumentSync":{"openClose":true,"change":1},"hoverProvider":true}""";
 
@@ -61,6 +72,33 @@ public class LanguageServersToolViewModelTests : IAsyncDisposable
         registry.Connections.Returns(connections);
         registry.ConfigurationProblems.Returns([]);
         return (new LanguageServersToolViewModel(registry, Loc(), _capture, _events, _pseudonyms), registry);
+    }
+
+    [AvaloniaFact]
+    public void StageElapsedUnitFollowsLiveLanguageSwitch()
+    {
+        var localization = new LocalizationService();
+        localization.Apply("en");
+        var connection = Conn("bundled", "vb6") with
+        {
+            Attempt = new LanguageConnectionAttempt(LanguageConnectionStage.Initialized,
+                [new LanguageConnectionStep(LanguageConnectionStage.Initialized,
+                    LanguageConnectionStepOutcome.Reached, TimeSpan.FromMilliseconds(600), null)],
+                DateTimeOffset.UtcNow),
+        };
+        var registry = Substitute.For<ILanguageConnectionRegistry>();
+        registry.Connections.Returns([connection]);
+        registry.ConfigurationProblems.Returns([]);
+        var vm = new LanguageServersToolViewModel(registry, localization, _capture, _events, _pseudonyms);
+        var row = vm.Groups.Single().Rows.Single();
+        var changed = new List<string?>();
+        row.PropertyChanged += (_, e) => changed.Add(e.PropertyName);
+        row.Chain.Single().Elapsed.Should().Be("600 ms");
+
+        localization.Apply("bg");
+
+        changed.Should().Contain(nameof(row.Chain));
+        row.Chain.Single().Elapsed.Should().Be("600 мс");
     }
 
     [Fact]

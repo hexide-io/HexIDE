@@ -72,10 +72,20 @@ subset — and the developer discovers which parts by finding out what stopped w
 - **THEN** its carried Toolbar blocks retain `ToolTips`, BorderStyle after `_Version`, HIMETRIC ButtonWidth/ButtonHeight,
   twips placeholder widths and nested ButtonMenus verbatim, and its ImageList companion retains every byte
 - **AND** the separate runtime loader reads designed top-level Toolbar button/menu bags under their measured names,
-  retaining numeric image indexes without ImageList binding; designer editing/rewriting of these bags remains unsupported
+  retaining numeric image indexes and binding the saved ImageList name after all controls are created, including a list
+  appearing later in the file; designer editing/rewriting of these bags remains unsupported
 - **AND** carried Toolbars SHALL remain view-only, excluded from the Properties component list, including their own
   scalar properties and Buttons, until those edits can be saved faithfully; editing a surrounding form property
   SHALL survive save and reload without changing the carried Toolbar blocks or companion bytes
+
+#### Scenario: Runtime-only MonthView loading (#1095 A)
+- **WHEN** a form contains a top-level, non-array `MSComCtl2.MonthView` block
+- **THEN** its runtime SHALL create a MonthView with CurrentDate, date bounds and measured scalar settings loaded,
+  interpreting StartOfWeek by its low word and exposing Value as its default member
+- **AND** the designer SHALL retain the block verbatim and view-only, including the StartOfWeek high word,
+  until its file-writing slice can save edits faithfully
+- **AND** unsupported own members and saved properties SHALL refuse explicitly rather than supply invented values
+- **AND** input, events, drawing, nested and arrayed instances remain pending subsequent slices
 
 #### Scenario: A section left by another tool
 - **WHEN** a project file ends in a section belonging to some other tool
@@ -736,16 +746,20 @@ SHALL leave those control copies unchanged (measured for #2062; see
 - **WHEN** Form1's font name becomes Tahoma
 - **THEN** both controls still read Arial
 
-## Out of Scope
-- **Interpreting preserved binary content.** Binary resources the IDE has no model for stay opaque; they are
-  carried, never read.
-- **Reproducing the original product's omissions.** The original product omits properties left at their
-  default; the IDE writes what it holds. The result is semantically equal and slightly larger, but only where
-  the IDE's default for a property is the original product's. Where it is not, a line the IDE leaves out
-  reads back as something else: `StartUpPosition` was the measured case, a missing line meaning 0 to the
-  original product and 3 to the IDE (#932), which is why the IDE's default is now 0.
-- **Preserving the original layout of modelled form/control properties.** These properties are written in the
-  IDE's own order and spacing. This does not include recognised `.vbp` lines, whose read order is retained.
+### Requirement: Interpreter archive replacement consent
+
+Interpreter Make SHALL ask before replacing an existing derived `.dll` project archive, naming that
+file. Only Yes SHALL authorize replacement. Declining or dismissing the question SHALL leave both the
+archive and executable untouched. The archive SHALL be staged and flushed through `AtomicFileWriter`.
+
+#### Scenario: Decline replacement of a derived archive
+- **WHEN** the executable picker selects a path whose derived `.dll` already exists
+- **AND** the developer declines or dismisses the archive replacement question
+- **THEN** Make is cancelled without replacing either output
+
+#### Scenario: Agree to replace a derived archive
+- **WHEN** the developer answers Yes to the question naming the existing derived archive
+- **THEN** Make replaces the archive with a readable package of the current project
 
 ### Requirement: Made programs SHALL carry source text independently of the host code page
 
@@ -793,6 +807,42 @@ project saves SHALL continue to include carried files; Make SHALL leave source m
 - **WHEN** Make packages a project with a carried file, whether added or read as RelatedDoc, Module or Class
 - **THEN** the archive contains neither the carried file nor its project item line
 - **AND** the other project lines retain their relative order and the source project retains the carried file
+
+### Requirement: ListView saves preserve read-only own properties
+
+The serializer SHALL carry a loaded MSComctlLib ListView's own property runs and flat column blocks,
+including repeated OLEDragMode/OLEDropMode lines and binary citations, while writing editable extender
+properties from the designer model. A resize SHALL recompute extents from whole pixels. Own properties
+and columns without an edit writer SHALL remain unavailable for designer editing. ImageList bindings
+SHALL be preserved; saved Icons, SmallIcons and ColHdrIcons names SHALL resolve after runtime controls
+are created, with column ImageIndex selectors validated against ColumnHeaderIcons. Unmeasured bindings
+SHALL refuse rather than silently omit images.
+
+#### Scenario: Saving a designed ListView without edits
+- **WHEN** either saved ListView corpus form is loaded and saved without edits
+- **THEN** its form text and companion bytes are unchanged
+
+#### Scenario: Resizing a ListView with bound column images
+- **WHEN** the designer resizes a loaded ListView and changes its Tag
+- **THEN** its geometry, Tag and extents reflect the edits
+- **AND** its column blocks, image binding strings and companion records survive unchanged
+
+#### Scenario: Previewing bindings that the runtime cannot resolve
+- **WHEN** a loaded ListView is displayed in the designer
+- **THEN** the preview shows its name and optional checkbox without resolving ImageList bindings
+- **AND** report headers are not displayed
+
+### Requirement: Loaded ListViews use measured client edges
+
+A loaded MSComctlLib ListView SHALL use a client inset of 2 pixels for Appearance 1 plus 1 pixel
+for BorderStyle 1, including when the BorderStyle line is omitted and loads as 0. Drawing, hit testing
+and MouseDown/MouseMove/MouseUp coordinates SHALL use that same inset. These four combinations are
+measured in [#2730](https://github.com/hexide-io/HexIDE/issues/2730) (oracle PR #2732).
+
+#### Scenario: Running the saved ListView forms
+- **WHEN** either saved ListView corpus form runs without changing its saved properties
+- **THEN** its ListViews load, including Appearance 1 with omitted BorderStyle
+- **AND** its saved ImageList bindings resolve and the form can unload normally
 
 ### Requirement: PropertyPage saves distinguish HelpContextID from StandardSize
 A PropertyPage designer SHALL expose HelpContextID as an editable integer property and save its value
@@ -874,3 +924,78 @@ SHALL emit lowercase hexadecimal without padding, as measured in VB6 SP6 (#2273)
 - **WHEN** references with LCIDs `0`, `9`, `409`, `c0a` and `C09` are read
 - **THEN** their model values are 0, 9, 1033, 3082 and 3081
 - **AND** saving writes `0`, `9`, `409`, `c0a` and `c09`, respectively
+
+### Requirement: Flushed replacement of saved files
+
+Project source, companion, project and group file saves, carried-document saves,
+Make archives and runners, resource and protocol exports (including automation), and project sidecars,
+SHALL write a unique sibling temporary file and flush its bytes to disk before closing it
+and replacing the target. The writer SHALL attempt temporary-file cleanup on failure
+and propagate the original write error. This is a per-file operation, not an atomic
+transaction across related files.
+
+#### Scenario: A staged write fails
+- **GIVEN** an existing saved file
+- **WHEN** writing its replacement fails before the rename
+- **THEN** the existing target bytes remain unchanged
+- **AND** cleanup of the temporary file is attempted
+
+#### Scenario: Publishing a standalone runner on Unix
+
+- **WHEN** Make replaces its runner executable on Unix
+- **THEN** the staged runner receives the source runner's Unix permissions before replacement
+- **AND** a copy failure leaves the old executable unchanged
+
+### Requirement: ActiveX EXE saves add Retained at the measured location
+
+When saving `Type=OleExe` without a `Retained=` line, the writer SHALL insert `Retained=0`
+between adjacent `Unattended=0` and `ThreadPerObject=0` lines (#2459). It SHALL preserve an
+existing Retained line and SHALL leave other project types, missing neighbours and other orders
+unchanged because their insertion behaviour has not been measured.
+
+#### Scenario: The ActiveX Document Exe template lacks Retained
+
+- **WHEN** an ActiveX EXE with no Retained line and adjacent Unattended=0 and ThreadPerObject=0 lines is saved
+- **THEN** Retained=0 is inserted between those lines
+- **AND** the remaining lines retain their order
+
+### Requirement: New-project scratch files require user-chosen destinations
+
+Save Project As and Save Project on a project still in its recorded scratch directory SHALL ask for
+scratch members' destinations in member order, then the project's destination. The project file SHALL
+be written last and name each member at its chosen path. Scratch files SHALL NOT count as user-saved.
+All destinations SHALL be collected before any write or path change; cancelling any picker SHALL
+cancel the whole save without writing files or marking edits saved. This follows the save workflow
+recorded in [#2678](https://github.com/hexide-io/HexIDE/issues/2678).
+
+Internal automation persistence SHALL write an existing scratch member to its scratch path without a
+file picker. This SHALL NOT give it a user-saved status. Explicit Save and Save As commands and save
+prompts SHALL still treat scratch members as needing a user-chosen destination. Automation's picker
+guard SHALL agree with its persistence path: only a pathless member needs an armed picker answer.
+
+#### Scenario: Save a new scratch project beside its first form
+
+- **WHEN** a new scratch project's form and project destinations are chosen in one folder
+- **THEN** the form picker precedes the project picker, both files are written there, and the project
+  names the form as `Form1.frm` without a path back into the scratch directory
+
+#### Scenario: Cancel a scratch member's destination
+
+- **WHEN** any scratch member's save picker is cancelled
+- **THEN** no file is written, all original paths remain, and unsaved edits remain unsaved
+
+#### Scenario: Persist an automation edit to a scratch member
+
+- **WHEN** automation persists a form or module with an existing scratch path
+- **THEN** the edit is written to that path without a picker, and the member remains user-unsaved
+
+## Out of Scope
+- **Interpreting preserved binary content.** Binary resources the IDE has no model for stay opaque; they are
+  carried, never read.
+- **Reproducing the original product's omissions.** The original product omits properties left at their
+  default; the IDE writes what it holds. The result is semantically equal and slightly larger, but only where
+  the IDE's default for a property is the original product's. Where it is not, a line the IDE leaves out
+  reads back as something else: `StartUpPosition` was the measured case, a missing line meaning 0 to the
+  original product and 3 to the IDE (#932), which is why the IDE's default is now 0.
+- **Preserving the original layout of modelled form/control properties.** These properties are written in the
+  IDE's own order and spacing. This does not include recognised `.vbp` lines, whose read order is retained.

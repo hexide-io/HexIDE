@@ -34,6 +34,8 @@ public partial class NewProjectViewModel : ObservableObject, IDialog
     /// </summary>
     public string? ResultFilePath { get; private set; }
 
+    public bool HasNoTemplates => Templates.Count == 0;
+
     public ObservableCollection<ProjectTemplateViewModel> Templates { get; } = new();
     public ObservableCollection<RecentProjectEntryViewModel> RecentProjects { get; } = new();
     public FileBrowserViewModel FileBrowser { get; } = new();
@@ -43,7 +45,7 @@ public partial class NewProjectViewModel : ObservableObject, IDialog
     public DelegateCommand OkRecent { get; }
     public DelegateCommand Cancel { get; }
 
-    public NewProjectViewModel(IWindowManager windowManager, IRecentProjectsService recentProjectsService, ISettingsService settingsService, IPersonalityService personalityService, ILocalizationService localization, AddinProjectTemplateService? addinProjectTemplateService = null)
+    public NewProjectViewModel(IWindowManager windowManager, IRecentProjectsService recentProjectsService, ISettingsService settingsService, IProfileService profileService, ILocalizationService localization, AddinProjectTemplateService? addinProjectTemplateService = null)
     {
         _recentProjectsService = recentProjectsService;
         _settingsService = settingsService;
@@ -93,7 +95,7 @@ public partial class NewProjectViewModel : ObservableObject, IDialog
         Cancel = new DelegateCommand(() => CloseRequested?.Invoke(false), () => true);
 
         // Populate templates
-        Templates.AddRange(personalityService.AvailableProjectTypes.Select(template => new ProjectTemplateViewModel(template)));
+        Templates.AddRange(profileService.AvailableProjectTypes.Select(template => new ProjectTemplateViewModel(template)));
         if (addinProjectTemplateService is not null)
             Templates.AddRange(addinProjectTemplateService.Templates.Select(template => new ProjectTemplateViewModel(template)));
         SelectedTemplate = Templates.FirstOrDefault();

@@ -130,7 +130,14 @@ public class PropertyBox : TemplatedControl
         }
         else
         {
-            panel.Children.Add(GenericTemplate?.Build(null)!);
+            var editor = GenericTemplate?.Build(null)!;
+            if (editor is TextBox textBox && PropertiesToolViewModel.IsPicture(PropertyClass))
+            {
+                // Picture rows display bytes; committing that text on focus loss is not a picture edit (#922).
+                textBox.IsReadOnly = true;
+                textBox.Bind(TextBox.TextProperty, new Binding(nameof(Object)) { Source = this, Mode = BindingMode.OneWay });
+            }
+            panel.Children.Add(editor);
         }
     }
 }

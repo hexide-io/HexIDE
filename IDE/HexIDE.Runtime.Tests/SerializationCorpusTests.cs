@@ -117,14 +117,8 @@ public class SerializationCorpusTests
 
     private static string? FindUpwards(string folderName)
     {
-        var dir = new DirectoryInfo(AppContext.BaseDirectory);
-        while (dir is not null)
-        {
-            var candidate = Path.Join(dir.FullName, folderName);
-            if (Directory.Exists(candidate)) return candidate;
-            dir = dir.Parent;
-        }
-        return null;
+        var candidate = Path.Join(RepoTree.Root(), folderName);
+        return Directory.Exists(candidate) ? candidate : null;
     }
 
     private static IReadOnlyList<string> CorpusFiles(params string[] extensions)
@@ -796,6 +790,17 @@ public class SerializationCorpusTests
     private static string TemplateRoot() => Environment.GetEnvironmentVariable("VB6_TEMPLATES")
         ?? @"C:\Program Files (x86)\Microsoft Visual Studio\VB98\Template";
 
+    // #2459: the measured ActiveX EXE template save adds only this line. Keep the
+    // expectation separate from the writer, so the corpus still detects any other change.
+    private static string ExpectedProjectSave(string source)
+    {
+        if (!Regex.IsMatch(source, @"(?m)^Type=OleExe\r?$")
+            || Regex.IsMatch(source, @"(?mi)^Retained="))
+            return source;
+        return source.Replace("Unattended=0\r\nThreadPerObject=0\r\n",
+            "Unattended=0\r\nRetained=0\r\nThreadPerObject=0\r\n");
+    }
+
     [Fact]
     public void Project_files_round_trip_byte_for_byte()
     {
@@ -821,7 +826,7 @@ public class SerializationCorpusTests
             try
             {
                 var rendered = RoundTripProject(original, path);
-                var diff = Differences(ReferenceIdentities(original, path),
+                var diff = Differences(ReferenceIdentities(ExpectedProjectSave(original), path),
                     ReferenceIdentities(rendered, path));
                 if (diff is null) { report.AppendLine($"OK        {label}"); continue; }
                 failures.Add(path);

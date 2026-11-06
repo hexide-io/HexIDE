@@ -32,11 +32,37 @@ public class SetIdeLanguageSavesTests
                 .Returns(call => call.Arg<string>() == active ? Task.FromResult(true) : Gate.Task);
             context = new IdeContext(Substitute.For<IProjectManager>(), Substitute.For<IDocumentDockService>(),
                 Substitute.For<ILspClient>(), null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!,
-                LanguageSwitch, null!, null!, null!, Settings);
+                LanguageSwitch, null!, null!, TestLocalization(), Settings);
             Tools = new HexIdeTools(context);
         }
 
+        private static ILocalizationService TestLocalization()
+        {
+            var loc = Substitute.For<ILocalizationService>();
+            loc.GetString("Str.RevertGate.SessionOnly").Returns("Ce changement de langue ne dure que cette session.");
+            return loc;
+        }
+
         public void Dispose() => context.Dispose();
+    }
+
+    [AvaloniaTheory]
+    [InlineData("en")]
+    [InlineData("fr")]
+    public async Task Recovery_reply_describes_session_only_language_in_English(string active)
+    {
+        var previous = Static.IsRecoveryMode;
+        Static.IsRecoveryMode = true;
+        try
+        {
+            using var scene = new Scene(active);
+            var result = await scene.Tools.SetIdeLanguageAsync("fr", CancellationToken.None);
+            result.Note.Should().Contain("This language change lasts only this session.")
+                .And.NotContain("later starts");
+            scene.Gate.SetResult(false);
+            Dispatcher.UIThread.RunJobs();
+        }
+        finally { Static.IsRecoveryMode = previous; }
     }
 
     [AvaloniaFact]

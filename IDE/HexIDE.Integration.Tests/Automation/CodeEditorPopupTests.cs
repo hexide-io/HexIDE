@@ -11,6 +11,7 @@ using Nerdbank.Streams;
 using StreamJsonRpc;
 using System.Threading;
 using Avalonia.Controls;
+using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
 using Avalonia.LogicalTree;
@@ -278,6 +279,188 @@ public class CodeEditorPopupTests : IDisposable
         selected.Success.Should().BeTrue(selected.Error);
         CodeEditorView.OpenPopupsOf(editor).OfType<CompletionWindow>().Single().CompletionList.SelectedItem
             .Should().BeOfType<VbCompletionData>().Which.Text.Should().Be("Mid");
+    }
+
+    // VB6 SP6 key measurements: #3056, issuecomment-6633933454.
+    [AvaloniaTheory]
+    [InlineData("Debug.Pr", 8, Key.Return, "Debug.Print\n")]
+    [InlineData("Debug.Print", 11, Key.Return, "Debug.Print\n")]
+    [InlineData("Debug.Pr", 8, Key.Tab, "Debug.Print")]
+    [InlineData("Debug.Pr", 8, Key.Space, "Debug.Print ")]
+    [InlineData("Debug.Pr", 8, Key.Escape, "Debug.Pr")]
+    [InlineData("Debug.", 6, Key.Return, "Debug.\n")]
+    [InlineData("Debug.", 6, Key.Space, "Debug. ")]
+    [InlineData("Debug.", 6, Key.Tab, "Debug.Assert")]
+    [InlineData("Debug.Przz", 8, Key.Return, "Debug.Pr\nzz")]
+    [InlineData("Debug.Przz", 8, Key.Space, "Debug.Pr zz")]
+    [InlineData("Debug.Przz", 8, Key.Tab, "Debug.Assert")]
+    [InlineData("zet", 3, Key.Return, "zeta1\n")]
+    [InlineData("zet", 3, Key.Tab, "zeta1")]
+    [InlineData("zet", 3, Key.Space, "zeta1 ")]
+    [InlineData("zetzz", 3, Key.Return, "zet\nzz")]
+    public void Completion_keys_follow_the_measured_selection(string source, int caret, Key key, string expected)
+    {
+        lsp.RequestCompletionAsync(Arg.Any<string>(), Arg.Any<Position>(), Arg.Any<CancellationToken>()).Returns(
+            source.StartsWith("Debug.", StringComparison.Ordinal)
+                ? [new CompletionItem("Assert", CompletionItemKind.Method), new CompletionItem("Print", CompletionItemKind.Method)]
+                : [new CompletionItem("zeta1", CompletionItemKind.Variable), new CompletionItem("zeta2", CompletionItemKind.Variable),
+                    new CompletionItem("zebra", CompletionItemKind.Variable)]);
+        var (window, view, editor) = Show();
+        editor.Text = source;
+        editor.CaretOffset = caret;
+        if (source.StartsWith("zet", StringComparison.Ordinal))
+        {
+            var gesture = ApplicationCommands.CompleteWordCommand.Gestures.Single();
+            UiAutomationDriver.PressKey(editor, gesture.Key.ToString(), gesture.KeyModifiers.ToString()).Success.Should().BeTrue();
+        }
+        else
+            view.TriggerCompletion();
+        Pump();
+        CodeEditorView.OpenPopupsOf(editor).Should().ContainSingle();
+
+        window.KeyPress(key, RawInputModifiers.None, PhysicalKey.None, null);
+        if (key == Key.Space) window.KeyTextInput(" ");
+        window.KeyRelease(key, RawInputModifiers.None, PhysicalKey.None, null);
+        Pump();
+
+        editor.Text.ReplaceLineEndings("\n").Should().Be(expected);
+        CodeEditorView.OpenPopupsOf(editor).Should().BeEmpty();
+    }
+
+    [AvaloniaFact]
+    public void Typing_after_a_bare_dot_selects_the_matching_item()
+    {
+        lsp.RequestCompletionAsync(Arg.Any<string>(), Arg.Any<Position>(), Arg.Any<CancellationToken>()).Returns(
+            [new CompletionItem("Assert", CompletionItemKind.Method), new CompletionItem("Print", CompletionItemKind.Method)]);
+        var (window, view, editor) = Show();
+        editor.Text = "Debug.";
+        editor.CaretOffset = 6;
+        view.TriggerCompletion();
+        Pump();
+        window.KeyTextInput("Pr");
+        window.KeyPress(Key.Space, RawInputModifiers.None, PhysicalKey.Space, null);
+        window.KeyTextInput(" ");
+        window.KeyRelease(Key.Space, RawInputModifiers.None, PhysicalKey.Space, null);
+        Pump();
+        editor.Text.Should().Be("Debug.Print ");
+        CodeEditorView.OpenPopupsOf(editor).Should().BeEmpty();
+    }
+
+    [AvaloniaFact]
+    public void First_down_highlights_the_outlined_item()
+    {
+        lsp.RequestCompletionAsync(Arg.Any<string>(), Arg.Any<Position>(), Arg.Any<CancellationToken>()).Returns(
+            [new CompletionItem("Assert", CompletionItemKind.Method), new CompletionItem("Print", CompletionItemKind.Method)]);
+        var (window, view, editor) = Show();
+        editor.Text = "Debug.";
+        editor.CaretOffset = editor.Text.Length;
+        view.TriggerCompletion();
+        Pump();
+        var list = CodeEditorView.OpenPopupsOf(editor).OfType<CompletionWindow>().Single().CompletionList;
+        list.SelectedItem.Should().BeNull();
+        window.KeyPress(Key.Down, RawInputModifiers.None, PhysicalKey.ArrowDown, null);
+        window.KeyRelease(Key.Down, RawInputModifiers.None, PhysicalKey.ArrowDown, null);
+        list.SelectedItem.Should().Be(list.CompletionData[0]);
+        window.KeyPress(Key.Return, RawInputModifiers.None, PhysicalKey.Enter, null);
+        window.KeyRelease(Key.Return, RawInputModifiers.None, PhysicalKey.Enter, null);
+        Pump();
+        editor.Text.ReplaceLineEndings("\n").Should().Be("Debug.Assert\n");
+    }
+
+    [AvaloniaFact]
+    public void Complete_word_with_a_unique_prefix_inserts_without_a_list()
+    {
+        var (_, _, editor) = Show();
+        editor.Text = "Msg";
+        editor.CaretOffset = 3;
+        var gesture = ApplicationCommands.CompleteWordCommand.Gestures.Single();
+        UiAutomationDriver.PressKey(editor, gesture.Key.ToString(), gesture.KeyModifiers.ToString()).Success.Should().BeTrue();
+        Pump();
+        editor.Text.Should().Be("MsgBox");
+        editor.CaretOffset.Should().Be(6);
+        CodeEditorView.OpenPopupsOf(editor).Should().BeEmpty();
+    }
+
+    [AvaloniaTheory]
+    [InlineData(Key.Return)]
+    [InlineData(Key.Tab)]
+    public void Acceptance_keys_accept_a_snippet_choice_without_a_line_break(Key key)
+    {
+        var (window, editor) = AcceptSnippet("${1|one,two|} $1$0");
+        var picker = CodeEditorView.OpenPopupsOf(editor).OfType<CompletionWindow>().Single();
+        picker.CompletionList.SelectedItem = picker.CompletionList.CompletionData[1];
+        window.KeyPress(key, RawInputModifiers.None, PhysicalKey.None, null);
+        window.KeyRelease(key, RawInputModifiers.None, PhysicalKey.None, null);
+        Pump();
+        editor.Text.ReplaceLineEndings("\n").Should().Contain("    two two\n");
+        CodeEditorView.OpenPopupsOf(editor).Should().BeEmpty();
+        editor.TextArea.StackedInputHandlers.Should().NotBeEmpty();
+    }
+
+    private (Window Window, TextEditor Editor) AcceptSnippet(string snippet)
+    {
+        lsp.RequestCompletionAsync(Arg.Any<string>(), Arg.Any<Position>(), Arg.Any<CancellationToken>()).Returns(
+            [new CompletionItem("zsnip", CompletionItemKind.Text, InsertTextFormat: 2,
+                TextEdit: new TextEdit(new HexIDE.Lsp.Messages.Range(new Position(4, 4), new Position(4, 5)), snippet))]);
+        var (window, view, editor) = Show();
+        view.TriggerCompletion();
+        Pump();
+        var completion = CodeEditorView.OpenPopupsOf(editor).OfType<CompletionWindow>().Single();
+        completion.CompletionList.SelectedItem = completion.CompletionList.CompletionData[0];
+        window.KeyPress(Key.Tab, RawInputModifiers.None, PhysicalKey.Tab, null);
+        window.KeyRelease(Key.Tab, RawInputModifiers.None, PhysicalKey.Tab, null);
+        Pump();
+        return (window, editor);
+    }
+
+    [AvaloniaFact]
+    public void Snippet_choice_picker_opens_under_its_editor_and_choosing_updates_linked_occurrences()
+    {
+        var (window, editor) = AcceptSnippet("${1|one,two|} $1$0");
+        var picker = CodeEditorView.OpenPopupsOf(editor).Should().ContainSingle().Subject
+            .Should().BeOfType<CompletionWindow>().Subject;
+        picker.CompletionList.CompletionData.Select(item => item.Text).Should().Equal("one", "two");
+        var tree = UiAutomationDriver.Dump(window, "Window", 60, interactiveOnly: false);
+        var editorPath = UiAutomationDriver.Find(tree, "TextEditor", 50).Matches.Single().Path;
+        var two = UiAutomationDriver.Find(tree, "two", 50).Matches.Should().ContainSingle(n =>
+            n.Path.StartsWith(editorPath + "/", StringComparison.Ordinal) && n.Path.EndsWith("/ListItem[two]", StringComparison.Ordinal)).Subject;
+        var (item, error) = UiAutomationDriver.Resolve(window, two.Path);
+        item.Should().NotBeNull(error);
+        UiAutomationDriver.Interact(item!, "double_click", null).Success.Should().BeTrue();
+        editor.Document.Text.ReplaceLineEndings("\n").Should().Contain("    two two\n");
+        CodeEditorView.OpenPopupsOf(editor).Should().BeEmpty();
+        window.KeyPress(Key.Tab, RawInputModifiers.None, PhysicalKey.Tab, null);
+        window.KeyRelease(Key.Tab, RawInputModifiers.None, PhysicalKey.Tab, null);
+        editor.CaretOffset.Should().Be(editor.Document.Text.IndexOf("two two", StringComparison.Ordinal) + 7);
+    }
+
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Tab_after_typing_advances_a_snippet_once_the_completion_list_is_closed(bool closeList)
+    {
+        var (window, editor) = AcceptSnippet("${1:one} $1$0");
+        lsp.RequestCompletionAsync(Arg.Any<string>(), Arg.Any<Position>(), Arg.Any<CancellationToken>()).Returns(
+            [new CompletionItem("accepted", CompletionItemKind.Text)]);
+        window.KeyTextInput("two");
+        Pump();
+        editor.Document.Text.ReplaceLineEndings("\n").Should().Contain("    two two\n");
+        var list = CodeEditorView.OpenPopupsOf(editor).OfType<CompletionWindow>().Should().ContainSingle().Subject;
+        list.CompletionList.SelectedItem = list.CompletionList.CompletionData[0];
+        if (closeList) list.Close();
+        window.KeyPress(Key.Tab, RawInputModifiers.None, PhysicalKey.Tab, null);
+        window.KeyRelease(Key.Tab, RawInputModifiers.None, PhysicalKey.Tab, null);
+        Pump();
+        if (closeList)
+        {
+            editor.CaretOffset.Should().Be(editor.Document.Text.IndexOf("two two", StringComparison.Ordinal) + 7);
+            editor.TextArea.StackedInputHandlers.Should().BeEmpty();
+        }
+        else
+        {
+            editor.Document.Text.Should().Contain("accepted", "Tab accepts the selected completion while its list is open");
+            editor.TextArea.StackedInputHandlers.Should().NotBeEmpty();
+        }
     }
 
     [AvaloniaTheory]

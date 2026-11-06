@@ -76,7 +76,17 @@ public sealed record LanguageServerRegistration(
     /// was not written are shown (#2073).
     /// </summary>
     bool WorkspaceArtifactRefused = false,
-    ProjectImportSpec? ProjectImport = null)
+    ProjectImportSpec? ProjectImport = null,
+    /// <summary>
+    /// What runs before the server's process starts, every time it starts, and fails the start if it throws: an add-in's
+    /// gate (#457). Null for an entry of the configuration file, which has nothing to run.
+    /// </summary>
+    Func<CancellationToken, Task>? BeforeLaunch = null,
+    /// <summary>
+    /// Who contributed this server, for the Language Servers window: an add-in's title. Null for the configuration file
+    /// and the bundled server.
+    /// </summary>
+    string? Origin = null)
 {
     /// <summary>
     /// The priority the entries HexIDE contributes itself are given — deliberately below the value an

@@ -35,9 +35,9 @@ static HashSet<string> Keys(string file)
     return set;
 }
 
-// A "full translation" is a neutral pack (no region subtag), incl. the two Chinese script neutrals.
+// A "full translation" is a neutral pack (no region subtag), including Chinese and Serbian script neutrals.
 // Region packs are either empty (inherit their neutral) or thin variants (e.g. en-GB overrides only).
-static bool IsNeutral(string id) => !id.Contains('-') || id is "zh-Hans" or "zh-Hant";
+static bool IsNeutral(string id) => !id.Contains('-') || id is "zh-Hans" or "zh-Hant" or "sr-Latn";
 
 var packsDir = FindPacksDir();
 var canonical = Keys(Path.Combine(packsDir, "en.json"));

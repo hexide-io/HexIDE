@@ -53,12 +53,12 @@ ids matching directory names. Explicit paths SHALL select exactly that directory
 ### Requirement: Bundle validation precedes application
 The IDE MUST validate a selected bundle before applying any of it. Unknown schema versions, invalid
 manifest members, unsupported surface/template ids, missing or malformed payloads and file references
-escaping the bundle root SHALL refuse startup with an attributed localized diagnostic. Explicit
+escaping the bundle root or using links inside the bundle SHALL refuse startup with an attributed localized diagnostic. Explicit
 selection failure SHALL NOT silently fall back. Existing payload-level validation and warning rules
 SHALL remain in force. Bundle files SHALL remain read-only.
 
-#### Scenario: A reference escapes through a symlink
-- **WHEN** a referenced payload resolves outside the bundle directory
+#### Scenario: A reference uses a symlink
+- **WHEN** a referenced payload or its ancestor inside the bundle is a symbolic link
 - **THEN** startup is refused before any profile surfaces are applied
 
 #### Scenario: An installed profile is broken

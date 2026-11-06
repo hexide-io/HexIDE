@@ -1,7 +1,8 @@
 # DEVELOPMENT trust chain — DO NOT use for release
 
 This folder holds a **development-only** signing chain used to package and verify the
-first-party bundled add-ins (AI Chat, TestAddin) during local builds and tests.
+first-party bundled add-ins (AI Chat, TestAddin) during local builds. Package tests generate their own
+ephemeral chains rather than trusting these records.
 
 ```
 root.key            root PRIVATE key (dev)         — signs the intermediate record
@@ -15,12 +16,8 @@ hexide-root.pub     root PUBLIC key — a copy is embedded in HexIDE at IDE/HexI
 The HexIDE app embeds `hexide-root.pub` as its baked-in root of trust and verifies every
 package against it (see `HexIDE.Addins.PackageVerifier`).
 
-## Before any public release
+## Release tooling
 
-1. Generate a **real** root keypair on an offline machine: `HexIDE.AddinPacker genkeys <dir>`.
-2. Keep `root.key` (and ideally `intermediate.key`) **offline** — never commit them.
-3. Replace `IDE/HexIDE/Addins/Trust/hexide-root.pub` with the real root public key.
-4. Re-issue the marketplace intermediate + first-party publisher records under the real root.
-
-These dev private keys are worthless against a real build: a release bakes in a *different*
-root whose private key is offline, so anything signed with this dev chain fails to verify there.
+`genkeys <dir>` produces development identities only. For explicit release identities, separate
+private-key outputs, and the complete root rotation file checklist, see the
+[packer README](../README.md). The public records in this folder remain the development chain until that rotation.

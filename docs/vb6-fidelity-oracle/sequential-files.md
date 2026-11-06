@@ -179,3 +179,70 @@ probe used a fresh file, and `As 3` was taken.
 - **Still a parse failure:** a line holding two `#` file numbers. That is the date-literal token, and it has an issue
   of its own.
 
+### `Print #` items with nothing between them, and a sign after `Spc` or `Tab` (2026-11-06, #3248)
+
+**The probes.** The forms are rdcore's. Each project held one statement under test, after `On Error Resume Next`, with:
+- `ff` a file open For Output;
+- `F` a `Function F(n)` returning `n * 10`;
+- `x` holding `"x"`.
+
+Each was built with `/make` as native code and as p-code, and **the two agreed on every form**. Every exe that built ran
+with `Err.Number` 0, and its file was read back as hex. Every line it wrote ended `CR LF`. The `Debug.Print` rows were
+checked for compile acceptance only, since a built exe drops `Debug.Print`.
+
+**A sign or an operator straight after a `Spc` or `Tab` clause:**
+
+| Statement | vb6.exe |
+|---|---|
+| `Print #ff, Spc(2) - 1`, and `Spc(2)-1` | `[  -1 ]` |
+| `Print #ff, Tab - 1`, and `Tab-1` | 14 spaces, then `-1 `: `-1` starts at column 15 |
+| `Print #ff, Tab(2) + 1` | `[  1 ]` |
+| `Print #ff, Spc(2) & "x"`, and `Spc(2)&"x"` | **Syntax error** |
+| `Print #ff, Tab(2) & "x"`, and `Tab & "x"` | **Syntax error** |
+| `Print #ff, Tab(2) = 5`, `Spc(2) = 5` and `Tab = 5` | **Syntax error** |
+| `Print #ff, x; Tab(2) = 5` | **Syntax error** |
+| `Debug.Print Tab(2) & "x"` | **Syntax error** |
+| control: `Print #ff, Spc(2); "x"` | `[  x]` |
+| control: `Print #ff, Tab(2); "x"` | `[ x]` |
+
+**Items with nothing between them:**
+
+| Statement | vb6.exe |
+|---|---|
+| `Print #ff, 1(2)`, and `1 (2)` | `[ 1  2 ]` |
+| `Print #ff, 1(2)(3)` | `[ 1  2  3 ]` |
+| `Print #ff, "a"x` | `[ax]` |
+| `Print #ff, Spc(1)Tab(4)"b"` | `[   b]`: `b` at column 4 |
+| `Write #ff, 1 2` | `[1,2]` |
+| `Print #ff, F (2)`, and `F(2)` | `[ 20 ]` |
+| `Debug.Print 1(2)` | builds |
+
+What these add:
+- **An item needs no separator before it.** With nothing between two items, `Print #` prints them as `;` would, and
+  `Write #` writes its comma between them, as it does for `;`.
+- **A name followed by a parenthesised expression is still a call,** with or without the space. A number followed by
+  one is two items.
+- **A `Spc` or `Tab` clause ends at its closing parenthesis, or at the word itself for a bare `Tab`.** Whatever
+  follows starts the next item.
+  - So the `-` in `Spc(2) - 1` is a sign, not a subtraction.
+  - `&` and `=` can't start an item, so either one there is a Syntax error. That holds with no spaces, and after an
+    earlier item and `;`.
+- **A bare `Tab` before an item moves to the next zone,** as `"a"; Tab; "b"` showed above. Here it went from column 1
+  to column 15.
+
+**Overturned.** The obvious readings are that `Spc(2) - 1` subtracts, and that two items with nothing between them
+are a syntax error. HexIDE's grammars make both readings, and vb6.exe makes neither.
+
+**Not measured:**
+- how the VB6 IDE relists these lines, and whether `/run` agrees: only `/make` was run;
+- other binary operators straight after a clause, such as `*`, `Mod` or `Like`;
+- a form's or a PictureBox's `Print` method.
+
+**In HexIDE,** at main ed0ad0387. #3248 has the table, form by form.
+- **Items with nothing between them:** the interpreter refuses each program at load. The language server reports a
+  syntax error.
+- **A sign after a clause:** the interpreter stops when the line runs, with "Sub or Function not defined" for
+  `Spc(n)` and `Tab(n)`, and a not-implemented exception for a bare `Tab`. The server reports nothing, which is right
+  for these.
+- **`&` or `=` after a clause:** the server reports nothing where vb6.exe gives a Syntax error. The interpreter fails
+  only when the line runs, with the same errors as for a sign.

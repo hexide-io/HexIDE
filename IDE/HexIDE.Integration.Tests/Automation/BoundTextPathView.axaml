@@ -1,0 +1,32 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:local="using:HexIDE.Integration.Tests.Automation"
+             x:Class="HexIDE.Integration.Tests.Automation.BoundTextPathView"
+             x:DataType="local:TextPathVm">
+    <UserControl.Resources>
+        <x:String x:Key="TransportLabel">Transport</x:String>
+        <x:String x:Key="StaticLabel">Static</x:String>
+    </UserControl.Resources>
+    <StackPanel>
+        <TextBlock Text="{CompiledBinding Caption}" />
+        <TextBlock Text="Literal" />
+        <TextBlock Text="{DynamicResource TransportLabel}" />
+        <TextBlock Text="{StaticResource StaticLabel}" />
+        <SelectableTextBlock Text="{CompiledBinding Caption, StringFormat='selected {0}'}" />
+        <TextBlock Text="{Binding Caption, StringFormat='bound {0}'}" />
+        <TextBlock>
+            <TextBlock.Text>
+                <MultiBinding StringFormat="multi {0}">
+                    <Binding Path="Caption" />
+                </MultiBinding>
+            </TextBlock.Text>
+        </TextBlock>
+        <ContentControl Content="Template">
+            <ContentControl.Template>
+                <ControlTemplate>
+                    <TextBlock Text="{TemplateBinding Content}" />
+                </ControlTemplate>
+            </ContentControl.Template>
+        </ContentControl>
+    </StackPanel>
+</UserControl>

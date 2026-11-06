@@ -109,7 +109,7 @@
         </ScrollViewer>
 
         <!-- Input row -->
-        <Grid Grid.Row="1" ColumnDefinitions="*,Auto,Auto" Margin="4">
+        <Grid Name="InputRow" Grid.Row="1" ColumnDefinitions="*,Auto,Auto" Margin="4">
             <TextBox Grid.Column="0"
                      Text="{Binding InputText}"
                      PlaceholderText="Ask about your VB6 code…"

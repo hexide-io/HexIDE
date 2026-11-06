@@ -20,7 +20,7 @@ public class ToolbarDrawingTests
         var window = new Window { Content = bar };
         window.Show();
         window.UpdateLayout();
-        var panel = bar.GetVisualDescendants().OfType<StackPanel>().First();
+        var panel = bar.GetVisualDescendants().OfType<Canvas>().First();
         panel.Children.Should().HaveCount(6);
         panel.Children[0].Should().BeOfType<Button>();
         panel.Children[1].Should().BeOfType<ToggleButton>();

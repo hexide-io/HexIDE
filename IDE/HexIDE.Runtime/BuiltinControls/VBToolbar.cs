@@ -1,6 +1,7 @@
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
+using Avalonia.Controls.Documents;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Layout;
@@ -14,12 +15,12 @@ using HexIDE.Runtime.Interpreter;
 
 namespace HexIDE.Runtime.BuiltinControls;
 
-// Measured in #1088, issuecomment-6428845889; visual sizing uses the host theme.
+// Measured in #1088 and #2373; captions use the host font and visuals use the host theme.
 public sealed class VBToolbar : UserControl, ICSharpPropertyBag
 {
     protected override Type StyleKeyOverride => typeof(UserControl);
 
-    private readonly StackPanel strip = new() { Orientation = Orientation.Horizontal };
+    private readonly Canvas strip = new();
 
     public VBToolbar()
     {
@@ -107,8 +108,14 @@ public sealed class VBToolbar : UserControl, ICSharpPropertyBag
         RefreshButtons();
     }
 
+    internal void InvalidateImages()
+    {
+        foreach (var image in strip.GetVisualDescendants().OfType<ToolbarImage>()) image.InvalidateVisual();
+    }
+
     internal void RefreshButtons()
     {
+        UpdateButtonSize();
         strip.Children.Clear();
         targets.Clear();
         foreach (var item in Buttons.Items)
@@ -119,21 +126,26 @@ public sealed class VBToolbar : UserControl, ICSharpPropertyBag
             item.TryGetProperty("Value", out var value);
             item.TryGetProperty("Enabled", out var enabled);
             item.TryGetProperty("ToolTipText", out var tip);
+            var displayCaption = DisplayCaption((string)caption.Value!);
+            object captionContent = displayCaption.Contains('&')
+                ? new AccessText { Text = displayCaption.Replace("_", "__").Replace("&", "_"), ShowAccessKey = true }
+                : displayCaption;
+            ToolbarImage? disabledImage = null;
             Control visual;
             switch (Convert.ToInt64(kind.Value))
             {
                 case 3:
-                    visual = new Border { Width = 1, Background = Brushes.Gray, Margin = new Thickness(4, 0), VerticalAlignment = VerticalAlignment.Stretch };
+                    visual = new Border { Child = new Border { Width = 1, Background = Brushes.Gray, HorizontalAlignment = HorizontalAlignment.Center } };
                     break;
                 case 4:
                     visual = new Border { Width = Math.Max(0, item.LayoutWidth / 15) };
                     break;
                 case 1: case 2:
-                    visual = new ToggleButton { Content = caption.Value, IsChecked = Convert.ToInt64(value.Value) == 1 };
+                    visual = new ToggleButton { Content = captionContent, IsChecked = Convert.ToInt64(value.Value) == 1 };
                     break;
                 case 5:
                     var face = new StackPanel { Orientation = Orientation.Horizontal };
-                    face.Children.Add(new TextBlock { Text = (string)caption.Value! });
+                    face.Children.Add(captionContent as Control ?? new TextBlock { Text = displayCaption });
                     var arrow = new TextBlock { Text = "▾" };
                     face.Children.Add(arrow);
                     targets[arrow] = (item, true);
@@ -143,47 +155,189 @@ public sealed class VBToolbar : UserControl, ICSharpPropertyBag
                     break;
                 default:
                     visual = Convert.ToInt64(value.Value) == 1
-                        ? new ToggleButton { Content = caption.Value, IsChecked = true }
-                        : new Button { Content = caption.Value };
+                        ? new ToggleButton { Content = captionContent, IsChecked = true }
+                        : new Button { Content = captionContent };
                     break;
+            }
+            if (ImageList is not null && visual is Button imageButton)
+            {
+                var captionVisual = imageButton.Content as Control ?? new TextBlock { Text = displayCaption };
+                // Released before the face takes it: replacing the content afterwards would leave the caption in the
+                // face with no logical parent, which Avalonia refuses once the bar is in a shown form.
+                imageButton.Content = null;
+                var face = new Canvas();
+                face.SetValue(TextElement.FontFamilyProperty, FontFamily);
+                face.SetValue(TextElement.FontSizeProperty, FontSize);
+                var image = new ToolbarImage(this, item, imageButton);
+                face.Children.Add(image);
+                face.Children.Add(captionVisual);
+                image.Width = imageButton.Width = Math.Max(0, item.LayoutWidth / 15);
+                image.Height = ButtonHeight / 15;
+                face.Width = image.Width;
+                face.Height = image.Height;
+                captionVisual.Measure(Size.Infinity);
+                Canvas.SetLeft(captionVisual, TextBelow ? (face.Width - captionVisual.DesiredSize.Width) / 2 : face.Width - captionVisual.DesiredSize.Width - 4);
+                Canvas.SetTop(captionVisual, TextBelow ? ImageList.ImageHeight + 7 : (face.Height - captionVisual.DesiredSize.Height) / 2);
+                if (!(bool)enabled.Value! && image.SelectedPicture() is not null)
+                {
+                    // Keep the caption under the disabled theme; its image must not inherit Button opacity.
+                    face.Children.Remove(image);
+                    image.IsHitTestVisible = false;
+                    disabledImage = image;
+                }
+                imageButton.Content = face;
+                imageButton.PointerEntered += (_, _) => image.InvalidateVisual();
+                imageButton.PointerExited += (_, _) => image.InvalidateVisual();
+            }
+            visual.Width = Math.Max(0, item.LayoutWidth / 15);
+            visual.Height = ButtonHeight / 15;
+            Canvas.SetLeft(visual, Buttons.Left(item) / 15);
+            Canvas.SetTop(visual, Buttons.Top(item) / 15);
+            if (visual is Button button)
+            {
+                button.Padding = new Thickness(0);
+                button.MinWidth = 0;
+                button.MinHeight = 0;
             }
             visual.IsEnabled = (bool)enabled.Value!;
             if (style == 1) visual.Classes.Add("flat");
             if (showTips && (string)tip.Value! != "") ToolTip.SetTip(visual, tip.Value);
             targets[visual] = (item, false);
             strip.Children.Add(visual);
+            if (disabledImage is not null)
+            {
+                Canvas.SetLeft(disabledImage, Buttons.Left(item) / 15);
+                Canvas.SetTop(disabledImage, Buttons.Top(item) / 15);
+                strip.Children.Add(disabledImage);
+            }
         }
+        if (HasHadButtons)
+        {
+            strip.Height = LayoutHeight / 15;
+            Height = strip.Height;
+        }
+    }
+
+    protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
+    {
+        base.OnPropertyChanged(change);
+        if (change.Property == WidthProperty || change.Property == FontFamilyProperty || change.Property == FontSizeProperty)
+            RefreshButtons();
     }
 
     private long appearance = 1, borderStyle, style, textAlignment, helpContextId, mousePointer, oleDropMode;
     private bool allowCustomize = true, showTips = true, wrappable = true;
     private string helpFile = "";
+    internal VBImageList? ImageList;
+    internal VBImageList? HotImageList, DisabledImageList;
+    internal string? SavedImageListName;
     private ToolbarItems? buttons;
+
+    internal Vb6Value ValidateImage(Vb6Value image)
+    {
+        if (image.Type == Vb6Value.ValueType.Integer || image.Type == Vb6Value.ValueType.Long)
+        {
+            var index = ToolbarItems.Number(image);
+            if (index == 0) return new Vb6Value(0);
+            if (index < 0) throw ToolbarItems.Unmeasured();
+            if (ImageList is null) throw ToolbarItems.Error(35613);
+            if (index > ImageList.Images.Count) throw ToolbarItems.Error(35600);
+            return new Vb6Value((int)index);
+        }
+        if (image.Type != Vb6Value.ValueType.String || ((string)image.Value!).Length == 0)
+            throw ToolbarItems.Unmeasured();
+        if (ImageList is null) throw ToolbarItems.Error(35613);
+        _ = ImageList.Images.Item(image);
+        return image;
+    }
+
+    private void BindImages(Vb6Value value)
+    {
+        if (value.Type == Vb6Value.ValueType.String) throw new VBRunTimeException(VBStandardError.TypeMismatch);
+        if (value.Value is not null && value.Value is not VBImageList)
+        {
+            if (value.Value is VBPictureBox) throw ToolbarItems.Error(35610);
+            throw ToolbarItems.Unmeasured();
+        }
+        if (value.Value is null && value.Type != Vb6Value.ValueType.Object) throw ToolbarItems.Unmeasured();
+        var images = value.Value as VBImageList;
+        if (images is not null && images.Images.Count == 0) throw ToolbarItems.Error(35613);
+        ValidateImageGeometry(images, TextBelow);
+        var resetImages = ImageList is not null || images is null;
+        ImageList = images;
+        if (resetImages)
+            foreach (var item in Buttons.Items) item.Image = new Vb6Value(0);
+        if (images is not null) images.BoundToolbars.Add(new WeakReference<VBToolbar>(this));
+    }
     public ToolbarItems Buttons => buttons ??= new(this);
     internal bool HasHadButtons;
     internal int LoadedAlign = 1;
 
+    internal bool Flat => style == 1;
     internal bool TextBelow => textAlignment == 0;
-    internal float ButtonWidth
+    private float buttonWidth = 345.2604f, buttonHeight = 569.7643f;
+    internal float ButtonWidth => buttonWidth;
+    internal float ButtonHeight => buttonHeight;
+    internal bool Wrappable => wrappable;
+    internal float DropdownWidth => style == 1 ? 225 : 195.0237f;
+    internal float ButtonTop => style == 1 ? 0 : 30;
+    internal float LayoutHeight => Buttons.Items.Count == 0 ? lastHeight : Buttons.RowHeight + (style == 1 ? 0 : 60);
+    private float lastHeight = 660;
+
+    internal static string DisplayCaption(string caption) => caption.Replace("\t", "").Replace("\r", "").Replace("\n", "");
+
+    // #2373, issuecomment-6445245253: one-line system-font extent, counting '&'.
+    internal static double CaptionWidth(string caption, double extent, bool textBelow) =>
+        Math.Max(textBelow ? 23 : 43, Math.Ceiling(extent) +
+            caption.Count(c => c is '\t' or '\n') * 8 + caption.Count(c => c == '\r') + (textBelow ? 7 : 27));
+
+    private double CaptionExtent(string caption)
     {
-        get
-        {
-            if (!HasHadButtons) return 345.2604f;
-            // Alpha is the measured caption; no general caption-sizing rule was measured.
-            if (TextBelow && Buttons.Items.Any(i => i.IsMeasuredCaption) && Buttons.Items.All(i => i.HasMeasuredWidth))
-                return 510.2362f;
-            throw ToolbarItems.Unmeasured();
-        }
+        var typeface = new Typeface(FontFamily, FontStyle, FontWeight, FontStretch);
+        if (OperatingSystem.IsWindows())
+            return ToolbarCaptionMetrics.Measure(DisplayCaption(caption), typeface, FontSize);
+        return PortableCaptionExtent(DisplayCaption(caption), typeface, FontSize);
     }
-    internal float ButtonHeight
+
+    internal static double PortableCaptionExtent(string caption, Typeface typeface, double size)
     {
-        get
+        var glyphs = typeface.GlyphTypeface;
+        var scale = size / glyphs.Metrics.DesignEmHeight;
+        double extent = 0;
+        // #2334: whole-pixel advances per glyph, without kerning or shaping; '&' counts.
+        foreach (var rune in DisplayCaption(caption).EnumerateRunes())
         {
-            if (!TextBelow) return 329.9528f;
-            if (!HasHadButtons) return 569.7643f;
-            _ = ButtonWidth;
-            return 540.2835f;
+            glyphs.TryGetHorizontalGlyphAdvance(glyphs.CharacterToGlyphMap.GetGlyph(rune.Value), out var advance);
+            extent += Math.Round(advance * scale);
         }
+        return extent;
+    }
+
+    // #2334 measured square 16/32 px images below, and 16 px images to the right.
+    private void ValidateImageGeometry(VBImageList? images, bool below)
+    {
+        if (images is null || Buttons.Items.Count == 0) return;
+        var captioned = Buttons.Items.Any(i => i.IsVisible && i.HasCaptionSpace && i.Caption.Length != 0);
+        if (images.ImageWidth != images.ImageHeight || images.ImageWidth is not (16 or 32) ||
+            images.ImageWidth == 32 && (!below || !captioned))
+            throw ToolbarItems.Unmeasured();
+    }
+
+    private void UpdateButtonSize()
+    {
+        var items = Buttons.Items.Where(i => i.IsVisible && i.HasCaptionSpace).ToArray();
+        if (Buttons.Items.Count == 0) return; // Clear retains the last dimensions.
+        double widest = 0;
+        foreach (var item in items)
+        {
+            widest = Math.Max(widest, CaptionWidth(item.Caption, CaptionExtent(item.Caption), TextBelow));
+        }
+        var imageWidth = ImageList?.ImageWidth ?? 16;
+        var imageHeight = ImageList?.ImageHeight ?? 16;
+        ValidateImageGeometry(ImageList, TextBelow);
+        buttonWidth = (float)(Math.Max(widest == 0 ? (TextBelow ? 23 : 43) : widest, imageWidth + 7) * 15);
+        buttonHeight = (imageHeight + (TextBelow && items.Any(i => i.Caption.Length != 0) ? 22 : 6)) * 15;
+        lastHeight = Buttons.RowHeight + (style == 1 ? 0 : 60);
     }
 
     public bool TryGetProperty(string name, out Vb6Value value)
@@ -191,6 +345,9 @@ public sealed class VBToolbar : UserControl, ICSharpPropertyBag
         value = name.ToLowerInvariant() switch
         {
             "buttons" => new(Buttons),
+            "imagelist" => ImageList is null ? Vb6Value.Nothing : new((Control)ImageList),
+            "hotimagelist" => HotImageList is null ? Vb6Value.Nothing : new((Control)HotImageList),
+            "disabledimagelist" => DisabledImageList is null ? Vb6Value.Nothing : new((Control)DisabledImageList),
             "appearance" => new(appearance),
             "borderstyle" => new(borderStyle),
             "style" => new(style),
@@ -201,7 +358,7 @@ public sealed class VBToolbar : UserControl, ICSharpPropertyBag
             "enabled" => new(IsEnabled),
             "buttonwidth" => new(ButtonWidth),
             "buttonheight" => new(ButtonHeight),
-            "height" => new(HasHadButtons ? 630f : 660f),
+            "height" => new(LayoutHeight),
             "align" => new(LoadedAlign),
             "helpcontextid" => new(helpContextId),
             "helpfile" => new(helpFile),
@@ -229,8 +386,23 @@ public sealed class VBToolbar : UserControl, ICSharpPropertyBag
         switch (name.ToLowerInvariant())
         {
             case "buttons": throw ToolbarItems.Error(383);
+            case "imagelist": BindImages(value); return true;
+            case "hotimagelist": case "disabledimagelist":
+                if (value.Value is not VBImageList alternate || alternate.Images.Count == 0 ||
+                    alternate.ImageWidth != 16 || alternate.ImageHeight != 16 ||
+                    ImageList is not { ImageWidth: 16, ImageHeight: 16 })
+                    throw ToolbarItems.Unmeasured();
+                if (name.Equals("hotimagelist", StringComparison.OrdinalIgnoreCase)) HotImageList = alternate;
+                else DisabledImageList = alternate;
+                alternate.BoundToolbars.Add(new WeakReference<VBToolbar>(this));
+                return true;
             case "style": style = Choice(value, 1); return true;
-            case "textalignment": textAlignment = Choice(value, 1); return true;
+            case "textalignment":
+                var alignment = Choice(value, 1);
+                ValidateImageGeometry(ImageList, alignment == 0);
+                textAlignment = alignment;
+                if (!HasHadButtons) buttonHeight = TextBelow ? 569.7643f : 329.9528f;
+                return true;
             case "appearance": appearance = MeasuredChoice(value, 1); return true;
             case "borderstyle": borderStyle = MeasuredChoice(value, 0, 1); return true;
             case "helpcontextid": helpContextId = Long(value); return true;

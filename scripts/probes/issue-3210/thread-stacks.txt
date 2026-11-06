@@ -1,0 +1,6 @@
+entry: managed=1, pool=False, bytes=8384512
+pool: managed=4, pool=True, bytes=8388608
+new Thread default: managed=7, pool=False, bytes=8388608
+new Thread 1 MiB: managed=8, pool=False, bytes=1048576
+new Thread 4 MiB: managed=9, pool=False, bytes=8388608
+new Thread 16 MiB: managed=10, pool=False, bytes=16777216

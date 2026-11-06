@@ -32,8 +32,8 @@ and would leave add-in authors depending on things that were never meant to be c
 - **THEN** the capability is added to the host surface rather than the add-in reaching past it
 
 ### Requirement: Contributions SHALL be removable by the contributor
-Registering a menu item, tool window, command, control, or project template SHALL return a handle that
-removes the contribution when disposed.
+Registering a menu item, tool window, command, control, project template, debug launch or project type
+(`contributed-projects`) SHALL return a handle that removes the contribution when disposed.
 
 Add-ins are loaded and unloaded, enabled and disabled, and may contribute conditionally. Without a removal
 handle the only way to withdraw a contribution is to restart the IDE, and every contribution point would
@@ -91,6 +91,31 @@ harmless disposable handle.
 #### Scenario: A control nested under a contributed class
 - **WHEN** a form nests a control under a class an add-in contributed
 - **THEN** the form opens read-only and the save is refused, with the reason given
+
+### Requirement: Add-ins SHALL be able to contribute a language server
+The host surface SHALL let an add-in contribute a language server registration, with a gate that runs before the
+server launches and a message channel of the add-in's own on the server's connection, as `lsp-client` specifies. The
+registration SHALL return a handle that stops the server and removes it when disposed, and SHALL be accepted after
+start-up, since an add-in whose first run waits for consent initialises after the window opens.
+
+An add-in exists to make a server one thing to install rather than an entry to write by hand (#457), and it cannot
+do that if the server it brings has to be written into the user's configuration behind their back. The capability
+design maps this member to `languageServer.contribute`; the member checks no declaration today, since that design's
+host checks are not built.
+
+#### Scenario: Contributing a server
+- **WHEN** an add-in registers a language server
+- **THEN** the server is launched, routed to and listed as a configured server is, under the add-in's name
+
+#### Scenario: A failed initialisation rolls the server back
+- **WHEN** an add-in's initialisation fails after it registered a language server
+- **THEN** the server is taken out with its other contributions
+
+#### Scenario: Trust changes during a session
+- **WHEN** an add-in is disabled or its consent is revoked
+- **THEN** its contributed language servers SHALL be unregistered immediately
+- **AND** a launch SHALL check the add-in is still enabled, consented and not revoked, before and after its own gate
+- **AND** a refused launch SHALL name the contributing add-in in the connection attempt
 
 ### Requirement: Add-ins SHALL be able to observe IDE lifecycle events
 The host surface SHALL raise events for project load and unload, file open and close, and run start and
@@ -238,3 +263,63 @@ column and keep closed tools closed. A new tool SHALL use the right column by de
 - **WHEN** the developer resets the window layout with add-in tools registered
 - **THEN** open add-in tools return to the default right column
 - **AND** closed add-in tools remain closed
+
+### Requirement: Contributed tools SHALL declare a measured usable width
+A contributed tool's content MAY implement `IToolWindowMinimumWidth` to measure the width at which its
+controls fit. On first display in a dock, the IDE SHALL grow that dock's column to the measured width,
+borrowing only space above the document column's minimum. This SHALL NOT impose a permanent resize
+minimum. A saved width and later user resizing SHALL be retained. Tools without a declaration SHALL
+keep their existing sizing.
+
+#### Scenario: AI Chat opens in the default left dock
+- **WHEN** AI Chat is first displayed in the narrow left dock
+- **THEN** the column grows to fit its measured prompt, Send and New row, subject to the document minimum
+- **AND** the Toolbox alone retains its narrow default
+
+#### Scenario: The developer narrows the dock afterwards
+- **WHEN** the developer resizes a dock after its initial usable width has been applied
+- **THEN** subsequent layout passes and showing that tool again retain the chosen width
+
+### Requirement: Schema 2 capability declaration validation and packing
+Schema 2 manifests SHALL contain a top-level `capabilities` array containing only unique,
+case-sensitive identifiers from `project.read`, `project.write`, `program.run`, `ui.contribute` and
+`languageServer.contribute`. Invalid or missing declarations SHALL be incompatible before trust
+verification, including in developer mode. The declaration SHALL be covered by the existing raw-byte
+manifest signature and hash. Schema 1 and older manifests SHALL retain compatibility without requiring
+this field. Host enforcement is tracked separately in #459's unarchived change.
+
+The packer SHALL emit schema 2 with an explicit array (empty when none are requested), sort identifiers
+ordinally, accept repeated `--capability` arguments, and validate before modifying its output directory.
+Bundled add-ins SHALL declare their own current host use.
+
+#### Scenario: Invalid declaration
+- **WHEN** a schema 2 manifest has no declaration, null, a non-array, a non-string entry, a duplicate or an unknown identifier
+- **THEN** verification returns Incompatible before trust checks
+
+#### Scenario: Packing without capabilities
+- **WHEN** a publisher packs an add-in without `--capability` arguments
+- **THEN** its signed manifest contains schema 2 and an empty capabilities array
+
+#### Scenario: Packing an invalid declaration
+- **WHEN** a publisher passes an unknown or duplicate capability
+- **THEN** packing fails before touching the output directory
+
+### Requirement: Verified declaration metadata preserves build provenance
+Successful package verification SHALL produce an immutable declaration snapshot containing the add-in
+id, publisher id, manifest hash, legacy state and declared capabilities. Registry metadata SHALL expose
+that snapshot before consent. Failed verification SHALL NOT produce a verified declaration snapshot.
+Legacy schemas SHALL be identified as lacking a declaration, even if a stray capabilities field exists;
+an explicit schema-2 empty list SHALL remain distinguishable from that absence. This metadata SHALL
+represent declarations, not capability grants or observed host use.
+
+#### Scenario: Inspecting a build before consent
+- **WHEN** a verified schema-2 package awaits consent
+- **THEN** registry metadata exposes its declaration and exact manifest hash without executing its code
+
+#### Scenario: Legacy declaration absence
+- **WHEN** a schema-0 or schema-1 package verifies successfully
+- **THEN** its snapshot identifies legacy absence and contains no declared capabilities
+
+#### Scenario: Verification fails
+- **WHEN** a package is untrusted or incompatible
+- **THEN** it has no verified declaration snapshot

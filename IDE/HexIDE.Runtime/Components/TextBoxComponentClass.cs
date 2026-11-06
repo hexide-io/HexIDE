@@ -10,6 +10,7 @@ public class TextBoxComponentClass : ComponentBaseClass
     public TextBoxComponentClass() : base([TextProperty, EnabledProperty,
         BackColorProperty, ForeColorProperty, FontProperty,
         TabStopProperty,
+        MousePointerProperty,
         TabIndexProperty,
         ToolTipTextProperty], [KeyDownEvent, KeyPressEvent, KeyUpEvent, ChangeEvent, ClickEvent, DblClickEvent, GotFocusEvent, LostFocusEvent, MouseDownEvent, MouseMoveEvent, MouseUpEvent])
     {
@@ -30,6 +31,7 @@ public class TextBoxComponentClass : ComponentBaseClass
         var box = new VBTextBox()
         {
             Text = instance.GetPropertyOrDefault(TextProperty),
+            VbBorderStyle = VBLoader.RawNumber(instance, "BorderStyle") ?? 1,
             // Loaded, so a form's colours are drawn and a program reads them back (#795). They were not modelled.
             [AttachedProperties.BackColorProperty] = instance.GetPropertyOrDefault(BackColorProperty),
             [AttachedProperties.ForeColorProperty] = instance.GetPropertyOrDefault(ForeColorProperty),

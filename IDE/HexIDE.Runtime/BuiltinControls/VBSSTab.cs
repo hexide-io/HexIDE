@@ -38,6 +38,8 @@ public sealed class VBSSTab : Decorator, IVBContainerControl
         AddHandler(PointerPressedEvent, HandlePress);
     }
 
+    internal int? DesignerTabAt(Avalonia.Point point) => strip.TabAt(point);
+
     private void HandlePress(object? sender, PointerPressedEventArgs e)
     {
         if (!AttachedEvents.OwnsThePointerEvent(this, e.Source))

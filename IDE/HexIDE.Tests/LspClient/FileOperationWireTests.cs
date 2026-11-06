@@ -151,17 +151,22 @@ public class FileOperationWireTests : IAsyncDisposable
     }
 
     [Theory]
-    [InlineData("Create", true)]
-    [InlineData("Rename", true)]
-    [InlineData("Delete", true)]
-    [InlineData("Create", false)]
-    [InlineData("Rename", false)]
-    [InlineData("Delete", false)]
-    public async Task RegistryFileOperationsHaveOneWorkspaceWriter(string operation, bool generatesArtifact)
+    [InlineData("Create", true, false)]
+    [InlineData("Create", true, true)]
+    [InlineData("Rename", true, false)]
+    [InlineData("Rename", true, true)]
+    [InlineData("Delete", true, false)]
+    [InlineData("Delete", true, true)]
+    [InlineData("Create", false, false)]
+    [InlineData("Rename", false, false)]
+    [InlineData("Delete", false, false)]
+    public async Task RegistryFileOperationsHaveOneWorkspaceWriter(string operation, bool declaresArtifact, bool importsProject)
     {
         var client = await ConnectAsync("{\"did" + operation + "\":{\"filters\":[{\"pattern\":{\"glob\":\"**/*.bas\"}}]}}", start: false);
         var registration = new LanguageServerRegistration("probe", "Probe", [".bas"], "vb6", () => client,
-            WorkspaceArtifact: generatesArtifact ? new("probe.rdproj", "rdcore") : null);
+            WorkspaceArtifact: declaresArtifact ? new("probe.rdproj", "rdcore") : null,
+            ProjectImport: importsProject ? new("probe.import", JsonSerializer.SerializeToElement(new[] { "{projectPath}" })) : null);
+        var generatesArtifact = declaresArtifact && !importsProject;
         await using var registry = new LspClientRegistry([registration], Substitute.For<ILogger<LspClientRegistry>>());
         var ct = TestContext.Current.CancellationToken;
         await registry.OpenDocumentAsync("file:///project/Old.bas", "", ct);

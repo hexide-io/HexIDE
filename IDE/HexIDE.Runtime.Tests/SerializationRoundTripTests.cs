@@ -373,6 +373,40 @@ public class SerializationRoundTripTests
     }
 
     [Theory]
+    [InlineData("\r\n")]
+    [InlineData("\n")]
+    public void OleExe_save_adds_missing_Retained_in_the_measured_place(string newline)
+    {
+        var source = "Type=OleExe\r\nName=\"TestProject\"\r\nUnattended=0\r\nThreadPerObject=0\r\nMaxNumberOfThreads=1\r\n";
+        var project = ProjectFromSerialized(new ProjectDeserializer().Deserialize(source.ReplaceLineEndings(newline), NullSink.Instance));
+        var expected = source.Replace("Unattended=0\r\n", "Unattended=0\r\nRetained=0\r\n");
+
+        var saved = new ProjectSerializer().Serialize(project, project.AbsolutePath!);
+
+        saved.Should().Be(expected);
+        var reloaded = ProjectFromSerialized(new ProjectDeserializer().Deserialize(saved, NullSink.Instance));
+        new ProjectSerializer().Serialize(reloaded, reloaded.AbsolutePath!).Should().Be(expected);
+    }
+
+    [Theory]
+    [InlineData("Exe", "Unattended=0\r\nThreadPerObject=0\r\n")]
+    [InlineData("OleDll", "Unattended=0\r\nThreadPerObject=0\r\n")]
+    [InlineData("Control", "Unattended=0\r\nThreadPerObject=0\r\n")]
+    [InlineData("OleExe", "Unattended=0\r\nRetained=1\r\nThreadPerObject=0\r\n")]
+    [InlineData("OleExe", "Retained=0\r\nUnattended=0\r\nThreadPerObject=0\r\n")]
+    [InlineData("OleExe", "ThreadPerObject=0\r\nUnattended=0\r\n")]
+    [InlineData("OleExe", "Unattended=0\r\n")]
+    [InlineData("OleExe", "ThreadPerObject=0\r\n")]
+    [InlineData("OleExe", "Unattended=0\r\nOther=0\r\nThreadPerObject=0\r\n")]
+    public void Retained_save_leaves_other_types_and_unmeasured_layouts_unchanged(string type, string settings)
+    {
+        var source = $"Type={type}\r\nName=\"TestProject\"\r\n{settings}";
+        var project = ProjectFromSerialized(new ProjectDeserializer().Deserialize(source, NullSink.Instance));
+
+        new ProjectSerializer().Serialize(project, project.AbsolutePath!).Should().Be(source);
+    }
+
+    [Theory]
     [InlineData("Form=Form1.frm\r\nObject=kept\r\nReference=*\\G{00020430-0000-0000-C000-000000000046}#2.0#0##OLE Automation\r\n", false)]
     [InlineData("Form=Form1.frm\r\nObject=between\r\nModule=Module1; Module1.bas\r\n", false)]
     [InlineData("Designer=Probe.dsr\r\nReference=*\\G{00020430-0000-0000-C000-000000000046}#2.0#0##OLE Automation\r\n", false)]

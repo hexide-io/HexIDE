@@ -12,8 +12,9 @@ namespace HexIDE.Addins;
 /// </summary>
 public sealed record AddinManifest
 {
-    public const int CurrentSchema = 1;
-    [JsonPropertyName("schema")]           public int Schema { get; init; } = CurrentSchema;
+    public const int CurrentSchema = 2;
+    // Omitted schema remains legacy; only the packer opts into the current format.
+    [JsonPropertyName("schema")]           public int Schema { get; init; } = 1;
     [JsonExtensionData] public Dictionary<string, JsonElement>? Unrecognized { get; set; }
     [JsonPropertyName("id")]               public string Id { get; init; } = "";
     [JsonPropertyName("title")]            public string Title { get; init; } = "";
@@ -23,6 +24,11 @@ public sealed record AddinManifest
     [JsonPropertyName("publisherId")]      public string PublisherId { get; init; } = "";
     /// <summary>The package-relative file name of the assembly that implements <c>IAddin</c>.</summary>
     [JsonPropertyName("entry")]            public string Entry { get; init; } = "";
+    /// <summary>Raw declaration retained so invalid JSON shapes fail compatibility even in developer mode.
+    /// Older schemas do not define capability declarations.</summary>
+    [JsonPropertyName("capabilities")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public JsonElement? Capabilities { get; init; }
     [JsonPropertyName("minHexideVersion")] public string? MinHexideVersion { get; init; }
     /// <summary>Optional package-relative path (forward-slash) of the publisher logo — a PNG that must
     /// also appear in <see cref="Files"/> (so it is hash-verified). Null = no logo. The verifier only
