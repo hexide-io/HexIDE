@@ -33,6 +33,10 @@ internal sealed class ProjectLspDocument : IDisposable
             if ((e.Module == identity.Module && e.Module is not null) || (e.Form == identity.Form && e.Form is not null))
                 SavedAsync().ListenErrors();
         }));
+        subscriptions.Add(events.Subscribe<ModuleMovedEvent>(e =>
+        {
+            if (e.Module == identity.Module) session.RenameAsync(DocumentWireName.For(identity)).ListenErrors();
+        }));
         subscriptions.Add(events.Subscribe<ModuleUnloadedEvent>(e => { if (e.Module == identity.Module) Dispose(); }));
         subscriptions.Add(events.Subscribe<FormUnloadedEvent>(e => { if (e.Form == identity.Form) Dispose(); }));
         subscriptions.Add(events.Subscribe<FileReloadedFromDiskEvent>(e =>

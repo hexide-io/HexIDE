@@ -399,6 +399,25 @@ public sealed class ProjectImportWireTests : IAsyncDisposable
     }
 
     [Fact]
+    public async Task A_saved_project_with_no_text_of_its_own_is_not_imported_and_is_no_problem()
+    {
+        await StartAsync();
+        // An add-in's project, beside a .vbp: only the .vbp is imported.
+        _workspace.Projects =
+        [
+            new(_root, new("Ledger", Path.Combine(_root, ".rdproj"), [], [])),
+            _workspace.Projects[0] with { ProjectText = _ => Task.FromResult("Name=\"Changed\"\r\n") },
+        ];
+        _workspace.Change();
+        // The projects are imported one at a time, in this order, over one stream: an import of the .rdproj, or its
+        // problem, would come before the .vbp's frame this waits for.
+        await UntilAsync(() => Frames("workspace/executeCommand").Length == 2);
+
+        Frames("workspace/executeCommand").Select(frame => frame.GetRawText()).Should().NotContain(text => text.Contains("rdproj"));
+        _registry!.ConfigurationProblems.Should().BeEmpty();
+    }
+
+    [Fact]
     public async Task AProjectWithoutASavedPathReportsAProblemWithoutInventingAnImportUri()
     {
         await StartAsync();

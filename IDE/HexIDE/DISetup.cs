@@ -119,7 +119,11 @@ public partial class DISetup
                 ctx.Inject<RunScope>(out var runScope);
                 ctx.Inject<ExternalDebugService>(out var externalDebugger);
                 ctx.Inject<HexIDE.Projects.ArchiveProjectService>(out var archives);
-                return new ProjectRunnerService(eventBus, windowManager, projectManager, localization, debugController, breakpointService, watchService, runScope, externalDebugger, archives);
+                ctx.Inject<HexIDE.Debugging.DebugLaunchService>(out var debugLaunches);
+                ctx.Inject<HexIDE.Debugging.IRunChoiceStore>(out var runChoices);
+                ctx.Inject<IStatusBarService>(out var statusBar);
+                return new ProjectRunnerService(eventBus, windowManager, projectManager, localization, debugController, breakpointService, watchService, runScope, externalDebugger, archives,
+                    debugLaunches, runChoices, statusBar);
             })
             .Bind().As(Singleton).To(ctx =>
             {
@@ -135,7 +139,9 @@ public partial class DISetup
                 ctx.Inject<IHeaderRefresher>(out var headerRefresher);
                 ctx.Inject<ArchiveProjectService>(out var archives);
                 ctx.Inject<Func<ILspClient>>(out var lspClient);
-                return new ProjectService(newProjectVm, windowManager, eventBus, projectManager, recentProjects, referenceLibraryService, sidecar, baselineStore, localization, headerRefresher, archives, lspClient);
+                ctx.Inject<HexIDE.Projects.ContributedProjects>(out var contributed);
+                return new ProjectService(newProjectVm, windowManager, eventBus, projectManager, recentProjects, referenceLibraryService, sidecar, baselineStore, localization, headerRefresher, archives, lspClient,
+                    contributed);
             })
             .Bind().As(Singleton).To<ArchiveProjectService>()
             .Bind<IFileBaselineStore>().As(Singleton).To<FileBaselineStore>()
@@ -165,8 +171,25 @@ public partial class DISetup
             .Bind<HexIDE.Debugging.IRunScope>().Bind().As(Singleton).To<HexIDE.Debugging.RunScope>()
             .Bind<HexIDE.Runtime.Debugging.IDebugController>().As(Singleton).To<HexIDE.Runtime.Debugging.DebugController>()
             .Bind().As(Singleton).To<HexIDE.Debugging.ExternalDebugService>()
+            .Bind<HexIDE.Debugging.IRunChoiceStore>().As(Singleton).To<HexIDE.Debugging.RunChoiceStore>()
+            // Bound, so the main view's optional parameter is given it rather than its default.
+            .Bind().As(Singleton).To<HexIDE.Forms.ViewModels.RunWithMenuViewModel>()
+            // The launches add-ins contribute for that session; F5 runs one only for a project whose user chose it.
+            .Bind().As(Singleton).To(ctx =>
+            {
+                ctx.Inject<HexIDE.Debugging.ExternalDebugService>(out var debugger);
+                ctx.Inject<ILoggerFactory>(out var loggerFactory);
+                return new HexIDE.Debugging.DebugLaunchService(debugger, loggerFactory.CreateLogger<HexIDE.Debugging.DebugLaunchService>());
+            })
             .Bind<ILanguageConnectionRegistry>().As(Singleton).To<HexIDE.Debugging.ExternalDebugConnectionRegistry>()
-            .Bind<IUserSidecarService>().As(Singleton).To<UserSidecarService>()
+            .Bind<IUserSidecarService>().As(Singleton).To(ctx =>
+            {
+                ctx.Inject<IBookmarkService>(out var bookmarks);
+                ctx.Inject<HexIDE.Debugging.IBreakpointService>(out var breakpoints);
+                ctx.Inject<IProjectManager>(out var projectManager);
+                ctx.Inject<HexIDE.Debugging.IRunChoiceStore>(out var runChoices);
+                return new UserSidecarService(bookmarks, breakpoints, projectManager, runChoices);
+            })
             .Bind<IFindReplaceService>().As(Singleton).To<FindReplaceService>()
             .Bind().As(Singleton).To(ctx =>
             {
@@ -344,6 +367,8 @@ public partial class DISetup
             .Bind().As(Singleton).To<LanguageServerMessageReporter>()
             .Bind().As(Singleton).To<AddinCommandService>()
             .Bind().As(Singleton).To<AddinProjectTemplateService>()
+            // The project types add-ins contribute, which Open Project and the recent list open as projects.
+            .Bind().As(Singleton).To<HexIDE.Projects.ContributedProjects>()
             .Bind().As(Singleton).To<AddinOptionsService>()
             .Bind<IPackageVerifier>().As(Singleton).To<PackageVerifier>()
             .Bind<IAddinRegistry, IAddinLoader>().As(Singleton).To(ctx =>
@@ -388,6 +413,7 @@ public partial class DISetup
             .Root<HexIDE.Debugging.IBreakpointService>("BreakpointService")
             .Root<HexIDE.Runtime.Debugging.IDebugController>("DebugController")
             .Root<HexIDE.Debugging.ExternalDebugService>("ExternalDebugger")
+            .Root<HexIDE.Debugging.IRunChoiceStore>("RunChoices")
             .Root<IWindowStateService>("WindowStateService")
             .Root<IAddinRegistry>("AddinRegistry")
             .Root<IAddinLoader>("AddinLoader")

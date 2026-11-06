@@ -1065,6 +1065,37 @@ public class CodeEditorViewModelTests : IDisposable
         await _lspClient.Received(1).SaveDocumentAsync("untitled:TestProject/Module1.bas", Arg.Any<CancellationToken>());
     }
 
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task AModuleWhoseFileMovedIsRenamedOnTheWireWhetherItsWindowIsOpenOrClosedWithEdits(bool closed)
+    {
+        var moved = new List<Action<ModuleMovedEvent>>();
+        _eventBus.Subscribe(Arg.Do<Action<ModuleMovedEvent>>(h => moved.Add(h))).Returns(Substitute.For<IDisposable>());
+        var folder = Path.Join(Path.GetTempPath(), "hexide-moved-" + Guid.NewGuid().ToString("N"));
+        var (from, to) = (Path.Join(folder, "Module1.bas"), Path.Join(folder, "src", "Module1.bas"));
+        var module = TestHelpers.CreateModule(name: "Module1");
+        module.AbsolutePath = from;
+        var vm = CreateSut().Initialize(module);
+        var before = vm.GetDocumentUriPublic();
+        if (closed)
+        {
+            // Its project then holds the edits on the language layer, under the name the window had.
+            _projectService.HasUnsavedChanges(module).Returns(true);
+            vm.Document.Insert(vm.Document.TextLength, "' kept");
+            vm.Dispose();
+        }
+        _lspClient.ClearReceivedCalls();
+
+        module.AbsolutePath = to;
+        foreach (var handler in moved.ToList()) handler(new ModuleMovedEvent(module));
+
+        await _lspClient.Received(1).CloseDocumentForRenameAsync(before, Arg.Any<CancellationToken>());
+        await _lspClient.Received(1).OpenDocumentAsync(LspDocumentUri.ForFile(to), Arg.Any<string>(), Arg.Any<bool>(),
+            Arg.Any<CancellationToken>());
+        if (closed) ProjectLspDocument.Reopened(_lspClient, vm.Identity); // release the test's project holder
+    }
+
     [AvaloniaFact]
     public async Task ASaveOfSomeOtherDocumentIsIgnored()
     {

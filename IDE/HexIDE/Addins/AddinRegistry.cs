@@ -31,7 +31,9 @@ internal sealed class AddinRegistry : IAddinRegistry, IAddinLoader
     private bool _disposed;
     private readonly object _serverTrustGate = new();
     private readonly HashSet<string> _revokedConsent = new(StringComparer.Ordinal);
-    private readonly Dictionary<string, List<IDisposable>> _languageServers = new(StringComparer.OrdinalIgnoreCase);
+    // What each add-in contributed that is taken out when it is disabled or its consent is revoked: its language servers,
+    // debug launches and project types.
+    private readonly Dictionary<string, List<IDisposable>> _contributions = new(StringComparer.OrdinalIgnoreCase);
     private readonly bool _recoveryMode = Static.IsRecoveryMode;
 
     private static readonly JsonSerializerOptions s_jsonOptions = new() { WriteIndented = true };
@@ -379,7 +381,7 @@ internal sealed class AddinRegistry : IAddinRegistry, IAddinLoader
 
             if (!enabled)
                 foreach (var addin in _contexts.Where(c => string.Equals(c.Info.AssemblyPath, norm, StringComparison.OrdinalIgnoreCase)))
-                    RemoveLanguageServers(addin.Info.Id);
+                    RemoveContributions(addin.Info.Id);
 
             SaveDisabledSet();
 
@@ -400,14 +402,20 @@ internal sealed class AddinRegistry : IAddinRegistry, IAddinLoader
             _revokedConsent.Add(manifestHash);
             _consent.Revoke(manifestHash);
             foreach (var addin in _contexts.Where(c => c.Info.ManifestHash == manifestHash))
-                RemoveLanguageServers(addin.Info.Id);
+                RemoveContributions(addin.Info.Id);
             var ctx = _contexts.FirstOrDefault(c => c.Info.ManifestHash == manifestHash);
             Log.Information("AddinRegistry: consent revoked for {Title} — re-prompts next launch",
                 ctx?.Info.Title ?? manifestHash);
         }
     }
 
-    internal void CheckLanguageServerLaunch(string id)
+    internal void CheckLanguageServerLaunch(string id) => CheckLaunch(id, "Str.Addins.ServerLaunchRefused");
+
+    internal void CheckDebugLaunch(string id) => CheckLaunch(id, "Str.Addins.DebugLaunchRefused");
+
+    // Whether an add-in may start what it contributed, now: it is enabled and consented to, and neither it nor its
+    // publisher is revoked. Throws the refusal, naming the add-in, otherwise.
+    private void CheckLaunch(string id, string refusal)
     {
         lock (_serverTrustGate)
         {
@@ -423,11 +431,13 @@ internal sealed class AddinRegistry : IAddinRegistry, IAddinLoader
                 return;
 
             var title = string.IsNullOrWhiteSpace(info.Title) ? info.Id : info.Title;
-            throw new InvalidOperationException(string.Format(_localization.GetString("Str.Addins.ServerLaunchRefused"), title));
+            throw new InvalidOperationException(string.Format(_localization.GetString(refusal), title));
         }
     }
 
-    internal void TrackLanguageServer(string id, IDisposable connection)
+    // Keeps what an add-in contributed, to take out when it is disabled or its consent is revoked; taken out at once when
+    // it is already.
+    internal void TrackContribution(string id, IDisposable contribution)
     {
         lock (_serverTrustGate)
         {
@@ -435,19 +445,19 @@ internal sealed class AddinRegistry : IAddinRegistry, IAddinLoader
             if (_disposed || ctx is not null && (_disabled.Contains(ctx.PackageDirectory)
                 || _revokedConsent.Contains(ctx.Info.ManifestHash)))
             {
-                connection.Dispose();
+                contribution.Dispose();
                 return;
             }
-            if (!_languageServers.TryGetValue(id, out var servers))
-                _languageServers[id] = servers = [];
-            servers.Add(connection);
+            if (!_contributions.TryGetValue(id, out var contributions))
+                _contributions[id] = contributions = [];
+            contributions.Add(contribution);
         }
     }
 
-    private void RemoveLanguageServers(string id)
+    private void RemoveContributions(string id)
     {
-        if (!_languageServers.Remove(id, out var servers)) return;
-        foreach (var server in servers) server.Dispose();
+        if (!_contributions.Remove(id, out var contributions)) return;
+        foreach (var contribution in contributions) contribution.Dispose();
     }
 
     // ── Metadata helpers ─────────────────────────────────────────

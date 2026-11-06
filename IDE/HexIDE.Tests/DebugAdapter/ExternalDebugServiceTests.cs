@@ -956,4 +956,95 @@ public class ExternalDebugServiceTests
         }
         finally { Directory.Delete(directory, true); }
     }
+
+    private static HexIDE.Addins.AddinLaunchConfiguration Contributed(string mode) => new()
+    {
+        Executable = Path.GetFullPath("../../../dotnet" + (OperatingSystem.IsWindows() ? ".exe" : ""), RuntimeEnvironment.GetRuntimeDirectory()),
+        Arguments = [typeof(Dap.TestAdapter.Program).Assembly.Location, mode],
+        AdapterId = "fixture",
+        Launch = JsonDocument.Parse("{}").RootElement,
+    };
+
+    [AvaloniaFact]
+    public async Task Ending_while_the_configuration_is_being_made_calls_the_making_off()
+    {
+        await using var log = new ConversationLog();
+        var service = new ExternalDebugService(log);
+        var making = new TaskCompletionSource<CancellationToken>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        var run = service.StartAsync(async token =>
+        {
+            making.TrySetResult(token);
+            await Task.Delay(Timeout.Infinite, token);
+            throw new InvalidOperationException("unreachable");
+        });
+        var token = await making.Task.WaitAsync(Patience, Token);
+        await service.StopAsync();
+        await run.WaitAsync(Patience, Token);
+
+        token.IsCancellationRequested.Should().BeTrue();
+        service.IsActive.Should().BeFalse();
+    }
+
+    [AvaloniaFact]
+    public async Task Ending_while_a_maker_that_ignores_its_token_makes_the_configuration_still_ends_the_session()
+    {
+        await using var log = new ConversationLog();
+        var service = new ExternalDebugService(log);
+        var making = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var never = new TaskCompletionSource<DapLaunchConfiguration>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        var run = service.StartAsync(_ =>
+        {
+            making.TrySetResult();
+            return never.Task;
+        });
+        await making.Task.WaitAsync(Patience, Token);
+        await service.StopAsync();
+        await run.WaitAsync(Patience, Token);
+        service.IsActive.Should().BeFalse("End must end it, whether or not the add-in listens");
+
+        // The maker fails afterwards, with nobody waiting for it: the failure is logged rather than lost. It is logged on
+        // the thread pool, so the test awaits the line itself; the patience only bounds a line that never comes.
+        using (var captured = new HexIDE.Tests.Sidecar.CapturedLog())
+        {
+            var logged = captured.Logged("failed after its start was ended");
+            never.SetException(new InvalidOperationException("rdcore.json was not found"));
+            await logged.WaitAsync(Patience, Token);
+        }
+
+        var asked = false;
+        await service.StartAsync(_ =>
+        {
+            asked = true;
+            throw new InvalidOperationException("the next start is asked for its configuration");
+        }).WaitAsync(Patience, Token);
+        asked.Should().BeTrue("the session is idle again, so a new start is not ignored");
+    }
+
+    [Fact]
+    public void A_contributed_configuration_is_checked_as_a_file_is_but_takes_its_paths_whole()
+    {
+        var made = DapLaunchConfiguration.FromContributed(Contributed("silent") with
+        {
+            Arguments = ["two words", "$literal"],
+            Environment = new Dictionary<string, string?> { ["RDCORE_ROOT"] = "x", ["GONE"] = null },
+        });
+        made.WorkingDirectory.Should().Be(Path.GetDirectoryName(made.Executable), "the executable's folder when none is given");
+        made.Arguments.Should().Equal("two words", "$literal");
+        made.Environment.Should().Contain("GONE", null);
+        made.Breakpoints.Should().BeEmpty();
+
+        var relative = () => DapLaunchConfiguration.FromContributed(Contributed("silent") with { Executable = "adapter.exe" });
+        relative.Should().Throw<InvalidDataException>("there is no file for a relative path to be relative to");
+        var relativeFolder = () => DapLaunchConfiguration.FromContributed(Contributed("silent") with { WorkingDirectory = "bin" });
+        relativeFolder.Should().Throw<InvalidDataException>();
+        var notAnObject = () => DapLaunchConfiguration.FromContributed(Contributed("silent") with
+        {
+            Launch = JsonDocument.Parse("[]").RootElement,
+        });
+        notAnObject.Should().Throw<InvalidDataException>();
+        var noAdapter = () => DapLaunchConfiguration.FromContributed(Contributed("silent") with { AdapterId = " " });
+        noAdapter.Should().ThrowExactly<InvalidDataException>("refused as its xmldoc says, as every other part is");
+    }
 }
