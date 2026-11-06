@@ -2687,15 +2687,21 @@ public sealed class VBLspClient : ILspClient
         [JsonRpcMethod("workspace/applyEdit", UseSingleObjectParameterDeserialization = true)]
         public async Task<ApplyWorkspaceEditResult> OnApplyEdit(ApplyWorkspaceEditParams p, CancellationToken cancellationToken)
         {
+            ApplyWorkspaceEditResult Refuse(string reason, string? localizationKey = null)
+            {
+                OnShowMessage(new ShowMessageParams(LspMessageType.Warning, reason) { LocalizationKey = localizationKey, IsEditRefusal = true });
+                return new(false, reason);
+            }
+
             // Inspect the wire request's task: the UI continuation can still be queued after its answer.
             var running = _client._userCommands.Keys
                 .Where(command => command.Connection == Volatile.Read(ref _client._connection)
                     && Volatile.Read(ref command.Pending) is not { IsCompleted: true })
                 .OrderBy(command => command.Order).FirstOrDefault();
             if (running is null)
-                return new(false, "HexIDE applies a server's edits only while a command the user started is running.");
+                return Refuse("HexIDE applies a server's edits only while a command the user started is running.", "Str.Lsp.EditRequiresUserCommand");
             if (_client._applyEdit is not { } apply)
-                return new(false, "No workspace editor is available.");
+                return Refuse("No workspace editor is available.", "Str.Lsp.NoWorkspaceEditor");
             // Versioned edits retain the latest-sent check; unversioned edits use the oldest command.
             var refusal = await apply(p.Edit, target =>
                 (p.Edit.DocumentChanges is { } changes
@@ -2703,7 +2709,7 @@ public sealed class VBLspClient : ILspClient
                         && LspDocumentUri.AreSame(document.Uri, target))
                     : p.Edit.Changes?.Keys.Any(uri => LspDocumentUri.AreSame(uri, target)) == true)
                     ? running.DocumentFor(target) : _client.SentDocumentSnapshot(target), cancellationToken);
-            return new(refusal is null, refusal);
+            return refusal is null ? new(true) : Refuse(refusal);
         }
 
         [JsonRpcMethod("window/showDocument", UseSingleObjectParameterDeserialization = true)]

@@ -1454,7 +1454,8 @@ honest report is that the server was asked and has not answered.
 ### Requirement: What a server says about itself SHALL reach somewhere a person can see
 The client SHALL surface a server's own trace output and its log messages rather than discarding them, and
 SHALL rank their severities as the protocol defines them, including severity values introduced after the
-version this client targets.
+version this client targets. `window/showMessage` SHALL use a localized status-bar format, with
+a distinct error form, while preserving the server’s message text.
 
 A server that starts, connects and then serves nothing explains itself over exactly these channels, and they
 are the only account it can give. Discarding them leaves a misconfigured server indistinguishable from a
@@ -2393,6 +2394,12 @@ The shared command sender SHALL track unanswered user-started commands per serve
 is running SHALL `workspace/applyEdit` use the workspace rename applier. Otherwise it SHALL answer
 `applied: false` with a `failureReason` explaining the user-command rule and change nothing.
 Internal project imports SHALL NOT authorize server edits.
+Every refused server edit SHALL also show its failure reason in the status bar, including unsolicited
+requests and requests during a lens, code-action command or direct execute command.
+Client-generated refusal text SHALL be displayed in the selected IDE language; localization SHALL
+remain in the IDE layer. All refusals, including changed targets, SHALL use a localized form stating
+that the server edit was not applied, rather than the server-message prefix. A client-only flag SHALL
+identify these refusals without comparing their text. The wire reply MAY retain its English failure reason.
 Applying a server workspace edit SHALL preserve the active document tab, keyboard focus and the
 originating code window's caret, without activating target tabs.
 
@@ -2407,6 +2414,7 @@ originating code window's caret, without activating target tabs.
 - **WHEN** a server requests edits without its own unanswered user command, including after its answer
 - **THEN** no buffer changes and it receives `applied: false` with a `failureReason`
 - **AND** a command running on another connection does not authorize it
+- **AND** the refusal reason is shown in the status bar
 
 ### Requirement: Server workspace edits share rename checks
 

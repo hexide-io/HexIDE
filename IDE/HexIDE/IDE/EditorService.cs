@@ -2,6 +2,7 @@ using System;
 using System.Linq;
 using HexIDE.Forms.ViewModels;
 using HexIDE.Lsp;
+using HexIDE.Localization;
 using HexIDE.Lsp.Messages;
 using HexIDE.Runtime.ProjectElements;
 using HexIDE.VisualDesigner;
@@ -17,6 +18,7 @@ public class EditorService : IEditorService
     private readonly Func<ProjectDocumentViewModel> projectDocumentViewModelFactory;
     private readonly Func<FormEditViewModel> formEditViewModelFactory;
     private readonly Func<IProjectManager> projectManager;
+    private readonly ILocalizationService localization;
 
     /// <param name="projectManager">
     /// Resolved lazily, and that is load-bearing rather than stylistic: <c>ProjectManager</c> takes an
@@ -29,7 +31,7 @@ public class EditorService : IEditorService
         Func<RelatedDocumentEditorViewModel> relatedDocumentEditorViewModelFactory,
         Func<ProjectDocumentViewModel> projectDocumentViewModelFactory,
         Func<FormEditViewModel> formEditViewModelFactory,
-        Func<IProjectManager> projectManager)
+        Func<IProjectManager> projectManager, ILocalizationService localization)
     {
         this.documentDockService = documentDockService;
         this.codeEditorViewModelFactory = codeEditorViewModelFactory;
@@ -37,6 +39,7 @@ public class EditorService : IEditorService
         this.projectDocumentViewModelFactory = projectDocumentViewModelFactory;
         this.formEditViewModelFactory = formEditViewModelFactory;
         this.projectManager = projectManager;
+        this.localization = localization;
     }
 
     public string? DocumentNameForUri(string uri)
@@ -114,7 +117,7 @@ public class EditorService : IEditorService
     {
         var source = documentDockService.ActiveTab as CodeEditorViewModel
             ?? documentDockService.OpenDocuments.OfType<CodeEditorViewModel>().FirstOrDefault();
-        return source is null ? "No workspace editor is available."
+        return source is null ? localization.GetString("Str.Lsp.NoWorkspaceEditor")
             : source.ApplyRename(edit, "", documentFor, codeAction: true, takeFocus: false);
     }
 

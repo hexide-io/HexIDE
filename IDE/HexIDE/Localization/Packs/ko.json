@@ -2,6 +2,11 @@
   "name": "Korean",
   "direction": "ltr",
   "strings": {
+    "Str.Lsp.ServerMessage": "언어 서버: {0}",
+    "Str.Lsp.ServerError": "언어 서버 오류: {0}",
+    "Str.Lsp.EditNotApplied": "서버 편집이 적용되지 않았습니다: {0}",
+    "Str.Lsp.EditRequiresUserCommand": "HexIDE는 사용자가 시작한 명령이 실행되는 동안에만 서버의 편집 내용을 적용합니다.",
+    "Str.Lsp.NoWorkspaceEditor": "사용 가능한 작업 영역 편집기가 없습니다.",
     "Str.Menu.Edit.CallHierarchy": "호출 계층 구조",
     "Str.CodeEditor.Context.CallHierarchy": "호출 계층 구조",
     "Str.Lsp.OpenExternalUri": "이 URI를 HexIDE 외부에서 여시겠습니까?\n\n{0}",

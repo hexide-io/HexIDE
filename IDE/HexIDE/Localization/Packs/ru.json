@@ -2,6 +2,11 @@
   "name": "Russian",
   "direction": "ltr",
   "strings": {
+    "Str.Lsp.ServerMessage": "Языковой сервер: {0}",
+    "Str.Lsp.ServerError": "Ошибка языкового сервера: {0}",
+    "Str.Lsp.EditNotApplied": "Изменение сервера не применено: {0}",
+    "Str.Lsp.EditRequiresUserCommand": "HexIDE применяет изменения сервера только во время выполнения команды, запущенной пользователем.",
+    "Str.Lsp.NoWorkspaceEditor": "Редактор рабочей области недоступен.",
     "Str.Menu.Edit.CallHierarchy": "Иерархия вызовов",
     "Str.CodeEditor.Context.CallHierarchy": "Иерархия вызовов",
     "Str.Lsp.OpenExternalUri": "Открыть этот URI вне HexIDE?\n\n{0}",

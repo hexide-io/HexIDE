@@ -2,6 +2,11 @@
   "name": "Basque",
   "direction": "ltr",
   "strings": {
+    "Str.Lsp.ServerMessage": "Hizkuntza-zerbitzaria: {0}",
+    "Str.Lsp.ServerError": "Hizkuntza-zerbitzariaren errorea: {0}",
+    "Str.Lsp.EditNotApplied": "Zerbitzariaren aldaketa ez da aplikatu: {0}",
+    "Str.Lsp.EditRequiresUserCommand": "HexIDEk zerbitzari baten aldaketak erabiltzaileak abiarazitako komando bat exekutatzen ari den bitartean soilik aplikatzen ditu.",
+    "Str.Lsp.NoWorkspaceEditor": "Ez dago laneko areako editorerik erabilgarri.",
     "Str.Menu.Edit.CallHierarchy": "D_eien hierarkia",
     "Str.CodeEditor.Context.CallHierarchy": "Deie_n hierarkia",
     "Str.Lsp.OpenExternalUri": "URI hau HexIDE-tik kanpo ireki?\n\n{0}",
