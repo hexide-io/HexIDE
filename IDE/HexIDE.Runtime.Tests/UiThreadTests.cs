@@ -1,6 +1,5 @@
 using System.Diagnostics;
 using System.Globalization;
-using System.Runtime.InteropServices;
 using HexIDE.Runtime.Interpreter;
 
 namespace HexIDE.Runtime.Tests;
@@ -173,24 +172,12 @@ public class UiThreadTests : BaseVBTestFixture
             throw failure;
     }
 
-    /// <summary>The whole reserved stack of the calling thread, guard pages included, on Windows or Linux.</summary>
+    /// <summary>The calling thread's whole reserved stack, as <see cref="ThreadStack"/> reads it. Fails the test if the
+    /// system will not say.</summary>
     private static ulong ReservedStackBytes()
     {
-        if (OperatingSystem.IsWindows())
-        {
-            GetCurrentThreadStackLimits(out var low, out var high);
-            return high - low;
-        }
-        var attr = new byte[256];
-        pthread_getattr_np(pthread_self(), attr).Should().Be(0);
-        pthread_attr_getstack(attr, out _, out var size).Should().Be(0);
-        pthread_attr_destroy(attr);
-        return size;
+        var reserved = ThreadStack.ReservedBytes();
+        reserved.Should().NotBeNull("the system reports a thread's stack on Windows and Linux");
+        return reserved!.Value;
     }
-
-    [DllImport("kernel32")] private static extern void GetCurrentThreadStackLimits(out nuint low, out nuint high);
-    [DllImport("libc")] private static extern nint pthread_self();
-    [DllImport("libc")] private static extern int pthread_getattr_np(nint thread, [In, Out] byte[] attr);
-    [DllImport("libc")] private static extern int pthread_attr_getstack([In, Out] byte[] attr, out nint address, out nuint size);
-    [DllImport("libc")] private static extern int pthread_attr_destroy([In, Out] byte[] attr);
 }
