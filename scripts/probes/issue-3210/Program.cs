@@ -263,8 +263,16 @@ static class ThreadInfo
     [DllImport("libc")] static extern int pthread_getattr_np(nuint thread, IntPtr attr);
     [DllImport("libc")] static extern int pthread_attr_getstack(IntPtr attr, out IntPtr address, out nuint bytes);
     [DllImport("libc")] static extern int pthread_attr_destroy(IntPtr attr);
+    [DllImport("kernel32")] static extern void GetCurrentThreadStackLimits(out nuint low, out nuint high);
     public static void Print(string label)
     {
+        if (OperatingSystem.IsWindows())
+        {
+            // The whole reserved range of this thread's stack, guard pages included.
+            GetCurrentThreadStackLimits(out var low, out var high);
+            Console.WriteLine($"{label}: managed={Environment.CurrentManagedThreadId}, pool={Thread.CurrentThread.IsThreadPoolThread}, bytes={high - low}");
+            return;
+        }
         if (!OperatingSystem.IsLinux()) throw new PlatformNotSupportedException("Stack inventory uses Linux pthread APIs");
         var attr = Marshal.AllocHGlobal(128);
         try
