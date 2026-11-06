@@ -33,6 +33,42 @@ grammar VB6;
     }
 }
 
+@parser::members {
+    // After factoring ifBlockBody, keep a closing line's head outside its body (#223, #3210).
+    private bool IfClosingHeadAhead()
+    {
+        var i = 1;
+        var newline = false;
+        while (TokenStream.LA(i) is WS or COLON or NEWLINE)
+            newline |= TokenStream.LA(i++) == NEWLINE;
+        if (!newline)
+            return false;
+        var head = false;
+        if (TokenStream.LA(i) == INTEGERLITERAL)
+        {
+            head = true;
+            i++;
+            if (TokenStream.LA(i) == WS) i++;
+            if (TokenStream.LA(i) == COLON) i++;
+            if (TokenStream.LA(i) == WS) i++;
+        }
+        if (Atn.NextTokens(Atn.ruleToStartState[RULE_labelName]).Contains(TokenStream.LA(i)))
+        {
+            i++;
+            if (TokenStream.LA(i) == WS) i++;
+            if (TokenStream.LA(i) != COLON)
+                return false;
+            head = true;
+            do
+            {
+                i++;
+                if (TokenStream.LA(i) == WS) i++;
+            } while (TokenStream.LA(i) == COLON);
+        }
+        return head && TokenStream.LA(i) is END_IF or ELSEIF or ELSE;
+    }
+}
+
 // module ----------------------------------
 
 startRule
@@ -93,13 +129,15 @@ moduleOption
    | OPTION_PRIVATE_MODULE # optionPrivateModuleStmt
    ;
 
+// A module block consumes adjacent statements together. Allowing another immediately after it
+// makes prediction scan entire nested blocks to choose between continuing and starting a new block (#3210).
 moduleBody
-   : moduleBodyElement (blockSep moduleBodyElement)*
+   : moduleBlock (blockSep moduleBodyElement (blockSep moduleBlock)?)*
+   | moduleBodyElement (blockSep moduleBlock)? (blockSep moduleBodyElement (blockSep moduleBlock)?)*
    ;
 
 moduleBodyElement
-   : moduleBlock
-   | moduleOption
+   : moduleOption
    | declareStmt
    | enumerationStmt
    | eventStmt
@@ -167,9 +205,9 @@ attributeStmt
 
 block
    : colonSep? emptyLineNumber* lineHead? blockStmt
-     ( colonSep blockStmt
+     ( {!IfClosingHeadAhead()}? (colonSep blockStmt
      | lineSep emptyLineNumber* lineHead? blockStmt
-     )*
+     ))*
      blockSep?
    ;
 
@@ -452,9 +490,9 @@ ifBlockStmt
 
 // Prefer a head on the next line, `Skip: Else` or `30 End If`, to a bare call whose colon would otherwise end the body
 // (#223). A head follows a real line break only, as in `block`: after a colon VB6 reads `Skip` as a call (#2529).
+// Factor the shared body so prediction does not scan to End If at every nesting level (#3210).
 ifBlockBody
-   : block lineSep lineHead
-   | block blockSep
+   : block (lineSep lineHead | blockSep)
    ;
 
 ifConditionStmt

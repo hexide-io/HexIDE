@@ -354,7 +354,37 @@ Now **Deferred**, with the real work named. None needs a bound AST; each is unim
     and measurements: `vb6-fidelity-oracle/assigning-to-a-control-property.md`, "HexIDE, after #774". Reversed scroll bars now preserve their loaded Value and map thumb positions in reverse (#787).
   - ~~**A running form's `Me.Tag` leaked the runtime's internal show-completion object**~~ — **FIXED 2026-08-10.** `VBLoader.RunForm` used to park its show-completion `TaskCompletionSource` in the form window's Avalonia `Control.Tag`, which backs the VB6 `Tag` property, so `Me.Tag` (and the Locals property surface, D7) read back `"System.Threading.Tasks.TaskCompletionSource"`. The handler now captures the `tcs` in its closure (recovering the window from `sender`, since the `out` window can't be captured) instead of round-tripping through `Tag`. Surfaced by the P8/D7 Locals property surface; live-verified (run → stop → re-run cycle intact, `Me.Tag` now reads the interpreter's Tag default). **Residual, since fixed (#774):** an unset `Tag` read back `Null`, not VB6's `""`, for forms and child controls alike. A running program now reads `""`; the slot itself is still null, so the debugger's Locals window shows it as such.
 
-- **Parse nesting depth** — the recursive-descent parser (both grammar copies) is bounded by a `ParseDepthGuard` at a rule-depth of **300**; input nested deeper (hundreds of nested parens or blocks) is rejected as a compile error ("nesting too deep") instead of overflowing the C# stack. **Divergence:** vb6.exe's parser is effectively unbounded here (it compiles 4096 nested parens — oracle-verified); HexIDE cannot match that on a fixed stack, so it rejects absurd nesting cleanly rather than crash. No real VB6 code approaches the limit (a deliberately deep real procedure peaks near rule-depth ~50), so this only affects degenerate/malicious input. Documented + regression-tested (`ParserDepthGuardTests`, `ParseHardeningTests`); the threshold derivation is in the guard's XML doc. **#1893 closes the runtime crash #1223 measured:** left-associated addition chains pass this parser guard, but expression execution now probes available stack space and raises trappable Error 28 before overflow. Pre-pass declaration and attribute walks skip expression subtrees. Module-level constant-expression validation (`ModuleLevelBounds.Walk`) probes available stack space too, before expression evaluation, and raises Error 28 on a small stack. Conditional-compilation expressions now get an iterative finished-tree depth check as well: trees deeper than 300 nodes take the existing not-an-expression path before the recursive evaluator runs (#1893 rework). The exact chain length that exhausts the host stack varies; VB6 acceptance of this long source remains unmeasured. Repeated continuations alone complete at all four sampled sizes. See [the probe matrix](parse-depth-probes.md); the parser limit is not a bound on finished-tree depth or every later walk.
+- **Parse nesting depth (#3210, runtime slice)** — runtime module parsing (SLL and LL), PrePass,
+  Immediate-window parsing and SyntaxChecker run synchronously on a dedicated **64 MiB** stack, joined by
+  the caller. The parser's count is derived from that stack and the issue's measured per-rule costs,
+  with a 3x margin, plus a physical stack probe. A token-level parenthesis check uses the measured
+  3.6 KB/pair cost with a 2x margin before ANTLR prediction can allocate for an oversized expression.
+  A reverse End If/If token balance similarly refuses a proven excessive block depth, with a 3x margin
+  on the measured 2.8 KB/block cost; inline If tokens can only reduce this conservative balance. This lifts the runtime's old 300-rule parse bound;
+  prediction cost is also bounded for the reference nested-If shape: #3210 round 2 factors
+  `ifBlockBody` and groups adjacent module statements into one block. Previously the body decision
+  scanned through every nested body (40,300 lookahead operations at 100 blocks; 641,200 at 400), while
+  block continuation built 809/3,209 DFA states. Both decisions now use at most two tokens of lookahead
+  and five/three states respectively, independent of these depths. No extra time-based depth cap is
+  imposed; the stack-derived bounds remain. See the [profile and cold-parse measurements](../scripts/probes/issue-3210/block-cost.md).
+  Execution stays on its caller's thread and retains its Error 28 stack checks. On Windows that is the
+  1.5 MiB UI thread, where a fresh thread raises Error 28 past about **419** nested If blocks and
+  **2,057** nested parentheses, and the IDE has used 26 to 28.5 KB before VB code starts
+  ([#3228](https://github.com/hexide-io/HexIDE/issues/3228), which decides how execution gets more stack).
+  Cold parsing on Windows after round 2: 7,227 nested If blocks in 0.32 s, adding about 25 MiB. The round 3 Linux 8 MiB uninterrupted execution probe passed **2,827**
+  nested If blocks and raised Error 28 at **2,828**, each endpoint repeated twice, with both execution
+  probes intact ([measurement PR #3216](https://github.com/hexide-io/HexIDE/pull/3216)). Timer yields and
+  debugger suspension can release the synchronous stack, so this is a probe result, not a fixed F5 limit.
+  Conditional-compilation's finished-expression check remains 300, and the
+  server still has its old parsing and visitor bounds: these are remaining parts of #3210. The
+  [measured parenthesis reference](vb6-fidelity-oracle/long-lines-line-continuations-and-long-expressions.md)
+  and [issue measurements](https://github.com/hexide-io/HexIDE/issues/3210) supply the acceptance depths;
+  they are not limits invented by HexIDE. Long left-associated expression chains still reach the
+  execution stack checks (#1893/#1930); see [the probe matrix](parse-depth-probes.md).
+  For #3210's physical parser backstop, .NET 10.0.14 CoreCLR reserves 128 KiB on 64-bit hosts and 64 KiB
+  on 32-bit hosts in `TryEnsureSufficientExecutionStack`; see
+  [`threads.cpp`, `MinExecutionStackSize`](https://github.com/dotnet/runtime/blob/v10.0.14/src/coreclr/vm/threads.cpp#L6084-L6101).
+  This is unwind headroom, not a measurement of every ANTLR prediction path.
 
 ## Other
 
