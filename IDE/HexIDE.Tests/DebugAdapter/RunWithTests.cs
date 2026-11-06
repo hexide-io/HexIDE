@@ -209,9 +209,13 @@ public class RunWithTests : IAsyncDisposable
     [InlineData("a module renamed")]
     [InlineData("a module's file")]
     [InlineData("a form added")]
+    [InlineData("a form deleted")]
+    [InlineData("a form renamed")]
+    [InlineData("a form's file")]
     [InlineData("the project renamed")]
     [InlineData("the project's file")]
     [InlineData("the startup object")]
+    [InlineData("the startup form")]
     [InlineData("its references")]
     [InlineData("another choice")]
     [InlineData("the launch registered again")]
@@ -219,6 +223,11 @@ public class RunWithTests : IAsyncDisposable
     public void F5_s_state_asks_the_chosen_launch_again_when_what_it_is_told_of_the_project_changes(string change)
     {
         var (project, module) = ContributedAndChosen();
+        // The first form added is the startup object.
+        var form = new FormDefinition(project, FormComponentClass.Instance, "Form1");
+        var second = new FormDefinition(project, FormComponentClass.Instance, "Form2");
+        project.AddForm(form);
+        project.AddForm(second);
         _runner.CanStartDefaultProject.Should().BeTrue();
         var requeried = 0;
         _runner.PropertyChanged += (_, e) => requeried += e.PropertyName == nameof(ProjectRunnerService.CanStartDefaultProject) ? 1 : 0;
@@ -229,10 +238,18 @@ public class RunWithTests : IAsyncDisposable
             case "a module deleted": project.DeleteModule(module); break;
             case "a module renamed": module.Name = "Main"; break;
             case "a module's file": module.AbsolutePath = Path.Join(Path.GetTempPath(), "Startup.bas"); break;
-            case "a form added": project.AddForm(new FormDefinition(project, FormComponentClass.Instance, "Form1")); break;
+            case "a form added": project.AddForm(new FormDefinition(project, FormComponentClass.Instance, "Form3")); break;
+            case "a form deleted": project.DeleteForm(second); break;
+            case "a form renamed":
+                // As a rename that doesn't go through the designer says it: automation's set_control_property.
+                second.Components[0].SetProperty(VBProperties.NameProperty, "Totals");
+                second.NotifyRootPropertiesChanged();
+                break;
+            case "a form's file": second.AbsolutePath = Path.Join(Path.GetTempPath(), "Form2.frm"); break;
             case "the project renamed": project.Name = "Accounts"; break;
             case "the project's file": project.AbsolutePath = Path.Join(Path.GetTempPath(), ".rdproj"); break;
             case "the startup object": project.StartsAtSubMain = true; break;
+            case "the startup form": project.StartupForm = second; break;
             case "its references": project.SetReferences([new VbReference("", "", 0, "scrrun.dll", "Scripting")]); break;
             case "another choice":
                 _launches.Register(_launches.Find(Key)!.Launch with { Title = "Other" }, "com.rdcore.hexide", "RDCore for HexIDE");
@@ -249,6 +266,66 @@ public class RunWithTests : IAsyncDisposable
 
         _claimsAsked.Should().Be(2);
         requeried.Should().BeGreaterThan(0, "F5's state is read again when its answer is let go of");
+    }
+
+    [AvaloniaFact]
+    public void An_answer_given_while_the_project_changed_is_not_kept()
+    {
+        // The change comes while the launch is being asked, as one from elsewhere would come between the question and its
+        // answer; the answer is to a project that is no longer there.
+        ProjectDefinition? ledger = null;
+        var changed = false;
+        (ledger, _) = ContributedAndChosen(() =>
+        {
+            if (!changed)
+            {
+                changed = true;
+                ledger!.Name = "Accounts";
+            }
+            return true;
+        });
+
+        _runner.CanStartDefaultProject.Should().BeTrue();
+        _runner.CanStartDefaultProject.Should().BeTrue();
+        _runner.CanStartDefaultProject.Should().BeTrue();
+
+        _claimsAsked.Should().Be(2, "the first answer was let go of, and the second one kept");
+    }
+
+    // What F5's state kept is let go of once it is no use, project and launch alike: a launch's delegates are its
+    // add-in's, in a load context let go of with it. One that still held them would still watch the project, and read
+    // F5's state again when it changed.
+    [AvaloniaTheory]
+    [InlineData("the choice cleared")]
+    [InlineData("the launch taken out")]
+    [InlineData("the project unloaded")]
+    public void F5_s_state_lets_go_of_the_project_and_the_launch_once_it_has_no_use_for_its_answer(string change)
+    {
+        var (project, _) = ContributedAndChosen();
+        _runner.CanStartDefaultProject.Should().BeTrue();
+
+        // Each on its own: F5's state read again finds no choice; the launch is taken out, and nothing reads F5's state;
+        // the project is unloaded, and the startup project is none.
+        switch (change)
+        {
+            case "the choice cleared":
+                _choices.Set(project, null);
+                _runner.CanStartDefaultProject.Should().BeFalse();
+                break;
+            case "the launch taken out": _registrations.Dispose(); break;
+            case "the project unloaded":
+                _projects.StartupProject.Returns((ProjectDefinition?)null);
+                _projects.ProjectUnloaded += Raise.Event<Action<ProjectDefinition>>(project);
+                break;
+        }
+        var requeried = 0;
+        _runner.PropertyChanged += (_, e) => requeried += e.PropertyName == nameof(ProjectRunnerService.CanStartDefaultProject) ? 1 : 0;
+
+        project.Name = "Accounts";
+        project.Modules[0].Name = "Main";
+
+        requeried.Should().Be(0, "nothing of the project is watched any more");
+        _claimsAsked.Should().Be(1);
     }
 
     // The launch taken out and contributed again: another registration, which may answer otherwise.

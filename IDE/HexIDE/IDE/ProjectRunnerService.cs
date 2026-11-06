@@ -104,7 +104,7 @@ public partial class ProjectRunnerService : IProjectRunnerService
         this.runChoices = runChoices;
         if (debugLaunches is not null && runChoices is not null)
         {
-            chosenLaunch = new ChosenLaunchAnswer(debugLaunches, runChoices);
+            chosenLaunch = new ChosenLaunchAnswer(debugLaunches, runChoices, projectManager);
             chosenLaunch.Forgotten += RequeryStart;
         }
         this.statusBar = statusBar;

@@ -168,13 +168,10 @@ public sealed class AddinContributionTrustTests : IAsyncDisposable
     public async Task A_launch_whose_add_in_lost_its_trust_is_refused_before_it_is_asked_for_its_configuration(string how)
     {
         using var launch = ContributeLaunch();
+        // The launch as a start already holds it when the add-in is turned off: taking it out doesn't reach that start.
         var contributed = _launches.Find(Key)!;
-        // The launch as a start already holds it: the check at the start refuses it whatever took it out.
-        if (how == "disabled")
-            ((HashSet<string>)typeof(AddinRegistry).GetField("_disabled",
-                System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!.GetValue(_registry)!).Add(_root);
-        else
-            _consent.Revoke("hash");
+        Disable(how);
+        _launches.Launches.Should().BeEmpty();
 
         await _launches.StartAsync(contributed, _project);
 
