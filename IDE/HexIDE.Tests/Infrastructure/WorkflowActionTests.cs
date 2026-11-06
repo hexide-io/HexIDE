@@ -5,6 +5,34 @@ namespace HexIDE.Tests.Infrastructure;
 public class WorkflowActionTests
 {
     [Fact]
+    public void RequiredForeignServerStepsSkipImagePathAndPrintTheResolutionReport()
+    {
+        var workflow = File.ReadAllText(Path.Combine(RepoTree.Root(), ".github", "workflows", "build.yml"))
+            .ReplaceLineEndings("\n");
+        var steps = Regex.Matches(workflow, @"(?ms)^      - name: .*?(?=^      - name:|\z)")
+            .Select(match => match.Value).ToArray();
+        var required = steps.Where(step => step.Contains("HEXIDE_REQUIRE_FOREIGN_LSP: '1'")).ToArray();
+        required.Should().HaveCount(2);
+        foreach (var step in required)
+        {
+            step.Should().Contain("HEXIDE_FOREIGN_LSP_NO_PATH: '1'");
+            step.Should().Contain("HEXIDE_FOREIGN_LSP_REPORT: ${{ runner.temp }}/foreign-lsp.txt");
+        }
+        var jobs = Regex.Matches(workflow, @"(?ms)^  [\w-]+:\n.*?(?=^  [\w-]+:|\z)")
+            .Select(match => match.Value).Where(job => job.Contains("HEXIDE_REQUIRE_FOREIGN_LSP: '1'"));
+        foreach (var job in jobs)
+            Regex.Matches(job, "name: Report resolved foreign servers").Count.Should().Be(1);
+        var reports = steps.Where(step => step.StartsWith("      - name: Report resolved foreign servers\n")).ToArray();
+        reports.Should().HaveCount(required.Length);
+        foreach (var step in reports)
+        {
+            step.Should().Contain("if: always()");
+            step.Should().Contain("cat \"$FOREIGN_LSP_REPORT\"");
+            step.Should().Contain("FOREIGN_LSP_REPORT: ${{ runner.temp }}/foreign-lsp.txt");
+        }
+    }
+
+    [Fact]
     public void DocsOnlyDesktopChecksMatchTheRealBuildsWithoutUsingDesktopRunners()
     {
         var workflow = File.ReadAllText(Path.Combine(RepoTree.Root(), ".github", "workflows", "build.yml"))
