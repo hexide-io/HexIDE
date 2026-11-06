@@ -382,6 +382,12 @@ running.
 - **AND** a later genuine failure SHALL still receive the method's once-per-connection warning
 - **AND** a superseded rename SHALL show no refusal dialog either
 
+#### Scenario: The server declines a request with ServerCancelled
+- **WHEN** a request reaches the request-failure logger with error `-32802` (ServerCancelled)
+- **THEN** the client SHALL log it at debug without spending the method's once-per-connection warning
+- **AND** a later genuine failure of that method SHALL still warn on the same connection
+- **AND** document diagnostic retry rules SHALL remain unchanged, including no retry for `retriggerRequest: false`
+
 #### Scenario: A server refuses a rename
 - **WHEN** a server returns `-32803 RequestFailed` to a rename
 - **THEN** the code window displays the server's message and applies no edits
