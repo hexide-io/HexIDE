@@ -22,8 +22,9 @@ namespace HexIDE.Addins;
 public sealed record AddinDebugLaunch(string Title)
 {
     /// <summary>
-    /// Whether this launch can run the project. Asked when the Run menu is shown and when the user asks for a run.
-    /// Every project, unless the add-in says otherwise.
+    /// Whether this launch can run the project. Asked when the Run menu is shown and when the user asks for a run, and,
+    /// for whether F5 can start a project the user chose it for, again only when what it is told of the project changes,
+    /// never at each edit. Every project, unless the add-in says otherwise.
     /// </summary>
     public Func<AddinProjectInfo, bool> Claims { get; init; } = _ => true;
 

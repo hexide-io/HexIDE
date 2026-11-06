@@ -4,6 +4,7 @@ using HexIDE.Conversations;
 using HexIDE.Debugging;
 using HexIDE.IDE;
 using HexIDE.Localization;
+using HexIDE.Runtime.Components;
 using HexIDE.Runtime.Debugging;
 using HexIDE.Runtime.ProjectElements;
 
@@ -48,8 +49,10 @@ public class RunWithTests : IAsyncDisposable
         GC.SuppressFinalize(this);
     }
 
+    private IDisposable _registrations = new HexIDE.Utils.ActionDisposable(() => { });
+
     private void Contribute(Func<AddinProjectInfo, bool>? claims = null) =>
-        _launches.Register(new AddinDebugLaunch("RDCore")
+        _registrations = _launches.Register(new AddinDebugLaunch("RDCore")
         {
             Claims = claims ?? (_ => true),
             CreateConfigurationAsync = (project, _) =>
@@ -141,6 +144,120 @@ public class RunWithTests : IAsyncDisposable
         _runner.CanStartDefaultProjectWithFullCompile.Should().BeFalse();
         _runner.CanStepIntoProject.Should().BeFalse("F8 from idle starts the interpreter");
         _runner.CanRunToCursor.Should().BeFalse();
+    }
+
+    // A project an add-in read, with a module, as the startup project, its user's choice the launch, which counts the times
+    // it is asked whether it runs the project.
+    private (ProjectDefinition Project, ModuleDefinition Module) ContributedAndChosen(Func<bool>? answer = null)
+    {
+        var contributed = new ProjectDefinition(VBProjectType.EXE, "Ledger") { ContributedBy = "RDCore projects" };
+        var module = new ModuleDefinition(contributed, "Startup", ModuleKind.StandardModule);
+        contributed.AddModule(module);
+        _projects.StartupProject.Returns(contributed);
+        Contribute(claims: _ =>
+        {
+            _claimsAsked++;
+            return answer?.Invoke() ?? true;
+        });
+        _choices.Set(contributed, Key);
+        return (contributed, module);
+    }
+
+    private int _claimsAsked;
+
+    [AvaloniaFact]
+    public async Task F5_s_state_asks_the_chosen_launch_once_not_at_each_edit_and_a_start_asks_it_again()
+    {
+        var (_, module) = ContributedAndChosen();
+        _runner.CanStartDefaultProject.Should().BeTrue();
+        _claimsAsked.Should().Be(1);
+
+        // Every edit requeries the commands, F5's among them.
+        for (var edit = 0; edit < 25; edit++)
+        {
+            module.UpdateCode($"Sub Main()\r\n    Debug.Print {edit}\r\nEnd Sub\r\n");
+            _runner.CanStartDefaultProject.Should().BeTrue();
+        }
+        _claimsAsked.Should().Be(1, "an edit changes nothing the launch is told of the project");
+
+        _runner.StartDefaultProject();
+
+        _claimsAsked.Should().Be(2, "a start asks the launch, whatever F5's state kept of its answer");
+        (await _asked.Task.WaitAsync(TestContext.Current.CancellationToken)).ProjectName.Should().Be("Ledger");
+    }
+
+    [AvaloniaFact]
+    public void A_start_whose_launch_says_no_now_runs_nothing_of_it_and_F5_s_state_follows()
+    {
+        var claims = true;
+        ContributedAndChosen(() => claims);
+        _runner.CanStartDefaultProject.Should().BeTrue();
+        claims = false;
+        _runner.CanStartDefaultProject.Should().BeTrue("nothing the launch is told of changed, so its answer is kept");
+
+        _runner.StartDefaultProject();
+
+        _asked.Task.IsCompleted.Should().BeFalse("the kept answer does not start a launch that says no");
+        _status.Received(1).SetTemporaryMessage("RDCore isn't available", Arg.Any<TimeSpan>());
+        _runner.CanStartDefaultProject.Should().BeFalse("F5's state is the start's answer");
+        _claimsAsked.Should().Be(2);
+    }
+
+    [AvaloniaTheory]
+    [InlineData("a module added")]
+    [InlineData("a module deleted")]
+    [InlineData("a module renamed")]
+    [InlineData("a module's file")]
+    [InlineData("a form added")]
+    [InlineData("the project renamed")]
+    [InlineData("the project's file")]
+    [InlineData("the startup object")]
+    [InlineData("its references")]
+    [InlineData("another choice")]
+    [InlineData("the launch registered again")]
+    [InlineData("another startup project")]
+    public void F5_s_state_asks_the_chosen_launch_again_when_what_it_is_told_of_the_project_changes(string change)
+    {
+        var (project, module) = ContributedAndChosen();
+        _runner.CanStartDefaultProject.Should().BeTrue();
+        var requeried = 0;
+        _runner.PropertyChanged += (_, e) => requeried += e.PropertyName == nameof(ProjectRunnerService.CanStartDefaultProject) ? 1 : 0;
+
+        switch (change)
+        {
+            case "a module added": project.AddModule(new ModuleDefinition(project, "Accounts", ModuleKind.StandardModule)); break;
+            case "a module deleted": project.DeleteModule(module); break;
+            case "a module renamed": module.Name = "Main"; break;
+            case "a module's file": module.AbsolutePath = Path.Join(Path.GetTempPath(), "Startup.bas"); break;
+            case "a form added": project.AddForm(new FormDefinition(project, FormComponentClass.Instance, "Form1")); break;
+            case "the project renamed": project.Name = "Accounts"; break;
+            case "the project's file": project.AbsolutePath = Path.Join(Path.GetTempPath(), ".rdproj"); break;
+            case "the startup object": project.StartsAtSubMain = true; break;
+            case "its references": project.SetReferences([new VbReference("", "", 0, "scrrun.dll", "Scripting")]); break;
+            case "another choice":
+                _launches.Register(_launches.Find(Key)!.Launch with { Title = "Other" }, "com.rdcore.hexide", "RDCore for HexIDE");
+                _choices.Set(project, "com.rdcore.hexide/Other");
+                break;
+            case "the launch registered again": Reregister(); break;
+            case "another startup project":
+                var other = new ProjectDefinition(VBProjectType.EXE, "Other") { ContributedBy = "RDCore projects" };
+                _choices.Set(other, Key);
+                _projects.StartupProject.Returns(other);
+                break;
+        }
+        _runner.CanStartDefaultProject.Should().BeTrue();
+
+        _claimsAsked.Should().Be(2);
+        requeried.Should().BeGreaterThan(0, "F5's state is read again when its answer is let go of");
+    }
+
+    // The launch taken out and contributed again: another registration, which may answer otherwise.
+    private void Reregister()
+    {
+        var launch = _launches.Find(Key)!;
+        _launches.Launches.Should().ContainSingle();
+        _registrations.Dispose();
+        _registrations = _launches.Register(launch.Launch, "com.rdcore.hexide", "RDCore for HexIDE");
     }
 
     [AvaloniaFact]

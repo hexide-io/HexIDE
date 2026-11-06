@@ -38,6 +38,7 @@ public partial class ProjectRunnerService : IProjectRunnerService
     private readonly ExternalDebugService? externalDebugger;
     private readonly DebugLaunchService? debugLaunches;
     private readonly IRunChoiceStore? runChoices;
+    private readonly ChosenLaunchAnswer? chosenLaunch;
     private readonly IStatusBarService? statusBar;
 
     // A Run-To-Cursor target requested while IDLE — applied AFTER the run-start Reset (which clears the controller's
@@ -101,6 +102,11 @@ public partial class ProjectRunnerService : IProjectRunnerService
     {
         this.debugLaunches = debugLaunches;
         this.runChoices = runChoices;
+        if (debugLaunches is not null && runChoices is not null)
+        {
+            chosenLaunch = new ChosenLaunchAnswer(debugLaunches, runChoices);
+            chosenLaunch.Forgotten += RequeryStart;
+        }
         this.statusBar = statusBar;
         this.eventBus = eventBus;
         this.windowManager = windowManager;
@@ -561,23 +567,16 @@ public partial class ProjectRunnerService : IProjectRunnerService
 
     // The add-in's launch this project's user chose for F5, or null for the interpreter. A choice whose launch is gone,
     // or no longer runs this project, falls back to the interpreter and says so; it stays chosen, for when the add-in
-    // is back.
+    // is back. The launch is asked now, whatever F5's state kept of its last answer.
     private ContributedDebugLaunch? LaunchChosenFor(ProjectDefinition project)
     {
-        if (debugLaunches is null || runChoices?.Get(project) is not { } key) return null;
-        if (ChosenLaunch(project) is { } launch) return launch;
+        if (chosenLaunch is null || runChoices?.Get(project) is not { } key) return null;
+        if (chosenLaunch.Ask(project) is { } launch) return launch;
         statusBar?.SetTemporaryMessage(
             string.Format(localization.GetString("Str.Debug.RunWith.Unavailable"), ContributedDebugLaunch.TitleOf(key)),
             TimeSpan.FromSeconds(10));
         return null;
     }
-
-    // The launch this project's user chose for F5, while it is registered and runs the project; null otherwise.
-    private ContributedDebugLaunch? ChosenLaunch(ProjectDefinition project) =>
-        debugLaunches is not null && runChoices?.Get(project) is { } key
-            && debugLaunches.Find(key) is { } launch && debugLaunches.Claims(launch, project)
-            ? launch
-            : null;
 
     public void BreakCurrentProject()
     {
@@ -679,9 +678,10 @@ public partial class ProjectRunnerService : IProjectRunnerService
     }
 
     // A project an add-in read is run by the program it belongs to, never by HexIDE's interpreter: F5 starts one only
-    // with the add-in's launch its user chose for it under Run > F5 Runs.
+    // with the add-in's launch its user chose for it under Run > F5 Runs. Read at every requery, so from the launch's
+    // kept answer, which a start asks again.
     public bool CanStartDefaultProject => archives?.IsActive != true && !IsRunning
-        && projectManager.StartupProject is { } project && (project.ContributedBy is null || ChosenLaunch(project) is not null);
+        && projectManager.StartupProject is { } project && (project.ContributedBy is null || chosenLaunch?.Kept(project) is not null);
     public bool CanRunStartupProject => archives?.IsActive != true && !IsRunning && projectManager.StartupProject is { ContributedBy: null };
     public bool CanStartDefaultProjectWithFullCompile => CanRunStartupProject;
     public bool CanBreakProject => externalDebugger?.IsActive == true
