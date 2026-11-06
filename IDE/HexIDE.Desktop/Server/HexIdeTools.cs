@@ -2134,9 +2134,13 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     }
 
     [McpServerTool(Name = "get_call_stack")]
-    [Description("Returns the call stack at the current break — the chain of running procedure activations, current/deepest frame first, each with proc, module, and 1-based line counted from the top of the file, header included, as the code window and set_breakpoints number it. 'project' is the running project, which holds every frame's module. Valid only while paused (get_debug_state.state == Paused) — otherwise Success is false with an empty list.")]
-    public async Task<CallStackResult> GetCallStackAsync(CancellationToken ct)
+    [Description("Returns the call stack at the current break — the chain of running procedure activations, current/deepest frame first, each with proc, module, and 1-based line counted from the top of the file, header included, as the code window and set_breakpoints number it. Consecutive frames with identical proc, module and line collapse into one row with count (1 for a single frame). totalFrames is the full depth before collapsing. `maxFrames` limits collapsed rows, default 200; a note reports omitted rows and how to ask for more. 'project' is the running project, which holds every frame's module. Valid only while paused (get_debug_state.state == Paused) — otherwise Success is false with an empty list.")]
+    public async Task<CallStackResult> GetCallStackAsync(
+        [Description("Maximum collapsed rows to return, deepest first. Positive integer; default 200. Increase it to see rows omitted by the limit.")] int maxFrames = 200,
+        CancellationToken ct = default)
     {
+        if (maxFrames <= 0)
+            return new CallStackResult(false, "maxFrames must be a positive integer.", []);
         return await Dispatcher.UIThread.InvokeAsync(() =>
         {
             if (ctx.RootViewModel.ExternalDebugger?.IsActive == true)
@@ -2144,10 +2148,25 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
             if (ctx.DebugController.State != HexIDE.Runtime.Debugging.DebugState.Paused)
                 return new CallStackResult(
                     false, NotPausedRefusal("there is no call stack to read"), System.Array.Empty<CallStackFrameRow>());
-            var frames = ctx.DebugController.GetCallStack()
-                .Select(f => new CallStackFrameRow(f.ProcName, f.Module, f.Line))
-                .ToArray();
-            return new CallStackResult(true, null, frames, ctx.ProjectRunnerService.RunningProject?.Name);
+            var stack = ctx.DebugController.GetCallStack();
+            var frames = new List<CallStackFrameRow>();
+            int rows = 0;
+            for (int i = 0; i < stack.Count;)
+            {
+                var frame = stack[i];
+                int end = i + 1;
+                while (end < stack.Count && stack[end] == frame)
+                    end++;
+                if (frames.Count < maxFrames)
+                    frames.Add(new CallStackFrameRow(frame.ProcName, frame.Module, frame.Line, end - i));
+                rows++;
+                i = end;
+            }
+            var note = rows > frames.Count
+                ? $"{rows - frames.Count} rows omitted after collapsing consecutive identical frames. Call get_call_stack with maxFrames: {rows} to include all rows."
+                : null;
+            return new CallStackResult(true, null, frames.ToArray(), ctx.ProjectRunnerService.RunningProject?.Name,
+                stack.Count, note);
         });
     }
 
@@ -4125,9 +4144,10 @@ internal record EvaluateResult(bool Success, string? Error, string? Result);
 /// <param name="Project">
 /// The running project, by name. A run is one project, so every frame's module is in it.
 /// </param>
-internal record CallStackResult(bool Success, string? Error, CallStackFrameRow[] Frames, string? Project = null);
+internal record CallStackResult(bool Success, string? Error, CallStackFrameRow[] Frames, string? Project = null,
+    int TotalFrames = 0, string? Note = null);
 
-internal record CallStackFrameRow(string Proc, string Module, int Line);
+internal record CallStackFrameRow(string Proc, string Module, int Line, int Count = 1);
 
 internal record WatchesResult(bool Success, string? Error, WatchRow[] Watches, string? Project = null);
 
