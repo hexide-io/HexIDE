@@ -1149,12 +1149,19 @@ handlers it let finish.
 For interpreter sessions, a successful reply from `run_project`, `stop_project`, `continue_program`,
 `break_program`, a step or `run_to_cursor` SHALL give in `printed` what the program wrote with `Debug.Print`
 since its run began or a reply last reported it, and its note SHALL say how much, or that it wrote nothing.
+The buffer SHALL reset when the runner claims a new run, before any interpreter code can execute,
+and SHALL NOT reset when that run becomes active or ends.
 Output past 4000 characters SHALL keep its end, with the note saying how much was left out. For an external debug session, `stop_project` SHALL instead state that external
 session output is not captured by this tool and direct the caller to the Immediate window.
 
 #### Scenario: A program that prints as it loads
 - **WHEN** `run_project` starts a program whose `Form_Load` prints two lines
 - **THEN** `printed` holds the two lines, and the note says Debug.Print wrote 2 lines
+
+#### Scenario: Load finishes before the run becomes active
+- **WHEN** `Form_Load` prints without yielding before the runner has its run handle
+- **THEN** the `run_project` reply retains that output in `printed`
+- **AND** a subsequent silent run does not repeat it
 
 #### Scenario: Nothing printed
 - **WHEN** a program prints nothing before `stop_project`
