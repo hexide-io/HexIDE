@@ -36,6 +36,7 @@ public class DumpFlagsNoteTests
         var note = HexIdeTools.FlagsNote([Node("Window/Button[OK]"), Node("Window/ListBox[Files]/ListBoxItem[#40]", offscreen: true)]);
 
         note.Should().StartWith("isOffscreen true means a control is clipped or scrolled out of view")
+            .And.Contain("one only partly cut off reads false")
             .And.NotContain("isHidden");
     }
 

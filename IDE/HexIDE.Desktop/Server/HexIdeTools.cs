@@ -2707,8 +2707,10 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
             parts.Add("isHidden true marks a control that is in the tree but does not show, and is absent on one that "
                       + "shows; interact refuses all but invoke_command and set_property on it.");
         if (offscreen)
-            parts.Add("isOffscreen true means a control is clipped or scrolled out of view, which says nothing about "
-                      + "whether it shows: scroll it into view, or 'select' an item by its text.");
+            // A row cut off in part reads false, which a first-contact caller took the old wording to deny (#2566).
+            parts.Add("isOffscreen true means a control is clipped or scrolled out of view, and one only partly cut off "
+                      + "reads false; it says nothing about whether it shows: scroll it into view, or 'select' an item by "
+                      + "its text.");
         return parts.Count == 0 ? null : string.Join(" ", parts);
     }
 
