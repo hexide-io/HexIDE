@@ -6,4 +6,4 @@
   editing. The project file stays the add-in's program's to write: saving writes edited modules only, and HexIDE
   neither adds nor removes members, edits the project's properties or references, makes it nor runs it. The add-in
   reports a member added, removed or moved, or new references, in order, and the project follows as a .vbp project
-  would.
+  would. Turning the add-in off or revoking its consent takes its project types out.

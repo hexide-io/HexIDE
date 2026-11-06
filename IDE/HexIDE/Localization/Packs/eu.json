@@ -1014,6 +1014,7 @@
     "Str.Dialog.MessageBox.Button.Retry": "Saiatu berriro",
     "Str.Dialog.MessageBox.Button.Ignore": "Ez ikusi egin",
     "Str.Addins.ServerLaunchRefused": "«{0}» gehigarriaren hizkuntza-zerbitzaria abiaraztea ukatu da.",
+    "Str.Addins.DebugLaunchRefused": "«{0}» gehigarriaren arazketa-egokigailua abiaraztea ukatu da.",
     "Str.Addins.Incompatible": "Ezin da gehigarria kargatu: eskatutako eskema {0}, gutxieneko HexIDE {1}; eraikitze honek {2} eskema eta HexIDE {3} onartzen ditu. Eskema- edo bertsio-eskakizuna ez da onartzen edo baliogabea da.",
     "Str.MakeProject.NoStartup": "Ez da hasierako proiekturik aurkitu.",
     "Str.MakeProject.Browser": "Programa bat eraikitzea ez dago erabilgarri nabigatzaile batean. Erabili HexIDEren mahaigaineko bertsioa.",

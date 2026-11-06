@@ -6,4 +6,5 @@
   stays the default, and the choice is kept in the `.user.hexproj` sidecar. **Run > Start Once With** runs a launch
   once.
   The session gets the project's saved breakpoints. A chosen launch that is gone leaves F5 to the IDE, with a status
-  message.
+  message. Turning the add-in off or revoking its consent takes its launches out, and a run already starting is refused
+  before its adapter is started.

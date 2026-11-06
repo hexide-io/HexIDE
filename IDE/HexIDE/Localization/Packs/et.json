@@ -1014,6 +1014,7 @@
     "Str.Dialog.MessageBox.Button.Retry": "Proovi uuesti",
     "Str.Dialog.MessageBox.Button.Ignore": "Eira",
     "Str.Addins.ServerLaunchRefused": "Lisandmooduli „{0}” keeleserveri käivitamine keelati.",
+    "Str.Addins.DebugLaunchRefused": "Lisandmooduli „{0}” silumisadapteri käivitamine keelati.",
     "Str.Addins.Incompatible": "Lisandmoodulit ei saa laadida: nõutud skeem {0}, minimaalne HexIDE {1}; see versioon toetab skeemi {2}, HexIDE {3}. Skeemi- või versiooninõue on toetamata või vigane.",
     "Str.MakeProject.NoStartup": "Käivitusprojekti ei leitud.",
     "Str.MakeProject.Browser": "Programmi ehitamine pole brauseris saadaval. Kasuta HexIDE töölauaversiooni.",

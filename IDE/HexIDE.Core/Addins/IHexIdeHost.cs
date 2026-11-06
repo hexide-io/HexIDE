@@ -53,7 +53,10 @@ public interface IHexIdeHost
     /// The capability design will need a name for this member, separate from <c>program.run</c>; none is checked today,
     /// as that design's host checks are not built.
     /// </remarks>
-    /// <returns>What takes the launch out again: its command goes, and F5 no longer offers it.</returns>
+    /// <returns>
+    /// What takes the launch out again: its command goes, and F5 no longer offers it. Turning the add-in off or revoking its
+    /// consent takes it out too, and a run already starting is refused before its adapter is started.
+    /// </returns>
     /// <exception cref="ArgumentException">It has no title, or nothing makes its configuration.</exception>
     /// <exception cref="InvalidOperationException">This add-in contributed a launch with that title already.</exception>
     IDisposable RegisterDebugLaunch(AddinDebugLaunch launch);
@@ -66,7 +69,10 @@ public interface IHexIdeHost
     /// The capability design will need a name for this member; none is checked today, as that design's host checks are not
     /// built.
     /// </remarks>
-    /// <returns>What takes the type out again: its files are no longer offered, and a project of it already open stays.</returns>
+    /// <returns>
+    /// What takes the type out again: its files are no longer offered, and a project of it already open stays. Turning the
+    /// add-in off or revoking its consent takes it out too.
+    /// </returns>
     /// <exception cref="ArgumentException">It has no title, no file names, a malformed pattern, or nothing that reads it.</exception>
     /// <exception cref="InvalidOperationException">Another project type, an add-in's or HexIDE's own, reads one of its file names.</exception>
     IDisposable RegisterProjectType(AddinProjectType type);

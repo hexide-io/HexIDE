@@ -1013,6 +1013,7 @@
     "Str.Dialog.MessageBox.Button.Retry": "重试",
     "Str.Dialog.MessageBox.Button.Ignore": "忽略",
     "Str.Addins.ServerLaunchRefused": "已拒绝启动加载项“{0}”的语言服务器。",
+    "Str.Addins.DebugLaunchRefused": "已拒绝启动加载项“{0}”的调试适配器。",
     "Str.Addins.Incompatible": "无法加载加载项：要求架构 {0}、最低 HexIDE {1}；此构建支持架构 {2}、HexIDE {3}。架构或版本要求不受支持或无效。",
     "Str.MakeProject.NoStartup": "未找到启动项目。",
     "Str.MakeProject.Browser": "无法在浏览器中生成程序。请使用桌面版 HexIDE。",

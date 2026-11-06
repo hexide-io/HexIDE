@@ -1013,6 +1013,7 @@
     "Str.Dialog.MessageBox.Button.Retry": "Coba Lagi",
     "Str.Dialog.MessageBox.Button.Ignore": "Abaikan",
     "Str.Addins.ServerLaunchRefused": "Peluncuran server bahasa untuk add-in '{0}' ditolak.",
+    "Str.Addins.DebugLaunchRefused": "Peluncuran adaptor debug untuk add-in '{0}' ditolak.",
     "Str.Addins.Incompatible": "Tidak dapat memuat add-in: skema yang diperlukan {0}, minimum HexIDE {1}; build ini mendukung skema {2}, HexIDE {3}. Persyaratan skema atau versi tidak didukung atau tidak valid.",
     "Str.MakeProject.NoStartup": "Proyek awal tidak ditemukan.",
     "Str.MakeProject.Browser": "Pembuatan program tidak tersedia di peramban. Gunakan HexIDE versi desktop.",

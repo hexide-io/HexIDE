@@ -1014,6 +1014,7 @@
     "Str.Dialog.MessageBox.Button.Retry": "Reîncearcă",
     "Str.Dialog.MessageBox.Button.Ignore": "Ignoră",
     "Str.Addins.ServerLaunchRefused": "Pornirea serverului de limbaj pentru programul de completare „{0}” a fost refuzată.",
+    "Str.Addins.DebugLaunchRefused": "Pornirea adaptorului de depanare pentru programul de completare „{0}” a fost refuzată.",
     "Str.Addins.Incompatible": "Nu se poate încărca programul de completare: necesită schema {0}, minimum HexIDE {1}; această versiune acceptă schema {2}, HexIDE {3}. Cerința de schemă sau versiune nu este acceptată ori este nevalidă.",
     "Str.MakeProject.NoStartup": "Nu s-a găsit un proiect de pornire.",
     "Str.MakeProject.Browser": "Generarea unui program nu este disponibilă într-un browser. Folosește versiunea desktop de HexIDE.",

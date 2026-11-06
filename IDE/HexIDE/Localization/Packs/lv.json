@@ -1014,6 +1014,7 @@
     "Str.Dialog.MessageBox.Button.Retry": "Mēģināt vēlreiz",
     "Str.Dialog.MessageBox.Button.Ignore": "Ignorēt",
     "Str.Addins.ServerLaunchRefused": "Pievienojumprogrammas “{0}” valodas servera palaišana tika atteikta.",
+    "Str.Addins.DebugLaunchRefused": "Pievienojumprogrammas “{0}” atkļūdošanas adaptera palaišana tika atteikta.",
     "Str.Addins.Incompatible": "Nevar ielādēt pievienojumprogrammu: nepieciešamā shēma {0}, minimālā HexIDE versija {1}; šis būvējums atbalsta shēmu {2}, HexIDE {3}. Shēmas vai versijas prasība nav atbalstīta vai ir nederīga.",
     "Str.MakeProject.NoStartup": "Nav atrasts starta projekts.",
     "Str.MakeProject.Browser": "Programmas izveide pārlūkā nav pieejama. Lietojiet HexIDE darbvirsmas versiju.",

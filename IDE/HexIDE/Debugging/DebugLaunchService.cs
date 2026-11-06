@@ -16,6 +16,12 @@ public sealed record ContributedDebugLaunch(string Key, string Origin, AddinDebu
 {
     public string Title => Launch.Title;
 
+    /// <summary>
+    /// Throws when the add-in may not start what it contributed now, as when it is disabled or its consent is revoked; null
+    /// for a launch no add-in's trust stands behind, as one a test registers.
+    /// </summary>
+    internal Action? CheckTrust { get; init; }
+
     /// <summary>The launch title a remembered key names, to say which launch a choice was when it is gone.</summary>
     public static string TitleOf(string key) => key.IndexOf('/') is var at and >= 0 ? key[(at + 1)..] : key;
 }
@@ -44,7 +50,8 @@ public sealed class DebugLaunchService(ExternalDebugService debugger, ILogger<De
         }
     }
 
-    internal IDisposable Register(AddinDebugLaunch launch, AddinOrigin origin) => Register(launch, origin.Id, origin.Title);
+    internal IDisposable Register(AddinDebugLaunch launch, AddinOrigin origin, Action? checkTrust = null) =>
+        Register(launch, origin.Id, origin.Title, checkTrust);
 
     /// <summary>Adds an add-in's launch.</summary>
     /// <param name="originId">The add-in's id, which keys the remembered choice of the launch.</param>
@@ -52,7 +59,9 @@ public sealed class DebugLaunchService(ExternalDebugService debugger, ILogger<De
     /// <returns>What takes it out again.</returns>
     /// <exception cref="ArgumentException">It has no title, or nothing makes its configuration.</exception>
     /// <exception cref="InvalidOperationException">The add-in contributed a launch with that title already.</exception>
-    public IDisposable Register(AddinDebugLaunch launch, string originId, string origin)
+    public IDisposable Register(AddinDebugLaunch launch, string originId, string origin) => Register(launch, originId, origin, null);
+
+    private IDisposable Register(AddinDebugLaunch launch, string originId, string origin, Action? checkTrust)
     {
         ArgumentNullException.ThrowIfNull(launch);
         ArgumentException.ThrowIfNullOrWhiteSpace(launch.Title, nameof(launch));
@@ -61,7 +70,7 @@ public sealed class DebugLaunchService(ExternalDebugService debugger, ILogger<De
         if (launch.CreateConfigurationAsync is null || launch.Claims is null)
             throw new ArgumentException("A launch needs what makes its configuration, and what says which projects it runs.", nameof(launch));
 
-        var contributed = new ContributedDebugLaunch(originId + "/" + launch.Title, origin, launch);
+        var contributed = new ContributedDebugLaunch(originId + "/" + launch.Title, origin, launch) { CheckTrust = checkTrust };
         lock (_gate)
         {
             if (_launches.Any(known => known.Key == contributed.Key))
@@ -116,12 +125,21 @@ public sealed class DebugLaunchService(ExternalDebugService debugger, ILogger<De
     /// Starts an External Debug Session for the project with this launch's configuration, made now. A configuration
     /// that fails to be made, or is refused, ends the start as a launch file that fails does.
     /// </summary>
+    /// <remarks>
+    /// The add-in's trust is checked before it is asked for the configuration, and again once it has made it, before
+    /// anything is started: an add-in disabled or revoked meanwhile starts nothing, and the start fails naming it.
+    /// </remarks>
     public Task StartAsync(ContributedDebugLaunch launch, ProjectDefinition project)
     {
         ArgumentNullException.ThrowIfNull(launch);
         ArgumentNullException.ThrowIfNull(project);
         var described = AddinProjectService.Describe(project);
         return debugger.StartAsync(async token =>
-            DapLaunchConfiguration.FromContributed(await launch.Launch.CreateConfigurationAsync(described, token)));
+        {
+            launch.CheckTrust?.Invoke();
+            var made = await launch.Launch.CreateConfigurationAsync(described, token);
+            launch.CheckTrust?.Invoke();
+            return DapLaunchConfiguration.FromContributed(made);
+        });
     }
 }

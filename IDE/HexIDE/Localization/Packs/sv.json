@@ -1013,6 +1013,7 @@
     "Str.Dialog.MessageBox.Button.Retry": "Försök igen",
     "Str.Dialog.MessageBox.Button.Ignore": "Ignorera",
     "Str.Addins.ServerLaunchRefused": "Start av språkservern för tillägget '{0}' nekades.",
+    "Str.Addins.DebugLaunchRefused": "Start av felsökningsadaptern för tillägget '{0}' nekades.",
     "Str.Addins.Incompatible": "Kan inte läsa in tillägget: krävt schema {0}, minst HexIDE {1}; denna version stöder schema {2}, HexIDE {3}. Schema- eller versionskravet stöds inte eller är ogiltigt.",
     "Str.MakeProject.NoStartup": "Inget startprojekt hittades.",
     "Str.MakeProject.Browser": "Det går inte att skapa ett program i en webbläsare. Använd skrivbordsversionen av HexIDE.",

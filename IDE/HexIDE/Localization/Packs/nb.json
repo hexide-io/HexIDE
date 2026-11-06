@@ -1013,6 +1013,7 @@
     "Str.Dialog.MessageBox.Button.Retry": "Prøv igjen",
     "Str.Dialog.MessageBox.Button.Ignore": "Ignorer",
     "Str.Addins.ServerLaunchRefused": "Oppstart av språkserveren for tillegget '{0}' ble avvist.",
+    "Str.Addins.DebugLaunchRefused": "Oppstart av feilsøkingsadapteren for tillegget '{0}' ble avvist.",
     "Str.Addins.Incompatible": "Kan ikke laste tillegget: påkrevd skjema {0}, minst HexIDE {1}; denne utgaven støtter skjema {2}, HexIDE {3}. Skjema- eller versjonskravet støttes ikke eller er ugyldig.",
     "Str.MakeProject.NoStartup": "Fant ikke noe oppstartsprosjekt.",
     "Str.MakeProject.Browser": "Det er ikke mulig å lage et program i en nettleser. Bruk skrivebordsversjonen av HexIDE.",
