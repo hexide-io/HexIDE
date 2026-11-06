@@ -163,6 +163,44 @@ never appeared.
 
 The longest `1 + 1` chain that compiled was 2,556 terms.
 
+### Nested `If` blocks (2026-11-06, #3210)
+
+**The question.** How deeply can `If` blocks nest? The probes above measured expressions only. Asked because
+HexIDE's parse-depth guard refuses 58 nested `If` blocks, and the #1368 corpus has a 400-deep row.
+
+**The obvious guess was a nesting limit for blocks, somewhere in the hundreds. P-code showed none.** It refuses the
+procedure for its size, and at exactly the same point whether or not the blocks nest. Native code compiles far deeper,
+until vb6.exe's own compiler overflows its stack.
+
+**The probe.** The module above was used again, with these probe lines:
+- **Nested:** n lines of `If True Then`, then `v = 7`, then n lines of `End If`.
+- **The control:** the same lines unnested: n pairs of `If True Then` and `End If`, one after another, then `v = 7`.
+
+| `If` blocks | Nested, p-code | The same lines unnested, p-code | Nested, native code |
+|---|---|---|---|
+| 100, 250, 400, 500, 1,000, 2,000 and 4,000 | builds, and runs to 7 | 4,000: builds | builds, and runs to 7 |
+| 4,500 to 7,200, in steps of 50 to 500 | builds, and runs to 7 | builds, from 5,000 | builds, and runs to 7 |
+| **7,227** | **builds**, and runs to 7; so does the IDE | **builds** | builds |
+| **7,228** | **"Procedure too large"**; the IDE: "Compile error: Procedure too large" | **"Procedure too large"** | builds |
+| 7,250 to 7,500, and 8,000 to 21,000 | "Procedure too large" | "Procedure too large", to 8,000 | builds, and runs to 7 |
+| 22,000, 23,000, 24,000, 28,000 and 32,000 | "Procedure too large" | | **vb6.exe crashes**, with exit code 0xC00000FD, a stack overflow, and no message |
+
+- **Every count from 7,201 to 7,249 was tried nested and unnested, as native code and as p-code.** In p-code, nested
+  and unnested gave the same answer at every count, with the edge between 7,227 and 7,228.
+- **This refusal is reported like a syntax error.** Unlike the two refusals above, `/make` names the file and the
+  line, and adds "Build of '...' failed.".
+- **In the IDE it came at Run, not at load.** There was a single box, with no background-load box after it.
+- **The native crash looks like a depth problem.** The same 24,000 blocks unnested hadn't crashed when `/make` was
+  stopped at its 90-second timeout. Its code generator, C2.EXE, was still running and was stopped by hand.
+
+**The corpus's other two rows.** The two corpus shapes both built and ran, native and p-code:
+- `v = ` with 400 pairs of parentheses around `1`, on one line of 805 characters, ran to 1;
+- 400 nested `If` blocks ran to 7.
+
+**What this shows.** In p-code, nested `If` blocks are limited by the size of their procedure, not by how deeply they
+nest. Which measure of size it is, whether lines, statements or compiled bytes, wasn't measured, and nor were other
+kinds of block: `For`, `Do`, `Select Case`, `With` and `ElseIf`.
+
 ### What the IDE shows
 
 **A line over 1,023 characters appears in the code window broken in two.** The first line ends in ` _`, and End on
@@ -243,3 +281,6 @@ HexIDE's interpreter reads a line far past 1,023 characters whole: #1930's tests
 one line, and its depth guard raises 28. The deep-chain rows' expected 28 is therefore HexIDE's guard, not anything
 VB6 does, since VB6 refuses each of those modules before it runs. What HexIDE should do past VB6's limits is #3203.
 That issue also covers the risk that a line over 1,023 characters that HexIDE writes is read differently by VB6.
+
+In the other direction, HexIDE's parse-depth guard refuses 291 nested parentheses and 58 nested `If` blocks. Both are
+far inside what vb6.exe builds: that is #3210.
