@@ -14,6 +14,32 @@ agent that wrote the code can open the IDE, drive it, and look at the result.
 
 ## Requirements
 
+### Requirement: Code edits during a run explain the running snapshot
+
+During a running or paused project, `set_file_content` and document-mode `type_text` SHALL edit without
+a reset prompt. Replies SHALL explain that the run keeps its starting code until the next run, and that
+breakpoints, and while paused the break location, keep the running code's line numbers and may differ from
+the new text. Design-mode replies,
+tool descriptions and the keyboard reset prompt SHALL remain unchanged.
+
+#### Scenario: Prepare the next run while paused
+- **WHEN** a caller changes a module using `set_file_content` while paused
+- **THEN** the edit succeeds, the run remains paused, and the reply explains the snapshot and stale lines
+
+#### Scenario: Edit in design mode
+- **WHEN** a caller edits code with no run active
+- **THEN** the reply contains no running-snapshot warning
+
+### Requirement: Debugger replies name documents edited during the run
+
+The IDE SHALL track documents changed since an interpreter or external run started, including edits
+outside these tools, until that run ends. `get_debug_state` and `set_breakpoints` replies SHALL name
+those documents and explain the possible line mismatch.
+
+#### Scenario: Inspect lines after an edit
+- **WHEN** code changes during a run
+- **THEN** debug-state and breakpoint replies name the changed document until the run ends
+
 ### Requirement: Inspected popup bounds share the window coordinate space
 
 `inspect_element` SHALL report `boundingRect` in device-independent client coordinates of the selected
