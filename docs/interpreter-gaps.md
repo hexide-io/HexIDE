@@ -28,6 +28,17 @@
   `visibility` rule, so it hoists like `Public` (subject to the same cross-module unqualified-variable-read gap in
   *Partial*). Noted only because it is an ancient construct one might expect to be missing.
 
+## Source limits deliberately lifted (#3203)
+
+HexIDE continues to run source beyond VB6's mechanical line limits, by decision in
+[#3203](https://github.com/hexide-io/HexIDE/issues/3203). The bundled server warns rather than refusing:
+more than 24 continuations (including extra 1,023-character pieces), or a physical line over 1,023 characters.
+It never copies VB6's silent tail loss. "Statement too complex" is not predicted: the
+[measurements](vb6-fidelity-oracle/long-lines-line-continuations-and-long-expressions.md) give a fitted budget,
+not a general rule. The interpreter is unchanged, including #1930's Error 28 guard. The seven deep-chain corpus
+rows (2466, 3139, 3665, 4040, 5891, 6045, 6112) pin that guard in `ExpressionDepthGuardTests`, not VB6 behaviour;
+VB6 refuses those modules before running them. No language-support inventory counts change.
+
 ## Slot lifetime (#79)
 
 Procedure activations reclaim their allocated slots after scope-exit reference releases, including on error
