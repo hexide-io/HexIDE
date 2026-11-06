@@ -447,13 +447,27 @@ The collection's declared type:
 | `o.Items()`, early-bound, a Function `As Long()` | `1: [pre]:pre\|92` |
 | `o.Items(Boom())`, a class field `Public Items(1)` or `Public Items() As Long` | **the class doesn't compile**: "Constants, fixed-length strings, arrays, user-defined types and Declare statements not allowed as Public members of object modules" |
 
-**The rule, from both rounds.** It holds for every case measured:
+**Round three: the literal keywords.** HexIDE's grammars read some literal keywords as names, so these were measured
+on their own. The program and both builds were the same, and native code and p-code agreed.
+
+| `For Each x In ...` | vb6.exe |
+|---|---|
+| `True` | **Syntax error** |
+| `False` | **Syntax error** |
+| `Null` | **Syntax error** |
+| `Empty` | **Syntax error** |
+| control: `vbNullString`, a named String constant | "For Each may only iterate over a collection object or an array" |
+
+`vbNullString` is a name, so it passes the syntax rule and is then refused on its type.
+
+**The rule, from all three rounds.** It holds for every case measured:
 - **What can stand as the collection, syntactically, is a reference.** That is a name; `Me`; a member access, such as
   `o.Items` or `Module2.Items`; a call or an index, with or without arguments, such as `BoomV()`, `Items(5)` or
   `Array(1, 2)`; a `!` access; or a `With` member access. The combinations measured are a member call, a module-qualified
   call and a `With` member call.
-- **Anything else is a Syntax error.** That covers a parenthesised expression, a literal (a number, a string or
-  `Nothing`), a `New` expression, and any expression with a unary or binary operator.
+- **Anything else is a Syntax error.** That covers a parenthesised expression, a literal (a number, a string,
+  `Nothing`, `True`, `False`, `Null` or `Empty`), a `New` expression, and any expression with a unary or binary
+  operator.
 - **The declared type is checked when the module compiles.** Where the collection's type is known then, it must be an
   array, an object or a Variant. Otherwise the error is "For Each may only iterate over a collection object or an
   array". A late-bound member has no type to know, so it compiles.
