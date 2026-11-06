@@ -279,8 +279,11 @@ coordinates would have landed on the toolbar.
 
 HexIDE's interpreter reads a line far past 1,023 characters whole: #1930's tests run a 10,000-term chain written on
 one line, and its depth guard raises 28. The deep-chain rows' expected 28 is therefore HexIDE's guard, not anything
-VB6 does, since VB6 refuses each of those modules before it runs. What HexIDE should do past VB6's limits is #3203.
-That issue also covers the risk that a line over 1,023 characters that HexIDE writes is read differently by VB6.
+VB6 does, since VB6 refuses each of those modules before it runs. By decision in [#3203](https://github.com/hexide-io/HexIDE/issues/3203), HexIDE keeps running
+what it runs today. The bundled server warns on the 25th continuation, counting extra 1,023-character pieces,
+and on each physical line over 1,023 characters. These are warnings only: neither loading nor execution is refused,
+and no tail is discarded. There is no "Statement too complex" warning, since the fitted budget is not a known rule.
+The seven Error 28 expectations in `ExpressionDepthGuardTests` are labelled as HexIDE guard coverage.
 
 In the other direction, HexIDE's parse-depth guard refuses 291 nested parentheses and 58 nested `If` blocks. Both are
 far inside what vb6.exe builds: that is #3210.

@@ -1,6 +1,6 @@
-using System.ComponentModel;
 using System.Globalization;
 using System.Text;
+using HexIDE.IDE;
 
 namespace HexIDE.Desktop.Server;
 
@@ -34,7 +34,7 @@ internal sealed class ProgramPrinted
 
     /// <summary>Follows the program's output and its runs. Once; later calls do nothing, so a restarted server does not
     /// count every line twice.</summary>
-    public void Attach(INotifyPropertyChanged runner, Func<bool> isRunning)
+    public void Attach(IProjectRunnerService runner)
     {
         lock (gate)
         {
@@ -42,21 +42,11 @@ internal sealed class ProgramPrinted
             attached = true;
         }
         HexIDE.Runtime.VBDebugConsole.Written += Append;
-        FollowRuns(runner, isRunning);
+        FollowRuns(runner);
     }
 
     /// <summary>Starts afresh each time a run begins, whoever starts it.</summary>
-    internal void FollowRuns(INotifyPropertyChanged runner, Func<bool> isRunning)
-    {
-        var wasRunning = isRunning();
-        runner.PropertyChanged += (_, e) =>
-        {
-            if (e.PropertyName != "IsRunning") return;
-            var running = isRunning();
-            if (running && !wasRunning) Reset();
-            wasRunning = running;
-        };
-    }
+    internal void FollowRuns(IProjectRunnerService runner) => runner.RunStarting += Reset;
 
     public void Append(string written)
     {

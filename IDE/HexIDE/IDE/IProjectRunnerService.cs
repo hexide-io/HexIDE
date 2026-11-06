@@ -5,6 +5,9 @@ namespace HexIDE.IDE;
 
 public interface IProjectRunnerService : INotifyPropertyChanged
 {
+    /// <summary>A new run has been claimed, before interpreter code can execute; also raised when an external session starts.</summary>
+    event Action? RunStarting;
+
     void RunProject(ProjectDefinition projectDefinition, bool stepInto = false);
     void RunStartupProject(bool stepInto = false);
     void BreakCurrentProject();

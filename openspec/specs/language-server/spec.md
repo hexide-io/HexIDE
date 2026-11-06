@@ -13,6 +13,23 @@ the kind of thing that erodes silently unless it is a requirement.
 
 ## Requirements
 
+### Requirement: VB6 mechanical source limits produce compatibility warnings
+The bundled server SHALL warn on a logical line's 25th continuation, counting each extra 1,023-character
+piece of a physical line as one continuation. It SHALL also warn on a physical line over 1,023 characters,
+explaining VB6's piece-reading behaviour, split-number/string syntax errors and possible silent tail loss.
+These notices SHALL be warnings only: HexIDE keeps its existing execution behaviour and the whole source.
+The server SHALL NOT predict "Statement too complex" from the fitted expression budget (#3203).
+
+#### Scenario: Continuations cross VB6's measured edge
+- **WHEN** a logical line has 25 continuations, including long-line pieces
+- **THEN** the 25th carries a warning saying VB6 refuses it and HexIDE runs it
+- **AND** 24 continuations carry no continuation-limit warning
+
+#### Scenario: A physical line crosses VB6's piece length
+- **WHEN** a physical line has 1,024 characters
+- **THEN** the line carries a warning explaining the compatibility risk
+- **AND** a 1,023-character line carries no physical-line-length warning
+
 ### Requirement: Clean exit stops the input loop quietly
 After answering `shutdown` and receiving `exit`, the server SHALL stop its input loop and exit with
 code 0 and empty stderr, whether the client closes stdin or leaves it open. EOF without a preceding

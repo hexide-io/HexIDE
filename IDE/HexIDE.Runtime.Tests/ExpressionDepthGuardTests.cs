@@ -2,6 +2,10 @@ using HexIDE.Runtime.Interpreter;
 
 namespace HexIDE.Runtime.Tests;
 
+// The seven Error 28 cases below pin HexIDE's own #1930 guard, not VB6 behaviour (#3203).
+// Corpus rows 2466, 3139, 3665, 4040, 5891, 6045 and 6112 come from these chains.
+// vb6.exe refuses the modules at load; measurements:
+// docs/vb6-fidelity-oracle/long-lines-line-continuations-and-long-expressions.md.
 public class ExpressionDepthGuardTests : BaseVBTestFixture
 {
     [Fact]
@@ -36,6 +40,7 @@ public class ExpressionDepthGuardTests : BaseVBTestFixture
     }
 
     [Theory]
+    // Each statement variant pins HexIDE's guard, not a VB6 run-time result.
     [InlineData("If {0} Then\nDebug.Print 1\nEnd If")]
     [InlineData("Debug.Print {0}")]
     [InlineData("Call Consume({0})")]

@@ -48,6 +48,9 @@ public partial class ProjectRunnerService : IProjectRunnerService
     public bool IsRunning => runHandle != null || externalDebugger?.IsActive == true;
 
     /// <inheritdoc />
+    public event Action? RunStarting;
+
+    /// <inheritdoc />
     public event Action<string>? StartFailed;
 
     /// <inheritdoc />
@@ -81,7 +84,11 @@ public partial class ProjectRunnerService : IProjectRunnerService
         {
             runScope.RunningProject = value;
             if (value is null) runScope.End();
-            else runScope.Begin(projectManager.LoadedProjects.Contains(value) ? projectManager.LoadedProjects : [value]);
+            else
+            {
+                runScope.Begin(projectManager.LoadedProjects.Contains(value) ? projectManager.LoadedProjects : [value]);
+                RunStarting?.Invoke();
+            }
         }
     }
 
@@ -122,6 +129,7 @@ public partial class ProjectRunnerService : IProjectRunnerService
                 {
                     runScope.Begin(projectManager.LoadedProjects);
                     externalRunTracked = true;
+                    RunStarting?.Invoke();
                 }
                 else if (!running && externalRunTracked)
                 {

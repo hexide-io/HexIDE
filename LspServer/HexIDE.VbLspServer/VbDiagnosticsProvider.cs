@@ -326,6 +326,8 @@ public static class VbDiagnosticsProvider
         // ERRORCHAR token — unrecognised characters surface as lexer errors through the listener above.
         // The filled buffer is reused by the LL re-parse below (the lexer never runs twice).
         tokenStream.Fill();
+        if (diagnostics is not null)
+            VbSourceLimitWarnings.Add(source, tokenStream.GetTokens(), diagnostics, protectedRegions);
 
         var parser = new VisualBasic6Parser(tokenStream);
 

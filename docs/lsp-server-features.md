@@ -131,6 +131,14 @@ the non-empty lines outside the IDE's regions.
 
 ## 1. Error diagnostics (squiggles)
 
+**VB6 source-limit warnings (#3203).** The bundled server warns on a logical line's 25th continuation,
+counting each additional 1,023-character piece of a long physical line as a continuation, and on every physical
+line over 1,023 characters. The notices explain VB6's refusal or piece-reading behaviour, including split-token
+syntax errors and the layouts where VB6 silently drops a tail. HexIDE keeps the whole source and runs it as
+before. These use the existing severity 2 diagnostics, without diagnostic codes or localization (as with the
+server's other messages). There is no "Statement too complex" warning: its edge is fitted, not a known rule.
+See the [measured edges](vb6-fidelity-oracle/long-lines-line-continuations-and-long-expressions.md).
+
 **`textDocument/publishDiagnostics`** (server-push)
 
 The server parses VB6 source with the full ANTLR4 grammar on every change. Syntax errors surface as red
