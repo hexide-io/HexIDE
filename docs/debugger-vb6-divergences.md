@@ -48,7 +48,7 @@ some are refinements we may take. Format: **What → VB6 → HexIDE → Why → 
     verification on the running IDE remains required.
   - **Remaining differences:** ownership still differs from VB6, and the program isn't paused for the prompt in
     run mode, so Timers keep firing. Floating a code window currently hides it instead (#1361).
-- **HexIDE:** the interpreter can apply *no* edit live, so **every** edit while running/paused pops that same
+- **HexIDE:** the interpreter can apply *no* edit live, so keyboard edits while running/paused pop that same
   prompt (OK = reset + keep the edit; Cancel = revert). So HexIDE over-prompts relative to VB6 (it resets even for a
   comment).
 - **Why:** honest + muscle-memory-recognisable — VB6's own dialog, surfaced for the whole edit set the interpreter
@@ -71,9 +71,17 @@ some are refinements we may take. Format: **What → VB6 → HexIDE → Why → 
   This fixes HexIDE's reset affordance; it does not establish new VB6 behaviour. Undo and Redo remain
   unmeasured and unchanged (#710, #513).
 - **"Every edit" is unmeasured for the routes that are not keystrokes.** Replace All, formatting, Insert File,
-  rename, an add-in's `ApplyEdits`/`SetContent` and automation's `set_file_content` while paused have not been
+  rename and an add-in's `ApplyEdits`/`SetContent` while paused have not been
   checked against the prompt. Paste, cut and Delete were assumed covered until they were tested, and were not.
   Tracked as [#710](https://github.com/hexide-io/HexIDE/issues/710).
+
+- **Automation edits (#3191, 2026-11-06):** measured in
+  [the issue](https://github.com/hexide-io/HexIDE/issues/3191), `set_file_content` and document-mode
+  `type_text` do not prompt and leave the run using its starting code, including modules and forms not
+  loaded yet. This is intentional for preparing the next run. Their replies now explain when the edits
+  take effect, and that breakpoints, and while paused the break location, keep the running code's line
+  numbers. Debug-state and breakpoint replies name documents
+  changed since start until the run ends. Keyboard-mode typing keeps the reset prompt.
 
 ### D3. E&C prompt fires per-keystroke, not on line-leave
 - **VB6:** evaluates an edit when you **leave the line** (or on Run/Continue), so you can finish typing a line /
