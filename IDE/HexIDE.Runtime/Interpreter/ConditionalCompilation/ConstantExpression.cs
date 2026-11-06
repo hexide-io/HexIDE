@@ -43,7 +43,7 @@ internal static class ConstantExpression
         lexer.AddErrorListener(Refusal.Instance);
         var parser = new VB6Parser(new CommonTokenStream(lexer)) { ErrorHandler = new BailErrorStrategy() };
         parser.RemoveErrorListeners();
-        parser.AddParseListener(new ParseDepthGuard());
+        parser.AddParseListener(new ParseDepthGuard(maxDepth: ParseDepthGuard.DefaultMaxDepth));
         try
         {
             var expression = parser.valueStmt();

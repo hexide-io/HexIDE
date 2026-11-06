@@ -564,3 +564,8 @@ seam. See [`lsp-client.md`](./lsp-client.md) for what HexIDE would consume from 
 ---
 
 *The behaviour contracts live under [`openspec/specs/`](../openspec/specs/).*
+
+The runtime parsing slice of [#3210](https://github.com/hexide-io/HexIDE/issues/3210) does not lift
+this server's limits: diagnostics still have the 300-rule parse guard, visitors retain their 500-frame
+bounds, and conditional-expression parsing retains its 64-rule guard. Moving analysis to one persistent
+64 MiB worker and deriving these limits remains outstanding. The two-second wall-clock budget is unchanged.
