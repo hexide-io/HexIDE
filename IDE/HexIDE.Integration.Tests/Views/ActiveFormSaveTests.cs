@@ -30,9 +30,10 @@ namespace HexIDE.Integration.Tests.Views;
 
 public class ActiveFormSaveTests
 {
-    private sealed class Shell : IDisposable
+    private sealed class Shell : IAsyncDisposable
     {
-        public readonly DISetup Composition = new();
+        private readonly RealComposition owned = new();
+        public DISetup Composition => owned.Composition;
         public readonly MainView Main;
         public readonly TextBox Tool = new();
         public readonly StackPanel Content = new();
@@ -50,10 +51,11 @@ public class ActiveFormSaveTests
             Tool.Focus();
         }
 
-        public void Dispose()
+        public async ValueTask DisposeAsync()
         {
             Composition.DocumentDockService.CloseAll();
             Window.Close();
+            await owned.DisposeAsync();
         }
     }
 
@@ -62,7 +64,7 @@ public class ActiveFormSaveTests
     [InlineData(true)]
     public async Task Tool_focus_saves_the_active_designer(bool saveAs)
     {
-        using var shell = new Shell();
+        await using var shell = new Shell();
         await WaitFor(() => shell.Tool.IsFocused, value => value, "tool focus");
         var projects = Substitute.For<IProjectService>();
         var form = new FormDefinition(new ProjectDefinition(VBProjectType.EXE, "P"), FormComponentClass.Instance, "Form1");
@@ -88,7 +90,7 @@ public class ActiveFormSaveTests
     [AvaloniaFact]
     public async Task Switching_active_form_requeries_commands_without_moving_keyboard_focus()
     {
-        using var shell = new Shell();
+        await using var shell = new Shell();
         await WaitFor(() => shell.Tool.IsFocused, value => value, "tool focus");
         Dispatcher.UIThread.RunJobs();
         var queries = 0;
@@ -116,7 +118,7 @@ public class ActiveFormSaveTests
     [InlineData(true)]
     public async Task Form_code_save_waits_for_formatting_before_saving(bool saveAs)
     {
-        using var shell = new Shell();
+        await using var shell = new Shell();
         await WaitFor(() => shell.Tool.IsFocused, value => value, "tool focus");
         var projects = Substitute.For<IProjectService>();
         var lsp = Substitute.For<ILspClient>();
@@ -163,7 +165,7 @@ public class ActiveFormSaveTests
     [AvaloniaFact]
     public async Task Save_key_in_a_carried_file_reaches_its_own_binding()
     {
-        using var shell = new Shell();
+        await using var shell = new Shell();
         await WaitFor(() => shell.Tool.IsFocused, value => value, "tool focus");
         var path = Path.Combine(Path.GetTempPath(), Guid.NewGuid() + ".txt");
         try

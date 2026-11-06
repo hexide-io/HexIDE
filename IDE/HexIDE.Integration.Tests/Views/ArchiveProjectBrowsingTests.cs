@@ -322,7 +322,8 @@ public sealed class ArchiveProjectBrowsingTests : IDisposable
     {
         var recentPath = UserDataPath.For("recent-projects.json");
         var savedRecent = File.Exists(recentPath) ? File.ReadAllBytes(recentPath) : null;
-        var composition = new DISetup();
+        await using var owned = new RealComposition();
+        var composition = owned.Composition;
         var root = composition.Root;
         var path = Write("one.twinproj", "source");
         var bytes = File.ReadAllBytes(path);

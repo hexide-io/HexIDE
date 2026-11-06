@@ -368,7 +368,8 @@ public class ProgramWaitTests
     [InlineData("Debug.Break")]
     public async Task Break_remains_enabled_with_focus_in_a_running_DoEvents_loop(string id)
     {
-        var composition = new DISetup();
+        await using var owned = new RealComposition();
+        var composition = owned.Composition;
         var shell = ToolbarAutomationNameTests.ShowMainView();
         var main = (MainView)shell.Content!;
         main.DataContext = composition.Root;
