@@ -1,0 +1,45 @@
+diff --git a/IDE/HexIDE.Integration.Tests/Views/EditorRedockTests.cs b/IDE/HexIDE.Integration.Tests/Views/EditorRedockTests.cs
+index 22ef2f44..f6193f6f 100644
+--- a/IDE/HexIDE.Integration.Tests/Views/EditorRedockTests.cs
++++ b/IDE/HexIDE.Integration.Tests/Views/EditorRedockTests.cs
+@@ -135,9 +135,12 @@ public class EditorRedockTests
+             var lensesBeforeEdit = server.Count("textDocument/codeLens");
+             for (var i = 0; i < 3; i++)
+             {
++                server.Record("edit " + i);
+                 vm.Document.Insert(vm.Document.TextLength, "' edited\r\n");
+-                await Task.Delay(50, cancellation);
++                if (Environment.GetEnvironmentVariable("REDOCK_SINGLE_TURN") != "1")
++                    await Task.Delay(i == 0 && Environment.GetEnvironmentVariable("REDOCK_STRETCH") == "1" ? 650 : 50, cancellation);
+             }
++            if (Environment.GetEnvironmentVariable("REDOCK_STRETCH") == "1") await Task.Delay(650, cancellation);
+             await Until(() => server.Count("textDocument/diagnostic") > diagnostics);
+             // Lenses follow the same sync as diagnostics, rather than the view's later folding pause.
+             await Until(() => server.Count("textDocument/codeLens") > lensesBeforeEdit, 120);
+@@ -159,7 +162,8 @@ public class EditorRedockTests
+             window.Content = host;
+             await Until(() => server.Count("textDocument/codeLens") > lensRequests);
+         }
+-        finally { server.ReleaseAnswers(); window.Close(); }
++        finally { server.ReleaseAnswers(); window.Close();
++            System.IO.File.AppendAllLines("redock-timeline.log", new[] { method + " pending=" + answersPending }.Concat(server.Timeline)); }
+ 
+         void CheckAnswers()
+         {
+@@ -199,12 +203,15 @@ public class EditorRedockTests
+ 
+     private sealed class Server
+     {
++        private readonly System.Diagnostics.Stopwatch clock = System.Diagnostics.Stopwatch.StartNew();
++        public ConcurrentQueue<string> Timeline { get; } = new();
++        public void Record(string name) => Timeline.Enqueue($"{clock.Elapsed.TotalMilliseconds:F1} {name}");
+         private readonly ConcurrentDictionary<string, int> counts = new();
+         private readonly TaskCompletionSource answers = new(TaskCreationOptions.RunContinuationsAsynchronously);
+         public void ReleaseAnswers() => answers.TrySetResult();
+         public string? LastChange { get; private set; }
+         public int Count(string method) => counts.GetValueOrDefault(method);
+-        private void Seen(string method) => counts.AddOrUpdate(method, 1, (_, count) => count + 1);
++        private void Seen(string method) { Record(method); counts.AddOrUpdate(method, 1, (_, count) => count + 1); }
+ 
+         [JsonRpcMethod("initialize", UseSingleObjectParameterDeserialization = true)]
+         public JsonElement Initialize(JsonElement _) => JsonSerializer.SerializeToElement(new
