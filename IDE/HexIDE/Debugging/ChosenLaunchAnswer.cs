@@ -47,6 +47,24 @@ internal sealed class ChosenLaunchAnswer
     /// <summary>Raised when a kept answer is let go of because the project changed, so F5's state is read again.</summary>
     public event Action? Forgotten;
 
+    /// <summary>The project and launch whose answer is kept; null when none is. What a release lets go of, for tests to see.</summary>
+    internal (ProjectDefinition Project, ContributedDebugLaunch Launch)? Holding
+    {
+        get
+        {
+            lock (_gate) return _kept is { } kept ? (kept.Project, kept.Launch) : null;
+        }
+    }
+
+    /// <summary>The project whose changes are watched; null when none is. No behaviour shows a project still watched once released.</summary>
+    internal ProjectDefinition? Watching
+    {
+        get
+        {
+            lock (_gate) return _watched;
+        }
+    }
+
     /// <summary>The chosen launch, while it is registered and its kept answer is that it runs the project; null otherwise.</summary>
     public ContributedDebugLaunch? Kept(ProjectDefinition project)
     {

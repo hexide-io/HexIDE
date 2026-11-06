@@ -51,6 +51,9 @@ public partial class ProjectRunnerService : IProjectRunnerService
 
     public bool IsRunning => runHandle != null || externalDebugger?.IsActive == true;
 
+    /// <summary>F5's kept answer of the chosen launch, for tests to see what it holds; null without add-in launches.</summary>
+    internal ChosenLaunchAnswer? ChosenLaunch => chosenLaunch;
+
     /// <inheritdoc />
     public event Action<string>? StartFailed;
 

@@ -162,6 +162,54 @@ public sealed class AddinContributionTrustTests : IAsyncDisposable
         _choices.Get(_project).Should().Be(Key, "the choice stays, for when the add-in is back");
     }
 
+    // What F5's state kept of a chosen launch is let go of with the launch or the project: no answer kept, which holds the
+    // launch and so its add-in's delegates, and the project no longer watched. Read through the cache's own inspection
+    // members, as nothing it does shows a released project still watched. A launch still registered is the control.
+    [AvaloniaTheory]
+    [InlineData("registered")]
+    [InlineData("disabled")]
+    [InlineData("revoked")]
+    [InlineData("unloaded")]
+    public void F5_s_state_keeps_and_watches_nothing_once_the_add_in_s_launch_or_the_project_is_gone(string how)
+    {
+        // F5's state asks the launch only for a project an add-in read.
+        var contributed = new ProjectDefinition(VBProjectType.EXE, "Ledger") { ContributedBy = "RDCore projects" };
+        contributed.AddModule(new ModuleDefinition(contributed, "Startup", ModuleKind.StandardModule));
+        _projects.StartupProject.Returns(contributed);
+        using var registration = _host.RegisterDebugLaunch(new AddinDebugLaunch("Probe")
+        {
+            Claims = _ => true,
+            CreateConfigurationAsync = (_, _) => throw new NotSupportedException("never started"),
+        }, _origin);
+        _choices.Set(contributed, Key);
+        _runner.CanStartDefaultProject.Should().BeTrue();
+        var cache = _runner.ChosenLaunch!;
+        var launch = _launches.Find(Key)!;
+        cache.Holding.Should().Be((contributed, launch), "F5's state keeps the answer it was given");
+        cache.Watching.Should().BeSameAs(contributed);
+
+        switch (how)
+        {
+            case "disabled" or "revoked": Disable(how); break;
+            case "unloaded":
+                // As the IDE does: the startup project becomes another, then the unload is said.
+                _projects.StartupProject.Returns(_project);
+                _projects.ProjectUnloaded += Raise.Event<Action<ProjectDefinition>>(contributed);
+                break;
+        }
+
+        if (how == "registered")
+        {
+            cache.Holding.Should().Be((contributed, launch));
+            cache.Watching.Should().BeSameAs(contributed);
+        }
+        else
+        {
+            cache.Holding.Should().BeNull("nothing holds the launch, nor so its add-in's delegates, once it or the project is gone");
+            cache.Watching.Should().BeNull("nothing of the project is watched once its answer is let go of");
+        }
+    }
+
     [AvaloniaTheory]
     [InlineData("disabled")]
     [InlineData("revoked")]
