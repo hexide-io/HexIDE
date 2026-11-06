@@ -12,7 +12,7 @@
 
         <StackPanel Spacing="4">
             <TextBlock Text="{DynamicResource Str.Dialog.AddWatch.Expression}" />
-            <TextBox Text="{CompiledBinding Expression, Mode=TwoWay}" AcceptsReturn="False" />
+            <TextBox Classes="dialogInitialFocus" Text="{CompiledBinding Expression, Mode=TwoWay}" AcceptsReturn="False" />
         </StackPanel>
 
         <StackPanel Orientation="Horizontal" Spacing="6">

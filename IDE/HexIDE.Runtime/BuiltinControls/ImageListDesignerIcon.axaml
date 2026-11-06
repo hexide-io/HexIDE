@@ -1,0 +1,23 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:common="clr-namespace:Classic.CommonControls;assembly=Classic.CommonControls.Avalonia"
+             x:Class="HexIDE.Runtime.BuiltinControls.ImageListDesignerIcon"
+             Width="38" Height="38">
+    <Canvas Background="{DynamicResource {x:Static common:SystemColors.ControlBrushKey}}">
+        <Path Data="M0,0 H37 V1 H1 V37 H0 Z"
+              Fill="{DynamicResource {x:Static common:SystemColors.ControlLightLightBrushKey}}" />
+        <Path Data="M1,1 H36 V2 H2 V36 H1 Z"
+              Fill="{DynamicResource {x:Static common:SystemColors.ControlLightBrushKey}}" />
+        <Path Data="M1,36 H36 V1 H37 V37 H1 Z"
+              Fill="{DynamicResource {x:Static common:SystemColors.ControlDarkBrushKey}}" />
+        <Path Data="M0,37 H37 V0 H38 V38 H0 Z"
+              Fill="{DynamicResource {x:Static common:SystemColors.ControlDarkDarkBrushKey}}" />
+        <!-- HexIDE's own filmstrip glyph, not VB6's designer picture. -->
+        <Canvas Name="Glyph" Canvas.Left="2" Canvas.Top="2" Width="32" Height="32">
+            <Path Data="M2,7 H30 V25 H2 Z M4,9 V23 H28 V9 Z M11,9 H13 V23 H11 Z M20,9 H22 V23 H20 Z"
+                  Fill="{DynamicResource {x:Static common:SystemColors.ControlTextBrushKey}}" />
+            <Path Data="M5,20 L7,16 L10,20 Z M14,20 L17,14 L19,20 Z M23,20 L25,16 L27,20 Z"
+                  Fill="{DynamicResource {x:Static common:SystemColors.ControlTextBrushKey}}" />
+        </Canvas>
+    </Canvas>
+</UserControl>

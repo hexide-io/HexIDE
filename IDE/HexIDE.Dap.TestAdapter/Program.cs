@@ -10,6 +10,10 @@ public static class Program
     public static async Task<int> Main(string[] args)
     {
         var mode = args[0];
+        // Started as an engine's adapter is, with `--dap --workspace <dir>`, the fixture takes its mode from the environment.
+        if (mode == "--dap") mode = Environment.GetEnvironmentVariable("HEXIDE_DAP_FIXTURE_MODE") ?? mode;
+        var erlEnvironment = mode == "erl-environment";
+        if (erlEnvironment) mode = "exception";
         if (mode == "exit") { Console.Error.Write("adapter startup failed"); return 37; }
         // A failed test must not leave an orphan alive indefinitely.
         if (mode == "child") { await Task.Delay(TimeSpan.FromMinutes(1)); return 0; }
@@ -45,6 +49,8 @@ public static class Program
         string callerValue = "42";
         JsonElement? heldBreakpoints = null;
         bool heldBreakpointsOnce = false;
+        bool refusedResume = false;
+        int currentLine = 6;
         while (true)
         {
             var header = new StringBuilder();
@@ -61,9 +67,63 @@ public static class Program
             catch (EndOfStreamException) { return 0; }
             using var request = JsonDocument.Parse(body);
             if (mode == "silent") continue;
-            if (mode is "session" or "frames" or "frames-delayed" or "evaluate" or "evaluate-running" or "breakpoints" or "breakpoints-delayed" or "breakpoints-refuse-clear")
+            if (mode is "exception" or "exception-no-terminate")
+            {
+                // A program that prints, then stops at an unhandled error. Continuing re-runs the failing line and stops
+                // there again, as an engine following VBA's F5 does.
+                var command = request.RootElement.GetProperty("command").GetString();
+                object reply = command switch
+                {
+                    "initialize" => new { supportsConfigurationDoneRequest = true, supportsExceptionInfoRequest = true,
+                        supportsTerminateRequest = mode == "exception" },
+                    "exceptionInfo" => new { exceptionId = "VBR00011", description = "Division by zero", breakMode = "Unhandled",
+                        details = new { message = "Division by zero", typeName = "Run-time error" } },
+                    _ => new { },
+                };
+                await Send(new { seq = 30, type = "response", request_seq = request.RootElement.GetProperty("seq").GetInt32(),
+                    command, success = true, body = reply });
+                if (command == "initialize") await Send(new { seq = 31, type = "event", @event = "initialized" });
+                if (command == "configurationDone")
+                    await Send(new { seq = 32, type = "event", @event = "output", body = new { category = "stdout",
+                        output = erlEnvironment ? Environment.GetEnvironmentVariable("Configuration__Environment__ErlLineNumbering") + "\n" : "before\n" } });
+                if (command is "configurationDone" or "continue")
+                    await Send(new { seq = 33, type = "event", @event = "stopped",
+                        body = new { threadId = 1, reason = "exception", description = "Division by zero" } });
+                if (command == "terminate") await Send(new { seq = 34, type = "event", @event = "terminated" });
+                if (command == "disconnect") return 0;
+                continue;
+            }
+            if (mode is "run-control-delayed" or "run-control" or "run-control-running" or "run-control-end" or "goto" or "goto-empty" or "goto-refuse" or "goto-targets-refuse" or "invalidated" or "session" or "frames" or "frames-delayed" or "evaluate" or "evaluate-running" or "conditions" or "breakpoints" or "breakpoints-delayed" or "breakpoints-refuse-clear" or "resume-refusal" or "disconnect-held" or "disconnect-held-stderr")
             {
                 var command = request.RootElement.GetProperty("command").GetString();
+                if (mode == "run-control-delayed" && command == "stepIn") continue;
+                if (mode is "disconnect-held" or "disconnect-held-stderr" && command == "disconnect")
+                {
+                    await Send(new { seq = 26, type = "event", @event = "output", body = new { output = "disconnect-pending\n" } });
+                    if (mode == "disconnect-held-stderr") await Console.Error.WriteAsync("fixture stderr");
+                    await Task.Delay(TimeSpan.FromMinutes(1));
+                    return 0;
+                }
+                if (mode == "resume-refusal" && !refusedResume && command is "continue" or "next" or "stepIn" or "stepOut")
+                {
+                    refusedResume = true;
+                    await Send(new { seq = 24, type = "event", @event = "output", body = new { output = "resume-pending\n" } });
+                    await Send(new { seq = 25, type = "response", request_seq = request.RootElement.GetProperty("seq").GetInt32(),
+                        command, success = false, message = "fixture resume refusal" });
+                    continue;
+                }
+                if (command is "gotoTargets" or "goto")
+                {
+                    var arguments = request.RootElement.GetProperty("arguments");
+                    if (command == "goto" && mode != "goto-refuse") currentLine = arguments.GetProperty("targetId").GetInt32();
+                    await Send(new { seq = 40, type = "response", request_seq = request.RootElement.GetProperty("seq").GetInt32(),
+                        command, success = !(command == "goto" && mode == "goto-refuse" || command == "gotoTargets" && mode == "goto-targets-refuse"),
+                        message = "fixture goto refusal", body = new { targets = mode == "goto-empty" ? Array.Empty<object>() :
+                            new object[] { new { id = arguments.TryGetProperty("line", out var line) ? line.GetInt32() : 0, label = "first" }, new { id = 99, label = "second" } } } });
+                    if (command == "goto" && mode != "goto-refuse")
+                        await Send(new { seq = 41, type = "event", @event = "stopped", body = new { threadId = 1, reason = "goto" } });
+                    continue;
+                }
                 if (command == "setBreakpoints")
                 {
                     var lines = request.RootElement.GetProperty("arguments").GetProperty("breakpoints").EnumerateArray()
@@ -84,6 +144,12 @@ public static class Program
                     var expression = arguments.GetProperty("expression").GetString();
                     var frame = arguments.GetProperty("frameId").GetInt32();
                     var context = arguments.GetProperty("context").GetString();
+                    if (mode == "invalidated" && expression?.StartsWith("invalidate:", StringComparison.Ordinal) == true)
+                    {
+                        callerValue = "99";
+                        await Send(new { seq = 30, type = "event", @event = "invalidated",
+                            body = JsonSerializer.Deserialize<JsonElement>(expression[11..]) });
+                    }
                     if (expression == "wait")
                     {
                         heldEvaluation = request.RootElement.GetProperty("seq").GetInt32();
@@ -93,7 +159,7 @@ public static class Program
                     if (expression == "callerValue = 99" && frame == 7) callerValue = "99";
                     await Send(new { seq = 11, type = "response", request_seq = request.RootElement.GetProperty("seq").GetInt32(),
                         command, success = expression != "reject" && context is "repl" or "watch" or "hover",
-                        message = "fixture refusal", body = new { result = $"frame:{frame}:{expression}", type = "Long", variablesReference = expression == "aggregate" ? 8 : 0 } });
+                        message = "fixture refusal", body = new { result = mode == "invalidated" && expression == "value" ? callerValue : $"frame:{frame}:{expression}", type = "Long", variablesReference = expression == "aggregate" ? 8 : 0 } });
                     continue;
                 }
                 if (mode == "frames-delayed" && command == "variables" &&
@@ -103,14 +169,16 @@ public static class Program
                     await Send(new { seq = 7, type = "event", @event = "output", body = new { output = "caller-pending\n" } });
                     continue;
                 }
+                if (mode.StartsWith("run-control", StringComparison.Ordinal) && command is "next" or "stepIn" or "stepOut" or "pause" or "continue")
+                    currentLine = 9;
                 object reply = command switch
                 {
-                    "initialize" => new { supportsConfigurationDoneRequest = true, supportsEvaluateForHovers = mode is "evaluate" or "evaluate-running" },
+                    "initialize" => new { supportsConfigurationDoneRequest = true, supportsGotoTargetsRequest = mode.StartsWith("goto", StringComparison.Ordinal), supportsConditionalBreakpoints = mode == "conditions", supportsEvaluateForHovers = mode is "invalidated" or "evaluate" or "evaluate-running" },
                     "threads" => new { threads = new[] { new { id = 1, name = "Main" } } },
                     "stackTrace" when mode != "session" => new { stackFrames = new[]
                     {
-                        new { id = 0, name = "Callee", line = 6, column = 1, source = new { path = Path.GetFullPath("Callee.bas") } },
-                        new { id = 7, name = "Caller", line = 12, column = 1, source = new { path = Path.GetFullPath("Caller.bas") } },
+                        new { id = 0, name = "Callee", line = currentLine, column = 1, source = new { path = Path.GetFullPath("Callee.bas") } },
+                        new { id = 7, name = "Caller", line = mode == "invalidated" && callerValue == "99" ? 13 : 12, column = 1, source = new { path = Path.GetFullPath("Caller.bas") } },
                     } },
                     "scopes" when mode != "session" => new { scopes = new[] { new { name = "Locals", variablesReference = request.RootElement.GetProperty("arguments").GetProperty("frameId").GetInt32() + 1, expensive = false } } },
                     "variables" when mode != "session" => FrameVariables(request.RootElement.GetProperty("arguments").GetProperty("variablesReference").GetInt32(), callerValue),
@@ -121,7 +189,7 @@ public static class Program
                 };
                 await Send(new { seq = 2, type = "response", request_seq = request.RootElement.GetProperty("seq").GetInt32(), command, success = true, body = reply });
                 if (command == "initialize") await Send(new { seq = 3, type = "event", @event = "initialized" });
-                if (command is "configurationDone" or "next")
+                if (command is "configurationDone" or "next" || mode.StartsWith("run-control", StringComparison.Ordinal) && command is "stepIn" or "stepOut" or "pause" || mode == "run-control" && command == "continue")
                     await Send(new { seq = 4, type = "event", @event = "stopped", body = new { threadId = 1, reason = "breakpoint" } });
                 if (command == "next" && mode.StartsWith("breakpoints", StringComparison.Ordinal))
                 {
@@ -133,7 +201,7 @@ public static class Program
                     await ReplyBreakpoints(delayed);
                     heldBreakpoints = null;
                 }
-                if (command == "continue" && mode != "evaluate-running")
+                if (command == "continue" && mode is not ("evaluate-running" or "run-control" or "run-control-running"))
                 {
                     await Send(new { seq = 5, type = "event", @event = "output", body = new { output = "42\n" } });
                     await Send(new { seq = 6, type = "event", @event = "terminated" });

@@ -253,6 +253,54 @@ public partial class PropertiesToolViewModel : Tool
         }
     }
 
+    internal static bool IsPicture(PropertyClass property) =>
+        property == VBProperties.PictureProperty || property == VBProperties.IconProperty
+        || property == VBProperties.MouseIconProperty || property == VBProperties.DragIconProperty;
+
+    internal async Task LoadPictureAsync(PropertyClass property)
+    {
+        if (!IsPicture(property) || currentDocument is not { } document
+            || document.SelectedComponent is not { } component) return;
+        string? path = null;
+        try
+        {
+            var paths = await windowManager.OpenFilePickerAsync(new FilePickerOpenOptions
+            {
+                Title = localization.GetString("Str.Tool.Properties.LoadPicture"),
+                AllowMultiple = false,
+            });
+            if (paths == null || paths.Count == 0) return;
+            path = paths[0];
+            var bytes = await File.ReadAllBytesAsync(path);
+            var payload = FrxImageHelper.PicturePayload(bytes) ?? bytes;
+            using var bitmap = FrxImageHelper.TryDecodeToAvaloniaBitmap(payload);
+            if (bitmap == null) throw new InvalidDataException();
+
+            // The framing is measured in docs/vb6-fidelity-oracle/serialization--file-format-fidelity.md.
+            using var stream = new MemoryStream();
+            using var writer = new BinaryWriter(stream);
+            writer.Write(payload.Length + 8);
+            writer.Write(0x746c);
+            writer.Write(payload.Length);
+            writer.Write(payload);
+            var record = stream.ToArray();
+            var instance = component.Instance;
+            var before = instance.GetBoxedPropertyOrDefault(property);
+            instance.SetUntypedProperty(property, record);
+            document.PushSetPropertyCommand(instance, property, before, record);
+        }
+        catch (NotImplementedException e)
+        {
+            await windowManager.MessageBox(string.Format(localization.GetString("Str.ProjectRunner.NotImplementedYet"),
+                e.Message), icon: MessageBoxIcon.Error);
+        }
+        catch (Exception)
+        {
+            await windowManager.MessageBox(string.Format(localization.GetString("Str.Tool.Properties.LoadPictureFailed"),
+                path), icon: MessageBoxIcon.Error);
+        }
+    }
+
     internal static byte[]? ExportablePicture(PropertyClass property, object? value) =>
         property == VBProperties.PictureProperty || property == VBProperties.IconProperty
         || property == VBProperties.MouseIconProperty || property == VBProperties.DragIconProperty
@@ -274,9 +322,25 @@ public partial class PropertiesToolViewModel : Tool
             {
                 Title = localization.GetString("Str.Tool.Properties.ExportPicture"),
                 SuggestedFileName = property.Name + "." + extension,
+                ShowOverwritePrompt = false,
                 DefaultExtension = extension,
             });
-            if (path != null) await File.WriteAllBytesAsync(path, payload);
+            if (path == null) return;
+            var existing = File.Exists(path);
+            if (existing && await windowManager.MessageBox(
+                    string.Format(localization.GetString("Str.Tool.Properties.ReplacePicture"), path),
+                    localization.GetString("Str.Tool.Properties.ExportPictureTitle"),
+                    MessageBoxButtons.YesNo, MessageBoxIcon.Warning) != MessageBoxResult.Yes)
+                return;
+
+            if (existing) AtomicFileWriter.WriteAllBytes(path, payload);
+            else
+            {
+                // A file arriving after the check was not included in the user's consent.
+                using var stream = new FileStream(path, FileMode.CreateNew, FileAccess.Write, FileShare.None);
+                stream.Write(payload);
+                stream.Flush(flushToDisk: true);
+            }
         }
         catch (Exception e)
         {
@@ -421,6 +485,7 @@ public partial class PropertyViewModel : BasePropertyViewModel
         PropertyClass = propertyClass;
         Name = propertyClass.Name;
         this.value = value;
+        LoadPictureCommand = new AsyncRelayCommand(() => parent.LoadPictureAsync(PropertyClass));
         ExportPictureCommand = new AsyncRelayCommand(() => parent.ExportPictureAsync(PropertyClass, Value), () => CanExportPicture);
     }
 
@@ -431,6 +496,10 @@ public partial class PropertyViewModel : BasePropertyViewModel
         ExportPictureCommand.NotifyCanExecuteChanged();
         OnPropertyChanged(nameof(Value));
     }
+
+    public bool CanLoadPicture => PropertiesToolViewModel.IsPicture(PropertyClass);
+
+    public IAsyncRelayCommand LoadPictureCommand { get; }
 
     public bool CanExportPicture => PropertiesToolViewModel.ExportablePicture(PropertyClass, Value) != null;
 

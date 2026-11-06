@@ -5,9 +5,10 @@ using HexIDE.Runtime.Interpreter;
 
 namespace HexIDE.Runtime.BuiltinControls;
 
-internal sealed partial class VBTreeView : Control, ICSharpPropertyBag
+internal sealed partial class VBTreeView : Decorator, ICSharpPropertyBag
 {
     private const double RowHeight = 16;
+    private readonly Canvas labelHost = new();
 
     internal TreeNodes Nodes { get; }
 
@@ -34,6 +35,7 @@ internal sealed partial class VBTreeView : Control, ICSharpPropertyBag
 
     public VBTreeView()
     {
+        Child = labelHost;
         Focusable = true;
         PointerPressed += HandlePointerPressed;
         Nodes = new TreeNodes(() => Dispatcher.UIThread.Post(() => Nodes!.ProcessPendingSort(), DispatcherPriority.Background));

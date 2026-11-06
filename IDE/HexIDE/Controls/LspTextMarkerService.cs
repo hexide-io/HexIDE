@@ -4,6 +4,7 @@ using Avalonia.Media;
 using AvaloniaEdit;
 using AvaloniaEdit.Document;
 using AvaloniaEdit.Rendering;
+using HexIDE.Lsp.Messages;
 
 namespace HexIDE.Controls;
 
@@ -128,7 +129,7 @@ public sealed class LspDiagnosticsColorizer : DocumentColorizingTransformer
     {
         foreach (var marker in _markers)
         {
-            if (!marker.IsError)
+            if (!marker.IsError && marker.Tags is not { Length: > 0 })
                 continue;
 
             int start = Math.Max(marker.StartOffset, line.Offset);
@@ -138,9 +139,22 @@ public sealed class LspDiagnosticsColorizer : DocumentColorizingTransformer
                 continue;
 
             ChangeLinePart(start, end, element =>
-                element.TextRunProperties.SetForegroundBrush(Brushes.Red));
+            {
+                var properties = element.TextRunProperties;
+                if (marker.IsError) properties.SetForegroundBrush(Brushes.Red);
+                if (marker.Tags?.Contains(1) == true && properties.ForegroundBrush is ISolidColorBrush foreground)
+                    properties.SetForegroundBrush(new Avalonia.Media.Immutable.ImmutableSolidColorBrush(foreground.Color, foreground.Opacity * 0.5));
+                if (marker.Tags?.Contains(2) == true)
+                {
+                    var decorations = new TextDecorationCollection();
+                    if (properties.TextDecorations is { } existing) decorations.AddRange(existing);
+                    decorations.AddRange(TextDecorations.Strikethrough);
+                    properties.SetTextDecorations(decorations);
+                }
+            });
         }
     }
 }
 
-public readonly record struct LspMarker(int StartOffset, int EndOffset, bool IsError, string Message, string? Source = null);
+public readonly record struct LspMarker(int StartOffset, int EndOffset, bool IsError, string Message, string? Source = null,
+    int[]? Tags = null, DiagnosticRelatedInformation[]? RelatedInformation = null);

@@ -35,11 +35,11 @@ public class HeadlessTestContextTests
     [AvaloniaFact]
     public void A_test_can_leave_the_headless_thread_with_no_context()
     {
-        // Avalonia 12.0.4 runs a dispatcher job by restoring the context it was posted from and leaves that context
-        // behind, and the headless session runs whatever jobs are left after a test in its teardown. A job posted then
-        // from a thread with no context leaves the thread with none. That needs the job to arrive in a narrow window, so
-        // this does the same thing deterministically: a job that never runs is aborted in that teardown, and its handler
-        // restores an empty context.
+        // Avalonia 12.0.4 ran a dispatcher job by restoring the context it was posted from and left that context behind,
+        // and the headless session runs whatever jobs are left after a test in its teardown. A job posted then from a
+        // thread with no context left the thread with none. 12.0.5 puts the thread's context back after a job, but any
+        // code that restores a context there leaves it the same way, so this does that deterministically: a job that never
+        // runs is aborted in that teardown, and its handler restores an empty context.
         var empty = EmptyContext();
         var parked = Dispatcher.UIThread.InvokeAsync(() => { }, DispatcherPriority.Inactive);
         parked.Aborted += (_, _) => ExecutionContext.Restore(empty);

@@ -21,6 +21,9 @@ The #1631 brief's measured PropertyPage HelpContextID and StandardSize file hand
 The #178 issue comments' measured whole-record copy and array behavior is recorded in
 [A UDT copied whole, and arrays of a UDT](vb6-fidelity-oracle/a-udt-copied-whole-and-arrays-of-a-udt.md).
 
+The #788 comments' measured hex/octal String conversion widths, leading zeros and malformed inputs are
+recorded in [Assigning to a control property](vb6-fidelity-oracle/assigning-to-a-control-property.md).
+
 The #1483 comments' project-name and sourceless Raise measurements are recorded in
 [Err.Source after a run-time error and after Err.Raise](vb6-fidelity-oracle/when-err-is-cleared-and-what-a-running-handler-traps.md#errsource-after-a-run-time-error-and-after-errraise-1483).
 
@@ -29,3 +32,49 @@ The #2325 comments’ measured keyboard input is recorded in
 
 The #2474 measurements of declared arrays named with empty parentheses are recorded in
 [Whole-array parentheses](vb6-fidelity-oracle/whole-array-parentheses.md).
+
+The #2523 issue records vb6.exe SP6 measurements (native and p-code) for Pmt, FV, PV, NPer,
+IPmt, PPmt and Rate: exact Double bits, zero-rate cases, timing, optional arguments and errors.
+The [issue and supervisor's precision experiment](https://github.com/hexide-io/HexIDE/issues/2523)
+are the measurement source; [Financial precision](financial-precision-2523.md) describes HexIDE's
+model comparison, which is a computation against those measurements, not a new VB6 measurement.
+The #881 comments’ measured compare validation order is recorded in
+[A compare argument, and when it is checked](vb6-fidelity-oracle/compare-argument-validation.md).
+
+The #2622 brief records StrPtr and VarPtr relations measured by hexide-int with vb6.exe SP6,
+with matching native and p-code results: null/unassigned String buffers are zero, assigned empty
+text has a buffer, assignments copy buffers, variable identities are stable and distinct, and
+Long/Integer/Currency/Variant array elements step by 4/2/8/16 bytes. ByRef shares the caller's
+variable and String buffer identities; ByVal has separate identities. String variable and buffer
+identities differ. Both intrinsics return Long, including non-zero temporary identities for `5`.
+These constrain relations rather than address values. Provenance: [issue #2622](https://github.com/hexide-io/HexIDE/issues/2622),
+measuring PRs [#2624](https://github.com/hexide-io/HexIDE/pull/2624) and
+[#2628](https://github.com/hexide-io/HexIDE/pull/2628); the measuring authors own their oracle pages.
+
+The ParamArray forwarding measurement supplied by hexide-int in
+[#2474](https://github.com/hexide-io/HexIDE/issues/2474) and restated in
+[#2532](https://github.com/hexide-io/HexIDE/issues/2532) agrees in native and p-code:
+`T a()` inside a ParamArray procedure supplies one element containing a copy of the whole
+array to T's ParamArray. Writes through that nested array leave the caller's ParamArray unchanged.
+
+The #2497 correction to form termination order, measured by #2496 in native and p-code builds, is recorded in
+[The Forms collection](vb6-fidelity-oracle/the-forms-collection.md#the-terminates-at-the-runs-end).
+
+Completion acceptance now follows the selected/unselected Enter, Tab and Space behavior and unique-prefix
+Complete Word behavior measured by hexide-int in VB6 SP6 for
+[#3056](https://github.com/hexide-io/HexIDE/issues/3056#issuecomment-6633933454).
+The issue contains the measurement; this run changes the editor, not the measurement record.
+Snippet-choice Enter accepts without a line break by the supervisor's decision in that issue (VB6 has no snippets).
+
+The #3210 brief records VB6 SP6 p-code building **7,227 nested If blocks**, with 7,228 refused
+as "Procedure too large"; sequential blocks have the same limit, so this is a size limit.
+Its **7,643 parenthesis pairs** reference is recorded in
+[long lines and expressions](vb6-fidelity-oracle/long-lines-line-continuations-and-long-expressions.md).
+Provenance: [#3210 measurements](https://github.com/hexide-io/HexIDE/issues/3210), Win10 oracle guest,
+VB6 SP6, `/make` and IDE. These are acceptance references, not a measured conditional-compilation limit.
+
+The #3210 fix brief also supplies host-side parser costs from
+[measurement PR #3216](https://github.com/hexide-io/HexIDE/pull/3216): approximately **3.6 KB per
+parenthesis pair** and **2.8 KB per nested If**, the latter spanning about five parser rule frames.
+These are host stack measurements, not VB6 limits; the [runtime gap note](interpreter-gaps.md) records
+how HexIDE derives its guarded bounds from them.

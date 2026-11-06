@@ -1,4 +1,8 @@
+using System.Text.Json;
 using Avalonia.Controls;
+using Avalonia.Controls.Templates;
+using Avalonia.VisualTree;
+using AvaloniaEdit;
 using Avalonia.Headless.XUnit;
 using Avalonia.Threading;
 using AvaloniaEdit.Document;
@@ -12,7 +16,7 @@ namespace HexIDE.Integration.Tests.Automation;
 /// scroll bar inside a code window returned the editor's 73 members, among them the whole source file and about
 /// fifty Dock layout members, ahead of the range the caller asked about.
 /// </summary>
-public class InspectMembersTests
+public class InspectMembersTests(ITestOutputHelper output)
 {
     private static Window Show(Control content, object? dataContext = null)
     {
@@ -102,7 +106,7 @@ public class InspectMembersTests
     [AvaloniaFact]
     public void A_document_that_is_not_an_editors_still_reads_as_its_text()
     {
-        // The Immediate window's buffer: no other tool returns it.
+        // The Immediate window also exposes this buffer as its editor's value (#2513).
         UiAutomationDriver.ReflectDataContextMembers(new ImmediateLikeVm())
             .Single(m => m.Name == "Document").Value.Should().Be("printed" + (char)10);
     }
@@ -116,6 +120,128 @@ public class InspectMembersTests
     public void A_cut_value_states_its_full_length()
     {
         UiAutomationDriver.ReflectDataContextMembers(new LongVm()).Single().Value
-            .Should().EndWith("[truncated at 4000 of 9000 chars]");
+            .Should().EndWith("[last 8800 of 9000 chars cut]");
+    }
+
+    private sealed class CardVm
+    {
+        public string Member00 { get; } = new('x', 5000);
+        public string Member01 { get; } = new('x', 5000);
+        public string Member02 { get; } = "ready";
+        public string Member03 { get; } = "ready";
+        public string Member04 { get; } = "ready";
+        public string Member05 { get; } = "ready";
+        public string Member06 { get; } = "ready";
+        public string Member07 { get; } = "ready";
+        public string Member08 { get; } = "ready";
+        public string Member09 { get; } = "ready";
+        public string Member10 { get; } = "ready";
+        public string Member11 { get; } = "ready";
+        public string Member12 { get; } = "ready";
+        public string Member13 { get; } = "ready";
+        public string Member14 { get; } = "ready";
+        public string Member15 { get; } = "ready";
+        public string Member16 { get; } = "ready";
+        public string Member17 { get; } = "ready";
+        public string Member18 { get; } = "ready";
+        public string Member19 { get; } = "ready";
+        public string Member20 { get; } = "ready";
+        public string Member21 { get; } = "ready";
+        public string Member22 { get; } = "ready";
+        public string Member23 { get; } = "ready";
+        public string Member24 { get; } = "ready";
+        public string Member25 { get; } = "ready";
+        public string Member26 { get; } = "ready";
+        public string Member27 { get; } = "ready";
+        public string Member28 { get; } = "ready";
+        public string Member29 { get; } = "ready";
+    }
+
+    [AvaloniaFact]
+    public void A_templated_card_bounds_every_member_and_explains_the_cuts()
+    {
+        var host = new ContentControl
+        {
+            Content = new CardVm(),
+            ContentTemplate = new FuncDataTemplate<CardVm>((_, _) => new TextBlock { Text = "Id" }),
+        };
+        var window = Show(host);
+        try
+        {
+            var text = host.GetVisualDescendants().OfType<TextBlock>().Single();
+            var detail = UiAutomationDriver.Inspect(text, "Window/Text[Id]", window);
+            var json = JsonSerializer.Serialize(detail);
+            output.WriteLine($"Templated card reply: {json.Length} characters");
+
+            using var assertions = new AwesomeAssertions.Execution.AssertionScope();
+            detail.DataContextOwner.Should().BeNull();
+            detail.DataContextMembers.Should().HaveCount(30);
+            detail.DataContextMembers.Should().OnlyContain(m => m.Value != null && m.Value.Length <= 234);
+            json.Length.Should().BeLessThan(5000);
+            detail.DataContextNote.Should().Contain("2 member values over 200 characters were cut")
+                .And.Contain("4,000 characters as its value");
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaFact]
+    public void A_cut_member_note_is_joined_to_the_existing_Dock_note()
+    {
+        var window = Show(new TextBlock(), new DockedVm { Own = new string('x', 5000) });
+        try
+        {
+            UiAutomationDriver.Inspect(window, "Window", window).DataContextNote
+                .Should().Contain("Dock framework's base types")
+                .And.Contain("1 member value over 200 characters was cut")
+                .And.Contain("4,000 characters as its value");
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaFact]
+    public void Uncut_members_need_no_truncation_note()
+    {
+        var text = new TextBlock { Text = "ready", DataContext = new PlainVm() };
+        var window = Show(text);
+        try
+        {
+            UiAutomationDriver.Inspect(text, "Window/Text", window).DataContextNote.Should().BeNull();
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaFact]
+    public void A_text_box_caps_its_own_value_at_4000()
+    {
+        var text = new TextBox { Text = new string('a', 4000) + new string('z', 5000) };
+        var window = Show(text);
+        try
+        {
+            UiAutomationDriver.Inspect(text, "Window/Edit", window).Value
+                .Should().Be(new string('a', 4000) + "… [last 5000 of 9000 chars cut]");
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaFact]
+    public void A_non_project_editor_keeps_its_latest_4000_characters()
+    {
+        var editor = new TextEditor { Text = new string('a', 5000) + new string('z', 4000) };
+        var window = Show(editor);
+        try
+        {
+            UiAutomationDriver.Inspect(editor, "Window/Editor", window).Value
+                .Should().Be(new string('z', 4000) + "… [first 5000 of 9000 chars cut; inspect_element has no paging; copy the displayed text to read all]");
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaFact]
+    public void An_output_document_member_keeps_its_latest_200_characters()
+    {
+        var vm = new ImmediateLikeVm();
+        vm.Document.Text = new string('a', 8800) + new string('z', 200);
+        UiAutomationDriver.ReflectDataContextMembers(vm).Single(m => m.Name == "Document").Value
+            .Should().Be(new string('z', 200) + "… [first 8800 of 9000 chars cut; inspect its editor for the last 4000; copy the displayed text to read all]");
     }
 }

@@ -71,9 +71,22 @@ public static class ForegroundWindow
         var shown = named.Where(w => w.IsVisible).ToList();
         if (shown.Count == 1)
             return (shown[0], null);
+        // Windows of one name stacked on one another, as a dialog and the message box it raised share a title: the one on
+        // top is the one a person can use, so the name reaches it, as "auto" would, and the others once it closes (#2712).
+        if (OnTop(shown) is { } top)
+            return (top, null);
         if (shown.Count > 1)
+        {
+            // Side by side, as two instances of one form are. No name tells them apart while both are open, so say what does
+            // reach one, rather than to name one by a title only it has, which may not exist.
+            var auto = Pick(mainWindow, windows);
             return (null, $"{shown.Count} open windows answer to '{scope}', as two instances of one form do: "
-                          + $"{Titles(shown)}. Name one by a title only it has.");
+                          + $"{Titles(shown)}. "
+                          + (shown.Contains(auto)
+                              ? $"\"auto\" reaches one of them, {Titles([auto])}, the one {AutoReason(auto)}; "
+                                + "a name reaches one only once it is the only window of that name or title."
+                              : "A name reaches one only once it is the only window of that name or title."));
+        }
         if (named.Count > 0)
             return (null, $"'{scope}' is hidden, as a form after Hide is, and a hidden window can't be reached: a "
                           + "person can't click it either.");
@@ -94,6 +107,36 @@ public static class ForegroundWindow
                         : $"window: {Titles(open)}. A form's name is the stable handle: its caption can be empty, or change "
                           + "as the program runs."));
     }
+
+    // The one of these windows that sits over all the others, through the windows that own it, or null when they are not
+    // stacked so. A modal window's Owner is the window it was shown over.
+    private static Window? OnTop(IReadOnlyList<Window> stacked)
+    {
+        var top = stacked.Where(w => !stacked.Any(o => o != w && o.Owner == w)).ToList();
+        if (top.Count != 1)
+            return null;
+        var below = new HashSet<Window>();
+        for (var owner = top[0].Owner as Window; owner is not null && below.Add(owner); owner = owner.Owner as Window)
+        {
+        }
+        return stacked.All(w => w == top[0] || below.Contains(w)) ? top[0] : null;
+    }
+
+    // Why "auto" picked a window, in the words of its rule.
+    private static string AutoReason(Window picked) =>
+        picked.Owner is Window ? "that is a dialog" : picked.IsActive ? "with focus" : "opened last";
+
+    /// <summary>
+    /// The window a name reached is on top of another window of the same name, and so stands for it until it closes, or
+    /// null when it doesn't. Said where a path fails, since the path may have come from the window underneath (#2712).
+    /// </summary>
+    public static string? StackedNote(Window picked, string? scope) =>
+        string.IsNullOrWhiteSpace(scope) || picked.Owner is not Window under
+        || !(string.Equals(under.Title, scope, StringComparison.OrdinalIgnoreCase)
+             || string.Equals(VBProps.GetName(under), scope, StringComparison.OrdinalIgnoreCase))
+            ? null
+            : $"'{scope}' reached the window on top, \"{picked.Title}\", which sits over another window of that name: that one "
+              + "is reached again once the window on top closes, as a person can't use it before then either";
 
     // Each window as a caller can name it: a running form by its name, then its title in quotes, and any other window
     // by its title alone.
@@ -162,6 +205,8 @@ public static class ForegroundWindow
         string path, string? scope, Window picked, Window mainWindow, string pickedName)
     {
         var (control, error) = HexIDE.Automation.UiAutomationDriver.Resolve(picked, path);
+        if (control is null && error is not null && StackedNote(picked, scope) is { } stacked)
+            return (null, $"{error}. {stacked}");
         if (control is not null || error is null || picked == mainWindow
             || !(string.IsNullOrWhiteSpace(scope) || scope.Equals("auto", StringComparison.OrdinalIgnoreCase)))
             return (control, error);

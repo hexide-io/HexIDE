@@ -46,12 +46,44 @@ public class ComponentsViewModelTests
 
         // Keep these measured registry descriptions independent of later library additions.
         vm.Controls.Where(c => c.Library == ControlLibraries.ComctlLib || c.Library == ControlLibraries.MSComctlLib
-                || c.Library == ControlLibraries.MSComDlg)
+                || c.Library == ControlLibraries.MSComDlg || c.Library == ControlLibraries.MSComCtl2
+                || c.Library == ControlLibraries.RichTextLib)
             .Select(c => (c.Name, c.Location, c.IsSelected)).Should().Equal(
             ("Microsoft Common Dialog Control 6.0", "COMDLG32.OCX", false),
             ("Microsoft Windows Common Controls 5.0 (SP2)", "COMCTL32.OCX", false),
-            ("Microsoft Windows Common Controls 6.0 (SP6)", "MSCOMCTL.OCX", true));
+            ("Microsoft Windows Common Controls 6.0 (SP6)", "MSCOMCTL.OCX", true),
+            ("Microsoft Windows Common Controls-2 6.0 (SP6)", "MSCOMCT2.OCX", false),
+            ("RichTextLib", "RICHTX32.OCX", false));
         vm.Controls.Should().OnlyContain(c => c.CanChange);
+    }
+
+    [Fact]
+    public void MsComCtl2_can_be_selected_and_saved_as_a_known_library()
+    {
+        const string line = "Object={86CF1D34-0C5F-11D2-A9FC-0000F8754DA1}#2.0#0; MSCOMCT2.OCX";
+        var project = Project(form1UsesMsComctl: false, line);
+        var vm = new ComponentsViewModel(project);
+        var row = vm.Controls.Single(c => c.Location == "MSCOMCT2.OCX");
+
+        row.Library.Should().NotBeNull();
+        row.Name.Should().Be("Microsoft Windows Common Controls-2 6.0 (SP6)");
+        row.CanChange.Should().BeTrue();
+        row.IsSelected.Should().BeTrue();
+        row.Library!.PersistedVersion.Should().Be(393216);
+        row.Library.TryBare("NoSuchConstant", out _).Should().BeFalse();
+        row.Library.ProjectLine.Should().Be(line);
+        row.Library.FormLine.Should().Be("Object = \"{86CF1D34-0C5F-11D2-A9FC-0000F8754DA1}#2.0#0\"; \"MSCOMCT2.OCX\"");
+        row.Library.Controls.Keys.Should().BeEquivalentTo("UpDown", "DTPicker", "MonthView", "Animation", "FlatScrollBar");
+        InBoxComponentClass.IssueFor("MSComCtl2.UpDown").Should().Be(1093);
+
+        row.IsSelected = false;
+        vm.ApplyCommand.Execute(null);
+        project.ObjectReferences.Should().BeEmpty();
+        row.IsSelected = true;
+        vm.ApplyCommand.Execute(null);
+        project.ObjectReferences.Select(r => r.File).Should().Equal("MSCOMCT2.OCX");
+        new ProjectSerializer().Serialize(project, Path.Join(Path.GetTempPath(), "p1103", "probe.vbp"))
+            .Should().Contain(line);
     }
 
     // Measured: checking 5.0's library and saving the project wrote its line after the Form= lines, and left the line

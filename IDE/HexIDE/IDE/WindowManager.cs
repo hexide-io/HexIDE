@@ -6,6 +6,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Layout;
+using Avalonia.Media;
 using Avalonia.Platform;
 using Avalonia.Platform.Storage;
 using HexIDE.Controls;
@@ -20,6 +21,16 @@ namespace HexIDE.IDE;
 public class WindowManager : IWindowManager
 {
     private readonly ILocalizationService _localization;
+    private int _nativeDialogs;
+    public bool IsNativeDialogOpen => _nativeDialogs > 0;
+
+    internal async Task<T> TrackNativeDialog<T>(Func<Task<T>> show)
+    {
+        _nativeDialogs++;
+        try { return await show(); }
+        finally { _nativeDialogs--; }
+    }
+
 
     // Avalonia's modal windows use this native API, but its reference assembly hides it. Keep the bridge local
     // rather than opting the whole project into unstable APIs; desktop regression tests exercise it (#1366).
@@ -79,6 +90,8 @@ public class WindowManager : IWindowManager
             HorizontalAlignment = HorizontalAlignment.Center,
             VerticalAlignment = VerticalAlignment.Center
         };
+        if (content is not (MessageBox { IsProgramDialog: true } or InputBox { IsProgramDialog: true }))
+            window.Classes.Add("ideDialog");
         return ShowManagedWindow(window);
     }
 
@@ -240,7 +253,7 @@ public class WindowManager : IWindowManager
 
     public async Task ShowAbout(AboutDialogOptions options)
     {
-        var vm = new AboutDialogViewModel(options);
+        var vm = new AboutDialogViewModel(options, _localization);
         var dialog = new AboutDialog { DataContext = vm };
         var title = string.Format(_localization.GetString("Str.WindowManager.AboutTitle"), options.Title);
 
@@ -258,6 +271,50 @@ public class WindowManager : IWindowManager
         }
         else
             throw new NotImplementedException();
+    }
+
+    public async Task<int?> ShowColorDialog(int initial)
+    {
+        var dialog = new ColorDialog(initial);
+        int? result = null;
+        var title = _localization.GetString("Str.Automation.ChooseColor");
+        if (Static.SingleView)
+        {
+            var task = ShowManagedWindow(out var window, title, dialog, false);
+            dialog.ColorRequest += r => { result = r; window.CloseCommand.Execute(window.CloseCommandParameter); };
+            await task;
+        }
+        else if (Application.Current!.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
+        {
+            var window = MakeDialogWindow(title, dialog);
+            dialog.ColorRequest += r => { result = r; window.Close(); };
+            await window.ShowDialog(GetTopWindow(desktop));
+        }
+        else
+            throw new NotImplementedException();
+        return result;
+    }
+
+    public async Task<bool> ShowPrintDialog()
+    {
+        var dialog = new PrintDialog();
+        var result = false;
+        var title = _localization.GetString("Str.Tool.Project.Menu.Print");
+        if (Static.SingleView)
+        {
+            var task = ShowManagedWindow(out var window, title, dialog, false);
+            dialog.PrintRequest += r => { result = r; window.CloseCommand.Execute(window.CloseCommandParameter); };
+            await task;
+        }
+        else if (Application.Current!.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
+        {
+            var window = MakeDialogWindow(title, dialog);
+            dialog.PrintRequest += r => { result = r; window.Close(); };
+            await window.ShowDialog(GetTopWindow(desktop));
+        }
+        else
+            throw new NotImplementedException();
+        return result;
     }
 
     public async Task<FontDialogResult?> ShowFontDialog(FontDialogResult? initial = null)
@@ -303,7 +360,7 @@ public class WindowManager : IWindowManager
 
         var topLevel = TopLevel.GetTopLevel(GetTopWindow(classic))!;
 
-        var files = await topLevel.StorageProvider.OpenFilePickerAsync(options);
+        var files = await TrackNativeDialog(() => topLevel.StorageProvider.OpenFilePickerAsync(options));
 
         return files.Select(f => f.TryGetLocalPath())
             .Where(x => x != null)
@@ -323,7 +380,7 @@ public class WindowManager : IWindowManager
 
         var topLevel = TopLevel.GetTopLevel(GetTopWindow(classic))!;
 
-        var file = await topLevel.StorageProvider.SaveFilePickerAsync(options);
+        var file = await TrackNativeDialog(() => topLevel.StorageProvider.SaveFilePickerAsync(options));
 
         return file?.TryGetLocalPath();
     }
@@ -386,13 +443,22 @@ public class WindowManager : IWindowManager
         return await window.ShowDialog<bool>(owner);
     }
 
-    private static Window MakeDialogWindow(string title, Control content) => new Window
+    internal Window MakeDialogWindow(string title, Control content)
     {
-        Title = title,
-        Content = content,
-        SizeToContent = SizeToContent.WidthAndHeight,
-        WindowStartupLocation = WindowStartupLocation.CenterOwner,
-        CanResize = false,
-        ShowActivated = true
-    };
+        var window = new Window
+        {
+            Title = title,
+            Content = content,
+            FlowDirection = content is MessageBox { IsProgramDialog: true } or InputBox { IsProgramDialog: true }
+                ? FlowDirection.LeftToRight
+                : _localization.FlowDirection,
+            SizeToContent = SizeToContent.WidthAndHeight,
+            WindowStartupLocation = WindowStartupLocation.CenterOwner,
+            CanResize = false,
+            ShowActivated = true
+        };
+        if (content is not (MessageBox { IsProgramDialog: true } or InputBox { IsProgramDialog: true }))
+            IdeDialogChrome.Apply(window);
+        return window;
+    }
 }

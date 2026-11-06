@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using Avalonia.Headless.XUnit;
 using Avalonia.Threading;
 using HexIDE.Runtime;
+using HexIDE.Runtime.BuiltinControls;
 using HexIDE.Runtime.Interpreter;
 using HexIDE.Runtime.ProjectElements;
 using HexIDE.Runtime.Components;
@@ -39,6 +40,56 @@ public class TreeViewRuntimeTests
             var values = await ContainerRuntimeHarness.Run(ctx, env, code);
             return values.Select(v => Convert.ToString(v.Value, CultureInfo.InvariantCulture) ?? "").ToArray();
         }
+    }
+
+    // Shared dispatch regression (#2557): the oracle pages setfocus.md, move-scalewidth-and-scaleheight.md
+    // and what-zorder-does-at-run-time.md record the generic semantics; no new TreeView values are inferred.
+    [AvaloniaFact]
+    public async Task SetFocus_reaches_the_running_tree()
+    {
+        var (root, canvas, ctx, env) = ContainerRuntimeHarness.Spawn(Form);
+        var window = new VBFormRuntime { Content = root };
+        window.Show();
+        try
+        {
+            await ContainerRuntimeHarness.Run(ctx, env, "TreeView1.SetFocus");
+            window.FocusManager!.GetFocusedElement().Should().Be(ContainerRuntimeHarness.Child(canvas, "TreeView1"));
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaFact]
+    public async Task Move_sets_the_running_trees_position_and_size()
+    {
+        var printed = await Run("""
+            TreeView1.Move 300, 600, 1800, 2100
+            Debug.Print TreeView1.Left, TreeView1.Top, TreeView1.Width, TreeView1.Height
+            """);
+        printed.Should().Equal("300", "600", "1800", "2100");
+    }
+
+    [AvaloniaFact]
+    public async Task ZOrder_moves_the_running_tree_among_its_siblings()
+    {
+        var (_, canvas, ctx, env) = ContainerRuntimeHarness.Spawn(Form);
+        var tree = ContainerRuntimeHarness.Child(canvas, "TreeView1");
+        var sibling = new VBTextBox();
+        canvas.Children.Add(sibling);
+        await ContainerRuntimeHarness.Run(ctx, env, "TreeView1.ZOrder 0");
+        tree.ZIndex.Should().BeGreaterThan(sibling.ZIndex);
+        await ContainerRuntimeHarness.Run(ctx, env, "TreeView1.ZOrder 1");
+        tree.ZIndex.Should().BeLessThan(sibling.ZIndex);
+    }
+
+    [AvaloniaTheory]
+    [InlineData("Refresh")]
+    [InlineData("HitTest 0, 0")]
+    [InlineData("OLEDrag")]
+    public async Task Missing_methods_name_the_member_and_tracking_issue(string call)
+    {
+        Func<Task> act = () => Run($"TreeView1.{call}");
+        (await act.Should().ThrowAsync<NotImplementedException>()).Which.Message
+            .Should().Contain(call.Split(' ')[0]).And.Contain("#1086");
     }
 
     [AvaloniaTheory]

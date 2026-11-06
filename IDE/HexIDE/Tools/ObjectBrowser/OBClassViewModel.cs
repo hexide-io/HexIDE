@@ -21,7 +21,9 @@ public partial class OBClassViewModel
 
     public List<OBMemberViewModel> Members { get; } = new();
 
-    public string KindGlyph => Kind switch
+    public string KindGlyph => GlyphFor(Kind);
+
+    public static string GlyphFor(OBClassKind kind) => kind switch
     {
         OBClassKind.Form        => "▣",
         OBClassKind.ClassModule => "◉",

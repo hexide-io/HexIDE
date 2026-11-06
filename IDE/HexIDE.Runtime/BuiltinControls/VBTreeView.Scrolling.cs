@@ -78,7 +78,7 @@ internal sealed partial class VBTreeView
         UpdateScroll();
         vertical.Arrange(new Rect(ClientEdge + ClientWidth, ClientEdge, BarSize, ClientHeight));
         horizontal.Arrange(new Rect(ClientEdge, ClientEdge + ClientHeight, ClientWidth, BarSize));
-        return finalSize;
+        return base.ArrangeOverride(finalSize);
     }
 
     protected override void OnPointerWheelChanged(PointerWheelEventArgs e)

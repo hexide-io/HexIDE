@@ -152,6 +152,14 @@ public sealed class EventPump
         return since.Count > 0 ? since : Busy;
     }
 
+    /// <summary>
+    /// The walks in <paramref name="before"/> that have finished since, by name, a Timer's left out: what a reply says when
+    /// an action let a handler it found running run to its end, as answering the MsgBox it waited at does (#2720). A Timer
+    /// ticks on its own, so naming its walks would put one on most replies.
+    /// </summary>
+    public IReadOnlyList<string> FinishedSince(IReadOnlyCollection<object> before) =>
+        [.. before.OfType<Walk>().Where(w => !w.ByTimer && !live.Contains(w)).Select(w => w.Name)];
+
     /// <summary>The handlers part way through, by name: what a reply names when it cannot wait.</summary>
     public IReadOnlyList<string> Busy =>
         [.. running.Where(r => r.Value > 0).Select(r => r.Key)];

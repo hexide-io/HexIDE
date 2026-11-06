@@ -229,14 +229,14 @@ public class UncreatableControlTests
     [AvaloniaFact]
     public void An_in_box_control_names_the_issue_that_tracks_it()
     {
-        var listView = Data1.Replace("VB.Data Data1", "MSComctlLib.ListView ListView1").Replace("      Caption         =   \"Data1\"\r\n", "");
+        var listView = Data1.Replace("VB.Data Data1", "ComctlLib.ListView ListView1").Replace("      Caption         =   \"Data1\"\r\n", "");
         var treeView = Data1.Replace("VB.Data Data1", "ComctlLib.TreeView TreeView1").Replace("      Caption         =   \"Data1\"\r\n", "");
         var tab = Container1.Replace("VB.TextBox Text2", "MSComctlLib.Slider Slider1");
 
         Action act = () => _ = VBLoader.RunForm(Project(Form("Form1", listView + treeView + tab)).StartupForm!, CancellationToken.None, out _);
 
         act.Should().Throw<NotImplementedException>().WithMessage(
-            "HexIDE cannot create ListView1 (MSComctlLib.ListView), which isn't implemented yet (#1085).\n"
+            "HexIDE cannot create ListView1 (ComctlLib.ListView), which isn't implemented yet (#1085).\n"
           + "HexIDE cannot create TreeView1 (ComctlLib.TreeView), which isn't implemented yet (#1086).\n"
           + "HexIDE cannot create Container1 (ThirdParty.Container).\n"
           + "HexIDE cannot create Slider1, inside Container1 (ThirdParty.Container), which isn't implemented yet (#1091).");

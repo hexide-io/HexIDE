@@ -143,7 +143,7 @@ public partial class MessageBox : UserControl
         if (PART_Buttons.Children.Count > 0)
             return;
         if (Icon != MessageBoxIcon.None)
-            PART_Content.Children.Add(BuildIconElement());
+            PART_Content.Children.Add(BuildIconElement(Icon));
 
         PART_Content.Children.Add(new TextBlock
         {
@@ -153,21 +153,24 @@ public partial class MessageBox : UserControl
             VerticalAlignment = VerticalAlignment.Center
         });
 
+        if (!IsProgramDialog)
+            Classes.Add("ideDialog");
+
         foreach (var (label, result) in GetButtonDefs())
         {
             var captured = result;
             // The IDE installs Str.* resources; the standalone runner keeps the English fallback.
             var caption = this.TryFindResource($"Str.Dialog.MessageBox.Button.{result}", out var value)
                 && value is string translated ? translated : label;
-            var btn = new Button { Content = caption, MinWidth = 75 };
+            var btn = new Button { Content = caption, MinWidth = 75, IsDefault = !IsProgramDialog && PART_Buttons.Children.Count == 0 };
             btn.Click += (_, _) => AcceptRequest?.Invoke(captured);
             PART_Buttons.Children.Add(btn);
         }
     }
 
-    private Control BuildIconElement()
+    public static Control BuildIconElement(MessageBoxIcon icon)
     {
-        var (symbol, bg) = Icon switch
+        var (symbol, bg) = icon switch
         {
             MessageBoxIcon.Error       => ("✕", new SolidColorBrush(Colors.Crimson)),
             MessageBoxIcon.Warning     => ("!", new SolidColorBrush(Color.FromRgb(220, 120, 0))),

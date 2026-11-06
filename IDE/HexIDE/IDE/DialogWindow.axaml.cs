@@ -9,6 +9,7 @@ public partial class DialogWindow : Window
     public DialogWindow()
     {
         InitializeComponent();
+        IdeDialogChrome.Apply(this);
     }
 
     protected override void OnLoaded(RoutedEventArgs e)

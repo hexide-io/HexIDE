@@ -258,6 +258,44 @@ public class CommonDialogTests
         ran.Printed.Should().Equal("Courier New 10 True True 1", "32755 Courier New");
     }
 
+    [AvaloniaTheory]
+    [InlineData(0, 0)]
+    [InlineData(1, 255)]
+    public void ShowColor_runs_through_the_IDE_host(int flags, int expected)
+    {
+        var windows = Opening();
+        windows.ShowColorDialog(expected).Returns(Task.FromResult<int?>(expected));
+        var ran = Run(Form(Dialog,
+            $"    dlg.Flags = {flags}\r\n"
+          + "    dlg.Color = vbRed\r\n"
+          + "    dlg.ShowColor\r\n"
+          + "    Debug.Print CStr(VarType(dlg.Color))\r\n"), windows);
+
+        ran.Failures.Should().BeEmpty();
+        ran.Printed.Should().Equal("19");
+        windows.Received(1).ShowColorDialog(expected);
+    }
+
+    [AvaloniaTheory]
+    [InlineData("dlg.ShowPrinter")]
+    [InlineData("dlg.Action = 5")]
+    public void Printer_runs_through_the_IDE_host(string statement)
+    {
+        var windows = Opening();
+        windows.ShowPrintDialog().Returns(Task.FromResult(true), Task.FromResult(false));
+        var ran = Run(Form(Dialog,
+            "    dlg.Copies = 3\r\n"
+          + "    dlg.PrinterDefault = False\r\n"
+          + $"    {statement}\r\n"
+          + "    Debug.Print dlg.Copies & \" \" & dlg.Orientation & \" \" & dlg.hDC\r\n"
+          + "    dlg.CancelError = True\r\n"
+          + $"    {statement}\r\n"
+          + "    Debug.Print Err.Number & \" \" & dlg.Copies & \" \" & dlg.Orientation & \" \" & dlg.hDC\r\n"), windows);
+        ran.Failures.Should().BeEmpty();
+        ran.Printed.Should().Equal("1 1 0", "32755 1 1 0");
+        windows.Received(2).ShowPrintDialog();
+    }
+
     [AvaloniaFact]
     public void What_the_form_s_file_sets_is_read_and_a_member_it_does_not_model_is_refused()
     {

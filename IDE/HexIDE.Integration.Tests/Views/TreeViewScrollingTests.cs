@@ -13,6 +13,7 @@ using HexIDE.Runtime.Interpreter;
 
 namespace HexIDE.Integration.Tests.Views;
 
+// Measurements: docs/vb6-fidelity-oracle/in-box-controls-the-treeview.md, "Scrolling" (#2359).
 public class TreeViewScrollingTests
 {
     [AvaloniaFact]
@@ -32,6 +33,7 @@ public class TreeViewScrollingTests
                 frame.Should().NotBeNull();
                 tree.IsMeasureValid.Should().BeTrue();
                 tree.IsArrangeValid.Should().BeTrue();
+                tree.Child!.Bounds.Size.Should().Be(tree.Bounds.Size);
                 Bar(tree, Orientation.Vertical).Bounds.Should().Be(new Rect(143, 0, 17, 63));
                 Bar(tree, Orientation.Horizontal).Bounds.Should().Be(new Rect(0, 63, 143, 17));
             }

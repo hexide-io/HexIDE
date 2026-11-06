@@ -173,11 +173,8 @@ public class ProgressBarSerializationTests
     [Fact]
     public void The_ProgressBar_corpus_saves_are_read_as_ProgressBars()
     {
-        var dir = new DirectoryInfo(AppContext.BaseDirectory);
-        while (dir is not null && !Directory.Exists(Path.Join(dir.FullName, "corpus", "inbox-controls")))
-            dir = dir.Parent;
-        dir.Should().NotBeNull("corpus/inbox-controls ships with the repository");
-        var saved = Path.Join(dir!.FullName, "corpus", "inbox-controls", "saved");
+        var dir = RepoTree.Root();
+        var saved = Path.Join(dir, "corpus", "inbox-controls", "saved");
 
         var bars = Directory.EnumerateFiles(saved, "*.frm", SearchOption.AllDirectories)
             .SelectMany(f => new FormDeserializer().Deserialize(new ProjectDefinition(VBProjectType.EXE, "P"),

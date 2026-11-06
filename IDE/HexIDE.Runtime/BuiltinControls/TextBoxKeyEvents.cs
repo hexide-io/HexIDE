@@ -24,12 +24,29 @@ internal static class TextBoxKeyEvents
     {
         if (e.Handled || !AttachedEvents.OwnsThePointerEvent(box, e.Source))
             return;
-        // First slice of #2325: only codes measured by its real-key probe. Enter/Esc and Tab need the form's
-        // Default/Cancel/navigation arbitration before any key event; they are deliberately left to that path.
+        if (e.KeyModifiers is not (KeyModifiers.None or KeyModifiers.Shift or KeyModifiers.Control or KeyModifiers.Alt)
+            && e.Key is not (Key.K or Key.A or Key.X or Key.Back or Key.Delete or Key.Left or Key.F2
+                or Key.LeftShift or Key.RightShift or Key.LeftCtrl or Key.RightCtrl or Key.LeftAlt or Key.RightAlt))
+            return;
+        // #2325's console keyboard sweep (issuecomment-6454480155), native and p-code alike.
+        // Enter/Esc and Tab still need the form's Default/Cancel/navigation arbitration.
         var code = e.Key switch
         {
-            Key.K => 75, Key.A => 65, Key.X => 88,
-            Key.Back => 8, Key.Delete => 46, Key.Left => 37, Key.F2 => 113,
+            >= Key.A and <= Key.Z => 65 + e.Key - Key.A,
+            >= Key.D0 and <= Key.D9 => 48 + e.Key - Key.D0,
+            >= Key.NumPad0 and <= Key.NumPad9 when e.KeyModifiers == KeyModifiers.None => 96 + e.Key - Key.NumPad0,
+            >= Key.F1 and <= Key.F12 when e.Key != Key.F10
+                && !(e.Key == Key.F4 && e.KeyModifiers.HasFlag(KeyModifiers.Alt)) => 112 + e.Key - Key.F1,
+            Key.Space when !e.KeyModifiers.HasFlag(KeyModifiers.Alt) => 32,
+            Key.Back => 8, Key.Insert => 45, Key.Delete => 46,
+            Key.Home => 36, Key.End => 35, Key.PageUp => 33, Key.PageDown => 34,
+            Key.Left => 37, Key.Up => 38, Key.Right => 39, Key.Down => 40, Key.Clear => 12,
+            Key.Decimal when e.KeyModifiers == KeyModifiers.None => 110,
+            Key.Add when (e.KeyModifiers & ~KeyModifiers.Shift) == KeyModifiers.None => 107,
+            Key.Subtract when (e.KeyModifiers & ~KeyModifiers.Shift) == KeyModifiers.None => 109,
+            Key.Multiply when (e.KeyModifiers & ~KeyModifiers.Shift) == KeyModifiers.None => 106,
+            Key.Divide when (e.KeyModifiers & ~KeyModifiers.Shift) == KeyModifiers.None => 111,
+            Key.NumLock when e.KeyModifiers == KeyModifiers.None => 144,
             Key.LeftShift or Key.RightShift => 16,
             Key.LeftCtrl or Key.RightCtrl => 17,
             Key.LeftAlt or Key.RightAlt => 18,
@@ -43,7 +60,7 @@ internal static class TextBoxKeyEvents
         Deliver(box, ev, code, shift, _ => { });
     }
 
-    internal static void Deliver(VBTextBox box, EventClass ev, int code, int? shift, Action<int> completed)
+    internal static void Deliver(Control box, EventClass ev, int code, int? shift, Action<int> completed)
     {
         var root = box.FindLogicalAncestorOfType<IModuleExecutionRoot>();
         void Control(int value)

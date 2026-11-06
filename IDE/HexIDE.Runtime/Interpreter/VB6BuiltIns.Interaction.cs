@@ -14,6 +14,7 @@ public partial class VB6BuiltIns
 
     private static void RegisterInteraction(Dictionary<string, BuiltinFn> d)
     {
+        d["Shell"] = (_, a, _) => Shell(a);
         d["Environ"] = (_, a, _) => new Vb6Value(Environ(a[0]));
         d["Error"] = (self, a, _) => new Vb6Value(ErrorText(self, a));
     }

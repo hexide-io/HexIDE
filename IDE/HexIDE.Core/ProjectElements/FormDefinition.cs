@@ -197,7 +197,12 @@ public partial class FormDefinition : INotifyPropertyChanged
         }
     }
 
-    public void UpdateCode(string newCode) => Code = newCode;
+    public void UpdateCode(string newCode)
+    {
+        if (Code == newCode) return;
+        Code = newCode;
+        OnPropertyChanged(nameof(Code));
+    }
 
     public void UpdateComponents(IReadOnlyList<ComponentInstance> components)
     {
