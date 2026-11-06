@@ -4009,6 +4009,10 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 : declaredArray || value.Type.IsArray ? value.Type
                 : new Vb6Value.ValueType(Vb6Value.ValueType.EmptyVariant, true);
 
+            // A declared Variant array cannot become a String array; a scalar Variant can (#2938, measured).
+            if (!preserve && declaredArray && !variant && redim.asTypeClause() is not null && type != value.Type)
+                throw new VBCompileErrorException("Can't change data types of array elements");
+
             var objectClass = redim.asTypeClause() is { } objectClause
                 ? ObjectArrayClass(objectClause) : (value.Value as VBArray)?.DeclaredClass;
             Vb6Value NewArray(List<(int, int)>? bounds = null)
