@@ -2,6 +2,11 @@
   "name": "Slovenian",
   "direction": "ltr",
   "strings": {
+    "Str.Lsp.ServerMessage": "Jezikovni strežnik: {0}",
+    "Str.Lsp.ServerError": "Napaka jezikovnega strežnika: {0}",
+    "Str.Lsp.EditNotApplied": "Sprememba strežnika ni bila uveljavljena: {0}",
+    "Str.Lsp.EditRequiresUserCommand": "HexIDE uveljavi spremembe strežnika samo med izvajanjem ukaza, ki ga je zagnal uporabnik.",
+    "Str.Lsp.NoWorkspaceEditor": "Na voljo ni nobenega urejevalnika delovnega prostora.",
     "Str.Menu.Edit.CallHierarchy": "Hi_erarhija klicev",
     "Str.CodeEditor.Context.CallHierarchy": "Hi_erarhija klicev",
     "Str.Lsp.OpenExternalUri": "Želite odpreti ta URI zunaj HexIDE?\n\n{0}",

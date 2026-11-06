@@ -2,6 +2,11 @@
   "name": "Galician",
   "direction": "ltr",
   "strings": {
+    "Str.Lsp.ServerMessage": "Servidor de linguaxe: {0}",
+    "Str.Lsp.ServerError": "Erro do servidor de linguaxe: {0}",
+    "Str.Lsp.EditNotApplied": "Non se aplicou a edición do servidor: {0}",
+    "Str.Lsp.EditRequiresUserCommand": "HexIDE só aplica os cambios dun servidor mentres se executa unha orde iniciada polo usuario.",
+    "Str.Lsp.NoWorkspaceEditor": "Non hai ningún editor do espazo de traballo dispoñible.",
     "Str.Menu.Edit.CallHierarchy": "_Xerarquía de chamadas",
     "Str.CodeEditor.Context.CallHierarchy": "_Xerarquía de chamadas",
     "Str.Lsp.OpenExternalUri": "Abrir este URI fóra de HexIDE?\n\n{0}",

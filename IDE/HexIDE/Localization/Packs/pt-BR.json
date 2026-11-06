@@ -2,6 +2,8 @@
   "name": "Portuguese (Brazil)",
   "direction": "ltr",
   "strings": {
+    "Str.Lsp.EditRequiresUserCommand": "O HexIDE só aplica as alterações de um servidor durante a execução de um comando iniciado pelo usuário.",
+    "Str.Lsp.NoWorkspaceEditor": "Nenhum editor do espaço de trabalho está disponível.",
     "Str.CodeEditor.Context.Bookmarks": "Marcadores",
     "Str.LspArtifact.Title": "Arquivos da área de trabalho",
     "Str.LspArtifact.Prompt": "O servidor {0} pediu para escrever o arquivo local {1}.",

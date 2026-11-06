@@ -2,6 +2,11 @@
   "name": "Ukrainian",
   "direction": "ltr",
   "strings": {
+    "Str.Lsp.ServerMessage": "Мовний сервер: {0}",
+    "Str.Lsp.ServerError": "Помилка мовного сервера: {0}",
+    "Str.Lsp.EditNotApplied": "Зміну сервера не застосовано: {0}",
+    "Str.Lsp.EditRequiresUserCommand": "HexIDE застосовує зміни сервера лише під час виконання команди, запущеної користувачем.",
+    "Str.Lsp.NoWorkspaceEditor": "Редактор робочої області недоступний.",
     "Str.Menu.Edit.CallHierarchy": "Ієрархія викликів",
     "Str.CodeEditor.Context.CallHierarchy": "Ієрархія викликів",
     "Str.Lsp.OpenExternalUri": "Відкрити цей URI поза HexIDE?\n\n{0}",

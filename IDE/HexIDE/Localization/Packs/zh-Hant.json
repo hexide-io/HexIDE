@@ -2,6 +2,11 @@
   "name": "Chinese (Traditional)",
   "direction": "ltr",
   "strings": {
+    "Str.Lsp.ServerMessage": "語言伺服器：{0}",
+    "Str.Lsp.ServerError": "語言伺服器錯誤：{0}",
+    "Str.Lsp.EditNotApplied": "未套用伺服器編輯：{0}",
+    "Str.Lsp.EditRequiresUserCommand": "HexIDE 僅在使用者啟動的命令執行期間套用伺服器的編輯。",
+    "Str.Lsp.NoWorkspaceEditor": "沒有可用的工作區編輯器。",
     "Str.Menu.Edit.CallHierarchy": "呼叫階層",
     "Str.CodeEditor.Context.CallHierarchy": "呼叫階層",
     "Str.Lsp.OpenExternalUri": "在 HexIDE 外部開啟此 URI？\n\n{0}",

@@ -2,6 +2,11 @@
   "name": "Dutch",
   "direction": "ltr",
   "strings": {
+    "Str.Lsp.ServerMessage": "Taalserver: {0}",
+    "Str.Lsp.ServerError": "Taalserverfout: {0}",
+    "Str.Lsp.EditNotApplied": "Serverbewerking niet toegepast: {0}",
+    "Str.Lsp.EditRequiresUserCommand": "HexIDE past wijzigingen van een server alleen toe terwijl een door de gebruiker gestarte opdracht wordt uitgevoerd.",
+    "Str.Lsp.NoWorkspaceEditor": "Er is geen editor voor de werkruimte beschikbaar.",
     "Str.Menu.Edit.CallHierarchy": "Aan_roephiërarchie",
     "Str.CodeEditor.Context.CallHierarchy": "Aan_roephiërarchie",
     "Str.Lsp.OpenExternalUri": "Deze URI buiten HexIDE openen?\n\n{0}",

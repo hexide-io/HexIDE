@@ -57,7 +57,9 @@ public class ServerApplyEditTests : IAsyncDisposable
                 return true;
             });
         editors = new EditorService(dock, NewEditor, () => throw new InvalidOperationException(),
-            () => throw new InvalidOperationException(), () => throw new InvalidOperationException(), () => manager);
+            () => throw new InvalidOperationException(), () => throw new InvalidOperationException(), () => manager, localization);
+        localization.GetString("Str.Lsp.EditNotApplied").Returns("Server edit not applied: {0}");
+        localization.GetString("Str.Lsp.EditRequiresUserCommand").Returns("HexIDE applies a server's edits only while a command the user started is running.");
         localization.GetString("Str.CodeEditor.Msg.RenameDocumentRefused").Returns("Rename refused: {0}");
         localization.GetString("Str.CodeEditor.Msg.RenameStaleVersion").Returns("Cannot rename {0}: stale version. Try again.");
         localization.GetString("Str.CodeEditor.Msg.RenameUnsavedChanges").Returns("Cannot rename {0}: unsaved changes. Save and try again.");
@@ -97,7 +99,7 @@ public class ServerApplyEditTests : IAsyncDisposable
     private readonly CancellationTokenSource timeout = new(TimeSpan.FromSeconds(15));
     private EditServer server = null!;
 
-    private async Task<VBLspClient> ConnectAsync()
+    private async Task<VBLspClient> ConnectAsync(bool withEditor = true)
     {
         var (local, remote) = FullDuplexStream.CreatePair();
         var stub = new EditServer();
@@ -112,7 +114,7 @@ public class ServerApplyEditTests : IAsyncDisposable
             .Returns(c => Task.FromResult<IJsonRpcMessageHandler?>(
                 new HeaderDelimitedMessageHandler(local, local, c.Arg<IJsonRpcMessageFormatter>())));
         var connection = new VBLspClient(transport, Substitute.For<ILogger<VBLspClient>>(), "vb6",
-            applyEdit: (edit, documentFor, token) => Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(
+            applyEdit: !withEditor ? null : (edit, documentFor, token) => Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(
                 () => editors.ApplyWorkspaceEdit(edit, documentFor), Avalonia.Threading.DispatcherPriority.Normal, token).GetTask());
         connections.Add(connection);
         await connection.StartAsync(timeout.Token);
@@ -128,6 +130,103 @@ public class ServerApplyEditTests : IAsyncDisposable
     private async Task<JsonElement> SendEdit(EditServer peer, WorkspaceEdit edit) =>
         await peer.Rpc.InvokeWithParameterObjectAsync<JsonElement>("workspace/applyEdit",
             new ApplyWorkspaceEditParams(edit), timeout.Token);
+
+    [AvaloniaTheory]
+    [InlineData("lens")]
+    [InlineData("codeAction")]
+    [InlineData("executeCommand")]
+    [InlineData("unsolicited")]
+    public async Task RefusedServerEditShowsItsWireReasonInStatusBar(string trigger)
+    {
+        var connection = await ConnectAsync();
+        using var reporter = new LanguageServerMessageReporter(connection, status, localization);
+        var a = Open(first);
+        var b = Open(second);
+        await a.FlushDocumentAsync();
+        await b.FlushDocumentAsync();
+        var before = b.Document.Text;
+        var edit = Edit(a, b, version: 99);
+        server.DuringCommand = async () => await SendEdit(server, edit);
+        if (trigger == "lens")
+        {
+            var lens = (await connection.RequestCodeLensesAsync(UriOf(first), timeout.Token)).Single();
+            await a.RunCodeLensAsync(lens.Command!);
+        }
+        else if (trigger == "codeAction")
+        {
+            var action = (await connection.RequestCodeActionsAsync(UriOf(first), new(new(1, 0), new(1, 1)), [], timeout.Token)).Single();
+            await a.ApplyCodeActionAsync(action, timeout.Token);
+        }
+        else if (trigger == "executeCommand")
+            await connection.ExecuteCommandAsync("test.edit", cancellationToken: timeout.Token);
+        else server.EditAnswer = await SendEdit(server, edit);
+
+        server.EditAnswer.GetProperty("applied").GetBoolean().Should().BeFalse();
+        var reason = server.EditAnswer.GetProperty("failureReason").GetString()!;
+        reason.Should().NotBeNullOrWhiteSpace();
+        status.Received().SetTemporaryMessage(Arg.Is<string>(message => message.Contains(reason)), TimeSpan.FromSeconds(10));
+        b.Document.Text.Should().Be(before);
+    }
+
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ClientRefusalIsDisplayedInTheSelectedLanguage(bool duringCommand)
+    {
+        var french = new LocalizationService();
+        french.Apply("fr");
+        var connection = await ConnectAsync(withEditor: false);
+        using var reporter = new LanguageServerMessageReporter(connection, status, french);
+        var edit = new WorkspaceEdit();
+        if (duringCommand)
+        {
+            server.DuringCommand = async () => await SendEdit(server, edit);
+            await connection.ExecuteCommandAsync("test.edit", cancellationToken: timeout.Token);
+        }
+        else server.EditAnswer = await SendEdit(server, edit);
+
+        var expected = duringCommand ? "Aucun éditeur d’espace de travail n’est disponible."
+            : "HexIDE applique les modifications d’un serveur uniquement pendant l’exécution d’une commande lancée par l’utilisateur.";
+        status.Received().SetTemporaryMessage(Arg.Is<string>(message => message == string.Format(french.GetString("Str.Lsp.EditNotApplied"), expected)), TimeSpan.FromSeconds(10));
+        server.EditAnswer.GetProperty("failureReason").GetString().Should().Be(duringCommand
+            ? "No workspace editor is available."
+            : "HexIDE applies a server's edits only while a command the user started is running.");
+    }
+
+    [AvaloniaFact]
+    public async Task MissingWorkspaceEditorIsDisplayedInTheSelectedLanguage()
+    {
+        var french = new LocalizationService();
+        french.Apply("fr");
+        localization.GetString(Arg.Any<string>()).Returns(c => french.GetString(c.Arg<string>()));
+        var connection = await ConnectAsync();
+        using var reporter = new LanguageServerMessageReporter(connection, status, french);
+        server.DuringCommand = async () => await SendEdit(server, new WorkspaceEdit());
+        await connection.ExecuteCommandAsync("test.edit", cancellationToken: timeout.Token);
+        status.Received().SetTemporaryMessage(Arg.Is<string>(message => message.Contains("Aucun éditeur d’espace de travail n’est disponible.")), TimeSpan.FromSeconds(10));
+    }
+
+    [AvaloniaFact]
+    public async Task ChangedTargetRetainsTheSelectedLanguage()
+    {
+        var french = new LocalizationService();
+        french.Apply("fr");
+        localization.GetString(Arg.Any<string>()).Returns(c => french.GetString(c.Arg<string>()));
+        var connection = await ConnectAsync();
+        using var reporter = new LanguageServerMessageReporter(connection, status, french);
+        var a = Open(first);
+        var b = Open(second);
+        await a.FlushDocumentAsync();
+        await b.FlushDocumentAsync();
+        var edit = Edit(a, b, version: 99);
+        server.DuringCommand = async () => await SendEdit(server, edit);
+        var lens = (await connection.RequestCodeLensesAsync(UriOf(first), timeout.Token)).Single();
+        await a.RunCodeLensAsync(lens.Command!);
+        var expected = string.Format(french.GetString("Str.CodeEditor.QuickFix.ChangedTarget"), "Module2");
+        expected.Should().NotBe("Module2 changed since the server read it. Try again.");
+        server.EditAnswer.GetProperty("failureReason").GetString().Should().Be(expected);
+        status.Received().SetTemporaryMessage(Arg.Is<string>(message => message == string.Format(french.GetString("Str.Lsp.EditNotApplied"), expected)), TimeSpan.FromSeconds(10));
+    }
 
     [AvaloniaFact]
     public async Task InitializeDeclaresApplyEditAndDocumentChanges()

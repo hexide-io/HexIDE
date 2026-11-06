@@ -2,6 +2,11 @@
   "name": "Norwegian Bokmål",
   "direction": "ltr",
   "strings": {
+    "Str.Lsp.ServerMessage": "Språkserver: {0}",
+    "Str.Lsp.ServerError": "Språkserverfeil: {0}",
+    "Str.Lsp.EditNotApplied": "Serverendringen ble ikke brukt: {0}",
+    "Str.Lsp.EditRequiresUserCommand": "HexIDE bruker bare endringer fra en server mens en kommando startet av brukeren kjører.",
+    "Str.Lsp.NoWorkspaceEditor": "Ingen redigerer for arbeidsområdet er tilgjengelig.",
     "Str.Menu.Edit.CallHierarchy": "Kallhie_rarki",
     "Str.CodeEditor.Context.CallHierarchy": "K_allhierarki",
     "Str.Lsp.OpenExternalUri": "Åpne denne URI-en utenfor HexIDE?\n\n{0}",
