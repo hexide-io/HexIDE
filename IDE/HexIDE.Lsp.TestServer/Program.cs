@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.IO.Pipes;
 using System.Text;
 using System.Text.Json;
 
@@ -23,8 +24,14 @@ public static class Program
             await Console.Error.WriteLineAsync($"child:{child.Id}");
         }
         if (mode != "logging") await Console.Error.WriteLineAsync($"pid:{Environment.ProcessId}");
-        var input = Console.OpenStandardInput();
-        var output = Console.OpenStandardOutput();
+        Stream input = Console.OpenStandardInput();
+        Stream output = Console.OpenStandardOutput();
+        if (args.Length > 1)
+        {
+            var pipe = new NamedPipeClientStream(".", args[1], PipeDirection.InOut, PipeOptions.Asynchronous);
+            await pipe.ConnectAsync();
+            input = output = pipe;
+        }
         var shutdown = false;
         while (true)
         {
@@ -52,7 +59,8 @@ public static class Program
                     await Console.Error.WriteLineAsync("stack-frame");
                     return 3;
                 }
-                if (mode is "ignore" or "tree") continue;
+                if (mode is "ignore" or "tree" or "unanswered") continue;
+                if (mode == "slow") await Task.Delay(TimeSpan.FromMinutes(1));
                 // Ensure disposal really allows an orderly exit rather than winning a scheduling race.
                 await Task.Delay(150);
                 return shutdown ? 0 : 1;
@@ -67,6 +75,7 @@ public static class Program
             if (method == "textDocument/hover" && mode == "nonzero") return 17;
             if (method == "textDocument/hover" && mode == "exit1") return 1;
             if (method == "textDocument/hover" && mode == "exit2") return 2;
+            if (method == "shutdown" && mode == "unanswered") continue;
             if (method == "shutdown") shutdown = true;
             var result = method == "initialize" ? "{\"capabilities\":{\"hoverProvider\":true}}" : "null";
             var reply = Encoding.UTF8.GetBytes($"{{\"jsonrpc\":\"2.0\",\"id\":{root.GetProperty("id").GetRawText()},\"result\":{result}}}");

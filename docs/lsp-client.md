@@ -156,8 +156,15 @@ HexIDE kills its remaining process tree, including during bring-up (#313).
 The stdio transport also allows two seconds for an orderly exit, then kills the remaining process
 tree and waits up to two seconds for termination before disposing its process handle (#2023).
 Unix transports allow an additional two seconds for the guard's group cleanup (#2297). The stdio
-exit code is recorded even during client stop. Both process-owning transports retain their exit
-handlers through disposal and record the exit once. Deliberate disposal logs the exit code at
+exit code is recorded even during client stop, except when HexIDE ends a server that answered
+`shutdown` successfully and was sent `exit`: that timeout termination is recorded once as
+"stopped after shutdown; still exiting after N s, so ended", without a fault or a killed-process exit
+code (#3217). Both launched transports publish that stop classification before killing the process,
+and keep process termination and exit-code reads outside the exit handler's lock so Windows teardown
+cannot deadlock on it. A natural non-zero exit and a timeout kill without a successful shutdown still
+retain their exit code and fault. Stop and restart currently await teardown before continuing, so they keep
+the same bound as IDE exit; no path gets a ten-second wait. Both process-owning transports retain their exit
+handlers through disposal and record the end once. Deliberate disposal logs a natural exit code at
 information level with the server identity; a timeout kill is logged separately. Unexpected exits
 remain warnings. The Unix guard and post-kill waits described above still exceed #491's requested
 two-second total bound; integrating that deadline with descendant cleanup remains outstanding.
@@ -167,6 +174,8 @@ elsewhere in `HexIDE.Tests`; this guards ownership rather than enumerating all t
 
 A test-only process server covers orderly exit, ignored
 exit, wrapper children, a truncated reply followed by a crash, and an unsolicited non-zero exit.
+Stdio and launched-pipe tests also cover a delayed exit after an answered shutdown and a server
+that never answers shutdown (#3217).
 
 **Consumed from the server:** `textDocument/publishDiagnostics`, `$/logTrace`, `$/progress` (work-done
 progress below), plus `window/logMessage` and
