@@ -2,6 +2,11 @@
   "name": "Thai",
   "direction": "ltr",
   "strings": {
+    "Str.Lsp.ServerMessage": "เซิร์ฟเวอร์ภาษา: {0}",
+    "Str.Lsp.ServerError": "ข้อผิดพลาดของเซิร์ฟเวอร์ภาษา: {0}",
+    "Str.Lsp.EditNotApplied": "ไม่ได้นำการแก้ไขจากเซิร์ฟเวอร์ไปใช้: {0}",
+    "Str.Lsp.EditRequiresUserCommand": "HexIDE จะใช้การแก้ไขจากเซิร์ฟเวอร์เฉพาะในระหว่างที่คำสั่งที่ผู้ใช้เริ่มกำลังทำงานอยู่เท่านั้น",
+    "Str.Lsp.NoWorkspaceEditor": "ไม่มีตัวแก้ไขพื้นที่ทำงานที่พร้อมใช้งาน",
     "Str.Menu.Edit.CallHierarchy": "ลำดับชั้นการเรียก",
     "Str.CodeEditor.Context.CallHierarchy": "ลำดับชั้นการเรียก",
     "Str.Lsp.OpenExternalUri": "เปิด URI นี้ภายนอก HexIDE หรือไม่?\n\n{0}",

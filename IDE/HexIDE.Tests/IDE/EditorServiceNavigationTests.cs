@@ -39,7 +39,7 @@ public class EditorServiceNavigationTests
         () => throw new InvalidOperationException("no editor should be constructed in these tests"),
         () => throw new InvalidOperationException("no editor should be constructed in these tests"),
         () => throw new InvalidOperationException("no editor should be constructed in these tests"),
-        () => _projects);
+        () => _projects, Substitute.For<HexIDE.Localization.ILocalizationService>());
 
     private ProjectDefinition ProjectWith(
         string? moduleName = null, string? modulePath = null, string? formName = null)

@@ -2,6 +2,11 @@
   "name": "German",
   "direction": "ltr",
   "strings": {
+    "Str.Lsp.ServerMessage": "Sprachserver: {0}",
+    "Str.Lsp.ServerError": "Sprachserverfehler: {0}",
+    "Str.Lsp.EditNotApplied": "Serveränderung nicht angewendet: {0}",
+    "Str.Lsp.EditRequiresUserCommand": "HexIDE wendet Änderungen eines Servers nur an, während ein vom Benutzer gestarteter Befehl ausgeführt wird.",
+    "Str.Lsp.NoWorkspaceEditor": "Kein Arbeitsbereichseditor verfügbar.",
     "Str.Menu.Edit.CallHierarchy": "A_ufrufhierarchie",
     "Str.CodeEditor.Context.CallHierarchy": "Aufrufhierar_chie",
     "Str.Lsp.OpenExternalUri": "Diese URI außerhalb von HexIDE öffnen?\n\n{0}",

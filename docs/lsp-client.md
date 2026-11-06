@@ -175,7 +175,8 @@ Both map Error to Error, Warning to Warning, Info and Log (types 3 and 4) to Inf
 3.18 Debug (type 5) and unknown values to Trace. Type 4 therefore reaches the default log;
 type 5 needs `HEXIDE_LOG_LEVEL=Verbose`. The second goes there **and** to the
 status bar, because a message the user never sees was the bug and a message with no trace afterwards
-is the next one.
+is the next one. The status-bar prefix is localized (with a separate error form); the server’s
+message text stays as sent. The log keeps its English connection tag.
 
 Server-card labels share a content-sized column, keeping their values aligned with a gap even
 for longer translations. State ages refresh once per second while the view is visible; the
@@ -1264,7 +1265,15 @@ connections, unsolicited edits and edits after the command answer receive `appli
 Authorized edits use the rename workspace applier, including the answering connection's version and
 snapshot checks, buffer freshness checks, protected IDE lines and read-only forms. Both `changes` and
 `documentChanges` are supported. Preflight refuses the whole edit with the applier's reason, or applies
-it with one undo step per module and answers `applied: true`. Resource operations remain refused.
+it with one undo step per module and answers `applied: true`. Resource operations remain refused. Every
+refusal also shows its reason in the status bar through
+`LanguageServerMessageReporter`, including unsolicited edits and edits following a lens, code-action
+command or direct command (#3175). A client-only flag marks every refusal, including changed targets,
+so the localized “Server edit not applied: {0}” form identifies HexIDE’s decision rather than using
+the server-message prefix. Client-generated refusals use localization keys for display;
+the command-required and unavailable-applier replies on the wire remain English. Changed-target
+refusals retain the editor’s localized text. Rename and direct code-action refusals retain their
+information dialog.
 `ServerApplyEditTests` drives a scripted server through a code lens command and checks the wire answers,
 per-server permission, stale-version refusal, both edit representations and independent undo.
 Consecutive unversioned edits can change an unsaved open target without saving between commands

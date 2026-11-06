@@ -2,6 +2,11 @@
   "name": "Turkish",
   "direction": "ltr",
   "strings": {
+    "Str.Lsp.ServerMessage": "Dil sunucusu: {0}",
+    "Str.Lsp.ServerError": "Dil sunucusu hatası: {0}",
+    "Str.Lsp.EditNotApplied": "Sunucu düzenlemesi uygulanmadı: {0}",
+    "Str.Lsp.EditRequiresUserCommand": "HexIDE, sunucunun düzenlemelerini yalnızca kullanıcının başlattığı bir komut çalışırken uygular.",
+    "Str.Lsp.NoWorkspaceEditor": "Kullanılabilir çalışma alanı düzenleyicisi yok.",
     "Str.Menu.Edit.CallHierarchy": "_Çağrı Hiyerarşisi",
     "Str.CodeEditor.Context.CallHierarchy": "_Çağrı Hiyerarşisi",
     "Str.Lsp.OpenExternalUri": "Bu URI HexIDE dışında açılsın mı?\n\n{0}",

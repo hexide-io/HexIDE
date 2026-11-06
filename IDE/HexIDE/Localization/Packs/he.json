@@ -2,6 +2,11 @@
   "name": "Hebrew",
   "direction": "rtl",
   "strings": {
+    "Str.Lsp.ServerMessage": "שרת שפה: {0}",
+    "Str.Lsp.ServerError": "שגיאת שרת שפה: {0}",
+    "Str.Lsp.EditNotApplied": "עריכת השרת לא הוחלה: {0}",
+    "Str.Lsp.EditRequiresUserCommand": "HexIDE מחיל עריכות של שרת רק בזמן הפעלת פקודה שהמשתמש יזם.",
+    "Str.Lsp.NoWorkspaceEditor": "אין עורך זמין לסביבת העבודה.",
     "Str.Menu.Edit.CallHierarchy": "היררכיית קריאות",
     "Str.CodeEditor.Context.CallHierarchy": "היררכיית קריאות",
     "Str.Lsp.OpenExternalUri": "לפתוח כתובת זו מחוץ ל־HexIDE?\n\n{0}",

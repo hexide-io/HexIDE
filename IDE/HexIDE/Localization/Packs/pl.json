@@ -2,6 +2,11 @@
   "name": "Polish",
   "direction": "ltr",
   "strings": {
+    "Str.Lsp.ServerMessage": "Serwer językowy: {0}",
+    "Str.Lsp.ServerError": "Błąd serwera językowego: {0}",
+    "Str.Lsp.EditNotApplied": "Nie zastosowano edycji serwera: {0}",
+    "Str.Lsp.EditRequiresUserCommand": "HexIDE stosuje zmiany serwera tylko podczas wykonywania polecenia uruchomionego przez użytkownika.",
+    "Str.Lsp.NoWorkspaceEditor": "Brak dostępnego edytora obszaru roboczego.",
     "Str.Menu.Edit.CallHierarchy": "_Hierarchia wywołań",
     "Str.CodeEditor.Context.CallHierarchy": "_Hierarchia wywołań",
     "Str.Lsp.OpenExternalUri": "Otworzyć ten identyfikator URI poza HexIDE?\n\n{0}",

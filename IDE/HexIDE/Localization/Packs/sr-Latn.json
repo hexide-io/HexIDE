@@ -2,6 +2,11 @@
   "name": "Serbian (Latin)",
   "direction": "ltr",
   "strings": {
+    "Str.Lsp.ServerMessage": "Jezički server: {0}",
+    "Str.Lsp.ServerError": "Greška jezičkog servera: {0}",
+    "Str.Lsp.EditNotApplied": "Izmena servera nije primenjena: {0}",
+    "Str.Lsp.EditRequiresUserCommand": "HexIDE primenjuje izmene servera samo dok se izvršava komanda koju je pokrenuo korisnik.",
+    "Str.Lsp.NoWorkspaceEditor": "Nijedan uređivač radnog prostora nije dostupan.",
     "Str.Menu.Edit.CallHierarchy": "_Hijerarhija poziva",
     "Str.CodeEditor.Context.CallHierarchy": "_Hijerarhija poziva",
     "Str.Lsp.OpenExternalUri": "Otvoriti ovaj URI izvan HexIDE-a?\n\n{0}",

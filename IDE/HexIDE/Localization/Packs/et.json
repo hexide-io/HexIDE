@@ -2,6 +2,11 @@
   "name": "Estonian",
   "direction": "ltr",
   "strings": {
+    "Str.Lsp.ServerMessage": "Keeleserver: {0}",
+    "Str.Lsp.ServerError": "Keeleserveri viga: {0}",
+    "Str.Lsp.EditNotApplied": "Serveri muudatust ei rakendatud: {0}",
+    "Str.Lsp.EditRequiresUserCommand": "HexIDE rakendab serveri muudatusi ainult kasutaja käivitatud käsu täitmise ajal.",
+    "Str.Lsp.NoWorkspaceEditor": "Ükski tööruumi redaktor pole saadaval.",
     "Str.Menu.Edit.CallHierarchy": "K_utsete hierarhia",
     "Str.CodeEditor.Context.CallHierarchy": "K_utsete hierarhia",
     "Str.Lsp.OpenExternalUri": "Kas avada see URI väljaspool HexIDE-d?\n\n{0}",

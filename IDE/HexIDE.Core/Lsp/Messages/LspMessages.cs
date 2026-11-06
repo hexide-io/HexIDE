@@ -168,7 +168,15 @@ public record LogMessageParams(
 /// </summary>
 public record ShowMessageParams(
     [property: JsonPropertyName("type")] LspMessageType Type,
-    [property: JsonPropertyName("message")] string Message);
+    [property: JsonPropertyName("message")] string Message)
+{
+    // Local client refusals carry a display key; server-supplied text never sets it.
+    [JsonIgnore]
+    public string? LocalizationKey { get; init; }
+
+    [JsonIgnore]
+    public bool IsEditRefusal { get; init; }
+}
 
 /// <param name="RootUri">
 /// The single root, <b>deprecated by the protocol</b> in favour of <paramref name="WorkspaceFolders"/> and

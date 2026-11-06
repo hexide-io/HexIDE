@@ -2,6 +2,11 @@
   "name": "Vietnamese",
   "direction": "ltr",
   "strings": {
+    "Str.Lsp.ServerMessage": "Máy chủ ngôn ngữ: {0}",
+    "Str.Lsp.ServerError": "Lỗi máy chủ ngôn ngữ: {0}",
+    "Str.Lsp.EditNotApplied": "Không áp dụng chỉnh sửa từ máy chủ: {0}",
+    "Str.Lsp.EditRequiresUserCommand": "HexIDE chỉ áp dụng các chỉnh sửa của máy chủ khi một lệnh do người dùng khởi chạy đang thực thi.",
+    "Str.Lsp.NoWorkspaceEditor": "Không có trình soạn thảo không gian làm việc nào khả dụng.",
     "Str.Menu.Edit.CallHierarchy": "Ph_ân cấp lời gọi",
     "Str.CodeEditor.Context.CallHierarchy": "Ph_ân cấp lời gọi",
     "Str.Lsp.OpenExternalUri": "Mở URI này bên ngoài HexIDE?\n\n{0}",

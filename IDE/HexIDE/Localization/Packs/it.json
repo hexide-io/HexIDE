@@ -2,6 +2,11 @@
   "name": "Italian",
   "direction": "ltr",
   "strings": {
+    "Str.Lsp.ServerMessage": "Server di linguaggio: {0}",
+    "Str.Lsp.ServerError": "Errore del server di linguaggio: {0}",
+    "Str.Lsp.EditNotApplied": "Modifica del server non applicata: {0}",
+    "Str.Lsp.EditRequiresUserCommand": "HexIDE applica le modifiche di un server solo durante l’esecuzione di un comando avviato dall’utente.",
+    "Str.Lsp.NoWorkspaceEditor": "Nessun editor dell’area di lavoro disponibile.",
     "Str.Menu.Edit.CallHierarchy": "Gerarc_hia delle chiamate",
     "Str.CodeEditor.Context.CallHierarchy": "_Gerarchia delle chiamate",
     "Str.Lsp.OpenExternalUri": "Aprire questo URI al di fuori di HexIDE?\n\n{0}",

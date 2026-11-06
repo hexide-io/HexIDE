@@ -2,6 +2,11 @@
   "name": "Swedish",
   "direction": "ltr",
   "strings": {
+    "Str.Lsp.ServerMessage": "Språkserver: {0}",
+    "Str.Lsp.ServerError": "Språkserverfel: {0}",
+    "Str.Lsp.EditNotApplied": "Serverändringen tillämpades inte: {0}",
+    "Str.Lsp.EditRequiresUserCommand": "HexIDE tillämpar bara en servers ändringar medan ett kommando som användaren startat körs.",
+    "Str.Lsp.NoWorkspaceEditor": "Ingen redigerare för arbetsytan är tillgänglig.",
     "Str.Menu.Edit.CallHierarchy": "Anro_pshierarki",
     "Str.CodeEditor.Context.CallHierarchy": "_Anropshierarki",
     "Str.Lsp.OpenExternalUri": "Öppna denna URI utanför HexIDE?\n\n{0}",

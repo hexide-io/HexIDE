@@ -2,6 +2,11 @@
   "name": "Japanese",
   "direction": "ltr",
   "strings": {
+    "Str.Lsp.ServerMessage": "言語サーバー: {0}",
+    "Str.Lsp.ServerError": "言語サーバーのエラー: {0}",
+    "Str.Lsp.EditNotApplied": "サーバーの編集は適用されませんでした: {0}",
+    "Str.Lsp.EditRequiresUserCommand": "HexIDE は、ユーザーが開始したコマンドの実行中にのみサーバーからの編集を適用します。",
+    "Str.Lsp.NoWorkspaceEditor": "利用可能なワークスペースエディターがありません。",
     "Str.Menu.Edit.CallHierarchy": "呼び出し階層",
     "Str.CodeEditor.Context.CallHierarchy": "呼び出し階層",
     "Str.Lsp.OpenExternalUri": "この URI を HexIDE の外部で開きますか？\n\n{0}",
