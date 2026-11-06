@@ -65,3 +65,16 @@ Complete Word behavior measured by hexide-int in VB6 SP6 for
 [#3056](https://github.com/hexide-io/HexIDE/issues/3056#issuecomment-6633933454).
 The issue contains the measurement; this run changes the editor, not the measurement record.
 Snippet-choice Enter accepts without a line break by the supervisor's decision in that issue (VB6 has no snippets).
+
+The #3210 brief records VB6 SP6 p-code building **7,227 nested If blocks**, with 7,228 refused
+as "Procedure too large"; sequential blocks have the same limit, so this is a size limit.
+Its **7,643 parenthesis pairs** reference is recorded in
+[long lines and expressions](vb6-fidelity-oracle/long-lines-line-continuations-and-long-expressions.md).
+Provenance: [#3210 measurements](https://github.com/hexide-io/HexIDE/issues/3210), Win10 oracle guest,
+VB6 SP6, `/make` and IDE. These are acceptance references, not a measured conditional-compilation limit.
+
+The #3210 fix brief also supplies host-side parser costs from
+[measurement PR #3216](https://github.com/hexide-io/HexIDE/pull/3216): approximately **3.6 KB per
+parenthesis pair** and **2.8 KB per nested If**, the latter spanning about five parser rule frames.
+These are host stack measurements, not VB6 limits; the [runtime gap note](interpreter-gaps.md) records
+how HexIDE derives its guarded bounds from them.

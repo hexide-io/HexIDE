@@ -751,12 +751,12 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
     // Each module's conditional compilation is applied before it is parsed, so an inactive branch is never parsed, as in
     // vb6.exe, and a directive's error stops the program as it loads (#1112). The text is the parser's alone: the code
     // window and every save keep the module as written.
-    private ModuleInfo BuildModule(string name, InterpreterModuleKind kind, string moduleCode, ExecutionEnvironment env)
+    private ModuleInfo BuildModule(string name, InterpreterModuleKind kind, string moduleCode, ExecutionEnvironment env) => ParseStack.Run(() =>
     {
         var pp = new PrePass(env, ExecutionContext.State);
         pp.Visit(Parse(ConditionalCompiler.Preprocess(moduleCode, compilationConstants, name).Text, name));
         return new ModuleInfo(name, kind, pp, env);
-    }
+    });
 
     // The module being parsed, named in a syntax error's message so the person fixes the right file (#759).
     private string? parsingModule;
@@ -780,9 +780,10 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         }
     }
 
-    private T ParseWithFallback<T>(VB6Parser parser, Func<VB6Parser, T> parse,
-        bool bailOnError = false, bool requireEnd = false, string? moduleName = null)
+    internal T ParseWithFallback<T>(VB6Parser parser, Func<VB6Parser, T> parse,
+        bool bailOnError = false, bool requireEnd = false, string? moduleName = null) => ParseStack.Run(() =>
     {
+        ParseDepthGuard.CheckNesting(parser, moduleName);
         parser.RemoveErrorListeners();
         parser.AddParseListener(new ParseDepthGuard(moduleName: moduleName));
         parser.Interpreter.PredictionMode = PredictionMode.SLL;
@@ -807,7 +808,7 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
                 parser.AddErrorListener(this);
             return parse(parser);
         }
-    }
+    });
 
     private string SyntaxErrorAt(int line, int column) =>
         $"in {(parsingModule is null ? "" : parsingModule + ", ")}line {line}:{column}";
@@ -1969,13 +1970,13 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
     public void SyntaxError(TextWriter output, IRecognizer recognizer, IToken offendingSymbol, int line, int charPositionInLine,
         string msg, RecognitionException e)
     {
-        throw new VBCompileErrorException($"{msg} {SyntaxErrorAt(line, charPositionInLine)}\nOffending symbol: {offendingSymbol.Text}")
+        throw new VBCompileErrorException($"{SyntaxErrorText.Of(msg)} {SyntaxErrorAt(line, charPositionInLine)}\nOffending symbol: {offendingSymbol.Text}")
             { Line = line };
     }
 
     public void SyntaxError(TextWriter output, IRecognizer recognizer, int offendingSymbol, int line, int charPositionInLine,
         string msg, RecognitionException e)
     {
-        throw new VBCompileErrorException($"{msg} {SyntaxErrorAt(line, charPositionInLine)}") { Line = line };
+        throw new VBCompileErrorException($"{SyntaxErrorText.Of(msg)} {SyntaxErrorAt(line, charPositionInLine)}") { Line = line };
     }
 }
