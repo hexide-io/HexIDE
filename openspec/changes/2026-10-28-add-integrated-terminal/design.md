@@ -81,6 +81,18 @@ XTerm.NET and Porta.Pty, but depends on Unicode.net 2.0.0, whose `licenseExpress
 only). An unresolved licence is refused as firmly as a copyleft one, so it is out, and a control would in any case
 own the rendering, input and automation that HexIDE needs to own. This design needs no Avalonia upgrade.
 
+**Rechecked 2026-11-06,** against the registration API and with main merged in.
+- **Engines:**
+  - XTerm.NET's latest is 3.0.2 (2026-11-01), still `MIT` with no dependencies.
+  - RoyalTerminal's managed engine is at 0.7.2 (2026-11-04), still `MIT`.
+  - The findings in the table were read in source at 3.0.0 and 0.6.3. Read the version an implementation pins again before relying on them.
+- **Pseudo-terminal packages:**
+  - Porta.Pty is unchanged at 2.2.3.
+  - `Microsoft.Windows.Console.ConPTY`'s newest listing is a preview, 1.26.260930004-preview. The stable 1.25.260930003 stays the pin.
+- **Avalonia controls:**
+  - Main is on Avalonia 12.0.5, and #868, the move to 12.1, is open. So the four controls that need 12.1 are still out of reach.
+  - Iciclecreek.Avalonia.Terminal is now 4.1.3 (2026-11-02). It still depends on Unicode.net 2.0.0, whose `licenseExpression` is still `''`.
+
 ### Recommendation: XTerm.NET, behind HexIDE's own interface
 
 XTerm.NET is the only .NET engine where every v1 capability is confirmed in source, with no dependencies, at a
