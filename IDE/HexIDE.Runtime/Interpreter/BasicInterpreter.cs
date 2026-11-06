@@ -761,6 +761,8 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
     // The module being parsed, named in a syntax error's message so the person fixes the right file (#759).
     private string? parsingModule;
 
+    internal PredictionMode? ModuleParsePredictionMode { get; private set; }
+
     private Antlr4.Runtime.Tree.IParseTree Parse(string source, string moduleName)
     {
         var lexer = new VB6Lexer(new AntlrInputStream(new StringReader(source)));
@@ -772,7 +774,9 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
             var parser = new VB6Parser(NextCounterList.Tokens(lexer));
             parser.RemoveErrorListeners();
             parser.AddErrorListener(this);
-            return ParseWithFallback(parser, p => p.startRule(), moduleName: moduleName);
+            var tree = ParseWithFallback(parser, p => p.startRule(), moduleName: moduleName);
+            ModuleParsePredictionMode = parser.Interpreter.PredictionMode;
+            return tree;
         }
         finally
         {

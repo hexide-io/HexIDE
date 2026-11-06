@@ -134,10 +134,10 @@ ever lands beside tracked files.
 - **Forbid skipping**: `HEXIDE_REQUIRE_FOREIGN_LSP=1` turns "no server available" into a failure. CI sets
   this, because a silently skipped proof is the failure mode this whole fixture exists to avoid.
 
-Every test that drives one carries `[ForeignServerFact]` or `[ForeignServerTheory]`, so
-`git grep -l -E '\[ForeignServer(Fact|Theory)' -- IDE/HexIDE.Tests` lists them; a hand-kept list or count
+Every test that drives one carries `[ForeignServerFact]`, so
+`git grep -l -E '\[ForeignServerFact' -- IDE/HexIDE.Tests` lists them; a hand-kept list or count
 drifts, which is why there is none here. `ForeignServerFixture.cs` defines the servers and the availability
-attributes, `RequiredServersTests` guards acquisition, and
+attribute, `RequiredServersTests` guards acquisition, and
 [`docs/foreign-language-servers.md`](docs/foreign-language-servers.md) says what each server proves.
 
 **The JSON-server tests need Node on `PATH`** — it is a harness dependency only, and nothing in HexIDE

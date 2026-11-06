@@ -20,12 +20,12 @@ namespace HexIDE.Integration.Tests.Automation;
 
 public class RunningCodeEditTests : IAsyncDisposable
 {
-    private DISetup? composition;
-    private DISetup Composition => composition ??= new DISetup();
+    private RealComposition? composition;
+    private DISetup Composition => (composition ??= new RealComposition()).Composition;
 
     public async ValueTask DisposeAsync()
     {
-        if (composition is not null) await composition.LspClient.DisposeAsync();
+        if (composition is not null) await composition.DisposeAsync();
         GC.SuppressFinalize(this);
     }
 

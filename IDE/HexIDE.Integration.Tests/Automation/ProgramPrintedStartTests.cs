@@ -17,7 +17,8 @@ public class ProgramPrintedStartTests
     [InlineData(-1)]
     public async Task Load_output_reaches_the_run_reply_and_is_not_repeated(int? timeSliceMs)
     {
-        var composition = new DISetup();
+        await using var owned = new RealComposition();
+        var composition = owned.Composition;
         var project = new ProjectDefinition(VBProjectType.EXE, "P");
         var form = new FormDefinition(project, FormComponentClass.Instance, "Form1");
         project.AddForm(form);
@@ -54,7 +55,6 @@ public class ProgramPrintedStartTests
             runner.EndProject();
             HexIDE.Runtime.VBDebugConsole.Written -= ProgramPrinted.Shared.Append;
             ProgramPrinted.Shared.Reset();
-            await composition.LspClient.DisposeAsync();
         }
     }
 }

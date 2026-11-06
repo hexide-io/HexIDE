@@ -196,6 +196,7 @@ public sealed class StdioProcessLspTransport : ILspTransport
             _job = new ChildProcessJob();
             LaunchedServerGuard.Wrap(_process.StartInfo);
             _process.Start();
+            LaunchedServerGuard.NoteStarted(_process);
             try
             {
                 AssignProcessToJob(_job, _process);
