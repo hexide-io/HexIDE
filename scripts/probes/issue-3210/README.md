@@ -613,3 +613,132 @@ measured-valid parenthesized programs and does not address the whole issue.
 - Tree hygiene passed with nine existing nonblocking warnings. No changelog,
   oracle, language inventory, spec or product file changed, following the latest
   comment's measurement-only directory scope. Changes are left uncommitted.
+
+## Windows, 2026-11-06
+
+Measured on Windows x64 (build 26100) with SDK 10.0.403 and runtime 10.0.14, Debug,
+`DOTNET_TieredCompilation=0`. The probe was prepared with `prepare.py --round3` at
+`24e17c266`, so both execution-stack checks are intact, as in round 3. Each trial
+is a fresh process. In every trial, the measured thread's reserved stack, read with
+`GetCurrentThreadStackLimits`, equalled the request. The discussion is on
+[#3210](https://github.com/hexide-io/HexIDE/issues/3210#issuecomment-6684170130).
+The execution question that follows from it is
+[#3228](https://github.com/hexide-io/HexIDE/issues/3228).
+
+This covers the first bullet under *Remaining measurements and decisions*, but
+only for the `execute-guard` stage and the two SLL parse stages. No other stage
+was run on Windows, and nothing was measured in Release.
+
+### Reproduce on Windows
+
+`measure.py` needs Linux (`resource`, pthreads). [measure_win.py](measure_win.py)
+ports it and `endpoints.py`, keeping the same bisection and the same pass and
+fail rules. From this directory:
+
+```sh
+python -X utf8 prepare.py --round3   # -X utf8: Windows' default code page can't write the patched sources
+dotnet build StackProbe.csproj -c Debug
+python measure_win.py --stages runtime-parse-sll --shapes parens --sizes 0.25 0.5 1 --output win-runtime-parse.csv
+python measure_win.py --stages lsp-parse-sll --shapes parens --sizes 0.125 0.25 0.5 --output win-lsp-parse.csv
+# Combine the two, keeping one header, as win-parse.csv.
+python measure_win.py --stages execute-guard --shapes if --sizes 1.5 --depths 414 415 416 417 418 419 420 421 422 423 424 --repeats 4 --output edge-if-1.5.csv
+# Likewise for each shape and size: 11 depths centred on the edge. Combine the six as win-execute-guard-edges.csv.
+python measure_win.py --stages execute-guard --shapes if --sizes 1.5 --depths 400 --repeats 10 --output win-400-if.csv
+```
+
+How it differs from the Linux driver:
+- `--depths` with `--repeats` runs exactly those depths, as `endpoints.py` does.
+- There's no core-dump limit. The runner sets `SEM_NOGPFAULTERRORBOX`, which each
+  child inherits, so a crash raises no dialog. It also sets `DOTNET_DbgEnableMiniDump=0`.
+- An overflow is .NET's `Stack overflow.` on stderr, exit code 0xC00000FD, or exit
+  code 0xC0000005 (see *Parsing* below).
+- A bisection row also names the outcome at its first failing depth, in `failure`.
+- Trial logs go to `.scratch/trials/`, as `measure.py`'s do.
+
+`ThreadInfo` in [Program.cs](Program.cs) has a Windows branch. It reads
+`GetCurrentThreadStackLimits`, the thread's whole reserved range, guard pages included.
+
+### Execution: where Error 28 comes
+
+On Windows, five of the six `execute-guard` bisections failed the driver's final
+recheck: the edge's two depths didn't repeat their outcomes. Only If at 1.5 MiB
+held. So each edge was run at 11 depths around it, 4 times each:
+[win-execute-guard-edges.csv](win-execute-guard-edges.csv). Every run that didn't
+pass raised a clean Error 28. None crashed.
+
+| Shape | Stack | Always passes | Mixed (passes of 4) | Always Error 28 | Linux, last pass / Error 28 |
+|---|---|---|---|---|---|
+| If | 1 MiB | ≤ 263 | 264 (3) | ≥ 265 | 306 / 307 |
+| If | 1.5 MiB | ≤ 419 | none | ≥ 420 | 487 by the Linux model, not measured |
+| If | 4 MiB | ≤ 1,195 | 1,196 (1) | ≥ 1,197 | not measured |
+| Parentheses | 1 MiB | ≤ 1,294 | 1,295 (3), 1,296 (2), 1,297 (1) | ≥ 1,298 | 1,593 / 1,594 |
+| Parentheses | 1.5 MiB | ≤ 2,057 | 2,058 (2) | ≥ 2,059 | 2,530 by the Linux model, not measured |
+| Parentheses | 4 MiB | ≤ 5,867 | 5,868 (3) | ≥ 5,869 | not measured |
+
+So identical runs differ by up to three levels at the edge, about 1 KiB of stack.
+
+The fit uses `summarize-round3.py`'s least squares, stack bytes against the first
+always-Error-28 depth:
+
+| Shape | Bytes/level | Linux | Intercept | 2x model at reference (MiB) | Linux |
+|---|---:|---:|---:|---:|---:|
+| If | 3,375 | 2,911 | 151 KiB | 46.81 | 40.43 |
+| Parentheses | 688 | 560 | 152 KiB | 10.33 | 8.46 |
+
+That is 16% and 23% more per level than Linux, and both models still fit inside
+the 64 MiB the recommendation starts from. The fit puts the 1.5 MiB edges at 420
+and 2,059, which is exactly where they were measured.
+
+[win-400-if.csv](win-400-if.csv): 400 nested Ifs on 1.5 MiB passed all 13 runs.
+That's the depth of #1368's corpus row 5597. The runs came from two invocations
+(3, then 10), numbered 0 to 12 here. 400 is 19 levels short of the edge, about
+63 KiB.
+
+### Parsing
+
+[win-parse.csv](win-parse.csv) holds the SLL parse bisections, on parentheses:
+
+| Stage | Bytes/level | Linux | KiB: last pass / first overflow |
+|---|---:|---:|---|
+| runtime-parse-sll | 3,560 | 3,525 | 256: 60/61; 512: 134/135; 1024: 281/282 |
+| lsp-parse-sll | 3,641 | 3,605 | 128: 23/24; 256: 59/60; 512: 131/132 |
+
+That's about 1% above Linux, against 16% to 23% for execution.
+
+Past the edge, a Windows overflow often ends the process with 0xC0000005, an
+access violation with no message, instead of .NET's `Stack overflow.`. That
+tracks stack size: runtime parsing passes depth 1,000 on 4 MiB, while depth 300
+dies this way on 1 MiB. So the runner counts 0xC0000005 as an overflow
+(`overflow-av`). Every edge above is a `Stack overflow.` one. A crash report from
+such a run won't say "stack overflow".
+
+### The UI thread
+
+**The UI thread's stack is 1.5 MiB.** It's the process's `[STAThread]` main thread,
+which Avalonia runs on.
+- **The header:** the Debug `HexIDE.Desktop.exe` has `SizeOfStackReserve` = 1,572,864.
+- **At run time:** the probe's own apphost reports its entry thread at the same size
+  (`StackProbe.exe threads`).
+- **Thread-pool threads** are 1.5 MiB too.
+
+This replaces the source-derived Windows column in the first table.
+
+**Stack in use at a procedure's first statement:** hexide-frm read this in the
+real IDE.
+- **On the UI thread:** 25,940 to 28,532 bytes, under F5's Sub Main, Form_Load and a
+  button's Click.
+- **On the probe's fresh thread:** about 9,000 bytes.
+
+So by arithmetic, 400 nested Ifs at the top of a procedure keep about 13 levels of
+margin in the IDE. The same 400 inside a procedure four calls deep don't fit, since
+a Sub-to-Sub call costs about 11,920 bytes. #3228 has the readings and the open question.
+
+### Windows validation
+
+- **Thread sizes:** every trial's thread size equalled the request.
+- **The runner:** `measure_win.py` changed in two ways after these measurements. It
+  keeps trial logs in `.scratch/` and defaults `--probe` to its own directory. Run
+  again after that change, it reproduced the 256 KiB parse edges, 60/61 and 59/60.
+- **Checks:** `python -m py_compile measure_win.py`, `git diff --check` and the tree
+  hygiene check pass.
+- **Scope:** no product code, changelog, oracle or language inventory changed.
