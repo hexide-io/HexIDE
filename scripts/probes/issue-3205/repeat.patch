@@ -1,0 +1,57 @@
+--- a/scripts/probes/issue-3205/repeat.py
++++ b/scripts/probes/issue-3205/repeat.py
+@@ -10,11 +10,12 @@
+ import sys
+ 
+ root = Path(__file__).resolve().parents[3]
+-output = root / "artifacts" / "issue-3197"
++output = root / "artifacts" / "issue-3205"
+ output.mkdir(parents=True, exist_ok=True)
+ binary = root / "IDE/HexIDE.Integration.Tests/bin/Debug/net10.0/HexIDE.Integration.Tests"
+ available_cpus = sorted(os.sched_getaffinity(0))
+-worker_count = min(4, len(available_cpus) // 2)
++run_count = int(os.environ.get("REDOCK_RUNS", "20"))
++worker_count = min(4, len(available_cpus) // 2, run_count)
+ write_lock = threading.Lock()
+ environment = os.environ.copy()
+ environment["PATH"] = ":".join(p for p in environment["PATH"].split(":") if not p.startswith("/mnt/"))
+@@ -39,22 +40,17 @@
+ def worker(worker_index, version, loaded):
+     cpus = available_cpus[worker_index * 2:worker_index * 2 + 2]
+     worker_binary = output / f"worker-{worker_index}" / binary.name
+-    if not worker_binary.exists():
+-        shutil.copytree(binary.parent, worker_binary.parent, dirs_exist_ok=True,
+-                        ignore=shutil.ignore_patterns("TestResults", "redock-timeline.log"))
++    shutil.copytree(binary.parent, worker_binary.parent, dirs_exist_ok=True,
++                    ignore=shutil.ignore_patterns("TestResults", "redock-timeline.log"))
+     env = environment.copy()
+-    if version == "after":
++    if version.endswith("single"):
+         env["REDOCK_SINGLE_TURN"] = "1"
+     affinity = ["taskset", "-c", ",".join(map(str, cpus))]
+     workers = []
+     try:
+         if loaded:
+             workers = [subprocess.Popen(affinity + [sys.executable, "-c", "while True: pass"]) for _ in cpus]
+-            if worker_index == 0:
+-                forced = env.copy()
+-                forced["REDOCK_STRETCH"] = "1"
+-                run(version + "-forced-loaded", forced, worker_binary, cpus)
+-        for iteration in range(worker_index + 1, 21, worker_count):
++        for iteration in range(worker_index + 1, run_count + 1, worker_count):
+             run(f"{version}-{'loaded' if loaded else 'idle'}-{iteration:02}", env, worker_binary, cpus)
+     finally:
+         for process in workers:
+@@ -62,9 +58,9 @@
+         for process in workers:
+             process.wait()
+ 
+-(output / "results.jsonl").unlink(missing_ok=True)
+-for version in ("before", "after"):
+-    for loaded in (False, True):
++
++for version in sys.argv[1:] or ("main", "single"):
++    for loaded in ((True,) if os.environ.get("REDOCK_LOADED_ONLY") else (False, True)):
+         with ThreadPoolExecutor(max_workers=worker_count) as executor:
+             futures = [executor.submit(worker, i, version, loaded) for i in range(worker_count)]
+             for future in futures:
