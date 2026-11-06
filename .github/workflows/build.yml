@@ -456,6 +456,17 @@ jobs:
           EOF
           nohup bash "$RUNNER_TEMP/memory-watchdog.sh" "$PWD/TestResults/memory-watchdog.log" > /dev/null 2>&1 &
 
+      # The Integration step's --hangdump runs createdump, which has to take the test host's task port. On GitHub's
+      # macOS image that right (system.privilege.taskport) asks for the user's password. So when a test hung, createdump
+      # raised a Developer Tools Access prompt that nobody could answer, and waited on it until the step's 30 minutes
+      # ran out. No dump was written and nothing was killed (#3223). Developer mode, already on in the image, does not
+      # help: the rule asks members of _developer for the password too. Allowing the right lets the dump finish: a
+      # deliberately hung test then ended with its dump and _hang.log 65 seconds into a 1-minute timeout, as on Linux.
+      # Each job runs on a fresh VM that is discarded afterwards, so loosening this right reaches nothing else.
+      - name: Let a hang dump attach to the test host (macOS)
+        if: runner.os == 'macOS'
+        run: sudo security authorizationdb write system.privilege.taskport allow
+
       # The translation-completeness test is excluded here and only here. It compares JSON files on
       # disk and cannot answer differently per platform, so running it three times would triple one
       # result — and the outside-contributor handling build-ide does for it has a single place to live.
