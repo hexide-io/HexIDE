@@ -8,6 +8,7 @@ namespace HexIDE.IDE;
 
 public interface IWindowManager
 {
+    bool IsNativeDialogOpen { get; }
     Task<bool> ShowDialog(IDialog dialog);
     Task ShowWindow(IDialog window);
     Task ShowManagedWindow(MDIWindow window);
@@ -28,5 +29,7 @@ public interface IWindowManager
     Task<IReadOnlyList<string>?> OpenFilePickerAsync(FilePickerOpenOptions options);
     Task<string?> SaveFilePickerAsync(FilePickerSaveOptions options);
     Task ShowAbout(AboutDialogOptions options);
+    Task<bool> ShowPrintDialog();
+    Task<int?> ShowColorDialog(int initial);
     Task<FontDialogResult?> ShowFontDialog(FontDialogResult? initial = null);
 }

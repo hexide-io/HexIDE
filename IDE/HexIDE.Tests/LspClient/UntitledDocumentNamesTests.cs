@@ -326,6 +326,11 @@ public class UntitledDocumentNamesTests : IAsyncDisposable
         DocumentUriIn(id, TheOnly(id, "textDocument/didOpen", ConversationDirection.Sent).Sequence)
             .Should().Be(uri, "it was offered the document before it refused it");
 
+        await WaitFor(id, e => e.Kind == ConversationEntryKind.StandardError
+                               && e.Detail != null
+                               && e.Detail.Contains("only supports 'file' URI scheme", StringComparison.Ordinal),
+                      TimeSpan.FromSeconds(5));
+
         var stderr = string.Join("\n", _capture.Snapshot(id)
             .Where(e => e.Kind == ConversationEntryKind.StandardError)
             .Select(e => e.Detail));
@@ -430,6 +435,11 @@ public class UntitledDocumentNamesTests : IAsyncDisposable
         var uri = "untitled:Project1/Module1.py";
         var (_, published, connection, _) = await OpenUnderUntitledName(
             ForeignServer.Python, id, uri, PythonWithAnUnusedImport, TimeSpan.FromSeconds(30));
+
+        await WaitFor(id, e => e.Kind == ConversationEntryKind.StandardError
+                               && e.Detail != null
+                               && e.Detail.Contains("dynamic capability registration", StringComparison.Ordinal),
+                      TimeSpan.FromSeconds(5));
 
         var stderr = string.Join("\n", _capture.Snapshot(id)
             .Where(e => e.Kind == ConversationEntryKind.StandardError)

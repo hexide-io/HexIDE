@@ -45,7 +45,8 @@ connection. Unsupported adapter-initiated requests SHALL receive an unsuccessful
 
 ### Requirement: Bounded connection lifetime and resource use
 
-Each request SHALL have a finite configurable deadline and accept caller cancellation. The client SHALL
+Each request SHALL have a finite configurable deadline and accept caller cancellation. A caller MAY override
+the connection deadline for one request with a positive finite timeout; omission SHALL use the connection default. The client SHALL
 bound pending requests and queued events. It SHALL NOT retry timed-out or cancelled requests automatically.
 EOF, malformed input, event overflow and failed writes SHALL close the connection and fail pending work.
 Disposal SHALL settle pending requests with `IOException` and release owned streams; repeated disposal SHALL be safe.
@@ -229,14 +230,54 @@ directory; command arguments and adapter launch fields SHALL pass unchanged with
 - **THEN** the IDE owns one external session and prevents concurrent interpreter runs
 - **AND** F5, Break, End and stepping route to that session according to its state
 
+### Requirement: A launch an add-in contributes SHALL run only when the user asks for it
+An add-in MAY contribute a debug launch: a title, which projects it runs, and what makes the launch
+configuration for a run. The IDE SHALL ask it for a configuration only when a run of it starts, never when a
+project opens, under the session's cancellation, and SHALL check the configuration as a launch file is
+checked, with its executable and working directory fully qualified. The session SHALL be given the saved
+gutter marks of the project, as a launch file's is.
+
+F5 SHALL run the interpreter for a project until its user chooses otherwise under Run > F5 Runs, which lists
+the interpreter and every contributed launch that runs the startup project. The choice SHALL be remembered
+per project, for that user, in the user sidecar, by the contributing add-in's id and the launch's title. A
+chosen launch that is gone or no longer runs the project SHALL leave F5 to the interpreter, with a status
+message that says so, and SHALL stay chosen, shown under F5 Runs as not available so the user can set it
+back. Run > Start Once With SHALL run a contributed launch once without changing what F5 runs. Only F5 and Run >
+Start SHALL follow the choice: stepping in from idle, Run To Cursor, Restart and Start With Full Compile SHALL
+stay the interpreter's. Whether a launch runs the project SHALL be asked when the Run menu opens or a run
+starts, never when a project opens. Ending a session whose configuration is still being made SHALL end it,
+whether or not the add-in heeds its cancellation.
+
+#### Scenario: An add-in offers a launch
+- **WHEN** an add-in contributes a launch that runs the startup project
+- **THEN** F5 still runs the interpreter, and F5 Runs and Start Once With list the launch
+
+#### Scenario: The user chooses the launch for F5
+- **WHEN** the user chooses the launch under F5 Runs, and presses F5
+- **THEN** the add-in is asked for the configuration then, and an external session starts with the project's
+  saved gutter marks
+- **AND** the choice is there the next time the project opens
+
+#### Scenario: The chosen launch is gone
+- **WHEN** F5 is pressed for a project whose chosen launch is no longer contributed
+- **THEN** the interpreter runs, a status message says why, and the choice stays
+
 ### Requirement: Remote debugger presentation
 The IDE SHALL populate Call Stack and Locals asynchronously from the current stop, reject stale inspection
 results, and fetch aggregate children without blocking the UI. It SHALL expose output and failures and SHALL
-refuse unsupported remote operations rather than applying them to the interpreter.
+refuse unsupported remote operations rather than applying them to the interpreter. Pending resume commands
+SHALL retain the displayed inspection while disallowing evaluation. A definitive refusal without an intervening
+execution event SHALL preserve frames, selected frame, locals and execution location under the fresh stop
+identity. An accepted resume SHALL clear inspection even when the adapter sends no continued event.
 
 #### Scenario: Resume during inspection
-- **WHEN** the user continues while a locals request is pending
+- **WHEN** the adapter accepts continue while a locals request is pending
 - **THEN** the old locals are cleared and the late response does not repaint them
+
+#### Scenario: Adapter refuses a resume
+- **WHEN** a continue or step request fails definitively without a new stopped or continued event
+- **THEN** the displayed stop and selected caller remain visible and usable, and the refusal is reported
+- **AND** pending inspection results from before the request remain expired
 
 ### Requirement: External session visibility and cleanup
 The IDE SHALL expose its current or most recent external debug connection in the shared servers view and
@@ -248,7 +289,7 @@ the owned adapter and return run controls to their idle route.
 - **THEN** startup is cancelled and the adapter is cleaned up without starting an interpreter run
 
 ### Requirement: Selected external frame inspection
-The IDE SHALL select the top frame at every new external stop and SHALL allow selection of another frame
+The IDE SHALL select the top frame at every new external stopped event and SHALL allow selection of another frame
 from that stop in Call Stack. Locals SHALL clear immediately and asynchronously display the selected frame's
 non-expensive scopes. Late results from an earlier selection or expired stop SHALL NOT replace current
 locals. Unrelated session notifications SHALL preserve selection.
@@ -293,7 +334,7 @@ evaluation, which can have side effects.
 - **THEN** Immediate displays its error and permits another submission
 
 ### Requirement: Session-only external breakpoint editing
-The IDE SHALL initialize external source breakpoints from launch JSON and SHALL route gutter/F9 and Clear All
+The IDE SHALL initialize external source breakpoints from launch JSON and saved IDE marks and SHALL route gutter/F9 and Clear All
 to the active external session once launch configuration is complete. Changes SHALL NOT modify the launch file
 or saved interpreter marks. Per-source replacements SHALL include the complete desired set, including an empty
 set for removal, and SHALL be allowed while running or stopped. Late replies SHALL NOT replace newer intent
@@ -369,3 +410,110 @@ The editor MUST discard pending and displayed external tips when the pointer mov
 #### Scenario: Visible tip after resume
 - **WHEN** execution resumes with a data tip visible
 - **THEN** the tip closes and its attached text is cleared
+
+### Requirement: External inspection invalidation
+The client SHALL advertise `supportsInvalidatedEvent` during initialization. An `invalidated` event while
+stopped SHALL expire pending inspection replies and refresh the stopped stack, scopes, variables and watch
+values without resuming execution. The IDE SHALL retain the selected frame ID if present in the refreshed
+stack, otherwise select the top frame. The single-thread inspection SHALL refresh in full regardless of
+area, thread or frame hints, including omitted, empty and unknown areas. Events without a current stop
+SHALL NOT initiate stopped inspection.
+
+#### Scenario: Adapter changes stopped values
+- **WHEN** the adapter emits `invalidated` while a caller is selected
+- **THEN** the stack and selected caller's scopes, Locals and Watches refresh
+- **AND** replies belonging to the earlier inspection cannot repaint the refreshed values
+
+#### Scenario: Invalidation while running
+- **WHEN** the adapter emits `invalidated` while execution is running
+- **THEN** no stopped frame inspection is requested
+- **AND** the next stop refreshes normally
+
+### Requirement: External Set Next Statement
+The IDE SHALL gate external Set Next Statement on `supportsGotoTargetsRequest`. While stopped it SHALL
+request `gotoTargets` with the active editor's source path and one-based caret line, then send `goto` with
+the first target ID and stopped thread ID. Without the capability it SHALL retain the existing unsupported
+command message and send neither request. Empty targets or a refused request SHALL report the adapter's
+message and preserve stopped inspection and location. A successful move SHALL use the following stopped
+event for its new location, with the same inspection lifetime rules as other resumes.
+
+#### Scenario: Move to the caret
+- **WHEN** a capable stopped adapter returns multiple targets for the caret line
+- **THEN** goto receives the first target and the stopped thread
+- **AND** the next stopped event supplies the displayed current line
+
+#### Scenario: Move refused
+- **WHEN** gotoTargets returns no targets or either request is refused
+- **THEN** Immediate reports the adapter's message and the stopped inspection remains available
+
+#### Scenario: Refused resume does not navigate the editor
+- **WHEN** a goto, continue or step request is refused without an adapter stopped event
+- **THEN** the IDE SHALL retain the editor caret and scroll position alongside the stopped inspection
+
+### Requirement: Explicit refusal of external breakpoint conditions
+The IDE SHALL reject a launch breakpoint entry containing `condition`, `hitCondition` or `logMessage` before starting an adapter, with a
+localized diagnostic naming the launch file and one-based breakpoint entry. It SHALL NOT expose the
+serializer's internal type name for this refusal. The diagnostic SHALL direct users to Condition… in the gutter menu.
+
+#### Scenario: A condition is present
+- **WHEN** a launch breakpoint entry contains condition, hitCondition or logMessage, including a null value
+- **THEN** no adapter starts and Immediate identifies the unsupported option, file and entry
+
+### Requirement: External run state in the IDE chrome
+The IDE SHALL derive the title tag and status message from the external session while it is active,
+without changing the interpreter debugger's state. External state changes SHALL refresh the title and
+OS window title. A stopped session SHALL show the localized break tag and clear the status message to
+Ready, as an interpreter break does; a running session SHALL show the run tag and running message.
+Ending the session SHALL immediately restore the design tag and Ready when its state becomes Ended
+or Faulted, even while adapter cleanup remains active (#2965).
+
+#### Scenario: External stop, resume and end
+- **WHEN** an external session stops at a breakpoint or after a step
+- **THEN** the title shows the break tag and the status bar shows Ready
+- **WHEN** the external program resumes
+- **THEN** the title shows the run tag and the running status message returns
+- **WHEN** the session ends
+- **THEN** the title shows the design tag and the status bar shows Ready before adapter cleanup completes
+
+### Requirement: Unresponsive adapter End notice
+When End requires forced adapter termination, Immediate SHALL show one localized sentence naming the
+adapter and elapsed wait in seconds, without the cancelled disconnect exception or raw exit diagnostics.
+Nonempty standard error SHALL follow as a separate block; empty standard error SHALL add no output.
+Raw exit and forced-termination details SHALL remain in the log and protocol inspector (#2980).
+
+#### Scenario: Adapter does not answer End
+- **WHEN** the disconnect deadline expires and cleanup kills the adapter
+- **THEN** Immediate reports the adapter name and wait once in the selected IDE language
+- **AND** the protocol inspector retains the exit code and forced-termination detail
+
+### Requirement: IDE breakpoint condition storage
+The IDE breakpoint store SHALL retain an optional condition expression on an existing breakpoint and
+SHALL persist it in the per-user sidecar with the breakpoint's header-relative code line (or file-relative
+header line). Removing a breakpoint SHALL forget its condition; an empty expression SHALL remove only
+the condition. The gutter context menu SHALL offer Condition… with one expression field; confirming an empty expression
+SHALL remove the condition, while cancelling SHALL keep it. A conditional breakpoint SHALL have a distinct
+glyph and a tooltip showing its expression and adapter verification/message (#2914).
+
+#### Scenario: Header changes without losing a condition
+- **GIVEN** an IDE breakpoint has a condition expression
+- **WHEN** a header refresh moves its line
+- **THEN** the condition moves with the breakpoint and survives saving and reopening the project
+
+#### Scenario: Clearing a condition
+- **WHEN** an existing breakpoint receives an empty condition expression
+- **THEN** its line remains a breakpoint and reopening the project does not restore the condition
+
+### Requirement: Conditional breakpoint capability and fallback
+The IDE SHALL include breakpoint conditions in initial and live `setBreakpoints` requests only when the
+adapter advertises `supportsConditionalBreakpoints`. Without that capability it SHALL send line-only
+breakpoints and explain once per session in localized Immediate output that conditions are ignored and
+stops are unconditional. Interpreter runs SHALL also stop unconditionally and show a corresponding
+once-per-run notice. Launch-file conditions SHALL remain refused.
+
+#### Scenario: Capable adapter
+- **WHEN** an IDE breakpoint with a condition is sent to a capable adapter
+- **THEN** its source breakpoint contains the line and condition expression
+
+#### Scenario: Incapable adapter or interpreter
+- **WHEN** a run first receives a conditional breakpoint without condition evaluation support
+- **THEN** it keeps the unconditional breakpoint and emits one localized notice for that run

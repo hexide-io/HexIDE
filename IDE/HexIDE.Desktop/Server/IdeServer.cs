@@ -34,6 +34,8 @@ internal static class IdeServer
         builder.WebHost.ConfigureKestrel(options => options.ListenLocalhost(port));
 
         builder.Services.AddSingleton(context);
+        // What the program prints, for the replies of the tools that run and stop it (#2531).
+        ProgramPrinted.Shared.Attach(context.ProjectRunnerService);
         builder.Services.AddHttpContextAccessor();
         // A call from another agent session is refused before anything else (#1306), and an exception a tool did not
         // catch is reported with its type and message rather than the SDK's bare "An error occurred invoking" (#603).
@@ -42,9 +44,10 @@ internal static class IdeServer
                 // Stateless, so a client attached before a relaunch is still answered after it. See McpTransport.
                 .WithHttpTransport(McpTransport.Configure)
                 .WithTools<HexIdeTools>(ReplyJson.Options), session)
-            // A modal dialog open once a call is done is named in its reply (#681).
+            // A modal dialog open once a call is done is named in its reply (#681), and so is a held button (#2231).
             .WithRequestFilters(filters => filters
                 .AddCallToolFilter(OpenDialogNote.Filter)
+                .AddCallToolFilter(HeldButtonNote.Filter)
                 .AddCallToolFilter(InlineSnapshot.Filter));
 
         var app = builder.Build();
@@ -75,6 +78,9 @@ internal static class IdeServer
         // Only now: this line used to be written before the bind was attempted, so a port already in use
         // left a log that said the server was listening.
         Log.Information("HexIDE MCP server listening on http://localhost:{Port}", port);
+        // And on screen, in the status bar, for the same reason (#2451).
+        HexIDE.Automation.AutomationServerStatus.Current.Listening(port, session, ToolFailures.WithoutProfile(
+            AppContext.BaseDirectory.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)));
         await app.WaitForShutdownAsync(ct);
     }
 }

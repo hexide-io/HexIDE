@@ -1,6 +1,6 @@
 ## In-box controls: the StatusBar (2026-10-26, #1087)
 
-**The probes.** VB6 6.00.8176 SP6, with MSCOMCTL.OCX 6.01.9782, the library and `Object=` line of [In-box controls: the
+**The probes.** VB6 SP6 (6.00.9782), with MSCOMCTL.OCX 6.01.9782, the library and `Object=` line of [In-box controls: the
 ProgressBar](in-box-controls-the-progressbar.md). Every build was made with `/make` as native code and as p-code, and
 the two logged the same lines throughout.
 - **Run time:** a Sub Main showing a 6000×4500-twip form holding one StatusBar, at its defaults, aligned to the bottom. It
@@ -249,7 +249,7 @@ VB6's save of the hand-written form:
   ```
 
   Built and run, the saved form gave the first panel a Picture of Type 1 and the second one of Type 3, each 423×423
-  HIMETRIC. VB6's save is `corpus/inbox-controls/pending/statusbar-picture`.
+  HIMETRIC. VB6's save is `corpus/inbox-controls/saved/statusbar-picture`.
 - **The bar's own properties come after the extents and before `_Version`.** A second bar was kept as written:
 
   ```
@@ -275,4 +275,11 @@ There's no TabStop row, as there's no TabStop member.
 
 ### In HexIDE
 
-A form holding a StatusBar is refused at load, as any in-box control HexIDE doesn't model is (#1087).
+#1087 part A implements MSComctlLib.StatusBar registration and its Panels/IPanel object model. The default member is
+Text; fixed Width/MinWidth and the measured collection/property errors are covered by headless interpreter tests.
+The first part B slice implements the newly measured Integer Count/Index and pins the other measured member types.
+Spring widths share extra whole pixels above their minimums, keep the 19 px grip, and fall back to minimums on overflow;
+fixed overflow and later panel positions are covered headlessly.
+Saved panel blocks now load their measured values, with HIMETRIC lengths converted to twips. Panel picture records survive load/save byte for byte and now supply runtime objects. Panels accept another picture, a LoadPicture BMP/ICO file, or Nothing, and draw the picture in normal style. Picture submembers and TypeName refuse until their return types are measured; the recorded numeric values alone do not pin their types.
+The rest of part B draws panels, key indicators, time/date, SimpleText and the grip, with the measured mouse/panel event order. Exact text inset/clipping remains unmeasured rendering. Nonempty Contents sizing still refuses rather than guessing a program-visible width; the measured StatusBar forms and picture companions round-trip byte for byte. Non-Windows key indicators follow keys seen by the form, without an initial host lock-state query.
+The `statusbar` and `statusbar-picture` saves are now in `corpus/inbox-controls/saved/`. Their raw panel blocks retain TextSave snapshots, field order and picture citations; runtime panel edits do not change the designer model.

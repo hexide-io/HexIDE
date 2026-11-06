@@ -55,7 +55,7 @@ A second run added steps 11 to 16:
   time or at run time.
 - **Otherwise the control has the focus at once:** `Screen.ActiveControl` names it on the next line. If another of the
   program's forms had the focus, this form is activated.
-- **LostFocus and GotFocus come after the handler that called SetFocus has returned,** never inside it. The old
+- **LostFocus and GotFocus come after the Timer handler that called SetFocus has returned,** never inside that handler. The old
   control's LostFocus comes first, then the new one's GotFocus. They are posted, as Windows posts the focus messages.
 - **SetFocus raises no Validate,** even when the control losing the focus has a `Validate` handler and the one taking
   it has `CausesValidation` True (step 7). A key that moves the focus does raise Validate (step 12).
@@ -64,6 +64,13 @@ A second run added steps 11 to 16:
 
 The obvious guess that GotFocus runs inside the SetFocus statement, as `Text1.Text = "x"` runs Change inside the
 assignment, is wrong. So is the common description that SetFocus triggers Validation.
+
+**Later measurement (#2436, issue comments, native and p-code agreeing):** `Me.Show` followed by
+`Text2.SetFocus` inside `Form_Load` logs `Form_Activate`, `Text1_GotFocus`, then `Text2_GotFocus`,
+all inside Load. This is an exception to the Timer-handler timing above. `Text2.SetFocus` before
+showing the form is still 5; showing it afterwards raises Activate then Text1_GotFocus as usual.
+The same initial focus follows Activate on a startup form and on `Show vbModal` from Sub Main.
+Disabled, invisible and TabStop False controls, and Labels, are passed over in tab order.
 
 **Not measured:**
 - **a container disabled around the control,** such as a Frame;
@@ -74,7 +81,7 @@ assignment, is wrong. So is the common description that SetFocus triggers Valida
 
 **In HexIDE (#1061):**
 - **SetFocus does all of the above.** Its LostFocus and GotFocus are posted to the program's event pump, which runs
-  them after the handler.
+  them after the handler, with the measured in-Load exception above implemented by #2436.
 - **A TextBox raises GotFocus and LostFocus,** which it didn't before. Only the CommandButton did. The other focusable
   controls are #1101: "GotFocus and LostFocus on each control, and Enabled saved False".
 - **A TextBox saved with `Enabled = 0` is disabled when it runs.** Its component didn't declare Enabled, so the saved

@@ -29,6 +29,13 @@ public sealed record UnmodelledControl(string TypeName, string Name, double Left
     /// <summary>VB6's height for the box of a control whose file records none, in twips (measured).</summary>
     public const double DefaultHeight = 480;
 
+    /// <summary>
+    /// Whether HexIDE runs the control though the designer only carries its block (#2327), as
+    /// <see cref="FormDeserializer.RunsWhenCarried"/> decides: the box then says it is view-only in the designer, not
+    /// that it is unsupported.
+    /// </summary>
+    public bool ViewOnly { get; init; }
+
     /// <summary>The control <paramref name="block"/> holds, or null when it does not open with a <c>Begin</c> line.</summary>
     public static UnmodelledControl? Read(string block)
     {
@@ -43,6 +50,8 @@ public sealed record UnmodelledControl(string TypeName, string Name, double Left
 
         double left = 0, top = 0;
         double? width = null, height = null;
+        // Whether it holds controls of its own, or is a control array's element: a Toolbar that does either still doesn't run.
+        bool holdsControls = false, inArray = false;
         // How many blocks deep inside this one a line sits: a BeginProperty block, or a nested control's Begin block.
         var depth = 0;
         for (var i = first + 1; i < lines.Length; i++)
@@ -53,7 +62,10 @@ public sealed record UnmodelledControl(string TypeName, string Name, double Left
             else if (line.Equals("EndProperty", StringComparison.OrdinalIgnoreCase))
                 depth--;
             else if (line.StartsWith("Begin ", StringComparison.OrdinalIgnoreCase))
+            {
+                holdsControls = true;
                 depth++;
+            }
             else if (line.Equals("End", StringComparison.OrdinalIgnoreCase))
             {
                 if (depth == 0)
@@ -66,10 +78,14 @@ public sealed record UnmodelledControl(string TypeName, string Name, double Left
                 else if (name.Equals("Top", StringComparison.OrdinalIgnoreCase)) top = value;
                 else if (name.Equals("Width", StringComparison.OrdinalIgnoreCase)) width = value;
                 else if (name.Equals("Height", StringComparison.OrdinalIgnoreCase)) height = value;
+                else if (name.Equals("Index", StringComparison.OrdinalIgnoreCase)) inArray = true;
             }
         }
 
-        return new UnmodelledControl(opening[1], opening[2], left, top, width ?? DefaultWidth, height ?? DefaultHeight);
+        return new UnmodelledControl(opening[1], opening[2], left, top, width ?? DefaultWidth, height ?? DefaultHeight)
+        {
+            ViewOnly = FormDeserializer.RunsWhenCarried(opening[1], holdsControls, inArray),
+        };
     }
 
     // A "Name = number" line's name and value, any trailing comment aside; null for any other line, a string's included.

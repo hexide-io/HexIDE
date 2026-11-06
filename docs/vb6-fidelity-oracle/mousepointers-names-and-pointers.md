@@ -38,3 +38,30 @@ cursors:
 On this Windows 10, `LoadCursor` returns nothing for `IDC_ICON` and `IDC_SIZE`. Both are obsolete. So Icon draws the
 plain arrow, and Size draws the same pointer as Size All. Another Windows version may differ; that is not measured.
 
+### The default on the form and every intrinsic control (2026-10-27, #1970)
+
+**The probe.** One form with one control of each intrinsic type that has a MousePointer, none with a MousePointer
+line: CommandButton, Label, TextBox, Frame, CheckBox, OptionButton, ComboBox, ListBox, HScrollBar, VScrollBar,
+PictureBox, Image, DriveListBox, DirListBox, FileListBox and Data. Three more controls say it outright: a CommandButton
+and a TextBox `MousePointer = 0 'Default`, and a Label `MousePointer = 1 'Arrow`. Built native and p-code, the program
+read each control's MousePointer, and the form's. It then added one control of each type with `Controls.Add` and read
+that too. The same form was opened in the VB6 IDE in the guest's console session, as above, given a comment line in its
+code window, and saved with Ctrl+S.
+
+| Read or written | vb6.exe |
+|---|---|
+| The form, with no MousePointer line | 0 |
+| Each of the sixteen controls, with no line | 0 |
+| The CommandButton and TextBox that say 0 | 0 |
+| The Label that says 1 | 1 |
+| Each of the sixteen types, added with `Controls.Add` | 0 |
+| A Shape, a Line or a Timer, added with `Controls.Add` | 438: none of them has a MousePointer |
+| The IDE's save: the two `MousePointer = 0 'Default` lines | **removed** |
+| The IDE's save: the Label's `MousePointer = 1 'Arrow` | kept |
+
+So the default is 0, "Default", on the form and every control, at design time and at run time. Native and p-code
+agree, and the IDE never writes a 0. Among the IDE's other rewrites on that save:
+- it added a `TabIndex` to every control that takes focus;
+- it moved the windowless Labels and the Image after the windowed controls;
+- it wrote out the Data control's defaults in full;
+- it ended each `Begin` line with a space.

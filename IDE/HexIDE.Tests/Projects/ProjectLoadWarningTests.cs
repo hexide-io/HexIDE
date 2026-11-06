@@ -5,6 +5,7 @@ using HexIDE.Projects;
 using HexIDE.Runtime.ProjectElements;
 using HexIDE.Runtime.Serialization;
 using HexIDE.Sidecar;
+using HexIDE.Tests.Infrastructure;
 
 namespace HexIDE.Tests.Projects;
 
@@ -137,11 +138,8 @@ public class ProjectLoadWarningTests : IDisposable
         sink.Key.Should().Be("Str.ProjectLoad.MemberNotFound");
         sink.Arguments.Should().Equal(member);
         string.Format(sink.Fallback!, sink.Arguments).Should().Be($"Project file not found: {member}");
-        if (item.StartsWith("Form=", StringComparison.Ordinal))
-            result.Project.PreservedItemLines.Should().Contain(item);
-        else
-            result.Project.Modules.Should().ContainSingle().Which.AbsolutePath.Should()
-                .Be(Path.Join(dir, SerializedProject.ToHostPath(member)));
+        result.Project.PreservedItemLines.Should().Contain(item);
+        result.Project.Modules.Should().BeEmpty();
         result.Project.Forms.Should().BeEmpty();
     }
 
@@ -150,9 +148,11 @@ public class ProjectLoadWarningTests : IDisposable
         public string? Key;
         public string? Fallback;
         public object[] Arguments = [];
+        public readonly List<string> Keys = [];
         public void LogError(string error) { }
         public void LogError(string key, string fallback, params object[] arguments)
         {
+            Keys.Add(key);
             Key = key;
             Fallback = fallback;
             Arguments = arguments;
@@ -175,5 +175,61 @@ public class ProjectLoadWarningTests : IDisposable
         if (first != null) sink.Arguments.Should().Equal(first, second!);
         else if (suffix == "ParseFailed") sink.Arguments.Should().ContainSingle();
         else sink.Arguments.Should().BeEmpty();
+    }
+
+    // #2327: a control HexIDE runs is carried without a warning, as the load would otherwise tell the user that a control
+    // which works did not. A Toolbar or an UpDown holding controls, or in a control array, is still refused at run time,
+    // so it warns.
+    [Theory]
+    [InlineData("Begin VB.Form Form1\r\nBegin MSComctlLib.Toolbar Toolbar1\r\nEnd\r\nEnd", null)]
+    [InlineData("Begin VB.Form Form1\r\nBegin MSComDlg.CommonDialog CommonDialog1\r\nEnd\r\nEnd", null)]
+    [InlineData("Begin VB.Form Form1\r\nBegin MSComCtl2.UpDown UpDown1\r\nEnd\r\nEnd", null)]
+    [InlineData("Begin VB.Form Form1\r\nBegin MSComctlLib.Toolbar Bars\r\nIndex = 0\r\nEnd\r\nEnd", "Bars")]
+    [InlineData("Begin VB.Form Form1\r\nBegin MSComctlLib.Toolbar Bar\r\nBegin VB.CommandButton Command1\r\nEnd\r\nEnd\r\nEnd", "Bar")]
+    [InlineData("Begin VB.Form Form1\r\nBegin MSComCtl2.UpDown Spins\r\nIndex = 0\r\nEnd\r\nEnd", "Spins", "MSComCtl2.UpDown")]
+    [InlineData("Begin VB.Form Form1\r\nBegin MSComCtl2.Animation Animation1\r\nEnd\r\nEnd", null)]
+    [InlineData("Begin VB.Form Form1\r\nBegin mscomctl2.animation Animation1\r\nEnd\r\nEnd", null)]
+    [InlineData("Begin VB.Form Form1\r\nBegin MSComCtl2.Animation Clips\r\nIndex = 0\r\nEnd\r\nEnd", "Clips", "MSComCtl2.Animation")]
+    [InlineData("Begin VB.Form Form1\r\nBegin MSComCtl2.Animation Clip\r\nBegin VB.CommandButton Command1\r\nEnd\r\nEnd\r\nEnd", "Clip", "MSComCtl2.Animation")]
+    public void A_carried_control_warns_only_when_HexIDE_does_not_run_it(string source, string? warned,
+        string warnedType = "MSComctlLib.Toolbar")
+    {
+        var sink = new Sink();
+        new FormDeserializer().Deserialize(new ProjectDefinition(VBProjectType.EXE, "P"), source, sink,
+            new Dictionary<int, byte[]>());
+        if (warned is null)
+            sink.Key.Should().BeNull();
+        else
+        {
+            sink.Key.Should().Be("Str.ProjectLoad.UnknownControl");
+            sink.Arguments.Should().Equal(warnedType, warned);
+        }
+    }
+
+    [Fact]
+    public async Task VB6s_saved_FlatScrollBars_load_without_a_warning()
+    {
+        var path = Path.Combine(RepoTree.Root(), "corpus", "inbox-controls", "saved", "flatscrollbar", "Form1.frm");
+        var sink = new Sink();
+        var form = new FormDeserializer().Deserialize(new ProjectDefinition(VBProjectType.EXE, "P"),
+            await File.ReadAllTextAsync(path, TestContext.Current.CancellationToken), sink, new Dictionary<int, byte[]>());
+        form.Should().NotBeNull();
+        form!.UnknownChildSubtreeTexts.Should().BeEmpty();
+        form.Components.Count(c => c.BaseClass is HexIDE.Runtime.Components.InBox.FlatScrollBarComponentClass).Should().Be(7);
+        sink.Keys.Should().BeEmpty();
+    }
+
+    // #1093: VB6's own save of four UpDowns, one bound to a TextBox and one double-clicked from the toolbox, loads without
+    // a word, as each of them runs.
+    [Fact]
+    public async Task VB6s_saved_UpDowns_load_without_a_warning()
+    {
+        var path = Path.Combine(RepoTree.Root(), "corpus", "inbox-controls", "saved", "updown", "Form1.frm");
+        var sink = new Sink();
+        var form = new FormDeserializer().Deserialize(new ProjectDefinition(VBProjectType.EXE, "P"),
+            await File.ReadAllTextAsync(path, TestContext.Current.CancellationToken), sink, new Dictionary<int, byte[]>());
+        form.Should().NotBeNull();
+        form!.UnknownChildSubtreeTexts.Should().HaveCount(4, "each UpDown is carried as its block");
+        sink.Keys.Should().BeEmpty();
     }
 }

@@ -83,7 +83,12 @@ public partial class ModuleDefinition : INotifyPropertyChanged
             : $"Attribute VB_Name = \"{name}\"\r\n";
     }
 
-    public void UpdateCode(string newCode) => Code = newCode;
+    public void UpdateCode(string newCode)
+    {
+        if (Code == newCode) return;
+        Code = newCode;
+        OnPropertyChanged(nameof(Code));
+    }
 
     /// <summary>
     /// A new UserControl or PropertyPage, joined to its designer half, as VB6's Add User Control and Add Property Page

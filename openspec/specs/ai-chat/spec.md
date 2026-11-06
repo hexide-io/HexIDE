@@ -15,6 +15,14 @@ disclosure, consent and the handling of credentials.
 
 ## Requirements
 
+### Requirement: The input row SHALL fit a narrow dock pane
+The assistant view SHALL allow its prompt box to narrow with the dock pane, keeping Send and New within
+the pane at widths of 212 and 254 logical pixels.
+
+#### Scenario: Opening AI Chat in the left dock
+- **WHEN** the panel is allocated 212 or 254 logical pixels of width
+- **THEN** the prompt box has positive width and both buttons fit within the panel
+
 ### Requirement: The model provider SHALL be chosen by the developer
 The assistant SHALL take its endpoint, model and credential from the developer's own configuration, and
 SHALL NOT require any particular provider.

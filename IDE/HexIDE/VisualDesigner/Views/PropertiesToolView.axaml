@@ -72,6 +72,7 @@
                         <ColumnDefinition Width="80" SharedSizeGroup="Key" />
                         <ColumnDefinition Width="1" />
                         <ColumnDefinition Width="*" SharedSizeGroup="Value" />
+                        <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
                     <Border Background="{DynamicResource {x:Static commonControls:SystemColors.ControlBrushKey}}">
                         <TextBlock Text="{Binding Name}" Margin="2,0,0,0" />
@@ -82,6 +83,14 @@
                     <controls:PropertyBox PropertyClass="{CompiledBinding PropertyClass}" Object="{Binding Value}" Grid.Column="2"
                                           GotFocus="PropertyGotFocus"
                                           />
+                    <Button Grid.Column="3" IsVisible="{CompiledBinding CanLoadPicture}"
+                            Command="{CompiledBinding LoadPictureCommand}"
+                            AutomationProperties.Name="{DynamicResource Str.Tool.Properties.LoadPicture}"
+                            Width="{DynamicResource {x:Static commonControls:SystemParameters.VerticalScrollBarWidthKey}}"
+                            Padding="0">
+                        <Path Data="M 0 0 L 2 0 L 2 2 L 0 2 Z M 3 0 L 5 0 L 5 2 L 3 2 Z M 6 0 L 8 0 L 8 2 L 6 2 Z"
+                              Fill="{DynamicResource {x:Static commonControls:SystemColors.WindowTextBrushKey}}" />
+                    </Button>
                 </Grid>
             </Border>
         </DataTemplate>

@@ -11,6 +11,7 @@ using StreamJsonRpc;
 
 namespace HexIDE.VbLspServer.Tests;
 
+[Collection("Server timing")]
 public class WireContractTests
 {
     private static readonly TimeSpan Timeout = TimeSpan.FromSeconds(15);
@@ -23,6 +24,106 @@ public class WireContractTests
         "Counter = 5\n" +            // 3  Counter @ char 0
         "y = 10\n" +                 // 4  y undeclared → diagnostic (severity 2)
         "End Sub\n";                 // 5
+
+    [Fact]
+    public async Task InlayHintsFollowDocumentLifecycle()
+    {
+        await using var h = new Harness();
+        var initialized = await h.Rpc.InvokeWithParameterObjectAsync<JsonElement>("initialize",
+            new { processId = (int?)null, rootUri = (string?)null, capabilities = new { } }, cancellationToken: TestContext.Current.CancellationToken)
+            .WaitAsync(Timeout, TestContext.Current.CancellationToken);
+        initialized.GetProperty("capabilities").GetProperty("inlayHintProvider").GetBoolean().Should().BeTrue();
+        await h.Rpc.NotifyWithParameterObjectAsync("initialized", new { });
+        var parameters = new
+        {
+            textDocument = new { uri = Uri },
+            range = new { start = new { line = 0, character = 0 }, end = new { line = 9, character = 0 } },
+        };
+        (await RequestAsync(h, "textDocument/inlayHint", parameters)).GetArrayLength().Should().Be(0);
+        await OpenAsync(h, Uri, "Sub Before()\nEnd Sub\n");
+        await h.NextDiagnosticsAsync();
+        (await RequestAsync(h, "textDocument/inlayHint", parameters))[0].GetProperty("label").GetString()
+            .Should().Be("' Sub Before");
+        await h.Rpc.NotifyWithParameterObjectAsync("textDocument/didChange", new
+        {
+            textDocument = new { uri = Uri, version = 2 },
+            contentChanges = new[] { new { text = "Sub After()\nEnd Sub\n" } },
+        });
+        await h.NextDiagnosticsAsync();
+        (await RequestAsync(h, "textDocument/inlayHint", parameters))[0].GetProperty("label").GetString()
+            .Should().Be("' Sub After");
+        await h.Rpc.NotifyWithParameterObjectAsync("textDocument/didClose", DocParams(Uri));
+        await h.NextDiagnosticsAsync();
+        (await RequestAsync(h, "textDocument/inlayHint", parameters)).GetArrayLength().Should().Be(0);
+    }
+
+    [Theory]
+    [InlineData("Sub Foo()\nEnd Sub\n", 1, "' Sub Foo")]
+    [InlineData("Sub Foo(): End Sub\n", 0, "' Sub Foo")]
+    [InlineData("Function Foo() As Long\nEnd Function\n", 1, "' Function Foo")]
+    [InlineData("Property Get Foo() As Long\nEnd Property\n", 1, "' Property Get Foo")]
+    [InlineData("Property Let Foo(ByVal x As Long)\nEnd Property\n", 1, "' Property Let Foo")]
+    [InlineData("Property Set Foo(ByVal x As Object)\nEnd Property\n", 1, "' Property Set Foo")]
+    [InlineData("Sub Foo()\nIf x > 1 Then\nEnd If\nEnd Sub\n", 2, "' If x > 1")]
+    [InlineData("Sub Foo()\nDo While x > 1\nLoop\nEnd Sub\n", 2, "' Do While x > 1")]
+    [InlineData("Sub Foo()\nDo\nLoop Until x > 1\nEnd Sub\n", 2, "' Do")]
+    [InlineData("Sub Foo()\nFor i = 1 To 3\nNext\nEnd Sub\n", 2, "' For i")]
+    [InlineData("Sub Foo()\nFor Each item In items\nNext\nEnd Sub\n", 2, "' For Each item")]
+    [InlineData("Sub Foo()\nWhile x > 1\nWend\nEnd Sub\n", 2, "' While x > 1")]
+    [InlineData("Sub Foo()\nSelect Case x\nEnd Select\nEnd Sub\n", 2, "' Select Case x")]
+    [InlineData("Sub Foo()\nWith obj\nEnd With\nEnd Sub\n", 2, "' With obj")]
+    [InlineData("Sub Foo()\nIf outer Then\nIf inner Then\nEnd If\nEnd If\nEnd Sub\n", 3, "' If inner")]
+    [InlineData("Sub Foo()\nIf outer Then\nIf inner Then\nEnd If\nEnd If\nEnd Sub\n", 4, "' If outer")]
+    public async Task InlayHintsNameTheClosedBlock(string source, int line, string label)
+    {
+        await using var h = await StartAsync();
+        await OpenAsync(h, Uri, source);
+        await h.NextDiagnosticsAsync();
+        var hints = await RequestAsync(h, "textDocument/inlayHint", new
+        {
+            textDocument = new { uri = Uri },
+            range = new { start = new { line, character = 0 }, end = new { line, character = 100 } },
+        });
+        hints.GetArrayLength().Should().Be(1);
+        hints[0].GetProperty("label").GetString().Should().Be(label);
+        hints[0].GetProperty("position").GetProperty("line").GetInt32().Should().Be(line);
+        hints[0].GetProperty("position").GetProperty("character").GetInt32()
+            .Should().Be(source.ReplaceLineEndings("\n").Split('\n')[line].Length);
+    }
+
+    [Theory]
+    [InlineData("\n")]
+    [InlineData("\r\n")]
+    public async Task InlayHintsOmitLineContinuations(string newline)
+    {
+        await using var h = await StartAsync();
+        var source = "Sub Foo( _\n    ByVal x As Long)\n" +
+            "If x > 1 And _\n        x < 10 Then\nEnd If\nEnd Sub\n";
+        await OpenAsync(h, Uri, source.ReplaceLineEndings(newline));
+        await h.NextDiagnosticsAsync();
+        var hints = await RequestAsync(h, "textDocument/inlayHint", new
+        {
+            textDocument = new { uri = Uri },
+            range = new { start = new { line = 0, character = 0 }, end = new { line = 6, character = 0 } },
+        });
+        hints.EnumerateArray().Select(hint => hint.GetProperty("label").GetString())
+            .Should().Equal("' If x > 1 And x < 10", "' Sub Foo");
+    }
+
+    [Fact]
+    public async Task InlayHintsSkipSingleLineIf()
+    {
+        await using var h = await StartAsync();
+        await OpenAsync(h, Uri, "Sub Foo()\nIf x Then x = 1\nEnd Sub\n");
+        await h.NextDiagnosticsAsync();
+        var hints = await RequestAsync(h, "textDocument/inlayHint", new
+        {
+            textDocument = new { uri = Uri },
+            range = new { start = new { line = 0, character = 0 }, end = new { line = 9, character = 0 } },
+        });
+        hints.GetArrayLength().Should().Be(1);
+        hints[0].GetProperty("label").GetString().Should().Be("' Sub Foo");
+    }
 
     // ── document sync + diagnostics ─────────────────────────────────────────────────────────────
     [Theory]
@@ -188,6 +289,7 @@ public class WireContractTests
     {
         await using var h = await StartAsync();
         await OpenAsync(h, Uri, Doc);
+        await h.NextDiagnosticsAsync();
 
         var list = await RequestAsync(h, "textDocument/completion", Pos(Uri, 3, 0));
         list.GetProperty("isIncomplete").GetBoolean().Should().BeFalse();
@@ -213,6 +315,7 @@ public class WireContractTests
     {
         await using var h = await StartAsync();
         await OpenAsync(h, Uri, source + "\n");
+        await h.NextDiagnosticsAsync();
 
         var list = await RequestAsync(h, "textDocument/completion", Pos(Uri, 0, 0));
         var item = list.GetProperty("items").EnumerateArray()
@@ -225,6 +328,7 @@ public class WireContractTests
     {
         await using var h = await StartAsync();
         await OpenAsync(h, Uri, Doc);
+        await h.NextDiagnosticsAsync();
 
         var list = await RequestAsync(h, "textDocument/completion", Pos(Uri, 0, 0));
         var dates = list.GetProperty("items").EnumerateArray()
@@ -241,6 +345,7 @@ public class WireContractTests
     {
         await using var h = await StartAsync();
         await OpenAsync(h, Uri, source + "\n");
+        await h.NextDiagnosticsAsync();
 
         var list = await RequestAsync(h, "textDocument/completion", Pos(Uri, 0, 0));
         var matches = list.GetProperty("items").EnumerateArray()
@@ -389,6 +494,26 @@ public class WireContractTests
 
         var sig = await RequestAsync(h, "textDocument/signatureHelp", Pos(Uri, 1, 11)); // after "a, "
         sig.GetProperty("activeParameter").GetInt32().Should().Be(1);
+    }
+
+    // A list's last parameter takes every argument past it, so it stays active. Any other signature has no parameter
+    // for an extra argument, which VB6 refuses, so the argument's own index goes out and nothing is marked (#2599).
+    [Theory]
+    [InlineData("Array(1, 2, ", 0)]
+    [InlineData("Choose(1, 2, 3, 4, ", 2)]
+    [InlineData("Switch(True, 1, False, 2, ", 2)]
+    [InlineData("Mid(a, 1, 2, ", 3)]
+    [InlineData("Mid(a, 1, 2, 3, ", 4)]
+    [InlineData("Len(a, b, ", 2)]
+    public async Task SignatureHelp_past_the_last_parameter_keeps_only_a_list_active(
+        string call, int expectedParameter)
+    {
+        await using var h = await StartAsync();
+        var line = "x = " + call;
+        await OpenAsync(h, Uri, "Sub T()\n" + line + "\nEnd Sub\n");
+
+        var sig = await RequestAsync(h, "textDocument/signatureHelp", Pos(Uri, 1, line.Length));
+        sig.GetProperty("activeParameter").GetInt32().Should().Be(expectedParameter);
     }
 
     [Fact]
@@ -835,6 +960,125 @@ public class WireContractTests
         symbols.EnumerateArray().Select(s => s.GetProperty("name").GetString()).Should().Contain("cmdOK_Click");
     }
 
+    [Theory]
+    [InlineData("Sub Work()\nEnd Sub\n", false)]
+    [InlineData("Sub Work()\n    @@\nEnd Sub\n", true)]
+    public async Task Debug_log_reports_queue_parse_diagnostics_and_completion_times(string source, bool fallback)
+    {
+        var previous = Serilog.Log.Logger;
+        var sink = new TimingSink();
+        using var logger = new Serilog.LoggerConfiguration().MinimumLevel.Debug().Enrich.FromLogContext()
+            .WriteTo.Sink(sink).CreateLogger();
+        Serilog.Log.Logger = logger;
+        try
+        {
+            await using var h = await StartAsync();
+            await OpenAsync(h, Uri, Doc);
+            await h.NextDiagnosticsAsync();
+            sink.Events.Clear();
+            await h.Rpc.NotifyWithParameterObjectAsync("textDocument/didChange", new
+            {
+                textDocument = new { uri = Uri, version = 2 },
+                contentChanges = new[] { new { text = source } },
+            });
+            await h.NextDiagnosticsAsync();
+            var completion = await RequestAsync(h, "textDocument/completion", Pos(Uri, 0, 0));
+            completion.GetProperty("items").EnumerateArray().Select(i => i.GetProperty("label").GetString())
+                .Should().Contain("Work");
+            await RequestAsync(h, "textDocument/documentSymbol", DocParams(Uri));
+            var events = sink.Events.ToArray();
+            foreach (var method in new[] { "textDocument/didChange", "textDocument/completion" })
+            {
+                events.Should().Contain(e => e.MessageTemplate.Text == "{Method} queue wait {QueueMs} ms"
+                    && e.Properties["Method"].ToString() == $"\"{method}\"" && e.Properties.ContainsKey("QueueMs"));
+                events.Should().Contain(e => e.MessageTemplate.Text == "{Method} elapsed {ElapsedMs} ms"
+                    && e.Properties["Method"].ToString() == $"\"{method}\"" && e.Properties.ContainsKey("ElapsedMs"));
+            }
+            var completionTiming = events.Single(e => e.MessageTemplate.Text == "{Method} elapsed {ElapsedMs} ms"
+                && e.Properties["Method"].ToString() == "\"textDocument/completion\"");
+            completionTiming.Properties["RequestId"].Should().BeOfType<Serilog.Events.ScalarValue>()
+                .Which.Value.Should().BeOfType<int>();
+            var stages = events.Where(e => e.MessageTemplate.Text == "Parse {Stage} elapsed {ElapsedMs} ms").ToList();
+            stages.Select(e => e.Properties["Stage"].ToString())
+                .Should().Equal(fallback ? new[] { "\"SLL\"", "\"LL\"" } : new[] { "\"SLL\"" });
+            stages.Should().OnlyContain(e => e.Properties.ContainsKey("ElapsedMs")
+                && e.Properties["Uri"].ToString() == $"\"{Uri}\""
+                && e.Properties["Method"].ToString() == "\"textDocument/didChange\""
+                && e.Properties["DocumentVersion"].ToString() == "2");
+            events.Should().Contain(e => e.MessageTemplate.Text == "Parse worker queue wait {QueueMs} ms");
+            events.Should().Contain(e => e.MessageTemplate.Text == "Diagnostics {Uri} elapsed {ElapsedMs} ms");
+        }
+        finally { Serilog.Log.Logger = previous; }
+    }
+
+    private sealed class TimingSink : Serilog.Core.ILogEventSink
+    {
+        public System.Collections.Concurrent.ConcurrentQueue<Serilog.Events.LogEvent> Events { get; } = new();
+        public void Emit(Serilog.Events.LogEvent logEvent) => Events.Enqueue(logEvent);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Completion_answers_during_analysis_from_the_last_snapshot(bool firstOpen)
+    {
+        var store = new SlowDocumentStore();
+        await using var h = await StartAsync(store);
+        if (!firstOpen)
+        {
+            await OpenAsync(h, Uri, Doc);
+            await h.NextDiagnosticsAsync();
+        }
+
+        store.Hold = true;
+        if (firstOpen)
+            await OpenAsync(h, Uri, "Dim NewCounter As Long\n");
+        else
+            await h.Rpc.NotifyWithParameterObjectAsync("textDocument/didChange", new
+            {
+                textDocument = new { uri = Uri, version = 2 },
+                contentChanges = new[] { new { text = "Dim NewCounter As Long\n" } },
+            });
+        await store.Entered.Task.WaitAsync(Timeout, TestContext.Current.CancellationToken);
+        var symbols = RequestAsync(h, "textDocument/documentSymbol", DocParams(Uri));
+        try
+        {
+            var list = await RequestAsync(h, "textDocument/completion", Pos(Uri, 0, 0));
+            var labels = list.GetProperty("items").EnumerateArray()
+                .Select(i => i.GetProperty("label").GetString()).ToList();
+            if (firstOpen)
+                labels.Should().Contain("Dim").And.NotContain("NewCounter");
+            else
+                labels.Should().Contain("Counter").And.NotContain("NewCounter");
+            symbols.IsCompleted.Should().BeFalse("other requests still wait for the current analysis");
+        }
+        finally { store.Release.TrySetResult(); }
+
+        await h.NextDiagnosticsAsync();
+        await symbols;
+        var refreshed = await RequestAsync(h, "textDocument/completion", Pos(Uri, 0, 0));
+        refreshed.GetProperty("items").EnumerateArray().Select(i => i.GetProperty("label").GetString())
+            .Should().Contain("NewCounter").And.NotContain("Counter");
+    }
+
+    private sealed class SlowDocumentStore : DocumentStore
+    {
+        public bool Hold { get; set; }
+        public TaskCompletionSource Entered { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public TaskCompletionSource Release { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        protected override async Task<(List<LspDiagnostic> Diagnostics, VisualBasic6Parser.StartRuleContext? Tree)?>
+            AnalyzeAsync(string source, VbCompilationContext? compilation)
+        {
+            if (Hold)
+            {
+                Entered.TrySetResult();
+                await Release.Task;
+            }
+            return await base.AnalyzeAsync(source, compilation);
+        }
+    }
+
     // ── harness ─────────────────────────────────────────────────────────────────────────────────
     private static object DocParams(string uri) => new { textDocument = new { uri } };
 
@@ -874,9 +1118,9 @@ public class WireContractTests
     private static object Pos(string uri, int line, int character) =>
         new { textDocument = new { uri }, position = new { line, character } };
 
-    private static async Task<Harness> StartAsync()
+    private static async Task<Harness> StartAsync(DocumentStore? store = null)
     {
-        var h = new Harness();
+        var h = new Harness(store);
         await h.Rpc.InvokeWithParameterObjectAsync<JsonElement>("initialize",
             new { processId = (int?)null, rootUri = (string?)null, capabilities = new { } }).WaitAsync(Timeout);
         await h.Rpc.NotifyWithParameterObjectAsync("initialized", new { });
@@ -909,11 +1153,11 @@ public class WireContractTests
         private readonly LanguageServer _server;
         private readonly Task _loop;
 
-        public Harness()
+        public Harness(DocumentStore? store = null)
         {
             var c2s = new Pipe();
             var s2c = new Pipe();
-            _server = LspServerHost.Create(c2s.Reader.AsStream(), s2c.Writer.AsStream());
+            _server = LspServerHost.Create(c2s.Reader.AsStream(), s2c.Writer.AsStream(), store ?? new DocumentStore());
             _loop = _server.Run();
 
             var handler = new HeaderDelimitedMessageHandler(
@@ -937,3 +1181,6 @@ public class WireContractTests
         }
     }
 }
+
+[CollectionDefinition("Server timing", DisableParallelization = true)]
+public class ServerTimingCollection;

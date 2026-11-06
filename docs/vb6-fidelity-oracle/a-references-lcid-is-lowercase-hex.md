@@ -40,5 +40,6 @@ was not separated further. A reference under another LCID, written in the `.vbp`
 
 ### In HexIDE
 
-`ProjectDeserializer` reads the LCID with `int.TryParse`, as decimal (#2273). `409` is read as 409, not 1033, and `c0a`
-fails to parse, so that reference is kept only as an unknown verbatim line.
+`ProjectDeserializer` now reads the LCID as hexadecimal, accepting either case, and `ProjectSerializer` writes
+lowercase hexadecimal without padding (#2273). Previously `409` was read as 409 instead of 1033, and `c0a`
+was kept only as an unknown verbatim line instead of entering the reference model.

@@ -1,6 +1,9 @@
 using System.Linq;
 using System.Windows.Input;
+using Avalonia.Automation;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
+using Avalonia.Interactivity;
 
 namespace HexIDE.Automation;
 
@@ -92,12 +95,32 @@ public static class MenuPath
 
             found = match;
             parent = match.Item;
+            // Opening a submenu raises SubmenuOpened, and a handler may fill it then: Window → Panel Layouts holds a
+            // placeholder until it does, so in a session where nothing had opened it the path found "no items" (#2321).
+            // A click opens it before its items are read, so raise the event as opening does, without showing a popup.
+            if (match.Item is { HasSubMenu: true, IsSubMenuOpen: false } submenu)
+                submenu.RaiseEvent(new RoutedEventArgs(MenuItem.SubmenuOpenedEvent, submenu));
             items = match.Children;
         }
 
         var hit = found!.Value;
         return new Result(hit.Item, null, hit.Header, hit.Command, hit.Parameter);
     }
+
+    /// <summary>
+    /// What an item's header displays. A header that is a control, as #2140 gives a saved layout a TextBlock so an
+    /// underscore in its name is not an access key, is read by the item's automation name, which the dump shows it by,
+    /// or else its text: its ToString is its type's name, which a miss used to list (#2321).
+    /// </summary>
+    private static string HeaderOf(MenuItem item) => item.Header switch
+    {
+        string text => StripAccessKey(text),
+        null => string.Empty,
+        _ when AutomationProperties.GetName(item) is { Length: > 0 } name => name,
+        AccessText { Text: { } text } => StripAccessKey(text),
+        TextBlock { Text: { } text } => text,
+        { } other => other.ToString() ?? string.Empty,
+    };
 
     private static bool Named(Entry e, string text) => string.Equals(e.Header, text, StringComparison.OrdinalIgnoreCase);
 
@@ -126,7 +149,7 @@ public static class MenuPath
             return null;
 
         if ((item as MenuItem ?? parent?.ContainerFromItem(item) as MenuItem) is { } menuItem)
-            return new Entry(StripAccessKey(menuItem.Header?.ToString() ?? string.Empty), menuItem,
+            return new Entry(HeaderOf(menuItem), menuItem,
                 menuItem.Command, menuItem.CommandParameter, menuItem.Items, menuItem.IsVisible);
 
         var type = item.GetType();

@@ -131,6 +131,33 @@ public class DesignRecordTests
                 .Select(m => m.Groups["name"].Value)]
             : [];
 
+    [Fact]
+    public void EverySpecRequirementIsInsideTheRequirementsSection()
+    {
+        var specs = Directory.GetFiles(Path.Combine(RepoRoot(), "openspec", "specs"),
+            "spec.md", SearchOption.AllDirectories);
+        specs.Should().NotBeEmpty("the live design record contains capability specs");
+        var misplaced = new List<string>();
+
+        foreach (var spec in specs)
+        {
+            var inRequirements = false;
+            var lines = File.ReadAllLines(spec);
+            for (var i = 0; i < lines.Length; i++)
+            {
+                var line = lines[i].TrimEnd();
+                if (line.StartsWith("## ", StringComparison.Ordinal))
+                    inRequirements = line == "## Requirements";
+
+                if (RequirementHeading.IsMatch(line) && !inRequirements)
+                    misplaced.Add($"{Path.GetRelativePath(RepoRoot(), spec)}:{i + 1}: {line}");
+            }
+        }
+
+        misplaced.Should().BeEmpty("openspec only reads live requirements inside ## Requirements; "
+                                + "move later sections below the last requirement (#2587)");
+    }
+
     /// <summary>Every delta in the archive, as (change id, capability, path).</summary>
     private static List<(string Change, string Capability, string Path)> ArchivedDeltas()
     {

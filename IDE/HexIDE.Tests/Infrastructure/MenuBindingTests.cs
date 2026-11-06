@@ -13,6 +13,17 @@ public class MenuBindingTests
         return Path.Combine(root!.FullName, "IDE", "HexIDE");
     }
 
+    [Theory]
+    [InlineData("Standard.End")]
+    [InlineData("Debug.End")]
+    public void EndToolbarUsesTheCommandIndependentOfWindowFocus(string automationId)
+    {
+        var button = XDocument.Load(Path.Combine(ViewsDirectory(), "MainView.axaml"))
+            .Descendants().Single(e => e.Name.LocalName == "Button" &&
+                (string?)e.Attribute("AutomationProperties.AutomationId") == automationId);
+        button.Attribute("Command")!.Value.Should().Be("{CompiledBinding EndProjectCommand}");
+    }
+
     [Fact]
     public void ReopenClosedWindowUsesTheRebindableShellCommandAndListsHistory()
     {
@@ -62,9 +73,8 @@ public class MenuBindingTests
                 // Filled from code in MainView.axaml.cs.
                 if (path == "MainView.axaml" && (string?)item.Attribute(XName.Get("Name", "http://schemas.microsoft.com/winfx/2006/xaml")) == "AddInsMenuItem")
                     continue;
-                // Existing unrelated stubs: Remove is tracked by #835; Align to Grid remains unimplemented.
-                if (path == "MainView.axaml" && header == "{CompiledBinding RemoveFormMenuHeader}" ||
-                    path == "VisualDesigner/Views/FormEditView.axaml" && header == "{DynamicResource Str.Designer.Context.AlignToGrid}")
+                // Align to Grid remains unimplemented.
+                if (path == "VisualDesigner/Views/FormEditView.axaml" && header == "{DynamicResource Str.Designer.Context.AlignToGrid}")
                     continue;
                 inert.Add($"{path}: {header}");
             }

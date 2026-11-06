@@ -4,6 +4,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Controls.Presenters;
+using Avalonia.Input;
 using Avalonia.Media;
 using HexIDE.Runtime.Components;
 using HexIDE.Runtime.Interpreter;
@@ -25,12 +26,70 @@ public class VBTextBox : TextBox
         AttachedEvents.AttachClick<VBTextBox>();
         // A TextBox raises GotFocus and LostFocus, as SetFocus's are measured to come (#1061).
         AttachedEvents.AttachFocusEvents<VBTextBox>();
+        TextBoxKeyEvents.Attach();
     }
 
     public VBTextBox()
     {
         Padding = new Thickness(1);
         ApplyLayout(false, 0);
+    }
+
+    // The saved border selects the measured minimum size (#1029); rendering is unchanged.
+    internal int VbBorderStyle { get; init; } = 1;
+
+    protected override void OnTextInput(TextInputEventArgs e)
+    {
+        if (e.Handled || string.IsNullOrEmpty(e.Text))
+            return;
+        if (System.Linq.Enumerable.Any(e.Text, character => character > 127))
+        {
+            base.OnTextInput(e);
+            return;
+        }
+        e.Handled = true;
+        foreach (var character in e.Text)
+            TextBoxKeyEvents.Deliver(this, ComponentBaseClass.KeyPressEvent, character, null, ascii =>
+            {
+                if (ascii is < 0 or > 127)
+                    throw new NotImplementedException("Non-ASCII KeyAscii conversion is not implemented (#2325)");
+                if (ascii != 0)
+                    base.OnTextInput(new TextInputEventArgs { Text = ((char)ascii).ToString() });
+            });
+    }
+
+    protected override void OnKeyDown(KeyEventArgs e)
+    {
+        if (!MultiLine && e.KeyModifiers == KeyModifiers.None && e.Key is Key.Home or Key.End)
+        {
+            // Avalonia's ClearSelection returns to the old anchor when End leaves CaretIndex unchanged (#2423).
+            var position = e.Key == Key.Home ? 0 : Text?.Length ?? 0;
+            SetCurrentValue(CaretIndexProperty, position);
+            SetCurrentValue(SelectionStartProperty, position);
+            SetCurrentValue(SelectionEndProperty, position);
+            e.Handled = true;
+            return;
+        }
+        if (!e.Handled && (e.Key == Key.Back || e.Key == Key.A && e.KeyModifiers == KeyModifiers.Control))
+        {
+            e.Handled = true;
+            TextBoxKeyEvents.Deliver(this, ComponentBaseClass.KeyPressEvent, e.Key == Key.Back ? 8 : 1, null, ascii =>
+            {
+                if (ascii is < 0 or > 127)
+                    throw new NotImplementedException("Non-ASCII KeyAscii conversion is not implemented (#2325)");
+                if (ascii == 0)
+                    return;
+                if (ascii == 8 || ascii == 1)
+                {
+                    e.Handled = false;
+                    base.OnKeyDown(e);
+                }
+                else
+                    base.OnTextInput(new TextInputEventArgs { Text = ((char)ascii).ToString() });
+            });
+            return;
+        }
+        base.OnKeyDown(e);
     }
 
     private TextPresenter? textPresenter;

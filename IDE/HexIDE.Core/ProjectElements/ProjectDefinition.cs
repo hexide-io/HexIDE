@@ -75,6 +75,22 @@ public partial class ProjectDefinition : INotifyPropertyChanged
     }
 
     /// <summary>
+    /// The manifest id of the add-in whose project type opened this project, or null for a project HexIDE read itself. A
+    /// contributed project's file is its add-in's program's to write: HexIDE saves its modules, never the project file, and
+    /// changes its membership only as the add-in reports a change.
+    /// </summary>
+    public string? ContributedBy { get; init; }
+
+    /// <summary>The title of the add-in that opened this project, for display; null when <see cref="ContributedBy"/> is.</summary>
+    public string? ContributorTitle { get; init; }
+
+    /// <summary>
+    /// The folders a contributed project lists, relative to its file's folder, which the Project Explorer shows even when
+    /// they hold nothing. Empty for a .vbp, whose folders are those of its members.
+    /// </summary>
+    public IReadOnlyList<string> ListedFolders { get; set; } = [];
+
+    /// <summary>
     /// Where a never-saved project's files actually live, unique to this project instance.
     ///
     /// <para>
@@ -130,6 +146,9 @@ public partial class ProjectDefinition : INotifyPropertyChanged
     public IReadOnlyList<RelatedDocumentDefinition> RelatedDocuments => relatedDocuments;
     public IReadOnlyList<VbReference> References => references;
 
+    // Session state: References OK regroups saves even when its selection is unchanged (#2274).
+    public bool ReferencesDialogAccepted { get; set; }
+
     // Recognised .vbp keys in read order. Empty for a new project, which uses the writer's default order.
     public List<string> KnownLineKeys { get; } = new();
 
@@ -170,8 +189,7 @@ public partial class ProjectDefinition : INotifyPropertyChanged
     // Verbatim .vbp item lines (Form=/UserDocument=/...) for project items that were parsed but not
     // loaded into the live model — e.g. a UserDocument (.dob, unsupported) or a Form whose .frm file is
     // missing on disk. Carried so an open->save round-trip never drops the node, even on a host that
-    // lacks the file or a non-Windows machine. (A future spec may surface these in the project explorer
-    // with a "missing"/"unsupported" glyph; for now they are preserved opaquely.)
+    // lacks the file or a non-Windows machine. Project Explorer surfaces these with missing/unsupported markers.
     public List<string> PreservedItemLines { get; } = new();
 
     // Indexed by the kept line's position in PreservedItemLines, never by its text or rebased path.

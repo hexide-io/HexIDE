@@ -21,7 +21,7 @@ public class RecentEditHistoryTests
     }
     private static void Edit(TextDocument text, int line) => text.Insert(text.GetLineByNumber(line).EndOffset, " edited");
 
-    [Theory]
+    [AvaloniaTheory]
     [InlineData(9, 1)]
     [InlineData(10, 1)]
     [InlineData(11, 2)]
@@ -39,7 +39,7 @@ public class RecentEditHistoryTests
         history.Entries[0].Preview.Should().Be($"line {20 + distance} edited");
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void InsertingManyLinesAtNewestLocationStillReplacesIt()
     {
         var history = CreateHistory();
@@ -52,7 +52,7 @@ public class RecentEditHistoryTests
         history.Entries[0].Preview.Should().Be("new line");
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void AnotherDocumentAddsAnEntryEvenAtSameLine()
     {
         var history = CreateHistory();
@@ -67,7 +67,7 @@ public class RecentEditHistoryTests
         history.Entries.Select(e => e.Document).Should().Equal(second, first);
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void CapsAtFiftyNewestEntries()
     {
         var history = CreateHistory();
@@ -78,7 +78,7 @@ public class RecentEditHistoryTests
         history.Entries.Select(e => e.Line).Should().Equal(Enumerable.Range(1, 50).Reverse().Select(i => 1 + i * 11));
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void LocationsFollowInsertionsAndDeletionsAboveThem()
     {
         var history = CreateHistory();
@@ -93,7 +93,7 @@ public class RecentEditHistoryTests
         location.Line.Should().Be(40);
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void DeletingAnEntireLineDropsItsEntry()
     {
         var history = CreateHistory();
@@ -106,7 +106,7 @@ public class RecentEditHistoryTests
         history.Entries.Should().NotContain(deleted);
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void ReplacingTextOnALineKeepsItsOlderLocation()
     {
         var history = CreateHistory();
@@ -121,7 +121,7 @@ public class RecentEditHistoryTests
         location.Preview.Should().Be("replacement");
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void ClosingAndReopeningKeepsEntriesAndResumesTracking()
     {
         var history = CreateHistory();
@@ -138,7 +138,7 @@ public class RecentEditHistoryTests
         history.Entries.Last().Preview.Should().Be("line 40 edited");
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void RemovingDocumentDropsItsEntriesIncludingWhileClosed()
     {
         var history = CreateHistory();
@@ -150,7 +150,7 @@ public class RecentEditHistoryTests
         history.Entries.Should().BeEmpty();
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void UnloadingProjectDropsItsEntries()
     {
         Action<ProjectUnloadedEvent> unload = null!;
@@ -165,7 +165,7 @@ public class RecentEditHistoryTests
         history.Entries.Should().BeEmpty();
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void SelectingRowsNavigatesWithoutRecordingEdits()
     {
         var history = CreateHistory();

@@ -18,6 +18,9 @@ public record AddinInfo(
     string? LogoPath = null,
     TrustChain? Chain = null)
 {
+    /// <summary>Verified build declaration for consent/disclosure consumers, not host-use telemetry.</summary>
+    public AddinCapabilityDeclaration? VerifiedDeclaration { get; init; }
+
     public string? CompatibilityError { get; init; }
 }
 

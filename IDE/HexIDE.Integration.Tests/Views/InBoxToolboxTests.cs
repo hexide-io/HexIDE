@@ -1,3 +1,4 @@
+using System;
 using System.Linq;
 using Avalonia.Headless.XUnit;
 using HexIDE.Forms.ViewModels;
@@ -43,6 +44,37 @@ public class InBoxToolboxTests
         imageList.Height.Should().Be(38);
     }
 
+    [AvaloniaFact]
+    public void UpDown_toolbox_default_has_the_measured_size_and_no_own_properties()
+    {
+        var (_, toolbox, vm, form) = Designer(ControlLibraries.MSComCtl2);
+        var tool = toolbox.Components.Single(c => c.VBTypeName == "MSComCtl2.UpDown");
+        vm.SpawnControlCenter((ComponentBaseClass)tool.BaseClass!, ControlLibraries.MSComCtl2);
+        vm.CommitLayout();
+        var output = new FormSerializer().Serialize(form, "Form1.frm").frmText.ReplaceLineEndings();
+        output.Should().Contain("Height          =   750").And.Contain("Width           =   255")
+            .And.Contain("_ExtentX        =   450").And.Contain("_ExtentY        =   1323")
+            .And.Contain("_Version        =   393216" + Environment.NewLine + "   End");
+    }
+
+    [AvaloniaFact]
+    public void FlatScrollBar_toolbox_default_is_horizontal_and_centred_as_if_750_twips_high()
+    {
+        var (_, toolbox, vm, form) = Designer(ControlLibraries.MSComCtl2);
+        var tool = toolbox.Components.Single(c => c.VBTypeName == "MSComCtl2.FlatScrollBar");
+        vm.Form.Width = 480;
+        vm.Form.Height = 360;
+        vm.SpawnControlCenter((ComponentBaseClass)tool.BaseClass!, ControlLibraries.MSComCtl2);
+        vm.CommitLayout();
+        var output = new FormSerializer().Serialize(form, "Form1.frm").frmText.ReplaceLineEndings();
+        output.Should().Contain("Height          =   255").And.Contain("Width           =   1500")
+            .And.Contain("Left            =   2850").And.Contain("Top             =   2325")
+            .And.Contain("_ExtentX        =   2646").And.Contain("_ExtentY        =   450")
+            .And.Contain("Arrows          =   65536" + Environment.NewLine + "      Orientation     =   1638401")
+            .And.NotContain("Appearance");
+        form.HeaderLines.Should().Contain(l => l.Contains("MSCOMCT2.OCX"));
+    }
+
     private static (ProjectDefinition project, ToolBoxToolViewModel toolbox, FormEditViewModel vm, FormDefinition form) Designer(
         params RuntimeLibrary[] referenced)
     {
@@ -68,6 +100,26 @@ public class InBoxToolboxTests
         toolbox.Components.Where(c => c.BaseClass is InBoxComponentClass).Select(c => c.Library).ToArray();
 
     [AvaloniaFact]
+    public void RichTextBox_toolbox_placement_seeds_its_name_and_declares_its_library()
+    {
+        var library = ControlLibraries.All.Single(l => l.Name == "RichTextLib");
+        var (_, toolbox, vm, form) = Designer(library);
+        toolbox.Components.Single(c => c.BaseClass is RichTextBoxComponentClass).Library.Should().BeSameAs(library);
+        vm.SpawnControlCenter(RichTextBoxComponentClass.Instance, library);
+        vm.CommitLayout();
+        form.HeaderLines.Should().Equal("Object = \"{3B7C8863-D78F-101B-B9B5-04021C009402}#1.2#0\"; \"RICHTX32.OCX\"");
+        var box = form.Components.Single(c => c.BaseClass is RichTextBoxComponentClass);
+        box.GetPropertyOrDefault(VBProperties.WidthProperty).Should().Be(100);
+        box.GetPropertyOrDefault(VBProperties.HeightProperty).Should().Be(50);
+        box.BaseClass.Properties.Should().NotContain(p => p.Name == "TextRTF" || p.Name == "Font" || p.Name == "MultiLine" || p.Name == "Locked",
+            "saved own properties are carried until their designer editing is faithful");
+        var (text, bytes) = new FormSerializer().Serialize(form, "Form1.frm");
+        text.Should().Contain("Begin RichTextLib.RichTextBox RichTextBox1").And.NotContain("Text            =");
+        System.Text.Encoding.ASCII.GetString(bytes!, 4, bytes!.Length - 4).Should().Be(
+            "{\\rtf1\\ansi\\deff0{\\fonttbl{\\f0\\fnil\\fcharset0 MS Sans Serif;}}\r\n\\viewkind4\\uc1\\pard\\lang1033\\f0\\fs17 RichTextBox1\r\n\\par }\r\n");
+    }
+
+    [AvaloniaFact]
     public void A_project_that_references_no_library_offers_no_in_box_control()
     {
         var (_, toolbox, _, _) = Designer();
@@ -75,18 +127,19 @@ public class InBoxToolboxTests
         InBoxLibraries(toolbox).Should().BeEmpty();
     }
 
-    // One button for each library the project references, after the intrinsic controls, as VB6's toolbox adds a library's.
+    // Each referenced library offers its implemented controls after the intrinsic controls.
     [AvaloniaFact]
-    public void Each_referenced_library_offers_its_ProgressBar_after_the_intrinsic_controls()
+    public void Each_referenced_library_offers_its_implemented_controls_after_the_intrinsics()
     {
         var (_, toolbox, _, _) = Designer(ControlLibraries.MSComctlLib, ControlLibraries.ComctlLib);
 
-        InBoxLibraries(toolbox).Should().Equal(ControlLibraries.MSComctlLib, ControlLibraries.MSComctlLib, ControlLibraries.ComctlLib);
+        InBoxLibraries(toolbox).Should().Equal(ControlLibraries.MSComctlLib, ControlLibraries.MSComctlLib,
+            ControlLibraries.MSComctlLib, ControlLibraries.MSComctlLib, ControlLibraries.ComctlLib);
         var shape = toolbox.Components.ToList().FindIndex(c => c.BaseClass is ShapeComponentClass);
         toolbox.Components[shape + 1].BaseClass.Should().BeSameAs(ProgressBarComponentClass.Instance);
         toolbox.Components[shape + 1].Name.Should().Be("ProgressBar");
         toolbox.Components.Where(c => c.Library is not null).Select(c => c.VBTypeName)
-            .Should().Equal("MSComctlLib.ProgressBar", "MSComctlLib.ImageList", "ComctlLib.ProgressBar");
+            .Should().Equal("MSComctlLib.ProgressBar", "MSComctlLib.ListView", "MSComctlLib.StatusBar", "MSComctlLib.ImageList", "ComctlLib.ProgressBar");
     }
 
     // The Components dialog is how a project comes to reference a library, and the toolbox follows it both ways.
@@ -98,9 +151,9 @@ public class InBoxToolboxTests
 
         dialog.Controls.Single(c => c.Library == ControlLibraries.MSComctlLib).IsSelected = true;
         dialog.ApplyCommand.Execute(null);
-        InBoxLibraries(toolbox).Should().Equal(ControlLibraries.MSComctlLib, ControlLibraries.MSComctlLib);
+        InBoxLibraries(toolbox).Should().Equal(ControlLibraries.MSComctlLib, ControlLibraries.MSComctlLib, ControlLibraries.MSComctlLib, ControlLibraries.MSComctlLib);
 
-        toolbox.SelectedComponent = toolbox.Components.First(c => c.Library is not null);
+        toolbox.SelectedComponent = toolbox.Components.Single(c => c.VBTypeName == "MSComctlLib.ListView");
         dialog.Controls.Single(c => c.Library == ControlLibraries.MSComctlLib).IsSelected = false;
         dialog.ApplyCommand.Execute(null);
         InBoxLibraries(toolbox).Should().BeEmpty();
@@ -123,6 +176,19 @@ public class InBoxToolboxTests
         var (frm, _) = new FormSerializer().Serialize(form, "Form1.frm");
         frm.Should().StartWith("VERSION 5.00\r\n" + MsComctlForm + "\r\nBegin VB.Form Form1");
         frm.Should().Contain("Begin MSComctlLib.ProgressBar ProgressBar1").And.Contain("Begin MSComctlLib.ProgressBar ProgressBar2");
+    }
+
+    [AvaloniaFact]
+    public void A_StatusBar_is_offered_only_by_its_measured_library_and_placement_declares_it()
+    {
+        var (_, toolbox, vm, form) = Designer(ControlLibraries.MSComctlLib, ControlLibraries.ComctlLib);
+        var tool = toolbox.Components.Single(c => c.Name == "StatusBar");
+        tool.VBTypeName.Should().Be("MSComctlLib.StatusBar");
+        vm.SpawnControlCenter((ComponentBaseClass)tool.BaseClass!, tool.Library);
+        form.HeaderLines.Should().Equal(MsComctlForm);
+        var control = vm.Components.Single(c => c.Instance.BaseClass is StatusBarComponentClass);
+        control.Instance.GetPropertyOrDefault(VBProperties.AlignProperty).Should().Be(HexIDE.Runtime.BuiltinTypes.VBAlign.vbAlignBottom);
+        control.Instance.GetPropertyOrDefault(VBProperties.HeightProperty).Should().Be(25);
     }
 
     // A ProgressBar from COMCTL32.OCX's button is 5.0's, under its type name, and its form declares COMCTL32.OCX.
