@@ -44,7 +44,7 @@ public interface IWorkspaceArtifactProvider
 /// can't read type libraries; a provider then uses the name the project file records.
 /// </param>
 public sealed record WorkspaceArtifactContext(string WorkspaceRoot, WorkspaceProjectSnapshot Project,
-    JsonElement? Settings = null, IWorkspaceLibraryNames? LibraryNames = null);
+    JsonElement? Settings = null, IWorkspaceLibraryNames? LibraryNames = null, Func<CancellationToken, Task<string>>? ProjectText = null);
 
 /// <summary>
 /// The identifier code qualifies a referenced library's members with, which a project file doesn't record: a
@@ -124,4 +124,6 @@ public sealed class WorkspaceArtifactProviderRegistry : IWorkspaceArtifactProvid
 /// </remarks>
 /// <param name="RelativePath">Where the file goes, relative to the workspace root.</param>
 /// <param name="ProviderName">The provider that produces it.</param>
-public sealed record WorkspaceArtifactSpec(string RelativePath, string ProviderName, JsonElement? Settings = null);
+/// <param name="RestartOnChange">Restart the server when a regeneration changes the file (#2072).</param>
+public sealed record WorkspaceArtifactSpec(string RelativePath, string ProviderName, JsonElement? Settings = null,
+    bool RestartOnChange = false);

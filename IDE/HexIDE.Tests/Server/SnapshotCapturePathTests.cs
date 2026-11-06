@@ -7,6 +7,7 @@ namespace HexIDE.Tests.Server;
 /// the next call returns (#756). Every capture used to go to one <c>hexide_snapshot.png</c>, and a before/after
 /// pair read the "after" twice.
 /// </summary>
+[HexIDE.Tests.Infrastructure.ToolDescription]
 public class SnapshotCapturePathTests
 {
     [Fact]

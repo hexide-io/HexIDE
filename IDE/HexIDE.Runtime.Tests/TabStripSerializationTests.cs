@@ -23,9 +23,8 @@ public class TabStripSerializationTests
     {
         get
         {
-            var dir = new DirectoryInfo(AppContext.BaseDirectory);
-            while (dir is not null && !Directory.Exists(Path.Join(dir.FullName, "corpus", "inbox-controls"))) dir = dir.Parent;
-            var root = Path.Join(dir!.FullName, "corpus", "inbox-controls");
+            var dir = RepoTree.Root();
+            var root = Path.Join(dir, "corpus", "inbox-controls");
             return Path.Join(root, "saved", "tabstrip", "Form1.frm");
         }
     }

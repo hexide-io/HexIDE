@@ -19,6 +19,25 @@ operations do.
 > [#1458](https://github.com/hexide-io/HexIDE/issues/1458). Cut and paste within a form keeps it (#1453).
 
 ## Requirements
+
+### Requirement: PictureBox designer bitmap assignment honors AutoSize
+When a bitmap is assigned to a PictureBox with AutoSize True, the designer SHALL set Width and Height to the bitmap's pixel dimensions plus two pixels on each side for the default 3-D Fixed Single border, or no extra pixels with BorderStyle None. It SHALL record those dimensions with the picture edit as one undo step. This implements the measured bitmap cases in [#922's oracle](../../../docs/vb6-fidelity-oracle/autosize-on-a-label-and-a-picturebox.md); runtime AutoSize and Label AutoSize remain pending.
+
+#### Scenario: A 40 by 30 bitmap is assigned
+- **WHEN** the designer assigns a 40 by 30 pixel bitmap to an AutoSize PictureBox
+- **THEN** the model holds 44 by 34 pixels with the default border, or 40 by 30 with none
+- **AND** saving writes 660 by 510 twips with the default border, or 600 by 450 with none
+- **AND** undo restores the picture and both previous dimensions together
+
+#### Scenario: Stored dimensions and explicit assignments hold
+- **WHEN** a form loads, the picture is cleared, or Width is assigned explicitly
+- **THEN** AutoSize does not recompute the dimensions
+
+#### Scenario: An unmeasured picture or border is used
+- **WHEN** AutoSize would fit a non-bitmap picture or a flat Fixed Single border
+- **THEN** the designer refuses sizing once with the not-implemented message explaining that the size is unmeasured
+- **AND** it restores the picture without reporting a file-load or invalid-property error
+
 ### Requirement: The designer SHALL draw a form's client area at the size it is saved and run with
 The area a form's controls are designed in SHALL be its client area, `ClientWidth` by `ClientHeight`, the size its
 window has at run time. The frame and caption bar SHALL be drawn outside it, and dragging the frame's handles SHALL
@@ -277,7 +296,9 @@ The Properties window SHALL offer Export picture on modeled Picture, Icon, Mouse
 holding a nonempty, length-consistent VB6-framed StdPicture record. Export SHALL write only the image payload
 chosen by a save picker, without changing the property, designer history, form or companion file. It SHALL NOT
 export opaque OCX property bags, unframed bytes or malformed records. Cancellation SHALL write nothing, and a
-write failure SHALL be reported to the user.
+write failure SHALL be reported to the user. Before replacing an existing file, export SHALL ask
+"{0} already exists. Do you want to replace it?", with the full destination path substituted for {0},
+under the title "Export Picture" without an ellipsis. Both strings SHALL use dedicated localized keys.
 
 #### Scenario: Export a form's icon
 - **GIVEN** a form's Icon holds a VB6-framed StdPicture record
@@ -351,3 +372,48 @@ The designer SHALL catch an exception from a control's designer instantiation, l
 - **AND** opening the preview does not change the serialized form
 
 Conversion to an inert carried block, exclusion from property selection and verbatim carry-over after edits elsewhere on the form remain outstanding under #2405.
+
+### Requirement: ImageList designer icon
+The designer SHALL show a modelled MSComctlLib.ImageList as a 38 × 38 box with a two-pixel raised edge.
+The outer top/left SHALL use 3D light, inner top/left highlight, inner bottom/right shadow, and outer
+bottom/right dark shadow, with the face brush inside. These roles SHALL follow the theme's system brushes.
+HexIDE SHALL draw its own vector filmstrip glyph in a 32 × 32 area at (2, 2), rather than reproduce VB6's picture.
+Runtime invisibility and the measured unsnapped placement SHALL remain unchanged.
+
+#### Scenario: ImageList in the designer
+- **WHEN** an ImageList is placed on a form
+- **THEN** its raised box contains the original vector drawing rather than a text stand-in
+- **AND** changing theme updates its brushes
+
+### Requirement: Load a picture from the Properties window
+The Properties window SHALL offer an ellipsis button on modeled Picture, Icon, DragIcon and MouseIcon rows.
+It SHALL open the IDE file-dialog service's single-file picker and validate the selected file with the existing
+companion picture decoder. An accepted picture SHALL replace the property's record as one undoable designer
+change and save through the existing companion writer. Cancelling SHALL change nothing. A file the reader cannot
+read SHALL be refused with a localized message naming the file, retaining the old picture.
+This is the scoped decision in [#2653](https://github.com/hexide-io/HexIDE/issues/2653); clearing and file-type
+filters remain unchanged. Record framing is measured in
+[the serialization oracle](../../../docs/vb6-fidelity-oracle/serialization--file-format-fidelity.md).
+
+#### Scenario: Replace a picture and undo
+- **WHEN** a picture file the decoder accepts is chosen from a picture row's ellipsis button
+- **THEN** the row and control hold that picture and saving and reopening retains it
+- **AND** one undo restores the previous picture
+
+#### Scenario: Cancel or refuse a file
+- **WHEN** the picker is cancelled or the chosen file cannot be read as a picture
+- **THEN** the property and undo history remain unchanged
+- **AND** a refused file produces a message naming it
+
+### Requirement: Confirm picture export replacement
+The Properties window's picture export SHALL ask an explicit Yes/No question naming an existing destination
+before replacing it, including when a scripted file-picker answer chose the path. Only Yes SHALL permit
+replacement, staged and flushed through the atomic writer. A new destination SHALL be created exclusively.
+
+#### Scenario: Decline replacement
+- **WHEN** picture export chooses an existing file and the replacement question is declined or dismissed
+- **THEN** the existing bytes remain unchanged
+
+#### Scenario: Accept replacement
+- **WHEN** the replacement question is answered Yes
+- **THEN** the destination contains the exported picture payload

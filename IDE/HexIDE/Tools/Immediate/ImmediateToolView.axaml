@@ -11,6 +11,8 @@
     <ClassicBorderDecorator BorderStyle="Sunken" BorderThickness="2">
         <avaloniaEdit:TextEditor
             x:Name="Editor"
+            AutomationProperties.AutomationId="Immediate.Editor"
+            AutomationProperties.Name="{DynamicResource Str.Tool.Immediate.Title}"
             IsReadOnly="False"
             Document="{CompiledBinding Document}"
             FontFamily="Courier New,Monospace"

@@ -2,23 +2,68 @@ using System;
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.Windows.Input;
+using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Labs.Input;
 using HexIDE.Addins;
+using HexIDE.Projects;
 using HexIDE.Utils;
 
 namespace HexIDE;
 
 public partial class MainView : UserControl
 {
+    private readonly ObservableCollection<MenuItem> _projectItems = [];
     private readonly ObservableCollection<object> _toolsAddinItems = [];
     private Separator? _toolsAddinSeparator;
 
     public MainView()
     {
         InitializeComponent();
+        // The presenter is created before Opening; keep its source live while the handler fills it.
+        ((MenuFlyout)AddProjectButton.Flyout!).ItemsSource = _projectItems;
+#if DEBUG
+        // The automation server's section (#2451), left of Ln/Col. Added here rather than in the markup so that it compiles
+        // out with the server, and a distributed build carries no hidden section.
+        var automation = new HexIDE.Automation.AutomationStatusSection(HexIDE.Automation.AutomationServerStatus.Current);
+        DockPanel.SetDock(automation, Avalonia.Controls.Dock.Right);
+        StatusBarPanel.Children.Insert(2, automation);
+#endif
+    }
+
+    private void ProjectFlyoutOpening(object? sender, EventArgs e)
+    {
+        if (sender is not MenuFlyout flyout || flyout.Target?.DataContext is not MainViewViewModel vm)
+            return;
+
+        _projectItems.Clear();
+        foreach (var template in vm.Profile.AvailableProjectTypes)
+        {
+            var item = new MenuItem
+            {
+                Header = template.Name,
+                Icon = new Image { Source = template.Icon, Width = 16, Height = 16 },
+                Command = ApplicationCommands.AddProjectCommand,
+                CommandParameter = template,
+                IsEnabled = template.Supported,
+            };
+            var key = template == IProjectTemplate.StandardEXE ? "Str.ProjectType.StandardEXE"
+                : template == IProjectTemplate.ActiveXEXE ? "Str.ProjectType.ActiveXEXE"
+                : template == IProjectTemplate.ActiveXDLL ? "Str.ProjectType.ActiveXDLL"
+                : template == IProjectTemplate.ActiveXControl ? "Str.ProjectType.ActiveXControl" : null;
+            if (key != null)
+                item.Bind(HeaderedSelectingItemsControl.HeaderProperty, this.GetResourceObservable(key));
+            _projectItems.Add(item);
+        }
+        if (_projectItems.Count == 0)
+        {
+            var item = new MenuItem { IsEnabled = false };
+            item.Bind(HeaderedSelectingItemsControl.HeaderProperty, this.GetResourceObservable("Str.NewProject.NoTemplates"));
+            _projectItems.Add(item);
+        }
     }
 
     private void AvaloniaOnWeb(object? sender, ExecutedRoutedEventArgs e)
@@ -29,6 +74,12 @@ public partial class MainView : UserControl
     private void OnDockPointerReleased(object? sender, PointerReleasedEventArgs e)
     {
         (DataContext as MainViewViewModel)?.ScheduleLayoutSave();
+    }
+
+    // The Run menu's launches are asked whether they run the startup project as it opens, never on a project's load.
+    private void OnRunMenuOpened(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (ReferenceEquals(e.Source, sender)) (DataContext as MainViewViewModel)?.RunWith?.Refresh();
     }
 
     public MainView WindowInitialized()

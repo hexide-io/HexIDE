@@ -154,6 +154,19 @@ value and assigning an object reference get the common case wrong in a way that 
 - **WHEN** a class raises an event and a handler is bound to that source
 - **THEN** the handler runs synchronously before the raising procedure continues
 
+### Requirement: A predeclared class name SHALL hold a lazy default instance
+
+A class whose header declares `VB_PredeclaredId = True` SHALL expose a shared default instance through
+its class name. First use SHALL initialize it; explicit `New` SHALL create an independent instance.
+Setting the name to Nothing SHALL release it, and the next read SHALL create another instance with
+fresh fields, including a read by `Is Nothing`. The default instance SHALL live until program end.
+These outcomes are measured in [#2555](https://github.com/hexide-io/HexIDE/issues/2555), native and p-code agreeing.
+
+#### Scenario: Recreating the default instance
+- **GIVEN** the predeclared class's Long field Value holds 5
+- **WHEN** the program sets the class name to Nothing and then tests the name with `Is Nothing`
+- **THEN** the old instance terminates, a new one initializes, the test returns False, and Value is zero
+
 ### Requirement: Object lifetime SHALL follow reference counting, including its consequences
 Termination SHALL be driven by reference counting, and a cycle of references SHALL NOT be collected.
 

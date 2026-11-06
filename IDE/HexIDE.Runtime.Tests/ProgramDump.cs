@@ -124,18 +124,21 @@ internal sealed partial class ProgramDump
         if (body.Start.StartIndex > 0)
             head.Append(source[..body.Start.StartIndex].TrimEnd()).Append('\n');
 
-        foreach (var element in body.moduleBodyElement())
+        foreach (var element in body.children.OfType<ParserRuleContext>())
         {
-            if (element.moduleBlock()?.block() is not { } block)
+            if (element is VB6Parser.BlockSepContext)
+                continue;
+            if (element is not VB6Parser.ModuleBlockContext moduleBlock)
             {
-                var isProcedure = element.subStmt() is not null || element.functionStmt() is not null
-                    || element.propertyGetStmt() is not null || element.propertyLetStmt() is not null
-                    || element.propertySetStmt() is not null;
+                var member = (VB6Parser.ModuleBodyElementContext)element;
+                var isProcedure = member.subStmt() is not null || member.functionStmt() is not null
+                    || member.propertyGetStmt() is not null || member.propertyLetStmt() is not null
+                    || member.propertySetStmt() is not null;
                 (isProcedure ? procedures : declarations).Append(Text(element)).Append('\n');
                 continue;
             }
             string? label = null;
-            foreach (var child in block.children)
+            foreach (var child in moduleBlock.block().children)
             {
                 if (child is VB6Parser.LineHeadContext lineHead)
                     label = Text(lineHead).TrimEnd();

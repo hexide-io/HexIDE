@@ -1,0 +1,7 @@
+stage,shape,stack_mib,pass_depth,overflow_depth,failure,trials,seconds
+runtime-parse-sll,parens,0.25,60,61,overflow,11,6.71
+runtime-parse-sll,parens,0.5,134,135,overflow,12,8.26
+runtime-parse-sll,parens,1.0,281,282,overflow,14,10.01
+lsp-parse-sll,parens,0.125,23,24,overflow,11,4.52
+lsp-parse-sll,parens,0.25,59,60,overflow,11,4.57
+lsp-parse-sll,parens,0.5,131,132,overflow,12,5.09

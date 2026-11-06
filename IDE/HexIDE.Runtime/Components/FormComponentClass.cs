@@ -14,6 +14,7 @@ public class FormComponentClass : ComponentBaseClass
     EnabledProperty,
     ForeColorProperty,
     IconProperty,
+    MousePointerProperty,
     ShowInTaskbarProperty,
     FontProperty,
     StartUpPositionProperty,
@@ -65,7 +66,10 @@ public class FormComponentClass : ComponentBaseClass
             [AttachedProperties.BackColorProperty] = instance.GetPropertyOrDefault(BackColorProperty),
             [AttachedProperties.ForeColorProperty] = instance.GetPropertyOrDefault(ForeColorProperty),
             [AttachedProperties.FontProperty] = instance.GetPropertyOrDefault(FontProperty),
+            [AttachedProperties.MousePointerProperty] = instance.GetPropertyOrDefault(MousePointerProperty),
+            Cursor = instance.GetPropertyOrDefault(MousePointerProperty).ToCursor(),
             WindowStartupLocation = instance.GetPropertyOrDefault(StartUpPositionProperty).ToAvalonia(),
+            CenterOnShow = instance.GetPropertyOrDefault(StartUpPositionProperty) == VBStartupPosition.StartUpScreen,
             ShowInTaskbar = instance.GetPropertyOrDefault(ShowInTaskbarProperty),
             IsEnabled = instance.GetPropertyOrDefault(EnabledProperty),
             Position = new PixelPoint((int)instance.GetPropertyOrDefault(LeftProperty), (int)instance.GetPropertyOrDefault(TopProperty))
@@ -76,6 +80,8 @@ public class FormComponentClass : ComponentBaseClass
         // And the window that frame is drawn as: its border, caption bar and buttons (#1575).
         var chrome = AvaloniaInterop.FormChrome.Read(instance, menuBar);
         AvaloniaInterop.FormFrame.Set(form, chrome, menuBar);
+        AvaloniaInterop.FormPosition.FromClient(form, instance.GetPropertyOrDefault(LeftProperty),
+            instance.GetPropertyOrDefault(TopProperty), chrome, menuBar);
         chrome.Apply(form);
         // And the icon it carries: its own, none, or the default (#1594).
         AvaloniaInterop.FormIcon.Read(instance).Apply(form);

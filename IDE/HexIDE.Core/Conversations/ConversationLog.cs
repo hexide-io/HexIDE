@@ -26,6 +26,8 @@ namespace HexIDE.Conversations;
 /// </remarks>
 public sealed class ConversationLog : IAsyncDisposable
 {
+    public ServerOutputLog Output { get; } = new();
+
     private sealed class Connection(CaptureLimits limits, PayloadBudget budget)
     {
         public ConversationRing Ring { get; } = new(limits);

@@ -112,11 +112,11 @@ public class SetFocusTests
         }
     }
 
-    private static Run Start(string form1Code)
+    private static Run Start(string form1Code, string? controls = null, bool modal = false)
     {
         var project = new ProjectDefinition(VBProjectType.EXE, "P");
         var form1 = new FormDeserializer().Deserialize(project,
-            (Header("Form1", Form1Controls) + Logged + form1Code).ReplaceLineEndings("\r\n"), new NullSink())!;
+            (Header("Form1", controls ?? Form1Controls) + Logged + form1Code).ReplaceLineEndings("\r\n"), new NullSink())!;
         project.AddForm(form1);
         project.AddForm(new FormDeserializer().Deserialize(project,
             (Header("Form2", TextBox("Text1", 120)) + Form2Code).ReplaceLineEndings("\r\n"), new NullSink())!);
@@ -132,7 +132,16 @@ public class SetFocusTests
         VBWindowContext.RunTimeError += OnRunTimeError;
         var watch = Window.WindowOpenedEvent.AddClassHandler<VBFormRuntime>((w, _) => opened[w.Title ?? ""] = w);
         var cancel = new CancellationTokenSource();
-        _ = VBLoader.RunForm(form1, cancel.Token, out _);
+        if (modal)
+        {
+            var main = new ModuleDefinition(project, "Module1", ModuleKind.StandardModule);
+            main.UpdateCode("Sub Main()\n    Form1.Show vbModal\nEnd Sub\n");
+            project.AddModule(main);
+            project.StartsAtSubMain = true;
+            _ = VBLoader.RunMadeProgram(project, cancel.Token, out _);
+        }
+        else
+            _ = VBLoader.RunForm(form1, cancel.Token, out _);
         Pump();
         return new Run
         {
@@ -340,4 +349,87 @@ public class SetFocusTests
         run.Errors.Should().ContainSingle().Which.Should().BeOfType<NotImplementedException>()
             .Which.Message.Should().Be("The SetFocus method is not implemented for Label1");
     }
+    // #2436: the issue's console measurements, native and p-code agreeing.
+    [AvaloniaTheory]
+    [InlineData("", "Text1")]
+    [InlineData("Enabled = 0", "Text2")]
+    [InlineData("Visible = 0", "Text2")]
+    [InlineData("TabStop = 0", "Text2")]
+    [InlineData("Label", "Text1")]
+    public void Showing_focuses_the_first_eligible_control_after_Activate(string first, string expected)
+    {
+        var controls = TextBox("Text2", 600, "      TabIndex = 2\n")
+            + TextBox("Text1", 120, "      TabIndex = 1\n" + (first == "Label" ? "" : "      " + first + "\n"));
+        if (first == "Label")
+            controls += "   Begin VB.Label Label1\n      TabIndex = 0\n   End\n";
+        using var run = Start("""
+            Private Sub Form_Load()
+                Debug.Print "load"
+            End Sub
+            Private Sub Form_Activate()
+                Debug.Print "activate"
+            End Sub
+            """, controls);
+
+        run.Errors.Should().BeEmpty();
+        run.Printed.Should().Equal("load", "activate", expected + "_GotFocus");
+        VBProps.GetName(run.Focused("Form1")).Should().Be(expected);
+    }
+
+    [AvaloniaFact]
+    public void Rejected_SetFocus_in_Load_still_leaves_the_first_control_focused()
+    {
+        using var run = Start("""
+            Private Sub Form_Load()
+                On Error Resume Next
+                Text2.SetFocus
+                Debug.Print "error " & Err.Number
+            End Sub
+            Private Sub Form_Activate()
+                Debug.Print "activate"
+            End Sub
+            """);
+
+        run.Errors.Should().BeEmpty();
+        run.Printed.Should().Equal("error 5", "activate", "Text1_GotFocus");
+        VBProps.GetName(run.Focused("Form1")).Should().Be("Text1");
+    }
+
+    [AvaloniaFact]
+    public void Show_then_SetFocus_in_Load_raises_Activate_and_both_GotFocus_inside_Load()
+    {
+        using var run = Start("""
+            Private Sub Form_Load()
+                Debug.Print "load"
+                Me.Show
+                Text2.SetFocus
+                Debug.Print "loaded"
+            End Sub
+            Private Sub Form_Activate()
+                Debug.Print "activate"
+            End Sub
+            """);
+
+        run.Errors.Should().BeEmpty();
+        run.Printed.Should().Equal("load", "activate", "Text1_GotFocus", "Text1_LostFocus", "Text2_GotFocus", "loaded");
+        VBProps.GetName(run.Focused("Form1")).Should().Be("Text2");
+    }
+
+    [AvaloniaFact]
+    public void Modal_Show_from_Main_focuses_the_first_control_after_Activate()
+    {
+        using var run = Start("""
+            Private Sub Form_Load()
+                Debug.Print "load"
+            End Sub
+            Private Sub Form_Activate()
+                Debug.Print "activate"
+            End Sub
+            """, modal: true);
+
+        run.Errors.Should().BeEmpty();
+        run.Printed.Should().Equal("load", "activate", "Text1_GotFocus");
+        VBProps.GetName(run.Focused("Form1")).Should().Be("Text1");
+    }
+
 }

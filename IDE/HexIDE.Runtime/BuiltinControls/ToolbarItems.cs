@@ -2,7 +2,7 @@ using System.Globalization;
 
 namespace HexIDE.Runtime.BuiltinControls;
 
-// Runtime object model measured in #1088, issuecomment-6428845889. ImageList binding and writing designer edits belong to later slices.
+// Runtime object model measured in #1088, issuecomment-6428845889. Writing designer edits belongs to a later slice.
 public sealed class ToolbarItems(VBToolbar toolbar, ToolbarItem? parent = null) : ICSharpAsyncProxy, ICSharpPropertyBag, INamedParameterSource
 {
     internal readonly List<ToolbarItem> Items = [];
@@ -19,6 +19,7 @@ public sealed class ToolbarItems(VBToolbar toolbar, ToolbarItem? parent = null) 
             35601 => "Element not found",
             35602 => "Key is not unique in collection",
             35603 => "Invalid key",
+            35610 => "Invalid object",
             35613 => "ImageList must be initialized before it can be used",
             35700 => "Circular object referencing is not allowed",
             _ => throw Unmeasured(),
@@ -94,8 +95,9 @@ public sealed class ToolbarItems(VBToolbar toolbar, ToolbarItem? parent = null) 
                 var text = Arg(2).IsMissing ? "" : Text(Arg(2));
                 var style = parent is not null || Arg(3).IsMissing ? 0 : Number(Arg(3));
                 if (style is < 0 or > 5) throw Error(380);
-                if (parent is null && !Arg(4).IsMissing) throw Error(35613);
-                var item = new ToolbarItem(this, parent, key, text, style);
+                if (parent is null && !Arg(4).IsMissing && toolbar.ImageList is null) throw Error(35613);
+                var image = parent is null && !Arg(4).IsMissing ? toolbar.ValidateImage(Arg(4)) : new Vb6Value(0);
+                var item = new ToolbarItem(this, parent, key, text, style) { Image = image };
                 Items.Insert(at, item);
                 if (parent is null) toolbar.HasHadButtons = true;
                 result = new Vb6Value(item);
@@ -155,7 +157,7 @@ public sealed class ToolbarItems(VBToolbar toolbar, ToolbarItem? parent = null) 
                         item.TrySetProperty(property, new Vb6Value(FileText(field))); break;
                     case "value": case "width":
                         item.TrySetProperty(property, new Vb6Value((long)FileInteger(field))); break;
-                    case "imageindex": item.LoadedImage = FileInteger(field); break;
+                    case "imageindex": item.Image = new Vb6Value(FileInteger(field)); break;
                     case "buttonmenus": item.LoadMenus(field as Dictionary<string, object> ?? throw Unmeasured()); break;
                 }
             }
@@ -163,32 +165,32 @@ public sealed class ToolbarItems(VBToolbar toolbar, ToolbarItem? parent = null) 
         if (parent is null && count > 0) toolbar.HasHadButtons = true;
     }
 
+    internal Vb6Value ValidateImage(Vb6Value image) => toolbar.ValidateImage(image);
     internal void Refresh() => toolbar.RefreshButtons();
 
     internal float ButtonWidth => toolbar.ButtonWidth;
-    internal float ButtonHeight => toolbar.TextBelow ? toolbar.ButtonHeight : throw Unmeasured();
-    internal float Left(ToolbarItem item)
+    internal float DropdownWidth => toolbar.DropdownWidth;
+    internal float ButtonHeight => toolbar.ButtonHeight;
+    private (float Left, float Top, float Height) Position(ToolbarItem? item)
     {
-        if (!toolbar.TextBelow) throw Unmeasured();
-        float left = 0;
-        float? result = null;
+        float left = 0, top = toolbar.ButtonTop;
         foreach (var button in Items)
         {
             if (!button.IsVisible) continue;
-            var right = left + button.LayoutWidth;
-            // Wrapping and overflow were not measured. Only expose the measured single row.
-            if (double.IsNaN(toolbar.Width) || right > toolbar.Width * 15) throw Unmeasured();
-            if (button == item) result = left;
-            left = right;
+            if (toolbar.Wrappable && !double.IsNaN(toolbar.Width) && left > 0 && left + button.LayoutWidth > toolbar.Width * 15)
+            {
+                left = 0;
+                top += ButtonHeight;
+            }
+            if (button == item) return (left, top, 0);
+            left += button.LayoutWidth;
         }
-        return result ?? throw Unmeasured();
+        if (item is not null) throw Unmeasured();
+        return (0, 0, top - toolbar.ButtonTop + ButtonHeight);
     }
-
-    internal float Top(ToolbarItem item)
-    {
-        _ = Left(item);
-        return 30.04725f;
-    }
+    internal float Left(ToolbarItem item) => Position(item).Left;
+    internal float Top(ToolbarItem item) => Position(item).Top;
+    internal float RowHeight => Position(null).Height;
 
     internal ToolbarItems Menus(ToolbarItem item) => new(toolbar, item);
 }
@@ -199,20 +201,20 @@ public sealed class ToolbarItem : ICSharpProxy, ICSharpPropertyBag
     private readonly ToolbarItem? parent;
     private readonly ToolbarItems? menus;
     internal string Key;
-    internal int LoadedImage;
+    internal Vb6Value Image = new(0);
     internal void LoadMenus(Dictionary<string, object> bag) => menus!.Load(bag);
     private string text, tag = "", description = "", toolTip = "";
     private long style, value;
     private bool enabled = true, visible = true, mixedState;
     private float width;
     internal bool IsVisible => visible;
-    internal bool IsMeasuredCaption => visible && (style is 0 or 1 or 2 or 5) && text == "Alpha";
-    internal bool HasMeasuredWidth => style is 3 or 4 || text == "Alpha";
+    internal bool HasCaptionSpace => style is 0 or 1 or 2 or 5;
+    internal string Caption => text;
     internal float LayoutWidth => style switch
     {
-        3 => 120.189f,
+        3 => 120f,
         4 => width,
-        5 => owner.ButtonWidth == 510.2362f ? 705.2599f : throw ToolbarItems.Unmeasured(),
+        5 => owner.ButtonWidth + owner.DropdownWidth,
         _ => owner.ButtonWidth,
     };
     public string TypeName => parent is null ? "IButton" : "IButtonMenu";
@@ -247,7 +249,7 @@ public sealed class ToolbarItem : ICSharpProxy, ICSharpPropertyBag
             "mixedstate" when parent is null => new(mixedState),
             "style" when parent is null => new(style),
             "value" when parent is null => new(value),
-            "image" when parent is null => new(LoadedImage),
+            "image" when parent is null => Image,
             "buttonmenus" when parent is null => new(menus!),
             "width" when parent is null && !visible => new(0f),
             "height" when parent is null && !visible => new(0f),
@@ -308,8 +310,7 @@ public sealed class ToolbarItem : ICSharpProxy, ICSharpPropertyBag
                 }
                 value = newValue; return true;
             case "image" when parent is null:
-                if (ToolbarItems.Number(next) != 0) throw ToolbarItems.Error(35613);
-                LoadedImage = 0;
+                Image = owner.ValidateImage(next);
                 return true;
             case "width" when parent is null:
                 if (style != 4) throw ToolbarItems.Error(383);

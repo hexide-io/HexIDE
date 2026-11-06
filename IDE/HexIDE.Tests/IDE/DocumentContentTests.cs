@@ -146,13 +146,8 @@ public class DocumentContentTests : IDisposable
 
     private static string? FindUpwards(string relative)
     {
-        for (var at = new DirectoryInfo(AppContext.BaseDirectory); at is not null; at = at.Parent)
-        {
-            var candidate = Path.Join(at.FullName, relative);
-            if (Directory.Exists(candidate))
-                return candidate;
-        }
-        return null;
+        var candidate = Path.Join(HexIDE.Tests.Infrastructure.RepoTree.Root(), relative);
+        return Directory.Exists(candidate) ? candidate : null;
     }
 
     private static readonly string[] SourceExtensions =
