@@ -133,10 +133,10 @@ public class EditorRedockTests
             var changes = server.Count("textDocument/didChange");
             var diagnostics = server.Count("textDocument/diagnostic");
             var lensesBeforeEdit = server.Count("textDocument/codeLens");
+            // One dispatcher turn keeps the burst together even when a loaded runner delays continuations (#3197).
             for (var i = 0; i < 3; i++)
             {
                 vm.Document.Insert(vm.Document.TextLength, "' edited\r\n");
-                await Task.Delay(50, cancellation);
             }
             await Until(() => server.Count("textDocument/diagnostic") > diagnostics);
             // Lenses follow the same sync as diagnostics, rather than the view's later folding pause.
