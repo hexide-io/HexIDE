@@ -178,6 +178,33 @@ public class SingleViewFormsTests
         run.Runner.IsRunning.Should().BeFalse("the form was the only one loaded");
     }
 
+    [AvaloniaFact]
+    public void Size_setters_raise_Resize_inside_Load_and_the_click_in_a_managed_window()
+    {
+        using var run = Start("""
+            Private Sub Form_Load()
+                Me.Width = 6000
+                Debug.Print "width"
+                Me.Height = 4000
+                Debug.Print "height"
+            End Sub
+            Private Sub Form_Resize()
+                Debug.Print "resize"
+            End Sub
+            Private Sub Command1_Click()
+                Me.Width = Me.Width + 300
+                Debug.Print "after"
+                Me.Width = Me.Width
+            End Sub
+            """);
+
+        run.Printed.Should().Equal("resize", "width", "resize", "height");
+        run.Click();
+        Pump();
+        run.Failed.Should().BeEmpty();
+        run.Printed.Should().Equal("resize", "width", "resize", "height", "resize", "after");
+    }
+
     private const string Form2Logs = """
         Public pub As Integer
         Private Sub Form_Initialize()

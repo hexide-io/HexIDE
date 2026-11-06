@@ -23,12 +23,12 @@ internal static class VbWrite
             throw new NotImplementedException($"Write # of {value.Type} is not implemented (#1521)");
         return value.Value switch
         {
+            _ when value.Type == Vb6Value.ValueType.Error => "#ERROR " + ((ushort)value.Value!).ToString(CultureInfo.InvariantCulture) + "#",
             _ when value.IsNull => "#NULL#",
             null => "",
             string s => "\"" + s.Replace("\"", "\"\"") + "\"",
             bool b => b ? "#TRUE#" : "#FALSE#",
-            DateTime d => "#" + d.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)
-                          + (d.TimeOfDay == TimeSpan.Zero ? "" : d.ToString(" HH:mm:ss", CultureInfo.InvariantCulture)) + "#",
+            VbDate date => Date(date.Instant),
             float f => Floating(f.ToString("E6", CultureInfo.InvariantCulture), 7),
             double d => Floating(d.ToString("E14", CultureInfo.InvariantCulture), 15),
             decimal m => NoLeadingZero(m.ToString("0.############################", CultureInfo.InvariantCulture)),
@@ -39,6 +39,11 @@ internal static class VbWrite
 
     // `scientific` is the value to `precision` significant digits, as "d.dddE+xxx". Fixed while the fixed form needs at most
     // `precision` digits: the whole part's, or the fraction's with its leading zeros.
+    // The instant, rounded to the second as VB6 shows it: 1999-12-31 23:59:59.6 is #2000-01-01# (measured, #783).
+    private static string Date(DateTime d) =>
+        "#" + d.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)
+        + (d.TimeOfDay == TimeSpan.Zero ? "" : d.ToString(" HH:mm:ss", CultureInfo.InvariantCulture)) + "#";
+
     private static string Floating(string scientific, int precision)
     {
         var sign = scientific.StartsWith('-') ? "-" : "";

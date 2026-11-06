@@ -16,12 +16,17 @@ public partial class MainWindow : Window
         CommandManager.SetCommandBindings(this, CommandManager.GetCommandBindings(MainView));
         CommandManager.InvalidateRequerySuggested();
 
+        Opened += OnOpened;
         Activated += OnActivated;
     }
 
     private void OnActivated(object? sender, EventArgs e)
     {
         CommandManager.InvalidateRequerySuggested();
+    }
+
+    private void OnOpened(object? sender, EventArgs e)
+    {
         if (once)
             return;
         once = true;

@@ -61,27 +61,43 @@ public partial class VB6BuiltIns
         {
             float => new Vb6Value((float)r),
             decimal => v.Type == VT.Currency ? Vb6Value.NewCurrency((decimal)r) : Vb6Value.NewDecimal((decimal)r),
+            // A Date stays a Date, cut on its serial: Int and Fix of 1999-12-31 23:59:59.6 are both 31/12/1999, where
+            // CStr of the date itself is 01/01/2000 (measured, #783). Only Int can leave the range, from a time on 1 January 100.
+            VbDate when VbDate.InRange(r) => new Vb6Value(new VbDate(r)),
+            VbDate => throw new NotImplementedException(
+                "Int of a time on 1 January 100 is not implemented: the day before is outside the Date range, and what vb6.exe does was not measured (#783)"),
             _ => new Vb6Value(r)
         };
     }
 
     // VB6's Rnd: x>0 (or omitted) advances the LCG; x=0 returns the last value without advancing; x<0 reseeds
-    // deterministically (the reseed value is not bit-identical to VB6, but is repeatable). Returns Single.
+    // by folding the Single bits and high byte (measured, #2117). Returns Single.
     private float Rnd(float x)
     {
         if (x == 0f)
             return rndSeed / 16777216f;                 // last, no advance
         if (x < 0f)
-            rndSeed = BitConverter.SingleToUInt32Bits(x) & 0xFFFFFF;
+        {
+            uint bits = BitConverter.SingleToUInt32Bits(x);
+            rndSeed = (bits + (bits >> 24)) & 0xFFFFFF;
+        }
         rndSeed = (rndSeed * 0x43FD43FDu + 0xC39EC3u) & 0xFFFFFF;
         return rndSeed / 16777216f;
     }
 
-    // Randomize [number]: reseed. Deterministic from `number` (not bit-identical to VB6's fold), or from the
-    // wall clock when omitted. Rnd's own fixed-seed sequence is vb6-exact; Randomize only varies the start.
+    // An explicit Randomize seed folds the high Double bits, keeping the state's low byte (#2117).
+    // The unmeasured argumentless clock seeding retains its existing behaviour.
     internal void Reseed(double? number)
     {
-        long bits = number is { } n ? BitConverter.DoubleToInt64Bits(n) : DateTime.Now.Ticks;
-        rndSeed = (uint)((bits ^ (bits >> 24)) & 0xFFFFFF);
+        if (number is { } n)
+        {
+            uint high = (uint)(BitConverter.DoubleToUInt64Bits(n) >> 32);
+            rndSeed = (((high >> 16) ^ (high & 0xFFFF)) << 8) | (rndSeed & 0xFF);
+        }
+        else
+        {
+            long bits = DateTime.Now.Ticks;
+            rndSeed = (uint)((bits ^ (bits >> 24)) & 0xFFFFFF);
+        }
     }
 }

@@ -160,8 +160,35 @@ public class ParseHardeningTests
             .BeEmpty("a degenerate deep parse yields no symbols rather than overflowing the server's stack");
     }
 
-    // NB (bug-hunt): VbSymbolProvider's SymbolVisitor also carries the mandated visitor depth guard (MaxDepth=500,
-    // matching VbScopeAnalyzer). With the parser guard above it is now defense-in-depth — the parser aborts a
-    // degenerate parse before any visitor runs. The guards' benign effect on real code is covered by
-    // ComponentPortTests.Symbols_extracted_for_each_declaration_kind.
+    // #1894: parser rule depth stays shallow while the finished addition tree is 100,000 levels deep.
+    // Without the visitor guards these tests terminate the test host with a stack overflow.
+    private static string LongAdditionModule =>
+        "Option Explicit\nSub S()\nDim x As Long, a As Long\nx = "
+        + string.Concat(Enumerable.Repeat("a+", 100_000))
+        + "a\nDim afterChain As String\nunknown = a\nEnd Sub\nSub After()\nEnd Sub\n";
+
+    [Fact]
+    public void Long_addition_chain_preserves_symbols_after_the_expression()
+    {
+        VbSymbolProvider.GetSymbols(LongAdditionModule).Select(s => s.Name).Should().Equal("S", "After");
+    }
+
+    [Fact]
+    public void Long_addition_chain_preserves_declarations_after_the_expression()
+    {
+        var tree = VbDiagnosticsProvider.ParseSource(LongAdditionModule);
+        tree.Should().NotBeNull();
+        var declarations = VbScopeAnalyzer.GetDeclaredTypes(tree!);
+        declarations["afterChain"].TypeText.Should().Be("String");
+        declarations.Should().ContainKey("After");
+    }
+
+    [Fact]
+    public void Long_addition_chain_preserves_option_explicit_checks_after_the_expression()
+    {
+        var tree = VbDiagnosticsProvider.ParseSource(LongAdditionModule);
+        tree.Should().NotBeNull();
+        VbScopeAnalyzer.GetOptionExplicitDiagnostics(tree!).Should()
+            .ContainSingle(d => d.Message.Contains("'unknown'"));
+    }
 }

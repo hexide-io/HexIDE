@@ -61,7 +61,7 @@ public readonly record struct VBFont
     public bool Bold => Weight >= BoldWeight;
 
     /// <summary>
-    /// VB6's own default, which a control with no Font block of its own reads at run time: MS Sans Serif at 8.25 points
+    /// VB6's default when the form declares no font: MS Sans Serif at 8.25 points
     /// (measured, #910). It was held as 11, the pixels that size draws at, which the Font dialog then wrote into a .frm as
     /// <c>Size = 11</c>.
     /// </summary>

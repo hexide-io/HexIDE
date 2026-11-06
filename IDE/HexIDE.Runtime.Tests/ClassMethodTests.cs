@@ -57,10 +57,21 @@ public class ClassMethodTests : BaseVBTestFixture
         await RunClasses(
             "Dim g As Greeter\nSet g = New Greeter\ng.Run\n",
             ("Greeter",
-                "Private mN As Integer\n" +
+                "Public mN As Integer\n" +
                 "Public Sub Run()\nMe.mN = 5\nMe.Announce\nEnd Sub\n" +
                 "Public Sub Announce()\nDebug.Print Me.mN\nEnd Sub\n"));
         AssertDebugLog([5]);
+    }
+
+    [Fact]
+    public async Task ExplicitMe_PrivateFieldAssignment_IsCompileError()
+    {
+        Func<Task> act = () => RunClasses(
+            "Dim g As Greeter\nSet g = New Greeter\ng.Run\n",
+            ("Greeter", "Private mN As Integer\n" +
+                "Public Sub Run()\nOn Error Resume Next\nMe.mN = 5\nEnd Sub\n"));
+        await act.Should().ThrowAsync<VBCompileErrorException>()
+            .WithMessage("Compile error:*Method or data member not found");
     }
 
     [Fact]

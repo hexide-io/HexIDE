@@ -43,4 +43,8 @@ public sealed class CompilationArguments
             ? arguments
             : throw new VBCompileErrorException($"{InvalidSyntax}: the project's Conditional Compilation Arguments, {ProjectKey}=\"{text}\"");
     }
+
+    /// <summary>The project's arguments, or false where vb6.exe refuses its line, for a reader that must not throw.</summary>
+    public static bool TryForProject(ProjectDefinition project, [NotNullWhen(true)] out CompilationArguments? arguments) =>
+        TryParse(AppInfo.PreSectionValue(project, ProjectKey), out arguments);
 }

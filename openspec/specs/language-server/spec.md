@@ -13,6 +13,59 @@ the kind of thing that erodes silently unless it is a requirement.
 
 ## Requirements
 
+### Requirement: VB6 mechanical source limits produce compatibility warnings
+The bundled server SHALL warn on a logical line's 25th continuation, counting each extra 1,023-character
+piece of a physical line as one continuation. It SHALL also warn on a physical line over 1,023 characters,
+explaining VB6's piece-reading behaviour, split-number/string syntax errors and possible silent tail loss.
+These notices SHALL be warnings only: HexIDE keeps its existing execution behaviour and the whole source.
+The server SHALL NOT predict "Statement too complex" from the fitted expression budget (#3203).
+
+#### Scenario: Continuations cross VB6's measured edge
+- **WHEN** a logical line has 25 continuations, including long-line pieces
+- **THEN** the 25th carries a warning saying VB6 refuses it and HexIDE runs it
+- **AND** 24 continuations carry no continuation-limit warning
+
+#### Scenario: A physical line crosses VB6's piece length
+- **WHEN** a physical line has 1,024 characters
+- **THEN** the line carries a warning explaining the compatibility risk
+- **AND** a 1,023-character line carries no physical-line-length warning
+
+### Requirement: Clean exit stops the input loop quietly
+After answering `shutdown` and receiving `exit`, the server SHALL stop its input loop and exit with
+code 0 and empty stderr, whether the client closes stdin or leaves it open. EOF without a preceding
+`exit` SHALL still report the input fault on stderr. An `exit` without a previously answered
+`shutdown` SHALL stop the input loop with code 1 and empty stderr.
+
+#### Scenario: A client stops the server normally
+- **WHEN** the client receives the `shutdown` response and sends `exit`
+- **THEN** the server exits with code 0 and empty stderr without waiting for EOF
+
+#### Scenario: A client exits without shutdown
+- **WHEN** the client sends `exit` without an answered `shutdown`
+- **THEN** the server exits with code 1 and empty stderr without waiting for EOF
+
+#### Scenario: Input closes unexpectedly
+- **WHEN** stdin closes without an `exit` notification
+- **THEN** stderr reports the read fault
+
+### Requirement: Caught crashes have a distinct exit code
+An exception caught by the process entry point SHALL be logged as fatal and exit with code 2,
+distinct from code 0 after an answered `shutdown` and code 1 for `exit` without one.
+This requirement SHALL NOT change errors handled internally by the server framework.
+
+#### Scenario: The entry point catches a crash
+- **WHEN** server construction or execution throws an exception that reaches the entry point
+- **THEN** it logs the exception as fatal and the process exits with code 2
+
+### Requirement: Startup is visible without tracing
+The server SHALL send an informational `window/logMessage` after the client's `initialized`
+notification, confirming startup with the same name and version advertised by `initialize`.
+This notification SHALL be independent of the trace level and SHALL preserve file logging.
+
+#### Scenario: A client leaves tracing off
+- **WHEN** the client completes initialization with tracing off
+- **THEN** it receives a type 3 `window/logMessage` confirming startup, server name and version
+
 ### Requirement: The source tree SHALL be uniformly permissively licensed
 The language server and every artifact it embeds SHALL be permissively licensed, and the tree SHALL NOT
 contain a copyleft licence file, a copyleft-derived grammar, or test inputs derived from a copyleft
@@ -48,6 +101,14 @@ intention.
 - **WHEN** a different language backend is placed behind the seam
 - **THEN** it serves the IDE without any change to the IDE, provided it honours the contract below
 
+### Requirement: Syntax diagnostics SHALL name whitespace-only offending tokens
+The server SHALL describe a whitespace-only offending token as `end of line` in mismatched-input,
+extraneous-input and no-viable-alternative diagnostics.
+
+#### Scenario: An expression is unfinished at the end of a line
+- **WHEN** a newline is the offending token in an unfinished expression
+- **THEN** the diagnostic names `end of line` rather than displaying empty quotes
+
 ### Requirement: The server SHALL publish an empty diagnostic set when a document closes
 On being notified that a document closed, the server SHALL publish diagnostics for that document with an
 empty set, rather than publishing nothing.
@@ -74,18 +135,32 @@ stops that refresh from happening.
 - **THEN** the server publishes them again rather than suppressing the notification
 
 ### Requirement: The server SHALL process requests in order with respect to document changes
-The server SHALL apply a document change before handling any request that arrives after it.
+The server SHALL apply a document change before handling any request that arrives after it, except
+completion. Completion SHALL answer without waiting for pending analysis, using the last published
+per-document declaration snapshot. Once the first open starts analysis, completion SHALL offer the
+static keywords and built-ins even if no declarations have been parsed yet.
+Diagnostic publication and all other request ordering SHALL remain sequential.
 
 The IDE flushes pending edits and then immediately asks a question about the edited text — formatting on
 save is the clearest case. Concurrent handling would let the question be answered against the text as it
 was before the edit, producing a result that is wrong in a way that looks intermittent.
 
 #### Scenario: Requesting formatting immediately after an edit
-- **WHEN** a change notification is followed by a request for the same document
+- **WHEN** a change notification is followed by a formatting request for the same document
 - **THEN** the request is answered against the changed text
 
+#### Scenario: Completion while a change is being analysed
+- **WHEN** completion arrives while a document analysis is pending
+- **THEN** it returns the last published declaration snapshot without waiting for that analysis
+- **AND** subsequent completion sees the new declarations after that analysis publishes
+
+#### Scenario: Completion before the first analysis finishes
+- **WHEN** completion arrives while the first document analysis is pending
+- **THEN** it answers with static keywords and built-ins without waiting for declarations to be parsed
+
 ### Requirement: The server SHALL answer "nothing found" with an empty result
-Where a request has no answer, the server SHALL return an empty result rather than a protocol-level error.
+Where a request finds nothing, the server SHALL return an empty result rather than a protocol-level error.
+A refused rename SHALL instead return `-32803 RequestFailed` with a message explaining the refusal.
 
 The two are not interchangeable to the caller: an empty result is an ordinary outcome that the editor
 absorbs silently, whereas an error is surfaced. Reporting "no definition at this position" as an error
@@ -95,17 +170,48 @@ turns a normal interaction into a visible failure.
 - **WHEN** a definition is requested at a position with nothing to resolve
 - **THEN** an empty result is returned rather than an error
 
-### Requirement: The server SHALL parse a document once per change
-The server SHALL parse a changed document once and share the resulting tree across the features that need
-it, rather than parsing separately per feature.
+### Requirement: The server SHALL analyse a document once per change
+The server SHALL analyse a changed document once and share the tree that analysis keeps across the features
+that need it, rather than parsing separately per feature. The analysis MAY parse the text again to recover,
+and SHALL keep one tree from those parses for every feature to read.
 
-Diagnostics, document symbols and completion all want the same tree for the same text. Parsing once is
-both faster and safer: separate parses of the same document can disagree if the text changes between them,
-producing symbols that do not match the diagnostics beside them.
+Separate parses per feature can disagree if the text changes between them. A recovery parse cannot: it reads
+the same text inside the same analysis.
 
 #### Scenario: A change requiring diagnostics and symbols
 - **WHEN** a document changes and both diagnostics and symbols are produced
-- **THEN** both are derived from a single parse of that text
+- **THEN** both are derived from the one tree that document's analysis kept for that text
+
+#### Scenario: SLL abandons a parse of valid code
+- **WHEN** the fast SLL prediction abandons a parse, as it does on VB6's call-versus-array ambiguity
+- **THEN** the text is read again with full LL, reusing the lexed tokens, and only that tree is kept
+
+#### Scenario: A conditional block nobody can choose
+- **WHEN** the parse stumbles inside a conditional-compilation block whose branch cannot be chosen
+- **THEN** the text is read again with each such block's last branch, and the tree of whichever parse got
+  further is kept
+
+#### Scenario: An error in a protected line
+- **WHEN** an error lands in the file's header or in a member's `Attribute` lines
+- **THEN** the text is read again with those lines blanked, and that tree is kept
+
+#### Scenario: An analysis abandoned at the parse budget
+- **WHEN** a changed document's parse exceeds the parse budget
+- **THEN** no tree is kept for it, and the features that read a tree go on reading the previous one
+
+### Requirement: Option prefixes preserve procedure parsing on syntax errors
+The server SHALL retain the same procedure tree and syntax diagnostics for a malformed procedure preceded
+by Option lines as for the same source without those lines, with diagnostic positions shifted accordingly.
+It SHALL continue to accept an options-only module with a trailing colon separator.
+
+#### Scenario: Option Explicit before a broken first procedure
+- **WHEN** Option Explicit directly precedes a Sub containing `x = = 1` and `List0.`
+- **THEN** that Sub remains in the parse tree and document symbols
+- **AND** diagnostics match those without the Option line, shifted down one line
+
+#### Scenario: Options only with a trailing separator
+- **WHEN** a module contains only `Option Explicit:` or `Option Explicit: Option Base 1:`
+- **THEN** no syntax diagnostics are produced
 
 ### Requirement: The server SHALL confine itself to syntactic analysis
 The server SHALL operate on the syntax tree only, and SHALL NOT build a bound semantic model, resolve names
@@ -122,6 +228,16 @@ nobody committed to maintaining, and it would make the seam harder to hand over 
 #### Scenario: Checking for undeclared variables
 - **WHEN** the undeclared-variable check runs without a symbol table covering intrinsics, controls and project types
 - **THEN** it is disabled by default, because it cannot distinguish an undeclared variable from a name it simply cannot see
+
+The retained scope analyzer SHALL exclude the names collected from the current form's designer header,
+the class and module names explicitly listed by its single owning `.vbp`, and its fixed built-in list
+(including `vbPixels`, #54). This baseline SHALL NOT bind references across files or enable the live
+check. Project names are supplied only when the project lookup is unambiguous and its compilation
+arguments are valid; a document with no owning project has no project baseline.
+
+#### Scenario: A control beside a real undeclared name
+- **WHEN** a form's header declares `Timer0` and `Label2`, and its code uses them alongside an undeclared name
+- **THEN** the directly invoked analyzer excludes those controls and still reports the undeclared name
 
 ### Requirement: The server SHALL advertise exactly the capabilities it implements
 The bundled server's `initialize` result SHALL declare every feature it has a live handler for, and SHALL
@@ -233,9 +349,10 @@ block, a form's `VERSION` line, object references and designer block, the run of
 the code, and `Attribute` lines describing a member further down. It SHALL report no diagnostic inside any of
 those, and no formatting, rename or highlight answer it gives SHALL change or point inside them, with one
 exception: renaming a member SHALL change that member's own name where it qualifies one of its attribute lines
-(`Attribute Total.VB_Description`), and nothing else on that line. A rename or highlight asked for from a
-position inside any of those lines SHALL have no answer, and so SHALL a rename of a name the designer block
-declares: the form's own, a control's or a menu's, wherever it is asked for. So SHALL a rename to a new name that
+(`Attribute Total.VB_Description`), and nothing else on that line. A highlight asked for from a
+position inside any of those lines SHALL have no answer. A rename there, of a reserved keyword, or of a name
+the designer block declares (the form's own, a control's or a menu's) SHALL be refused with
+`-32803 RequestFailed` and an explanation. So SHALL a rename to a new name that
 is not a VB6 name. A header the server cannot parse SHALL NOT stop it analysing the code after the header.
 
 The client now sends the file rather than the code, because that is the only way a position means the same
@@ -297,7 +414,7 @@ whole file, the code's real errors included, and give no reason why.
 #### Scenario: Renaming a control from its code
 - **GIVEN** a form with a control, and code that refers to it by name
 - **WHEN** a rename is asked for on that name in the code
-- **THEN** there is no answer
+- **THEN** the rename returns `-32803 RequestFailed` with a reason
 
 #### Scenario: Renaming a member that has a description
 - **GIVEN** a property followed by an `Attribute <Name>.VB_Description` line
@@ -307,4 +424,46 @@ whole file, the code's real errors included, and give no reason why.
 #### Scenario: Renaming to a name VB6 does not accept
 - **WHEN** a rename is asked for with a new name that does not start with a letter, holds a character other than
   a letter, a digit or an underscore, or is `Rem`, `Empty`, `New`, `Nothing`, `Me` or `Attribute` in any case
-- **THEN** there is no answer
+- **THEN** the rename returns `-32803 RequestFailed` with a reason
+
+### Requirement: Physical line endings
+
+The server SHALL count CR, LF and CRLF as line ends in every position it reads or sends, including files
+with mixed endings. Formatting and protected-region blanking SHALL preserve the original terminators.
+
+#### Scenario: A diagnostic below a lone CR
+- **WHEN** an opened document contains a syntax error after a lone CR
+- **THEN** the published diagnostic uses the same zero-based physical line and character as the editor
+
+#### Scenario: Protected regions in a file with lone CR endings
+- **WHEN** a whole file uses lone CR line endings
+- **THEN** formatting, rename, highlight and diagnostics respect the same header and member-attribute lines as the IDE
+
+### Requirement: Completion SHALL preserve declaration kinds and unique labels
+The server SHALL return completion labels unique under ordinal case-insensitive comparison, preferring a
+name declared in the document over a static keyword or built-in. The static `Date` entry SHALL be a
+Function. Declared names SHALL carry their syntactic completion kind: Sub as Method, Function as Function,
+Property as Property, Const as Constant, Enum as Enum, enum member as EnumMember, Type as Struct, and
+variables and parameters as Variable.
+
+#### Scenario: Completing a procedure and a variable
+- **WHEN** completion is requested for a document declaring a Sub and a variable
+- **THEN** the Sub has completion kind Method (2) and the variable has kind Variable (6)
+
+#### Scenario: A declaration shadows a static entry
+- **WHEN** a declared name matches a static entry ignoring case
+- **THEN** one item is returned with the declaration's spelling and kind
+
+#### Scenario: Completing Date without a declaration
+- **WHEN** completion is requested for a document without a Date declaration
+- **THEN** Date appears once, with completion kind Function (3)
+
+### Requirement: Symbol and scope visitors SHALL bound parse-tree recursion
+The symbol, declaration and Option Explicit visitors SHALL stop descending at 500 active
+`VisitChildren` calls, so a left-associated expression cannot overflow their call stacks.
+Traversal SHALL continue with subsequent statements after a bounded subtree is skipped.
+
+#### Scenario: A long addition chain below the source-size gate
+- **WHEN** a parsed module contains 100,000 additions followed by declarations and another procedure
+- **THEN** symbol and declaration collection completes and retains the later declarations and procedure
+- **AND** Option Explicit checking can still report an undeclared reference in a later statement

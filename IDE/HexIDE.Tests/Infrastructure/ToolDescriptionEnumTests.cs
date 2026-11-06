@@ -29,14 +29,16 @@ namespace HexIDE.Tests.Infrastructure;
 /// renamed member is caught all the same, because its new name is missing (hexide-io/HexIDE#549).
 /// </para>
 /// </remarks>
+[ToolDescription]
 public class ToolDescriptionEnumTests
 {
     private static readonly Lazy<IReadOnlyDictionary<string, List<Type>>> Enums = new(() =>
-        new[] { "HexIDE", "HexIDE.Core", "HexIDE.Runtime" }
+        new[] { "HexIDE", "HexIDE.Core", "HexIDE.Runtime", "HexIDE.Dap" }
             .Select(Assembly.Load)
             .SelectMany(a => a.GetTypes())
-            // inspect_element renders these Avalonia window enums as names too.
-            .Concat([typeof(Avalonia.Controls.WindowDecorations), typeof(Avalonia.Controls.WindowState)])
+            // inspect_element renders these Avalonia enums as names too.
+            .Concat([typeof(Avalonia.Controls.WindowDecorations), typeof(Avalonia.Controls.WindowState),
+                typeof(Avalonia.Automation.ExpandCollapseState)])
             .Where(t => t.IsEnum)
             .GroupBy(t => t.Name)
             .ToDictionary(g => g.Key, g => g.ToList()));

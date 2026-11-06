@@ -23,6 +23,9 @@ public interface ILocalizationService
     /// <summary>Id of the active pack (e.g. <c>"en"</c>).</summary>
     string ActiveLanguage { get; }
 
+    /// <summary>Resolved UI language tag; pseudo-locales use canonical English.</summary>
+    string ResolvedLanguage { get; }
+
     /// <summary>Selectable languages for the Options Language combo (one per translation + synthetic entries).</summary>
     IReadOnlyList<LanguageInfo> AvailableLanguages { get; }
 

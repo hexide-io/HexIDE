@@ -140,6 +140,7 @@ public static class Vb6TextFile
     /// <item><paramref name="lastReadIn"/>, on a reload, without its byte-order mark: an external editor
     /// that removed the mark has not changed what the file is. Skipped when the last read was the last
     /// resort, which would otherwise accept every later version too, however readable.</item>
+    /// <item><paramref name="recorded"/>, the project file's encoding record, if it strictly reads these bytes.</item>
     /// <item><paramref name="ansi"/>, the host's ANSI code page.</item>
     /// <item><see cref="Vb6TextEncoding.Latin1"/>, which always succeeds; <c>ByteForByte</c> says so, and
     /// the caller warns.</item>
@@ -149,7 +150,7 @@ public static class Vb6TextFile
     /// decoded as text, the mark would sit in front of the first line and hide the header from the parser.
     /// </remarks>
     public static (string Text, Vb6TextEncoding Encoding, bool ByteForByte) ReadDocument(
-        byte[] bytes, Vb6TextEncoding? lastReadIn = null, Vb6TextEncoding? ansi = null)
+        byte[] bytes, Vb6TextEncoding? lastReadIn = null, Vb6TextEncoding? ansi = null, Vb6TextEncoding? recorded = null)
     {
         var marked = bytes.AsSpan().StartsWith(Utf8Bom);
         if (marked && TryDecode(bytes, Vb6TextEncoding.Utf8WithBom, out var text))
@@ -166,6 +167,9 @@ public static class Vb6TextFile
                 return (text, again, false);
         }
 
+        if (recorded is not null && TryDecode(bytes, recorded with { Utf8Bom = marked }, out text))
+            return (text, recorded with { Utf8Bom = marked }, false);
+
         var host = (ansi ?? Vb6TextEncoding.Ansi) with { Utf8Bom = marked };
         if (TryDecode(bytes, host, out text))
             return (text, host, false);
@@ -177,10 +181,10 @@ public static class Vb6TextFile
     /// <summary>Reads text, original bytes for watcher baselines, and encoding for subsequent saves.</summary>
     /// <inheritdoc cref="ReadDocument"/>
     public static async Task<(string Text, byte[] Bytes, Vb6TextEncoding Encoding, bool ByteForByte)> ReadDocumentAsync(
-        string path, Vb6TextEncoding? lastReadIn = null, Vb6TextEncoding? ansi = null)
+        string path, Vb6TextEncoding? lastReadIn = null, Vb6TextEncoding? ansi = null, Vb6TextEncoding? recorded = null)
     {
         var bytes = await File.ReadAllBytesAsync(path);
-        var (text, encoding, byteForByte) = ReadDocument(bytes, lastReadIn, ansi);
+        var (text, encoding, byteForByte) = ReadDocument(bytes, lastReadIn, ansi, recorded);
         return (text, bytes, encoding, byteForByte);
     }
 

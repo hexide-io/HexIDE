@@ -15,6 +15,14 @@ disclosure, consent and the handling of credentials.
 
 ## Requirements
 
+### Requirement: The input row SHALL fit a narrow dock pane
+The assistant view SHALL allow its prompt box to narrow with the dock pane, keeping Send and New within
+the pane at widths of 212 and 254 logical pixels.
+
+#### Scenario: Opening AI Chat in the left dock
+- **WHEN** the panel is allocated 212 or 254 logical pixels of width
+- **THEN** the prompt box has positive width and both buttons fit within the panel
+
 ### Requirement: The model provider SHALL be chosen by the developer
 The assistant SHALL take its endpoint, model and credential from the developer's own configuration, and
 SHALL NOT require any particular provider.
@@ -27,6 +35,12 @@ differently.
 #### Scenario: Pointing the assistant at a different provider
 - **WHEN** the developer configures a different endpoint and model
 - **THEN** the assistant uses them with no change to the IDE
+
+#### Scenario: Reopening after editing settings
+- **WHEN** the developer edits `chat-settings.json` and reopens the existing assistant panel
+- **THEN** the assistant SHALL reload its configuration without an IDE restart and preserve the conversation
+- **AND** if a response is in progress, the reload SHALL wait until that response ends
+- **AND** a missing or malformed file SHALL use the same defaults as at initial construction
 
 #### Scenario: Using a locally-hosted model
 - **WHEN** the configured endpoint is a model server on the developer's own machine
@@ -141,6 +155,11 @@ any other modification.
 #### Scenario: A reply containing code
 - **WHEN** a reply contains a fenced code block
 - **THEN** that block is offered for direct application to the active document
+
+#### Scenario: Applying a block preserves its ending
+- **WHEN** the developer applies a fenced code block
+- **THEN** the panel SHALL remove only the single LF or CRLF immediately before the closing fence
+- **AND** preserve all preceding final line breaks, blank lines and trailing spaces or tabs in the applied content
 
 ### Requirement: A change the IDE refuses SHALL be reported as refused, with its reason
 Where the IDE refuses a change to a file that the assistant asked for, or that the developer applied from a

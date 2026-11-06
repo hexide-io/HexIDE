@@ -25,6 +25,13 @@ public abstract class BaseEditorWindowViewModel : Document, IMdiWindow, IDisposa
     /// </remarks>
     public virtual DocumentIdentity? OpenDocument => null;
 
+    /// <summary>
+    /// Whether this tab can hold changes that have not been saved, the state its <c>*</c> marker
+    /// (<c>IsModified</c>) shows. False for a view with no write path, whose marker is never set: there a clear
+    /// marker means nothing can be saved, not that everything was (#1945).
+    /// </summary>
+    public virtual bool CanHoldUnsavedChanges => true;
+
     // Explicit impl so IMdiWindow.Title routes to Document.Title without ambiguity.
     string IMdiWindow.Title => Title;
 

@@ -264,7 +264,7 @@ public class SeveralFormsTests
         Pump();
 
         run.Errors.Should().BeEmpty();
-        // The Terminates come at the run's end, in the order the forms were made.
+        // The Terminates come at the run's end, in project form order.
         run.Printed.Should().Equal("f2 initialize", "f2 load", "caption Form2", "f2 queryunload 1", "f2 unload",
             "f1 terminate", "f2 terminate");
         run.Task.IsCompleted.Should().BeTrue("no form is loaded");
@@ -802,9 +802,28 @@ public class SeveralFormsTests
         run.Opened["Form2"].IsVisible.Should().BeTrue();
     }
 
-    // `Form2.Show(1)`, with no space, is #1064: vb6.exe compiles it, and HexIDE's grammar refuses every member call statement
-    // spelled that way.
+    [AvaloniaFact]
+    public void Unspaced_parenthesised_member_arguments_show_and_move()
+    {
+        // Oracle: Several forms, measurement 13 (#1064), native and p-code.
+        using var run = Start("""
+            Private Sub Command1_Click()
+                Form2.Show(0)
+                Text1.Move(100)
+                Debug.Print "left " & Text1.Left
+            End Sub
+
+            """);
+        run.Click("Form1");
+        Pump();
+
+        run.Errors.Should().BeEmpty();
+        run.Printed.Should().Equal("f2 initialize", "f2 load", "left 100");
+        run.Opened["Form2"].IsVisible.Should().BeTrue();
+    }
+
     [AvaloniaTheory]
+    [InlineData("Form2.Show(1)")]
     [InlineData("Form2.Show (1)")]
     [InlineData("Call Form2.Show(vbModal)")]
     [InlineData("With Form2: .Show vbModal: End With")]
@@ -933,7 +952,7 @@ public class SeveralFormsTests
     }
 
     [AvaloniaFact]
-    public void The_run_ends_when_the_last_loaded_form_unloads_and_the_Terminates_come_in_the_order_the_forms_were_made()
+    public void The_run_ends_when_the_last_loaded_form_unloads_and_the_Terminates_come_in_project_form_order()
     {
         using var run = Start("""
             Private Sub Command1_Click()

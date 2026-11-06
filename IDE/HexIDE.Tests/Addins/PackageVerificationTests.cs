@@ -4,6 +4,8 @@ using System.Security.Cryptography;
 using System.Text.Json;
 using HexIDE.AddinPacker;
 using HexIDE.Addins;
+using HexIDE.IDE;
+using HexIDE.Localization;
 
 namespace HexIDE.Tests.Addins;
 
@@ -63,14 +65,141 @@ public sealed class PackageVerificationTests : IDisposable
         r.PublisherId.Should().Be("com.hexide.firstparty");
     }
 
+    [Theory]
+    [InlineData(2, "[\"project.read\",\"ui.contribute\"]", false)]
+    [InlineData(2, "[]", false)]
+    [InlineData(1, null, true)]
+    [InlineData(0, "[\"project.write\"]", true)]
+    public void Verified_declaration_preserves_build_identity_and_legacy_state(int schema, string? declaration, bool legacy)
+    {
+        ReSignManifest(_pkg, m => m with
+        {
+            Schema = schema,
+            Capabilities = declaration is null ? null : JsonDocument.Parse(declaration).RootElement.Clone(),
+        });
+        var result = PackageVerification.Verify(_pkg, _rootPub);
+        result.IsVerified.Should().BeTrue();
+
+        var snapshot = result.VerifiedDeclaration;
+        snapshot.Should().NotBeNull();
+
+        snapshot.Should().BeEquivalentTo(new
+        {
+            Id = result.Manifest!.Id,
+            PublisherId = result.PublisherId,
+            ManifestHash = result.ManifestHash,
+            IsLegacy = legacy,
+            Capabilities = legacy ? Array.Empty<string>() :
+                JsonSerializer.Deserialize<string[]>(declaration!)!,
+        });
+        var list = (System.Collections.Generic.IList<string>)snapshot!.Capabilities;
+        list.IsReadOnly.Should().BeTrue();
+        Action mutate = () => list.Add("program.run");
+        mutate.Should().Throw<NotSupportedException>();
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Failed_verification_does_not_expose_a_verified_declaration(bool incompatible)
+    {
+        if (incompatible)
+            ReSignManifest(_pkg, m => m with { Schema = AddinManifest.CurrentSchema + 1 });
+        else
+            File.Delete(Path.Combine(_pkg, "addin.sig"));
+        var result = PackageVerification.Verify(_pkg, _rootPub);
+        result.IsVerified.Should().BeFalse();
+
+        result.VerifiedDeclaration.Should().BeNull();
+    }
+
+    [Fact]
+    public void Registry_exposes_the_verified_declaration_before_consent()
+    {
+        var result = PackageVerification.Verify(_pkg, _rootPub);
+        var verifier = Substitute.For<IPackageVerifier>();
+        verifier.Verify(Arg.Any<string>()).Returns(call => PackageVerification.Verify(call.Arg<string>(), _rootPub));
+        using var registry = new AddinRegistry(
+            verifier, Substitute.For<ISettingsService>(), Substitute.For<IDeveloperModeService>(),
+            Substitute.For<IWindowManager>(), Substitute.For<ILocalizationService>(),
+            new ConsentStore(Path.Combine(_root, "consent.json")),
+            new RevocationStore(rootPub: null, Path.Combine(_root, "revocations")),
+            Path.Combine(_root, "addins.json"), _root);
+        registry.LoadAll(Substitute.For<IHexIdeHost>());
+
+        var info = registry.GetAll().Should().ContainSingle().Which;
+        registry.GetStatus(_pkg).Should().Be(AddinStatus.AwaitingConsent);
+        info.VerifiedDeclaration.Should().NotBeNull();
+        info.VerifiedDeclaration.Should().BeEquivalentTo(result.VerifiedDeclaration);
+    }
+
+    [Theory]
+    [InlineData(3, null)]
+    [InlineData(1, "999.0")]
+    [InlineData(1, "garbage")]
+    [InlineData(1, "")]
+    public void Incompatible_manifest_is_refused_before_trust(int schema, string? minimum)
+    {
+        ReSignManifest(_pkg, m => m with { Schema = schema, MinHexideVersion = minimum });
+        PackageVerification.Verify(_pkg, _rootPub, _firstPartyPub).Verdict.ToString().Should().Be("Incompatible");
+        File.Delete(Path.Combine(_pkg, "addin.sig"));
+
+        var r = PackageVerification.Verify(_pkg, null);
+
+        r.Verdict.ToString().Should().Be("Incompatible");
+        r.ManifestHash.Should().NotBeNullOrEmpty();
+        r.Error.Should().NotBeNullOrEmpty();
+        r.Chain.Should().BeNull();
+    }
+
+    [Theory]
+    [InlineData(0, null)]
+    [InlineData(1, "0.0")]
+    public void Readable_older_manifests_remain_compatible(int schema, string? minimum)
+    {
+        ReSignManifest(_pkg, m => m with { Schema = schema, MinHexideVersion = minimum });
+        PackageVerification.Verify(_pkg, _rootPub).IsVerified.Should().BeTrue();
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(1)]
+    public void Legacy_packages_remain_verifiable_without_a_declaration(int schema)
+    {
+        ReSignManifest(_pkg, m => m with { Schema = schema, Capabilities = null });
+
+        var result = PackageVerification.Verify(_pkg, _rootPub);
+
+        result.IsVerified.Should().BeTrue();
+        result.Manifest!.Schema.Should().Be(schema);
+        result.Manifest.Capabilities.Should().BeNull();
+    }
+
+    [Fact]
+    public void The_running_version_is_an_inclusive_minimum()
+    {
+        ReSignManifest(_pkg, m => m with { MinHexideVersion = typeof(AddinManifest).Assembly.GetName().Version!.ToString(3) });
+        PackageVerification.Verify(_pkg, _rootPub).IsVerified.Should().BeTrue();
+    }
+
+    [Fact]
+    public void Unknown_manifest_members_are_reportable_and_round_trip()
+    {
+        var json = File.ReadAllText(Path.Combine(_pkg, "addin.json"));
+        json = json.Insert(json.LastIndexOf('}'), ",\"futureCapability\":{\"enabled\":true}");
+        var manifest = JsonSerializer.Deserialize(json, AddinJsonContext.Default.AddinManifest)!;
+        var roundTrip = JsonSerializer.Serialize(manifest, AddinJsonContext.Default.AddinManifest);
+        using var doc = JsonDocument.Parse(roundTrip);
+        doc.RootElement.TryGetProperty("futureCapability", out var capability).Should().BeTrue();
+        capability.GetProperty("enabled").GetBoolean().Should().BeTrue();
+    }
+
     // Bug-hunt MED: a locked/unreadable envelope file (e.g. antivirus holding a scan lock on first launch) made
     // File.ReadAllText throw IOException, which unwound through IDE startup instead of yielding a clean verdict.
-    [Fact]
+    [WindowsOnlyFact]
     public void Locked_signature_file_yields_Untrusted_not_an_exception()
     {
         // Windows-only: file locks are advisory on Linux (CI), so FileShare.None wouldn't block the read there.
-        if (!OperatingSystem.IsWindows()) return;
-
         var sig = Path.Combine(_pkg, "publisher.sig");
         using var hold = new FileStream(sig, FileMode.Open, FileAccess.Read, FileShare.None);
 
@@ -100,6 +229,121 @@ public sealed class PackageVerificationTests : IDisposable
 
         r.IsVerified.Should().BeFalse();
         r.Error.Should().Contain("addin signature invalid");
+    }
+
+    [Theory]
+    [InlineData("[\"project.read\"]")]
+    [InlineData("[\"ui.contribute\"]")]
+    [InlineData("[\"ui.contribute\",\"project.read\"]")]
+    public void Declaration_bytes_are_signed_and_hashed(string declaration)
+    {
+        ReSignManifest(_pkg, m => m with
+        {
+            Capabilities = JsonSerializer.SerializeToElement(new[] { "project.read", "ui.contribute" }),
+        });
+        var original = PackageVerification.Verify(_pkg, _rootPub);
+        original.IsVerified.Should().BeTrue();
+        var path = Path.Combine(_pkg, "addin.json");
+        var manifest = JsonSerializer.Deserialize(File.ReadAllBytes(path), AddinJsonContext.Default.AddinManifest)!;
+        File.WriteAllBytes(path, JsonSerializer.SerializeToUtf8Bytes(manifest with
+        {
+            Capabilities = JsonDocument.Parse(declaration).RootElement.Clone(),
+        }, AddinJsonContext.Default.AddinManifest));
+
+        var tampered = PackageVerification.Verify(_pkg, _rootPub);
+
+        tampered.Verdict.Should().Be(PackageVerdict.Untrusted);
+        tampered.Error.Should().Be("addin signature invalid");
+        tampered.ManifestHash.Should().Be(PackageCrypto.Sha256Hex(File.ReadAllBytes(path)));
+        tampered.ManifestHash.Should().NotBe(original.ManifestHash);
+        tampered.Chain.Should().BeNull();
+        ReSignManifest(_pkg, m => m);
+        var resigned = PackageVerification.Verify(_pkg, _rootPub);
+        resigned.IsVerified.Should().BeTrue();
+        resigned.ManifestHash.Should().Be(tampered.ManifestHash);
+        resigned.Manifest!.Capabilities!.Value.EnumerateArray().Select(c => c.GetString())
+            .Should().Equal(JsonDocument.Parse(declaration).RootElement.EnumerateArray().Select(c => c.GetString()));
+    }
+
+    [Theory]
+    [InlineData(2, "[\"project.read\"]", "[\"project.read\",\"project.write\"]")]
+    [InlineData(2, "[\"project.read\"]", "[]")]
+    [InlineData(2, "[\"project.read\",\"ui.contribute\"]", "[\"ui.contribute\",\"project.read\"]")]
+    [InlineData(1, null, "[\"project.read\"]")]
+    [InlineData(0, null, "[\"project.read\"]")]
+    public async Task Resigned_declarations_require_fresh_consent_for_the_same_identity(
+        int schema, string? previousDeclaration, string declaration)
+    {
+        ReSignManifest(_pkg, m => m with
+        {
+            Schema = schema,
+            Capabilities = previousDeclaration is null ? null : JsonDocument.Parse(previousDeclaration).RootElement.Clone(),
+        });
+        var previous = PackageVerification.Verify(_pkg, _rootPub);
+        previous.IsVerified.Should().BeTrue();
+        var consentPath = Path.Combine(_root, "consent.json");
+        new ConsentStore(consentPath).Record(previous.Manifest!.Id, previous.PublisherId!,
+            previous.ManifestHash!, ConsentDecisions.Allow);
+
+        ReSignManifest(_pkg, m => m with
+        {
+            Schema = 2,
+            Capabilities = JsonDocument.Parse(declaration).RootElement.Clone(),
+        });
+        var updated = PackageVerification.Verify(_pkg, _rootPub);
+        updated.IsVerified.Should().BeTrue();
+        updated.Manifest!.Id.Should().Be(previous.Manifest.Id);
+        updated.Manifest.Version.Should().Be(previous.Manifest.Version);
+        updated.PublisherId.Should().Be(previous.PublisherId);
+        updated.ManifestHash.Should().NotBe(previous.ManifestHash);
+
+        var consent = new ConsentStore(consentPath);
+        consent.GetDecision(previous.ManifestHash!).Should().Be(ConsentDecisions.Allow);
+        consent.GetDecision(updated.ManifestHash!).Should().BeNull();
+
+        // Drive discovery and the deferred prompt with real verification, without loading the fixture DLL.
+        var verifier = Substitute.For<IPackageVerifier>();
+        verifier.Verify(Arg.Any<string>()).Returns(call => PackageVerification.Verify(call.Arg<string>(), _rootPub));
+        var windows = Substitute.For<IWindowManager>();
+        windows.ShowDialog(Arg.Any<IDialog>()).Returns(Task.FromResult(false));
+        using var registry = new AddinRegistry(
+            verifier, Substitute.For<ISettingsService>(), Substitute.For<IDeveloperModeService>(),
+            windows, Substitute.For<ILocalizationService>(), consent,
+            new RevocationStore(rootPub: null, Path.Combine(_root, "revocations")),
+            Path.Combine(_root, "addins.json"), _root);
+        registry.LoadAll(Substitute.For<IHexIdeHost>());
+        registry.GetAll().Should().ContainSingle().Which.ManifestHash.Should().Be(updated.ManifestHash);
+        registry.GetStatus(_pkg).Should().Be(AddinStatus.AwaitingConsent);
+
+        await registry.PromptPendingConsentAsync();
+
+        await windows.Received(1).ShowDialog(Arg.Any<IDialog>());
+        var persisted = new ConsentStore(consentPath);
+        persisted.GetDecision(previous.ManifestHash!).Should().Be(ConsentDecisions.Allow);
+        persisted.GetDecision(updated.ManifestHash!).Should().Be(ConsentDecisions.Block);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("null")]
+    [InlineData("{}")]
+    [InlineData("[1]")]
+    [InlineData("[null]")]
+    [InlineData("[\"project.read\",\"project.read\"]")]
+    [InlineData("[\"Project.Read\"]")]
+    [InlineData("[\"unknown\"]")]
+    public void Even_a_valid_signature_cannot_authorize_an_invalid_declaration(string? declaration)
+    {
+        ReSignManifest(_pkg, m => m with
+        {
+            Capabilities = declaration is null ? null : JsonDocument.Parse(declaration).RootElement.Clone(),
+        });
+
+        var result = PackageVerification.Verify(_pkg, _rootPub, _firstPartyPub);
+
+        result.Verdict.Should().Be(PackageVerdict.Incompatible);
+        result.Error.Should().Be("invalid capabilities declaration");
+        result.Chain.Should().BeNull();
     }
 
     [Fact]

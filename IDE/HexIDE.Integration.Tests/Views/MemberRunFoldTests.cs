@@ -10,6 +10,7 @@ using Avalonia.Headless.XUnit;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
 using AvaloniaEdit;
 using AvaloniaEdit.Document;
 using AvaloniaEdit.Folding;
@@ -161,8 +162,13 @@ public class MemberRunFoldTests : IDisposable
     }
 
     /// <summary>The fold starting at the end of the line holding <paramref name="declaration"/>, if there is one.</summary>
-    private static FoldingSection? RunFold(TextEditor editor, string declaration, int nth = 0) =>
-        Folding(editor).GetFoldingsAt(LineWith(editor, declaration, nth).EndOffset).SingleOrDefault();
+    private static FoldingSection? RunFold(TextEditor editor, string declaration, int nth = 0)
+    {
+        var anchor = LineWith(editor, declaration, nth).EndOffset;
+        var run = ReadOnlyRegions.MemberRuns(editor.Document.Text, 0).FirstOrDefault(r => r.Anchor == anchor);
+        return run is null ? null : Folding(editor).GetFoldingsAt(anchor)
+            .SingleOrDefault(f => f.EndOffset == run.LastContentEnd);
+    }
 
     /// <summary>The server's fold of the Sub, 0-based as a server sends it.</summary>
     private static FoldingRange[] ServerFoldsTheSub(CodeEditorViewModel vm)
@@ -183,6 +189,14 @@ public class MemberRunFoldTests : IDisposable
     private void ServerStateChanged()
     {
         lsp.StateChanged += Raise.Event<EventHandler>(lsp, EventArgs.Empty);
+        Dispatcher.UIThread.RunJobs();
+    }
+
+    // Through the command's handler, not its key: the gesture differs by platform and macOS has none (#1014),
+    // and ApplicationCommandsTests pins the gesture itself.
+    private static void ToggleFold(TextEditor editor)
+    {
+        editor.FindAncestorOfType<CodeEditorView>()!.ToggleFold();
         Dispatcher.UIThread.RunJobs();
     }
 
@@ -209,6 +223,66 @@ public class MemberRunFoldTests : IDisposable
     }
 
     private static int Caret(TextEditor editor) => editor.TextArea.Caret.Offset;
+
+    [AvaloniaTheory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task ToggleFoldOnTheDeclarationTogglesTheRunAlone(bool initiallyFolded)
+    {
+        folds = ServerFoldsTheSub;
+        var vm = Open(Procedure);
+        var (_, editor) = Show(vm);
+        await SettleFolding();
+        var run = RunFold(editor, "Public Sub Go()")!;
+        run.IsFolded = initiallyFolded;
+        var declaration = LineWith(editor, "Public Sub Go()");
+        PutCaret(editor, declaration.Offset + 3);
+
+        ToggleFold(editor);
+
+        run.IsFolded.Should().Be(!initiallyFolded);
+        Folding(editor).GetFoldingsAt(declaration.EndOffset).Single(f => f.EndOffset == LineWith(editor, "End Sub").EndOffset).IsFolded.Should().BeFalse();
+    }
+
+    [AvaloniaFact]
+    public async Task ToggleFoldInsideTheRunMovesTheCaretToItsAnchorAndSurvivesReload()
+    {
+        folds = ServerFoldsTheSub;
+        var vm = Open(Procedure);
+        var (_, editor) = Show(vm);
+        await SettleFolding();
+        var run = RunFold(editor, "Public Sub Go()")!;
+        PutCaret(editor, LineWith(editor, "Attribute Go.VB_Description").Offset + 5);
+        run.IsFolded.Should().BeFalse("the caret opened the run");
+
+        ToggleFold(editor);
+
+        run.IsFolded.Should().BeTrue();
+        Caret(editor).Should().Be(run.StartOffset);
+        Folding(editor).GetFoldingsAt(LineWith(editor, "Public Sub Go()").EndOffset).Single(f => f.EndOffset == LineWith(editor, "End Sub").EndOffset).IsFolded.Should().BeFalse();
+        Dispatcher.UIThread.RunJobs();
+        vm.ReloadFrom(vm.Document.Text[..vm.BufferPrefixLength], vm.BufferBody + "\r\n");
+        Dispatcher.UIThread.RunJobs();
+        RunFold(editor, "Public Sub Go()")!.IsFolded.Should().BeTrue();
+        await SettleFolding();
+        RunFold(editor, "Public Sub Go()")!.IsFolded.Should().BeTrue();
+    }
+
+    [AvaloniaFact]
+    public async Task ToggleFoldInsideTheBodyFoldsTheProcedureAndMovesTheCaret()
+    {
+        folds = ServerFoldsTheSub;
+        var vm = Open(Procedure);
+        var (_, editor) = Show(vm);
+        await SettleFolding();
+        PutCaret(editor, LineWith(editor, "Debug.Print 1").Offset + 5);
+        var procedure = Folding(editor).GetFoldingsAt(LineWith(editor, "Public Sub Go()").EndOffset).Single(f => f.EndOffset == LineWith(editor, "End Sub").EndOffset);
+
+        ToggleFold(editor);
+
+        procedure.IsFolded.Should().BeTrue();
+        Caret(editor).Should().Be(procedure.StartOffset);
+    }
 
     // ── The delta's scenario ────────────────────────────────────────────────────────────────────────────────
 
@@ -270,12 +344,12 @@ public class MemberRunFoldTests : IDisposable
         await SettleFolding();
 
         var declaration = LineWith(editor, "Public Sub Go()");
-        var procedure = Folding(editor).GetFoldingsAt(declaration.Offset).Single();
+        var procedure = Folding(editor).GetFoldingsAt(declaration.EndOffset).Single(f => f.EndOffset == LineWith(editor, "End Sub").EndOffset);
         var run = RunFold(editor, "Public Sub Go()")!;
         procedure.EndOffset.Should().Be(LineWith(editor, "End Sub").EndOffset, "the premise: the server's fold is the Sub");
         procedure.IsFolded.Should().BeFalse("a server's fold opens expanded, as it always has");
         run.IsFolded.Should().BeTrue("and the run's inside it is folded");
-        (run.StartOffset > procedure.StartOffset && run.EndOffset < procedure.EndOffset).Should().BeTrue("nested");
+        (run.StartOffset == procedure.StartOffset && run.EndOffset < procedure.EndOffset).Should().BeTrue("nested");
 
         procedure.IsFolded = true;
         Dispatcher.UIThread.RunJobs();
@@ -284,6 +358,42 @@ public class MemberRunFoldTests : IDisposable
         procedure.IsFolded = false;
         Dispatcher.UIThread.RunJobs();
         run.IsFolded.Should().BeTrue("and opening it again leaves the run as it was");
+
+        foreach (var folded in new[] { false, true })
+        {
+            run.IsFolded = folded;
+            ServerStateChanged();
+            await SettleFolding();
+            RunFold(editor, "Public Sub Go()")!.IsFolded.Should().Be(folded);
+            Folding(editor).AllFoldings.Should().HaveCount(2);
+        }
+    }
+
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ARunKeepsItsStateWhenTheSameStartProcedureFoldDisappears(bool runFolded)
+    {
+        folds = ServerFoldsTheSub;
+        var vm = Open(Procedure);
+        var (_, editor) = Show(vm);
+        await SettleFolding();
+        var run = RunFold(editor, "Public Sub Go()")!;
+        var procedure = Folding(editor).GetFoldingsAt(run.StartOffset)
+            .Single(f => f.EndOffset == LineWith(editor, "End Sub").EndOffset);
+        run.IsFolded = runFolded;
+        procedure.IsFolded = !runFolded;
+
+        folds = _ => [];
+        ServerStateChanged();
+        await SettleFolding();
+
+        Folding(editor).AllFoldings.Should().ContainSingle();
+        RunFold(editor, "Public Sub Go()")!.IsFolded.Should().Be(runFolded);
+        ServerStateChanged();
+        await SettleFolding();
+        RunFold(editor, "Public Sub Go()")!.IsFolded.Should().Be(runFolded,
+            "the surviving section must still be recognised as the run");
     }
 
     [AvaloniaFact]
@@ -955,6 +1065,53 @@ public class MemberRunFoldTests : IDisposable
     }
 
     [AvaloniaFact]
+    public void SelectAllInAFileThatARunEndsSelectsTheRunButLeavesTheCaretAtTheDeclaration()
+    {
+        // #1019: retain this edge case; the measured VB6-saved corpus has final line breaks.
+        var vm = Open("Option Explicit\r\n\r\nPublic Total As Long\r\nAttribute Total.VB_VarDescription = \"The total\"");
+        var (_, editor) = Show(vm);
+        var fold = RunFold(editor, "Public Total As Long")!;
+        fold.IsFolded.Should().BeTrue();
+        fold.EndOffset.Should().Be(vm.Document.TextLength, "the premise: the run ends the file");
+        PutCaret(editor, LineWith(editor, "Option Explicit").Offset);
+
+        editor.FindAncestorOfType<CodeEditorView>()!.SelectAll.Execute(null);
+        Dispatcher.UIThread.RunJobs();
+
+        editor.SelectionStart.Should().Be(0);
+        editor.SelectionLength.Should().Be(vm.Document.TextLength);
+        Caret(editor).Should().Be(fold.StartOffset);
+        fold.IsFolded.Should().BeTrue();
+
+        Press(editor, Key.Left, KeyModifiers.Shift);
+
+        editor.SelectionStart.Should().Be(0);
+        editor.SelectionLength.Should().Be(fold.StartOffset - 1);
+        Caret(editor).Should().Be(fold.StartOffset - 1);
+        fold.IsFolded.Should().BeTrue();
+    }
+
+    [AvaloniaFact]
+    public void SelectToDocumentEndInAFileThatARunEndsSelectsOnlyToTheDeclaration()
+    {
+        var vm = Open("Option Explicit\r\n\r\nPublic Total As Long\r\nAttribute Total.VB_VarDescription = \"The total\"");
+        var (_, editor) = Show(vm);
+        var fold = RunFold(editor, "Public Total As Long")!;
+        fold.IsFolded.Should().BeTrue();
+        fold.EndOffset.Should().Be(vm.Document.TextLength, "the premise: the run ends the file");
+        var start = LineWith(editor, "Option Explicit").EndOffset;
+        PutCaret(editor, start);
+
+        EditingCommands.SelectToDocumentEnd.Execute(null, editor.TextArea);
+        Dispatcher.UIThread.RunJobs();
+
+        editor.SelectionStart.Should().Be(start);
+        editor.SelectionLength.Should().Be(fold.StartOffset - start);
+        Caret(editor).Should().Be(fold.StartOffset);
+        fold.IsFolded.Should().BeTrue();
+    }
+
+    [AvaloniaFact]
     public async Task AServersFoldOfTheAttributeLinesThemselvesNestsInsideTheRunsFoldAndTheCaretRuleStillHolds()
     {
         // A server that folds the run's own lines, from the first's start to the last's end: inside the run's fold, so
@@ -974,7 +1131,7 @@ public class MemberRunFoldTests : IDisposable
         var first = LineWith(editor, "Attribute Go.VB_Description");
         var last = LineWith(editor, "Attribute Go.VB_UserMemId");
         Folding(editor).AllFoldings.Select(f => (f.StartOffset, f.EndOffset, f.IsFolded)).Should().Equal(
-            [(declaration.EndOffset, last.EndOffset, true), (first.Offset, last.EndOffset, false)]);
+            [(declaration.EndOffset, last.EndOffset, true), (first.EndOffset, last.EndOffset, false)]);
         PutCaret(editor, declaration.Offset);
         Press(editor, Key.End);
         Caret(editor).Should().Be(declaration.EndOffset);

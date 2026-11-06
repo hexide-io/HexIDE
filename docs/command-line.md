@@ -1,11 +1,12 @@
 # Command line
 
-HexIDE runs with no arguments and opens its startup dialog. Everything below is optional, and exists to
-skip a step you would otherwise take by hand, or to turn on something that has to be on before the IDE
-finishes starting.
+HexIDE runs with no arguments and opens its startup dialog. Desktop startup runs when the main window
+opens, even on an X display without a window manager to activate it (#1964). Everything below is optional,
+and exists to skip a step you would otherwise take by hand, or to turn on something that has to be on before
+the IDE finishes starting.
 
 ```text
-HexIDE.Desktop [options] [<project>.vbp]
+HexIDE.Desktop [options] [<project>.vbp | <group>.vbg | <project>.twinproj]
 ```
 
 **Both prefixes work.** `--newproject` and `/newproject` are the same flag, and both are matched
@@ -21,18 +22,19 @@ most people will type today.
 | `--newproject-unsaved` | — | Creates a Standard EXE without writing project or component files and skips the startup dialog. Save Project asks where to put them. |
 | `--capture-lsp` | — | Arms the [protocol capture](lsp-client.md#reading-the-conversation) for every language-server connection before the first one is made. |
 | `--user-data-dir` | a directory | Keeps this session's settings and other per-user files there instead of the usual place. See below. |
-| `--personality` | `vb6`, `vbaode`, `vba` | Selects the IDE personality for the session. |
+| `--profile` | a name, directory, or `none` | Selects a base profile for this session; omission selects embedded `vb6`. |
 | `--server-port` | a port number | Starts the automation server on that port. **Debug builds only** — see below. |
 | `--session` | a name | Serves automation only to the agent session of that name. **Debug builds only** — see below. |
 | `--developer-mode` | — | Turns on session developer mode. **Debug builds only** — see below. |
 | `--ansi-code-page` | a Windows code page number, such as `932` | Reads and writes VB6 sources as a machine whose ANSI code page is that one would. **Debug builds only** — see below. |
-| *(positional)* | a path ending `.vbp` | Opens that project instead of showing the startup dialog. Relative to where you ran HexIDE from. |
+| `--dpi-unaware` | — | Runs the IDE at scale 1 on a Windows display scaled above 100%, so a layout can be checked as a 100% display shows it. Windows only. **Debug builds only** — see below. |
+| *(positional)* | a path ending `.vbp`, `.vbg` or `.twinproj` | Opens that project or project group instead of showing the startup dialog; a `.twinproj` opens read-only. Absolute paths are accepted, including Unix paths beginning `/`; relative paths are relative to where you ran HexIDE from. |
 
 ## The ones that behave differently in a distributed build
 
 This asymmetry is deliberate and it is easy to read the wrong way round.
 
-**`--server-port`, `--session`, `--developer-mode` and `--ansi-code-page` are inert in a release build.** The automation
+**`--server-port`, `--session`, `--developer-mode`, `--ansi-code-page` and `--dpi-unaware` are inert in a release build.** The automation
 server is compiled out entirely, and developer mode is hard-disabled, so a distributed binary opens no port
 and cannot be put into developer mode however it is launched. Nor can it be told to read files as another
 machine would: what a release reads a file as is what the machine it runs on reads it as. None of the four
@@ -52,6 +54,15 @@ changing the machine's own settings. A value that is not a code page this platfo
 HexIDE starting, with exit code 2, rather than run as this machine and look as though it had worked. That
 includes 65001: what VB6 does on a Windows set to UTF-8 is not settled.
 
+**`--dpi-unaware` shows the IDE as a 100% display would.** On a display scaled to 150%, HexIDE renders at scale
+1.5, and `take_snapshot` returns 1.5 image pixels for every device-independent one. With this flag Windows tells HexIDE
+the display is at 96 DPI. So it renders at scale 1, `take_snapshot` of an 860 × 640 window is 860 × 640, and the
+layout reads as it would at 100%. On the screen itself, Windows stretches the window to the display's scaling, so it
+looks blurred there, and `get_window_state` says so. It gives scale 1 and nothing else: Avalonia's Windows platform offers
+no other scale, so there is no way to show 150% on a display at 100%. `AVALONIA_GLOBAL_SCALE_FACTOR` is read only
+by Avalonia's X11 platform. On Linux and macOS the flag stops HexIDE starting, with exit code 2, rather than run at the
+display's own scale and look as though it had worked.
+
 **`--user-data-dir` keeps a session away from your real settings.** Everything HexIDE stores per user
 lives in one directory — `settings.json`, the window layout, recent projects, [`lsp-servers.json`](language-servers.md),
 add-in consent and revocations, your own translations. Point this flag at another directory and all of it is
@@ -69,7 +80,12 @@ HexIDE.Desktop --user-data-dir ./demo-profile
   are kept in the registry key VB6 itself uses, so a program run in HexIDE and the same program compiled by
   VB6 share them, and this flag does not move them. Elsewhere they are in `program-settings.json` in this
   directory.
-- **Logs are not per-user files** and stay in their usual place.
+- **Copies of unsaved work move with it.** [Crash recovery](crash-recovery.md) normally keeps them apart from
+  your settings, in a local directory that never roams. Under this flag they are in `Recovery` in this directory, so
+  a session's copies stay with the session.
+- **Logs are not per-user files** and stay in their usual place. IDE log pruning keeps at least the seven
+  most recent sessions and deletes an older session only when all its parts were last modified more than
+  seven days ago. Frequent launches across profiles do not shorten that window.
 - **Add-ins still load.** They live beside the executable, not in this directory; only the record of which
   ones you allowed moves, so a fresh profile asks about each third-party add-in again.
 - **A malformed one refuses to start, as a malformed `--server-port` does.** Given with nothing after it —
@@ -99,6 +115,8 @@ from `HEXIDE_SESSION`. Any other call is answered with an error saying whose IDE
 run. Listing the tools still works, and so does `/health`, which reports the `session` beside the `pid`. Without the
 flag, a client that names no session is served, as before, and one that names a session is refused: it was meant for an
 IDE started for it. Two clients that both name none cannot be told apart, so this does not separate those.
+The status bar shows the port and the session, as `MCP :5140 · docs-pass`, so a person can tell several sessions' IDEs
+apart, and hovering over it shows the build directory, the last call and any calls refused from other sessions.
 A session's name is matched as plain ASCII: Claude Code sends the header in Latin-1, and the server refuses a header
 byte outside ASCII as a malformed request, which the client counts towards dropping its tools. Like `--user-data-dir`, it refuses to start with exit code 2 when given
 nothing after it, because starting would serve every session's client, which is what it was given to prevent. It is a
@@ -106,27 +124,53 @@ guard against mistakes between cooperating sessions, not access control: the hea
 `scripts/dev-ide.ps1` launcher passes it from `HEXIDE_SESSION`; `CLAUDE.md` describes the setup under *Parallel
 sessions*.
 
-**`--personality` takes one of three names**, matched case-insensitively: `vb6`, `vbaode`, `vba`.
+**`--profile` selects a bundle once per launch**, in Debug and Release. The value is classified in order:
+exact `none`, a path (rooted, starting with `.`, or containing `/` or backslash), then a lower-case bundle
+name. Relative paths resolve where you invoked HexIDE; use `./example` for a directory rather than a name.
+The built-in names `vb6`, `vbaode` and `vba` are reserved and always select embedded bundles. Other names
+load only from `profiles/<name>/profile.json` inside the active user-data directory. The user-data flag
+may appear before or after the profile flag. An explicit path can select a bundle with a built-in id.
+Selection is never saved. Missing/repeated selectors or invalid bundles refuse startup with exit code 2;
+bundle errors name the source and file to check. Saved user choices override bundle defaults and packs.
+
+The built-ins retain today's References placement and New Project offerings: `vb6` offers all eight
+entries with Project References; `vbaode` offers Standard EXE with Tools References; `vba` offers none
+with Tools References. The toolbar Add Project flyout uses the same ordered offerings, with a disabled explanation when none are offered (#418).
+`--profile none` is a recovery launch: it loads no bundle, discovered user keymaps, user translations,
+saved settings/layout or add-ins. It starts with baseline project offerings and References placement,
+Default keymap, Classic theme and neutral English. A persistent localized window-title notice identifies
+the recovery session and says settings changes will not be saved (#2888). Settings, layout and translation edits stay in
+memory; the language confirmation gate and automation reply describe language changes as session-only. Those saved files are neither overwritten nor deleted, including when resetting the layout.
+Explicit project paths and the new-project flags still work. This bypasses customization only: language
+server configuration and launch retain their usual behaviour, and this is no network/process sandbox.
+
+The old personality flag (`--personality <name>` or `/personality <name>`) now refuses startup with
+exit code 2 and an actionable message naming the three replacement profile commands. This also applies
+beside a valid profile flag. Help-only requests still succeed.
 
 **Paths are relative to where you ran HexIDE from.** HexIDE moves its working directory to its own folder as
 it starts, and used to resolve the project path *after* that move — so `HexIDE.Desktop ../demo/x.vbp` looked
 beside the executable, found nothing, and opened nothing without saying so.
 
-**The positional path must end in `.vbp`.** A `.vbg` project group cannot currently be opened from the
-command line even though the IDE opens groups perfectly well from **File → Open Project** — the argument
-is matched on the `.vbp` extension alone. Tracked as a gap rather than a decision.
+**The positional path must end in `.vbp`, `.vbg` or `.twinproj`**, matched case-insensitively. A `.vbg` opens
+the whole project group, as **File → Open Project** does, and a `.twinproj` opens read-only, for browsing its
+sources (#1189). Any other path is not taken as a project.
 
 **Almost nothing is rejected.** An argument HexIDE does not recognise — a misspelled flag, a value in the wrong
-place, a `.vbg` path, an unknown personality — is skipped in silence and the IDE starts normally. The
+place, or a path that isn't a project — is skipped in silence and the IDE starts normally. The
 exceptions are the flags whose whole purpose would be defeated by carrying on without them: a
 `--user-data-dir` with no directory, a `--session` with no name, a `--server-port` with no usable port, and an
-`--ansi-code-page` HexIDE has no table for. So a flag
+`--ansi-code-page` HexIDE has no table for, `--dpi-unaware` anywhere but Windows, malformed profile selection, a rejected profile bundle, or
+the removed personality flag. So a flag
 that appears to have done nothing has usually not been read at all. Worth checking the spelling before
 looking for a deeper cause, and `--help` will tell you how a flag is spelled.
 
 **`--help` is answered before anything starts.** No window, no project, no port — it prints and exits. On
 Windows it writes to the console that launched it: HexIDE is a GUI program and owns no console of its own,
 so run from a shortcut or Explorer there is nowhere for the text to go and nothing appears.
+An inherited file or pipe is used directly, before trying to attach to a console. In particular, a
+Windows batch file can capture help and refusals with `HexIDE.Desktop.exe --help > out.txt 2>&1`,
+even when the batch file's cmd has no console window.
 
 **The mark at the top is in colour where the terminal can show it.** That means output going to a
 terminal rather than a file or pipe, `NO_COLOR` unset, `TERM` not set to `dumb`, and a terminal that takes
@@ -145,7 +189,7 @@ next mark row down, which arrives as the mark sliced into bands with text betwee
 | Code | Meaning |
 |---|---|
 | 0 | HexIDE ran and closed normally, or `--help` answered. |
-| 2 | The command line was refused before anything started: `--user-data-dir` without a directory, `--session` without a name, `--server-port` without a port from 1 to 65535, or `--ansi-code-page` without a code page this platform can read (the last three in Debug builds only). |
+| 2 | The command line was refused before anything started: `--user-data-dir` without a directory, `--session` without a name, `--server-port` without a port from 1 to 65535, `--ansi-code-page` without a code page this platform can read, or `--dpi-unaware` anywhere but Windows (the last four in Debug builds only); also malformed profile selection, a rejected bundle, or the removed personality flag. |
 | 3 | The automation server's port was already in use. Debug builds only. |
 | 4 | The automation server could not start for any other reason; the message gives the cause. Debug builds only. |
 
@@ -174,8 +218,8 @@ HexIDE.Desktop --newproject-unsaved
 # Record every language-server conversation from its first handshake
 HexIDE.Desktop --capture-lsp C:\src\Battleship\Battleship.vbp
 
-# The VBA personality
-HexIDE.Desktop --personality vba
+# The VBA profile
+HexIDE.Desktop --profile vba
 
 # Debug builds: drive the IDE from an automation client on port 5123
 HexIDE.Desktop --server-port 5123 --newproject

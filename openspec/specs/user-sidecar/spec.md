@@ -48,6 +48,18 @@ mark is missing on the next opening.
 - **WHEN** another program holds the sidecar as a change is written, and the project is closed afterwards
 - **THEN** the change is in the sidecar when the project is next opened
 
+### Requirement: What F5 runs SHALL be per-user project state
+The user's choice of what F5 runs for a project, the interpreter or a launch an add-in contributes (`dap-client`),
+SHALL be kept in the sidecar as `runWith`, by the launch's add-in and title, and absent for the interpreter. The
+interpreter is the default, so it SHALL NOT cause a sidecar to be written.
+
+One developer runs a project under an add-in's debugger and another in the IDE, so the choice is theirs, not the
+project's, and it belongs with their breakpoints.
+
+#### Scenario: Choosing a launch for F5
+- **WHEN** the user chooses an add-in's launch for F5 and later reopens the project
+- **THEN** F5 is still set to run that launch
+
 ### Requirement: The sidecar SHALL be named predictably from the project
 The sidecar SHALL be named from the project file's name with a distinct extension, in the same directory.
 
@@ -132,7 +144,8 @@ not saved until it is repaired or removed and the project opened again, which th
 When the sidecar is applied to a project, a bookmark or breakpoint on a line its document does not have SHALL
 be dropped, the drop SHALL be logged with the document and the lines, and the sidecar SHALL next be written
 without it. A bookmark or breakpoint on a read-only line of its document — a line of the file's header, or an
-`Attribute` line describing a member — SHALL be dropped, logged and left out of the next write in the same way.
+`Attribute` line describing a member — SHALL be dropped, logged and left out of the next write in the same way,
+except file-relative header entries (versions 2 and 3), which SHALL retain their file numbering as specified below.
 
 Such a mark is drawn nowhere and never hit, so keeping it helps nobody. Yet it is reported by every query and
 written back on every save. It arises from a document shortened outside the IDE, from a hand-edited sidecar,
@@ -143,7 +156,8 @@ code, before it is moved: a line before the first would otherwise be moved into 
 as a line the document has. A mark is dropped rather than moved, because nothing records which line it was
 meant for.
 
-A read-only line never runs, so a breakpoint there is never hit, and a bookmark there marks a line the IDE
+File-relative header entries are retained at their file lines as specified below (#884); version 1 marks
+that migrate onto a header and all member Attribute marks still follow the refusal. A read-only line never runs, so a breakpoint there is never hit, and a bookmark there marks a line the IDE
 writes rather than the developer. Nothing in the IDE can set one there, so one arrives only from a sidecar: from
 a version that did not refuse such lines, or as an earlier sidecar's mark moved onto one, because the code window
 used to show a form's leading `Attribute` lines, and every `Attribute` line describing a member, as code that
@@ -179,8 +193,8 @@ form it already began at that file's leading attribute lines, so shifting by the
 by their number. It is whatever is now shown above the old first line.
 
 A shift cannot be determined when the project has no such document, or when the document's file is missing or
-unreadable — and a module whose file is missing is still one of the project's documents, so the rule turns on
-whether the shift is known rather than on whether the document exists. Guessing would misplace a mark, and
+unreadable. A preserved missing module's name SHALL also make a shared-name entry unplaceable for a loaded
+document: the entry cannot be half applied. Guessing would misplace a mark, and
 dropping the entry would lose it; keeping it untouched does neither, and a later opening can still migrate
 it.
 
@@ -217,3 +231,33 @@ length.
 - **GIVEN** a migrated sidecar into which an earlier version has since written marks of its own
 - **WHEN** the project is opened
 - **THEN** the marks of both versions are shown, each on the statement it was set on
+
+### Requirement: Code marks SHALL be anchored after the document header
+Version 3 SHALL write code marks under `codeBookmarks` and `codeBreakpoints`, counted from the first line after
+`CodeWindowText.HeaderLineCount` (the prefix and leading Attribute block). Bookmarks SHALL remain 0-based and
+breakpoints 1-based within that code. A mark on a header line SHALL instead be written under `headerBookmarks`
+or `headerBreakpoints`, counted from the top of the file with the same bases, and restored at that file line.
+This preserves existing header marks without allowing the editor to set new ones there. Member Attribute lines
+SHALL remain subject to the read-only-line refusal.
+
+Version 1 and 2 entries SHALL be migrated on open, whatever the version field says, joined with version 3 marks,
+and removed only when their documents can be measured. Missing documents' entries SHALL be carried unchanged.
+A successful migration SHALL rewrite the sidecar immediately; a failed write SHALL leave migration owed.
+New marks SHALL NOT be written under older keys: older builds ignore the new keys and preserve them under #466,
+so their rewrites cannot leave stale header metadata beside marks they have moved. Builds predating #466 can
+still lose unknown content, as with version 2.
+
+#### Scenario: A conflicted external header change followed by a reopen
+- **GIVEN** code bookmarks and breakpoints saved in version 3
+- **WHEN** an external edit changes the header length, is classified as a conflict and stays unapplied, and the
+  project is closed and reopened
+- **THEN** the marks are on the same code statements beneath the new header
+
+#### Scenario: An older build writes beside version 3 marks
+- **GIVEN** version 3 marks and older marks written under version 1 or 2 keys
+- **WHEN** the project opens
+- **THEN** both sets are restored in their own numbering and the older entries are migrated
+
+#### Scenario: A mark already on a header line
+- **WHEN** a version 3 header mark is restored after the header changes length
+- **THEN** it remains counted from the file's top

@@ -204,7 +204,7 @@ public class RunFaultTests
             printed.Should().Equal("loaded");
             Click(window);
             run.RunFailed.Should().ContainSingle().Which.Should()
-                .Be("Not implemented yet: The Print method is not implemented for Form1");
+                .Be($"Not implemented yet: The Print method is not implemented for Form1\n\nat {statement}");
             printed.Should().Equal("loaded");
             AssertNothingIsRunning(run);
         }
@@ -492,6 +492,59 @@ public class RunFaultTests
         faults.Should().ContainSingle("the fault itself was raised, so the silence below is not vacuous");
         run.RunFailed.Should().BeEmpty("a run that has ended no longer listens");
         AssertNothingIsRunning(run);
+    }
+
+    [AvaloniaTheory]
+    [InlineData(false, false, false)]
+    [InlineData(false, false, true)]
+    [InlineData(false, true, false)]
+    [InlineData(false, true, true)]
+    [InlineData(true, false, false)]
+    [InlineData(true, false, true)]
+    [InlineData(true, true, false)]
+    [InlineData(true, true, true)]
+    public void Another_runs_fault_or_End_cannot_end_the_current_run(bool subMain, bool end, bool stale)
+    {
+        var run = subMain
+            ? SubMainProject("Sub Main()\r\nForm1.Show\r\nEnd Sub\r\n")
+            : FormProject("Private Sub Form_Load()\r\nDebug.Print \"current\"\r\nEnd Sub\r\n");
+        if (subMain)
+        {
+            var form = new FormDeserializer().Deserialize(run.Project, FormWithButton, NullSink.Instance)!;
+            form.UpdateCode("Private Sub Form_Load()\r\nEnd Sub\r\n");
+            run.Project.AddForm(form);
+        }
+        // A prior interpreter on the same controller, or an unrelated interpreter.
+        var otherController = new DebugController();
+        otherController.Reset();   // same generation as the new run, but a different controller
+        var stray = new VBWindowContext(Substitute.For<IBasicStandardLibrary>());
+        stray.SetCode(end ? "Sub Stray()\r\nEnd\r\nEnd Sub\r\n" : ReachesGoSub("Stray"),
+            "OldForm", stale ? run.Controller : otherController);
+        var raised = 0;
+        void OnFaulted(VBWindowContext sender, Exception _) { if (ReferenceEquals(sender, stray)) raised++; }
+        void OnEnd(BasicInterpreter sender) { if (ReferenceEquals(sender, stray.Interpreter)) raised++; }
+        VBWindowContext.Faulted += OnFaulted;
+        BasicInterpreter.EndReached += OnEnd;
+        try
+        {
+            Start(run, []);
+            run.Controller.State.Should().Be(DebugState.Running);
+            // Run the leftover event past its debug gate to exercise listener ownership independently of the yield fix.
+            stray.Interpreter!.DebugController = null;
+            stray.ExecuteSub("Stray");
+            Pump();
+            raised.Should().Be(1, "the old event must actually reach the static listener");
+            run.Runner.IsRunning.Should().BeTrue();
+            run.Controller.State.Should().Be(DebugState.Running);
+            run.RunFailed.Should().BeEmpty();
+        }
+        finally
+        {
+            VBWindowContext.Faulted -= OnFaulted;
+            BasicInterpreter.EndReached -= OnEnd;
+            run.Runner.EndProject();
+            Pump();
+        }
     }
 
     // ── Sub Main ─────────────────────────────────────────────────────────────────────────────────

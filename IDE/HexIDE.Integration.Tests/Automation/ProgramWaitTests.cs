@@ -5,6 +5,7 @@ using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
 using Avalonia.LogicalTree;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
 using HexIDE.Automation;
 using HexIDE.Debugging;
 using HexIDE.Events;
@@ -91,7 +92,7 @@ public class ProgramWaitTests
     }
 
     // The time slice is -1 by default, so every statement yields and is held; null leaves DoEvents a loop's only yield.
-    private static Run Start(string code, string? form2Code = null, int? timeSliceMs = -1)
+    private static Run Start(string code, string? form2Code = null, int? timeSliceMs = -1, DISetup? composition = null)
     {
         var project = new ProjectDefinition(VBProjectType.EXE, "P");
         // The code follows the header in one file, so a breakpoint's line counts the header, as the code window does.
@@ -104,8 +105,9 @@ public class ProgramWaitTests
 
         var localization = Substitute.For<ILocalizationService>();
         localization.GetString(Arg.Any<string>()).Returns(call => call.Arg<string>() + ": {0}");
-        var controller = new DebugController { TimeSliceMs = timeSliceMs };
-        var runner = new ProjectRunnerService(
+        var controller = composition is null ? new DebugController() : (DebugController)composition.DebugController;
+        controller.TimeSliceMs = timeSliceMs;
+        var runner = composition?.ProjectRunnerService as ProjectRunnerService ?? new ProjectRunnerService(
             Substitute.For<IEventBus>(), Substitute.For<IWindowManager>(), Substitute.For<IProjectManager>(),
             localization, controller, Substitute.For<IBreakpointService>(), new WatchService(), new RunScope());
 
@@ -127,8 +129,7 @@ public class ProgramWaitTests
             Dispatcher.UIThread.RunJobs();
     }
 
-    // The headless host keeps no list of its windows, so the tests keep their own. It holds what other classes left open
-    // too, which a dialog note names, so a test looks for its own dialog in the note rather than at its start.
+    // The headless host keeps no list of its windows, so the tests track windows as they open and close.
     private static readonly System.Collections.Generic.HashSet<Window> Shown;
 
     // Explicit, so the list starts before the first test opens anything rather than when it is first read.
@@ -219,7 +220,7 @@ public class ProgramWaitTests
 
             outcome.Detail.Should().Be("invoked Button 'Command1' (the program is still running Command1_Click, and has a "
                                        + "window open over its form, 'HexIDE'; it may hold the program until it is "
-                                       + "answered, so the form may change after that)");
+                                       + "answered, so the form may change after that; window \"HexIDE\" reaches it)");
         }
         finally { shown.Close(); }
     }
@@ -247,8 +248,8 @@ public class ProgramWaitTests
 
         started.Elapsed.Should().BeLessThan(TimeSpan.FromSeconds(10));
         outcome.Detail.Should().Be("invoked Button 'Command1' (the program is still running Command1_Click, and has a "
-                                   + "window open over its form, 'Question'; a MsgBox holds its handler until it is "
-                                   + "answered, so the form may change after that)");
+                                   + "window open over its form, 'Question' (a message box: \"Proceed?\", OK); a MsgBox holds its handler until it is "
+                                   + "answered, so the form may change after that; window \"Question\" reaches it)");
 
         Pump();
         var box = OpenWindows().Single(w => w.Content is HexIDE.Runtime.Dialogs.MessageBox);
@@ -260,8 +261,70 @@ public class ProgramWaitTests
         outcome = await UiAutomationDriver.WaitForProgramAsync(answering, outcome, TimeSpan.FromSeconds(30));
 
         outcome.Success.Should().BeTrue(outcome.Error);
-        outcome.Detail.Should().NotContain("(");
+        outcome.Detail.Should().EndWith(" (Command1_Click finished)", "the reply that named it running is followed by one that says it ended");
         run.Text.Should().Be("answered 20");
+    }
+
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task A_MsgBox_reply_names_only_existing_handlers_and_distinguishes_the_queue(bool handlesChange)
+    {
+        using var run = Start("""
+            Private Sub Command1_Click()
+                MsgBox "Proceed?", vbOKOnly, "Question"
+            End Sub
+            """ + (handlesChange ? """
+
+            Private Sub Text1_Change()
+                Command1.Caption = "changed"
+            End Sub
+            """ : ""));
+        UiAutomationDriver.Interact(run.Named("Command1"), "invoke", null);
+        Pump();
+        try
+        {
+            var watch = run.Watch();
+            run.Named("Text1").Focus();
+            var outcome = SetTextForWait(run.Named("Text1"), "typed");
+            outcome = await UiAutomationDriver.WaitForProgramAsync(watch, outcome);
+
+            outcome.Detail.Should().Contain("still running Command1_Click"
+                + (handlesChange ? ", with Text1_Change waiting to run" : "")
+                + ", and has a window open");
+            outcome.Detail.Should().NotContain("GotFocus").And.NotContain("LostFocus");
+            if (!handlesChange)
+                outcome.Detail.Should().NotContain("Text1_Change");
+        }
+        finally
+        {
+            foreach (var box in OpenWindows().Where(w => w.Content is HexIDE.Runtime.Dialogs.MessageBox))
+                box.Close();
+            Pump();
+        }
+        ((Button)run.Named("Command1")).Content.Should().Be(handlesChange ? "changed" : "Command1");
+    }
+
+    // The form an action opened is named by its name, which reaches it as a window, with the caption it shows beside it
+    // when that differs (#2720). The caption alone sent a caller guessing which form it was.
+    [AvaloniaFact]
+    public async Task An_opened_form_is_named_by_its_name_and_its_caption()
+    {
+        using var run = Start("""
+            Private Sub Command1_Click()
+                Form2.Show
+            End Sub
+            """, form2Code: """
+            Private Sub Form_Load()
+                Me.Caption = "Second"
+            End Sub
+            """);
+        var watch = run.Watch();
+        var outcome = UiAutomationDriver.Interact(run.Named("Command1"), "invoke", null);
+
+        outcome = await UiAutomationDriver.WaitForProgramAsync(watch, outcome, TimeSpan.FromSeconds(30));
+
+        outcome.Detail.Should().Be("invoked Button 'Command1' (the program opened Form2 (\"Second\"))");
     }
 
     // A form shown modally is the program waiting for input, so an action on it is not held to the limit, and the
@@ -286,7 +349,7 @@ public class ProgramWaitTests
         outcome = await UiAutomationDriver.WaitForProgramAsync(watch, outcome, TimeSpan.FromSeconds(30));
 
         started.Elapsed.Should().BeLessThan(TimeSpan.FromSeconds(10));
-        outcome.Detail.Should().Be("invoked Button 'Command1' (the program opened 'Form2')");
+        outcome.Detail.Should().Be("invoked Button 'Command1' (the program opened Form2)");
 
         var form2 = OpenWindows().OfType<VBFormRuntime>().Single(w => w.Title == "Form2");
         var onForm2 = run.Watch(form2);
@@ -298,6 +361,61 @@ public class ProgramWaitTests
         outcome.Detail.Should().Be("invoked Button 'Command1'");
         ((TextBox)Run.Named(form2, "Text1")).Text.Should().Be("clicked");
         run.Text.Should().NotBe("back", "Form2 is still up");
+    }
+
+    [AvaloniaTheory]
+    [InlineData("Standard.Break")]
+    [InlineData("Debug.Break")]
+    public async Task Break_remains_enabled_with_focus_in_a_running_DoEvents_loop(string id)
+    {
+        await using var owned = new RealComposition();
+        var composition = owned.Composition;
+        var shell = ToolbarAutomationNameTests.ShowMainView();
+        var main = (MainView)shell.Content!;
+        main.DataContext = composition.Root;
+        // Show both toolbars locally without persisting a settings change.
+        foreach (var toolbar in shell.GetVisualDescendants().OfType<Control>().Where(c =>
+                     Avalonia.Automation.AutomationProperties.GetAutomationId(c) is "StandardToolbar" or "DebugToolbar"))
+            toolbar.IsVisible = true;
+        try
+        {
+            using var run = Start("""
+                Private Sub Command1_Click()
+                    Do
+                        DoEvents
+                    Loop
+                End Sub
+                """, composition: composition);
+            var button = shell.GetVisualDescendants().OfType<Button>().Single(b =>
+                Avalonia.Automation.AutomationProperties.GetAutomationId(b) == id);
+            var command = run.Named("Command1");
+            command.Focus().Should().BeTrue();
+            UiAutomationDriver.Interact(command, "invoke", null).Success.Should().BeTrue();
+            await Task.Delay(100);
+
+            run.Runner.CanBreakProject.Should().BeTrue();
+            button.IsEffectivelyEnabled.Should().BeTrue("Break must remain available while the program has focus");
+            var outcome = UiAutomationDriver.Interact(button, "invoke", null);
+            outcome.Success.Should().BeTrue(outcome.Error);
+            await WaitFor(() => run.Controller.State == DebugState.Paused && !button.IsEffectivelyEnabled);
+            run.Controller.State.Should().Be(DebugState.Paused);
+            button.IsEffectivelyEnabled.Should().BeFalse();
+            run.Controller.Continue();
+            await WaitFor(() => button.IsEffectivelyEnabled);
+            button.IsEffectivelyEnabled.Should().BeTrue();
+            run.Runner.EndProject();
+            await WaitFor(() => !button.IsEffectivelyEnabled);
+            button.IsEffectivelyEnabled.Should().BeFalse();
+        }
+        finally { shell.Close(); }
+
+        static async Task WaitFor(Func<bool> ready)
+        {
+            var elapsed = System.Diagnostics.Stopwatch.StartNew();
+            while (!ready() && elapsed.Elapsed < TimeSpan.FromSeconds(10))
+                await Task.Delay(10);
+            ready().Should().BeTrue("the posted command state must reach the toolbar");
+        }
     }
 
     // A handler that loops on DoEvents is the program's message loop: what an action sets off runs inside it.
@@ -455,8 +573,102 @@ public class ProgramWaitTests
         outcome = await UiAutomationDriver.WaitForProgramAsync(answering, outcome, TimeSpan.FromSeconds(30));
 
         outcome.Success.Should().BeTrue(outcome.Error);
-        outcome.Detail.Should().NotContain("(");
+        outcome.Detail.Should().EndWith(" (Command1_Click finished)");
         run.Text.Should().Be("done");
+    }
+
+    // An earlier DoEvents does not make the loop after a window wait part of the program's old message loop (#1318).
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task A_loop_after_a_window_wait_is_waited_for_even_after_an_earlier_DoEvents(bool modal)
+    {
+        using var run = Start("""
+            Private Sub Command1_Click()
+                DoEvents
+                WINDOW_WAIT
+                Dim i As Integer
+                For i = 1 To 200
+                    Text1.Text = "working " & i
+                    DoEvents
+                Next i
+                Text1.Text = "done"
+            End Sub
+            """.Replace("WINDOW_WAIT", modal ? "Form2.Show vbModal" : "MsgBox \"Go?\", vbOKOnly, \"Question\""),
+            form2Code: modal ? "" : null, timeSliceMs: null);
+        var outcome = UiAutomationDriver.Interact(run.Named("Command1"), "invoke", null);
+        var deadline = System.Diagnostics.Stopwatch.StartNew();
+        while (!OpenWindows().Any(w => modal ? w.Title == "Form2" : w.Content is HexIDE.Runtime.Dialogs.MessageBox))
+        {
+            deadline.Elapsed.Should().BeLessThan(TimeSpan.FromSeconds(10));
+            await Task.Delay(1);
+        }
+        Pump();
+        var window = OpenWindows().Single(w => modal ? w.Title == "Form2" : w.Content is HexIDE.Runtime.Dialogs.MessageBox);
+        var watch = run.Watch(window);
+        if (modal)
+        {
+            outcome = UiAutomationDriver.Interact(window, "close", null);
+        }
+        else
+        {
+            var ok = Avalonia.VisualTree.VisualExtensions.GetVisualDescendants(window).OfType<Button>().First();
+            outcome = UiAutomationDriver.Interact(ok, "invoke", null);
+        }
+        outcome = await UiAutomationDriver.WaitForProgramAsync(watch, outcome, TimeSpan.FromSeconds(30));
+
+        outcome.Success.Should().BeTrue(outcome.Error);
+        outcome.Detail.Should().EndWith(" (Command1_Click finished)");
+        run.Text.Should().Be("done");
+    }
+
+    // A time slice makes the program busy, but does not make an old unrelated dialog hold its handler (#1318).
+    [AvaloniaFact]
+    public async Task An_old_dialog_does_not_hold_a_reply_when_the_watch_finds_a_busy_loop()
+    {
+        using var run = Start("""
+            Private Sub Command1_Click()
+                Dim n As Long
+                Do
+                    n = n + 1
+                    n = n + 1
+                    n = n + 1
+                    n = n + 1
+                    DoEvents
+                Loop Until Command1.Caption = "stop"
+            End Sub
+
+            Private Sub Text1_Change()
+                Command1.Caption = "done"
+            End Sub
+            """);
+        var earlier = new Window { Title = "HexIDE" };
+        _ = earlier.ShowDialog(run.Window);
+        ClickForWait(run.Named("Command1"));
+        await Task.Delay(100);
+        try
+        {
+            var watch = run.Watch()!;
+            var deadline = System.Diagnostics.Stopwatch.StartNew();
+            while (watch.Pump.AtDoEvents.Count > 0)
+            {
+                deadline.Elapsed.Should().BeLessThan(TimeSpan.FromSeconds(10));
+                await Task.Delay(1);
+                watch = run.Watch()!;
+            }
+            watch.Pump.IsIdle.Should().BeFalse();
+            var outcome = SetTextForWait(run.Named("Text1"), "done");
+            outcome = await UiAutomationDriver.WaitForProgramAsync(watch, outcome, TimeSpan.FromSeconds(30));
+
+            outcome.Detail.Should().NotContain("'HexIDE'");
+            ((Button)run.Named("Command1")).Content.Should().Be("done");
+            run.Text.Should().Be("done");
+        }
+        finally
+        {
+            ((Button)run.Named("Command1")).Content = "stop";
+            earlier.Close();
+        }
     }
 
     // A Timer's tick is no action's work, though it may come after one: its DoEvents loop does not hold the reply to the
@@ -606,6 +818,21 @@ public class ProgramWaitTests
         }
     }
 
+    // These wait fixtures deliberately start a handler behind an existing dialog. interact now refuses that (#2184);
+    // raise the event directly to keep testing the wait and its note independently of the input guard.
+    private static InteractOutcome ClickForWait(Control control)
+    {
+        control.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+        return new InteractOutcome(true, "test-event", "Raised Click", null);
+    }
+
+    // Like ClickForWait, arrange a programmatic change while a modal dialog blocks input.
+    private static InteractOutcome SetTextForWait(Control control, string text)
+    {
+        ((TextBox)control).Text = text;
+        return new InteractOutcome(true, "test-event", "Set Text", null);
+    }
+
     // An error dialog an earlier call left open over the form, and a MsgBox this click raised: the wait names the MsgBox,
     // which holds the handler, and the note the dialog; each once (#1253).
     [AvaloniaFact]
@@ -624,11 +851,11 @@ public class ProgramWaitTests
             var dialogs = OpenDialogs.Watch(OpenWindows(), run.Window);
             OpenDialogs.During(dialogs);
             var watch = run.Watch();
-            var outcome = UiAutomationDriver.Interact(run.Named("Command1"), "invoke", null);
+            var outcome = ClickForWait(run.Named("Command1"));
             outcome = await UiAutomationDriver.WaitForProgramAsync(watch, outcome, TimeSpan.FromSeconds(30));
             Pump();
 
-            outcome.Detail.Should().Contain("has a window open over its form, 'Question'; a MsgBox holds its handler");
+            outcome.Detail.Should().Contain("has a window open over its form, 'Question' (a message box: \"Proceed?\", OK); a MsgBox holds its handler");
             var note = OpenDialogs.Note(dialogs, OpenWindows());
             note.Should().Contain($"'HexIDE', a modal dialog over the running form '{Caption}', is still open");
             note.Should().NotContain("'Question'");
@@ -637,11 +864,11 @@ public class ProgramWaitTests
             dialogs = OpenDialogs.Watch(OpenWindows(), run.Window);
             OpenDialogs.During(dialogs);
             watch = run.Watch();
-            outcome = UiAutomationDriver.Interact(run.Named("Command1"), "invoke", null);
+            outcome = ClickForWait(run.Named("Command1"));
             outcome = await UiAutomationDriver.WaitForProgramAsync(watch, outcome, TimeSpan.FromSeconds(30));
             Pump();
 
-            outcome.Detail.Should().Contain("has a window open over its form, 'Question'; a MsgBox holds its handler");
+            outcome.Detail.Should().Contain("has a window open over its form, 'Question' (a message box: \"Proceed?\", OK); a MsgBox holds its handler");
             OpenDialogs.Note(dialogs, OpenWindows()).Should()
                 .Contain($"'HexIDE', a modal dialog over the running form '{Caption}', is still open").And.NotContain("'Question'");
         }

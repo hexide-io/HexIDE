@@ -2,7 +2,7 @@
 
 VB6 features listed here will **not** be implemented in HexIDE. This is a deliberate design boundary, not a backlog. If a feature isn't listed here it is either implemented, in progress, or tracked as missing in [MISSING_FEATURES.md](MISSING_FEATURES.md).
 
-> **Note on COM features:** Some VB6 features depend on the Windows COM/OLE infrastructure. These are *not* out of scope — they remain in active use by VB6 developers — but they are platform-gated (`OperatingSystem.IsWindows()` only). They are tracked in the Windows-only section of [MISSING_FEATURES.md](MISSING_FEATURES.md), not here.
+> **Note on COM features:** Some VB6 features depend on the Windows COM/OLE infrastructure. These are *not* out of scope — they remain in active use by VB6 developers — but the unbuilt COM/OLE features will be platform-gated (`OperatingSystem.IsWindows()` only) once implemented. They are tracked in the Windows-only section of [MISSING_FEATURES.md](MISSING_FEATURES.md), not here.
 
 ---
 
@@ -90,7 +90,7 @@ Individual menu items and toolbar buttons that appear in the IDE UI but belong t
 | Item | Reason |
 |---|---|
 | **Visual Data Manager…** | Enterprise database browser; see IDE integrations and tooling above. |
-| **Add-In Manager…** | COM add-in hosting is out of scope; see IDE integrations and tooling above. The *managed* Add-In Manager (Phase 44 and later) is in scope — it replaces this item when implemented. |
+| **Add-In Manager…** | COM add-in hosting is out of scope; see IDE integrations and tooling above. The *managed* Add-In Manager (Phase 44 and later) is in scope — Add-Ins → Add-In Manager… opens Tools → Options at Add-Ins, including when no add-ins are installed. |
 
 ### Standard Toolbar
 
@@ -102,4 +102,6 @@ Individual menu items and toolbar buttons that appear in the IDE UI but belong t
 
 | Item | Reason |
 |---|---|
-| **Data** | DAO/ADO-bound data control. Database-binding infrastructure is out of scope for Standard EXE projects. |
+| **Data** | The intrinsic DAO data control (`VB.Data`). It works through two layers HexIDE does not have. DAO and the database engine behind it open the database and build the recordset the control names. Binding then writes the current record into every control bound to it through `DataSource` and `DataField`, and keeps those controls current as the record moves. Supporting it would mean hosting or reproducing a database engine and adding a binding layer to every bindable control, and an approximation would show wrong records rather than refuse. The IDE’s own ends of that stack are already excluded (Data Environment Designer, Visual Data Manager). Code that calls DAO directly is COM automation, tracked in [MISSING_FEATURES.md](MISSING_FEATURES.md#windows-only-planned), not here. The ADO Data Control (MSADODC.OCX) is an ActiveX control and falls under ActiveX hosting. |
+
+For what happens when a form holds a Data control, see [unmodelled controls](MISSING_FEATURES.md#unmodelled-controls).

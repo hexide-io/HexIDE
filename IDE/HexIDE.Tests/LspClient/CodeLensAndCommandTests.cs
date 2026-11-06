@@ -46,6 +46,7 @@ public class CodeLensAndCommandTests : IAsyncDisposable
         var serverRpc = new JsonRpc(
             new HeaderDelimitedMessageHandler(serverSide, serverSide, new SystemTextJsonFormatter()),
             server);
+        server.Rpc = serverRpc;
         serverRpc.StartListening();
 
         var transport = Substitute.For<ILspTransport>();
@@ -62,27 +63,106 @@ public class CodeLensAndCommandTests : IAsyncDisposable
         return client;
     }
 
+    [Theory]
+    [InlineData("{\"inlayHintProvider\":true}")]
+    [InlineData("{\"inlayHintProvider\":{\"resolveProvider\":false}}")]
+    public async Task InlayHintsSendTheDocumentAndRange(string capabilities)
+    {
+        var server = new StubServer(capabilities, "[]");
+        var client = await ConnectedToAsync(server);
+        var range = new HexIDE.Lsp.Messages.Range(new Position(2, 0), new Position(8, 7));
+        var hints = await client.RequestInlayHintsAsync("file:///test.bas", range, TestContext.Current.CancellationToken);
+        hints.Should().ContainSingle();
+        hints[0].Text.Should().Be("' Sub Foo");
+        server.LastInitializeParams!.Value.GetProperty("capabilities").GetProperty("textDocument")
+            .GetProperty("inlayHint").ValueKind.Should().Be(JsonValueKind.Object);
+        server.LastInlayParams!.Value.GetProperty("textDocument").GetProperty("uri").GetString()
+            .Should().Be("file:///test.bas");
+        server.LastInlayParams.Value.GetProperty("range").GetProperty("end").GetProperty("line").GetInt32()
+            .Should().Be(8);
+        foreach (var unsupported in new[] { "{}", "{\"inlayHintProvider\":false}" })
+        {
+            var silent = new StubServer(unsupported, "[]");
+            var gated = await ConnectedToAsync(silent);
+            (await gated.RequestInlayHintsAsync("file:///test.bas", range,
+                TestContext.Current.CancellationToken)).Should().BeEmpty();
+            silent.LastInlayParams.Should().BeNull();
+        }
+    }
+
+    [Theory]
+    [InlineData("{\"referencesProvider\":true}")]
+    [InlineData("{\"referencesProvider\":{}}")]
+    public async Task ReferencesSendPositionAndIncludeDeclaration(string capabilities)
+    {
+        var server = new StubServer(capabilities, "[]");
+        ILspClient client = await ConnectedToAsync(server);
+        var locations = await client.RequestReferencesAsync("file:///test.bas", new Position(3, 7),
+            TestContext.Current.CancellationToken);
+        locations.Should().ContainSingle();
+        var sent = server.LastReferenceParams!.Value;
+        sent.GetProperty("textDocument").GetProperty("uri").GetString().Should().Be("file:///test.bas");
+        sent.GetProperty("position").GetProperty("line").GetInt32().Should().Be(3);
+        sent.GetProperty("position").GetProperty("character").GetInt32().Should().Be(7);
+        sent.GetProperty("context").GetProperty("includeDeclaration").GetBoolean().Should().BeTrue();
+        foreach (var unsupported in new[] { "{}", "{\"referencesProvider\":false}" })
+        {
+            var silent = new StubServer(unsupported, "[]");
+            ILspClient gated = await ConnectedToAsync(silent);
+            (await gated.RequestReferencesAsync("file:///test.bas", new Position(3, 7),
+                TestContext.Current.CancellationToken)).Should().BeEmpty();
+            silent.LastReferenceParams.Should().BeNull();
+        }
+    }
+
+    [Fact]
+    public async Task ReferenceServerErrorsReachTheCaller()
+    {
+        var server = new StubServer("""{"referencesProvider":true}""", "[]") { FailReferences = true };
+        ILspClient client = await ConnectedToAsync(server);
+        var request = () => client.RequestReferencesAsync("file:///test.bas", new Position(0, 0),
+            TestContext.Current.CancellationToken);
+        await request.Should().ThrowAsync<RemoteInvocationException>().WithMessage("*reference failure*");
+    }
+
+    [Fact]
+    public async Task InitializeDeclaresWorkspaceCodeLensRefreshSupport()
+    {
+        var server = new StubServer("{}", "[]");
+        await ConnectedToAsync(server);
+        var workspace = server.LastInitializeParams!.Value.GetProperty("capabilities").GetProperty("workspace");
+        workspace.GetProperty("codeLens").GetProperty("refreshSupport").GetBoolean().Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task ParameterlessCodeLensRefreshAnswersNullAndInvalidatesConsumers()
+    {
+        var server = new StubServer("{}", "[]");
+        var client = await ConnectedToAsync(server);
+        var invalidations = 0;
+        object? origin = null;
+        client.CodeLensRefreshRequested += (sender, _) => { origin = sender; invalidations++; };
+        var result = await server.Rpc!.InvokeAsync<JsonElement?>("workspace/codeLens/refresh");
+        result.Should().BeNull();
+        invalidations.Should().Be(1);
+        origin.Should().BeSameAs(client);
+    }
+
     // ── codeLens ────────────────────────────────────────────────────────────────────────────────────
 
     [Fact]
-    public async Task AnUnresolvedLensIsResolvedBeforeItReachesTheCaller()
+    public async Task FetchingLensesDoesNotResolveThem()
     {
-        // The point of resolving inside the client. A lens with no command is one the user can see and
-        // cannot click; the caller cannot fix that itself, because once lenses from several servers are
-        // gathered into one list nothing records which connection produced which.
         var server = new StubServer(
             capabilities: """{"codeLensProvider":{"resolveProvider":true}}""",
             lenses: """[{"range":{"start":{"line":3,"character":0},"end":{"line":3,"character":9}}}]""");
-
         var sut = await ConnectedToAsync(server);
 
         var lenses = await sut.RequestCodeLensesAsync("vb6://module/M", TestContext.Current.CancellationToken);
 
         lenses.Should().ContainSingle();
-        lenses[0].Command.Should().NotBeNull("the lens arrived unresolved and must not be handed on that way");
-        lenses[0].Command!.CommandName.Should().Be("test.run");
-        lenses[0].Command!.Title.Should().Be("Run test");
-        server.ResolveCalls.Should().Be(1);
+        lenses[0].Command.Should().BeNull();
+        server.ResolveCalls.Should().Be(0, "visibility is not known when the document's lenses are fetched");
     }
 
     [Fact]
@@ -102,6 +182,8 @@ public class CodeLensAndCommandTests : IAsyncDisposable
         var lenses = await sut.RequestCodeLensesAsync("vb6://module/M", TestContext.Current.CancellationToken);
 
         lenses.Should().ContainSingle();
+        var resolved = await sut.ResolveCodeLensAsync(lenses[0], TestContext.Current.CancellationToken);
+        resolved.Should().BeSameAs(lenses[0]);
         lenses[0].Command!.Title.Should().Be("Already here");
         server.ResolveCalls.Should().Be(0, "the command was already present, so there was nothing to ask for");
     }
@@ -121,6 +203,7 @@ public class CodeLensAndCommandTests : IAsyncDisposable
 
         lenses.Should().ContainSingle();
         lenses[0].Command.Should().BeNull();
+        (await sut.ResolveCodeLensAsync(lenses[0], TestContext.Current.CancellationToken)).Should().BeNull();
         server.ResolveCalls.Should().Be(0);
     }
 
@@ -152,7 +235,8 @@ public class CodeLensAndCommandTests : IAsyncDisposable
 
         var sut = await ConnectedToAsync(server);
 
-        await sut.RequestCodeLensesAsync("vb6://module/M", TestContext.Current.CancellationToken);
+        var lenses = await sut.RequestCodeLensesAsync("vb6://module/M", TestContext.Current.CancellationToken);
+        await sut.ResolveCodeLensAsync(lenses[0], TestContext.Current.CancellationToken);
 
         var sent = server.LastResolveParams;
         sent.HasValue.Should().BeTrue();
@@ -162,6 +246,39 @@ public class CodeLensAndCommandTests : IAsyncDisposable
         sent.Value.TryGetProperty("command", out _).Should().BeFalse(
             "the lens carried no command, so the echo must not add one as an explicit null — "
           + $"the frame was {sent.Value.GetRawText()}");
+    }
+
+    [Fact]
+    public async Task OnlyRequestedLensesAreResolved()
+    {
+        var lensesJson = JsonSerializer.Serialize(Enumerable.Range(0, 50).Select(i =>
+            new CodeLens(new HexIDE.Lsp.Messages.Range(new Position(i, 0), new Position(i, 1)))));
+        var server = new StubServer("""{"codeLensProvider":{"resolveProvider":true}}""", lensesJson);
+        var sut = await ConnectedToAsync(server);
+        var lenses = await sut.RequestCodeLensesAsync("file:///test.bas", TestContext.Current.CancellationToken);
+
+        foreach (var lens in lenses.Take(10))
+        {
+            var resolved = await sut.ResolveCodeLensAsync(lens, TestContext.Current.CancellationToken);
+            resolved!.Command!.Title.Should().Be("Run test");
+        }
+        server.ResolveCalls.Should().Be(10);
+        server.LastResolveParams!.Value.GetProperty("range").GetProperty("start").GetProperty("line")
+            .GetInt32().Should().Be(9);
+    }
+
+    [Fact]
+    public async Task CancelledResolutionDoesNotReachTheServer()
+    {
+        var server = new StubServer("""{"codeLensProvider":{"resolveProvider":true}}""",
+            """[{"range":{"start":{"line":0,"character":0},"end":{"line":0,"character":1}}}]""");
+        var sut = await ConnectedToAsync(server);
+        var lenses = await sut.RequestCodeLensesAsync("file:///test.bas", TestContext.Current.CancellationToken);
+        using var cancelled = new CancellationTokenSource();
+        cancelled.Cancel();
+
+        (await sut.ResolveCodeLensAsync(lenses[0], cancelled.Token)).Should().BeNull();
+        server.ResolveCalls.Should().Be(0);
     }
 
     // ── executeCommand ──────────────────────────────────────────────────────────────────────────────
@@ -245,6 +362,30 @@ public class CodeLensAndCommandTests : IAsyncDisposable
     /// </summary>
     private sealed class StubServer(string capabilities, string lenses)
     {
+        public JsonRpc? Rpc { get; set; }
+        public JsonElement? LastInlayParams { get; private set; }
+        public JsonElement? LastInitializeParams { get; private set; }
+
+        [JsonRpcMethod("textDocument/inlayHint", UseSingleObjectParameterDeserialization = true)]
+        public JsonElement InlayHint(JsonElement p)
+        {
+            LastInlayParams = p.Clone();
+            return JsonDocument.Parse("""[{"position":{"line":8,"character":7},"label":"' Sub Foo"}]""")
+                .RootElement.Clone();
+        }
+
+        public bool FailReferences { get; init; }
+        public JsonElement? LastReferenceParams { get; private set; }
+
+        [JsonRpcMethod("textDocument/references", UseSingleObjectParameterDeserialization = true)]
+        public JsonElement References(JsonElement p)
+        {
+            LastReferenceParams = p.Clone();
+            if (FailReferences) throw new InvalidOperationException("reference failure");
+            return JsonDocument.Parse("""[{"uri":"file:///test.bas","range":{"start":{"line":3,"character":7},"end":{"line":3,"character":12}}}]""")
+                .RootElement.Clone();
+        }
+
         public int CodeLensCalls { get; private set; }
         public int ResolveCalls { get; private set; }
         public JsonElement? LastResolveParams { get; private set; }
@@ -252,8 +393,11 @@ public class CodeLensAndCommandTests : IAsyncDisposable
         public JsonElement? LastCommandParams { get; private set; }
 
         [JsonRpcMethod("initialize", UseSingleObjectParameterDeserialization = true)]
-        public JsonElement Initialize(JsonElement _) =>
-            JsonDocument.Parse($$"""{"capabilities":{{capabilities}}}""").RootElement.Clone();
+        public JsonElement Initialize(JsonElement p)
+        {
+            LastInitializeParams = p.Clone();
+            return JsonDocument.Parse($$"""{"capabilities":{{capabilities}}}""").RootElement.Clone();
+        }
 
         [JsonRpcMethod("initialized")]
         public void Initialized(JsonElement _) { }

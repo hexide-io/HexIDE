@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Runtime.CompilerServices;
 using Avalonia.Controls;
 using VT = HexIDE.Runtime.Interpreter.Vb6Value.ValueType;
 using VTP = HexIDE.Runtime.Interpreter.Vb6Value.ValueTypePrimitive;
@@ -25,16 +26,19 @@ public partial class VB6BuiltIns
         d["IsNull"]    = (_, a, _) => new Vb6Value(a[0].Type == VT.Null);
         d["IsArray"]   = (_, a, _) => new Vb6Value(a[0].Type.IsArray);
         d["IsObject"]  = (_, a, _) => new Vb6Value(IsObjectValue(a[0]));
+        d["StrPtr"] = (_, a, _) => PointerIdentity(a);
+        d["VarPtr"] = (_, a, _) => PointerIdentity(a);
+        d["ObjPtr"]    = (self, a, _) => self.ObjPtr(a);
 
         // True only for an argument the caller left out, and only where there was nothing to put in its
         // place — an Optional Variant without a default, untyped or explicitly As Variant (#866).
-        // Measured; see "IsMissing and the shape of an omitted argument" in docs/vb6-fidelity-oracle.md.
-        d["IsMissing"] = (_, a, _) => new Vb6Value(a[0].IsMissing);
+        // Measured; see "IsMissing and the shape of an omitted argument" in docs/vb6-fidelity-oracle/ismissing-and-the-shape-of-an-omitted-argument.md.
+        // A ParamArray is missing when the call gave it nothing, so it is empty (measured, #2462).
+        d["IsMissing"] = (_, a, _) => new Vb6Value(a[0].IsMissing
+            || a[0].Value is VBArray { IsParamArray: true } paramArray && paramArray.UpperBound() < paramArray.LowerBound());
 
         // An omitted argument is a Variant of subtype vbError, so IsError reports it — measured as True.
-        // It is the only vbError value the model has: CVErr is still unimplemented, and when it lands it
-        // belongs here too.
-        d["IsError"]   = (_, a, _) => new Vb6Value(a[0].IsMissing);
+        d["IsError"]   = (_, a, _) => new Vb6Value(a[0].IsMissing || a[0].Type == VT.Error);
     }
 
     /// <summary>The debugger's Type-column label for a value — like <see cref="TypeNameOf"/> but names a
@@ -59,21 +63,50 @@ public partial class VB6BuiltIns
     private static string StripVb(string n) => n.StartsWith("VB", StringComparison.Ordinal) ? n.Substring(2) : n;
 
     /// <summary>A control's class, as TypeName gives it and TypeOf matches it: <c>TextBox</c>, <c>CommonDialog</c>.</summary>
-    internal static string ControlTypeName(Control control) =>
+    internal static string ControlTypeName(Control control) => control switch
+    {
+        // Preserve the old hosted Canvas name: #1631 did not measure a UserControl's TypeName.
+        HexIDE.Runtime.BuiltinControls.VBUserControl => nameof(Canvas),
         // A menu's separator is a Menu to a program, as every menu is (#1126).
-        control is HexIDE.Runtime.BuiltinControls.VBMenuSeparator ? "Menu" : StripVb(control.GetType().Name);
+        HexIDE.Runtime.BuiltinControls.VBMenuSeparator => "Menu",
+        // One class draws both scroll bars, which VB6 names by their direction (measured, #1556): it was "ScrollBar", and
+        // TypeOf c Is HScrollBar was False.
+        HexIDE.Runtime.BuiltinControls.VBScrollBar bar => bar.Orientation == Avalonia.Layout.Orientation.Vertical ? "VScrollBar" : "HScrollBar",
+        _ => StripVb(control.GetType().Name),
+    };
 
     // Measured (#840): TypeName(Err) is "ErrObject" and TypeName(App) is "App", which neither class's own name gives.
     private static string InBoxTypeName(ICSharpProxy px) => px switch
     {
+        ToolbarItems items => items.TypeName,
+        ToolbarItem item => item.TypeName,
+        AvaloniaInterop.ControlFont => "Font",
         VbErr => "ErrObject",
         VbApp => "App",
+        VbScreen => "Screen",
         VbClipboard => "Clipboard",
         VbCollection => "Collection",
+        ListViewItems => "IListItems",
+        ListViewItem => "IListItem",
+        ListViewColumns => "IColumnHeaders",
+        ListViewColumn => "IColumnHeader",
+        ListViewSubItem => "IListSubItem",
+        PanelPicture => throw new NotImplementedException("Panel.Picture TypeName is unmeasured (#1087)"),
+        StatusBarPanel => "IPanel",
+        StatusBarPanels => "IPanels",
+        ImageListImages => "IImages",
+        ImageComboItems => "IComboItems",
+        ImageComboItem => "IComboItem",
+        ImageListImage => "IImage",
+        ImageListPictureObject => "Picture",
+        Components.InBox.TreeNodes => "INodes",
+        Components.InBox.TreeNode => "INode",
         // A control array is an Object to TypeName: measured on a menu array, `TypeName(mnuLevel)` (#1126).
         HexIDE.Runtime.BuiltinControls.ControlArrayGroup => "Object",
         // So is a form's Controls: measured, `TypeName(Controls)` and `TypeName(Me.Controls)` (#1060).
         FormControls => "Object",
+        // TypeName(Forms) is "Object", as a form's Controls is (measured, #2496).
+        VbForms => "Object",
         _ => StripVb(px.GetType().Name),
     };
 
@@ -98,6 +131,8 @@ public partial class VB6BuiltIns
         VTP.Byte              => ("Byte", 17),
         VTP.Integer           => ("Integer", 2),
         VTP.Long              => ("Long", 3),
+        // CommonDialog's TypeName is unmeasured; retain its existing label while correcting VarType.
+        VTP.AutomationUnsignedLong => ("Long", 19),
         VTP.Single            => ("Single", 4),
         VTP.Double            => ("Double", 5),
         VTP.Currency          => ("Currency", 6),
@@ -111,6 +146,7 @@ public partial class VB6BuiltIns
         // vbError (10). Deliberately not "Empty"/0: IsEmpty is False for it, and conflating the two is
         // what makes IsMissing impossible to express.
         VTP.Missing           => ("Error", 10),
+        VTP.Error             => ("Error", 10),
         VTP.Nothing           => ("Nothing", 9),
         VTP.Color             => ("Long", 3),   // VB6 has no colour type — a colour is a Long
         VTP.Object            => ("Object", 9),   // Object/class/Collection arrays (measured, #1482)
@@ -125,7 +161,7 @@ public partial class VB6BuiltIns
     {
         switch (v.Value)
         {
-            case byte or int or long or float or double or decimal:
+            case byte or int or long or uint or float or double or decimal:
             case bool:
                 return true;
         }
@@ -182,4 +218,36 @@ public partial class VB6BuiltIns
 
     private static bool IsObjectValue(Vb6Value v) =>
         v.Type == VT.Control || v.Type == VT.CSharpProxyObject || v.Type == VT.Nothing || v.Type == VT.Object;
+
+    // #2622's native/p-code measurements constrain identities, not addresses (measuring PRs #2624 and #2628).
+    // Weak keys neither retain objects nor change Class_Terminate ownership; distinct objects never reuse an identity.
+    private readonly ConditionalWeakTable<object, ObjectIdentity> objectIdentities = new();
+    private long nextObjectIdentity;
+    private sealed record ObjectIdentity(long Number);
+
+    private static Vb6Value PointerIdentity(IReadOnlyList<Vb6Value> args) =>
+        args is IntrinsicArgumentValues { PointerIdentity: { } identity }
+            ? new Vb6Value(identity)
+            : throw new NotImplementedException("Unmeasured pointer argument shape (#2622)");
+
+    private Vb6Value ObjPtr(IReadOnlyList<Vb6Value> args)
+    {
+        if (args.Count != 1)
+            throw new NotImplementedException("ObjPtr argument counts other than one are unmeasured (#2622)");
+        var value = args[0];
+        if (!IsObjectValue(value))
+        {
+            if (value.Type == VT.Integer || value.Type == VT.String)
+                throw new VBRunTimeException(VBStandardError.TypeMismatch);
+            throw new NotImplementedException("ObjPtr of this non-object type is unmeasured (#2622)");
+        }
+        if (value.Value is null)
+            return new Vb6Value(0L);
+        return new Vb6Value(objectIdentities.GetValue(value.Value, _ =>
+        {
+            if (nextObjectIdentity == int.MaxValue)
+                throw new NotImplementedException("ObjPtr identity space exhausted (#2622)");
+            return new ObjectIdentity(++nextObjectIdentity);
+        }).Number);
+    }
 }

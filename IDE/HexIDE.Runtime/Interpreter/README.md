@@ -64,7 +64,7 @@ Within its scope, correctness means **running VB6 the way real VB6 runs it**, no
 rule, coercion, overflow code, rounding mode, `Format` edge, and intrinsic result is pinned against the **real
 `vb6.exe`** — the fidelity oracle — before a test expectation is committed. Documentation and memory are
 repeatedly wrong here; the oracle has overturned many "obvious" assumptions. Verified facts (and the reusable
-`On Error Resume Next` `/make` harness) live in `docs/vb6-fidelity-oracle.md`.
+`On Error Resume Next` `/make` harness) live in `docs/vb6-fidelity-oracle/collection.md`.
 
 **Reproducing VB6's *intended* behaviour, not its bugs:** where VB6 had a genuine defect, this interpreter does
 the right thing. Where VB6 has a *quirk that programs depend on* (banker's rounding, `For Each` column-major
@@ -118,7 +118,7 @@ Everything landed is covered by ~640 runtime tests (all `vb6.exe`-verified) plus
 cd IDE && dotnet test HexIDE.Runtime.Tests/
 
 # A single test
-cd IDE && dotnet test HexIDE.Runtime.Tests/ --filter "FullyQualifiedName~UdtTests.CopyOnAssign_IsIndependent"
+cd IDE && dotnet test HexIDE.Runtime.Tests/ -- --filter-method "*CopyOnAssign_IsIndependent"
 ```
 
 Runtime tests inherit `BaseVBTestFixture`: call `await Run("<VB6 code>")` (or `RunModules(...)` for multi-module),

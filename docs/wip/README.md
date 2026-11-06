@@ -18,7 +18,7 @@ the backlog is in [GitHub Issues](https://github.com/hexide-io/HexIDE/issues).
 
 Every document opens with the date it was captured and its status, and closes with the issues it relates to.
 Measurements of real `vb6.exe` made while writing one belong in
-[`docs/vb6-fidelity-oracle.md`](../vb6-fidelity-oracle.md) as well, which is where a later reader will look.
+[`docs/vb6-fidelity-oracle/README.md`](../vb6-fidelity-oracle/README.md) as well, which is where a later reader will look.
 
 ## Contents
 

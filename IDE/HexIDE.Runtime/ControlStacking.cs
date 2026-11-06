@@ -10,7 +10,7 @@ namespace HexIDE.Runtime;
 /// </summary>
 /// <remarks>
 /// <para>
-/// Measured in VB6 at run time (docs/vb6-fidelity-oracle.md, "Where VB6's designer puts a control's block", and "How a
+/// Measured in VB6 at run time (docs/vb6-fidelity-oracle/where-vb6s-designer-puts-a-controls-block.md, "Where VB6's designer puts a control's block", and "How a
 /// running form stacks its controls"):
 /// <list type="bullet">
 /// <item>The first block in a container is its top control.</item>

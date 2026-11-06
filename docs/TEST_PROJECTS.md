@@ -6,13 +6,22 @@ This document catalogues the real-world VB6 projects used to verify round-trip s
 
 ## How to use this corpus
 
-Round-trip fidelity is verified by the `HexIDE.Runtime.Tests` xUnit harness (see `RoundTripTests.cs`). For each project, the harness asserts:
+Round-trip fidelity is verified by the `HexIDE.Runtime.Tests` xUnit harness (see `SerializationCorpusTests.cs`; inline regression cases are in `SerializationRoundTripTests.cs`). For each project, the harness asserts:
 
 1. **Deserialise succeeds** — no exception, no error-sink entries for known-format files
 2. **Re-serialise is parseable** — output of `Serialize()` can be fed back into `Deserialize()` without error
 3. **No key loss** — every key present in the original appears in the round-tripped output
 4. **No value mutation** — values for preserved keys are identical (modulo deliberate canonicalisation, e.g. path separator normalisation)
 5. **`.frx` byte identity** — when no blob-backed properties were modified, the `.frx` output must be byte-for-byte identical to the original
+
+The `.vbp` corpus comparison resolves each parsed `Reference=` path from its own project folder
+using Windows path semantics (#2274). Absolute and relative spellings of the same library compare
+equally; every other byte, including the rest of the reference line, remains significant. VB6 saves
+a same-drive library relative, so a project moved from another drive need not retain its path spelling.
+Line order is compared strictly for every project, the VB98 Template tree included: a VB6 save
+with no edit keeps every line where it was read, and VB6's own saves of its templates showed it
+(#2274). Only confirming the References dialog regroups a save, and the corpus round trip never
+does.
 
 To run the corpus tests locally:
 
@@ -23,22 +32,102 @@ cd IDE && dotnet test HexIDE.Runtime.Tests/ -- --filter-class "*SerializationCor
 There is no test category or trait to filter on — `[Trait]` is not used anywhere in `IDE/`, so filter by
 type name.
 
-The corpus is discovered rather than configured. `HEXIDE_ROUNDTRIP_CORPUS` (a `;`-separated list of
-directories) replaces it outright; otherwise the roots are the VB98 template tree — `VB6_TEMPLATES`, or
-`C:\Program Files (x86)\Microsoft Visual Studio\VB98\Template` — plus the repository's own `demo/`. The tests
-that read named Template files instead go through `Vb6Template` (#1440): `VB6_TEMPLATES` may name the
-`Template` folder or the one above it, a set variable under which a test's file is not found fails the test, naming what it tried, and
-only an unset one on a machine without VB6 skips. CI is
-Linux and has no VB6, so there the corpus is `demo/` alone: HexIDE's own output, which proves nothing about
-fidelity. Read the report, not the pass.
+The corpus is discovered rather than configured. `corpus/designer` and `corpus/member-attributes` are
+required even with `HEXIDE_ROUNDTRIP_CORPUS` (a `;`-separated list of directories). That variable replaces
+the default additional roots: the optional VB98 template tree (`VB6_TEMPLATES`, or the standard VB98
+`Template` folder) and the required repository `demo/`. Missing required roots fail the lane (#1016).
+The two whole-file grammar lanes, the header check and the IDE/server region-parity check always require
+both `demo/` and `corpus/designer`, even with an explicit corpus.
 
-The run writes a per-file report to `hexide-roundtrip-report.txt` in the system temp directory, listing
+Tests that read named Template files instead go through `Vb6Template` (#1440): `VB6_TEMPLATES` may name
+the `Template` folder or the one above it. A set variable under which a test's file is not found fails the
+test, naming what it tried; only an unset one on a machine without VB6 skips. CI has no VB6 install, but
+still reads the repository corpora, including VB6-authored designer and member-attribute files.
+
+The run writes a per-file report to `hexide-roundtrip-report.txt` beside the test assembly
+(`AppContext.BaseDirectory`, normally `IDE/HexIDE.Runtime.Tests/bin/Debug/net10.0/`), listing
 every `DIFF`, `BLOB-LOSS` and `BLOB-DIFF` with the first few differing lines. That is the full report — the
 JSON report and the `--roundtrip` / `--corpus` / `--report` flags described here previously do not exist;
 `HexIDE.Standalone` implements exactly one non-GUI mode, `--check <project.vbp>`, which loads a project and
 prints per-module results.
 
+The `.vbp` lane writes `hexide-vbp-report.txt` in that same assembly directory. The whole-file grammar
+lanes likewise write `hexide-whole-file-grammar-interpreter.txt` beside the runtime test assembly and
+`hexide-whole-file-grammar-lsp.txt` beside the LSP test assembly (normally
+`LspServer/HexIDE.VbLspServer.Tests/bin/Debug/net10.0/`). Each checkout and each separate
+`--artifacts-path` output keeps its own reports; look beside the assembly in the selected output directory
+when overriding the build output.
+
 ---
+
+## Project smoke checks (#2505)
+
+`ProjectCorpusSmokeTests` in `HexIDE.Tests` opens projects through the real `ProjectService` and saves
+scratch copies. It always includes `demo/`, `corpus/designer`, the member-attribute round-trip and
+`saved*` evidence directories, and `corpus/inbox-controls/saved`.
+`VB6_TEMPLATES` adds its tree when set. `HEXIDE_ROUNDTRIP_CORPUS` accepts
+semicolon-separated roots; a configured root that is missing fails the test. Project discovery is
+case-insensitive for `.vbp` extensions, including on Linux.
+
+Run from the repository root:
+
+```sh
+HEXIDE_FOREIGN_LSP_DOWNLOAD=0 pwsh scripts/test.ps1 IDE/HexIDE.Tests -- --filter-class 'HexIDE.Tests.Corpus.ProjectCorpusSmokeTests'
+```
+
+Each project gets its own scratch copy of its corpus root. The harness compares every copied file
+byte for byte after normalising only the original project's reference paths, detecting added and deleted
+files too. Same-drive reference paths become relative; other drives and unresolved paths stay as read
+([measured in #2274](vb6-fidelity-oracle/a-references-path-and-the-line-order-a-save-writes.md)).
+The harness uses the file's path, as HexIDE does today; it does not resolve registered libraries or
+substitute library identities. `Retained=` is untouched (#2459). Every other byte must match.
+File paths compare case-insensitively on Windows and macOS, ordinally on Linux. A reported save refusal is allowed, but never
+excuses changed bytes. The original corpus is untouched. Members outside the copied project's own
+directory are refused before saving; symbolic links are rejected. This conservative safety restriction
+can refuse projects with shared parent-directory modules that the IDE itself would save.
+
+The JSON report is `TestResults/hexide-project-smoke-report.json` beside the IDE test assembly, with
+one result per project: opened, identical/different/refused save, differing relative file paths, expected reference-path `Normalisations`, and
+any exception including its stack. Each result's `Evidence` path names a directory beside that report;
+for each differing file, `original/` and `saved/` hold its exact bytes before and after saving. A missing
+side means the file was added or deleted. Evidence from the preceding sweep is cleared before each run.
+The normal `HexIDE.Tests` suite runs this lane, including in CI, whose failure upload includes
+`TestResults`. Test diagnostics are developer-facing; no IDE strings change.
+
+The first Linux sweep opened 29 projects without a crash but changed five demo forms. The
+[line-by-line audit](project-smoke-save-audit-2505.md) records all 66 differing lines, original and saved:
+one trailing ASCII space was added to each block opener. The hand-authored demos now use the recorded
+VB6 block-opening whitespace, so the sweep requires byte identity apart from the measured reference-path normalisation above. The same differences
+were reproduced with CRLF inputs, which `.gitattributes` already enforces on these files on Linux too.
+Three evidence-writing regression cases cover changed, added and deleted files on Linux.
+
+After comparing the saved bytes, each scratch project starts through `VBLoader.RunMadeProgram`, the
+entry point used by `HexIDE.Standalone.App`, in an isolated Avalonia headless worker process. The
+`ProjectSmokeRunner.StartupSeconds` constant bounds startup at **3 seconds**, including synchronous
+loops; worker preparation has a separate 60-second watchdog starting when the worker writes its entry
+marker. The test host has up to 300 seconds to enter the worker, so its own startup does not spend the
+project's preparation budget (#2934). Both waits are bounded. Regression fixtures allow 30 seconds for
+cold JIT work when asserting completion/refusal/fault results; the infinite-loop fixture uses the corpus
+limit. MsgBox chooses its first offered button;
+InputBox accepts its default text. These are scripted smoke inputs, not VB6 fidelity expectations.
+The worker uses the scratch project directory as its working directory and is killed after reporting or
+timing out. This is process isolation, not a security sandbox: only run trusted corpus programs.
+
+Make then uses `ProjectService.MakeProject`, writing its runner and project archive under
+`smoke-output/` in the scratch project directory. It finds a published runner under
+`HEXIDE_MAKE_RUNTIME/standalone/`, defaulting to `artifacts/make-runtime/standalone/`, as the existing made
+program tests do. Publish it using the command in `MadeProgramTests` to exercise successful Make locally.
+A missing runtime or a save cancellation is reported as a refusal with its reason, never as a successful
+Make. The packaging regression uses a fixture runner and checks the archive on Linux; it does not prove
+the published executable starts.
+
+The report includes `Run` and `Make` status/detail pairs for every project, even after a save refusal or
+an execution fault. Startup reports `ran to completion`, `ran to the time limit`, `refused` for
+`NotImplementedException` (also used when no startup path is configured), or `crashed` for every other
+exception, preserving the stack. Make reports
+`made`, `refused` or `crashed`. Only crashes and unexpected save differences fail the sweep. No interpreter
+behaviour is changed or newly claimed as VB6-measured by this harness. Its fault fixture uses
+`Err.Raise 5`, already [measured in #877](vb6-fidelity-oracle/when-err-is-cleared-and-what-a-running-handler-traps.md).
 
 ## Corpus coverage targets
 

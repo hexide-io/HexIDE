@@ -71,7 +71,7 @@ public static class AttachedEvents
     /// Avalonia registered first, so MouseUp follows it there. A control whose Click this class raises on release must
     /// attach the mouse events before its Click, so MouseUp comes first.</para>
     /// </remarks>
-    public static void AttachMouse<T>(DblClick dblClick = DblClick.None) where T : Control
+    public static void AttachMouse<T>(DblClick dblClick = DblClick.None, bool raiseDoubleClick = true, bool suppressSecondMouseUp = false) where T : Control
     {
         InputElement.PointerPressedEvent.AddClassHandler<T>((control, e) =>
         {
@@ -83,11 +83,14 @@ public static class AttachedEvents
                 SecondPresses.Remove(control);
             if (!second || dblClick == DblClick.AfterMouseDown)
                 RaiseMouse(control, e, ComponentBaseClass.MouseDownEvent);
-            if (second)
+            if (second && raiseDoubleClick)
                 control.ExecuteSub(ComponentBaseClass.DblClickEvent);
         }, handledEventsToo: true);
-        InputElement.PointerReleasedEvent.AddClassHandler<T>(
-            (control, e) => RaiseMouse(control, e, ComponentBaseClass.MouseUpEvent), handledEventsToo: true);
+        InputElement.PointerReleasedEvent.AddClassHandler<T>((control, e) =>
+        {
+            if (!suppressSecondMouseUp || !IsSecondPress(control))
+                RaiseMouse(control, e, ComponentBaseClass.MouseUpEvent);
+        }, handledEventsToo: true);
         InputElement.PointerMovedEvent.AddClassHandler<T>(
             (control, e) => RaiseMouse(control, e, ComponentBaseClass.MouseMoveEvent), handledEventsToo: true);
     }
@@ -166,8 +169,9 @@ public static class AttachedEvents
         }
         void Handler(PointerEventArgs e, EventClass eventClass)
         {
-            if (OverTheForm(e.Source))
-                Raise(client, e, eventClass, "Form", index: null, origin: client, VBProps.GetScaleMode(client), inset: 0);
+            if (OverTheForm(e.Source) && client.FindLogicalAncestorOfType<IModuleExecutionRoot>() is { } root)
+                Raise(e, eventClass, [new ControlEvents.Handler(root, $"Form_{eventClass.Name}", true)], index: null, origin: client,
+                    VBProps.GetScaleMode(client), inset: 0);
         }
         // Whether the press that a release ends began on the form, and was the first click of a double click or a lone one.
         var clicking = false;
@@ -186,32 +190,57 @@ public static class AttachedEvents
             // VB6 has no event for the other buttons, as in Raise.
             var click = clicking && (e.InitialPressMouseButton is MouseButton.Left or MouseButton.Right or MouseButton.Middle)
                         && OverTheForm(client.InputHitTest(e.GetPosition(client)));
+            var single = clicking;
             clicking = false;
             if (click && client.FindLogicalAncestorOfType<IModuleExecutionRoot>() is { } root && root.Handles("Form_Click"))
                 root.ExecuteSub("Form_Click");
+            // Real-input oracle #2417: only these left-release cases were measured. Hit-test after
+            // MouseUp/Click, since capture still points at the pressed control in the routed event.
+            Control? NamedControl(object? source)
+            {
+                for (var visual = source as Visual; visual is not null && !ReferenceEquals(visual, client); visual = visual.GetVisualParent())
+                    if (visual is Control candidate && VBProps.GetName(candidate) is not null)
+                        return candidate;
+                return null;
+            }
+            var pressed = NamedControl(e.Source);
+            if (e.InitialPressMouseButton == MouseButton.Left
+                && (pressed is VBCommandButton || pressed is VBLabel or VBImage && !IsSecondPress(pressed)
+                    || pressed is null && single))
+            {
+                var hit = client.InputHitTest(e.GetPosition(client));
+                var target = NamedControl(hit);
+                if (target is VBCommandButton or VBLabel or VBImage)
+                    RaiseMouse(target, e, ComponentBaseClass.MouseMoveEvent, hit, () => client.IsEffectivelyVisible);
+                else if (target is null && OverTheForm(hit)
+                         && client.FindLogicalAncestorOfType<IModuleExecutionRoot>() is { } moveRoot)
+                    Raise(e, ComponentBaseClass.MouseMoveEvent,
+                        [new ControlEvents.Handler(moveRoot, "Form_MouseMove", true)], null, client,
+                        VBProps.GetScaleMode(client), inset: 0, when: () => client.IsEffectivelyVisible);
+            }
         }, handledEventsToo: true);
         client.AddHandler(InputElement.PointerMovedEvent, (_, e) => Handler(e, ComponentBaseClass.MouseMoveEvent), handledEventsToo: true);
     }
 
-    private static void RaiseMouse(Control control, PointerEventArgs e, EventClass eventClass)
+    internal static void RaiseMouse(Control control, PointerEventArgs e, EventClass eventClass, object? source = null, Func<bool>? when = null)
     {
-        if (!OwnsThePointerEvent(control, e.Source) || VBProps.GetName(control) is not { } name)
+        if (!OwnsThePointerEvent(control, source ?? e.Source) || VBProps.GetName(control) is null)
             return;
         // A PictureBox counts from inside its border, in its own ScaleMode, as its child host does. Every other control
         // counts in twips, from its client origin.
         var (origin, mode) = control is VBPictureBox { ChildHost: { } host }
             ? ((Visual)host, VBProps.GetScaleMode(host))
             : (control, VBScaleMode.Twip);
-        Raise(control, e, eventClass, name, VBProps.GetIndex(control), origin, mode, VBProps.GetClientInset(control));
+        // Its own handler, and each WithEvents variable holding it (#1556).
+        Raise(e, eventClass, ControlEvents.Handlers(control, control.FindLogicalAncestorOfType<IModuleExecutionRoot>(), eventClass.Name),
+            VBProps.GetIndex(control), origin, mode, control is VBTreeView tree ? tree.ClientEdge : VBProps.GetClientInset(control), when);
     }
 
-    private static void Raise(Control source, PointerEventArgs e, EventClass eventClass, string name, int? index,
-        Visual origin, VBScaleMode mode, double inset)
+    private static void Raise(PointerEventArgs e, EventClass eventClass, IReadOnlyList<ControlEvents.Handler> all, int? index,
+        Visual origin, VBScaleMode mode, double inset, Func<bool>? when = null)
     {
-        if (source.FindLogicalAncestorOfType<IModuleExecutionRoot>() is not { } root)
-            return;
-        var handler = $"{name}_{eventClass.Name}";
-        if (!root.Handles(handler))
+        var handlers = all.Where(h => h.Root.Handles(h.Name)).ToList();
+        if (handlers.Count == 0)
             return;
         var point = e.GetCurrentPoint(origin);
         var button = ReferenceEquals(eventClass, ComponentBaseClass.MouseMoveEvent)
@@ -230,20 +259,21 @@ public static class AttachedEvents
         var shift = (e.KeyModifiers.HasFlag(KeyModifiers.Shift) ? 1 : 0) | (e.KeyModifiers.HasFlag(KeyModifiers.Control) ? 2 : 0)
                     | (e.KeyModifiers.HasFlag(KeyModifiers.Alt) ? 4 : 0);
         var (x, y) = (point.Position.X - inset, point.Position.Y - inset);
-        root.ExecuteEvent(handler, () =>
-        {
-            var args = new List<Vb6Value>();
-            if (index is { } i)
-                args.Add(new Vb6Value(i));
-            args.Add(new Vb6Value(button));
-            args.Add(new Vb6Value(shift));
-            args.Add(new Vb6Value(ControlPositions.MouseCoordinate(x, mode, vertical: false)));
-            args.Add(new Vb6Value(ControlPositions.MouseCoordinate(y, mode, vertical: true)));
-            return args;
-        },
         // A move waiting behind a running handler is updated by the next one rather than queued beside it, as Windows
         // coalesces WM_MOUSEMOVE: only into the newest waiting event, never past a press (inferred, #766).
-        ReferenceEquals(eventClass, ComponentBaseClass.MouseMoveEvent) ? EventCoalescing.Latest : EventCoalescing.None);
+        var coalescing = ReferenceEquals(eventClass, ComponentBaseClass.MouseMoveEvent) ? EventCoalescing.Latest : EventCoalescing.None;
+        foreach (var handler in handlers)
+            handler.Root.ExecuteEvent(handler.Name, () =>
+            {
+                var args = new List<Vb6Value>();
+                if (handler.Own && index is { } i)
+                    args.Add(new Vb6Value(i));
+                args.Add(new Vb6Value(button));
+                args.Add(new Vb6Value(shift));
+                args.Add(new Vb6Value(ControlPositions.MouseCoordinate(x, mode, vertical: false)));
+                args.Add(new Vb6Value(ControlPositions.MouseCoordinate(y, mode, vertical: true)));
+                return args;
+            }, coalescing, when);
     }
 
     /// <summary>

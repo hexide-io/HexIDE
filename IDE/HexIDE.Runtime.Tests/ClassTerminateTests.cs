@@ -5,7 +5,7 @@ namespace HexIDE.Runtime.Tests;
 /// <summary>
 /// Interpreter-advanced Phase 4.2a — <c>Class_Terminate</c> via real slot-based reference counting: a
 /// <c>Class_Terminate</c> fires the instant an instance's last reference drops. Every expectation here is pinned
-/// against <c>vb6.exe</c> (see docs/vb6-fidelity-oracle.md "Class_Terminate lifecycle"). Each class logs
+/// against <c>vb6.exe</c> (see docs/vb6-fidelity-oracle/class_terminate-lifecycle.md "Class_Terminate lifecycle"). Each class logs
 /// <c>"I:"&amp;Id</c> in <c>Class_Initialize</c> (Id is empty at construction) and <c>"T:"&amp;Id</c> in
 /// <c>Class_Terminate</c> (Id is set by the time it terminates), so the Debug.Print order reveals firing + timing.
 ///

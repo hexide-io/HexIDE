@@ -14,6 +14,9 @@ namespace HexIDE.VbLspServer;
 /// </summary>
 public sealed record VbCompilationContext(IReadOnlyDictionary<string, short>? Arguments)
 {
+    /// <summary>Class and module names listed by the document's project; no cross-file binding.</summary>
+    public IReadOnlyCollection<string> BaselineNames { get; init; } = [];
+
     /// <summary>A document no project lists: only VB6's built-ins are known.</summary>
     public static readonly VbCompilationContext NoProject = new((IReadOnlyDictionary<string, short>?)null);
 }
@@ -50,7 +53,7 @@ internal static class VbConditionalCompilation
     {
         try
         {
-            var applied = ConditionalCompilation.Preprocess(source, new Evaluator(context), keep);
+            var applied = ConditionalCompilation.Preprocess(source, new Evaluator(context), keep, includeLoneCarriageReturns: true);
             return new Applied(applied.Text, applied.UndeterminedLines, null);
         }
         catch (ConditionalCompilationException e)
@@ -64,8 +67,8 @@ internal static class VbConditionalCompilation
     /// <summary>The directive's error as a diagnostic over its whole line.</summary>
     internal static LspDiagnostic Diagnostic(ConditionalCompilationException error, string source)
     {
-        var lines = source.Split('\n');
-        var text = error.Line - 1 < lines.Length ? lines[error.Line - 1].TrimEnd('\r') : "";
+        var lines = source.Replace("\r\n", "\n", StringComparison.Ordinal).Replace('\r', '\n').Split('\n');
+        var text = error.Line - 1 < lines.Length ? lines[error.Line - 1] : "";
         return new LspDiagnostic(new LspRange(new LspPosition(error.Line - 1, 0), new LspPosition(error.Line - 1, text.Length)),
             error.Message, 1);
     }

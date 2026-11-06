@@ -1,8 +1,12 @@
 using System;
 using System.Linq;
+using System.Threading.Tasks;
 using Avalonia.Automation;
 using Avalonia.Controls;
+using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
+using Avalonia.Input;
+using Avalonia.Input.Raw;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using HexIDE.Automation;
@@ -81,6 +85,105 @@ public class DebugTreeItemNameTests
             var tree = window.GetVisualDescendants().OfType<TreeView>().Single();
             UiAutomationDriver.Interact(tree, "select", "total").Success.Should().BeTrue();
             vm.SelectedRow!.Expression.Should().Be("total");
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaTheory]
+    [InlineData("path")]
+    [InlineData("escape")]
+    public void WatchContextMenu_ReceiverPathNamesTheMenu(string check)
+    {
+        var watches = new WatchService();
+        watches.Add(new WatchExpression("1 + 1", WatchType.Expression, "Module1.Go"));
+        var localization = Substitute.For<ILocalizationService>();
+        localization.GetString(Arg.Any<string>()).Returns(ci => ci.Arg<string>());
+        var vm = new WatchesToolViewModel(localization, watches, Substitute.For<IDebugController>(),
+            Substitute.For<IWindowManager>());
+        var window = Show(new WatchesToolView { DataContext = vm });
+        var tree = window.GetVisualDescendants().OfType<TreeView>().Single();
+        var menu = tree.ContextMenu!;
+        try
+        {
+            tree.SelectedItem = vm.Rows[0];
+            var row = window.GetVisualDescendants().OfType<TreeViewItem>().Single();
+            var rowPath = UiAutomationDriver.PathWithin(window, "Window", row)!;
+            var target = UiAutomationDriver.Resolve(window, rowPath).control!;
+            var border = row.GetVisualDescendants().OfType<Border>().Single(b => b.Name == "SelectionBorder");
+            // Raise the context request at the row part, as the desktop right-click does (#3146).
+            border.RaiseEvent(new ContextRequestedEventArgs { Source = border });
+            Dispatcher.UIThread.RunJobs();
+            menu.IsOpen.Should().BeTrue();
+            // Reproduce the menu-root focus recorded in the issue on the headless platform.
+            menu.Focusable = true;
+            menu.Focus().Should().BeTrue();
+            var menuPath = UiAutomationDriver.Dump(tree, UiAutomationDriver.PathWithin(window, "Window", tree)!, 20, false)
+                .Children.Single(c => c.ControlType == "ContextMenu").Path;
+            UiAutomationDriver.Resolve(window, menuPath).control.Should().BeSameAs(menu);
+
+            if (check == "path")
+                UiAutomationDriver.PathWithin(target, rowPath, menu).Should().BeNull();
+            else
+            {
+                var outcome = UiAutomationDriver.PressKey(target, "Escape", null, rowPath);
+                Dispatcher.UIThread.RunJobs();
+
+                outcome.Success.Should().BeTrue(outcome.Error);
+                outcome.Detail.Should().Contain($", at {menuPath}").And.NotContain("moved focus");
+                menu.IsOpen.Should().BeFalse();
+            }
+        }
+        finally { menu.Close(); window.Close(); }
+    }
+
+    [AvaloniaTheory]
+    [InlineData("delete")]
+    [InlineData("edit")]
+    [InlineData("key")]
+    public async Task WatchChildSelection_DoesNotActOnPreviousWatch(string action)
+    {
+        var watches = new WatchService();
+        watches.Add(new WatchExpression("count", WatchType.Expression, "Module1.Go"));
+        watches.Add(new WatchExpression("obj", WatchType.Expression, "Module1.Go"));
+        var localization = Substitute.For<ILocalizationService>();
+        localization.GetString(Arg.Any<string>()).Returns(ci => ci.Arg<string>());
+        var manager = Substitute.For<IWindowManager>();
+        var vm = new WatchesToolViewModel(localization, watches, Substitute.For<IDebugController>(), manager);
+        vm.Rows[1].Update(new DebugEvalResult(true, "", "Thing", false,
+            new DebugNode("obj", "", "Thing", () => [new DebugNode("field", "1", "Integer")])));
+        vm.Rows[1].IsExpanded = true;
+        var view = new WatchesToolView { DataContext = vm };
+        var window = Show(view);
+        try
+        {
+            var tree = window.GetVisualDescendants().OfType<TreeView>().Single();
+            tree.SelectedItem = vm.Rows[0];
+            vm.SelectedRow.Should().BeSameAs(vm.Rows[0]);
+            var child = vm.Rows[1].Children.Single();
+            tree.SelectedItem = child;
+            Dispatcher.UIThread.RunJobs();
+
+            switch (action)
+            {
+                case "delete": vm.DeleteSelected(); break;
+                case "edit": await vm.EditSelected(); break;
+                case "key":
+                    window.GetVisualDescendants().OfType<TreeViewItem>()
+                        .Single(item => ReferenceEquals(item.DataContext, child)).Focus().Should().BeTrue();
+                    window.KeyPress(Key.Delete, RawInputModifiers.None, PhysicalKey.Delete, null);
+                    window.KeyRelease(Key.Delete, RawInputModifiers.None, PhysicalKey.Delete, null);
+                    break;
+            }
+
+            vm.SelectedRow.Should().BeNull();
+            vm.SelectedItem.Should().BeSameAs(child);
+            watches.Watches.Select(w => w.Expression).Should().ContainInOrder("count", "obj");
+            await manager.DidNotReceiveWithAnyArgs().ShowDialog(default!);
+
+            watches.Add(new WatchExpression("third", WatchType.Expression, "Module1.Go"));
+            Dispatcher.UIThread.RunJobs();
+            vm.SelectedItem.Should().BeNull();
+            tree.SelectedItem.Should().BeNull();
         }
         finally { window.Close(); }
     }

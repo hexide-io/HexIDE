@@ -52,6 +52,13 @@ internal static class LspSpecificationModel
     private static readonly Lock Gate = new();
     private static IReadOnlyList<Message>? _cached;
     private static bool _attempted;
+    private static readonly Dictionary<string, int[]> EnumerationValues = new();
+
+    public static IReadOnlyDictionary<string, int[]> Enumerations()
+    {
+        All();
+        return EnumerationValues;
+    }
 
     /// <summary>
     /// Every message the protocol defines, or null when the model could not be obtained.
@@ -80,6 +87,15 @@ internal static class LspSpecificationModel
 
         using var document = JsonDocument.Parse(File.ReadAllBytes(path));
         var root = document.RootElement;
+
+        foreach (var enumeration in root.GetProperty("enumerations").EnumerateArray())
+        {
+            EnumerationValues.Add(enumeration.GetProperty("name").GetString()!,
+                enumeration.GetProperty("values").EnumerateArray()
+                    .Select(value => value.GetProperty("value"))
+                    .Where(value => value.ValueKind == JsonValueKind.Number)
+                    .Select(value => value.GetInt32()).ToArray());
+        }
 
         var messages = new List<Message>();
         Collect(root, "requests", isRequest: true, messages);

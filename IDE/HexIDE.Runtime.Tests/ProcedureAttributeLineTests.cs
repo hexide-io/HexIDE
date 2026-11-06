@@ -5,7 +5,7 @@ namespace HexIDE.Runtime.Tests;
 /// <summary>
 /// An <c>Attribute</c> line inside a procedure is metadata, and the procedure runs as if it were not there (#832).
 /// Calling one stopped the run with "Attribute not implemented". Every expectation was measured on vb6.exe, native and
-/// in the IDE; the probes are in docs/vb6-fidelity-oracle.md, "Attribute lines inside a procedure".
+/// in the IDE; the probes are in docs/vb6-fidelity-oracle/attribute-lines-inside-a-procedure.md, "Attribute lines inside a procedure".
 /// </summary>
 public class ProcedureAttributeLineTests : BaseVBTestFixture
 {

@@ -8,7 +8,7 @@ using HexIDE.Automation;
 namespace HexIDE.Converters;
 
 /// <summary>
-/// A button-like control's automation name from its content and its tooltip: a caption as displayed, without the
+/// An automation name from a label, or a button-like control's content and tooltip: a caption as displayed, without the
 /// underscore that marks its access key; else, for content that is not text, the tooltip. Anything else is left
 /// to the peer.
 /// </summary>
@@ -22,9 +22,12 @@ public sealed class AccessKeyNameConverter : IValueConverter, IMultiValueConvert
 {
     public static readonly AccessKeyNameConverter Instance = new();
 
+    // Labels in Options keep punctuation visually, but omit trailing colons when announced.
     public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture) =>
-        value is string caption && caption.Contains('_')
-            ? MenuPath.StripAccessKey(caption)
+        value is string caption
+            ? parameter is "TrimColon"
+                ? MenuPath.StripAccessKey(caption).TrimEnd().TrimEnd(':', '：').TrimEnd()
+                : MenuPath.StripAccessKey(caption)
             : AvaloniaProperty.UnsetValue;
 
     /// <param name="values">The content, then the tooltip.</param>
@@ -32,8 +35,8 @@ public sealed class AccessKeyNameConverter : IValueConverter, IMultiValueConvert
     {
         var content = values.Count > 0 ? values[0] : null;
         var tip = values.Count > 1 ? values[1] : null;
-        if (content is string)
-            return Convert(content, targetType, parameter, culture);
+        if (content is string caption)
+            return caption.Contains('_') ? Convert(caption, targetType, parameter, culture) : AvaloniaProperty.UnsetValue;
         return content is not null && tip is string { Length: > 0 } text ? text : AvaloniaProperty.UnsetValue;
     }
 

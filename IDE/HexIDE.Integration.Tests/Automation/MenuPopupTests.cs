@@ -20,7 +20,7 @@ namespace HexIDE.Integration.Tests.Automation;
 /// And driving one did less than a click (#947): invoke left the menu open and moved no tick, and collapse on a bar
 /// header left the bar lit and taking keys.
 /// </summary>
-public class MenuPopupTests
+public class MenuPopupTests : WindowTestFixture
 {
     private static (Window window, Menu menu, MenuItem file) BuildMenuWindow()
     {
@@ -351,8 +351,8 @@ public class MenuPopupTests
     [AvaloniaFact]
     public void A_menu_advertises_the_actions_it_accepts()
     {
-        // MenuItemAutomationPeer exposes no providers at all, so reporting the peer verbatim showed a menu
-        // as undrivable — and a token nobody sees is a token nobody tries. Discovery has to agree with
+        // MenuItemAutomationPeer exposes no invoke or expandCollapse provider, so reporting the peer verbatim showed a
+        // menu as undrivable — and a token nobody sees is a token nobody tries. Discovery has to agree with
         // what Interact will actually do, or the fix is unreachable through the documented workflow.
         var (window, _, file) = BuildMenuWindow();
         UiAutomationDriver.Interact(file, "expand", null);
@@ -364,6 +364,20 @@ public class MenuPopupTests
         var leaf = Find(dump, "Open")!;
         leaf.Providers.Should().Contain("invoke");
         leaf.Providers.Should().NotContain("expandCollapse");
+    }
+
+    [AvaloniaFact]
+    public void A_checkable_menu_item_does_not_advertise_toggle()
+    {
+        // From Avalonia 12.0.5 the peer of a checkable item offers a toggle, but it only sets IsChecked: no Click, so
+        // neither a program's handler nor an IDE command runs. Toggle is refused on every menu item for that reason, so
+        // advertising it would promise a verb that only refuses.
+        var (window, _, file) = BuildMenuWindow();
+        file.Items.Add(new MenuItem { Header = "Minimap", ToggleType = MenuItemToggleType.CheckBox });
+        UiAutomationDriver.Interact(file, "expand", null);
+        var dump = UiAutomationDriver.Dump(window, "Window", 20, interactiveOnly: false);
+
+        Find(dump, "Minimap")!.Providers.Should().Contain("invoke").And.NotContain("toggle");
     }
 
     private static UiNode? Find(UiNode node, string name)

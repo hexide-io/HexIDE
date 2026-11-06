@@ -8,12 +8,66 @@ namespace HexIDE.Addins;
 
 public sealed class AddinEventService : IAddinEvents, IDisposable
 {
-    public event Action<AddinProjectEventArgs>? ProjectLoaded;
-    public event Action<AddinProjectEventArgs>? ProjectUnloaded;
-    public event Action<AddinFileEventArgs>? FileOpened;
-    public event Action<AddinFileEventArgs>? FileClosed;
-    public event Action? RunStarted;
-    public event Action? RunStopped;
+    private event Action<AddinProjectEventArgs>? _projectLoaded;
+    public event Action<AddinProjectEventArgs>? ProjectLoaded
+    {
+        add
+        {
+            _projectLoaded += value;
+            AddinInitializationScope.Record(() => _projectLoaded -= value);
+        }
+        remove => _projectLoaded -= value;
+    }
+    private event Action<AddinProjectEventArgs>? _projectUnloaded;
+    public event Action<AddinProjectEventArgs>? ProjectUnloaded
+    {
+        add
+        {
+            _projectUnloaded += value;
+            AddinInitializationScope.Record(() => _projectUnloaded -= value);
+        }
+        remove => _projectUnloaded -= value;
+    }
+    private event Action<AddinFileEventArgs>? _fileOpened;
+    public event Action<AddinFileEventArgs>? FileOpened
+    {
+        add
+        {
+            _fileOpened += value;
+            AddinInitializationScope.Record(() => _fileOpened -= value);
+        }
+        remove => _fileOpened -= value;
+    }
+    private event Action<AddinFileEventArgs>? _fileClosed;
+    public event Action<AddinFileEventArgs>? FileClosed
+    {
+        add
+        {
+            _fileClosed += value;
+            AddinInitializationScope.Record(() => _fileClosed -= value);
+        }
+        remove => _fileClosed -= value;
+    }
+    private event Action? _runStarted;
+    public event Action? RunStarted
+    {
+        add
+        {
+            _runStarted += value;
+            AddinInitializationScope.Record(() => _runStarted -= value);
+        }
+        remove => _runStarted -= value;
+    }
+    private event Action? _runStopped;
+    public event Action? RunStopped
+    {
+        add
+        {
+            _runStopped += value;
+            AddinInitializationScope.Record(() => _runStopped -= value);
+        }
+        remove => _runStopped -= value;
+    }
 
     private readonly IProjectManager _projectManager;
     private readonly IProjectRunnerService _projectRunnerService;
@@ -31,9 +85,9 @@ public sealed class AddinEventService : IAddinEvents, IDisposable
         projectRunnerService.PropertyChanged += OnRunnerPropertyChanged;
 
         _fileOpenedSub = eventBus.Subscribe<FileOpenedEvent>(e =>
-            FileOpened?.Invoke(Describe(e.Document, e.Title)));
+            _fileOpened?.Invoke(Describe(e.Document, e.Title)));
         _fileClosedSub = eventBus.Subscribe<FileClosedEvent>(e =>
-            FileClosed?.Invoke(Describe(e.Document, e.Title)));
+            _fileClosed?.Invoke(Describe(e.Document, e.Title)));
     }
 
     /// <summary>
@@ -52,18 +106,18 @@ public sealed class AddinEventService : IAddinEvents, IDisposable
                 document.Project.Name);
 
     private void OnProjectLoaded(ProjectDefinition p) =>
-        ProjectLoaded?.Invoke(new AddinProjectEventArgs(p.AbsolutePath ?? string.Empty, p.Name));
+        _projectLoaded?.Invoke(new AddinProjectEventArgs(p.AbsolutePath ?? string.Empty, p.Name));
 
     private void OnProjectUnloaded(ProjectDefinition p) =>
-        ProjectUnloaded?.Invoke(new AddinProjectEventArgs(p.AbsolutePath ?? string.Empty, p.Name));
+        _projectUnloaded?.Invoke(new AddinProjectEventArgs(p.AbsolutePath ?? string.Empty, p.Name));
 
     private void OnRunnerPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
         if (e.PropertyName != nameof(IProjectRunnerService.IsRunning)) return;
         if (_projectRunnerService.IsRunning)
-            RunStarted?.Invoke();
+            _runStarted?.Invoke();
         else
-            RunStopped?.Invoke();
+            _runStopped?.Invoke();
     }
 
     public void Dispose()

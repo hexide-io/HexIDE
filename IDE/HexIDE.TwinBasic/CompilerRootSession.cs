@@ -23,6 +23,16 @@ public sealed class CompilerRootSession : IDisposable
     internal CompilerWebSocketTransport Transport => transport;
     private int projectPreparationClaimed;
     internal bool TryClaimProjectPreparation() => Interlocked.CompareExchange(ref projectPreparationClaimed, 1, 0) == 0;
+    private int nextRequestId = 2; // Initialization takes ids 0 and 1.
+    internal int TakeRequestId() => Interlocked.Increment(ref nextRequestId) - 1;
+
+    /// <summary>
+    /// Asks the compiler to end, which it does without answering. Wait for that with
+    /// <see cref="CompilerProcess.WaitForExitAsync"/>; a compiler that never ends is still ended when its process is disposed.
+    /// </summary>
+    public Task RequestShutdownAsync(CancellationToken cancellationToken = default) =>
+        transport.SendAsync(Codec.EncodeProjectRequest(TakeRequestId(), new CompilerShutdown(), 64),
+            WebSocketMessageType.Binary, cancellationToken);
     public CompilerRootConnectionInfo Connection { get; }
 
     private CompilerRootSession(CompilerWebSocketTransport transport, CompilerRootConnectionInfo connection, ICompilerSessionCodec codec)

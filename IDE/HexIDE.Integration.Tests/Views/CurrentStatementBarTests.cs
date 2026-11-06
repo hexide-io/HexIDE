@@ -36,6 +36,12 @@ public class CurrentStatementBarTests : IDisposable
     private readonly ILspClient _lspClient = Substitute.For<ILspClient>();
     private readonly IDebugController _debug = Substitute.For<IDebugController>();
     private readonly RunScope _runScope = new();
+    private readonly HexIDE.Tools.CallStackToolViewModel _stack;
+
+    public CurrentStatementBarTests()
+    {
+        _stack = new HexIDE.Tools.CallStackToolViewModel(Substitute.For<ILocalizationService>(), _debug);
+    }
     private readonly List<Window> _windows = [];
 
     public void Dispose()
@@ -78,7 +84,7 @@ public class CurrentStatementBarTests : IDisposable
             Substitute.For<IBreakpointService>(),
             _debug,
             _runScope,
-            localization);
+            localization, callStack: _stack);
     }
 
     /// <summary>A module whose own name and whose file name deliberately disagree.</summary>
@@ -115,6 +121,67 @@ public class CurrentStatementBarTests : IDisposable
         _debug.Stopped += Raise.Event<Action<StoppedInfo>>(
             new StoppedInfo(StopReason.Breakpoint, module, line));
         Dispatcher.UIThread.RunJobs();
+    }
+
+    [AvaloniaFact]
+    public void SelectingCallerNavigatesAndMarksWithoutMovingCurrentStatement()
+    {
+        var project = new ProjectDefinition(VBProjectType.EXE, "P");
+        var module = UtilitiesInUtilBas(project);
+        _runScope.RunningProject = project;
+        using var vm = MakeViewModel();
+        vm.Initialize(module);
+        var view = Show(vm);
+        _debug.GetCallStack().Returns(new[]
+        {
+            new CallStackFrame("Two", "Utilities", 4),
+            new CallStackFrame("One", "Utilities", 2)
+        });
+        Pause("Utilities", 4);
+        var editor = view.FindControl<TextEditor>("TextEditor")!;
+        var margin = editor.TextArea.LeftMargins.OfType<BreakpointMargin>().Single();
+
+        _stack.SelectedFrame = _stack.Frames[1];
+
+        editor.Document.GetLineByOffset(editor.CaretOffset).LineNumber.Should().Be(2);
+        margin.CallSiteLine.Should().Be(2);
+        BarOf(view).Line.Should().Be(4);
+        _debug.DidNotReceive().SetNextStatement(Arg.Any<string>(), Arg.Any<int>());
+
+        _stack.SelectedFrame = _stack.Frames[0];
+        margin.CallSiteLine.Should().BeNull();
+        editor.Document.GetLineByOffset(editor.CaretOffset).LineNumber.Should().Be(4);
+        _stack.SelectedFrame = _stack.Frames[1];
+        _debug.Continued += Raise.Event<Action>();
+        margin.CallSiteLine.Should().BeNull();
+    }
+
+    [AvaloniaFact]
+    public void CallerMarkerDoesNotAppearInAnotherProjectOrSurviveAnotherStop()
+    {
+        var project = new ProjectDefinition(VBProjectType.EXE, "P");
+        var module = UtilitiesInUtilBas(project);
+        _runScope.RunningProject = project;
+        using var vm = MakeViewModel();
+        vm.Initialize(module);
+        var view = Show(vm);
+        var other = new ProjectDefinition(VBProjectType.EXE, "Other");
+        using var otherVm = MakeViewModel();
+        otherVm.Initialize(UtilitiesInUtilBas(other));
+        var otherView = Show(otherVm);
+        _debug.GetCallStack().Returns(new[]
+        {
+            new CallStackFrame("Two", "Utilities", 4),
+            new CallStackFrame("One", "Utilities", 2)
+        });
+        Pause("Utilities", 4);
+        _stack.SelectedFrame = _stack.Frames[1];
+        var margin = view.FindControl<TextEditor>("TextEditor")!.TextArea.LeftMargins.OfType<BreakpointMargin>().Single();
+        margin.CallSiteLine.Should().Be(2);
+        otherView.FindControl<TextEditor>("TextEditor")!.TextArea.LeftMargins.OfType<BreakpointMargin>().Single()
+            .CallSiteLine.Should().BeNull();
+        Pause("Utilities", 4);
+        margin.CallSiteLine.Should().BeNull();
     }
 
     [AvaloniaFact]
