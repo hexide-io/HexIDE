@@ -393,7 +393,8 @@ filecopyStmt
 
 // `For _ Each` — WS? between the two keywords; see the note on selectCaseStmt for why that is not a widening.
 forEachStmt
-   : FOR WS? EACH WS ambiguousIdentifier typeHint? WS IN WS valueStmt (lineSep lineHead | blockSep (block lineSep lineHead | block blockSep)?) NEXT (WS ambiguousIdentifier)?
+   : FOR WS? EACH WS ambiguousIdentifier typeHint? WS IN WS collection=implicitCallStmt_InStmt
+       {!System.Array.Exists(new[] { "Nothing", "True", "False", "Null", "Empty" }, keyword => string.Equals($collection.text, keyword, System.StringComparison.OrdinalIgnoreCase))}? (lineSep lineHead | blockSep (block lineSep lineHead | block blockSep)?) NEXT (WS ambiguousIdentifier)?
    ;
 
 forNextStmt
