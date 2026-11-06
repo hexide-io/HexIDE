@@ -2407,15 +2407,22 @@ public sealed class VBLspClient : ILspClient
             // every clean exit as a crash.
             // See hexide-io/HexIDE#312.
             // A live but wedged server must not hold IDE shutdown indefinitely (#392).
+            var shutdownAnswered = false;
             try
             {
                 await InvokeRequestAsync<object?>(rpc, "shutdown", null, timeout: ShutdownTimeout);
+                shutdownAnswered = true;
             }
             catch { }
             // Bounded too (#1221). A server that has stopped reading fills the pipe, so the write ahead of this one
             // never finishes and exit queues behind it for good. The shutdown deadline above does not cover that: it
             // ends the wait for an answer, not the send. Disposing the connection below ends the stuck writes.
-            try { await rpc.NotifyWithParameterObjectAsync("exit", null).WaitAsync(ShutdownTimeout); } catch { }
+            try
+            {
+                await rpc.NotifyWithParameterObjectAsync("exit", null).WaitAsync(ShutdownTimeout);
+                if (shutdownAnswered) _transport.ShutdownCompleted();
+            }
+            catch { }
         }
         DisposeRpc();
 

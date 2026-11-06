@@ -64,8 +64,12 @@ public class StdioProcessFaultTests
                 (await WaitFor(e => e.Detail == "process exited with code 0")).Fault.Should().BeFalse();
             }
             else if (mode is "ignore" or "tree")
-                (await WaitFor(e => e.Detail?.StartsWith("process exited with code ", StringComparison.Ordinal) == true))
-                    .Fault.Should().BeTrue();
+            {
+                var end = await WaitFor(e => e.Detail?.StartsWith("stopped after shutdown;", StringComparison.Ordinal) == true
+                    || e.Detail?.StartsWith("process exited with code ", StringComparison.Ordinal) == true);
+                end.Fault.Should().BeFalse();
+                end.Detail.Should().StartWith("stopped after shutdown;");
+            }
         }
         finally
         {

@@ -666,13 +666,16 @@ its remaining process tree is killed, including during bring-up. Both messages
 SHALL omit the `params` member. The stdio transport SHALL allow two seconds for an orderly exit, then
 kill the remaining process tree and wait up to two seconds for termination before disposing the process
 handle. On Linux and macOS, both transports SHALL allow an additional two seconds for the guard's
-group cleanup before killing it. The process exit code SHALL remain observable in the conversation during client stop.
+group cleanup before killing it. The process exit code SHALL remain observable in the conversation during client stop,
+except for a timeout termination after a successful `shutdown` answer and a sent `exit`: that end SHALL
+be recorded once as a stop with the elapsed grace period, without a fault or killed-process exit code.
+Natural non-zero exits and kills without a successful shutdown SHALL retain their exit code and fault.
 After sending `shutdown`, the client SHALL send no request or notification but `exit` on that connection.
 Pending workspace-folder updates, project imports and cancellations SHALL be dropped for the old
 connection rather than queued for it. Replies to the server's own requests SHALL still be sent. When a connection ends, its unanswered requests SHALL be recorded as Abandoned.
 
 Both process-owning transports SHALL retain the process exit handler until disposal has recorded the
-exit, and SHALL record it once. During deliberate disposal, they SHALL log the exit code at information
+end, and SHALL record it once. During deliberate disposal, they SHALL log a natural exit code at information
 level with the server identity and SHALL log a timeout kill separately. Deliberate disposal SHALL NOT
 raise the transport's unexpected-close event.
 
@@ -751,7 +754,8 @@ still goes away.
 #### Scenario: A stdio wrapper ignores exit
 - **WHEN** a launched stdio server remains alive after the exit grace period
 - **THEN** its process tree is killed, including its server child
-- **AND** the observed exit code is recorded before transport disposal finishes
+- **AND** a kill after a successful shutdown answer and sent exit is recorded as a stop without a fault
+- **AND** otherwise the observed exit code is recorded before transport disposal finishes
 
 ### Requirement: Message types SHALL be registered for ahead-of-time serialization
 Every message type crossing the boundary SHALL be registered with the serializer's generated context, and
