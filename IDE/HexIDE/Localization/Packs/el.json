@@ -2,6 +2,11 @@
   "name": "Greek",
   "direction": "ltr",
   "strings": {
+    "Str.Lsp.ServerMessage": "Διακομιστής γλώσσας: {0}",
+    "Str.Lsp.ServerError": "Σφάλμα διακομιστή γλώσσας: {0}",
+    "Str.Lsp.EditNotApplied": "Η επεξεργασία του διακομιστή δεν εφαρμόστηκε: {0}",
+    "Str.Lsp.EditRequiresUserCommand": "Το HexIDE εφαρμόζει τις αλλαγές ενός διακομιστή μόνο όσο εκτελείται μια εντολή που ξεκίνησε ο χρήστης.",
+    "Str.Lsp.NoWorkspaceEditor": "Δεν υπάρχει διαθέσιμο πρόγραμμα επεξεργασίας χώρου εργασίας.",
     "Str.Menu.Edit.CallHierarchy": "Ιεραρχία κλήσεων",
     "Str.CodeEditor.Context.CallHierarchy": "Ιεραρχία κλήσεων",
     "Str.Lsp.OpenExternalUri": "Άνοιγμα αυτού του URI εκτός του HexIDE;\n\n{0}",

@@ -48,7 +48,7 @@ public class WorkspaceRenameTests : IDisposable
                 return true;
             });
         editors = new EditorService(dock, NewEditor, () => throw new InvalidOperationException(),
-            () => throw new InvalidOperationException(), () => throw new InvalidOperationException(), () => manager);
+            () => throw new InvalidOperationException(), () => throw new InvalidOperationException(), () => manager, localization);
         localization.GetString("Str.CodeEditor.Msg.RenameDocumentRefused").Returns("Rename refused: {0}");
         localization.GetString("Str.CodeEditor.Msg.RenameStaleVersion").Returns("Cannot rename {0}: stale version. Try again.");
         localization.GetString("Str.CodeEditor.Msg.RenameUnsavedChanges").Returns("Cannot rename {0}: unsaved changes. Save and try again.");

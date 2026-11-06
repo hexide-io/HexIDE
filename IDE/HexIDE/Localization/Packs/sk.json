@@ -2,6 +2,11 @@
   "name": "Slovak",
   "direction": "ltr",
   "strings": {
+    "Str.Lsp.ServerMessage": "Jazykový server: {0}",
+    "Str.Lsp.ServerError": "Chyba jazykového servera: {0}",
+    "Str.Lsp.EditNotApplied": "Úprava zo servera nebola použitá: {0}",
+    "Str.Lsp.EditRequiresUserCommand": "HexIDE použije úpravy servera iba počas vykonávania príkazu spusteného používateľom.",
+    "Str.Lsp.NoWorkspaceEditor": "Nie je dostupný žiadny editor pracovného priestoru.",
     "Str.Menu.Edit.CallHierarchy": "H_ierarchia volaní",
     "Str.CodeEditor.Context.CallHierarchy": "_Hierarchia volaní",
     "Str.Lsp.OpenExternalUri": "Otvoriť tento identifikátor URI mimo HexIDE?\n\n{0}",

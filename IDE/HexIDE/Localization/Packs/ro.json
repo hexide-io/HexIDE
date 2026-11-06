@@ -2,6 +2,11 @@
   "name": "Romanian",
   "direction": "ltr",
   "strings": {
+    "Str.Lsp.ServerMessage": "Server de limbaj: {0}",
+    "Str.Lsp.ServerError": "Eroare a serverului de limbaj: {0}",
+    "Str.Lsp.EditNotApplied": "Modificarea serverului nu a fost aplicată: {0}",
+    "Str.Lsp.EditRequiresUserCommand": "HexIDE aplică modificările unui server numai în timpul executării unei comenzi pornite de utilizator.",
+    "Str.Lsp.NoWorkspaceEditor": "Nu este disponibil niciun editor al spațiului de lucru.",
     "Str.Menu.Edit.CallHierarchy": "I_erarhia apelurilor",
     "Str.CodeEditor.Context.CallHierarchy": "Ierar_hia apelurilor",
     "Str.Lsp.OpenExternalUri": "Deschideți acest URI în afara HexIDE?\n\n{0}",

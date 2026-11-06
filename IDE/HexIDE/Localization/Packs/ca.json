@@ -2,6 +2,11 @@
   "name": "Catalan",
   "direction": "ltr",
   "strings": {
+    "Str.Lsp.ServerMessage": "Servidor de llenguatge: {0}",
+    "Str.Lsp.ServerError": "Error del servidor de llenguatge: {0}",
+    "Str.Lsp.EditNotApplied": "No s’ha aplicat l’edició del servidor: {0}",
+    "Str.Lsp.EditRequiresUserCommand": "HexIDE només aplica els canvis d’un servidor mentre s’executa una ordre iniciada per l’usuari.",
+    "Str.Lsp.NoWorkspaceEditor": "No hi ha cap editor de l’espai de treball disponible.",
     "Str.Menu.Edit.CallHierarchy": "_Jerarquia de crides",
     "Str.CodeEditor.Context.CallHierarchy": "_Jerarquia de crides",
     "Str.Lsp.OpenExternalUri": "Voleu obrir aquest URI fora del HexIDE?\n\n{0}",

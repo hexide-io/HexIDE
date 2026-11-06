@@ -2,6 +2,11 @@
   "name": "Finnish",
   "direction": "ltr",
   "strings": {
+    "Str.Lsp.ServerMessage": "Kielipalvelin: {0}",
+    "Str.Lsp.ServerError": "Kielipalvelimen virhe: {0}",
+    "Str.Lsp.EditNotApplied": "Palvelimen muokkausta ei otettu käyttöön: {0}",
+    "Str.Lsp.EditRequiresUserCommand": "HexIDE ottaa palvelimen muokkaukset käyttöön vain käyttäjän käynnistämän komennon suorituksen aikana.",
+    "Str.Lsp.NoWorkspaceEditor": "Työtilan editoria ei ole käytettävissä.",
     "Str.Menu.Edit.CallHierarchy": "Ku_tsuhierarkia",
     "Str.CodeEditor.Context.CallHierarchy": "K_utsuhierarkia",
     "Str.Lsp.OpenExternalUri": "Avataanko tämä URI HexIDE:n ulkopuolella?\n\n{0}",

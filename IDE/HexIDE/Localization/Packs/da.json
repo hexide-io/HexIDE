@@ -2,6 +2,11 @@
   "name": "Danish",
   "direction": "ltr",
   "strings": {
+    "Str.Lsp.ServerMessage": "Sprogserver: {0}",
+    "Str.Lsp.ServerError": "Sprogserverfejl: {0}",
+    "Str.Lsp.EditNotApplied": "Serverændringen blev ikke anvendt: {0}",
+    "Str.Lsp.EditRequiresUserCommand": "HexIDE anvender kun en servers ændringer, mens en kommando startet af brugeren kører.",
+    "Str.Lsp.NoWorkspaceEditor": "Ingen editor til arbejdsområdet er tilgængelig.",
     "Str.Menu.Edit.CallHierarchy": "Kal_dhierarki",
     "Str.CodeEditor.Context.CallHierarchy": "Kal_dhierarki",
     "Str.Lsp.OpenExternalUri": "Åbn denne URI uden for HexIDE?\n\n{0}",
