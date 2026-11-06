@@ -1535,6 +1535,16 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
                     : returned;
             completed = true;
         }
+        catch (VBRunTimeException error)
+        {
+            // A fresh throw, not a rethrow, so the error leaves each procedure carrying only this procedure's .NET
+            // stack trace (#3247). Every await between here and the caller's handler rethrows it, and a rethrow
+            // appends to the trace it carries, so with the whole trace kept an error raised N calls deep cost N²
+            // to surface: minutes, on #3228's 64 MiB stack. The VB error itself, Err and Erl, is the same object.
+#pragma warning disable CA2200 // Rethrow to preserve stack details: resetting it is the point.
+            throw error;
+#pragma warning restore CA2200
+        }
         catch (Exception ex) when (MarkUnimplementedFault(ex)) { throw; }
         finally
         {
