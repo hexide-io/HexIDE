@@ -3075,7 +3075,7 @@ public sealed class VBLspClient : ILspClient
     private void WarnRequestFailedOnce(string method, Exception ex, CancellationToken cancellationToken)
     {
         if (ex is OperationCanceledException || cancellationToken.IsCancellationRequested
-            || ex is RemoteInvocationException { ErrorCode: -32801 or -32800 })
+            || ex is RemoteInvocationException { ErrorCode: -32801 or -32800 or -32802 })
         {
             _logger.LogDebug(ex, "{Method} was superseded before it completed", method);
             return;
