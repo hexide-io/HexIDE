@@ -365,4 +365,47 @@ P-code does not do it, and HexIDE follows p-code.
 **Not changed: On Error GoTo, then `Resume Next` in the handler.** HexIDE resumes after the whole statement at the
 procedure's top level. That is the tree-walk limit for nested-granular `Resume`, recorded in `interpreter-gaps.md`.
 
+### `For Each` collections that vb6.exe refuses to compile (2026-11-06, #3213)
 
+**The question.** #969 made HexIDE run some `For Each` collections under Resume Next by applying the declared-array
+rule above, as "HexIDE, after #839" says, without a new measurement. Those were a parenthesised call, and an element of
+a typed array. Do these forms compile in vb6.exe at all? Asked before a report to RDCore, which refuses them.
+
+**Our own guess, in #969: parentheses unwrap, and an element of a typed array is not an array, so `Next` empties the
+loop variable. It was wrong on all three of those rows.** vb6.exe compiles none of them, and it refuses a literal too.
+
+**The probe.** Each program ran `On Error Resume Next`, then `x = "pre"`, then the loop. Its body counts passes and
+collects `x`, and a line after it logs the passes, the trail, `x` and `Err.Number`. The module declared
+`Dim Items(1) As Long`. `BoomV()` is a Variant Function that raises 11, and `BoomArr()` is a Function `As Long()` that
+raises 11. The `42` program has no handler. Each was built with `/make` as native code and
+as p-code, and run in the IDE with `/run`. All three answers agreed.
+
+| `For Each x In ...` | vb6.exe |
+|---|---|
+| `(BoomV())` | **Compile error: Syntax error**, on the `For Each` line |
+| `((BoomArr()))` | **Compile error: Syntax error** |
+| `42` | **Compile error: Syntax error**, not run-time 13 |
+| `Items(Boom())`, with `Items(1) As Long` | **Compile error: "For Each may only iterate over a collection object or an array"** |
+| the same, with `x As Long` too | the same message |
+| control: `BoomV()` | builds; `1: [pre]:\|92`, as in the table above |
+| control: `BoomArr()` | builds; `1: [pre]:pre\|92` |
+| control: `Items(Boom())`, with untyped `Items(1)` | builds; `1: [pre]:\|92` |
+| control: `Items(5)`, with untyped `Items(1)` | builds; `1: [pre]:\|92` |
+
+In the IDE, each refusal came at Run, as a "Compile error" box.
+
+**What this shows:**
+- **A parenthesised expression and a literal can't stand as a `For Each` collection.** A call and an indexed name
+  can.
+- **An element of an array declared with a type, such as `Items(1) As Long`, is refused at compile.** An element of
+  an untyped array compiles, since a Variant might hold an array.
+
+**Not measured:**
+- other collection forms, such as `BoomV() + 0`, a member access `o.Items`, `Me` and a string literal;
+- the class-member, field-element and module-qualified forms #969 also extended the rule to.
+
+**In HexIDE,** at the time of measuring:
+- the interpreter ran the first two and the typed element, and raised run-time 13 for `42`;
+- the bundled server reported nothing for any of them.
+
+That, and the test that pins the three as running, is #3213.
