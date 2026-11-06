@@ -189,8 +189,10 @@ The project is described to the add-in as `IProjectAccess` describes it, with it
 startup form's name, or null.
 
 Nothing runs because an add-in is installed or a project opens. Whether a launch runs the project is asked as the Run menu
-opens, and its configuration only when a run of it starts. That is under the session's cancellation, and End before the
-session has started ends it even if the add-in never looks at its token.
+opens and when a run of it starts. For whether F5 can start a project the user chose the launch for, its answer is kept
+until what it is told of the project changes (its name, file, startup object, references, or its members and their names
+and files), so it is never asked at each edit. Its configuration is asked for only when a run of it starts. That is under
+the session's cancellation, and End before the session has started ends it even if the add-in never looks at its token.
 The session is then the same as a launch file's: one at a time, with the project's saved gutter marks, and conditions
 refused in the configuration.
 
@@ -205,4 +207,7 @@ project in the IDE and the status bar says so. The choice stays, for when the ad
 not available, beside In the IDE, which sets it back. Only F5 and **Run > Start** follow the choice: stepping in from idle
 (F8), Run To Cursor, Restart and Start With Full Compile run in the IDE, whatever F5 runs.
 
-Disposing the handle `RegisterDebugLaunch` returns takes the launch out, as does a failed initialisation of its add-in.
+Disposing the handle `RegisterDebugLaunch` returns takes the launch out, as do a failed initialisation of its add-in,
+turning the add-in off and revoking its consent. A run starts only while the add-in may start what it contributed,
+checked before it is asked for the configuration and again before what it made is started; a run refused there ends with
+the reason and starts no adapter.
