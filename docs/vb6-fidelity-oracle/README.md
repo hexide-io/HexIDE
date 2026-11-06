@@ -732,3 +732,4 @@ added afterwards.
 - [Long lines, line continuations and long expressions (2026-11-06, #3202)](long-lines-line-continuations-and-long-expressions.md#long-lines-line-continuations-and-long-expressions-2026-11-06-3202)
 - [Nested `If` blocks (2026-11-06, #3210)](long-lines-line-continuations-and-long-expressions.md#nested-if-blocks-2026-11-06-3210)
 - [`For Each` collections that vb6.exe refuses to compile (2026-11-06, #3213)](resume-next-into-a-block.md#for-each-collections-that-vb6exe-refuses-to-compile-2026-11-06-3213)
+- [`Print #` items with nothing between them, and a sign after `Spc` or `Tab` (2026-11-06, #3248)](sequential-files.md#print--items-with-nothing-between-them-and-a-sign-after-spc-or-tab-2026-11-06-3248)
