@@ -36,7 +36,9 @@ public sealed class AddinLanguageServerTests : IDisposable
             new AddinOptionsService(), new ComponentRegistry(), _runner,
             new LanguageServerContributions(_router, new LanguageServerRegistrationFactory(NullLoggerFactory.Instance),
                 new LanguageServerConfigLoader(NullLogger<LanguageServerConfigLoader>.Instance),
-                new HashSet<string>(StringComparer.Ordinal), NullLogger<LanguageServerContributions>.Instance));
+                new HashSet<string>(StringComparer.Ordinal), NullLogger<LanguageServerContributions>.Instance),
+            new HexIDE.Debugging.DebugLaunchService(new HexIDE.Debugging.ExternalDebugService(new HexIDE.Conversations.ConversationLog())),
+            new HexIDE.Projects.ContributedProjects());
     }
 
     public void Dispose()

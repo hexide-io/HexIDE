@@ -53,9 +53,10 @@ public sealed class RecoveryOffersTests : IDisposable
         public readonly FileBaselineStore Store = new();
         public readonly IProjectManager Manager = Substitute.For<IProjectManager>();
         public readonly EventBus Bus = new();
+        public readonly IWindowManager Windows = Substitute.For<IWindowManager>();
         public readonly ProjectService Service;
 
-        public Session()
+        public Session(ContributedProjects? contributed = null)
         {
             Manager.LoadedProjects.Returns(_ => Loaded);
             Manager.When(m => m.AddProject(Arg.Any<ProjectDefinition>())).Do(ci => Loaded.Add(ci.Arg<ProjectDefinition>()));
@@ -64,9 +65,9 @@ public sealed class RecoveryOffersTests : IDisposable
             sidecar.SaveAsync(Arg.Any<ProjectDefinition>()).Returns(Task.CompletedTask);
             Service = new ProjectService(
                 () => throw new InvalidOperationException("new-project dialog must not be reached"),
-                Substitute.For<IWindowManager>(), Bus, Manager, Substitute.For<IRecentProjectsService>(),
+                Windows, Bus, Manager, Substitute.For<IRecentProjectsService>(),
                 Substitute.For<IReferenceLibraryService>(), sidecar, Store, Substitute.For<ILocalizationService>(),
-                Substitute.For<IHeaderRefresher>());
+                Substitute.For<IHeaderRefresher>(), contributed: contributed);
         }
 
         public ProjectDefinition Project => Loaded.Single();
@@ -232,6 +233,42 @@ public sealed class RecoveryOffersTests : IDisposable
         module3.Code.Should().Contain("Public Sub NeverSaved()");
         Module(second.Project, "Module9").AbsolutePath.Should().Be(Path.Join(dir, "Module9.bas"),
             "a file added since the last save is added back from where it is");
+    }
+
+    [Fact]
+    public async Task A_document_a_contributed_project_no_longer_lists_is_not_added_back()
+    {
+        File.WriteAllText(Path.Join(dir, ".rdproj"), "{}");
+        File.WriteAllText(Path.Join(dir, "Main.bas"), "Attribute VB_Name = \"Main\"\r\nPublic Sub Kept()\r\nEnd Sub\r\n");
+        File.WriteAllText(Path.Join(dir, "Gone.bas"), "Attribute VB_Name = \"Gone\"\r\nPublic Sub Listed()\r\nEnd Sub\r\n");
+        ContributedProjects Reading(params string[] members)
+        {
+            var types = new ContributedProjects();
+            types.Register(new AddinProjectType("RDCore projects")
+            {
+                FileNames = [".rdproj"],
+                OpenAsync = (_, _, _) => Task.FromResult(new AddinProjectContent("Ledger")
+                {
+                    Members = [.. members.Select(name => new AddinProjectMember(Path.Join(dir, name), AddinMemberKind.StandardModule))],
+                }),
+            }, new AddinOrigin("rdcore", "RDCore for HexIDE"));
+            return types;
+        }
+        var first = new Session(Reading("Main.bas", "Gone.bas"));
+        await first.Service.OpenProject(Path.Join(dir, ".rdproj"));
+        Module(first.Project, "Gone").UpdateCode("Public Sub Edited()\r\nEnd Sub\r\n");
+        Crash(first);
+
+        // Its program took Gone out between the two runs, and left its file.
+        var second = new Session(Reading("Main.bas"));
+        var offers = Offers(second);
+        answers.Enqueue(Restore);
+        await second.Service.OpenProject(Path.Join(dir, ".rdproj"));
+        await offers.OfferForAsync(second.Project);
+
+        shown.Should().ContainSingle();
+        second.Project.Modules.Select(module => module.Name).Should().Equal(["Main"], "its membership is its add-in's");
+        await second.Windows.DidNotReceiveWithAnyArgs().MessageBox(default!);
     }
 
     [Fact]
