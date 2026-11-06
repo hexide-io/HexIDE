@@ -25,6 +25,99 @@ public class ErrorUnwindTests : BaseVBTestFixture
     }
 
     [Fact]
+    public async Task AnEndReachedDeep_UnwindsWithNoMoreTraceThanOneReachedShallow()
+    {
+        // End and a debugger's Stop unwind every frame with one signal, which the run's entry swallows. A Stop 113,000
+        // calls deep grew memory by 5 GB in 29 seconds before it was thrown afresh too (#3250).
+        var shallow = await TraceLinesOfAnEndReached(callsDeep: 20);
+        var deep = await TraceLinesOfAnEndReached(callsDeep: 400);
+
+        deep.Should().BeLessThanOrEqualTo(shallow,
+            "the signal carries only the trace of the procedure it last left, however deep End was reached");
+    }
+
+    [Fact(Timeout = 60_000)]
+    public async Task ARunawayOnTheUiThreadsStack_UnderATimeSlicingDebugger_ReachesItsHandlerPromptly()
+    {
+        // The time slice leaves the frames it yielded across waiting on their callees, and on a 64 MiB stack .NET runs
+        // their continuations inline inside one another as the error unwinds, each throw dearer than the last: 138 s
+        // to reach the handler from #3250's cap, where a 1.5 MiB thread took 0.8 s. A yield every few procedures on the
+        // way down keeps that nesting shallow: about 2.5 s. The timeout is the regression's tell.
+        var failure = default(Exception);
+        await Task.Run(() => UiThread.RunOnNewThread(() =>
+        {
+            try
+            {
+                var (vb, dbg) = NewDebuggable(
+                    "Main2\n" +
+                    "Sub Main2()\n" +
+                    "  On Error GoTo H\n" +
+                    "  Up 1\n" +
+                    "  Exit Sub\n" +
+                    "H:\n" +
+                    "  Debug.Print Err.Number\n" +
+                    "End Sub\n" +
+                    "Sub Up(ByVal n As Long)\n" +
+                    "  Up n + 1\n" +
+                    "End Sub\n", "M");
+                dbg.TimeSliceMs = 15;
+                // As a made EXE and the IDE have one, so each frame asks whether the error halts there, and the answer the
+                // first frame found is reused rather than scanned for again.
+                dbg.HaltHost = _ => Task.FromResult(false);
+                var previous = SynchronizationContext.Current;
+                var pump = new Pump();
+                SynchronizationContext.SetSynchronizationContext(pump);
+                try
+                {
+                    var run = vb.Execute();
+                    pump.Drain();
+                    run.IsCompletedSuccessfully.Should().BeTrue();
+                }
+                finally
+                {
+                    SynchronizationContext.SetSynchronizationContext(previous);
+                }
+            }
+            catch (Exception error)
+            {
+                failure = error;
+            }
+            return 0;
+        }, UiThread.StackBytes), TestContext.Current.CancellationToken);
+        if (failure is not null)
+            System.Runtime.ExceptionServices.ExceptionDispatchInfo.Throw(failure);
+        AssertDebugLog([new Vb6Value(28L)]);
+    }
+
+    private async Task<int> TraceLinesOfAnEndReached(int callsDeep)
+    {
+        HexIDE.Runtime.Debugging.StopExecutionSignal? last = null;
+        var thread = 0;
+        EventHandler<System.Runtime.ExceptionServices.FirstChanceExceptionEventArgs> watch = (_, e) =>
+        {
+            if (e.Exception is HexIDE.Runtime.Debugging.StopExecutionSignal signal && Environment.CurrentManagedThreadId == thread)
+                last = signal;
+        };
+        AppDomain.CurrentDomain.FirstChanceException += watch;
+        try
+        {
+            await RunOnSizedStack(
+                "Call Up(0)\n" +
+                "Sub Up(n)\n" +
+                $"  If n >= {callsDeep} Then End\n" +
+                "  Up n + 1\n" +
+                "End Sub\n",
+                onThread: () => thread = Environment.CurrentManagedThreadId);
+        }
+        finally
+        {
+            AppDomain.CurrentDomain.FirstChanceException -= watch;
+        }
+        last.Should().NotBeNull("End unwinds with the signal");
+        return last!.StackTrace!.Split('\n').Length;
+    }
+
+    [Fact]
     public async Task AnErrorRaisedDeep_ReachesItsHandlerAsOneRaisedShallowDoes()
     {
         // Err and Erl travel with the error object, which each procedure throws on unchanged. Whatever the handler
@@ -71,6 +164,52 @@ public class ErrorUnwindTests : BaseVBTestFixture
         AssertDebugLog([new Vb6Value(5L), "after"]);
     }
 
+    [Fact]
+    public void UnboundedRecursion_UnderADebuggerThatYieldsEveryStatement_RaisesError28AtTheCallDepthCap()
+    {
+        // A yield releases the native frames, so the stack probe never trips under F5 or in a made EXE. The count
+        // must (#3250). This runs on the test's own small stack, so a 28 can come from nothing else.
+        var (vb, dbg) = NewDebuggable(
+            "On Error Resume Next\n" +
+            "Dim deepest\n" +
+            "Up 1, deepest\n" +
+            "Debug.Print Err.Number\n" +
+            "Debug.Print deepest\n" +
+            "Sub Up(n, deepest)\n" +
+            "  deepest = n\n" +
+            "  Up n + 1, deepest\n" +
+            "End Sub\n", "M");
+        dbg.TimeSliceMs = -1;
+        var previous = SynchronizationContext.Current;
+        var pump = new Pump();
+        SynchronizationContext.SetSynchronizationContext(pump);
+        try
+        {
+            var run = vb.Execute();
+            pump.Drain();
+            run.IsCompletedSuccessfully.Should().BeTrue();
+        }
+        finally
+        {
+            SynchronizationContext.SetSynchronizationContext(previous);
+        }
+        // The statements at the top are no procedure activation, so Up's own frames fill the count: it reaches the cap
+        // and the next call is refused.
+        AssertDebugLog([new Vb6Value(28L), BasicInterpreter.MaxCallDepth]);
+    }
+
+    /// <summary>Runs posted continuations on the calling thread, until there are none.</summary>
+    private sealed class Pump : SynchronizationContext
+    {
+        private readonly Queue<(SendOrPostCallback Callback, object? State)> pending = new();
+        public override void Post(SendOrPostCallback callback, object? state) => pending.Enqueue((callback, state));
+        public void Drain()
+        {
+            while (pending.TryDequeue(out var work))
+                work.Callback(work.State);
+        }
+    }
+
     private async Task<int> TraceLinesOfAnErrorRaised(int callsDeep)
     {
         VBRunTimeException? raised = null;
@@ -93,11 +232,12 @@ public class ErrorUnwindTests : BaseVBTestFixture
 
     /// <summary>Runs <paramref name="code"/> on a thread with the UI thread's stack, so 400 calls fit. A run with no
     /// debugger attached never yields, so it all happens on that thread.</summary>
-    private async Task RunOnSizedStack(string code)
+    private async Task RunOnSizedStack(string code, Action? onThread = null)
     {
         Exception? failure = null;
         await Task.Run(() => UiThread.RunOnNewThread(() =>
         {
+            onThread?.Invoke();
             try
             {
                 var run = Run(code);
