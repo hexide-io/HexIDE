@@ -1,4 +1,5 @@
 using System;
+using Avalonia.Media;
 using HexIDE.Lsp.Messages;
 
 namespace HexIDE.Tools.ObjectBrowser;
@@ -34,7 +35,7 @@ public sealed class OBSearchResultViewModel
 
     public int Column => symbol.Location.Range.Start.Character;
 
-    public string KindGlyph => OBMemberViewModel.GlyphFor(Kind);
+    public IImage KindIcon => OBMemberViewModel.IconFor(Kind);
 
     /// <summary>
     /// Where the hit is, as a person would say it: the container the server named, or the document.

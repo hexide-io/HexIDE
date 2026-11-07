@@ -129,9 +129,9 @@
                     <ListBox.ItemTemplate>
                         <DataTemplate x:DataType="ob:OBSearchResultViewModel">
                             <StackPanel Orientation="Horizontal" Spacing="4">
-                                <TextBlock Text="{CompiledBinding KindGlyph}"
-                                           FontSize="11"
-                                           VerticalAlignment="Center" />
+                                <Image Source="{CompiledBinding KindIcon}"
+                                       Width="16" Height="16"
+                                       VerticalAlignment="Center" />
                                 <TextBlock Text="{CompiledBinding Name}"
                                            VerticalAlignment="Center" />
                                 <TextBlock Text="{CompiledBinding Where}"
@@ -161,9 +161,9 @@
                     <ListBox.ItemTemplate>
                         <DataTemplate x:DataType="ob:OBClassViewModel">
                             <StackPanel Orientation="Horizontal" Spacing="4">
-                                <TextBlock Text="{CompiledBinding KindGlyph}"
-                                           FontSize="11"
-                                           VerticalAlignment="Center" />
+                                <Image Source="{CompiledBinding KindIcon}"
+                                       Width="16" Height="16"
+                                       VerticalAlignment="Center" />
                                 <TextBlock Text="{CompiledBinding Name}"
                                            VerticalAlignment="Center" />
                             </StackPanel>
@@ -189,9 +189,9 @@
                         <ListBox.ItemTemplate>
                             <DataTemplate x:DataType="ob:OBMemberViewModel">
                                 <StackPanel Orientation="Horizontal" Spacing="4">
-                                    <TextBlock Text="{CompiledBinding KindGlyph}"
-                                               FontSize="11"
-                                               VerticalAlignment="Center" />
+                                    <Image Source="{CompiledBinding KindIcon}"
+                                           Width="16" Height="16"
+                                           VerticalAlignment="Center" />
                                     <TextBlock Text="{CompiledBinding Name}"
                                                VerticalAlignment="Center" />
                                 </StackPanel>

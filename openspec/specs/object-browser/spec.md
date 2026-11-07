@@ -50,6 +50,18 @@ becomes ready, without requiring the developer to reselect a library.
 - **THEN** the VBA library loads those symbols automatically
 - **AND** they appear under VBA or All Libraries without changing the selected library
 
+### Requirement: Browser rows SHALL show themed kind icons
+The classes, members and workspace search results SHALL show cached images from the icon factory,
+using the keyed Fluent geometries and active theme ink. Forms, modules, class modules and enums SHALL
+have class-kind icons; methods, properties, events, constants and enum members SHALL have member-kind
+icons, with a generic icon for unknown kinds. The description and copied signature SHALL contain the
+member signature without an icon prefix.
+
+#### Scenario: Browsing or searching for a property
+- **WHEN** a property appears in the members list or workspace search results
+- **THEN** both lists use the same themed property image beside its name
+- **AND** selecting and copying its signature produces only the signature text
+
 ### Requirement: Selecting a type SHALL show its members, and selecting a member SHALL describe it
 Selecting a type SHALL list its members; selecting a member SHALL show its signature and what it belongs to,
 along with any description available for it.
