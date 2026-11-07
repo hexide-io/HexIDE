@@ -1036,6 +1036,7 @@
     "Str.ScrollBar.LineRight": "Zutabe bat eskuinera",
     "Str.ProjectLoad.ModuleFailed": "Ezin izan da {0} modulua kargatu: {1}",
     "Str.ProjectLoad.FormNotFound": "Ez da inprimaki-fitxategia aurkitu: {0}",
+    "Str.ProjectLoad.MemberNotFound": "Ez da proiektuaren fitxategia aurkitu: {0}",
     "Str.ProjectLoad.FormFailed": "Ezin izan da {0} inprimakia kargatu",
     "Str.ProjectLoad.FormFailedWithReason": "Ezin izan da {0} inprimakia kargatu: {1}",
     "Str.ProjectLoad.ParseFailed": "Ezin izan da inprimaki-fitxategia analizatu: {0}",

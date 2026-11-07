@@ -1036,6 +1036,7 @@
     "Str.ScrollBar.LineRight": "ขวาหนึ่งคอลัมน์",
     "Str.ProjectLoad.ModuleFailed": "โหลดโมดูล {0} ไม่สำเร็จ: {1}",
     "Str.ProjectLoad.FormNotFound": "ไม่พบไฟล์ฟอร์ม: {0}",
+    "Str.ProjectLoad.MemberNotFound": "ไม่พบไฟล์โครงการ: {0}",
     "Str.ProjectLoad.FormFailed": "โหลดฟอร์ม {0} ไม่สำเร็จ",
     "Str.ProjectLoad.FormFailedWithReason": "โหลดฟอร์ม {0} ไม่สำเร็จ: {1}",
     "Str.ProjectLoad.ParseFailed": "แยกวิเคราะห์ไฟล์ฟอร์มไม่สำเร็จ: {0}",

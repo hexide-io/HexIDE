@@ -1036,6 +1036,7 @@
     "Str.ScrollBar.LineRight": "Columna á dereita",
     "Str.ProjectLoad.ModuleFailed": "Non se puido cargar o módulo {0}: {1}",
     "Str.ProjectLoad.FormNotFound": "Non se atopou o ficheiro do formulario: {0}",
+    "Str.ProjectLoad.MemberNotFound": "Non se atopou o ficheiro do proxecto: {0}",
     "Str.ProjectLoad.FormFailed": "Non se puido cargar o formulario {0}",
     "Str.ProjectLoad.FormFailedWithReason": "Non se puido cargar o formulario {0}: {1}",
     "Str.ProjectLoad.ParseFailed": "Non se puido analizar o ficheiro do formulario: {0}",

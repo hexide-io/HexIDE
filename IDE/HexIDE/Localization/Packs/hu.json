@@ -1036,6 +1036,7 @@
     "Str.ScrollBar.LineRight": "Egy oszloppal jobbra",
     "Str.ProjectLoad.ModuleFailed": "A(z) {0} modul betöltése sikertelen: {1}",
     "Str.ProjectLoad.FormNotFound": "Az űrlapfájl nem található: {0}",
+    "Str.ProjectLoad.MemberNotFound": "A projektfájl nem található: {0}",
     "Str.ProjectLoad.FormFailed": "A(z) {0} űrlap betöltése sikertelen",
     "Str.ProjectLoad.FormFailedWithReason": "A(z) {0} űrlap betöltése sikertelen: {1}",
     "Str.ProjectLoad.ParseFailed": "Az űrlapfájl elemzése sikertelen: {0}",

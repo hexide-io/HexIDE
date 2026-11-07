@@ -1036,6 +1036,7 @@
     "Str.ScrollBar.LineRight": "Колона надясно",
     "Str.ProjectLoad.ModuleFailed": "Модулът {0} не може да се зареди: {1}",
     "Str.ProjectLoad.FormNotFound": "Файлът на формуляра не е намерен: {0}",
+    "Str.ProjectLoad.MemberNotFound": "Файлът на проекта не е намерен: {0}",
     "Str.ProjectLoad.FormFailed": "Формулярът {0} не може да се зареди",
     "Str.ProjectLoad.FormFailedWithReason": "Формулярът {0} не може да се зареди: {1}",
     "Str.ProjectLoad.ParseFailed": "Файлът на формуляра не може да се анализира: {0}",
