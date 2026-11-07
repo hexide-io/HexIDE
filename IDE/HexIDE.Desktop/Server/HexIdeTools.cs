@@ -24,7 +24,7 @@ namespace HexIDE.Desktop.Server;
 internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpContextAccessor = null)
 {
     [McpServerTool(Name = "get_project_info")]
-    [Description("Returns the startup project's name, path, and lists of forms, modules and carried files (RelatedDoc entries), and in 'projects' the same for every loaded project, each with 'isStartup'. With a project group open the top-level fields describe only the startup project, so read 'projects' for the rest; 'note' says when the top-level fields are not the whole picture, including when nothing is loaded or no startup project is set.")]
+    [Description("Returns the startup project's name, path, and lists of forms, modules and carried files (RelatedDoc entries), and in 'projects' the same for every loaded project, each with 'isStartup'. With a project group open the top-level fields describe only the startup project, so read 'projects' for the rest; 'note' says when the top-level fields are not the whole picture, including when nothing is loaded or no startup project is set. It also names projects with no chosen home, even when a working-copy path exists: Save Project asks where to put them.")]
     public async Task<ProjectInfoResult> GetProjectInfoAsync(CancellationToken ct)
     {
         return await Dispatcher.UIThread.InvokeAsync(() =>
@@ -54,6 +54,10 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
                 _ => $"{loaded.Count} projects are loaded. The top-level fields describe the startup project, "
                      + $"{startup.Name}; 'projects' lists all of them.",
             };
+
+            foreach (var project in loaded.Where(p => p.AbsolutePath is null || IsWorkingCopy(p, p.AbsolutePath)))
+                note += $" {project.Name} has no chosen home yet. Save Project asks where to put its new documents and project file; any temporary files are working copies.";
+            note = note?.TrimStart();
 
             return startup is null
                 ? new ProjectInfoResult(null, null, [], [], [], projects, note)
@@ -235,7 +239,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
             .FirstOrDefault(d => d.FormDefinition == form);
 
     [McpServerTool(Name = "set_file_content")]
-    [Description("Replaces the VB6 source of the form, module or class 'name' and saves to disk; `project` picks one where a group holds two of that name. The reply's 'project' and 'document' name what was written, as the IDE spells them. Two parts of the file are the IDE's, and content that changes either is refused with nothing changed. The header (a form's or UserControl's VERSION line and designer block, a class's header, the leading Attribute lines) changes from the designer and the Properties window, so a changed control or Instancing is not applied by sending it here. A member's Attribute lines, the run under a procedure's or variable's declaration that gives its description or dispatch id, may move or be renamed with it and go with its declaration; the reply names each member whose lines are otherwise changed, added or dropped. A form's leading 'Attribute VB_*' lines are its identity: if content leaves them out the existing ones are kept and the reply says so. A document with no file yet saves through a native picker, which would stop this server answering, so it is refused before anything changes unless answer_next_file_dialog has been armed first. The reply's 'note' names the file written and the range the document's lines are now numbered in, from the top of the file with the header included, as get_file_content returns it and set_breakpoints counts, and says whether the document is open in an editor, since only open documents are analysed for get_diagnostics. The save writes the whole file, so text set earlier and not yet saved, such as a form's captions, counts too: when the document's code page cannot hold a character anywhere in it, nothing is written and no dialog is shown, the code stays in the IDE, and the reply names the document, the code page, the character and the line that holds it.")]
+    [Description("Replaces the VB6 source of the form, module or class 'name' and saves to disk; `project` picks one where a group holds two of that name. The reply's 'project' and 'document' name what was written, as the IDE spells them. Two parts of the file are the IDE's, and content that changes either is refused with nothing changed. The header (a form's or UserControl's VERSION line and designer block, a class's header, the leading Attribute lines) changes from the designer and the Properties window, so a changed control or Instancing is not applied by sending it here. A member's Attribute lines, the run under a procedure's or variable's declaration that gives its description or dispatch id, may move or be renamed with it and go with its declaration; the reply names each member whose lines are otherwise changed, added or dropped. A form's leading 'Attribute VB_*' lines are its identity: if content leaves them out the existing ones are kept and the reply says so. A project started with --newproject has a form working copy in the temp folder, written without a picker. A pathless document is refused before changes unless answer_next_file_dialog is armed. The reply's 'note' names the file written and the range the document's lines are now numbered in, from the top of the file with the header included, as get_file_content returns it and set_breakpoints counts, and says whether the document is open in an editor, since only open documents are analysed for get_diagnostics. The save writes the whole file, so text set earlier and not yet saved, such as a form's captions, counts too: when the document's code page cannot hold a character anywhere in it, nothing is written and no dialog is shown, the code stays in the IDE, and the reply names the document, the code page, the character and the line that holds it.")]
     public async Task<MutateResult> SetFileContentAsync(
         [Description("A form, module or class, as get_project_info lists them, found in every loaded project without "
                      + "regard to case. A name two documents share is refused, and the reply lists them.")]
@@ -345,6 +349,20 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
         }
     }
 
+    private static bool IsWorkingCopy(ProjectDefinition project, string? path)
+    {
+        if (path is null || project.WorkingDirectory is not { } scratch)
+            return false;
+        var relative = Path.GetRelativePath(scratch, path);
+        return !Path.IsPathRooted(relative) && relative != ".."
+            && !relative.StartsWith(".." + Path.DirectorySeparatorChar, StringComparison.Ordinal);
+    }
+
+    private static string WriteLocationNote(ProjectDefinition project, string? path) =>
+        IsWorkingCopy(project, path)
+            ? $"Wrote the working copy to {path}. It still has unsaved changes; Save Project asks where to put this document and, if needed, the project file."
+            : $"Wrote the file to {path}.";
+
     /// <summary>What set_file_content wrote, and whether get_diagnostics will see it. (#670)</summary>
     /// <remarks>
     /// <para>
@@ -363,7 +381,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     {
         var editor = CodeEditorOf(document);
         var lines = HexIDE.IDE.DocumentContent.TextOf(document, editor).LineCount;
-        return $"Wrote {document.Name} to {document.AbsolutePath}. Its lines are numbered 1..{lines}, from the top of "
+        return WriteLocationNote(document.Project, document.AbsolutePath) + $" Its lines are numbered 1..{lines}, from the top of "
                + "the file with the header included, as get_file_content returns it. "
                + (editor is not null
                    ? "Its editor shows the new text; get_diagnostics has diagnostics for it once the server has "
@@ -555,7 +573,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     }
 
     [McpServerTool(Name = "set_control_property")]
-    [Description("Sets a named property on a form or UserControl control and saves the file. The form is named in any loaded project, without regard to case; pass `project` when a group holds two documents of one name, and without it an ambiguous name is refused and the reply lists them. 'value' is written as the Properties window shows it; its own description gives the forms, and a refused value's reply says what that property takes. get_form_controls lists the controls, and with 'controlName' every property of one, its value as this tool takes it. A property is matched by the name the Properties window shows, without regard to case and to its parentheses, so 'Name' reaches '(Name)'. Setting Name renames the control under the rules the Properties window applies, whether or not the designer is open: not empty, and unique on the form; for the form itself also a valid VB6 name that no other form or module of the project has, because it renames the document. A rename the naming rules refuse changes nothing. The save writes the whole file, so text set earlier and not yet saved counts too: when the file's code page cannot hold a character anywhere in it, the value is set in the IDE but nothing is written and no dialog is shown, and the reply names the document, the code page, the character and the line that holds it. A document with no file yet saves through a native picker, which would stop this server answering, so it is refused before anything changes unless answer_next_file_dialog has been armed first. The reply's 'note' gives the value the property now holds, which can differ from the text sent, and 'project' and 'document' name the form as the IDE spells them.")]
+    [Description("Sets a named property on a form or UserControl control and writes it to disk. The form is named in any loaded project, without regard to case; pass `project` when a group holds two documents of one name, and without it an ambiguous name is refused and the reply lists them. 'value' is written as the Properties window shows it; its own description gives the forms, and a refused value's reply says what that property takes. get_form_controls lists the controls, and with 'controlName' every property of one, its value as this tool takes it. A property is matched by the name the Properties window shows, without regard to case and to its parentheses, so 'Name' reaches '(Name)'. Setting Name renames the control under the rules the Properties window applies, whether or not the designer is open: not empty, and unique on the form; for the form itself also a valid VB6 name that no other form or module of the project has, because it renames the document. A rename the naming rules refuse changes nothing. The save writes the whole file, so text set earlier and not yet saved counts too: when the file's code page cannot hold a character anywhere in it, the value is set in the IDE but nothing is written and no dialog is shown, and the reply names the document, the code page, the character and the line that holds it. A project started with --newproject has a form working copy in the temp folder, written without a picker. A pathless document is refused before changes unless answer_next_file_dialog is armed. The reply's 'note' gives the value the property now holds, which can differ from the text sent, and 'project' and 'document' name the form as the IDE spells them.")]
     public async Task<MutateResult> SetControlPropertyAsync(
         string formName,
         [Description("The control: its name, or for an element of a control array name(index), such as lblTitle(1), "
@@ -686,7 +704,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
                          ? PropertyText.Display(DesignPositions.Shown(form, control, propClass, now)) + " "
                            + DesignPositions.Unit(form, control, propClass)
                          : PropertyText.Display(control.GetBoxedPropertyOrDefault(propClass)))
-                     + ", and the file is saved.";
+                     + ".";
             foreach (var change in consequences)
                 stored += $" Its {change.Property.Name} is now {PropertyText.Display(change.After)}, was "
                           + $"{PropertyText.Display(change.Before)}, as VB6's designer changes it with {propClass.Name.Trim('(', ')')}.";
@@ -718,7 +736,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
                 return Naming(new MutateResult(false, cancel.After($"'{property}' is set in the IDE, but the file was not written. {refused.Message}")), target);
             // See the note on the other write tool: a refusal must not come back as success. (#147)
             return Naming(written
-                ? new MutateResult(true, null, cancel.After(stored + rewrites.Note))
+                ? new MutateResult(true, null, cancel.After(stored + " " + WriteLocationNote(target!.Project, target.AbsolutePath) + rewrites.Note))
                 : new MutateResult(false, cancel.After("HexIDE cannot reproduce this file faithfully, so it was not "
                                         + "written and the copy on disk is unchanged.")), target);
         }
@@ -1395,7 +1413,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     }
 
     [McpServerTool(Name = "add_control")]
-    [Description("Places a control of the given type on a named form's designer canvas at the given position and size, and SAVES the form. x, y, width and height are in PIXELS, as the designer draws and get_form_controls reports: a .frm and VB6's Properties window use twips, 15 to a pixel, so VB6's default CommandButton (1215 × 495 twips) is 81 × 33 here. The reply's 'note' gives where the control landed, and says when it lies outside the form. The form must be open in the visual designer (call view_designer first if needed). The form is named in any loaded project, without regard to case; pass `project` when a group holds two documents of one name, and without it an ambiguous name is refused and the reply lists them. Returns the auto-generated control name (e.g. 'Command1'), with 'project' and 'document' naming the form as the IDE spells them. A form with no file yet saves through a native picker, which would stop this server answering, so it is refused before anything is placed unless answer_next_file_dialog has been armed first; arm it with no path to keep the form without a file. Two refusals come AFTER the control is placed, and each comes back as success:false naming the control, which is then in the designer but not on disk: HexIDE cannot reproduce the form faithfully, or the form's code page cannot hold a character in text written earlier and not yet saved. The second shows no dialog, and the reply names the document, the code page, the character and the line that holds it; once that text is changed, set_control_property or set_file_content writes the form, the new control included.")]
+    [Description("Places a control of the given type on a named form's designer canvas at the given position and size, and writes the form to disk. x, y, width and height are in PIXELS, as the designer draws and get_form_controls reports: a .frm and VB6's Properties window use twips, 15 to a pixel, so VB6's default CommandButton (1215 × 495 twips) is 81 × 33 here. The reply's 'note' gives where the control landed, and says when it lies outside the form. The form must be open in the visual designer (call view_designer first if needed). The form is named in any loaded project, without regard to case; pass `project` when a group holds two documents of one name, and without it an ambiguous name is refused and the reply lists them. Returns the auto-generated control name (e.g. 'Command1'), with 'project' and 'document' naming the form as the IDE spells them. A project started with --newproject has a form working copy in the temp folder, written without a picker. A pathless form is refused before placement unless answer_next_file_dialog is armed; arm it with no path to keep it pathless. Two refusals come AFTER the control is placed, and each comes back as success:false naming the control, which is then in the designer but not on disk: HexIDE cannot reproduce the form faithfully, or the form's code page cannot hold a character in text written earlier and not yet saved. The second shows no dialog, and the reply names the document, the code page, the character and the line that holds it; once that text is changed, set_control_property or set_file_content writes the form, the new control included.")]
     public async Task<AddControlResult> AddControlAsync(
         string formName,
         [Description("A class as get_toolbox_items lists it, such as CommandButton or VB.CommandButton. An in-box control is offered only while the project references its library, which Project > Components sets, and once for each such library: its type name picks the library, as ComctlLib.ProgressBar does, and a bare ProgressBar takes the first.")] string type,
@@ -1513,7 +1531,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
             // saying otherwise would be its own wrong answer -- but the file on disk does not have it, and
             // a caller who is told "saved" will not find out until something else reads that file.
             return written
-                ? spawned with { Form = null, Note = cancel.After(spawned.Note + rewrites.Note) }
+                ? spawned with { Form = null, Note = cancel.After(spawned.Note + " " + WriteLocationNote(spawned.Form.Owner, OwnerModuleOf(spawned.Form)?.AbsolutePath ?? spawned.Form.AbsolutePath) + rewrites.Note) }
                 : spawned with
                 {
                     Success = false, Form = null, Note = null,
