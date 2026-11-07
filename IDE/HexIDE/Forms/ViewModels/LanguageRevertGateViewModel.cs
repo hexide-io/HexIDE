@@ -59,7 +59,8 @@ public partial class LanguageRevertGateViewModel : ObservableObject, IDialog
 
         return new LanguageRevertGateViewModel(
             Bilingual("Str.RevertGate.Title"),
-            Bilingual("Str.RevertGate.Prompt"),
+            Bilingual("Str.RevertGate.Prompt")
+                + (Static.IsRecoveryMode ? "\n" + Bilingual("Str.RevertGate.SessionOnly") : ""),
             Bilingual("Str.RevertGate.Keep"),
             Bilingual("Str.RevertGate.Revert"),
             Bilingual("Str.RevertGate.Countdown"),

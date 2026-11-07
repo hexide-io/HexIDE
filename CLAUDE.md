@@ -1,4 +1,4 @@
-﻿# CLAUDE.md
+﻿﻿# CLAUDE.md
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
@@ -15,19 +15,19 @@ Requirements: .NET 10 SDK. No Java needed — `Antlr4BuildTasks` bundles the ANT
 cd IDE && dotnet build HexIDE.Desktop/HexIDE.Desktop.csproj
 cd IDE && dotnet run --project HexIDE.Desktop/
 
-# Tests
-cd IDE && dotnet test HexIDE.Runtime.Tests/              # ~1900 VB6 interpreter tests
-cd LspServer && dotnet test HexIDE.VbLspServer.Tests/    # ~300 LSP server tests
-cd IDE && dotnet test HexIDE.Tests/                      # IDE ViewModel tests (fetches a foreign LSP server once — see below)
-cd IDE && dotnet test HexIDE.Integration.Tests/          # Headless Avalonia UI tests
+# Tests (from the repository root)
+pwsh scripts/test.ps1 IDE/HexIDE.Runtime.Tests/          # VB6 interpreter tests
+pwsh scripts/test.ps1 LspServer/HexIDE.VbLspServer.Tests/ # LSP server tests
+pwsh scripts/test.ps1 IDE/HexIDE.Tests/                  # IDE ViewModel tests (foreign servers — see below)
+pwsh scripts/test.ps1 IDE/HexIDE.Integration.Tests/      # Headless Avalonia UI tests
 
 # Run a single test — NOTE the `--`, and that this is NOT VSTest's --filter (see below)
-cd IDE && dotnet test HexIDE.Runtime.Tests/ -- --filter-method "*DebugPrint_WithStringLiteral_ShouldOutputCorrectString"
+pwsh scripts/test.ps1 IDE/HexIDE.Runtime.Tests/ -- --filter-method "*DebugPrint_WithStringLiteral_ShouldOutputCorrectString"
 
 # One class, or an arbitrary slice
-cd IDE && dotnet test HexIDE.Tests/ -- --filter-class "*CodeEditorViewModelTests"
-cd IDE && dotnet test HexIDE.Tests/ -- --filter-query "/*/*/CodeEditorViewModelTests/*"
-cd LspServer && dotnet test HexIDE.VbLspServer.Tests/ -- --filter-class "*WireContractTests"
+pwsh scripts/test.ps1 IDE/HexIDE.Tests/ -- --filter-class "*CodeEditorViewModelTests"
+pwsh scripts/test.ps1 IDE/HexIDE.Tests/ -- --filter-query "/*/*/CodeEditorViewModelTests/*"
+pwsh scripts/test.ps1 LspServer/HexIDE.VbLspServer.Tests/ -- --filter-class "*WireContractTests"
 
 # Publish (both needed for the "Make EXE" IDE feature)
 cd IDE && dotnet publish HexIDE.Desktop -f net10.0 -o bin/
@@ -40,11 +40,33 @@ cd IDE && dotnet publish HexIDE.Desktop -f net10.0 -o bin/
 cd LspServer && dotnet build HexIDE.VbLspServer/
 ```
 
+**A test run that could hang carries a hang-dump timeout**, as CI's Integration step does:
+`pwsh scripts/test.ps1 IDE/HexIDE.Integration.Tests/ -- --hangdump --hangdump-timeout 10m`. The timeout counts
+quiet time, minutes in which no test starts or finishes. So it ends a hang and names the tests still running,
+but it doesn't end a slow, healthy run (hexide-gen measured it in #2618). Only `HexIDE.Integration.Tests`
+references `Microsoft.Testing.Extensions.HangDump` today. Another project rejects the option until it has the
+package, with its licence line.
+
 CI runs two parallel jobs in `.github/workflows/build.yml`: `build-ide` (working dir `IDE/`) and `build-lsp-server` (working dir `LspServer/`), alongside two guard jobs.
 
 Failed test jobs upload their `TestResults` directories as `test-results-<job>-<OS>` artifacts, retained for
 seven days (#1309). This includes both `build-ide-desktop` matrix runners. If a test host crashes and
 `dotnet test` prints only a log path, download that job's artifact to read the reason.
+
+CI, `scripts/test.ps1` and `scripts/test-linux.sh` enforce test-count floors from `MIN_TESTS_*` in
+`.github/workflows/build.yml` (#883). A short run must fail so its logs are kept by #1309.
+The four main-suite floors are about 95% of the measured totals recorded beside them; raise them
+when the suites grow. Both scripts use a floor of one for a filtered run, or accept an explicit
+`--minimum-expected-tests` after `--` for a known slice. Run local suites from the repository root
+with `pwsh scripts/test.ps1 <project> [arguments]` (Windows PowerShell 5.1 also works via
+`powershell -ExecutionPolicy Bypass -File scripts/test.ps1`). Its final PASS/FAIL follows the exit
+code: MTP can print `Passed!` even when the floor fails. Bare `dotnet test` has no default floor.
+A project default was checked with this tree's MTP 1.9.1 for #2264: filters do not disable it
+and a later floor is rejected
+as a duplicate, so it would break filtered runs. Argument checks run with
+`pwsh scripts/test.selftest.ps1` and `bash scripts/test-linux.selftest.sh`.
+The async test-context lifetime fix is tracked separately in
+[#2194](https://github.com/hexide-io/HexIDE/issues/2194).
 
 **Run `bash scripts/check-tree-hygiene.sh` before pushing anything that touches docs or config.** It takes
 seconds locally and a full CI cycle otherwise, and it fails on things that look entirely innocuous while
@@ -54,24 +76,25 @@ public repository. Do not reason about whether yours is "obviously" generic; jus
 
 ### The foreign-server tests fetch real third-party language servers
 
-`HexIDE.Tests` includes twenty-four tests that drive language servers **HexIDE did not write** — the only
+`HexIDE.Tests` drives language servers **HexIDE did not write** — the only
 check that the client speaks LSP to something that does not accommodate it. A client and server by one hand
 agree with each other rather than with the specification, which is how three defects hid until a foreign
 server was pointed at (`ForeignServerFixture.cs` has the history).
 
-**They do not cover teardown, and a fourth defect hid there.** Both end-to-end tests dispose the
-registry as best-effort (`ForeignServerIntegrationTests.cs`, `TwoForeignServersTests.cs`), and
-`VBLspClient.StopAsync` swallows its own exceptions — so a `shutdown` that **two of the three** reject
-(rumdl, and a second server on another framework; texlab happens to accept it) was invisible to all of
-them. Worse, two tests in
-`HexIDE.VbLspServer.Tests` sent the same non-conformant request themselves, and the bundled server accepts
-it — so the suite agreed with the bug. It was found by driving a *fourth*, externally-authored server and
-reading its **exit code**: LSP has a server exit 0 when a shutdown preceded exit and 1 otherwise, which
-made HexIDE's every clean exit look like a crash to any supervisor (hexide-io/HexIDE#312).
+**Teardown is covered by `RealServerShutdownTests`** (#491): all five foreign servers and the bundled
+one go through `didClose`, `shutdown` and `exit`, with the shutdown reply checked and each process's
+exit code read. The results are in [`docs/foreign-language-servers.md`](docs/foreign-language-servers.md).
+
+That coverage was missing when a non-conformant `shutdown` hid behind best-effort registry disposal
+and `VBLspClient.StopAsync` swallowing its own exceptions. Tests in `HexIDE.VbLspServer.Tests` sent the
+same request themselves, and the bundled server accepted it — so the suite agreed with the bug. It was
+found by driving an externally-authored server and reading its **exit code**: LSP has a server exit 0
+when a shutdown preceded exit and 1 otherwise, which made HexIDE's every clean exit look like a crash to
+any supervisor (hexide-io/HexIDE#312).
 
 The lesson generalises past the one bug: **an assertion that a request did not throw is not an
-assertion that the server accepted it**, and teardown is where this suite is weakest. When adding a
-protocol test, prefer asserting the wire frame or an observable server-side consequence over asserting
+assertion that the server accepted it**. When adding a protocol test, prefer asserting the wire frame
+or an observable server-side consequence over asserting
 that our own call returned. `ShutdownWireShapeTests` is the worked example — it reads the bytes,
 because a `[JsonRpcMethod]` handler cannot tell you whether `params` arrived as `[]`, `{}`, `null`, or not at
 all, and those four are not interchangeable to a real server. Measured against rumdl 0.2.64,
@@ -81,13 +104,13 @@ Five servers. Four are chosen for **framework** diversity rather than language d
 come from the server's LSP library, not from the language being analysed — and the fifth for a delivery
 *model* nothing else uses:
 
-| Server | Tests | Framework | Obtained as |
-|---|---|---|---|
-| rumdl (Markdown) | 6 | `tower-lsp` | pinned binary download |
-| texlab (LaTeX) | 5 | `lsp-server` | pinned binary download |
-| vscode-json-language-server | 3 | `vscode-languageserver-node` | `npm ci` against a committed lockfile |
-| clangd (C/C++) | 2 | LLVM's own | pinned binary download |
-| ruff (Python) | 2 | `lsp-server` (shared with texlab) | pinned binary download |
+| Server | Framework | Obtained as |
+|---|---|---|
+| rumdl (Markdown) | `tower-lsp` | pinned binary download |
+| texlab (LaTeX) | `lsp-server` | pinned binary download |
+| vscode-json-language-server | `vscode-languageserver-node` | `npm ci` against a committed lockfile |
+| clangd (C/C++) | LLVM's own | pinned binary download |
+| ruff (Python) | `lsp-server` (shared with texlab) | pinned binary download |
 
 **Read [`docs/foreign-language-servers.md`](docs/foreign-language-servers.md) before adding a sixth** — it
 carries the full reasoning, including why a GPL-licensed server is consistent with a 100%-MIT tree, and the
@@ -111,9 +134,15 @@ ever lands beside tracked files.
 - **Forbid skipping**: `HEXIDE_REQUIRE_FOREIGN_LSP=1` turns "no server available" into a failure. CI sets
   this, because a silently skipped proof is the failure mode this whole fixture exists to avoid.
 
-**The three JSON tests need Node on `PATH`** — it is a harness dependency only, and nothing in HexIDE
+Every test that drives one carries `[ForeignServerFact]`, so
+`git grep -l -E '\[ForeignServerFact' -- IDE/HexIDE.Tests` lists them; a hand-kept list or count
+drifts, which is why there is none here. `ForeignServerFixture.cs` defines the servers and the availability
+attribute, `RequiredServersTests` guards acquisition, and
+[`docs/foreign-language-servers.md`](docs/foreign-language-servers.md) says what each server proves.
+
+**The JSON-server tests need Node on `PATH`** — it is a harness dependency only, and nothing in HexIDE
 requires it. A machine without Node skips them, except under `HEXIDE_REQUIRE_FOREIGN_LSP=1`, where they
-fail. **WSL has no Node by default, so a WSL run fails those three under that variable** until
+fail. **WSL has no Node by default, so a WSL run fails those tests under that variable** until
 `sudo apt-get install -y nodejs npm` is run there; CI installs it explicitly.
 
 Bumping a version means editing the version and digests in `ForeignServerAcquisition.cs`. **Digest
@@ -157,8 +186,11 @@ Gotchas). Run the suites under WSL rather than discovering it a push later:
 wsl -e bash -lc 'sudo apt-get update && sudo apt-get install -y dotnet-sdk-10.0 rsync'
 
 # From the root of any checkout or worktree: copy it to WSL's own filesystem and run one suite there.
-wsl -e bash scripts/test-linux.sh IDE/HexIDE.Runtime.Tests/
-wsl -e bash scripts/test-linux.sh IDE/HexIDE.Tests/ -- --filter-class "*CodeEditorViewModelTests"
+# The export drops the Windows PATH entries WSL appends. With them, every process start searches the 9p
+# mount, and test workers took 65 to 72 s to start instead of 2.6 s (measured 2026-11-02), which is what
+# timed out ProjectSmokeRunnerTests and the corpus smoke test there.
+wsl -e bash -c 'export PATH="$(printf "%s" "$PATH" | tr ":" "\n" | grep -v "^/mnt/" | paste -sd:)"; bash scripts/test-linux.sh IDE/HexIDE.Runtime.Tests/'
+wsl -e bash -c 'export PATH="$(printf "%s" "$PATH" | tr ":" "\n" | grep -v "^/mnt/" | paste -sd:)"; bash scripts/test-linux.sh IDE/HexIDE.Tests/ -- --filter-class "*CodeEditorViewModelTests"'
 ```
 
 **Use the script, not a build on `/mnt/c`.** It copies the tree as it stands on disk, uncommitted edits
@@ -180,30 +212,40 @@ check it fails there.
 
 ### And for the version gap WSL leaves — Podman, matching CI's distro
 
-WSL closes the Windows-path class, but it is **not** the same Linux CI runs, and the difference is measured
-rather than assumed:
+WSL closes the Windows-path class. Whether it is also the Linux CI runs depends on GitHub's `ubuntu-latest`,
+which **moved from 24.04 to 26.04 from 2026-10-19**: the job log's "Operating System" group reads
+`Image: ubuntu-26.04` (first noticed on batch 49, 2026-10-26). So WSL and CI now run the same Ubuntu release:
 
 | | Ubuntu | ICU | glibc |
 |---|---|---|---|
-| CI (`build-ide`) and the container below | **24.04** | **libicu74** | 2.39 |
+| CI (`build-ide`, `ubuntu-latest`) and the container below, since 2026-10-19 | **26.04** | **libicu78** | 2.43 |
 | WSL | **26.04 LTS** | **libicu78** | 2.43 |
+| CI before 2026-10-19 | 24.04 | libicu74 | 2.39 |
 
-Four ICU major versions apart. .NET takes string comparison, casing and culture-sensitive formatting from
-the platform's ICU, and this project compares VB6 identifiers case-insensitively everywhere, ships 27
-language packs, and round-trips culture-sensitive values into Windows-native files. So a divergence there
-would present exactly as the original bug class did: green locally, red on CI.
+The CI row was checked on 2026-11-03. Run 41671865048's `build-ide (linux)` log names image `ubuntu-26.04`
+20261025.179.1 on Ubuntu 26.04.1 LTS, but prints neither library. ICU 78.2 is from the runner image's
+published readme (20261026.180.1, the next build), and glibc 2.43 from Ubuntu 26.04's archive. The
+container's base image installs `libicu78` and `libc6` from the same release.
+
+Before the move they were four ICU major versions apart. .NET takes string comparison, casing and
+culture-sensitive formatting from the platform's ICU, and this project compares VB6 identifiers
+case-insensitively everywhere, ships a language pack for every Windows tier-1 language, and round-trips culture-sensitive values into
+Windows-native files. So a divergence there would present exactly as the original bug class did: green
+locally, red on CI. **The container's tag follows CI's release.** Check the job log's `Image:` line when a
+Linux failure won't reproduce under WSL, and move the tag below when `ubuntu-latest` moves again; a
+container pinned to the release CI has left reproduces nothing.
 
 ```sh
 # One-time. Podman, not Docker Desktop — the latter needs a paid subscription at 250+ employees or
 # $10M+ revenue, and this file is instructions a contributor follows. See hexide-io/HexIDE#253.
 podman machine init && podman machine start
 
-# Any suite, in a container on CI's own Ubuntu version.
+# Any suite, in a container on CI's own Ubuntu version. Replace <clone-root> with your checkout.
 podman run --rm \
-  -v "C:\Repos\GitHub\HexIDE\HexIDE:/repo" \
+  -v "<clone-root>:/repo" \
   -v hexide-nuget:/root/.nuget \
   -w /repo/IDE \
-  mcr.microsoft.com/dotnet/sdk:10.0-noble \
+  mcr.microsoft.com/dotnet/sdk:10.0-resolute \
   dotnet test HexIDE.Tests/ --artifacts-path /repo/artifacts/container
 ```
 
@@ -215,9 +257,10 @@ podman run --rm \
   `GrammarParityTests.RepoRoot()` finds no directory holding both `IDE/` and `LspServer/`.
 - **Mount the NuGet volume.** `--rm` discards the container's filesystem, so without it every run
   re-restores from scratch.
-- **Expect 4 skips in `HexIDE.Tests`, not 1.** The SDK image has no Node, so the three
-  reference-implementation tests skip on top of the usual `[WindowsOnlyFact]`. CI installs Node explicitly
-  and runs them; do not set `HEXIDE_REQUIRE_FOREIGN_LSP=1` here unless you have added Node to the image.
+- **The SDK image has no Node**, so JSON-server tests skip, as do `[WindowsOnlyFact]` tests on Linux.
+  See the foreign-server classes above and [`docs/foreign-language-servers.md`](docs/foreign-language-servers.md)
+  for coverage. CI installs Node explicitly; do not set `HEXIDE_REQUIRE_FOREIGN_LSP=1` here unless you
+  have added Node to the image.
 
 **Measured on first setup (2026-09-06): no divergence.** `HexIDE.Tests` 961/965 and
 `HexIDE.Runtime.Tests` 1432/1432 in the container, matching CI exactly, against 965 and 1432 under WSL. So
@@ -262,6 +305,34 @@ looking for one. The duration correlation was real but incidental: a run that fa
 constructors finishes sooner because it does less work. Diagnosed properly on 2026-09-06 by reading a CI
 log instead of the note.
 
+**When tests that wait for a command requery fail together, rule out a requery stuck on a replaced
+dispatcher (#2921, fixed).** `CommandManager` is per thread, and headless Avalonia replaces the dispatcher
+under it. A requery left pending on the old dispatcher never ran, and while it was pending no new one was
+queued, so every later requery was lost and `FormatSelectionTests`' nine predicate cases failed together.
+`RaiseRequerySuggested` now coalesces only with a requery pending on the current dispatcher.
+`TestApp.BuildAvaloniaApp` seeds a pending requery before headless starts, so a regression fails those
+nine cases at once.
+
+**An Integration run that ends hundreds short and still says `Passed!` lost those tests to xunit errors,
+which MTP does not count** ([#2486](https://github.com/hexide-io/HexIDE/issues/2486)). xunit records a
+test case that throws before its test starts as an error, not a failure, and its MTP adapter drops that
+error. The summary, the exit code and a floor with room to spare all see nothing but a smaller total. So
+read xunit's own report: add `--report-xunit --report-xunit-filename x.xml` after the `--`, then run
+`bash scripts/check-xunit-report.sh` on the file. A relative `--results-directory TestResults` puts it in the
+project's own `TestResults/`, on Windows and under WSL alike. CI does both on every Integration step. The cause measured was
+Avalonia.Headless 12.0.2 starting each test on whatever context the dispatcher thread was left holding,
+fixed by moving to 12.0.4. **Keep the headless packages at Avalonia's version.** `HeadlessTestContextTests`
+fails loudly if one starts a test on a leftover context again.
+
+**A hung Integration run ends 10 minutes after a test last started or finished, and names what was running**
+([#2530](https://github.com/hexide-io/HexIDE/issues/2530)). Every Integration step passes
+`--hangdump --hangdump-timeout 10m --hangdump-type Mini` (`Microsoft.Testing.Extensions.HangDump`, kept at the
+Microsoft.Testing.Platform version xunit.v3 brings). The results directory then holds a `*_hang.log` listing each
+test still running and how long it had run, beside a mini dump with managed stacks
+(`dotnet-dump analyze <file> -c "clrstack -all"`). CI turns the log into an error annotation and uploads both.
+Before this, a hang ran out the 30-minute step limit and left no report at all. Add the same options after the
+`--` to get this locally.
+
 ## MCP Dev Loop
 
 ## Visual Verification — MANDATORY
@@ -272,7 +343,7 @@ HexIDE is a visual tool used by humans. Visual verification is not optional.
 - Treat every UI feature as incomplete until verified against the running IDE: `take_snapshot` for rendering/layout, and `dump_visual_tree` / `inspect_element` for **structured** assertions (a control exists, is enabled, has the expected value / selection / toggle state / providers) — which often replace a pixel snapshot.
 - Discover and drive UI with the generic trio — `dump_visual_tree` to find a control, `interact` to navigate and act (select a page, click a button, toggle, type, open a dialog), `inspect_element` to confirm — plus `add_control` / `activate_document_tab` / `view_designer` for designer/tab setup. Set up required state autonomously; never ask the user to do something a tool can do.
 - Build a **new** dedicated MCP tool only when the generic trio genuinely can't reach a surface **and** the tool-authoring policy in `openspec/specs/hexide-mcp-server/spec.md` justifies it (reads a model the tree can't see, persists/transacts, or beats path addressing). Otherwise, `interact` is the tool.
-- **Record every MCP dev-server shortcoming you hit** — a surface it can't observe (e.g. a runtime modal layered over a running form), a property it can't set (e.g. an enum/colour), a lifecycle gotcha (e.g. tools dropping after refused calls while the IDE is down) — in [`docs/mcp-server-gaps.md`](docs/mcp-server-gaps.md), with symptom → workaround → suggested fix, so the tooling is improved deliberately instead of re-worked around each session. **State the exact call it failed with, arguments included** — a gap concluded from `dump_visual_tree`'s default `interactiveOnly: true` once recorded readable content as unreadable, and stood for weeks because nobody could tell the defaults had been used (#362).
+- **Record every MCP dev-server shortcoming you hit** — a surface it can't observe (e.g. a runtime modal layered over a running form), a property it can't set (e.g. an enum/colour), a lifecycle gotcha (e.g. tools dropping after refused calls while the IDE is down) — as a file of its own in [`docs/mcp-gaps/open/`](docs/mcp-gaps/open/), named after the issue filed for it, with symptom → workaround → suggested fix ([`docs/mcp-server-gaps.md`](docs/mcp-server-gaps.md) says how), so the tooling is improved deliberately instead of re-worked around each session. **State the exact call it failed with, arguments included** — a gap concluded from `dump_visual_tree`'s default `interactiveOnly: true` once recorded readable content as unreadable, and stood for weeks because nobody could tell the defaults had been used (#362).
 
 **MUST NOT:**
 - Assume AXAML renders as expected — Avalonia has rendering quirks invisible to tests
@@ -309,12 +380,17 @@ So, for any tool added here:
 - **Enumerate the vocabulary a reply uses.** A `kind` of `Unconsumed` means nothing to somebody who was
   never told the set. Where the reply renders an enum, put `[DescribesEnum(typeof(T))]` on the tool:
   `ToolDescriptionEnumTests` then fails the build if the description leaves a member out (#400).
+- **After editing a tool's or parameter's description, run every class that pins it**:
+  `cd IDE && dotnet test HexIDE.Tests/ -- --filter-trait "Category=ToolDescription"` (#2903). The pins sit
+  in classes whose names share no pattern, so a filter by class name misses some. `[ToolDescription]` marks
+  each one, the length cap's `ToolDescriptionLengthTests` included, and `ToolDescriptionMarkerTests` fails
+  when a class reads a tool's description without it.
 - **Explain anything that looks like a defect and is not.** Sequence gaps beside a field called
   `framesDropped` read as data loss.
 - **A reply that mutates reports the new state**, and reports it even when that state is empty.
 
-**Record every shortcoming in `docs/mcp-server-gaps.md` AND file it**, exactly as a human-facing defect
-would be. An entry that lives only in that file is a note to self; the surface ships either way.
+**Record every shortcoming in `docs/mcp-gaps/open/` AND file it**, exactly as a human-facing defect
+would be. An entry that lives only in that folder is a note to self; the surface ships either way.
 
 **A relaunch keeps the tools a session already has. A new tool needs `/mcp`; a changed one that this session
 has already loaded needs a new session.** The server is stateless (#763), so there is no session to go stale
@@ -355,7 +431,7 @@ HexIDE exposes an embedded MCP server (opt-in via `--server-port <port>`). **The
 |------|-------------|
 | `get_project_info` | Current project name, path, forms, modules, carried files |
 | `get_open_editors` | Open editor windows and active window |
-| `get_document_tabs` | Every tab in the document region with title, type (`code`/`designer`/`tool`) and active flag. `tool` is a document that is not an editor — the Object Browser, the connection list, the protocol inspector |
+| `get_document_tabs` | Every tab in the document region with title, type (`code`/`designer`/`tool`) and active flag, and `isModified`, whether the tab has the unsaved changes it marks with `*` (the title leaves the `*` out; absent on a tool tab or read-only view). `tool` is a document that is not an editor — the Object Browser, the connection list, the protocol inspector |
 | `activate_document_tab(title?, name?, project?, type?)` | Make a tab active, by its `title`, or by a document's `name` (with `project`, and `type` code or designer when both are open) |
 | `close_document_tab(title?, name?, project?, type?)` | Close a tab, addressed the same way |
 | `get_diagnostics` | LSP errors and warnings |
@@ -364,7 +440,7 @@ HexIDE exposes an embedded MCP server (opt-in via `--server-port <port>`). **The
 | `run_project` | Start the VB6 runtime |
 | `stop_project` | Stop the running project |
 | `shutdown_ide` | Clean shutdown (triggers all shutdown handlers) |
-| `take_snapshot(window?, inline?)` | Capture a window as PNG; returns temp file path — read it with the `Read` tool to view. Under `window: "auto"`, the default, any other visible window (a dialog, the Find window, a running program's form) is captured in preference to the IDE's own, whether or not it is on top; `"ide"` captures the IDE. With the IDE on another machine, pass `inline: true` to get the image in the reply |
+| `take_snapshot(window?, inline?, includeFrame?)` | Capture a window's client area as PNG, without its title bar or frame, or with `includeFrame: true` on Windows the whole window as Windows renders it, frame included, even where another window covers it; `title` reports its actual title, and `activeDialog` remains for compatibility. Returns temp file path — read it with the `Read` tool to view. Under `window: "auto"`, the default, any other visible window (a dialog, the Find window, a running program's form) is captured in preference to the IDE's own, whether or not it is on top; `"ide"` captures the IDE. With the IDE on another machine, pass `inline: true` to get the image in the reply |
 | `dump_visual_tree(root?, maxDepth?, interactiveOnly?, window?, match?)` | Walk the active window's **control-view** tree (structural wrappers collapsed; under `window: "auto"` any other visible window is preferred to the IDE's own, whether or not it is on top, modal or not, the Find window included; among several, a dialog wins, then the one with focus, then the one opened last). Each node carries an addressable `path`, automation ControlType, Name/AutomationId, DataContext VM type, and supported interaction providers. The discovery entry point; `match` finds nodes by name, id, class or view-model type without returning the whole tree. |
 | `inspect_element(target, window?)` | Deep-inspect one control by `path`: supported providers, bounds, current value and toggle state, `selectionItems` (what is selected, not the items), a list's `itemCount`, and the DataContext VM's command, Command-bound method and property members (the surface `interact`'s reflection actions target). Pass the same `window` as the dump the path came from. |
 | `list_lsp_messages(connectionId?, method?, failuresOnly?, afterSequence?, limit?)` | Recorded language-server envelopes — time, direction, method, id, size, outcome, latency — with no content. Answers "was it even sent" and "what came back", which diagnostics cannot. Works unarmed. |
@@ -373,9 +449,10 @@ HexIDE exposes an embedded MCP server (opt-in via `--server-port <port>`). **The
 | `clear_lsp_capture(connectionId?)` | Discards the record and keeps the arming, so the next thing exercised is the only thing in it. |
 | `export_lsp_conversation(connectionId?)` | Writes the conversation as JSON-lines plus a manifest and returns both paths. **Always pseudonymised** — this is the shareable form; `get_lsp_message` is the raw one and is not. |
 | `get_lsp_capture_state()` | What is being recorded: every known connection, whether its bodies are kept, and what it has discarded. Read-only — ask this rather than arming something to find out what is armed. |
-| `answer_next_file_dialog(path?)` | Pre-answers the next file dialog, so a Save As / Open / Export flow can be driven end to end. A native picker is outside the control tree and no other tool can reach it. Omit `path` to answer as cancelled. Single-shot: arm it immediately before the action.  |
+| `answer_next_file_dialog(path?, paths?)` | Pre-answers the next file dialog, so a Save As / Open / Export flow can be driven end to end. `paths` answers an Open that allows several files with all of them. A native picker is outside the control tree and no other tool can reach it. Omit `path` to answer as cancelled. Single-shot: arm it immediately before the action.  |
 | `clear_file_dialog_answers()` | Discards armed answers, and reports how many there were — which is how you find out a step you thought opened a picker did not. |
-| `interact(target, action, value?, window?)` | Drive a control. Provider actions: `invoke`/`select`/`add_to_selection`/`remove_from_selection`/`double_click`/`set_value`/`set_range_value`/`toggle`/`expand`/`collapse`/`scroll`. Reflection actions (DataContext VM): `invoke_command`/`set_property`. Pointer action: `click`, which presses and releases a real pointer at a point on the target (`value` is an optional `x,y`, a button and any of shift/ctrl/alt, as in `10,5 right shift`). `click` is the only verb that presses: `invoke` goes through the automation peer and raises a Button's Click with no pointer events, so a running form's MouseDown and MouseUp need `click`. `select` also reaches a **DataGrid row**, whose own peer offers no provider — clicking a row is how every master-detail window here is used. `expand` and `collapse` open and close a dropdown, tree node, expander or menu, or else the context menu or flyout the control owns, whose items then appear under it in `dump_visual_tree`; with the popup already open or closed the reply says so. `close` closes the target's window as its title-bar close box does (`IsProgrammatic` false), so a Yes/No or Abort/Retry/Ignore MsgBox refuses it, and a form's QueryUnload, or a modal form over it, may refuse it; the reply says whether it is still open, or hidden rather than closed. Every verb except `invoke_command` and `set_property` is refused on a control that is not showing (`isHidden`), and `toggle`, `expand`, `collapse` and `set_value` reply with the state read back. Pass the same `window` as the dump the path came from: while a program runs, `auto` usually picks its form. The generic substitute for per-interaction tools. |
+| `set_lock_key(key?, state?)` | Sets Caps Lock, Num Lock, Insert or Scroll Lock `On` or `Off` as programs running in HexIDE read it, or back to `Keyboard`, so a StatusBar key panel's on state can be checked: `press_key` can't change the toggle Windows keeps. The machine's keyboard is untouched. Every reply lists all four keys with their `source`. DEBUG-only, like the server |
+| `interact(target, action, value?, window?)` | Drive a control. Provider actions: `invoke`/`select`/`add_to_selection`/`remove_from_selection`/`double_click`/`set_value`/`set_range_value`/`toggle`/`expand`/`collapse`/`scroll`. Reflection actions (DataContext VM): `invoke_command`/`set_property`. Pointer action: `click`, which presses and releases a real pointer at a point on the target (`value` is an optional `x,y`, a button and any of shift/ctrl/alt, as in `10,5 right shift`; append `to x,y` or `to <path>:x,y` to drag with held moves and release coordinates relative to the target or named control; `to` cannot accompany `double`). Add `hold` to a drag, as in `20,20 to 100,60 hold`, to stop before the release with the button still down: every reply then carries a `heldButton` note, `take_snapshot` and `dump_visual_tree` see the drag in progress, `click`, `double_click` and `hover` are refused, and `release` lets it go, at an optional `x,y` or `<path>:x,y` it moves to first. After 120 s with no call a hold is abandoned: Escape, then a release where it was pressed; a designer draw or resize can still change the form then, and the note names the undo step. `click` is the only verb that presses: `invoke` goes through the automation peer and raises a Button's Click with no pointer events, so a running form's MouseDown and MouseUp need `click`. `select` also reaches a **DataGrid row**, whose own peer offers no provider — clicking a row is how every master-detail window here is used. `expand` and `collapse` open and close a dropdown, tree node, expander or menu, or else the context menu or flyout the control owns, whose items then appear under it in `dump_visual_tree`; with the popup already open or closed the reply says so. `close` closes the target's window as its title-bar close box does (`IsProgrammatic` false), so a Yes/No or Abort/Retry/Ignore MsgBox refuses it, and a form's QueryUnload, or a modal form over it, may refuse it; the reply says whether it is still open, or hidden rather than closed. Every verb except `invoke_command` and `set_property` refuses disabled targets, naming a disabling container or a blocking modal dialog to answer first. Every verb except `invoke_command` and `set_property` is refused on a control that is not showing (`isHidden`), and `toggle`, `expand`, `collapse` and `set_value` reply with the state read back. Pass the same `window` as the dump the path came from: while a program runs, `auto` usually picks its form. The generic substitute for per-interaction tools. |
 
 The signatures in this curated table are checked by `McpToolTableDocumentationTests` against
 `HexIdeTools`: parameter order and optionality must match, and the `interact` row must name every
@@ -391,7 +468,7 @@ The signatures in this curated table are checked by `McpToolTableDocumentationTe
 - `--user-data-dir <path>` — keep this session's settings, layout, recents and `lsp-servers.json` in that directory instead of the user's own. **Use it for any demo or automation run that needs its own configuration**, rather than editing the real one and relying on someone to change it back. Works in Release. A relative path is relative to where HexIDE was started
 - `--developer-mode` — session developer mode; DEBUG-only and inert in a distributed build
 - `--ansi-code-page <n>` — read and write VB6 sources as a machine whose ANSI code page is `n` (e.g. `932`); DEBUG-only. The only way to reach the byte-for-byte read and its notice on a Western machine, where every byte decodes
-- `--personality <vb6|vbaode|vba>` — the IDE personality for the session
+- `--profile <value>` — a built-in/installed profile name, directory path, or `none`; omission selects `vb6`. The old personality flag refuses startup with a replacement diagnostic
 - Positional `.vbp` path — skip the startup dialog and open that project
 
 **Adding a flag is two places and a width budget, and the build enforces all three.** Declare it in
@@ -404,8 +481,8 @@ The third is less obvious and used to be a comment nothing checked. `--help` put
 option list only while the widest rendered row fits, with the mark's 24 cells and the gutter's 2 in front
 of it, inside a 120-column console — so **no option row may exceed 94 columns**. A row is
 `2 + the value column + 2 + the summary`, and the value column is the longest `--name <value>` spelling in
-the table, so a wider value name costs every row at once (which is why `--personality` renders `<name>` and
-lists its values in its summary). The same test measures this and names the offending option. Miss it and
+the table, so a wider value name costs every row at once (which is why `--profile` renders `<value>` and
+names what it takes in its summary). The same test measures this and names the offending option. Miss it and
 every default-sized window silently drops to the stacked layout, which is what the beside path exists to
 avoid.
 
@@ -525,7 +602,7 @@ one reads fresh only in a session that has not loaded it yet. See the restart no
 
 | Folder | License | Purpose |
 |--------|---------|---------|
-| `IDE/` | MIT | IDE application (14 projects) |
+| `IDE/` | MIT | IDE application: its libraries, entry points, tests and helper tools |
 | `LspServer/` | MIT | Out-of-process VB6/VBA LSP server (EmmyLua shell + proleap grammar) |
 | `HexIDE.slnx` | — | Master solution (Visual Studio 2022+) |
 | `.github/` | — | CI workflows |
@@ -534,7 +611,8 @@ one reads fresh only in a session that has not loaded it yet. See the restart no
 
 ### Key IDE projects (`IDE/`)
 
-Package versions are centralized in `IDE/Directory.Build.props` (Avalonia, Dock, .NET TFMs, Serilog).
+Package versions are pinned centrally in the root `Directory.Packages.props` (Avalonia, Dock, Serilog and the rest).
+`IDE/Directory.Build.props` sets the target frameworks, the app version and the shared global usings.
 
 | Project | Role |
 |---------|------|
@@ -551,7 +629,7 @@ Package versions are centralized in `IDE/Directory.Build.props` (Avalonia, Dock,
 
 ### LSP architecture
 
-- **Server** (`LspServer/HexIDE.VbLspServer`): out-of-process console app built on **EmmyLua.LanguageServer.Framework** (MIT); handlers wired in `LspServerHost.cs` (stdio, `SingleThreadScheduler`, `AddRequestHandler`/`AddNotificationHandler`). Parses with the **proleap / grammars-v4** VB6 grammar (`VisualBasic6Lexer.g4` + `VisualBasic6Parser.g4`) via a two-stage SLL→LL strategy + a wall-clock parse backstop (`VbDiagnosticsProvider`). Diagnostics = collecting ANTLR error listener + `Option Explicit` undeclared-variable checks (`VbScopeAnalyzer`), messages via `VbErrorMessages.Prettify()`. Run standalone with `dotnet run --project HexIDE.VbLspServer/`.
+- **Server** (`LspServer/HexIDE.VbLspServer`): out-of-process console app built on **EmmyLua.LanguageServer.Framework** (MIT); handlers wired in `LspServerHost.cs` (stdio, `SingleThreadScheduler`, `AddRequestHandler`/`AddNotificationHandler`). Parses with the **proleap / grammars-v4** VB6 grammar (`VisualBasic6Lexer.g4` + `VisualBasic6Parser.g4`) via a two-stage SLL→LL strategy + a wall-clock parse backstop (`VbDiagnosticsProvider`). Diagnostics = collecting ANTLR error listener, messages via `VbErrorMessages.Prettify()`. The `Option Explicit` undeclared-variable check (`VbScopeAnalyzer`) is compiled out; see the language-analysis boundary below. Run standalone with `dotnet run --project HexIDE.VbLspServer/`.
 - **Client** (`HexIDE.Lsp`): `VBLspClient` uses `StreamJsonRpc` + `SystemTextJsonFormatter`. Auto-started by `App.axaml.cs`, stopped on `ShutdownRequested`. Desktop-only.
 - **Diagnostics flow**: server → `publishDiagnostics` → `VBLspClient.DiagnosticsPublished` → `CodeEditorViewModel.OnDiagnosticsPublished` (on `Dispatcher.UIThread.Post`) → AvaloniaEdit offsets → `LspTextMarkerService.SetMarkers()` → wavy underlines.
 - **AOT**: `StreamJsonRpc` IL warnings suppressed in Desktop. `LspJsonContext` (source-gen `JsonSerializerContext`) covers all LSP types.
@@ -594,15 +672,16 @@ See [OUT_OF_SCOPE.md](docs/OUT_OF_SCOPE.md) for the full list of VB6 features th
 
 **Fidelity means reproducing VB6's intended behaviour, not its bugs.** Where VB6 had a known defect, HexIDE should do the right thing even in Classic mode. The canonical example: in VB6 the Object Browser lost its MDI chrome (title bar, close button) when maximised, because it was an MDI child window — that was a Windows MDI system limitation, not an intended design. In HexIDE the Object Browser is a `Document` tab in the `DocumentDock`, so the Dock framework always owns its tab header and close button; maximising an MDI child inside the host cannot affect it. Whenever a feature diverges from VB6 behaviour, document the reason here or in the relevant spec.
 
-**Verify actual VB6 behaviour against the real compiler — never guess.** Any doubt about what VB6 *actually does* at runtime (a numeric result type, an overflow/error code, a rounding rule, a coercion, a literal's type, a `Format`/intrinsic edge) **must be tested against real `vb6.exe`** — the fidelity oracle — before you pin an interpreter test expectation. Documentation and memory are repeatedly wrong here; the oracle has overturned "obvious" assumptions many times. Record every verified fact (and the reusable `On Error Resume Next` `/make` harness) in [`docs/vb6-fidelity-oracle.md`](docs/vb6-fidelity-oracle.md). `vb6.exe` is at `C:\Program Files (x86)\Microsoft Visual Studio\VB98\VB6.EXE` (or `$VB6_EXE`) — the same toolchain as the "Make/Run with VB6" feature. This is a Windows dev-time check; it never becomes a runtime dependency (HexIDE re-implements VB6's behaviour, it does not call `MSVBVM60`).
+**Verify actual VB6 behaviour against the real compiler — never guess.** Any doubt about what VB6 *actually does* at runtime (a numeric result type, an overflow/error code, a rounding rule, a coercion, a literal's type, a `Format`/intrinsic edge) **must be tested against real `vb6.exe`** — the fidelity oracle — before you pin an interpreter test expectation. Documentation and memory are repeatedly wrong here; the oracle has overturned "obvious" assumptions many times. Record every verified fact (and the reusable `On Error Resume Next` `/make` harness) in [`docs/vb6-fidelity-oracle/README.md`](docs/vb6-fidelity-oracle/README.md). `vb6.exe` is at `C:\Program Files (x86)\Microsoft Visual Studio\VB98\VB6.EXE` (or `$VB6_EXE`) — the same toolchain as the "Make/Run with VB6" feature. This is a Windows dev-time check; it never becomes a runtime dependency (HexIDE re-implements VB6's behaviour, it does not call `MSVBVM60`).
 
 **Where native code and p-code differ, HexIDE matches p-code**, the build the VB6 IDE runs (decided 2026-10-14). So
 build a probe both ways wherever the two could disagree, and treat a row measured natively as provisional until
 p-code has answered too. The oracle long built native code only (#842), and that has already overturned a "fact":
 `Byte * Byte` wraps mod 256 natively but raises 6 as p-code and in the IDE, which is what HexIDE does (#233).
 
-**`vb6-fidelity-oracle.md` is a PRIMARY OUTPUT of this project, not a scratchpad.** It ranks with the code,
+**`docs/vb6-fidelity-oracle/` is a PRIMARY OUTPUT of this project, not a scratchpad.** It ranks with the code,
 and a change that measures something new is not finished until the measurement is written down there.
+The folder is mirrored to [vb6-behaviour](https://github.com/hexide-io/vb6-behaviour) on merge and stays the place to write measurements.
 
 VB6 is end-of-life. Its documentation is archived and, on the details that matter here, repeatedly wrong.
 The people who held these rules in their heads have dispersed, and — as this project keeps demonstrating —
@@ -664,7 +743,7 @@ AST-building. Necessity is not the line. Relationships are.
 
 The rule also decides **how** to build what it permits. Within one module VB6 evaluates `Const`s strictly in
 source order — `Const A = B + 1` above `Const B = 2` is its compile error "Constant expression required"
-(measured, `docs/vb6-fidelity-oracle.md`) — so there the walk itself is the specification. Across modules, do
+(measured, `docs/vb6-fidelity-oracle/subscripts-bounds-and-a-method-called-from-class_initialize.md`) — so there the walk itself is the specification. Across modules, do
 not topologically sort the modules up front: when a module-level declaration reads another module's constant,
 run that module's declarations first, once, and treat re-entering a module still mid-initialisation as VB6's
 own "Circular dependencies between modules" (#893). Same behaviour as VB6, at VB6's granularity, and the
@@ -722,6 +801,13 @@ holds it. What is out of reach is:
 Before recording anything as walled, say which of the three it is. If the answer is "the diagnostic is
 walled but the construct is not", record exactly that — the distinction is what nine mis-filings turned on.
 
+## Claims Say What Was Checked
+
+**A claim says what was measured or read, and when. Otherwise it says "reasoned, not checked".** That holds in
+a PR body, an issue, a review, a Desk card and a reply to Jen. Give counts as counts ("4 of 61", not "both").
+"Unfixed upstream" needs a reproduction on the latest release first. Every session slipped here in the week of
+10-26 (#2467, #2582, #2635 and more).
+
 ## Currency & Best Practice
 
 **This project always aims for current best practice.** If you spot anything that looks even slightly
@@ -730,6 +816,10 @@ pin, a deprecated flag, or a convention that has since moved on — **flag it im
 quietly working around it. If it bears on a decision in flight, **pause and ask** before proceeding; if
 it's incidental, note it so it can be tracked. Staying current is a first-class quality bar here, not a
 nice-to-have.
+
+**Before writing a workaround, search the vendor's issue tracker and compare related version pins.** #2486 was a
+two-line fix behind a wrong comment. **A flake fix that only widens a timeout names the flake's cause, or says
+it's a mitigation.**
 
 ## Critical Constraints
 
@@ -741,6 +831,9 @@ nice-to-have.
   **An unknown licence is refused as firmly as a copyleft one.** `NOASSERTION` is not a mild finding: GPL
   terms are at least knowable, whereas an unresolved licence is unbounded and cannot be undone once shipped.
   The guard used to check only for GPL, which caught the last problem rather than the next one.
+  **The guard needs Python 3** for its source-notice check. It runs the first of `python3`, `python` and
+  `py -3` whose `--version` reports Python 3, which passes over the Windows Store's `python3` stub, and it
+  fails when none does. `scripts/check-licences.selftest.sh` tests that choice in CI's `guard-mit` job (#2897).
 - **Code travels OUT to licence-ambiguous neighbours, never back in.** Contributing to a project whose CLA
   permits relicensing is a decision the maintainer is free to make; importing from a repository whose licence
   no tool can resolve is irreversible and breaks a promise made to everyone downstream. So anything wanted in
@@ -749,11 +842,29 @@ nice-to-have.
   origin's namespaces.
   Facts are not code: a protocol's method names, wire shapes and semantics are free to read and implement.
   It is *expression* that must not cross — the same line already drawn for the VBA documentation.
+- **Anything Jen marks confidential stays out of this repository.** That means a Team Desk card with the
+  Confidential flag (`confidential: true`), and anything else she says is private. None of it goes into
+  issues, PRs, commits, code comments, docs, test data or Codex briefs, whether quoted or summarised. Refer
+  to a card by its id, and record only what can be public, such as "settled on the Team Desk". Where else it
+  may go is her call. The repository is public, and a leak cannot be taken back: GitHub content is cached
+  and indexed even after it is deleted.
+- **The Team Desk banner (`board/banner`) sets the week's pace. Read it before starting anything sizeable.**
+  **Yellow** (`warn`) comes in two kinds, and its title says which. **Burning too fast** is the pace alarm: the
+  week's burn projects 100% more than a day before the reset. Prefer Codex for new work, keep runs short, and
+  start no more parallel sessions. **Review and polish only** comes from 85% of the Claude week: finish or park
+  what's in flight, push it, and start nothing new. **Red** (`pause`, from 90%): the team is paused, and nothing
+  new starts. Jen may still contact a session about a specific item. If she does, keep the reply short and
+  token-light, and don't wake other sessions unless it's urgent. Only Jen lifts the pause; the weekly reset
+  doesn't. Codex lanes keep running what's queued.
 
-- **Avalonia 12.0.4 / Dock 12.0.0.2** — the project is on Avalonia 12. `Classic.Avalonia.Theme 12.0.1-beta1` is kept as a **controls-only** dependency (provides `ClassicBorderDecorator`, `ClassicBorderStyle`). **Do not pin it back to 11.3.0.3**: that build was compiled against Avalonia 11, so `ClassicBorderDecorator.DrawRadioButtonBorder` called a `StreamGeometryContext.ArcTo` overload Avalonia 12 replaced, and **every VB6 option button killed the process on render** (`MissingMethodException`, thrown on the render thread — uncatchable, and nothing reaches the Serilog log; the stack only exists in the Windows Application event log). It is a prerelease because it is the only Avalonia-12 build published. `<ClassicTheme />` remains **NOT loaded** and this change does not re-open that question — do not add it back. The `Classic.Avalonia.Theme.Dock`, `.ColorPicker`, and `.DataGrid` sub-packages have been removed. `Avalonia.Themes.Simple 12.0.4` is the base theme (`<SimpleTheme />` in App.axaml).
+- **Avalonia 12.0.5 / Dock 12.0.0.2** — the project is on Avalonia 12. `Classic.Avalonia.Theme 12.0.1-beta1` is kept as a **controls-only** dependency (provides `ClassicBorderDecorator`, `ClassicBorderStyle`). **Do not pin it back to 11.3.0.3**: that build was compiled against Avalonia 11, so `ClassicBorderDecorator.DrawRadioButtonBorder` called a `StreamGeometryContext.ArcTo` overload Avalonia 12 replaced, and **every VB6 option button killed the process on render** (`MissingMethodException`, thrown on the render thread — uncatchable, and nothing reaches the Serilog log; the stack only exists in the Windows Application event log). It is a prerelease because it is the only Avalonia-12 build published. `<ClassicTheme />` remains **NOT loaded** and this change does not re-open that question — do not add it back. The `Classic.Avalonia.Theme.Dock`, `.ColorPicker`, and `.DataGrid` sub-packages have been removed. `Avalonia.Themes.Simple 12.0.5` is the base theme (`<SimpleTheme />` in App.axaml).
 - **`Classic.CommonControls.Avalonia 12.0.1-beta1` controls** (`ToolBar`, `ToolBarButton`, `RebarHandle`, `ListView`, `ListViewItem`) are **NOT used** — the `TypeLoadException: PseudolassesExtensions` applied to the 11.x build, but they stay unused by design (removing VB6 chrome is intended, not incidental). Use standard Avalonia `StackPanel`/`Button`/`ToggleButton`/`ListBox` instead. The version follows `Classic.Avalonia.Theme` transitively; no project references it directly. `SystemColors` static resource keys from that assembly are still used for color lookups and do not crash.
 - **Anything compiled against Avalonia 11 fails only at render time.** That whole class of bug builds cleanly, passes view-model tests, and then kills the process the first time the control is painted. `HexIDE.Integration.Tests/Controls/ClassicRenderTests.cs` is the guard — it renders the affected controls for real under Skia (`UseHeadlessDrawing = false`) and asserts a frame came back. Add a case there before trusting any new `Classic.*` surface.
 - **`Classic.CommonControls.Dialogs` is fully removed** — `MessageBoxResult`, `MessageBoxButtons`, `MessageBoxIcon` are now in `HexIDE.Core/IDE/MessageBoxEnums.cs` (namespace `HexIDE.IDE`). `FontDialogResult`/`AboutDialogOptions` are in `HexIDE/IDE/`. Managed dialog controls (`MessageBox`, `InputBox`) are in `HexIDE.Runtime/Dialogs/`. `AboutDialog`/`FontDialog` views and their ViewModels are in `HexIDE/Forms/Views/` and `HexIDE/Forms/ViewModels/`. `WindowManager` routes all paths (SingleView + desktop) through these managed controls.
+- **Native interop uses `LibraryImport`** (#608). `HexIDE`, `HexIDE.Desktop` and `HexIDE.Runtime`
+  allow unsafe compilation for generated marshalling only; handwritten unsafe code in these projects
+  is forbidden by `NativeInteropTests`. Strings and Boolean values must declare their native marshalling.
+  The tests reference the Debug Desktop assembly rather than compiling its native declarations again.
 - **All projects, tests included**: `<Nullable>enable</Nullable>` + `<TreatWarningsAsErrors>true</TreatWarningsAsErrors>`. Do not introduce nullable warnings.
   This line claimed "all projects" from the first commit while no **test** project actually set it, and the gap had a cost: 22 `xUnit1051` warnings sat unread in `HexIDE.VbLspServer.Tests` because nothing failed on them. The five test projects were brought to zero warnings and the setting turned on, so the statement is now true rather than aspirational. To keep a warning deliberately, suppress it **at the site with a written reason** (see the two `Task.Delay` timeout arms in `SilentServerTests` and `DynamicRegistrationProbe`) rather than adding a project-wide `NoWarn`.
 - `ThemeVariantScope` on the form canvas (`FormEditView.axaml`) **must never be removed** — it locks the form designer canvas to `Light` theme so form preview colours are stable regardless of OS dark/light mode.
@@ -789,8 +900,8 @@ When a new `HexIDE.*` namespace becomes widely used in a project, add it to that
 
 ### Adding a new LSP method (5-step recipe)
 
-1. **Server handler** in `LspServer/HexIDE.VbLspServer/LspServer.cs` — add `case "textDocument/yourMethod":` and `HandleYourMethod(idNode, paramsNode)`.
-2. **Server capability** in `BuildInitializeResult()` in the same file.
+1. **Server handler**: register the method in `LspServer/HexIDE.VbLspServer/LspServerHost.cs`, as `Request(ls, "textDocument/yourMethod", (s, p) => LspRequestHandlers.YourMethod(s, p));` (or `ls.AddNotificationHandler` for a notification), and implement `YourMethod(DocumentStore store, JsonElement p)` in `LspRequestHandlers.cs`.
+2. **Server capability** in `VbServerCapabilities.RegisterCapability()` (`VbServerCapabilities.cs`).
 3. **Message types** in `IDE/HexIDE.Core/Lsp/Messages/LspMessages.cs` — `record` types with `[JsonPropertyName]` on every property. (`HexIDE.Lsp/Messages/` holds only the serializer context; the records are in Core.)
 4. **Serializer registration** in `IDE/HexIDE.Lsp/Messages/LspJsonContext.cs` — `[JsonSerializable(typeof(YourResponseType))]`. **Not optional, and not only an AOT concern** — `VBLspClient` builds its `JsonSerializerOptions` *from* this context, whose generated resolver ends in `return null` with nothing chained behind it, so an unregistered type throws under plain JIT too. The throw lands in a debug-level catch, which turns the omission into a server that connects, initializes and then answers nothing — indistinguishable from a broken server, and it has cost real time twice.
 5. **Client** in `IDE/HexIDE.Lsp/ILspClient.cs` + `VBLspClient.cs` — add interface method, implement with `_rpc.InvokeWithParameterObjectAsync<T>(...)`.
@@ -822,10 +933,9 @@ user-facing string is a localization key, never a hardcoded literal.**
    (CONTRIBUTING.md), and on their PRs `build.yml` runs that test as a non-blocking warning. The maintainer
    translates before merging, and the push to `main` runs the test as a blocking check. The exemption is
    keyed on `author_association`, not on the PR coming from a fork: maintainers' PRs come from forks too,
-   show as `MEMBER`, and stay blocking. Work in this tree still translates in the same change. The moment you add a `Str.*` key to `en`, add its translation to each shipped
-   full-translation pack (the supported set:
-   `ar, cs, da, de, el, eo, es, fa, fi, fr, he, hi, id, it, ja, ko, la, nb, nl, pl, pt, ru, sv, tr, uk, ur,
-   vi, zh-Hans, zh-Hant` — **29**) so non-English IDEs never show English fall-through. A missing key *inherits* English
+   show as `MEMBER`, and stay blocking. Work in this tree still translates in the same change. The moment you add a `Str.*` key to `en`, add its translation to every neutral pack
+   `LanguageManifest.Packs` declares (`IDE/HexIDE/Localization/LanguagePack.cs`), so non-English IDEs never
+   show English fall-through. That list is the shipped set, and it is deliberately not copied here. A missing key *inherits* English
    (no blank control), but that drift must not ship — close it at the point of creation. For more than a
    couple of keys, use the language-packs workflow (one agent per pack: translate the new keys,
    **preserving `{0}`/`{1}` placeholders and each pack's mnemonic convention** — `_` kept for Latin scripts,
@@ -836,30 +946,33 @@ user-facing string is a localization key, never a hardcoded literal.**
    ```sh
    cd tools/TranslationCoverage && dotnet run
    ```
-**The shipped set is closed, `LanguagePack.cs` is its single source of truth, and that is now checked.**
-This list, that file and the coverage tool must agree; they did not for a while, which is how `la` and `eo`
-came to be translated in every pass without anyone having decided they were shipped. `ShippedPackParityTests`
-closes both directions — a declared language with no pack, and a full translation on disk that nothing
-declares — so the disagreement cannot recur silently. The prose list above is the one part still kept by
-hand.
+**The shipped set is closed, `LanguagePack.cs` is its single source of truth, and that is checked.**
+`ShippedPackParityTests` closes both directions — a declared language with no pack, and a full translation on
+disk that nothing declares — so the manifest and the packs cannot disagree silently. This file used to keep a
+copy of the list by hand, and the copy drifted: it went on naming five languages after they had left the box.
+
+**Which languages ship follows Microsoft's language tiers for Windows** (the maintainer's decision, 2026-10-30): an outside bar for
+"would a real person pick it", in place of judging each language on its own.
+
+- **Tier 1, in the box:** Windows' full language packs. Each ships in this tree, complete, under
+  `ShippedPackParityTests`, with the regional variants that override it.
+- **Tier 2, installable:** Windows 11's Language Interface Packs. They live in
+  [hexide-io/HexIDE.Localisation](https://github.com/hexide-io/HexIDE.Localisation), best-effort and outside
+  the parity guarantee. Hindi, Persian and Urdu moved there from the box (#2817, #2876).
+- **Novelty and constructed languages ship from neither.** Latin and Esperanto left the box at the same time
+  and are kept out of the public tree. Klingon, Na'vi, Tolkien's languages and their relatives are refused on
+  request, and this line is the maintainer's own standing instruction to refuse them.
 
 **A region is a country variant, not a dialect.** `fr-CA`, `pt-BR` and `en-GB` are regions and override only
 what differs from their neutral, so they are exempt from parity. A *language* is a neutral pack however
-small its speaker base — Basque would be `eu`, not a region of Spanish — and a neutral is bound by parity
+small its speaker base — Basque is `eu`, not a region of Spanish — and a neutral is bound by parity
 the moment it is declared.
 
-**No more languages "for fun" — the bar is whether a real person would pick it, not whether it is a real
-language.** `la` (Latin) and `eo` (Esperanto) stay, as a recorded decision rather than an accident: Latin is
-the Holy See's official language, Esperanto has a genuine localisation community, and both are already
-complete. Nothing further of that kind is added — Klingon, Na'vi, Tolkien's languages and their relatives are
-refused on request, and this line is the maintainer's own standing instruction to refuse them.
-
-The reason is cost, not taste. Every pack is a permanent tax on every new key: adding two keys today cost 58
-translations, and the guarantee that makes this system worth anything is that **every shipped pack is 100%
-complete, enforced at build** — by `ShippedPackParityTests`, which is what makes this argument something
-other than an assertion. A pack nobody selects still has to be kept complete forever, or the guarantee
-weakens for the packs that people do use. A legitimacy test ("is it a real language of a real state") gets
-this backwards — it admits Latin, which nobody will select, and excludes Esperanto, which someone might.
+The reason for the tiers is cost, not taste. Every in-box pack is a permanent tax on every new key, and the
+guarantee that makes this system worth anything is that **every shipped pack is 100% complete, enforced at
+build** — by `ShippedPackParityTests`, which is what makes this argument something other than an assertion.
+A pack nobody selects still has to be kept complete forever, or the guarantee weakens for the packs that
+people do use. That is why only tier 1 carries it.
 
 5. **Verify** nothing was missed: switch to **Pseudo (LTR)** in Options → Language — any plain-English
    (un-`⟦bracketed⟧`) chrome is a string you forgot to key.
@@ -897,17 +1010,37 @@ widening visibility to `public` just for a test. When a new test project needs r
 - **`Vb6Value`** is a value type. Always check `Type` before accessing `Value` (it's `object?`).
 - **`ICSharpProxy`**: controls exposed to VB6 implement this; interpreter calls `proxy.Call(methodName, args)`.
 - **LanguageExt** (in `HexIDE.Runtime`): shadows `System.Linq` — `Where`, `Select`, `Map`. Prefer explicit `foreach` over LINQ when `using LanguageExt;` is in scope.
-- **Grammar instability**: the VB6 grammar can produce degenerate parse trees on malformed input. ANTLR visitors traversing expressions need a depth guard (`MaxDepth = 500` in an overridden `Visit()`) and must return early from leaf-node overrides (never recurse into children from a leaf-node visit).
+- **Grammar instability**: the VB6 grammar can produce degenerate parse trees on malformed input. ANTLR visitors traversing expressions need a depth guard (`MaxDepth = 500` in an overridden `VisitChildren()`; generated visitors bypass `Visit()` when descending) and must return early from leaf-node overrides (never recurse into children from a leaf-node visit).
 - **Avoid double-parse**: use `VbDiagnosticsProvider.GetDiagnosticsAndTree(source)` when you need both diagnostics and the parse tree.
 - **Server capabilities are `JsonElement?`, never `bool?` or `int?`.** Most are `boolean | XxxOptions` in the protocol and a conformant server may send either; modelling one narrowly threw during `initialize`, and the swallowing catch turned that into a total silent LSP blackout (#238). `TextDocumentSync` needs the same treatment for a different reason — the bundled server returns it as an object, `{"openClose":true,"change":1}` (Full) — and it is the one field whose two shapes mean *different* things, so it has its own reader rather than going through `IsEnabled`.
 - **`CS0108` suppressed** in `HexIDE.VbLspServer.csproj` — expected artifact from the generated `VisualBasic6Parser.cs` (the ANTLR parser hides an inherited member).
 - **ANTLR generated-code naming**: `Antlr4BuildTasks` generates into the **global namespace** (no `namespace` in generated files; no `using` alias needed) and does **not** escape C# keywords the way other ANTLR targets do — e.g. the grammar rule `type` generates a C# method `type()`, not `type_()`. Check the generated code under `obj/` if unsure of a method name.
 - **Two-stage parse**: `VbDiagnosticsProvider` parses SLL-first with `BailErrorStrategy`, then falls back to LL on `ParseCanceledException` (ANTLR's official perf pattern). SLL-only mispredicts VB6's call-vs-array ambiguity (`Foo(1)`) on valid code — never ship SLL-only. A wall-clock backstop (`TryGetDiagnosticsAndTreeWithin`, `ParseBudget` = 2s) abandons pathological parses and keeps prior diagnostics.
+- **Never start a lexer alternative with a predicate.** ANTLR evaluates a left-edge `{...}?` while computing the
+  start of every token and caches no DFA edge computed through it, so one such predicate in `IDENTIFIER_CONTINUATION`
+  made the interpreter's lexer about 350 times slower and the language server's about 200 times, for three days
+  ([#2676](https://github.com/hexide-io/HexIDE/issues/2676)). Put the check at the right edge, reading the character
+  before the token from `TokenStartCharIndex`. `LexerPredicatePlacementTests` fails the build on a left-edge one.
 - **`IReadOnlyList<T>`** has no `.Find()`. Use `Array.Find(array, predicate)` or a `foreach` loop.
 - **Never use `System.IO.Path` on a path that came out of, or is going into, a VB6 file.** `.vbp`/`.vbg`/`.frm` are Windows-native formats: their paths are backslash-separated on every host, while `System.IO.Path` answers about the *host* filesystem. **`build-ide` runs on `ubuntu-latest`**, where a backslash is an ordinary filename character — so `Path.GetFileName(@"docs\README.md")` returns the whole string, and `Path.GetRelativePath` emits `docs/README.md` into a file that must say `docs\README.md`. Both are silent (each yields something that still looks like a path) and **both are invisible on a Windows dev box**. Use `SerializedProject.FileNameOf` / `.ToHostPath` / `.ToProjectFilePath`; convert to host separators only where a path is resolved against the filesystem, never for what gets written back.
 - **A test expectation about VB6-file *content* must be a literal backslashed string, never composed with `Path.Combine`.** An expectation built from a host path API follows whichever machine runs it, so it passes on Windows by accident and on Linux *certifies the bug*. Three `SerializationRoundTripTests` cases did exactly this — one of them named `..._PreservedVerbatim` — and read as cover for years. Test **inputs** are different: those are real filesystem paths and are rightly built with `Path.Combine`. That distinction is the whole rule.
 - **MVVM**: use `[Notify]` (PropertyChanged.SourceGenerator) for `INotifyPropertyChanged` properties.
-- **`DrawingContext.DrawImage(image, destRect)` samples the source's *device-independent* extent, not its pixels.** Composing a `RenderTargetBitmap` rendered at `96 * scaling` dpi into another therefore reads only the top-left `1/scaling` of it and stretches that to fill — on a 150% display, correctly placed and sized output with magnified, clipped contents inside. Use the three-argument overload with an explicit **pixel** source rect. Related: render a visual with `RenderTargetBitmap.Render`, which handles scaling correctly, rather than routing it through a drawing context. Both traps are invisible at 100% scaling and invisible headlessly. See `SnapshotComposer`.
+- **Code that touches screen positions is tested at a scaling other than 1.** Pointer coordinates, bounds and
+  anything converted between DIPs and pixels can be right at 100% and wrong at 150%, and headless tests run at
+  1 unless told otherwise (#2542).
+- **`DrawingContext.DrawImage(image, destRect)` samples the source's *device-independent* extent, not its pixels.** Composing a `RenderTargetBitmap` rendered at `96 * scaling` dpi into another therefore reads only the top-left `1/scaling` of it and stretches that to fill — on a 150% display, correctly placed and sized output with magnified, clipped contents inside. Use the three-argument overload with an explicit **pixel** source rect. Related: a `RenderTargetBitmap` at a DPI other than 96 is not safe either. Avalonia.Skia scales the first transform pushed after a popped clip twice there, so text a control draws after popping a clip lands outside the bitmap, and a running StatusBar's panels came out blank (#2293). To picture what the screen shows, take the compositor's snapshot (`Compositor.CreateCompositionVisualSnapshot`), as `SnapshotComposer` does. The `DrawImage` trap is invisible at 100% scaling and headlessly. The clip trap is invisible at 100% only, and `SnapshotScalingTests` reproduces it headlessly.
+- **A pump can change a test's `AsyncLocal`s, and its culture.** Avalonia runs each dispatcher job by *restoring* the `ExecutionContext` it was captured with (`ExecutionContext.Restore`, not `Run`) and leaves that context on the thread, and the headless session gives a test no context of its own, so a test also starts in whatever context the previous test's last job left. `RunJobs`, `PushFrame` and `DispatcherOperation.Wait()` on the UI thread all do this. After one, a value a test set before it reads as the last job's. A posted job captures its context when posted, and a `DispatcherTimer`'s when started or re-armed, so a repeating timer keeps its starter's. That is a flake that needs the job still queued, so it shows under load (#2029). An await taken before the pump is safe, since its continuation runs under its own context, but a pump inside a synchronous stretch carries the leaked context into that method's later awaits. Test code that reads an `AsyncLocal` after a pump should capture the context before and `ExecutionContext.Restore` it after, as `OpenDialogsTests.RunJobsKeepingContext` and `SelectVerifiedTests.RunJobsKeepingContext` do. The latter
+  has a deterministic `AsyncLocal` regression for this context loss (#1296); draining jobs alone does not
+  preserve the caller's context. With end-of-test drains temporarily added to the original class, the
+  English caller-selection test's drain changed its context to idle in 8 of 12 seeded runs; all 12
+  passed, so that measurement does not reproduce the cleanup exception or establish the link to #883.
+  `InteractClickTests` records the same trap for `CultureInfo.CurrentCulture`.
+  `CultureGuardAttribute` checks the current thread's culture and UI culture and both default thread
+  cultures after every Integration test against the host values captured at assembly startup (#2322),
+  naming the test that left them behind. Its entry check remains a backstop. This does not inspect other
+  threads or dispatcher operations that have not run yet; the actual leaker behind #2322 is still unknown.
+  xUnit restores test-body execution contexts before the exit hook, so the regression tests invoke the
+  hook while their deliberate leak is still active; setup leaks that survive to the hook fail the test.
 - **Avalonia 12 breaking changes** (already migrated, for reference): `GotFocusEventArgs` → `FocusChangedEventArgs`; `CaptionButtons` (chrome control) removed — replaced with custom `MDICaptionButtons : TemplatedControl`; `GetVisualRoot()` → `TopLevel.GetTopLevel(this)`; `RenderOptions.SetTextRenderingMode` → `TextOptions.SetTextRenderingMode`; `RenderOptions.TextRenderingMode="Alias"` in AXAML → `TextOptions.TextRenderingMode="Alias"`; `<CompiledBinding Path="X" />` inside `MultiBinding` → `<Binding Path="X" />`.
 - **Test frameworks are mid-migration** ([#297](https://github.com/hexide-io/HexIDE/issues/297)).
   All five test projects are on **xunit v3** and the **MTP** runner — the VSTest/MTP split is closed.
@@ -934,6 +1067,8 @@ widening visibility to `public` just for a test. When a new test project needs r
   153 tests instead of 27.
   — Use `-- --filter-class "*Name"`, `-- --filter-method "*Name"`, or `-- --filter-query "/*/*/Class/*"`.
   The `--` matters: everything after it goes to the test executable rather than to `dotnet test`.
+  Use `scripts/test.ps1` for local runs: full suites get the CI floor, filtered runs get one,
+  and an explicit `--minimum-expected-tests` after `--` overrides that choice.
   — A filter matching **nothing** fails the run rather than passing vacuously, which is an improvement
   on VSTest and worth relying on: "0 tests, green" cannot happen by typo.
 
@@ -964,7 +1099,7 @@ widening visibility to `public` just for a test. When a new test project needs r
   user-facing account of that file — the openspec specs describe the behaviour as contracts, which is not
   the same thing and is not where someone configuring the IDE will look.
 - **The backlog lives in [GitHub Issues](https://github.com/hexide-io/HexIDE/issues)**, not in a file. `docs/TODO.md` was retired on 2026-08-17 and its actionable items opened as issues, so a contributor can find work without reading the repository. Note it down as an issue, not as a checklist entry.
-- **[`docs/issue-labels.md`](docs/issue-labels.md)** — what each issue label means and which one wins when two look plausible. Four axes: one `type`, one `size`, up to three `area`, and zero or more `state`. **Read it before labelling an issue**, and treat its rules literally — each one was written to settle a case two careful readers decided differently. It is *not* a living document in the guarded sense: its source of truth is the label set on GitHub, which no test here can reach. How the set was arrived at is in [`docs/archive/issue-labels-decided.md`](docs/archive/issue-labels-decided.md).
+- **[`docs/issue-labels.md`](docs/issue-labels.md)** — what each issue label means and which one wins when two look plausible. Five axes: one `type`, one `size`, up to three `area`, zero or more `state`, and zero or more `initiative`, which also feeds that initiative's project board. **Read it before labelling an issue**, and treat its rules literally — each one was written to settle a case two careful readers decided differently. It is *not* a living document in the guarded sense: its source of truth is the label set on GitHub, which no test here can reach. How the set was arrived at is in [`docs/archive/issue-labels-decided.md`](docs/archive/issue-labels-decided.md).
 - **`openspec/`** — design records in [OpenSpec](https://github.com/Fission-AI/OpenSpec) format (CLI: `openspec`). **There is no status field anywhere — position in the tree *is* the status.**
   - `specs/{capability}/spec.md` — how the system behaves **today**, as present-tense `### Requirement:` / `#### Scenario:` pairs. RFC 2119 keywords (SHALL/MUST) must appear in the requirement **body**, not only its heading, or `--strict` warns.
   - `changes/{change-id}/` — work in flight: `proposal.md`, optional `design.md`, `tasks.md`, and spec deltas under `specs/{capability}/spec.md` (delta files start with `## ADDED Requirements` and carry **no H1**).
@@ -972,16 +1107,24 @@ widening visibility to `public` just for a test. When a new test project needs r
   **This is now guarded, because it was the last drift-prone artefact here trusted to a habit.**
   `DesignRecordTests` fails the build when a change has every task ticked and is still sitting in
   `changes/`, and when an archived change's requirements are absent from the capability it targeted.
+  It also reports the file and line of any live requirement outside `## Requirements` (#2587): keep
+  requirements above later `##` headings such as `## Out of Scope`, where OpenSpec cannot read them.
   It was written after five changes were found unarchived at once, three of them `MODIFIED` deltas
   whose requirement headings existed in `specs/` while their bodies were weeks out of date — which is
   why a survey by heading reported those three as tidying and archiving them rewrote sixty-eight lines.
   - Spec-authoring and change-workflow rules live in `openspec/config.yaml` under `rules:`. Notably: where the code contradicts a spec because the *code* is defective, write the **intended** behaviour as the requirement, open an issue, and link it from a note under `## Purpose` — a spec matched to a known bug enshrines the bug (`specs/object-browser` is the worked example).
   - `openspec/` **ships publicly**. The 35 pre-OpenSpec design documents that used to sit in `specs-pending/` were all migrated (2026-08-16) and the folder was deleted; migrating each one is also what sanitised it, since rewriting a plan as behaviour contracts drops the third-party names. Anything landing here now is in OpenSpec format from the start.
 - **`docs/MISSING_FEATURES.md`** — full VB6 IDE fidelity catalog; status assessed against the codebase. **Update this file whenever a feature's status changes** — after any implementation phase, scan the relevant rows and update Status/Notes to reflect the new state.
-- **`docs/debugger-vb6-divergences.md`** — living catalogue of where the interpreter debugger + Edit-and-Continue affordance knowingly diverge from real VB6. **Add a row the moment a divergence is found** — during implementation, review, or live verification — so it's tracked, not forgotten. (Sibling to `interpreter-gaps.md` = runtime language gaps, `vb6-fidelity-oracle.md` = verified runtime semantics, `MISSING_LANGUAGE.md` = the positive language-coverage inventory.)
+- **`docs/debugger-vb6-divergences.md`** — living catalogue of where the interpreter debugger + Edit-and-Continue affordance knowingly diverge from real VB6. **Add a row the moment a divergence is found** — during implementation, review, or live verification — so it's tracked, not forgotten. (Sibling to `interpreter-gaps.md` = runtime language gaps, `vb6-fidelity-oracle/README.md` = verified runtime semantics, `MISSING_LANGUAGE.md` = the positive language-coverage inventory.)
 - **`docs/MISSING_LANGUAGE.md`** — the full VB6 language surface (statements, functions, operators, keywords, literals, directives, constants, in-box objects) with HexIDE's support level for each, ordered by **F5 impact**: won't load / dies mid-run / runs-but-differs / faithful. **Update the row in the same change that changes the status.** A coverage document that drifts is worse than none, because it gets quoted rather than checked. It owns *what runs*; `interpreter-gaps.md` owns *why something is missing*.
 
 ## Git Workflow
+
+**Before merging, including a session merging its own pull request, wait until every job on the head
+commit has finished and none is red. Do not merge while main's latest run is red.** This includes the
+advisory macOS job: `build-ide (windows)` is required by branch protection, while `build-ide (macos)`
+remains advisory because there is no local macOS to reproduce a failure on. For a known flake, post the
+failing run on its issue and re-run it green before merging (#1331).
 
 **Claim the issue before starting non-trivial work.** Find or open it, then take it: with maintainer
 access, `gh issue edit N --repo hexide-io/HexIDE --add-assignee @me`; without it, comment asking to be
@@ -997,6 +1140,13 @@ the PR. Typo-level fixes need no issue.
   `in progress on branch <name>`. The branch name is what a second session can check. And never
   `git stash` or switch branches in a checkout you did not create: another session's uncommitted work may
   be sitting in it. Use a `git worktree` of your own instead.
+- **Search the open PRs by file before fixing a shared component.** #2685 and #2658 fixed the same fault. PR
+  search doesn't cover changed files, so ask for the files, with your file's name in place of
+  `LspClientRegistry.cs`:
+  `gh pr list --repo hexide-io/HexIDE --state open --limit 200 --json number,files -q '[.[] | select(any(.files[]; .path | endswith("LspClientRegistry.cs"))) | .number]'`
+- **A label you set is yours to remove**, and one that Jen or another session set is theirs (#499).
+- **Clear `bin/` and `obj/`, or remove the worktree, once its result is posted or its PR merges.** C: ran low
+  four times in the week of 10-26.
 
 **A changelog entry is a file in `changelog.d/`, named for the issue, never an edit to `CHANGELOG.md`.** Every
 PR adding to the same section of one file put every other open PR in conflict on each merge (#1375);

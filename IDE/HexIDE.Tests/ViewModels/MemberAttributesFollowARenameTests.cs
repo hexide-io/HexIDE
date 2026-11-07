@@ -262,7 +262,7 @@ public sealed class MemberAttributesFollowARenameTests : IDisposable
             await client.OpenDocumentAsync(uri, text, TestContext.Current.CancellationToken);
             var edit = await client.RequestRenameAsync(uri, new Position(at.Line - 1, at.Column - 1), newName,
                 TestContext.Current.CancellationToken);
-            return edit!.Changes![uri];
+            return edit!.Edit!.Changes![uri];
         }
         finally
         {

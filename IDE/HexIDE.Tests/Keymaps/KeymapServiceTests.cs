@@ -1,3 +1,5 @@
+using System.Reflection;
+using Avalonia.Labs.Input;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
 using HexIDE.Forms.ViewModels.Options;
@@ -13,6 +15,40 @@ public sealed class KeymapServiceTests : IDisposable
         .ToDictionary(pair => pair.Key, pair => pair.Value.Gestures.ToArray());
 
     public KeymapServiceTests() => Directory.CreateDirectory(_directory);
+
+    [Fact]
+    public void CommandTableMatchesEveryRoutedCommandByNameAndInstance()
+    {
+        var commands = typeof(ApplicationCommands).GetFields(BindingFlags.Public | BindingFlags.Static)
+            .Where(field => field.FieldType == typeof(RoutedCommand))
+            .ToDictionary(field => field.Name, field => (RoutedCommand)field.GetValue(null)!);
+
+        CommandKeyMapping.Table.Keys.Should().BeEquivalentTo(commands.Keys);
+        foreach (var (name, command) in commands)
+            CommandKeyMapping.Table[name].Should().BeSameAs(command);
+    }
+
+    [AvaloniaTheory]
+    [InlineData(nameof(ApplicationCommands.OpenCallStackCommand))]
+    [InlineData(nameof(ApplicationCommands.ResetWindowLayoutCommand))]
+    [InlineData(nameof(ApplicationCommands.GoToDeclarationCommand))]
+    public void DiskPackRebindsAndClearsPreviouslyMissingCommandAndDefaultRestoresIt(string name)
+    {
+        var command = (RoutedCommand)typeof(ApplicationCommands).GetField(name)!.GetValue(null)!;
+        var original = command.Gestures.ToArray();
+        File.WriteAllText(Path.Combine(_directory, "Custom.json"),
+            $$$"""{"name":"Custom","bindings":{"{{{name}}}":"Shift+F12"}}""");
+        var service = new KeymapService(_directory);
+
+        service.Apply("Custom");
+        command.Gestures.Should().Equal(KeyGesture.Parse("Shift+F12"));
+        File.WriteAllText(Path.Combine(_directory, "Custom.json"),
+            $$$"""{"name":"Custom","bindings":{"{{{name}}}":""}}""");
+        service.Apply("Custom");
+        command.Gestures.Should().BeEmpty();
+        service.Apply("Default");
+        command.Gestures.Should().Equal(original);
+    }
 
     [AvaloniaFact]
     public void OptionsListsDiskPacksByFilenameWithoutReplacingBuiltins()

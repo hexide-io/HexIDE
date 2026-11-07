@@ -4,6 +4,8 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.LogicalTree;
+using Avalonia.Threading;
 using HexIDE.Runtime.BuiltinTypes;
 using HexIDE.Runtime.Components;
 using HexIDE.Runtime.Interpreter;
@@ -18,9 +20,30 @@ public class VBFormRuntime : Window, IModuleExecutionRoot, IFormView
     public VBWindowContext Context => windowContext;
 
     public EventPump Events => windowContext.Events;
+
+    // Kept beyond window focus: inactive and hidden forms answer their last control (#2437, measured).
+    internal Control? ActiveControl { get; private set; }
+
+    internal static Control? FindControl(Control window, ILogical? focused)
+    {
+        Control? found = null;
+        for (var element = focused; element is not null; element = element.LogicalParent)
+        {
+            if (ReferenceEquals(element, window))
+                return found;
+            if (found is null && element is Control control && FormControls.TryOf(control, out _))
+                found = control;
+        }
+        return null;
+    }
     
     public VBFormRuntime()
     {
+        AddHandler(GotFocusEvent, (_, e) =>
+        {
+            if (e is FocusChangedEventArgs moved && FindControl(this, moved.NewFocusedElement as ILogical) is { } control)
+                ActiveControl = control;
+        }, RoutingStrategies.Bubble, handledEventsToo: true);
         windowContext = new VBWindowContext(new StandaloneStandardLib(this)) { Window = this };
         // Held by a modal form, the window takes no input of its own (#822): what reaches it is stopped on the way down, and
         // activating it brings the modal form forward instead.
@@ -55,6 +78,37 @@ public class VBFormRuntime : Window, IModuleExecutionRoot, IFormView
 
     // Form_Load is not raised here: the program raises Initialize and Load before the window is shown (#822, #994).
 
+    // VB size setters raise inside their scope; Move holds both Width and Height together (#1569, #2389).
+    private int resizingOnce;
+    private bool resizePending;
+
+    /// <summary>
+    /// Holds Resize back until the returned scope ends, and then raises it once if the size changed: a form's Move sets
+    /// Width and Height together, and VB6 raises one Resize for the two, with both new (measured, #1569).
+    /// </summary>
+    internal IDisposable ResizeOnce()
+    {
+        resizingOnce++;
+        return new ResizeScope(this);
+    }
+
+    private sealed class ResizeScope(VBFormRuntime form) : IDisposable
+    {
+        private bool done;
+
+        public void Dispose()
+        {
+            if (done)
+                return;
+            done = true;
+            if (--form.resizingOnce == 0 && form.resizePending)
+            {
+                form.resizePending = false;
+                form.windowContext.WindowResized(sizeSet: true);
+            }
+        }
+    }
+
     // Whether the window system has sized the window since it was first shown. Until then ClientSize is still the size the
     // window was made at, the platform's default, and the size it is being shown at is its Width and Height (#994).
     private bool sized;
@@ -71,11 +125,27 @@ public class VBFormRuntime : Window, IModuleExecutionRoot, IFormView
         }
     }
 
+    private bool windowResizePending;
+
+    // State and client-size notifications describe one window change (#2389). Wait for layout to settle, but drain
+    // before the next input, so a border drag still raises Resize for each move rather than only at its end.
+    private void QueueWindowResize()
+    {
+        if (windowResizePending)
+            return;
+        windowResizePending = true;
+        Dispatcher.UIThread.Post(() =>
+        {
+            windowResizePending = false;
+            windowContext.WindowResized(paintGrowth: true);
+        }, DispatcherPriority.Loaded);
+    }
+
     protected override void OnResized(WindowResizedEventArgs e)
     {
         base.OnResized(e);
         sized |= IsVisible;
-        windowContext.WindowResized();
+        QueueWindowResize();
     }
 
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
@@ -89,24 +159,46 @@ public class VBFormRuntime : Window, IModuleExecutionRoot, IFormView
         {
             // Use the requested size until layout reports it, and raise inside the setter, even in Load (#1570).
             sized = false;
-            windowContext.WindowResized(sizeSet: true);
+            if (resizingOnce > 0)
+                resizePending = true;
+            else if (IsVisible)
+                QueueWindowResize();
+            else
+                windowContext.WindowResized(sizeSet: true);
         }
         else if (change.Property == WindowStateProperty)
-            windowContext.WindowResized();
+        {
+            if (WindowState == WindowState.Minimized)
+                windowContext.WindowResized();
+            else
+                QueueWindowResize();
+        }
     }
+
+    public void ExecuteKeyboardEvent(string name, IReadOnlyList<Vb6Value> args, int writable, Action<int> completed) =>
+        windowContext.ExecuteKeyboardEvent(name, args, writable, completed);
 
     public void ExecuteSub(string name, IReadOnlyList<Vb6Value>? args = null)
     {
         windowContext.ExecuteSub(name, args);
     }
 
+    public void ExecuteEventByRef(string name, IReadOnlyList<Vb6Value> args, int byRefIndex, Action<Vb6Value> completed) =>
+        windowContext.ExecuteEventByRef(name, args, byRefIndex, completed);
+
+    public System.Threading.Tasks.Task ExecuteEditEventAsync(string name, IList<Vb6Value> args) =>
+        windowContext.ExecuteEditEventAsync(name, args);
+
     public void ExecuteSubIf(string name, IReadOnlyList<Vb6Value>? args, Func<bool> when) =>
         windowContext.ExecuteSubIf(name, args, when);
 
+    public System.Threading.Tasks.Task ExecuteControlEventAsync(string name, IReadOnlyList<CallArg> args) =>
+        windowContext.ExecuteControlEventAsync(name, args);
+
     public bool Handles(string name) => windowContext.Handles(name);
 
-    public void ExecuteEvent(string name, Func<IReadOnlyList<Vb6Value>> args, EventCoalescing coalescing = EventCoalescing.None) =>
-        windowContext.ExecuteEvent(name, args, coalescing);
+    public void ExecuteEvent(string name, Func<IReadOnlyList<Vb6Value>> args, EventCoalescing coalescing = EventCoalescing.None, Func<bool>? when = null) =>
+        windowContext.ExecuteEvent(name, args, coalescing, when);
 
     public void ExecuteTimer(string name, IReadOnlyList<Vb6Value>? args = null) => windowContext.ExecuteTimer(name, args);
 
@@ -114,11 +206,24 @@ public class VBFormRuntime : Window, IModuleExecutionRoot, IFormView
 
     public void SetContent(Control content) => Content = content;
 
+    private bool positioned;
+    internal bool CenterOnShow { get; set; }
+
     // A disabled form is shown without being activated, so the control that had the focus keeps it (measured, #1101).
+
     public void ShowForm()
     {
+        if (!positioned && CenterOnShow)
+        {
+            AvaloniaInterop.FormPosition.Center(this);
+            WindowStartupLocation = WindowStartupLocation.Manual;
+        }
+        positioned = true;
         ShowActivated = IsEnabled;
         Show();
+        // Me.Show in Load raises Activate and initial GotFocus before the next statement (#2436).
+        if (windowContext.Loading && IsEnabled)
+            windowContext.Program?.Activated(windowContext);
     }
 
     public void HideForm() => Hide();

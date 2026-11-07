@@ -3,6 +3,7 @@ using System.Linq;
 using HexIDE.Forms.ViewModels;
 using HexIDE.IDE;
 using HexIDE.Runtime.ProjectElements;
+using HexIDE.Runtime.Serialization;
 
 namespace HexIDE.Tests.ViewModels;
 
@@ -12,7 +13,7 @@ namespace HexIDE.Tests.ViewModels;
 /// dropped it, so the next save wrote the project without it.
 /// </summary>
 /// <remarks>
-/// What VB6's dialog shows is measured (docs/vb6-fidelity-oracle.md, "The References dialog's fixed rows"): three rows
+/// What VB6's dialog shows is measured (docs/vb6-fidelity-oracle/the-references-dialogs-fixed-rows.md, "The References dialog's fixed rows"): three rows
 /// no project lists, Visual Basic For Applications, Visual Basic runtime objects and procedures and Visual Basic objects
 /// and procedures, checked and fixed; then the project's own references, OLE Automation among them, in its order, the
 /// first of which can't be moved above them; the selection on the last checked row.
@@ -38,6 +39,28 @@ public class ReferencesViewModelTests
         var libraries = Substitute.For<IReferenceLibraryService>();
         libraries.GetAvailableReferences().Returns(available);
         return new ReferencesViewModel(project, libraries, Substitute.For<IWindowManager>());
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void References_OK_regroups_the_save_but_cancel_keeps_read_order(bool accept)
+    {
+        const string reference = @"Reference=*\G{00020430-0000-0000-C000-000000000046}#2.0#0##OLE Automation";
+        var project = Project(new VbReference(OleAutomation.Guid, "2.0", 0, "", "OLE Automation"));
+        project.KnownLineKeys.AddRange(new[] { "Type", "Designer", "Reference", "Name" });
+        project.PreserveItemLine("Designer=Probe.dsr", 1);
+        project.UnknownPreSectionLines.Add((3, "Object=kept"));
+        var dialog = Dialog(project);
+        dialog.CloseRequested += ok => { if (ok) dialog.Apply(project); };
+        (accept ? dialog.OkCommand : dialog.CancelCommand).Execute(null);
+
+        var expected = accept
+            ? new[] { "Type=Exe", reference, "Object=kept", "Designer=Probe.dsr", "Name=\"P\"", "" }
+            : new[] { "Type=Exe", "Designer=Probe.dsr", reference, "Object=kept", "Name=\"P\"", "" };
+        var serializer = new ProjectSerializer();
+        serializer.Serialize(project, @"C:\a\b\P.vbp").Should().Be(string.Join("\r\n", expected));
+        serializer.Serialize(project, @"C:\a\b\P.vbp").Should().Be(string.Join("\r\n", expected));
     }
 
     [Fact]

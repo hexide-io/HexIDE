@@ -5,7 +5,7 @@ namespace HexIDE.Runtime.Tests;
 /// <summary>
 /// A module-level array whose bounds are not plain integers is sized where it is allocated, as its module's
 /// declarations run. VB6 sizes it from a constant expression before the program starts, and every answer here was
-/// measured with <c>vb6.exe /make</c>; the probes are in docs/vb6-fidelity-oracle.md, "What a module-level array's
+/// measured with <c>vb6.exe /make</c>; the probes are in docs/vb6-fidelity-oracle/subscripts-bounds-and-a-method-called-from-class_initialize.md, "What a module-level array's
 /// bound may name". Nothing may size one from Empty: a bound HexIDE cannot read yet is refused, loudly.
 /// </summary>
 public class ModuleLevelArrayBoundTests : BaseVBTestFixture

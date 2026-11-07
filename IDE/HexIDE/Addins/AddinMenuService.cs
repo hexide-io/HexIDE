@@ -1,5 +1,8 @@
 using System.Collections.ObjectModel;
-using HexIDE.Addins;
+using System.Reflection;
+using System.Runtime.CompilerServices;
+using System.Runtime.Loader;
+using Serilog;
 
 namespace HexIDE.Addins;
 
@@ -11,18 +14,29 @@ public sealed class AddinMenuService : IMenuContributor
     public ObservableCollection<AddinMenuItemViewModel> ToolsItems => _toolsItems;
     public ObservableCollection<AddinMenuItemViewModel> AddInsItems => _addInsItems;
 
+    // Preserve the caller frame so diagnostics identify the contributing add-in.
+    [MethodImpl(MethodImplOptions.NoInlining)]
     public IDisposable Add(string parentPath, string label, object? icon, Action onInvoke,
                            Func<bool>? canExecute = null)
     {
         var parts = parentPath.Split('/', 2, StringSplitOptions.RemoveEmptyEntries);
-        var topLevel = parts[0];
+        var topLevel = parts.Length == 0 ? "" : parts[0];
+        if (!topLevel.Equals("Tools", StringComparison.OrdinalIgnoreCase) &&
+            !topLevel.Equals("AddIns", StringComparison.OrdinalIgnoreCase))
+        {
+            var caller = Assembly.GetCallingAssembly();
+            var contributor = AssemblyLoadContext.GetLoadContext(caller) is AddinLoadContext context
+                ? context.Name : caller.GetName().Name;
+            Log.Warning("AddinMenuService: add-in {Addin} requested unsupported menu location {ParentPath}; placement dropped",
+                contributor, parentPath);
+            return new ActionDisposable(() => { });
+        }
 
         return topLevel.ToUpperInvariant() switch
         {
             "TOOLS" => AddFlat(_toolsItems, label, onInvoke, canExecute),
             "ADDINS" when parts.Length == 1 => AddFlat(_addInsItems, label, onInvoke, canExecute),
-            "ADDINS" => AddToSubmenu(_addInsItems, parts[1], label, onInvoke, canExecute),
-            _ => AddFlat(_addInsItems, label, onInvoke, canExecute),
+            _ => AddToSubmenu(_addInsItems, parts[1], label, onInvoke, canExecute),
         };
     }
 

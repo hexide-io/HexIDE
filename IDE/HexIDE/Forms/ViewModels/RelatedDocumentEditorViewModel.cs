@@ -7,6 +7,7 @@ using System.Collections.Generic;
 using AvaloniaEdit.Document;
 using HexIDE.Controls;
 using HexIDE.Lsp;
+using HexIDE.Localization;
 using HexIDE.Lsp.Messages;
 using HexIDE.Runtime.ProjectElements;
 using HexIDE.Utils;
@@ -32,11 +33,39 @@ namespace HexIDE.Forms.ViewModels;
 /// that honest keeps the polyglot direction a small class rather than a growing conditional.
 /// </para>
 /// </summary>
-public partial class RelatedDocumentEditorViewModel(ILspClient lspClient)
-    : BaseEditorWindowViewModel, ISearchableDocument
+public partial class RelatedDocumentEditorViewModel(ILspClient lspClient, IWindowManager windowManager,
+    ILocalizationService localization)
+    : BaseEditorWindowViewModel, ISearchableDocument, IOutlineDocument
 {
+    public IReadOnlyList<DocumentSymbol> OutlineSymbols { get; private set; } = [];
+    public event Action? LanguageServerStateChanged;
+    private int symbolRefreshVersion;
+
+    async Task IOutlineDocument.RefreshSymbolsAsync()
+    {
+        if (session is not { } open) return;
+        var version = ++symbolRefreshVersion;
+        var text = Document.Text;
+        await open.FlushAsync();
+        var symbols = await lspClient.RequestDocumentSymbolsAsync(open.Uri);
+        Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+        {
+            if (version != symbolRefreshVersion || session != open || text != Document.Text) return;
+            OutlineSymbols = symbols;
+            OnPropertyChanged(nameof(OutlineSymbols));
+        });
+    }
+
+    void IOutlineDocument.NavigateToSymbol(DocumentSymbol symbol)
+    {
+        var position = symbol.SelectionRange.Start;
+        if (position.Line < 0 || position.Line >= Document.LineCount) return;
+        var line = Document.GetLineByNumber(position.Line + 1);
+        CaretOffset = Math.Clamp(line.Offset + Math.Max(0, position.Character), line.Offset, line.EndOffset);
+    }
+
     private RelatedDocumentDefinition? document;
-    private bool hadByteOrderMark;
+    private Vb6TextEncoding encoding = Vb6TextEncoding.Utf8;
     private string savedText = string.Empty;
 
     /// <summary>
@@ -88,6 +117,8 @@ public partial class RelatedDocumentEditorViewModel(ILspClient lspClient)
 
     [Notify] private bool isDirty;
 
+    private void OnIsDirtyChanged() => IsModified = IsDirty;
+
     /// <summary>True when the file could not be read — the editor opens empty and read-only rather than lying.</summary>
     [Notify] private string? loadError;
 
@@ -103,9 +134,18 @@ public partial class RelatedDocumentEditorViewModel(ILspClient lspClient)
             try
             {
                 var bytes = File.ReadAllBytes(path);
-                hadByteOrderMark = bytes.Length >= 3 && bytes[0] == 0xEF && bytes[1] == 0xBB && bytes[2] == 0xBF;
-                savedText = new UTF8Encoding(false).GetString(
-                    hadByteOrderMark ? bytes.AsSpan(3) : bytes.AsSpan());
+                var marked = bytes.Length >= 3 && bytes[0] == 0xEF && bytes[1] == 0xBB && bytes[2] == 0xBF;
+                encoding = Vb6TextEncoding.Utf8 with { Utf8Bom = marked };
+                try
+                {
+                    savedText = Vb6TextFile.Decode(bytes, encoding);
+                }
+                catch (DecoderFallbackException)
+                {
+                    // Latin-1 maps each byte back to itself, including bytes UTF-8 cannot read.
+                    encoding = Vb6TextEncoding.Latin1 with { Utf8Bom = marked };
+                    savedText = Vb6TextFile.Decode(bytes, encoding);
+                }
             }
             catch (Exception ex)
             {
@@ -167,7 +207,18 @@ public partial class RelatedDocumentEditorViewModel(ILspClient lspClient)
             Markers = markers;
             MarkersChanged?.Invoke(markers);
         };
+        EventHandler stateChanged = (_, _) => Avalonia.Threading.Dispatcher.UIThread.Post(
+            () => LanguageServerStateChanged?.Invoke());
+        lspClient.StateChanged += stateChanged;
+        AutoDispose(new ActionDisposable(() => lspClient.StateChanged -= stateChanged));
         session.Start();
+    }
+
+    public async Task<DocumentSymbol[]> RequestSearchSymbolsAsync()
+    {
+        if (session is not { IsOpen: true } open) return [];
+        await open.FlushAsync();
+        return await lspClient.RequestDocumentSymbolsAsync(open.Uri);
     }
 
     /// <summary>
@@ -195,16 +246,27 @@ public partial class RelatedDocumentEditorViewModel(ILspClient lspClient)
         if (document?.AbsolutePath is not { } path || LoadError is not null) return;
 
         var text = Document.Text;
-        // Encoding is preserved rather than normalised: this file belongs to something else — a build
-        // script, a docs pipeline, another editor — and quietly adding or dropping a byte-order mark is
-        // the kind of diff that shows up in someone's review with no explanation.
-        var encoding = new UTF8Encoding(hadByteOrderMark);
+        if (string.Equals(text, savedText, StringComparison.Ordinal)) return;
 
-        // Written to a sibling temp file and moved into place, so an interrupted save cannot leave a
-        // truncated document where the original was.
-        var temporary = path + ".hexide-tmp";
-        await File.WriteAllTextAsync(temporary, text, encoding);
-        File.Move(temporary, path, overwrite: true);
+        // Encode before touching the file: an edit the original encoding cannot hold must not lose bytes.
+        byte[] bytes;
+        try
+        {
+            bytes = Vb6TextFile.EncodeDocument(document.Name, text, encoding);
+        }
+        catch (SourceEncodingRefusal refusal)
+        {
+            Log.Warning("Cannot save {Document} in code page {CodePage}: it holds {CodePoint}",
+                refusal.Document, refusal.CodePage, refusal.CodePoint);
+            await windowManager.MessageBox(
+                string.Format(localization.GetString("Str.Dialog.SourceEncoding.NothingWritten"),
+                    refusal.Document, refusal.CodePage, refusal.Character, refusal.CodePoint,
+                    refusal.Line.Length > 0 ? refusal.Line : refusal.Character),
+                "HexIDE", MessageBoxButtons.Ok, MessageBoxIcon.Warning);
+            throw;
+        }
+
+        AtomicFileWriter.WriteAllBytes(path, bytes);
 
         savedText = text;
         IsDirty = false;

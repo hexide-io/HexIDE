@@ -42,10 +42,12 @@ public class ObjectBrowserViewIntegrationTests
             Substitute.For<ILanguageConnectionRegistry>());
     }
 
-    private static ObjectBrowserToolViewModel CreateSutWithProject(string projectName = "TestProject")
+    private static ObjectBrowserToolViewModel CreateSutWithProject(string projectName = "TestProject", bool withModule = false)
     {
         var project = new ProjectDefinition(VBProjectType.EXE, projectName);
         project.AddForm(new FormDefinition(project, FormComponentClass.Instance, "Form1"));
+
+        if (withModule) project.AddModule(new ModuleDefinition(project, "Form1", ModuleKind.StandardModule));
 
         var pm = Substitute.For<IProjectManager>();
         pm.LoadedProjects.Returns(new List<ProjectDefinition> { project });
@@ -79,6 +81,103 @@ public class ObjectBrowserViewIntegrationTests
             Substitute.For<IFocusedProjectUtil>(),
             Loc(),
             Substitute.For<ILanguageConnectionRegistry>());
+    }
+
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void MembershipChanges_UpdateSortedClassesAndPruneHistory(bool module)
+    {
+        var vm = CreateSutWithProject();
+        var form1 = vm.FilteredClasses.Single(c => c.Name == "Form1").FormDefinition!;
+        var project = form1.Owner;
+        var form = new FormDefinition(project, FormComponentClass.Instance, "Alpha");
+        var mod = new ModuleDefinition(project, "Alpha", ModuleKind.ClassModule);
+        if (module) project.AddModule(mod); else project.AddForm(form);
+        var lib = vm.Libraries.Single(l => l.Name == project.Name);
+        lib.Classes.Select(c => c.Name).Should().Equal("Alpha", "Form1");
+        var added = vm.FilteredClasses.Single(c => c.Name == "Alpha");
+        added.Kind.Should().Be(module ? OBClassKind.ClassModule : OBClassKind.Form);
+        vm.SelectedClass = added;
+        vm.SelectedClass = lib.Classes.Single(c => c.Name == "Form1");
+        vm.BackCommand.Execute(null);
+        if (module) project.DeleteModule(mod); else project.DeleteForm(form);
+        vm.FilteredClasses.Should().NotContain(added);
+        vm.SelectedClass.Should().BeNull();
+        vm.ForwardCommand.Execute(null);
+        vm.SelectedClass!.Name.Should().Be("Form1");
+        vm.BackCommand.CanExecute(null).Should().BeFalse();
+    }
+
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Rename_UpdatesNameSortFilterAndLibrary(bool module)
+    {
+        var vm = CreateSutWithProject(withModule: true);
+        var form = vm.FilteredClasses.Single(c => c.FormDefinition != null).FormDefinition!;
+        var project = form.Owner;
+        var mod = project.Modules.Single();
+        var cls = vm.FilteredClasses.Single(c => module ? c.ModuleDefinition == mod : c.FormDefinition == form);
+        vm.SelectedClass = cls;
+        if (module) mod.Name = "Zulu";
+        else
+        {
+            form.Components[0].SetProperty(HexIDE.Runtime.Components.VBProperties.NameProperty, "Zulu");
+            form.NotifyRootPropertiesChanged();
+        }
+        cls.Name.Should().Be("Zulu");
+        vm.Libraries.Single(l => l.Name == project.Name).Classes.Last().Should().BeSameAs(cls);
+        vm.SelectedClass.Should().BeSameAs(cls);
+        project.Name = "Renamed";
+        vm.Libraries.Should().ContainSingle(l => l.Name == "Renamed");
+        cls.LibraryName.Should().Be("Renamed");
+        vm.SearchText = "Zulu";
+        vm.SearchCommand.Execute(null);
+        vm.FilteredClasses.Should().ContainSingle().Which.Should().BeSameAs(cls);
+    }
+
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void DeleteExisting_RemovesByIdentity(bool module)
+    {
+        var vm = CreateSutWithProject(withModule: true);
+        var first = vm.FilteredClasses.Single(c => c.FormDefinition != null);
+        var project = first.FormDefinition!.Owner;
+        if (module)
+        {
+            var mod = project.Modules.Single();
+            project.DeleteModule(mod);
+            vm.FilteredClasses.Should().NotContain(c => c.ModuleDefinition == mod);
+        }
+        else project.DeleteForm(first.FormDefinition);
+        vm.FilteredClasses.Should().ContainSingle();
+        vm.FilteredClasses.Where(c => c.FormDefinition == first.FormDefinition).Should().HaveCount(module ? 1 : 0);
+    }
+
+    [AvaloniaFact]
+    public void ProjectRename_UpdatesExistingLibraryAndClasses()
+    {
+        var vm = CreateSutWithProject();
+        var cls = vm.FilteredClasses.Single(c => c.Name == "Form1");
+        var lib = vm.Libraries.Single(l => l.Name == "TestProject");
+        vm.SelectedLibrary = lib;
+        var view = new ObjectBrowserToolView { DataContext = vm };
+        var window = new Window { Content = view };
+        window.Show();
+        try
+        {
+            window.UpdateLayout();
+            var combo = view.GetVisualDescendants().OfType<ComboBox>().Single();
+            combo.GetVisualDescendants().OfType<TextBlock>().Select(t => t.Text).Should().Contain("TestProject");
+            cls.FormDefinition!.Owner.Name = "Renamed";
+            window.UpdateLayout();
+            lib.Name.Should().Be("Renamed");
+            cls.LibraryName.Should().Be("Renamed");
+            combo.GetVisualDescendants().OfType<TextBlock>().Select(t => t.Text).Should().Contain("Renamed");
+        }
+        finally { window.Close(); }
     }
 
     // --- View rendering ---

@@ -5,7 +5,6 @@
 using System.Text.Json;
 using EmmyLua.LanguageServer.Framework.Protocol.JsonRpc;
 using EmmyLua.LanguageServer.Framework.Server;
-using EmmyLua.LanguageServer.Framework.Server.Scheduler;
 using Serilog;
 
 namespace HexIDE.VbLspServer;
@@ -22,14 +21,15 @@ public static class LspServerHost
     /// <c>await server.Run()</c> to start the read loop; <c>server.Exit()</c> stops it.
     /// </summary>
     public static LanguageServer Create(Stream input, Stream output)
+        => Create(input, output, new DocumentStore());
+
+    internal static RenameLanguageServer Create(Stream input, Stream output, DocumentStore store)
     {
-        var ls = LanguageServer.From(input, output);
+        var ls = new RenameLanguageServer(input, output, store);
 
-        // Sequential dispatch is the framework default, pinned explicitly: the IDE client relies on
-        // didChange-before-next-request ordering (FlushDocumentAsync + format-on-save).
-        ls.SetScheduler(new SingleThreadScheduler());
-
-        var store = new DocumentStore();
+        // Keep didChange-before-next-request ordering (especially format-on-save), except completion,
+        // which can answer from the last published declaration snapshot during a parse (#2434).
+        ls.SetScheduler(new TimingScheduler());
 
         // The server's own trace channel. Off until a client asks for it, at which point it carries what
         // only this process knows about an analysis — never a restatement of the frames the client sent.
@@ -41,16 +41,28 @@ public static class LspServerHost
         // block and leaves the dispatch path below untouched.
         ls.AddHandler(new VbServerCapabilities());
 
+        const string serverName = "HexIDE VB6 Language Server";
+        const string serverVersion = "1.0.0";
         ls.OnInitialize((initializeParams, serverInfo) =>
         {
-            serverInfo.Name = "HexIDE VB6 Language Server";
-            serverInfo.Version = "1.0.0";
+            serverInfo.Name = serverName;
+            serverInfo.Version = serverVersion;
             // Trace level is per connection and arrives here first. Absent means off, which it already is.
             trace.ApplyInitialize(initializeParams.Trace);
             Log.Information("initialize received");
             return Task.CompletedTask;
         });
-        ls.OnInitialized(_ => { Log.Information("client initialized"); return Task.CompletedTask; });
+        ls.OnInitialized(async _ =>
+        {
+            Log.Information("client initialized");
+            await ls.SendNotification(new NotificationMessage("window/logMessage", LspJson.Doc(w =>
+            {
+                w.WriteStartObject();
+                w.WriteNumber("type", 3);
+                w.WriteString("message", $"{serverName} {serverVersion} started.");
+                w.WriteEndObject();
+            })));
+        });
         ls.OnShutdown(() => { Log.Information("shutdown received"); return Task.CompletedTask; });
 
         // $/setTrace changes the level on a running server. The framework carries the parameter types but
@@ -116,6 +128,7 @@ public static class LspServerHost
         });
 
         // ── Request handlers (all 17-method contract; result:null over errors for "nothing found") ─
+        Request(ls, "textDocument/inlayHint",         (s, p) => LspRequestHandlers.InlayHint(s, p));
         Request(ls, "textDocument/hover",             (s, p) => LspRequestHandlers.Hover(s, p));
         Request(ls, "textDocument/documentSymbol",    (s, p) => LspRequestHandlers.DocumentSymbol(s, p));
         Request(ls, "textDocument/foldingRange",      (s, p) => LspRequestHandlers.FoldingRange(s, p));
@@ -123,7 +136,6 @@ public static class LspServerHost
         Request(ls, "textDocument/signatureHelp",     (s, p) => LspRequestHandlers.SignatureHelp(s, p));
         Request(ls, "textDocument/definition",        (s, p) => LspRequestHandlers.Definition(s, p));
         Request(ls, "textDocument/documentHighlight", (s, p) => LspRequestHandlers.DocumentHighlight(s, p));
-        Request(ls, "textDocument/rename",            (s, p) => LspRequestHandlers.Rename(s, p));
         Request(ls, "textDocument/formatting",        (s, p) => LspRequestHandlers.Formatting(s, p));
         Request(ls, "vb/builtinSymbols",              (_, _) => LspRequestHandlers.BuiltinSymbols());
 
@@ -142,12 +154,16 @@ public static class LspServerHost
     /// <remarks>
     /// The publish goes first and the trace line behind it, so the functional message keeps exactly the
     /// ordering it had before tracing existed. <c>trace.IsEnabled</c> is read before the analysis, not
-    /// after: with tracing off nothing is measured, nothing is allocated, and nothing extra is sent.
+    /// after: with tracing off no analysis report is allocated or sent. Debug timings are independent.
     /// </remarks>
     private static async Task PublishAsync(
         LanguageServer ls, DocumentStore store, TraceReporter trace, string uri, string text)
     {
+        using var uriContext = Serilog.Context.LogContext.PushProperty("Uri", uri);
+        var started = System.Diagnostics.Stopwatch.GetTimestamp();
         var update = await store.UpdateDocumentAsync(uri, text, trace.IsEnabled);
+        Log.Debug("Diagnostics {Uri} elapsed {ElapsedMs} ms", uri,
+            System.Diagnostics.Stopwatch.GetElapsedTime(started).TotalMilliseconds);
         await ls.SendNotification(new NotificationMessage("textDocument/publishDiagnostics",
             LspRequestHandlers.BuildPublishParams(uri, update.Diagnostics)));
         if (update.Analysis is { } analysis)

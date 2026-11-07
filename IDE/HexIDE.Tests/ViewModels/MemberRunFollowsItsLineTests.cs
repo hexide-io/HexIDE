@@ -317,6 +317,22 @@ public class MemberRunFollowsItsLineTests : IDisposable
         placed.Tail.Should().Be("\r\n    Debug.Print 0");
     }
 
+    [AvaloniaTheory]
+    [InlineData("\r\n")]
+    [InlineData("")]
+    public void APastedDeclarationWithItsOwnRunGoesWholeAfterTheExistingRun(string trailingNewline)
+    {
+        var vm = OpenCode();
+        var run = RunOf(vm, "Go");
+        const string pasted = "Public Event Opened()\r\nAttribute Opened.VB_Description = \"Opens\"";
+
+        var placed = vm.ReadOnlySections.PlaceLineBreak(run.Anchor, 0, pasted + trailingNewline)!;
+
+        placed.Head.Should().BeEmpty();
+        placed.TailAt.Should().Be(run.LastContentEnd);
+        placed.Tail.Should().Be("\r\n" + pasted);
+    }
+
     [AvaloniaFact]
     public void EveryLineBreakIsWrittenInTheDescribedLinesNewline()
     {
@@ -515,6 +531,36 @@ public class MemberRunFollowsItsLineTests : IDisposable
         {
             File.Delete(path);
         }
+    }
+
+    [AvaloniaFact]
+    public void AnAddInsWidenedDeletionCannotOverlapAnotherEdit()
+    {
+        var vm = OpenCode();
+        var before = vm.Document.Text;
+        var line = LineOf(vm, "Public Sub Go()");
+
+        vm.ApplyEdits([new TextChange(line.Offset, line.Length, ""),
+            new TextChange(line.EndOffset, 0, " ' keep")]).Should().NotBeNull();
+
+        vm.Document.Text.Should().Be(before);
+    }
+
+    [AvaloniaTheory]
+    [InlineData("Public Sub Go()")]
+    [InlineData("Public Count As Long")]
+    public void AnAddInsEmptyEditTakesTheDeclarationsRun(string text)
+    {
+        var vm = OpenCode();
+        var before = vm.Document.Text;
+        var line = LineOf(vm, text);
+        var widened = vm.ReadOnlySections.WidenDeletion(line.Offset, line.Length);
+
+        vm.ApplyEdits([new TextChange(line.Offset, line.Length, "")]).Should().BeNull();
+
+        vm.Document.Text.Should().Be(before.Remove(widened.Offset, widened.Length));
+        vm.Document.UndoStack.Undo();
+        vm.Document.Text.Should().Be(before);
     }
 
     [AvaloniaFact]

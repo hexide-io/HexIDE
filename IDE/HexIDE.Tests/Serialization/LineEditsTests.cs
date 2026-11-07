@@ -23,6 +23,40 @@ public class LineEditsTests
             ? text.IndexOf("Attribute", StringComparison.Ordinal)
             : 0);
 
+    [Theory]
+    [InlineData("Private Sub Total()", "VB_Description")]
+    [InlineData("Private Sub Total( _\r\n    ByVal value As Long)", "VB_Description")]
+    [InlineData("Public Total As Long", "VB_VarDescription")]
+    public void FormattingDeletionTakesTheDescribedLogicalLineAndRun(string declaration, string attribute)
+    {
+        var described = declaration + "\r\n";
+        var run = $"Attribute Total.{attribute} = \"Total\"\r\n";
+        var before = "Option Explicit\r\n" + described + run + "End Sub\r\n";
+        var after = before.Replace(described, "");
+
+        var reduction = LineEdits.ReduceFormatting(before, after, RegionsOf(before),
+            ReadOnlyRegions.MemberRuns(before, 0));
+
+        LineEdits.Apply(before, reduction.Changes).Should().Be("Option Explicit\r\nEnd Sub\r\n");
+        reduction.DroppedLines.Should().Be(0);
+    }
+
+    [Theory]
+    [InlineData("Private Sub Total()\r\n", "    Private Sub Total()\r\n", true)]
+    [InlineData("Private Sub Total( _\r\n    ByVal value As Long)\r\n", "Private Sub Total( _\r\n", false)]
+    public void FormattingKeepsTheExistingReplacementAndPartialDeletionRules(string declaration, string replacement, bool applies)
+    {
+        const string run = "Attribute Total.VB_Description = \"Total\"\r\n";
+        var before = "Option Explicit\r\n" + declaration + run + "End Sub\r\n";
+        var after = before.Replace(declaration, replacement);
+        var regions = RegionsOf(before);
+
+        var reduction = LineEdits.ReduceFormatting(before, after, regions, ReadOnlyRegions.MemberRuns(before, 0));
+
+        LineEdits.Apply(before, reduction.Changes).Should()
+            .Be(applies ? after : before);
+    }
+
     // -- The measured case -------------------------------------------------------------------------------
 
     [Fact]

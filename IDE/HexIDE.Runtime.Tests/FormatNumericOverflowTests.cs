@@ -6,8 +6,7 @@ namespace HexIDE.Runtime.Tests;
 /// Regression for the adversarial bug-hunt HIGH: Format() of a magnitude beyond decimal range (|x| &gt; ~7.9e28) cast
 /// the double to decimal and threw an UNCATCHABLE OverflowException, crashing the program (not trappable with
 /// On Error). VB6 doesn't error — it renders General Number / no-mask / Scientific in scientific notation. Those
-/// cases are oracle-pinned against vb6.exe. (A fixed mask like "0.00" is fully EXPANDED by VB6; HexIDE approximates
-/// that as scientific — documented divergence — the point is no crash.)
+/// cases and the 15-significant-digit expansion under fixed masks are oracle-pinned against vb6.exe.
 /// </summary>
 public class FormatNumericOverflowTests : BaseVBTestFixture
 {
@@ -21,13 +20,27 @@ public class FormatNumericOverflowTests : BaseVBTestFixture
         AssertDebugLog(["1E+30", "-2.5E+29", "1E+30"]);
     }
 
-    [Fact]
-    public async Task OutOfDecimalRange_FixedMask_ApproximatesAsScientific_NoCrash()
+    [Theory]
+    [InlineData("1E+30", "0.00", "1000000000000000000000000000000.00")]
+    [InlineData("1.23456789012345E+30", "0.00", "1234567890123450000000000000000.00")]
+    [InlineData("-1E+30", "0.00", "-1000000000000000000000000000000.00")]
+    [InlineData("1.23456789012345E+30", "#,##0", "1,234,567,890,123,450,000,000,000,000,000")]
+    [InlineData("-1E+30", "#,##0", "-1,000,000,000,000,000,000,000,000,000,000")]
+    [InlineData("1.2345678901234567E+30", "0", "1234567890123460000000000000000")]
+    [InlineData("2# ^ 100", "0", "1267650600228230000000000000000")]
+    [InlineData("1.23456789012345E+30", "Standard", "1,234,567,890,123,450,000,000,000,000,000.00")]
+    [InlineData("-1.23456789012345E+30", "#,##0.00;(#,##0.00)", "(1,234,567,890,123,450,000,000,000,000,000.00)")]
+    public async Task OutOfDecimalRange_FixedMask_MatchesVb6(string expression, string mask, string expected)
     {
-        // VB6 fully expands this to "1000000000000000000000000000000.00"; HexIDE approximates out-of-decimal-range
-        // fixed masks as scientific (documented). The regression point: it no longer throws an OverflowException.
-        await Run("Debug.Print Format(1E+30, \"0.00\")\n");
-        AssertDebugLog(["1E+30"]);
+        await Run($"Debug.Print Format({expression}, \"{mask}\")\n");
+        AssertDebugLog([expected]);
+    }
+
+    [Fact]
+    public async Task OutOfDecimalRange_HundredsOfDigits_MatchesVb6()
+    {
+        await Run("Debug.Print Format(1.5E+300, \"0\")\n");
+        AssertDebugLog(["15" + new string('0', 299)]);
     }
 
     [Fact]

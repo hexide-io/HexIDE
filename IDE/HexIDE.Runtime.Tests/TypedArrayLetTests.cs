@@ -7,7 +7,7 @@ namespace HexIDE.Runtime.Tests;
 /// A Let into an array variable declared with an element type takes only an array of exactly that type, or for a Byte()
 /// a String, which becomes its bytes (#998, #1588). Anything else is 13, and the array is left as it was, or a compile
 /// error where the statement shows the type. Measured on vb6.exe, native and p-code alike, with the probe projects in
-/// docs/vb6-fidelity-oracle.md, "A Let into an array variable": each program here is one of them, and each expected line
+/// docs/vb6-fidelity-oracle/a-let-into-an-array-variable.md, "A Let into an array variable": each program here is one of them, and each expected line
 /// is what vb6.exe logged. HexIDE stored whatever it was given, so an array became Empty, a String or another type.
 /// </summary>
 public class TypedArrayLetTests : BaseVBTestFixture

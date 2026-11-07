@@ -17,6 +17,31 @@
             </MultiBinding>
         </Setter>
     </Style>
+    <!-- Localize the base theme's scroll bar button names (#1868). -->
+    <Style Selector="ScrollBar:vertical /template/ RepeatButton#PART_LineUpButton">
+        <Setter Property="AutomationProperties.Name" Value="{DynamicResource Str.ScrollBar.LineUp}" />
+    </Style>
+    <Style Selector="ScrollBar:vertical /template/ RepeatButton#PART_PageUpButton">
+        <Setter Property="AutomationProperties.Name" Value="{DynamicResource Str.ScrollBar.PageUp}" />
+    </Style>
+    <Style Selector="ScrollBar:vertical /template/ RepeatButton#PART_PageDownButton">
+        <Setter Property="AutomationProperties.Name" Value="{DynamicResource Str.ScrollBar.PageDown}" />
+    </Style>
+    <Style Selector="ScrollBar:vertical /template/ RepeatButton#PART_LineDownButton">
+        <Setter Property="AutomationProperties.Name" Value="{DynamicResource Str.ScrollBar.LineDown}" />
+    </Style>
+    <Style Selector="ScrollBar:horizontal /template/ RepeatButton#PART_LineUpButton">
+        <Setter Property="AutomationProperties.Name" Value="{DynamicResource Str.ScrollBar.LineLeft}" />
+    </Style>
+    <Style Selector="ScrollBar:horizontal /template/ RepeatButton#PART_PageUpButton">
+        <Setter Property="AutomationProperties.Name" Value="{DynamicResource Str.ScrollBar.PageLeft}" />
+    </Style>
+    <Style Selector="ScrollBar:horizontal /template/ RepeatButton#PART_PageDownButton">
+        <Setter Property="AutomationProperties.Name" Value="{DynamicResource Str.ScrollBar.PageRight}" />
+    </Style>
+    <Style Selector="ScrollBar:horizontal /template/ RepeatButton#PART_LineDownButton">
+        <Setter Property="AutomationProperties.Name" Value="{DynamicResource Str.ScrollBar.LineRight}" />
+    </Style>
     <!-- Name Dock's icon-only template parts at the control, so peers and path matching agree (#542). -->
     <Style Selector="ToolChromeControl /template/ Button#PART_MenuButton">
         <Setter Property="AutomationProperties.Name" Value="{DynamicResource Str.Dock.Menu}" />

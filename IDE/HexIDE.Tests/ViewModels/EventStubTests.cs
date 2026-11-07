@@ -18,7 +18,7 @@ namespace HexIDE.Tests.ViewModels;
 /// <remarks>
 /// Measured in VB6's IDE: a double-click on a form with no code writes <c>Private Sub Form_Load()</c>, a blank line
 /// and <c>End Sub</c>, CRLF, straight after the <c>Attribute</c> lines. On a form with code it goes at the end, one
-/// blank line below it, and the caret is on the blank line inside (docs/vb6-fidelity-oracle.md, "What VB6's Add Form
+/// blank line below it, and the caret is on the blank line inside (docs/vb6-fidelity-oracle/what-vb6s-add-form-saves.md, "What VB6's Add Form
 /// saves"). Since a new form no longer starts with a <c>Form_Load</c>, this is how every new form gets one.
 /// </remarks>
 public class EventStubTests : IDisposable

@@ -197,7 +197,12 @@ public partial class FormDefinition : INotifyPropertyChanged
         }
     }
 
-    public void UpdateCode(string newCode) => Code = newCode;
+    public void UpdateCode(string newCode)
+    {
+        if (Code == newCode) return;
+        Code = newCode;
+        OnPropertyChanged(nameof(Code));
+    }
 
     public void UpdateComponents(IReadOnlyList<ComponentInstance> components)
     {
@@ -244,6 +249,11 @@ public partial class FormDefinition : INotifyPropertyChanged
     /// already preserves its Object= references.
     /// </summary>
     public List<string> HeaderLines { get; } = [];
+
+    /// <summary>The control libraries this form's header names, in its order (#1082).</summary>
+    public IEnumerable<ObjectReference> ObjectReferences =>
+        HeaderLines.Select(l => ObjectReference.TryParse(l, out var r) ? r : (ObjectReference?)null)
+            .Where(r => r is not null).Select(r => r!.Value);
 
     /// <summary>
     /// This form's designer half as its file has it: the first line of the file through the root <c>End</c>

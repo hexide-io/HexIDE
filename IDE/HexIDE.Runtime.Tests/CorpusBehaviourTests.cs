@@ -24,7 +24,7 @@ namespace HexIDE.Runtime.Tests;
 /// <b>Where the expectations come from.</b> Not from us. <c>scripts/vb6-legality.ps1 -CaptureOutput</c>
 /// rewrites each case's <c>Debug.Print</c> to a helper that appends to a file, compiles it with the real
 /// vb6.exe, RUNS it, and records what the file received. So a row here is an observation of the actual
-/// compiler, in the same class of evidence as <c>docs/vb6-fidelity-oracle.md</c> — and unlike a hand-written
+/// compiler, in the same class of evidence as <c>docs/vb6-fidelity-oracle/README.md</c> — and unlike a hand-written
 /// unit test it cannot be satisfied by asserting whatever the interpreter happens to do. That distinction
 /// is not hypothetical: <c>ModuleScopeTests</c> pins a UDT field declared <c>As Long</c> as coming back
 /// <b>Integer</b>, green, with a comment noting it is wrong. Only an oracle-backed expectation catches that.
@@ -100,13 +100,6 @@ public class CorpusBehaviourTests
 
         // ---- REFUSES CODE VB6 RAN. A false rejection at run time rather than parse time — the parse ---
         // ---- gate is blind to these too, because the module parses and then dies executing. ----------
-
-        // A type-declaration character on a declaration, `Dim s_$` (#742). Filed as a continuation inside an expression,
-        // with three `Left$(` and `Mid$(` calls the `$` fix closed (#1071): the continuation was never the cause.
-        ["continuation-vs-identifier/trailing-underscore-then-type-hint"] = "EXPR-CONTINUATION: NotImplementedException",
-
-        // A jump to a label sharing Next's line remains deferred by the tree-walking limit (#223).
-        ["line-labels/label-immediately-before-a-loop-terminator"] = "LABEL-BEFORE-TERMINATOR: dies after the first print",
 
         // GOSUB. Not a defect but the tree-walking limit CLAUDE.md names explicitly: a visitor-frame stack
         // has no position to return to. Listed so the count is honest, not because it is fixable here.

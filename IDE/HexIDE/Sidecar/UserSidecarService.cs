@@ -46,7 +46,7 @@ namespace HexIDE.Sidecar;
 /// See <see cref="UserSidecarData"/> and <see cref="Apply"/>.
 /// </para>
 /// </remarks>
-public class UserSidecarService : IUserSidecarService
+public partial class UserSidecarService : IUserSidecarService
 {
     /// <summary>
     /// The format this build writes: code-relative marks and separate file-relative header marks.
@@ -57,6 +57,7 @@ public class UserSidecarService : IUserSidecarService
     private readonly IBookmarkService bookmarkService;
     private readonly IBreakpointService breakpointService;
     private readonly IProjectManager projectManager;
+    private readonly IRunChoiceStore? runChoices;
 
     // By instance, not by name or path: a .vbg can hold two projects called the same thing, and a project not yet
     // saved has no path.
@@ -78,14 +79,16 @@ public class UserSidecarService : IUserSidecarService
     };
 
     public UserSidecarService(IBookmarkService bookmarkService, IBreakpointService breakpointService,
-        IProjectManager projectManager)
+        IProjectManager projectManager, IRunChoiceStore? runChoices = null)
     {
         this.bookmarkService = bookmarkService;
         this.breakpointService = breakpointService;
         this.projectManager = projectManager;
-        // Both personal-state stores persist to the same per-user sidecar, on the same debounced save.
+        this.runChoices = runChoices;
+        // The personal-state stores persist to the same per-user sidecar, on the same debounced save.
         bookmarkService.BookmarksChanged += OnSidecarStateChanged;
         breakpointService.BreakpointsChanged += OnSidecarStateChanged;
+        if (runChoices is not null) runChoices.ChoiceChanged += OnSidecarStateChanged;
         // The stores are app-lifetime singletons; unloading a project must drop its entries so they can't bleed
         // into the next project opened under the same form/module names (its gutter, its run's breakpoints, or its
         // sidecar).
@@ -204,6 +207,7 @@ public class UserSidecarService : IUserSidecarService
             {
                 bookmarkService.ClearProject(project);
                 breakpointService.ClearProject(project);
+                runChoices?.ClearProject(project);
             }
             finally
             {
@@ -259,6 +263,8 @@ public class UserSidecarService : IUserSidecarService
                 try
                 {
                     var (migrated, consumed, consumedFile) = Apply(project, data, path, owned);
+                    // The file's choice unless the user made one while it was read, as a mark made meanwhile is kept.
+                    if (runChoices?.Get(project) is null) runChoices?.Set(project, data.RunWith);
                     state.Read = migrated;
                     if (!consumed.IsEmpty || !consumedFile.IsEmpty)
                     {
@@ -299,12 +305,9 @@ public class UserSidecarService : IUserSidecarService
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <b>A document whose file is missing is still a document of the project</b>, and that is why this cannot be
-    /// "the project's names". A module whose file cannot be found is loaded empty, so the code window shows only
-    /// the header it would have, and nothing about it says how many lines its file had or how long its header was.
-    /// Its entries can neither be moved nor checked against its lines, so they are carried in the file untouched,
-    /// for an opening that finds the file to apply. A form whose file is missing is never loaded at all, and a
-    /// file that cannot be read never becomes a document, so both of those are already names the project lacks.
+    /// A member whose file is missing is preserved rather than loaded. Its entries can neither be moved nor
+    /// checked against its lines, so they are carried untouched for an opening that finds the file to apply.
+    /// A document's file may also disappear after loading, before the sidecar is read.
     /// </para>
     /// <para>
     /// A document with no file yet is not missing one: the code window shows it whole, header and all, so its
@@ -318,6 +321,20 @@ public class UserSidecarService : IUserSidecarService
         var missing = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var document in DocumentLookup.DocumentsOf(project))
             (document.AbsolutePath is { } file && !File.Exists(file) ? missing : owned).Add(document.Name);
+        foreach (var line in project.PreservedItemLines)
+        {
+            var eq = line.IndexOf('=');
+            if (eq < 0) continue;
+            var kind = line[..eq].Trim();
+            if (!kind.Equals(SerializedProject.ModuleKey, StringComparison.OrdinalIgnoreCase)
+                && !kind.Equals(SerializedProject.ClassKey, StringComparison.OrdinalIgnoreCase)
+                && !kind.Equals(SerializedProject.UserControlKey, StringComparison.OrdinalIgnoreCase)
+                && !kind.Equals(SerializedProject.PropertyPageKey, StringComparison.OrdinalIgnoreCase))
+                continue;
+            var value = line[(eq + 1)..].Trim();
+            var semi = value.IndexOf(';');
+            missing.Add(semi >= 0 ? value[..semi].Trim() : SerializedProject.FileNameWithoutExtensionOf(value));
+        }
         owned.ExceptWith(missing);
         return owned;
     }
@@ -382,6 +399,8 @@ public class UserSidecarService : IUserSidecarService
         foreach (var (document, lines) in breakpoints)
             breakpointService.SetDocument(document, lines);
 
+        ApplyConditions(project, data, owned);
+
         var migrated = new UserSidecarData
         {
             Version = data.Version,
@@ -391,6 +410,8 @@ public class UserSidecarService : IUserSidecarService
             Breakpoints = oldBreakpoints.Count > 0 ? oldBreakpoints : null,
             CodeBookmarks = data.CodeBookmarks,
             CodeBreakpoints = data.CodeBreakpoints,
+            CodeBreakpointConditions = data.CodeBreakpointConditions,
+            HeaderBreakpointConditions = data.HeaderBreakpointConditions,
             HeaderBookmarks = data.HeaderBookmarks,
             HeaderBreakpoints = data.HeaderBreakpoints,
             Extra = data.Extra,
@@ -662,7 +683,7 @@ public class UserSidecarService : IUserSidecarService
             // could be read says nothing about the new place. The new place becomes the project's own only once
             // it has been written, or found empty, so a write that fails there is not followed by a save that
             // takes the sidecar lying there for the project's own.
-            var elsewhere = !string.Equals(state.ReadFrom, path, PathComparison);
+            var elsewhere = state.ReadFrom == null || !HexIDE.IO.HostFilePath.Equals(state.ReadFrom, path);
 
             if (state.ReadFailed && !elsewhere)
             {
@@ -704,6 +725,8 @@ public class UserSidecarService : IUserSidecarService
             Carry(source?.HeaderBookmarks, state.Owned, state.WroteHeader?.Bookmarks, headerBookmarks);
             Carry(source?.CodeBreakpoints, state.Owned, state.Wrote?.Breakpoints, breakpoints);
             Carry(source?.HeaderBreakpoints, state.Owned, state.WroteHeader?.Breakpoints, headerBreakpoints);
+            var codeConditions = CollectConditions(project, source?.CodeBreakpointConditions, state, header: false);
+            var headerConditions = CollectConditions(project, source?.HeaderBreakpointConditions, state, header: true);
             var fileBookmarks = Unconsumed(source?.FileBookmarks, state.ConsumedFile?.Bookmarks);
             var fileBreakpoints = Unconsumed(source?.FileBreakpoints, state.ConsumedFile?.Breakpoints);
             var oldBookmarks = Unconsumed(source?.Bookmarks, state.Consumed?.Bookmarks);
@@ -712,6 +735,7 @@ public class UserSidecarService : IUserSidecarService
             // and labelling it with this build's version would misdescribe it.
             var version = Math.Max(source?.Version ?? CurrentVersion, CurrentVersion);
             var extra = source?.Extra is { Count: > 0 } unrecognised ? unrecognised : null;
+            var runWith = runChoices is null ? source?.RunWith : runChoices.Get(project);
 
             // A sidecar is created only when there is something to record, and content this build does not
             // understand is something, as are the entries it keeps without understanding where they go. One that
@@ -719,7 +743,9 @@ public class UserSidecarService : IUserSidecarService
             // does not understand, and it is a file the user may have committed.
             if (!exists && bookmarks.Count == 0 && breakpoints.Count == 0 && oldBookmarks == null &&
                 oldBreakpoints == null && fileBookmarks == null && fileBreakpoints == null &&
-                headerBookmarks.Count == 0 && headerBreakpoints.Count == 0 && extra == null && version == CurrentVersion)
+                headerBookmarks.Count == 0 && headerBreakpoints.Count == 0 &&
+                codeConditions.Count == 0 && headerConditions.Count == 0 && extra == null && runWith == null &&
+                version == CurrentVersion)
             {
                 // Nothing lies here, so the place is the project's own from now on: a sidecar that appears here
                 // later is kept as its own, as it is for a project opened where none was.
@@ -732,21 +758,22 @@ public class UserSidecarService : IUserSidecarService
                 Version = version,
                 CodeBookmarks = bookmarks.Count > 0 ? bookmarks : null,
                 CodeBreakpoints = breakpoints.Count > 0 ? breakpoints : null,
+                CodeBreakpointConditions = codeConditions.Count > 0 ? codeConditions : null,
+                HeaderBreakpointConditions = headerConditions.Count > 0 ? headerConditions : null,
                 HeaderBookmarks = headerBookmarks.Count > 0 ? headerBookmarks : null,
                 HeaderBreakpoints = headerBreakpoints.Count > 0 ? headerBreakpoints : null,
                 FileBookmarks = fileBookmarks,
                 FileBreakpoints = fileBreakpoints,
                 Bookmarks = oldBookmarks,
                 Breakpoints = oldBreakpoints,
+                RunWith = runWith,
                 Extra = extra,
             };
 
             var json = JsonSerializer.Serialize(data, s_jsonOptions);
             if (json != onDisk)
             {
-                var tempPath = path + ".tmp";
-                File.WriteAllText(tempPath, json);
-                File.Move(tempPath, path, overwrite: true);
+                AtomicFileWriter.WriteAllText(path, json);
                 Log.Debug("UserSidecarService: Saved sidecar to {Path}", path);
             }
 
@@ -854,10 +881,6 @@ public class UserSidecarService : IUserSidecarService
         state.ConsumedFile = null;
     }
 
-    /// <summary>How sidecar paths compare: as the file system compares them, as other path checks here do.</summary>
-    private static readonly StringComparison PathComparison =
-        OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
-
     private static UserSidecarData? TryRead(string json)
     {
         try
@@ -902,13 +925,13 @@ public class UserSidecarService : IUserSidecarService
         return map;
     }
 
-    private void OnSidecarStateChanged(DocumentIdentity document)
-    {
-        // The document carries its project, so there is nothing to look up and nothing to guess: this used
-        // to search every loaded project for one holding a form or module of the URI's name, and answered
-        // with whichever project was found first when two of them held one.
-        var project = document.Project;
+    // The document carries its project, so there is nothing to look up and nothing to guess: this used to search every
+    // loaded project for one holding a form or module of the URI's name, and answered with whichever project was found
+    // first when two of them held one.
+    private void OnSidecarStateChanged(DocumentIdentity document) => OnSidecarStateChanged(document.Project);
 
+    private void OnSidecarStateChanged(ProjectDefinition project)
+    {
         lock (gate)
         {
             if (quiet.Contains(project)) return;
@@ -984,6 +1007,12 @@ internal class UserSidecarData
     [JsonPropertyName("codeBreakpoints")]
     public Dictionary<string, List<int>>? CodeBreakpoints { get; set; }
 
+    [JsonPropertyName("codeBreakpointConditions")]
+    public Dictionary<string, Dictionary<int, string>>? CodeBreakpointConditions { get; set; }
+
+    [JsonPropertyName("headerBreakpointConditions")]
+    public Dictionary<string, Dictionary<int, string>>? HeaderBreakpointConditions { get; set; }
+
     /// <summary>Version 3 header bookmarks, 0-based from the top of the file.</summary>
     [JsonPropertyName("headerBookmarks")]
     public Dictionary<string, List<int>>? HeaderBookmarks { get; set; }
@@ -1011,6 +1040,10 @@ internal class UserSidecarData
     /// <summary>Breakpoints by document, 1-based, in version 1's numbering. See <see cref="Bookmarks"/>.</summary>
     [JsonPropertyName("breakpoints")]
     public Dictionary<string, List<int>>? Breakpoints { get; set; }
+
+    /// <summary>What F5 runs for the project, for this user: a contributed launch's key; absent for the interpreter.</summary>
+    [JsonPropertyName("runWith")]
+    public string? RunWith { get; set; }
 
     /// <summary>Everything this build does not recognise, written back as it was read.</summary>
     [JsonExtensionData]

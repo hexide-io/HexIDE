@@ -17,9 +17,11 @@ public class ComponentClassNameTests
         projects.LoadedProjects.Returns(new List<ProjectDefinition>());
         var client = Substitute.For<ILspClient>();
         client.RequestBuiltinSymbolsAsync().Returns(Array.Empty<HexIDE.Lsp.Messages.VbaBuiltinSymbol>());
+        var localization = Substitute.For<ILocalizationService>();
+        localization.GetString("Str.Tool.ObjectBrowser.MembersOf").Returns("Members of '{0}'");
         return new ObjectBrowserToolViewModel(projects, client, Substitute.For<IEditorService>(),
             new ComponentRegistry(), Substitute.For<ITypeLibraryService>(), Substitute.For<IFocusedProjectUtil>(),
-            Substitute.For<ILocalizationService>(), Substitute.For<ILanguageConnectionRegistry>());
+            localization, Substitute.For<ILanguageConnectionRegistry>());
     }
 
     [Fact]

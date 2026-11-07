@@ -3,20 +3,14 @@ using HexIDE.Runtime.Interpreter;
 
 namespace HexIDE.Runtime.Tests;
 
-/// <summary>
-/// Regression for the adversarial bug-hunt HIGH: a degenerate deeply-nested input overflowed the recursive-descent
-/// parser's C# stack — an UNCATCHABLE <see cref="System.StackOverflowException"/> that killed the whole process.
-/// The <c>ParseDepthGuard</c> now aborts such a parse as a trappable compile error, well before the overflow.
-/// Depth is calibrated against the real parser: normal code peaks near rule-depth ~50, ~600 overflows, the guard
-/// trips at 300. Each "too deep" test uses ~400 levels — past the guard, below the overflow, so the guard is what
-/// stops it (without it, running either would abort the whole test run).
-/// </summary>
+/// <summary>Deep parser input must be refused with a catchable error, leaving the process alive.
+/// Reference-depth acceptance is covered by SizedParsingTests (#3210).</summary>
 public class ParserDepthGuardTests : BaseVBTestFixture
 {
     [Fact]
     public async Task DeeplyNestedParens_RaiseCompileError_NotStackOverflow()
     {
-        var code = "Dim x\nx = " + new string('(', 400) + "1" + new string(')', 400) + "\n";
+        var code = "Dim x\nx = " + new string('(', 10000) + "1" + new string(')', 10000) + "\n";
         var act = () => Run(code);
         await act.Should().ThrowAsync<VBCompileErrorException>();
     }
@@ -27,9 +21,9 @@ public class ParserDepthGuardTests : BaseVBTestFixture
         // Deep statement-block nesting is a DISTINCT parser recursion path from parenthesised expressions — the
         // per-rule guard covers it too.
         var sb = new StringBuilder();
-        for (int i = 0; i < 400; i++) sb.Append("If True Then\n");
+        for (int i = 0; i < 8000; i++) sb.Append("If True Then\n");
         sb.Append("Dim x\n");
-        for (int i = 0; i < 400; i++) sb.Append("End If\n");
+        for (int i = 0; i < 8000; i++) sb.Append("End If\n");
         var act = () => Run(sb.ToString());
         await act.Should().ThrowAsync<VBCompileErrorException>();
     }

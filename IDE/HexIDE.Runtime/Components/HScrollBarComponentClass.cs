@@ -10,6 +10,7 @@ public abstract class ScrollBarComponentClass : ComponentBaseClass
 {
     protected ScrollBarComponentClass() : base([CausesValidationProperty, EnabledProperty,
         SmallChangeProperty,
+        MousePointerProperty,
         LargeChangeProperty,
         MinProperty,
         ValueProperty,

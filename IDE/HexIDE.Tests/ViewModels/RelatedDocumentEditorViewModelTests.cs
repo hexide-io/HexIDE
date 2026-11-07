@@ -1,6 +1,8 @@
 using System.Linq;
 using HexIDE.Controls;
 using HexIDE.Forms.ViewModels;
+using HexIDE.IDE;
+using HexIDE.Localization;
 using HexIDE.Lsp;
 using HexIDE.Lsp.Messages;
 using HexIDE.Runtime.ProjectElements;
@@ -52,9 +54,22 @@ public class RelatedDocumentEditorViewModelTests : IDisposable
 
     private RelatedDocumentEditorViewModel Open(RelatedDocumentDefinition document)
     {
-        var vm = new RelatedDocumentEditorViewModel(_lspClient).Initialize(document);
+        var vm = new RelatedDocumentEditorViewModel(_lspClient, Substitute.For<IWindowManager>(), Substitute.For<ILocalizationService>()).Initialize(document);
         _created.Add(vm);
         return vm;
+    }
+
+    [AvaloniaFact]
+    public async Task ModifiedMarker_FollowsEditsRevertAndSave()
+    {
+        var vm = Open(Carried("note.txt", "original"));
+        vm.Document.Text = "edited";
+        vm.IsModified.Should().BeTrue();
+        vm.Document.Text = "original";
+        vm.IsModified.Should().BeFalse();
+        vm.Document.Text = "saved edit";
+        await vm.SaveAsync();
+        vm.IsModified.Should().BeFalse();
     }
 
     private string? OpenedUri()

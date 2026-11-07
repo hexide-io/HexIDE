@@ -60,6 +60,7 @@ public class HarnessMatchesTheAppTests
         sources.Should().Contain("avares://AvaloniaEdit/Themes/Simple/AvaloniaEdit.xaml");
         sources.Should().Contain("avares://Avalonia.Controls.DataGrid/Themes/Simple.xaml");
         sources.Should().Contain("avares://HexIDE/Automation/AccessKeyNames.axaml");
+        sources.Should().Contain("avares://HexIDE/Themes/CodeDirection.axaml");
     }
 
     [AvaloniaFact]

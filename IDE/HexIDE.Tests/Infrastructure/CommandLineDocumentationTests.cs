@@ -19,14 +19,8 @@ namespace HexIDE.Tests.Infrastructure;
 /// <c>en.json</c> has against the AXAML, applied to the third surface with the same failure mode.
 /// </para>
 /// <para>
-/// <b>Read from the source, not by reflecting over the built assembly</b>, and that is not a stylistic
-/// preference. Nothing in the tree references <c>HexIDE.Desktop</c>, so its <c>bin/</c> holds an assembly
-/// only once somebody has built that project: on CI the step that does so runs two steps AFTER this
-/// suite, and in a fresh clone running the documented <c>dotnet test HexIDE.Tests/</c> it never runs at
-/// all. The reflecting version therefore failed three tests on first contact and passed only on a
-/// machine that happened to have built the IDE — a guard reporting on the state of a working directory
-/// rather than on the thing it was written to check. Both halves of the question are claims about
-/// source anyway, so nothing is lost by reading it.
+/// Flag names are read from source; widths use the actual option table, including summaries resolved
+/// through localization keys. The suite references Desktop, so this also measures what help prints.
 /// </para>
 /// </remarks>
 public class CommandLineDocumentationTests
@@ -119,26 +113,8 @@ public class CommandLineDocumentationTests
     /// <summary>
     /// Every option as <c>--help</c> will render it: the flag, its value name, and its summary.
     /// </summary>
-    /// <remarks>
-    /// The name alone is enough to check the documentation; the width budget needs the whole row, so this
-    /// reads the first three arguments of every <c>CommandLineOption</c> in the table.
-    /// </remarks>
-    private static (string Name, string? Value, string Summary)[] Table()
-    {
-        var table = OptionTableSource();
-
-        // name, then either 'null' or a quoted value name, then the quoted summary.
-        var entry = new Regex(
-            @"new\(""(?<name>[a-z][a-z-]*)"",\s*(?:null|""(?<value>[^""]*)""),\s*""(?<summary>[^""]*)""");
-
-        return
-        [
-            .. entry.Matches(table).Select(m => (
-                m.Groups["name"].Value,
-                m.Groups["value"].Success ? m.Groups["value"].Value : null,
-                m.Groups["summary"].Value))
-        ];
-    }
+    private static (string Name, string? Value, string Summary)[] Table() =>
+        HexIDE.Desktop.ServerOptions.Options.Select(option => (option.Name, option.ValueName, option.Summary)).ToArray();
 
     /// <summary>The mark's width, read from <c>HelpMark.cs</c> rather than restated here.</summary>
     private static int MarkWidth()

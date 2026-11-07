@@ -182,7 +182,7 @@ public class FileSystemTests : BaseVBTestFixture, IDisposable
         var date = File.GetLastWriteTime(Path.Combine(dir,path));
         date = new DateTime(date.Ticks - date.Ticks % TimeSpan.TicksPerSecond);
         await Execute($"Debug.Print FileDateTime(\"{path}\")");
-        AssertDebugLog([new Vb6Value(date)]);
+        AssertDebugLog([new Vb6Value(VbDate.FromDateTime(date))]);
     }
 
     [Fact]

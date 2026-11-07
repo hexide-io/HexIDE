@@ -89,6 +89,8 @@ internal sealed class CapturingFormatter(
         // Tee rather than serialize twice. The bytes the inner formatter writes are exactly the bytes the
         // handler will frame, so watching them go past costs one copy when armed and one addition when not.
         var tee = new TeeWriter(bufferWriter, ShouldKeepBody());
+        if (message is JsonRpcRequest { IsResponseExpected: true } request)
+            RequestCancellation.Current.Value?.Observe(request.RequestId);
 
         try
         {

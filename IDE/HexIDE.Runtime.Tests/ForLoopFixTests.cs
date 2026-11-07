@@ -5,7 +5,7 @@ namespace HexIDE.Runtime.Tests;
 /// <summary>
 /// Regression tests for the three HIGH For…Next defects surfaced by the 2026-08-09 adversarial bug-hunt (all in
 /// <c>VisitForNextStmt</c>) plus the sibling empty-body NRE in the Do loops. Every expectation is oracle-pinned
-/// against real vb6.exe (see <c>docs/vb6-fidelity-oracle.md</c>). Before the fix: #1 hung the IDE, #2 threw an NRE,
+/// against real vb6.exe (see <c>docs/vb6-fidelity-oracle/resume-next-into-a-block.md</c>). Before the fix: #1 hung the IDE, #2 threw an NRE,
 /// #3 threw a spurious type-mismatch.
 /// </summary>
 public class ForLoopFixTests : BaseVBTestFixture

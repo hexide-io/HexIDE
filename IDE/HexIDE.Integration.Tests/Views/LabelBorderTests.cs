@@ -14,7 +14,7 @@ namespace HexIDE.Integration.Tests.Views;
 
 /// <summary>
 /// A Label's border (#1077), read pixel by pixel from a real Skia frame of the hosted form and compared with what vb6.exe
-/// drew for the same Labels, which <c>docs/vb6-fidelity-oracle.md</c> records under "A Label's border". Fixed Single with
+/// drew for the same Labels, which <c>docs/vb6-fidelity-oracle/a-labels-border.md</c> records under "A Label's border". Fixed Single with
 /// Appearance 3D is a sunken edge two pixels deep: shadow over dark shadow along the top and left, highlight under light
 /// along the bottom and right. Flat is one pixel of window frame. The BackColor fills what is left.
 /// </summary>

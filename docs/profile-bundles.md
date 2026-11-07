@@ -9,6 +9,12 @@
 > The [addendum](#addendum-2026-10-11-what-a-shipped-command-registry-adds) at the end was measured
 > separately, against `f229c8e` on 2026-10-11, and has the same status.
 
+> **Phase 2 update (#504):** the three omitted routed commands identified below are now in
+> `CommandKeyMapping.Table`. `KeymapServiceTests.CommandTableMatchesEveryRoutedCommandByNameAndInstance`
+> guards its exact names and instances against `ApplicationCommands`. The historical counts and
+> unguarded-table observations below describe the survey revision, not today's coverage. ViewModel
+> commands and broader command metadata remain work for the surface split-outs.
+
 ## The question
 
 `--personality <vb6|vbaode|vba>` was an early attempt at "here is a bunch of JSON to customise the IDE —
@@ -383,3 +389,57 @@ citation.
   describes.
 - **HexIDE** claims in the addendum were checked against `f229c8e`.
 - **The VB6 CommandBars claim is from memory**, and is marked there as needing the oracle.
+
+## Loader implementation (#504)
+
+`IDE/HexIDE/Profiles/ProfileResolver.cs` resolves selectors for the version-1 loader described by the
+[approved design](../openspec/changes/2026-10-25-profiles-supersede-personalities/design.md).
+It takes the active user-data directory and invocation directory explicitly, resolves `none`, paths
+and names, loads through `ProfileBundleLoader` in `IDE/HexIDE/IDE/Profiles/ProfileBundle.cs`, and
+adapts its captured JSON for the existing consumers. The shared embedded index in `IDE/Profiles/Builtins/` contains `vb6`,
+`vbaode` and `vba`; installed names cannot shadow them. Explicit paths can select a bundle with any
+valid id. Missing/invalid files, unsupported manifest/surface ids, disallowed settings
+and traversal fail with source/file attribution and a localized remedy. The shared reader refuses links
+inside bundles (even links to contained files), caps each file at 1 MiB, and retains the selected
+directory across reads, re-reading the manifest before returning. This protects directory replacement;
+arbitrary in-place payload edits with an unchanged manifest are not a multi-file transaction.
+See [the catalog contract](../openspec/specs/profile-catalog/spec.md).
+
+Startup now selects this snapshot through `--profile <value>` (see [command line](command-line.md)).
+The personality APIs have been replaced by `IProfileService`; the removed flag refuses launch with
+a translated replacement diagnostic before a window opens. The settings adapter accepts a validated snapshot and layers explicitly present saved
+properties above profile defaults, then uses the existing settings reader and value validation. Properties omitted from both
+layers retain host defaults. Loading and saving unrelated edits do not copy profile defaults into
+the user settings file. `ProfileSettingsTests` cover this internal seam. The theme adapter reads the
+snapshot's existing `ThemePackRecord` format, ahead of the profile's `activeTheme` default and below an
+explicit saved theme choice (including Classic). Known invalid colours reject the bundle before any
+surface is applied; unknown colour keys retain the existing warn-and-skip rule, with source/file
+attribution. `ProfileThemeTests` cover application, precedence and atomic rejection headlessly.
+The keymap adapter likewise consumes the snapshot's `KeymapPackRecord`, above the profile's
+`activeKeymap` default and below explicit saved or edited choices (including Default). It restores
+baseline gestures for omitted commands and clears bindings declared empty. Invalid known gestures
+reject the bundle before application; unknown commands warn and skip with bundle/file attribution.
+`ProfileKeymapTests` cover precedence, save provenance, snapshot use and rejection headlessly.
+The language adapter consumes snapshot `LanguagePackRecord` strings, using the existing neutral/region
+fallback (including Chinese script neutrals). Profile strings override shipped strings; user neutral
+and region overrides remain last, and clearing a user override reveals the profile again. Canonical
+English profile overrides apply to the English locale chain, without replacing universal fallback for
+other languages. Orphan keys, blank values and invalid placeholders are skipped using the existing
+user-translation validation rules. Profile files are never reopened or copied into user translations,
+and do not extend the selectable locale inventory. `ProfileLanguageTests` cover this seam headlessly.
+Recovery mode (`--profile none`) selects no bundle and bypasses user keymap discovery, user translations,
+saved settings/layout and add-in loading. It starts with Classic, Default and neutral English; changes
+stay in memory, including layout reset and translation edits. Explicit project opening still works.
+`ProfileRecoveryTests` cover the consumer guards and startup project hook on Linux. Language-server
+configuration and process launch are outside this recovery boundary. Toolbar button ids remain unsupported until
+the renderer publishes its catalogue; only the four approved band ids are accepted now. Direct toolbar
+visibility declarations are validated but not yet applied; #419 follow-through owns that consumer.
+`ProfileResolverTests` cover selection, validation, snapshot isolation and filesystem containment on
+Linux as well as other hosts. No VB6 measurement or language-coverage status changes.
+
+New Project and the toolbar Add Project flyout now read the same ordered built-in offerings from
+`IProfileService` (#418): eight for `vb6` (also the default), Standard EXE for `vbaode`, and none for
+`vba`. Unsupported flyout entries are disabled; an empty profile displays a localized explanation
+pointing to existing-project opening on both surfaces. Add-in templates retain their separate dialog
+contribution. `ProfileProjectOfferingsTests` exercise the real flyout and empty dialog headlessly;
+a supervisor still checks rendering in the running IDE.

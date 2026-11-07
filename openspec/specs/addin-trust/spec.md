@@ -165,7 +165,7 @@ never be mistaken for a verified add-in.
 - **THEN** it does not load
 
 #### Scenario: An unsigned build with the opt-in on
-- **WHEN** developer mode and the unsigned opt-in are both active
+- **WHEN** the package is compatible, and developer mode and the unsigned opt-in are both active
 - **THEN** the package loads and is marked as an unsigned developer build wherever it is shown
 
 ### Requirement: The trust surface SHALL show only what the IDE verified
@@ -193,3 +193,95 @@ no harm in a logo on a details page, which is a different moment with different 
 #### Scenario: A package that fails verification
 - **WHEN** an add-in fails to verify
 - **THEN** the surface reports how far the chain got and why it stopped, so the failure can be diagnosed
+
+### Requirement: Manifest compatibility precedes trust
+
+After guarding the entry path, verification SHALL refuse a manifest whose `schema` exceeds the current
+schema (2), whose `minHexideVersion` exceeds the running assembly version, or whose non-null minimum
+version cannot be parsed as a numeric `major.minor[.build[.revision]]` version. Missing components compare
+as zero. Older schemas and an absent minimum SHALL retain their existing behavior. The verdict SHALL be
+`Incompatible`, independent of signature trust, developer mode, unsigned loading and recorded consent.
+Options → Add-Ins SHALL display the required and supported schema and host versions; the log SHALL give
+the refusal reason. Unknown JSON members SHALL be retained as extension data for inspection, without
+changing the behavior of otherwise compatible packages.
+
+#### Scenario: Developer mode cannot override compatibility
+
+- **WHEN** a package requires a newer schema or host version, or supplies an invalid minimum version
+- **THEN** it is not loaded or prompted for consent, even with developer mode and unsigned loading enabled
+- **AND** its compatibility requirements are visible in Options → Add-Ins and the refusal is logged
+
+### Requirement: Package tooling stamps compatibility metadata
+
+The packer SHALL write the current `schema` on every manifest and SHALL accept an optional
+`--min-hexide-version` value, recording it as `minHexideVersion` in the signed manifest. An invalid numeric
+minimum SHALL be rejected before changing the output directory.
+
+#### Scenario: Package declares a minimum host version
+
+- **WHEN** a publisher packs with `--min-hexide-version 1.4`
+- **THEN** the signed manifest records schema 2 and minimum HexIDE version `1.4`
+
+### Requirement: Signing generators preserve existing output
+
+The add-in packer's `genkeys`, `genkeys-release`, `sign-publisher` and `sign-revocations` commands SHALL create their output files
+exclusively. If any destination already exists, the command SHALL fail without replacing that file
+or writing generated content to any of its other destinations. If a reservation or write fails,
+the command SHALL remove exactly the output files created by that call.
+
+#### Scenario: An existing private key or revocation output
+
+- **WHEN** a signing generator encounters an existing output file
+- **THEN** it reports failure and preserves that file's bytes
+- **AND** no generated key, trust record or signature is written to the other destinations
+- **AND** any output files reserved by this call are removed, including when the last destination collides
+
+### Requirement: Release signing chains have explicit identities and separate key outputs
+
+The packer SHALL provide `genkeys-release` with explicit intermediate and publisher identities and
+separate root, intermediate, first-party and public output directories. It SHALL validate ids with
+`PublisherId.IsValid` and names as trimmed, non-empty strings of at most 128 characters without controls,
+Unicode format, line-separator or paragraph-separator characters.
+This issuance validation SHALL NOT change package verification. Development generation SHALL retain
+its defaults.
+
+#### Scenario: Invalid signing identity
+
+- **WHEN** an id is not 3–64 lowercase ASCII letters or digits joined by single dots or hyphens,
+  or a display name is invalid
+- **THEN** generation is refused before writing any files
+
+#### Scenario: A release chain is generated
+
+- **WHEN** all identities and four non-overlapping output directories are supplied
+- **THEN** each private key is written to its own directory, public keys and signed records go to the
+  public directory, and all three public-key fingerprints are printed without private key material
+
+#### Scenario: An output file already exists
+
+- **WHEN** any release-chain destination file already exists
+- **THEN** it is preserved and no partial new chain is left behind
+
+### Requirement: Offline publisher issuance
+
+The packer's `sign-publisher` command SHALL issue a publisher record offline using an explicit root
+public key, the intermediate private key and public record, and the publisher's public key, id and
+display name. It SHALL validate inputs before writing, preserve existing files, write only
+`publisher.json` and `publisher.sig`, verify the written chain and report success without exposing
+private key material.
+
+#### Scenario: Issuing a third-party publisher
+
+- **WHEN** a maintainer supplies valid inputs to `sign-publisher` offline
+- **THEN** the issued record signs the publisher's own public key and references the verified intermediate
+- **AND** a package signed by that publisher verifies against the supplied root
+
+#### Scenario: Invalid issuance inputs
+
+- **GIVEN** publisher and intermediate ids must be 3–64 lowercase letters/digits joined by single dots or hyphens
+- **AND** display names must be trimmed, non-empty, at most 128 characters and free of control, Unicode format,
+  line-separator or paragraph-separator characters
+- **AND** keys must be ECDSA P-256, the intermediate signature must verify against the supplied root,
+  and the private key must match the intermediate public record
+- **WHEN** any of these checks fails
+- **THEN** issuance fails before writing publisher files

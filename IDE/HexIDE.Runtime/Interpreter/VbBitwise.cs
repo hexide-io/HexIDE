@@ -12,7 +12,7 @@ namespace HexIDE.Runtime.Interpreter;
 /// <b>250</b>, not -6.
 ///
 /// Every rule here is measured against vb6.exe — see "Bitwise And / Or / Xor / Not — the result-type
-/// ladder" in docs/vb6-fidelity-oracle.md. None of it is inferred, because most of it is not guessable.
+/// ladder" in docs/vb6-fidelity-oracle/bitwise-and--or--xor--not--the-result-type-ladder.md. None of it is inferred, because most of it is not guessable.
 /// </summary>
 internal static class VbBitwise
 {

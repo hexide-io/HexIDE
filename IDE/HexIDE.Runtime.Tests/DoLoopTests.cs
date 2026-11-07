@@ -127,7 +127,7 @@ public class DoLoopTests : BaseVBTestFixture
     }
 
     [Fact]
-    public async Task DoLoop_ShouldSkipToNextIterationWithConditionCheck()
+    public async Task ContinueDo_IsSyntaxError()
     {
         string code = @"
             Dim i, result
@@ -142,9 +142,8 @@ public class DoLoopTests : BaseVBTestFixture
             Loop Until i > 4
         ";
 
-        await Run(code);
-
-        AssertDebugLog([ new Vb6Value(1), new Vb6Value(3), new Vb6Value(4) ]);
+        Func<Task> act = () => Run(code);
+        await act.Should().ThrowAsync<VBCompileErrorException>().WithMessage("Compile error:*Syntax error");
     }
 
     [Fact]

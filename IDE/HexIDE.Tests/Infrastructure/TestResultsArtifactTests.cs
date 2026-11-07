@@ -18,12 +18,13 @@ public class TestResultsArtifactTests
 
         var uploads = Regex.Matches(body, @"(?ms)^      - name: [^\n]*\n.*?(?=^      - |\z)")
             .Select(match => match.Value)
-            .Where(step => step.Contains("uses: actions/upload-artifact@v4\n", StringComparison.Ordinal))
+            .Where(step => step.Contains("uses: actions/upload-artifact@", StringComparison.Ordinal))
             .ToArray();
         uploads.Should().ContainSingle("each test job must preserve its host's logs when a test crashes (#1309)");
         var upload = uploads[0];
         upload.Should().Contain("        if: failure()\n");
-        upload.Should().Contain("          name: test-results-${{ github.job }}-${{ runner.os }}\n",
+        var platform = job == "build-ide-desktop" ? "matrix.name" : "runner.os";
+        upload.Should().Contain("          name: test-results-${{ github.job }}-${{ " + platform + " }}\n",
             "desktop matrix legs must not collide with each other or with the other jobs");
         upload.Should().Contain($"          path: {folder}/**/TestResults/**\n",
             "upload paths are relative to the workspace, not defaults.run.working-directory");

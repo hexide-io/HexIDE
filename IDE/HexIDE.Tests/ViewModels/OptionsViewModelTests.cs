@@ -87,7 +87,7 @@ public class OptionsViewModelTests
         // server's transport became a property of its entry in the configuration file (#255). An empty
         // group is worse than no group.
         sut.RootNodes.Select(n => n.Title)
-            .Should().Equal("Environment", "Editor", "Form Designer", "Add-Ins");
+            .Should().Equal("Environment", "Editor", "Form Designer", "Workspace files", "Add-Ins");
     }
 
     [AvaloniaFact]
@@ -99,6 +99,8 @@ public class OptionsViewModelTests
         _localization.Apply("fr");   // e.g. the in-dialog Language page previews French live
 
         sut.RootNodes[0].Title.Should().Be("Environnement");
+        sut.RootNodes.Single(n => n.Page is WorkspaceArtifactPageViewModel).Title
+            .Should().Be(_localization.GetString("Str.LspArtifact.Title"));
     }
 
     [AvaloniaFact]

@@ -4,6 +4,7 @@ using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Net.Sockets;
+using System.Reflection;
 using System.Text;
 using System.Text.Json;
 using System.Threading;
@@ -54,6 +55,16 @@ namespace HexIDE.Tests.Infrastructure;
 /// </remarks>
 public class McpRestartTests
 {
+    static McpRestartTests()
+    {
+        // ToolFailures now lives in the Desktop assembly. Supply this fixture's tool signatures
+        // alongside the production signatures so binding failures still name the synthetic parameters.
+        foreach (var method in typeof(Tools).GetMethods())
+            if (method.GetCustomAttribute<McpServerToolAttribute>()?.Name is { } name)
+                ToolFailures.ParameterTypes[name] = method.GetParameters()
+                    .ToDictionary(parameter => parameter.Name!, parameter => parameter.ParameterType);
+    }
+
     public sealed record Described(string Detail);
 
     [McpServerToolType]
@@ -126,7 +137,8 @@ public class McpRestartTests
         };
         if (maxReconnectionAttempts is { } attempts)
             options.MaxReconnectionAttempts = attempts;
-        return McpClient.CreateAsync(new HttpClientTransport(options),
+        var transport = new HttpClientTransport(options);
+        return McpClient.CreateAsync(transport,
             cancellationToken: TestContext.Current.CancellationToken);
     }
 
@@ -232,16 +244,27 @@ public class McpRestartTests
     [Fact]
     public async Task A_client_attached_before_a_restart_is_answered_after_it()
     {
+        var output = TestContext.Current.TestOutputHelper;
+        var trace = new McpRestartDiagnostics((level, message) => output?.WriteLine($"[{level}] {message}"));
         var port = FreePort();
         var first = await StartAsync(port, McpTransport.Configure);
-        await using var client = await ConnectAsync(port);
+        await using var client = await trace.PhaseAsync("first connect attempt", () => ConnectAsync(port));
         (await EchoAsync(client, "before")).Should().Be("before");
 
-        await StopAsync(first);
-        var second = await StartAsync(port, McpTransport.Configure);
+        await trace.PhaseAsync("stop", () => StopAsync(first));
+        var second = await trace.PhaseAsync("restart", () => StartAsync(port, McpTransport.Configure));
         try
         {
-            (await EchoAsync(client, "after")).Should().Be("after", "the restart must be invisible to the client");
+            string after;
+            try
+            {
+                after = await trace.PhaseAsync("call after", () => EchoAsync(client, "after"));
+            }
+            catch (Exception exception)
+            {
+                throw new InvalidOperationException(trace.Failure(exception), exception);
+            }
+            after.Should().Be("after", "the restart must be invisible to the client");
             (await EchoAsync(client, "again")).Should().Be("again");
         }
         finally
@@ -408,6 +431,45 @@ public class McpRestartTests
             .Should().Be("Form1 3 ");
     }
 
+    // A client holding a schema older than the server's sends an array or object it was given as text, and sends it so
+    // again on every retry: the refusal says why, and does not point at the schema it holds (#2446).
+    [Theory]
+    [InlineData("[1, 2]", "a string holding one, \"[1, 2]\"")]
+    [InlineData("[]", "a string holding one, \"[]\"")]
+    [InlineData("[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]",
+        "a string of 43 characters holding one, beginning \"[1, 2, 3, 4, 5, 6, 7, 8,\"…")]
+    public async Task An_array_that_arrived_as_text_holding_one_is_refused_naming_a_stale_schema(string sent, string shown)
+    {
+        var result = await CallWithAsync("marks", new() { ["name"] = "Form1", ["lines"] = sent });
+
+        result.IsError.Should().BeTrue();
+        TextOf(result).Should().Be($"'marks' refused its arguments, and nothing was done: 'lines' must be array, and "
+            + $"arrived as {shown}: what a client sends while it holds an older schema of this "
+            + "tool, from before this parameter took an array. Retrying in this session sends the same text: its client "
+            + "keeps the schema it loaded, which this server has since changed. A new session loads the current schema and "
+            + "sends the value as it was written.");
+    }
+
+    [Fact]
+    public async Task Text_that_holds_no_array_is_refused_as_before_and_points_at_the_schema()
+    {
+        TextOf(await CallWithAsync("marks", new() { ["name"] = "Form1", ["lines"] = "1, 2" })).Should().Be(
+            "'marks' refused its arguments, and nothing was done: 'lines' must be array, not \"1, 2\". Its input schema "
+            + "names each parameter and its type.");
+        // A string parameter is a string, whatever its text holds.
+        TextOf(await CallWithAsync("marks", new() { ["name"] = "[1]", ["lines"] = new[] { 3 } })).Should().Be("[1] 3 ");
+    }
+
+    [Fact]
+    public async Task A_long_string_is_shown_by_its_length_and_its_start()
+    {
+        var sent = "yes, please turn it on, and keep it on for the rest";
+
+        TextOf(await CallWithAsync("flag", new() { ["on"] = sent })).Should().Be(
+            $"'flag' refused its arguments, and nothing was done: 'on' must be boolean, not a string of {sent.Length} "
+            + "characters beginning \"yes, please turn it on, \"…. Its input schema names each parameter and its type.");
+    }
+
     [Fact]
     public async Task A_number_in_a_string_binds_as_the_SDK_reads_it_and_is_not_named_beside_a_real_problem()
     {
@@ -482,7 +544,7 @@ public class McpRestartTests
     {
         var result = await CallWithAsync("marks", new() { ["name"] = "Form1", ["lines"] = new[] { 3_000_000_000L } });
         result.IsError.Should().BeTrue();
-        TextOf(result).Should().Contain("'lines'").And.Contain("Path: $[0]");
+        TextOf(result).Should().Contain("'lines'").And.Contain("item 0: 3000000000 is larger than any whole number this argument can hold (2147483647)");
     }
 
     [Fact]
@@ -491,7 +553,43 @@ public class McpRestartTests
         var result = await CallWithAsync("flag", new() { ["on"] = true, ["count"] = 3_000_000_000L });
 
         result.IsError.Should().BeTrue();
-        TextOf(result).Should().Contain("'count'").And.Contain("System.Int32");
+        TextOf(result).Should().Contain("'count'").And.Contain("3000000000 is larger than any whole number this argument can hold (2147483647)");
+    }
+
+    [Theory]
+    [InlineData("9223372036854775808", "larger", "9223372036854775807")]
+    [InlineData("-9223372036854775809", "smaller", "-9223372036854775808")]
+    public async Task Long_overflow_explains_the_storage_limit(string value, string direction, string limit)
+    {
+        var result = await CallWithAsync("seq", new() { ["after"] = value, ["limit"] = 1 });
+        result.IsError.Should().BeTrue();
+        TextOf(result).Should().Contain($"'after': {value} is {direction} than any whole number this argument can hold ({limit})").And.NotContain("System.Int").And.NotContain("Path:");
+    }
+
+    [Fact]
+    public void Hover_overflow_includes_its_declared_dwell_range()
+    {
+        var arguments = new Dictionary<string, System.Text.Json.JsonElement>
+        {
+            ["dwellMs"] = System.Text.Json.JsonSerializer.SerializeToElement(3_000_000_000L),
+        };
+        ToolFailures.BindingProblems(new System.Text.Json.JsonException(), arguments, "hover")
+            .Should().ContainSingle().Which.Should().Contain("larger than any whole number this argument can hold (2147483647)")
+            .And.Contain("from 0 to 10000").And.NotContain("System.Int").And.NotContain("Path:");
+    }
+
+    [Theory]
+    [InlineData(99999999999L, "larger", "2147483647")]
+    [InlineData(-99999999999L, "smaller", "-2147483648")]
+    public void Tree_depth_overflow_distinguishes_storage_limit_from_parameter_bounds(long value, string direction, string limit)
+    {
+        var arguments = new Dictionary<string, System.Text.Json.JsonElement>
+        {
+            ["maxDepth"] = System.Text.Json.JsonSerializer.SerializeToElement(value),
+        };
+        ToolFailures.BindingProblems(new System.Text.Json.JsonException(), arguments, "dump_visual_tree")
+            .Should().ContainSingle().Which.Should().Contain($"'maxDepth': {value} is {direction} than any whole number this argument can hold ({limit})")
+            .And.Contain("at least 1").And.NotContain("whole number from");
     }
 
     [Fact]
@@ -569,6 +667,7 @@ public class McpRestartTests
             .And.Contain("app.UseLoopbackOnly(port);")
             .And.Contain("Session: session,")
             .And.Contain(".AddCallToolFilter(OpenDialogNote.Filter)")
+            .And.Contain(".AddCallToolFilter(HeldButtonNote.Filter)")
             .And.Contain(".WithTools<HexIdeTools>(ReplyJson.Options)");
 
         var startup = ToolSource.WithoutComments(

@@ -22,6 +22,12 @@ public partial class EditorGeneralPageViewModel : ObservableObject, IOptionsPage
     [ObservableProperty] private bool _autoIndent;
     [ObservableProperty] private bool _formatOnSave;
     [ObservableProperty] private bool _isMinimapVisible;
+    [ObservableProperty] private bool _showInlayHints;
+    [ObservableProperty] private bool _showCodeLenses;
+    [ObservableProperty] private bool _showIndentGuides;
+    [ObservableProperty] private bool _colorBracketsByDepth;
+    [ObservableProperty] private bool _isStickyScrollEnabled;
+    [ObservableProperty] private int _stickyScrollDepth;
 
     public void LoadFromSettings()
     {
@@ -31,6 +37,12 @@ public partial class EditorGeneralPageViewModel : ObservableObject, IOptionsPage
         AutoIndent = _settings.AutoIndent;
         FormatOnSave = _settings.FormatOnSave;
         IsMinimapVisible = _settings.IsMinimapVisible;
+        ShowInlayHints = _settings.ShowInlayHints;
+        ShowCodeLenses = _settings.ShowCodeLenses;
+        ShowIndentGuides = _settings.ShowIndentGuides;
+        ColorBracketsByDepth = _settings.ColorBracketsByDepth;
+        IsStickyScrollEnabled = _settings.IsStickyScrollEnabled;
+        StickyScrollDepth = _settings.StickyScrollDepth;
     }
 
     public void SaveToSettings()
@@ -41,6 +53,12 @@ public partial class EditorGeneralPageViewModel : ObservableObject, IOptionsPage
         _settings.AutoIndent = AutoIndent;
         _settings.FormatOnSave = FormatOnSave;
         _settings.IsMinimapVisible = IsMinimapVisible;
+        _settings.ShowInlayHints = ShowInlayHints;
+        _settings.ShowCodeLenses = ShowCodeLenses;
+        _settings.ShowIndentGuides = ShowIndentGuides;
+        _settings.ColorBracketsByDepth = ColorBracketsByDepth;
+        _settings.IsStickyScrollEnabled = IsStickyScrollEnabled;
+        _settings.StickyScrollDepth = StickyScrollDepth;
     }
 
     public void RestoreDefaults()
@@ -51,5 +69,11 @@ public partial class EditorGeneralPageViewModel : ObservableObject, IOptionsPage
         AutoIndent = SettingsDefaults.AutoIndent;
         FormatOnSave = SettingsDefaults.FormatOnSave;
         IsMinimapVisible = SettingsDefaults.IsMinimapVisible;
+        ShowInlayHints = SettingsDefaults.ShowInlayHints;
+        ShowCodeLenses = SettingsDefaults.ShowCodeLenses;
+        ShowIndentGuides = SettingsDefaults.ShowIndentGuides;
+        ColorBracketsByDepth = SettingsDefaults.ColorBracketsByDepth;
+        IsStickyScrollEnabled = SettingsDefaults.IsStickyScrollEnabled;
+        StickyScrollDepth = SettingsDefaults.StickyScrollDepth;
     }
 }

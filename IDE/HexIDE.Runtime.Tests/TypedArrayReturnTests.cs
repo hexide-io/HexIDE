@@ -4,7 +4,7 @@ namespace HexIDE.Runtime.Tests;
 
 /// <summary>
 /// A Function or Property Get declared to return an array, <c>As Long()</c>, returns that array (#975). Measured on vb6.exe,
-/// native and p-code alike, with the probe in docs/vb6-fidelity-oracle.md, "A Function that returns an array". HexIDE read the
+/// native and p-code alike, with the probe in docs/vb6-fidelity-oracle/a-function-that-returns-an-array.md, "A Function that returns an array". HexIDE read the
 /// declaration as its element type, so the array the body stored was narrowed into a Long on the way out, and came back 0
 /// with no error. Whether the caller gets a copy is #970's, so these read the result and do not write through it.
 /// </summary>

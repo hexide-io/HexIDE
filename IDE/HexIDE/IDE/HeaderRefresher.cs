@@ -265,7 +265,7 @@ public sealed class HeaderRefresher : IHeaderRefresher, IDisposable
 
         var marks = breakpoints.GetBreakpoints(document);
         if (marks.Count > 0)
-            breakpoints.SetDocument(document, Shift(marks, oldLines + 1, delta));
+            breakpoints.MoveLines(document, oldLines + 1, delta);
 
         var marked = bookmarks.GetBookmarks(document);
         if (marked.Count > 0)

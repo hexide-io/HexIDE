@@ -68,23 +68,24 @@ public class DesignerRootPropertiesTests
         Listed(designer).Should().BeSubsetOf(Vb6UserControl);
     }
 
+    // #1631, issuecomment-6426450412: HelpContextID belongs in the PropertyPage Properties window.
     [AvaloniaFact]
     public void A_PropertyPage_lists_only_properties_VB6s_PropertyPage_has()
     {
         var (_, designer) = Open("PropertyPage", "PropertyPage1");
 
-        Listed(designer).Should().Equal("(Name)", "BackColor", "Caption", "Font", "ForeColor", "Height", "KeyPreview", "Tag", "Width");
+        Listed(designer).Should().Equal("(Name)", "BackColor", "Caption", "Font", "ForeColor", "Height", "HelpContextID", "KeyPreview", "Tag", "Width");
         Listed(designer).Should().BeSubsetOf(Vb6PropertyPage);
     }
 
-    // Unchanged: a form keeps the list it had.
+    // #1970: the form now lists its measured MousePointer property.
     [AvaloniaFact]
     public void A_form_keeps_its_list()
     {
         var (_, designer) = Open("Form", "Form1");
 
         Listed(designer).Should().Equal("(Name)", "BackColor", "Caption", "Enabled", "Font", "ForeColor", "Height", "Icon",
-            "KeyPreview", "Left", "MaxButton", "MinButton", "ShowInTaskbar", "StartUpPosition", "Tag", "Top", "Visible", "Width");
+            "KeyPreview", "Left", "MaxButton", "MinButton", "MousePointer", "ShowInTaskbar", "StartUpPosition", "Tag", "Top", "Visible", "Width");
     }
 
     // The designer finds the root of each kind, and its class is the kind the file names.

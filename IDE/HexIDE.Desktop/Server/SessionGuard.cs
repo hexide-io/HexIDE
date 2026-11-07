@@ -56,6 +56,8 @@ internal static class SessionGuard
             {
                 Log.Information("MCP tool {Tool} refused a call from another session: {Refusal}",
                     request.Params?.Name ?? "(unnamed)", refusal);
+                // Counted where a person can see it, as a stale or misdirected session would otherwise go unnoticed (#2451).
+                HexIDE.Automation.AutomationServerStatus.Current.Refused(caller);
                 return new CallToolResult { IsError = true, Content = [new TextContentBlock { Text = refusal }] };
             }
 

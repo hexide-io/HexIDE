@@ -35,7 +35,7 @@ public class CarriedPasteTests
 
     private const string ComctlDeclaration = "Object = \"{831FDD16-0C5C-11D2-A9FC-0000F8754DA1}#2.0#0\"; \"MSCOMCTL.OCX\"";
 
-    // A Frame holding an ImageList, which HexIDE does not model and keeps as text on the Frame, citing a picture; and a
+    // A Frame holding an unregistered ImageList class (#1083 models the real one), kept as text and citing a picture; and a
     // CommandButton with a Badge, a property HexIDE does not model, citing a record of its own.
     private const string Form1 =
         "VERSION 5.00\r\n" +
@@ -61,7 +61,7 @@ public class CarriedPasteTests
         "         Top             =   120\r\n" +
         "         Width           =   1000\r\n" +
         "      End\r\n" +
-        "      Begin MSComctlLib.ImageList imlIcons \r\n" +
+        "      Begin NoSuchLib.ImageList imlIcons \r\n" +
         "         Left            =   150\r\n" +
         "         Top             =   450\r\n" +
         "         BeginProperty Images {2C247F25-8591-11D1-B16A-00C0F0283628} \r\n" +
@@ -161,10 +161,10 @@ public class CarriedPasteTests
 
         var (text, companion) = Save(vm, form, "Form1.frm");
 
-        Count(text, "Begin MSComctlLib.ImageList imlIcons").Should().Be(1);
+        Count(text, "Begin NoSuchLib.ImageList imlIcons").Should().Be(1);
         // Inside the frame, between the labels it was read between: its place among its siblings is its z-order.
         var frame = text.IndexOf("Begin VB.Frame", System.StringComparison.Ordinal);
-        var images = text.IndexOf("Begin MSComctlLib.ImageList", System.StringComparison.Ordinal);
+        var images = text.IndexOf("Begin NoSuchLib.ImageList", System.StringComparison.Ordinal);
         images.Should().BeGreaterThan(text.IndexOf("Caption         =   \"Before\"", frame, System.StringComparison.Ordinal))
             .And.BeLessThan(text.IndexOf("Caption         =   \"After\"", frame, System.StringComparison.Ordinal));
         text.IndexOf("Caption         =   \"Before\"", System.StringComparison.Ordinal).Should().BeGreaterThan(frame);
@@ -183,7 +183,7 @@ public class CarriedPasteTests
         var (text, _) = Save(vm, form, "Form1.frm");
 
         Count(text, "Begin VB.Frame").Should().Be(2);
-        Count(text, "Begin MSComctlLib.ImageList imlIcons").Should().Be(1,
+        Count(text, "Begin NoSuchLib.ImageList imlIcons").Should().Be(1,
             "a second imlIcons would be a name twice on the form, which vb6.exe builds without either (#854)");
     }
 
@@ -199,7 +199,7 @@ public class CarriedPasteTests
         var (text, _) = Save(vm, form, "Form1.frm");
 
         Count(text, "Begin VB.Frame").Should().Be(2);
-        Count(text, "Begin MSComctlLib.ImageList imlIcons").Should().Be(1);
+        Count(text, "Begin NoSuchLib.ImageList imlIcons").Should().Be(1);
     }
 
     [AvaloniaFact]
@@ -234,7 +234,7 @@ public class CarriedPasteTests
         var (text, _) = Save(vm, form, "Form1.frm");
 
         Count(text, "Begin VB.Frame").Should().Be(1, "undoing the paste and then the cut leaves the form as it was read");
-        Count(text, "Begin MSComctlLib.ImageList imlIcons").Should().Be(1);
+        Count(text, "Begin NoSuchLib.ImageList imlIcons").Should().Be(1);
     }
 
     [AvaloniaTheory]
@@ -251,7 +251,7 @@ public class CarriedPasteTests
         var (text, companion) = Save(to, form2, "Form2.frm");
 
         Count(text, "Begin VB.Frame").Should().Be(1);
-        Count(text, "Begin MSComctlLib.ImageList imlIcons").Should().Be(expected,
+        Count(text, "Begin NoSuchLib.ImageList imlIcons").Should().Be(expected,
             "without its Object line nothing says which OCX the ImageList comes from, and VB6 cannot load it");
         // Where it goes, its picture goes into this form's companion and is cited from there.
         if (expected == 1)

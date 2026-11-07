@@ -8,7 +8,7 @@ namespace HexIDE.Runtime.Tests;
 
 /// <summary>
 /// Random and Binary files, Get, Put and Len = (#1646). Each test runs one of the programs vb6.exe ran with /make, native
-/// and p-code agreeing on every line, and must print what it logged: docs/vb6-fidelity-oracle.md, "Random and Binary
+/// and p-code agreeing on every line, and must print what it logged: docs/vb6-fidelity-oracle/random-and-binary-files-get-put-and-len.md, "Random and Binary
 /// files". A program's L prints, and its P names the test's folder. A step HexIDE refuses on purpose is cut out, with
 /// what it logged, and tested as a refusal below. The en-GB guest's code page was 1252.
 /// </summary>

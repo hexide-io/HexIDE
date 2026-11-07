@@ -254,8 +254,8 @@ public class FormInstanceTests
     [AvaloniaFact]
     public void A_fault_in_Form_Load_ends_the_start_before_the_window_is_shown()
     {
-        // A form's Move is not implemented yet, so the statement faults, and a fault ends the run.
-        var run = RunForm("Private Sub Form_Load()\n    Debug.Print \"load\"\n    Me.Move 0, 0\n    Debug.Print \"load end\"\nEnd Sub\n");
+        // GoSub is not implemented, so the statement faults, and a fault ends the run.
+        var run = RunForm("Private Sub Form_Load()\n    Debug.Print \"load\"\n    GoSub There\nThere:\n    Debug.Print \"load end\"\nEnd Sub\n");
 
         run.Errors.Should().ContainSingle().Which.Should().BeOfType<NotImplementedException>();
         run.Printed.Should().Equal("load");
@@ -591,6 +591,7 @@ public class FormInstanceTests
         // before it reaches Initialize's first statement, or Load's when there is no Initialize, and a step off the end
         // of Initialize goes on into Load. Each piece was a dispatch of its own, and the first one's end disarmed the
         // step, so the run went straight through (#656, #1010 review).
+        // End-line breakpoint support must not consume that startup step at Initialize's End Sub (#2172 review).
         var code = "Private Score As Integer\nDim Grid(1 To 3) As Integer\n"
             + (hasInitialize ? "Private Sub Form_Initialize()\n    Score = 1\nEnd Sub\n" : "")
             + "Private Sub Form_Load()\n    Score = Score + 1\n    Debug.Print Score\nEnd Sub\n";

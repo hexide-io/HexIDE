@@ -6,7 +6,7 @@ namespace HexIDE.Runtime.Tests;
 
 /// <summary>
 /// MsgBox's style read as the Long it is, and RGB and QBColor. Every expectation was measured on vb6.exe; the probe
-/// and its output are in docs/vb6-fidelity-oracle.md, "RGB, QBColor and MsgBox's style".
+/// and its output are in docs/vb6-fidelity-oracle/rgb-qbcolor-and-msgboxs-style.md, "RGB, QBColor and MsgBox's style".
 /// </summary>
 public class MsgBoxStyleAndColorTests : BaseVBTestFixture
 {
@@ -236,7 +236,6 @@ public class MsgBoxStyleAndColorTests : BaseVBTestFixture
     public async Task A_user_defined_type_raises_13_rather_than_reading_as_0(string expression)
     {
         // VB6 refuses to compile these ("Type mismatch", measured), so the error comes as the statement runs.
-        // Arrays of a UDT are refused at declaration instead (#181, BoundaryConstructTests).
         await Run($"Type Pt\n    X As Integer\nEnd Type\nDim u As Pt\nOn Error Resume Next\nDim c\nc = {expression}\n"
                   + "Debug.Print Err.Number\n");
         AssertDebugLog([new Vb6Value(13L)]);
