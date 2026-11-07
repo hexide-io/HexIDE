@@ -21,7 +21,9 @@ public class ParserPredictionTests : BaseVBTestFixture
             new ExecutionEnvironment(), code);
 
         // #3259: guard the startup path directly; a runner pause must not decide the result.
-        vb.ModuleParsePredictionMode.Should().Be(PredictionMode.SLL);
+        var predictionMode = vb.ModuleParsePredictionMode == PredictionMode.SLL ? "SLL"
+            : vb.ModuleParsePredictionMode == PredictionMode.LL ? "LL" : "unknown";
+        predictionMode.Should().Be("SLL");
         vb.PrePass.topLevelBlocks.Should().NotBeEmpty();
     }
 
