@@ -173,7 +173,7 @@
                         <MenuItem Header="{DynamicResource Str.CodeEditor.Context.Outdent}"     Command="{x:Static vb:ApplicationCommands.OutdentCommand}" />
                         <MenuItem Header="{DynamicResource Str.CodeEditor.Context.InsertFile}" Command="{x:Static vb:ApplicationCommands.InsertFileCommand}" />
                         <Separator />
-                        <MenuItem Header="{DynamicResource Str.CodeEditor.Context.ToggleBreakpoint}" utils:MenuUtils.MenuIcon="{StaticResource Geo.Togglebreakpoint}" Command="{x:Static vb:ApplicationCommands.DisabledCommand}" />
+                        <MenuItem Header="{DynamicResource Str.CodeEditor.Context.ToggleBreakpoint}" utils:MenuUtils.MenuIcon="{StaticResource Geo.Togglebreakpoint}" Command="{x:Static vb:ApplicationCommands.ToggleBreakpointCommand}" />
                         <Separator />
                         <MenuItem Header="{DynamicResource Str.CodeEditor.Context.ToggleFold}" Command="{x:Static vb:ApplicationCommands.ToggleFoldCommand}" />
                         <MenuItem Header="{DynamicResource Str.CodeEditor.Context.Bookmarks}">
