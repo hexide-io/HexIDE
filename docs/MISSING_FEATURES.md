@@ -95,7 +95,7 @@
 | Toolbars > Standard | — | Done | Toggle persisted; right-click context menu on toolbar band |
 | Toolbars > Edit | — | Done | 12 buttons: IntelliSense, indent/outdent, breakpoint, bookmarks |
 | Toolbars > Debug | — | Done | 12 buttons: Start/Break/End, breakpoint, Step Into/Over/Out, Locals/Immediate/Watches/Call Stack, Quick Watch |
-| Toolbars > Form Editor | — | Done | Bring to Front/Back, 6 alignment, 3 make-same-size, Lock Controls; visibility persisted to settings |
+| Toolbars > Form Editor | — | Done | Bring to Front/Back, 6 alignment, 3 make-same-size, Lock Controls; visibility persisted to settings and toggled from View > Toolbars or the toolbar band's context menu (#417) |
 
 ---
 
