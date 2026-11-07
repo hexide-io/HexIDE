@@ -38,7 +38,7 @@ public class DesignerHalfSaveTests : IDisposable
         var projectManager = Substitute.For<IProjectManager>();
         projectManager.LoadedProjects.Returns(_ => loaded);
         // Every picker is answered with the name it suggests, in this test's folder, and recorded.
-        windowManager.SaveFilePickerAsync(Arg.Any<Avalonia.Platform.Storage.FilePickerSaveOptions>())
+        windowManager.SaveFilePickerAsync(Arg.Any<Avalonia.Platform.Storage.FilePickerSaveOptions>(), Arg.Any<string?>())
             .Returns(ci =>
             {
                 var options = ci.Arg<Avalonia.Platform.Storage.FilePickerSaveOptions>();
