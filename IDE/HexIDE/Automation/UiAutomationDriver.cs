@@ -5519,6 +5519,10 @@ public static class UiAutomationDriver
             // the control, not at the window's root (#2231).
             if (v is AdornerLayer)
                 continue;
+            // The loader keeps an empty hidden bar even on a form declaring no menus (#3276).
+            if (v is Menu { ItemCount: 0, IsVisible: false } menu
+                && menu.FindAncestorOfType<HexIDE.Runtime.VBFormRuntime>() is not null)
+                continue;
             if (v is Popup popup)
             {
                 CollectPopupChildren(popup, acc, firstOnly);

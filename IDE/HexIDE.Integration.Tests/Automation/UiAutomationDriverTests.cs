@@ -100,6 +100,27 @@ public class UiAutomationDriverTests
         finally { window.Close(); }
     }
 
+    [AvaloniaTheory]
+    [InlineData(false, false)]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public void Runtime_menu_bar_is_listed_only_when_the_form_declares_menus(bool hasMenus, bool interactiveOnly)
+    {
+        var menu = hasMenus ? "Begin VB.Menu Menu1\nCaption = \"Menu\"\nEnd" : "";
+        var (root, _, _, _) = Views.ContainerRuntimeHarness.Spawn(
+            "VERSION 5.00\nBegin VB.Form Form1\n" + menu + "\nEnd");
+        var window = new HexIDE.Runtime.VBFormRuntime { Content = root, Width = 320, Height = 240 };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+        try
+        {
+            var nodes = Flatten(UiAutomationDriver.Dump(window, "Window", 20, interactiveOnly));
+            nodes.Any(n => n.ClassName == "Menu").Should().Be(hasMenus);
+        }
+        finally { window.Close(); }
+    }
+
     [AvaloniaFact]
     public void Dump_FindsControls_WithExpectedProviders()
     {
