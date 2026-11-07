@@ -84,21 +84,29 @@ listing the region in the manifest already communicates that it is supported.
 
 ### Requirement: Access-key markers SHALL follow the script, not the language
 A pack in a Latin-script language SHALL carry one access-key marker per value where the English value has
-one, except where the menu collision policy below requires its omission; a pack in a non-Latin script
+one, except where the menu collision policy below requires its omission. A Chinese or Japanese pack
+(`zh-Hans`, `zh-Hant`, `ja`) SHALL append the English value's access key to the translated text in
+parentheses, as `ファイル(_F)`, with that one marker on the Latin letter. A pack in any other non-Latin script
 SHALL omit access-key markers entirely.
 
 Access keys work by showing an underlined Latin letter the user presses. In a script with no such letters
 the marker either renders as a stray character or silently does nothing, so carrying one is worse than
-omitting it. Tying the rule to script rather than to individual languages makes it decidable by whoever
-writes the pack, without a per-language ruling.
+omitting it. Chinese and Japanese are the exception because their own Windows convention solves this: the
+Latin letter is appended in parentheses, so Alt+F works under native text (#41). Other non-Latin scripts, such
+as Arabic and Hebrew, have no such convention and drop access keys, so outside Chinese and Japanese the rule
+stays decidable by whoever writes the pack, without a per-language ruling.
 
 #### Scenario: Translating into a Latin-script language
 - **WHEN** a value's English original carries an access-key marker
 - **THEN** the translation carries one, placed on a letter that suits the translated word, unless no
   letter is free under the View and code-context menu collision policy
 
-#### Scenario: Translating into a non-Latin script
-- **WHEN** a pack is written in a non-Latin script
+#### Scenario: Translating into Chinese or Japanese
+- **WHEN** a value's English original carries an access-key marker on the letter F
+- **THEN** the `zh-Hans`, `zh-Hant` or `ja` translation ends in `(_F)`, and carries no other marker
+
+#### Scenario: Translating into another non-Latin script
+- **WHEN** a pack is written in a non-Latin script other than Chinese or Japanese
 - **THEN** it carries no access-key markers
 
 ### Requirement: View and code-context access keys SHALL use a free letter where available
