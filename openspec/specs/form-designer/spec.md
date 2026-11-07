@@ -301,6 +301,14 @@ Unseen, it is edited around blindly. VB6's box is an empty PictureBox; labelling
 - **WHEN** the developer presses on the box
 - **THEN** nothing is selected and no region drag begins
 
+### Requirement: Control preview captions use grayscale antialiasing
+The designer SHALL render control text with grayscale antialiasing before composing its bitmap preview.
+Running CheckBox and OptionButton captions SHALL also use grayscale antialiasing, independently of their
+bullet's aliased edges (#917).
+
+#### Scenario: An outline font supplies a control caption
+- **WHEN** a CommandButton is previewed in the designer, or a CheckBox or OptionButton is rendered at run time
+- **THEN** its caption contains intermediate shades at glyph edges rather than only foreground and background pixels
 
 ### Requirement: Export a picture property's payload
 The Properties window SHALL offer Export picture on modeled Picture, Icon, MouseIcon and DragIcon properties

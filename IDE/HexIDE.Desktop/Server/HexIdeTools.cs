@@ -24,7 +24,7 @@ namespace HexIDE.Desktop.Server;
 internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpContextAccessor = null)
 {
     [McpServerTool(Name = "get_project_info")]
-    [Description("Returns the startup project's name, path, and lists of forms, modules and carried files (RelatedDoc entries), and in 'projects' the same for every loaded project, each with 'isStartup'. With a project group open the top-level fields describe only the startup project, so read 'projects' for the rest; 'note' says when the top-level fields are not the whole picture, including when nothing is loaded or no startup project is set.")]
+    [Description("Returns the startup project's name, path, and lists of forms, modules and carried files (RelatedDoc entries), and in 'projects' the same for every loaded project, each with 'isStartup'. With a project group open the top-level fields describe only the startup project, so read 'projects' for the rest; 'note' says when the top-level fields are not the whole picture, including when nothing is loaded or no startup project is set. It also names projects with no chosen home, even when a working-copy path exists: Save Project asks where to put them.")]
     public async Task<ProjectInfoResult> GetProjectInfoAsync(CancellationToken ct)
     {
         return await Dispatcher.UIThread.InvokeAsync(() =>
@@ -54,6 +54,10 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
                 _ => $"{loaded.Count} projects are loaded. The top-level fields describe the startup project, "
                      + $"{startup.Name}; 'projects' lists all of them.",
             };
+
+            foreach (var project in loaded.Where(p => p.AbsolutePath is null || IsWorkingCopy(p, p.AbsolutePath)))
+                note += $" {project.Name} has no chosen home yet. Save Project asks where to put its new documents and project file; any temporary files are working copies.";
+            note = note?.TrimStart();
 
             return startup is null
                 ? new ProjectInfoResult(null, null, [], [], [], projects, note)
@@ -235,7 +239,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
             .FirstOrDefault(d => d.FormDefinition == form);
 
     [McpServerTool(Name = "set_file_content")]
-    [Description("Replaces the VB6 source of the form, module or class 'name' and saves to disk; `project` picks one where a group holds two of that name. The reply's 'project' and 'document' name what was written, as the IDE spells them. Two parts of the file are the IDE's, and content that changes either is refused with nothing changed. The header (a form's or UserControl's VERSION line and designer block, a class's header, the leading Attribute lines) changes from the designer and the Properties window, so a changed control or Instancing is not applied by sending it here. A member's Attribute lines, the run under a procedure's or variable's declaration that gives its description or dispatch id, may move or be renamed with it and go with its declaration; the reply names each member whose lines are otherwise changed, added or dropped. A form's leading 'Attribute VB_*' lines are its identity: if content leaves them out the existing ones are kept and the reply says so. A document with no file yet saves through a native picker, which would stop this server answering, so it is refused before anything changes unless answer_next_file_dialog has been armed first. The reply's 'note' names the file written and the range the document's lines are now numbered in, from the top of the file with the header included, as get_file_content returns it and set_breakpoints counts, and says whether the document is open in an editor, since only open documents are analysed for get_diagnostics. The save writes the whole file, so text set earlier and not yet saved, such as a form's captions, counts too: when the document's code page cannot hold a character anywhere in it, nothing is written and no dialog is shown, the code stays in the IDE, and the reply names the document, the code page, the character and the line that holds it.")]
+    [Description("Replaces the VB6 source of the form, module or class 'name' and saves to disk; `project` picks one where a group holds two of that name. The reply's 'project' and 'document' name what was written, as the IDE spells them. Two parts of the file are the IDE's, and content that changes either is refused with nothing changed. The header (a form's or UserControl's VERSION line and designer block, a class's header, the leading Attribute lines) changes from the designer and the Properties window, so a changed control or Instancing is not applied by sending it here. A member's Attribute lines, the run under a procedure's or variable's declaration that gives its description or dispatch id, may move or be renamed with it and go with its declaration; the reply names each member whose lines are otherwise changed, added or dropped. A form's leading 'Attribute VB_*' lines are its identity: if content leaves them out the existing ones are kept and the reply says so. A project started with --newproject has a form working copy in the temp folder, written without a picker. A pathless document is refused before changes unless answer_next_file_dialog is armed. The reply's 'note' names the file written and the range the document's lines are now numbered in, from the top of the file with the header included, as get_file_content returns it and set_breakpoints counts, and says whether the document is open in an editor, since only open documents are analysed for get_diagnostics. The save writes the whole file, so text set earlier and not yet saved, such as a form's captions, counts too: when the document's code page cannot hold a character anywhere in it, nothing is written and no dialog is shown, the code stays in the IDE, and the reply names the document, the code page, the character and the line that holds it.")]
     public async Task<MutateResult> SetFileContentAsync(
         [Description("A form, module or class, as get_project_info lists them, found in every loaded project without "
                      + "regard to case. A name two documents share is refused, and the reply lists them.")]
@@ -345,6 +349,20 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
         }
     }
 
+    private static bool IsWorkingCopy(ProjectDefinition project, string? path)
+    {
+        if (path is null || project.WorkingDirectory is not { } scratch)
+            return false;
+        var relative = Path.GetRelativePath(scratch, path);
+        return !Path.IsPathRooted(relative) && relative != ".."
+            && !relative.StartsWith(".." + Path.DirectorySeparatorChar, StringComparison.Ordinal);
+    }
+
+    private static string WriteLocationNote(ProjectDefinition project, string? path) =>
+        IsWorkingCopy(project, path)
+            ? $"Wrote the working copy to {path}. It still has unsaved changes; Save Project asks where to put this document and, if needed, the project file."
+            : $"Wrote the file to {path}.";
+
     /// <summary>What set_file_content wrote, and whether get_diagnostics will see it. (#670)</summary>
     /// <remarks>
     /// <para>
@@ -363,7 +381,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     {
         var editor = CodeEditorOf(document);
         var lines = HexIDE.IDE.DocumentContent.TextOf(document, editor).LineCount;
-        return $"Wrote {document.Name} to {document.AbsolutePath}. Its lines are numbered 1..{lines}, from the top of "
+        return WriteLocationNote(document.Project, document.AbsolutePath) + $" Its lines are numbered 1..{lines}, from the top of "
                + "the file with the header included, as get_file_content returns it. "
                + (editor is not null
                    ? "Its editor shows the new text; get_diagnostics has diagnostics for it once the server has "
@@ -460,7 +478,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     }
 
     [McpServerTool(Name = "get_form_controls")]
-    [Description("Returns all controls on a form or UserControl with their key design-time properties (name, type, position, size, caption, text, visible, enabled, and a control array element's index, which name(index) takes); with 'controlName', that one control with every property it has, in the text set_control_property takes where it takes one. Position and size in that summary are in PIXELS, left/top relative to the control's container; a .frm stores twips, 15 to a pixel. The 'properties' rows give Left, Top, Width and Height as the Properties window does instead, in twips or the container's ScaleMode, each naming its unit. Searches every loaded project, without regard to case; pass `project` when a group holds two documents of one name, and without it an ambiguous name is refused and the reply lists them. The reply's 'project' and 'document' name the form, as the IDE spells them; visible, enabled, caption and text are left out where the control's class has no such property.")]
+    [Description("Returns all controls on a form or UserControl with their key design-time properties (name, type, position, size, caption, text, visible, enabled, and a control array element's index, which name(index) takes); with 'controlName', that one control with every property it has, in the text set_control_property takes where it takes one. Position and size in that summary are in PIXELS, left/top relative to the control's container; a .frm stores twips, 15 to a pixel. The 'properties' rows give Left, Top, Width and Height as the Properties window does instead, in twips or the container's ScaleMode, each naming its unit. Searches every loaded project, without regard to case; pass `project` when a group holds two documents of one name, and without it an ambiguous name is refused and the reply lists them. The reply's 'project' and 'document' name the form, as the IDE spells them; visible, enabled, caption and text are left out where the control's class has no such property. Carried controls appear with carried: true, their name, block type, position and size, and a note: HexIDE draws but does not model them, so they cannot be moved, sized or set. controlName also finds these rows, with the same note and no properties.")]
     public async Task<FormControlsResult> GetFormControlsAsync(
         string formName,
         string? project = null,
@@ -492,6 +510,23 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
             var components = designerVm is not null
                 ? (IEnumerable<ComponentInstance>)designerVm.AllComponents.Select(v => v.Instance).ToList()
                 : form.Components;
+            const string carriedNote = "HexIDE draws this carried control but does not model it; it cannot be moved, sized or set.";
+            var carried = new List<ControlInfo>();
+            foreach (var parent in components)
+            {
+                foreach (var block in parent.PreservedChildSubtrees)
+                {
+                    if (HexIDE.Runtime.Serialization.UnmodelledControl.Read(block.Text) is not { } control)
+                        continue;
+                    var twipsPerPixel = HexIDE.Runtime.BuiltinTypes.VBScaleModeExtensions.PixelToTwips;
+                    carried.Add(new ControlInfo(control.Name, control.TypeName,
+                        control.Left / twipsPerPixel, control.Top / twipsPerPixel,
+                        control.Width / twipsPerPixel, control.Height / twipsPerPixel,
+                        null, null, null, null,
+                        parent.BaseClass is FormComponentClass ? null : parent.GetPropertyOrDefault(VBProperties.NameProperty),
+                        Carried: true, Note: carriedNote));
+                }
+            }
 
             ControlInfo Info(ComponentInstance c)
             {
@@ -535,10 +570,17 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
                 var all = components.ToList();
                 var matches = PropertyText.Named(all, controlName);
                 if (matches.Count == 0)
+                {
+                    var carriedControl = carried.FirstOrDefault(c => c.Name.Equals(controlName, StringComparison.OrdinalIgnoreCase));
+                    if (carriedControl is not null)
+                        return new FormControlsResult(null, [carriedControl], document.Project.Name, document.Name,
+                            Note: carriedNote);
                     return new FormControlsResult(
                         $"No control named '{controlName}' on {document.Display}; its controls are "
-                        + string.Join(", ", all.Select(c => c.GetPropertyOrDefault(VBProperties.NameProperty)).Distinct(StringComparer.OrdinalIgnoreCase)),
+                        + string.Join(", ", all.Select(c => c.GetPropertyOrDefault(VBProperties.NameProperty))
+                            .Concat(carried.Select(c => c.Name)).Distinct(StringComparer.OrdinalIgnoreCase)),
                         [], document.Project.Name, document.Name);
+                }
                 var control = matches[0];
                 // A control array's elements share the name; say so rather than answer for one of them silently.
                 var note = matches.Count == 1 ? null
@@ -550,12 +592,12 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
                         ? (DesignPositions.Shown(form, control, property, pixels), DesignPositions.Unit(form, control, property))
                         : null), note);
             }
-            return new FormControlsResult(null, components.Select(Info).ToArray(), document.Project.Name, document.Name);
+            return new FormControlsResult(null, components.Select(Info).Concat(carried).ToArray(), document.Project.Name, document.Name);
         });
     }
 
     [McpServerTool(Name = "set_control_property")]
-    [Description("Sets a named property on a form or UserControl control and saves the file. The form is named in any loaded project, without regard to case; pass `project` when a group holds two documents of one name, and without it an ambiguous name is refused and the reply lists them. 'value' is written as the Properties window shows it; its own description gives the forms, and a refused value's reply says what that property takes. get_form_controls lists the controls, and with 'controlName' every property of one, its value as this tool takes it. A property is matched by the name the Properties window shows, without regard to case and to its parentheses, so 'Name' reaches '(Name)'. Setting Name renames the control under the rules the Properties window applies, whether or not the designer is open: not empty, and unique on the form; for the form itself also a valid VB6 name that no other form or module of the project has, because it renames the document. A rename the naming rules refuse changes nothing. The save writes the whole file, so text set earlier and not yet saved counts too: when the file's code page cannot hold a character anywhere in it, the value is set in the IDE but nothing is written and no dialog is shown, and the reply names the document, the code page, the character and the line that holds it. A document with no file yet saves through a native picker, which would stop this server answering, so it is refused before anything changes unless answer_next_file_dialog has been armed first. The reply's 'note' gives the value the property now holds, which can differ from the text sent, and 'project' and 'document' name the form as the IDE spells them.")]
+    [Description("Sets a named property on a form or UserControl control and writes it to disk. The form is named in any loaded project, without regard to case; pass `project` when a group holds two documents of one name, and without it an ambiguous name is refused and the reply lists them. 'value' is written as the Properties window shows it; its own description gives the forms, and a refused value's reply says what that property takes. get_form_controls lists the controls, and with 'controlName' every property of one, its value as this tool takes it. A property is matched by the name the Properties window shows, without regard to case and to its parentheses, so 'Name' reaches '(Name)'. Setting Name renames the control under the rules the Properties window applies, whether or not the designer is open: not empty, and unique on the form; for the form itself also a valid VB6 name that no other form or module of the project has, because it renames the document. A rename the naming rules refuse changes nothing. The save writes the whole file, so text set earlier and not yet saved counts too: when the file's code page cannot hold a character anywhere in it, the value is set in the IDE but nothing is written and no dialog is shown, and the reply names the document, the code page, the character and the line that holds it. A project started with --newproject has a form working copy in the temp folder, written without a picker. A pathless document is refused before changes unless answer_next_file_dialog is armed. The reply's 'note' gives the value the property now holds, which can differ from the text sent, and 'project' and 'document' name the form as the IDE spells them.")]
     public async Task<MutateResult> SetControlPropertyAsync(
         string formName,
         [Description("The control: its name, or for an element of a control array name(index), such as lblTitle(1), "
@@ -686,7 +728,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
                          ? PropertyText.Display(DesignPositions.Shown(form, control, propClass, now)) + " "
                            + DesignPositions.Unit(form, control, propClass)
                          : PropertyText.Display(control.GetBoxedPropertyOrDefault(propClass)))
-                     + ", and the file is saved.";
+                     + ".";
             foreach (var change in consequences)
                 stored += $" Its {change.Property.Name} is now {PropertyText.Display(change.After)}, was "
                           + $"{PropertyText.Display(change.Before)}, as VB6's designer changes it with {propClass.Name.Trim('(', ')')}.";
@@ -718,7 +760,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
                 return Naming(new MutateResult(false, cancel.After($"'{property}' is set in the IDE, but the file was not written. {refused.Message}")), target);
             // See the note on the other write tool: a refusal must not come back as success. (#147)
             return Naming(written
-                ? new MutateResult(true, null, cancel.After(stored + rewrites.Note))
+                ? new MutateResult(true, null, cancel.After(stored + " " + WriteLocationNote(target!.Project, target.AbsolutePath) + rewrites.Note))
                 : new MutateResult(false, cancel.After("HexIDE cannot reproduce this file faithfully, so it was not "
                                         + "written and the copy on disk is unchanged.")), target);
         }
@@ -1395,7 +1437,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     }
 
     [McpServerTool(Name = "add_control")]
-    [Description("Places a control of the given type on a named form's designer canvas at the given position and size, and SAVES the form. x, y, width and height are in PIXELS, as the designer draws and get_form_controls reports: a .frm and VB6's Properties window use twips, 15 to a pixel, so VB6's default CommandButton (1215 × 495 twips) is 81 × 33 here. The reply's 'note' gives where the control landed, and says when it lies outside the form. The form must be open in the visual designer (call view_designer first if needed). The form is named in any loaded project, without regard to case; pass `project` when a group holds two documents of one name, and without it an ambiguous name is refused and the reply lists them. Returns the auto-generated control name (e.g. 'Command1'), with 'project' and 'document' naming the form as the IDE spells them. A form with no file yet saves through a native picker, which would stop this server answering, so it is refused before anything is placed unless answer_next_file_dialog has been armed first; arm it with no path to keep the form without a file. Two refusals come AFTER the control is placed, and each comes back as success:false naming the control, which is then in the designer but not on disk: HexIDE cannot reproduce the form faithfully, or the form's code page cannot hold a character in text written earlier and not yet saved. The second shows no dialog, and the reply names the document, the code page, the character and the line that holds it; once that text is changed, set_control_property or set_file_content writes the form, the new control included.")]
+    [Description("Places a control of the given type on a named form's designer canvas at the given position and size, and writes the form to disk. x, y, width and height are in PIXELS, as the designer draws and get_form_controls reports: a .frm and VB6's Properties window use twips, 15 to a pixel, so VB6's default CommandButton (1215 × 495 twips) is 81 × 33 here. The reply's 'note' gives where the control landed, and says when it lies outside the form. The form must be open in the visual designer (call view_designer first if needed). The form is named in any loaded project, without regard to case; pass `project` when a group holds two documents of one name, and without it an ambiguous name is refused and the reply lists them. Returns the auto-generated control name (e.g. 'Command1'), with 'project' and 'document' naming the form as the IDE spells them. A project started with --newproject has a form working copy in the temp folder, written without a picker. A pathless form is refused before placement unless answer_next_file_dialog is armed; arm it with no path to keep it pathless. Two refusals come AFTER the control is placed, and each comes back as success:false naming the control, which is then in the designer but not on disk: HexIDE cannot reproduce the form faithfully, or the form's code page cannot hold a character in text written earlier and not yet saved. The second shows no dialog, and the reply names the document, the code page, the character and the line that holds it; once that text is changed, set_control_property or set_file_content writes the form, the new control included.")]
     public async Task<AddControlResult> AddControlAsync(
         string formName,
         [Description("A class as get_toolbox_items lists it, such as CommandButton or VB.CommandButton. An in-box control is offered only while the project references its library, which Project > Components sets, and once for each such library: its type name picks the library, as ComctlLib.ProgressBar does, and a bare ProgressBar takes the first.")] string type,
@@ -1513,7 +1555,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
             // saying otherwise would be its own wrong answer -- but the file on disk does not have it, and
             // a caller who is told "saved" will not find out until something else reads that file.
             return written
-                ? spawned with { Form = null, Note = cancel.After(spawned.Note + rewrites.Note) }
+                ? spawned with { Form = null, Note = cancel.After(spawned.Note + " " + WriteLocationNote(spawned.Form.Owner, OwnerModuleOf(spawned.Form)?.AbsolutePath ?? spawned.Form.AbsolutePath) + rewrites.Note) }
                 : spawned with
                 {
                     Success = false, Form = null, Note = null,
@@ -2134,9 +2176,13 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     }
 
     [McpServerTool(Name = "get_call_stack")]
-    [Description("Returns the call stack at the current break — the chain of running procedure activations, current/deepest frame first, each with proc, module, and 1-based line counted from the top of the file, header included, as the code window and set_breakpoints number it. 'project' is the running project, which holds every frame's module. Valid only while paused (get_debug_state.state == Paused) — otherwise Success is false with an empty list.")]
-    public async Task<CallStackResult> GetCallStackAsync(CancellationToken ct)
+    [Description("Returns the call stack at the current break — the chain of running procedure activations, current/deepest frame first, each with proc, module, and 1-based line counted from the top of the file, header included, as the code window and set_breakpoints number it. Consecutive frames with identical proc, module and line collapse into one row with count (1 for a single frame). totalFrames is the full depth before collapsing. `maxFrames` limits collapsed rows, default 200; a note reports omitted rows and how to ask for more. 'project' is the running project, which holds every frame's module. Valid only while paused (get_debug_state.state == Paused) — otherwise Success is false with an empty list.")]
+    public async Task<CallStackResult> GetCallStackAsync(
+        [Description("Maximum collapsed rows to return, deepest first. Positive integer; default 200. Increase it to see rows omitted by the limit.")] int maxFrames = 200,
+        CancellationToken ct = default)
     {
+        if (maxFrames <= 0)
+            return new CallStackResult(false, "maxFrames must be a positive integer.", []);
         return await Dispatcher.UIThread.InvokeAsync(() =>
         {
             if (ctx.RootViewModel.ExternalDebugger?.IsActive == true)
@@ -2144,10 +2190,25 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
             if (ctx.DebugController.State != HexIDE.Runtime.Debugging.DebugState.Paused)
                 return new CallStackResult(
                     false, NotPausedRefusal("there is no call stack to read"), System.Array.Empty<CallStackFrameRow>());
-            var frames = ctx.DebugController.GetCallStack()
-                .Select(f => new CallStackFrameRow(f.ProcName, f.Module, f.Line))
-                .ToArray();
-            return new CallStackResult(true, null, frames, ctx.ProjectRunnerService.RunningProject?.Name);
+            var stack = ctx.DebugController.GetCallStack();
+            var frames = new List<CallStackFrameRow>();
+            int rows = 0;
+            for (int i = 0; i < stack.Count;)
+            {
+                var frame = stack[i];
+                int end = i + 1;
+                while (end < stack.Count && stack[end] == frame)
+                    end++;
+                if (frames.Count < maxFrames)
+                    frames.Add(new CallStackFrameRow(frame.ProcName, frame.Module, frame.Line, end - i));
+                rows++;
+                i = end;
+            }
+            var note = rows > frames.Count
+                ? $"{rows - frames.Count} rows omitted after collapsing consecutive identical frames. Call get_call_stack with maxFrames: {rows} to include all rows."
+                : null;
+            return new CallStackResult(true, null, frames.ToArray(), ctx.ProjectRunnerService.RunningProject?.Name,
+                stack.Count, note);
         });
     }
 
@@ -2505,6 +2566,29 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
         "On a running VB6 program's form or its MsgBox, the reply waits up to 3 s for what the action set off; a loop "
         + "already at DoEvents, or a Timer's, counts as waiting for input. A note says why when it stops sooner.";
 
+    /// <summary>
+    /// Waits for what an action on a running program's form set off, then says what the program printed, as the run and
+    /// stop replies do (#2657). Callers read the program's output after a click as often as after a run, and found it only
+    /// by dumping for the Immediate window and diffing it by hand. Nothing changes for an action that isn't on a running
+    /// program's form.
+    /// </summary>
+    private static async Task<InteractOutcome> WaitForProgramAsync(
+        UiAutomationDriver.ProgramWatch? watch, InteractOutcome outcome, CancellationToken ct)
+    {
+        var waited = await UiAutomationDriver.WaitForProgramAsync(watch, outcome, ct: ct);
+        if (watch is null || !waited.Success)
+            return waited;
+        return WithPrinted(waited, ProgramPrinted.Shared.Take());
+    }
+
+    /// <summary>An action's reply with what the program printed, <paramref name="taken"/>, in 'printed' and its detail
+    /// saying how much or that it wrote nothing.</summary>
+    internal static InteractOutcome WithPrinted(InteractOutcome outcome, string taken)
+    {
+        var (printed, note) = ProgramPrinted.Report(taken);
+        return outcome with { Detail = outcome.Detail + ";" + note, Printed = printed };
+    }
+
     private const string WindowParameter =
         "Which top-level window the path is resolved against: \"auto\" (default) is any visible window other than the "
         + "IDE's own, whether or not it is on top: a dialog, the Find window, or a running VB6 program's form, INCLUDING "
@@ -2789,13 +2873,13 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     }
 
     [McpServerTool(Name = "interact")]
-    [Description("Drives a live control at 'target' (a dump_visual_tree path) through UI Automation. 'action' lists the verbs; 'value' describes their arguments. A provider action needs its reported provider and fails without it, with no fallback to reflection: choose invoke_command/set_property explicitly. Every verb except invoke_command/set_property refuses disabled targets, naming a disabling container or blocking dialog to answer first. click needs no provider: it raises pointer input at the point itself, on whatever a real press there would reach, moving there first unless the last click left it there, so a form's MouseMove precedes MouseDown, releasing 50 ms later as separate input so the press handler runs first; it waits up to a second for the next frame, since hit-testing needs a drawn window; its reply names the button, the keys held, press coordinates and landing, and, with to, release coordinates and recipient (capturer or hit-tested control); a point where nothing takes the pointer is refused, and nothing is pressed. Actions are real, with no confirmation, but every verb except invoke_command and set_property is refused on a control that is not showing (\"isHidden\": true in dump_visual_tree), as no person could reach it; those two reach its view model or its own Command. toggle, expand, collapse, set_value and set_property reply with the state read back. set_value on a non-editable ComboBox selects item text ignoring case; a miss names items. Other read-only values are refused. Find the target and what it supports with dump_visual_tree/inspect_element first. While a VB6 program runs or is paused 'auto' usually picks its form: pass 'window' \"ide\" to act on the IDE. " + ProgramWaitNote)]
+    [Description("Drives a live control at 'target' (a dump_visual_tree path) through UI Automation. 'action' lists the verbs; 'value' describes their arguments. A provider action needs its reported provider and fails without it, with no fallback to reflection: choose invoke_command/set_property explicitly. click needs no provider: it raises pointer input at the point itself, on whatever a real press there would reach, moving there first unless the last click left it there, so a form's MouseMove precedes MouseDown, releasing 50 ms later as separate input so the press handler runs first; it waits up to a second for the next frame, since hit-testing needs a drawn window; its reply names the button, the keys held, press coordinates and landing, and, with to, release coordinates and recipient (capturer or hit-tested control); a point where nothing takes the pointer is refused, and nothing is pressed. Actions are real, with no confirmation. Every verb except invoke_command/set_property refuses a disabled target, naming a disabling container or blocking dialog to answer first, and one not showing (\"isHidden\": true in dump_visual_tree), as no person could reach it; those two reach its view model or its own Command. toggle, expand, collapse, set_value and set_property reply with the state read back. set_value on a non-editable ComboBox selects item text ignoring case; a miss names items. Other read-only values are refused. Find the target and what it supports with dump_visual_tree/inspect_element first. While a VB6 program runs or is paused 'auto' usually picks its form: pass 'window' \"ide\" to act on the IDE. " + ProgramWaitNote)]
     public async Task<InteractOutcome> InteractAsync(
         [Description("A path from dump_visual_tree, including ContextMenu/Flyout segments for attached popups.")]
         string target,
-        [Description("One of: invoke (click a Button or menu item); select (pick a ComboBox or ListBox item, a DataGrid row or a tree node; with 'value', a row out of view is scrolled to first; a dropdown's items exist only while it is open, so expand it, dump_visual_tree(root=combo), then select, which closes it as a click does); add_to_selection / remove_from_selection (add a multi-select list item or remove a list/tree item without replacing the selection; reply lists the selection and names the primary when several remain. The primary is the last control added); double_click (raise DoubleTapped, selecting the target first as a real double-click does, or commit a completion item; how the Project Explorer opens an item); click (press and release a pointer on the target as a real click does, so a running form raises MouseDown, Click and MouseUp; the only verb that presses; to drags, and hold stops before letting go; any control, a Label or a form's area included); release (let go of that held button); set_value (set a TextBox's text, or a fixed ComboBox's item; a box bound to a property is committed as Enter would, and the reply says whether it held or was refused); toggle (flip a CheckBox); expand / collapse (a dropdown, tree node, expander or menu, or else the context menu or flyout the control owns); set_range_value (set a Slider or ScrollBar, as dragging its thumb would; a read-only bar or out-of-range value is refused, not clamped); scroll (moves the target's own scroller or bars, so an editor or a DataGrid works, else the nearest container that scrolls that way; the reply gives where it now is); invoke_command and set_property (reflection: use the DataContext members inspect_element lists, or value Command for the target's resolved command; invoke_command checks CanExecute, and set_property coerces to the property's type); close (the target's window, as its close box does; a Yes/No or Abort/Retry/Ignore MsgBox refuses, a form's QueryUnload may; reply says if still open; not the IDE's main window).")]
+        [Description("One of: invoke (click a Button or menu item); select (pick a ComboBox or ListBox item, a DataGrid row or a tree node; with 'value', a row out of view is scrolled to first; a dropdown's items exist only while it is open, so expand it, dump_visual_tree(root=combo), then select, which closes it as a click does); add_to_selection / remove_from_selection (add a multi-select list item or remove a list/tree item without replacing the selection; the reply names the primary, on a designer the last control added); double_click (raise DoubleTapped, selecting the target first as a real double-click does, or commit a completion item; how the Project Explorer opens an item); click (press and release a pointer on the target as a real click does, so a running form raises MouseDown, Click and MouseUp; the only verb that presses; to drags, and hold stops before letting go; any control, a Label or a form's area included); release (let go of that held button); set_value (set a TextBox's text, or a fixed ComboBox's item; a box bound to a property is committed as Enter would); toggle (flip a CheckBox); expand / collapse (a dropdown, tree node, expander or menu, or else the context menu or flyout the control owns); set_range_value (set a Slider or ScrollBar, as dragging its thumb would; a read-only bar or out-of-range value is refused, not clamped); scroll (moves the target's own scroller or bars, so an editor or a DataGrid works, else the nearest container that scrolls that way); invoke_command and set_property (reflection: use the DataContext members inspect_element lists, or value Command for the target's resolved command; invoke_command checks CanExecute, and set_property coerces to the property's type); close (the target's window, as its close box does; a Yes/No or Abort/Retry/Ignore MsgBox refuses, a form's QueryUnload may; not the IDE's main window).")]
         string action,
-        [Description("Required for set_value (the text), set_range_value (a number, '.' for decimals), scroll (up, down, left or right for a page; line_up, line_down, line_left or line_right for a line; home or end for the top or bottom) and the reflection actions (invoke_command: Command runs the target’s resolved Command with its CommandParameter, checking CanExecute; otherwise the name of an ICommand property, or of a method XAML binds as a Command with no CommandParameter, refused when its Can<name>(object) returns false; set_property: \"PropertyName=NewValue\"). For select, the item text to match; omit it when 'target' already points at the item. Optional for click: a point 'x,y' relative to the target's top-left ('.' for decimals; the centre when omitted), a button, left, right or middle (left when omitted), any of shift, ctrl and alt to hold, and double for two clicks, in any order and separated by spaces, as in '10,5 right double' or 'double'; append to x,y or to <path>:x,y to drag (paste a dump_visual_tree path, including spaces); release coordinates are relative to that control, or the target without a path; to cannot accompany double; add hold to a drag to stop before its release, with the button still down at the to point until action release. While it is held, every reply's heldButton says where, a snapshot or a dump shows the drag in progress, click, double_click and hover are refused, and keys still go. For release: x,y relative to the target, or <path>:x,y, moves the held button there first; with no value it lets go where it is held. Example: click '20,20 to 100,60 hold' on the designer canvas shows the draw preview to 100,60, then release '140,90' draws to 140,90. With no call for 120 s a hold is abandoned: Escape, then a move back to the press and a release there. A Dock drag then docks nothing and a designer move ends where it began, but a resize snaps to the grid, and a draw still places a 2 by 2 control; the next reply's heldButton names any undo step recorded, which Undo takes back.")]
+        [Description("Required for set_value (the text), set_range_value (a number, '.' for decimals), scroll (up, down, left or right for a page; line_up, line_down, line_left or line_right for a line; home or end for the top or bottom) and the reflection actions (invoke_command: Command runs the target’s resolved Command with its CommandParameter, checking CanExecute; otherwise the name of an ICommand property, or of a method XAML binds as a Command with no CommandParameter, refused when its Can<name>(object) returns false; set_property: \"PropertyName=NewValue\"). For select, the item text to match; omit it when 'target' already points at the item. Optional for click: a point 'x,y' relative to the target's top-left ('.' for decimals; the centre when omitted), a button, left, right or middle (left when omitted), any of shift, ctrl and alt to hold, and double for two clicks, in any order and separated by spaces, as in '10,5 right double' or 'double'; append to x,y or to <path>:x,y to drag (paste a dump_visual_tree path, including spaces); release coordinates are relative to that control, or the target without a path; to cannot accompany double; add hold to a drag to stop before its release, with the button still down at the to point until action release. While it is held, every reply's heldButton says where, a snapshot or a dump shows the drag in progress, click, double_click and hover are refused, and keys still go. For release: x,y relative to the target, or <path>:x,y, moves the held button there first; with no value it lets go where it is held. Example: click '20,20 to 100,60 hold' on the designer canvas shows the draw preview to 100,60, then release '140,90' draws to 140,90. With no call for 120 s a hold is abandoned; heldButton says how, and the next reply what it did.")]
         string? value = null,
         [Description(WindowParameter)]
         string? window = null,
@@ -2835,7 +2919,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
                 outcome = UiAutomationDriver.WithRefusal(outcome, refused);
         }
         // A running form's handler gives up the thread part way through, so the reply waits for it (#1232).
-        outcome = await UiAutomationDriver.WaitForProgramAsync(watch, outcome, ct: ct);
+        outcome = await WaitForProgramAsync(watch, outcome, ct);
         // Whether a close closed is known only now: a form's close box asks the program, which unloads it first (#829).
         if (acted is not null && UiAutomationDriver.IsVerb(action, "close"))
             outcome = await Dispatcher.UIThread.InvokeAsync(() => UiAutomationDriver.AfterClose(acted, outcome, watch));
@@ -2897,7 +2981,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
                 ? await UiAutomationDriver.TypeKeysAsync(control, text, target, ct)
                 : TypeDocumentText(control, text, target);
         });
-        return await UiAutomationDriver.WaitForProgramAsync(watch, outcome, ct: ct);
+        return await WaitForProgramAsync(watch, outcome, ct);
     }
 
     internal InteractOutcome TypeDocumentText(Control control, string text, string target)
@@ -3194,7 +3278,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
             watch = UiAutomationDriver.WatchProgram(active, () => ctx.DebugController.CurrentStop);
             return UiAutomationDriver.PressKey(control, key, modifiers, target);
         });
-        return await UiAutomationDriver.WaitForProgramAsync(watch, outcome, ct: ct);
+        return await WaitForProgramAsync(watch, outcome, ct);
     }
 
     // Active window for the automation tools: any visible window over the main window, modal or not, such as Find
@@ -3955,7 +4039,9 @@ internal record ControlInfo(
     string? Container,
     // A control array element's Index, which the elements' shared Name alone does not tell apart; null when it is
     // no element. name(index) addresses it in get_form_controls, set_control_property and move_control (#1252 review).
-    int? Index = null);
+    int? Index = null,
+    bool? Carried = null,
+    string? Note = null);
 
 /// <param name="Scale">Image pixels per device-independent unit, the unit inspect_element's boundingRect is in.</param>
 internal record SnapshotResult(
@@ -4125,9 +4211,10 @@ internal record EvaluateResult(bool Success, string? Error, string? Result);
 /// <param name="Project">
 /// The running project, by name. A run is one project, so every frame's module is in it.
 /// </param>
-internal record CallStackResult(bool Success, string? Error, CallStackFrameRow[] Frames, string? Project = null);
+internal record CallStackResult(bool Success, string? Error, CallStackFrameRow[] Frames, string? Project = null,
+    int TotalFrames = 0, string? Note = null);
 
-internal record CallStackFrameRow(string Proc, string Module, int Line);
+internal record CallStackFrameRow(string Proc, string Module, int Line, int Count = 1);
 
 internal record WatchesResult(bool Success, string? Error, WatchRow[] Watches, string? Project = null);
 

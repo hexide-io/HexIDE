@@ -5,6 +5,32 @@ namespace HexIDE.Tests;
 public class ProgramParityTests
 {
     [Theory]
+    [InlineData("fixture-global", "Debug.Print il", "[\"il\"]")]
+    [InlineData("form-header", "  VERSION 5.00\r\nBegin VB.Form Form1\r\nEnd", "[]")]
+    public async Task A_program_missing_its_fixture_is_counted_and_not_run(string reason, string source, string globals)
+    {
+        var record = new JsonObject
+        {
+            ["modules"] = new JsonArray(new JsonObject
+            {
+                ["name"] = "Module1", ["kind"] = "startup", ["source"] = source,
+                ["wrapped"] = "Public Sub HexDumpMain()\nEnd Sub",
+            }),
+            ["printed"] = new JsonArray(),
+            ["injectedGlobals"] = JsonNode.Parse(globals),
+        };
+        await DryRun(record.ToJsonString(), (results, cases) =>
+        {
+            var result = JsonNode.Parse(results[1])!;
+            result["outcome"]!.GetValue<string>().Should().Be("not-reproducible");
+            result["notReproducible"]!.GetValue<string>().Should().Be(reason);
+            Directory.Exists(cases).Should().BeFalse();
+            var summary = JsonNode.Parse(File.ReadAllText(Path.Combine(Path.GetDirectoryName(cases)!, "summary.json")))!;
+            summary["outcomes"]!["not-reproducible"]!.GetValue<int>().Should().Be(1);
+        });
+    }
+
+    [Theory]
     [InlineData(false, "LineLabel")]
     [InlineData(true, "DocumentLine")]
     public async Task The_launched_adapter_receives_the_selected_Erl_numbering(bool overrideDefault, string expected)

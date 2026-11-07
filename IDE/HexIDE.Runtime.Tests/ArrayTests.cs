@@ -66,13 +66,28 @@ Debug.Print UBound(Arr)
         await Run(@"Dim Arr() As String");
     }
 
-    [Fact]
-    public async Task StringArray_ReDim()
+    // vb6.exe SP6, native and p-code: #2938.
+    [Theory]
+    [InlineData("Dim Arr()\nSub Test()\nReDim Arr(10) As String\nEnd Sub\nTest")]
+    [InlineData("Sub Test()\nDim Arr()\nReDim Arr(10) As String\nEnd Sub\nTest")]
+    public async Task StringArray_ReDim(string code)
     {
-        await Run(@"Dim Arr()
-ReDim Arr(10) As String
-Arr(0) = ""Hello""
-Debug.Print Arr(0)");
-        AssertDebugLog(["Hello"]);
+        var act = async () => await Run(code);
+
+        await act.Should().ThrowAsync<VBCompileErrorException>()
+            .WithMessage("*Can't change data types of array elements*");
+    }
+
+    [Fact]
+    public async Task ScalarVariant_ReDim_AsString()
+    {
+        await Run("""
+            Dim Arr
+            ReDim Arr(10) As String
+            Arr(0) = "Hello"
+            Debug.Print Arr(0)
+            Debug.Print TypeName(Arr)
+            """);
+        AssertDebugLog(["Hello", "String()"]);
     }
 }

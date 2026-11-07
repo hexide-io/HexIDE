@@ -14,6 +14,39 @@ agent that wrote the code can open the IDE, drive it, and look at the result.
 
 ## Requirements
 
+### Requirement: Call stack replies summarise recursion and bound rows
+
+`get_call_stack` SHALL collapse consecutive frames with identical procedure, module and line into one
+row with `count`, and report the uncollapsed depth as `totalFrames`. It SHALL return deepest frames first
+and accept optional positive `maxFrames`, defaulting to 200 collapsed rows. When rows are omitted, a note
+SHALL report their number and explain how to request all rows. The tool description SHALL explain both
+collapsing and the limit.
+
+#### Scenario: Inspect deep recursion
+- **WHEN** a paused stack contains thousands of consecutive identical caller frames
+- **THEN** those callers occupy one row with their count, alongside the deepest and outermost frames
+- **AND** `totalFrames` reports the full depth
+
+#### Scenario: Expand a bounded stack
+- **WHEN** the collapsed stack has more rows than `maxFrames`
+- **THEN** the reply returns at most `maxFrames` rows and a note naming the omitted row count and a limit that includes all rows
+
+
+### Requirement: Form inspection includes carried controls
+
+`get_form_controls` SHALL include controls carried as preserved blocks alongside modelled controls,
+with their name, block type, container-relative pixel position and size, `carried: true`, and a note
+explaining that HexIDE draws but does not model them, so they cannot be moved, sized or set.
+`controlName` SHALL find a carried control without regard to case and return its row and note.
+
+#### Scenario: Inspect a form containing view-only controls
+- **WHEN** a caller lists controls on a form containing carried ImageCombos
+- **THEN** the reply includes their carried rows alongside the modelled controls
+
+#### Scenario: Inspect one carried control
+- **WHEN** a caller names a carried control with `controlName`
+- **THEN** the reply contains that row and its read-only note rather than a missing-control error
+
 ### Requirement: Code edits during a run explain the running snapshot
 
 During a running or paused project, `set_file_content` and document-mode `type_text` SHALL edit without
@@ -1147,8 +1180,9 @@ handlers it let finish.
 
 ### Requirement: Run-control replies SHALL say what the program printed
 For interpreter sessions, a successful reply from `run_project`, `stop_project`, `continue_program`,
-`break_program`, a step or `run_to_cursor` SHALL give in `printed` what the program wrote with `Debug.Print`
-since its run began or a reply last reported it, and its note SHALL say how much, or that it wrote nothing.
+`break_program`, a step or `run_to_cursor`, or from `interact`, `press_key` or `type_text` acting on a running
+program's form, SHALL give in `printed` what the program wrote with `Debug.Print` since its run began or a reply last
+reported it, and its note SHALL say how much, or that it wrote nothing.
 The buffer SHALL reset when the runner claims a new run, before any interpreter code can execute,
 and SHALL NOT reset when that run becomes active or ends.
 Output past 4000 characters SHALL keep its end, with the note saying how much was left out. For an external debug session, `stop_project` SHALL instead state that external
@@ -1166,6 +1200,10 @@ session output is not captured by this tool and direct the caller to the Immedia
 #### Scenario: Nothing printed
 - **WHEN** a program prints nothing before `stop_project`
 - **THEN** the reply has no `printed`, and its note says Debug.Print wrote nothing
+
+#### Scenario: A click on a running form
+- **WHEN** `interact` clicks a button whose `Click` handler prints a line
+- **THEN** the click's reply holds that line in `printed`, and a later `stop_project` does not report it again
 
 ### Requirement: Debug state SHALL describe the external session consistently
 During an external debug session and after it ends, until another run starts, `get_debug_state` SHALL

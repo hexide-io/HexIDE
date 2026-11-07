@@ -29,6 +29,23 @@ worse than one that is obviously incomplete.
 
 ## Requirements
 
+### Requirement: Trailing argument and declared array type refusals
+
+The interpreter SHALL raise `VBCompileErrorException` with "Syntax error" when executing a call
+with a trailing omitted argument. A plain `ReDim ... As T` SHALL refuse a changed declared array
+element type with "Can't change data types of array elements". These refusals follow the
+[VB6 SP6 native and p-code measurements in #2938](https://github.com/hexide-io/HexIDE/issues/2938).
+
+#### Scenario: Trailing comma in a user procedure call
+- **WHEN** execution reaches `Show 1,`, `Call Show(1, )` or `x = F(1, )` with an optional second parameter
+- **THEN** it raises "Syntax error"
+- **AND** `Show 1` without a comma still supplies the declared default, and an interior omission keeps its slot
+
+#### Scenario: Declared Variant array versus scalar Variant
+- **WHEN** execution reaches `ReDim Arr(10) As String` after a module-level or local `Dim Arr()`
+- **THEN** it raises "Can't change data types of array elements"
+- **AND** the scalar Variant control `Dim Arr` still accepts the ReDim and stores "Hello" in a `String()`
+
 ### Requirement: For Each collection references and declarations
 
 The interpreter SHALL parse a For Each collection as a reference, refusing parenthesised expressions,
