@@ -33,6 +33,10 @@ public class TestApp : Application
         {
             Source = new Uri("avares://Avalonia.Controls.DataGrid/Themes/Simple.xaml"),
         }) ; Console.Error.WriteLine("1085 probe: resource 1");
+        Resources.MergedDictionaries.Add(new ResourceInclude(new Uri("avares://HexIDE/"))
+        {
+            Source = new Uri("avares://HexIDE/Themes/IconGeometry.axaml"),
+        });
         // As App.axaml does. Without it a TextEditor has no template, so its TextArea is not in the tree at
         // all: a test that walks or resolves a path through an editor was walking a shape the running IDE
         // never has, and one assertion passed only because of it (#611's test named TextEditor as the leaf).
