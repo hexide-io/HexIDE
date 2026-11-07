@@ -1315,8 +1315,12 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     /// </remarks>
     internal string? LiveDocumentUri => session is { IsOpen: true } open ? open.Uri : null;
 
-    public void SaveForm() => SaveWithFormattingAsync(() => projectService.SaveForm(formDefinition!, false)).ListenErrors();
+    public void SaveForm() => SaveWithFormattingAsync(() => SaveDocumentAsync(false)).ListenErrors();
     public void SaveModule() => SaveWithFormattingAsync(() => projectService.SaveModule(moduleDefinition!, false)).ListenErrors();
+
+    private Task SaveDocumentAsync(bool saveAs) => moduleDefinition != null
+        ? projectService.SaveModule(moduleDefinition, saveAs)
+        : projectService.SaveForm(formDefinition!, saveAs);
 
     private async Task SaveWithFormattingAsync(Func<Task> saveAction)
     {
@@ -2471,7 +2475,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
         InsertAtEnd(sb.ToString(), "\nEnd Sub\n");
     }
 
-    public void SaveFormAs() => SaveWithFormattingAsync(() => projectService.SaveForm(formDefinition!, true)).ListenErrors();
+    public void SaveFormAs() => SaveWithFormattingAsync(() => SaveDocumentAsync(true)).ListenErrors();
 
     public void ViewCode() => editorService.EditCode(formDefinition);
 
