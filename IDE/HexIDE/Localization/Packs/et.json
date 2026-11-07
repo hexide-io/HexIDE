@@ -2,6 +2,8 @@
   "name": "Estonian",
   "direction": "ltr",
   "strings": {
+    "Str.Tool.LanguageServers.Problem.JsonSyntaxEscape": "Konfiguratsioonifail „{0}“ sisaldab vigast JSON-i real {1}, veerus {2}. Tee: {3} Kasutage kaldkriipse (C:/tools/new/...) või kahekordseid längkriipse (C:\\\\tools\\\\new\\\\...).",
+    "Str.Tool.LanguageServers.Problem.PathControlWarning": "Väli '{0}' sisaldab paojadast saadud juhtmärki; tõenäoliselt mõeldud tee: {1}. Väärtust ei muudeta.",
     "Str.Lsp.ServerMessage": "Keeleserver: {0}",
     "Str.Lsp.ServerError": "Keeleserveri viga: {0}",
     "Str.Lsp.EditNotApplied": "Serveri muudatust ei rakendatud: {0}",

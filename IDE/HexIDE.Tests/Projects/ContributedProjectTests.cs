@@ -457,6 +457,24 @@ public sealed class ContributedProjectTests : IDisposable
             Arg.Any<string?>(), Arg.Any<MessageBoxButtons>(), Arg.Any<MessageBoxIcon>(), Arg.Any<Avalonia.Controls.Window?>(), Arg.Any<bool>());
     }
 
+    [WindowsOnlyFact]
+    public async Task A_contributed_project_already_open_is_refused_when_opened_again_with_different_drive_and_folder_case()
+    {
+        // The host's rule for the same file, as a .vbp's open has it: on Windows, the same project under another letter case.
+        using var type = Contribute();
+        await Opened();
+        var alternate = Path.Join(_dir.ToUpperInvariant(), ".rdproj");
+        alternate = char.ToLowerInvariant(alternate[0]) + alternate[1..];
+        alternate.Should().NotBe(ProjectFile);
+
+        Func<Task> reopen = () => _service.OpenProject(alternate);
+
+        await reopen.Should().ThrowAsync<OperationCanceledException>();
+        _loaded.Should().ContainSingle();
+        await _windows.Received(1).MessageBox("Project .rdproj is already opened.",
+            Arg.Any<string?>(), Arg.Any<MessageBoxButtons>(), Arg.Any<MessageBoxIcon>(), Arg.Any<Avalonia.Controls.Window?>(), Arg.Any<bool>());
+    }
+
     [AvaloniaFact]
     public async Task A_group_s_contributed_project_is_read_by_its_add_in_and_one_no_add_in_reads_is_refused()
     {

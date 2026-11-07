@@ -2,6 +2,8 @@
   "name": "Vietnamese",
   "direction": "ltr",
   "strings": {
+    "Str.Tool.LanguageServers.Problem.JsonSyntaxEscape": "Tệp cấu hình '{0}' chứa JSON không hợp lệ tại dòng {1}, cột {2}. Đường dẫn: {3} Dùng dấu gạch chéo xuôi (C:/tools/new/...) hoặc dấu gạch chéo ngược kép (C:\\\\tools\\\\new\\\\...).",
+    "Str.Tool.LanguageServers.Problem.PathControlWarning": "Trường '{0}' chứa ký tự điều khiển từ chuỗi thoát; đường dẫn có dấu gạch chéo ngược có thể được định dùng: {1}. Giá trị không thay đổi.",
     "Str.Lsp.ServerMessage": "Máy chủ ngôn ngữ: {0}",
     "Str.Lsp.ServerError": "Lỗi máy chủ ngôn ngữ: {0}",
     "Str.Lsp.EditNotApplied": "Không áp dụng chỉnh sửa từ máy chủ: {0}",
