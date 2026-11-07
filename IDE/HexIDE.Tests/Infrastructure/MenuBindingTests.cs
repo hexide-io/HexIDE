@@ -51,6 +51,29 @@ public class MenuBindingTests
     }
 
     [Fact]
+    public void ToolbarFlyoutListsTheSameFourTogglesAsTheViewMenu()
+    {
+        var view = XDocument.Load(Path.Combine(ViewsDirectory(), "MainView.axaml"));
+        var flyout = view.Descendants().Single(e => e.Name.LocalName == "StackPanel.ContextFlyout")
+            .Elements().Single();
+        var toggles = flyout.Elements().TakeWhile(e => e.Name.LocalName != "Separator").ToArray();
+        var menu = view.Descendants().Single(e => e.Name.LocalName == "MenuItem" &&
+            (string?)e.Attribute("Header") == "{DynamicResource Str.Menu.View.Toolbars}");
+
+        toggles.Select(e => (string?)e.Attribute("Header")).Should().Equal(
+            menu.Elements().Select(e => (string?)e.Attribute("Header")));
+        toggles.Should().HaveCount(4);
+        foreach (var toggle in toggles)
+        {
+            var counterpart = menu.Elements().Single(e =>
+                (string?)e.Attribute("Header") == (string?)toggle.Attribute("Header"));
+            toggle.Attribute("ToggleType")!.Value.Should().Be("CheckBox");
+            string.Concat(toggle.Attribute("IsChecked")!.Value.Where(c => !char.IsWhiteSpace(c)))
+                .Should().Be(string.Concat(counterpart.Attribute("IsChecked")!.Value.Where(c => !char.IsWhiteSpace(c))));
+        }
+    }
+
+    [Fact]
     public void Axaml_leaf_menu_items_have_an_action_or_are_disabled()
     {
         var views = ViewsDirectory();
