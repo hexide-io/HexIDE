@@ -17,16 +17,16 @@ public class ListRowNameTests
 {
     private static IEnumerable<UiNode> Flatten(UiNode node) => node.Children.SelectMany(Flatten).Prepend(node);
 
-    private static (Window Window, ListBox List) Show<T>(IReadOnlyList<T> items, Func<T?, string> glyph, Func<T?, string> name)
+    private static (Window Window, ListBox List) Show<T>(IReadOnlyList<T> items, Func<T?, Avalonia.Media.IImage?> icon, Func<T?, string> name)
     {
         var list = new ListBox
         {
             ItemsSource = items,
-            // As the Object Browser's lists show a row: a glyph, then the name.
+            // As the Object Browser's lists show a row: an icon, then the name.
             ItemTemplate = new FuncDataTemplate<T>((item, _) => new StackPanel
             {
                 Orientation = Orientation.Horizontal,
-                Children = { new TextBlock { Text = glyph(item) }, new TextBlock { Text = name(item) } },
+                Children = { new Image { Source = icon(item), Width = 16, Height = 16 }, new TextBlock { Text = name(item) } },
             }),
         };
         var window = new Window { Width = 300, Height = 300, Content = list };
@@ -76,7 +76,7 @@ public class ListRowNameTests
     public void The_Object_Browser_s_rows_are_named_by_their_names()
     {
         var classes = new[] { new OBClassViewModel("Form1", OBClassKind.Form, "Project1"), new OBClassViewModel("Module1", OBClassKind.Module, "Project1") };
-        var (window, list) = Show(classes, c => c?.KindGlyph ?? "", c => c?.Name ?? "");
+        var (window, list) = Show(classes, c => c?.KindIcon, c => c?.Name ?? "");
         try
         {
             Flatten(UiAutomationDriver.Dump(window, "Window", 12, false)).Where(n => n.ControlType == "ListItem")
