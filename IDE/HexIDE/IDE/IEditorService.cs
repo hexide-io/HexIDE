@@ -4,6 +4,9 @@ namespace HexIDE.IDE;
 
 public interface IEditorService
 {
+    void SaveOpenDocuments(ProjectDefinition project);
+    void RestoreOpenDocuments(ProjectDefinition project);
+
     void EditForm(FormDefinition? form);
     void EditCode(FormDefinition? form);
     void EditCode(ModuleDefinition? module);
