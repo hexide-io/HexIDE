@@ -27,7 +27,7 @@
 | Print… | — | Stub | Bound to `NYICommand`; shows "not yet implemented" |
 | Print Setup… | — | Stub | Bound to `NYICommand` |
 | Make *{project}*… | — | Partial | Invokes HexIDE interpreter export; no real native-code compile. Carried files and their item lines are omitted from the package, keeping their source paths private (#750). Repeated Makes to the same path ask before replacing the derived project archive with the current source (#748, #2504); No/cancel preserves both outputs. The made program runs every form, standard module and class module of the project, from its startup form or from `Sub Main`, read by the loader the IDE's own open uses ([#1062](https://github.com/hexide-io/HexIDE/issues/1062)). Its packaged source copies use UTF-8 with a BOM so non-ASCII text survives a different host code page (#731). The program is the standalone runner, one self-contained file, renamed beside the archive, so it needs neither .NET nor HexIDE where it runs. Programs made by v0.2.0 do not start ([#1971](https://github.com/hexide-io/HexIDE/issues/1971)), and macOS's are not yet verified. An unhandled run-time error freezes the made program, shows its name and a warning with OK only, and exits without unload or terminate events on dismissal; compile errors and engine faults are visible too (#757) |
-| Make *{project}* with VB6… | — | Done | Shells out to VB6.EXE if installed |
+| Make *{project}* with VB6… | — | Done | Shells out to VB6.EXE if installed; a build stopped after 180 seconds reports the timeout and a possible waiting dialog (#979) |
 | Make Project Group… | — | Stub | Offered only with a group open, as in VB6 (#746); removes `DisabledCommand`. VB6's builds the group's projects through a "Build the following projects" dialog. HexIDE's says the feature isn't implemented yet and writes nothing ([#1515](https://github.com/hexide-io/HexIDE/issues/1515)). It used to save every project and the group, which is Save Project Group's job |
 | MRU file list | — | Done | "Recent Projects ►" submenu in File menu; backed by `IRecentProjectsService`; refreshes on project open/close |
 | Exit | Ctrl+Q | Done | Calls `IClassicDesktopStyleApplicationLifetime.Shutdown()` |
@@ -161,7 +161,7 @@
 | Break | Ctrl+Break | Done | Requests a pause at the next statement gate while the interpreter is running; the toolbar buttons remain available with focus in the running form (#2179) |
 | End | — | Done | Standard and Debug toolbar buttons remain available while a running form has focus (#2319) |
 | Restart | Shift+F5 | Done | |
-| Start with VB6 | Alt+F5 | Done | Shells out to VB6.EXE if installed; shortcut appears only in the live keymap's gesture column, not the localized label (#897) |
+| Start with VB6 | Alt+F5 | Done | Shells out to VB6.EXE if installed; a build stopped after 180 seconds reports the timeout and a possible waiting dialog (#979); shortcut appears only in the live keymap's gesture column, not the localized label (#897) |
 
 ---
 

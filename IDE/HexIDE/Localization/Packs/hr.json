@@ -913,6 +913,7 @@
     "Str.Vb6Toolchain.BuildFailedTitle": "Izgradnja nije uspjela",
     "Str.Vb6Toolchain.ProjectNotSaved": "Projekt mora biti spremljen na disk prije prevođenja pomoću VB6.",
     "Str.Vb6Toolchain.CompilationFailedNoOutput": "Prevođenje pomoću VB6 nije uspjelo bez izlaznih podataka. Provjerite valjanost projektne datoteke.",
+    "Str.Vb6Toolchain.CompilationTimedOut": "HexIDE je zaustavio prevođenje VB6 nakon 180 sekundi. vb6.exe je možda čekao dijaloški okvir.",
     "Str.Vb6Toolchain.CompilationFailed": "Prevođenje pomoću VB6 nije uspjelo:\n\n{0}",
     "Str.Vb6Toolchain.ExeNotFound": "Izgradnja je uspjela, ali izvršna datoteka nije pronađena na lokaciji:\n{0}",
     "Str.Vb6Toolchain.RunFailedTitle": "Pokretanje nije uspjelo",

@@ -913,6 +913,7 @@
     "Str.Vb6Toolchain.BuildFailedTitle": "Būvēšana neizdevās",
     "Str.Vb6Toolchain.ProjectNotSaved": "Pirms kompilēšanas ar VB6 projekts jāsaglabā diskā.",
     "Str.Vb6Toolchain.CompilationFailedNoOutput": "VB6 kompilēšana neizdevās bez izvades. Pārbaudiet, vai projekta fails ir derīgs.",
+    "Str.Vb6Toolchain.CompilationTimedOut": "HexIDE apturēja VB6 kompilēšanu pēc 180 sekundēm. Iespējams, vb6.exe gaidīja dialoglodziņu.",
     "Str.Vb6Toolchain.CompilationFailed": "VB6 kompilēšana neizdevās:\n\n{0}",
     "Str.Vb6Toolchain.ExeNotFound": "Būvēšana izdevās, bet izpildāmais fails netika atrasts šeit:\n{0}",
     "Str.Vb6Toolchain.RunFailedTitle": "Palaišana neizdevās",
