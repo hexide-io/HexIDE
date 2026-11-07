@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging;
 using HexIDE.Lsp.Messages;
 
 using HexIDE.Conversations;
+using HexIDE.Redaction;
 
 namespace HexIDE.Lsp;
 
@@ -26,7 +27,13 @@ public sealed class LanguageServerRegistrationFactory(
     ILoggerFactory loggerFactory,
     ILspWorkspace? workspace = null,
     ConversationLog? capture = null,
-    IWorkspaceArtifactProviderRegistry? artifactProviders = null)
+    IWorkspaceArtifactProviderRegistry? artifactProviders = null,
+    ConversationRedactor? workspaceNames = null,
+    Func<string>? locale = null,
+    HexIDE.IDE.ISettingsService? settings = null,
+    Func<string, ShowDocumentParams, CancellationToken, Task<bool>>? showDocument = null,
+    Func<string, ShowMessageRequestParams, CancellationToken, Task<MessageActionItem?>>? showMessageRequest = null,
+    Func<WorkspaceEdit, Func<string, RenameDocumentSnapshot?>, CancellationToken, Task<string?>>? applyEdit = null)
 {
     /// <summary>
     /// The registrations for these entries, skipping the ones that are switched off.
@@ -63,7 +70,11 @@ public sealed class LanguageServerRegistrationFactory(
                     trace: trace,
                     // The id, not the language: two servers can serve one language, and a record that
                     // could not tell them apart would be worse than no record.
-                    capture: capture, connectionId: id),
+                    capture: capture, connectionId: id, workspaceNames: workspaceNames, locale: locale, settings: settings, showDocument: showDocument is null ? null :
+                        (request, token) => showDocument(string.IsNullOrWhiteSpace(entry.DisplayName) ? id : entry.DisplayName, request, token),
+                    showMessageRequest: showMessageRequest is null ? null :
+                        (request, token) => showMessageRequest(string.IsNullOrWhiteSpace(entry.DisplayName) ? id : entry.DisplayName, request, token),
+                    applyEdit: applyEdit),
                 Priority: entry.Priority ?? 0,
                 Transport: transport.Kind,
                 Endpoint: transport.Endpoint,
@@ -74,7 +85,9 @@ public sealed class LanguageServerRegistrationFactory(
                 WorkspaceArtifact: WorkspaceArtifactSpecReader.TryRead(
                     id, entry.WorkspaceArtifact, artifactProviders, out var artifact, out _)
                         ? artifact
-                        : null));
+                        : null,
+                WorkspaceArtifactRefused: entry.WorkspaceArtifact is not null && artifact is null,
+                ProjectImport: ProjectImportSpecReader.TryRead(id, entry.ProjectImport, out var import, out _) ? import : null));
         }
 
         return registrations;
@@ -107,10 +120,10 @@ public sealed class LanguageServerRegistrationFactory(
 
         return entry.Transport?.Trim().ToLowerInvariant() switch
         {
-            // The command line as the user wrote it. This is the first thing anyone needs when a server
-            // does not start, and it must be comparable to their own file character for character.
+            // The configured command and arguments are the first thing needed when a server does not
+            // start. Array arguments retain their boundaries in the display.
             "stdio" => new TransportChoice(create, LanguageConnectionTransport.Stdio,
-                string.Join(' ', new[] { entry.Command?.Trim(), entry.Arguments?.Trim() }
+                string.Join(' ', new[] { entry.Command?.Trim(), entry.Arguments?.ToString() }
                     .Where(part => !string.IsNullOrWhiteSpace(part)))),
 
             "websocket" => new TransportChoice(create, LanguageConnectionTransport.WebSocket,
@@ -147,10 +160,11 @@ public sealed class LanguageServerRegistrationFactory(
             ? null
             : new NamedPipeLaunch(
                 entry.Command!.Trim(),
-                entry.Arguments?.Trim() ?? "",
+                entry.Arguments?.Text?.Trim() ?? "",
                 // Empty means "inherit", which for a server whose own file discovery is relative to its
                 // working directory is rarely what anyone wants — but it is the caller's call, not ours.
-                string.IsNullOrWhiteSpace(entry.WorkingDirectory) ? null : entry.WorkingDirectory.Trim());
+                string.IsNullOrWhiteSpace(entry.WorkingDirectory) ? null : entry.WorkingDirectory.Trim(),
+                entry.Arguments?.List, entry.Environment);
 
     private Func<ILspTransport>? TransportFactoryFor(LanguageServerEntry entry) =>
         entry.Transport?.Trim().ToLowerInvariant() switch
@@ -158,11 +172,12 @@ public sealed class LanguageServerRegistrationFactory(
             "stdio" when !string.IsNullOrWhiteSpace(entry.Command) => () => new StdioProcessLspTransport(
                 new LspServerInfo(
                     entry.Command!.Trim(),
-                    entry.Arguments?.Trim() ?? "",
+                    entry.Arguments?.Text?.Trim() ?? "",
                     // Empty, not the current directory: the transport then asks the workspace, so a server
                     // launched lazily runs in whatever project is open by then rather than wherever the IDE
                     // happened to start.
-                    entry.WorkingDirectory?.Trim() ?? ""),
+                    entry.WorkingDirectory?.Trim() ?? "",
+                    entry.Arguments?.List, entry.Environment),
                 loggerFactory.CreateLogger<StdioProcessLspTransport>(),
                 workspace,
                 serverId: entry.Id),

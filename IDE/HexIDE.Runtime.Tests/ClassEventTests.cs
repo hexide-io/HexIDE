@@ -6,7 +6,7 @@ namespace HexIDE.Runtime.Tests;
 /// Interpreter-advanced Phase 5 — custom events (<c>Event</c> / <c>RaiseEvent</c> / <c>WithEvents</c>). A source
 /// class raises events; a listener class with a <c>WithEvents</c> field handles them via <c>{var}_{event}</c>,
 /// synchronously, with ByRef write-back. VB6 events are multicast (a per-source observer list, attach order).
-/// Every expectation is pinned against <c>vb6.exe</c> (docs/vb6-fidelity-oracle.md "Custom events").
+/// Every expectation is pinned against <c>vb6.exe</c> (docs/vb6-fidelity-oracle/custom-events--event--raiseevent--withevents.md "Custom events").
 /// </summary>
 public class ClassEventTests : BaseVBTestFixture
 {

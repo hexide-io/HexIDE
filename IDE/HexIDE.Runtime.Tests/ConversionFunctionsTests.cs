@@ -66,7 +66,7 @@ public class ConversionFunctionsTests : BaseVBTestFixture
     public async Task CDate_ParsesStringAndSerial()
     {
         await Run("Debug.Print CDate(\"1/1/2000\")\nDebug.Print CDate(36526)\n");
-        AssertDebugLog([new Vb6Value(new DateTime(2000, 1, 1)), new Vb6Value(new DateTime(2000, 1, 1))]);
+        AssertDebugLog([new Vb6Value(VbDate.FromDateTime(new DateTime(2000, 1, 1))), new Vb6Value(VbDate.FromDateTime(new DateTime(2000, 1, 1)))]);
     }
 
     [Theory]

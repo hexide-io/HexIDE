@@ -18,7 +18,7 @@ namespace HexIDE.Integration.Tests.Views;
 /// <summary>
 /// A control's Move, and a form's ScaleWidth and ScaleHeight (#1071), which the Battleship demo's board needs to lay out
 /// its grid and fit itself round it. Every expected line is what vb6.exe printed for the same statements: the probe and
-/// its log are in docs/vb6-fidelity-oracle.md, "Move, ScaleWidth and ScaleHeight".
+/// its log are in docs/vb6-fidelity-oracle/move-scalewidth-and-scaleheight.md, "Move, ScaleWidth and ScaleHeight".
 /// </summary>
 public sealed class MoveAndScaleSizeTests : IDisposable
 {
@@ -135,7 +135,7 @@ public sealed class MoveAndScaleSizeTests : IDisposable
         }
     }
 
-    // The probe in docs/vb6-fidelity-oracle.md, "Menus at run time, and the menu bar": a Fixed Single form with a Game
+    // The probe in docs/vb6-fidelity-oracle/menus-at-run-time-and-the-menu-bar.md, "Menus at run time, and the menu bar": a Fixed Single form with a Game
     // menu, and a Label along the bottom of its client area.
     private const string MenuForm = """
         VERSION 5.00

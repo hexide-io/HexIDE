@@ -33,6 +33,17 @@ public class LanguageServersToolViewModelTests : IAsyncDisposable
         GC.SuppressFinalize(this);
     }
 
+    [Fact]
+    public async Task ServerOutputReceivedBeforeOpeningSurvivesProtocolClear()
+    {
+        _capture.Output.Append("probe", "stderr", "startup");
+        await _capture.ClearAsync("probe");
+        var (vm, _) = Sut(Conn("probe", "vb6"));
+        vm.Groups.Single().Rows.Single().OutputText.Should().Contain("startup");
+        var (reopened, _) = Sut(Conn("probe", "vb6"));
+        reopened.Groups.Single().Rows.Single().OutputText.Should().Contain("startup");
+    }
+
     private const string FullCapabilities =
         """{"textDocumentSync":{"openClose":true,"change":1},"hoverProvider":true}""";
 
@@ -61,6 +72,33 @@ public class LanguageServersToolViewModelTests : IAsyncDisposable
         registry.Connections.Returns(connections);
         registry.ConfigurationProblems.Returns([]);
         return (new LanguageServersToolViewModel(registry, Loc(), _capture, _events, _pseudonyms), registry);
+    }
+
+    [AvaloniaFact]
+    public void StageElapsedUnitFollowsLiveLanguageSwitch()
+    {
+        var localization = new LocalizationService();
+        localization.Apply("en");
+        var connection = Conn("bundled", "vb6") with
+        {
+            Attempt = new LanguageConnectionAttempt(LanguageConnectionStage.Initialized,
+                [new LanguageConnectionStep(LanguageConnectionStage.Initialized,
+                    LanguageConnectionStepOutcome.Reached, TimeSpan.FromMilliseconds(600), null)],
+                DateTimeOffset.UtcNow),
+        };
+        var registry = Substitute.For<ILanguageConnectionRegistry>();
+        registry.Connections.Returns([connection]);
+        registry.ConfigurationProblems.Returns([]);
+        var vm = new LanguageServersToolViewModel(registry, localization, _capture, _events, _pseudonyms);
+        var row = vm.Groups.Single().Rows.Single();
+        var changed = new List<string?>();
+        row.PropertyChanged += (_, e) => changed.Add(e.PropertyName);
+        row.Chain.Single().Elapsed.Should().Be("600 ms");
+
+        localization.Apply("bg");
+
+        changed.Should().Contain(nameof(row.Chain));
+        row.Chain.Single().Elapsed.Should().Be("600 мс");
     }
 
     [Fact]
@@ -208,6 +246,63 @@ public class LanguageServersToolViewModelTests : IAsyncDisposable
         // The pipe name does not. It is user-authored launch configuration, the same category as a command
         // line, and this text exists to be sent to a stranger.
         report.Should().NotContain("vba-lsp.pipe (connect)");
+    }
+
+    [Fact]
+    public void ReportRedactsFailureDetailsAndConfigurationProblems()
+    {
+        const string Path = "C:/Fixtures/private-work/runtime/fake.dll";
+        var connection = Conn("broken", "vb6") with
+        {
+            Attempt = new LanguageConnectionAttempt(LanguageConnectionStage.Connecting,
+                [new LanguageConnectionStep(LanguageConnectionStage.Connecting,
+                    LanguageConnectionStepOutcome.StoppedHere, TimeSpan.Zero,
+                    $"could not start '{Path}'")], DateTimeOffset.UtcNow),
+        };
+        var registry = Substitute.For<ILanguageConnectionRegistry>();
+        registry.Connections.Returns([connection]);
+        registry.ConfigurationProblems.Returns([
+            new LanguageServerConfigProblem("broken", $"unseen command: '{Path}'", true),
+        ]);
+        var vm = new LanguageServersToolViewModel(registry, Loc(), _capture, _events, _pseudonyms);
+        var redactor = new ConversationRedactor(_pseudonyms);
+        var expected = redactor.LocalPath(Path);
+
+        var report = vm.ToReportText(redactor);
+
+        report.Should().NotContain("private-work");
+        report.Should().Contain($"could not start '{expected}'")
+            .And.Contain($"unseen command: '{expected}'");
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void ReportUsesTheWorkspaceRootBeforeMatchingUnquotedProse(bool fromProject)
+    {
+        const string Root = "C:/Fixtures/Private Account/My Workspace";
+        var connection = Conn("broken", "vb6") with
+        {
+            WorkspaceRootUri = fromProject ? null : "file:///C:/Fixtures/Private%20Account/My%20Workspace",
+            Attempt = new LanguageConnectionAttempt(LanguageConnectionStage.Connecting,
+                [new LanguageConnectionStep(LanguageConnectionStage.Connecting,
+                    LanguageConnectionStepOutcome.StoppedHere, TimeSpan.Zero,
+                    $"runtime not found at {Root}/runtime/fake.dll")], DateTimeOffset.UtcNow),
+        };
+        var registry = Substitute.For<ILanguageConnectionRegistry>();
+        registry.Connections.Returns([connection]);
+        registry.ConfigurationProblems.Returns([
+            new LanguageServerConfigProblem("broken", $"unseen command: {Root}/server.exe", true),
+        ]);
+        var projects = Substitute.For<HexIDE.IDE.IProjectManager>();
+        projects.LoadedProjects.Returns(fromProject
+            ? [new HexIDE.Runtime.ProjectElements.ProjectDefinition(HexIDE.Runtime.ProjectElements.VBProjectType.EXE, "Example")
+                { WorkingDirectory = Root }]
+            : []);
+        var vm = new LanguageServersToolViewModel(registry, Loc(), _capture, _events, _pseudonyms, projects);
+
+        vm.ReportText.Should().Contain("<workspace>").And.NotContain("Private")
+            .And.NotContain("Account").And.NotContain("Workspace");
     }
 
     // ── Arming ───────────────────────────────────────────────────────────────

@@ -1,0 +1,9 @@
+Type=Exe
+Object={831FDD16-0C5C-11D2-A9FC-0000F8754DA1}#2.0#0; MSCOMCTL.OCX
+Form=Form1.frm
+Form=Form2.frm
+Form=Form3.frm
+Form=Form4.frm
+Form=Form5.frm
+Startup="Form1"
+Name="P1082esix"

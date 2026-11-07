@@ -2,6 +2,11 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
+using System.IO;
+using System.Threading.Tasks;
+using Avalonia.Platform.Storage;
+using CommunityToolkit.Mvvm.Input;
+using HexIDE.Runtime.Serialization;
 using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Data;
@@ -37,7 +42,7 @@ public partial class PropertiesToolViewModel : Tool
         localization.GetPropertyDescription(propertyClass.Name) ?? propertyClass.Description;
 
     /// <summary>Localized property-grid category header (key <c>Str.PropCategory.{category}</c>),
-    /// falling back to the English enum name. Refreshes on next selection (like descriptions).</summary>
+    /// falling back to the English enum name.</summary>
     internal string ResolveCategoryHeader(PropertyCategory category)
     {
         var key = $"Str.PropCategory.{category}";
@@ -74,6 +79,13 @@ public partial class PropertiesToolViewModel : Tool
         this.windowManager = windowManager;
         this.localization = localization;
         localization.BindTitle(this, "Str.Tool.Properties.Title");
+        localization.LanguageChanged += () =>
+        {
+            foreach (var property in Properties)
+                property.RefreshDescription();
+            foreach (var category in CategorizedProperties.OfType<PropertyCategoryViewModel>())
+                category.RefreshHeader();
+        };
         CanPin = false;
         CanClose = true;
 
@@ -241,6 +253,102 @@ public partial class PropertiesToolViewModel : Tool
         }
     }
 
+    internal static bool IsPicture(PropertyClass property) =>
+        property == VBProperties.PictureProperty || property == VBProperties.IconProperty
+        || property == VBProperties.MouseIconProperty || property == VBProperties.DragIconProperty;
+
+    internal async Task LoadPictureAsync(PropertyClass property)
+    {
+        if (!IsPicture(property) || currentDocument is not { } document
+            || document.SelectedComponent is not { } component) return;
+        string? path = null;
+        try
+        {
+            var paths = await windowManager.OpenFilePickerAsync(new FilePickerOpenOptions
+            {
+                Title = localization.GetString("Str.Tool.Properties.LoadPicture"),
+                AllowMultiple = false,
+            });
+            if (paths == null || paths.Count == 0) return;
+            path = paths[0];
+            var bytes = await File.ReadAllBytesAsync(path);
+            var payload = FrxImageHelper.PicturePayload(bytes) ?? bytes;
+            using var bitmap = FrxImageHelper.TryDecodeToAvaloniaBitmap(payload);
+            if (bitmap == null) throw new InvalidDataException();
+
+            // The framing is measured in docs/vb6-fidelity-oracle/serialization--file-format-fidelity.md.
+            using var stream = new MemoryStream();
+            using var writer = new BinaryWriter(stream);
+            writer.Write(payload.Length + 8);
+            writer.Write(0x746c);
+            writer.Write(payload.Length);
+            writer.Write(payload);
+            var record = stream.ToArray();
+            var instance = component.Instance;
+            var before = instance.GetBoxedPropertyOrDefault(property);
+            instance.SetUntypedProperty(property, record);
+            document.PushSetPropertyCommand(instance, property, before, record);
+        }
+        catch (NotImplementedException e)
+        {
+            await windowManager.MessageBox(string.Format(localization.GetString("Str.ProjectRunner.NotImplementedYet"),
+                e.Message), icon: MessageBoxIcon.Error);
+        }
+        catch (Exception)
+        {
+            await windowManager.MessageBox(string.Format(localization.GetString("Str.Tool.Properties.LoadPictureFailed"),
+                path), icon: MessageBoxIcon.Error);
+        }
+    }
+
+    internal static byte[]? ExportablePicture(PropertyClass property, object? value) =>
+        property == VBProperties.PictureProperty || property == VBProperties.IconProperty
+        || property == VBProperties.MouseIconProperty || property == VBProperties.DragIconProperty
+            ? FrxImageHelper.PicturePayload(value as byte[]) : null;
+
+    internal async Task ExportPictureAsync(PropertyClass property, object? value)
+    {
+        if (ExportablePicture(property, value) is not { } payload) return;
+        try
+        {
+            var extension = FrxImageHelper.DetectKind(payload) switch
+            {
+                FrxImageHelper.FrxBlobKind.Bitmap => "bmp",
+                FrxImageHelper.FrxBlobKind.Icon => "ico",
+                FrxImageHelper.FrxBlobKind.Cursor => "cur",
+                _ => "bin",
+            };
+            var path = await windowManager.SaveFilePickerAsync(new FilePickerSaveOptions
+            {
+                Title = localization.GetString("Str.Tool.Properties.ExportPicture"),
+                SuggestedFileName = property.Name + "." + extension,
+                ShowOverwritePrompt = false,
+                DefaultExtension = extension,
+            });
+            if (path == null) return;
+            var existing = File.Exists(path);
+            if (existing && await windowManager.MessageBox(
+                    string.Format(localization.GetString("Str.Tool.Properties.ReplacePicture"), path),
+                    localization.GetString("Str.Tool.Properties.ExportPictureTitle"),
+                    MessageBoxButtons.YesNo, MessageBoxIcon.Warning) != MessageBoxResult.Yes)
+                return;
+
+            if (existing) AtomicFileWriter.WriteAllBytes(path, payload);
+            else
+            {
+                // A file arriving after the check was not included in the user's consent.
+                using var stream = new FileStream(path, FileMode.CreateNew, FileAccess.Write, FileShare.None);
+                stream.Write(payload);
+                stream.Flush(flushToDisk: true);
+            }
+        }
+        catch (Exception e)
+        {
+            await windowManager.MessageBox(string.Format(localization.GetString("Str.Tool.ProtocolInspector.ExportFailed"),
+                e.Message), icon: MessageBoxIcon.Error);
+        }
+    }
+
     public void UpdateValue(PropertyClass propertyClass, object? value)
     {
         if (currentModule != null && propertyClass == VBProperties.NameProperty)
@@ -341,7 +449,6 @@ public partial class PropertyCategoryViewModel : BasePropertyViewModel
     {
         this.parent = parent;
         this.category = category;
-        Header = parent.ResolveCategoryHeader(category);
     }
 
     private void OnIsExpandedChanged()
@@ -353,7 +460,15 @@ public partial class PropertyCategoryViewModel : BasePropertyViewModel
         }
     }
 
-    public string Header { get; }
+    public string Header => parent.ResolveCategoryHeader(category);
+
+    internal void RefreshHeader()
+    {
+        OnPropertyChanged(nameof(Header));
+        OnPropertyChanged(nameof(AccessibleName));
+    }
+
+    internal PropertyCategory Category => category;
 
     public override string AccessibleName => Header;
 }
@@ -370,25 +485,40 @@ public partial class PropertyViewModel : BasePropertyViewModel
         PropertyClass = propertyClass;
         Name = propertyClass.Name;
         this.value = value;
-        Description = parent.ResolvePropertyDescription(propertyClass);
+        LoadPictureCommand = new AsyncRelayCommand(() => parent.LoadPictureAsync(PropertyClass));
+        ExportPictureCommand = new AsyncRelayCommand(() => parent.ExportPictureAsync(PropertyClass, Value), () => CanExportPicture);
     }
 
     public void OnValueChanged()
     {
         parent.UpdateValue(PropertyClass, Value);
+        OnPropertyChanged(nameof(CanExportPicture));
+        ExportPictureCommand.NotifyCanExecuteChanged();
         OnPropertyChanged(nameof(Value));
     }
+
+    public bool CanLoadPicture => PropertiesToolViewModel.IsPicture(PropertyClass);
+
+    public IAsyncRelayCommand LoadPictureCommand { get; }
+
+    public bool CanExportPicture => PropertiesToolViewModel.ExportablePicture(PropertyClass, Value) != null;
+
+    public IAsyncRelayCommand ExportPictureCommand { get; }
 
     public string Name { get; }
 
     public override string AccessibleName => Name;
     [Notify] private object? value;
-    public string Description { get; }
+    public string Description => parent.ResolvePropertyDescription(PropertyClass);
+
+    internal void RefreshDescription() => OnPropertyChanged(nameof(Description));
     public PropertyClass PropertyClass { get; }
 
     public void UpdateValueNoRaise(object? newValue)
     {
         this.value = newValue;
         OnPropertyChanged(nameof(Value));
+        OnPropertyChanged(nameof(CanExportPicture));
+        ExportPictureCommand.NotifyCanExecuteChanged();
     }
 }

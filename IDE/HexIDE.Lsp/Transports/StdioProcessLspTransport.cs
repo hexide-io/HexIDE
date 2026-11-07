@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using HexIDE.Processes;
 using Microsoft.Extensions.Logging;
 using StreamJsonRpc;
 
@@ -26,6 +27,13 @@ public sealed class StdioProcessLspTransport : ILspTransport
     private readonly ILogger<StdioProcessLspTransport> _logger;
     private readonly ILspWorkspace? _workspace;
     private Process? _process;
+    private ChildProcessJob? _job;
+    private readonly Lock _exitGate = new();
+    private bool _exitReported;
+    private volatile bool _shutdownCompleted;
+    private volatile bool _endedAfterShutdown;
+
+    private bool _disposing;
 
     /// <param name="serverInfo">
     /// What to launch. Resolving this — and deciding what to do when it cannot be resolved — belongs to
@@ -48,7 +56,18 @@ public sealed class StdioProcessLspTransport : ILspTransport
         _workspace = workspace;
     }
 
+    // Test seam for ordering process exit against the native job assignment (#2752).
+    internal Action<ChildProcessJob, Process> AssignProcessToJob { get; set; } = (job, process) => job.Assign(process);
+
+    // Test seam for checking exit-lock ownership and flag publication at termination (#3217).
+    internal Action<Process> KillProcess { get; set; } = LaunchedServerGuard.Kill;
+
     public bool IsAlive => _process is { HasExited: false };
+
+    public void ShutdownCompleted()
+    {
+        _shutdownCompleted = true;
+    }
 
     // A spawned subprocess is one-shot: a crash does not auto-respawn (preserves desktop behaviour).
     /// <summary>Why the last connect attempt failed, in this transport's words. See ILspTransport.</summary>
@@ -71,12 +90,13 @@ public sealed class StdioProcessLspTransport : ILspTransport
     {
         var serverInfo = _serverInfo;
 
-        // The server is launched directly. There used to be an interposed debug proxy here, reached by
+        // There used to be an interposed debug proxy here, reached by
         // setting VB6_LSP_DEBUG_PROXY=1, which relaunched the server underneath a byte-forwarding process
         // that logged every frame to its own stderr. The protocol inspector reads the same traffic from
         // inside this client and reads strictly more of it — see docs/lsp-client.md.
         string fileName = serverInfo.FileName;
         string arguments = serverInfo.Arguments;
+        var argumentList = serverInfo.ArgumentList?.ToList();
 
         if (!OperatingSystem.IsWindows())
         {
@@ -112,6 +132,7 @@ public sealed class StdioProcessLspTransport : ILspTransport
                 if (File.Exists(dll))
                 {
                     arguments = string.IsNullOrEmpty(serverInfo.Arguments) ? $"\"{dll}\"" : $"\"{dll}\" {serverInfo.Arguments}";
+                    if (argumentList is not null) argumentList.Insert(0, dll);
                     fileName = "dotnet";
                 }
                 else
@@ -126,7 +147,7 @@ public sealed class StdioProcessLspTransport : ILspTransport
             StartInfo = new ProcessStartInfo
             {
                 FileName = fileName,
-                Arguments = arguments,
+                Arguments = argumentList is null ? arguments : "",
                 WorkingDirectory = WorkingDirectory(),
                 UseShellExecute = false,
                 RedirectStandardInput = true,
@@ -136,6 +157,11 @@ public sealed class StdioProcessLspTransport : ILspTransport
             },
             EnableRaisingEvents = true
         };
+
+        if (argumentList is not null)
+            foreach (var argument in argumentList) _process.StartInfo.ArgumentList.Add(argument);
+        if (serverInfo.Environment is not null)
+            foreach (var (key, value) in serverInfo.Environment) _process.StartInfo.Environment[key] = value;
 
         _process.ErrorDataReceived += (_, e) =>
         {
@@ -167,7 +193,19 @@ public sealed class StdioProcessLspTransport : ILspTransport
 
         try
         {
+            _job = new ChildProcessJob();
+            LaunchedServerGuard.Wrap(_process.StartInfo);
             _process.Start();
+            LaunchedServerGuard.NoteStarted(_process);
+            try
+            {
+                AssignProcessToJob(_job, _process);
+            }
+            catch (Exception ex) when (ex is Win32Exception or InvalidOperationException && _process.HasExited)
+            {
+                // A fast exit can beat Windows job assignment. It still started: drain stderr and
+                // retain the exit code instead of turning the assignment error into a launch failure.
+            }
             _process.BeginErrorReadLine();
         }
         catch (Exception ex)
@@ -191,6 +229,10 @@ public sealed class StdioProcessLspTransport : ILspTransport
             LastFailure =
                 $"could not start '{fileName}' (cwd: {(string.IsNullOrEmpty(cwd) ? "<inherited>" : cwd)}): {ex.Message}";
             _process.Exited -= OnProcessExited;
+            try { LaunchedServerGuard.Kill(_process); } catch { /* not started, or already gone */ }
+            _job?.Dispose();
+            _job = null;
+            try { _process.WaitForExit(2000); } catch { /* not started, or already gone */ }
             _process.Dispose();
             _process = null;
             return Task.FromResult<IJsonRpcMessageHandler?>(null);
@@ -232,11 +274,23 @@ public sealed class StdioProcessLspTransport : ILspTransport
 
     private void OnProcessExited(object? sender, EventArgs e)
     {
-        // Read before anything else touches the process: Kill() and Dispose() are both moments after this,
-        // and ExitCode throws once the handle is gone.
         var code = ExitCode();
+        bool disposing;
+        lock (_exitGate)
+        {
+            ReportExit(code);
+            disposing = _disposing;
+        }
+        if (!disposing) Closed?.Invoke(this, EventArgs.Empty);
+    }
 
-        _logger.LogWarning("[{Server}] Language server process exited{Code}", _serverId, code is null ? "" : $" with code {code}");
+    private void ReportExit(int? code)
+    {
+        if (_exitReported) return;
+        _exitReported = true;
+        if (_endedAfterShutdown) return;
+        _logger.Log(_disposing ? LogLevel.Information : LogLevel.Warning,
+            "[{Server}] Language server process exited{Code}", _serverId, code is null ? "" : $" with code {code}");
 
         // BEFORE Closed, which is what tears the connection down. An exit code that arrived after the
         // record had stopped accepting entries would be the one fact nobody could see.
@@ -244,15 +298,13 @@ public sealed class StdioProcessLspTransport : ILspTransport
             TransportNoticeKind.Lifecycle,
             code is null ? "process exited" : $"process exited with code {code}",
             Fault: code is not (null or 0)));
-
-        Closed?.Invoke(this, EventArgs.Empty);
     }
 
     /// <summary>
     /// The exit code, or null when the process cannot tell us.
     /// </summary>
     /// <remarks>
-    /// LSP gives an exit code a meaning — 0 when a shutdown preceded exit and 1 otherwise — which is how
+    /// LSP specifies 0 after shutdown and 1 otherwise; measured ruff returns 2 on refusal (#491). This is how
     /// hexide-io/HexIDE#312 was found. Nothing in the LSP client read one before this: the only thing in
     /// the tree that ever did was the debug proxy, which logged it to its own stderr and was removed in
     /// the same change that added this. It is wrapped because reading it races teardown: a disposed or
@@ -265,18 +317,55 @@ public sealed class StdioProcessLspTransport : ILspTransport
         catch (Exception) { return null; }
     }
 
-    public ValueTask DisposeAsync()
+    public async ValueTask DisposeAsync()
     {
-        if (_process is not null)
+        var process = _process;
+        if (process is null) return;
+
+        lock (_exitGate) _disposing = true;
+        // Give a server that received exit time to finish before terminating a wedged wrapper and its children.
+        try
         {
-            _process.Exited -= OnProcessExited;
-            try { _process.Kill(); } catch { /* already gone */ }
-            // Kill requests termination; wait for it before releasing the process handle (#392).
-            try { _process.WaitForExit(2000); } catch { /* already gone */ }
-            _process.Dispose();
+            await process.WaitForExitAsync().WaitAsync(LaunchedServerGuard.ExitTimeout);
+        }
+        catch (TimeoutException)
+        {
+            try
+            {
+                if (!process.HasExited)
+                {
+                    // Publish before Kill: the exit callback must see this without waiting on its gate.
+                    _endedAfterShutdown = _shutdownCompleted;
+                    KillProcess(process);
+                    if (_endedAfterShutdown)
+                    {
+                        var detail = $"stopped after shutdown; still exiting after {LaunchedServerGuard.ExitTimeout.TotalSeconds:g} s, so ended";
+                        Notice?.Invoke(this, new TransportNotice(TransportNoticeKind.Lifecycle, detail));
+                        _logger.LogInformation("[{Server}] {Detail}", _serverId, detail);
+                    }
+                    if (!_endedAfterShutdown)
+                    {
+                        _logger.LogInformation("[{Server}] Language server process killed after waiting {Timeout:g} for exit.",
+                            _serverId, LaunchedServerGuard.ExitTimeout);
+                        NoteChannel("process killed after waiting for exit");
+                    }
+                }
+            }
+            catch { /* already gone */ }
+            try { await process.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(2)); } catch { /* best effort */ }
+        }
+        // Process queries can wait on Windows; never hold the exit callback's gate over them.
+        var hasExited = process.HasExited;
+        var code = ExitCode();
+        lock (_exitGate)
+        {
+            if (hasExited) ReportExit(code);
             _process = null;
         }
+        process.Exited -= OnProcessExited;
+        process.Dispose();
 
-        return ValueTask.CompletedTask;
+        _job?.Dispose();
+        _job = null;
     }
 }

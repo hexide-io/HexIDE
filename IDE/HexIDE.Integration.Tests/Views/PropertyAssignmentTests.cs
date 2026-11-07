@@ -17,7 +17,7 @@ namespace HexIDE.Integration.Tests.Views;
 ///
 /// <para>
 /// The expectations are <c>vb6.exe</c> output, recorded under <i>Assigning to a control property</i> in
-/// <c>docs/vb6-fidelity-oracle.md</c>: a real form, each assignment under <c>On Error Resume Next</c>, the value
+/// <c>docs/vb6-fidelity-oracle/assigning-to-a-control-property.md</c>: a real form, each assignment under <c>On Error Resume Next</c>, the value
 /// read back and <c>Err.Number</c> logged. Each case resets the property first, so a refused assignment shows as
 /// the reset value unchanged. The oracle machine is en-GB, and every case runs in that locale.
 /// </para>
@@ -618,9 +618,22 @@ public class PropertyAssignmentTests
     }
 
     [AvaloniaTheory]
-    [InlineData("Dim c\r\nc = Timer1.BackColor")]
     [InlineData("Dim c\r\nc = HScroll1.ForeColor")]
+    [InlineData("Dim c\r\nc = HScroll1.BackColor")]
+    [InlineData("HScroll1.ForeColor = vbRed")]
+    [InlineData("HScroll1.BackColor = vbRed")]
     public async Task A_colour_on_a_control_VB6_gives_none_is_refused_rather_than_read_as_black(string code)
+    {
+        (await Refusal(code)).Should().Contain("#801");
+    }
+
+    [AvaloniaTheory]
+    [InlineData("Dim v\nv = Timer1.ForeColor")]
+    [InlineData("Timer1.Parent = 5")]
+    [InlineData("Dim p As Object\nSet p = Timer1.Parent")]
+    [InlineData("Set Timer1.Parent = Nothing")]
+    [InlineData("Dim o As Object\nSet o = Timer1\nSet o.Parent = Nothing")]
+    public async Task Unmeasured_Timer_members_refuse_explicitly(string code)
     {
         (await Refusal(code)).Should().Contain("#801");
     }

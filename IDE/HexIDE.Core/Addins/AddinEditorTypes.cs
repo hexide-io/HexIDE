@@ -12,6 +12,7 @@ public enum AddinDiagnosticSeverity { Error = 1, Warning = 2, Information = 3, H
 /// change: <c>TrySetContent</c> takes this text back with the header unchanged, or the code alone, and refuses a
 /// header that differs. A member's <c>Attribute</c> lines, the run under its declaration, are the IDE's too:
 /// <c>TryApplyEdits</c> refuses edits to them and sets of edits that add, extend or orphan a described run.
+/// An empty range edit deleting a declaration's text also removes its Attribute run.
 /// <c>TrySetContent</c> refuses a replacement that changes, adds or drops them, other than by moving or renaming them with their member or deleting them with its declaration,
 /// and names the member (hexide-io/HexIDE#273 task 4.5b). Before hexide-io/HexIDE#273 this was the code alone,
 /// starting at the form's <c>Attribute</c> lines or after the class's header. A form created in this session and
@@ -106,7 +107,12 @@ public record AddinDiagnosticsResult(IReadOnlyList<AddinDiagnostic> Diagnostics,
     public bool Refused => Reason is not null;
 }
 
-public record AddinProjectInfo(string ProjectName, string ProjectPath, IReadOnlyList<AddinFileInfo> Files);
+/// <param name="StartupObject">
+/// What the project starts at, as the .vbp's <c>Startup</c> says it: <c>"Sub Main"</c>, a form's name, or null for
+/// neither. Trailing and optional, so an add-in built against the shorter record still runs.
+/// </param>
+public record AddinProjectInfo(string ProjectName, string ProjectPath, IReadOnlyList<AddinFileInfo> Files,
+    string? StartupObject = null);
 
 /// <remarks>
 /// <b><c>Code</c> and <c>Source</c> are trailing and optional deliberately.</b> This type is built by the

@@ -29,6 +29,12 @@ internal sealed class AddinRegistry : IAddinRegistry, IAddinLoader
     private readonly HashSet<string> _disabled;
     private IHexIdeHost? _host;
     private bool _disposed;
+    private readonly object _serverTrustGate = new();
+    private readonly HashSet<string> _revokedConsent = new(StringComparer.Ordinal);
+    // What each add-in contributed that is taken out when it is disabled or its consent is revoked: its language servers,
+    // debug launches and project types.
+    private readonly Dictionary<string, List<IDisposable>> _contributions = new(StringComparer.OrdinalIgnoreCase);
+    private readonly bool _recoveryMode = Static.IsRecoveryMode;
 
     private static readonly JsonSerializerOptions s_jsonOptions = new() { WriteIndented = true };
 
@@ -59,13 +65,15 @@ internal sealed class AddinRegistry : IAddinRegistry, IAddinLoader
         _revocations = revocations;
         _stateFilePath = stateFilePath;
         _addinsDirectory = addinsDirectory;
-        _disabled = LoadDisabledSet();
+        _disabled = _recoveryMode ? new HashSet<string>(StringComparer.OrdinalIgnoreCase) : LoadDisabledSet();
     }
 
     // ── IAddinLoader ─────────────────────────────────────────────
 
     public void LoadAll(IHexIdeHost host)
     {
+        if (_recoveryMode)
+            return;
         _host = host;   // retained for the post-window consent pass (late-loading consented add-ins)
 
         var dir = _addinsDirectory;
@@ -130,6 +138,17 @@ internal sealed class AddinRegistry : IAddinRegistry, IAddinLoader
             return;
 
         var info = BuildInfo(packageDir, result);
+
+        if (result.Verdict == PackageVerdict.Incompatible)
+        {
+            var message = string.Format(_localization.GetString("Str.Addins.Incompatible"),
+                result.Manifest!.Schema, result.Manifest.MinHexideVersion ?? "—",
+                AddinManifest.CurrentSchema, PackageVerification.RunningVersion.ToString(3));
+            info = info with { CompatibilityError = message };
+            _contexts.Add(new AddinContext(info) { Status = AddinStatus.Incompatible, ErrorMessage = message, PackageDirectory = packageDir });
+            Log.Warning("AddinRegistry: {Dir} is incompatible ({Reason}) — not loaded", packageDir, result.Error);
+            return;
+        }
 
         if (!result.IsVerified && !allowUnsigned)
         {
@@ -289,8 +308,9 @@ internal sealed class AddinRegistry : IAddinRegistry, IAddinLoader
             if (_disposed)
                 return;   // the IDE was shut down while the consent dialog was open — do not load anything
 
-            _consent.Record(ctx.Info.Id, result.PublisherId ?? "", result.ManifestHash ?? "",
-                allowed ? ConsentDecisions.Allow : ConsentDecisions.Block);
+            lock (_serverTrustGate)
+                _consent.Record(ctx.Info.Id, result.PublisherId ?? "", result.ManifestHash ?? "",
+                    allowed ? ConsentDecisions.Allow : ConsentDecisions.Block);
 
             if (!allowed)
             {
@@ -351,28 +371,93 @@ internal sealed class AddinRegistry : IAddinRegistry, IAddinLoader
 
     public void SetEnabled(string assemblyPath, bool enabled)
     {
-        var norm = Path.GetFullPath(assemblyPath);
-        if (enabled)
-            _disabled.Remove(norm);
-        else
-            _disabled.Add(norm);
+        lock (_serverTrustGate)
+        {
+            var norm = Path.GetFullPath(assemblyPath);
+            if (enabled)
+                _disabled.Remove(norm);
+            else
+                _disabled.Add(norm);
 
-        SaveDisabledSet();
+            if (!enabled)
+                foreach (var addin in _contexts.Where(c => string.Equals(c.Info.AssemblyPath, norm, StringComparison.OrdinalIgnoreCase)))
+                    RemoveContributions(addin.Info.Id);
 
-        var ctx = _contexts.FirstOrDefault(c =>
-            string.Equals(c.Info.AssemblyPath, norm, StringComparison.OrdinalIgnoreCase));
-        if (ctx is not null)
-            ctx.Status = enabled ? AddinStatus.Loaded : AddinStatus.Disabled;
+            SaveDisabledSet();
+
+            var ctx = _contexts.FirstOrDefault(c =>
+                string.Equals(c.Info.AssemblyPath, norm, StringComparison.OrdinalIgnoreCase));
+            if (ctx is not null)
+                ctx.Status = !enabled ? AddinStatus.Disabled
+                    : ctx.Info.CompatibilityError is not null ? AddinStatus.Incompatible : AddinStatus.Loaded;
+        }
     }
 
     public void RevokeConsent(string manifestHash)
     {
-        if (string.IsNullOrEmpty(manifestHash))
-            return;
-        _consent.Revoke(manifestHash);
-        var ctx = _contexts.FirstOrDefault(c => c.Info.ManifestHash == manifestHash);
-        Log.Information("AddinRegistry: consent revoked for {Title} — re-prompts next launch",
-            ctx?.Info.Title ?? manifestHash);
+        lock (_serverTrustGate)
+        {
+            if (_recoveryMode || string.IsNullOrEmpty(manifestHash))
+                return;
+            _revokedConsent.Add(manifestHash);
+            _consent.Revoke(manifestHash);
+            foreach (var addin in _contexts.Where(c => c.Info.ManifestHash == manifestHash))
+                RemoveContributions(addin.Info.Id);
+            var ctx = _contexts.FirstOrDefault(c => c.Info.ManifestHash == manifestHash);
+            Log.Information("AddinRegistry: consent revoked for {Title} — re-prompts next launch",
+                ctx?.Info.Title ?? manifestHash);
+        }
+    }
+
+    internal void CheckLanguageServerLaunch(string id) => CheckLaunch(id, "Str.Addins.ServerLaunchRefused");
+
+    internal void CheckDebugLaunch(string id) => CheckLaunch(id, "Str.Addins.DebugLaunchRefused");
+
+    // Whether an add-in may start what it contributed, now: it is enabled and consented to, and neither it nor its
+    // publisher is revoked. Throws the refusal, naming the add-in, otherwise.
+    private void CheckLaunch(string id, string refusal)
+    {
+        lock (_serverTrustGate)
+        {
+            var ctx = _contexts.FirstOrDefault(c => string.Equals(c.Info.Id, id, StringComparison.OrdinalIgnoreCase));
+            if (ctx is null) return; // Host/test assemblies outside an add-in context retain their existing behaviour.
+            var info = ctx.Info;
+            var chain = info.Chain;
+            if (!_disposed && !_disabled.Contains(ctx.PackageDirectory)
+                && !_revokedConsent.Contains(info.ManifestHash)
+                && (chain?.IsFirstParty == true || _consent.GetDecision(info.ManifestHash) == ConsentDecisions.Allow)
+                && _revocations.IsRevoked(info.ManifestHash, chain?.Publisher.Id, chain?.Intermediate.Id,
+                    chain?.IsFirstParty == true) is null)
+                return;
+
+            var title = string.IsNullOrWhiteSpace(info.Title) ? info.Id : info.Title;
+            throw new InvalidOperationException(string.Format(_localization.GetString(refusal), title));
+        }
+    }
+
+    // Keeps what an add-in contributed, to take out when it is disabled or its consent is revoked; taken out at once when
+    // it is already.
+    internal void TrackContribution(string id, IDisposable contribution)
+    {
+        lock (_serverTrustGate)
+        {
+            var ctx = _contexts.FirstOrDefault(c => string.Equals(c.Info.Id, id, StringComparison.OrdinalIgnoreCase));
+            if (_disposed || ctx is not null && (_disabled.Contains(ctx.PackageDirectory)
+                || _revokedConsent.Contains(ctx.Info.ManifestHash)))
+            {
+                contribution.Dispose();
+                return;
+            }
+            if (!_contributions.TryGetValue(id, out var contributions))
+                _contributions[id] = contributions = [];
+            contributions.Add(contribution);
+        }
+    }
+
+    private void RemoveContributions(string id)
+    {
+        if (!_contributions.Remove(id, out var contributions)) return;
+        foreach (var contribution in contributions) contribution.Dispose();
     }
 
     // ── Metadata helpers ─────────────────────────────────────────
@@ -381,7 +466,7 @@ internal sealed class AddinRegistry : IAddinRegistry, IAddinLoader
         result.Manifest is { } m
             ? new AddinInfo(packageDir, m.Title, m.Description, m.Version, m.Author,
                             result.PublisherDisplayName ?? "", m.Id, result.ManifestHash ?? "",
-                            result.LogoPath, result.Chain)
+                            result.LogoPath, result.Chain) { VerifiedDeclaration = result.VerifiedDeclaration }
             : ShallowInfo(packageDir);
 
     private static AddinInfo ShallowInfo(string packageDir) =>
@@ -416,6 +501,7 @@ internal sealed class AddinRegistry : IAddinRegistry, IAddinLoader
 
     private void SaveDisabledSet()
     {
+        if (_recoveryMode) return;
         try
         {
             var data = new AddinStateData { Disabled = [.. _disabled] };

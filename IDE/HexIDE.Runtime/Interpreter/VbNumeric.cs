@@ -260,6 +260,8 @@ public static class VbNumeric
                 throw new VBRunTimeException(ctx, VBStandardError.TypeMismatch);
             return new Vb6Value(-d);
         }
+        if (v.Type == VT.Currency)
+            return MakeCurrency(-ToDecimal(v), ctx);   // -1@ remains Currency (#1073)
         var rt = rank <= 1 ? VT.Integer : CoreType(rank);   // Byte/Boolean negate into Integer
         if (rt == VT.Integer || rt == VT.Long)
             return NarrowLong(-ToLong(v), rt, ctx, v.HasFixedType);
@@ -300,7 +302,7 @@ public static class VbNumeric
     /// a Long 3 and `TypeName(l)` is "Long", where a Variant would hold an Integer.
     ///
     /// <para>
-    /// Every rule here is vb6.exe output (see <i>Coercion-on-store</i> in docs/vb6-fidelity-oracle.md):
+    /// Every rule here is vb6.exe output (see <i>Coercion-on-store</i> in docs/vb6-fidelity-oracle/verified-findings.md):
     /// String takes anything (`5` → "5", `True` → "True"); Boolean is CBool (any non-zero is True, "banana"
     /// is Err 13); a numeric target parses a String and raises Err 13 on garbage, rounds half-to-even
     /// (`12.5` → 12, `12.6` → 13) and range-checks (`Dim b As Byte : b = 300` is Err 6); Empty is 0 or "";
@@ -314,6 +316,12 @@ public static class VbNumeric
     /// </summary>
     public static Vb6Value CoerceOnStore(Vb6Value v, VT target, ParserRuleContext? ctx)
     {
+        if (v.Type == VT.Error && (target == VT.Long || target == VT.String))
+            throw new VBRunTimeException(ctx, VBStandardError.TypeMismatch);
+        if (v.Type == VT.Error)
+            throw new NotImplementedException("Assignment of an Error Variant to this declared type is unmeasured (#2520)");
+        if (v.Type == VT.AutomationUnsignedLong)
+            throw new NotImplementedException("Conversion of an unsigned Automation Long is not implemented (#1084)");
         if (v.Type == target)
             return v;
         // A declared scalar slot takes an object's default member (ObjectAsValue).
@@ -336,7 +344,7 @@ public static class VbNumeric
         // string→number rule, Err 13 and all. Routed only for Strings, so the Currency/Decimal paths below
         // keep their decimal precision instead of going through a double.
         if (v.Type == VT.String)
-            return Narrow(new Vb6Value(VB6BuiltIns.ToNum(v)), target, ctx);
+            return Narrow(new Vb6Value(VB6BuiltIns.ToNum(v, allowCurrency: target == VT.Long)), target, ctx);
         return Narrow(v, target, ctx);
     }
 
@@ -407,7 +415,7 @@ public static class VbNumeric
         return Vb6Value.NewCurrency((decimal)units / 10000m);
     }
 
-    private static double SerialOf(Vb6Value v) => v.Value is DateTime dt ? dt.ToOADate() : ToDouble(v);
+    private static double SerialOf(Vb6Value v) => v.Value is VbDate dt ? dt.Serial : ToDouble(v);
 
     /// <summary>
     /// The order of two numbers, a Date by its serial: exactly where neither is a Single or a Double, and as Doubles otherwise.
@@ -425,9 +433,9 @@ public static class VbNumeric
 
     private static bool TryToSerial(Vb6Value v, out double serial)
     {
-        if (v.Value is DateTime dt)
+        if (v.Value is VbDate dt)
         {
-            serial = dt.ToOADate();
+            serial = dt.Serial;
             return true;
         }
         return TryToDouble(v, out serial);
@@ -435,8 +443,9 @@ public static class VbNumeric
 
     private static Vb6Value FromSerial(double serial, ParserRuleContext? ctx)
     {
-        try { return new Vb6Value(DateTime.FromOADate(serial)); }
-        catch (ArgumentException) { throw new VBRunTimeException(ctx, VBStandardError.Overflow); }
+        return VbDate.InRange(serial)
+            ? new Vb6Value(new VbDate(serial))
+            : throw new VBRunTimeException(ctx, VBStandardError.Overflow);
     }
 
     private static decimal ToDecimal(Vb6Value v) => v.Value switch

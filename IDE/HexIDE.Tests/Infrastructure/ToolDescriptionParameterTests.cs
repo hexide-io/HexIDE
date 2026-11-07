@@ -16,6 +16,7 @@ namespace HexIDE.Tests.Infrastructure;
 /// <c>connectionId</c> and the rest. A caller who followed the description passed arguments that do not exist.
 /// </para>
 /// </remarks>
+[ToolDescription]
 public class ToolDescriptionParameterTests
 {
     private static string Snake(string camel) => Regex.Replace(camel, "(?<=[a-z0-9])([A-Z])", "_$1").ToLowerInvariant();

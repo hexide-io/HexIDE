@@ -29,6 +29,7 @@ public class RequestFailureLoggingTests : IAsyncDisposable
 {
     private readonly List<IAsyncDisposable> _disposables = [];
     private readonly RecordingLogger _log = new();
+    private readonly List<int> _renames = [];
 
     public async ValueTask DisposeAsync()
     {
@@ -39,13 +40,13 @@ public class RequestFailureLoggingTests : IAsyncDisposable
         GC.SuppressFinalize(this);
     }
 
-    private async Task<VBLspClient> ConnectedToThrowingServerAsync(ThrowingServer? server = null)
+    private async Task<VBLspClient> ConnectedToThrowingServerAsync(object? server = null)
     {
         var (clientSide, serverSide) = FullDuplexStream.CreatePair();
 
         var serverRpc = new JsonRpc(
             new HeaderDelimitedMessageHandler(serverSide, serverSide, new SystemTextJsonFormatter()),
-            server ?? new ThrowingServer());
+            server ?? new ThrowingServer(renames: _renames));
         serverRpc.StartListening();
 
         var transport = Substitute.For<ILspTransport>();
@@ -125,6 +126,7 @@ public class RequestFailureLoggingTests : IAsyncDisposable
     [Theory]
     [InlineData(-32801)]
     [InlineData(-32800)]
+    [InlineData(-32802)]
     public async Task AServerSupersededRequestKeepsTheFailureWarningAvailable(int errorCode)
     {
         var server = new ThrowingServer(errorCode);
@@ -151,6 +153,76 @@ public class RequestFailureLoggingTests : IAsyncDisposable
             .Which.Should().Contain("textDocument/documentSymbol");
         _log.Debugs.Should().NotContain(m => m.Contains("failed again"),
             "the cancellation must not spend the method's warning");
+    }
+
+    [Fact]
+    public async Task ADeclinedDiagnosticPullKeepsTheFailureWarningAvailable()
+    {
+        var server = new DecliningDiagnosticServer();
+        var sut = await ConnectedToThrowingServerAsync(server);
+        const string uri = "file:///project/Module1.bas";
+        await sut.OpenDocumentAsync(uri, "x", TestContext.Current.CancellationToken);
+        await WaitForDiagnosticLogAsync();
+
+        _log.Warnings.Should().BeEmpty("ServerCancelled must not spend the warning (#3190)");
+        _log.Debugs.Should().Contain(m => m.Contains("textDocument/diagnostic") && m.Contains("superseded"));
+
+        await sut.ChangeDocumentAsync(uri, 2, "y", TestContext.Current.CancellationToken);
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        timeout.CancelAfter(TimeSpan.FromSeconds(5));
+        while (true)
+        {
+            lock (_log.Warnings)
+                if (_log.Warnings.Count > 0) break;
+            await Task.Delay(10, timeout.Token);
+        }
+        _log.Warnings.Should().ContainSingle().Which.Should().Contain("textDocument/diagnostic");
+        server.Calls.Should().Be(2);
+    }
+
+    private async Task WaitForDiagnosticLogAsync()
+    {
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        timeout.CancelAfter(TimeSpan.FromSeconds(5));
+        while (true)
+        {
+            lock (_log.Warnings)
+                if (_log.Warnings.Any(m => m.Contains("textDocument/diagnostic"))) return;
+            lock (_log.Debugs)
+                if (_log.Debugs.Any(m => m.Contains("textDocument/diagnostic") && m.Contains("superseded"))) return;
+            await Task.Delay(10, timeout.Token);
+        }
+    }
+
+    private sealed class DecliningDiagnosticServer
+    {
+        public int Calls { get; private set; }
+
+        [JsonRpcMethod("initialize", UseSingleObjectParameterDeserialization = true)]
+        public JsonElement Initialize(JsonElement _) => JsonDocument.Parse("""
+            {"capabilities":{"textDocumentSync":{"openClose":true,"change":1},"diagnosticProvider":true}}
+            """).RootElement.Clone();
+
+        [JsonRpcMethod("initialized")]
+        public void Initialized(JsonElement _) { }
+
+        [JsonRpcMethod("textDocument/didOpen", UseSingleObjectParameterDeserialization = true)]
+        public void DidOpen(JsonElement _) { }
+
+        [JsonRpcMethod("textDocument/didChange", UseSingleObjectParameterDeserialization = true)]
+        public void DidChange(JsonElement _) { }
+
+        [JsonRpcMethod("textDocument/diagnostic", UseSingleObjectParameterDeserialization = true)]
+        public JsonElement Diagnostic(JsonElement _)
+        {
+            if (++Calls == 1)
+                throw new LocalRpcException("declined, do not retrigger")
+                {
+                    ErrorCode = -32802,
+                    ErrorData = JsonDocument.Parse("""{"retriggerRequest":false}""").RootElement.Clone()
+                };
+            throw new LocalRpcException("a real failure") { ErrorCode = -32603 };
+        }
     }
 
     [Fact]
@@ -207,6 +279,46 @@ public class RequestFailureLoggingTests : IAsyncDisposable
         hover!.Contents.Value.Should().Be("still here");
     }
 
+    [Theory]
+    [InlineData(-32803)]
+    [InlineData(-32603)]
+    public async Task RenameReturnsTheServersRefusal(int code)
+    {
+        var sut = await ConnectedToThrowingServerAsync();
+        var result = await sut.RequestRenameAsync("vb6://module/M", new Position(0, 0),
+            code.ToString(System.Globalization.CultureInfo.InvariantCulture), TestContext.Current.CancellationToken);
+
+        _renames.Should().Equal(code);
+        result!.Refusal.Should().Be("This name cannot be renamed");
+        result.Edit.Should().BeNull();
+        sut.IsRunning.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task RenameRefusalDoesNotConsumeTheFailureWarning()
+    {
+        var sut = await ConnectedToThrowingServerAsync();
+        await sut.RequestRenameAsync("vb6://module/M", new Position(0, 0), "-32803", TestContext.Current.CancellationToken);
+        _log.Warnings.Should().BeEmpty();
+        _log.Debugs.Should().Contain(m => m.Contains("textDocument/rename"));
+
+        await sut.RequestRenameAsync("vb6://module/M", new Position(0, 0), "-32603", TestContext.Current.CancellationToken);
+        _log.Warnings.Should().ContainSingle().Which.Should().Contain("textDocument/rename");
+    }
+
+    [Theory]
+    [InlineData(-32800)]
+    [InlineData(-32801)]
+    public async Task RenameCancellationIsNotARefusal(int code)
+    {
+        var sut = await ConnectedToThrowingServerAsync();
+        var result = await sut.RequestRenameAsync("vb6://module/M", new Position(0, 0),
+            code.ToString(System.Globalization.CultureInfo.InvariantCulture), TestContext.Current.CancellationToken);
+        _renames.Should().Equal(code);
+        result.Should().BeNull();
+        _log.Warnings.Should().BeEmpty();
+    }
+
     /// <summary>
     /// A server that initializes normally, throws on two language requests, and answers a third.
     /// </summary>
@@ -214,7 +326,7 @@ public class RequestFailureLoggingTests : IAsyncDisposable
     /// The working method is not decoration: it is what distinguishes "that request failed" from "the
     /// connection is gone", and those were indistinguishable until the error-reply defect above was fixed.
     /// </remarks>
-    private sealed class ThrowingServer(int? supersededErrorCode = null)
+    private sealed class ThrowingServer(int? supersededErrorCode = null, List<int>? renames = null)
     {
         public int DocumentSymbolCalls { get; private set; }
 
@@ -222,7 +334,7 @@ public class RequestFailureLoggingTests : IAsyncDisposable
         public JsonElement Initialize(JsonElement _) =>
             JsonDocument.Parse("""
                 {"capabilities":{"documentSymbolProvider":true,"foldingRangeProvider":true,
-                                 "hoverProvider":true}}
+                                 "hoverProvider":true,"renameProvider":true}}
                 """).RootElement.Clone();
 
         [JsonRpcMethod("initialized")]
@@ -239,6 +351,14 @@ public class RequestFailureLoggingTests : IAsyncDisposable
 
         [JsonRpcMethod("textDocument/foldingRange", UseSingleObjectParameterDeserialization = true)]
         public JsonElement FoldingRange(JsonElement _) => throw new InvalidOperationException("no");
+
+        [JsonRpcMethod("textDocument/rename", UseSingleObjectParameterDeserialization = true)]
+        public JsonElement Rename(JsonElement p)
+        {
+            var code = int.Parse(p.GetProperty("newName").GetString()!, System.Globalization.CultureInfo.InvariantCulture);
+            renames?.Add(code);
+            throw new LocalRpcException("This name cannot be renamed") { ErrorCode = code };
+        }
 
         [JsonRpcMethod("textDocument/hover", UseSingleObjectParameterDeserialization = true)]
         public JsonElement Hover(JsonElement _) =>

@@ -78,6 +78,12 @@ public partial class ComponentInstanceViewModel : ObservableObject
             OnPropertyChanged(nameof(Name));
             OnPropertyChanged(nameof(AddressedName));
         }
+        else if (propertyClass == VBProperties.TabIndexProperty)
+            OnPropertyChanged(nameof(TabIndex));
+        else if (propertyClass == VBProperties.TabStopProperty)
+            OnPropertyChanged(nameof(IsTabStopOff));
+        else if (propertyClass == VBProperties.VisibleProperty)
+            NotifyVisibility();
         else if (propertyClass == VBProperties.CaptionProperty)
             OnPropertyChanged(nameof(Caption));
         else if (propertyClass == VBProperties.BackColorProperty)
@@ -107,6 +113,16 @@ public partial class ComponentInstanceViewModel : ObservableObject
                 childVm.OnPropertyChanged(nameof(ContainerBounds));
                 childVm.NotifyDescendantGeometry();
             }
+        }
+    }
+
+    private void NotifyVisibility()
+    {
+        OnPropertyChanged(nameof(IsRuntimeVisible));
+        foreach (var child in instance.ContainedControls)
+        {
+            if (parentViewModel.TryGetViewModel(child, out var childVm))
+                childVm.NotifyVisibility();
         }
     }
 
@@ -331,7 +347,18 @@ public partial class ComponentInstanceViewModel : ObservableObject
         }
     }
 
+    public bool HasTabIndex => instance.BaseClass.Properties.Contains(VBProperties.TabIndexProperty);
+
+    public int TabIndex => instance.GetPropertyOrDefault(VBProperties.TabIndexProperty);
+
+    public bool IsTabStopOff =>
+        instance.BaseClass.Properties.Contains(VBProperties.TabStopProperty)
+        && !instance.GetPropertyOrDefault(VBProperties.TabStopProperty);
+
     public string Name => instance.GetPropertyOrDefault(VBProperties.NameProperty) ?? "";
+
+    public bool IsRuntimeVisible => instance.GetPropertyOrDefault(VBProperties.VisibleProperty)
+                                    && (ContainerViewModel?.IsRuntimeVisible ?? true);
 
     public string? Caption => instance.GetPropertyOrDefault(VBProperties.CaptionProperty);
 

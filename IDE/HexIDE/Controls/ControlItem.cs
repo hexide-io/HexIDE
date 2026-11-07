@@ -44,8 +44,21 @@ public class ControlItem : ListBoxItem
     protected override void OnPointerPressed(PointerPressedEventArgs e)
     {
         var clickCount = e.ClickCount;
-        var isCtrlClick = (e.KeyModifiers & KeyModifiers.Control) != 0;
+        var commandModifiers = Application.Current!.PlatformSettings!.HotkeyConfiguration.CommandModifiers;
+        var isCtrlClick = (e.KeyModifiers & commandModifiers) != 0;
         var isLeftPress = e.GetCurrentPoint(this).Properties.PointerUpdateKind == PointerUpdateKind.LeftButtonPressed;
+
+        // VB6 ignores modifier clicks across containers, preserving the reference as well (#2181).
+        if (isLeftPress && (isCtrlClick || (e.KeyModifiers & KeyModifiers.Shift) != 0) &&
+            DataContext is ComponentInstanceViewModel clicked &&
+            ItemsControl.ItemsControlFromItemContainer(this) is ControlsContainer controls &&
+            controls.ReferenceItem is ComponentInstanceViewModel reference &&
+            !ReferenceEquals(clicked.Instance.Container ?? clicked.Owner.Form.Instance,
+                reference.Instance.Container ?? reference.Owner.Form.Instance))
+        {
+            e.Handled = true;
+            return;
+        }
 
         // When this item is already selected and the user makes a plain left press,
         // mark the event handled before bubbling so that ControlsContainer's

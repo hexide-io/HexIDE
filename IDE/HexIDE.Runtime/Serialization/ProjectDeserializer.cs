@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Globalization;
 using System.Text;
 using HexIDE.Runtime.ProjectElements;
 using Serilog;
@@ -193,7 +194,7 @@ public class ProjectDeserializer
                 if (refStr.StartsWith("*\\G", StringComparison.OrdinalIgnoreCase))
                     refStr = refStr[3..];
                 var refParts = refStr.Split('#', 5);
-                if (refParts.Length >= 3 && int.TryParse(refParts[2], out var lcid))
+                if (refParts.Length >= 3 && int.TryParse(refParts[2], NumberStyles.HexNumber, CultureInfo.InvariantCulture, out var lcid))
                 {
                     var path = refParts.Length >= 4 && !string.IsNullOrEmpty(refParts[3]) ? refParts[3] : null;
                     var name = refParts.Length >= 5 && !string.IsNullOrEmpty(refParts[4]) ? refParts[4] : null;
@@ -479,6 +480,25 @@ public class SerializedProject
 
         var resolved = System.IO.Path.GetFullPath(System.IO.Path.Join(fromDirectory, ToHostPath(path)));
         return ToProjectFilePath(System.IO.Path.GetRelativePath(toDirectory, resolved));
+    }
+
+    // Reference paths on the project's drive are relative even when the input was absolute (#2274).
+    // Parse drive paths independently of the host: Linux must save Windows projects the same way.
+    public static string ReferencePath(string path, string fromDirectory, string toDirectory)
+    {
+        static bool DrivePath(string value) => value.Length >= 3 && char.IsAsciiLetter(value[0])
+            && value[1] == ':' && value[2] is '\\' or '/';
+        if (DrivePath(path) && DrivePath(toDirectory)
+            && char.ToUpperInvariant(path[0]) == char.ToUpperInvariant(toDirectory[0]))
+        {
+            var source = new Uri(path.Replace('\\', '/'));
+            var destination = new Uri(toDirectory.Replace('\\', '/').TrimEnd('/') + "/");
+            return Uri.UnescapeDataString(destination.MakeRelativeUri(source).ToString()).Replace('/', '\\');
+        }
+        if (System.IO.Path.IsPathFullyQualified(path) && !DrivePath(path) && !path.StartsWith(@"\\")
+            && !DrivePath(toDirectory))
+            return ToProjectFilePath(System.IO.Path.GetRelativePath(toDirectory, path));
+        return RebasePath(path, fromDirectory, toDirectory);
     }
 
     private static bool SameDirectory(string a, string b) =>

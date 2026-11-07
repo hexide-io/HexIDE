@@ -98,15 +98,15 @@ public class OneDocumentManyWindowsTests : IAsyncDisposable
     /// Waits, up to ten seconds, for the server to have received <paramref name="count"/> messages, so that each
     /// step's message is on the wire before the next step sends its own.
     /// </summary>
-    /// <remarks>
-    /// <b>Synchronous, and so is every step it separates.</b> A <see cref="TextDocument"/> accepts calls only from
-    /// the thread that made it, and an await in a plain test can resume on any pool thread. A flush reads its
-    /// buffer before its first await, so starting one and waiting here keeps the test on the documents' thread.
-    /// </remarks>
-    private static void UntilReceived(RecordingServer server, int count) =>
-        SpinWait.SpinUntil(() => server.Messages.Count >= count, TimeSpan.FromSeconds(10));
+    private static async Task UntilReceived(RecordingServer server, int count)
+    {
+        var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(10);
+        while (server.Messages.Count < count && DateTime.UtcNow < deadline)
+            await Task.Delay(20, TestContext.Current.CancellationToken);
+        server.Messages.Count.Should().BeGreaterThanOrEqualTo(count);
+    }
 
-    [Fact]
+    [AvaloniaFact]
     public async Task TwoWindowsOverOneNameAreOneDocumentToTheServer()
     {
         var (client, server) = await Connected();
@@ -116,24 +116,24 @@ public class OneDocumentManyWindowsTests : IAsyncDisposable
         var b = Window(client, second);
 
         a.Start();
-        UntilReceived(server, 1);
+        await UntilReceived(server, 1);
         b.Start();
 
         first.Insert(0, "'");
         _ = a.FlushAsync(TestContext.Current.CancellationToken);
-        UntilReceived(server, 2);
+        await UntilReceived(server, 2);
 
         second.Insert(0, "''");
         _ = b.FlushAsync(TestContext.Current.CancellationToken);
-        UntilReceived(server, 3);
+        await UntilReceived(server, 3);
 
         a.Dispose();
         second.Insert(0, "'");
         _ = b.FlushAsync(TestContext.Current.CancellationToken);
-        UntilReceived(server, 4);
+        await UntilReceived(server, 4);
 
         b.Dispose();
-        UntilReceived(server, 5);
+        await UntilReceived(server, 5);
 
         server.Messages.Select(m => m.Method).Should().Equal(
             ["didOpen", "didChange", "didChange", "didChange", "didClose"],

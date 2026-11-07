@@ -1,7 +1,9 @@
 using System.Globalization;
+using System.IO;
 using Avalonia;
 using Avalonia.Media;
 using Avalonia.Platform;
+using HexIDE.IDE;
 using HexIDE.Localization;
 
 namespace HexIDE.Tests;
@@ -30,6 +32,16 @@ public class LocalizationServiceTests
 
         sut.GetString("Str.Menu.File.NewProject").Should().Be("_New Project");
         sut.ActiveLanguage.Should().Be("en");
+    }
+
+    [AvaloniaFact]
+    public void ResetPrompt_UsesMeasuredVB6Wording()
+    {
+        var sut = CreateSut();
+        sut.Apply("en");
+
+        sut.GetString("Str.ProjectRunner.EditWhileRunningConfirm").Should()
+            .Be("This action will reset your project, proceed anyway?");
     }
 
     [AvaloniaFact]
@@ -113,7 +125,7 @@ public class LocalizationServiceTests
         // The Language combo lists one entry per translation; regions live in RegionsFor, not here.
         var ids = CreateSut().AvailableLanguages.Select(l => l.Id).ToList();
         ids.Should().Contain(["system", "en", "fr", "ar", "zh-Hans", "zh-Hant", "de", "es", "ja", "he",
-            "cs", "it", "ko", "ru", "uk", "pl", "pt", "tr", "hi", "ur", "id", "vi", "fa", "nl", "sv",
+            "cs", "it", "ko", "ru", "uk", "pl", "pt", "tr", "id", "vi", "nl", "sv",
             "el", "nb", "da", "fi"]);
         ids.Should().NotContain(["en-US", "en-GB", "fr-FR", "zh-CN", "ja-JP", "de-AT"]);
     }
@@ -126,7 +138,6 @@ public class LocalizationServiceTests
         sut.RegionsFor("fr").Select(r => r.Id).Should().Contain(["fr-FR", "fr-BE", "fr-CA"]);
         sut.RegionsFor("zh-Hans").Select(r => r.Id).Should().Contain(["zh-CN", "zh-SG"]);
         sut.RegionsFor("zh-Hant").Select(r => r.Id).Should().Contain(["zh-TW", "zh-HK", "zh-MO"]);
-        sut.RegionsFor("ur").Select(r => r.Id).Should().Contain(["ur-PK", "ur-IN"]);
         sut.RegionsFor("ja").Select(r => r.Id).Should().Equal(["ja-JP"]);
         // Official-language regions added when filling gaps (Swedish in Finland, Greek in Cyprus, etc.).
         sut.RegionsFor("sv").Select(r => r.Id).Should().Contain("sv-FI");
@@ -162,7 +173,7 @@ public class LocalizationServiceTests
     [AvaloniaFact]
     public void RegionsFor_English_IncludesUsAndGb()
     {
-        // en-GB is the one region that ships a real pack; en-US is a fileless region (≡ canonical en).
+        // en-GB ships a real pack; en-US is a fileless region (≡ canonical en).
         CreateSut().RegionsFor("en").Select(r => r.Id).Should().Contain(["en-US", "en-GB"]);
     }
 
@@ -208,6 +219,8 @@ public class LocalizationServiceTests
 
         sut.ActiveLanguage.Should().Be("ar");
         sut.FlowDirection.Should().Be(FlowDirection.RightToLeft);   // neutral ar declares direction:"rtl"
+        Application.Current!.Resources.TryGetResource(LocalizationService.FlowDirectionKey, null, out var direction).Should().BeTrue();
+        direction.Should().Be(FlowDirection.RightToLeft, "a menu opened from code reads the language's direction from here (#1944)");
         var file = sut.GetString("Str.Menu.File");
         file.Should().NotBe("_File");        // actually translated to Arabic
         file.Should().NotContain("_");       // mnemonics omitted for Arabic
@@ -296,7 +309,7 @@ public class LocalizationServiceTests
         var esFile = sut.GetString("Str.Menu.File");
         esFile.Should().NotBe("_File");
 
-        sut.Apply("es-MX");   // empty region
+        sut.Apply("es-MX");   // regional overrides inherit the remaining Spanish strings
         sut.GetString("Str.Menu.File").Should().Be(esFile);
     }
 
@@ -470,7 +483,6 @@ public class LocalizationServiceTests
     }
 
     [AvaloniaTheory]
-    [InlineData("hi", "hi-IN")]
     [InlineData("el", "el-GR")]
     public void Apply_Batch2NonLatin_TranslatesWithoutMnemonics_AndRegionInherits(string neutral, string region)
     {
@@ -484,29 +496,11 @@ public class LocalizationServiceTests
         sut.GetString("Str.StatusBar.Ready").Should().Be(ready);
     }
 
-    [AvaloniaTheory]
-    [InlineData("ur", "ur-PK")]
-    [InlineData("ur", "ur-IN")]
-    [InlineData("fa", "fa-IR")]
-    public void Apply_Batch2Rtl_IsRightToLeft_TranslatedWithoutMnemonics_AndRegionInherits(string neutral, string region)
-    {
-        var sut = CreateSut();
-        sut.Apply(neutral);
-        sut.FlowDirection.Should().Be(FlowDirection.RightToLeft);   // neutral declares direction:"rtl"
-        var ready = sut.GetString("Str.StatusBar.Ready");
-        ready.Should().NotBe("Ready");
-        sut.GetString("Str.Menu.File").Should().NotContain("_");
-
-        sut.Apply(region);                                          // empty region
-        sut.FlowDirection.Should().Be(FlowDirection.RightToLeft);   // inherits rtl from neutral
-        sut.GetString("Str.StatusBar.Ready").Should().Be(ready);
-    }
-
     [AvaloniaFact]
     public void AvailableLanguages_IncludeBatch2Languages()
     {
         CreateSut().AvailableLanguages.Select(l => l.Id)
-            .Should().Contain(["hi", "ur", "id", "vi", "fa", "nl", "sv", "el", "nb", "da", "fi"]);
+            .Should().Contain(["id", "vi", "nl", "sv", "el", "nb", "da", "fi"]);
     }
 
     [AvaloniaFact]
@@ -648,5 +642,431 @@ public class LocalizationServiceTests
         dev.IsEnabled.Returns(true);
         new LocalizationService(developerMode: dev).AvailableLanguages.Select(l => l.Id)
             .Should().Contain(["pseudo", "pseudo-rtl"]);
+    }
+
+    [AvaloniaTheory]
+    [InlineData("hi")]
+    [InlineData("hi-IN")]
+    [InlineData("fa")]
+    [InlineData("fa-IR")]
+    [InlineData("fa-AF")]
+    [InlineData("ur")]
+    [InlineData("ur-PK")]
+    [InlineData("ur-IN")]
+    [InlineData("la")]
+    [InlineData("la-VA")]
+    [InlineData("eo")]
+    [InlineData("eo-001")]
+    public void Apply_RetiredShippedLanguage_FallsBackToEnglish(string savedLanguage)
+    {
+        var sut = CreateSut();
+
+        var directory = Path.Combine(Path.GetTempPath(), "HexIDE_RetiredLanguage_" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(directory);
+        try
+        {
+            var path = Path.Combine(directory, "settings.json");
+            var settings = new SettingsService(path) { ActiveLanguage = savedLanguage };
+            settings.Save();
+
+            // App.Initialize applies the persisted selection through this same service call.
+            sut.Apply(new SettingsService(path).ActiveLanguage);
+        }
+        finally
+        {
+            Directory.Delete(directory, true);
+        }
+
+        sut.ActiveLanguage.Should().Be("en");
+        sut.GetString("Str.Menu.File.Exit").Should().Be("E_xit");
+        sut.FlowDirection.Should().Be(FlowDirection.LeftToRight);
+    }
+
+    [AvaloniaTheory]
+    [InlineData("hi")]
+    [InlineData("fa")]
+    [InlineData("ur")]
+    [InlineData("la")]
+    [InlineData("eo")]
+    public void RetiredShippedLanguage_IsNotOfferedOrEmbedded(string id)
+    {
+        var sut = CreateSut();
+
+        sut.AvailableLanguages.Select(l => l.Id).Should().NotContain(id);
+        sut.RegionsFor(id).Should().BeEmpty();
+        AssetLoader.Exists(new Uri($"avares://HexIDE/Localization/Packs/{id}.json"))
+            .Should().BeFalse();
+    }
+
+    [AvaloniaTheory]
+    [InlineData("ro")]
+    [InlineData("ro-RO")]
+    [InlineData("ro-MD")]
+    public void Apply_Romanian_TranslatesChromeAndPreservesLatinMnemonics(string id)
+    {
+        var sut = CreateSut();
+        sut.Apply(id);
+
+        sut.GetString("Str.Menu.File").Should().Be("_Fișier");
+        sut.GetString("Str.StatusBar.Ready").Should().Be("Pregătit");
+        sut.GetString("Str.Dialog.MessageBox.Button.Cancel").Should().Be("Anulare");
+        sut.GetPropertyDescription("Width").Should().Be("Lățimea obiectului.");
+        sut.FlowDirection.Should().Be(FlowDirection.LeftToRight);
+        Application.Current!.TryGetResource("Str.Menu.File", null, out var value).Should().BeTrue();
+        value.Should().Be("_Fișier");
+    }
+
+    [AvaloniaFact]
+    public void AvailableLanguages_IncludeRomanianWithRomaniaAndMoldovaRegions()
+    {
+        var sut = CreateSut();
+        sut.AvailableLanguages.Should().Contain(l => l.Id == "ro" && l.DisplayName == "Romanian");
+        sut.RegionsFor("ro").Select(r => r.Id).Should().Equal(["ro-RO", "ro-MD"]);
+    }
+
+    [AvaloniaFact]
+    public void Hungarian_IsSelectableWithHungaryRegion()
+    {
+        LanguageManifest.Packs.Should().Contain(new LanguageInfo("hu", "Hungarian", "ltr"));
+        LanguageManifest.Regions.Should().ContainKey("hu");
+        LanguageManifest.Regions["hu"].Should().Contain(new HexIDE.Localization.RegionInfo("hu-HU", "Hungary"));
+    }
+
+    [AvaloniaTheory]
+    [InlineData("hu")]
+    [InlineData("hu-HU")]
+    public void Apply_Hungarian_LoadsTranslatedResources(string language)
+    {
+        var sut = CreateSut();
+        sut.Apply(language);
+
+        sut.GetString("Str.Menu.File").Should().Be("_Fájl");
+        sut.GetString("Str.RevertGate.Prompt").Should().Be("Megtartja ezt a nyelvet?");
+        Application.Current!.TryGetResource("Str.Menu.File", null, out var value).Should().BeTrue();
+        value.Should().Be("_Fájl");
+        sut.FlowDirection.Should().Be(FlowDirection.LeftToRight);
+    }
+
+    [AvaloniaTheory]
+    [InlineData("bg")]
+    [InlineData("bg-BG")]
+    public void Apply_Bulgarian_LoadsTranslatedChrome(string id)
+    {
+        var sut = CreateSut();
+        sut.Apply(id);
+
+        sut.ActiveLanguage.Should().Be(id);
+        sut.GetString("Str.Menu.File").Should().Be("Файл");
+        sut.GetString("Str.Menu.File.NewProject").Should().Be("Нов проект");
+        Application.Current!.TryGetResource("Str.Menu.File", null, out var value).Should().BeTrue();
+        value.Should().Be("Файл");
+    }
+
+    [AvaloniaFact]
+    public void AvailableLanguages_IncludeCroatianAndItsRegion()
+    {
+        var sut = CreateSut();
+        sut.AvailableLanguages.Should().Contain(l => l.Id == "hr" && l.DisplayName == "Croatian");
+        sut.RegionsFor("hr").Select(r => r.Id).Should().Equal(["hr-HR"]);
+    }
+
+    [AvaloniaTheory]
+    [InlineData("hr")]
+    [InlineData("hr-HR")]
+    public void Apply_Croatian_TranslatesWithMnemonics(string id)
+    {
+        var sut = CreateSut();
+        sut.Apply(id);
+
+        sut.ActiveLanguage.Should().Be(id);
+        sut.FlowDirection.Should().Be(FlowDirection.LeftToRight);
+        sut.GetString("Str.Menu.File").Should().Be("_Datoteka");
+        sut.GetString("Str.StatusBar.Ready").Should().Be("Spremno");
+        string.Format(sut.GetString("Str.RevertGate.Countdown"), 5).Should().Be("Vraćanje za 5 s…");
+    }
+
+    [AvaloniaFact]
+    public void CroatianPack_PreservesEveryKeyPlaceholderAndAccessKey()
+    {
+        using var english = AssetLoader.Open(new Uri("avares://HexIDE/Localization/Packs/en.json"));
+        using var croatian = AssetLoader.Open(new Uri("avares://HexIDE/Localization/Packs/hr.json"));
+        var canonical = System.Text.Json.JsonSerializer.Deserialize(english,
+            LocalizationJsonContext.Default.LanguagePackRecord)!;
+        var pack = System.Text.Json.JsonSerializer.Deserialize(croatian,
+            LocalizationJsonContext.Default.LanguagePackRecord)!;
+        pack.Name.Should().Be("Croatian");
+        pack.Direction.Should().Be("ltr");
+        pack.Strings!.Keys.Should().BeEquivalentTo(canonical.Strings!.Keys);
+        foreach (var (key, original) in canonical.Strings)
+        {
+            var translated = pack.Strings[key];
+            translated.Should().NotBeNullOrWhiteSpace(key);
+            System.Text.RegularExpressions.Regex.Matches(translated, @"\{\d+\}")
+                .Select(m => m.Value).Should().BeEquivalentTo(
+                    System.Text.RegularExpressions.Regex.Matches(original, @"\{\d+\}")
+                        .Select(m => m.Value), key);
+            if (!NavigationAccessKeyTests.CollisionPolicyKeys.Contains(key))
+                translated.Count(c => c == '_').Should().Be(original.Count(c => c == '_'), key);
+        }
+    }
+
+    [AvaloniaTheory]
+    [InlineData("sk")]
+    [InlineData("sk-SK")]
+    public void Apply_Slovak_LoadsEmbeddedTranslationAndResources(string id)
+    {
+        var sut = CreateSut();
+        sut.AvailableLanguages.Should().Contain(language => language.Id == "sk");
+        sut.Apply(id);
+
+        sut.ActiveLanguage.Should().Be(id);
+        sut.FlowDirection.Should().Be(FlowDirection.LeftToRight);
+        sut.GetString("Str.Menu.File.NewProject").Should().Be("_Nový projekt");
+        sut.GetString("Str.StatusBar.LineColumn").Should().Be("Riadok {0}, stĺpec {1}");
+        Application.Current!.TryGetResource("Str.Menu.File", null, out var value).Should().BeTrue();
+        value.Should().Be("_Súbor");
+    }
+
+    [AvaloniaFact]
+    public void AvailableLanguages_IncludeSlovenianAndItsRegion()
+    {
+        var sut = CreateSut();
+        sut.AvailableLanguages.Should().Contain(l => l.Id == "sl" && l.DisplayName == "Slovenian");
+        sut.RegionsFor("sl").Select(r => r.Id).Should().Contain("sl-SI");
+    }
+
+    [AvaloniaTheory]
+    [InlineData("sl")]
+    [InlineData("sl-SI")]
+    public void Apply_Slovenian_TranslatesWithMnemonicsAndPlaceholders(string language)
+    {
+        var sut = CreateSut();
+        sut.Apply(language);
+
+        sut.FlowDirection.Should().Be(FlowDirection.LeftToRight);
+        sut.GetString("Str.Menu.File").Should().Be("_Datoteka");
+        sut.GetString("Str.StatusBar.Ready").Should().Be("Pripravljeno");
+        string.Format(sut.GetString("Str.Tool.CallStack.RowName"), "Main", 12)
+            .Should().Be("Main, vrstica 12");
+    }
+
+    [AvaloniaTheory]
+    [InlineData("lt")]
+    [InlineData("lt-LT")]
+    public void Apply_Lithuanian_LoadsEmbeddedTranslation(string id)
+    {
+        var sut = CreateSut();
+        sut.Apply(id);
+
+        sut.ActiveLanguage.Should().Be(id);
+        sut.GetString("Str.Menu.File").Should().Be("_Failas");
+        sut.GetString("Str.Dialog.MessageBox.Button.Yes").Should().Be("Taip");
+        Application.Current!.TryGetResource("Str.Menu.File", null, out var value).Should().BeTrue();
+        value.Should().Be("_Failas");
+    }
+
+    [AvaloniaFact]
+    public void AvailableLanguages_IncludesLithuanianAndItsRegion()
+    {
+        var sut = CreateSut();
+
+        sut.AvailableLanguages.Should().Contain(new LanguageInfo("lt", "Lithuanian", "ltr"));
+        sut.RegionsFor("lt").Should().Contain(new HexIDE.Localization.RegionInfo("lt-LT", "Lithuania"));
+    }
+
+    [AvaloniaFact]
+    public void AvailableLanguages_IncludeLatvianAndLatvia()
+    {
+        var sut = CreateSut();
+        sut.AvailableLanguages.Should().Contain(l => l.Id == "lv" && l.Direction == "ltr");
+        LanguageManifest.Regions["lv"].Should().Contain(r => r.Id == "lv-LV");
+    }
+
+    [AvaloniaTheory]
+    [InlineData("lv")]
+    [InlineData("lv-LV")]
+    public void Apply_Latvian_TranslatesResourcesAndPreservesPlaceholders(string id)
+    {
+        var sut = CreateSut();
+        sut.Apply(id);
+
+        sut.GetString("Str.Menu.File").Should().Be("_Fails");
+        sut.GetString("Str.StatusBar.Ready").Should().Be("Gatavs");
+        string.Format(sut.GetString("Str.StatusBar.LineColumn"), 12, 3)
+            .Should().Be("R. 12, kol. 3");
+        sut.FlowDirection.Should().Be(FlowDirection.LeftToRight);
+        Application.Current!.TryGetResource("Str.Menu.File", null, out var value).Should().BeTrue();
+        value.Should().Be("_Fails");
+    }
+
+    [AvaloniaTheory]
+    [InlineData("et")]
+    [InlineData("et-EE")]
+    public void Apply_Estonian_UsesEmbeddedTranslationWithMnemonics(string id)
+    {
+        var sut = CreateSut();
+        sut.Apply(id);
+
+        sut.GetString("Str.Menu.File.NewProject").Should().Be("_Uus projekt");
+        sut.GetString("Str.StatusBar.Ready").Should().Be("Valmis");
+        sut.GetString("Str.StatusBar.LineColumn").Should().Be("Rida {0}, veerg {1}");
+        sut.FlowDirection.Should().Be(FlowDirection.LeftToRight);
+    }
+
+    [AvaloniaFact]
+    public void AvailableLanguages_IncludeEstonianAndEstoniaRegion()
+    {
+        var sut = CreateSut();
+        sut.AvailableLanguages.Should().Contain(new LanguageInfo("et", "Estonian", "ltr"));
+        LanguageManifest.Regions["et"].Should().Contain(new HexIDE.Localization.RegionInfo("et-EE", "Estonia"));
+    }
+
+    [AvaloniaFact]
+    public void Apply_Basque_LoadsShippedLeftToRightTranslation()
+    {
+        var sut = CreateSut();
+        sut.AvailableLanguages.Should().Contain(l => l.Id == "eu" && l.Direction == "ltr");
+
+        sut.Apply("eu");
+
+        sut.ActiveLanguage.Should().Be("eu");
+        sut.GetString("Str.Menu.File").Should().Be("_Fitxategia");
+        sut.GetString("Str.StatusBar.Ready").Should().Be("Prest");
+        Application.Current!.TryGetResource("Str.Menu.File", null, out var value).Should().BeTrue();
+        value.Should().Be("_Fitxategia");
+    }
+
+    [AvaloniaFact]
+    public void Apply_Catalan_OffersAndLoadsTranslatedChrome()
+    {
+        var sut = CreateSut();
+        sut.AvailableLanguages.Should().Contain(p => p.Id == "ca" && p.Direction == "ltr");
+        sut.Apply("ca");
+
+        sut.ActiveLanguage.Should().Be("ca");
+        sut.GetString("Str.Menu.File").Should().Be("_Fitxer");
+        sut.GetString("Str.Dialog.MessageBox.Button.Cancel").Should().Be("Cancel·la");
+    }
+
+    [AvaloniaFact]
+    public void AvailableLanguages_IncludesGalician()
+    {
+        CreateSut().AvailableLanguages.Should().Contain(
+            language => language.Id == "gl" && language.DisplayName == "Galician"
+                && language.Direction == "ltr");
+    }
+
+    [AvaloniaTheory]
+    [InlineData("gl")]
+    [InlineData("gl-ES")]
+    public void Apply_Galician_LoadsTranslatedResources(string id)
+    {
+        var sut = CreateSut();
+        sut.Apply(id);
+
+        sut.ActiveLanguage.Should().Be(id);
+        sut.FlowDirection.Should().Be(FlowDirection.LeftToRight);
+        sut.GetString("Str.Menu.File").Should().Be("_Ficheiro");
+        Application.Current!.TryGetResource("Str.Menu.File", null, out var value).Should().BeTrue();
+        value.Should().Be("_Ficheiro");
+        sut.RegionsFor("gl").Select(region => region.Id).Should().Contain("gl-ES");
+    }
+
+    [AvaloniaFact]
+    public void SerbianLatin_IsOfferedAsLeftToRight()
+    {
+        CreateSut().AvailableLanguages.Should().Contain(
+            language => language.Id == "sr-Latn" && language.Direction == "ltr");
+    }
+
+    [AvaloniaFact]
+    public void Apply_SerbianLatin_TranslatesWithMnemonics()
+    {
+        var sut = CreateSut();
+        sut.Apply("sr-Latn");
+
+        sut.GetString("Str.Menu.File").Should().Be("_Datoteka");
+        sut.GetString("Str.StatusBar.Ready").Should().Be("Spremno");
+        sut.GetString("Str.Dialog.MessageBox.Button.Cancel").Should().Be("Otkaži");
+        sut.FlowDirection.Should().Be(FlowDirection.LeftToRight);
+    }
+
+    [AvaloniaTheory]
+    [InlineData("th")]
+    [InlineData("th-TH")]
+    public void Apply_Thai_TranslatesWithoutMnemonics_AndUsesLeftToRight(string id)
+    {
+        var sut = CreateSut();
+        sut.Apply(id);
+        sut.GetString("Str.Menu.File").Should().Be("ไฟล์");
+        sut.GetString("Str.StatusBar.Ready").Should().Be("พร้อม");
+        sut.FlowDirection.Should().Be(FlowDirection.LeftToRight);
+    }
+
+    [AvaloniaFact]
+    public void AvailableLanguages_OffersThaiAndThailand()
+    {
+        var sut = CreateSut();
+        sut.AvailableLanguages.Should().Contain(new LanguageInfo("th", "Thai", "ltr"));
+        sut.RegionsFor("th").Should().Contain(new HexIDE.Localization.RegionInfo("th-TH", "Thailand"));
+    }
+
+    [AvaloniaFact]
+    public void ThaiPack_IsComplete_PreservesPlaceholders_AndOmitsAccessKeys()
+    {
+        LanguagePackRecord Load(string id)
+        {
+            using var stream = AssetLoader.Open(new Uri($"avares://HexIDE/Localization/Packs/{id}.json"));
+            return System.Text.Json.JsonSerializer.Deserialize(stream,
+                LocalizationJsonContext.Default.LanguagePackRecord)!;
+        }
+
+        var canonical = Load("en").Strings!;
+        var thai = Load("th");
+        thai.Name.Should().Be("Thai");
+        thai.Direction.Should().Be("ltr");
+        thai.Strings!.Keys.Should().BeEquivalentTo(canonical.Keys);
+        var placeholders = new System.Text.RegularExpressions.Regex(@"\{[0-9]+[^{}]*\}");
+        foreach (var (key, value) in thai.Strings)
+        {
+            placeholders.Matches(value).Select(m => m.Value).Should().BeEquivalentTo(
+                placeholders.Matches(canonical[key]).Select(m => m.Value), key);
+            value.Replace("VB_Name", "", StringComparison.Ordinal)
+                .Replace("VB6_EXE", "", StringComparison.Ordinal)
+                .Should().NotContain("_", key);
+        }
+    }
+
+    [AvaloniaTheory]
+    [InlineData("fr-CA", "fr", "Str.PropDesc.ToolTipText", "L'infobulle affichée lorsque le pointeur s'arrête sur le contrôle.")]
+    [InlineData("es-MX", "es", "Str.PropDesc.MouseIcon", "Una imagen personalizada usada para el puntero del mouse.")]
+    [InlineData("pt-BR", "pt", "Str.Menu.File", "_Arquivo")]
+    public void Apply_TierOneRegion_OverridesTerminology_AndInheritsNeutral(
+        string region, string neutral, string key, string expected)
+    {
+        var sut = CreateSut();
+        sut.Apply(region);
+
+        sut.ActiveLanguage.Should().Be(region);
+        sut.GetString(key).Should().Be(expected);
+        sut.GetString("Str.Menu.Edit").Should().Be(sut.GetStringFrom(neutral, "Str.Menu.Edit"));
+        sut.GetStringFrom(neutral, key).Should().NotBe(expected);
+
+        using var stream = Avalonia.Platform.AssetLoader.Open(
+            new Uri($"avares://HexIDE/Localization/Packs/{region}.json"));
+        using var pack = System.Text.Json.JsonDocument.Parse(stream);
+        foreach (var entry in pack.RootElement.GetProperty("strings").EnumerateObject())
+        {
+            var value = entry.Value.GetString()!;
+            var parentValue = sut.GetStringFrom(neutral, entry.Name);
+            value.Should().NotBe(parentValue, $"{region} only carries genuine overrides");
+            sut.GetString(entry.Name).Should().Be(value);
+            System.Text.RegularExpressions.Regex.Matches(value, @"\{\d+\}").Select(m => m.Value)
+                .Should().BeEquivalentTo(System.Text.RegularExpressions.Regex.Matches(parentValue, @"\{\d+\}")
+                    .Select(m => m.Value), $"{region}/{entry.Name} preserves placeholders");
+            if (!NavigationAccessKeyTests.CollisionPolicyKeys.Contains(entry.Name))
+                value.Count(c => c == '_').Should().Be(parentValue.Count(c => c == '_'),
+                    $"{region}/{entry.Name} preserves mnemonics");
+        }
     }
 }

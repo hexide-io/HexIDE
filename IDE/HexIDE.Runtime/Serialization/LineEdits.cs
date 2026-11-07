@@ -37,6 +37,53 @@ public readonly record struct Reduction(IReadOnlyList<TextChange> Changes, int D
 public static class LineEdits
 {
     /// <summary>
+    /// Trim protected lines first, then take a described run with a whole-line deletion of its logical
+    /// declaration (#1890). Other hunks keep the usual anchor protection.
+    /// </summary>
+    public static Reduction ReduceFormatting(string before, string after, IReadOnlyList<TextRegion> regions,
+        IReadOnlyList<MemberRun> runs)
+    {
+        // Defer the anchor check until the kept hunks can be matched to declarations. The protected lines
+        // themselves still trim exactly as before; widening cannot overlap another kept hunk inside a run.
+        var linesOnly = new List<TextRegion>(regions.Count);
+        foreach (var region in regions)
+            linesOnly.Add(region with { Anchor = null });
+        var trimmed = Reduce(before, after, linesOnly);
+        var kept = new List<TextChange>();
+        var dropped = trimmed.DroppedLines;
+        foreach (var change in trimmed.Changes)
+        {
+            MemberRun? deleted = null;
+            if (change.Text.Length == 0 && change.Length > 0)
+            {
+                foreach (var run in runs)
+                {
+                    if (run.DescribesMember && change.Offset <= run.DescribedStart
+                        && change.Offset + change.Length == run.Region.Start)
+                    {
+                        deleted = run;
+                        break;
+                    }
+                }
+            }
+            if (deleted is not null)
+                kept.Add(change with { Length = deleted.Region.End - change.Offset });
+            else if (change.Text.EndsWith('\n') || !ReadOnlyRegions.Changes(regions, change.Offset, change.Length))
+                kept.Add(change);
+            else
+            {
+                for (var at = change.Offset; at < change.Offset + change.Length;)
+                {
+                    dropped++;
+                    var (_, next) = SourceLines.LineAt(before, at);
+                    at = next;
+                }
+            }
+        }
+        return new Reduction(kept, dropped);
+    }
+
+    /// <summary>
     /// Past this many differing lines the diff stops looking for the smallest alignment, and treats what is
     /// left between the unchanged top and bottom as one change. That change is then dropped whole if it
     /// touches a region, which keeps the header safe and at worst leaves a document unformatted.

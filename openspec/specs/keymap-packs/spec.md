@@ -36,6 +36,15 @@ by ordinal file path; duplicate names differing only by case use the first file.
 directory leaves the built-in choices available. Adding files requires another startup for discovery;
 edits to an already discovered file are read on its next application.
 
+### Requirement: Every routed application command is bindable
+Keymap command names SHALL cover every public static routed command in `ApplicationCommands`, using
+its field name and the same command instance. Non-routed helpers SHALL NOT appear in that table.
+
+#### Scenario: Binding a previously omitted command
+- **WHEN** a pack assigns or clears a gesture for Call Stack, Reset Window Layout or Go To Declaration
+- **THEN** the corresponding routed command receives that binding
+- **AND** applying Default restores its factory gestures
+
 ### Requirement: A keymap SHALL take effect without restarting
 Applying a keymap SHALL rebind commands in the running IDE. Command-backed menu items SHALL display the
 first live command gesture, or no shortcut when unbound, immediately after applying the keymap.

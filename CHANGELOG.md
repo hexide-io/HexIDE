@@ -9,9 +9,1692 @@ there isn't one yet. Anything may change between 0.x releases.
 ## [Unreleased]
 
 New entries are written one file per change in [`changelog.d/`](changelog.d/README.md), and gathered here at
-release by `scripts/changelog-gather.sh` (#1375). The entries below were recorded before that.
+each release by `scripts/changelog-gather.sh` (#1375).
+
+## [0.4.0] — 2026-11-02
 
 ### Added
+
+- **Read-only project resource reader** (#2625). Runs load the project's `ResFile32` file relative to
+  its folder. The Win32 RES reader handles named and ordinal entries, counted string blocks and raw
+  data, custom and bitmap resources. Multiple-language lookups are explicitly refused pending
+  measurement; the `LoadRes*` intrinsic calls remain #2626.
+
+- **`ObjPtr` supplies object identities** (#2622, first slice): Nothing returns zero, aliases share a
+  non-zero Long, and different objects have different identities. These numbers support identity keys;
+  they are not native addresses.
+
+- **`StrPtr` and `VarPtr` supply String buffer and variable identities** (#2622): null and assigned
+  empty Strings remain distinct, copies and ByVal parameters have separate identities, ByRef aliases
+  share them, and Long, Integer, Currency and Variant array elements retain their measured steps.
+  These Long numbers are identities for comparisons, not native addresses.
+
+- **`get_process_windows` reads the windows of a program a VB6 program started with Shell** (#2591). Pass the process ID
+  `Shell` returned to get each top-level window's title, Normal, Minimized, Maximized or Hidden state, bounds and
+  whether it has the foreground. The processes it started are included, so a launcher that hands off still resolves.
+  Only processes `Shell` started can be read, and nothing is sent to any window. Omit the ID to list what was started.
+
+- **A hover can stay, so a snapshot shows what is drawn only under the pointer** (#2562). `hover` takes `stay`, which
+  leaves the pointer on the control. Its pointer-over look, such as a flat toolbar button's hot image, and any tip it
+  opened then appear in `take_snapshot`, which now draws an open tip with the window. The reply says whether the control
+  reads as under the pointer, and `inspect_element` reports `isPointerOver`. The next click, drag or hover in that
+  window ends a staying hover first.
+
+- **`Width #` controls `Print #` line wrapping** (#2554). Widths from 0 to 255 use
+  VB6's measured rounding and validation; items stay whole, commas wrap at the limit,
+  and trailing semicolons retain the column. `Write #` remains unwrapped.
+
+- **The tools that run, step, break and stop a program say what it printed** (#2531). `run_project`, `stop_project`,
+  `continue_program`, `break_program`, the steps and `run_to_cursor` give in `printed` what the program wrote with
+  `Debug.Print` since the run began, or since the last reply that reported its output. Their note says how much, or that
+  it wrote nothing. Reading a program's output used to take finding the Immediate window's editor and inspecting it.
+
+- **Partition buckets values into padded ranges** (#2526), including CLng argument conversion, a Null Number or Start giving Null, and the measured invalid-argument errors.
+
+- **SLN and SYD depreciation functions** (#2524) return Double results matching every measured
+  VB6 row to the bit, including negative SLN life and fractional SYD period. Zero SLN life and
+  out-of-range SYD periods raise error 5. Named calls remain explicitly unimplemented; DDB stays
+  refused because its measured precision is not yet reproduced.
+
+- **`NPer`, `IPmt`, `PPmt` and `Rate` run measured financial calculations** (#2523), preserving
+  VB6's exact Double results, signed zero and measured errors. Unmeasured argument edges refuse explicitly.
+
+- **`Pmt`, `FV` and `PV` run measured loan and savings calculations** (#2523), retaining precision
+  between the rounded base and the Double result. Unmeasured argument edges refuse explicitly.
+
+- **`Shell` starts a program and returns its process ID as a Double** (#2522), as a function or a
+  statement with an explicit measured window style. Window styles set the new process's show state on Windows; Linux and macOS accept the
+  styles without changing window state. Missing programs, empty paths, folders and Null arguments
+  report the measured VB6 errors.
+  Unmeasured styles, omitted-style launches, non-string path conversions and other launch failures
+  remain explicitly not implemented.
+
+- **CVErr creates Error Variants** (#2520), with measured argument rounding and range checks,
+  type inspection, explicit conversions and ordered Error comparisons. Print, Write, Debug.Print
+  and MsgBox display Error values. Comparing an Error selector with a number raises Type mismatch
+  and Resume Next runs that Case's body. Implicit numeric and string uses raise Type mismatch;
+  unmeasured conversions remain explicitly unimplemented.
+
+- **CallByName** (#2519) calls class methods and reads or writes fields and properties, including object
+  properties, ByRef writeback, Optional and ParamArray arguments. Expressions and statements, including
+  `VBA.CallByName`, also support Collection `Add`/`Item` and `Err.Number`. Unmeasured combinations refuse
+  explicitly rather than returning a guessed value.
+
+- **`FormatDateTime` formats dates and times in the program’s locale** (#2516), with all five named formats, date serials and strings, Empty and Null, and measured argument conversions and errors.
+
+- **Corpus project open/save smoke checks** (#2505, open/save lane): a headless test opens each
+  in-tree corpus project and projects under `HEXIDE_ROUNDTRIP_CORPUS`, saves a scratch copy through the
+  real project service, and reports crashes, refusals and byte differences, including companion files.
+  It retains exact before/after evidence for differing files and runs in the normal suite and CI.
+  Five hand-authored demo forms now use VB6's recorded trailing spaces on block openers, resolving
+  their 66 cosmetic line differences.
+
+- **Corpus project startup and Make smoke checks** (#2505): the sweep runs bounded headless startup
+  through the Standalone runner entry point and checks Make in the scratch copy, reporting completion,
+  time limits, refusals and crashes per project. `VB6_TEMPLATES` joins the optional corpus roots.
+
+- **`inspect_element` reports the mouse pointer a control shows** (#2453). Nothing did, so a program's MousePointer and
+  `Screen.MousePointer` over it could not be checked in the running IDE. `pointer` gives the MousePointer by number and
+  name, the pointer drawn, where it is set, and whether it is the control's own, an override above it, or a style's.
+
+- **The status bar shows that the automation server is listening** (#2451). A Debug build started with `--server-port`
+  shows `MCP :5140`, with the session after it when started with `--session`, so several sessions' IDEs can be told
+  apart. Hovering shows the endpoint, the process and build directory, that anything on the machine able to open the
+  port can drive the IDE, the last call, and calls refused from other sessions. A dot lights while a call runs. A
+  release build has no server and no section.
+
+- **`inspect_element` gives the text of every item a list holds** (#2450). A list makes rows only for what shows, so a
+  dump saw ten of Options' 31 languages, and nothing said what the rest were called. A list, open dropdown or tab
+  control now reports `items`, each one's text as `select` matches it, rows out of view included.
+
+- **`answer_next_file_dialog` can answer a multi-select Open with several files** (#2408). `paths` names every file of
+  one answer, in order, and only an Open that allows several takes them all, so Add File, and a running program's
+  multi-select Open, can be driven with several. A save, or an Open that takes one file, answers it as cancelled rather
+  than with its first file, and a reply says so.
+
+- **Language servers can import the current project through a declared command** (#2363). Imports run
+  after initialization and on debounced project changes, replacing generated workspace files. Reply
+  notes appear in server output, failures appear as configuration problems, and open-document diagnostics
+  are refreshed until the server starts requesting refreshes itself.
+
+- **TreeView labels can be edited with a click or from code** (#2360). A click on the selected label
+  opens the shared editor after the host double-click interval; double-clicks and manual-mode clicks
+  do not edit. StartLabelEdit works in either mode. The editor selects the original text, grows with
+  typing, and supports cancellable BeforeLabelEdit and AfterLabelEdit events and a mutable NewString.
+
+- **`get_window_state` and `set_window_state` reach any window** (#2357). Both take the optional `window` the tree
+  tools take, and act on the IDE's own window when it is omitted, as before. A running form is minimized, maximized,
+  restored, moved or resized as its caption buttons and frame would do it, so its Resize and Activate run, and the reply
+  waits for the program. Anything a person couldn't do is refused: a state the form has no button for, resizing a fixed
+  border, or changing a disabled window or one under a modal dialog. The reply's `name` says which window was read.
+
+- **Toolbar buttons can select images from a bound ImageList at run time** (#2334). Index and key selectors
+  retain their measured types and reject missing images without changing the previous value. Unbinding clears
+  button images, and bound lists reject removal and clearing. Saved Toolbars now bind their named ImageList at form load, including a list later in the file, while
+  preserving the form and companion byte for byte. Empty lists raise the measured error; replacing a bound list
+  clears the image selectors and resizes the buttons for 16 or 32 px images, keeping the caption-width rule.
+  Bound images now draw at the measured offsets, with paint-time masking, flat hot images and disabled images.
+  An index absent from the selected alternate list draws nothing.
+
+- **Design controls on SSTab pages** (#2301). Click a caption to switch pages, draw a control onto the
+  current page, or move one between pages by cut and paste. Saving maintains page lists and the measured
+  75000-twip offset for hidden controls. Page switching does not add an undo entry; VB6's designer undo
+  behavior has not been measured.
+
+- **CommonDialog.ShowColor uses the IDE’s managed RGB chooser** (#2299). Flags 0 starts at black;
+  cdlCCRGBInit starts at Color. OK writes the selected colour back, and Cancel preserves it, raising
+  32755 under CancelError. Other colour flags and system-colour initialization remain explicitly
+  unimplemented. Action 3 uses the same chooser.
+- **CommonDialog.ShowPrinter uses a managed dialog** for the measured Flags 0 configuration, including
+  through Action 5. OK returns Copies 1, Orientation 1 and hDC 0; Cancel preserves values and honours
+  CancelError. Actual printing, native printer DCs and unmeasured configurations remain unimplemented.
+
+- **`set_lock_key` sets Caps Lock, Num Lock, Insert or Scroll Lock on or off as programs running in HexIDE read it**
+  (#2296). It exists so a StatusBar key panel's on state can be live-checked. On Windows a StatusBar reads the toggle
+  the operating system keeps, which `press_key` can't change. The machine's own keyboard is untouched, and `Keyboard`
+  returns a key to it. Every reply lists all four keys with their state and its source (`Set`, `Keyboard` or `Window`).
+  A StatusBar on screen repaints at once. DEBUG-only, like the automation server.
+
+- **File creation notifications reach matching language servers** (#2248). First saves and Save As to
+  new files report creation after writing succeeds. Create, rename and delete senders respect server
+  filters, the registry routes them across language claims, and initialize advertises support.
+  Disk rename and delete hooks remain outstanding; explorer name and membership changes leave files in place.
+
+- **A drag can hold its button between calls** (#2231). `interact click "20,20 to 100,60 hold"` stops after its held
+  moves with the button still down, so `take_snapshot`, `dump_visual_tree` and `inspect_element` see what shows only
+  mid-drag: the designer's draw preview, Dock's drop targets, a control's outline as it moves. A new `release` action
+  lets it go, at an optional point it moves to first, with an ordinary drag's reply. While a button is held, every
+  reply carries a `heldButton` note, and `click`, `double_click` and `hover` are refused. With no call for 120 s the
+  hold is abandoned: Escape, then a release where it was pressed. A designer draw still places a control then, and a
+  resize snaps to the grid; the note names any undo step the designer recorded.
+
+- **View conditional branches as twinBASIC 32-bit or 64-bit** in the code window (#2154). The preview uses measured compiler constants and the known VB6 project type, leaving unknown build information ungreyed; F5 and language-server diagnostics are unchanged.
+
+- **Code editors use a language server's semantic colours** (#2054). Full semantic tokens from the highest-priority provider override lexical colours on their ranges, with lexical colouring retained elsewhere and after an empty or failed response.
+
+- **Preview a form without running the project** (#2003). The designer's Preview Form command opens a
+  live window for checking layout, resizing and tab order without executing VB code. Closing the preview
+  leaves the design unchanged.
+
+- **Invisible controls are dimmed in the form designer** (#2002). Controls with Visible=False use a
+  theme-supplied dimming mask while remaining selectable and editable.
+
+- **The form designer can show tab order** (#2001). Enable the tab-order toggle to see each modelled
+  control's TabIndex over it; a crossed-out index marks TabStop off. The overlay is read-only.
+
+- **Reopen closed windows** (#2000). The Window menu lists the last 20 closed code, designer and tool
+  document tabs for this session. Reopen Closed Window (Ctrl+Shift+T, Cmd+Shift+T on macOS; rebindable)
+  restores the newest tab and its code caret. Removing a document or closing its project prunes its history.
+
+- **Recent Edits** (#1999): a View menu panel lists the latest edited code locations with their module,
+  line and preview. Select a row to return to it. Nearby edits within 10 lines replace the newest entry;
+  the session keeps up to 50 locations, follows text moving above them, and drops deleted lines or removed
+  documents. Closing and reopening a code tab keeps its history.
+
+- **Parentheses coloured by nesting depth** (#1996). The VB6 code editor uses the theme's three-colour palette for matching pairs and marks unmatched parentheses. Editor → General can turn the colouring off.
+
+- **Code-window indent guides** (#1995). Faint theme-coloured guides follow indentation, with the caret's innermost block emphasised. Turn them off in Options → Editor → General.
+
+- **Sticky scroll in code windows** (#1994). Enclosing block headers supplied by the language server stay
+  above the code while scrolling; clicking a header navigates to it. Editor → General offers an off switch
+  and a maximum depth, defaulting to three headers.
+
+- **Paste as Comment** in the code window's Edit menu (#1993). Paste clipboard lines prefixed with an
+  apostrophe at the paste's indentation, as one undo step. Keymap packs can bind `PasteAsCommentCommand`.
+
+- **An archive project's `.twin` sources grey their inactive `#If` branches** (#1691), as their compiler
+  compiles them at 32-bit: its built-ins as measured on beta 1024, a call to a VB function reading 0, and the build
+  type from the project's settings. A branch on something the archive does not record, such as the build number,
+  stays ungreyed rather than guessed.
+
+- **Window frame inspection and snapshots** (#1595, #2182). `inspect_element` reads native Windows style masks,
+  and `take_snapshot` accepts `includeFrame: true` to capture the whole window, caption and border included, as
+  Windows renders it, so a window covering it is not in the image, with its open popups drawn over it. Should
+  Windows render nothing, the rectangle is copied from the screen and the note says how much of it other windows
+  cover. Unsupported captures explain why instead of returning a client-only image: a minimized window is told to
+  restore it with `set_window_state`, and a refusal no longer describes an image it never took.
+
+- **`Controls.Add` and `Controls.Remove` run** (#1556), as vb6.exe runs them: a control made at run time from its class
+  name, at its class's size, hidden, in the form's font, into the form or a Frame or PictureBox, and taken out again
+  with everything it holds. Every refusal is vb6.exe's, measured.
+- **A control held in a form's `WithEvents` variable raises the variable's handlers** (#1556), after its own and the
+  one set last first. That holds for a design-time control too, where the variable heard nothing before.
+
+- **Token scanning before commits and in CI** (#1224). A pinned, checksum-verified gitleaks binary
+  scans pull-request commits with redacted output. Its publisher checksum is pinned in CI, and
+  new-branch pushes scan only commits since their merge base with main. Contributors can enable a
+  staged-change hook that blocks commits on findings or a missing scanner; default rules remain enabled
+  without broad exclusions.
+
+- **Inactive conditional branches are greyed in the code window** (#1113). A selector after the Procedure box
+  previews VB6, VBA 32-bit or VBA 64-bit constants. It appears only in modules with `#If`, defaults to VB6,
+  and stays in that window for the session. It changes neither F5 nor language-server diagnostics.
+
+- **Managed class libraries named by a project's references** (#1107). The shared library model now
+  supplies class factories and enums as well as controls. Referenced GlobalMultiUse classes are created
+  on first use, shared until Sub Main returns, and resolved in reference order behind project procedures
+  and ahead of VBA. `New` and `CreateObject` make separate managed instances; unknown libraries keep
+  their existing behaviour.
+
+- **The Components dialog adds an in-box control library to a project** (#1103). It lists MSCOMCTL.OCX and
+  COMCTL32.OCX under VB6's own descriptions, and writes or drops their `Object=` lines where VB6 does. The toolbox then
+  offers the library's ProgressBar, and placing one declares the library in its form's header. Unchecking a library a
+  form uses is refused with VB6's message.
+
+- **RichTextBox RTF groundwork** (#1100): an internal document reader and writer reproduces
+  the measured empty, plain-text and formatted Arial/Courier New RTF shapes, with character formatting,
+  font/colour tables, ANSI escapes and tabs. Paragraph formatting retains alignment, indents, tab stops and the measured bullet groups.
+  CR LF text writes paragraph breaks; selection output reproduces the measured empty and single-format
+  documents with reduced tables. Unsupported RTF and unmeasured selection output are refused rather than flattened. A minimal RichTextBox form now runs: code can load RTF, edit its text and selection, apply character formatting and paragraph alignment, and read TextRTF or SelRTF back. The default member is TextRTF. The measured RichTextBox form and RTF companion now round-trip byte for byte. Inline TextRTF moves to the companion, single-line boxes keep their first paragraph, and toolbox placement seeds the control name. Saved own properties are carried without editable designer fields; unsupported inline RTF keeps the designer read-only. A first input/drawing slice accepts typing, Enter and Backspace with the measured key/selection/change order, respects saved ReadOnly/MaxLength and protected text, and draws character formatting with inverse selection. Click/double-click selection, the measured Select All/tab/alignment shortcuts, plain-text copy/paste, Undo and caret scrolling now work. Saved background, disabled text/background and flat/inset borders now draw. Enabled works at runtime; Appearance and BorderStyle read their saved values and reject writes with error 383. Scalar SelColor reads, other runtime members, unmeasured mouse-selection edges, formatted clipboard transfer and paragraph drawing remain unimplemented.
+
+- **RichTextBox keyboard selection** (#1100): Shift navigation includes paragraph breaks and the hidden final break; command arrows follow the measured punctuation word stops, and plain arrows collapse a selection to the pressed side. Wrapped vertical and non-ASCII word endpoints remain refused.
+
+- **RichTextBox runtime editing limits** (#1100): Locked and SelProtected now control real input
+  while allowing code edits. MultiLine and ScrollBars read saved values and reject runtime writes.
+  MaxLength supports the recorded limits, truncates assigned Text and drops SelText appended at a full
+  limit; unmeasured RTF truncation and other limit edges remain refused.
+
+- **MaskedEdBox runtime foundation** (#1098): MSMask's measured library identity and 66 type-library
+  constants, plus a runtime component for code-assigned mask text, prompt-free readings, default Text
+  reads, selection reads and Change dispatch. Keyboard input now inserts, removes and navigates across
+  mask literals, with measured key event order and ValidationError dispatch. The measured `##-##` SelText
+  writes insert, truncate overflow and reset the caret to zero. Clipboard shortcuts now copy/cut with
+  ClipMode and paste with measured insertion, skipped characters, truncated overflow and validation.
+  Saved forms now retain VB6’s property order and duplicate OLE modes, always write PromptChar, omit Text,
+  and preserve an unedited save. Formatting, toolbox placement, designer support and runtime loading
+  of saved own properties remain unfinished.
+
+- **DTPicker's date object model** (#1094, first slice): preserved minimal MSComCtl2.DTPicker blocks
+  can run with Value, date parts, ranges, checkbox Null state and format settings. Input, drawing
+  and editable file persistence remain pending.
+
+- **DTPicker calendar colours** (#1094, part A continuation): calendar colours now read their measured system defaults as Longs. Recorded MousePointer
+  and OLEDropMode values, numeric dates, default Value access and part-conversion errors are supported;
+  minimal carried blocks are labelled view-only in the designer.
+
+- **MSCOMCT2.OCX is recognised as an in-box control library** (#1093 prerequisite). Project > Components
+  can select its reference under Microsoft Windows Common Controls-2 6.0 (SP6). UpDown, DTPicker,
+  MonthView, Animation and FlatScrollBar are catalogued; their implementations are tracked separately.
+
+- **UpDown's runtime object model** (#1093, part A): an unbound `MSComCtl2.UpDown` on a form runs,
+  and code can set its range and value and bind a TextBox or Label buddy. Value assignments raise Change
+  even when the value stays the same; reversed ranges, buddy synchronization and binding geometry follow
+  the VB6 measurements. Editable file persistence remains for part C.
+
+- **UpDown mouse input and drawing** (#1093, part B): spin buttons step on press, repeat while held,
+  and raise UpClick or DownClick after MouseUp, including a release outside the control. Increment
+  snapping, reversed ranges, wrapping and synchronized buddy text follow the measured VB6 behaviour.
+  Vertical and horizontal buttons render with disabled arrows; Up moves focus to the preceding control.
+
+- **UpDown saved forms** (#1093, part C): saved range, orientation and buddy bindings load without
+  changing the file's geometry, including a buddy declared later in the form. The original control
+  blocks survive saving and form edits verbatim and remain read-only in the designer. The toolbox
+  offers the measured 255 × 750 twip default.
+
+- **SSTab runtime pages** (#1090): minimal SSTab blocks run as containers, and programs can switch tabs,
+  edit indexed captions and flags, and observe page positions, TabStop changes and Click(PreviousTab).
+  The remaining object-model members are still outstanding; unsupported members
+  refuse explicitly.
+
+- **SSTab saved pages** (#1090): VB6-designed forms load their page lists, captions and implemented
+  properties, including HIMETRIC dimensions and the tab-zero load quirk. Both measured saved forms
+  round-trip with their companion pictures; extender edits retain the measured property order and
+  saved page lists and flags, and TabHeight is always written. Designer edits remain read-only until
+  page membership can be maintained.
+
+- **SSTab tab strip** (#1090): running forms draw captions and tab rows, bringing the active row
+  forward. Style controls caption widths and active bolding; TabHeight, TabMaxWidth, hidden-tab gaps,
+  horizontal clipped side captions, wrapping and the focus rectangle follow the measured behaviour.
+  Appearance/picture binding and the saved-state designer preview remain for later slices.
+
+- **SSTab input** (#1090): caption clicks switch pages between MouseDown and MouseUp, with
+  Click reporting the previous tab. Arrow keys and Ctrl+Tab switch while the SSTab has focus;
+  Alt caption access keys switch from page controls and focus the SSTab. Disabled captions take
+  focus without changing pages, and page clicks do not raise Click.
+
+- **TabStrip collection groundwork** (#1089): an internal Tabs/Tab model reproduces the measured
+  case-sensitive keys, rounded indexes, insertion and removal selection rules, and code-driven
+  BeforeClick/Click cancellation.
+- **TabStrip interpreter binding** (#1089): a form holding an MSComctlLib.TabStrip can run,
+  add tabs and switch selection from code. Tab properties, scalar tags and
+  integer/Boolean strip properties are reachable; code BeforeClick cancellation still raises Click.
+  Unsupported members remain refused.
+- **TabStrip keyboard selection** (#1089): Left, Right, Home and End select tabs through BeforeClick
+  and Click; cancelling an arrow-key selection keeps the old selection and suppresses Click. Alt plus a caption's
+  mnemonic selects its tab and takes focus.
+- **TabStrip mouse selection** (#1089): MouseUp sees the new selection, and cancelling BeforeClick
+  still raises Click. Selected-tab and right clicks skip BeforeClick; Style 1 MultiSelect supports plain
+  and Ctrl clicks. Double-clicks raise a second MouseUp and Click without MouseDown, and client-area
+  clicks raise nothing.
+- **TabStrip top-row drawing** (#1089): selected tabs appear raised, selected buttons pressed, and flat
+  buttons support separators. Caption mnemonics are underlined; disabled tabs draw like enabled ones.
+  Other layouts and TabStyle 1 drawing remain refused.
+- **TabStrip saved files** (#1089): measured property bags round-trip with VB6's property order,
+  typed tab images and the mandatory Tabs block. A missing ImageKey for ImageVarType 8 refuses the
+  whole form. Saved scalar properties and plain tabs load at run time, with tab sizes converted from
+  HIMETRIC; saved ImageList/Font runtime loading remains refused.
+
+- **The Toolbar's runtime model** (#1088): MSComctlLib.Toolbar now loads with its measured scalar defaults,
+  Style and TextAlignment validation, and size assignments that leave its size unchanged. Runtime Buttons and
+  ButtonMenus now support collection operations, scalar properties and measured errors. Measured single-row
+  geometry supports the probed Alpha caption, separators and placeholders, repositioning
+  buttons after collection, visibility, style and placeholder-width changes. Arbitrary caption sizing,
+  ImageList binding remains unimplemented. Runtime buttons now draw their captions, check/group
+  values, separators, placeholders and dropdown arrows without images.
+  Toolbar clicks now raise the measured mouse/Click/ButtonClick sequence, update check/group values,
+  suppress ButtonClick for an already pressed group button, and open dropdown menus with ButtonDropDown.
+  Menu activation raises ButtonMenuClick alone; double-click's second press raises ButtonClick alone.
+  The VB6-saved Toolbar form and ImageList companion now have byte-for-byte preservation coverage,
+  including a save after editing the form's caption. Configured Toolbar blocks remain carried verbatim;
+  designed top-level bars now load the measured button/menu properties at run time, including numeric
+  image indexes, tooltips and twips placeholder widths. ImageList binding and designer property-bag editing
+  remain unfinished.
+
+- **StatusBar drawing and events** (#1087, part B): panels draw their text and borders, key indicators grey out while off, and Simple style displays SimpleText. PanelClick and PanelDblClick follow VB6's measured mouse-event order, for either button, with no panel events in Simple style and no events on the size grip. Native file persistence and panel pictures remain for part C.
+
+- **The StatusBar object model** (#1087, part A): Microsoft Windows Common Controls 6.0 offers a StatusBar in the toolbox, with Panels, a panel's default Text member, measured collection errors and fixed Width/MinWidth rules. Drawing, events, layout-derived values and native file persistence follow in later parts; unmeasured members refuse explicitly.
+
+- **StatusBar spring layout values** (#1087, first part B slice): panels share spare width above their minimums, reserve the size grip, and keep fixed widths when they overflow. Count and panel Index now return the measured Integer type. Drawing, pointer events and nonempty Contents sizing remain for the rest of part B.
+
+- **StatusBar saved panels** (#1087, first part C slice): saved panel values load with HIMETRIC widths, and the measured forms and picture companions save byte for byte. TextSave snapshots and panel picture records are preserved.
+
+- **StatusBar panel pictures at run time** (#1087): saved bitmap and icon pictures can be read, assigned between panels or loaded from a file with LoadPicture, drawn beside the text, and cleared with Nothing. Saved panel blocks retain their original bytes; unmeasured picture members refuse explicitly.
+
+- **TreeView programs can build and walk a tree on a form** (#1086). MSComctlLib.TreeView owns its
+  Nodes collection, with measured placement, navigation, subtree moves/removal, Integer count/index
+  wrapping, expansion, selection, checkbox resets and independent root/child sorting. Code can read and
+  write Style, LineStyle, Indentation, LabelEdit, HideSelection, Checkboxes, Sorted, SelectedItem and
+  PathSeparator. Runtime trees draw their visible labels, lines, expansion buttons, checkboxes and
+  selection, following Style, LineStyle and Indentation. Mouse and measured keyboard input now
+  raise node, expansion and click events, including SingleSel ordering and code-driven expansion.
+  Native TreeView forms now save their own properties in VB6's order, preserving HIMETRIC Indentation,
+  ImageList references, Font and OLE settings, with the saved form and companion reproduced byte for byte.
+  Owned values remain unavailable for designer editing. ImageList binding, label editing and remaining
+  runtime members follow later.
+
+- **ListView begins its object model** (#1085): MSComctlLib ListViews now expose ListItems and item text, keys,
+  selection and checkbox state, including VB6's first-item selection and retained SelectedItem pointer. ImageList binding,
+  mouse input, label editing and file persistence remain for later slices.
+
+- **ListView begins keyboard interaction** (#1085): Down and Home select items, Ctrl+Down moves only
+  the focus, and Space toggles a focused checkbox before raising ItemCheck and ItemClick.
+  Mouse input, label editing and file persistence remain for later slices.
+
+- **ListView upward keyboard navigation** (#1085): Up selects the previous item and raises ItemClick;
+  Ctrl+Up moves focus without changing the selection or raising ItemClick.
+
+- **ListView columns, sub-items and sorting** (#1085): the measured object model now includes ColumnHeaders,
+  ListSubItems, SubItems, control properties and FindItem. Sorting preserves case-only ties and defers newly
+  added sorted items until the dispatcher turns at DoEvents. ImageList binding and files follow separately.
+
+- **ListView draws its four views** (#1085): item text, Report headers and subitems, selection and focus,
+  and checkboxes now render. Report columns support alignment, grid lines and full-row selection. ImageList
+  icons await #1083; mouse input, label editing and saved files follow separately.
+
+- **ListView mouse interaction** (#1085): labels select items with ItemClick, checkboxes raise ItemCheck,
+  and headers raise ColumnClick alone. Right-click selects and raises Click; Ctrl/Shift selection and
+  double-click event order follow the measured VB6 behavior. Label editing and saved files follow separately.
+
+- **ListView label editing** (#1085): StartLabelEdit and automatic selected-label clicks open an inline editor.
+  BeforeLabelEdit and AfterLabelEdit can cancel; changed Enter commits after the handler, while Escape and
+  unchanged Enter leave the label alone. Navigation now raises KeyDown before item events and KeyUp afterwards.
+
+- **ListView begins loading designed properties** (#1085): text-only saved controls load their scalar state,
+  font name and size, and flat columns with HIMETRIC widths. Missing lines use the measured file defaults,
+  and renamed properties follow VB6's file names. ImageList bindings and file writing remain refused.
+
+- **ListView saves preserve designed controls** (#1085): saved property runs and columns round-trip with their
+  binary companions, and designer geometry, name, tag and visibility edits keep the carried data intact.
+  The designer shows the control name and optional checkbox. Own-property and column editing remains unavailable.
+
+- **MSComctlLib ImageList** (#1083): the picture collection supports indexed and keyed lookup, insertion, removal, tags and enumeration. VB6's saved BMP/ICO images and their `.frx` records survive a save byte for byte. The toolbox places the invisible control at its measured size; native handles, drawing, overlays and icon extraction remain explicitly not implemented.
+
+- **Tests and a spec for selection at an unterminated folded member attribute run** (#1019).
+  Pin the retained behavior: Select All includes the run but leaves the caret at the declaration's end;
+  select-to-document-end stops there and leaves the run out.
+
+- **Named-pipe language-server stdout is captured** (#724) as its own `StandardOutput` kind, alongside
+  stderr and exit codes in the Protocol Inspector and `list_lsp_messages`, including startup failures.
+
+- **Unsaved work survives a crash** (#499). While the IDE runs it keeps a private copy of every unsaved document,
+  outside the project and its sidecar. After a crash, a kill or a power cut, the next start offers it back. A project
+  that was never saved is offered at start; a saved one when it is opened, matched by its path or, once the project
+  has moved, by its project file. Restored work comes back unsaved, with the files on disk untouched, and the dialog
+  names any file changed since the copy was taken. File → Recover Unsaved Work lists whatever is still waiting.
+  [`docs/crash-recovery.md`](docs/crash-recovery.md) has the details.
+
+- **Add-in capability declaration proposal** (#459): draft vocabulary, signed manifest field,
+  legacy-manifest alternatives and contracts for consent and disclosure, awaiting security review.
+  No add-in behaviour changes yet.
+
+- **Language servers can request generated workspace files** (#455). Per-server, per-workspace consent
+  is resettable in Options; existing files are protected by recorded content hashes and paths are checked
+  through links. The first provider generates clangd compilation databases from carried C/C++ files and
+  compiler arguments. Material project changes regenerate the file; watched-file notifications await #456.
+
+- **Find searches the current project by default** (#372), including closed files and unsaved edits in
+  open editors. Current Procedure and Selected Text join Current Module and All Open Documents;
+  All Projects appears for a loaded project group. The dialog names the current project, structural
+  scopes use the document's language server with a whole-document fallback, and Replace All asks
+  before changing matches across files.
+
+- **Preserved project items are visible** (#44). Project Explorer shows missing files and unsupported
+  UserDocuments with distinct overlays and localized labels, retaining their paths and project-file entries.
+
+### Changed
+
+- **A `dump_visual_tree` reply with an empty tree says why** (#2725): the window holds no controls, with a pointer to
+  `take_snapshot` for what is drawn on it, or `interactiveOnly` left out so many parts that show, with how to see them.
+
+- **Replies around a running program's waits say three things a caller used to guess** (#2720):
+  - a handler found running, at a MsgBox or paused at `Stop`, that the action or `continue_program` let finish: `(Command1_Click finished)`;
+  - a form the program opened, by its name, with its caption where that differs: `the program opened Form2 ("Second")`;
+  - which `window` reaches a window that holds a handler: `window "Question" reaches it`.
+
+- **A Make run through `invoke_menu_item` says what it made, or why it made nothing** (#2671). The reply used to say
+  only "Invoked". It now waits for Make to finish:
+  - when Make wrote a program, it names the program and the project beside it, with their sizes, and says whether the
+    program wrote over a file that was already there;
+  - when it wrote nothing, it says why, such as a missing standalone runner, a cancelled dialog or a form HexIDE can't
+    write as it was read, and whether a message box saying so is open;
+  - a Make waiting at a save dialog that no answer was armed for is reported as that, at once.
+
+- **`open_file` says when its caret is where `type_text` would be refused** (#2578). A caret put in a form's header or a
+  member's Attribute lines now comes with a note naming that part and the nearest place that can be edited, by line,
+  column and offset. The refusal from the next `type_text` used to be the first a caller heard of it.
+
+- **`take_snapshot`'s reply gives the coordinate mapping with its own numbers** (#2565). A new `units` field maps
+  `inspect_element`'s `boundingRect` into the image and the inline copy, and `pathNote` says each call writes a new file
+  that nothing deletes. The description gave the formulas for a caller to fill in, and is now within its budget.
+
+- **ParamArray forwarding with empty parentheses is covered by interpreter tests** (#2532).
+  `T a()` already passes one element holding a copy of the array; the tests pin that shape and
+  show that writing through the callee's element leaves the caller unchanged. The language
+  inventory and interpreter spec now describe this supported case.
+
+- **Absent language-server hover results explain their origin at debug level** (#2302): a missing
+  connection, incomplete initialization, unavailable capability, or the server returning null. The
+  notification-flood test includes client logs and server receipt in its failure diagnostics.
+
+- **CI keeps evidence when the macOS runner runs out of memory.** A watchdog records free memory and the largest
+  processes during the macOS test steps, and ends a run that is about to starve the runner, so its log survives. The
+  ViewModel tests also name any test still running after two minutes (#2128).
+
+- **`hover` reports where an opened tip is** (#1303). A tip closes when the hover ends, so no snapshot could show where it
+  had opened. The reply now gives `tipBounds`, the tip's x, y, width and height in the window's device-independent units,
+  as `inspect_element`'s `boundingRect`, and its offset from the point hovered. `hover`'s move through the window's input
+  is now measured live on Windows and Linux: toolbar tips, quick info and Auto Data Tips, a disabled button, and the real
+  mouse afterwards.
+
+- **Toolbar designer persistence coverage** (#1088): a headless regression verifies that carried Toolbars
+  offer no Properties-window edits, and that a surrounding form edit survives save and reload with the
+  Toolbar blocks and companion bytes intact. Toolbar scalar properties and Buttons remain view-only
+  until their property bags can be written faithfully.
+
+- **Image Click coverage now pins VB6’s measured hit area** (#861): real pointer input tests cover an empty Image’s centre and far corner, a point past its edge, and Image versus Frame dispatch inside a Frame. The existing runtime behaviour already matches these measurements.
+
+- **Documented the Linux program-locale limitation** (#798): separate `LC_TIME` and `LC_NUMERIC`
+  overrides are not applied to date and number parsing and formatting. Runtime behaviour is unchanged.
+
+- **CI cancels a pull request's superseded run when a newer push arrives.** Each push used to start a full run while the
+  older one kept going, and superseded runs held the few macOS runners the whole queue shares. Pushes to a branch are
+  never cancelled, so every commit on main is still built.
+
+- **A hung test in CI fails its step after 30 minutes, and keeps its log.** Every test step in `build.yml` now
+  has a timeout. A hang used to hold its job for GitHub's six-hour default, and cancelling the job to free the
+  merge queue threw its log away, so nothing said which test hung. `WorkflowActionTests` checks that every
+  test step keeps one.
+
+- **twinBASIC and RDCore may be named anywhere in the tree, with attribution.** The hygiene check no longer limits
+  either to a list of agreed files. The README carries their attribution, and the check fails if it goes missing.
+  Every other third-party project is still named a file at a time (#2071).
+
+- **Two PRs that each add a line to the fidelity oracle's index now merge without a conflict.** The index takes one line
+  per subject at its foot, so any two PRs that both measured something collided there, though keeping both lines was
+  always the answer. `.gitattributes` now merges that one file with git's built-in `union` driver.
+
+### Fixed
+
+- **Shell's quoted-program test retries temporary-directory cleanup** (#2741). A copied helper executable
+  briefly held open after exit no longer fails the test; persistent access or I/O failures leave the
+  directory for the OS temp cleaner.
+
+- **Hover tests wait for the tooltip state they assert** (#2740), with a five-second bound and timeout
+  diagnostics naming the condition, elapsed time, open state and tooltip content, instead of assuming
+  the runner finishes within a fixed delay.
+
+- **What `type_text` writes into a TextBox is drawn at once** (#2737). In its default mode, a write into a focused box,
+  such as the Find dialog's, left the box drawing its previous text, though it held the new one and the app acted on
+  it, so a snapshot showed the box empty. The write is now committed in the order the TextBox's own typing uses.
+
+- **Make's question before replacing an existing archive is reported** (#2718). While Make asks, the reply to
+  `invoke_menu_item` says so within about a second, naming the archive, where it used to wait 60 s and say Make was
+  still writing. The `interact` that answers the box reports what Make then did. A No is reported as declining to
+  replace the archive, where it read as a cancelled save dialog.
+
+- **The Find dialog's boxes are named by their captions** (#2717): Find What, Replace With and the Search scope list now carry
+  their localized caption, without the access-key underscore, as their accessible name. A screen reader announces which box
+  it is, and automation reaches the Find What box as `Edit[Find What:]` rather than by position.
+
+- **A `window` name shared by a dialog and the message box over it reaches the box** (#2712). The Find dialog's
+  message box has the dialog's own title, so `window: "Find"` was refused with advice to name one by a title only it
+  has, which neither has. The name now reaches the window on top, as a person can use only that one, and the dialog
+  again once the box closes. Two windows of one name side by side are still refused, and the refusal now says which
+  of them `auto` reaches.
+
+- **Code-window selections now reach Find and add-ins** (#2711). Selecting text with the keyboard or mouse keeps the view-model in step, so Selected Text searches use the selected span and the add-in API reports it.
+
+- **The Locals window and `get_locals` type a row as VB6's Locals window does** (#2700), from hexide-int's measurements of
+  `vb6.exe`:
+  - **A live object** reads as its declared type, then its class: `Object/Class1`, `Class1/Class1`, or
+    `Variant/Object/Class1` in a Variant. A control under `Me` reads `Timer/Timer`, a Timer's `Parent` `Form/Form1`, and
+    an `Item` row `Variant/Object/Timer`.
+  - **`Nothing`** reads as the declared type alone, and a Variant's value as `Variant/String` or `Variant/Empty`.
+  - **An array** is named without parentheses and typed by its element type and bounds, as `Class1(1 to 2)`.
+  - **A class instance's variables** are sorted by name, Private included.
+  - **A standard module** is listed by its name, typed `Module1/Module1`, with a `<No Variables>` row when it has none.
+
+- **Options accessible names omit label colons** (#2680). The sticky-scroll depth spinner now has its
+  row's localized name, and spinner buttons use numeric increase/decrease wording in Czech, Danish,
+  Dutch, Finnish, German and Indonesian.
+
+- **Saving a new project asks where to save its scratch forms and modules before the project file**
+  (#2678). Save Project As and the first Save Project now write members at the chosen destinations,
+  rather than leaving the project pointing into TEMP. Cancelling any picker writes nothing, and
+  scratch files no longer read as saved.
+
+- **Automation edits to a new project persist to its scratch files without opening a save picker**
+  (#2678). Explicit Save commands still ask for a permanent destination.
+
+- **Formatting and auto-close follow the editor’s Tab Width** (#2669). Formatting requests, including
+  format-on-save, send the configured width and use spaces like the editor. Enter after a block opener
+  indents the body by that width and keeps the closer aligned with the opener.
+
+- **Unset optional LSP members are omitted from JSON** (#2668), including formatting's
+  `trimTrailingWhitespace` and initialize's `foldingRange` capability. Members whose protocol types
+  allow null retain it, and explicit values are preserved.
+
+- **Picture properties can be loaded in the designer** (#2653). The Picture, Icon, DragIcon and MouseIcon
+  rows now have an ellipsis button opening the IDE file picker. Pictures accepted by the existing reader
+  replace the old picture as one undo step and save in the form’s companion file; unreadable files are
+  refused without changing the old picture.
+
+- **Unedited files brought in with Add File no longer ask to save when removed** (#2644). Forms,
+  modules, classes, UserControls and property pages now establish the same unchanged baseline as
+  members loaded with a project.
+
+- **Signature help marks the active parameter in bold** (#2632), preserving the label's optional-parameter brackets instead of adding misleading brackets of its own.
+
+- **ErrObject assignments and creation match VB6** (#2627). Assigning a Collection to `As ErrObject`
+  raises 13 and preserves its reference; `New ErrObject` raises trappable -2147221164,
+  "Class not registered", instead of a compile error.
+
+- **`Mid$`, `MidB` and `MidB$` statements run** (#2623). Byte writes preserve untouched UTF-16 bytes,
+  including writes across characters. `Mid` and `Mid$` raise error 94 for a Null target or replacement.
+
+- **Pointer identities no longer enlarge every interpreter value** (#2622): String buffer identities
+  share the value's existing payload slot, restoring the stack footprint used before `StrPtr` and
+  `VarPtr` were added while preserving their identity relations.
+
+- **Signature help keeps a trailing list highlighted for every argument past it** (#2599), as in `Array`,
+  `Choose` and `Switch`. An extra argument to any other function still marks no parameter, since VB6 refuses it.
+
+- **Serialization requirements are visible to OpenSpec** (#2587). Move the trailing requirements above
+  Out of Scope without changing their content, and guard every live spec against requirements outside
+  its Requirements section, reporting the file and line.
+
+- **InputBox buttons follow the IDE language** (#2586), using the same OK and Cancel translations as the other runtime dialogs.
+
+- **A line number or label on `End Sub`, `End Function` or `End Property` works** (#2561). `90 End Sub` stopped the module
+  loading, and `Done: End Sub` read `Done` as a call. A `GoTo` to one now returns from the procedure, with the value a
+  Function had, as vb6.exe does, measured native and p-code.
+
+- **TreeView SetFocus, Move and ZOrder reach the shared control implementations** (#2557).
+  Remaining method refusals name the member and its tracking issue, #1086.
+
+- **Classes with `VB_PredeclaredId = True` have a default instance** (#2555). The class name creates it
+  on first use, recreates it after `Set Class1 = Nothing`, and holds it until the program ends.
+
+- **Lock and Unlock run instead of stopping the program** (#2553). Whole-file and record ranges
+  prevent another file number in the program from reading or writing locked records; Close releases
+  the locks. Both parsers now accept an omitted range start, such as `Lock #1, To 4`.
+
+- **App file logging runs** (#2552). `StartLogging`, `LogEvent`, `LogMode` and `LogPath` follow the
+  measured VB6 file output and mode values, including mode 18 disabling logging without overwriting.
+  Default and NT logging deliberately write no Windows event, avoiding administrator-only event-source
+  registration on the developer's machine.
+
+- **App.HelpFile, App.StartMode, App.TaskVisible and IMEStatus are available** (#2551). The application
+  properties retain measured types and writable values; IMEStatus reports Long zero without an IME.
+  Unmeasured project help files and assignment conversions are refused explicitly.
+
+- **Conditional-compilation greying tests wait for evaluation to finish** (#2533), with a ten-second
+  upper bound instead of assuming the debounce has completed after 350 ms on a loaded machine.
+
+- **A line number or label on a closing line works** (#2529). `30 Next`, `30 End If`, `40 Case Else` and the rest
+  were syntax errors, so a module numbered on every line did not load, and `Skip: Next`, the usual way to go round a loop
+  early, read `Skip` as a call. Now both parse, and a `GoTo` to such a line does what vb6.exe does, measured native and p-code:
+  from inside, the block ends as if it had run to its end; from before, an If, Select Case or With is skipped and a Loop or
+  Wend tests its condition. A `GoTo` from outside a For loop to its `Next` is refused, since vb6.exe hangs on it.
+
+- **`Erl` runs** (#2528). An error handler that reported the line number, as numbered production code does in nearly
+  every handler, stopped the run, so a handled error became a fatal one. `Erl` now answers as vb6.exe does, measured
+  native and p-code: the line number at or above where the error was raised, in source order, in the procedure that
+  trapped it, cleared where VB6 clears `Err` itself. A number on a closing line such as `30 Next` still stops the module loading (#2529).
+
+- **Error handlers can read Err.HelpFile, Err.HelpContext and Err.LastDllError** (#2527).
+  Raise accepts help arguments and supplies the measured default help topic; Clear resets the help fields.
+  LastDllError is a read-only Long fixed at zero while Declare calls remain unsupported.
+
+- **Reset closes every open file and flushes buffered writes** (#2521). `FileAttr` now returns the
+  measured Output, Append, Random and Binary modes as Long values, with the measured argument and
+  closed-file errors. Input mode remains explicitly unimplemented pending a VB6 measurement.
+
+- **`LSet` and `RSet` justify String variables and Variants holding text or an Integer** (#2517).
+  They preserve the target's current length, pad with spaces and keep the leftmost characters when
+  truncating. A Null source raises error 94 and leaves the target unchanged. Fixed-length String
+  declarations and UDT copying remain unimplemented.
+
+- **A held button is abandoned after its idle limit even when the timer fires early** (#2514). A timer could fire a
+  few microseconds before the clock said the limit had passed. The check then kept the hold, and nothing armed the
+  timer again, so `click … hold` stayed held until the next tool call. The check now arms the timer again for the time
+  left. This was also the intermittent timeout in the held-button idle test.
+
+- **`match: "TextEditor"` finds the Immediate window's editor, and `inspect_element` reads its text** (#2513).
+  `dump_visual_tree`'s description promised the first, but the editor was folded out of the tree, so a caller reading a
+  program's `Debug.Print` output found nothing and could not tell an empty window from an unreachable one. The editor
+  is now the node `…/None[Immediate.Editor]`, labelled with the window's name, and its `value` is the window's text,
+  with `isReadOnly` beside it. A code window's editor still leaves its file to `get_file_content`.
+
+- **Corpus smoke checks locate the repository on Windows** (#2505): root discovery now requires both
+  `IDE/` and `LspServer/`, so the test source folder `Corpus/` cannot be mistaken for the in-tree corpus.
+
+- **Corpus smoke saves account for measured reference-path rewrites** (#2505): expected bytes make
+  same-drive reference paths relative, with each applied change listed in the report. Companion file
+  paths compare using the host's case rules, avoiding false differences for VB6 template member names
+  on Windows and macOS. All other byte differences still fail.
+
+- **Make asks before replacing its derived project archive** (#2504). The question names the existing
+  `.dll`; declining leaves both the archive and executable untouched. Saves use unique staging names,
+  preserving user files at the former `.tmp` and `.hexide-tmp` paths.
+
+- **Conversation exports preserve earlier files** (#2504). The Protocol Inspector asks before replacing
+  either the messages or its derived manifest, and MCP exports use a fresh temporary directory per call.
+  The file-safety audit records the remaining command risks and VB6 prompt measurements still needed.
+
+- **Project and carried-file saves, Make outputs, exports and project sidecars flush before replacing
+  each destination** (#2503). They share one writer that stages bytes in a unique sibling file and
+  attempts cleanup after a refused write. Make keeps the runner's Unix permissions. External VB6
+  compiler output still needs a measured staging contract.
+
+- **Save-failure regression tests use portable failure injection** (#2503). Sidecar migration
+  retries are tested through the atomic writer, and replacement-refusal assertions accept
+  both I/O and access-denied errors while checking destination preservation and cleanup.
+
+- **Forms terminate in project order at a run's end** (#2497), with the newest instance first within each form, as measured on VB6, instead of following instance creation order.
+
+- **The `Forms` collection runs** (#2496). `For Each f In Forms: Unload f: Next`, the usual way a program with several
+  forms closes them all from its main form's Unload, stopped the run as the program ended. `Forms`, `Forms.Count` and
+  `Forms(i)` now answer as vb6.exe does, measured native and p-code: the loaded forms in the order they loaded, a For Each
+  that walks the forms held when it began, and `Unload Forms(i)` by index.
+
+- **A declared array passed as `arr()` passes the whole array** (#2474). Calls and expressions
+  retain ByRef sharing and ByVal copying; `v()` on a Variant holding an array is refused with VB6's
+  "Expected Sub, Function, or Property" error when the statement runs.
+
+- **A procedure declared with a `ParamArray` runs.** Every call to one stopped the program with "ParamArray parameters are
+  not yet supported", so a `Sub Log(ParamArray args())` or a `Function Max(ParamArray v())` never ran. The procedure now
+  gets its remaining arguments as a Variant array from 0, and each element is its argument ByRef, so a store through one
+  reaches the caller's variable, converted to its type, as in VB6.
+
+- **The stdio process lifecycle test tolerates a server exiting during its Linux process check** (#2461).
+  A disappearing `/proc` entry now counts as the process being gone rather than failing the test.
+
+- **`type_text` types into a control that takes typing itself** (#2460). In keyboard mode, a running form's RichTextBox
+  was refused as having no text surface, because the check went by the control's class. A control that takes focus is
+  now sent the keys as a person's keyboard sends them, and the reply says if it took none of their text.
+
+- **Saving an ActiveX EXE adds a missing `Retained=0` in VB6's measured place** (#2459), between adjacent `Unattended=0` and `ThreadPerObject=0` lines. Existing values, other project types and unmeasured layouts are preserved.
+
+- **`get_window_state` says what its numbers measure** (#2454). It gave `x` and `y` in screen pixels and `width` and
+  `height` in device-independent pixels, with nothing to say so or which edge `x` and `y` were. The reply now adds
+  `scale`, the window's `outer`, `frame` and `client` rectangles in device-independent pixels, and a `units` line
+  saying which is which.
+
+- **Options lists expose their localized labels to accessibility and automation** (#2449). Language,
+  Region, Theme and Keymap remain named even when disabled or empty; the rendered-surface guard now
+  catches unnamed combo boxes and visits Options pages. The sticky-scroll depth spinner buttons also
+  have localized Increase/Decrease names.
+
+- **An array sent as text by a client with a stale schema is refused naming the cause** (#2446). A session that loaded a
+  tool before it took an array parameter sends that array as a string, and was told only that it sent "a long string",
+  and to read the schema it held, which was the stale thing. The refusal now says a client holding an older schema sends
+  that, and that a new session is needed; and a long string is shown by its length and start.
+
+- **A form’s own `ActiveControl` remembers its last focused control** (#2437, first slice), including
+  while inactive or hidden. A form loaded but never shown, or loaded again after unloading, reads Nothing.
+  Restoring focus and raising GotFocus on reactivation remain outstanding.
+
+- **A shown form focuses its first eligible control in tab order** (#2436), after `Form_Activate`:
+  disabled, hidden and non-tab-stop controls and Labels are passed over. Startup forms and modal
+  forms follow the same rule. `Me.Show` inside `Form_Load` raises Activate and the initial GotFocus
+  there, before a subsequent `SetFocus` moves the focus.
+
+- **Bundled-server completion no longer waits behind document analysis** (#2434). It answers from the
+  last parsed declarations, or static keywords and built-ins during the first parse, while diagnostics
+  keep their existing scheduling. Debug logs separate queue
+  waits, SLL/LL parse stages, diagnostics and completion time.
+
+- **The Screen object runs** (#2431). `Screen.Width`, `Height`, `TwipsPerPixelX` and `Y`, `MousePointer`, `ActiveForm`,
+  `ActiveControl`, `FontCount` and `Fonts` stopped every program that used them; they now answer as vb6.exe does, measured
+  native and p-code. `Screen.MousePointer = vbHourglass` shows the hourglass over every form. `MouseIcon` is still refused.
+
+- **`press_key` types the character a key types** (#2428). It sent the key's events alone, so Shift+K on a running
+  TextBox raised no KeyPress and typed nothing, where a person's press types K. The character now goes between the
+  key's KeyDown and KeyUp, except with Ctrl, Alt or Meta held and for control characters, and the reply says what was
+  typed. In a code window a protected line refuses it, as it refuses typing.
+
+- **End after Select All in a running single-line TextBox leaves the caret at the end** (#2423), so Backspace deletes the last character. Home collapses the selection to the start for Delete.
+
+- **`press_key` and `type_text` press each modifier's own key around the key** (#2422). A person's Shift+K is Shift
+  down, K down, K up, Shift up; the tools sent K alone with Shift as a flag, so a program never saw Shift's own
+  KeyDown 16 or its KeyUp with mask 0. Each modifier now goes down before the key and up after it, and the reply
+  names them.
+
+- **A left click ends with MouseMove, as in VB6** (#2417). Forms, CommandButtons, Labels and Images raise one Button 0 move at the release point, on the control or form beneath the pointer. A Form, Label or Image double click raises none after its second release.
+
+- **`take_snapshot` refuses a minimized window instead of returning its last frame** (#2416). The default capture draws
+  through the compositor, which still held the frame from before the window was minimized, and returned it as if
+  current. It is now refused, as the frame capture already was, with the `set_window_state` call that restores it.
+
+- **`App.Title` uses the project file's name when `Title=` is absent** (#2413), matching VB6 under F5 even when `Name=` and `ExeName32=` differ.
+
+- **A declaration with a type character takes that type** (#2409). `Dim s$` stopped its whole module loading, a
+  local one stopped the run, and so did `Property Get P$()`, while `Sub F(n%)` ignored the character and took a
+  Variant, so `F 2.6` gave `n` 2.6 instead of 3. Each now declares the type its As clause would: on `Dim`,
+  `Private`, `Public` and `Static`, arrays included, on parameters, and on a Property Get's return. A character
+  beside an As clause is VB6's compile error, as vb6.exe reports it.
+
+- **`interact`'s `click` moves the pointer there before it presses** (#2407). A person's pointer arrives before it
+  presses, so a running form's MouseMove comes before its MouseDown; a click raised none, so no program's MouseMove ran
+  from one. A click where the last one left the pointer moves nothing first, as a still mouse sends no move, and the
+  reply says which. Checked against real X input on Linux: the same events, in the same order.
+
+- **`open_file` puts the caret at a line in a carried file** (#2403). It refused a line for a carried file and opened
+  nothing, so a caller walked the caret there a key at a time. It now places it as in a code window, against the text
+  `get_file_content` returns, opens a fold over it, and reads it back in the note.
+
+- **One Next may close several loops, `Next j, i`** (#2393). It stopped its whole module loading, and the editor
+  underlined it. It now runs as `Next j: Next i`, which is how vb6.exe runs it, for For and For Each loops alike and for
+  any number of names. A list with a name missing, `Next j,` or `Next , i`, is still a syntax error, as it is in vb6.exe.
+
+- **Running forms raise one Resize per window change** (#2389). Maximizing, restoring and dragging a
+  corner report the settled client size once. Paint follows a native resize when the client grows;
+  restoring from minimized does not reactivate the already active form.
+
+- **Closed split tools keep their place across a restart** (#2387). Showing one again restores its own dock and saved split proportions, including late-registering add-in tools.
+
+- **Docs-only pull requests report the Windows and macOS build checks** (#2382). Lightweight Ubuntu
+  jobs report the same check names while the real builds stay skipped, so branch protection can finish.
+
+- **`hover` says what took the tip** (#2376). The real mouse, resting over the IDE's window, gets moves from the platform
+  as windows change around it, and the tip goes with them, as it does for a person. The reply offered that as one of two
+  possible causes, and none when no tip was declared. It now reads the window's input during the watch and says whether
+  the real mouse or another hover running at the same time moved the pointer, where to and over what, and what to do.
+
+- **Absolute project paths work on Linux and macOS** (#2375). A path beginning `/` now opens the project
+  instead of being silently ignored; recognized slash-prefixed flags still work.
+
+- **Toolbar buttons size to their captions** (#2373). Buttons share the widest caption's width in the host font, update when captions change, and retain their dimensions after Clear. Narrow bars wrap when Wrappable is enabled; tabs and line breaks take the measured space without drawing on separate lines.
+
+- **The held-button idle-limit test waits for abandonment to finish** (#2368), allowing up to 30 seconds
+  for the timer and dispatcher under load instead of failing after two seconds.
+
+- **`press_key` refuses a disabled control** (#2366). A disabled control can't take focus, so the tool raised the key
+  on it as a routed event, which no person's keyboard could do, and reported `"success": true`. It now gives the refusal
+  `interact` gives a disabled target (#2223), naming a container that disables it. `inspect_element`
+  reports `isKeyboardFocusable` false for such a control, where it read true.
+
+- **Edits cancel superseded language-server analysis before sending the changed text** (#2365).
+  Diagnostic pulls, semantic tokens and folding requests for that document are asked to stop
+  before the changed text is sent; completion and hover remain outstanding.
+
+- **Language servers see existing source folders outside a project's directory at startup** (#2364).
+  The project's own folder stays first; missing sources add no folder and shared folders are listed once.
+  Servers opting into folder changes receive additions and removals before any project import,
+  on the same debounced project-change trigger.
+
+- **Project import notes reach the server log as readable text** (#2363). Diagnostic refresh support is
+  declared during initialization; a server's refresh stops import fallback pulls only on its connection.
+
+- **`set_tool_window_visible` hides only the window it names** (#2362). Hiding a tool window closed the whole dock it
+  was in, so every tool tabbed with it closed too, while the reply named only the one asked for. It now closes that
+  window alone, as its tab's close button does, and an add-in's tool window that unregisters does the same. The reply
+  names the window as `get_tool_windows` does, says when nothing changed, and names any other window that opened or
+  closed with it.
+
+- **AI Chat widens a narrow dock on first display** (#2361). Its usable width comes from measuring
+  the prompt, Send and New row. The document keeps its minimum width, and later user resizing is retained.
+
+- **Read-only greying tests preserve their execution context while draining dispatcher jobs** (#2346),
+  preventing a previously queued job from leaving a disposed test context behind for later delays.
+  Pre-debounce assertions also run before dispatcher pumping can fire the timer.
+
+- **`hover` reports a tooltip that is a control by the text it shows** (#2336). It read a tip by its `ToString`, so the
+  designer's box for a carried control, whose tip is a StackPanel of three text blocks, answered
+  `tip: Avalonia.Controls.StackPanel`. A tip that is a control now reads as its visible text blocks, in order, joined
+  with ` / `, for an open tip and for a declared one. A tip with no text to read says so, rather than give a type's name.
+
+- **Toolbar caption widths use GDI on Windows** (#2334), matching the measured whole-string
+  extent of the control's font. Other hosts retain rounded per-glyph advances; ampersands still count.
+  Exact Segoe UI regression widths are now gated on the oracle font build; other Windows
+  builds are checked against their installed font’s GDI metrics.
+
+- **Disabled Toolbar images keep their original colours** (#2334). A DisabledImageList image
+  now paints at full opacity, while the disabled caption keeps its existing appearance.
+
+- **The Locals window and `get_locals` list a Timer, a control array and a form's `Me` as VB6's Locals window does**
+  (#2329), from hexide-int's measurements of `vb6.exe`:
+  - **A Timer** lists VB6's seven rows: `[_Default]`, `Enabled`, `Index`, `Interval`, `Name`, `Parent` and `Tag`. Each
+    has the member's declared type, so a Timer in no control array reads `Index` as `<Object not an array>`, with type
+    `Integer`. Its `Parent` opens to the form.
+  - **A control array** opens to `Item 1`, `Item 2` and on, counted from 1 whatever its elements' Index.
+  - **A running form's `Me`** starts with `[_Default]`, then lists its properties, controls and own variables as one
+    list sorted by name, then an `Item` row per control, in the order the form's file holds them.
+  - **`get_locals`** marks a row that reopens an object already open above it with `repeats`, and leaves its children
+    out.
+
+- **A Toolbar no longer opens as unsupported** (#2327). Opening a project no longer says a top-level Toolbar "is not
+  a supported control class". It runs, and a CommonDialog already loaded without the warning for the same reason. The
+  designer's box for each now says "View-only in the designer" instead of "Not supported in HexIDE". A Toolbar
+  holding controls, or one in a control array, still doesn't run, and keeps both the warning and the unsupported box.
+
+- **Immediate-window output tests no longer race over the static Debug.Print sink** (#2326).
+  The display and debug-console tests share a collection with parallelization disabled.
+
+- **TextBox KeyDown and KeyUp handlers begin receiving input** (#2325, first slice).
+  The measured k/K, Ctrl+A, Alt+X, Backspace, Delete, Left, F2 and modifier keys
+  carry their VB6 key codes and Shift masks. Other controls remain pending.
+
+- **TextBox KeyPress handlers can filter typing** (#2325). Setting KeyAscii to zero
+  swallows a character; changing it changes the character typed. Form KeyPreview
+  raises each form event before the control's, and Form KeyCode = 0 suppresses
+  only the control's KeyDown.
+
+- **`interact` `click` with `double` sends its second press when the first click replaced what it landed on** (#2324).
+  A Toolbar rebuilds its buttons on each release. The second press was refused as "hidden or closed, or detached"
+  because the element the first press landed on was gone, even when the addressed control was still there. So the
+  Toolbar's measured double-click couldn't be checked live. Now the second press goes to whatever takes the pointer at
+  that point by then, with a click count of 2, as a person's would. It is refused only when the window has gone or
+  nothing is there, and the reply names the element when it differs from the first press's. It waits first for the
+  window's next frame and for the render thread to apply it, as a person's second click comes after one, since hit-testing
+  read the render thread's picture and missed a just-rebuilt button about one time in three.
+
+- **An open flyout attached to a button is in `dump_visual_tree` and `take_snapshot`** (#2323). The dump and the
+  snapshot reach a control's flyout from the control, and read `FlyoutBase.GetAttachedFlyout` only for controls
+  other than buttons. A running Toolbar's dropdown is a MenuFlyout attached to its button, so the open menu was in
+  neither: the snapshot left it out with no note, and `match: "First"` found nothing. The menu was open all the same.
+  Now its items are under the button, addressable, and the snapshot shows the menu.
+
+- **Integration tests name the test that leaves a culture behind** (#2322). The suite checks the current
+  thread's culture and UI culture and both process defaults after each test against their startup values,
+  so a culture leak fails the leaking test rather than only its next neighbour.
+
+- **`invoke_menu_item` reaches an item whose header is a control, and a submenu filled when it opens** (#2321). The tool
+  read a header by its `ToString`, which for a TextBlock is its type's name: such an item couldn't be reached, and a
+  miss listed "Avalonia.Controls.TextBlock". It is now matched by its automation name, which `dump_visual_tree` shows
+  it by, or else by its text. The tool also read a submenu's items without opening it, so one filled by its
+  SubmenuOpened handler still held its placeholder, "It has no items", until something had opened it once. Each
+  submenu on the path now gets its SubmenuOpened before its items are read, as opening it does, without a popup.
+
+- **End remains available on both toolbars while a running form has focus** (#2319), so stopping a run no longer needs focus returned to the IDE first.
+
+- **Workspace artefact debounce tests use controlled time** (#2305), awaiting regeneration instead of
+  assuming a loaded runner finishes within a fixed wall-clock delay.
+
+- **New SSTab page properties save at their block’s indentation** (#2301), including inside containers.
+
+- **SSTab designer previews use their saved tab strip** (#2301, first slice). Saved captions, selected
+  tab, counts, style, orientation and implemented layout properties now appear in the preview.
+
+- **Desktop builds with `--artifacts-path` copy the bundled language server's dependency from its actual output** (#2298), so a fresh checkout no longer needs a previous build in the default output directory. The same path is used for publishing.
+
+- **A language server's children are ended after a clean server exit on Linux and macOS** (#2297).
+  The launch guard terminates the remaining process group, escalating after two seconds for children
+  that ignore SIGTERM, while preserving the server's exit code.
+
+- **Tool docks keep their size and split arrangement when shown again and after a restart** (#2295).
+  Repeated close/show cycles no longer shrink a lone dock, and a closed member of a split returns to
+  its own dock. Late-registering add-in tools restore their saved dock and ancestor proportions;
+  tools in unrecognized arrangements still restore open in their home region.
+
+- **`take_snapshot` shows text that a control draws after popping a clip, above 100% scaling** (#2293). It drew
+  its image with a `RenderTargetBitmap` at 96 × scaling DPI, where Avalonia.Skia scales the first transform after a
+  popped clip twice. So a running StatusBar's later panels came out blank while the screen showed them, and a live
+  check reported a fault that wasn't there. The window and each popup are now the compositor's own snapshot, which is
+  what the screen shows. If the compositor gives no picture within 5 s, a render target draws it, and the reply's
+  `note` says so.
+
+- **AI Chat fits a narrow dock pane** (#2291). The prompt box narrows with the pane, keeping Send and New visible when the panel is docked on the left.
+
+- **Paused watches respect their context** (#2290). Module-wide watches exclude procedure locals,
+  and procedure-scoped watches read a caller's frame while it remains on the stack. Undefined names
+  and returned procedures display the measured VB6 messages with type `Empty`. Design-time and
+  after-End resolution remain to be implemented.
+
+- **Locals expands a control whose property can't be read** (#2289). A Timer's Left and Top raise 393 when read, as
+  VB6's do, and that raise failed the whole expansion. So `get_locals` at its default depth failed on any form with a
+  Timer, and the Locals window gave Timer1 no expander. Such a property is now listed with the raised error's own
+  description in angle brackets, `<Get not supported at runtime>`, and no type, and the control's other properties are
+  listed as before. The angle brackets are VB6's own convention for a member its Locals window lists whose read raises,
+  as measured on #2289. VB6 lists no Left or Top for a Timer at all. Listing the members a control's type has, as VB6
+  does, is #2329.
+
+- **`inspect_element` reports what a tree has selected** (#2288). A TreeView is no `SelectingItemsControl`, and its
+  peer offers no selection provider, so `selectionItems` came back `[]` whatever was selected. In the Watches, Locals,
+  Project Explorer and Options trees, that read as nothing selected. The tree's own selection is now read, and each row
+  is named as `remove_from_selection` names it.
+
+- **Project saves write reference paths and component lines in VB6's order** (#2274).
+  Libraries on the project's drive are named relative to the saved project on every
+  host, including system libraries. Other-drive and UNC paths stay absolute; empty paths stay empty.
+  Unedited saves preserve line order, including late component and reference lines.
+  Accepting the References dialog, even unchanged, groups references before read
+  components and members. The corpus check compares only reference paths by the file
+  they name; templates retain the same strict line-order comparison as saved projects.
+
+- **Project reference locales are read and written as hexadecimal** (#2273). `409` now means locale 1033,
+  and references with letters in the locale, such as `c0a`, enter the project model instead of being kept
+  only as unknown lines. Saves use lowercase hex without padding, as VB6 does.
+
+- **In-box control corpus states are checked for merge leftovers** (#2272). Tests reject a control folder in both
+  `pending/` and `saved/`, identical files at the same relative path, and README folder listings in the wrong state.
+  State-prefixed README rows cover every current control folder; ImageList's original probe pictures live with
+  the authored inputs.
+
+- **The Properties window updates its descriptions and category headers on a live language switch** (#2270), preserving the selected property and collapsed categories.
+
+- **Foreign-server stderr assertions wait for their expected lines** (#2269). The untitled-document
+  tests drain and poll with a bounded deadline before reading clangd's URI refusal and ruff's dynamic
+  registration warning, avoiding a race with the stderr reader.
+
+- **`set_ide_language` saves the language when Keep is pressed** (#2268). Only the Options dialog's OK saved it, so
+  a language kept through the tool lasted for the session and the next start came back in the one saved before. The
+  reply now says Keep saves it and Revert saves nothing, and asking for the language already in use no longer claims
+  a confirmation is open.
+
+- **Avalonia-dependent IDE tests run on the UI thread** (#2267). A source guard rejects plain facts and
+  theories that touch Avalonia directly or through helpers in the same class.
+  Regression cases also check the three reported folding theories against the guard and require their
+  UI-thread attributes.
+- **Command requery listeners survive garbage collection while their owners are alive** (#2267).
+  The Format selection regression now forces collection, reproducing the notification loss that only
+  appeared intermittently in full test runs; unsubscribing also removes the original weak subscriber.
+
+- **ImageList draws a raised designer icon instead of a hatched character** (#2266). The measured
+  38 × 38 box contains HexIDE's own vector filmstrip glyph, with theme brushes for Classic and dark themes.
+
+- **A bare `As ProgressBar` resolves when its control library is referenced** (#2265, first slice). The first
+  `Object=` library in the project supplies the type; `TypeOf` follows that binding, and assigning the other
+  library's ProgressBar raises error 13.
+
+- **Local test runs enforce the same test-count floors as CI** (#2264). `scripts/test.ps1` reads the
+  floors from the workflow, uses a floor of one for filtered runs unless the caller supplies one, and
+  prints a final PASS/FAIL from the exit code even when the test host prints a misleading pass.
+
+- **The DAP timeout test gives its follow-up request time to complete** (#2262). Requests can override
+  the connection timeout individually, keeping the one-second bound on the request under test while
+  allowing the follow-up the usual test patience on loaded runners.
+
+- **Only one writer maintains a server's workspace artefact** (#2248). Servers with `workspaceArtifact`
+  receive no file-operation notifications; servers without it still receive matching notifications.
+
+- **Failed-save notification tests accept both host error types** (#2248). A directory used as a file
+  destination can raise either an I/O or access-denied exception. A wire test confirms the failed save
+  sends no file-creation notification.
+
+- **A control inside a disabled Frame or PictureBox reads Enabled False** (#2245), including through nested
+  containers and `Me.Controls`. Its own setting is kept for when its containers are enabled again.
+
+- **Lost-connection tests wait for the warning to be logged** (#2244), as well as for the client to stop,
+  avoiding a race when a server drops a reply or sends a malformed frame.
+
+- **Tool windows stay open after restarting following a far-left dock drop** (#2239). A live tool in an unrecognized dock arrangement is saved as open in its home region instead of being recorded as closed.
+
+- **The Toolbox reappears after closing and reopening it** (#2238). Runtime-created left docks are
+  initialized after their tools are added, so Dock no longer treats them as empty.
+
+- **A drag that could not have docked no longer says "nothing was docked"** (#2232). `interact`'s `click … to …`
+  reports Dock's outcome only when the drag moved a tool or document, or was pressed on a tab or a tool window's
+  title strip. A form designer drag used to end every reply with it, which read as the drag having failed.
+
+- **The designer's draw preview, rubber band and grab handles are in `dump_visual_tree`** (#2231). The dump folded the
+  first three away as unnamed wrappers, and a selected control's grab handles sat in an adorner layer far from the
+  control. They now carry AutomationIds, and an adorner is listed under the element it adorns, so
+  `…/ListItem[Command1]/None[ResizeAdorner]/None[PART_BottomRight]` addresses a handle and `inspect_element` reads
+  the preview's bounds.
+
+- **A hidden control's refusal names showing copies in the same window** (#2230). `interact` gives
+  the path of a copy with the same type and label or automation ID, or the count and first three paths
+  when several show, so callers can target one directly. With no showing copy, the existing guidance remains.
+
+- **`interact` replies identify form controls and toolbar buttons** (#2229). Descriptions fall back to
+  the automation id when there is no Avalonia name, keeping the type alongside the identifier used in
+  `dump_visual_tree`, including a running control array's index. Click replies and modal refusals now
+  say which control they concern.
+
+- **The Properties window's category boxes show + and −** (#2228). In the Categorized view, the box beside each
+  category drew as a plain grey square, filled while the category was open, because its theme named a resource that
+  nothing defined. It now draws − while the category is open and + while it is closed, as VB6's does.
+
+- **Completion sees the character just typed** (#2227). The editor sends its pending document change
+  before requesting completion, so member lists no longer use the source from before the keystroke.
+
+- **Language servers receive the IDE UI language at initialize** (#2210), including the resolved
+  system language and English for pseudo-locales. Reconnect after changing Options → Language;
+  switching language does not automatically restart servers.
+
+- **Transient diagnostic pull failures are retried** (#2209). ContentModified and retriggerable
+  ServerCancelled replies use a short, capped back-off so an opened document does not stay without
+  diagnostics until edited. Closing or changing the document stops the old retries.
+
+- **Language Servers reports replace plain local paths in failure details and configuration problems**
+  (#2205). The shared export redactor also handles absolute drive-letter, UNC and Unix paths in server
+  prose, using the same names as other redacted paths.
+  Sensitive home, temp and report workspace roots are replaced before matching prose paths, including
+  roots containing spaces, alternate separators and URI encoding.
+
+- **Completions from servers returning a bare item array now reach the editor** (#2204).
+  The client accepts both LSP completion reply shapes, preserving each item's detail and insertion text.
+
+- **Automation can clear a single-selection list or tree** (#2203). `remove_from_selection` reports
+  the resulting selection, including when empty, and says when the target was not selected.
+
+- **The completion popup budget test advances time explicitly** (#2200). Its delay and late-answer
+  check now share an injectable clock, avoiding wall-clock timeouts on loaded runners.
+
+- **The Timer event-order test preserves its execution context while draining dispatcher work** (#2194).
+  It captures cancellation before starting the form, avoiding reads of an earlier test's disposed
+  `TestContext` during polling. The wider async headless-test lifetime question remains tracked in #883.
+
+- **`press_key` takes a chord written as one key** (#2189). A `key` such as `Ctrl+H` used to be refused as an unknown
+  key, which sent the caller to the key names. It is now read as key `H` with modifiers `Ctrl`, and the reply says so.
+  A chord whose leading part is not a modifier, such as `A+B`, is refused naming that part. The reply now writes
+  combined modifiers as `Control+Shift+End`, not `Control, Shift+End`, which read as two presses.
+
+- **Adding a file whose project line was kept no longer moves the other kept lines** (#2187). Their
+  original `.vbp` positions survive when the restored file's line is removed from the kept list.
+
+- **Signature help accepts parameter labels given as offsets** (#2186). The popup slices the signature
+  label and highlights that exact range. Replies that fail result deserialization appear as failed
+  exchanges in the protocol inspector, with an explanation that the answer was dropped.
+
+- **`set_window_state` says when no window manager is running** (#2185). On an X11 display with none, a minimize or
+  maximize went unconfirmed with "the window manager has not confirmed" and advice to re-read, though nothing would
+  ever apply it. The reply now says no window manager is running, and that Normal with a position and size still
+  works. HexIDE reads this from the root window's `_NET_SUPPORTING_WM_CHECK`, only when a change goes unconfirmed.
+
+- **`interact` explains why a disabled control cannot be clicked or invoked** (#2184). A blocking modal
+  dialog is named in the refusal, with instructions to answer it first, instead of blaming the click's
+  coordinates or reporting an invocation that a person could not make.
+
+- **Layouts saved by a newer build no longer prevent startup** (#2183). Unknown tool-window keys are
+  skipped and logged once per restore, while known windows keep their saved positions and sizes.
+
+- **Designer Ctrl/Shift clicks across containers leave the selection unchanged** (#2181), matching measured VB6 behavior and preventing those clicks from creating a mixed selection that Align Lefts moves outside a Frame.
+
+- **Break stays available while a running form has focus** (#2179). The Standard and Debug toolbar
+  buttons can pause a handler looping with `DoEvents`, and follow pause/continue state.
+
+- **Acting on a disabled control explains why it was refused** (#2178). Every `interact` action except
+  the two reflection actions uses the same refusal, naming a disabling container or blocking modal
+  dialog when present, and confirms nothing was done instead of reporting a peer exception.
+
+- **Selecting a hidden property by its row path names the collapsed category** (#2177). The refusal tells
+  the caller to toggle the Button in that category, using its displayed name, and no longer suggests
+  another visible copy without evidence that one exists.
+
+- **An overflowing tool argument names the storage limit it exceeds** (#2176), leaving the
+  parameter's own bounds to its description instead of presenting its C# type's range as accepted input.
+
+- **MCP: `interact`'s drag can dock a tool window, and says what Dock moved** (#2175). Dragging a tool window's
+  title strip onto another dock did nothing, and the reply read as a drag that worked. The held moves now arrive
+  one at a time with layout between them, as a real pointer's do. A drag in the dock layout names what moved and
+  where, or says the layout is unchanged.
+
+- **Procedure boundary breakpoints now pause the interpreter** (#2172). A Sub declaration breakpoint
+  stops before the body; breakpoints on natural `End Sub`, `End Function` and Property Get's `End Property`
+  stop before return. Stepping from a called Sub or Function's last statement also stops on its End line.
+  Startup stepping still advances from Initialize's last statement into Load's first statement.
+
+- **Opening a code window asks the language server for folds once** (#2154), avoiding a delayed duplicate request while choosing a conditional-compilation preview.
+
+- **Launched language servers end after an unclean IDE exit on Linux and macOS** (#2147).
+  A guard process bounds the lifetime of stdio and launched pipe servers and their process group,
+  preserving protocol streams and server exit codes. Windows keeps its kill-on-close job object.
+
+- **The Object Browser refuses remote and device type-library paths** (#2123). References load only
+  from fully qualified local files, using the shared path check, and reading a library never registers it.
+
+- **Reject three constructs that VB6 refuses to compile** (#2121): `Continue Do` and `With Debug`
+  raise "Syntax error", and assigning through `Me.` to an explicitly Private scalar class field raises
+  "Method or data member not found". The interpreter reports these as it reaches the statement.
+
+- **Procedure calls no longer copy every name in their module or instance** (#2120). Parameters,
+  locals and the return name live in the call's own scope, with module and instance names looked up
+  through the enclosing scope. Small helpers in modules with many variables or controls avoid the
+  per-call dictionary copy; the Locals window keeps its existing grouping.
+
+- **Corpus parity compares Immediate output lines and records the program locale** (#2119). The dump preserves printed Null and item formatting; the runner distinguishes locale differences, recognises application errors, launches declaration-only modules through an empty entry procedure, names projects per case, and retries missing-entry failures alone after a parallel pass.
+
+- **Format expands large numbers under fixed masks** (#2118). Values beyond Decimal's range now keep
+  VB6's 15 significant digits and pad with zeros, including grouping, negative sections and Standard.
+
+- **`Randomize n` preserves part of Rnd's current state** (#2117), matching measured VB6 sequences rather than restarting from the seed alone. Negative `Rnd` arguments now fold their Single bits as VB6 does, so `Rnd(-1)` followed by `Randomize n` repeats the measured sequence.
+
+- **Dates and times use ordinary spaces before AM and PM on Linux** (#2102). The program locale
+  replaces ICU's narrow and ordinary nonbreaking spaces in date/time patterns and AM/PM designators,
+  so date text no longer contains an invisible difference from Windows and VB6.
+
+- **Opening a refused `.twinproj` reports the file and the reader's reason** (#2101). The project picker keeps existing projects and documents open when opening an archive.
+
+- **IDE dialogs stay separate from a running program in automation replies** (#2094). Owning a dialog
+  does not make it part of the program; only the program's own MsgBox and InputBox calls opt into its wait.
+
+- **The designer's tool drag preview matches the control placed on release** (#2092). It uses the starting
+  container's grid and limits, snaps to the nearest grid line, and includes the far corner's extra pixel.
+
+- **MCP: a target that is no path says where paths come from** (#2080). An empty target, or one not starting with
+  `Window`, is now refused with the next step: `dump_visual_tree` gives every control its path, and `match` finds one
+  by name. A guessed path also gets a call to send as it stands, matching its last segment in the window it
+  was looked for in.
+
+- **MCP: a waiting dialog's buttons no longer include its check boxes and radio buttons** (#2079). Tools > Options
+  listed "Prompt for project" beside OK and Cancel, in the `modalDialog` note and every text that describes a dialog.
+
+- **`take_snapshot` explains the missing title bar and names the captured window's title** (#2078).
+  The description and reply identify the client-area capture; `title` reports the actual window title,
+  including the IDE's. `activeDialog` remains for compatibility.
+
+- **A Shape's BackColor can be read at run time** (#2070). Reading the stored colour through a control
+  variable no longer stops the run with “Method or data member not found”.
+
+- **A Timer's Left and Top reads raise run-time error 393** (#2069), as measured in VB6, instead of returning 0 for a position that belongs only to the designer.
+
+- **A Timer with no Interval line stays quiet** (#2068). Its default is now 0, as in VB6,
+  instead of 1000. Newly added designer Timers use the same default; saving omits 0 and retains 1000.
+
+- **A form accepts bang reads of its controls** (#2066). `Me!Name` now reaches the same control as
+  `Controls!Name`, so reading a member such as `Me!a2.Name` no longer stops the run.
+
+- **A program can click its CommandButton** (#2065). `Value` reads False, and assigning True raises
+  Click before the next statement, with the button's own handler followed by its WithEvents handlers.
+
+- **A Frame's Caption can be read at run time** (#2063), returning its saved caption or the empty string instead of stopping with “Method or data member not found”.
+
+- **Controls without a Font block inherit the form's font on load** (#2062), including inside nested Frames and PictureBoxes. A container's own font does not replace the form's, and changing the form's font later leaves its controls' copies unchanged.
+
+- **A control drawn in the designer is the size VB6 makes it** (#2058). Its corners go to the nearest grid
+  line, not the one below, and it ends one pixel past its far corner, with the grid on or off. Each drawn control
+  used to be 15 twips smaller each way than VB6 would make it.
+
+- **Selecting a property hidden by a collapsed category names the category and how to open it** (#2056).
+  The refusal tells automation callers to `toggle` the Button in that category's row, using its displayed name.
+
+- **MCP: `interact` `toggle` no longer reports a refused change as done** (#2050). It reads the state back once the
+  work the toggle set off has run, so a box its dialog puts back is reported as put back. When a dialog opened during
+  the call, the reply says the state may still change once it is answered.
+
+- **Format's `AMPM` token uses the user's AM or PM designator** (#2040), in any letter case,
+  and switches hours to the twelve-hour clock even when the designators are empty.
+
+- **A control drawn inside a Frame or PictureBox goes into it** (#2039). It goes into the innermost container
+  under the point the drag began from, and the drag is held to that container, as VB6's designer does. Before, it
+  landed on the form, drawn over the container but not in it. `add_control` places the same way from its top-left.
+
+- **String-building modules start faster** (#2038). The interpreter tries SLL parsing first and retries
+  with LL when needed, including Immediate-window expressions and statements, preserving syntax errors
+  and the nesting guard.
+
+- **Keyboard `type_text` no longer counts the key that opens a dialog as an applied edit** (#2035).
+  The reply identifies the key sent, warns that it may not have landed, and asks the caller to answer
+  the dialog and check the text before deciding what to send next. No later keys are sent.
+
+- **Large visual-tree replies spend their budget on showing controls first** (#2033). Hidden nodes keep
+  their paths but lose their children first. Further depth cuts preserve the active document and its
+  controls while shortening other branches; the note explains each cut and how to retrieve the rest.
+
+- **Visual-tree searches explain which tab and Options page contents were not searched** (#2032).
+  Match replies name unselected document tabs and Options pages and say how to bring them into the tree,
+  including when some nodes matched.
+
+- **MCP: focus in a flyout counts as in its window** (#2030). With a text box's Cut/Copy/Paste flyout open,
+  `dump_visual_tree` reported no focus, and `press_key` moved the focus out before pressing, so Escape closed the
+  dialog instead of the flyout.
+
+- **Signature help uses the highest-priority non-empty answer from concurrent servers** (#2027).
+  Typed triggers reach only servers advertising that character; explicit parameter info asks all
+  claimants, within one shared one-second budget.
+
+- **MCP: `inspect_element` names a selected item that has no row by its row's name, not its type** (#2026). A
+  Properties list too short to show a row answered `HexIDE.VisualDesigner.PropertyViewModel`.
+
+- **Stdio language servers get time to exit cleanly** (#2023). HexIDE waits up to two seconds before
+  killing a remaining server's process tree, so wrapper children are terminated too. The conversation
+  records the exit code during shutdown as well as after an unexpected exit; real-process tests cover
+  clean exits, ignored exits, wrapper children and crashes.
+
+- **Hover replies in legacy LSP forms now show their text** (#2022). Markdown strings, language-tagged
+  code blocks and arrays of marked strings are accepted alongside markup content.
+
+- **Watch context labels follow language changes** (#2021). Existing Watches rows and the Add/Edit Watch
+  dialog refresh the all-procedures placeholder without changing named module/procedure contexts.
+
+- **Controls inside hidden containers are dimmed in the form designer** (#2002). Changing a Frame's
+  Visible property updates its children's previews while keeping them selectable and editable.
+
+- **Tab-order badges clearly mark TabStop off even for 4** (#2001). A diagonal slash replaces the
+  horizontal strike that could disappear into the digit’s crossbar.
+
+- **Indent-guide tests no longer depend on Avalonia's dispatcher thread** (#1995). Guide calculations use plain text lines, so their unit tests run independently of UI thread ownership.
+
+- **Paste as Comment keeps following code uncommented** (#1993). Pasting before existing code ends
+  the comment with a line break, preserving the code on its own line at the paste's indentation.
+
+- **A filtered grid's rows appear once in `dump_visual_tree`** (#1977). Recycled DataGrid rows and their
+  stale cells are left out, as released list rows already are.
+
+- **Running-form automation replies distinguish active and queued handlers** (#1976). Events with no
+  handler are omitted, and queued handlers are named as waiting to run rather than still running.
+
+- **SIGTERM shuts down a Debug IDE started with `--server-port`** (#1973). The embedded server no
+  longer owns process signals; the IDE stops the running project, closes dialogs and closes its main
+  window on the UI thread, using the same cleanup as `shutdown_ide`.
+
+- **Properties category rows support expand and collapse through automation** (#1967). Inspection reports their expansion state, and each category toggle has the localized category name.
+
+- **`dump_visual_tree` lists virtualized rows in item order** (#1966). Scrolling to a selection no longer
+  lists rows in their containers' creation order; their paths still resolve to the corresponding rows.
+
+- **A tool argument too large for its integer reports the whole-number range** (#1965), rather than a
+  .NET serializer message. The refusal includes the parameter's declared guidance, such as hover's
+  0 to 10000 ms dwell limit, and also explains values below the integer's minimum.
+
+- **Desktop startup no longer waits for window activation** (#1964). On an X display without a window
+  manager, `--newproject` now creates its project, and opening a project or the startup dialog works too.
+
+- **Language-server progress names the server** (#1961). The status bar uses the registration’s display
+  name and separates the task title from its message, with absent parts left out in every shipped language.
+
+- **Object Browser, Locals and Watches follow language changes** (#1948). The all-libraries entry and
+  members header are translated, and ready/out-of-context placeholders update immediately.
+
+- **Completion from multiple language servers stays responsive and removes duplicates** (#1918).
+  The popup waits at most one second, keeps the higher-priority item for each label and kind, and drops
+  late answers with a debug log and protocol-inspector note. Advertised trigger characters are combined
+  across claimants and ask only the servers that advertise them.
+
+- **Formatting takes a deleted declaration's Attribute run with it** (#1890). After protected lines
+  are trimmed from the formatter's answer, deleting a whole logical declaration removes its run in the
+  same undo step, without disturbing the other formatting edits.
+
+- **Choosing a caller in the built-in Call Stack window shows its calling statement** (#1866), with a green call-site triangle while the current execution statement stays in place.
+
+- **A placed UserControl's run-time members follow its `.ctl` settings** (#1631, part A). CanGetFocus False
+  removes focus members, InvisibleAtRuntime restricts the extender and makes Left/Top reads raise 393,
+  and missing members distinguish early and late binding. Windowed hWnd is explicitly unimplemented;
+  windowless controls expose no hWnd.
+
+- **UserControls take part in tab order and access keys** (#1631, part B). CanGetFocus and ForwardFocus
+  select the focus destination; forwarded keys raise AccessKeyPress on a receiving UserControl.
+  DefaultCancel supports Default and Cancel, Enter and Esc, and Ambient.DisplayAsDefault notifications.
+
+- **UserControl containers, bottom alignment and transparent backgrounds run as measured** (#1631, part C).
+  Container assignment preserves coordinates and refuses ineligible controls with error 425. Focus and
+  lifecycle events follow the measured order, including windowless and invisible controls.
+
+- **UserControl instances save their measured property subset** (#1631, group 2A, first slice).
+  Nonfocusable instances omit TabIndex, invisible instances retain only position and saved extents,
+  and windowless siblings follow windowed controls on forms containing UserControls.
+
+- **PropertyPage HelpContextID can be edited and saved** (#1631, group 2B storage slice).
+  The designer lists the help context number, and `.pag` saves omit the invalid StandardSize line.
+
+- **Single-view form runs start again** (#1631). Initial window visibility no longer starts UserControl
+  lifecycle events before the form has code and has loaded.
+
+- **Forms with invisible UserControls missing saved extents open read-only** (#1631). Dirty checks no
+  longer throw while opening the designer; saving is refused because the size cannot be reproduced.
+
+- **`TypeName` of a scroll bar is `HScrollBar` or `VScrollBar`** (#1556), where it was `ScrollBar`, so
+  `TypeOf c Is HScrollBar` was False.
+
+- **Err.Source reports the raising project's name** (#1483), including errors in classes, independently
+  of the project title. A sourceless `Err.Raise` fills an empty source and keeps one already set;
+  explicit sources survive trapping and propagation across managed library calls.
+
+- **MCP can drag across a running form or the designer** (#1402). `interact`'s `click` accepts `to x,y` or
+  `to <path>:x,y` after its press point, button and keys. It waits for the press's work, moves with the button
+  held and releases to the pointer capturer, or what is under the release point. The reply names both points
+  and the release recipient. A path can be pasted from `dump_visual_tree`, including spaces; `double` with
+  `to` is refused with an explanation.
+
+- **The reset prompt holds the IDE and running forms together** (#1366). Other desktop windows are disabled while
+  it waits, then regain their previous enabled state, including when the IDE is minimized.
+
+- **Selection verification tests preserve their execution context when draining dispatcher jobs** (#1296).
+  Queued work can otherwise replace the test's context before its later awaits and cleanup. A deterministic
+  regression checks that the caller's context survives the drain.
+
+- **Referenced libraries retain the Components dialog metadata** (#1107, #1103). The shared runtime
+  library model preserves control-library descriptions and project and form reference lines.
+
+- **RichTextBox disabled-text rendering checks tolerate anti-aliasing** (#1100): the test verifies
+  the text-run brush is GrayText and finds neutral grey glyph pixels darker than the button face,
+  without requiring a pixel to match the brush exactly on Windows.
+
+- **RichTextBox forms open visibly and run with saved decimal colours** (#1100): the designer
+  shows labelled, view-only placeholders, and runtime BackColor accepts the decimal spelling VB6
+  saves. Plain navigation without a selection follows the recorded Shift endpoints; unmeasured
+  line and selection endpoints explicitly refuse.
+
+- **UpDown input accepts the newly measured edge cases** (#1093): Increment 0 leaves Value unchanged
+  and raises UpClick or DownClick without Change. Acceleration is stored without affecting stepping or
+  repeat timing. Synchronized buddies read and write Label Caption and TextBox Tag as well as Text,
+  with invalid strings treated as zero.
+
+- **SSTab MouseDown sees the old tab** (#1090, #2358). Caption presses switch pages after the
+  MouseDown handler finishes, preserving MouseDown, Click(PreviousTab), MouseUp order even when
+  the interpreter yields.
+
+- **TabStrip designer previews and focus events** (#1089): saved ImageList and Font properties no longer
+  throw when the designer opens a form. Runtime refusal remains. GotFocus and LostFocus now fire,
+  with mnemonic focus acquisition preceding selection events.
+
+- **Picture function named arguments** (#1087): LoadPicture and SavePicture now declare their measured parameter names and required counts, with matching editor signatures.
+
+- **TreeView rows use the measured 16-pixel height** (#1086), keeping drawing and pointer hits aligned.
+  GetVisibleCount reports row capacity, including 12 for the oracle's control, rather than node count.
+
+- **TreeView capacity uses its client area, including before layout and in Form_Load** (#1086).
+  Saved Appearance and BorderStyle choose the measured edge; drawing and pointer hits begin inside it.
+
+- **TreeView mouse coordinates start inside its edge** (#1086). MouseDown, MouseMove and MouseUp
+  report client-area twips, matching the drawing and hit-testing origin.
+
+- **ListView mouse tests follow the drawn label bounds** (#1085), avoiding host-font-dependent click
+  coordinates. Drawing and mouse selection share the label rectangle, with coverage at its edges.
+
+- **ListView mouse coordinates start inside its edge** (#1085): MouseDown, MouseMove and MouseUp
+  report client-area twips, and drawing and hit testing share the default 3-D or flat inset.
+
+- **ListView coexists with the newer in-box controls** (#1085): its runtime bindings, toolbox entry and
+  saved forms are retained alongside ImageList, StatusBar, Toolbar, TreeView, TabStrip, SSTab, CommonDialog, RichTextBox,
+  UpDown and MaskEdBox support from main. Duplicate pending corpus copies are removed after
+  comparison with their saved counterparts.
+
+- **ListView disabled drawing and label editor sizing** (#1085): saved background colors remain visible,
+  disabled Report rows use button face without repainting the empty area, and the label editor measures
+  its text and template without scrollbars. The unmeasured Appearance 1 / BorderStyle 0 edge refuses at
+  F5 instead of reporting guessed mouse coordinates.
+
+- **CommonDialog loads through its MSComDlg library and registered component** (#1084, #1962), using the same
+  mechanism as the other in-box controls. Its saved scalar properties remain carried verbatim. Color reads now
+  retain the measured unsigned Automation Long value and VarType 19, and assigning -1 raises overflow; unmeasured
+  numeric conversions are refused as not implemented.
+
+- **CommonDialog runtime property reads follow the measured object model** (#1084). Reading its write-only
+  Action, including assigning the control as a value, raises 394. Left and Top raise 393 on reads and 382 on
+  writes; absent extender properties raise 438 on reads. FontName ignores a missing face and preserves an
+  accepted name's spelling.
+
+- **CommonDialog scalar properties use their measured defaults and assignment checks** (#1084).
+  Adds the page, printer, help and font-effect property storage, rejects invalid FilterIndex and MaxFileSize
+  values, and reports read-only FileTitle and hDC assignments as error 383.
+
+- **CommonDialog single-file results follow the measured Open/Save behavior** (#1084).
+  Implied Flags survive Cancel, picks report ExtensionDifferent even with an empty DefaultExt,
+  Save uses a simple selected filter extension when DefaultExt is empty, and an undersized Open file buffer raises 20476.
+  Save extension completion refuses unavailable filter information rather than guessing.
+
+- **CommonDialog Open preserves multiple selected files** (#1084). AllowMultiselect reaches the host picker,
+  and FileName uses the measured Explorer NUL-separated or old space-separated format with an empty FileTitle.
+  Unmeasured selections across folders and old-format paths containing spaces are refused.
+
+- **CommonDialog Action = 1 opens the file picker** (#1084). The assignment waits for ShowOpen to finish,
+  returning its file properties and CancelError result. Measured invalid Action values raise error 380;
+  unmeasured dialog mappings and conversions remain explicitly refused.
+
+- **CommonDialog saves omit default properties in VB6’s measured order** (#1084). The four-control VB6 save
+  now participates in the byte-for-byte corpus checks, with separate font lines and the original control order preserved.
+
+- **CommonDialog Action 2–6 dispatches to its Show methods** (#1084). Save and Font assignments await
+  their dialogs and preserve CancelError behavior. ShowHelp returns without error for measured commands
+  0, 2 and 3. Color and Print still report not implemented pending host dialogs and measured writeback.
+
+- **A minus sign applies after a power** (#1073): `-2 ^ 2` now gives -4. Numeric literals
+  take their type from the digits before negation, so `-32768` is a Long and `-2147483648`
+  a Double. Subtraction without spaces (`x-1`) also parses correctly.
+
+- **A running control keeps its measured VB6 minimum size** (#1029). Existing intrinsic controls apply a
+  floor rather than snapping sizes; TextBox and CommandButton use the recorded font and border cases,
+  and assigning a ComboBox's Height raises 383. The unmodelled file-list and Data controls remain outstanding.
+
+- **Rename refuses edits reaching other documents** (#1024). The code window leaves the buffer unchanged
+  and names the affected members (or their URIs), instead of silently applying only its own part.
+
+- **Server folds honour character offsets** (#1022). The declaration stays visible, described procedures
+  keep both their procedure and attribute folds, and folds sharing a start retain their own folded states
+  when a server answers again or a neighbouring fold disappears.
+
+- **Rename refusals explain why no edit was made** (#1015). The bundled server returns RequestFailed for
+  keywords, protected lines, designer names and invalid new names; the editor shows remote refusal messages.
+
+- **A Function returning an object array checks what is stored into its name** (#999). `As Object()`,
+  `As Collection()` and class-array returns reject a Variant array with error 13, leaving the caller's
+  target unchanged. Direct array assignments require the same declared element type; through a Variant,
+  any object array is accepted, as measured on VB6.
+
+- **Form Layout thumbnail follows the theme** (#958): its face, label and title strip use theme brushes,
+  keeping the form name readable under Dark while preserving Classic colours.
+
+- **Window-state automation waits for the window manager** (#946). `set_window_state` reads back confirmed
+  state and geometry, reports an unconfirmed request with a recovery note, and checks off-screen positions
+  before restoring.
+
+- **A control's Font is an object** (#934). Font-bearing controls expose a stable Font reference,
+  with Name as its default member and Size as Currency. Sharing a font with `Set` shares later
+  changes; `Set Font = Nothing` raises 380. Controls without a Font raise 438.
+
+- **Align and Make Same Size require two selected controls** (#930). The designer rechecks menu and toolbar
+  commands when selection changes. `invoke_format_command` refuses selections below each command's minimum and
+  explains how to select more controls.
+
+- **Short test runs fail instead of reporting a clean green** (#883). CI's four main-suite count floors
+  are refreshed to about 95% of measured totals, and the WSL test runner uses the same floors. Filtered
+  runs require at least one test. The async test-context lifetime fix is tracked separately in #2194.
+
+- **String functions validate compare modes at their measured VB6 validation points** (#881).
+  InStrRev, Split and Replace treat vbDatabaseCompare as text; InStr and StrComp
+  reject it. Negative modes raise error 5, and locale modes are refused explicitly.
+
+- **A running form's Left and Top move its window** (#852). They read the outer position in twips,
+  whatever its ScaleMode, retain assigned twips between pixels, and CenterScreen takes effect at Show.
+
+- **BOM-less UTF-8 keeps its encoding after its last character above U+00FF is removed** (#846).
+  Save Project records ambiguous UTF-8 members in a trailing `[HexIDE]` section of the `.vbp`, so a
+  fresh open reads accented text correctly without adding a byte-order mark to the source file.
+
+- **Project Explorer removal offers to save unsaved forms and modules** (#835, first slice). Standard modules,
+  classes, UserControls and property pages now have the same removal route as forms. Removing a member
+  closes its editors and leaves its file on disk; the next project save drops its entry. Designers and
+  related documents remain to be implemented.
+- **Project → Remove now removes the member its header names** (#835). The menu uses the Explorer's
+  save/cancel flow for the selected or focused form or module, and is disabled when there is none.
+
+- **Timer members follow the measured VB6 runtime table** (#801). Absent members raise 438
+  (TabIndex and ToolTipText reads retain the missing-member compile error), designer-position writes raise 382, Interval reads as Long and Parent returns the owning form.
+  Unmeasured Timer members and scroll-bar colours refuse explicitly.
+
+- **Locals omits unavailable control properties** (#801): Timer designer positions and absent members,
+  and scroll-bar colours, no longer appear as error rows.
+
+- **Hex and octal Strings convert at VB6's measured widths** (#788). CInt and Val use signed
+  16-bit values through &HFFFF, conversions use signed 32-bit values through &HFFFFFFFF,
+  and larger values follow each function's measured wrapping or overflow rules. Numeric
+  conversions refuse a trailing `&` with error 13.
+
+- **A date with a fraction of a second rounds to the second, as vb6.exe shows it** (#783), where the fraction was cut
+  off: 12:00:00.6 is `12:00:01`, and 23:59:59.6 the next day. A Date keeps the serial it was given exactly, and display,
+  the date functions and `Write #` read it rounded by the rule measured on vb6.exe across 418 serials. `DateAdd` counts
+  toward zero, as vb6.exe does, where it rounded, and `Int` and `Fix` of a Date return a Date, where they returned a
+  number.
+
+- **Made programs report fatal errors** (#757). An unhandled run-time error shows a warning titled with the
+  program's name and OK only, freezes events and Timers, and exits on dismissal without unload or terminate
+  events. A RaiseEvent sink's error cannot reach the raiser's handler. Compile errors, unimplemented constructs
+  and engine faults also surface.
+
+- **A name read through its type character is read, as vb6.exe reads it** (#742). `Debug.Print s$`, `i% + 1`, `arr%(1)`,
+  `UBound(a%)` and `Bump i%` stopped the run with "Type hint is not supported". The character is now checked against the
+  name's type: the declared one, a Const's value's, an Enum member's Long, or an array's element type. A mismatch, or any
+  character on a Variant, an object, a Byte, a Boolean or a Date, is VB6's compile error. A name never declared is declared
+  by the read with the character's type, ahead of a DefType, and a ByRef parameter given `i%` writes into `i`.
+
+- **A Function declared with a type character loads and returns that type** (#740). `Function GetName$()` and
+  `Function Twice%(…)` stopped their whole module loading. Each of `% & ! # @ $` now declares the return as its `As`
+  clause would, ahead of a DefType, and a call may carry it, `Twice%(2)` or `Twice% + 1`, checked against the
+  return type as vb6.exe checks it.
+
+- **Assignments and For counters through type characters update the declared variable** (#739). `s$ = "x"` wrote
+  a second variable named `s$`, and `For i% = 1 To 2` ran on one, so the value was lost with no error. Both now reach
+  the variable of the bare name, at any scope, checked against its declared type as vb6.exe checks it, and an
+  undeclared name takes the character's type. `Next i%` runs too, where it stopped the program, and a Function's
+  return assigned through its character, `F% = 7`, sets it.
+
+- **VB6 syntax highlighting is authored clean-room under MIT** (#715), using HexIDE's MIT lexer grammar and the existing theme palette names. Keywords match regardless of case (#716); comments, strings, numeric and date literals, type suffixes and line continuations receive syntax colours. The licence guard now rejects non-permissive or unknown licence declarations in tracked files, with named third-party credits as exceptions.
+
+- **VB6 block terminators use the keyword colour** (#715). `End`, including in `End Sub`, `End If` and the other lexer-defined block terminators, now uses keyword blue in every theme.
+
+- **Project-load warnings use the selected language** (#698). Missing forms and failed form or module loads now use translated messages, retaining file paths and failure details.
+
+- **Language confirmations block Options even when automation opens them** (#623). The gate belongs to
+  the topmost open owned window, preventing Language from silently snapping back and Region from changing
+  the applied language underneath the confirmation.
+
+- **The automation gap catalog now records new documents as unsaved until their first save** (#597).
+  The existing `get_file_content` description and save behavior already follow the decision to leave
+  new documents without files; regression coverage now checks all five document kinds.
+
+- **Launched language-server exits remain observable during disposal** (#491). Both stdio and named-pipe
+  transports keep their exit handlers attached until the exit has been recorded once, log deliberate
+  exits at information level with the server identity, and report when a timeout forces a kill.
+
+- **Workspace artefact regeneration preserves unchanged files** (#455). Changed content is written
+  atomically so an interrupted write leaves the previous file intact. Refusals and failures appear on
+  the server's connection in the protocol inspector while the server still launches.
+
+- **Workspace artefact notes keep local paths out of conversation exports** (#455). Notes name the
+  configured relative file and exception type; full exceptions remain in the application log.
+
+- **Unknown add-in menu locations are logged and dropped** (#416). The warning names the contributing
+  add-in and requested path instead of silently placing the item under AddIns. Tools and AddIns remain
+  the supported locations; separately registered commands remain available.
+
+- **Launched language servers end with HexIDE on Windows** (#406). Stdio and launched pipe
+  servers use the shared kill-on-close job, including after a crash or forced stop. Descendants
+  created after assignment are covered; externally owned servers are left alone. Linux and macOS
+  watchdog teardown remains a follow-up.
+
+- **The launched-server lifetime test helper starts with its own dependencies** (#406).
+  Stdio and pipe readiness checks also run on Linux, so helper startup failures cannot hide
+  behind the Windows-only job-object checks.
+
+- **A member used on a non-object Variant raises error 424** (#257) for the measured Empty, Null,
+  Integer, String and array receivers, so `On Error Resume Next` records 424 in `Err.Number` instead of
+  zero or a member-not-found compile error.
+  Nothing continues to raise 91, and an unknown Collection member 438. A missing form member through
+  Object now raises 438 too.
+
+- **Numeric `<=` and `>=` compare in VB6's measured pair domains** (#229), including Single/Double, Single/Long, Currency/Double and Decimal/Double. Boolean ordering treats True as -1 and False as 0.
+
+- **Arrays of a user-defined type, and array fields inside a Type, now run** (#178). Each element owns
+  its fields; whole-record assignments copy nested records and arrays independently. ReDim Preserve
+  keeps surviving records, ReDim and Erase reset them, and passing an element ByRef writes through
+  while locking its array. Indexed field assignments retain their subscripts, and whole-array field
+  assignments use the same type checks as array variables. Nonliteral Type-field bounds remain refused.
+
+- **Procedure calls reclaim their storage when they return** (#79, phase 1), including error unwinds and
+  failed parameter binding. ByRef aliases and Static locals keep their storage. Freed slot numbers are
+  never reused, stale debugger frames are safe to inspect, and slot-counter exhaustion raises error 7.
+
+- **Add-in tool windows retain their saved layout** (#50). Late registration restores the saved region,
+  order, size and open state; pending entries survive saves before the add-in loads.
+
+- **Reset Window Layout keeps add-in windows open** (#50). Open add-in tools return to the default right
+  column instead of disappearing; closed add-in tools stay closed.
+
+- **Missing modules stay missing on save** (#44). Standard modules, classes, UserControls and
+  PropertyPages whose files are absent remain preserved entries with missing-file markers, rather than
+  empty live modules that Save writes to disk. Sidecar marks stay carried when a preserved missing module
+  shares a loaded document's name.
+
+## [0.3.0] — 2026-10-26
+
+Most of this release is about running real programs. Files, the registry, conditional compilation and the
+byte-string functions now run; the ComboBox, ListBox, TextBox and CommonDialog gain the events and properties
+programs rely on, each measured against vb6.exe; the ProgressBar arrives as the first of VB6's in-box ActiveX
+controls; and a made program starts. Windows gets an installer beside the archives, and the code window gains
+folding, keymaps and a mark on every tab with unsaved changes.
+
+### Added
+
+- **MCP: `get_document_tabs` and `get_open_editors` say whether a tab has unsaved changes** (#1945). Each
+  tab that can be saved carries `isModified`, the state its `*` marker shows, which the title leaves out. A tool
+  tab and the read-only project and archive views have none, since they hold nothing to save.
+
+- **`LenB`, `AscB` and `InStrB` run, and `MidB`, `LeftB` and `RightB` where their result is whole characters**
+  (#1510). Each counts bytes, as measured on vb6.exe: `LenB("abc")` is 6, `InStrB` searches by byte, and `LeftB("abc", 4)`
+  is "ab". A result of an odd number of bytes, and so `ChrB`, is refused, where all seven stopped the run as undefined.
+
+- **Isolated parse-depth probes** (#1223) measure long operator chains, line continuations,
+  interpreter execution and language-server tree walks in separate processes, with a recorded
+  matrix of results and generated modules for live IDE checks.
+
+- **The VB6 behaviour oracle is mirrored to its neutral home** (#1216). Changes to the working copy in
+  HexIDE publish to hexide-io/vb6-behaviour, with CC BY 4.0 for measurements, prose and tables and MIT for
+  probe code. A missing mirror credential fails visibly.
+
+- **The ProgressBar, the first of VB6's in-box ActiveX controls** (#1082). A form holding one from MSCOMCTL.OCX or
+  COMCTL32.OCX opens, runs and saves byte for byte, and keeps the library it was read under. Its members, errors and
+  constants are VB6's, measured on vb6.exe, and it is drawn as the Windows progress bar. A form holding any other
+  in-box control is refused with a message naming the issue that tracks it.
+
+- **Toggle Fold in the code window** (#1014): Edit and context-menu commands, with Ctrl+M (Cmd+M on macOS),
+  fold or expand the innermost section at the caret or starting on its row. An expanded member attribute run
+  can be folded again without folding its procedure or reopening the window.
+
+- **Unsaved-change markers on document tabs** (#901): designer edits, code edits and carried-file edits now
+  light Dock's modified marker; saving clears it using the existing dirty-state checks.
+
+- **Add-Ins → Add-In Manager…** (#898) opens Options at Add-Ins, including when no add-ins are installed. Contributed commands follow the manager after a separator.
+
+- **Profile bundle design** (#504): records the approved versioned directory format, name/path/safe-mode
+  selection and replacement for `--personality`, with built-in compatibility and separate implementation
+  tasks. Profile loading and CLI migration remain future phases.
+
+- **Rename modules in the Properties window** (#493). Selecting a module, class, UserControl or PropertyPage
+  in Project Explorer offers `(Name)`, with the existing project naming checks. The filename stays unchanged;
+  a designer root rename also keeps its module name and `VB_Name` together.
+
+- **Diagnostic tooltips** (#451). Hovering a squiggle shows every overlapping message and its source
+  when supplied, alongside quick info, in every personality and with Auto Quick Info disabled.
+
+- **Icon geometry contract and guard** (#420). The live spec permits attributed, permissively licensed icon
+  sets and requires keyed single paths without a fill for host tinting. Tests guard the shipped geometry
+  resources; artwork extracted from another application remains forbidden.
+
+- **User keymap packs** (#414). JSON files in the active user-data directory's `keymaps` folder appear in
+  Options → Keymap on startup and apply without a rebuild. Built-in Default and VB6 remain available.
+
+- **One-answer language-server routing is recorded** (#407). Skipped advertisers record which server
+  has priority for folding, document symbols, formatting and rename, once per capability per connection.
+
+- **Language-server argument arrays and environment overrides** (#385). Stdio and launched pipe servers
+  accept an argv array alongside the existing command-line string, and an environment map layered over
+  inherited variables. Pipe placeholders expand within each argument.
+
+- **Incoming WebSocket language servers** (#384). Set `websocketRole` to `listen` to let a server
+  dial HexIDE at the configured endpoint; the default remains `connect`.
+
+- **Language-server work progress** (#360): attached servers can create progress tokens and report
+  indexing in the status bar. Progress finishes immediately on end or disconnect; titles and messages
+  are flattened and capped, with a localized prefix in every shipped language.
+
+- **Release CI coverage** (#354). Both shipping projects compile in Release, and CI checks the Desktop
+  output for automation server code, MCP dependencies and AspNetCore framework references.
+
+- **A language server can be given extra arguments without replacing its entry** (#262). Name the server's id
+  in `lsp-servers.json`'s top-level `arguments`, and those arguments are added after the entry's own. This is
+  how the bundled VB6 server takes an extra argument: its command is found when HexIDE starts, so replacing the
+  entry meant writing a path a user cannot know. See "Adding arguments to a server without replacing it" in
+  `docs/language-servers.md`.
+
+- **Export picture properties** (#159). Right-click a framed picture property in the Properties window to save
+  its image payload without changing the form or its companion. PictureBox now peels the same framing before decoding (#156).
+
+- **Windows x64 installer** (part of #77): Inno Setup packages the self-contained build for all
+  users in Program Files, with a Start-menu shortcut and an uninstaller. Portable archives remain
+  available; auto-update and file associations are not included.
+
+- **Code printing proposal** (#45): documented platform print paths, scope and page setup choices,
+  dependencies and verification for review before implementation.
+- **Code printing contracts** (#45): recorded the accepted platform paths, scope and page setup
+  defaults in an OpenSpec change with phased implementation and verification tasks; printing remains
+  unimplemented.
+
+- **Owner PID for launched pipe language servers** (#406). `{pid}` in `arguments` expands to HexIDE's
+  process ID, so a server that watches its owner can exit after a crash or forced IDE shutdown.
 
 - **Release download and run instructions** (#863): README now covers Linux asset selection, extraction
   into a separate folder, launch and missing-`tar` alternatives, with the measured openSUSE GNOME result.
@@ -169,6 +1852,52 @@ release by `scripts/changelog-gather.sh` (#1375). The entries below were recorde
 
 ### Changed
 
+- **Silent-server warning test failures include the connection attempt and recorded logs** (#1937),
+  including exception details, so an early initialize failure can be distinguished from the expected timeout.
+
+- **Headless font failures report their stage at startup** (#1578). The Integration test app probes the
+  default Bold face once and reports the family name and whether glyph creation returned null, so a
+  recurrence of the intermittent macOS failure carries evidence. Its underlying cause remains open.
+
+- **Changelog entries are one file per change** (#1375). Each change records its entry under `changelog.d/`,
+  named for its issue, and `scripts/changelog-gather.sh` folds them into this file at release, so pull requests
+  no longer conflict with each other here on every merge. `ChangelogFragmentTests` checks each fragment.
+
+- **Merges wait for every head-commit job, including advisory macOS** (#1331). The contributor and agent
+  guides now require all jobs to finish without red and main's latest run not to be red; a known flake
+  must have its run posted on its issue and be re-run green first. The workflow comment records that
+  Windows is now required by branch protection and why macOS remains advisory.
+
+- **The VB6 fidelity oracle is split by subject** (#1216). Its index and probe harness are in
+  `docs/vb6-fidelity-oracle/README.md`; the measured rows are preserved in separate subject files.
+
+- **MCP restart test diagnostics** (#778): the first call after a restart reports phase timings and
+  the full exception chain on failure. Passing runs keep debug timings in their test output. The test
+  uses the SDK's original HTTP transport and states that reconnect attempts are unavailable from the
+  SDK; the 20-second bound is unchanged.
+
+- **MCP SDK 2.2.0** (#764). The automation server supports discovery and the sessionless 2026-07-28
+  protocol, while keeping legacy clients stateless across IDE rebuilds.
+
+- **Native calls use source-generated marshalling** (#608). All P/Invokes now use `LibraryImport`,
+  with explicit string and Boolean marshalling. The three interop projects now permit generated unsafe
+  marshalling, with a test guard against handwritten unsafe code in those projects.
+
+- **Personality specification matches its implemented scope** (#419): personalities control menu entries
+  and project types; removed the unsupported claim that they control toolbar buttons.
+
+- **Shutdown wire documentation** (#368) records rumdl’s rejection of `"params":null` and distinguishes
+  it from StreamJsonRpc’s null argument object, which omits the member. The client is unchanged.
+
+- **Full-text language-server sync is deliberate** (#282). Documented that servers declaring Incremental
+  receive full-document changes too, as LSP permits. Incremental sync is deferred until a server needs it
+  to justify the risk of desynchronizing document copies; client behavior is unchanged.
+
+- **The Windows installer is `hexide-windows-amd64-setup.exe`** (#2051). Its name used to carry the version,
+  so hexide.io, which links every download through the latest release, could not link it. The name is now
+  fixed, like every other download. THIRD-PARTY-NOTICES.md now credits Inno Setup, whose setup code the
+  installer carries.
+
 - **The automation server’s loopback gate is exercised through real HTTP requests** (#773). The IDE and
   the Kestrel test server share its middleware wiring; foreign Host and Origin headers are refused on
   `/mcp`, and a foreign Host is refused on `/health`, while loopback clients are answered.
@@ -283,6 +2012,373 @@ release by `scripts/changelog-gather.sh` (#1375). The entries below were recorde
   shown once more to anyone who saw the old one, which said "code".
 
 ### Fixed
+
+- **MCP: `dump_visual_tree` cuts a tree too large for a client to take inline, and says so** (#1982). The whole IDE
+  window ran to 66,000 to 84,000 characters, which Claude Code saved to a file instead of showing. A tree over 40,000
+  characters is now cut at the most levels down that fit, and the `note`, written first, says where and how to see
+  the rest.
+
+- **MCP: `dump_visual_tree` no longer lists a row a long list has scrolled away from** (#1981). The list keeps the
+  row a Tab into it would land on, usually the selected one, realized out of view, and the dump listed it with
+  `isOffscreen: true`. It is now left out, as other rows out of view are, unless it has keyboard focus, and `select`
+  with its value scrolls to it first.
+
+- **MCP: every reply that names a waiting dialog says what it is** (#1975). The reset prompt and the run-time error
+  dialog are both titled "HexIDE". Four replies named a dialog by its title alone: the program wait, keyboard typing's
+  stop, the key refusal and `close`'s refusal. They now give its kind, first line and buttons where it has them, as
+  the `modalDialog` note does since #1624.
+
+- **A program reads and sets a control's TabIndex and TabStop** (#1974). Reading either stopped the run with "Method or
+  data member not found". Setting TabIndex now moves the control in the form's one tab order, renumbering the rest, as
+  vb6.exe does, and the running form tabs in that order.
+
+- **A made program starts** (#1971). File → Make writes the standalone runner, renamed, beside the project
+  archive, and that runner is now a single self-contained executable, with .NET and the native libraries
+  inside it. So a made program is one file plus its archive, and it runs on a machine with neither .NET nor
+  HexIDE installed. Since the runner stopped being compiled AOT (#30), Make had been copying an executable
+  that needed `HexIDE.Standalone.dll` and the rest of its publish folder beside it. Every program made that
+  way exited at once with `0x8000809A` ("The application to execute does not exist"). **Programs made with
+  v0.2.0 don't start, and need making again with this release.** The framework-dependent download grows
+  accordingly, since its runner now carries a runtime of its own. A made program on macOS hasn't yet been
+  started, so it is unverified there.
+
+- **MCP: `take_snapshot` no longer throws "Positive number required" for a popup it cannot place** (#1960). A popup
+  reported on no screen, or so far from the window that the image would pass 16,384 × 16,384 pixels' worth, is left
+  out, and the reply's `note` says what it held, where it was and why. The window and every other open popup are
+  still drawn.
+
+- **CI actions use their supported Node 24 releases** (#1950). Build and publish workflows use the
+  current GitHub action majors, and the release-writing action is pinned to a full commit SHA.
+
+- **Active-form Save integration tests wait for completion** (#1906). Save, focus and command-requery
+  assertions use bounded condition waits with the last observed state in timeout failures, avoiding
+  timing failures under contention. The requery observer stays attached through the Save command's
+  retained subscriber while waiting.
+
+- **Long addition chains no longer crash the bundled language server's symbol and declaration walks**
+  (#1894). Bound visitor recursion also protects Option Explicit checks while retaining declarations
+  and symbols after the expression.
+
+- **Long operator chains raise run-time error 28 instead of crashing the IDE** (#1893). The interpreter checks
+  available stack space during expression execution, and declaration collection skips expression subtrees.
+  Conditional-compilation expressions also check finished-tree depth before evaluation, refusing excessively
+  deep chains through the existing not-an-expression path instead of terminating the host.
+  Module-level constant-expression validation also checks available stack space before recursing, including
+  on smaller Windows-sized stacks.
+
+- **The tree hygiene guard detects C1 controls in Git for Windows' UTF mode** (#1881). Its pattern
+  matches Unicode code points explicitly; the selftest exercises UTF matching on Linux too, including
+  invalid UTF-8 alongside a control and ordinary punctuation that must pass.
+
+- **Insert now toggles overtype in the code window** (#1870). The status bar switches immediately
+  between its localized INS and OVR labels, without waiting for the caret to move.
+
+- **Object Browser inputs and lists have localized automation names** (#1869). Screen readers and automation can identify the library selector, search field, search results, classes and members without relying on position.
+
+- **Scroll bar buttons use the IDE language** (#1868). Screen readers and automation now receive localized
+  line and page action names on vertical and horizontal scroll bars, including after a language change.
+
+- **New event handlers keep the caret in their body** (#1865). A diagnostics refresh no longer reselects the
+  Procedure box entry and moves typing onto the `Sub` declaration.
+
+- **A form's `Move` runs** (#1569), where it stopped the program as not implemented. As measured on vb6.exe, it takes
+  twips whatever the form's ScaleMode, checks every value before moving anything, and raises one Resize for a change of
+  size, where assigning Width and then Height raises two.
+
+- **Code windows and designers stay in the IDE** (#1361). Their tabs no longer offer Float or Float
+  all, and float attempts keep the document docked instead of losing it in a hidden window.
+
+- **The edit-while-running reset prompt** (#1360) uses VB6's measured wording and OK/Cancel buttons. Cancel reverts the edit and keeps the run; OK keeps the edit and ends the run. Updated all shipped translations.
+
+- **Quick info during an external run** (#1347): hovering requests language-server quick info while the external
+  program runs; a selected stopped frame still takes precedence for data tips. Headless regression tests cover
+  this routing and hovering a visible identifier after scrolling.
+
+- **Integration tests close the windows they open** (#1332). Dialogs and hidden windows no longer leak
+  into later tests; a suite-wide guard reports any window left open and the test that opened it.
+
+- **Running-form replies wait for loops resumed after a dialog, even after an earlier DoEvents** (#1318). A watch
+  taken during a busy loop also stops attributing an unrelated dialog left open earlier to the action.
+
+- **Call Stack row automation names follow the IDE language** (#1260), including the line label announced by screen readers and used in automation paths.
+
+- **Selecting a Watches child no longer edits or deletes another watch** (#1229). Edit and Delete act only on a selected top-level watch; rebuilding the list clears selection.
+
+- **A language server that stops reading can no longer hold HexIDE open when it closes** (#1221). Stopping a
+  server waited two seconds for its answer to `shutdown`, but sending `exit` had no deadline. A server that had
+  stopped reading left the client's last write unfinished, and `exit` waited behind it for good. Sending `exit`
+  now has the same two-second deadline, and the connection is closed after it. A new test server that misbehaves
+  on demand drives this and the client's other failure paths. It ignores `shutdown`, stalls or dies halfway
+  through a reply, and sends malformed frames and floods.
+
+- **Disposing a debug adapter during a request write reports `IOException` consistently** (#1192), rather than
+  exposing a scheduling-dependent `ObjectDisposedException` from the disposed process pipe.
+
+- **The minimap follows code folding** (#1131): hidden lines take no space, the viewport marker spans the visible rows, and clicks target visible lines. Folding and unfolding redraw the map.
+
+- **Pasting a declaration with its attribute run at another described declaration's end keeps both runs separate** (#1041). The pasted declaration now starts after the existing run, so saving cannot give both members' descriptions or dispatch ids to one member.
+
+- **Deleting a described declaration through Replace, Replace All or an add-in range edit takes its Attribute lines with it** (#1038), matching deletion in the code window. Non-empty replacements keep the run.
+
+- **Toggle Fold leaves Cmd+M to Minimize on macOS** (#1014). The command has no default shortcut or menu
+  gesture there; Ctrl+M still toggles folds on Windows and Linux.
+
+- **The diagnostics reopen regression waits for the reopen answer** (#963). Its scripted server now
+  distinguishes the initial answer from the fresh one, so a slow run cannot mistake the initial answer
+  for completion and report the close's empty clear as a later publication. The failure trace names that clear.
+
+- **Status bar caret position and insert/overtype labels follow the selected language** (#960), including live language switches, with translations in every shipped pack.
+
+- **The code window names form handlers `Form_<Event>`** (#937). Its Object box lists `Form` and
+  `UserControl` rather than the root component's name; form events include Load and Resize, and an
+  existing handler is selected instead of adding another stub.
+
+- **The last control added to the designer selection is the reference** (#928). Its primary handles and Properties follow the selection, and Align and Make Same Size use it, including after reselection.
+
+- **Short TextBoxes keep their text visible** (#914). Their vertical padding now follows the measured
+  font line height, so single-line boxes at 285 and 315 twips also hold the taller default Windows font
+  in the designer and running forms.
+
+- **The Font dialog selects an uninstalled current family** (#912). The family is offered in sorted order,
+  including MS Sans Serif, and OK keeps its name. The property picker passes the stored name without rendering fallbacks.
+
+- **The Object Browser and Properties object box show control class names** (#905), such as TextBox and CommandButton, while new controls keep their existing default-name prefixes. Object Browser search also finds those class names.
+
+- **Object Browser project classes stay current** (#904). The class list follows form and module additions, removals and renames, along with project renames. Deleted classes are removed from navigation history.
+
+- **The Object Browser loads VBA built-ins** (#903). A capable running language server supplies the Globals members; before one starts, the browser explains why they are unavailable and retries when VBA or All Libraries is selected again.
+
+- **Object Browser status rows stay under VBA** (#903). All Libraries shows only real classes, so opening the browser before a language server starts no longer adds a no-server entry to the combined class list.
+
+- **Project Explorer Save and Save As now save the selected form** (#902), through the same service as the designer. Project → Add MDI Form is disabled until MDI forms are implemented.
+
+- **Designer tab stays marked as saved after deleting a control** (#901): releasing a pointer selection now
+  ends the designer's drag, so a later Delete key commits the deletion, records its undo and shows the tab's
+  unsaved-change marker.
+
+- **Docked panes keep their full opacity after switching tabs or reopening tools** (#900). Disable Dock's
+  reveal animation, which could leave the designer and tool contents dimmed at 85% or 72.25% opacity.
+
+- **Save Form and Save Form As follow the active tab even while a tool window has focus** (#899).
+  The shell delegates to the active designer or form code window, preserving format-on-save. Switching
+  tabs refreshes the commands without requiring a focus change.
+
+- **Start with VB6 shows its shortcut once** (#897). Removed the embedded Alt+F5 from the menu label in
+  English and all 29 translations; the gesture column continues to show the live keymap's shortcut.
+
+- **The form designer paints its title bar** (#896). It now uses the active title-bar brush directly,
+  restoring a readable white caption on Classic's navy bar and removing a failed MDI ancestor binding.
+
+- **Named-pipe process tests tolerate a loaded runner** (#892). Wait for stderr, exit and close callbacks
+  directly with a two-minute safety bound, and name the missing callback on timeout rather than implying
+  that an exit code was lost.
+
+- **Bookmarks and breakpoints survive a conflicted external header change and a reopen** (#884).
+  Sidecar version 3 counts code marks from the end of each document's header, with separate file-relative
+  entries for existing header marks. Earlier marks migrate on open; older builds preserve the new keys.
+
+- **Break mode shows in the IDE title** (#837). Paused programs show a localized `[break]` tag and clear the running status message. Design and run tags and the no-project title are localized too, and refresh when the language changes.
+
+- **Program message box buttons follow the IDE language** (#828), with all seven captions translated in every
+  shipped language pack. The standalone runner keeps English.
+
+- **Made programs leave carried files out of their package** (#750). Their project item lines are omitted,
+  including lines reclassified from modules or classes, so they cannot publish paths back to the developer's
+  source tree. Other project entries keep their order, and ordinary project saves still include carried files.
+
+- **Make Project messages follow the IDE language** (#747). All five messages are translated. An unsupported
+  platform message now names supported systems, and a failed build says the program was not made with an Error icon.
+
+- **Carried files keep their bytes when saved** (#745). Invalid UTF-8 is read and written as Latin-1,
+  preserving untouched bytes; saving an unchanged buffer does not rewrite the file.
+- **Carried-file save refusals explain why nothing was written** (#745). An edit the file's encoding cannot
+  hold now shows the source-encoding warning, naming the file, code page, character and line. The original
+  bytes stay untouched, the edit stays unsaved, and the refusal is logged as a warning.
+
+- **Menu shortcut labels follow keymap changes immediately** (#732), including clearing unbound shortcuts.
+  Bookmark menus also derive their labels from commands, preserving platform-specific modifiers.
+
+- **VB6 keywords are highlighted regardless of case** (#716). `Begin`, `begin` and a standalone `End`
+  now receive their keyword colour, as do keywords typed with different casing from the syntax definition.
+
+- **Light syntax colours meet the editor contrast bar** (#713). Metadata keywords use a darker magenta
+  that clears WCAG AA 4.5:1 on Classic’s white editor. Tests cover every named light colour and include
+  metadata keywords in both dark palettes, refusing missing or non-solid foregrounds.
+
+- **Dark and Abyss warning colours** (#712). Warning banners now use dark amber backgrounds and visible borders;
+  validation errors use legible light red text. Shipped dark packs are checked for every mapped colour key.
+
+- **Event-handler navigation skips the file header** (#711). A designer caption naming the handler no longer takes the caret into the designer block or prevents a missing handler from being generated, from either a double-click or the Procedure box.
+
+- **Delete in the code window removes the next character when nothing is selected** (#708), including through
+  the Edit menu. Editing during a run still asks whether to reset the project.
+
+- **The automation gap catalogue now records gutter clicks as supported** (#707). `interact click`
+  already reaches breakpoint, bookmark and fold margins through editor-relative coordinates (#1033);
+  the closed entry preserves the original observations and documents the targeting recipe and pending
+  live verification.
+
+- **Find explains protected matches** (#705). When text occurs only in a file's header or procedure
+  `Attribute` lines, Find says why it skips them. Replace All reports skipped matches beside replacements.
+
+- **Find Up visits other open documents before wrapping** (#703). From offset 0 under All Open Documents,
+  plain-text Find now searches the other documents before returning to the bottom of the active document.
+
+- **End-of-line syntax errors name the token** (#665). Whitespace-only offending tokens now read
+  `end of line` instead of empty quotes in unexpected-input and syntax-error-near messages.
+
+- **IDE timer failures reach the log** (#652). The dock-layout save, language revert countdown, minimap
+  redraw and designer code-navigation follow-up log exceptions with their purpose and stack. They remain
+  nonfatal; VB6 Timer events keep the interpreter's existing runtime-error handling.
+
+- **MCP shutdown ordering** (#644): finish the reply before closing the main window, and keep the
+  automation server alive when shutdown is cancelled by stopping it only on desktop exit.
+
+- **Translated control rename refusals** (#629). Empty and duplicate names now use the active IDE language in the Properties window and `set_control_property`, with translations in all 29 shipped language packs.
+
+- **Form Layout previews the form it represents** (#576). The thumbnail shows the form name, follows
+  renames, and disappears when the form is removed or there is no form to preview.
+
+- **Saving IDE settings preserves hand edits and other instances’ changes** (#557). Only properties
+  changed in this instance are merged into the latest `settings.json`, so a window move no longer
+  overwrites trust settings such as `revocationListUrl`. Settings are replaced atomically.
+
+- **Icon-only buttons have localized automation names** (#542): Dock pane buttons and tab scroll arrows, document-tab
+  close buttons, designer caption buttons, dropdown toggles and property pickers. A headless render-and-walk guard
+  checks the main window, designer, Properties, Project Explorer, Object Browser and New Project dialog for type names
+  and unnamed rows.
+
+- **Localized the code window’s Rename prompt** (#537): its title and new-name label now follow the IDE language in every shipped pack. Shared dialog buttons remain tracked by #828.
+
+- **Code-window writes keep the document's line endings** (#530). Enter, Insert File, automation typing and
+  whole-content replacements (including add-ins and AI Chat) normalize new line breaks to the document's own.
+  LF files stay LF; a buffer with no line break starts with CRLF. Saving does not rewrite existing terminators.
+
+- **Command-line output redirected by a Windows batch file is preserved** (#528). Help and refusals
+  write to the inherited file or pipe before attempting to borrow a console, including when the
+  launching cmd has no console window.
+
+- **Properties window values no longer scroll vertically inside their rows** (#524). Single-line text
+  and numeric editors disable vertical scrolling in both the Alphabetic and Categorized lists.
+
+- **Every routed application command can be rebound by a keymap** (#504, #415). Call Stack,
+  Reset Window Layout and Go To Declaration now participate in pack bindings and Default restoration;
+  a test guards the command table against missing, extra or miswired entries.
+
+- **Foreign-server checksum mismatches fail visibly outside CI** (#487). Rejected downloads record the
+  expected and actual digests for an ordinary test to report, while affected protocol tests skip with a
+  checksum-specific reason instead of disappearing during discovery.
+
+- **An unanswered language-server request no longer waits forever** (#486). Requests have a 30-second
+  local deadline, compose with caller cancellation, and record a timeout while keeping the connection usable.
+
+- **External changes are watched after first save and Save As** (#476). Watches follow loaded forms and
+  modules in subfolders and shared directories, update when documents are added, removed or repointed,
+  and release the directories actually attached when a project unloads.
+
+- **Foreign-server diagnostics waits report a process crash as a crash** (#449). The lazy-start,
+  configuration-file and untitled-document tests name the connection, non-zero exit code and outstanding
+  requests, with the captured conversation, instead of reporting only missing diagnostics. No retry is added.
+
+- **The tree-hygiene link scan refuses to pass if it cannot create its temp file** (#443).
+  It uses `mktemp`, honours `TMPDIR`, and removes the file on exit instead of leaving a predictable PID path.
+
+- **Hygiene selftest pins scan scope** (#442). Probes now catch broadened documentation allow-lists
+  and script exclusions, ignored build output re-entering scans, and root-level Markdown links being
+  skipped. Probes outside the scratch directory refuse to overwrite existing files and are cleaned up.
+
+- **The tree-hygiene guard accepts Markdown link titles, angle-bracket destinations and percent-escaped
+  filenames** (#438). Existing files linked with these forms no longer produce false dangling-link failures;
+  the guard's selftest covers all three alongside a plain destination.
+
+- **Localisation test packs stay out of the shipped assembly** (#423). The synthetic `zz` and `zz-ZZ`
+  fixtures now belong to the test project; they were never offered in the language selector.
+
+- **Protocol inspector pending count appears as traffic arrives** (#401). The visible inspector polls a
+  cheap capture counter while keeping the grid still until Refresh; filters and ring eviction no longer
+  distort the count of new entries.
+
+- **Workspace folder names no longer disclose project names in conversation exports** (#397).
+  HexIDE sends the folder URI's session pseudonym as the handshake's folder name, keeping textual
+  body redaction intact. Names in server-authored fields remain outside this fix.
+
+- **A wedged language server no longer blocks IDE shutdown** (#392). The shutdown request has a two-second
+  deadline, `exit` is still attempted, and stdio disposal waits up to two seconds after killing the child.
+
+- **Report unrecognised pipe roles** (#383). A misspelled `pipeRole` on a pipe language server now
+  produces a configuration warning while keeping the existing `connect` fallback.
+
+- **The tree hygiene guard catches Windows user-profile paths in LSP URIs** (#366), including
+  forward slashes, case variants and percent-encoded drive colons. Clone roots under `Repos` warn
+  about portability. Individual tracked and untracked path fixtures protect the check in CI.
+
+- **Identify each stdio language server in its logs** (#364). Start, start failure, stderr and exit
+  messages carry the configured server ID, so interleaved output can be traced to its source.
+
+- **Server running commentary reaches the default log** (#359). LSP type 4 now logs at Information;
+  type 5 stays at Trace. A sink-level regression and metamodel enum guard cover the logging seam
+  and future protocol values; existing completion display-kind omissions remain deferred.
+
+- **Pipe server teardown respects process ownership and bring-up** (#313). Shutdown and exit are sent
+  only after initialize answers. A launched pipe server gets two seconds to exit before its remaining
+  process tree is killed; a server HexIDE only connected to is left running.
+
+- **Add-in packages enforce their manifest compatibility requirements** (#310). A newer schema, a
+  newer minimum HexIDE version, or an invalid minimum version is refused even in developer mode;
+  Options → Add-Ins explains the requirement. The packer stamps the schema and accepts
+  `--min-hexide-version`; unknown manifest members are retained for inspection.
+
+- **Failed add-in initialization leaves no partial registrations** (#309). Tool-window factories remain
+  eager; a throwing factory records the add-in's error, removes its earlier contributions and event
+  subscriptions, and lets the IDE and other add-ins continue. Cleanup failures do not replace the original
+  error or stop the remaining cleanup.
+
+- **Carried `.cls` files reach VB6 only with a VB6 class header** (#279). The first non-blank line must
+  be `VERSION 1.0 CLASS` (case-insensitive); LaTeX classes keep their other extension claimants without
+  spurious VB6 diagnostics. Routing is recorded on open and retained through edits until reopened.
+
+- **A continuation separates identifier names** (#224). Splitting `val _` / `ue = 5` no longer assigns to
+  `value`; the measured probe prints Long 0. Both grammar copies keep the separator between word fragments
+  as whitespace, while continuations inside multi-word keywords remain legal.
+
+- **Leading colons and labels before `End If` run** (#223). Empty `If True Then:` lines also run in the
+  interpreter and parse in the language server. Jumps to labels sharing a loop terminator remain deferred.
+
+- **Unsupported constructs fail clearly** (#181). Declaring an array of a user-defined type now stops with a
+  message naming the type, instead of accepting an unusable array. Bang access in an array-result assignment
+  target now names the unsupported construct instead of showing .NET's generic message.
+
+- **Windows installer compiler verification** (part of #77): release builds always install pinned
+  Inno Setup 6.7.3, checking the download's size, SHA-256 and publisher signature before running
+  it, and checking the installed compiler version before packaging.
+
+- **AI Chat reloads its settings when reopened** (#57). Changes to `chat-settings.json` take effect without
+  restarting the IDE, while preserving the conversation. An in-progress response finishes with its original settings.
+
+- **The retained Option Explicit analyzer knows designer controls and project class/module names** (#54),
+  plus `vbPixels`. It uses the form header and `.vbp` declarations without cross-file binding. Live
+  undeclared-variable warnings remain default-off because the baseline does not cover all external names.
+
+- **RTL icon direction** (#40). Object Browser navigation arrows now mirror with the interface language,
+  while Start keeps its right-pointing play icon. Drawn command icons and tree chevrons retain Avalonia's
+  built-in mirroring without a second flip.
+
+- **Object Browser refresh and navigation** (#24). Selecting a project type reloads its members after edits;
+  double-clicking a member opens its declaration, and Escape closes the browser.
+
+- **Standard and class module breakpoints are covered through the IDE's run path** (#10). Regression
+  tests confirm that stored breakpoints stop under the correct module name and file line; the existing
+  module-loading boundary is UserControl (`.ctl`) and PropertyPage (`.pag`) modules.
+
+- **Project-load warnings follow the IDE language** (#698), including form diagnostics, the warning heading and
+  overflow count, and skipped ActiveX Documents. Runtime hosts without localization retain English diagnostics.
+
+- **The Toolbox starts on the left and remembers being reopened** (#895). Removed a dependency cycle
+  that could hand the dock factory a null tool; real composition tests and constructor guards catch it.
+
+- **Redirected command-line output starts with the text, not a byte-order mark.** `--help` or a refusal
+  written to a file could begin with a UTF-8 BOM whenever something in the process had set the console to
+  `Encoding.UTF8`, which also made a ConsoleOutputTests case pass or fail by test order.
 
 - **The bundled language server counts lone CR line endings** (#1052). Diagnostics, folds, rename, highlight
   and formatting now use the editor's line numbers in files with CR, LF or CRLF, and keep off the same protected lines.
@@ -1864,6 +3960,8 @@ binary could not be identified.
   native payloads for every platform SkiaSharp ships, so the Windows archive carried Linux binaries and
   the download was six times larger than it needed to be.
 
-[Unreleased]: https://github.com/hexide-io/HexIDE/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/hexide-io/HexIDE/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/hexide-io/HexIDE/compare/v0.3.0...v0.4.0
+[0.3.0]: https://github.com/hexide-io/HexIDE/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/hexide-io/HexIDE/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/hexide-io/HexIDE/releases/tag/v0.1.0

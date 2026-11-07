@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Collections.Generic;
 using System.Linq;
+using HexIDE.IDE;
 using HexIDE.Runtime.ProjectElements;
 using Path = System.IO.Path;
 
@@ -30,9 +31,14 @@ public class ProjectSerializer
     /// Where a form or module will be when this text is written, for a caller checking a save before it moves
     /// anything; null for a member staying where it is. Without it, each member is named where it is now.
     /// </param>
-    public string Serialize(ProjectDefinition project, string projectPath, Func<object, string?>? pathOf = null)
+    public string Serialize(ProjectDefinition project, string projectPath, Func<object, string?>? pathOf = null,
+        bool includeRelatedDocuments = true)
     {
         var writer = new StringWriter { NewLine = "\r\n" };
+        var output = new List<string>();
+        var readObjects = project.UnknownPreSectionLines
+            .Where(u => u.PositionHint != ProjectDefinition.AfterFormsHint && u.RawLine.StartsWith("Object=", StringComparison.OrdinalIgnoreCase))
+            .Select(u => u.RawLine).ToList();
         // Sort by PositionHint so interleaving is correct even if unknowns were appended out of order
         // (e.g. by the loader). The trailing-remainder loop already guarantees none are lost; this
         // hardens their ORDER. OrderBy is stable, so equal-hint lines keep their insertion order.
@@ -49,19 +55,20 @@ public class ProjectSerializer
         var writtenIn = Path.GetDirectoryName(projectPath) ?? "";
         string Kept(string line) => keptFrom is null ? line : SerializedProject.RebaseItemLine(line, keptFrom, writtenIn);
 
-        void WriteKnownLine(string line)
+        void WriteKnownLine(string line, bool omit = false)
         {
             // Interleave unknown lines whose position hint falls at or before this known key
             while (unknownIdx < unknowns.Count && unknowns[unknownIdx].PositionHint <= knownKeyCount)
-                writer.WriteLine(Kept(unknowns[unknownIdx++].RawLine));
-            writer.WriteLine(line);
+                output.Add(Kept(unknowns[unknownIdx++].RawLine));
+            if (!omit)
+                output.Add(line);
             knownKeyCount++;
         }
 
         // The template order is the default for new lines and projects with no read slots. Existing lines
-        // return to their read slots: VB6 also writes Form before Reference (measured, #855).
-        var lines = new List<(string Text, int? Slot)>();
-        void AddKnownLine(string line, int? slot = null) => lines.Add((line, slot));
+        // return to their read slots, unless the References dialog was accepted (#2274).
+        var lines = new List<(string Text, int? Slot, bool Omit)>();
+        void AddKnownLine(string line, int? slot = null, bool omit = false) => lines.Add((line, slot, omit));
 
         AddKnownLine($"{SerializedProject.TypeKey}={ProjectTypeToString(project.ProjectType)}");
 
@@ -71,14 +78,15 @@ public class ProjectSerializer
             // vb6.exe /make reports "could not be loaded" for a name-less reference even when the GUID
             // resolves via the registry. LibPath may be empty — VB6 then resolves the typelib from the GUID.
             //
-            // A relative LibPath is named from the folder the project file is written in, as VB6's Save As writes it
-            // (#1406). VB6 re-derives the path from the registry; this keeps the one the file had, which is the same
-            // path wherever the type library has not moved.
-            var libPath = keptFrom is null ? r.LibPath ?? "" : SerializedProject.RebasePath(r.LibPath ?? "", keptFrom, writtenIn);
+            // Registry lookup is unavailable here; an empty path stays empty (#2274).
+            // The destination may be a Windows path even on a non-Windows host.
+            var referenceDirectory = projectPath[..(projectPath.Length - SerializedProject.FileNameOf(projectPath).Length)];
+            var libPath = SerializedProject.ReferencePath(r.LibPath ?? "", keptFrom ?? referenceDirectory, referenceDirectory);
             var refName = r.Name ?? "";
-            AddKnownLine($"{SerializedProject.ReferenceKey}=*\\G{r.Guid}#{r.Version}#{r.Lcid}#{libPath}#{refName}");
+            AddKnownLine($"{SerializedProject.ReferenceKey}=*\\G{r.Guid}#{r.Version}#{r.Lcid:x}#{libPath}#{refName}");
         }
 
+        var encodingPaths = new List<string>();
         foreach (var form in project.Forms)
         {
             if ((pathOf?.Invoke(form) ?? form.AbsolutePath) is not { } formPath)
@@ -86,6 +94,10 @@ public class ProjectSerializer
             var relativePath = SerializedProject.ToProjectFilePath(
                 Path.GetRelativePath(Path.GetDirectoryName(projectPath)!, formPath));
             AddKnownLine($"{SerializedProject.FormKey}={relativePath}");
+            if (form.TextEncoding == Vb6TextEncoding.Utf8 &&
+                ProjectEncodingRecords.NeedsRecord(form.TextEncoding,
+                    new FormSerializer().Serialize(form, Path.GetFileName(formPath)).frmText))
+                encodingPaths.Add(relativePath);
         }
 
         foreach (var module in project.Modules)
@@ -94,6 +106,14 @@ public class ProjectSerializer
                 continue;
             var relativePath = SerializedProject.ToProjectFilePath(
                 Path.GetRelativePath(Path.GetDirectoryName(projectPath)!, modulePath));
+            if (module.TextEncoding == Vb6TextEncoding.Utf8)
+            {
+                var text = module.Kind is ModuleKind.UserControl or ModuleKind.PropertyPage && module.FormPart is { } designer
+                    ? new FormSerializer().Serialize(designer, module.Code, Path.GetFileName(modulePath)).frmText
+                    : ModuleFileFormat.ToFileContent(module.Code, module.Name, module.Kind, module.OriginalHeader);
+                if (ProjectEncodingRecords.NeedsRecord(module.TextEncoding, text))
+                    encodingPaths.Add(relativePath);
+            }
             var key = module.Kind switch
             {
                 ModuleKind.ClassModule  => SerializedProject.ClassKey,
@@ -103,7 +123,7 @@ public class ProjectSerializer
             };
 
             // Two shapes, and VB6 is strict about which key takes which — all five measured, not assumed
-            // (docs/vb6-fidelity-oracle.md, 2026-09-20). `Module=` and `Class=` REQUIRE the `Name; File`
+            // (docs/vb6-fidelity-oracle/a-vbp-item-line-has-two-shapes-and-the-keys-do-not-agree-on-which.md, 2026-09-20). `Module=` and `Class=` REQUIRE the `Name; File`
             // form: given `Module=Mod1.bas`, VB6 refuses the whole project with "The project file … is
             // corrupt, and can't be loaded", naming no line. The designer kinds require the bare path:
             // given `UserControl=Gauge; Gauge.ctl`, VB6 reads the entire value as a filename and fails with
@@ -127,14 +147,14 @@ public class ProjectSerializer
         {
             if (document.OriginalItemLine is { } original)
             {
-                AddKnownLine(Kept(original), document.OriginalItemSlot);
+                AddKnownLine(Kept(original), document.OriginalItemSlot, omit: !includeRelatedDocuments);
                 continue;
             }
             if (document.AbsolutePath == null)
                 continue;
             var relativePath = SerializedProject.ToProjectFilePath(
                 Path.GetRelativePath(Path.GetDirectoryName(projectPath)!, document.AbsolutePath));
-            AddKnownLine($"{SerializedProject.RelatedDocKey}={relativePath}");
+            AddKnownLine($"{SerializedProject.RelatedDocKey}={relativePath}", omit: !includeRelatedDocuments);
         }
 
         // Preserved item lines (unsupported UserDocuments, missing-file forms): emit verbatim so the
@@ -204,18 +224,50 @@ public class ProjectSerializer
         for (var i = 0; i < lines.Count; i++)
             if (slots[i] is null)
                 order.Insert(i == 0 ? 0 : order.IndexOf(i - 1) + 1, i);
+        // An Object= line the Components dialog added goes just after the last Form= line, where VB6's Save Project puts
+        // one (measured, #1103), or after Type= in a project with no form.
+        var afterForms = order.FindLastIndex(i => lines[i].Text.StartsWith(SerializedProject.FormKey + "=", StringComparison.OrdinalIgnoreCase)) + 1;
+        if (unknowns.Any(u => u.PositionHint == ProjectDefinition.AfterFormsHint))
+            unknowns = unknowns.Select(u => u.PositionHint == ProjectDefinition.AfterFormsHint ? (PositionHint: Math.Max(afterForms, 1), u.RawLine) : u)
+                .OrderBy(u => u.PositionHint).ToList();
+        // Omitted package entries still count their slots, so unknown lines keep their neighbours (#750).
         foreach (var i in order)
-            WriteKnownLine(lines[i].Text);
+            WriteKnownLine(lines[i].Text, lines[i].Omit);
 
         // Emit any remaining unknown lines that appeared after all known keys
         while (unknownIdx < unknowns.Count)
-            writer.WriteLine(Kept(unknowns[unknownIdx++].RawLine));
+            output.Add(Kept(unknowns[unknownIdx++].RawLine));
+
+        // Accepting References regroups the next save, even with no selection change (#2274).
+        if (project.ReferencesDialogAccepted)
+        {
+            var prefix = output.Where(l => l.StartsWith("Type=", StringComparison.OrdinalIgnoreCase)
+                || l.StartsWith("Reference=", StringComparison.OrdinalIgnoreCase)).ToList();
+            prefix = prefix.OrderBy(l => l.StartsWith("Type=", StringComparison.OrdinalIgnoreCase) ? 0 : 1).ToList();
+            foreach (var line in prefix)
+                output.Remove(line);
+            foreach (var line in readObjects)
+                output.Remove(line);
+            output.InsertRange(0, prefix.Concat(readObjects));
+        }
+        // #2459: only OleExe with these adjacent neighbours was measured. Other types,
+        // missing neighbours and other orders keep today's output until VB6 is measured.
+        if (project.ProjectType == VBProjectType.OleExe
+            && !output.Any(l => l.Split('=', 2)[0].Trim().Equals("Retained", StringComparison.OrdinalIgnoreCase)))
+        {
+            var unattended = output.IndexOf("Unattended=0");
+            if (unattended >= 0 && unattended + 1 < output.Count && output[unattended + 1] == "ThreadPerObject=0")
+                output.Insert(unattended + 1, "Retained=0");
+        }
+        foreach (var line in output)
+            writer.WriteLine(line);
 
         // Append the extension tail (third-party [SectionName]...EOF content)
-        if (!string.IsNullOrEmpty(project.ExtensionTail))
+        var extensionTail = ProjectEncodingRecords.Write(project.ExtensionTail, encodingPaths);
+        if (!string.IsNullOrEmpty(extensionTail))
         {
             writer.WriteLine();
-            writer.Write(project.ExtensionTail);
+            writer.Write(extensionTail);
         }
 
         return writer.ToString();

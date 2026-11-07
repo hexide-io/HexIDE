@@ -40,9 +40,9 @@ internal static class ContainerRuntimeHarness
         public void DebugPrint(Vb6Value value) => debug.Add(value);
     }
 
-    internal static (Control root, Canvas canvas, ModuleExecutionContext ctx, ExecutionEnvironment env) Spawn(string frm)
+    internal static (Control root, Canvas canvas, ModuleExecutionContext ctx, ExecutionEnvironment env) Spawn(string frm, IReadOnlyDictionary<int, byte[]>? frxBlobs = null)
     {
-        var form = new FormDeserializer().Deserialize(Project, frm, NullSink.Instance)!;
+        var form = new FormDeserializer().Deserialize(Project, frm, NullSink.Instance, frxBlobs: frxBlobs)!;
         var ctx = new ModuleExecutionContext();
         var env = new ExecutionEnvironment();
         var root = VBLoader.SpawnComponents(form, ctx, env);
@@ -129,10 +129,10 @@ internal static class ContainerRuntimeHarness
         // outcome worth having.
     }
 
-    internal static async Task<List<Vb6Value>> Run(ModuleExecutionContext ctx, ExecutionEnvironment env, string code)
+    internal static async Task<List<Vb6Value>> Run(ModuleExecutionContext ctx, ExecutionEnvironment env, string code, EventPump? events = null)
     {
         var debug = new List<Vb6Value>();
-        await new BasicInterpreter(new CaptureLib(debug), ctx, env, code).Execute();
+        await new BasicInterpreter(new CaptureLib(debug), ctx, env, code) { Events = events }.Execute();
         return debug;
     }
 

@@ -19,6 +19,7 @@ namespace HexIDE.Tools;
 public partial class WatchRowViewModel
 {
     private readonly ILocalizationService _localization;
+    private bool showingOutOfContext = true;
 
     public WatchRowViewModel(WatchExpression watch, ILocalizationService localization)
     {
@@ -32,7 +33,16 @@ public partial class WatchRowViewModel
 
     public string Expression => Watch.Expression;
     private string? externalContext;
-    public string Context => externalContext ?? Watch.Context;
+    public string Context
+    {
+        get
+        {
+            var context = externalContext ?? Watch.Context;
+            return context == WatchExpression.AllProceduresContext
+                ? _localization.GetString("Str.Dialog.AddWatch.AllContext") : context;
+        }
+    }
+    public void RefreshContext() => PropertyChanged?.Invoke(this, new(nameof(Context)));
     public void SetExternalContext(string context)
     {
         externalContext = context;
@@ -54,6 +64,7 @@ public partial class WatchRowViewModel
     public void UpdateExternal(ExternalVariable variable, DapStop stop, ExternalDebugService debugger)
     {
         Update(null);
+        showingOutOfContext = false;
         Value = variable.Value;
         TypeName = variable.Type;
         remoteRoot = new(variable, stop, debugger, _localization);
@@ -62,7 +73,12 @@ public partial class WatchRowViewModel
         OnIsExpandedChanged();
     }
 
-    public void UpdateError(string message) { Update(null); Value = message; }
+    public void UpdateError(string message) { Update(null); showingOutOfContext = false; Value = message; }
+
+    internal void RefreshLocalization()
+    {
+        if (showingOutOfContext) Value = OutOfContext;
+    }
 
     private string OutOfContext => _localization.GetString("Str.Tool.Watches.OutOfContext");
 
@@ -70,6 +86,7 @@ public partial class WatchRowViewModel
     /// the value columns (resumed / not in Break mode).</summary>
     public void Update(DebugEvalResult? result)
     {
+        showingOutOfContext = result is null;
         if (remoteRoot is not null) remoteRoot.PropertyChanged -= RemoteChanged;
         remoteRoot = null;
         if (result is null)

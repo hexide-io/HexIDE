@@ -8,17 +8,25 @@ on:
     branches:
       - '**'
 
+# One run per pull request at a time: a newer push supersedes the run before it. Superseded runs used to keep going and
+# hold the few macOS runners the whole queue shares; on 2026-10-26 a merge batch waited 65 minutes behind superseded
+# runs of PRs that had since been rebased. Pushes to a branch are never cancelled, so every commit on main is built.
+concurrency:
+  group: build-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 # The fewest tests each suite may run and still pass (#1448). One run of the Integration suite went green after 978 of its
 # 1682 tests and said nothing about it: no warning, no skip, exit code 0. That is the fail-open shape the foreign-server
 # fixture exists to prevent, one level up. Microsoft.Testing.Platform's --minimum-expected-tests turns a short run into a
-# failure. Each floor is about 90% of its suite when it was set, so adding tests never needs an edit here, and a run that
-# loses a tenth of a suite fails. Raise a floor once its suite has grown well past it.
+# failure. The four main-suite floors started at about 95% of totals measured on main c9d5ef1e under WSL,
+# 2026-10-26 (#883). Theory rows are counted by execution, not discovery. Raise floors as suites grow.
+# The async test-context lifetime fix is separate: https://github.com/hexide-io/HexIDE/issues/2194.
 env:
-  MIN_TESTS_RUNTIME: 3300       # 3659 when set
+  MIN_TESTS_RUNTIME: 7757       # 8166 measured (WSL, #3213); catches short runs; raise to 95% of a new full total.
   MIN_TESTS_TWINBASIC: 200      # 226
-  MIN_TESTS_IDE: 2900           # 3212
-  MIN_TESTS_INTEGRATION: 1500   # 1682
-  MIN_TESTS_LSP_SERVER: 320     # 362
+  MIN_TESTS_IDE: 6166           # 6491 measured (WSL, #3213); catches short runs; raise to 95% of a new full total.
+  MIN_TESTS_INTEGRATION: 4947   # 5208 measured (WSL, #3121 round 3); catches short runs; raise to 95% of a new full total.
+  MIN_TESTS_LSP_SERVER: 624     # 657 measured (WSL, #3213); catches short runs; raise to 95% of a new full total.
 
 jobs:
   # ── May the build jobs be skipped for this pull request? ──────────────────────────────────────────
@@ -49,7 +57,7 @@ jobs:
       skip: ${{ steps.decide.outputs.skip }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           # The decision is a diff, and a shallow clone has no base commit to diff against.
           fetch-depth: 0
@@ -109,10 +117,10 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup .NET
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@v6
         with:
           dotnet-version: '10.0.x'
 
@@ -120,7 +128,7 @@ jobs:
       # rather than a binary. Declared rather than assumed: the runner image happens to ship Node, and a
       # dependency that works by luck is one that breaks on an image change for reasons nobody can see.
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: '22'
 
@@ -131,7 +139,7 @@ jobs:
       # carries a registry-attested hash for every package in its tree. Cached, so the usual run does not
       # go to the network at all. See docs/foreign-language-servers.md.
       - name: Cache the foreign language servers
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: artifacts/foreign-lsp
           # The lockfile is part of the key: it pins the Node server's whole dependency tree, so a change
@@ -146,7 +154,7 @@ jobs:
       # — it is a JSON document, not a binary — but keyed by OS anyway to match its neighbour rather than
       # invent a second convention.
       - name: Cache the LSP specification model
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: artifacts/lsp-metamodel
           key: >-
@@ -154,9 +162,11 @@ jobs:
               'IDE/HexIDE.Tests/LspClient/LspSpecificationModel.cs') }}
 
       - name: Run Runtime Tests
+        timeout-minutes: 30
         run: dotnet test HexIDE.Runtime.Tests/HexIDE.Runtime.Tests.csproj -- --minimum-expected-tests ${{ env.MIN_TESTS_RUNTIME }}
 
       - name: Run container reader tests
+        timeout-minutes: 30
         run: dotnet test HexIDE.TwinBasic.Tests/HexIDE.TwinBasic.Tests.csproj -- --minimum-expected-tests ${{ env.MIN_TESTS_TWINBASIC }}
 
       # The IDE half and the server half are separate builds, and nothing in this job produced the server
@@ -185,8 +195,11 @@ jobs:
       # Only the key-completeness test is excluded. Its two neighbours check that the manifest and the
       # files on disk agree, which no contributor change has a reason to break.
       - name: Run ViewModel Tests
+        timeout-minutes: 30
         env:
           HEXIDE_REQUIRE_FOREIGN_LSP: '1'
+          HEXIDE_FOREIGN_LSP_NO_PATH: '1'
+          HEXIDE_FOREIGN_LSP_REPORT: ${{ runner.temp }}/foreign-lsp.txt
           CONTRIBUTOR_PR: ${{ github.event_name == 'pull_request' && !contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.pull_request.author_association) }}
         run: |
           if [ "$CONTRIBUTOR_PR" = "true" ]; then
@@ -196,11 +209,24 @@ jobs:
             dotnet test HexIDE.Tests/HexIDE.Tests.csproj -- --minimum-expected-tests ${{ env.MIN_TESTS_IDE }}
           fi
 
+      - name: Report resolved foreign servers
+        if: always()
+        shell: bash
+        env:
+          FOREIGN_LSP_REPORT: ${{ runner.temp }}/foreign-lsp.txt
+        run: |
+          if [ -f "$FOREIGN_LSP_REPORT" ]; then
+            cat "$FOREIGN_LSP_REPORT"
+          else
+            echo "No foreign-server report was written."
+          fi
+
       - name: Report translation completeness (outside contributors' pull requests, non-blocking)
         id: translations
         if: github.event_name == 'pull_request' && !contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.pull_request.author_association)
         continue-on-error: true
-        run: dotnet test HexIDE.Tests/HexIDE.Tests.csproj --no-build -- --filter-method "*EveryShippedTranslationHasEveryCanonicalKey"
+        # This step intentionally runs one test; a missing discovery result must still fail (#883).
+        run: dotnet test HexIDE.Tests/HexIDE.Tests.csproj --no-build -- --filter-method "*EveryShippedTranslationHasEveryCanonicalKey" --minimum-expected-tests 1
 
       # A step that fails under continue-on-error still shows the job as green, so the summary page would
       # say nothing. The annotation is what makes the result visible on the pull request itself.
@@ -208,8 +234,30 @@ jobs:
         if: steps.translations.outcome == 'failure'
         run: echo "::warning title=Translations needed before merge::One or more shipped language packs lack keys added to en.json. Expected for a contribution. The maintainer adds them on merge. The step above names the packs and keys."
 
+      # --hangdump: after 10 minutes in which no test starts or finishes, write a dump and the names of the tests still
+      # running, then end the run. A hang used to run out the 30-minute step limit with no report (#2530). The dump
+      # keeps the heap: a mini dump has none, so it can't name the test case that was running.
       - name: Run Integration Tests (headless Avalonia UI)
-        run: dotnet test HexIDE.Integration.Tests/HexIDE.Integration.Tests.csproj -- --minimum-expected-tests ${{ env.MIN_TESTS_INTEGRATION }}
+        id: integration
+        timeout-minutes: 30
+        run: dotnet test HexIDE.Integration.Tests/HexIDE.Integration.Tests.csproj -- --minimum-expected-tests ${{ env.MIN_TESTS_INTEGRATION }} --results-directory TestResults --report-xunit --report-xunit-filename integration-results.xml --hangdump --hangdump-timeout 10m --hangdump-type Heap
+
+      # xunit records a test case that threw before its test started as an error, and MTP never counts it, so a run
+      # could lose hundreds of tests and still pass (#2486). xunit's own report keeps the count.
+      - name: Check xunit's report for errors MTP does not count
+        if: ${{ !cancelled() && steps.integration.outcome != 'skipped' }}
+        shell: bash
+        run: bash ../scripts/check-xunit-report.sh HexIDE.Integration.Tests/TestResults/integration-results.xml
+
+      - name: Name a hung Integration test
+        if: ${{ failure() && steps.integration.outcome == 'failure' }}
+        shell: bash
+        run: |
+          for log in HexIDE.Integration.Tests/TestResults/*_hang.log; do
+            [ -f "$log" ] || continue
+            cat "$log"
+            echo "::error title=Integration test hung::Still running when the hang dump was taken: $(tr -s '[:space:]' ' ' < "$log")"
+          done
 
       # First-party add-in signing: restore the publisher key from a repo secret so the (Exists-gated)
       # PackAIChatAddin target signs and bundles the add-ins. Forks/PRs receive no secret → the value is
@@ -254,7 +302,7 @@ jobs:
 
       - name: Upload test results on failure
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: test-results-${{ github.job }}-${{ runner.os }}
           path: IDE/**/TestResults/**
@@ -275,64 +323,76 @@ jobs:
   # [WindowsOnlyFact] and skip here entirely. None of that was covered by "the maintainer develops on
   # Windows" once an outside contributor's pull request could land on ubuntu-only CI.
   #
-  # Also newly exercised: the win-x64 and osx-arm64 foreign-server assets. Twelve digests are pinned
-  # across the four servers for those two platforms and not one has ever been downloaded, let alone
-  # verified. HEXIDE_REQUIRE_FOREIGN_LSP below turns a failed acquisition into a red job rather than a
-  # silent skip, so the first run of this is also the first proof those pins are right.
+  # Windows on Arm starts advisory (#3139), explicitly named for the merge tooling, with job-level
+  # continue-on-error. Its foreign servers deliberately use the existing win-x64 pins under emulation;
+  # the JSON server uses the Node installed below. HEXIDE_REQUIRE_FOREIGN_LSP stays set: acquisition
+  # failures must be visible, not silent skips. The first Arm run supplies the first platform test data.
   #
   # NOT a substitute for the maintainer's own machine, and this is the honest limit: a GitHub runner
   # has no VB6, so every test gated on the VB98 Template tree returns early here exactly as it does on
   # ubuntu. Those stay unproven until they run somewhere with the toolchain installed.
   #
-  # Deliberately NOT added to branch protection by this change. They are visible on a pull request and
-  # do not block a merge, which is the right state while there is no local macOS to reproduce a failure
-  # on. Promoting them to required is a separate, deliberate decision.
+  # build-ide (windows) is now required by branch protection (#1331). macOS remains advisory because
+  # there is no local macOS to reproduce a failure on. The merge rule in CONTRIBUTING.md and CLAUDE.md
+  # still requires waiting for every head-commit job to finish without red and for main's latest run
+  # not to be red; a known flake gets its run posted on its issue and re-run green before merging.
   build-ide-desktop:
     needs: changes
     if: ${{ !cancelled() && needs.changes.outputs.skip != 'true' }}
-    name: build-ide (${{ matrix.name }})
+    name: build-ide (${{ matrix.name }}${{ matrix.name == 'windows-arm' && ', advisory' || '' }})
+    continue-on-error: ${{ matrix.name == 'windows-arm' }}
     runs-on: ${{ matrix.runner }}
     defaults:
       run:
         working-directory: IDE
     strategy:
-      # One platform's failure must not hide the other's result, which is the whole point of running
-      # two platforms nobody has test data for.
+      # One platform's failure must not hide the other platforms' results.
       fail-fast: false
       matrix:
         include:
           - { name: windows, runner: windows-latest }
+          - { name: windows-arm, runner: windows-11-arm }
           - { name: macos, runner: macos-latest }
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup .NET
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@v6
         with:
           dotnet-version: '10.0.x'
+
+      # dotnet's MSBuild has a different Roslyn layout; it cannot guard Visual Studio builds (#3124).
+      - name: Build the solution with Visual Studio MSBuild
+        if: runner.os == 'Windows'
+        working-directory: .
+        shell: pwsh
+        run: |
+          $msbuild = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -products * -requires Microsoft.Component.MSBuild -find MSBuild\**\Bin\MSBuild.exe | Select-Object -First 1
+          if (-not $msbuild) { throw 'Visual Studio MSBuild was not found' }
+          & $msbuild HexIDE.slnx -restore -m
+          exit $LASTEXITCODE
 
       # Declared rather than assumed, for the same reason as build-ide: the images happen to ship Node,
       # and a dependency that works by luck breaks on an image change for reasons nobody can see.
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: '22'
 
-      # runner.os is already in the key, so each platform gets its own cache without inventing a second
-      # convention. The first run on each is a cold fetch of that platform's assets.
+      # Separate the Windows architectures so their parallel jobs do not race to save one cache.
       - name: Cache the foreign language servers
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: artifacts/foreign-lsp
           key: >-
-            foreign-lsp-${{ runner.os }}-${{ hashFiles(
+            foreign-lsp-${{ matrix.name }}-${{ hashFiles(
               'IDE/HexIDE.Tests/LspClient/ForeignServerAcquisition.cs',
               'tools/node-lsp/package-lock.json') }}
 
       - name: Cache the LSP specification model
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: artifacts/lsp-metamodel
           key: >-
@@ -340,9 +400,11 @@ jobs:
               'IDE/HexIDE.Tests/LspClient/LspSpecificationModel.cs') }}
 
       - name: Run Runtime Tests
+        timeout-minutes: 30
         run: dotnet test HexIDE.Runtime.Tests/HexIDE.Runtime.Tests.csproj -- --minimum-expected-tests ${{ env.MIN_TESTS_RUNTIME }}
 
       - name: Run container reader tests
+        timeout-minutes: 30
         run: dotnet test HexIDE.TwinBasic.Tests/HexIDE.TwinBasic.Tests.csproj -- --minimum-expected-tests ${{ env.MIN_TESTS_TWINBASIC }}
 
       # One test speaks to HexIDE's own server over a real process, and nothing in this job has produced
@@ -351,27 +413,136 @@ jobs:
         working-directory: LspServer
         run: dotnet build HexIDE.VbLspServer/HexIDE.VbLspServer.csproj
 
+      # One test makes a program with the real runner and starts it (#1971): every earlier Make test copied stand-in files
+      # and ran nothing, which is how made programs that could not start shipped in v0.2.0. Nothing else in this job
+      # publishes the runner. Windows only, since the test needs a desktop session to start a program and skips
+      # elsewhere; both Windows architectures publish it and require the test below (#3139).
+      - name: Publish the standalone runner (for the made-program test)
+        if: runner.os == 'Windows'
+        run: dotnet publish HexIDE.Standalone -f net10.0 -o ../artifacts/make-runtime/standalone/
+
+      # The macOS runner was lost four times on 2026-10-26, each time 40 minutes or more into the ViewModel tests, and each
+      # time GitHub kept no log: something starves it before the step's timeout can act (#2128). This watchdog runs for
+      # the rest of the job. Every two minutes it records free memory, free disk, the process count, and the largest
+      # processes by memory and by CPU. Below 8% free memory, below 3 GB free disk, or above 2000 processes, it records them
+      # once more and ends the test run, so the runner lives to upload the record and the step's own log. Memory alone
+      # stayed healthy through a later loss, so the disk and the process count are watched too. It writes under
+      # TestResults, which the upload step below keeps on a failure.
+      - name: Start a resource watchdog (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          mkdir -p TestResults
+          cat > "$RUNNER_TEMP/memory-watchdog.sh" <<'EOF'
+          log="$1"; i=0
+          while sleep 30; do
+            free=$(memory_pressure -Q | awk '/percentage/ { gsub("%", "", $NF); print $NF }')
+            disk=$(df -k / | awk 'NR == 2 { print int($4 / 1048576) }')
+            procs=$(ps -A | wc -l | tr -d ' ')
+            low=""
+            [ "${free:-100}" -lt 8 ] && low="free memory below 8%"
+            [ "${disk:-100}" -lt 3 ] && low="free disk below 3 GB"
+            [ "${procs:-0}" -gt 2000 ] && low="more than 2000 processes"
+            i=$((i + 1))
+            if [ $((i % 4)) -eq 0 ] || [ -n "$low" ]; then
+              { date -u +%H:%M:%S; echo "free memory ${free:-?}%, free disk ${disk:-?} GB, ${procs:-?} processes"
+                ps -A -m -o pid,ppid,rss,%cpu,etime,command | head -8; ps -A -r -o pid,ppid,rss,%cpu,etime,command | head -6; } >> "$log"
+            fi
+            if [ -n "$low" ]; then
+              echo "$low: ending the test run so the runner survives" >> "$log"
+              pkill -f 'HexIDE\.(Integration\.)?Tests'
+              exit 0
+            fi
+          done
+          EOF
+          nohup bash "$RUNNER_TEMP/memory-watchdog.sh" "$PWD/TestResults/memory-watchdog.log" > /dev/null 2>&1 &
+
+      # The Integration step's --hangdump runs createdump, which has to take the test host's task port. On GitHub's
+      # macOS image that right (system.privilege.taskport) asks for the user's password. So when a test hung, createdump
+      # raised a Developer Tools Access prompt that nobody could answer, and waited on it until the step's 30 minutes
+      # ran out. No dump was written and nothing was killed (#3223). Developer mode, already on in the image, does not
+      # help: the rule asks members of _developer for the password too. Allowing the right lets the dump finish: a
+      # deliberately hung test then ended with its dump and _hang.log 65 seconds into a 1-minute timeout, as on Linux.
+      # Each job runs on a fresh VM that is discarded afterwards, so loosening this right reaches nothing else.
+      - name: Let a hang dump attach to the test host (macOS)
+        if: runner.os == 'macOS'
+        run: sudo security authorizationdb write system.privilege.taskport allow
+
       # The translation-completeness test is excluded here and only here. It compares JSON files on
       # disk and cannot answer differently per platform, so running it three times would triple one
       # result — and the outside-contributor handling build-ide does for it has a single place to live.
       # build-ide remains the one that blocks on it.
+      # --long-running names any test still running after two minutes, so a hang says which test it is.
       - name: Run ViewModel Tests
+        timeout-minutes: 30
         env:
           HEXIDE_REQUIRE_FOREIGN_LSP: '1'
+          HEXIDE_FOREIGN_LSP_NO_PATH: '1'
+          HEXIDE_FOREIGN_LSP_REPORT: ${{ runner.temp }}/foreign-lsp.txt
+          HEXIDE_REQUIRE_MADE_PROGRAM: ${{ runner.os == 'Windows' && '1' || '0' }}
         run: >-
           dotnet test HexIDE.Tests/HexIDE.Tests.csproj -- --filter-not-method "*EveryShippedTranslationHasEveryCanonicalKey"
-          --minimum-expected-tests ${{ env.MIN_TESTS_IDE }}
+          --minimum-expected-tests ${{ env.MIN_TESTS_IDE }} --long-running 120
 
+      - name: Report resolved foreign servers
+        if: always()
+        shell: bash
+        env:
+          FOREIGN_LSP_REPORT: ${{ runner.temp }}/foreign-lsp.txt
+        run: |
+          if [ -f "$FOREIGN_LSP_REPORT" ]; then
+            cat "$FOREIGN_LSP_REPORT"
+          else
+            echo "No foreign-server report was written."
+          fi
+
+      # --hangdump: after 10 minutes in which no test starts or finishes, write a dump and the names of the tests still
+      # running, then end the run. A hang used to run out the 30-minute step limit with no report (#2530). The dump
+      # keeps the heap: a mini dump has none, so it can't name the test case that was running.
       - name: Run Integration Tests (headless Avalonia UI)
-        run: dotnet test HexIDE.Integration.Tests/HexIDE.Integration.Tests.csproj -- --minimum-expected-tests ${{ env.MIN_TESTS_INTEGRATION }}
+        id: integration
+        timeout-minutes: 30
+        run: dotnet test HexIDE.Integration.Tests/HexIDE.Integration.Tests.csproj -- --minimum-expected-tests ${{ env.MIN_TESTS_INTEGRATION }} --results-directory TestResults --report-xunit --report-xunit-filename integration-results.xml --hangdump --hangdump-timeout 10m --hangdump-type Heap
+
+      # As in build-ide: errors xunit records and MTP never counts (#2486).
+      - name: Check xunit's report for errors MTP does not count
+        if: ${{ !cancelled() && steps.integration.outcome != 'skipped' }}
+        shell: bash
+        run: bash ../scripts/check-xunit-report.sh HexIDE.Integration.Tests/TestResults/integration-results.xml
+
+      - name: Name a hung Integration test
+        if: ${{ failure() && steps.integration.outcome == 'failure' }}
+        shell: bash
+        run: |
+          for log in HexIDE.Integration.Tests/TestResults/*_hang.log; do
+            [ -f "$log" ] || continue
+            cat "$log"
+            echo "::error title=Integration test hung::Still running when the hang dump was taken: $(tr -s '[:space:]' ' ' < "$log")"
+          done
 
       - name: Upload test results on failure
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
-          name: test-results-${{ github.job }}-${{ runner.os }}
+          name: test-results-${{ github.job }}-${{ matrix.name }}
           path: IDE/**/TestResults/**
           retention-days: 7
+
+  # A job skipped before matrix expansion reports its literal matrix expression, not the required
+  # platform check names (#2382). Expand those names on Ubuntu when the real builds are skipped.
+  build-ide-desktop-docs:
+    needs: changes
+    if: ${{ !cancelled() && needs.changes.outputs.skip == 'true' }}
+    name: build-ide (${{ matrix.name }}${{ matrix.name == 'windows-arm' && ', advisory' || '' }})
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - { name: windows }
+          - { name: windows-arm }
+          - { name: macos }
+    steps:
+      - name: Report the skipped build
+        run: echo 'Build skipped for a docs-only change.'
 
   build-lsp-server:
     needs: changes
@@ -386,14 +557,15 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup .NET
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@v6
         with:
           dotnet-version: '10.0.x'
 
       - name: Run VB LSP Server Tests
+        timeout-minutes: 30
         run: dotnet test HexIDE.VbLspServer.Tests/HexIDE.VbLspServer.Tests.csproj -- --minimum-expected-tests ${{ env.MIN_TESTS_LSP_SERVER }}
 
       - name: Build VB LSP Server
@@ -401,7 +573,7 @@ jobs:
 
       - name: Upload test results on failure
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: test-results-${{ github.job }}-${{ runner.os }}
           path: LspServer/**/TestResults/**
@@ -412,7 +584,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       # No existence guard. The script used to live only in the private repository, so this
       # step skipped here and reported success — the check has never actually run against
@@ -420,13 +592,71 @@ jobs:
       - name: Guard the 100%-MIT tree (no GPL, no unknown-licence dependency)
         run: bash scripts/check-licences.sh
 
+      # The guard's Python detection is shell, so its self-test runs here rather than in a test project (#2897).
+      - name: Self-test the licence guard's Python detection
+        run: bash scripts/check-licences.selftest.sh
+
   # Repo-wide guard: the checks that used to run only when this tree was produced by a
   # copy-in from elsewhere. There is no copy-in any more, so they run here.
   guard-hygiene:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Install gitleaks
+        # gitleaks v8.30.1 is MIT (upstream LICENSE at this tag).
+        # Digest provenance: publisher's gitleaks_8.30.1_checksums.txt at v8.30.1,
+        # read 2026-10-26; publisher-attested, not computed locally.
+        env:
+          GITLEAKS_VERSION: 8.30.1
+          GITLEAKS_SHA256: 551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb
+        run: |
+          archive="gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          release="https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}"
+          mkdir -p "$RUNNER_TEMP/gitleaks"
+          cd "$RUNNER_TEMP/gitleaks"
+          curl --fail --silent --show-error --location "$release/$archive" -o "$archive"
+          echo "$GITLEAKS_SHA256  $archive" | sha256sum --check --strict -
+          tar -xzf "$archive" gitleaks
+          echo "$RUNNER_TEMP/gitleaks" >> "$GITHUB_PATH"
+
+      - name: Self-test token scanning
+        run: bash scripts/check-secrets.selftest.sh
+
+      - name: Guard tokens in commits
+        env:
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD: ${{ github.event.pull_request.head.sha }}
+          PUSH_BASE: ${{ github.event.before }}
+          PUSH_HEAD: ${{ github.sha }}
+        run: |
+          if [ -n "$PR_BASE" ]; then
+            bash scripts/check-secrets.sh "$PR_BASE" "$PR_HEAD"
+          elif [ -n "$PUSH_BASE" ] && [ "$PUSH_BASE" != '0000000000000000000000000000000000000000' ]; then
+            bash scripts/check-secrets.sh "$PUSH_BASE" "$PUSH_HEAD"
+          else
+            # A new branch has no before SHA: scan only commits since main diverged.
+            if ! git rev-parse --verify --quiet 'origin/main^{commit}' >/dev/null; then
+              if ! git fetch origin main:refs/remotes/origin/main; then
+                echo 'Secrets NOT scanned: origin/main is unavailable.' >&2
+                exit 1
+              fi
+            fi
+            if ! base=$(git merge-base origin/main "$PUSH_HEAD"); then
+              echo 'Secrets NOT scanned: merge base with origin/main is unavailable.' >&2
+              exit 1
+            fi
+            bash scripts/check-secrets.sh "$base" "$PUSH_HEAD"
+          fi
+
+      - name: Self-test WSL test-count arguments
+        run: bash scripts/test-linux.selftest.sh
+
+      - name: Self-test the xunit report check
+        run: bash scripts/check-xunit-report.selftest.sh
 
       # Before the guard, not after: this asks whether the guard can still SEE an untracked
       # file. Three of its scans could not, while its header said they could (#437), and CI

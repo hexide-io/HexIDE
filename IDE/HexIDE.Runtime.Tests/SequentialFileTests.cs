@@ -8,7 +8,7 @@ namespace HexIDE.Runtime.Tests;
 /// <summary>
 /// Sequential files (#1145): Open For Input, Output and Append, Line Input #, Print #, Close, FreeFile and EOF. Every
 /// expected value is what vb6.exe printed or wrote for the same statements, native and p-code alike: the probe and its
-/// log are in docs/vb6-fidelity-oracle.md, "Sequential files".
+/// log are in docs/vb6-fidelity-oracle/sequential-files.md, "Sequential files".
 /// </summary>
 public class SequentialFileTests : BaseVBTestFixture, IDisposable
 {

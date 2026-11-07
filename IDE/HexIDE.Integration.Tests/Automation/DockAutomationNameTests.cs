@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
+using Avalonia.Layout;
 using Avalonia.Styling;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
@@ -82,6 +83,38 @@ public class DockAutomationNameTests
             buttons.Should().HaveCount(4, "the Dock template must actually have been applied");
             var button = buttons.Single(b => b.Command is ScrollViewerLineCommand command && command.Direction == direction);
             AssertName(window, button, expected);
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaTheory]
+    [InlineData("LineUp", Orientation.Vertical, "PART_LineUpButton")]
+    [InlineData("PageUp", Orientation.Vertical, "PART_PageUpButton")]
+    [InlineData("PageDown", Orientation.Vertical, "PART_PageDownButton")]
+    [InlineData("LineDown", Orientation.Vertical, "PART_LineDownButton")]
+    [InlineData("LineLeft", Orientation.Horizontal, "PART_LineUpButton")]
+    [InlineData("PageLeft", Orientation.Horizontal, "PART_PageUpButton")]
+    [InlineData("PageRight", Orientation.Horizontal, "PART_PageDownButton")]
+    [InlineData("LineRight", Orientation.Horizontal, "PART_LineDownButton")]
+    public void Scroll_bar_buttons_follow_the_active_language(string action, Orientation orientation, string part)
+    {
+        var window = ToolbarAutomationNameTests.ShowMainView();
+        try
+        {
+            var key = "Str.ScrollBar." + action;
+            window.Resources[key] = "⟦" + action + "⟧";
+            var scroll = new ScrollBar { Orientation = orientation, Maximum = 100, ViewportSize = 10 };
+            window.Content = scroll;
+            Dispatcher.UIThread.RunJobs();
+            using var frame = window.CaptureRenderedFrame();
+            frame.Should().NotBeNull();
+            var buttons = scroll.GetVisualDescendants().OfType<RepeatButton>().ToList();
+            buttons.Should().HaveCount(4, "the scroll bar template must actually have been applied");
+            var button = buttons.Single(b => b.Name == part);
+            AssertName(window, button, "⟦" + action + "⟧");
+            window.Resources[key] = "⟦Updated " + action + "⟧";
+            Dispatcher.UIThread.RunJobs();
+            AssertName(window, button, "⟦Updated " + action + "⟧");
         }
         finally { window.Close(); }
     }

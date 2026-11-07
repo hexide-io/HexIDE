@@ -17,10 +17,10 @@ namespace HexIDE.Integration.Tests.Views;
 /// <summary>
 /// A Label's colours paint when a program sets them, and a Label's or TextBox's colours from the form read back as
 /// VB6's Long (#795, #789). Each expectation is <c>vb6.exe</c> output, recorded under "A Label's colours" in
-/// <c>docs/vb6-fidelity-oracle.md</c>: read-backs logged by the program, and what painted read with
+/// <c>docs/vb6-fidelity-oracle/a-labels-colours-read-back-and-painted.md</c>: read-backs logged by the program, and what painted read with
 /// <c>GetPixel</c> in an interactive session. Here the painting is read from a real Skia frame of the hosted form.
 /// </summary>
-public class LabelColourTests
+public class LabelColourTests : WindowTestFixture
 {
     private const string Form = """
         VERSION 5.00

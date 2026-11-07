@@ -4,6 +4,7 @@ namespace HexIDE.Tests.Infrastructure;
 /// inspect_element's selectionItems read as the list's items, and a dropdown holding two looked like one holding the
 /// one selected (#1263). The description says what it holds, and names itemCount, so the wording is not dropped later.
 /// </summary>
+[ToolDescription]
 public class InspectElementDescriptionTests
 {
     [Fact]

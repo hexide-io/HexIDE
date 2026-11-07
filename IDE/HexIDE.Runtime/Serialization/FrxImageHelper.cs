@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using Avalonia.Media.Imaging;
+using HexIDE.Runtime.BuiltinControls;
 
 namespace HexIDE.Runtime.Serialization;
 
@@ -37,6 +38,17 @@ public static class FrxImageHelper
         return FrxBlobKind.Unknown;
     }
 
+    /// <summary>The image bytes of a complete VB6-framed StdPicture, or null for an opaque or empty record.</summary>
+    public static byte[]? PicturePayload(byte[]? record)
+    {
+        if (record == null || FrxDeserializer.PayloadOffset(record) != 4
+            || VBImage.StdPictureHeaderLength(record, 4) != 8
+            || BitConverter.ToInt32(record, 8) != record.Length - 12
+            || record.Length == 12)
+            return null;
+        return record[12..];
+    }
+
     /// <summary>
     /// Attempts to decode a blob as an Avalonia Bitmap.
     /// Returns null for unknown/OLE blobs or on decoding failure.
@@ -46,13 +58,15 @@ public static class FrxImageHelper
         if (blob == null || blob.Length == 0)
             return null;
 
-        var kind = DetectKind(blob);
+        var payload = PicturePayload(blob) ?? blob;
+        var kind = DetectKind(payload);
         if (kind is not (FrxBlobKind.Bitmap or FrxBlobKind.Icon))
             return null;
 
         try
         {
-            return new Bitmap(new MemoryStream(blob));
+            using var stream = new MemoryStream(payload);
+            return new Bitmap(stream);
         }
         catch (Exception)
         {

@@ -68,6 +68,7 @@ public class NamedPipeLspTransportTests
 
         handler.Should().NotBeNull();
         sut.IsAlive.Should().BeTrue();
+        ((ILspTransport)sut).LeaveServerRunning.Should().BeTrue("an externally owned server owns its lifetime");
     }
 
     [Fact]

@@ -224,7 +224,7 @@ public class ConfiguredServerTests : IDisposable
             .Should().ContainSingle().Subject;
 
         entry.Command.Should().Be("/somewhere/HexIDE.VbLspServer");
-        entry.Arguments.Should().Be("--flag");
+        entry.Arguments!.Text.Should().Be("--flag");
         entry.WorkingDirectory.Should().BeEmpty(
             "left empty so the transport asks the workspace, and the server runs in whichever project is open");
     }

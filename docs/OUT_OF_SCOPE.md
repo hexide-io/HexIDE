@@ -90,7 +90,7 @@ Individual menu items and toolbar buttons that appear in the IDE UI but belong t
 | Item | Reason |
 |---|---|
 | **Visual Data Manager…** | Enterprise database browser; see IDE integrations and tooling above. |
-| **Add-In Manager…** | COM add-in hosting is out of scope; see IDE integrations and tooling above. The *managed* Add-In Manager (Phase 44 and later) is in scope — it replaces this item when implemented. |
+| **Add-In Manager…** | COM add-in hosting is out of scope; see IDE integrations and tooling above. The *managed* Add-In Manager (Phase 44 and later) is in scope — Add-Ins → Add-In Manager… opens Tools → Options at Add-Ins, including when no add-ins are installed. |
 
 ### Standard Toolbar
 

@@ -250,8 +250,9 @@ internal sealed class CodeWindowReadOnlySections : TextSegmentReadOnlySectionPro
     /// <b>As if the run were not there.</b> Folded, the run is part of its declaration's row, and the box marks its
     /// place. Whatever the text would have put on the next row it now puts on the row after the run, and what it
     /// would have left on the declaration's row stays there. So Enter's line break makes a line of its own after
-    /// the run, and a paste of several lines joins its first to the declaration, as it would without one. A replacement
-    /// of the whole declaration instead keeps the run under the first compatible logical declaration it pastes. Trailing
+    /// the run, and a paste of several lines joins its first to the declaration, as it would without one. An insertion
+    /// whose nonblank first line carries an Attribute line instead goes whole after the run (#1041), and a replacement
+    /// of the whole declaration keeps the run under the first compatible logical declaration it pastes. Trailing
     /// whitespace aside: spaces or tabs between the span's end and the anchor stay on the declaration's row, where
     /// with no run there the line break would carry them to the next (#273 task 4.5 review).
     /// </para>
@@ -282,6 +283,20 @@ internal sealed class CodeWindowReadOnlySections : TextSegmentReadOnlySectionPro
         var newline = document.GetText(anchorLine.EndOffset, anchorLine.DelimiterLength);
         var normalized = TextUtilities.NormalizeNewLines(text, newline);
         var lineBreak = normalized.AsSpan().IndexOfAny('\r', '\n');
+        var nextLine = normalized.AsSpan(lineBreak + newline.Length);
+        var nextBreak = nextLine.IndexOfAny('\r', '\n');
+        if (nextBreak >= 0)
+            nextLine = nextLine[..nextBreak];
+        nextLine = nextLine.TrimStart();
+        if (length == 0 && !normalized.AsSpan(0, lineBreak).Trim().IsEmpty
+            && nextLine.StartsWith("Attribute", StringComparison.OrdinalIgnoreCase)
+            && (nextLine.Length == "Attribute".Length
+                || !(char.IsLetterOrDigit(nextLine["Attribute".Length]) || nextLine["Attribute".Length] == '_')))
+        {
+            // Keep a pasted declaration with its own run, rather than merging it into this member's (#1041).
+            var pasted = normalized.EndsWith(newline, StringComparison.Ordinal) ? normalized[..^newline.Length] : normalized;
+            return new LineBreakPastRun(run, offset, length, string.Empty, run.LastContentEnd, newline + pasted);
+        }
         if (offset <= TextStart(run))
         {
             // A whole declaration may be preceded by comments or blank lines (#1039). Keep its run under the

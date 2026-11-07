@@ -14,7 +14,7 @@ namespace HexIDE.Integration.Tests.Views;
 /// Issue #95 — <c>OptionButton.Value</c>, the whole interface of an option button, reachable from VB6 code.
 ///
 /// Every expectation below is <c>vb6.exe</c> output, not reasoning about what VB6 probably does; the probe is
-/// recorded under *Option buttons* in <c>docs/vb6-fidelity-oracle.md</c>. Three of its answers contradicted
+/// recorded under *Option buttons* in <c>docs/vb6-fidelity-oracle/option-buttons--value-is-a-boolean-and-the-group-can-be-empty.md</c>. Three of its answers contradicted
 /// the plausible guess:
 ///
 /// <list type="bullet">
@@ -29,7 +29,7 @@ namespace HexIDE.Integration.Tests.Views;
 /// These need real headless Avalonia, because the group behaviour under test IS Avalonia's radio-button
 /// grouping and the dispatch under test travels the visual tree.
 /// </summary>
-public class OptionButtonValueTests
+public class OptionButtonValueTests : WindowTestFixture
 {
     // Option2 carries the designer's `Value = -1  'True` — the boolean spelling VB6 writes, which is also
     // what the .frm round-trip test in the runtime suite pins. Check1 is here so the sibling control's
