@@ -143,6 +143,7 @@
                         <MenuItem Header="{DynamicResource Str.Toolbar.Standard}"    ToggleType="CheckBox" IsChecked="{CompiledBinding Settings.IsStandardToolbarVisible,   Mode=TwoWay}" />
                         <MenuItem Header="{DynamicResource Str.Toolbar.Edit}"        ToggleType="CheckBox" IsChecked="{CompiledBinding Settings.IsEditToolbarVisible,       Mode=TwoWay}" />
                         <MenuItem Header="{DynamicResource Str.Toolbar.Debug}"       ToggleType="CheckBox" IsChecked="{CompiledBinding Settings.IsDebugToolbarVisible,      Mode=TwoWay}" />
+                        <MenuItem Header="{DynamicResource Str.Toolbar.FormEditor}"  IsChecked="{CompiledBinding Settings.IsFormEditorToolbarVisible,   Mode=TwoWay}" ToggleType="CheckBox" />
                         <Separator />
                         <MenuItem Header="{DynamicResource Str.Toolbar.Customize}" IsEnabled="False" />
                     </MenuFlyout>
