@@ -1178,6 +1178,20 @@ handlers it let finish.
 - **WHEN** a click shows Form2, whose Load sets its caption to "Second"
 - **THEN** the reply says the program opened `Form2 ("Second")`
 
+### Requirement: interact SHALL turn the mouse wheel as a person does
+`interact`'s `wheel` SHALL send wheel input through the target's window, a notch at a time, at a point on the target or
+the centre of what shows of it, so the control's own wheel handling runs. Its reply SHALL say what scrolled, and how far,
+or that nothing did. `scroll` SHALL NOT say a control has nothing to scroll when it draws a scroll bar of its own; its
+refusal SHALL name that bar.
+
+#### Scenario: A wheel over a list
+- **WHEN** `wheel` turns 3 notches down over a ScrollViewer's content
+- **THEN** the viewer scrolls down by its own wheel step, and the reply says how far it went
+
+#### Scenario: A control that draws its own bar
+- **WHEN** `scroll` finds no scroller for a control that draws a vertical scroll bar
+- **THEN** the refusal names that bar and its position, with `set_range_value` and `wheel` as the routes that move it
+
 ### Requirement: Run-control replies SHALL say what the program printed
 For interpreter sessions, a successful reply from `run_project`, `stop_project`, `continue_program`,
 `break_program`, a step or `run_to_cursor`, or from `interact`, `press_key` or `type_text` acting on a running
