@@ -80,6 +80,7 @@ public class OutputListTests
     [InlineData("[F](2)")]
     [InlineData("F(2) + 1")]
     [InlineData("obj.Item(1)")]
+    [InlineData("tab.Caption")]
     [InlineData("obj(1).Item(2)")]
     [InlineData("obj!key.Name")]
     [InlineData("obj.Print(1).Item(2)")]

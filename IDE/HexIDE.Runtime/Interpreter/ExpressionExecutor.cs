@@ -293,21 +293,26 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
 
         VB6Parser.ArgCallContext? pending = null;
         var sawAnything = false;
+        var trailingComma = false;
         foreach (var child in context.children)
         {
             switch (child)
             {
                 case VB6Parser.ArgCallContext arg:
                     pending = arg;
+                    trailingComma = false;
                     sawAnything = true;
                     break;
                 case ITerminalNode t when t.Symbol.Type is VB6Parser.COMMA or VB6Parser.SEMICOLON:
+                    trailingComma = t.Symbol.Type == VB6Parser.COMMA;
                     slots.Add(pending);
                     pending = null;
                     sawAnything = true;
                     break;
             }
         }
+        if (trailingComma)
+            throw new VBCompileErrorException("Syntax error");
         // The final slot closes at the end of the list rather than at a separator.
         if (sawAnything) slots.Add(pending);
         return slots;
@@ -1863,6 +1868,8 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         // A list's ListCount (#821), and a ListBox's SelCount and Text (#1395).
         if (ListMembers.TryGet(control, memberIdentifier, out var listMember))
             return listMember;
+        if (ContainerMembers.TryGet(control, memberIdentifier, out var containerMember))
+            return containerMember;
         // Any control's Name, and an array element's Index (#1431).
         if (IdentityMembers.TryGet(control, memberIdentifier, out var identityMember))
             return identityMember;

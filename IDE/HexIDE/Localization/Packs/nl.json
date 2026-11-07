@@ -2,6 +2,8 @@
   "name": "Dutch",
   "direction": "ltr",
   "strings": {
+    "Str.Tool.LanguageServers.Problem.JsonSyntaxEscape": "Het configuratiebestand '{0}' bevat ongeldige JSON op regel {1}, kolom {2}. Pad: {3} Gebruik schuine strepen (C:/tools/new/...) of dubbele backslashes (C:\\\\tools\\\\new\\\\...).",
+    "Str.Tool.LanguageServers.Problem.PathControlWarning": "Veld '{0}' bevat een besturingsteken uit een escape-reeks; waarschijnlijk bedoeld pad met backslashes: {1}. De waarde is ongewijzigd.",
     "Str.Lsp.ServerMessage": "Taalserver: {0}",
     "Str.Lsp.ServerError": "Taalserverfout: {0}",
     "Str.Lsp.EditNotApplied": "Serverbewerking niet toegepast: {0}",
@@ -997,6 +999,7 @@
     "Str.Naming.Msg.AdoptedNameTaken": "'{1}' is niet toegevoegd. Het heet '{0}', en dat is al de naam van een formulier, module of klasse in dit project.",
     "Str.Naming.Msg.AdoptedNameNotValid": "'{1}' is niet toegevoegd. Het heet '{0}', en dat is geen geldige naam: een naam begint met een letter en bestaat verder uit letters, cijfers en onderstrepingstekens.",
     "Str.ProjectLoad.ModuleFailed": "Kan module {0} niet laden: {1}",
+    "Str.ProjectLoad.MemberNotFound": "Projectbestand niet gevonden: {0}",
     "Str.ProjectLoad.FormNotFound": "Formulierbestand niet gevonden: {0}",
     "Str.ProjectLoad.FormFailed": "Kan formulier {0} niet laden",
     "Str.ProjectLoad.FormFailedWithReason": "Kan formulier {0} niet laden: {1}",

@@ -2,6 +2,8 @@
   "name": "Galician",
   "direction": "ltr",
   "strings": {
+    "Str.Tool.LanguageServers.Problem.JsonSyntaxEscape": "O ficheiro de configuración «{0}» contén JSON non válido na liña {1}, columna {2}. Ruta: {3} Use barras (C:/tools/new/...) ou barras inversas dobres (C:\\\\tools\\\\new\\\\...).",
+    "Str.Tool.LanguageServers.Problem.PathControlWarning": "O campo '{0}' contén un carácter de control escapado; ruta probablemente desexada: {1}. O valor non cambia.",
     "Str.Lsp.ServerMessage": "Servidor de linguaxe: {0}",
     "Str.Lsp.ServerError": "Erro do servidor de linguaxe: {0}",
     "Str.Lsp.EditNotApplied": "Non se aplicou a edición do servidor: {0}",
@@ -1036,6 +1038,7 @@
     "Str.ScrollBar.LineRight": "Columna á dereita",
     "Str.ProjectLoad.ModuleFailed": "Non se puido cargar o módulo {0}: {1}",
     "Str.ProjectLoad.FormNotFound": "Non se atopou o ficheiro do formulario: {0}",
+    "Str.ProjectLoad.MemberNotFound": "Non se atopou o ficheiro do proxecto: {0}",
     "Str.ProjectLoad.FormFailed": "Non se puido cargar o formulario {0}",
     "Str.ProjectLoad.FormFailedWithReason": "Non se puido cargar o formulario {0}: {1}",
     "Str.ProjectLoad.ParseFailed": "Non se puido analizar o ficheiro do formulario: {0}",

@@ -69,6 +69,12 @@ public sealed class ProjectLoader
             try
             {
                 var moduleAbsolutePath = Path.Join(projectDir, SerializedProject.ToHostPath(modulePath));
+                if (!File.Exists(moduleAbsolutePath))
+                {
+                    errorSink.LogError("Str.ProjectLoad.MemberNotFound", "Project file not found: {0}", modulePath);
+                    project.PreserveItemLine(ItemLineFor(moduleKind, moduleName, modulePath), serializedProject.ModuleLineSlots[index]);
+                    continue;
+                }
                 var module = new ModuleDefinition(project, moduleName, moduleKind);
                 module.AbsolutePath = moduleAbsolutePath;
                 var (moduleSource, _, moduleEncoding, moduleByteForByte) = await ReadSourceAsync(moduleAbsolutePath, ProjectEncodingRecords.Read(serializedProject.ExtensionTail, modulePath));
@@ -118,7 +124,7 @@ public sealed class ProjectLoader
             {
                 if (!File.Exists(formAbsolutePath))
                 {
-                    errorSink.LogError("Str.ProjectLoad.FormNotFound", "Form file not found: {0}", formPath);
+                    errorSink.LogError("Str.ProjectLoad.MemberNotFound", "Project file not found: {0}", formPath);
                     // Preserve the Form= line so the missing node survives an open->save round-trip
                     // (mirrors modules, whose lines are kept when their files are absent). Not loaded into
                     // the model — Project Explorer shows the preserved entry with a missing-file marker.
@@ -189,6 +195,12 @@ public sealed class ProjectLoader
             try
             {
                 var moduleAbsolutePath = Path.Join(projectDir, SerializedProject.ToHostPath(modulePath));
+                if (!File.Exists(moduleAbsolutePath))
+                {
+                    errorSink.LogError("Str.ProjectLoad.MemberNotFound", "Project file not found: {0}", modulePath);
+                    project.PreserveItemLine(ItemLineFor(moduleKind, moduleName, modulePath), serializedProject.ModuleLineSlots[index]);
+                    continue;
+                }
                 var module = new ModuleDefinition(project, moduleName, moduleKind);
                 module.AbsolutePath = moduleAbsolutePath;
                 var (moduleSource, _, moduleEncoding, moduleByteForByte) = await ReadSourceAsync(moduleAbsolutePath, ProjectEncodingRecords.Read(serializedProject.ExtensionTail, modulePath));

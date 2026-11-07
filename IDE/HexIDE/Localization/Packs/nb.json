@@ -2,6 +2,8 @@
   "name": "Norwegian Bokmål",
   "direction": "ltr",
   "strings": {
+    "Str.Tool.LanguageServers.Problem.JsonSyntaxEscape": "Konfigurasjonsfilen '{0}' inneholder ugyldig JSON på linje {1}, kolonne {2}. Sti: {3} Bruk skråstreker (C:/tools/new/...) eller doble omvendte skråstreker (C:\\\\tools\\\\new\\\\...).",
+    "Str.Tool.LanguageServers.Problem.PathControlWarning": "Feltet '{0}' inneholder et kontrolltegn fra en escape-sekvens; sannsynligvis tiltenkt sti med omvendte skråstreker: {1}. Verdien er uendret.",
     "Str.Lsp.ServerMessage": "Språkserver: {0}",
     "Str.Lsp.ServerError": "Språkserverfeil: {0}",
     "Str.Lsp.EditNotApplied": "Serverendringen ble ikke brukt: {0}",
@@ -997,6 +999,7 @@
     "Str.Naming.Msg.AdoptedNameTaken": "«{1}» ble ikke lagt til. Den heter «{0}», som allerede er navnet på et skjema, en modul eller en klasse i dette prosjektet.",
     "Str.Naming.Msg.AdoptedNameNotValid": "«{1}» ble ikke lagt til. Den heter «{0}», som ikke er et gyldig navn: et navn begynner med en bokstav og fortsetter med bokstaver, sifre og understrekingstegn.",
     "Str.ProjectLoad.ModuleFailed": "Kunne ikke laste modulen {0}: {1}",
+    "Str.ProjectLoad.MemberNotFound": "Prosjektfilen ble ikke funnet: {0}",
     "Str.ProjectLoad.FormNotFound": "Fant ikke skjemafilen: {0}",
     "Str.ProjectLoad.FormFailed": "Kunne ikke laste skjemaet {0}",
     "Str.ProjectLoad.FormFailedWithReason": "Kunne ikke laste skjemaet {0}: {1}",

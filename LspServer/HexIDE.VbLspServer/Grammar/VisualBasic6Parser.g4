@@ -112,6 +112,8 @@ options {
         if (TokenStream.LA(1) is not (SPC or TAB)) return true;
         var i = 2;
         if (TokenStream.LA(i) == WS) i++;
+        // A member receiver such as tab.Caption is a name, not a positioning clause.
+        if (TokenStream.LA(i) == DOT) return true;
         if (TokenStream.LA(i) == LPAREN)
         {
             var argument = i + 1;

@@ -2,6 +2,8 @@
   "name": "Finnish",
   "direction": "ltr",
   "strings": {
+    "Str.Tool.LanguageServers.Problem.JsonSyntaxEscape": "Asetustiedosto ”{0}” sisältää virheellistä JSONia rivillä {1}, sarakkeessa {2}. Polku: {3} Käytä kauttaviivoja (C:/tools/new/...) tai kaksinkertaisia kenoviivoja (C:\\\\tools\\\\new\\\\...).",
+    "Str.Tool.LanguageServers.Problem.PathControlWarning": "Kenttä '{0}' sisältää escape-sekvenssistä syntyneen ohjausmerkin; todennäköisesti tarkoitettu polku kenoviivoilla: {1}. Arvoa ei muutettu.",
     "Str.Lsp.ServerMessage": "Kielipalvelin: {0}",
     "Str.Lsp.ServerError": "Kielipalvelimen virhe: {0}",
     "Str.Lsp.EditNotApplied": "Palvelimen muokkausta ei otettu käyttöön: {0}",
@@ -997,6 +999,7 @@
     "Str.Naming.Msg.AdoptedNameTaken": "Tiedostoa '{1}' ei lisätty. Sen nimi on '{0}', joka on jo jonkin tämän projektin lomakkeen, moduulin tai luokan nimi.",
     "Str.Naming.Msg.AdoptedNameNotValid": "Tiedostoa '{1}' ei lisätty. Sen nimi on '{0}', joka ei ole kelvollinen nimi: nimi alkaa kirjaimella ja jatkuu kirjaimilla, numeroilla ja alaviivoilla.",
     "Str.ProjectLoad.ModuleFailed": "Moduulin {0} lataaminen epäonnistui: {1}",
+    "Str.ProjectLoad.MemberNotFound": "Projektitiedostoa ei löytynyt: {0}",
     "Str.ProjectLoad.FormNotFound": "Lomaketiedostoa ei löytynyt: {0}",
     "Str.ProjectLoad.FormFailed": "Lomakkeen {0} lataaminen epäonnistui",
     "Str.ProjectLoad.FormFailedWithReason": "Lomakkeen {0} lataaminen epäonnistui: {1}",

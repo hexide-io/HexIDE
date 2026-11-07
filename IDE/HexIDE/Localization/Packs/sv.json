@@ -2,6 +2,8 @@
   "name": "Swedish",
   "direction": "ltr",
   "strings": {
+    "Str.Tool.LanguageServers.Problem.JsonSyntaxEscape": "Konfigurationsfilen '{0}' innehåller ogiltig JSON på rad {1}, kolumn {2}. Sökväg: {3} Använd snedstreck (C:/tools/new/...) eller dubbla omvända snedstreck (C:\\\\tools\\\\new\\\\...).",
+    "Str.Tool.LanguageServers.Problem.PathControlWarning": "Fältet '{0}' innehåller ett styrtecken från en escape-sekvens; sannolikt avsedd sökväg med omvända snedstreck: {1}. Värdet är oförändrat.",
     "Str.Lsp.ServerMessage": "Språkserver: {0}",
     "Str.Lsp.ServerError": "Språkserverfel: {0}",
     "Str.Lsp.EditNotApplied": "Serverändringen tillämpades inte: {0}",
@@ -997,6 +999,7 @@
     "Str.Naming.Msg.AdoptedNameTaken": "'{1}' lades inte till. Den heter '{0}', vilket redan är namnet på ett formulär, en modul eller en klass i det här projektet.",
     "Str.Naming.Msg.AdoptedNameNotValid": "'{1}' lades inte till. Den heter '{0}', vilket inte är ett giltigt namn: ett namn börjar med en bokstav och fortsätter med bokstäver, siffror och understreck.",
     "Str.ProjectLoad.ModuleFailed": "Det gick inte att läsa in modulen {0}: {1}",
+    "Str.ProjectLoad.MemberNotFound": "Projektfilen hittades inte: {0}",
     "Str.ProjectLoad.FormNotFound": "Formulärfilen hittades inte: {0}",
     "Str.ProjectLoad.FormFailed": "Det gick inte att läsa in formuläret {0}",
     "Str.ProjectLoad.FormFailedWithReason": "Det gick inte att läsa in formuläret {0}: {1}",

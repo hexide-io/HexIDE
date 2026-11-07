@@ -78,3 +78,14 @@ The #3210 fix brief also supplies host-side parser costs from
 parenthesis pair** and **2.8 KB per nested If**, the latter spanning about five parser rule frames.
 These are host stack measurements, not VB6 limits; the [runtime gap note](interpreter-gaps.md) records
 how HexIDE derives its guarded bounds from them.
+
+The [#2938 measurements](https://github.com/hexide-io/HexIDE/issues/2938) by hexide-int
+(vb6.exe SP6, `/make`, 2026-11-03, matching native and p-code) reject `Show 1,`,
+`Call Show(1, )` and `x = F(1, )` with "Syntax error", even with `Optional b = 7`.
+`Show 1` builds and supplies 7; omissions between supplied arguments remain valid, as recorded in
+[omitted optional arguments](vb6-fidelity-oracle/omitted-optional-arguments-and-string-operands-to-numeric-intrinsics.md).
+A module-level or local `Dim Arr()` followed inside a procedure by `ReDim Arr(10) As String`
+is refused with "Can't change data types of array elements". The scalar Variant control,
+`Dim Arr`, builds, and storing "Hello" reads back "Hello" with TypeName `String()`.
+The array probes are also recorded in [ReDim Preserve](vb6-fidelity-oracle/redim-preserve.md).
+These are the issue author's measurements, not new measurements by this implementation run.

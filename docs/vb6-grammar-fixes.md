@@ -135,7 +135,8 @@ Since [#3248](https://github.com/hexide-io/HexIDE/issues/3248), fix 9's alternat
 parentheses, and `obj!key` stays dictionary access. `Spc` and `Tab` end before a following sign, and measured
 `&` and `=` forms are syntax errors
 ([measuring PR #3249](https://github.com/hexide-io/HexIDE/pull/3249)). Other operators after these clauses
-keep their previous expression parse pending measurement.
+keep their previous expression parse pending measurement. A member selector after the keyword, as in
+`tab.Caption`, keeps it an expression rather than a positioning clause.
 
 Guarded bare-name and complete-call alternatives precede member calls so SLL leaves `.Print` outside
 its receiver and keeps `Hour(d)` together in #2038's concatenation workload. A following member or

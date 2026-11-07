@@ -2,6 +2,8 @@
   "name": "Polish",
   "direction": "ltr",
   "strings": {
+    "Str.Tool.LanguageServers.Problem.JsonSyntaxEscape": "Plik konfiguracji „{0}” zawiera nieprawidłowy JSON w wierszu {1}, kolumnie {2}. Ścieżka: {3} Użyj ukośników (C:/tools/new/...) lub podwójnych ukośników odwrotnych (C:\\\\tools\\\\new\\\\...).",
+    "Str.Tool.LanguageServers.Problem.PathControlWarning": "Pole '{0}' zawiera znak sterujący z sekwencji ucieczki; prawdopodobnie zamierzona ścieżka z ukośnikami odwrotnymi: {1}. Wartość pozostaje bez zmian.",
     "Str.Lsp.ServerMessage": "Serwer językowy: {0}",
     "Str.Lsp.ServerError": "Błąd serwera językowego: {0}",
     "Str.Lsp.EditNotApplied": "Nie zastosowano edycji serwera: {0}",
@@ -997,6 +999,7 @@
     "Str.Naming.Msg.AdoptedNameTaken": "Nie dodano pliku „{1}”. Nosi on nazwę „{0}”, która jest już nazwą formularza, modułu lub klasy w tym projekcie.",
     "Str.Naming.Msg.AdoptedNameNotValid": "Nie dodano pliku „{1}”. Nosi on nazwę „{0}”, która nie jest prawidłową nazwą: nazwa zaczyna się od litery, a dalej składa się z liter, cyfr i znaków podkreślenia.",
     "Str.ProjectLoad.ModuleFailed": "Nie udało się wczytać modułu {0}: {1}",
+    "Str.ProjectLoad.MemberNotFound": "Nie znaleziono pliku projektu: {0}",
     "Str.ProjectLoad.FormNotFound": "Nie znaleziono pliku formularza: {0}",
     "Str.ProjectLoad.FormFailed": "Nie udało się wczytać formularza {0}",
     "Str.ProjectLoad.FormFailedWithReason": "Nie udało się wczytać formularza {0}: {1}",

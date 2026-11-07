@@ -2,6 +2,8 @@
   "name": "Chinese (Simplified)",
   "direction": "ltr",
   "strings": {
+    "Str.Tool.LanguageServers.Problem.JsonSyntaxEscape": "配置文件“{0}”在第 {1} 行、第 {2} 列包含无效的 JSON。路径：{3} 请使用正斜杠 (C:/tools/new/...) 或双反斜杠 (C:\\\\tools\\\\new\\\\...)。",
+    "Str.Tool.LanguageServers.Problem.PathControlWarning": "字段 '{0}' 包含转义序列产生的控制字符；可能原本想写的反斜杠路径：{1}。值保持不变。",
     "Str.Lsp.ServerMessage": "语言服务器：{0}",
     "Str.Lsp.ServerError": "语言服务器错误：{0}",
     "Str.Lsp.EditNotApplied": "未应用服务器编辑：{0}",
@@ -997,6 +999,7 @@
     "Str.Naming.Msg.AdoptedNameTaken": "“{1}”未添加。它的名称是“{0}”，而该名称已经是此工程中某个窗体、模块或类的名称。",
     "Str.Naming.Msg.AdoptedNameNotValid": "“{1}”未添加。它的名称是“{0}”，而该名称无效：名称以字母开头，其后只能包含字母、数字和下划线。",
     "Str.ProjectLoad.ModuleFailed": "无法加载模块 {0}：{1}",
+    "Str.ProjectLoad.MemberNotFound": "找不到项目文件：{0}",
     "Str.ProjectLoad.FormNotFound": "找不到窗体文件：{0}",
     "Str.ProjectLoad.FormFailed": "无法加载窗体 {0}",
     "Str.ProjectLoad.FormFailedWithReason": "无法加载窗体 {0}：{1}",

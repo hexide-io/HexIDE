@@ -113,7 +113,9 @@ sealed class Program
         if (ServerOptions.DpiUnaware)
             builder = builder.With(new Win32PlatformOptions { DpiAwareness = Win32DpiAwareness.Unaware });
 #endif
-        Environment.ExitCode = builder.StartWithClassicDesktopLifetime(args);
+        // On a thread of its own, because VB code runs on the UI thread and this first thread's stack is the
+        // launcher's choice, 1.5 MiB on Windows (#3228).
+        Environment.ExitCode = HexIDE.Runtime.UiThread.Run(() => builder.StartWithClassicDesktopLifetime(args));
     }
 
     private static void FixCurrentWorkingDictionary()

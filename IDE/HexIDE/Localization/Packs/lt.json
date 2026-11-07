@@ -2,6 +2,8 @@
   "name": "Lithuanian",
   "direction": "ltr",
   "strings": {
+    "Str.Tool.LanguageServers.Problem.JsonSyntaxEscape": "Konfigūracijos faile „{0}“ yra netaisyklingas JSON {1} eilutėje, {2} stulpelyje. Kelias: {3} Naudokite pasviruosius brūkšnius (C:/tools/new/...) arba dvigubus atvirkštinius brūkšnius (C:\\\\tools\\\\new\\\\...).",
+    "Str.Tool.LanguageServers.Problem.PathControlWarning": "Lauke '{0}' yra valdymo simbolis iš kaitos sekos; tikėtinas numatytas kelias: {1}. Reikšmė nepakeista.",
     "Str.Lsp.ServerMessage": "Kalbos serveris: {0}",
     "Str.Lsp.ServerError": "Kalbos serverio klaida: {0}",
     "Str.Lsp.EditNotApplied": "Serverio pakeitimas nepritaikytas: {0}",
@@ -1036,6 +1038,7 @@
     "Str.ScrollBar.LineRight": "Stulpeliu dešinėn",
     "Str.ProjectLoad.ModuleFailed": "Nepavyko įkelti modulio {0}: {1}",
     "Str.ProjectLoad.FormNotFound": "Formos failas nerastas: {0}",
+    "Str.ProjectLoad.MemberNotFound": "Projekto failas nerastas: {0}",
     "Str.ProjectLoad.FormFailed": "Nepavyko įkelti formos {0}",
     "Str.ProjectLoad.FormFailedWithReason": "Nepavyko įkelti formos {0}: {1}",
     "Str.ProjectLoad.ParseFailed": "Nepavyko išanalizuoti formos failo: {0}",

@@ -2,6 +2,8 @@
   "name": "Catalan",
   "direction": "ltr",
   "strings": {
+    "Str.Tool.LanguageServers.Problem.JsonSyntaxEscape": "El fitxer de configuració «{0}» conté JSON no vàlid a la línia {1}, columna {2}. Camí: {3} Feu servir barres inclinades (C:/tools/new/...) o barres inverses dobles (C:\\\\tools\\\\new\\\\...).",
+    "Str.Tool.LanguageServers.Problem.PathControlWarning": "El camp '{0}' conté un caràcter de control escapat; camí probablement desitjat: {1}. El valor no canvia.",
     "Str.Lsp.ServerMessage": "Servidor de llenguatge: {0}",
     "Str.Lsp.ServerError": "Error del servidor de llenguatge: {0}",
     "Str.Lsp.EditNotApplied": "No s’ha aplicat l’edició del servidor: {0}",
@@ -1036,6 +1038,7 @@
     "Str.ScrollBar.LineRight": "Una columna a la dreta",
     "Str.ProjectLoad.ModuleFailed": "No s'ha pogut carregar el mòdul {0}: {1}",
     "Str.ProjectLoad.FormNotFound": "No s'ha trobat el fitxer de formulari: {0}",
+    "Str.ProjectLoad.MemberNotFound": "No s’ha trobat el fitxer del projecte: {0}",
     "Str.ProjectLoad.FormFailed": "No s'ha pogut carregar el formulari {0}",
     "Str.ProjectLoad.FormFailedWithReason": "No s'ha pogut carregar el formulari {0}: {1}",
     "Str.ProjectLoad.ParseFailed": "No s'ha pogut analitzar el fitxer de formulari: {0}",

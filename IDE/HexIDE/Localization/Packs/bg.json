@@ -2,6 +2,8 @@
   "name": "Bulgarian",
   "direction": "ltr",
   "strings": {
+    "Str.Tool.LanguageServers.Problem.JsonSyntaxEscape": "Конфигурационният файл „{0}“ съдържа невалиден JSON на ред {1}, колона {2}. Път: {3} Използвайте наклонени черти (C:/tools/new/...) или двойни обратни наклонени черти (C:\\\\tools\\\\new\\\\...).",
+    "Str.Tool.LanguageServers.Problem.PathControlWarning": "Полето '{0}' съдържа екраниран контролен знак; вероятно желаният път с обратни наклонени черти е: {1}. Стойността е непроменена.",
     "Str.Lsp.ServerMessage": "Езиков сървър: {0}",
     "Str.Lsp.ServerError": "Грешка на езиковия сървър: {0}",
     "Str.Lsp.EditNotApplied": "Редакцията от сървъра не е приложена: {0}",
@@ -1036,6 +1038,7 @@
     "Str.ScrollBar.LineRight": "Колона надясно",
     "Str.ProjectLoad.ModuleFailed": "Модулът {0} не може да се зареди: {1}",
     "Str.ProjectLoad.FormNotFound": "Файлът на формуляра не е намерен: {0}",
+    "Str.ProjectLoad.MemberNotFound": "Файлът на проекта не е намерен: {0}",
     "Str.ProjectLoad.FormFailed": "Формулярът {0} не може да се зареди",
     "Str.ProjectLoad.FormFailedWithReason": "Формулярът {0} не може да се зареди: {1}",
     "Str.ProjectLoad.ParseFailed": "Файлът на формуляра не може да се анализира: {0}",

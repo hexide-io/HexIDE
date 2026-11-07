@@ -2,6 +2,8 @@
   "name": "Slovak",
   "direction": "ltr",
   "strings": {
+    "Str.Tool.LanguageServers.Problem.JsonSyntaxEscape": "Konfiguračný súbor „{0}“ obsahuje neplatný JSON na riadku {1}, v stĺpci {2}. Cesta: {3} Použite lomky (C:/tools/new/...) alebo dvojité spätné lomky (C:\\\\tools\\\\new\\\\...).",
+    "Str.Tool.LanguageServers.Problem.PathControlWarning": "Pole '{0}' obsahuje riadiaci znak z únikovej sekvencie; pravdepodobne zamýšľaná cesta: {1}. Hodnota sa nemení.",
     "Str.Lsp.ServerMessage": "Jazykový server: {0}",
     "Str.Lsp.ServerError": "Chyba jazykového servera: {0}",
     "Str.Lsp.EditNotApplied": "Úprava zo servera nebola použitá: {0}",
@@ -1036,6 +1038,7 @@
     "Str.ScrollBar.LineRight": "O stĺpec doprava",
     "Str.ProjectLoad.ModuleFailed": "Nepodarilo sa načítať modul {0}: {1}",
     "Str.ProjectLoad.FormNotFound": "Súbor formulára sa nenašiel: {0}",
+    "Str.ProjectLoad.MemberNotFound": "Súbor projektu sa nenašiel: {0}",
     "Str.ProjectLoad.FormFailed": "Nepodarilo sa načítať formulár {0}",
     "Str.ProjectLoad.FormFailedWithReason": "Nepodarilo sa načítať formulár {0}: {1}",
     "Str.ProjectLoad.ParseFailed": "Nepodarilo sa analyzovať súbor formulára: {0}",

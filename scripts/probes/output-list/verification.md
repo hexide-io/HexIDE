@@ -320,3 +320,171 @@ coverage in this run:
 Final tree hygiene passed with nine existing nonblocking warnings; its identity
 scan was skipped because HEXIDE_IDENTITY_PATTERN is unset. `git diff --check`
 passed, and this round's changes remain uncommitted for supervisor review.
+
+## Round 4: a keyword-named member receiver (#3248 / #3265)
+
+Merged prepared `upstream/main` `02519ea6` into the branch (`a3133caf`). The
+regression is `Debug.Print tab.Caption` inside the TabStrip test's `For Each`
+loop, not the earlier indexed Tabs calls. `OutputValueAhead` classified `tab`
+as the positioning keyword and split `.Caption` into a second output item.
+A dot after the keyword now selects the existing value-expression path in both
+grammars. This restores a member expression; it adds no VB6 value expectation.
+
+Added `tab.Caption` to both `OutputListTests` grouping theories. Against the
+merged branch before the grammar edit, Runtime failed **1/48** cases (47 passed)
+and the server failed **1/49** (48 passed), both on the new row's single-item
+assertion, with no skips. These are **2 new tests with observed teeth**.
+
+Ran the unchanged `scripts/probes/for-each-corpus/Program.cs` against main,
+the merged branch before the edit, and the final parser assemblies. For these
+sandbox runs a temporary project referenced the built assemblies directly,
+avoiding a second concurrent build of the same projects. All three snapshots
+cover **172 files**, with **6 Runtime and 12 server syntax diagnostics**.
+Both main-to-final and before-to-after `diff -u` comparisons were empty (exit 0).
+
+Build setup: removed `/mnt/` PATH entries, added the already-installed local
+Java runtime to PATH, and used a temporary directory and build artifacts under
+the clone. Initial build attempts failed on read-only default output directories
+and ANTLR's shared lock; those attempts ran no tests and are not coverage.
+
+Full Runtime: **8,372 passed, 14 skipped, 0 failed** (8,386 total), in 8m 28s.
+Within it: OutputListTests **48/48**, ParserPredictionTests **6/6**,
+GrammarParityTests **2/2**, BlockParsingCostTests **4/4**, all without skips.
+Full server: **714 passed, 0 skipped, 0 failed**, in 1m 08s.
+
+The original Integration regression was also reproduced before the fix:
+**1 failed, 0 passed, 0 skipped**. It printed
+`Second, Second, Second, Inserted, First, True`, missing exactly the loop's
+`First, Inserted, Second` outputs.
+
+The Runtime skips below provide no coverage in this run:
+
+- `HexIDE.Runtime.Tests.ClassHeaderPreservationTests.A_renamed_module_retargets_VB_Name_but_keeps_everything_else`
+- `HexIDE.Runtime.Tests.ClassHeaderPreservationTests.A_real_vb6_class_round_trips_byte_for_byte`
+- `HexIDE.Runtime.Tests.ClassHeaderPreservationTests.Instancing_and_data_binding_settings_survive`
+- `HexIDE.Runtime.Tests.MenuHierarchySaveTests.RoundTrip_OfVb6sOwnMenuTemplates_ReproducesTheMenuShape`
+- `HexIDE.Runtime.Tests.MenuHierarchySaveTests.Vb6sOwnMenuTemplates_AreNoLongerHeldReadOnly`
+- `HexIDE.Runtime.Tests.FileSystemTests.Windows_numeric_rows`
+- `HexIDE.Runtime.Tests.FileSystemTests.Windows_attribute_rows`
+- `HexIDE.Runtime.Tests.FileSystemTests.Windows_name_rows`
+- `HexIDE.Runtime.Tests.FileSystemTests.CurDir_uses_only_the_first_drive_character`
+- `HexIDE.Runtime.Tests.FileSystemTests.Windows_error_rows`
+- `HexIDE.Runtime.Tests.Vb6OracleRoundTripTests.HexIDE_output_still_builds_in_vb6`
+- `HexIDE.Runtime.Tests.Vb6TextFileTests.The_one_corpus_file_with_high_bytes_round_trips`
+- `HexIDE.Runtime.Tests.ContainerHierarchySaveTests.RoundTrip_OfVb6sOwnNestedTemplates_ReproducesTheBeginStructure`
+- `HexIDE.Runtime.Tests.UiThreadTests.Child_ReportsTheUiThreadsStack`
+
+The same targeted TabStrip Integration test passed on `upstream/main`
+`02519ea6`: **1 passed, 0 failed, 0 skipped**. Main was built from an isolated
+archive within this clone, removed after this comparison. The first main build
+was cancelled after a long quiet compile; its retry logged an active C# compiler
+and completed successfully. No other clone was used.
+
+`MissingLanguageDocTests`: **18 passed, 0 failed, 0 skipped**. The Print #,
+Write # and Debug.Print detail notes now mention member receivers; coverage
+statuses and headline counts did not move. The server features document has no
+output-list limitation to update. There is no `build.yml` change in this round.
+
+For the full IDE run, test helpers were built explicitly with
+`BuildProjectReferences=false` to avoid rebuilding the already-built product
+projects concurrently. This initially omitted the transitive content DLLs
+`HexIDE.LspGuard.dll`, `HexIDE.VbLspServer.dll` and `LanguageServer.Framework.dll`
+from the test output. An incomplete run reported foreign-server startup failures
+(the guard DLL did not exist), and was cancelled. Restored the built content DLLs
+from the corresponding helper/Desktop outputs before restarting the full suite.
+The test output's Runtime DLL was compared byte-for-byte with the fixed Runtime
+build. No source change or test expectation was made for this packaging setup.
+
+The first full Integration launch failed before discovery: the hang-dump
+extension's named mutex attempted to create `/run/user/1000/.dotnet/shm/session1`
+on the sandbox's read-only filesystem. Restarted with `XDG_RUNTIME_DIR` pointing
+to a mode-700 directory under the clone's artifacts directory, retaining the
+10-minute hang-dump timeout. This launch failure supplies no test coverage.
+
+The fixed targeted TabStrip test passed **1/1**, without skips, in an isolated
+results directory. Full Integration then passed **5,291**, skipped **2**, failed
+**0** (5,293 total), in 10m 27s, including that same regression. Its xUnit
+report has no runner errors. The two skips provide no coverage:
+
+- `HexIDE.Integration.Tests.Views.ToolbarCaptionTests.Windows_caption_width_follows_installed_fonts_Gdi_extent`
+- `HexIDE.Integration.Tests.Views.ToolbarCaptionTests.Segoe_UI_nine_point_matches_console_measurements`
+
+Full IDE: **6,612 passed, 50 skipped, 0 failed** (6,662 total), in 24m 33s.
+Its xUnit report records all 6,662 tests with no runner errors. All four full
+suite floors passed. Runtime and server xUnit reports were also checked and
+recorded no errors. The full IDE run skipped the cases below. The 13 bundled-server skips were
+subsequently covered as recorded below; the remaining skips provide no coverage:
+
+- `HexIDE.Tests.Tools.ProjectTreeBuilderTests.ForwardSlashPath_NormalizesAndNests`
+- `HexIDE.Tests.Tools.ProjectTreeBuilderTests.AMemberWithNoRelativeForm_CaptionsItsAbsoluteLocation`
+- `HexIDE.Tests.Tools.ProjectTreeBuilderTests.CrossDriveMember_RendersAtRoot`
+- `HexIDE.Tests.ViewModels.MemberAttributesFollowARenameTests.RenamingAProcedureThatHasADescription(route: \"the bundled server\")`
+- `HexIDE.Tests.LspClient.LspDocumentSessionTests.AWindowsDriveLetterInTheOtherCaseStillMatches`
+- `HexIDE.Tests.LspClient.BundledServerHandshakeTests.NothingTheBundledServerAdvertisesIsReportedUnused`
+- `HexIDE.Tests.Projects.ContributedProjectTests.A_contributed_project_already_open_is_refused_when_opened_again_with_different_drive_and_folder_case`
+- `HexIDE.Tests.LspClient.BundledServerRespectsTheIdesRegionsTests.ADamagedHeaderStillLeavesTheCodesOwnErrorsReported`
+- `HexIDE.Tests.LspClient.BundledServerRespectsTheIdesRegionsTests.RenameAndHighlightFromALineTheIdeHoldsReadOnlyAnswerNothing`
+- `HexIDE.Tests.LspClient.BundledServerRespectsTheIdesRegionsTests.NoDiagnosticLandsOnALineTheIdeHoldsReadOnly`
+- `HexIDE.Tests.LspClient.BundledServerRespectsTheIdesRegionsTests.TheServerRefusesExactlyTheNewNamesTheIdeRefuses`
+- `HexIDE.Tests.LspClient.BundledServerRespectsTheIdesRegionsTests.RenamingAWordTheLayoutAlsoUsesEditsNothingTheIdeHoldsExceptTheMembersOwnQualifier`
+- `HexIDE.Tests.LspClient.BundledServerRespectsTheIdesRegionsTests.FormattingChangesExactlyTheLinesTheIdeLeavesToTheDeveloper`
+- `HexIDE.Tests.LspClient.BundledServerRespectsTheIdesRegionsTests.RenamingAMemberTakesItsOwnAttributeQualifiersAlong`
+- `HexIDE.Tests.Profiles.ProfileContainmentTests.JunctionEscapeIsRefused`
+- `HexIDE.Tests.Profiles.ProfileContainmentTests.JunctionSwappedInAfterPreflightIsRefusedDuringRead`
+- `HexIDE.Tests.LspClient.WorkspaceArtifactProjectTests.ALocalTypeLibraryIsNamedFromItsFile`
+- `HexIDE.Tests.LspClient.WorkspaceArtifactProjectTests.TheTypeLibraryNamesOleAutomationStdole`
+- `HexIDE.Tests.Runtime.VbSettingsStoreTests.A_value_another_program_wrote_that_is_not_text_reads_as_no_text`
+- `HexIDE.Tests.Runtime.VbSettingsStoreTests.The_registry_keeps_each_setting_as_text_as_vb6_exe_does`
+- `HexIDE.Tests.Profiles.ProfileReaderSafetyTests.WindowsPipeHandleIsRefused`
+- `HexIDE.Tests.LspClient.TypeLibraryNamesTests.ALocalLinkToAShareIsNotALocalPath`
+- `HexIDE.Tests.Sidecar.UserSidecarSaveTests.TheProjectsOwnSidecarSpelledInAnotherCaseIsStillItsOwn`
+- `HexIDE.Tests.LspClient.BundledServerTraceRoundTripTests.AskingForNothingGetsNothing`
+- `HexIDE.Tests.LspClient.BundledServerTraceRoundTripTests.TheServerTracesWhatTheClientAskedForAtTheHandshake`
+- `HexIDE.Tests.LspClient.BundledServerTraceRoundTripTests.TheLevelCanBeTurnedUpOnAServerThatIsAlreadyRunning`
+- `HexIDE.Tests.IDE.EditorServiceNavigationTests.AFileUriWhoseDriveLetterTheServerNormalisedStillResolves`
+- `HexIDE.Tests.Projects.CompanionBinaryPreservationTests.Dropping_a_blob_bearing_control_keeps_both_halves_in_step`
+- `HexIDE.Tests.Projects.CompanionBinaryPreservationTests.AFormWhoseBlobsAreAllModelled_DoesNotRaiseTheLossFlag`
+- `HexIDE.Tests.Projects.CompanionBinaryPreservationTests.A_form_whose_records_HexIDE_does_not_model_saves_both_halves_as_VB6_wrote_them`
+- `HexIDE.Tests.Projects.CompanionBinaryPreservationTests.A_form_that_reproduces_its_companion_is_never_denied_the_write`
+- `HexIDE.Tests.Projects.CompanionBinaryPreservationTests.Saving_never_shrinks_or_deletes_a_companion_it_cannot_reproduce`
+- `HexIDE.Tests.Projects.CompanionBinaryPreservationTests.A_second_save_still_leaves_the_companion_intact`
+- `HexIDE.Tests.Projects.CompanionBinaryPreservationTests.The_form_records_that_it_lost_binary_fidelity`
+- `HexIDE.Tests.Addins.PackageVerificationTests.Locked_signature_file_yields_Untrusted_not_an_exception`
+- `HexIDE.Tests.Infrastructure.WindowStateUnconfirmedTests.On_Windows_the_probe_does_not_guess`
+- `HexIDE.Tests.Projects.MadeProgramTests.A_made_program_starts_and_runs_its_Sub_Main`
+- `HexIDE.Tests.Server.ProcessWindowsToolTests.A_window_of_a_process_the_started_one_started_is_read_through_it`
+- `HexIDE.Tests.Server.ProcessWindowsToolTests.A_minimized_program_is_read_as_minimized_and_visible`
+- `HexIDE.Tests.Server.ProcessWindowsToolTests.A_program_started_hidden_is_read_as_hidden_and_the_note_says_vbHide_did_it`
+- `HexIDE.Tests.Server.ProcessWindowsToolTests.A_running_process_with_no_window_is_said_to_have_none_yet`
+- `HexIDE.Tests.Projects.ClassModuleSaveFidelityTests.A_reload_from_disk_also_preserves_the_header`
+- `HexIDE.Tests.Projects.ClassModuleSaveFidelityTests.Saving_a_project_leaves_an_untouched_class_byte_identical`
+- `HexIDE.Tests.Projects.ClassModuleSaveFidelityTests.Editing_the_body_leaves_the_header_untouched`
+- `HexIDE.Tests.UserDataPathTests.OnWindowsItIsUnderAppData`
+- `HexIDE.Tests.Projects.DuplicateProjectOpenTests.Opening_the_same_project_with_different_drive_and_folder_case_is_refused`
+- `HexIDE.Tests.LspClient.RealServerShutdownTests.BundledClosesAndExits`
+- `HexIDE.Tests.Processes.ChildProcessJobTests.A_process_left_out_of_the_job_outlives_it`
+- `HexIDE.Tests.Processes.ChildProcessJobTests.A_closed_job_refuses_a_process`
+- `HexIDE.Tests.Processes.ChildProcessJobTests.Closing_the_job_ends_the_process_put_in_it`
+
+The full IDE report exposed **13 bundled-server skips**: the fixture searches
+normal `bin/Debug/net10.0` output paths, where an initial build predating the
+grammar edit still lived, rather than the artifact output used for the full
+server tests. Installed that freshly tested server output at the fixture's
+normal path, then ran the affected Linux cases:
+
+- `*BundledServer*` classes: **26 passed, 0 failed, 0 skipped**; xUnit report
+  checked, with no runner errors;
+- `RenamingAProcedureThatHasADescription`: **3 passed, 0 failed, 0 skipped**,
+  including its bundled-server row;
+- `BundledClosesAndExits`: **1 passed, 0 failed, 0 skipped**.
+
+These **30 focused checks cover all 13 bundled-server cases skipped in the full
+run** (plus existing controls). The full-run totals remain 6,612 passed / 50
+skipped; these follow-ups are separate runs, not an altered full-suite total.
+The other **37 IDE skips** still provide no coverage. No new test was made
+platform-dependent or skippable.
+
+Final hygiene passed with nine existing nonblocking warnings; the optional
+identity scan was skipped because HEXIDE_IDENTITY_PATTERN is unset.
+`git diff --check` passed. This round's eight changed files remain uncommitted
+for supervisor review; only the prepared merge was committed.

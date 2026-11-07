@@ -2,6 +2,8 @@
   "name": "Hungarian",
   "direction": "ltr",
   "strings": {
+    "Str.Tool.LanguageServers.Problem.JsonSyntaxEscape": "A(z) „{0}” konfigurációs fájl érvénytelen JSON-t tartalmaz a(z) {1}. sor {2}. oszlopában. Útvonal: {3} Használjon perjeleket (C:/tools/new/...) vagy kettős fordított perjeleket (C:\\\\tools\\\\new\\\\...).",
+    "Str.Tool.LanguageServers.Problem.PathControlWarning": "A(z) '{0}' mező escape-szekvenciából származó vezérlőkaraktert tartalmaz; a valószínűleg szándékolt útvonal: {1}. Az érték változatlan.",
     "Str.Lsp.ServerMessage": "Nyelvi kiszolgáló: {0}",
     "Str.Lsp.ServerError": "Nyelvi kiszolgáló hibája: {0}",
     "Str.Lsp.EditNotApplied": "A kiszolgáló módosítása nem lett alkalmazva: {0}",
@@ -1036,6 +1038,7 @@
     "Str.ScrollBar.LineRight": "Egy oszloppal jobbra",
     "Str.ProjectLoad.ModuleFailed": "A(z) {0} modul betöltése sikertelen: {1}",
     "Str.ProjectLoad.FormNotFound": "Az űrlapfájl nem található: {0}",
+    "Str.ProjectLoad.MemberNotFound": "A projektfájl nem található: {0}",
     "Str.ProjectLoad.FormFailed": "A(z) {0} űrlap betöltése sikertelen",
     "Str.ProjectLoad.FormFailedWithReason": "A(z) {0} űrlap betöltése sikertelen: {1}",
     "Str.ProjectLoad.ParseFailed": "Az űrlapfájl elemzése sikertelen: {0}",

@@ -2,6 +2,8 @@
   "name": "Estonian",
   "direction": "ltr",
   "strings": {
+    "Str.Tool.LanguageServers.Problem.JsonSyntaxEscape": "Konfiguratsioonifail „{0}“ sisaldab vigast JSON-i real {1}, veerus {2}. Tee: {3} Kasutage kaldkriipse (C:/tools/new/...) või kahekordseid längkriipse (C:\\\\tools\\\\new\\\\...).",
+    "Str.Tool.LanguageServers.Problem.PathControlWarning": "Väli '{0}' sisaldab paojadast saadud juhtmärki; tõenäoliselt mõeldud tee: {1}. Väärtust ei muudeta.",
     "Str.Lsp.ServerMessage": "Keeleserver: {0}",
     "Str.Lsp.ServerError": "Keeleserveri viga: {0}",
     "Str.Lsp.EditNotApplied": "Serveri muudatust ei rakendatud: {0}",
@@ -1036,6 +1038,7 @@
     "Str.ScrollBar.LineRight": "Veerg paremale",
     "Str.ProjectLoad.ModuleFailed": "Mooduli {0} laadimine nurjus: {1}",
     "Str.ProjectLoad.FormNotFound": "Vormifaili ei leitud: {0}",
+    "Str.ProjectLoad.MemberNotFound": "Projektifaili ei leitud: {0}",
     "Str.ProjectLoad.FormFailed": "Vormi {0} laadimine nurjus",
     "Str.ProjectLoad.FormFailedWithReason": "Vormi {0} laadimine nurjus: {1}",
     "Str.ProjectLoad.ParseFailed": "Vormifaili parsimine nurjus: {0}",

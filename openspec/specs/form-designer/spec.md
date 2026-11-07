@@ -113,6 +113,17 @@ both are deferred together rather than half-built.
 - **WHEN** a dragged region crosses a container and the controls it holds
 - **THEN** both the container and those controls are selected
 
+### Requirement: Dragging SHALL preserve the control's declared size
+A move SHALL leave Width and Height unchanged, including when layout rounds the arranged bounds at display
+scaling above 100%. A resize SHALL start from the declared dimensions where they are set, falling back to
+arranged dimensions for automatically sized elements.
+
+#### Scenario: Move a control at 150% display scaling
+- **GIVEN** a control whose declared size is 81 by 33 DIP (1215 by 495 twips)
+- **WHEN** the developer drags it to a new position at 150% display scaling
+- **THEN** its declared size remains 81 by 33 DIP
+- **AND** its saved Width and Height remain 1215 and 495 twips
+
 ### Requirement: Dragging one selected control SHALL move the whole selection
 Dragging any control that is part of the selection SHALL move every selected control by the same
 displacement, and where snapping applies it SHALL be resolved once so that the relative positions within the
@@ -290,6 +301,14 @@ Unseen, it is edited around blindly. VB6's box is an empty PictureBox; labelling
 - **WHEN** the developer presses on the box
 - **THEN** nothing is selected and no region drag begins
 
+### Requirement: Control preview captions use grayscale antialiasing
+The designer SHALL render control text with grayscale antialiasing before composing its bitmap preview.
+Running CheckBox and OptionButton captions SHALL also use grayscale antialiasing, independently of their
+bullet's aliased edges (#917).
+
+#### Scenario: An outline font supplies a control caption
+- **WHEN** a CommandButton is previewed in the designer, or a CheckBox or OptionButton is rendered at run time
+- **THEN** its caption contains intermediate shades at glyph edges rather than only foreground and background pixels
 
 ### Requirement: Export a picture property's payload
 The Properties window SHALL offer Export picture on modeled Picture, Icon, MouseIcon and DragIcon properties
@@ -353,6 +372,25 @@ command. A form the runtime loader cannot create SHALL report its existing unsup
 - **WHEN** the developer edits a text box, resizes the preview and closes it
 - **THEN** those edits are discarded and the designer remains unchanged
 - **AND** no Load, Resize, Click, QueryUnload or other VB event procedure runs
+
+### Requirement: Designer instantiation failures are contained per control
+
+The designer SHALL catch an exception from a control's designer instantiation, layout or drawing, log the exception, and show a disabled placeholder at that control's bounds with its name and the exception message. The view-only label SHALL be localized. The failed preview SHALL NOT prevent the form from remaining open.
+
+#### Scenario: A registered component refuses its designer instance
+
+- **WHEN** a form containing a registered component whose designer instantiation throws is opened
+- **THEN** the designer shows the failed control's name and reason in a disabled placeholder at its bounds
+- **AND** its canvas item is disabled and the form stays open
+- **AND** opening the preview does not change the serialized form
+
+#### Scenario: A control refuses while it is drawn
+
+- **WHEN** a form is opened whose StatusBar has a spring panel beside a Contents panel with text, which the StatusBar refuses to lay out
+- **THEN** the designer shows that StatusBar's name and reason in a disabled placeholder at its bounds, and the form stays open
+- **AND** opening the preview does not change the serialized form
+
+Conversion to an inert carried block, exclusion from property selection and verbatim carry-over after edits elsewhere on the form remain outstanding under #2405.
 
 ### Requirement: ImageList designer icon
 The designer SHALL show a modelled MSComctlLib.ImageList as a 38 × 38 box with a two-pixel raised edge.

@@ -2,6 +2,8 @@
   "name": "Italian",
   "direction": "ltr",
   "strings": {
+    "Str.Tool.LanguageServers.Problem.JsonSyntaxEscape": "Il file di configurazione «{0}» contiene JSON non valido alla riga {1}, colonna {2}. Percorso: {3} Usare barre (C:/tools/new/...) o barre inverse doppie (C:\\\\tools\\\\new\\\\...).",
+    "Str.Tool.LanguageServers.Problem.PathControlWarning": "Il campo '{0}' contiene un carattere di controllo prodotto da una sequenza di escape; probabile percorso desiderato con barre inverse: {1}. Il valore resta invariato.",
     "Str.Lsp.ServerMessage": "Server di linguaggio: {0}",
     "Str.Lsp.ServerError": "Errore del server di linguaggio: {0}",
     "Str.Lsp.EditNotApplied": "Modifica del server non applicata: {0}",
@@ -997,6 +999,7 @@
     "Str.Naming.Msg.AdoptedNameTaken": "'{1}' non è stato aggiunto. Si chiama '{0}', che è già il nome di un form, di un modulo o di una classe in questo progetto.",
     "Str.Naming.Msg.AdoptedNameNotValid": "'{1}' non è stato aggiunto. Si chiama '{0}', che non è un nome valido: un nome inizia con una lettera e prosegue con lettere, cifre e caratteri di sottolineatura.",
     "Str.ProjectLoad.ModuleFailed": "Impossibile caricare il modulo {0}: {1}",
+    "Str.ProjectLoad.MemberNotFound": "File del progetto non trovato: {0}",
     "Str.ProjectLoad.FormNotFound": "File del form non trovato: {0}",
     "Str.ProjectLoad.FormFailed": "Impossibile caricare il form {0}",
     "Str.ProjectLoad.FormFailedWithReason": "Impossibile caricare il form {0}: {1}",

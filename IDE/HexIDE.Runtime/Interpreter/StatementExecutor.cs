@@ -518,7 +518,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 CaptureError(ex);
                 continue;
             }
-            catch (VBRunTimeException ex) when (HaltsHere())
+            catch (VBRunTimeException ex) when (HaltsHere(ex))
             {
                 _suspendedAtTopLevel = false;
                 if (!await Halt(ex, stmt.Start.Line))
@@ -1813,7 +1813,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 CaptureError(ex);
                 return null;
             }
-            catch (VBRunTimeException ex) when (HaltsHere())
+            catch (VBRunTimeException ex) when (HaltsHere(ex))
             {
                 // The condition alone runs again: an ElseIf's without the conditions before it, a Loop Until's without
                 // another pass through the body.
@@ -1860,7 +1860,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                     break;
                 }
                 catch (Exception ex) when (Locate(ex, stmt)) { throw; }
-                catch (VBRunTimeException ex) when (!ResumesNext && HaltsHere())
+                catch (VBRunTimeException ex) when (!ResumesNext && HaltsHere(ex))
                 {
                     // The statement alone runs again, not the statements before it on the line (#1011).
                     _suspendedAtTopLevel = false;
@@ -4008,6 +4008,10 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 : declaredArray || value.Type.IsArray ? value.Type
                 : new Vb6Value.ValueType(Vb6Value.ValueType.EmptyVariant, true);
 
+            // A declared Variant array cannot become a String array; a scalar Variant can (#2938, measured).
+            if (!preserve && declaredArray && !variant && redim.asTypeClause() is not null && type != value.Type)
+                throw new VBCompileErrorException("Can't change data types of array elements");
+
             var objectClass = redim.asTypeClause() is { } objectClause
                 ? ObjectArrayClass(objectClause) : (value.Value as VBArray)?.DeclaredClass;
             Vb6Value NewArray(List<(int, int)>? bounds = null)
@@ -5165,7 +5169,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 faultPc = pc;
                 pc++;
             }
-            catch (VBRunTimeException ex) when (HaltsHere())
+            catch (VBRunTimeException ex) when (HaltsHere(ex))
             {
                 // Set Next Statement is valid at this break, as at any top-level one, and applies as the loop goes round.
                 _suspendedAtTopLevel = true;
@@ -5253,11 +5257,17 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
     /// a handler in the code that raised an event never sees the event's error (measured, b1 to b3 in the oracle).
     /// A class's error that its caller traps goes to the caller, as a compiled program does (decided on #1011, D27).
     /// </summary>
-    private bool HaltsHere()
+    private bool HaltsHere(VBRunTimeException error)
     {
         if (interpreter.DebugController is not { CanHalt: true })
             return false;
         var stack = interpreter.ActivationStack;
+        // The frame this error already found trapping it, still in its place and still trapping: nothing between here and
+        // there runs while the error unwinds, so the answer stands. Each frame used to scan down to the trap again, and
+        // an error raised N calls above its handler cost N² to reach it: minutes in a made EXE at #3250's call depths.
+        if (error.TrappedBy is { } trap && trap.Traps && trap.frameDepth - 1 is var t && t >= 0 && t < stack.Count
+            && ReferenceEquals(stack[t], trap))
+            return false;
         var at = -1;
         for (var i = stack.Count - 1; i >= 0; i--)
             if (ReferenceEquals(stack[i], this)) { at = i; break; }
@@ -5267,7 +5277,10 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         for (var i = at; i >= 0; i--)
         {
             if (stack[i].Traps)
+            {
+                error.TrappedBy = stack[i];
                 return false;
+            }
             if (stack[i].IsEntry)
                 return true;
         }

@@ -52,11 +52,12 @@ internal sealed partial class ProgramDump
 
     /// <summary>Appends one program and what it did. <paramref name="thrown"/> is whatever the run threw, if anything.</summary>
     public void Record(string test, int sequence, IReadOnlyList<(string Name, bool IsClass, string Source)> modules,
-        IEnumerable<Vb6Value> log, string output, Exception? thrown)
+        IEnumerable<Vb6Value> log, string output, Exception? thrown, IReadOnlyList<string> injectedGlobals)
     {
         var record = new Program(
             test,
             sequence,
+            injectedGlobals,
             modules.Select((m, i) =>
             {
                 if (m.IsClass)
@@ -239,6 +240,7 @@ internal sealed partial class ProgramDump
     private sealed record Program(
         [property: JsonPropertyName("test")] string Test,
         [property: JsonPropertyName("sequence")] int Sequence,
+        [property: JsonPropertyName("injectedGlobals")] IReadOnlyList<string> InjectedGlobals,
         [property: JsonPropertyName("modules")] IReadOnlyList<Module> Modules,
         [property: JsonPropertyName("printed")] IReadOnlyList<Printed> Printed,
         [property: JsonPropertyName("lines")] IReadOnlyList<string> Lines,

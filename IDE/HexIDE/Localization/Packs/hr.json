@@ -2,6 +2,8 @@
   "name": "Croatian",
   "direction": "ltr",
   "strings": {
+    "Str.Tool.LanguageServers.Problem.JsonSyntaxEscape": "Konfiguracijska datoteka „{0}” sadrži neispravan JSON u retku {1}, stupcu {2}. Putanja: {3} Koristite kose crte (C:/tools/new/...) ili dvostruke obrnute kose crte (C:\\\\tools\\\\new\\\\...).",
+    "Str.Tool.LanguageServers.Problem.PathControlWarning": "Polje '{0}' sadrži kontrolni znak iz izlaznog niza; vjerojatno namjeravana putanja: {1}. Vrijednost je nepromijenjena.",
     "Str.Lsp.ServerMessage": "Jezični poslužitelj: {0}",
     "Str.Lsp.ServerError": "Pogreška jezičnog poslužitelja: {0}",
     "Str.Lsp.EditNotApplied": "Izmjena poslužitelja nije primijenjena: {0}",
@@ -1036,6 +1038,7 @@
     "Str.ScrollBar.LineRight": "Stupac desno",
     "Str.ProjectLoad.ModuleFailed": "Nije uspjelo učitavanje modula {0}: {1}",
     "Str.ProjectLoad.FormNotFound": "Datoteka obrasca nije pronađena: {0}",
+    "Str.ProjectLoad.MemberNotFound": "Datoteka projekta nije pronađena: {0}",
     "Str.ProjectLoad.FormFailed": "Nije uspjelo učitavanje obrasca {0}",
     "Str.ProjectLoad.FormFailedWithReason": "Nije uspjelo učitavanje obrasca {0}: {1}",
     "Str.ProjectLoad.ParseFailed": "Nije uspjelo raščlanjivanje datoteke obrasca: {0}",

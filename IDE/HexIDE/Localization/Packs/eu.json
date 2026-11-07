@@ -2,6 +2,8 @@
   "name": "Basque",
   "direction": "ltr",
   "strings": {
+    "Str.Tool.LanguageServers.Problem.JsonSyntaxEscape": "'{0}' konfigurazio-fitxategiak JSON baliogabea du {1}. lerroan, {2}. zutabean. Bidea: {3} Erabili barrak (C:/tools/new/...) edo alderantzizko barra bikoitzak (C:\\\\tools\\\\new\\\\...).",
+    "Str.Tool.LanguageServers.Problem.PathControlWarning": "'{0}' eremuak ihes-sekuentzia bateko kontrol-karakterea dauka; ziurrenik nahi zen bidea: {1}. Balioa ez da aldatu.",
     "Str.Lsp.ServerMessage": "Hizkuntza-zerbitzaria: {0}",
     "Str.Lsp.ServerError": "Hizkuntza-zerbitzariaren errorea: {0}",
     "Str.Lsp.EditNotApplied": "Zerbitzariaren aldaketa ez da aplikatu: {0}",
@@ -1036,6 +1038,7 @@
     "Str.ScrollBar.LineRight": "Zutabe bat eskuinera",
     "Str.ProjectLoad.ModuleFailed": "Ezin izan da {0} modulua kargatu: {1}",
     "Str.ProjectLoad.FormNotFound": "Ez da inprimaki-fitxategia aurkitu: {0}",
+    "Str.ProjectLoad.MemberNotFound": "Ez da proiektuaren fitxategia aurkitu: {0}",
     "Str.ProjectLoad.FormFailed": "Ezin izan da {0} inprimakia kargatu",
     "Str.ProjectLoad.FormFailedWithReason": "Ezin izan da {0} inprimakia kargatu: {1}",
     "Str.ProjectLoad.ParseFailed": "Ezin izan da inprimaki-fitxategia analizatu: {0}",
