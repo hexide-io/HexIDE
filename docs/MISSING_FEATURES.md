@@ -448,7 +448,7 @@
 
 | Dialog | Status | Notes |
 |---|---|---|
-| New Project | Done | New / Existing / Recent tabs |
+| New Project | Done | New / Existing / Recent tabs; template icons wrap into rows with vertical scrolling and keyboard access (#3294) |
 | Project Properties | Partial | EXE-only project type; startup form selection works |
 | References | Done | Registry enumeration (Windows); Browse; persisted to .vbp with hexadecimal LCIDs (#2273). Saves use Windows drive semantics on every host to relativise same-drive reference paths and preserve read line order; accepting References regroups references before read components and members (#2274); empty paths remain empty without registry resolution. VB6's three fixed rows head the list, and the project's own OLE Automation reference is an ordinary row that OK keeps (#1026) |
 | Components | Stub | `ApplyCommand` is empty; Designers and Insertable Objects lists always empty |
