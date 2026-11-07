@@ -1036,6 +1036,7 @@
     "Str.ScrollBar.LineRight": "Stupac desno",
     "Str.ProjectLoad.ModuleFailed": "Nije uspjelo učitavanje modula {0}: {1}",
     "Str.ProjectLoad.FormNotFound": "Datoteka obrasca nije pronađena: {0}",
+    "Str.ProjectLoad.MemberNotFound": "Datoteka projekta nije pronađena: {0}",
     "Str.ProjectLoad.FormFailed": "Nije uspjelo učitavanje obrasca {0}",
     "Str.ProjectLoad.FormFailedWithReason": "Nije uspjelo učitavanje obrasca {0}: {1}",
     "Str.ProjectLoad.ParseFailed": "Nije uspjelo raščlanjivanje datoteke obrasca: {0}",

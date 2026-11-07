@@ -447,7 +447,9 @@ public static class UiAutomationDriver
             {
                 var lines = searchable.Document.LineCount;
                 return $"<{lines} line{(lines == 1 ? "" : "s")} as the editor holds them, unsaved edits included; "
-                       + "read the text with get_file_content>";
+                       // Moved here from inspect_element's description, which had no room for it (#2569).
+                       + "read the text with get_file_content, which CaretOffset, SelectionStart and SelectionLength "
+                       + "count into>";
             }, null);
 
         var t = Nullable.GetUnderlyingType(p.PropertyType) ?? p.PropertyType;

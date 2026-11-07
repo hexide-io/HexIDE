@@ -1036,6 +1036,7 @@
     "Str.ScrollBar.LineRight": "Kolona udesno",
     "Str.ProjectLoad.ModuleFailed": "Nije moguće učitati modul {0}: {1}",
     "Str.ProjectLoad.FormNotFound": "Datoteka obrasca nije pronađena: {0}",
+    "Str.ProjectLoad.MemberNotFound": "Datoteka projekta nije pronađena: {0}",
     "Str.ProjectLoad.FormFailed": "Nije moguće učitati obrazac {0}",
     "Str.ProjectLoad.FormFailedWithReason": "Nije moguće učitati obrazac {0}: {1}",
     "Str.ProjectLoad.ParseFailed": "Nije moguće raščlaniti datoteku obrasca: {0}",

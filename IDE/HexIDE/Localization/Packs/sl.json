@@ -1036,6 +1036,7 @@
     "Str.ScrollBar.LineRight": "Stolpec desno",
     "Str.ProjectLoad.ModuleFailed": "Modula {0} ni bilo mogoče naložiti: {1}",
     "Str.ProjectLoad.FormNotFound": "Datoteka obrazca ni bila najdena: {0}",
+    "Str.ProjectLoad.MemberNotFound": "Datoteke projekta ni mogoče najti: {0}",
     "Str.ProjectLoad.FormFailed": "Obrazca {0} ni bilo mogoče naložiti",
     "Str.ProjectLoad.FormFailedWithReason": "Obrazca {0} ni bilo mogoče naložiti: {1}",
     "Str.ProjectLoad.ParseFailed": "Datoteke obrazca ni bilo mogoče razčleniti: {0}",

@@ -1036,6 +1036,7 @@
     "Str.ScrollBar.LineRight": "Stulpeliu dešinėn",
     "Str.ProjectLoad.ModuleFailed": "Nepavyko įkelti modulio {0}: {1}",
     "Str.ProjectLoad.FormNotFound": "Formos failas nerastas: {0}",
+    "Str.ProjectLoad.MemberNotFound": "Projekto failas nerastas: {0}",
     "Str.ProjectLoad.FormFailed": "Nepavyko įkelti formos {0}",
     "Str.ProjectLoad.FormFailedWithReason": "Nepavyko įkelti formos {0}: {1}",
     "Str.ProjectLoad.ParseFailed": "Nepavyko išanalizuoti formos failo: {0}",

@@ -1036,6 +1036,7 @@
     "Str.ScrollBar.LineRight": "Kolonnu pa labi",
     "Str.ProjectLoad.ModuleFailed": "Neizdevās ielādēt moduli {0}: {1}",
     "Str.ProjectLoad.FormNotFound": "Formas fails nav atrasts: {0}",
+    "Str.ProjectLoad.MemberNotFound": "Projekta fails nav atrasts: {0}",
     "Str.ProjectLoad.FormFailed": "Neizdevās ielādēt formu {0}",
     "Str.ProjectLoad.FormFailedWithReason": "Neizdevās ielādēt formu {0}: {1}",
     "Str.ProjectLoad.ParseFailed": "Neizdevās parsēt formas failu: {0}",

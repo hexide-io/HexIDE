@@ -1036,6 +1036,7 @@
     "Str.ScrollBar.LineRight": "Veerg paremale",
     "Str.ProjectLoad.ModuleFailed": "Mooduli {0} laadimine nurjus: {1}",
     "Str.ProjectLoad.FormNotFound": "Vormifaili ei leitud: {0}",
+    "Str.ProjectLoad.MemberNotFound": "Projektifaili ei leitud: {0}",
     "Str.ProjectLoad.FormFailed": "Vormi {0} laadimine nurjus",
     "Str.ProjectLoad.FormFailedWithReason": "Vormi {0} laadimine nurjus: {1}",
     "Str.ProjectLoad.ParseFailed": "Vormifaili parsimine nurjus: {0}",

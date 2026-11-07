@@ -1036,6 +1036,7 @@
     "Str.ScrollBar.LineRight": "O coloană la dreapta",
     "Str.ProjectLoad.ModuleFailed": "Încărcarea modulului {0} a eșuat: {1}",
     "Str.ProjectLoad.FormNotFound": "Fișierul formularului nu a fost găsit: {0}",
+    "Str.ProjectLoad.MemberNotFound": "Fișierul proiectului nu a fost găsit: {0}",
     "Str.ProjectLoad.FormFailed": "Încărcarea formularului {0} a eșuat",
     "Str.ProjectLoad.FormFailedWithReason": "Încărcarea formularului {0} a eșuat: {1}",
     "Str.ProjectLoad.ParseFailed": "Analiza fișierului de formular a eșuat: {0}",
