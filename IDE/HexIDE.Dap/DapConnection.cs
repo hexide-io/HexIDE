@@ -61,14 +61,18 @@ public sealed class DapConnection : IAsyncDisposable
     /// Cancellation during a write closes the connection because a partial frame cannot be reused safely.
     /// Connection shutdown fails requests with IOException, including disposal during an in-flight write.
     /// </summary>
+    /// <param name="requestTimeout">Deadline for this request; null uses the connection default.</param>
     public async Task<DapResponse> RequestAsync(string command, JsonElement? arguments = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default, TimeSpan? requestTimeout = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(command);
         if (arguments is { ValueKind: not JsonValueKind.Object })
             throw new ArgumentException("DAP arguments must be a JSON object or omitted.", nameof(arguments));
+        var timeout = requestTimeout ?? _options.RequestTimeout;
+        if (timeout <= TimeSpan.Zero || timeout.TotalMilliseconds > uint.MaxValue - 1)
+            throw new ArgumentOutOfRangeException(nameof(requestTimeout));
         using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _lifetime.Token);
-        deadline.CancelAfter(_options.RequestTimeout);
+        deadline.CancelAfter(timeout);
         var token = deadline.Token;
         var reply = new TaskCompletionSource<DapResponse>(TaskCreationOptions.RunContinuationsAsynchronously);
         var sequence = 0;
@@ -114,7 +118,7 @@ public sealed class DapConnection : IAsyncDisposable
         {
             lock (_sync)
                 if (_closed) throw new IOException("DAP connection is closed.", _failure);
-            throw new TimeoutException($"Debug adapter did not complete '{command}' within {_options.RequestTimeout}.");
+            throw new TimeoutException($"Debug adapter did not complete '{command}' within {timeout}.");
         }
         finally
         {

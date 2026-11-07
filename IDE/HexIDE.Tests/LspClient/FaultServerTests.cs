@@ -121,6 +121,28 @@ public sealed class FaultServerTests : IAsyncDisposable
     // ---- Requests ----
 
     [Fact]
+    public async Task A_refusal_written_with_its_error_before_its_id_ends_the_request_and_not_the_connection()
+    {
+        // rumdl 0.2.79's reply, byte for byte but the id (#2760): `error` comes before `id`, and carries the method name as its
+        // `data`, so the data is read before StreamJsonRpc knows the request it answers. An add-in's request a server does not
+        // know is the ordinary way to meet it.
+        var (client, _, _) = Connect(s => s.Script = async (message, server) =>
+        {
+            if ((string?)message["method"] != "probe/unknown") return false;
+            var body = Encoding.UTF8.GetBytes(
+                $$"""{"jsonrpc":"2.0","error":{"code":-32601,"message":"Method not found","data":"probe/unknown"},"id":{{message["id"]!.ToJsonString()}}}""");
+            await server.WriteRawAsync([.. Encoding.ASCII.GetBytes($"Content-Length: {body.Length}\r\n\r\n"), .. body]);
+            return true;
+        });
+        await client.StartAsync(Token);
+
+        var asking = () => client.SendCustomRequestAsync("probe/unknown", System.Text.Json.JsonDocument.Parse("{}").RootElement, cancellationToken: Token);
+
+        await asking.Should().ThrowAsync<RemoteMethodNotFoundException>();
+        client.IsRunning.Should().BeTrue("a refused request is not a lost connection");
+    }
+
+    [Fact]
     public async Task A_request_the_server_never_answers_comes_back_empty_at_its_deadline()
     {
         var (client, server, _) = Connect(s => s.Script = (message, _) => Task.FromResult((string?)message["method"] == "textDocument/hover"));
@@ -173,7 +195,52 @@ public sealed class FaultServerTests : IAsyncDisposable
         (await hover).Should().BeNull();
 
         await Eventually(() => !client.IsRunning, TimeSpan.FromSeconds(5), "the client knows the connection is gone");
-        log.Has(LogLevel.Warning, "connection lost").Should().BeTrue("a server falling over is reported, not silent");
+        await Eventually(() => log.Has(LogLevel.Warning, "connection lost"), TimeSpan.FromSeconds(5),
+            "a server falling over is reported, not silent");
+    }
+
+    [Theory]
+    [InlineData("disconnected", "no RPC connection")]
+    [InlineData("initializing", "initialization is incomplete")]
+    [InlineData("unsupported", "hoverProvider is unavailable")]
+    [InlineData("empty", "server returned null")]
+    public async Task An_absent_hover_explains_why(string state, string reason)
+    {
+        var initializing = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var (client, server, log) = Connect(s => s.Script = async (message, srv) =>
+        {
+            if ((string?)message["method"] != "initialize") return false;
+            if (state == "initializing")
+            {
+                initializing.TrySetResult();
+                await release.Task.WaitAsync(Token);
+            }
+            if (state != "unsupported") return false;
+            await srv.ReplyAsync(message["id"], new JsonObject { ["capabilities"] = new JsonObject() });
+            return true;
+        });
+        Task? starting = null;
+        try
+        {
+            if (state == "initializing")
+            {
+                starting = client.StartAsync(Token);
+                await initializing.Task.WaitAsync(TimeSpan.FromSeconds(5), Token);
+            }
+            else if (state != "disconnected") await client.StartAsync(Token);
+
+            (await client.RequestHoverAsync(Uri, new Position(0, 0), Token)).Should().BeNull();
+
+            server.Saw("textDocument/hover").Should().Be(state == "empty",
+                "only the server-null case sends a hover request");
+            log.Has(LogLevel.Debug, reason).Should().BeTrue("the absent hover must explain its origin");
+        }
+        finally
+        {
+            release.TrySetResult();
+            if (starting is not null) await starting;
+        }
     }
 
     // ---- Malformed frames ----
@@ -191,7 +258,8 @@ public sealed class FaultServerTests : IAsyncDisposable
         await server.WriteRawAsync(Encoding.UTF8.GetBytes(frame));
 
         await Eventually(() => !client.IsRunning, TimeSpan.FromSeconds(5), "a stream that can no longer be framed is a lost connection");
-        log.Has(LogLevel.Warning, "connection lost").Should().BeTrue("the client says why it stopped");
+        await Eventually(() => log.Has(LogLevel.Warning, "connection lost"), TimeSpan.FromSeconds(5),
+            "the client says why it stopped");
         await Within(client.StopAsync(), TimeSpan.FromSeconds(10), "stopping after a broken stream returns");
     }
 
@@ -200,7 +268,7 @@ public sealed class FaultServerTests : IAsyncDisposable
     [Fact]
     public async Task A_flood_of_notifications_does_not_starve_a_request()
     {
-        var (client, server, _) = Connect(s => s.Script = async (message, srv) =>
+        var (client, server, log) = Connect(s => s.Script = async (message, srv) =>
         {
             if ((string?)message["method"] != "textDocument/hover") return false;
             await srv.ReplyAsync(message["id"], new JsonObject
@@ -220,7 +288,10 @@ public sealed class FaultServerTests : IAsyncDisposable
 
         var hover = client.RequestHoverAsync(Uri, new Position(0, 0), Token);
         await Within(hover, TimeSpan.FromSeconds(20), "five thousand notifications in the way do not stop a reply arriving");
-        (await hover).Should().NotBeNull("the reply behind the flood is read, not dropped");
+        (await hover).Should().NotBeNull("the reply behind the flood is read, not dropped; server saw hover: {0}; client log: {1}",
+            server.Saw("textDocument/hover"), log.ToString());
+        server.Saw("textDocument/hover").Should().BeTrue();
+        (await hover)!.Contents.Value.Should().Be("answered");
         client.IsRunning.Should().BeTrue();
     }
 
@@ -359,11 +430,12 @@ public sealed class FaultServerTests : IAsyncDisposable
     {
         private readonly List<(LogLevel Level, string Message)> _entries = [];
         public bool Has(LogLevel level, string text) { lock (_entries) return _entries.Any(e => e.Level == level && e.Message.Contains(text, StringComparison.OrdinalIgnoreCase)); }
+        public override string ToString() { lock (_entries) return string.Join(Environment.NewLine, _entries); }
         public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
         public bool IsEnabled(LogLevel logLevel) => true;
         public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter)
         {
-            lock (_entries) _entries.Add((logLevel, formatter(state, exception)));
+            lock (_entries) _entries.Add((logLevel, formatter(state, exception) + (exception is null ? "" : $" {exception}")));
         }
     }
 }

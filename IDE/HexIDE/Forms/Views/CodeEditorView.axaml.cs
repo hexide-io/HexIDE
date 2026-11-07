@@ -5,6 +5,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Documents;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Input.Platform;
@@ -25,6 +26,7 @@ using HexIDE.Lsp.Messages;
 using HexIDE.Runtime.Editor;
 using HexIDE.Runtime.Serialization;
 using HexIDE.Themes;
+using HexIDE.Tools.ObjectBrowser;
 using HexIDE.Utils;
 using R3;
 using Serilog;
@@ -34,8 +36,10 @@ namespace HexIDE.Forms.Views;
 public partial class CodeEditorView : UserControl
 {
     private IDisposable? sub;
+    private CodeLensDisplay? codeLenses;
     private LspTextMarkerService? _markerService;
     private LspDiagnosticsColorizer? _colorizer;
+    private BracketDepthColorizer? _bracketDepthColorizer;
     private ReadOnlyRegionColorizer? _readOnlyColorizer;
     private ReadOnlyRegionLinks? _readOnlyLinks;
     private ReadOnlyRegionRedraw? _readOnlyRedraw;
@@ -44,7 +48,10 @@ public partial class CodeEditorView : UserControl
     private BookmarkMargin? _bookmarkMargin;
     private Point _lastHoverPoint;
     private FoldingManager? _foldingManager;
+    private StickyScrollController? _stickyScroll;
     private CancellationTokenSource? _foldCts;
+    private SemanticTokensColorizer? _semanticColorizer;
+    private int _semanticVersion;
     private CompletionWindow? _completionWindow;
     private CancellationTokenSource? _completionCts;
     private OverloadInsightWindow? _insightWindow;
@@ -70,22 +77,32 @@ public partial class CodeEditorView : UserControl
     /// surface (#942). Both are popups parented only logically, to the window, so neither the visual walk nor the routes
     /// to a control's menus and flyouts reaches them, and a list that was open read as none. Both can be open at once,
     /// as typing an argument opens a list under the call's parameter info, and then both are returned (#942 review).
+    /// Active snippet choice pickers use the same route (#2670).
     /// </summary>
     internal static IReadOnlyList<Avalonia.Controls.Primitives.Popup> OpenPopupsOf(TextEditor editor) =>
         Avalonia.LogicalTree.LogicalExtensions.FindLogicalAncestorOfType<CodeEditorView>(editor) is { } view && ReferenceEquals(view.TextEditor, editor)
             ? new Avalonia.Controls.Primitives.Popup?[] { view._completionWindow, view._insightWindow }
+                .Concat(CompletionSnippet.OpenChoiceWindows(editor.TextArea))
                 .Where(p => p is { IsOpen: true }).Select(p => p!).ToList()
             : [];
     private DocumentHighlightRenderer? _highlightRenderer;
     private CancellationTokenSource? _highlightCts;
     private HexIDE.Debugging.BreakpointMargin? _breakpointMargin;
     private HexIDE.Debugging.CurrentLineRenderer? _currentLineRenderer;
+    private IndentGuideRenderer? _indentGuideRenderer;
+    private HexIDE.Tools.CallStackToolViewModel? _callStack;
+    private Action? _onFrameShown;
     private HexIDE.Runtime.Debugging.IDebugController? _debugController;
     private HexIDE.Debugging.ExternalDebugService? _externalDebugger;
     private Action? _onExternalDebugChanged;
     private Action<HexIDE.Runtime.Debugging.StoppedInfo>? _onDebugStopped;
     private Action? _onDebugContinued;
+    private InlayHintRenderer? _inlayHintRenderer;
+    private System.ComponentModel.PropertyChangedEventHandler? _inlaySettingsChanged;
+    private int _inlayRevision;
     private System.ComponentModel.PropertyChangedEventHandler? _vmSelectionSync;
+    private EventHandler? _editorSelectionSync;
+    private bool _syncingSelection;
     private bool _resetPromptOpen;
     private string? _preEditBody;       // the code as it stood before the first edit while running (for Cancel→revert)
     private bool _resetPromptArmed;     // developer input is being handled; the next change it makes asks to reset
@@ -99,12 +116,16 @@ public partial class CodeEditorView : UserControl
     public DelegateCommand Cut { get; }
     public DelegateCommand Delete { get; }
     public DelegateCommand Paste { get; }
+    public DelegateCommand PasteAsComment { get; }
     public DelegateCommand Find { get; }
     public DelegateCommand Replace { get; }
     public DelegateCommand SelectAll { get; }
 
     public CodeEditorView()
     {
+        ExpandSelection = new DelegateCommand(() => _ = ExpandSelectionAsync(), CanChangeSelection);
+        ShrinkSelection = new DelegateCommand(ShrinkSelectionCore, CanChangeSelection);
+
         // Through the view model, because a designer change reaches this window as a header write and a
         // header write is not an edit the developer made here (#273 task 3.8). TextEditor.Undo is still
         // what pops each entry -- it is AvaloniaEdit's own command route and does the caret and selection
@@ -155,6 +176,7 @@ public partial class CodeEditorView : UserControl
             else
                 TextEditor.Paste();
         }, () => true);
+        PasteAsComment = new DelegateCommand(() => _ = PasteAsCommentAsync(), () => true);
         SelectAll = new DelegateCommand(() => TextEditor.SelectAll(), () => true);
         Find = new DelegateCommand(() =>
         {
@@ -179,6 +201,7 @@ public partial class CodeEditorView : UserControl
         TextEditor.TextChanged += OnTextChangedForFolding;
 
         TextEditor.TextArea.Caret.PositionChanged += OnCaretPositionChanged;
+        TextEditor.TextArea.SelectionChanged += (_, _) => ResetSelectionChain();
     }
 
     private void TextChanged(object? sender, EventArgs e)
@@ -200,6 +223,8 @@ public partial class CodeEditorView : UserControl
 
     public void TriggerCompletion() => TriggerCompletionAsync();
 
+    public void CompleteWord() => TriggerCompletionAsync(completeWord: true);
+
     public void TriggerSignatureHelp() => TriggerSignatureHelpAsync();
 
     public async Task InsertFile()
@@ -211,6 +236,7 @@ public partial class CodeEditorView : UserControl
     protected override void OnDataContextChanged(EventArgs e)
     {
         base.OnDataContextChanged(e);
+        ResetSelectionChain();
         InstallReadOnlySections();
     }
 
@@ -268,18 +294,39 @@ public partial class CodeEditorView : UserControl
             // would accumulate on the VM and fire redundantly on every later selection change.
             _vmSelectionSync = (_, args) =>
             {
-                if (args.PropertyName is nameof(CodeEditorViewModel.SelectionStart) or nameof(CodeEditorViewModel.SelectionLength))
+                if (!_syncingSelection && args.PropertyName is nameof(CodeEditorViewModel.SelectionStart) or nameof(CodeEditorViewModel.SelectionLength))
                 {
                     if (TextEditor.SelectionStart != vm.SelectionStart ||
                         TextEditor.SelectionLength != vm.SelectionLength)
                     {
-                        TextEditor.Select(vm.SelectionStart, vm.SelectionLength);
-                        if (vm.SelectionLength > 0)
-                            TextEditor.TextArea.Caret.BringCaretToView();
+                        _syncingSelection = true;
+                        try
+                        {
+                            TextEditor.Select(vm.SelectionStart, vm.SelectionLength);
+                            if (vm.SelectionLength > 0)
+                                TextEditor.TextArea.Caret.BringCaretToView();
+                        }
+                        finally { _syncingSelection = false; }
                     }
                 }
             };
             vm.PropertyChanged += _vmSelectionSync;
+            // Navigation can place a selection before the dock creates this view.
+            if (vm.SelectionLength > 0)
+                _vmSelectionSync(vm, new PropertyChangedEventArgs(nameof(CodeEditorViewModel.SelectionLength)));
+            _editorSelectionSync = (_, _) =>
+            {
+                CommandManager.InvalidateRequerySuggested();
+                if (_syncingSelection) return;
+                _syncingSelection = true;
+                try
+                {
+                    vm.SelectionStart = TextEditor.SelectionStart;
+                    vm.SelectionLength = TextEditor.SelectionLength;
+                }
+                finally { _syncingSelection = false; }
+            };
+            TextEditor.TextArea.SelectionChanged += _editorSelectionSync;
 
             vm.FocusWindowRequest += VmOnFocusWindowRequest;
 
@@ -292,9 +339,23 @@ public partial class CodeEditorView : UserControl
             _watchedDocument.UpdateStarted += OnDocumentUpdateStartedForFolding;
             _watchedDocument.Changing += OnDocumentChangingForFolding;
 
+            codeLenses = new CodeLensDisplay(TextEditor, CodeLensLayer, vm.CreateCodeLensSession(),
+                command => vm.RunCodeLensAsync(command).ListenErrors());
+
+            _inlayHintRenderer = new InlayHintRenderer(TextEditor);
+            TextEditor.TextArea.TextView.BackgroundRenderers.Add(_inlayHintRenderer);
+            _inlaySettingsChanged = (_, e) =>
+            {
+                if (e.PropertyName != nameof(vm.Settings.ShowInlayHints)) return;
+                ScheduleFolding(vm);
+            };
+            vm.Settings.PropertyChanged += _inlaySettingsChanged;
             // Attach LSP text marker service (squiggles) and diagnostics colorizer (red text)
             _markerService = new LspTextMarkerService(TextEditor);
             TextEditor.TextArea.TextView.BackgroundRenderers.Add(_markerService);
+
+            _bracketDepthColorizer = new BracketDepthColorizer(TextEditor, this, vm.Settings);
+            TextEditor.TextArea.TextView.LineTransformers.Add(_bracketDepthColorizer);
 
             // The header and each member's Attribute lines in the theme's read-only colour (#273 task 3.15).
             // Added before the diagnostics colorizer, so an error inside one still shows red; AvaloniaEdit
@@ -324,6 +385,9 @@ public partial class CodeEditorView : UserControl
             // rebuild. (#270)
             OnMarkersChanged(vm.Markers);
 
+            _indentGuideRenderer = new IndentGuideRenderer(TextEditor, vm.Settings);
+            TextEditor.TextArea.TextView.BackgroundRenderers.Add(_indentGuideRenderer);
+
             // Document highlights (background renderer, behind squiggles)
             _highlightRenderer = new DocumentHighlightRenderer(TextEditor);
             TextEditor.TextArea.TextView.BackgroundRenderers.Insert(0, _highlightRenderer);
@@ -333,7 +397,14 @@ public partial class CodeEditorView : UserControl
             // place before anything is drawn; a server's folds join them when the server answers, if one ever does.
             _foldingManager = FoldingManager.Install(TextEditor.TextArea);
             TextEditor.TextArea.Caret.PositionChanged += KeepCaretOffFoldedRunsEnd;
+            _stickyScroll = new StickyScrollController(StickyHeaders, TextEditor, vm.Settings,
+                () => _foldingManager?.AllFoldings.Where(f =>
+                    !ReferenceEquals(f.Tag, HeaderFoldTag) && !ReferenceEquals(f.Tag, RunFoldTag)) ?? []);
             ApplyFolds(vm, []);
+            _semanticColorizer = new SemanticTokensColorizer();
+            TextEditor.TextArea.TextView.LineTransformers.Insert(
+                TextEditor.TextArea.TextView.LineTransformers.IndexOf(_readOnlyColorizer), _semanticColorizer);
+            _ = RequestSemanticTokensAsync(vm, CancellationToken.None);
             _ = RequestFoldingsAsync(vm, CancellationToken.None);
 
             // Bookmark gutter margin
@@ -343,7 +414,8 @@ public partial class CodeEditorView : UserControl
             // Debugger: breakpoint gutter (red dots, click-to-toggle) + the amber current-statement bar.
             _breakpointMargin = new HexIDE.Debugging.BreakpointMargin(vm.BreakpointService, vm.Identity, vm.ToggleBreakpoint,
                 () => vm.ExternalDebugger?.IsActive == true,
-                () => vm.ExternalDebugger?.GetBreakpoints(vm.GetDocumentUriPublic()) ?? [], vm.DescribeExternalBreakpoint);
+                () => vm.ExternalDebugger?.GetBreakpoints(vm.GetDocumentUriPublic()) ?? [], vm.DescribeExternalBreakpoint,
+                vm.BreakpointCondition, vm.EditBreakpointConditionAsync, vm.HasBreakpoint);
             TextEditor.TextArea.LeftMargins.Insert(0, _breakpointMargin);
             _currentLineRenderer = new HexIDE.Debugging.CurrentLineRenderer(TextEditor);
             TextEditor.TextArea.TextView.BackgroundRenderers.Insert(0, _currentLineRenderer);
@@ -353,8 +425,12 @@ public partial class CodeEditorView : UserControl
             if (_externalDebugger is not null)
             {
                 int? displayedExecutionLine = null;
-                _onExternalDebugChanged = () =>
+                Action? onExternalDebugChanged = null;
+                onExternalDebugChanged = () =>
                 {
+                    // Re-docking can detach and re-attach us during this event's invocation. Only this
+                    // attachment's callback may touch the view, even if the old delegate is still queued.
+                    if (!ReferenceEquals(_onExternalDebugChanged, onExternalDebugChanged)) return;
                     _hoverCts?.Cancel();
                     _hoverCts?.Dispose();
                     _hoverCts = null;
@@ -372,6 +448,7 @@ public partial class CodeEditorView : UserControl
                         TextEditor.ScrollToLine(line.Value);
                     displayedExecutionLine = line;
                 };
+                _onExternalDebugChanged = onExternalDebugChanged;
                 _externalDebugger.Changed += _onExternalDebugChanged;
                 _onExternalDebugChanged();
             }
@@ -384,9 +461,29 @@ public partial class CodeEditorView : UserControl
             if (_debugController.CurrentStop is { } stop)
                 ShowCurrentStatement(vm, stop.Module, stop.Line);
 
+            _callStack = vm.CallStack;
+            if (_callStack is not null)
+            {
+                _onFrameShown = () =>
+                {
+                    var frame = _callStack.ShownFrame;
+                    var here = frame?.Module is { } module && vm.RunningProject is { } running
+                        && vm.Identity.IsIn(running) && vm.Identity.IsNamed(module);
+                    _breakpointMargin?.SetCallSite(here && frame!.IsCaller ? frame.Line : null);
+                    if (here && frame!.Line > 0 && frame.Line <= TextEditor.Document.LineCount)
+                    {
+                        vm.CaretOffset = TextEditor.Document.GetLineByNumber(frame.Line).Offset;
+                        TextEditor.ScrollToLine(frame.Line);
+                    }
+                };
+                _callStack.FrameShown += _onFrameShown;
+                _onFrameShown();
+            }
+
             // Hover tooltip
             ToolTip.SetPlacement(TextEditor, PlacementMode.Pointer);
             ToolTip.SetShowDelay(TextEditor, 0);
+            ToolTip.SetServiceEnabled(TextEditor, false);
             TextEditor.PointerMoved += OnPointerMoved;
             TextEditor.PointerExited += OnPointerExited;
 
@@ -484,7 +581,18 @@ public partial class CodeEditorView : UserControl
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
         base.OnDetachedFromVisualTree(e);
+        if (_editorSelectionSync is not null)
+        {
+            TextEditor.TextArea.SelectionChanged -= _editorSelectionSync;
+            _editorSelectionSync = null;
+        }
+        codeLenses?.Dispose();
+        codeLenses = null;
         Minimap.Detach();
+        _indentGuideRenderer?.Dispose();
+        _indentGuideRenderer = null;
+        _stickyScroll?.Dispose();
+        _stickyScroll = null;
 
         // PaletteChanged is a static event: a Dock document-move re-materialises this view, so an
         // unremoved handler leaks it for the process lifetime and fires a stale redraw per theme
@@ -507,6 +615,9 @@ public partial class CodeEditorView : UserControl
                 _watchedDocument = null;
             }
             vm.LanguageServerStateChanged -= OnLanguageServerStateChanged;
+            if (_inlaySettingsChanged is not null)
+                vm.Settings.PropertyChanged -= _inlaySettingsChanged;
+            _inlaySettingsChanged = null;
             if (_vmSelectionSync is not null)
             {
                 vm.PropertyChanged -= _vmSelectionSync;
@@ -518,6 +629,12 @@ public partial class CodeEditorView : UserControl
             vm.StatusBar.Column = null;
         }
 
+        ++_inlayRevision;
+        if (_inlayHintRenderer is not null)
+        {
+            TextEditor.TextArea.TextView.BackgroundRenderers.Remove(_inlayHintRenderer);
+            _inlayHintRenderer = null;
+        }
         if (_markerService is not null)
         {
             TextEditor.TextArea.TextView.BackgroundRenderers.Remove(_markerService);
@@ -534,6 +651,13 @@ public partial class CodeEditorView : UserControl
 
         _readOnlyTextSub?.Dispose();
         _readOnlyTextSub = null;
+        if (_bracketDepthColorizer is not null)
+        {
+            TextEditor.TextArea.TextView.LineTransformers.Remove(_bracketDepthColorizer);
+            _bracketDepthColorizer.Dispose();
+            _bracketDepthColorizer = null;
+        }
+
         if (_readOnlyColorizer is not null)
         {
             TextEditor.TextArea.TextView.LineTransformers.Remove(_readOnlyColorizer);
@@ -576,6 +700,10 @@ public partial class CodeEditorView : UserControl
             _currentLineRenderer = null;
         }
 
+        if (_callStack is not null && _onFrameShown is not null) _callStack.FrameShown -= _onFrameShown;
+        _callStack = null;
+        _onFrameShown = null;
+
         if (_debugController is not null)
         {
             if (_externalDebugger is not null && _onExternalDebugChanged is not null)
@@ -592,6 +720,10 @@ public partial class CodeEditorView : UserControl
         _foldCts?.Cancel();
         _foldCts?.Dispose();
         _foldCts = null;
+        _semanticVersion++;
+        if (_semanticColorizer is not null)
+            TextEditor.TextArea.TextView.LineTransformers.Remove(_semanticColorizer);
+        _semanticColorizer = null;
 
         TextEditor.PointerMoved -= OnPointerMoved;
         TextEditor.PointerExited -= OnPointerExited;
@@ -629,9 +761,14 @@ public partial class CodeEditorView : UserControl
 
     private void OnCaretPositionChanged(object? sender, EventArgs e)
     {
+        ResetSelectionChain();
+        CommandManager.InvalidateRequerySuggested();
         if (DataContext is CodeEditorViewModel vm)
         {
             vm.CaretOffset = TextEditor.CaretOffset;
+            // Clearing a selection can raise SelectionChanged before the caret moves to its new start.
+            if (TextEditor.TextArea.Selection.IsEmpty)
+                _editorSelectionSync?.Invoke(sender, e);
 
             var caret = TextEditor.TextArea.Caret;
             vm.StatusBar.Line = caret.Line;
@@ -642,12 +779,20 @@ public partial class CodeEditorView : UserControl
 
     private void OnTextChangedForFolding(object? sender, EventArgs e)
     {
-        if (DataContext is not CodeEditorViewModel vm) return;
+        ResetSelectionChain();
+        // Binding the document before attach is covered by the initial folding request on attach.
+        if (_foldingManager is null || DataContext is not CodeEditorViewModel vm) return;
         // Not left to the debounced request below: a reload removes every fold, and the header would show
         // expanded for half a second, or for good were the request to fail. A member's run is the same, and one
         // an edit turns into an orphan has to lose its fold now rather than when a server next answers (task 4.3).
         if (!OwnFoldsAreCurrent(vm))
             ApplyFolds(vm, null);
+        _semanticVersion++;
+        if (_semanticColorizer is { } semantic)
+        {
+            semantic.Tokens = [];
+            TextEditor.TextArea.TextView.Redraw();
+        }
         ScheduleFolding(vm);
     }
 
@@ -659,6 +804,11 @@ public partial class CodeEditorView : UserControl
     {
         if (_readOnlyColorizer is null) return;
         _readOnlyColorizer.Brush = brush;
+        if (_inlayHintRenderer is not null)
+        {
+            _inlayHintRenderer.Brush = brush;
+            TextEditor.TextArea.TextView.InvalidateLayer(_inlayHintRenderer.Layer);
+        }
         TextEditor.TextArea.TextView.Redraw();
     }
 
@@ -700,7 +850,7 @@ public partial class CodeEditorView : UserControl
     /// </para>
     /// <para>
     /// <b>A run's section the manager paired keeps its live state</b>; only one it made new takes the state
-    /// remembered for the run's key. Pairing is by start alone (MidLineFoldBehaviourTests), and a section paired is
+    /// remembered for the run's key. A section still paired with a run is
     /// the very fold the developer is looking at, whose key an edit to the declaration may just have changed. A new
     /// section is also made expanded when the caret is inside it or at its end, as it is when a developer types a
     /// run in under its declaration: folded, the line being typed would vanish under the caret.
@@ -717,24 +867,32 @@ public partial class CodeEditorView : UserControl
         ObserveOwnFolds(vm);
 
         var shown = new List<NewFolding>();
-        var runSections = new HashSet<FoldingSection>();
+        var runSections = new Dictionary<FoldingSection, bool>();
         foreach (var section in manager.AllFoldings)
         {
             if (ReferenceEquals(section.Tag, RunFoldTag))
-                runSections.Add(section);
+                runSections[section] = section.IsFolded;
             else if (server is null && !ReferenceEquals(section.Tag, HeaderFoldTag))
                 shown.Add(new NewFolding(section.StartOffset, section.EndOffset) { Name = section.Title });
         }
 
+        var previousHeader = HeaderSection();
         var header = Vb6FoldingAdapter.Header(vm.Document, vm.ReadOnlyRegionsNow);
+        var freshHeader = previousHeader is null || header is null
+                          || previousHeader.StartOffset != header.StartOffset || previousHeader.EndOffset != header.EndOffset;
         var runs = vm.MemberRunsNow;
         var own = Vb6FoldingAdapter.MemberRuns(runs);
         if (header is not null)
             own.Insert(0, header);
-        manager.UpdateFoldings(Vb6FoldingAdapter.Merge(own, server ?? shown), -1);
+        Vb6FoldingAdapter.Update(manager, Vb6FoldingAdapter.Merge(own, server ?? shown));
+        foreach (var section in manager.AllFoldings)
+        {
+            if (ReferenceEquals(section.Tag, RunFoldTag) || ReferenceEquals(section.Tag, HeaderFoldTag))
+                section.Tag = null;
+        }
 
         // The header's section is the one at its offsets. The manager kept the old one if it still starts at the
-        // top of the file, and nothing else can have taken it: the merge drops any other fold starting there. A new
+        // top of the file; other folds can share its start, so the end must match too. A new
         // one is left open over a caret inside it, as navigating to a header line in a document not yet open puts it
         // there before the folds exist, which would fold it away under the caret (#700 review).
         var caret = TextEditor.TextArea.Caret.Offset;
@@ -743,17 +901,18 @@ public partial class CodeEditorView : UserControl
             foreach (var section in manager.GetFoldingsAt(header.StartOffset))
             {
                 if (section.EndOffset != header.EndOffset) continue;
-                var fresh = !ReferenceEquals(section.Tag, HeaderFoldTag);
                 section.Tag = HeaderFoldTag;
                 section.IsFolded = !vm.HeaderFoldExpanded
-                                   && !(fresh && section.StartOffset < caret && caret <= section.EndOffset);
+                                   && !(freshHeader && section.StartOffset < caret && caret <= section.EndOffset);
             }
         }
 
         foreach (var run in runs)
         {
             if (run.Key is not { } key || RunSection(run) is not { } section) continue;
-            if (!runSections.Contains(section))
+            if (runSections.TryGetValue(section, out var folded))
+                section.IsFolded = folded;
+            else
             {
                 var caretInside = section.StartOffset < caret && caret <= section.EndOffset;
                 section.IsFolded = !caretInside && !vm.ExpandedMemberRuns.Contains(key);
@@ -1045,11 +1204,24 @@ public partial class CodeEditorView : UserControl
     /// </remarks>
     private void OnLanguageServerStateChanged()
     {
-        if (DataContext is CodeEditorViewModel vm) ScheduleFolding(vm);
+        ResetSelectionChain();
+        ExpandSelection.RaiseCanExecutedChanged();
+        ShrinkSelection.RaiseCanExecutedChanged();
+        CommandManager.InvalidateRequerySuggested();
+        _semanticVersion++;
+        if (DataContext is CodeEditorViewModel vm)
+        {
+            codeLenses?.Dispose();
+            codeLenses = new CodeLensDisplay(TextEditor, CodeLensLayer, vm.CreateCodeLensSession(),
+                command => vm.RunCodeLensAsync(command).ListenErrors());
+            ScheduleFolding(vm);
+        }
     }
 
     private void ScheduleFolding(CodeEditorViewModel vm)
     {
+        ++_inlayRevision;
+        _inlayHintRenderer?.SetHints([]);
         _foldCts?.Cancel();
         _foldCts?.Dispose();
         _foldCts = new CancellationTokenSource();
@@ -1061,23 +1233,53 @@ public partial class CodeEditorView : UserControl
         try
         {
             await Task.Delay(500, token);
-            await RequestFoldingsAsync(vm, token);
+            token.ThrowIfCancellationRequested();
+            var session = vm.CreateCodeLensSession();
+            if (codeLenses?.Session != session)
+            {
+                codeLenses?.Dispose();
+                codeLenses = new CodeLensDisplay(TextEditor, CodeLensLayer, session,
+                    command => vm.RunCodeLensAsync(command).ListenErrors());
+            }
+            await Task.WhenAll(RequestFoldingsAsync(vm, token), RequestSemanticTokensAsync(vm, token));
+        }
+        catch (OperationCanceledException) { }
+    }
+
+    private async Task RequestSemanticTokensAsync(CodeEditorViewModel vm, CancellationToken token)
+    {
+        var version = _semanticVersion;
+        var colorizer = _semanticColorizer;
+        if (colorizer is null) return;
+        try
+        {
+            var result = await vm.Analysis.Tokens(token);
+            await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                if (token.IsCancellationRequested || version != _semanticVersion
+                    || !ReferenceEquals(colorizer, _semanticColorizer) || !ReferenceEquals(DataContext, vm)) return;
+                colorizer.Tokens = SemanticTokensColorizer.Decode(vm.Document, result);
+                TextEditor.TextArea.TextView.Redraw();
+            });
         }
         catch (OperationCanceledException) { }
     }
 
     private async Task RequestFoldingsAsync(CodeEditorViewModel vm, CancellationToken token)
     {
-        if (_foldingManager is null) return;
+        var manager = _foldingManager;
+        if (manager is null) return;
+        _ = RequestInlayHintsAsync(vm, token);
         try
         {
-            var ranges = await vm.RequestFoldingRangesAsync(token);
+            var ranges = await vm.Analysis.Folds(token);
             if (token.IsCancellationRequested) return;
             var doc = TextEditor.Document;
             await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
             {
-                if (token.IsCancellationRequested || _foldingManager is null) return;
+                if (token.IsCancellationRequested || !ReferenceEquals(manager, _foldingManager)) return;
                 ApplyFolds(vm, Vb6FoldingAdapter.FromServer(doc, ranges));
+                _stickyScroll?.Refresh();
             });
         }
         catch (OperationCanceledException) { }
@@ -1085,6 +1287,23 @@ public partial class CodeEditorView : UserControl
         {
             Log.Debug("[folding] {ErrorMessage}", ex.Message);
         }
+    }
+
+    private async Task RequestInlayHintsAsync(CodeEditorViewModel vm, CancellationToken token)
+    {
+        var revision = _inlayRevision;
+        var renderer = _inlayHintRenderer;
+        try
+        {
+            var hints = await vm.Analysis.Hints(token);
+            await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                if (token.IsCancellationRequested || revision != _inlayRevision || !ReferenceEquals(renderer, _inlayHintRenderer) || DataContext != vm) return;
+                _inlayHintRenderer?.SetHints(vm.Settings.ShowInlayHints ? hints : []);
+            });
+        }
+        catch (OperationCanceledException) { }
+        catch (Exception ex) { Log.Debug("[inlay hints] {ErrorMessage}", ex.Message); }
     }
 
     private void OnPointerMoved(object? sender, PointerEventArgs e)
@@ -1102,35 +1321,97 @@ public partial class CodeEditorView : UserControl
         _hoverCts = new CancellationTokenSource();
         var token = _hoverCts.Token;
 
-        CloseTip();
+        if (ToolTip.GetTip(TextEditor) is not ToolTip) CloseTip();
 
         // GetPosition expects document coordinates, while pointer events are relative to the viewport.
         var tvPos = TextEditor.TextArea.TextView.GetPosition(point + TextEditor.TextArea.TextView.ScrollOffset);
-        if (tvPos is null) return;
-
-        if (_externalDebugger is { Stop: not null, SelectedFrame: not null })
+        switch (CurrentRoute(tvPos is not null))
         {
-            if (_externalDebugger.CanEvaluateHover)
-            {
-                var word = WordAt(TextEditor.Document.GetOffset(tvPos.Value.Line, tvPos.Value.Column));
-                if (!string.IsNullOrEmpty(word)) _ = ShowExternalDataTipAsync(word, token);
-            }
-            return;
+            case HoverRoute.NotOverText:
+                return;
+            case HoverRoute.ExternalDataTip:
+                if (_externalDebugger!.CanEvaluateHover)
+                {
+                    var word = WordAt(TextEditor.Document.GetOffset(tvPos!.Value.Line, tvPos.Value.Column));
+                    if (!string.IsNullOrEmpty(word)) _ = ShowExternalDataTipAsync(word, token);
+                }
+                return;
+            // Break-mode Auto Data Tip: hovering an identifier while the debugger is Paused shows its LIVE value
+            // (evaluated against the paused frame), taking precedence over LSP quick-info — VB6's Auto Data Tips.
+            case HoverRoute.DataTip:
+                _ = ShowDataTipAsync(TextEditor.Document.GetOffset(tvPos!.Value.Line, tvPos.Value.Column), token);
+                return;
         }
 
-        // Break-mode Auto Data Tip: hovering an identifier while the debugger is Paused shows its LIVE value
-        // (evaluated against the paused frame), taking precedence over LSP quick-info — VB6's Auto Data Tips.
-        if (_debugController is { State: HexIDE.Runtime.Debugging.DebugState.Paused })
-        {
-            int offset = TextEditor.Document.GetOffset(tvPos.Value.Line, tvPos.Value.Column);
-            _ = ShowDataTipAsync(offset, token);
-            return;
-        }
-
-        var lspPos = new Position(tvPos.Value.Line - 1, tvPos.Value.Column - 1);
+        var lspPos = new Position(tvPos!.Value.Line - 1, tvPos.Value.Column - 1);
         if (DataContext is not CodeEditorViewModel vm) return;
 
+        // Quick info, or with Auto Quick Info off only a diagnostic at the point: the delay reads the setting itself.
         _ = HoverAfterDelayAsync(vm, lspPos, token);
+    }
+
+    /// <summary>Which tip a pointer resting on the text asks for.</summary>
+    /// <remarks>
+    /// One decision, read by the pointer handler that acts on it and by the automation's <c>hover</c>, which reports it
+    /// when no tip opened (#2574). A reply that worked the route out again for itself could disagree with what the editor
+    /// did, which is the ambiguity the report exists to remove.
+    /// </remarks>
+    internal enum HoverRoute
+    {
+        /// <summary>The point is past the last line, so nothing is asked.</summary>
+        NotOverText,
+
+        /// <summary>An external debugger has the program stopped: its evaluate is asked for the word, when it evaluates for hovers.</summary>
+        ExternalDataTip,
+
+        /// <summary>The interpreter is paused: the word is evaluated for an Auto Data Tip, and no language server is asked.</summary>
+        DataTip,
+
+        /// <summary>The language servers are asked for quick info after the dwell.</summary>
+        QuickInfo,
+
+        /// <summary>Auto Quick Info is off, so only a diagnostic at the point can open a tip.</summary>
+        QuickInfoOff,
+    }
+
+    /// <summary>The route for a point, from what decides it. Pure, so the order of the checks is testable.</summary>
+    internal static HoverRoute RouteFor(bool overText, bool externalStop, bool paused, bool autoQuickInfo) =>
+        !overText ? HoverRoute.NotOverText
+        : externalStop ? HoverRoute.ExternalDataTip
+        : paused ? HoverRoute.DataTip
+        : autoQuickInfo ? HoverRoute.QuickInfo
+        : HoverRoute.QuickInfoOff;
+
+    private HoverRoute CurrentRoute(bool overText) => RouteFor(
+        overText,
+        _externalDebugger is { Stop: not null, SelectedFrame: not null },
+        _debugController is { State: HexIDE.Runtime.Debugging.DebugState.Paused },
+        (DataContext as CodeEditorViewModel)?.Settings.AutoQuickInfo ?? SettingsDefaults.AutoQuickInfo);
+
+    /// <summary>What a hover at a point asked for: the route, the 1-based line and column, the word there, and the document's URI.</summary>
+    /// <param name="ExternalEvaluates">For <see cref="HoverRoute.ExternalDataTip"/>, whether the debugger evaluates for hovers at all.</param>
+    internal readonly record struct HoverRouteAt(
+        HoverRoute Route, int? Line, int? Column, string? Word, string? DocumentUri, bool ExternalEvaluates);
+
+    /// <summary>
+    /// The route a hover took at <paramref name="point"/> on <paramref name="receiver"/>, or null when the receiver is not
+    /// in a code window. For the automation's <c>hover</c> (#2574); call on the UI thread.
+    /// </summary>
+    internal static HoverRouteAt? RouteUnder(Control receiver, Point point)
+    {
+        var view = receiver as CodeEditorView
+            ?? Avalonia.VisualTree.VisualExtensions.FindAncestorOfType<CodeEditorView>(receiver);
+        if (view is null) return null;
+        var textView = view.TextEditor.TextArea.TextView;
+        if (receiver.TranslatePoint(point, textView) is not { } local) return null;
+        var position = textView.GetPosition(local + textView.ScrollOffset);
+        var uri = (view.DataContext as CodeEditorViewModel)?.LiveDocumentUri;
+        var route = view.CurrentRoute(position is not null);
+        if (position is not { } at)
+            return new HoverRouteAt(route, null, null, null, uri, false);
+        var word = view.WordAt(view.TextEditor.Document.GetOffset(at.Line, at.Column));
+        return new HoverRouteAt(route, at.Line, at.Column, string.IsNullOrEmpty(word) ? null : word, uri,
+            view._externalDebugger?.CanEvaluateHover == true);
     }
 
     private async Task ShowExternalDataTipAsync(string word, CancellationToken token)
@@ -1204,6 +1485,14 @@ public partial class CodeEditorView : UserControl
         ToolTip.SetTip(TextEditor, null);
     }
 
+    private void DismissHover()
+    {
+        _hoverCts?.Cancel();
+        _hoverCts?.Dispose();
+        _hoverCts = null;
+        CloseTip();
+    }
+
     private void OnPointerExited(object? sender, PointerEventArgs e)
     {
         // Forgotten, not just cancelled: a pointer coming back to the same point is a new hover, not jitter in the last one,
@@ -1211,7 +1500,16 @@ public partial class CodeEditorView : UserControl
         _hoverCts?.Cancel();
         _hoverCts?.Dispose();
         _hoverCts = null;
-        CloseTip();
+        if (ToolTip.GetTip(TextEditor) is ToolTip richTip)
+            _ = CloseRichTipAfterExitAsync(richTip);
+        else CloseTip();
+    }
+
+    private async Task CloseRichTipAfterExitAsync(ToolTip tip)
+    {
+        await Task.Delay(200);
+        if (ReferenceEquals(ToolTip.GetTip(TextEditor), tip) && !tip.IsPointerOver && !TextEditor.IsPointerOver)
+            CloseTip();
     }
 
     public void TriggerQuickInfo()
@@ -1307,7 +1605,7 @@ public partial class CodeEditorView : UserControl
             await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
             {
                 if (token.IsCancellationRequested) return;
-                ShowDiagnosticTip(pos, result?.Contents.Value);
+                ShowDiagnosticTip(pos, result?.Contents);
             });
         }
         catch (OperationCanceledException) { }
@@ -1317,22 +1615,41 @@ public partial class CodeEditorView : UserControl
         }
     }
 
-    private void ShowDiagnosticTip(Position pos, string? quickInfo)
+    private void ShowDiagnosticTip(Position pos, MarkupContent? quickInfo)
     {
         var offset = TextEditor.Document.GetOffset(pos.Line + 1, pos.Character + 1);
-        var parts = new List<string>();
+        if (DataContext is not CodeEditorViewModel vm) return;
+        var markers = _markerService?.Markers.Where(m => offset >= m.StartOffset && offset < m.EndOffset).ToArray() ?? [];
+        if (quickInfo?.Kind != "markdown" && !markers.Any(m => m.RelatedInformation is { Length: > 0 }))
+        {
+            var parts = markers.Select(m => string.IsNullOrEmpty(m.Source) ? m.Message : $"{m.Source}: {m.Message}").ToList();
+            if (!string.IsNullOrEmpty(quickInfo?.Value)) parts.Add(quickInfo.Value);
+            if (parts.Count == 0) { CloseTip(); return; }
+            ToolTip.SetTip(TextEditor, string.Join(Environment.NewLine + Environment.NewLine, parts));
+            ToolTip.SetIsOpen(TextEditor, true);
+            return;
+        }
+        var panel = new StackPanel { Spacing = 8 };
         if (_markerService is { } service)
         {
             foreach (var marker in service.Markers)
-            {
                 if (offset >= marker.StartOffset && offset < marker.EndOffset)
-                    parts.Add(string.IsNullOrEmpty(marker.Source)
-                        ? marker.Message : $"{marker.Source}: {marker.Message}");
-            }
+                    panel.Children.Add(vm.DiagnosticContent(marker));
         }
-        if (!string.IsNullOrEmpty(quickInfo)) parts.Add(quickInfo);
-        if (parts.Count == 0) { CloseTip(); return; }
-        ToolTip.SetTip(TextEditor, string.Join(Environment.NewLine + Environment.NewLine, parts));
+        if (quickInfo is { Value.Length: > 0 })
+            panel.Children.Add(HoverContentView.Render(quickInfo, TextEditor, uri =>
+            {
+                if (uri.IsFile) vm.OpenHoverFile(uri);
+                else if (uri.Scheme is "http" or "https" && TopLevel.GetTopLevel(this) is { } top)
+                    _ = top.Launcher.LaunchUriAsync(uri);
+            }));
+        if (panel.Children.Count == 0) { CloseTip(); return; }
+        var richTip = new ToolTip { Content = panel };
+        richTip.PointerEntered += (_, _) => _hoverCts?.Cancel();
+        richTip.PointerExited += (_, _) => _ = CloseRichTipAfterExitAsync(richTip);
+        // Replacing the tip instance does not update the popup that is already open.
+        ToolTip.SetIsOpen(TextEditor, false);
+        ToolTip.SetTip(TextEditor, richTip);
         ToolTip.SetIsOpen(TextEditor, true);
     }
 
@@ -1348,6 +1665,9 @@ public partial class CodeEditorView : UserControl
 
     private void OnTextEntering(object? sender, TextInputEventArgs e)
     {
+        if (e.Text is { Length: > 0 })
+            DismissHover();
+
         // Editing while the project is running/paused can't be hot-patched. Let the edit land (VB6 shows it), and
         // pop VB6's reset prompt — OK keeps the edit + resets the project, Cancel reverts it (see ShowResetPromptAsync).
         // Armed, not raised: whether the text lands is decided after this, by the read-only section provider.
@@ -1556,7 +1876,7 @@ public partial class CodeEditorView : UserControl
             TriggerCompletionAsync(e.Text);
         // Trigger signature help on ( or ,
         if (ch == '(' || ch == ',')
-            TriggerSignatureHelpAsync();
+            TriggerSignatureHelpAsync(ch.ToString());
         // Close signature help when all parens are closed
         if (ch == ')')
             CloseInsightWindowIfBalanced();
@@ -1589,6 +1909,29 @@ public partial class CodeEditorView : UserControl
         {
             e.Handled = true;
             return;
+        }
+        if (e.KeyModifiers == KeyModifiers.None)
+        {
+            if (e.Key == Key.Return && CompletionSnippet.OpenChoiceWindows(TextEditor.TextArea).FirstOrDefault() is { } choice)
+            {
+                choice.CompletionList.RequestInsertion(e);
+                e.Handled = true;
+                return;
+            }
+            if (_completionWindow is { } completion && e.Key is Key.Return or Key.Tab or Key.Space)
+            {
+                if (e.Key == Key.Tab && completion.CompletionList.SelectedItem is null)
+                    completion.CompletionList.SelectedItem = completion.CompletionList.CompletionData.FirstOrDefault();
+                if (completion.CompletionList.SelectedItem is not null)
+                    completion.CompletionList.RequestInsertion(e);
+                else
+                    completion.Close();
+                if (e.Key == Key.Tab)
+                {
+                    e.Handled = true;
+                    return;
+                }
+            }
         }
         // Enter = auto-close block + auto-indent
         if (e.Key == Key.Return && e.KeyModifiers == KeyModifiers.None)
@@ -1644,6 +1987,11 @@ public partial class CodeEditorView : UserControl
                     e.Handled = true;
                 }
             }
+        }
+        else if (e.Key == Key.F12 && e.KeyModifiers == KeyModifiers.Shift)
+        {
+            e.Handled = true;
+            FindReferences();
         }
         // F12 = go to definition
         else if (e.Key == Key.F12 && e.KeyModifiers == KeyModifiers.None)
@@ -1799,7 +2147,7 @@ public partial class CodeEditorView : UserControl
                 var updatedLine = doc.GetLineByNumber(currentLineNumber);
                 var updatedLineText = doc.GetText(updatedLine.Offset, updatedLine.Length);
                 var indent = VbAutoCloseProvider.GetIndentation(updatedLineText);
-                var bodyIndent = VbAutoCloseProvider.GetBodyIndent(indent);
+                var bodyIndent = VbAutoCloseProvider.GetBodyIndent(indent, TextEditor.Options.IndentationSize);
                 var addCloser = closer is not null && !NextNonEmptyLineIs(doc, lastLineBefore, closer);
                 var insertText = addCloser ? newline + bodyIndent + newline + indent + closer : newline + indent;
 
@@ -2030,6 +2378,47 @@ public partial class CodeEditorView : UserControl
         area.Caret.BringCaretToView();
     }
 
+    private async Task PasteAsCommentAsync()
+    {
+        var text = await ClipboardTextAsync();
+        if (string.IsNullOrEmpty(text))
+            return;
+        AskBeforeClipboardEdit(paste: true);
+        InsertAsComment(text);
+    }
+
+    internal void InsertAsComment(string text)
+    {
+        if (string.IsNullOrEmpty(text))
+            return;
+        var area = TextEditor.TextArea;
+        var line = area.Document.GetLineByOffset(TextEditor.SelectionStart);
+        var prefix = area.Document.GetText(line.Offset, TextEditor.SelectionStart - line.Offset);
+        var indentation = new string(prefix.TakeWhile(c => c is ' ' or '\t').ToArray());
+        var newline = TextUtilities.GetNewLineFromDocument(area.Document, line.LineNumber);
+        var lines = text.ReplaceLineEndings("\n").Split('\n');
+        var continuationIndent = area.Selection is RectangleSelection { IsEmpty: false } ? "" : indentation;
+        var commented = "'" + string.Join(newline + continuationIndent + "'", lines);
+        if (EditedSpan() is var (selectionOffset, selectionLength)
+            && selectionOffset + selectionLength < area.Document.GetLineByOffset(selectionOffset + selectionLength).EndOffset)
+            commented += newline + indentation;
+        using (area.Document.RunUpdate())
+        {
+            if (area.Selection is RectangleSelection { IsEmpty: false } box)
+                WriteOverBox(area, box, commented);
+            else if (DataContext is CodeEditorViewModel vm
+                && EditedSpan() is var (offset, length)
+                && vm.InsertLineBreakPastRun(offset, length, commented) is { } placed)
+            {
+                area.ClearSelection();
+                area.Caret.Offset = placed.End;
+            }
+            else
+                area.Selection.ReplaceSelectionWithText(commented);
+        }
+        area.Caret.BringCaretToView();
+    }
+
     /// <summary>The clipboard's text, or null when there is none or it cannot be read.</summary>
     private async Task<string?> ClipboardTextAsync()
     {
@@ -2077,7 +2466,7 @@ public partial class CodeEditorView : UserControl
         return true;
     }
 
-    private void TriggerCompletionAsync(string? triggerCharacter = null)
+    private void TriggerCompletionAsync(string? triggerCharacter = null, bool completeWord = false)
     {
         if (DataContext is not CodeEditorViewModel vm) return;
         if (!vm.Settings.AutoListMembers) return;
@@ -2089,14 +2478,18 @@ public partial class CodeEditorView : UserControl
 
         var caret = TextEditor.TextArea.Caret.Position;
         var lspPos = new Position(caret.Line - 1, caret.Column - 1);
-        _completionShown = ShowCompletionAsync(vm, lspPos, token, triggerCharacter);
+        _completionShown = ShowCompletionAsync(vm, lspPos, token, triggerCharacter, completeWord);
     }
 
     private async Task ShowCompletionAsync(CodeEditorViewModel vm, Position position, CancellationToken token,
-        string? triggerCharacter)
+        string? triggerCharacter, bool completeWord)
     {
         try
         {
+            // The document change is debounced 300ms, but completion needs the current source.
+            await vm.FlushDocumentAsync(token);
+            if (token.IsCancellationRequested) return;
+
             var items = triggerCharacter is null
                 ? await vm.RequestCompletionAsync(position, token)
                 : await vm.RequestCompletionForTriggerAsync(position, triggerCharacter, token);
@@ -2106,13 +2499,26 @@ public partial class CodeEditorView : UserControl
             {
                 if (token.IsCancellationRequested) return;
 
+                DismissHover();
+
                 // If a window is already open, close it first
                 _completionWindow?.Close();
 
+                if (completeWord)
+                {
+                    var (start, end) = CompletionWord(TextEditor.TextArea);
+                    var word = TextEditor.Document.GetText(start, end - start);
+                    var matches = items.Where(item => (item.FilterText ?? item.Label)
+                        .StartsWith(word, StringComparison.OrdinalIgnoreCase)).ToArray();
+                    if (word.Length > 0 && matches.Length == 1)
+                    {
+                        new VbCompletionData(matches[0], vm.RefusesTyping).Complete(TextEditor.TextArea,
+                            new TextSegment { StartOffset = start, Length = end - start }, EventArgs.Empty);
+                        return;
+                    }
+                }
                 _completionWindow = new CompletionWindow(TextEditor.TextArea);
-                var data = _completionWindow.CompletionList.CompletionData;
-                foreach (var item in items)
-                    data.Add(new VbCompletionData(item, vm.RefusesTyping));
+                FillCompletionList(_completionWindow, items, vm.RefusesTyping);
 
                 _completionWindow.Closed += (_, _) => _completionWindow = null;
                 _completionWindow.Show();
@@ -2125,9 +2531,53 @@ public partial class CodeEditorView : UserControl
         }
     }
 
+    internal static void FillCompletionList(CompletionWindow window, CompletionItem[] items,
+        Func<int, int, bool> refusesTyping)
+    {
+        var area = window.TextArea;
+        var (start, end) = CompletionWord(area);
+        window.StartOffset = start;
+        window.EndOffset = end;
+        window.CloseWhenCaretAtBeginning = false;
+        window.CompletionList.IsFiltering = false;
+        foreach (var item in items.OrderBy(item => item.SortText ?? item.Label, StringComparer.Ordinal))
+            window.CompletionList.CompletionData.Add(new VbCompletionData(item, refusesTyping));
+
+        void SelectWord(object? sender, EventArgs e)
+        {
+            var (wordStart, wordEnd) = CompletionWord(area);
+            var word = area.Document.GetText(wordStart, wordEnd - wordStart);
+            var matches = window.CompletionList.CompletionData
+                .Where(data => word.Length > 0 && data.Text.StartsWith(word, StringComparison.OrdinalIgnoreCase));
+            window.CompletionList.SelectedItem = matches.FirstOrDefault(data =>
+                items.Any(item => item.Preselect == true && (item.FilterText ?? item.Label) == data.Text))
+                ?? matches.FirstOrDefault();
+            if (window.CompletionList.SelectedItem is { } selected)
+                window.CompletionList.ScrollIntoView(selected);
+        }
+        // Run after the popup's caret handler, which matches only the text before the caret.
+        window.Opened += (_, _) =>
+        {
+            area.Caret.PositionChanged += SelectWord;
+            SelectWord(null, EventArgs.Empty);
+        };
+        window.Closed += (_, _) => area.Caret.PositionChanged -= SelectWord;
+    }
+
+    private static (int Start, int End) CompletionWord(AvaloniaEdit.Editing.TextArea area)
+    {
+        var start = area.Caret.Offset;
+        var end = start;
+        while (start > 0 && IsWord(area.Document.GetCharAt(start - 1))) start--;
+        while (end < area.Document.TextLength && IsWord(area.Document.GetCharAt(end))) end++;
+        return (start, end);
+
+        static bool IsWord(char ch) => char.IsLetterOrDigit(ch) || ch == '_';
+    }
+
     // ── Signature help ───────────────────────────────────────────────────────
 
-    private void TriggerSignatureHelpAsync()
+    private void TriggerSignatureHelpAsync(string? triggerCharacter = null)
     {
         if (DataContext is not CodeEditorViewModel vm) return;
 
@@ -2138,7 +2588,7 @@ public partial class CodeEditorView : UserControl
 
         var caret = TextEditor.TextArea.Caret.Position;
         var lspPos = new Position(caret.Line - 1, caret.Column - 1);
-        _signatureShown = ShowSignatureHelpAsync(vm, lspPos, token);
+        _signatureShown = ShowSignatureHelpAsync(vm, lspPos, token, triggerCharacter);
     }
 
     private void CloseInsightWindowIfBalanced()
@@ -2158,7 +2608,7 @@ public partial class CodeEditorView : UserControl
             _insightWindow?.Close();
     }
 
-    private async Task ShowSignatureHelpAsync(CodeEditorViewModel vm, Position position, CancellationToken token)
+    private async Task ShowSignatureHelpAsync(CodeEditorViewModel vm, Position position, CancellationToken token, string? triggerCharacter)
     {
         try
         {
@@ -2167,7 +2617,7 @@ public partial class CodeEditorView : UserControl
             await vm.FlushDocumentAsync(token);
             if (token.IsCancellationRequested) return;
 
-            var help = await vm.RequestSignatureHelpAsync(position, token);
+            var help = await vm.RequestSignatureHelpAsync(position, token, triggerCharacter);
             if (token.IsCancellationRequested) return;
 
             await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
@@ -2180,6 +2630,7 @@ public partial class CodeEditorView : UserControl
                     return;
                 }
 
+                DismissHover();
                 _insightWindow?.Close();
                 var provider = new VbSignatureProvider(help);
                 _insightWindow = new OverloadInsightWindow(TextEditor.TextArea)
@@ -2251,7 +2702,69 @@ public partial class CodeEditorView : UserControl
 
     // ── Go to definition (F12) and declaration (Ctrl+F12) ─────────────────────
 
+    private void CanShowCallHierarchy(object? sender, Avalonia.Labs.Input.CanExecuteRoutedEventArgs e)
+    {
+        e.CanExecute = DataContext is CodeEditorViewModel { CanShowCallHierarchy: true };
+        e.Handled = true;
+    }
+
+    private void CallHierarchyExecuted(object? sender, Avalonia.Labs.Input.ExecutedRoutedEventArgs e)
+    {
+        if (DataContext is CodeEditorViewModel vm)
+            vm.ShowCallHierarchyAsync(new Position(TextEditor.TextArea.Caret.Line - 1,
+                TextEditor.TextArea.Caret.Column - 1)).ListenErrors();
+    }
+
+    private void CanRunCodeLens(object? sender, Avalonia.Labs.Input.CanExecuteRoutedEventArgs e)
+    {
+        e.CanExecute = codeLenses?.CommandsOnLine(TextEditor.TextArea.Caret.Line).Length > 0;
+        e.Handled = true;
+    }
+
+    public void RunCodeLens()
+    {
+        if (DataContext is not CodeEditorViewModel vm) return;
+        var commands = codeLenses?.CommandsOnLine(TextEditor.TextArea.Caret.Line) ?? [];
+        if (commands.Length == 1) vm.RunCodeLensAsync(commands[0]).ListenErrors();
+        else if (commands.Length > 1)
+        {
+            var menu = new ContextMenu();
+            foreach (var command in commands)
+            {
+                var item = new MenuItem { Header = command.Title };
+                item.Click += (_, _) => vm.RunCodeLensAsync(command).ListenErrors();
+                menu.Items.Add(item);
+            }
+            var originalMenu = TextEditor.ContextMenu;
+            TextEditor.ContextMenu = menu;
+            menu.Closed += (_, _) => TextEditor.ContextMenu = originalMenu;
+            menu.Open(TextEditor);
+        }
+    }
+
+    public void FindReferences()
+    {
+        if (DataContext is CodeEditorViewModel vm)
+            vm.FindReferencesAsync(new Position(TextEditor.TextArea.Caret.Line - 1,
+                TextEditor.TextArea.Caret.Column - 1)).ListenErrors();
+    }
+
     public void GoToDefinition() => GoTo("definition", (vm, p) => vm.RequestDefinitionAsync(p));
+
+    public void GoToImplementation() => GoTo("implementation", (vm, p) => vm.RequestImplementationAsync(p));
+    public void GoToTypeDefinition() => GoTo("typeDefinition", (vm, p) => vm.RequestTypeDefinitionAsync(p));
+
+    private void CanGoToImplementation(object? sender, Avalonia.Labs.Input.CanExecuteRoutedEventArgs e)
+    {
+        e.CanExecute = DataContext is CodeEditorViewModel vm && vm.CanGoToImplementation();
+        e.Handled = true;
+    }
+
+    private void CanGoToTypeDefinition(object? sender, Avalonia.Labs.Input.CanExecuteRoutedEventArgs e)
+    {
+        e.CanExecute = DataContext is CodeEditorViewModel vm && vm.CanGoToTypeDefinition();
+        e.Handled = true;
+    }
 
     /// <summary>
     /// Where the symbol is DECLARED, which is a different question from where it is defined.
@@ -2283,6 +2796,12 @@ public partial class CodeEditorView : UserControl
             if (locations is not { Length: > 0 })
                 return;
 
+            if (locations.Length > 1 && what is "implementation" or "typeDefinition")
+            {
+                await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => vm.ShowNavigationLocations(locations));
+                return;
+            }
+
             var loc = locations[0];
             var targetLine = loc.Range.Start.Line + 1; // AvaloniaEdit is 1-based
             var targetCol  = loc.Range.Start.Character;
@@ -2307,7 +2826,7 @@ public partial class CodeEditorView : UserControl
                 else
                 {
                     // Cross-file: ask the VM to navigate (uses IEditorService)
-                    vm.NavigateToUri(loc.Uri, targetLine, targetCol);
+                    vm.NavigateToUri(loc.Uri, targetLine, targetCol + 1);
                 }
             });
         }
@@ -2315,6 +2834,54 @@ public partial class CodeEditorView : UserControl
         catch (Exception ex)
         {
             Log.Debug("[{What}] {ErrorMessage}", what, ex.Message);
+        }
+    }
+
+    private async void OnQuickFixesOpened(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (ReferenceEquals(e.Source, QuickFixesMenu)) await LoadQuickFixesAsync();
+    }
+
+    internal async Task LoadQuickFixesAsync()
+    {
+        if (DataContext is not CodeEditorViewModel vm) return;
+        QuickFixesMenu.Items.Clear();
+        // Keep a child while the request is pending so this remains a submenu.
+        QuickFixesMenu.Items.Add(new MenuItem { Header = vm.NoQuickFixMenuLabel, IsEnabled = false });
+        try
+        {
+            var actions = await vm.RequestCodeActionsAsync(TextEditor.CaretOffset);
+            if (!ReferenceEquals(DataContext, vm)) return;
+            QuickFixesMenu.Items.Clear();
+            foreach (var group in actions.GroupBy(a => a.Server))
+            {
+                var server = new MenuItem { Header = group.First().ServerDisplayName ?? group.Key };
+                foreach (var action in group)
+                {
+                    var item = new MenuItem
+                    {
+                        Header = action.DisabledReason is { } reason ? $"{action.Title} — {reason}" : action.Title,
+                        IsEnabled = action.DisabledReason is null
+                    };
+                    item.Click += async (_, _) =>
+                    {
+                        try
+                        {
+                            if (await vm.ApplyCodeActionAsync(action) is { } refusal) await vm.ShowRefusalAsync(refusal);
+                        }
+                        catch (Exception ex) { await vm.ShowRefusalAsync(ex.Message); }
+                    };
+                    server.Items.Add(item);
+                }
+                QuickFixesMenu.Items.Add(server);
+            }
+            if (actions.Length == 0)
+                QuickFixesMenu.Items.Add(new MenuItem { Header = vm.NoQuickFixMenuLabel, IsEnabled = false });
+        }
+        catch (Exception ex)
+        {
+            QuickFixesMenu.Items.Clear();
+            QuickFixesMenu.Items.Add(new MenuItem { Header = ex.Message, IsEnabled = false });
         }
     }
 
@@ -2343,63 +2910,37 @@ public partial class CodeEditorView : UserControl
 
     // The VB6 identifier (letters / digits / underscore) spanning a document offset, or null if the offset isn't on
     // one. Shared by Rename (caret offset) and the break-mode data tip (pointer offset).
-    private string? WordAt(int offset)
+    private string? WordAt(int offset) => CodeEditorViewModel.WordAt(TextEditor.Document, offset);
+
+    internal Task RenameSymbolAsync(CodeEditorViewModel vm, Position position, string oldName)
+        => vm.RenameSymbolAsync(position, oldName);
+
+    private void CanFormatSelection(object? sender, Avalonia.Labs.Input.CanExecuteRoutedEventArgs e)
     {
-        var doc = TextEditor.Document;
-        if (offset < 0 || offset > doc.TextLength) return null;
-
-        int start = offset;
-        while (start > 0 && IsVbIdentifierChar(doc.GetCharAt(start - 1)))
-            start--;
-
-        int end = offset;
-        while (end < doc.TextLength && IsVbIdentifierChar(doc.GetCharAt(end)))
-            end++;
-
-        return start < end ? doc.GetText(start, end - start) : null;
-
-        static bool IsVbIdentifierChar(char c) => char.IsLetterOrDigit(c) || c == '_';
+        e.CanExecute = DataContext is CodeEditorViewModel { CanFormatSelection: true };
+        e.Handled = true;
     }
 
-    private async Task RenameSymbolAsync(CodeEditorViewModel vm, Position position, string oldName)
+    private void FormatSelectionExecuted(object? sender, Avalonia.Labs.Input.ExecutedRoutedEventArgs e) => _ = FormatSelectionAsync();
+
+    internal async Task FormatSelectionAsync()
     {
+        if (DataContext is not CodeEditorViewModel { CanFormatSelection: true } vm) return;
+        var start = vm.Document.GetLocation(vm.SelectionStart);
+        var end = vm.Document.GetLocation(vm.SelectionStart + vm.SelectionLength);
+        var range = new HexIDE.Lsp.Messages.Range(new Position(start.Line - 1, start.Column - 1),
+            new Position(end.Line - 1, end.Column - 1));
         try
         {
-            var newName = await vm.ShowRenameInputBoxAsync(oldName);
-            if (newName is null || newName == oldName) return;
-            // Before the request, so no server is asked to write a name VB6 would refuse (#273 task 4.4). An empty
-            // answer is refused with the rest rather than taken for Cancel, which answers null.
-            if (vm.NewNameRefusal(newName) is { } notAName)
-            {
-                await vm.ShowRefusalAsync(notAName);
-                return;
-            }
-
             await vm.FlushDocumentAsync();
-            var edit = await vm.RequestRenameAsync(position, newName);
-
-            if (edit?.Changes is null) return;
-
-            await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
-            {
-                // A plain dictionary lookup compares ordinally, and `Changes` is keyed by whatever URI the
-                // SERVER chose to write. A normalised drive letter therefore matches nothing and rename
-                // applies NOTHING — silently, and indistinguishably from a rename the server declined.
-                // Worse than the definition case above, because there is no second branch to fall into.
-                var docUri = vm.GetDocumentUriPublic();
-                var textEdits = edit.Changes
-                    .FirstOrDefault(c => HexIDE.Lsp.LspDocumentUri.AreSame(c.Key, docUri)).Value;
-                if (textEdits is null) return;
-
-                // Through the guarded path, which refuses a rename reaching the header as a whole (#273 3.9).
-                if (vm.ApplyRename(textEdits, oldName) is { } refusal)
-                    _ = vm.ShowRefusalAsync(refusal);
-            });
+            var edits = await vm.RequestRangeFormattingAsync(range);
+            if (edits.Length == 0) return;
+            await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => vm.ApplyFormatting(edits));
         }
         catch (OperationCanceledException) { }
         catch (Exception ex)
         {
-            Log.Debug("[rename] {ErrorMessage}", ex.Message);
+            Log.Debug("[rangeFormatting] {ErrorMessage}", ex.Message);
         }
     }
 
@@ -2440,24 +2981,106 @@ public partial class CodeEditorView : UserControl
 /// </param>
 internal sealed class VbCompletionData(CompletionItem item, Func<int, int, bool> isReadOnlyRegion) : ICompletionData
 {
-    public string Text => item.Label;
-    public object Content => item.Label;
+    public string Text => item.FilterText ?? item.Label;
+    public object Content => KindGlyph is { } glyph
+        ? new StackPanel
+        {
+            Orientation = Avalonia.Layout.Orientation.Horizontal,
+            Spacing = 6,
+            Children = { new TextBlock { Text = glyph }, new TextBlock { Text = item.Label } }
+        }
+        : item.Label;
+
+    private string? KindGlyph => item.Kind switch
+    {
+        CompletionItemKind.Method or CompletionItemKind.Function or CompletionItemKind.Constructor
+            or CompletionItemKind.Operator => OBMemberViewModel.GlyphFor(OBMemberKind.Method),
+        CompletionItemKind.Field or CompletionItemKind.Variable or CompletionItemKind.Property
+            => OBMemberViewModel.GlyphFor(OBMemberKind.Property),
+        CompletionItemKind.Constant or CompletionItemKind.Value => OBMemberViewModel.GlyphFor(OBMemberKind.Constant),
+        CompletionItemKind.EnumMember => OBMemberViewModel.GlyphFor(OBMemberKind.EnumMember),
+        CompletionItemKind.Event => OBMemberViewModel.GlyphFor(OBMemberKind.Event),
+        CompletionItemKind.Module => OBClassViewModel.GlyphFor(OBClassKind.Module),
+        CompletionItemKind.Class or CompletionItemKind.Interface or CompletionItemKind.Struct
+            => OBClassViewModel.GlyphFor(OBClassKind.ClassModule),
+        CompletionItemKind.Enum => OBClassViewModel.GlyphFor(OBClassKind.Enum),
+        _ => null
+    };
 
     // What an item reads as to the automation surface, whose ListBoxItem holds this object rather than the text: an item
     // was named by its position alone, and selecting one by its text found none (#942 review).
-    public override string ToString() => Text;
-    public object? Description => item.Detail;
+    public override string ToString() => item.Label;
+    public object? Description => item.Documentation is { } documentation
+        ? string.IsNullOrEmpty(item.Detail) ? documentation.Value : item.Detail + "\n\n" + documentation.Value
+        : item.Detail;
     public double Priority => 0;
     public IImage? Image => null;
 
     public void Complete(AvaloniaEdit.Editing.TextArea textArea, ISegment completionSegment, EventArgs e)
     {
-        // Nothing is written into a region, nor into a file held read-only as a whole (the view passes
-        // CodeEditorViewModel.RefusesTyping). A completion belongs to the word at the caret, so there is no
-        // "after the region" to move it to that would still mean anything: it is simply not applied.
-        if (isReadOnlyRegion(completionSegment.Offset, completionSegment.Length))
+        var document = textArea.Document;
+        var mainOffset = completionSegment.Offset;
+        var mainLength = completionSegment.Length;
+        var mainText = item.InsertText ?? item.Label;
+        if (item.TextEdit is { } main)
+        {
+            if (!Resolve(main, out mainOffset, out mainLength))
+                return;
+            mainText = main.NewText;
+        }
+
+        var snippet = item.InsertTextFormat == 2 ? CompletionSnippet.Parse(mainText) : null;
+        if (item.InsertTextFormat == 2 && snippet is null)
             return;
-        textArea.Document.Replace(completionSegment, item.InsertText ?? item.Label);
+        mainText = snippet?.Text ?? mainText;
+        var edits = new List<(int Offset, int Length, string Text)> { (mainOffset, mainLength, mainText) };
+        foreach (var edit in item.AdditionalTextEdits ?? [])
+        {
+            if (!Resolve(edit, out var offset, out var length))
+                return;
+            edits.Add((offset, length, edit.NewText));
+        }
+
+        // All ranges refer to the original buffer. Refuse the whole item before writing any part of it.
+        edits.Sort((left, right) => left.Offset.CompareTo(right.Offset));
+        for (var i = 0; i < edits.Count; i++)
+        {
+            var edit = edits[i];
+            if (isReadOnlyRegion(edit.Offset, edit.Length)
+                || (i > 0 && (edits[i - 1].Offset + edits[i - 1].Length > edit.Offset
+                              || edits[i - 1].Offset == edit.Offset)))
+                return;
+        }
+
+        var caret = mainOffset + mainText.Length;
+        using (document.RunUpdate())
+        {
+            foreach (var edit in edits.AsEnumerable().Reverse())
+            {
+                document.Replace(edit.Offset, edit.Length, edit.Text);
+                if (edit.Offset < mainOffset)
+                    caret += edit.Text.Length - edit.Length;
+            }
+        }
+        textArea.ClearSelection();
+        textArea.Caret.Offset = caret;
+        snippet?.Activate(textArea, caret - mainText.Length);
+
+        bool Resolve(TextEdit edit, out int offset, out int length)
+        {
+            offset = length = 0;
+            if (edit.Range is not { Start: { } start, End: { } end }
+                || start.Line < 0 || end.Line < start.Line || end.Line >= document.LineCount
+                || start.Character < 0 || end.Character < 0)
+                return false;
+            var first = document.GetLineByNumber(start.Line + 1);
+            var last = document.GetLineByNumber(end.Line + 1);
+            if (start.Character > first.Length || end.Character > last.Length)
+                return false;
+            offset = first.Offset + start.Character;
+            length = last.Offset + end.Character - offset;
+            return length >= 0;
+        }
     }
 }
 
@@ -2503,14 +3126,17 @@ internal sealed class VbSignatureProvider : IOverloadProvider
             if (sig.Parameters is null || sig.Parameters.Length == 0 || activeParam >= sig.Parameters.Length)
                 return sig.Label;
 
-            // Highlight the active parameter in the label by surrounding it with brackets
-            var paramLabel = sig.Parameters[activeParam].Label;
             var label = sig.Label;
-            var idx = label.IndexOf(paramLabel, StringComparison.OrdinalIgnoreCase);
-            if (idx < 0) return label;
-
-            // Build a TextBlock-like string; AvaloniaEdit accepts plain strings here
-            return label[..idx] + "[" + label.Substring(idx, paramLabel.Length) + "]" + label[(idx + paramLabel.Length)..];
+            if (sig.Parameters[activeParam].Label.RangeIn(label) is not { } range) return label;
+            return new TextBlock
+            {
+                Inlines =
+                [
+                    new Run(label[..range.Start]),
+                    new Run(label.Substring(range.Start, range.Length)) { FontWeight = FontWeight.Bold },
+                    new Run(label[(range.Start + range.Length)..])
+                ]
+            };
         }
     }
 
@@ -2524,8 +3150,8 @@ internal sealed class VbSignatureProvider : IOverloadProvider
             {
                 var p = sig.Parameters[activeParam];
                 if (p.Documentation is not null)
-                    return $"{p.Label}: {p.Documentation}";
-                return p.Label;
+                    return $"{p.Label.TextIn(sig.Label)}: {p.Documentation}";
+                return p.Label.TextIn(sig.Label);
             }
             return sig.Documentation;
         }

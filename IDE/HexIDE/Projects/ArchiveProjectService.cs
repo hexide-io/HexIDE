@@ -70,6 +70,7 @@ public sealed class ArchiveProjectService
                 if (replacement.TryGetEntry(tab.Entry.Identity, out var entry))
                     tab.Update(entry, TwinBasicCompilationConstants.BuildTypeOf(replacement.Container));
                 else dock.CloseDocument(tab);
+            dock.RecentlyClosed?.RefreshArchive(replacement);
             Publish();
         }
         finally { gate.Release(); }
@@ -84,6 +85,7 @@ public sealed class ArchiveProjectService
             if (path == null) workspace.CloseAll();
             else workspace.Close(path);
             foreach (var tab in Tabs(path)) dock.CloseDocument(tab);
+            dock.RecentlyClosed?.CloseArchive(path);
             SelectTreeEntry(false);
             Publish();
         }

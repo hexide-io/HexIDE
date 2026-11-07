@@ -5,7 +5,8 @@
 # VBA grammar, a GPL-named licence file, a GPL SPDX header, or the embedded GNU GPL
 # licence body. Plain-prose mentions of "GPL" (historical notes, and legitimate
 # references to external GPL projects) are ALLOWED — this checks for real GPL
-# artifacts, not the word.
+# artifacts, not the word. Source notices are also checked against the permissive list
+# by check-source-licences.py (Python 3), with exact credited filenames as exceptions.
 #
 # NOTE: there is deliberately NO path-based "GPL server directory" check. The MIT
 # server now legitimately lives at LspServer/HexIDE.VbLspServer/ — it reclaimed that
@@ -24,7 +25,7 @@ EXCLUDE=( ':!scripts/check-licences.sh' ':!scripts/prepare-public-copy.sh' ':!sc
 fail=0
 note() { printf '  \xE2\x9C\x97 %s\n' "$1"; fail=1; }
 
-echo "check-licences: scanning for GPL and unknown-licence artifacts…"
+echo "check-licences: scanning for non-permissive and unknown-licence artifacts…"
 
 # 1. The Rubberduck VBA grammar (the origin of the GPL obligation) must not reappear.
 #    (Loops use process substitution so `fail` persists — a piped `while` runs in a subshell.)
@@ -73,7 +74,7 @@ if [ ! -f "$MANIFEST" ]; then
 else
   while IFS= read -r pkg; do
     [ -n "$pkg" ] || continue
-    lic=$(awk -F'	' -v p="$pkg" '$1==p{print $2}' "$MANIFEST" | head -n1)
+    lic=$(awk -F'	' -v p="$pkg" '{sub(/\r$/,"")} $1==p{print $2}' "$MANIFEST" | head -n1)
     if [ -z "$lic" ]; then
       note "package has no recorded licence: $pkg (add it to $MANIFEST)"
     elif ! printf '%s' "$lic" | grep -Eq "$PERMITTED"; then
@@ -92,6 +93,23 @@ fi
 while IFS= read -r hit; do
   [ -n "$hit" ] && note "reference to a licence-ambiguous origin (code must not travel inward): $hit"
 done < <(git grep -nIE '(using|namespace)[[:space:]]+RDCore(\.|;|[[:space:]])' -- . "${EXCLUDE[@]}")
+
+# 8. Source notices must use a permitted licence or name a credited third-party file.
+# Windows Store aliases can exist on PATH without running Python.
+PYTHON=()
+for candidate in python3 python py; do
+  command=("$candidate")
+  [ "$candidate" != py ] || command+=(-3)
+  if version=$("${command[@]}" --version 2>&1) && [[ "$version" == Python\ 3.* ]]; then
+    PYTHON=("${command[@]}")
+    break
+  fi
+done
+if [ -z "${PYTHON[0]:-}" ]; then
+  note "Python 3 is required for source licence checks; tried python3, python and py -3 (--version). Install Python 3 and add it to PATH."
+elif ! "${PYTHON[@]}" scripts/check-source-licences.py; then
+  fail=1
+fi
 
 if [ "$fail" -eq 0 ]; then
   echo "check-licences: OK — every dependency has a recorded, permitted licence."

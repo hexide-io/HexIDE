@@ -6,8 +6,9 @@ namespace HexIDE.Runtime.Interpreter;
 
 /// <summary>One field of a user-defined <c>Type</c>. A scalar field carries a <see cref="Vb6Value.ValueType"/>;
 /// a nested-UDT field carries the referenced type's name (resolved against the program's type table at
-/// instantiation). Array fields and fixed-length strings are deferred (spec walls).</summary>
-public sealed record UdtField(string Name, Vb6Value.ValueType? ScalarType, string? UdtTypeName, string? AutoNewClass = null);
+/// instantiation). Array fields also carry their bounds; fixed-length strings are deferred.</summary>
+public sealed record UdtField(string Name, Vb6Value.ValueType? ScalarType, string? UdtTypeName, string? AutoNewClass = null,
+    bool IsArray = false, IReadOnlyList<(int, int)>? Bounds = null);
 
 /// <summary>A user-defined <c>Type … End Type</c> definition, owned by the module that declares it.
 ///
@@ -70,6 +71,8 @@ public sealed class VbUdt
         this.fields = fields;
     }
 
+    internal bool TryInspect(string field, out Vb6Value value) => fields.TryGetValue(field, out value);
+
     public bool TryGet(string field, out Vb6Value value)
     {
         if (!fields.TryGetValue(field, out value))
@@ -110,13 +113,27 @@ public sealed class VbUdt
     /// <summary>Whether a field is declared As Variant, or with no As clause.</summary>
     public bool IsVariantField(string field) => variantFields.Contains(field);
 
-    /// <summary>A deep, independent copy — nested UDT fields clone recursively; scalar fields (immutable
-    /// <see cref="Vb6Value"/> structs) copy by value. This is the whole of UDT value semantics.</summary>
+    private static Vb6Value CloneValue(Vb6Value value) => value.Value switch
+    {
+        VbUdt nested => Vb6Value.NewUdt(nested.DeepClone()),
+        VBArray array => CloneArray(value, array),
+        _ => value,
+    };
+
+    private static Vb6Value CloneArray(Vb6Value value, VBArray array)
+    {
+        var copy = array.CopyForLet(CloneValue);
+        copy.IsDynamic = array.IsDynamic;
+        return value.WithArray(copy);
+    }
+
+    /// <summary>A deep, independent copy, including nested records and array fields. Fixed array fields keep
+    /// their fixedness; scalar fields copy by value and object fields keep their references.</summary>
     public VbUdt DeepClone()
     {
         var copy = new Dictionary<string, Vb6Value>(fields.Comparer);
         foreach (var (name, value) in fields)
-            copy[name] = value.Value is VbUdt nested ? Vb6Value.NewUdt(nested.DeepClone()) : value;
+            copy[name] = CloneValue(value);
         return new VbUdt(TypeName, copy, typedFields, variantFields, autoNewFields);
     }
 }

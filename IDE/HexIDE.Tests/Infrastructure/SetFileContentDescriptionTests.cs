@@ -9,6 +9,7 @@ namespace HexIDE.Tests.Infrastructure;
 /// description cannot be checked in the session that changed it (hexide-io/HexIDE#815). This reads the text the SDK
 /// sends, from <c>HexIdeTools.cs</c>, as every description guard here does.
 /// </remarks>
+[ToolDescription]
 public class SetFileContentDescriptionTests
 {
     private static ToolSource.Tool Tool => ToolSource.Tools.Single(t => t.Name == "set_file_content");

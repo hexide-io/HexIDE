@@ -150,6 +150,7 @@ public partial class ReferencesViewModel : ObservableObject, IDialog
 
     public void Apply(ProjectDefinition project)
     {
+        project.ReferencesDialogAccepted = true;
         project.SetReferences(References
             .Where(r => r.IsChecked && !r.IsBuiltIn)
             .Select(r => new VbReference(r.Guid, r.Version, r.Lcid, r.LibPath, r.Name)));

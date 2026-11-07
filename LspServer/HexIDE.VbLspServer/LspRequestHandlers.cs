@@ -10,6 +10,39 @@ namespace HexIDE.VbLspServer;
 
 internal static class LspRequestHandlers
 {
+    public static JsonDocument InlayHint(DocumentStore store, JsonElement p)
+    {
+        if (!TryUri(p, out var uri) || !store.InlayHints.TryGetValue(uri, out var hints)
+            || !p.TryGetProperty("range", out var range)) return LspJson.EmptyArray();
+        var start = range.GetProperty("start");
+        var end = range.GetProperty("end");
+        var startLine = start.GetProperty("line").GetInt32();
+        var startCharacter = start.GetProperty("character").GetInt32();
+        var endLine = end.GetProperty("line").GetInt32();
+        var endCharacter = end.GetProperty("character").GetInt32();
+        return LspJson.Doc(w =>
+        {
+            w.WriteStartArray();
+            foreach (var hint in hints)
+            {
+                var pos = hint.Position;
+                if (pos.Line < startLine || pos.Line > endLine
+                    || (pos.Line == startLine && pos.Character < startCharacter)
+                    || (pos.Line == endLine && pos.Character > endCharacter)) continue;
+                w.WriteStartObject();
+                w.WritePropertyName("position");
+                w.WriteStartObject();
+                w.WriteNumber("line", pos.Line);
+                w.WriteNumber("character", pos.Character);
+                w.WriteEndObject();
+                w.WriteString("label", hint.Label);
+                w.WriteBoolean("paddingLeft", true);
+                w.WriteEndObject();
+            }
+            w.WriteEndArray();
+        });
+    }
+
     // ── textDocument/hover → MarkupContent (plaintext) or null ──────────────────────────────────
     public static JsonDocument Hover(DocumentStore store, JsonElement p)
     {
@@ -169,7 +202,10 @@ internal static class LspRequestHandlers
             }
             w.WriteEndArray();
             w.WriteNumber("activeSignature", 0);
-            w.WriteNumber("activeParameter", activeParameter);
+            // Past a list's end the list is still active; past any other signature's end the index is sent as it is, so
+            // no parameter is marked for an argument VB6 would refuse (#2599).
+            var last = entries[0].Parameters.Length - 1;
+            w.WriteNumber("activeParameter", entries[0].LastIsList && last >= 0 ? Math.Min(activeParameter, last) : activeParameter);
             w.WriteEndObject();
         });
     }
@@ -248,25 +284,31 @@ internal static class LspRequestHandlers
         });
     }
 
-    // ── textDocument/rename → WorkspaceEdit{changes} or null ────────────────────────────────────
-    public static JsonDocument Rename(DocumentStore store, JsonElement p)
+    // ── textDocument/rename → WorkspaceEdit{changes}, null, or a refusal ────────────────────────────────────
+    public static JsonDocument Rename(DocumentStore store, JsonElement p, out string? refusal)
     {
+        refusal = null;
         if (!TryUriPos(p, out var uri, out var line, out var ch) ||
             !store.Source.TryGetValue(uri, out var source))
             return LspJson.Null();
 
-        // A new name VB6 would not accept is answered with nothing, as the IDE refuses it before asking
-        // (hexide-io/HexIDE#273 task 4.4): written in, it would not compile, and "Total" renamed "Grand Total"
-        // would split one name into two wherever it stood.
+        // Keep the existing name rules; a refusal is distinct from no occurrences (#1015).
         if (!p.TryGetProperty("newName", out var nn) || nn.GetString() is not { } newName ||
             !VbTextHelpers.IsName(newName))
+        {
+            refusal = $"`{nn}` is not a VB6 name.";
             return LspJson.Null();
+        }
 
         var word = VbTextHelpers.GetWordAtPosition(source, line, ch);
         if (string.IsNullOrEmpty(word)) return LspJson.Null();
 
         // Don't allow renaming reserved keywords.
-        if (VbKeywords.ReservedWords.Contains(word)) return LspJson.Null();
+        if (VbKeywords.ReservedWords.Contains(word))
+        {
+            refusal = $"`{word}` is a keyword.";
+            return LspJson.Null();
+        }
 
         // The header and members' attribute lines are the IDE's to change (hexide-io/HexIDE#273 task 3.10).
         // A rename is not started from inside them, and matches inside them are left alone: with a form's
@@ -276,14 +318,22 @@ internal static class LspRequestHandlers
         // the IDE refuses a rename that writes into a run it does not rename (task 4.4) and rewrites those
         // qualifiers itself at the next save.
         var regions = VbProtectedRegions.Of(source);
-        if (regions.IsProtected(line)) return LspJson.Null();
+        if (regions.IsProtected(line))
+        {
+            refusal = "The caret is in the file's header or a member's attribute lines.";
+            return LspJson.Null();
+        }
 
         // Nor is a name the designer block declares -- the form's, a control's, a menu's. Its declaration is a
         // Begin line in the header, which the rename must keep off, so renaming it from the code would leave
         // the code naming a control that does not exist. A local that happens to share a control's name looks
         // exactly the same to a lexical rename, and is declined with it: refusing that rare case is the price
         // of never breaking the common one. A control is renamed in the Properties window, as in VB6.
-        if (regions.Declares(word)) return LspJson.Null();
+        if (regions.Declares(word))
+        {
+            refusal = $"`{word}` is declared by the designer; rename it in the Properties window.";
+            return LspJson.Null();
+        }
 
         var occurrences = VbTextHelpers.FindAllOccurrences(source, word)
             .Where(r => !regions.Touches(r) || regions.IsOwnQualifier(r, word))

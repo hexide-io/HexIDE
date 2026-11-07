@@ -25,6 +25,41 @@ namespace HexIDE.Integration.Tests.Views;
 /// by how many the counts differ.</remarks>
 public class ControlsAddTests
 {
+    // Defaults measured in the oracle mousepointers-names-and-pointers.md (#1970).
+    [AvaloniaTheory]
+    [InlineData("CommandButton")]
+    [InlineData("Label")]
+    [InlineData("TextBox")]
+    [InlineData("Frame")]
+    [InlineData("CheckBox")]
+    [InlineData("OptionButton")]
+    [InlineData("ComboBox")]
+    [InlineData("ListBox")]
+    [InlineData("HScrollBar")]
+    [InlineData("VScrollBar")]
+    [InlineData("PictureBox")]
+    [InlineData("Image")]
+    public void Loaded_and_added_controls_read_zero(string type)
+    {
+        var frm = $"VERSION 5.00\r\nBegin VB.Form Form1\r\n   Begin VB.{type} Control1\r\n      Left = 0\r\n   End\r\nEnd\r\nAttribute VB_Name = \"Form1\"\r\n";
+        var (values, errors) = Run(
+            $"Debug.Print Me.MousePointer\nDebug.Print Control1.MousePointer\nDim c As Object\nSet c = Controls.Add(\"VB.{type}\", \"AddedControl\")\nDebug.Print c.MousePointer\n", "", frm);
+        errors.Should().BeEmpty();
+        values.Select(v => v.Trim()).Should().Equal("0", "0", "0");
+    }
+
+    [AvaloniaTheory]
+    [InlineData("Shape")]
+    [InlineData("Line")]
+    [InlineData("Timer")]
+    public void Controls_without_MousePointer_raise_438(string type)
+    {
+        var (values, errors) = Run(
+            $"Dim c As Object\nSet c = Controls.Add(\"VB.{type}\", \"AddedControl\")\nDim v\nOn Error Resume Next\nv = c.MousePointer\nDebug.Print Err.Number\n", "");
+        errors.Should().BeEmpty();
+        values.Single().Trim().Should().Be("438");
+    }
+
     private sealed class NullSink : IDeserializeErrorSink
     {
         public void LogError(string _) { }
@@ -183,6 +218,36 @@ public class ControlsAddTests
         var (printed, errors) = Run(load, module, designer);
         errors.Should().BeEmpty();
         return printed;
+    }
+
+    [AvaloniaFact]
+    public void Command_value_reads_false()
+    {
+        Printed("Debug.Print Command1.Value", "").Should().Equal("False");
+    }
+
+    [AvaloniaFact]
+    public void Command_value_clicks_synchronously_with_its_own_handler_before_sinks()
+    {
+        Printed("""
+            Set b = Command1
+            Set b2 = Command1
+            Debug.Print "before"
+            Command1.Value = True
+            Debug.Print "after"
+            """, """
+            Private WithEvents b As VB.CommandButton
+            Private WithEvents b2 As VB.CommandButton
+            Private Sub Command1_Click()
+                Debug.Print "own"
+            End Sub
+            Private Sub b_Click()
+                Debug.Print "b"
+            End Sub
+            Private Sub b2_Click()
+                Debug.Print "b2"
+            End Sub
+            """).Should().Equal("before", "own", "b2", "b", "after");
     }
 
     // Two design-time controls, then each class HexIDE implements. pos is the position in Controls, of the count.

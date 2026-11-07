@@ -58,7 +58,8 @@ statements `t = Empty`, `t = Null` and `t = Array("a")` compile, and are 13 when
 
 - **`StatementExecutor.ArrayStore`** is the one check. It covers a variable declared as an array, a ByRef array
   parameter, and the name of a Function or Property Get declared to return an array, where it replaces #986's check. The
-  target's type is that of the array its slot holds, since nothing else is ever stored there.
+  target's type is that of the array its slot holds, since nothing else is ever stored there. UDT array fields use
+  the same check (#178).
 - **A String into a `Byte()`** becomes `VB6BuiltIns.StringBytes`. #986's refusal, a NotImplementedException naming #998,
   is gone.
 - **The compile errors** are read from the statement, as #986's were, and raised as the statement runs. A `Nothing`
@@ -68,8 +69,8 @@ statements `t = Empty`, `t = Null` and `t = Array("a")` compile, and are 13 when
 - **A named fixed array** is "Can't assign to array" whatever it is given. HexIDE refused only an array there.
 - **`TypedArrayLetTests`** runs the programs from batches 1 to 4 and must print vb6.exe's lines. It also refuses 16 of
   the one-statement projects with vb6.exe's message. Batch 2's CVErr row is left out, since HexIDE has no CVErr, and
-  batch 4's UDT rows wait for #178.
+  `UdtArrayTests` covers batch 4's UDT field rows (#178).
 - **Divergences kept:**
   - a ByRef parameter named as the value is 13 here, where VB6 refuses to compile, as #986 recorded;
-  - a UDT's array field is refused as the module loads (#178).
+  - nonliteral or inverted Type-field bounds and array fields As New remain refused (#178).
 

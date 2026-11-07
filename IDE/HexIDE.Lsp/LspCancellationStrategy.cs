@@ -15,7 +15,8 @@ internal sealed class LspCancellationStrategy(JsonRpc rpc, ILogger logger) : ICa
     public void CancelOutboundRequest(RequestId requestId)
     {
         RequestCancellation.Current.Value?.Record(requestId);
-        _ = SendCancellationAsync(requestId);
+        var sent = SendCancellationAsync(requestId);
+        if (RequestCancellation.Current.Value is { } scope) scope.CancellationSent = sent;
     }
 
     private async Task SendCancellationAsync(RequestId requestId)
@@ -68,6 +69,20 @@ internal sealed class RequestCancellation(ConversationLog? log, string? connecti
 {
     internal static readonly AsyncLocal<RequestCancellation?> Current = new();
     internal ConversationOutcome Outcome = ConversationOutcome.Cancelled;
+    internal Task CancellationSent = Task.CompletedTask;
+    private RequestId? _id;
+
+    internal void Observe(RequestId id) => _id = id;
+
+    internal void DropAnswer(Exception exception)
+    {
+        if (log is null || connectionId is null || _id is not { } id) return;
+        var correlation = id.Number is { } number
+            ? number.ToString(System.Globalization.CultureInfo.InvariantCulture)
+            : id.String;
+        try { log.DropAnswer(connectionId, correlation!, $"answer dropped: {exception.Message}"); }
+        catch (Exception) { /* recording must not replace the original failure */ }
+    }
 
     internal void Record(RequestId id)
     {

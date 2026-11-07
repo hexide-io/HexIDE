@@ -2,10 +2,19 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:converters="clr-namespace:HexIDE.Converters"
              xmlns:vm="clr-namespace:HexIDE.Forms.ViewModels.Options"
              mc:Ignorable="d" d:DesignWidth="420" d:DesignHeight="300"
              x:DataType="vm:EditorGeneralPageViewModel"
              x:Class="HexIDE.Forms.Views.Options.EditorGeneralPageView">
+    <UserControl.Styles>
+        <Style Selector="NumericUpDown /template/ ButtonSpinner /template/ RepeatButton#PART_IncreaseButton">
+            <Setter Property="AutomationProperties.Name" Value="{DynamicResource Str.Spinner.Increase}" />
+        </Style>
+        <Style Selector="NumericUpDown /template/ ButtonSpinner /template/ RepeatButton#PART_DecreaseButton">
+            <Setter Property="AutomationProperties.Name" Value="{DynamicResource Str.Spinner.Decrease}" />
+        </Style>
+    </UserControl.Styles>
     <StackPanel Orientation="Vertical" Spacing="10" VerticalAlignment="Top">
         <HeaderedContentControl Header="{DynamicResource Str.Options.EditorGeneral.CodeSettings.Header}" Padding="10">
             <StackPanel Orientation="Vertical" Spacing="6">
@@ -18,7 +27,17 @@
         </HeaderedContentControl>
         <HeaderedContentControl Header="{DynamicResource Str.Options.EditorGeneral.Display.Header}" Padding="10">
             <StackPanel Orientation="Vertical" Spacing="6">
+                <CheckBox IsChecked="{CompiledBinding ShowInlayHints}" Content="{DynamicResource Str.Options.EditorGeneral.Display.ShowInlayHints}" />
+                <CheckBox IsChecked="{CompiledBinding ShowCodeLenses}" Content="{DynamicResource Str.Options.EditorGeneral.Display.ShowCodeLenses}" />
+                <CheckBox IsChecked="{CompiledBinding ShowIndentGuides}" Content="{DynamicResource Str.Options.EditorGeneral.Display.ShowIndentGuides}" />
+                <CheckBox IsChecked="{CompiledBinding IsStickyScrollEnabled}" Content="{DynamicResource Str.Options.EditorGeneral.Display.StickyScroll}" />
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <TextBlock x:Name="StickyDepthLabel" Text="{DynamicResource Str.Options.EditorGeneral.Display.StickyDepth}" VerticalAlignment="Center" />
+                    <NumericUpDown AutomationProperties.Name="{CompiledBinding #StickyDepthLabel.Text, Converter={x:Static converters:AccessKeyNameConverter.Instance}, ConverterParameter=TrimColon}"
+                                   Value="{CompiledBinding StickyScrollDepth}" Minimum="1" Maximum="10" Width="80" IsEnabled="{CompiledBinding IsStickyScrollEnabled}" />
+                </StackPanel>
                 <CheckBox IsChecked="{CompiledBinding IsMinimapVisible}" Content="{DynamicResource Str.Options.EditorGeneral.Display.ShowMinimap}" />
+                <CheckBox IsChecked="{CompiledBinding ColorBracketsByDepth}" Content="{DynamicResource Str.Options.EditorGeneral.Display.ColorBracketsByDepth}" />
             </StackPanel>
         </HeaderedContentControl>
     </StackPanel>

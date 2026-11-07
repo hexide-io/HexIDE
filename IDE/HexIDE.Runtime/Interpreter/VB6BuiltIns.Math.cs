@@ -71,22 +71,33 @@ public partial class VB6BuiltIns
     }
 
     // VB6's Rnd: x>0 (or omitted) advances the LCG; x=0 returns the last value without advancing; x<0 reseeds
-    // deterministically (the reseed value is not bit-identical to VB6, but is repeatable). Returns Single.
+    // by folding the Single bits and high byte (measured, #2117). Returns Single.
     private float Rnd(float x)
     {
         if (x == 0f)
             return rndSeed / 16777216f;                 // last, no advance
         if (x < 0f)
-            rndSeed = BitConverter.SingleToUInt32Bits(x) & 0xFFFFFF;
+        {
+            uint bits = BitConverter.SingleToUInt32Bits(x);
+            rndSeed = (bits + (bits >> 24)) & 0xFFFFFF;
+        }
         rndSeed = (rndSeed * 0x43FD43FDu + 0xC39EC3u) & 0xFFFFFF;
         return rndSeed / 16777216f;
     }
 
-    // Randomize [number]: reseed. Deterministic from `number` (not bit-identical to VB6's fold), or from the
-    // wall clock when omitted. Rnd's own fixed-seed sequence is vb6-exact; Randomize only varies the start.
+    // An explicit Randomize seed folds the high Double bits, keeping the state's low byte (#2117).
+    // The unmeasured argumentless clock seeding retains its existing behaviour.
     internal void Reseed(double? number)
     {
-        long bits = number is { } n ? BitConverter.DoubleToInt64Bits(n) : DateTime.Now.Ticks;
-        rndSeed = (uint)((bits ^ (bits >> 24)) & 0xFFFFFF);
+        if (number is { } n)
+        {
+            uint high = (uint)(BitConverter.DoubleToUInt64Bits(n) >> 32);
+            rndSeed = (((high >> 16) ^ (high & 0xFFFF)) << 8) | (rndSeed & 0xFF);
+        }
+        else
+        {
+            long bits = DateTime.Now.Ticks;
+            rndSeed = (uint)((bits ^ (bits >> 24)) & 0xFFFFFF);
+        }
     }
 }

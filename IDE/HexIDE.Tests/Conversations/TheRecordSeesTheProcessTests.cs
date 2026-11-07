@@ -151,6 +151,18 @@ public class TheRecordSeesTheProcessTests : IAsyncDisposable
     // the transport reports lands on the record, as the right kind, attributed to the right connection.
 
     [Fact]
+    public async Task StandardOutputKeepsItsOwnKindAndConnectionOnTheRecord()
+    {
+        await using var connection = await Connected("pipe");
+        connection.Transport.Say(TransportNoticeKind.StandardOutput, "No project was found");
+        var entry = await connection.WaitForAsync(ConversationEntryKind.StandardOutput);
+        entry.Detail.Should().Be("No project was found");
+        entry.Direction.Should().Be(ConversationDirection.Received);
+        entry.ConnectionId.Should().Be("pipe");
+        entry.Method.Should().BeNull();
+    }
+
+    [Fact]
     public async Task AStandardErrorLineLandsOnTheRecordAsSomethingThatArrived()
     {
         // The spec's scenario is "A server crashes": its dying words are on standard error, and the record

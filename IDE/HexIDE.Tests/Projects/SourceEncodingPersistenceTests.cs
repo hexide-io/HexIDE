@@ -54,6 +54,7 @@ public class SourceEncodingPersistenceTests : IDisposable
         sidecar.LoadAsync(Arg.Any<ProjectDefinition>()).Returns(Task.CompletedTask);
         sidecar.SaveAsync(Arg.Any<ProjectDefinition>()).Returns(Task.CompletedTask);
         var localization = Substitute.For<HexIDE.Localization.ILocalizationService>();
+        localization.GetString("Str.ProjectLoad.FormNotFound").Returns("Form file not found: {0}");
         localization.GetString("Str.Dialog.SourceEncoding.NothingWritten")
             .Returns("Nothing was written: {0}, in code page {1}, cannot hold {2} ({3}), in {4}.");
         localization.GetString("Str.Dialog.SourceEncoding.ReadByteForByte").Returns(ReadByteForByteText);
@@ -179,6 +180,8 @@ public class SourceEncodingPersistenceTests : IDisposable
             reader.ReadToEnd().Should().Contain("Public Sub Original()");
 
         module.UpdateCode(module.Code.Replace("Original", "SecondBuild"));
+        windowManager.MessageBox(Arg.Any<string>(), buttons: MessageBoxButtons.YesNo, icon: MessageBoxIcon.Warning)
+            .Returns(MessageBoxResult.Yes);
         await svc.MakeProject(project);
 
         using var secondArchive = ZipFile.OpenRead(Path.ChangeExtension(exePath, "dll"));

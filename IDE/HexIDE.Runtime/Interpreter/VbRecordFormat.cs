@@ -166,8 +166,8 @@ internal static class VbRecordFormat
             w.U16(9);
             throw new RecordObjectInVariant(w.ToArray());
         }
-        if (value.Type == Vb6Value.ValueType.Missing)
-            throw new NotImplementedException("Put of an Error Variant is not implemented: CVErr is not implemented");
+        if (value.Type == Vb6Value.ValueType.Missing || value.Type == Vb6Value.ValueType.Error)
+            throw new NotImplementedException("Put of an Error Variant is not implemented (#2520)");
         if (value.Type == Vb6Value.ValueType.UserDefinedType)
             throw new NotImplementedException("Put of a Variant holding a user-defined Type is not implemented (#1646)");
         var vt = VariantType(value.Type);
@@ -237,13 +237,13 @@ internal static class VbRecordFormat
     private static void WriteElements(Writer w, VBArray array)
     {
         var element = array.ElementType;
+        if (element == Vb6Value.ValueType.UserDefinedType)
+            throw new NotImplementedException("Get/Put of an array of a user-defined Type is not implemented (#178)");
         if (array.DeclaredClass is not null || element == Vb6Value.ValueType.Object)
             throw new VBCompileErrorException(ObjectRefused);
         foreach (var index in ColumnMajor(array))
         {
             var value = array.GetValue(index);
-            if (element == Vb6Value.ValueType.UserDefinedType && value.Value is not VbUdt)
-                throw new NotImplementedException("Put of an array of a user-defined Type is not implemented: its elements are not made yet (#178)");
             if (value.Value is VbUdt udt)
                 WriteUdt(w, udt);
             else if (element is null || element == Vb6Value.ValueType.EmptyVariant)
@@ -258,6 +258,8 @@ internal static class VbRecordFormat
     {
         foreach (var (name, value) in udt.EnumerateFields())
         {
+            if (value.Value is VBArray)
+                throw new NotImplementedException("Get/Put of a Type containing an array field is not implemented (#178)");
             if (value.Value is VbUdt nested)
                 WriteUdt(w, nested);
             else if (udt.IsVariantField(name))
@@ -383,7 +385,7 @@ internal static class VbRecordFormat
                 case 9:
                     throw new RecordGetFailure(VBStandardError.TypeMismatch, null);
                 case 10:
-                    throw new NotImplementedException("Get of an Error Variant is not implemented: CVErr is not implemented");
+                    throw new NotImplementedException("Get of an Error Variant is not implemented (#2520)");
                 case 13:
                     throw new RecordGetFailure(VBStandardError.TypeMismatch, Vb6Value.Variant);
                 case 14:
@@ -466,13 +468,13 @@ internal static class VbRecordFormat
     public static void ReadElementsInto(IRecordSource source, VBArray array)
     {
         var element = array.ElementType;
+        if (element == Vb6Value.ValueType.UserDefinedType)
+            throw new NotImplementedException("Get/Put of an array of a user-defined Type is not implemented (#178)");
         if (array.DeclaredClass is not null || element == Vb6Value.ValueType.Object)
             throw new VBCompileErrorException(ObjectRefused);
         foreach (var index in ColumnMajor(array))
         {
             var current = array.GetValue(index);
-            if (element == Vb6Value.ValueType.UserDefinedType && current.Value is not VbUdt)
-                throw new NotImplementedException("Get of an array of a user-defined Type is not implemented: its elements are not made yet (#178)");
             try
             {
                 if (current.Value is VbUdt udt)
@@ -500,6 +502,8 @@ internal static class VbRecordFormat
     {
         foreach (var (name, current) in udt.EnumerateFields().ToList())
         {
+            if (current.Value is VBArray)
+                throw new NotImplementedException("Get/Put of a Type containing an array field is not implemented (#178)");
             try
             {
                 if (current.Value is VbUdt nested)

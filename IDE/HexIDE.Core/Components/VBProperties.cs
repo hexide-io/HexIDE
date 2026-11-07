@@ -29,11 +29,14 @@ public static class VBProperties
 
     public static PropertyClass<bool> CausesValidationProperty = new PropertyClass<bool>("CausesValidation", "Whether moving focus off this control validates the control that lost focus.", PropertyCategory.Behavior, true);
 
-    public static PropertyClass<VBCursorType> MousePointerProperty = new PropertyClass<VBCursorType>("MousePointer", "The pointer shape shown while the mouse is over the object.", PropertyCategory.Misc, VBCursorType.Arrow);
+    public static PropertyClass<VBCursorType> MousePointerProperty = new PropertyClass<VBCursorType>("MousePointer", "The pointer shape shown while the mouse is over the object.", PropertyCategory.Misc, VBCursorType.Default);
 
     public static PropertyClass<bool> RightToLeftProperty = new PropertyClass<bool>("RightToLeft", "Whether text and layout are mirrored for right-to-left languages.", PropertyCategory.Behavior);
 
     public static PropertyClass<string?> ToolTipTextProperty = new PropertyClass<string?>("ToolTipText", "The tooltip shown when the pointer rests on the control.", PropertyCategory.Misc);
+
+    public static readonly PropertyClass<int> HelpContextIDProperty = new PropertyClass<int>("HelpContextID",
+        "The context number of the object's help topic.", PropertyCategory.Misc);
 
     public static PropertyClass<int> WhatsThisHelpIdProperty = new PropertyClass<int>("WhatsThisHelpID", "A context number that links the object to a help topic.", PropertyCategory.Misc);
 
@@ -190,6 +193,8 @@ public static class VBProperties
     /// option button, the boolean spelling, never <c>1  'Checked</c>.
     /// </summary>
     public static PropertyClass<bool> OptionValueProperty = new PropertyClass<bool>("Value", "Whether this option button is the selected one in its group.", PropertyCategory.Misc, false);
+
+    public static PropertyClass<bool> CommandValueProperty = new PropertyClass<bool>("Value", "Clicks the command button when set to True.", PropertyCategory.Misc, false);
 
     public static PropertyClass<bool> LockedProperty = new PropertyClass<bool>("Locked", "Whether the control's contents can be edited.", PropertyCategory.Behavior, false);
 

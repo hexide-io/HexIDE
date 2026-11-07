@@ -19,7 +19,7 @@ using HexIDE.Tools.ProtocolInspector;
 
 namespace HexIDE.Tests.ViewModels;
 
-public class FindReplaceViewModelTests
+public partial class FindReplaceViewModelTests
 {
     private readonly IWindowManager _windowManager = Substitute.For<IWindowManager>();
     private readonly IDocumentDockService _documentDockService = Substitute.For<IDocumentDockService>();
@@ -38,6 +38,8 @@ public class FindReplaceViewModelTests
         localization.GetString("Str.FindReplace.Msg.InvalidRegex").Returns("Invalid regular expression pattern.");
         localization.GetString("Str.FindReplace.Msg.NothingToSearch")
             .Returns("There is nothing here for Find to search.");
+        _windowManager.MessageBox(Arg.Any<string>(), Arg.Any<string>(), MessageBoxButtons.YesNo,
+            MessageBoxIcon.Question).Returns(MessageBoxResult.Yes);
         return new(_windowManager, _documentDockService, localization);
     }
 
@@ -852,10 +854,10 @@ public class FindReplaceViewModelTests
     {
         var sut = CreateSut();
 
-        // "Current Project" was removed rather than left decorative — see the note on FindScope.
-        sut.ScopeItems.Should().HaveCount(2);
-        sut.ScopeItems[0].Should().Be("Current Module");
-        sut.ScopeItems[1].Should().Be("All Open Documents");
+        sut.ScopeItems.Should().HaveCount(5);
+        sut.Scope.Should().Be(FindScope.CurrentProject);
+        sut.ScopeItems[1].Should().Be("Current Module");
+        sut.ScopeItems[4].Should().Be("All Open Documents");
     }
 
     [AvaloniaFact]
@@ -863,7 +865,7 @@ public class FindReplaceViewModelTests
     {
         var sut = CreateSut();
 
-        sut.SelectedScopeIndex = 1;
+        sut.SelectedScopeIndex = 4;
 
         sut.Scope.Should().Be(FindScope.AllOpenDocuments);
     }
@@ -1198,6 +1200,7 @@ public class FindReplaceViewModelTests
         var lsRegistry = Substitute.For<ILanguageConnectionRegistry>();
         lsRegistry.Connections.Returns([]);
         lsRegistry.ConfigurationProblems.Returns([]);
+        lsRegistry.Diagnostics.Returns([]);
         var languageServers = new LanguageServersToolViewModel(
             lsRegistry, loc, new ConversationLog(), Substitute.For<IEventBus>(),
             new HexIDE.Redaction.Pseudonymiser());
@@ -1209,7 +1212,8 @@ public class FindReplaceViewModelTests
             immediate, locals, watches, callStack, colorPalette, objectBrowser, translationEditor,
             languageServers,
             protocolInspector,
-            windowStateService, new DockFactoryReference());
+            windowStateService, new DockFactoryReference(), new HexIDE.Tools.OutlineToolViewModel(
+                Substitute.For<HexIDE.Localization.ILocalizationService>(), Substitute.For<IDocumentDockService>()));
 
         return new MainViewViewModel(
             windowManager,
@@ -1226,6 +1230,8 @@ public class FindReplaceViewModelTests
             translationEditor,
             languageServers,
             protocolInspector,
+            new HexIDE.Tools.Diagnostics.DiagnosticsToolViewModel(lsRegistry, Substitute.For<HexIDE.Lsp.ILspClient>(),
+                mockDocDock, editorService, loc),
             projectManager,
             Substitute.For<IFocusedProjectUtil>(),
             projectService,
@@ -1246,12 +1252,13 @@ public class FindReplaceViewModelTests
             new AddinOptionsService(),
             Substitute.For<IDeveloperModeService>(),
             Substitute.For<IStatusBarService>(),
-            Substitute.For<IPersonalityService>(),
+            Substitute.For<IProfileService>(),
             new AddinMenuService(),
             new AddinCommandService(),
             new AddinToolWindowService(),
             windowStateService,
             Substitute.For<HexIDE.Debugging.IBreakpointService>(),
-            Substitute.For<HexIDE.Runtime.Debugging.IDebugController>());
+            Substitute.For<HexIDE.Runtime.Debugging.IDebugController>(),
+            new RecentEditsToolViewModel(new RecentEditHistory(eventBus), () => editorService, loc), findReferences: null, callHierarchy: null);
     }
 }

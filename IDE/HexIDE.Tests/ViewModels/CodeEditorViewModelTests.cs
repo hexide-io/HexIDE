@@ -26,6 +26,7 @@ public class CodeEditorViewModelTests : IDisposable
     private readonly HexIDE.Debugging.IRunScope _runScope = Substitute.For<HexIDE.Debugging.IRunScope>();
     private readonly ILocalizationService _localization = Substitute.For<ILocalizationService>();
     private CodeEditorViewModel? _sut;
+    private readonly HexIDE.Tools.RecentEditHistory recentEdits = new(new EventBus());
 
     public CodeEditorViewModelTests()
     {
@@ -42,13 +43,116 @@ public class CodeEditorViewModelTests : IDisposable
     private CodeEditorViewModel CreateSut()
     {
         _sut = new CodeEditorViewModel(
-            _windowManager, _editorService, _projectService, _eventBus, _lspClient, _settingsService, _statusBarService, _bookmarkService, _breakpointService, _debugController, _runScope, _localization);
+            _windowManager, _editorService, _projectService, _eventBus, _lspClient, _settingsService, _statusBarService, _bookmarkService, _breakpointService, _debugController, _runScope, _localization, recentEditHistory: recentEdits);
         return _sut;
     }
 
     public void Dispose()
     {
         _sut?.Dispose();
+    }
+
+    [AvaloniaFact]
+    public async Task ClosingADirtyCodeWindowKeepsItsProjectTextOnTheLanguageLayer()
+    {
+        var module = TestHelpers.CreateModule();
+        var vm = CreateSut().Initialize(module);
+        _projectService.HasUnsavedChanges(module).Returns(true);
+        vm.Document.Insert(vm.Document.TextLength, "' retained");
+        var uri = vm.GetDocumentUriPublic();
+
+        vm.Dispose();
+
+        module.Code.Should().EndWith("' retained");
+        await _lspClient.DidNotReceive().CloseDocumentAsync(uri, Arg.Any<CancellationToken>());
+        ProjectLspDocument.Reopened(_lspClient, vm.Identity); // release the test's project holder
+    }
+
+    [AvaloniaTheory]
+    [InlineData("i = 3")]
+    [InlineData("")]
+    [InlineData(null)]
+    public async Task Condition_dialog_uses_existing_expression_and_applies_confirmation_only(string? answer)
+    {
+        var vm = CreateSut().Initialize(TestHelpers.CreateModule());
+        _breakpointService.IsBreakpoint(vm.Identity, 9).Returns(true);
+        _breakpointService.GetCondition(vm.Identity, 9).Returns("j = 4");
+        _localization.GetString("Str.Debug.Conditions.Edit").Returns("Condition…");
+        _localization.GetString("Str.Debug.Conditions.Prompt").Returns("Break only when True:");
+        _windowManager.InputBox("Break only when True:", "Condition…", "j = 4").Returns(Task.FromResult(answer));
+        await vm.EditBreakpointConditionAsync(9);
+        await _windowManager.Received().InputBox("Break only when True:", "Condition…", "j = 4");
+        vm.DescribeExternalBreakpoint(9).Should().Be("j = 4");
+        if (answer is null) _breakpointService.DidNotReceive().SetCondition(vm.Identity, 9, Arg.Any<string?>());
+        else _breakpointService.Received().SetCondition(vm.Identity, 9, answer);
+    }
+
+    [AvaloniaFact]
+    public async Task InlayHintsUseTheWholeDocumentAndRespectTheToggle()
+    {
+        var vm = CreateSut().Initialize(TestHelpers.CreateForm(name: "Form1"));
+        var hint = new InlayHint(new Position(1, 7),
+            System.Text.Json.JsonDocument.Parse("\"label\"").RootElement.Clone());
+        _settingsService.ShowInlayHints.Returns(true);
+        _lspClient.RequestInlayHintsAsync(Arg.Any<string>(), Arg.Any<HexIDE.Lsp.Messages.Range>(),
+            Arg.Any<CancellationToken>()).Returns([hint]);
+        (await vm.RequestInlayHintsAsync(TestContext.Current.CancellationToken)).Should().Equal(hint);
+        var last = vm.Document.GetLineByNumber(vm.Document.LineCount);
+        await _lspClient.Received(1).RequestInlayHintsAsync(vm.GetDocumentUriPublic(),
+            new(new(0, 0), new(last.LineNumber - 1, last.Length)), Arg.Any<CancellationToken>());
+        _lspClient.ClearReceivedCalls();
+        _settingsService.ShowInlayHints.Returns(false);
+        (await vm.RequestInlayHintsAsync(TestContext.Current.CancellationToken)).Should().BeEmpty();
+        await _lspClient.DidNotReceive().RequestInlayHintsAsync(Arg.Any<string>(),
+            Arg.Any<HexIDE.Lsp.Messages.Range>(), Arg.Any<CancellationToken>());
+    }
+
+    [AvaloniaFact]
+    public void Removing_a_module_closes_only_its_code_editor()
+    {
+        Action<ModuleUnloadedEvent>? unloaded = null;
+        _eventBus.Subscribe<ModuleUnloadedEvent>(Arg.Any<Action<ModuleUnloadedEvent>>())
+            .Returns(ci =>
+            {
+                unloaded = ci.Arg<Action<ModuleUnloadedEvent>>();
+                return Substitute.For<IDisposable>();
+            });
+        var module = TestHelpers.CreateModule();
+        var vm = CreateSut().Initialize(module);
+        var closes = 0;
+        vm.CloseRequest += _ => closes++;
+
+        unloaded.Should().NotBeNull();
+        unloaded!(new ModuleUnloadedEvent(TestHelpers.CreateModule()));
+        closes.Should().Be(0);
+        unloaded(new ModuleUnloadedEvent(module));
+        closes.Should().Be(1);
+    }
+
+    [AvaloniaFact]
+    public void RecentEdits_RecordsModuleEditsAfterInitialization()
+    {
+        var module = TestHelpers.CreateModule();
+        module.Owner.AddModule(module);
+        var vm = CreateSut().Initialize(module);
+        recentEdits.Entries.Should().BeEmpty();
+        vm.Document.Insert(vm.Document.TextLength, "' edited");
+        recentEdits.Entries.Should().ContainSingle();
+        recentEdits.Entries[0].Document.Should().Be(DocumentIdentity.For(module));
+        recentEdits.Entries[0].Line.Should().Be(vm.Document.LineCount);
+    }
+
+    [AvaloniaFact]
+    public void RecentEdits_RecordsFormEditsAfterInitialization()
+    {
+        var form = TestHelpers.CreateForm();
+        form.Owner.AddForm(form);
+        var vm = CreateSut().Initialize(form);
+        recentEdits.Entries.Should().BeEmpty();
+        vm.Document.Insert(vm.Document.TextLength, "' edited");
+        recentEdits.Entries.Should().ContainSingle();
+        recentEdits.Entries[0].Document.Should().Be(DocumentIdentity.For(form));
+        recentEdits.Entries[0].Preview.Should().EndWith("' edited");
     }
 
     [AvaloniaFact]
@@ -89,7 +193,7 @@ public class CodeEditorViewModelTests : IDisposable
     [AvaloniaFact]
     public async Task ConfirmResetWhileRunningAsync_OK_RequestsProjectEnd()
     {
-        _windowManager.MessageBox(Arg.Any<string>(), Arg.Any<string>(), MessageBoxButtons.OkCancel, Arg.Any<MessageBoxIcon>())
+        _windowManager.TaskModalMessageBox(Arg.Any<string>(), Arg.Any<string>(), MessageBoxButtons.OkCancel, Arg.Any<MessageBoxIcon>())
             .Returns(MessageBoxResult.Ok);
 
         var reset = await CreateSut().ConfirmResetWhileRunningAsync();
@@ -101,12 +205,12 @@ public class CodeEditorViewModelTests : IDisposable
     [AvaloniaFact]
     public async Task ConfirmResetWhileRunningAsync_Cancel_KeepsRunning()
     {
-        _windowManager.MessageBox(Arg.Any<string>(), Arg.Any<string>(), MessageBoxButtons.OkCancel, Arg.Any<MessageBoxIcon>())
+        _windowManager.TaskModalMessageBox(Arg.Any<string>(), Arg.Any<string>(), MessageBoxButtons.OkCancel, Arg.Any<MessageBoxIcon>())
             .Returns(MessageBoxResult.Cancel);
 
         var reset = await CreateSut().ConfirmResetWhileRunningAsync();
 
-        await _windowManager.Received(1).MessageBox(Arg.Any<string>(), Arg.Any<string?>(), MessageBoxButtons.OkCancel, MessageBoxIcon.Warning);
+        await _windowManager.Received(1).TaskModalMessageBox(Arg.Any<string>(), Arg.Any<string?>(), MessageBoxButtons.OkCancel, MessageBoxIcon.Warning);
         reset.Should().BeFalse();
         _eventBus.DidNotReceive().Publish(Arg.Any<EndProjectRequestedEvent>());
     }
@@ -743,7 +847,7 @@ public class CodeEditorViewModelTests : IDisposable
         var vm = CreateSut().Initialize(form);
         var pos = new Position(0, 12);
         _lspClient.RequestRenameAsync("untitled:TestProject/Form1.frm", pos, "newName", Arg.Any<CancellationToken>())
-            .Returns((WorkspaceEdit?)null);
+            .Returns((RenameResult?)null);
 
         var result = await vm.RequestRenameAsync(pos, "newName");
 
@@ -751,18 +855,143 @@ public class CodeEditorViewModelTests : IDisposable
             "untitled:TestProject/Form1.frm", pos, "newName", Arg.Any<CancellationToken>());
     }
 
+    [AvaloniaTheory]
+    [InlineData(true, false)]
+    [InlineData(false, false)]
+    [InlineData(true, true)]
+    public async Task RenameWithUnresolvedDocument_RefusesWholeAnswer(bool includesOwnDocument, bool loaded)
+    {
+        var vm = CreateSut().Initialize(TestHelpers.CreateForm(name: "Form1"));
+        var before = vm.Document.Text;
+        var other = "file:///unloaded/Module1.bas";
+        _editorService.DocumentNameForUri(other).Returns(loaded ? "Module1" : null);
+        var changes = new Dictionary<string, TextEdit[]>
+        {
+            [other] = [new(new(new(0, 0), new(0, 0)), "NewName")],
+        };
+        if (includesOwnDocument)
+            changes[vm.GetDocumentUriPublic()] = [new(new(new(0, 0), new(0, 0)), "NewName")];
+        _localization.GetString("Str.CodeEditor.Msg.RenameDocumentRefused").Returns("Rename refused: {0}");
+        _lspClient.RequestRenameAsync(vm.GetDocumentUriPublic(), Arg.Any<Position>(), "NewName", Arg.Any<CancellationToken>())
+            .Returns(new RenameResult(new WorkspaceEdit(changes), null));
+
+        var answer = await vm.RequestRenameAsync(new(0, 0), "NewName");
+        var refusal = vm.ApplyRename(answer!.Edit!, "OldName");
+
+        refusal.Should().Be("Rename refused: " + (loaded ? "Module1" : other));
+        vm.Document.Text.Should().Be(before);
+    }
+
     [AvaloniaFact]
-    public async Task RequestFormattingAsync_DelegatesToLspClient()
+    public void RenameWithEmptyOtherEdits_AppliesOwnEditsAsOneUndoStep()
+    {
+        var vm = CreateSut().Initialize(TestHelpers.CreateForm(name: "Form1"));
+        var before = vm.Document.Text;
+        var line = vm.Document.LineCount - 1;
+        var edit = new WorkspaceEdit(new()
+        {
+            [vm.GetDocumentUriPublic()] = [new(new(new(line, 0), new(line, 0)), "Renamed")],
+            ["file:///unloaded/Module1.bas"] = [],
+        });
+
+        vm.ApplyRename(edit, "OldName").Should().BeNull();
+        vm.Document.Text.Should().Contain("Renamed");
+        vm.Document.UndoStack.Undo();
+        vm.Document.Text.Should().Be(before);
+    }
+
+    [AvaloniaFact]
+    public async Task RenameViewAppliesDocumentChangesWithoutChangesDictionary()
+    {
+        var vm = CreateSut().Initialize(TestHelpers.CreateModule());
+        var before = vm.Document.Text;
+        _localization.GetString("Str.CodeEditor.Dialog.RenamePrompt").Returns("New name:");
+        _localization.GetString("Str.CodeEditor.Dialog.RenameTitle").Returns("Rename");
+        _windowManager.InputBox("New name:", "Rename", "Greet").Returns("Welcome");
+        var line = vm.Document.LineCount - 1;
+        _lspClient.RequestRenameAsync(Arg.Any<string>(), Arg.Any<Position>(), "Welcome", Arg.Any<CancellationToken>())
+            .Returns(new RenameResult(new WorkspaceEdit(DocumentChanges:
+                [new(new(vm.GetDocumentUriPublic(), 1), [new(new(new(line, 0), new(line, 0)), "Welcome")])]), null));
+
+        await new HexIDE.Forms.Views.CodeEditorView().RenameSymbolAsync(vm, new(0, 0), "Greet");
+
+        vm.Document.Text.Should().Contain("Welcome");
+        vm.Document.UndoStack.Undo();
+        vm.Document.Text.Should().Be(before);
+    }
+
+    [AvaloniaTheory]
+    [InlineData(null)]
+    [InlineData("Server refuses")]
+    public async Task PreparationRefusalNeverOpensThePrompt(string? reason)
+    {
+        var vm = CreateSut().Initialize(TestHelpers.CreateForm(name: "Form1"));
+        _lspClient.RequestPrepareRenameAsync(Arg.Any<string>(), Arg.Any<Position>(), Arg.Any<CancellationToken>())
+            .Returns(new PrepareRenameResult(false, Refusal: reason));
+        await new HexIDE.Forms.Views.CodeEditorView().RenameSymbolAsync(vm, new(0, 0), "Old");
+        await _windowManager.DidNotReceive().InputBox(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>());
+        if (reason is not null) await _windowManager.Received(1).MessageBox(reason, icon: MessageBoxIcon.Information);
+    }
+
+    [AvaloniaFact]
+    public async Task PreparationRangeStartsThePrompt()
+    {
+        var vm = CreateSut().Initialize(TestHelpers.CreateForm(name: "Form1"));
+        vm.Document.Text = "prefix ServerName suffix";
+        var expected = "ServerName";
+        _localization.GetString("Str.CodeEditor.Dialog.RenamePrompt").Returns("New name:");
+        _localization.GetString("Str.CodeEditor.Dialog.RenameTitle").Returns("Rename");
+        _lspClient.RequestPrepareRenameAsync(Arg.Any<string>(), Arg.Any<Position>(), Arg.Any<CancellationToken>())
+            .Returns(new PrepareRenameResult(true, new(new(0, 7), new(0, 17))));
+        await new HexIDE.Forms.Views.CodeEditorView().RenameSymbolAsync(vm, new(0, 0), "Old");
+        await _windowManager.Received(1).InputBox("New name:", "Rename", expected);
+    }
+
+    [AvaloniaFact]
+    public async Task PreparationPlaceholderStartsThePrompt()
+    {
+        var vm = CreateSut().Initialize(TestHelpers.CreateForm(name: "Form1"));
+        _localization.GetString("Str.CodeEditor.Dialog.RenamePrompt").Returns("New name:");
+        _localization.GetString("Str.CodeEditor.Dialog.RenameTitle").Returns("Rename");
+        _lspClient.RequestPrepareRenameAsync(Arg.Any<string>(), Arg.Any<Position>(), Arg.Any<CancellationToken>())
+            .Returns(new PrepareRenameResult(true, new(new(0, 0), new(0, 4)), "From server"));
+        await new HexIDE.Forms.Views.CodeEditorView().RenameSymbolAsync(vm, new(0, 0), "Old");
+        await _windowManager.Received(1).InputBox("New name:", "Rename", "From server");
+    }
+
+    [AvaloniaFact]
+    public async Task RenameShowsTheServersRefusal()
+    {
+        var vm = CreateSut().Initialize(TestHelpers.CreateForm(name: "Form1"));
+        _localization.GetString("Str.CodeEditor.Dialog.RenamePrompt").Returns("New name:");
+        _localization.GetString("Str.CodeEditor.Dialog.RenameTitle").Returns("Rename");
+        _windowManager.InputBox("New name:", "Rename", "Long").Returns("Foo");
+        _lspClient.RequestRenameAsync(Arg.Any<string>(), Arg.Any<Position>(), "Foo", Arg.Any<CancellationToken>())
+            .Returns(new RenameResult(null, "Long is a keyword"));
+        var view = new HexIDE.Forms.Views.CodeEditorView();
+
+        await view.RenameSymbolAsync(vm, new Position(0, 0), "Long");
+
+        await _windowManager.Received(1).MessageBox("Long is a keyword", icon: MessageBoxIcon.Information);
+    }
+
+    [AvaloniaTheory]
+    [InlineData(2)]
+    [InlineData(8)]
+    public async Task RequestFormattingAsync_DelegatesToLspClient(int tabWidth)
     {
         var form = TestHelpers.CreateForm(name: "Form1");
         var vm = CreateSut().Initialize(form);
+        _settingsService.TabWidth.Returns(tabWidth);
         var expected = Array.Empty<TextEdit>();
-        _lspClient.RequestFormattingAsync("untitled:TestProject/Form1.frm", Arg.Any<CancellationToken>())
+        _lspClient.RequestFormattingAsync("untitled:TestProject/Form1.frm", new FormattingOptions(tabWidth, true), Arg.Any<CancellationToken>())
             .Returns(expected);
 
         var result = await vm.RequestFormattingAsync();
 
         result.Should().BeSameAs(expected);
+        await _lspClient.Received(1).RequestFormattingAsync("untitled:TestProject/Form1.frm",
+            new FormattingOptions(tabWidth, true), Arg.Any<CancellationToken>());
     }
 
     // ── Dispose ──────────────────────────────────────────────────────
@@ -834,6 +1063,37 @@ public class CodeEditorViewModelTests : IDisposable
         saved!(new DocumentSavedEvent(null, module));
 
         await _lspClient.Received(1).SaveDocumentAsync("untitled:TestProject/Module1.bas", Arg.Any<CancellationToken>());
+    }
+
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task AModuleWhoseFileMovedIsRenamedOnTheWireWhetherItsWindowIsOpenOrClosedWithEdits(bool closed)
+    {
+        var moved = new List<Action<ModuleMovedEvent>>();
+        _eventBus.Subscribe(Arg.Do<Action<ModuleMovedEvent>>(h => moved.Add(h))).Returns(Substitute.For<IDisposable>());
+        var folder = Path.Join(Path.GetTempPath(), "hexide-moved-" + Guid.NewGuid().ToString("N"));
+        var (from, to) = (Path.Join(folder, "Module1.bas"), Path.Join(folder, "src", "Module1.bas"));
+        var module = TestHelpers.CreateModule(name: "Module1");
+        module.AbsolutePath = from;
+        var vm = CreateSut().Initialize(module);
+        var before = vm.GetDocumentUriPublic();
+        if (closed)
+        {
+            // Its project then holds the edits on the language layer, under the name the window had.
+            _projectService.HasUnsavedChanges(module).Returns(true);
+            vm.Document.Insert(vm.Document.TextLength, "' kept");
+            vm.Dispose();
+        }
+        _lspClient.ClearReceivedCalls();
+
+        module.AbsolutePath = to;
+        foreach (var handler in moved.ToList()) handler(new ModuleMovedEvent(module));
+
+        await _lspClient.Received(1).CloseDocumentForRenameAsync(before, Arg.Any<CancellationToken>());
+        await _lspClient.Received(1).OpenDocumentAsync(LspDocumentUri.ForFile(to), Arg.Any<string>(), Arg.Any<bool>(),
+            Arg.Any<CancellationToken>());
+        if (closed) ProjectLspDocument.Reopened(_lspClient, vm.Identity); // release the test's project holder
     }
 
     [AvaloniaFact]

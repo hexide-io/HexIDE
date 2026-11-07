@@ -20,6 +20,7 @@ public sealed partial class ExternalDebugService
     {
         public string Path { get; } = path;
         public SortedSet<int> Desired { get; set; } = [];
+        public Dictionary<int, string> Conditions { get; } = [];
         public IReadOnlyList<ExternalBreakpoint> Rows { get; set; } = [];
         public long Version { get; set; }
         public bool Sending { get; set; }
@@ -33,6 +34,7 @@ public sealed partial class ExternalDebugService
     private void ResetBreakpoints()
     {
         breakpointsReady = false;
+        conditionsNoticeShown = false;
         breakpointSources.Clear();
     }
 
@@ -44,8 +46,23 @@ public sealed partial class ExternalDebugService
             state.Rows = state.Desired.Select(line => new ExternalBreakpoint(line)).ToArray();
             breakpointSources[state.Path] = state;
         }
+        if (breakpoints is not null)
+            foreach (var (document, lines) in breakpoints.All())
+            {
+                if (document.AbsolutePath is not { } path) continue;
+                path = Path.GetFullPath(path);
+                if (!breakpointSources.TryGetValue(path, out var state))
+                    breakpointSources[path] = state = new(path);
+                foreach (var line in lines)
+                {
+                    state.Desired.Add(line);
+                    if (breakpoints.GetCondition(document, line) is { } condition) state.Conditions[line] = condition;
+                }
+                state.Rows = state.Desired.Select(line => new ExternalBreakpoint(line)).ToArray();
+            }
         Changed?.Invoke();
-        return breakpointSources.Values.Select(source => new DapSourceBreakpoints(source.Path, source.Desired.ToArray())).ToArray();
+        return breakpointSources.Values.Select(source => new DapSourceBreakpoints(source.Path, source.Desired.ToArray())
+            { Conditions = new Dictionary<int, string>(source.Conditions) }).ToArray();
     }
 
     private static string? SourcePath(string uri)
@@ -65,6 +82,7 @@ public sealed partial class ExternalDebugService
         if (!breakpointSources.TryGetValue(path, out var source))
             breakpointSources[path] = source = new(path);
         if (!source.Desired.Remove(line)) source.Desired.Add(line);
+        else source.Conditions.Remove(line);
         QueueBreakpoints(source);
         return true;
     }
@@ -76,8 +94,34 @@ public sealed partial class ExternalDebugService
         {
             if (source.Desired.Count == 0 && source.Rows.Count == 0) continue;
             source.Desired.Clear();
+            source.Conditions.Clear();
             QueueBreakpoints(source);
         }
+    }
+
+    private bool conditionsNoticeShown;
+
+    private void NoticeIgnoredConditions()
+    {
+        if (conditionsNoticeShown || session?.Supports("supportsConditionalBreakpoints") != false ||
+            !breakpointSources.Values.Any(source => source.Conditions.Count > 0)) return;
+        conditionsNoticeShown = true;
+        Output?.Invoke((localization ?? new HexIDE.Localization.LocalizationService())
+            .GetString("Str.Debug.Conditions.AdapterIgnored") + "\n");
+    }
+
+    public string? GetCondition(string uri, int line) =>
+        SourcePath(uri) is { } path && breakpointSources.TryGetValue(path, out var source) &&
+        source.Conditions.TryGetValue(line, out var condition) ? condition : null;
+
+    public void SetCondition(string uri, int line, string? condition)
+    {
+        if (!CanEditBreakpoints || SourcePath(uri) is not { } path ||
+            !breakpointSources.TryGetValue(path, out var source) || !source.Desired.Contains(line)) return;
+        if (string.IsNullOrWhiteSpace(condition)) source.Conditions.Remove(line);
+        else source.Conditions[line] = condition;
+        NoticeIgnoredConditions();
+        QueueBreakpoints(source);
     }
 
     private void QueueBreakpoints(BreakpointSource source)
@@ -102,7 +146,7 @@ public sealed partial class ExternalDebugService
                 var lines = source.Desired.ToArray();
                 try
                 {
-                    var reply = await current.SetBreakpointsAsync(source.Path, lines);
+                    var reply = await current.SetBreakpointsAsync(source.Path, lines, conditions: new Dictionary<int, string>(source.Conditions));
                     if (session != current || !CanEditBreakpoints) return;
                     if (source.Version != version) continue;
                     ApplyBreakpointReply(source, lines, reply);

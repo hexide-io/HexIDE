@@ -28,7 +28,12 @@ public sealed class LanguageServerRegistrationFactory(
     ILspWorkspace? workspace = null,
     ConversationLog? capture = null,
     IWorkspaceArtifactProviderRegistry? artifactProviders = null,
-    ConversationRedactor? workspaceNames = null)
+    ConversationRedactor? workspaceNames = null,
+    Func<string>? locale = null,
+    HexIDE.IDE.ISettingsService? settings = null,
+    Func<string, ShowDocumentParams, CancellationToken, Task<bool>>? showDocument = null,
+    Func<string, ShowMessageRequestParams, CancellationToken, Task<MessageActionItem?>>? showMessageRequest = null,
+    Func<WorkspaceEdit, Func<string, RenameDocumentSnapshot?>, CancellationToken, Task<string?>>? applyEdit = null)
 {
     /// <summary>
     /// The registrations for these entries, skipping the ones that are switched off.
@@ -65,7 +70,11 @@ public sealed class LanguageServerRegistrationFactory(
                     trace: trace,
                     // The id, not the language: two servers can serve one language, and a record that
                     // could not tell them apart would be worse than no record.
-                    capture: capture, connectionId: id, workspaceNames: workspaceNames),
+                    capture: capture, connectionId: id, workspaceNames: workspaceNames, locale: locale, settings: settings, showDocument: showDocument is null ? null :
+                        (request, token) => showDocument(string.IsNullOrWhiteSpace(entry.DisplayName) ? id : entry.DisplayName, request, token),
+                    showMessageRequest: showMessageRequest is null ? null :
+                        (request, token) => showMessageRequest(string.IsNullOrWhiteSpace(entry.DisplayName) ? id : entry.DisplayName, request, token),
+                    applyEdit: applyEdit),
                 Priority: entry.Priority ?? 0,
                 Transport: transport.Kind,
                 Endpoint: transport.Endpoint,
@@ -77,7 +86,8 @@ public sealed class LanguageServerRegistrationFactory(
                     id, entry.WorkspaceArtifact, artifactProviders, out var artifact, out _)
                         ? artifact
                         : null,
-                WorkspaceArtifactRefused: entry.WorkspaceArtifact is not null && artifact is null));
+                WorkspaceArtifactRefused: entry.WorkspaceArtifact is not null && artifact is null,
+                ProjectImport: ProjectImportSpecReader.TryRead(id, entry.ProjectImport, out var import, out _) ? import : null));
         }
 
         return registrations;

@@ -473,8 +473,8 @@ public class ErrLifetimeTests : BaseVBTestFixture
     }
 
     // A Raise that gives no Description keeps the one already set, the empty string included, and a run-time error
-    // always sets its own. Only Err.Clear makes a Raise take the standard text again. Source is left out: VB6 fills
-    // it with the project's name, which HexIDE does not model.
+    // always sets its own. Only Err.Clear makes a Raise take the standard text again. Source has its own
+    // project-name and preservation coverage in ErrSourceTests (#1483).
     [Fact]
     public async Task Err_Raise_with_no_Description_keeps_the_one_already_set()
     {

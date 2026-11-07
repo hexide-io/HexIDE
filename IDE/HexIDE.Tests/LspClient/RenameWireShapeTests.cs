@@ -133,7 +133,8 @@ public class RenameWireShapeTests : IAsyncDisposable
         }
     }
 
-    private async Task<VBLspClient> ConnectedAsync()
+    private async Task<VBLspClient> ConnectedAsync(string renameProvider = "true", string preparation = "null", bool error = false,
+        bool start = true)
     {
         var (clientSide, serverSide) = FullDuplexStream.CreatePair();
 
@@ -166,10 +167,17 @@ public class RenameWireShapeTests : IAsyncDisposable
                     // notifications this file is about. Deliberately NO diagnosticProvider: a pull would
                     // put request frames between the two notifications and answer none of the question.
                     var head = "{\"jsonrpc\":\"2.0\",\"id\":" + id.GetRawText() + ",\"result\":";
-                    var reply = m.GetString() == "initialize"
-                        ? head + "{\"capabilities\":{\"textDocumentSync\":{\"openClose\":true,\"change\":1}},"
+                    var reply = m.GetString() == "textDocument/prepareRename"
+                        ? error ? "{\"jsonrpc\":\"2.0\",\"id\":" + id.GetRawText() + ",\"error\":{\"code\":-32803,\"message\":\"Cannot rename this\"}}"
+                            : head + preparation + "}"
+                        : m.GetString() == "initialize"
+                        ? head + "{\"capabilities\":{\"renameProvider\":" + renameProvider + ",\"textDocumentSync\":{\"openClose\":true,\"change\":1}},"
                                + "\"serverInfo\":{\"name\":\"rename-probe\",\"version\":\"1.0.0\"}}}"
-                        : head + "null}";
+                        : m.GetString() == "textDocument/rename"
+                            ? head + "{\"documentChanges\":[{\"textDocument\":{\"uri\":\"file:///Module1.bas\",\"version\":2},"
+                                + "\"edits\":[{\"range\":{\"start\":{\"line\":1,\"character\":0},\"end\":{\"line\":1,\"character\":5}},\"newText\":\"Welcome\"}]},"
+                                + "{\"textDocument\":{\"uri\":\"file:///Module2.bas\",\"version\":null},\"edits\":[]}]} }"
+                            : head + "null}";
                     await WriteFrameAsync(serverSide, reply, _cts.Token);
                 }
             }
@@ -185,8 +193,97 @@ public class RenameWireShapeTests : IAsyncDisposable
 
         var client = new VBLspClient(transport, Substitute.For<ILogger<VBLspClient>>(), "vb6");
         _disposables.Add(client);
-        await client.StartAsync();
+        if (start) await client.StartAsync();
         return client;
+    }
+
+    [Theory]
+    [InlineData("{\"start\":{\"line\":1,\"character\":0},\"end\":{\"line\":1,\"character\":5}}", null)]
+    [InlineData("{\"range\":{\"start\":{\"line\":1,\"character\":0},\"end\":{\"line\":1,\"character\":5}},\"placeholder\":\"Hello\"}", "Hello")]
+    public async Task PrepareRenameReadsTheRangeAndPlaceholder(string answer, string? placeholder)
+    {
+        var client = await ConnectedAsync("{\"prepareProvider\":true}", answer);
+        var result = await client.RequestPrepareRenameAsync(Old, new(1, 2), TestContext.Current.CancellationToken);
+        result!.Allowed.Should().BeTrue();
+        result.Range!.Start.Line.Should().Be(1);
+        result.Range.End.Character.Should().Be(5);
+        result.Placeholder.Should().Be(placeholder);
+        var frame = FrameFor("textDocument/prepareRename", Old);
+        frame.GetProperty("params").GetProperty("position").GetProperty("character").GetInt32().Should().Be(2);
+        lock (_received)
+        {
+            var initialize = _received.Single(d => MethodOf(d.RootElement) == "initialize").RootElement;
+            var capability = initialize.GetProperty("params").GetProperty("capabilities").GetProperty("textDocument").GetProperty("rename");
+            capability.GetProperty("prepareSupport").GetBoolean().Should().BeTrue();
+            capability.GetProperty("prepareSupportDefaultBehavior").GetInt32().Should().Be(1);
+        }
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task PrepareRenameRefusesNullAndErrors(bool error)
+    {
+        var client = await ConnectedAsync("{\"prepareProvider\":true}", error: error);
+        var result = await client.RequestPrepareRenameAsync(Old, new(1, 2), TestContext.Current.CancellationToken);
+        result!.Allowed.Should().BeFalse();
+        result.Refusal.Should().Be(error ? "Cannot rename this" : null);
+        FrameFor("textDocument/prepareRename", Old).ValueKind.Should().Be(JsonValueKind.Object);
+    }
+
+    [Fact]
+    public async Task PrepareRenameDefaultBehaviorKeepsTheLocalWord()
+    {
+        var client = await ConnectedAsync("{\"prepareProvider\":true}", "{\"defaultBehavior\":true}");
+        var result = await client.RequestPrepareRenameAsync(Old, new(1, 2), TestContext.Current.CancellationToken);
+        result!.Allowed.Should().BeTrue();
+        result.Range.Should().BeNull();
+        FrameFor("textDocument/prepareRename", Old).ValueKind.Should().Be(JsonValueKind.Object);
+    }
+
+    [Theory]
+    [InlineData("true")]
+    [InlineData("false")]
+    [InlineData("{}")]
+    [InlineData("{\"prepareProvider\":false}")]
+    public async Task PrepareRenameIsNotSentWithoutPrepareProvider(string provider)
+    {
+        var client = await ConnectedAsync(provider);
+        (await client.RequestPrepareRenameAsync(Old, new(1, 2), TestContext.Current.CancellationToken)).Should().BeNull();
+        if (provider != "false")
+        {
+            await client.RequestRenameAsync(Old, new(1, 2), "NewName", TestContext.Current.CancellationToken);
+            FrameFor("textDocument/rename", Old).ValueKind.Should().Be(JsonValueKind.Object);
+        }
+        FrameFor("textDocument/prepareRename", Old).ValueKind.Should().Be(JsonValueKind.Undefined);
+    }
+
+    [Fact]
+    public async Task PreparationAsksBothServersOnTheWireEvenAfterARefusal()
+    {
+        var first = await ConnectedAsync("{\"prepareProvider\":true}", start: false);
+        var second = await ConnectedAsync("{\"prepareProvider\":true}", error: true, start: false);
+        await using var registry = new LspClientRegistry(
+            [new("first", "first", [".bas"], "vb6", () => first),
+             new("second", "second", [".bas"], "vb6", () => second)],
+            Substitute.For<ILogger<LspClientRegistry>>());
+        await registry.OpenDocumentAsync(Old, "Sub Hello()", TestContext.Current.CancellationToken);
+
+        var result = await registry.RequestPrepareRenameAsync(Old, new(1, 2), TestContext.Current.CancellationToken);
+
+        result!.Allowed.Should().BeFalse();
+        result.Refusal.Should().Be("Cannot rename this");
+        lock (_received)
+        {
+            var requests = _received.Select(d => d.RootElement)
+                .Where(e => MethodOf(e) == "textDocument/prepareRename").ToArray();
+            requests.Should().HaveCount(2);
+            foreach (var frame in requests)
+            {
+                UriOf(frame).Should().Be(Old);
+                frame.GetProperty("params").GetProperty("position").GetProperty("line").GetInt32().Should().Be(1);
+            }
+        }
     }
 
     /// <summary>A connected client with the document already open under its old name.</summary>
@@ -207,6 +304,37 @@ public class RenameWireShapeTests : IAsyncDisposable
     }
 
     // ── The sequence ──────────────────────────────────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task InitializeDeclaresVersionedDocumentEditsWithoutResourceOperations()
+    {
+        var client = await ConnectedAsync();
+        JsonElement initialize;
+        lock (_received) initialize = _received.Single(d => MethodOf(d.RootElement) == "initialize").RootElement;
+        var edit = initialize.GetProperty("params").GetProperty("capabilities")
+            .GetProperty("workspace").GetProperty("workspaceEdit");
+        edit.GetProperty("documentChanges").GetBoolean().Should().BeTrue();
+        edit.TryGetProperty("resourceOperations", out _).Should().BeFalse();
+        await client.OpenDocumentAsync(Old, "Sub Greet()", TestContext.Current.CancellationToken);
+        await ArrivedAsync("textDocument/didOpen", Old);
+        await client.ChangeDocumentAsync(Old, 2, "Sub Welcome()", TestContext.Current.CancellationToken);
+        await ArrivedAsync("textDocument/didChange", Old);
+        var answer = await client.RequestRenameAsync(Old, new(1, 0), "Welcome", TestContext.Current.CancellationToken);
+        answer.Should().NotBeNull();
+        answer!.Edit!.DocumentChanges.Should().HaveCount(2);
+        answer.Edit.DocumentChanges![0].TextDocument!.Version.Should().Be(2);
+        answer.Edit.DocumentChanges[0].Edits!.Single().NewText.Should().Be("Welcome");
+        answer.Edit.DocumentChanges[1].TextDocument!.Version.Should().BeNull();
+        answer.DocumentFor.Should().NotBeNull();
+        answer.DocumentFor!(Old).Should().Be(new RenameDocumentSnapshot(2, "Sub Welcome()"));
+        answer.DocumentFor("file:///never-opened.bas").Should().BeNull();
+        await client.CloseDocumentAsync(Old, TestContext.Current.CancellationToken);
+        await ArrivedAsync("textDocument/didClose", Old);
+        answer.DocumentFor(Old).Should().BeNull();
+        lock (_received)
+            _received.Should().Contain(d => MethodOf(d.RootElement) == "textDocument/rename"
+                && d.RootElement.GetProperty("params").GetProperty("newName").GetString() == "Welcome");
+    }
 
     [Fact]
     public async Task TheOldNameIsClosedBeforeTheNewOneIsOpened()
