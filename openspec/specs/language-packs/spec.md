@@ -89,6 +89,10 @@ one, except where the menu collision policy below requires its omission. A Chine
 parentheses, as `ファイル(_F)`, with that one marker on the Latin letter. A pack in any other non-Latin script
 SHALL omit access-key markers entirely.
 
+IDE access-key markers SHALL use Avalonia's underscore syntax, never ampersands. Literal ampersands
+SHALL be limited to `Str.PropDesc.UseMnemonic`, `Str.Tool.LanguageServers.Title` and
+`Str.Tool.ProtocolInspector.NoBody.Unarmed` (#347).
+
 Access keys work by showing an underlined Latin letter the user presses. In a script with no such letters
 the marker either renders as a stray character or silently does nothing, so carrying one is worse than
 omitting it. Chinese and Japanese are the exception because their own Windows convention solves this: the
@@ -108,6 +112,10 @@ stays decidable by whoever writes the pack, without a per-language ruling.
 #### Scenario: Translating into another non-Latin script
 - **WHEN** a pack is written in a non-Latin script other than Chinese or Japanese
 - **THEN** it carries no access-key markers
+
+#### Scenario: Greek chrome captions
+- **WHEN** the Greek pack supplies language labels or designer and code-editor context captions
+- **THEN** the captions contain no ampersand access-key markers, including markers inside words
 
 ### Requirement: View and code-context access keys SHALL use a free letter where available
 In Latin-script packs, colliding access keys in the View menu and code window's context menu SHALL
