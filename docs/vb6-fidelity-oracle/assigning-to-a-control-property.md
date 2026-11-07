@@ -167,6 +167,37 @@ So a bar whose Min exceeds its Max is legal, and the range check takes the two e
 | `Text1.BackColor = "&H8000000F"` / `= "-2147483633"` | `-2147483633` (Long), a system colour | 0 |
 | `Text1.BackColor = "&H8000000F&"` | unchanged | 13 |
 
+**The width depends on the function and on the value, measured on 2026-10-27 (#788).** Twenty-five hex and octal
+Strings went through each of eight functions, and then eleven more with leading zeros. Native and p-code agreed on every
+row. V is the digits' unsigned value:
+
+| String | `CInt` | `Val` | `CLng` | `CDbl`, `CCur`, `CSng`, `CDec` | `CByte` |
+|---|---|---|---|---|---|
+| `&H7FFF`, `&O77777` | 32767 | 32767 | 32767 | 32767 | 6 |
+| `&H8000`, `&O100000`, `&h8000` | **-32768** | **-32768** | 32768 | 32768 | 6 |
+| `&HFFFF`, `&O177777` | **-1** | **-1** | 65535 | 65535 | 6 |
+| `&H10000`, `&H18000`, `&O200000` | 6 | 65536, 98304, 65536 | 65536, 98304, 65536 | the same | 6 |
+| `&H7FFFFFFF` | 6 | 2147483647 | 2147483647 | 2147483647 | 6 |
+| `&H80000000`, `&H8000000F` | 6 | -2147483648, -2147483633 | the same | the same | 6 |
+| `&HFFFFFFFF`, `&O37777777777` | **-1** | -1 | -1 | -1 | 6 |
+| `&H100000000`, `&O40000000000` | **0** | **0** | **6** | **4294967296** | **0** |
+| `&HFFFFFFFFF` | **-1** | **-1** | 6 | 68719476735 | 6 |
+| `&HFF`; `&H1` | 255; 1 | 255; 1 | 255; 1 | 255; 1 | 255; 1 |
+| `&H08000`, `&H000000008000`, `&H0FFFF` to `&H00000FFFF`, `&O0177777`, `&O00000000000177777` | as `&H8000` and `&HFFFF` | the same | the same | the same | 6 |
+| `&H0000000FFFFFFFF`, `&H000000100000000` | as `&HFFFFFFFF` and `&H100000000` | the same | the same | the same | the same |
+| `" &H10"`, `"&H10 "` | 16 | 16 | 16 | 16 | 16 |
+| `"&H 1"`; `"&H"`; `"&HG"` | 13 | 1; 0; 0 | 13 | 13 | 13 |
+
+So the width follows the value, not the number of digits. Leading zeros change nothing:
+- **V up to &HFFFF:** `CInt` and `Val` read it as a 16-bit signed number, as the literal `&H8000` is. The other
+  functions read it as V, so `CLng("&H8000")` is 32768 while `Val("&H8000")` is -32768.
+- **V up to &HFFFFFFFF:** every function reads it as a 32-bit signed number, and then range-checks it for its type.
+- **V above &HFFFFFFFF:** `CInt`, `CByte` and `Val` keep its low 32 bits, `CLng` raises 6, and `CDbl`, `CCur`, `CSng` and
+  `CDec` take V whole.
+
+Why `CLng` refuses what `CInt` wraps, we can't say. The rows are as measured. `"&H8000" + 0` is the Double 32768, which
+follows `CDbl`.
+
 **A colour reads back as its Long, and a hex literal is typed by its digits:**
 
 | Statement, after `Text1.BackColor = &HFF` | Value | Err |

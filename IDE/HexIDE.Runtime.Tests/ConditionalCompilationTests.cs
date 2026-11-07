@@ -959,9 +959,9 @@ public class ConditionalCompilationTests : BaseVBTestFixture
             """),
     };
 
-    // vb6.exe accepts CVErr in an #If, where CVErr(5) = 5 is Type mismatch. HexIDE has no CVErr, and says so.
+    // vb6.exe accepts CVErr in an #If, where CVErr(5) = 5 is Type mismatch (#1112, #2520).
     [Fact]
-    public async Task CVErr_is_refused_as_not_implemented()
+    public async Task CVErr_compared_with_a_number_is_type_mismatch()
     {
         var run = () => RunProgram(null, """"""
             Sub Main()
@@ -979,7 +979,7 @@ public class ConditionalCompilationTests : BaseVBTestFixture
 
             """""");
 
-        await run.Should().ThrowAsync<NotImplementedException>();
+        (await run.Should().ThrowAsync<VBCompileErrorException>()).Which.Message.Should().Contain("Type mismatch");
     }
 
     private static readonly Dictionary<string, (string? CondComp, string Module1, string? Module2, string Expected)> Programs = new()

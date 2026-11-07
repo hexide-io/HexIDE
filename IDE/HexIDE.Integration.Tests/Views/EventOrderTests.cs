@@ -2,7 +2,11 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
+using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Headless;
+using Avalonia.Input;
+using Avalonia.VisualTree;
 using Avalonia.Headless.XUnit;
 using Avalonia.Interactivity;
 using Avalonia.LogicalTree;
@@ -154,6 +158,41 @@ public class EventOrderTests
             if (context is not null)
                 ExecutionContext.Restore(context);
         }
+    }
+
+    [AvaloniaFact]
+    public void SSTab_MouseDown_reads_the_old_tab_before_Click_and_MouseUp()
+    {
+        var source = Form.Replace("   Begin VB.CommandButton Command1", """
+               Begin TabDlg.SSTab SSTab1
+                  Width = 4000
+                  Height = 1500
+               End
+               Begin VB.CommandButton Command1
+            """);
+        using var run = Start("""
+            Private Sub SSTab1_MouseDown(Button As Integer, Shift As Integer, X As Single, Y As Single)
+                Debug.Print "down " & SSTab1.Tab
+                Debug.Print "down ends " & SSTab1.Tab
+            End Sub
+            Private Sub SSTab1_Click(PreviousTab As Integer)
+                Debug.Print "click " & PreviousTab & " to " & SSTab1.Tab
+            End Sub
+            Private Sub SSTab1_MouseUp(Button As Integer, Shift As Integer, X As Single, Y As Single)
+                Debug.Print "up " & SSTab1.Tab
+            End Sub
+            """, -1, source);
+        var tab = run.Window.GetLogicalDescendants().OfType<VBSSTab>().Single();
+        var caption = tab.GetVisualDescendants().OfType<TextBlock>().ElementAt(1);
+        var point = caption.TranslatePoint(new Point(5, 5), run.Window)!.Value;
+
+        run.Window.MouseDown(point, MouseButton.Left);
+        run.Window.MouseUp(point, MouseButton.Left);
+        Pump();
+
+        run.Failed.Should().BeEmpty();
+        run.Printed.Should().Equal("down 0", "down ends 0", "click 0 to 1", "up 1");
+        tab.Tab.Should().Be(1);
     }
 
     [AvaloniaFact]

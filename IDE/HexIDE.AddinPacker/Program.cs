@@ -2,10 +2,12 @@ using HexIDE.AddinPacker;
 
 // Tiny CLI: `genkeys <outDir>` | `pack --src <dir> --out <dir> --id <id> --title <t> --version <v>
 //           --entry <file.dll> --trust <trustDir> [--author <a>] [--desc <d>] [--include <file> ...]
-//           [--logo <file.png>] [--min-hexide-version <version>]`
+//           [--capability <identifier> ...] [--logo <file.png>] [--min-hexide-version <version>]`
 if (args.Length == 0)
 {
-    Console.Error.WriteLine("usage: genkeys <outDir> | pack --src .. --out .. --id .. --title .. --version .. --entry .. --trust ..");
+    Console.Error.WriteLine("usage: genkeys <outDir> | sign-publisher --root-public-key .. --intermediate-key .. --intermediate .. --publisher-id .. --display-name .. --public-key .. --out .. | pack --src .. --out .. --id .. --title .. --version .. --entry .. --trust ..");
+    Console.Error.WriteLine("       genkeys-release --root-out .. --intermediate-out .. --firstparty-out .. --public-out ..");
+    Console.Error.WriteLine("         --intermediate-id .. --intermediate-name .. --firstparty-id .. --firstparty-name ..");
     return 1;
 }
 
@@ -16,6 +18,34 @@ try
         case "genkeys":
             if (args.Length < 2) { Console.Error.WriteLine("genkeys: missing <outDir>"); return 1; }
             PackageSigner.GenerateDevTrust(args[1]);
+            return 0;
+
+        case "genkeys-release":
+            var release = ParseOptions(args.AsSpan(1));
+            PackageSigner.GenerateReleaseTrust(new ReleaseTrustRequest
+            {
+                RootOut = Required(release, "root-out"),
+                IntermediateOut = Required(release, "intermediate-out"),
+                FirstPartyOut = Required(release, "firstparty-out"),
+                PublicOut = Required(release, "public-out"),
+                IntermediateId = Required(release, "intermediate-id"),
+                IntermediateName = Required(release, "intermediate-name"),
+                FirstPartyId = Required(release, "firstparty-id"),
+                FirstPartyName = Required(release, "firstparty-name"),
+            });
+            return 0;
+
+        case "sign-publisher":
+            var po = ParseOptions(args.AsSpan(1));
+            string[] publisherOptions = ["root-public-key", "intermediate-key", "intermediate", "publisher-id",
+                "display-name", "public-key", "out"];
+            if (args.Length != 1 + publisherOptions.Length * 2
+                || po.Count != publisherOptions.Length
+                || po.Any(pair => !publisherOptions.Contains(pair.Key, StringComparer.OrdinalIgnoreCase) || pair.Value.Count != 1))
+                throw new ArgumentException("sign-publisher requires each of --root-public-key, --intermediate-key, --intermediate, --publisher-id, --display-name, --public-key and --out exactly once");
+            PackageSigner.SignPublisher(Required(po, "root-public-key"), Required(po, "intermediate-key"),
+                Required(po, "intermediate"), Required(po, "publisher-id"), Required(po, "display-name"),
+                Required(po, "public-key"), Required(po, "out"));
             return 0;
 
         case "sign-revocations":
@@ -37,6 +67,7 @@ try
                 Entry = Required(o, "entry"),
                 TrustDir = Required(o, "trust"),
                 Include = o.GetValueOrDefault("include", []),
+                Capabilities = o.GetValueOrDefault("capability", []),
                 MinHexideVersion = o.TryGetValue("min-hexide-version", out var minimum) && minimum.Count > 0 ? minimum[0] : null,
                 Logo = o.TryGetValue("logo", out var logo) && logo.Count > 0 ? logo[0] : null,
             });

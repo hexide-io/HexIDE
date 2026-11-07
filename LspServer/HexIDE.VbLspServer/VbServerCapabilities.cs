@@ -66,6 +66,7 @@ internal sealed class VbServerCapabilities : IJsonHandler
             Change = TextDocumentSyncKind.Full,
         };
 
+        serverCapabilities.InlayHintProvider = true;
         serverCapabilities.HoverProvider = true;
         serverCapabilities.DocumentSymbolProvider = true;
         serverCapabilities.FoldingRangeProvider = true;

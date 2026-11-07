@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Threading.Channels;
 using AvaloniaEdit.Document;
 using HexIDE.Controls;
 using HexIDE.Lsp;
@@ -15,6 +16,7 @@ public class LineFoldingNegotiationTests : IAsyncDisposable
 {
     private readonly List<IAsyncDisposable> _disposables = [];
     private LspClientRegistry? _registry;
+    private readonly List<IDisposable> _servers = [];
 
     /// <summary>Captures the <c>initialize</c> parameters the client sends.</summary>
     private sealed class HandshakeRecorder
@@ -23,6 +25,7 @@ public class LineFoldingNegotiationTests : IAsyncDisposable
             new(TaskCreationOptions.RunContinuationsAsynchronously);
 
         public bool FailTokens { get; set; }
+        public int TransientFailures { get; set; }
         public bool EmptyTokens { get; set; }
         public int TokenRequests { get; private set; }
         public string? TokenUri { get; private set; }
@@ -32,6 +35,8 @@ public class LineFoldingNegotiationTests : IAsyncDisposable
         {
             TokenRequests++;
             TokenUri = p.GetProperty("textDocument").GetProperty("uri").GetString();
+            if (TokenRequests <= TransientFailures)
+                throw new LocalRpcException("Content Modified") { ErrorCode = -32801 };
             if (FailTokens) throw new InvalidOperationException("analysis still starting");
             return JsonDocument.Parse(EmptyTokens ? """{"data":[]}""" : """{"data":[0,0,3,0,0]}""").RootElement.Clone();
         }
@@ -49,7 +54,7 @@ public class LineFoldingNegotiationTests : IAsyncDisposable
         public void Initialized(JsonElement _) { }
     }
 
-    [Fact]
+    [AvaloniaFact]
     public async Task TheClientDoesNotDeclareLineOnlyFolding()
     {
         var server = new HandshakeRecorder();
@@ -80,7 +85,7 @@ public class LineFoldingNegotiationTests : IAsyncDisposable
         semantic.GetProperty("multilineTokenSupport").GetBoolean().Should().BeFalse();
 
         initialize.GetProperty("capabilities").GetProperty("textDocument")
-            .GetProperty("foldingRange").ValueKind.Should().Be(JsonValueKind.Null);
+            .TryGetProperty("foldingRange", out _).Should().BeFalse();
 
         const string uri = "untitled:Module1.bas";
         var tokens = await client.RequestSemanticTokensAsync(uri, TestContext.Current.CancellationToken);
@@ -104,6 +109,131 @@ public class LineFoldingNegotiationTests : IAsyncDisposable
         logger.ReceivedCalls().Count(call => call.GetMethodInfo().Name == "Log"
             && call.GetArguments()[2]?.ToString()?.Contains("keeping lexical colours", StringComparison.Ordinal) == true)
             .Should().Be(1, "errors and empty results are logged once per document");
+    }
+
+    [Fact]
+    public async Task ContentModifiedTokensAreRetriedUntilAnAnswerArrives()
+    {
+        var server = new HandshakeRecorder { TransientFailures = 2 };
+        var clock = new RetryClock();
+        var (client, logger) = await TokenClient(server, clock);
+
+        const string uri = "untitled:Module1.bas";
+        await client.OpenDocumentAsync(uri, "x", TestContext.Current.CancellationToken);
+        var request = client.RequestSemanticTokensAsync(uri, TestContext.Current.CancellationToken);
+        for (var attempt = 1; attempt <= 2; attempt++)
+        {
+            var advance = await clock.WaitForDelayAsync(TimeSpan.FromMilliseconds(250 * attempt));
+            server.TokenRequests.Should().Be(attempt);
+            request.IsCompleted.Should().BeFalse();
+            advance();
+        }
+        var tokens = await request.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
+
+        tokens.Should().NotBeNull();
+        tokens!.Data.Should().Equal(0, 0, 3, 0, 0);
+        server.TokenRequests.Should().Be(3, "the server must receive both retries without an edit");
+        logger.ReceivedCalls().Count(call => call.GetMethodInfo().Name == "Log"
+            && call.GetArguments()[0] is LogLevel.Warning).Should().Be(0);
+    }
+
+    private async Task<(VBLspClient Client, ILogger<VBLspClient> Logger)> TokenClient(
+        HandshakeRecorder server, TimeProvider clock)
+    {
+        var transport = Substitute.For<ILspTransport>();
+        transport.IsAlive.Returns(true);
+        transport.ConnectAsync(Arg.Any<IJsonRpcMessageFormatter>(), Arg.Any<CancellationToken>())
+            .Returns(ci =>
+            {
+                var (clientSide, serverSide) = FullDuplexStream.CreatePair();
+                var serverRpc = new JsonRpc(
+                    new HeaderDelimitedMessageHandler(serverSide, serverSide, new SystemTextJsonFormatter()), server);
+                serverRpc.StartListening();
+                _servers.Add(serverRpc);
+                return Task.FromResult<IJsonRpcMessageHandler?>(
+                    new HeaderDelimitedMessageHandler(clientSide, clientSide, ci.Arg<IJsonRpcMessageFormatter>()));
+            });
+        var logger = Substitute.For<ILogger<VBLspClient>>();
+        var client = new VBLspClient(transport, logger, "markdown", timeProvider: clock);
+        _disposables.Add(client);
+        await client.StartAsync(TestContext.Current.CancellationToken);
+        return (client, logger);
+    }
+
+    // Only one-shot delays are needed. Publishing the timer lets tests wait until the error has
+    // arrived, then advance the backoff after the lifecycle action, regardless of runner load.
+    private sealed class RetryClock : TimeProvider
+    {
+        private readonly Channel<(TimeSpan Due, Action Advance)> _delays =
+            Channel.CreateUnbounded<(TimeSpan, Action)>();
+
+        public override ITimer CreateTimer(TimerCallback callback, object? state,
+            TimeSpan dueTime, TimeSpan period)
+        {
+            period.Should().Be(Timeout.InfiniteTimeSpan);
+            var timer = new RetryTimer(callback, state);
+            _delays.Writer.TryWrite((dueTime, timer.Advance)).Should().BeTrue();
+            return timer;
+        }
+
+        public async Task<Action> WaitForDelayAsync(TimeSpan expected)
+        {
+            var delay = await _delays.Reader.ReadAsync(TestContext.Current.CancellationToken).AsTask()
+                .WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
+            delay.Due.Should().Be(expected);
+            return delay.Advance;
+        }
+
+        private sealed class RetryTimer(TimerCallback callback, object? state) : ITimer
+        {
+            private int _disposed;
+            public void Advance()
+            {
+                if (Volatile.Read(ref _disposed) == 0) callback(state);
+            }
+            public bool Change(TimeSpan dueTime, TimeSpan period) => throw new NotSupportedException();
+            public void Dispose() => Interlocked.Exchange(ref _disposed, 1);
+            public ValueTask DisposeAsync() { Dispose(); return ValueTask.CompletedTask; }
+        }
+    }
+
+    [Theory]
+    [InlineData("cancel")]
+    [InlineData("change")]
+    [InlineData("close")]
+    [InlineData("stop")]
+    [InlineData("reopen")]
+    [InlineData("reconnect")]
+    public async Task AnObsoleteTokenRetryStops(string action)
+    {
+        var server = new HandshakeRecorder { TransientFailures = int.MaxValue };
+        var clock = new RetryClock();
+        var (client, _) = await TokenClient(server, clock);
+        const string uri = "untitled:Module1.bas";
+        await client.OpenDocumentAsync(uri, "x", TestContext.Current.CancellationToken);
+        using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        var request = client.RequestSemanticTokensAsync(uri, cancellation.Token);
+        var advance = await clock.WaitForDelayAsync(TimeSpan.FromMilliseconds(250));
+        server.TokenRequests.Should().Be(1);
+        request.IsCompleted.Should().BeFalse();
+        switch (action)
+        {
+            case "cancel": cancellation.Cancel(); break;
+            case "change": await client.ChangeDocumentAsync(uri, 2, "y", TestContext.Current.CancellationToken); break;
+            case "close": await client.CloseDocumentAsync(uri, TestContext.Current.CancellationToken); break;
+            case "stop": await client.StopAsync(); break;
+            case "reopen":
+                await client.CloseDocumentAsync(uri, TestContext.Current.CancellationToken);
+                await client.OpenDocumentAsync(uri, "x", TestContext.Current.CancellationToken);
+                break;
+            case "reconnect":
+                await client.StopAsync();
+                await client.StartAsync(TestContext.Current.CancellationToken);
+                break;
+        }
+        advance();
+        (await request.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken)).Should().BeNull();
+        server.TokenRequests.Should().Be(1, "obsolete work must not reach the server again");
     }
 
     // A function whose closing brace has a line of its own, and no #include, for the reason
@@ -163,6 +293,7 @@ public class LineFoldingNegotiationTests : IAsyncDisposable
         {
             try { await d.DisposeAsync(); } catch { /* teardown is best effort */ }
         }
+        foreach (var server in _servers) server.Dispose();
         GC.SuppressFinalize(this);
     }
 }

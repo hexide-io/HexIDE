@@ -152,14 +152,8 @@ public class EditDuringServerStartTests : IAsyncDisposable
     /// <summary>
     /// Returns once <paramref name="server"/> has been asked to initialize, and is holding its answer.
     /// </summary>
-    /// <remarks>
-    /// <b>Synchronous, and a caller must not await before its last use of the document.</b> A
-    /// <see cref="TextDocument"/> accepts calls only from the thread that made it, and an await in a plain test can
-    /// resume on any pool thread. The running IDE keeps this on the UI thread by construction.
-    /// </remarks>
-    private static void StartingNow(HeldStartServer server) =>
-        SpinWait.SpinUntil(() => server.Initializing.IsCompleted, TimeSpan.FromSeconds(10))
-            .Should().BeTrue("the server has to be starting before the edit is made");
+    private static Task StartingNow(HeldStartServer server) =>
+        server.Initializing.WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
 
     /// <summary>
     /// Waits, up to ten seconds, for what a server holds to settle into <paramref name="condition"/>. The caller
@@ -183,14 +177,14 @@ public class EditDuringServerStartTests : IAsyncDisposable
                 $"{server}'s versions only rise, and message {i} ({messages[i].Method}) followed {messages[i - 1].Method} v{messages[i - 1].Version}");
     }
 
-    [Fact]
+    [AvaloniaFact]
     public async Task AnEditWhileTheOnlyServerStartsReachesIt()
     {
         var server = new HeldStartServer(held: true);
         var registry = Registry(Registration("vb6", server, priority: 0));
 
         var (_, document) = Started(registry);
-        StartingNow(server);
+        await StartingNow(server);
 
         document.Insert(0, "'");
         await Task.Delay(PastTheDebounce, TestContext.Current.CancellationToken);
@@ -201,7 +195,7 @@ public class EditDuringServerStartTests : IAsyncDisposable
         ToldInOrder(server.Messages, "the server");
     }
 
-    [Fact]
+    [AvaloniaFact]
     public async Task ASaveWhileTheOnlyServerStartsSendsTheTextItSaved()
     {
         // The flush a save does was gated the same way, and it cancels the debounce first: so the edit was
@@ -210,10 +204,10 @@ public class EditDuringServerStartTests : IAsyncDisposable
         var registry = Registry(Registration("vb6", server, priority: 0));
 
         var (session, document) = Started(registry);
-        StartingNow(server);
+        await StartingNow(server);
 
         document.Insert(0, "'");
-        // Reads the buffer before its first await, so this is still the document's own thread.
+        // Reads the buffer on the document's UI thread before sending the save.
         var saving = session.NotifySavedAsync(TestContext.Current.CancellationToken);
         await Task.Delay(PastTheDebounce, TestContext.Current.CancellationToken);
         server.Release();
@@ -224,7 +218,7 @@ public class EditDuringServerStartTests : IAsyncDisposable
         ToldInOrder(server.Messages, "the server");
     }
 
-    [Fact]
+    [AvaloniaFact]
     public async Task AnEditWhileASecondServerStartsReachesBothInOrder()
     {
         // The first server is up, so the registry reports running and the change goes out, to the first server
@@ -236,7 +230,7 @@ public class EditDuringServerStartTests : IAsyncDisposable
         var registry = Registry(Registration("first", first, priority: 1), Registration("second", second, priority: 0));
 
         var (_, document) = Started(registry);
-        StartingNow(second);
+        await StartingNow(second);
 
         document.Insert(0, "'");
         await Task.Delay(PastTheDebounce, TestContext.Current.CancellationToken);

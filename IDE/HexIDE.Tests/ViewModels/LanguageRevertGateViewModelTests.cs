@@ -8,6 +8,21 @@ public class LanguageRevertGateViewModelTests
         new("Confirm", "Keep this language?", "Keep", "Revert", "Reverting in {0}s", seconds);
 
     [Fact]
+    public void Recovery_prompt_uses_localized_session_notice()
+    {
+        var previous = Static.IsRecoveryMode;
+        Static.IsRecoveryMode = true;
+        try
+        {
+            var loc = Substitute.For<HexIDE.Localization.ILocalizationService>();
+            loc.GetStringFrom(Arg.Any<string>(), Arg.Any<string>()).Returns(call => call.ArgAt<string>(1));
+            var gate = LanguageRevertGateViewModel.Create(loc, "en", "fr");
+            gate.Prompt.Should().Contain("Str.RevertGate.SessionOnly");
+        }
+        finally { Static.IsRecoveryMode = previous; }
+    }
+
+    [Fact]
     public void Countdown_StartsAtGivenSeconds()
     {
         var sut = Create(15);

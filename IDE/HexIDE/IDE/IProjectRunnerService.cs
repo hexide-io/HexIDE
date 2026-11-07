@@ -5,8 +5,26 @@ namespace HexIDE.IDE;
 
 public interface IProjectRunnerService : INotifyPropertyChanged
 {
+    /// <summary>A new run has been claimed, before interpreter code can execute; also raised when an external session starts.</summary>
+    event Action? RunStarting;
+
     void RunProject(ProjectDefinition projectDefinition, bool stepInto = false);
+    /// <summary>Runs the startup project in the IDE, as Run To Cursor, Restart, a full compile and F8 from idle do.</summary>
     void RunStartupProject(bool stepInto = false);
+
+    /// <summary>
+    /// What F5 and Run &gt; Start do from idle: the startup project with the add-in launch its user chose for it, or in
+    /// the IDE when there is none. A chosen launch that is gone, or no longer runs the project, leaves it to the IDE, and
+    /// the status bar says so.
+    /// </summary>
+    void StartDefaultProject();
+
+    /// <summary>
+    /// Runs a project under the External Debug Session with a launch an add-in contributed, once, whatever F5 runs for
+    /// the project. Does nothing while something is running.
+    /// </summary>
+    void StartContributedLaunch(HexIDE.Debugging.ContributedDebugLaunch launch, ProjectDefinition project);
+
     void BreakCurrentProject();
     void ContinueProject();
     void StepIntoProject();
@@ -15,7 +33,13 @@ public interface IProjectRunnerService : INotifyPropertyChanged
     void RunToCursorProject(DocumentIdentity document, int line);
     void EndProject();
     void RestartProject();
+    /// <summary>
+    /// Whether F5 can start the startup project: one HexIDE read itself, or one an add-in read whose user chose a launch
+    /// for it that is registered and runs it.
+    /// </summary>
     bool CanStartDefaultProject { get; }
+    /// <summary>Whether the IDE's own interpreter can run the startup project (<see cref="RunStartupProject"/>): one HexIDE read itself.</summary>
+    bool CanRunStartupProject { get; }
     bool CanStartDefaultProjectWithFullCompile { get; }
     bool CanBreakProject { get; }
     bool CanContinueProject { get; }
@@ -26,6 +50,9 @@ public interface IProjectRunnerService : INotifyPropertyChanged
     bool CanEndProject { get; }
     bool CanRestartProject { get; }
     bool IsRunning { get; }
+
+    /// <summary>The running snapshot and documents edited since start, for automation replies.</summary>
+    string? CodeEditNote(bool edit = false);
 
     /// <summary>
     /// A start that never became a run: a module the run loads has a syntax error (the text names the module), the

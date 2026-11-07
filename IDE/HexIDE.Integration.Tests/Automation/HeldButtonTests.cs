@@ -1,5 +1,6 @@
 using System;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
@@ -66,7 +67,10 @@ public class HeldButtonTests : IDisposable
             .And.Contain("the left button is still held there, and 'Canvas")
             .And.Contain("has the pointer capture; interact 'release' lets it go");
         HeldButton.Current.Should().NotBeNull();
-        HeldButton.TakeNote().Should().StartWith("The left button is held at (100, 60)").And.Contain("interact 'release' lets it go");
+        HeldButton.TakeNote().Should().StartWith("The left button is held at (100, 60)").And.Contain("interact 'release' lets it go")
+            // What an abandon does, which interact's value description held until it had no room for it (#2568).
+            .And.Contain("a Dock drag docks nothing and a designer move ends where it began, but a resize snaps to the grid "
+                         + "and a draw still places a 2 by 2 control. The next reply says what it did");
         DesignerOverlayTreeTests.Settle(designer.Window);
         var phantom = designer.View.FindControl<Border>("NewControlSpawnerPhantom")!;
         phantom.IsVisible.Should().BeTrue("the preview shows while the button is held");
@@ -254,6 +258,11 @@ public class HeldButtonTests : IDisposable
     {
         var limit = HeldButton.IdleLimit;
         HeldButton.IdleLimit = TimeSpan.FromMilliseconds(300);
+        // The keep-alive half runs on a clock the test moves, so every gap between calls is exactly 100 ms. On the real
+        // clock a loaded Windows runner once stretched a 100 ms delay past the 300 ms limit, and the hold was abandoned
+        // while the test was still keeping it (#2931).
+        var clock = new ManualClock();
+        HeldButton.Time = clock;
         try
         {
             using var designer = DesignerOverlayTreeTests.Shown();
@@ -262,26 +271,156 @@ public class HeldButtonTests : IDisposable
             // Calls come in more often than the limit, as the server's filter touches the clock on each.
             for (var i = 0; i < 6; i++)
             {
-                await Task.Delay(100);
+                clock.Advance(TimeSpan.FromMilliseconds(100));
                 HeldButton.Touch();
                 Dispatcher.UIThread.RunJobs();
             }
-            HeldButton.Current.Should().NotBeNull("each call restarts the clock");
+            HeldButton.Current.Should().NotBeNull("each call restarts the clock, and 600 ms passed in steps of 100");
+            clock.NextDue.Should().Be(TimeSpan.FromMilliseconds(300), "the last call armed the idle timer for the whole limit");
 
-            for (var i = 0; i < 40 && HeldButton.Current is not null; i++)
+            // The abandonment half stays on the real clock, as a hold left alone in use is. A call on it starts the clock.
+            HeldButton.Time = TimeProvider.System;
+            HeldButton.Touch();
+
+            // Wait for the completed abandonment, not just End(), which clears Current before the release.
+            // The timer and dispatcher can both be delayed when the full suite runs under load (#2368). Not
+            // TestContext.Current's token: on the headless dispatcher it can already be disposed (#2486).
+            var deadline = System.Diagnostics.Stopwatch.StartNew();
+            string? note = null;
+            while (deadline.Elapsed < TimeSpan.FromSeconds(30)
+                   && (note is null || !note.StartsWith("The held left button was abandoned at ", StringComparison.Ordinal)))
             {
-                await Task.Delay(50);
-                Dispatcher.UIThread.RunJobs();
+                await Task.Delay(50, CancellationToken.None);
+                note = HeldButton.TakeNote();
             }
+
+            note.Should().StartWith("The held left button was abandoned at ", "nothing was called for the limit");
             HeldButton.Current.Should().BeNull();
-            for (var i = 0; i < 40 && Placements(designer) == 0; i++)
-            {
-                await Task.Delay(50);
-                Dispatcher.UIThread.RunJobs();
-            }
-            HeldButton.TakeNote().Should().StartWith("The held left button was abandoned at ").And.Contain("with no call for 0.3 s");
+            Placements(designer).Should().Be(1);
+            note.Should().Contain("with no call for 0.3 s");
         }
-        finally { HeldButton.IdleLimit = limit; }
+        finally
+        {
+            HeldButton.IdleLimit = limit;
+            HeldButton.Time = TimeProvider.System;
+        }
+    }
+
+    [AvaloniaFact]
+    public async Task A_timer_that_fires_before_the_limit_has_passed_is_armed_again_and_the_hold_is_still_abandoned()
+    {
+        // A real timer fired 14 µs before the clock agreed the limit had passed, and nothing armed it again, so the hold
+        // was never abandoned (#2514): 3 failures in 41 runs of the test above. This one fires 100 ms early every time.
+        var limit = HeldButton.IdleLimit;
+        HeldButton.IdleLimit = TimeSpan.FromMilliseconds(300);
+        HeldButton.Time = new EarlyTimer(TimeSpan.FromMilliseconds(100));
+        try
+        {
+            using var designer = DesignerOverlayTreeTests.Shown();
+            (await Act(Spawner(designer), "click", "20,20 to 100,60 hold")).Success.Should().BeTrue();
+
+            // Not TestContext.Current's token: on the headless dispatcher it can already be disposed (#2486).
+            var deadline = System.Diagnostics.Stopwatch.StartNew();
+            string? note = null;
+            while (deadline.Elapsed < TimeSpan.FromSeconds(10)
+                   && (note is null || !note.StartsWith("The held left button was abandoned at ", StringComparison.Ordinal)))
+            {
+                await Task.Delay(50, CancellationToken.None);
+                note = HeldButton.TakeNote();
+            }
+
+            note.Should().StartWith("The held left button was abandoned at ",
+                "the early timer found 100 ms still to go, and the timer armed again for them ends the hold");
+            HeldButton.Current.Should().BeNull();
+        }
+        finally
+        {
+            HeldButton.IdleLimit = limit;
+            HeldButton.Time = TimeProvider.System;
+        }
+    }
+
+    // A clock that moves only when the test advances it. A timer fires, on the advancing thread, once the clock reaches
+    // the time it was armed for (#2931).
+    private sealed class ManualClock : TimeProvider
+    {
+        private readonly List<Timer> timers = [];
+        private long now;
+
+        public override long TimestampFrequency => TimeSpan.TicksPerSecond;
+        public override long GetTimestamp() => now;
+
+        /// <summary>How long until the soonest armed timer fires; null when none is armed.</summary>
+        public TimeSpan? NextDue => timers.Where(t => t.Due is not null).Select(t => (TimeSpan?)TimeSpan.FromTicks(t.Due!.Value - now))
+            .Min();
+
+        public override ITimer CreateTimer(TimerCallback callback, object? state, TimeSpan dueTime, TimeSpan period)
+        {
+            var timer = new Timer(this, callback, state);
+            timer.Change(dueTime, period);
+            timers.Add(timer);
+            return timer;
+        }
+
+        public void Advance(TimeSpan by)
+        {
+            now += by.Ticks;
+            foreach (var timer in timers.ToArray())
+                timer.FireIfDue();
+        }
+
+        private sealed class Timer(ManualClock clock, TimerCallback callback, object? state) : ITimer
+        {
+            public long? Due { get; private set; }
+
+            public bool Change(TimeSpan dueTime, TimeSpan period)
+            {
+                Due = dueTime == Timeout.InfiniteTimeSpan ? null : clock.now + dueTime.Ticks;
+                return true;
+            }
+
+            public void FireIfDue()
+            {
+                if (Due is not { } due || due > clock.now) return;
+                Due = null;
+                callback(state);
+            }
+
+            public void Dispose() => Due = null;
+
+            public ValueTask DisposeAsync()
+            {
+                Dispose();
+                return ValueTask.CompletedTask;
+            }
+        }
+    }
+
+    // A clock whose timer fires early by a set margin the first time it is armed, as the system's did by 14 µs (#2514).
+    private sealed class EarlyTimer(TimeSpan early) : TimeProvider
+    {
+        public override ITimer CreateTimer(
+            TimerCallback callback, object? state, TimeSpan dueTime, TimeSpan period) =>
+            new Early(TimeProvider.System.CreateTimer(callback, state, dueTime, period), early);
+
+        private sealed class Early(ITimer inner, TimeSpan early) : ITimer
+        {
+            private bool firedEarly;
+
+            public bool Change(TimeSpan dueTime, TimeSpan period)
+            {
+                if (!firedEarly && dueTime > early && dueTime != Timeout.InfiniteTimeSpan)
+                {
+                    firedEarly = true;
+                    dueTime -= early;
+                }
+                return inner.Change(dueTime, period);
+            }
+
+            public void Dispose() => inner.Dispose();
+
+            public ValueTask DisposeAsync() => inner.DisposeAsync();
+        }
     }
 
     [AvaloniaFact]

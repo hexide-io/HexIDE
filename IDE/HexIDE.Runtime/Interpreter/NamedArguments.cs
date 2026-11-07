@@ -43,7 +43,8 @@ internal static class NamedArguments
         var named = 0;
         while (named < args.Count && args[named].Name is null)
             named++;
-        // A ParamArray takes the rest, but binding does not take a ParamArray yet, so those are not kept.
+        // A ParamArray takes the rest. Positional arguments that reach it leave no parameter a name could fill, so the loop below
+        // refuses every named one, and those it took need not be kept.
         if (named > placed.Length && !(placed.Length > 0 && isParamArray?.Invoke(placed.Length - 1) == true))
             throw new VBCompileErrorException("Wrong number of arguments or invalid property assignment");
         for (var i = 0; i < named && i < placed.Length; i++)

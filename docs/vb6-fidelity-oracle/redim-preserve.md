@@ -70,3 +70,24 @@ does not reach yet (#178). The `For Each` row is now pinned by #1460 (see its en
 pins the rows its three programs cover, and the compile errors. One row is worth noting: `GVV(x As Variant)` gives VB6's answer although a plain ReDim through
 a `v As Variant` parameter resizes only the parameter (#970), because Preserve resizes the shared array in place.
 
+### A plain ReDim's `As` clause (2026-11-03, #2938)
+
+**The question.** The table above has an `As` clause naming another type refused only for `ReDim Preserve`. HexIDE
+checks it only there, so `Dim Arr()` followed by `ReDim Arr(10) As String` runs (`ArrayTests.StringArray_ReDim`). RDCore
+refuses it before it runs, with "Can't change data types of array elements". The RDCore parity rerun (#1368) needed to
+know which of the two VB6 agrees with.
+
+**The probe.** One project per declaration, each a `Sub Main` under `On Error Resume Next` that does the `ReDim`, stores
+`"Hello"` in element 0 and writes `Arr(0)`, `TypeName(Arr)` and `Err.Number` to a file. VB6 SP6, `/make`, built as native
+code and as p-code.
+
+| Declaration, then `ReDim Arr(10) As String` | Native | P-code |
+|---|---|---|
+| `Dim Arr()` at module level | Compile error on the `ReDim`: Can't change data types of array elements | the same |
+| `Dim Arr()` in the procedure | Can't change data types of array elements | the same |
+| `Dim Arr`, a scalar Variant, at module level | builds; `Hello String()`, `Err` 0 | the same |
+
+**What it shows.** A plain `ReDim` is held to the same rule as `ReDim Preserve`: an array declared with `()` keeps its
+element type, which for `Dim Arr()` is Variant. Only a variable declared as a scalar Variant may take a new element type.
+RDCore's refusal is VB6's. HexIDE running it is #2938.
+

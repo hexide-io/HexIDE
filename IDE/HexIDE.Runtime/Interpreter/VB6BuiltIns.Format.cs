@@ -18,12 +18,80 @@ public partial class VB6BuiltIns
     private static void RegisterFormat(Dictionary<string, BuiltinFn> d)
     {
         d["Format"] = (_, a, _) => FormatValue(a);
+        d["FormatNumber"] = (_, a, _) => FormatFigure(a, "Number");
+        d["FormatCurrency"] = (_, a, _) => FormatFigure(a, "Currency");
+        d["FormatPercent"] = (_, a, _) => FormatFigure(a, "Percent");
+        d["FormatDateTime"] = (_, a, _) => FormatDateTimeValue(a);
+    }
+
+    // #2515: measured en-GB, native and p-code. Keep the 256-digit anomaly explicit rather than
+    // inferring a storage-width rule from a single observation.
+    private static Vb6Value FormatFigure(IReadOnlyList<Vb6Value> a, string kind)
+    {
+        if (!Supplied(a, 0) || a.Count > 5)
+            throw new NotImplementedException("Formatting with this argument list is not implemented yet");
+        int digits = Supplied(a, 1)
+            ? Convert.ToInt32(NarrowNum(a[1], Vb6Value.ValueType.Integer).Value) : -1;
+        if (digits == -2 || (kind == "Currency" && digits == 256)) throw InvalidCall();
+        if (digits < -2 || (digits > 99 && digits != 256))
+            throw new NotImplementedException("Formatting with this number of decimal digits is not implemented yet");
+        bool leading = FigureFlag(a, 2, true);
+        bool parens = FigureFlag(a, 3, false);
+        bool grouping = FigureFlag(a, 4, true);
+        if (a[0].IsNull || a[0].Type == Vb6Value.ValueType.EmptyVariant) return new Vb6Value("");
+        decimal value = a[0].Value is VbDate date ? (decimal)date.Serial : NumToDecimal(a[0]);
+        if (kind == "Percent") value *= 100m;
+        bool negative = value < 0m;
+        var nf = VbLocale.Current.NumberFormat;
+        string mask = (grouping ? "#,##" : "") + (leading || kind == "Percent" ? "0" : "#");
+        int width = digits == -1 ? 2 : digits == 256 ? 0 : digits;
+        if (width > 0) mask += "." + new string('0', width);
+        string number = FormatPlainNumeric(Math.Abs(value), mask);
+        if (digits == 256) number += nf.NumberDecimalSeparator;
+        string result = (kind == "Currency" ? nf.CurrencySymbol : "") + number
+            + (kind == "Percent" ? "%" : "");
+        return new Vb6Value(negative ? parens ? "(" + result + ")" : nf.NegativeSign + result : result);
+    }
+
+    private static bool FigureFlag(IReadOnlyList<Vb6Value> a, int index, bool defaultValue)
+    {
+        if (!Supplied(a, index)) return defaultValue;
+        int flag = Convert.ToInt32(NarrowNum(a[index], Vb6Value.ValueType.Integer).Value);
+        return flag switch
+        {
+            -2 => defaultValue, -1 => true, 0 => false, 5 => throw InvalidCall(),
+            _ => throw new NotImplementedException("Formatting with this tri-state value is not implemented yet"),
+        };
+    }
+
+    private static Vb6Value FormatDateTimeValue(IReadOnlyList<Vb6Value> a)
+    {
+        if (a.Count < 1) throw InvalidCall();
+        int format = Supplied(a, 1)
+            ? Convert.ToInt32(NarrowNum(a[1], Vb6Value.ValueType.Integer).Value) : 0;
+        if (format is < 0 or > 4) throw InvalidCall();
+        if (a[0].Type == Vb6Value.ValueType.Null) return new Vb6Value("");
+        // Empty is the zero date; True is serial -1 (measured, #2516).
+        var value = a[0].Type == Vb6Value.ValueType.EmptyVariant ? new Vb6Value(0)
+            : a[0].Value is bool b ? new Vb6Value(b ? -1 : 0) : a[0];
+        var date = AsSerialDate(value);
+        var culture = VbLocale.Current;
+        return new Vb6Value(format switch
+        {
+            0 => VbDisplay.ToText(new Vb6Value(date)),
+            1 => date.Instant.ToString("D", culture),
+            2 => date.Instant.ToString("d", culture),
+            3 => date.Instant.ToString("T", culture),
+            _ => date.Instant.ToString("HH:mm", culture),
+        });
     }
 
     private static Vb6Value FormatValue(IReadOnlyList<Vb6Value> a)
     {
         if (a.Count < 1) throw InvalidCall();
         var v = a[0];
+        if (v.Type == Vb6Value.ValueType.Error)
+            throw new VBRunTimeException(VBStandardError.TypeMismatch);
         string fmt = Supplied(a, 1) && a[1].Type != Vb6Value.ValueType.EmptyVariant ? AsStr(a[1]) : "";
 
         if (fmt.Length == 0)

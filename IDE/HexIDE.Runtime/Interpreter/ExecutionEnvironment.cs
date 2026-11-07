@@ -16,6 +16,8 @@ public class ExecutionEnvironment
 
     private ExecutionEnvironment? moduleScope;
 
+    internal ExecutionEnvironment ModuleScope => moduleScope ?? this;
+
     private ExecutionEnvironment(ExecutionEnvironment other)
     {
         foreach (var (name, loc) in other.variableToLocation)

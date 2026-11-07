@@ -19,6 +19,42 @@ public class LaunchedServerLifetimeTests
     public static bool OnUnix => OperatingSystem.IsLinux() || OperatingSystem.IsMacOS();
 
     [Theory(Skip = "The guard is used on Unix.", SkipUnless = nameof(OnUnix))]
+    [InlineData("child")]
+    [InlineData("terminable-child")]
+    public async Task Clean_server_exit_ends_its_child_and_preserves_exit_code(string childMode)
+    {
+        var ready = Path.Join(Path.GetTempPath(), $"hexide-2297-{Guid.NewGuid():N}");
+        var start = GuardStart("clean-server", childMode, ready);
+        start.RedirectStandardInput = true;
+        start.RedirectStandardOutput = true;
+        using var guard = Process.Start(start)!;
+        Process? child = null;
+        try
+        {
+            var pid = await guard.StandardOutput.ReadLineAsync(TestContext.Current.CancellationToken)
+                .AsTask().WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
+            child = Process.GetProcessById(int.Parse(pid!));
+            child.HasExited.Should().BeFalse();
+            await guard.StandardInput.WriteLineAsync();
+            await guard.WaitForExitAsync(TestContext.Current.CancellationToken)
+                .WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
+            guard.ExitCode.Should().Be(37);
+            child.WaitForExit(10000).Should().BeTrue("a clean server exit must also end its descendants");
+        }
+        finally
+        {
+            foreach (var process in new[] { guard, child })
+            {
+                if (process is null) continue;
+                try { if (!process.HasExited) process.Kill(entireProcessTree: true); }
+                catch (InvalidOperationException) { }
+            }
+            child?.Dispose();
+            File.Delete(ready);
+        }
+    }
+
+    [Theory(Skip = "The guard is used on Unix.", SkipUnless = nameof(OnUnix))]
     [InlineData(0)]
     [InlineData(1)]
     [InlineData(37)]

@@ -1,4 +1,5 @@
 using Avalonia.Controls;
+using Avalonia.Input;
 using Avalonia.Interactivity;
 namespace HexIDE.Forms.Views;
 public partial class WorkspaceArtifactConsentView : UserControl
@@ -8,6 +9,6 @@ public partial class WorkspaceArtifactConsentView : UserControl
     protected override void OnLoaded(RoutedEventArgs e)
     {
         base.OnLoaded(e);
-        DenyButton.Focus();
+        DenyButton.Focus(NavigationMethod.Tab);
     }
 }

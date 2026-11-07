@@ -28,13 +28,8 @@
     <ApplicationManifest>app.manifest</ApplicationManifest>
   </PropertyGroup>
 
-  <!-- RuntimeIdentifier propagates to ProjectReferences that are EXECUTABLES, which then build into
-       bin/$(Configuration)/net10.0/$(RuntimeIdentifier)/ rather than bin/$(Configuration)/net10.0/.
-       Two references are affected: HexIDE.AddinPacker and HexIDE.VbLspServer (both OutputType=Exe).
-       Library references — HexIDE.AIChat, HexIDE.TestAddin — stay RID-agnostic and must NOT get the
-       suffix. $(RuntimeIdentifier) is empty for a RID-agnostic build, so both forms collapse correctly.
-       MSBuild evaluates every property before any item, so declaring this here reaches the Content
-       item below as well as the $(AddinPacker) path further down. -->
+  <!-- The executable AddinPacker reference builds into a RID-specific directory when a RID is set.
+       Library add-in references stay RID-agnostic. The bundled server uses its resolved path below. -->
   <PropertyGroup>
     <RidSuffix Condition="'$(RuntimeIdentifier)' != ''">$(RuntimeIdentifier)/</RidSuffix>
   </PropertyGroup>
@@ -75,19 +70,22 @@
       <OutputItemType>Content</OutputItemType>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </ProjectReference>
-    <!-- The ProjectReference copies the server's primary output (exe/dll/deps.json/runtimeconfig) but NOT
-         its NuGet closure. Of that closure the IDE already ships Serilog + Antlr4.Runtime.Standard
-         (byte-identical); the ONLY runtime dependency the MIT server adds is EmmyLua's
-         LanguageServer.Framework.dll (zero transitive deps). Copy just that file next to the exe — a
-         whole-bin copy would trip NETSDK1152 (duplicate publish paths) and clobber the IDE's own
-         Microsoft.NET.StringTools.dll. Literal path (built first via the ProjectReference above, so it
-         exists by copy time); Content+PreserveNewest flows to both build output and `dotnet publish`. -->
-    <Content Condition="Exists('..\..\LspServer\HexIDE.VbLspServer\HexIDE.VbLspServer.csproj')" Include="..\..\LspServer\HexIDE.VbLspServer\bin\$(Configuration)\net10.0\$(RidSuffix)LanguageServer.Framework.dll">
-      <Link>LanguageServer.Framework.dll</Link>
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-      <Visible>false</Visible>
-    </Content>
   </ItemGroup>
+
+  <!-- The reference supplies the server's actual output path, including the artifacts layout and RID.
+       Only this extra dependency is needed: the IDE already ships the rest of its NuGet closure.
+       Content+PreserveNewest carries it through both build and publish without a whole-bin copy. -->
+  <Target Name="IncludeBundledServerDependency" AfterTargets="ResolveProjectReferences">
+    <ItemGroup>
+      <_BundledServerOutput Include="@(Content)"
+                            Condition="'%(Content.Filename)' == 'HexIDE.VbLspServer'" />
+      <Content Include="@(_BundledServerOutput->'%(RootDir)%(Directory)LanguageServer.Framework.dll')">
+        <Link>LanguageServer.Framework.dll</Link>
+        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+        <Visible>false</Visible>
+      </Content>
+    </ItemGroup>
+  </Target>
 
   <ItemGroup>
     <AvaloniaResource Include="..\HexIDE\Icons\AppIcon\hexide.ico">
@@ -121,11 +119,11 @@
        no bundled first-party add-ins. A release build supplies the key (locally in firstparty/, or in CI
        from a secret written into the trust dir before Build), so the add-ins are signed and bundled. -->
   <Target Name="PackAIChatAddin" AfterTargets="Build" Condition="'$(TargetFramework)' != '' and Exists('$(AddinTrustDir)/firstparty.key')">
-    <Exec Command="dotnet &quot;$(AddinPacker)&quot; pack --src &quot;$(MSBuildProjectDirectory)/../HexIDE.AIChat/bin/$(Configuration)/net10.0&quot; --out &quot;$(OutDir)addins/com.hexide.aichat&quot; --id com.hexide.aichat --title &quot;AI Chat&quot; --description &quot;AI-powered VB6 coding assistant&quot; --version 1.0.0 --author HexIDE --entry HexIDE.AIChat.dll --trust &quot;$(AddinTrustDir)&quot;" />
+    <Exec Command="dotnet &quot;$(AddinPacker)&quot; pack --src &quot;$(MSBuildProjectDirectory)/../HexIDE.AIChat/bin/$(Configuration)/net10.0&quot; --out &quot;$(OutDir)addins/com.hexide.aichat&quot; --id com.hexide.aichat --title &quot;AI Chat&quot; --description &quot;AI-powered VB6 coding assistant&quot; --version 1.0.0 --author HexIDE --capability project.read --capability project.write --capability program.run --capability ui.contribute --entry HexIDE.AIChat.dll --trust &quot;$(AddinTrustDir)&quot;" />
   </Target>
 
   <Target Name="PackTestAddin" AfterTargets="Build" Condition="'$(TargetFramework)' != '' and '$(Configuration)' == 'Debug' and Exists('$(AddinTrustDir)/firstparty.key')">
-    <Exec Command="dotnet &quot;$(AddinPacker)&quot; pack --src &quot;$(MSBuildProjectDirectory)/../HexIDE.TestAddin/bin/$(Configuration)/net10.0&quot; --out &quot;$(OutDir)addins/com.hexide.testaddin&quot; --id com.hexide.testaddin --title TestAddin --description &quot;Phase 4 verification add-in&quot; --version 4.0.0 --author HexIDE --entry HexIDE.TestAddin.dll --logo logo.png --trust &quot;$(AddinTrustDir)&quot;" />
+    <Exec Command="dotnet &quot;$(AddinPacker)&quot; pack --src &quot;$(MSBuildProjectDirectory)/../HexIDE.TestAddin/bin/$(Configuration)/net10.0&quot; --out &quot;$(OutDir)addins/com.hexide.testaddin&quot; --id com.hexide.testaddin --title TestAddin --description &quot;Phase 4 verification add-in&quot; --version 4.0.0 --author HexIDE --capability project.read --capability ui.contribute --entry HexIDE.TestAddin.dll --logo logo.png --trust &quot;$(AddinTrustDir)&quot;" />
   </Target>
 
   <!-- Visibility when the key is absent: make the skip explicit rather than silent. -->

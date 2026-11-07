@@ -36,7 +36,7 @@ public static class VbFileDialogOptions
         return new FilePickerOpenOptions
         {
             Title = request.Title,
-            AllowMultiple = false,
+            AllowMultiple = request.AllowMultiple,
             FileTypeFilter = types.Count == 0 ? null : types,
             SuggestedFileType = First(request, types),
             SuggestedFileName = SuggestedName(request),

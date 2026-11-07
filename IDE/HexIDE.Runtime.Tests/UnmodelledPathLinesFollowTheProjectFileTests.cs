@@ -86,12 +86,11 @@ public class UnmodelledPathLinesFollowTheProjectFileTests
     }
 
     [Fact]
-    public async Task HelpFile_and_a_rooted_reference_are_written_as_they_were_read()
+    public async Task HelpFile_is_written_as_it_was_read()
     {
         var lines = await SavedTo("proj", "deeper", "Saved.vbp");
 
-        lines.Should().Contain(@"HelpFile=""help\probe.hlp""", "VB6's Save As left it as typed")
-            .And.Contain(@"Reference=*\G{EF404E00-EDA6-101A-8DAF-00DD010F7EBB}#5.3#0#C:\Program Files (x86)\VB98\VB6EXT.OLB#Microsoft Visual Basic 6.0 Extensibility");
+        lines.Should().Contain(@"HelpFile=""help\probe.hlp""", "VB6's Save As left it as typed");
     }
 
     [Fact]

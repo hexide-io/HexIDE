@@ -68,7 +68,7 @@ public class BundledServerRespectsTheIdesRegionsTests : IAsyncDisposable
             }
 
             var uri = await OpenAsync(client, text);
-            var edits = await client.RequestFormattingAsync(uri, TestContext.Current.CancellationToken);
+            var edits = await client.RequestFormattingAsync(uri, new FormattingOptions(4, true), TestContext.Current.CancellationToken);
 
             var lines = Lines(text);
             var expected = Enumerable.Range(0, lines.Length)
@@ -394,13 +394,8 @@ public class BundledServerRespectsTheIdesRegionsTests : IAsyncDisposable
 
     private static string? FindUpwards(string relative)
     {
-        for (var dir = new DirectoryInfo(AppContext.BaseDirectory); dir is not null; dir = dir.Parent)
-        {
-            var candidate = Path.Join(dir.FullName, relative);
-            if (Directory.Exists(candidate))
-                return candidate;
-        }
-        return null;
+        var candidate = Path.Join(HexIDE.Tests.Infrastructure.RepoTree.Root(), relative);
+        return Directory.Exists(candidate) ? candidate : null;
     }
 
     /// <summary>The lines of <paramref name="text"/> that the IDE's regions cover, 0-based.</summary>
