@@ -913,6 +913,7 @@
     "Str.Vb6Toolchain.BuildFailedTitle": "Izrada nije uspela",
     "Str.Vb6Toolchain.ProjectNotSaved": "Projekat mora biti sačuvan na disku pre prevođenja pomoću VB6.",
     "Str.Vb6Toolchain.CompilationFailedNoOutput": "VB6 prevođenje nije uspelo i nije dalo izlaz. Proverite ispravnost datoteke projekta.",
+    "Str.Vb6Toolchain.CompilationTimedOut": "HexIDE je zaustavio VB6 prevođenje nakon 180 sekundi. vb6.exe je možda čekao dijalog.",
     "Str.Vb6Toolchain.CompilationFailed": "VB6 prevođenje nije uspelo:\n\n{0}",
     "Str.Vb6Toolchain.ExeNotFound": "Izrada je uspela, ali izvršna datoteka nije pronađena na lokaciji:\n{0}",
     "Str.Vb6Toolchain.RunFailedTitle": "Pokretanje nije uspelo",

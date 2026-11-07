@@ -913,6 +913,7 @@
     "Str.Vb6Toolchain.BuildFailedTitle": "สร้างไม่สำเร็จ",
     "Str.Vb6Toolchain.ProjectNotSaved": "ต้องบันทึกโครงการลงดิสก์ก่อนจึงจะคอมไพล์ด้วย VB6 ได้",
     "Str.Vb6Toolchain.CompilationFailedNoOutput": "คอมไพล์ด้วย VB6 ไม่สำเร็จโดยไม่มีเอาต์พุต ตรวจสอบว่าไฟล์โครงการถูกต้อง",
+    "Str.Vb6Toolchain.CompilationTimedOut": "HexIDE หยุดการสร้าง VB6 หลังจาก 180 วินาที vb6.exe อาจกำลังรอกล่องโต้ตอบอยู่",
     "Str.Vb6Toolchain.CompilationFailed": "คอมไพล์ด้วย VB6 ไม่สำเร็จ:\n\n{0}",
     "Str.Vb6Toolchain.ExeNotFound": "สร้างสำเร็จ แต่ไม่พบไฟล์ปฏิบัติการที่:\n{0}",
     "Str.Vb6Toolchain.RunFailedTitle": "เรียกใช้ไม่สำเร็จ",

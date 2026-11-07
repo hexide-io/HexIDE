@@ -913,6 +913,7 @@
     "Str.Vb6Toolchain.BuildFailedTitle": "Ehitamine nurjus",
     "Str.Vb6Toolchain.ProjectNotSaved": "Projekt peab enne VB6-ga kompileerimist olema kettale salvestatud.",
     "Str.Vb6Toolchain.CompilationFailedNoOutput": "VB6 kompileerimine nurjus ilma väljundita. Kontrolli projektifaili kehtivust.",
+    "Str.Vb6Toolchain.CompilationTimedOut": "HexIDE peatas VB6 kompileerimise 180 sekundi järel. vb6.exe võis oodata dialoogiakent.",
     "Str.Vb6Toolchain.CompilationFailed": "VB6 kompileerimine nurjus:\n\n{0}",
     "Str.Vb6Toolchain.ExeNotFound": "Ehitamine õnnestus, kuid käivitatavat faili ei leitud asukohast:\n{0}",
     "Str.Vb6Toolchain.RunFailedTitle": "Käivitamine nurjus",

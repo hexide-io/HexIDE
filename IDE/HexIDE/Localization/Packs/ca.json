@@ -913,6 +913,7 @@
     "Str.Vb6Toolchain.BuildFailedTitle": "La compilació ha fallat",
     "Str.Vb6Toolchain.ProjectNotSaved": "Cal desar el projecte al disc abans de compilar-lo amb VB6.",
     "Str.Vb6Toolchain.CompilationFailedNoOutput": "La compilació amb VB6 ha fallat sense produir cap sortida. Comproveu que el fitxer de projecte sigui vàlid.",
+    "Str.Vb6Toolchain.CompilationTimedOut": "HexIDE ha aturat la compilació de VB6 després de 180 segons. Pot ser que vb6.exe estigués esperant un quadre de diàleg.",
     "Str.Vb6Toolchain.CompilationFailed": "La compilació amb VB6 ha fallat:\n\n{0}",
     "Str.Vb6Toolchain.ExeNotFound": "La compilació ha reeixit, però no s'ha trobat l'executable a:\n{0}",
     "Str.Vb6Toolchain.RunFailedTitle": "L'execució ha fallat",

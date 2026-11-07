@@ -913,6 +913,7 @@
     "Str.Vb6Toolchain.BuildFailedTitle": "Fallou a compilación",
     "Str.Vb6Toolchain.ProjectNotSaved": "Debe gardar o proxecto no disco antes de compilalo con VB6.",
     "Str.Vb6Toolchain.CompilationFailedNoOutput": "A compilación con VB6 fallou sen producir ningunha saída. Comprobe que o ficheiro do proxecto é válido.",
+    "Str.Vb6Toolchain.CompilationTimedOut": "HexIDE detivo a compilación de VB6 tras 180 segundos. É posible que vb6.exe estivese agardando por un cadro de diálogo.",
     "Str.Vb6Toolchain.CompilationFailed": "Fallou a compilación con VB6:\n\n{0}",
     "Str.Vb6Toolchain.ExeNotFound": "A compilación rematou correctamente, pero non se atopou o executable en:\n{0}",
     "Str.Vb6Toolchain.RunFailedTitle": "Fallou a execución",

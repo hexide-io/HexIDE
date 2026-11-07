@@ -179,6 +179,16 @@ was then left out of the project file when the IDE closed (#1359).
 - **WHEN** the developer chooses Add > Form on a project in the tree
 - **THEN** the new form's file exists in the project's folder and its designer is open
 
+### Requirement: The tree's Add menu offers modules and UserControls
+The Add submenu SHALL offer Module, Class Module and User Control using localized headers and their item icons.
+Each command SHALL use the selected node's project and the Project menu's creation service and next-free-name
+helper. Module and Class Module SHALL open their code editor; User Control SHALL open its designer.
+The commands SHALL be disabled without a project selection or for an add-in-contributed project.
+
+#### Scenario: Adding to a project other than the startup project
+- **WHEN** the developer chooses Add > Module, Class Module or User Control on a node in another project
+- **THEN** the new item belongs to that node's project and opens in the appropriate editor
+
 ### Requirement: Opening a project from the tree SHALL show what it contains
 Activating a project in the tree SHALL open a read-only document describing that project: its name, type,
 startup object, location, the members it holds with the kind of each, and the references it declares. A
