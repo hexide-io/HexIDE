@@ -699,6 +699,11 @@ the measured Variant subtype 19 is represented; mixed colours SHALL still read N
 - **THEN** TextRTF and SelRTF reproduce the recorded whole-document and selection RTF byte for byte
 - **AND** a mixed character selection reads Null for properties whose values differ
 
+#### Scenario: First and later Text assignments raise events in order
+- **WHEN** a running form assigns a RichTextBox's Text, for the first time or a later time in the run
+- **THEN** it SHALL run SelChange (0,0) before Change, including when SelChange yields at a debugger time slice
+- **AND** the statement SHALL wait for both handlers before continuing (#2547; [measured order](../../../docs/vb6-fidelity-oracle/in-box-controls-the-richtextbox.md#change-and-selchange-from-code))
+
 #### Scenario: Invalid paragraph alignment preserves the prior value
 - **WHEN** a program assigns SelAlignment 3, 4, 100, -1 or Null
 - **THEN** error 380 is raised and the existing alignment is kept
