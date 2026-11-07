@@ -14,6 +14,20 @@ agent that wrote the code can open the IDE, drive it, and look at the result.
 
 ## Requirements
 
+### Requirement: A running form without menus omits its empty menu bar from discovery
+`dump_visual_tree` SHALL omit a running form's empty internal menu bar when the form declares no menus,
+with either value of `interactiveOnly`. A form with declared menus SHALL retain its menu bar under the
+ordinary discovery rules (#3276).
+
+#### Scenario: A form declares no menus
+- **WHEN** a running form without menus is dumped with `interactiveOnly` true or false
+- **THEN** no internal empty Menu node is listed
+
+#### Scenario: A form declares a visible menu
+- **WHEN** a running form with a visible menu is dumped with either value of `interactiveOnly`
+- **THEN** its menu bar is listed
+
+
 ### Requirement: Code edits during a run explain the running snapshot
 
 During a running or paused project, `set_file_content` and document-mode `type_text` SHALL edit without
