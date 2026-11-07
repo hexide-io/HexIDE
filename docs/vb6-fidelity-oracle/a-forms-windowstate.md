@@ -52,5 +52,6 @@ border and moved 20 pixels right five times, 400 ms apart, before releasing. The
 So every change of the window raises exactly one Resize, reading the final state and size, and Paint follows only
 when the client grows. Minimizing and restoring raise neither Deactivate nor Activate, nor LostFocus nor GotFocus:
 those are for moving between the program's own forms. A drag raises Resize as the window changes, not once at the end,
-with window contents shown while dragging. With that setting off, Windows sizes the window only on release, so one
-Resize would be expected then. That was not measured.
+with window contents shown while dragging. The setting-off case was not measured.
+
+**Provenance:** #2389, issuecomment-6450545014; native and p-code logs recorded in PR #2279, commit `d48c00d9`.

@@ -61,7 +61,7 @@ public class ToolbarEventTests
         {
             window.Show();
             window.UpdateLayout();
-            var visual = bar.GetVisualDescendants().OfType<StackPanel>().First().Children[0];
+            var visual = bar.GetVisualDescendants().OfType<Canvas>().First().Children[0];
             var p = visual.TranslatePoint(new Point(2, visual.Bounds.Height / 2), window)!.Value;
             window.MouseDown(p, MouseButton.Left);
             window.MouseUp(p, MouseButton.Left);

@@ -118,6 +118,90 @@ public sealed class UserSidecarSaveTests : IDisposable
     // ── A. A save rewrites the sidecar; it does not rebuild it ───────────────────────────────────────────
 
     [Fact]
+    public async Task WhatF5RunsForAProject_IsSavedWithItsMarks_AndReadBackWhenItOpens()
+    {
+        var project = Project();
+        var choices = new RunChoiceStore();
+        var sidecar = new UserSidecarService(new BookmarkService(), new BreakpointService(), projectManager, choices)
+        {
+            Debounce = debounce.Wait,
+            ReadText = path => Task.FromResult(File.ReadAllText(path)),
+        };
+        await sidecar.LoadAsync(project);
+
+        choices.Set(project, "RDCore for HexIDE/RDCore");
+        await debounce.ElapseAsync(sidecar);
+        Read(SidecarOf(project))["runWith"]!.GetValue<string>().Should().Be("RDCore for HexIDE/RDCore",
+            "a choice is saved as a mark is, on the same debounced save");
+
+        Close(project);
+        choices.Get(project).Should().BeNull("an unloaded project's choice goes with it, and is not saved as gone");
+        Read(SidecarOf(project))["runWith"]!.GetValue<string>().Should().Be("RDCore for HexIDE/RDCore");
+        var reopened = new RunChoiceStore();
+        await new UserSidecarService(new BookmarkService(), new BreakpointService(), projectManager, reopened)
+        {
+            ReadText = path => Task.FromResult(File.ReadAllText(path)),
+        }.LoadAsync(project);
+        reopened.Get(project).Should().Be("RDCore for HexIDE/RDCore");
+    }
+
+    [Fact]
+    public async Task AChoiceMadeWhileTheSidecarIsRead_IsKept_AsAMarkMadeThenIs()
+    {
+        var project = Project();
+        File.WriteAllText(SidecarOf(project), """{ "version": 3, "runWith": "com.example.old/Old" }""");
+        var reading = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var choices = new RunChoiceStore();
+        var sidecar = new UserSidecarService(new BookmarkService(), new BreakpointService(), projectManager, choices)
+        {
+            Debounce = debounce.Wait,
+            ReadText = _ => reading.Task,
+        };
+
+        var loading = sidecar.LoadAsync(project);
+        choices.Set(project, "com.rdcore.hexide/RDCore");
+        reading.SetResult(File.ReadAllText(SidecarOf(project)));
+        await loading;
+
+        choices.Get(project).Should().Be("com.rdcore.hexide/RDCore", "the user's choice is newer than the file's");
+    }
+
+    [Fact]
+    public async Task TheInterpreter_WhichF5RunsUnlessTheUserSaysOtherwise_WritesNoSidecar()
+    {
+        var project = Project();
+        var choices = new RunChoiceStore();
+        var sidecar = new UserSidecarService(new BookmarkService(), new BreakpointService(), projectManager, choices)
+        {
+            Debounce = debounce.Wait,
+            ReadText = path => Task.FromResult(File.ReadAllText(path)),
+        };
+        await sidecar.LoadAsync(project);
+
+        choices.Set(project, "RDCore for HexIDE/RDCore");
+        choices.Set(project, null);
+        await debounce.ElapseAsync(sidecar);
+
+        File.Exists(SidecarOf(project)).Should().BeFalse("nothing to record: the interpreter is no choice to remember");
+    }
+
+    [Fact]
+    public async Task SavingPreservesFileAtOldStagingName()
+    {
+        var project = Project();
+        var bookmarks = new BookmarkService();
+        var sidecar = Service(bookmarks);
+        await sidecar.LoadAsync(project);
+        bookmarks.SetBookmarks(Form1(project), [1]);
+        File.WriteAllText(SidecarOf(project) + ".tmp", "user file");
+
+        await sidecar.SaveAsync(project);
+
+        Lines(Read(SidecarOf(project)), "codeBookmarks", "Form1").Should().Equal(1);
+        File.ReadAllText(SidecarOf(project) + ".tmp").Should().Be("user file");
+    }
+
+    [Fact]
     public async Task ContentThisVersionDoesNotRecogniseSurvivesASave()
     {
         // The user-sidecar spec's scenario, exactly as #466 reports it: the watches key used to vanish. The file is
@@ -540,7 +624,7 @@ public sealed class UserSidecarSaveTests : IDisposable
         await sidecar.LoadAsync(project);
 
         project.AbsolutePath = Elsewhere(project);
-        var blocker = SidecarOf(project) + ".tmp";
+        var blocker = SidecarOf(project);
         Directory.CreateDirectory(blocker);
         await sidecar.SaveAsync(project);
         Directory.Delete(blocker);
@@ -752,11 +836,11 @@ public sealed class UserSidecarSaveTests : IDisposable
     public async Task AWriteThatFailsIsMadeAgainWhenTheProjectCloses()
     {
         // Another program holding the file, say. The change stays owed rather than being dropped with the attempt.
-        // Here the temporary file's path is a directory, which no write can replace, on any system.
+        // Here the destination is a directory, which no write can replace, on any system.
         var project = Project();
         var bookmarks = new BookmarkService();
         var sidecar = Service(bookmarks);
-        var blocker = SidecarOf(project) + ".tmp";
+        var blocker = SidecarOf(project);
         Directory.CreateDirectory(blocker);
 
         bookmarks.SetBookmarks(Form1(project), [3]);

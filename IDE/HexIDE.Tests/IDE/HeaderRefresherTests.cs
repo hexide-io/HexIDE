@@ -71,6 +71,19 @@ public class HeaderRefresherTests
     // -- The arithmetic ----------------------------------------------------------------------------
 
     [Fact]
+    public void HeaderShiftMovesTheConditionWithItsBreakpoint()
+    {
+        var form = Deserialize(OneLabel);
+        var document = DocumentIdentity.For(form);
+        breakpoints.SetDocument(document, [12]);
+        breakpoints.SetCondition(document, 12, "i = 3");
+        CreateSut().ShiftMarks(document, Header(10), Header(13));
+        breakpoints.GetBreakpoints(document).Should().Equal(15);
+        breakpoints.GetCondition(document, 15).Should().Be("i = 3");
+        breakpoints.GetCondition(document, 12).Should().BeNull();
+    }
+
+    [Fact]
     public void MarksBelowTheHeaderMoveByTheDifference()
     {
         var form = Deserialize(OneLabel);

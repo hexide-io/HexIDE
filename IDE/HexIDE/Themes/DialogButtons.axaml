@@ -1,0 +1,17 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:commonControls="clr-namespace:Classic.CommonControls;assembly=Classic.CommonControls.Avalonia">
+    <Style Selector=".ideDialog Button">
+        <Setter Property="FocusAdorner">
+            <Template>
+                <Rectangle Margin="4" StrokeThickness="1" StrokeDashArray="1,1"
+                           Stroke="{DynamicResource {x:Static commonControls:SystemColors.ControlTextBrushKey}}"
+                           IsHitTestVisible="False" />
+            </Template>
+        </Setter>
+    </Style>
+    <Style Selector=".ideDialog Button[IsDefault=True]">
+        <Setter Property="BorderThickness" Value="2" />
+        <Setter Property="BorderBrush" Value="{DynamicResource {x:Static commonControls:SystemColors.ControlTextBrushKey}}" />
+    </Style>
+</Styles>

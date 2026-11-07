@@ -29,6 +29,8 @@ public sealed class ModuleInfo
 {
     public string Name { get; }
     public InterpreterModuleKind Kind { get; }
+    // A placed UserControl uses a class-shaped instance template, without enabling unmeasured New behaviour.
+    internal bool HostedControl { get; set; }
     public PrePass PrePass { get; }
     public ExecutionEnvironment ModuleEnv { get; }
 

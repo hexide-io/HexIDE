@@ -1,0 +1,356 @@
+textDocument/codeLens pending=False
+840.004 textDocument/didOpen start
+859.716 textDocument/diagnostic start
+3215.198 lens client start
+3230.339 textDocument/codeLens start
+3230.360 textDocument/codeLens server complete
+3392.194 textDocument/semanticTokens/full start
+3404.206 textDocument/inlayHint start
+3424.101 textDocument/foldingRange start
+4085.652 lens client complete
+5769.327 session suspend
+5797.686 session suspend
+5821.035 session suspend
+9484.418 textDocument/didChange start
+9485.743 textDocument/diagnostic start
+9487.732 lens client start
+9491.829 textDocument/codeLens start
+9491.841 textDocument/codeLens server complete
+9520.284 lens client complete
+9580.021 baseline count=2
+9580.056 refresh sent
+9585.244 refresh received
+9585.259 lens client start
+9591.359 textDocument/codeLens start
+9591.373 textDocument/codeLens server complete
+9592.298 lens client complete
+9606.598 refresh reply
+9611.989 detach begin
+9631.878 textDocument/semanticTokens/full start
+9632.334 textDocument/inlayHint start
+9632.732 textDocument/foldingRange start
+9645.187 session suspend
+9645.435 session suspend
+9708.950 session suspend
+9717.104 detach end
+9717.126 baseline count=3
+9717.129 refresh sent
+9720.111 refresh received
+9720.127 lens client start
+9720.614 textDocument/codeLens start
+9720.634 textDocument/codeLens server complete
+9720.926 lens client complete
+9734.532 refresh reply
+9734.561 assert count=4
+textDocument/codeLens pending=True
+20.314 textDocument/didOpen start
+20.366 textDocument/diagnostic start
+150.428 lens client start
+151.797 textDocument/codeLens start
+153.736 textDocument/semanticTokens/full start
+153.816 textDocument/inlayHint start
+153.841 textDocument/foldingRange start
+1189.494 session suspend
+1189.808 session suspend
+1203.853 session suspend
+2363.656 textDocument/codeLens server complete
+2364.537 lens client complete
+3988.917 textDocument/didChange start
+3988.967 textDocument/diagnostic start
+3991.474 lens client start
+3995.641 textDocument/codeLens start
+3995.652 textDocument/codeLens server complete
+4014.557 baseline count=2
+4014.568 refresh sent
+4023.700 refresh received
+4023.766 lens client start
+4024.195 textDocument/codeLens start
+4024.205 textDocument/codeLens server complete
+4024.759 lens client complete
+4030.977 refresh reply
+4033.890 detach begin
+4063.800 textDocument/semanticTokens/full start
+4063.983 textDocument/inlayHint start
+4064.057 textDocument/foldingRange start
+4079.023 session suspend
+4079.379 session suspend
+4099.676 session suspend
+4101.041 detach end
+4101.061 baseline count=3
+4101.062 refresh sent
+4103.729 refresh received
+4116.863 refresh reply
+4116.884 assert count=3
+4165.335 lens client start
+4209.963 textDocument/codeLens start
+4209.980 textDocument/codeLens server complete
+4225.105 session suspend
+textDocument/semanticTokens/full pending=False
+8.032 textDocument/didOpen start
+8.057 textDocument/diagnostic start
+125.461 lens client start
+128.182 textDocument/codeLens start
+128.193 textDocument/codeLens server complete
+128.554 textDocument/semanticTokens/full start
+128.659 textDocument/inlayHint start
+128.703 textDocument/foldingRange start
+236.310 lens client complete
+1621.857 session suspend
+1622.178 session suspend
+1678.047 session suspend
+4817.063 textDocument/didChange start
+4817.093 textDocument/diagnostic start
+4826.515 lens client start
+4828.057 textDocument/codeLens start
+4828.098 textDocument/codeLens server complete
+4830.598 lens client complete
+5012.655 textDocument/inlayHint start
+5014.597 textDocument/foldingRange start
+5014.710 textDocument/semanticTokens/full start
+5035.981 baseline count=2
+5035.993 refresh sent
+5037.998 refresh received
+5038.012 lens client start
+5038.658 textDocument/codeLens start
+5038.670 textDocument/codeLens server complete
+5038.979 lens client complete
+5043.878 refresh reply
+5045.872 detach begin
+5058.578 session suspend
+5058.796 session suspend
+5074.688 session suspend
+5080.609 detach end
+5080.624 baseline count=3
+5080.626 refresh sent
+5084.101 refresh received
+5096.102 refresh reply
+5096.121 assert count=3
+5179.287 lens client start
+5180.080 textDocument/codeLens start
+5180.091 textDocument/codeLens server complete
+5194.312 session suspend
+textDocument/semanticTokens/full pending=True
+8.018 textDocument/didOpen start
+8.039 textDocument/diagnostic start
+87.181 lens client start
+88.036 textDocument/codeLens start
+100.145 textDocument/semanticTokens/full start
+100.174 textDocument/inlayHint start
+100.184 textDocument/foldingRange start
+1113.428 session suspend
+1113.615 session suspend
+1120.240 session suspend
+2152.144 textDocument/codeLens server complete
+2153.003 lens client complete
+3704.226 textDocument/didChange start
+3704.253 textDocument/diagnostic start
+3707.882 lens client start
+3711.724 textDocument/codeLens start
+3711.738 textDocument/codeLens server complete
+3732.491 lens client complete
+3906.892 textDocument/inlayHint start
+3907.180 textDocument/foldingRange start
+3907.457 textDocument/semanticTokens/full start
+3944.914 baseline count=2
+3944.923 refresh sent
+3948.060 refresh received
+3948.070 lens client start
+3948.452 textDocument/codeLens start
+3948.460 textDocument/codeLens server complete
+3948.607 refresh reply
+3948.716 lens client complete
+3948.848 detach begin
+3964.402 session suspend
+3964.566 session suspend
+3972.704 session suspend
+3973.323 detach end
+3973.335 baseline count=3
+3973.336 refresh sent
+3976.053 refresh received
+3988.532 refresh reply
+3988.547 assert count=3
+4004.318 lens client start
+4068.052 textDocument/codeLens start
+4068.070 textDocument/codeLens server complete
+4070.550 session suspend
+textDocument/inlayHint pending=False
+12.050 textDocument/didOpen start
+12.066 textDocument/diagnostic start
+67.233 lens client start
+68.047 textDocument/codeLens start
+68.055 textDocument/codeLens server complete
+68.161 textDocument/semanticTokens/full start
+73.709 textDocument/inlayHint start
+74.129 textDocument/foldingRange start
+115.257 lens client complete
+1479.311 session suspend
+1479.482 session suspend
+1517.025 session suspend
+4465.036 textDocument/didChange start
+4465.063 textDocument/diagnostic start
+4465.776 lens client start
+4467.583 textDocument/codeLens start
+4467.591 textDocument/codeLens server complete
+4467.880 lens client complete
+4668.795 textDocument/inlayHint start
+4668.947 textDocument/foldingRange start
+4676.764 textDocument/semanticTokens/full start
+4693.852 baseline count=2
+4693.862 refresh sent
+4694.307 refresh received
+4694.315 lens client start
+4694.960 textDocument/codeLens start
+4694.971 textDocument/codeLens server complete
+4695.257 lens client complete
+4700.129 refresh reply
+4700.443 detach begin
+4719.115 session suspend
+4719.499 session suspend
+4735.044 session suspend
+4740.092 detach end
+4740.110 baseline count=3
+4740.111 refresh sent
+4744.081 refresh received
+4756.284 refresh reply
+4756.299 assert count=3
+4821.431 lens client start
+4823.596 session suspend
+4824.023 textDocument/codeLens start
+4824.032 textDocument/codeLens server complete
+4831.571 lens client complete
+4966.294 session suspend
+textDocument/inlayHint pending=True
+8.121 textDocument/didOpen start
+8.134 textDocument/diagnostic start
+128.710 lens client start
+131.497 textDocument/codeLens start
+131.524 textDocument/semanticTokens/full start
+131.530 textDocument/inlayHint start
+131.536 textDocument/foldingRange start
+1192.297 session suspend
+1192.418 session suspend
+1194.221 session suspend
+2200.261 textDocument/codeLens server complete
+2208.698 lens client complete
+3916.382 textDocument/didChange start
+3916.410 textDocument/diagnostic start
+3916.637 lens client start
+3920.117 textDocument/codeLens start
+3920.158 textDocument/codeLens server complete
+3933.344 lens client complete
+4125.092 textDocument/inlayHint start
+4125.286 textDocument/foldingRange start
+4125.644 textDocument/semanticTokens/full start
+4196.483 baseline count=2
+4196.490 refresh sent
+4197.328 refresh received
+4197.334 lens client start
+4198.005 textDocument/codeLens start
+4198.012 textDocument/codeLens server complete
+4198.193 lens client complete
+4199.977 refresh reply
+4200.218 detach begin
+4209.627 session suspend
+4209.731 session suspend
+4217.612 session suspend
+4218.235 detach end
+4218.242 baseline count=3
+4218.243 refresh sent
+4220.137 refresh received
+4235.249 refresh reply
+4235.260 assert count=3
+4247.126 lens client start
+4251.716 textDocument/codeLens start
+4251.727 textDocument/codeLens server complete
+4258.064 session suspend
+textDocument/foldingRange pending=False
+7.169 textDocument/didOpen start
+7.181 textDocument/diagnostic start
+60.178 lens client start
+63.209 textDocument/codeLens start
+63.218 textDocument/codeLens server complete
+63.306 textDocument/semanticTokens/full start
+63.338 textDocument/inlayHint start
+63.356 textDocument/foldingRange start
+81.744 lens client complete
+1333.239 session suspend
+1333.330 session suspend
+1334.892 session suspend
+4419.872 textDocument/didChange start
+4419.889 textDocument/diagnostic start
+4420.213 lens client start
+4422.342 textDocument/codeLens start
+4422.348 textDocument/codeLens server complete
+4422.614 lens client complete
+4625.835 textDocument/inlayHint start
+4627.112 textDocument/foldingRange start
+4627.507 textDocument/semanticTokens/full start
+4659.128 baseline count=2
+4659.134 refresh sent
+4659.497 refresh received
+4659.503 lens client start
+4659.910 textDocument/codeLens start
+4659.918 textDocument/codeLens server complete
+4662.029 refresh reply
+4662.108 lens client complete
+4662.250 detach begin
+4683.968 session suspend
+4684.145 session suspend
+4693.068 session suspend
+4693.946 detach end
+4693.958 baseline count=3
+4693.959 refresh sent
+4695.140 refresh received
+4717.974 refresh reply
+4717.984 assert count=3
+4745.414 lens client start
+4745.647 textDocument/codeLens start
+4745.655 textDocument/codeLens server complete
+4745.897 lens client complete
+4753.863 session suspend
+textDocument/foldingRange pending=True
+4.843 textDocument/didOpen start
+4.852 textDocument/diagnostic start
+132.928 lens client start
+134.421 textDocument/codeLens start
+134.442 textDocument/semanticTokens/full start
+134.447 textDocument/inlayHint start
+134.451 textDocument/foldingRange start
+1148.340 session suspend
+1148.439 session suspend
+1149.936 session suspend
+2114.411 textDocument/codeLens server complete
+2115.780 lens client complete
+3830.499 lens client start
+3830.791 textDocument/didChange start
+3830.805 textDocument/diagnostic start
+3830.865 textDocument/codeLens start
+3830.867 textDocument/codeLens server complete
+3832.233 lens client complete
+4034.249 textDocument/inlayHint start
+4034.383 textDocument/foldingRange start
+4034.839 textDocument/semanticTokens/full start
+4053.087 baseline count=2
+4053.091 refresh sent
+4058.248 refresh received
+4058.256 lens client start
+4058.532 textDocument/codeLens start
+4058.536 textDocument/codeLens server complete
+4059.249 lens client complete
+4059.294 refresh reply
+4059.520 detach begin
+4069.048 session suspend
+4069.145 session suspend
+4076.107 session suspend
+4076.633 detach end
+4076.638 baseline count=3
+4076.639 refresh sent
+4078.219 refresh received
+4091.764 refresh reply
+4091.773 assert count=3
+4106.750 lens client start
+4108.150 session suspend
+4110.217 textDocument/codeLens start
+4110.222 textDocument/codeLens server complete
+4115.917 lens client complete
+4256.214 session suspend

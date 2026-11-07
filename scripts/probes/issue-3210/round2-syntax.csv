@@ -1,0 +1,7 @@
+stage,shape,stack_mib,pass_depth,overflow_depth,trials,seconds
+syntax,if,0.0625,13,14,11,18.82
+syntax,parens,0.0625,10,11,11,7.07
+syntax,if,0.125,39,40,11,26.93
+syntax,parens,0.125,28,29,11,7.41
+syntax,parens,0.25,64,65,11,7.81
+syntax,if,0.25,84,85,11,41.76

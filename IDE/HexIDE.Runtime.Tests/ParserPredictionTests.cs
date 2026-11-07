@@ -1,42 +1,27 @@
-using System.Diagnostics;
 using Antlr4.Runtime;
+using Antlr4.Runtime.Atn;
 using HexIDE.Runtime.Interpreter;
 
 namespace HexIDE.Runtime.Tests;
 
-// Wall-clock assertions must not compete with the corpus lanes and their parsers.
+// Timing-based parser cost tests must not compete with the corpus lanes.
 [CollectionDefinition(DisableParallelization = true)]
 public sealed class ParserPredictionCollection;
 
-[Collection(typeof(ParserPredictionCollection))]
 public class ParserPredictionTests : BaseVBTestFixture
 {
     [Fact]
-    public void LongConcatenations_ModuleStartupBeatsLlParsing()
+    public void LongConcatenations_ModuleStartupCompletesInSll()
     {
         // #2038's measured workload: forty lines with twenty concatenation terms each.
         var line = "Debug.Print \"a\"" + string.Concat(Enumerable.Range(0, 10)
             .Select(i => $" & Hour(d) & \":{i}\""));
         var code = "Dim d As Date\n" + string.Join("\n", Enumerable.Repeat(line, 40)) + "\n";
-        void ParseLl()
-        {
-            var parser = new VB6Parser(new CommonTokenStream(new VB6Lexer(new AntlrInputStream(code))));
-            parser.startRule();
-            parser.NumberOfSyntaxErrors.Should().Be(0);
-        }
-
-        BasicInterpreter BuildModule() => new(new MockStdLib(debug, written, dialogs), context,
+        var vb = new BasicInterpreter(new MockStdLib(debug, written, dialogs), context,
             new ExecutionEnvironment(), code);
 
-        // Warm both paths; compare on this host rather than pinning a machine-dependent time limit.
-        ParseLl();
-        BuildModule();
-        var watch = Stopwatch.StartNew();
-        ParseLl();
-        var llTime = watch.Elapsed;
-        watch.Restart();
-        var vb = BuildModule();
-        watch.Elapsed.Should().BeLessThan(llTime * 0.9);
+        // #3259: guard the startup path directly; a runner pause must not decide the result.
+        vb.ModuleParsePredictionMode.Should().Be(PredictionMode.SLL);
         vb.PrePass.topLevelBlocks.Should().NotBeEmpty();
     }
 

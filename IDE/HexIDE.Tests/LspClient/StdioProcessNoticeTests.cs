@@ -152,6 +152,50 @@ public class StdioProcessNoticeTests
         lock (gate) seen.Should().BeEmpty();
     }
 
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task ExitBeforeOrAfterJobAssignmentIsReportedAsExit(bool exitBeforeAssignment)
+    {
+        var info = OperatingSystem.IsWindows()
+            ? new LspServerInfo("cmd.exe", "/c \"set /p line=& >&2 echo hexide-stderr-one& exit 7\"", "")
+            : new LspServerInfo("/bin/sh", "-c \"read line; >&2 echo hexide-stderr-one; exit 7\"", "");
+        await using var transport = Transport(info);
+        var stderr = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var exit = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
+        transport.Notice += (_, notice) =>
+        {
+            if (notice.Kind == TransportNoticeKind.StandardError) stderr.TrySetResult(notice.Text);
+            if (notice.Text.StartsWith("process exited")) exit.TrySetResult(notice.Text);
+        };
+        System.Diagnostics.Process? child = null;
+        transport.AssignProcessToJob = (job, process) =>
+        {
+            child = process;
+            if (exitBeforeAssignment)
+            {
+                process.StandardInput.WriteLine("exit");
+                process.StandardInput.Flush();
+                process.WaitForExit(30000).Should().BeTrue();
+                throw new System.ComponentModel.Win32Exception(5, "exited before assignment");
+            }
+            process.HasExited.Should().BeFalse("the shell is waiting for input");
+            job.Assign(process);
+        };
+
+        var handler = await transport.ConnectAsync(new SystemTextJsonFormatter(), TestContext.Current.CancellationToken);
+        handler.Should().NotBeNull();
+        transport.LastFailure.Should().BeNull();
+        if (!exitBeforeAssignment)
+        {
+            // Connect has completed, so the assignment necessarily precedes this exit.
+            child!.StandardInput.WriteLine("exit");
+            child.StandardInput.Flush();
+        }
+        (await stderr.Task.WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken)).Should().Be(First);
+        (await exit.Task.WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken)).Should().Be("process exited with code 7");
+    }
+
     private static int Count(List<TransportNotice> seen, Lock gate, TransportNoticeKind kind)
     {
         lock (gate) return seen.Count(n => n.Kind == kind);

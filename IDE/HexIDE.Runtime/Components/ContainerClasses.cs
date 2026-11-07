@@ -3,10 +3,9 @@ namespace HexIDE.Runtime.Components;
 /// <summary>
 /// Which component classes can hold other controls.
 ///
-/// The list is closed: Form, PictureBox, Frame and the in-box SSTab (#1090), plus the two other designer roots (UserControl, PropertyPage), which the
-/// deserializer already maps onto <see cref="FormComponentClass"/>. Nothing else is one: not a hosted
-/// UserControl placed on a form, and not a class an add-in registered, because HexIDE has no way to host
-/// arbitrary children inside a control it did not build.
+/// Form, PictureBox, Frame and the in-box SSTab (#1090) hold controls, as do the designer roots mapped onto FormComponentClass.
+/// A project UserControl can carry placed children; its runtime ControlContainer setting determines whether
+/// a program may move another control into it (#1631).
 ///
 /// That matters because the .frm format lets anything be written nested and VB6 loads such a file without
 /// complaint — a control nested under a ListBox is corrupt input, not an exotic container. The deserializer
@@ -16,5 +15,6 @@ namespace HexIDE.Runtime.Components;
 public static class ContainerClasses
 {
     public static bool IsContainer(IComponentClass componentClass) =>
-        componentClass is FormComponentClass or FrameComponentClass or PictureBoxComponentClass or InBox.SSTabComponentClass;
+        componentClass is FormComponentClass or FrameComponentClass or PictureBoxComponentClass or UserControlComponentClass
+            or InBox.SSTabComponentClass;
 }

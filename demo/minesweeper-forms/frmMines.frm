@@ -1,5 +1,5 @@
 VERSION 5.00
-Begin VB.Form frmMines
+Begin VB.Form frmMines 
    BorderStyle     =   1  'Fixed Single
    Caption         =   "Minesweeper"
    ClientHeight    =   3420
@@ -10,15 +10,15 @@ Begin VB.Form frmMines
    ScaleHeight     =   3420
    ScaleWidth      =   2940
    StartUpPosition =   2  'CenterScreen
-   Begin VB.Timer tmrClock
+   Begin VB.Timer tmrClock 
       Enabled         =   0   'False
       Interval        =   1000
       Left            =   0
       Top             =   0
    End
-   Begin VB.CommandButton cmdFace
+   Begin VB.CommandButton cmdFace 
       Caption         =   ":)"
-      BeginProperty Font
+      BeginProperty Font 
          Name            =   "MS Sans Serif"
          Size            =   12
          Charset         =   0
@@ -33,7 +33,7 @@ Begin VB.Form frmMines
       Top             =   120
       Width           =   480
    End
-   Begin VB.Label lblTime
+   Begin VB.Label lblTime 
       Alignment       =   1  'Right Justify
       Caption         =   "000"
       ForeColor       =   &H000000C0&
@@ -43,7 +43,7 @@ Begin VB.Form frmMines
       Top             =   180
       Width           =   600
    End
-   Begin VB.Label lblMines
+   Begin VB.Label lblMines 
       Caption         =   "010"
       ForeColor       =   &H000000C0&
       Height          =   255
@@ -52,11 +52,11 @@ Begin VB.Form frmMines
       Top             =   180
       Width           =   600
    End
-   Begin VB.Label lblCell
+   Begin VB.Label lblCell 
       Alignment       =   2  'Center
       BackColor       =   &H00C0C0C0&
       BorderStyle     =   1  'Fixed Single
-      BeginProperty Font
+      BeginProperty Font 
          Name            =   "MS Sans Serif"
          Size            =   8.25
          Charset         =   0
@@ -72,32 +72,32 @@ Begin VB.Form frmMines
       Top             =   600
       Width           =   300
    End
-   Begin VB.Menu mnuGame
+   Begin VB.Menu mnuGame 
       Caption         =   "&Game"
-      Begin VB.Menu mnuNew
+      Begin VB.Menu mnuNew 
          Caption         =   "&New"
          Shortcut        =   {F2}
       End
-      Begin VB.Menu mnuSep1
+      Begin VB.Menu mnuSep1 
          Caption         =   "-"
       End
-      Begin VB.Menu mnuLevel
+      Begin VB.Menu mnuLevel 
          Caption         =   "&Beginner"
          Checked         =   -1  'True
          Index           =   0
       End
-      Begin VB.Menu mnuLevel
+      Begin VB.Menu mnuLevel 
          Caption         =   "&Intermediate"
          Index           =   1
       End
-      Begin VB.Menu mnuLevel
+      Begin VB.Menu mnuLevel 
          Caption         =   "&Expert"
          Index           =   2
       End
-      Begin VB.Menu mnuSep2
+      Begin VB.Menu mnuSep2 
          Caption         =   "-"
       End
-      Begin VB.Menu mnuExit
+      Begin VB.Menu mnuExit 
          Caption         =   "E&xit"
       End
    End

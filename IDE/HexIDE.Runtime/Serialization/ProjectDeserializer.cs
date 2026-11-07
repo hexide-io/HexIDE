@@ -482,6 +482,25 @@ public class SerializedProject
         return ToProjectFilePath(System.IO.Path.GetRelativePath(toDirectory, resolved));
     }
 
+    // Reference paths on the project's drive are relative even when the input was absolute (#2274).
+    // Parse drive paths independently of the host: Linux must save Windows projects the same way.
+    public static string ReferencePath(string path, string fromDirectory, string toDirectory)
+    {
+        static bool DrivePath(string value) => value.Length >= 3 && char.IsAsciiLetter(value[0])
+            && value[1] == ':' && value[2] is '\\' or '/';
+        if (DrivePath(path) && DrivePath(toDirectory)
+            && char.ToUpperInvariant(path[0]) == char.ToUpperInvariant(toDirectory[0]))
+        {
+            var source = new Uri(path.Replace('\\', '/'));
+            var destination = new Uri(toDirectory.Replace('\\', '/').TrimEnd('/') + "/");
+            return Uri.UnescapeDataString(destination.MakeRelativeUri(source).ToString()).Replace('/', '\\');
+        }
+        if (System.IO.Path.IsPathFullyQualified(path) && !DrivePath(path) && !path.StartsWith(@"\\")
+            && !DrivePath(toDirectory))
+            return ToProjectFilePath(System.IO.Path.GetRelativePath(toDirectory, path));
+        return RebasePath(path, fromDirectory, toDirectory);
+    }
+
     private static bool SameDirectory(string a, string b) =>
         string.Equals(
             System.IO.Path.TrimEndingDirectorySeparator(System.IO.Path.GetFullPath(a)),

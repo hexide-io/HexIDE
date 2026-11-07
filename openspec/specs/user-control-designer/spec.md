@@ -79,3 +79,21 @@ makes the command feel like it did something.
 - **WHEN** the developer adds a UserControl to the project
 - **THEN** it is created with a default name, added to the project, and opened on the design surface
 
+
+### Requirement: Placed UserControl file properties follow the control's settings
+
+Saving a form containing UserControls SHALL omit TabIndex for a CanGetFocus=False instance unless
+ForwardFocus=True. An InvisibleAtRuntime instance SHALL save only Left, Top, _ExtentX and _ExtentY.
+Windowless siblings SHALL follow windowed siblings, retaining their relative order.
+
+#### Scenario: Saving an invisible instance
+- **WHEN** a loaded instance has InvisibleAtRuntime=True and saved extents
+- **THEN** its position and extents survive the save without Height, Width or TabIndex
+
+#### Scenario: Saving a windowless instance
+- **WHEN** a form containing a windowless UserControl is saved
+- **THEN** windowless siblings are written after windowed siblings in their existing relative order
+
+#### Scenario: An invisible instance has no recorded extents
+- **WHEN** an invisible instance lacks either saved extent
+- **THEN** saving SHALL refuse as not implemented rather than inventing its size

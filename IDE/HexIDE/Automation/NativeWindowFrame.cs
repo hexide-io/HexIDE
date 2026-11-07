@@ -59,6 +59,37 @@ internal static class NativeWindowFrame
           + "its name as 'window', then retry includeFrame true."
         : "The window is hidden, so it has no frame on the screen. Show it, then retry includeFrame true.";
 
+    /// <summary>
+    /// The frame Windows draws for <paramref name="window"/>, in screen pixels: its rectangle less the invisible resize
+    /// borders, which <see cref="Window.Position"/> includes (#2454). Elsewhere, the position and frame size Avalonia
+    /// reports. Null for a window that is hidden or minimized, which has no frame on the screen.
+    /// </summary>
+    internal static PixelRect? VisibleFrame(Window window)
+    {
+        if (!window.IsVisible || window.WindowState == WindowState.Minimized)
+            return null;
+        var hwnd = Handle(window);
+        if (OperatingSystem.IsWindows() && hwnd != 0)
+            return FrameBounds(hwnd, hwnd, out var bounds)
+                   && ToPixelRect(bounds) is { Width: > 0, Height: > 0 } frame ? frame : null;
+        return window.FrameSize is { } size ? new PixelRect(window.Position, PixelSize.FromSize(size, window.DesktopScaling)) : null;
+    }
+
+    /// <summary>
+    /// The whole of <paramref name="window"/>'s rectangle, in screen pixels: on Windows its invisible resize borders
+    /// included, which is where <see cref="Window.Position"/> is (#2454). Elsewhere, as <see cref="VisibleFrame"/>. Null
+    /// for a window that is hidden or minimized.
+    /// </summary>
+    internal static PixelRect? OuterRect(Window window)
+    {
+        if (!window.IsVisible || window.WindowState == WindowState.Minimized)
+            return null;
+        var hwnd = Handle(window);
+        if (OperatingSystem.IsWindows() && hwnd != 0)
+            return GetWindowRect(hwnd, out var outer) && ToPixelRect(outer) is { Width: > 0, Height: > 0 } rect ? rect : null;
+        return VisibleFrame(window);
+    }
+
     internal static FrameImage? Capture(Window window, out string? error)
     {
         error = "Frame capture requires a Windows HWND; this host/window has none. Use includeFrame false for a client-area render.";
@@ -72,7 +103,7 @@ internal static class NativeWindowFrame
         }
         error = "Windows could not read the window's rectangles or client origin. Retry on an interactive desktop, or use includeFrame false.";
         var clientOrigin = new NativePoint();
-        if (DwmGetWindowAttribute(hwnd, 9, out var bounds, Marshal.SizeOf<NativeRect>()) != 0
+        if (!FrameBounds(hwnd, hwnd, out var bounds)
             || !GetWindowRect(hwnd, out var outer)
             || !ClientToScreen(hwnd, ref clientOrigin))
             return null;
@@ -217,13 +248,12 @@ internal static class NativeWindowFrame
     private static List<(PixelRect Rect, string Title)> Above(nint hwnd)
     {
         var above = new List<(PixelRect, string)>();
-        var size = Marshal.SizeOf<NativeRect>();
         for (var (h, n) = (GetWindow(hwnd, 3), 0); h != 0 && n < 4096; (h, n) = (GetWindow(h, 3), n + 1))
         {
             if (!IsWindowVisible(h) || IsIconic(h) || OwnedBy(h, hwnd) || (GetWindowLong(h, -20) & 0x20) != 0
                 || DwmGetWindowAttributeInt(h, 14, out var cloaked, 4) == 0 && cloaked != 0)
                 continue;
-            if (DwmGetWindowAttribute(h, 9, out var bounds, size) != 0 && !GetWindowRect(h, out bounds))
+            if (!FrameBounds(h, hwnd, out var bounds) && !GetWindowRect(h, out bounds))
                 continue;
             var title = new char[256];
             above.Add((ToPixelRect(bounds), new string(title, 0, Math.Max(0, GetWindowText(h, title, title.Length)))));
@@ -237,6 +267,28 @@ internal static class NativeWindowFrame
             if (o == owner)
                 return true;
         return false;
+    }
+
+    /// <summary>
+    /// <paramref name="hwnd"/>'s frame as Windows draws it, less the invisible resize borders, in the coordinates
+    /// <paramref name="transform"/> sees: the space GetWindowRect, ClientToScreen and Avalonia's own positions use.
+    /// </summary>
+    /// <remarks>
+    /// DWM gives these bounds in physical pixels whatever the caller's DPI awareness, while a DPI-unaware window, the
+    /// one <c>--dpi-unaware</c> starts, sees every other rectangle in pixels Windows has scaled to 96 DPI. Read as they
+    /// came, the frame was the display's scaling larger than the window around it (#3083). For a per-monitor-aware
+    /// window the conversion changes nothing; where it fails the bounds are kept as DWM gave them.
+    /// </remarks>
+    private static bool FrameBounds(nint hwnd, nint transform, out NativeRect bounds)
+    {
+        if (DwmGetWindowAttribute(hwnd, 9, out bounds, Marshal.SizeOf<NativeRect>()) != 0)
+            return false;
+        var topLeft = new NativePoint { X = bounds.Left, Y = bounds.Top };
+        var bottomRight = new NativePoint { X = bounds.Right, Y = bounds.Bottom };
+        if (PhysicalToLogicalPointForPerMonitorDPI(transform, ref topLeft)
+            && PhysicalToLogicalPointForPerMonitorDPI(transform, ref bottomRight))
+            bounds = new NativeRect { Left = topLeft.X, Top = topLeft.Y, Right = bottomRight.X, Bottom = bottomRight.Y };
+        return true;
     }
 
     private static PixelRect ToPixelRect(NativeRect r) => new(r.Left, r.Top, r.Right - r.Left, r.Bottom - r.Top);
@@ -263,6 +315,7 @@ internal static class NativeWindowFrame
     [DllImport("user32.dll")] private static extern bool IsIconic(nint hwnd);
     [DllImport("user32.dll")] private static extern bool ClientToScreen(nint hwnd, ref NativePoint point);
     [DllImport("user32.dll")] private static extern bool GetWindowRect(nint hwnd, out NativeRect rect);
+    [DllImport("user32.dll")] private static extern bool PhysicalToLogicalPointForPerMonitorDPI(nint hwnd, ref NativePoint point);
     [DllImport("user32.dll")] private static extern nint GetWindow(nint hwnd, uint command);
     [DllImport("user32.dll", EntryPoint = "GetWindowTextW", CharSet = CharSet.Unicode)]
     private static extern int GetWindowText(nint hwnd, char[] text, int count);
