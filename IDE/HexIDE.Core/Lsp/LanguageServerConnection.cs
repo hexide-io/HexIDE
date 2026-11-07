@@ -100,7 +100,9 @@ public sealed record LanguageServerConnection(
     // Not `= []`: a collection expression is not a constant, so it cannot be a parameter default.
     IReadOnlyList<string>? DeclinedByClient = null,
     int OpenDocumentCount = 0,
-    string? WorkspaceRootUri = null);
+    string? WorkspaceRootUri = null,
+    // Who contributed the connection: an add-in's title, or null for the configuration file and the bundled server.
+    string? Origin = null);
 
 /// <summary>
 /// How far a connection attempt got. Ordered, and the order is the sequence itself.
@@ -204,6 +206,9 @@ public sealed record ServerIdentity(string? Name, string? Version);
 /// </summary>
 public interface ILanguageConnectionRegistry
 {
+    /// <summary>Current diagnostics, attributed to the publisher rather than diagnostic.source.</summary>
+    IReadOnlyList<OwnedDiagnostic> Diagnostics { get; }
+
     /// <summary>Every registered connection, including those deliberately not started.</summary>
     IReadOnlyList<LanguageServerConnection> Connections { get; }
 
@@ -226,3 +231,6 @@ public interface ILanguageConnectionRegistry
     /// <summary>Raised when any connection's state or advertised capabilities change.</summary>
     event EventHandler? ConnectionsChanged;
 }
+
+/// <summary>One current diagnostic and the publisher that owns it.</summary>
+public sealed record OwnedDiagnostic(string Uri, string Owner, Messages.Diagnostic Diagnostic);

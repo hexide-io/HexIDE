@@ -107,7 +107,12 @@ public record AddinDiagnosticsResult(IReadOnlyList<AddinDiagnostic> Diagnostics,
     public bool Refused => Reason is not null;
 }
 
-public record AddinProjectInfo(string ProjectName, string ProjectPath, IReadOnlyList<AddinFileInfo> Files);
+/// <param name="StartupObject">
+/// What the project starts at, as the .vbp's <c>Startup</c> says it: <c>"Sub Main"</c>, a form's name, or null for
+/// neither. Trailing and optional, so an add-in built against the shorter record still runs.
+/// </param>
+public record AddinProjectInfo(string ProjectName, string ProjectPath, IReadOnlyList<AddinFileInfo> Files,
+    string? StartupObject = null);
 
 /// <remarks>
 /// <b><c>Code</c> and <c>Source</c> are trailing and optional deliberately.</b> This type is built by the

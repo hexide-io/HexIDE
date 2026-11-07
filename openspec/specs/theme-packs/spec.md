@@ -12,6 +12,41 @@ This is one of three independent pack systems that follow the same shape and com
 colours, `keymap-packs` swaps keyboard gestures, and `language-packs` swaps text.
 
 ## Requirements
+
+### Requirement: IDE dialog buttons expose keyboard focus and fixed defaults
+IDE message boxes, server prompts and all dialogs hosted by the IDE window manager SHALL show a dotted inset
+focus rectangle for keyboard focus, using the active theme's control-text brush. Mouse focus alone
+SHALL NOT show it. Buttons with a fixed default action SHALL show a heavier border. These styles
+SHALL NOT change VB6 controls on running forms or program message boxes.
+
+#### Scenario: Opening a server prompt
+- **WHEN** a server prompt opens with actions
+- **THEN** its first action receives keyboard focus and shows the focus cue
+
+#### Scenario: Navigating a server prompt
+- **WHEN** keyboard navigation focuses an action button
+- **THEN** its rendering differs from an unfocused button in Classic, Dark and Abyss
+
+#### Scenario: Showing an IDE message box
+- **WHEN** an IDE message box opens
+- **THEN** its first action is the default and carries a heavier border
+
+#### Scenario: Recorded dialog defaults
+- **WHEN** the IDE opens Save Changes
+- **THEN** Yes is the declared default with the heavier border
+- **AND** Find/Replace retains Find Next, Add Watch/Components/Options retain OK, Recovery retains Restore,
+  and Runtime Error retains Debug
+- **AND** other unmeasured VB6 default choices retain their existing assignments
+
+#### Scenario: Opening a shared desktop dialog
+- **WHEN** the IDE opens a dialog through its shared window manager
+- **THEN** its buttons use the same theme cues without a view-type allowlist
+- **AND** if no control already has focus, its enabled visible default button receives keyboard focus,
+  or its first text input / available tab stop if it has no default
+- **AND** an explicit input target (Find What in Find/Replace, Expression in Add Watch) takes priority
+- **AND** an existing explicit focus choice is preserved with keyboard cues
+- **AND** program message boxes and input boxes retain their existing chrome and focus behaviour
+
 ### Requirement: A theme SHALL be declared as data, not compiled in
 A theme SHALL be a data file declaring colour values by key, and adding one SHALL require no code change and
 no rebuild.

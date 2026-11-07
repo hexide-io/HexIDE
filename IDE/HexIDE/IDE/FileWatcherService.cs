@@ -495,17 +495,7 @@ public sealed class FileWatcherService : IFileWatcherService
         if (form is null && module is null)
             return null;
 
-        var codeEditor = dock.OpenDocuments.OfType<CodeEditorViewModel>().FirstOrDefault(vm =>
-            (form is not null && ReferenceEquals(vm.FormDefinition, form)) ||
-            (module is not null && ReferenceEquals(vm.ModuleDefinition, module)));
-
-        // A plain form's designer binds the form itself; a UserControl/PropertyPage designer binds the
-        // module's FormPart. Match either so the designer is refreshed in both cases.
-        var designer = dock.OpenDocuments.OfType<FormEditViewModel>().FirstOrDefault(vm =>
-            (form is not null && ReferenceEquals(vm.FormDefinition, form)) ||
-            (module?.FormPart is not null && ReferenceEquals(vm.FormDefinition, module.FormPart)));
-
-        return new WatchedFileTarget(sourcePath, form, module, codeEditor, designer);
+        return WatchedFileTarget.For(sourcePath, form, module, dock.OpenDocuments);
     }
 
     private static string ToOwnerSourcePath(string path) =>

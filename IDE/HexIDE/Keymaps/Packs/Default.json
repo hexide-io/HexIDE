@@ -52,6 +52,8 @@
     "BringToFrontCommand":                     "Ctrl+J",
     "SendToBackCommand":                       "Ctrl+K",
     "EditMenuCommand":                         "Ctrl+E",
+    "CallHierarchyCommand": "",
+    "FormatSelectionCommand":                  "",
     "NextBookmarkCommand":                     ""
   }
 }

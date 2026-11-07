@@ -133,21 +133,13 @@ public class LineLabelTests : BaseVBTestFixture
     }
 
     [Fact]
-    public async Task ALabelSharingItsLineWithALoopTerminator_IsNotYetAJumpTarget()
+    public async Task ALabelSharingItsLineWithALoopTerminator_GoesRoundTheLoop()
     {
-        // `Cont: Next i` is legal VB6 — measured — and this documents that HexIDE does not yet reach it.
-        //
-        // It is NOT the defect the rest of this file is about, and that distinction is the point. A label
-        // sharing its line with a STATEMENT is a label-registration problem, and it is fixed. A label
-        // sharing its line with a construct TERMINATOR is something else: `Next` is not a statement in the
-        // body block, it is the tail of the For rule, so jumping to `Cont` means resuming in the middle of
-        // a statement the walk is already inside. That is the tree-walking limit — a position in a linear
-        // sequence, which a stack of visitor frames does not have — and the same wall as GoSub/Return.
-        //
-        // The construct PARSES, so a whole module still loads; only the jump is refused. See
-        // docs/interpreter-gaps.md.
-        var act = async () => await Run("Dim i\nFor i = 1 To 3\n    If i = 2 Then GoTo Cont\nCont: Next i\n");
-        await act.Should().ThrowAsync<Exception>();
+        // `Cont: Next i` is legal VB6, and a GoTo to it goes round the loop (measured, #2529: l-nexti-inside logs 13). This
+        // test used to pin a refusal, filed as the tree-walking limit, the same wall as GoSub. It was not one: the label
+        // marks the end of the For body, and the body catches the jump and finishes, as if it had run to its end.
+        await Run("Dim i, s\nFor i = 1 To 3\n    If i = 2 Then GoTo Cont\n    s = s & i\nCont: Next i\nDebug.Print s\n");
+        AssertDebugLog([new Vb6Value("13")]);
     }
 
     [Theory]

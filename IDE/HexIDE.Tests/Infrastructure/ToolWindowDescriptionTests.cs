@@ -1,6 +1,7 @@
 namespace HexIDE.Tests.Infrastructure;
 
 /// <summary>Guards hexide-io/HexIDE#1321: auto scores windows rather than reading z-order.</summary>
+[ToolDescription]
 public class ToolWindowDescriptionTests
 {
     [Fact]

@@ -22,11 +22,17 @@ internal static class VbPrint
     internal interface ITarget
     {
         int Column { get; }
+        int Width => 0;
         void Write(string text);
     }
 
+    // Error display is accepted by printing and MsgBox, but not by implicit string coercion (#2520, #2613).
+    internal static string ErrorText(Vb6Value value) =>
+        "Error " + ((ushort)value.Value!).ToString(System.Globalization.CultureInfo.InvariantCulture);
+
     public static string ItemText(Vb6Value value) => value.Value switch
     {
+        _ when value.Type == Vb6Value.ValueType.Error => ErrorText(value),
         _ when value.IsNull => "Null",
         null => "",
         string s => s,
@@ -38,12 +44,23 @@ internal static class VbPrint
         _ => VbDisplay.ToText(value),
     };
 
-    public static void Item(ITarget target, Vb6Value value) => target.Write(ItemText(value));
+    public static void Item(ITarget target, Vb6Value value)
+    {
+        var text = ItemText(value);
+        // Width wraps before the item, never inside it (vb6.exe, #2554).
+        if (target.Width > 0 && target.Column > 0 && target.Column + text.Length > target.Width)
+            EndLine(target);
+        target.Write(text);
+    }
 
     public static void NextZone(ITarget target)
     {
         var column = target.Column;
-        target.Write(new string(' ', (column / Zone + 1) * Zone - column));
+        var next = (column / Zone + 1) * Zone;
+        if (target.Width > 0 && next > target.Width)
+            EndLine(target);
+        else
+            target.Write(new string(' ', next - column));
     }
 
     /// <summary><c>Tab(column)</c>, counted from 1; one below 1 is 1, as <c>Tab(0)</c> measured.</summary>

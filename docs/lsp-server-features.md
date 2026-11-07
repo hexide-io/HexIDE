@@ -1,6 +1,6 @@
 # The bundled VB6 language server — what it analyses
 
-This document describes what HexIDE's **own** language server produces: the ten live language features, how
+This document describes what HexIDE's **own** language server produces: the eleven live language features, how
 deep each genuinely is, and — separately, because the distinction is load-bearing — which limitations are
 work outstanding and which are the architecture holding a line.
 
@@ -12,10 +12,24 @@ server in the box.
 [`lsp-servers.json`](./language-servers.md)'s defaults rather than a special case beside them, so it can be
 replaced or switched off like any other.
 
+After `shutdown` and `exit`, the server stops reading input and exits with code 0 without writing to
+stderr (#2956), whether the client closes stdin or leaves it open. EOF without `exit` still reports
+the read fault on stderr. An `exit` without an answered `shutdown` exits with code 1 and
+empty stderr (#3007). An exception caught and logged as fatal by `Program.cs` exits with code 2
+(#3023), distinct from both lifecycle outcomes. Errors the framework handles internally do not reach
+that catch.
+
 **Visitor hardening (#1894):** symbol, declaration and Option Explicit walks bound recursion in
 `VisitChildren` at 500 levels, including left-associated operator trees. The 100,000-addition
 [probe](parse-depth-probes.md) now retains statement-level declarations and symbols without crashing;
-expression interiors beyond the bound are skipped. The interpreter's expression-walk overflow remains.
+expression interiors beyond the bound are skipped. The interpreter's expression walk no longer overflows
+the process stack either: before it runs out, it raises VB6's error 28, Out of stack space (#1893).
+
+**For Each collection syntax (#3213):** the collection must be a reference (including calls,
+indexes, member and With access). Parenthesised expressions, number/string literals, the bare keywords `Nothing`, `True`, `False`, `Null` and `Empty`, `New`
+and operators report Syntax error, following [the measured rule](https://github.com/hexide-io/HexIDE/issues/3213)
+and [its oracle tables](https://github.com/hexide-io/HexIDE/pull/3215). Declared scalar collections
+need binding to diagnose before execution; the bundled server does not check those declarations.
 
 ---
 
@@ -33,7 +47,8 @@ replaceable LSP seam, which is the whole reason the seam exists.
 
 A boundary item is therefore **not** a to-do. Anything phrased as "requires a workspace model" or "requires
 type inference" is describing a different program's job, not a queue this one is standing in. The
-[client document](./lsp-client.md) lists what HexIDE would consume from such an engine.
+[client document](./lsp-client.md) lists what HexIDE consumes from such an engine, including server-supplied
+code actions on request (#453). Computing fixes remains a ■ boundary here.
 
 This document previously listed six of those as *Planned* and *Future*. That was written before the limit
 was decided, and it made promises the architecture has since ruled out.
@@ -115,11 +130,19 @@ the non-empty lines outside the IDE's regions.
 
 ## 1. Error diagnostics (squiggles)
 
+**VB6 source-limit warnings (#3203).** The bundled server warns on a logical line's 25th continuation,
+counting each additional 1,023-character piece of a long physical line as a continuation, and on every physical
+line over 1,023 characters. The notices explain VB6's refusal or piece-reading behaviour, including split-token
+syntax errors and the layouts where VB6 silently drops a tail. HexIDE keeps the whole source and runs it as
+before. These use the existing severity 2 diagnostics, without diagnostic codes or localization (as with the
+server's other messages). There is no "Statement too complex" warning: its edge is fitted, not a known rule.
+See the [measured edges](vb6-fidelity-oracle/long-lines-line-continuations-and-long-expressions.md).
+
 **`textDocument/publishDiagnostics`** (server-push)
 
 The server parses VB6 source with the full ANTLR4 grammar on every change. Syntax errors surface as red
-wavy underlines. The client shows no message for one yet, on hover or anywhere else
-([#451](https://github.com/hexide-io/HexIDE/issues/451)); `get_diagnostics` reads them.
+wavy underlines. Hovering one shows its message, with any other message overlapping it
+([#451](https://github.com/hexide-io/HexIDE/issues/451)); `get_diagnostics` reads them too.
 
 **What works:** precise error spans on the offending token; ANTLR messages prettified into VB6-style text
 by `VbErrorMessages.Prettify()`; squiggles cleared on close. A whole VB6 file is accepted, and nothing is
@@ -303,6 +326,12 @@ Declared names carry their syntactic completion kind: Sub → Method, Function �
 Property, Const → Constant, Enum → Enum, enum member → EnumMember, Type → Struct, and variables and
 parameters → Variable. Filtered client-side as you type.
 
+Completion bypasses the analysis worker and reads the last published declaration snapshot (#2434).
+It can therefore return names from the previous revision while a change is being parsed. Once the
+first open starts analysis, completion can return the static keywords and built-ins even before any
+declarations have been parsed. Diagnostics still run and publish for every
+change, and other requests (including formatting) still wait for that change's analysis.
+
 - ◐ No position awareness — the full list comes back regardless of cursor context.
 - ■ No member-access completion (`obj.`), no type-aware filtering, no symbols from other project files. Each
   needs binding: resolving what `obj` *is*, or what type is expected here, is the relationship between two
@@ -316,9 +345,12 @@ parameters → Variable. Filtered client-side as you type.
 
 **`textDocument/signatureHelp`**
 
-89 VB6 built-ins are covered, spanning strings, type conversions, math, arrays, character/ASCII,
-date/time, inspection, I/O and object/misc. The active parameter tracks comma position through nested
-parentheses, and the document is flushed before the request so there is no race with the change debounce.
+148 VB6 built-ins are covered, spanning strings, byte strings, type conversions, math, arrays,
+character/ASCII, date/time, inspection, error handling, files and I/O, financial and object/misc. The active parameter tracks comma position through nested
+parentheses. Past the end of a signature whose last parameter is a list, as `Array`, `Choose` and `Switch` have,
+that parameter stays active. Past any other signature's end, the argument's own index is sent, so no parameter
+is marked for an argument VB6 would refuse (#2599).
+The document is flushed before the request so there is no race with the change debounce.
 
 - ◐ Signatures are manually authored tables.
 - ■ User-defined procedure signatures are not shown. Matching a call site to its declaration is binding.
@@ -440,16 +472,35 @@ than obeyed.
 
 ---
 
+## 11. Block-end inlay hints
+
+`textDocument/inlayHint` is advertised and returns labels after `End Sub`, `End Function`, `End Property`,
+`End If`, `Loop`, `Next`, `Wend`, `End Select` and `End With` (#1998). The cached CST pairs each closer with
+its opener: procedures show their kind and name, `If` its condition, `For` its counter, and the other
+blocks their opening expression or header. Nested blocks keep their own labels; a single-line `If` has
+none. Line continuations and their surrounding whitespace become one space in opening expressions.
+Labels such as `' Sub Foo` and `' If x > 1` are display text, never edits to the file. Requests are
+filtered to their supplied range, using UTF-16 positions after the closing physical line.
+
+This is syntactic, inside the CST boundary. Parameter-name and inferred-type hints remain outside it.
+No `inlayHint/resolve` or refresh is offered. The same parse used for diagnostics refreshes the hint cache;
+closing a document evicts it.
+
 ## The server's own trace
 
-Not a language feature, so it is absent from the table below — but it is the only way to see *why* one of
-those features cost what it did.
+Not a language feature, so it is absent from the table below. The trace explains an analysis to the
+client; the server's debug log also separates scheduling and execution costs.
+
+After the client's `initialized` notification, the bundled server sends an informational
+`window/logMessage` with its name, version and startup confirmation (#2509). This appears on its
+Language & Debug Servers card even with tracing off. The rolling file log is unchanged; analysis
+budget reports still use the opt-in trace channel below. The server does not load projects itself.
 
 Set `trace` to `messages` or `verbose` in `initialize`, or send `$/setTrace` to a running server, and the
 analysis reports itself over `$/logTrace`. At `messages` that is one line per analysis; at `verbose` the
 same line arrives with detail attached in the notification's `verbose` member. Off is the default, an
-unrecognised value is ignored rather than silently downgraded, and with the level off nothing is measured —
-the parse runs exactly as it does when nobody is watching.
+unrecognised value is ignored rather than silently downgraded, and with the level off no analysis report
+is allocated or sent. Debug timing logs are independent of this protocol trace setting.
 
 ```
 untitled:Project1/Form1.frm: LL fallback, 41.3 ms, 1 diagnostic, 7 symbols
@@ -473,6 +524,14 @@ nothing. What only the server process knows is:
   sync is refused and the document evicted. On the wire, an empty diagnostic array; indistinguishable from
   a file with nothing wrong.
 
+Set `HEXIDE_LOG_LEVEL=Debug` to record each scheduled method's queue wait and execution time in the
+rolling server log. Completion has its own immediate dispatch path. Analysis logs include the parse's
+thread-pool queue wait, the SLL duration and, if reached, the LL duration (including abandoned work that
+finishes later). The diagnostics duration covers the whole budgeted analysis and cache refresh, so it
+includes parsing rather than being additive to it. Method, request id and document revision identify
+interleaved work; parse and diagnostics entries also carry the document URI. LL runs inline after SLL,
+with no separate queue. No document content is logged. See the [#2434 measurement](completion-latency-2434.md).
+
 Measured against five third-party servers, this channel is empty in practice: `trace: "verbose"` plus an
 explicit `$/setTrace` produced zero `$/logTrace` frames between them. So the bundled server is also the
 reference implementation the client half is proved against.
@@ -493,6 +552,8 @@ reference implementation the client half is proved against.
 | Document highlights | `textDocument/documentHighlight` | 🔧 Wired | ■ semantic resolution |
 | Rename | `textDocument/rename` | 🔧 Wired | ■ semantic rename, ◐ no prepareRename |
 | Formatting | `textDocument/formatting` | 🔶 Partial | ◐ spacing, range |
+| Block-end hints | `textDocument/inlayHint` | ✅ Full | ■ parameter names and inferred types |
+| Call hierarchy | `textDocument/prepareCallHierarchy`, `callHierarchy/*` | Not provided | ■ call relationships |
 
 Legend: ◐ depth (outstanding work) · ■ boundary (belongs to a language engine).
 
@@ -502,3 +563,8 @@ seam. See [`lsp-client.md`](./lsp-client.md) for what HexIDE would consume from 
 ---
 
 *The behaviour contracts live under [`openspec/specs/`](../openspec/specs/).*
+
+The runtime parsing slice of [#3210](https://github.com/hexide-io/HexIDE/issues/3210) does not lift
+this server's limits: diagnostics still have the 300-rule parse guard, visitors retain their 500-frame
+bounds, and conditional-expression parsing retains its 64-rule guard. Moving analysis to one persistent
+64 MiB worker and deriving these limits remains outstanding. The two-second wall-clock budget is unchanged.

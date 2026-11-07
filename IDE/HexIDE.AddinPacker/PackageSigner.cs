@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using System.Text.Json;
+using System.Text;
 using HexIDE.Addins;
 
 namespace HexIDE.AddinPacker;
@@ -22,6 +23,7 @@ public sealed class PackRequest
     /// file and recorded as the manifest's <c>logoPath</c> so it is signature-covered.</summary>
     public string? Logo { get; init; }
     public string? MinHexideVersion { get; init; }
+    public List<string> Capabilities { get; init; } = [];
 }
 
 /// <summary>
@@ -38,6 +40,8 @@ public static class PackageSigner
     {
         Directory.CreateDirectory(outDir);
 
+        var outputs = new Dictionary<string, byte[]>();
+
         using var root = ECDsa.Create(ECCurve.NamedCurves.nistP256);
         using var intermediate = ECDsa.Create(ECCurve.NamedCurves.nistP256);
         using var firstParty = ECDsa.Create(ECCurve.NamedCurves.nistP256);
@@ -49,8 +53,8 @@ public static class PackageSigner
             PublicKey = PackageCrypto.ExportPublicKey(intermediate),
         };
         var interBytes = JsonSerializer.SerializeToUtf8Bytes(interRec, AddinJsonContext.Default.IntermediateRecord);
-        File.WriteAllBytes(Path.Combine(outDir, "intermediate.json"), interBytes);
-        File.WriteAllText(Path.Combine(outDir, "intermediate.sig"), PackageCrypto.Sign(root, interBytes));
+        outputs["intermediate.json"] = interBytes;
+        outputs["intermediate.sig"] = Encoding.UTF8.GetBytes(PackageCrypto.Sign(root, interBytes));
 
         var pubRec = new PublisherRecord
         {
@@ -60,19 +64,94 @@ public static class PackageSigner
             IntermediateId = "hexide-marketplace-dev",
         };
         var pubBytes = JsonSerializer.SerializeToUtf8Bytes(pubRec, AddinJsonContext.Default.PublisherRecord);
-        File.WriteAllBytes(Path.Combine(outDir, "publisher.json"), pubBytes);
-        File.WriteAllText(Path.Combine(outDir, "publisher.sig"), PackageCrypto.Sign(intermediate, pubBytes));
+        outputs["publisher.json"] = pubBytes;
+        outputs["publisher.sig"] = Encoding.UTF8.GetBytes(PackageCrypto.Sign(intermediate, pubBytes));
 
-        File.WriteAllText(Path.Combine(outDir, "hexide-root.pub"), PackageCrypto.ExportPublicKey(root));
+        outputs["hexide-root.pub"] = Encoding.UTF8.GetBytes(PackageCrypto.ExportPublicKey(root));
         // The first-party publisher PUBLIC key is pinned (baked into the IDE) so first-party status is
         // bound to possession of the first-party private key, not just the publisherId string.
-        File.WriteAllText(Path.Combine(outDir, "hexide-firstparty.pub"), PackageCrypto.ExportPublicKey(firstParty));
-        File.WriteAllText(Path.Combine(outDir, "firstparty.key"), PackageCrypto.ExportPrivateKey(firstParty));
+        outputs["hexide-firstparty.pub"] = Encoding.UTF8.GetBytes(PackageCrypto.ExportPublicKey(firstParty));
+        outputs["firstparty.key"] = Encoding.UTF8.GetBytes(PackageCrypto.ExportPrivateKey(firstParty));
         // Dev-only private keys retained so the chain can be regenerated/rotated. NEVER ship these.
-        File.WriteAllText(Path.Combine(outDir, "root.key"), PackageCrypto.ExportPrivateKey(root));
-        File.WriteAllText(Path.Combine(outDir, "intermediate.key"), PackageCrypto.ExportPrivateKey(intermediate));
+        outputs["root.key"] = Encoding.UTF8.GetBytes(PackageCrypto.ExportPrivateKey(root));
+        outputs["intermediate.key"] = Encoding.UTF8.GetBytes(PackageCrypto.ExportPrivateKey(intermediate));
 
+        WriteNewFiles(outDir, outputs);
         Console.WriteLine($"Generated dev trust chain in {outDir}");
+    }
+
+    /// <summary>Generates a release chain with explicit identities and separate private-key outputs.</summary>
+    public static void GenerateReleaseTrust(ReleaseTrustRequest r)
+    {
+        if (!PublisherId.IsValid(r.IntermediateId) || !PublisherId.IsValid(r.FirstPartyId))
+            throw new ArgumentException("invalid publisher or intermediate id");
+        ValidateDisplayName(r.IntermediateName);
+        ValidateDisplayName(r.FirstPartyName);
+
+        var directories = new[] { r.RootOut, r.IntermediateOut, r.FirstPartyOut, r.PublicOut }
+            .Select(path => ResolveOutputDirectory(path)).ToArray();
+        var prefixes = directories.Select(path => Path.EndsInDirectorySeparator(path)
+            ? path : path + Path.DirectorySeparatorChar).ToArray();
+        var comparison = OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
+        for (var i = 0; i < directories.Length; i++)
+            for (var j = i + 1; j < directories.Length; j++)
+                if (string.Equals(directories[i], directories[j], comparison) ||
+                    directories[i].StartsWith(prefixes[j], comparison) ||
+                    directories[j].StartsWith(prefixes[i], comparison))
+                    throw new ArgumentException("output directories must not overlap");
+
+        using var root = ECDsa.Create(ECCurve.NamedCurves.nistP256);
+        using var intermediate = ECDsa.Create(ECCurve.NamedCurves.nistP256);
+        using var firstParty = ECDsa.Create(ECCurve.NamedCurves.nistP256);
+        var rootPublic = PackageCrypto.ExportPublicKey(root);
+        var intermediatePublic = PackageCrypto.ExportPublicKey(intermediate);
+        var firstPartyPublic = PackageCrypto.ExportPublicKey(firstParty);
+        var interBytes = JsonSerializer.SerializeToUtf8Bytes(new IntermediateRecord
+        {
+            IntermediateId = r.IntermediateId,
+            DisplayName = r.IntermediateName,
+            PublicKey = intermediatePublic,
+        }, AddinJsonContext.Default.IntermediateRecord);
+        var pubBytes = JsonSerializer.SerializeToUtf8Bytes(new PublisherRecord
+        {
+            PublisherId = r.FirstPartyId,
+            DisplayName = r.FirstPartyName,
+            PublicKey = firstPartyPublic,
+            IntermediateId = r.IntermediateId,
+        }, AddinJsonContext.Default.PublisherRecord);
+
+        var outputs = new Dictionary<string, byte[]>
+        {
+            [Path.Combine(directories[0], "root.key")] = Encoding.UTF8.GetBytes(PackageCrypto.ExportPrivateKey(root)),
+            [Path.Combine(directories[1], "intermediate.key")] = Encoding.UTF8.GetBytes(PackageCrypto.ExportPrivateKey(intermediate)),
+            [Path.Combine(directories[2], "firstparty.key")] = Encoding.UTF8.GetBytes(PackageCrypto.ExportPrivateKey(firstParty)),
+            [Path.Combine(directories[3], "hexide-root.pub")] = Encoding.UTF8.GetBytes(rootPublic),
+            [Path.Combine(directories[3], "hexide-firstparty.pub")] = Encoding.UTF8.GetBytes(firstPartyPublic),
+            [Path.Combine(directories[3], "intermediate.json")] = interBytes,
+            [Path.Combine(directories[3], "intermediate.sig")] = Encoding.UTF8.GetBytes(PackageCrypto.Sign(root, interBytes)),
+            [Path.Combine(directories[3], "publisher.json")] = pubBytes,
+            [Path.Combine(directories[3], "publisher.sig")] = Encoding.UTF8.GetBytes(PackageCrypto.Sign(intermediate, pubBytes)),
+        };
+        foreach (var directory in directories) Directory.CreateDirectory(directory);
+        // Absolute paths let the existing reservation/cleanup cover all four directories together.
+        WriteNewFiles("", outputs);
+        Console.WriteLine($"Root: {PackageCrypto.KeyFingerprint(rootPublic)}");
+        Console.WriteLine($"Intermediate: {PackageCrypto.KeyFingerprint(intermediatePublic)}");
+        Console.WriteLine($"Publisher: {PackageCrypto.KeyFingerprint(firstPartyPublic)}");
+    }
+
+    private static string ResolveOutputDirectory(string path, int links = 0)
+    {
+        if (links > 40) throw new IOException("too many symbolic links in output directory");
+        var full = Path.GetFullPath(path);
+        var current = Path.GetPathRoot(full)!;
+        foreach (var part in full[current.Length..].Split(Path.DirectorySeparatorChar, StringSplitOptions.RemoveEmptyEntries))
+        {
+            var directory = new DirectoryInfo(Path.Combine(current, part));
+            current = directory.LinkTarget is null ? directory.FullName
+                : ResolveOutputDirectory(directory.ResolveLinkTarget(true)!.FullName, links + 1);
+        }
+        return Path.TrimEndingDirectorySeparator(current);
     }
 
     /// <summary>Signs a revocation list with the HexIDE root key: copies the input JSON verbatim to
@@ -80,18 +159,150 @@ public static class PackageSigner
     public static void SignRevocations(string inJsonPath, string rootKeyPath, string outDir)
     {
         Directory.CreateDirectory(outDir);
+        var outputs = new Dictionary<string, byte[]>();
         var jsonBytes = File.ReadAllBytes(inJsonPath);
         var keyB64 = File.ReadAllText(rootKeyPath).Trim();
         using var key = PackageCrypto.ImportPrivateKey(keyB64);
-        File.WriteAllBytes(Path.Combine(outDir, "revocations.json"), jsonBytes);
-        File.WriteAllText(Path.Combine(outDir, "revocations.sig"), PackageCrypto.Sign(key, jsonBytes));
+        outputs["revocations.json"] = jsonBytes;
+        outputs["revocations.sig"] = Encoding.UTF8.GetBytes(PackageCrypto.Sign(key, jsonBytes));
+        WriteNewFiles(outDir, outputs);
         Console.WriteLine($"Signed revocation list -> {Path.Combine(outDir, "revocations.json")}");
+    }
+
+    /// <summary>Issues a publisher's public key using an offline intermediate signing key.</summary>
+    public static void SignPublisher(string rootPublicKeyPath, string intermediateKeyPath, string intermediateDir,
+        string publisherId, string displayName, string publicKeyPath, string outDir)
+    {
+        if (!PublisherId.IsValid(publisherId))
+            throw new ArgumentException("invalid publisher id (expected 3–64 lowercase letters/digits joined by single dots or hyphens)");
+        ValidateDisplayName(displayName);
+
+        var interBytes = File.ReadAllBytes(Path.Combine(intermediateDir, "intermediate.json"));
+        var interSig = File.ReadAllText(Path.Combine(intermediateDir, "intermediate.sig")).Trim();
+        using var root = ReadKey(rootPublicKeyPath, privateKey: false, "root public key");
+        if (!PackageCrypto.Verify(root, interBytes, interSig))
+            throw new ArgumentException("intermediate signature does not verify against the supplied root");
+        var inter = JsonSerializer.Deserialize(interBytes, AddinJsonContext.Default.IntermediateRecord)
+                    ?? throw new ArgumentException("invalid intermediate record");
+        if (!PublisherId.IsValid(inter.IntermediateId))
+            throw new ArgumentException("invalid intermediate id");
+        using var interPublic = PackageCrypto.ImportPublicKey(inter.PublicKey);
+        RequireP256(interPublic, "intermediate public key");
+        using var key = ReadKey(intermediateKeyPath, privateKey: true, "intermediate private key");
+        if (PackageCrypto.ExportPublicKey(key) != PackageCrypto.ExportPublicKey(interPublic))
+            throw new ArgumentException("intermediate private key does not match the intermediate record");
+        using var publisher = ReadKey(publicKeyPath, privateKey: false, "publisher public key");
+        var record = new PublisherRecord
+        {
+            PublisherId = publisherId,
+            DisplayName = displayName,
+            PublicKey = PackageCrypto.ExportPublicKey(publisher),
+            IntermediateId = inter.IntermediateId,
+        };
+        var bytes = JsonSerializer.SerializeToUtf8Bytes(record, AddinJsonContext.Default.PublisherRecord);
+        var signature = PackageCrypto.Sign(key, bytes);
+        Directory.CreateDirectory(outDir);
+        WriteNewFiles(outDir, new Dictionary<string, byte[]>
+        {
+            ["publisher.json"] = bytes,
+            ["publisher.sig"] = Encoding.UTF8.GetBytes(signature),
+        });
+        if (!PackageCrypto.Verify(root, File.ReadAllBytes(Path.Combine(intermediateDir, "intermediate.json")),
+                File.ReadAllText(Path.Combine(intermediateDir, "intermediate.sig")).Trim())
+            || !PackageCrypto.Verify(interPublic, File.ReadAllBytes(Path.Combine(outDir, "publisher.json")),
+                File.ReadAllText(Path.Combine(outDir, "publisher.sig")).Trim()))
+            throw new InvalidOperationException("written publisher chain verification failed");
+        Console.WriteLine("Verified publisher record against the intermediate and supplied root public key");
+    }
+
+    private static void ValidateDisplayName(string displayName)
+    {
+        // The trust inspector shows this name to users, so a bidi override or other invisible format character
+        // (U+202E, U+200B, U+FEFF, ...) could make one publisher's name read as another's. Refuse them with the controls.
+        if (string.IsNullOrWhiteSpace(displayName) || displayName != displayName.Trim()
+            || displayName.Length > 128 || displayName.Any(c => char.IsControl(c)
+                || char.GetUnicodeCategory(c) is System.Globalization.UnicodeCategory.Format
+                    or System.Globalization.UnicodeCategory.LineSeparator
+                    or System.Globalization.UnicodeCategory.ParagraphSeparator))
+            throw new ArgumentException("invalid display name (expected 1–128 trimmed characters without control or invisible format characters)");
+    }
+
+    private static ECDsa ReadKey(string path, bool privateKey, string label)
+    {
+        try
+        {
+            var text = File.ReadAllText(path).Trim();
+            var bytes = Convert.FromBase64String(text);
+            var key = ECDsa.Create();
+            try
+            {
+                int consumed;
+                if (privateKey) key.ImportPkcs8PrivateKey(bytes, out consumed);
+                else key.ImportSubjectPublicKeyInfo(bytes, out consumed);
+                if (consumed != bytes.Length) throw new ArgumentException("trailing key data");
+                RequireP256(key, label);
+                return key;
+            }
+            catch { key.Dispose(); throw; }
+        }
+        catch (Exception ex) when (ex is CryptographicException or FormatException or ArgumentException)
+        {
+            // Key parser diagnostics must never echo key material.
+            throw new ArgumentException($"invalid {label} (expected base64 ECDSA P-256 {(privateKey ? "PKCS#8" : "SPKI")})");
+        }
+    }
+
+    private static void RequireP256(ECDsa key, string label)
+    {
+        if (key.ExportParameters(false).Curve.Oid.Value != ECCurve.NamedCurves.nistP256.Oid.Value)
+            throw new ArgumentException($"invalid {label}: expected ECDSA P-256");
+    }
+
+    private static void WriteNewFiles(string directory, Dictionary<string, byte[]> outputs)
+    {
+        var streams = new Dictionary<string, FileStream>();
+        var completed = false;
+        try
+        {
+            try
+            {
+                // Reserve every destination before writing, so a collision cannot replace part of a chain.
+                foreach (var name in outputs.Keys)
+                    streams.Add(name, new FileStream(Path.Combine(directory, name), FileMode.CreateNew, FileAccess.Write));
+                foreach (var (name, bytes) in outputs)
+                {
+                    streams[name].Write(bytes);
+                    streams[name].Flush(flushToDisk: true);
+                }
+            }
+            finally
+            {
+                foreach (var stream in streams.Values)
+                    stream.Dispose();
+            }
+            completed = true;
+        }
+        finally
+        {
+            if (!completed)
+                foreach (var name in streams.Keys)
+                {
+                    // Preserve the original failure if the filesystem also refuses cleanup.
+                    try { File.Delete(Path.Combine(directory, name)); }
+                    catch (IOException) { }
+                    catch (UnauthorizedAccessException) { }
+                }
+        }
     }
 
     public static void Pack(PackRequest r)
     {
         if (r.MinHexideVersion is { } minimum)
             _ = System.Version.Parse(minimum);
+
+        var capabilities = JsonSerializer.SerializeToElement(r.Capabilities.Order(StringComparer.Ordinal).ToArray());
+        if (!AddinCapabilities.IsValid(capabilities))
+            throw new ArgumentException("invalid capabilities declaration", nameof(r));
 
         // Start from a clean output dir so the package is an EXACT match for the manifest — a stale
         // file left from a previous pack would (correctly) fail the verifier's completeness check.
@@ -129,6 +340,7 @@ public static class PackageSigner
         var manifest = new AddinManifest
         {
             Schema = AddinManifest.CurrentSchema,
+            Capabilities = capabilities,
             MinHexideVersion = r.MinHexideVersion,
             Id = r.Id,
             Title = r.Title,

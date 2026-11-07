@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
+using Avalonia.Threading;
 using HexIDE.Forms.ViewModels;
 using Serilog;
 
@@ -23,6 +24,7 @@ public sealed class ConflictGate
     private readonly IWindowManager windowManager;
     private readonly Func<IReadOnlyList<WatchedFileTarget>, Task> onReloadAll;
     private readonly Func<IReadOnlyList<WatchedFileTarget>, Task> onKeepAll;
+    private readonly Func<Window?> mainWindow;
 
     private readonly Dictionary<string, WatchedFileTarget> pending = new(StringComparer.OrdinalIgnoreCase);
     private bool showing;
@@ -32,10 +34,20 @@ public sealed class ConflictGate
         IWindowManager windowManager,
         Func<IReadOnlyList<WatchedFileTarget>, Task> onReloadAll,
         Func<IReadOnlyList<WatchedFileTarget>, Task> onKeepAll)
+        : this(windowManager, onReloadAll, onKeepAll, MainWindow)
+    {
+    }
+
+    internal ConflictGate(
+        IWindowManager windowManager,
+        Func<IReadOnlyList<WatchedFileTarget>, Task> onReloadAll,
+        Func<IReadOnlyList<WatchedFileTarget>, Task> onKeepAll,
+        Func<Window?> mainWindow)
     {
         this.windowManager = windowManager;
         this.onReloadAll = onReloadAll;
         this.onKeepAll = onKeepAll;
+        this.mainWindow = mainWindow;
     }
 
     /// <summary>Queues conflicted targets and shows the dialog if the window is active and none is open.</summary>
@@ -102,9 +114,9 @@ public sealed class ConflictGate
 
     // No desktop window (single-view / headless) → treat as active so the dialog shows immediately.
     // A minimized window counts as inactive even though Avalonia keeps IsActive == true for it.
-    private static bool MainWindowActive()
+    private bool MainWindowActive()
     {
-        if (MainWindow() is not { } w)
+        if (mainWindow() is not { } w)
             return true;
         return w.WindowState != WindowState.Minimized && w.IsActive;
     }
@@ -113,12 +125,13 @@ public sealed class ConflictGate
     {
         if (subscribedToActivated)
             return;
-        var window = MainWindow();
+        var window = mainWindow();
         if (window is null)
             return;
         window.Activated += OnMainWindowActivated;
         subscribedToActivated = true;
     }
 
-    private void OnMainWindowActivated(object? sender, EventArgs e) => TryShow();
+    // Avalonia raises Activated before setting IsActive; wait for that update before checking it.
+    private void OnMainWindowActivated(object? sender, EventArgs e) => Dispatcher.UIThread.Post(TryShow);
 }

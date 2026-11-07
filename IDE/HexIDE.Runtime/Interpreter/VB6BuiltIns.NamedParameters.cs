@@ -16,9 +16,10 @@ public partial class VB6BuiltIns
     internal sealed record IntrinsicParameters(string[] Names, int Required, bool OmittedIsSyntaxError = false);
 
     // #1561 measured positional calls only, and so did #1510 for the byte-string functions. Refuse named calls
-    // explicitly until an oracle probe supplies them. #2516 likewise measures only positional FormatDateTime calls.
+    // explicitly until an oracle probe supplies them. #2516, #2523, #2524 (SLN/SYD) and #2622 likewise measure only
+    // positional calls.
     private static readonly HashSet<string> UnmeasuredNamedArguments = new(StringComparer.OrdinalIgnoreCase)
-    { "AscB", "ChrB", "CurDir", "Dir", "FileLen", "FileDateTime", "FormatDateTime", "GetAttr", "InStrB", "LeftB", "MidB", "RightB" };
+    { "AscB", "CallByName", "ChrB", "CurDir", "Dir", "FileAttr", "FileDateTime", "FileLen", "FormatDateTime", "FV", "GetAttr", "IMEStatus", "InStrB", "IPmt", "LeftB", "MidB", "NPer", "ObjPtr", "Partition", "Pmt", "PPmt", "PV", "Rate", "RightB", "SLN", "StrPtr", "SYD", "VarPtr" };
 
     private static readonly Dictionary<string, IntrinsicParameters> NamedParameterTable = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -129,6 +130,8 @@ public partial class VB6BuiltIns
         ["Command"] = "Named arguments not allowed",
         ["Date"] = "Syntax error",
         ["DoEvents"] = "Wrong number of arguments or invalid property assignment",
+        // `Erl(X:=1)` and `Erl(1)` alike (measured, #2528).
+        ["Erl"] = "Wrong number of arguments or invalid property assignment",
         ["Now"] = "Named arguments not allowed",
         ["Time"] = "Named arguments not allowed",
         ["Timer"] = "Wrong number of arguments or invalid property assignment",
@@ -143,6 +146,7 @@ public partial class VB6BuiltIns
     {
         internal HashSet<int> Omitted { get; } = new();
         internal long? LenVariableSize { get; set; }
+        internal long? PointerIdentity { get; set; }
 
         internal void AddArgument(Vb6Value value, bool omitted)
         {

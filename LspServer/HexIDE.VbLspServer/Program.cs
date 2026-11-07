@@ -28,12 +28,13 @@ var sessionStamp = DateTime.Now.ToString("yyyyMMdd-HHmmss");
 
 Log.Logger = new LoggerConfiguration()
     .MinimumLevel.Is(GetMinimumLevel())
+    .Enrich.FromLogContext()
     .WriteTo.File(
         path: Path.Combine(logDir, $"{LogFilePrefix}{sessionStamp}.log"),
         fileSizeLimitBytes: PartSizeLimitBytes,
         rollOnFileSizeLimit: true,
         retainedFileCountLimit: RetainedPartsPerSession,
-        outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss.fff} [{Level:u3}] {Message:lj}{NewLine}{Exception}",
+        outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss.fff} [{Level:u3}] {Message:lj} {Properties:j}{NewLine}{Exception}",
         shared: false)
     .CreateLogger();
 
@@ -42,12 +43,12 @@ Log.Information("HexIDE VB6 LSP server (MIT shell) starting");
 
 try
 {
-    var server = LspServerHost.Create(Console.OpenStandardInput(), Console.OpenStandardOutput());
-    await server.Run();
-}
-catch (Exception ex)
-{
-    Log.Fatal(ex, "LSP server crashed");
+    Environment.ExitCode = await RunServerAsync(async () =>
+    {
+        var server = LspServerHost.Create(Console.OpenStandardInput(), Console.OpenStandardOutput(), new DocumentStore());
+        await server.Run();
+        return server.ExitCode;
+    });
 }
 finally
 {
@@ -125,4 +126,20 @@ static string SessionKeyOf(string fileName, string prefix)
     }
 
     return stem[..underscore];
+}
+
+internal partial class Program
+{
+    internal static async Task<int> RunServerAsync(Func<Task<int>> run)
+    {
+        try
+        {
+            return await run();
+        }
+        catch (Exception ex)
+        {
+            Log.Fatal(ex, "LSP server crashed");
+            return 2;
+        }
+    }
 }

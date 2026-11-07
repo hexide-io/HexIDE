@@ -11,6 +11,7 @@ namespace HexIDE.Tests.Infrastructure;
 /// breakpoint put a bookmark one line low. A tool that numbers lines another way, or that tells a caller another tool
 /// does, would bring that back: get_file_content's description still said the bookmark tools counted from 0.
 /// </remarks>
+[ToolDescription]
 public class LineNumberingDescriptionTests
 {
     // "from 0 to 10000" is a range, as hover's wait is given, not a numbering.

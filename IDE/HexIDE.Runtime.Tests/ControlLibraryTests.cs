@@ -89,7 +89,31 @@ public class ControlLibraryTests
     [Fact]
     public void The_CommonDialogs_reference_is_read_by_the_same_parser() =>
         new[] { VbpDialog, "Object = \"{F9043C88-F6F2-101A-A3C9-08002B2F49FB}#1.2#0\"; \"COMDLG32.OCX\"", Vbp6, "Title=\"F9043C88-F6F2-101A-A3C9-08002B2F49FB\"" }
-            .Select(CommonDialogConstants.IsReference).Should().Equal(true, true, false, false);
+            .Select(line => ObjectReference.TryParse(line, out var reference) && ControlLibraries.MSComDlg.IsNamedBy(reference)).Should().Equal(true, true, false, false);
+
+    [Fact]
+    public void CommonDialog_uses_only_the_shared_library_constant_path()
+    {
+        var assembly = typeof(BasicInterpreter).Assembly;
+        assembly.GetType("HexIDE.Runtime.Interpreter.CommonDialogConstants").Should().BeNull();
+        typeof(VB6BuiltIns).GetProperty("CommonDialogReferenced",
+            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic).Should().BeNull();
+        typeof(AppInfo).GetProperty("CommonDialogReferenced").Should().BeNull();
+    }
+
+    [Fact]
+    public void A_CommonDialog_carried_as_unknown_is_not_claimed_as_runnable() =>
+        Serialization.FormDeserializer.RunsWhenCarried("MSComDlg.CommonDialog", false, false).Should().BeFalse();
+
+    // Existing dump and measurements: oracle/in-box-controls-the-commondialog.md (#1084, #1148).
+    [Fact]
+    public async Task CommonDialog_constants_resolve_through_the_shared_library()
+    {
+        var log = await Run("Debug.Print cdlCancel, MSComDlg.cdlCancel, FileOpenConstants.cdlOFNReadOnly, TypeName(MSComDlg.cdlCancel)",
+            ControlLibraries.MSComDlg);
+
+        log.Select(v => v.Value?.ToString()).Should().Equal("32755", "32755", "1", "Long");
+    }
 
     [Fact]
     public void A_project_references_its_vbps_libraries_then_its_forms_each_once()

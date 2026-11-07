@@ -294,6 +294,13 @@ outstanding under #835.
 - **THEN** its tree node and code editor close without a save prompt
 - **AND** the module file remains on disk and the next project save omits its entry
 
+#### Scenario: Removing an unchanged adopted member
+- **WHEN** a form, standard module, class, UserControl or property page is added from an existing file and removed without edits
+- **THEN** it SHALL compare as unchanged and remove without a save prompt, just as a project-loaded member does
+- **AND** its file remains on disk
+
+This is HexIDE consistency (#2644); VB6's removal behavior for an adopted member is unmeasured.
+
 #### Scenario: Cancelling an unsaved member's removal
 - **WHEN** the developer cancels the save prompt or the save picker while removing an unsaved form or module
 - **THEN** the member remains in the project and its editors remain open

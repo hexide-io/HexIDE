@@ -15,6 +15,8 @@ using HexIDE.Runtime.Interpreter;
 
 namespace HexIDE.Integration.Tests.Controls;
 
+// Runs App.Initialize, which pins the process-wide culture defaults (#2500).
+[Collection(typeof(ProcessCultureCollection))]
 public class DockOpacityTests
 {
     [AvaloniaTheory]

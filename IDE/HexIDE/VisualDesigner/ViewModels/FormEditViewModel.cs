@@ -282,7 +282,11 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
                 || (e.Module is not null && ReferenceEquals(e.Module, formDefinition?.OwningModule)))
                 RefreshModified();
         }));
-        AutoDispose(this.eventBus.Subscribe<ApplyAllUnsavedChangesEvent>(_ => FlushComponentsToModel()));
+        AutoDispose(this.eventBus.Subscribe<ApplyAllUnsavedChangesEvent>(e =>
+        {
+            if (!e.OnlyWhereAhead || HasComponentsNotInModel)
+                FlushComponentsToModel();
+        }));
         AutoDispose(this.eventBus.Subscribe<ModuleUnloadedEvent>(e =>
         {
             if (e.Module == formDefinition?.OwningModule)
@@ -550,6 +554,9 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
         RebuildContainmentOrder(positionInList);
         foreach (var (container, ordinals) in CarriedPlacement(orderedComponents).ToList())
             container.SetPreservedChildOrdinals(ordinals);
+        foreach (var instance in orderedComponents.Where(c => !IsReadOnly && c.BaseClass is SSTabComponentClass))
+            SSTabComponentClass.Instance.SynchronizeDesignerPages(instance,
+                orderedComponents.Where(c => ReferenceEquals(c.Container, instance)).ToList());
         formDefinition?.UpdateComponents(orderedComponents);
     }
 
@@ -622,6 +629,8 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
         // watches, so the banner and the disabled surface would keep the old answer until the tab was reopened.
         OnPropertyChanged(new PropertyChangedEventArgs(nameof(IsReadOnly)));
         OnPropertyChanged(new PropertyChangedEventArgs(nameof(ReadOnlyReason)));
+        // As the code window's reload does: clean after a reload from disk, edited after a crash recovery restore (#499).
+        RefreshModified();
     }
 
     // AllComponents keeps the file's order; Components takes the order the canvas draws in.
@@ -639,6 +648,9 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
                 Form = vm;
             AllComponents.Add(vm);
         }
+
+        foreach (var instance in fileOrder.Where(c => !IsReadOnly && c.BaseClass is SSTabComponentClass))
+            SSTabComponentClass.Instance.InitializeDesignerPages(instance);
 
         foreach (var comp in DrawOrder(fileOrder))
             Components.Add(viewModels[comp]);
@@ -689,6 +701,13 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
             SpawnControlAt(componentClass, new Rect(0, Math.Floor((Form.Height - 25) / 2), Form.Width, 25), library: library);
             return;
         }
+        if (componentClass is FlatScrollBarComponentClass)
+        {
+            // VB6 centres the 1500 × 255 control as if it were 750 twips high (#1097).
+            SpawnControlAt(componentClass, new Rect(Pixels(Twips(Form.Width) / 2 - 750),
+                Pixels(Twips(Form.Height) / 2 - 375), 100, 17), library: library);
+            return;
+        }
         var (width, height) = componentClass.AddedSize;
         var left = Twips(Form.Width) / 2 - width / 2;
         var top = Twips(Form.Height) / 2 - height / 2;
@@ -713,6 +732,28 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
     private static long Twips(double pixels) => (long)Math.Round(pixels * VBScaleModeExtensions.PixelToTwips);
 
     private static double Pixels(long twips) => twips / (double)VBScaleModeExtensions.PixelToTwips;
+
+    internal bool SwitchSSTabPage(Point point)
+    {
+        if (IsReadOnly)
+            return false;
+        for (var i = Components.Count - 1; i >= 0; i--)
+        {
+            var vm = Components[i];
+            if (vm.Instance.BaseClass is not SSTabComponentClass tab
+                || !new Rect(vm.Left, vm.Top, vm.Width, vm.Height).Contains(point))
+                continue;
+            var children = AllComponents.Where(c => ReferenceEquals(c.Instance.Container, vm.Instance))
+                .Select(c => c.Instance).ToList();
+            if (!tab.SelectDesignerPage(vm.Instance, point - new Vector(vm.Left, vm.Top),
+                    new Size(vm.Width, vm.Height), children))
+                return false;
+            SelectedComponent = vm;
+            CommitLayout();
+            return true;
+        }
+        return false;
+    }
 
     /// <summary>
     /// A control drawn with the selected tool by a drag from <paramref name="pressedAt"/> to <paramref name="releasedAt"/>,
@@ -1466,7 +1507,16 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
         if (Equals(before, after))
             return [];
         var command = new Commands.SetPropertyCommand(target, property, before, after);
-        var consequences = target.BaseClass.ApplyDesignerConsequences(target, property);
+        IReadOnlyList<PropertyChange> consequences;
+        try
+        {
+            consequences = target.BaseClass.ApplyDesignerConsequences(target, property);
+        }
+        catch (NotImplementedException)
+        {
+            target.SetUntypedProperty(property, before);
+            throw;
+        }
         if (consequences.Count == 0)
         {
             UndoStack.Push(command);

@@ -15,11 +15,18 @@ internal sealed class DiagnosticsCache : IDisposable
     {
         _client = client;
         _client.DiagnosticsPublished += OnPublished;
+        _client.DocumentRetired += OnRetired;
     }
 
     private void OnPublished(object? sender, PublishDiagnosticsParams p) => _latest[p.Uri] = p;
 
+    private void OnRetired(object? sender, string uri) => _latest.TryRemove(uri, out _);
+
     public IReadOnlyCollection<PublishDiagnosticsParams> GetAll() => _latest.Values.ToArray();
 
-    public void Dispose() => _client.DiagnosticsPublished -= OnPublished;
+    public void Dispose()
+    {
+        _client.DiagnosticsPublished -= OnPublished;
+        _client.DocumentRetired -= OnRetired;
+    }
 }

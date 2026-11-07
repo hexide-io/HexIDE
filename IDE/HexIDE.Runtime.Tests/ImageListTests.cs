@@ -18,9 +18,8 @@ public class ImageListTests : BaseVBTestFixture
 
     internal static string Corpus(string name)
     {
-        var root = new DirectoryInfo(AppContext.BaseDirectory);
-        while (root is not null && !Directory.Exists(Path.Join(root.FullName, "corpus"))) root = root.Parent;
-        var basePath = Path.Join(root!.FullName, "corpus", "inbox-controls");
+        var root = RepoTree.Root();
+        var basePath = Path.Join(root, "corpus", "inbox-controls");
         var saved = Path.Join(basePath, "saved", "imagelist");
         return Path.Join(Directory.Exists(saved) ? saved : Path.Join(basePath, "pending", "imagelist"), name, "Form1.frm");
     }

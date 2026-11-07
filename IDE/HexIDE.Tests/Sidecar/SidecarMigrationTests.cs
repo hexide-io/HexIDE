@@ -393,11 +393,13 @@ public sealed class SidecarMigrationTests : IDisposable
         var vbp = Stage();
         const string original = """{ "version": 2, "fileBookmarks": { "Orders": [29] }, "fileBreakpoints": { "Orders": [30] } }""";
         File.WriteAllText(SidecarPath, original);
-        Directory.CreateDirectory(SidecarPath + ".tmp");
-        var opened = await Open(vbp);
+        var previousOpen = AtomicFileWriter.OpenStream.Value;
+        AtomicFileWriter.OpenStream.Value = _ => throw new IOException("Injected sidecar write refusal");
+        Opened opened;
+        try { opened = await Open(vbp); }
+        finally { AtomicFileWriter.OpenStream.Value = previousOpen; }
         File.ReadAllText(SidecarPath).Should().Be(original);
 
-        Directory.Delete(SidecarPath + ".tmp");
         await opened.Sidecar.SaveAsync(opened.Project);
         var written = ReadJson(SidecarPath);
         Lines(written, "codeBookmarks", "Orders").Should().Equal(4);
@@ -912,19 +914,21 @@ public sealed class SidecarMigrationTests : IDisposable
     /// </summary>
     /// <remarks>
     /// Every save takes the old keys from the file as it is then, and until the migration's write lands the file
-    /// still holds what was moved. The temporary file's path is held by a directory, which no write can replace.
+    /// still holds what was moved. The atomic writer's stream factory refuses the migration's write.
     /// </remarks>
     [Fact]
     public async Task AMigrationWhoseWriteFailsIsNotWrittenBackInTheOldNumberingLater()
     {
         var vbp = Stage();
         File.WriteAllText(SidecarPath, """{ "version": 1, "breakpoints": { "Ledger": [3], "Absent": [9] } }""");
-        Directory.CreateDirectory(SidecarPath + ".tmp");
+        var previousOpen = AtomicFileWriter.OpenStream.Value;
+        AtomicFileWriter.OpenStream.Value = _ => throw new IOException("Injected sidecar write refusal");
 
-        var opened = await Open(vbp);
+        Opened opened;
+        try { opened = await Open(vbp); }
+        finally { AtomicFileWriter.OpenStream.Value = previousOpen; }
         ReadJson(SidecarPath)["version"]!.GetValue<int>().Should().Be(1, "the migration's write could not be made");
 
-        Directory.Delete(SidecarPath + ".tmp");
         Close(opened.Project);
 
         var written = ReadJson(SidecarPath);
@@ -948,14 +952,16 @@ public sealed class SidecarMigrationTests : IDisposable
     {
         var vbp = Stage();
         File.WriteAllText(SidecarPath, """{ "version": 1, "breakpoints": { "Ledger": [3] } }""");
-        Directory.CreateDirectory(SidecarPath + ".tmp");
+        var previousOpen = AtomicFileWriter.OpenStream.Value;
+        AtomicFileWriter.OpenStream.Value = _ => throw new IOException("Injected sidecar write refusal");
 
-        var opened = await Open(vbp);
+        Opened opened;
+        try { opened = await Open(vbp); }
+        finally { AtomicFileWriter.OpenStream.Value = previousOpen; }
         ReadJson(SidecarPath)["version"]!.GetValue<int>().Should().Be(1, "the migration's write could not be made");
 
         // The earlier build's save: its own marks, in its own numbering, under the key this one migrated.
         File.WriteAllText(SidecarPath, """{ "version": 1, "breakpoints": { "Ledger": [3, 4] } }""");
-        Directory.Delete(SidecarPath + ".tmp");
         await opened.Sidecar.SaveAsync(opened.Project);
 
         var written = ReadJson(SidecarPath);

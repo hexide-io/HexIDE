@@ -40,10 +40,8 @@ public class TabStripRuntimeTests
     [AvaloniaFact]
     public void Every_saved_TabStrip_opens_for_the_designer()
     {
-        var directory = new DirectoryInfo(AppContext.BaseDirectory);
-        while (directory is not null && !Directory.Exists(Path.Join(directory.FullName, "corpus")))
-            directory = directory.Parent;
-        var paths = Directory.GetFiles(Path.Join(directory!.FullName,
+        var directory = RepoTree.Root();
+        var paths = Directory.GetFiles(Path.Join(directory,
             "corpus", "inbox-controls", "saved", "tabstrip"), "*.frm");
         paths.Should().NotBeEmpty();
         foreach (var path in paths)

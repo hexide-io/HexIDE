@@ -9,6 +9,7 @@ using ModelContextProtocol.Protocol;
 namespace HexIDE.Tests.Infrastructure;
 
 /// <summary>take_snapshot's image returned in its reply for a client that cannot open the path (#957).</summary>
+[ToolDescription]
 public class InlineSnapshotTests
 {
     private static readonly byte[] Png = [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 1, 2, 3];

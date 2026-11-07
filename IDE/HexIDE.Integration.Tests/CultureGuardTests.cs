@@ -6,6 +6,8 @@ using Xunit.v3;
 
 namespace HexIDE.Integration.Tests;
 
+// Sets the process-wide culture defaults to check the guard names a test that leaves one (#2500).
+[Collection(typeof(ProcessCultureCollection))]
 public class CultureGuardTests
 {
     private static readonly CultureInfo LeakCulture = CultureInfo.GetCultureInfo(

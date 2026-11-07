@@ -1,0 +1,4 @@
+.scratch/
+bin/
+obj/
+__pycache__/

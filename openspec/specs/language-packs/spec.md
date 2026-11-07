@@ -10,8 +10,22 @@ speaks the language can contribute to, and every pack should behave the same way
 
 ## Requirements
 
+### Requirement: Public language packs SHALL follow the Windows 11 tiers
+In-box languages SHALL follow Windows 11 tier 1 (full language packs). Tier 2 (Language Interface
+Packs) SHALL be distributed separately through HexIDE.Localisation. Languages in neither tier SHALL
+NOT be carried in the project's public repositories (#2817).
+
+#### Scenario: Moving a tier 2 language out of the box
+- **WHEN** Hindi, Persian or Urdu is removed from the shipped set
+- **THEN** its pack is removed from HexIDE for separate distribution through HexIDE.Localisation
+- **AND** its language and regions are no longer offered by the in-box manifest
+
+#### Scenario: A language in neither Windows tier
+- **WHEN** Latin or Esperanto is considered for the public pack set
+- **THEN** it is excluded
+
 ### Requirement: A language SHALL be one declarative file plus one manifest entry
-A pack SHALL be a single data file declaring the language's display name, its text direction, and its
+A pack SHALL be a single data file declaring the language's English display name, its text direction, and its
 key-to-string map, and SHALL become available by being listed in the manifest of offered languages.
 
 One file is what makes a translation a contribution rather than a development task: it needs no code, no
@@ -22,6 +36,11 @@ have to be trusted.
 #### Scenario: Adding a language
 - **WHEN** a new language is contributed
 - **THEN** it consists of one pack file and one manifest entry, with no code change
+
+#### Scenario: Selecting Basque
+- **WHEN** a user selects the shipped neutral language `eu` (Basque)
+- **THEN** the interface uses the complete left-to-right Euskara translation
+- **AND** Latin-script access-key markers and format placeholders are preserved
 
 ### Requirement: A pack SHALL declare only what it translates
 A pack that has not been declared in the manifest, and a regional variant of a language already shipped,
@@ -36,7 +55,7 @@ A **region** is a country or territory variant of a language that already ships 
 `en-GB` — and overriding only what differs from its neutral is the whole of its job: `en-GB` carries
 eighteen keys of seven hundred and twenty-seven, deliberately. The word is easy to misread as *dialect* or
 *minority language*, and that reading is wrong: Basque is not a region of Spanish, it is a language, and it
-would ship as the neutral pack `eu`. Anything that is a language rather than a variant of one is a neutral,
+ships as the neutral pack `eu`. Anything that is a language rather than a variant of one is a neutral,
 and the requirement below governs it once declared.
 
 #### Scenario: A pack covering part of the interface
@@ -65,7 +84,8 @@ listing the region in the manifest already communicates that it is supported.
 
 ### Requirement: Access-key markers SHALL follow the script, not the language
 A pack in a Latin-script language SHALL carry one access-key marker per value where the English value has
-one; a pack in a non-Latin script SHALL omit access-key markers entirely.
+one, except where the menu collision policy below requires its omission; a pack in a non-Latin script
+SHALL omit access-key markers entirely.
 
 Access keys work by showing an underlined Latin letter the user presses. In a script with no such letters
 the marker either renders as a stray character or silently does nothing, so carrying one is worse than
@@ -74,11 +94,33 @@ writes the pack, without a per-language ruling.
 
 #### Scenario: Translating into a Latin-script language
 - **WHEN** a value's English original carries an access-key marker
-- **THEN** the translation carries one, placed on a letter that suits the translated word
+- **THEN** the translation carries one, placed on a letter that suits the translated word, unless no
+  letter is free under the View and code-context menu collision policy
 
 #### Scenario: Translating into a non-Latin script
 - **WHEN** a pack is written in a non-Latin script
 - **THEN** it carries no access-key markers
+
+### Requirement: View and code-context access keys SHALL use a free letter where available
+In Latin-script packs, colliding access keys in the View menu and code window's context menu SHALL
+be resolved in menu order: the first entry SHALL keep its key, and each later colliding entry SHALL
+use the first unused letter of its own label, preferring the start of a word. Keys already unique
+SHALL be preserved. All sibling entries SHALL count, including disabled entries and submenu headers;
+entries inside a submenu belong to that submenu. Call Hierarchy SHALL keep its assigned key, with
+clashing siblings yielding to it. No two sibling entries SHALL share a key. Where no unused letter
+exists, the entry SHALL omit its access-key marker; an entry SHALL omit its marker only when all
+letters in its label are already taken (#3121). This is HexIDE's policy; VB6's own mnemonics have not
+been measured.
+
+#### Scenario: A colliding key with a free letter
+- **WHEN** a later entry other than Call Hierarchy shares an earlier entry's key and its label
+  contains an unused letter
+- **THEN** the later entry uses the first free letter, preferring word starts
+- **AND** the earlier entry keeps its key, even if disabled
+
+#### Scenario: No free letter remains
+- **WHEN** every letter in a colliding entry's label is already used in its menu
+- **THEN** the entry has no access-key marker, rather than a shared key that cannot activate it
 
 ### Requirement: Chinese SHALL be split by script rather than by region
 Chinese SHALL ship as separate Simplified and Traditional packs, and a Chinese-speaking region SHALL resolve
@@ -148,6 +190,18 @@ appearing in the menu; an undeclared full translation on disk is kept current by
 without anyone having decided it ships, which is how two of them came to be complete before that decision
 was taken.
 
+#### Scenario: Slovenian is offered
+- **WHEN** the user selects Slovenian (`sl`) or its Slovenia region (`sl-SI`)
+- **THEN** the complete Slovenian pack supplies the interface text, with Latin-script access-key markers
+- **AND** the fileless region inherits the neutral pack
+#### Scenario: Estonian is a shipped translation
+- **WHEN** the user selects Estonian (`et`) or its Estonia region (`et-EE`)
+- **THEN** the IDE uses the complete left-to-right Estonian pack, preserving format placeholders and access-key markers
+#### Scenario: Thai is offered as a complete translation
+- **WHEN** the user selects Thai (`th`) or its Thailand region (`th-TH`)
+- **THEN** the complete Thai pack is used, with left-to-right text and no access-key markers
+- **AND** the fileless Thailand region inherits the neutral Thai pack
+
 #### Scenario: A declared language missing a key
 - **WHEN** a key exists in the canonical pack and a declared language does not define it
 - **THEN** the build fails, naming the language and the missing keys
@@ -155,6 +209,11 @@ was taken.
 #### Scenario: A key whose translation is the English word
 - **WHEN** the correct value in a declared language is identical to the canonical one
 - **THEN** it is stated explicitly rather than inherited
+
+#### Scenario: Galician as a shipped Windows tier 1 language
+- **WHEN** a user selects Galician (`gl`) or its Spain region (`gl-ES`)
+- **THEN** the complete Galician pack is used with left-to-right text and Latin-script access keys
+- **AND** the build checks its key parity with the canonical English pack (#2774)
 
 #### Scenario: A declared language with no pack file
 - **WHEN** the manifest offers a language for which no pack exists

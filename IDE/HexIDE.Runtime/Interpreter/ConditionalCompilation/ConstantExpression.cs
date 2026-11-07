@@ -27,7 +27,7 @@ internal static class ConstantExpression
     private static readonly HashSet<string> Functions = new(StringComparer.OrdinalIgnoreCase)
     {
         "Int", "Fix", "Abs", "Sgn", "Len", "LenB", "CBool", "CByte", "CCur", "CDate", "CDbl", "CInt", "CLng", "CSng", "CStr", "CVar",
-        "CVErr",   // accepted by vb6.exe, where CVErr(5) = 5 is Type mismatch; HexIDE has no CVErr, so it is refused as not implemented
+        "CVErr",   // accepted by vb6.exe, where CVErr(5) = 5 is Type mismatch
     };
 
     /// <summary>
@@ -43,7 +43,7 @@ internal static class ConstantExpression
         lexer.AddErrorListener(Refusal.Instance);
         var parser = new VB6Parser(new CommonTokenStream(lexer)) { ErrorHandler = new BailErrorStrategy() };
         parser.RemoveErrorListeners();
-        parser.AddParseListener(new ParseDepthGuard());
+        parser.AddParseListener(new ParseDepthGuard(maxDepth: ParseDepthGuard.DefaultMaxDepth));
         try
         {
             var expression = parser.valueStmt();

@@ -1,0 +1,12 @@
+stage,shape,stack_bytes,last_recognized,first_refused,refusal
+cc-runtime,parens,8388608,297,298,"Compile error:
+
+An # ElseIf, # Else, or # EndIf must be preceded by an # If clause in Probe, line 3"
+cc-runtime,const,8388608,297,298,"DIRECTIVES_LEFT=True
+USER=Compile error:
+
+mismatched input '#Const' expecting <EOF> in line 1:0
+Offending symbol: #Const"
+cc-lsp,parens,8388608,61,62,"DIRECTIVES_LEFT=True; ERROR=HexIDE.Language.ConditionalCompilationException: An # ElseIf, # Else, or # EndIf must be preceded by an # If clause"
+cc-lsp,const,8388608,61,62,"DIRECTIVES_LEFT=True; ERROR=
+USER=Syntax error: unexpected '#Const'"

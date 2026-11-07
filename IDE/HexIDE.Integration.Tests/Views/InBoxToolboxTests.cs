@@ -1,3 +1,4 @@
+using System;
 using System.Linq;
 using Avalonia.Headless.XUnit;
 using HexIDE.Forms.ViewModels;
@@ -41,6 +42,37 @@ public class InBoxToolboxTests
         var imageList = vm.Components.Single(c => c.Instance.BaseClass.VBTypeName == "MSComctlLib.ImageList");
         imageList.Width.Should().Be(38);
         imageList.Height.Should().Be(38);
+    }
+
+    [AvaloniaFact]
+    public void UpDown_toolbox_default_has_the_measured_size_and_no_own_properties()
+    {
+        var (_, toolbox, vm, form) = Designer(ControlLibraries.MSComCtl2);
+        var tool = toolbox.Components.Single(c => c.VBTypeName == "MSComCtl2.UpDown");
+        vm.SpawnControlCenter((ComponentBaseClass)tool.BaseClass!, ControlLibraries.MSComCtl2);
+        vm.CommitLayout();
+        var output = new FormSerializer().Serialize(form, "Form1.frm").frmText.ReplaceLineEndings();
+        output.Should().Contain("Height          =   750").And.Contain("Width           =   255")
+            .And.Contain("_ExtentX        =   450").And.Contain("_ExtentY        =   1323")
+            .And.Contain("_Version        =   393216" + Environment.NewLine + "   End");
+    }
+
+    [AvaloniaFact]
+    public void FlatScrollBar_toolbox_default_is_horizontal_and_centred_as_if_750_twips_high()
+    {
+        var (_, toolbox, vm, form) = Designer(ControlLibraries.MSComCtl2);
+        var tool = toolbox.Components.Single(c => c.VBTypeName == "MSComCtl2.FlatScrollBar");
+        vm.Form.Width = 480;
+        vm.Form.Height = 360;
+        vm.SpawnControlCenter((ComponentBaseClass)tool.BaseClass!, ControlLibraries.MSComCtl2);
+        vm.CommitLayout();
+        var output = new FormSerializer().Serialize(form, "Form1.frm").frmText.ReplaceLineEndings();
+        output.Should().Contain("Height          =   255").And.Contain("Width           =   1500")
+            .And.Contain("Left            =   2850").And.Contain("Top             =   2325")
+            .And.Contain("_ExtentX        =   2646").And.Contain("_ExtentY        =   450")
+            .And.Contain("Arrows          =   65536" + Environment.NewLine + "      Orientation     =   1638401")
+            .And.NotContain("Appearance");
+        form.HeaderLines.Should().Contain(l => l.Contains("MSCOMCT2.OCX"));
     }
 
     private static (ProjectDefinition project, ToolBoxToolViewModel toolbox, FormEditViewModel vm, FormDefinition form) Designer(
@@ -97,17 +129,17 @@ public class InBoxToolboxTests
 
     // Each referenced library offers its implemented controls after the intrinsic controls.
     [AvaloniaFact]
-    public void Each_referenced_library_offers_its_ProgressBar_after_the_intrinsic_controls()
+    public void Each_referenced_library_offers_its_implemented_controls_after_the_intrinsics()
     {
         var (_, toolbox, _, _) = Designer(ControlLibraries.MSComctlLib, ControlLibraries.ComctlLib);
 
         InBoxLibraries(toolbox).Should().Equal(ControlLibraries.MSComctlLib, ControlLibraries.MSComctlLib,
-            ControlLibraries.MSComctlLib, ControlLibraries.ComctlLib);
+            ControlLibraries.MSComctlLib, ControlLibraries.MSComctlLib, ControlLibraries.ComctlLib);
         var shape = toolbox.Components.ToList().FindIndex(c => c.BaseClass is ShapeComponentClass);
         toolbox.Components[shape + 1].BaseClass.Should().BeSameAs(ProgressBarComponentClass.Instance);
         toolbox.Components[shape + 1].Name.Should().Be("ProgressBar");
         toolbox.Components.Where(c => c.Library is not null).Select(c => c.VBTypeName)
-            .Should().Equal("MSComctlLib.ProgressBar", "MSComctlLib.StatusBar", "MSComctlLib.ImageList", "ComctlLib.ProgressBar");
+            .Should().Equal("MSComctlLib.ProgressBar", "MSComctlLib.ListView", "MSComctlLib.StatusBar", "MSComctlLib.ImageList", "ComctlLib.ProgressBar");
     }
 
     // The Components dialog is how a project comes to reference a library, and the toolbox follows it both ways.
@@ -119,9 +151,9 @@ public class InBoxToolboxTests
 
         dialog.Controls.Single(c => c.Library == ControlLibraries.MSComctlLib).IsSelected = true;
         dialog.ApplyCommand.Execute(null);
-        InBoxLibraries(toolbox).Should().Equal(ControlLibraries.MSComctlLib, ControlLibraries.MSComctlLib, ControlLibraries.MSComctlLib);
+        InBoxLibraries(toolbox).Should().Equal(ControlLibraries.MSComctlLib, ControlLibraries.MSComctlLib, ControlLibraries.MSComctlLib, ControlLibraries.MSComctlLib);
 
-        toolbox.SelectedComponent = toolbox.Components.First(c => c.Library is not null);
+        toolbox.SelectedComponent = toolbox.Components.Single(c => c.VBTypeName == "MSComctlLib.ListView");
         dialog.Controls.Single(c => c.Library == ControlLibraries.MSComctlLib).IsSelected = false;
         dialog.ApplyCommand.Execute(null);
         InBoxLibraries(toolbox).Should().BeEmpty();

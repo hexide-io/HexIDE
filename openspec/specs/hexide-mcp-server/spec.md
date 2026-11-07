@@ -14,6 +14,60 @@ agent that wrote the code can open the IDE, drive it, and look at the result.
 
 ## Requirements
 
+### Requirement: Code edits during a run explain the running snapshot
+
+During a running or paused project, `set_file_content` and document-mode `type_text` SHALL edit without
+a reset prompt. Replies SHALL explain that the run keeps its starting code until the next run, and that
+breakpoints, and while paused the break location, keep the running code's line numbers and may differ from
+the new text. Design-mode replies,
+tool descriptions and the keyboard reset prompt SHALL remain unchanged.
+
+#### Scenario: Prepare the next run while paused
+- **WHEN** a caller changes a module using `set_file_content` while paused
+- **THEN** the edit succeeds, the run remains paused, and the reply explains the snapshot and stale lines
+
+#### Scenario: Edit in design mode
+- **WHEN** a caller edits code with no run active
+- **THEN** the reply contains no running-snapshot warning
+
+### Requirement: Debugger replies name documents edited during the run
+
+The IDE SHALL track documents changed since an interpreter or external run started, including edits
+outside these tools, until that run ends. `get_debug_state` and `set_breakpoints` replies SHALL name
+those documents and explain the possible line mismatch.
+
+#### Scenario: Inspect lines after an edit
+- **WHEN** code changes during a run
+- **THEN** debug-state and breakpoint replies name the changed document until the run ends
+
+### Requirement: Inspected popup bounds share the window coordinate space
+
+`inspect_element` SHALL report `boundingRect` in device-independent client coordinates of the selected
+window, including controls hosted in a separate popup top-level. If that rectangle cannot be related to
+the window, it SHALL leave `boundingRect` unavailable (null or omitted) and explain the missing position
+in `boundingRectNote`.
+
+#### Scenario: Inspect a context-menu item away from the window origin
+- **WHEN** a context menu opens at an offset inside the selected window and its item is inspected
+- **THEN** its bounds include that offset and map into `take_snapshot` using the reported scale and offsets
+
+
+### Requirement: Click updates pointer popup placement
+
+A click SHALL update Avalonia's pointer placement position through the window's input before pressing.
+A click's press SHALL cancel the tooltip timer started by its arrival, as a real mouse press does.
+
+#### Scenario: Right-click opens a context popup
+
+- **WHEN** `interact` right-clicks a control with a ContextMenu or ContextFlyout
+- **THEN** the popup opens at the click point, subject to screen placement constraints
+
+#### Scenario: Clicking a control with a tooltip
+
+- **WHEN** `interact` clicks a control whose tooltip has a show delay
+- **THEN** the arrival's tooltip remains closed after that delay
+
+
 ### Requirement: Removing a selected list or tree item SHALL report the resulting selection
 `interact` with `remove_from_selection` SHALL clear a selected item in a single-selection list or tree,
 report the resulting selection even when empty, and leave an unselected item unchanged with an explanation.
@@ -27,6 +81,30 @@ A single-selection list's `add_to_selection` refusal SHALL name that verb and po
 #### Scenario: Removing an unselected row
 - **WHEN** the target list or tree row is not selected
 - **THEN** the selection remains unchanged and the reply says the target was not selected
+
+### Requirement: Inspection SHALL bound the values it reports
+`inspect_element` SHALL cut each `dataContextMembers` value after 200 characters and a control's own `value`
+after 4,000 characters, with a suffix stating which end was dropped, how many characters were dropped,
+and the full length.
+Non-project `TextDocument` buffers, including the Immediate window, SHALL retain their end, both as an
+editor's `value` and as a reflected member. Other values SHALL retain their start. A cut document member
+SHALL point to inspecting its editor for the last 4,000 characters; a cut editor value SHALL explain that
+`inspect_element` has no paging. Both SHALL direct the caller to copy the displayed text to read all of it.
+When members are cut, `dataContextNote`
+SHALL count them and explain that inspecting a control showing one gives up to 4,000 characters as its `value`,
+joined to any existing note. With no members cut it SHALL add no truncation sentence.
+
+#### Scenario: A templated card's long members
+- **WHEN** a card's text owns a DataContext with two 5,000-character member values
+- **THEN** each is cut at 200 with its full length stated, and the note counts two cuts and explains how to read more
+
+#### Scenario: A control's own long text
+- **WHEN** a TextBox or the Immediate window's editor holds 9,000 characters
+- **THEN** its `value` retains 4,000 characters with the full length and dropped end stated: the start for a TextBox, the end for the Immediate window
+
+#### Scenario: An output document member
+- **WHEN** the Immediate window holds 9,000 characters
+- **THEN** its owner's `Document` member retains the last 200, states that the first 8,800 were cut, and explains how to read more
 
 ### Requirement: Inspection SHALL give the text of every item a list holds
 `inspect_element` on a list, an open dropdown or a tab control SHALL give `items`, the text of each item as `select`
@@ -442,6 +520,16 @@ caret's line, column and offset back from the editor.
 - **WHEN** `open_file` names a line past the file's last
 - **THEN** nothing opens, and the reply gives the lines it has
 
+### Requirement: open_file SHALL say when its caret is where type_text would be refused
+When the caret `open_file` places is in a part of a code window only the IDE changes, a form's header or a member's
+Attribute lines, the note SHALL name that part and give the nearest place that can be edited by line, column and offset.
+When the whole window refuses typing, the note SHALL say so. A caret where `type_text` writes SHALL add nothing.
+
+#### Scenario: A line inside a form's header
+- **WHEN** `open_file` opens Form1 of a new project at line 16, inside its header
+- **THEN** the note says the caret is in the file's header, which only the IDE changes, and names line 18, column 1,
+  offset 485, as the nearest place that can be edited
+
 ### Requirement: A tool that names a document SHALL name its project, and count lines from the top of the file
 A tool that accepts or reports a form, module or class SHALL identify it by its project and its name, SHALL
 find it in any loaded project, and SHALL match both without regard to case. Where a reply also carries the name
@@ -645,6 +733,22 @@ unknown name's refusal SHALL say that the IDE's window is the default here.
 - **WHEN** `get_window_state` is called with no `window`
 - **THEN** it reports the IDE's own window, named `ide`
 
+### Requirement: A window name SHALL reach a window a caller can use
+A `window` named by a title or a running form's name SHALL reach the one visible window of that name. Where several
+share it and sit on one another, each owning the next, the name SHALL reach the one on top, the one a person can use,
+and a path that fails there SHALL say that the name reached the window on top of another of that name. Where several
+share it side by side, the refusal SHALL name what does reach one of them, rather than advice no caller can follow.
+
+#### Scenario: A dialog and its own message box share a title
+- **WHEN** the Find dialog has raised a message box also titled "Find", and a tool is called with `window: "Find"`
+- **THEN** it reaches the message box
+- **AND** once the box closes, the same name reaches the Find dialog
+
+#### Scenario: Two instances of one form are open
+- **WHEN** two instances of Form1 are showing side by side, and a tool is called with `window: "Form1"`
+- **THEN** it is refused, naming both
+- **AND** the refusal says which of them `auto` reaches
+
 ### Requirement: The window-state reply SHALL say what its numbers measure
 The window-state reply SHALL give `scale`, and the window's `outer` rectangle, its `frame` as drawn and its `client`
 area, each on the screen in device-independent pixels, beside `x`, `y`, `width` and `height`, which it SHALL keep as
@@ -655,6 +759,14 @@ where the platform reports no frame.
 #### Scenario: A form moved to 720, 360 screen pixels at 150%
 - **WHEN** `set_window_state` moves `window: "Form1"` to `x` 720, `y` 360 on a 150% display
 - **THEN** the reply's `outer` starts at 480, 240 and its `frame` and `client` inside it, with `scale` 1.5
+
+### Requirement: A DPI-unaware IDE's window state SHALL say why its scale is 1
+An IDE started with `--dpi-unaware` SHALL give every window-state rectangle in the pixels Windows reports to it, the
+frame included, and its window-state reply SHALL carry a `note` saying why `scale` is 1 on a scaled display.
+
+#### Scenario: The IDE started DPI-unaware on a 150% display
+- **WHEN** `set_window_state` gives `window: "ide"` a client area of 860 by 640 in an IDE started with `--dpi-unaware`
+- **THEN** the reply's `scale` is 1, its `frame` and `client` lie inside its `outer`, and its `note` says why the scale is 1
 
 ### Requirement: Another window SHALL change as a person changes it
 `set_window_state` SHALL change a window other than the IDE's own as its minimize, maximize or restore box or its frame
@@ -690,6 +802,15 @@ to a disabled window or one under a modal dialog.
 An open context menu or flyout SHALL appear under the control that owns it in `dump_visual_tree`, with its items
 addressable, and SHALL be drawn in `take_snapshot`, however it is attached: a ContextMenu, a Button's Flyout, a
 ContextFlyout, or a flyout attached with `FlyoutBase.SetAttachedFlyout`, to a Button as to any other control.
+An attached context menu or flyout SHALL keep its content below a distinct `ContextMenu` or `Flyout` segment
+under its owner, without changing paths or sibling indexes in the owner's own subtree. These paths SHALL
+resolve for `inspect_element`, `interact` and `press_key`.
+
+#### Scenario: Open a context menu after discovering its owner
+- **WHEN** a caller keeps a path into a tree and opens its attached context menu
+- **THEN** the saved path still resolves to the same control and the owner's children keep their indexes
+- **AND** the menu's items are addressable below its popup segment and can be invoked
+
 
 #### Scenario: A running Toolbar's dropdown
 - **WHEN** a running form's Toolbar opens a dropdown's menu, a flyout attached to its button
@@ -707,6 +828,30 @@ automation name, or else its text, and SHALL list that name, never a type name, 
 #### Scenario: An item with a TextBlock header
 - **WHEN** a path names an item whose header is a TextBlock and whose automation name is its text
 - **THEN** the item is reached, and a miss in that menu lists it by that name
+
+### Requirement: A Make from the menu SHALL say what it made, or why it made nothing
+When `invoke_menu_item` starts a Make, its reply SHALL wait for Make to end and SHALL name the program and project it
+wrote, with their sizes and whether the program wrote over a file. Otherwise it SHALL give why nothing was written, and
+whether a message box saying so is open. A Make waiting at a save dialog nothing answered SHALL be reported as that.
+
+#### Scenario: A Make with its answer armed
+- **WHEN** `answer_next_file_dialog` arms a program's path and `invoke_menu_item` runs File/Make
+- **THEN** the note names that path and its size, and the project written beside it
+
+#### Scenario: No standalone runner
+- **WHEN** a Debug build with no published runner runs File/Make
+- **THEN** the note says no program was made, names the folder the runner was looked for in, and says a box is open
+
+### Requirement: Make's question before replacing an archive SHALL be reported
+A Make asking whether to replace the archive already beside the program SHALL be reported by `invoke_menu_item` as
+asking, within about a second, naming the archive. An `interact` that answers the question SHALL report what Make then
+did, and a No SHALL be reported as declining to replace the archive, not as a cancelled save dialog.
+
+#### Scenario: A second Make to the same path
+- **WHEN** a Make is armed with the path an earlier Make wrote, and runs File/Make
+- **THEN** the note says Make asks whether to replace the archive, names it, and says that interact answers the box
+- **AND** an `interact` answering No says nothing was written because replacing the archive was declined
+- **AND** an `interact` answering Yes names the program made over the earlier one
 
 ### Requirement: hover SHALL report a tip by the text it shows
 `hover` SHALL report a tooltip by its text: a string as written, and a tip that is a control by its visible text
@@ -756,6 +901,31 @@ cause when no such input came, and SHALL NOT count routed pointer events a tool 
 #### Scenario: Two hovers at once
 - **WHEN** another hover moves the pointer elsewhere during the watch, and no tip opens
 - **THEN** the reply names the other hover, not the real mouse, and says to hover one control at a time
+
+### Requirement: hover SHALL say why a code window opened no tip
+When `hover` lands in a code window and no tip opens, the reply SHALL say where it landed, as a line, column and the word
+there or that the point is below the text, and what the editor asked for: each quick-info request recorded during the watch
+with how it ended, or why none was asked. It SHALL state only what the editor and the protocol capture recorded.
+
+#### Scenario: A server answers with nothing
+- **WHEN** `hover` rests on a word and the language server answers the quick-info request with nothing to show
+- **THEN** the reply names the word, the server and the request's capture sequence, and says it answered with nothing to show
+
+#### Scenario: No server for the document
+- **WHEN** no language server is registered for the document's extension
+- **THEN** the reply says none is registered for those files, so none was asked
+
+#### Scenario: A watch shorter than the editor's delay
+- **WHEN** `dwellMs` is no longer than the editor's 400ms quick-info delay
+- **THEN** the reply says nothing had been asked yet, and that `dwellMs` must exceed the delay plus the server's round trip
+
+#### Scenario: A request still waiting
+- **WHEN** the quick-info request has no answer when the watch ends
+- **THEN** the reply says so, with how long it had waited, and that a longer `dwellMs` may see the answer
+
+#### Scenario: A point below the text
+- **WHEN** the point is below the last line of text
+- **THEN** the reply says so, and that nothing was asked
 
 ### Requirement: Snapshot coordinates include popup overhang
 
@@ -817,14 +987,25 @@ leave new documents pathless and explain the null path and how to save them in i
 ### Requirement: Named controls SHALL expose their visible labels
 The control tree and single-control inspection SHALL retain x:Name as `name` when present and report the
 peer's meaningful label as `label` when it differs. Paths SHALL retain their existing stable discriminators
-and accept a label as an alternative discriminator. Discovery searches SHALL include the label, and interaction
-replies SHALL use the meaningful label when available.
+and accept a label as an alternative discriminator; a TextBlock's data-bound text (SelectableTextBlock included)
+is not stable, so such a text SHALL be emitted by position unless an AutomationId or x:Name identifies it. Discovery
+searches SHALL include the label, and interaction replies SHALL use the meaningful label when available.
 
 #### Scenario: Discovering a named menu
 - **WHEN** a menu item has x:Name `ToolsMenuItem` and visible header `_Tools`
 - **THEN** its node and inspection report `name: "ToolsMenuItem"` and `label: "Tools"`
 - **AND** its emitted path ends in `MenuItem[ToolsMenuItem]`, while `MenuItem[Tools]` also resolves
 - **AND** expanding it names `Tools` in the reply
+
+#### Scenario: A data-bound text changes after discovery
+- **WHEN** an unnamed text bound to data is dumped beside another text
+- **THEN** its emitted path uses `Text[#index]`, and its `name` still reports its current text
+- **AND** the same path resolves to the same control after its text changes
+- **AND** its current label still resolves as an alternative discriminator
+- **AND** a unique unnamed text uses bare `Text`; other unnamed texts use `Text[#index]`
+- **AND** literals, resource references and TemplateBinding retain label discriminators
+- **AND** a missing typed label with a same-type data-bound text sibling explains that such text changes,
+  is addressed by position, and that the caller should dump again for its current path
 
 ### Requirement: Attribute window waits when settling running-form actions
 
@@ -914,6 +1095,92 @@ as waiting to run separately from handlers already started.
 - **AND** events with handlers queued behind it are named as waiting to run
 - **AND** events without handlers are omitted
 
+### Requirement: A program Shell started SHALL have its windows readable, and no other process
+`get_process_windows` SHALL describe the top-level windows of a process a VB6 program run in the IDE started with
+`Shell`, and of the processes that one started, giving each one's state, visibility, bounds and whether it has the
+foreground. It SHALL refuse any other process, a reused process ID included, SHALL say why a reply has no window, and
+SHALL send nothing to any window.
+
+#### Scenario: A program started minimized
+- **WHEN** a program runs `pid = Shell("notepad.exe", 6)` and the caller passes that `pid`
+- **THEN** Notepad's window is reported as Minimized and visible, with the window style Shell was given
+
+#### Scenario: Another process
+- **WHEN** the caller passes the ID of a process `Shell` did not start
+- **THEN** the call is refused, naming the processes `Shell` did start
+
+#### Scenario: A launcher that hands off
+- **WHEN** the process `Shell` started has started the program and exited
+- **THEN** the program's windows are read through it, and a reply with no window says whether the process exited, has
+  no window yet, or its ID now names another process
+
+### Requirement: A hover SHALL be able to leave the pointer for a snapshot
+`hover` with `stay` SHALL leave the pointer on the point when its watch ends, so the control it landed on reads as under
+the pointer and a tip it opened stays open, and `take_snapshot` SHALL draw that tip with the window. The reply SHALL say
+whether the control reads as under the pointer once the move has settled, and what took it when it does not. The next
+click, drag or hover in that window SHALL end a staying hover before it acts. `inspect_element` SHALL report
+`isPointerOver`.
+
+#### Scenario: A toolbar button's hover look
+- **WHEN** `hover` with `stay` lands on a toolbar button that has a tip, with the real mouse off the window
+- **THEN** the reply says the button reads as under the pointer, `inspect_element` reports `isPointerOver` true, and a
+  snapshot draws its tip
+
+#### Scenario: The next click ends it
+- **WHEN** a click lands elsewhere in that window
+- **THEN** the button no longer reads as under the pointer, and its tip is closed
+
+### Requirement: Program wait replies SHALL say what a caller would otherwise guess
+A reply that waits on a running program SHALL say when a handler it found running, held at a window or paused, has
+finished, a Timer's left out. It SHALL name a form the program opened by its name, with its caption beside it where
+that differs, and SHALL say which `window` reaches a window that holds a handler. `continue_program` SHALL say which
+handlers it let finish.
+
+#### Scenario: Answering a MsgBox
+- **WHEN** a click's handler waits at a MsgBox titled "Question", and a later `interact` answers it
+- **THEN** the click's reply says `window "Question"` reaches the box
+- **AND** the answer's reply says the handler finished
+
+#### Scenario: A form opened under another caption
+- **WHEN** a click shows Form2, whose Load sets its caption to "Second"
+- **THEN** the reply says the program opened `Form2 ("Second")`
+
+### Requirement: Run-control replies SHALL say what the program printed
+For interpreter sessions, a successful reply from `run_project`, `stop_project`, `continue_program`,
+`break_program`, a step or `run_to_cursor` SHALL give in `printed` what the program wrote with `Debug.Print`
+since its run began or a reply last reported it, and its note SHALL say how much, or that it wrote nothing.
+The buffer SHALL reset when the runner claims a new run, before any interpreter code can execute,
+and SHALL NOT reset when that run becomes active or ends.
+Output past 4000 characters SHALL keep its end, with the note saying how much was left out. For an external debug session, `stop_project` SHALL instead state that external
+session output is not captured by this tool and direct the caller to the Immediate window.
+
+#### Scenario: A program that prints as it loads
+- **WHEN** `run_project` starts a program whose `Form_Load` prints two lines
+- **THEN** `printed` holds the two lines, and the note says Debug.Print wrote 2 lines
+
+#### Scenario: Load finishes before the run becomes active
+- **WHEN** `Form_Load` prints without yielding before the runner has its run handle
+- **THEN** the `run_project` reply retains that output in `printed`
+- **AND** a subsequent silent run does not repeat it
+
+#### Scenario: Nothing printed
+- **WHEN** a program prints nothing before `stop_project`
+- **THEN** the reply has no `printed`, and its note says Debug.Print wrote nothing
+
+### Requirement: Debug state SHALL describe the external session consistently
+During an external debug session and after it ends, until another run starts, `get_debug_state` SHALL
+report that session's state: Starting, Running, Paused (the adapter's Stopped), Ended or Faulted.
+`running` SHALL be true only for Starting, Running or Paused, including while adapter cleanup is pending.
+Known adapter reasons SHALL map to the documented stop-reason vocabulary; an unmapped reason SHALL
+have a null `stopReason`. `adapterStopReason` SHALL retain the raw reason while paused.
+The description SHALL explain that external `module` is a source path, `project` is absent, and
+`set_next_statement` takes a module name instead.
+
+#### Scenario: Disconnect is still pending after End
+- **WHEN** the external session has ended but its adapter has not acknowledged disconnect
+- **THEN** `get_debug_state` reports `running: false` and `state: Ended`
+- **AND** `stop_project` does not claim that Debug.Print wrote nothing
+
 ### Requirement: Realized items SHALL be listed in item order
 The control-view collector shared by `dump_visual_tree` and path resolution SHALL order an items
 panel's own containers by their owning `ItemsControl` index. Children without an item index SHALL
@@ -926,6 +1193,19 @@ follow those containers, retaining their relative visual-child order.
 #### Scenario: A selected row is visible near the top
 - **WHEN** a selected row is the third row on screen
 - **THEN** it follows the first two rows in the dump rather than appearing first because it was created first
+
+### Requirement: An empty dump SHALL say why it is empty
+A `dump_visual_tree` reply whose tree has no children, and is not `truncated`, SHALL say in its note whether the window or
+node holds nothing showing, or whether `interactiveOnly` left out parts that show, and how many, so a caller can tell an
+empty form from a filtered one.
+
+#### Scenario: A running form with no controls
+- **WHEN** a program's Form2 has no controls and is dumped with the defaults
+- **THEN** the note says the window holds no controls, and that what is drawn on it shows in a snapshot
+
+#### Scenario: A window holding only text
+- **WHEN** a window holds only text and is dumped with `interactiveOnly` true
+- **THEN** the note says how many parts the filter left out, and to pass `interactiveOnly` false to see them
 
 ### Requirement: Large discovery trees prioritize showing controls
 
@@ -1013,7 +1293,7 @@ pointer, in the same window, SHALL move nothing first, as a still pointer sends 
 
 #### Scenario: A click on a running form's button
 - **WHEN** `click` presses Command1, which logs its mouse events
-- **THEN** they run MouseMove, MouseDown, Click, MouseUp, as a real pointer's click on it runs them
+- **THEN** they run MouseMove, MouseDown, Click, MouseUp, MouseMove (Button 0), as a real pointer's left click on it runs them
 
 #### Scenario: A second click at the same point
 - **WHEN** `click` presses again where the last click left the pointer
@@ -1024,6 +1304,15 @@ The second press of `click` with `double` SHALL go to whatever takes the pointer
 sent, with a click count of 2, even when the first click replaced what it landed on or the addressed control. It SHALL be
 refused only when the window is hidden or closed, or nothing takes the pointer there. When the second press reached a
 different element from the first, the reply SHALL say so and name it.
+
+For a double click, the driver SHALL control raw button-event timestamps so that the second press stays within the
+host's double-click interval regardless of time spent in handlers or waiting for frames. Plain clicks SHALL retain
+real timestamps (#3167).
+
+#### Scenario: A slow first click
+- **WHEN** the first click's handlers block longer than the host's double-click interval
+- **THEN** the second press still has click count 2 at the same point
+- **AND** a running form receives exactly one DblClick in the measured event order
 
 #### Scenario: A control that rebuilds itself on a click
 - **WHEN** `click` with `double` targets a Toolbar that replaces its buttons on each release
@@ -1127,6 +1416,32 @@ were raised. A control that does not take focus SHALL be refused, saying that a 
 - **WHEN** `type_text` in its default mode addresses a control that takes typing itself
 - **THEN** it is refused as having no text surface, and the refusal names keyboard mode
 
+### Requirement: A type_text write into a TextBox SHALL be drawn as written
+In its default mode, `type_text` SHALL commit what it writes into a TextBox so that the box draws the text it then
+holds, in a live, focused window as in a headless one, and not the text it held before the write.
+
+#### Scenario: The Find dialog's box
+- **WHEN** `type_text` in its default mode writes `Form` into the focused Find What box
+- **THEN** a snapshot of the dialog shows `Form` in the box, with the caret after it
+
+### Requirement: Escape SHALL retain focus in an ancestor's attached popup
+For unmodified Escape, `press_key` SHALL retain keyboard focus in an open attached menu or flyout whose
+placement target contains the addressed control, and SHALL name the popup receiver's window-rooted path
+in the reply. Other keys SHALL keep their existing focus routing. An addressing walk that stalls SHALL
+return the current node's path only if the receiver is its visual descendant (folded into that addressable
+ancestor); otherwise it SHALL omit the path rather than name an unrelated control.
+
+#### Scenario: A tree node with its tree's context flyout open
+
+- **WHEN** the TreeView's ContextFlyout has keyboard focus and `press_key` sends Escape to a node under that tree
+- **THEN** Escape reaches the focused popup control without moving focus to the node first
+- **AND** the flyout closes and the reply names the popup receiver's path
+
+#### Scenario: A Watches row with its tree's context menu placed inside the row
+
+- **WHEN** the Watches tree's ContextMenu has focus and `press_key` sends Escape to its watch row
+- **THEN** the reply names the menu at the tree's `ContextMenu` path, and the menu closes
+
 ### Requirement: press_key reads a chord written as one key
 `press_key` SHALL read a `key` written as a chord, such as `Ctrl+H`, as its last part, with the parts before it
 as modifiers added to any `modifiers` given, and its reply SHALL say how it read the chord. A chord whose leading
@@ -1183,3 +1498,31 @@ disabled-window refusals.
 
 - **WHEN** a caller clicks an unnamed button whose automation id is `Standard.OpenProject`
 - **THEN** the reply describes it as `Button[Standard.OpenProject]`
+
+### Requirement: External session run control
+
+The run-control tools SHALL use the Debug menu's external routes for Step Into, Step Over,
+Step Out, Continue and Break. Set Next Statement SHALL use capability-gated gotoTargets/goto
+with the named saved document's source path. Replies SHALL wait up to two seconds for the
+new stop's stack and report its top source frame, running or ended. Adapter refusals SHALL
+include the adapter's message and say whether stopped inspection was kept. External Run To
+Cursor SHALL refuse with an explanation that the route lacks one-shot breakpoint support.
+
+#### Scenario: Step an external session
+
+- **GIVEN** an external debug session is stopped
+- **WHEN** `step_into` is called
+- **THEN** the menu route sends `stepIn`
+- **AND** the reply reports the next stopped frame's source path and line when available within the wait
+
+#### Scenario: Adapter refuses a resume
+
+- **GIVEN** a stopped external session with inspection visible
+- **WHEN** the adapter refuses the tool's resume command
+- **THEN** the reply includes the adapter's message and says that inspection was kept
+
+#### Scenario: Move to a named source document
+
+- **GIVEN** an external adapter supporting gotoTargets and a saved module
+- **WHEN** `set_next_statement` names that module and a valid source line
+- **THEN** gotoTargets receives the document's file path and line, followed by goto for the returned target
