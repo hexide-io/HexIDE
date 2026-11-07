@@ -2,6 +2,13 @@ namespace HexIDE.Tests.Infrastructure;
 
 public class ReleaseDownloadDocumentationTests
 {
+    [Fact]
+    public void ReadmeExplains32BitLinuxArmAssetSelection()
+    {
+        Read("README.md").Should().Contain("`arm` for 32-bit Arm (`armv7l`)")
+            .And.Contain("hexide-linux-arm-selfcontained.tar.gz");
+    }
+
     private static string Read(params string[] path) =>
         File.ReadAllText(Path.Combine([RepoTree.Root(), .. path])).ReplaceLineEndings("\n");
 
