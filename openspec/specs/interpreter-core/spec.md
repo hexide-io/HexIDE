@@ -1288,6 +1288,18 @@ NamedFormat SHALL convert as CInt does and reject formats outside 0–4 with err
 - **WHEN** a date is supplied with NamedFormat Null or `"x"`
 - **THEN** the error is 94 or 13 respectively
 
+### Requirement: A form without focusable controls raises its own focus events
+
+A shown form with no focusable control SHALL raise Form_GotFocus after Form_Activate.
+When another form in the program becomes active, the form losing focus SHALL raise Form_LostFocus before
+Form_Deactivate (#2579; [measured activation rows](../../../docs/vb6-fidelity-oracle/a-forms-resize-activate-and-deactivate.md)).
+Forms with focusable controls SHALL retain their existing event order.
+
+#### Scenario: Show an empty form and switch back
+- **WHEN** an empty form is shown and then another of the program's forms is activated
+- **THEN** the empty form raises Activate followed by GotFocus on showing
+- **AND** it raises LostFocus followed by Deactivate on the switch
+
 ### Requirement: CommonDialog uses managed colour and print dialogs
 The runtime SHALL route ShowColor and Action 3 to the host's managed colour chooser for measured Flags 0
 and 1, and ShowPrinter and Action 5 to the host's managed print dialog for measured Flags 0 with default

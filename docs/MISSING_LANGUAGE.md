@@ -1273,6 +1273,15 @@ Native handles remain unimplemented; no handle value is fabricated.
 
 These preparatory binding entries are outside the language-name inventory; its counts have not moved.
 
+### Form focus events (#2579)
+
+| Event | Detail |
+|---|---|
+| `Form_GotFocus` | A shown form with no focusable control raises its own GotFocus after Activate. Forms with focusable controls keep their existing event order. Measured: [run 1, Form4.Show](vb6-fidelity-oracle/a-forms-resize-activate-and-deactivate.md); [#2579](https://github.com/hexide-io/HexIDE/issues/2579). |
+| `Form_LostFocus` | When focus leaves that form for another of the program's forms, its LostFocus precedes Deactivate (#2579's expected sequence). Switching to another application and back to the same form keeps the existing silent activation behaviour. |
+
+These event details are outside the language-name inventory; its counts have not moved.
+
 ### Control Font object (#934)
 
 | Member or surface | Detail |
