@@ -117,7 +117,7 @@ public class ControlRenderer : Decorator
                 MaxWidth = visual.MaxWidth;
                 MaxHeight = visual.MaxHeight;
 
-                TextOptions.SetTextRenderingMode(visual, TextRenderingMode.Alias);
+                TextOptions.SetTextRenderingMode(visual, TextRenderingMode.Antialias);
                 target.Render(visual);
                 Release(visual);
                 Child = new Image()

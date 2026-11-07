@@ -199,6 +199,22 @@ internal static class VbSignatures
                     "Returns a string formatted according to instructions in a format expression.")
             ],
 
+            // #2515 positional surface; runtime named calls await measurement.
+            ["FormatNumber"] =
+            [
+                new SignatureEntry("FormatNumber(Expression, [NumDigitsAfterDecimal], [IncludeLeadingDigit], [UseParensForNegativeNumbers], [GroupDigits]) As String",
+                    ["Expression", "NumDigitsAfterDecimal", "IncludeLeadingDigit", "UseParensForNegativeNumbers", "GroupDigits"])
+            ],
+            ["FormatCurrency"] =
+            [
+                new SignatureEntry("FormatCurrency(Expression, [NumDigitsAfterDecimal], [IncludeLeadingDigit], [UseParensForNegativeNumbers], [GroupDigits]) As String",
+                    ["Expression", "NumDigitsAfterDecimal", "IncludeLeadingDigit", "UseParensForNegativeNumbers", "GroupDigits"])
+            ],
+            ["FormatPercent"] =
+            [
+                new SignatureEntry("FormatPercent(Expression, [NumDigitsAfterDecimal], [IncludeLeadingDigit], [UseParensForNegativeNumbers], [GroupDigits]) As String",
+                    ["Expression", "NumDigitsAfterDecimal", "IncludeLeadingDigit", "UseParensForNegativeNumbers", "GroupDigits"])
+            ],
             ["FormatDateTime"] =
             [
                 new SignatureEntry("FormatDateTime(Date, [NamedFormat]) As String", ["Date", "NamedFormat"],

@@ -29,6 +29,23 @@ worse than one that is obviously incomplete.
 
 ## Requirements
 
+### Requirement: Trailing argument and declared array type refusals
+
+The interpreter SHALL raise `VBCompileErrorException` with "Syntax error" when executing a call
+with a trailing omitted argument. A plain `ReDim ... As T` SHALL refuse a changed declared array
+element type with "Can't change data types of array elements". These refusals follow the
+[VB6 SP6 native and p-code measurements in #2938](https://github.com/hexide-io/HexIDE/issues/2938).
+
+#### Scenario: Trailing comma in a user procedure call
+- **WHEN** execution reaches `Show 1,`, `Call Show(1, )` or `x = F(1, )` with an optional second parameter
+- **THEN** it raises "Syntax error"
+- **AND** `Show 1` without a comma still supplies the declared default, and an interior omission keeps its slot
+
+#### Scenario: Declared Variant array versus scalar Variant
+- **WHEN** execution reaches `ReDim Arr(10) As String` after a module-level or local `Dim Arr()`
+- **THEN** it raises "Can't change data types of array elements"
+- **AND** the scalar Variant control `Dim Arr` still accepts the ReDim and stores "Hello" in a `String()`
+
 ### Requirement: For Each collection references and declarations
 
 The interpreter SHALL parse a For Each collection as a reference, refusing parenthesised expressions,
@@ -1479,3 +1496,53 @@ statements SHALL remain in one module block; named module members separate those
 - **WHEN** cold SLL-first runtime parses contain 100 and 400 nested If blocks
 - **THEN** prediction lookahead grows linearly with the input
 - **AND** the DFA cache size remains bounded independently of these depths
+
+### Requirement: VB code runs on a UI thread with a sized stack
+
+VB code runs on the UI thread, so that thread's stack SHALL be HexIDE's choice, not the launcher's (#3228).
+On Windows and Linux, the IDE and a made EXE SHALL start their UI on a new thread with a 64 MiB stack, STA on
+Windows, which the process's first thread joins. The process's exit code and any exception SHALL come out as
+they did from the first thread. On macOS, whose UI runs on the first thread only, the UI SHALL stay there.
+
+#### Scenario: Deep recursion on the UI thread's stack
+- **WHEN** a recursive Function calls itself 1,100 levels deep on a thread with the UI thread's stack
+- **THEN** it returns its result
+- **AND** a Function that recurses without bound still raises a trappable Error 28
+
+#### Scenario: The launcher's stack limit
+- **WHEN** a process on Linux starts under `ulimit -s 8192` or `ulimit -s unlimited`
+- **THEN** the UI thread's stack is 64 MiB either way
+
+### Requirement: Call depth is counted as well as probed
+
+The stack probe sees native frames only, and a debugger's time slice releases them, so one interpreter's VB code
+SHALL also raise Error 28 when it would pass 5,000 procedure activations, whatever the probe says (#3250). The count
+SHALL be at least what the UI thread's stack holds of a recursive Function uninterrupted, so the probe still decides
+where it can see.
+
+#### Scenario: A runaway recursion under a time-slicing debugger
+- **WHEN** a Sub calls itself without bound under a debugger that yields at every statement
+- **THEN** Error 28 is raised at the 5,000th activation, and a handler can trap it
+
+### Requirement: An unwinding error leaves each procedure with only that procedure's trace
+
+A run-time error SHALL reach its handler in time linear in the number of procedures it passes (#3247), and so SHALL
+a compile error found at run time and the signal that Stop and End unwind with (#3250). Each procedure SHALL throw
+them on with only its own .NET stack trace, never the trace gathered below it, and the error SHALL otherwise be
+unchanged: its number, description and Erl are what the handler reads. A frame asking whether the error halts SHALL
+reuse the trap a frame above it found. Under a debugger, the unwind SHALL yield once every 32 procedures, so the
+continuations of frames a time slice left waiting don't nest without bound.
+
+#### Scenario: An error raised deep in a recursion
+- **WHEN** an error is raised 400 calls deep and reaches a handler in the first procedure
+- **THEN** it carries no more stack trace than the same error raised 20 calls deep
+- **AND** the handler reads the same Err.Number, Err.Description and Erl as it would 3 calls deep
+
+#### Scenario: End deep in a recursion
+- **WHEN** End is reached 400 calls deep
+- **THEN** its signal carries no more stack trace than End reached 20 calls deep
+
+#### Scenario: A runaway on the UI thread's stack under a time-slicing debugger
+- **WHEN** a Sub with a handler calls a Sub that recurses without bound, on a 64 MiB thread, under a debugger that
+  yields every 15 ms
+- **THEN** Error 28 reaches the handler in seconds, not minutes

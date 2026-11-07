@@ -113,6 +113,17 @@ both are deferred together rather than half-built.
 - **WHEN** a dragged region crosses a container and the controls it holds
 - **THEN** both the container and those controls are selected
 
+### Requirement: Dragging SHALL preserve the control's declared size
+A move SHALL leave Width and Height unchanged, including when layout rounds the arranged bounds at display
+scaling above 100%. A resize SHALL start from the declared dimensions where they are set, falling back to
+arranged dimensions for automatically sized elements.
+
+#### Scenario: Move a control at 150% display scaling
+- **GIVEN** a control whose declared size is 81 by 33 DIP (1215 by 495 twips)
+- **WHEN** the developer drags it to a new position at 150% display scaling
+- **THEN** its declared size remains 81 by 33 DIP
+- **AND** its saved Width and Height remain 1215 and 495 twips
+
 ### Requirement: Dragging one selected control SHALL move the whole selection
 Dragging any control that is part of the selection SHALL move every selected control by the same
 displacement, and where snapping applies it SHALL be resolved once so that the relative positions within the
@@ -290,6 +301,14 @@ Unseen, it is edited around blindly. VB6's box is an empty PictureBox; labelling
 - **WHEN** the developer presses on the box
 - **THEN** nothing is selected and no region drag begins
 
+### Requirement: Control preview captions use grayscale antialiasing
+The designer SHALL render control text with grayscale antialiasing before composing its bitmap preview.
+Running CheckBox and OptionButton captions SHALL also use grayscale antialiasing, independently of their
+bullet's aliased edges (#917).
+
+#### Scenario: An outline font supplies a control caption
+- **WHEN** a CommandButton is previewed in the designer, or a CheckBox or OptionButton is rendered at run time
+- **THEN** its caption contains intermediate shades at glyph edges rather than only foreground and background pixels
 
 ### Requirement: Export a picture property's payload
 The Properties window SHALL offer Export picture on modeled Picture, Icon, MouseIcon and DragIcon properties
