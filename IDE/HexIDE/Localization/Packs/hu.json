@@ -913,6 +913,7 @@
     "Str.Vb6Toolchain.BuildFailedTitle": "Sikertelen fordítás",
     "Str.Vb6Toolchain.ProjectNotSaved": "A VB6-tal történő fordítás előtt a projektet lemezre kell menteni.",
     "Str.Vb6Toolchain.CompilationFailedNoOutput": "A VB6-fordítás kimenet nélkül meghiúsult. Ellenőrizze a projektfájl érvényességét.",
+    "Str.Vb6Toolchain.CompilationTimedOut": "A HexIDE 180 másodperc után leállította a VB6 fordítását. Lehet, hogy a vb6.exe egy párbeszédablakra várt.",
     "Str.Vb6Toolchain.CompilationFailed": "A VB6-fordítás sikertelen:\n\n{0}",
     "Str.Vb6Toolchain.ExeNotFound": "A fordítás sikerült, de a végrehajtható fájl nem található itt:\n{0}",
     "Str.Vb6Toolchain.RunFailedTitle": "Sikertelen futtatás",

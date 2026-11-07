@@ -913,6 +913,7 @@
     "Str.Vb6Toolchain.BuildFailedTitle": "Eraikitzeak huts egin du",
     "Str.Vb6Toolchain.ProjectNotSaved": "Proiektua diskoan gorde behar da VB6rekin konpilatu aurretik.",
     "Str.Vb6Toolchain.CompilationFailedNoOutput": "VB6 konpilazioak huts egin du irteerarik gabe. Egiaztatu proiektu-fitxategia baliozkoa dela.",
+    "Str.Vb6Toolchain.CompilationTimedOut": "HexIDEk VB6 konpilazioa gelditu du 180 segundo igaro ondoren. Baliteke vb6.exe elkarrizketa-koadro baten zain egotea.",
     "Str.Vb6Toolchain.CompilationFailed": "VB6 konpilazioak huts egin du:\n\n{0}",
     "Str.Vb6Toolchain.ExeNotFound": "Eraikitzea ondo burutu da, baina ez da exekutagarria aurkitu hemen:\n{0}",
     "Str.Vb6Toolchain.RunFailedTitle": "Exekuzioak huts egin du",

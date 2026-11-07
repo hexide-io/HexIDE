@@ -913,6 +913,7 @@
     "Str.Vb6Toolchain.BuildFailedTitle": "Gradnja ni uspela",
     "Str.Vb6Toolchain.ProjectNotSaved": "Projekt mora biti shranjen na disk, preden ga je mogoče prevesti z VB6.",
     "Str.Vb6Toolchain.CompilationFailedNoOutput": "Prevajanje z VB6 ni uspelo in ni vrnilo izhoda. Preverite veljavnost projektne datoteke.",
+    "Str.Vb6Toolchain.CompilationTimedOut": "HexIDE je ustavil prevajanje VB6 po 180 sekundah. vb6.exe je morda čakal na pogovorno okno.",
     "Str.Vb6Toolchain.CompilationFailed": "Prevajanje z VB6 ni uspelo:\n\n{0}",
     "Str.Vb6Toolchain.ExeNotFound": "Gradnja je uspela, vendar izvedljiva datoteka ni bila najdena na:\n{0}",
     "Str.Vb6Toolchain.RunFailedTitle": "Zagon ni uspel",

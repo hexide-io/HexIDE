@@ -913,6 +913,7 @@
     "Str.Vb6Toolchain.BuildFailedTitle": "Неуспешна компилация",
     "Str.Vb6Toolchain.ProjectNotSaved": "Проектът трябва да бъде записан на диска, преди да може да се компилира с VB6.",
     "Str.Vb6Toolchain.CompilationFailedNoOutput": "Компилацията с VB6 е неуспешна без изходни данни. Проверете дали проектният файл е валиден.",
+    "Str.Vb6Toolchain.CompilationTimedOut": "HexIDE спря компилирането на VB6 след 180 секунди. Възможно е vb6.exe да е изчаквал диалогов прозорец.",
     "Str.Vb6Toolchain.CompilationFailed": "Компилацията с VB6 е неуспешна:\n\n{0}",
     "Str.Vb6Toolchain.ExeNotFound": "Компилацията завърши успешно, но изпълнимият файл не е намерен в:\n{0}",
     "Str.Vb6Toolchain.RunFailedTitle": "Неуспешно изпълнение",

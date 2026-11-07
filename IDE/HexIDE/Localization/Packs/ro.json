@@ -913,6 +913,7 @@
     "Str.Vb6Toolchain.BuildFailedTitle": "Compilare eșuată",
     "Str.Vb6Toolchain.ProjectNotSaved": "Proiectul trebuie salvat pe disc înainte de a putea fi compilat cu VB6.",
     "Str.Vb6Toolchain.CompilationFailedNoOutput": "Compilarea VB6 a eșuat fără a produce mesaje. Verifică dacă fișierul de proiect este valid.",
+    "Str.Vb6Toolchain.CompilationTimedOut": "HexIDE a oprit compilarea VB6 după 180 de secunde. Este posibil ca vb6.exe să fi așteptat o casetă de dialog.",
     "Str.Vb6Toolchain.CompilationFailed": "Compilarea VB6 a eșuat:\n\n{0}",
     "Str.Vb6Toolchain.ExeNotFound": "Compilarea a reușit, dar executabilul nu a fost găsit la:\n{0}",
     "Str.Vb6Toolchain.RunFailedTitle": "Executare eșuată",
