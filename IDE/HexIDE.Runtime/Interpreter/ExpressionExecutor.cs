@@ -293,21 +293,26 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
 
         VB6Parser.ArgCallContext? pending = null;
         var sawAnything = false;
+        var trailingComma = false;
         foreach (var child in context.children)
         {
             switch (child)
             {
                 case VB6Parser.ArgCallContext arg:
                     pending = arg;
+                    trailingComma = false;
                     sawAnything = true;
                     break;
                 case ITerminalNode t when t.Symbol.Type is VB6Parser.COMMA or VB6Parser.SEMICOLON:
+                    trailingComma = t.Symbol.Type == VB6Parser.COMMA;
                     slots.Add(pending);
                     pending = null;
                     sawAnything = true;
                     break;
             }
         }
+        if (trailingComma)
+            throw new VBCompileErrorException("Syntax error");
         // The final slot closes at the end of the list rather than at a separator.
         if (sawAnything) slots.Add(pending);
         return slots;
