@@ -20,6 +20,18 @@ operations do.
 
 ## Requirements
 
+### Requirement: Properties window filter
+
+The Properties window SHALL offer a localized live filter above its Alphabetic and Categorized tabs.
+Matching SHALL use a case-insensitive substring of the property name, independently of category collapse.
+
+#### Scenario: Narrow and restore the property list
+- **WHEN** the user types a property-name fragment
+- **THEN** both tabs show only matching properties, and categories without matching children are omitted
+- **WHEN** the filter is cleared
+- **THEN** the full property lists return, preserving category expansion state
+
+
 ### Requirement: PictureBox designer bitmap assignment honors AutoSize
 When a bitmap is assigned to a PictureBox with AutoSize True, the designer SHALL set Width and Height to the bitmap's pixel dimensions plus two pixels on each side for the default 3-D Fixed Single border, or no extra pixels with BorderStyle None. It SHALL record those dimensions with the picture edit as one undo step. This implements the measured bitmap cases in [#922's oracle](../../../docs/vb6-fidelity-oracle/autosize-on-a-label-and-a-picturebox.md); runtime AutoSize and Label AutoSize remain pending.
 

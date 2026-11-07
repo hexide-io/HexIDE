@@ -98,6 +98,7 @@
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
             <RowDefinition Height="2" />
             <RowDefinition Height="45" />
@@ -114,7 +115,11 @@
                 </DataTemplate>
             </ComboBox.ItemTemplate>
         </ComboBox>
-        <TabControl Grid.Row="1" Name="TabProperties">
+        <TextBox Grid.Row="1" Name="PropertyFilter"
+                 Text="{CompiledBinding FilterText, Mode=TwoWay}"
+                 PlaceholderText="{DynamicResource Str.Tool.Properties.Filter}"
+                 AutomationProperties.Name="{DynamicResource Str.Tool.Properties.Filter}" />
+        <TabControl Grid.Row="2" Name="TabProperties">
             <TabItem Header="{DynamicResource Str.Tool.Properties.Tab.Alphabetic}" x:Name="AlphabeticPropertiesTab">
                 <ListBox SelectedItem="{CompiledBinding SelectedProperty}"
                          ItemTemplate="{StaticResource PropertyTemplate}"
@@ -172,8 +177,8 @@
                 </controls:PropertyCategoryListBox>
             </TabItem>
         </TabControl>
-        <GridSplitter Grid.Row="2" Background="{DynamicResource {x:Static commonControls:SystemColors.ControlBrushKey}}" />
-        <ClassicBorderDecorator Grid.Row="3" BorderThickness="1" BorderStyle="Sunken"
+        <GridSplitter Grid.Row="3" Background="{DynamicResource {x:Static commonControls:SystemColors.ControlBrushKey}}" />
+        <ClassicBorderDecorator Grid.Row="4" BorderThickness="1" BorderStyle="Sunken"
                                 Padding="4,2"
                                 DataContext="{CompiledBinding SelectedProperty}">
             <DockPanel x:DataType="visualDesigner:PropertyViewModel">
