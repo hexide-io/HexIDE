@@ -12,6 +12,10 @@ public class VBRunTimeException : Exception
     internal string? VbHelpFile { get; set; }
     internal long? VbHelpContext { get; set; }
 
+    /// <summary>The frame below that this error, while unwinding, was found to be trapped by. It lets each frame it
+    /// passes skip the scan for it (#3250).</summary>
+    internal StatementExecutor? TrappedBy { get; set; }
+
     public ParserRuleContext? Context { get; }
     private readonly VBStandardError stdError;
 
