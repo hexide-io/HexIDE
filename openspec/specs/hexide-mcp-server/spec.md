@@ -510,7 +510,8 @@ a reply SHALL say so: the reply of the save that took it, or else the next reply
 Given a line, and a column if wanted, `open_file` SHALL put the caret there in the editor it opens, a code window's or
 a carried file's, numbering both from 1 as the editor does, against the text `get_file_content` returns. A place off
 the text SHALL be refused before anything opens. A fold over the caret SHALL be opened, and the note SHALL read the
-caret's line, column and offset back from the editor.
+caret's line, column and offset back from the editor. Without `line`, the note SHALL still read the caret back,
+without requesting a new position, both when opening a new window and activating an existing one.
 
 #### Scenario: A carried file
 - **WHEN** `open_file` opens a carried file at line 3, column 5
@@ -521,8 +522,8 @@ caret's line, column and offset back from the editor.
 - **THEN** nothing opens, and the reply gives the lines it has
 
 ### Requirement: open_file SHALL say when its caret is where type_text would be refused
-When the caret `open_file` places is in a part of a code window only the IDE changes, a form's header or a member's
-Attribute lines, the note SHALL name that part and give the nearest place that can be edited by line, column and offset.
+When the caret after `open_file`, with or without `line`, is in a part of a code window only the IDE changes, a form's
+header or a member's Attribute lines, the note SHALL name that part and give the nearest place that can be edited by line, column and offset.
 When the whole window refuses typing, the note SHALL say so. A caret where `type_text` writes SHALL add nothing.
 
 #### Scenario: A line inside a form's header
