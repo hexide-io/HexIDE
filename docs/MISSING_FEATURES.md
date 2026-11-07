@@ -197,12 +197,15 @@
 
 ## Help Menu
 
+The disabled Help buttons in New Project (all three tabs) and References were removed (#46).
+The former Add-In Manager dialog has been replaced by Options → Add-Ins, which has no Help button.
+
 | Item | Shortcut | Status | Notes |
 |---|---|---|---|
-| Contents… | — | Stub | Bound to `NYICommand` |
-| Index… | — | Stub | Bound to `NYICommand` |
-| Search… | — | Stub | Bound to `NYICommand` |
-| Technical Support | — | Stub | Bound to `NYICommand` |
+| Contents… | — | Removed | Unsupported Help entry removed rather than offered inert (#46) |
+| Index… | — | Removed | Unsupported Help entry removed rather than offered inert (#46) |
+| Search… | — | Removed | Unsupported Help entry removed rather than offered inert (#46) |
+| Technical Support | — | Removed | Unsupported Help entry removed rather than offered inert (#46) |
 | Avalonia on the Web | — | Done | Opens GitHub repo URL |
 | About Avalonia Visual Basic… | — | Done | |
 
