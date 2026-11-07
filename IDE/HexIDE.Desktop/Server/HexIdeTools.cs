@@ -2505,6 +2505,29 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
         "On a running VB6 program's form or its MsgBox, the reply waits up to 3 s for what the action set off; a loop "
         + "already at DoEvents, or a Timer's, counts as waiting for input. A note says why when it stops sooner.";
 
+    /// <summary>
+    /// Waits for what an action on a running program's form set off, then says what the program printed, as the run and
+    /// stop replies do (#2657). Callers read the program's output after a click as often as after a run, and found it only
+    /// by dumping for the Immediate window and diffing it by hand. Nothing changes for an action that isn't on a running
+    /// program's form.
+    /// </summary>
+    private static async Task<InteractOutcome> WaitForProgramAsync(
+        UiAutomationDriver.ProgramWatch? watch, InteractOutcome outcome, CancellationToken ct)
+    {
+        var waited = await UiAutomationDriver.WaitForProgramAsync(watch, outcome, ct: ct);
+        if (watch is null || !waited.Success)
+            return waited;
+        return WithPrinted(waited, ProgramPrinted.Shared.Take());
+    }
+
+    /// <summary>An action's reply with what the program printed, <paramref name="taken"/>, in 'printed' and its detail
+    /// saying how much or that it wrote nothing.</summary>
+    internal static InteractOutcome WithPrinted(InteractOutcome outcome, string taken)
+    {
+        var (printed, note) = ProgramPrinted.Report(taken);
+        return outcome with { Detail = outcome.Detail + ";" + note, Printed = printed };
+    }
+
     private const string WindowParameter =
         "Which top-level window the path is resolved against: \"auto\" (default) is any visible window other than the "
         + "IDE's own, whether or not it is on top: a dialog, the Find window, or a running VB6 program's form, INCLUDING "
@@ -2789,7 +2812,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     }
 
     [McpServerTool(Name = "interact")]
-    [Description("Drives a live control at 'target' (a dump_visual_tree path) through UI Automation. 'action' lists the verbs; 'value' describes their arguments. A provider action needs its reported provider and fails without it, with no fallback to reflection: choose invoke_command/set_property explicitly. Every verb except invoke_command/set_property refuses disabled targets, naming a disabling container or blocking dialog to answer first. click needs no provider: it raises pointer input at the point itself, on whatever a real press there would reach, moving there first unless the last click left it there, so a form's MouseMove precedes MouseDown, releasing 50 ms later as separate input so the press handler runs first; it waits up to a second for the next frame, since hit-testing needs a drawn window; its reply names the button, the keys held, press coordinates and landing, and, with to, release coordinates and recipient (capturer or hit-tested control); a point where nothing takes the pointer is refused, and nothing is pressed. Actions are real, with no confirmation, but every verb except invoke_command and set_property is refused on a control that is not showing (\"isHidden\": true in dump_visual_tree), as no person could reach it; those two reach its view model or its own Command. toggle, expand, collapse, set_value and set_property reply with the state read back. set_value on a non-editable ComboBox selects item text ignoring case; a miss names items. Other read-only values are refused. Find the target and what it supports with dump_visual_tree/inspect_element first. While a VB6 program runs or is paused 'auto' usually picks its form: pass 'window' \"ide\" to act on the IDE. " + ProgramWaitNote)]
+    [Description("Drives a live control at 'target' (a dump_visual_tree path) through UI Automation. 'action' lists the verbs; 'value' describes their arguments. A provider action needs its reported provider and fails without it, with no fallback to reflection: choose invoke_command/set_property explicitly. click needs no provider: it raises pointer input at the point itself, on whatever a real press there would reach, moving there first unless the last click left it there, so a form's MouseMove precedes MouseDown, releasing 50 ms later as separate input so the press handler runs first; it waits up to a second for the next frame, since hit-testing needs a drawn window; its reply names the button, the keys held, press coordinates and landing, and, with to, release coordinates and recipient (capturer or hit-tested control); a point where nothing takes the pointer is refused, and nothing is pressed. Actions are real, with no confirmation. Every verb except invoke_command/set_property refuses a disabled target, naming a disabling container or blocking dialog to answer first, and one not showing (\"isHidden\": true in dump_visual_tree), as no person could reach it; those two reach its view model or its own Command. toggle, expand, collapse, set_value and set_property reply with the state read back. set_value on a non-editable ComboBox selects item text ignoring case; a miss names items. Other read-only values are refused. Find the target and what it supports with dump_visual_tree/inspect_element first. While a VB6 program runs or is paused 'auto' usually picks its form: pass 'window' \"ide\" to act on the IDE. " + ProgramWaitNote)]
     public async Task<InteractOutcome> InteractAsync(
         [Description("A path from dump_visual_tree, including ContextMenu/Flyout segments for attached popups.")]
         string target,
@@ -2835,7 +2858,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
                 outcome = UiAutomationDriver.WithRefusal(outcome, refused);
         }
         // A running form's handler gives up the thread part way through, so the reply waits for it (#1232).
-        outcome = await UiAutomationDriver.WaitForProgramAsync(watch, outcome, ct: ct);
+        outcome = await WaitForProgramAsync(watch, outcome, ct);
         // Whether a close closed is known only now: a form's close box asks the program, which unloads it first (#829).
         if (acted is not null && UiAutomationDriver.IsVerb(action, "close"))
             outcome = await Dispatcher.UIThread.InvokeAsync(() => UiAutomationDriver.AfterClose(acted, outcome, watch));
@@ -2897,7 +2920,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
                 ? await UiAutomationDriver.TypeKeysAsync(control, text, target, ct)
                 : TypeDocumentText(control, text, target);
         });
-        return await UiAutomationDriver.WaitForProgramAsync(watch, outcome, ct: ct);
+        return await WaitForProgramAsync(watch, outcome, ct);
     }
 
     internal InteractOutcome TypeDocumentText(Control control, string text, string target)
@@ -3194,7 +3217,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
             watch = UiAutomationDriver.WatchProgram(active, () => ctx.DebugController.CurrentStop);
             return UiAutomationDriver.PressKey(control, key, modifiers, target);
         });
-        return await UiAutomationDriver.WaitForProgramAsync(watch, outcome, ct: ct);
+        return await WaitForProgramAsync(watch, outcome, ct);
     }
 
     // Active window for the automation tools: any visible window over the main window, modal or not, such as Find
