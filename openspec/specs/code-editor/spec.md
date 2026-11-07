@@ -21,6 +21,16 @@ that the developer could not see them was a limitation of its code window, and t
 
 ## Requirements
 
+### Requirement: Selection scrolling does not re-enter itself
+The code and Immediate editors SHALL allow pointer selection when the viewport cannot fit the caret
+and its scrolling margin, without recursively scrolling the caret into view (#3273). Held pointer moves SHALL extend the selection,
+and releasing the pointer SHALL preserve it.
+
+#### Scenario: A held selection reaches outside a short editor
+- **WHEN** text is present and a pressed pointer moves beyond the editor's short viewport
+- **THEN** selection extends without a stack overflow
+- **AND** releasing the pointer retains the selected text
+
 ### Requirement: Scrolling context menus preserve editor commands
 The code window's context menu SHALL open with focus on its first enabled visible item when opened
 by the keyboard, even when it scrolls. A pointer-opened menu SHALL start with no item selected; Enter
