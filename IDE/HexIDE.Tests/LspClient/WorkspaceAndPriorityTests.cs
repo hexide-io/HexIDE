@@ -1,4 +1,6 @@
 using System.Text.Json;
+using HexIDE.Conversations;
+using HexIDE.Redaction;
 using HexIDE.Events;
 using HexIDE.IDE;
 using HexIDE.Projects;
@@ -43,7 +45,7 @@ public class WorkspaceAndPriorityTests : IAsyncDisposable
         c.AdvertisedCapabilities.Returns(JsonDocument.Parse(
             """{"textDocumentSync":{"openClose":true,"change":1},"documentFormattingProvider":true}""")
             .RootElement.Clone());
-        c.RequestFormattingAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
+        c.RequestFormattingAsync(Arg.Any<string>(), new FormattingOptions(4, true), Arg.Any<CancellationToken>())
             .Returns([new TextEdit(new LspRange(new Position(0, 0), new Position(0, 1)), marker)]);
         return c;
     }
@@ -66,7 +68,7 @@ public class WorkspaceAndPriorityTests : IAsyncDisposable
         _disposables.Add(sut);
 
         await sut.OpenDocumentAsync("file:///c:/p/M.bas", "code", TestContext.Current.CancellationToken);
-        var edits = await sut.RequestFormattingAsync("file:///c:/p/M.bas", TestContext.Current.CancellationToken);
+        var edits = await sut.RequestFormattingAsync("file:///c:/p/M.bas", new FormattingOptions(4, true), TestContext.Current.CancellationToken);
 
         edits.Should().ContainSingle().Which.NewText.Should().Be("mine");
     }
@@ -89,7 +91,7 @@ public class WorkspaceAndPriorityTests : IAsyncDisposable
         _disposables.Add(sut);
 
         await sut.OpenDocumentAsync("file:///c:/p/M.bas", "code", TestContext.Current.CancellationToken);
-        var edits = await sut.RequestFormattingAsync("file:///c:/p/M.bas", TestContext.Current.CancellationToken);
+        var edits = await sut.RequestFormattingAsync("file:///c:/p/M.bas", new FormattingOptions(4, true), TestContext.Current.CancellationToken);
 
         edits.Should().ContainSingle().Which.NewText.Should().Be("bundled");
     }
@@ -135,7 +137,8 @@ public class WorkspaceAndPriorityTests : IAsyncDisposable
         public void Initialized(JsonElement _) { }
     }
 
-    private VBLspClient ClientRootedAt(ILspWorkspace? workspace, RootRecordingServer server)
+    private VBLspClient ClientRootedAt(ILspWorkspace? workspace, RootRecordingServer server,
+        ConversationRedactor? workspaceNames = null, ConversationLog? capture = null)
     {
         var (clientSide, serverSide) = FullDuplexStream.CreatePair();
         var serverRpc = new JsonRpc(
@@ -149,7 +152,8 @@ public class WorkspaceAndPriorityTests : IAsyncDisposable
                 new HeaderDelimitedMessageHandler(clientSide, clientSide, ci.Arg<IJsonRpcMessageFormatter>())));
 
         var client = new VBLspClient(
-            transport, Substitute.For<ILogger<VBLspClient>>(), DocumentLanguage.Vb6, workspace);
+            transport, Substitute.For<ILogger<VBLspClient>>(), DocumentLanguage.Vb6, workspace,
+            capture: capture, connectionId: "workspace", workspaceNames: workspaceNames);
         _disposables.Add(client);
         return client;
     }
@@ -243,6 +247,49 @@ public class WorkspaceAndPriorityTests : IAsyncDisposable
     }
 
     [Fact]
+    public async Task WaitingForTheFirstSaveStartsWithoutAnotherOpen()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "hexide-first-save-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        try
+        {
+            var project = TestHelpers.CreateProject("P");
+            var manager = Substitute.For<IProjectManager>();
+            manager.StartupProject.Returns(project);
+            manager.LoadedProjects.Returns(new[] { project });
+            var workspace = new ProjectLspWorkspace(() => manager);
+            var server = new RootRecordingServer();
+            var waiting = Substitute.For<ILspClient>();
+            waiting.WaitingForWorkspace.Returns(true);
+            var registrations = new List<LanguageServerRegistration>
+            {
+                new("pipe", "pipe", [".bas"], "vb6", () => workspace.Directory is null
+                    ? waiting : ClientRootedAt(workspace, server))
+            };
+            await using var registry = new LspClientRegistry(registrations,
+                Substitute.For<ILogger<LspClientRegistry>>(), workspace);
+            var token = TestContext.Current.CancellationToken;
+            await registry.OpenDocumentAsync("untitled:P/One.bas", "latest", token);
+            var windows = Substitute.For<IWindowManager>();
+            windows.SaveFilePickerAsync(Arg.Any<Avalonia.Platform.Storage.FilePickerSaveOptions>())
+                .Returns(Path.Combine(root, "P.vbp"));
+            var service = new ProjectService(() => throw new InvalidOperationException(), windows,
+                Substitute.For<IEventBus>(), manager, Substitute.For<IRecentProjectsService>(),
+                Substitute.For<IReferenceLibraryService>(), Substitute.For<IUserSidecarService>(),
+                new FileBaselineStore(), Substitute.For<HexIDE.Localization.ILocalizationService>(),
+                Substitute.For<IHeaderRefresher>(), lspClient: () => registry);
+            await service.SaveProject(project, false);
+            File.Exists(project.AbsolutePath).Should().BeTrue();
+            var uri = await server.RootUri.WaitAsync(TimeSpan.FromSeconds(5), token);
+            new Uri(uri!).LocalPath.TrimEnd('/', '\\').Should().Be(root);
+            var opened = await server.Opens.Reader.ReadAsync(token);
+            opened.GetProperty("textDocument").GetProperty("text").GetString().Should().Be("latest");
+            workspace.Dispose();
+        }
+        finally { Directory.Delete(root, true); }
+    }
+
+    [Fact]
     public async Task TheServerIsToldTheWorkspaceAsAFileUri()
     {
         // rootUri was hardcoded null, so no server had ever been told where it was working. A linter that
@@ -294,6 +341,40 @@ public class WorkspaceAndPriorityTests : IAsyncDisposable
         foreach (var folder in folders.EnumerateArray())
             folder.GetProperty("uri").GetString().Should().StartWith("file:///",
                 "a folder is addressed by URI, not by path");
+    }
+
+    [Theory]
+    [InlineData("AcmePayrollMigration", false)]
+    [InlineData("Acme Payroll", false)]
+    [InlineData("Acme.Payroll", false)]
+    [InlineData("Acme.Payroll", true)]
+    public async Task WorkspaceNamesAlreadyMatchTheirExportedUriPseudonym(string folderName, bool trailingSlash)
+    {
+        var directory = Path.Combine(Path.GetTempPath(), folderName);
+        if (trailingSlash) directory += Path.DirectorySeparatorChar;
+        var uri = new Uri(directory).AbsoluteUri;
+        var names = new Pseudonymiser();
+        var redactor = new ConversationRedactor(names);
+        await using var capture = new ConversationLog();
+        var server = new RootRecordingServer();
+        var sut = ClientRootedAt(
+            new FixedWorkspace(directory, new LspWorkspaceFolder("PrivateProjectName", directory)),
+            server, redactor, capture);
+
+        await sut.StartAsync(TestContext.Current.CancellationToken);
+        var frame = await server.Frame.WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken);
+        var folder = frame.GetProperty("workspaceFolders")[0];
+        var expected = redactor.Uri(uri).TrimEnd('/').Split('/')[^1];
+        folder.GetProperty("name").GetString().Should().Be(expected);
+        folder.GetProperty("uri").GetString().Should().Be(uri, "the server still needs the real folder URI");
+
+        var exported = await ConversationExporter.ExportAsync(capture, new ConversationRedactor(names));
+        exported.Messages.Should().NotContain("PrivateProjectName").And.NotContain(folderName).And.NotContain(uri);
+        using var initialize = JsonDocument.Parse(exported.Messages.ReplaceLineEndings("\n").Split('\n')
+            .Single(line => line.Contains("\"method\":\"initialize\"", StringComparison.Ordinal)));
+        var exportedFolder = initialize.RootElement.GetProperty("params").GetProperty("workspaceFolders")[0];
+        exportedFolder.GetProperty("name").GetString().Should().Be(expected);
+        exportedFolder.GetProperty("uri").GetString().Should().Be(redactor.Uri(uri));
     }
 
     [Fact]

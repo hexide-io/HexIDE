@@ -22,6 +22,10 @@ namespace HexIDE.Forms.ViewModels;
 /// </remarks>
 public interface ISearchableDocument
 {
+    /// <summary>Structural scopes come from the document's language server, or fall back to the document.</summary>
+    System.Threading.Tasks.Task<HexIDE.Lsp.Messages.DocumentSymbol[]> RequestSearchSymbolsAsync() =>
+        System.Threading.Tasks.Task.FromResult<HexIDE.Lsp.Messages.DocumentSymbol[]>([]);
+
     /// <summary>The live buffer. Live, not a snapshot: a search must see unsaved edits.</summary>
     TextDocument Document { get; }
 
@@ -41,6 +45,9 @@ public interface ISearchableDocument
     /// that has no such regions, which is every one except a code window.
     /// </summary>
     bool IsReadOnlyRegion(int offset, int length) => false;
+
+    /// <summary>A deletion takes any metadata attached to a declaration it empties.</summary>
+    (int Offset, int Length) WidenDeletion(int offset, int length) => (offset, length);
 
     /// <summary>
     /// <see cref="IsReadOnlyRegion"/> against the buffer as it stands now, found once, for a caller about to

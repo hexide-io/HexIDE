@@ -11,6 +11,16 @@ public partial class ObjectBrowserToolView : UserControl
     public ObjectBrowserToolView()
     {
         InitializeComponent();
+        AddHandler(KeyDownEvent, OnKeyDown, RoutingStrategies.Tunnel);
+    }
+
+    private void OnKeyDown(object? sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.Escape && DataContext is ObjectBrowserToolViewModel vm)
+        {
+            vm.CloseCommand.Execute(null);
+            e.Handled = true;
+        }
     }
 
     private void Members_OnDoubleTapped(object? sender, TappedEventArgs e)

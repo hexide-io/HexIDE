@@ -17,6 +17,24 @@ public class InspectFrameTests
         new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase });
 
     [AvaloniaFact]
+    public async Task A_headless_window_explains_why_native_styles_are_unavailable()
+    {
+        var window = new Window();
+        window.Show();
+        try
+        {
+            var frame = Inspect(window).GetProperty("frame");
+            frame.GetProperty("nativeStyleNote").GetString().Should().Contain("HWND");
+            frame.TryGetProperty("nativeStyle", out _).Should().BeFalse();
+            frame.TryGetProperty("nativeExStyle", out _).Should().BeFalse();
+            var (capture, error) = await SnapshotComposer.CaptureFrameAsync(window);
+            capture.Should().BeNull();
+            error.Should().Contain("Windows HWND").And.Contain("includeFrame false");
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaFact]
     public void A_window_reports_its_frame_properties_and_reads_changes_back()
     {
         var window = new Window

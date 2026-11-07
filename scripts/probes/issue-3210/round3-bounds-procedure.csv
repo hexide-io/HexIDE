@@ -1,0 +1,4 @@
+stage,shape,stack_mib,pass_depth,overflow_depth,trials,seconds
+bounds-procedure,parens,0.078125,204,205,12,9.58
+bounds-procedure,parens,0.09375,251,252,12,10.19
+bounds-procedure,parens,0.0625,158,159,12,10.31

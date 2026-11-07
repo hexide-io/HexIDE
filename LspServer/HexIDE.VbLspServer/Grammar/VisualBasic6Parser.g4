@@ -156,7 +156,7 @@ attributeStmt
     ;
 
 block
-    : emptyLineNumber* lineHead? blockStmt
+    : colonSep? emptyLineNumber* lineHead? blockStmt
       ( colonSep blockStmt
       | lineSep emptyLineNumber* lineHead? blockStmt
       )*
@@ -377,7 +377,8 @@ filecopyStmt
 
 // `For _ Each` - WS? between the two keywords; see the note on selectCaseStmt.
 forEachStmt
-    : FOR WS? EACH WS ambiguousIdentifier typeHint? WS IN WS valueStmt blockSep (block blockSep)? NEXT (
+    : FOR WS? EACH WS ambiguousIdentifier typeHint? WS IN WS collection=implicitCallStmt_InStmt
+       {!System.Array.Exists(new[] { "Nothing", "True", "False", "Null", "Empty" }, keyword => string.Equals($collection.text, keyword, System.StringComparison.OrdinalIgnoreCase))}? blockSep (block blockSep)? NEXT (
         WS ambiguousIdentifier
     )?
     ;
@@ -426,11 +427,19 @@ ifThenElseStmt
     // whitespace had nothing to match - inlineIfBody's own leading `(WS? COLON WS?)*` already admits the
     // colon. Safe by adjacency: `ThenX` lexes as one IDENTIFIER. Mirrored from the interpreter's grammar.
     : IF WS ifConditionStmt WS THEN WS? ((inlineIfBody | lineNumber) (WS? ELSE (WS (inlineIfBody | lineNumber))?)? | ELSE (WS (inlineIfBody | lineNumber))?) # inlineIfThenElse
+    | IF WS ifConditionStmt WS THEN WS? COLON WS? # inlineIfThenElse
     | ifBlockStmt ifElseIfBlockStmt* ifElseBlockStmt? END_IF             # blockIfThenElse
     ;
 
 ifBlockStmt
-    : IF WS ifConditionStmt WS THEN blockSep (block blockSep)?
+    : IF WS ifConditionStmt WS THEN blockSep ifBlockBody?
+    ;
+
+// The LSP already accepts labelled End If via block/blockSep. Keep that recovery shape: unlike the
+// interpreter it does not execute a bare call node, and preferring a trailing label here harms recovery
+// after an incomplete member access (#223).
+ifBlockBody
+    : block blockSep
     ;
 
 ifConditionStmt
@@ -438,11 +447,11 @@ ifConditionStmt
     ;
 
 ifElseIfBlockStmt
-    : ELSEIF WS ifConditionStmt WS THEN (WS | NEWLINE)+ (block blockSep)?
+    : ELSEIF WS ifConditionStmt WS THEN (WS | NEWLINE)+ ifBlockBody?
     ;
 
 ifElseBlockStmt
-    : ELSE blockSep (block blockSep)?
+    : ELSE blockSep ifBlockBody?
     ;
 
 implementsStmt
@@ -470,7 +479,7 @@ loadStmt
     ;
 
 lockStmt
-    : LOCK WS valueStmt (WS? COMMA WS? valueStmt (WS TO WS valueStmt)?)?
+    : LOCK WS number=valueStmt (WS? COMMA WS? (start=valueStmt (WS TO WS end=valueStmt)? | TO WS end=valueStmt))?
     ;
 
 lsetStmt
@@ -688,7 +697,7 @@ unloadStmt
     ;
 
 unlockStmt
-    : UNLOCK WS valueStmt (WS? COMMA WS? valueStmt (WS TO WS valueStmt)?)?
+    : UNLOCK WS number=valueStmt (WS? COMMA WS? (start=valueStmt (WS TO WS end=valueStmt)? | TO WS end=valueStmt))?
     ;
 
 // operator precedence is represented by rule order
@@ -777,8 +786,9 @@ iCS_B_ProcedureCall
     : certainIdentifier (WS argsCall)?
     ;
 
+// Without WS, only a parenthesised argument is admitted; keep the parentheses as an expression (#1064).
 iCS_B_MemberProcedureCall
-    : implicitCallStmt_InStmt? DOT ambiguousIdentifier typeHint? (WS argsCall)? dictionaryCallStmt?
+    : implicitCallStmt_InStmt? DOT ambiguousIdentifier typeHint? ((WS | {TokenStream.LA(1) == LPAREN}?) argsCall)? dictionaryCallStmt?
     // Print's output list may be separators alone, `Debug.Print ,`, where any other call's arguments may not: `Foo ,` is
     // VB6's "Syntax error" (measured, #1409).
     | implicitCallStmt_InStmt? DOT PRINT WS? (COMMA | SEMICOLON) (WS? (COMMA | SEMICOLON))*

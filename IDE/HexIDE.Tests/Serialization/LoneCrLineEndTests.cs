@@ -10,7 +10,7 @@ namespace HexIDE.Tests.Serialization;
 /// its <c>VB_Name</c> line alone.
 /// </summary>
 /// <remarks>
-/// VB6's answers are from <c>vb6.exe /make</c> on byte-exact files (docs/vb6-fidelity-oracle.md, "A lone CR or LF in
+/// VB6's answers are from <c>vb6.exe /make</c> on byte-exact files (docs/vb6-fidelity-oracle/a-lone-cr-or-lf-in-vb6-source.md, "A lone CR or LF in
 /// VB6 source"). A <c>.bas</c> whose lines all end with a lone CR builds and runs as its CRLF twin. A lone CR between two
 /// statements ends the first. A lone CR between a procedure and its <c>Attribute</c> line leaves the line describing it,
 /// and a CR before a CRLF there is a blank line, which leaves it describing nothing. A line ending in <c> _</c> and then

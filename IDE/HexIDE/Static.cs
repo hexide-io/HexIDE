@@ -9,7 +9,10 @@ public class Static
 {
     public static bool IsBrowser = OperatingSystem.IsBrowser();
 
-    public static PersonalityName Personality { get; set; } = PersonalityName.Vb6;
+    internal static HexIDE.Profiles.ProfileSnapshot? Profile { get; set; }
+
+    // Set before constructing services; a null snapshot alone also occurs in browser/design-time hosts.
+    internal static bool IsRecoveryMode { get; set; }
 
     /// <summary>Session developer mode — set once at startup from the <c>--developer-mode</c> CLI flag;
     /// never persisted. Surfaced to consumers via <see cref="IDE.IDeveloperModeService"/>.</summary>

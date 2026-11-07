@@ -34,11 +34,13 @@ public class PropertyFontBox : TemplatedControl
         openFontWindowButton.Click += OnButtonClick;
     }
 
+    internal FontDialogResult InitialFont => new(new FontFamily(Font.FontFamilyName), Font.ToFontStyle(), Font.ToFontWeight(), Font.Size);
+
     private void OnButtonClick(object? sender, RoutedEventArgs e)
     {
         async Task OpenFontWindow()
         {
-            var result = await Static.RootViewModel.WindowManager.ShowFontDialog(new FontDialogResult(Font.ToFontFamily(), Font.ToFontStyle(), Font.ToFontWeight(), Font.Size));
+            var result = await Static.RootViewModel.WindowManager.ShowFontDialog(InitialFont);
             if (result != null)
                 SetCurrentValue(FontProperty, Chosen(Font, result));
         }

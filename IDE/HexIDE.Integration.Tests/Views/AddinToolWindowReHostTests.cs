@@ -7,7 +7,7 @@ using HexIDE.Addins;
 
 namespace HexIDE.Integration.Tests.Views;
 
-public class AddinToolWindowReHostTests
+public class AddinToolWindowReHostTests : WindowTestFixture
 {
     [AvaloniaFact]
     public void AddinToolWindowContent_HostedByTwoViews_DoesNotCrash()

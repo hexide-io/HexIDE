@@ -7,17 +7,36 @@ namespace HexIDE.VbLspServer;
 
 internal static class VbSignatures
 {
-    internal sealed record SignatureEntry(string Label, string[] Parameters, string? Documentation = null);
+    /// <param name="ParamArray">The last parameter takes any number of arguments where the label doesn't say so, as
+    /// <c>Array(ArgList)</c>'s doesn't. A label ending its list in <c>...</c> says so itself.</param>
+    internal sealed record SignatureEntry(string Label, string[] Parameters, string? Documentation = null, bool ParamArray = false)
+    {
+        /// <summary>
+        /// Whether every argument past the last parameter is still that parameter, so signature help keeps it active
+        /// (#2599). Without a list, an extra argument is a mistake VB6 refuses, and no parameter is active for it.
+        /// </summary>
+        public bool LastIsList => ParamArray || Label.Contains("...", StringComparison.Ordinal);
+    }
 
     private static readonly Dictionary<string, SignatureEntry[]> _table =
         new(StringComparer.OrdinalIgnoreCase)
         {
+            // Financial positional surface (#2523); these display names do not enable named runtime calls.
+            ["NPer"] = [new SignatureEntry("NPer(Rate, Pmt, PV, [FV], [Type]) As Double", ["Rate", "Pmt", "PV", "FV", "Type"])],
+            ["IPmt"] = [new SignatureEntry("IPmt(Rate, Per, NPer, PV, [FV], [Type]) As Double", ["Rate", "Per", "NPer", "PV", "FV", "Type"])],
+            ["PPmt"] = [new SignatureEntry("PPmt(Rate, Per, NPer, PV, [FV], [Type]) As Double", ["Rate", "Per", "NPer", "PV", "FV", "Type"])],
+            ["Rate"] = [new SignatureEntry("Rate(NPer, Pmt, PV, [FV], [Type], [Guess]) As Double", ["NPer", "Pmt", "PV", "FV", "Type", "Guess"])],
+            ["Pmt"] = [new SignatureEntry("Pmt(Rate, NPer, PV, [FV], [Type]) As Double", ["Rate", "NPer", "PV", "FV", "Type"])],
+            ["FV"] = [new SignatureEntry("FV(Rate, NPer, Pmt, [PV], [Type]) As Double", ["Rate", "NPer", "Pmt", "PV", "Type"])],
+            ["PV"] = [new SignatureEntry("PV(Rate, NPer, Pmt, [FV], [Type]) As Double", ["Rate", "NPer", "Pmt", "FV", "Type"])],
             // Filesystem positional surface (#1561); runtime named arguments await measurement.
             ["CurDir"] = [new SignatureEntry("CurDir([Drive]) As String", ["Drive"])],
             ["Dir"] = [new SignatureEntry("Dir([PathName], [Attributes]) As String", ["PathName", "Attributes"])],
             ["FileLen"] = [new SignatureEntry("FileLen(PathName) As Long", ["PathName"])],
             ["FileDateTime"] = [new SignatureEntry("FileDateTime(PathName) As Date", ["PathName"])],
             ["GetAttr"] = [new SignatureEntry("GetAttr(PathName) As Long", ["PathName"])],
+            ["LoadPicture"] = [new SignatureEntry("LoadPicture([FileName], [Size], [ColorDepth], [X], [Y])", ["FileName", "Size", "ColorDepth", "X", "Y"])],
+            ["SavePicture"] = [new SignatureEntry("SavePicture(Picture, FileName)", ["Picture", "FileName"])],
             // Dialogs / I/O
             ["MsgBox"] =
             [
@@ -180,6 +199,12 @@ internal static class VbSignatures
                     "Returns a string formatted according to instructions in a format expression.")
             ],
 
+            ["FormatDateTime"] =
+            [
+                new SignatureEntry("FormatDateTime(Date, [NamedFormat]) As String", ["Date", "NamedFormat"],
+                    "Formats a date or time using the program's locale and the selected named format.")
+            ],
+
             // Type conversion
             ["CStr"]  = [new SignatureEntry("CStr(Expression) As String",  ["Expression"], "Converts an expression to String.")],
             ["CInt"]  = [new SignatureEntry("CInt(Expression) As Integer", ["Expression"], "Converts an expression to Integer.")],
@@ -204,6 +229,8 @@ internal static class VbSignatures
             ["Int"]  = [new SignatureEntry("Int(Number) As Integer", ["Number"], "Returns the integer portion of a number.")],
             ["Fix"]  = [new SignatureEntry("Fix(Number) As Integer", ["Number"], "Returns the integer portion of a number (truncates toward zero).")],
             ["Round"] = [new SignatureEntry("Round(Number, [NumDigitsAfterDecimal As Long]) As Variant", ["Number", "NumDigitsAfterDecimal"], "Rounds a number to a number of decimal places, a half to the even digit.")],
+            ["SLN"]  = [new SignatureEntry("SLN(Cost, Salvage, Life) As Double", ["Cost", "Salvage", "Life"], "Returns straight-line depreciation for one period.")],
+            ["SYD"]  = [new SignatureEntry("SYD(Cost, Salvage, Life, Period) As Double", ["Cost", "Salvage", "Life", "Period"], "Returns sum-of-years depreciation for the given period.")],
             ["Sqr"]  = [new SignatureEntry("Sqr(Number) As Double",  ["Number"], "Returns the square root of a number.")],
             ["Rnd"]  = [new SignatureEntry("Rnd([Number]) As Single", ["Number"], "Returns a random number between 0 and 1.")],
             ["Sgn"]  = [new SignatureEntry("Sgn(Number) As Integer", ["Number"], "Returns an integer indicating the sign of a number.")],
@@ -218,7 +245,7 @@ internal static class VbSignatures
             ["Array"] =
             [
                 new SignatureEntry("Array(ArgList) As Variant", ["ArgList"],
-                    "Returns a Variant containing an array.")
+                    "Returns a Variant containing an array.", ParamArray: true)
             ],
             ["UBound"] =
             [
@@ -238,6 +265,16 @@ internal static class VbSignatures
             ["Asc"]  = [new SignatureEntry("Asc(String As String) As Integer", ["String"],   "Returns the character code of the first character in a string.")],
             ["ChrW"] = [new SignatureEntry("ChrW(CharCode As Long) As String", ["CharCode"], "Returns the Unicode character associated with the specified code.")],
             ["AscW"] = [new SignatureEntry("AscW(String As String) As Integer",["String"],   "Returns the Unicode character code of the first character.")],
+            // Byte strings (#1510): each counts the string's bytes, two to a character, where its plain form counts characters.
+            ["ChrB"] = [new SignatureEntry("ChrB(CharCode As Long) As String", ["CharCode"], "Returns a string of the one byte given.")],
+            ["AscB"] = [new SignatureEntry("AscB(String As String) As Byte",   ["String"],   "Returns the first byte of a string.")],
+            ["LenB"] = [new SignatureEntry("LenB(Expression) As Long",         ["Expression"], "Returns the number of bytes in a string, or a variable's size.")],
+            ["LeftB"] = [new SignatureEntry("LeftB(String, Length As Long) As String", ["String", "Length"], "Returns the first bytes of a string.")],
+            ["RightB"] = [new SignatureEntry("RightB(String, Length As Long) As String", ["String", "Length"], "Returns the last bytes of a string.")],
+            ["MidB"] = [new SignatureEntry("MidB(String, Start As Long, [Length As Long]) As String", ["String", "Start", "Length"],
+                "Returns bytes from a string, from the byte at Start.")],
+            ["InStrB"] = [new SignatureEntry("InStrB([Start As Long,] String1, String2, [Compare As VbCompareMethod]) As Long",
+                ["Start", "String1", "String2", "Compare"], "Returns the byte at which one string first occurs within another.")],
 
             // Date / Time
             ["Now"]      = [new SignatureEntry("Now() As Date",              [],         "Returns the current date and time.")],
@@ -267,6 +304,10 @@ internal static class VbSignatures
             ["IsNull"]    = [new SignatureEntry("IsNull(Expression) As Boolean",  ["Expression"], "Returns True if the expression evaluates to Null.")],
             ["IsEmpty"]   = [new SignatureEntry("IsEmpty(Expression) As Boolean", ["Expression"], "Returns True if the variable has been initialized.")],
             ["IsObject"]  = [new SignatureEntry("IsObject(Expression) As Boolean",["Expression"], "Returns True if the variable is an object reference.")],
+            // Descriptive positional label; VB6's parameter name and named calls remain unmeasured (#2622).
+            ["ObjPtr"]    = [new SignatureEntry("ObjPtr(object) As Long", ["object"], "Returns an object's identity; Nothing has identity zero. Named arguments are not implemented.")],
+            ["StrPtr"]    = [new SignatureEntry("StrPtr(expression) As Long", ["expression"], "Returns a String buffer's identity; vbNullString has identity zero. Named arguments are not implemented.")],
+            ["VarPtr"]    = [new SignatureEntry("VarPtr(expression) As Long", ["expression"], "Returns a variable's identity. Named arguments are not implemented.")],
             ["IsArray"]   = [new SignatureEntry("IsArray(VarName) As Boolean",    ["VarName"],    "Returns True if the variable is an array.")],
             ["IsDate"]    = [new SignatureEntry("IsDate(Expression) As Boolean",  ["Expression"], "Returns True if the expression can be converted to a date.")],
             ["IsNumeric"] = [new SignatureEntry("IsNumeric(Expression) As Boolean",["Expression"],"Returns True if the expression can be evaluated as a number.")],
@@ -276,14 +317,20 @@ internal static class VbSignatures
             // Error handling
             ["Err"]   = [new SignatureEntry("Err.Number / Err.Description / Err.Source", [], "The Err object contains information about runtime errors.")],
             ["CVErr"] = [new SignatureEntry("CVErr(ErrorCode As Long) As Variant", ["ErrorCode"], "Returns a Variant with error subtype containing the specified error code.")],
+            ["Erl"]   = [new SignatureEntry("Erl() As Long", [], "The line number at or above where the error being handled was raised; 0 where there is none.")],
 
             // Object / misc
+            ["CallByName"] = [new SignatureEntry("CallByName(Object, ProcName, CallType, Args...)", ["Object", "ProcName", "CallType", "Args"], "Calls a member by name using VbMethod, VbGet, VbLet or VbSet.")],
             ["CreateObject"] = [new SignatureEntry("CreateObject(Class As String, [ServerName As String]) As Object", ["Class", "ServerName"], "Creates and returns a reference to an ActiveX object.")],
             ["GetObject"]    = [new SignatureEntry("GetObject([Pathname], [Class]) As Object", ["Pathname", "Class"], "Returns a reference to an object from a file.")],
+            ["Partition"]    = [new SignatureEntry("Partition(Number, Start, Stop, Interval) As String", ["Number", "Start", "Stop", "Interval"], "Returns the range, such as \" 20: 29\", that Number falls in.")],
             ["Shell"]        = [new SignatureEntry("Shell(Pathname As String, [WindowStyle As VbAppWinStyle]) As Double", ["Pathname", "WindowStyle"], "Runs an executable program.")],
             ["Command"]      = [new SignatureEntry("Command() As String", [], "Returns the command line the program was started with.")],
+            ["IMEStatus"]    = [new SignatureEntry("IMEStatus() As Long", [], "Returns zero when no input method editor is available.")],
             ["DoEvents"]     = [new SignatureEntry("DoEvents() As Integer", [], "Lets waiting events run before the program goes on.")],
             ["FreeFile"]     = [new SignatureEntry("FreeFile([RangeNumber As Integer]) As Integer", ["RangeNumber"], "Returns the next file number free for Open.")],
+            // Positional labels only: FileAttr's named arguments have not been measured (#2521).
+            ["FileAttr"]     = [new SignatureEntry("FileAttr(number, [attribute = 1]) As Long", ["number", "attribute"], "Returns an open file's mode. Only attribute 1 is supported; Input mode is unmeasured.")],
             ["EOF"]          = [new SignatureEntry("EOF(FileNumber As Integer) As Boolean", ["FileNumber"], "Returns whether a file has been read to its end.")],
             ["LOF"]          = [new SignatureEntry("LOF(FileNumber As Integer) As Long", ["FileNumber"], "Returns the length of an open file in bytes.")],
             ["Loc"]          = [new SignatureEntry("Loc(FileNumber As Integer) As Long", ["FileNumber"], "Returns the position in an open file, in 128-byte blocks for a sequential one.")],

@@ -122,8 +122,9 @@ public class LocalsInspectorTests : BaseVBTestFixture
         var run = vb.Execute();
         await stop.Guarded();
 
-        var a = Child(dbg.GetLocals()!, "a()");
-        a.TypeName.Should().Be("Integer()");
+        // Named without parentheses and typed by element type and bounds, as VB6's Locals writes a declared array (#2700).
+        var a = Child(dbg.GetLocals()!, "a");
+        a.TypeName.Should().Be("Integer(1 to 3)");
         a.HasChildren.Should().BeTrue();
 
         var elems = a.Expand();
@@ -151,7 +152,7 @@ public class LocalsInspectorTests : BaseVBTestFixture
         var a = Child(dbg.GetLocals()!, "a");
         a.HasChildren.Should().BeTrue();
         var other = Child(a, "Other");
-        other.TypeName.Should().Be("C");
+        other.TypeName.Should().Be("C/C");   // declared type, then class, as VB6's Locals writes a live object (#2700)
         other.HasChildren.Should().BeFalse();   // cycle back to `a` — shown as a leaf, not expanded
 
         dbg.Stop();
@@ -173,7 +174,7 @@ public class LocalsInspectorTests : BaseVBTestFixture
 
         var scope = dbg.GetLocals()!;
         scope.Locals.Single(n => n.Name == "G").Value.Should().Be("5");   // the local, at proc level
-        Child(scope.Locals.Single(n => n.Name == "Me"), "G").Value.Should().Be("100");   // the module var, under root
+        Child(scope.Locals.Single(n => n.Name == "Module1"), "G").Value.Should().Be("100");   // the module var, under root
 
         dbg.Stop();
         await run.Guarded();
@@ -192,7 +193,7 @@ public class LocalsInspectorTests : BaseVBTestFixture
         var run = vb.Execute();
         await stop.Guarded();
 
-        var a = dbg.GetLocals()!.Locals.Single(n => n.Name == "a()");
+        var a = dbg.GetLocals()!.Locals.Single(n => n.Name == "a");
         a.HasChildren.Should().BeFalse();
         a.Expand().Should().BeEmpty();   // and even if forced, no throw
 
@@ -214,7 +215,7 @@ public class LocalsInspectorTests : BaseVBTestFixture
         await stop.Guarded();
 
         var c = dbg.GetLocals()!.Locals.Single(n => n.Name == "c");
-        c.TypeName.Should().Be("EmptyC");
+        c.TypeName.Should().Be("EmptyC/EmptyC");
         c.HasChildren.Should().BeFalse();
 
         dbg.Stop();
@@ -236,7 +237,7 @@ public class LocalsInspectorTests : BaseVBTestFixture
 
         var scope = dbg.GetLocals()!;
         scope.Locals.Single(n => n.Name == "X").Value.Should().Be("42");        // the aliased param, at proc level
-        Child(scope.Locals.Single(n => n.Name == "Me"), "G").Value.Should().Be("42");   // the module var, under root
+        Child(scope.Locals.Single(n => n.Name == "Module1"), "G").Value.Should().Be("42");   // the module var, under root
 
         dbg.Stop();
         await run.Guarded();
@@ -256,7 +257,7 @@ public class LocalsInspectorTests : BaseVBTestFixture
 
         var scope = dbg.GetLocals()!;
         scope.Locals.Where(n => n.Name == "A").Should().BeEmpty();   // NOT a top-level local
-        Child(scope.Locals.Single(n => n.Name == "Me"), "A").Value.Should().Be("7");
+        Child(scope.Locals.Single(n => n.Name == "Module1"), "A").Value.Should().Be("7");
 
         dbg.Stop();
         await run.Guarded();
@@ -319,7 +320,7 @@ public class LocalsInspectorTests : BaseVBTestFixture
         var run = vb.Execute();
         await stop.Guarded();
 
-        var arr = Child(dbg.GetLocals()!, "arr()");
+        var arr = Child(dbg.GetLocals()!, "arr");
         arr.HasChildren.Should().BeTrue();
         var e1 = Child(arr, "arr(1)");
         e1.HasChildren.Should().BeTrue();
@@ -369,7 +370,7 @@ public class LocalsInspectorTests : BaseVBTestFixture
         await stop.Guarded();
 
         var col = Child(dbg.GetLocals()!, "col");
-        col.TypeName.Should().Be("Collection");
+        col.TypeName.Should().Be("Collection/Collection");
         col.HasChildren.Should().BeTrue();
         col.Expand().Select(n => n.Name).Should().Equal("Item 1", "Item 2", "Item 3");
         Child(col, "Item 1").Value.Should().Be("5");
@@ -378,6 +379,7 @@ public class LocalsInspectorTests : BaseVBTestFixture
         var e = Child(dbg.GetLocals()!, "e");
         e.HasChildren.Should().BeFalse();                           // an empty Collection is a leaf
         e.Value.Should().Be("Collection");
+        e.TypeName.Should().Be("Collection/Collection");
 
         dbg.Stop();
         await run.Guarded();

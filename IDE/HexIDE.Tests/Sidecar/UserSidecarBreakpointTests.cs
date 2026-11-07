@@ -41,6 +41,59 @@ public sealed class UserSidecarBreakpointTests : IDisposable
     private static DocumentIdentity Module1(ProjectDefinition p) => DocumentIdentity.For(p.Modules[0]);
 
     [Fact]
+    public async Task ConditionsRoundTripAndRemovingOneDoesNotRestoreIt()
+    {
+        var manager = Substitute.For<IProjectManager>();
+        var project = MakeSavedProject();
+        var store = new BreakpointService();
+        var sidecar = new UserSidecarService(new BookmarkService(), store, manager);
+        store.SetDocument(Module1(project), [3, 5]);
+        store.SetCondition(Module1(project), 3, "i = 3");
+        await sidecar.SaveAsync(project);
+
+        using (var json = JsonDocument.Parse(await File.ReadAllTextAsync(Path.Combine(_dir, "P.user.hexproj"),
+                   TestContext.Current.CancellationToken)))
+            json.RootElement.GetProperty("codeBreakpointConditions").GetProperty("Module1")
+                .GetProperty("2").GetString().Should().Be("i = 3", "the module has one header line");
+
+        var reloaded = new BreakpointService();
+        var second = new UserSidecarService(new BookmarkService(), reloaded, manager);
+        await second.LoadAsync(project);
+        reloaded.GetCondition(Module1(project), 3).Should().Be("i = 3");
+        reloaded.GetCondition(Module1(project), 5).Should().BeNull();
+        reloaded.SetCondition(Module1(project), 3, "");
+        await second.SaveAsync(project);
+        var third = new BreakpointService();
+        await new UserSidecarService(new BookmarkService(), third, manager).LoadAsync(project);
+        third.GetBreakpoints(Module1(project)).Should().Equal(3, 5);
+        third.GetCondition(Module1(project), 3).Should().BeNull();
+    }
+
+    [Fact]
+    public async Task ConditionsForMissingDocumentsAreCarriedButOrphanConditionsAreDropped()
+    {
+        var project = MakeSavedProject();
+        var manager = Substitute.For<IProjectManager>();
+        var path = Path.Combine(_dir, "P.user.hexproj");
+        await File.WriteAllTextAsync(path,
+            """
+            { "version": 3, "codeBreakpoints": { "Module1": [2], "Missing": [4] },
+              "codeBreakpointConditions": { "Module1": { "2": "i = 3", "8": "orphan" },
+                                            "Missing": { "4": "j = 2" } } }
+            """, TestContext.Current.CancellationToken);
+        var store = new BreakpointService();
+        var sidecar = new UserSidecarService(new BookmarkService(), store, manager);
+        await sidecar.LoadAsync(project);
+        store.GetCondition(Module1(project), 3).Should().Be("i = 3");
+        store.GetCondition(Module1(project), 9).Should().BeNull();
+        await sidecar.SaveAsync(project);
+        using var json = JsonDocument.Parse(await File.ReadAllTextAsync(path, TestContext.Current.CancellationToken));
+        var conditions = json.RootElement.GetProperty("codeBreakpointConditions");
+        conditions.GetProperty("Module1").EnumerateObject().Should().ContainSingle();
+        conditions.GetProperty("Missing").GetProperty("4").GetString().Should().Be("j = 2");
+    }
+
+    [Fact]
     public async Task Breakpoints_RoundTripThroughSidecar_WrittenBesideTheVbp()
     {
         // Save and Load are driven explicitly. Setting a breakpoint schedules a debounced save as well, and the
@@ -85,7 +138,7 @@ public sealed class UserSidecarBreakpointTests : IDisposable
         await sidecar.SaveAsync(project);
 
         var json = JsonDocument.Parse(await File.ReadAllTextAsync(Path.Combine(_dir, "P.user.hexproj"), TestContext.Current.CancellationToken));
-        json.RootElement.GetProperty("fileBreakpoints").EnumerateObject()
+        json.RootElement.GetProperty("codeBreakpoints").EnumerateObject()
             .Select(p => p.Name).Should().Equal("Module1");
     }
 
@@ -233,10 +286,10 @@ public sealed class UserSidecarBreakpointTests : IDisposable
 
         await sidecar.SaveAsync(project);
         var json = JsonDocument.Parse(await File.ReadAllTextAsync(sidecarPath, TestContext.Current.CancellationToken));
-        json.RootElement.GetProperty("fileBookmarks").GetProperty("Form1").EnumerateArray()
+        json.RootElement.GetProperty("codeBookmarks").GetProperty("Form1").EnumerateArray()
             .Select(e => e.GetInt32()).Should().Equal(0, 11);
-        json.RootElement.GetProperty("fileBreakpoints").GetProperty("Module1").EnumerateArray()
-            .Select(e => e.GetInt32()).Should().Equal(2, 13);
+        json.RootElement.GetProperty("codeBreakpoints").GetProperty("Module1").EnumerateArray()
+            .Select(e => e.GetInt32()).Should().Equal(1, 12);
     }
 
     /// <summary>
@@ -282,7 +335,7 @@ public sealed class UserSidecarBreakpointTests : IDisposable
 
         await sidecar.SaveAsync(project);
         var json = JsonDocument.Parse(await File.ReadAllTextAsync(path, TestContext.Current.CancellationToken));
-        json.RootElement.GetProperty("fileBreakpoints").GetProperty("Module1").EnumerateArray()
+        json.RootElement.GetProperty("codeBreakpoints").GetProperty("Module1").EnumerateArray()
             .Select(e => e.GetInt32()).Should().NotContain(99, "the next save does not write it");
     }
 
@@ -322,8 +375,8 @@ public sealed class UserSidecarBreakpointTests : IDisposable
         log.Messages.Should().ContainSingle(m => m.Contains("had 12 line(s) of code"))
             .Which.Should().Contain("[0, 13]");
         var json = JsonDocument.Parse(await File.ReadAllTextAsync(sidecarPath, TestContext.Current.CancellationToken));
-        json.RootElement.GetProperty("fileBreakpoints").GetProperty("Module1").EnumerateArray()
-            .Select(e => e.GetInt32()).Should().Equal(2, 13);
+        json.RootElement.GetProperty("codeBreakpoints").GetProperty("Module1").EnumerateArray()
+            .Select(e => e.GetInt32()).Should().Equal(1, 12);
         json.RootElement.TryGetProperty("breakpoints", out _).Should().BeFalse();
     }
 

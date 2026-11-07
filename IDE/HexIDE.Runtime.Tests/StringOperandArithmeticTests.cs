@@ -8,7 +8,7 @@ namespace HexIDE.Runtime.Tests;
 /// <summary>
 /// Arithmetic with a String operand (#1047), and the reading of a numeric String it shares with <c>CDbl</c> (#770). Each
 /// cell is as vb6.exe gave it under <c>On Error Resume Next</c>: TypeName, value and Err.Number. Native code, p-code and
-/// the IDE agree on every one (docs/vb6-fidelity-oracle.md, "A String in arithmetic").
+/// the IDE agree on every one (docs/vb6-fidelity-oracle/a-string-in-arithmetic.md, "A String in arithmetic").
 /// </summary>
 /// <remarks>
 /// Every cell runs in a stated culture, opened with <see cref="VbLocale.Use"/>, because a String is read in the program's

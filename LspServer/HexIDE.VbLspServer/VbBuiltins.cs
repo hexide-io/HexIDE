@@ -12,6 +12,9 @@ internal static class VbBuiltins
 {
     private static readonly HashSet<string> _names = new(StringComparer.OrdinalIgnoreCase)
     {
+        // Intrinsic constant recorded by #54 (function calls already bypass the variable visitor).
+        "vbPixels",
+
         // ── Error object ──────────────────────────────────────────────────────
         "Err",
 

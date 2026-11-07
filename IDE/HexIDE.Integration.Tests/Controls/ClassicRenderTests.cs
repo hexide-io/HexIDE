@@ -38,6 +38,73 @@ namespace HexIDE.Integration.Tests.Controls;
 /// </summary>
 public class ClassicRenderTests
 {
+    [AvaloniaFact]
+    public void SingleLineTextBox_ShortHeight_HoldsItsTextWithoutAVerticalBar()
+    {
+        foreach (var height in new[] { 19, 21, 24, 25 })
+        {
+            var box = new VBTextBox { Text = "hello", Width = 120, Height = height };
+            var window = BuildHost(box);
+            try
+            {
+                window.Show();
+                Dispatcher.UIThread.RunJobs();
+                using var frame = window.CaptureRenderedFrame();
+                frame.Should().NotBeNull();
+
+                var viewer = box.GetVisualDescendants().OfType<ScrollViewer>().Single();
+                viewer.Extent.Height.Should().BeLessThanOrEqualTo(viewer.Viewport.Height);
+                var presenter = box.GetVisualDescendants().OfType<Avalonia.Controls.Presenters.TextPresenter>().Single();
+                presenter.TextLayout.Height.Should().BeLessThanOrEqualTo(viewer.Viewport.Height);
+                box.GetVisualDescendants().OfType<Avalonia.Controls.Primitives.ScrollBar>()
+                    .Where(bar => bar.Orientation == Avalonia.Layout.Orientation.Vertical)
+                    .Should().OnlyContain(bar => !bar.IsVisible);
+            }
+            finally
+            {
+                window.Close();
+            }
+        }
+    }
+
+    [AvaloniaFact]
+    public void SingleLineTextBox_InsetFollowsFontAndHeight()
+    {
+        var box = new VBTextBox { Text = "hello", Width = 120, Height = 19 };
+        var window = BuildHost(box);
+        try
+        {
+            window.Show();
+            foreach (var fontSize in new[] { 13d, 11d })
+            {
+                box.FontSize = fontSize;
+                foreach (var height in new[] { 19, 21, 24, 25, 19 })
+                {
+                    box.Height = height;
+                    Dispatcher.UIThread.RunJobs();
+                    using var frame = window.CaptureRenderedFrame();
+                    frame.Should().NotBeNull();
+                    var viewer = box.GetVisualDescendants().OfType<ScrollViewer>().Single();
+                    var presenter = box.GetVisualDescendants().OfType<Avalonia.Controls.Presenters.TextPresenter>().Single();
+                    // Where the line can fit inside the borders it must; where it cannot (Windows' default font at 13
+                    // lays out 17.3 tall, more than a 19-high box holds), it is clipped, never scrolled.
+                    var room = height - box.BorderThickness.Top - box.BorderThickness.Bottom;
+                    if (presenter.TextLayout.Height <= room)
+                        presenter.TextLayout.Height.Should().BeLessThanOrEqualTo(viewer.Viewport.Height);
+                    box.GetVisualDescendants().OfType<Avalonia.Controls.Primitives.ScrollBar>()
+                        .Where(bar => bar.Orientation == Avalonia.Layout.Orientation.Vertical)
+                        .Should().OnlyContain(bar => !bar.IsVisible);
+                    if (height == 25)
+                        box.Padding.Should().Be(new Thickness(1));
+                }
+            }
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
     /// <summary>
     /// A window carrying the VB6 control themes plus the SystemColors brushes they resolve. The bare
     /// SimpleTheme test app has neither, exactly as noted in TranslationEditorViewIntegrationTests.
@@ -186,6 +253,39 @@ public class ClassicRenderTests
         }
     }
 
+    [AvaloniaFact]
+    public void LightPalette_ClearsContrastAA_OnClassic()
+    {
+        var app = Application.Current!;
+        var original = app.RequestedThemeVariant;
+        var definition = SyntaxHighlightingTheme.Definition;
+        var classic = new ResourceInclude(new Uri("avares://HexIDE/"))
+        {
+            Source = new Uri("avares://HexIDE/Themes/Classic.axaml"),
+        };
+        var background = classic.Loaded[Classic.CommonControls.SystemColors.WindowBrushKey]
+            .Should().BeAssignableTo<ISolidColorBrush>().Subject.Color;
+
+        try
+        {
+            app.RequestedThemeVariant = ThemeVariant.Light;
+            Dispatcher.UIThread.RunJobs();
+
+            foreach (var color in definition.NamedHighlightingColors)
+            {
+                var solid = (color.Foreground?.GetBrush(null!)).Should()
+                    .BeAssignableTo<ISolidColorBrush>($"'{color.Name}' must have a solid foreground").Subject;
+                ContrastRatio(solid.Color, background).Should().BeGreaterThanOrEqualTo(4.5,
+                    $"'{color.Name}' must be legible on Classic's editor background");
+            }
+        }
+        finally
+        {
+            app.RequestedThemeVariant = original;
+            Dispatcher.UIThread.RunJobs();
+        }
+    }
+
     /// <summary>
     /// The guard that would have caught the original bug before it shipped: every named colour must
     /// clear WCAG AA against the editor background of both dark packs (Dark #252526, Abyss #000C18).
@@ -201,7 +301,7 @@ public class ClassicRenderTests
         var names = new[]
         {
             "Comment", "String", "Number", "Constant",
-            "Keyword", "IOKeyword", "StorageModifier", "Type", "Function",
+            "Keyword", "IOKeyword", "StorageModifier", "Type", "Function", "MetadataKeyword",
         };
 
         try
@@ -213,9 +313,8 @@ public class ClassicRenderTests
             {
                 foreach (var name in names)
                 {
-                    var brush = definition.GetNamedColor(name)?.Foreground?.GetBrush(null!);
-                    if (brush is not ISolidColorBrush solid)
-                        continue;
+                    var solid = (definition.GetNamedColor(name)?.Foreground?.GetBrush(null!)).Should()
+                        .BeAssignableTo<ISolidColorBrush>($"'{name}' must have a solid foreground").Subject;
 
                     ContrastRatio(solid.Color, background).Should().BeGreaterThanOrEqualTo(4.5,
                         $"'{name}' must be legible on {background}");

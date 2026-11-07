@@ -1,28 +1,105 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text.Json;
 using Avalonia.Input;
 using Avalonia.Platform;
 using Serilog;
+using HexIDE.IDE;
+using HexIDE.Profiles;
 
 namespace HexIDE.Keymaps;
 
 public sealed class KeymapService : IKeymapService
 {
+    // Commands are static, so menu observers follow changes from any service instance.
+    internal static event Action? GesturesChanged;
+
     private readonly Dictionary<string, IReadOnlyList<KeyGesture>> _defaults;
+
+    private readonly Dictionary<string, string> _packPaths = new(StringComparer.OrdinalIgnoreCase);
 
     public string ActiveKeymap { get; private set; } = "Default";
 
-    public IReadOnlyList<string> AvailableKeymaps { get; } = ["Default", "VB6"];
+    public IReadOnlyList<string> AvailableKeymaps { get; }
 
-    public KeymapService()
+    public KeymapService() : this(HexIDE.IDE.UserDataPath.For("keymaps")) { }
+
+    internal KeymapService(string packDirectory)
     {
+        var names = new List<string> { "Default", "VB6" };
+        try
+        {
+            if (!Static.IsRecoveryMode && Directory.Exists(packDirectory))
+            {
+                foreach (var path in Directory.EnumerateFiles(packDirectory, "*.json")
+                             .OrderBy(path => path, StringComparer.Ordinal))
+                {
+                    var name = Path.GetFileNameWithoutExtension(path);
+                    if (names.Contains(name, StringComparer.OrdinalIgnoreCase))
+                        continue;
+                    _packPaths.Add(name, path);
+                    names.Add(name);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "KeymapService: Failed to discover keymaps in '{Directory}'", packDirectory);
+        }
+        AvailableKeymaps = names.AsReadOnly();
+
         // Snapshot factory defaults before any Apply() call.
         // Must happen before the first Apply(), guaranteed by DI construction order.
         _defaults = new Dictionary<string, IReadOnlyList<KeyGesture>>(CommandKeyMapping.Table.Count);
         foreach (var (name, cmd) in CommandKeyMapping.Table)
             _defaults[name] = [..cmd.Gestures];
+    }
+
+    internal void Apply(ProfileSnapshot profile, SettingsService settings)
+    {
+        if (profile.Keymap is not { } payload || settings.HasExplicitKeymapChoice)
+        {
+            Apply(settings.ActiveKeymap);
+            return;
+        }
+
+        var (pack, bindings) = PrepareProfileKeymap(profile.Source, payload);
+        foreach (var (name, command) in CommandKeyMapping.Table)
+        {
+            command.Gestures.Clear();
+            foreach (var gesture in bindings.TryGetValue(name, out var binding) ? binding : _defaults[name])
+                command.Gestures.Add(gesture);
+        }
+        ActiveKeymap = pack.Name;
+        GesturesChanged?.Invoke();
+    }
+
+    internal static (KeymapPackRecord Pack, Dictionary<string, IReadOnlyList<KeyGesture>> Bindings)
+        PrepareProfileKeymap(string source, ProfilePayload payload)
+    {
+        try
+        {
+            var pack = payload.Content.Deserialize(KeymapJsonContext.Default.KeymapPackRecord) ?? throw new JsonException();
+            var bindings = new Dictionary<string, IReadOnlyList<KeyGesture>>();
+            if (pack.Bindings is not null)
+                foreach (var (name, value) in pack.Bindings)
+                {
+                    if (!CommandKeyMapping.Table.ContainsKey(name))
+                    {
+                        Log.Warning("KeymapService: Unknown command '{Name}' in bundle '{Source}', file '{File}'",
+                            name, source, payload.File);
+                        continue;
+                    }
+                    bindings[name] = string.IsNullOrEmpty(value) ? [] : [KeyGesture.Parse(value)];
+                }
+            return (pack, bindings);
+        }
+        catch (Exception ex) when (ex is JsonException or FormatException or ArgumentException or InvalidOperationException)
+        {
+            throw new ProfileLoadException(source, payload.File, ProfileError.InvalidPayload, ex);
+        }
     }
 
     public void Apply(string keymapName)
@@ -40,13 +117,17 @@ public sealed class KeymapService : IKeymapService
         if (keymapName == "Default")
         {
             Log.Debug("KeymapService: Applied Default keymap (factory gestures restored)");
+            GesturesChanged?.Invoke();
             return;
         }
 
         try
         {
-            var uri = new Uri($"avares://HexIDE/Keymaps/Packs/{keymapName}.json");
-            using var stream = AssetLoader.Open(uri);
+            using var stream = _packPaths.TryGetValue(keymapName, out var path)
+                ? File.OpenRead(path)
+                : keymapName == "VB6"
+                    ? AssetLoader.Open(new Uri("avares://HexIDE/Keymaps/Packs/VB6.json"))
+                    : throw new InvalidOperationException($"Unknown keymap '{keymapName}'.");
             var pack = JsonSerializer.Deserialize(stream, KeymapJsonContext.Default.KeymapPackRecord)
                        ?? throw new InvalidOperationException($"Keymap pack '{keymapName}' deserialized to null.");
 
@@ -84,6 +165,9 @@ public sealed class KeymapService : IKeymapService
             Log.Warning(ex, "KeymapService: Failed to apply keymap '{Name}', reverting to Default", keymapName);
             ActiveKeymap = "Default";
             Apply("Default");
+            return;
         }
+
+        GesturesChanged?.Invoke();
     }
 }

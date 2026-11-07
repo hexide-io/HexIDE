@@ -6,7 +6,7 @@ namespace HexIDE.Runtime.Tests;
 /// A call written with a <c>$</c>, <c>Trim$(s)</c> and <c>Left$(s, 1)</c>, the first slice of #742, which most programs
 /// reach on their first line of string handling (#1071 did, in its setup dialog). The name is looked up without the
 /// character, and the character is then checked against what was found. Every expectation was measured on vb6.exe, in
-/// docs/vb6-fidelity-oracle.md: "A type character on a name the program also declares" for the rule, and "The library's
+/// docs/vb6-fidelity-oracle/the-librarys--forms.md: "A type character on a name the program also declares" for the rule, and "The library's
 /// $ forms" for which functions have one and what it does with a Null.
 /// </summary>
 public class DollarFormCallTests : BaseVBTestFixture

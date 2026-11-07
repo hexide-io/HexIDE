@@ -113,6 +113,42 @@ public class GuardedWritersTests : IDisposable
         return NewEditor().Initialize(module);
     }
 
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task InsertFile_normalizes_line_breaks_in_code_and_after_the_header(bool inHeader)
+    {
+        var vm = OpenForm();
+        var before = vm.Document.Text;
+        var at = inHeader ? 3 : before.IndexOf("    Dim Caption", StringComparison.Ordinal);
+        var file = System.IO.Path.GetTempFileName();
+        try
+        {
+            await System.IO.File.WriteAllTextAsync(file, "' first\n' second\r' third\r\n");
+            windowManager.OpenFilePickerAsync(Arg.Any<Avalonia.Platform.Storage.FilePickerOpenOptions>())
+                .Returns(new[] { file });
+            await vm.InsertFileAsync(at, 0);
+            vm.Document.Text.Should().Be(before.Insert(inHeader ? vm.PastReadOnlyRegion(at) : at,
+                "' first\r\n' second\r\n' third\r\n"));
+        }
+        finally { System.IO.File.Delete(file); }
+    }
+
+    [AvaloniaFact]
+    public async Task AddProcedure_in_a_buffer_without_line_breaks_falls_back_to_CRLF()
+    {
+        var vm = NewEditor();
+        vm.Document.Text = "Option Explicit";
+        windowManager.ShowDialog(Arg.Any<AddProcedureViewModel>()).Returns(call =>
+        {
+            call.Arg<AddProcedureViewModel>().Name = "Test";
+            return true;
+        });
+        await vm.AddProcedure();
+        vm.Document.Text.Should().Be("Option Explicit\r\n\r\nPublic Sub Test()\r\n\r\nEnd Sub\r\n");
+        vm.CaretOffset.Should().Be(vm.Document.Text.IndexOf("\r\nEnd Sub", StringComparison.Ordinal));
+    }
+
     private static int HeaderEnd(CodeEditorViewModel vm) =>
         vm.Document.Text.IndexOf("Option Explicit", StringComparison.Ordinal);
 

@@ -16,7 +16,7 @@ namespace HexIDE.Runtime.Tests;
 ///
 /// Loads real VB6-authored files, re-serializes them, and compares bytes. Any difference in a file HexIDE
 /// did not author is a violation of the round-trip guarantee ("open any VB6 project, save it, lose nothing")
-/// by definition — no oracle round-trip is needed to call it a defect, because VB6 wrote the input.
+/// by definition — except reference path spelling, which VB6 changes with the project drive (#2274).
 ///
 /// corpus/designer and corpus/member-attributes are always required. Additional roots:
 ///   1. HEXIDE_ROUNDTRIP_CORPUS — ';'-separated absolute paths.
@@ -76,6 +76,14 @@ public class SerializationCorpusTests
                      .Order(StringComparer.Ordinal))
             yield return saved;
 
+        // Always as well: the only files anywhere holding an in-box ActiveX control HexIDE models, each one VB6's IDE saved
+        // (#1082). Their inputs, hand-written, are not VB6's bytes and are not walked.
+        var inBox = findRoot(Path.Join("corpus", "inbox-controls"));
+        inBox.Should().NotBeNull("corpus/inbox-controls ships with the repository");
+        var inBoxSaved = Path.Join(inBox!, "saved");
+        Directory.Exists(inBoxSaved).Should().BeTrue("its saved half is this lane's proof for the in-box controls");
+        yield return inBoxSaved;
+
         // The repository's own demo/ is checked whatever else is configured: HEXIDE_ROUNDTRIP_CORPUS adds a corpus,
         // it does not replace the repository's files (#1016).
         var repoDemo = findRoot("demo");
@@ -90,8 +98,7 @@ public class SerializationCorpusTests
             yield break;
         }
 
-        var vb98 = Environment.GetEnvironmentVariable("VB6_TEMPLATES")
-                   ?? @"C:\Program Files (x86)\Microsoft Visual Studio\VB98\Template";
+        var vb98 = TemplateRoot();
         if (Directory.Exists(vb98)) yield return vb98;
 
     }
@@ -99,6 +106,7 @@ public class SerializationCorpusTests
     [Theory]
     [InlineData("demo")]
     [InlineData("corpus/designer")]
+    [InlineData("corpus/inbox-controls")]
     public void MissingRepositoryRootFailsTheLane(string missing)
     {
         string? FindRoot(string relative) => relative.Replace('\\', '/') == missing ? null : FindUpwards(relative);
@@ -109,14 +117,8 @@ public class SerializationCorpusTests
 
     private static string? FindUpwards(string folderName)
     {
-        var dir = new DirectoryInfo(AppContext.BaseDirectory);
-        while (dir is not null)
-        {
-            var candidate = Path.Join(dir.FullName, folderName);
-            if (Directory.Exists(candidate)) return candidate;
-            dir = dir.Parent;
-        }
-        return null;
+        var candidate = Path.Join(RepoTree.Root(), folderName);
+        return Directory.Exists(candidate) ? candidate : null;
     }
 
     private static IReadOnlyList<string> CorpusFiles(params string[] extensions)
@@ -729,6 +731,76 @@ public class SerializationCorpusTests
           + $"{string.Join(", ", broken)}).\n" + report);
     }
 
+    // Only the path may change spelling on save (#2274). Do not parse and reserialize the
+    // whole line: that would hide changes to the GUID, LCID, name or surrounding bytes.
+    private static string ReferenceIdentities(string source, string projectPath)
+    {
+        var directory = projectPath[..(projectPath.Length - SerializedProject.FileNameOf(projectPath).Length)];
+        return Regex.Replace(source, @"(?m)^(Reference=\*\\G\{[^}\r\n]+\}#[^#\r\n]+#[^#\r\n]+#)([^#\r\n]+)(?=#)",
+            match => match.Groups[1].Value + AbsoluteReference(match.Groups[2].Value, directory));
+    }
+
+    private static string AbsoluteReference(string path, string directory)
+    {
+        path = path.Replace('/', '\\');
+        var absolute = path.StartsWith('\\') || (path.Length >= 3 && path[1] == ':' && path[2] == '\\');
+        var combined = absolute ? path : directory.Replace('/', '\\').TrimEnd('\\') + "\\" + path;
+        var root = combined.StartsWith(@"\\") ? @"\\" : combined.StartsWith('\\') ? @"\" : "";
+        var rootParts = root == @"\\" ? 2 : combined.Length >= 2 && combined[1] == ':' ? 1 : 0;
+        var parts = new List<string>();
+        foreach (var part in combined.Split('\\', StringSplitOptions.RemoveEmptyEntries))
+        {
+            if (part == ".") continue;
+            if (part == "..")
+            {
+                if (parts.Count > rootParts) parts.RemoveAt(parts.Count - 1);
+            }
+            else
+                parts.Add(part);
+        }
+        return root + string.Join("\\", parts).ToUpperInvariant();
+    }
+
+    [Theory]
+    [InlineData(@"C:\Windows\SysWOW64\stdole2.tlb", @"..\..\Windows\SysWOW64\stdole2.tlb", true)]
+    [InlineData(@"X:\lib.tlb", @"X:\lib.tlb", true)]
+    [InlineData(@"X:\lib.tlb", @"C:\lib.tlb", false)]
+    [InlineData(@"C:\Windows\SysWOW64\stdole2.tlb", @"..\Windows\SysWOW64\stdole2.tlb", false)]
+    public void Project_comparison_resolves_only_reference_paths(string originalPath, string savedPath, bool equal)
+    {
+        const string prefix = @"Reference=*\G{00020430-0000-0000-C000-000000000046}#2.0#0#";
+        var original = prefix + originalPath + "#OLE Automation\r\nName=\"Probe\"\r\n";
+        var saved = prefix + savedPath + "#OLE Automation\r\nName=\"Probe\"\r\n";
+        var expected = ReferenceIdentities(original, @"C:\a\b\Probe.vbp");
+        (expected == ReferenceIdentities(saved, @"C:\a\b\Probe.vbp")).Should().Be(equal);
+        foreach (var changed in new[] { saved.Replace("#2.0#", "#3.0#"), saved.Replace("#0#", "#9#"),
+                     saved.Replace("OLE Automation", "Other"), saved.Replace("Probe", "Other"),
+                     saved.Replace("\r\n", "\n"), saved.Replace("00020430", "00020431") })
+            ReferenceIdentities(changed, @"C:\a\b\Probe.vbp").Should().NotBe(expected);
+    }
+
+    [Fact]
+    public void Project_comparison_resolves_each_projects_own_folder()
+    {
+        const string prefix = @"Reference=*\G{00020430-0000-0000-C000-000000000046}#2.0#0#";
+        ReferenceIdentities(prefix + @"..\lib.tlb#OLE Automation", @"C:\a\b\Probe.vbp")
+            .Should().Be(ReferenceIdentities(prefix + @"lib.tlb#OLE Automation", @"C:\a\Probe.vbp"));
+    }
+
+    private static string TemplateRoot() => Environment.GetEnvironmentVariable("VB6_TEMPLATES")
+        ?? @"C:\Program Files (x86)\Microsoft Visual Studio\VB98\Template";
+
+    // #2459: the measured ActiveX EXE template save adds only this line. Keep the
+    // expectation separate from the writer, so the corpus still detects any other change.
+    private static string ExpectedProjectSave(string source)
+    {
+        if (!Regex.IsMatch(source, @"(?m)^Type=OleExe\r?$")
+            || Regex.IsMatch(source, @"(?mi)^Retained="))
+            return source;
+        return source.Replace("Unattended=0\r\nThreadPerObject=0\r\n",
+            "Unattended=0\r\nRetained=0\r\nThreadPerObject=0\r\n");
+    }
+
     [Fact]
     public void Project_files_round_trip_byte_for_byte()
     {
@@ -754,7 +826,8 @@ public class SerializationCorpusTests
             try
             {
                 var rendered = RoundTripProject(original, path);
-                var diff = Differences(original, rendered);
+                var diff = Differences(ReferenceIdentities(ExpectedProjectSave(original), path),
+                    ReferenceIdentities(rendered, path));
                 if (diff is null) { report.AppendLine($"OK        {label}"); continue; }
                 failures.Add(path);
                 report.AppendLine($"DIFF      {label}: {diff}");
@@ -807,6 +880,16 @@ public class SerializationCorpusTests
                 AbsolutePath = Path.GetFullPath(Path.Join(dir, relative.Replace('\\', Path.DirectorySeparatorChar)))
             });
 
+        for (var i = 0; i < serialized.RelativeRelatedDocPaths.Count; i++)
+        {
+            var (name, relative, line) = serialized.RelativeRelatedDocPaths[i];
+            project.AddRelatedDocument(new RelatedDocumentDefinition(project, name,
+                Path.GetFullPath(Path.Join(dir, SerializedProject.ToHostPath(relative))), line)
+            {
+                OriginalItemSlot = line is null ? null : serialized.RelatedDocumentLineSlots[i],
+            });
+        }
+
         // Mirror ProjectService: AddForm sets `StartupForm ??= form`, so the FIRST form added silently
         // becomes the startup form, and the loader then corrects it by matching the recorded name. Without
         // this the harness reports a defect the product does not have — Data Project.vbp came back with
@@ -814,7 +897,9 @@ public class SerializationCorpusTests
         project.StartupForm = project.Forms.FirstOrDefault(f => f.Name == serialized.StartupFormName);
 
         project.SetReferences(serialized.References);
-        project.PreservedItemLines.AddRange(serialized.PreservedItemLines);
+        project.KnownLineKeys.AddRange(serialized.KnownLineKeys);
+        for (var i = 0; i < serialized.PreservedItemLines.Count; i++)
+            project.PreserveItemLine(serialized.PreservedItemLines[i], serialized.PreservedItemLineSlots[i]);
         project.UnknownPreSectionLines.AddRange(serialized.UnknownPreSectionLines);
         project.ExtensionTail = serialized.ExtensionTail;
 

@@ -12,6 +12,41 @@ This is one of three independent pack systems that follow the same shape and com
 colours, `keymap-packs` swaps keyboard gestures, and `language-packs` swaps text.
 
 ## Requirements
+
+### Requirement: IDE dialog buttons expose keyboard focus and fixed defaults
+IDE message boxes, server prompts and all dialogs hosted by the IDE window manager SHALL show a dotted inset
+focus rectangle for keyboard focus, using the active theme's control-text brush. Mouse focus alone
+SHALL NOT show it. Buttons with a fixed default action SHALL show a heavier border. These styles
+SHALL NOT change VB6 controls on running forms or program message boxes.
+
+#### Scenario: Opening a server prompt
+- **WHEN** a server prompt opens with actions
+- **THEN** its first action receives keyboard focus and shows the focus cue
+
+#### Scenario: Navigating a server prompt
+- **WHEN** keyboard navigation focuses an action button
+- **THEN** its rendering differs from an unfocused button in Classic, Dark and Abyss
+
+#### Scenario: Showing an IDE message box
+- **WHEN** an IDE message box opens
+- **THEN** its first action is the default and carries a heavier border
+
+#### Scenario: Recorded dialog defaults
+- **WHEN** the IDE opens Save Changes
+- **THEN** Yes is the declared default with the heavier border
+- **AND** Find/Replace retains Find Next, Add Watch/Components/Options retain OK, Recovery retains Restore,
+  and Runtime Error retains Debug
+- **AND** other unmeasured VB6 default choices retain their existing assignments
+
+#### Scenario: Opening a shared desktop dialog
+- **WHEN** the IDE opens a dialog through its shared window manager
+- **THEN** its buttons use the same theme cues without a view-type allowlist
+- **AND** if no control already has focus, its enabled visible default button receives keyboard focus,
+  or its first text input / available tab stop if it has no default
+- **AND** an explicit input target (Find What in Find/Replace, Expression in Add Watch) takes priority
+- **AND** an existing explicit focus choice is preserved with keyboard cues
+- **AND** program message boxes and input boxes retain their existing chrome and focus behaviour
+
 ### Requirement: A theme SHALL be declared as data, not compiled in
 A theme SHALL be a data file declaring colour values by key, and adding one SHALL require no code change and
 no rebuild.
@@ -76,6 +111,47 @@ one panel that did not change rather than as an error.
 - **WHEN** new chrome is added
 - **THEN** its colours reference theme keys
 
+#### Scenario: Form Layout thumbnail follows the theme
+- **WHEN** the theme changes while Form Layout is open
+- **THEN** the thumbnail face uses `WindowBrushKey`, its label uses `WindowTextBrushKey`, and its title strip uses `ControlDarkBrushKey`
+
 #### Scenario: A colour that has no key
 - **WHEN** chrome needs a colour the theme does not define
 - **THEN** a key is added to the definition layer and every theme inherits a default for it
+
+#### Scenario: A form designer without an MDI ancestor
+- **WHEN** a form designer is opened as a Dock document
+- **THEN** its caption bar uses the `ActiveTitleBarBrush` resource resolved at the bar, without an MDI ancestor binding
+
+### Requirement: Shipped dark packs SHALL declare all mapped colours
+Dark and Abyss SHALL carry every colour key supported by the theme-pack mapping. Their warning banners
+SHALL use dark backgrounds, with foreground contrast of at least 4.5:1 and border contrast of at least 3:1
+against both the banner and Window backgrounds. Validation error text SHALL have at least 4.5:1 contrast
+against the pack's Window background.
+
+#### Scenario: Warning and validation surfaces in a dark pack
+- **WHEN** Dark or Abyss is selected
+- **THEN** warning banners and validation text use that pack's explicit colours rather than Classic's defaults
+
+### Requirement: Hidden controls SHALL be dimmed in the designer
+The designer SHALL dim a modelled control whose own Visible property or a containing control's Visible
+property is False using the theme's `DesignerHiddenControlMask` colour (the `DesignerHiddenControlMaskBrush` resource). Only the preview SHALL
+be dimmed; the control SHALL remain selectable and editable. This is a HexIDE addition.
+
+#### Scenario: Changing visibility while designing
+- **WHEN** a control's Visible property becomes False
+- **THEN** its preview uses the theme's dimming mask immediately
+- **AND** its selection and editing remain available
+- **WHEN** Visible becomes True and all containing controls are visible
+- **THEN** the preview has no dimming mask
+
+#### Scenario: A hidden container
+- **WHEN** a Frame containing a CommandButton has Visible=False, on load or after editing
+- **THEN** both previews use the theme's dimming mask
+- **AND** the button remains selectable, movable and resizable
+- **WHEN** the Frame becomes visible
+- **THEN** the button's preview is dimmed only if its own Visible property is False
+
+#### Scenario: Changing the dimming colour
+- **WHEN** the theme's DesignerHiddenControlMask colour changes
+- **THEN** hidden controls already on the designer use the new mask

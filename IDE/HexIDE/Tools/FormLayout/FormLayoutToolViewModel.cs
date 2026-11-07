@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using Dock.Model.Mvvm.Controls;
 using HexIDE.Events;
 using HexIDE.IDE;
@@ -14,6 +15,8 @@ namespace HexIDE.Tools;
 
 public partial class FormLayoutToolViewModel : Tool
 {
+    [Notify] private bool _hasForm;
+    [Notify] private string _formName = "";
     [Notify] private double _screenAspectRatio = 1.333;
     [Notify] private double _thumbLeft = 10;
     [Notify] private double _thumbTop = 10;
@@ -43,6 +46,11 @@ public partial class FormLayoutToolViewModel : Tool
                     UpdateFromForm(null);
             });
 
+        eventBus.Subscribe<FormUnloadedEvent>(e =>
+        {
+            if (_rootComponent != null && e.Form.Components.Contains(_rootComponent))
+                UpdateFromForm(null);
+        });
         eventBus.Subscribe<ProjectUnloadedEvent>(_ => UpdateFromForm(null));
     }
 
@@ -73,11 +81,16 @@ public partial class FormLayoutToolViewModel : Tool
         if (_rootComponent != null)
             _rootComponent.OnComponentPropertyChanged += OnRootPropertyChanged;
 
+        HasForm = _rootComponent != null;
+        FormName = _rootComponent?.GetPropertyOrDefault(VBProperties.NameProperty) ?? "";
         RecalculateThumb();
     }
 
     private void OnRootPropertyChanged(ComponentInstance instance, PropertyClass property)
     {
+        if (property == VBProperties.NameProperty)
+            FormName = instance.GetPropertyOrDefault(VBProperties.NameProperty) ?? "";
+
         if (property == VBProperties.LeftProperty   || property == VBProperties.TopProperty ||
             property == VBProperties.WidthProperty  || property == VBProperties.HeightProperty ||
             property == VBProperties.StartUpPositionProperty)

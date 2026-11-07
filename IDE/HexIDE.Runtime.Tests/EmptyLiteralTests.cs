@@ -16,7 +16,7 @@ namespace HexIDE.Runtime.Tests;
 /// The VALUE was always reachable: an un-assigned Variant is Empty, and every behaviour below already
 /// matched what HexIDE's <c>EmptyVariant</c> does. Only the spelling was unavailable, which is why this is
 /// a grammar change and nothing else. Expectations are vb6.exe output (see <i>The Empty literal</i> in
-/// docs/vb6-fidelity-oracle.md).
+/// docs/vb6-fidelity-oracle/the-empty-literal.md).
 /// </para>
 /// </summary>
 public class EmptyLiteralTests : BaseVBTestFixture

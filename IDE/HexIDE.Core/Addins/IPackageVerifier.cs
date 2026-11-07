@@ -18,6 +18,9 @@ public enum PackageVerdict
     /// <summary>A signature is missing, malformed, or does not chain to the root, or a file hash
     /// mismatches. Such a package is never loaded in normal operation (developer mode aside).</summary>
     Untrusted,
+
+    /// <summary>Unsupported schema or minimum host version. Never overridable by developer mode.</summary>
+    Incompatible,
 }
 
 /// <summary>
@@ -34,6 +37,10 @@ public sealed record PackageVerificationResult(
     string? Error)
 {
     public bool IsVerified => Verdict == PackageVerdict.Verified;
+
+    /// <summary>Immutable declaration and build identity, set only after successful verification.
+    /// Null for untrusted or incompatible packages; legacy absence differs from an explicit empty list.</summary>
+    public AddinCapabilityDeclaration? VerifiedDeclaration { get; init; }
 
     /// <summary>SHA-256 (lower-case hex) of the raw <c>addin.json</c> bytes — a stable content identity
     /// for the package, used as the consent key. Null only when the manifest could not be read. Because

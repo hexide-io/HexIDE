@@ -1,3 +1,5 @@
+using System.Globalization;
+using System.Numerics;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Text.Json;
@@ -32,7 +34,7 @@ namespace HexIDE.Desktop.Server;
 /// keeps the message as thrown.
 /// </para>
 /// </remarks>
-internal static class ToolFailures
+internal static partial class ToolFailures
 {
     /// <summary>
     /// Checks text before the SDK converts its JsonNode request to CallToolRequestParams. That conversion writes
@@ -143,9 +145,17 @@ internal static class ToolFailures
     }
 
     /// <summary>What a caller is told when its arguments could not be bound: which, and why, and that nothing was done.</summary>
-    internal static string Refusal(string tool, IEnumerable<string> problems) =>
-        $"'{tool}' refused its arguments, and nothing was done: {string.Join("; ", problems.Select(p => p.TrimEnd('.')))}. "
-        + "Its input schema names each parameter and its type.";
+    internal static string Refusal(string tool, IEnumerable<string> problems)
+    {
+        var named = problems.Select(p => p.TrimEnd('.')).ToList();
+        // A schema the client holds is older than the server's: pointing at it sends the caller back to the stale thing,
+        // and the same call from the same session sends the same text again (#2446).
+        var close = named.Any(p => p.Contains(ArgumentCheck.StaleSchemaMark, StringComparison.Ordinal))
+            ? "Retrying in this session sends the same text: its client keeps the schema it loaded, which this server has "
+              + "since changed. A new session loads the current schema and sends the value as it was written."
+            : "Its input schema names each parameter and its type.";
+        return $"'{tool}' refused its arguments, and nothing was done: {string.Join("; ", named)}. {close}";
+    }
 
     /// <summary>The problem a binding failure names, which never leaves the refusal saying nothing.</summary>
     internal static List<string> BindingProblems(Exception ex, IDictionary<string, JsonElement>? arguments,
@@ -163,13 +173,64 @@ internal static class ToolFailures
                     try { _ = value.Deserialize(type, ReplyJson.Options); }
                     catch (JsonException binding)
                     {
-                        problems.Add($"'{name}': {WithoutProfile(binding.Message)}");
+                        var problem = IntegralProblem(value, type) is { } overflow
+                            ? overflow + ParameterGuidance(tool, name) : WithoutProfile(binding.Message);
+                        problems.Add($"'{name}': {problem}");
                     }
         return problems.Count > 0 ? problems : [WithoutProfile(ex.Message)];
     }
 
-    // Tools are declared in this assembly (the test host links this file beside its own attributed tools).
-    private static readonly Dictionary<string, Dictionary<string, Type>> ParameterTypes = typeof(ToolFailures).Assembly
+    internal static string? IntegralProblem(JsonElement value, Type type)
+    {
+        type = Nullable.GetUnderlyingType(type) ?? type;
+        if (type.IsArray && value.ValueKind == JsonValueKind.Array)
+        {
+            var index = 0;
+            foreach (var item in value.EnumerateArray())
+            {
+                if (IntegralProblem(item, type.GetElementType()!) is { } problem)
+                    return $"item {index}: {problem}";
+                index++;
+            }
+            return null;
+        }
+        var bounds = Type.GetTypeCode(type) switch
+        {
+            TypeCode.SByte => (new BigInteger(sbyte.MinValue), new BigInteger(sbyte.MaxValue)),
+            TypeCode.Byte => (new BigInteger(byte.MinValue), new BigInteger(byte.MaxValue)),
+            TypeCode.Int16 => (new BigInteger(short.MinValue), new BigInteger(short.MaxValue)),
+            TypeCode.UInt16 => (new BigInteger(ushort.MinValue), new BigInteger(ushort.MaxValue)),
+            TypeCode.Int32 => (new BigInteger(int.MinValue), new BigInteger(int.MaxValue)),
+            TypeCode.UInt32 => (new BigInteger(uint.MinValue), new BigInteger(uint.MaxValue)),
+            TypeCode.Int64 => (new BigInteger(long.MinValue), new BigInteger(long.MaxValue)),
+            TypeCode.UInt64 => (new BigInteger(ulong.MinValue), new BigInteger(ulong.MaxValue)),
+            _ => (BigInteger.Zero, BigInteger.Zero),
+        };
+        if (bounds == (BigInteger.Zero, BigInteger.Zero)
+            || value.ValueKind is not (JsonValueKind.Number or JsonValueKind.String))
+            return null;
+        var text = value.ValueKind == JsonValueKind.String ? value.GetString()! : value.GetRawText();
+        if (!BigInteger.TryParse(text, NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture, out var number)
+            || (number >= bounds.Item1 && number <= bounds.Item2))
+            return null;
+        return number < bounds.Item1
+            ? FormattableString.Invariant($"{text} is smaller than any whole number this argument can hold ({bounds.Item1})")
+            : FormattableString.Invariant($"{text} is larger than any whole number this argument can hold ({bounds.Item2})");
+    }
+
+    internal static string ParameterGuidance(string tool, string name)
+    {
+        var description = typeof(ToolFailures).Assembly.GetTypes()
+            .Where(t => t.GetCustomAttribute<McpServerToolTypeAttribute>() is not null)
+            .SelectMany(t => t.GetMethods())
+            .Where(m => m.GetCustomAttribute<McpServerToolAttribute>()?.Name == tool)
+            .SelectMany(m => m.GetParameters()).FirstOrDefault(p => p.Name == name)
+            ?.GetCustomAttribute<DescriptionAttribute>()?.Description;
+        return description is null ? "" : $". {description}";
+    }
+
+    // Tools are declared in this assembly; the test host adds its synthetic tool signatures.
+    internal static readonly Dictionary<string, Dictionary<string, Type>> ParameterTypes = typeof(ToolFailures).Assembly
         .GetTypes().Where(t => t.GetCustomAttribute<McpServerToolTypeAttribute>() is not null)
         .SelectMany(t => t.GetMethods())
         .Where(m => m.GetCustomAttribute<McpServerToolAttribute>()?.Name is not null)
@@ -241,7 +302,7 @@ internal static class ToolFailures
             && !string.Equals(shortForm, profile, StringComparison.OrdinalIgnoreCase))
             forms.Add(shortForm);
 
-        // And each spelled with forward slashes, as a file:///C:/Users/... URI carries it in an LSP message (#606).
+        // And each spelled with forward slashes, as a file:///<drive>:/Users/... URI carries it in an LSP message (#606).
         foreach (var form in forms.ToList())
             if (form.Contains('\\'))
                 forms.Add(form.Replace('\\', '/'));
@@ -255,6 +316,6 @@ internal static class ToolFailures
         return length is > 0 and < 1024 ? new string(buffer, 0, (int)length) : null;
     }
 
-    [DllImport("kernel32.dll", CharSet = CharSet.Unicode, EntryPoint = "GetShortPathNameW", SetLastError = true)]
-    private static extern uint GetShortPathName(string longPath, char[] shortPath, uint bufferLength);
+    [LibraryImport("kernel32.dll", StringMarshalling = StringMarshalling.Utf16, EntryPoint = "GetShortPathNameW", SetLastError = true)]
+    private static partial uint GetShortPathName(string longPath, [Out, MarshalAs(UnmanagedType.LPArray, SizeParamIndex = 2)] char[] shortPath, uint bufferLength);
 }

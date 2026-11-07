@@ -84,6 +84,35 @@ public class UserControlSaveRoundTripTests : IDisposable
         return vbp;
     }
 
+    // #1631 supervisor live-check regression, 2026-10-27: hand-written instances may lack extents.
+    [AvaloniaTheory]
+    [InlineData("")]
+    [InlineData("_ExtentX = 3175")]
+    [InlineData("_ExtentY = 1588")]
+    public async Task Invisible_instance_without_both_extents_opens_read_only_and_refuses_save(string extents)
+    {
+        var vbp = WriteProject("");
+        var ctlPath = Path.Join(dir, "UserControl1.ctl");
+        File.WriteAllText(ctlPath, File.ReadAllText(ctlPath).Replace("Begin VB.UserControl UserControl1",
+            "Begin VB.UserControl UserControl1\r\n   InvisibleAtRuntime = -1"));
+        var formPath = Path.Join(dir, "Form1.frm");
+        var original = $"VERSION 5.00\r\nBegin VB.Form Form1\r\n   Begin Test.UserControl1 Dial1\r\n      Height = 900\r\n      Width = 1800\r\n      {extents}\r\n   End\r\nEnd\r\nAttribute VB_Name = \"Form1\"\r\n";
+        File.WriteAllText(formPath, original);
+        File.AppendAllText(vbp, "Form=Form1.frm\r\n");
+        var svc = MakeService(out var loaded);
+        await svc.OpenProject(vbp);
+        var form = loaded().Forms.Single();
+        using var designer = new HexIDE.VisualDesigner.FormEditViewModel(null!, new EventBus(), svc,
+            null!, null!, Substitute.For<ISettingsService>(),
+            Substitute.For<HexIDE.Localization.ILocalizationService>()).Initialize(form);
+
+        designer.IsReadOnly.Should().BeTrue();
+        designer.ReadOnlyReason.Should().Contain("extents");
+        svc.HasUnsavedChanges(form); // Rendering for a read-only query must also be safe.
+        (await svc.SaveForm(form, saveAs: false, interactive: false)).Should().BeFalse();
+        File.ReadAllBytes(formPath).Should().Equal(System.Text.Encoding.UTF8.GetBytes(original));
+    }
+
     private static int Occurrences(string haystack, string needle)
     {
         var n = 0;
@@ -91,6 +120,98 @@ public class UserControlSaveRoundTripTests : IDisposable
              i = haystack.IndexOf(needle, i + needle.Length, StringComparison.Ordinal))
             n++;
         return n;
+    }
+
+    [Theory]
+    [InlineData("Module=Gone; Gone.bas", "Gone.bas")]
+    [InlineData("Class=Gone; Gone.cls", "Gone.cls")]
+    [InlineData("Form=Gone.frm", "Gone.frm")]
+    [InlineData("UserControl=Gone.ctl", "Gone.ctl")]
+    [InlineData("PropertyPage=Gone.pag", "Gone.pag")]
+    public async Task A_missing_member_is_marked_and_save_never_creates_its_file(string line, string file)
+    {
+        var vbp = Path.Join(dir, "Test.vbp");
+        File.WriteAllText(vbp, $"Type=Exe\r\n{line}\r\nName=\"Test\"\r\n");
+        var svc = MakeService(out var loaded);
+
+        await svc.OpenProject(vbp);
+        var project = loaded();
+        project.Forms.Should().BeEmpty();
+        project.Modules.Should().BeEmpty();
+        project.PreservedItemLines.Should().Equal(line);
+        var tool = new HexIDE.Tools.ProjectToolViewModel(Substitute.For<IProjectManager>(),
+            Substitute.For<IEventBus>(), Substitute.For<IProjectService>(), Substitute.For<IEditorService>(),
+            Substitute.For<HexIDE.Localization.ILocalizationService>());
+        using var tree = new HexIDE.Tools.ProjectViewModel(tool, project);
+        tree.Elements.OfType<HexIDE.Tools.PreservedItemViewModel>().Should().ContainSingle()
+            .Which.IsMissing.Should().BeTrue();
+
+        await svc.SaveProject(project, saveAs: false);
+
+        File.Exists(Path.Join(dir, file)).Should().BeFalse();
+        File.ReadAllText(vbp).ReplaceLineEndings("\n").Should().Contain(line + "\n");
+    }
+
+    [Fact]
+    public async Task A_UserControl_after_a_module_keeps_its_project_line_in_place()
+    {
+        var vbp = WriteProject("");
+        File.WriteAllText(Path.Join(dir, "Module1.bas"), "Attribute VB_Name = \"Module1\"\r\n");
+        var original = "Type=Exe\r\nModule=Module1; Module1.bas\r\nUserControl=UserControl1.ctl\r\nName=\"Test\"\r\n";
+        File.WriteAllText(vbp, original);
+        var svc = MakeService(out var project);
+
+        await svc.OpenProject(vbp);
+        await svc.SaveProject(project(), saveAs: false);
+
+        (await File.ReadAllBytesAsync(vbp, TestContext.Current.CancellationToken)).Should().Equal(System.Text.Encoding.ASCII.GetBytes(original));
+    }
+
+    [Fact]
+    public async Task A_missing_form_before_a_loaded_form_keeps_its_slot_when_rebased()
+    {
+        var vbp = Path.Join(dir, "Test.vbp");
+        var scratch = new ProjectDefinition(VBProjectType.EXE, "Test");
+        var form = new FormDefinition(scratch, FormComponentClass.Instance, "Loaded");
+        var (frm, _) = new FormSerializer().Serialize(form, "Loaded.frm");
+        File.WriteAllText(Path.Join(dir, "Loaded.frm"), frm);
+        var original = "Type=Exe\r\nForm=Missing.frm\r\nObject=kept\r\nForm=Loaded.frm\r\nStartup=\"Loaded\"\r\nName=\"Test\"\r\n";
+        File.WriteAllText(vbp, original);
+        var svc = MakeService(out var project);
+
+        await svc.OpenProject(vbp);
+        await svc.SaveProject(project(), saveAs: false);
+        (await File.ReadAllBytesAsync(vbp, TestContext.Current.CancellationToken)).Should().Equal(System.Text.Encoding.ASCII.GetBytes(original));
+
+        var target = Path.Join(dir, "sub", "Test.vbp");
+        var rebased = original.Replace("Form=Missing.frm", @"Form=..\Missing.frm")
+            .Replace("Form=Loaded.frm", @"Form=..\Loaded.frm");
+        new ProjectSerializer().Serialize(project(), target).Should().Be(rebased);
+    }
+
+    [Fact]
+    public async Task Adding_a_middle_kept_member_preserves_the_other_lines_slots()
+    {
+        var vbp = Path.Join(dir, "Test.vbp");
+        var original = "Type=Exe\r\nForm=Before.frm\r\nObject=before\r\nForm=Restored.frm\r\nObject=after\r\nForm=After.frm\r\nStartup=\"Sub Main\"\r\nName=\"Test\"\r\n";
+        File.WriteAllText(vbp, original);
+        var svc = MakeService(out var project);
+        await svc.OpenProject(vbp);
+
+        var path = Path.Join(dir, "Restored.frm");
+        var form = new FormDefinition(project(), FormComponentClass.Instance, "Restored");
+        var (frm, _) = new FormSerializer().Serialize(form, "Restored.frm");
+        File.WriteAllText(path, frm);
+        (await svc.AddExistingForm(project(), path)).Document.Should().NotBeNull();
+        await svc.SaveProject(project(), saveAs: false);
+
+        var saved = await File.ReadAllTextAsync(vbp, TestContext.Current.CancellationToken);
+        saved.ReplaceLineEndings("\n").Should().Be(original.ReplaceLineEndings("\n"));
+        project().PreservedItemLineSlots.Should().BeEquivalentTo(new System.Collections.Generic.Dictionary<int, int>
+        {
+            [0] = 1,
+            [1] = 3,
+        });
     }
 
     [Fact]

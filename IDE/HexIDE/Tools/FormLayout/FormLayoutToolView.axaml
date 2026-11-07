@@ -29,7 +29,8 @@
                         <ClassicBorderDecorator BorderStyle="Sunken" BorderThickness="3"
                                                 Background="{DynamicResource {x:Static commonControls:SystemColors.DesktopBrushKey}}">
                         <Canvas x:Name="ScreenCanvas" ClipToBounds="True">
-                            <Border Canvas.Left="{CompiledBinding ThumbLeft}"
+                            <Border IsVisible="{CompiledBinding HasForm}"
+                                    Canvas.Left="{CompiledBinding ThumbLeft}"
                                     Canvas.Top="{CompiledBinding ThumbTop}"
                                     BorderThickness="1"
                                     BorderBrush="{DynamicResource {x:Static commonControls:SystemColors.ControlTextBrushKey}}"
@@ -39,11 +40,12 @@
                                 <Border BorderThickness="1"
                                         BorderBrush="{DynamicResource {x:Static commonControls:SystemColors.ControlTextBrushKey}}">
                                     <DockPanel>
-                                        <Border DockPanel.Dock="Top" BorderThickness="0,0,0,1" Background="Gray"
+                                        <Border DockPanel.Dock="Top" BorderThickness="0,0,0,1" Background="{DynamicResource {x:Static commonControls:SystemColors.ControlDarkBrushKey}}"
                                                 BorderBrush="{DynamicResource {x:Static commonControls:SystemColors.ControlTextBrushKey}}"
                                                 Height="4" />
-                                        <Border Background="White">
-                                            <TextBlock Text="{DynamicResource Str.Tool.FormLayout.Preview.FormName}" />
+                                        <Border Background="{DynamicResource {x:Static commonControls:SystemColors.WindowBrushKey}}">
+                                            <TextBlock Text="{CompiledBinding FormName}"
+                                                       Foreground="{DynamicResource {x:Static commonControls:SystemColors.WindowTextBrushKey}}" />
                                         </Border>
                                     </DockPanel>
                                 </Border>

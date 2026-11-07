@@ -20,6 +20,7 @@ namespace HexIDE.Tools;
 public partial class LocalsToolViewModel : Tool
 {
     private readonly ILocalizationService _localization;
+    private bool showingReady = true;
 
     // The "<Ready>" header shown when not paused (matches the previous stub's placeholder).
     private string ReadyContext => _localization.GetString("Str.Tool.Locals.ContextReady");
@@ -38,6 +39,10 @@ public partial class LocalsToolViewModel : Tool
         CanPin = false;
         CanClose = true;
         _contextLabel = ReadyContext;
+        localization.LanguageChanged += () =>
+        {
+            if (showingReady) ContextLabel = ReadyContext;
+        };
 
         // Update synchronously: the controller raises Stopped/Continued from the interpreter's own (UI-thread)
         // execution, so we are already on the UI thread — same contract the CodeEditorView current-line bridge relies on.
@@ -57,6 +62,7 @@ public partial class LocalsToolViewModel : Tool
                 displayedStop = stop;
                 displayedFrameId = frameId;
                 displayedRows = externalDebugger.Variables;
+                showingReady = selected?.GetProperty("name").GetString() is null;
                 ContextLabel = selected?.GetProperty("name").GetString() ?? ReadyContext;
                 Roots = externalDebugger.Variables.Select(variable => new LocalsVariableNode(variable, stop, externalDebugger, localization)).ToArray();
             };
@@ -78,6 +84,7 @@ public partial class LocalsToolViewModel : Tool
         var expanded = new HashSet<string>(StringComparer.Ordinal);
         CollectExpanded(Roots, string.Empty, expanded);
 
+        showingReady = false;
         ContextLabel = scope.Context;
         var roots = scope.Locals.Select(n => new LocalsVariableNode(n, _localization)).ToList();
         RestoreExpanded(roots, string.Empty, expanded);
@@ -115,6 +122,7 @@ public partial class LocalsToolViewModel : Tool
 
     private void Clear()
     {
+        showingReady = true;
         ContextLabel = ReadyContext;
         Roots = Array.Empty<LocalsVariableNode>();
     }

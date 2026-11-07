@@ -214,17 +214,15 @@ public static class VbFormatter
         var lineNumber = 0;
         while (pos <= source.Length)
         {
-            var newline = source.IndexOf('\n', pos);
-            var end = newline < 0 ? source.Length : newline;
-            var contentEnd = end > pos && source[end - 1] == '\r' ? end - 1 : end;
-            var raw = source[pos..contentEnd];
-            var terminator = source[contentEnd..(newline < 0 ? source.Length : newline + 1)];
+            var (end, next) = VbTextHelpers.LineEnd(source, pos);
+            var raw = source[pos..end];
+            var terminator = source[end..next];
 
             result.Add(new FormattedLine(raw, FormatLine(raw, regions.IsProtected(lineNumber), ref indent), terminator));
 
-            if (newline < 0)
+            if (end == next)
                 break;
-            pos = newline + 1;
+            pos = next;
             lineNumber++;
         }
         return result;

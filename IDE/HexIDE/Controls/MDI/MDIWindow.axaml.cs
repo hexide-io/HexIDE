@@ -18,7 +18,7 @@ using Serilog;
 
 namespace HexIDE.Controls;
 
-public class MDIWindow : ContentControl
+public partial class MDIWindow : ContentControl
 {
     private Border? titleBar;
 
@@ -102,10 +102,10 @@ public class MDIWindow : ContentControl
     // Win32 direct cursor override — Avalonia 12 doesn't call SetCursor during SetCapture
     // when the pointer moves outside the captured window's layout bounds, so WM_SETCURSOR
     // is never fired and the cursor reverts to Arrow. We drive it manually instead.
-    [DllImport("user32.dll")] [SupportedOSPlatform("windows")]
-    private static extern IntPtr LoadCursor(IntPtr hInstance, int lpCursorName);
-    [DllImport("user32.dll")] [SupportedOSPlatform("windows")]
-    private static extern IntPtr SetCursor(IntPtr hCursor);
+    [LibraryImport("user32.dll", EntryPoint = "LoadCursorW")] [SupportedOSPlatform("windows")]
+    private static partial IntPtr LoadCursor(IntPtr hInstance, int lpCursorName);
+    [LibraryImport("user32.dll")] [SupportedOSPlatform("windows")]
+    private static partial IntPtr SetCursor(IntPtr hCursor);
 
     private StandardCursorType _dragCursorType;
 

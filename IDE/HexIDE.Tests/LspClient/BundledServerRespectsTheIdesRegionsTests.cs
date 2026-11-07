@@ -68,7 +68,7 @@ public class BundledServerRespectsTheIdesRegionsTests : IAsyncDisposable
             }
 
             var uri = await OpenAsync(client, text);
-            var edits = await client.RequestFormattingAsync(uri, TestContext.Current.CancellationToken);
+            var edits = await client.RequestFormattingAsync(uri, new FormattingOptions(4, true), TestContext.Current.CancellationToken);
 
             var lines = Lines(text);
             var expected = Enumerable.Range(0, lines.Length)
@@ -144,7 +144,7 @@ public class BundledServerRespectsTheIdesRegionsTests : IAsyncDisposable
                     var rename = await client.RequestRenameAsync(uri, at, "Renamed", TestContext.Current.CancellationToken);
                     var highlight = await client.RequestDocumentHighlightAsync(uri, at, TestContext.Current.CancellationToken);
 
-                    if (rename?.Changes is { Count: > 0 })
+                    if (rename?.Edit?.Changes is { Count: > 0 })
                         failures.Add($"{name}: rename from {line}:{character} answered with edits");
                     if (highlight is { Length: > 0 })
                         failures.Add($"{name}: highlight from {line}:{character} answered with {highlight.Length} ranges");
@@ -198,11 +198,11 @@ public class BundledServerRespectsTheIdesRegionsTests : IAsyncDisposable
                 if (declared.Contains(word))
                 {
                     declinedDeclared++;
-                    if (rename?.Changes is { Count: > 0 })
+                    if (rename?.Edit?.Changes is { Count: > 0 })
                         failures.Add($"{name}: renaming {word}, which the designer block declares, answered with edits");
                     continue;
                 }
-                if (rename?.Changes is not { } changes || !changes.TryGetValue(uri, out var edits))
+                if (rename?.Edit?.Changes is not { } changes || !changes.TryGetValue(uri, out var edits))
                     continue; // a keyword, or nothing the server will rename
                 renamed++;
 
@@ -243,7 +243,7 @@ public class BundledServerRespectsTheIdesRegionsTests : IAsyncDisposable
 
         var rename = await client.RequestRenameAsync(uri, new Position(15, 21), "Amount", TestContext.Current.CancellationToken);
 
-        rename!.Changes![uri].Select(e => (e.Range.Start.Line, e.Range.Start.Character))
+        rename!.Edit!.Changes![uri].Select(e => (e.Range.Start.Line, e.Range.Start.Character))
             .Should().Equal((15, 20), (16, 10), (17, 10), (18, 0));
     }
 
@@ -268,7 +268,7 @@ public class BundledServerRespectsTheIdesRegionsTests : IAsyncDisposable
         {
             var ideRefuses = !ProjectNaming.IsValidName(name) || ProjectNaming.IsReservedWord(name);
             var rename = await client.RequestRenameAsync(uri, new Position(15, 21), name, TestContext.Current.CancellationToken);
-            var serverRefuses = rename is null;
+            var serverRefuses = rename?.Refusal is not null;
             if (ideRefuses != serverRefuses)
                 disagreements.Add($"'{name}': the IDE {(ideRefuses ? "refuses" : "accepts")} it, the server {(serverRefuses ? "refuses" : "accepts")} it");
         }
@@ -349,6 +349,7 @@ public class BundledServerRespectsTheIdesRegionsTests : IAsyncDisposable
     {
         findRoot ??= FindUpwards;
         yield return ("inline form", Form);
+        yield return ("inline form with lone CR", Form.ReplaceLineEndings("\r"));
         yield return ("inline class", Class);
         yield return ("inline class with orphans", ClassWithOrphans);
         yield return ("inline form with the reader's shapes", FormWithReaderShapes);
@@ -393,13 +394,8 @@ public class BundledServerRespectsTheIdesRegionsTests : IAsyncDisposable
 
     private static string? FindUpwards(string relative)
     {
-        for (var dir = new DirectoryInfo(AppContext.BaseDirectory); dir is not null; dir = dir.Parent)
-        {
-            var candidate = Path.Join(dir.FullName, relative);
-            if (Directory.Exists(candidate))
-                return candidate;
-        }
-        return null;
+        var candidate = Path.Join(HexIDE.Tests.Infrastructure.RepoTree.Root(), relative);
+        return Directory.Exists(candidate) ? candidate : null;
     }
 
     /// <summary>The lines of <paramref name="text"/> that the IDE's regions cover, 0-based.</summary>
@@ -420,22 +416,37 @@ public class BundledServerRespectsTheIdesRegionsTests : IAsyncDisposable
         var starts = new List<int> { 0 };
         for (var i = 0; i < text.Length; i++)
         {
-            if (text[i] == '\n')
+            if (text[i] is '\r' or '\n')
+            {
+                if (text[i] == '\r' && i + 1 < text.Length && text[i + 1] == '\n')
+                    i++;
                 starts.Add(i + 1);
+            }
         }
         return starts;
     }
 
-    private static string[] Lines(string text) => text.Split('\n').Select(l => l.TrimEnd('\r')).ToArray();
+    private static string[] Lines(string text) => text.ReplaceLineEndings("\n").Split('\n');
 
     /// <summary><paramref name="text"/> with two spaces after every line that has anything on it.</summary>
-    private static string WithTrailingSpaces(string text) =>
-        string.Join('\n', text.Split('\n').Select(line =>
+    private static string WithTrailingSpaces(string text)
+    {
+        var result = new System.Text.StringBuilder();
+        var starts = LineStarts(text);
+        for (var i = 0; i < starts.Count; i++)
         {
-            var cr = line.EndsWith('\r') ? "\r" : "";
-            var content = line.TrimEnd('\r');
-            return content.Trim().Length > 0 ? content + "  " + cr : line;
-        }));
+            var next = i + 1 < starts.Count ? starts[i + 1] : text.Length;
+            var end = next;
+            while (end > starts[i] && text[end - 1] is '\r' or '\n')
+                end--;
+            var content = text[starts[i]..end];
+            result.Append(content);
+            if (content.Trim().Length > 0)
+                result.Append("  ");
+            result.Append(text, end, next - end);
+        }
+        return result.ToString();
+    }
 
     /// <summary>The words of <paramref name="line"/> outside string literals and comments, with where each starts.</summary>
     private static IEnumerable<(string Word, int Character)> Words(string line)

@@ -87,7 +87,7 @@ public class OptionsViewModelTests
         // server's transport became a property of its entry in the configuration file (#255). An empty
         // group is worse than no group.
         sut.RootNodes.Select(n => n.Title)
-            .Should().Equal("Environment", "Editor", "Form Designer", "Add-Ins");
+            .Should().Equal("Environment", "Editor", "Form Designer", "Workspace files", "Add-Ins");
     }
 
     [AvaloniaFact]
@@ -99,6 +99,8 @@ public class OptionsViewModelTests
         _localization.Apply("fr");   // e.g. the in-dialog Language page previews French live
 
         sut.RootNodes[0].Title.Should().Be("Environnement");
+        sut.RootNodes.Single(n => n.Page is WorkspaceArtifactPageViewModel).Title
+            .Should().Be(_localization.GetString("Str.LspArtifact.Title"));
     }
 
     [AvaloniaFact]
@@ -130,6 +132,21 @@ public class OptionsViewModelTests
         sut.SelectedNode.Should().NotBeNull();
         sut.SelectedNode!.Page.Should().BeOfType<EnvironmentGeneralPageViewModel>();
         sut.CurrentPage.Should().BeSameAs(sut.SelectedNode.Page);
+    }
+
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void InitialNode_SelectsAddInsCategory(bool installed)
+    {
+        if (!installed) _addinRegistry.GetAll().Returns([]);
+        var sut = new OptionsViewModel(_settings, _themeService, _keymapService, _languageSwitch,
+            _addinRegistry, _addinOptions, _devMode, _localization, _eventBus, "Str.Options.Node.AddIns");
+
+        sut.SelectedNode.Should().BeSameAs(sut.RootNodes.Single(n => n.Key == "Str.Options.Node.AddIns"));
+        sut.SelectedNode!.IsExpanded.Should().BeTrue();
+        sut.CurrentPage.Should().BeNull();
+        sut.CanRestorePageDefaults.Should().BeFalse();
     }
 
     [AvaloniaFact]
@@ -434,11 +451,16 @@ public class OptionsViewModelTests
     }
 
     [AvaloniaFact]
-    public void NoAddins_OmitsAddInsGroup()
+    public void NoAddins_ShowsEmptyAddInsLeaf()
     {
         _addinRegistry.GetAll().Returns([]);
         var sut = CreateSut();
-        sut.RootNodes.Select(n => n.Title).Should().NotContain("Add-Ins");
+        var group = sut.RootNodes.Single(n => n.Key == "Str.Options.Node.AddIns");
+        group.Children.Should().ContainSingle();
+        sut.SelectedNode = group.Children[0];
+        sut.SelectedNode.Title.Should().Be("(no add-ins installed)");
+        sut.CurrentPage.Should().BeNull();
+        sut.CanRestorePageDefaults.Should().BeFalse();
     }
 
     [AvaloniaFact]

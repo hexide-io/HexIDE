@@ -42,7 +42,9 @@ public static class VbScopeAnalyzer
     /// Returns an empty list when <c>Option Explicit</c> is absent or when the
     /// source has syntax errors (to avoid cascading false positives).
     /// </summary>
-    public static List<LspDiagnostic> GetOptionExplicitDiagnostics(VisualBasic6Parser.StartRuleContext tree)
+    /// <param name="baselineNames">Names collected from the project file or the original designer header.</param>
+    public static List<LspDiagnostic> GetOptionExplicitDiagnostics(VisualBasic6Parser.StartRuleContext tree,
+        IEnumerable<string>? baselineNames = null)
     {
         var collector = new DeclarationCollectorVisitor();
         collector.Visit(tree);
@@ -50,7 +52,12 @@ public static class VbScopeAnalyzer
         if (!collector.HasOptionExplicit)
             return [];
 
-        var checker = new UndeclaredVariableVisitor(collector.DeclaredNames);
+        var names = collector.DeclaredNames;
+        var regions = VbProtectedRegions.Of(tree.Start.InputStream.ToString() ?? "");
+        names.UnionWith(regions.DesignerNames);
+        if (baselineNames is not null)
+            names.UnionWith(baselineNames);
+        var checker = new UndeclaredVariableVisitor(names, regions);
         checker.Visit(tree);
         return checker.Diagnostics;
     }
@@ -59,6 +66,17 @@ public static class VbScopeAnalyzer
 
     private sealed class DeclarationCollectorVisitor : VisualBasic6ParserBaseVisitor<object?>
     {
+        private int _depth;
+        private const int MaxDepth = 500;
+
+        // Generated visitors descend via VisitChildren, bypassing Visit.
+        public override object? VisitChildren(Antlr4.Runtime.Tree.IRuleNode node)
+        {
+            if (++_depth > MaxDepth) { --_depth; return null; }
+            try   { return base.VisitChildren(node); }
+            finally { --_depth; }
+        }
+
         public bool HasOptionExplicit { get; private set; }
 
         /// <summary>Declared names → type annotation and declaration kind.</summary>
@@ -173,7 +191,7 @@ public static class VbScopeAnalyzer
 
     // ── Undeclared variable checker (expressions + assignments) ─────────────
 
-    private sealed class UndeclaredVariableVisitor(HashSet<string> declaredNames)
+    private sealed class UndeclaredVariableVisitor(HashSet<string> declaredNames, VbProtectedRegions regions)
         : VisualBasic6ParserBaseVisitor<object?>
     {
         private readonly HashSet<(int Line, int Col)> _reported = [];
@@ -183,17 +201,19 @@ public static class VbScopeAnalyzer
         public List<LspDiagnostic> Diagnostics { get; } = [];
 
         // Depth guard: degenerate inputs can produce deep trees; bail out before overflowing the stack.
-        public override object? Visit(Antlr4.Runtime.Tree.IParseTree? tree)
+        public override object? VisitChildren(Antlr4.Runtime.Tree.IRuleNode node)
         {
-            if (tree is null) return null;
             if (++_depth > MaxDepth) { --_depth; return null; }
-            try   { return base.Visit(tree); }
+            try   { return base.VisitChildren(node); }
             finally { --_depth; }
         }
 
         // proleap's simple variable/procedure reference. (RD grammar called this simpleNameExpr.)
         public override object? VisitICS_S_VariableOrProcedureCall(VisualBasic6Parser.ICS_S_VariableOrProcedureCallContext ctx)
         {
+            if (regions.IsProtected(ctx.Start.Line - 1))
+                return null;
+
             // Skip the member half of a member access (obj.Foo): only `obj` is a module-scope variable
             // reference; `Foo` is a member on it, not a name to check against declarations.
             if (ctx.Parent is VisualBasic6Parser.ICS_S_MemberCallContext)

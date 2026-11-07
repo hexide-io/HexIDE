@@ -49,6 +49,10 @@ not; a language server is a process, so it belongs to the second group.
 
 Comments and trailing commas are allowed — this is a file you edit by hand, not a wire format.
 
+JSON errors in Tools → Language Servers name the file, a 1-based line and character column,
+and the JSON path. Non-ASCII text before the fault counts as characters, rather than UTF-8 bytes
+([#3065](https://github.com/hexide-io/HexIDE/issues/3065)). The log keeps the report in English.
+
 ## The fields
 
 | Field | Required | Meaning |
@@ -56,17 +60,54 @@ Comments and trailing commas are allowed — this is a file you edit by hand, no
 | `id` | yes | Identifies the entry. Reusing a default's id **replaces** that default wholesale, keeping its position. |
 | `extensions` | yes | The file extensions this server **serves**. This is what routing reads, and the only thing it reads. |
 | `languageId` | yes | What this server wants those files **called**, in the protocol sense. It routes nothing, except that `vb6` lets a `.cls` claim take the project's class modules; see below. |
-| `transport` | yes | `stdio`, `pipe` or `websocket`. |
+| `transport` | yes | `stdio`, `pipe` or `websocket`. A pipe entry without `command` owns only its connection; closing it leaves the server running. |
 | `command` | for `stdio` | The executable to launch. Optional on `pipe` — see *Starting the server yourself* below. |
-| `arguments` | no | Command line. Part of the command's identity — see *A command you have not run before*. |
+| `arguments` | no | Command-line string or array of strings. Part of the command's identity — see *A command you have not run before*. |
+| `environment` | no | Map of environment variable names to string values, layered over the inherited environment for a launched stdio or pipe server. |
 | `workingDirectory` | no | Empty means the server runs in whichever project is open, which is usually what you want. |
-| `pipeName` / `pipeRole` | for `pipe` | `pipeRole` is `connect` (default) or `listen`. On Linux and macOS, an absolute `pipeName` is used verbatim as a Unix domain socket path; a bare name becomes `/tmp/CoreFxPipe_<name>`. |
+| `pipeName` / `pipeRole` | for `pipe` | `pipeRole` is `connect` (default) or `listen`, ignoring case and surrounding whitespace. An unrecognised value produces a warning and falls back to `connect`. On Linux and macOS, an absolute `pipeName` is used verbatim as a Unix domain socket path; a bare name becomes `/tmp/CoreFxPipe_<name>`. |
 | `endpoint` | for `websocket` | e.g. `ws://localhost:1234/`. |
+| `websocketRole` | for `websocket` | `connect` (default) dials the server; `listen` waits for the server to dial HexIDE. |
 | `displayName` | no | Shown wherever servers are listed. Defaults to the id. |
 | `trace` | no | How much this server should say about its own work: `off` (default), `messages` or `verbose`. It travels in the handshake, so it sets what the server *starts* at; changing it on a running server is a separate thing the IDE does for you. Misspell it and the server still starts, with tracing off and a warning. |
 | `priority` | no | Breaks ties for features that cannot merge two answers, such as formatting and rename. Higher wins. The bundled server sits *below* the default, so your own server wins without you having to know this field exists. |
 | `enabled` | no | `false` switches an entry off entirely — no process, no registration. |
 | `capture` | no | How much of this server's conversation the protocol capture may hold. See *Giving one server a bigger record* below. |
+| `workspaceArtifact` | no | A workspace-relative `path`, registered `provider` id and provider-owned `settings`. Generation requires consent; see [Generated workspace files](#generated-workspace-files). |
+
+Use the array form when quoting matters: `"arguments": ["host", "server --stdio"]` passes two arguments
+exactly as written, including spaces, quotes and empty strings. The legacy string form still uses .NET
+command-line parsing. HexIDE launches processes directly, with no shell and no tty; shell expansion and
+interactive SSH prompts are unavailable. Pipe placeholders also work within each array element. Both
+`arguments` and `environment` may be omitted or null.
+
+### Adding arguments to a server without replacing it
+
+Replacing an entry means writing its whole command, and the bundled VB6 server's command is something HexIDE
+finds when it starts: its path differs between a build from source and an installed copy. So to give that
+server, or any other, a few more arguments, name its id in the file's top-level `arguments` rather than in
+`servers`:
+
+```jsonc
+{
+  "version": 1,
+  "arguments": {
+    "hexide.vb6": ["--some-flag", "value"]
+  }
+}
+```
+
+The arguments are **added** after the entry's own, whichever entry holds that id, a default or one of yours. They
+are added in the form the entry's own arguments take: a list joins a list, and a string joins a string with a
+space between them. An entry with no arguments takes them as written. The other cases are listed in the server
+list's problems, and change nothing:
+
+- an id no server has;
+- a server HexIDE connects to but does not start, such as a WebSocket endpoint;
+- a list added to a string, or the reverse, which HexIDE would otherwise have to quote or split by guesswork.
+
+Added arguments are part of what the server runs, so the first start after adding them shows the
+[new-command notice](#a-command-you-have-not-run-before).
 
 ### Extensions serve; the identifier names
 
@@ -90,10 +131,12 @@ equally a LaTeX class file, so claiming `.cls` is not enough to receive the proj
 a claim on VB6 would hand a LaTeX server your source. The entry must also establish that it serves VB6, by
 claiming one of `.bas`, `.frm`, `.ctl`, `.pag`, `.dob` or `.dsr`, or by declaring `languageId: vb6`. That is
 the only thing routing ever reads `languageId` for, and it never makes a claim on its own: an entry declaring
-`vb6` that claims no VB6 extension is still sent nothing. It applies only to documents of the project. A
-`.cls` the project merely carries goes to every entry that claims `.cls`, because nothing says it is VB6.
-That includes the bundled VB6 server, so a LaTeX class file the project carries is parsed as VB6 and shown
-with errors it does not have ([#279](https://github.com/hexide-io/HexIDE/issues/279), open).
+`vb6` that claims no VB6 extension is still sent nothing. A `.cls` the project merely carries is judged by
+its content instead: an entry that serves VB6 receives it only when its first non-blank line is
+`VERSION 1.0 CLASS`, so a LaTeX class file the project carries no longer reaches the bundled VB6 server
+([#279](https://github.com/hexide-io/HexIDE/issues/279)). Every other entry claiming `.cls` still receives
+it by extension. The check is made when the file opens, and editing it does not change where it goes until
+it is opened again.
 
 > Earlier revisions of this section said HexIDE's forms and modules had no extension on the wire, and that
 > an entry naming the language `vb6` received them whatever extensions it claimed. Both were true while those
@@ -187,6 +230,7 @@ For a server listening on a Unix domain socket on Linux or macOS, use an absolut
 | Placeholder | Becomes |
 |---|---|
 | `{pipe}` | The pipe name. |
+| `{pid}` | The HexIDE process ID, in decimal. |
 | `{workspaceUri}` | The open project as a `file:` URI — the same one sent as `rootUri`. |
 | `{workspaceDir}` | The same directory as a plain path. |
 
@@ -201,9 +245,22 @@ on one machine — and a `.vbg` group or a second checkout would silently point 
 matters more than it sounds: a server told one directory on its command line and a different one at
 initialize does not fail — it loads one workspace and answers questions about the other.
 
-**With no project open, an entry using either workspace placeholder is not launched**, and the reason says
-so. Substituting nothing would hand the server a flag with no value and let it fail in its own vocabulary,
-which the reader then has to translate back into "no project was open".
+**With no project open, or a project not yet saved and no folder chosen, an entry using either workspace
+placeholder waits without launching.** The Language Servers window keeps it `NotStarted` and shows why.
+A later document open retries it; the first project save supplies the root and starts it without a reopen. The warning is logged once
+per entry. Substituting nothing would hand the server a flag with no value.
+
+`{pid}` lets a server that supports watching its owner exit when HexIDE crashes or is forcibly stopped.
+On Windows, HexIDE also assigns stdio and launched pipe servers to a kill-on-close job, so assigned
+processes and descendants they subsequently launch end with HexIDE even without cooperative PID
+watching. A descendant launched before assignment is not covered. Linux and macOS still rely on
+cooperation after an unclean shutdown; the planned watchdog is not shipped yet (#406).
+Pass it using that server's owner-process argument. It works without an open project. HexIDE still kills
+the launched process tree on clean shutdown; passing a PID does not enforce cleanup if the server ignores it.
+A launched pipe server gets two seconds to exit before that kill, even during bring-up. Once `initialize`
+has answered, HexIDE first attempts `shutdown` (with its own two-second deadline) and `exit`. Before
+that reply, neither is sent. A pipe server HexIDE did not launch is left running: teardown closes only
+the connection, without `shutdown` or `exit` (#313).
 
 ### `workingDirectory` is a different question
 
@@ -216,12 +273,12 @@ Leave `workingDirectory` out and the server runs in the open project's directory
 it when the server needs to be somewhere specific — some servers resolve their own configuration relative
 to where they were started, and that is part of whether they work at all.
 
-**One exception, and it is the common case for a new project.** A project you have not saved yet has a
-directory that does not exist on disk — it is created the moment something is written into it. A server
-cannot be launched in a directory that is not there, so HexIDE starts it in HexIDE's own directory instead
-and says so in the log. It is still told your project's directory as the workspace to analyse, so
-`{workspaceUri}` and `rootUri` are unaffected. Once you save, the server is restarted at the saved project's
-directory the next time a document is opened; a save that gives a document its first file is such an open.
+**An unsaved project has no workspace root until a folder is chosen.** Servers that need no workspace
+argument can start, inheriting HexIDE's working directory. Once you save, running servers are restarted
+at the saved project's directory the next time a document is opened; a save that gives a document its first
+file is such an open. Servers waiting for a workspace argument can start then too. If a chosen project
+directory does not exist, HexIDE also inherits its own working directory without creating the folder;
+the chosen workspace root is still sent to the server.
 
 A `workingDirectory` **you** set is never second-guessed this way. If it does not exist the server does not
 start, and the reason names the directory — because you meant that directory, and quietly running somewhere
@@ -244,6 +301,9 @@ indefinitely and silently.
 
 The **arguments are part of the command's identity**, not just the executable: `node` is harmless, and
 `node /tmp/something.js` is whatever that script says.
+So is the `environment`: `NODE_OPTIONS`, `LD_PRELOAD` or `PATH` change what the same command line runs,
+so adding or changing a variable is announced too. Reordering them is not, and an entry with none keeps
+the identity it had before.
 
 This applies to a `pipe` entry that carries a `command` exactly as it does to a `stdio` one. What
 decides it is whether HexIDE starts a process, not which transport the entry names — a pipe it merely
@@ -279,9 +339,166 @@ In order of likelihood:
    does not take them. Claim another VB6 extension it serves, or declare `vb6`; see *Extensions serve; the
    identifier names*.
 
+## Configuration problem language
+
+Tools → Language Servers translates configuration-problem prose into the active IDE language, updating
+when you switch languages (#3031). JSON keys and values, server ids, paths, pointers and locations remain
+as written. Field lists use each language's complete heading rather than English singular/plural fragments.
+A single unknown field uses a singular heading where the language distinguishes it. Quoted option
+values use the same quotation style as the other values in their message. Selectable problem lines wrap
+within the tab, including long paths and the final diagnostic location. Underlying exception details remain
+verbatim after a translated explanation. Logs retain English messages.
+
 ## What is deliberately not here
 
 - **Per-project configuration.** Attaching a server is a decision about what code runs on your machine,
   and a per-project file is written by whoever wrote the project.
 - **Discovery of servers already installed.** Nothing scans your machine for language servers.
 - **A user interface.** Today this file is the whole of it.
+
+For an incoming WebSocket, set `"websocketRole": "listen"` and an endpoint with a trailing slash
+(e.g. `ws://localhost:1234/lsp/`). HexIDE owns that HTTP listener until teardown and accepts one
+WebSocket connection per establishment attempt, with a ten-second timeout. A reconnect listens again.
+Listening uses the platform HTTP listener: Windows may require a URL reservation for the configured
+HTTP prefix, and `wss` requires an HTTPS certificate binding. Failure to bind, upgrade or accept is reported
+as a connection failure.
+
+**HexIDE listens on this machine only.** Whatever dials in is taken as the language server, and a language
+server can edit the document, so the endpoint must be `localhost`, `127.0.0.1` or `[::1]`; any other host is
+refused before anything is bound, and a server on another machine is reached with `connect` instead. A dial
+from another address is refused, and so is one carrying an `Origin` header: a browser sends one on every
+WebSocket handshake and a language server sends none, and a WebSocket is outside the browser's same-origin
+policy, so without that check any page open in a browser could dial the IDE first. A refused dial is logged,
+and the IDE goes on listening for the real server. There is still no authentication: another program on this
+machine can dial in.
+
+### Generated workspace files
+
+A server entry can request a file with `workspaceArtifact` (#455):
+
+```json
+"workspaceArtifact": {
+  "path": "compile_commands.json",
+  "provider": "clangd",
+  "settings": { "arguments": ["clang", "-DHEXIDE_PROBE"] }
+}
+```
+
+The `clangd` provider creates one compilation-database entry for each carried `.c`, `.cc`, `.cpp`
+or `.cxx` source or `.h`, `.hh`, `.hpp` or `.hxx` header. `settings.arguments` is the compiler
+command and its arguments; the filename is appended as a separate argument, and the command runs in that file's directory. The default is
+`["clang"]`. This is a core provider seam, not yet a public add-in contract (#457).
+
+The `rdcore` provider writes the `.rdproj` that RDCore's language server reads from the workspace root,
+without which it analyses nothing. Current RDCore builds import the project instead
+([below](#rdcore)); the provider is for a build that can't:
+
+```json
+"workspaceArtifact": { "path": ".rdproj", "provider": "rdcore", "restartOnChange": true }
+```
+
+It lists every form, module, class and user control the project carries by its path relative to the
+workspace root, including one in a subfolder or beside the project's folder, and carries the project's
+references and its Conditional Compilation Arguments. It lists no other files, because RDCore parses
+anything listed as code. `settings.version` sets the file's `Version`, which must be no newer than the
+server reading it; the default, `0.1.0`, suits every RDCore build so far. A `.rdproj` you wrote yourself
+is left alone. For a build that reads the file only when it starts, the entry should also set
+`"restartOnChange": true`: then a module added while it runs is analysed after a restart, rather than from its
+next start.
+
+`restartOnChange` restarts the server when a regeneration changes the file's bytes, for a server that reads its
+artefact only when it starts (#2072). It is off unless set, and a server that watches its own artefact, as clangd
+does its compilation database, should leave it off. The write before the first launch, an identical regeneration,
+and a refused or denied write don't count; taking the file back when there is nothing to describe does. The
+debounce that batches regeneration batches restarts too, so several quick project changes give one restart. Only
+that server is restarted, its open documents are opened on it again, and the restart is recorded on its
+connection in **Tools → Protocol Inspector**. It is a stopgap until such a server re-reads the file itself.
+
+Before launch, HexIDE asks: “Server X has requested to write local file Y.” **Allow** permits that
+server in that workspace for this session; **Allow Always** remembers that server/workspace pair.
+Either covers only that file and provider: if the entry later names a different `path` or
+`provider`, HexIDE asks again.
+**Deny** starts the server without generating the file and records the reason in the log and on its
+connection in **Tools → Protocol Inspector**. Persistent
+grants are listed under **Tools → Options → Workspace files**, where **Reset** makes the next session
+ask again. Permission for one workspace never permits writes in another.
+
+Only workspace-relative paths resolving inside the workspace, including through links, are accepted.
+An existing file is left alone without prompting unless its bytes still match HexIDE's last recorded
+write. This protects compilation databases produced by CMake and files edited by hand. Unchanged
+content is not rewritten; changed content replaces the owned file atomically. When the project gives a
+provider nothing to describe, such as clangd with no C or C++ files, HexIDE neither asks nor writes,
+and removes a file it wrote that nobody has changed since. A directory, an empty file or anything
+larger than 8 MB at the artefact's path is never treated as HexIDE's, and is left alone unread.
+Refused paths, provider failures, failed writes and files left alone are also explained on the
+connection in the inspector.
+
+**Known limit:** HexIDE checks the path again after you answer the prompt, then writes. A process
+writing into the workspace at that same moment could swap a parent folder for a link between the
+check and the write, and the write would follow it. Nothing in .NET closes that gap; it needs
+something already able to change the project's files.
+
+Forms, modules, carried files and reference changes trigger debounced regeneration. This phase sends
+no `workspace/didChangeWatchedFiles` (#456); clangd watches its own compilation database. No file is
+generated without a declaration, and core contains no backend schema.
+
+### Project-import declarations
+
+`projectImport` (#2363) is recognised as an object with a non-empty `command` and an `arguments` JSON
+array. For example:
+
+```json
+"projectImport": {
+  "command": "example.importProject",
+  "arguments": [{ "uri": "{uri}", "text": "{text}", "overwrite": true }]
+}
+```
+
+The template model replaces string values equal to `{uri}` or `{text}`, including in nested objects
+and arrays. Other values and property names remain literal; `overwrite` above is a JSON boolean,
+not a placeholder. Inserted text is JSON-escaped and is never substituted a second time.
+
+After initialization, HexIDE calls the declared command for each loaded project, using its saved `.vbp`
+URI and the current in-memory project serialization. Membership, reference and modeled project-setting
+changes repeat the import after the same 300 ms debounce used for generated workspace files. The command
+must also appear in the server's advertised `executeCommandProvider.commands`. A declared import replaces
+that entry's `workspaceArtifact` generation, without asking for artefact-write consent.
+
+Reply `notes` appear in the server output. Failed imports, unavailable commands and projects without a
+saved path appear as configuration problems in Tools → Language Servers; the server remains available.
+After a successful import, open documents are pulled for diagnostics without previous result IDs, until
+that connection receives `workspace/diagnostic/refresh`; subsequent refreshes are then the server's job.
+Automatic transport reconnect re-imports only on the next project change; immediate imports currently
+cover registry startup and workspace-root replacement. Workspace-folder changes are sent before the import on
+the same debounce (#2364). Importing does not make HexIDE an artefact writer, so an entry that declares
+`projectImport` also receives the file-operation notifications its server asks for (#2248), whether or not it
+also declares `workspaceArtifact` (#2915).
+
+#### RDCore
+
+RDCore's language server takes its project this way. The entry it needs today runs it over a named pipe and
+imports the project with `rdcore.importProject`:
+
+```json
+{
+  "id": "rdcore-vba",
+  "displayName": "RD-VBA (RDCore)",
+  "extensions": [".bas", ".cls", ".frm"],
+  "languageId": "vba",
+  "transport": "pipe",
+  "pipeName": "RDCore.HexIDE",
+  "pipeRole": "connect",
+  "command": "path/to/RDCore.LanguageServer.exe",
+  "arguments": "--pipe-name {pipe} --workspace {workspaceUri}",
+  "priority": 10,
+  "projectImport": {
+    "command": "rdcore.importProject",
+    "arguments": [{ "uri": "{uri}", "text": "{text}", "overwrite": true }]
+  }
+}
+```
+
+Give `command` the absolute path of your build. The import needs a saved project: an unsaved one is reported
+in Tools → Language Servers rather than given an invented URI. If your build doesn't advertise
+`rdcore.importProject`, the same window reports the command as unavailable: use the
+[`rdcore` workspace-artefact provider](#generated-workspace-files) in place of `projectImport`.

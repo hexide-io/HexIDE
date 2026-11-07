@@ -63,3 +63,17 @@ on exactly those.
 #### Scenario: Another option is where the directory should be
 - **WHEN** HexIDE is started with `--user-data-dir --newproject`
 - **THEN** it exits with status 2 rather than creating a directory named `--newproject`
+
+### Requirement: Settings saves SHALL preserve changes made outside the instance
+A settings save SHALL re-read `settings.json`, apply only properties changed by this instance since its
+last load or successful save, and replace the file atomically with `AtomicFileWriter`. Loading SHALL NOT
+mark properties as changed. A save with no changes SHALL leave the file untouched. Unknown fields SHALL
+be preserved. A failed save SHALL retain pending changes for a later retry.
+
+#### Scenario: Another instance changes a setting
+- **WHEN** one instance saves a setting and an instance with an older snapshot saves its window state
+- **THEN** both the setting and the new window state survive
+
+#### Scenario: A hand edit enables revocation retrieval
+- **WHEN** `revocationListUrl` is edited on disk while the IDE is running and the IDE saves another property
+- **THEN** the edited URL survives, including after subsequent saves

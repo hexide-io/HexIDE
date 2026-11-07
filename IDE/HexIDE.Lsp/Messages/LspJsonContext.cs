@@ -3,6 +3,18 @@ using HexIDE.Lsp.Messages;
 
 namespace HexIDE.Lsp;
 
+[JsonSerializable(typeof(CallHierarchyItem[]))]
+[JsonSerializable(typeof(CallHierarchyCallsParams))]
+[JsonSerializable(typeof(CallHierarchyIncomingCall[]))]
+[JsonSerializable(typeof(CallHierarchyOutgoingCall[]))]
+[JsonSerializable(typeof(ConfigurationParams))]
+[JsonSerializable(typeof(DidChangeConfigurationParams))]
+[JsonSerializable(typeof(System.Text.Json.JsonElement[]))]
+[JsonSerializable(typeof(int?))]
+[JsonSerializable(typeof(FileOperationParams))]
+[JsonSerializable(typeof(RenameFilesParams))]
+[JsonSerializable(typeof(DidChangeWorkspaceFoldersParams))]
+[JsonSerializable(typeof(NavigationClientCapabilities))]
 [JsonSerializable(typeof(InitializeParams))]
 [JsonSerializable(typeof(InitializeResult))]
 [JsonSerializable(typeof(ServerCapabilities))]
@@ -30,11 +42,18 @@ namespace HexIDE.Lsp;
 // treatment `documentSymbol` and `definition` already get, for the same reason.
 [JsonSerializable(typeof(DocumentDiagnosticParams))]
 [JsonSerializable(typeof(TextDocumentPositionParams))]
+[JsonSerializable(typeof(HexIDE.Lsp.Messages.Range))]
 [JsonSerializable(typeof(HoverResult))]
 [JsonSerializable(typeof(DocumentSymbolParams))]
 [JsonSerializable(typeof(DocumentSymbol[]))]
+[JsonSerializable(typeof(SemanticTokensParams))]
+[JsonSerializable(typeof(SemanticTokens))]
+[JsonSerializable(typeof(SelectionRangeParams))]
+[JsonSerializable(typeof(SelectionRange[]))]
 [JsonSerializable(typeof(FoldingRangeParams))]
 [JsonSerializable(typeof(FoldingRange[]))]
+[JsonSerializable(typeof(InlayHintParams))]
+[JsonSerializable(typeof(InlayHint[]))]
 [JsonSerializable(typeof(CodeLensParams))]
 [JsonSerializable(typeof(CodeLens))]
 [JsonSerializable(typeof(CodeLens[]))]
@@ -47,17 +66,28 @@ namespace HexIDE.Lsp;
 [JsonSerializable(typeof(SignatureHelp))]
 [JsonSerializable(typeof(SignatureInformation[]))]
 [JsonSerializable(typeof(ParameterInformation[]))]
+[JsonSerializable(typeof(ReferenceParams))]
 [JsonSerializable(typeof(Location[]))]
 [JsonSerializable(typeof(DocumentHighlight[]))]
+[JsonSerializable(typeof(CodeActionParams))]
 [JsonSerializable(typeof(RenameParams))]
 [JsonSerializable(typeof(WorkspaceEdit))]
+[JsonSerializable(typeof(ApplyWorkspaceEditParams))]
+[JsonSerializable(typeof(ApplyWorkspaceEditResult))]
 [JsonSerializable(typeof(TextEdit[]))]
 [JsonSerializable(typeof(Dictionary<string, TextEdit[]>))]
 [JsonSerializable(typeof(DocumentFormattingParams))]
+[JsonSerializable(typeof(DocumentRangeFormattingParams))]
 [JsonSerializable(typeof(FormattingOptions))]
 [JsonSerializable(typeof(VbaBuiltinSymbol[]))]
 [JsonSerializable(typeof(WorkspaceSymbolParams))]
 [JsonSerializable(typeof(SymbolInformation[]))]
+[JsonSerializable(typeof(ShowMessageRequestParams))]
+[JsonSerializable(typeof(MessageActionItem))]
+[JsonSerializable(typeof(ShowDocumentParams))]
+[JsonSerializable(typeof(ShowDocumentResult))]
+[JsonSerializable(typeof(ProgressParams))]
+[JsonSerializable(typeof(WorkDoneProgressCreateParams))]
 [JsonSerializable(typeof(SetTraceParams))]
 [JsonSerializable(typeof(LogTraceParams))]
 // NOT an LSP type, and load-bearing for exactly that reason. StreamJsonRpc deserializes the `data` member
@@ -69,5 +99,9 @@ namespace HexIDE.Lsp;
 // rather than that request returning nothing. Found by pointing the client at a server that throws
 // (`RequestFailureLoggingTests`), which is a thing no server we had ever driven happened to do.
 [JsonSerializable(typeof(StreamJsonRpc.Protocol.CommonErrorData))]
+// The same failure by another route (#2760): an error reply whose `error` member comes before its `id`, as rumdl writes
+// one, is read before StreamJsonRpc knows which request it answers, so its `data` — a string, for rumdl — is read as an
+// object, and an unregistered object took the connection down just the same.
+[JsonSerializable(typeof(object))]
 [JsonSourceGenerationOptions(PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase)]
 public partial class LspJsonContext : JsonSerializerContext { }

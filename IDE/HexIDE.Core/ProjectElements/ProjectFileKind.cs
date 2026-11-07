@@ -44,7 +44,7 @@ public static class ProjectFileClassifier
     /// (ActiveX Documents are out of scope, and a <c>UserDocument=</c> line is preserved verbatim rather
     /// than loaded). Classifying one as a module here would promise a designer that does not exist and
     /// hand a file HexIDE cannot parse to the VB6 save path. As a related document it opens as text and is
-    /// written back byte-for-byte, which is the honest answer.
+    /// saved without rewriting an unchanged buffer; edits retain the encoding and untouched bytes.
     /// </para>
     ///
     /// <para>
