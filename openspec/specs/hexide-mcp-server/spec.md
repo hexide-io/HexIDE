@@ -14,6 +14,24 @@ agent that wrote the code can open the IDE, drive it, and look at the result.
 
 ## Requirements
 
+### Requirement: Call stack replies summarise recursion and bound rows
+
+`get_call_stack` SHALL collapse consecutive frames with identical procedure, module and line into one
+row with `count`, and report the uncollapsed depth as `totalFrames`. It SHALL return deepest frames first
+and accept optional positive `maxFrames`, defaulting to 200 collapsed rows. When rows are omitted, a note
+SHALL report their number and explain how to request all rows. The tool description SHALL explain both
+collapsing and the limit.
+
+#### Scenario: Inspect deep recursion
+- **WHEN** a paused stack contains thousands of consecutive identical caller frames
+- **THEN** those callers occupy one row with their count, alongside the deepest and outermost frames
+- **AND** `totalFrames` reports the full depth
+
+#### Scenario: Expand a bounded stack
+- **WHEN** the collapsed stack has more rows than `maxFrames`
+- **THEN** the reply returns at most `maxFrames` rows and a note naming the omitted row count and a limit that includes all rows
+
+
 ### Requirement: Code edits during a run explain the running snapshot
 
 During a running or paused project, `set_file_content` and document-mode `type_text` SHALL edit without
