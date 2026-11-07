@@ -61,6 +61,8 @@ public class VBLoader
         // transparent one shows the form's BackColor through it (#974).
         canvas.Background = Avalonia.Media.Brushes.Transparent;
         AttachedEvents.AttachFormMouse(canvas);
+        if (form is not null)
+            AvaloniaInterop.ContainerMembers.Register(canvas, Vb6Value.NewObject(form));
         var menu = new Menu();
         DockPanel.SetDock(menu, Avalonia.Controls.Dock.Top);
         var shortcuts = new List<(KeyGesture Gesture, Action Invoke)>();
@@ -96,6 +98,8 @@ public class VBLoader
             if (control is VBCommonDialog dialog)
                 dialog.host = standardLibrary ?? throw new NotImplementedException("A CommonDialog needs a dialog host (#1084)");
             placed[component] = control;
+            if (control is IVBContainerControl { ChildHost: { } childHost })
+                AvaloniaInterop.ContainerMembers.Register(childHost, new Vb6Value(control));
             AvaloniaInterop.UserControlContainers.Register(control, component.Container is { } owner ? placed.GetValueOrDefault(owner) : null);
             if (AvaloniaInterop.UserControlMembers.IsUserControl(control))
             {
@@ -310,7 +314,7 @@ public class VBLoader
             foreach (var control in fileOrder.AsEnumerable().Reverse())
                 if (control.Parent is Panel parent)
                     ControlStacking.PlaceOver(control, ControlStacking.IsWindowless(control), parent);
-        var controls = new FormControls(fileOrder.OrderBy(AvaloniaInterop.UserControlMembers.Windowless), arrayGroups);
+        var controls = new FormControls(fileOrder.OrderBy(AvaloniaInterop.UserControlMembers.Windowless), arrayGroups) { Form = form };
         foreach (var (block, control) in dialogs)
             if (control is VBUpDown upDown && RuntimeControlBlock(block, "MSComCtl2.UpDown") is { } saved)
                 upDown.LoadBuddy(saved.Properties, controls);
