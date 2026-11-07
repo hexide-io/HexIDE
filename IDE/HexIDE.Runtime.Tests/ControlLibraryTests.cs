@@ -59,9 +59,29 @@ public class ControlLibraryTests
     }
 
     [Fact]
-    public void A_library_HexIDE_does_not_know_is_none()
+    public void CommonDialog_has_a_library_record()
     {
         ObjectReference.TryParse(VbpDialog, out var reference).Should().BeTrue();
+        var library = ControlLibraries.For(reference);
+        library.Should().NotBeNull();
+        library!.Name.Should().Be("MSComDlg");
+        library.ProjectLine.Should().Be(VbpDialog);
+        library.Controls["CommonDialog"].Should().Be(1084);
+    }
+
+    [Fact]
+    public void CommonDialog_is_registered_under_its_type_name()
+    {
+        Serialization.FormDeserializer.TryGetComponentClass("MSComDlg.CommonDialog", out var component).Should().BeTrue();
+        component!.IsVisual.Should().BeFalse();
+        component.Events.Should().BeEmpty();
+        component.Properties.Select(p => p.Name).Should().BeEquivalentTo("(Name)", "Tag", "Left", "Top");
+    }
+
+    [Fact]
+    public void A_library_HexIDE_does_not_know_is_none()
+    {
+        ObjectReference.TryParse("Object={00000000-0000-0000-0000-000000000000}#1.0#0; unknown.ocx", out var reference).Should().BeTrue();
 
         ControlLibraries.For(reference).Should().BeNull();
     }
@@ -69,7 +89,31 @@ public class ControlLibraryTests
     [Fact]
     public void The_CommonDialogs_reference_is_read_by_the_same_parser() =>
         new[] { VbpDialog, "Object = \"{F9043C88-F6F2-101A-A3C9-08002B2F49FB}#1.2#0\"; \"COMDLG32.OCX\"", Vbp6, "Title=\"F9043C88-F6F2-101A-A3C9-08002B2F49FB\"" }
-            .Select(CommonDialogConstants.IsReference).Should().Equal(true, true, false, false);
+            .Select(line => ObjectReference.TryParse(line, out var reference) && ControlLibraries.MSComDlg.IsNamedBy(reference)).Should().Equal(true, true, false, false);
+
+    [Fact]
+    public void CommonDialog_uses_only_the_shared_library_constant_path()
+    {
+        var assembly = typeof(BasicInterpreter).Assembly;
+        assembly.GetType("HexIDE.Runtime.Interpreter.CommonDialogConstants").Should().BeNull();
+        typeof(VB6BuiltIns).GetProperty("CommonDialogReferenced",
+            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic).Should().BeNull();
+        typeof(AppInfo).GetProperty("CommonDialogReferenced").Should().BeNull();
+    }
+
+    [Fact]
+    public void A_CommonDialog_carried_as_unknown_is_not_claimed_as_runnable() =>
+        Serialization.FormDeserializer.RunsWhenCarried("MSComDlg.CommonDialog", false, false).Should().BeFalse();
+
+    // Existing dump and measurements: oracle/in-box-controls-the-commondialog.md (#1084, #1148).
+    [Fact]
+    public async Task CommonDialog_constants_resolve_through_the_shared_library()
+    {
+        var log = await Run("Debug.Print cdlCancel, MSComDlg.cdlCancel, FileOpenConstants.cdlOFNReadOnly, TypeName(MSComDlg.cdlCancel)",
+            ControlLibraries.MSComDlg);
+
+        log.Select(v => v.Value?.ToString()).Should().Equal("32755", "32755", "1", "Long");
+    }
 
     [Fact]
     public void A_project_references_its_vbps_libraries_then_its_forms_each_once()
@@ -82,7 +126,7 @@ public class ControlLibraryTests
         form.HeaderLines.Add(Frm5);
         project.AddForm(form);
 
-        ControlLibraries.ReferencedBy(project).Select(l => l.Name).Should().Equal("ComctlLib", "MSComctlLib");
+        ControlLibraries.ReferencedBy(project).Select(l => l.Name).Should().Equal("MSComDlg", "ComctlLib", "MSComctlLib");
     }
 
     [Fact]

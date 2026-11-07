@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
+using System.Threading.Tasks;
 using Avalonia.Automation.Peers;
 using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
@@ -108,6 +109,50 @@ public class RunningFormNamesTests
             nodes.Single(n => n.Path == "Window/Text[Label1]").Name.Should().Be("Name:");
         }
         finally { window.Close(); }
+    }
+
+    [AvaloniaTheory]
+    [InlineData("Command1", null, "Command1", false)]
+    [InlineData("Command1", null, "Command1", true)]
+    [InlineData("Command2", 0, "Command2(0)", false)]
+    [InlineData("Command2", 0, "Command2(0)", true)]
+    [InlineData("Command2", 1, "Command2(1)", false)]
+    [InlineData("Command2", 1, "Command2(1)", true)]
+    public async Task Click_and_modal_refusal_name_the_running_control(string name, int? index, string id, bool modal)
+    {
+        UiAutomationDriver.TrackWindows();
+        var window = Run();
+        var dialog = new Window { Title = "Question", Content = new Button { Content = "OK" } };
+        try
+        {
+            window.UpdateLayout();
+            Avalonia.Headless.AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+            Dispatcher.UIThread.RunJobs();
+            var button = UiAutomationDriver.Resolve(window, $"Window/Button[{id}]").control!;
+            button.Should().BeSameAs(Named(window, name, index));
+            button.Name.Should().BeNull();
+
+            if (modal)
+            {
+                _ = dialog.ShowDialog(window);
+                Dispatcher.UIThread.RunJobs();
+                var refused = UiAutomationDriver.Interact(button, "click", null);
+                refused.Success.Should().BeFalse();
+                refused.Error.Should().StartWith($"'VBCommandButton[{id}]' is in a window a modal dialog has disabled")
+                    .And.Contain("Question");
+            }
+            else
+            {
+                var clicked = await UiAutomationDriver.FinishAsync(UiAutomationDriver.Interact(button, "click", null));
+                clicked.Success.Should().BeTrue(clicked.Error);
+                clicked.Detail.Should().Contain($"on 'VBCommandButton[{id}]'");
+            }
+        }
+        finally
+        {
+            dialog.Close();
+            window.Close();
+        }
     }
 
     // The default dump keeps what a program names, a Label among them, though nothing about it is interactive to UI

@@ -23,16 +23,22 @@ public class DiagnosticTypeTextTests : BaseVBTestFixture
             else
                 await Run(receiver == "empty" ? "Dim receiver As Variant\nDebug.Print receiver.NoSuchMember" : "Debug.Print receiver.NoSuchMember");
         };
+        if (receiver == "empty")
+        {
+            (await act.Should().ThrowAsync<VBRunTimeException>()).Which.Message.ReplaceLineEndings("\n")
+                .Should().Be("Run-time error '424':\n\nObject required");
+            return;
+        }
         (await act.Should().ThrowAsync<VBMethodOrDataMemberNotFoundException>()).Which
             .Message.ReplaceLineEndings("\n").Should().Be("Compile error:\n\nMethod or data member not found (NoSuchMember)");
     }
 
     [Fact]
-    public async Task UnknownMethod_PrintsValueWithoutEitherWrapper()
+    public async Task NonObjectMethod_ReportsNumberWithoutInternalValue()
     {
         var act = async () => await Run("Dim receiver As Variant\nreceiver.NoSuchCall");
         (await act.Should().ThrowAsync<VBRunTimeException>()).Which.Message.ReplaceLineEndings("\n")
-            .Should().Be("Run-time error:\n\nUnknown method NoSuchCall on <EmptyVariant>()");
+            .Should().Be("Run-time error '424':\n\nObject required");
     }
 
     [Theory]
@@ -40,10 +46,13 @@ public class DiagnosticTypeTextTests : BaseVBTestFixture
     [InlineData(true)]
     public async Task MissingAssignmentMember_IdentifiesVariableWithoutReceiverType(bool control)
     {
-        context.AllocVariable(rootEnv, "receiver", control ? new Vb6Value(new Control()) : Vb6Value.Variant);
-        var act = async () => await Run("receiver.NoSuchMember = 1");
+        if (control)
+            context.AllocVariable(rootEnv, "receiver", new Vb6Value(new Control()));
+        var act = async () => await Run((control ? "" : "Dim receiver As Variant\n") + "receiver.NoSuchMember = 1");
         (await act.Should().ThrowAsync<VBRunTimeException>()).Which.Message.ReplaceLineEndings("\n")
-            .Should().Be("Run-time error '461':\n\nMethod or data member not found\n\nVariable receiver doesn't have member NoSuchMember");
+            .Should().Be(control
+                ? "Run-time error '461':\n\nMethod or data member not found\n\nVariable receiver doesn't have member NoSuchMember"
+                : "Run-time error '424':\n\nObject required");
     }
 
     public static TheoryData<Vb6Value.ValueTypePrimitive, int> Types

@@ -3,6 +3,7 @@ using Avalonia.Controls.ApplicationLifetimes;
 using HexIDE.Addins;
 #if DEBUG
 using System.Threading;
+using System.Runtime.InteropServices;
 using HexIDE.Desktop.Server;   // MCP server — DEBUG-only (compiled out of Release)
 #endif
 using HexIDE.Bookmarks;
@@ -15,9 +16,7 @@ internal static class DesktopStartup
 {
     public static void Register()
     {
-        if (ServerOptions.Personality is { } p &&
-            System.Enum.TryParse<PersonalityName>(p, ignoreCase: true, out var name))
-            HexIDE.Static.Personality = name;
+        HexIDE.Static.IsRecoveryMode = ServerOptions.Profile == "none";
 
         // Deliberately OUTSIDE the #if DEBUG below, and the asymmetry is the point: developer mode is
         // inert in a distributed build by design, while the capture ships in one. Gating this the same way
@@ -41,8 +40,12 @@ internal static class DesktopStartup
         else if (ServerOptions.NewProject)
             HexIDE.Static.StartupProjectHook = async (ps, pm) =>
             {
+                // The project this creates, which is not always the startup project: one crash recovery restored
+                // just before stays the startup project, and saving that instead wrote its recovered work over its
+                // files (hexide-io/HexIDE#499).
+                var before = pm.LoadedProjects.ToList();
                 await ps.CreateNewProject(IProjectTemplate.StandardEXE);
-                if (pm.StartupProject is { } project)
+                if (pm.LoadedProjects.FirstOrDefault(p => !before.Contains(p)) is { } project)
                 {
                     // Through the shared helper, NOT a second copy of the same path rule. This line
                     // used to build "%TEMP%/hexide_{Name}" itself, and since --newproject always names
@@ -59,7 +62,7 @@ internal static class DesktopStartup
 
         HexIDE.Static.DesktopStartupHook = (setup, desktop) =>
         {
-            // Always: load add-ins from the addins/ folder beside the exe.
+            // The registry also guards loading in recovery sessions.
             var loader = setup.AddinLoader;
             loader.LoadAll(setup.HexIdeHost);
             desktop.ShutdownRequested += (_, _) => loader.Dispose();
@@ -77,8 +80,21 @@ internal static class DesktopStartup
             if (ServerOptions.Port is not { } port)
                 return;
 
-            var ctx = new IdeContext(setup.ProjectManager, setup.DocumentDockService, setup.LspClient, setup.EditorService, setup.ProjectRunnerService, setup.ProjectService, setup.EventBus, setup.BookmarkService, setup.BreakpointService, setup.DebugController, HexIDE.Static.RootViewModel!, setup.ToolBoxViewModel, setup.PersonalityService, setup.AddinProjectTemplateService, setup.LanguageSwitchService, setup.Capture, setup.Pseudonyms, setup.LocalizationService);
+            var ctx = new IdeContext(setup.ProjectManager, setup.DocumentDockService, setup.LspClient, setup.EditorService, setup.ProjectRunnerService, setup.ProjectService, setup.EventBus, setup.BookmarkService, setup.BreakpointService, setup.DebugController, HexIDE.Static.RootViewModel!, setup.ToolBoxViewModel, setup.ProfileService, setup.AddinProjectTemplateService, setup.LanguageSwitchService, setup.Capture, setup.Pseudonyms, setup.LocalizationService, setup.SettingsService);
             var cts = new CancellationTokenSource();
+            var termination = OperatingSystem.IsWindows() ? null :
+                PosixSignalRegistration.Create(PosixSignal.SIGTERM, signal =>
+                {
+                    signal.Cancel = true;
+                    Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+                    {
+                        // Closes without the save prompt, as shutdown_ide does, but nobody chose to lose the work, so
+                        // it is backed up and kept for the next start (#499).
+                        setup.Recovery.KeepForRecovery();
+                        IdeShutdown.Prepare(ctx, force: true);
+                        IdeShutdown.CloseMainWindow();
+                    });
+                });
 
             desktop.MainWindow!.Opened += (_, _) =>
                 _ = Task.Run(async () =>
@@ -119,6 +135,7 @@ internal static class DesktopStartup
             // ShutdownRequested can be cancelled. Keep automation available while any window survives.
             desktop.Exit += (_, _) =>
             {
+                termination?.Dispose();
                 ctx.Dispose();
                 cts.Cancel();
             };

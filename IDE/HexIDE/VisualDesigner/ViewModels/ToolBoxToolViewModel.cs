@@ -98,7 +98,7 @@ public partial class ToolBoxToolViewModel : Tool
 
         var libraries = project.ObjectReferences.Select(ControlLibraries.For).OfType<RuntimeLibrary>().Distinct();
         foreach (var library in libraries)
-        foreach (var inBox in InBoxComponentClass.Implemented.Where(c => library.Controls.ContainsKey(c.ControlClassName)))
+        foreach (var inBox in InBoxComponentClass.Implemented.Where(c => c.Libraries.Contains(library)))
             inBoxTools.Add(new ComponentToolViewModel(this, inBox, IconFactory.Themed("Geo.Object")) { Library = library });
         var at = Components.IndexOf(Components.Last(c => c.BaseClass is ShapeComponentClass)) + 1;
         foreach (var tool in inBoxTools)

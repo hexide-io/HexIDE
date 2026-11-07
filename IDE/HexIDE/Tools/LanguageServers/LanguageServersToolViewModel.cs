@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Globalization;
 using Avalonia.Threading;
 using Dock.Model.Mvvm.Controls;
 using HexIDE.Conversations;
@@ -51,6 +52,10 @@ public partial class LanguageServersToolViewModel : Document
     private readonly ConversationLog _capture;
     private readonly IEventBus _events;
     private readonly Pseudonymiser _pseudonyms;
+    private readonly IProjectManager? _projects;
+    private readonly HashSet<string> _pendingOutput = new(StringComparer.Ordinal);
+
+    internal event Action? LanguageChanged;
 
     public ObservableCollection<LanguageServerGroupViewModel> Groups { get; } = [];
     public ObservableCollection<LanguageServerConfigProblem> Problems { get; } = [];
@@ -84,13 +89,14 @@ public partial class LanguageServersToolViewModel : Document
 
     public LanguageServersToolViewModel(
         ILanguageConnectionRegistry registry, ILocalizationService localization, ConversationLog capture,
-        IEventBus events, Pseudonymiser pseudonyms)
+        IEventBus events, Pseudonymiser pseudonyms, IProjectManager? projects = null)
     {
         _registry = registry;
         _localization = localization;
         _capture = capture;
         _events = events;
         _pseudonyms = pseudonyms;
+        _projects = projects;
 
         ShowAllMessagesCommand = new HexIDE.Utils.DelegateCommand(
             () => _events.Publish(new OpenProtocolInspectorEvent()));
@@ -101,8 +107,10 @@ public partial class LanguageServersToolViewModel : Document
 
         armsFutureServers = capture.ArmsEveryConnection;
 
+        _localization.LanguageChanged += OnLanguageChanged;
         _registry.ConnectionsChanged += OnConnectionsChanged;
         _capture.ArmingChanged += OnArmingChanged;
+        _capture.Output.Changed += OnOutputChanged;
         Refresh();
     }
 
@@ -135,6 +143,41 @@ public partial class LanguageServersToolViewModel : Document
                         row.ArmingChanged();
                 }
             }
+        }
+    }
+
+    private void OnOutputChanged(object? sender, string connectionId)
+    {
+        lock (_pendingOutput)
+        {
+            var alreadyQueued = _pendingOutput.Count > 0;
+            _pendingOutput.Add(connectionId);
+            if (alreadyQueued) return;
+        }
+        // A noisy server must not queue one dispatcher job for every line.
+        Dispatcher.UIThread.Post(() =>
+        {
+            string[] changed;
+            lock (_pendingOutput)
+            {
+                changed = [.. _pendingOutput];
+                _pendingOutput.Clear();
+            }
+            foreach (var row in Groups.SelectMany(g => g.Rows))
+                if (changed.Contains(row.Id)) row.OutputChanged();
+        });
+    }
+
+    private void OnLanguageChanged()
+    {
+        if (Dispatcher.UIThread.CheckAccess()) Apply();
+        else Dispatcher.UIThread.Post(Apply);
+
+        void Apply()
+        {
+            foreach (var row in Groups.SelectMany(g => g.Rows)) row.LanguageChanged();
+            RefreshProblems();
+            LanguageChanged?.Invoke();
         }
     }
 
@@ -175,11 +218,24 @@ public partial class LanguageServersToolViewModel : Document
                      .ToList()));
         }
 
-        Problems.Clear();
-        foreach (var p in _registry.ConfigurationProblems) Problems.Add(p);
-
-        HasProblems = Problems.Count > 0;
+        RefreshProblems();
         HasNoServers = Groups.Count == 0;
+    }
+
+    private void RefreshProblems()
+    {
+        Problems.Clear();
+        foreach (var problem in _registry.ConfigurationProblems)
+        {
+            var key = problem.Code == "NoServers"
+                ? "Str.Tool.LanguageServers.None"
+                : $"Str.Tool.LanguageServers.Problem.{problem.Code}";
+            Problems.Add(problem.Code is null ? problem : problem with
+            {
+                Message = string.Format(CultureInfo.InvariantCulture, _localization.GetString(key), problem.Arguments),
+            });
+        }
+        HasProblems = Problems.Count > 0;
     }
 
     /// <summary>
@@ -204,6 +260,15 @@ public partial class LanguageServersToolViewModel : Document
     /// </param>
     public string ToReportText(ConversationRedactor redactor)
     {
+        foreach (var project in _projects?.LoadedProjects ?? [])
+        {
+            if (project.WorkingDirectory is { Length: > 0 } directory) redactor.AddWorkspaceRoot(directory);
+            if (project.AbsolutePath is { Length: > 0 } file && System.IO.Path.GetDirectoryName(file) is { } folder)
+                redactor.AddWorkspaceRoot(folder);
+        }
+        foreach (var connection in _registry.Connections)
+            if (connection.WorkspaceRootUri is { Length: > 0 } root) redactor.AddWorkspaceRoot(root);
+
         var lines = new List<string>();
         foreach (var group in Groups)
         {

@@ -2,6 +2,7 @@
 using System.Text;
 using System.Text.Json;
 using HexIDE.Lsp;
+using HexIDE.Lsp.Messages;
 using Microsoft.Extensions.Logging;
 using Nerdbank.Streams;
 using StreamJsonRpc;
@@ -10,10 +11,10 @@ using StreamJsonRpc;
 namespace HexIDE.Tests.LspClient;
 
 /// <summary>
-/// What <c>shutdown</c> and <c>exit</c> look like on the wire.
+/// What the lifecycle messages look like on the wire.
 ///
 /// <para>
-/// LSP 3.17 defines both as taking <b>no parameters</b>, and the four ways of expressing "nothing" are not
+/// LSP 3.17 defines shutdown and exit as taking <b>no parameters</b>, and the four ways of expressing "nothing" are not
 /// interchangeable to a real server. Measured against foreign servers this suite drives and an
 /// externally-authored one (hexide-io/HexIDE#312, #368):
 /// </para>
@@ -89,7 +90,8 @@ public class ShutdownWireShapeTests : IAsyncDisposable
     private readonly TaskCompletionSource _initializeSeen = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
     private async Task<VBLspClient> ConnectedAsync(
-        bool answerShutdown = true, bool answerInitialize = true, bool leaveServerRunning = false)
+        bool answerShutdown = true, bool answerInitialize = true, bool leaveServerRunning = false,
+        Func<string>? locale = null, bool callHierarchy = true, string? hierarchyResult = null, bool hierarchyError = false, string rangeProvider = "true")
     {
         var (clientSide, serverSide) = FullDuplexStream.CreatePair();
         _disposables.Add(serverSide);
@@ -128,9 +130,18 @@ public class ShutdownWireShapeTests : IAsyncDisposable
                     // result ends in three consecutive closing braces, which no $$"""...""" form accepts.
                     var head = "{\"jsonrpc\":\"2.0\",\"id\":" + id.GetRawText() + ",\"result\":";
                     var reply = m.GetString() == "initialize"
-                        ? head + "{\"capabilities\":{},\"serverInfo\":"
+                        ? head + "{\"capabilities\":{\"callHierarchyProvider\":" + (callHierarchy ? "{}" : "false") + ",\"documentFormattingProvider\":true,\"documentRangeFormattingProvider\":" + rangeProvider + "},\"serverInfo\":"
                                + "{\"name\":\"wire-probe\",\"version\":\"1.0.0\"}}}"
                         : head + "null}";
+                    if (m.GetString() is "textDocument/prepareCallHierarchy" or
+                        "callHierarchy/incomingCalls" or "callHierarchy/outgoingCalls")
+                    {
+                        if (hierarchyError)
+                            reply = "{\"jsonrpc\":\"2.0\",\"id\":" + id.GetRawText()
+                                + ",\"error\":{\"code\":-32603,\"message\":\"unavailable\"}}";
+                        else if (hierarchyResult is not null)
+                            reply = head + hierarchyResult + "}";
+                    }
                     await WriteFrameAsync(serverSide, reply, _cts.Token);
                 }
             }
@@ -146,12 +157,225 @@ public class ShutdownWireShapeTests : IAsyncDisposable
             .Returns(ci => Task.FromResult<IJsonRpcMessageHandler?>(
                 new HeaderDelimitedMessageHandler(clientSide, clientSide, ci.Arg<IJsonRpcMessageFormatter>())));
 
-        var client = new VBLspClient(transport, Substitute.For<ILogger<VBLspClient>>(), "vb6");
+        var client = new VBLspClient(transport, Substitute.For<ILogger<VBLspClient>>(), "vb6", locale: locale);
         _disposables.Add(client);
         _starting = client.StartAsync();
         if (answerInitialize) await _starting;
         else await _initializeSeen.Task.WaitAsync(TimeSpan.FromSeconds(10), _cts.Token);
         return client;
+    }
+
+    [Fact]
+    public async Task CallHierarchyCapabilityIsDeclared()
+    {
+        await ConnectedAsync();
+        FrameFor("initialize").GetProperty("params").GetProperty("capabilities")
+            .GetProperty("textDocument").TryGetProperty("callHierarchy", out _).Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task PrepareCallHierarchyCarriesCaret()
+    {
+        var client = await ConnectedAsync();
+        (await client.PrepareCallHierarchyAsync("file:///M.bas", new Position(7, 9),
+            TestContext.Current.CancellationToken)).Should().BeEmpty();
+        var parameters = FrameFor("textDocument/prepareCallHierarchy").GetProperty("params");
+        parameters.GetProperty("textDocument").GetProperty("uri").GetString().Should().Be("file:///M.bas");
+        parameters.GetProperty("position").GetProperty("line").GetInt32().Should().Be(7);
+        parameters.GetProperty("position").GetProperty("character").GetInt32().Should().Be(9);
+    }
+
+    [Theory]
+    [InlineData("Incoming", "incomingCalls", false)]
+    [InlineData("Outgoing", "outgoingCalls", false)]
+    [InlineData("Incoming", "incomingCalls", true)]
+    [InlineData("Outgoing", "outgoingCalls", true)]
+    [InlineData("Incoming", "incomingCalls", null)]
+    [InlineData("Outgoing", "outgoingCalls", null)]
+    public async Task CallHierarchyExpansionPreservesOpaqueItem(string direction, string wireMethod, bool? nullData)
+    {
+        var client = await ConnectedAsync();
+        const string json = """
+            {"name":"Foo","kind":12,"uri":"file:///M.bas",
+             "range":{"start":{"line":1,"character":0},"end":{"line":4,"character":7}},
+             "selectionRange":{"start":{"line":1,"character":4},"end":{"line":1,"character":7}},
+             "data":{"token":[1,"opaque"]},"tags":[1],"detail":"Module1"}
+            """;
+        var payload = nullData switch
+        {
+            true => json.Replace("{\"token\":[1,\"opaque\"]}", "null"),
+            null => json.Replace("\"data\":{\"token\":[1,\"opaque\"]},", ""),
+            _ => json
+        };
+        var item = JsonSerializer.Deserialize<CallHierarchyItem>(payload)!;
+        if (direction == "Incoming")
+            (await client.RequestIncomingCallsAsync(item, TestContext.Current.CancellationToken)).Should().BeEmpty();
+        else
+            (await client.RequestOutgoingCallsAsync(item, TestContext.Current.CancellationToken)).Should().BeEmpty();
+        var sent = FrameFor("callHierarchy/" + wireMethod).GetProperty("params").GetProperty("item");
+        JsonElement.DeepEquals(sent, JsonDocument.Parse(payload).RootElement).Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task CallHierarchyWithoutProviderSendsNoRequest()
+    {
+        var client = await ConnectedAsync(callHierarchy: false);
+        (await client.PrepareCallHierarchyAsync("file:///M.bas", new Position(0, 0),
+            TestContext.Current.CancellationToken)).Should().BeEmpty();
+        await client.StopAsync();
+        await ExitArrivedAsync();
+        FrameFor("textDocument/prepareCallHierarchy").ValueKind.Should().Be(JsonValueKind.Undefined);
+    }
+
+    private const string HierarchyItemJson = """
+        {"name":"Foo","kind":12,"uri":"file:///M.bas",
+         "range":{"start":{"line":1,"character":0},"end":{"line":4,"character":7}},
+         "selectionRange":{"start":{"line":1,"character":4},"end":{"line":1,"character":7}},
+         "data":{"token":[1,"opaque"]}}
+        """;
+
+    [Fact]
+    public async Task CallHierarchyPrepareReadsServerItems()
+    {
+        var client = await ConnectedAsync(hierarchyResult: "[" + HierarchyItemJson + "]");
+        var items = await client.PrepareCallHierarchyAsync("file:///M.bas", new Position(1, 4),
+            TestContext.Current.CancellationToken);
+        var item = items.Should().ContainSingle().Which;
+        item.Name.Should().Be("Foo");
+        item.SelectionRange.Start.Should().Be(new Position(1, 4));
+        item.Data.GetProperty("token")[1].GetString().Should().Be("opaque");
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task CallHierarchyExpansionReadsServerItemsAndCallSites(bool incoming)
+    {
+        var relation = incoming ? "from" : "to";
+        var reply = "[{\"" + relation + "\":" + HierarchyItemJson + """
+            ,"fromRanges":[{"start":{"line":2,"character":3},"end":{"line":2,"character":6}}]}]
+            """;
+        var client = await ConnectedAsync(hierarchyResult: reply);
+        var root = JsonSerializer.Deserialize<CallHierarchyItem>(HierarchyItemJson)!;
+        CallHierarchyItem item;
+        HexIDE.Lsp.Messages.Range[] ranges;
+        if (incoming)
+        {
+            var call = (await client.RequestIncomingCallsAsync(root, TestContext.Current.CancellationToken))
+                .Should().ContainSingle().Which;
+            item = call.From;
+            ranges = call.FromRanges;
+        }
+        else
+        {
+            var call = (await client.RequestOutgoingCallsAsync(root, TestContext.Current.CancellationToken))
+                .Should().ContainSingle().Which;
+            item = call.To;
+            ranges = call.FromRanges;
+        }
+        item.Name.Should().Be("Foo");
+        item.Data.GetProperty("token")[1].GetString().Should().Be("opaque");
+        ranges.Should().ContainSingle().Which.Should().Be(new HexIDE.Lsp.Messages.Range(
+            new Position(2, 3), new Position(2, 6)));
+    }
+
+    [Theory]
+    [InlineData("prepare")]
+    [InlineData("incoming")]
+    [InlineData("outgoing")]
+    public async Task CallHierarchyErrorsPropagateToCaller(string request)
+    {
+        var client = await ConnectedAsync(hierarchyError: true);
+        var root = JsonSerializer.Deserialize<CallHierarchyItem>(HierarchyItemJson)!;
+        Func<Task> action = request switch
+        {
+            "prepare" => () => client.PrepareCallHierarchyAsync(root.Uri, new Position(1, 4),
+                TestContext.Current.CancellationToken),
+            "incoming" => () => client.RequestIncomingCallsAsync(root, TestContext.Current.CancellationToken),
+            _ => () => client.RequestOutgoingCallsAsync(root, TestContext.Current.CancellationToken)
+        };
+        (await action.Should().ThrowAsync<RemoteInvocationException>()).Which.Message.Should().Contain("unavailable");
+    }
+
+    [Theory]
+    [InlineData(2, true)]
+    [InlineData(2, false)]
+    [InlineData(8, true)]
+    [InlineData(8, false)]
+    public async Task FormattingCarriesTheRequestedIndentation(int tabWidth, bool insertSpaces)
+    {
+        var client = await ConnectedAsync();
+
+        await client.RequestFormattingAsync("file:///M.bas", new FormattingOptions(tabWidth, insertSpaces),
+            TestContext.Current.CancellationToken);
+
+        var options = FrameFor("textDocument/formatting").GetProperty("params").GetProperty("options");
+        options.GetProperty("tabSize").GetInt32().Should().Be(tabWidth);
+        options.GetProperty("insertSpaces").GetBoolean().Should().Be(insertSpaces);
+    }
+
+    [Fact]
+    public async Task RangeFormattingIsDeclaredAndCarriesSelectionAndOptions()
+    {
+        var client = await ConnectedAsync();
+        FrameFor("initialize").GetProperty("params").GetProperty("capabilities")
+            .GetProperty("textDocument").TryGetProperty("rangeFormatting", out _).Should().BeTrue();
+        var method = typeof(ILspClient).GetMethod("RequestRangeFormattingAsync");
+        method.Should().NotBeNull();
+        var range = new HexIDE.Lsp.Messages.Range(new Position(2, 3), new Position(4, 5));
+        await (Task<TextEdit[]>)method!.Invoke(client,
+            ["file:///M.bas", range, new FormattingOptions(8, true), TestContext.Current.CancellationToken])!;
+        var p = FrameFor("textDocument/rangeFormatting").GetProperty("params");
+        p.GetProperty("textDocument").GetProperty("uri").GetString().Should().Be("file:///M.bas");
+        p.GetProperty("range").GetProperty("start").GetProperty("line").GetInt32().Should().Be(2);
+        p.GetProperty("range").GetProperty("start").GetProperty("character").GetInt32().Should().Be(3);
+        p.GetProperty("range").GetProperty("end").GetProperty("line").GetInt32().Should().Be(4);
+        p.GetProperty("range").GetProperty("end").GetProperty("character").GetInt32().Should().Be(5);
+        p.GetProperty("options").GetProperty("tabSize").GetInt32().Should().Be(8);
+        p.GetProperty("options").GetProperty("insertSpaces").GetBoolean().Should().BeTrue();
+    }
+
+    [Theory]
+    [InlineData("false")]
+    [InlineData("null")]
+    public async Task RangeFormattingIsNotSentWithoutServerSupport(string provider)
+    {
+        var client = await ConnectedAsync(rangeProvider: provider);
+        var method = typeof(ILspClient).GetMethod("RequestRangeFormattingAsync");
+        method.Should().NotBeNull();
+        var range = new HexIDE.Lsp.Messages.Range(new Position(0, 0), new Position(1, 0));
+        var edits = await (Task<TextEdit[]>)method!.Invoke(client,
+            ["file:///M.bas", range, new FormattingOptions(4, true), TestContext.Current.CancellationToken])!;
+        edits.Should().BeEmpty();
+        await client.StopAsync();
+        await ExitArrivedAsync();
+        FrameFor("textDocument/rangeFormatting").ValueKind.Should().Be(JsonValueKind.Undefined);
+    }
+
+    [AvaloniaTheory]
+    [InlineData("en-GB", "en-GB")]
+    [InlineData("fr", "fr")]
+    [InlineData("zh-Hans", "zh-Hans")]
+    [InlineData("system", "en")]
+    [InlineData("pseudo", "en")]
+    [InlineData("pseudo-rtl", "en")]
+    public async Task InitializeCarriesResolvedUiLocale(string language, string expected)
+    {
+        var previous = HexIDE.Localization.LocalizationService.OsUICulture;
+        try
+        {
+            HexIDE.Localization.LocalizationService.OsUICulture = CultureInfo.InvariantCulture;
+            var localization = new HexIDE.Localization.LocalizationService();
+            localization.Apply(language);
+            await ConnectedAsync(locale: () => localization.ResolvedLanguage);
+
+            FrameFor("initialize").GetProperty("params").GetProperty("locale")
+                .GetString().Should().Be(expected);
+        }
+        finally
+        {
+            HexIDE.Localization.LocalizationService.OsUICulture = previous;
+        }
     }
 
     [Fact]

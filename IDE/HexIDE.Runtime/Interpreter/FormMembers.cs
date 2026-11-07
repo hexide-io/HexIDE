@@ -66,6 +66,8 @@ internal static class FormMembers
         // A form's Name is its module's, read-only at run time: no property of the window holds it.
         if (IsName(name))
             return new Vb6Value(form.ClassName);
+        if (string.Equals(name, "ActiveControl", StringComparison.OrdinalIgnoreCase) && window is VBFormRuntime runtime)
+            return runtime.ActiveControl is { } control ? new Vb6Value(control) : Vb6Value.Nothing;
         if (IsControls(name) && form.Controls is { } controls)
             return new Vb6Value(controls);
         if (IsScaleSize(name, out var vertical) && window is Avalonia.Controls.Window shown)

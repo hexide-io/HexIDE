@@ -49,11 +49,8 @@ public class ProgressBarDrawingTests
 
     private static string LookDirectory()
     {
-        var dir = new DirectoryInfo(AppContext.BaseDirectory);
-        while (dir is not null && !Directory.Exists(Path.Join(dir.FullName, "corpus", "inbox-controls", "look")))
-            dir = dir.Parent;
-        dir.Should().NotBeNull("corpus/inbox-controls/look ships with the repository");
-        return Path.Join(dir!.FullName, "corpus", "inbox-controls", "look");
+        var dir = RepoTree.Root();
+        return Path.Join(dir, "corpus", "inbox-controls", "look");
     }
 
     // VB6's capture, as the system colour of each pixel.

@@ -153,6 +153,12 @@ VB.CommandButton` and set to the added control hears it.
 | `b2`, after `Set b = Nothing` | `b2_Click` |
 | `b`, holding the design-time `Command1` | `Command1_Click`, then `b_Click` |
 
+**CommandButton.Value (#2065).** The #1556 probes read `Command1.Value` as False in both native and p-code.
+Assigning `Command1.Value = True` runs Click inside the assignment, before the following statement; the design-time
+handler precedes the WithEvents sinks in the table above. Provenance: the measurements reported in
+[issue #2065](https://github.com/hexide-io/HexIDE/issues/2065), together with #1556's event table. A False assignment
+has not been measured here; HexIDE continues to refuse it.
+
 `Set o = Option1(0)`, a control array element into `Private WithEvents o As VB.OptionButton`, is 459, `Object or class
 does not support the set of events`, and `Option1(0)`'s click then runs `Option1_Click` alone.
 
@@ -219,8 +225,9 @@ than 5. Its `Left` and `Top` are run-time error 393, "'Left' property cannot be 
   registered, 720 for `Scripting.Dictionary`); the VB library's DriveListBox, DirListBox, FileListBox, Data and OLE, and
   its classes not measured; a container on another form; a third argument that is neither an object nor a String; and
   `Remove` of a control from another form.
-- **`ControlsAddTests`** is generated from the p-code logs. It leaves out the rows that read a CommandButton's `Value`
-  (#2065), a Frame's Caption (#2063), a control's `Container` (#2064), `Me!a2` (#2066), a Timer's Left and Top (#2069), a
+- **`ControlsAddTests`** is generated from the p-code logs. It now also pins CommandButton.Value reads and synchronous
+  Click order (#2065). It leaves out the rows for a Frame's Caption (#2063), a control's `Container` (#2064),
+  `Me!a2` (#2066), a Timer's Left and Top (#2069), a
   Shape's BackColor (#2070) or a design-time control's font (#2062), which are separate gaps, and those that need a
   run-time ScaleMode (#990). It reads fonts through `FontName` and `FontSize`, because the Font object is #934. Its
-  events are batch 8's, through a TextBox's `Change`, since a CommandButton can't be clicked from code yet.
+  events are batch 8's, through a TextBox's `Change`, with separate CommandButton.Value tests covering code-driven Click.

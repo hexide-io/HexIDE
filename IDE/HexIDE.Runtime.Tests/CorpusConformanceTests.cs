@@ -1,6 +1,7 @@
 ﻿using System.IO;
 using System.Text.Json;
 using Antlr4.Runtime;
+using HexIDE.Runtime.Interpreter;
 
 namespace HexIDE.Runtime.Tests;
 
@@ -522,14 +523,14 @@ public class CorpusConformanceTests
     private static bool Parses(string source)
     {
         var lexer = new VB6Lexer(new AntlrInputStream(new StringReader(source)));
-        var parser = new VB6Parser(new CommonTokenStream(lexer));
         lexer.RemoveErrorListeners();
-        parser.RemoveErrorListeners();
         var listener = new CountingErrorListener();
         lexer.AddErrorListener(listener);
-        parser.AddErrorListener(listener);
         try
         {
+            var parser = new VB6Parser(NextCounterList.Tokens(lexer));
+            parser.RemoveErrorListeners();
+            parser.AddErrorListener(listener);
             parser.startRule();
         }
         catch (Exception)

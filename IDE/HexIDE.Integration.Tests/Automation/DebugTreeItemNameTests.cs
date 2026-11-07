@@ -90,6 +90,53 @@ public class DebugTreeItemNameTests
     }
 
     [AvaloniaTheory]
+    [InlineData("path")]
+    [InlineData("escape")]
+    public void WatchContextMenu_ReceiverPathNamesTheMenu(string check)
+    {
+        var watches = new WatchService();
+        watches.Add(new WatchExpression("1 + 1", WatchType.Expression, "Module1.Go"));
+        var localization = Substitute.For<ILocalizationService>();
+        localization.GetString(Arg.Any<string>()).Returns(ci => ci.Arg<string>());
+        var vm = new WatchesToolViewModel(localization, watches, Substitute.For<IDebugController>(),
+            Substitute.For<IWindowManager>());
+        var window = Show(new WatchesToolView { DataContext = vm });
+        var tree = window.GetVisualDescendants().OfType<TreeView>().Single();
+        var menu = tree.ContextMenu!;
+        try
+        {
+            tree.SelectedItem = vm.Rows[0];
+            var row = window.GetVisualDescendants().OfType<TreeViewItem>().Single();
+            var rowPath = UiAutomationDriver.PathWithin(window, "Window", row)!;
+            var target = UiAutomationDriver.Resolve(window, rowPath).control!;
+            var border = row.GetVisualDescendants().OfType<Border>().Single(b => b.Name == "SelectionBorder");
+            // Raise the context request at the row part, as the desktop right-click does (#3146).
+            border.RaiseEvent(new ContextRequestedEventArgs { Source = border });
+            Dispatcher.UIThread.RunJobs();
+            menu.IsOpen.Should().BeTrue();
+            // Reproduce the menu-root focus recorded in the issue on the headless platform.
+            menu.Focusable = true;
+            menu.Focus().Should().BeTrue();
+            var menuPath = UiAutomationDriver.Dump(tree, UiAutomationDriver.PathWithin(window, "Window", tree)!, 20, false)
+                .Children.Single(c => c.ControlType == "ContextMenu").Path;
+            UiAutomationDriver.Resolve(window, menuPath).control.Should().BeSameAs(menu);
+
+            if (check == "path")
+                UiAutomationDriver.PathWithin(target, rowPath, menu).Should().BeNull();
+            else
+            {
+                var outcome = UiAutomationDriver.PressKey(target, "Escape", null, rowPath);
+                Dispatcher.UIThread.RunJobs();
+
+                outcome.Success.Should().BeTrue(outcome.Error);
+                outcome.Detail.Should().Contain($", at {menuPath}").And.NotContain("moved focus");
+                menu.IsOpen.Should().BeFalse();
+            }
+        }
+        finally { menu.Close(); window.Close(); }
+    }
+
+    [AvaloniaTheory]
     [InlineData("delete")]
     [InlineData("edit")]
     [InlineData("key")]

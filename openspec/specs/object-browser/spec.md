@@ -9,10 +9,6 @@ out what exists. That makes it more central than the equivalent in a modern IDE,
 are answered by go-to-definition and completion — here it is often the only way to discover a member at all,
 which is why VB6 gave it a dedicated key.
 
-> **Known divergence.** If the browser was opened before a language server started, the VBA library fills
-> in only when VBA or All Libraries is selected again; it does not refresh on its own when the server starts
-> ([#1957](https://github.com/hexide-io/HexIDE/issues/1957)).
-
 ## Requirements
 
 ### Requirement: The browser SHALL show everything visible to the project
@@ -44,6 +40,15 @@ rather than its default instance-name prefix, for listing, search, member headin
 - **WHEN** a form or module is added, removed or renamed, or its project is renamed
 - **THEN** the browser SHALL update the project library and its sorted class list, respecting the current filter
 - **AND** removed classes SHALL no longer be reachable through navigation history
+
+The browser SHALL retry loading an unloaded VBA library showing a status row when a language server
+becomes ready, without requiring the developer to reselect a library.
+
+#### Scenario: A server starts after the browser opens
+- **GIVEN** the VBA library shows a status row because no capable server was running
+- **WHEN** a server offering built-in symbols becomes ready
+- **THEN** the VBA library loads those symbols automatically
+- **AND** they appear under VBA or All Libraries without changing the selected library
 
 ### Requirement: Selecting a type SHALL show its members, and selecting a member SHALL describe it
 Selecting a type SHALL list its members; selecting a member SHALL show its signature and what it belongs to,
@@ -187,3 +192,18 @@ localized automation names describing their purpose.
 - **WHEN** a screen reader or automation caller inspects the Object Browser
 - **THEN** each input and list is named in the selected IDE language
 - **AND** the class and member lists can be distinguished without positional indices
+
+### Requirement: Reference files SHALL load only from local paths without registration
+The Object Browser SHALL use the shared type-library `IsLocalPath` check before checking file existence
+or reading a reference by path. UNC, device and non-fully-qualified paths SHALL be treated as unavailable,
+with a diagnostic log naming the reference. File loads SHALL use `LoadTypeLibEx` with `REGKIND_NONE`, so
+browsing a library cannot register it. This intentionally avoids VB6's unsafe remote-loading behaviour.
+
+#### Scenario: A reference names a remote or device path
+- **WHEN** a reference's library path is a UNC or device path
+- **THEN** neither the existence check nor the type-library reader is called for that path
+- **AND** its metadata is unavailable and the refusal log names the reference
+
+#### Scenario: A reference names a local file
+- **WHEN** a reference names an existing fully qualified local file accepted by the shared check
+- **THEN** the browser reads its types without registering the library

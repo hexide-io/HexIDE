@@ -84,8 +84,9 @@ public class CloseWindowTests
         Dispatcher.UIThread.RunJobs();
         try
         {
-            Close(owner).Error.Should().StartWith(
-                "'Form1' has a dialog open over it, 'HexIDE' (a message box: \"Reset?\", OK/Cancel), and takes no close");
+            Close(owner).Error.Should().Contain("modal dialog has disabled")
+                .And.Contain("'HexIDE' (a message box: \"Reset?\", OK/Cancel)")
+                .And.Contain("'close' was refused and nothing was done").And.Contain("Answer the dialog first");
         }
         finally
         {

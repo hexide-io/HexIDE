@@ -15,7 +15,12 @@ namespace HexIDE.Tests.IDE;
 /// </remarks>
 public class ScriptedFileDialogsTests
 {
-    public ScriptedFileDialogsTests() => ScriptedFileDialogs.Clear();
+    public ScriptedFileDialogsTests()
+    {
+        ScriptedFileDialogs.Clear();
+        // A refusal another test left unreported would otherwise be told here.
+        ScriptedFileDialogs.TakeUnreportedRefusal();
+    }
 
     [Fact]
     public void NothingArmedMeansTheRealDialogIsShown()
@@ -274,6 +279,126 @@ public class ScriptedFileDialogsTests
             Regex.IsMatch(afterWatch, @"MutateResult\(true,\s*null,\s*cancel\.After\(|Note\s*=\s*cancel\.After\(")
                 .Should().BeTrue($"{tool.Name}'s success says it too");
         }
+    }
+
+    // ── Several files, for an Open that allows them (#2408) ───────────────────────────────────────────────────
+
+    [Fact]
+    public void An_Open_that_allows_several_takes_every_path_armed_together_in_order()
+    {
+        ScriptedFileDialogs.AnswerNextWithMany([@"C:\x\b.bas", @"C:\x\a.bas"]);
+
+        ScriptedFileDialogs.TryTake(takesSeveral: true, out var paths, "an Open picker").Should().BeTrue();
+
+        paths.Should().Equal([@"C:\x\b.bas", @"C:\x\a.bas"], "in the order armed, as a person's selection order");
+        ScriptedFileDialogs.Pending.Should().Be(0, "several files are one answer, spent by one dialog");
+    }
+
+    [Fact]
+    public void A_picker_that_takes_one_file_answers_several_as_cancelled_not_with_the_first()
+    {
+        ScriptedFileDialogs.AnswerNextWithMany([@"C:\x\a.bas", @"C:\x\b.bas"]);
+
+        ScriptedFileDialogs.TryTake(takesSeveral: false, out var paths, "a save picker").Should().BeTrue();
+
+        paths.Should().BeNull("the first path is a choice no person could have made in that picker");
+        ScriptedFileDialogs.Pending.Should().Be(0, "it is spent, so it cannot redirect a later dialog");
+    }
+
+    [Fact]
+    public void The_one_file_take_answers_several_as_cancelled_too()
+    {
+        ScriptedFileDialogs.AnswerNextWithMany(["a", "b"]);
+
+        ScriptedFileDialogs.TryTake(out var path).Should().BeTrue();
+
+        path.Should().BeNull();
+    }
+
+    [Fact]
+    public void One_path_armed_as_several_is_the_same_answer_as_a_path()
+    {
+        ScriptedFileDialogs.AnswerNextWithMany([@"C:\x\a.bas"]);
+
+        ScriptedFileDialogs.TryTake(takesSeveral: false, out var paths, "a save picker");
+
+        paths.Should().Equal([@"C:\x\a.bas"]);
+        ScriptedFileDialogs.TakeUnreportedRefusal().Should().BeEmpty();
+    }
+
+    [Fact]
+    public void A_path_armed_alone_reaches_an_Open_that_allows_several_as_one_file()
+    {
+        ScriptedFileDialogs.AnswerNextWith(@"C:\x\a.bas");
+
+        ScriptedFileDialogs.TryTake(takesSeveral: true, out var paths, "an Open picker");
+
+        paths.Should().Equal([@"C:\x\a.bas"]);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("a| ")]
+    public void Several_must_name_at_least_one_file_and_none_blank(string joined)
+    {
+        var paths = joined.Length == 0 ? [] : joined.Split('|');
+        var arm = () => ScriptedFileDialogs.AnswerNextWithMany(paths);
+
+        arm.Should().Throw<ArgumentException>();
+        ScriptedFileDialogs.Pending.Should().Be(0);
+    }
+
+    [Fact]
+    public void A_save_answered_with_several_paths_was_refused_not_cancelled_and_says_why_once()
+    {
+        ScriptedFileDialogs.AnswerNextWithMany(["a", "b"]);
+        var watch = ScriptedFileDialogs.WatchForCancel(absolutePath: null);
+
+        ScriptedFileDialogs.TryTake(takesSeveral: false, out _, "a save picker");
+
+        watch.Cancelled.Should().BeFalse("the reply for an armed cancel would say the caller asked for one");
+        watch.Refused.Should().BeTrue();
+        watch.HowAnswered.Should().StartWith("the save picker answered as cancelled, because the armed answer named "
+            + "several files and it takes one");
+        watch.After("Kept.").Should().Be("Kept.", "HowAnswered has said it in the same reply");
+        ScriptedFileDialogs.TakeUnreportedRefusal().Should().BeEmpty("the save's reply reported it");
+    }
+
+    [Fact]
+    public void A_refusal_a_save_reply_did_not_explain_is_added_to_it()
+    {
+        ScriptedFileDialogs.AnswerNextWithMany(["a", "b"]);
+        var watch = ScriptedFileDialogs.WatchForUiProjectSave();
+
+        ScriptedFileDialogs.TryTake(takesSeveral: false, out _, "a save picker");
+
+        watch.After("Saved.").Should().Be(
+            "Saved. A save picker took an answer of 2 paths, which it cannot take, so it answered as cancelled.");
+        ScriptedFileDialogs.TakeUnreportedRefusal().Should().BeEmpty();
+    }
+
+    [Fact]
+    public void A_refusal_with_no_reply_of_its_own_is_reported_once_by_the_next_that_asks()
+    {
+        // Add File or a running program's Open: nothing replies for the dialog itself.
+        ScriptedFileDialogs.AnswerNextWithMany(["a", "b", "c"]);
+        ScriptedFileDialogs.TryTake(takesSeveral: false, out _, "an Open picker that takes one file");
+
+        ScriptedFileDialogs.TakeUnreportedRefusal().Should().Be(" Earlier, an Open picker that takes one file took an "
+            + "answer of 3 paths, which it cannot take, so it answered as cancelled.");
+        ScriptedFileDialogs.TakeUnreportedRefusal().Should().BeEmpty();
+    }
+
+    [Fact]
+    public void A_save_does_not_claim_a_refusal_from_before_it()
+    {
+        ScriptedFileDialogs.AnswerNextWithMany(["a", "b"]);
+        ScriptedFileDialogs.TryTake(takesSeveral: false, out _, "a save picker");
+
+        var watch = ScriptedFileDialogs.WatchForCancel(absolutePath: null);
+
+        watch.Refused.Should().BeFalse();
+        watch.After("Kept.").Should().Be("Kept.");
     }
 
     /// <summary>Each reply that does not go through After, with the code that builds it.</summary>

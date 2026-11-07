@@ -55,6 +55,15 @@ public interface IBreakpointService
     /// <summary>The breakpoint lines (1-based, ascending) for a document.</summary>
     IReadOnlyList<int> GetBreakpoints(DocumentIdentity document);
 
+    /// <summary>The expression attached to a breakpoint, or null for an unconditional breakpoint.</summary>
+    string? GetCondition(DocumentIdentity document, int line);
+
+    /// <summary>Set an existing breakpoint's expression; an empty expression removes the condition.</summary>
+    void SetCondition(DocumentIdentity document, int line, string? condition);
+
+    /// <summary>Move lines and their conditions together after a header change.</summary>
+    void MoveLines(DocumentIdentity document, int firstLine, int delta);
+
     /// <summary>Remove all breakpoints in a document.</summary>
     void ClearDocument(DocumentIdentity document);
 

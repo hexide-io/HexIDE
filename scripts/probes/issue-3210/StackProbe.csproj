@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <StartupObject>Program</StartupObject>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <DefaultItemExcludes>$(DefaultItemExcludes);.scratch/**</DefaultItemExcludes>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include=".scratch/IDE/HexIDE.Runtime.Tests/HexIDE.Runtime.Tests.csproj" />
+    <ProjectReference Include=".scratch/LspServer/HexIDE.VbLspServer/HexIDE.VbLspServer.csproj" />
+  </ItemGroup>
+</Project>

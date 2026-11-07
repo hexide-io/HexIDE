@@ -6,6 +6,8 @@ using System.Text.Json;
 using Avalonia.Input;
 using Avalonia.Platform;
 using Serilog;
+using HexIDE.IDE;
+using HexIDE.Profiles;
 
 namespace HexIDE.Keymaps;
 
@@ -29,7 +31,7 @@ public sealed class KeymapService : IKeymapService
         var names = new List<string> { "Default", "VB6" };
         try
         {
-            if (Directory.Exists(packDirectory))
+            if (!Static.IsRecoveryMode && Directory.Exists(packDirectory))
             {
                 foreach (var path in Directory.EnumerateFiles(packDirectory, "*.json")
                              .OrderBy(path => path, StringComparer.Ordinal))
@@ -53,6 +55,51 @@ public sealed class KeymapService : IKeymapService
         _defaults = new Dictionary<string, IReadOnlyList<KeyGesture>>(CommandKeyMapping.Table.Count);
         foreach (var (name, cmd) in CommandKeyMapping.Table)
             _defaults[name] = [..cmd.Gestures];
+    }
+
+    internal void Apply(ProfileSnapshot profile, SettingsService settings)
+    {
+        if (profile.Keymap is not { } payload || settings.HasExplicitKeymapChoice)
+        {
+            Apply(settings.ActiveKeymap);
+            return;
+        }
+
+        var (pack, bindings) = PrepareProfileKeymap(profile.Source, payload);
+        foreach (var (name, command) in CommandKeyMapping.Table)
+        {
+            command.Gestures.Clear();
+            foreach (var gesture in bindings.TryGetValue(name, out var binding) ? binding : _defaults[name])
+                command.Gestures.Add(gesture);
+        }
+        ActiveKeymap = pack.Name;
+        GesturesChanged?.Invoke();
+    }
+
+    internal static (KeymapPackRecord Pack, Dictionary<string, IReadOnlyList<KeyGesture>> Bindings)
+        PrepareProfileKeymap(string source, ProfilePayload payload)
+    {
+        try
+        {
+            var pack = payload.Content.Deserialize(KeymapJsonContext.Default.KeymapPackRecord) ?? throw new JsonException();
+            var bindings = new Dictionary<string, IReadOnlyList<KeyGesture>>();
+            if (pack.Bindings is not null)
+                foreach (var (name, value) in pack.Bindings)
+                {
+                    if (!CommandKeyMapping.Table.ContainsKey(name))
+                    {
+                        Log.Warning("KeymapService: Unknown command '{Name}' in bundle '{Source}', file '{File}'",
+                            name, source, payload.File);
+                        continue;
+                    }
+                    bindings[name] = string.IsNullOrEmpty(value) ? [] : [KeyGesture.Parse(value)];
+                }
+            return (pack, bindings);
+        }
+        catch (Exception ex) when (ex is JsonException or FormatException or ArgumentException or InvalidOperationException)
+        {
+            throw new ProfileLoadException(source, payload.File, ProfileError.InvalidPayload, ex);
+        }
     }
 
     public void Apply(string keymapName)

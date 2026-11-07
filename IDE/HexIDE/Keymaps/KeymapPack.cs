@@ -25,6 +25,7 @@ internal static class CommandKeyMapping
     internal static readonly IReadOnlyDictionary<string, RoutedCommand> Table =
         new Dictionary<string, RoutedCommand>
         {
+            ["ReopenClosedDocumentCommand"] = ApplicationCommands.ReopenClosedDocumentCommand,
             // ── File ──────────────────────────────────────────────
             ["NewProjectCommand"]                      = ApplicationCommands.NewProjectCommand,
             ["AddProjectCommand"]                      = ApplicationCommands.AddProjectCommand,
@@ -44,6 +45,7 @@ internal static class CommandKeyMapping
             ["CutCommand"]                             = ApplicationCommands.CutCommand,
             ["CopyCommand"]                            = ApplicationCommands.CopyCommand,
             ["PasteCommand"]                           = ApplicationCommands.PasteCommand,
+            ["PasteAsCommentCommand"]                   = ApplicationCommands.PasteAsCommentCommand,
             ["PasteLinkCommand"]                       = ApplicationCommands.PasteLinkCommand,
             ["RemoveCommand"]                          = ApplicationCommands.RemoveCommand,
             ["DeleteCommand"]                          = ApplicationCommands.DeleteCommand,
@@ -65,9 +67,17 @@ internal static class CommandKeyMapping
             ["NextBookmarkCommand"]                    = ApplicationCommands.NextBookmarkCommand,
             ["PreviousBookmarkCommand"]                = ApplicationCommands.PreviousBookmarkCommand,
             ["ClearAllBookmarksCommand"]               = ApplicationCommands.ClearAllBookmarksCommand,
+            ["CallHierarchyCommand"]                    = ApplicationCommands.CallHierarchyCommand,
+            ["RunCodeLensCommand"] = ApplicationCommands.RunCodeLensCommand,
+            ["FindReferencesCommand"]                   = ApplicationCommands.FindReferencesCommand,
             ["GoToDefinitionCommand"]                  = ApplicationCommands.GoToDefinitionCommand,
+            ["GoToImplementationCommand"]              = ApplicationCommands.GoToImplementationCommand,
+            ["GoToTypeDefinitionCommand"]              = ApplicationCommands.GoToTypeDefinitionCommand,
             ["GoToDeclarationCommand"]                 = ApplicationCommands.GoToDeclarationCommand,
             ["RenameSymbolCommand"]                    = ApplicationCommands.RenameSymbolCommand,
+            ["ExpandSelectionCommand"]                 = ApplicationCommands.ExpandSelectionCommand,
+            ["ShrinkSelectionCommand"]                 = ApplicationCommands.ShrinkSelectionCommand,
+            ["FormatSelectionCommand"]                 = ApplicationCommands.FormatSelectionCommand,
             ["FormatDocumentCommand"]                  = ApplicationCommands.FormatDocumentCommand,
             // ── View ──────────────────────────────────────────────
             ["ViewCodeCommand"]                        = ApplicationCommands.ViewCodeCommand,

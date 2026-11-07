@@ -1,8 +1,17 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.IO;
+using System.Text;
+using System.Text.Json;
+using System.Globalization;
+using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
+using Nerdbank.Streams;
+using StreamJsonRpc;
 using System.Threading;
 using Avalonia.Controls;
+using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
 using Avalonia.LogicalTree;
@@ -59,7 +68,7 @@ public class CodeEditorPopupTests : IDisposable
         GC.SuppressFinalize(this);
     }
 
-    private (Window Window, CodeEditorView View, TextEditor Editor) Show()
+    private (Window Window, CodeEditorView View, TextEditor Editor) Show(ILspClient? client = null)
     {
         var eventBus = Substitute.For<IEventBus>();
         eventBus.Subscribe<CreateOrNavigateToSubEvent>(Arg.Any<Action<CreateOrNavigateToSubEvent>>()).Returns(Substitute.For<IDisposable>());
@@ -72,7 +81,7 @@ public class CodeEditorPopupTests : IDisposable
 
         var vm = new CodeEditorViewModel(
             Substitute.For<IWindowManager>(), Substitute.For<IEditorService>(), Substitute.For<IProjectService>(),
-            eventBus, lsp, settings, Substitute.For<IStatusBarService>(), new BookmarkService(), new BreakpointService(),
+            eventBus, client ?? lsp, settings, Substitute.For<IStatusBarService>(), new BookmarkService(), new BreakpointService(),
             Substitute.For<IDebugController>(), new RunScope(), Substitute.For<ILocalizationService>());
         made.Add(vm);
         var module = new ModuleDefinition(new ProjectDefinition(VBProjectType.EXE, "P"), "Module1", ModuleKind.StandardModule);
@@ -270,5 +279,295 @@ public class CodeEditorPopupTests : IDisposable
         selected.Success.Should().BeTrue(selected.Error);
         CodeEditorView.OpenPopupsOf(editor).OfType<CompletionWindow>().Single().CompletionList.SelectedItem
             .Should().BeOfType<VbCompletionData>().Which.Text.Should().Be("Mid");
+    }
+
+    // VB6 SP6 key measurements: #3056, issuecomment-6633933454.
+    [AvaloniaTheory]
+    [InlineData("Debug.Pr", 8, Key.Return, "Debug.Print\n")]
+    [InlineData("Debug.Print", 11, Key.Return, "Debug.Print\n")]
+    [InlineData("Debug.Pr", 8, Key.Tab, "Debug.Print")]
+    [InlineData("Debug.Pr", 8, Key.Space, "Debug.Print ")]
+    [InlineData("Debug.Pr", 8, Key.Escape, "Debug.Pr")]
+    [InlineData("Debug.", 6, Key.Return, "Debug.\n")]
+    [InlineData("Debug.", 6, Key.Space, "Debug. ")]
+    [InlineData("Debug.", 6, Key.Tab, "Debug.Assert")]
+    [InlineData("Debug.Przz", 8, Key.Return, "Debug.Pr\nzz")]
+    [InlineData("Debug.Przz", 8, Key.Space, "Debug.Pr zz")]
+    [InlineData("Debug.Przz", 8, Key.Tab, "Debug.Assert")]
+    [InlineData("zet", 3, Key.Return, "zeta1\n")]
+    [InlineData("zet", 3, Key.Tab, "zeta1")]
+    [InlineData("zet", 3, Key.Space, "zeta1 ")]
+    [InlineData("zetzz", 3, Key.Return, "zet\nzz")]
+    public void Completion_keys_follow_the_measured_selection(string source, int caret, Key key, string expected)
+    {
+        lsp.RequestCompletionAsync(Arg.Any<string>(), Arg.Any<Position>(), Arg.Any<CancellationToken>()).Returns(
+            source.StartsWith("Debug.", StringComparison.Ordinal)
+                ? [new CompletionItem("Assert", CompletionItemKind.Method), new CompletionItem("Print", CompletionItemKind.Method)]
+                : [new CompletionItem("zeta1", CompletionItemKind.Variable), new CompletionItem("zeta2", CompletionItemKind.Variable),
+                    new CompletionItem("zebra", CompletionItemKind.Variable)]);
+        var (window, view, editor) = Show();
+        editor.Text = source;
+        editor.CaretOffset = caret;
+        if (source.StartsWith("zet", StringComparison.Ordinal))
+        {
+            var gesture = ApplicationCommands.CompleteWordCommand.Gestures.Single();
+            UiAutomationDriver.PressKey(editor, gesture.Key.ToString(), gesture.KeyModifiers.ToString()).Success.Should().BeTrue();
+        }
+        else
+            view.TriggerCompletion();
+        Pump();
+        CodeEditorView.OpenPopupsOf(editor).Should().ContainSingle();
+
+        window.KeyPress(key, RawInputModifiers.None, PhysicalKey.None, null);
+        if (key == Key.Space) window.KeyTextInput(" ");
+        window.KeyRelease(key, RawInputModifiers.None, PhysicalKey.None, null);
+        Pump();
+
+        editor.Text.ReplaceLineEndings("\n").Should().Be(expected);
+        CodeEditorView.OpenPopupsOf(editor).Should().BeEmpty();
+    }
+
+    [AvaloniaFact]
+    public void Typing_after_a_bare_dot_selects_the_matching_item()
+    {
+        lsp.RequestCompletionAsync(Arg.Any<string>(), Arg.Any<Position>(), Arg.Any<CancellationToken>()).Returns(
+            [new CompletionItem("Assert", CompletionItemKind.Method), new CompletionItem("Print", CompletionItemKind.Method)]);
+        var (window, view, editor) = Show();
+        editor.Text = "Debug.";
+        editor.CaretOffset = 6;
+        view.TriggerCompletion();
+        Pump();
+        window.KeyTextInput("Pr");
+        window.KeyPress(Key.Space, RawInputModifiers.None, PhysicalKey.Space, null);
+        window.KeyTextInput(" ");
+        window.KeyRelease(Key.Space, RawInputModifiers.None, PhysicalKey.Space, null);
+        Pump();
+        editor.Text.Should().Be("Debug.Print ");
+        CodeEditorView.OpenPopupsOf(editor).Should().BeEmpty();
+    }
+
+    [AvaloniaFact]
+    public void First_down_highlights_the_outlined_item()
+    {
+        lsp.RequestCompletionAsync(Arg.Any<string>(), Arg.Any<Position>(), Arg.Any<CancellationToken>()).Returns(
+            [new CompletionItem("Assert", CompletionItemKind.Method), new CompletionItem("Print", CompletionItemKind.Method)]);
+        var (window, view, editor) = Show();
+        editor.Text = "Debug.";
+        editor.CaretOffset = editor.Text.Length;
+        view.TriggerCompletion();
+        Pump();
+        var list = CodeEditorView.OpenPopupsOf(editor).OfType<CompletionWindow>().Single().CompletionList;
+        list.SelectedItem.Should().BeNull();
+        window.KeyPress(Key.Down, RawInputModifiers.None, PhysicalKey.ArrowDown, null);
+        window.KeyRelease(Key.Down, RawInputModifiers.None, PhysicalKey.ArrowDown, null);
+        list.SelectedItem.Should().Be(list.CompletionData[0]);
+        window.KeyPress(Key.Return, RawInputModifiers.None, PhysicalKey.Enter, null);
+        window.KeyRelease(Key.Return, RawInputModifiers.None, PhysicalKey.Enter, null);
+        Pump();
+        editor.Text.ReplaceLineEndings("\n").Should().Be("Debug.Assert\n");
+    }
+
+    [AvaloniaFact]
+    public void Complete_word_with_a_unique_prefix_inserts_without_a_list()
+    {
+        var (_, _, editor) = Show();
+        editor.Text = "Msg";
+        editor.CaretOffset = 3;
+        var gesture = ApplicationCommands.CompleteWordCommand.Gestures.Single();
+        UiAutomationDriver.PressKey(editor, gesture.Key.ToString(), gesture.KeyModifiers.ToString()).Success.Should().BeTrue();
+        Pump();
+        editor.Text.Should().Be("MsgBox");
+        editor.CaretOffset.Should().Be(6);
+        CodeEditorView.OpenPopupsOf(editor).Should().BeEmpty();
+    }
+
+    [AvaloniaTheory]
+    [InlineData(Key.Return)]
+    [InlineData(Key.Tab)]
+    public void Acceptance_keys_accept_a_snippet_choice_without_a_line_break(Key key)
+    {
+        var (window, editor) = AcceptSnippet("${1|one,two|} $1$0");
+        var picker = CodeEditorView.OpenPopupsOf(editor).OfType<CompletionWindow>().Single();
+        picker.CompletionList.SelectedItem = picker.CompletionList.CompletionData[1];
+        window.KeyPress(key, RawInputModifiers.None, PhysicalKey.None, null);
+        window.KeyRelease(key, RawInputModifiers.None, PhysicalKey.None, null);
+        Pump();
+        editor.Text.ReplaceLineEndings("\n").Should().Contain("    two two\n");
+        CodeEditorView.OpenPopupsOf(editor).Should().BeEmpty();
+        editor.TextArea.StackedInputHandlers.Should().NotBeEmpty();
+    }
+
+    private (Window Window, TextEditor Editor) AcceptSnippet(string snippet)
+    {
+        lsp.RequestCompletionAsync(Arg.Any<string>(), Arg.Any<Position>(), Arg.Any<CancellationToken>()).Returns(
+            [new CompletionItem("zsnip", CompletionItemKind.Text, InsertTextFormat: 2,
+                TextEdit: new TextEdit(new HexIDE.Lsp.Messages.Range(new Position(4, 4), new Position(4, 5)), snippet))]);
+        var (window, view, editor) = Show();
+        view.TriggerCompletion();
+        Pump();
+        var completion = CodeEditorView.OpenPopupsOf(editor).OfType<CompletionWindow>().Single();
+        completion.CompletionList.SelectedItem = completion.CompletionList.CompletionData[0];
+        window.KeyPress(Key.Tab, RawInputModifiers.None, PhysicalKey.Tab, null);
+        window.KeyRelease(Key.Tab, RawInputModifiers.None, PhysicalKey.Tab, null);
+        Pump();
+        return (window, editor);
+    }
+
+    [AvaloniaFact]
+    public void Snippet_choice_picker_opens_under_its_editor_and_choosing_updates_linked_occurrences()
+    {
+        var (window, editor) = AcceptSnippet("${1|one,two|} $1$0");
+        var picker = CodeEditorView.OpenPopupsOf(editor).Should().ContainSingle().Subject
+            .Should().BeOfType<CompletionWindow>().Subject;
+        picker.CompletionList.CompletionData.Select(item => item.Text).Should().Equal("one", "two");
+        var tree = UiAutomationDriver.Dump(window, "Window", 60, interactiveOnly: false);
+        var editorPath = UiAutomationDriver.Find(tree, "TextEditor", 50).Matches.Single().Path;
+        var two = UiAutomationDriver.Find(tree, "two", 50).Matches.Should().ContainSingle(n =>
+            n.Path.StartsWith(editorPath + "/", StringComparison.Ordinal) && n.Path.EndsWith("/ListItem[two]", StringComparison.Ordinal)).Subject;
+        var (item, error) = UiAutomationDriver.Resolve(window, two.Path);
+        item.Should().NotBeNull(error);
+        UiAutomationDriver.Interact(item!, "double_click", null).Success.Should().BeTrue();
+        editor.Document.Text.ReplaceLineEndings("\n").Should().Contain("    two two\n");
+        CodeEditorView.OpenPopupsOf(editor).Should().BeEmpty();
+        window.KeyPress(Key.Tab, RawInputModifiers.None, PhysicalKey.Tab, null);
+        window.KeyRelease(Key.Tab, RawInputModifiers.None, PhysicalKey.Tab, null);
+        editor.CaretOffset.Should().Be(editor.Document.Text.IndexOf("two two", StringComparison.Ordinal) + 7);
+    }
+
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Tab_after_typing_advances_a_snippet_once_the_completion_list_is_closed(bool closeList)
+    {
+        var (window, editor) = AcceptSnippet("${1:one} $1$0");
+        lsp.RequestCompletionAsync(Arg.Any<string>(), Arg.Any<Position>(), Arg.Any<CancellationToken>()).Returns(
+            [new CompletionItem("accepted", CompletionItemKind.Text)]);
+        window.KeyTextInput("two");
+        Pump();
+        editor.Document.Text.ReplaceLineEndings("\n").Should().Contain("    two two\n");
+        var list = CodeEditorView.OpenPopupsOf(editor).OfType<CompletionWindow>().Should().ContainSingle().Subject;
+        list.CompletionList.SelectedItem = list.CompletionList.CompletionData[0];
+        if (closeList) list.Close();
+        window.KeyPress(Key.Tab, RawInputModifiers.None, PhysicalKey.Tab, null);
+        window.KeyRelease(Key.Tab, RawInputModifiers.None, PhysicalKey.Tab, null);
+        Pump();
+        if (closeList)
+        {
+            editor.CaretOffset.Should().Be(editor.Document.Text.IndexOf("two two", StringComparison.Ordinal) + 7);
+            editor.TextArea.StackedInputHandlers.Should().BeEmpty();
+        }
+        else
+        {
+            editor.Document.Text.Should().Contain("accepted", "Tab accepts the selected completion while its list is open");
+            editor.TextArea.StackedInputHandlers.Should().NotBeEmpty();
+        }
+    }
+
+    [AvaloniaTheory]
+    [InlineData(".", "textDocument/completion")]
+    [InlineData("x", "textDocument/completion")]
+    [InlineData("(", "textDocument/signatureHelp")]
+    public async Task Typed_request_follows_the_change_on_the_wire(string typed, string request)
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+        var ct = timeout.Token;
+        var (clientSide, serverSide) = FullDuplexStream.CreatePair();
+        await using var serverStream = serverSide;
+        var frames = new List<JsonElement>();
+        var opened = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var completed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var loop = Task.Run(async () =>
+        {
+            while (await ReadFrameAsync(serverSide, ct) is { } json)
+            {
+                var frame = JsonDocument.Parse(json).RootElement.Clone();
+                lock (frames) frames.Add(frame);
+                var method = frame.GetProperty("method").GetString();
+                if (method == "textDocument/didOpen") opened.TrySetResult();
+                if (method == request) completed.TrySetResult();
+                if (method == "exit") return;
+                if (!frame.TryGetProperty("id", out var id)) continue;
+                var result = method == "initialize"
+                    ? """{"capabilities":{"textDocumentSync":{"openClose":true,"change":1},"completionProvider":{"triggerCharacters":["."]},"signatureHelpProvider":{"triggerCharacters":["("]}}}"""
+                    : method is "shutdown" or "textDocument/signatureHelp" ? "null" : "[]";
+                await WriteFrameAsync(serverSide,
+                    "{\"jsonrpc\":\"2.0\",\"id\":" + id.GetRawText() + ",\"result\":" + result + "}", ct);
+            }
+        }, ct);
+        var transport = Substitute.For<ILspTransport>();
+        transport.IsAlive.Returns(true);
+        transport.ConnectAsync(Arg.Any<IJsonRpcMessageFormatter>(), Arg.Any<CancellationToken>())
+            .Returns(ci => Task.FromResult<IJsonRpcMessageHandler?>(
+                new HeaderDelimitedMessageHandler(clientSide, clientSide, ci.Arg<IJsonRpcMessageFormatter>())));
+        await using var client = new VBLspClient(transport, Substitute.For<ILogger<VBLspClient>>(), "vb6");
+        var registry = new LspClientRegistry(
+            [new LanguageServerRegistration("test", "test", DocumentLanguage.Vb6Extensions, DocumentLanguage.Vb6, () => client)],
+            Substitute.For<ILogger<LspClientRegistry>>());
+        var (_, _, editor) = Show(registry);
+        await opened.Task.WaitAsync(ct);
+        editor.TextArea.RaiseEvent(new TextInputEventArgs { RoutedEvent = InputElement.TextInputEvent, Text = typed });
+        var expected = editor.Document.Text;
+        expected.Should().Contain("    M" + typed);
+        await completed.Task.WaitAsync(ct);
+        lock (frames)
+        {
+            var completion = frames.FindIndex(f => f.GetProperty("method").GetString() == request);
+            frames.Take(completion).Should().Contain(f =>
+                f.GetProperty("method").GetString() == "textDocument/didChange"
+                && f.GetProperty("params").GetProperty("contentChanges")[0].GetProperty("text").GetString() == expected,
+                "the server must receive the typed character before answering the typing-triggered request");
+        }
+        await client.StopAsync();
+        await loop.WaitAsync(ct);
+    }
+
+    private static async Task<string?> ReadFrameAsync(Stream stream, CancellationToken ct)
+    {
+        var header = new List<byte>(64);
+        var one = new byte[1];
+
+        while (true)
+        {
+            if (await stream.ReadAsync(one.AsMemory(0, 1), ct) == 0) return null;
+            header.Add(one[0]);
+            if (header.Count >= 4
+                && header[^4] == (byte)'\r' && header[^3] == (byte)'\n'
+                && header[^2] == (byte)'\r' && header[^1] == (byte)'\n')
+            {
+                break;
+            }
+        }
+
+        var length = 0;
+        foreach (var line in Encoding.ASCII.GetString([.. header]).Split("\r\n", StringSplitOptions.RemoveEmptyEntries))
+        {
+            if (line.StartsWith("Content-Length:", StringComparison.OrdinalIgnoreCase))
+            {
+                length = int.Parse(line["Content-Length:".Length..].Trim(), CultureInfo.InvariantCulture);
+            }
+        }
+
+        if (length <= 0) return null;
+
+        var body = new byte[length];
+        var read = 0;
+        while (read < length)
+        {
+            var n = await stream.ReadAsync(body.AsMemory(read, length - read), ct);
+            if (n == 0) return null;
+            read += n;
+        }
+
+        return Encoding.UTF8.GetString(body);
+    }
+
+    private static async Task WriteFrameAsync(Stream stream, string json, CancellationToken ct)
+    {
+        // Collapse the interpolated literals' incidental newlines; the header must state the real length.
+        var compact = JsonSerializer.Serialize(JsonDocument.Parse(json).RootElement);
+        var body = Encoding.UTF8.GetBytes(compact);
+        await stream.WriteAsync(Encoding.ASCII.GetBytes($"Content-Length: {body.Length}\r\n\r\n"), ct);
+        await stream.WriteAsync(body, ct);
+        await stream.FlushAsync(ct);
     }
 }

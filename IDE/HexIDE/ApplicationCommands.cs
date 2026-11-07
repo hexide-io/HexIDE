@@ -38,6 +38,7 @@ public class ApplicationCommands
     public static readonly RoutedCommand OpenToolBoxCommand = new RoutedCommand(nameof(OpenToolBoxCommand));
     public static readonly RoutedCommand OpenDataViewCommand = new RoutedCommand(nameof(OpenDataViewCommand));
     public static readonly RoutedCommand OpenColorPaletteCommand = new RoutedCommand(nameof(OpenColorPaletteCommand));
+    public static readonly RoutedCommand ReopenClosedDocumentCommand = new RoutedCommand(nameof(ReopenClosedDocumentCommand), new KeyGesture(Key.T, GetPlatformCommandKey() | KeyModifiers.Shift));
     public static readonly RoutedCommand ResetWindowLayoutCommand = new RoutedCommand(nameof(ResetWindowLayoutCommand));
     public static readonly RoutedCommand StartDefaultProjectCommand = new RoutedCommand(nameof(StartDefaultProjectCommand), new KeyGesture(Key.F5));
     public static readonly RoutedCommand StartDefaultProjectWithFullCompileCommand = new RoutedCommand(nameof(StartDefaultProjectWithFullCompileCommand), new KeyGesture(Key.F5, GetPlatformCommandKey()));
@@ -49,6 +50,7 @@ public class ApplicationCommands
     public static readonly RoutedCommand CutCommand = new RoutedCommand(nameof(CutCommand), new KeyGesture(Key.X, GetPlatformCommandKey()));
     public static readonly RoutedCommand CopyCommand = new RoutedCommand(nameof(CopyCommand), new KeyGesture(Key.C, GetPlatformCommandKey()));
     public static readonly RoutedCommand PasteCommand = new RoutedCommand(nameof(PasteCommand), new KeyGesture(Key.V, GetPlatformCommandKey()));
+    public static readonly RoutedCommand PasteAsCommentCommand = new RoutedCommand(nameof(PasteAsCommentCommand));
     public static readonly RoutedCommand PasteLinkCommand = new RoutedCommand(nameof(PasteLinkCommand));
     public static readonly RoutedCommand RemoveCommand = new RoutedCommand(nameof(RemoveCommand));
     public static readonly RoutedCommand DeleteCommand = new RoutedCommand(nameof(DeleteCommand), new KeyGesture(Key.Delete));
@@ -70,9 +72,17 @@ public class ApplicationCommands
     public static readonly RoutedCommand NextBookmarkCommand = new RoutedCommand(nameof(NextBookmarkCommand));
     public static readonly RoutedCommand PreviousBookmarkCommand = new RoutedCommand(nameof(PreviousBookmarkCommand), new KeyGesture(Key.F2, KeyModifiers.Shift));
     public static readonly RoutedCommand ClearAllBookmarksCommand = new RoutedCommand(nameof(ClearAllBookmarksCommand), new KeyGesture(Key.F2, GetPlatformCommandKey() | KeyModifiers.Shift));
+    public static readonly RoutedCommand CallHierarchyCommand = new RoutedCommand(nameof(CallHierarchyCommand));
+    public static readonly RoutedCommand RunCodeLensCommand = new RoutedCommand(nameof(RunCodeLensCommand));
+    public static readonly RoutedCommand FindReferencesCommand = new RoutedCommand(nameof(FindReferencesCommand), new KeyGesture(Key.F12, KeyModifiers.Shift));
     public static readonly RoutedCommand GoToDefinitionCommand = new RoutedCommand(nameof(GoToDefinitionCommand));
+    public static readonly RoutedCommand GoToImplementationCommand = new RoutedCommand(nameof(GoToImplementationCommand));
+    public static readonly RoutedCommand GoToTypeDefinitionCommand = new RoutedCommand(nameof(GoToTypeDefinitionCommand));
     public static readonly RoutedCommand GoToDeclarationCommand = new RoutedCommand(nameof(GoToDeclarationCommand));
     public static readonly RoutedCommand RenameSymbolCommand = new RoutedCommand(nameof(RenameSymbolCommand));
+    public static readonly RoutedCommand ExpandSelectionCommand = new RoutedCommand(nameof(ExpandSelectionCommand));
+    public static readonly RoutedCommand ShrinkSelectionCommand = new RoutedCommand(nameof(ShrinkSelectionCommand));
+    public static readonly RoutedCommand FormatSelectionCommand = new RoutedCommand(nameof(FormatSelectionCommand));
     public static readonly RoutedCommand FormatDocumentCommand = new RoutedCommand(nameof(FormatDocumentCommand));
     public static readonly RoutedCommand BringToFrontCommand = new RoutedCommand(nameof(BringToFrontCommand), new KeyGesture(Key.J, GetPlatformCommandKey()));
     public static readonly RoutedCommand SendToBackCommand = new RoutedCommand(nameof(SendToBackCommand), new KeyGesture(Key.K, GetPlatformCommandKey()));

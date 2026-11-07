@@ -16,6 +16,40 @@ public class ConversationRedactorTests
     private static ConversationRedactor Redactor(int seed = 11, bool pseudonymise = true) =>
         new(new Pseudonymiser(new Random(seed)), pseudonymise);
 
+    [Theory]
+    [InlineData("<home>", @"C:\Fixtures\Jane Doe")]
+    [InlineData("<temp>", @"C:\Fixtures\Temp Space")]
+    [InlineData("<workspace>", @"C:\Fixtures\Jane Doe\My Project")]
+    [InlineData("<home>", "/fixtures/Jane Doe")]
+    [InlineData("<workspace>", @"\\fixture-host\Jane Doe")]
+    public void SensitiveRootsAreRemovedBeforeProsePathsAreMatched(string token, string root)
+    {
+        var redactor = new ConversationRedactor(new Pseudonymiser(), sensitiveRoots: [(root, token)]);
+        foreach (var spelling in new[] { root, root.Replace('\\', '/'), root.Contains(':') || root.StartsWith(@"\\") ? root.ToUpperInvariant() : root,
+                     root.Replace('\\', '/').Replace(" ", "%20"), root.Replace("\\", "\\\\") })
+        {
+            foreach (var suffix in new[] { "", "/", @"\runtime\fake.dll" })
+            {
+                var input = $"fatal: runtime not found at {spelling}{suffix}";
+                redactor.Body(input).Should().StartWith($"fatal: runtime not found at {token}");
+                redactor.LocalPath(spelling + suffix).Should().StartWith(token);
+            }
+        }
+    }
+
+    [Fact]
+    public void NestedWorkspaceWinsAndIsRemovedInsideAUri()
+    {
+        var redactor = new ConversationRedactor(new Pseudonymiser(), sensitiveRoots:
+            [(@"C:\Fixtures\Jane Doe", "<home>"), (@"C:\Fixtures\Jane Doe\Temp", "<temp>")]);
+        redactor.AddWorkspaceRoot("file:///C:/Fixtures/Jane%20Doe/Temp/My%20Project/");
+
+        redactor.Body("fatal: C:/Fixtures/Jane Doe/Temp/My Project/runtime.dll")
+            .Should().StartWith("fatal: <workspace>/").And.NotContain("Jane").And.NotContain("Project");
+        redactor.Body("file:///C:/Fixtures/Jane%20Doe/Temp/My%20Project/runtime.dll")
+            .Should().StartWith("file:///<workspace>/");
+    }
+
     // ── That nothing real survives ───────────────────────────────────────────
 
     [Fact]
@@ -378,6 +412,25 @@ public class ConversationRedactorTests
         var inBody = redactor.Body("""{"uri":"file:///C:/x/Form1.frm"}""");
 
         inBody.Should().Contain(alone);
+    }
+
+    [Theory]
+    [InlineData(@"C:\Fixtures\private-work\runtime\fake.dll")]
+    [InlineData("C:/Fixtures/private-work/runtime/fake.dll")]
+    [InlineData(@"\\build-host\private-work\runtime\fake.dll")]
+    [InlineData("/srv/private-work/runtime/fake.dll")]
+    [InlineData("C:/Fixtures/private work/runtime/fake.dll")]
+    public void PlainPathsInServerProseUseTheLocalPathMapping(string path)
+    {
+        var redactor = Redactor();
+        var expected = redactor.LocalPath(path);
+
+        redactor.Body($"fatal: runtime not found at '{path}'").Should()
+            .Be($"fatal: runtime not found at '{expected}'");
+        if (!path.Contains(' '))
+            redactor.Body($"fatal: runtime not found at {path}").Should()
+                .Be($"fatal: runtime not found at {expected}");
+        expected.Should().NotContain("private");
     }
 
     // ── The opt-out ──────────────────────────────────────────────────────────

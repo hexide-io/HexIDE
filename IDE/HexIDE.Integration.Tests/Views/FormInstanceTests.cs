@@ -591,6 +591,7 @@ public class FormInstanceTests
         // before it reaches Initialize's first statement, or Load's when there is no Initialize, and a step off the end
         // of Initialize goes on into Load. Each piece was a dispatch of its own, and the first one's end disarmed the
         // step, so the run went straight through (#656, #1010 review).
+        // End-line breakpoint support must not consume that startup step at Initialize's End Sub (#2172 review).
         var code = "Private Score As Integer\nDim Grid(1 To 3) As Integer\n"
             + (hasInitialize ? "Private Sub Form_Initialize()\n    Score = 1\nEnd Sub\n" : "")
             + "Private Sub Form_Load()\n    Score = Score + 1\n    Debug.Print Score\nEnd Sub\n";

@@ -54,7 +54,7 @@ public class BlobLossGateTests
     private const string UnmodelledOwnerForm =
         "VERSION 5.00\r\n" +
         "Begin VB.Form Form1 \r\n" +
-        "   Begin MSComctlLib.ImageList ImageList1 \r\n" +
+        "   Begin NoSuchLib.ImageList ImageList1 \r\n" +
         "      Picture         =   \"Form1.frx\":0000\r\n" +
         "   End\r\n" +
         "End\r\nAttribute VB_Name = \"Form1\"\r\n";

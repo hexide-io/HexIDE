@@ -21,12 +21,43 @@ that the developer could not see them was a limitation of its code window, and t
 
 ## Requirements
 
+### Requirement: Scrolling context menus preserve editor commands
+The code window's context menu SHALL open with focus on its first enabled visible item when opened
+by the keyboard, even when it scrolls. A pointer-opened menu SHALL start with no item selected; Enter
+SHALL execute nothing until an item is selected, and the first Down or Up SHALL select the first or
+last enabled visible item respectively (#3164). Routed commands SHALL retain the editor as their
+target when focus moves within the menu, including to a scroll button or a submenu. Each command's existing predicate SHALL continue
+to determine its availability.
+
+#### Scenario: A short viewport makes the code menu scroll
+- **WHEN** the focused code editor's context menu opens by keyboard with more items than fit in its viewport
+- **THEN** focus starts on its first enabled visible item
+- **AND** commands that can execute at the caret remain enabled and execute against the editor
+- **AND** focusing a menu scroll button does not change their target
+
+#### Scenario: A pointer opens the menu
+- **WHEN** the developer opens the context menu with the mouse
+- **THEN** no item is selected and Enter executes no command
+- **AND** Down selects the first enabled visible item, or Up selects the last
+- **AND** reopening the menu by keyboard selects its first enabled visible item
+
 ### Requirement: Syntax keywords match regardless of case
-The editor SHALL apply the VB6 syntax definition's keyword colours regardless of keyword casing.
+The editor SHALL apply the VB6 syntax definition's keyword colours regardless of keyword casing. Standalone `End` and every `END_*` block terminator from the MIT lexer SHALL receive the `Keyword` colour in every theme.
 
 #### Scenario: Keywords differ from the definition's casing
 - **WHEN** the editor highlights `Begin`, `begin`, a standalone `End`, `end`, `private` or `SUB`
 - **THEN** each word receives its named keyword colour from the syntax definition
+
+#### Scenario: Block terminators use keyword blue
+- **WHEN** the editor highlights `End Sub`, `End If`, `End Function`, `End With` or `End Select` in any theme
+- **THEN** both words receive the theme's `Keyword` colour
+
+### Requirement: Syntax definition provenance and palette
+The VB6 syntax definition SHALL be authored under MIT from HexIDE's MIT lexer grammar, and SHALL use the named colours managed by `SyntaxHighlightingTheme`. Comments, strings, numbers, date literals, type suffixes and line continuations SHALL receive syntax colours.
+
+#### Scenario: Literal and punctuation highlighting
+- **WHEN** the editor highlights a string, number, `#1/2/2000#`, type suffix or line continuation outside a comment
+- **THEN** it applies the definition's corresponding named syntax colour
 
 ### Requirement: The code window SHALL hold the whole file
 The code window for a form, module, class, UserControl or PropertyPage SHALL hold the file's complete text.
@@ -407,6 +438,129 @@ The status bar SHALL reflect the new mode immediately, without requiring the car
 - **WHEN** the developer presses Insert again
 - **THEN** insert mode is restored and the status bar displays the localized insert label
 
+### Requirement: Language-server document outline
+
+The IDE SHALL offer a docked Outline window from the View menu for the active code or carried-file
+editor. It SHALL render the document symbols supplied by that document's language server with their
+hierarchy intact, accepting flat replies as top-level nodes. It SHALL request updated symbols after
+edits without requiring a diagnostics notification. It SHALL discard replies superseded by a newer
+request or buffer contents.
+
+#### Scenario: Refresh without a notification loop
+
+- **WHEN** opening diagnostics trigger a symbol refresh for an unchanged buffer
+- **THEN** the refresh SHALL send no `didChange` and SHALL populate the procedure list and Outline tree
+- **AND** the symbol update SHALL cancel the Outline's pending refresh
+- **WHEN** a refresh follows an unsent edit
+- **THEN** the edit SHALL be sent once before the symbol request
+- **AND** subsequent refreshes without further edits SHALL send no `didChange`
+
+#### Scenario: Browse and filter the active document
+
+- **WHEN** the user opens View → Outline
+- **THEN** the active document's symbols appear as a tree
+- **AND** selecting a kind retains matching symbols and the ancestors needed to reach them
+- **AND** selecting All kinds restores the whole tree
+
+#### Scenario: Follow and navigate
+
+- **WHEN** the caret moves inside a symbol's range
+- **THEN** the outline selects the innermost containing symbol without moving the caret
+- **WHEN** the user clicks a node or presses Enter on it
+- **THEN** the editor navigates to the start of that symbol's selection range
+
+#### Scenario: Change the active document
+
+- **WHEN** the active editor changes
+- **THEN** the outline shows the new editor's symbols and stops following the previous editor
+- **AND** a document without outline support clears the tree
+
+### Requirement: Formatting and auto-close use the configured indentation
+
+Document formatting, including format-on-save, SHALL send the editor's configured Tab Width as
+`FormattingOptions.tabSize` and SHALL set `insertSpaces` to true, matching the editor's conversion of
+tabs to spaces. Auto-close SHALL indent the inserted body by that Tab Width in spaces and leave the
+closer at the opener's indentation (#2669).
+
+#### Scenario: Formatting with a two-space tab width
+- **WHEN** the editor requests formatting with Tab Width set to 2
+- **THEN** the request carries `tabSize: 2` and `insertSpaces: true`
+
+#### Scenario: Auto-close with a configured tab width
+- **WHEN** Enter inserts a block closer with Tab Width set to 2 or 8
+- **THEN** the body is respectively 2 or 8 spaces deeper than the opener
+- **AND** the closer retains the opener's indentation
+
+### Requirement: Indentation guides
+
+The code window SHALL draw vertical guides at each complete indentation level, using the configured tab width and tab stops. The innermost indentation block containing the caret SHALL use the active-guide theme colour; other guides SHALL use the normal-guide theme colour. Blank lines SHALL continue indentation shared by the surrounding nonblank lines. Options → Editor → General SHALL offer a persisted Show indent guides toggle, enabled by default.
+
+#### Scenario: Nested indentation
+- **WHEN** the caret enters a nested indented block
+- **THEN** that block's guide is emphasised throughout its contiguous indentation run
+- **AND** equally indented blocks elsewhere retain the normal guide colour
+
+#### Scenario: Guides disabled
+- **WHEN** Show indent guides is turned off and options are applied
+- **THEN** open code windows stop drawing guides
+- **AND** the preference survives restarting the IDE
+
+### Requirement: Parentheses coloured by nesting depth
+The VB6 code editor SHALL colour matching parentheses with the same theme-defined foreground, cycling
+through the `BracketDepth1`, `BracketDepth2` and `BracketDepth3` theme palette entries by nesting depth. It SHALL mark unmatched parentheses with a separate theme
+foreground (`BracketUnmatched`), ignore parentheses inside lexer string and comment tokens, and offer a persisted Editor → General
+option to disable this colouring. Existing editors SHALL repaint when the text, palette or option changes.
+
+#### Scenario: Nested pairs and an unmatched parenthesis
+- **WHEN** the editor displays `(()) )`
+- **THEN** the outer pair uses the first palette entry and the inner pair uses the second
+- **AND** the final closing parenthesis uses the unmatched foreground
+
+#### Scenario: Colouring disabled
+- **WHEN** the user disables the nesting-depth option
+- **THEN** parentheses retain ordinary syntax colouring, including unmatched parentheses
+
+### Requirement: Recent edit locations
+The IDE SHALL provide a Recent Edits panel from the View menu, listing edited code locations newest first
+with the module, 1-based line and a text preview. Selecting a row SHALL navigate to that document and line
+without recording another edit. The list SHALL be session-only and contain at most 50 entries.
+
+An edit in the same document within 10 lines of the newest entry SHALL replace that entry; an edit further
+away or in another document SHALL add an entry. Locations SHALL follow inserted or removed text above
+them. Removing a whole tracked line SHALL drop its entry. Closing and reopening a code tab SHALL retain
+its entries; removing its document from the project or unloading the project SHALL drop them.
+
+#### Scenario: Nearby and distant edits
+- **WHEN** a developer edits a line 9 or 10 lines from the newest entry in the same document
+- **THEN** that entry is replaced by the new location
+- **WHEN** the distance is 11 lines, or the edit is in another document
+- **THEN** a new entry is added, evicting the oldest if the list exceeds 50
+
+#### Scenario: Returning to moved text after closing a tab
+- **WHEN** lines are inserted above a recorded location and its code tab is closed and reopened
+- **THEN** the row retains the moved line number and preview
+- **AND** selecting it opens that document at the moved line without adding an entry
+
+### Requirement: Paste as Comment
+The code window SHALL offer Paste as Comment in the Edit menu and expose `PasteAsCommentCommand`
+for keymap bindings. It SHALL replace the selection with the clipboard's lines, each prefixed with an
+apostrophe, continuing subsequent lines at the insertion line's leading indentation. The paste SHALL
+be one undo step and use the document's newline convention. Empty or unavailable clipboard text SHALL
+leave the document unchanged.
+
+When text remains on the line after a non-rectangular selection or caret, the paste SHALL end with a
+line break and the insertion line's leading indentation, keeping that text uncommented on its own line.
+
+#### Scenario: Keeping a snippet without compiling it
+- **WHEN** the developer pastes two clipboard lines as comments at an indented caret
+- **THEN** each inserted line begins with an apostrophe at that indentation
+- **AND** Undo restores the previous text in one step
+
+#### Scenario: Pasting before existing code
+- **WHEN** the developer pastes as comments with the caret before existing code on the same line
+- **THEN** a line break separates the last pasted comment from the existing code
+- **AND** the existing code remains uncommented at the insertion line's indentation
+- **AND** Undo restores the previous text in one step
 ### Requirement: Find scopes SHALL include project members and live buffers
 Find SHALL default to Current Project and offer Current Procedure, Current Module, Selected Text and
 All Open Documents. It SHALL additionally offer All Projects when a project group is loaded.
@@ -425,6 +579,16 @@ editor and select the matching text. Forms, modules and carried files SHALL part
 - **WHEN** a code window or designer in a non-startup project is active
 - **THEN** Current Project names and searches that document's project
 - **AND** All Projects searches every loaded project
+
+### Requirement: Code-window selections SHALL stay in step with the view-model
+Keyboard and mouse selections SHALL update the code-window view-model's selection start and length,
+including when cleared, for Selected Text searches and the add-in selection API. View-model selections
+SHALL still select text in the editor. Neither direction SHALL re-enter the other.
+
+#### Scenario: A developer selects code
+- **WHEN** the developer selects text in the code window
+- **THEN** the view-model and add-in API report that span
+- **AND** Selected Text Find searches within that span
 
 ### Requirement: Structural and selection scopes SHALL restrict every search and replacement
 Current Procedure and Current Module SHALL use containing procedure or module ranges reported by the
@@ -495,8 +659,9 @@ was SHALL keep the greying until the next evaluation, and an edit that adds or r
 
 ### Requirement: The view-as selector SHALL appear only with conditional compilation, and SHALL belong to its window
 A ComboBox after the Procedure box SHALL appear only while the module has an `#If` line. It SHALL offer
-VB6, VBA 32-bit and VBA 64-bit, defaulting to VB6, the constants currently used by F5 for every personality.
+VB6, VBA 32-bit, VBA 64-bit, twinBASIC 32-bit and twinBASIC 64-bit, defaulting to VB6, the constants currently used by F5 for every personality.
 The selection SHALL belong to the window and SHALL NOT be persisted or affect execution or LSP diagnostics.
+Changing the selection SHALL NOT send language-server requests or notifications.
 VBA's constants are not measured, since there is no VBA oracle.
 
 #### Scenario: Previewing a VBA branch
@@ -504,3 +669,24 @@ VBA's constants are not measured, since there is no VBA oracle.
 - **THEN** the default VB6 view greys the VBA7 branch
 - **AND WHEN** the developer chooses VBA 32-bit or VBA 64-bit
 - **THEN** the view greys the Else branch instead, without changing what F5 runs
+
+
+#### Scenario: Previewing a twinBASIC branch
+- **WHEN** the developer chooses twinBASIC 32-bit or twinBASIC 64-bit
+- **THEN** greying uses the measured twinBASIC built-ins for that bitness and function calls read zero
+- **AND** the build number is unknown, so conditions depending on it remain ungreyed
+- **AND** the build type is "Standard EXE", "ActiveX DLL" or "ActiveX Control" for the corresponding VB6 project type; otherwise it is unknown and conditions depending on it remain ungreyed
+- **AND** execution and language-server diagnostics retain their own constants
+
+### Requirement: Re-docking retains document analysis
+The code document SHALL retain its semantic tokens, folding ranges, inlay hints and code lenses across
+visual detach and reattachment, including replacement of the view by Dock. Re-docking alone SHALL NOT
+send new requests for these answers. Detached view handlers SHALL NOT touch the editor or start requests.
+Edits and server state changes SHALL invalidate analysis; scrolling SHALL continue to resolve newly
+visible lenses, and advertised code-lens refresh requests SHALL invalidate lenses even while suspended.
+
+#### Scenario: Opening the first bottom tool pane
+- **WHEN** a tool pane opens and Dock detaches and reattaches an unchanged code document
+- **THEN** the view reuses the document's answers without requesting tokens, folds, hints or lenses again
+- **AND WHEN** the developer edits the code after the re-dock
+- **THEN** the document sends didChange and requests fresh analysis after debounce

@@ -12,9 +12,6 @@ namespace HexIDE.Runtime.TypeLibrary;
 // All COM work is Windows-only and guarded by OperatingSystem.IsWindows().
 public static partial class TypeLibReader
 {
-    [LibraryImport("oleaut32.dll", EntryPoint = "LoadTypeLib", StringMarshalling = StringMarshalling.Utf16)]
-    private static partial int LoadTypeLib(string szFile, out IntPtr ppTLib);
-
     [LibraryImport("oleaut32.dll", EntryPoint = "LoadTypeLibEx", StringMarshalling = StringMarshalling.Utf16)]
     private static partial int LoadTypeLibEx(string szFile, int regkind, out IntPtr ppTLib);
 
@@ -163,7 +160,7 @@ public static partial class TypeLibReader
     [SupportedOSPlatform("windows")]
     private static TypeLibInfo? ReadCore(string path)
     {
-        int hr = LoadTypeLib(path, out IntPtr pointer);
+        int hr = LoadTypeLibEx(path, RegKindNone, out IntPtr pointer);
         var typeLib = TakeTypeLib(hr, pointer);
         if (hr != 0 || typeLib == null) return null;
         try { return WalkTypeLib(typeLib, Path.GetFileNameWithoutExtension(path)); }

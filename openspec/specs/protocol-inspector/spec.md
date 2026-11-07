@@ -190,6 +190,14 @@ weigh, because a message count tells them nothing about how much of their source
 - **WHEN** a client and a server referred to one document by two spellings
 - **THEN** the two spellings remain distinguishable in the exported capture
 
+#### Scenario: Absolute paths in diagnostic prose
+- **WHEN** an exported body or Language Servers report detail or configuration problem contains a plain absolute drive-letter, UNC or Unix path
+- **THEN** redaction SHALL apply the local-path segment mapping, preserving separators
+- **AND** quoted paths SHALL support spaces, while unquoted paths end at whitespace or prose punctuation
+- **AND** before matching prose paths, redaction SHALL replace the user profile and temp roots literally with fixed tokens; Language Servers reports SHALL also register each open project and connection workspace root
+- **AND** longest roots SHALL win, supporting either separator, Windows case variants, trailing separators and percent-encoded URI spellings
+- **AND** relative paths and ambiguous unquoted paths containing spaces outside these roots remain outside this guarantee
+
 #### Scenario: A client-supplied workspace folder name
 - **WHEN** HexIDE initializes a language server with pseudonymisation enabled
 - **THEN** it SHALL send each workspace folder's name as the same session pseudonym used for that folder's URI segment in an export
@@ -275,3 +283,20 @@ view is hidden or detached.
 - **WHEN** an entry is recorded while the inspector is visible
 - **THEN** its pending indicator appears without adding or moving grid rows
 - **AND** Refresh fills the grid again and resets the pending indicator
+
+### Requirement: Conversation exports SHALL protect existing files
+The inspector SHALL ask for explicit replacement consent, naming every existing output, before writing
+its messages file or its derived manifest. Declining or dismissing that question SHALL write neither file.
+An output absent when consent is requested SHALL be created exclusively; a file arriving there while
+the question is open SHALL cause a reported export failure instead of being overwritten.
+The automation conversation export SHALL use a fresh temporary directory per call so a later export
+cannot replace the files returned by an earlier call.
+
+#### Scenario: Only the derived manifest already exists
+- **WHEN** the chosen messages path is unused but its derived manifest exists
+- **THEN** the inspector asks before writing either output
+- **AND** declining leaves the manifest intact and creates no messages file
+
+#### Scenario: Exporting twice through automation
+- **WHEN** an automation client exports two conversations
+- **THEN** both returned file pairs remain available with distinct paths

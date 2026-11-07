@@ -96,6 +96,68 @@ public class UnsavedChangesPromptTests : IDisposable
         return (svc, project);
     }
 
+    private async Task<(ProjectService svc, DocumentIdentity document)> AdoptExisting(string extension)
+    {
+        var (svc, project) = await OpenNormalised();
+        var path = Path.Join(dir, "Added." + extension);
+        var root = extension == "ctl" ? "UserControl" : extension == "pag" ? "PropertyPage" : "Form";
+        var source = extension is "frm" or "ctl" or "pag"
+            ? $"VERSION 5.00\r\nBegin VB.{root} Added\r\nEnd\r\nAttribute VB_Name = \"Added\"\r\nOption Explicit\r\n"
+            : "Attribute VB_Name = \"Added\"\r\nOption Explicit\r\n";
+        File.WriteAllText(path, source);
+        if (extension == "frm")
+        {
+            var form = (await svc.AddExistingForm(project, path)).Document;
+            form.Should().NotBeNull();
+            return (svc, DocumentIdentity.For(form!));
+        }
+        var kind = extension switch
+        {
+            "cls" => ModuleKind.ClassModule,
+            "ctl" => ModuleKind.UserControl,
+            "pag" => ModuleKind.PropertyPage,
+            _ => ModuleKind.StandardModule
+        };
+        var module = (await svc.AddExistingModule(project, path, kind)).Document;
+        module.Should().NotBeNull();
+        if (extension is "ctl" or "pag") module!.FormPart.Should().NotBeNull();
+        return (svc, DocumentIdentity.For(module!));
+    }
+
+    // HexIDE consistency, not a measured VB6 removal rule (#2644).
+    [Theory]
+    [InlineData("bas")]
+    [InlineData("cls")]
+    [InlineData("frm")]
+    [InlineData("ctl")]
+    [InlineData("pag")]
+    public async Task An_unedited_adopted_file_has_no_unsaved_changes(string extension)
+    {
+        var (svc, document) = await AdoptExisting(extension);
+
+        var dirty = document.Form is { } form
+            ? svc.HasUnsavedChanges(form) : svc.HasUnsavedChanges(document.Module!);
+
+        dirty.Should().BeFalse();
+    }
+
+    [Theory]
+    [InlineData("bas")]
+    [InlineData("cls")]
+    [InlineData("frm")]
+    [InlineData("ctl")]
+    [InlineData("pag")]
+    public async Task Removing_an_unedited_adopted_file_raises_no_prompt(string extension)
+    {
+        var (svc, document) = await AdoptExisting(extension);
+
+        await svc.RemoveDocument(document);
+
+        dialogsShown.Should().Be(0);
+        DocumentLookup.DocumentsOf(document.Project).Should().NotContain(document);
+        File.Exists(Path.Join(dir, "Added." + extension)).Should().BeTrue();
+    }
+
     [Fact]
     public async Task An_unchanged_project_raises_no_prompt_at_all()
     {

@@ -48,6 +48,18 @@ mark is missing on the next opening.
 - **WHEN** another program holds the sidecar as a change is written, and the project is closed afterwards
 - **THEN** the change is in the sidecar when the project is next opened
 
+### Requirement: What F5 runs SHALL be per-user project state
+The user's choice of what F5 runs for a project, the interpreter or a launch an add-in contributes (`dap-client`),
+SHALL be kept in the sidecar as `runWith`, by the launch's add-in and title, and absent for the interpreter. The
+interpreter is the default, so it SHALL NOT cause a sidecar to be written.
+
+One developer runs a project under an add-in's debugger and another in the IDE, so the choice is theirs, not the
+project's, and it belongs with their breakpoints.
+
+#### Scenario: Choosing a launch for F5
+- **WHEN** the user chooses an add-in's launch for F5 and later reopens the project
+- **THEN** F5 is still set to run that launch
+
 ### Requirement: The sidecar SHALL be named predictably from the project
 The sidecar SHALL be named from the project file's name with a distinct extension, in the same directory.
 
@@ -181,8 +193,8 @@ form it already began at that file's leading attribute lines, so shifting by the
 by their number. It is whatever is now shown above the old first line.
 
 A shift cannot be determined when the project has no such document, or when the document's file is missing or
-unreadable — and a module whose file is missing is still one of the project's documents, so the rule turns on
-whether the shift is known rather than on whether the document exists. Guessing would misplace a mark, and
+unreadable. A preserved missing module's name SHALL also make a shared-name entry unplaceable for a loaded
+document: the entry cannot be half applied. Guessing would misplace a mark, and
 dropping the entry would lose it; keeping it untouched does neither, and a later opening can still migrate
 it.
 
