@@ -9,12 +9,6 @@ out what exists. That makes it more central than the equivalent in a modern IDE,
 are answered by go-to-definition and completion — here it is often the only way to discover a member at all,
 which is why VB6 gave it a dedicated key.
 
-> **Known divergences.** The requirements below state intended behaviour. Three are not currently met — the
-> member list is cached and does not reflect later edits, double-click opens the containing file rather than
-> the member's definition, and Escape does not close the window. Tracked in
-> [#24](https://github.com/hexide-io/HexIDE/issues/24). They are stated as requirements rather than written
-> down to match the code, because the code is wrong here, not the intent.
-
 ## Requirements
 
 ### Requirement: The browser SHALL show everything visible to the project
@@ -31,9 +25,30 @@ filtering once you know where you are looking.
 - **WHEN** the browser is opened
 - **THEN** types from the project, the runtime library, the built-in functions and referenced libraries are all reachable
 
+The runtime control library SHALL use the unqualified class name from each component's VB type name,
+rather than its default instance-name prefix, for listing, search, member headings and membership.
+
+#### Scenario: Browsing an intrinsic control class
+- **WHEN** the developer browses the VB library or searches for `CommandButton`
+- **THEN** the class is listed as `CommandButton`, rather than `Command`
+
 #### Scenario: Narrowing to one library
 - **WHEN** the developer selects a single library
 - **THEN** only that library's types are listed
+
+#### Scenario: Project membership or names change
+- **WHEN** a form or module is added, removed or renamed, or its project is renamed
+- **THEN** the browser SHALL update the project library and its sorted class list, respecting the current filter
+- **AND** removed classes SHALL no longer be reachable through navigation history
+
+The browser SHALL retry loading an unloaded VBA library showing a status row when a language server
+becomes ready, without requiring the developer to reselect a library.
+
+#### Scenario: A server starts after the browser opens
+- **GIVEN** the VBA library shows a status row because no capable server was running
+- **WHEN** a server offering built-in symbols becomes ready
+- **THEN** the VBA library loads those symbols automatically
+- **AND** they appear under VBA or All Libraries without changing the selected library
 
 ### Requirement: Selecting a type SHALL show its members, and selecting a member SHALL describe it
 Selecting a type SHALL list its members; selecting a member SHALL show its signature and what it belongs to,
@@ -168,3 +183,27 @@ points them away from the reason.
 #### Scenario: A search that genuinely finds nothing
 - **WHEN** a capable server is asked and returns no symbols
 - **THEN** the browser says nothing matched, naming the query
+
+### Requirement: Browser inputs and lists have localized automation names
+The library selector, search field, search-results list, class list and member list SHALL expose distinct,
+localized automation names describing their purpose.
+
+#### Scenario: Identifying browser controls
+- **WHEN** a screen reader or automation caller inspects the Object Browser
+- **THEN** each input and list is named in the selected IDE language
+- **AND** the class and member lists can be distinguished without positional indices
+
+### Requirement: Reference files SHALL load only from local paths without registration
+The Object Browser SHALL use the shared type-library `IsLocalPath` check before checking file existence
+or reading a reference by path. UNC, device and non-fully-qualified paths SHALL be treated as unavailable,
+with a diagnostic log naming the reference. File loads SHALL use `LoadTypeLibEx` with `REGKIND_NONE`, so
+browsing a library cannot register it. This intentionally avoids VB6's unsafe remote-loading behaviour.
+
+#### Scenario: A reference names a remote or device path
+- **WHEN** a reference's library path is a UNC or device path
+- **THEN** neither the existence check nor the type-library reader is called for that path
+- **AND** its metadata is unavailable and the refusal log names the reference
+
+#### Scenario: A reference names a local file
+- **WHEN** a reference names an existing fully qualified local file accepted by the shared check
+- **THEN** the browser reads its types without registering the library

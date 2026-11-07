@@ -14,7 +14,18 @@ public class ControlsContainer : ListBox
     {
         SelectionMode = SelectionMode.Multiple;
         SelectionChanged += (_, _) => UpdatePrimaryFlags();
+        Selection.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(Selection.AnchorIndex))
+                UpdatePrimaryFlags();
+        };
     }
+
+    public int ReferenceIndex => Selection.IsSelected(Selection.AnchorIndex)
+        ? Selection.AnchorIndex : Selection.SelectedIndex;
+
+    public object? ReferenceItem => ReferenceIndex >= 0 ? Items[ReferenceIndex] : null;
+    public event EventHandler? ReferenceChanged;
 
     public Action<IReadOnlyList<ComponentInstanceViewModel>>? BeginDragCallback { get; set; }
     public Action? EndDragCallback { get; set; }
@@ -38,7 +49,7 @@ public class ControlsContainer : ListBox
         {
             if (ContainerFromIndex(i) is ControlItem item)
             {
-                item.IsPrimary = (i == SelectedIndex);
+                item.IsPrimary = (i == ReferenceIndex);
                 if (item.IsSelected)
                     selectedItems.Add(item);
             }
@@ -108,6 +119,7 @@ public class ControlsContainer : ListBox
                 adorner.OnDragCompleted = () => EndDragCallback?.Invoke();
             }
         }
+        ReferenceChanged?.Invoke(this, EventArgs.Empty);
     }
 
     protected override Control CreateContainerForItemOverride(object? item, int index, object? recycleKey)

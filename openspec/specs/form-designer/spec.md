@@ -19,6 +19,25 @@ operations do.
 > [#1458](https://github.com/hexide-io/HexIDE/issues/1458). Cut and paste within a form keeps it (#1453).
 
 ## Requirements
+
+### Requirement: PictureBox designer bitmap assignment honors AutoSize
+When a bitmap is assigned to a PictureBox with AutoSize True, the designer SHALL set Width and Height to the bitmap's pixel dimensions plus two pixels on each side for the default 3-D Fixed Single border, or no extra pixels with BorderStyle None. It SHALL record those dimensions with the picture edit as one undo step. This implements the measured bitmap cases in [#922's oracle](../../../docs/vb6-fidelity-oracle/autosize-on-a-label-and-a-picturebox.md); runtime AutoSize and Label AutoSize remain pending.
+
+#### Scenario: A 40 by 30 bitmap is assigned
+- **WHEN** the designer assigns a 40 by 30 pixel bitmap to an AutoSize PictureBox
+- **THEN** the model holds 44 by 34 pixels with the default border, or 40 by 30 with none
+- **AND** saving writes 660 by 510 twips with the default border, or 600 by 450 with none
+- **AND** undo restores the picture and both previous dimensions together
+
+#### Scenario: Stored dimensions and explicit assignments hold
+- **WHEN** a form loads, the picture is cleared, or Width is assigned explicitly
+- **THEN** AutoSize does not recompute the dimensions
+
+#### Scenario: An unmeasured picture or border is used
+- **WHEN** AutoSize would fit a non-bitmap picture or a flat Fixed Single border
+- **THEN** the designer refuses sizing once with the not-implemented message explaining that the size is unmeasured
+- **AND** it restores the picture without reporting a file-load or invalid-property error
+
 ### Requirement: The designer SHALL draw a form's client area at the size it is saved and run with
 The area a form's controls are designed in SHALL be its client area, `ClientWidth` by `ClientHeight`, the size its
 window has at run time. The frame and caption bar SHALL be drawn outside it, and dragging the frame's handles SHALL
@@ -42,6 +61,9 @@ visually distinguishable from the rest of the selection.
 Every alignment and sizing command answers "align to what?", and the answer has to be visible before the
 command runs — otherwise the developer finds out which control was the reference by looking at the result.
 Making it the same control whose properties are being shown means one visual cue answers both questions.
+This is a HexIDE presentation choice: VB6 uses the last selected control with solid handles as the reference,
+but its toolbar keeps showing the first selected and its Properties caption can change after reselection
+(measured 2026-10-22, #928/#929).
 
 #### Scenario: Selecting a second control
 - **WHEN** the developer adds a second control to the selection
@@ -54,8 +76,11 @@ Making it the same control whose properties are being shown means one visual cue
 
 ### Requirement: Controls SHALL be selectable by adding to the selection or by dragging a region
 The designer SHALL support extending the selection with a modifier, and selecting by dragging a region over
-the canvas. A dragged region SHALL select every control it intersects, not only those it fully encloses. The
-region SHALL span the whole form rather than being confined to one container, and this is a stated
+the canvas. A modifier click on a control in a different container from the reference SHALL be ignored,
+leaving the selection and reference unchanged (VB6 SP6 measurement, #2181). A plain click SHALL select
+that control alone. Controls sharing a container, including a Frame and a form-level control, SHALL
+remain selectable together. A dragged region SHALL select every control it intersects, not only those it
+fully encloses. The region SHALL span the whole form rather than being confined to one container, and this is a stated
 divergence from the original product.
 
 Intersection rather than containment is what VB6 did, and it is the more useful rule: selecting a row of
@@ -67,6 +92,10 @@ with what that container holds. HexIDE's region does return such a selection, an
 what makes that harmless rather than a defect. Confining the region needs the IDE to decide which container
 a point belongs to — the same judgement that moving a control between containers by dragging needs — and
 both are deferred together rather than half-built.
+
+#### Scenario: Modifier click across containers
+- **WHEN** a control is selected and the developer Ctrl-clicks or Shift-clicks a control in another container
+- **THEN** the selection and reference remain unchanged
 
 #### Scenario: Dragging a region across several controls
 - **WHEN** the developer drags a region that partially crosses several controls
@@ -83,6 +112,17 @@ both are deferred together rather than half-built.
 #### Scenario: Dragging a region across a container
 - **WHEN** a dragged region crosses a container and the controls it holds
 - **THEN** both the container and those controls are selected
+
+### Requirement: Dragging SHALL preserve the control's declared size
+A move SHALL leave Width and Height unchanged, including when layout rounds the arranged bounds at display
+scaling above 100%. A resize SHALL start from the declared dimensions where they are set, falling back to
+arranged dimensions for automatically sized elements.
+
+#### Scenario: Move a control at 150% display scaling
+- **GIVEN** a control whose declared size is 81 by 33 DIP (1215 by 495 twips)
+- **WHEN** the developer drags it to a new position at 150% display scaling
+- **THEN** its declared size remains 81 by 33 DIP
+- **AND** its saved Width and Height remain 1215 and 495 twips
 
 ### Requirement: Dragging one selected control SHALL move the whole selection
 Dragging any control that is part of the selection SHALL move every selected control by the same
@@ -260,3 +300,112 @@ Unseen, it is edited around blindly. VB6's box is an empty PictureBox; labelling
 #### Scenario: Pressing on the box
 - **WHEN** the developer presses on the box
 - **THEN** nothing is selected and no region drag begins
+
+
+### Requirement: Export a picture property's payload
+The Properties window SHALL offer Export picture on modeled Picture, Icon, MouseIcon and DragIcon properties
+holding a nonempty, length-consistent VB6-framed StdPicture record. Export SHALL write only the image payload
+chosen by a save picker, without changing the property, designer history, form or companion file. It SHALL NOT
+export opaque OCX property bags, unframed bytes or malformed records. Cancellation SHALL write nothing, and a
+write failure SHALL be reported to the user. Before replacing an existing file, export SHALL ask
+"{0} already exists. Do you want to replace it?", with the full destination path substituted for {0},
+under the title "Export Picture" without an ellipsis. Both strings SHALL use dedicated localized keys.
+
+#### Scenario: Export a form's icon
+- **GIVEN** a form's Icon holds a VB6-framed StdPicture record
+- **WHEN** Export picture is chosen from its property row's context menu and a destination is selected
+- **THEN** the destination contains the original image bytes without either framing layer
+- **AND** the property record remains unchanged
+
+#### Scenario: A picture belongs to an OCX property bag
+- **GIVEN** an opaque OCX block contains an image
+- **THEN** the Properties window offers no export for that property bag
+
+### Requirement: A tool drag preview SHALL match the control placed on release
+The designer SHALL use the same rectangle and container calculation for a tool drag's preview and placement.
+The calculation SHALL snap the corners to the nearest lines of the grid measured from the client origin of
+the innermost container under the press, hold the rectangle to that container, and include the extra pixel
+past the far corner. With the grid off, the extra pixel SHALL still be included. Placement with an explicit
+size (`add_control`) SHALL keep its own container hold and SHALL NOT add that pixel.
+
+#### Scenario: Drawing inside a bordered PictureBox
+- **WHEN** a tool drag begins inside a PictureBox nested in a Frame and moves beyond the PictureBox
+- **THEN** the preview uses the PictureBox's grid and container limits
+- **AND** releasing at the same point places a control with that rectangle in the PictureBox
+
+#### Scenario: Drawing with the grid off
+- **WHEN** a tool drag spans 45 by 17 pixels with snapping disabled
+- **THEN** the preview and the placed rectangle both measure 46 by 18 pixels
+
+### Requirement: The designer SHALL offer a read-only tab-order overlay
+The designer SHALL offer a toggle, initially off, that draws each modelled control's existing `TabIndex` over its
+canvas position. Controls without that property SHALL have no badge. A badge SHALL be crossed out with a diagonal slash when the control
+has `TabStop` set to false, so the mark remains distinct from every digit’s strokes. Badges SHALL follow property and position changes and SHALL NOT intercept pointer input
+or change the form's properties. This is a HexIDE presentation feature, not a VB6 designer gesture.
+
+#### Scenario: Inspecting tab order
+- **WHEN** the developer enables the tab-order toggle
+- **THEN** tab-index badges appear over the controls, with non-tab-stops crossed out
+- **AND** disabling the toggle hides the badges
+
+### Requirement: A form SHALL be previewable without running its code
+The form designer SHALL offer a Preview Form command that opens a live window using the runtime loader's
+layout, menus and tab settings, without starting the project or loading an interpreter. Control interaction,
+resizing and closing SHALL execute no VB event code and SHALL leave the designer's properties, selection,
+modified state and undo history unchanged. A UserControl or PropertyPage designer SHALL not offer this
+command. A form the runtime loader cannot create SHALL report its existing unsupported-control error.
+
+#### Scenario: Check a form's layout and interaction
+- **WHEN** Preview Form is invoked in a form designer
+- **THEN** a live form window opens with the current design, including unsaved edits
+- **AND** its controls accept interaction without executing the form's code or starting the project
+
+#### Scenario: Close after editing the preview
+- **WHEN** the developer edits a text box, resizes the preview and closes it
+- **THEN** those edits are discarded and the designer remains unchanged
+- **AND** no Load, Resize, Click, QueryUnload or other VB event procedure runs
+
+### Requirement: ImageList designer icon
+The designer SHALL show a modelled MSComctlLib.ImageList as a 38 × 38 box with a two-pixel raised edge.
+The outer top/left SHALL use 3D light, inner top/left highlight, inner bottom/right shadow, and outer
+bottom/right dark shadow, with the face brush inside. These roles SHALL follow the theme's system brushes.
+HexIDE SHALL draw its own vector filmstrip glyph in a 32 × 32 area at (2, 2), rather than reproduce VB6's picture.
+Runtime invisibility and the measured unsnapped placement SHALL remain unchanged.
+
+#### Scenario: ImageList in the designer
+- **WHEN** an ImageList is placed on a form
+- **THEN** its raised box contains the original vector drawing rather than a text stand-in
+- **AND** changing theme updates its brushes
+
+### Requirement: Load a picture from the Properties window
+The Properties window SHALL offer an ellipsis button on modeled Picture, Icon, DragIcon and MouseIcon rows.
+It SHALL open the IDE file-dialog service's single-file picker and validate the selected file with the existing
+companion picture decoder. An accepted picture SHALL replace the property's record as one undoable designer
+change and save through the existing companion writer. Cancelling SHALL change nothing. A file the reader cannot
+read SHALL be refused with a localized message naming the file, retaining the old picture.
+This is the scoped decision in [#2653](https://github.com/hexide-io/HexIDE/issues/2653); clearing and file-type
+filters remain unchanged. Record framing is measured in
+[the serialization oracle](../../../docs/vb6-fidelity-oracle/serialization--file-format-fidelity.md).
+
+#### Scenario: Replace a picture and undo
+- **WHEN** a picture file the decoder accepts is chosen from a picture row's ellipsis button
+- **THEN** the row and control hold that picture and saving and reopening retains it
+- **AND** one undo restores the previous picture
+
+#### Scenario: Cancel or refuse a file
+- **WHEN** the picker is cancelled or the chosen file cannot be read as a picture
+- **THEN** the property and undo history remain unchanged
+- **AND** a refused file produces a message naming it
+
+### Requirement: Confirm picture export replacement
+The Properties window's picture export SHALL ask an explicit Yes/No question naming an existing destination
+before replacing it, including when a scripted file-picker answer chose the path. Only Yes SHALL permit
+replacement, staged and flushed through the atomic writer. A new destination SHALL be created exclusively.
+
+#### Scenario: Decline replacement
+- **WHEN** picture export chooses an existing file and the replacement question is declined or dismissed
+- **THEN** the existing bytes remain unchanged
+
+#### Scenario: Accept replacement
+- **WHEN** the replacement question is answered Yes
+- **THEN** the destination contains the exported picture payload

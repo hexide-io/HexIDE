@@ -10,6 +10,7 @@ using Avalonia.Threading;
 using AvaloniaEdit;
 using AvaloniaEdit.Document;
 using AvaloniaEdit.Highlighting;
+using AvaloniaEdit.Folding;
 using AvaloniaEdit.Rendering;
 
 namespace HexIDE.Controls;
@@ -29,8 +30,7 @@ namespace HexIDE.Controls;
 /// renderer, the viewport rectangle and click hit-testing all derive from the same layout, so
 /// they agree whether or not the file is sampled.
 ///
-/// Remaining limitation: the viewport rectangle assumes uniform line height in the *editor*, so
-/// folded or word-wrapped regions skew it. Read-only.
+/// Folded regions occupy only their fold line. Word wrap remains one row per document line.
 /// </summary>
 public sealed class MinimapControl : Control
 {
@@ -61,6 +61,7 @@ public sealed class MinimapControl : Control
     private bool _cacheDirty = true;
     private DispatcherTimer? _debounce;
     private bool _dragging;
+    private int[] _visibleLines = [];
 
     public MinimapControl()
     {
@@ -116,7 +117,11 @@ public sealed class MinimapControl : Control
     }
 
     private void OnDocumentTextChanged(object? sender, EventArgs e) => _debounce?.Start();
-    private void OnVisualLinesChanged(object? sender, EventArgs e) => InvalidateVisual();
+    private void OnVisualLinesChanged(object? sender, EventArgs e)
+    {
+        ComputeLayout();
+        InvalidateVisual();
+    }
 
     private void OnThemeChanged(object? sender, EventArgs e)
     {
@@ -149,12 +154,12 @@ public sealed class MinimapControl : Control
         (byte)(a.G + (b.G - a.G) * t),
         (byte)(a.B + (b.B - a.B) * t));
 
-    private void OnDebounceTick(object? sender, EventArgs e)
+    private void OnDebounceTick(object? sender, EventArgs e) => LoggedTimerCallback.Run("minimap redraw", () =>
     {
         _debounce?.Stop();
         _cacheDirty = true;
         InvalidateVisual();
-    }
+    });
 
     // ── minimap layout: rows, sampling, line ↔ row ↔ Y (single source of truth) ──
     // When the document fits, one line maps to one row. When it's taller than the control can
@@ -164,24 +169,50 @@ public sealed class MinimapControl : Control
     // LineForY, so they always agree. Painted rows are bounded by control height / MinLineHeight,
     // independent of file size.
 
-    private readonly record struct Layout(int Step, double RowHeight, int LineCount, int RowCount);
+    private readonly record struct Layout(int Step, double RowHeight, int[] Lines, int RowCount);
 
     private Layout ComputeLayout()
     {
+        var lines = new List<int>();
         var lineCount = Math.Max(1, _document?.LineCount ?? 1);
+        var nextLine = 1;
+        if (_document is { } document &&
+            _textView?.GetService(typeof(FoldingManager)) is FoldingManager manager)
+        {
+            foreach (var fold in manager.AllFoldings)
+            {
+                if (!fold.IsFolded) continue;
+                var first = document.GetLineByOffset(fold.StartOffset).LineNumber;
+                var last = document.GetLineByOffset(fold.EndOffset).LineNumber;
+                while (nextLine <= first) lines.Add(nextLine++);
+                nextLine = Math.Max(nextLine, last + 1);
+            }
+        }
+        while (nextLine <= lineCount) lines.Add(nextLine++);
+        var visibleLines = lines.ToArray();
+        if (!_visibleLines.AsSpan().SequenceEqual(visibleLines))
+        {
+            _visibleLines = visibleLines;
+            _cacheDirty = true;
+        }
+        lineCount = visibleLines.Length;
         var h = Math.Max(1.0, Bounds.Height);
         var rowsAvailable = Math.Max(1, (int)(h / MinLineHeight));
         var step = Math.Max(1, (int)Math.Ceiling((double)lineCount / rowsAvailable));
         var rowCount = (int)Math.Ceiling((double)lineCount / step);
         var rowHeight = Math.Clamp(h / rowCount, MinLineHeight, MaxLineHeight);
-        return new Layout(step, rowHeight, lineCount, rowCount);
+        return new Layout(step, rowHeight, visibleLines, rowCount);
     }
 
-    private static double YForLine(int line, Layout layout) =>
-        ((line - 1) / layout.Step) * layout.RowHeight;
+    private static double YForLine(int line, Layout layout)
+    {
+        var index = Array.BinarySearch(layout.Lines, line);
+        if (index < 0) index = Math.Max(0, ~index - 1);
+        return (index / layout.Step) * layout.RowHeight;
+    }
 
     private static int LineForY(double y, Layout layout) =>
-        Math.Clamp((int)(y / layout.RowHeight) * layout.Step + 1, 1, layout.LineCount);
+        layout.Lines[Math.Clamp((int)(y / layout.RowHeight) * layout.Step, 0, layout.Lines.Length - 1)];
 
     public override void Render(DrawingContext context)
     {
@@ -204,6 +235,7 @@ public sealed class MinimapControl : Control
         var h = (int)Bounds.Height;
         if (w < 1 || h < 1) return;
 
+        var layout = ComputeLayout();
         var needNew = _cache is null || _cache.PixelSize.Width != w || _cache.PixelSize.Height != h;
         if (!needNew && !_cacheDirty) return;
 
@@ -216,16 +248,13 @@ public sealed class MinimapControl : Control
         var doc = _document;
         if (doc is null || _cache is null) { _cacheDirty = false; return; }
 
-        var layout = ComputeLayout();
-
         using (var dc = _cache.CreateDrawingContext())
         {
             dc.FillRectangle(BrushFor(_backgroundColor), new Rect(0, 0, w, h));
             // One representative document line per row (the first line of each bucket).
             for (var row = 0; row < layout.RowCount; row++)
             {
-                var ln = row * layout.Step + 1;
-                if (ln > layout.LineCount) break;
+                var ln = layout.Lines[row * layout.Step];
                 var y = row * layout.RowHeight;
                 if (y > h) break;
                 DrawLine(dc, doc, ln, y, layout.RowHeight);
@@ -282,19 +311,21 @@ public sealed class MinimapControl : Control
     private void DrawViewport(DrawingContext context)
     {
         if (_document is null || _textView is null) return;
-        var layout = ComputeLayout();
+        // Map the on-screen document range through the same visible rows as the cache,
+        // including the last row even when it ends inside a fold or a sampled bucket.
+        var (first, last) = VisibleDocumentLineRange(_document.LineCount);
 
-        // First/last visible *document* lines come straight from the editor's visual layout,
-        // so the rectangle's top and bottom track the real on-screen range under folding and
-        // word-wrap (one wrapped document line still reports one line number). Mapping them
-        // through YForLine keeps the rectangle aligned with the painted rows, sampled or not.
-        var (first, last) = VisibleDocumentLineRange(layout.LineCount);
-
-        var y0 = YForLine(first, layout);
-        var y1 = YForLine(last + 1, layout); // bottom of the last visible line's row
-        var rect = new Rect(0, y0, Bounds.Width, Math.Max(3, y1 - y0));
+        var rect = ViewportRect(first, last);
         context.FillRectangle(ViewportFill, rect);
         context.DrawRectangle(null, ViewportPen, rect);
+    }
+
+    internal Rect ViewportRect(int first, int last)
+    {
+        var layout = ComputeLayout();
+        var y0 = YForLine(first, layout);
+        var y1 = YForLine(last, layout) + layout.RowHeight; // bottom of the last visible line's row
+        return new Rect(0, y0, Bounds.Width, Math.Max(3, y1 - y0));
     }
 
     /// <summary>First and last visible document line numbers from the editor's visual layout

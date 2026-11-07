@@ -79,7 +79,7 @@ public class VBOptionButton : RadioButton
 
         // Value → IsChecked, including the FALSE direction. `Option1.Value = False` on the selected member
         // of a group is honoured by VB6 and leaves the group with NOTHING selected — it is not refused, and
-        // no other member is promoted in its place (measured; see docs/vb6-fidelity-oracle.md). That is only
+        // no other member is promoted in its place (measured; see docs/vb6-fidelity-oracle/assigning-to-a-control-property.md). That is only
         // reachable from code: a user cannot clear a group by clicking.
         ValueProperty.Changed.AddClassHandler<VBOptionButton>((option, _) => option.IsChecked = option.Value);
 
@@ -102,6 +102,9 @@ public class VBOptionButton : RadioButton
                 option.Value = isChecked;
             if (isChecked && e.OldValue as bool? != true && !option.clickAfterFocus)
                 option.ExecuteSub(ComponentBaseClass.ClickEvent);
+            // Selecting it makes it its group's stop again, whatever TabStop it was given before (measured, #1974).
+            if (isChecked)
+                option.tabStop = true;
             option.UpdateGroupTabStops();
         });
 
@@ -114,6 +117,22 @@ public class VBOptionButton : RadioButton
     // each of them, so the Tab key reaches the first in its direction and selects it (measured, #1583). Each keeps its own
     // TabStop besides.
     private bool tabStop = true;
+
+    /// <summary>
+    /// The TabStop a program reads: its own, where its group allows it a stop, worked out now rather than read from the
+    /// stops last applied, which a form loaded but not yet shown hasn't had (measured, #1974).
+    /// </summary>
+    internal bool GroupTabStop => tabStop && (IsChecked == true || !Group.Any(o => o.IsChecked == true));
+
+    /// <summary>
+    /// A program's TabStop write. Not through IsTabStop: where its group has already made it no stop, setting that to False
+    /// changes nothing, raises no change, and the write would be lost.
+    /// </summary>
+    internal void SetTabStopFromCode(bool value)
+    {
+        tabStop = value;
+        UpdateGroupTabStops();
+    }
     private bool settingTabStop;
 
     // Set while the focus selects it, until its GotFocus has been raised.

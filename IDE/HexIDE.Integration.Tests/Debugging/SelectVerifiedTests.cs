@@ -42,20 +42,59 @@ public class SelectVerifiedTests
         while (!done())
         {
             DateTime.UtcNow.Should().BeBefore(deadline, "the fixture session answers well within this");
-            Dispatcher.UIThread.RunJobs();
+            RunJobsKeepingContext();
             await Task.Delay(10);
         }
     }
 
+    // A dispatcher job restores its posting context and leaves it on this thread. Preserve the test's context so
+    // later awaits and xunit cleanup cannot inherit an idle context from a job queued by another test (#1296).
+    private static void RunJobsKeepingContext()
+    {
+        var context = ExecutionContext.Capture();
+        try
+        {
+            Dispatcher.UIThread.RunJobs();
+        }
+        finally
+        {
+            if (context is not null)
+                ExecutionContext.Restore(context);
+        }
+    }
+
     [AvaloniaFact]
-    public async Task Selecting_a_caller_row_by_its_path_moves_the_debugger_to_that_frame()
+    public void Draining_jobs_keeps_the_tests_execution_context()
+    {
+        var marker = new AsyncLocal<string>();
+        marker.Value = "queued job";
+        Dispatcher.UIThread.Post(() => marker.Value.Should().Be("queued job"));
+        marker.Value = "current test";
+
+        RunJobsKeepingContext();
+
+        marker.Value.Should().Be("current test");
+    }
+
+    private static ILocalizationService Localization(string format = "{0}, line {1}")
+    {
+        var localization = NSubstitute.Substitute.For<ILocalizationService>();
+        localization.GetString("Str.Tool.CallStack.RowName").Returns(format);
+        return localization;
+    }
+
+    [AvaloniaTheory]
+    [InlineData("{0}, line {1}", "Callee, line 6", "Caller, line 12")]
+    [InlineData("{0}, Zeile {1}", "Callee, Zeile 6", "Caller, Zeile 12")]
+    public async Task Selecting_a_caller_row_by_its_path_moves_the_debugger_to_that_frame(
+        string format, string calleeName, string callerName)
     {
         var directory = Path.Combine(Path.GetTempPath(), "hexide-dap-select-" + Guid.NewGuid());
         Directory.CreateDirectory(directory);
         await using var log = new ConversationLog();
         var service = new ExternalDebugService(log);
         var stack = new CallStackToolViewModel(
-            NSubstitute.Substitute.For<ILocalizationService>(), NSubstitute.Substitute.For<IDebugController>(), service);
+            Localization(format), NSubstitute.Substitute.For<IDebugController>(), service);
         var window = new Window { Width = 300, Height = 300, Content = new CallStackToolView { DataContext = stack } };
         window.Show();
         var run = service.StartAsync(await Configuration(directory, "frames"));
@@ -66,14 +105,15 @@ public class SelectVerifiedTests
             // Named as the row reads, with nothing in it that changes from one stop to the next.
             var rows = Flatten(UiAutomationDriver.Dump(window, "Window", 20, interactiveOnly: true))
                 .Where(n => n.Path.Contains("ListItem")).ToList();
-            rows.Select(n => n.Name).Should().Equal("Callee, line 6", "Caller, line 12");
+            rows.Select(n => n.Name).Should().Equal(calleeName, callerName);
+            stack.Frames.Select(row => row.ToString()).Should().Equal(calleeName, callerName);
             var caller = UiAutomationDriver.Resolve(window, rows[1].Path).control!;
 
             var outcome = UiAutomationDriver.Interact(caller, "select", null);
-            Dispatcher.UIThread.RunJobs();
+            RunJobsKeepingContext();
 
             outcome.Success.Should().BeTrue(outcome.Error);
-            outcome.Detail.Should().Be("selected 'Caller, line 12'");
+            outcome.Detail.Should().Be($"selected '{callerName}'");
             await Until(() => service.Variables.Count == 1);
             service.SelectedFrame!.Value.GetProperty("id").GetInt32().Should().Be(7);
         }
@@ -95,7 +135,7 @@ public class SelectVerifiedTests
         await using var log = new ConversationLog();
         var service = new ExternalDebugService(log);
         var stack = new CallStackToolViewModel(
-            NSubstitute.Substitute.For<ILocalizationService>(), NSubstitute.Substitute.For<IDebugController>(), service);
+            Localization(), NSubstitute.Substitute.For<IDebugController>(), service);
         var window = new Window { Width = 300, Height = 300, Content = new CallStackToolView { DataContext = stack } };
         window.Show();
         var run = service.StartAsync(await Configuration(directory, "frames"));
@@ -136,11 +176,11 @@ public class SelectVerifiedTests
             new CallStackFrame("Fact", "Module1", 3), new CallStackFrame("Fact", "Module1", 5),
             new CallStackFrame("Fact", "Module1", 5), new CallStackFrame("Main", "Module1", 10),
         });
-        var stack = new CallStackToolViewModel(NSubstitute.Substitute.For<ILocalizationService>(), controller);
+        var stack = new CallStackToolViewModel(Localization(), controller);
         var window = new Window { Width = 300, Height = 300, Content = new CallStackToolView { DataContext = stack } };
         window.Show();
         controller.Stopped += NSubstitute.Raise.Event<Action<StoppedInfo>>(new StoppedInfo(StopReason.Breakpoint, "Module1", 3));
-        Dispatcher.UIThread.RunJobs();
+        RunJobsKeepingContext();
         try
         {
             var deeper = window.GetVisualDescendants().OfType<ListBoxItem>().Single(i => ReferenceEquals(i.DataContext, stack.Frames[2]));
@@ -165,7 +205,7 @@ public class SelectVerifiedTests
         };
         var window = new Window { Width = 200, Height = 200, Content = list };
         window.Show();
-        Dispatcher.UIThread.RunJobs();
+        RunJobsKeepingContext();
         try
         {
             var main = list.ContainerFromIndex(1)!;
@@ -187,7 +227,7 @@ public class SelectVerifiedTests
         var stray = new ListBoxItem { Content = "Main" };
         var window = new Window { Width = 200, Height = 200, Content = new StackPanel { Children = { stray } } };
         window.Show();
-        Dispatcher.UIThread.RunJobs();
+        RunJobsKeepingContext();
         try
         {
             var outcome = UiAutomationDriver.Interact(stray, "select", null);

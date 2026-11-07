@@ -9,11 +9,11 @@ name: Publish Release
 # nobody targets — the "Windows" zip contained riscv64 Linux binaries. RID-specific is 47.5 MB / 17.4 MB.
 #
 # ── Two flavours per platform ─────────────────────────────────────────────────────────────────────
-#   framework-dependent  ~26-32 MB archived — needs the .NET 10 desktop runtime installed
-#   self-contained       ~90-102 MB archived — no prerequisites
-# Measured from the v0.1.0 assets across all six RIDs. Roughly double the earlier figures, because
-# the standalone runner now ships in BOTH flavours as its own publish rather than as one shared AOT
-# binary — see the note above that step.
+#   framework-dependent  ~26-32 MB archived — the IDE needs the .NET 10 Runtime installed
+#   self-contained       ~90-102 MB archived — includes .NET; native libraries still required
+# Measured from the v0.1.0 assets across all six RIDs. Both now carry the same self-contained single-file
+# standalone runner (~105 MB unpacked on win-x64, measured 2026-10-26), so the framework-dependent figure is
+# out of date and larger than this until it is measured again on a release (#1971). See the note above that step.
 # Both are kept deliberately: self-contained means WE own runtime CVE patching, framework-dependent
 # users get fixes from Microsoft Update.
 #
@@ -23,8 +23,11 @@ name: Publish Release
 # trimming; BuiltInComInteropSupport=true is a second documented incompatibility. AOT is out for the
 # same reason (IsAotCompatible=false in HexIDE.Desktop.csproj), and separately for HexIDE.Standalone,
 # where ILCompiler crashes on a LanguageExt generic instantiation — see the note above that step.
-# PublishSingleFile: would swallow the LSP server's apphost, and IncludeNativeLibrariesForSelfExtract
-# is documented as incompatible with macOS ("Failed to create CoreCLR").
+# PublishSingleFile for the IDE: it would swallow the LSP server's apphost. The standalone runner IS single-file,
+# with IncludeNativeLibrariesForSelfExtract, set in its own project file (#1971). This note used to call that
+# setting documented as incompatible with macOS ("Failed to create CoreCLR"). Microsoft's single-file page says no
+# such thing as of its 2026-10-15 revision, and a runner built that way has not yet been started on macOS, so the
+# mac legs' made programs are unverified rather than known broken.
 #
 # ── Signing ───────────────────────────────────────────────────────────────────────────────────────
 # Nothing here is signed or notarised. macOS builds are ad-hoc signed only, which is what stops Apple
@@ -69,7 +72,7 @@ jobs:
     name: Check tag matches Version
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - shell: bash
         run: |
           set -euo pipefail
@@ -103,8 +106,8 @@ jobs:
           # Intel Macs cannot run the arm64 build — Rosetta never translates arm64 to x64.
           - { name: macos-amd64,   runner: macos-15-intel,  rid: osx-x64,    os: mac }
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
         with:
           dotnet-version: '10.0.x'
 
@@ -122,19 +125,18 @@ jobs:
 
       # The standalone VB6 runner backs the IDE's "Make EXE" feature, so it ships inside BOTH packages.
       #
-      # It was PublishAot + SelfContained, which made one build usable in either package: a native
-      # binary needs no runtime, so the same copy worked in the self-contained bundle (which has no
-      # `dotnet` on PATH) and in the framework-dependent one. AOT no longer compiles — ILCompiler
-      # itself crashes on a LanguageExt generic instantiation reached through HexIDE.Runtime
-      # (CodeGenerationFailedException -> IndexOutOfRangeException in LazyGenericsSupport), which is a
-      # compiler bug rather than a missing native toolchain. Desktop already carries
-      # IsAotCompatible=false for unrelated reasons, so this was the last AOT project.
+      # A made program IS this runner, renamed, beside its project archive, and Make copies that one
+      # file (#1971). So the runner is one self-contained single-file executable, with .NET and the
+      # native libraries inside it, and the same file goes into both packages: a made program has to run
+      # on a machine with no .NET and no HexIDE, whichever package made it. HexIDE.Standalone.csproj
+      # sets that for every publish, so nothing here passes --self-contained.
       #
-      # Without AOT there is no single build that suits both packages, so it is published twice and
-      # each package gets the matching flavour — exactly what Desktop already does. A framework-
-      # dependent copy inside the self-contained bundle would not run; a self-contained copy inside
-      # the framework-dependent package would add a second runtime and erase the size difference that
-      # is that package's only reason to exist.
+      # It was PublishAot, one native file, until ILCompiler crashed on a LanguageExt generic
+      # instantiation reached through HexIDE.Runtime (CodeGenerationFailedException ->
+      # IndexOutOfRangeException in LazyGenericsSupport), a compiler bug rather than a missing
+      # toolchain. Two per-flavour multi-file publishes replaced it (#30), and Make, which copies one
+      # file, then made programs that could not start: v0.2.0's do not (#1971). The cost of the fix is
+      # size: the framework-dependent package now carries a runtime inside its runner.
       # The SDK appends this to InformationalVersion as "+<sha>", so a build reports 0.1.0+4d9d4ba.
       # Resolved once here rather than inline, because the publish steps run under pwsh on the Windows
       # legs and bash elsewhere — an Actions-level expression is shell-agnostic.
@@ -142,13 +144,9 @@ jobs:
         shell: bash
         run: echo "SHORT_SHA=$(git rev-parse --short HEAD)" >> "$GITHUB_ENV"
 
-      # Output directory names are load-bearing: the staging loop below copies bin/standalone-$flavour
-      # into bin/$flavour/standalone, so these suffixes must match the flavour names exactly.
-      - name: Publish HexIDE.Standalone (${{ matrix.rid }}, framework-dependent)
-        run: dotnet publish HexIDE.Standalone -f net10.0 -c Release -r ${{ matrix.rid }} --self-contained false -p:SourceRevisionId=${{ env.SHORT_SHA }} -o bin/standalone-fdd/
-
-      - name: Publish HexIDE.Standalone (${{ matrix.rid }}, self-contained)
-        run: dotnet publish HexIDE.Standalone -f net10.0 -c Release -r ${{ matrix.rid }} --self-contained true -p:SourceRevisionId=${{ env.SHORT_SHA }} -o bin/standalone-sc/
+      # The staging loop below copies bin/standalone into each flavour's standalone/.
+      - name: Publish HexIDE.Standalone (${{ matrix.rid }}, single-file, self-contained)
+        run: dotnet publish HexIDE.Standalone -f net10.0 -c Release -r ${{ matrix.rid }} -p:SourceRevisionId=${{ env.SHORT_SHA }} -o bin/standalone/
 
       - name: Publish HexIDE.Desktop (framework-dependent)
         run: dotnet publish HexIDE.Desktop -f net10.0 -c Release -r ${{ matrix.rid }} --self-contained false -p:SourceRevisionId=${{ env.SHORT_SHA }} -o bin/fdd/
@@ -161,7 +159,7 @@ jobs:
         run: |
           set -euo pipefail
           for flavour in fdd sc; do
-            cp -R "bin/standalone-$flavour" "bin/$flavour/standalone"
+            cp -R "bin/standalone" "bin/$flavour/standalone"
             find "bin/$flavour" -name '*.pdb' -type f -delete
             find "bin/$flavour" -name '*.dSYM' -type d -exec rm -rf {} + 2>/dev/null || true
 
@@ -290,16 +288,58 @@ jobs:
             # was dropped somewhere and the artifact is about to be six times too big.
             # Written as an if rather than `[ -d x ] && {...}`: under set -e the exit status of a
             # false test at the end of a loop body is not portably safe.
-            # Checked for the standalone runner too, not just the root: it is now a separate publish
-            # per flavour, and the self-contained one is exactly where a dropped RID would resurface.
+            # Checked for the standalone runner too, not just the root: it is a separate publish, and a
+            # dropped RID would resurface there.
             for sub in "" "/standalone"; do
               if [ -d "$d$sub/runtimes" ]; then
                 echo "UNEXPECTED $d$sub/runtimes — publish went RID-agnostic"
                 fail=1
               fi
             done
+            # Make copies the runner alone, so a runner that needs anything beside it makes programs that
+            # cannot start, which is what v0.2.0 shipped (#1971). Its managed assembly beside it means the
+            # publish went multi-file.
+            if [ -e "$d/standalone/HexIDE.Standalone.dll" ]; then
+              echo "UNEXPECTED $d/standalone/HexIDE.Standalone.dll — the runner is not single-file"
+              fail=1
+            fi
           done
           exit $fail
+
+      - name: Build Windows installer
+        if: matrix.rid == 'win-x64'
+        shell: pwsh
+        run: |
+          $installer = Join-Path $env:RUNNER_TEMP 'innosetup-6.7.3.exe'
+          # SHA-256 and size: digest GitHub records for the asset the publisher uploaded to
+          # jrsoftware/issrc release is-6_7_3 (read 2026-10-25 with
+          # gh api repos/jrsoftware/issrc/releases/tags/is-6_7_3). Publisher-hosted, not computed here.
+          $expectedHash = '9c73c3bae7ed48d44112a0f48e66742c00090bdb5bef71d9d3c056c66e97b732'
+          Invoke-WebRequest 'https://github.com/jrsoftware/issrc/releases/download/is-6_7_3/innosetup-6.7.3.exe' -OutFile $installer
+          if ((Get-Item $installer).Length -ne 10592232) { throw 'Inno Setup installer size mismatch' }
+          if ((Get-FileHash $installer -Algorithm SHA256).Hash -ne $expectedHash) { throw 'Inno Setup installer SHA-256 mismatch' }
+          # jrsoftware.org/isdl-verify.php names Pyrsys B.V. for 6.4.2 and later.
+          $signature = Get-AuthenticodeSignature $installer
+          if ($signature.Status -ne 'Valid' -or $signature.SignerCertificate.Subject -notmatch '(?:^|,\s*)O=Pyrsys B\.V\.(?:,|$)') {
+            throw 'Inno Setup installer Authenticode verification failed'
+          }
+          $setup = Start-Process $installer -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/SP-' -Wait -PassThru
+          if ($setup.ExitCode -ne 0) { throw "Inno Setup installation failed: $($setup.ExitCode)" }
+          $compiler = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          # ISCC.exe carries no version resource (it reads 0.0.0.0), so ask the uninstall entry the installer writes.
+          $installed = (Get-ItemProperty 'HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\Inno Setup 6_is1').DisplayVersion
+          if ($installed -ne '6.7.3') { throw "Unexpected Inno Setup version installed: $installed" }
+          [xml]$props = Get-Content Directory.Build.props
+          $version = [string]($props.Project.PropertyGroup.Version | Where-Object { $_ } | Select-Object -First 1)
+          & $compiler "/DAppVersion=$version" "/DPublishDir=$((Resolve-Path 'bin/sc').Path)" '../installer/HexIDE.iss'
+          if ($LASTEXITCODE -ne 0) { throw "Inno Setup compilation failed: $LASTEXITCODE" }
+
+      - uses: actions/upload-artifact@v7
+        if: matrix.rid == 'win-x64'
+        with:
+          name: hexide-windows-installer
+          path: ./IDE/bin/hexide-windows-amd64-setup.exe
+          if-no-files-found: error
 
       - name: Archive (Windows)
         if: matrix.os == 'win'
@@ -324,7 +364,7 @@ jobs:
           tar -czf ./bin/hexide-${{ matrix.name }}.tar.gz -C ./bin/fdd-app HexIDE.app
           tar -czf ./bin/hexide-${{ matrix.name }}-selfcontained.tar.gz -C ./bin/sc-app HexIDE.app
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: hexide-${{ matrix.name }}
           path: ./IDE/bin/hexide-${{ matrix.name }}*.*
@@ -337,7 +377,7 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           path: artifacts
           merge-multiple: true
@@ -345,7 +385,7 @@ jobs:
       - name: List assets
         run: ls -lh artifacts
 
-      - uses: softprops/action-gh-release@v2
+      - uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
         with:
           tag_name: ${{ inputs.tag }}
           name: ${{ inputs.tag }}
@@ -363,19 +403,22 @@ jobs:
             An open, cross-platform recreation of the Visual Basic 6 IDE. **Alpha.**
 
             > ⚠️ HexIDE opens and runs real VB6 projects, and a save now gives back the file it read:
-            > **21 of the 22 designer files VB6 itself ships survive a save byte for byte**, and the one it
-            > cannot — an ActiveX form — opens read-only rather than being quietly rewritten. Keep a backup
-            > anyway: that measure is Microsoft's own templates, not your project.
+            > **all 22 designer files VB6 itself ships survive a save byte for byte**, and a form HexIDE
+            > cannot give back opens read-only rather than being quietly rewritten. Keep a backup anyway:
+            > that measure is Microsoft's own templates, not your project.
             > [What a save changes](https://hexide.io/scope.html#saving)
 
             **What's new:** [CHANGELOG.md](https://github.com/hexide-io/HexIDE/blob/${{ inputs.tag }}/CHANGELOG.md)
 
             **Which download?**
-            - `hexide-<platform>-selfcontained.*` — no prerequisites. Start here.
-            - `hexide-<platform>.*` — smaller, but needs the [.NET 10 desktop runtime](https://dotnet.microsoft.com/download/dotnet/10.0) installed.
+            - **Windows x64:** `hexide-windows-amd64-setup.exe` — installs for all users; includes .NET.
+            - `hexide-<platform>-selfcontained.*` — portable archive; includes .NET.
+            - `hexide-<platform>.*` — smaller, but needs the [.NET 10 Runtime](https://dotnet.microsoft.com/download/dotnet/10.0) installed.
+
+            [Download and run instructions](https://github.com/hexide-io/HexIDE/blob/${{ inputs.tag }}/README.md#download-and-run), including Linux extraction and launch steps.
 
             Nothing here is signed or notarised.
             **Windows** shows a SmartScreen warning: More info → Run anyway.
             **macOS** — extract in Terminal with `tar -xzf <file>.tar.gz`. Unpacking with Finder
             instead applies a quarantine flag that an unsigned app cannot clear.
-            **Linux** self-contained still needs the distro's `libX11`, `libICE`, `libSM` and `fontconfig`.
+            **Linux** self-contained still needs native libraries, including the distro's `libX11`, `libICE`, `libSM`, `fontconfig` and ICU.

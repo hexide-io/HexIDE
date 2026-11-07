@@ -1,0 +1,14 @@
+stage,shape,stack_mib,depth,repeat,outcome,seconds
+execute-guard,if,1.5,400,0,pass,9.9
+execute-guard,if,1.5,400,1,pass,9.81
+execute-guard,if,1.5,400,2,pass,9.66
+execute-guard,if,1.5,400,3,pass,9.3
+execute-guard,if,1.5,400,4,pass,9.25
+execute-guard,if,1.5,400,5,pass,9.42
+execute-guard,if,1.5,400,6,pass,9.35
+execute-guard,if,1.5,400,7,pass,9.47
+execute-guard,if,1.5,400,8,pass,9.65
+execute-guard,if,1.5,400,9,pass,9.5
+execute-guard,if,1.5,400,10,pass,9.49
+execute-guard,if,1.5,400,11,pass,9.59
+execute-guard,if,1.5,400,12,pass,9.54

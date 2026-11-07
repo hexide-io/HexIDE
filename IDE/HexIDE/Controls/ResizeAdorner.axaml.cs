@@ -26,6 +26,10 @@ public class ResizeAdorner : TemplatedControl
     {
         IsPrimaryProperty.Changed.AddClassHandler<ResizeAdorner>((adorner, _) =>
             adorner.PseudoClasses.Set(":secondary", !adorner.IsPrimary));
+        // Its id puts it in dump_visual_tree, grafted under the control it adorns, with its handles' ids from the
+        // template, so a resize drag can address a handle by its path (#2231). Set here, not in the theme, so it holds
+        // wherever the adorner is made.
+        Avalonia.Automation.AutomationProperties.AutomationIdProperty.OverrideDefaultValue<ResizeAdorner>("ResizeAdorner");
     }
 
     public static readonly AttachedProperty<ResizeXDirection> ResizeXDirectionProperty = AvaloniaProperty.RegisterAttached<ResizeAdorner, Control, ResizeXDirection>("ResizeXDirection");
@@ -188,7 +192,13 @@ public class ResizeAdorner : TemplatedControl
                     newWidth = Math.Min(adornedElementChild.MaxWidth, newWidth);
             }
 
-            Apply(adornedElement, newLeft, newTop, newWidth, newHeight);
+            if (xDirection == ResizeXDirection.None && yDirection == ResizeYDirection.None)
+            {
+                adornedElement.SetCurrentValue(Canvas.LeftProperty, newLeft);
+                adornedElement.SetCurrentValue(Canvas.TopProperty, newTop);
+            }
+            else
+                Apply(adornedElement, newLeft, newTop, newWidth, newHeight);
 
             // Move all group drag participants by the same snapped delta as the primary.
             if (xDirection == ResizeXDirection.None && yDirection == ResizeYDirection.None &&
@@ -262,7 +272,12 @@ public class ResizeAdorner : TemplatedControl
                 isResizing = true;
                 OnDragStarted?.Invoke();
                 initialPosition = e.GetPosition(this.GetVisualParent());
-                originalBounds = adornedElement.Bounds;
+                // Bounds includes layout rounding at the display scale; dragging must start from the declared size.
+                var width = adornedElement.GetValue(WidthProperty);
+                var height = adornedElement.GetValue(HeightProperty);
+                originalBounds = new Rect(0, 0,
+                    double.IsNaN(width) ? adornedElement.Bounds.Width : width,
+                    double.IsNaN(height) ? adornedElement.Bounds.Height : height);
                 originalOrigin = new Point(double.IsNaN(Canvas.GetLeft(adornedElement)) ? 0 : Canvas.GetLeft(adornedElement),
                     double.IsNaN(Canvas.GetTop(adornedElement)) ? 0 : Canvas.GetTop(adornedElement));
                 xDirection = GetResizeXDirection(control);
@@ -296,6 +311,13 @@ public class ResizeAdorner : TemplatedControl
     {
         base.OnPointerMoved(e);
         OnHandlePointerMoved(null, e);
+    }
+
+    protected override void OnPointerReleased(PointerReleasedEventArgs e)
+    {
+        base.OnPointerReleased(e);
+        // StartDrag captures the adorner itself, so the release need not pass through a handle.
+        OnHandlePointerReleased(null, e);
     }
 }
 

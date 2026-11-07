@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT
+using Antlr4.Runtime.Tree;
 using HexIDE.VbLspServer;
 
 namespace HexIDE.VbLspServer.Tests;
@@ -17,6 +18,17 @@ namespace HexIDE.VbLspServer.Tests;
 /// </summary>
 public class SplitKeywordTests
 {
+    [Fact]
+    public void AContinuationSeparatesNamesInTheParseTree()
+    {
+        var (diagnostics, tree) = VbDiagnosticsProvider.GetDiagnosticsAndTree(
+            "Sub S()\r\nDim value As Long\r\nval _\r\nue = 5\r\nDebug.Print value\r\nEnd Sub\r\n");
+        diagnostics.Should().BeEmpty();
+        Trees.FindAllRuleNodes(tree!, VisualBasic6Parser.RULE_ambiguousIdentifier)
+            .Cast<VisualBasic6Parser.AmbiguousIdentifierContext>()
+            .Select(id => id.GetText()).Should().Contain("ue");
+    }
+
     [Theory]
     [InlineData("Sub S()\r\nEnd _\r\nSub\r\n")]
     [InlineData("Sub S()\r\n    If True Then\r\n    End _\r\n    If\r\nEnd Sub\r\n")]

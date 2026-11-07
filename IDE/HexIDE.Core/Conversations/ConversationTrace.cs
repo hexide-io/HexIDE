@@ -112,6 +112,7 @@ public static class ConversationTrace
             ConversationEntryKind.Lifecycle => $"Process: {Detail(envelope, name)}.",
 
             ConversationEntryKind.StandardError => $"stderr: {Detail(envelope, name)}",
+            ConversationEntryKind.StandardOutput => $"stdout: {Detail(envelope, name)}",
 
             _ => Detail(envelope, name),
         };

@@ -1,8 +1,8 @@
-using HexIDE.Net;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using ModelContextProtocol.AspNetCore;
@@ -17,6 +17,9 @@ internal static class IdeServer
     {
         var builder = WebApplication.CreateSlimBuilder();
         builder.Logging.ClearProviders();
+        // The IDE owns the process. ConsoleLifetime would swallow SIGTERM and stop only the server.
+        builder.Services.RemoveAll<IHostLifetime>();
+        builder.Services.AddSingleton<IHostLifetime, IdeServerLifetime>();
 
         // Listen on loopback and ONLY loopback, stated as an endpoint rather than as a URL.
         //
@@ -31,6 +34,9 @@ internal static class IdeServer
         builder.WebHost.ConfigureKestrel(options => options.ListenLocalhost(port));
 
         builder.Services.AddSingleton(context);
+        // What the program prints, for the replies of the tools that run and stop it (#2531).
+        ProgramPrinted.Shared.Attach(context.ProjectRunnerService);
+        builder.Services.AddHttpContextAccessor();
         // A call from another agent session is refused before anything else (#1306), and an exception a tool did not
         // catch is reported with its type and message rather than the SDK's bare "An error occurred invoking" (#603).
         ToolFilters.Register(builder.Services
@@ -38,31 +44,15 @@ internal static class IdeServer
                 // Stateless, so a client attached before a relaunch is still answered after it. See McpTransport.
                 .WithHttpTransport(McpTransport.Configure)
                 .WithTools<HexIdeTools>(ReplyJson.Options), session)
-            // A modal dialog open once a call is done is named in its reply (#681).
+            // A modal dialog open once a call is done is named in its reply (#681), and so is a held button (#2231).
             .WithRequestFilters(filters => filters
                 .AddCallToolFilter(OpenDialogNote.Filter)
+                .AddCallToolFilter(HeldButtonNote.Filter)
                 .AddCallToolFilter(InlineSnapshot.Filter));
 
         var app = builder.Build();
 
-        // Ahead of every endpoint, health included: that endpoint reports the open project's name and
-        // whether language services are up, which is not something to hand to whoever asks.
-        app.Use(async (context, next) =>
-        {
-            if (!LoopbackOnly.Allows(
-                    context.Request.Host.Host,
-                    context.Request.Host.Port,
-                    port,
-                    context.Request.Headers.Origin.ToString()))
-            {
-                // Refused, and saying so. A 404 would be quieter but would leave a developer whose client
-                // is genuinely misconfigured unable to tell "wrong address" from "turned me away".
-                context.Response.StatusCode = StatusCodes.Status403Forbidden;
-                return;
-            }
-
-            await next(context);
-        });
+        app.UseLoopbackOnly(port);
 
         app.MapGet("/health", (IdeContext ctx) => Results.Ok(new HealthResponse(
             Status: "ok",
@@ -88,6 +78,9 @@ internal static class IdeServer
         // Only now: this line used to be written before the bind was attempted, so a port already in use
         // left a log that said the server was listening.
         Log.Information("HexIDE MCP server listening on http://localhost:{Port}", port);
+        // And on screen, in the status bar, for the same reason (#2451).
+        HexIDE.Automation.AutomationServerStatus.Current.Listening(port, session, ToolFailures.WithoutProfile(
+            AppContext.BaseDirectory.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)));
         await app.WaitForShutdownAsync(ct);
     }
 }
@@ -113,4 +106,10 @@ internal sealed class IdeServerStartException(int port, Exception inner)
     : Exception($"The automation server could not start on port {port}.", inner)
 {
     public int Port { get; } = port;
+}
+
+internal sealed class IdeServerLifetime : IHostLifetime
+{
+    public Task WaitForStartAsync(CancellationToken cancellationToken) => Task.CompletedTask;
+    public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;
 }

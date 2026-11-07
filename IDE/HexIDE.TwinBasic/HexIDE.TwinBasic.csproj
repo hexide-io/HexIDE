@@ -7,4 +7,8 @@
   <ItemGroup>
     <InternalsVisibleTo Include="HexIDE.TwinBasic.Tests" />
   </ItemGroup>
+  <ItemGroup>
+    <!-- For ChildProcessJob only: HexIDE.Core has no dependencies of its own (#1689). -->
+    <ProjectReference Include="../HexIDE.Core/HexIDE.Core.csproj" />
+  </ItemGroup>
 </Project>

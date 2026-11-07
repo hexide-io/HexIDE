@@ -127,7 +127,7 @@ internal sealed class ForeignServer
         extensions: [".json", ".jsonc"],
         hostedOnNode: true);
 
-    private ForeignServer(
+    internal ForeignServer(
         ForeignServerSource source,
         string pathVariable,
         string onPath,
@@ -182,31 +182,38 @@ internal sealed class ForeignServer
             ? $"\"{script}\" {ServerArguments}".Trim()
             : ServerArguments;
 
+    public const string NoPathVariable = "HEXIDE_FOREIGN_LSP_NO_PATH";
+
     /// <summary>
     /// The executable, or null when none is available. Checked in order: an explicitly configured path,
-    /// the name on PATH, then the pinned download.
+    /// the name on PATH (unless HEXIDE_FOREIGN_LSP_NO_PATH is set), then the pinned download.
     ///
     /// <para>
     /// The download comes last on purpose. A developer who has pointed at their own build, or has one
     /// installed, means it — this should not silently prefer a different version to the one they chose.
     /// </para>
     /// </summary>
-    public string? Find()
+    public string? Find() => Resolve().Path;
+
+    internal (string? Path, string Origin) Resolve() => Resolve(
+        Environment.GetEnvironmentVariable, FindOnPath,
+        () => HostedOnNode
+            ? ForeignServerAcquisition.EnsureNodeServerAvailable() is null
+                ? null : ForeignServerAcquisition.FindNode()
+            : ForeignServerAcquisition.EnsureAvailable(Source));
+
+    internal (string? Path, string Origin) Resolve(
+        Func<string, string?> environment, Func<string, string?> onPath, Func<string?> pinned)
     {
-        if (Environment.GetEnvironmentVariable(PathVariable) is { Length: > 0 } configured)
-            return File.Exists(configured) ? configured : null;
+        if (environment(PathVariable) is { Length: > 0 } configured)
+            return (File.Exists(configured) ? configured : null, $"variable {PathVariable}");
 
-        if (HostedOnNode)
-        {
-            // Node itself is the executable; the script is an argument. Both must be present, and a
-            // machine without Node skips rather than failing — the runtime dependency is accepted for
-            // this one server and must not become a prerequisite for the whole suite.
-            return ForeignServerAcquisition.EnsureNodeServerAvailable() is null
-                ? null
-                : ForeignServerAcquisition.FindNode();
-        }
+        // Node is a harness runtime, not a PATH copy of the JSON server. Keep its existing lookup.
+        if (!HostedOnNode && environment(NoPathVariable) is not ("1" or "true" or "yes")
+            && onPath(OnPath) is { } installed)
+            return (installed, "PATH");
 
-        return FindOnPath(OnPath) ?? ForeignServerAcquisition.EnsureAvailable(Source);
+        return (pinned(), "pinned download");
     }
 
     /// <summary>
@@ -280,7 +287,16 @@ public sealed class ForeignServerFactAttribute : FactAttribute
         // migration: 978 passed, 0 failed, 0 skipped, against a normal 992. That is precisely the
         // fail-open this variable exists to prevent, so the enforcement moved somewhere discovery cannot
         // swallow it: see RequiredServersTests.
-        Skip = $"No '{server}' language server available. It is normally downloaded on demand; set "
+        Skip = SkipReason(server, needed);
+    }
+
+    internal static string SkipReason(string server, ForeignServer needed)
+    {
+        if (needed.Source.ChecksumMismatch is not null)
+            return $"The '{server}' language server is unavailable because the download did not match its pinned checksum. "
+                 + "See RequiredServersTests for the expected and actual digests.";
+
+        return $"No '{server}' language server available. It is normally downloaded on demand; set "
              + $"{needed.PathVariable} to an executable, or put `{needed.OnPath}` on PATH, to choose your "
              + "own. Offline machines skip these.";
     }

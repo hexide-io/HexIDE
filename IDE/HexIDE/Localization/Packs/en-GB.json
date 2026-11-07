@@ -2,8 +2,14 @@
   "name": "English (United Kingdom)",
   "direction": "ltr",
   "strings": {
+    "Str.Tool.LanguageServers.Problem.UnknownFields": "Unrecognised fields: {0}. Ignored — check the spelling.",
+    "Str.Tool.LanguageServers.Problem.UnknownField": "Unrecognised field: {0}. Ignored — check the spelling.",
+    "Str.Tool.LanguageServers.Problem.ImportUnknownFields": "Unrecognised fields in {0}: {1}.",
+    "Str.Tool.LanguageServers.Problem.ArtifactUnknownFields": "Unrecognised fields in '{0}' {1}: {2}. Ignored — check the spelling.",
+    "Str.Options.EditorGeneral.Display.ColorBracketsByDepth": "Colour parentheses by nesting depth",
+    "Str.ProjectLoad.Heading": "Couldn't properly deserialise the project:",
     "Str.Toolbar.Customize": "Customise...",
-    "Str.Menu.View.ColorPalette": "Colour Pa_lette",
+    "Str.Menu.View.ColorPalette": "Colour P_alette",
     "Str.Menu.Format.Align.CentersHorizontally": "Centres _Horizontally",
     "Str.Menu.Format.Align.CentersVertically": "Centres _Vertically",
     "Str.Menu.Format.CenterInForm": "_Centre in Form",
@@ -20,6 +26,13 @@
     "Str.PropDesc.MaxButton": "Whether the form's title bar shows a Maximise button.",
     "Str.PropDesc.MinButton": "Whether the form's title bar shows a Minimise button.",
     "Str.PropCategory.Behavior": "Behaviour",
-    "Str.Tool.ProtocolInspector.LeavesRedacted": "What leaves is pseudonymised."
+    "Str.Tool.ProtocolInspector.LeavesRedacted": "What leaves is pseudonymised.",
+    "Str.Automation.Minimize": "Minimise",
+    "Str.Automation.MaximizeRestore": "Maximise or restore",
+    "Str.Automation.ChooseColor": "Choose colour",
+    "Str.Dock.MaximizeRestore": "Maximise or restore pane",
+    "Str.PropDesc.MaskColor": "The colour used for transparent pixels.",
+    "Str.PropDesc.UseMaskColor": "Whether to use the mask colour.",
+    "Str.Menu.View.RecentEdits": "_Recent Edits"
   }
 }

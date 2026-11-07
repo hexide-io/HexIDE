@@ -99,7 +99,6 @@ internal static class VbKeywords
         Kw("Single"),
         Kw("Double"),
         Kw("Currency"),
-        Kw("Date"),
         Kw("String"),
         Kw("Object"),
         Kw("Variant"),

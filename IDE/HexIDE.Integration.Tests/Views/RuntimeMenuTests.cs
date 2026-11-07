@@ -25,7 +25,7 @@ namespace HexIDE.Integration.Tests.Views;
 /// The tree these need was already there. #83 records a menu's sub-items on the parent so the writer can
 /// walk them; this is the other consumer of the same tree.
 /// </summary>
-public class RuntimeMenuTests
+public class RuntimeMenuTests : WindowTestFixture
 {
     /// <summary>Stands in for the running form, which is what dispatches a VB6 event procedure.</summary>
     private sealed class RecordingRoot : Window, IModuleExecutionRoot

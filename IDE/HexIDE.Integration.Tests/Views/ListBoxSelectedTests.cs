@@ -16,7 +16,7 @@ namespace HexIDE.Integration.Tests.Views;
 /// oracle's "A ListBox's Selected, SelCount and Text"), on a list holding <c>a</c>, <c>bc</c>, <c>b</c>, <c>c</c> and
 /// <c>b</c>, so <c>bc</c> starts with <c>b</c> and <c>b</c> comes twice.
 /// </summary>
-public class ListBoxSelectedTests
+public class ListBoxSelectedTests : WindowTestFixture
 {
     private const string Form = """
         VERSION 5.00

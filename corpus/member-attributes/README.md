@@ -36,7 +36,7 @@ bare `WithEvents`, and a header holding the dotless `VB_Description` VB6 moved i
 en-GB), two sessions on 2026-10-13, driven in the guest's interactive console session by keystrokes and clicks,
 every step that mattered confirmed from a screenshot. That is what `corpus/designer/README.md` said the next
 question of this kind would need. The probes, the steps and every measurement are in
-[`docs/vb6-fidelity-oracle.md`](../../docs/vb6-fidelity-oracle.md#member-attributes-where-vb6-attaches-them-and-what-its-ide-writes-2026-10-13-273),
+[`docs/vb6-fidelity-oracle/member-attributes-where-vb6-attaches-them-and-what-its-ide-writes.md`](../../docs/vb6-fidelity-oracle/member-attributes-where-vb6-attaches-them-and-what-its-ide-writes.md#member-attributes-where-vb6-attaches-them-and-what-its-ide-writes-2026-10-13-273),
 under the probe names used below: the first session's by letter (A, B, B2, E), the second's by number (V1 to V8).
 
 The code was authored here as plain text (CRLF, ASCII, no BOM), with no member attribute in it. Each project was
@@ -48,7 +48,7 @@ for it, and saved by VB6. So in `round-trip/`:
   saved it again (V4). It is VB6's output either way, since a save after a load regenerates every run.
 - **every `.cls`, `.bas`, `.frm` and `.ctl` was saved by VB6**, apart from the `Starter.bas` files, and so was
   `MemberAttributes/MemberAttributes.vbp`, which VB6 changed in one place: its `Reference=` path, absolute as
-  written and relative as saved, as [the IDE normalises](../../docs/vb6-fidelity-oracle.md#absolute-paths-are-legal-and-the-ide-normalises-away-the-ones-it-can)
+  written and relative as saved, as [the IDE normalises](../../docs/vb6-fidelity-oracle/what-a-vbp-tolerates-and-the-one-key-for-a-non-code-file.md#absolute-paths-are-legal-and-the-ide-normalises-away-the-ones-it-can)
   every path it can. `..\..\..\Windows\SysWOW64\stdole2.tlb` is relative to where the project lived on the
   guest, three folders below the drive's root, not to where it is here; nothing in HexIDE resolves it.
 - **`Acc2.vbp`, `Probe2.vbp` and `Tar2.vbp` were written here and saved again by VB6**, which gave back the same

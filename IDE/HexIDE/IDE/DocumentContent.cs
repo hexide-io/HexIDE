@@ -1,5 +1,6 @@
 using HexIDE.Forms.ViewModels;
 using HexIDE.Runtime.Serialization;
+using HexIDE.Utils;
 
 namespace HexIDE.IDE;
 
@@ -71,7 +72,7 @@ public static class DocumentContent
         var (whole, prefix, update) = document.Module is { } module
             ? (FormCodeText.WholeFile(module), FormCodeText.Prefix(module), (Action<string>)module.UpdateCode)
             : (FormCodeText.WholeFile(document.Form!), FormCodeText.Prefix(document.Form!), document.Form!.UpdateCode);
-        var result = GuardedContent.Replace(whole, prefix.Length, incoming);
+        var result = GuardedContent.Replace(whole, prefix.Length, DocumentNewLines.Normalize(incoming, whole));
         if (result.NewText is { } text)
             update(text[prefix.Length..]);
         return result;

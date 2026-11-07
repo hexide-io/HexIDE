@@ -71,9 +71,10 @@ public class ToolDocumentNamingTests
         var resolving = Resolving();
         resolving.Should().HaveCountGreaterThanOrEqualTo(14, "fourteen tools look a document up");
 
+        // An optional tab name is checked for null to choose title addressing; that is not a second lookup.
         resolving
             .Select(r => (Tool: r.Tool.Name, Parameter: r.Name,
-                Uses: Regex.Matches(r.Tool.Body, $@"(?<![\w.]){Regex.Escape(r.Name)}\b").Count,
+                Uses: Regex.Matches(Regex.Replace(r.Tool.Body, $@"\b{Regex.Escape(r.Name)} is null", ""), $@"(?<![\w.]){Regex.Escape(r.Name)}\b").Count,
                 Lookups: Lookup.Matches(r.Tool.Body).Count(m => m.Groups["name"].Value == r.Name)))
             .Where(r => r.Uses != r.Lookups)
             .Select(r => $"{r.Tool} uses `{r.Parameter}` {r.Uses - r.Lookups} time(s) besides looking it up")
@@ -158,5 +159,60 @@ public class ToolDocumentNamingTests
         Regex.Matches(ToolSource.CodeOnly(ToolSource.WithoutComments(ToolSource.Source)), @"\bCodeWindowText\b")
             .Select(m => m.Value)
             .Should().BeEmpty("the counted text is DocumentContent.TextOf's, read one way");
+    }
+
+    [Theory]
+    [InlineData("activate_document_tab")]
+    [InlineData("close_document_tab")]
+    public void Tab_tools_accept_document_identity_without_requiring_a_title(string name)
+    {
+        var tool = ToolSource.Tools.Single(t => t.Name == name);
+        tool.Parameters.Should().Contain(p => p.Name == "name" && p.Optional);
+        tool.Parameters.Should().Contain(p => p.Name == "project" && p.Optional);
+        tool.Parameters.Should().Contain(p => p.Name == "title" && p.Optional);
+        tool.Body.Should().Contain("ResolveDocument(");
+    }
+
+    [Theory]
+    [InlineData("DocumentTabInfo")]
+    [InlineData("UndoStateResult")]
+    [InlineData("LocalsResult")]
+    [InlineData("WatchesResult")]
+    public void Replies_about_implicit_documents_carry_the_project(string record)
+    {
+        ToolSource.Records[record].Should().Contain(f => f.Name == "project");
+        if (record is "DocumentTabInfo" or "UndoStateResult")
+            ToolSource.Records[record].Should().Contain(f => f.Name == "document");
+    }
+
+    [Fact]
+    public void A_pause_note_identifies_the_running_project()
+    {
+        ToolSource.MethodBodies("PausedAt").Single().Should().Contain("ctx.ProjectRunnerService.RunningProject");
+    }
+
+    [Theory]
+    [InlineData("invoke_designer_undo")]
+    [InlineData("invoke_designer_redo")]
+    [InlineData("invoke_format_command")]
+    public void Active_designer_mutations_name_the_document(string name)
+    {
+        ToolSource.Tools.Single(t => t.Name == name).Body.Should().Contain("Naming(")
+            .And.Contain("designer.OpenDocument");
+    }
+
+    [Fact]
+    public void Open_editors_reports_structured_editor_identities()
+    {
+        ToolSource.Records["OpenEditorsResult"].Should().Contain(f => f.Name == "editors");
+        ToolSource.Tools.Single(t => t.Name == "get_open_editors").Body.Should().Contain("TabInfo(");
+    }
+
+    [Theory]
+    [InlineData("GetLocalsAsync")]
+    [InlineData("BuildWatchesResult")]
+    public void Frame_replies_read_the_running_project(string method)
+    {
+        ToolSource.MethodBodies(method).Single().Should().Contain("ctx.ProjectRunnerService.RunningProject?.Name");
     }
 }

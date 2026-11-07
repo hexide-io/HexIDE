@@ -1,8 +1,16 @@
+using System.Net;
 using System.Net.WebSockets;
 using Microsoft.Extensions.Logging;
 using StreamJsonRpc;
 
 namespace HexIDE.Lsp;
+
+/// <summary>Which side of a WebSocket connection HexIDE takes.</summary>
+public enum WebSocketRole
+{
+    Connect,
+    Listen,
+}
 
 /// <summary>
 /// Network transport: speaks LSP as JSON-RPC over a WebSocket (WebSocket framing — one JSON-RPC
@@ -13,17 +21,21 @@ namespace HexIDE.Lsp;
 /// <remarks>
 /// The WebSocket can drop without this transport observing it directly — StreamJsonRpc owns the
 /// receive loop — so a drop is surfaced to the client via <c>JsonRpc.Disconnected</c>, not via
-/// <see cref="Closed"/>. <see cref="CanReconnect"/> is therefore true, and the client re-dials.
+/// <see cref="Closed"/>. <see cref="CanReconnect"/> is therefore true, and the client re-establishes the connection.
 /// </remarks>
 public sealed class WebSocketLspTransport : ILspTransport
 {
     private readonly string _endpoint;
     private readonly ILogger<WebSocketLspTransport> _logger;
-    private ClientWebSocket? _socket;
+    private WebSocket? _socket;
+    private HttpListener? _listener;
+    private readonly WebSocketRole _role;
 
-    public WebSocketLspTransport(string endpoint, ILogger<WebSocketLspTransport> logger)
+    public WebSocketLspTransport(string endpoint, ILogger<WebSocketLspTransport> logger,
+        WebSocketRole role = WebSocketRole.Connect)
     {
         _endpoint = endpoint;
+        _role = role;
         _logger = logger;
     }
 
@@ -56,6 +68,8 @@ public sealed class WebSocketLspTransport : ILspTransport
 
     public async Task<IJsonRpcMessageHandler?> ConnectAsync(IJsonRpcMessageFormatter formatter, CancellationToken cancellationToken = default)
     {
+        _listener?.Close();
+        _listener = null;
         if (!Uri.TryCreate(_endpoint, UriKind.Absolute, out var uri))
         {
             // A malformed endpoint degrades to "LSP disabled" rather than crashing IDE startup.
@@ -72,6 +86,9 @@ public sealed class WebSocketLspTransport : ILspTransport
             try { previous.Abort(); } catch { /* ignore */ }
             previous.Dispose();
         }
+
+        if (_role == WebSocketRole.Listen)
+            return await AcceptAsync(uri, formatter, cancellationToken);
 
         var socket = new ClientWebSocket();
         try
@@ -98,8 +115,77 @@ public sealed class WebSocketLspTransport : ILspTransport
         return new WebSocketMessageHandler(socket, formatter);
     }
 
+    private async Task<IJsonRpcMessageHandler?> AcceptAsync(
+        Uri uri, IJsonRpcMessageFormatter formatter, CancellationToken cancellationToken)
+    {
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        timeout.CancelAfter(TimeSpan.FromSeconds(10));
+        var listener = new HttpListener();
+        _listener = listener;
+        string? refused = null;
+        try
+        {
+            if (uri.Scheme is not ("ws" or "wss"))
+                throw new ArgumentException("Expected a ws:// or wss:// endpoint.");
+            // Whatever dials in is taken as the language server, and a language server can edit the document. So
+            // the IDE listens on this machine only, and nothing on the network can take that role.
+            if (!uri.IsLoopback)
+                throw new ArgumentException(
+                    "a listening endpoint must be on this machine: localhost, 127.0.0.1 or [::1]. A server elsewhere " +
+                    "is reached with websocketRole \"connect\".");
+            var prefix = new UriBuilder(uri) { Scheme = uri.Scheme == "wss" ? "https" : "http", Port = uri.Port };
+            listener.Prefixes.Add(prefix.Uri.AbsoluteUri.TrimEnd('/') + "/");
+            listener.Start();
+            using var cancellation = timeout.Token.Register(listener.Close);
+            while (true)
+            {
+                var context = await listener.GetContextAsync().WaitAsync(timeout.Token);
+                if (RefusalOf(context.Request) is not { } refusal)
+                {
+                    var accepted = await context.AcceptWebSocketAsync(null).WaitAsync(timeout.Token);
+                    _socket = accepted.WebSocket;
+                    LastFailure = null;
+                    return new WebSocketMessageHandler(_socket, formatter);
+                }
+
+                // Refused and listened on, so a stray request cannot stop the real server dialling in after it.
+                refused = refusal.Reason;
+                _logger.LogWarning("Refused a dial on {Uri}: {Reason}", _endpoint, refusal.Reason);
+                context.Response.StatusCode = refusal.Status;
+                context.Response.Close();
+            }
+        }
+        catch (Exception ex)
+        {
+            LastFailure = $"could not listen on {_endpoint}: {ex.Message}" +
+                          (refused is null ? "" : $" (the last dial was refused: {refused})");
+            _logger.LogWarning(ex, "WebSocket LSP listen failed ({Uri}) — LSP unavailable.", _endpoint);
+            listener.Close();
+            _listener = null;
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Why a dial is refused, or null to accept it. A browser sends <c>Origin</c> on every WebSocket handshake and
+    /// a language server process sends none; WebSockets are outside the same-origin policy, so without this any page
+    /// open in a browser could dial the IDE and be taken as its language server.
+    /// </summary>
+    private static (int Status, string Reason)? RefusalOf(HttpListenerRequest request)
+    {
+        if (request.RemoteEndPoint is not { } remote || !IPAddress.IsLoopback(remote.Address))
+            return (403, $"it came from {request.RemoteEndPoint?.Address.ToString() ?? "an unknown address"}, not this machine");
+        if (request.Headers["Origin"] is { } origin)
+            return (403, $"it came from a web page ({origin}), which cannot be a language server");
+        if (!request.IsWebSocketRequest)
+            return (400, "it was not a WebSocket upgrade");
+        return null;
+    }
+
     public async ValueTask DisposeAsync()
     {
+        _listener?.Close();
+        _listener = null;
         var socket = _socket;
         _socket = null;
         if (socket is null) return;

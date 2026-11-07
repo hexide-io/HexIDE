@@ -69,3 +69,11 @@ for free: a greyed Run button says the project is not in a state to run.
 #### Scenario: A command whose prerequisites are unmet
 - **WHEN** a toolbar button's command cannot execute
 - **THEN** the button is shown as unavailable
+
+### Requirement: Lock Controls SHALL accept an absent focused form
+The Lock Controls toolbar toggle SHALL show unchecked when no form is focused, without logging a binding
+error while traversing the absent form.
+
+#### Scenario: Startup without a focused form
+- **WHEN** the toolbar binds before any form is focused
+- **THEN** Lock Controls is unchecked and its binding emits no null-path error

@@ -18,7 +18,7 @@ public sealed class ChatViewModel : INotifyPropertyChanged
 
     private readonly IHexIdeHost _host;
     private readonly ChatSession _session;
-    private readonly ChatSettings _settings;
+    private ChatSettings _settings;
     private readonly OpenAiClient _client;
     private readonly IdeToolExecutor _tools;
     private readonly string _settingsDir;
@@ -26,6 +26,7 @@ public sealed class ChatViewModel : INotifyPropertyChanged
 
     private string _inputText = string.Empty;
     private bool _isResponding;
+    private bool _reloadSettingsPending;
     private bool _egressNoticeShown;
     private ChatMessageViewModel? _activeStream;
 
@@ -46,7 +47,12 @@ public sealed class ChatViewModel : INotifyPropertyChanged
     public bool IsResponding
     {
         get => _isResponding;
-        internal set { _isResponding = value; PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsResponding))); }
+        internal set
+        {
+            _isResponding = value;
+            if (!value && _reloadSettingsPending) ReloadSettings();
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsResponding)));
+        }
     }
 
     /// <summary>
@@ -81,6 +87,13 @@ public sealed class ChatViewModel : INotifyPropertyChanged
             Messages.Add(msg.FromIde
                 ? new ChatMessageViewModel("assistant", msg.Content, isStatusLine: true)
                 : new ChatMessageViewModel(msg.Role, msg.Content));
+    }
+
+    internal void ReloadSettings()
+    {
+        // Keep one provider configuration throughout an in-flight response, including tool calls and compaction.
+        _reloadSettingsPending = IsResponding;
+        if (!_reloadSettingsPending) _settings = ChatSettings.Load(_settingsDir);
     }
 
     public async Task SendAsync()

@@ -14,6 +14,8 @@ public class ComponentNamingTests
 
     public ComponentNamingTests()
     {
+        _loc.GetString("Str.Naming.Msg.EmptyName").Returns("Name can't be empty");
+        _loc.GetString("Str.Naming.Msg.NameNotUniqueInForm").Returns("Name must be unique in form");
         _loc.GetString("Str.Naming.Msg.NotAVb6Name").Returns("'{0}' is not a VB6 name");
         _loc.GetString("Str.Naming.Msg.DocumentNameTaken").Returns("'{0}' is taken");
     }
@@ -34,6 +36,19 @@ public class ComponentNamingTests
     private string? Refusal(ComponentInstance target, string proposed, FormDefinition form, bool isRoot = false) =>
         ComponentNaming.RefusalFor(target, target.GetPropertyOrDefault(VBProperties.NameProperty), proposed,
             form.Components, form, isRoot, _loc);
+
+    [Theory]
+    [InlineData(null, "Str.Naming.Msg.EmptyName")]
+    [InlineData("", "Str.Naming.Msg.EmptyName")]
+    [InlineData("Command2", "Str.Naming.Msg.NameNotUniqueInForm")]
+    public void Rename_refusals_use_the_active_localization(string? proposed, string key)
+    {
+        var (_, form, _, command1, _) = Form();
+        _loc.GetString(key).Returns("Localized refusal");
+
+        ComponentNaming.RefusalFor(command1, "Command1", proposed,
+            form.Components, form, isRoot: false, _loc).Should().Be("Localized refusal");
+    }
 
     [Fact]
     public void A_control_may_take_a_free_name()

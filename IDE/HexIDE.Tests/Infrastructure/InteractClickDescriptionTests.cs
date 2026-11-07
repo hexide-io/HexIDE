@@ -7,6 +7,7 @@ namespace HexIDE.Tests.Infrastructure;
 /// written in different projects, and only the description reaches a caller before the first call, so a grammar that
 /// changed in one and not the other would be learned from a refusal.
 /// </summary>
+[ToolDescription]
 public class InteractClickDescriptionTests
 {
     private static ToolSource.Tool Interact => ToolSource.Tools.Single(t => t.Name == "interact");
@@ -21,6 +22,15 @@ public class InteractClickDescriptionTests
     public void The_action_description_lists_click()
     {
         Interact.Parameters.Single(p => p.Name == "action").Description.Should().Contain("click (press and release a pointer");
+    }
+
+    [Fact]
+    public void Click_describes_a_drag_and_its_release_coordinates()
+    {
+        Interact.Parameters.Single(p => p.Name == "action").Description.Should().Contain("to drags");
+        Interact.Parameters.Single(p => p.Name == "value").Description.Should()
+            .Contain("to <path>:x,y").And.Contain("dump_visual_tree path, including spaces")
+            .And.Contain("to cannot accompany double");
     }
 
     [Fact]

@@ -50,6 +50,7 @@ public partial class ProtocolInspectorToolViewModel : Document
     public const string AllConnections = "(all)";
 
     private readonly ConversationLog _capture;
+    private long _recordedAtRefresh;
     private readonly ILocalizationService _localization;
     private readonly Pseudonymiser _pseudonyms;
     private readonly IWindowManager _windows;
@@ -204,7 +205,7 @@ public partial class ProtocolInspectorToolViewModel : Document
     /// The alternative to refreshing underneath the reader. A count rather than a dot, because "there are
     /// four more" and "there are four thousand more" are different situations.
     /// </remarks>
-    [Notify] private int pendingCount;
+    [Notify] private long pendingCount;
 
     [Notify] private bool nothingToShow = true;
 
@@ -290,6 +291,7 @@ public partial class ProtocolInspectorToolViewModel : Document
 
         ShownCount = Rows.Count;
         FailureCount = Rows.Count(r => r.IsFailure);
+        _recordedAtRefresh = _capture.Recorded;
         PendingCount = 0;
         NothingToShow = Rows.Count == 0;
         _emptyReasonKind = page.Reason;
@@ -309,9 +311,7 @@ public partial class ProtocolInspectorToolViewModel : Document
     /// </remarks>
     public void NoteTraffic()
     {
-        var total = _capture.Snapshot().Count;
-        var shown = Rows.Count;
-        if (total > shown) PendingCount = total - shown;
+        PendingCount = _capture.Recorded - _recordedAtRefresh;
 
         RefreshCounters();
     }
@@ -343,7 +343,7 @@ public partial class ProtocolInspectorToolViewModel : Document
         _ => "",
     };
 
-    private string Text(string key, int count) =>
+    private string Text(string key, long count) =>
         _localization.GetString(key) is { Length: > 0 } format
             ? string.Format(format, count)
             : count.ToString();
@@ -455,6 +455,8 @@ public partial class ProtocolInspectorToolViewModel : Document
             {
                 { IsStandardError: true } =>
                     _localization.GetString("Str.Tool.ProtocolInspector.StandardErrorHasNoBody"),
+                { IsStandardOutput: true } =>
+                    _localization.GetString("Str.Tool.ProtocolInspector.StandardOutputHasNoBody"),
                 { IsNotAMessage: true } =>
                     _localization.GetString("Str.Tool.ProtocolInspector.NoteHasNoBody"),
                 _ => NoBody(row),
@@ -595,6 +597,7 @@ public partial class ProtocolInspectorToolViewModel : Document
             {
                 Title = _localization.GetString("Str.Tool.ProtocolInspector.Export"),
                 SuggestedFileName = "hexide-lsp-conversation.jsonl",
+                ShowOverwritePrompt = false, // Both outputs are confirmed together below.
                 DefaultExtension = "jsonl",
             });
 
@@ -605,8 +608,31 @@ public partial class ProtocolInspectorToolViewModel : Document
             // cites the messages file by line number, so a separated pair is a broken one.
             var manifest = System.IO.Path.ChangeExtension(chosen, null) + ".manifest.json";
 
-            await System.IO.File.WriteAllTextAsync(chosen, export.Messages);
-            await System.IO.File.WriteAllTextAsync(manifest, export.Manifest);
+            var existing = new[] { chosen, manifest }.Where(System.IO.File.Exists).ToArray();
+            if (existing.Length > 0 && await _windows.MessageBox(
+                    Format("Str.Tool.ProtocolInspector.ReplaceFiles", string.Join(Environment.NewLine, existing)),
+                    _localization.GetString("Str.Tool.ProtocolInspector.Export"),
+                    MessageBoxButtons.YesNo, MessageBoxIcon.Warning) != MessageBoxResult.Yes)
+                return;
+
+            Write(chosen, export.Messages);
+            Write(manifest, export.Manifest);
+
+            void Write(string path, string content)
+            {
+                // Consent covers only the files the question named. A replacement it agreed to is staged and flushed
+                // first (#2503); a path that was free when asked is created new, so a file that arrived while the
+                // question was open is never silently replaced (#2504).
+                if (existing.Contains(path))
+                {
+                    AtomicFileWriter.WriteAllText(path, content);
+                    return;
+                }
+                using var stream = new System.IO.FileStream(path, System.IO.FileMode.CreateNew,
+                    System.IO.FileAccess.Write, System.IO.FileShare.None);
+                stream.Write(new System.Text.UTF8Encoding(false, true).GetBytes(content));
+                stream.Flush(flushToDisk: true);
+            }
 
             ExportStatus = Format("Str.Tool.ProtocolInspector.Exported", export.Lines, chosen, manifest);
         }

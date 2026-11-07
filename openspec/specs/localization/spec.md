@@ -5,7 +5,7 @@ Define how the IDE's own text is translated: where strings come from, how a lang
 and the guarantees that keep a translated IDE usable even when a translation is incomplete.
 
 VB6 solved this by shipping a different build per language, which was a distribution constraint of its era
-rather than a design. One build carrying every language is the modern answer, and it is worth doing properly
+rather than a design. One build carrying the in-box languages is the modern answer, and it is worth doing properly
 here for a reason specific to this project: the people most likely to still be maintaining VB6 code are
 distributed across a lot of countries, and an English-only IDE excludes them for no good reason.
 
@@ -25,6 +25,63 @@ set of translatable strings is enumerable, which is what every other guarantee h
 #### Scenario: Adding a new piece of interface text
 - **WHEN** interface text is added
 - **THEN** it is added as a key with a canonical English value, not as a literal
+
+#### Scenario: Renaming a symbol in the code window
+- **WHEN** the code window opens the Rename input dialog
+- **THEN** its prompt and title resolve `Str.CodeEditor.Dialog.RenamePrompt` and `Str.CodeEditor.Dialog.RenameTitle` through the active localization service
+
+#### Scenario: Refusing an empty or duplicate component name
+- **WHEN** a control or form rename is refused because the name is empty or already used in the form
+- **THEN** the Properties window and `set_control_property` use the active language's naming refusal key
+
+#### Scenario: Project-load diagnostics cross the runtime boundary
+- **WHEN** the runtime deserializer or project loader reports a form- or module-load warning to the IDE
+- **THEN** it supplies a localization key and separate arguments, and the IDE resolves them in its current language
+- **AND** the project-load heading, remaining-warning count and skipped ActiveX Document notice use localization keys
+- **AND** a runtime host without localization retains an English diagnostic
+- **AND** warnings describe the affected content rather than internal development phases
+
+#### Scenario: Call Stack row automation names
+- **WHEN** Call Stack rows are rebuilt at a stop in either debugger
+- **THEN** their automation names use the active language's row-name format with the frame name and line
+- **AND** the row's string representation uses the same text for selection summaries without a container
+- **AND** a language change while stopped is reflected when the rows are next rebuilt
+
+### Requirement: Language-server configuration problems SHALL use the active IDE language
+The LSP configuration loader and its readers SHALL return a message code and separate arguments for each
+problem. The Language Servers view SHALL resolve the code through the active language pack, including
+when the language changes while the view is open. Logged messages SHALL remain English.
+JSON field names, values, server identifiers, paths, pointers and diagnostic locations SHALL remain
+verbatim arguments. Field-list headings SHALL be complete localized strings, without English singular,
+plural or verb fragments assembled by the loader. Exception details SHALL remain verbatim after a
+localized explanation of the failed operation. A single unknown field SHALL select a complete singular
+heading where the language distinguishes it. Quotation marks around option values SHALL come from the
+pack template and match the other quoted values in that message. Problem lines SHALL wrap within the
+tab while remaining selectable, including the final diagnostic location.
+
+#### Scenario: A disabled server in Bulgarian
+- **WHEN** the Language Servers view changes from English to Bulgarian
+- **THEN** its disabled-server problem uses Bulgarian prose and preserves the server id and `"enabled": false`
+- **AND** the loader's original English message remains available for logging
+
+#### Scenario: Multiple unknown fields in Japanese
+- **WHEN** an entry contains multiple unknown JSON fields and the active language is Japanese
+- **THEN** a Japanese field-list heading precedes the original field names, without English plural fragments
+
+### Requirement: Program message box buttons SHALL use the IDE language
+Message boxes opened through the IDE SHALL resolve their OK, Cancel, Abort, Retry, Ignore, Yes and No
+captions through the localization service when shown. The program's prompt and title SHALL remain its
+own text. The standalone runner, which has no localization service, SHALL retain English button captions.
+
+#### Scenario: A program asks a question in a French IDE
+- **WHEN** a program opens a Yes/No message box in an IDE using French
+- **THEN** its buttons read Oui and Non and return the same results as their English counterparts
+
+#### Scenario: Make Project cannot make a program
+- **WHEN** Make Project finds no startup project, runs in a browser or on an unsupported system, lacks the standalone runtime, or encounters an unexpected error
+- **THEN** the message is resolved through the active language pack
+- **AND** the unsupported-system message names supported operating systems rather than asking for a source-code search
+- **AND** an unexpected error uses the Error icon and says the program was not made, followed by the exception detail
 
 ### Requirement: English SHALL be canonical and SHALL be the fallback for every key
 The English pack SHALL define every key, other packs SHALL only override keys they translate, and any key a
@@ -57,9 +114,40 @@ The interpreter takes those as its own locale at startup, before the pin, rather
 (`VbLocale`, #777). So the IDE's language, the user's regional locale and the culture of the IDE's threads are
 three separate things, and translating the IDE cannot change what a program computes.
 
+The program locale SHALL replace U+202F and U+00A0 in date/time patterns and AM/PM designators
+with ordinary U+0020 spaces (#2102).
+
+#### Scenario: ICU supplies a nonbreaking space before AM or PM
+- **WHEN** the program locale's long-time pattern contains U+202F before its AM/PM token
+- **THEN** converting a Date to text uses an ordinary space there
+- **AND** the original host culture is unchanged
+
 #### Scenario: Running a program with a non-English IDE language
 - **WHEN** the IDE language is changed and a VB6 program is run
 - **THEN** the program's numeric parsing and formatting are unchanged
+
+### Requirement: System default SHALL follow the OS UI language
+The `system` language selection SHALL resolve from the OS UI culture captured before the invariant thread
+culture pin at startup ([#799](https://github.com/hexide-io/HexIDE/issues/799)). Resolution SHALL try an exact neutral-language match, an exact shipped
+region match, a neutral-language match on the two-letter code, then canonical `en`. The invariant pin
+SHALL remain in place, and the persisted selection SHALL remain `system`.
+
+#### Scenario: British English system language
+- **WHEN** the startup UI culture is `en-GB` and System default is selected
+- **THEN** the IDE uses the British English overrides, including Colour Palette and Centre in Form
+
+#### Scenario: A region without a shipped regional entry
+- **WHEN** the startup UI culture is `fr-CD` and System default is selected
+- **THEN** the IDE uses the neutral French pack
+
+### Requirement: A removed saved language SHALL fall back safely
+A saved language whose pack and neutral pack are no longer shipped, and which has no user translation
+overrides, SHALL resolve to canonical English without an error, using the existing unknown-language fallback.
+
+#### Scenario: Starting with a removed language
+- **WHEN** the saved language is Hindi, Persian, Urdu, Latin or Esperanto, or one of their former regions
+- **AND** no user translation overrides supply that language
+- **THEN** startup applies English with left-to-right chrome
 
 ### Requirement: Changing language SHALL take effect immediately
 Selecting a language SHALL update the interface without restarting the IDE, including windows already open.
@@ -71,6 +159,17 @@ not be reverted before the user was already looking at it.
 #### Scenario: Switching language
 - **WHEN** the user selects a different language
 - **THEN** the interface changes immediately, including windows already open
+
+#### Scenario: Tool labels and debugger placeholders follow a live switch
+- **WHEN** the language changes with Object Browser, Locals or Watches already open
+- **THEN** the all-libraries entry and members header use the new language, preserving the selected class
+- **AND** the Locals ready header and out-of-context watch values update immediately
+- **AND** displayed frame names, evaluated values and debugger errors remain intact
+
+#### Scenario: Properties window stays open during a language change
+- **WHEN** the IDE language changes while a property is selected
+- **THEN** existing property descriptions and category headers update to the active language
+- **AND** the selected property, its value and category expansion state are preserved
 
 ### Requirement: A language change SHALL be revertible without reading the new language
 After a language change the IDE SHALL offer to keep or undo it in a way that does not require reading the
@@ -89,6 +188,11 @@ mistake self-correcting.
 - **WHEN** the user confirms the new language
 - **THEN** it is kept and persists across restarts
 
+#### Scenario: Confirming a change an automation client asked for
+- **WHEN** `set_ide_language` opens the confirmation and Keep is pressed, with no Options dialog behind it
+- **THEN** the language persists across restarts, as it does when confirmed in Options and closed with OK
+- **AND** Revert, or the confirmation timing out, saves nothing
+
 ### Requirement: Text direction SHALL follow the pack, but the design surface SHALL NOT mirror
 A pack SHALL be able to declare a right-to-left direction, which SHALL apply to the IDE's own chrome
 including dialogs. The form design surface SHALL remain left-to-right regardless of the interface language.
@@ -102,9 +206,26 @@ controls to the other side of a form whose layout they did not change.
 - **WHEN** a right-to-left language is active
 - **THEN** the IDE's panels, menus and dialogs mirror
 
+#### Scenario: Opening a shared desktop dialog under a right-to-left interface
+- **WHEN** Arabic or Hebrew is active and the IDE opens About, InputBox, MessageBox, Font, Color or Print
+- **THEN** the shared dialog window SHALL take the active language pack's flow direction
+- **AND** its content SHALL inherit that right-to-left direction (#2874)
+- **AND** program MessageBox and InputBox windows and their content SHALL remain left-to-right: their prompts belong to the program, and Windows lays out MessageBox left-to-right unless the program requests RTL reading (#3014)
+- **AND** Font, Color and Print SHALL stay mirrored even when opened by a running program’s CommonDialog: they stand in for system dialogs, follow the interface language, and use IDE language-pack text
+- **NOTE** this is the chosen scope, not a measurement on Hebrew Windows; neither dialog distinction has been measured there
+
 #### Scenario: Designing a form under a right-to-left interface
 - **WHEN** a form is open on the design surface under a right-to-left language
 - **THEN** the canvas and the controls on it are not mirrored
+
+#### Scenario: Icon direction under a right-to-left interface
+- **WHEN** a right-to-left language is active
+- **THEN** drawn command icons and tree chevrons SHALL follow Avalonia's inherited mirroring without an additional flip
+- **AND** Object Browser navigation glyphs drawn as text SHALL flip horizontally
+- **AND** Start's play icon SHALL retain its left-to-right appearance in menus and toolbars
+
+Scissors, magnifiers and other non-navigation icons retain their existing inherited mirroring; no additional
+exceptions are selected here (#40).
 
 ### Requirement: A pseudo-localized mode SHALL exist to find untranslated text
 The IDE SHALL provide a generated pseudo-localized mode covering every canonical key, in both directions,
@@ -142,7 +263,9 @@ nothing.
 
 ### Requirement: Only one language change SHALL await confirmation at a time
 While a language change is awaiting confirmation, another language change SHALL be refused, and nothing SHALL
-be applied by the refused change.
+be applied by the refused change. On desktop, the confirmation SHALL be modal over the topmost visible
+window in the main window's ownership chain, regardless of activation, so Options cannot change Language or
+Region underneath it.
 
 A change that is not confirmed reverts to the language active when it was made. A second change made while the
 first is unconfirmed would record the first's unconfirmed language as the one to return to, so whichever
@@ -151,3 +274,8 @@ resolved last would decide where the IDE ended up. That could leave the IDE in a
 #### Scenario: A second change while the first is unconfirmed
 - **WHEN** a language change is awaiting confirmation and another change is requested
 - **THEN** the second is refused, the first's confirmation is still the only one open, and not confirming it returns the IDE to the language it had before either
+
+#### Scenario: Automation opens a gate while Options is open
+- **WHEN** a language confirmation opens while Options is open, regardless of which window is active
+- **THEN** the gate is owned by the topmost visible window in the main window's ownership chain
+- **AND** Options cannot accept Language or Region input until the gate closes

@@ -69,7 +69,24 @@ public sealed record LanguageServerRegistration(
     /// acts on something already checked. A declaration that failed its checks arrives here as null: the
     /// fault was reported when the file was read, and the server still starts.
     /// </remarks>
-    WorkspaceArtifactSpec? WorkspaceArtifact = null)
+    WorkspaceArtifactSpec? WorkspaceArtifact = null,
+    /// <summary>
+    /// True when the entry declared an artefact that failed its checks, so none will be generated. The fault itself
+    /// is a configuration problem; this lets the launch say so on the connection too, where the other reasons a file
+    /// was not written are shown (#2073).
+    /// </summary>
+    bool WorkspaceArtifactRefused = false,
+    ProjectImportSpec? ProjectImport = null,
+    /// <summary>
+    /// What runs before the server's process starts, every time it starts, and fails the start if it throws: an add-in's
+    /// gate (#457). Null for an entry of the configuration file, which has nothing to run.
+    /// </summary>
+    Func<CancellationToken, Task>? BeforeLaunch = null,
+    /// <summary>
+    /// Who contributed this server, for the Language Servers window: an add-in's title. Null for the configuration file
+    /// and the bundled server.
+    /// </summary>
+    string? Origin = null)
 {
     /// <summary>
     /// The priority the entries HexIDE contributes itself are given — deliberately below the value an

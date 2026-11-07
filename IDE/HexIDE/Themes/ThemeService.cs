@@ -7,11 +7,44 @@ using Avalonia.Media;
 using Avalonia.Platform;
 using Avalonia.Styling;
 using Serilog;
+using HexIDE.IDE;
+using HexIDE.Profiles;
 
 namespace HexIDE.Themes;
 
 public sealed class ThemeService : IThemeService
 {
+    internal void Apply(ProfileSnapshot profile, SettingsService settings)
+    {
+        if (profile.Theme is not { } payload || settings.HasExplicitThemeChoice)
+        {
+            Apply(settings.ActiveTheme);
+            return;
+        }
+
+        var (pack, dictionary) = PrepareProfileTheme(profile.Source, payload);
+        var app = Application.Current!;
+        if (_currentOverride != null)
+            app.Resources.MergedDictionaries.Remove(_currentOverride);
+        _currentOverride = dictionary;
+        app.Resources.MergedDictionaries.Add(dictionary);
+        ActiveTheme = pack.Name;
+        app.RequestedThemeVariant = pack.ThemeVariant == "Dark" ? ThemeVariant.Dark : ThemeVariant.Light;
+    }
+
+    internal static (ThemePackRecord Pack, ResourceDictionary Resources) PrepareProfileTheme(string source, ProfilePayload payload)
+    {
+        try
+        {
+            var pack = payload.Content.Deserialize(ThemeJsonContext.Default.ThemePackRecord) ?? throw new JsonException();
+            return (pack, BuildDictionary(pack, source, payload.File));
+        }
+        catch (Exception ex) when (ex is JsonException or FormatException or ArgumentException or InvalidOperationException)
+        {
+            throw new ProfileLoadException(source, payload.File, ProfileError.InvalidPayload, ex);
+        }
+    }
+
     private ResourceDictionary? _currentOverride;
 
     public string ActiveTheme { get; private set; } = "Classic";
@@ -67,7 +100,7 @@ public sealed class ThemeService : IThemeService
         }
     }
 
-    private static ResourceDictionary BuildDictionary(ThemePackRecord pack)
+    private static ResourceDictionary BuildDictionary(ThemePackRecord pack, string? source = null, string? file = null)
     {
         var dict = new ResourceDictionary();
         if (pack.Colors is null) return dict;
@@ -76,7 +109,8 @@ public sealed class ThemeService : IThemeService
         {
             if (!ColorKeyMapping.Table.TryGetValue(name, out var entry))
             {
-                Log.Warning("ThemeService: Unknown color key '{Name}' in pack '{Pack}'", name, pack.Name);
+                Log.Warning("ThemeService: Unknown color key '{Name}' in pack '{Pack}' (source '{Source}', file '{File}')",
+                    name, pack.Name, source, file);
                 continue;
             }
 

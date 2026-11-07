@@ -29,6 +29,14 @@ sealed class Program
             return;
         }
 
+        if (ServerOptions.ProfileArgumentError is { } profileError)
+        {
+            var localization = new HexIDE.Localization.LocalizationService();
+            ConsoleOutput.Write(localization.GetStringFrom("system", profileError) + Environment.NewLine);
+            Environment.ExitCode = 2;
+            return;
+        }
+
         if (ServerOptions.UserDataDirectoryMissing)
         {
             ConsoleOutput.Write(
@@ -66,17 +74,48 @@ sealed class Program
             Environment.ExitCode = 2;
             return;
         }
+
+        if (ServerOptions.DpiUnaware && !OperatingSystem.IsWindows())
+        {
+            ConsoleOutput.Write(
+                "--dpi-unaware works on Windows only. HexIDE has not started, rather than start at the display's own "
+              + "scale and look as though the flag had worked. On Linux, Avalonia's X11 platform reads "
+              + "AVALONIA_GLOBAL_SCALE_FACTOR instead." + Environment.NewLine);
+            Environment.ExitCode = 2;
+            return;
+        }
 #endif
 
         // Before anything else starts: UserDataPath refuses a redirect once any per-user file has been looked up.
         if (ServerOptions.UserDataDirectory is { } userData)
             HexIDE.IDE.UserDataPath.RedirectTo(userData);
 
+        try
+        {
+            HexIDE.Static.Profile = ServerOptions.ResolveProfile(invocationDirectory, HexIDE.IDE.UserDataPath.Directory);
+        }
+        catch (HexIDE.Profiles.ProfileLoadException ex)
+        {
+            var localization = new HexIDE.Localization.LocalizationService();
+            var message = string.Format(localization.GetStringFrom("system", "Str.Profiles.LoadError"), ex.SourceId, ex.File);
+            ConsoleOutput.Write(message + Environment.NewLine);
+            Environment.ExitCode = 2;
+            return;
+        }
+
         DesktopStartup.Register();
         // The lifetime returns the code the app shut down with. Discarding it made every exit 0, including
         // the one a server that could not bind asks for (hexide-io/HexIDE#53).
-        Environment.ExitCode = BuildAvaloniaApp()
-            .StartWithClassicDesktopLifetime(args);
+        var builder = BuildAvaloniaApp();
+#if DEBUG
+        // Avalonia's only scale override on Windows: unaware, Windows tells the process the display is at 96 DPI, so
+        // RenderScaling is 1 and Windows stretches the window on screen to the display's scaling (#3083).
+        if (ServerOptions.DpiUnaware)
+            builder = builder.With(new Win32PlatformOptions { DpiAwareness = Win32DpiAwareness.Unaware });
+#endif
+        // On a thread of its own, because VB code runs on the UI thread and this first thread's stack is the
+        // launcher's choice, 1.5 MiB on Windows (#3228).
+        Environment.ExitCode = HexIDE.Runtime.UiThread.Run(() => builder.StartWithClassicDesktopLifetime(args));
     }
 
     private static void FixCurrentWorkingDictionary()

@@ -52,6 +52,49 @@ had a required parameter that a conformant server never sends, so the client ans
 `-32602` and refused the refresh on a perfectly healthy connection. Both are the same shape — a claim in
 the coverage table that nothing had ever driven end to end.
 
+## Shutdown parameters: absence and null differ (#368)
+
+Measured over stdio after initialize → initialized, followed by exit: rumdl 0.2.64 (`tower-lsp`)
+accepts shutdown only when the `params` member is absent (`result:null`). With `params` present as
+`null`, `[]` or `{}`, it returns `-32602` and respectively `Unexpected params: null`,
+`Unexpected params: []` or `Unexpected params: {}`. texlab 5.26.0, clangd 22.1.6 and
+vscode-json-language-server 4.10.0 returned `result:null` for all four spellings and exited 0.
+
+`ShutdownWireShapeTests` asserts member absence on the raw frames, covering all four spellings without
+relying on a permissive server. StreamJsonRpc's null argument object in its parameter-object overload
+omits the member; it does not serialize `"params":null`.
+
+## Normal teardown and document close (2026-11-04, #491)
+
+`RealServerShutdownTests` drives the normal HexIDE client over stdio on Linux, with the pinned
+versions unchanged and Node installed. Each test opens a real temporary file containing a defect,
+reads non-empty diagnostics from a recorded publication or pull response, sends `didClose`, and
+observes incoming wire frames for three seconds. It then calls `StopAsync`, checks the recorded
+`shutdown` reply (`result:null`) and subsequent `exit`, and reads the process lifecycle record.
+
+| Server | Exit code after normal teardown | `publishDiagnostics` after `didClose` |
+|---|---|---|
+| rumdl 0.2.79 | 0 | Empty diagnostics for the closed URI |
+| texlab 5.26.0 | 0 | Non-empty: code 3, “Mismatched environment”, source `texlab` |
+| vscode-json-language-server 4.10.0 | 0 | No publication in the three-second window |
+| clangd 22.1.6 | 0 | Empty diagnostics for the closed URI |
+| ruff 0.16.7 | 0 | Empty diagnostics for the closed URI, version 1 |
+| Bundled VB6 server | 0 | Empty diagnostics for the closed URI |
+
+None needed the transport's kill fallback. The older #491 measurement found rumdl **0.2.64**
+failed to exit within ten seconds; that is not the result of the current **0.2.79** pin. The same
+issue records ruff returning **2** after a refused shutdown or an exit without shutdown, so neither
+an assumed two-value rule nor a boolean is used for exit-code coverage.
+
+The inputs are a malformed Markdown heading with extra blank lines, mismatched LaTeX environments,
+a JSON trailing comma, an undeclared C++ name, an unused Python import, and an incomplete VB6 `Dim`
+declaration. Texlab's one diagnostic remains after close; one or more identical publications were
+observed, so the tests pin their contents rather than their scheduling-dependent count. The JSON
+server's silence is bounded evidence, not a claim that it can never publish after close. Ruff's
+silence described above concerns diagnostics while a document is open under pull negotiation;
+it does publish an empty set on close. No locally synthesised diagnostics event is counted as a
+server publication.
+
 ## What they do with a document that has no file (2026-09-20)
 
 hexide-io/HexIDE#273 names a never-saved document `untitled:<Project>/<Name>.<ext>`, which is a scheme
@@ -109,7 +152,7 @@ the repository; the installed tree does not, and is put under `artifacts/` rathe
 lockfile so `node_modules` can never appear in the tree even briefly.
 
 **Node is a harness dependency, not a shipped one.** Nothing in HexIDE requires it. A machine without Node
-skips these three tests, visibly — except where `HEXIDE_REQUIRE_FOREIGN_LSP=1` is set, which is CI, and
+skips the JSON-server tests, visibly — except where `HEXIDE_REQUIRE_FOREIGN_LSP=1` is set, which is CI, and
 where the whole point is that coverage cannot quietly disappear. CI installs Node explicitly rather than
 relying on the runner image happening to have it.
 
@@ -142,6 +185,17 @@ history is a fraction of that, and every version bump would add the same again p
 
 Linux uses musl builds where offered, so one binary runs on any distribution.
 
+The advisory `build-ide (windows-arm, advisory)` job runs on `windows-11-arm` (#3139).
+For rumdl, texlab, clangd and ruff, `win-arm64` deliberately selects the existing Windows x64
+archive under Windows' emulation, retaining its digest and provenance. The JSON server uses the
+Node runtime installed by `actions/setup-node` and the same npm lockfile. The leg keeps
+`HEXIDE_REQUIRE_FOREIGN_LSP=1`; an unavailable server fails visibly. Execution on Arm awaits
+its first CI run; the Linux asset tests check the pin choices, not emulation.
+
+A checksum mismatch deletes the download and records the expected and actual digests. The affected
+foreign-server tests skip with a checksum-specific reason; an ordinary test in `RequiredServersTests`
+fails even when `HEXIDE_REQUIRE_FOREIGN_LSP` is unset. Discovery never throws for a mismatch (#487).
+
 ### Digest provenance is recorded, because it differs
 
 - **rumdl** publishes a checksum file beside each asset. Its digests are taken from those — they attest
@@ -156,15 +210,21 @@ letting a row of hex imply they are the same thing.
 
 ### Environment variables
 
+By default, resolution checks the per-server variable, then PATH, then the pinned download. An explicit
+variable remains authoritative even when its file is missing; it does not silently fall back. The JSON
+server instead resolves its pinned script and Node after checking its variable.
+
 | Variable | Effect |
 |---|---|
 | `HEXIDE_MARKDOWN_LSP`, `HEXIDE_LATEX_LSP`, `HEXIDE_JSON_LSP`, `HEXIDE_CPP_LSP`, `HEXIDE_PYTHON_LSP` | Point at your own build. Checked before the download, so an explicit choice is never silently replaced. |
+| `HEXIDE_FOREIGN_LSP_NO_PATH=1` | Skip PATH copies of servers, while keeping the per-server variables above first. **CI sets this** so a runner image’s preinstalled server cannot replace the pinned, digest-verified download (#3211). Node remains a harness runtime found on PATH for the pinned JSON script. |
+| `HEXIDE_FOREIGN_LSP_REPORT` | Write the resolved servers to this file. CI prints it after the tests, even on failure: server name, source (variable, PATH or pinned download), executable path and version. The JSON entry also names the script and reads its installed package version. A failed version probe is reported as unavailable. |
 | `HEXIDE_FOREIGN_LSP_DOWNLOAD=0` | Stay off the network. The affected tests then skip, visibly. |
 | `HEXIDE_REQUIRE_FOREIGN_LSP=1` | Turn "unavailable" into a failure. **CI sets this**, because a silently skipped proof is the failure mode this whole fixture exists to prevent. |
 
 ## Bumping a version
 
-Edit the version and the five digests in `ForeignServerAcquisition.cs`. Take each digest from the
-publisher's own checksum file where one exists — never from a file you downloaded yourself, which verifies
+Edit the version and digests in `ForeignServerAcquisition.cs`, including the Windows on Arm aliases.
+Take each digest from the publisher's own checksum file where one exists — never from a file you downloaded yourself, which verifies
 nothing beyond that the download completed. Where the publisher offers none, compute it and leave the
 provenance marked as computed here.

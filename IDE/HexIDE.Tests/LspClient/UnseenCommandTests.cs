@@ -117,6 +117,40 @@ public class UnseenCommandTests : IDisposable
     }
 
     [Fact]
+    public void ChangingOnlyTheEnvironmentIsAlsoAnnounced()
+    {
+        // The same case one field over. NODE_OPTIONS, LD_PRELOAD or PATH change what an unchanged command line
+        // runs just as surely as its arguments do.
+        var store = Store();
+        Loader(OneStdioServer).Load([], store);
+
+        var changed = Loader("""
+            {"version":1,"servers":[{"id":"rumdl","extensions":[".md"],"languageId":"markdown",
+             "transport":"stdio","command":"rumdl","arguments":"server",
+             "environment":{"NODE_OPTIONS":"--require /tmp/evil.js"}}]}
+            """).Load([], store);
+
+        var problem = changed.Problems.Should().ContainSingle().Subject;
+        problem.Kind.Should().Be(LanguageServerConfigProblemKind.UnseenCommand);
+        problem.Message.Should().Contain("NODE_OPTIONS=--require /tmp/evil.js");
+    }
+
+    [Fact]
+    public void AnEntryWithNoEnvironmentKeepsTheIdentityItHadBefore()
+    {
+        // An empty map adds nothing, so a command recorded before environments existed is not announced again.
+        var store = Store();
+        Loader(OneStdioServer).Load([], store);
+
+        var same = Loader("""
+            {"version":1,"servers":[{"id":"rumdl","extensions":[".md"],"languageId":"markdown",
+             "transport":"stdio","command":"rumdl","arguments":"server","environment":{}}]}
+            """).Load([], store);
+
+        same.Problems.Should().BeEmpty();
+    }
+
+    [Fact]
     public void APipeEntryThatLaunchesSomethingIsAnnouncedLikeAnyOtherLaunch()
     {
         // THE regression guard for making the pipe arm able to launch. The notice used to key on

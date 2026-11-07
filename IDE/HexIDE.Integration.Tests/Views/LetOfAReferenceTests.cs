@@ -7,7 +7,7 @@ namespace HexIDE.Integration.Tests.Views;
 
 /// <summary>
 /// A control where a value is wanted stands for its default member in VB6: <c>s = Text1</c> reads Text1.Text,
-/// <c>v = Command1</c> its Value (measured, <c>docs/vb6-fidelity-oracle.md</c>, "A control where a value is wanted").
+/// <c>v = Command1</c> its Value (measured, <c>docs/vb6-fidelity-oracle/a-control-where-a-value-is-wanted-is-its-default-member.md</c>, "A control where a value is wanted").
 /// HexIDE has no default members yet (#790), and used to store the reference: a String took the .NET type name and
 /// a Variant kept the control. Until #790 a Let of one is refused, and everything that does not read a default
 /// member is left working.

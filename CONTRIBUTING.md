@@ -34,17 +34,21 @@ under **MIT**. A few hard rules:
 Requires the **.NET 10 SDK** (no Java needed — the ANTLR tool is bundled). From the repo root:
 
 ```sh
-cd IDE && dotnet build HexIDE.Desktop/HexIDE.Desktop.csproj   # build the IDE
-cd IDE && dotnet run  --project HexIDE.Desktop/               # run it
+cd IDE
+dotnet build HexIDE.Desktop/HexIDE.Desktop.csproj   # build the IDE
+dotnet run  --project HexIDE.Desktop/               # run it
 ```
 
-Tests:
+On Windows, you can also open `HexIDE.slnx` in Visual Studio and build the solution.
+
+Tests, also from the repo root:
 
 ```sh
-cd IDE       && dotnet test HexIDE.Runtime.Tests/        # VB6 interpreter
-cd IDE       && dotnet test HexIDE.Tests/                # IDE view-models
-cd IDE       && dotnet test HexIDE.Integration.Tests/    # headless Avalonia UI
-cd LspServer && dotnet test HexIDE.VbLspServer.Tests/    # LSP server
+cd IDE
+dotnet test HexIDE.Runtime.Tests/                        # VB6 interpreter
+dotnet test HexIDE.Tests/                                # IDE view-models
+dotnet test HexIDE.Integration.Tests/                    # headless Avalonia UI
+cd ../LspServer && dotnet test HexIDE.VbLspServer.Tests/ # LSP server
 ```
 
 > **First-party add-ins:** the Desktop build only signs/bundles the bundled add-ins when a first-party
@@ -55,6 +59,31 @@ cd LspServer && dotnet test HexIDE.VbLspServer.Tests/    # LSP server
 That is all most changes need. Some areas need more, and
 [Advanced setup](#advanced-setup) covers them: checking VB6's actual behaviour, the third-party language
 servers the test suite drives, and reproducing CI's Linux failures on Windows.
+
+## Scan staged changes for secrets
+
+Install [gitleaks](https://github.com/gitleaks/gitleaks#installing) (MIT; CI pins v8.30.1), then enable
+this clone's pre-commit hook from the repository root:
+
+```sh
+git config core.hooksPath scripts/hooks
+```
+
+If you already use a hooks directory, have its `pre-commit` invoke
+`bash scripts/pre-commit-secrets.sh` instead. The hook scans the index, including partially staged files,
+with default gitleaks rules and redacted output. A finding blocks the commit. Missing gitleaks also blocks
+the commit and explicitly says the changes were **not scanned**. Run the same check manually with
+`bash scripts/pre-commit-secrets.sh`.
+
+CI scans every commit in the pull request's base-to-head range, so deleting a token in a later commit
+does not clear the finding: remove it from the branch's history, and revoke any real exposed credential.
+CI verifies the downloaded scanner against a pinned publisher checksum. New-branch pushes scan from
+the merge base with `origin/main`; unavailable history fails with a `NOT scanned` message.
+
+`.gitleaks.toml` extends the upstream rules. It currently needs no fixture exceptions; any future exception
+must identify the specific fixture and explain why it is safe, without broad path exclusions. Inline
+`gitleaks:allow` comments are ignored by both scans. To exercise the guard, run
+`bash scripts/check-secrets.selftest.sh` with gitleaks installed.
 
 ## Conventions
 
@@ -104,8 +133,9 @@ but nobody will block your PR for omitting it.
 
 If you do use the tooling: `npm install -g @fission-ai/openspec`, then `openspec validate --specs --strict`.
 Note that it reports anonymous usage stats by default — `openspec config set telemetry.enabled false` turns
-that off. That setting is per-machine, so it does not travel with this repo; HexIDE itself makes no network
-calls of any kind.
+that off. That setting is per-machine, so it does not travel with this repo. HexIDE itself sends no telemetry and
+makes no network call you have not configured: it fetches the add-in revocation list only when `RevocationListUrl`
+is set, and the AI Chat add-in and a remote language server connect only to the address you give them.
 
 ## Making a change
 
@@ -122,6 +152,14 @@ calls of any kind.
 2. Branch off the default branch; keep each PR focused and its commits tidy.
 3. Make sure the build is green and the relevant tests pass locally. CI runs the IDE and LSP builds/tests.
 4. Describe *what* and *why* in the PR. Screenshots help for any UI change.
+5. Record a user-visible change in its own file under [`changelog.d/`](changelog.d/README.md), named for
+   the issue, not in `CHANGELOG.md`: two pull requests then never edit the same lines.
+
+**Before merging, including a session merging its own pull request, wait until every job on the head
+commit has finished and none is red. Do not merge while main's latest run is red.** This includes the
+advisory macOS job: `build-ide (windows)` is required by branch protection, while `build-ide (macos)`
+remains advisory because there is no local macOS to reproduce a failure on. For a known flake, post the
+failing run on its issue and re-run it green before merging (#1331).
 
 ## AI-assisted contributions
 
@@ -155,7 +193,7 @@ each one says which.
 **When you need it:** you are changing what the interpreter computes, meaning a result type, an error
 number, a rounding rule, a coercion or a `Format` edge. HexIDE decides those by running the real VB6
 compiler, not by reading documentation. The documentation has been wrong often enough that a test's
-expected value has to come from `vb6.exe`. [`docs/vb6-fidelity-oracle.md`](docs/vb6-fidelity-oracle.md)
+expected value has to come from `vb6.exe`. [`docs/vb6-fidelity-oracle/README.md`](docs/vb6-fidelity-oracle/README.md)
 records every behaviour measured so far, so check it first. Your question may already be answered there.
 
 **What it needs:** Windows and **your own licensed copy of Visual Basic 6**, installed on the machine you
@@ -227,13 +265,14 @@ directly works too, but now and then fails with "Read-only file system" while wr
 like a flaky test and isn't. Keep `apt-get update` in the first command. The SDK packages change most months,
 and an out-of-date package list asks for files that have been removed, which fails with a wall of 404s.
 
-WSL runs a newer Ubuntu than CI does. If CI fails and WSL does not, try CI's exact version (24.04) in a
-container with [Podman](https://podman.io/). Podman is free, whereas Docker Desktop needs a paid licence in
+WSL and CI both run Ubuntu 26.04 now, since GitHub moved `ubuntu-latest` on 2026-10-19. If CI fails and
+WSL does not, try CI's own image in a container with [Podman](https://podman.io/). The tag below follows
+CI's release, which a failing job's log names on its `Image:` line. Podman is free, whereas Docker Desktop needs a paid licence in
 larger organisations. Run this from PowerShell; in Git Bash, MSYS rewrites `/repo/IDE` into a Windows path:
 
 ```powershell
 podman run --rm -v "C:\path\to\HexIDE:/repo" -v hexide-nuget:/root/.nuget -w /repo/IDE `
-  mcr.microsoft.com/dotnet/sdk:10.0-noble `
+  mcr.microsoft.com/dotnet/sdk:10.0-resolute `
   dotnet test HexIDE.Tests/ --artifacts-path /repo/artifacts/container
 ```
 
@@ -249,8 +288,12 @@ cannot rebuild the signed packages. That does not stop you working on an add-in.
 2. Tick **Options → Developer → Load unsigned add-in packages**, then restart.
 
 The add-in then loads and is marked as unsigned. This is the setting for testing your own changes. It is
-not a way to ship an add-in. A **third-party** add-in is signed with its author's own key, and
-[TRUST.md](TRUST.md) explains how users check who published one.
+not a way to ship an add-in. To ship a **third-party** add-in, send the maintainer your public key,
+publisher id and display name. The maintainer issues `publisher.json` and `publisher.sig` offline,
+along with the public intermediate chain files. You then use `pack --trust` with those records and
+your own private key (currently named `firstparty.key` by the packer). Never send your private key.
+[TRUST.md](TRUST.md#for-third-party-publishers) describes the request, accepted inputs and how users
+check who published an add-in.
 
 ### Driving the IDE from an AI coding agent
 

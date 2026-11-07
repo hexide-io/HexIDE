@@ -36,8 +36,10 @@ internal static class ServerOptions
 {
     public static int? Port { get; private set; }
     public static bool NewProject { get; private set; }
+    public static bool NewProjectUnsaved { get; private set; }
     public static string? ProjectPath { get; private set; }
-    public static string? Personality { get; private set; }
+    public static string? Profile { get; private set; }
+    public static string? ProfileArgumentError { get; private set; }
 
     /// <summary><c>--user-data-dir</c>: the directory this session keeps per-user files in, already made
     /// absolute against the directory HexIDE was started from. Null when the flag was not given.</summary>
@@ -113,6 +115,16 @@ internal static class ServerOptions
     /// </remarks>
     public static string? AnsiCodePageInvalid { get; private set; }
 
+    /// <summary><c>--dpi-unaware</c>: run the IDE DPI-unaware on Windows, so it renders at scale 1 whatever the
+    /// display's scaling, and a layout can be checked as a 100% display shows it (hexide-io/HexIDE#3083).</summary>
+    /// <remarks>
+    /// <b>Scale 1 only, and Windows only.</b> Avalonia's Win32 platform offers no other scale override: its options
+    /// give unaware, system-aware or per-monitor-aware, and <c>AVALONIA_GLOBAL_SCALE_FACTOR</c> is read by the X11
+    /// platform alone. Elsewhere the flag is refused rather than skipped, as <see cref="AnsiCodePageInvalid"/> is: it
+    /// is given to see the IDE at scale 1, and ignoring it would show another scale while looking as though it had worked.
+    /// </remarks>
+    public static bool DpiUnaware { get; private set; }
+
     /// <summary>
     /// Every option the IDE accepts, in the order <c>--help</c> lists them.
     /// </summary>
@@ -146,8 +158,12 @@ internal static class ServerOptions
             Aliases: ["-h", "/?", "-?"]),
 
         new("newproject", null,
-            "Create a Standard EXE and skip the startup dialog.",
+            "Create a Standard EXE and save it in a temporary directory.",
             _ => { NewProject = true; return false; }),
+
+        new("newproject-unsaved", null,
+            "Create a Standard EXE without saving; skip the startup dialog.",
+            _ => { NewProjectUnsaved = true; return false; }),
 
         // "from its first handshake" is the whole flag, not decoration. Envelopes are recorded for every
         // connection already and bodies can be armed at any time from the inspector; arming BEFORE the
@@ -172,12 +188,18 @@ internal static class ServerOptions
                 return true;
             }),
 
-        // <name>, not <vb6|vbaode|vba>: the value column is the longest spelling in the list, so naming
-        // the values here made every other row ten cells wider and put the beside layout out of reach of
-        // a default console. They live in the summary instead, where they cost one row rather than six.
-        new("personality", "<name>",
-            "IDE personality for the session: vb6, vbaode or vba.",
-            value => { Personality = value; return true; }),
+        new("profile", "<value>",
+            new HexIDE.Localization.LocalizationService().GetStringFrom("en", "Str.Profiles.HelpSummary"),
+            value =>
+            {
+                if (Profile != null || !IsProfileValue(value))
+                {
+                    ProfileArgumentError ??= "Str.Profiles.SelectorRequired";
+                    return false;
+                }
+                Profile = value;
+                return true;
+            }),
 
         new("server-port", "<port>",
             "Start the automation server on this port. Debug builds only.",
@@ -231,6 +253,10 @@ internal static class ServerOptions
                     AnsiCodePageInvalid = value ?? "";
                 return value is not null;
             }),
+
+        new("dpi-unaware", null,
+            "Render at scale 1 on a scaled Windows display. Debug builds only.",
+            _ => { DpiUnaware = true; return false; }),
     ];
 
     /// <param name="args">The command line.</param>
@@ -241,6 +267,9 @@ internal static class ServerOptions
     public static void ParseArgs(string[] args, string invocationDirectory)
     {
         _invocationDirectory = invocationDirectory;
+        if (args.Any(arg => arg.Equals("--personality", StringComparison.OrdinalIgnoreCase) ||
+                            arg.Equals("/personality", StringComparison.OrdinalIgnoreCase)))
+            ProfileArgumentError = "Str.Profiles.PersonalityRemoved";
 
         for (var i = 0; i < args.Length; i++)
         {
@@ -251,7 +280,7 @@ internal static class ServerOptions
                 var value = option.TakesValue && i + 1 < args.Length ? args[i + 1] : null;
                 if (option.Apply(value) && value is not null) i++;
             }
-            else if (!arg.StartsWith('-') && !arg.StartsWith('/') &&
+            else if (!arg.StartsWith('-') &&
                      (arg.EndsWith(".vbp", StringComparison.OrdinalIgnoreCase) ||
                       arg.EndsWith(".vbg", StringComparison.OrdinalIgnoreCase) ||
                       arg.EndsWith(".twinproj", StringComparison.OrdinalIgnoreCase)))
@@ -306,6 +335,13 @@ internal static class ServerOptions
 
         return string.Join(Environment.NewLine, [.. body, .. tail]);
     }
+
+    private static bool IsProfileValue(string? value) =>
+        !string.IsNullOrWhiteSpace(value) && !value.StartsWith('-') &&
+        Match(value) == null && !value.Equals("/personality", StringComparison.OrdinalIgnoreCase);
+
+    internal static HexIDE.Profiles.ProfileSnapshot? ResolveProfile(string invocationDirectory, string userDataDirectory) =>
+        new HexIDE.Profiles.ProfileResolver(UserDataDirectory ?? userDataDirectory, invocationDirectory).Resolve(Profile);
 
     private static string Spelling(CommandLineOption option) =>
         option.TakesValue ? $"--{option.Name} {option.ValueName}" : $"--{option.Name}";

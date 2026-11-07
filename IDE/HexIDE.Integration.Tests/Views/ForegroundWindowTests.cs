@@ -19,11 +19,27 @@ namespace HexIDE.Integration.Tests.Views;
 /// deliberately do not rely on <c>IsActive</c> — headless never sets it, which is exactly the
 /// robustness the rule needs.
 /// </summary>
-public class ForegroundWindowTests
+public class ForegroundWindowTests : IDisposable
 {
-    private static Window Shown(string title)
+    private readonly List<Window> windows = new();
+
+    public void Dispose()
     {
-        var w = new Window { Title = title };
+        // Owners are opened first, so close their dialogs first.
+        foreach (var window in windows.AsEnumerable().Reverse())
+            window.Close();
+        windows.Clear();
+    }
+
+    private Window Track(Window window)
+    {
+        windows.Add(window);
+        return window;
+    }
+
+    private Window Shown(string title)
+    {
+        var w = Track(new Window { Title = title });
         w.Show();
         return w;
     }
@@ -51,7 +67,7 @@ public class ForegroundWindowTests
         // The regression itself. Three visible windows, and the one that matters was created last.
         var main = Shown("HexIDE");
         var form = Shown("Form1");
-        var msgBox = new Window { Title = "MsgBox" };
+        var msgBox = Track(new Window { Title = "MsgBox" });
         _ = msgBox.ShowDialog(form);
 
         ForegroundWindow.Pick(main, new[] { main, form, msgBox })
@@ -62,7 +78,7 @@ public class ForegroundWindowTests
     public void A_dialog_over_the_main_window_is_still_found()
     {
         var main = Shown("HexIDE");
-        var options = new Window { Title = "Options" };
+        var options = Track(new Window { Title = "Options" });
         _ = options.ShowDialog(main);
 
         ForegroundWindow.Pick(main, new[] { main, options }).Should().BeSameAs(options);
@@ -73,7 +89,7 @@ public class ForegroundWindowTests
     {
         var main = Shown("HexIDE");
         var form = Shown("Form1");
-        var msgBox = new Window { Title = "MsgBox" };
+        var msgBox = Track(new Window { Title = "MsgBox" });
         _ = msgBox.ShowDialog(form);
         msgBox.Close();
 
@@ -110,7 +126,7 @@ public class ForegroundWindowTests
         // window appeared afterwards.
         var main = Shown("HexIDE");
         var form = Shown("Form1");
-        var msgBox = new Window { Title = "MsgBox" };
+        var msgBox = Track(new Window { Title = "MsgBox" });
         _ = msgBox.ShowDialog(form);
         var later = Shown("Form2");
 
@@ -137,7 +153,7 @@ public class ForegroundWindowTests
         // A dialog outranks a form under "auto" — it must not outrank an explicit request.
         var main = Shown("HexIDE");
         var form = Shown("Form1");
-        var dialog = new Window { Title = "Run-time error" };
+        var dialog = Track(new Window { Title = "Run-time error" });
         _ = dialog.ShowDialog(form);
 
         ForegroundWindow.Pick("auto", main, new[] { main, form, dialog }).Window.Should().BeSameAs(dialog);
@@ -174,6 +190,22 @@ public class ForegroundWindowTests
         error.Should().Contain("editor").And.Contain("auto").And.Contain("ide");
     }
 
+    // get_window_state and set_window_state reach the IDE's own window when no window is named, as before they took one,
+    // so an unknown name's refusal there must not call "auto" the default (#2357).
+    [AvaloniaFact]
+    public void An_unknown_scope_names_the_default_of_the_tool_that_asked()
+    {
+        var main = Shown("HexIDE");
+        var form = Shown("Form1");
+
+        ForegroundWindow.Pick("Nope", main, [main, form]).Error.Should()
+            .Contain("\"auto\" (the default: ").And.NotContain("the default here");
+        ForegroundWindow.Pick("Nope", main, [main, form], ideByDefault: true).Error.Should()
+            .StartWith("Unknown window 'Nope'. Use \"ide\" (the default here: the IDE window, even while a program is running), "
+                       + "\"auto\" (any visible window other than the IDE's own, a dialog first), or the name or title of an open")
+            .And.NotContain("(the default: ");
+    }
+
     [AvaloniaFact]
     public void An_unknown_scope_does_not_describe_auto_as_frontmost()
     {
@@ -185,7 +217,7 @@ public class ForegroundWindowTests
 
     // ── A window by its name (#822) ───────────────────────────────────────────────────────────────────────
 
-    private static Window Form(string name, string title)
+    private Window Form(string name, string title)
     {
         var w = Shown(title);
         HexIDE.Runtime.BuiltinControls.VBProps.SetName(w, name);
@@ -226,7 +258,11 @@ public class ForegroundWindowTests
         var first = Form("Form1", "Form1");
         var second = Form("Form1", "Form1 again");
 
-        ForegroundWindow.Pick("Form1", main, [main, first, second]).Error.Should().Contain("2 open windows answer to 'Form1'");
+        // Side by side, no name tells them apart; the refusal says what does reach one, not to name a title only one has
+        // (#2712).
+        ForegroundWindow.Pick("Form1", main, [main, first, second]).Error.Should().Contain("2 open windows answer to 'Form1'")
+            .And.Contain("\"auto\" reaches one of them, Form1 (\"Form1 again\"), the one opened last")
+            .And.NotContain("a title only it has");
 
         second.Hide();
         ForegroundWindow.Pick("Form1 again", main, [main, first, second]).Error.Should().Contain("is hidden");
@@ -253,11 +289,11 @@ public class ForegroundWindowTests
             .First(n => n.Path.EndsWith("[" + name + "]", StringComparison.Ordinal)).Path;
 
     // The IDE's window holds a button, Find a text box: a path into one is no path into the other.
-    private static (Window Main, Window Find) IdeWithFind()
+    private (Window Main, Window Find) IdeWithFind()
     {
-        var main = new Window { Title = "HexIDE", Content = new Button { Name = "Go" } };
+        var main = Track(new Window { Title = "HexIDE", Content = new Button { Name = "Go" } });
         main.Show();
-        var find = new Window { Title = "Find", Content = new TextBox { Name = "FindWhat" } };
+        var find = Track(new Window { Title = "Find", Content = new TextBox { Name = "FindWhat" } });
         find.Show();
         Avalonia.Threading.Dispatcher.UIThread.RunJobs();
         return (main, find);
@@ -322,5 +358,40 @@ public class ForegroundWindowTests
         var findWhat = PathTo(find, "FindWhat");
 
         ForegroundWindow.Resolve(findWhat, null, find, main, "Find").Control.Should().BeOfType<TextBox>();
+    }
+
+    // The Find dialog's message box has the dialog's own title, so "Find" named both and was refused with nothing that could
+    // reach either (#2712). Stacked, the name reaches the one on top, as a person can use only that one.
+    [AvaloniaFact]
+    public void A_name_shared_by_a_dialog_and_the_box_over_it_reaches_the_box_and_then_the_dialog()
+    {
+        var main = Shown("HexIDE");
+        var find = Track(new Window { Title = "Find" });
+        find.Show(main);
+        var box = Track(new Window { Title = "Find" });
+        _ = box.ShowDialog(find);
+
+        ForegroundWindow.Pick("Find", main, [main, find, box]).Window.Should().BeSameAs(box);
+
+        box.Close();
+        ForegroundWindow.Pick("Find", main, [main, find, box]).Window.Should().BeSameAs(find);
+    }
+
+    // A path from the dialog fails in the box, and says the name reached the window on top of the one it came from.
+    [AvaloniaFact]
+    public void A_path_that_fails_in_the_box_says_the_name_reached_the_window_on_top()
+    {
+        var main = Shown("HexIDE");
+        var find = Track(new Window { Title = "Find" });
+        find.Show(main);
+        var box = Track(new Window { Title = "Find" });
+        _ = box.ShowDialog(find);
+
+        var (control, error) = ForegroundWindow.Resolve("Window/Button[Find Next]", "Find", box, main, "Find");
+
+        control.Should().BeNull();
+        error.Should().Contain("'Find' reached the window on top, \"Find\", which sits over another window of that name");
+        ForegroundWindow.Resolve("Window/Button[Find Next]", "Find", find, main, "Find").Error
+            .Should().NotContain("window on top", "the dialog is on top of nothing of its name");
     }
 }

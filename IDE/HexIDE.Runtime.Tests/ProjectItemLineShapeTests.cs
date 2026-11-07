@@ -10,7 +10,7 @@ namespace HexIDE.Runtime.Tests;
 ///
 /// <para>
 /// Measured with <c>vb6.exe /make</c>, one variable per run, on 2026-09-20; the log lines are quoted in
-/// <c>docs/vb6-fidelity-oracle.md</c>:
+/// <c>docs/vb6-fidelity-oracle/a-vbp-item-line-has-two-shapes-and-the-keys-do-not-agree-on-which.md</c>:
 /// </para>
 ///
 /// <list type="table">

@@ -28,8 +28,8 @@ namespace HexIDE.Integration.Tests.Automation;
 
 /// <summary>
 /// type_text's keyboard mode types as a person does, a key at a time (#943). The document mode inserts through the
-/// document, by design, and press_key raises only KeyDown and KeyUp, which AvaloniaEdit writes no text for, so nothing
-/// on the surface raised TextInput: the completion list that opens as you type, parameter info, and the block a line
+/// document, by design, and press_key raised only KeyDown and KeyUp until #2428, which AvaloniaEdit writes no text for,
+/// so nothing on the surface raised TextInput: the completion list that opens as you type, parameter info, and the block a line
 /// break closes were out of reach.
 /// </summary>
 public class TypeKeysTests : IDisposable
@@ -220,6 +220,46 @@ public class TypeKeysTests : IDisposable
     }
 
     [AvaloniaFact]
+    public void A_character_key_pressed_types_its_character_in_the_code_window()
+    {
+        // As a person's press does (#2428): the key's text after its KeyDown, which AvaloniaEdit writes.
+        var editor = Show(Body);
+        PutCaretAfter(editor, "Foo()\r\n    ");
+
+        var pressed = UiAutomationDriver.PressKey(editor, "M", "Shift");
+        Dispatcher.UIThread.RunJobs();
+
+        pressed.Success.Should().BeTrue(pressed.Error);
+        pressed.Detail.Should().Contain("; it typed \"M\", as the key does");
+        editor.Document.Text.Should().Contain("    M\r\nEnd Sub");
+    }
+
+    [AvaloniaFact]
+    public void A_character_key_pressed_in_Attribute_lines_is_refused_and_types_nothing()
+    {
+        // Judged as typing is, now that it types (#2428); it went unjudged, typing nothing, before.
+        var editor = Show(WithRun);
+        PutCaretAfter(editor, "Attribute Total.");
+        var before = editor.Text;
+
+        var refused = UiAutomationDriver.PressKey(editor, "X", null);
+
+        refused.Success.Should().BeFalse();
+        refused.Error.Should().Contain("is in the Attribute lines describing Total, which only the IDE changes");
+        editor.Text.Should().Be(before);
+    }
+
+    [AvaloniaFact]
+    public void A_navigation_key_in_Attribute_lines_is_still_never_refused()
+    {
+        var editor = Show(WithRun);
+        PutCaretAfter(editor, "Attribute Total.");
+
+        UiAutomationDriver.PressKey(editor, "Right", null).Success.Should().BeTrue();
+        UiAutomationDriver.PressKey(editor, "Right", "Shift").Success.Should().BeTrue();
+    }
+
+    [AvaloniaFact]
     public void Refusal1042_Insertion_in_a_run_names_it_and_gives_a_new_editable_offset()
     {
         var editor = Show(WithRun);
@@ -256,6 +296,27 @@ public class TypeKeysTests : IDisposable
         // Line 4, counted from 0: the module's Attribute VB_Name header is its first line.
         await lsp.Received().RequestCompletionAsync(Arg.Any<string>(), new Position(4, 5), Arg.Any<CancellationToken>());
         await lsp.Received().RequestCompletionAsync(Arg.Any<string>(), new Position(4, 6), Arg.Any<CancellationToken>());
+    }
+
+    [AvaloniaTheory]
+    [InlineData(".")]
+    [InlineData("!")]
+    public async Task Advertised_punctuation_asks_for_completion(string trigger)
+    {
+        lsp.CompletionTriggerCharacters(Arg.Any<string>()).Returns(new[] { ".", "!" });
+        lsp.RequestCompletionForTriggerAsync(Arg.Any<string>(), Arg.Any<Position>(), trigger,
+            Arg.Any<CancellationToken>()).Returns(Array.Empty<CompletionItem>());
+        var editor = Show(Body);
+        PutCaretAfter(editor, "Foo()\r\n    ");
+
+        var typed = await UiAutomationDriver.TypeKeysAsync(editor, trigger);
+        Dispatcher.UIThread.RunJobs();
+
+        typed.Success.Should().BeTrue(typed.Error);
+        await lsp.Received(1).RequestCompletionForTriggerAsync(Arg.Any<string>(), new Position(4, 5),
+            trigger, Arg.Any<CancellationToken>());
+        await lsp.DidNotReceive().RequestCompletionAsync(Arg.Any<string>(), Arg.Any<Position>(),
+            Arg.Any<CancellationToken>());
     }
 
     [AvaloniaFact]
@@ -348,13 +409,13 @@ public class TypeKeysTests : IDisposable
         var typed = await UiAutomationDriver.TypeKeysAsync(editor, "MsgBox(");
 
         typed.Success.Should().BeTrue(typed.Error);
-        await lsp.Received(1).RequestSignatureHelpAsync(Arg.Any<string>(), new Position(4, 11), Arg.Any<CancellationToken>());
+        await lsp.Received(1).RequestSignatureHelpAsync(Arg.Any<string>(), new Position(4, 11), Arg.Any<CancellationToken>(), "(");
     }
 
     [AvaloniaFact]
     public async Task The_parameter_info_a_parenthesis_asks_for_is_open_before_the_reply()
     {
-        lsp.RequestSignatureHelpAsync(Arg.Any<string>(), Arg.Any<Position>(), Arg.Any<CancellationToken>()).Returns(async _ =>
+        lsp.RequestSignatureHelpAsync(Arg.Any<string>(), Arg.Any<Position>(), Arg.Any<CancellationToken>(), Arg.Any<string?>()).Returns(async _ =>
         {
             await Task.Delay(150);
             return (SignatureHelp?)new SignatureHelp([new SignatureInformation("MsgBox(Prompt)", null,
@@ -457,7 +518,9 @@ public class TypeKeysTests : IDisposable
             var typed = await UiAutomationDriver.TypeKeysAsync(box, "abc");
 
             typed.Success.Should().BeFalse();
-            typed.Error.Should().StartWith("typed 1 of 3 key(s) into TextBox, then stopped: 'Reset?' opened over the window");
+            typed.Error.Should().Be("key 1 of 3 was sent to TextBox and raised 'Reset?' over the window; "
+                                   + "that key may not have landed. Nothing after it was sent. "
+                                   + "Answer the dialog, then check the text before deciding what to send next");
             box.Text.Should().Be("a", "the rest would have gone to the dialog");
         }
         finally { prompt?.Close(); }
@@ -485,8 +548,9 @@ public class TypeKeysTests : IDisposable
             var typed = await UiAutomationDriver.TypeKeysAsync(box, "abc");
 
             typed.Success.Should().BeFalse();
-            typed.Error.Should().StartWith("typed 1 of 3 key(s) into TextBox, then stopped: 'Reset?' opened over 'Form1', "
-                                           + "and a person's next key would go to it");
+            typed.Error.Should().Be("key 1 of 3 was sent to TextBox and raised 'Reset?' over 'Form1'; "
+                                   + "that key may not have landed. Nothing after it was sent. "
+                                   + "Answer the dialog, then check the text before deciding what to send next");
             box.Text.Should().Be("a", "the rest would have gone to the dialog");
         }
         finally
@@ -524,6 +588,56 @@ public class TypeKeysTests : IDisposable
             pressed.Error.Should().StartWith("'Reset?', a modal dialog over 'Project1 - HexIDE', is open and waits for an "
                                              + "answer, so a person's keys would go to it, not to TextBox; nothing was pressed.");
             box.Text.Should().BeNullOrEmpty();
+        }
+        finally { open.Close(); }
+    }
+
+    // The reset prompt and the run-time error dialog are both titled 'HexIDE', so the refusal says what the dialog on top
+    // is, as the note does: its kind, its first line and its buttons (#1975).
+    [AvaloniaFact]
+    public async Task The_refusal_says_what_the_dialog_is_not_only_its_title()
+    {
+        var box = new TextBox { Width = 200 };
+        var window = ShowBoxes(box);
+        window.Title = "Project1 - HexIDE";
+        var open = new Window
+        {
+            Title = "HexIDE",
+            Content = new HexIDE.Runtime.Dialogs.MessageBox { Text = "Reset?", Buttons = HexIDE.IDE.MessageBoxButtons.OkCancel },
+        };
+        _ = open.ShowDialog(window);
+        Dispatcher.UIThread.RunJobs();
+        try
+        {
+            var typed = await UiAutomationDriver.TypeKeysAsync(box, "abc");
+            typed.Error.Should().StartWith("'HexIDE' (a message box: \"Reset?\", OK/Cancel), a modal dialog over 'Project1 - HexIDE'");
+
+            var pressed = UiAutomationDriver.PressKey(box, "A", null);
+            pressed.Error.Should().StartWith("'HexIDE' (a message box: \"Reset?\", OK/Cancel), a modal dialog over 'Project1 - HexIDE'");
+            box.Text.Should().BeNullOrEmpty();
+        }
+        finally { open.Close(); }
+    }
+
+    // A program's MsgBox given an empty title has none, and that is when what it is matters most: it is described all
+    // the same, and said to have no title, as every text that names a dialog says it (#1975 review).
+    [AvaloniaFact]
+    public async Task A_dialog_with_no_title_is_described_and_said_to_have_none()
+    {
+        var box = new TextBox { Width = 200 };
+        var window = ShowBoxes(box);
+        window.Title = "Project1 - HexIDE";
+        var open = new Window
+        {
+            Title = "",
+            Content = new HexIDE.Runtime.Dialogs.MessageBox { Text = "Reset?", Buttons = HexIDE.IDE.MessageBoxButtons.OkCancel },
+        };
+        _ = open.ShowDialog(window);
+        Dispatcher.UIThread.RunJobs();
+        try
+        {
+            var typed = await UiAutomationDriver.TypeKeysAsync(box, "abc");
+            typed.Error.Should().StartWith("one with no title (a message box: \"Reset?\", OK/Cancel), a modal dialog over");
         }
         finally { open.Close(); }
     }
@@ -661,7 +775,7 @@ public class TypeKeysTests : IDisposable
 
             var typed = await UiAutomationDriver.TypeKeysAsync(box, "abc");
 
-            typed.Error.Should().Contain("'Reset?' opened over 'Form1'");
+            typed.Error.Should().Contain("'Reset?'").And.Contain("over 'Form1'");
             OpenDialogs.Note(watch, [window, form, prompt!]).Should().BeNull();
         }
         finally
@@ -688,8 +802,10 @@ public class TypeKeysTests : IDisposable
         {
             var typed = await UiAutomationDriver.TypeKeysAsync(box, "abc");
 
-            typed.Error.Should().StartWith("typed 1 of 3 key(s) into TextBox, then stopped: 'Project1' opened in a window "
-                                           + "of its own, and a person's next key would go to it");
+            // Said what it is, not only its title, which a program's box shares with its project (#1975).
+            typed.Error.Should().StartWith("key 1 of 3 was sent to TextBox and raised 'Project1' (a message box")
+                .And.EndWith(") in a window of its own; that key may not have landed. Nothing after it was sent. "
+                             + "Answer the dialog, then check the text before deciding what to send next");
         }
         finally { shown?.Close(); }
     }

@@ -70,6 +70,12 @@ the controls. Settings is where people look for it, and it is reachable regardle
 - **WHEN** the developer opens the add-ins category
 - **THEN** each installed add-in is listed with its status
 
+#### Scenario: Opening management without installed add-ins
+- **WHEN** the developer chooses Add-Ins → Add-In Manager… with no add-ins installed
+- **THEN** Options opens with the Add-Ins category selected and expanded
+- **AND** the category contains a localized “(no add-ins installed)” leaf with no page
+- **AND** Restore Defaults is disabled
+
 #### Scenario: Disabling an add-in
 - **WHEN** the developer disables an add-in
 - **THEN** the choice is recorded and takes effect on the next start
@@ -84,3 +90,38 @@ contribute a page is what makes a third-party add-in feel like part of the IDE r
 #### Scenario: An add-in with settings
 - **WHEN** an installed add-in contributes a settings page
 - **THEN** it appears in the tree alongside the IDE's own categories, and behaves like them
+
+### Requirement: Numeric formatting and grid fields SHALL be named by their labels
+The Tab width, grid Width and grid Height text boxes SHALL expose their localized labels as automation names,
+without access-key markers or trailing colons. The names SHALL follow changes to those labels.
+
+#### Scenario: Naming a numeric field
+- **WHEN** the Formatting or Form Grid page is shown
+- **THEN** each numeric text box has its label's text without access-key markers or trailing colons as its automation name
+
+#### Scenario: Changing the label language
+- **WHEN** a numeric field's localized label changes
+- **THEN** its automation name changes too, including when the label has no access-key marker
+
+### Requirement: Options lists SHALL have localized accessible names
+The Language, Region, Theme and Keymap combo boxes SHALL expose accessible names from their visible
+localized labels, without access-key markers or trailing colons (including full-width colons). Names SHALL
+update when the labels change language and SHALL remain available when a list is disabled or empty.
+
+#### Scenario: System default has no region
+- **WHEN** the Language page shows System default and the Region list is disabled and empty
+- **THEN** both lists still expose their localized Language and Region labels as accessible names
+
+#### Scenario: Changing the dialog language
+- **WHEN** a localized label changes while Options is open
+- **THEN** the corresponding list's accessible name changes with it
+
+### Requirement: Sticky-scroll depth spinner buttons SHALL have localized accessible names
+The Editor General page's sticky-scroll depth spinner SHALL take its accessible name from its row's
+localized label, without access-key markers or trailing colons. Its buttons SHALL expose localized
+Increase and Decrease names describing a number changing rather than a size changing.
+
+#### Scenario: Inspecting the depth spinner
+- **WHEN** the Editor General page is rendered
+- **THEN** the spinner exposes its localized row label without a trailing colon
+- **AND** its buttons expose localized Increase and Decrease names, including while disabled

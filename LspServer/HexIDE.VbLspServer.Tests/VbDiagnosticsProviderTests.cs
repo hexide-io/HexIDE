@@ -5,6 +5,30 @@ namespace HexIDE.VbLspServer.Tests;
 
 public class VbDiagnosticsProviderTests
 {
+    [Theory]
+    [InlineData("x = = 1", "List0.")]
+    [InlineData("x = = 1", "y = = 2")]
+    [InlineData("x==1", "List0.")]
+    public void StatementRecovery_ReportsEachBrokenLineOnce(string first, string second)
+    {
+        var diagnostics = VbDiagnosticsProvider.GetDiagnostics($"Sub Foo()\n    {first}\n    {second}\nEnd Sub");
+
+        diagnostics.Select(d => d.Range.Start.Line).Should().Equal(1, 2);
+    }
+
+    [Fact]
+    public void StatementRecovery_PreservesLaterProcedureAndItsError()
+    {
+        const string code = "Sub Foo()\n    x = = 1\nEnd Sub\nSub Later()\n    y = = 2\nEnd Sub";
+
+        var (diagnostics, tree) = VbDiagnosticsProvider.GetDiagnosticsAndTree(code);
+
+        diagnostics.Select(d => d.Range.Start.Line).Should().Equal(1, 4);
+        tree.Should().NotBeNull();
+        tree!.module().moduleBody().moduleBodyElement()
+            .Select(e => e.subStmt()?.ambiguousIdentifier()?.GetText()).Should().Contain("Later");
+    }
+
     // Bare Print must not prevent the module from parsing (#993).
     [Theory]
     [InlineData("Print")]

@@ -28,7 +28,7 @@ public static class ComponentNaming
         ILocalizationService localization)
     {
         if (string.IsNullOrEmpty(proposed))
-            return "Name can't be empty";
+            return localization.GetString("Str.Naming.Msg.EmptyName");
 
         // A commit that does not change the name collides with nothing, and that is the case this guard
         // kept rejecting. The property grid commits Name on every focus change, so it fired constantly;
@@ -50,7 +50,7 @@ public static class ComponentNaming
         // where the rename would not join an array: an element may take an array's name when its Index is free there
         // (#1276), which is how an element renamed out of its array is renamed back.
         if (NamesInUse(formComponents, except: target).Contains(proposed) && !JoinsAnArray(target, proposed, formComponents))
-            return "Name must be unique in form";
+            return localization.GetString("Str.Naming.Msg.NameNotUniqueInForm");
 
         // Renaming the ROOT renames the document, so the project's rule applies on top of the form's: a form
         // and a module of one project may not share a name, because VB6 gives them one namespace.

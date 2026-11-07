@@ -44,8 +44,8 @@ public static class WorkspaceArtifactSpecReader
 
         if (declared is null) return false;
 
-        void Reject(string message) => found.Add(new LanguageServerConfigProblem(
-            entryId, message, false, LanguageServerConfigProblemKind.Configuration));
+        void Reject(string message, string code, params object[] arguments) => found.Add(new LanguageServerConfigProblem(
+            entryId, message, false, LanguageServerConfigProblemKind.Configuration).WithDetails(code, arguments));
 
         if (declared.Unrecognized is { Count: > 0 })
             found.Add(new LanguageServerConfigProblem(
@@ -55,46 +55,53 @@ public static class WorkspaceArtifactSpecReader
               + $"{string.Join(", ", declared.Unrecognized.Keys.Order(StringComparer.Ordinal))}. "
               + "Ignored — check the spelling.",
                 false,
-                LanguageServerConfigProblemKind.UnrecognisedField));
+                LanguageServerConfigProblemKind.UnrecognisedField).WithDetails("ArtifactUnknownFields", entryId, "workspaceArtifact",
+                    string.Join(", ", declared.Unrecognized.Keys.Order(StringComparer.Ordinal))));
 
         var path = declared.Path?.Trim();
         var provider = declared.Provider?.Trim();
 
         if (string.IsNullOrWhiteSpace(path))
         {
-            Reject($"'{entryId}' declares a workspaceArtifact with no path. No file will be generated.");
+            Reject($"'{entryId}' declares a workspaceArtifact with no path. No file will be generated.",
+                "ArtifactNoPath", entryId, "workspaceArtifact", "path");
             return false;
         }
 
         if (string.IsNullOrWhiteSpace(provider))
         {
             Reject($"'{entryId}' declares a workspaceArtifact at '{path}' but names no provider, "
-                 + "so nothing can produce it. No file will be generated.");
+                 + "so nothing can produce it. No file will be generated.",
+                "ArtifactNoProvider", entryId, "workspaceArtifact", declared.Path!, "provider");
             return false;
         }
 
         if (IsAbsolute(path))
         {
             Reject($"'{entryId}' declares a workspaceArtifact at '{path}', which is an absolute path. "
-                 + "It must be relative to the workspace root. No file will be generated.");
+                 + "It must be relative to the workspace root. No file will be generated.",
+                "ArtifactAbsolute", entryId, "workspaceArtifact", declared.Path!);
             return false;
         }
 
         if (EscapesWorkspace(path))
         {
             Reject($"'{entryId}' declares a workspaceArtifact at '{path}', which leads outside the "
-                 + "workspace. No file will be generated.");
+                 + "workspace. No file will be generated.",
+                "ArtifactOutside", entryId, "workspaceArtifact", declared.Path!);
             return false;
         }
 
         if (providers is not null && providers.Find(provider) is null)
         {
             Reject($"'{entryId}' declares a workspaceArtifact produced by '{provider}', which is not a "
-                 + $"provider this build knows. {AvailableProviders(providers)} No file will be generated.");
+                 + $"provider this build knows. {AvailableProviders(providers)} No file will be generated.",
+                providers.Names.Count == 0 ? "ArtifactNoProviders" : "ArtifactProvider",
+                entryId, "workspaceArtifact", declared.Provider!, string.Join(", ", providers.Names.Order(StringComparer.OrdinalIgnoreCase)));
             return false;
         }
 
-        spec = new WorkspaceArtifactSpec(path, provider);
+        spec = new WorkspaceArtifactSpec(path, provider, declared.Settings, declared.RestartOnChange == true);
         return true;
     }
 

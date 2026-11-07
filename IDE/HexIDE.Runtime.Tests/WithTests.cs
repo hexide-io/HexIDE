@@ -2,36 +2,33 @@ using HexIDE.Runtime.Interpreter;
 
 namespace HexIDE.Runtime.Tests;
 
-/// <summary>
-/// Phase 4.4 — With. `Debug` is a CSharpProxy seeded by the interpreter, so `With Debug / .Print … / End With`
-/// exercises the leading-dot → With-target stack mechanism (method dispatch). A leading dot with no active With
-/// raises Error 91. Control property read/write via With is covered by an HexIDE.Integration.Tests test.
-/// </summary>
 public class WithTests : BaseVBTestFixture
 {
     [Fact]
+    public async Task WithDebug_IsSyntaxError()
+    {
+        Func<Task> act = () => Run("With Debug\n.Print 1\nEnd With\n");
+        await act.Should().ThrowAsync<VBCompileErrorException>().WithMessage("Compile error:*Syntax error");
+    }
+
+    [Fact]
     public async Task With_ResolvesLeadingDotMethodCall()
     {
-        await Run(
-            "With Debug\n" +
-            ".Print 1\n" +
-            ".Print 2\n" +
-            "End With\n");
+        await RunClasses(
+            "Dim c As Writer\nSet c = New Writer\nWith c\n.Write 1\n.Write 2\nEnd With\n",
+            ("Writer", "Public Sub Write(n As Integer)\nDebug.Print n\nEnd Sub\n"));
         AssertDebugLog([1, 2]);
     }
 
     [Fact]
     public async Task NestedWith_ResolvesToInnermostThenOuter()
     {
-        await Run(
-            "With Debug\n" +
-            ".Print 10\n" +
-            "With Debug\n" +
-            ".Print 20\n" +
-            "End With\n" +
-            ".Print 30\n" +   // back to the outer With
-            "End With\n");
-        AssertDebugLog([10, 20, 30]);
+        await RunClasses(
+            "Dim a As Writer\nSet a = New Writer\na.N = 10\n" +
+            "Dim b As Writer\nSet b = New Writer\nb.N = 20\n" +
+            "With a\n.Write\nWith b\n.Write\nEnd With\n.Write\nEnd With\n",
+            ("Writer", "Public N As Integer\nPublic Sub Write()\nDebug.Print N\nEnd Sub\n"));
+        AssertDebugLog([10, 20, 10]);
     }
 
     [Fact]
