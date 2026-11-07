@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.IO;
+using System.Text.Json;
 using Avalonia;
 using Avalonia.Media;
 using Avalonia.Platform;
@@ -321,16 +322,40 @@ public class LocalizationServiceTests
     }
 
     [AvaloniaFact]
-    public void Apply_JapaneseRegion_InheritsNeutralJapanese_WithoutMnemonics()
+    public void Apply_JapaneseRegion_InheritsNeutralJapanese_WithMnemonics()
     {
         var sut = CreateSut();
         sut.Apply("ja");
         var jaFile = sut.GetString("Str.Menu.File");
         jaFile.Should().NotBe("_File");
-        jaFile.Should().NotContain("_");   // mnemonics omitted for CJK
+        jaFile.Should().Be("ファイル(_F)");
 
         sut.Apply("ja-JP");   // empty region
         sut.GetString("Str.Menu.File").Should().Be(jaFile);
+    }
+
+    [AvaloniaTheory]
+    [InlineData("ja")]
+    [InlineData("zh-Hans")]
+    [InlineData("zh-Hant")]
+    public void Apply_CjkPack_PreservesEveryEnglishAccessKey(string language)
+    {
+        var sut = CreateSut();
+        sut.Apply("en");
+        using var stream = AssetLoader.Open(new Uri("avares://HexIDE/Localization/Packs/en.json"));
+        var canonical = JsonSerializer.Deserialize(stream, LocalizationJsonContext.Default.LanguagePackRecord)!.Strings!;
+        sut.Apply(language);
+        foreach (var (key, value) in canonical)
+        {
+            // These underscores belong to identifiers, not access keys (#41).
+            if (key is "Str.Vb6Toolchain.Vb6NotFound" or "Str.Dialog.ConflictingNames")
+                continue;
+            var marker = value.IndexOf('_');
+            if (marker < 0) continue;
+            var translated = sut.GetString(key);
+            translated.Should().Contain($"(_{char.ToUpperInvariant(value[marker + 1])})", key);
+            translated.Count(c => c == '_').Should().Be(1, key);
+        }
     }
 
     [AvaloniaFact]
