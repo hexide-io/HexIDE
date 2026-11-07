@@ -13,8 +13,9 @@ public sealed class AddinProjectService(IProjectManager projectManager) : IProje
     public IReadOnlyList<AddinProjectInfo> GetProjects() =>
         [.. projectManager.LoadedProjects.Select(Describe)];
 
-    private static AddinProjectInfo Describe(ProjectDefinition project) =>
-        new(project.Name, project.AbsolutePath ?? string.Empty, FilesOf(project));
+    internal static AddinProjectInfo Describe(ProjectDefinition project) =>
+        new(project.Name, project.AbsolutePath ?? string.Empty, FilesOf(project),
+            project.StartsAtSubMain ? "Sub Main" : project.StartupForm?.Name);
 
     /// <summary>
     /// A project's documents, each naming the project it belongs to.

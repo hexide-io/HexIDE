@@ -27,6 +27,8 @@ namespace HexIDE.Runtime.Debugging;
 /// </summary>
 public sealed class DebugController : IDebugController
 {
+    public bool CanBreak { get; init; } = true;
+
     private const long YieldIntervalMs = 15;   // time-slice: yield the UI thread at least this often so Ctrl+Break lands
 
     private readonly Dictionary<string, HashSet<int>> _breakpoints = new(StringComparer.OrdinalIgnoreCase);
@@ -198,6 +200,10 @@ public sealed class DebugController : IDebugController
     /// as <see cref="EvaluateAsync"/> — runs on the UI thread while the walk is suspended.</summary>
     public async Task<DebugEvalResult?> EvaluateWatchAsync(string expression)
         => _state == DebugState.Paused && _currentFrame is { } f ? await f.EvaluateTypedAsync(expression) : null;
+
+    public async Task<DebugEvalResult?> EvaluateScopedWatchAsync(string expression, string context)
+        => _state == DebugState.Paused && _currentFrame is { } f
+            ? await f.EvaluateScopedWatchAsync(expression, context) : null;
 
     /// <summary>The Call Stack (deepest/current frame first), or empty when not in Break mode.</summary>
     public IReadOnlyList<CallStackFrame> GetCallStack()

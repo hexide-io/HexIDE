@@ -39,7 +39,7 @@ public class Vb6FoldingAdapterTests
 
     // ── The header's fold ──────────────────────────────────────────────────────────────────────────────
 
-    [Fact]
+    [AvaloniaFact]
     public void AFormsHeaderFoldEndsWithTheHeadersLastLineNotItsLineBreak()
     {
         var fold = HeaderOf(Frm, FrmPrefix);
@@ -51,13 +51,13 @@ public class Vb6FoldingAdapterTests
             "folded, the header is one line and the first line of code stays a line of its own");
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void TheHeaderFoldIsLabelledWithItsFirstLine()
     {
         HeaderOf(Frm, FrmPrefix)!.Name.Should().Be("VERSION 5.00");
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void ATwoLineHeaderIsFolded()
     {
         // The shortest header a fold can hide anything of.
@@ -69,7 +69,7 @@ public class Vb6FoldingAdapterTests
         fold!.EndOffset.Should().Be(text.IndexOf("\r\nOption", StringComparison.Ordinal));
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void AOneLineHeaderIsNotFolded()
     {
         var text = "Attribute VB_Name = \"Module1\"\r\nOption Explicit\r\n";
@@ -77,13 +77,13 @@ public class Vb6FoldingAdapterTests
         HeaderOf(text, text.IndexOf("Option", StringComparison.Ordinal)).Should().BeNull();
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void AFileWithNoHeaderHasNoHeaderFold()
     {
         HeaderOf("Option Explicit\r\n\r\nSub Main()\r\nEnd Sub\r\n", 0).Should().BeNull();
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void AMembersAttributeRunIsNotTheHeader()
     {
         // The first region is a member's when the file has no header, and it is phase 4's to fold, not this one's.
@@ -95,7 +95,7 @@ public class Vb6FoldingAdapterTests
         Vb6FoldingAdapter.Header(new TextDocument(text), regions).Should().BeNull();
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void AHeaderWithNoFinalLineBreakEndsAtTheEndOfTheFile()
     {
         // A file that is nothing but its header, and ends without a line break.
@@ -164,7 +164,7 @@ public class Vb6FoldingAdapterTests
         RunFoldsOf(text).Select(f => f.StartOffset).Should().Equal(EndOf(text, "ByVal Rate As Double) As Double"));
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void ARunsFoldNestsInsideAServersFoldOfTheProcedureAndOneCrossingItIsDropped()
     {
         var text = "Option Explicit\r\nPublic Sub Go()\r\nAttribute Go.VB_Description = \"Goes\"\r\n    Debug.Print 1\r\nEnd Sub\r\n";
@@ -178,7 +178,7 @@ public class Vb6FoldingAdapterTests
 
     // ── A server's folds ──────────────────────────────────────────────────────────────────────────────
 
-    [Fact]
+    [AvaloniaFact]
     public void AServerFoldDefaultsToTheEndsOfItsFirstAndLastLines()
     {
         var document = new TextDocument(Frm);
@@ -191,7 +191,7 @@ public class Vb6FoldingAdapterTests
         folds[0].Name.Should().BeNull();
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void AServerFoldOnOneLineOrPastTheEndIsSkipped()
     {
         var document = new TextDocument(Frm);
@@ -253,7 +253,7 @@ public class Vb6FoldingAdapterTests
         Vb6FoldingAdapter.Merge([own], [server]).Should().Equal(server, own);
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void AServerFoldHonoursCharactersOnBothLines()
     {
         var document = new TextDocument("  int area() {\r\n    return 1;\r\n  }\r\n");
@@ -265,7 +265,7 @@ public class Vb6FoldingAdapterTests
         fold.Name.Should().BeNull();
     }
 
-    [Theory]
+    [AvaloniaTheory]
     [InlineData(false)]
     [InlineData(true)]
     public void AnInnerFoldKeepsItsStateWhenTheOuterVanishes(bool innerFolded)
@@ -280,7 +280,7 @@ public class Vb6FoldingAdapterTests
         manager.AllFoldings.Single().IsFolded.Should().Be(innerFolded);
     }
 
-    [Theory]
+    [AvaloniaTheory]
     [InlineData(false)]
     [InlineData(true)]
     public void AReturningFoldTakesItsDefaultRatherThanTheSurvivorsState(bool defaultClosed)
@@ -296,7 +296,7 @@ public class Vb6FoldingAdapterTests
         manager.AllFoldings.Single(f => f.EndOffset == 50).IsFolded.Should().Be(!defaultClosed);
     }
 
-    [Theory]
+    [AvaloniaTheory]
     [InlineData(false, false)]
     [InlineData(true, false)]
     [InlineData(false, true)]

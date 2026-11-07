@@ -1,4 +1,5 @@
 using System;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 
@@ -21,6 +22,11 @@ public partial class InputBox : UserControl
 
     private void OnLoaded(object? sender, RoutedEventArgs e)
     {
+        // The IDE installs Str.* resources; the standalone runner keeps the English fallback.
+        PART_Ok.Content = this.TryFindResource("Str.Dialog.MessageBox.Button.Ok", out var ok)
+            && ok is string okCaption ? okCaption : "OK";
+        PART_Cancel.Content = this.TryFindResource("Str.Dialog.MessageBox.Button.Cancel", out var cancel)
+            && cancel is string cancelCaption ? cancelCaption : "Cancel";
         PART_Prompt.Text = Prompt;
         PART_Input.Text = Text;
         PART_Input.SelectAll();

@@ -236,6 +236,94 @@ each action in the log, which recorded every event. Native and p-code logged the
 - **Assigning Text at load raised Change** before the form's code ran on.
 - **Mouse X and Y are in twips.**
 
+### Keyboard selection: where the endpoints land (2026-10-27)
+
+**The probe:**
+- **The form:** RichTextBox1, a hand-written minimal block 8700 twips wide so that no line wraps, and Text1, a
+  MultiLine TextBox the same size, for comparison.
+- **The text,** with SelStart's positions:
+
+  | Positions | Text |
+  |---|---|
+  | 0 to 39 | `Hello, world. Foo-bar baz! it's 3.14 (x)` |
+  | 40, 41 | a line break, vbCrLf |
+  | 42, 43 | an empty line's break |
+  | 44 to 61 | `Second line, here.` |
+  | 62, 63 | a break |
+  | 64 to 66 | `End` |
+
+  Both controls read Len(Text) 67, with CR and LF at 40 to 43 and 62 to 63.
+- **The input.** Each case placed the caret, or a selection, from code, then pressed real keys with keybd_event. SelStart
+  and SelLength were read after each key.
+- **The builds.** Native and p-code logged the same lines.
+
+**A paragraph break is one step, two positions.** Shift+Right from 40 gave 40+2, 40+4, then 40+5, in both controls.
+Shift+Left from 44 came back the same way.
+
+| From | Keys | RichTextBox | TextBox |
+|---|---|---|---|
+| 0 | Shift+Right; Shift+Left | 0+1; 0+0 | the same |
+| 5 | Shift+Left twice | 4+1, 3+2 | the same |
+| 9 | Shift+Home | 0+9 | the same |
+| 9 | **Shift+End**, then again | **9+33, to 42: past the line's break** | **9+31, to 40: before it** |
+| 9 | Shift+Home then Shift+End | 0+9, then 9+33 | 0+9, then 9+31 |
+| 3 | **Shift+Down** three times | **3+41, 3+61, 3+66** | **3+39, 3+41, 3+61** |
+| 3 | Shift+Down then Shift+Up | 3+41, then 0+3 | 3+39, then 0+3 |
+| 3 | **Shift+Up, on the first line** | **0+3, to the start** | **3+0, no change** |
+| 66 | **Shift+Down, on the last line** | **66+3, to 69** | **66+0, no change** |
+| 67, the end | **Shift+Right** | **67+2, to 69** | **67+0** |
+| 67 | Shift+Home | 64+3 | the same |
+
+- **A RichTextBox extending to the end of a line takes in the line's break.**
+  - Shift+End stopped at 42, not 40.
+  - Shift+Down onto the empty line went to 44.
+  - At the end of the text, a selection went two positions past Len(Text), to 69. **SelStart + SelLength can exceed
+    Len(Text) by 2.** That is the hidden break after the last line.
+- **Up and Down, after an empty line:** in both controls, the next Down went to the start of the next line, not back to
+  the column the caret started in.
+- **Shift+Up on the first line, and Shift+Down on the last,** extend to the start and to the end in the RichTextBox. The
+  TextBox does nothing.
+
+**Which end moves:**
+
+| Selection | Keys | RichTextBox | TextBox |
+|---|---|---|---|
+| **7+5 set by code** | Shift+Left; Shift+Right | 7+4; 7+6: **the end at 12 moves** | the same |
+| 7+5 made by Shift+Left from 12 | Shift+Right; Shift+Left | 8+4; 6+6: the end at 7 moves | the same |
+| 7+5 by code | **Left** | **7+0: collapses to its start** | **11+0: one left of the end at 12** |
+| 7+5 by code | **Right** | **12+0: collapses to its end** | **13+0: one right of 12** |
+| 7+5 made backwards | **Left** | **7+0** | **6+0: one left of the end at 7** |
+| 7+5 by code | **Ctrl+Right** | **12+0: collapses, and goes no further** | **14+0: a word on from 12** |
+| 7+5 by code | Ctrl+Shift+Right | 7+7 | the same |
+
+**So a selection set by code has its moving end at SelStart + SelLength.** Plain Left and Right collapse a
+RichTextBox's selection to the side pressed. A TextBox moves its caret one position from the moving end.
+
+**Ctrl+Right and Ctrl+Left: where the caret stops,** walked from each end until it stopped moving:
+
+| Walk | RichTextBox | TextBox |
+|---|---|---|
+| Ctrl+Right from 0 | 5, 7, 12, 14, 17, 18, 22, 25, 27, 32, 33, 34, 37, 38, 39, 40, 42, 44, 51, 55, 57, 61, 62, 64, 67 | 7, 14, 18, 22, 27, 32, 37, 40, 42, 44, 51, 57, 62, 64, 67 |
+| Ctrl+Left from 67 | 64, 62, 61, 57, 55, 51, 44, 42, 40, 39, 38, 37, 34, 33, 32, 27, 25, 22, 18, 17, 14, 12, 7, 5, 0 | 64, 62, 57, 51, 44, 42, 40, 37, 32, 27, 22, 18, 14, 7, 0 |
+| Ctrl+Right from 16, inside `Foo` | 17, then as above | 18, then as above |
+
+- **The RichTextBox stops at each run of punctuation as a word of its own:**
+  - `Hello` stops at 5, before the comma, then at 7;
+  - `world.` at 12, before the full stop;
+  - `Foo-bar` at 17, before the hyphen, then at 18;
+  - `baz!` at 25;
+  - `3.14` at 32, 33 and 34;
+  - `(x)` at 37, 38 and 39.
+
+  **The apostrophe in `it's` is not a break.**
+- **The TextBox stops only at the start of each word.** A comma, full stop or bracket goes with the word before it, and
+  so does a hyphen: `Foo-` then `bar`.
+- **In both, a word takes the spaces after it.** The stop is at the next word's first character.
+- **In both, the end of a line is a stop:** 40, then the empty line at 42, then 44. Ctrl+Right from 40 doesn't go
+  straight to 44.
+- **Ctrl+Shift with the arrows stops at the same places,** extending from the anchor. From 0: 0+5, 0+7, 0+12. From 40
+  leftwards: 39+1, 38+2, 37+3.
+
 ### Drawing
 
 Screenshots on Windows 10 at 96 dpi, one fresh form per state, native code:
@@ -256,7 +344,7 @@ Screenshots on Windows 10 at 96 dpi, one fresh form per state, native code:
 
 **The programs:**
 - **The save:** a form written by hand, opened in VB6's IDE, dirtied with a comment and saved. VB6's save is in
-  `corpus/inbox-controls/pending/richtextbox/`.
+  `corpus/inbox-controls/saved/richtextbox/`.
   - RichTextBox1 had every property off its default, its lines in reverse order, and an inline
     `TextRTF = "{\rtf1\ansi{\fonttbl{\f0 Arial;}}\f0\fs20 Hello \b bold\b0\par second line}"`.
   - RichTextBox2 had only its position, extents and `_Version`.
@@ -310,5 +398,50 @@ OLEDropMode, TextRTF, the Font block
 
 ### In HexIDE
 
-HexIDE doesn't model the RichTextBox (#1100). The designer draws it as an empty box (#157), and running a form that
-holds one is refused, as for any control HexIDE can't create (#857).
+HexIDE runs the code-driven text, selection and character-formatting surface, plus paragraph alignment.
+The measured saved `.frm` and `.frx` now round-trip byte for byte. Saved TextRTF loads through the model;
+MultiLine False keeps its first paragraph, including on subsequent Text assignments. Other saved own
+properties are carried without designer editors; runtime access still refuses except Enabled, Appearance, BorderStyle, Locked, MaxLength and read-only MultiLine/ScrollBars. RichTextLib is
+available in Components/the toolbox, and placement seeds the name as RTF. A first input/drawing slice now
+accepts typing, Enter and Backspace with the recorded event order, respects saved ReadOnly/MaxLength and
+protected text, and draws character formatting and inverse selection. Click/double-click selection, the recorded shortcuts, plain-text clipboard/Undo and caret scrolling now work.
+Undo retains the RTF model, including paragraph formatting. Shift-arrow, Shift+Home/End and command-arrow selection implement the endpoints above, including the hidden final break and punctuation stops. Modified clicks, drag selection and word
+selection outside the recorded ASCII word with its trailing space explicitly refuse. Formatted clipboard
+transfer also refuses. Saved BackColor, disabled text/background and flat/inset borders now draw. Enabled supports Boolean runtime access; Appearance and BorderStyle read saved/default values and refuse assignments with 383. Runtime BackColor access, paragraph drawing and character offsets remain deferred. Undo after a code edit explicitly refuses: that interaction is unmeasured. Non-ASCII KeyPress conversion is unmeasured
+and refuses before editing; code-driven ANSI text still works.
+
+Locked and SelProtected now expose Boolean runtime access through the existing input guards; code can
+still replace protected text. MultiLine/ScrollBars read saved/default values and reject writes with 383.
+MaxLength accepts the recorded 0, 5 and 20 values, truncates Text and drops SelText appended at the full
+limit. Other limit assignments, reducing below the existing length, other code selection replacements
+under a limit and RTF assignments under a limit refuse. No new conversion or RTF truncation rule is inferred.
+
+The checked-in save's first `.frx` record (the toolbox-created RichTextBox3) has the `\ansi\deff0`
+header, without `\ansicpg1252`, as the plain Text shape above does. That artifact is what the persistence
+and toolbox tests pin; the earlier third-shape description above is not used to change its bytes.
+Provenance: group 3's VB6-saved `Form1.frx` at offset 0, issuecomment-6433151637 (oracle PR #2250).
+No new VB6 measurements were made in this implementation run.
+
+The A0 foundation supplies the internal RTF reader/writer connected to the control. It reproduces the empty,
+plain-text and formatted Arial/Courier New documents above, including character runs and font/colour tables.
+It also reads the measured Arial input with a paragraph break and writes CR LF in plain Text as paragraph
+breaks. Paragraph runs retain alignment, left/right/first-line indents, tab stops and the recorded Symbol
+bullet groups. Accepted paragraph words retain their order; no additional rich-edit normalisation rule is
+claimed. The recorded empty SelRTF and the `slow` selection above are emitted byte for byte, with the latter
+carrying only its used font and colour. Mixed-format or paragraph selection output and selection font
+charset normalisation remain refused.
+Strikethrough, protection, paragraph resets, tab stops, group restoration and combined paragraph fragments
+have parser-invariant tests; these are not new VB6 measurements. The composed bullet test pins the recorded
+groups and Symbol table entry, not a newly measured whole document. Lone CR/LF output from plain Text, multiple bullet paragraphs, other
+bullet/table syntax and unknown words remain refused. The remaining control members and the rest of input/drawing remain separate parts. No additional VB6 measurements were made for this slice.
+
+Keyboard selection follows "Keyboard selection: where the endpoints land" above. Wrapped-line vertical endpoints, lone-break navigation and non-ASCII word endpoints remain refused. Collapsing a hidden-break selection and command-left collapse also remain refused as unmeasured.
+
+Plain Left/Right/Home/End/Up/Down without a selection now use the corresponding recorded Shift
+endpoints, as directed by the supervisor's 2026-10-28 comment on #1100; this is an implementation
+mapping, not a new VB6 measurement. Lone-break navigation and wrapped Home/End/Up/Down refuse,
+as do plain Home/End/Up/Down with a selection (their collapse endpoints are unmeasured).
+The designer uses the existing labelled, view-only placeholder even for unsupported RTF.
+Saved BackColor accepts hexadecimal and decimal OLE_COLOR spellings; the checked-in group-3
+save's RichTextBox1 uses decimal 12648447 (RGB 255, 255, 192). The runtime regression loads
+that saved form and its companion rather than substituting a handwritten hexadecimal colour.

@@ -195,7 +195,8 @@ already built.
 1. Write the corpus. With `HEXIDE_DUMP_PROGRAMS` naming it, `HexIDE.Runtime.Tests` appends one JSON line per program
    to `artifacts/program-dump/<name>.jsonl`. Each holds the program's modules, the startup module rewritten with its
    bare statements in `HexDumpMain`, what HexIDE printed with each value's `TypeName`, the Immediate output lines,
-   `VbLocale.Current.Name`, and the error if it raised one. Even a startup module with no bare statements gains an empty `HexDumpMain`.
+   `VbLocale.Current.Name`, `injectedGlobals` (the pre-run root names absent from a fresh environment), and the error
+   if it raised one. Even a startup module with no bare statements gains an empty `HexDumpMain`.
 
    **A module the dump can't rewrite faithfully has no rewritten text, and `notWrapped` says why (#2211).**
    - The rewrite reads the interpreter's parse tree. The interpreter parses only after conditional compilation is
@@ -205,8 +206,13 @@ already built.
    - Every rewrite must hold the source's tokens. Where the source doesn't parse, they must also stay in the source's
      order, since a recovered parse can drop or misplace code without saying so.
 
+   Pin the test process culture to `en-US` with xUnit's `-culture en-US`, running the test executable directly
+   after building it (commands below use a POSIX shell). Otherwise the dump inherits the machine's locale,
+   and the parity runner marks rows recorded under another locale `locale-differs` instead of comparing them.
+
    ```text
-   HEXIDE_DUMP_PROGRAMS=corpus-1 dotnet test IDE/HexIDE.Runtime.Tests/
+   dotnet build IDE/HexIDE.Runtime.Tests/
+   HEXIDE_DUMP_PROGRAMS=corpus-1 dotnet IDE/HexIDE.Runtime.Tests/bin/Debug/net10.0/HexIDE.Runtime.Tests.dll -culture en-US
    ```
 
 2. Run it. Set `HEXIDE_PARITY_ADAPTER` to the adapter executable and `RDCORE_PLATFORM_ROOT` as above, then:
@@ -219,9 +225,25 @@ already built.
    `.rdproj` with a unique case name and no references (`--project-template` supplies another). The tool writes
    `results.jsonl` one line per program as each finishes, and the counts to `summary.json`. `--timeout` bounds each program (60 s by
    default), `--parallel` sets how many adapters run at once, and `--dry-run` writes the workspaces and starts nothing.
+   Every output file is created exclusively: a collision stops the run without replacing the existing file.
+   A failed reservation or write removes only output files created by that invocation, including results
+   and workspaces already written before a later collision.
+   Use a fresh `--out` directory after a successful run.
+   A serial retry reuses the workspace created by its parallel attempt.
+
+   The adapter child receives `Configuration__Environment__ErlLineNumbering=LineLabel` by default
+   ([#3133](https://github.com/hexide-io/HexIDE/issues/3133)): vb6.exe's `Erl` returns the line label.
+   RDCore's `DocumentLine` default is a configuration choice by design (RD-VBAL 6.1.2.7.1.14), not a defect.
+   Use `--erl-line-numbering DocumentLine` for that comparison, or `--erl-line-numbering LineLabel` explicitly.
+   This setting overrides any inherited value only in the adapter's environment; the runner's environment is unchanged.
+   The results header records the selected value and the reason for the default.
+   Issue #3133 records RDCore 0e1afe06 matching three of five Erl rows with `LineLabel`; line numbers above
+   65535 and `Err.Clear` remain RDCore findings, not changes made by this runner.
 
 Outcomes compare HexIDE's Immediate output lines with RDCore's `stdout` lines, trimmed. Individual printed items
 retain their types and use the same formatter as `Debug.Print`, including Null and numeric spacing (#2119).
+Regenerate older dumps to record fixture globals; their missing `injectedGlobals` field is treated as empty.
+
 Older dumps without lines fall back to individual items; regenerate them for statement-level comparisons.
 
 | Outcome | HexIDE | RDCore |
@@ -236,6 +258,7 @@ Older dumps without lines fall back to individual items; regenerate them for sta
 | `locale-differs` | recorded locale differs from en-US | runs under en-US; not compared |
 | `timeout` / `launch-failed` | | ran past `--timeout`, or the session failed |
 | `excluded` | not compared | not started: the program would act outside its own process |
+| `not-reproducible` | not compared | not started: `notReproducible` is `fixture-global` (names in `injectedGlobals`) or `form-header` (startup source begins with `VERSION 5.00`); counted in `summary.json` (#2941) |
 | `not-wrapped` | not compared | not started: the dump couldn't rewrite the startup module without changing it, as its `notWrapped` says |
 
 RDCore runs each program for real, on the machine running the tool, so a program that would act outside its own
@@ -253,9 +276,14 @@ counting it. Its first engine result is retained as `parallelAttempt`; only the 
 
 What the adapter does that the tool relies on, measured against the revision in the next paragraph:
 - A class module needs its `VERSION 1.0 CLASS` header, or it is read as a standard module. The tool adds it.
-- An unhandled run-time error stops under the adapter's default `unhandled` filter. Continuing prints
-  `Run-time error 'N': description` on `stderr` and exits 1, which is where the number is read.
-  The runner also recognises `Application error 'N': ...` (measured at 653244e, #2119).
+- An unhandled run-time error stops under the adapter's default `unhandled` filter. Since RDCore #574, continuing
+  from that stop runs the failing line again, as VBA's F5 does, and stops there again. So the runner reads the error
+  at the first stop whose reason is `exception`, and ends the program there: `terminate` where the adapter
+  advertises it, then `disconnect`, or `disconnect` alone. The result's `endedAtException` says which.
+  - The number is in `exceptionInfo`'s `exceptionId`: `VBR00006` for a run-time error and `VBA00006` for an
+    application error, with nothing on `stderr` (measured at 84278ae, #1368).
+  - Before #574, continuing printed `Run-time error 'N': description` or `Application error 'N': ...` on `stderr`
+    and exited 1 (measured at 653244e, #2119). The runner still reads that form.
 - A compile error is printed on `stderr`, with an exit code of 1.
 
 Measured on Windows, 2026-10-22, against RDCore `f3acd864` with a local, unreviewed transport fix (`6bb9b426`),

@@ -17,6 +17,7 @@ namespace HexIDE.Tests.Infrastructure;
 /// Other clients may cut at a different length; this is the tightest known, not a budget to fill.
 /// </para>
 /// </remarks>
+[ToolDescription]
 public class ToolDescriptionLengthTests
 {
     private const int Limit = 2048;
@@ -37,6 +38,47 @@ public class ToolDescriptionLengthTests
                 .Where(p => p.Description.Length > Limit)
                 .Select(p => $"{t.Name}.{p.Name}: {p.Description.Length} characters"))
             .Should().BeEmpty($"a description over {Limit} characters is at risk of being cut wherever it is sent");
+    }
+
+    // ── The budget (hexide-io/HexIDE#2511) ─────────────────────────────────────────────────────────────────────────
+    //
+    // A description at the limit has room for nothing, and a merge that adds both sides' text takes it over unannounced:
+    // nine had reached it, and each new field was being paid for by deleting guidance a first-time caller needed. So a
+    // description stays within a budget below the limit, and what explains a reply field goes in the reply, beside the
+    // field, where a caller reads it. The tools over budget when the rule came in are listed, each with what takes the
+    // room and the issue that brings it within; a tool leaves the list in the change that does, or the second test fails.
+
+    private const int Budget = 1900;
+
+    /// <summary>Descriptions over <see cref="Budget"/> when the rule came in, keyed "tool" or "tool.parameter".</summary>
+    private static readonly Dictionary<string, (string Why, int Issue)> OverBudget = new()
+    {
+        ["dump_visual_tree"] = ("the control-view rules and the reply fields isHidden, isOffscreen and focusedPath", 2566),
+        ["inspect_element"] = ("per-field explanations, with target's own description empty", 2569),
+    };
+
+    private static IEnumerable<(string Key, int Length)> AllDescriptions() =>
+        ToolSource.Tools.SelectMany(t => new[] { (t.Name, t.Description.Length) }
+            .Concat(t.Parameters.Select(p => ($"{t.Name}.{p.Name}", p.Description.Length))));
+
+    [Fact]
+    public void No_description_grows_past_the_budget_unless_it_is_listed_as_not_yet_within_it()
+    {
+        AllDescriptions().Where(d => d.Length > Budget && !OverBudget.ContainsKey(d.Key))
+            .Select(d => $"{d.Key}: {d.Length} characters")
+            .Should().BeEmpty($"a description stays within {Budget} characters, below the {Limit} a client delivers, so a merge "
+                              + "cannot take it over; explain a reply field in the reply where it appears, and keep the "
+                              + "description to what a caller needs before the first call");
+    }
+
+    [Fact]
+    public void A_description_brought_within_the_budget_leaves_the_list()
+    {
+        var lengths = AllDescriptions().ToDictionary(d => d.Key, d => d.Length);
+        OverBudget.Where(o => !lengths.TryGetValue(o.Key, out var length) || length <= Budget)
+            .Select(o => $"{o.Key} (#{o.Value.Issue}) is {(lengths.TryGetValue(o.Key, out var l) ? $"{l} characters" : "gone")}")
+            .Should().BeEmpty($"a description within {Budget} characters, or one that no longer exists, is taken off OverBudget "
+                              + "in the change that does it, so the list only ever shrinks");
     }
 
     [Fact]

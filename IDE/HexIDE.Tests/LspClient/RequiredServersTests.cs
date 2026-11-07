@@ -47,25 +47,32 @@ public class RequiredServersTests
             $"{ForeignServer.RequiredVariable} is set, so the '{source.Key}' language server must be obtainable");
     }
 
+    private static void CheckServer(ForeignServer server)
+    {
+        if (Environment.GetEnvironmentVariable(ForeignServerReport.ReportVariable) is { Length: > 0 } report)
+            ForeignServerReport.Write(server, report);
+        CheckServer(server.Source, server.Find, ForeignServer.IsRequired);
+    }
+
     [Fact]
     public void TheMarkdownServerIsAvailableWhenItIsRequired() =>
-        CheckServer(ForeignServer.Markdown.Source, ForeignServer.Markdown.Find, ForeignServer.IsRequired);
+        CheckServer(ForeignServer.Markdown);
 
     [Fact]
     public void TheLatexServerIsAvailableWhenItIsRequired() =>
-        CheckServer(ForeignServer.Latex.Source, ForeignServer.Latex.Find, ForeignServer.IsRequired);
+        CheckServer(ForeignServer.Latex);
 
     [Fact]
     public void TheCppServerIsAvailableWhenItIsRequired() =>
-        CheckServer(ForeignServer.Cpp.Source, ForeignServer.Cpp.Find, ForeignServer.IsRequired);
+        CheckServer(ForeignServer.Cpp);
 
     [Fact]
     public void ThePythonServerIsAvailableWhenItIsRequired() =>
-        CheckServer(ForeignServer.Python.Source, ForeignServer.Python.Find, ForeignServer.IsRequired);
+        CheckServer(ForeignServer.Python);
 
     [Fact]
     public void TheReferenceServerIsAvailableWhenItIsRequired() =>
-        CheckServer(ForeignServer.Json.Source, ForeignServer.Json.Find, ForeignServer.IsRequired);
+        CheckServer(ForeignServer.Json);
 
     [Fact]
     public void TheProtocolModelIsAvailableWhenItIsRequired() =>

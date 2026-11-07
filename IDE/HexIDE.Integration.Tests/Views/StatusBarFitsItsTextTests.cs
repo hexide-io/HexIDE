@@ -28,7 +28,8 @@ public class StatusBarFitsItsTextTests
         {
             var statusBar = window.GetVisualDescendants().OfType<Control>()
                 .Single(c => Avalonia.Automation.AutomationProperties.GetAutomationId(c) == "StatusBar");
-            var labels = statusBar.GetVisualDescendants().OfType<TextBlock>().ToList();
+            // What shows: the automation server's section shows only while the server listens, which it does not here (#2451).
+            var labels = statusBar.GetVisualDescendants().OfType<TextBlock>().Where(l => l.IsEffectivelyVisible).ToList();
             labels.Should().HaveCount(3, "the status bar holds the message, the caret's position and INS/OVR");
 
             // The message cell trims by design; the other two must show all of what they are given.

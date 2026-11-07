@@ -12,6 +12,7 @@ namespace HexIDE.Tests.Infrastructure;
 /// attribute carried any other property was never found, and its <c>[DescribesEnum]</c> fell into the previous
 /// tool's block after that tool's method, where nothing read it.
 /// </remarks>
+[ToolDescription]
 public class ToolSourceTests
 {
     private static int Count(string pattern) =>
@@ -63,7 +64,7 @@ public class ToolSourceTests
         // LspMessagesResult's parameter list is interleaved with comments. Their last words, 'total' and
         // 'remove' among them, used to be read as fields.
         ToolSource.FieldsOf("LspMessagesResult")!.Select(f => f.Name)
-            .Should().Equal("messages", "matched", "truncated", "framesDropped", "note", "latestSequence");
+            .Should().Equal("messages", "matched", "truncated", "framesDropped", "note", "latestSequence", "rowsNote");
     }
 
     [Fact]

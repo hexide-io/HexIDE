@@ -3,6 +3,8 @@ using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using HexIDE.IDE;
+using HexIDE.Events;
+using HexIDE.Forms.ViewModels;
 using HexIDE.Projects;
 using HexIDE.Runtime.Components;
 using HexIDE.Runtime.ProjectElements;
@@ -50,6 +52,9 @@ public class ExternalFormChangeTests : IDisposable
         "End\r\nAttribute VB_Name = \"Form1\"\r\n" +
         "Private Sub Form_Load()\r\n    Text1.Text = \"pulled\"\r\nEnd Sub\r\n";
 
+    private readonly EventBus events = new();
+    private readonly FileBaselineStore baselines = new();
+
     private ProjectService MakeService()
     {
         var projectManager = Substitute.For<IProjectManager>();
@@ -64,12 +69,12 @@ public class ExternalFormChangeTests : IDisposable
         return new ProjectService(
             () => throw new InvalidOperationException("new-project dialog must not be reached"),
             Substitute.For<IWindowManager>(),
-            Substitute.For<IEventBus>(),
+            events,
             projectManager,
             Substitute.For<IRecentProjectsService>(),
             Substitute.For<IReferenceLibraryService>(),
             sidecar,
-            new FileBaselineStore(),
+            baselines,
             Substitute.For<HexIDE.Localization.ILocalizationService>(),
             Substitute.For<IHeaderRefresher>());
     }
@@ -105,6 +110,54 @@ public class ExternalFormChangeTests : IDisposable
         var project = loaded.Single();
         await svc.SaveProject(project, saveAs: false);
         return (svc, project.Modules.Single());
+    }
+
+    internal static CodeEditorViewModel Editor(IProjectService svc, IEventBus events) => new(
+        Substitute.For<IWindowManager>(), Substitute.For<IEditorService>(), svc, events,
+        Substitute.For<HexIDE.Lsp.ILspClient>(), Substitute.For<ISettingsService>(),
+        Substitute.For<IStatusBarService>(), Substitute.For<HexIDE.Bookmarks.IBookmarkService>(),
+        Substitute.For<HexIDE.Debugging.IBreakpointService>(),
+        Substitute.For<HexIDE.Runtime.Debugging.IDebugController>(),
+        Substitute.For<HexIDE.Debugging.IRunScope>(), Substitute.For<HexIDE.Localization.ILocalizationService>());
+
+    // #2862: applying the buffer to the model is not a save.
+    [AvaloniaFact]
+    public async Task OpenModule_AppliedEditsConflictUntilSaved()
+    {
+        var (svc, module) = await OpenWithModule();
+        using var editor = Editor(svc, events).Initialize(module);
+        editor.Document.Text += "' edited\r\n";
+        events.Publish(new ApplyAllUnsavedChangesEvent());
+        editor.BufferBody.Should().Be(module.Code);
+        module.Code.Should().Contain("' edited");
+        var path = Path.Join(dir, "Module1.bas");
+        File.AppendAllText(path, "' external\r\n");
+        var target = new WatchedFileTarget(path, null, module, editor, null);
+        var detector = new DirtyDetector(baselines, svc);
+        detector.Classify(target).Should().Be(ReloadDecision.Conflict);
+
+        await svc.SaveProject(loaded.Single(), saveAs: false);
+        File.AppendAllText(path, "' another external change\r\n");
+        detector.Classify(target).Should().Be(ReloadDecision.CleanReload);
+    }
+
+    [AvaloniaFact]
+    public async Task OpenForm_AppliedEditsConflictUntilSaved()
+    {
+        var (svc, form, path) = await OpenNormalised();
+        using var editor = Editor(svc, events).Initialize(form);
+        editor.Document.Text += "' edited\r\n";
+        events.Publish(new ApplyAllUnsavedChangesEvent());
+        editor.BufferBody.Should().Be(form.Code);
+        form.Code.Should().Contain("' edited");
+        File.AppendAllText(path, "' external\r\n");
+        var target = new WatchedFileTarget(path, form, null, editor, null);
+        var detector = new DirtyDetector(baselines, svc);
+        detector.Classify(target).Should().Be(ReloadDecision.Conflict);
+
+        await svc.SaveProject(loaded.Single(), saveAs: false);
+        File.AppendAllText(path, "' another external change\r\n");
+        detector.Classify(target).Should().Be(ReloadDecision.CleanReload);
     }
 
     // The module overload exists for get_file_content, whose hasUnsavedChanges used to report only whether

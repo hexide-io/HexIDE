@@ -107,6 +107,9 @@ public abstract class BaseVBTestFixture
             await run();
             return;
         }
+        var injectedGlobals = rootEnv.variableToLocation.Keys
+            .Except(new ExecutionEnvironment().variableToLocation.Keys, StringComparer.OrdinalIgnoreCase)
+            .Order(StringComparer.OrdinalIgnoreCase).ToArray();
         int outputBefore;
         lock (written) outputBefore = written.Length;
         int before;
@@ -127,7 +130,7 @@ public abstract class BaseVBTestFixture
             lock (debug) printed = debug.Skip(before).ToList();
             string output;
             lock (written) output = written.ToString(outputBefore, written.Length - outputBefore);
-            dump.Record(TestContext.Current.Test?.TestDisplayName ?? GetType().Name, ++dumped, modules, printed, output, thrown);
+            dump.Record(TestContext.Current.Test?.TestDisplayName ?? GetType().Name, ++dumped, modules, printed, output, thrown, injectedGlobals);
         }
     }
 
@@ -173,6 +176,9 @@ public abstract class BaseVBTestFixture
         IVbSettingsStore? settings = null) : IBasicStandardLibrary
     {
         public IVbSettingsStore Settings => settings ?? throw new NotImplementedException("This test keeps no settings (#1562)");
+
+        /// <summary>The screen of the oracle's probes, 1024 by 768, with four fonts in a fixed order (#2431).</summary>
+        public IVbDisplay Display => TestDisplay.Instance;
 
         public void DebugWrite(string text)
         {
@@ -228,4 +234,13 @@ public abstract class BaseVBTestFixture
             lock (debug) debug.Add(value);
         }
     }
+}
+/// <summary>The screen the Runtime tests' programs see (#2431): the oracle probes' 1024 by 768, and four fonts in a fixed order.</summary>
+internal sealed class TestDisplay : IVbDisplay
+{
+    public static readonly TestDisplay Instance = new();
+
+    public Avalonia.Size Size => new(1024, 768);
+
+    public IReadOnlyList<string> Fonts { get; } = ["System", "Arial", "Courier New", "Times New Roman"];
 }

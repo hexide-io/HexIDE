@@ -15,13 +15,33 @@ namespace HexIDE.Tools;
 /// </summary>
 public static class ProjectTreeBuilder
 {
+    /// <param name="listedFolders">
+    /// Folders a project lists for itself, relative to the anchor, shown even when no member is in them: a contributed
+    /// project's (<see cref="HexIDE.Runtime.ProjectElements.ProjectDefinition.ListedFolders"/>). None for a .vbp.
+    /// </param>
     public static List<IProjectTreeElement> BuildChildren(
         IEnumerable<IProjectFileNode> items,
         string? anchorDir,
         IReadOnlyDictionary<string, bool>? expansionState = null,
-        ProjectViewModel? owner = null)
+        ProjectViewModel? owner = null,
+        IEnumerable<string>? listedFolders = null)
     {
         var root = new DirNode("");
+        foreach (var folder in listedFolders ?? [])
+        {
+            var node = root;
+            foreach (var segment in folder.Split(['/', '\\'], StringSplitOptions.RemoveEmptyEntries))
+            {
+                // Inside the project's folder only, as a member's folder must be to be one.
+                if (segment is "." or "..") break;
+                if (!node.Dirs.TryGetValue(segment, out var child))
+                {
+                    child = new DirNode(segment);
+                    node.Dirs[segment] = child;
+                }
+                node = child;
+            }
+        }
         foreach (var item in items)
         {
             var node = root;

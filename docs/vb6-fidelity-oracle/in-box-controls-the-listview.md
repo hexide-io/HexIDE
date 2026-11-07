@@ -273,8 +273,12 @@ text.
 | click a column header | **ColumnClick and nothing else**: no MouseDown, MouseUp or Click |
 | double-click a column header | one ColumnClick |
 
-- **MouseDown and MouseUp give X and Y in twips** from the control's top-left. A click 50 pixels across and 42 down gave
-  750 and 630.
+- **MouseDown, MouseMove and MouseUp give X and Y in client-area twips, inside the edge.** The later console
+  measurement (issue #1086, issuecomment-6449003235, native matching p-code; supervisor correction on #1085,
+  2026-10-27) corrects the earlier claim that the origin was the outer top-left. With BorderStyle 1 and Appearance 1,
+  the edge is 3 pixels: 21 pixels from the outer corner gives X 270, and (40, 30) gives (555, 405).
+  Flat appearance gives X 315 and (600, 450), respectively. The earlier (50, 42) → (750, 630) observation remains
+  recorded, but does not establish an outer-corner origin for the default edge.
 - **ItemClick is raised for an item already selected,** on every click on it.
 - **SelectedItem can be Nothing inside ItemClick.** It read Nothing in the Ctrl+click's ItemClick and in the
   Shift+click's last one, and named the clicked item by Click.
@@ -311,6 +315,109 @@ SelectedItem was the item that moved up into its Index.
 - setting Checked to True or False, or setting Text;
 - `ListItems.Add` or `Remove`, or setting Sorted;
 - a column's Width, or EnsureVisible.
+
+### Mouse coordinates: from the client area (2026-10-27)
+
+**The probe:** a TreeView and a ListView with their default edges, and one of each with Appearance 0 and BorderStyle 0,
+flat and borderless, each 2400 × 1500 twips. A driver on the guest's console clicked each at 21,21 and at 40,30
+pixels from its outer top-left corner, from GetWindowRect. Native and p-code logged the same events, apart from where
+the pointer rested when the program started.
+
+| Control | Edge, each side, from GetClientRect | Click 21,21 px in: X, Y | Click 40,30 px in: X, Y |
+|---|---|---|---|
+| TreeView, Appearance 1, BorderStyle 0: the defaults | 2 px | **285, 285** | 570, 420 |
+| TreeView, Appearance 0, BorderStyle 0 | none | **315, 315** | 600, 450 |
+| ListView, Appearance 1, BorderStyle 1: its defaults | **3 px** | **270, 270** | 555, 405 |
+| ListView, Appearance 0, BorderStyle 0 | none | 315, 315 | 600, 450 |
+
+- **X and Y are measured from the client area, inside the edge,** in twips at 15 a pixel. A click 21 pixels in from
+  the outer corner of a default TreeView is 19 pixels into its client, 285 twips. On a flat one it is 315.
+- **MouseDown, MouseMove and MouseUp all report the same point** for a click.
+- The ListView's default edge is 3 pixels, where the TreeView's is 2: the ListView's defaults are BorderStyle 1 with
+  Appearance 1, the 3D edge and a line inside it.
+
+#### The other two ListView edges (2026-10-28, #2730)
+
+**The probe:** the one above, with the two TreeViews replaced by ListViews, so four ListViews, each 2400 × 1500 twips.
+L3 had Appearance 1 and no BorderStyle line, which loads as 0, as "A block missing a line", under "The saved files" below, records. L4 had
+Appearance 0 and BorderStyle 1. L1 and L2 were as before, measured again in the same run. Built native and as p-code,
+which logged the same events. Each read back its own BorderStyle and Appearance as set; L3 read BorderStyle 0.
+
+| ListView | Edge, each side, from GetClientRect | Click 21,21 px in: X, Y | Click 40,30 px in: X, Y |
+|---|---|---|---|
+| L3, Appearance 1, BorderStyle 0 | **2 px** | **285, 285** | 570, 420 |
+| L4, Appearance 0, BorderStyle 1 | **1 px** | **300, 300** | 585, 435 |
+| L1, Appearance 1, BorderStyle 1: its defaults | 3 px | 270, 270 | 555, 405 |
+| L2, Appearance 0, BorderStyle 0 | none | 315, 315 | 600, 450 |
+
+- **With Appearance 1 and BorderStyle 0 the edge is 2 pixels**, the TreeView's default edge, and a click lands where it
+  does on a default TreeView. That is the combination both corpus ListView forms load as.
+- **The edge adds up**: 2 pixels for Appearance 1's 3D edge, 1 for BorderStyle 1's line, so 3 with both, 1 with the
+  line alone and none with neither.
+
+### Label editing, in full (2026-10-27, #1085)
+
+**The probe:**
+- **The form:** ListView1 in Report view (columns `Name`, 1500 twips, and `Size`), with items `Item 1` to `Item 5`, and
+  Text1 after it in tab order. A TreeView sat before it.
+- **The input:** real clicks, double-clicks and keys from a driver on the guest's console. Each case set the list up
+  afresh with item 2 selected and the focus on the list.
+- **What was logged:** every event, with its time. A Timer logged the edit box from `LVM_GETEDITCONTROL` whenever it
+  changed: its rectangle in the list's client coordinates, its text, the item's label rectangle from `LVM_GETITEMRECT`,
+  the selected item's Text, and the active control.
+- **The builds:** native and p-code logged the same lines, times and window handles aside. The TreeView behaved the
+  same way throughout, as its own entry records.
+
+**What starts an edit:**
+
+| Action | Result |
+|---|---|
+| **Click the selected item's label**, LabelEdit 0 | MouseDown, ItemClick, MouseUp, then **BeforeLabelEdit 500 to 520 ms after MouseUp**. GetDoubleClickTime was 500 |
+| Click an unselected item, then click it again | the first selects it, with no edit. The second edits it |
+| **Double-click the selected label** | MouseDown, ItemClick, MouseUp, DblClick, MouseUp, and **no edit** |
+| **Click the selected label, LabelEdit 1, manual** | MouseDown, ItemClick, MouseUp, and **no BeforeLabelEdit and no edit**, waited for 1.8 s. A key typed then raised the list's KeyDown |
+| LabelEdit 1: click an unselected label, then click it again | the first selects it. The second raises ItemClick again, and no edit |
+| LabelEdit 1: double-click the selected label | as with LabelEdit 0: DblClick, and no edit |
+| **F2** | **nothing but KeyDown 113**, with LabelEdit 0 or 1 |
+| StartLabelEdit, LabelEdit 0 or 1 | BeforeLabelEdit before StartLabelEdit returns, then the edit box |
+| StartLabelEdit with no item selected | nothing, and no error |
+| `Cancel = True` in BeforeLabelEdit | no edit box. A key typed then raised the list's KeyDown |
+
+**In BeforeLabelEdit:**
+- Cancel is an Integer, 0.
+- **The edit box already exists, holding the label's text,** at 0,0 and 0 × 0. It is placed after the event returns.
+
+**The edit box:**
+
+| When | Edit box, in the list's client coordinates | The label |
+|---|---|---|
+| opened on `Item 2` | **1,30, 47 × 17**, with the text all selected | 2,31, 98 × 14: the first column, less its margins |
+| after typing `abc` | **1,28, 36 × 21** | unchanged |
+| after typing 30 characters | 1,28, **177 × 21**: **over the `Size` column**, not clipped to its own | unchanged |
+
+- **The box starts 1 pixel left of the label and 1 above it,** sized to the text rather than the column, and is drawn
+  with a single dark line.
+- **After the first key it is 4 pixels taller and 2 pixels higher,** and from then on it follows the text's width.
+  The widths, 36 and 177, were the TreeView's for the same text. That is measured, not explained.
+
+**What Text reads during the edit: the old text.** The selected item's Text read `Item 2` while the box held `xyz`,
+inside AfterLabelEdit too. It changed only after AfterLabelEdit returned.
+
+**What ends an edit:**
+
+| Action | AfterLabelEdit | Then |
+|---|---|---|
+| Enter, the text changed | yes, NewString the box's text, a String | the item takes NewString |
+| Esc | **no** | the old text |
+| **Click another item's label** | **yes, before that click's MouseDown** | the edit is kept, and the click goes on to select the item it hit |
+| **Click Text1** | **yes**, before Text1's GotFocus | the edit is kept |
+| **Tab** | yes | the edit is kept, and **the focus moves to the next control in tab order**, Text1 |
+| Click Text1, the text unchanged | **no** | the focus moves |
+| `NewString = "Changed"` in AfterLabelEdit | | **the item takes `Changed`**, not what was typed |
+| `Cancel = True` in AfterLabelEdit | | the old text |
+
+- **Leaving the edit keeps what was typed,** by any route but Esc.
+- **NewString is the text the item will take.** A handler can change it.
 
 ### Drawing
 
@@ -373,7 +480,7 @@ SelectedItem was the item that moved up into its Index.
 - **The run-time reads:** EXEs read every property back, natively and as p-code.
   - The first read the second form as written by hand, which is where the missing-line values below come from.
   - The second read VB6's own save of the third form, the round trip from VB6's writer to its reader.
-- **The corpus:** VB6's saves are in `corpus/inbox-controls/pending/listview/` and `listview-columns/`.
+- **The corpus:** VB6's saves are in `corpus/inbox-controls/saved/listview/` and `listview-columns/`.
 
 **Double-clicked onto a form,** VB6 writes this block (corpus `defaults/`):
 
@@ -502,4 +609,16 @@ NumItems 0 written, and no BackColor or BorderStyle.
 
 ### In HexIDE
 
-A form holding a ListView is refused at load, as any in-box control HexIDE doesn't model is (#1085).
+The #1085 object model implements ListItems, ColumnHeaders, ListSubItems and column-bounded SubItems, Text defaults,
+Long counts/indexes, keys, item string tags, selection and checkbox state, measured properties, sorting and FindItem.
+Sorted additions wait for a dispatcher turn, including DoEvents. It draws text in all four views, Report headers and
+subitems, selection/focus and checkboxes. Mouse input, the measured navigation events and cancellable label editing
+are implemented. Part C loads text-only saved properties and flat columns, including the distinct file
+defaults and HIMETRIC widths; C2 carries saved own-property runs and flat columns verbatim while writing
+designer extender edits and resize extents. Both corpus saves round-trip with their companions. Own-property
+and column editing remains unavailable; the canonical edit writer for those properties is still to come. The
+designer previews the name and optional checkbox without resolving ImageList bindings. ListView ImageList binding
+remains unimplemented after merging #1083. Unmeasured conversions,
+member edges and error descriptions are refused rather than supplied with inferred values; see MISSING_LANGUAGE.md's
+ListView implementation
+boundaries, including the unresolved SortOrder timing. These are implementation notes, not additional measurements.

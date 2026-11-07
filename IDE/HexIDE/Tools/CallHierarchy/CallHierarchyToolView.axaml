@@ -1,0 +1,29 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:tools="clr-namespace:HexIDE.Tools"
+             x:Class="HexIDE.Tools.CallHierarchyToolView"
+             x:DataType="tools:CallHierarchyToolViewModel">
+    <DockPanel>
+        <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Spacing="8">
+            <RadioButton Content="{DynamicResource Str.Tool.CallHierarchy.CallsTo}" GroupName="CallHierarchyMode"
+                         IsChecked="{CompiledBinding !CallsFrom, Mode=TwoWay}" />
+            <RadioButton Content="{DynamicResource Str.Tool.CallHierarchy.CallsFrom}" GroupName="CallHierarchyMode"
+                         IsChecked="{CompiledBinding CallsFrom, Mode=TwoWay}"
+                         AutomationProperties.AutomationId="CallHierarchy.CallsFrom" />
+        </StackPanel>
+        <TreeView ItemsSource="{CompiledBinding Roots}" SelectedItem="{CompiledBinding SelectedNode, Mode=TwoWay}"
+                  DoubleTapped="OnDoubleTapped" AutomationProperties.AutomationId="CallHierarchy.Results">
+            <TreeView.Styles>
+                <Style Selector="TreeViewItem" x:DataType="tools:CallHierarchyNode">
+                    <Setter Property="IsExpanded" Value="{CompiledBinding IsExpanded, Mode=TwoWay}" />
+                    <Setter Property="AutomationProperties.Name" Value="{CompiledBinding Label}" />
+                </Style>
+            </TreeView.Styles>
+            <TreeView.ItemTemplate>
+                <TreeDataTemplate x:DataType="tools:CallHierarchyNode" ItemsSource="{CompiledBinding Children}">
+                    <TextBlock Text="{CompiledBinding Label}" />
+                </TreeDataTemplate>
+            </TreeView.ItemTemplate>
+        </TreeView>
+    </DockPanel>
+</UserControl>

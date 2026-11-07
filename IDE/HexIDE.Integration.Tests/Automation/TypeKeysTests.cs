@@ -28,8 +28,8 @@ namespace HexIDE.Integration.Tests.Automation;
 
 /// <summary>
 /// type_text's keyboard mode types as a person does, a key at a time (#943). The document mode inserts through the
-/// document, by design, and press_key raises only KeyDown and KeyUp, which AvaloniaEdit writes no text for, so nothing
-/// on the surface raised TextInput: the completion list that opens as you type, parameter info, and the block a line
+/// document, by design, and press_key raised only KeyDown and KeyUp until #2428, which AvaloniaEdit writes no text for,
+/// so nothing on the surface raised TextInput: the completion list that opens as you type, parameter info, and the block a line
 /// break closes were out of reach.
 /// </summary>
 public class TypeKeysTests : IDisposable
@@ -217,6 +217,46 @@ public class TypeKeysTests : IDisposable
         refused.Error.Should().Contain("is in the file's header, which only the IDE changes")
             .And.NotContain("or a member");
         editor.Text.Should().Be(before);
+    }
+
+    [AvaloniaFact]
+    public void A_character_key_pressed_types_its_character_in_the_code_window()
+    {
+        // As a person's press does (#2428): the key's text after its KeyDown, which AvaloniaEdit writes.
+        var editor = Show(Body);
+        PutCaretAfter(editor, "Foo()\r\n    ");
+
+        var pressed = UiAutomationDriver.PressKey(editor, "M", "Shift");
+        Dispatcher.UIThread.RunJobs();
+
+        pressed.Success.Should().BeTrue(pressed.Error);
+        pressed.Detail.Should().Contain("; it typed \"M\", as the key does");
+        editor.Document.Text.Should().Contain("    M\r\nEnd Sub");
+    }
+
+    [AvaloniaFact]
+    public void A_character_key_pressed_in_Attribute_lines_is_refused_and_types_nothing()
+    {
+        // Judged as typing is, now that it types (#2428); it went unjudged, typing nothing, before.
+        var editor = Show(WithRun);
+        PutCaretAfter(editor, "Attribute Total.");
+        var before = editor.Text;
+
+        var refused = UiAutomationDriver.PressKey(editor, "X", null);
+
+        refused.Success.Should().BeFalse();
+        refused.Error.Should().Contain("is in the Attribute lines describing Total, which only the IDE changes");
+        editor.Text.Should().Be(before);
+    }
+
+    [AvaloniaFact]
+    public void A_navigation_key_in_Attribute_lines_is_still_never_refused()
+    {
+        var editor = Show(WithRun);
+        PutCaretAfter(editor, "Attribute Total.");
+
+        UiAutomationDriver.PressKey(editor, "Right", null).Success.Should().BeTrue();
+        UiAutomationDriver.PressKey(editor, "Right", "Shift").Success.Should().BeTrue();
     }
 
     [AvaloniaFact]

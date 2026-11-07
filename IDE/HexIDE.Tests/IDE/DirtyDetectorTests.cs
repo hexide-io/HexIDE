@@ -8,8 +8,7 @@ using HexIDE.Runtime.Serialization;
 namespace HexIDE.Tests.IDE;
 
 /// <summary>
-/// Covers the classification paths reachable without constructing editor/designer view-models
-/// (not-open files). The open-editor / designer paths are exercised by the integration tests.
+/// Covers saved-model and open-buffer classification paths.
 /// </summary>
 public class DirtyDetectorTests
 {
@@ -21,6 +20,30 @@ public class DirtyDetectorTests
         var module = new ModuleDefinition(project, "Mod1", ModuleKind.StandardModule);
         module.UpdateCode(code);
         return module;
+    }
+
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void OpenModule_AppliedBufferStillUsesSavedBaseline(bool classModule)
+    {
+        var module = new ModuleDefinition(new ProjectDefinition(VBProjectType.EXE, "Proj"), "Mod1",
+            classModule ? ModuleKind.ClassModule : ModuleKind.StandardModule);
+        module.UpdateCode("Option Explicit\r\n");
+        var baseline = new FileBaselineStore();
+        var path = P(classModule ? "Mod1.cls" : "Mod1.bas");
+        baseline.Record(path, ModuleFileFormat.ToFileContent(module.Code, module.Name, module.Kind));
+        var events = new EventBus();
+        using var editor = HexIDE.Tests.Projects.ExternalFormChangeTests.Editor(Substitute.For<IProjectService>(), events)
+            .Initialize(module);
+        editor.Document.Text += "' edited\r\n";
+        events.Publish(new HexIDE.Events.ApplyAllUnsavedChangesEvent());
+        editor.BufferBody.Should().Be(module.Code);
+        module.Code.Should().Contain("' edited");
+
+        new DirtyDetector(baseline, Substitute.For<IProjectService>())
+            .Classify(new WatchedFileTarget(path, null, module, editor, null))
+            .Should().Be(ReloadDecision.Conflict);
     }
 
     [Fact]

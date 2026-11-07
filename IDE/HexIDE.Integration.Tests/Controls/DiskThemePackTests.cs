@@ -20,6 +20,31 @@ public sealed class DiskThemePackTests : IDisposable
     private void Write(string id, string json) => File.WriteAllText(Path.Combine(_directory, id + ".json"), json);
 
     [AvaloniaFact]
+    public void RecoveryModeIgnoresDiskPacksAndRetainsShippedThemes()
+    {
+        Write("Custom", """{"themeVariant":"Dark","colors":{}}""");
+        var previousRecovery = Static.IsRecoveryMode;
+        var original = Application.Current!.RequestedThemeVariant;
+        Static.IsRecoveryMode = true;
+        var service = new ThemeService(_directory);
+        try
+        {
+            service.AvailableThemes.Should().Equal("Classic", "Dark", "Abyss");
+            service.Apply("Custom");
+            service.ActiveTheme.Should().Be("Classic");
+            service.Apply("Dark");
+            service.ActiveTheme.Should().Be("Dark");
+            Application.Current.RequestedThemeVariant.Should().Be(ThemeVariant.Dark);
+        }
+        finally
+        {
+            service.Apply("Classic");
+            Application.Current.RequestedThemeVariant = original;
+            Static.IsRecoveryMode = previousRecovery;
+        }
+    }
+
+    [AvaloniaFact]
     public void DiscoversPacksByFilenameAlongsideShippedThemes()
     {
         Write("Zeta", """{"name":"Display name","colors":{}}""");

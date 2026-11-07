@@ -1,0 +1,14 @@
+Integration: 5238 passed, 2 skipped, 0 failed; 5240 total; no xunit errors.
+New regression CodeLensTests.LensInCodeWindow(cancelled-fold): Pass.
+Before guard: same new regression failed (expected 1 lens request, found 2); other 12 cases passed.
+Desktop Debug build: 0 warnings, 0 errors.
+Hygiene: pass, 9 pre-existing warnings; identity scan skipped (pattern unset).
+SKIP HexIDE.Integration.Tests.Views.ToolbarCaptionTests.Windows_caption_width_follows_installed_fonts_Gdi_extent Requires Windows GDI
+SKIP HexIDE.Integration.Tests.Views.ToolbarCaptionTests.Segoe_UI_nine_point_matches_console_measurements Requires the oracle's Windows Segoe UI font build
+After-fix repetitions: 80 class runs / 640 cases passed, 0 failed, 0 skipped.
+Before loaded: main 10/20 runs (10 cases); single-turn 6/20 runs (6 cases).
+Before idle: both 0/20 runs (0 cases).
+MISSING_LANGUAGE counts unchanged; no VB6 measurements or unmeasured language behavior involved.
+Unit full run observed failure: TheRecordSeesTheProcessTests.A_server_that_goes_away_while_this_client_stops_it_is_not_a_fault: no disconnection reached the record for vb6 (30-second timeout, WaitForAsync).
+Isolated rerun of that same test: 1 passed, 0 failed, 0 skipped (2.020 seconds). The client/conversation code it exercises is unchanged.
+Unit full dotnet test: 6455 passed, 35 skipped, 1 failed; 6491 total; 22m43.439s. xUnit report: no framework errors. Skipped cases and reasons: unit-skips.tsv.

@@ -1,7 +1,8 @@
 # Complete the EU-24 language coverage
 
-> Converted from the `language-packs-europe` design record (2026-08-16). This is **in-flight work, not
-> history** — none of the languages below ships yet, which is why it is a change rather than a spec.
+> Converted from the `language-packs-europe` design record (2026-08-16). Romanian, Hungarian,
+> Bulgarian, Croatian, Slovak, Slovenian, Lithuanian, Latvian and Estonian ship (#2857).
+> Irish, Maltese and the EU-wide requirement remain in flight.
 
 ## Why
 

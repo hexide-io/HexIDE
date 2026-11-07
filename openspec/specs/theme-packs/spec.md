@@ -15,6 +15,41 @@ Disk discovery closes [#413](https://github.com/hexide-io/HexIDE/issues/413), wh
 embedded-only loader.
 
 ## Requirements
+
+### Requirement: IDE dialog buttons expose keyboard focus and fixed defaults
+IDE message boxes, server prompts and all dialogs hosted by the IDE window manager SHALL show a dotted inset
+focus rectangle for keyboard focus, using the active theme's control-text brush. Mouse focus alone
+SHALL NOT show it. Buttons with a fixed default action SHALL show a heavier border. These styles
+SHALL NOT change VB6 controls on running forms or program message boxes.
+
+#### Scenario: Opening a server prompt
+- **WHEN** a server prompt opens with actions
+- **THEN** its first action receives keyboard focus and shows the focus cue
+
+#### Scenario: Navigating a server prompt
+- **WHEN** keyboard navigation focuses an action button
+- **THEN** its rendering differs from an unfocused button in Classic, Dark and Abyss
+
+#### Scenario: Showing an IDE message box
+- **WHEN** an IDE message box opens
+- **THEN** its first action is the default and carries a heavier border
+
+#### Scenario: Recorded dialog defaults
+- **WHEN** the IDE opens Save Changes
+- **THEN** Yes is the declared default with the heavier border
+- **AND** Find/Replace retains Find Next, Add Watch/Components/Options retain OK, Recovery retains Restore,
+  and Runtime Error retains Debug
+- **AND** other unmeasured VB6 default choices retain their existing assignments
+
+#### Scenario: Opening a shared desktop dialog
+- **WHEN** the IDE opens a dialog through its shared window manager
+- **THEN** its buttons use the same theme cues without a view-type allowlist
+- **AND** if no control already has focus, its enabled visible default button receives keyboard focus,
+  or its first text input / available tab stop if it has no default
+- **AND** an explicit input target (Find What in Find/Replace, Expression in Add Watch) takes priority
+- **AND** an existing explicit focus choice is preserved with keyboard cues
+- **AND** program message boxes and input boxes retain their existing chrome and focus behaviour
+
 ### Requirement: A theme SHALL be declared as data, not compiled in
 A theme SHALL be a data file declaring colour values by key, and adding one SHALL require no code change and
 no rebuild.
@@ -41,8 +76,13 @@ The shipped theme IDs SHALL be declared in `Themes/manifest.json`. At service cr
 append top-level `*.json` files from `UserDataPath.For("themes")`, sorted by filename using ordinal order.
 Filename stems SHALL identify disk themes; shipped IDs SHALL take precedence over case-insensitive
 collisions. An absent or unreadable directory SHALL leave the shipped themes available.
+Recovery mode (`--profile none`) SHALL skip disk discovery and retain only shipped themes.
 Each selection SHALL reread the selected file, so edits can be previewed by switching away and back. A failed load
 SHALL remove the previous override and revert to Classic. Unknown colour keys SHALL be logged and skipped.
+
+#### Scenario: Starting in recovery mode
+- **WHEN** the IDE starts with `--profile none` and user theme files exist
+- **THEN** those files are neither listed nor loaded, and shipped themes remain available
 
 #### Scenario: A disk pack collides with a shipped theme
 - **WHEN** a disk filename has the same ID as a shipped theme, ignoring case

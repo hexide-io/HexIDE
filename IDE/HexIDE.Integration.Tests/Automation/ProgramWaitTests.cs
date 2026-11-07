@@ -220,7 +220,7 @@ public class ProgramWaitTests
 
             outcome.Detail.Should().Be("invoked Button 'Command1' (the program is still running Command1_Click, and has a "
                                        + "window open over its form, 'HexIDE'; it may hold the program until it is "
-                                       + "answered, so the form may change after that)");
+                                       + "answered, so the form may change after that; window \"HexIDE\" reaches it)");
         }
         finally { shown.Close(); }
     }
@@ -249,7 +249,7 @@ public class ProgramWaitTests
         started.Elapsed.Should().BeLessThan(TimeSpan.FromSeconds(10));
         outcome.Detail.Should().Be("invoked Button 'Command1' (the program is still running Command1_Click, and has a "
                                    + "window open over its form, 'Question' (a message box: \"Proceed?\", OK); a MsgBox holds its handler until it is "
-                                   + "answered, so the form may change after that)");
+                                   + "answered, so the form may change after that; window \"Question\" reaches it)");
 
         Pump();
         var box = OpenWindows().Single(w => w.Content is HexIDE.Runtime.Dialogs.MessageBox);
@@ -261,7 +261,7 @@ public class ProgramWaitTests
         outcome = await UiAutomationDriver.WaitForProgramAsync(answering, outcome, TimeSpan.FromSeconds(30));
 
         outcome.Success.Should().BeTrue(outcome.Error);
-        outcome.Detail.Should().NotContain("(");
+        outcome.Detail.Should().EndWith(" (Command1_Click finished)", "the reply that named it running is followed by one that says it ended");
         run.Text.Should().Be("answered 20");
     }
 
@@ -286,7 +286,7 @@ public class ProgramWaitTests
         {
             var watch = run.Watch();
             run.Named("Text1").Focus();
-            var outcome = UiAutomationDriver.Interact(run.Named("Text1"), "set_value", "typed");
+            var outcome = SetTextForWait(run.Named("Text1"), "typed");
             outcome = await UiAutomationDriver.WaitForProgramAsync(watch, outcome);
 
             outcome.Detail.Should().Contain("still running Command1_Click"
@@ -303,6 +303,28 @@ public class ProgramWaitTests
             Pump();
         }
         ((Button)run.Named("Command1")).Content.Should().Be(handlesChange ? "changed" : "Command1");
+    }
+
+    // The form an action opened is named by its name, which reaches it as a window, with the caption it shows beside it
+    // when that differs (#2720). The caption alone sent a caller guessing which form it was.
+    [AvaloniaFact]
+    public async Task An_opened_form_is_named_by_its_name_and_its_caption()
+    {
+        using var run = Start("""
+            Private Sub Command1_Click()
+                Form2.Show
+            End Sub
+            """, form2Code: """
+            Private Sub Form_Load()
+                Me.Caption = "Second"
+            End Sub
+            """);
+        var watch = run.Watch();
+        var outcome = UiAutomationDriver.Interact(run.Named("Command1"), "invoke", null);
+
+        outcome = await UiAutomationDriver.WaitForProgramAsync(watch, outcome, TimeSpan.FromSeconds(30));
+
+        outcome.Detail.Should().Be("invoked Button 'Command1' (the program opened Form2 (\"Second\"))");
     }
 
     // A form shown modally is the program waiting for input, so an action on it is not held to the limit, and the
@@ -327,7 +349,7 @@ public class ProgramWaitTests
         outcome = await UiAutomationDriver.WaitForProgramAsync(watch, outcome, TimeSpan.FromSeconds(30));
 
         started.Elapsed.Should().BeLessThan(TimeSpan.FromSeconds(10));
-        outcome.Detail.Should().Be("invoked Button 'Command1' (the program opened 'Form2')");
+        outcome.Detail.Should().Be("invoked Button 'Command1' (the program opened Form2)");
 
         var form2 = OpenWindows().OfType<VBFormRuntime>().Single(w => w.Title == "Form2");
         var onForm2 = run.Watch(form2);
@@ -346,7 +368,8 @@ public class ProgramWaitTests
     [InlineData("Debug.Break")]
     public async Task Break_remains_enabled_with_focus_in_a_running_DoEvents_loop(string id)
     {
-        var composition = new DISetup();
+        await using var owned = new RealComposition();
+        var composition = owned.Composition;
         var shell = ToolbarAutomationNameTests.ShowMainView();
         var main = (MainView)shell.Content!;
         main.DataContext = composition.Root;
@@ -550,7 +573,7 @@ public class ProgramWaitTests
         outcome = await UiAutomationDriver.WaitForProgramAsync(answering, outcome, TimeSpan.FromSeconds(30));
 
         outcome.Success.Should().BeTrue(outcome.Error);
-        outcome.Detail.Should().NotContain("(");
+        outcome.Detail.Should().EndWith(" (Command1_Click finished)");
         run.Text.Should().Be("done");
     }
 
@@ -595,7 +618,7 @@ public class ProgramWaitTests
         outcome = await UiAutomationDriver.WaitForProgramAsync(watch, outcome, TimeSpan.FromSeconds(30));
 
         outcome.Success.Should().BeTrue(outcome.Error);
-        outcome.Detail.Should().NotContain("(");
+        outcome.Detail.Should().EndWith(" (Command1_Click finished)");
         run.Text.Should().Be("done");
     }
 
@@ -634,7 +657,7 @@ public class ProgramWaitTests
                 watch = run.Watch()!;
             }
             watch.Pump.IsIdle.Should().BeFalse();
-            var outcome = UiAutomationDriver.Interact(run.Named("Text1"), "set_value", "done");
+            var outcome = SetTextForWait(run.Named("Text1"), "done");
             outcome = await UiAutomationDriver.WaitForProgramAsync(watch, outcome, TimeSpan.FromSeconds(30));
 
             outcome.Detail.Should().NotContain("'HexIDE'");
@@ -801,6 +824,13 @@ public class ProgramWaitTests
     {
         control.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
         return new InteractOutcome(true, "test-event", "Raised Click", null);
+    }
+
+    // Like ClickForWait, arrange a programmatic change while a modal dialog blocks input.
+    private static InteractOutcome SetTextForWait(Control control, string text)
+    {
+        ((TextBox)control).Text = text;
+        return new InteractOutcome(true, "test-event", "Set Text", null);
     }
 
     // An error dialog an earlier call left open over the form, and a MsgBox this click raised: the wait names the MsgBox,

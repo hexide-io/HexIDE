@@ -9,7 +9,7 @@ included.
 - **Run time:** a Sub Main loads a form holding two ImageLists and an AutoRedraw PictureBox. It drives the ImageList
   late-bound under `On Error Resume Next`, logging each value with its `TypeName`, or the error number and its text.
   Pictures came from `LoadPicture` of four files made for the probe: 16×16 red and blue bitmaps, the red one with a
-  4×4 magenta corner, a 32×32 green bitmap and a 16×16 icon. They are kept in `corpus/inbox-controls/pending/imagelist/pictures`.
+  4×4 magenta corner, a 32×32 green bitmap and a 16×16 icon. They are kept in `corpus/inbox-controls/input/imagelist/pictures`.
   It was built with `/make` as native code and as p-code in session 0. Both builds logged the same lines.
 - **The designer:** the IDE on the console through the agent. Each MSCOMCTL tool was double-clicked onto an empty
   6000×4500 form, and the form saved.
@@ -335,5 +335,5 @@ and no Tag, and the icon with Key `ico` and Tag `t3`:
 MSComctlLib.ImageList is modelled (#1083): collection operations, properties, BMP/ICO pictures and byte-for-byte
 round trips of the three saved forms above. Draw, Overlay, hImageList and ExtractIcon are members marked not
 implemented, per the supervisor decisions on #1083; HexIDE has no device contexts or native handles.
-The original probe pictures remain under `pending/imagelist/pictures`; the forms and companions are under
+The original probe pictures remain under `input/imagelist/pictures`; the forms and companions are under
 `saved/imagelist` and walked by the round-trip lane. No new VB6 measurements were made in that implementation.

@@ -18,11 +18,11 @@ namespace HexIDE.Runtime.BuiltinControls;
 /// A control that cannot take the focus is passed over: a disabled one, a Label, and a Frame, without going into it.</item>
 /// <item>An option button it lands on is selected, as the focus selects one (#1583). A check box is not changed.</item>
 /// </list>
-/// A TextBox, a PictureBox and the lists keep the arrow keys, so this is attached to the three buttons only.
+/// A TextBox, a PictureBox and the lists keep the arrow keys. UpDown uses only the measured Up-key path (#1093).
 /// </remarks>
 internal static class ArrowNavigation
 {
-    public static void Attach<T>() where T : Control =>
+    public static void Attach<T>(bool upOnly = false) where T : Control =>
         InputElement.KeyDownEvent.AddClassHandler<T>((control, e) =>
         {
             // With a modifier held, vb6.exe was not measured, so nothing is done there.
@@ -34,6 +34,8 @@ internal static class ArrowNavigation
                 Key.Down or Key.Right => 1,
                 _ => 0,
             };
+            if (upOnly && e.Key != Key.Up)
+                return;
             if (step == 0 || Next(control, step) is not { } next)
                 return;
             e.Handled = true;
