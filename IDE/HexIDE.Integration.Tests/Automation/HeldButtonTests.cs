@@ -67,7 +67,10 @@ public class HeldButtonTests : IDisposable
             .And.Contain("the left button is still held there, and 'Canvas")
             .And.Contain("has the pointer capture; interact 'release' lets it go");
         HeldButton.Current.Should().NotBeNull();
-        HeldButton.TakeNote().Should().StartWith("The left button is held at (100, 60)").And.Contain("interact 'release' lets it go");
+        HeldButton.TakeNote().Should().StartWith("The left button is held at (100, 60)").And.Contain("interact 'release' lets it go")
+            // What an abandon does, which interact's value description held until it had no room for it (#2568).
+            .And.Contain("a Dock drag docks nothing and a designer move ends where it began, but a resize snaps to the grid "
+                         + "and a draw still places a 2 by 2 control. The next reply says what it did");
         DesignerOverlayTreeTests.Settle(designer.Window);
         var phantom = designer.View.FindControl<Border>("NewControlSpawnerPhantom")!;
         phantom.IsVisible.Should().BeTrue("the preview shows while the button is held");
