@@ -340,7 +340,7 @@ The former Add-In Manager dialog has been replaced by Options → Add-Ins, which
 | Toggle folders | Removed | VB6's button toggled the virtual type folders; both removed with the filesystem-hierarchy rendering (labelled commit, Classic-fork revertible) — [project-explorer](../openspec/specs/project-explorer/spec.md) Phase 1 |
 | Save *{file}* (context menu) | Done | Saves the selected form through the designer's save service; flushes open buffers, without format-on-save (#902). |
 | Save *{file}* As… (context menu) | Done | Saves the selected form at a new path through the same service (#902). |
-| Add Module / Class / UserControl (context menu) | Missing | Only "Add Form" in the Add submenu; Module/Class available via Project menu |
+| Add Module / Class / UserControl (context menu) | Done | Adds to the selected node’s project using the Project menu’s creation services and free-name helpers; Module/Class open code, UserControl opens its designer (#5). Supervisor live verification pending. |
 | Drag-and-drop reorder | Missing | No drag support; drag-move-to-folder sketched in [project-explorer](../openspec/specs/project-explorer/spec.md) Phase 3 |
 | Print (context menu) | Stub | Bound to `DisabledCommand` |
 | Directory tree for subfolder members | Done | **HexIDE addition** — always-on filesystem hierarchy below the `.vbp`, [project-explorer](../openspec/specs/project-explorer/spec.md) Phase 1 (implemented 2026-06-12) |
