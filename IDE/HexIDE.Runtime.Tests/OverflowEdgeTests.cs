@@ -5,7 +5,7 @@ namespace HexIDE.Runtime.Tests;
 /// <summary>
 /// The overflow edges of #234, each cell as vb6.exe gave it under <c>On Error Resume Next</c>: the result's TypeName, its
 /// value, and Err.Number. Native code, p-code and the IDE (<c>/runexit</c>) agree on every cell here
-/// (docs/vb6-fidelity-oracle.md, "Overflow edges").
+/// (docs/vb6-fidelity-oracle/overflow-edges.md, "Overflow edges").
 /// </summary>
 public class OverflowEdgeTests : BaseVBTestFixture
 {

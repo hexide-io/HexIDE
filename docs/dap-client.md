@@ -46,8 +46,10 @@ Timeout/cancellation ends the local request wait; it does not undo remote execut
 automatic DAP cancel request. A late response to an abandoned request is ignored. Cancellation or failure
 during writing closes the connection, since the peer may have received only part of a frame.
 
-EOF, malformed messages and connection disposal settle pending requests. `Completion` returns the first
-closure exception, or null after intentional disposal. The event stream also completes with the failure.
+EOF, malformed messages and connection disposal settle pending requests. Disposal fails requests with
+`IOException`, including an in-flight write whose disposed stream throws `ObjectDisposedException`.
+`Completion` returns the first closure exception, or null after intentional disposal. The event stream also
+completes with the failure.
 Dispose the connection even after input ends. Streams must support cancellation or unblock when disposed.
 
 ## Owning an adapter process
@@ -132,6 +134,9 @@ running state and partial-thread resumes are not implemented.
 overwrites a later stopped event on receipt of its response. A definitive refusal restores a fresh stop;
 timeout/cancellation is uncertain and ends the session rather than claiming it is still paused. `PauseAsync`
 requests a break while running; only a stopped event confirms it. Capabilities retain the initialize response.
+`SetNextStatementAsync(stop, path, line, threadId)` requires `supportsGotoTargetsRequest`, queries
+`gotoTargets` and resumes with `goto` using the first returned target. Empty targets and adapter refusals
+retain stopped inspection; a successful move takes its location from the next stopped event.
 `EvaluateAsync(stop, frameId, expression)` sends adapter-specific Immediate syntax with `context: repl`.
 Frame zero is valid. The raw result preserves type, variable reference and extension fields. The stop is
 validated before and after the request; callers must also validate their selected-frame identity before
@@ -179,3 +184,10 @@ components. It is not downloaded or run by ordinary CI; the smoke executable is 
 - Add-in registration through [#891](https://github.com/hexide-io/HexIDE/issues/891).
 
 Protocol reference: [Debug Adapter Protocol specification](https://microsoft.github.io/debug-adapter-protocol/specification).
+
+MCP run control follows the menu routes for `step_into` (`stepIn`), `step_over` (`next`),
+`step_out` (`stepOut`), `continue_program` (`continue`) and `break_program` (`pause`). Replies
+wait up to two seconds for the new stopped stack, report its top source frame or running/ended,
+and preserve the adapter's refusal message. `set_next_statement` resolves a saved module to its
+source path for the capability-gated `gotoTargets`/`goto` route. External `run_to_cursor` remains
+unavailable: this route has no one-shot breakpoint lifecycle (#2968).

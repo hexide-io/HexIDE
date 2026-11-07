@@ -55,7 +55,7 @@ public class ControlNameClashTests
         var toolbox = new ToolBoxToolViewModel(Substitute.For<IDocumentDockService>(),
             Substitute.For<IComponentRegistry>(), Substitute.For<ILocalizationService>());
         var vm = new FormEditViewModel(toolbox, Substitute.For<IEventBus>(), Substitute.For<IProjectService>(), null!, null!,
-            Substitute.For<ISettingsService>(), Substitute.For<ILocalizationService>()).Initialize(form);
+            Substitute.For<ISettingsService>(), Naming()).Initialize(form);
         return (vm, form);
     }
 
@@ -75,6 +75,14 @@ public class ControlNameClashTests
 
         rename.Should().Throw<DataValidationException>().WithMessage("Name must be unique in form");
         text1.GetPropertyOrDefault(VBProperties.NameProperty).Should().Be("Text1");
+    }
+
+    // The refusal is a localization key now (#629); answer it with the English pack's text.
+    private static ILocalizationService Naming()
+    {
+        var loc = Substitute.For<ILocalizationService>();
+        loc.GetString("Str.Naming.Msg.NameNotUniqueInForm").Returns("Name must be unique in form");
+        return loc;
     }
 
     [AvaloniaFact]

@@ -46,6 +46,9 @@ public sealed class CompilerPreparedProject : IDisposable
     public ImmutableArray<byte> ReadyReply { get; }
     public ImmutableArray<CompilerControlMessage> Notifications { get; }
 
+    /// <summary>Asks the compiler to end, through the root this project owns (<see cref="CompilerRootSession.RequestShutdownAsync"/>).</summary>
+    public Task RequestShutdownAsync(CancellationToken cancellationToken = default) => Root.RequestShutdownAsync(cancellationToken);
+
     internal CompilerPreparedProject(CompilerRootSession root, string directory, string path,
         ImmutableArray<byte> loadReply, ImmutableArray<byte> readyReply, ImmutableArray<CompilerControlMessage> notifications)
     {
@@ -132,12 +135,11 @@ public static class CompilerProjectPreparation
         var codec = root.Codec;
         var pending = new HashSet<int>();
         var notifications = ImmutableArray.CreateBuilder<CompilerControlMessage>();
-        var nextId = 2; // Root initialization consumed ids 0 and 1.
         long received = 0, packageBytes = 0;
 
         async Task<int> Send(CompilerProjectRequest request)
         {
-            var id = nextId++;
+            var id = root.TakeRequestId();
             pending.Add(id);
             await root.Transport.SendAsync(codec.EncodeProjectRequest(id, request, limits.MaximumMessageBytes), WebSocketMessageType.Binary, token).ConfigureAwait(false);
             return id;

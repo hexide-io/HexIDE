@@ -15,7 +15,7 @@ namespace HexIDE.Integration.Tests.Views;
 /// Which of two overlapping controls a running form draws on top (#1497), read from a real Skia frame.
 /// </summary>
 /// <remarks>
-/// Measured in VB6 at run time (docs/vb6-fidelity-oracle.md, "How a running form stacks its controls"):
+/// Measured in VB6 at run time (docs/vb6-fidelity-oracle/how-a-running-form-stacks-its-controls.md, "How a running form stacks its controls"):
 /// <list type="bullet">
 /// <item>the first block in a container is drawn on top;</item>
 /// <item>a windowless control (Label, Shape, Line, Image) is drawn under every windowed one, whatever their order;</item>
@@ -24,7 +24,7 @@ namespace HexIDE.Integration.Tests.Views;
 /// </list>
 /// HexIDE drew the last block on top, and every Line under every other control.
 /// </remarks>
-public class RuntimeStackingTests
+public class RuntimeStackingTests : WindowTestFixture
 {
     private static readonly Color Red = Color.FromRgb(255, 0, 0);
     private static readonly Color Yellow = Color.FromRgb(255, 255, 0);

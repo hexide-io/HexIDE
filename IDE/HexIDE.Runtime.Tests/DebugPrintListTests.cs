@@ -102,7 +102,7 @@ public class DebugPrintListTests : BaseVBTestFixture
     {
         await Run("Debug.Print #1/2/2003#; \"d\"\n");
 
-        Lines().Should().Equal(VbDisplay.ToText(new Vb6Value(new System.DateTime(2003, 1, 2))) + " d");
+        Lines().Should().Equal(VbDisplay.ToText(new Vb6Value(VbDate.FromDateTime(new System.DateTime(2003, 1, 2)))) + " d");
     }
 
     [Fact]

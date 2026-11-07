@@ -9,8 +9,20 @@ consume is bounded by the LSP specification, while what the bundled server can p
 HexIDE's CST-not-AST limit. Those bounds are different, and a feature can be perfectly reasonable on one
 side of the seam and forbidden on the other.
 
+An unrecognised `pipeRole` on a pipe entry is reported as a configuration problem; the entry remains
+registered with the `connect` fallback.
+
 For *configuring* a server, see [`language-servers.md`](./language-servers.md). For the third-party servers
 the test suite drives, see [`foreign-language-servers.md`](./foreign-language-servers.md).
+A pinned foreign-server download with a checksum mismatch fails an ordinary guard test even outside CI;
+the affected protocol tests skip visibly with a checksum-specific reason (#487).
+
+Signature help accepts parameter labels as strings or UTF-16 offset pairs into the signature label.
+The popup bolds the active parameter range without changing the signature label or its optional-parameter
+brackets ([#2632](https://github.com/hexide-io/HexIDE/issues/2632)), and uses its text for parameter documentation. String labels
+retain their existing first-match highlighting. An offset outside the signature has no highlight.
+If deferred result deserialization fails, the protocol inspector marks the exchange Failed with an
+“answer dropped” detail and retains any captured reply body (#2186).
 
 ---
 
@@ -33,7 +45,20 @@ stale bundled server fail rather than skip.
 
 ---
 
+## Subprocess launch configuration
+
+Subprocess launch configuration accepts `arguments` as a legacy command-line string or an argv array,
+forwarded through `ProcessStartInfo.ArgumentList`. An optional `environment` map overrides individual
+inherited variables. Both apply to stdio and launched pipe servers; pipe placeholders expand per argument.
+Processes have no shell or tty. See [the configuration guide](language-servers.md).
+
 ## The wire contract
+
+Optional members whose LSP 3.17 types exclude null are omitted when unset, including formatting's
+`trimTrailingWhitespace` and initialize's `capabilities.textDocument.foldingRange` (#2668).
+This is a per-property rule: initialize's `processId`, `rootUri` and `workspaceFolders` still allow
+explicit null, as do opaque `LSPAny` values. `OptionalMembersWireShapeTests` reads framed JSON through
+the production formatter and source-generated context to guard absence and preserve explicit values.
 
 **Sent by the client:**
 
@@ -41,19 +66,162 @@ stale bundled server fail rather than skip.
 |---|---|
 | Lifecycle | `initialize`, `initialized`, `shutdown`, `exit` |
 | Document sync | `textDocument/didOpen`, `didChange`, `didClose`, `didSave` |
-| Language requests | `hover`, `documentSymbol`, `foldingRange`, `completion`, `signatureHelp`, `definition`, `declaration`, `documentHighlight`, `rename`, `formatting`, `codeLens` |
+| Language requests | `hover`, `documentSymbol`, `foldingRange`, `completion`, `signatureHelp`, `definition`, `declaration`, `implementation`, `typeDefinition`, `references`, `documentHighlight`, `rename`, `formatting`, `rangeFormatting`, `codeLens` |
 | Actions | `codeLens/resolve`, `workspace/executeCommand` — see *Commands and lenses* |
 | Custom | `vb/builtinSymbols` — see *Custom methods* |
 
-**Consumed from the server:** `textDocument/publishDiagnostics`, `$/logTrace`, plus `window/logMessage` and
+Initialize declares `textDocument.completion` with all 25 LSP completion kinds, `preselectSupport: true`,
+`documentationFormat: ["plaintext"]`, and default `insertTextMode: 1` (`asIs`). Snippets, insert/replace
+edits, resolve, commit characters, context and list item defaults are not advertised (#2670).
+This follows the [LSP 3.17 completion capability contract](https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#completionClientCapabilities).
+Items from all servers are ordered by `sortText ?? label`, ordinal. Matching uses `filterText ?? label`,
+while the displayed label and insertion fallback remain the label. The full list stays visible. The first
+preselected prefix match is selected, otherwise the first prefix match, using the whole word around the
+caret. An empty or unmatched word leaves no item selected. Enter accepts a selected item then commits a
+new line; Space accepts then types a space; with no selection those keys only type. Tab accepts the
+selected item or, with no selection, the first outlined item, replacing the whole word. Escape closes
+without accepting. Complete Word inserts a unique prefix match immediately (#3056). Descriptions
+show detail alongside string or MarkupContent documentation, rendered as plain text (including markdown
+source until a markdown renderer is available). Kind glyphs reuse the Object Browser's member and class
+glyphs; kinds without a counterpart have none.
+The editor applies a completion's `textEdit` in preference to `insertText` or `label`; without
+a `textEdit`, it replaces the completion segment. `additionalTextEdits` use the same original
+document coordinates and commit with the main edit as one undo step. The caret follows the main
+insertion, including shifts from earlier edits. Invalid, overlapping or protected edit sets are
+refused in full. The editor expands numbered snippet tabstops (`$1`, `${1}`), defaults
+(`${1:Item}`), repeated linked placeholders, choices (`${1|one,two|}`), escaped `$`, `}` and
+backslashes, and final `$0`.
+Tab visits positive stops in numeric order, Shift+Tab goes back, and Tab after the last stop
+finishes at `$0` (or the insertion end); Escape ends linking. Multiline whitespace remains as sent.
+Unsupported or malformed snippet syntax refuses the whole completion before applying additional edits.
+Choice placeholders offer their values in the completion picker; selecting a value updates linked
+occurrences. Choice pickers also appear under their editor in automation dumps and snapshots,
+with each choice named by its text. Enter accepts a choice without a line break and keeps snippet navigation active (#3056). Commas and pipes can be escaped within choices.
+After typing in a placeholder, Tab advances when no completion list is open. With a completion
+list open, Tab accepts its selected item, following the editor's ordinary completion rule;
+close that list before using Tab to navigate the snippet.
+This is a partial third slice of #2670: nested placeholders and variables still need support
+before `snippetSupport` can be advertised. Insert/replace edits and indentation adjustment also remain.
+
+Completion replies accept `CompletionItem[]`, `CompletionList`, or `null` (#2204). Bare arrays
+are normalized to a complete list (`isIncomplete: false`); list objects retain their supplied flag.
+The editor receives the items from either shape; it does not currently use `isIncomplete`.
+Malformed replies follow the request-failure warning path.
+
+The #2204 result-union audit used the pinned LSP metamodel. Among implemented requests,
+`definition` and `declaration` already normalize single locations, location arrays and location-link
+arrays; `documentSymbol` and `workspace/symbol` already normalize both symbol shapes. Hover's
+nested content union is handled by its converter. Diagnostic reports are read by `kind`, and
+`workspace/executeCommand` retains arbitrary JSON. Folding ranges, semantic tokens (full), signature
+help, highlights, rename, formatting and code lenses accept their single non-null result shape or
+`null`. Resolve requests have a single result shape.
+
+`textDocument/codeAction` accepts its mixed Command/CodeAction array or null (#453). Other unimplemented
+request methods remain outside this fix. Nested signature-help unions also remain outstanding:
+signature/parameter documentation accepts only strings, and parameter labels only strings rather
+than offset pairs. These need separate changes and wire tests; this audit does not claim full
+coverage of unions inside every result member.
+
+Hover replies accept `MarkupContent`, a legacy `MarkedString` (Markdown string or `{language, value}`
+code block), or an array of marked strings (#2022). Legacy forms are normalized to Markdown markup
+content, with blank lines between array parts; `MarkupContent` keeps its kind and value. The editor's
+tooltip renders Markdown paragraphs, emphasis, inline code, lists and fenced code blocks (#2905).
+The renderer owns the advertised `contentFormat` preference: `["markdown", "plaintext"]`.
+`vb` and `vba` fences use the editor's font and shared VB6 colours; other fences use its font
+without highlighting. Raw HTML is literal text. HTTP(S) links open through the browser only on
+click. A file link opens only a document the project already holds, and does nothing for any other file.
+Command links remain inert text. Plain-text content stays literal. Typing closes the hover tip, as does
+opening completion or signature help; moving into the tip keeps its links reachable (#3042).
+
+Command links remain inert text. List markers align with the first line of linked text using the caption's measured baseline,
+including the link button's top inset, across font families and sizes (#3043).
+Plain-text content stays literal.
+
+`initialize.locale` carries the resolved Options → Language UI language as a BCP 47 tag.
+System default uses the localization service's system resolution; pseudo-locales send `en`.
+A language change takes effect on the next connection: reconnect the server to send the new locale.
+Changing the UI language does not automatically restart servers (#2210).
+
+On stop, once `initialize` has been answered, the client allows two seconds for the parameterless
+`shutdown` request to answer, then attempts the parameterless `exit` notification even if shutdown timed out or failed (#392).
+Once `shutdown` is sent, the common outbound RPC gate permits no request or notification but `exit`, including
+during a workspace-root restart (#2924). Replies still go: a server may ask something before it answers
+`shutdown`, as RDCore's does with `workspace/diagnostic/refresh`, and a reply withheld there dropped the
+connection before `exit` could be sent. Pending folder updates and imports for that connection are dropped; the replacement
+receives the current folders in `initialize` and its own project import. When the connection ends,
+unanswered requests are marked Abandoned in the protocol inspector.
+Before an initialize reply, neither message is sent. An externally owned pipe server receives neither
+on stop: HexIDE closes only its connection. A launched pipe server gets two seconds to exit before
+HexIDE kills its remaining process tree, including during bring-up (#313).
+The stdio transport also allows two seconds for an orderly exit, then kills the remaining process
+tree and waits up to two seconds for termination before disposing its process handle (#2023).
+Unix transports allow an additional two seconds for the guard's group cleanup (#2297). The stdio
+exit code is recorded even during client stop, except when HexIDE ends a server that answered
+`shutdown` successfully and was sent `exit`: that timeout termination is recorded once as
+"stopped after shutdown; still exiting after N s, so ended", without a fault or a killed-process exit
+code (#3217). Both launched transports publish that stop classification before killing the process,
+and keep process termination and exit-code reads outside the exit handler's lock so Windows teardown
+cannot deadlock on it. A natural non-zero exit and a timeout kill without a successful shutdown still
+retain their exit code and fault. Stop and restart currently await teardown before continuing, so they keep
+the same bound as IDE exit; no path gets a ten-second wait. Both process-owning transports retain their exit
+handlers through disposal and record the end once. Deliberate disposal logs a natural exit code at
+information level with the server identity; a timeout kill is logged separately. Unexpected exits
+remain warnings. The Unix guard and post-kill waits described above still exceed #491's requested
+two-second total bound; integrating that deadline with descendant cleanup remains outstanding.
+Whole-composition IDE tests use a per-test owner that awaits disposal of the language registry,
+including when an assertion fails (#2588). A source guard rejects direct `DISetup` construction
+elsewhere in `HexIDE.Tests`; this guards ownership rather than enumerating all test-host children.
+
+A test-only process server covers orderly exit, ignored
+exit, wrapper children, a truncated reply followed by a crash, and an unsolicited non-zero exit.
+Stdio and launched-pipe tests also cover a delayed exit after an answered shutdown and a server
+that never answers shutdown (#3217). Slow mode holds the process and pipe open after answering
+shutdown while draining and discarding input, then waits up to one minute after disconnect.
+Disconnect regressions cover both transports with bounded writes and flushes, including data larger
+than the pipe buffer so a stalled reader fails on Linux too. Timeout-kill assertions first check that
+a kill occurred and report the stop duration if it did not (#3244).
+
+**Consumed from the server:** `textDocument/publishDiagnostics`, `$/logTrace`, `$/progress` (work-done
+progress below), plus `window/logMessage` and
 `window/showMessage` — the channel a server uses to talk about *itself* rather than about a document.
-The first goes to the log at the severity the server declared; the second goes there **and** to the
+Both map Error to Error, Warning to Warning, Info and Log (types 3 and 4) to Information, and
+3.18 Debug (type 5) and unknown values to Trace. Type 4 therefore reaches the default log;
+type 5 needs `HEXIDE_LOG_LEVEL=Verbose`. The second goes there **and** to the
 status bar, because a message the user never sees was the bug and a message with no trace afterwards
-is the next one.
+is the next one. The status-bar prefix is localized (with a separate error form); the server’s
+message text stays as sent. The log keeps its English connection tag.
+
+Server-card labels share a content-sized column, keeping their values aligned with a gap even
+for longer translations. State ages refresh once per second while the view is visible; the
+view stops its timer when hidden or detached (#2865, #2866). Switching the IDE language
+refreshes status, connect-chain stages, age and empty-output text immediately. Age units use
+localized range formats, and the label column can shrink as well as grow without reopening the tab (#3012).
+Connect-chain elapsed times use a localized millisecond format that follows the same live language switch;
+digit grouping continues to use the process culture (#3026).
+Configuration problems likewise resolve message codes and verbatim arguments through the active language
+pack, and refresh on a language switch (#3031). Complete translated field-list headings replace English
+plural fragments. The original English messages remain in the registry for logging; exception details,
+JSON keys and values, paths and pointers remain verbatim in the translated display. JSON syntax
+errors use a separate code with a 1-based line and character column converted from the parser’s UTF-8
+byte offset; the labels are translated and the JSON path stays verbatim (#3065).
+
+**Live server output** (#2388): Tools → Language & Debug Servers shows an Output box on each
+server's card, beside its existing protocol-inspector link. It updates as `window/logMessage`, stderr,
+the notes a server returns from its project-import command (under that command's name) and HexIDE's
+workspace-generation notes arrive, including before the view opens. Log entries retain the
+wire type number (1 Error, 2 Warning, 3 Info, 4 Log, 5 Debug); unknown numbers are kept verbatim.
+This session-only buffer is independent of protocol-body arming and clearing. Each server keeps its
+latest 65,536 characters, with an ellipsis at the start when older output was discarded. Output is local,
+verbatim text; the pseudonymised Copy Report does not include it.
+
+The metamodel guard also checks the numeric values of the wire enums (`DiagnosticSeverity`,
+`MessageType`, `SymbolKind` and `CompletionItemKind`), including all 25 completion kinds.
+`SaveNotification` describes local save negotiation state rather than a wire enum.
 
 **Server-initiated requests.** Four are handled: `client/registerCapability` and
 `client/unregisterCapability` (refused, with the refusal recorded rather than silent) and
-`workspace/diagnostic/refresh`, which is acted on — every open document is asked about again. Everything
+`workspace/diagnostic/refresh`, which is acted on — every open document is asked about again — plus
+`window/workDoneProgress/create`, which registers a progress token and succeeds. Everything
 else gets whatever StreamJsonRpc answers an unknown method with, which is an error response rather than
 silence, on the library's own account; those rows are the library's documented behaviour, not a measurement
 taken here. A server awaiting a reply it never gets hangs rather than degrading, which is invisible until
@@ -69,18 +237,84 @@ the client asks again.
 
 ---
 
+### Work-done progress
+
+The client declares `window.workDoneProgress: true`, accepts `window/workDoneProgress/create` with
+string or integer tokens and replies with a null result. `$/progress` begin/report/end updates the
+status bar through `LanguageServerMessageReporter`. Begin without create is accepted (measured with
+rumdl 0.2.64 in #360).
+Report retains omitted title, message and percentage; end clears immediately, or restores another active
+task. Tokens are scoped to each server, and disconnect ends its outstanding tasks. An end does not erase
+a later status message from another IDE operation. Server text uses the reporter's whitespace flattening
+and 200-character cap. The localized status format names the originating registration’s display name,
+separates title and message with a colon, and omits absent parts (including percentage). Cancellation and partial-result progress remain unwired.
+
+StreamJsonRpc 2.24.92 reserves `$/progress` for `IProgress<T>`, but measured dispatch falls back to the
+ordinary target for both string and integer tokens; no custom formatter is needed. The foreign Markdown
+test records inbound method names during a workspace session and checks that progress reaches subscribers
+too (#360). The current rumdl fixture indexes only with a workspace root, so the test supplies one.
+
 ## Request failure logging
+
+Hover also logs at debug why it returned no result: no RPC connection, initialization still
+incomplete, `hoverProvider` unavailable, or a server reply of `null` (#2302).
+Exceptions retain the failure/supersession logging below. These diagnostics contain no document
+content and do not change the nullable hover API. The notification-flood regression includes the
+client log and whether the server received hover in its failure message; the original intermittent
+null result has not been reproduced or attributed to a cause.
 
 A failed request returns an empty or absent result and warns once per method per connection; further
 failures of that method are logged at debug. Local cancellation and server error replies `-32801`
-(ContentModified) or `-32800` (RequestCancelled) are logged at debug as superseded requests. They leave
-that method's warning available for a later genuine failure (#723).
+(ContentModified), `-32800` (RequestCancelled), or `-32802` (ServerCancelled) are logged at debug as superseded requests. They leave
+that method's warning available for a later genuine failure (#723, #3190). Document diagnostic pulls instead
+retry ContentModified and retriggerable ServerCancelled replies as described below (#2209).
+
+Every outbound request has a 30-second local deadline, using the same named default as `initialize`
+(#486). This is a consistency choice, not a measured server response budget. A shorter caller token stops
+the local wait sooner. Shutdown retains its existing shorter two-second budget; initialize still tears down an unanswered handshake.
+For language operations, a deadline returns the request's empty or absent result, warns once per method per connection, and records `TimedOut` rather than
+an answer. Cancellation sends `$/cancelRequest` best effort; returning never depends on its acknowledgement.
+StreamJsonRpc retains abandoned pending entries until the connection ends. That connection-lifetime leak
+is accepted so one silent method cannot block the caller or disable a healthy connection.
+
+Full semantic-token requests answered with Content Modified (`-32801`) retry after 250 ms,
+with exponential backoff capped at 4 seconds (#2913). These replies do not spend the document's
+once-only warning. Cancellation, a document change or close, or a connection change stops the retry.
+The backoff uses an injectable `TimeProvider` (system time by default); retry tests advance it by hand.
+Semantic-token refresh requests remain unsupported.
+
+Before a document change, the client cancels outstanding diagnostic pulls, full semantic-token requests
+and folding requests for that document and waits for their cancellation frames to be sent before
+`didChange` (#2365). Hover, completion and other user requests are left alone, as are requests for other
+documents. The change starts a fresh diagnostic pull; editor refreshes request fresh tokens and folds.
+
+Stopping has a deadline of its own, `VBLspClient.ShutdownTimeout` (two seconds), applied twice: once to the
+answer to `shutdown`, and once to sending `exit`. The second is what the first does not cover. A server that
+has stopped reading fills the pipe, so the write ahead of `exit` never finishes, and `exit` once waited behind
+it for good. Then the connection is disposed, which ends the stuck writes (#1221).
+
+`FaultServerTests` drives these paths with a server that misbehaves on demand. It ignores `shutdown`, stops
+reading, never answers, stalls or dies halfway through a reply, and sends malformed frames, floods and
+requests the client does not support. Each scenario asserts what a user would see. Lost-connection scenarios
+wait separately for the stopped client and its warning, since the warning may be logged after `IsRunning`
+clears (#2244). It is an in-process server over raw frames, so it proves nothing about interoperability:
+that stays with the foreign servers.
+
+`SilentServerTests.GivingUpIsReportedAtWarning_BecauseSilenceIsTheSymptom` keeps the timeout warning
+assertion strict and includes the last connection attempt and recorded logs (with exceptions) on failure.
+The isolated 6 ms Windows CI failure in #1937 has not yet been explained; these diagnostics distinguish
+an early initialize error from the expected timeout without accepting either as the same outcome.
 
 ---
 
 ## Describing the workspace
 
-`initialize` carries **both** `workspaceFolders` — one per loaded project — and the deprecated `rootUri`,
+Each project's folder precedes its outside source folders. Missing source files add no folder; shared
+folders are deduplicated, and an outside source still belongs to the project listing it (#2364).
+Membership changes use the same 300 ms debounce as project import.
+Opted-in servers receive deduplicated added and removed folders before the import command (#2364).
+
+`initialize` carries **both** `workspaceFolders` — each loaded project’s folder, plus existing outside source folders — and the deprecated `rootUri`,
 and the client declares `workspace.workspaceFolders`. Sending both is not belt-and-braces: four of the five
 servers this suite drives were measured, and they show three different behaviours. (ruff, the fifth, was
 added later for the pull model and has not been measured on this question — which is stated rather than
@@ -103,12 +337,19 @@ to be the *startup* one, and changing that silently re-rooted every server — i
 had not moved ([#261](https://github.com/hexide-io/HexIDE/issues/261)). Folders sharing a directory collapse
 to one entry, so a server does not index the same tree twice.
 
-`workspaceFolders` is **null, never an empty array**, when no project is open: the protocol gives those two
+An unsaved project with neither a project file nor a chosen folder has no root. Querying the workspace
+chooses no scratch folder. A pipe server requiring `{workspaceUri}` or `{workspaceDir}` waits in
+`NotStarted`, retaining the refusal reason in the Language Servers window. The warning is logged once
+per entry; later opens retry, and the first project save starts it without reopening a document.
+Scratch file storage never supplies a workspace or artifact root. Other startup failures remain
+terminal for the session (#1382).
+
+`workspaceFolders` is **null, never an empty array**, when no project has a chosen folder: the protocol gives those two
 different meanings, and "no folders are open" is the true one.
 
-**Not yet done:** `workspace/didChangeWorkspaceFolders`. A server started while a group was open is
-correct; one already running when a project joins or leaves the group is not told, and keeps the folder list
-it was given at `initialize`.
+`workspace/didChangeWorkspaceFolders` is sent on that trigger only when the server declares
+`workspace.workspaceFolders.changeNotifications` as true or a registration string.
+Unchanged folders produce no notification. Folder updates also reach connections without project import.
 
 ---
 
@@ -166,11 +407,15 @@ that kind under `change`. Kind `0` means "send me nothing", so presence alone ca
 
 **Full text only.** Every `didChange` carries the whole document.
 
-The client reads a server's declared sync kind well enough to know whether to send changes at all, but does
-**not** honour an incremental declaration — a server asking for incremental updates receives full ones
-anyway. That is legal, since full text is always a valid superset, but it is wasteful on large files and
-leaves the incremental path with no coverage at all. Tracked as
-[#282](https://github.com/hexide-io/HexIDE/issues/282); texlab is the server that surfaced it.
+The client reads a server's declared sync kind to decide whether to send changes at all: None suppresses
+them. For both Full and Incremental, it deliberately sends one change event containing the entire new text
+and no `range`. LSP permits this: a server must accept full-document changes whatever sync kind it advertises.
+
+This is the decision in [#282](https://github.com/hexide-io/HexIDE/issues/282), not pending incremental-sync
+work. Full synchronization avoids dropped or misapplied deltas silently desynchronizing the server and
+editor, at negligible cost for typical VB6 source files. Texlab and a second backend both declared
+Incremental and were measured accepting these full-text changes. Incremental sync is deferred until a server needs it;
+the cost on large files remains recorded under *Known client limitations*.
 
 **`didClose` publishes an empty diagnostic set, and this is a hard requirement.** Three consumers — the
 editor's marker service, `AddinDiagnosticsService`, and the MCP `DiagnosticsCache` — depend on that empty
@@ -200,13 +445,20 @@ before the edit ([#719](https://github.com/hexide-io/HexIDE/issues/719)).
 **Every window holding one name holds one document.** One file shared by two projects of a group opens two code
 windows that both name it by its file, and a server has one document for that name. So the windows' sessions share
 it, per client: the first window to hold it opens it, every window draws its versions from one sequence, and the
-last window to let go closes it. A rename closes the old name only for its last holder and opens the new one only
+last holder to let go closes it. A rename closes the old name only for its last holder and opens the new one only
 for its first. A window that joins an open document sends nothing of its own, because its copy as it opened could
 undo another window's unsaved edits on the server. It shows what was last published for the document, and its own
 edits reach the server as the next versions. The sequence is drawn where the edits are made, as above, so a send
 cannot renumber older text. Before this, each window kept its own count, the server was opened twice and discarded
 whichever count was behind, and either window's close closed the document for both
 ([#721](https://github.com/hexide-io/HexIDE/issues/721)).
+
+**Closing a dirty code window keeps its server document open** (#3064). The project holds an independent
+session with the edited text until save, discard/reload or removal. Closing still gives no save prompt.
+Pending edits are flushed before the window lets go; reopening joins the same document without a second
+`didOpen` or a version reset. A server starting later receives that retained text in `didOpen`.
+Saving a closed document updates its whole-file text and wire name, announces the save, then releases the
+project holder. A clean window still releases its document immediately.
 
 The client drops a change whose version is no later than the one it tracks, keeping the newer text and
 version for reconnect replay. Checking, tracking and sending changes are serialized, so a debounced change
@@ -215,7 +467,11 @@ crossing the flush that superseded it cannot send a lower version after the flus
 
 **On reconnect, tracked documents are replayed** through the same code path as a first open, carrying the
 version this connection has been tracking rather than `1`. Resetting to `1` would put the client's count
-behind the session's, so the next change would arrive bearing a version the server had already seen.
+behind the session's, so the next change would arrive bearing a version the server had already seen. Requests
+about a tracked document wait for that document's `didOpen` write on the current connection, including
+requests made from the initialized state change before replay begins. Reserving an open for replay is
+not enough to release a request. Pending waits respect caller cancellation and the request timeout
+([#2920](https://github.com/hexide-io/HexIDE/issues/2920)).
 
 That replay used to be a *second* implementation, and it drifted: it hardcoded the language identifier to
 `vb6` and skipped the capability gate, so after any reconnect an attached foreign server was told every one
@@ -253,7 +509,7 @@ project's name, the document's own name, and the extension its kind will be save
 - **Each segment is percent-encoded** (`LspDocumentUri.ForUntitled`), never interpolated raw. texlab drops a
   notification whose URI is not strictly valid without a word: no response, no error, nothing on standard
   error, and the connection stays up and answers about other documents normally. A request about that
-  document is then never answered at all, because nothing but `initialize` has a timeout
+  document is then never answered by the server; the client gives up after its request deadline
   ([#486](https://github.com/hexide-io/HexIDE/issues/486)). The same server, in the same process, answers the
   percent-encoded form.
 - **Compared without regard to case**, because both segments are VB6 names. This is only ever exercised
@@ -362,18 +618,16 @@ server is expected to keep off them — the bundled one does, by the rule in
   file's layout with or without a server, and they do not come through the language-client interface at all.
   They describe the file format, which is the same whichever server is attached, and a fold that vanished with
   the server would expose the text it exists to keep out of the way. A server's folds are merged with them on
-  every answer (`Vb6FoldingAdapter.Merge`): one that nests inside or around them is kept, and one that crosses
-  one of them, **or starts where one of them starts**, is dropped. The second rule is the fold library's
-  doing: it pairs the folds it is given with the sections it holds by start offset alone, so a server fold
-  from the top of the file took the header's section, and the header came back unfolded. A server's
-  procedure fold contains that procedure's attribute fold only because the client reads every server fold
-  as starting at the beginning of its first line. LSP starts a fold after that line's text, and the client
-  also ignores any character offsets a server sends
-  ([#1022](https://github.com/hexide-io/HexIDE/issues/1022)). Read as LSP means it, the fold of a procedure
-  declared on one line would start where its attribute fold starts, and the second rule would drop it.
+  every answer (`Vb6FoldingAdapter.Merge`): one that nests inside or around them is kept, including one
+  with the same start, and one that crosses one of them is dropped. Server folds honour character offsets,
+  defaulting to the end of each line when a character is absent. Folded states are restored by range after
+  every update, so a surviving fold cannot inherit a vanished fold's state when their starts coincide
+  ([#1022](https://github.com/hexide-io/HexIDE/issues/1022)).
 - **Formatting.** An answer is applied to a copy, reduced to the lines it actually changes, and any change to
-  a line of the header or a member's attribute run is dropped, as one undo step. Lines are compared without
-  their terminators, so a server answering in `\n` for a `\r\n` buffer does not rewrite every line.
+  a line of the header or a member's attribute run is dropped. A kept empty whole-line hunk deleting a
+  complete logical declaration then takes its run with it (#1890). All kept changes form one undo step.
+  Lines are compared without their terminators, so a server answering in `\n` for a `\r\n` buffer does not
+  rewrite every line.
 - **Rename** is not clipped, because a rename partly applied leaves one name meaning two things. An answer
   with any edit in the header or a member's attribute run is refused whole, and the developer is told why.
   The one edit let through is a member's own name where it qualifies one of its attribute lines
@@ -384,15 +638,63 @@ server is expected to keep off them — the bundled one does, by the rule in
   a new name that is not a VB6 name: a letter, then letters, digits and underscores, and not one of `Rem`,
   `Empty`, `New`, `Nothing`, `Me` and `Attribute`, the six words `vb6.exe` was measured to refuse though each
   has a name's shape.
+- **Rename refusals** from any server are shown through the code window's refusal dialog. A
+  `-32803 RequestFailed` reply is logged at debug without consuming the method's failure warning; other
+  remote errors also show their message and retain the once-per-connection warning. Cancellation replies
+  (`-32800`, `-32801`) stay silent. A successful `null` result still means no change required (#1015).
 - **Diagnostics** inside the header or an attribute run are shown like any other, because they are a
   server's claim about the file. The bundled server raises none there.
-- **A rename's edits to other documents are dropped.** The code window applies the edits for its own
-  document and discards the rest without saying so
-  ([#1024](https://github.com/hexide-io/HexIDE/issues/1024)). No server attached to a code window sends
-  more than one document's edits today; one that binds names would, and naming a saved member by its file
-  is what lets such a server name it.
+- **Rename applies across loaded code members, all or none** (#1024). Every edited member's window
+  opens, using the navigation URI rule. Before any window opens or buffer changes, each target is checked
+  for a read-only form, protected header/attribute edits, and stale versions. A refusal names the member,
+  or the URI when no loaded code member answers. Stale-version and unsaved-change refusals explain the
+  reason in the IDE language and ask the user to try again, or save and try again (#3047). A successful
+  rename returns to its source window with the caret at the renamed name. Each changed buffer has one
+  independent undo step;
+  the status bar reports “Renamed in N modules”. Empty edit lists are ignored.
+- **Versioned workspace edits** are declared with `workspace.workspaceEdit.documentChanges: true`.
+  `documentChanges` takes precedence over `changes`, which remains supported. Only text document edits
+  are accepted; resource operations are neither declared nor applied. An edit with a version must
+  match the last version sent for a document already opened to the answering connection, with no newer
+  unsent edits or buffer text differing from that connection’s last sent copy. Unversioned edits to open
+  documents compare against the answering connection’s snapshot taken when the request was sent
+  (the last sent `didChange` for server-initiated edits). Unsaved changes alone do not refuse an edit;
+  a buffer changed since that baseline does, even if undo restores identical text. Documents not
+  previously opened to that server require a member with no unsaved changes. Rename previews and change annotations remain outside
+  this workflow.
 
 ---
+
+## Diagnostics for a renamed document
+
+The automation diagnostics cache forgets a URI when the client closes it for a rename, including the old
+`untitled:` name on save and the old file name on Save As (#2975). An empty diagnostic
+publication alone still means an analysed, clean document. After a rename close, the client
+ignores push publications and pull reports for that URI until it is reopened, including empty sets sent in
+response to `didClose`. URI identity uses `LspDocumentUri.Comparer`; unopened workspace
+documents can still receive diagnostics. Ordinary editor closes retain cached analysis and accept
+later server publications. The Diagnostics panel reads the registry ledger
+instead; rename withdraws its old rows, and late server publications cannot restore them.
+
+Delivery is queued in acceptance order, outside the lifecycle lock. A throwing delivery is logged and
+remaining deliveries still run (#2985). If a delivery is already in progress, rename returns before
+its clear runs: the clear follows that delivery. Waiting would deadlock when a publication handler
+waits for a rename on another thread. Consumers must observe `DocumentRetired` for cache eviction
+rather than assume a cache snapshot immediately after rename is current. The save caller
+(`LspDocumentSession.RenameAsync`) opens the new URI without reading the diagnostics cache; the registry
+queues its own ledger/cache retirement after closing its claimants.
+
+## Diagnostics panel
+
+Tools → Diagnostics shows the registry's current diagnostic store, including reports for unopened
+workspace documents. Each row names its publishing server (the configured display name), document,
+severity, line and message. Documents use the loaded member name or outside file name, with the full
+path in a tooltip; navigation retains the URI. Severity captions are singular and headers size to
+their localized text. Severity switches and a current-document filter narrow the list; the latter
+retains the last editor while the panel has focus. Reports replace their publisher's previous rows and
+withdrawals clear them without reopening the panel. Double-click a row to open the project document at
+its reported position, including carried files. Navigation uses the existing project resolver: a URI
+outside loaded projects cannot be opened by this panel. No additional diagnostic requests are issued.
 
 ## Diagnostics have an owner
 
@@ -434,17 +736,22 @@ from the caller's list and still carries the marks.
 JSON element and read through `CodeText`, which renders a number as the digits it arrived as. A server
 using numeric codes is as usable as one using names, and neither can throw on the way in.
 
-It reaches every consumer that shows a diagnostic's text: the automation server's `get_diagnostics`, the
-add-in API and the AI-chat tool. It reaches nothing a human sees, because **the editor has nowhere to show
-a diagnostic's message at all** — there is no tooltip on a squiggle and no error list
-([#451](https://github.com/hexide-io/HexIDE/issues/451)). A code is most of what an error list would be
-for, so the two belong together.
+Diagnostic codes reach the automation server's `get_diagnostics`, the add-in API and the AI-chat tool.
+The editor's squiggle tooltip shows overlapping messages and supplied sources alongside quick info in
+every profile (#451), even with Auto Quick Info disabled. When quick info arrives after a diagnostic
+tip opens, the displayed content updates with diagnostics first, followed by the server hover (#3057). The Diagnostics tool lists reports from
+all attached servers and navigates to their primary locations (#1991).
 
-Still dropped: `tags`, `relatedInformation` and `data`, each for a different reason and tracked as
-[#453](https://github.com/hexide-io/HexIDE/issues/453). `tags` would change how a diagnostic is drawn
-rather than add text to it, which is a rendering decision rather than a plumbing one;
-`relatedInformation` is waiting on somewhere to render it (#451); and `data` is only meaningful if
-code actions from a foreign server are relayed, which is an open question rather than a settled no.
+Both inbound paths retain `tags` 1 (Unnecessary) and 2 (Deprecated), ignoring unknown values,
+and `relatedInformation` locations and messages, skipping malformed entries (#453). Unnecessary
+text is faded and deprecated text is struck through in the editor and diagnostics list; the severity
+squiggle remains. The tooltip lists related messages below their diagnostic, with clickable locations
+labelled by loaded member name and one-based line, falling back to the URI. Links use the editor
+navigation service, and the tooltip stays open while the pointer moves into it. The client advertises
+`publishDiagnostics.relatedInformation: true` and `tagSupport.valueSet: [1, 2]`.
+Both paths also retain opaque `data`, including explicit JSON null, without changing the token's
+JSON spelling (#453). Pull values are cloned so they outlive the reply document. The code-action relay
+echoes it verbatim in `context.diagnostics` when the user opens Quick Fixes. The client computes no fixes itself.
 
 ### Some servers publish; some only answer
 
@@ -482,6 +789,16 @@ of no change and no save, so those asks never reach it. Asking only about docume
 leave it no way to give diagnostics at all, which is why
 [#432](https://github.com/hexide-io/HexIDE/issues/432) was closed rather than fixed.
 
+A document pull answered `-32801` (ContentModified), or `-32802` (ServerCancelled) unless
+`data.retriggerRequest` is `false`, is retried after 250 ms, doubling to a 4-second cap (#2209).
+Each attempt is a separate request in the protocol inspector. A change, close, newer pull or connection
+replacement stops the old retry loop; a changed document gets its own fresh pull.
+
+The close of a pulled document clears its marks under the same gate that checks and publishes answers.
+The reopen regression distinguishes the initial answer from the reopen answer: #963's empty final
+publication was the close's clear, observed before the reopen answer had arrived because the test mistook
+its identically labelled initial answer for the fresh one. Its failure trace labels that empty clear.
+
 `workspace/diagnostic` — the same model at workspace scope — is **not** implemented; see the limitations
 table. `workspace/diagnostic/refresh` is, because it is the only way a server that speaks when spoken to can
 report a change that is not a document, such as its own configuration file being edited.
@@ -489,6 +806,10 @@ report a change that is not a document, such as its own configuration file being
 ---
 
 ## Routing: which server gets which document
+
+Language & Debug Servers refreshes each server's tracked open-document count after document opens
+and closes, including the close half of a rename (#2485). Startup alone is too early: the first
+`didOpen` follows the running-state notification. This applies to Full and Incremental sync alike.
 
 Two questions the protocol keeps separate, and so does HexIDE:
 
@@ -524,12 +845,12 @@ So **a member of the project** is offered only to an entry whose claim establish
 extension that matched already establishes VB6. It is deliberately about *VB6's* unambiguous extensions.
 Stated loosely as "an extension no other language uses", it would admit a Markdown server through `.md`.
 
-**A file the project carries is not a member**, is not known to be VB6, and is routed by its extension alone.
-A carried `.cls` reaches the LaTeX server; a class module of the project does not. The gate closes only that
-half of the collision. A carried `.cls` also reaches every VB6 entry that claims `.cls`, the bundled one
-included, so a LaTeX class the project carries is parsed as VB6 and marked with errors it does not have.
-That half is what #279 reports, and it is still open: telling the two kinds of file apart would take
-something that reads the file, such as its first line, and extensions cannot.
+**A file the project carries is not a member** and normally routes by extension. For a carried `.cls`,
+a VB6 entry (as established above) receives it only when its first non-blank line equals
+`VERSION 1.0 CLASS`, case-insensitively (#279). Other claimants still receive it by extension, or it
+opens without language support if none claim it. The registry records the content check at open/reload;
+edits do not change routing until the next open. Project members and other extensions keep their existing
+routing.
 
 **Membership is stated by whoever opens the document, not worked out by the router.** The code window opens
 members and says so; the carried-file editor opens carried files and says not. The registry remembers the
@@ -572,10 +893,53 @@ after a project save has assigned the `.vbp` its path and when the startup proje
 and reopens the held documents immediately; no new editor needs to open. An unchanged root does not restart
 anything, and failed entries remain failed.
 
+### Real-server close and teardown coverage
+
+`RealServerShutdownTests` reads retained wire bodies for non-empty diagnostics before closing and
+for publications after `didClose`, then asserts the observed integer exit code after normal
+`StopAsync` teardown. All five pinned foreign servers and the bundled server exited 0 on Linux
+(2026-11-04, #491). Close publications differ: texlab retains its diagnostic, the JSON server
+publishes nothing within three seconds, and rumdl, clangd, ruff and the bundled server publish empty
+sets. See [the measurements](foreign-language-servers.md#normal-teardown-and-document-close-2026-11-04-491).
+
 ### Transports
 
-`stdio`, `pipe` (named pipe, connecting or listening) and `websocket` are all supported. Only `stdio` is
+`stdio`, `pipe` (named pipe, connecting or listening) and `websocket` (connecting by default, or listening with `websocketRole: "listen"`) are all supported. Only `stdio` is
 exercised against a real foreign server; the other two are covered against fakes.
+
+`stdio`, `pipe` (named pipe, connecting or listening) and `websocket` are all supported. Only `stdio` is
+exercised against a real foreign server; the other two are covered against fakes. Named-pipe
+process-notice and workspace-argument tests await the specific stderr/exit/close callbacks, with a
+two-minute safety bound for a loaded runner (#892). A timeout names the callback still awaited and
+reports scheduling uncertainty; it does not establish that the server omitted an exit code.
+
+Stdio process logs include the configured server ID as a structured `Server` property and in the
+rendered message for startup, start failure, stderr (Debug level) and exit. Direct transport callers
+that supply no ID use the executable name. The identity test's process waits for an `exit` frame
+before writing stderr and exiting, so startup/job assignment finishes before it can exit (#2347).
+A ping response confirms it is serving requests before the test releases it.
+The test awaits each server's matching log callback with the shared two-minute safety bound and
+reports received logs on timeout.
+
+Launched pipe servers can receive HexIDE's process ID through `{pid}` in `arguments` (#406),
+with or without an open workspace. A server can use it to watch its owner and exit after an unclean
+IDE shutdown. On Windows, both stdio and launched pipe servers are assigned to the shared
+`ChildProcessJob` kill-on-close job immediately after launch. The OS ends assigned processes and
+their subsequent descendants even when HexIDE is killed without shutdown or disposal. Assignment
+failure fails the connection and tears down the launched process; externally owned pipe servers
+are never assigned. `Process.Start` cannot start suspended, so children spawned before assignment
+are outside this guarantee. On Linux and macOS, `HexIDE.LspGuard` starts each launched server
+in its own process group with inherited stdio. Every 500 ms it checks whether its parent has changed;
+after an unclean IDE exit, or when the server exits on its own, it sends SIGTERM to the group,
+then SIGKILL after two seconds. For a server that exits on its own, the guard leaves the server's
+group before SIGKILL so it can preserve the server's exit code. Normal shutdown still attempts the
+protocol first; a guard left after the transport's grace period is terminated with its group. Externally owned
+pipe servers are never guarded. Descendants that deliberately leave the group are outside this guarantee.
+The lifetime tests kill the owner without disposal and check both server and child on Windows,
+Linux and macOS; Unix clean-exit tests also check children that accept or ignore SIGTERM and the
+server's exit code. The helper runs with its own dependencies and runtime configuration.
+Clean shutdown continues to terminate launched servers. See
+[configuration](language-servers.md#placeholders-in-arguments).
 
 The three do not carry the same framing, and the difference is load-bearing rather than incidental: the two
 byte-stream transports delimit messages with a `Content-Length` header, while a WebSocket carries message
@@ -586,7 +950,19 @@ assertion would be guarding against nothing.
 
 ---
 
+### Add-in server trust
+
+Add-in-contributed servers re-check the contributing add-in’s enabled state, consent and active
+revocation list before launch, including after its own asynchronous gate returns (#3177). A refusal
+names the add-in in the connection attempt. Disabling an add-in or revoking its consent unregisters
+its servers immediately; already loaded in-process add-in code still requires a restart to unload.
+
 ## Reading the conversation
+
+Conversation exports ask before replacing any existing messages or derived manifest file, naming both
+when both exist. Declining writes neither file. Automation exports each use a fresh temporary directory,
+so a later export preserves earlier returned files (#2504). The broader
+[file-safety audit](file-safety-audit.md) records the remaining write-path risks.
 
 **The protocol inspector is how you see what crossed the wire**, and it is the answer to the question a
 diagnostics list cannot settle: whether a request was even sent, what came back, and how long it took. A
@@ -597,6 +973,33 @@ Envelopes — direction, method, id, size, outcome, latency — are recorded for
 **always**, without arming anything and without retaining any document content. Bodies are kept only for a
 connection that has been armed, except each connection's opening, which is always kept because a handshake
 cannot be captured after the fact. `--capture-lsp` arms everything before the first connection exists.
+
+The grid stays fixed until Refresh. While the tab is visible, its pending indicator polls a monotonic
+entry counter every half second, without copying the record. The count covers all connections regardless
+of the selected filter and survives eviction or clearing; Refresh resets its baseline. Replies completing
+an existing request do not add an entry to this count.
+
+### Workspace names in a shareable conversation
+
+HexIDE assigns the `workspaceFolders[].name` it sends in `initialize` the same session pseudonym as
+that folder's URI segment (#397). The server still receives the real URI so it can access the workspace;
+the exported conversation pseudonymises that URI with the same mapping. This name is assigned at the
+source, so even the raw handshake contains the pseudonym rather than the project's display name.
+The IDE's exports always enable redaction; callers supplying a non-pseudonymising redactor retain the
+original names.
+
+Body redaction remains textual, including for a body the client cannot decode. It adds neither a
+structural JSON pass nor a sweep for occurrences of the project name. **A name a server echoes back in
+its own fields is outside this fix** and may survive export; review the preview before sharing it.
+
+The shared body rule also replaces plain absolute drive-letter, UNC and Unix paths in prose (#2205),
+using the same segment mapping as `LocalPath`. Before that pass, the user profile and temp roots are
+replaced literally with `<home>` and `<temp>`; Language Servers reports also register every open project
+and connection workspace root as `<workspace>`. Longest roots win, including slash, backslash, Windows
+case variants and percent-encoded URI spellings, so spaces in these roots cannot disclose an account name.
+Quoted paths can contain spaces; remaining unquoted paths stop at whitespace and prose punctuation. Language Servers reports apply this rule to failure details and
+configuration problems as well as capabilities. Relative paths and unquoted paths containing spaces outside the known roots are
+ambiguous in prose and are outside this guarantee; review reports before sharing.
 
 ### A request and its answer are one row and two bodies
 
@@ -616,7 +1019,7 @@ The answer now keeps the sequence it was already allocated, so the gap is the ad
 | On the request's row | Means |
 |---|---|
 | `answerSizeBytes` | How big the reply was. Recorded **whether or not bodies are being kept** — size is metadata, so it belongs to the tier that is always on. |
-| `answerSequence` | Where the reply's body is. Present only when one was retained, so a row that has it can always be read. A row with an `outcome` and no `answerSequence` was answered on a connection nobody armed. |
+| `answerSequence` | Where the reply's body is. Present only when one was retained, so a row that has it can always be read. A row with an `outcome` and no `answerSequence` may be an unretained answer or a local cancellation, timeout, or abandonment. |
 
 Pass `answerSequence` to `get_lsp_message` and the reply comes back with `isAnswer`, `answerTo`, and the
 request's method — a response carries none of its own on the wire. In the window, both halves appear under
@@ -626,6 +1029,53 @@ documents run together are not a third one.
 `export_lsp_conversation` writes a line per **frame** rather than per envelope for the same reason: the
 format's claim is that it replays into a client, and a conversation with every reply missing replays into
 nothing. The reply's manifest row carries `answerTo` and the opposite direction.
+
+The Outline tool window (View → Outline) consumes document symbols for the active code or carried-file
+editor. It preserves hierarchy, accepts flat replies, follows the caret, navigates to selection ranges,
+filters by kind while retaining ancestors, and refreshes after edits independently of diagnostics (#1992).
+Symbol refreshes flush only unsent edits; an unchanged buffer sends no `didChange`, so diagnostics
+cannot feed a change/request loop. A diagnostic-driven symbol update also cancels the Outline’s pending
+refresh for that edit. It displays the server’s structure; it does not infer missing symbols or regions.
+
+Signature help asks eligible document claimants concurrently within one shared one-second budget
+(#2027). A typed `(` or `,` goes only to servers advertising that character in
+`signatureHelpProvider.triggerCharacters`; explicit parameter info asks all claimants. The highest-priority
+non-empty answer received within the budget wins (registration order breaks ties). Empty answers and
+servers exceeding the budget contribute nothing; signatures from different servers are not merged.
+
+For folding ranges, document symbols, formatting and rename, the highest-priority claimant that
+advertises the capability supplies the single answer (registration order breaks ties). Each other
+advertising claimant records a `NeverSent` entry naming the winner's registration id and the capability,
+once per capability per connection. These routing notes also appear in exported conversations.
+
+The editor flushes its debounced document change before requesting completion (for both letters and
+advertised triggers) or signature help, so the server receives the current typed text first (#2227).
+Document formatting (including format-on-save) sends the editor’s Tab Width as `options.tabSize`
+and `insertSpaces: true`, matching the editor’s conversion of tabs to spaces (#2669).
+Wire tests cover widths 2 and 8 with both `insertSpaces` values; editor delegation tests cover
+both widths with spaces. Format Selection appears beside Format Document in the code editor's
+context menu. It requires a nonempty selection and a claimant advertising
+`documentRangeFormattingProvider` (boolean or options object). The highest-priority advertiser receives
+`textDocument/rangeFormatting` with the selection's zero-based UTF-16 range and the same formatting
+options. The client declares `textDocument.rangeFormatting` at initialization. Returned edits use
+Format Document's guarded path: one undo step, with IDE-only header and member attribute lines protected.
+The keymap command `FormatSelectionCommand` has no default shortcut. On-type formatting is not implemented.
+
+Completion asks every document claimant concurrently, with a shared **one-second popup budget**.
+It returns when all answers arrive or that budget expires, taking only answers received in time. Items
+with the same ordinal label and kind collapse to the higher-priority claimant's item, with registration
+order breaking ties; its detail and insertion text stay intact. Advertised trigger characters are unioned
+for the document, and typing a trigger asks only its advertisers. Letters retain the ordinary completion
+route. A late answer is dropped rather than moving selection in the open popup; a debug log and a
+`textDocument/completion` inspector note record that it was answered after the popup opened. The
+underlying request keeps its normal cancellation and 30-second deadline. The popup delay and
+arrival timestamps share an injectable `TimeProvider` (the system clock by default), so budget tests
+advance time explicitly rather than waiting on the runner’s clock (#2200).
+
+Before committing pasted frames, run `bash scripts/check-tree-hygiene.sh`: its path scan rejects
+Windows user-profile paths regardless of case, slash direction, or a percent-encoded drive colon.
+Use synthetic paths outside a user profile in fixtures. Windows clone roots under `Repos` warn
+about portability; installed tool paths remain allowed (#366).
 
 **This replaced an interposed debug proxy** (`HexIDE.LspProxy`, reached by setting `VB6_LSP_DEBUG_PROXY=1`),
 which relaunched the server underneath a byte-forwarding process that wrote every frame to its own stderr.
@@ -643,6 +1093,12 @@ The inspector reads strictly more, and the difference is not one of convenience:
 | Several servers at once | one proxy per server, one log each | one timeline, filterable |
 | Output | a text log to read by eye | a grid, a redacted export, and an automation surface |
 
+For a named-pipe server HexIDE launches, both stdout and stderr are redirected and drained. Their lines
+appear verbatim on the connection's timeline as Received entries of kind `StandardOutput` and
+`StandardError`, respectively, including when startup fails before a pipe exists. The inspector,
+trace copy and `list_lsp_messages` distinguish the streams; these entries have no protocol body.
+Attaching to a process started elsewhere cannot observe its output or exit code.
+
 **"Sent" is when a message was serialized, not when its bytes reached the server.** Between the two sit
 StreamJsonRpc's pipe writer and the loop that copies it into the channel, and a message held anywhere there
 looks, from the timeline, exactly like a server that received it and said nothing. So the `stdio` and
@@ -653,6 +1109,23 @@ times like every entry, so `list_lsp_messages` shows them. A server that answere
 died of SIGPIPE the moment the connection was torn down, is the case they were written for (#390): the four
 say whether the request left this process and whether anything came back. `websocket` frames whole messages
 and has no such gap to observe.
+
+The foreign-server diagnostics waits in the lazy-start, configuration-file and untitled-document tests
+also inspect this record while waiting (#449). A captured non-zero process exit fails with the connection
+id, exit code, outstanding request names (including requests abandoned when the connection closed), and
+the conversation, rather than waiting out a diagnostics timeout. A clean exit or an exit on another
+connection is not classified as that failure. This adds no retry and does not establish the cause of the
+intermittent SIGPIPE.
+
+The untitled-document tests also drain and poll for clangd's URI refusal and ruff's dynamic-registration
+warning, with a five-second deadline, before asserting on standard error (#2269). Diagnostics arriving
+does not mean the independent stderr reader has finished recording those lines.
+
+A stdio server that exits before its Windows job assignment completes still supplies its stderr and
+exit-code notices (#2752). A refused assignment is ignored only if the process has already exited;
+a refusal for a running process still fails the connection rather than leaving it outside the job.
+`StdioProcessNoticeTests` drives both exit/assignment orders with a shell waiting on stdin, and injects
+the native assignment failure after waiting for exit, so this regression also runs on Linux.
 
 The one thing the proxy could do that the inspector cannot is observe a client so broken it never reaches
 its own serializer — a failure outside the process is immune to a tap inside it. That was worth one
@@ -670,6 +1143,26 @@ driving the IDE by hand over `ws://` now needs a WebSocket server of your own.
 
 ---
 
+## Reference requests
+
+The reference-request contract (`RequestReferencesAsync`) sends `textDocument/references` with the
+caret position and `context.includeDeclaration: true`, gated on `referencesProvider` (true or options).
+The registry uses `GatherAsync` and record equality to deduplicate URI/range pairs. Null results become
+empty arrays. `FindReferencesAsync` preserves successful locations alongside per-server errors.
+Shift+F12, Edit → Find References and the code editor context menu open the results pane in the
+Immediate window's bottom group. When opened or brought forward for results, the pane grows to
+show six rows, borrowing available document height above the document area's minimum (at least
+120 DIP), then height from sibling tools in the same dock down to their minimums. Call Hierarchy
+uses the same policy. A sufficiently tall slot keeps its exact proportion; growth is saved with
+the layout (#3094, #3114). Call Hierarchy's Edit and code context entries use separate localized
+menu labels with access keys in Latin-script packs; its pane title has no access key marker.
+Each search replaces the list, grouped by module in project order,
+with line numbers and the returned range emphasized. Enter or double-click navigates through
+`EditorService.NavigateTo`; empty answers and server errors appear as localized rows. Result rows
+expose their module, line number and line text as their accessible name.
+`FindReferencesToolViewModel.ShowLocations` fills the same pane without a request, for code-lens callers
+(#2906). Binding remains the server's responsibility.
+
 ## Commands and lenses
 
 `textDocument/codeLens` is how a server offers an action against a range — the protocol's affordance for
@@ -677,11 +1170,43 @@ driving the IDE by hand over `ws://` now needs a WebSocket server of your own.
 implemented as a pair because neither is useful alone: a lens carries a command, and a command with
 nothing to trigger it is unreachable.
 
-**A lens is resolved before it is handed on.** The protocol lets a server return the ranges cheaply and
-compute each command only when asked, via `codeLens/resolve`. An unresolved lens is one the user can see
-and cannot click, so the client resolves its own before answering. That has to happen *inside* the client
-rather than at a call site: once lenses from several servers are gathered into one list, nothing records
-which connection produced which, and a resolve sent to the wrong server is meaningless.
+**Fetching and resolving are separate.** `RequestCodeLensesAsync` returns ranges without resolving
+commands. `ResolveCodeLensAsync` resolves an individual lens when requested; a caller can pass a
+cancellation token when visibility changes. The registry retains the issuing connection by object
+identity, so equal lens values from different servers resolve independently. A copied or unknown lens
+is refused by the registry. Already complete lenses need no round trip, and servers without resolve
+support are not asked. The code window draws resolved lenses above their member lines and runs their commands on click.
+The visual spacer reserves ascent using the editor font metrics so the whole lens row fits above the member text.
+Edits refetch lenses after the same 300 ms document-change debounce that triggers diagnostics pull,
+after the new text is sent. The old labels remain until the replacement answer arrives. Options →
+Editor → General offers **Show code lenses**, on by default and persisted with editor settings. Turning
+it off removes the rows and cancels lens work, including server refresh requests; turning it on asks again.
+**Run code lens** in the code context menu acts on the caret's line, offering a menu when several lenses
+share it. `RunCodeLensCommand` is assignable in the keymap, with no default shortcut. It uses the click
+handler, including supplied Find References locations. Selection and current-line backgrounds do not
+cover lens rows; those retain the editor background (#2906).
+
+`CodeLensSession` supplies the viewport scheduling layer for that editor work: it fetches a document's
+lenses, resolves only starts inside the supplied zero-based visible line interval, cancels resolutions
+that leave view, and discards late replies after cancellation, rediscovery or disposal. Completed lenses
+are retained across viewport updates. `Changed` and `RequestFailed` are raised on the request context;
+UI consumers must dispatch them. The code document owns the session and supplies its visible
+line interval through the attached view as it scrolls. Detach suspends new viewport work while retaining pending requests and completed lenses; reattachment resumes it without rediscovery (#3082).
+Tokens, folding ranges and inlay hints are also retained by the document, including pending requests,
+so rebuilding the visual tree for a tool pane does not send new requests or discard the last answers.
+An edit, URI change, hint setting change or server state transition invalidates those answers. A detached
+view removes its subscriptions and discards late replies intended for its previous attachment.
+A queued folding continuation checks cancellation again before touching the lens session, so a timer
+that expired before detach cannot resume the detached view (#3205).
+
+The client declares `workspace.codeLens.refreshSupport: true` and answers parameterless
+`workspace/codeLens/refresh` with null. `CodeLensRefreshRequested` preserves the issuing connection through
+the registry; active code windows refetch on that event. A suspended session only invalidates its answer
+until a view resumes it. Semantic-token and inlay-hint workspace refresh support is not advertised.
+
+`rdcore.showReferences` and `editor.action.showReferences` fill the existing Find References pane from
+the locations in the third argument, without asking for references again. Other lens commands use
+the declared-command routing below; undeclared commands are logged once per command.
 
 **A command is routed by who declared it, not by the document.** Every other request here is about a file,
 so "which server" is answered by "which one claims this file". A command has no file. The only thing that
@@ -693,6 +1218,21 @@ quietly; it would run something.
 document symbol produce one duplicated dropdown entry; two servers offering a lens on the same line offer
 two genuinely different things, and dropping either would hide something the user could have done.
 
+## Inlay hints
+
+The client declares `textDocument.inlayHint` and requests `textDocument/inlayHint` only from servers
+advertising `inlayHintProvider` (a flag or options object). Matching servers' labels are gathered for the
+whole open document after edits settle and after a connection starts. Edits clear old labels and obsolete
+replies are discarded. String labels and label-part arrays render after their source line in the theme's
+read-only text colour, without inserting text, affecting undo or adding caret columns. An interior hint
+position still places its label after that line; several labels on one line are joined in server order.
+Options → Editor → General → **Show inlay hints** hides them and stops requests; it defaults on.
+
+The bundled server supplies syntactic block-end labels (#1998), an explicit exception to the analysis
+boundary below. Parameter names and inferred types still need binding and remain a backend's job.
+Labels alone are consumed: `inlayHint/resolve`, refresh requests, tooltips, navigation, commands and
+hint text edits are not supported or advertised.
+
 ## Custom methods
 
 `vb/builtinSymbols` is HexIDE's own method, not an LSP one. It is gated on the server advertising it under
@@ -701,6 +1241,97 @@ client may legitimately gate a custom method on. A server that does not advertis
 
 ---
 
+## Editor configuration (#2669)
+
+The client declares `workspace.configuration` and answers `workspace/configuration` with one value
+per requested item, in order. `editor.tabSize` returns the current Tools > Options Tab Width as a
+number, including for scoped items; unknown or absent sections return `null`. Running connections
+receive `workspace/didChangeConfiguration` with empty `settings` when Tab Width changes, so a server
+can request its configuration again. New connections read the current value on their first request.
+`WorkspaceConfigurationWireTests` checks the capability, response array and change notification frames.
+
+### Server-requested document navigation (#2908)
+
+`window/showDocument.support` is declared. `window/showDocument` resolves URIs using
+`EditorService.NavigateTo`'s loaded-member rule, including unsaved members and carried files. It opens
+that editor, applies the optional selection using zero-based LSP positions (clamped to the buffer),
+and takes focus only when `takeFocus` is true. The response is `{ success: true }` for a loaded member;
+unknown URIs without `external: true` return `{ success: false }` without opening anything.
+An external request asks every time in the shared server-question queue, showing the full URI under the
+server's display name. No receives initial focus, so Enter and Escape decline. Only Yes invokes the
+system launcher; No, dismissal, an invalid URI or launch failure returns `{ success: false }`. A successful launch returns `{ success: true }`. Only `http`, `https`
+and `mailto` links are offered: any other scheme, such as a `file:` URI naming a program, is refused with
+`{ success: false }` without asking, because the system launcher would run it.
+`ShowDocumentWireTests` checks the declaration and response frames; `EditorServiceNavigationTests`
+checks the range, focus routing and URI refusal. Headless `CodeEditorSelectionTests` checks that both
+editor views restore a selection placed before they attach. `ExternalServerDocumentTests` checks the
+real dialog's full URI and Yes/No launch routing headlessly.
+
+### Server-requested workspace edits (#2908)
+
+Applying an accepted edit preserves the active document tab, keyboard focus and the originating
+code window's caret. Targets are opened without activating their tabs (#3123).
+
+The client declares `workspace.applyEdit: true` and retains `workspaceEdit.documentChanges`.
+`workspace/applyEdit` is accepted only while that connection has an unanswered user-started
+`workspace/executeCommand`. The shared command sender tracks overlapping commands per server; other
+connections, unsolicited edits and edits after the command answer receive `applied: false` with a
+`failureReason`. Internal project-import commands do not grant this permission.
+Authorized edits use the rename workspace applier, including the answering connection's version and
+snapshot checks, buffer freshness checks, protected IDE lines and read-only forms. Both `changes` and
+`documentChanges` are supported. Preflight refuses the whole edit with the applier's reason, or applies
+it with one undo step per module and answers `applied: true`. Resource operations remain refused. Every
+refusal also shows its reason in the status bar through
+`LanguageServerMessageReporter`, including unsolicited edits and edits following a lens, code-action
+command or direct command (#3175). A client-only flag marks every refusal, including changed targets,
+so the localized “Server edit not applied: {0}” form identifies HexIDE’s decision rather than using
+the server-message prefix. Client-generated refusals use localization keys for display;
+the command-required and unavailable-applier replies on the wire remain English. Changed-target
+refusals retain the editor’s localized text. Rename and direct code-action refusals retain their
+information dialog.
+`ServerApplyEditTests` drives a scripted server through a code lens command and checks the wire answers,
+per-server permission, stale-version refusal, both edit representations and independent undo.
+Consecutive unversioned edits can change an unsaved open target without saving between commands
+(#3154). The baseline is captured when the command is sent, and overlapping commands use the oldest
+unanswered command's snapshot on that connection. Typing after that snapshot refuses the whole edit
+with `ChangedTarget`, whether or not its `didChange` has already been sent. Versioned edits still check
+the latest sent version. With no unanswered user command, edits remain refused, including dirty targets;
+the latest `didChange` alone does not establish a baseline.
+`ServerApplyEditFocusTests` checks the production dock with two code windows: editing the other
+member keeps keyboard focus and the originating caret without a focus loss.
+
+### Server questions (#2908)
+
+The client declares `window.showMessage.messageActionItem`, including additional property support.
+`window/showMessageRequest` queues an IDE message box owned by the main window, titled with the server's
+display name, with the server's actions as buttons. A click returns that original action item (including
+extra properties); its first action receives focus on opening, so Enter chooses it (#3095).
+Closing without choosing or pressing Escape returns `null`. The box uses the IDE
+message box icons: Error, Warning, and Information for both Info and Log. Questions wait while a program runs or
+another modal is open, and queue one at a time across connections. Diagnostics and other messages keep
+flowing meanwhile. `$/cancelRequest` closes an open question or removes a queued one and answers -32800.
+`ShowMessageRequestWireTests` checks the frames and nonblocking queue; headless
+`ServerMessagePromptTests` checks ownership, title, buttons, message type icons, initial focus and Enter,
+Escape dismissal and cancellation.
+
+Go to Implementation and Go to Type Definition appear beside Definition in the View and code context
+menus (#3074). The View menu uses bare nouns; context labels follow each pack’s existing go-to phrasing.
+In Latin-script packs, the four navigation entries have distinct access keys within each menu (#3096).
+Each is enabled only for a document whose running server advertises the corresponding
+provider. Both client capabilities declare `linkSupport`; neither command has a default key binding.
+Single locations navigate directly; multiple locations populate the existing Find References pane.
+HexIDE displays the server's answer without computing implementations or types itself.
+
+### Preparing a rename (#3073)
+
+After the code window's protected-line and declared-name checks, pending text is flushed and every
+opened claimant advertising `renameProvider.prepareProvider: true` is asked `textDocument/prepareRename`.
+Any null or error reply prevents the prompt; an error's reason uses the existing refusal dialog.
+The first participating claimant's range or placeholder seeds the prompt. A `defaultBehavior: true`
+reply keeps the existing word, as do servers without preparation support. Menu and keymap Rename and
+the `rdcore.rename` / `editor.action.rename` client commands share this preparation and prompt flow. Initialize declares
+`textDocument.rename.prepareSupport: true` and `prepareSupportDefaultBehavior: 1`.
+
 ## Coverage against the specification
 
 LSP 3.17 defines **93 messages** — 67 requests and 26 notifications. The table below is generated from the
@@ -708,7 +1339,7 @@ specification's own [`metaModel.json`](https://raw.githubusercontent.com/microso
 the canonical machine-readable list, so the method names and directions are the specification's rather than
 this document's recollection of them.
 
-**HexIDE implements 29 of the 93.** That is not a deficiency in itself — no client implements them all, and
+**HexIDE implements 52 of the 93.** That is not a deficiency in itself — no client implements them all, and
 most of the remainder are features no VB6 IDE needs. It is here so the shape of the gap is visible rather
 than inferred.
 
@@ -730,11 +1361,11 @@ than inferred.
 | ✅ | `initialized` | → |  |
 | ✅ | `shutdown` | → |  |
 
-### `textDocument/*` — 17 of 41
+### `textDocument/*` — 27 of 41
 
 | | Method | Dir | Notes |
 |---|---|---|---|
-| ○ | `textDocument/codeAction` | → | Needs a bound AST — a backend's job, see below |
+| ✅ | `textDocument/codeAction` | → | Relays the server's fixes on request; computes none |
 | ✅ | `textDocument/codeLens` | → |  |
 | ○ | `textDocument/colorPresentation` | → |  |
 | ✅ | `textDocument/completion` | → |  |
@@ -749,46 +1380,46 @@ than inferred.
 | ✅ | `textDocument/documentHighlight` | → |  |
 | ○ | `textDocument/documentLink` | → |  |
 | ✅ | `textDocument/documentSymbol` | → | Both answers are read. The client declares `hierarchicalDocumentSymbolSupport`, because a server that honours it sends the flat form to a client that does not, and the outline loses its nesting ([#463](https://github.com/hexide-io/HexIDE/issues/463)) |
-| ✅ | `textDocument/foldingRange` | → | Asked when an editor attaches, 500 ms after a change, and when a server comes up — the first of those runs before the first server of a session has initialized. The client declares `lineFoldingOnly`, because a fold is read by whole lines: told nothing, clangd ends a fold part-way along its closing line, and collapsing it hid the closing brace ([#1363](https://github.com/hexide-io/HexIDE/issues/1363)) |
+| ✅ | `textDocument/foldingRange` | → | Asked when an editor attaches, 500 ms after a change, and when a server comes up — the first of those runs before the first server of a session has initialized. Character offsets are honoured, defaulting to each line’s length when absent. The temporary `lineFoldingOnly` declaration (#1363) is removed; same-start folds retain state by range ([#1022](https://github.com/hexide-io/HexIDE/issues/1022)) |
 | ✅ | `textDocument/formatting` | → |  |
 | ✅ | `textDocument/hover` | → |  |
-| ○ | `textDocument/implementation` | → |  |
-| ○ | `textDocument/inlayHint` | → | Needs a bound AST — a backend's job, see below |
+| ✅ | `textDocument/implementation` | → | Capability-gated navigation; all three location shapes, multiple results in Find References (#3074) |
+| ✅ | `textDocument/inlayHint` | → | Labels after the line; syntactic block ends from the bundled server |
 | ○ | `textDocument/inlineCompletion` | → |  |
 | ○ | `textDocument/inlineValue` | → |  |
 | ○ | `textDocument/linkedEditingRange` | → |  |
 | ○ | `textDocument/moniker` | → |  |
 | ○ | `textDocument/onTypeFormatting` | → |  |
-| ○ | `textDocument/prepareCallHierarchy` | → | Needs a bound AST — a backend's job, see below |
-| ○ | `textDocument/prepareRename` | → | No server is asked before the prompt; the code window itself refuses a protected line or a declared name |
+| ✅ | `textDocument/prepareCallHierarchy` | → | Shows the server's call hierarchy; computes none |
+| ✅ | `textDocument/prepareRename` | → | Asks every claimant advertising prepareProvider before the prompt; range/placeholder seeds it, null/error refuses it (#3073) |
 | ○ | `textDocument/prepareTypeHierarchy` | → |  |
 | ✅ | `textDocument/publishDiagnostics` | ← |  |
-| ○ | `textDocument/rangeFormatting` | → |  |
+| ✅ | `textDocument/rangeFormatting` | → |  |
 | ○ | `textDocument/rangesFormatting` | → |  |
-| ○ | `textDocument/references` | → | Needs a bound AST — a backend's job, see below |
-| ✅ | `textDocument/rename` | → |  |
-| ○ | `textDocument/selectionRange` | → |  |
-| ○ | `textDocument/semanticTokens/full` | → | Needs a bound AST — a backend's job, see below |
+| ✅ | `textDocument/references` | → | Shift+F12 and menus; grouped results, navigation and per-server error rows; supplied locations reuse the pane (#2907) |
+| ✅ | `textDocument/rename` | → | Atomic edits across loaded code members, with version checks and one undo step per member (#1024) |
+| ✅ | `textDocument/selectionRange` | → | Expand/Shrink Selection commands and server parent chains (#3076) |
+| ✅ | `textDocument/semanticTokens/full` | → | Full relative tokens, highest-priority full provider only; lexical colours remain outside token ranges (#2054) |
 | ○ | `textDocument/semanticTokens/full/delta` | → |  |
 | ○ | `textDocument/semanticTokens/range` | → |  |
 | ✅ | `textDocument/signatureHelp` | → |  |
-| ○ | `textDocument/typeDefinition` | → |  |
+| ✅ | `textDocument/typeDefinition` | → | Capability-gated navigation; all three location shapes, multiple results in Find References (#3074) |
 | ○ | `textDocument/willSave` | → |  |
 | ○ | `textDocument/willSaveWaitUntil` | → |  |
 
-### `workspace/*` — 3 of 21
+### `workspace/*` — 9 of 21
 
 | | Method | Dir | Notes |
 |---|---|---|---|
-| ○ | `workspace/applyEdit` | ← | A server cannot ask the IDE to edit a document |
-| ○ | `workspace/codeLens/refresh` | ← |  |
-| ○ | `workspace/configuration` | ← | A server asking for its configuration is refused |
+| ✅ | `workspace/applyEdit` | ← | Checked workspace edits during a user command on that server; otherwise refused with a reason (#2908) |
+| ✅ | `workspace/codeLens/refresh` | ← | Answers null and refetches lenses in attached code windows |
+| ✅ | `workspace/configuration` | ← | Returns editor.tabSize from Tab Width; unknown items return null |
 | ○ | `workspace/diagnostic` | → | The pull model, workspace-wide ([#284](https://github.com/hexide-io/HexIDE/issues/284)) |
 | ✅ | `workspace/diagnostic/refresh` | ← | Re-asks every open document; the only way a pull-model server can report a change that is not a document |
-| ○ | `workspace/didChangeConfiguration` | → |  |
+| ✅ | `workspace/didChangeConfiguration` | → | Notifies running servers when Tab Width changes |
 | ○ | `workspace/didChangeWatchedFiles` | → |  |
-| ○ | `workspace/didChangeWorkspaceFolders` | → |  |
-| ○ | `workspace/didCreateFiles` | → |  |
+| ✅ | `workspace/didChangeWorkspaceFolders` | → | Shared project-change debounce; opted-in servers, before import |
+| ✅ | `workspace/didCreateFiles` | → | First saves and Save As to new files, filtered per running server (#2248) |
 | ○ | `workspace/didDeleteFiles` | → |  |
 | ○ | `workspace/didRenameFiles` | → |  |
 | ✅ | `workspace/executeCommand` | → | Routed to the server that declared the command |
@@ -802,16 +1433,16 @@ than inferred.
 | ○ | `workspace/willRenameFiles` | → |  |
 | ○ | `workspace/workspaceFolders` | ← |  |
 
-### `window/*` — 2 of 6
+### `window/*` — 5 of 6
 
 | | Method | Dir | Notes |
 |---|---|---|---|
 | ✅ | `window/logMessage` | ← | Raised as an event **and** logged at the severity the server declared. It used to be logged only, at a level the default configuration discards |
-| ○ | `window/showDocument` | ← |  |
+| ✅ | `window/showDocument` | ← | Loaded members with selection/focus; external URIs require consent every time (#2908) |
 | ✅ | `window/showMessage` | ← | Shown in the status bar, and logged |
-| ○ | `window/showMessageRequest` | ← |  |
-| ○ | `window/workDoneProgress/cancel` | → |  |
-| ○ | `window/workDoneProgress/create` | ← |  |
+| ✅ | `window/showMessageRequest` | ← |  |
+| ○ | `window/workDoneProgress/cancel` | → | No cancellation UI; cancellable is not acted on |
+| ✅ | `window/workDoneProgress/create` | ← | Registers string or integer tokens; replies with null |
 
 ### `client/*` — 0 of 2
 
@@ -820,13 +1451,13 @@ than inferred.
 | ○ | `client/registerCapability` | ← | **Refused deliberately, and logged.** `dynamicRegistration` is a *client* capability and this client declares none, so a conformant server must declare everything at `initialize`. One that asks anyway gets `MethodNotFound` and a local warning naming the method ([#288](https://github.com/hexide-io/HexIDE/issues/288)) |
 | ○ | `client/unregisterCapability` | ← | Counterpart to the above, refused the same way |
 
-### `$/*` — 2 of 4
+### `$/*` — 3 of 4
 
 | | Method | Dir | Notes |
 |---|---|---|---|
 | ○ | `$/cancelRequest` | ↔ | Cancelling a token sends `$/cancelRequest` with the original request’s bare numeric or string `id` (#944), so a server can stop abandoned work. **Cancelling does not unblock the client’s await**: it still waits for the server to answer, as measured in [#231](https://github.com/hexide-io/HexIDE/issues/231) / [PR #291](https://github.com/hexide-io/HexIDE/pull/291). |
 | ✅ | `$/logTrace` | ← | Raised as an event and logged. A server's own account of its reasoning, which a wire capture cannot reconstruct |
-| ○ | `$/progress` | ↔ |  |
+| ◐ | `$/progress` | ↔ | Work-done begin/report/end in the status bar; no partial results |
 | ✅ | `$/setTrace` | → | Changes the level on a running server. A notification, so **no server ever confirms it**, and the protocol defines no capability for asking |
 
 ### `notebookDocument/*` — 0 of 4
@@ -844,17 +1475,17 @@ than inferred.
 |---|---|---|---|
 | ○ | `completionItem/resolve` | → |  |
 
-### `codeAction/*` — 0 of 1
+### `codeAction/*` — 1 of 1
 
 | | Method | Dir | Notes |
 |---|---|---|---|
-| ○ | `codeAction/resolve` | → |  |
+| ✅ | `codeAction/resolve` | → | Resolves the selected action on its originating server |
 
 ### `codeLens/*` — 1 of 1
 
 | | Method | Dir | Notes |
 |---|---|---|---|
-| ✅ | `codeLens/resolve` | → | Resolved by the issuing client before a lens is handed on |
+| ✅ | `codeLens/resolve` | → | Requested individually on the issuing connection |
 
 ### `documentLink/*` — 0 of 1
 
@@ -868,12 +1499,12 @@ than inferred.
 |---|---|---|---|
 | ○ | `inlayHint/resolve` | → |  |
 
-### `callHierarchy/*` — 0 of 2
+### `callHierarchy/*` — 2 of 2
 
 | | Method | Dir | Notes |
 |---|---|---|---|
-| ○ | `callHierarchy/incomingCalls` | → |  |
-| ○ | `callHierarchy/outgoingCalls` | → |  |
+| ✅ | `callHierarchy/incomingCalls` | → | Shows the server's call hierarchy; computes none |
+| ✅ | `callHierarchy/outgoingCalls` | → | Shows the server's call hierarchy; computes none |
 
 ### `typeHierarchy/*` — 0 of 2
 
@@ -910,26 +1541,65 @@ that, which is CI.
 **Regenerate rather than hand-edit.** Adding a row by hand is how the counts and the directions drift apart
 in the first place; the guard will catch it, but the guard is a backstop, not a workflow.
 
+Run `python3 scripts/regenerate-lsp-coverage.py <cached-metaModel.json>` to regenerate while retaining
+coverage marks and notes. Supply `--set METHOD MARK NOTES` to change a method's status as part of generation.
+The script verifies the same pinned model digest as the tests.
+
+### File-operation notifications (#2248)
+
+`VBLspClient` has explicit `DidCreateFilesAsync`, `DidRenameFilesAsync` and `DidDeleteFilesAsync`
+entry points for successfully completed disk operations. Each connection reads
+`workspace.fileOperations.didCreate`, `didRename` or `didDelete` from the server's initialize reply
+and sends only matching files. Filters support URI schemes, file/folder selection, glob alternatives,
+character ranges and `ignoreCase`; rename matches either URI. Empty matching batches send nothing.
+These are notifications and carry no request id. Wire tests read the frames and use a shutdown response
+as a barrier when asserting silence.
+
+The registry fans out to every running server whose operation filter matches, regardless of its document
+language claims, except entries with `workspaceArtifact` and no `projectImport`: those receive no create,
+rename or delete notifications. HexIDE's generated artefact already describes their project, so only one
+writer maintains it. A declared `projectImport` replaces generation, so an entry that declares it, as RDCore's
+does ([language-servers.md](language-servers.md#rdcore)), receives matching notifications, whether or not it
+also declares `workspaceArtifact` (#2915). File events do not start servers. Initialize advertises the three
+notification capabilities.
+First saves and Save As to a destination that does not exist report creation after the write succeeds;
+ordinary overwrites and temporary Make EXE copies report nothing. Save As keeps the original file, so it
+reports no rename. Save Project and SaveProjectToDirectory use the same creation rule. Failed writes,
+including I/O and access-denied failures, send no creation notification; a wire test checks silence
+after a shutdown barrier.
+
+Disk rename and Remove-with-delete hooks remain outstanding: explorer name changes currently leave
+paths unchanged, and Remove only detaches a member. Neither is a disk event. The generated rename/delete
+rows remain ○ until IDE actions perform those disk operations; their explicit protocol senders and
+registry routes are ready.
+`willCreate`, `willRename` and `willDelete` remain outside the issue's scope.
+
 ### What the shape of that table says
 
 Three clusters account for nearly all of the gap:
 
-- **Features needing a bound AST** — references, code actions, semantic tokens, inlay hints, call hierarchy
-  and their `*/resolve` companions. Not wired because nothing here would answer them; see *What the client
+- **Features needing a bound AST in the backend** — code actions and call hierarchy remain outside
+  the bundled server. The client shows references (#2907) and server call hierarchies (#3080) in
+  reusable tool panes. The client computes none of these relationships.
+  `workspace/symbol` is wired through the Object Browser. A backend offering deeper analysis can answer
+  these requests without changing HexIDE's own analysis boundary.
+
+- **Features needing a bound AST in the bundled server** — call hierarchy
+  and its `*/resolve` companions. Code actions are now relayed from foreign servers on request (#453);
+  computing fixes remains a backend boundary. Reference requests now have a client contract (#2907), with the UI
+  outstanding. The other methods are not wired because nothing here would answer them; see *What the client
   would consume* below. `workspace/symbol` used to sit in this list and no longer does: the client speaks it
   and the Object Browser surfaces it, so the missing half is a *server*, which is exactly the point of the
   seam.
-- **Workspace-level protocol** — `workspace/*` is 2 of 21. There *is* a workspace model now — one folder
-  per loaded project, sent in `initialize` — and `workspace/symbol` searches it. What is still absent is
-  everything that keeps that model live or reacts to it: file-operation notifications, watched files,
-  configuration round-trips, and `didChangeWorkspaceFolders` for a group whose membership changes while a
-  server is running ([#261](https://github.com/hexide-io/HexIDE/issues/261)).
-- **Server-to-client courtesy** — `window/*` and `client/*` are 2 of 8 between them. The two that landed
+- **Workspace-level protocol** — `workspace/*` is 7 of 21. The client sends project folders,
+  updates them as group membership changes, sends file-operation notifications, and answers editor
+  configuration requests. Watched-file notifications and server-initiated workspace edits remain absent.
+- **Server-to-client courtesy** — `window/*` and `client/*` are 5 of 8 between them. Alongside work-done progress (#360), the messages that landed
   are the ones that cost no analysis depth and buy diagnosability: a server can now explain its own
   problems instead of appearing broken ([#289](https://github.com/hexide-io/HexIDE/issues/289)). Dynamic registration stays refused on
   purpose and is now logged rather than silent ([#288](https://github.com/hexide-io/HexIDE/issues/288)) — supporting it would mean
   declaring `dynamicRegistration` and honouring what arrives, which is real work with no server yet asking
-  for it. `showMessageRequest` and `showDocument` need UI decisions and are lower value.
+  for it. `showMessageRequest` uses a queued IDE message box (#2908).
 
 `notebookDocument/*` is 0 of 4 and will stay there — notebooks are not a VB6 concept.
 
@@ -939,29 +1609,26 @@ Three clusters account for nearly all of the gap:
 
 | Limitation | Consequence | Tracked |
 |---|---|---|
-| Full-text sync only; a declared incremental kind is ignored | Wasteful on large files; the incremental path is untested | [#282](https://github.com/hexide-io/HexIDE/issues/282) |
+| Full-text sync only, deliberately including servers declaring Incremental | Wasteful on large files; incremental sync is deferred until a server needs it to justify the desynchronization risk | Decision: [#282](https://github.com/hexide-io/HexIDE/issues/282) |
 | No workspace-wide pull diagnostics (`workspace/diagnostic`) | Diagnostics are per open document; a server's findings about files nobody has open are never requested | [#284](https://github.com/hexide-io/HexIDE/issues/284) |
-| No request but `initialize` has a timeout | A request about a document the server silently discarded is never answered, and nothing gives up on it | [#486](https://github.com/hexide-io/HexIDE/issues/486) |
-| A rename's `WorkspaceEdit` is applied to the code window's own document only | Edits to every other document are dropped without a word, so a binding server's rename is applied in part | [#1024](https://github.com/hexide-io/HexIDE/issues/1024) |
 | An error answered to `textDocument/rename` is turned into `null` | A server that refuses a rename with a reason is shown as one that found nothing to change | [#1015](https://github.com/hexide-io/HexIDE/issues/1015) |
-| A server's fold is read from the start of its first line, and its character offsets are ignored | Collapsed, a server's fold hides the line LSP leaves showing. Read as LSP means it, under today's merge, a procedure with an attribute run under a one-line declaration would lose its fold | [#1022](https://github.com/hexide-io/HexIDE/issues/1022) |
 
 ---
 
 ## What the client would consume, given a server that offers it
 
-These are ordinary LSP features that HexIDE's **own** server will never implement. They require a bound AST,
+These are ordinary LSP features or analysis depths that HexIDE's **own** server will never implement. They require a bound AST,
 which is outside its hard limit and belongs to a real language engine delivered over this seam. They are
 listed here rather than as a roadmap because the distinction is the point: they are not HexIDE features
 awaiting effort, they are **server** features awaiting a server.
 
 | Feature | Method | Client support today |
 |---|---|---|
-| Find all references | `textDocument/references` | Not wired |
-| Code actions / quick fixes | `textDocument/codeAction` | Not wired |
-| Semantic tokens | `textDocument/semanticTokens` | Not wired |
-| Inlay hints | `textDocument/inlayHint` | Not wired |
-| Call hierarchy | `textDocument/prepareCallHierarchy` | Not wired |
+| Find all references | `textDocument/references` | Shift+F12 and menus; grouped, navigable results and per-server errors (#2907) |
+| Code actions / quick fixes | `textDocument/codeAction` | Relays the server’s fixes on request; computes none (#453) |
+| Semantic tokens | `textDocument/semanticTokens/full` | **Wired** — full only; delta, range and refresh remain unwired (#2054) |
+| Parameter-name and inferred-type hints | `textDocument/inlayHint` | **Wired** — labels from any offering server; these binding-dependent hints remain outside the bundled server |
+| Call hierarchy | `textDocument/prepareCallHierarchy` | Shows the server’s call hierarchy; computes none (#3080). Provider-gated command, lazy Calls To / Calls From tree and node/call-site navigation |
 | Workspace symbols | `workspace/symbol` | **Wired** — see below |
 
 "Not wired" is a statement about the client, and it is the honest one: wiring each is a bounded piece of
@@ -983,3 +1650,98 @@ all three would be confidently wrong two-thirds of the time.
 ---
 
 *The behaviour contracts live under [`openspec/specs/lsp-client/`](../openspec/specs/lsp-client/spec.md).*
+
+### Workspace artefact generation
+
+Registrations can declare `workspaceArtifact` (relative path, provider id and provider settings).
+The client prepares it before launching the server, once per workspace project, behind the
+`IWorkspaceArtifactProvider` / DI seam. Core owns path containment (including links), per-server and
+per-workspace consent, hash-based ownership, and regeneration 300 ms after the last material project change.
+The debounce uses an injectable `TimeProvider`; tests advance its clock and await the pending regeneration
+task before checking the generated file and provider call count. An entry that sets `restartOnChange`
+has its server restarted, alone, when a regeneration changes the file (#2072).
+Artefact and moved-root restarts share the stop/reopen path and run serially; when both are queued,
+each restarts in turn. Requests wait for the replacement connection to reopen their document.
+A refusal or a foreign file does not prevent launch; its reason is logged and recorded as a local
+failure note on that server’s connection in the protocol inspector. Notes name only the configured
+workspace-relative artefact path and exception type; absolute targets and exception messages stay in
+the application log so conversation exports do not expose workspace locations. Writes use a temporary file in the
+same directory and atomically replace the owned target, with ownership checked under a lock. Identical
+bytes skip the write, preserving the timestamp and avoiding needless server watcher work. A provider with nothing to
+describe returns null: nothing is prompted or written, and a target HexIDE still owns is deleted under the same
+confinement and ownership check as a replace, while an edited one is left alone with its reason. Providers return
+content and never write files. The first provider, `clangd`, projects carried C/C++ files into `compile_commands.json`.
+The second, `rdcore`, projects the project's code files, references and Conditional Compilation Arguments into the
+`.rdproj` RDCore's language server needs at the workspace root. Current RDCore builds take a project import
+instead (below).
+
+This implements generation only (#455). Regeneration sends no `workspace/didChangeWatchedFiles` until
+#456; there is no public add-in contract (#457), no undeclared generation,
+no unconsented write, and no write outside the workspace. See [configuration](language-servers.md#generated-workspace-files).
+### Project imports
+
+The loader recognises a server-neutral `projectImport` command and JSON argument array (#2363).
+Exact `{uri}` and `{text}` string values expand recursively, preserving JSON types and property names.
+After initialization and on the artefact service's 300 ms project-change debounce, the registry calls
+that command with each project's saved URI and in-memory `.vbp` serialization. Importing entries skip
+artefact generation. The server must advertise the command; errors become configuration problems and
+reply notes reach the same server log as `window/logMessage` (object notes use their `message` text).
+Successful imports invalidate and re-pull open-document diagnostics until
+the connection first requests `workspace/diagnostic/refresh`, after which server refreshes take over
+for that connection alone. The client declares `workspace.diagnostics.refreshSupport: true` in
+`initialize`, so servers can request that refresh.
+Automatic transport reconnect currently replays documents but does not re-import until the next
+project change; immediate imports cover registry startup and workspace-root replacement.
+Projects without a saved path are reported rather than assigned an invented project URI. Folder updates
+precede the import on the same debounce (#2364).
+See [configuration](language-servers.md#project-import-declarations).
+
+### Semantic colours
+
+The client declares standard token types and modifiers, relative encoding, full requests only, and no
+overlapping or multiline tokens. An editor asks on attachment, 500 ms after edits, and when a server
+comes up. Only the highest-priority full provider is asked; its legend travels with its answer.
+Keywords, comments, strings, numbers and operators use the named syntax palette; names use Identifier,
+and types use Type. Both palettes follow the theme. Read-only region and diagnostic colours retain
+precedence. Uncovered text retains lexical colouring. Empty or failed answers clear the overlay and
+log once per document per connection; the next change retries. Invalid ranges are discarded and stale
+responses are ignored. No range request is sent (#2054).
+
+
+## Quick Fixes on request
+
+With the caret inside a current diagnostic, open **Quick Fixes** in the code window’s context menu
+(#453). Only opening that list sends `textDocument/codeAction`, to every document claimant advertising
+`codeActionProvider` that has a diagnostic under the caret, with that server’s own first diagnostic
+range and only its diagnostics there, including their opaque data (#3120). A server with no diagnostic
+under the caret is not asked, matching the lone-server behaviour. It sends nothing in the background.
+Answers are grouped by server id with display names as headers, so servers with equal names remain separate. Disabled actions show their reason and cannot
+be selected. An empty answer or an action with neither edit nor command explains that no applicable fix
+was supplied.
+
+Selecting a lazy action resolves it with its originating server when `resolveProvider` is advertised.
+Edits use the workspace-edit applier: validate every loaded target before writing, one undo step per
+module, and refuse IDE-only lines, stale versions, unsaved disk targets and resource operations. A refusal
+shows its reason and does not execute a command. After an edit succeeds, pending document changes are
+flushed before its command runs. A command is sent to the originating server only when it declares that
+command in `executeCommandProvider.commands`.
+Client commands share the code-lens handler: `rdcore.rename` and `editor.action.rename` open HexIDE’s
+rename at the supplied URI and position; the show-references aliases display the supplied locations.
+Other unlisted commands produce a localized refusal naming the command. Server-initiated
+`workspace/applyEdit` is outside this slice (#2908).
+
+The client declares `codeActionLiteralSupport`, `dataSupport`, `disabledSupport` and `resolveSupport`
+for `edit`, plus `publishDiagnostics.dataSupport` for diagnostic tokens. The bundled server supplies no code actions. A keyboard route remains for a later slice.
+### Expand and Shrink Selection (#3076)
+
+The client declares `textDocument.selectionRange: {}` without dynamic registration and exposes
+`RequestSelectionRangesAsync` with a document URI and an ordered array of positions. The registry
+chooses one highest-priority claimant offering `selectionRangeProvider` (boolean or options object).
+The response retains each range's recursive parent chain; HexIDE computes no ranges itself. Null
+responses and failed requests yield empty arrays.
+
+Expand Selection and Shrink Selection are code-window context-menu and keymap commands, with no
+default shortcuts. Both require a provider for the current document. Expand asks at the caret or
+both selection endpoints, then selects the smallest enclosing range supplied for either endpoint;
+repeated invocations climb its parent chain. Shrink restores the previous selection, down to the original caret or selection.
+An edit or an outside caret/selection move clears the chain, and stale replies are ignored.

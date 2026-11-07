@@ -132,6 +132,10 @@ public sealed partial class CompilerWireCodec
                 command = 3;
                 payload = [];
                 break;
+            case CompilerShutdown:
+                command = 9;
+                payload = [];
+                break;
             case CompilerKeepSettings:
                 command = 24;
                 payload = new byte[4];

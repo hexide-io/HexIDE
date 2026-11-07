@@ -4,7 +4,7 @@ namespace HexIDE.Runtime.Tests;
 
 /// <summary>
 /// VB6 identifiers are case-insensitive: <c>abc</c> after <c>Dim Abc</c> is the same variable (#811). Every expected
-/// value and its type below was measured on vb6.exe; the probes and their output are in docs/vb6-fidelity-oracle.md,
+/// value and its type below was measured on vb6.exe; the probes and their output are in docs/vb6-fidelity-oracle/identifier-case.md,
 /// "Identifier case".
 /// </summary>
 public class IdentifierCaseTests : BaseVBTestFixture

@@ -8,4 +8,5 @@ public interface IComponentRegistry
     IReadOnlyList<IComponentClass> Components { get; }
     void Register(IComponentClass component);
     event Action<IComponentClass>? ComponentRegistered;
+    event Action<IComponentClass>? ComponentUnregistered;
 }

@@ -12,7 +12,7 @@ namespace HexIDE.Integration.Tests.Automation;
 /// could not be read, rather than claiming the action took; and it refuses to act where it cannot read whether the
 /// control shows (#1280).
 /// </summary>
-public class ReadBackTests
+public class ReadBackTests : WindowTestFixture
 {
     private static T Shown<T>(T control) where T : Control
     {

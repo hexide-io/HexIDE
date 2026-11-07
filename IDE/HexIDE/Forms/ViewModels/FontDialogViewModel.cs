@@ -41,12 +41,13 @@ public partial class FontDialogViewModel
 
     public FontDialogViewModel(FontDialogResult? initial)
     {
-        FontFamilies = FontManager.Current.SystemFonts
-            .Select(f => f.Name)
-            .OrderBy(n => n, StringComparer.OrdinalIgnoreCase)
-            .ToList();
-
         _selectedFamily = initial?.Family.Name ?? "Arial";
+        var families = FontManager.Current.SystemFonts
+            .Select(f => f.Name)
+            .ToList();
+        if (!families.Contains(_selectedFamily))
+            families.Add(_selectedFamily);
+        FontFamilies = families.OrderBy(n => n, StringComparer.OrdinalIgnoreCase).ToList();
         _selectedSize   = initial?.Size ?? 12;
         FontSizes = StandardSizes.Contains(_selectedSize) ? StandardSizes : [.. StandardSizes.Append(_selectedSize).Order()];
         _selectedStyle  = initial != null ? ToStyleName(initial.Style, initial.Weight) : "Regular";

@@ -5,7 +5,7 @@ using HexIDE.Addins;
 
 namespace HexIDE.AIChat.Views;
 
-public partial class ChatView : UserControl
+public partial class ChatView : UserControl, IToolWindowMinimumWidth
 {
     private ChatViewModel? _vm;
 
@@ -14,7 +14,14 @@ public partial class ChatView : UserControl
         InitializeComponent();
         _vm = new ChatViewModel(host, settingsDir);
         DataContext = _vm;
+        AttachedToVisualTree += (_, _) => _vm.ReloadSettings();
         _vm.Messages.CollectionChanged += (_, _) => ScrollToBottom();
+    }
+
+    public double MeasureMinimumUsableWidth()
+    {
+        InputRow.Measure(Avalonia.Size.Infinity);
+        return InputRow.DesiredSize.Width;
     }
 
     private void ScrollToBottom()

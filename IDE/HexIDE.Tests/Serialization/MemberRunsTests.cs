@@ -527,7 +527,7 @@ public class MemberRunsTests
     [Fact]
     public void ALineOfNothingButAnUnderscoreContinuesOnlyWhenIndented()
     {
-        // docs/vb6-fidelity-oracle.md: in column 1 it is illegal, and so continues nothing; indented it is a
+        // docs/vb6-fidelity-oracle/line-continuations-and-statement-separators.md: in column 1 it is illegal, and so continues nothing; indented it is a
         // continuation. VB6 rejects the first file; the rule is what is pinned here.
         const string unindented =
             "Dim q As Long, _\r\n" +

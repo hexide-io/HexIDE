@@ -25,6 +25,23 @@ are one unit and reconciling either alone leaves them disagreeing.
 - **WHEN** the changed file is loaded but has no open tab
 - **THEN** it is detected in the same way as an open one
 
+The IDE SHALL keep watches on the directories holding loaded forms and modules, including subfolders and
+shared directories outside the project folder. It SHALL update those watches when documents are added,
+removed or repointed, including first save and Save As, and release the directories actually attached when
+a project unloads. Projects sharing a directory SHALL retain detection until the last user releases it.
+
+#### Scenario: Saving a new project or moving its files
+- **WHEN** a loaded project's first save or Save As assigns new source paths
+- **THEN** changes at the new paths are detected and directories no longer used are released
+
+#### Scenario: Adding or removing a source document
+- **WHEN** a form or module is added, removed or assigned a different path
+- **THEN** the watched directories reflect the current loaded source paths
+
+#### Scenario: Unloading after relocation
+- **WHEN** a project is unloaded after its paths change
+- **THEN** all its attached directories are released without stopping watches required by another project
+
 ### Requirement: The IDE's own writes SHALL NOT be treated as external changes
 A change the IDE itself made SHALL NOT be reported as an external change.
 
@@ -70,6 +87,11 @@ reading, which converts a careful design back into data loss.
 #### Scenario: A conflict
 - **WHEN** a file with unsaved edits changes on disk
 - **THEN** the developer is asked whether to take the disk version or keep their edits, and neither is discarded until they choose
+
+#### Scenario: Open code applied to the model without saving
+- **WHEN** an open module or form's edited code is copied into its model without saving, and its file changes externally
+- **THEN** the model's unsaved changes still make it a conflict, even though the editor and model now agree
+- **AND** after saving those edits, a subsequent external change is adopted silently if there are no further edits
 
 #### Scenario: Several conflicts at once
 - **WHEN** several files with unsaved edits change together
@@ -140,6 +162,12 @@ read.
 #### Scenario: Changes arriving while the IDE is in the background
 - **WHEN** conflicting changes arrive while the IDE is not focused
 - **THEN** the prompt waits until the developer returns to the IDE
+
+#### Scenario: Returning to deferred conflicts
+- **WHEN** the main window is activated with conflicts waiting, including when the activation event precedes
+  the window's active-state update
+- **THEN** the IDE shows the consolidated conflict prompt once after the active-state update, without another
+  disk change being needed
 
 #### Scenario: Turning watching off
 - **WHEN** the developer disables external-change watching

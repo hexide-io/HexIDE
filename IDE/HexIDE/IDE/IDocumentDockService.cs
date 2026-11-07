@@ -10,7 +10,8 @@ public interface IDocumentDockService : INotifyPropertyChanged
 {
     IReadOnlyList<BaseEditorWindowViewModel> OpenDocuments { get; }
     BaseEditorWindowViewModel? ActiveDocument { get; }
-    bool TryActivate<T>(Func<T, bool> predicate) where T : BaseEditorWindowViewModel;
+    /// <summary>Finds an existing editor, activating it only when requested.</summary>
+    bool TryActivate<T>(Func<T, bool> predicate, bool takeFocus = true) where T : BaseEditorWindowViewModel;
 
     /// <summary>
     /// EVERY tab in the document region, not only the editors this service opened.
@@ -37,7 +38,11 @@ public interface IDocumentDockService : INotifyPropertyChanged
 
     /// <summary>Closes any tab, editor or not.</summary>
     bool TryCloseAny(Func<IDockable, bool> predicate);
-    void OpenDocument(BaseEditorWindowViewModel vm);
+    /// <summary>Adds an editor, optionally preserving the current focus and active tab.</summary>
+    void OpenDocument(BaseEditorWindowViewModel vm, bool takeFocus = true);
     void CloseDocument(BaseEditorWindowViewModel vm);
     void CloseAll();
+    RecentlyClosedDocuments RecentlyClosed { get; }
+    void TrackTabs();
+    void ReopenClosedDocument(IEditorService editors, ClosedDocument? entry = null);
 }

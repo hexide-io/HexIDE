@@ -19,6 +19,9 @@ public interface IDebugController
     /// <summary>Running (walking), Paused (in Break mode), or Stopped (reset/torn down).</summary>
     DebugState State { get; }
 
+    /// <summary>Whether this host offers debugging, rather than only a fatal-error halt.</summary>
+    bool CanBreak => true;
+
     /// <summary>True from the moment a reset (<see cref="Stop"/>) begins until the walk finishes unwinding. While
     /// set, the gate raises <see cref="StopExecutionSignal"/> and the interpreter suppresses <c>Class_Terminate</c>
     /// — VB6 <c>End</c> abruptly terminates and fires NO Terminate (oracle-verified).</summary>
@@ -116,6 +119,9 @@ public interface IDebugController
     /// the executing activation (captured for Locals only when this statement decides to break — no hot-path cost).</summary>
     ValueTask OnStatementAsync(int line, string module, IDebugFrame? frame);
 
+    /// <summary>A breakpoint-only position leaves stepping at its existing statement positions.</summary>
+    ValueTask OnBreakpointPositionAsync(int line, string module, IDebugFrame frame) => ValueTask.CompletedTask;
+
     /// <summary>Enter Break for the <c>Stop</c> statement (reason = StopStatement). Awaited by the interpreter so
     /// execution suspends exactly as it would at a breakpoint.</summary>
     ValueTask EnterBreakFromStopStatementAsync(int line, string module, IDebugFrame? frame);
@@ -125,9 +131,9 @@ public interface IDebugController
     ValueTask EnterBreakFromAssertionAsync(int line, string module, IDebugFrame? frame);
 
     /// <summary>
-    /// Who answers a run-time error that nothing handles (#1011): the IDE, which shows VB6's dialog. It answers true for
-    /// Debug, and false for End once it has ended the run. While it is null the program does not halt: the error unwinds
-    /// to the event's dispatch, which reports it, as before.
+    /// Who answers a run-time error that nothing handles (#1011): the host, which shows VB6's dialog. It answers true for
+    /// Debug, and false for End once it has ended the run. A standalone host offers only OK and exits. While it is null
+    /// the program does not halt: the error unwinds to the event's dispatch, which reports it, as before.
     /// </summary>
     Func<VBRunTimeException, Task<bool>>? HaltHost { get; set; }
 
@@ -155,6 +161,10 @@ public interface IDebugController
     /// an expandable node (or <c>Ok = false</c> with the error message); null when not in Break mode. Read by the
     /// Watches window on each <see cref="Stopped"/>, and (P6b) at the gate for Break-When-True/Changed watches.</summary>
     Task<DebugEvalResult?> EvaluateWatchAsync(string expression);
+
+    /// <summary>Evaluate a stored watch in its module or procedure context while paused.</summary>
+    Task<DebugEvalResult?> EvaluateScopedWatchAsync(string expression, string context)
+        => EvaluateWatchAsync(expression);
 
     /// <summary>The Call Stack (deepest/current frame first), or empty when not in Break mode — read by the Call
     /// Stack window and the MCP <c>get_call_stack</c> tool on each <see cref="Stopped"/>. DAP <c>stackTrace</c>-shaped.</summary>

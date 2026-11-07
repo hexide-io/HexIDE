@@ -486,6 +486,28 @@ public class CaptureQueriesTests : IAsyncDisposable
             .Note.Should().Contain("none match this filter");
     }
 
+    [Fact]
+    public async Task A_poll_quiet_only_for_its_filter_says_what_did_arrive_rather_than_that_nothing_was_recorded()
+    {
+        // A failuresOnly poll over ordinary traffic was told nothing had been recorded at all, which answers "is the
+        // server still talking?" wrongly (#2974).
+        _log.Record("vb6", ConversationDirection.Sent, ConversationEntryKind.Request, "textDocument/hover", "1", 90);
+        _log.EndRequests("vb6", ConversationDirection.Sent, outcome: ConversationOutcome.Cancelled);
+        var first = await CaptureQueries.ListAsync(_log, new EnvelopeFilter(ConnectionId: "vb6"));
+        _log.Record("vb6", ConversationDirection.Sent, ConversationEntryKind.Notification, "textDocument/didChange", null, 40);
+        _log.Record("vb6", ConversationDirection.Received, ConversationEntryKind.Notification,
+            "textDocument/publishDiagnostics", null, 60);
+        _log.Record("latex", ConversationDirection.Sent, ConversationEntryKind.Notification, "note", null, 10);
+
+        var quiet = await CaptureQueries.ListAsync(_log,
+            new EnvelopeFilter(ConnectionId: "vb6", FailuresOnly: true, AfterSequence: first.LatestSequence));
+
+        quiet.Entries.Should().BeEmpty("the premise: no failure since the cursor");
+        quiet.Note.Should().Be($"Nothing matching this filter was recorded, answered or ended after {first.LatestSequence}, "
+                               + "though 2 envelope(s) were. Poll again from latestSequence with the same filter.",
+            "two envelopes reached vb6 after the cursor, and the latex one is another connection's");
+    }
+
     [Theory]
     [InlineData(true)]
     [InlineData(false)]
@@ -629,7 +651,7 @@ public class CaptureQueriesTests : IAsyncDisposable
     {
         _log.Arm("vb6", true);
         var client = Connect("vb6");
-        await client.NotifyAsync("note", "file:///C:/Users/quintana/Ledger/Form1.frm");
+        await client.NotifyAsync("note", "file:///C:/Fixtures/quintana/Ledger/Form1.frm");
 
         var note = (await CaptureQueries.ListAsync(_log, new EnvelopeFilter(Method: "note"))).Entries.Single();
         var body = await CaptureQueries.FetchAsync(

@@ -376,12 +376,7 @@ public class VbProtectedRegionsTests
 
     private static string? FindUpwards(string relative)
     {
-        for (var dir = new DirectoryInfo(AppContext.BaseDirectory); dir is not null; dir = dir.Parent)
-        {
-            var candidate = Path.Combine(dir.FullName, relative);
-            if (Directory.Exists(candidate))
-                return candidate;
-        }
-        return null;
+        var candidate = Path.Join(RepoTree.Root(), relative);
+        return Directory.Exists(candidate) ? candidate : null;
     }
 }

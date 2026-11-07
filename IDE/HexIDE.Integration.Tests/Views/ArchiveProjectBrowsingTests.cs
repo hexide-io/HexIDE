@@ -6,6 +6,9 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using Avalonia.Controls;
+using Avalonia.LogicalTree;
+using Avalonia.Markup.Xaml.Styling;
+using Avalonia.Threading;
 using AvaloniaEdit;
 using HexIDE.Forms.ViewModels;
 using HexIDE.Forms.Views;
@@ -40,6 +43,40 @@ public sealed class ArchiveProjectBrowsingTests : IDisposable
         localization.GetString("Str.Archive.FolderReadyFormat").Returns("Ready: {0}");
         localization.GetString("Str.Archive.FolderErrorFormat").Returns("Stopped: {0}");
         archives = new(dock, recent, localization, windows);
+    }
+
+    [AvaloniaFact]
+    public void Ordinary_project_menu_hides_archive_toggle_and_focuses_first_visible_entry()
+    {
+        var manager = Substitute.For<IProjectManager>();
+        manager.LoadedProjects.Returns(new[] { new ProjectDefinition(VBProjectType.EXE, "Ordinary") });
+        var model = new ProjectToolViewModel(manager, Substitute.For<IEventBus>(),
+            Substitute.For<IProjectService>(), Substitute.For<IEditorService>(), localization, archives);
+        model.SelectedItem = model.LoadedProjects.Single();
+        var view = new ProjectToolView { DataContext = model };
+        view.Resources.MergedDictionaries.Add(new ResourceInclude(new Uri("avares://HexIDE/"))
+        {
+            Source = new Uri("avares://HexIDE/Themes/IconGeometry.axaml"),
+        });
+        var window = new Window { Content = view, Width = 600, Height = 400 };
+        window.Show();
+        var tree = view.GetLogicalDescendants().OfType<TreeView>().Single();
+        var menu = (MenuFlyout)tree.ContextFlyout!;
+        try
+        {
+            Dispatcher.UIThread.RunJobs();
+            tree.ContainerFromIndex(0)!.Focus().Should().BeTrue();
+            menu.ShowAt(tree);
+            Dispatcher.UIThread.RunJobs();
+            var items = menu.Items.OfType<MenuItem>().ToArray();
+            items[0].IsVisible.Should().BeFalse("the hidden-entry toggle applies only to archive selections (#3131)");
+            window.FocusManager!.GetFocusedElement().Should().BeSameAs(items.First(item => item.IsVisible));
+        }
+        finally
+        {
+            menu.Hide();
+            window.Close();
+        }
     }
 
     [AvaloniaFact]
@@ -118,6 +155,51 @@ public sealed class ArchiveProjectBrowsingTests : IDisposable
             tab.Document.Text.Should().Be("hello world hello");
         }
         finally { window.Close(); }
+    }
+
+    [AvaloniaFact]
+    public async Task A_twin_entry_greys_its_inactive_branches_as_twinBASIC_compiles_them()
+    {
+        // At 32-bit, as #1691 measured beta 1024: Win64 is 0, and a call reads 0, so CBool(Win32) does not hold. The
+        // container records neither the beta nor, with no Settings, the build type, so those branches are left alone.
+        const string source = "Module Main\r\n#If Win64 Then\r\nA64\r\n#Else\r\nA32\r\n#End If\r\n" +
+                              "#If CBool(Win32) Then\r\nCalled\r\n#Else\r\nReadAsZero\r\n#End If\r\n" +
+                              "#If TWINBASIC_BUILD > 1000 Then\r\nBuildNew\r\n#Else\r\nBuildOld\r\n#End If\r\n" +
+                              "#If TWINBASIC_BUILD_TYPE = \"standard exe\" Then\r\nStandardExe\r\n#Else\r\nOtherType\r\n#End If\r\n" +
+                              "End Module\r\n";
+        await archives.Open(Write("one.twinproj", source));
+        archives.OpenDocument(archives.Projects[0].Root.Children[0]);
+        var tab = tabs.Should().ContainSingle().Which.Should().BeOfType<ArchiveDocumentViewModel>().Which;
+        var view = new ArchiveDocumentView { DataContext = tab };
+        var window = new Window { Content = view, Width = 600, Height = 600 };
+        window.Show();
+        try
+        {
+            Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+            var editor = view.FindControl<TextEditor>("Editor")!;
+            int LineOf(string text) => editor.Document.GetLineByOffset(editor.Document.Text.IndexOf(text, StringComparison.Ordinal)).LineNumber;
+            tab.InactiveLines.Should().Equal(new HexIDE.Language.LineRange(LineOf("A64"), LineOf("A64")),
+                new HexIDE.Language.LineRange(LineOf("Called"), LineOf("Called")));
+
+            var grey = ((Avalonia.Media.ISolidColorBrush)view.FindResource("InactiveCodeTextBrush")!).Color;
+            List<Avalonia.Media.Color?> ColoursOn(string text) => editor.TextArea.TextView
+                .GetOrConstructVisualLine(editor.Document.GetLineByNumber(LineOf(text))).Elements
+                .Where(e => e.DocumentLength > 0).Select(e => (e.TextRunProperties.ForegroundBrush as Avalonia.Media.ISolidColorBrush)?.Color)
+                .ToList();
+            ColoursOn("A64").Should().OnlyContain(c => c == grey);
+            ColoursOn("Called").Should().OnlyContain(c => c == grey);
+            foreach (var live in new[] { "A32", "ReadAsZero", "BuildNew", "BuildOld", "StandardExe", "OtherType" })
+                ColoursOn(live).Should().Contain(c => c != grey, $"{live} is active or undetermined");
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaFact]
+    public async Task Only_twin_entries_are_read_for_conditional_compilation()
+    {
+        await archives.Open(Write("one.twinproj", "#If Win64 Then\r\nA64\r\n#End If\r\n", name: "notes.txt"));
+        archives.OpenDocument(archives.Projects[0].Root.Children[0]);
+        tabs.Should().ContainSingle().Which.Should().BeOfType<ArchiveDocumentViewModel>().Which.InactiveLines.Should().BeEmpty();
     }
 
     [AvaloniaFact]
@@ -240,7 +322,8 @@ public sealed class ArchiveProjectBrowsingTests : IDisposable
     {
         var recentPath = UserDataPath.For("recent-projects.json");
         var savedRecent = File.Exists(recentPath) ? File.ReadAllBytes(recentPath) : null;
-        var composition = new DISetup();
+        await using var owned = new RealComposition();
+        var composition = owned.Composition;
         var root = composition.Root;
         var path = Write("one.twinproj", "source");
         var bytes = File.ReadAllBytes(path);

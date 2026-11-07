@@ -1,0 +1,660 @@
+textDocument/codeLens pending=False
+962.420 textDocument/didOpen start
+982.591 textDocument/diagnostic start
+3240.915 session 35075203 create
+3291.976 session 35075203 resume    at System.Environment.get_StackTrace()
+   at HexIDE.Lsp.CodeLensSession.ResumeAsync()
+   at HexIDE.Controls.CodeLensDisplay..ctor(TextEditor editor, Canvas layer, CodeLensSession session, Action`1 execute) in <repo>/IDE/HexIDE/Controls/CodeLensDisplay.cs:line 40
+   at HexIDE.Forms.Views.CodeEditorView.OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e) in <repo>/IDE/HexIDE/Forms/Views/CodeEditorView.axaml.cs:line 342
+   at Avalonia.Visual.OnAttachedToVisualTreeCore(VisualTreeAttachmentEventArgs e)
+3298.020 session 35075203 lens client start
+3314.589 textDocument/codeLens start
+3314.605 textDocument/codeLens server complete
+3494.858 textDocument/semanticTokens/full start
+3504.859 textDocument/inlayHint start
+3511.998 textDocument/foldingRange start
+3957.671 session 35075203 lens client complete
+5570.601 session 35075203 resume    at System.Environment.get_StackTrace()
+   at HexIDE.Lsp.CodeLensSession.ResumeAsync()
+   at HexIDE.Controls.CodeLensDisplay..ctor(TextEditor editor, Canvas layer, CodeLensSession session, Action`1 execute) in <repo>/IDE/HexIDE/Controls/CodeLensDisplay.cs:line 40
+   at HexIDE.Forms.Views.CodeEditorView.OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e) in <repo>/IDE/HexIDE/Forms/Views/CodeEditorView.axaml.cs:line 342
+   at Avalonia.Visual.OnAttachedToVisualTreeCore(VisualTreeAttachmentEventArgs e)
+5637.286 session 35075203 resume    at System.Environment.get_StackTrace()
+   at HexIDE.Lsp.CodeLensSession.ResumeAsync()
+   at HexIDE.Controls.CodeLensDisplay..ctor(TextEditor editor, Canvas layer, CodeLensSession session, Action`1 execute) in <repo>/IDE/HexIDE/Controls/CodeLensDisplay.cs:line 40
+   at HexIDE.Forms.Views.CodeEditorView.OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e) in <repo>/IDE/HexIDE/Forms/Views/CodeEditorView.axaml.cs:line 342
+   at Avalonia.Visual.OnAttachedToVisualTreeCore(VisualTreeAttachmentEventArgs e)
+5660.969 session 35075203 suspend
+5682.354 session 35075203 suspend
+5701.213 session 35075203 suspend
+5942.699 session 35075203 resume    at System.Environment.get_StackTrace()
+   at HexIDE.Lsp.CodeLensSession.ResumeAsync()
+   at HexIDE.Controls.CodeLensDisplay..ctor(TextEditor editor, Canvas layer, CodeLensSession session, Action`1 execute) in <repo>/IDE/HexIDE/Controls/CodeLensDisplay.cs:line 40
+   at HexIDE.Forms.Views.CodeEditorView.OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e) in <repo>/IDE/HexIDE/Forms/Views/CodeEditorView.axaml.cs:line 342
+   at Avalonia.Visual.OnAttachedToVisualTreeCore(VisualTreeAttachmentEventArgs e)
+9162.420 session 35075203 lens client start
+9163.130 textDocument/didChange start
+9163.560 textDocument/diagnostic start
+9164.697 textDocument/codeLens start
+9164.707 textDocument/codeLens server complete
+9165.679 session 35075203 lens client complete
+9270.797 baseline count=2
+9270.808 refresh sent
+9273.220 session 35075203 refresh received suspended=False
+9273.232 session 35075203 lens client start
+9274.441 textDocument/codeLens start
+9274.452 textDocument/codeLens server complete
+9275.056 session 35075203 lens client complete
+9301.851 refresh reply
+9307.290 detach begin
+9358.239 session 35075203 resume    at System.Environment.get_StackTrace()
+   at HexIDE.Lsp.CodeLensSession.ResumeAsync()
+   at HexIDE.Controls.CodeLensDisplay..ctor(TextEditor editor, Canvas layer, CodeLensSession session, Action`1 execute) in <repo>/IDE/HexIDE/Controls/CodeLensDisplay.cs:line 40
+   at HexIDE.Forms.Views.CodeEditorView.OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e) in <repo>/IDE/HexIDE/Forms/Views/CodeEditorView.axaml.cs:line 342
+   at Avalonia.Visual.OnAttachedToVisualTreeCore(VisualTreeAttachmentEventArgs e)
+9362.544 textDocument/semanticTokens/full start
+9363.063 textDocument/inlayHint start
+9363.633 textDocument/foldingRange start
+9375.258 session 35075203 resume    at System.Environment.get_StackTrace()
+   at HexIDE.Lsp.CodeLensSession.ResumeAsync()
+   at HexIDE.Controls.CodeLensDisplay..ctor(TextEditor editor, Canvas layer, CodeLensSession session, Action`1 execute) in <repo>/IDE/HexIDE/Controls/CodeLensDisplay.cs:line 40
+   at HexIDE.Forms.Views.CodeEditorView.OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e) in <repo>/IDE/HexIDE/Forms/Views/CodeEditorView.axaml.cs:line 342
+   at Avalonia.Visual.OnAttachedToVisualTreeCore(VisualTreeAttachmentEventArgs e)
+9377.471 session 35075203 suspend
+9377.768 session 35075203 suspend
+9420.420 session 35075203 suspend
+9428.511 detach end
+9428.540 baseline count=3
+9428.542 refresh sent
+9430.358 session 35075203 refresh received suspended=True
+9434.228 session 35075203 resume    at System.Environment.get_StackTrace()
+   at HexIDE.Lsp.CodeLensSession.ResumeAsync()
+   at HexIDE.Controls.CodeLensDisplay..ctor(TextEditor editor, Canvas layer, CodeLensSession session, Action`1 execute) in <repo>/IDE/HexIDE/Controls/CodeLensDisplay.cs:line 40
+   at HexIDE.Forms.Views.CodeEditorView.FoldAfterDelayAsync(CodeEditorViewModel vm, CancellationToken token) in <repo>/IDE/HexIDE/Forms/Views/CodeEditorView.axaml.cs:line 1240
+   at System.Threading.ExecutionContext.RunInternal(ExecutionContext executionContext, ContextCallback callback, Object state)
+9434.245 session 35075203 lens client start
+9434.874 refresh reply
+9434.884 assert count=3
+9438.147 textDocument/codeLens start
+9438.157 textDocument/codeLens server complete
+9493.020 session 35075203 resume    at System.Environment.get_StackTrace()
+   at HexIDE.Lsp.CodeLensSession.ResumeAsync()
+   at HexIDE.Controls.CodeLensDisplay..ctor(TextEditor editor, Canvas layer, CodeLensSession session, Action`1 execute) in <repo>/IDE/HexIDE/Controls/CodeLensDisplay.cs:line 40
+   at HexIDE.Forms.Views.CodeEditorView.OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e) in <repo>/IDE/HexIDE/Forms/Views/CodeEditorView.axaml.cs:line 342
+   at Avalonia.Visual.OnAttachedToVisualTreeCore(VisualTreeAttachmentEventArgs e)
+9525.675 session 35075203 suspend
+textDocument/codeLens pending=True
+18.393 textDocument/didOpen start
+18.446 textDocument/diagnostic start
+126.810 session 65529573 create
+128.621 session 65529573 resume    at System.Environment.get_StackTrace()
+   at HexIDE.Lsp.CodeLensSession.ResumeAsync()
+   at HexIDE.Controls.CodeLensDisplay..ctor(TextEditor editor, Canvas layer, CodeLensSession session, Action`1 execute) in <repo>/IDE/HexIDE/Controls/CodeLensDisplay.cs:line 40
+   at HexIDE.Forms.Views.CodeEditorView.OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e) in <repo>/IDE/HexIDE/Forms/Views/CodeEditorView.axaml.cs:line 342
+   at Avalonia.Visual.OnAttachedToVisualTreeCore(VisualTreeAttachmentEventArgs e)
+128.641 session 65529573 lens client start
+129.935 textDocument/codeLens start
+138.554 textDocument/semanticTokens/full start
+138.638 textDocument/inlayHint start
+138.689 textDocument/foldingRange start
+1187.826 session 65529573 resume    at System.Environment.get_StackTrace()
+   at HexIDE.Lsp.CodeLensSession.ResumeAsync()
+   at HexIDE.Controls.CodeLensDisplay..ctor(TextEditor editor, Canvas layer, CodeLensSession session, Action`1 execute) in <repo>/IDE/HexIDE/Controls/CodeLensDisplay.cs:line 40
+   at HexIDE.Forms.Views.CodeEditorView.OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e) in <repo>/IDE/HexIDE/Forms/Views/CodeEditorView.axaml.cs:line 342
+   at Avalonia.Visual.OnAttachedToVisualTreeCore(VisualTreeAttachmentEventArgs e)
+1215.148 session 65529573 resume    at System.Environment.get_StackTrace()
+   at HexIDE.Lsp.CodeLensSession.ResumeAsync()
+   at HexIDE.Controls.CodeLensDisplay..ctor(TextEditor editor, Canvas layer, CodeLensSession session, Action`1 execute) in <repo>/IDE/HexIDE/Controls/CodeLensDisplay.cs:line 40
+   at HexIDE.Forms.Views.CodeEditorView.OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e) in <repo>/IDE/HexIDE/Forms/Views/CodeEditorView.axaml.cs:line 342
+   at Avalonia.Visual.OnAttachedToVisualTreeCore(VisualTreeAttachmentEventArgs e)
+1217.087 session 65529573 suspend
+1217.363 session 65529573 suspend
+1223.690 session 65529573 suspend
+1356.780 session 65529573 resume    at System.Environment.get_StackTrace()
+   at HexIDE.Lsp.CodeLensSession.ResumeAsync()
+   at HexIDE.Controls.CodeLensDisplay..ctor(TextEditor editor, Canvas layer, CodeLensSession session, Action`1 execute) in <repo>/IDE/HexIDE/Controls/CodeLensDisplay.cs:line 40
+   at HexIDE.Forms.Views.CodeEditorView.OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e) in <repo>/IDE/HexIDE/Forms/Views/CodeEditorView.axaml.cs:line 342
+   at Avalonia.Visual.OnAttachedToVisualTreeCore(VisualTreeAttachmentEventArgs e)
+2345.848 textDocument/codeLens server complete
+2347.982 session 65529573 lens client complete
+3966.529 textDocument/didChange start
+3966.580 textDocument/diagnostic start
+3987.557 session 65529573 lens client start
+3988.463 textDocument/codeLens start
+3988.532 textDocument/codeLens server complete
+3989.617 session 65529573 lens client complete
+4015.319 baseline count=2
+4015.328 refresh sent
+4015.732 session 65529573 refresh received suspended=False
+4015.742 session 65529573 lens client start
+4016.779 textDocument/codeLens start
+4016.847 textDocument/codeLens server complete
+4025.722 refresh reply
+4026.742 detach begin
+4029.054 session 65529573 lens client complete
+4056.956 session 65529573 resume    at System.Environment.get_StackTrace()
+   at HexIDE.Lsp.CodeLensSession.ResumeAsync()
+   at HexIDE.Controls.CodeLensDisplay..ctor(TextEditor editor, Canvas layer, CodeLensSession session, Action`1 execute) in <repo>/IDE/HexIDE/Controls/CodeLensDisplay.cs:line 40
+   at HexIDE.Forms.Views.CodeEditorView.OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e) in <repo>/IDE/HexIDE/Forms/Views/CodeEditorView.axaml.cs:line 342
+   at Avalonia.Visual.OnAttachedToVisualTreeCore(VisualTreeAttachmentEventArgs e)
+4057.927 textDocument/semanticTokens/full start
+4058.038 textDocument/inlayHint start
+4058.090 textDocument/foldingRange start
+4076.727 session 65529573 resume    at System.Environment.get_StackTrace()
+   at HexIDE.Lsp.CodeLensSession.ResumeAsync()
+   at HexIDE.Controls.CodeLensDisplay..ctor(TextEditor editor, Canvas layer, CodeLensSession session, Action`1 execute) in <repo>/IDE/HexIDE/Controls/CodeLensDisplay.cs:line 40
+   at HexIDE.Forms.Views.CodeEditorView.OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e) in <repo>/IDE/HexIDE/Forms/Views/CodeEditorView.axaml.cs:line 342
+   at Avalonia.Visual.OnAttachedToVisualTreeCore(VisualTreeAttachmentEventArgs e)
+4083.379 session 65529573 suspend
+4083.779 session 65529573 suspend
+4102.395 session 65529573 suspend
+4103.731 detach end
+4103.746 baseline count=3
+4103.747 refresh sent
+4114.078 session 65529573 refresh received suspended=True
+4124.586 refresh reply
+4124.607 assert count=3
+4219.605 session 65529573 resume    at System.Environment.get_StackTrace()
+   at HexIDE.Lsp.CodeLensSession.ResumeAsync()
+   at HexIDE.Controls.CodeLensDisplay..ctor(TextEditor editor, Canvas layer, CodeLensSession session, Action`1 execute) in <repo>/IDE/HexIDE/Controls/CodeLensDisplay.cs:line 40
+   at HexIDE.Forms.Views.CodeEditorView.OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e) in <repo>/IDE/HexIDE/Forms/Views/CodeEditorView.axaml.cs:line 342
+   at Avalonia.Visual.OnAttachedToVisualTreeCore(VisualTreeAttachmentEventArgs e)
+4219.627 session 65529573 lens client start
+4220.958 textDocument/codeLens start
+4220.970 textDocument/codeLens server complete
+4243.251 session 65529573 suspend
+textDocument/semanticTokens/full pending=False
+7.145 textDocument/didOpen start
+7.161 textDocument/diagnostic start
+158.116 session 53279296 create
+188.297 session 53279296 resume    at System.Environment.get_StackTrace()
+   at HexIDE.Lsp.CodeLensSession.ResumeAsync()
+   at HexIDE.Controls.CodeLensDisplay..ctor(TextEditor editor, Canvas layer, CodeLensSession session, Action`1 execute) in <repo>/IDE/HexIDE/Controls/CodeLensDisplay.cs:line 40
+   at HexIDE.Forms.Views.CodeEditorView.OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e) in <repo>/IDE/HexIDE/Forms/Views/CodeEditorView.axaml.cs:line 342
+   at Avalonia.Visual.OnAttachedToVisualTreeCore(VisualTreeAttachmentEventArgs e)
+188.347 session 53279296 lens client start
+191.299 textDocument/codeLens start
+191.311 textDocument/codeLens server complete
+191.462 textDocument/semanticTokens/full start
+191.768 textDocument/inlayHint start
+192.037 textDocument/foldingRange start
+262.671 session 53279296 lens client complete
+1512.206 session 53279296 resume    at System.Environment.get_StackTrace()
+   at HexIDE.Lsp.CodeLensSession.ResumeAsync()
+   at HexIDE.Controls.CodeLensDisplay..ctor(TextEditor editor, Canvas layer, CodeLensSession session, Action`1 execute) in <repo>/IDE/HexIDE/Controls/CodeLensDisplay.cs:line 40
+   at HexIDE.Forms.Views.CodeEditorView.OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e) in <repo>/IDE/HexIDE/Forms/Views/CodeEditorView.axaml.cs:line 342
+   at Avalonia.Visual.OnAttachedToVisualTreeCore(VisualTreeAttachmentEventArgs e)
+1527.215 session 53279296 resume    at System.Environment.get_StackTrace()
+   at HexIDE.Lsp.CodeLensSession.ResumeAsync()
+   at HexIDE.Controls.CodeLensDisplay..ctor(TextEditor editor, Canvas layer, CodeLensSession session, Action`1 execute) in <repo>/IDE/HexIDE/Controls/CodeLensDisplay.cs:line 40
+   at HexIDE.Forms.Views.CodeEditorView.OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e) in <repo>/IDE/HexIDE/Forms/Views/CodeEditorView.axaml.cs:line 342
+   at Avalonia.Visual.OnAttachedToVisualTreeCore(VisualTreeAttachmentEventArgs e)
+1528.834 session 53279296 suspend
+1529.066 session 53279296 suspend
+1537.672 session 53279296 suspend
+1635.480 session 53279296 resume    at System.Environment.get_StackTrace()
+   at HexIDE.Lsp.CodeLensSession.ResumeAsync()
+   at HexIDE.Controls.CodeLensDisplay..ctor(TextEditor editor, Canvas layer, CodeLensSession session, Action`1 execute) in <repo>/IDE/HexIDE/Controls/CodeLensDisplay.cs:line 40
+   at HexIDE.Forms.Views.CodeEditorView.OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e) in <repo>/IDE/HexIDE/Forms/Views/CodeEditorView.axaml.cs:line 342
+   at Avalonia.Visual.OnAttachedToVisualTreeCore(VisualTreeAttachmentEventArgs e)
+4690.310 textDocument/didChange start
+4690.408 textDocument/diagnostic start
+4692.830 session 53279296 lens client start
+4695.133 textDocument/codeLens start
+4695.146 textDocument/codeLens server complete
+4696.987 session 53279296 lens client complete
+4901.191 textDocument/inlayHint start
+4908.715 textDocument/foldingRange start
+4909.128 textDocument/semanticTokens/full start
+4936.064 baseline count=2
+4936.076 refresh sent
+4936.455 session 53279296 refresh received suspended=False
+4936.465 session 53279296 lens client start
+4936.945 textDocument/codeLens start
+4936.959 textDocument/codeLens server complete
+4937.227 session 53279296 lens client complete
+4937.292 refresh reply
+4938.031 detach begin
+4944.626 session 53279296 resume    at System.Environment.get_StackTrace()
+   at HexIDE.Lsp.CodeLensSession.ResumeAsync()
+   at HexIDE.Controls.CodeLensDisplay..ctor(TextEditor editor, Canvas layer, CodeLensSession session, Action`1 execute) in <repo>/IDE/HexIDE/Controls/CodeLensDisplay.cs:line 40
+   at HexIDE.Forms.Views.CodeEditorView.OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e) in <repo>/IDE/HexIDE/Forms/Views/CodeEditorView.axaml.cs:line 342
+   at Avalonia.Visual.OnAttachedToVisualTreeCore(VisualTreeAttachmentEventArgs e)
+4949.213 session 53279296 resume    at System.Environment.get_StackTrace()
+   at HexIDE.Lsp.CodeLensSession.ResumeAsync()
+   at HexIDE.Controls.CodeLensDisplay..ctor(TextEditor editor, Canvas layer, CodeLensSession session, Action`1 execute) in <repo>/IDE/HexIDE/Controls/CodeLensDisplay.cs:line 40
+   at HexIDE.Forms.Views.CodeEditorView.OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e) in <repo>/IDE/HexIDE/Forms/Views/CodeEditorView.axaml.cs:line 342
+   at Avalonia.Visual.OnAttachedToVisualTreeCore(VisualTreeAttachmentEventArgs e)
+4950.274 session 53279296 suspend
+4950.463 session 53279296 suspend
+4956.650 session 53279296 suspend
+4957.689 detach end
+4957.699 baseline count=3
+4957.703 refresh sent
+4958.218 session 53279296 refresh received suspended=True
+4964.863 refresh reply
+4964.872 assert count=3
+4977.880 session 53279296 resume    at System.Environment.get_StackTrace()
+   at HexIDE.Lsp.CodeLensSession.ResumeAsync()
+   at HexIDE.Controls.CodeLensDisplay..ctor(TextEditor editor, Canvas layer, CodeLensSession session, Action`1 execute) in <repo>/IDE/HexIDE/Controls/CodeLensDisplay.cs:line 40
+   at HexIDE.Forms.Views.CodeEditorView.OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e) in <repo>/IDE/HexIDE/Forms/Views/CodeEditorView.axaml.cs:line 342
+   at Avalonia.Visual.OnAttachedToVisualTreeCore(VisualTreeAttachmentEventArgs e)
+4977.905 session 53279296 lens client start
+4979.114 textDocument/codeLens start
+4979.125 textDocument/codeLens server complete
+4984.219 session 53279296 suspend
+textDocument/semanticTokens/full pending=True
+8.288 textDocument/didOpen start
+8.309 textDocument/diagnostic start
+65.323 session 9271975 create
+66.354 session 9271975 resume    at System.Environment.get_StackTrace()
+   at HexIDE.Lsp.CodeLensSession.ResumeAsync()
+   at HexIDE.Controls.CodeLensDisplay..ctor(TextEditor editor, Canvas layer, CodeLensSession session, Action`1 execute) in <repo>/IDE/HexIDE/Controls/CodeLensDisplay.cs:line 40
+   at HexIDE.Forms.Views.CodeEditorView.OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e) in <repo>/IDE/HexIDE/Forms/Views/CodeEditorView.axaml.cs:line 342
+   at Avalonia.Visual.OnAttachedToVisualTreeCore(VisualTreeAttachmentEventArgs e)
+66.367 session 9271975 lens client start
+68.446 textDocument/codeLens start
+68.476 textDocument/semanticTokens/full start
+68.483 textDocument/inlayHint start
+68.488 textDocument/foldingRange start
+1044.140 session 9271975 resume    at System.Environment.get_StackTrace()
+   at HexIDE.Lsp.CodeLensSession.ResumeAsync()
+   at HexIDE.Controls.CodeLensDisplay..ctor(TextEditor editor, Canvas layer, CodeLensSession session, Action`1 execute) in <repo>/IDE/HexIDE/Controls/CodeLensDisplay.cs:line 40
+   at HexIDE.Forms.Views.CodeEditorView.OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e) in <repo>/IDE/HexIDE/Forms/Views/CodeEditorView.axaml.cs:line 342
+   at Avalonia.Visual.OnAttachedToVisualTreeCore(VisualTreeAttachmentEventArgs e)
+1060.706 session 9271975 resume    at System.Environment.get_StackTrace()
+   at HexIDE.Lsp.CodeLensSession.ResumeAsync()
+   at HexIDE.Controls.CodeLensDisplay..ctor(TextEditor editor, Canvas layer, CodeLensSession session, Action`1 execute) in <repo>/IDE/HexIDE/Controls/CodeLensDisplay.cs:line 40
+   at HexIDE.Forms.Views.CodeEditorView.OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e) in <repo>/IDE/HexIDE/Forms/Views/CodeEditorView.axaml.cs:line 342
+   at Avalonia.Visual.OnAttachedToVisualTreeCore(VisualTreeAttachmentEventArgs e)
+1062.215 session 9271975 suspend
+1062.446 session 9271975 suspend
+1065.765 session 9271975 suspend
+1139.418 session 9271975 resume    at System.Environment.get_StackTrace()
+   at HexIDE.Lsp.CodeLensSession.ResumeAsync()
+   at HexIDE.Controls.CodeLensDisplay..ctor(TextEditor editor, Canvas layer, CodeLensSession session, Action`1 execute) in <repo>/IDE/HexIDE/Controls/CodeLensDisplay.cs:line 40
+   at HexIDE.Forms.Views.CodeEditorView.OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e) in <repo>/IDE/HexIDE/Forms/Views/CodeEditorView.axaml.cs:line 342
+   at Avalonia.Visual.OnAttachedToVisualTreeCore(VisualTreeAttachmentEventArgs e)
+2217.484 textDocument/codeLens server complete
+2224.523 session 9271975 lens client complete
+3864.966 textDocument/didChange start
+3865.020 textDocument/diagnostic start
+3876.456 session 9271975 lens client start
+3880.354 textDocument/codeLens start
+3880.368 textDocument/codeLens server complete
+3901.660 session 9271975 lens client complete
+4080.556 textDocument/inlayHint start
+4080.999 textDocument/foldingRange start
+4081.059 textDocument/semanticTokens/full start
+4084.769 baseline count=2
+4084.776 refresh sent
+4088.486 session 9271975 refresh received suspended=False
+4088.531 session 9271975 lens client start
+4089.329 textDocument/codeLens start
+4089.340 textDocument/codeLens server complete
+4089.656 refresh reply
+4089.911 session 9271975 lens client complete
+4090.199 detach begin
+4108.364 session 9271975 resume    at System.Environment.get_StackTrace()
+   at HexIDE.Lsp.CodeLensSession.ResumeAsync()
+   at HexIDE.Controls.CodeLensDisplay..ctor(TextEditor editor, Canvas layer, CodeLensSession session, Action`1 execute) in <repo>/IDE/HexIDE/Controls/CodeLensDisplay.cs:line 40
+   at HexIDE.Forms.Views.CodeEditorView.OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e) in <repo>/IDE/HexIDE/Forms/Views/CodeEditorView.axaml.cs:line 342
+   at Avalonia.Visual.OnAttachedToVisualTreeCore(VisualTreeAttachmentEventArgs e)
+4119.894 session 9271975 resume    at System.Environment.get_StackTrace()
+   at HexIDE.Lsp.CodeLensSession.ResumeAsync()
+   at HexIDE.Controls.CodeLensDisplay..ctor(TextEditor editor, Canvas layer, CodeLensSession session, Action`1 execute) in <repo>/IDE/HexIDE/Controls/CodeLensDisplay.cs:line 40
+   at HexIDE.Forms.Views.CodeEditorView.OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e) in <repo>/IDE/HexIDE/Forms/Views/CodeEditorView.axaml.cs:line 342
+   at Avalonia.Visual.OnAttachedToVisualTreeCore(VisualTreeAttachmentEventArgs e)
+4130.090 session 9271975 suspend
+4130.326 session 9271975 suspend
+4151.840 session 9271975 suspend
+4161.632 detach end
+4161.689 baseline count=3
+4161.691 refresh sent
+4164.967 session 9271975 refresh received suspended=True
+4196.551 refresh reply
+4196.571 assert count=3
+4231.819 session 9271975 resume    at System.Environment.get_StackTrace()
+   at HexIDE.Lsp.CodeLensSession.ResumeAsync()
+   at HexIDE.Controls.CodeLensDisplay..ctor(TextEditor editor, Canvas layer, CodeLensSession session, Action`1 execute) in <repo>/IDE/HexIDE/Controls/CodeLensDisplay.cs:line 40
+   at HexIDE.Forms.Views.CodeEditorView.OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e) in <repo>/IDE/HexIDE/Forms/Views/CodeEditorView.axaml.cs:line 342
+   at Avalonia.Visual.OnAttachedToVisualTreeCore(VisualTreeAttachmentEventArgs e)
+4231.842 session 9271975 lens client start
+4232.560 textDocument/codeLens start
+4232.574 textDocument/codeLens server complete
+4240.212 session 9271975 lens client complete
+4258.032 session 9271975 suspend
+textDocument/inlayHint pending=False
+15.982 textDocument/didOpen start
+16.000 textDocument/diagnostic start
+230.873 session 33780154 create
+235.975 session 33780154 resume    at System.Environment.get_StackTrace()
+   at HexIDE.Lsp.CodeLensSession.ResumeAsync()
+   at HexIDE.Controls.CodeLensDisplay..ctor(TextEditor editor, Canvas layer, CodeLensSession session, Action`1 execute) in <repo>/IDE/HexIDE/Controls/CodeLensDisplay.cs:line 40
+   at HexIDE.Forms.Views.CodeEditorView.OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e) in <repo>/IDE/HexIDE/Forms/Views/CodeEditorView.axaml.cs:line 342
+   at Avalonia.Visual.OnAttachedToVisualTreeCore(VisualTreeAttachmentEventArgs e)
+235.991 session 33780154 lens client start
+236.598 textDocument/codeLens start
+236.607 textDocument/codeLens server complete
+236.880 textDocument/semanticTokens/full start
+237.675 textDocument/inlayHint start
+237.739 textDocument/foldingRange start
+301.308 session 33780154 lens client complete
+1653.131 session 33780154 resume    at System.Environment.get_StackTrace()
+   at HexIDE.Lsp.CodeLensSession.ResumeAsync()
+   at HexIDE.Controls.CodeLensDisplay..ctor(TextEditor editor, Canvas layer, CodeLensSession session, Action`1 execute) in <repo>/IDE/HexIDE/Controls/CodeLensDisplay.cs:line 40
+   at HexIDE.Forms.Views.CodeEditorView.OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e) in <repo>/IDE/HexIDE/Forms/Views/CodeEditorView.axaml.cs:line 342
+   at Avalonia.Visual.OnAttachedToVisualTreeCore(VisualTreeAttachmentEventArgs e)
+1658.403 session 33780154 resume    at System.Environment.get_StackTrace()
+   at HexIDE.Lsp.CodeLensSession.ResumeAsync()
+   at HexIDE.Controls.CodeLensDisplay..ctor(TextEditor editor, Canvas layer, CodeLensSession session, Action`1 execute) in <repo>/IDE/HexIDE/Controls/CodeLensDisplay.cs:line 40
+   at HexIDE.Forms.Views.CodeEditorView.OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e) in <repo>/IDE/HexIDE/Forms/Views/CodeEditorView.axaml.cs:line 342
+   at Avalonia.Visual.OnAttachedToVisualTreeCore(VisualTreeAttachmentEventArgs e)
+1664.108 session 33780154 suspend
+1664.305 session 33780154 suspend
+1666.563 session 33780154 suspend
+1791.461 session 33780154 resume    at System.Environment.get_StackTrace()
+   at HexIDE.Lsp.CodeLensSession.ResumeAsync()
+   at HexIDE.Controls.CodeLensDisplay..ctor(TextEditor editor, Canvas layer, CodeLensSession session, Action`1 execute) in <repo>/IDE/HexIDE/Controls/CodeLensDisplay.cs:line 40
+   at HexIDE.Forms.Views.CodeEditorView.OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e) in <repo>/IDE/HexIDE/Forms/Views/CodeEditorView.axaml.cs:line 342
+   at Avalonia.Visual.OnAttachedToVisualTreeCore(VisualTreeAttachmentEventArgs e)
+4604.456 session 33780154 lens client start
+4604.792 textDocument/didChange start
+4604.816 textDocument/diagnostic start
+4604.894 textDocument/codeLens start
+4604.898 textDocument/codeLens server complete
+4606.764 session 33780154 lens client complete
+4804.179 textDocument/inlayHint start
+4807.905 textDocument/foldingRange start
+4808.238 textDocument/semanticTokens/full start
+4832.562 baseline count=2
+4832.569 refresh sent
+4832.846 session 33780154 refresh received suspended=False
+4832.851 session 33780154 lens client start
+4833.199 textDocument/codeLens start
+4833.207 textDocument/codeLens server complete
+4833.384 refresh reply
+4833.737 detach begin
+4837.059 session 33780154 lens client complete
+4837.980 session 33780154 resume    at System.Environment.get_StackTrace()
+   at HexIDE.Lsp.CodeLensSession.ResumeAsync()
+   at HexIDE.Controls.CodeLensDisplay..ctor(TextEditor editor, Canvas layer, CodeLensSession session, Action`1 execute) in <repo>/IDE/HexIDE/Controls/CodeLensDisplay.cs:line 40
+   at HexIDE.Forms.Views.CodeEditorView.OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e) in <repo>/IDE/HexIDE/Forms/Views/CodeEditorView.axaml.cs:line 342
+   at Avalonia.Visual.OnAttachedToVisualTreeCore(VisualTreeAttachmentEventArgs e)
+4849.590 session 33780154 resume    at System.Environment.get_StackTrace()
+   at HexIDE.Lsp.CodeLensSession.ResumeAsync()
+   at HexIDE.Controls.CodeLensDisplay..ctor(TextEditor editor, Canvas layer, CodeLensSession session, Action`1 execute) in <repo>/IDE/HexIDE/Controls/CodeLensDisplay.cs:line 40
+   at HexIDE.Forms.Views.CodeEditorView.OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e) in <repo>/IDE/HexIDE/Forms/Views/CodeEditorView.axaml.cs:line 342
+   at Avalonia.Visual.OnAttachedToVisualTreeCore(VisualTreeAttachmentEventArgs e)
+4850.663 session 33780154 suspend
+4850.810 session 33780154 suspend
+4858.002 session 33780154 suspend
+4858.506 detach end
+4858.519 baseline count=3
+4858.520 refresh sent
+4859.930 session 33780154 refresh received suspended=True
+4873.265 refresh reply
+4873.284 assert count=3
+4889.028 session 33780154 resume    at System.Environment.get_StackTrace()
+   at HexIDE.Lsp.CodeLensSession.ResumeAsync()
+   at HexIDE.Controls.CodeLensDisplay..ctor(TextEditor editor, Canvas layer, CodeLensSession session, Action`1 execute) in <repo>/IDE/HexIDE/Controls/CodeLensDisplay.cs:line 40
+   at HexIDE.Forms.Views.CodeEditorView.OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e) in <repo>/IDE/HexIDE/Forms/Views/CodeEditorView.axaml.cs:line 342
+   at Avalonia.Visual.OnAttachedToVisualTreeCore(VisualTreeAttachmentEventArgs e)
+4889.041 session 33780154 lens client start
+4890.654 session 33780154 suspend
+4891.954 textDocument/codeLens start
+4891.961 textDocument/codeLens server complete
+4898.611 session 33780154 lens client complete
+5002.773 session 33780154 resume    at System.Environment.get_StackTrace()
+   at HexIDE.Lsp.CodeLensSession.ResumeAsync()
+   at HexIDE.Controls.CodeLensDisplay..ctor(TextEditor editor, Canvas layer, CodeLensSession session, Action`1 execute) in <repo>/IDE/HexIDE/Controls/CodeLensDisplay.cs:line 40
+   at HexIDE.Forms.Views.CodeEditorView.OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e) in <repo>/IDE/HexIDE/Forms/Views/CodeEditorView.axaml.cs:line 342
+   at Avalonia.Visual.OnAttachedToVisualTreeCore(VisualTreeAttachmentEventArgs e)
+5098.216 session 33780154 suspend
+textDocument/inlayHint pending=True
+6.630 textDocument/didOpen start
+6.642 textDocument/diagnostic start
+155.359 session 2365220 create
+156.541 session 2365220 resume    at System.Environment.get_StackTrace()
+   at HexIDE.Lsp.CodeLensSession.ResumeAsync()
+   at HexIDE.Controls.CodeLensDisplay..ctor(TextEditor editor, Canvas layer, CodeLensSession session, Action`1 execute) in <repo>/IDE/HexIDE/Controls/CodeLensDisplay.cs:line 40
+   at HexIDE.Forms.Views.CodeEditorView.OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e) in <repo>/IDE/HexIDE/Forms/Views/CodeEditorView.axaml.cs:line 342
+   at Avalonia.Visual.OnAttachedToVisualTreeCore(VisualTreeAttachmentEventArgs e)
+156.553 session 2365220 lens client start
+158.743 textDocument/codeLens start
+158.776 textDocument/semanticTokens/full start
+158.784 textDocument/inlayHint start
+158.790 textDocument/foldingRange start
+1179.110 session 2365220 resume    at System.Environment.get_StackTrace()
+   at HexIDE.Lsp.CodeLensSession.ResumeAsync()
+   at HexIDE.Controls.CodeLensDisplay..ctor(TextEditor editor, Canvas layer, CodeLensSession session, Action`1 execute) in <repo>/IDE/HexIDE/Controls/CodeLensDisplay.cs:line 40
+   at HexIDE.Forms.Views.CodeEditorView.OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e) in <repo>/IDE/HexIDE/Forms/Views/CodeEditorView.axaml.cs:line 342
+   at Avalonia.Visual.OnAttachedToVisualTreeCore(VisualTreeAttachmentEventArgs e)
+1186.473 session 2365220 resume    at System.Environment.get_StackTrace()
+   at HexIDE.Lsp.CodeLensSession.ResumeAsync()
+   at HexIDE.Controls.CodeLensDisplay..ctor(TextEditor editor, Canvas layer, CodeLensSession session, Action`1 execute) in <repo>/IDE/HexIDE/Controls/CodeLensDisplay.cs:line 40
+   at HexIDE.Forms.Views.CodeEditorView.OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e) in <repo>/IDE/HexIDE/Forms/Views/CodeEditorView.axaml.cs:line 342
+   at Avalonia.Visual.OnAttachedToVisualTreeCore(VisualTreeAttachmentEventArgs e)
+1187.127 session 2365220 suspend
+1187.219 session 2365220 suspend
+1188.799 session 2365220 suspend
+1234.620 session 2365220 resume    at System.Environment.get_StackTrace()
+   at HexIDE.Lsp.CodeLensSession.ResumeAsync()
+   at HexIDE.Controls.CodeLensDisplay..ctor(TextEditor editor, Canvas layer, CodeLensSession session, Action`1 execute) in <repo>/IDE/HexIDE/Controls/CodeLensDisplay.cs:line 40
+   at HexIDE.Forms.Views.CodeEditorView.OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e) in <repo>/IDE/HexIDE/Forms/Views/CodeEditorView.axaml.cs:line 342
+   at Avalonia.Visual.OnAttachedToVisualTreeCore(VisualTreeAttachmentEventArgs e)
+2186.421 textDocument/codeLens server complete
+2194.512 session 2365220 lens client complete
+3923.415 textDocument/didChange start
+3923.441 textDocument/diagnostic start
+3928.088 session 2365220 lens client start
+3934.588 textDocument/codeLens start
+3934.599 textDocument/codeLens server complete
+3938.429 session 2365220 lens client complete
+4122.621 textDocument/inlayHint start
+4123.023 textDocument/foldingRange start
+4123.086 textDocument/semanticTokens/full start
+4159.444 baseline count=2
+4159.454 refresh sent
+4160.554 session 2365220 refresh received suspended=False
+4160.562 session 2365220 lens client start
+4161.773 textDocument/codeLens start
+4161.787 textDocument/codeLens server complete
+4162.440 session 2365220 lens client complete
+4162.667 refresh reply
+4162.926 detach begin
+4171.326 session 2365220 resume    at System.Environment.get_StackTrace()
+   at HexIDE.Lsp.CodeLensSession.ResumeAsync()
+   at HexIDE.Controls.CodeLensDisplay..ctor(TextEditor editor, Canvas layer, CodeLensSession session, Action`1 execute) in <repo>/IDE/HexIDE/Controls/CodeLensDisplay.cs:line 40
+   at HexIDE.Forms.Views.CodeEditorView.OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e) in <repo>/IDE/HexIDE/Forms/Views/CodeEditorView.axaml.cs:line 342
+   at Avalonia.Visual.OnAttachedToVisualTreeCore(VisualTreeAttachmentEventArgs e)
+4182.005 session 2365220 resume    at System.Environment.get_StackTrace()
+   at HexIDE.Lsp.CodeLensSession.ResumeAsync()
+   at HexIDE.Controls.CodeLensDisplay..ctor(TextEditor editor, Canvas layer, CodeLensSession session, Action`1 execute) in <repo>/IDE/HexIDE/Controls/CodeLensDisplay.cs:line 40
+   at HexIDE.Forms.Views.CodeEditorView.OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e) in <repo>/IDE/HexIDE/Forms/Views/CodeEditorView.axaml.cs:line 342
+   at Avalonia.Visual.OnAttachedToVisualTreeCore(VisualTreeAttachmentEventArgs e)
+4187.345 session 2365220 suspend
+4187.524 session 2365220 suspend
+4194.973 session 2365220 suspend
+4195.856 detach end
+4195.866 baseline count=3
+4195.867 refresh sent
+4196.752 session 2365220 refresh received suspended=True
+4216.969 refresh reply
+4216.983 assert count=3
+4238.939 session 2365220 resume    at System.Environment.get_StackTrace()
+   at HexIDE.Lsp.CodeLensSession.ResumeAsync()
+   at HexIDE.Controls.CodeLensDisplay..ctor(TextEditor editor, Canvas layer, CodeLensSession session, Action`1 execute) in <repo>/IDE/HexIDE/Controls/CodeLensDisplay.cs:line 40
+   at HexIDE.Forms.Views.CodeEditorView.OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e) in <repo>/IDE/HexIDE/Forms/Views/CodeEditorView.axaml.cs:line 342
+   at Avalonia.Visual.OnAttachedToVisualTreeCore(VisualTreeAttachmentEventArgs e)
+4238.954 session 2365220 lens client start
+4241.139 session 2365220 suspend
+4242.913 textDocument/codeLens start
+4242.926 textDocument/codeLens server complete
+4254.316 session 2365220 lens client complete
+4373.488 session 2365220 resume    at System.Environment.get_StackTrace()
+   at HexIDE.Lsp.CodeLensSession.ResumeAsync()
+   at HexIDE.Controls.CodeLensDisplay..ctor(TextEditor editor, Canvas layer, CodeLensSession session, Action`1 execute) in <repo>/IDE/HexIDE/Controls/CodeLensDisplay.cs:line 40
+   at HexIDE.Forms.Views.CodeEditorView.OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e) in <repo>/IDE/HexIDE/Forms/Views/CodeEditorView.axaml.cs:line 342
+   at Avalonia.Visual.OnAttachedToVisualTreeCore(VisualTreeAttachmentEventArgs e)
+4560.066 session 2365220 suspend
+textDocument/foldingRange pending=False
+15.326 textDocument/didOpen start
+15.340 textDocument/diagnostic start
+93.192 session 41562741 create
+94.183 session 41562741 resume    at System.Environment.get_StackTrace()
+   at HexIDE.Lsp.CodeLensSession.ResumeAsync()
+   at HexIDE.Controls.CodeLensDisplay..ctor(TextEditor editor, Canvas layer, CodeLensSession session, Action`1 execute) in <repo>/IDE/HexIDE/Controls/CodeLensDisplay.cs:line 40
+   at HexIDE.Forms.Views.CodeEditorView.OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e) in <repo>/IDE/HexIDE/Forms/Views/CodeEditorView.axaml.cs:line 342
+   at Avalonia.Visual.OnAttachedToVisualTreeCore(VisualTreeAttachmentEventArgs e)
+94.191 session 41562741 lens client start
+95.306 textDocument/codeLens start
+95.312 textDocument/codeLens server complete
+95.441 textDocument/semanticTokens/full start
+95.716 textDocument/inlayHint start
+95.757 textDocument/foldingRange start
+134.671 session 41562741 lens client complete
+1382.108 session 41562741 resume    at System.Environment.get_StackTrace()
+   at HexIDE.Lsp.CodeLensSession.ResumeAsync()
+   at HexIDE.Controls.CodeLensDisplay..ctor(TextEditor editor, Canvas layer, CodeLensSession session, Action`1 execute) in <repo>/IDE/HexIDE/Controls/CodeLensDisplay.cs:line 40
+   at HexIDE.Forms.Views.CodeEditorView.OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e) in <repo>/IDE/HexIDE/Forms/Views/CodeEditorView.axaml.cs:line 342
+   at Avalonia.Visual.OnAttachedToVisualTreeCore(VisualTreeAttachmentEventArgs e)
+1385.933 session 41562741 resume    at System.Environment.get_StackTrace()
+   at HexIDE.Lsp.CodeLensSession.ResumeAsync()
+   at HexIDE.Controls.CodeLensDisplay..ctor(TextEditor editor, Canvas layer, CodeLensSession session, Action`1 execute) in <repo>/IDE/HexIDE/Controls/CodeLensDisplay.cs:line 40
+   at HexIDE.Forms.Views.CodeEditorView.OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e) in <repo>/IDE/HexIDE/Forms/Views/CodeEditorView.axaml.cs:line 342
+   at Avalonia.Visual.OnAttachedToVisualTreeCore(VisualTreeAttachmentEventArgs e)
+1386.691 session 41562741 suspend
+1386.794 session 41562741 suspend
+1389.087 session 41562741 suspend
+1412.055 session 41562741 resume    at System.Environment.get_StackTrace()
+   at HexIDE.Lsp.CodeLensSession.ResumeAsync()
+   at HexIDE.Controls.CodeLensDisplay..ctor(TextEditor editor, Canvas layer, CodeLensSession session, Action`1 execute) in <repo>/IDE/HexIDE/Controls/CodeLensDisplay.cs:line 40
+   at HexIDE.Forms.Views.CodeEditorView.OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e) in <repo>/IDE/HexIDE/Forms/Views/CodeEditorView.axaml.cs:line 342
+   at Avalonia.Visual.OnAttachedToVisualTreeCore(VisualTreeAttachmentEventArgs e)
+4229.244 textDocument/didChange start
+4229.268 textDocument/diagnostic start
+4229.583 session 41562741 lens client start
+4231.226 textDocument/codeLens start
+4231.234 textDocument/codeLens server complete
+4238.292 session 41562741 lens client complete
+4439.675 textDocument/inlayHint start
+4440.350 textDocument/foldingRange start
+4440.409 textDocument/semanticTokens/full start
+4462.488 baseline count=2
+4462.493 refresh sent
+4463.855 session 41562741 refresh received suspended=False
+4463.862 session 41562741 lens client start
+4464.227 textDocument/codeLens start
+4464.237 textDocument/codeLens server complete
+4464.441 session 41562741 lens client complete
+4472.016 refresh reply
+4472.259 detach begin
+4484.818 session 41562741 resume    at System.Environment.get_StackTrace()
+   at HexIDE.Lsp.CodeLensSession.ResumeAsync()
+   at HexIDE.Controls.CodeLensDisplay..ctor(TextEditor editor, Canvas layer, CodeLensSession session, Action`1 execute) in <repo>/IDE/HexIDE/Controls/CodeLensDisplay.cs:line 40
+   at HexIDE.Forms.Views.CodeEditorView.OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e) in <repo>/IDE/HexIDE/Forms/Views/CodeEditorView.axaml.cs:line 342
+   at Avalonia.Visual.OnAttachedToVisualTreeCore(VisualTreeAttachmentEventArgs e)
+4559.852 session 41562741 resume    at System.Environment.get_StackTrace()
+   at HexIDE.Lsp.CodeLensSession.ResumeAsync()
+   at HexIDE.Controls.CodeLensDisplay..ctor(TextEditor editor, Canvas layer, CodeLensSession session, Action`1 execute) in <repo>/IDE/HexIDE/Controls/CodeLensDisplay.cs:line 40
+   at HexIDE.Forms.Views.CodeEditorView.OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e) in <repo>/IDE/HexIDE/Forms/Views/CodeEditorView.axaml.cs:line 342
+   at Avalonia.Visual.OnAttachedToVisualTreeCore(VisualTreeAttachmentEventArgs e)
+4560.744 session 41562741 suspend
+4561.017 session 41562741 suspend
+4579.218 session 41562741 suspend
+4579.904 detach end
+4579.912 baseline count=3
+4579.912 refresh sent
+4583.463 session 41562741 refresh received suspended=True
+4590.287 refresh reply
+4590.294 assert count=3
+4606.602 session 41562741 resume    at System.Environment.get_StackTrace()
+   at HexIDE.Lsp.CodeLensSession.ResumeAsync()
+   at HexIDE.Controls.CodeLensDisplay..ctor(TextEditor editor, Canvas layer, CodeLensSession session, Action`1 execute) in <repo>/IDE/HexIDE/Controls/CodeLensDisplay.cs:line 40
+   at HexIDE.Forms.Views.CodeEditorView.OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e) in <repo>/IDE/HexIDE/Forms/Views/CodeEditorView.axaml.cs:line 342
+   at Avalonia.Visual.OnAttachedToVisualTreeCore(VisualTreeAttachmentEventArgs e)
+4606.612 session 41562741 lens client start
+4606.860 textDocument/codeLens start
+4606.868 textDocument/codeLens server complete
+4613.029 session 41562741 suspend
+textDocument/foldingRange pending=True
+11.092 textDocument/didOpen start
+11.104 textDocument/diagnostic start
+88.558 session 1111130 create
+90.159 session 1111130 resume    at System.Environment.get_StackTrace()
+   at HexIDE.Lsp.CodeLensSession.ResumeAsync()
+   at HexIDE.Controls.CodeLensDisplay..ctor(TextEditor editor, Canvas layer, CodeLensSession session, Action`1 execute) in <repo>/IDE/HexIDE/Controls/CodeLensDisplay.cs:line 40
+   at HexIDE.Forms.Views.CodeEditorView.OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e) in <repo>/IDE/HexIDE/Forms/Views/CodeEditorView.axaml.cs:line 342
+   at Avalonia.Visual.OnAttachedToVisualTreeCore(VisualTreeAttachmentEventArgs e)
+90.173 session 1111130 lens client start
+91.055 textDocument/codeLens start
+91.109 textDocument/semanticTokens/full start
+97.218 textDocument/inlayHint start
+97.246 textDocument/foldingRange start
+1163.148 session 1111130 resume    at System.Environment.get_StackTrace()
+   at HexIDE.Lsp.CodeLensSession.ResumeAsync()
+   at HexIDE.Controls.CodeLensDisplay..ctor(TextEditor editor, Canvas layer, CodeLensSession session, Action`1 execute) in <repo>/IDE/HexIDE/Controls/CodeLensDisplay.cs:line 40
+   at HexIDE.Forms.Views.CodeEditorView.OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e) in <repo>/IDE/HexIDE/Forms/Views/CodeEditorView.axaml.cs:line 342
+   at Avalonia.Visual.OnAttachedToVisualTreeCore(VisualTreeAttachmentEventArgs e)
+1171.073 session 1111130 resume    at System.Environment.get_StackTrace()
+   at HexIDE.Lsp.CodeLensSession.ResumeAsync()
+   at HexIDE.Controls.CodeLensDisplay..ctor(TextEditor editor, Canvas layer, CodeLensSession session, Action`1 execute) in <repo>/IDE/HexIDE/Controls/CodeLensDisplay.cs:line 40
+   at HexIDE.Forms.Views.CodeEditorView.OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e) in <repo>/IDE/HexIDE/Forms/Views/CodeEditorView.axaml.cs:line 342
+   at Avalonia.Visual.OnAttachedToVisualTreeCore(VisualTreeAttachmentEventArgs e)
+1173.657 session 1111130 suspend
+1173.819 session 1111130 suspend
+1184.047 session 1111130 suspend
+1232.534 session 1111130 resume    at System.Environment.get_StackTrace()
+   at HexIDE.Lsp.CodeLensSession.ResumeAsync()
+   at HexIDE.Controls.CodeLensDisplay..ctor(TextEditor editor, Canvas layer, CodeLensSession session, Action`1 execute) in <repo>/IDE/HexIDE/Controls/CodeLensDisplay.cs:line 40
+   at HexIDE.Forms.Views.CodeEditorView.OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e) in <repo>/IDE/HexIDE/Forms/Views/CodeEditorView.axaml.cs:line 342
+   at Avalonia.Visual.OnAttachedToVisualTreeCore(VisualTreeAttachmentEventArgs e)
+2207.123 textDocument/codeLens server complete
+2207.660 session 1111130 lens client complete
+3830.719 textDocument/didChange start
+3830.738 textDocument/diagnostic start
+3835.053 session 1111130 lens client start
+3836.706 textDocument/codeLens start
+3836.713 textDocument/codeLens server complete
+3838.961 session 1111130 lens client complete
+4035.172 textDocument/inlayHint start
+4035.843 textDocument/foldingRange start
+4035.921 textDocument/semanticTokens/full start
+4057.425 baseline count=2
+4057.430 refresh sent
+4059.021 session 1111130 refresh received suspended=False
+4059.028 session 1111130 lens client start
+4059.416 textDocument/codeLens start
+4059.424 textDocument/codeLens server complete
+4059.593 session 1111130 lens client complete
+4067.548 refresh reply
+4067.835 detach begin
+4138.681 session 1111130 resume    at System.Environment.get_StackTrace()
+   at HexIDE.Lsp.CodeLensSession.ResumeAsync()
+   at HexIDE.Controls.CodeLensDisplay..ctor(TextEditor editor, Canvas layer, CodeLensSession session, Action`1 execute) in <repo>/IDE/HexIDE/Controls/CodeLensDisplay.cs:line 40
+   at HexIDE.Forms.Views.CodeEditorView.OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e) in <repo>/IDE/HexIDE/Forms/Views/CodeEditorView.axaml.cs:line 342
+   at Avalonia.Visual.OnAttachedToVisualTreeCore(VisualTreeAttachmentEventArgs e)
+4142.408 session 1111130 resume    at System.Environment.get_StackTrace()
+   at HexIDE.Lsp.CodeLensSession.ResumeAsync()
+   at HexIDE.Controls.CodeLensDisplay..ctor(TextEditor editor, Canvas layer, CodeLensSession session, Action`1 execute) in <repo>/IDE/HexIDE/Controls/CodeLensDisplay.cs:line 40
+   at HexIDE.Forms.Views.CodeEditorView.OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e) in <repo>/IDE/HexIDE/Forms/Views/CodeEditorView.axaml.cs:line 342
+   at Avalonia.Visual.OnAttachedToVisualTreeCore(VisualTreeAttachmentEventArgs e)
+4147.348 session 1111130 suspend
+4147.558 session 1111130 suspend
+4164.729 session 1111130 suspend
+4165.474 detach end
+4165.481 baseline count=3
+4165.482 refresh sent
+4171.376 session 1111130 refresh received suspended=True
+4185.616 refresh reply
+4185.624 assert count=3
+4201.801 session 1111130 resume    at System.Environment.get_StackTrace()
+   at HexIDE.Lsp.CodeLensSession.ResumeAsync()
+   at HexIDE.Controls.CodeLensDisplay..ctor(TextEditor editor, Canvas layer, CodeLensSession session, Action`1 execute) in <repo>/IDE/HexIDE/Controls/CodeLensDisplay.cs:line 40
+   at HexIDE.Forms.Views.CodeEditorView.OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e) in <repo>/IDE/HexIDE/Forms/Views/CodeEditorView.axaml.cs:line 342
+   at Avalonia.Visual.OnAttachedToVisualTreeCore(VisualTreeAttachmentEventArgs e)
+4201.813 session 1111130 lens client start
+4202.993 textDocument/codeLens start
+4203.002 textDocument/codeLens server complete
+4208.373 session 1111130 suspend

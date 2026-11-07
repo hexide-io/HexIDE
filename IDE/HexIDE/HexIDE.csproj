@@ -2,6 +2,8 @@
     <PropertyGroup>
         <TargetFrameworks>$(DotNetVersion)</TargetFrameworks>
         <Nullable>enable</Nullable>
+        <!-- LibraryImport-generated marshalling only; NativeInteropTests guards handwritten code. -->
+        <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
         <LangVersion>latest</LangVersion>
         <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
         <TrimMode>full</TrimMode>
@@ -54,12 +56,14 @@
         <AvaloniaResource Include="Keymaps\Packs\*.json" />
         <None Remove="Localization\Packs\*.json" />
         <AvaloniaResource Include="Localization\Packs\*.json" />
+        <AvaloniaResource Remove="Localization\Packs\zz.json;Localization\Packs\zz-ZZ.json" />
     </ItemGroup>
 
     <ItemGroup>
         <!-- Baked-in add-in trust anchors: the root public key (every package chains to it), the pinned
              first-party publisher key (first-party status is bound to this key, not a string), and the
              bundled root-signed revocation floor list. -->
+        <EmbeddedResource Include="IDE\Profiles\Builtins\*.json" />
         <EmbeddedResource Include="Addins\Trust\*.pub" />
         <EmbeddedResource Include="Addins\Trust\revocations.json" />
         <EmbeddedResource Include="Addins\Trust\revocations.sig" />

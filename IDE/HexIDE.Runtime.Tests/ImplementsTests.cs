@@ -6,7 +6,7 @@ namespace HexIDE.Runtime.Tests;
 /// <c>Implements</c> (#186) — a class claiming an interface, and what an interface-typed variable can reach.
 ///
 /// Every expectation here is measured against vb6.exe; see "Implements, and interface-typed variables" in
-/// docs/vb6-fidelity-oracle.md. The measurement mattered: three of these would have been guessed wrong
+/// docs/vb6-fidelity-oracle/implements-and-interface-typed-variables.md. The measurement mattered: three of these would have been guessed wrong
 /// (TypeName reports the CONCRETE class, a Public implementation is accepted, and a failed TypeOf is False
 /// rather than an error).
 ///

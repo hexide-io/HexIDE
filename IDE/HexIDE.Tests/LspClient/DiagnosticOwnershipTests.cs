@@ -52,6 +52,27 @@ public class DiagnosticOwnershipTests
     }
 
     [Fact]
+    public async Task ThePanelSnapshotNamesPublishersEvenWhenSourcesAreAbsentOrMisleading()
+    {
+        var a = FakeServer();
+        var b = FakeServer();
+        await using var sut = Registry(Registration("a", a), Registration("b", b));
+        await sut.OpenDocumentAsync(Form1, "code", TestContext.Current.CancellationToken);
+        var unopened = "untitled:Project1/Module2.bas";
+        a.DiagnosticsPublished += Raise.Event<EventHandler<PublishDiagnosticsParams>>(
+            a, new PublishDiagnosticsParams(unopened, [Say("first")]));
+        b.DiagnosticsPublished += Raise.Event<EventHandler<PublishDiagnosticsParams>>(
+            b, new PublishDiagnosticsParams(unopened, [Say("second", "a", "1")]));
+
+        sut.Diagnostics.Select(d => (d.Uri, d.Owner, d.Diagnostic.Message)).Should().Equal(
+            (unopened, "a", "first"), (unopened, "b", "second"));
+
+        a.DiagnosticsPublished += Raise.Event<EventHandler<PublishDiagnosticsParams>>(
+            a, new PublishDiagnosticsParams(unopened, []));
+        sut.Diagnostics.Should().ContainSingle().Which.Owner.Should().Be("b");
+    }
+
+    [Fact]
     public async Task ABuildsEmptyClearDoesNotTakeTheServersDiagnosticsWithIt()
     {
         var server = FakeServer();

@@ -7,7 +7,7 @@ namespace HexIDE.Runtime.Tests;
 /// <summary>
 /// A form, UserControl or PropertyPage HexIDE creates is written as VB6's IDE writes one it has just created: byte for
 /// byte, each expectation being the file VB6 6.00.8176 wrote for Add Form, Add User Control and Add Property Page then
-/// Ctrl+S (hexide-io/HexIDE#1538; docs/vb6-fidelity-oracle.md, "What VB6's Add Form saves").
+/// Ctrl+S (hexide-io/HexIDE#1538; docs/vb6-fidelity-oracle/what-vb6s-add-form-saves.md, "What VB6's Add Form saves").
 /// </summary>
 /// <remarks>
 /// A form's client area and its <c>ClientLeft</c>/<c>ClientTop</c> are VB6's 4800 × 3600 window less the oracle's Windows

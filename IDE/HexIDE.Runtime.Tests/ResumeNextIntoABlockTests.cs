@@ -9,10 +9,12 @@ namespace HexIDE.Runtime.Tests;
 /// the body of a loop, the body of a With.
 ///
 /// <para>
-/// Every expectation here was measured on vb6.exe, built both as native code and as p-code; the probes and their output
-/// are in docs/vb6-fidelity-oracle.md, "Resume Next into a block". Where the two builds agree, the test pins VB6. Where
+/// The original #839 expectations were measured on vb6.exe, built both as native code and as p-code; the probes and their output
+/// are in docs/vb6-fidelity-oracle/resume-next-into-a-block.md, "Resume Next into a block". Where the two builds agree, the test pins VB6. Where
 /// they differ, which is only a For whose header raised and a Select Case whose selector raised, the test pins the model
 /// HexIDE follows and says so in its name.
+/// The For Each declaration and late-binding corrections follow #3213, "The rule, measured", sections 2–4
+/// (oracle tables in measuring PR #3215), replacing unmeasured #969 extensions.
 /// </para>
 /// </summary>
 public class ResumeNextIntoABlockTests : BaseVBTestFixture
@@ -439,7 +441,7 @@ public class ResumeNextIntoABlockTests : BaseVBTestFixture
     }
 
     // ---- #971's review: what a raised header does depends on the counter's type, and the bounds convert into it. Measured
-    // ---- on vb6.exe, native and p-code (docs/vb6-fidelity-oracle.md, "Resume Next into a block", "Review round one").
+    // ---- on vb6.exe, native and p-code (docs/vb6-fidelity-oracle/resume-next-into-a-block.md, "Resume Next into a block", "Review round one").
 
     public static TheoryData<string, string, string[]> CounterTypes => new()
     {
@@ -694,11 +696,37 @@ public class ResumeNextIntoABlockTests : BaseVBTestFixture
         (await run.Should().ThrowAsync<VBRunTimeException>()).Which.Error.ErrNo.Should().Be(number);
     }
 
+    // #3213, "The rule, measured", section 2 (measuring PR #3215).
     [Theory]
-    [InlineData("(BoomV())", "", "")]
-    [InlineData("((BoomArr()))", "", "pre")]
+    [InlineData("Dim Items As Long", "Items")]
+    [InlineData("Dim Items As String", "Items")]
+    [InlineData("Dim Items(1) As Long", "Items(Boom())")]
+    [InlineData("", "Boom()")]
+    public async Task A_scalar_collection_declaration_is_a_compile_refusal_at_execution(string declaration, string expression)
+    {
+        var run = () => RunResumingNext($"{declaration}\nFor Each x In {expression}\nNext\n");
+        (await run.Should().ThrowAsync<VBCompileErrorException>())
+            .WithMessage("*For Each may only iterate over a collection object or an array*");
+    }
+
+    // #3213, "The rule, measured", section 2 (measuring PR #3215).
+    [Theory]
+    [InlineData("Set o = New Source\n", "Public Property Get Items() As Long\nItems = 1 / 0\nEnd Property\n")]
+    [InlineData("", "Public Property Get Items() As Long\nItems = 1 / 0\nEnd Property\n")]
+    [InlineData("Set o = New Source\n", "Public Items As Long\n")]
+    [InlineData("", "Public Items As Long\n")]
+    public async Task An_early_bound_scalar_member_is_a_compile_refusal_at_execution(string setup, string member)
+    {
+        var run = () => RunClasses("Dim o As Source, x\n" + setup + "On Error Resume Next\nFor Each x In o.Items\nNext\n",
+            ("Source", member));
+        (await run.Should().ThrowAsync<VBCompileErrorException>())
+            .WithMessage("*For Each may only iterate over a collection object or an array*");
+    }
+
+    [Theory]
+    // #3213, "The rule, measured", section 2; oracle tables in PR #3215.
     [InlineData("Items(5)", "Dim Items(1)", "")]
-    [InlineData("Items(Boom())", "Dim Items(1) As Long", "")]
+    [InlineData("Items(Boom())", "Dim Items(1)", "")]
     public async Task A_raised_collection_uses_its_declared_type(string expression, string declaration, string after)
     {
         await RunResumingNext($"{declaration}\nx = \"pre\"\nFor Each x In {expression}\n" + ForEachTail);
@@ -707,10 +735,10 @@ public class ResumeNextIntoABlockTests : BaseVBTestFixture
 
     [Theory]
     [InlineData("Function", "End Function", "", "o.Items()", "")]
-    [InlineData("Function", "End Function", " As Long()", "o.Items()", "pre")]
+    [InlineData("Function", "End Function", " As Long()", "o.Items()", "")]
     [InlineData("Property Get", "End Property", "", "o.Items", "")]
-    [InlineData("Property Get", "End Property", " As Long()", "o.Items", "pre")]
-    public async Task A_raised_class_collection_uses_its_members_declaration(
+    [InlineData("Property Get", "End Property", " As Long()", "o.Items", "")]
+    public async Task A_raised_late_bound_class_collection_uses_a_Variant_declaration(
         string kind, string end, string type, string expression, string after)
     {
         await RunClasses("Dim o, x, n, trail\nSet o = New Source\nOn Error Resume Next\nx = \"pre\"\nFor Each x In "
@@ -719,16 +747,17 @@ public class ResumeNextIntoABlockTests : BaseVBTestFixture
         AssertLog([$"1: [pre]:{after}|92"]);
     }
 
-    [Theory]
-    [InlineData("Public Items(1)", "o.Items(Boom())", "")]
-    [InlineData("Public Items() As Long", "o.Items(Boom())", "")]
-    public async Task A_raised_field_element_uses_the_arrays_element_declaration(string field, string expression, string after)
+    // #3213, "The rule, measured", section 3; oracle tables in measuring PR #3215.
+    [Fact]
+    public async Task A_raised_early_bound_array_Function_keeps_the_element()
     {
-        await RunClasses("Dim o, x, n, trail\nSet o = New Source\nOn Error Resume Next\nx = \"pre\"\nFor Each x In "
-            + expression + "\n" + ForEachTail + "\nFunction Boom()\nBoom = 1 / 0\nEnd Function\n",
-            ("Source", field + "\n"));
-        AssertLog([$"1: [pre]:{after}|92"]);
+        await RunClasses("Dim o As Source, x, n, trail\nSet o = New Source\nOn Error Resume Next\nx = \"pre\"\nFor Each x In o.Items()\n" + ForEachTail,
+            ("Source", "Public Function Items() As Long()\nDim d As Double\nd = 1 / 0\nEnd Function\n"));
+        AssertLog(["1: [pre]:pre|92"]);
     }
+
+    // Removed the #969 field-element rows: Public Items(1) and Public Items() As Long
+    // are illegal in a VB6 class. #3213, "The rule, measured", section 4; oracle tables in PR #3215.
 
     [Theory]
     [InlineData("", "")]
@@ -741,10 +770,10 @@ public class ResumeNextIntoABlockTests : BaseVBTestFixture
     }
 
     [Fact]
-    public async Task A_raised_collection_without_a_declaration_is_still_refused()
+    public async Task An_arithmetic_collection_is_a_syntax_refusal()
     {
         var run = () => RunResumingNext("For Each x In BoomV() + 0\nNext\n");
-        (await run.Should().ThrowAsync<NotImplementedException>()).WithMessage("*#969*");
+        await run.Should().ThrowAsync<VBCompileErrorException>();
     }
 
     [Fact]

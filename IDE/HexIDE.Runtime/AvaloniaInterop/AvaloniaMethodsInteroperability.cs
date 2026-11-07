@@ -14,6 +14,53 @@ public static class AvaloniaMethodsInteroperability
 {
     public static Vb6Value Call(this Control c, string method, IReadOnlyList<Vb6Value> args)
     {
+        VBProps.RefuseIfRemoved(c);
+        if (c is VBMonthView monthView && (Components.InBox.MonthViewComponentClass.Instance.Member(method) is not null
+            || method.Equals("AboutBox", StringComparison.OrdinalIgnoreCase)))
+        {
+            monthView.Call(method, args.ToList());
+            return Vb6Value.Nothing;
+        }
+        if (c is VBListView listView && Components.InBox.ListViewComponentClass.Instance.Member(method) is not null)
+            return listView.CallMember(method, args);
+        if (c is VBUpDown && (method.Equals("OLEDrag", StringComparison.OrdinalIgnoreCase)
+                              || method.Equals("AboutBox", StringComparison.OrdinalIgnoreCase)))
+            throw new NotImplementedException($"UpDown {method} is not implemented (#1093)");
+        if (c is VBAnimation animation && method.ToLowerInvariant() is "open" or "play" or "stop" or "close" or "oledrag" or "aboutbox")
+            return animation.Call(method, args);
+        if (c is VBFlatScrollBar)
+        {
+            if (method.Equals("SetFocus", StringComparison.OrdinalIgnoreCase))
+                throw new VBRunTimeException(VBStandardError.ObjectDoesntSupportThisPropertyOrMethod);
+            if (method.Equals("Refresh", StringComparison.OrdinalIgnoreCase)
+                || method.Equals("AboutBox", StringComparison.OrdinalIgnoreCase))
+                throw new NotImplementedException($"FlatScrollBar {method} is not implemented (#1097)");
+        }
+        if (c is VBDTPicker && (method.Equals("OLEDrag", StringComparison.OrdinalIgnoreCase)
+                                || method.Equals("AboutBox", StringComparison.OrdinalIgnoreCase)))
+            throw new NotImplementedException($"DTPicker {method} is not implemented (#1094)");
+        if (c is VBMaskEdBox && Components.InBox.MaskedEdBoxComponentClass.Instance.Member(method) is not null)
+            throw VBMaskEdBox.Refused(method);
+        if (c is VBTimer)
+            TimerMembers.RefuseMethod(method);
+
+        if (c is VBTabStrip strip && TabStripMembers.IsOwn(method))
+        {
+            if (!method.Equals("DeselectAll", StringComparison.OrdinalIgnoreCase))
+                throw TabStripMembers.Refused(method);
+            strip.Model.DeselectAll((int)(long)strip.Values["Style"].Value!);
+            return Vb6Value.Nothing;
+        }
+        if (c is VBToolbar)
+            VBToolbar.RefusePending(method);
+        // An in-box control's own methods, and those it lacks, by its member table (#1082). One it lacks, such as a
+        // ProgressBar's SetFocus, is refused as a property it lacks is: VB6's compile error on the early-bound call, which
+        // is 438 late-bound (measured).
+        RichTextBoxMembers.RefuseMethod(c, method);
+        if (c is VBSSTab && Components.InBox.SSTabComponentClass.Instance.Member(method) is { Implemented: false })
+            throw new NotImplementedException($"SSTab {method} is not implemented");
+        if ((StatusBarMembers.TryCall(c, method) ?? ProgressBarMembers.TryCall(c, method)) is { } inBox)
+            return inBox ? Vb6Value.Nothing : throw new VBMethodOrDataMemberNotFoundException(method, Vb6Value.ValueType.Control);
         // A form's Show and Hide, on a window the program drives (#822). Its load came first, where the member was looked
         // up. A modal Show waits for the form, so only a statement, through CallAsync, can make one.
         if (c is IFormView view)
@@ -60,14 +107,17 @@ public static class AvaloniaMethodsInteroperability
             }
         }
 
-        if (method.Equals("move", StringComparison.OrdinalIgnoreCase) && c is not Window)
-            return Move(c, args);
+        if (method.Equals("move", StringComparison.OrdinalIgnoreCase))
+            return c is Window form ? MoveForm(form, args) : Move(c, args);
 
         if (method.Equals("zorder", StringComparison.OrdinalIgnoreCase) && c is not Window)
             return ZOrder(c, args);
 
         if (method.Equals("setfocus", StringComparison.OrdinalIgnoreCase) && args.Count == 0 && (c is IFormView || c.Focusable))
             return SetFocus(c);
+
+        if (c is VBTreeView)
+            throw new NotImplementedException($"TreeView.{method} (#1086)");
 
         // A method VB6 has and HexIDE does not, such as Refresh, SetFocus or Cls. This was a
         // plain Exception, which the IDE reports as an internal fault. It is HexIDE's gap, not the program's, so
@@ -87,6 +137,7 @@ public static class AvaloniaMethodsInteroperability
     /// <item>otherwise the control has the focus at once, and its form is activated if another one had it. The old
     /// control's LostFocus and the new one's GotFocus come after the handler that called SetFocus has returned, as
     /// messages Windows posts;</item>
+    /// <item>after Me.Show in Form_Load, the focus events run inside Load instead (#2436, measured);</item>
     /// <item>it raises no Validate, and on the control that already has the focus it raises nothing.</item>
     /// </list>
     /// A control that can't take the focus, such as a Label, has no SetFocus in VB6, and is refused as not implemented
@@ -100,7 +151,7 @@ public static class AvaloniaMethodsInteroperability
         view.ActivateForm();
         if (c is not IFormView)
         {
-            using var posting = view.Context.Events.Posting();
+            using var posting = view.Context.Loading ? null : view.Context.Events.Posting();
             c.Focus();
         }
         return Vb6Value.Nothing;
@@ -125,6 +176,48 @@ public static class AvaloniaMethodsInteroperability
         for (var i = 0; i < args.Count; i++)
             if (!AvaloniaInteroperability.TrySet(c, MoveOrder[i], args[i]))
                 throw new NotImplementedException($"The Move method is not implemented for {VBProps.GetName(c) ?? c.GetType().Name}");
+        return Vb6Value.Nothing;
+    }
+
+    /// <summary>
+    /// A form's Move (#1569), as measured on vb6.exe ("A form's Move" in the oracle):
+    /// <list type="bullet">
+    /// <item>Left, then Top, Width and Height where they are given, always in twips: a form has no container, and its own
+    /// ScaleMode doesn't apply. A half twip rounds to even.</item>
+    /// <item>Every value is checked before any is set: a negative size is 5, a value past a Long in twips 6, and Null 94,
+    /// with the form left where it was.</item>
+    /// <item>A change of size raises one Resize, with both new, where assigning Width and then Height raises two.</item>
+    /// <item><c>Move</c> with nothing, or with Left left out, is "Argument not optional", and five arguments "Wrong number of
+    /// arguments", both compile errors. <c>Move 600, , 4800</c> compiles, and raises 448 with nothing moved.</item>
+    /// </list>
+    /// Left and Top go where an assignment to them puts them, which doesn't yet move the window (#852).
+    /// </summary>
+    private static Vb6Value MoveForm(Window form, IReadOnlyList<Vb6Value> args)
+    {
+        if (args.Count == 0 || args[0].IsMissing)
+            throw new VBCompileErrorException("Argument not optional");
+        if (args.Count > 4)
+            throw new VBCompileErrorException("Wrong number of arguments or invalid property assignment");
+        if (args.Any(a => a.IsMissing))
+            throw new VBRunTimeException(VBStandardError.NamedArgumentNotFound);
+        // Session 0 ignores a WindowState, so this was not measured: the console is where VB6 can be asked.
+        if (form.WindowState != WindowState.Normal)
+            throw new NotImplementedException("A form's Move while it is minimized or maximized is not implemented: what VB6 "
+                + "does then was not measured (#1569)");
+        for (var i = 0; i < args.Count; i++)
+        {
+            if (AvaloniaInteroperability.ConvertForAssignment(MoveOrder[i], args[i]) is not double twips)
+                throw new VBRunTimeException(VBStandardError.TypeMismatch);
+            if (i >= 2 && twips < 0)
+                throw new VBRunTimeException(VBStandardError.InvalidProcedureCall);
+            ControlPositions.ToPixels(form, MoveOrder[i], twips);   // 6 past a Long, before anything moves
+        }
+        using (form is VBFormRuntime runtime ? runtime.ResizeOnce() : null)
+        {
+            for (var i = 0; i < args.Count; i++)
+                if (!AvaloniaInteroperability.TrySet(form, MoveOrder[i], args[i]))
+                    throw new NotImplementedException($"The Move method is not implemented for {VBProps.GetName(form) ?? form.GetType().Name}");
+        }
         return Vb6Value.Nothing;
     }
 
@@ -167,6 +260,18 @@ public static class AvaloniaMethodsInteroperability
     /// </summary>
     public static async ValueTask<Vb6Value> CallAsync(this Control c, string method, IReadOnlyList<Vb6Value> args)
     {
+        VBProps.RefuseIfRemoved(c);
+        if (c is VBListView list && method.Equals("StartLabelEdit", StringComparison.OrdinalIgnoreCase) && args.Count == 0)
+        {
+            await list.StartLabelEdit();
+            return Vb6Value.Nothing;
+        }
+        if (c is VBTreeView tree && method.Equals("StartLabelEdit", StringComparison.OrdinalIgnoreCase))
+        {
+            if (args.Count != 0) throw new NotImplementedException();
+            await tree.StartLabelEditAsync();
+            return Vb6Value.Nothing;
+        }
         // A CommonDialog's ShowOpen and the rest wait for the dialog (#1084).
         if (c is VBCommonDialog dialog && VBCommonDialog.Handles(method))
             return await dialog.CallAsync(method, args);

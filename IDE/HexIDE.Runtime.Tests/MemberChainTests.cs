@@ -5,7 +5,7 @@ namespace HexIDE.Runtime.Tests;
 /// <summary>
 /// `a.b.c` — member chains of any depth, and module-qualified ones.
 ///
-/// Measured (see docs/vb6-fidelity-oracle.md): a module qualifier is simply the first step of an ordinary
+/// Measured (see docs/vb6-fidelity-oracle/member-chains-including-module-qualified-ones.md): a module qualifier is simply the first step of an ordinary
 /// chain, with no depth limit and no special case. `Module1.p.In1.Z` is Module1 → p → In1 → Z.
 ///
 /// This was filed under "Walled off (by design)" as needing a bound AST. It does not: each step is a lookup

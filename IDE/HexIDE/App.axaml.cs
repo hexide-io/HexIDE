@@ -25,6 +25,9 @@ public partial class App : Application
 
     public override void Initialize()
     {
+        // Dock's reveal can leave nested document/tool presenters at 0.85 opacity after a switch (#900).
+        Dock.Controls.DeferredContentControl.DeferredContentPresentationSettings.RevealDuration = TimeSpan.Zero;
+
         // A running program formats and reads text in the user's regional settings, as VB6 does (#777). Taken on
         // the line before the pin below, because from that line on the main thread's culture reads as invariant.
         // The pin stays: it keeps the IDE's language out of what a program computes, and source literals rely on it.
@@ -32,8 +35,10 @@ public partial class App : Application
         Localization.LocalizationService.OsUICulture = CultureInfo.CurrentUICulture;
         CultureInfo.DefaultThreadCurrentCulture = CultureInfo.InvariantCulture;
         CultureInfo.DefaultThreadCurrentUICulture = CultureInfo.InvariantCulture;
-        AvaloniaXamlLoader.Load(this);
+        LoadMarkup();
     }
+
+    internal void LoadMarkup() => AvaloniaXamlLoader.Load(this);
 
     public override void OnFrameworkInitializationCompleted()
     {
@@ -49,8 +54,16 @@ public partial class App : Application
             envLevel, Environment.Version, Environment.OSVersion);
 
         _diSetup = new DISetup();
-        _diSetup.ThemeService.Apply(_diSetup.SettingsService.ActiveTheme);
-        _diSetup.KeymapService.Apply(_diSetup.SettingsService.ActiveKeymap);
+        if (Static.Profile is { } profile)
+        {
+            ((HexIDE.Themes.ThemeService)_diSetup.ThemeService).Apply(profile, (SettingsService)_diSetup.SettingsService);
+            ((HexIDE.Keymaps.KeymapService)_diSetup.KeymapService).Apply(profile, (SettingsService)_diSetup.SettingsService);
+        }
+        else
+        {
+            _diSetup.ThemeService.Apply(_diSetup.SettingsService.ActiveTheme);
+            _diSetup.KeymapService.Apply(_diSetup.SettingsService.ActiveKeymap);
+        }
 
         // Register the VB6 highlighting definition and subscribe it to theme changes before any editor
         // is built, so the first paint is already correct rather than light-until-you-switch. Must
@@ -80,6 +93,10 @@ public partial class App : Application
             // Eagerly construct the file watcher so it subscribes to project load/unload before the
             // startup project opens. Desktop-only — file watching makes no sense headless/WASM.
             _ = _diSetup.FileWatcherService;
+
+            // Unsaved work is backed up from here on, so an exit nobody chose doesn't lose it (#499). Desktop only, as
+            // the file watcher is.
+            _diSetup.Recovery.Start();
 
             var windowStateService = _diSetup.WindowStateService;
 
@@ -111,9 +128,6 @@ public partial class App : Application
                 Static.SingleView = false;
                 Static.MainView = mainWindow.MainView;
 
-                var windowReady   = false;
-                var windowClosing = false;
-
                 // Restore must happen after Opened — setting WindowState before Show() has no effect
                 // in Avalonia 12 on Windows. Deferred to Background priority so the dock framework's
                 // first layout pass completes before we apply the saved state.
@@ -122,19 +136,7 @@ public partial class App : Application
                     await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(
                         () => windowStateService.RestoreWindowState(mainWindow),
                         Avalonia.Threading.DispatcherPriority.Background);
-                    windowReady = true;
-                };
-
-                // Crash-safe saves during normal use.
-                mainWindow.PropertyChanged += (_, e) =>
-                {
-                    if (windowReady && !windowClosing && e.Property == Window.WindowStateProperty)
-                        windowStateService.SaveWindowState(mainWindow);
-                };
-                mainWindow.Deactivated += (_, _) =>
-                {
-                    if (windowReady && !windowClosing && mainWindow.WindowState == Avalonia.Controls.WindowState.Normal)
-                        windowStateService.SaveWindowState(mainWindow);
+                    windowStateService.TrackWindowState(mainWindow);
                 };
 
                 var closeConfirmed = false;
@@ -153,13 +155,15 @@ public partial class App : Application
 
                     // Window state is captured here rather than later because Closing fires before the OS
                     // restores the window from Maximized.
-                    windowClosing = true;
                     windowStateService.SaveWindowState(mainWindow);
                     rootViewModel.SaveLayout();
                     // Personal state still waiting in a debounce. A close that unloaded every project has
                     // written it already; a forced one did not unload them, and the debounce would not
                     // outlive the process.
                     _diSetup.UserSidecarService.FlushAll();
+                    // Somebody decided about the unsaved work on the way here: the save prompt was answered, there was
+                    // none, or automation asked to discard it. So the backup goes, unless a terminate signal kept it.
+                    _diSetup.Recovery.EndRun();
                 };
 
                 async void ConfirmThenClose()

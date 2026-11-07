@@ -17,7 +17,8 @@ Construct one `CompilerRecording` with a caller-owned writer and explicit `Compi
 then call `RecordTo` on each transport before starting its session. Share the recorder across channels
 for a single sequence. Supply exact wire bytes for `{stage}`, `{pid}`, `{instance}` and
 `{port:root}`, `{port:fs}`, `{port:language}`, `{port:debugger}`, `{port:formImage}` or
-`{port:liveBackup}` as applicable. Integers in this fixture are little-endian int32.
+`{port:liveBackup}` as applicable. `{language}` stands for the language data an initialization carries, when that data
+is an install's own pack and not ours to keep (`../beta-1024/README.md`). Integers in this fixture are little-endian int32.
 Values must already be known; start a separate capture if those values change. JSON substitution works
 on decoded strings and int32 process/port numbers, preserving escaped paths and restoring numeric types.
 A numeric placeholder is unquoted inside the stored text template; substitution makes it valid JSON again.

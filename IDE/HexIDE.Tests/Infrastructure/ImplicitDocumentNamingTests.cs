@@ -46,7 +46,7 @@ public class ImplicitDocumentNamingTests
             var runner = Substitute.For<IProjectRunnerService>();
             runner.RunningProject.Returns(Second);
             Context = new IdeContext(projects, Dock, Substitute.For<ILspClient>(), null!, runner,
-                null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!);
+                null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!);
             Tools = new HexIdeTools(Context);
         }
         public void Tabs(params IDockable[] tabs)

@@ -1,3 +1,5 @@
+using HexIDE.Lsp.Messages;
+
 namespace HexIDE.Tools.ObjectBrowser;
 
 public class OBMemberViewModel
@@ -9,13 +11,16 @@ public class OBMemberViewModel
     public OBMemberKind Kind { get; }
     public string Signature { get; }
     public string? Description { get; }
+    public Position? DeclarationPosition { get; }
 
-    public OBMemberViewModel(string name, OBMemberKind kind, string signature, string? description = null)
+    public OBMemberViewModel(string name, OBMemberKind kind, string signature, string? description = null,
+        Position? declarationPosition = null)
     {
         Name = name;
         Kind = kind;
         Signature = signature;
         Description = description;
+        DeclarationPosition = declarationPosition;
     }
 
     public string KindGlyph => GlyphFor(Kind);

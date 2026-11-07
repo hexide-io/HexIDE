@@ -8,6 +8,15 @@ namespace HexIDE.Runtime.BuiltinControls;
 
 public class AttachedProperties
 {
+    public static readonly AttachedProperty<bool> KeyPreviewProperty = AvaloniaProperty.RegisterAttached<VBProps, Control, bool>("KeyPreview");
+    public static bool GetKeyPreview(AvaloniaObject element) => element.GetValue(KeyPreviewProperty);
+    public static void SetKeyPreview(AvaloniaObject element, bool value) => element.SetValue(KeyPreviewProperty, value);
+
+    // Cursor loses the VB value: Default, Arrow, Icon and Custom can all draw the same pointer (#769).
+    public static readonly AttachedProperty<VBCursorType> MousePointerProperty = AvaloniaProperty.RegisterAttached<VBProps, Control, VBCursorType>("MousePointer", VBCursorType.Default);
+    public static VBCursorType GetMousePointer(AvaloniaObject element) => element.GetValue(MousePointerProperty);
+    public static void SetMousePointer(AvaloniaObject element, VBCursorType value) => element.SetValue(MousePointerProperty, value);
+
     public static readonly AttachedProperty<VBColor?> BackColorProperty = AvaloniaProperty.RegisterAttached<VBProps, TemplatedControl, VBColor?>("BackColor", null);
     public static VBColor? GetBackColor(AvaloniaObject element) => element.GetValue(BackColorProperty);
     public static void SetBackColor(AvaloniaObject element, VBColor? value) => element.SetValue(BackColorProperty, value);
@@ -40,6 +49,7 @@ public class AttachedProperties
         {
             if (e.NewValue is VBFont font)
             {
+                AvaloniaInterop.ControlFont.DescriptorChanged(control, font);
                 control.FontFamily = font.ToFontFamily();
                 control.FontWeight = font.ToFontWeight();
                 control.FontSize = font.ToFontSize();

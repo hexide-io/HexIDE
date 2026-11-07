@@ -2,12 +2,23 @@
 
 Canonical catalog of the language/region packs HexIDE recognizes, and their status. This is the
 human-readable reference; the code source of truth for what actually ships is
-`IDE/HexIDE/Localization/LanguageManifest.Packs` (which drives the **Options → Environment → Language**
-dropdown). Keep the two in sync.
+`LanguageManifest.Packs` in `IDE/HexIDE/Localization/LanguagePack.cs` (which drives the
+**Options → Environment → Language** dropdown). Keep the two in sync.
+
+Windows 11 tier 1 (full language packs) defines the in-box language policy (#2817, #2857).
+Tier 2 (Language Interface Packs) belongs in
+[HexIDE.Localisation](https://github.com/hexide-io/HexIDE.Localisation); languages in neither tier
+are excluded from the public repositories. Hindi (`hi`), Persian (`fa`) and Urdu (`ur`) are removed
+from HexIDE for separate distribution through HexIDE.Localisation. Latin and Esperanto are removed.
+See the [Windows language tiers](https://learn.microsoft.com/windows-hardware/manufacture/desktop/available-language-packs-for-windows).
 
 See the [localization system](../openspec/specs/localization/spec.md) spec for the engine/region scheme,
 and the [language packs](../openspec/specs/language-packs/spec.md) spec for the per-language content this
 catalog tracks.
+
+The status bar’s caret position and insert/overtype indicators are translated in every shipped pack
+and refresh when the language changes (#960).
+Galician (`gl`, with fileless `gl-ES`) is complete and offered in the language picker (#2774).
 
 ## How packs and regions work
 
@@ -28,9 +39,9 @@ catalog tracks.
   French translation in the neutral **`fr`** pack, and regional packs hold only their (often zero) tweaks.
 - **Most region packs are fileless (P17).** A region with no overrides ships **no JSON file** — it resolves
   through its neutral, and the Region combo is populated from a data-driven `LanguageManifest.Regions` map,
-  not from files. Only packs with real content exist on disk: the 28 neutral translations and `en-GB`. (The
-  91 previously-empty regional placeholder packs were deleted.) The catalog still lists every region below;
-  the **Status** column flags which ship a file vs. inherit fileless (`empty → {neutral}`).
+  not from files. Only packs with real content exist on disk: 39 neutral packs (canonical English
+  and 38 full translations) and four thin variants: `en-GB`, `fr-CA`, `es-MX` and `pt-BR`.
+  The catalog lists every region below; the **Status** column flags files vs. fileless inheritance.
 - **Region = strings/terminology only.** Packs change spelling and wording (`Colour`/`Color`,
   `Customise`/`Customize`, `Centre`/`Center`) — **not** number, date, or currency formatting. HexIDE keeps
   its invariant-culture lock (for stable VB6 numeric parsing); locale-aware *runtime* formatting is a
@@ -40,6 +51,11 @@ catalog tracks.
   (e.g. `fr` → `fr`); else (2) an **exact region** match against the regions map (e.g. `en-GB` → `en-GB`,
   so a British machine gets Colour/Customise; `zh-CN` → `zh-CN`); else (3) a **neutral-language** match on
   the two-letter code (e.g. `fr-CD` → `fr`); else (4) canonical `en`.
+
+The tier-1 regional variants `fr-CA`, `es-MX` and `pt-BR` ship thin overrides (#2777):
+Canadian French uses « infobulle », Mexican Spanish uses « mouse », and Brazilian Portuguese
+uses terms such as « arquivo », « usuário », « controle » and « tela ». The neutral `pt` pack
+uses Portugal’s computing terminology; `pt-PT` inherits it without a separate file.
 
 ## Status legend
 
@@ -75,7 +91,7 @@ catalog tracks.
 | `en-SG` | English (Singapore) | English (Singapore) | SG (Singapore) | LTR | **Implemented** (empty → `en`) |
 | `fr` | French (neutral) | Français | FR (France) | LTR | **Implemented** (full translation) |
 | `fr-FR` | French (France) | Français (France) | FR (France) | LTR | **Implemented** (empty → `fr`) |
-| `fr-CA` | French (Canada) | Français (Canada) | CA (Canada) | LTR | **Implemented** (empty → `fr`) |
+| `fr-CA` | French (Canada) | Français (Canada) | CA (Canada) | LTR | **Implemented** (regional overrides) |
 | `fr-BE` | French (Belgium) | Français (Belgique) | BE (Belgium) | LTR | **Implemented** (empty → `fr`) |
 | `fr-CH` | French (Switzerland) | Français (Suisse) | CH (Switzerland) | LTR | **Implemented** (empty → `fr`) |
 | `fr-LU` | French (Luxembourg) | Français (Luxembourg) | LU (Luxembourg) | LTR | **Implemented** (empty → `fr`) |
@@ -122,7 +138,7 @@ catalog tracks.
 | `de-BE` | German (Belgium) | Deutsch (Belgien) | BE (Belgium) | LTR | **Implemented** (empty → `de`) |
 | `es` | Spanish (neutral) | Español | ES (Spain) | LTR | **Implemented** (full translation) |
 | `es-ES` | Spanish (Spain) | Español (España) | ES (Spain) | LTR | **Implemented** (empty → `es`) |
-| `es-MX` | Spanish (Mexico) | Español (México) | MX (Mexico) | LTR | **Implemented** (empty → `es`) |
+| `es-MX` | Spanish (Mexico) | Español (México) | MX (Mexico) | LTR | **Implemented** (regional overrides) |
 | `es-AR` | Spanish (Argentina) | Español (Argentina) | AR (Argentina) | LTR | **Implemented** (empty → `es`) |
 | `es-CO` | Spanish (Colombia) | Español (Colombia) | CO (Colombia) | LTR | **Implemented** (empty → `es`) |
 | `es-CL` | Spanish (Chile) | Español (Chile) | CL (Chile) | LTR | **Implemented** (empty → `es`) |
@@ -147,8 +163,12 @@ catalog tracks.
 | `ja-JP` | Japanese (Japan) | 日本語 (日本) | JP (Japan) | LTR | **Implemented** (empty → `ja`) |
 | `he` | Hebrew (neutral) | עברית | IL (Israel) | RTL | **Implemented** (full translation) |
 | `he-IL` | Hebrew (Israel) | עברית (ישראל) | IL (Israel) | RTL | **Implemented** (empty → `he`) |
+| `bg` | Bulgarian (neutral) | Български | BG (Bulgaria) | LTR | **Implemented** (full translation, #2763) |
+| `bg-BG` | Bulgarian (Bulgaria) | Български (България) | BG (Bulgaria) | LTR | **Implemented** (empty → `bg`) |
 | `cs` | Czech (neutral) | Čeština | CZ (Czechia) | LTR | **Implemented** (full translation) |
 | `cs-CZ` | Czech (Czechia) | Čeština (Česko) | CZ (Czechia) | LTR | **Implemented** (empty → `cs`) |
+| `sk` | Slovak (neutral) | slovenčina | SK (Slovakia) | LTR | **Implemented** (full translation, #2765) |
+| `sk-SK` | Slovak (Slovakia) | slovenčina (Slovensko) | SK (Slovakia) | LTR | **Implemented** (fileless → `sk`) |
 | `it` | Italian (neutral) | Italiano | IT (Italy) | LTR | **Implemented** (full translation) |
 | `it-IT` | Italian (Italy) | Italiano (Italia) | IT (Italy) | LTR | **Implemented** (empty → `it`) |
 | `it-CH` | Italian (Switzerland) | Italiano (Svizzera) | CH (Switzerland) | LTR | **Implemented** (empty → `it`) |
@@ -159,7 +179,7 @@ catalog tracks.
 | `pl` | Polish (neutral) | Polski | PL (Poland) | LTR | **Implemented** (full translation) |
 | `pl-PL` | Polish (Poland) | Polski (Polska) | PL (Poland) | LTR | **Implemented** (empty → `pl`) |
 | `pt` | Portuguese (neutral) | Português | BR (Brazil) | LTR | **Implemented** (full translation) |
-| `pt-BR` | Portuguese (Brazil) | Português (Brasil) | BR (Brazil) | LTR | **Implemented** (empty → `pt`) |
+| `pt-BR` | Portuguese (Brazil) | Português (Brasil) | BR (Brazil) | LTR | **Implemented** (regional overrides) |
 | `pt-PT` | Portuguese (Portugal) | Português (Portugal) | PT (Portugal) | LTR | **Implemented** (empty → `pt`) |
 | `pt-AO` | Portuguese (Angola) | português (Angola) | AO (Angola) | LTR | **Implemented** (empty → `pt`) |
 | `pt-MZ` | Portuguese (Mozambique) | português (Moçambique) | MZ (Mozambique) | LTR | **Implemented** (empty → `pt`) |
@@ -179,18 +199,12 @@ catalog tracks.
 | `tr-CY` | Turkish (Cyprus) | Türkçe (Kıbrıs) | CY (Cyprus) | LTR | **Implemented** (empty → `tr`) |
 | `uk` | Ukrainian (neutral) | Українська | UA (Ukraine) | LTR | **Implemented** (full translation) |
 | `uk-UA` | Ukrainian (Ukraine) | Українська (Україна) | UA (Ukraine) | LTR | **Implemented** (empty → `uk`) |
-| `hi` | Hindi (neutral) | हिन्दी | IN (India) | LTR | **Implemented** (full translation) |
-| `hi-IN` | Hindi (India) | हिन्दी (भारत) | IN (India) | LTR | **Implemented** (empty → `hi`) |
-| `ur` | Urdu (neutral) | اردو | PK (Pakistan) | RTL | **Implemented** (full translation) |
-| `ur-PK` | Urdu (Pakistan) | اردو (پاکستان) | PK (Pakistan) | RTL | **Implemented** (empty → `ur`) |
-| `ur-IN` | Urdu (India) | اردو (بھارت) | IN (India) | RTL | **Implemented** (empty → `ur`) |
 | `id` | Indonesian (neutral) | Indonesia | ID (Indonesia) | LTR | **Implemented** (full translation) |
 | `id-ID` | Indonesian (Indonesia) | Indonesia (Indonesia) | ID (Indonesia) | LTR | **Implemented** (empty → `id`) |
 | `vi` | Vietnamese (neutral) | Tiếng Việt | VN (Vietnam) | LTR | **Implemented** (full translation) |
 | `vi-VN` | Vietnamese (Vietnam) | Tiếng Việt (Việt Nam) | VN (Vietnam) | LTR | **Implemented** (empty → `vi`) |
-| `fa` | Persian (neutral) | فارسی | IR (Iran) | RTL | **Implemented** (full translation) |
-| `fa-IR` | Persian (Iran) | فارسی (ایران) | IR (Iran) | RTL | **Implemented** (empty → `fa`) |
-| `fa-AF` | Persian (Afghanistan) | فارسی (افغانستان) | AF (Afghanistan) | RTL | **Implemented** (empty → `fa`) |
+| `th` | Thai (neutral) | ไทย | TH (Thailand) | LTR | **Implemented** (full translation, #2776) |
+| `th-TH` | Thai (Thailand) | ไทย (ประเทศไทย) | TH (Thailand) | LTR | **Implemented** (fileless → `th`) |
 | `nl` | Dutch (neutral) | Nederlands | NL (Netherlands) | LTR | **Implemented** (full translation) |
 | `nl-NL` | Dutch (Netherlands) | Nederlands (Nederland) | NL (Netherlands) | LTR | **Implemented** (empty → `nl`) |
 | `nl-BE` | Dutch (Belgium) | Nederlands (België) | BE (Belgium) | LTR | **Implemented** (empty → `nl`) |
@@ -207,11 +221,34 @@ catalog tracks.
 | `da-DK` | Danish (Denmark) | dansk (Danmark) | DK (Denmark) | LTR | **Implemented** (empty → `da`) |
 | `fi` | Finnish (neutral) | suomi | FI (Finland) | LTR | **Implemented** (full translation) |
 | `fi-FI` | Finnish (Finland) | suomi (Suomi) | FI (Finland) | LTR | **Implemented** (empty → `fi`) |
+| `ro` | Romanian (neutral) | română | RO (Romania) | LTR | **Implemented** (full translation, #2761) |
+| `ro-RO` | Romanian (Romania) | română (România) | RO (Romania) | LTR | **Implemented** (fileless → `ro`) |
+| `ro-MD` | Romanian (Moldova) | română (Republica Moldova) | MD (Moldova) | LTR | **Implemented** (fileless → `ro`) |
+| `hu` | Hungarian (neutral) | magyar | HU (Hungary) | LTR | **Implemented** (full translation, #2762) |
+| `hu-HU` | Hungarian (Hungary) | magyar (Magyarország) | HU (Hungary) | LTR | **Implemented** (empty → `hu`) |
+| `hr` | Croatian (neutral) | hrvatski | HR (Croatia) | LTR | **Implemented** (full translation, #2764) |
+| `hr-HR` | Croatian (Croatia) | hrvatski (Hrvatska) | HR (Croatia) | LTR | **Implemented** (empty → `hr`) |
+| `sl` | Slovenian (neutral) | Slovenščina | SI (Slovenia) | LTR | **Implemented** (full translation, #2766) |
+| `sl-SI` | Slovenian (Slovenia) | slovenščina (Slovenija) | SI (Slovenia) | LTR | **Implemented** (fileless → `sl`) |
+| `lt` | Lithuanian (neutral) | lietuvių | LT (Lithuania) | LTR | **Implemented** (full translation, #2767) |
+| `lt-LT` | Lithuanian (Lithuania) | lietuvių (Lietuva) | LT (Lithuania) | LTR | **Implemented** (fileless → `lt`) |
+| `lv` | Latvian (neutral) | latviešu | LV (Latvia) | LTR | **Implemented** (full translation, #2768) |
+| `lv-LV` | Latvian (Latvia) | latviešu (Latvija) | LV (Latvia) | LTR | **Implemented** (fileless → `lv`) |
+| `et` | Estonian (neutral) | eesti | EE (Estonia) | LTR | **Implemented** (full translation, #2769) |
+| `et-EE` | Estonian (Estonia) | eesti (Eesti) | EE (Estonia) | LTR | **Implemented** (empty → `et`) |
+| `eu` | Basque (neutral) | Euskara | ES (Spain) | LTR | **Implemented** (full translation, #2772) |
+| `ca` | Catalan (neutral) | Català | ES (Spain) | LTR | **Implemented** (full translation, #2773) |
+| `gl` | Galician (neutral) | Galego | ES (Spain) | LTR | **Implemented** (full translation, Windows tier 1; #2774) |
+| `gl-ES` | Galician (Spain) | Galego (España) | ES (Spain) | LTR | **Implemented** (empty → `gl`) |
+| `sr-Latn` | Serbian (Latin) | srpski (latinica) | RS (Serbia) | LTR | **Implemented** (full translation, #2775) |
 
 > **Chinese** splits by *script*, not just region: `zh-CN`/`zh-SG` (Simplified) inherit the neutral
 > **`zh-Hans`**, and `zh-TW`/`zh-HK`/`zh-MO` (Traditional) inherit **`zh-Hant`**. The two neutrals are
 > separate full translations. This needs script-aware resolution (the fallback chain must map a region to
 > its *script* neutral, not the bare `zh`); added in P18.
+
+> **Serbian (Latin)** (`sr-Latn`) is a complete left-to-right translation with Latin access-key
+> markers (#2775), not a regional override. It is bound by the shipped-pack completeness check.
 
 > The synthetic dev locales **Pseudo (LTR)** (`pseudo`) and **Pseudo (RTL)** (`pseudo-rtl`) are generated
 > at runtime from `en-US` and are not regions; they are coverage/RTL-layout oracles, not catalog entries.
@@ -233,18 +270,16 @@ RTL), and a `strings` map. List every pack in `LanguageManifest.Packs` and mirro
 
 ## Not started (BCP-47 backlog)
 
-The 255 neutral cultures below are every `CultureInfo.GetCultures(CultureTypes.NeutralCultures)` entry
-under **.NET 10 (ICU)** — i.e. the language identifiers HexIDE's `"system"` detection could match — **minus**
-the 17 languages already shipped (above). They have **no pack yet**. This is the realistic universe for
-future coverage (not the full ~8,000-tag IANA registry). Script variants (e.g. `sr-Cyrl`/`sr-Latn`) and
-the RTL flag are listed because both affect pack design. Auto-derived; regenerate when the catalog grows.
+The candidate cultures below were derived from .NET 10 (ICU) neutral cultures, excluding the
+shipped languages. This is a candidate list, not approval to ship: the Windows tier rule above
+governs eligibility. Script variants and text direction are listed because both affect pack design.
 
 **Grouped by AI confidence** — a self-estimate of how reliable an LLM first-pass translation would be,
 roughly the language's training-data / resource level. **High** = credible first pass; **Medium** =
 plausible but error-prone; **Low** = unreliable, prefer native/community authoring. Native review is
 recommended regardless.
 
-### High confidence (29)
+### High confidence (15)
 
 Credible LLM first-pass — well-resourced languages; the natural next candidates after Batch 2.
 
@@ -253,34 +288,20 @@ Credible LLM first-pass — well-resourced languages; the natural next candidate
 | `af` | Afrikaans | Afrikaans | ZA (South Africa) | LTR | **Not started** |
 | `sq` | Albanian | shqip | AL (Albania) | LTR | **Not started** |
 | `bn` | Bangla | বাংলা | BD (Bangladesh) | LTR | **Not started** |
-| `eu` | Basque | euskara | ES (Spain) | LTR | **Not started** |
 | `be` | Belarusian | беларуская | BY (Belarus) | LTR | **Not started** |
-| `bg` | Bulgarian | български | BG (Bulgaria) | LTR | **Not started** |
-| `ca` | Catalan | català | ES (Spain) | LTR | **Not started** |
-| `hr` | Croatian | hrvatski | HR (Croatia) | LTR | **Not started** |
-| `et` | Estonian | eesti | EE (Estonia) | LTR | **Not started** |
 | `fil` | Filipino | Filipino | PH (Philippines) | LTR | **Not started** |
-| `gl` | Galician | galego | ES (Spain) | LTR | **Not started** |
 | `hi-Latn` | Hindi (Latin) | Hindi (Latin) | — | LTR | **Not started** |
-| `hu` | Hungarian | magyar | HU (Hungary) | LTR | **Not started** |
 | `is` | Icelandic | íslenska | IS (Iceland) | LTR | **Not started** |
 | `sw` | Kiswahili | Kiswahili | KE (Kenya) | LTR | **Not started** |
-| `lv` | Latvian | latviešu | LV (Latvia) | LTR | **Not started** |
-| `lt` | Lithuanian | lietuvių | LT (Lithuania) | LTR | **Not started** |
 | `mk` | Macedonian | македонски | MK (North Macedonia) | LTR | **Not started** |
 | `ms` | Malay | Melayu | MY (Malaysia) | LTR | **Not started** |
 | `no` | Norwegian | norsk | NO (Norway) | LTR | **Not started** |
-| `ro` | Romanian | română | RO (Romania) | LTR | **Not started** |
 | `sr` | Serbian | српски | RS (Serbia) | LTR | **Not started** |
 | `sr-Cyrl` | Serbian (Cyrillic) | српски (ћирилица) | RS (Serbia) | LTR | **Not started** |
-| `sr-Latn` | Serbian (Latin) | srpski (latinica) | RS (Serbia) | LTR | **Not started** |
-| `sk` | Slovak | slovenčina | SK (Slovakia) | LTR | **Not started** |
-| `sl` | Slovenian | slovenščina | SI (Slovenia) | LTR | **Not started** |
 | `ta` | Tamil | தமிழ் | IN (India) | LTR | **Not started** |
 | `te` | Telugu | తెలుగు | IN (India) | LTR | **Not started** |
-| `th` | Thai | ไทย | TH (Thailand) | LTR | **Not started** |
 
-### Medium confidence (60)
+### Medium confidence (59)
 
 Plausible but error-prone — an LLM pass needs careful native review before shipping.
 
@@ -299,7 +320,6 @@ Plausible but error-prone — an LLM pass needs careful native review before shi
 | `my` | Burmese | မြန်မာ | MM (Myanmar) | LTR | **Not started** |
 | `ceb` | Cebuano | Cebuano | — | LTR | **Not started** |
 | `ckb` | Central Kurdish | کوردیی ناوەندی | — | RTL | **Not started** |
-| `eo` | Esperanto | esperanto | — | LTR | **Not started** |
 | `ka` | Georgian | ქართული | GE (Georgia) | LTR | **Not started** |
 | `gu` | Gujarati | ગુજરાતી | IN (India) | LTR | **Not started** |
 | `ha` | Hausa | Hausa | NG (Nigeria) | LTR | **Not started** |
@@ -347,7 +367,7 @@ Plausible but error-prone — an LLM pass needs careful native review before shi
 | `xh` | isiXhosa | IsiXhosa | ZA (South Africa) | LTR | **Not started** |
 | `zu` | isiZulu | isiZulu | ZA (South Africa) | LTR | **Not started** |
 
-### Low confidence (166)
+### Low confidence (165)
 
 Unreliable from an LLM alone — prefer native/community authoring via the [translation-editor](../openspec/specs/translation-editor/spec.md) path.
 
@@ -424,7 +444,6 @@ Unreliable from an LLM alone — prefer native/community authoring via the [tran
 | `quc` | Kʼicheʼ | Kʼicheʼ | GT (Guatemala) | LTR | **Not started** |
 | `lkt` | Lakota | Lakȟólʼiyapi | US (United States) | LTR | **Not started** |
 | `lag` | Langi | Kɨlaangi | TZ (Tanzania) | LTR | **Not started** |
-| `la` | Latin | Latin | — | LTR | **Not started** |
 | `ln` | Lingala | lingála | CD (Congo (DRC)) | LTR | **Not started** |
 | `nds` | Low German | Low German | DE (Germany) | LTR | **Not started** |
 | `dsb` | Lower Sorbian | dolnoserbšćina | DE (Germany) | LTR | **Not started** |

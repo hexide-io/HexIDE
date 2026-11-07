@@ -109,6 +109,13 @@ public static class GuardedContent
     }
 
     /// <summary>
+    /// Member findings for the text a set of range edits would leave, or null when it preserves the runs.
+    /// The caller supplies range-edit wording around the findings; the header must already have been checked.
+    /// </summary>
+    public static string? RangeEditRefusal(string before, string after, int prefixLength) =>
+        MemberRunRefusal(before, after, prefixLength, findingsOnly: true);
+
+    /// <summary>
     /// Why replacing <paramref name="before"/> with <paramref name="after"/> would change a member's attribute run,
     /// or null when it would not.
     /// </summary>
@@ -157,7 +164,7 @@ public static class GuardedContent
     /// developer repairs an orphan in the code window.
     /// </para>
     /// </remarks>
-    private static string? MemberRunRefusal(string before, string after, int prefixLength)
+    private static string? MemberRunRefusal(string before, string after, int prefixLength, bool findingsOnly = false)
     {
         var was = DescribedRuns(before, prefixLength, out var declaredBefore);
         var now = DescribedRuns(after, prefixLength, out var declaredAfter);
@@ -237,6 +244,9 @@ public static class GuardedContent
         }
         foreach (var run in added)
             findings.Add($"Attribute lines describing {run.Who} are added");
+
+        if (findingsOnly)
+            return string.Join("; ", findings);
 
         return "The content would change the Attribute lines that describe a member, which only the IDE changes: "
                + string.Join("; ", findings) + ". A member's Attribute lines may move with it, be renamed with it, "

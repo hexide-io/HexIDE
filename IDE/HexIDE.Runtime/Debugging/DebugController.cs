@@ -27,6 +27,8 @@ namespace HexIDE.Runtime.Debugging;
 /// </summary>
 public sealed class DebugController : IDebugController
 {
+    public bool CanBreak { get; init; } = true;
+
     private const long YieldIntervalMs = 15;   // time-slice: yield the UI thread at least this often so Ctrl+Break lands
 
     private readonly Dictionary<string, HashSet<int>> _breakpoints = new(StringComparer.OrdinalIgnoreCase);
@@ -136,6 +138,9 @@ public sealed class DebugController : IDebugController
         _anyWatchBreaks = merged.Count > 0;
     }
 
+    public ValueTask OnBreakpointPositionAsync(int line, string module, IDebugFrame frame)
+        => MatchesBreakpoint(line, module) ? OnStatementAsync(line, module, frame) : ValueTask.CompletedTask;
+
     public ValueTask OnStatementAsync(int line, string module, IDebugFrame? frame)
     {
         if (_isAborting)
@@ -196,6 +201,10 @@ public sealed class DebugController : IDebugController
     public async Task<DebugEvalResult?> EvaluateWatchAsync(string expression)
         => _state == DebugState.Paused && _currentFrame is { } f ? await f.EvaluateTypedAsync(expression) : null;
 
+    public async Task<DebugEvalResult?> EvaluateScopedWatchAsync(string expression, string context)
+        => _state == DebugState.Paused && _currentFrame is { } f
+            ? await f.EvaluateScopedWatchAsync(expression, context) : null;
+
     /// <summary>The Call Stack (deepest/current frame first), or empty when not in Break mode.</summary>
     public IReadOnlyList<CallStackFrame> GetCallStack()
         => _state == DebugState.Paused && _currentFrame is { } f ? f.GetCallStack() : System.Array.Empty<CallStackFrame>();
@@ -240,7 +249,10 @@ public sealed class DebugController : IDebugController
         if (YieldDue())
         {
             _lastYieldTick = Environment.TickCount64;
+            var session = _session;
             await Task.Yield();
+            if (_isAborting || _session != session)
+                throw new StopExecutionSignal();
         }
     }
 

@@ -22,6 +22,15 @@ namespace HexIDE.Runtime.Tests;
 public class SplitKeywordTests : BaseVBTestFixture
 {
     [Fact]
+    public async Task AContinuationSeparatesNamesInsteadOfAssigningToTheirConcatenation()
+    {
+        // #224: the recorded corpus probe assigns through two names, then reads the untouched Long.
+        await Run("Dim value As Long\nval _\nue = 5\nDebug.Print value\n"
+            + "Select _\nCase value\nCase 0\nDebug.Print value\nEnd _\nSelect\n");
+        AssertDebugLog([new Vb6Value(0L), new Vb6Value(0L)]);
+    }
+
+    [Fact]
     public async Task AContinuationMaySplitEndSub()
     {
         await Run("Go\nSub Go()\n    Debug.Print \"ran\"\nEnd _\nSub\n");

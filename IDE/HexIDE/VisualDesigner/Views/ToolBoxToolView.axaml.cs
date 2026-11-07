@@ -17,7 +17,7 @@ public partial class ToolBoxToolView : UserControl
             toolVm.BaseClass != null &&
             DataContext is ToolBoxToolViewModel vm)
         {
-            vm.SpawnControl(toolVm.BaseClass);
+            vm.SpawnControl(toolVm);
             vm.SelectedComponent = toolVm; //<-- this is confusing, but in order to make sure toolVm gets DEselected, we need to select it first (it will be deselected on PointerRelease)
             e.Handled = true;
         }

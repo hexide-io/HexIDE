@@ -16,10 +16,12 @@ public sealed class AddinToolWindowService : IToolWindowContributor
     {
         var tool = new AddinToolWindowViewModel(id, title, factory);
         _tools.Add(tool);
-        ToolRegistered?.Invoke(tool);
-        return new AddinToolWindowHandle(
+        var handle = new AddinToolWindowHandle(
             onShow:    () => ShowRequested?.Invoke(tool),
             onDispose: () => { _tools.Remove(tool); ToolUnregistered?.Invoke(tool); });
+        AddinInitializationScope.Record(handle.Dispose);
+        ToolRegistered?.Invoke(tool);
+        return handle;
     }
 
     private sealed class AddinToolWindowHandle(Action onShow, Action onDispose) : IToolWindowHandle

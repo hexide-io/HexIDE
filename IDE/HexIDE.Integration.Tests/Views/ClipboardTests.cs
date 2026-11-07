@@ -1,4 +1,3 @@
-using System;
 using System.Threading.Tasks;
 using Avalonia.Controls;
 using Avalonia.Input;
@@ -59,7 +58,7 @@ public class ClipboardTests
     }
 
     [AvaloniaFact]
-    public async Task The_host_distinguishes_empty_text_and_refuses_to_erase_other_formats()
+    public async Task The_host_distinguishes_empty_text_and_preserves_other_formats()
     {
         var window = new Window();
         window.Show();
@@ -71,10 +70,22 @@ public class ClipboardTests
             await host.Clipboard.SetText("");
             (await host.Clipboard.GetText()).Should().Be("");
             var custom = DataFormat.CreateStringApplicationFormat("hexide-test");
-            await window.Clipboard!.SetValueAsync(custom, "preserve");
-            var write = () => host.Clipboard.SetText("new");
-            await write.Should().ThrowAsync<NotImplementedException>();
+            var data = new DataTransfer();
+            var item = DataTransferItem.CreateText("old");
+            item.Set(custom, "preserve");
+            var binary = DataFormat.CreateBytesApplicationFormat("hexide-binary");
+            item.Set(binary, new byte[] { 0, 127, 255 });
+            data.Add(item);
+            await window.Clipboard!.SetDataAsync(data);
+            await host.Clipboard.SetText("new");
+            (await host.Clipboard.GetText()).Should().Be("new");
             (await window.Clipboard!.TryGetValueAsync(custom)).Should().Be("preserve");
+            (await window.Clipboard!.TryGetValueAsync(binary)).Should().Equal(0, 127, 255);
+            await host.Clipboard.SetText("");
+            (await host.Clipboard.GetText()).Should().Be("");
+            (await window.Clipboard!.TryGetValueAsync(custom)).Should().Be("preserve");
+            await host.Clipboard.Clear();
+            (await window.Clipboard!.GetDataFormatsAsync()).Should().BeEmpty();
         }
         finally { await window.Clipboard!.ClearAsync(); window.Close(); }
     }

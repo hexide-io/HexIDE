@@ -58,6 +58,43 @@ public sealed class CompilerRecordingTests
         async Task<CompilerControlMessage> Receive() => codec.DecodeControl((await pair.Adapter.ReceiveAsync(Token)).Bytes);
     }
 
+    [Fact]
+    public async Task Root_initialization_and_shutdown_recorded_on_beta_1024_replay_against_the_root_session()
+    {
+        // Recorded against a real compiler by LiveCompilerTests (#1689). The language pack is a placeholder there, so this
+        // supplies its own; the package list is the one that compiler accepted, read back from the recorded initialization.
+        var recorded = await File.ReadAllTextAsync(Path.Combine(AppContext.BaseDirectory, "Recordings", "beta-1024", "root-initialization.jsonl"), Token);
+        var initialize = Convert.FromBase64String(JsonSerializer.Deserialize<CompilerRecordedFrame>(recorded.Split('\n')[3])!.Payload);
+        var packageBytes = BinaryPrimitives.ReadInt32LittleEndian(initialize.AsSpan(5 + 8));
+        var packages = Encoding.UTF8.GetString(initialize, 5 + 12, packageBytes).Split('?', StringSplitOptions.RemoveEmptyEntries);
+        using var language = JsonDocument.Parse("{\"FriendlyName\":\"replay\"}");
+        var values = new CompilerRecordingValues(new Dictionary<string, byte[]>
+        {
+            ["{pid}"] = Integer(42),
+            ["{port:fs}"] = Integer(1001),
+            ["{port:debugger}"] = Integer(1002),
+            ["{port:language}"] = Integer(1003),
+            ["{port:formImage}"] = Integer(1004),
+            ["{port:liveBackup}"] = Integer(1005),
+            ["{instance}"] = "replay-instance"u8.ToArray(),
+            ["{language}"] = Encoding.UTF8.GetBytes(language.RootElement.GetRawText()),
+        });
+
+        using var pair = await Pair.Create();
+        var replay = CompilerRecordingReplay.PlayAsync(new StringReader(recorded),
+            new Dictionary<string, CompilerWebSocketTransport> { ["root"] = pair.Peer }, values, Token);
+        using var root = await CompilerRootSession.InitializeAsync(pair.Adapter,
+            new(packages, CompilerWireCodec.ReadLanguageData(language.RootElement)), cancellationToken: Token);
+        await root.RequestShutdownAsync(Token);
+        await replay;
+
+        packages.Should().HaveCount(16);
+        root.Connection.ProcessId.Should().Be(42);
+        root.Connection.FileSystemPort.Should().Be(1001);
+        root.Connection.LiveBackupPort.Should().Be(1005);
+        root.Connection.ServerId.Should().Be("replay-instance");
+    }
+
     [Theory]
     [InlineData("root")]
     [InlineData("fs")]
@@ -166,11 +203,91 @@ public sealed class CompilerRecordingTests
         foreach (var line in File.ReadLines(file)) CompilerRecordingReplay.CheckRedaction(line);
     }
 
+    private static string Recording(string beta, params (string Direction, byte[] Payload)[] frames)
+    {
+        var lines = new List<string> { JsonSerializer.Serialize(new CompilerRecordingHeader(1, beta, "Community", "root-initialization")) };
+        lines.AddRange(frames.Select((f, i) => JsonSerializer.Serialize(
+            new CompilerRecordedFrame(i + 1, "root", f.Direction, "Binary", Convert.ToBase64String(f.Payload)))));
+        return string.Join("\r\n", lines) + "\r\n";
+    }
+
+    private static IReadOnlyList<string> Compare(string previous, string current) =>
+        CompilerRecordingComparison.Differences(new StringReader(previous), new StringReader(current));
+
+    [Fact]
+    public void Two_betas_whose_exchanges_match_compare_equal_whatever_their_headers_say()
+    {
+        var a = Recording("1024", ("send", [22, 0, 0, 0]), ("receive", [0, 0, 0, 0]));
+        var b = Recording("1025", ("send", [22, 0, 0, 0]), ("receive", [0, 0, 0, 0]));
+
+        Compare(a, b).Should().BeEmpty("only the beta named in the header differs");
+    }
+
+    [Fact]
+    public void A_changed_payload_is_named_by_frame_and_offset_and_shows_both_sides()
+    {
+        var a = Recording("1024", ("send", "\u0016\0\0\0initialize"u8.ToArray()));
+        var b = Recording("1025", ("send", "\u0016\0\0\0initialise"u8.ToArray()));
+
+        var difference = Compare(a, b).Should().ContainSingle().Which;
+        difference.Should().Contain("frame 1").And.Contain("send").And.Contain("offset 12");
+        difference.Should().Contain("initialize").And.Contain("initialise");
+    }
+
+    [Fact]
+    public void A_frame_only_one_beta_has_is_named()
+    {
+        var a = Recording("1024", ("send", [22]), ("receive", [1]));
+        var b = Recording("1025", ("send", [22]), ("receive", [1]), ("receive", [2]));
+
+        Compare(a, b).Should().ContainSingle().Which.Should().Contain("frame 3").And.Contain("only in beta 1025");
+    }
+
+    [Fact]
+    public void A_frame_that_changes_direction_is_a_difference()
+    {
+        var a = Recording("1024", ("send", [22]));
+        var b = Recording("1025", ("receive", [22]));
+
+        Compare(a, b).Should().ContainSingle().Which.Should().Contain("frame 1").And.Contain("receive");
+    }
+
+    [Fact]
+    public void Recordings_of_different_scenarios_do_not_compare()
+    {
+        var a = Recording("1024", ("send", [22]));
+        var b = Recording("1025", ("send", [22])).Replace("root-initialization", "preparation");
+
+        Compare(a, b).Should().ContainSingle().Which.Should().Contain("scenario");
+    }
+
     private static byte[] Integer(int value)
     {
         var bytes = new byte[4];
         BinaryPrimitives.WriteInt32LittleEndian(bytes, value);
         return bytes;
+    }
+
+    /// <summary>
+    /// Replaces run values in a recording made without them, frame by frame, as the recorder would have had it known
+    /// them up front. A live run learns its ports and instance only from the compiler's reply.
+    /// </summary>
+    internal static string Redact(string recording, CompilerRecordingValues values)
+    {
+        var output = new StringWriter();
+        var lines = recording.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        output.WriteLine(lines[0]);
+        foreach (var line in lines.Skip(1))
+        {
+            var frame = JsonSerializer.Deserialize<CompilerRecordedFrame>(line) ?? throw new InvalidDataException("Missing frame.");
+            var payload = frame.Type == "Binary"
+                ? Convert.ToBase64String(values.Substitute(Convert.FromBase64String(frame.Payload), true))
+                : values.SubstituteText(frame.Payload, true);
+            var text = JsonSerializer.Serialize(frame with { Payload = payload });
+            CompilerRecordingReplay.CheckRedaction(text);
+            output.WriteLine(text);
+        }
+        return output.ToString();
     }
 
     private sealed class Pair(TcpClient client, TcpClient server) : IDisposable

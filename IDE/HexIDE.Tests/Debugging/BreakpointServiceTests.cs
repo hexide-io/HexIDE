@@ -24,6 +24,61 @@ public sealed class BreakpointServiceTests
     }
 
     [Fact]
+    public void ConditionIsKeptOnTheBreakpointAndNotifiesItsDocument()
+    {
+        var svc = new BreakpointService();
+        svc.Toggle(_module1, 3);
+        var changed = new List<DocumentIdentity>();
+        svc.BreakpointsChanged += changed.Add;
+        svc.SetCondition(_module1, 3, "i = 3");
+        svc.GetCondition(_module1, 3).Should().Be("i = 3");
+        changed.Should().Equal(_module1);
+        svc.SetDocument(_module1, [3, 5]);
+        _module1.Module!.Name = "Renamed";
+        svc.GetCondition(_module1, 3).Should().Be("i = 3");
+        svc.GetCondition(_module1, 5).Should().BeNull();
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void EmptyExpressionRemovesOnlyTheCondition(string? expression)
+    {
+        var svc = new BreakpointService();
+        svc.Toggle(_module1, 3);
+        svc.SetCondition(_module1, 3, "i = 3");
+        svc.GetCondition(_module1, 3).Should().Be("i = 3");
+        svc.SetCondition(_module1, 3, expression);
+        svc.GetCondition(_module1, 3).Should().BeNull();
+        svc.IsBreakpoint(_module1, 3).Should().BeTrue();
+    }
+
+    [Theory]
+    [InlineData("toggle")]
+    [InlineData("replace")]
+    [InlineData("document")]
+    [InlineData("project")]
+    [InlineData("all")]
+    public void RemovingABreakpointForgetsItsCondition(string operation)
+    {
+        var svc = new BreakpointService();
+        svc.Toggle(_module1, 3);
+        svc.SetCondition(_module1, 3, "i = 3");
+        svc.GetCondition(_module1, 3).Should().Be("i = 3");
+        switch (operation)
+        {
+            case "toggle": svc.Toggle(_module1, 3); break;
+            case "replace": svc.SetDocument(_module1, []); break;
+            case "document": svc.ClearDocument(_module1); break;
+            case "project": svc.ClearProject(_project); break;
+            case "all": svc.ClearAll(); break;
+        }
+        svc.Toggle(_module1, 3);
+        svc.GetCondition(_module1, 3).Should().BeNull();
+    }
+
+    [Fact]
     public void Toggle_TogglesLineOnAndOff()
     {
         var svc = new BreakpointService();

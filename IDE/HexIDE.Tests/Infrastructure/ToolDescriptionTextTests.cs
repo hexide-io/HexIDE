@@ -12,6 +12,7 @@ namespace HexIDE.Tests.Infrastructure;
 /// as Tab". <see cref="ToolSource"/> decodes each literal as the compiler does, so a description here is the text a
 /// client is sent. A blank line, <c>\n\n</c>, is how five descriptions break a paragraph, and is the one use allowed.
 /// </remarks>
+[ToolDescription]
 public class ToolDescriptionTextTests
 {
     private static IEnumerable<(string Where, string Text)> Descriptions() =>
@@ -64,7 +65,7 @@ public class ToolDescriptionTextTests
     {
         // interact, type_text and press_key end with + ProgramWaitNote, which was neither measured nor checked.
         ToolSource.Tools.Where(t => t.Name is "interact" or "type_text" or "press_key")
-            .Should().HaveCount(3).And.OnlyContain(t => t.Description.EndsWith("A form the program opened is named.", StringComparison.Ordinal));
+            .Should().HaveCount(3).And.OnlyContain(t => t.Description.EndsWith("A note says why when it stops sooner.", StringComparison.Ordinal));
         ToolSource.Unparsed.Should().BeEmpty();
     }
 
@@ -88,7 +89,7 @@ public class ToolDescriptionTextTests
     public void Interact_explains_the_primary_and_how_to_choose_it()
     {
         ToolSource.Tools.Single(t => t.Name == "interact").Parameters.Single(p => p.Name == "action").Description
-            .Should().Contain("names the primary").And.Contain("select it first");
+            .Should().Contain("names the primary, on a designer the last control added");
     }
 
     [Fact]

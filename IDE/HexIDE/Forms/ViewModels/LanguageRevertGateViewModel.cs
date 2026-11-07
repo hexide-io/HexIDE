@@ -59,7 +59,8 @@ public partial class LanguageRevertGateViewModel : ObservableObject, IDialog
 
         return new LanguageRevertGateViewModel(
             Bilingual("Str.RevertGate.Title"),
-            Bilingual("Str.RevertGate.Prompt"),
+            Bilingual("Str.RevertGate.Prompt")
+                + (Static.IsRecoveryMode ? "\n" + Bilingual("Str.RevertGate.SessionOnly") : ""),
             Bilingual("Str.RevertGate.Keep"),
             Bilingual("Str.RevertGate.Revert"),
             Bilingual("Str.RevertGate.Countdown"),
@@ -73,7 +74,7 @@ public partial class LanguageRevertGateViewModel : ObservableObject, IDialog
     public void Start()
     {
         _timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
-        _timer.Tick += (_, _) => Tick();
+        _timer.Tick += (_, _) => LoggedTimerCallback.Run("language revert countdown", Tick);
         _timer.Start();
     }
 

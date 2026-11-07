@@ -52,6 +52,92 @@ namespace HexIDE.Redaction;
 /// </remarks>
 public sealed partial class ConversationRedactor
 {
+    private readonly Pseudonymiser _names;
+    private readonly List<(string Path, string Token)> _roots = [];
+
+    /// <param name="names">
+    /// The session's mapping. Shared across every surface on purpose: the same directory appearing in a
+    /// root URI, a document URI and a working directory must come back as the same name, or a reader
+    /// cannot tell that the three referred to one place.
+    /// </param>
+    /// <param name="pseudonymise">
+    /// False turns every method below into an identity function, which is the opt-out for a developer who
+    /// wants real values and accepts what that means. <b>Strictly non-default, and its state must travel
+    /// with anything exported</b> — an export that does not say whether it was redacted is worse than one
+    /// that never was, because the reader cannot tell which they are holding.
+    /// </param>
+    /// <param name="sensitiveRoots">An explicit root set, for callers supplying their own environment.</param>
+    public ConversationRedactor(Pseudonymiser names, bool pseudonymise = true,
+        IEnumerable<(string Path, string Token)>? sensitiveRoots = null)
+    {
+        _names = names;
+        IsPseudonymising = pseudonymise;
+        foreach (var (path, token) in sensitiveRoots ?? [
+            (Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "<home>"),
+            (System.IO.Path.GetTempPath(), "<temp>")])
+            AddRoot(path, token);
+    }
+
+    public void AddWorkspaceRoot(string path) => AddRoot(path, "<workspace>");
+
+    private void AddRoot(string path, string token)
+    {
+        if (System.Uri.TryCreate(path, UriKind.Absolute, out var uri) && uri.IsFile)
+            path = System.Uri.UnescapeDataString(uri.LocalPath);
+        path = path.Replace('\\', '/').TrimEnd('/');
+        if (path.Length == 0) return;
+        foreach (var spelling in new[] { path, path.Replace('/', '\\'),
+                     string.Join('/', path.Split('/').Select(System.Uri.EscapeDataString)).Replace("%3A", ":") })
+            _roots.Add((spelling, token));
+        _roots.Sort((a, b) => b.Path.Length.CompareTo(a.Path.Length));
+    }
+
+    private string ReplaceRoots(string text)
+    {
+        foreach (var (path, token) in _roots)
+        {
+            var comparison = OperatingSystem.IsWindows() || path.Contains(':') || path.StartsWith("\\\\") || path.StartsWith("//")
+                ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
+            text = text.Replace(path, token, comparison);
+            // JSON carries backslashes doubled, including in prose inside a message.
+            text = text.Replace(path.Replace("\\", "\\\\"), token, comparison);
+        }
+        return text;
+    }
+
+    /// <summary>Whether anything here is actually being rewritten.</summary>
+    public bool IsPseudonymising { get; }
+
+    /// <summary>How many distinct values have been given names.</summary>
+    public long NamedValues => _names.Assigned;
+
+    /// <summary>
+    /// Document URIs, JSON path fields and plain absolute paths in a message body, rewritten in place.
+    /// </summary>
+    /// <remarks>
+    /// Textual rather than structural, because the body may be one this client could not decode — which is
+    /// exactly when an export is worth having — and because the capture's whole claim is that it holds the
+    /// bytes that crossed the wire rather than a re-serialization of a decoded object.
+    /// </remarks>
+    public string Body(string json)
+    {
+        if (!IsPseudonymising || json.Length == 0) return json;
+
+        // One pass keeps a path inside a URI or JSON field from being named a second time.
+        return BodyValue().Replace(ReplaceRoots(json), match =>
+        {
+            if (match.Groups["uri"].Success) return Uri(match.Value);
+            if (!match.Groups["field"].Success) return LocalPath(match.Value);
+            try
+            {
+                var path = JsonSerializer.Deserialize<string>(match.Groups["value"].Value)!;
+                if (SchemeOf(path) is not null) return match.Value;
+                return match.Groups["field"].Value + JsonSerializer.Serialize(LocalPath(path));
+            }
+            catch (JsonException) { return match.Value; }
+        });
+    }
+
     /// <summary>
     /// A document URI — <c>file:</c> or <c>untitled:</c> — as it appears inside a JSON body.
     /// </summary>
@@ -70,65 +156,10 @@ public sealed partial class ConversationRedactor
     /// that governs egress, and it was already true of <c>file:</c>.
     /// </para>
     /// </remarks>
-    [GeneratedRegex(@"(?:file|untitled):(?:\\.|[^""\\\s])*", RegexOptions.IgnoreCase)]
-    private static partial Regex DocumentUriInJson();
-
-    private readonly Pseudonymiser _names;
-
-    /// <param name="names">
-    /// The session's mapping. Shared across every surface on purpose: the same directory appearing in a
-    /// root URI, a document URI and a working directory must come back as the same name, or a reader
-    /// cannot tell that the three referred to one place.
-    /// </param>
-    /// <param name="pseudonymise">
-    /// False turns every method below into an identity function, which is the opt-out for a developer who
-    /// wants real values and accepts what that means. <b>Strictly non-default, and its state must travel
-    /// with anything exported</b> — an export that does not say whether it was redacted is worse than one
-    /// that never was, because the reader cannot tell which they are holding.
-    /// </param>
-    public ConversationRedactor(Pseudonymiser names, bool pseudonymise = true)
-    {
-        _names = names;
-        IsPseudonymising = pseudonymise;
-    }
-
-    /// <summary>Whether anything here is actually being rewritten.</summary>
-    public bool IsPseudonymising { get; }
-
-    /// <summary>How many distinct values have been given names.</summary>
-    public long NamedValues => _names.Assigned;
-
-    /// <summary>
-    /// Every document URI inside a message body, rewritten in place.
-    /// </summary>
-    /// <remarks>
-    /// Textual rather than structural, because the body may be one this client could not decode — which is
-    /// exactly when an export is worth having — and because the capture's whole claim is that it holds the
-    /// bytes that crossed the wire rather than a re-serialization of a decoded object.
-    /// </remarks>
-    public string Body(string json)
-    {
-        if (!IsPseudonymising || json.Length == 0) return json;
-
-        var uris = DocumentUriInJson().Replace(json, match => Uri(match.Value));
-        // DAP Source.path is commonly a plain filesystem path, not a file URI. Match complete JSON
-        // string values so escaping is decoded correctly and the rest of the raw message is untouched.
-        // This also works for complete path fields inside an otherwise truncated/invalid JSON frame.
-        return PathInJson().Replace(uris, match =>
-        {
-            try
-            {
-                var path = JsonSerializer.Deserialize<string>(match.Groups[2].Value)!;
-                if (path.StartsWith("file:", StringComparison.OrdinalIgnoreCase) ||
-                    path.StartsWith("untitled:", StringComparison.OrdinalIgnoreCase)) return match.Value;
-                return match.Groups[1].Value + JsonSerializer.Serialize(LocalPath(path));
-            }
-            catch (JsonException) { return match.Value; }
-        });
-    }
-
-    [GeneratedRegex("""("path"\s*:\s*)("(?:\\.|[^"\\])*")""")]
-    private static partial Regex PathInJson();
+    // Quoted paths may contain spaces. Unquoted paths stop at prose punctuation; a slash inside a
+    // method name or URL is not a Unix root. Relative paths cannot be distinguished from ordinary words.
+    [GeneratedRegex("""(?<field>"path"\s*:\s*)(?<value>"(?!(?:file|untitled):)(?:\\.|[^"\\])*")|(?<uri>(?:file|untitled):(?:\\.|[^"\\\s])*)|(?<=["'])(?:[A-Za-z]:[/\\]|\\\\|/)[^"'\r\n]+|(?<![\w:/\\])(?:[A-Za-z]:[/\\]|\\\\|/)[^\s"'<>|,;()\[\]{}]+""", RegexOptions.IgnoreCase)]
+    private static partial Regex BodyValue();
 
     /// <summary>
     /// One URI. A <c>file:</c> or <c>untitled:</c> URI is rewritten segment by segment; every other scheme
@@ -151,7 +182,7 @@ public sealed partial class ConversationRedactor
         if (!IsPseudonymising || uri.Length == 0) return uri;
         if (SchemeOf(uri) is not { } scheme) return uri;
 
-        var rest = uri[scheme.Length..];
+        var rest = ReplaceRoots(uri[scheme.Length..]);
 
         var segments = rest.Split('/');
         for (var i = 0; i < segments.Length; i++)
@@ -185,6 +216,7 @@ public sealed partial class ConversationRedactor
     {
         if (!IsPseudonymising || path.Length == 0) return path;
 
+        path = ReplaceRoots(path);
         var rebuilt = new StringBuilder(path.Length);
         var segment = new StringBuilder(32);
 
@@ -368,7 +400,7 @@ public sealed partial class ConversationRedactor
 
     private string Segment(string segment, bool keepExtension)
     {
-        if (segment.Length == 0) return segment;
+        if (segment.Length == 0 || segment is "<home>" or "<temp>" or "<workspace>") return segment;
         if (IsDriveLetter(segment)) return segment;
 
         if (!keepExtension) return _names.For(segment);

@@ -70,6 +70,17 @@ public class ConfiguredServerTests : IDisposable
     }
 
     [Fact]
+    public void WebSocketRole_IsRecognisedInConfiguration()
+    {
+        var result = ConfigurationFrom("""
+            {"version":1,"servers":[{"id":"ws","extensions":[".md"],"languageId":"markdown",
+            "transport":"websocket","endpoint":"ws://localhost:1234/","websocketRole":"listen"}]}
+            """);
+        result.Problems.Should().BeEmpty();
+        result.Entries.Should().ContainSingle().Which.WebSocketRole.Should().Be("listen");
+    }
+
+    [Fact]
     public void WithNoFileTheBundledServerIsRegisteredExactlyAsShipped()
     {
         // The case that must never depend on any of this working.
@@ -213,7 +224,7 @@ public class ConfiguredServerTests : IDisposable
             .Should().ContainSingle().Subject;
 
         entry.Command.Should().Be("/somewhere/HexIDE.VbLspServer");
-        entry.Arguments.Should().Be("--flag");
+        entry.Arguments!.Text.Should().Be("--flag");
         entry.WorkingDirectory.Should().BeEmpty(
             "left empty so the transport asks the workspace, and the server runs in whichever project is open");
     }
@@ -307,6 +318,43 @@ public class ConfiguredServerTests : IDisposable
             problem => problem.EntryId == "vb6" && problem.Message.Contains("chatty") && !problem.EntryRejected,
             "a level nobody can read is worth naming, or the developer watches an empty trace and blames "
           + "the server");
+    }
+
+    [Fact]
+    public void AnUnrecognisedPipeRoleIsReportedWithoutRejectingTheEntry()
+    {
+        var configuration = ConfigurationFrom("""
+            {"version":1,"servers":[{"id":"probe","extensions":[".bas"],"languageId":"vb6",
+             "transport":"pipe","pipeName":"hexide-probe","pipeRole":"lisen"}]}
+            """);
+
+        var problem = configuration.Problems.Should().ContainSingle().Subject;
+        problem.EntryId.Should().Be("probe");
+        problem.Kind.Should().Be(LanguageServerConfigProblemKind.Configuration);
+        problem.EntryRejected.Should().BeFalse();
+        problem.Message.Should().Contain("pipeRole").And.Contain("lisen")
+            .And.Contain("listen").And.Contain("connect");
+        configuration.Entries.Should().ContainSingle();
+    }
+
+    [Fact]
+    public void AnUnrecognisedPipeRoleStillRegistersAsConnectWithAWarning()
+    {
+        const string json = """
+            {"version":1,"servers":[{"id":"probe","extensions":[".bas"],"languageId":"vb6",
+             "transport":"pipe","pipeName":"hexide-probe","pipeRole":"server"}]}
+            """;
+
+        var configuration = ConfigurationFrom(json);
+        var registration = new LanguageServerRegistrationFactory(_loggerFactory)
+            .Create(configuration.Entries).Should().ContainSingle().Subject;
+
+        registration.Transport.Should().Be(LanguageConnectionTransport.Pipe);
+        registration.Endpoint.Should().Contain("(connect)");
+        configuration.Problems.Should().ContainSingle(
+            problem => problem.EntryId == "probe" && problem.Message.Contains("server")
+                && !problem.EntryRejected,
+            "the connect fallback must be accompanied by a warning");
     }
 
     private sealed class DidOpenRecorder
