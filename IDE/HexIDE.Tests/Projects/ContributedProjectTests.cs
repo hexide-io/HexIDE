@@ -174,14 +174,14 @@ public sealed class ContributedProjectTests : IDisposable
         using var type = Contribute();
         var project = await Opened();
         var before = File.ReadAllText(ProjectFile);
-        _windows.SaveFilePickerAsync(Arg.Any<Avalonia.Platform.Storage.FilePickerSaveOptions>())
+        _windows.SaveFilePickerAsync(Arg.Any<Avalonia.Platform.Storage.FilePickerSaveOptions>(), Arg.Any<string?>())
             .Returns(Path.Join(_dir, "Ledger.vbp"));
         _recent.ClearReceivedCalls();
         project.Modules[0].UpdateCode("Sub Main()\r\n    Debug.Print 2\r\nEnd Sub\r\n");
 
         await _service.SaveAllProjects(saveAs: true);
 
-        await _windows.DidNotReceive().SaveFilePickerAsync(Arg.Any<Avalonia.Platform.Storage.FilePickerSaveOptions>());
+        await _windows.DidNotReceive().SaveFilePickerAsync(Arg.Any<Avalonia.Platform.Storage.FilePickerSaveOptions>(), Arg.Any<string?>());
         _recent.DidNotReceive().Add(Arg.Any<string>());
         File.ReadAllText(Path.Join(_dir, "src", "Main.bas")).Should().Contain("Debug.Print 2");
         File.ReadAllText(ProjectFile).Should().Be(before);
@@ -497,12 +497,12 @@ public sealed class ContributedProjectTests : IDisposable
         using var type = Contribute();
         var project = await Opened();
         var before = File.ReadAllText(ProjectFile);
-        _windows.SaveFilePickerAsync(Arg.Any<Avalonia.Platform.Storage.FilePickerSaveOptions>())
+        _windows.SaveFilePickerAsync(Arg.Any<Avalonia.Platform.Storage.FilePickerSaveOptions>(), Arg.Any<string?>())
             .Returns(Path.Join(_dir, "Ledger.exe"));
 
         await ((Func<Task>)(() => _service.MakeProject(project))).Should().ThrowAsync<OperationCanceledException>();
 
-        await _windows.DidNotReceive().SaveFilePickerAsync(Arg.Any<Avalonia.Platform.Storage.FilePickerSaveOptions>());
+        await _windows.DidNotReceive().SaveFilePickerAsync(Arg.Any<Avalonia.Platform.Storage.FilePickerSaveOptions>(), Arg.Any<string?>());
         await _windows.Received(1).MessageBox(Arg.Is<string>(text => text.StartsWith("Str.ContributedProject.NotMade Ledger RDCore for HexIDE")),
             Arg.Any<string?>(), Arg.Any<MessageBoxButtons>(), Arg.Any<MessageBoxIcon>(), Arg.Any<Avalonia.Controls.Window?>(), Arg.Any<bool>());
         File.ReadAllText(ProjectFile).Should().Be(before);

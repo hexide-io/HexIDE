@@ -27,7 +27,7 @@ public class RemoveDocumentTests : IDisposable
         Directory.CreateDirectory(dir);
         var manager = Substitute.For<IProjectManager>();
         manager.LoadedProjects.Returns(_ => loaded);
-        windows.SaveFilePickerAsync(Arg.Any<FilePickerSaveOptions>()).Returns(ci =>
+        windows.SaveFilePickerAsync(Arg.Any<FilePickerSaveOptions>(), Arg.Any<string?>()).Returns(ci =>
             Task.FromResult<string?>(Path.Join(dir, ci.Arg<FilePickerSaveOptions>().SuggestedFileName)));
         windows.ShowDialog(Arg.Any<IDialog>()).Returns(ci =>
         {
@@ -209,7 +209,7 @@ public class RemoveDocumentTests : IDisposable
     {
         var document = await Add(kind);
         answer = "Yes";
-        windows.SaveFilePickerAsync(Arg.Any<FilePickerSaveOptions>()).Returns(Task.FromResult<string?>(null));
+        windows.SaveFilePickerAsync(Arg.Any<FilePickerSaveOptions>(), Arg.Any<string?>()).Returns(Task.FromResult<string?>(null));
 
         try { await service.RemoveDocument(document); }
         catch (OperationCanceledException) { }

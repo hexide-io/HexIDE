@@ -40,7 +40,7 @@ public class NewFormFileTests : IDisposable
         projectManager.LoadedProjects.Returns(_ => loaded);
         // Every picker the save opens is answered with the name it suggests, in this test's folder.
         var windowManager = Substitute.For<IWindowManager>();
-        windowManager.SaveFilePickerAsync(Arg.Any<Avalonia.Platform.Storage.FilePickerSaveOptions>())
+        windowManager.SaveFilePickerAsync(Arg.Any<Avalonia.Platform.Storage.FilePickerSaveOptions>(), Arg.Any<string?>())
             .Returns(ci => Task.FromResult<string?>(
                 Path.Join(dir, ci.Arg<Avalonia.Platform.Storage.FilePickerSaveOptions>().SuggestedFileName)));
         var sidecar = Substitute.For<IUserSidecarService>();

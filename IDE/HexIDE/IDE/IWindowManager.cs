@@ -27,7 +27,7 @@ public interface IWindowManager
     Task<MessageBoxResult> TaskModalMessageBox(string text, string? caption = null, MessageBoxButtons buttons = MessageBoxButtons.Ok, MessageBoxIcon icon = MessageBoxIcon.None, Window? owner = null);
     Task<string?> InputBox(string prompt, string? caption, string defaultText, bool isProgramDialog = false);
     Task<IReadOnlyList<string>?> OpenFilePickerAsync(FilePickerOpenOptions options);
-    Task<string?> SaveFilePickerAsync(FilePickerSaveOptions options);
+    Task<string?> SaveFilePickerAsync(FilePickerSaveOptions options, string? directory = null);
     Task ShowAbout(AboutDialogOptions options);
     Task<bool> ShowPrintDialog();
     Task<int?> ShowColorDialog(int initial);
