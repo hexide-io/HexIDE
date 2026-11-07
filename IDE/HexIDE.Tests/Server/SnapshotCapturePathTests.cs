@@ -7,8 +7,34 @@ namespace HexIDE.Tests.Server;
 /// the next call returns (#756). Every capture used to go to one <c>hexide_snapshot.png</c>, and a before/after
 /// pair read the "after" twice.
 /// </summary>
+[HexIDE.Tests.Infrastructure.ToolDescription]
 public class SnapshotCapturePathTests
 {
+    [Fact]
+    public void Frame_capture_is_opt_in_and_says_a_covering_window_is_not_in_it()
+    {
+        var tool = HexIDE.Tests.Infrastructure.ToolSource.Tools.Single(t => t.Name == "take_snapshot");
+        tool.Parameters.Should().Contain(p => p.Name == "includeFrame" && p.Optional && p.Type == "bool");
+        tool.Description.Should().Contain("includeFrame").And.Contain("even where another window covers it").And.Contain("Windows");
+    }
+
+    [Fact]
+    public void Frame_capture_failure_is_returned_instead_of_a_client_only_image()
+    {
+        var tool = HexIDE.Tests.Infrastructure.ToolSource.Tools.Single(t => t.Name == "take_snapshot");
+        tool.Body.Should().Contain("(snapshot, var frameError) = await HexIDE.Automation.SnapshotComposer.CaptureFrameAsync(active)")
+            // A refusal names no capture area: it said it held a client area it never captured.
+            .And.Contain("new SnapshotResult(null, frameError, activeDialog, Title: active.Title, CaptureArea: null)");
+    }
+
+    [Fact]
+    public void The_tool_explains_and_returns_the_window_offset()
+    {
+        var tool = HexIDE.Tests.Infrastructure.ToolSource.Tools.Single(t => t.Name == "take_snapshot");
+        tool.Description.Should().Contain("windowOffsetX").And.Contain("windowOffsetY");
+        tool.Body.Should().Contain("WindowOffsetX:").And.Contain("WindowOffsetY:");
+    }
+
     [Fact]
     public void Two_captures_in_the_same_millisecond_get_two_files()
     {

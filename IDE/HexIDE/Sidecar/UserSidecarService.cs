@@ -39,26 +39,25 @@ namespace HexIDE.Sidecar;
 /// waiting one, and the single temporary file all safe without anything further.
 /// </para>
 /// <para>
-/// <b>Two formats, and the older one is migrated as the project opens</b> (hexide-io/HexIDE#273 task 3.17). Version
-/// 1 counted lines from the first line the code window showed, which was the first line of a document's code;
-/// version 2 counts them from the top of the file, because the code window now holds the whole file. They are
-/// kept under different keys, <c>bookmarks</c>/<c>breakpoints</c> and <c>fileBookmarks</c>/<c>fileBreakpoints</c>,
-/// so that a build that knows only the first never shows a migrated mark on the wrong line. See
-/// <see cref="UserSidecarData"/> for what each key means and <see cref="Apply"/> for the migration.
+/// <b>Three formats, migrated as the project opens.</b> Version 1 counted from the old code window's first
+/// line; version 2 from the file's top. Version 3 counts code marks from the end of the full read-only header,
+/// so an unapplied external header change cannot move them on reopen (#884). Header marks remain file-relative.
+/// Each format has its own keys, so older builds preserve newer marks without rewriting their numbering.
+/// See <see cref="UserSidecarData"/> and <see cref="Apply"/>.
 /// </para>
 /// </remarks>
-public class UserSidecarService : IUserSidecarService
+public partial class UserSidecarService : IUserSidecarService
 {
     /// <summary>
-    /// The format this build writes: marks under <c>fileBookmarks</c> and <c>fileBreakpoints</c>, lines counted from
-    /// the top of the file. Version 1 wrote them under <c>bookmarks</c> and <c>breakpoints</c>, counted from the first
-    /// line the code window showed.
+    /// The format this build writes: code-relative marks and separate file-relative header marks.
+    /// Versions 1 and 2 are migrated on open, identified by their keys rather than the version field.
     /// </summary>
-    private const int CurrentVersion = 2;
+    private const int CurrentVersion = 3;
 
     private readonly IBookmarkService bookmarkService;
     private readonly IBreakpointService breakpointService;
     private readonly IProjectManager projectManager;
+    private readonly IRunChoiceStore? runChoices;
 
     // By instance, not by name or path: a .vbg can hold two projects called the same thing, and a project not yet
     // saved has no path.
@@ -80,14 +79,16 @@ public class UserSidecarService : IUserSidecarService
     };
 
     public UserSidecarService(IBookmarkService bookmarkService, IBreakpointService breakpointService,
-        IProjectManager projectManager)
+        IProjectManager projectManager, IRunChoiceStore? runChoices = null)
     {
         this.bookmarkService = bookmarkService;
         this.breakpointService = breakpointService;
         this.projectManager = projectManager;
-        // Both personal-state stores persist to the same per-user sidecar, on the same debounced save.
+        this.runChoices = runChoices;
+        // The personal-state stores persist to the same per-user sidecar, on the same debounced save.
         bookmarkService.BookmarksChanged += OnSidecarStateChanged;
         breakpointService.BreakpointsChanged += OnSidecarStateChanged;
+        if (runChoices is not null) runChoices.ChoiceChanged += OnSidecarStateChanged;
         // The stores are app-lifetime singletons; unloading a project must drop its entries so they can't bleed
         // into the next project opened under the same form/module names (its gutter, its run's breakpoints, or its
         // sidecar).
@@ -135,8 +136,14 @@ public class UserSidecarService : IUserSidecarService
         /// </summary>
         public Entries? Consumed;
 
+        /// <summary>The version-2 entries moved at load, subtracted only once their rewrite lands.</summary>
+        public Entries? ConsumedFile;
+
+        /// <summary>The header entries this session last wrote, for the same carry rules as code entries.</summary>
+        public Entries? WroteHeader;
+
         /// <summary>
-        /// What the stores put under the version-2 keys at the last write to <see cref="ReadFrom"/>, so that a later
+        /// What the stores put under the version-3 code keys at the last write to <see cref="ReadFrom"/>, so that a later
         /// save can tell an entry this session wrote from one it is carrying. Null until something has been written.
         /// </summary>
         /// <remarks>
@@ -200,6 +207,7 @@ public class UserSidecarService : IUserSidecarService
             {
                 bookmarkService.ClearProject(project);
                 breakpointService.ClearProject(project);
+                runChoices?.ClearProject(project);
             }
             finally
             {
@@ -254,18 +262,22 @@ public class UserSidecarService : IUserSidecarService
                 quiet.Add(project);
                 try
                 {
-                    var (migrated, consumed) = Apply(project, data, path, owned);
+                    var (migrated, consumed, consumedFile) = Apply(project, data, path, owned);
+                    // The file's choice unless the user made one while it was read, as a mark made meanwhile is kept.
+                    if (runChoices?.Get(project) is null) runChoices?.Set(project, data.RunWith);
                     state.Read = migrated;
-                    if (!consumed.IsEmpty)
+                    if (!consumed.IsEmpty || !consumedFile.IsEmpty)
                     {
                         // Written once, now, so the next opening finds the marks where they are rather than migrating
                         // them again. A change made while the file was read is written by the same save.
                         state.Consumed = consumed;
+                        state.ConsumedFile = consumedFile;
                         state.Owed = true;
                         Log.Information(
                             "Migrated user sidecar {Path}: {Bookmarks} bookmark and {Breakpoints} breakpoint entries " +
-                            "now count lines from the top of the file", path,
-                            consumed.Bookmarks.Count, consumed.Breakpoints.Count);
+                            "now use header-relative code numbering", path,
+                            consumed.Bookmarks.Count + consumedFile.Bookmarks.Count,
+                            consumed.Breakpoints.Count + consumedFile.Breakpoints.Count);
                     }
                 }
                 catch (Exception ex)
@@ -293,12 +305,9 @@ public class UserSidecarService : IUserSidecarService
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <b>A document whose file is missing is still a document of the project</b>, and that is why this cannot be
-    /// "the project's names". A module whose file cannot be found is loaded empty, so the code window shows only
-    /// the header it would have, and nothing about it says how many lines its file had or how long its header was.
-    /// Its entries can neither be moved nor checked against its lines, so they are carried in the file untouched,
-    /// for an opening that finds the file to apply. A form whose file is missing is never loaded at all, and a
-    /// file that cannot be read never becomes a document, so both of those are already names the project lacks.
+    /// A member whose file is missing is preserved rather than loaded. Its entries can neither be moved nor
+    /// checked against its lines, so they are carried untouched for an opening that finds the file to apply.
+    /// A document's file may also disappear after loading, before the sidecar is read.
     /// </para>
     /// <para>
     /// A document with no file yet is not missing one: the code window shows it whole, header and all, so its
@@ -312,13 +321,27 @@ public class UserSidecarService : IUserSidecarService
         var missing = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var document in DocumentLookup.DocumentsOf(project))
             (document.AbsolutePath is { } file && !File.Exists(file) ? missing : owned).Add(document.Name);
+        foreach (var line in project.PreservedItemLines)
+        {
+            var eq = line.IndexOf('=');
+            if (eq < 0) continue;
+            var kind = line[..eq].Trim();
+            if (!kind.Equals(SerializedProject.ModuleKey, StringComparison.OrdinalIgnoreCase)
+                && !kind.Equals(SerializedProject.ClassKey, StringComparison.OrdinalIgnoreCase)
+                && !kind.Equals(SerializedProject.UserControlKey, StringComparison.OrdinalIgnoreCase)
+                && !kind.Equals(SerializedProject.PropertyPageKey, StringComparison.OrdinalIgnoreCase))
+                continue;
+            var value = line[(eq + 1)..].Trim();
+            var semi = value.IndexOf(';');
+            missing.Add(semi >= 0 ? value[..semi].Trim() : SerializedProject.FileNameWithoutExtensionOf(value));
+        }
         owned.ExceptWith(missing);
         return owned;
     }
 
     /// <summary>
-    /// Puts the sidecar's marks into the stores, moving any it holds in version 1's numbering, and answers what the
-    /// file should hold afterwards and which version-1 entries were moved out of it.
+    /// Puts all three formats into the stores in file numbering, and records the older entries consumed.
+    /// A save writes the gathered marks in version 3, keeping unplaceable entries in their original format.
     /// </summary>
     /// <remarks>
     /// <para>
@@ -339,13 +362,13 @@ public class UserSidecarService : IUserSidecarService
     /// can measure it migrates it then.
     /// </para>
     /// <para>
-    /// <b>Both formats' marks for one document are gathered into one set before it is stored</b>, because a
+    /// <b>All formats' marks for one document are gathered into one set before it is stored</b>, because a
     /// store's setter replaces: a version-2 file can hold version-1 entries an older build wrote beside it, and
     /// setting each in turn would keep only the second.
     /// </para>
     /// <para>
-    /// <b>A mark on a read-only line is dropped and logged</b>, from either format. Nothing in the IDE sets one
-    /// there since #273 task 3.12, but a mark is a bare line number, so one already set can come to sit there: an
+    /// <b>A mark on a read-only line is dropped and logged</b>, except a file-relative header mark (versions 2 and 3).
+    /// Nothing in the IDE sets one there since #273 task 3.12, but a mark is a bare line number, so one already set can come to sit there: an
     /// edit that adds or removes lines above it, a line below it coming to describe a member, or a reload
     /// (debugger-vb6-divergences D24). The save writes what the stores hold, so such a mark reaches the file and is
     /// dropped here at the next open; so is a migrated one (the old window showed a form's leading <c>Attribute</c>
@@ -353,7 +376,7 @@ public class UserSidecarService : IUserSidecarService
     /// would never be hit, and a bookmark there would mark a line the IDE writes.
     /// </para>
     /// </remarks>
-    private (UserSidecarData Migrated, Entries Consumed) Apply(
+    private (UserSidecarData Migrated, Entries Consumed, Entries ConsumedFile) Apply(
         ProjectDefinition project, UserSidecarData data, string path, HashSet<string> owned)
     {
         var byName = DocumentLookup.DocumentsOf(project).ToLookup(d => d.Name, StringComparer.OrdinalIgnoreCase);
@@ -365,12 +388,18 @@ public class UserSidecarService : IUserSidecarService
         var (oldBreakpoints, consumedBreakpoints) =
             Migrate(byName, owned, data.Breakpoints, first: 1, "breakpoint", path, breakpoints);
         Gather(byName, owned, data.FileBookmarks, first: 0, "bookmark", path, bookmarks);
+        GatherAnchored(byName, owned, data.CodeBookmarks, 0, "bookmark", path, bookmarks);
+        Gather(byName, owned, data.HeaderBookmarks, 0, "bookmark", path, bookmarks);
         Gather(byName, owned, data.FileBreakpoints, first: 1, "breakpoint", path, breakpoints);
+        GatherAnchored(byName, owned, data.CodeBreakpoints, 1, "breakpoint", path, breakpoints);
+        Gather(byName, owned, data.HeaderBreakpoints, 1, "breakpoint", path, breakpoints);
 
         foreach (var (document, lines) in bookmarks)
             bookmarkService.SetBookmarks(document, lines);
         foreach (var (document, lines) in breakpoints)
             breakpointService.SetDocument(document, lines);
+
+        ApplyConditions(project, data, owned);
 
         var migrated = new UserSidecarData
         {
@@ -379,9 +408,62 @@ public class UserSidecarService : IUserSidecarService
             FileBreakpoints = data.FileBreakpoints,
             Bookmarks = oldBookmarks.Count > 0 ? oldBookmarks : null,
             Breakpoints = oldBreakpoints.Count > 0 ? oldBreakpoints : null,
+            CodeBookmarks = data.CodeBookmarks,
+            CodeBreakpoints = data.CodeBreakpoints,
+            CodeBreakpointConditions = data.CodeBreakpointConditions,
+            HeaderBreakpointConditions = data.HeaderBreakpointConditions,
+            HeaderBookmarks = data.HeaderBookmarks,
+            HeaderBreakpoints = data.HeaderBreakpoints,
             Extra = data.Extra,
         };
-        return (migrated, new Entries(consumedBookmarks, consumedBreakpoints));
+        return (migrated, new Entries(consumedBookmarks, consumedBreakpoints),
+            new Entries(OwnedEntries(data.FileBookmarks, owned), OwnedEntries(data.FileBreakpoints, owned)));
+    }
+
+    private static Dictionary<string, List<int>> OwnedEntries(Dictionary<string, List<int>>? entries,
+        HashSet<string> owned) => entries?.Where(entry => owned.Contains(NameIn(entry.Key)))
+        .ToDictionary(entry => entry.Key, entry => entry.Value) ?? [];
+
+    /// <summary>Version 3 code lines are counted from the end of the full read-only header.</summary>
+    private static void GatherAnchored(ILookup<string, DocumentIdentity> byName, HashSet<string> owned,
+        Dictionary<string, List<int>>? entries, int first, string what, string path,
+        Dictionary<DocumentIdentity, List<int>> into)
+    {
+        if (entries == null) return;
+        foreach (var (key, lines) in entries)
+        {
+            RequireLines(key, lines);
+            if (!owned.Contains(NameIn(key)))
+            {
+                LogCarried(key, what, path);
+                continue;
+            }
+
+            foreach (var document in byName[NameIn(key)])
+            {
+                var shift = CodeWindowText.Of(document).HeaderLineCount;
+                // Check before adding, so a negative or overflowing offset cannot become a valid file line.
+                var invalid = lines.Where(line => line < first || (long)line + shift > int.MaxValue).ToList();
+                if (invalid.Count > 0)
+                    Log.Warning("Dropped {What:l}s on {Lines} from {Path}: invalid code offsets in {Document}",
+                        what, invalid, path, document.Display);
+                var valid = lines.Where(line => line >= first && (long)line + shift <= int.MaxValue)
+                    .Select(line => line + shift).ToList();
+                AddTo(into, document, OffReadOnlyLines(document,
+                    WithinDocument(document, valid, first, what, path), first, what, path));
+            }
+        }
+    }
+
+    /// <summary>File-relative header marks survive; member Attribute lines still cannot be marked.</summary>
+    private static void AddFileLines(Dictionary<DocumentIdentity, List<int>> into, DocumentIdentity document,
+        IReadOnlyCollection<int> lines, int first, string what, string path)
+    {
+        var valid = WithinDocument(document, lines, first, what, path);
+        var count = CodeWindowText.Of(document).HeaderLineCount;
+        AddTo(into, document, valid.Where(line => line - first < count));
+        AddTo(into, document, OffReadOnlyLines(document,
+            valid.Where(line => line - first >= count).ToList(), first, what, path));
     }
 
     /// <summary>
@@ -419,8 +501,8 @@ public class UserSidecarService : IUserSidecarService
     }
 
     /// <summary>
-    /// Adds one kind's version-2 entries to <paramref name="into"/>: each document's lines from every entry naming
-    /// it, together. Two keys can name one document — a sidecar holding both spellings, or one keyed
+    /// Adds one kind's file-relative entries (version 2, or version 3 header marks) to <paramref name="into"/>:
+    /// each document's lines from every entry naming it, together. Two keys can name one document — a sidecar holding both spellings, or one keyed
     /// <c>vb6://form/Foo</c> and <c>vb6://module/Foo</c> — and setting each in turn would keep only the last.
     /// </summary>
     /// <remarks>
@@ -442,8 +524,7 @@ public class UserSidecarService : IUserSidecarService
             }
 
             foreach (var document in byName[NameIn(key)])
-                AddTo(into, document, OffReadOnlyLines(document, WithinDocument(document, lines, first, what, path),
-                    first, what, path));
+                AddFileLines(into, document, lines, first, what, path);
         }
     }
 
@@ -602,7 +683,7 @@ public class UserSidecarService : IUserSidecarService
             // could be read says nothing about the new place. The new place becomes the project's own only once
             // it has been written, or found empty, so a write that fails there is not followed by a save that
             // takes the sidecar lying there for the project's own.
-            var elsewhere = !string.Equals(state.ReadFrom, path, PathComparison);
+            var elsewhere = state.ReadFrom == null || !HexIDE.IO.HostFilePath.Equals(state.ReadFrom, path);
 
             if (state.ReadFailed && !elsewhere)
             {
@@ -634,51 +715,69 @@ public class UserSidecarService : IUserSidecarService
                 state.UnreadableLogged = false;
             }
 
-            var bookmarks = Collect(project, bookmarkService.GetBookmarks);
-            var breakpoints = Collect(project, breakpointService.GetBreakpoints);
+            var bookmarks = Collect(project, bookmarkService.GetBookmarks, 0, header: false);
+            var breakpoints = Collect(project, breakpointService.GetBreakpoints, 1, header: false);
+            var headerBookmarks = Collect(project, bookmarkService.GetBookmarks, 0, header: true);
+            var headerBreakpoints = Collect(project, breakpointService.GetBreakpoints, 1, header: true);
+            var oursHeader = new Entries(Copy(headerBookmarks), Copy(headerBreakpoints));
             var ours = new Entries(Copy(bookmarks), Copy(breakpoints));
-            Carry(source?.FileBookmarks, state.Owned, state.Wrote?.Bookmarks, bookmarks);
-            Carry(source?.FileBreakpoints, state.Owned, state.Wrote?.Breakpoints, breakpoints);
+            Carry(source?.CodeBookmarks, state.Owned, state.Wrote?.Bookmarks, bookmarks);
+            Carry(source?.HeaderBookmarks, state.Owned, state.WroteHeader?.Bookmarks, headerBookmarks);
+            Carry(source?.CodeBreakpoints, state.Owned, state.Wrote?.Breakpoints, breakpoints);
+            Carry(source?.HeaderBreakpoints, state.Owned, state.WroteHeader?.Breakpoints, headerBreakpoints);
+            var codeConditions = CollectConditions(project, source?.CodeBreakpointConditions, state, header: false);
+            var headerConditions = CollectConditions(project, source?.HeaderBreakpointConditions, state, header: true);
+            var fileBookmarks = Unconsumed(source?.FileBookmarks, state.ConsumedFile?.Bookmarks);
+            var fileBreakpoints = Unconsumed(source?.FileBreakpoints, state.ConsumedFile?.Breakpoints);
             var oldBookmarks = Unconsumed(source?.Bookmarks, state.Consumed?.Bookmarks);
             var oldBreakpoints = Unconsumed(source?.Breakpoints, state.Consumed?.Breakpoints);
             // Never lowered: a newer build's sidecar still holds that build's content after this one rewrites it,
             // and labelling it with this build's version would misdescribe it.
             var version = Math.Max(source?.Version ?? CurrentVersion, CurrentVersion);
             var extra = source?.Extra is { Count: > 0 } unrecognised ? unrecognised : null;
+            var runWith = runChoices is null ? source?.RunWith : runChoices.Get(project);
 
             // A sidecar is created only when there is something to record, and content this build does not
             // understand is something, as are the entries it keeps without understanding where they go. One that
             // exists is rewritten even when its last mark has gone, rather than deleted: it may hold what this build
             // does not understand, and it is a file the user may have committed.
             if (!exists && bookmarks.Count == 0 && breakpoints.Count == 0 && oldBookmarks == null &&
-                oldBreakpoints == null && extra == null && version == CurrentVersion)
+                oldBreakpoints == null && fileBookmarks == null && fileBreakpoints == null &&
+                headerBookmarks.Count == 0 && headerBreakpoints.Count == 0 &&
+                codeConditions.Count == 0 && headerConditions.Count == 0 && extra == null && runWith == null &&
+                version == CurrentVersion)
             {
                 // Nothing lies here, so the place is the project's own from now on: a sidecar that appears here
                 // later is kept as its own, as it is for a project opened where none was.
-                Adopt(state, path, data: null, ours);
+                Adopt(state, path, data: null, ours, oursHeader);
                 return;
             }
 
             var data = new UserSidecarData
             {
                 Version = version,
-                FileBookmarks = bookmarks.Count > 0 ? bookmarks : null,
-                FileBreakpoints = breakpoints.Count > 0 ? breakpoints : null,
+                CodeBookmarks = bookmarks.Count > 0 ? bookmarks : null,
+                CodeBreakpoints = breakpoints.Count > 0 ? breakpoints : null,
+                CodeBreakpointConditions = codeConditions.Count > 0 ? codeConditions : null,
+                HeaderBreakpointConditions = headerConditions.Count > 0 ? headerConditions : null,
+                HeaderBookmarks = headerBookmarks.Count > 0 ? headerBookmarks : null,
+                HeaderBreakpoints = headerBreakpoints.Count > 0 ? headerBreakpoints : null,
+                FileBookmarks = fileBookmarks,
+                FileBreakpoints = fileBreakpoints,
                 Bookmarks = oldBookmarks,
                 Breakpoints = oldBreakpoints,
+                RunWith = runWith,
                 Extra = extra,
             };
 
             var json = JsonSerializer.Serialize(data, s_jsonOptions);
             if (json != onDisk)
             {
-                var tempPath = path + ".tmp";
-                File.WriteAllText(tempPath, json);
-                File.Move(tempPath, path, overwrite: true);
+                AtomicFileWriter.WriteAllText(path, json);
                 Log.Debug("UserSidecarService: Saved sidecar to {Path}", path);
             }
 
-            Adopt(state, path, data, ours);
+            Adopt(state, path, data, ours, oursHeader);
         }
         catch (Exception ex)
         {
@@ -690,7 +789,7 @@ public class UserSidecarService : IUserSidecarService
     }
 
     /// <summary>
-    /// Adds to <paramref name="map"/> the version-2 entries of <paramref name="source"/> that name a document this
+    /// Adds to <paramref name="map"/> the version-3 entries of <paramref name="source"/> that name a document this
     /// session does not own, as the file holds them, less whatever this session itself wrote there
     /// (<paramref name="wrote"/>). Where the stores have marks under the same name — a document of that name added
     /// since the project opened, or one whose file is missing — the two are joined, as the next opening would join
@@ -738,7 +837,7 @@ public class UserSidecarService : IUserSidecarService
         map.ToDictionary(entry => entry.Key, entry => new List<int>(entry.Value), StringComparer.OrdinalIgnoreCase);
 
     /// <summary>
-    /// A file's version-1 entries less those the load migrated into the stores, or null when none are left. This
+    /// A file's earlier-format entries less those the load migrated into the stores, or null when none are left. This
     /// build never writes these keys from its own marks: they are content it carries, as it carries a newer
     /// build's, so that a build without the migration keeps what it wrote there for a later opening to migrate.
     /// </summary>
@@ -768,7 +867,7 @@ public class UserSidecarService : IUserSidecarService
     /// Records that the sidecar at <paramref name="path"/> now holds <paramref name="data"/>, of which the stores
     /// wrote <paramref name="ours"/>, and nothing is owed.
     /// </summary>
-    private static void Adopt(ProjectState state, string path, UserSidecarData? data, Entries ours)
+    private static void Adopt(ProjectState state, string path, UserSidecarData? data, Entries ours, Entries oursHeader)
     {
         state.Read = data;
         state.ReadFrom = path;
@@ -776,13 +875,11 @@ public class UserSidecarService : IUserSidecarService
         state.RefusalLogged = false;
         state.Owed = false;
         state.Wrote = ours;
+        state.WroteHeader = oursHeader;
         // The file written no longer holds what the load migrated, so nothing remains to be subtracted from it.
         state.Consumed = null;
+        state.ConsumedFile = null;
     }
-
-    /// <summary>How sidecar paths compare: as the file system compares them, as other path checks here do.</summary>
-    private static readonly StringComparison PathComparison =
-        OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
 
     private static UserSidecarData? TryRead(string json)
     {
@@ -806,12 +903,14 @@ public class UserSidecarService : IUserSidecarService
     /// session — is not written, because the stores have nothing for it.
     /// </remarks>
     private static Dictionary<string, List<int>> Collect(
-        ProjectDefinition project, Func<DocumentIdentity, IReadOnlyList<int>> getLines)
+        ProjectDefinition project, Func<DocumentIdentity, IReadOnlyList<int>> getLines, int first, bool header)
     {
         var map = new Dictionary<string, List<int>>(StringComparer.OrdinalIgnoreCase);
         foreach (var document in DocumentLookup.DocumentsOf(project))
         {
-            var lines = getLines(document);
+            var shift = CodeWindowText.Of(document).HeaderLineCount;
+            var lines = getLines(document).Where(line => (line - first < shift) == header)
+                .Select(line => header ? line : line - shift).ToList();
             if (lines.Count == 0) continue;
 
             // Unioned rather than overwritten. A name is unique within a project from now on, but a
@@ -826,13 +925,13 @@ public class UserSidecarService : IUserSidecarService
         return map;
     }
 
-    private void OnSidecarStateChanged(DocumentIdentity document)
-    {
-        // The document carries its project, so there is nothing to look up and nothing to guess: this used
-        // to search every loaded project for one holding a form or module of the URI's name, and answered
-        // with whichever project was found first when two of them held one.
-        var project = document.Project;
+    // The document carries its project, so there is nothing to look up and nothing to guess: this used to search every
+    // loaded project for one holding a form or module of the URI's name, and answered with whichever project was found
+    // first when two of them held one.
+    private void OnSidecarStateChanged(DocumentIdentity document) => OnSidecarStateChanged(document.Project);
 
+    private void OnSidecarStateChanged(ProjectDefinition project)
+    {
         lock (gate)
         {
             if (quiet.Contains(project)) return;
@@ -882,13 +981,13 @@ public class UserSidecarService : IUserSidecarService
     }
 }
 
-/// <summary>A project's sidecar as it is written: two formats' marks, its version, and whatever else it holds.</summary>
+/// <summary>A project's sidecar as it is written: three formats' marks, its version, and whatever else it holds.</summary>
 internal class UserSidecarData
 {
     /// <summary>
-    /// The highest format anything in this sidecar is written in. 1, or no version at all, is the format before
-    /// lines counted from the top of the file; 2 is this build's. A rewrite never lowers it: a sidecar a newer build
-    /// wrote still holds that build's content afterwards.
+    /// The highest format anything in this sidecar is written in. 1, or no version, counts from the old code
+    /// window; 2 from the file's top; 3 from the header's end for code and the file's top for header marks.
+    /// A rewrite never lowers it: a sidecar a newer build wrote still holds that build's content afterwards.
     /// </summary>
     /// <remarks>
     /// It is read, but it does not decide how a key's lines are counted: the key does. A build with the #466 fix and
@@ -899,6 +998,28 @@ internal class UserSidecarData
     /// </remarks>
     [JsonPropertyName("version")]
     public int Version { get; set; } = 1;
+
+    /// <summary>Version 3 bookmarks, 0-based from the first line after the full read-only header.</summary>
+    [JsonPropertyName("codeBookmarks")]
+    public Dictionary<string, List<int>>? CodeBookmarks { get; set; }
+
+    /// <summary>Version 3 breakpoints, 1-based from the first line after the full read-only header.</summary>
+    [JsonPropertyName("codeBreakpoints")]
+    public Dictionary<string, List<int>>? CodeBreakpoints { get; set; }
+
+    [JsonPropertyName("codeBreakpointConditions")]
+    public Dictionary<string, Dictionary<int, string>>? CodeBreakpointConditions { get; set; }
+
+    [JsonPropertyName("headerBreakpointConditions")]
+    public Dictionary<string, Dictionary<int, string>>? HeaderBreakpointConditions { get; set; }
+
+    /// <summary>Version 3 header bookmarks, 0-based from the top of the file.</summary>
+    [JsonPropertyName("headerBookmarks")]
+    public Dictionary<string, List<int>>? HeaderBookmarks { get; set; }
+
+    /// <summary>Version 3 header breakpoints, 1-based from the top of the file.</summary>
+    [JsonPropertyName("headerBreakpoints")]
+    public Dictionary<string, List<int>>? HeaderBreakpoints { get; set; }
 
     /// <summary>Bookmarks by document, 0-based, counted from the top of the file. Written by version 2.</summary>
     [JsonPropertyName("fileBookmarks")]
@@ -919,6 +1040,10 @@ internal class UserSidecarData
     /// <summary>Breakpoints by document, 1-based, in version 1's numbering. See <see cref="Bookmarks"/>.</summary>
     [JsonPropertyName("breakpoints")]
     public Dictionary<string, List<int>>? Breakpoints { get; set; }
+
+    /// <summary>What F5 runs for the project, for this user: a contributed launch's key; absent for the interpreter.</summary>
+    [JsonPropertyName("runWith")]
+    public string? RunWith { get; set; }
 
     /// <summary>Everything this build does not recognise, written back as it was read.</summary>
     [JsonExtensionData]

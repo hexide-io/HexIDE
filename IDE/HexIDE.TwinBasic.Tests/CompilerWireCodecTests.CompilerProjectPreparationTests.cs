@@ -9,8 +9,25 @@ namespace HexIDE.TwinBasic.Tests;
 
 public sealed partial class CompilerWireCodecTests
 {
-    public sealed class CompilerProjectPreparationWireTests
+    public sealed class CompilerProjectPreparationWireTests : SocketTrackingTest
     {
+        [Theory]
+        [InlineData(1)]
+        [InlineData(2)]
+        [InlineData(3)]
+        [InlineData(4)]
+        public async Task Failed_peer_creation_disposes_sockets(int acquisition)
+        {
+            var remaining = acquisition;
+            AfterAcquire = () =>
+            {
+                if (--remaining == 0) throw new IOException("Injected peer creation failure");
+            };
+            await FluentActions.Awaiting(async () => { using var peer = await Peer.Create(); })
+                .Should().ThrowExactlyAsync<IOException>().WithMessage("Injected peer creation failure");
+            AssertNoOpenSockets();
+        }
+
         private static CancellationToken Token => TestContext.Current.CancellationToken;
 
         [Fact]
@@ -278,14 +295,16 @@ public sealed partial class CompilerWireCodecTests
             private readonly WebSocket socket = WebSocket.CreateFromStream(server.GetStream(), true, null, Timeout.InfiniteTimeSpan);
             public static async Task<Peer> Create()
             {
-                using var listener = new TcpListener(IPAddress.Loopback, 0);
+                using var resources = new TestSocketResources();
+                using var listener = SocketTrackingTest.Track(new TcpListener(IPAddress.Loopback, 0));
                 listener.Start();
-                var client = new TcpClient();
+                var client = resources.Own(new TcpClient());
                 await client.ConnectAsync((IPEndPoint)listener.LocalEndpoint, Token);
-                var peer = new Peer(client, await listener.AcceptTcpClientAsync(Token));
+                var server = resources.Own(await listener.AcceptTcpClientAsync(Token));
+                var peer = resources.Own(new Peer(client, server));
                 Directory.CreateDirectory(peer.SourceDirectory);
                 await File.WriteAllBytesAsync(peer.Source, [1, 2, 3, 4], Token);
-                var transport = new CompilerWebSocketTransport(WebSocket.CreateFromStream(client.GetStream(), false, null, Timeout.InfiniteTimeSpan));
+                var transport = resources.Own(new CompilerWebSocketTransport(WebSocket.CreateFromStream(client.GetStream(), false, null, Timeout.InfiniteTimeSpan)));
                 using var language = JsonDocument.Parse("{\"language\":\"test\"}");
                 var init = CompilerRootSession.InitializeAsync(transport, new([], CompilerWireCodec.ReadLanguageData(language.RootElement)), cancellationToken: Token);
                 await peer.Request();
@@ -293,6 +312,7 @@ public sealed partial class CompilerWireCodecTests
                 await peer.Request();
                 await peer.Reply(1, 0, [.. Integer(1001), .. Integer(1002), .. Integer(1003), .. Integer(1004), .. Integer(1005), .. "test"u8]);
                 peer.Root = await init;
+                resources.Complete();
                 return peer;
             }
             public async Task<(byte Command, int Id, byte[] Payload)> Request()
@@ -314,8 +334,8 @@ public sealed partial class CompilerWireCodecTests
                 socket.Dispose();
                 client.Dispose();
                 server.Dispose();
-                File.Delete(Source);
-                Directory.Delete(SourceDirectory);
+                if (File.Exists(Source)) File.Delete(Source);
+                if (Directory.Exists(SourceDirectory)) Directory.Delete(SourceDirectory);
             }
         }
 

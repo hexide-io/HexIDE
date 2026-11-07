@@ -90,6 +90,29 @@ public class DocumentContentTests : IDisposable
         return vm;
     }
 
+    [AvaloniaTheory]
+    [InlineData(false, "\r\n", "\n")]
+    [InlineData(true, "\r\n", "\n")]
+    [InlineData(false, "\n", "\r\n")]
+    [InlineData(true, "\n", "\r\n")]
+    [InlineData(false, "\r", "\n")]
+    [InlineData(true, "\r", "\n")]
+    public void Writers_follow_the_document_line_ending(bool opened, string newline, string incomingNewline)
+    {
+        var module = NewModule(ModuleKind.StandardModule);
+        module.RecordOriginalHeader("");
+        module.UpdateCode(ClassCode.ReplaceLineEndings(newline));
+        var editor = opened ? NewEditor().Initialize(module) : null;
+        var before = DocumentContent.Read(DocumentIdentity.For(module), editor);
+        var incoming = before.ReplaceLineEndings(incomingNewline);
+
+        var result = DocumentContent.Write(DocumentIdentity.For(module), editor, incoming);
+
+        result.Refusal.Should().BeNull();
+        DocumentContent.Read(DocumentIdentity.For(module), editor).Should().Be(before);
+        result.NewText.Should().Be(before);
+    }
+
     /// <summary>
     /// A project service with the real header refresher, so a save leaves the model holding the header it
     /// wrote, as the IDE's does.
@@ -123,13 +146,8 @@ public class DocumentContentTests : IDisposable
 
     private static string? FindUpwards(string relative)
     {
-        for (var at = new DirectoryInfo(AppContext.BaseDirectory); at is not null; at = at.Parent)
-        {
-            var candidate = Path.Join(at.FullName, relative);
-            if (Directory.Exists(candidate))
-                return candidate;
-        }
-        return null;
+        var candidate = Path.Join(HexIDE.Tests.Infrastructure.RepoTree.Root(), relative);
+        return Directory.Exists(candidate) ? candidate : null;
     }
 
     private static readonly string[] SourceExtensions =
@@ -207,6 +225,24 @@ public class DocumentContentTests : IDisposable
         after.Should().Equal(bytes, "the form is unchanged");
         form.Code.Should().Be(code);
         DocumentContent.Read(document, editor: null).Should().Be(read);
+    }
+
+    [Fact]
+    public async Task Writing_LF_content_to_a_CRLF_form_saves_the_original_bytes()
+    {
+        var vbp = Stage(Path.Join(FindUpwards("demo")!, "bill-of-fare"));
+        var service = MakeService();
+        await service.OpenProject(vbp);
+        var form = loaded.Single().Forms.Single();
+        var document = DocumentIdentity.For(form);
+        var bytes = await File.ReadAllBytesAsync(form.AbsolutePath!, TestContext.Current.CancellationToken);
+        var incoming = DocumentContent.Read(document, null).ReplaceLineEndings("\n");
+
+        DocumentContent.Write(document, null, incoming).Refusal.Should().BeNull();
+        (await service.SaveForm(form, saveAs: false, interactive: false)).Should().BeTrue();
+
+        (await File.ReadAllBytesAsync(form.AbsolutePath!, TestContext.Current.CancellationToken))
+            .Should().Equal(bytes);
     }
 
     [Fact]
@@ -441,6 +477,37 @@ public class DocumentContentTests : IDisposable
 
         DocumentContent.Write(document, editor: null, code.Replace("Total", "Amount")).Refusal.Should().BeNull();
         module.Code.Should().Be(code.Replace("Total", "Amount"));
+    }
+
+    [Theory]
+    [InlineData("changed")]
+    [InlineData("added")]
+    [InlineData("removed")]
+    public void AWholeReplacementReportsTheHeaderAndMemberFindingsTogether(string change)
+    {
+        var module = NewModule(ModuleKind.ClassModule);
+        const string attribute = "Attribute Total.VB_Description = \"The order total\"\r\n";
+        if (change != "added")
+            module.UpdateCode(ClassCode.Replace("Currency\r\n", "Currency\r\n" + attribute));
+        var document = DocumentIdentity.For(module);
+        var before = DocumentContent.Read(document, editor: null);
+        var incoming = before.Replace("Attribute VB_Name", "Attribute VB_Description");
+        incoming = change switch
+        {
+            "changed" => incoming.Replace("The order total", "The total"),
+            "added" => incoming.Replace("Currency\r\n", "Currency\r\n" + attribute),
+            _ => incoming.Replace(attribute, ""),
+        };
+
+        var result = DocumentContent.Write(document, editor: null, incoming);
+
+        result.Refusal.Should().Contain("header").And.Contain("Attribute lines describing Total")
+            .And.Contain($"are {change}");
+        result.Refusal!.IndexOf("header", StringComparison.Ordinal).Should().BeLessThan(
+            result.Refusal.IndexOf("Attribute lines describing Total", StringComparison.Ordinal));
+        result.NewText.Should().BeNull();
+        result.HeaderKept.Should().BeFalse();
+        DocumentContent.Read(document, editor: null).Should().Be(before);
     }
 
     [AvaloniaFact]

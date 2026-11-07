@@ -5,13 +5,21 @@ using System.Threading;
 using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Media;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
 using HexIDE.Automation;
+using HexIDE.IDE;
+using HexIDE.Localization;
+using HexIDE.Projects;
+using HexIDE.Runtime.Components;
+using HexIDE.Runtime.ProjectElements;
+using HexIDE.VisualDesigner;
 
 namespace HexIDE.Integration.Tests.Automation;
 
@@ -24,12 +32,12 @@ public class InteractClickTests
     private sealed record Scene(Window Window, Button Button, Border Pad, Border Cover, Border Under);
 
     // A Button, a Border that records its pointer events, and a Border lying under another one.
-    private static Scene Build()
+    private static Scene Build(bool namedPads = false, string? buttonName = null)
     {
-        var button = new Button { Content = "go", Width = 80, Height = 30 };
-        var pad = new Border { Background = Brushes.White, Width = 100, Height = 60 };
+        var button = new Button { Name = buttonName, Content = "go", Width = 80, Height = 30 };
+        var pad = new Border { Name = namedPads ? "Press pad" : null, Background = Brushes.White, Width = 100, Height = 60 };
         var under = new Border { Background = Brushes.White, Width = 60, Height = 40 };
-        var cover = new Border { Background = Brushes.Gray, Width = 60, Height = 40 };
+        var cover = new Border { Name = namedPads ? "Release pad" : null, Background = Brushes.Gray, Width = 60, Height = 40 };
         var canvas = new Canvas { Width = 400, Height = 300 };
         foreach (var (control, left, top) in new (Control, double, double)[] { (button, 10, 10), (pad, 10, 60), (under, 200, 60), (cover, 200, 60) })
         {
@@ -46,6 +54,91 @@ public class InteractClickTests
         AvaloniaHeadlessPlatform.ForceRenderTimerTick();
         Dispatcher.UIThread.RunJobs();
         return new Scene(window, button, pad, cover, under);
+    }
+
+    [AvaloniaTheory]
+    [InlineData(false, 1)]
+    [InlineData(false, 1.5)]
+    [InlineData(true, 1)]
+    [InlineData(true, 1.5)]
+    public async Task Right_click_places_a_context_popup_at_the_click(bool flyout, double scaling)
+    {
+        var scene = Build();
+        var menu = new ContextMenu { ItemsSource = new[] { new MenuItem { Header = "Action" } } };
+        var flyoutItem = new MenuItem { Header = "Action" };
+        var contextFlyout = new MenuFlyout { ItemsSource = new[] { flyoutItem } };
+        try
+        {
+            scene.Window.SetRenderScaling(scaling);
+            scene.Window.Position = new PixelPoint(100, 100);
+            if (flyout) scene.Pad.ContextFlyout = contextFlyout;
+            else scene.Pad.ContextMenu = menu;
+            scene.Window.UpdateLayout();
+            AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+            Dispatcher.UIThread.RunJobs();
+
+            var outcome = await UiAutomationDriver.FinishAsync(UiAutomationDriver.Interact(scene.Pad, "click", "30,20 right"));
+            outcome.Success.Should().BeTrue(outcome.Error);
+            Dispatcher.UIThread.RunJobs();
+            AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+            Dispatcher.UIThread.RunJobs();
+
+            Control content = flyout ? flyoutItem : menu;
+            var popup = content.FindAncestorOfType<OverlayPopupHost>();
+            popup.Should().NotBeNull();
+            var expected = scene.Pad.PointToScreen(new Point(30, 20));
+            var actual = popup!.PointToScreen(default);
+            Math.Abs(actual.X - expected.X).Should().BeLessThanOrEqualTo(3);
+            Math.Abs(actual.Y - expected.Y).Should().BeLessThanOrEqualTo(3);
+        }
+        finally
+        {
+            menu.Close();
+            contextFlyout.Hide();
+            scene.Window.Close();
+        }
+    }
+
+    [AvaloniaTheory]
+    [InlineData(null, "Button[Standard.OpenProject]")]
+    [InlineData("Open", "Button[Open]")]
+    public async Task Click_names_an_automation_id_and_preserves_an_Avalonia_name(string? name, string described)
+    {
+        var scene = Build(buttonName: name);
+        try
+        {
+            Avalonia.Automation.AutomationProperties.SetAutomationId(scene.Button, "Standard.OpenProject");
+            var outcome = await UiAutomationDriver.FinishAsync(UiAutomationDriver.Interact(scene.Button, "click", null));
+            outcome.Success.Should().BeTrue(outcome.Error);
+            outcome.Detail.Should().Contain($"on '{described}'");
+        }
+        finally { scene.Window.Close(); }
+    }
+
+    [AvaloniaFact]
+    public async Task A_click_cancels_the_tooltip_started_by_its_arrival()
+    {
+        var scene = Build();
+        try
+        {
+            ToolTip.SetTip(scene.Button, "Project Explorer");
+            ToolTip.SetShowDelay(scene.Button, 100);
+            var outcome = await UiAutomationDriver.FinishAsync(UiAutomationDriver.Interact(scene.Button, "click", null));
+            outcome.Success.Should().BeTrue(outcome.Error);
+
+            var until = Environment.TickCount64 + 400;
+            while (Environment.TickCount64 < until)
+            {
+                await Task.Delay(20);
+                Dispatcher.UIThread.RunJobs();
+                ToolTip.GetIsOpen(scene.Button).Should().BeFalse("a press cancels the arrival's tooltip timer");
+            }
+        }
+        finally
+        {
+            UiAutomationDriver.EndHover(scene.Button);
+            scene.Window.Close();
+        }
     }
 
     [AvaloniaFact]
@@ -66,6 +159,46 @@ public class InteractClickTests
             // The Button raises Click inside its own release handler, which runs before an instance handler.
             seen.Should().Equal("pressed", "click", "released");
             outcome.Detail.Should().Contain("clicked the left button at (40, 15) on '").And.Contain("in the window");
+        }
+        finally { scene.Window.Close(); }
+    }
+
+    // A person's pointer arrives before it presses, so a running form's MouseMove comes before MouseDown; a click raised
+    // none (#2407). A still pointer sends no move, so a second click where the first left it moves nothing first, and a
+    // hover's end, which takes the pointer out of the window, makes the next click arrive again.
+    [AvaloniaFact]
+    public async Task A_click_moves_the_pointer_there_first_unless_it_is_already_there()
+    {
+        var scene = Build();
+        try
+        {
+            var seen = new List<string>();
+            scene.Pad.AddHandler(InputElement.PointerMovedEvent, (_, e) =>
+                seen.Add($"moved {e.GetPosition(scene.Pad).X},{e.GetPosition(scene.Pad).Y} "
+                         + (e.GetCurrentPoint(scene.Pad).Properties.IsLeftButtonPressed ? "held" : "free")),
+                RoutingStrategies.Bubble, handledEventsToo: true);
+            scene.Pad.AddHandler(InputElement.PointerPressedEvent, (_, _) => seen.Add("pressed"), RoutingStrategies.Bubble, handledEventsToo: true);
+            scene.Pad.AddHandler(InputElement.PointerReleasedEvent, (_, _) => seen.Add("released"), RoutingStrategies.Bubble, handledEventsToo: true);
+
+            var first = await UiAutomationDriver.FinishAsync(UiAutomationDriver.Interact(scene.Pad, "click", "10,5"));
+            first.Success.Should().BeTrue(first.Error);
+            first.Detail.Should().EndWith("; the pointer moved there first, as a person's does");
+            seen.Should().Equal("moved 10,5 free", "pressed", "released");
+
+            seen.Clear();
+            var again = await UiAutomationDriver.FinishAsync(UiAutomationDriver.Interact(scene.Pad, "click", "10,5"));
+            again.Success.Should().BeTrue(again.Error);
+            again.Detail.Should().EndWith("; the pointer was already there from the last click, so it did not move first");
+            seen.Should().Equal("pressed", "released");
+
+            seen.Clear();
+            (await UiAutomationDriver.FinishAsync(UiAutomationDriver.Interact(scene.Pad, "click", "30,20"))).Success.Should().BeTrue();
+            seen.Should().Equal("moved 30,20 free", "pressed", "released");
+
+            seen.Clear();
+            UiAutomationDriver.EndHover(scene.Pad);
+            (await UiAutomationDriver.FinishAsync(UiAutomationDriver.Interact(scene.Pad, "click", "30,20"))).Success.Should().BeTrue();
+            seen.Should().Equal("moved 30,20 free", "pressed", "released");
         }
         finally { scene.Window.Close(); }
     }
@@ -187,7 +320,8 @@ public class InteractClickTests
             outcome.Mechanism.Should().Be("pointer");
             (padPressed, coverPressed).Should().Be((0, 1));
             outcome.Detail.Should().Be("clicked the left button at (220, 20) on 'Border', which is (230, 80) in the window; "
-                + "(220, 20) is outside 'Border', which is 100 × 60, and the press landed on 'Border'");
+                + "(220, 20) is outside 'Border', which is 100 × 60, and the press landed on 'Border'; the pointer moved there "
+                + "first, as a person's does");
         }
         finally { scene.Window.Close(); }
     }
@@ -315,12 +449,124 @@ public class InteractClickTests
         finally { scene.Window.Close(); }
     }
 
+    [AvaloniaFact]
+    public async Task A_drag_draws_a_toolbox_control_from_the_press_to_the_release()
+    {
+        var toolbox = new ToolBoxToolViewModel(
+            Substitute.For<IDocumentDockService>(), Substitute.For<IComponentRegistry>(),
+            Substitute.For<ILocalizationService>());
+        toolbox.SelectedComponent = System.Linq.Enumerable.First(toolbox.Components,
+            c => c.BaseClass == CommandButtonComponentClass.Instance);
+        using var vm = new FormEditViewModel(toolbox, Substitute.For<IEventBus>(),
+            Substitute.For<IProjectService>(), null!, null!, Substitute.For<ISettingsService>(),
+            Substitute.For<ILocalizationService>())
+            .Initialize(new FormDefinition(
+                new ProjectDefinition(VBProjectType.EXE, "P"),
+                FormComponentClass.Instance, "Form1"));
+        var view = new FormEditView { DataContext = vm };
+        var window = new Window { Width = 800, Height = 600, Content = view };
+        window.Show();
+        try
+        {
+            Dispatcher.UIThread.RunJobs();
+            window.UpdateLayout();
+            AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+            Dispatcher.UIThread.RunJobs();
+            var canvas = view.FindControl<Canvas>("NewControlSpawner")!;
+
+            var outcome = await UiAutomationDriver.FinishAsync(
+                UiAutomationDriver.Interact(canvas, "click", "20,20 to 100,60"));
+
+            outcome.Success.Should().BeTrue(outcome.Error);
+            vm.Components.Should().ContainSingle();
+            var drawn = vm.Components[0];
+            // One pixel past the release, as vb6.exe's designer draws it (#2058).
+            new Rect(drawn.Left, drawn.Top, drawn.Width, drawn.Height).Should().Be(new Rect(20, 20, 81, 41));
+            outcome.Detail.Should().Contain("dragged").And.Contain("Canvas[NewControlSpawner]")
+                .And.Contain("(20, 20)").And.Contain("(100, 60)").And.Contain("pointer capturer");
+        }
+        finally { window.Close(); }
+    }
+
     [AvaloniaTheory]
-    [InlineData("10", "'10' is not a point, a button, a key or double")]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task A_drag_routes_held_moves_and_release_to_capture_or_the_control_under_the_point(bool capture)
+    {
+        var scene = Build(namedPads: true);
+        try
+        {
+            Avalonia.Automation.AutomationProperties.SetAutomationId(scene.Cover, "Release pad");
+            var seen = new List<string>();
+            var moves = new List<Point>();
+            var arrivals = 0;
+            scene.Pad.PointerPressed += (_, e) =>
+            {
+                e.Pointer.Capture(capture ? scene.Pad : null);
+                Dispatcher.UIThread.Post(() => seen.Add("press work"));
+            };
+            scene.Pad.PointerMoved += (_, e) =>
+            {
+                // The pointer arrives first, with no button held, as a person's does (#2407); every later move is held.
+                if (!e.GetCurrentPoint(scene.Pad).Properties.IsRightButtonPressed)
+                {
+                    seen.Should().BeEmpty("the pointer arrives before it presses");
+                    arrivals++;
+                    return;
+                }
+                seen.Should().Contain("press work");
+                e.GetCurrentPoint(scene.Pad).Properties.IsRightButtonPressed.Should().BeTrue();
+                e.KeyModifiers.Should().Be(KeyModifiers.Shift);
+                moves.Add(e.GetPosition(scene.Window));
+            };
+            Control? recipient = null;
+            scene.Pad.PointerReleased += (_, _) => recipient = scene.Pad;
+            scene.Cover.PointerReleased += (_, _) => recipient = scene.Cover;
+            // A complete discovery path, including spaces, can be pasted before the colon.
+            static UiNode? Find(UiNode node) => node.AutomationId == "Release pad" ? node
+                : System.Linq.Enumerable.FirstOrDefault(System.Linq.Enumerable.Select(node.Children, Find), n => n is not null);
+            var path = Find(UiAutomationDriver.Dump(scene.Window, "Window", 10, false))!.Path;
+            var outcome = await UiAutomationDriver.FinishAsync(UiAutomationDriver.Interact(scene.Pad, "click",
+                $"10,5 right shift to {path}:20,10"));
+            outcome.Success.Should().BeTrue(outcome.Error);
+            arrivals.Should().Be(1);
+            recipient.Should().Be(capture ? scene.Pad : scene.Cover);
+            if (capture)
+            {
+                moves.Count.Should().BeGreaterThan(1, "a drag sends several held moves");
+                moves.Should().EndWith(new Point(220, 70));
+            }
+            outcome.Detail.Should().Contain("(10, 5)").And.Contain("(20, 10)")
+                .And.Contain(capture ? "Border[Press pad]" : "Border[Release pad]")
+                .And.Contain(capture ? "pointer capturer" : "under the release point, no capture");
+        }
+        finally { scene.Window.Close(); }
+    }
+
+    [AvaloniaTheory]
+    [InlineData("double to 20,10")]
+    [InlineData("10,5 to 20,10 double")]
+    public void Double_and_to_are_refused_before_pressing(string value)
+    {
+        var scene = Build();
+        try
+        {
+            var pressed = false;
+            scene.Pad.PointerPressed += (_, _) => pressed = true;
+            var outcome = UiAutomationDriver.Interact(scene.Pad, "click", value);
+            outcome.Success.Should().BeFalse();
+            outcome.Error.Should().Contain("double cannot be combined with to").And.Contain("a double click repeats at one point");
+            pressed.Should().BeFalse();
+        }
+        finally { scene.Window.Close(); }
+    }
+
+    [AvaloniaTheory]
+    [InlineData("10", "'10' is not a point, a button, a key, double or hold")]
     [InlineData("1,2,3", "'1,2,3' is not a point")]
     [InlineData("1,2 3,4", "'3,4' is not a point")]
     [InlineData("left right", "names two")]
-    [InlineData("wiggle", "'wiggle' is not a point, a button, a key or double")]
+    [InlineData("wiggle", "'wiggle' is not a point, a button, a key, double or hold")]
     public void A_value_click_cannot_read_is_refused_with_what_it_takes(string value, string why)
     {
         var scene = Build();

@@ -32,7 +32,7 @@ public readonly record struct ContentReplacement(string? NewText, string? Refusa
 /// for byte. A member's attribute lines are compared the same way.
 /// </para>
 /// <para>
-/// <b>A member's attribute run is the other read-only region, and it is checked once the header passes</b>
+/// <b>A member's attribute run is the other read-only region, and it is checked even when the header differs</b>
 /// (task 4.5b; design.md, "Whole replacements"). The runs that describe a member in the document are compared
 /// with those in the text the replacement would leave. A run may move with its member, be renamed with it, and go
 /// with its declaration; any other change, any run added and any run lost while its declaration stays is refused,
@@ -55,6 +55,7 @@ public static class GuardedContent
         var incomingHeaderEnd = ReadOnlyRegions.HeaderEnd(incoming, 0);
         string composed;
         bool headerKept;
+        string? headerRefusal = null;
         if (incomingHeaderEnd == 0)
         {
             composed = header + incoming;
@@ -68,18 +69,19 @@ public static class GuardedContent
                 theirs.RemoveAt(0);
             var ours = LinesOf(header);
             if (theirs.Count > ours.Count || !EndsWith(ours, theirs))
-                return new ContentReplacement(null,
-                    "The content would change the document's header (its designer block, class header or leading "
+                headerRefusal = "The content would change the document's header (its designer block, class header or leading "
                     + "Attribute lines), which only the IDE changes. Send the code alone, or the whole file with its "
-                    + "header exactly as the document has it.",
-                    HeaderKept: false);
+                    + "header exactly as the document has it.";
             composed = header + incoming[incomingHeaderEnd..];
             headerKept = theirs.Count < ours.Count;
         }
 
         // The composed text opens with the document's own header, byte for byte, so the document's prefix length
         // is the composed text's too.
-        return MemberRunRefusal(current, composed, prefixLength) is { } refusal
+        var memberRefusal = MemberRunRefusal(current, composed, prefixLength);
+        var refusal = headerRefusal is null ? memberRefusal
+            : memberRefusal is null ? headerRefusal : headerRefusal + " " + memberRefusal;
+        return refusal is not null
             ? new ContentReplacement(null, refusal, HeaderKept: false)
             : new ContentReplacement(composed, null, headerKept);
     }
@@ -105,6 +107,13 @@ public static class GuardedContent
         }
         return null;
     }
+
+    /// <summary>
+    /// Member findings for the text a set of range edits would leave, or null when it preserves the runs.
+    /// The caller supplies range-edit wording around the findings; the header must already have been checked.
+    /// </summary>
+    public static string? RangeEditRefusal(string before, string after, int prefixLength) =>
+        MemberRunRefusal(before, after, prefixLength, findingsOnly: true);
 
     /// <summary>
     /// Why replacing <paramref name="before"/> with <paramref name="after"/> would change a member's attribute run,
@@ -155,7 +164,7 @@ public static class GuardedContent
     /// developer repairs an orphan in the code window.
     /// </para>
     /// </remarks>
-    private static string? MemberRunRefusal(string before, string after, int prefixLength)
+    private static string? MemberRunRefusal(string before, string after, int prefixLength, bool findingsOnly = false)
     {
         var was = DescribedRuns(before, prefixLength, out var declaredBefore);
         var now = DescribedRuns(after, prefixLength, out var declaredAfter);
@@ -235,6 +244,9 @@ public static class GuardedContent
         }
         foreach (var run in added)
             findings.Add($"Attribute lines describing {run.Who} are added");
+
+        if (findingsOnly)
+            return string.Join("; ", findings);
 
         return "The content would change the Attribute lines that describe a member, which only the IDE changes: "
                + string.Join("; ", findings) + ". A member's Attribute lines may move with it, be renamed with it, "

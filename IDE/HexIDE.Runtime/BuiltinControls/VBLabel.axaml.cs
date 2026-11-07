@@ -137,6 +137,7 @@ public class VBLabel : TemplatedControl
             }
             else if (Appearance == VBAppearance._3D)
             {
+                decorator.ClearValue(ClassicBorderDecorator.BorderBrushProperty);
                 decorator.BorderStyle = ClassicBorderStyle.Sunken;
                 decorator.BorderThickness = new Thickness(2);
             }

@@ -1,3 +1,4 @@
+using System.Linq;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
@@ -31,14 +32,162 @@ public class MainViewViewModelTests
     private readonly IFindReplaceService _findReplace = Substitute.For<IFindReplaceService>();
     private readonly ISettingsService _settingsService = Substitute.For<ISettingsService>();
     private readonly IStatusBarService _statusBarService = Substitute.For<IStatusBarService>();
+    private readonly HexIDE.Runtime.Debugging.IDebugController _debugController = Substitute.For<HexIDE.Runtime.Debugging.IDebugController>();
+    private readonly ILocalizationService _localization = Substitute.For<ILocalizationService>();
     private readonly MainViewViewModel _sut;
 
     public MainViewViewModelTests()
     {
         _projectManager.LoadedProjects.Returns(new List<ProjectDefinition>());
         _settingsService.IsStandardToolbarVisible.Returns(true);
+        _settingsService.ActiveLanguage.Returns("en");
 
         _sut = Build(_runnerService);
+    }
+
+    private static System.IDisposable MenuTheme()
+    {
+        var theme = new Avalonia.Themes.Simple.SimpleTheme();
+        Avalonia.Application.Current!.Styles.Add(theme);
+        return R3.Disposable.Create(() => Avalonia.Application.Current!.Styles.Remove(theme));
+    }
+
+    private static System.IDisposable ShowMenu(MainView view)
+    {
+        var window = new Avalonia.Controls.Window { Content = view };
+        window.Show();
+        var item = Avalonia.Controls.ControlExtensions.FindControl<Avalonia.Controls.MenuItem>(view, "RemoveProjectMemberMenuItem")!;
+        ((Avalonia.Controls.MenuItem)item.Parent!).IsSubMenuOpen = true;
+        return R3.Disposable.Create(window.Close);
+    }
+
+    private ProjectService RemovalService(bool cancel = false)
+    {
+        _windowManager.ShowDialog(Arg.Any<IDialog>()).Returns(ci =>
+        {
+            if (ci.Arg<IDialog>() is HexIDE.Forms.ViewModels.SaveChangesViewModel prompt)
+            {
+                prompt.No();
+                return Task.FromResult(!cancel);
+            }
+            return Task.FromResult(true);
+        });
+        return new ProjectService(() => throw new System.InvalidOperationException(), _windowManager,
+            _eventBus, _projectManager, _recentProjects, Substitute.For<IReferenceLibraryService>(),
+            Substitute.For<HexIDE.Sidecar.IUserSidecarService>(), new FileBaselineStore(), _localization,
+            Substitute.For<IHeaderRefresher>());
+    }
+
+    [AvaloniaFact]
+    public void GivenReferencesOpenInTheImmediateWindowGroup()
+    {
+        var references = new FindReferencesToolViewModel(Substitute.For<ILspClient>(),
+            Substitute.For<IEditorService>(), _projectManager,
+            Substitute.For<IDocumentDockService>(), _localization);
+        var shell = Build(_runnerService, references: references);
+        references.ShowLocations([]);
+        references.Owner.Should().NotBeNull();
+        references.Owner.Should().BeSameAs(shell.Immediate.Owner);
+        var group = (Dock.Model.Controls.IToolDock)references.Owner!;
+        group.Alignment.Should().Be(Dock.Model.Core.Alignment.Bottom);
+        group.ActiveDockable.Should().BeSameAs(references);
+    }
+
+    [AvaloniaFact]
+    public async Task CallHierarchyRerunsReuseTheImmediateGroupPane()
+    {
+        var client = Substitute.For<ILspClient>();
+        client.FindCallHierarchyAsync(Arg.Any<string>(), Arg.Any<HexIDE.Lsp.Messages.Position>(), Arg.Any<CancellationToken>())
+            .Returns(new CallHierarchyResult([], []));
+        var pane = new CallHierarchyToolViewModel(client, Substitute.For<IEditorService>(), _localization);
+        var shell = Build(_runnerService, hierarchy: pane);
+        await pane.SearchAsync("untitled:P/Module1.bas", new(0, 0), TestContext.Current.CancellationToken);
+        var group = (Dock.Model.Controls.IToolDock)pane.Owner!;
+        pane.Owner.Should().BeSameAs(shell.Immediate.Owner);
+        group.Alignment.Should().Be(Dock.Model.Core.Alignment.Bottom);
+        await pane.SearchAsync("untitled:P/Module1.bas", new(1, 0), TestContext.Current.CancellationToken);
+        pane.Owner.Should().BeSameAs(group);
+        group.VisibleDockables!.Count(d => ReferenceEquals(d, pane)).Should().Be(1);
+        group.ActiveDockable.Should().BeSameAs(pane);
+    }
+
+    [AvaloniaTheory]
+    [InlineData(null)]
+    [InlineData(ModuleKind.StandardModule)]
+    [InlineData(ModuleKind.ClassModule)]
+    [InlineData(ModuleKind.UserControl)]
+    [InlineData(ModuleKind.PropertyPage)]
+    public void ProjectRemoveMenu_RemovesTheNamedSelection(ModuleKind? kind)
+    {
+        var project = new ProjectDefinition(VBProjectType.EXE, "Project1");
+        var document = kind is { } moduleKind
+            ? DocumentIdentity.For(new ModuleDefinition(project, "Member1", moduleKind))
+            : DocumentIdentity.For(new FormDefinition(project, HexIDE.Runtime.Components.FormComponentClass.Instance, "Member1"));
+        if (document.Module is { } module) project.AddModule(module);
+        else project.AddForm(document.Form!);
+        _projectManager.LoadedProjects.Returns(new List<ProjectDefinition> { project });
+        var root = Build(_runnerService, projects: RemovalService());
+        var tree = root.ProjectExplorer.LoadedProjects.Single();
+        root.ProjectExplorer.SelectedItem = tree.Elements.OfType<IProjectFileNode>().Single();
+        _localization.GetString("Str.Menu.Project.RemoveFormFormat").Returns("Remove {0}");
+        using var theme = MenuTheme();
+        var view = new MainView { DataContext = root };
+        using var window = ShowMenu(view);
+        var item = Avalonia.Controls.ControlExtensions.FindControl<Avalonia.Controls.MenuItem>(view, "RemoveProjectMemberMenuItem")!;
+
+        item.Should().NotBeNull();
+        item.Header.Should().Be("Remove Member1");
+        item.IsEffectivelyEnabled.Should().BeTrue();
+        item.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Avalonia.Controls.MenuItem.ClickEvent));
+
+        DocumentLookup.DocumentsOf(project).Should().BeEmpty();
+        item.IsEffectivelyEnabled.Should().BeFalse();
+        _windowManager.Received(1).ShowDialog(Arg.Is<IDialog>(d => d is HexIDE.Forms.ViewModels.SaveChangesViewModel));
+    }
+
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void ProjectRemoveMenu_UsesFocusedMemberAndRetainsItOnCancellation(bool cancel)
+    {
+        var project = new ProjectDefinition(VBProjectType.EXE, "Project1");
+        var module = new ModuleDefinition(project, "Module1", ModuleKind.StandardModule);
+        project.AddModule(module);
+        var dock = Substitute.For<IDocumentDockService>();
+        var editor = Substitute.For<HexIDE.Forms.ViewModels.BaseEditorWindowViewModel>();
+        editor.OpenDocument.Returns(DocumentIdentity.For(module));
+        dock.ActiveDocument.Returns(editor);
+        var root = Build(_runnerService, dock, projects: RemovalService(cancel));
+        _localization.GetString("Str.Menu.Project.RemoveFormFormat").Returns("Remove {0}");
+        using var theme = MenuTheme();
+        var view = new MainView { DataContext = root };
+        using var window = ShowMenu(view);
+        var item = Avalonia.Controls.ControlExtensions.FindControl<Avalonia.Controls.MenuItem>(view, "RemoveProjectMemberMenuItem")!;
+        item.Header.Should().Be("Remove Module1");
+        item.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Avalonia.Controls.MenuItem.ClickEvent));
+
+        _windowManager.Received(1).ShowDialog(Arg.Is<IDialog>(d => d is HexIDE.Forms.ViewModels.SaveChangesViewModel));
+        project.Modules.Contains(module).Should().Be(cancel);
+    }
+
+    [AvaloniaFact]
+    public void ProjectRemoveMenu_DisabledWithoutAMember()
+    {
+        using var theme = MenuTheme();
+        var view = new MainView { DataContext = _sut };
+        using var window = ShowMenu(view);
+        var item = Avalonia.Controls.ControlExtensions.FindControl<Avalonia.Controls.MenuItem>(view, "RemoveProjectMemberMenuItem")!;
+        item.Should().NotBeNull();
+        item.IsEffectivelyEnabled.Should().BeFalse();
+    }
+
+    [AvaloniaFact]
+    public void OpenAddInManager_OpensOptionsAtAddIns()
+    {
+        _sut.OpenAddInManager();
+
+        _windowManager.Received(1).ShowDialog(Arg.Is<HexIDE.Forms.ViewModels.OptionsViewModel>(
+            vm => vm.SelectedNode != null && vm.SelectedNode.Key == "Str.Options.Node.AddIns"));
     }
 
     /// <summary>
@@ -46,10 +195,19 @@ public class MainViewViewModelTests
     /// where F5 does and end at what the user is shown.
     /// </summary>
     private MainViewViewModel Build(IProjectRunnerService runner, IDocumentDockService? dock = null,
-        HexIDE.Debugging.IBreakpointService? breakpoints = null)
+        HexIDE.Debugging.IBreakpointService? breakpoints = null, IProjectService? projects = null,
+        HexIDE.Recovery.IRecoveryOffers? recoveryOffers = null,
+        HexIDE.Debugging.ExternalDebugService? external = null, IEditorService? editor = null,
+        FindReferencesToolViewModel? references = null, CallHierarchyToolViewModel? hierarchy = null)
     {
+        projects ??= _projectService;
         var mockDocDock = dock ?? Substitute.For<IDocumentDockService>();
-        var loc = Substitute.For<ILocalizationService>();
+        var loc = _localization;
+        loc.GetString("Str.MainWindow.NoProjectTitle").Returns("HexIDE [design]");
+        loc.GetString("Str.MainWindow.DesignTag").Returns("[design]");
+        loc.GetString("Str.MainWindow.RunTag").Returns("[run]");
+        loc.GetString("Str.MainWindow.BreakTag").Returns("[break]");
+        loc.GetString("Str.StatusBar.Running").Returns("Running…");
         loc.ActiveLanguage.Returns("en");
 
         // ToolBoxToolViewModel loads Avalonia bitmaps in its constructor;
@@ -62,8 +220,8 @@ public class MainViewViewModelTests
         var locals = new LocalsToolViewModel(loc, Substitute.For<HexIDE.Runtime.Debugging.IDebugController>());
         var watches = new WatchesToolViewModel(loc, new HexIDE.Debugging.WatchService(), Substitute.For<HexIDE.Runtime.Debugging.IDebugController>(), Substitute.For<HexIDE.IDE.IWindowManager>());
         var callStack = new CallStackToolViewModel(loc, Substitute.For<HexIDE.Runtime.Debugging.IDebugController>());
-        var editorService = Substitute.For<IEditorService>();
-        var projectExplorer = new ProjectToolViewModel(_projectManager, _eventBus, _projectService, editorService, loc);
+        var editorService = editor ?? Substitute.For<IEditorService>();
+        var projectExplorer = new ProjectToolViewModel(_projectManager, _eventBus, projects, editorService, loc);
         var colorPalette = new ColorPaletteToolViewModel(mockDocDock);
         var objectBrowser = new ObjectBrowserToolViewModel(_projectManager, Substitute.For<ILspClient>(), editorService, Substitute.For<IComponentRegistry>(), Substitute.For<ITypeLibraryService>(), Substitute.For<IFocusedProjectUtil>(), loc,
             Substitute.For<ILanguageConnectionRegistry>());
@@ -75,6 +233,7 @@ public class MainViewViewModelTests
         var lsRegistry = Substitute.For<ILanguageConnectionRegistry>();
         lsRegistry.Connections.Returns([]);
         lsRegistry.ConfigurationProblems.Returns([]);
+        lsRegistry.Diagnostics.Returns([]);
         var languageServers = new LanguageServersToolViewModel(
             lsRegistry, loc, new ConversationLog(), Substitute.For<IEventBus>(),
             new HexIDE.Redaction.Pseudonymiser());
@@ -86,7 +245,13 @@ public class MainViewViewModelTests
             immediate, locals, watches, callStack, colorPalette, objectBrowser, translationEditor,
             languageServers,
             protocolInspector,
-            windowStateService);
+            windowStateService, new DockFactoryReference(), new HexIDE.Tools.OutlineToolViewModel(
+                Substitute.For<HexIDE.Localization.ILocalizationService>(), Substitute.For<IDocumentDockService>()));
+
+        var languageSwitch = Substitute.For<ILanguageSwitchService>();
+        languageSwitch.ActiveLanguage.Returns("en");
+        languageSwitch.AvailableLanguages.Returns([new LanguageInfo("en", "English", "ltr")]);
+        languageSwitch.RegionsFor(Arg.Any<string>()).Returns([]);
 
         return new MainViewViewModel(
             _windowManager,
@@ -103,9 +268,11 @@ public class MainViewViewModelTests
             translationEditor,
             languageServers,
             protocolInspector,
+            new HexIDE.Tools.Diagnostics.DiagnosticsToolViewModel(lsRegistry, Substitute.For<HexIDE.Lsp.ILspClient>(),
+                mockDocDock, editorService, loc),
             _projectManager,
             _focusedProjectUtil,
-            _projectService,
+            projects,
             editorService,
             mockDocDock,
             dockFactory,
@@ -117,19 +284,103 @@ public class MainViewViewModelTests
             _settingsService,
             Substitute.For<IThemeService>(),
             Substitute.For<IKeymapService>(),
-            Substitute.For<ILanguageSwitchService>(),
+            languageSwitch,
             loc,
             Substitute.For<IAddinRegistry>(),
             new AddinOptionsService(),
             Substitute.For<IDeveloperModeService>(),
             _statusBarService,
-            Substitute.For<IPersonalityService>(),
+            Substitute.For<IProfileService>(),
             new AddinMenuService(),
             new AddinCommandService(),
             new AddinToolWindowService(),
             windowStateService,
             breakpoints ?? Substitute.For<HexIDE.Debugging.IBreakpointService>(),
-            Substitute.For<HexIDE.Runtime.Debugging.IDebugController>());
+            _debugController,
+            new RecentEditsToolViewModel(new RecentEditHistory(_eventBus), () => editorService, loc),
+            recoveryOffers: recoveryOffers, externalDebugger: external, findReferences: references, callHierarchy: hierarchy);
+    }
+
+    [AvaloniaTheory]
+    [InlineData("goto-refuse", "goto")]
+    [InlineData("resume-refusal", "next")]
+    public async Task Refused_external_move_keeps_caret_scroll_and_inspection(string mode, string command)
+    {
+        var directory = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "hexide-reveal-" + Guid.NewGuid());
+        System.IO.Directory.CreateDirectory(directory);
+        await using var log = new ConversationLog();
+        var external = new HexIDE.Debugging.ExternalDebugService(log);
+        using var theme = MenuTheme();
+        var editorTheme = new Avalonia.Markup.Xaml.Styling.StyleInclude(new Uri("avares://AvaloniaEdit/"))
+        {
+            Source = new Uri("avares://AvaloniaEdit/Themes/Simple/AvaloniaEdit.xaml"),
+        };
+        Avalonia.Application.Current!.Styles.Add(editorTheme);
+        var editor = new AvaloniaEdit.TextEditor { Text = string.Join("\n", Enumerable.Repeat("Debug.Print 1", 200)) };
+        var window = new Avalonia.Controls.Window { Width = 400, Height = 200, Content = editor };
+        var navigation = Substitute.For<IEditorService>();
+        navigation.NavigateTo(Arg.Any<string>(), Arg.Any<int>(), Arg.Any<int>()).Returns(call =>
+        {
+            editor.TextArea.Caret.Line = call.ArgAt<int>(1);
+            editor.ScrollToLine(call.ArgAt<int>(1));
+            return true;
+        });
+        var sut = Build(_runnerService, external: external, editor: navigation);
+        window.Show();
+        var executable = System.IO.Path.GetFullPath("../../../dotnet" + (OperatingSystem.IsWindows() ? ".exe" : ""),
+            System.Runtime.InteropServices.RuntimeEnvironment.GetRuntimeDirectory());
+        var file = System.IO.Path.Combine(directory, "launch.json");
+        await System.IO.File.WriteAllTextAsync(file, System.Text.Json.JsonSerializer.Serialize(new
+        {
+            executable, arguments = new[] { typeof(HexIDE.Dap.TestAdapter.Program).Assembly.Location, mode },
+            adapterId = "fixture", launch = new { },
+        }));
+        var run = external.StartAsync(file);
+        async Task Until(Func<bool> done)
+        {
+            var deadline = DateTime.UtcNow.AddSeconds(20);
+            while (!done())
+            {
+                DateTime.UtcNow.Should().BeBefore(deadline);
+                await Task.Delay(10, TestContext.Current.CancellationToken);
+            }
+        }
+        try
+        {
+            await Until(() => external.CanEvaluate && external.Variables.Count == 1);
+            navigation.Received().NavigateTo(Arg.Any<string>(), 6, 1);
+            editor.TextArea.Caret.Line = 100;
+            editor.ScrollToLine(100);
+            window.UpdateLayout();
+            var caret = editor.CaretOffset;
+            var scroll = editor.VerticalOffset;
+            scroll.Should().BeGreaterThan(0);
+            var frames = external.Frames;
+            var variables = external.Variables;
+            var location = external.CurrentLocation;
+            var stop = external.Stop;
+            navigation.ClearReceivedCalls();
+
+            if (command == "goto") await external.SetNextStatementAsync(new Uri(System.IO.Path.Combine(directory, "Module1.bas")).AbsoluteUri, 100);
+            else await external.CommandAsync(command);
+            await Until(() => external.CanEvaluate && external.Stop != stop);
+
+            editor.CaretOffset.Should().Be(caret);
+            editor.VerticalOffset.Should().Be(scroll);
+            navigation.DidNotReceive().NavigateTo(Arg.Any<string>(), Arg.Any<int>(), Arg.Any<int>());
+            external.Frames.Should().BeSameAs(frames);
+            external.Variables.Should().BeSameAs(variables);
+            external.CurrentLocation.Should().Be(location);
+            GC.KeepAlive(sut);
+        }
+        finally
+        {
+            window.Close();
+            Avalonia.Application.Current!.Styles.Remove(editorTheme);
+            await external.StopAsync();
+            await run.WaitAsync(TimeSpan.FromSeconds(20), TestContext.Current.CancellationToken);
+            System.IO.Directory.Delete(directory, true);
+        }
     }
 
     // --- Add File: a file that joined read byte for byte ---
@@ -173,6 +424,142 @@ public class MainViewViewModelTests
             Arg.Any<string>(), Arg.Any<string?>(), Arg.Any<MessageBoxButtons>(), Arg.Any<MessageBoxIcon>());
     }
 
+    // Regression for hexide-io/HexIDE#2965; the final comment specifies Ready at a stop.
+    [AvaloniaTheory]
+    [InlineData("stopped", "[break]", "Ready")]
+    [InlineData("running", "[run]", "Running…")]
+    [InlineData("ended", "[design]", "Ready")]
+    public async Task External_session_refreshes_titles_and_status(string state, string tag, string message)
+    {
+        var directory = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "hexide-dap-title-" + System.Guid.NewGuid());
+        System.IO.Directory.CreateDirectory(directory);
+        await using var log = new ConversationLog();
+        var external = new HexIDE.Debugging.ExternalDebugService(log);
+        _focusedProjectUtil.FocusedOrStartupProject.Returns(new ProjectDefinition(VBProjectType.EXE, "MyApp"));
+        var sut = Build(_runnerService, external: external);
+        var status = "stale";
+        _statusBarService.When(x => x.ClearMessage()).Do(_ => status = "Ready");
+        _statusBarService.When(x => x.SetMessage(Arg.Any<string>())).Do(c => status = c.Arg<string>());
+        var changed = new List<string?>();
+        sut.PropertyChanged += (_, e) => changed.Add(e.PropertyName);
+        var run = external.StartAsync(await DebugAdapter.ExternalDebugServiceTests.Configuration(directory, "evaluate-running"));
+        try
+        {
+            await DebugAdapter.ExternalDebugServiceTests.WaitFor(external, () => external.CanEvaluate);
+            changed.Clear();
+            status = "stale";
+            if (state == "ended")
+            {
+                await external.StopAsync();
+                await run;
+            }
+            else if (state == "running")
+            {
+                await external.CommandAsync("continue");
+                await DebugAdapter.ExternalDebugServiceTests.WaitFor(external, () => external.State == HexIDE.Dap.DapSessionState.Running);
+            }
+            else
+            {
+                var stop = external.Stop;
+                await external.CommandAsync("next");
+                await DebugAdapter.ExternalDebugServiceTests.WaitFor(external, () => external.Stop != stop && external.CanEvaluate);
+            }
+            sut.Title.Should().Be("MyApp - HexIDE " + tag);
+            sut.WindowTitle.Should().Be(sut.Title);
+            status.Should().Be(message);
+            changed.Should().Contain(nameof(sut.Title)).And.Contain(nameof(sut.WindowTitle));
+        }
+        finally
+        {
+            await external.StopAsync();
+            await run;
+            System.IO.Directory.Delete(directory, true);
+        }
+    }
+
+    [AvaloniaFact]
+    public async Task Ending_external_session_restores_design_before_disconnect_completes()
+    {
+        var directory = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "hexide-dap-end-" + System.Guid.NewGuid());
+        System.IO.Directory.CreateDirectory(directory);
+        await using var log = new ConversationLog();
+        var external = new HexIDE.Debugging.ExternalDebugService(log);
+        // As the real ProjectRunnerService does: an external session counts as running until its cleanup ends.
+        _runnerService.IsRunning.Returns(_ => external.IsActive);
+        _focusedProjectUtil.FocusedOrStartupProject.Returns(new ProjectDefinition(VBProjectType.EXE, "MyApp"));
+        var sut = Build(_runnerService, external: external);
+        var status = "stale";
+        _statusBarService.When(x => x.ClearMessage()).Do(_ => status = "Ready");
+        _statusBarService.When(x => x.SetMessage(Arg.Any<string>())).Do(c => status = c.Arg<string>());
+        var changed = new List<string?>();
+        sut.PropertyChanged += (_, e) => changed.Add(e.PropertyName);
+        var disconnectPending = false;
+        external.Output += text => disconnectPending |= text.Contains("disconnect-pending", StringComparison.Ordinal);
+        var run = external.StartAsync(await DebugAdapter.ExternalDebugServiceTests.Configuration(directory, "disconnect-held"));
+        try
+        {
+            await DebugAdapter.ExternalDebugServiceTests.WaitFor(external, () => external.CanEvaluate);
+            changed.Clear();
+            status = "stale";
+            var ending = external.StopAsync();
+            await DebugAdapter.ExternalDebugServiceTests.WaitFor(external, () => disconnectPending);
+
+            external.State.Should().Be(HexIDE.Dap.DapSessionState.Ended);
+            external.IsActive.Should().BeTrue("adapter cleanup is still pending");
+            ending.IsCompleted.Should().BeFalse();
+            run.IsCompleted.Should().BeFalse();
+            sut.Title.Should().Be("MyApp - HexIDE [design]");
+            sut.WindowTitle.Should().Be(sut.Title);
+            status.Should().Be("Ready");
+            changed.Should().Contain(nameof(sut.Title)).And.Contain(nameof(sut.WindowTitle));
+        }
+        finally
+        {
+            await external.StopAsync();
+            await run;
+            System.IO.Directory.Delete(directory, true);
+        }
+    }
+
+    [AvaloniaTheory]
+    [InlineData("disconnect-held", "")]
+    [InlineData("disconnect-held-stderr", "fixture stderr")]
+    public async Task End_of_unresponsive_adapter_shows_one_localized_Immediate_notice(string mode, string stderr)
+    {
+        var directory = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "hexide-dap-end-notice-" + System.Guid.NewGuid());
+        System.IO.Directory.CreateDirectory(directory);
+        await using var log = new ConversationLog();
+        _localization.GetString("Str.Debug.External.EndTimeout").Returns("localized End: {0}; waited {1} seconds.");
+        var external = new HexIDE.Debugging.ExternalDebugService(log, _localization);
+        var sut = Build(_runnerService, external: external);
+        var run = external.StartAsync(await DebugAdapter.ExternalDebugServiceTests.Configuration(directory, mode));
+        try
+        {
+            await DebugAdapter.ExternalDebugServiceTests.WaitFor(external, () => external.CanEvaluate);
+            var id = external.Connection!.Id;
+            var waited = System.Diagnostics.Stopwatch.StartNew();
+            await external.StopAsync().WaitAsync(System.TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken);
+            await run.WaitAsync(System.TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken);
+
+            var lines = sut.Immediate.Document.Text.ReplaceLineEndings("\n").Split('\n');
+            lines[0].Should().Be("disconnect-pending");
+            var notice = System.Text.RegularExpressions.Regex.Match(lines[1], @"^localized End: fixture; waited ([0-9]+) seconds\.$");
+            notice.Success.Should().BeTrue(lines[1]);
+            double.Parse(notice.Groups[1].Value, System.Globalization.CultureInfo.InvariantCulture).Should()
+                .BeApproximately(waited.Elapsed.TotalSeconds, 1);
+            lines.Skip(2).Should().Equal(stderr.Length == 0 ? [""] : [stderr, ""]);
+            await log.DrainAsync();
+            log.Snapshot(id).Should().Contain(e => e.Detail != null &&
+                e.Detail.StartsWith("DAP process ended:") && e.Detail.Contains("forced termination: True"));
+        }
+        finally
+        {
+            await external.StopAsync();
+            await run;
+            System.IO.Directory.Delete(directory, true);
+        }
+    }
+
     // --- Title ---
 
     [AvaloniaFact]
@@ -199,6 +586,118 @@ public class MainViewViewModelTests
         _runnerService.IsRunning.Returns(true);
 
         _sut.Title.Should().Be("MyApp - HexIDE [run]");
+    }
+
+    [AvaloniaFact]
+    public void Title_Paused_ShowsBreak()
+    {
+        _focusedProjectUtil.FocusedOrStartupProject.Returns(TestHelpers.CreateProject("MyApp"));
+        _runnerService.IsRunning.Returns(true);
+        _debugController.State.Returns(HexIDE.Runtime.Debugging.DebugState.Paused);
+
+        _sut.Title.Should().Be("MyApp - HexIDE [break]");
+        _sut.WindowTitle.Should().Be(_sut.Title);
+    }
+
+    [AvaloniaTheory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void Debugger_events_refresh_titles_and_status(bool paused)
+    {
+        _runnerService.IsRunning.Returns(true);
+        _debugController.State.Returns(paused ? HexIDE.Runtime.Debugging.DebugState.Paused : HexIDE.Runtime.Debugging.DebugState.Running);
+        var changed = new List<string?>();
+        _sut.PropertyChanged += (_, e) => changed.Add(e.PropertyName);
+        _statusBarService.ClearReceivedCalls();
+
+        if (paused)
+            _debugController.Stopped += Raise.Event<System.Action<HexIDE.Runtime.Debugging.StoppedInfo>>(
+                new HexIDE.Runtime.Debugging.StoppedInfo(HexIDE.Runtime.Debugging.StopReason.Breakpoint, "Form1", 6));
+        else
+            _debugController.Continued += Raise.Event<System.Action>();
+        Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+
+        changed.Should().Contain(nameof(_sut.Title)).And.Contain(nameof(_sut.WindowTitle));
+        if (paused)
+            _statusBarService.Received().ClearMessage();
+        else
+            _statusBarService.Received().SetMessage("Running…");
+    }
+
+    [AvaloniaTheory]
+    [InlineData(null, false, false, "NoProjectTitle", "translated")]
+    [InlineData("P", false, false, "DesignTag", "P - HexIDE translated")]
+    [InlineData("P", true, false, "RunTag", "P - HexIDE translated")]
+    [InlineData("P", true, true, "BreakTag", "P - HexIDE translated")]
+    public void Language_change_refreshes_localized_titles(string? project, bool running, bool paused, string key, string expected)
+    {
+        _focusedProjectUtil.FocusedOrStartupProject.Returns(project == null ? null : TestHelpers.CreateProject(project));
+        _runnerService.IsRunning.Returns(running);
+        _debugController.State.Returns(paused ? HexIDE.Runtime.Debugging.DebugState.Paused : HexIDE.Runtime.Debugging.DebugState.Running);
+        _localization.GetString("Str.MainWindow." + key).Returns("translated");
+        var changed = new List<string?>();
+        _sut.PropertyChanged += (_, e) => changed.Add(e.PropertyName);
+
+        _localization.LanguageChanged += Raise.Event<System.Action>();
+
+        _sut.Title.Should().Be(expected);
+        _sut.WindowTitle.Should().Be(expected);
+        changed.Should().Contain(nameof(_sut.Title)).And.Contain(nameof(_sut.WindowTitle));
+    }
+
+    [AvaloniaTheory]
+    [InlineData(null, false, false)]
+    [InlineData("P", false, false)]
+    [InlineData("P", true, false)]
+    [InlineData("P", true, true)]
+    public void Recovery_window_title_keeps_notice_across_project_run_and_language_changes(string? project, bool running, bool paused)
+    {
+        var previous = Static.IsRecoveryMode;
+        try
+        {
+            Static.IsRecoveryMode = true;
+            _focusedProjectUtil.FocusedOrStartupProject.Returns(project == null ? null : TestHelpers.CreateProject(project));
+            _runnerService.IsRunning.Returns(running);
+            _debugController.State.Returns(paused ? HexIDE.Runtime.Debugging.DebugState.Paused : HexIDE.Runtime.Debugging.DebugState.Running);
+            _localization.GetString("Str.MainWindow.RecoveryNotice").Returns("Recovery session — settings changes won't be saved");
+            var changed = new List<string?>();
+            _sut.PropertyChanged += (_, e) => changed.Add(e.PropertyName);
+
+            _sut.WindowTitle.Should().Be(_sut.Title + " — Recovery session — settings changes won't be saved");
+            _localization.GetString("Str.MainWindow.RecoveryNotice").Returns("Translated recovery notice");
+            _localization.LanguageChanged += Raise.Event<System.Action>();
+
+            _sut.WindowTitle.Should().Be(_sut.Title + " — Translated recovery notice");
+            changed.Should().Contain(nameof(_sut.WindowTitle));
+            Static.IsRecoveryMode = false;
+            _sut.WindowTitle.Should().Be(_sut.Title);
+        }
+        finally
+        {
+            Static.IsRecoveryMode = previous;
+        }
+    }
+
+    // --- A project an add-in opened (contributed-projects) ---
+
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Membership_settings_and_builds_are_offered_only_for_a_project_HexIDE_read_itself(bool contributed)
+    {
+        _vb6Toolchain.IsAvailable.Returns(true);
+        var project = new ProjectDefinition(VBProjectType.EXE, "Ledger") { ContributedBy = contributed ? "RDCore projects" : null };
+        _focusedProjectUtil.FocusedOrStartupProject.Returns(project);
+
+        var commands = new[]
+        {
+            _sut.AddFormCommand, _sut.AddModuleCommand, _sut.AddClassModuleCommand, _sut.AddUserControlCommand,
+            _sut.AddPropertyPageCommand, _sut.AddFileCommand, _sut.RunWithVb6Command, _sut.MakeWithVb6Command,
+            _sut.MakeProjectCommand, _sut.ProjectPropertiesCommand, _sut.ProjectReferencesCommand, _sut.ProjectComponentsCommand,
+        };
+
+        commands.Select(command => command.CanExecute(null)).Should().AllBeEquivalentTo(!contributed,
+            "a contributed project's membership is its add-in's program's, and neither HexIDE nor VB6 builds what it did not read");
     }
 
     // --- StartDefaultProjectCommand ---
@@ -246,6 +745,23 @@ public class MainViewViewModelTests
     {
         _runnerService.CanEndProject.Returns(allowed);
 
+        _sut.EndProjectCommand.CanExecute(null).Should().Be(allowed);
+    }
+
+    [AvaloniaTheory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void EndProjectCommand_NotifiesWhenRunnerAvailabilityChanges(bool allowed)
+    {
+        _runnerService.CanEndProject.Returns(!allowed);
+        var changes = 0;
+        _sut.EndProjectCommand.CanExecuteChanged += (_, _) => changes++;
+        _runnerService.CanEndProject.Returns(allowed);
+
+        _runnerService.PropertyChanged += Raise.Event<PropertyChangedEventHandler>(
+            _runnerService, new PropertyChangedEventArgs(nameof(IProjectRunnerService.CanEndProject)));
+
+        changes.Should().Be(1);
         _sut.EndProjectCommand.CanExecute(null).Should().Be(allowed);
     }
 
@@ -533,6 +1049,57 @@ public class MainViewViewModelTests
         _projectService.DidNotReceive().CreateNewProject();
     }
 
+    [AvaloniaFact]
+    public async Task OnInitialized_OffersUnsavedWorkFirst_AndARestoredProjectStandsInForTheNewProjectPrompt()
+    {
+        _settingsService.PromptForProjectOnStartup.Returns(true);
+        var offers = Substitute.For<HexIDE.Recovery.IRecoveryOffers>();
+        offers.OfferAtStartAsync().Returns(true);
+        var sut = Build(_runnerService, recoveryOffers: offers);
+
+        sut.OnInitialized();
+        await Task.Yield();
+
+        await offers.Received(1).OfferAtStartAsync();
+        await _projectService.DidNotReceive().CreateNewProject();
+    }
+
+    [AvaloniaFact]
+    public async Task OnInitialized_StillPrompts_WhenNothingWasRestored()
+    {
+        _settingsService.PromptForProjectOnStartup.Returns(true);
+        _projectService.CreateNewProject().Returns(Task.CompletedTask);
+        var offers = Substitute.For<HexIDE.Recovery.IRecoveryOffers>();
+        offers.OfferAtStartAsync().Returns(false);
+        var sut = Build(_runnerService, recoveryOffers: offers);
+
+        sut.OnInitialized();
+        await Task.Yield();
+
+        await _projectService.Received(1).CreateNewProject();
+    }
+
+    [AvaloniaFact]
+    public async Task OnInitialized_OpensTheProjectNamedAtLaunch_EvenAfterARestore()
+    {
+        var offers = Substitute.For<HexIDE.Recovery.IRecoveryOffers>();
+        offers.OfferAtStartAsync().Returns(true);
+        var opened = false;
+        var previous = Static.StartupProjectHook;
+        Static.StartupProjectHook = (_, _) => { opened = true; return Task.CompletedTask; };
+        try
+        {
+            Build(_runnerService, recoveryOffers: offers).OnInitialized();
+            await Task.Yield();
+        }
+        finally
+        {
+            Static.StartupProjectHook = previous;
+        }
+
+        opened.Should().BeTrue("the restored work and the project named on the command line are both wanted");
+    }
+
     // --- A compile error met mid-run (#759) ---
 
     [AvaloniaFact]
@@ -667,6 +1234,32 @@ public class MainViewViewModelTests
         runner.IsRunning.Should().BeFalse();
     }
 
+    [AvaloniaTheory]
+    [InlineData("#If {0} Then\n#End If\n")]
+    [InlineData("Const X = {0}\n")]
+    public void F5_on_a_long_chain_reports_failure_and_survives(string declaration)
+    {
+        var project = new ProjectDefinition(VBProjectType.EXE, "P");
+        var module = new ModuleDefinition(project, "Module1", ModuleKind.StandardModule);
+        module.UpdateCode(string.Format(declaration, string.Join(" + ", System.Linq.Enumerable.Repeat("1", 10000)))
+            + "Sub Main()\nEnd Sub\n");
+        project.AddModule(module);
+        project.StartsAtSubMain = true;
+        var runner = new ProjectRunnerService(_eventBus, _windowManager, _projectManager,
+            Substitute.For<ILocalizationService>(), new HexIDE.Runtime.Debugging.DebugController(),
+            Substitute.For<HexIDE.Debugging.IBreakpointService>(), new HexIDE.Debugging.WatchService(),
+            new HexIDE.Debugging.RunScope());
+        var failures = new List<string>();
+        runner.StartFailed += failures.Add;
+        runner.RunFailed += failures.Add;
+
+        runner.RunProject(project);
+        Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+
+        failures.Should().ContainSingle();
+        runner.IsRunning.Should().BeFalse();
+    }
+
     // --- Breakpoints from the main window (the interpreter-debugger delta's restated scenarios) ---
 
     /// <summary>A code window on a module of the given project, keeping its marks in <paramref name="breakpoints"/>.</summary>
@@ -733,5 +1326,45 @@ public class MainViewViewModelTests
         breakpoints.GetBreakpoints(first.Identity).Should().BeEmpty();
         breakpoints.GetBreakpoints(second.Identity).Should().BeEmpty();
         breakpoints.GetBreakpoints(elsewhere.Identity).Should().BeEmpty();
+    }
+
+    // --- Tool windows tabbed in one dock: hiding one leaves the rest (#2362) ---
+
+    // The Properties window dragged into the Toolbox's dock, as a person can since #2239, so the two are tabs of one dock.
+    private (Dock.Model.Core.IDock Shared, Dock.Model.Core.IDockable Toolbox, Dock.Model.Core.IDockable Properties) TabPropertiesWithToolbox()
+    {
+        var factory = _sut.Layout.Factory!;
+        var toolbox = (Dock.Model.Core.IDockable)_sut.ToolBox;
+        var properties = (Dock.Model.Core.IDockable)_sut.Properties;
+        var shared = (Dock.Model.Core.IDock)toolbox.Owner!;
+        factory.MoveDockable((Dock.Model.Core.IDock)properties.Owner!, shared, properties, toolbox);
+        shared.VisibleDockables.Should().Contain([toolbox, properties]);
+        return (shared, toolbox, properties);
+    }
+
+    [AvaloniaFact]
+    public void Hiding_a_tool_tabbed_with_another_closes_it_alone()
+    {
+        var (shared, toolbox, _) = TabPropertiesWithToolbox();
+
+        var (error, note) = _sut.SetToolWindowVisible("Properties", false);
+
+        error.Should().BeNull();
+        note.Should().Be("Properties is now hidden.");
+        var windows = _sut.GetToolWindows();
+        windows.Single(t => t.Name == "Properties").Visible.Should().BeFalse();
+        windows.Single(t => t.Name == "Toolbox").Visible.Should().BeTrue();
+        shared.VisibleDockables.Should().ContainSingle().Which.Should().BeSameAs(toolbox);
+    }
+
+    [AvaloniaFact]
+    public void A_hidden_tool_shows_again_and_the_reply_says_when_nothing_changed()
+    {
+        TabPropertiesWithToolbox();
+        _sut.SetToolWindowVisible("Properties", false);
+
+        _sut.SetToolWindowVisible("properties", true).Should().Be(((string?)null, "Properties is now shown."));
+        _sut.GetToolWindows().Where(t => t.Name is "Properties" or "Toolbox").Should().OnlyContain(t => t.Visible);
+        _sut.SetToolWindowVisible("Properties", true).Note.Should().Be("Properties is now shown, as it was already.");
     }
 }

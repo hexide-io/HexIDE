@@ -33,7 +33,7 @@ public partial class ProjectToolViewModel : Tool
     public ObservableCollection<ProjectViewModel> LoadedProjects { get; } = new();
     public ObservableCollection<object> RootItems { get; } = new();
 
-    [Notify] [AlsoNotify(nameof(HasArchiveSelection), nameof(SelectedForm), nameof(SelectedProject), nameof(SelectedFormOrFormPart), nameof(SelectedModule), nameof(ProjectPropertiesHeader), nameof(SaveFormHeader), nameof(SaveFormAsHeader), nameof(RemoveFormHeader))] private object? selectedItem;
+    [Notify] [AlsoNotify(nameof(HasArchiveSelection), nameof(SelectedForm), nameof(SelectedProject), nameof(SelectedFormOrFormPart), nameof(SelectedModule), nameof(ProjectPropertiesHeader), nameof(SaveFormHeader), nameof(SaveFormAsHeader), nameof(RemoveFormHeader), nameof(HasRemovableSelection))] private object? selectedItem;
 
     public FormViewModel? SelectedForm
     {
@@ -64,14 +64,22 @@ public partial class ProjectToolViewModel : Tool
         SelectedForm?.Name is { } n ? string.Format(localization.GetString("Str.Tool.Project.SaveFormFormat"), n) : "";
     public string SaveFormAsHeader =>
         SelectedForm?.Name is { } n ? string.Format(localization.GetString("Str.Tool.Project.SaveFormAsFormat"), n) : "";
+    // Not from a project an add-in opened: its membership is its add-in's program's to change.
+    public bool HasRemovableSelection =>
+        SelectedForm is { FormDefinition.Owner.ContributedBy: null }
+        || SelectedModule is { ModuleDefinition.Owner.ContributedBy: null };
     public string RemoveFormHeader =>
-        SelectedForm?.Name is { } n ? string.Format(localization.GetString("Str.Tool.Project.RemoveFormFormat"), n) : "";
+        (SelectedForm?.Name ?? SelectedModule?.Name) is { } n ? string.Format(localization.GetString("Str.Tool.Project.RemoveFormFormat"), n) : "";
 
     public DelegateCommand ViewObjectCommand { get; }
 
     public DelegateCommand ViewCodeCommand { get; }
 
     public DelegateCommand FormPropertiesCommand { get; }
+
+    public DelegateCommand SaveFormCommand { get; }
+
+    public DelegateCommand SaveFormAsCommand { get; }
 
     public DelegateCommand AddFormCommand { get; }
     public DelegateCommand SynchronizeArchiveFolderCommand { get; }
@@ -136,8 +144,18 @@ public partial class ProjectToolViewModel : Tool
             ViewObjectCommand.Execute(null);
             ((ICommand)ApplicationCommands.OpenPropertiesCommand).Execute(null);
         }, () => SelectedForm != null);
+        SaveFormCommand = new DelegateCommand(() =>
+        {
+            if (SelectedForm != null)
+                projectService.SaveForm(SelectedForm.FormDefinition, false).ListenErrors();
+        }, () => SelectedForm != null);
+        SaveFormAsCommand = new DelegateCommand(() =>
+        {
+            if (SelectedForm != null)
+                projectService.SaveForm(SelectedForm.FormDefinition, true).ListenErrors();
+        }, () => SelectedForm != null);
         AddFormCommand = new DelegateCommand(() => AddFormAsync(GetSelectedProject()!.Definition).ListenErrors(),
-            () => GetSelectedProject() != null);
+            () => GetSelectedProject() is { Definition.ContributedBy: null });
 
         projectManager.ProjectLoaded += OnProjectLoaded;
         projectManager.ProjectUnloaded += OnProjectUnloaded;
@@ -188,6 +206,7 @@ public partial class ProjectToolViewModel : Tool
 
     private void OnSelectedItemChanged()
     {
+        eventBus.Publish(new ModulePropertiesSelectedEvent(SelectedModule?.ModuleDefinition));
         archives?.SelectTreeEntry(HasArchiveSelection);
         ViewObjectCommand.RaiseCanExecutedChanged();
         ViewCodeCommand.RaiseCanExecutedChanged();
@@ -307,13 +326,17 @@ public partial class ProjectToolViewModel : Tool
         projectService.EditProjectProperties(SelectedProject.Definition).ListenErrors();
     }
 
-    public void DeleteForm()
-    {
-        if (SelectedForm == null)
-            return;
+    public void DeleteForm() => RemoveSelectedDocument().ListenErrors();
 
-        // TODO: this logic doesn't belong to a VM, maybe some service?
-        eventBus.Publish(new FormUnloadedEvent(SelectedForm.FormDefinition));
-        SelectedForm.Project.Definition.DeleteForm(SelectedForm.FormDefinition);
+    public async Task RemoveSelectedDocument()
+    {
+        var selection = SelectedItem;
+        var document = SelectedForm is { } form ? DocumentIdentity.For(form.FormDefinition)
+            : SelectedModule is { } module ? DocumentIdentity.For(module.ModuleDefinition) : null;
+        if (document == null) return;
+
+        await projectService.RemoveDocument(document);
+        if (SelectedItem == selection && !DocumentLookup.DocumentsOf(document.Project).Contains(document))
+            SelectedItem = null;
     }
 }

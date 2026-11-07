@@ -29,7 +29,10 @@ cd "$(dirname "$0")/.."
 #   docs/lsp-client.md           IDE/HexIDE.Tests/LspClient/ProtocolCoverageDocTests.cs
 #   docs/lsp-server-features.md  listed in HexIDE.slnx
 #   docs/mcp-first-contact.md    IDE/HexIDE.Tests/Infrastructure/FirstContactTranscriptTests.cs
+#   docs/mcp-server-gaps.md      IDE/HexIDE.Tests/Infrastructure/McpGapsDocTests.cs, as is docs/mcp-gaps/ below
+#   docs/archive/mcp-server-gaps-closed.md  the same, which fails the build if the retired archive comes back
 #   docs/ROADMAP.md              listed in HexIDE.slnx
+#   CLAUDE.md                    IDE/HexIDE.Tests/Infrastructure/McpToolTableDocumentationTests.cs
 # --check-tree derives this set from the tree rather than trusting the list, because a hand-kept
 # list rots silently — into builds that were skipped and should not have been.
 DOC_BUILD_INPUTS="docs/ROADMAP.md
@@ -37,7 +40,10 @@ docs/command-line.md
 docs/lsp-client.md
 docs/lsp-server-features.md
 docs/mcp-first-contact.md
-docs/MISSING_LANGUAGE.md"
+docs/mcp-server-gaps.md
+docs/archive/mcp-server-gaps-closed.md
+docs/MISSING_LANGUAGE.md
+CLAUDE.md"
 
 classify() {
   if printf '%s\n' "$DOC_BUILD_INPUTS" | grep -qxF "$1"; then return 1; fi
@@ -51,6 +57,9 @@ classify() {
     # Moving this into the allowlist below would disable that guard for precisely the pull requests
     # it exists to check, and the build would go green saying nothing. Both other modes pin it.
     openspec/*)                                            return 1 ;;
+    # McpGapsDocTests reads every entry here: its name, its heading, and that no gap is both open and
+    # closed (#2510). A pull request that only records or closes a gap is exactly what it checks.
+    docs/mcp-gaps/*)                                       return 1 ;;
 
     docs/*.md|docs/*.png|docs/*.svg|docs/*.jpg|docs/*.gif)  return 0 ;;
     screenshots/*)                                         return 0 ;;

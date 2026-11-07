@@ -5,7 +5,7 @@
 .DESCRIPTION
     HexIDE's interpreter aims for runtime-execution fidelity, and the only trustworthy source for
     "what does VB6 actually do here" is vb6.exe itself. This script automates the loop documented in
-    docs/vb6-fidelity-oracle.md: build a tiny Sub Main program, compile it with /make, run it, and
+    docs/vb6-fidelity-oracle/README.md: build a tiny Sub Main program, compile it with /make, run it, and
     read back what it wrote.
 
     You give it expressions. It gives you `value | TypeName`, or `ERR<n>` when VB6 raised instead.

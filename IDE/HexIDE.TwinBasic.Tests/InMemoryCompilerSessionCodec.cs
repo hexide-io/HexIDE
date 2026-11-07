@@ -62,11 +62,13 @@ internal sealed class CompilerSessionTestPeer(TcpClient client, TcpClient server
     public string Source => Path.Combine(SourceDirectory, "source.twinproj");
     internal static async Task<CompilerSessionTestPeer> Create(bool initialize = true)
     {
-        using var listener = new TcpListener(IPAddress.Loopback, 0);
+        using var resources = new TestSocketResources();
+        using var listener = SocketTrackingTest.Track(new TcpListener(IPAddress.Loopback, 0));
         listener.Start();
-        var client = new TcpClient();
+        var client = resources.Own(new TcpClient());
         await client.ConnectAsync((IPEndPoint)listener.LocalEndpoint, Token);
-        var peer = new CompilerSessionTestPeer(client, await listener.AcceptTcpClientAsync(Token));
+        var server = resources.Own(await listener.AcceptTcpClientAsync(Token));
+        var peer = resources.Own(new CompilerSessionTestPeer(client, server));
         Directory.CreateDirectory(peer.SourceDirectory);
         await File.WriteAllBytesAsync(peer.Source, [1, 2, 3, 4], Token);
         if (initialize)
@@ -78,6 +80,7 @@ internal sealed class CompilerSessionTestPeer(TcpClient client, TcpClient server
             await peer.Reply(1, value: new CompilerChannelMetadata(1001, 1002, 1003, 1004, 1005, "test"));
             peer.Root = await pending;
         }
+        resources.Complete();
         return peer;
     }
     internal Task<CompilerRootSession> Initialize(CompilerRootHandshakeLimits? limits = null, CancellationToken? token = null) =>
@@ -97,6 +100,6 @@ internal sealed class CompilerSessionTestPeer(TcpClient client, TcpClient server
         socket.Dispose();
         client.Dispose();
         server.Dispose();
-        Directory.Delete(SourceDirectory, true);
+        if (Directory.Exists(SourceDirectory)) Directory.Delete(SourceDirectory, true);
     }
 }

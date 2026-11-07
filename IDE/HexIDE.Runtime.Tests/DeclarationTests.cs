@@ -27,7 +27,7 @@ public class DeclarationTests : BaseVBTestFixture
     public async Task DimDate_DefaultsToVb6Epoch()
     {
         await Run("Dim d As Date\nDebug.Print d\n");
-        AssertDebugLog([new Vb6Value(new DateTime(1899, 12, 30))]);
+        AssertDebugLog([new Vb6Value(VbDate.FromDateTime(new DateTime(1899, 12, 30)))]);
     }
 
     [Fact]

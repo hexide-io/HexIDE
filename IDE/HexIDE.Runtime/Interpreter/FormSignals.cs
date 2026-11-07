@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 
 namespace HexIDE.Runtime.Interpreter;
@@ -42,6 +43,13 @@ public sealed record AutoNew(string ClassName, string Name);
 public sealed class AutoInstanceNeeded(int location, AutoNew autoNew)
     : NotImplementedException($"{autoNew.Name} is declared As New, and is used where HexIDE can't yet make its object (#435).")
 {
+    public AutoInstanceNeeded(VbUdt bag, string field, AutoNew autoNew) : this(-1, autoNew)
+    {
+        Field = new UdtFieldRef(bag, field);
+    }
+
+    public UdtFieldRef? Field { get; }
+
     /// <summary>The slot to fill.</summary>
     public int Location { get; } = location;
 
@@ -60,4 +68,16 @@ public interface IFormProgram
 
     /// <summary>Load <paramref name="form"/> if it isn't loaded: Form_Load runs here. A form that unloaded gets a new window.</summary>
     Task Load(VbObject form);
+
+    /// <summary>The loaded forms, in the order they loaded: what the global <c>Forms</c> holds (#2496).</summary>
+    IReadOnlyList<VbObject> LoadedForms { get; }
+
+    /// <summary><c>Screen.ActiveForm</c> (#2431): the form last activated, until another is or it unloads.</summary>
+    VbObject? ActiveForm { get; }
+
+    /// <summary><c>Screen.ActiveControl</c> (#2431): the active form's control with the focus, or null.</summary>
+    Avalonia.Controls.Control? ActiveControl { get; }
+
+    /// <summary><c>Screen.MousePointer</c> has changed (#2431): every form shows it while it is not 0.</summary>
+    void ScreenPointerChanged(BuiltinTypes.VBCursorType pointer);
 }

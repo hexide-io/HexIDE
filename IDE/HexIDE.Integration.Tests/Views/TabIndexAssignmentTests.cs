@@ -23,7 +23,7 @@ namespace HexIDE.Integration.Tests.Views;
 /// handed out again. A paste kept its source's, so the file held two controls at one TabIndex.
 /// </para>
 /// <para>
-/// Measured in VB6's IDE (docs/vb6-fidelity-oracle.md, "The TabIndex a new or pasted control takes"), on a form whose
+/// Measured in VB6's IDE (docs/vb6-fidelity-oracle/the-tabindex-a-new-or-pasted-control-takes.md, "The TabIndex a new or pasted control takes"), on a form whose
 /// Label, CommandButton, Frame and the Frame's CheckBox hold 0 to 3: double-clicking the CommandButton tool gave 4, a
 /// Timer then took none, the next button 5, a pasted copy of the first button 6, and a pasted copy of the Frame 7 with
 /// its CheckBox 8.

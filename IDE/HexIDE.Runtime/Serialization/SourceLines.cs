@@ -14,7 +14,7 @@ namespace HexIDE.Runtime.Serialization;
 /// </para>
 /// <para>
 /// <b>VB6 reads code the same way</b> (measured with <c>vb6.exe /make</c>, recorded in
-/// <c>docs/vb6-fidelity-oracle.md</c>). A <c>.bas</c> whose lines all end with a lone CR, or all with a lone LF, builds
+/// <c>docs/vb6-fidelity-oracle/a-lone-cr-or-lf-in-vb6-source.md</c>). A <c>.bas</c> whose lines all end with a lone CR, or all with a lone LF, builds
 /// and runs as its CRLF twin. A lone CR or LF between two statements ends the first, and a lone CR between a procedure
 /// and its <c>Attribute</c> line leaves the line attached to it. The exception is a designer block, a class's
 /// <c>VERSION</c> … <c>END</c> or a form's <c>Begin</c> … <c>End</c>, which VB6 refuses to load unless it is CRLF.

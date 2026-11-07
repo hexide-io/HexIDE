@@ -4,8 +4,26 @@ using System.Net.WebSockets;
 
 namespace HexIDE.TwinBasic.Tests;
 
-public sealed class CompilerChannelSessionTests
+public sealed class CompilerChannelSessionTests : SocketTrackingTest
 {
+    [Theory]
+    [InlineData(2)]
+    [InlineData(3)]
+    [InlineData(4)]
+    [InlineData(5)]
+    [InlineData(6)]
+    public async Task Failed_peer_creation_disposes_sockets(int acquisition)
+    {
+        var remaining = acquisition;
+        AfterAcquire = () =>
+        {
+            if (--remaining == 0) throw new IOException("Injected peer creation failure");
+        };
+        await FluentActions.Awaiting(async () => { using var peer = await Harness.Create(); })
+            .Should().ThrowExactlyAsync<IOException>().WithMessage("Injected peer creation failure");
+        AssertNoOpenSockets();
+    }
+
     private static CancellationToken Token => TestContext.Current.CancellationToken;
     private static readonly Uri RootEndpoint = new("ws://127.0.0.1:9000/key%2Fopaque/root");
 
@@ -213,7 +231,8 @@ public sealed class CompilerChannelSessionTests
         private CompilerRootSession root = null!;
         public static async Task<Harness> Create()
         {
-            var harness = new Harness();
+            using var resources = new TestSocketResources();
+            var harness = resources.Own(new Harness());
             foreach (var channel in Enum.GetValues<CompilerChannel>()) harness.Pairs.Add(channel, await Pair.Create());
             var codec = new InMemoryCompilerSessionCodec();
             var pair = harness.Pairs[CompilerChannel.Root];
@@ -224,6 +243,7 @@ public sealed class CompilerChannelSessionTests
             await pair.Read();
             await pair.Send(codec.Reply(1, value: new CompilerChannelMetadata(1001, 1002, 1003, 1004, 1005, "test")), WebSocketMessageType.Binary);
             harness.root = await initialize;
+            resources.Complete();
             return harness;
         }
         public Task<CompilerChannelSession> Attach(CompilerChannelSessionLimits? limits = null,
@@ -247,11 +267,15 @@ public sealed class CompilerChannelSessionTests
         public WebSocket Peer { get; } = WebSocket.CreateFromStream(server.GetStream(), true, null, Timeout.InfiniteTimeSpan);
         public static async Task<Pair> Create()
         {
-            using var listener = new TcpListener(IPAddress.Loopback, 0);
+            using var resources = new TestSocketResources();
+            using var listener = SocketTrackingTest.Track(new TcpListener(IPAddress.Loopback, 0));
             listener.Start();
-            var client = new TcpClient();
+            var client = resources.Own(new TcpClient());
             await client.ConnectAsync((IPEndPoint)listener.LocalEndpoint, Token);
-            return new(client, await listener.AcceptTcpClientAsync(Token));
+            var server = resources.Own(await listener.AcceptTcpClientAsync(Token));
+            var pair = resources.Own(new Pair(client, server));
+            resources.Complete();
+            return pair;
         }
         public async Task Send(byte[] bytes, WebSocketMessageType type) => await Peer.SendAsync(bytes.AsMemory(), type, true, Token);
         public async Task<(WebSocketMessageType Type, byte[] Bytes)> Read()

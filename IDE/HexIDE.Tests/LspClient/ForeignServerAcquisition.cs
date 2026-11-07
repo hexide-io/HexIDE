@@ -90,7 +90,10 @@ internal sealed record ForeignServerSource(
     string ReleaseUrlFormat,
     DigestProvenance Provenance,
     ForeignAsset[] Assets,
-    string ExecutableSubdirectory = "");
+    string ExecutableSubdirectory = "")
+{
+    public string? ChecksumMismatch { get; set; }
+}
 
 /// <summary>
 /// Fetches the pinned third-party language servers the foreign-backend tests need, into a gitignored
@@ -136,6 +139,9 @@ internal static class ForeignServerAcquisition
         [
             new("win-x64", "rumdl-v0.2.79-x86_64-pc-windows-msvc.zip",
                 "07D12118C143976FADAAF7D053AC6BE328798CE3B59B3F774572AC946B123672"),
+            // Deliberate x64 emulation on Windows on Arm (#3139); same archive and digest provenance.
+            new("win-arm64", "rumdl-v0.2.79-x86_64-pc-windows-msvc.zip",
+                "07D12118C143976FADAAF7D053AC6BE328798CE3B59B3F774572AC946B123672"),
             new("linux-x64", "rumdl-v0.2.79-x86_64-unknown-linux-musl.tar.gz",
                 "a85ae77c6880616118e10dda1e36292df59815bcfbf767201736ff6971213cf3"),
             new("linux-arm64", "rumdl-v0.2.79-aarch64-unknown-linux-musl.tar.gz",
@@ -171,6 +177,9 @@ internal static class ForeignServerAcquisition
         Assets:
         [
             new("win-x64", "texlab-x86_64-windows.zip",
+                "cb028d44c3d2b85d36a2ed52d41a0ff43a341b1f04c500c56c4524c4eb72b316"),
+            // Deliberate x64 emulation on Windows on Arm (#3139); same archive and digest provenance.
+            new("win-arm64", "texlab-x86_64-windows.zip",
                 "cb028d44c3d2b85d36a2ed52d41a0ff43a341b1f04c500c56c4524c4eb72b316"),
             new("linux-x64", "texlab-x86_64-alpine.tar.gz",
                 "66ed15ef745076a2d50594a13badbb9e8d54dd4eda2e2bbcf2bf9f8d97d27896"),
@@ -219,6 +228,9 @@ internal static class ForeignServerAcquisition
         [
             new("win-x64", "clangd-windows-22.1.6.zip",
                 "ce54f16e0b4fd76d450eeda9664420b195360b73febcfe40e661108fa57f2ce1"),
+            // Deliberate x64 emulation on Windows on Arm (#3139); same archive and digest provenance.
+            new("win-arm64", "clangd-windows-22.1.6.zip",
+                "ce54f16e0b4fd76d450eeda9664420b195360b73febcfe40e661108fa57f2ce1"),
             new("linux-x64", "clangd-linux-22.1.6.zip",
                 "a9c77443af2e447ed467e84771848d3a6ac1c56f84bcfcde717e66318de77cfa"),
             // One universal binary, so the same file and digest twice rather than a special case.
@@ -266,6 +278,9 @@ internal static class ForeignServerAcquisition
         [
             new("win-x64", "ruff-x86_64-pc-windows-msvc.zip",
                 "a099e761fb841fc33d44031aa37e16a3d154922fd3da284396e58ae687973e45"),
+            // Deliberate x64 emulation on Windows on Arm (#3139); same archive and digest provenance.
+            new("win-arm64", "ruff-x86_64-pc-windows-msvc.zip",
+                "a099e761fb841fc33d44031aa37e16a3d154922fd3da284396e58ae687973e45"),
             new("linux-x64", "ruff-x86_64-unknown-linux-musl.tar.gz",
                 "8d28939cf5cabe54a2f8f7cbfab52c643436d1bc70474198181db9e48f504411",
                 Subdirectory: "ruff-x86_64-unknown-linux-musl"),
@@ -297,6 +312,7 @@ internal static class ForeignServerAcquisition
     /// lives in the repository while the installed tree does not.
     /// </para>
     /// </summary>
+    // On Windows on Arm this uses setup-node's Node runtime and the same npm lockfile, with no native archive.
     public static readonly ForeignServerSource Json = new(
         Key: "node",
         Version: "4.10.0",
@@ -448,6 +464,7 @@ internal static class ForeignServerAcquisition
         {
             Directory.CreateDirectory(directory);
             var archive = DownloadVerified(server, asset, directory);
+            if (archive is null) return null;
             Extract(archive, directory);
             File.Delete(archive);
 
@@ -482,7 +499,7 @@ internal static class ForeignServerAcquisition
         return Array.Find(server.Assets, a => a.Rid == $"{os}-{arch}");
     }
 
-    private static string DownloadVerified(
+    private static string? DownloadVerified(
         ForeignServerSource server, ForeignAsset asset, string directory)
     {
         var url = string.Format(server.ReleaseUrlFormat, server.Version, asset.FileName);
@@ -497,18 +514,24 @@ internal static class ForeignServerAcquisition
             response.Content.CopyToAsync(target).GetAwaiter().GetResult();
         }
 
+        return VerifyDownload(server, asset, path);
+    }
+
+    internal static string? VerifyDownload(ForeignServerSource server, ForeignAsset asset, string path)
+    {
+        string actual;
         using (var stream = File.OpenRead(path))
+            actual = Convert.ToHexString(SHA256.HashData(stream));
+
+        if (!actual.Equals(asset.Sha256, StringComparison.OrdinalIgnoreCase))
         {
-            var actual = Convert.ToHexString(SHA256.HashData(stream));
-            if (!actual.Equals(asset.Sha256, StringComparison.OrdinalIgnoreCase))
-            {
-                File.Delete(path);
-                // Thrown, not swallowed into a skip. A skip says "not available"; this says "something
-                // other than what was pinned arrived", and the tests are about to EXECUTE it.
-                throw new InvalidOperationException(
-                    $"Checksum mismatch for {asset.FileName}: expected {asset.Sha256}, got {actual}. "
-                  + "Refusing to run it.");
-            }
+            // Discovery must not throw: xunit v3 discards the test. An ordinary Fact reports this
+            // even when foreign servers are optional; see RequiredServersTests.
+            server.ChecksumMismatch =
+                $"Checksum mismatch for {asset.FileName}: expected {asset.Sha256}, got {actual}. "
+              + "Refusing to run it.";
+            File.Delete(path);
+            return null;
         }
 
         return path;

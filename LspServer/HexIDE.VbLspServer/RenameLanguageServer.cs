@@ -1,0 +1,61 @@
+// SPDX-License-Identifier: MIT
+// Copyright (C) 2026 The HexIDE Authors
+
+using EmmyLua.LanguageServer.Framework.Protocol.JsonRpc;
+using EmmyLua.LanguageServer.Framework.Server;
+
+namespace HexIDE.VbLspServer;
+
+// Framework 0.9.2 handlers can return only results; thrown errors become InternalError.
+// Keep this seam until the framework lets handlers return a ResponseError (#1015).
+internal sealed class RenameLanguageServer(Stream input, Stream output, DocumentStore store)
+    : LanguageServer(input, output, new LanguageServerOptions())
+{
+    private bool _shutdownAnswered;
+
+    internal int ExitCode { get; private set; }
+
+    protected override bool BaseHandle(Message message)
+    {
+        if (message is RequestMessage { Method: "shutdown" })
+        {
+            // Framework 0.9.2 writes the shutdown response synchronously on this read loop.
+            var handled = base.BaseHandle(message);
+            _shutdownAnswered = handled;
+            return handled;
+        }
+
+        if (message is NotificationMessage { Method: "exit" })
+        {
+            // Framework 0.9.2 records exit but keeps reading. Cancel on the read loop so its
+            // next iteration stops before another header read (and before stdin can reach EOF).
+            ExitCode = _shutdownAnswered ? 0 : 1;
+            Exit();
+            return true;
+        }
+
+        if (message is not RequestMessage { Method: "textDocument/rename" } request)
+            return base.BaseHandle(message);
+
+        // BaseHandle runs on the read loop. Scheduling keeps rename behind prior didChange work.
+        Scheduler.Schedule(_ =>
+        {
+            try
+            {
+                string? refusal = null;
+                using var result = request.Params is { } p
+                    ? LspRequestHandlers.Rename(store, p.RootElement, out refusal)
+                    : LspJson.Null();
+                Writer.WriteResponse(request.Id, refusal is null ? result : null,
+                    refusal is null ? null : new ResponseError(-32803, refusal, null));
+            }
+            catch (Exception ex)
+            {
+                Serilog.Log.Error(ex, "Rename handler failed");
+                Writer.WriteResponse(request.Id, null, new ResponseError(-32603, ex.Message, null));
+            }
+            return Task.CompletedTask;
+        }, request);
+        return true;
+    }
+}

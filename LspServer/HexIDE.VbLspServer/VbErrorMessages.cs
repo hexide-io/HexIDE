@@ -69,6 +69,7 @@ internal static partial class VbErrorMessages
     private static string EscapeToken(string? token)
     {
         if (string.IsNullOrEmpty(token) || token == "<EOF>") return "end of file";
+        if (string.IsNullOrWhiteSpace(token)) return "end of line";
         return token.Trim();
     }
 

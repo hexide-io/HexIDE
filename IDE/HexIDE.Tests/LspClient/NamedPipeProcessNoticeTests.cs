@@ -72,6 +72,38 @@ public class NamedPipeProcessNoticeTests
             connectTimeout: TimeSpan.FromSeconds(3));
 
     [Fact]
+    public async Task StandardOutputIsReadEvenWhenTheServerNeverCreatesItsPipe()
+    {
+        var launch = OperatingSystem.IsWindows()
+            ? new NamedPipeLaunch("cmd.exe", "/c \"echo stdout-one& echo stdout-two& exit 9\"")
+            : new NamedPipeLaunch("/bin/sh", "-c \"echo stdout-one; echo stdout-two; exit 9\"");
+        await using var transport = Transport(launch, PipeName());
+        var seen = new List<TransportNotice>();
+        var gate = new Lock();
+        var reported = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        transport.Notice += (_, n) =>
+        {
+            lock (gate)
+            {
+                seen.Add(n);
+                if (seen.Count(notice => notice.Kind == TransportNoticeKind.StandardOutput) >= 2) reported.TrySetResult();
+            }
+        };
+
+        var handler = await transport.ConnectAsync(new SystemTextJsonFormatter(), TestContext.Current.CancellationToken);
+        handler.Should().BeNull();
+        await ProcessNoticeWait.ForAsync(reported.Task,
+            "two standard-output lines from the server that never creates its pipe", TestContext.Current.CancellationToken,
+            received: () => ProcessNoticeWait.Describe(seen, gate));
+        lock (gate)
+        {
+            seen.Where(n => n.Kind == TransportNoticeKind.StandardOutput).Select(n => n.Text)
+                .Should().Equal("stdout-one", "stdout-two");
+            seen.Should().NotContain(n => n.Kind == TransportNoticeKind.StandardError);
+        }
+    }
+
+    [Fact]
     public async Task EveryLineTheServerWroteToStandardErrorReachesTheNoticeChannel()
     {
         // Before this the ProcessStartInfo did not set RedirectStandardError at all, so these lines were
@@ -80,12 +112,22 @@ public class NamedPipeProcessNoticeTests
 
         var seen = new List<TransportNotice>();
         var gate = new Lock();
-        transport.Notice += (_, n) => { lock (gate) seen.Add(n); };
+        var reported = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        transport.Notice += (_, n) =>
+        {
+            lock (gate)
+            {
+                seen.Add(n);
+                if (seen.Count(notice => notice.Kind == TransportNoticeKind.StandardError) >= 2) reported.TrySetResult();
+            }
+        };
 
         await transport.ConnectAsync(
             new SystemTextJsonFormatter(), TestContext.Current.CancellationToken);
 
-        await WaitFor(() => Count(seen, gate, TransportNoticeKind.StandardError) >= 2);
+        await ProcessNoticeWait.ForAsync(reported.Task,
+            "two standard-error lines from the launched pipe server", TestContext.Current.CancellationToken,
+            received: () => ProcessNoticeWait.Describe(seen, gate));
 
         List<string> lines;
         lock (gate)
@@ -103,11 +145,21 @@ public class NamedPipeProcessNoticeTests
 
         var seen = new List<TransportNotice>();
         var gate = new Lock();
-        transport.Notice += (_, n) => { lock (gate) seen.Add(n); };
+        var reported = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        transport.Notice += (_, n) =>
+        {
+            lock (gate)
+            {
+                seen.Add(n);
+                if (seen.Count(notice => notice.Kind == TransportNoticeKind.Lifecycle) >= 1) reported.TrySetResult();
+            }
+        };
 
         await transport.ConnectAsync(
             new SystemTextJsonFormatter(), TestContext.Current.CancellationToken);
-        await WaitFor(() => Count(seen, gate, TransportNoticeKind.Lifecycle) >= 1);
+        await ProcessNoticeWait.ForAsync(reported.Task,
+            "the launched pipe server exit-code notice", TestContext.Current.CancellationToken,
+            received: () => ProcessNoticeWait.Describe(seen, gate));
 
         TransportNotice exit;
         lock (gate) exit = seen.Last(n => n.Kind == TransportNoticeKind.Lifecycle);
@@ -125,7 +177,7 @@ public class NamedPipeProcessNoticeTests
 
         var order = new List<string>();
         var gate = new Lock();
-        var closed = new TaskCompletionSource();
+        var closed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
 
         transport.Notice += (_, n) =>
         {
@@ -140,7 +192,8 @@ public class NamedPipeProcessNoticeTests
 
         await transport.ConnectAsync(
             new SystemTextJsonFormatter(), TestContext.Current.CancellationToken);
-        await closed.Task.WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken);
+        await ProcessNoticeWait.ForAsync(closed.Task, "the launched pipe server Closed event",
+            TestContext.Current.CancellationToken);
 
         lock (gate) order.Should().Equal("exit-code", "closed");
     }
@@ -159,7 +212,17 @@ public class NamedPipeProcessNoticeTests
 
         var seen = new List<TransportNotice>();
         var gate = new Lock();
-        transport.Notice += (_, n) => { lock (gate) seen.Add(n); };
+        var reported = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        transport.Notice += (_, n) =>
+        {
+            lock (gate)
+            {
+                seen.Add(n);
+                if (seen.Count(notice => notice.Kind == TransportNoticeKind.StandardError) >= 2 &&
+                    seen.Count(notice => notice.Kind == TransportNoticeKind.Lifecycle) >= 1)
+                    reported.TrySetResult();
+            }
+        };
 
         var handler = await transport.ConnectAsync(
             new SystemTextJsonFormatter(), TestContext.Current.CancellationToken);
@@ -167,9 +230,9 @@ public class NamedPipeProcessNoticeTests
         handler.Should().BeNull("nothing ever created the pipe, so there is no channel to hand back");
         transport.LastFailure.Should().NotBeNullOrEmpty("the connect failure is reported in its own words");
 
-        await WaitFor(() =>
-            Count(seen, gate, TransportNoticeKind.StandardError) >= 2 &&
-            Count(seen, gate, TransportNoticeKind.Lifecycle) >= 1);
+        await ProcessNoticeWait.ForAsync(reported.Task,
+            "two standard-error lines and the exit-code notice from the server that never creates its pipe",
+            TestContext.Current.CancellationToken, received: () => ProcessNoticeWait.Describe(seen, gate));
 
         List<TransportNotice> notices;
         lock (gate) notices = [.. seen];
@@ -178,6 +241,54 @@ public class NamedPipeProcessNoticeTests
             "the server's own words are the whole account of a startup failure");
         notices.Should().Contain(n => n.Kind == TransportNoticeKind.Lifecycle && n.Text.Contains("code 9"),
             "and the exit code says it failed rather than finished");
+    }
+
+    [Fact]
+    public async Task AServerThatExitsWhileTeardownWaitsStillReportsItsExitCode()
+    {
+        // Teardown unsubscribed Exited and then gave the server a grace period to exit in, so a server that took
+        // that grace, by exiting just after the connect attempt gave up, was reported by nothing. Every test above
+        // depended on its server beating a 3 s connect timeout, and twice one did not (#2685). This server exits
+        // half a second after the test starts teardown: after Exited is unsubscribed, and well inside the grace.
+        var directory = Path.Combine(Path.GetTempPath(), $"hexide-2685-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(directory);
+        try
+        {
+            var ready = Path.Combine(directory, "ready");
+            var gate = Path.Combine(directory, "gate");
+            var launch = new NamedPipeLaunch("dotnet", "", ArgumentList:
+            [
+                Path.Join(AppContext.BaseDirectory, "LspTestHost", "HexIDE.Lsp.TestHost.dll"), "teardown-probe",
+                ready, gate, Path.Combine(directory, "marker"), "500", "3",
+            ]);
+            await using var transport = new NamedPipeLspTransport(PipeName(), NamedPipeRole.Connect,
+                Substitute.For<ILogger<NamedPipeLspTransport>>(), launch, connectTimeout: TimeSpan.FromMinutes(2));
+            var seen = new List<TransportNotice>();
+            var lockSeen = new Lock();
+            transport.Notice += (_, n) => { lock (lockSeen) seen.Add(n); };
+
+            using var teardown = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+            var connecting = transport.ConnectAsync(new SystemTextJsonFormatter(), teardown.Token);
+            var started = System.Diagnostics.Stopwatch.StartNew();
+            while (!File.Exists(ready) && !connecting.IsCompleted && started.Elapsed < TimeSpan.FromMinutes(1))
+                await Task.Delay(20, TestContext.Current.CancellationToken);
+            File.Exists(ready).Should().BeTrue("the server must be running before teardown starts");
+
+            await teardown.CancelAsync();
+            await File.WriteAllTextAsync(gate, "teardown", TestContext.Current.CancellationToken);
+            (await connecting).Should().BeNull("the connect attempt was abandoned");
+
+            // ConnectAsync returns only once teardown has finished, so the report has been made if it is ever made.
+            File.Exists(Path.Combine(directory, "marker")).Should().BeTrue("the server exited by itself, inside the grace");
+            List<TransportNotice> exits;
+            lock (lockSeen) exits = seen.Where(n => n.Kind == TransportNoticeKind.Lifecycle).ToList();
+            exits.Should().ContainSingle("a server's end is reported once, and teardown must not drop it")
+                .Which.Text.Should().Be("process exited with code 3");
+        }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
+        }
     }
 
     [Fact]
@@ -205,24 +316,5 @@ public class NamedPipeProcessNoticeTests
                 "somebody else started it, so its exit code is not ours to report");
 
         lock (gate) seen.Should().BeEmpty("there is no process on this side to report on");
-    }
-
-    private static int Count(List<TransportNotice> seen, Lock gate, TransportNoticeKind kind)
-    {
-        lock (gate) return seen.Count(n => n.Kind == kind);
-    }
-
-    /// <summary>
-    /// Polls until the condition holds. Standard error is pumped by <c>BeginErrorReadLine</c> and
-    /// <c>Exited</c> is raised on a pool thread; the two are not ordered against each other, so waiting
-    /// on one says nothing about the other.
-    /// </summary>
-    private static async Task WaitFor(Func<bool> condition)
-    {
-        var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(30);
-        while (!condition() && DateTime.UtcNow < deadline)
-            await Task.Delay(25, TestContext.Current.CancellationToken);
-
-        condition().Should().BeTrue("the process was expected to report within 30 seconds");
     }
 }

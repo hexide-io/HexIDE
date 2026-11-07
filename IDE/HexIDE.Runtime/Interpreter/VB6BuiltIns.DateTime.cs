@@ -17,10 +17,10 @@ public partial class VB6BuiltIns
 
     private static void RegisterDateTime(Dictionary<string, BuiltinFn> d)
     {
-        // Clock (non-deterministic).
-        d["Now"]   = (_, _, _) => new Vb6Value(DateTime.Now);
-        d["Date"]  = (_, _, _) => new Vb6Value(DateTime.Now.Date);
-        d["Time"]  = (_, _, _) => new Vb6Value(Epoch + DateTime.Now.TimeOfDay);
+        // Clock (non-deterministic). Now and Time are whole seconds; only Timer has a fraction (measured, #783).
+        d["Now"]   = (_, _, _) => new Vb6Value(VbDate.FromDateTime(WholeSeconds(DateTime.Now)));
+        d["Date"]  = (_, _, _) => new Vb6Value(VbDate.FromDateTime(DateTime.Now.Date));
+        d["Time"]  = (_, _, _) => new Vb6Value(VbDate.FromDateTime(Epoch + WholeSeconds(DateTime.Now).TimeOfDay));
         d["Timer"] = (_, _, _) => new Vb6Value((float)DateTime.Now.TimeOfDay.TotalSeconds);
 
         // Parts -> Integer.
@@ -35,11 +35,13 @@ public partial class VB6BuiltIns
         // Constructors -> Date.
         d["DateSerial"] = (_, a, _) => DateSerial(AsInt(a[0]), AsInt(a[1]), AsInt(a[2]));
         d["TimeSerial"] = (_, a, _) => TimeSerial(AsInt(a[0]), AsInt(a[1]), AsInt(a[2]));
-        d["DateValue"]  = (_, a, _) => new Vb6Value(AsDateText(a[0]).Date);
-        d["TimeValue"]  = (_, a, _) => new Vb6Value(Epoch + AsDateText(a[0]).TimeOfDay);
+        // Each takes its part of the instant, the date rounded to the second: DateValue of 1999-12-31 23:59:59.6 is
+        // 1 January 2000, and TimeValue of 12:00:00.6 exactly 12:00:01 (measured, #783).
+        d["DateValue"]  = (_, a, _) => new Vb6Value(VbDate.FromDateTime(AsDateText(a[0]).Date));
+        d["TimeValue"]  = (_, a, _) => new Vb6Value(VbDate.FromDateTime(Epoch + AsDateText(a[0]).TimeOfDay));
 
         // Arithmetic.
-        d["DateAdd"]  = (_, a, _) => DateAdd(Interval(a[0]), AsInt(a[1]), AsDate(a[2]));
+        d["DateAdd"]  = (_, a, _) => DateAdd(Interval(a[0]), DateAddCount(a[1]), AsSerialDate(a[2]));
         d["DateDiff"] = (_, a, _) => new Vb6Value(DateDiff(Interval(a[0]), AsDate(a[1]), AsDate(a[2]), Fdow(a, 3)));
         d["DatePart"] = (_, a, _) => new Vb6Value(DatePart(Interval(a[0]), AsDate(a[1]), Fdow(a, 2)));
 
@@ -51,6 +53,8 @@ public partial class VB6BuiltIns
     private static string Interval(Vb6Value v) => AsStr(v).Trim().ToLowerInvariant();
 
     // firstDayOfWeek arg at index i, defaulting to vbSunday(1); vbUseSystemDayOfWeek(0) is treated as vbSunday.
+    private static DateTime WholeSeconds(DateTime t) => new(t.Ticks - t.Ticks % TimeSpan.TicksPerSecond, t.Kind);
+
     private static int Fdow(IReadOnlyList<Vb6Value> a, int i)
     {
         int f = Supplied(a, i) ? AsInt(a[i]) : 1;
@@ -80,17 +84,21 @@ public partial class VB6BuiltIns
     internal static Vb6Value StringToDate(string text, ParserRuleContext? ctx)
     {
         if (TryReadDate(text.Trim(), out var date))
-            return new Vb6Value(OnZeroDateIfTimeOnly(date));
+            return new Vb6Value(VbDate.FromDateTime(OnZeroDateIfTimeOnly(date)));
         double serial;
         try { serial = ToNum(new Vb6Value(text)); }
         catch (VBRunTimeException) { throw new VBRunTimeException(ctx, VBStandardError.TypeMismatch); }
-        try { return new Vb6Value(DateTime.FromOADate(serial)); }
-        catch (ArgumentException) { throw new VBRunTimeException(ctx, VBStandardError.TypeMismatch); }
+        return VbDate.InRange(serial)
+            ? new Vb6Value(new VbDate(serial))
+            : throw new VBRunTimeException(ctx, VBStandardError.TypeMismatch);
     }
 
     // The first two numbers of a date, when they could be a day and a month: one or two digits each, separated by
     // what VB6 reads between them. A dot is not among them: under en-GB, "1.2.2003" is not a date at all (measured).
     private static readonly Regex LeadingDayAndMonth = new(@"^(\s*)(\d{1,2})([/\- ]+)(\d{1,2})(?!\d)", RegexOptions.CultureInvariant);
+
+    private static readonly Regex DayMonthWithTime = new(@"^\s*(\d{1,2}\s*[/\-]\s*\d{1,2})\s+(\d{1,2}:\d{2}(?::\d{2})?(?:\s*[AP]M)?)\s*$",
+        RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
 
     /// <summary>
     /// Text a program reads as a date, in its locale (#777). When the locale's order makes an impossible date, VB6
@@ -134,6 +142,16 @@ public partial class VB6BuiltIns
             if (DateTime.TryParse(swapped, culture, DateTimeStyles.NoCurrentDateDefault, out result))
                 return true;
         }
+        // .NET refuses a yearless numeric date followed by a time (#1445). Read the date alone through
+        // this same reader so its locale order (and impossible-order fallback) stays the untimed one's.
+        var timedPair = DayMonthWithTime.Match(text);
+        if (timedPair.Success && TryReadDate(timedPair.Groups[1].Value, out var day)
+            && day.Year == DateTime.Now.Year
+            && DateTime.TryParse(timedPair.Groups[2].Value, culture, DateTimeStyles.NoCurrentDateDefault, out var time))
+        {
+            result = day.Date.Add(time.TimeOfDay);
+            return true;
+        }
         return TryMonthAndYear(text, culture, out result);
     }
 
@@ -164,19 +182,19 @@ public partial class VB6BuiltIns
 
     // VB6 date serial (OLE Automation) — accepts a Date, a numeric serial, or a String as CDate reads it, a serial
     // included (measured, #967: DateAdd("d", 1, "36526") is 02/01/2000, Year("1,000") 2000, Format("36526", "dd/mm/yyyy")
-    // 01/01/2000, and DateAdd("d", 1, "2958466") 13).
-    private static DateTime AsDate(Vb6Value v)
+    // 01/01/2000, and DateAdd("d", 1, "2958466") 13). The serial is kept exactly, a fraction of a second included (#783).
+    private static VbDate AsSerialDate(Vb6Value v)
     {
-        if (v.Value is DateTime dt) return dt;
+        if (v.Value is VbDate date) return date;
         if (v.Value is string s)
-            return (DateTime)StringToDate(s, null).Value!;
-        if (Vb6Value.TryNumericToDouble(v, out var oa))
-        {
-            try { return DateTime.FromOADate(oa); }
-            catch (ArgumentException) { throw InvalidCall(); }
-        }
+            return (VbDate)StringToDate(s, null).Value!;
+        if (Vb6Value.TryNumericToDouble(v, out var serial))
+            return VbDate.InRange(serial) ? new VbDate(serial) : throw InvalidCall();
         throw new VBRunTimeException(VBStandardError.TypeMismatch);
     }
+
+    // The instant a date function reads: the serial rounded to the second, as VB6 shows it (#783, VbDate.Instant).
+    private static DateTime AsDate(Vb6Value v) => AsSerialDate(v).Instant;
 
     // DateValue and TimeValue read a String as date text only, with no serial (measured, #967: DateValue("36526") and
     // TimeValue("36526.5") are 13, where TimeValue("1.5") is 01:05). Anything else is read as AsDate reads it.
@@ -199,29 +217,63 @@ public partial class VB6BuiltIns
     private static Vb6Value DateSerial(int year, int month, int day)
     {
         if (year is >= 0 and <= 99) year = VbLocale.Current.DateTimeFormat.Calendar.ToFourDigitYear(year);
-        try { return new Vb6Value(new DateTime(year, 1, 1).AddMonths(month - 1).AddDays(day - 1)); }
+        try { return new Vb6Value(VbDate.FromDateTime(new DateTime(year, 1, 1).AddMonths(month - 1).AddDays(day - 1))); }
         catch (ArgumentOutOfRangeException) { throw InvalidCall(); }
     }
 
-    private static Vb6Value DateAdd(string iv, int n, DateTime dt)
+    // DateAdd's count is cut toward zero, as Fix cuts it, and held as a Long: DateAdd("s", 0.6, d), ("d", -0.6, d) and
+    // ("yyyy", -0.6, d) count 0, ("h", -1.6, d) counts -1, and 2147483648 is Overflow (measured, #783).
+    private static int DateAddCount(Vb6Value v)
     {
-        try
+        if (v.Value is int i) return i;
+        if (v.Value is long l) return (int)l;
+        if (v.Value is byte b) return b;
+        double count;
+        if (Vb6Value.TryNumericToDouble(v, out var d)) count = d;
+        else if (v.Type == Vb6Value.ValueType.String) count = ToNum(v);
+        else throw new VBRunTimeException(VBStandardError.TypeMismatch);
+        count = Math.Truncate(count);
+        if (count < int.MinValue || count > int.MaxValue)
+            throw new VBRunTimeException(VBStandardError.Overflow);
+        return (int)count;
+    }
+
+    /// <summary>
+    /// DateAdd, as measured on vb6.exe (#783, oracle "A date's fraction of a second"). Years, quarters and months move the
+    /// instant, the date rounded to the second, along the calendar, and land on a whole second: a month after 1999-12-31
+    /// 23:59:59.6 is exactly 2000-02-01, and a month after 12:00:00.6 on the epoch exactly 30 January 1900 12:00:01, even
+    /// with a count of 0. Days, weeks, hours, minutes and seconds are added to the date as it is, its fraction of a second
+    /// kept bit for bit, along the continuous line a date before the epoch is counted on (VbDate.Continuous): a day back
+    /// from 12:00:00.6 on the epoch is 29 December 12:00:00.6.
+    /// </summary>
+    private static Vb6Value DateAdd(string iv, int n, VbDate date)
+    {
+        double? add = iv switch
         {
-            return new Vb6Value(iv switch
-            {
-                "yyyy" => dt.AddYears(n),
-                "q" => dt.AddMonths(n * 3),
-                "m" => dt.AddMonths(n),
-                "y" or "d" or "w" => dt.AddDays(n),
-                "ww" => dt.AddDays(n * 7),
-                "h" => dt.AddHours(n),
-                "n" => dt.AddMinutes(n),
-                "s" => dt.AddSeconds(n),
-                _ => throw InvalidCall(),
-            });
+            "y" or "d" or "w" => n,
+            "ww" => n * 7.0,
+            "h" => n / 24.0,
+            "n" => n / 1440.0,
+            "s" => n / 86400.0,
+            _ => null,
+        };
+        if (add is { } days)
+        {
+            var serial = VbDate.SerialOfContinuous(date.Continuous + days);
+            // Past the Date range (e.g. DateAdd("yyyy", 100000, Now)) is Err 5 (oracle-verified: DateAdd gives Invalid
+            // procedure call, NOT Overflow).
+            return VbDate.InRange(serial) ? new Vb6Value(new VbDate(serial)) : throw InvalidCall();
         }
-        // Overflow past the Date range (e.g. DateAdd("yyyy", 100000, Now)) → Err 5 (oracle-verified: DateAdd gives
-        // Invalid procedure call, NOT Overflow), not an uncatchable .NET ArgumentOutOfRangeException.
+        var months = iv switch
+        {
+            "yyyy" => 12L * n,
+            "q" => 3L * n,
+            "m" => n,
+            _ => throw InvalidCall(),
+        };
+        if (Math.Abs(months) > 12L * 10000)
+            throw InvalidCall();
+        try { return new Vb6Value(VbDate.FromDateTime(date.Instant.AddMonths((int)months))); }
         catch (ArgumentOutOfRangeException) { throw InvalidCall(); }
     }
 
@@ -230,7 +282,7 @@ public partial class VB6BuiltIns
     // .NET ArgumentOutOfRangeException.
     private static Vb6Value TimeSerial(int h, int m, int s)
     {
-        try { return new Vb6Value(Epoch.AddHours(h).AddMinutes(m).AddSeconds(s)); }
+        try { return new Vb6Value(VbDate.FromDateTime(Epoch.AddHours(h).AddMinutes(m).AddSeconds(s))); }
         catch (ArgumentOutOfRangeException) { throw new VBRunTimeException(VBStandardError.Overflow); }
     }
 

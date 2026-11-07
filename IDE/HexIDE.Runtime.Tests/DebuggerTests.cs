@@ -20,6 +20,65 @@ public class DebuggerTests : BaseVBTestFixture
         return tcs.Task;
     }
 
+    [Theory]
+    [InlineData("Sub Helper()", "Debug.Print 1", "End Sub", "Helper", 3)]
+    [InlineData("Sub Helper()", "Debug.Print 1", "End Sub", "Helper", 5)]
+    [InlineData("Function Helper() As Integer", "Helper = 1", "End Function", "Debug.Print Helper()", 5)]
+    public async Task ProcedureBoundaries_BreakBeforeBodyAndBeforeReturn(string declaration, string body, string end, string call, int line)
+    {
+        var (vb, dbg) = NewDebuggable($"{call}\nDebug.Print 2\n{declaration}\n{body}\n{end}\n", "M");
+        dbg.SetBreakpoints("M", new[] { line });
+        var stop = NextStop(dbg);
+        var run = vb.Execute();
+        (await stop.Guarded()).Line.Should().Be(line);
+        dbg.GetCallStack()[0].Line.Should().Be(line);
+        if (line == 3)
+            debug.Should().BeEmpty();
+        debug.Should().NotContain(v => v.Value != null && v.Value.ToString() == "2");
+        dbg.Continue();
+        await run.Guarded();
+        debug.Last().Value!.ToString().Should().Be("2");
+    }
+
+    [Fact]
+    public async Task PropertyGetEnd_BreaksBeforeReturningValue()
+    {
+        var (vb, dbg) = NewDebuggable("Dim o As New C\nDebug.Print o.Helper\nDebug.Print 2\n", "M",
+            ("C", "Public Property Get Helper() As Integer\nHelper = 1\nEnd Property\n"));
+        dbg.SetBreakpoints("C", new[] { 3 });
+        var stop = NextStop(dbg);
+        var run = vb.Execute();
+        var info = await stop.Guarded();
+        info.Module.Should().Be("C");
+        info.Line.Should().Be(3);
+        debug.Should().BeEmpty();
+        dbg.Continue();
+        await run.Guarded();
+        AssertDebugLog([1, 2]);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task StepFromLastStatement_StopsOnEndThenCallersNextLine(bool function)
+    {
+        var (vb, dbg) = NewDebuggable(function
+            ? "x = Helper()\nDebug.Print 2\nFunction Helper() As Integer\nHelper = 1\nEnd Function\n"
+            : "Helper\nDebug.Print 2\nSub Helper()\nDebug.Print 1\nEnd Sub\n", "M");
+        dbg.SetBreakpoints("M", new[] { 4 });
+        var stop = NextStop(dbg);
+        var run = vb.Execute();
+        (await stop.Guarded()).Line.Should().Be(4);
+        var atEnd = NextStop(dbg);
+        dbg.StepOver();
+        (await atEnd.Guarded()).Line.Should().Be(5);
+        var atCaller = NextStop(dbg);
+        dbg.StepOver();
+        (await atCaller.Guarded()).Line.Should().Be(2);
+        dbg.Continue();
+        await run.Guarded();
+    }
+
     [Fact]
     public async Task Breakpoint_StopsAtLine_ThenContinueResumes()
     {
@@ -167,6 +226,44 @@ public class DebuggerTests : BaseVBTestFixture
         await run.Guarded();    // the stale walk unwinds via the session check
         debug.Should().HaveCount(1);   // "b"/"c" never ran — no resurrection
         debug.Select(v => v.Value?.ToString()).Should().NotContain("b").And.NotContain("c");
+    }
+
+    private sealed class YieldContext : SynchronizationContext
+    {
+        private readonly Queue<(SendOrPostCallback Callback, object? State)> pending = new();
+        public override void Post(SendOrPostCallback callback, object? state) => pending.Enqueue((callback, state));
+        public void Pump()
+        {
+            while (pending.TryDequeue(out var work))
+                work.Callback(work.State);
+        }
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Stop_WhileTimeSliceYielded_UnwindsBeforePrinting(bool reset)
+    {
+        var (vb, dbg) = NewDebuggable("Debug.Print \"stale\"\n", "M");
+        dbg.TimeSliceMs = -1;   // every statement yields, without depending on a clock tick
+        var previous = SynchronizationContext.Current;
+        var pump = new YieldContext();
+        SynchronizationContext.SetSynchronizationContext(pump);
+        try
+        {
+            var run = vb.Execute();
+            run.IsCompleted.Should().BeFalse();
+            debug.Should().BeEmpty();
+            dbg.Stop();
+            if (reset) dbg.Reset();
+            pump.Pump();
+            run.IsCompletedSuccessfully.Should().BeTrue();
+            AssertDebugLog([]);
+        }
+        finally
+        {
+            SynchronizationContext.SetSynchronizationContext(previous);
+        }
     }
 
     [Fact]

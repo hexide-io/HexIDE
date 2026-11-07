@@ -4,7 +4,7 @@ using HexIDE.Runtime.Interpreter;
 namespace HexIDE.Runtime.Tests;
 
 /// <summary>
-/// Operator precedence and associativity (#1074), every row measured on vb6.exe: docs/vb6-fidelity-oracle.md, "Operator
+/// Operator precedence and associativity (#1074), every row measured on vb6.exe: docs/vb6-fidelity-oracle/operator-precedence.md, "Operator
 /// precedence". VB6's ladder is <c>^</c>, negation, <c>*</c> and <c>/</c>, <c>\</c>, <c>Mod</c>, <c>+</c> and <c>-</c>,
 /// <c>&amp;</c>, every comparison (<c>Like</c> and <c>Is</c> included), <c>Not</c>, <c>And</c>, <c>Or</c>, <c>Xor</c>,
 /// <c>Eqv</c>, <c>Imp</c>, and operators of one level are taken left to right. The interpreter's grammar had given each
@@ -57,7 +57,6 @@ public class OperatorPrecedenceTests : BaseVBTestFixture
     [InlineData("True Or True And False", "True|Boolean")]
     [InlineData("True Xor True Or True", "False|Boolean")]
     [InlineData("False Imp False Eqv False", "True|Boolean")]
-    // Not here: `-2 ^ 2`, which VB6 makes -4. The lexer reads a minus sign as part of the number, so it is 4 here (#1073).
     public async Task An_expression_groups_as_vb6_exe_groups_it(string expression, string expected)
     {
         await Run($"Dim v\nv = {expression}\nDebug.Print CStr(v) & \"|\" & TypeName(v)\n");

@@ -1,5 +1,5 @@
 VERSION 5.00
-Begin VB.Form frmSetup
+Begin VB.Form frmSetup 
    BorderStyle     =   3  'Fixed Dialog
    Caption         =   "New game"
    ClientHeight    =   2160
@@ -12,7 +12,7 @@ Begin VB.Form frmSetup
    ScaleWidth      =   3960
    ShowInTaskbar   =   0   'False
    StartUpPosition =   2  'CenterScreen
-   Begin VB.CommandButton cmdCancel
+   Begin VB.CommandButton cmdCancel 
       Cancel          =   -1  'True
       Caption         =   "Cancel"
       Height          =   375
@@ -21,7 +21,7 @@ Begin VB.Form frmSetup
       Top             =   1560
       Width           =   1095
    End
-   Begin VB.CommandButton cmdOK
+   Begin VB.CommandButton cmdOK 
       Caption         =   "OK"
       Default         =   -1  'True
       Height          =   375
@@ -30,7 +30,7 @@ Begin VB.Form frmSetup
       Top             =   1560
       Width           =   1095
    End
-   Begin VB.OptionButton optSize
+   Begin VB.OptionButton optSize 
       Caption         =   "10 x 10"
       Height          =   255
       Index           =   2
@@ -39,7 +39,7 @@ Begin VB.Form frmSetup
       Top             =   1080
       Width           =   1095
    End
-   Begin VB.OptionButton optSize
+   Begin VB.OptionButton optSize 
       Caption         =   "7 x 7"
       Height          =   255
       Index           =   1
@@ -48,7 +48,7 @@ Begin VB.Form frmSetup
       Top             =   1080
       Width           =   1095
    End
-   Begin VB.OptionButton optSize
+   Begin VB.OptionButton optSize 
       Caption         =   "5 x 5"
       Height          =   255
       Index           =   0
@@ -58,14 +58,14 @@ Begin VB.Form frmSetup
       Value           =   -1  'True
       Width           =   1095
    End
-   Begin VB.TextBox txtName
+   Begin VB.TextBox txtName 
       Height          =   315
       Left            =   1440
       TabIndex        =   1
       Top             =   240
       Width           =   2295
    End
-   Begin VB.Label lblSize
+   Begin VB.Label lblSize 
       Caption         =   "Board size:"
       Height          =   255
       Left            =   240
@@ -73,7 +73,7 @@ Begin VB.Form frmSetup
       Top             =   720
       Width           =   1095
    End
-   Begin VB.Label lblName
+   Begin VB.Label lblName 
       Caption         =   "Your &name:"
       Height          =   255
       Left            =   240

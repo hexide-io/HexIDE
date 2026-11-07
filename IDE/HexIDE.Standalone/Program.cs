@@ -5,6 +5,7 @@ using System.IO.Compression;
 using System.Linq;
 using Avalonia;
 using Avalonia.Media.Fonts;
+using HexIDE.IDE;
 using HexIDE.Runtime.ProjectElements;
 using HexIDE.Runtime.Serialization;
 using Classic.CommonControls;
@@ -37,8 +38,9 @@ public class Program
             Error = e.Message;
         }
 
-        BuildAvaloniaApp()
-            .StartWithClassicDesktopLifetime(args);
+        // The made program's VB code runs on the UI thread, so it gets the IDE's stack rather than the
+        // launcher's, which is 1.5 MiB on Windows (#3228).
+        HexIDE.Runtime.UiThread.Run(() => BuildAvaloniaApp().StartWithClassicDesktopLifetime(args));
     }
 
     private static int RunCheck(string projectPath)
@@ -55,7 +57,7 @@ public class Program
 
         var projectDeserializer = new ProjectDeserializer();
         var formDeserializer = new FormDeserializer();
-        var serializedProject = projectDeserializer.Deserialize(File.ReadAllText(projectPath), new NullErrorSink());
+        var serializedProject = projectDeserializer.Deserialize(Vb6TextFile.ReadDocument(File.ReadAllBytes(projectPath)).Text, new NullErrorSink());
         var projectDir = Path.GetDirectoryName(projectPath)!;
 
         Console.WriteLine($"Project: {serializedProject.Name ?? "(unnamed)"} ({serializedProject.ProjectType})");
@@ -82,7 +84,7 @@ public class Program
             }
 
             var sink = new CollectingErrorSink();
-            var form = formDeserializer.Deserialize(projectDefinition, File.ReadAllText(absolutePath), sink);
+            var form = formDeserializer.Deserialize(projectDefinition, Vb6TextFile.ReadDocument(File.ReadAllBytes(absolutePath)).Text, sink);
 
             if (sink.Errors.Count == 0 && form != null)
             {

@@ -22,7 +22,7 @@ namespace HexIDE.Runtime.Tests;
 /// Only "VB6 built the original but not our output" is a failure.
 ///
 /// Opt-in, because it spawns a vb6.exe per form and is Windows-only:
-///   HEXIDE_ORACLE=1 dotnet test HexIDE.Runtime.Tests/ --filter "FullyQualifiedName~Vb6OracleRoundTrip"
+///   HEXIDE_ORACLE=1 dotnet test HexIDE.Runtime.Tests/ -- --filter-method "*HexIDE_output_still_builds_in_vb6"
 /// </summary>
 public class Vb6OracleRoundTripTests : IDisposable
 {
@@ -123,13 +123,15 @@ public class Vb6OracleRoundTripTests : IDisposable
     public void HexIDE_output_still_builds_in_vb6()
     {
         if (Environment.GetEnvironmentVariable("HEXIDE_ORACLE") != "1")
-            return; // opt-in: spawns a vb6.exe per form
+            throw Xunit.Sdk.SkipException.ForSkip("Set HEXIDE_ORACLE=1 to compile round-tripped forms with VB6.");
 
         var vb6 = FindVb6();
-        if (vb6 is null) return; // no VB6 install (CI is Linux)
+        if (vb6 is null)
+            throw Xunit.Sdk.SkipException.ForSkip("VB6 compiler not found; install VB6 or set VB6_EXE.");
 
         var forms = CorpusForms();
-        if (forms.Count == 0) return;
+        if (forms.Count == 0)
+            throw Xunit.Sdk.SkipException.ForSkip("No VB6 corpus forms found; set VB6_TEMPLATES.");
 
         var report = new StringBuilder();
         var regressions = new List<string>();

@@ -90,7 +90,9 @@ public sealed class ConversationRing(CaptureLimits limits)
         TimeSpan elapsed,
         long? answerSequence = null,
         int? answerSizeBytes = null,
-        long? completedSequence = null)
+        long? completedSequence = null,
+        string? detail = null,
+        bool fault = false)
     {
         lock (_lock)
         {
@@ -104,6 +106,8 @@ public sealed class ConversationRing(CaptureLimits limits)
                     AnswerSequence = answerSequence,
                     AnswerSizeBytes = answerSizeBytes,
                     CompletedSequence = completedSequence,
+                    Detail = detail ?? _prologue[i].Detail,
+                    Fault = fault || _prologue[i].Fault,
                 };
                 return;
             }
@@ -125,6 +129,8 @@ public sealed class ConversationRing(CaptureLimits limits)
                         AnswerSequence = answerSequence,
                         AnswerSizeBytes = answerSizeBytes,
                         CompletedSequence = completedSequence,
+                        Detail = detail ?? e.Detail,
+                        Fault = fault || e.Fault,
                     }
                     : e);
             }

@@ -5,7 +5,7 @@ namespace HexIDE.Runtime.Interpreter;
 /// <summary>
 /// VB6's text compare: what <c>Option Compare Text</c> gives the comparison operators and <c>Select Case</c>, what a
 /// Collection's keys use, and what a compare of 1 gives the string functions. Measured on vb6.exe under en-GB, native and
-/// p-code alike (docs/vb6-fidelity-oracle.md, "Option Compare Text", #1567). There are two rules, because vb6.exe has two:
+/// p-code alike (docs/vb6-fidelity-oracle/option-compare-text-and-vb6s-text-compare.md, "Option Compare Text", #1567). There are two rules, because vb6.exe has two:
 /// <list type="bullet">
 /// <item><b>Comparing</b> two strings (<see cref="Compare"/>) goes a level at a time. First the letters' primary weights,
 /// case ignored, an expansion such as ß counting as its two letters, and the word-sort and ignorable characters skipped;
@@ -54,6 +54,10 @@ internal static partial class VbTextCompare
             order = CompareWordSort(a, b);
         return order;
     }
+
+    /// <summary>Whether every character has an oracle weight or measured expansion, without the Unicode fallback.</summary>
+    public static bool HasMeasuredWeights(string text) =>
+        text.All(c => ByCharacter.ContainsKey(c) || LettersOf.ContainsKey(c));
 
     /// <summary>Whether the two compare equal as text.</summary>
     public static bool AreEqual(string a, string b) => Compare(a, b) == 0;

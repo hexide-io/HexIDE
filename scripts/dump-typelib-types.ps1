@@ -55,7 +55,14 @@ public static class TlbTypeDump
         string libName, doc, helpFile;
         int helpContext;
         tlb.GetDocumentation(MEMBERID_NIL, out libName, out doc, out helpContext, out helpFile);
-        rows.Add("{\"kind\":\"LIB\",\"library\":\"" + libName + "\"}");
+        // The library's identity as a project's Object= line names it: {guid}#major.minor.
+        IntPtr la;
+        tlb.GetLibAttr(out la);
+        ComTypes.TYPELIBATTR libAttr;
+        try { libAttr = (ComTypes.TYPELIBATTR)Marshal.PtrToStructure(la, typeof(ComTypes.TYPELIBATTR)); }
+        finally { tlb.ReleaseTLibAttr(la); }
+        rows.Add("{\"kind\":\"LIB\",\"library\":\"" + libName + "\",\"guid\":\"" + libAttr.guid.ToString("B").ToUpperInvariant()
+               + "\",\"version\":\"" + libAttr.wMajorVerNum + "." + libAttr.wMinorVerNum + "\"}");
         int count = tlb.GetTypeInfoCount();
         for (int i = 0; i < count; i++)
         {
@@ -87,7 +94,9 @@ public static class TlbTypeDump
             rows.Add("{\"kind\":\"TYPE\",\"library\":\"" + libName + "\",\"name\":\"" + name + "\",\"typekind\":\"" + kind
                    + "\",\"aliasOf\":" + aliasOf
                    + ",\"hidden\":" + ((flags & (int)ComTypes.TYPEFLAGS.TYPEFLAG_FHIDDEN) != 0 ? "true" : "false")
-                   + ",\"restricted\":" + ((flags & (int)ComTypes.TYPEFLAGS.TYPEFLAG_FRESTRICTED) != 0 ? "true" : "false") + "}");
+                   + ",\"restricted\":" + ((flags & (int)ComTypes.TYPEFLAGS.TYPEFLAG_FRESTRICTED) != 0 ? "true" : "false")
+                   // A coclass that is a control, as a form can hold it, rather than an object a control hands out.
+                   + ",\"control\":" + ((flags & (int)ComTypes.TYPEFLAGS.TYPEFLAG_FCONTROL) != 0 ? "true" : "false") + "}");
         }
         return rows;
     }

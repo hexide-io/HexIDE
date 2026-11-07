@@ -6,7 +6,7 @@ namespace HexIDE.Runtime.Tests;
 /// VB6's bitwise operators — And, Or, Xor, Eqv, Imp, Not.
 ///
 /// Every expectation here is a row measured against vb6.exe, recorded under "Bitwise And / Or / Xor / Not —
-/// the result-type ladder" in docs/vb6-fidelity-oracle.md. None of it is inferred, because most of it is
+/// the result-type ladder" in docs/vb6-fidelity-oracle/bitwise-and--or--xor--not--the-result-type-ladder.md. None of it is inferred, because most of it is
 /// not guessable: two Bytes stay a Byte, a Byte beside a Boolean becomes an Integer, and `Not CByte(5)` is
 /// 250 rather than -6.
 ///

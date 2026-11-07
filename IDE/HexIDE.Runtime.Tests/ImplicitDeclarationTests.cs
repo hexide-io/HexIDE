@@ -7,7 +7,7 @@ namespace HexIDE.Runtime.Tests;
 /// Declaration" is off by default, so a module without <c>Option Explicit</c> is what most VB6 code is.
 ///
 /// Every expectation is measured — see "DefType" and the implicit-declaration rows in
-/// docs/vb6-fidelity-oracle.md. The rule: on a bare name nothing else claims, VB6 creates a
+/// docs/vb6-fidelity-oracle/deftype--default-typing-by-first-letter.md. The rule: on a bare name nothing else claims, VB6 creates a
 /// procedure-local Variant, Empty, fresh per call, on read as well as write.
 ///
 /// Before #171 all of this raised <c>Err 424 "Object required"</c>.

@@ -6,8 +6,9 @@ namespace HexIDE.Runtime.Interpreter;
 
 /// <summary>One field of a user-defined <c>Type</c>. A scalar field carries a <see cref="Vb6Value.ValueType"/>;
 /// a nested-UDT field carries the referenced type's name (resolved against the program's type table at
-/// instantiation). Array fields and fixed-length strings are deferred (spec walls).</summary>
-public sealed record UdtField(string Name, Vb6Value.ValueType? ScalarType, string? UdtTypeName);
+/// instantiation). Array fields also carry their bounds; fixed-length strings are deferred.</summary>
+public sealed record UdtField(string Name, Vb6Value.ValueType? ScalarType, string? UdtTypeName, string? AutoNewClass = null,
+    bool IsArray = false, IReadOnlyList<(int, int)>? Bounds = null);
 
 /// <summary>A user-defined <c>Type … End Type</c> definition, owned by the module that declares it.
 ///
@@ -15,7 +16,7 @@ public sealed record UdtField(string Name, Vb6Value.ValueType? ScalarType, strin
 /// A UDT's type identity is MODULE-scoped — measured. Two modules may each declare a <c>Public Type Point</c>
 /// and they are two unrelated types; <c>Module2.Point</c> names one of them specifically, and a Private one is
 /// invisible from anywhere else. (An Enum is different: its identity is PROJECT-scoped, so two modules may not
-/// both export one and <c>Module2.MyEnum</c> is not a type name at all. See docs/vb6-fidelity-oracle.md.)
+/// both export one and <c>Module2.MyEnum</c> is not a type name at all. See docs/vb6-fidelity-oracle/module-scope-for-types-and-enums.md.)
 /// </para>
 /// </summary>
 public sealed class UdtTypeDef
@@ -53,24 +54,31 @@ public sealed class VbUdt
     private readonly IReadOnlyDictionary<string, Vb6Value.ValueType> typedFields;
     private readonly IReadOnlySet<string> variantFields;
 
+    private readonly IReadOnlyDictionary<string, AutoNew> autoNewFields;
+
     public VbUdt(string typeName, Dictionary<string, Vb6Value> fields)
         : this(typeName, fields, new Dictionary<string, Vb6Value.ValueType>(), new HashSet<string>())
     {
     }
 
     public VbUdt(string typeName, Dictionary<string, Vb6Value> fields, IReadOnlyDictionary<string, Vb6Value.ValueType> typedFields,
-        IReadOnlySet<string> variantFields)
+        IReadOnlySet<string> variantFields, IReadOnlyDictionary<string, AutoNew>? autoNewFields = null)
     {
+        this.autoNewFields = autoNewFields ?? new Dictionary<string, AutoNew>();
         this.typedFields = typedFields;
         this.variantFields = variantFields;
         TypeName = typeName;
         this.fields = fields;
     }
 
+    internal bool TryInspect(string field, out Vb6Value value) => fields.TryGetValue(field, out value);
+
     public bool TryGet(string field, out Vb6Value value)
     {
         if (!fields.TryGetValue(field, out value))
             return false;
+        if (value.Value is null && autoNewFields.TryGetValue(field, out var autoNew))
+            throw new AutoInstanceNeeded(this, field, autoNew);
         value = typedFields.ContainsKey(field) ? value.AsFixedType()
             : variantFields.Contains(field) ? value.AsVariant()
             : value;
@@ -105,14 +113,28 @@ public sealed class VbUdt
     /// <summary>Whether a field is declared As Variant, or with no As clause.</summary>
     public bool IsVariantField(string field) => variantFields.Contains(field);
 
-    /// <summary>A deep, independent copy — nested UDT fields clone recursively; scalar fields (immutable
-    /// <see cref="Vb6Value"/> structs) copy by value. This is the whole of UDT value semantics.</summary>
+    private static Vb6Value CloneValue(Vb6Value value) => value.Value switch
+    {
+        VbUdt nested => Vb6Value.NewUdt(nested.DeepClone()),
+        VBArray array => CloneArray(value, array),
+        _ => value,
+    };
+
+    private static Vb6Value CloneArray(Vb6Value value, VBArray array)
+    {
+        var copy = array.CopyForLet(CloneValue);
+        copy.IsDynamic = array.IsDynamic;
+        return value.WithArray(copy);
+    }
+
+    /// <summary>A deep, independent copy, including nested records and array fields. Fixed array fields keep
+    /// their fixedness; scalar fields copy by value and object fields keep their references.</summary>
     public VbUdt DeepClone()
     {
         var copy = new Dictionary<string, Vb6Value>(fields.Comparer);
         foreach (var (name, value) in fields)
-            copy[name] = value.Value is VbUdt nested ? Vb6Value.NewUdt(nested.DeepClone()) : value;
-        return new VbUdt(TypeName, copy, typedFields, variantFields);
+            copy[name] = CloneValue(value);
+        return new VbUdt(TypeName, copy, typedFields, variantFields, autoNewFields);
     }
 }
 

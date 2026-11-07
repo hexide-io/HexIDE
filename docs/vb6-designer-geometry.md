@@ -1,6 +1,6 @@
 # VB6 designer geometry — what the oracle actually says
 
-Companion to [`vb6-fidelity-oracle.md`](vb6-fidelity-oracle.md), which records **runtime language**
+Companion to [`vb6-fidelity-oracle/README.md`](vb6-fidelity-oracle/README.md), which records **runtime language**
 semantics — what an expression evaluates to, which error a statement raises. This file records what the
 designer file format and the designer itself do with **geometry and structure**: containers, coordinates,
 units, z-order and tab order. The two are separate documents because they are answered by different
@@ -26,8 +26,9 @@ different form. This is the case the refusal gate still exists for.
 `Treeview Listview Splitter.frm` has a two-element `lblTitle` array living entirely inside one `picTitles`
 — so a control array spans containers, and containment cannot be keyed by name.
 
-**Whether `TabDlg.SSTab` is a container is unresolved.** It is the commonest third-party container in real
-VB6 code, and the probe was blocked by an OCX registry failure. So is `MDIForm`, which appears nowhere in
+**`TabDlg.SSTab` is a container** (measured 2026-10-27, #1090). Every tab's controls are written nested in its
+block, and those on tabs not showing are written 75000 twips to the left. The oracle's "In-box controls: the SSTab"
+has the file and the run-time rules. Whether `MDIForm` is a container is unresolved: it appears nowhere in
 the corpus.
 
 ## Coordinates and units
@@ -63,7 +64,7 @@ transform that treats them alike corrupts one of them.
 
 ## Order
 
-**`Begin` order is z-order, and the first block in a container is its top control** (measured, `docs/vb6-fidelity-oracle.md`,
+**`Begin` order is z-order, and the first block in a container is its top control** (measured, `docs/vb6-fidelity-oracle/where-vb6s-designer-puts-a-controls-block.md`,
 "Where VB6's designer puts a control's block"). There is a separate windowless plane: graphical controls (`Label`,
 `Shape`, `Line`, `Image`) are drawn beneath every windowed control in their container, whatever the order, and VB6
 writes each container's windowed blocks first and its windowless ones after them. A control VB6 adds or pastes goes
@@ -73,13 +74,16 @@ and its box is drawn in that place among the others (#1553).
 The designer draws a form VB6 wrote the same way (#1481), and so does the running form
 ([#1497](https://github.com/hexide-io/HexIDE/issues/1497)), where a control-array element loaded at run time goes under
 its plane's controls, as VB6 puts it (measured). For two Lines the direction is measured too: the one
-earlier in the file is drawn over the later one (`docs/vb6-fidelity-oracle.md`, "The Line control"), and HexIDE draws
+earlier in the file is drawn over the later one (`docs/vb6-fidelity-oracle/the-line-control.md`, "The Line control"), and HexIDE draws
 Lines that way.
 
 **`TabIndex` is one flat sequence per form**, not one per container, and VB6 renumbers it to `0..N−1` on
 load — verified by authoring `0,0,9,9,4,(absent)` and reading back `0,1,2,3,4,5`. Whether VB6 also
 *traverses* strictly by `TabIndex` across container boundaries is a separate question the renumbering
 evidence does not answer, and it has not been established.
+
+**Re-saving writes the renumbered values into the file** (measured 2026-10-27, the oracle's "In-box controls: the
+SSTab"). Hand-written values of 0 to 3, 10 and 20 to 25 came back 0 to 11, the out-of-range ones in file order.
 
 ## Corpus notes
 
@@ -94,8 +98,9 @@ up first.
 
 Three things that cost time before they were written down:
 
-- **Registering the sample OCXs fails** on a modern machine, which blocks any probe needing `MSComctlLib`,
-  `TabDlg` or `SHDocVwCtl`.
+- **Registering the sample OCXs fails** on a modern machine, which blocks any probe needing `TabDlg` or
+  `SHDocVwCtl`. `MSComctlLib` and `ComctlLib` are not blocked: MSCOMCTL.OCX and COMCTL32.OCX are registered in
+  the oracle guest already, and the #1082 probes built and ran against both.
 - **A `.vbp` must be CRLF.** `vb6.exe` will not read one with LF line endings.
 - **`/make` writes its log per form**, not per project, so a failure is reported in a file named after the
   form rather than in the build output the caller was watching.
@@ -115,5 +120,4 @@ None of these were established, and nothing should depend on a guess at them:
 - Does `Load` on a control-array element that is a container clone the element's contents?
 - Does a container clip a child that overhangs it at run time? `Splash Screen.frm` has `lblWarning` at
   `Left = 150`, `Width = 6855` inside a 7080-wide Frame — a 75-twip margin.
-- Does re-saving a container form in VB6's own IDE renumber `TabIndex` in the file?
 - Is `MDIForm` a container, and with what restriction?

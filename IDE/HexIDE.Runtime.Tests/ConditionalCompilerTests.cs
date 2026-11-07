@@ -28,6 +28,75 @@ public sealed class ConditionalCompilerTests : BaseVBTestFixture, IDisposable
         return ConditionalCompiler.Preprocess(source, new CompilationConstants(arguments!), "Module1");
     }
 
+    // Another compiler's #If, as #1691 measured it: built-ins of any Variant type, a function call that reads 0, and a
+    // built-in the project doesn't record, held as Null, which leaves its branches undetermined rather than guessed.
+    private static PreprocessedSource PreprocessUnderAnotherCompiler(string source, params (string Name, Vb6Value Value)[] builtIns)
+    {
+        var table = new Dictionary<string, Vb6Value>(StringComparer.OrdinalIgnoreCase);
+        foreach (var (name, value) in builtIns) table[name] = value;
+        return ConditionalCompiler.Preprocess(source,
+            new CompilationConstants(CompilationArguments.None, table) { CallsReadZero = true, NullIsUndetermined = true }, "Module1");
+    }
+
+    [Fact]
+    public void Under_a_compiler_whose_calls_read_zero_a_call_to_a_VB_function_in_an_If_is_0()
+    {
+        var result = PreprocessUnderAnotherCompiler(
+            "#If CBool(1) Then\r\nA\r\n#End If\r\n#If Not CBool(Win64) Then\r\nB\r\n#End If\r\n#If Len(\"abc\") = 0 Then\r\nC\r\n#End If\r\n" +
+            "#If VarType(Win64) = 0 Then\r\nD\r\n#End If\r\n",
+            ("Win64", new Vb6Value(1).AsVariant()));
+
+        result.InactiveLines.Should().Equal(new LineRange(2, 2));
+        result.UndeterminedLines.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void Under_a_compiler_whose_calls_read_zero_a_call_to_anything_else_is_undetermined()
+    {
+        // Measured only for VB's own functions, so a call to any other name is not guessed at.
+        var result = PreprocessUnderAnotherCompiler("#If Undeclared(1) = 0 Then\r\nA\r\n#Else\r\nB\r\n#End If\r\n");
+
+        result.UndeterminedLines.Should().Contain(r => r.Contains(2)).And.Contain(r => r.Contains(4));
+    }
+
+    [Fact]
+    public void Vb6_calls_the_function_in_an_If_as_it_did()
+    {
+        Preprocess("#If CBool(1) Then\r\nA\r\n#Else\r\nB\r\n#End If\r\n").InactiveLines.Should().Equal(new LineRange(4, 4));
+        var undeclared = () => Preprocess("#If Undeclared(1) = 0 Then\r\nA\r\n#End If\r\n");
+        undeclared.Should().Throw<VBCompileErrorException>().WithMessage("*Variable not defined*");
+    }
+
+    [Fact]
+    public void A_string_built_in_compares_as_text()
+    {
+        var result = PreprocessUnderAnotherCompiler(
+            "#If KIND = \"standard exe\" Then\r\nA\r\n#End If\r\n#If KIND Like \"ActiveX*\" Then\r\nB\r\n#End If\r\n",
+            ("KIND", new Vb6Value("Standard EXE").AsVariant()));
+
+        result.InactiveLines.Should().Equal(new LineRange(5, 5));
+    }
+
+    [Fact]
+    public void A_built_in_held_as_Null_leaves_the_branches_it_decides_undetermined_and_the_rest_greyed()
+    {
+        var result = PreprocessUnderAnotherCompiler(
+            "#If BUILD > 1000 Then\r\nA\r\n#Else\r\nB\r\n#End If\r\n#If Win32 = 1 Then\r\nC\r\n#Else\r\nD\r\n#End If\r\n",
+            ("BUILD", Vb6Value.Null), ("Win32", new Vb6Value(1).AsVariant()));
+
+        result.UndeterminedLines.Should().Contain(r => r.Contains(2)).And.Contain(r => r.Contains(4));
+        result.InactiveLines.Should().Contain(new LineRange(9, 9));
+        result.InactiveLines.Where(r => !result.UndeterminedLines.Any(u => u.First <= r.Last && u.Last >= r.First))
+            .Should().Equal(new LineRange(9, 9));
+    }
+
+    [Fact]
+    public void Vb6_still_refuses_Null_in_an_If()
+    {
+        var withNull = () => Preprocess("#If Null Then\r\nA\r\n#End If\r\n");
+        withNull.Should().Throw<VBCompileErrorException>().WithMessage("*Invalid use of Null*");
+    }
+
     [Fact]
     public void Every_line_keeps_its_number_with_the_directives_and_the_inactive_branch_made_empty()
     {

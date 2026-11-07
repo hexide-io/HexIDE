@@ -17,7 +17,7 @@ namespace HexIDE.Integration.Tests.Views;
 /// <c>PMJ</c> is a flag, a bomb and a smiling face in vb6.exe (the oracle's "The fonts a form names"). Where the font isn't
 /// installed, as on Linux and macOS, the letters are drawn as before, so each test answers for whichever this machine is.
 /// </summary>
-public class SymbolFontTests
+public class SymbolFontTests : WindowTestFixture
 {
     private static string Glyphs(params int[] codes) => new(codes.Select(c => (char)c).ToArray());
 

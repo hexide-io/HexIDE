@@ -1,0 +1,6 @@
+stage,shape,stack_mib,pass_depth,overflow_depth,trials,seconds
+execute-guard,if,1.0,306,307,14,104.52
+execute-guard,parens,1.0,1593,1594,18,58.34
+execute-guard,parens,2.0,3466,3467,20,81.8
+execute-guard,if,2.0,666,667,16,268.6
+execute-guard,parens,8.0,14700,14701,24,387.15

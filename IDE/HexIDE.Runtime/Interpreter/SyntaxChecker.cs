@@ -1,5 +1,7 @@
 using System.IO;
 using Antlr4.Runtime;
+using Antlr4.Runtime.Atn;
+using Antlr4.Runtime.Misc;
 
 namespace HexIDE.Runtime.Interpreter;
 
@@ -8,29 +10,42 @@ public partial class SyntaxChecker : IAntlrErrorListener<IToken>, IAntlrErrorLis
     public void SyntaxError(TextWriter output, IRecognizer recognizer, IToken offendingSymbol, int line, int charPositionInLine,
         string msg, RecognitionException e)
     {
-        throw new VBCompileErrorException($"{msg} in line {line}:{charPositionInLine}\nOffending symbol: {offendingSymbol.Text}") { Line = line };
+        throw new VBCompileErrorException($"{SyntaxErrorText.Of(msg)} in line {line}:{charPositionInLine}\nOffending symbol: {offendingSymbol.Text}") { Line = line };
     }
 
     public void SyntaxError(TextWriter output, IRecognizer recognizer, int offendingSymbol, int line, int charPositionInLine,
         string msg, RecognitionException e)
     {
-        throw new VBCompileErrorException($"{msg} in line {line}:{charPositionInLine}") { Line = line };
+        throw new VBCompileErrorException($"{SyntaxErrorText.Of(msg)} in line {line}:{charPositionInLine}") { Line = line };
     }
 
-    public void Run(string code)
+    public void Run(string code) => ParseStack.Run(() =>
     {
         var inputStream = new AntlrInputStream(new StringReader(code));
         var lexer = new VB6Lexer(inputStream);
-        var commonTokenStream = new CommonTokenStream(lexer);
-        var parser = new VB6Parser(commonTokenStream);
-
         lexer.RemoveErrorListeners();
-        parser.RemoveErrorListeners();
-
         lexer.AddErrorListener(this);
-        parser.AddErrorListener(this);
+        var parser = new VB6Parser(NextCounterList.Tokens(lexer));
+        parser.RemoveErrorListeners();
         parser.AddParseListener(new ParseDepthGuard());   // reject pathological nesting as a compile error, not a crash
 
-        var tree = parser.startRule();
-    }
+        ParseDepthGuard.CheckNesting(parser);
+        parser.Interpreter.PredictionMode = PredictionMode.SLL;
+        parser.ErrorHandler = new BailErrorStrategy();
+        try
+        {
+            parser.startRule();
+        }
+        catch (ParseCanceledException)
+        {
+            parser.Reset();
+            parser.RemoveParseListeners();
+            parser.AddParseListener(new ParseDepthGuard());
+            parser.AddErrorListener(this);
+            parser.Interpreter.PredictionMode = PredictionMode.LL;
+            parser.ErrorHandler = new DefaultErrorStrategy();
+            parser.startRule();
+        }
+        return true;
+    });
 }

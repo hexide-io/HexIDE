@@ -106,15 +106,17 @@ public static partial class ConditionalCompilation
     /// <summary>
     /// <paramref name="source"/> with its conditional compilation applied, its expressions valued by <paramref name="evaluator"/>.
     /// A directive's error is a <see cref="ConditionalCompilationException"/> at its line. <paramref name="keep"/> decides which
-    /// branch an undetermined block keeps, and changes nothing else.
+    /// branch an undetermined block keeps, and changes nothing else. <paramref name="includeLoneCarriageReturns"/>
+    /// enables the LSP physical-line model; the interpreter keeps its existing line model by default.
     /// </summary>
     public static PreprocessedSource Preprocess<TExpression, TValue>(string source, IConstantEvaluator<TExpression, TValue> evaluator,
-        UndeterminedBranch keep = UndeterminedBranch.First)
+        UndeterminedBranch keep = UndeterminedBranch.First, bool includeLoneCarriageReturns = false)
         where TExpression : class
     {
         if (!source.Contains('#'))
             return new PreprocessedSource(source, [], []);
-        var lines = PhysicalLines(source);
+        // The LSP server counts lone CR as a line end; keep the interpreter's unmeasured behaviour unchanged.
+        var lines = PhysicalLines(source, includeLoneCarriageReturns);
         var blank = new bool[lines.Count];
         var inactive = new List<LineRange>();
         var undetermined = new List<LineRange>();
@@ -364,15 +366,17 @@ public static partial class ConditionalCompilation
 
     private readonly record struct PhysicalLine(string Text, string Ending);
 
-    private static List<PhysicalLine> PhysicalLines(string source)
+    private static List<PhysicalLine> PhysicalLines(string source, bool includeLoneCarriageReturns)
     {
         var lines = new List<PhysicalLine>();
         var start = 0;
         for (var i = 0; i < source.Length; i++)
         {
-            if (source[i] != '\n')
+            if (source[i] != '\n' && !(includeLoneCarriageReturns && source[i] == '\r'))
                 continue;
             var end = i > start && source[i - 1] == '\r' ? i - 1 : i;
+            if (source[i] == '\r' && i + 1 < source.Length && source[i + 1] == '\n')
+                i++;
             lines.Add(new PhysicalLine(source[start..end], source[end..(i + 1)]));
             start = i + 1;
         }

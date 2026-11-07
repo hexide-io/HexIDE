@@ -25,7 +25,9 @@ public sealed class AddinOptionsService : IOptionsPageContributor
         var path = Normalize(Assembly.GetCallingAssembly().Location);
         var registration = new Registration(path, factory);
         _pages.Add(registration);
-        return new Handle(() => _pages.Remove(registration));
+        var handle = new Handle(() => _pages.Remove(registration));
+        AddinInitializationScope.Record(handle.Dispose);
+        return handle;
     }
 
     /// <summary>The contributed control factory for the add-in at <paramref name="addinAssemblyPath"/>, or null.</summary>
