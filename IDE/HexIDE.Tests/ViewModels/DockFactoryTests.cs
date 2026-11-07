@@ -232,6 +232,74 @@ public class DockFactoryTests
     }
 
     [AvaloniaTheory]
+    [InlineData("toolbox", false)]
+    [InlineData("toolbox", true)]
+    [InlineData("properties", false)]
+    [InlineData("properties", true)]
+    public void ReopenedTool_HasVisibleBoundsInItsLastColumn(string key, bool resized)
+    {
+        // #895: tree membership alone missed a pane that reopened with zero bounds.
+        Avalonia.Application.Current!.Styles.Add(new Avalonia.Themes.Simple.SimpleTheme());
+        Avalonia.Application.Current.Styles.Add(new Dock.Avalonia.Themes.Simple.DockSimpleTheme());
+        var toolbox = new ToolBoxToolViewModel(Substitute.For<IDocumentDockService>(),
+            Substitute.For<IComponentRegistry>(), Substitute.For<ILocalizationService>());
+        var (factory, _) = CreateFactory(toolbox: toolbox);
+        var root = factory.CreateLayout();
+        factory.InitLayout(root);
+        var main = (IDock)root.DefaultDockable!;
+        var right = (IDock)main.VisibleDockables![4];
+        var dock = key == "toolbox" ? (IToolDock)main.VisibleDockables[0]
+            : right.VisibleDockables!.OfType<IToolDock>().Last();
+        var tool = (Tool)dock.ActiveDockable!;
+        factory.KeyOf(tool).Should().Be(key);
+        if (resized)
+        {
+            main.VisibleDockables[0].Proportion = 0.19;
+            right.Proportion = 0.31;
+            dock.Proportion = key == "toolbox" ? 0.19 : 0.37;
+        }
+        var host = new Dock.Avalonia.Controls.DockControl { Layout = root };
+        var window = new Avalonia.Controls.Window { Content = host, Width = 1000, Height = 700 };
+        window.SetRenderScaling(1.5);
+        try
+        {
+            window.Show();
+            LayoutWindow(window);
+            Rect Bounds()
+            {
+                var chrome = host.GetVisualDescendants().OfType<Dock.Avalonia.Controls.ToolChromeControl>()
+                    .Single(c => ReferenceEquals(c.DataContext, tool.Owner));
+                return new Rect(chrome.TranslatePoint(default, host)!.Value, chrome.Bounds.Size);
+            }
+            var before = Bounds();
+            before.Width.Should().BeGreaterThan(0);
+            before.Height.Should().BeGreaterThan(0);
+            for (var cycle = 0; cycle < 3; cycle++)
+            {
+                factory.CloseDockable(tool);
+                LayoutWindow(window);
+                factory.CaptureManifest(root).Tools.Single(t => t.Key == key).Open.Should().BeFalse();
+                factory.PlaceTool(root, tool, rightFallback: true);
+                LayoutWindow(window);
+                var after = Bounds();
+                after.Width.Should().BeGreaterThan(0);
+                after.Height.Should().BeGreaterThan(0);
+                if (key == "toolbox")
+                    after.Right.Should().BeLessThan(host.Bounds.Width / 2);
+                else
+                    after.Left.Should().BeGreaterThan(host.Bounds.Width / 2);
+                after.X.Should().BeApproximately(before.X, 1);
+                after.Y.Should().BeApproximately(before.Y, 1);
+                after.Width.Should().BeApproximately(before.Width, 1);
+                after.Height.Should().BeApproximately(before.Height, 1);
+                factory.CaptureManifest(root).Tools.Single(t => t.Key == key).Region.Should()
+                    .Be(key == "toolbox" ? DockRegion.Left : DockRegion.Right);
+            }
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaTheory]
     [InlineData(false)]
     [InlineData(true)]
     public void ClosedLeftDock_RepeatedLayoutCyclesKeepItsWidth(bool restart)
