@@ -18,6 +18,7 @@ if (options is null)
     Console.Error.WriteLine("""
         Usage: HexIDE.Dap.Parity <dump.jsonl> [--label <text>] [--timeout <seconds>] [--parallel <n>]
                                  [--project-template <file>] [--out <dir>] [--dry-run]
+                                 [--erl-line-numbering <LineLabel|DocumentLine>]
 
         Set HEXIDE_PARITY_ADAPTER to the debug adapter's executable. --dry-run writes the workspaces and starts nothing.
         Results go to <out>/results.jsonl, one line per program as it finishes, and the counts to <out>/summary.json.
@@ -38,7 +39,8 @@ var template = options.ProjectTemplate is { } t ? File.ReadAllText(t) : DefaultP
 // Readable output: a label such as "f3acd864 + fix" keeps its plus sign, and a test name its quotes.
 var json = new JsonSerializerOptions { Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping };
 var indented = new JsonSerializerOptions(json) { WriteIndented = true };
-var results = new StreamWriter(Path.Combine(outDir, "results.jsonl"), append: false, new UTF8Encoding(false));
+using var outputs = new NewOutputFiles();
+using var results = new StreamWriter(outputs.Create(Path.Combine(outDir, "results.jsonl")), new UTF8Encoding(false));
 var gate = new object();
 void Write(JsonObject line)
 {
@@ -56,6 +58,8 @@ Write(new JsonObject
     ["adapter"] = adapter is null ? null : Path.GetFileName(adapter),
     ["timeoutSeconds"] = options.TimeoutSeconds,
     ["parallel"] = options.Parallel,
+    ["erlLineNumbering"] = options.ErlLineNumbering,
+    ["erlLineNumberingReason"] = "vb6.exe's Erl returns the line label; RDCore's default DocumentLine is by design (RD-VBAL 6.1.2.7.1.14).",
     ["programs"] = cases.Count,
 });
 
@@ -87,7 +91,7 @@ await Task.WhenAll(cases.Select(async c =>
 // No adapters from the parallel pass remain when these cases are retried.
 foreach (var retry in retries)
 {
-    var result = await RunCase(retry.Index, retry.Record);
+    var result = await RunCase(retry.Index, retry.Record, reuseWorkspace: true);
     result["parallelAttempt"] = retry.Result["engine"]?.DeepClone();
     Complete(result);
 }
@@ -115,12 +119,13 @@ var summary = new JsonObject
     ["outcomes"] = new JsonObject(counts.Select(kv => KeyValuePair.Create(kv.Key, (JsonNode?)kv.Value))),
     ["excludedFor"] = new JsonObject(exclusions.Select(kv => KeyValuePair.Create(kv.Key, (JsonNode?)kv.Value))),
 };
-File.WriteAllText(Path.Combine(outDir, "summary.json"), summary.ToJsonString(indented));
+WriteNewText(Path.Combine(outDir, "summary.json"), summary.ToJsonString(indented));
 Console.WriteLine(summary.ToJsonString(indented));
 Console.WriteLine($"Results: {outDir}");
+outputs.Complete();
 return 0;
 
-async Task<JsonObject> RunCase(int index, JsonObject record)
+async Task<JsonObject> RunCase(int index, JsonObject record, bool reuseWorkspace = false)
 {
     var modules = record["modules"]!.AsArray().Select(m => m!.AsObject()).ToList();
     var startup = modules[0];
@@ -152,22 +157,26 @@ async Task<JsonObject> RunCase(int index, JsonObject record)
     }
 
     var dir = Path.Combine(outDir, "cases", index.ToString("D5"));
-    Directory.CreateDirectory(dir);
-    var files = new JsonArray();
-    for (var i = 0; i < modules.Count; i++)
+    // A serial retry runs the workspace this invocation already created, without rewriting its files.
+    if (!reuseWorkspace)
     {
-        var m = modules[i];
-        var name = m["name"]!.GetValue<string>();
-        var kind = m["kind"]!.GetValue<string>();
-        // The startup module as an engine that starts only at a named procedure can call it; the others as written,
-        // since only the startup module has statements of its own.
-        var source = i == 0 ? m["wrapped"]!.GetValue<string>() : m["source"]!.GetValue<string>();
-        var file = name + (kind == "class" ? ".cls" : ".bas");
-        File.WriteAllText(Path.Combine(dir, file), ModuleText(name, kind, source), new UTF8Encoding(false));
-        files.Add(new JsonObject { ["RelativeUri"] = file });
+        Directory.CreateDirectory(dir);
+        var files = new JsonArray();
+        for (var i = 0; i < modules.Count; i++)
+        {
+            var m = modules[i];
+            var name = m["name"]!.GetValue<string>();
+            var kind = m["kind"]!.GetValue<string>();
+            // The startup module as an engine that starts only at a named procedure can call it; the others as written,
+            // since only the startup module has statements of its own.
+            var source = i == 0 ? m["wrapped"]!.GetValue<string>() : m["source"]!.GetValue<string>();
+            var file = name + (kind == "class" ? ".cls" : ".bas");
+            WriteNewText(Path.Combine(dir, file), ModuleText(name, kind, source));
+            files.Add(new JsonObject { ["RelativeUri"] = file });
+        }
+        var project = Comparison.Project(template, index, files);
+        WriteNewText(Path.Combine(dir, ".rdproj"), project.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
     }
-    var project = Comparison.Project(template, index, files);
-    File.WriteAllText(Path.Combine(dir, ".rdproj"), project.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
     if (options.DryRun)
     {
         result["outcome"] = "dry-run";
@@ -188,6 +197,7 @@ async Task<Engine> RunEngine(string workspace, string module)
     using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(options.TimeoutSeconds));
     var token = timeout.Token;
     var terminated = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+    var atException = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
     DapSession? session = null;
     Task? observer = null;
     try
@@ -198,6 +208,7 @@ async Task<Engine> RunEngine(string workspace, string module)
             // The case's own workspace, so a relative path the engine resolves lands there. Programs that touch the
             // file system are left out anyway (Effects); this is the second line.
             WorkingDirectory = workspace,
+            Environment = new Dictionary<string, string?> { ["Configuration__Environment__ErlLineNumbering"] = options.ErlLineNumbering },
             ShutdownTimeout = TimeSpan.FromSeconds(5),
         });
         var running = session;
@@ -218,9 +229,17 @@ async Task<Engine> RunEngine(string workspace, string module)
                         engine.ExitCode = code.GetInt32();
                         break;
                     case "stopped" when update.Snapshot.Stop is { } stop:
-                        // An unhandled error stops under the adapter's default filter. Continuing lets the engine
-                        // report it as a run-time error and end, as it does with no filter.
-                        engine.Stops.Add(body is { } sb && sb.TryGetProperty("reason", out var r) ? r.GetString() ?? "" : "");
+                        var reason = body is { } sb && sb.TryGetProperty("reason", out var r) ? r.GetString() ?? "" : "";
+                        engine.Stops.Add(reason);
+                        // An unhandled error stops under the adapter's default filter. Continuing from it re-runs the
+                        // failing line, as VBA's F5 does, so the error is read at this first stop and the program is
+                        // ended there (docs/dap-adapter-smoke.md).
+                        if (reason == "exception")
+                        {
+                            engine.Exception = await ExceptionAt(running, stop, body, token);
+                            atException.TrySetResult();
+                            break;
+                        }
                         if (engine.Stops.Count > 20)
                             throw new InvalidOperationException("The program stopped more than 20 times.");
                         await running.ResumeAsync(stop, "continue", stop.ThreadId ?? 1, token);
@@ -232,7 +251,8 @@ async Task<Engine> RunEngine(string workspace, string module)
             }
         }, token);
         await session.LaunchAsync("external", JsonSerializer.SerializeToElement(new { module, entryPoint = "HexDumpMain" }), [], token);
-        await terminated.Task.WaitAsync(token);
+        if (await Task.WhenAny(terminated.Task, atException.Task).WaitAsync(token) == atException.Task)
+            engine.EndedAtException = await EndAtException(session, terminated.Task, token);
         using var bye = new CancellationTokenSource(TimeSpan.FromSeconds(5));
         try { await session.DisconnectAsync(bye.Token); } catch (Exception) { /* the program already ended */ }
     }
@@ -269,6 +289,55 @@ async Task<Engine> RunEngine(string workspace, string module)
     return engine;
 }
 
+// What the adapter says about an exception stop: the stopped event's own text, and its exceptionInfo where it offers one.
+static async Task<JsonObject> ExceptionAt(DapSession session, DapStop stop, JsonElement? body, CancellationToken token)
+{
+    var exception = new JsonObject();
+    foreach (var name in new[] { "description", "text" })
+        if (body is { } b && b.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.String)
+            exception[name] = value.GetString();
+    if (session.Supports("supportsExceptionInfoRequest"))
+    {
+        try
+        {
+            var reply = await session.ExceptionInfoAsync(stop, stop.ThreadId ?? 1, token);
+            exception["info"] = reply.Body is { } info ? JsonNode.Parse(info.GetRawText()) : null;
+        }
+        catch (DapRequestException e)
+        {
+            exception["infoRefused"] = e.Message;
+        }
+    }
+    return exception;
+}
+
+// Ends a program stopped at an unhandled error: terminate where the adapter offers it, then the usual disconnect.
+// Returns which of the two ended it.
+static async Task<string> EndAtException(DapSession session, Task terminated, CancellationToken token)
+{
+    if (!session.Supports("supportsTerminateRequest"))
+        return "disconnect";
+    using var bounded = CancellationTokenSource.CreateLinkedTokenSource(token);
+    bounded.CancelAfter(TimeSpan.FromSeconds(5));
+    try
+    {
+        await session.TerminateAsync(bounded.Token);
+        await terminated.WaitAsync(bounded.Token);
+        return "terminate";
+    }
+    catch (Exception) when (!token.IsCancellationRequested)
+    {
+        // Refused, or no terminated event: the disconnect that follows ends the program.
+        return "disconnect";
+    }
+}
+
+void WriteNewText(string path, string text)
+{
+    using var writer = new StreamWriter(outputs.Create(path), new UTF8Encoding(false));
+    writer.Write(text);
+}
+
 static string ModuleText(string name, string kind, string source)
 {
     var text = new StringBuilder();
@@ -301,13 +370,14 @@ partial class Program
         """;
 }
 
-sealed record Options(string Dump, string? Label, int TimeoutSeconds, int Parallel, string? ProjectTemplate, string? Out, bool DryRun)
+sealed record Options(string Dump, string? Label, int TimeoutSeconds, int Parallel, string? ProjectTemplate, string? Out, bool DryRun, string ErlLineNumbering)
 {
     public static Options? Parse(string[] args)
     {
         string? dump = null, label = null, template = null, output = null;
         int timeout = 60, parallel = 1;
         var dryRun = false;
+        var erlLineNumbering = "LineLabel";
         for (var i = 0; i < args.Length; i++)
         {
             string? Next() => i + 1 < args.Length ? args[++i] : null;
@@ -319,6 +389,12 @@ sealed record Options(string Dump, string? Label, int TimeoutSeconds, int Parall
                 case "--project-template": template = Next(); break;
                 case "--out": output = Next(); break;
                 case "--dry-run": dryRun = true; break;
+                case "--erl-line-numbering":
+                    var numbering = Next();
+                    if (numbering is not ("LineLabel" or "DocumentLine"))
+                        return null;
+                    erlLineNumbering = numbering;
+                    break;
                 default:
                     if (args[i].StartsWith("--", StringComparison.Ordinal) || dump is not null)
                         return null;
@@ -326,7 +402,7 @@ sealed record Options(string Dump, string? Label, int TimeoutSeconds, int Parall
                     break;
             }
         }
-        return dump is not null && File.Exists(dump) ? new Options(dump, label, timeout, parallel, template, output, dryRun) : null;
+        return dump is not null && File.Exists(dump) ? new Options(dump, label, timeout, parallel, template, output, dryRun, erlLineNumbering) : null;
     }
 }
 
@@ -474,12 +550,23 @@ sealed partial class Engine
     public string? Failure { get; set; }
     public string? StderrTail { get; set; }
     public long ElapsedMs { get; set; }
+    /// <summary>What the adapter said at an unhandled error's stop, where the program was ended.</summary>
+    public JsonObject? Exception { get; set; }
+    /// <summary>How a program stopped at an unhandled error was ended: <c>terminate</c> or <c>disconnect</c>.</summary>
+    public string? EndedAtException { get; set; }
 
-    // Both error prefixes are measured in #2119.
-    public int? ErrorNumber => RunTimeError().Match(Stderr.ToString()) is { Success: true } m ? int.Parse(m.Groups[1].Value) : null;
+    // Both error prefixes on stderr are measured in #2119. At an exception stop the number is in exceptionInfo's id instead:
+    // VBR00006 for a run-time error and VBA00006 for an application error (measured at RDCore 84278ae, #1368).
+    public int? ErrorNumber =>
+        RunTimeError().Match(Stderr.ToString()) is { Success: true } m ? int.Parse(m.Groups[1].Value)
+        : Exception?["info"]?["exceptionId"] is JsonValue id && id.TryGetValue<string>(out var text) && ExceptionId().Match(text) is { Success: true } e
+            ? int.Parse(e.Groups[1].Value) : null;
 
     [GeneratedRegex(@"(?:Run-time|Application) error '(\d+)'")]
     private static partial Regex RunTimeError();
+
+    [GeneratedRegex(@"^VB[RA](\d+)$")]
+    private static partial Regex ExceptionId();
 
     public JsonObject ToJson() => new()
     {
@@ -493,6 +580,8 @@ sealed partial class Engine
         ["timedOut"] = TimedOut,
         ["failure"] = Failure,
         ["stderrTail"] = StderrTail,
+        ["exception"] = Exception?.DeepClone(),
+        ["endedAtException"] = EndedAtException,
     };
 }
 
@@ -518,7 +607,7 @@ internal static class Comparison
         if (engine.Failure is not null) return "launch-failed";
         if (hexide.Locale is { } locale && !locale.Equals("en-US", StringComparison.OrdinalIgnoreCase)) return "locale-differs";
         var printedAlike = Lines(engine.Stdout.ToString()).SequenceEqual((hexide.Lines ?? hexide.Printed).Select(p => p.Trim()));
-        var engineError = engine.ExitCode is { } code && code != 0 || engine.Stderr.Length > 0;
+        var engineError = engine.ExitCode is { } code && code != 0 || engine.Stderr.Length > 0 || engine.Exception is not null;
         var engineNumber = engine.ErrorNumber;
         return hexide.ErrorKind switch
         {

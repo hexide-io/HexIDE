@@ -3,7 +3,7 @@ using HexIDE.Runtime.Components;
 namespace HexIDE.Addins;
 
 // The facade retains its owner even when an add-in registers a window after Initialize returns.
-internal sealed class AddinOwnedHost(IHexIdeHost host, IToolWindowContributor tools) : IHexIdeHost
+internal sealed class AddinOwnedHost(IHexIdeHost host, IToolWindowContributor tools, AddinOrigin origin) : IHexIdeHost
 {
     public IToolWindowContributor ToolWindows => tools;
     public IMenuContributor Menus => host.Menus;
@@ -17,6 +17,12 @@ internal sealed class AddinOwnedHost(IHexIdeHost host, IToolWindowContributor to
         host.RegisterCommand(id, label, onInvoke, gesture, canExecute);
     public void RegisterComponent(IComponentClass component) => host.RegisterComponent(component);
     public void RegisterProjectTemplate(IAddinProjectTemplate template) => host.RegisterProjectTemplate(template);
+    public IAddinServerConnection RegisterLanguageServer(AddinLanguageServer server) =>
+        host is HexIdeHost concrete ? concrete.RegisterLanguageServer(server, origin) : host.RegisterLanguageServer(server);
+    public IDisposable RegisterDebugLaunch(AddinDebugLaunch launch) =>
+        host is HexIdeHost concrete ? concrete.RegisterDebugLaunch(launch, origin) : host.RegisterDebugLaunch(launch);
+    public IDisposable RegisterProjectType(AddinProjectType type) =>
+        host is HexIdeHost concrete ? concrete.RegisterProjectType(type, origin) : host.RegisterProjectType(type);
     public bool RunProject() => host.RunProject();
     public bool StopProject() => host.StopProject();
 }

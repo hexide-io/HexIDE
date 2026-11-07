@@ -306,6 +306,115 @@ public class CaretPlacementTests : IDisposable
             + "type_text would write there.");
     }
 
+    // ── A caret where type_text would be refused (#2578) ─────────────────────────────────────────────────────────
+
+    // The refusal used to be the first a caller heard of it, after open_file put the caret in a form's header and said
+    // only where it was.
+    [AvaloniaFact]
+    public void A_caret_in_a_form_s_header_says_so_and_names_the_nearest_place_that_can_be_edited()
+    {
+        var vm = Model(code: "", form: true);
+        CaretPlacement.Place(vm, 2, 1).Should().BeTrue();
+        vm.IsReadOnlyRegion(vm.CaretOffset, 0).Should().BeTrue("line 2 is the header's");
+
+        var past = vm.PastReadOnlyRegion(vm.CaretOffset);
+        var to = vm.Document.GetLocation(past);
+        CaretPlacement.Where(vm, 2, 1).Should().Be($"The caret is at line 2, column 1: offset {vm.CaretOffset} in the text "
+            + "get_file_content returns. That is in the file's header, which only the IDE changes, so type_text there would "
+            + $"be refused. The nearest place that can be edited is line {to.Line}, column {to.Column}: offset {past}.");
+        vm.IsReadOnlyRegion(past, 0).Should().BeFalse("the place it names is one type_text writes at");
+    }
+
+    [AvaloniaFact]
+    public void A_caret_in_a_member_s_Attribute_lines_names_the_member()
+    {
+        var vm = Model("Public Sub Foo()\r\nAttribute Foo.VB_Description = \"Says hello\"\r\n    \r\nEnd Sub\r\n");
+        CaretPlacement.Place(vm, 3, 1).Should().BeTrue();
+
+        CaretPlacement.Where(vm, 3, 1).Should().Contain("That is in the Attribute lines describing Foo, which only the IDE "
+            + "changes, so type_text there would be refused. The nearest place that can be edited is line 4, column 1:");
+    }
+
+    [AvaloniaFact]
+    public void A_caret_where_type_text_writes_adds_nothing()
+    {
+        var vm = Model();
+        CaretPlacement.Place(vm, 5, 5).Should().BeTrue();
+
+        CaretPlacement.Where(vm, 5, 5).Should().Be($"The caret is at line 5, column 5: offset {vm.CaretOffset} in the text "
+            + "get_file_content returns.");
+    }
+
+    // ── A carried file's editor, which open_file refused a line for until #2403 ─────────────────────────────────
+
+    private const string Carried = "int once(int x);\nint twice(int x)\n{\n    return once(once(x));\n}\n";
+
+    private (RelatedDocumentEditorViewModel Model, TextEditor Editor) ShowCarried(RelatedDocumentEditorViewModel? vm = null)
+    {
+        vm ??= CarriedModel();
+        var view = new RelatedDocumentEditorView { DataContext = vm };
+        var window = new Window { Width = 800, Height = 600, Content = view };
+        windows.Add(window);
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+        return (vm, view.FindControl<TextEditor>("TextEditor")!);
+    }
+
+    private RelatedDocumentEditorViewModel CarriedModel()
+    {
+        var vm = new RelatedDocumentEditorViewModel(lsp, Substitute.For<IWindowManager>(), Substitute.For<ILocalizationService>());
+        vm.Document.Text = Carried;
+        return vm;
+    }
+
+    [AvaloniaFact]
+    public void A_carried_file_s_caret_goes_where_its_editor_numbers_the_line_and_column()
+    {
+        var (vm, editor) = ShowCarried();
+
+        CaretPlacement.Place(vm, 4, 12).Should().BeTrue();
+        Dispatcher.UIThread.RunJobs();
+
+        editor.TextArea.Caret.Line.Should().Be(4);
+        editor.TextArea.Caret.Column.Should().Be(12);
+        CaretPlacement.Where(vm, 4, 12).Should().Be($"The caret is at line 4, column 12: offset {vm.CaretOffset} in the "
+            + "text get_file_content returns.");
+    }
+
+    [AvaloniaFact]
+    public void A_carried_file_opened_for_a_caret_already_placed_takes_it_once_laid_out()
+    {
+        // open_file places the caret in the model it has just opened, before its view exists.
+        var vm = CarriedModel();
+        CaretPlacement.Place(vm, 4, 12).Should().BeTrue();
+        var placed = vm.CaretOffset;
+
+        var (_, editor) = ShowCarried(vm);
+
+        editor.CaretOffset.Should().Be(placed);
+        vm.CaretOffset.Should().Be(placed, "the editor's own caret, at 0 when its document arrived, must not overwrite it");
+    }
+
+    [AvaloniaFact]
+    public void A_fold_ending_where_a_carried_file_s_caret_goes_is_opened_onto_it()
+    {
+        // AvaloniaEdit opens a fold a caret lands strictly inside by itself. One the caret lands at the end of, it leaves
+        // closed, with the caret's line hidden in it, as the code window found at a member run's end (#700 review).
+        var (vm, editor) = ShowCarried();
+        var folds = editor.TextArea.LeftMargins.OfType<FoldingMargin>().Single().FoldingManager;
+        var body = folds.CreateFolding(Carried.IndexOf('{'), Carried.LastIndexOf('}') + 1);
+        body.IsFolded = true;
+
+        // Line 5, column 2: just after the closing brace, the fold's end.
+        CaretPlacement.Place(vm, 5, 2).Should().BeTrue();
+        Dispatcher.UIThread.RunJobs();
+
+        vm.CaretOffset.Should().Be(body.EndOffset);
+        body.IsFolded.Should().BeFalse("the line the caret is on would sit unseen in the fold");
+        editor.TextArea.Caret.Line.Should().Be(5);
+        editor.TextArea.Caret.Column.Should().Be(2);
+    }
+
     [AvaloniaFact]
     public void Set_property_reads_the_carried_file_caret_after_the_view_clamps_it()
     {

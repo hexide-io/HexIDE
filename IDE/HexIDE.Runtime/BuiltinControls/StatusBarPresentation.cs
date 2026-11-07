@@ -1,5 +1,4 @@
 using System.Globalization;
-using System.Runtime.InteropServices;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
@@ -31,12 +30,18 @@ public sealed partial class VBStatusBar
         keyboardRoot?.AddHandler(KeyUpEvent, KeyReleased, RoutingStrategies.Tunnel, handledEventsToo: true);
         clock.Tick += Tick;
         clock.Start();
+#if DEBUG
+        LockKeys.Changed += LockKeysChanged;
+#endif
     }
 
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
         clock.Stop();
         clock.Tick -= Tick;
+#if DEBUG
+        LockKeys.Changed -= LockKeysChanged;
+#endif
         keyboardRoot?.RemoveHandler(KeyDownEvent, KeyPressed);
         keyboardRoot?.RemoveHandler(KeyUpEvent, KeyReleased);
         keyboardRoot = null;
@@ -45,6 +50,11 @@ public sealed partial class VBStatusBar
     }
 
     private void Tick(object? sender, EventArgs e) => InvalidateVisual();
+
+#if DEBUG
+    // Set by automation from another thread, so the repaint is posted rather than made here.
+    private void LockKeysChanged() => Dispatcher.UIThread.Post(InvalidateVisual);
+#endif
 
     private void KeyPressed(object? sender, KeyEventArgs e)
     {
@@ -55,20 +65,17 @@ public sealed partial class VBStatusBar
 
     private void KeyReleased(object? sender, KeyEventArgs e) => heldKeys.Remove(e.Key);
 
-    [LibraryImport("user32.dll")]
-    private static partial short GetKeyState(int key);
-
     private bool KeyOn(long style)
     {
-        if (style == 7) return false; // Kana stayed greyed on the measured keyboard.
-        var (key, native) = style switch
-        {
-            1 => (Key.CapsLock, 0x14), 2 => (Key.NumLock, 0x90),
-            3 => (Key.Insert, 0x2D), 4 => (Key.Scroll, 0x91), _ => (Key.None, 0),
-        };
+        // Kana (7) stayed greyed on the measured keyboard.
+        if (LockKeys.OfPanelStyle(style) is not { } key) return false;
+#if DEBUG
+        // Set by automation, which can't reach the keyboard's own toggle (#2296).
+        if (LockKeys.Override(key) is { } set) return set;
+#endif
         // Avalonia exposes no initial lock state. Other hosts follow keys seen in this window;
         // Windows can also read toggles that were already on before the form opened.
-        return OperatingSystem.IsWindows() ? (GetKeyState(native) & 1) != 0 : toggledKeys.Contains(key);
+        return LockKeys.Keyboard(key) ?? toggledKeys.Contains(LockKeys.AvaloniaKey(key));
     }
 
     internal string DisplayText(StatusBarPanel panel, DateTime now) => panel.Style switch

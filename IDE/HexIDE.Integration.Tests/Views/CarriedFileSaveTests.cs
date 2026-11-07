@@ -75,6 +75,59 @@ public class CarriedFileSaveTests : IDisposable
     }
 
     [AvaloniaFact]
+    public async Task PartialWriteFailurePreservesBytesAndDirtyStateUntilRetry()
+    {
+        using var vm = Open([0x63]);
+        var path = vm.RelatedDocument!.AbsolutePath!;
+        vm.Document.Text = "edited";
+        var previous = AtomicFileWriter.OpenStream.Value;
+        bool injected = false;
+        AtomicFileWriter.OpenStream.Value = temporary =>
+        {
+            injected = true;
+            return new PartialFailureStream(temporary);
+        };
+        try
+        {
+            Func<Task> save = () => vm.SaveAsync();
+            await save.Should().ThrowAsync<IOException>().WithMessage("Disk full");
+            injected.Should().BeTrue();
+            File.ReadAllBytes(path).Should().Equal(0x63);
+            Directory.GetFiles(_dir, "*.tmp").Should().BeEmpty();
+            vm.IsDirty.Should().BeTrue();
+        }
+        finally { AtomicFileWriter.OpenStream.Value = previous; }
+
+        await vm.SaveAsync();
+        File.ReadAllText(path).Should().Be("edited");
+        vm.IsDirty.Should().BeFalse();
+    }
+
+    private sealed class PartialFailureStream(string path) : FileStream(path, FileMode.CreateNew, FileAccess.Write)
+    {
+        public override void Write(ReadOnlySpan<byte> buffer)
+        {
+            base.Write(buffer[..Math.Min(1, buffer.Length)]);
+            throw new IOException("Disk full");
+        }
+    }
+
+    [AvaloniaFact]
+    public async Task SavingPreservesFileAtOldStagingName()
+    {
+        using var vm = Open([0x63]);
+        var path = vm.RelatedDocument!.AbsolutePath!;
+        File.WriteAllText(path + ".hexide-tmp", "user file");
+        vm.Document.Text = "edited";
+
+        await vm.SaveAsync();
+
+        File.ReadAllText(path).Should().Be("edited");
+        File.ReadAllText(path + ".hexide-tmp").Should().Be("user file");
+        vm.IsDirty.Should().BeFalse();
+    }
+
+    [AvaloniaFact]
     public async Task SavingTextRestoredToItsOriginalValueDoesNotWrite()
     {
         using var vm = Open([0x63]);

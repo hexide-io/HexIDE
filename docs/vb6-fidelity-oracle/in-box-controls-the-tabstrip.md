@@ -1,11 +1,11 @@
 ## In-box controls: the TabStrip (2026-10-27, #1089)
 
 **The probes.**
-- **The software:** VB6 6.00.8176 SP6, with MSCOMCTL.OCX, on Windows 10 at 96 dpi.
+- **The software:** VB6 SP6 (6.00.9782), with MSCOMCTL.OCX, on Windows 10 at 96 dpi.
   - The form line is `Object = "{831FDD16-0C5C-11D2-A9FC-0000F8754DA1}#2.0#0"; "MSCOMCTL.OCX"`.
   - The block is `Begin MSComctlLib.TabStrip`, `_Version` 393216.
 - **The form:** written by hand. It held TabStrip1 at Left 120, Top 120, 5000 × 3000, with only its position, extents
-  and `_Version`, and VB6's saved three-image ImageList from `corpus/inbox-controls/pending/imagelist/three/`.
+  and `_Version`, and VB6's saved three-image ImageList from `corpus/inbox-controls/saved/imagelist/three/`.
 - **The programs:** each ran in a Sub Main and logged each value with its `TypeName`.
   - Every error was read straight after its statement, before any helper ran.
   - Questions that earlier statements could disturb each ran on a fresh instance of the form.
@@ -231,7 +231,7 @@ Whether a TabStrip takes the controls drawn on it, answered on VB6's IDE rather 
 
 **The programs:**
 - **The save:** a form written by hand, opened in VB6's IDE, dirtied with a comment and saved. VB6's save is in
-  `corpus/inbox-controls/pending/tabstrip/`.
+  `corpus/inbox-controls/saved/tabstrip/`.
   - TabStrip1 had every property off its default, its lines in reverse order, and three tabs.
   - TabStrip2 had only its position, extents and `_Version`.
   - A third TabStrip was double-clicked from the toolbox.
@@ -330,5 +330,11 @@ Whether a TabStrip takes the controls drawn on it, answered on VB6's IDE rather 
 
 ### In HexIDE
 
-HexIDE doesn't model the TabStrip (#1089). The designer draws it as an empty box (#157). Running a form that holds one
-is refused, as for any control HexIDE can't create (#857), and the refusal names #1089 as the issue that tracks it.
+The MSCOMCTL TabStrip's collection and code-selection model is bound to the interpreter (#1089). A form with no
+persisted own TabStrip properties runs, and code can add tabs and select one, including BeforeClick cancellation
+followed by Click. Integer/Boolean strip properties and Tab Caption, Key, Selected, ToolTipText, HighLighted and scalar
+Tag are reachable. Window input now selects with Left/Right/Home/End and Alt plus a caption mnemonic; Arrow-key BeforeClick cancellation suppresses Click; cancelled mnemonic and Home/End selection refuse pending measurement. Mnemonics take focus from another control. Unmeasured conversions refuse. Mouse input now dispatches MouseDown before selection and MouseUp/Click afterwards, with cancellation still followed by Click. Selected-tab and right clicks skip BeforeClick; Style 1 MultiSelect supports plain and Ctrl clicks. A double-click suppresses its second MouseDown, and client-area clicks raise nothing. The single top row now paints raised selected tabs, pressed buttons, flat-button separators and mnemonic underlines; disabled painting is identical. TabStyle 1 drawing refuses because the supplied measurement does not describe its visual distinction. Other placements, multiple rows, width styles, fixed sizes, overflow arrows, images, tooltips, HighLighted painting, Font and geometry remain for later
+slices. The measured save now round-trips byte for byte, with mandatory Tabs/ImageVarType records and the measured
+property order. ImageVarType 8 without ImageKey refuses the whole form. Saved scalar properties and plain tabs load,
+with tab sizes converted from HIMETRIC and selection starting on tab 1. Runtime loading of saved ImageList/Font and
+tab images remains refused. Unsupported tab fields and missing extents keep the designer read-only. COMCTL32 is still refused.

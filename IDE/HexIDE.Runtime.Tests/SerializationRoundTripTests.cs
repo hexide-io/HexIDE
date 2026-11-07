@@ -373,10 +373,46 @@ public class SerializationRoundTripTests
     }
 
     [Theory]
+    [InlineData("\r\n")]
+    [InlineData("\n")]
+    public void OleExe_save_adds_missing_Retained_in_the_measured_place(string newline)
+    {
+        var source = "Type=OleExe\r\nName=\"TestProject\"\r\nUnattended=0\r\nThreadPerObject=0\r\nMaxNumberOfThreads=1\r\n";
+        var project = ProjectFromSerialized(new ProjectDeserializer().Deserialize(source.ReplaceLineEndings(newline), NullSink.Instance));
+        var expected = source.Replace("Unattended=0\r\n", "Unattended=0\r\nRetained=0\r\n");
+
+        var saved = new ProjectSerializer().Serialize(project, project.AbsolutePath!);
+
+        saved.Should().Be(expected);
+        var reloaded = ProjectFromSerialized(new ProjectDeserializer().Deserialize(saved, NullSink.Instance));
+        new ProjectSerializer().Serialize(reloaded, reloaded.AbsolutePath!).Should().Be(expected);
+    }
+
+    [Theory]
+    [InlineData("Exe", "Unattended=0\r\nThreadPerObject=0\r\n")]
+    [InlineData("OleDll", "Unattended=0\r\nThreadPerObject=0\r\n")]
+    [InlineData("Control", "Unattended=0\r\nThreadPerObject=0\r\n")]
+    [InlineData("OleExe", "Unattended=0\r\nRetained=1\r\nThreadPerObject=0\r\n")]
+    [InlineData("OleExe", "Retained=0\r\nUnattended=0\r\nThreadPerObject=0\r\n")]
+    [InlineData("OleExe", "ThreadPerObject=0\r\nUnattended=0\r\n")]
+    [InlineData("OleExe", "Unattended=0\r\n")]
+    [InlineData("OleExe", "ThreadPerObject=0\r\n")]
+    [InlineData("OleExe", "Unattended=0\r\nOther=0\r\nThreadPerObject=0\r\n")]
+    public void Retained_save_leaves_other_types_and_unmeasured_layouts_unchanged(string type, string settings)
+    {
+        var source = $"Type={type}\r\nName=\"TestProject\"\r\n{settings}";
+        var project = ProjectFromSerialized(new ProjectDeserializer().Deserialize(source, NullSink.Instance));
+
+        new ProjectSerializer().Serialize(project, project.AbsolutePath!).Should().Be(source);
+    }
+
+    [Theory]
     [InlineData("Form=Form1.frm\r\nObject=kept\r\nReference=*\\G{00020430-0000-0000-C000-000000000046}#2.0#0##OLE Automation\r\n", false)]
+    [InlineData("Form=Form1.frm\r\nObject=between\r\nModule=Module1; Module1.bas\r\n", false)]
+    [InlineData("Designer=Probe.dsr\r\nReference=*\\G{00020430-0000-0000-C000-000000000046}#2.0#0##OLE Automation\r\n", false)]
     [InlineData("Module=Module1; Module1.bas\r\nForm=Form1.frm\r\n", false)]
     [InlineData("Form=Form1.frm\r\nReference=*\\G{00020430-0000-0000-C000-000000000046}#2.0#0##OLE Automation\r\n", true)]
-    public void Project_recognised_lines_keep_their_read_order(string items, bool rename)
+    public void Project_unedited_save_keeps_read_order(string items, bool rename)
     {
         var original = "Type=Exe\r\n" + items + "Name=\"TestProject\"\r\nStartup=\"(None)\"\r\n";
         var project = ProjectFromSerialized(new ProjectDeserializer().Deserialize(original, NullSink.Instance));
@@ -511,6 +547,43 @@ public class SerializationRoundTripTests
 
     // ── References: VB6 reference line format (*\G{GUID}#Ver#LCID#Path#Name) ───
 
+    // Measured by vb6.exe SP6: docs/vb6-fidelity-oracle/a-references-lcid-is-lowercase-hex.md.
+    [Theory]
+    [InlineData("0", 0, "0")]
+    [InlineData("9", 9, "9")]
+    [InlineData("409", 1033, "409")]
+    [InlineData("c0a", 3082, "c0a")]
+    [InlineData("C09", 3081, "c09")]
+    public void ProjectRoundTrip_ReferenceLcid_ReadsHexAndWritesLowercase(string input, int expected, string output)
+    {
+        const string prefix = "Reference=*\\G{11111111-0000-0000-0000-000000000001}#1.0#";
+        const string suffix = "#libs\\probe.tlb#Probe Library";
+        var sp = new ProjectDeserializer().Deserialize(prefix + input + suffix + "\r\n", NullSink.Instance);
+
+        sp.References.Should().ContainSingle().Which.Lcid.Should().Be(expected);
+        var project = ProjectFromSerialized(sp);
+        var text = new ProjectSerializer().Serialize(project, project.AbsolutePath!);
+        text.ReplaceLineEndings("\n").Split('\n').Where(line => line.StartsWith("Reference="))
+            .Should().Equal(prefix + output + suffix);
+    }
+
+    [Theory]
+    [InlineData(0, "0")]
+    [InlineData(9, "9")]
+    [InlineData(1033, "409")]
+    [InlineData(3082, "c0a")]
+    [InlineData(3081, "c09")]
+    public void ProjectSerializer_ReferenceLcid_WritesUnpaddedHex(int lcid, string expected)
+    {
+        var project = MakeProject();
+        project.AddReference(new VbReference(
+            "{11111111-0000-0000-0000-000000000001}", "1.0", lcid, null, "Probe Library"));
+
+        var text = new ProjectSerializer().Serialize(project, project.AbsolutePath!);
+
+        text.Should().Contain($"#1.0#{expected}##Probe Library");
+    }
+
     [Fact]
     public void ProjectSerializer_Reference_IncludesName()
     {
@@ -530,6 +603,7 @@ public class SerializationRoundTripTests
     public void ProjectSerializer_Reference_RoundTripsNameAndPath()
     {
         var project = MakeProject();
+        project.AbsolutePath = @"C:\work\probe\TestProject.vbp";
         project.AddReference(new VbReference(
             "{11111111-0000-0000-0000-000000000001}", "1.5", 0, @"C:\libs\foo.tlb", "Foo Library"));
 
@@ -538,7 +612,8 @@ public class SerializationRoundTripTests
         var r = deserialized.References.Single();
         r.Guid.Should().Be("{11111111-0000-0000-0000-000000000001}");
         r.Version.Should().Be("1.5");
-        r.LibPath.Should().Be(@"C:\libs\foo.tlb");
+        // VB6 saves a same-drive absolute path relative to the project (#2274).
+        r.LibPath.Should().Be(@"..\..\libs\foo.tlb");
         r.Name.Should().Be("Foo Library");
     }
 
@@ -558,13 +633,14 @@ public class SerializationRoundTripTests
     [Fact]
     public void ProjectRoundTrip_UnresolvableReference_IsPreserved()
     {
-        // A reference to a dependency not installed on this machine (or a non-Windows host) must
-        // survive open->save unchanged: it is carried as data and never resolved at load time.
+        // An unresolved reference on another drive survives open->save unchanged (#2274).
+        // It is carried as data and never resolved at load time.
         const string refLine =
-            "Reference=*\\G{DEADBEEF-0000-0000-0000-000000000001}#1.0#0#C:\\nope\\missing.tlb#Missing Library";
+            "Reference=*\\G{DEADBEEF-0000-0000-0000-000000000001}#1.0#0#X:\\nope\\missing.tlb#Missing Library";
         var vbp = "Name=TestProject\r\nType=EXE\r\n" + refLine + "\r\n";
         var sp = new ProjectDeserializer().Deserialize(vbp, NullSink.Instance);
         var project = ProjectFromSerialized(sp);
+        project.AbsolutePath = @"C:\work\probe\TestProject.vbp";
 
         var output = new ProjectSerializer().Serialize(project, project.AbsolutePath!);
 

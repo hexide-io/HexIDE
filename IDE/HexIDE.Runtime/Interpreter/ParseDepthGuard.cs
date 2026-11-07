@@ -3,21 +3,12 @@ using Antlr4.Runtime.Tree;
 
 namespace HexIDE.Runtime.Interpreter;
 
-/// <summary>
-/// Bounds parse-tree recursion depth so a degenerate deeply-nested input (hundreds of nested parentheses or blocks)
-/// is rejected as a compile error instead of overflowing the C# stack — a <see cref="System.StackOverflowException"/>
-/// is UNCATCHABLE and takes down the whole process. The proleap VB6 grammar is recursive-descent, so parse-tree depth
-/// ≈ C# stack depth; this listener fires on every rule entry (before the parser descends further) and aborts once
-/// depth exceeds the limit — proven to fire well before the ~600-level overflow, under both SLL and LL prediction.
-/// </summary>
-/// <remarks>
-/// The limit is a wide margin above real code (a deliberately deep real procedure peaks near a rule-depth of ~50,
-/// and each nesting level adds ≈1 rule frame). <b>Divergence:</b> vb6.exe itself tolerates far deeper nesting
-/// (verified: it compiles 4096 nested parens), so this rejects absurd nesting that VB6 would accept — a clean
-/// "nesting too deep" compile error instead of matching an effectively-unbounded stack. See docs/interpreter-gaps.md.
-/// </remarks>
+/// <summary>Refuses excessive parser recursion before it can overflow the host stack (#3210).
+/// Sized workers derive their rule count from the measured stack cost; other callers retain the old bound.
+/// The physical probe also covers heavier prediction/recovery paths between rule entries.</summary>
 internal sealed class ParseDepthGuard : IParseTreeListener
 {
+    // Still used by the conditional-expression finished-tree check; lifted separately.
     internal const int DefaultMaxDepth = 300;
 
     private readonly int _maxDepth;
@@ -26,18 +17,51 @@ internal sealed class ParseDepthGuard : IParseTreeListener
 
     /// <param name="moduleName">The module being parsed, named in the error as a syntax error names it, so the person
     /// fixes the right file. Null where there is no module, as for an Immediate-window entry.</param>
-    public ParseDepthGuard(int maxDepth = DefaultMaxDepth, string? moduleName = null)
+    public ParseDepthGuard(int? maxDepth = null, string? moduleName = null)
     {
-        _maxDepth = maxDepth;
+        _maxDepth = maxDepth ?? ParseStack.RuleDepth;
         _moduleName = moduleName;
+    }
+
+    // Prediction can inspect the whole parenthesized expression before entering its inner rules.
+    // Bound that shape before prediction allocates its configurations, using #3210's ~3.6 KB/pair.
+    internal static void CheckNesting(VB6Parser parser, string? moduleName = null)
+    {
+        const int maxPairs = ParseStack.StackSize / (2 * 3600);
+        var tokens = (BufferedTokenStream)parser.TokenStream;
+        tokens.Fill();
+        var depth = 0;
+        foreach (var symbol in tokens.GetTokens())
+        {
+            if (symbol.Type == VB6Lexer.LPAREN && ++depth > maxPairs)
+                throw new VBCompileErrorException($"Expression or block nesting too deep (exceeds {maxPairs} parenthesis pairs)"
+                    + (moduleName is null ? "" : $" in {moduleName}, line {symbol.Line}")) { Line = symbol.Line };
+            if (symbol.Type == VB6Lexer.RPAREN)
+                depth = Math.Max(0, depth - 1);
+        }
+        // A reverse balance is a lower bound: inline If tokens can only reduce it. It is not a
+        // statement parser, but stops an oversized tail of End Ifs before prediction scans it.
+        const int maxBlocks = ParseStack.StackSize / (3 * 2800);
+        depth = 0;
+        for (var i = tokens.Size - 1; i >= 0; i--)
+        {
+            var symbol = tokens.Get(i);
+            if (symbol.Type == VB6Lexer.END_IF && ++depth > maxBlocks)
+                throw new VBCompileErrorException($"Expression or block nesting too deep (exceeds {maxBlocks} nested If blocks)"
+                    + (moduleName is null ? "" : $" in {moduleName}, line {symbol.Line}")) { Line = symbol.Line };
+            if (symbol.Type == VB6Lexer.IF)
+                depth = Math.Max(0, depth - 1);
+        }
     }
 
     public void EnterEveryRule(ParserRuleContext ctx)
     {
-        if (++_depth > _maxDepth)
+        var tooDeep = ++_depth > _maxDepth;
+        if (tooDeep || !System.Runtime.CompilerServices.RuntimeHelpers.TryEnsureSufficientExecutionStack())
         {
             var line = ctx.Start?.Line ?? 0;
-            throw new VBCompileErrorException($"Expression or block nesting too deep (exceeds {_maxDepth} levels)"
+            var reason = tooDeep ? $"exceeds {_maxDepth} rule levels" : "insufficient parser stack space";
+            throw new VBCompileErrorException($"Expression or block nesting too deep ({reason})"
                 + (_moduleName is null ? "" : $" in {_moduleName}, line {line}")) { Line = line };
         }
     }

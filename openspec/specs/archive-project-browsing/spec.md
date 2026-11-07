@@ -14,7 +14,7 @@ The IDE MUST route supported archive project paths to the archive reader from no
 - **AND** the project path is available for recent-project reopening
 
 ### Requirement: Inspect content without mutations
-Known text documents MUST support Find and copy. Editing and replacement MUST NOT change their buffers or source bytes. Unsupported text previews MUST show an explanatory status. Entry metadata and hidden entries MUST be available through explicit inspection controls.
+Known text documents MUST support Find and copy. Editing and replacement MUST NOT change their buffers or source bytes. Unsupported text previews MUST show an explanatory status. Entry metadata and hidden entries MUST be available through explicit inspection controls. The Project Explorer's Show hidden archive entries toggle MUST be visible only when an archive root or node is selected.
 
 #### Scenario: Find and replace in an archive tab
 - **WHEN** the user finds text and invokes replacement

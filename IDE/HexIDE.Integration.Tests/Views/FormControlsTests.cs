@@ -204,6 +204,15 @@ public class FormControlsTests
         return (printed, errors);
     }
 
+    [AvaloniaFact]
+    public void Timer_Parent_returns_the_owning_form_by_both_routes()
+    {
+        Printed("Dim o As Object\nSet o = Timer1\nDebug.Print Timer1.Parent.Name\nDebug.Print o.Parent.Name\n"
+                + "Set o = Timer2(0)\nDebug.Print Timer2(0).Parent.Name\nDebug.Print o.Parent.Name",
+                Designer.Replace("Begin VB.Timer Timer1", "Begin VB.Timer Timer2\nIndex = 0\nEnd\nBegin VB.Timer Timer1"))
+            .Should().Equal("Form1", "Form1", "Form1", "Form1");
+    }
+
     private static void Pump()
     {
         for (var i = 0; i < 20; i++)

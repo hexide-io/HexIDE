@@ -342,10 +342,15 @@ Four kinds of divergence came out, each filed:
   character unchecked, so `Module1.VF$("x")` answers `"x"` where VB6 refuses to compile it (#742, which
   also carries the rules above as the design to implement). A declaration through one throws as well:
   `Dim Left$` gives "DIM type hints not implemented" where VB6 compiles TL_04.
-- Without `Option Explicit`, an assignment through a type character writes a second variable, so `n% = 5`
-  leaves a declared `n` at 0 with no error. With it, the same line raises `Variable not defined (n%)`,
-  which VB6 does not. A `For i%` loop runs on a counter nobody reads either way (#739).
-- A `Function` declared with a type character does not parse, so its module does not load (#740).
+- Before #739, without `Option Explicit`, an assignment through a type character wrote a second variable, so `n% = 5`
+  left a declared `n` at 0 with no error. With it, the same line raised `Variable not defined (n%)`,
+  which VB6 does not. A `For i%` loop ran on a counter nobody reads either way (#739).
+  #739 now resolves scalar assignment targets to the bare slot, checks the declared type and creates a typed slot
+  on first suffixed assignment. No new VB6 measurement was needed for those: the assignment tables above supply the
+  values and types. The For counter was measured at every scope, with `Next` too, in "A For counter written with a
+  type character" (2026-10-27), and follows it.
+- A `Function` declared with a type character did not parse, so its module did not load. #740 fixed it, measured in "A
+  Function declared with a type character".
 - Surplus arguments are dropped, so `H(5, 6)`, `G(5, 6)` and `F(5, 6)` above run and answer, and a
   `String` variable that shares a library function's name (`Left`, `Trim`) is passed over to the library
   when called with arguments. TE_01 answers the program's

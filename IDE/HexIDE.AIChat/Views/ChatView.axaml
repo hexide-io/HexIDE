@@ -2,8 +2,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:local="clr-namespace:HexIDE.AIChat.Views"
              x:DataType="local:ChatViewModel"
-             x:Class="HexIDE.AIChat.Views.ChatView"
-             MinWidth="280">
+             x:Class="HexIDE.AIChat.Views.ChatView">
     <Grid RowDefinitions="*,Auto">
 
         <!-- Message history -->
@@ -110,7 +109,7 @@
         </ScrollViewer>
 
         <!-- Input row -->
-        <Grid Grid.Row="1" ColumnDefinitions="*,Auto,Auto" Margin="4">
+        <Grid Name="InputRow" Grid.Row="1" ColumnDefinitions="*,Auto,Auto" Margin="4">
             <TextBox Grid.Column="0"
                      Text="{Binding InputText}"
                      PlaceholderText="Ask about your VB6 code…"

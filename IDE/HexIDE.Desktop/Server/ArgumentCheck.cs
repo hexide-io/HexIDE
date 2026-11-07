@@ -64,6 +64,12 @@ internal static class ArgumentCheck
     private static string Normalize(string name) => name.Replace("_", "", StringComparison.Ordinal)
         .Replace("-", "", StringComparison.Ordinal);
 
+    /// <summary>
+    /// What a problem says when an array or object argument arrived as text holding one (#2446), so the refusal can
+    /// close on its cause instead of pointing at the schema, which is the stale thing.
+    /// </summary>
+    internal const string StaleSchemaMark = "what a client sends while it holds an older schema of this tool";
+
     /// <summary>Why <paramref name="value"/> does not fit <paramref name="declared"/>, or null when it does.</summary>
     private static string? Mismatch(JsonElement value, JsonElement declared)
     {
@@ -71,7 +77,10 @@ internal static class ArgumentCheck
         if (types.Count == 0)
             return null;
         if (!types.Any(t => Fits(value, t)))
-            return $"must be {string.Join(" or ", types.Where(t => t != "null"))}, not {Shown(value)}";
+            return AsTextHolding(value, types) is { } held
+                ? $"must be {held}, and arrived as {Holding(value)}: {StaleSchemaMark}, from before this parameter took "
+                  + $"{(held == "array" ? "an array" : "an object")}"
+                : $"must be {string.Join(" or ", types.Where(t => t != "null"))}, not {Shown(value)}";
         if (value.ValueKind == JsonValueKind.Array && declared.TryGetProperty("items", out var items))
         {
             var index = 0;
@@ -110,13 +119,42 @@ internal static class ArgumentCheck
         _ => true,
     };
 
-    // The value itself where it is short, so 2.5 reads as 2.5 rather than as "a number".
+    /// <summary>
+    /// The declared array or object type that string <paramref name="value"/> holds as JSON, or null. A client whose copy
+    /// of the schema has the parameter as anything else, or not at all, serializes an array or object it was given as text
+    /// (#2446), and a client keeps a schema it has loaded until the tool is loaded afresh.
+    /// </summary>
+    private static string? AsTextHolding(JsonElement value, List<string> types)
+    {
+        if (value.ValueKind != JsonValueKind.String || value.GetString() is not { } text)
+            return null;
+        try
+        {
+            using var held = JsonDocument.Parse(text);
+            return held.RootElement.ValueKind switch
+            {
+                JsonValueKind.Array when types.Contains("array") => "array",
+                JsonValueKind.Object when types.Contains("object") => "object",
+                _ => null,
+            };
+        }
+        catch (JsonException) { return null; }
+    }
+
+    // A string that holds the declared array or object: whole where it is short, else by its length and its start.
+    private static string Holding(JsonElement value) => value.GetRawText() is { Length: <= 40 } raw
+        ? $"a string holding one, {raw}"
+        : $"a string of {value.GetString()!.Length} characters holding one, beginning \"{value.GetString()![..24]}\"…";
+
+    // The value itself where it is short, so 2.5 reads as 2.5 rather than as "a number"; a long string by its length and its
+    // start, so a caller can see what arrived (#2446).
     private static string Shown(JsonElement value) => value.ValueKind switch
     {
         JsonValueKind.Array => "an array",
         JsonValueKind.Object => "an object",
         _ when value.GetRawText() is { Length: <= 40 } raw => raw,
-        JsonValueKind.String => "a long string",
+        JsonValueKind.String when value.GetString() is { } text
+            => $"a string of {text.Length} characters beginning \"{text[..Math.Min(24, text.Length)]}\"…",
         _ => value.ValueKind.ToString().ToLowerInvariant(),
     };
 }

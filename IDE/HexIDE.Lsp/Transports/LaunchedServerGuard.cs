@@ -6,6 +6,16 @@ namespace HexIDE.Lsp;
 
 internal static partial class LaunchedServerGuard
 {
+    // Unix guards need two more seconds to end the server's remaining group after it exits.
+    public static TimeSpan ExitTimeout => TimeSpan.FromSeconds(
+        OperatingSystem.IsLinux() || OperatingSystem.IsMacOS() ? 4 : 2);
+
+    // Raised for each server process a transport starts. Nothing in the IDE listens. The Integration suite's
+    // LanguageServerLeakGuard does, and fails the run on any still running at the end (#2530).
+    internal static event Action<Process>? Started;
+
+    internal static void NoteStarted(Process process) => Started?.Invoke(process);
+
     public static void Wrap(ProcessStartInfo start)
     {
         if (!(OperatingSystem.IsLinux() || OperatingSystem.IsMacOS())) return;

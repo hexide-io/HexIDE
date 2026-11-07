@@ -129,10 +129,10 @@ internal static class ContainerRuntimeHarness
         // outcome worth having.
     }
 
-    internal static async Task<List<Vb6Value>> Run(ModuleExecutionContext ctx, ExecutionEnvironment env, string code)
+    internal static async Task<List<Vb6Value>> Run(ModuleExecutionContext ctx, ExecutionEnvironment env, string code, EventPump? events = null)
     {
         var debug = new List<Vb6Value>();
-        await new BasicInterpreter(new CaptureLib(debug), ctx, env, code).Execute();
+        await new BasicInterpreter(new CaptureLib(debug), ctx, env, code) { Events = events }.Execute();
         return debug;
     }
 

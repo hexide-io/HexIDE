@@ -6,6 +6,8 @@ public sealed class AddinToolWindowViewModel : Tool
 {
     public string AddinId { get; }
     public string WindowId { get; }
+    internal bool KeepSavedWidth { get; set; }
+    internal System.Collections.Generic.HashSet<Dock.Model.Core.IDockable> SizedDocks { get; } = [];
 
     public object? Content { get; }
 

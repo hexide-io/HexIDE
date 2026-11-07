@@ -63,6 +63,9 @@ public sealed partial class UnmodelledControlViewModel : ObservableObject, IDisp
 
     public string Name => control.Name;
 
+    /// <summary>Whether HexIDE runs the control and the designer only carries it, so the box says view-only (#2327).</summary>
+    public bool ViewOnly => control.ViewOnly;
+
     public double Left => Origin.X + Pixels(control.Left);
 
     public double Top => Origin.Y + Pixels(control.Top);

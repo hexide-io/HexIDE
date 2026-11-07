@@ -179,7 +179,7 @@ public class SyntaxErrorAtStartTests
         // module while a syntax error did.
         var project = subMain ? SubMainProject() : FormProject();
         AddModule(project, "Deep", ModuleKind.StandardModule,
-            "Sub Main()\r\n    y = " + new string('(', 400) + "1" + new string(')', 400) + "\r\nEnd Sub\r\n");
+            "Sub Main()\r\n    y = " + new string('(', 10000) + "1" + new string(')', 10000) + "\r\nEnd Sub\r\n");
         var h = Runner(project);
 
         h.Runner.RunProject(project);

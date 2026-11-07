@@ -29,11 +29,14 @@ public static class VBProperties
 
     public static PropertyClass<bool> CausesValidationProperty = new PropertyClass<bool>("CausesValidation", "Whether moving focus off this control validates the control that lost focus.", PropertyCategory.Behavior, true);
 
-    public static PropertyClass<VBCursorType> MousePointerProperty = new PropertyClass<VBCursorType>("MousePointer", "The pointer shape shown while the mouse is over the object.", PropertyCategory.Misc, VBCursorType.Arrow);
+    public static PropertyClass<VBCursorType> MousePointerProperty = new PropertyClass<VBCursorType>("MousePointer", "The pointer shape shown while the mouse is over the object.", PropertyCategory.Misc, VBCursorType.Default);
 
     public static PropertyClass<bool> RightToLeftProperty = new PropertyClass<bool>("RightToLeft", "Whether text and layout are mirrored for right-to-left languages.", PropertyCategory.Behavior);
 
     public static PropertyClass<string?> ToolTipTextProperty = new PropertyClass<string?>("ToolTipText", "The tooltip shown when the pointer rests on the control.", PropertyCategory.Misc);
+
+    public static readonly PropertyClass<int> HelpContextIDProperty = new PropertyClass<int>("HelpContextID",
+        "The context number of the object's help topic.", PropertyCategory.Misc);
 
     public static PropertyClass<int> WhatsThisHelpIdProperty = new PropertyClass<int>("WhatsThisHelpID", "A context number that links the object to a help topic.", PropertyCategory.Misc);
 

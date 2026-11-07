@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Globalization;
 using Avalonia.Threading;
 using Dock.Model.Mvvm.Controls;
 using HexIDE.Conversations;
@@ -52,6 +53,9 @@ public partial class LanguageServersToolViewModel : Document
     private readonly IEventBus _events;
     private readonly Pseudonymiser _pseudonyms;
     private readonly IProjectManager? _projects;
+    private readonly HashSet<string> _pendingOutput = new(StringComparer.Ordinal);
+
+    internal event Action? LanguageChanged;
 
     public ObservableCollection<LanguageServerGroupViewModel> Groups { get; } = [];
     public ObservableCollection<LanguageServerConfigProblem> Problems { get; } = [];
@@ -103,8 +107,10 @@ public partial class LanguageServersToolViewModel : Document
 
         armsFutureServers = capture.ArmsEveryConnection;
 
+        _localization.LanguageChanged += OnLanguageChanged;
         _registry.ConnectionsChanged += OnConnectionsChanged;
         _capture.ArmingChanged += OnArmingChanged;
+        _capture.Output.Changed += OnOutputChanged;
         Refresh();
     }
 
@@ -137,6 +143,41 @@ public partial class LanguageServersToolViewModel : Document
                         row.ArmingChanged();
                 }
             }
+        }
+    }
+
+    private void OnOutputChanged(object? sender, string connectionId)
+    {
+        lock (_pendingOutput)
+        {
+            var alreadyQueued = _pendingOutput.Count > 0;
+            _pendingOutput.Add(connectionId);
+            if (alreadyQueued) return;
+        }
+        // A noisy server must not queue one dispatcher job for every line.
+        Dispatcher.UIThread.Post(() =>
+        {
+            string[] changed;
+            lock (_pendingOutput)
+            {
+                changed = [.. _pendingOutput];
+                _pendingOutput.Clear();
+            }
+            foreach (var row in Groups.SelectMany(g => g.Rows))
+                if (changed.Contains(row.Id)) row.OutputChanged();
+        });
+    }
+
+    private void OnLanguageChanged()
+    {
+        if (Dispatcher.UIThread.CheckAccess()) Apply();
+        else Dispatcher.UIThread.Post(Apply);
+
+        void Apply()
+        {
+            foreach (var row in Groups.SelectMany(g => g.Rows)) row.LanguageChanged();
+            RefreshProblems();
+            LanguageChanged?.Invoke();
         }
     }
 
@@ -177,11 +218,24 @@ public partial class LanguageServersToolViewModel : Document
                      .ToList()));
         }
 
-        Problems.Clear();
-        foreach (var p in _registry.ConfigurationProblems) Problems.Add(p);
-
-        HasProblems = Problems.Count > 0;
+        RefreshProblems();
         HasNoServers = Groups.Count == 0;
+    }
+
+    private void RefreshProblems()
+    {
+        Problems.Clear();
+        foreach (var problem in _registry.ConfigurationProblems)
+        {
+            var key = problem.Code == "NoServers"
+                ? "Str.Tool.LanguageServers.None"
+                : $"Str.Tool.LanguageServers.Problem.{problem.Code}";
+            Problems.Add(problem.Code is null ? problem : problem with
+            {
+                Message = string.Format(CultureInfo.InvariantCulture, _localization.GetString(key), problem.Arguments),
+            });
+        }
+        HasProblems = Problems.Count > 0;
     }
 
     /// <summary>

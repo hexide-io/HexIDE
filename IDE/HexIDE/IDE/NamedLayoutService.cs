@@ -39,6 +39,12 @@ public sealed class NamedLayoutService(IWindowStateService state)
         Commit(next);
     }
 
+    internal void Migrate(Func<LayoutManifest, LayoutManifest> migrate)
+    {
+        var next = _layouts.ToDictionary(p => p.Key, p => migrate(p.Value), StringComparer.OrdinalIgnoreCase);
+        if (next.Any(p => !ReferenceEquals(p.Value, _layouts[p.Key]))) Commit(next);
+    }
+
     private void Commit(Dictionary<string, LayoutManifest> next)
     {
         state.SaveNamedLayouts(next);

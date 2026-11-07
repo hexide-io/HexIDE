@@ -319,7 +319,14 @@ public static class CaptureQueries
         if (filter.AfterSequence is { } after
             && log.Snapshot(filter.ConnectionId).Any(e => Matches(e, filter with { AfterSequence = null })))
         {
-            return $"Nothing was recorded, answered or ended after {after}. Poll again from latestSequence.";
+            // Quiet for this filter is not quiet: a failuresOnly poll over 1,337 ordinary envelopes was told nothing had
+            // been recorded at all (#2974).
+            var arrived = log.Snapshot(filter.ConnectionId)
+                .Count(e => Matches(e, new EnvelopeFilter(AfterSequence: after)));
+            return arrived == 0
+                ? $"Nothing was recorded, answered or ended after {after}. Poll again from latestSequence."
+                : $"Nothing matching this filter was recorded, answered or ended after {after}, though {arrived} "
+                  + $"envelope(s) were. Poll again from latestSequence with the same filter.";
         }
 
         return $"{total} envelope(s) are recorded, and none match this filter. Drop the filters to see "

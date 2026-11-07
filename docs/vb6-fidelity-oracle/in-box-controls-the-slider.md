@@ -1,7 +1,7 @@
 ## In-box controls: the Slider (2026-10-27, #1091)
 
 **The probes.**
-- **The software:** VB6 6.00.8176 SP6, with MSCOMCTL.OCX 6.01.9782, on Windows 10 at 96 dpi.
+- **The software:** VB6 SP6 (6.00.9782), with MSCOMCTL.OCX 6.01.9782, on Windows 10 at 96 dpi.
   - The form line is `Object = "{831FDD16-0C5C-11D2-A9FC-0000F8754DA1}#2.0#0"; "MSCOMCTL.OCX"`.
   - The block is `Begin MSComctlLib.Slider`, `_Version` 393216.
 - **The form:** VB6's own double-clicked Slider block from `corpus/inbox-controls/pending/defaults/`, moved to 120, 120 and

@@ -91,14 +91,15 @@ public class ForEachTests : BaseVBTestFixture
     }
 
     [Fact]
-    public async Task NonArrayCollection_IsTypeMismatch()
+    // #3213, "The rule, measured", section 1; measuring PR #3215.
+    public async Task A_literal_collection_is_a_syntax_error()
     {
         Func<Task> act = () => Run(
             "Dim x\n" +
             "For Each x In 42\n" +
             "Debug.Print x\n" +
             "Next\n");
-        (await act.Should().ThrowAsync<VBRunTimeException>()).Which.Error.ErrNo.Should().Be(13);
+        await act.Should().ThrowAsync<VBCompileErrorException>();
     }
 
     [Fact]

@@ -17,6 +17,9 @@ public interface IBasicStandardLibrary
 
     /// <summary>Where SaveSetting and GetSetting keep a program's settings (#1562): see <see cref="VbSettingsStores"/>.</summary>
     IVbSettingsStore Settings => throw new NotImplementedException("This host does not keep a program's settings (#1562)");
+
+    /// <summary>The screen the <c>Screen</c> object describes (#2431): see <see cref="IVbDisplay"/>.</summary>
+    IVbDisplay Display => throw new NotImplementedException("This host has no screen for the Screen object to describe (#2431)");
     Task<MessageBoxResult> MsgBox(string text, string? caption, MessageBoxButtons buttons, MessageBoxIcon icon);
     Task<string?> InputBox(string prompt, string? title, string defaultText);
 
@@ -43,6 +46,12 @@ public interface IBasicStandardLibrary
     /// <summary>A CommonDialog's <c>ShowOpen</c> or <c>ShowSave</c> (#1084): the file chosen, or null for Cancel.</summary>
     Task<VbFileDialogAnswer?> ShowFileDialog(VbFileDialogRequest request) =>
         throw new NotImplementedException("A CommonDialog's file dialogs are not implemented in this host (#1084)");
+
+    Task<bool> ShowPrintDialog() =>
+        throw new NotImplementedException("This host does not implement the print dialog (#2299)");
+
+    Task<int?> ShowColorDialog(int initial) =>
+        throw new NotImplementedException("This host does not implement the color dialog (#2299)");
 
     /// <summary>A CommonDialog's <c>ShowFont</c> (#1084): the font chosen, or null for Cancel.</summary>
     Task<VbFontChoice?> ShowFontDialog(VbFontChoice initial) =>
@@ -208,6 +217,32 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
     // frames are removed by identity — but it mirrors the physical stack, matching VB6's Call Stack semantics.
     private readonly List<StatementExecutor> activationStack = new();
 
+    /// <summary>
+    /// How many procedure activations deep one interpreter's VB code may go before Error 28, whatever the stack probe
+    /// in <see cref="RunProcedure"/> says (#3250).
+    /// </summary>
+    /// <remarks>
+    /// <para>The probe sees native frames only. A debugger's time-slice yield, under F5 and in a made EXE, releases
+    /// them and leaves the activations on the heap, so a runaway recursion there never raised 28. In a made EXE it
+    /// ran past 687,000 levels and 4 GB in two minutes. In the IDE it starved the machine.</para>
+    /// <para>The cap keeps the depth Jen chose on #3228, and bounds the rest. All figures are Windows x64:</para>
+    /// <list type="bullet">
+    /// <item><b>What 64 MiB of native stack holds with no yield,</b> where the probe decides: a recursive Function,
+    /// <c>StackSpaceTests</c>' <c>Down(n)</c>, gets about 1,490 levels in a Debug build and 4,300 in Release. 5,000 is
+    /// above both, so the cap doesn't change what that choice gave. A cheaper frame, a bare recursive Sub, is cut
+    /// short by it in Release: 64 MiB would hold about 11,260 of those at 5,958 bytes each.</item>
+    /// <item><b>What a runaway costs once it's held across yields.</b> In the IDE, commit grew by about 14 KB a level,
+    /// linearly (#3250's live check), so 5,000 levels should be about 70 MB. The live recheck at the cap peaked about
+    /// 170 MB above idle in the IDE and 140 MB in a made EXE, and reached Error 28 in about 2.5 seconds.</item>
+    /// </list>
+    /// <para>vb6.exe goes deeper, to 258,825 frames, so this is a divergence, recorded in interpreter-gaps.md.</para>
+    /// </remarks>
+    internal const int MaxCallDepth = 5_000;
+
+    /// <summary>How many procedures an unwinding error, Stop or End passes between yields, under a debugger (#3250). Small
+    /// enough to keep the inline nesting shallow; large enough that a shallow unwind, the usual one, never yields.</summary>
+    private const int UnwindYieldEvery = 32;
+
     /// <summary>The live procedure-activation call stack (outermost first). Read by the debugger only.</summary>
     public IReadOnlyList<StatementExecutor> ActivationStack => activationStack;
 
@@ -303,7 +338,7 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
             }
             if (f.AutoNewClass is { } made)
             {
-                if (!Modules.TryGet(made, out var classModule) || classModule.Kind != InterpreterModuleKind.Class)
+                if (!Modules.TryGet(made, out var classModule) || classModule.Kind != InterpreterModuleKind.Class || classModule.HostedControl)
                     throw new NotImplementedException($"Field '{f.Name}' declared As New inside Type '{typeName}' is not implemented (#1488)");
                 fields[f.Name] = Vb6Value.Nothing;
                 autoNewFields[f.Name] = new AutoNew(made, f.Name);
@@ -330,7 +365,7 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
 
     /// <summary>
     /// The value a store keeps, copied as VB6 copies it: a UDT deeply, an array level by level
-    /// (<see cref="VBArray.CopyForLet"/>), everything else as it is. Applied wherever VB6 copies: a Let into a variable, a
+    /// (<see cref="VBArray.CopyForLet"/>), a String buffer independently, everything else as it is. Applied wherever VB6 copies: a Let into a variable, a
     /// field or an element, a ByVal argument and a For Each variable, and so a Function's return. A <c>VbObject</c> is
     /// never copied: objects are references, so <c>Set b = a</c> shares, and a copied array shares its objects with the
     /// original (measured, #970: <c>b(0) Is a(0)</c>). Each is held once more, so the copy AddRefs it, and every array then
@@ -341,6 +376,7 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
 
     private Vb6Value CopyForStore(Vb6Value v, int depth) => v.Value switch
     {
+        string => v.CopyString(),
         VbUdt udt => CopyUdt(udt),
         VBArray array => v.WithArray(array.CopyForLet(element => CopyElement(element, depth + 1))),
         _ => v,
@@ -393,7 +429,9 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         // deadlock) and mutate state. Blocked here, before construction. Scoped to Paused (see RunProcedure).
         if (SuppressUserProcedureCalls && DebugController?.State == Debugging.DebugState.Paused)
             throw new Debugging.ImmediateEvalException("Creating objects is not available in the Immediate window.");
-        if (!Modules.TryGet(className, out var classDef) || classDef.Kind != InterpreterModuleKind.Class)
+        if (className.Equals("StdFont", StringComparison.OrdinalIgnoreCase) && !Modules.TryGet(className, out _))
+            throw new NotImplementedException("New StdFont is not implemented: its initial member values are unmeasured (#934)");
+        if (!Modules.TryGet(className, out var classDef) || classDef.Kind != InterpreterModuleKind.Class || classDef.HostedControl)
             throw new VBCompileErrorException("User-defined type not defined: " + className);
         // A class that claims an interface must supply all of it. VB6 refuses to BUILD such a program; with no
         // compile step to refuse at, the check runs here — once per class, before the first instance exists, so
@@ -479,7 +517,9 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
             foreach (var field in bag.EnumerateFields())
                 await ReleaseRef(field.Value);
         }
-        else if (v.Value is VBArray array)
+        // A ParamArray's elements are its caller's arguments, and the copies it made of the rest are released with the call
+        // (#2462), so releasing the array itself, as `a = Array(7)` does, releases nothing.
+        else if (v.Value is VBArray { IsParamArray: false } array)
         {
             foreach (var element in array.EnumerateElements())
                 await ReleaseRef(element);
@@ -517,7 +557,8 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         // never reaches this path (its count never hit zero); a shared field just decrements. (Inter-field
         // teardown order is unpinned — Dictionary order — no oracle constraint yet.)
         foreach (var slot in o.InstanceEnv.variableToLocation.Values)
-            await ReleaseRef(ExecutionContext.State[slot]);
+            if (!predeclaredSlots.Contains(slot))   // shared program names are not this instance's fields (#2555)
+                await ReleaseRef(ExecutionContext.State[slot]);
         // Then its procedures' Statics, in the order the module declares them (measured, #1491).
         if (o.Statics is { } statics)
             foreach (var slot in statics.InSourceOrder())
@@ -588,6 +629,7 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         IReadOnlyList<(string Name, string Code)>? formModules = null,
         CompilationConstants? compilationConstants = null)
     {
+        Err = new VbErr(() => ProjectName);
         ExecutionContext = executionContext;
         this.compilationConstants = compilationConstants ?? CompilationConstants.Vb6;
         BuiltIns = new VB6BuiltIns(stdLib)
@@ -606,6 +648,7 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         // A relative path in a file statement is the project's folder's (#1145), read when the file is opened, since the
         // project's details arrive after the interpreter is built.
         BuiltIns.Files.ProjectFolder = () => App.Path;
+        App = new VbApp(AppInfo.None, BuiltIns.Files);
 
         // Build the primary (startup) module over the caller-provided rootEnv, then any additional modules —
         // each with its own env, ALL sharing one ExecutionState so slots are program-global (this is why ByRef
@@ -621,7 +664,7 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
                 Modules.Add(BuildModule(name, InterpreterModuleKind.Standard, modCode, new ExecutionEnvironment()));
 
         // Class modules are TEMPLATES, not singletons — registered so `New`/`Dim As`/`TypeOf` resolve the name,
-        // but instantiated only by New (each instance gets its own field env), never run at program start.
+        // but instantiated only on use (each instance gets its own field env), never run at program start.
         if (classModules != null)
             foreach (var (name, modCode) in classModules)
                 Modules.Add(BuildModule(name, InterpreterModuleKind.Class, modCode, new ExecutionEnvironment()));
@@ -664,6 +707,18 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         SeedProgramGlobal("Err", () => new Vb6Value(Err));
         SeedProgramGlobal("App", () => new Vb6Value(App));
 
+        // A predeclared class name is a shared As New slot (#2555), separate from every explicit New.
+        foreach (var module in Modules.All)
+            if (module.Kind == InterpreterModuleKind.Class && module.PrePass.PredeclaredId)
+            {
+                SeedProgramGlobal(module.Name, () => Vb6Value.Nothing);
+                if (rootEnv.TryGetVariableLocation(module.Name, out var slot))
+                {
+                    ExecutionContext.State.MarkAutoNew(slot, module.Name, module.Name);
+                    predeclaredSlots.Add(slot);
+                }
+            }
+
         // Each module sees the other standard modules' Public variables and Consts unqualified, behind its own names
         // (#880). Set after every module's pre-pass, which is what lists them.
         foreach (var m in Modules.All)
@@ -673,6 +728,29 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
     /// <summary>The program-global <c>App</c> object, describing the project this program came from.</summary>
     public VbApp App { get; private set; } = new(AppInfo.None);
 
+    internal Win32Resources Resources { get; private set; } = new();
+
+    private VbScreen? screen;
+
+    /// <summary>
+    /// The program-global <c>Screen</c> object (#2431). Not a seeded variable, as <c>App</c> is: like <c>Clipboard</c>, the
+    /// name is reached only where nothing the program declares claims it, so a user's <c>Function Screen</c> or
+    /// <c>Dim Screen</c> still wins, and the Locals window does not list it.
+    /// </summary>
+    public VbScreen Screen => screen ??= new VbScreen(this, stdLib);
+
+    private VbForms? formsCollection;
+
+    /// <summary>The program-global <c>Forms</c> (#2496), reached as <see cref="Screen"/> is.</summary>
+    public VbForms FormsCollection => formsCollection ??= new VbForms(this);
+
+    /// <summary>The library object a name nothing else claims stands for, or null: <c>Screen</c> (#2431) and <c>Forms</c>
+    /// (#2496).</summary>
+    internal Vb6Value? UnclaimedLibraryObject(string name) =>
+        name.Equals("Screen", StringComparison.OrdinalIgnoreCase) ? new Vb6Value(Screen)
+        : name.Equals("Forms", StringComparison.OrdinalIgnoreCase) ? new Vb6Value(FormsCollection)
+        : (Vb6Value?)null;
+
     /// <summary>
     /// Tell the running program which project it is. Called by the host before <c>Execute</c>; a program
     /// with no project behind it (the test harness, the bare interpreter) keeps <see cref="AppInfo.None"/>
@@ -680,16 +758,18 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
     /// </summary>
     public void SetAppInfo(AppInfo info)
     {
-        App = new VbApp(info);
+        if (info.ProjectName is { } name)
+            ProjectName = name;
+        Resources = Win32Resources.Load(info.ResourceFilePath);
+        App = new VbApp(info, BuiltIns.Files);
         SeedProgramGlobal("App", () => new Vb6Value(App));
-        BuiltIns.CommonDialogReferenced = info.CommonDialogReferenced;
         BuiltIns.ControlLibraries = info.ControlLibraries ?? [];
         BuiltIns.CommandLine = info.CommandLine;
     }
 
     /// <summary>The program-global <c>Err</c> object. Shared with the <c>Err</c> slot in every module env (see
     /// <see cref="SeedProgramGlobal"/>), so runtime error traps and user <c>Err.Number</c> reads see one state.</summary>
-    public readonly VbErr Err = new();
+    public readonly VbErr Err;
 
     // What a module's #If can name besides its own #Consts: the project's arguments and the built-ins (#1112).
     private readonly CompilationConstants compilationConstants;
@@ -697,28 +777,32 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
     // Each module's conditional compilation is applied before it is parsed, so an inactive branch is never parsed, as in
     // vb6.exe, and a directive's error stops the program as it loads (#1112). The text is the parser's alone: the code
     // window and every save keep the module as written.
-    private ModuleInfo BuildModule(string name, InterpreterModuleKind kind, string moduleCode, ExecutionEnvironment env)
+    private ModuleInfo BuildModule(string name, InterpreterModuleKind kind, string moduleCode, ExecutionEnvironment env) => ParseStack.Run(() =>
     {
         var pp = new PrePass(env, ExecutionContext.State);
         pp.Visit(Parse(ConditionalCompiler.Preprocess(moduleCode, compilationConstants, name).Text, name));
         return new ModuleInfo(name, kind, pp, env);
-    }
+    });
 
     // The module being parsed, named in a syntax error's message so the person fixes the right file (#759).
     private string? parsingModule;
 
+    internal PredictionMode? ModuleParsePredictionMode { get; private set; }
+
     private Antlr4.Runtime.Tree.IParseTree Parse(string source, string moduleName)
     {
         var lexer = new VB6Lexer(new AntlrInputStream(new StringReader(source)));
-        var parser = new VB6Parser(new CommonTokenStream(lexer));
         lexer.RemoveErrorListeners();
-        parser.RemoveErrorListeners();
         lexer.AddErrorListener(this);
-        parser.AddErrorListener(this);
         parsingModule = moduleName;
         try
         {
-            return ParseWithFallback(parser, p => p.startRule(), moduleName: moduleName);
+            var parser = new VB6Parser(NextCounterList.Tokens(lexer));
+            parser.RemoveErrorListeners();
+            parser.AddErrorListener(this);
+            var tree = ParseWithFallback(parser, p => p.startRule(), moduleName: moduleName);
+            ModuleParsePredictionMode = parser.Interpreter.PredictionMode;
+            return tree;
         }
         finally
         {
@@ -726,9 +810,10 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         }
     }
 
-    private T ParseWithFallback<T>(VB6Parser parser, Func<VB6Parser, T> parse,
-        bool bailOnError = false, bool requireEnd = false, string? moduleName = null)
+    internal T ParseWithFallback<T>(VB6Parser parser, Func<VB6Parser, T> parse,
+        bool bailOnError = false, bool requireEnd = false, string? moduleName = null) => ParseStack.Run(() =>
     {
+        ParseDepthGuard.CheckNesting(parser, moduleName);
         parser.RemoveErrorListeners();
         parser.AddParseListener(new ParseDepthGuard(moduleName: moduleName));
         parser.Interpreter.PredictionMode = PredictionMode.SLL;
@@ -753,7 +838,7 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
                 parser.AddErrorListener(this);
             return parse(parser);
         }
-    }
+    });
 
     private string SyntaxErrorAt(int line, int column) =>
         $"in {(parsingModule is null ? "" : parsingModule + ", ")}line {line}:{column}";
@@ -820,6 +905,18 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
                 m.ModuleEnv.DefineVariable(name, slot);
     }
 
+    private readonly List<int> predeclaredSlots = new();
+
+    internal async Task ReleasePredeclaredInstances()
+    {
+        foreach (var slot in predeclaredSlots)
+        {
+            var value = ExecutionContext.State[slot];
+            ExecutionContext.State[slot] = Vb6Value.Nothing;
+            await ReleaseRef(value);
+        }
+    }
+
     public async Task Execute()
     {
         declarationsRun = true;
@@ -837,6 +934,11 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         catch (Debugging.StopExecutionSignal)
         {
             // A debugger reset (Stop) unwound the walk cleanly (refcount teardown ran, suppressed) — swallow it.
+        }
+        finally
+        {
+            if (Forms is null)
+                await ReleasePredeclaredInstances();
         }
     }
 
@@ -898,6 +1000,8 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         }
         finally
         {
+            if (Forms is null)
+                await ReleasePredeclaredInstances();
             ReleaseLibraryGlobals();
         }
     }
@@ -1288,6 +1392,9 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
             foreach (var arg in args) values.Add(arg.Value);
             return await CallLibraryMember(global, name, values);
         }
+        if (name.Equals("CallByName", StringComparison.OrdinalIgnoreCase))
+            return await CallByName(args, callerFrames);
+
         var flat = await VB6BuiltIns.ArrangeIntrinsicArguments(name, args);
         if (await CallBuiltIn(name, flat, currentModule.PrePass.OptionCompareText) is { } result)
             return result.Value is LibraryObject && callerFrames is not null ? AdoptNewTemp(result, callerFrames) : result;
@@ -1340,6 +1447,9 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         // pathological NESTING — that is ParseDepthGuard, at parse time, on a different axis.
         if (!RuntimeHelpers.TryEnsureSufficientExecutionStack())
             throw new VBRunTimeException(VBStandardError.OutOfStackSpace);
+        // The same error by count, for the depth the probe cannot see: see MaxCallDepth (#3250).
+        if (activationStack.Count >= MaxCallDepth)
+            throw new VBRunTimeException(VBStandardError.OutOfStackSpace);
 
         // Named arguments go to their parameters, and are evaluated in parameter order (#1465), before anything of the call is
         // set up, so one that raises leaves nothing to undo.
@@ -1386,24 +1496,28 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
             await BindParameters(proc, args, callee, owner, ownedSlots, refSlots);
             // The return slot is typed as the declaration says, so a failed store is raised inside the Function,
             // where its own handler traps it (measured, #1444).
+            var checkedArrayReturn = proc.CheckedArrayReturn;
             if (proc.IsFunction)
             {
-                ExecutionContext.AllocVariable(callee, proc.Name, SeedReturnValue(proc),
+                var seed = SeedReturnValue(proc);
+                if (proc.ReturnType.IsArray && seed.Value is VBArray { ElementType: var element } && element == Vb6Value.ValueType.Object)
+                    checkedArrayReturn = seed.Type;
+                ExecutionContext.AllocVariable(callee, proc.Name, seed,
                     proc.ReturnUdtTypeName is null && VbNumeric.IsDeclarableScalar(proc.ReturnType) ? proc.ReturnType : null);
                 hasReturnSlot = true;
             }
-            if (proc.Body != null)
+            if (proc.Body != null || proc.Declaration != null)
             {
                 // The callee runs with its OWN per-activation statement-frame stack (re-entrancy isolation).
                 // A class's or a form's Statics are its instance's, and a standard module's are the run's (#1491).
                 var executor = new StatementExecutor(this, callee, owner, ownedSlots, new Stack<List<Vb6Value>>(), proc.Name,
-                    proc.CheckedArrayReturn)
+                    checkedArrayReturn)
                 {
                     IsEntry = isEntry,
                     VariantReturn = proc.IsFunction && proc.ReturnsVariant && !proc.ReturnsObject,
                     Statics = me?.Value is VbObject instance ? instance.Statics ??= new StaticLocals() : ExecutionContext.State.ModuleStatics,
                 };
-                // Debugger call stack + depth: push before running, remove THIS executor after (Remove, not
+                // Debugger call stack + depth: push before running, remove THIS executor after (by identity, not
                 // RemoveAt(Count-1), so overlapping async re-entrancy pops the right frame). Reflects the physical
                 // call stack — matching VB6's Call Stack, which shows a re-entrant handler's frames above the
                 // suspended chain.
@@ -1417,13 +1531,28 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
                 try
                 {
                     await executor.HoistDeclaredLocals(proc);
-                    await executor.Execute(proc.Body);
+                    if (proc.Declaration is VB6Parser.SubStmtContext declaration)
+                        await executor.ProcedureBoundary(declaration.Start.Line, breakpointOnly: true);
+                    if (proc.Body is { } procedureBody)
+                        await executor.Execute(procedureBody);
                     // A handler the last statement raised finishes inside the call, as it does in VB6, before the caller
                     // goes on with what the call returned (#766).
                     if (Events is { } events)
                         await events.WaitForRaised();
+                    // Keep entry procedures' existing stepping positions while honouring their End breakpoints:
+                    // a startup step carries on from Initialize into Load's first statement (#2172 review).
+                    if ((proc.Body == null || executor.ReachedProcedureEnd) && proc.Declaration is { } ending)
+                        await executor.ProcedureBoundary(ending.Stop.Line,
+                            breakpointOnly: isEntry || ending is VB6Parser.PropertyGetStmtContext);
                 }
-                finally { activationStack.Remove(executor); }
+                // Searched from the top, where the frame almost always is: Remove searched from the bottom, which made a
+                // return N calls deep cost N (#3250).
+                finally
+                {
+                    var at = activationStack.LastIndexOf(executor);
+                    if (at >= 0)
+                        activationStack.RemoveAt(at);
+                }
             }
             if (proc.IsFunction)
                 ret = ExecutionContext.TryGetVariable(callee, proc.Name, out var rv)
@@ -1441,6 +1570,28 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
                     : proc.ReturnsVariant ? returned.AsVariant()
                     : returned;
             completed = true;
+        }
+        catch (Exception signal) when (signal is VBRunTimeException or VBCompileErrorException or Debugging.StopExecutionSignal)
+        {
+            // Every UnwindYieldEvery procedures, give the thread back once on the way down (#3250). A debugger's time
+            // slice leaves the frames it yielded across waiting on their callees, so each one's continuation runs inline
+            // inside the catch below it as the signal unwinds. Each throw then costs more the deeper that nesting goes,
+            // and a 64 MiB stack lets it go thousands deep: on it, Error 28 at 5,000 calls took 138 s to reach a
+            // handler, against 0.8 s on a 1.5 MiB thread, where .NET stops inlining early. A yield starts the nesting
+            // again from the dispatcher. It's the same yield the time slice makes, so it can only come where one could.
+            if (DebugController is not null && SynchronizationContext.Current is not null
+                && activationStack.Count is > 0 and var below && below % UnwindYieldEvery == 0)
+                await Task.Yield();
+            // A fresh throw, not a rethrow, so what the program's walk throws through its frames leaves each procedure
+            // carrying only this procedure's .NET stack trace: a run-time error (#3247), a compile error found as it
+            // runs, and the signal that Stop and End unwind with (#3250). Every await between here and whoever catches
+            // it rethrows it, and a rethrow appends to the trace it carries, so with the whole trace kept, one thrown
+            // N calls deep cost N² to surface: minutes on #3228's 64 MiB stack, and a Stop 113,000 calls deep grew
+            // memory by 5 GB in 29 seconds. The object is the same, so Err and Erl are untouched. Anything else is a fault in HexIDE, and
+            // keeps its whole trace for diagnosis.
+#pragma warning disable CA2200 // Rethrow to preserve stack details: resetting it is the point.
+            throw signal;
+#pragma warning restore CA2200
         }
         catch (Exception ex) when (MarkUnimplementedFault(ex)) { throw; }
         finally
@@ -1497,12 +1648,27 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         => proc.ReturnUdtTypeName is { } rn
             ? (Types.ContainsKey(rn) ? Vb6Value.NewUdt(NewUdt(rn))
                 : Enums.ContainsKey(rn) ? new Vb6Value(0L)
-                : Modules.TryGet(rn, out var rc) && rc.Kind == InterpreterModuleKind.Class ? Vb6Value.Nothing
+                : Modules.TryGet(rn, out var rc) && rc.Kind == InterpreterModuleKind.Class
+                    ? proc.ReturnType.IsArray ? ObjectArrayReturn(rn) : Vb6Value.Nothing
                 : new Vb6Value(proc.ReturnType))
             // An `As Object` return, DefObj's included, and an `As Collection` one start at Nothing too, so a Let into the
             // first before a Set is 91 (measured, #169). They started Empty, which took the value.
+            : proc.ReturnType.IsArray && proc.CheckedArrayReturn == new Vb6Value.ValueType(Vb6Value.ValueType.Object, true)
+                ? ObjectArrayReturn(proc.Declaration switch
+                {
+                    VB6Parser.FunctionStmtContext f when f.asTypeClause()?.type()?.baseType()?.COLLECTION() != null => "Collection",
+                    VB6Parser.PropertyGetStmtContext p when p.asTypeClause()?.type()?.baseType()?.COLLECTION() != null => "Collection",
+                    _ => null,
+                })
             : proc.ReturnsObject ? Vb6Value.Nothing
             : new Vb6Value(proc.ReturnType);
+
+    private static Vb6Value ObjectArrayReturn(string? declaredClass)
+    {
+        var value = new Vb6Value(new Vb6Value.ValueType(Vb6Value.ValueType.Object, true));
+        ((VBArray)value.Value!).DeclaredClass = declaredClass;
+        return value;
+    }
 
     /// <summary>Resolve a procedure name as seen from <paramref name="currentModule"/>: the current module's own
     /// procedures (any visibility) win first, then other standard modules' <c>Public</c> procedures — 2+ matches
@@ -1694,8 +1860,12 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         for (int i = 0; i < proc.Parameters.Count; i++)
         {
             var p = proc.Parameters[i];
+            // A ParamArray is the last parameter, and takes every argument left (#2462).
             if (p.ParamArray)
-                throw new NotImplementedException("ParamArray parameters are not yet supported");
+            {
+                BindParamArray(p, args, i, callee, ownedSlots, refSlots);
+                return;
+            }
             // An Enum parameter is a Long: converted into one, and typed (measured, #1005: `c * m` with `c As MyEnum`
             // given 5 and `m As Long` 500000000 overflows, and `Select Case c` converts `Case 4.6` into 5). Resolved here,
             // since the pre-pass that read the declaration had not yet seen every module's Enums.
@@ -1714,6 +1884,10 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
             if (i < args.Count && !args[i].Value.IsMissing)
             {
                 var arg = args[i];
+                // A ParamArray passed whole to a ByRef parameter is VB6's compile error "Invalid ParamArray use" (measured, to
+                // `x() As Variant` and to `v As Variant`), raised here as the call runs. A ByVal parameter takes a copy.
+                if (p.ByRef && arg.Location is { } argSlot && ExecutionContext.State.IsParamArray(argSlot))
+                    throw new VBCompileErrorException("Invalid ParamArray use");
                 // A `v As Variant` shares its argument as an untyped `v` does, whatever the argument holds (measured:
                 // #970 for an array, which is what lets a Variant sort routine sort its caller's array and a ReDim reach
                 // the caller's; #1001 for a scalar, so `v = 5` reaches a caller's Variant, and a caller's `Integer`, which
@@ -1750,7 +1924,7 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
                     // 13 at the call, `S 5` with `ByVal x As String` is "5", `D "1/2/2000"` As Date is that date, and
                     // `NI "12"` As Integer is 12, which Narrow read as 0).
                     var stored = DeclaredSlotType(p) is { } dt
-                        ? VbNumeric.CoerceOnStore(passed, dt, proc.Body as Antlr4.Runtime.ParserRuleContext)
+                        ? VbNumeric.CoerceOnStore(passed, dt, proc.Body as Antlr4.Runtime.ParserRuleContext).CopyString()
                         : CopyForStore(passed);
                     ExecutionContext.AllocVariable(callee, p.Name, stored, DeclaredSlotType(p));
                     MarkParameterSlot(p, callee);
@@ -1792,6 +1966,55 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         }
     }
 
+    // A ParamArray (#2462): the arguments from `first` on, as a Variant array from 0, empty when there are none. Measured, native
+    // and p-code: `IsMissing` of it is True only when it is empty, Option Base 1 leaves it from 0, and each element is its
+    // argument, ByRef, so `a(i) = a(i) + 1` on `Bump i, n` leaves i 2 and n 11.
+    private void BindParamArray(ParamInfo p, IReadOnlyList<CallArg> args, int first, ExecutionEnvironment callee,
+        List<int> ownedSlots, List<int> refSlots)
+    {
+        var elements = new IByRefTarget[Math.Max(0, args.Count - first)];
+        for (int e = 0; e < elements.Length; e++)
+            elements[e] = ParamArrayElement(args[first + e], callee, ownedSlots, refSlots);
+        var value = new Vb6Value(new Vb6Value.ValueType(Vb6Value.ValueType.EmptyVariant, true), [(0, elements.Length - 1)])
+            .WithArray(VBArray.ParamArray(elements));
+        callee.Parameters.Add(p.Name);
+        ExecutionContext.AllocVariable(callee, p.Name, value, null);
+        if (callee.TryGetVariableLocation(p.Name, out var location))
+        {
+            ExecutionContext.State.MarkDeclaredArray(location);
+            ExecutionContext.State.MarkParamArray(location);
+        }
+    }
+
+    // One argument of a ParamArray (#2462), as a ByRef argument binds (measured): a variable is shared, and a store through the
+    // element converts to its type, so 5.7 into an Integer is 6 and "abc" 13; a field or an array element is reached through a
+    // slot that stands for it, so `Bump arr(2)` leaves 21. Anything else is the call's own copy: an expression, a variable in
+    // parentheses (`Bump (i)` leaves i), a constant, a blank, which is Missing (`Show 1, , 3`), and a ParamArray passed on,
+    // which arrives as one element holding a copy of the array.
+    private IByRefTarget ParamArrayElement(CallArg arg, ExecutionEnvironment callee, List<int> ownedSlots, List<int> refSlots)
+    {
+        var state = ExecutionContext.State;
+        if (arg.Location is { } location && !state.IsConstant(location) && !state.IsReadOnly(location) && !state.IsParamArray(location))
+            return new SlotRef(state, location);
+        if (arg.Ref is { } target)
+        {
+            var refSlot = state.AllocRef(target, callee);
+            refSlots.Add(refSlot);
+            return new SlotRef(state, refSlot);
+        }
+        var copy = arg.Omitted ? Vb6Value.Missing : CopyForStore(arg.Value);
+        var own = state.Alloc(copy);
+        callee.AllocatedSlots?.Add(own);
+        // Held for the call, as a ByVal argument is, and released when it returns.
+        if (copy.Value is VbObject or VBArray or VbCollection or LibraryObject)
+        {
+            if (copy.Value is not VBArray)
+                AddRef(copy);
+            ownedSlots.Add(own);
+        }
+        return new SlotRef(state, own);
+    }
+
     // A parameter's own slot says what it was declared as, for ReDim: `b()` an array, `v` or `v As Variant` a Variant.
     // A ByRef parameter that shares its caller's slot keeps the caller's marks. That is right for fixedness (a fixed
     // array is 10 through it, measured), but not for the inverted-range rule: an untyped `v` sharing a declared `Long()`
@@ -1809,13 +2032,13 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
     public void SyntaxError(TextWriter output, IRecognizer recognizer, IToken offendingSymbol, int line, int charPositionInLine,
         string msg, RecognitionException e)
     {
-        throw new VBCompileErrorException($"{msg} {SyntaxErrorAt(line, charPositionInLine)}\nOffending symbol: {offendingSymbol.Text}")
+        throw new VBCompileErrorException($"{SyntaxErrorText.Of(msg)} {SyntaxErrorAt(line, charPositionInLine)}\nOffending symbol: {offendingSymbol.Text}")
             { Line = line };
     }
 
     public void SyntaxError(TextWriter output, IRecognizer recognizer, int offendingSymbol, int line, int charPositionInLine,
         string msg, RecognitionException e)
     {
-        throw new VBCompileErrorException($"{msg} {SyntaxErrorAt(line, charPositionInLine)}") { Line = line };
+        throw new VBCompileErrorException($"{SyntaxErrorText.Of(msg)} {SyntaxErrorAt(line, charPositionInLine)}") { Line = line };
     }
 }

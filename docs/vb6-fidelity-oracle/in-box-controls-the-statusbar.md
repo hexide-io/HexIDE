@@ -1,6 +1,6 @@
 ## In-box controls: the StatusBar (2026-10-26, #1087)
 
-**The probes.** VB6 6.00.8176 SP6, with MSCOMCTL.OCX 6.01.9782, the library and `Object=` line of [In-box controls: the
+**The probes.** VB6 SP6 (6.00.9782), with MSCOMCTL.OCX 6.01.9782, the library and `Object=` line of [In-box controls: the
 ProgressBar](in-box-controls-the-progressbar.md). Every build was made with `/make` as native code and as p-code, and
 the two logged the same lines throughout.
 - **Run time:** a Sub Main showing a 6000×4500-twip form holding one StatusBar, at its defaults, aligned to the bottom. It
