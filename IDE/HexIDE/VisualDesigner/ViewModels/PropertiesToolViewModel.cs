@@ -53,6 +53,36 @@ public partial class PropertiesToolViewModel : Tool
     public ObservableCollection<PropertyViewModel> Properties { get; } = new();
     public ObservableCollection<BasePropertyViewModel> CategorizedProperties { get; } = new();
     [Notify] private PropertyViewModel? selectedProperty;
+    [Notify] private string filterText = "";
+    private PropertyViewModel[] allProperties = [];
+    private BasePropertyViewModel[] allCategorizedProperties = [];
+
+    private void CaptureProperties()
+    {
+        allProperties = Properties.ToArray();
+        allCategorizedProperties = CategorizedProperties.ToArray();
+        OnFilterTextChanged();
+    }
+
+    private void OnFilterTextChanged()
+    {
+        var matches = allProperties.Where(p => p.Name.Contains(FilterText ?? "", StringComparison.OrdinalIgnoreCase)).ToHashSet();
+        foreach (var category in allCategorizedProperties.OfType<PropertyCategoryViewModel>())
+            foreach (var property in allProperties.Where(p => p.PropertyClass.Category == category.Category))
+                property.IsVisible = category.IsExpanded;
+        Properties.Clear();
+        foreach (var property in allProperties.Where(matches.Contains))
+            Properties.Add(property);
+        CategorizedProperties.Clear();
+        foreach (var row in allCategorizedProperties)
+        {
+            if (row is PropertyViewModel property && matches.Contains(property) ||
+                row is PropertyCategoryViewModel category && matches.Any(p => p.PropertyClass.Category == category.Category))
+                CategorizedProperties.Add(row);
+        }
+        if (SelectedProperty != null && !matches.Contains(SelectedProperty))
+            SelectedProperty = null;
+    }
 
     private PropertyClass? lastSelectedPropertyClass;
 
@@ -81,9 +111,9 @@ public partial class PropertiesToolViewModel : Tool
         localization.BindTitle(this, "Str.Tool.Properties.Title");
         localization.LanguageChanged += () =>
         {
-            foreach (var property in Properties)
+            foreach (var property in allProperties.Concat(Properties).Distinct())
                 property.RefreshDescription();
-            foreach (var category in CategorizedProperties.OfType<PropertyCategoryViewModel>())
+            foreach (var category in allCategorizedProperties.Concat(CategorizedProperties).OfType<PropertyCategoryViewModel>().Distinct())
                 category.RefreshHeader();
         };
         CanPin = false;
@@ -109,6 +139,8 @@ public partial class PropertiesToolViewModel : Tool
             return;
         }
         currentModule = null;
+        allProperties = [];
+        allCategorizedProperties = [];
         SelectedProperty = null;
         Properties.Clear();
         CategorizedProperties.Clear();
@@ -165,6 +197,7 @@ public partial class PropertiesToolViewModel : Tool
                         currentComponent.Instance.OnComponentPropertyChanged += OnComponentValueChanged;
                     }
 
+                    CaptureProperties();
                     OnPropertyChanged(nameof(SelectedComponentProxy));
                 });
         }
@@ -184,12 +217,15 @@ public partial class PropertiesToolViewModel : Tool
         SelectedProperty = null;
         OnPropertyChanged(nameof(ComponentsProxy));
         OnPropertyChanged(nameof(SelectedComponentProxy));
+        allProperties = [];
+        allCategorizedProperties = [];
         if (module == null)
             return;
         var row = new PropertyViewModel(this, VBProperties.NameProperty, module.Name);
         Properties.Add(row);
         CategorizedProperties.Add(row);
         SelectedProperty = row;
+        CaptureProperties();
     }
 
     private void RenameModule(object? value)
@@ -228,7 +264,7 @@ public partial class PropertiesToolViewModel : Tool
     private void OnComponentValueChanged(ComponentInstance instance, PropertyClass property)
     {
         // A position is shown with what decides its units and the frame round a form, which another property can change.
-        foreach (var prop in Properties)
+        foreach (var prop in allProperties)
         {
             if (prop.PropertyClass == property || DesignPositions.IsPosition(prop.PropertyClass))
                 prop.UpdateValueNoRaise(Displayed(instance, prop.PropertyClass));
