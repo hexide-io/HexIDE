@@ -25,6 +25,37 @@ public class LocalizationServiceTests
             .Should().NotContain(uri => uri.AbsolutePath.EndsWith($"/{id}.json", StringComparison.Ordinal));
     }
 
+    [AvaloniaTheory]
+    [InlineData("Str.Tool.Properties.Tab.Categorized", "Według kategorii")]
+    [InlineData("Str.Tool.Project.Toolbar.ViewCode", "Pokaż kod")]
+    [InlineData("Str.Tool.Project.Toolbar.ViewObject", "Pokaż obiekt")]
+    [InlineData("Str.Tool.Project.Menu.ViewObject", "Pokaż obiekt")]
+    [InlineData("Str.Tool.Project.Menu.ViewCode", "Pokaż kod")]
+    [InlineData("Str.Tool.Project.Menu.Properties", "Właściwości")]
+    [InlineData("Str.Tool.ColorPalette.Button.Default", "Domyślny")]
+    [InlineData("Str.Tool.Locals.Column.Expression", "Wyrażenie")]
+    [InlineData("Str.Tool.Locals.Column.Value", "Wartość")]
+    [InlineData("Str.Tool.Watches.Column.Expression", "Wyrażenie")]
+    [InlineData("Str.Tool.Watches.Column.Value", "Wartość")]
+    [InlineData("Str.Tool.ObjectBrowser.Chrome.CloseTip", "Zamknij Przeglądarkę obiektów")]
+    [InlineData("Str.Tool.ObjectBrowser.Chrome.Title", "Przeglądarka obiektów")]
+    [InlineData("Str.Tool.ObjectBrowser.Toolbar.GoToDefinition", "Przejdź do definicji")]
+    [InlineData("Str.Tool.ObjectBrowser.Toolbar.CopySignature", "Kopiuj sygnaturę do schowka")]
+    [InlineData("Str.Tool.ObjectBrowser.Toolbar.ClearSearch", "Wyczyść wyszukiwanie")]
+    [InlineData("Str.Tool.Properties.Title", "Właściwości")]
+    [InlineData("Str.Tool.Project.Title", "Grupa projektów - Group1")]
+    [InlineData("Str.Tool.FormLayout.Title", "Układ formularza")]
+    [InlineData("Str.Tool.ObjectBrowser.Title", "Przeglądarka obiektów")]
+    [InlineData("Str.Tool.Project.PropertiesFormat", "Właściwości {0}")]
+    [InlineData("Str.Tool.Project.RemoveFormFormat", "Usuń {0}")]
+    public void Apply_Polish_PreservesDiacriticsInEarlyEntries(string key, string expected)
+    {
+        var sut = CreateSut();
+        sut.Apply("pl");
+
+        sut.GetString(key).Should().Be(expected);
+    }
+
     [AvaloniaFact]
     public void Apply_English_GetString_ReturnsEnglishValue()
     {
