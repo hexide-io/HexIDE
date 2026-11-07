@@ -2,6 +2,8 @@
   "name": "Latvian",
   "direction": "ltr",
   "strings": {
+    "Str.Tool.LanguageServers.Problem.JsonSyntaxEscape": "Konfigurācijas failā “{0}” ir nederīgs JSON {1}. rindā, {2}. kolonnā. Ceļš: {3} Izmantojiet slīpsvītras (C:/tools/new/...) vai dubultas atpakaļslīpsvītras (C:\\\\tools\\\\new\\\\...).",
+    "Str.Tool.LanguageServers.Problem.PathControlWarning": "Lauks '{0}' satur ekranētu vadības rakstzīmi; iespējamais paredzētais ceļš: {1}. Vērtība nav mainīta.",
     "Str.Lsp.ServerMessage": "Valodu serveris: {0}",
     "Str.Lsp.ServerError": "Valodu servera kļūda: {0}",
     "Str.Lsp.EditNotApplied": "Servera labojums netika lietots: {0}",
