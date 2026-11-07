@@ -53,7 +53,6 @@ public class ToolDescriptionLengthTests
     /// <summary>Descriptions over <see cref="Budget"/> when the rule came in, keyed "tool" or "tool.parameter".</summary>
     private static readonly Dictionary<string, (string Why, int Issue)> OverBudget = new()
     {
-        ["dump_visual_tree"] = ("the control-view rules and the reply fields isHidden, isOffscreen and focusedPath", 2566),
     };
 
     private static IEnumerable<(string Key, int Length)> AllDescriptions() =>
