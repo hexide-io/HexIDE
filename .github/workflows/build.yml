@@ -132,6 +132,12 @@ jobs:
         with:
           node-version: '22'
 
+      # debugpy is a test-only process; the portable pinned wheel needs a Python runtime.
+      - name: Setup Python for the foreign debug adapter
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.14'
+
       # The foreign-server tests drive real third-party language servers, and are the only check that
       # HexIDE speaks LSP to something it did not write — a client and server by one hand agree with each
       # other rather than with the specification. They are fetched on demand rather than committed, each
@@ -380,6 +386,12 @@ jobs:
         uses: actions/setup-node@v7
         with:
           node-version: '22'
+
+      # debugpy is a test-only process; the portable pinned wheel needs a Python runtime.
+      - name: Setup Python for the foreign debug adapter
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.14'
 
       # Separate the Windows architectures so their parallel jobs do not race to save one cache.
       - name: Cache the foreign language servers

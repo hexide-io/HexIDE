@@ -4,6 +4,9 @@ HexIDE's test suite drives real, third-party language servers. This note explain
 they are obtained, and — because one of them is GPL-licensed — exactly why that is consistent with a
 100%-MIT tree.
 
+The DAP client has the same independent check: see [foreign debug adapters](foreign-debug-adapters.md)
+for the adapter pins, licences, acquisition and complete-session assertions.
+
 ## Why third-party servers at all
 
 A client and a server written by the same hand converge on their shared assumptions rather than on the
