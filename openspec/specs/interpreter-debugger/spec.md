@@ -58,7 +58,7 @@ A form's run loads its code and the project's standard (`.bas`) and class (`.cls
 ### Requirement: The developer SHALL be able to suspend and resume a running program
 The IDE SHALL let the developer break into a running program, continue from break mode, and end the run from either state.
 
-Break mode is entered from a breakpoint, a step, an explicit pause, or a `Stop` statement, and left by continuing or ending the run.
+Break mode is entered from a breakpoint, a step, an explicit pause, or a `Stop` statement, and left by continuing, ending the run, or a step returning from the outermost event handler without another stop.
 
 #### Scenario: Breaking into a running program
 - **WHEN** the developer presses Ctrl+Break, or chooses Run ▸ Break, while the project is running
@@ -73,6 +73,12 @@ Break mode is entered from a breakpoint, a step, an explicit pause, or a `Stop` 
 #### Scenario: Continuing from break mode
 - **WHEN** the developer presses F5 while paused
 - **THEN** the program resumes, the current-statement bar clears, the inspection windows blank, and any frozen event handlers are released
+
+#### Scenario: A step returns to event idle
+- **WHEN** Step Into, Over or Out returns from the outermost event handler without another stop
+- **THEN** the pending step clears and the shell shows running mode
+- **AND** the current-statement bar clears, inspection windows blank, and frozen event handlers are released
+- **AND** Break is available again and the next unrelated event runs without the leftover step
 
 #### Scenario: Ending the run from break mode
 - **WHEN** the developer chooses End while paused
