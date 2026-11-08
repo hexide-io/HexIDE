@@ -181,7 +181,8 @@ components. It is not downloaded or run by ordinary CI; the smoke executable is 
 - Command-specific MCP routing and conditional/hit-count breakpoints.
 - External break-condition watches, dynamic capabilities and further capability-dependent UI.
 - Automated acquisition and cross-platform real-adapter acceptance in CI.
-- Add-in registration through [#891](https://github.com/hexide-io/HexIDE/issues/891).
+- An add-in contributing a debug adapter, [#891](https://github.com/hexide-io/HexIDE/issues/891). An add-in can already
+  contribute a launch ([debug-launch.md](debug-launch.md#a-launch-an-add-in-contributes)).
 
 Protocol reference: [Debug Adapter Protocol specification](https://microsoft.github.io/debug-adapter-protocol/specification).
 

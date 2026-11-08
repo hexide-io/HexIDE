@@ -159,8 +159,8 @@ answers. A header the grammar can read stays in the tree, and no file in the cor
 
 Option lines directly before a malformed first procedure no longer make the module-level prediction
 fail with an empty procedure tree (#939). That procedure and its symbol survive, with the same syntax
-diagnostics as without the Option lines. Recovery inside the procedure can still hide later procedures
-and errors (#938).
+diagnostics as without the Option lines. Recovery inside the procedure is still partial, as the statement-level
+recovery below describes (#938).
 
 The grammar had to learn whole files first. When both grammars were first given every corpus file whole,
 30 of 46 failed inside the header, all for one reason: VB6 writes an enumerated property value with a
@@ -303,10 +303,9 @@ around them: a server fold that nests is kept, and one that crosses one of them 
 is dropped ([`lsp-client.md`](./lsp-client.md)). They describe the file format rather than the code, so they
 are the same whichever server is attached. Checked live on `demo/bill-of-fare`, none of the server's eleven
 procedure folds started in or crossed the form's 90-line header, which stayed one folded row when they
-arrived. As the client reads it, a procedure's fold runs from the start of its declaration's line to
-`End Sub`, so it contains its attribute run's fold, and the two nest. LSP starts that fold after the
-declaration's text instead, which is where the attribute fold starts, and the client's merge would then drop
-the procedure's fold ([#1022](https://github.com/hexide-io/HexIDE/issues/1022)).
+arrived. The client reads a procedure's fold as LSP defines it, from the end of its declaration's text
+(`startCharacter`) to `End Sub`, so it contains its attribute run's fold, and the merge keeps both, nested
+([#1022](https://github.com/hexide-io/HexIDE/issues/1022)).
 
 - ◐ The scanner is regex/stack-based rather than ANTLR, so unusual nesting can misbehave. An ANTLR-backed
   replacement needs no client change.
@@ -345,7 +344,7 @@ change, and other requests (including formatting) still wait for that change's a
 
 **`textDocument/signatureHelp`**
 
-148 VB6 built-ins are covered, spanning strings, byte strings, type conversions, math, arrays,
+151 VB6 built-ins are covered, spanning strings, byte strings, type conversions, math, arrays,
 character/ASCII, date/time, inspection, error handling, files and I/O, financial and object/misc. The active parameter tracks comma position through nested
 parentheses. Past the end of a signature whose last parameter is a list, as `Array`, `Choose` and `Switch` have,
 that parameter stays active. Past any other signature's end, the argument's own index is sent, so no parameter
