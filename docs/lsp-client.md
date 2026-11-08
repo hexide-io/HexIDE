@@ -71,8 +71,10 @@ the production formatter and source-generated context to guard absence and prese
 |---|---|
 | Lifecycle | `initialize`, `initialized`, `shutdown`, `exit` |
 | Document sync | `textDocument/didOpen`, `didChange`, `didClose`, `didSave` |
-| Language requests | `hover`, `documentSymbol`, `foldingRange`, `completion`, `signatureHelp`, `definition`, `declaration`, `implementation`, `typeDefinition`, `references`, `documentHighlight`, `rename`, `formatting`, `rangeFormatting`, `codeLens` |
-| Actions | `codeLens/resolve`, `workspace/executeCommand` — see *Commands and lenses* |
+| Language requests | `hover`, `documentSymbol`, `foldingRange`, `completion`, `signatureHelp`, `definition`, `declaration`, `implementation`, `typeDefinition`, `references`, `documentHighlight`, `prepareRename`, `rename`, `formatting`, `rangeFormatting`, `codeLens`, `codeAction`, `diagnostic`, `inlayHint`, `semanticTokens/full`, `selectionRange`, `prepareCallHierarchy` |
+| Actions | `codeLens/resolve`, `codeAction/resolve`, `callHierarchy/incomingCalls`, `callHierarchy/outgoingCalls`, `workspace/executeCommand` — see *Commands and lenses* |
+| Workspace | `workspace/symbol`, `didChangeWorkspaceFolders`, `didChangeConfiguration`, `didCreateFiles`, `didRenameFiles`, `didDeleteFiles` |
+| Protocol | `$/setTrace`, `$/cancelRequest` |
 | Custom | `vb/builtinSymbols` — see *Custom methods* |
 
 Initialize declares `textDocument.completion` with all 25 LSP completion kinds, `preselectSupport: true`,
@@ -122,9 +124,9 @@ help, highlights, rename, formatting and code lenses accept their single non-nul
 `null`. Resolve requests have a single result shape.
 
 `textDocument/codeAction` accepts its mixed Command/CodeAction array or null (#453). Other unimplemented
-request methods remain outside this fix. Nested signature-help unions also remain outstanding:
-signature/parameter documentation accepts only strings, and parameter labels only strings rather
-than offset pairs. These need separate changes and wire tests; this audit does not claim full
+request methods remain outside this fix. One nested signature-help union also remains outstanding:
+signature/parameter documentation accepts only strings. Parameter labels accept offset pairs as well as
+strings (`ParameterLabelConverter`, #2632). These need separate changes and wire tests; this audit does not claim full
 coverage of unions inside every result member.
 
 Hover replies accept `MarkupContent`, a legacy `MarkedString` (Markdown string or `{language, value}`
@@ -210,7 +212,7 @@ JSON keys and values, paths and pointers remain verbatim in the translated displ
 errors use a separate code with a 1-based line and character column converted from the parser’s UTF-8
 byte offset; the labels are translated and the JSON path stays verbatim (#3065).
 
-**Live server output** (#2388): Tools → Language & Debug Servers shows an Output box on each
+**Live server output** (#2388): Tools → Language Servers… opens the Language & Debug Servers window, which shows an Output box on each
 server's card, beside its existing protocol-inspector link. It updates as `window/logMessage`, stderr,
 the notes a server returns from its project-import command (under that command's name) and HexIDE's
 workspace-generation notes arrive, including before the view opens. Log entries retain the
@@ -223,10 +225,12 @@ The metamodel guard also checks the numeric values of the wire enums (`Diagnosti
 `MessageType`, `SymbolKind` and `CompletionItemKind`), including all 25 completion kinds.
 `SaveNotification` describes local save negotiation state rather than a wire enum.
 
-**Server-initiated requests.** Four are handled: `client/registerCapability` and
-`client/unregisterCapability` (refused, with the refusal recorded rather than silent) and
-`workspace/diagnostic/refresh`, which is acted on — every open document is asked about again — plus
-`window/workDoneProgress/create`, which registers a progress token and succeeds. Everything
+**Server-initiated requests.** Nine are handled: `client/registerCapability` and
+`client/unregisterCapability` (refused, with the refusal recorded rather than silent),
+`workspace/diagnostic/refresh`, which is acted on — every open document is asked about again —
+`window/workDoneProgress/create`, which registers a progress token and succeeds, and
+`workspace/configuration`, `window/showMessageRequest`, `workspace/applyEdit`, `window/showDocument` and
+`workspace/codeLens/refresh`, each described in its own section below. Everything
 else gets whatever StreamJsonRpc answers an unknown method with, which is an error response rather than
 silence, on the library's own account; those rows are the library's documented behaviour, not a measurement
 taken here. A server awaiting a reply it never gets hangs rather than degrading, which is invisible until
@@ -502,7 +506,7 @@ falsified; it means only that the notification carries no text.
 PropertyPage of the project exactly as much as a file the project carries. A server can therefore read it
 from disk, resolve something relative to it, and recognise it when it indexes the workspace folder. A
 UserControl or PropertyPage is named by its *module's* file, which is the one the project file names; its
-designer half's path can diverge from it today ([#474](https://github.com/hexide-io/HexIDE/issues/474)).
+designer half is given the same path, as every load gives it ([#474](https://github.com/hexide-io/HexIDE/issues/474)).
 
 **A document of the project with no file yet is named `untitled:<Project>/<Name>.<ext>`** — the
 project's name, the document's own name, and the extension its kind will be saved with: `.frm`, `.bas`, `.cls`,
@@ -718,10 +722,9 @@ for every kind of document. They used to be matched to a form by its file's stem
 expected a format `vb6.exe` never writes, so in
 practice none had ever arrived ([#477](https://github.com/hexide-io/HexIDE/issues/477)). The line `vb6.exe`
 prints counts only the code it showed, without the header or any `Attribute` line, and is converted to a
-file line where the log is read and nowhere else. The conversion skips each physical line that starts with
-`Attribute`, where VB6 skips each logical line whose first word is `Attribute`. Where a `_` continuation
-meets an `Attribute` line, as one continued onto the next line or a comment continued onto one, the mark
-lands one line off ([#968](https://github.com/hexide-io/HexIDE/issues/968)).
+file line where the log is read and nowhere else. The conversion skips each logical line whose first word is
+`Attribute`, with its `_` continuations, as VB6 does (measured, [#968](https://github.com/hexide-io/HexIDE/issues/968);
+`Vb6CompileLogTests`).
 
 Without that, replacement meant last-writer-wins. Building with VB6 cleared its previous errors by
 publishing an empty set for every form, which deleted whatever the language server had published for those
@@ -1589,16 +1592,16 @@ Three clusters account for nearly all of the gap:
   `workspace/symbol` is wired through the Object Browser. A backend offering deeper analysis can answer
   these requests without changing HexIDE's own analysis boundary.
 
-- **Features needing a bound AST in the bundled server** — call hierarchy
-  and its `*/resolve` companions. Code actions are now relayed from foreign servers on request (#453);
-  computing fixes remains a backend boundary. Reference requests now have a client contract (#2907), with the UI
-  outstanding. The other methods are not wired because nothing here would answer them; see *What the client
+- **Features needing a bound AST in the bundled server** — references, call hierarchy and code actions.
+  The client relays all three from servers that offer them (#2907, #3080, #453); computing them remains a
+  backend boundary. The other methods are not wired because nothing here would answer them; see *What the client
   would consume* below. `workspace/symbol` used to sit in this list and no longer does: the client speaks it
   and the Object Browser surfaces it, so the missing half is a *server*, which is exactly the point of the
   seam.
-- **Workspace-level protocol** — `workspace/*` is 7 of 21. The client sends project folders,
-  updates them as group membership changes, sends file-operation notifications, and answers editor
-  configuration requests. Watched-file notifications and server-initiated workspace edits remain absent.
+- **Workspace-level protocol** — `workspace/*` is 9 of 21. The client sends project folders,
+  updates them as group membership changes, sends file-operation notifications, answers editor
+  configuration requests, and applies server-initiated workspace edits (#2908). Watched-file notifications
+  remain absent.
 - **Server-to-client courtesy** — `window/*` and `client/*` are 5 of 8 between them. Alongside work-done progress (#360), the messages that landed
   are the ones that cost no analysis depth and buy diagnosability: a server can now explain its own
   problems instead of appearing broken ([#289](https://github.com/hexide-io/HexIDE/issues/289)). Dynamic registration stays refused on
@@ -1615,8 +1618,7 @@ Three clusters account for nearly all of the gap:
 | Limitation | Consequence | Tracked |
 |---|---|---|
 | Full-text sync only, deliberately including servers declaring Incremental | Wasteful on large files; incremental sync is deferred until a server needs it to justify the desynchronization risk | Decision: [#282](https://github.com/hexide-io/HexIDE/issues/282) |
-| No workspace-wide pull diagnostics (`workspace/diagnostic`) | Diagnostics are per open document; a server's findings about files nobody has open are never requested | [#284](https://github.com/hexide-io/HexIDE/issues/284) |
-| An error answered to `textDocument/rename` is turned into `null` | A server that refuses a rename with a reason is shown as one that found nothing to change | [#1015](https://github.com/hexide-io/HexIDE/issues/1015) |
+| No workspace-wide pull diagnostics (`workspace/diagnostic`) | Diagnostics are per open document; a server's findings about files nobody has open are never requested | Not tracked; per-document pull shipped with [#284](https://github.com/hexide-io/HexIDE/issues/284) |
 
 ---
 
@@ -1636,16 +1638,12 @@ awaiting effort, they are **server** features awaiting a server.
 | Call hierarchy | `textDocument/prepareCallHierarchy` | Shows the server’s call hierarchy; computes none (#3080). Provider-gated command, lazy Calls To / Calls From tree and node/call-site navigation |
 | Workspace symbols | `workspace/symbol` | **Wired** — see below |
 
-"Not wired" is a statement about the client, and it is the honest one: wiring each is a bounded piece of
-client work with no architectural obstacle, worth doing when a backend exists that would answer. What would
-*not* be honest is carrying them here as planned analysis work.
-
-**`workspace/symbol` is the one that has been wired anyway, and it is worth saying why.** The bundled server
+**`workspace/symbol` was wired before any server here needed it, and it is worth saying why.** The bundled server
 does not advertise it and will not — finding a name anywhere in a workspace is a binding question, and
 binding is outside its hard limit. The client speaks it regardless, and the Object Browser's search box
 asks every running server that offers it. So attaching a server that *can* answer is now the whole of what
-it takes, with no client work in between. That is the seam working as designed, and it is the shape the
-remaining rows would take too.
+it takes, with no client work in between. That is the seam working as designed, and every row above has since taken
+the same shape.
 
 The Object Browser therefore has to distinguish three empty answers that look identical: **nothing has
 started yet** (servers start lazily, when a document with an extension they claim is opened), **nothing running offers
@@ -1733,7 +1731,7 @@ command in `executeCommandProvider.commands`.
 Client commands share the code-lens handler: `rdcore.rename` and `editor.action.rename` open HexIDE’s
 rename at the supplied URI and position; the show-references aliases display the supplied locations.
 Other unlisted commands produce a localized refusal naming the command. Server-initiated
-`workspace/applyEdit` is outside this slice (#2908).
+`workspace/applyEdit` is handled separately (#2908); see its own section.
 
 The client declares `codeActionLiteralSupport`, `dataSupport`, `disabledSupport` and `resolveSupport`
 for `edit`, plus `publishDiagnostics.dataSupport` for diagnostic tokens. The bundled server supplies no code actions. A keyboard route remains for a later slice.
