@@ -95,7 +95,8 @@ public class ShutdownWireShapeTests : IAsyncDisposable
         Func<string>? locale = null, bool callHierarchy = true, string? hierarchyResult = null, bool hierarchyError = false, string rangeProvider = "true", bool configured = false, string? options = null)
     {
         var (clientSide, duplexServer) = FullDuplexStream.CreatePair();
-        var pipeName = "hexide-init-" + Guid.NewGuid().ToString("N");
+        // Short enough for macOS, whose temp directory leaves 43 characters for a pipe name (PipeNameLimit).
+        var pipeName = "hx-init-" + Guid.NewGuid().ToString("N")[..12];
         var pipe = configured ? new NamedPipeServerStream(pipeName, PipeDirection.InOut, 1,
             PipeTransmissionMode.Byte, PipeOptions.Asynchronous) : null;
         Stream serverSide = pipe ?? duplexServer;
