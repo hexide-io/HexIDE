@@ -62,16 +62,17 @@ about something already decided. Not for a code fix that happens to need a doc u
 the body names. A subsystem mentioned only as context does not qualify.
 
 **Where these names come from.** `openspec/specs/` is the repo's own agreed capability decomposition, it
-ships publicly, and `DesignRecordTests` fails the build when it drifts. It holds **39 capabilities**;
-these are **22 areas**, so roughly 17 merges. Where an area's name matches a capability's, it means the
-same thing — `lsp-client`, `language-server`, `protocol-inspector`, `grammar`, `form-designer`,
-`object-browser`, `localization`, `ai-chat` all resolve to a spec directory. Two deliberate divergences:
+ships publicly, and `DesignRecordTests` fails the build when it drifts. It holds **58 capabilities**;
+these are **22 areas**, so roughly 36 merges. Where an area's name matches a capability's, it means the
+same thing — `lsp-client`, `language-server`, `protocol-inspector`, `form-designer`,
+`object-browser`, `localization`, `ai-chat` and `profiles` all resolve to a spec directory. `grammar` does not:
+no capability is named for it. Two deliberate divergences:
 
 - **`lsp-transport` is not a capability.** Transport sits inside `specs/lsp-client/`. The label splits it
   out because stdio, named pipe and WebSocket have their own test classes and their own failure modes,
   and one 40-issue label is not a filter. **When they disagree, the spec wins for design and the label
   wins for triage** — the capability decomposition is build-guarded and will outlive these labels.
-- **`profiles` folds two capabilities**, `ide-personalities` and `user-data`. That is not an oversight:
+- **`profiles` folds four capabilities**, `profiles`, `profile-catalog`, `ide-personalities` and `user-data`. That is not an oversight:
   personalities, safe mode, profile directories and `--user-data-dir` are one axis, not three features,
   and personalities is being superseded and subsumed by profiles.
 
@@ -300,7 +301,7 @@ and record it in the issue.
 
 > **"Fidelity" means three different things in this project, and this label is the narrowest of them.**
 >
-> 1. **The Fidelity Principle** — `CLAUDE.md:489`: *"Fidelity means reproducing VB6's intended
+> 1. **The Fidelity Principle** — `CLAUDE.md`, *Fidelity Principle*: *"Fidelity means reproducing VB6's intended
 >    behaviour, not its bugs."* A live, load-bearing principle about what correct means here.
 > 2. **Tier 1 — Fidelity** — a feature-tier classification of *what gets built*, tested by "would a
 >    VB6 developer from 1998 recognise this?". It is used in maintainers' planning and is historical;
