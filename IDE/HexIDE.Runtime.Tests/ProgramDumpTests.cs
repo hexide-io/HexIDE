@@ -23,6 +23,16 @@ public class ProgramDumpTests : BaseVBTestFixture, IDisposable
         File.ReadAllLines(file).Select(l => JsonDocument.Parse(l).RootElement).ToArray();
 
     [Fact]
+    public async Task Fixture_globals_are_recorded_before_the_program_adds_its_own_names()
+    {
+        context.AllocVariable(rootEnv, "fixtureValue", new Vb6Value(7));
+        await Run("Dim programValue As Integer\nDebug.Print fixtureValue\n");
+
+        Records().Should().ContainSingle().Subject.GetProperty("injectedGlobals").EnumerateArray()
+            .Select(n => n.GetString()).Should().Equal("fixtureValue");
+    }
+
+    [Fact]
     public async Task Null_is_recorded_as_printed()
     {
         await Run("Debug.Print Null\nDebug.Print 1; \"a\"\n");

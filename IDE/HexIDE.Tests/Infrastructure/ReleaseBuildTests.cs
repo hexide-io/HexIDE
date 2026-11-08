@@ -4,6 +4,29 @@ namespace HexIDE.Tests.Infrastructure;
 
 public class ReleaseBuildTests
 {
+    [Fact]
+    public void PublishIncludes32BitLinuxArm()
+    {
+        var workflow = File.ReadAllText(Path.Combine(RepoTree.Root(), ".github", "workflows", "publish.yml"))
+            .ReplaceLineEndings("\n");
+        workflow.Should().MatchRegex(
+            @"(?m)^\s+- \{ name: linux-arm,\s+runner: ubuntu-latest,\s+rid: linux-arm,\s+os: linux \}$");
+    }
+
+    [Fact]
+    public void LinuxArmCrossPublishUsesHostAddinPacker()
+    {
+        var workflow = File.ReadAllText(Path.Combine(RepoTree.Root(), ".github", "workflows", "publish.yml"))
+            .ReplaceLineEndings("\n");
+        workflow.Should().Contain("if: matrix.rid == 'linux-arm'\n")
+            .And.Contain("dotnet publish HexIDE.AddinPacker -f net10.0 -c Release -r linux-x64 --self-contained false -o bin/addin-packer-host/")
+            .And.Contain("ADDIN_PACKER_OVERRIDE=-p:AddinPacker=$PWD/bin/addin-packer-host/HexIDE.AddinPacker.dll");
+        var desktopPublishes = workflow.Split('\n')
+            .Where(line => line.Contains("run: dotnet publish HexIDE.Desktop")).ToArray();
+        desktopPublishes.Should().HaveCount(2);
+        desktopPublishes.Should().OnlyContain(line => line.Contains("${{ env.ADDIN_PACKER_OVERRIDE }}"));
+    }
+
     public static bool IsLinux => OperatingSystem.IsLinux();
 
     [Fact(Skip = "The CI shell guard runs on Linux", SkipUnless = nameof(IsLinux))]

@@ -107,6 +107,9 @@ public abstract class BaseVBTestFixture
             await run();
             return;
         }
+        var injectedGlobals = rootEnv.variableToLocation.Keys
+            .Except(new ExecutionEnvironment().variableToLocation.Keys, StringComparer.OrdinalIgnoreCase)
+            .Order(StringComparer.OrdinalIgnoreCase).ToArray();
         int outputBefore;
         lock (written) outputBefore = written.Length;
         int before;
@@ -127,7 +130,7 @@ public abstract class BaseVBTestFixture
             lock (debug) printed = debug.Skip(before).ToList();
             string output;
             lock (written) output = written.ToString(outputBefore, written.Length - outputBefore);
-            dump.Record(TestContext.Current.Test?.TestDisplayName ?? GetType().Name, ++dumped, modules, printed, output, thrown);
+            dump.Record(TestContext.Current.Test?.TestDisplayName ?? GetType().Name, ++dumped, modules, printed, output, thrown, injectedGlobals);
         }
     }
 

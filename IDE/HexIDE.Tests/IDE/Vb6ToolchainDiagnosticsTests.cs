@@ -221,6 +221,19 @@ public class Vb6ToolchainDiagnosticsTests
     }
 
     [Fact]
+    public async Task ABuildThatTimesOutReportsThatItWasStopped()
+    {
+        (await BuildThatTimesOut().MakeWithVb6Async(ProjectWithTwoForms())).Should().BeFalse();
+
+        await _windows.Received(1).MessageBox(
+            "Str.Vb6Toolchain.CompilationTimedOut",
+            "Str.Vb6Toolchain.BuildFailedTitle", MessageBoxButtons.Ok, MessageBoxIcon.Error);
+        await _windows.DidNotReceive().MessageBox(
+            "Str.Vb6Toolchain.CompilationFailedNoOutput",
+            Arg.Any<string?>(), Arg.Any<MessageBoxButtons>(), Arg.Any<MessageBoxIcon>());
+    }
+
+    [Fact]
     public async Task ABuildThatTimesOutStillExpiresTheLastBuildsErrors()
     {
         // The timeout used to return before the clear ran, so it was the one path that left a previous

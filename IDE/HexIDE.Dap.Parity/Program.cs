@@ -138,6 +138,16 @@ async Task<JsonObject> RunCase(int index, JsonObject record, bool reuseWorkspace
     };
     var hexide = Hexide.From(record);
     result["hexide"] = hexide.ToJson();
+    // Fixture globals and form metadata are not reproduced by the generated standard modules (#2941).
+    var globals = record["injectedGlobals"]?.AsArray();
+    var formHeader = Regex.IsMatch(startup["source"]!.GetValue<string>(), @"^\s*VERSION[ \t]+5\.00(?:\s|$)", RegexOptions.IgnoreCase);
+    if (globals is { Count: > 0 } || formHeader)
+    {
+        result["outcome"] = "not-reproducible";
+        result["notReproducible"] = globals is { Count: > 0 } ? "fixture-global" : "form-header";
+        result["injectedGlobals"] = globals?.DeepClone();
+        return result;
+    }
     // The engine runs the program for real, on the machine running this tool. A program that would act outside its own
     // process is counted and left out, whatever its paths say: a path built at run time can't be checked here.
     var effects = Effects.Of(modules.Select(m => m["source"]!.GetValue<string>()));

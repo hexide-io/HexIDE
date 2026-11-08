@@ -110,7 +110,7 @@ public class Vb6ToolchainService : IVb6ToolchainService
             Log.Warning("Vb6ToolchainService: VB6 /make exceeded {Timeout}s and was terminated",
                 BuildTimeout.TotalSeconds);
             await windowManager.MessageBox(
-                _localization.GetString("Str.Vb6Toolchain.CompilationFailedNoOutput"),
+                _localization.GetString("Str.Vb6Toolchain.CompilationTimedOut"),
                 _localization.GetString("Str.Vb6Toolchain.BuildFailedTitle"), MessageBoxButtons.Ok, MessageBoxIcon.Error);
             return false;
         }

@@ -67,14 +67,34 @@ public class OmittedArgumentTests : BaseVBTestFixture
         AssertDebugLog([1, 11, 22, 4]);
     }
 
+    // vb6.exe SP6, native and p-code: #2938.
+    [Theory]
+    [InlineData("Show 1,")]
+    [InlineData("Call Show(1, )")]
+    [InlineData("x = F(1, )")]
+    public async Task A_trailing_blank_is_still_a_slot(string call)
+    {
+        var act = async () => await Run($"""
+            Function F(a, Optional b = 7)
+                F = b
+            End Function
+            Sub Show(a, Optional b = 7)
+                Debug.Print b
+            End Sub
+            {call}
+            """);
+
+        await act.Should().ThrowAsync<VBCompileErrorException>().WithMessage("*Syntax error*");
+    }
+
     [Fact]
-    public async Task A_trailing_blank_is_still_a_slot()
+    public async Task An_optional_argument_can_be_left_off()
     {
         await Run("""
             Sub Show(a, Optional b = 7)
                 Debug.Print b
             End Sub
-            Show 1,
+            Show 1
             """);
 
         AssertDebugLog([7]);
@@ -116,10 +136,10 @@ public class OmittedArgumentTests : BaseVBTestFixture
         // "Not supplied" has to mean the same thing however it was written: leaving the slot blank is no
         // more legal than stopping short of a required parameter.
         var act = async () => await Run("""
-            Sub Show(a, b)
+            Sub Show(a, b, c)
                 Debug.Print b
             End Sub
-            Show 1,
+            Show 1, , 3
             """);
 
         await act.Should().ThrowAsync<VBCompileErrorException>()

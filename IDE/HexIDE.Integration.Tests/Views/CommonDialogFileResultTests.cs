@@ -6,6 +6,9 @@ using HexIDE.Runtime.Interpreter;
 namespace HexIDE.Integration.Tests.Views;
 
 // VB6 SP6 native and p-code: oracle "In-box controls: the CommonDialog", dialog results (#1084).
+// These run on the headless session, like every test that builds a control. Built on one of xunit's own threads,
+// a VBCommonDialog gave that thread a dispatcher of its own while the session was resetting the UI dispatcher for
+// another test, and so took the UI thread; the session's setup then threw and the run hung (#2530).
 public class CommonDialogFileResultTests
 {
     private static VBCommonDialog Dialog(VbFileDialogAnswer? answer)
@@ -21,7 +24,7 @@ public class CommonDialogFileResultTests
         return value;
     }
 
-    [Theory]
+    [AvaloniaTheory]
     [InlineData(0x80200, "C:\\hexoracle-cdfiles\0a.txt\0b.txt")]
     [InlineData(0x200, @"C:\hexoracle-cdfiles\ a.txt b.txt")]
     public async Task Multiple_picks_use_the_measured_separator_and_folder_suffix(int flags, string expected)
@@ -38,7 +41,7 @@ public class CommonDialogFileResultTests
             r.AllowMultiple && VbFileDialogOptions.Open(r, null).AllowMultiple));
     }
 
-    [Theory]
+    [AvaloniaTheory]
     [InlineData(@"C:\other\b.txt", 0x80200)]
     [InlineData(@"C:\hexoracle-cdfiles\long name.txt", 0x200)]
     public async Task Unmeasured_multiple_pick_shapes_are_refused(string second, int flags)
@@ -50,7 +53,7 @@ public class CommonDialogFileResultTests
         Read(dialog, "FileName").Should().Be(new Vb6Value(""));
     }
 
-    [Fact]
+    [AvaloniaFact]
     public async Task Explorer_multiselect_with_one_pick_keeps_plain_path_title_and_flags()
     {
         var dialog = Dialog(new VbFileDialogAnswer(@"C:\hexoracle-cdfiles\a.txt", null));
@@ -61,7 +64,7 @@ public class CommonDialogFileResultTests
         Read(dialog, "Flags").Should().Be(new Vb6Value(0x80600L));
     }
 
-    [Theory]
+    [AvaloniaTheory]
     [InlineData(false)]
     [InlineData(true)]
     public async Task Cancel_writes_implied_flags_before_returning_or_raising(bool cancelError)
@@ -80,7 +83,7 @@ public class CommonDialogFileResultTests
         Read(dialog, "FileTitle").Should().Be(new Vb6Value(""));
     }
 
-    [Theory]
+    [AvaloniaTheory]
     [InlineData("ShowOpen", "", "a.txt", "a.txt", 0x400)]
     [InlineData("ShowOpen", "txt", "c", "c.txt", 0)]
     [InlineData("ShowOpen", "txt", "c.bas", "c.bas", 0x400)]
@@ -98,7 +101,7 @@ public class CommonDialogFileResultTests
         Read(dialog, "Flags").Should().Be(new Vb6Value((long)flags));
     }
 
-    [Theory]
+    [AvaloniaTheory]
     [InlineData("Text (*.txt)|*.txt|Basic (*.bas)|*.bas")]
     [InlineData("Mixed|*.txt;*.bas")]
     public async Task Save_without_extension_refuses_an_unknown_or_unmeasured_filter(string filter)
@@ -109,7 +112,7 @@ public class CommonDialogFileResultTests
         await show.Should().ThrowAsync<NotImplementedException>().WithMessage("*extension*filter*");
     }
 
-    [Fact]
+    [AvaloniaFact]
     public async Task Too_small_file_buffer_raises_20476()
     {
         var dialog = Dialog(new VbFileDialogAnswer(@"C:\hexoracle-cdfiles\a.txt", 1));
@@ -119,7 +122,7 @@ public class CommonDialogFileResultTests
         error.ErrNo.Should().Be(20476);
     }
 
-    [Fact]
+    [AvaloniaFact]
     public async Task Font_with_zero_flags_opens_and_cancel_raises_32755()
     {
         var host = Substitute.For<IBasicStandardLibrary>();

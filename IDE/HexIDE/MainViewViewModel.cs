@@ -2153,6 +2153,8 @@ public partial class MainViewViewModel : ObservableObject
     /// Keeps the last valid layout if the document area is below its minimum.</summary>
     public void SaveLayout()
     {
+        foreach (var project in projectManager.LoadedProjects)
+            editorService.SaveOpenDocuments(project);
         _layoutSaveTimer.Stop();
         if (!CanSaveLayout()) return;
         var json = LayoutManifestJson.Serialize(dockFactory.CaptureManifest(Layout));

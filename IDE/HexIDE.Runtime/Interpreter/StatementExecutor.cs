@@ -362,7 +362,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         if (interpreter.TryParseStatement("Debug.Print " + expr) is not { } statement
             || FirstOfType<VB6Parser.ICS_B_MemberProcedureCallContext>(statement) is not { } call)
             return null;
-        var children = call.argsCall() is { } list ? list.children : call.PRINT() is not null ? call.children : null;
+        var children = call.outputList() is { } output ? output.children : call.argsCall()?.children;
         var items = children?.Count(c => c is VB6Parser.ArgCallContext or VB6Parser.OutputList_ExpressionContext) ?? 0;
         var separated = children?.Any(c => c is ITerminalNode { Symbol.Type: VB6Parser.SEMICOLON or VB6Parser.COMMA }) ?? false;
         return items > 1 || separated ? children : null;
@@ -3077,7 +3077,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
 
     /// <summary>
     /// Prints an output list to <paramref name="target"/>, evaluating each item as it comes, as VB6 does: <c>Print #</c>'s
-    /// <c>outputList</c>, or <c>Debug.Print</c>'s arguments, where <c>Spc(n)</c> and <c>Tab(n)</c> parse as calls.
+    /// <c>outputList</c>, shared by <c>Print #</c> and <c>Debug.Print</c>.
     /// <paramref name="printed"/> sees each item's value, an object already its default member, for the typed channel.
     /// </summary>
     private async Task PrintList(IList<IParseTree>? children, VbPrint.ITarget target, Action<Vb6Value>? printed)
@@ -3144,8 +3144,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             VbPrint.Tab(target, n);
     }
 
-    // `Spc(n)`, `Tab(n)` or a bare `Tab` among Debug.Print's arguments, which parse them as calls of those names. Both
-    // are keywords, so no procedure of the program can have either name.
+    // Positioning clauses in an argument list can parse as calls of these keywords, rather than output-list items.
     private static bool IsPrintPosition(VB6Parser.ValueStmtContext value, out bool isSpc, out VB6Parser.ValueStmtContext? count)
     {
         isSpc = false;
@@ -4009,6 +4008,10 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 : declaredArray || value.Type.IsArray ? value.Type
                 : new Vb6Value.ValueType(Vb6Value.ValueType.EmptyVariant, true);
 
+            // A declared Variant array cannot become a String array; a scalar Variant can (#2938, measured).
+            if (!preserve && declaredArray && !variant && redim.asTypeClause() is not null && type != value.Type)
+                throw new VBCompileErrorException("Can't change data types of array elements");
+
             var objectClass = redim.asTypeClause() is { } objectClause
                 ? ObjectArrayClass(objectClause) : (value.Value as VBArray)?.DeclaredClass;
             Vb6Value NewArray(List<(int, int)>? bounds = null)
@@ -4710,7 +4713,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             {
                 case VB6Parser.OutputList_ExpressionContext item:
                     if (!afterSeparator)
-                        throw new NotImplementedException("Write # of two items with no separator between them is not implemented (#1521)");
+                        files.Write(number, ",");
                     if (item.valueStmt() is { } value)
                         files.Write(number, VbWrite.ItemText(await expressionExecutor.EvaluateValue(value)));
                     else
@@ -4771,8 +4774,8 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         {
             if (context.argsCall() is { } list)
                 await PrintList(list.children, debug, debug.Printed);
-            else if (context.PRINT() is not null)
-                await PrintList(context.children, debug, debug.Printed);   // separators alone, `Debug.Print ,` (#1409)
+            else if (context.outputList() is { } output)
+                await PrintList(output.children, debug, debug.Printed);
             else
                 debug.PrintBlankLine();
             return default;

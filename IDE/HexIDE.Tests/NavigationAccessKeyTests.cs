@@ -123,23 +123,45 @@ public class NavigationAccessKeyTests
     [InlineData("bg")]
     [InlineData("el")]
     [InlineData("he")]
-    [InlineData("ja")]
     [InlineData("ko")]
     [InlineData("ru")]
     [InlineData("th")]
     [InlineData("uk")]
-    [InlineData("zh-Hans")]
-    [InlineData("zh-Hant")]
     public void NonLatinNewLabelsHaveNoAccessKeyMarkers(string packId)
     {
+        // Chinese and Japanese are the exception: they append the English access key, as (_F) (#41).
         var strings = PackStrings(packId);
-        foreach (var key in new[] { "Str.CodeEditor.Context.GoToImplementation", "Str.CodeEditor.Context.GoToTypeDefinition",
-                     "Str.Menu.View.Implementation", "Str.Menu.View.TypeDefinition" })
+        foreach (var key in NavigationKeys)
         {
             strings.Should().ContainKey(key);
             strings[key].Should().NotContain("_").And.NotContain("&");
         }
     }
+
+    [Theory]
+    [InlineData("ja")]
+    [InlineData("zh-Hans")]
+    [InlineData("zh-Hant")]
+    public void CjkNewLabelsAppendTheEnglishAccessKey(string packId)
+    {
+        var english = PackStrings("en");
+        var strings = PackStrings(packId);
+        foreach (var key in NavigationKeys)
+        {
+            var source = english[key];
+            var marker = source.IndexOf('_');
+            marker.Should().BeGreaterThanOrEqualTo(0, $"en's {key} carries an access key");
+            strings[key].Should().EndWith($"(_{char.ToUpperInvariant(source[marker + 1])})", $"{packId}: {key}")
+                .And.NotContain("&");
+            strings[key].Count(c => c == '_').Should().Be(1, $"{packId}: {key}");
+        }
+    }
+
+    private static readonly string[] NavigationKeys =
+    [
+        "Str.CodeEditor.Context.GoToImplementation", "Str.CodeEditor.Context.GoToTypeDefinition",
+        "Str.Menu.View.Implementation", "Str.Menu.View.TypeDefinition",
+    ];
 
     [Fact]
     public void ViewMenuUsesItsOwnNavigationLabels()
