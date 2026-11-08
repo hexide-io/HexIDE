@@ -187,3 +187,14 @@ pending edit. Commit-before-click ordering and focus ordering when an event hand
 - **THEN** MouseDown, NodeClick and MouseUp precede BeforeLabelEdit
 - **AND** the editor opens after the host double-click interval from MouseUp
 - **AND** a second press forming a double-click cancels that pending editor
+
+### Requirement: Keep the editing label visible on page keys
+
+PageDown and PageUp in the node label editor SHALL NOT scroll its text vertically (#3352).
+This is a HexIDE usability requirement; VB6's page-key caret and selection behaviour remains unmeasured.
+
+#### Scenario: Page through a label edit
+
+- **WHEN** PageDown and PageUp are pressed while a node label is being edited
+- **THEN** the label remains visible in the editor
+- **AND** Escape still cancels the edit
