@@ -1069,6 +1069,11 @@ options. The client declares `textDocument.rangeFormatting` at initialization. R
 Format Document's guarded path: one undo step, with IDE-only header and member attribute lines protected.
 The keymap command `FormatSelectionCommand` has no default shortcut. On-type formatting is not implemented.
 
+Completion requests use the start of the identifier around the caret, including for Complete Word,
+so servers that filter by the preceding word return the full list for that context ([#3340](https://github.com/hexide-io/HexIDE/issues/3340)).
+The editor keeps that list visible and selects prefix matches against the whole word around the caret;
+it does not select PascalCase hump matches. A position after `.` or `(` stays after that punctuation.
+
 Completion asks every document claimant concurrently, with a shared **one-second popup budget**.
 It returns when all answers arrive or that budget expires, taking only answers received in time. Items
 with the same ordinal label and kind collapse to the higher-priority claimant's item, with registration
