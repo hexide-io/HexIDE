@@ -365,7 +365,7 @@ The former Add-In Manager dialog has been replaced by Options → Add-Ins, which
 | Real-time sync with designer | Done | Bidirectional |
 | Property search / filter | Done | See the Properties Window section (#4) |
 | Object dropdown (select component) | Done | ComboBox lists all components on the active form; selection synced bidirectionally with the designer |
-| Help description panel | Done | Description panel at bottom shows selected property name and description text; descriptions update on a live language switch without reselecting the property (#2270) |
+| Help description panel | Done | Description panel at bottom shows selected property name and description text, with room for three description lines by default and a splitter for more (#3342); descriptions update on a live language switch without reselecting the property (#2270) |
 | Left, Top, Width and Height in VB6's units | Done | As VB6's window shows them (#1636): a control's in its container's ScaleMode (twips inside a Frame), a form's own size with its frame, three decimals at most; typed values in the same units, rounded to whole twips. A form with a menu shows Left and Top by the rule where VB6 read 105, 105, unexplained. The toolbar's readout is still pixels ([#1641](https://github.com/hexide-io/HexIDE/issues/1641)) |
 
 ---
