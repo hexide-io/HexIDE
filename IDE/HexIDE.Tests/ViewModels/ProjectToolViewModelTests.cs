@@ -365,6 +365,67 @@ public class ProjectToolViewModelTests
         vm.AddFormCommand.CanExecute(null).Should().BeFalse();
     }
 
+    [Theory]
+    [InlineData("AddModuleCommand", ModuleKind.StandardModule)]
+    [InlineData("AddClassModuleCommand", ModuleKind.ClassModule)]
+    [InlineData("AddUserControlCommand", ModuleKind.UserControl)]
+    public async Task AddItemCommand_UsesSelectedProjectAndOpensItem(string commandName, ModuleKind kind)
+    {
+        var project = TestHelpers.CreateProjectWithForm("Selected", "Form1");
+        projectManager.StartupProject.Returns(TestHelpers.CreateProject("Startup"));
+        var vm = CreateVmWithLoadedProject(project, out var projectVm);
+        var property = typeof(ProjectToolViewModel).GetProperty(commandName);
+        property.Should().NotBeNull();
+        var command = (System.Windows.Input.ICommand)property!.GetValue(vm)!;
+        command.CanExecute(null).Should().BeFalse();
+        var requeries = 0;
+        command.CanExecuteChanged += (_, _) => requeries++;
+        vm.SelectedItem = projectVm;
+        command.CanExecute(null).Should().BeTrue();
+        requeries.Should().Be(1);
+        vm.SelectedItem = FirstForm(projectVm);
+        command.CanExecute(null).Should().BeTrue();
+        projectService.NextFreeModuleName(project, kind).Returns("NewItem9");
+        var module = new ModuleDefinition(project, "NewItem9", kind);
+        if (kind == ModuleKind.UserControl)
+            module.UpdateFormPart(new FormDefinition(project, FormComponentClass.ForRoot("VB.UserControl"), "NewItem9"));
+        projectService.AddNewModule(project, "NewItem9", kind, true).Returns(module);
+        projectService.AddNewUserControl(project, "NewItem9", true).Returns(module);
+
+        command.Execute(null);
+
+        if (kind == ModuleKind.UserControl)
+        {
+            await projectService.Received(1).AddNewUserControl(project, "NewItem9", true);
+            await projectService.DidNotReceive().AddNewModule(Arg.Any<ProjectDefinition>(), Arg.Any<string>(), Arg.Any<ModuleKind>(), Arg.Any<bool>());
+            editorService.Received(1).EditForm(module.FormPart);
+        }
+        else
+        {
+            await projectService.Received(1).AddNewModule(project, "NewItem9", kind, true);
+            editorService.Received(1).EditCode(module);
+        }
+        vm.SelectedItem = null;
+        command.CanExecute(null).Should().BeFalse();
+        var contributed = new ProjectDefinition(VBProjectType.EXE, "Contributed") { ContributedBy = "addin" };
+        projectManager.ProjectLoaded += Raise.Event<Action<ProjectDefinition>>(contributed);
+        vm.SelectedItem = vm.LoadedProjects.Last();
+        command.CanExecute(null).Should().BeFalse();
+
+        var root = new DirectoryInfo(AppContext.BaseDirectory);
+        while (root != null && !(Directory.Exists(Path.Combine(root.FullName, "IDE"))
+                                && Directory.Exists(Path.Combine(root.FullName, "LspServer"))))
+            root = root.Parent;
+        root.Should().NotBeNull();
+        var view = System.Xml.Linq.XDocument.Load(Path.Combine(root!.FullName,
+            "IDE", "HexIDE", "Tools", "Projects", "ProjectToolView.axaml"));
+        var menuItem = view.Descendants().Single(e =>
+            (string?)e.Attribute("Command") == "{CompiledBinding " + commandName + "}");
+        ((string?)menuItem.Parent!.Attribute("Header")).Should().Be("{DynamicResource Str.Tool.Project.Menu.Add}");
+        ((string?)menuItem.Attribute("Header")).Should().Be("{DynamicResource Str.AddItem." +
+            (kind == ModuleKind.StandardModule ? "Module" : kind == ModuleKind.ClassModule ? "ClassModule" : "UserControl") + "}");
+    }
+
     // ── Command execution ─────────────────────────────────────────
 
     [Fact]

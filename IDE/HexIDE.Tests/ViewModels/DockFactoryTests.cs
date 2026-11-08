@@ -175,6 +175,12 @@ public class DockFactoryTests
         void Set(string name, object value) => typeof(MainViewViewModel)
             .GetField(name, System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
             .SetValue(vm, value);
+        var project = TestHelpers.CreateProject();
+        var projects = Substitute.For<IProjectManager>();
+        projects.LoadedProjects.Returns([project]);
+        var editors = Substitute.For<IEditorService>();
+        Set("projectManager", projects);
+        Set("editorService", editors);
         Set("dockFactory", factory);
         Set("windowStateService", state);
         Set("_lastSavedLayoutJson", "previous valid layout");
@@ -191,6 +197,8 @@ public class DockFactoryTests
                 System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!.GetValue(vm)
             .Should().Be("previous valid layout");
         state.DidNotReceive().SaveLayoutManifestJson(Arg.Any<string>());
+        if (!debounced) editors.Received(1).SaveOpenDocuments(project);
+        else editors.DidNotReceive().SaveOpenDocuments(Arg.Any<HexIDE.Runtime.ProjectElements.ProjectDefinition>());
     }
 
     [AvaloniaFact]

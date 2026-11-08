@@ -1,0 +1,24 @@
+[
+  {
+    "$schema": "./descriptor.schema.json",
+    "version": 1,
+    "ownership": [
+      { "glob": "docs/**/*.tex", "primary": "configured-latex" }
+    ],
+    "recommendedProviders": ["configured-latex"]
+  },
+  {
+    "$schema": "./descriptor.schema.json",
+    "version": 1,
+    "root": true,
+    "roots": [
+      { "path": "Client", "provider": "configured-vb6" },
+      { "path": "Service", "provider": "configured-vb6" }
+    ]
+  },
+  {
+    "$schema": "./descriptor.schema.json",
+    "version": 1,
+    "ansiCodePage": 932
+  }
+]

@@ -155,7 +155,7 @@ public class InteractVocabularyTests
         var window = Show(new ScrollViewer { Content = content });
         try
         {
-            ErrorOf(content, "scroll", "down").Should().StartWith("nothing to scroll vertically");
+            ErrorOf(content, "scroll", "down").Should().StartWith("found nothing that scrolls vertically");
         }
         finally { window.Close(); }
     }

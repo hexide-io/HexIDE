@@ -445,7 +445,7 @@ public class MainViewViewModelTests
             ((Avalonia.Controls.MenuItem)coding.Items[0]!).Command!.Execute(null);
             _sut.GetToolWindows().Should().OnlyContain(t => !t.Visible);
             ((Avalonia.Controls.MenuItem)design.Items[0]!).Command!.Execute(null);
-            _sut.GetToolWindows().Count(t => t.Visible).Should().Be(4);
+            _sut.GetToolWindows().Count(t => t.Visible).Should().Be(LayoutManifest.Default.Tools.Count(t => t.Open));
             _windowManager.InputBox(Arg.Any<string>(), Arg.Any<string?>(), Arg.Any<string>())
                 .Returns(Task.FromResult<string?>("Draft"));
             ((Avalonia.Controls.MenuItem)design.Items[1]!).Command!.Execute(null);
@@ -476,6 +476,7 @@ public class MainViewViewModelTests
         sut.SwitchNamedLayout("Saved");
         _statusBarService.Received().SetMessage("Skipped: addin:addin:5:owner:output");
         using var handle = tools.ForOwner("owner").Register("output", "Output", null, () => new object());
+        ArrangeDocuments(sut.Layout);
         sut.SaveLayout();
         var json = state.ReceivedCalls().Where(c => c.GetMethodInfo().Name == nameof(IWindowStateService.SaveLayoutManifestJson))
             .Last().GetArguments()[0].Should().BeOfType<string>().Subject;
@@ -511,6 +512,7 @@ public class MainViewViewModelTests
         var sut = Build(_runnerService, windowState: state, tools: tools);
         using var late = registerLate ? tools.ForOwner("com.hexide.aichat")
             .Register("aiChat", "AI Chat", null, () => new object()) : null;
+        ArrangeDocuments(sut.Layout);
         sut.SaveLayout();
         var json = state.ReceivedCalls().Where(c => c.GetMethodInfo().Name == nameof(IWindowStateService.SaveLayoutManifestJson))
             .Last().GetArguments()[0].Should().BeOfType<string>().Subject;
@@ -543,12 +545,22 @@ public class MainViewViewModelTests
         });
         var sut = Build(_runnerService, windowState: state, tools: tools);
         one.Dispose();
+        ArrangeDocuments(sut.Layout);
         sut.SaveLayout();
         var json = state.ReceivedCalls().Where(c => c.GetMethodInfo().Name == nameof(IWindowStateService.SaveLayoutManifestJson))
             .Last().GetArguments()[0].Should().BeOfType<string>().Subject;
         var captured = LayoutManifestJson.Deserialize(json)!;
         captured.Tools.Should().Contain(t => t.Key == "toolbox" && t.Open);
         captured.Tools.Should().Contain(t => t.Key == "addin:addin:6:second:output" && t.Open);
+    }
+
+    private static void ArrangeDocuments(Dock.Model.Core.IDock dock)
+    {
+        if (dock is Dock.Model.Controls.IDocumentDock document)
+            document.SetVisibleBounds(0, 0, 800, 600);
+        foreach (var child in dock.VisibleDockables ?? [])
+            if (child is Dock.Model.Core.IDock nested)
+                ArrangeDocuments(nested);
     }
 
     // --- Add File: a file that joined read byte for byte ---

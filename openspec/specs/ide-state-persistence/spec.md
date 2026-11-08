@@ -2,7 +2,7 @@
 
 ## Purpose
 Define what the IDE remembers about itself between sessions: window geometry and the arrangement of tool
-windows.
+windows, plus the documents open in each saved project.
 
 The default layout is a guess, and it is wrong for most people — a window sized for the smallest reasonable
 screen, panels at proportions nobody chose. Anyone who works in the IDE for an afternoon adjusts it, and an
@@ -175,3 +175,33 @@ registration. Unavailable windows SHALL be deferred, retained and reported. Unkn
 - **WHEN** an arrangement saved with `addin:aiChat` is read and its owning add-in registers
 - **THEN** its saved placement is restored without a skipped-window warning
 - **AND** subsequent saves retain the current key and discard the legacy key
+
+### Requirement: Reopening a saved project SHALL restore its document tabs
+On project close and clean IDE exit, the IDE SHALL record open code editors, designers, carried-file
+editors and project views in tab order, including the active document, per saved project path in the
+user's configuration directory. Reopening a project SHALL restore those tabs against its newly loaded
+members. This SHALL NOT modify project or VB6 workspace files, or restore caret positions, splits,
+tool documents or projects themselves.
+
+#### Scenario: Reopening a project with code and a designer open
+- **WHEN** a saved project closes with a module editor, form designer and form code editor open
+- **AND** that project is opened again
+- **THEN** those tabs reopen in their recorded order with the previously active tab selected
+
+#### Scenario: A project member disappeared between sessions
+- **WHEN** a recorded document is no longer a member or its file is missing
+- **THEN** that tab is skipped and the remaining recorded tabs reopen
+
+#### Scenario: Closing every document deliberately
+- **WHEN** all of a project's tabs are closed before the project or IDE closes
+- **THEN** reopening that project leaves its document area empty
+
+#### Scenario: Unusable saved state
+- **WHEN** a document-session record is unreadable or contains an unknown tab kind
+- **THEN** the project remains usable and unreadable records or unknown entries are ignored
+
+#### Scenario: Unsaved work and recovery mode
+- **WHEN** a project or document has no saved path
+- **THEN** it is not recorded as an open tab; unsaved work remains under crash recovery
+- **WHEN** the IDE runs in recovery mode
+- **THEN** document-session records are neither loaded nor overwritten

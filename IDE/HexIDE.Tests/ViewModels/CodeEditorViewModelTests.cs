@@ -1112,6 +1112,42 @@ public class CodeEditorViewModelTests : IDisposable
         await _lspClient.DidNotReceive().SaveDocumentAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
     }
 
+    [AvaloniaTheory]
+    [InlineData(ModuleKind.StandardModule, false)]
+    [InlineData(ModuleKind.StandardModule, true)]
+    [InlineData(ModuleKind.ClassModule, false)]
+    [InlineData(ModuleKind.ClassModule, true)]
+    [InlineData(ModuleKind.UserControl, false)]
+    [InlineData(ModuleKind.UserControl, true)]
+    public async Task EditorSaveUsesTheModulePath(ModuleKind kind, bool saveAs)
+    {
+        var module = TestHelpers.CreateModule(kind: kind);
+        if (kind == ModuleKind.UserControl)
+            module.UpdateFormPart(TestHelpers.CreateForm(owner: module.Owner));
+        var vm = CreateSut().Initialize(module);
+
+        if (saveAs) vm.SaveFormAs();
+        else vm.SaveForm();
+
+        await _projectService.Received(1).SaveModule(module, saveAs);
+        await _projectService.DidNotReceiveWithAnyArgs().SaveForm(default!, default);
+    }
+
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task EditorSaveUsesTheFormPath(bool saveAs)
+    {
+        var form = TestHelpers.CreateForm();
+        var vm = CreateSut().Initialize(form);
+
+        if (saveAs) vm.SaveFormAs();
+        else vm.SaveForm();
+
+        await _projectService.Received(1).SaveForm(form, saveAs);
+        await _projectService.DidNotReceiveWithAnyArgs().SaveModule(default!, default);
+    }
+
     [AvaloniaFact]
     public async Task AUserControlIsAnnouncedOnceUnderItsModuleUri()
     {

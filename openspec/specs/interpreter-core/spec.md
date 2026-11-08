@@ -29,6 +29,23 @@ worse than one that is obviously incomplete.
 
 ## Requirements
 
+### Requirement: Trailing argument and declared array type refusals
+
+The interpreter SHALL raise `VBCompileErrorException` with "Syntax error" when executing a call
+with a trailing omitted argument. A plain `ReDim ... As T` SHALL refuse a changed declared array
+element type with "Can't change data types of array elements". These refusals follow the
+[VB6 SP6 native and p-code measurements in #2938](https://github.com/hexide-io/HexIDE/issues/2938).
+
+#### Scenario: Trailing comma in a user procedure call
+- **WHEN** execution reaches `Show 1,`, `Call Show(1, )` or `x = F(1, )` with an optional second parameter
+- **THEN** it raises "Syntax error"
+- **AND** `Show 1` without a comma still supplies the declared default, and an interior omission keeps its slot
+
+#### Scenario: Declared Variant array versus scalar Variant
+- **WHEN** execution reaches `ReDim Arr(10) As String` after a module-level or local `Dim Arr()`
+- **THEN** it raises "Can't change data types of array elements"
+- **AND** the scalar Variant control `Dim Arr` still accepts the ReDim and stores "Hello" in a `String()`
+
 ### Requirement: For Each collection references and declarations
 
 The interpreter SHALL parse a For Each collection as a reference, refusing parenthesised expressions,
@@ -1287,6 +1304,18 @@ NamedFormat SHALL convert as CInt does and reject formats outside 0–4 with err
 - **THEN** the result is an empty String
 - **WHEN** a date is supplied with NamedFormat Null or `"x"`
 - **THEN** the error is 94 or 13 respectively
+
+### Requirement: A form without focusable controls raises its own focus events
+
+A shown form with no focusable control SHALL raise Form_GotFocus after Form_Activate.
+When another form in the program becomes active, the form losing focus SHALL raise Form_LostFocus before
+Form_Deactivate (#2579; [measured activation rows](../../../docs/vb6-fidelity-oracle/a-forms-resize-activate-and-deactivate.md)).
+Forms with focusable controls SHALL retain their existing event order.
+
+#### Scenario: Show an empty form and switch back
+- **WHEN** an empty form is shown and then another of the program's forms is activated
+- **THEN** the empty form raises Activate followed by GotFocus on showing
+- **AND** it raises LostFocus followed by Deactivate on the switch
 
 ### Requirement: CommonDialog uses managed colour and print dialogs
 The runtime SHALL route ShowColor and Action 3 to the host's managed colour chooser for measured Flags 0

@@ -143,6 +143,7 @@
                         <MenuItem Header="{DynamicResource Str.Toolbar.Standard}"    ToggleType="CheckBox" IsChecked="{CompiledBinding Settings.IsStandardToolbarVisible,   Mode=TwoWay}" />
                         <MenuItem Header="{DynamicResource Str.Toolbar.Edit}"        ToggleType="CheckBox" IsChecked="{CompiledBinding Settings.IsEditToolbarVisible,       Mode=TwoWay}" />
                         <MenuItem Header="{DynamicResource Str.Toolbar.Debug}"       ToggleType="CheckBox" IsChecked="{CompiledBinding Settings.IsDebugToolbarVisible,      Mode=TwoWay}" />
+                        <MenuItem Header="{DynamicResource Str.Toolbar.FormEditor}"  IsChecked="{CompiledBinding Settings.IsFormEditorToolbarVisible,   Mode=TwoWay}" ToggleType="CheckBox" />
                         <Separator />
                         <MenuItem Header="{DynamicResource Str.Toolbar.Customize}" IsEnabled="False" />
                     </MenuFlyout>
@@ -432,11 +433,6 @@
                             <MenuItem Header="{DynamicResource Str.Menu.Window.ResetLayout}" Command="{x:Static vb:ApplicationCommands.ResetWindowLayoutCommand}" />
                         </MenuItem>
                         <MenuItem Header="{DynamicResource Str.Menu.Help}">
-                            <MenuItem Header="{DynamicResource Str.Menu.Help.Contents}" Command="{x:Static vb:ApplicationCommands.NYICommand}" utils:MenuUtils.MenuIcon="{StaticResource Geo.Contents}" />
-                            <MenuItem Header="{DynamicResource Str.Menu.Help.Index}" Command="{x:Static vb:ApplicationCommands.NYICommand}" />
-                            <MenuItem Header="{DynamicResource Str.Menu.Help.Search}" Command="{x:Static vb:ApplicationCommands.NYICommand}" utils:MenuUtils.MenuIcon="{StaticResource Geo.Search}" />
-                            <Separator />
-                            <MenuItem Header="{DynamicResource Str.Menu.Help.TechnicalSupport}" Command="{x:Static vb:ApplicationCommands.NYICommand}" utils:MenuUtils.MenuIcon="{StaticResource Geo.Technicalsupport}" />
                             <MenuItem Header="{DynamicResource Str.Menu.Help.AvaloniaOnWeb}" Command="{x:Static vb:ApplicationCommands.AvaloniaOnWebCommand}" />
                             <Separator />
                             <MenuItem Header="{DynamicResource Str.Menu.Help.About}" Command="{x:Static vb:ApplicationCommands.AboutCommand}" />

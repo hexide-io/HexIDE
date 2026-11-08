@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.IO;
+using System.Text.Json;
 using Avalonia;
 using Avalonia.Media;
 using Avalonia.Platform;
@@ -22,6 +23,37 @@ public class LocalizationServiceTests
             .Should().BeFalse();
         AssetLoader.GetAssets(new Uri("avares://HexIDE/Localization/Packs/"), null)
             .Should().NotContain(uri => uri.AbsolutePath.EndsWith($"/{id}.json", StringComparison.Ordinal));
+    }
+
+    [AvaloniaTheory]
+    [InlineData("Str.Tool.Properties.Tab.Categorized", "Według kategorii")]
+    [InlineData("Str.Tool.Project.Toolbar.ViewCode", "Pokaż kod")]
+    [InlineData("Str.Tool.Project.Toolbar.ViewObject", "Pokaż obiekt")]
+    [InlineData("Str.Tool.Project.Menu.ViewObject", "Pokaż obiekt")]
+    [InlineData("Str.Tool.Project.Menu.ViewCode", "Pokaż kod")]
+    [InlineData("Str.Tool.Project.Menu.Properties", "Właściwości")]
+    [InlineData("Str.Tool.ColorPalette.Button.Default", "Domyślny")]
+    [InlineData("Str.Tool.Locals.Column.Expression", "Wyrażenie")]
+    [InlineData("Str.Tool.Locals.Column.Value", "Wartość")]
+    [InlineData("Str.Tool.Watches.Column.Expression", "Wyrażenie")]
+    [InlineData("Str.Tool.Watches.Column.Value", "Wartość")]
+    [InlineData("Str.Tool.ObjectBrowser.Chrome.CloseTip", "Zamknij Przeglądarkę obiektów")]
+    [InlineData("Str.Tool.ObjectBrowser.Chrome.Title", "Przeglądarka obiektów")]
+    [InlineData("Str.Tool.ObjectBrowser.Toolbar.GoToDefinition", "Przejdź do definicji")]
+    [InlineData("Str.Tool.ObjectBrowser.Toolbar.CopySignature", "Kopiuj sygnaturę do schowka")]
+    [InlineData("Str.Tool.ObjectBrowser.Toolbar.ClearSearch", "Wyczyść wyszukiwanie")]
+    [InlineData("Str.Tool.Properties.Title", "Właściwości")]
+    [InlineData("Str.Tool.Project.Title", "Grupa projektów - Group1")]
+    [InlineData("Str.Tool.FormLayout.Title", "Układ formularza")]
+    [InlineData("Str.Tool.ObjectBrowser.Title", "Przeglądarka obiektów")]
+    [InlineData("Str.Tool.Project.PropertiesFormat", "Właściwości {0}")]
+    [InlineData("Str.Tool.Project.RemoveFormFormat", "Usuń {0}")]
+    public void Apply_Polish_PreservesDiacriticsInEarlyEntries(string key, string expected)
+    {
+        var sut = CreateSut();
+        sut.Apply("pl");
+
+        sut.GetString(key).Should().Be(expected);
     }
 
     [AvaloniaFact]
@@ -321,16 +353,40 @@ public class LocalizationServiceTests
     }
 
     [AvaloniaFact]
-    public void Apply_JapaneseRegion_InheritsNeutralJapanese_WithoutMnemonics()
+    public void Apply_JapaneseRegion_InheritsNeutralJapanese_WithMnemonics()
     {
         var sut = CreateSut();
         sut.Apply("ja");
         var jaFile = sut.GetString("Str.Menu.File");
         jaFile.Should().NotBe("_File");
-        jaFile.Should().NotContain("_");   // mnemonics omitted for CJK
+        jaFile.Should().Be("ファイル(_F)");
 
         sut.Apply("ja-JP");   // empty region
         sut.GetString("Str.Menu.File").Should().Be(jaFile);
+    }
+
+    [AvaloniaTheory]
+    [InlineData("ja")]
+    [InlineData("zh-Hans")]
+    [InlineData("zh-Hant")]
+    public void Apply_CjkPack_PreservesEveryEnglishAccessKey(string language)
+    {
+        var sut = CreateSut();
+        sut.Apply("en");
+        using var stream = AssetLoader.Open(new Uri("avares://HexIDE/Localization/Packs/en.json"));
+        var canonical = JsonSerializer.Deserialize(stream, LocalizationJsonContext.Default.LanguagePackRecord)!.Strings!;
+        sut.Apply(language);
+        foreach (var (key, value) in canonical)
+        {
+            // These underscores belong to identifiers, not access keys (#41).
+            if (key is "Str.Vb6Toolchain.Vb6NotFound" or "Str.Dialog.ConflictingNames")
+                continue;
+            var marker = value.IndexOf('_');
+            if (marker < 0) continue;
+            var translated = sut.GetString(key);
+            translated.Should().Contain($"(_{char.ToUpperInvariant(value[marker + 1])})", key);
+            translated.Count(c => c == '_').Should().Be(1, key);
+        }
     }
 
     [AvaloniaFact]

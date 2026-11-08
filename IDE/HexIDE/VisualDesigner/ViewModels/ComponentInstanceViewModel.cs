@@ -27,6 +27,19 @@ public partial class ComponentInstanceViewModel : ObservableObject
         this.Instance.OnComponentPropertyChanging += InstancePropertyChanging;
     }
 
+    private string? previewFailure;
+    public string? PreviewFailure
+    {
+        get => previewFailure;
+        internal set
+        {
+            if (SetProperty(ref previewFailure, value))
+                OnPropertyChanged(nameof(HasDesignerPreview));
+        }
+    }
+
+    public bool HasDesignerPreview => PreviewFailure is null;
+
     private void InstancePropertyChanging(ComponentInstance _, PropertyClass propertyClass, object? oldvalue, object? newValue)
     {
         if (propertyClass == VBProperties.NameProperty

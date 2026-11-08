@@ -131,9 +131,9 @@ public sealed class AddinLanguageServerTests : IDisposable
             new ConsentStore(Path.Combine(_root, "consent.json")),
             new RevocationStore(null, Path.Combine(_root, "revocations")), Path.Combine(_root, "state.json"), _root);
         var addin = Substitute.For<IAddin>();
-        addin.When(a => a.Initialize(_host)).Do(_ =>
+        addin.When(a => a.Initialize(Arg.Any<IHexIdeHost>())).Do(call =>
         {
-            _host.RegisterLanguageServer(Probe());
+            call.Arg<IHexIdeHost>().RegisterLanguageServer(Probe());
             throw new InvalidOperationException("initialisation failed");
         });
         var ctx = new AddinContext(new AddinInfo("failed", "Failed", "", "", ""));

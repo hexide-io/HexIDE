@@ -175,6 +175,26 @@ control produces a file that opens cleanly and is quietly a different form. Refu
 - **THEN** it is treated the same way, because the IDE cannot host controls inside a class it did not build
 
 
+
+### Requirement: A running control SHALL expose its container and parent as objects
+For a visual control on a running form, reading Container SHALL return the Frame or PictureBox holding
+it, or the form when it is on the form. Reading Parent SHALL return the form, including when the control
+is nested inside containers. Both results SHALL support subsequent member reads and Set into an object
+variable ([#2064](https://github.com/hexide-io/HexIDE/issues/2064), measured native and p-code;
+[oracle](../../../docs/vb6-fidelity-oracle/controls-add-and-controls-remove.md)).
+
+This requirement does not specify Container assignment or the unexplained Timer and Data Container
+errors recorded in the oracle. Controls.Add is implemented separately (#1556); this requirement covers
+design-time controls.
+
+#### Scenario: A control inside a PictureBox inside a Frame
+- **WHEN** a program reads Text1.Container.Name and Text1.Parent.Name with Text1 inside Picture1 inside Frame1
+- **THEN** the results are Picture1 and the form's name respectively
+
+#### Scenario: A control on the form
+- **WHEN** a program assigns Command1.Container or Command1.Parent to an Object variable
+- **THEN** reading that object's Name gives the form's name
+
 ### Requirement: TabStrip top-row drawing
 
 An MSComctlLib.TabStrip SHALL paint its single top row with raised selected tabs (Style 0),

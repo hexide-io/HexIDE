@@ -48,7 +48,6 @@
             <Button Command="{CompiledBinding OkCommand}" Content="{DynamicResource Str.Dialog.References.Ok}" />
             <Button Command="{CompiledBinding CancelCommand}" Content="{DynamicResource Str.Dialog.References.Cancel}" />
             <Button Margin="0,9,0,0" Command="{CompiledBinding BrowseCommand}" Content="{DynamicResource Str.Dialog.References.Browse}" />
-            <Button Margin="0,37,0,0" IsEnabled="False" Content="{DynamicResource Str.Dialog.References.Help}" />
         </StackPanel>
 
         <HeaderedContentControl Grid.Row="2" Grid.ColumnSpan="5"
