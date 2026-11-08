@@ -1114,6 +1114,16 @@
     "Str.Menu.View.Outline": "Lii_gendus",
     "Str.Menu.View.RecentEdits": "_Hiljutised muudatused",
     "Str.CodeEditor.Context.FindReferences": "Otsi viiteid",
-    "Str.CodeEditor.Context.NoQuickFix": "_Rakendatavat parandust ei pakutud."
+    "Str.CodeEditor.Context.NoQuickFix": "_Rakendatavat parandust ei pakutud.",
+    "Str.Layout.Layouts": "_Paneelipaigutused",
+    "Str.Layout.Save": "_Salvesta paigutus nimega…",
+    "Str.Layout.FullEditor": "_Täisredaktor",
+    "Str.Layout.Switch": "_Vaheta",
+    "Str.Layout.Rename": "_Nimeta ümber…",
+    "Str.Layout.Delete": "_Kustuta",
+    "Str.Layout.NamePrompt": "Paigutuse nimi:",
+    "Str.Layout.InvalidName": "Sisestage kordumatu ja mittetühi paigutuse nimi.",
+    "Str.Layout.Skipped": "Kättesaamatud lisandmooduli aknad jäeti vahele: {0}",
+    "Str.Layout.SaveFailed": "Paneelipaigutusi ei saanud salvestada."
   }
 }

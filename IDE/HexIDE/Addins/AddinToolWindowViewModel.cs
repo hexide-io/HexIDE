@@ -4,14 +4,18 @@ namespace HexIDE.Addins;
 
 public sealed class AddinToolWindowViewModel : Tool
 {
+    public string AddinId { get; }
+    public string WindowId { get; }
     internal bool KeepSavedWidth { get; set; }
     internal System.Collections.Generic.HashSet<Dock.Model.Core.IDockable> SizedDocks { get; } = [];
 
     public object? Content { get; }
 
-    public AddinToolWindowViewModel(string id, string title, Func<object> factory)
+    public AddinToolWindowViewModel(string id, string title, Func<object> factory, string addinId = "")
     {
-        Id = id;
+        AddinId = addinId;
+        WindowId = id;
+        Id = addinId.Length == 0 ? id : $"addin:{addinId.Length}:{addinId}:{id}";
         Title = title;
         CanPin = false;
         CanClose = true;

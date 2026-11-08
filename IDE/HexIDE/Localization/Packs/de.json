@@ -1114,6 +1114,16 @@
     "Str.Menu.View.Outline": "_Gliederung",
     "Str.Menu.View.RecentEdits": "Letzte _Änderungen",
     "Str.CodeEditor.Context.FindReferences": "Verweise suchen",
-    "Str.CodeEditor.Context.NoQuickFix": "_Keine anwendbare Korrektur bereitgestellt."
+    "Str.CodeEditor.Context.NoQuickFix": "_Keine anwendbare Korrektur bereitgestellt.",
+    "Str.Layout.Layouts": "_Panelanordnungen",
+    "Str.Layout.Save": "Anordnung _speichern unter…",
+    "Str.Layout.FullEditor": "_Vollständiger Editor",
+    "Str.Layout.Switch": "_Wechseln",
+    "Str.Layout.Rename": "_Umbenennen…",
+    "Str.Layout.Delete": "_Löschen",
+    "Str.Layout.NamePrompt": "Name der Anordnung:",
+    "Str.Layout.InvalidName": "Geben Sie einen eindeutigen, nicht leeren Namen für die Anordnung ein.",
+    "Str.Layout.Skipped": "Nicht verfügbare Add-In-Fenster wurden übersprungen: {0}",
+    "Str.Layout.SaveFailed": "Die Panelanordnungen konnten nicht gespeichert werden."
   }
 }

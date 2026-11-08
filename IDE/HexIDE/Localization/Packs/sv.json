@@ -1114,6 +1114,16 @@
     "Str.Menu.View.Outline": "Disposition",
     "Str.Menu.View.RecentEdits": "Senaste redi_geringar",
     "Str.CodeEditor.Context.FindReferences": "Sök referenser",
-    "Str.CodeEditor.Context.NoQuickFix": "_Ingen tillämplig korrigering tillhandahölls."
+    "Str.CodeEditor.Context.NoQuickFix": "_Ingen tillämplig korrigering tillhandahölls.",
+    "Str.Layout.Layouts": "_Panellayouter",
+    "Str.Layout.Save": "_Spara layout som…",
+    "Str.Layout.FullEditor": "_Hela redigeraren",
+    "Str.Layout.Switch": "_Byt",
+    "Str.Layout.Rename": "_Byt namn…",
+    "Str.Layout.Delete": "_Ta bort",
+    "Str.Layout.NamePrompt": "Layoutnamn:",
+    "Str.Layout.InvalidName": "Ange ett unikt layoutnamn som inte är tomt.",
+    "Str.Layout.Skipped": "Otillgängliga tilläggsfönster hoppades över: {0}",
+    "Str.Layout.SaveFailed": "Panellayouterna kunde inte sparas."
   }
 }

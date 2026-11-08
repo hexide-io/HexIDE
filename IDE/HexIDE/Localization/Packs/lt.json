@@ -1114,6 +1114,16 @@
     "Str.Menu.View.Outline": "Strukt_ūra",
     "Str.Menu.View.RecentEdits": "Paskia_usi pakeitimai",
     "Str.CodeEditor.Context.FindReferences": "Rasti nuorodas",
-    "Str.CodeEditor.Context.NoQuickFix": "_Tinkamas taisymas nepateiktas."
+    "Str.CodeEditor.Context.NoQuickFix": "_Tinkamas taisymas nepateiktas.",
+    "Str.Layout.Layouts": "_Skydelių išdėstymai",
+    "Str.Layout.Save": "Į_rašyti išdėstymą kaip…",
+    "Str.Layout.FullEditor": "_Visas rengyklės langas",
+    "Str.Layout.Switch": "_Perjungti",
+    "Str.Layout.Rename": "Perva_dinti…",
+    "Str.Layout.Delete": "_Naikinti",
+    "Str.Layout.NamePrompt": "Išdėstymo pavadinimas:",
+    "Str.Layout.InvalidName": "Įveskite unikalų netuščią išdėstymo pavadinimą.",
+    "Str.Layout.Skipped": "Nepasiekiami papildinių langai praleisti: {0}",
+    "Str.Layout.SaveFailed": "Nepavyko įrašyti skydelių išdėstymų."
   }
 }

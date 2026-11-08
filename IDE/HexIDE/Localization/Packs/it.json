@@ -1114,6 +1114,16 @@
     "Str.Menu.View.Outline": "Str_uttura",
     "Str.Menu.View.RecentEdits": "Modific_he recenti",
     "Str.CodeEditor.Context.FindReferences": "Trova riferimenti",
-    "Str.CodeEditor.Context.NoQuickFix": "_Non è stata fornita alcuna correzione applicabile."
+    "Str.CodeEditor.Context.NoQuickFix": "_Non è stata fornita alcuna correzione applicabile.",
+    "Str.Layout.Layouts": "_Disposizioni dei pannelli",
+    "Str.Layout.Save": "_Salva disposizione con nome…",
+    "Str.Layout.FullEditor": "_Editor completo",
+    "Str.Layout.Switch": "_Passa",
+    "Str.Layout.Rename": "_Rinomina…",
+    "Str.Layout.Delete": "_Elimina",
+    "Str.Layout.NamePrompt": "Nome della disposizione:",
+    "Str.Layout.InvalidName": "Inserire un nome di disposizione univoco e non vuoto.",
+    "Str.Layout.Skipped": "Le finestre dei componenti aggiuntivi non disponibili sono state ignorate: {0}",
+    "Str.Layout.SaveFailed": "Impossibile salvare le disposizioni dei pannelli."
   }
 }

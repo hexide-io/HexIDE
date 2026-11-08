@@ -1114,6 +1114,16 @@
     "Str.Menu.View.Outline": "Dàn _ý",
     "Str.Menu.View.RecentEdits": "Ch_ỉnh sửa gần đây",
     "Str.CodeEditor.Context.FindReferences": "T_ìm tham chiếu",
-    "Str.CodeEditor.Context.NoQuickFix": "_Không có bản sửa phù hợp."
+    "Str.CodeEditor.Context.NoQuickFix": "_Không có bản sửa phù hợp.",
+    "Str.Layout.Layouts": "_Bố cục bảng",
+    "Str.Layout.Save": "_Lưu bố cục thành…",
+    "Str.Layout.FullEditor": "_Trình soạn thảo đầy đủ",
+    "Str.Layout.Switch": "_Chuyển",
+    "Str.Layout.Rename": "Đổi _tên…",
+    "Str.Layout.Delete": "_Xóa",
+    "Str.Layout.NamePrompt": "Tên bố cục:",
+    "Str.Layout.InvalidName": "Nhập tên bố cục duy nhất và không để trống.",
+    "Str.Layout.Skipped": "Đã bỏ qua các cửa sổ phần bổ trợ không khả dụng: {0}",
+    "Str.Layout.SaveFailed": "Không thể lưu các bố cục bảng."
   }
 }

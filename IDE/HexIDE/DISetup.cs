@@ -161,7 +161,11 @@ public partial class DISetup
                 return new HexIDE.Recovery.RecoveryService(projects, clock);
             })
             .Bind<ISettingsService>().As(Singleton).To<SettingsService>()
-            .Bind<IWindowStateService>().As(Singleton).To<WindowStateService>()
+            .Bind<IWindowStateService>().As(Singleton).To(ctx =>
+            {
+                ctx.Inject<ISettingsService>(out var settings);
+                return new WindowStateService(settings);
+            })
             .Bind<IStatusBarService>().As(Singleton).To<StatusBarService>()
             .Bind<IRecentProjectsService>().As(Singleton).To<RecentProjectsService>()
             .Bind<IBookmarkService>().As(Singleton).To<BookmarkService>()

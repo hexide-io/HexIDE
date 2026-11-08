@@ -1114,6 +1114,16 @@
     "Str.Menu.View.Outline": "Structură",
     "Str.Menu.View.RecentEdits": "M_odificări recente",
     "Str.CodeEditor.Context.FindReferences": "_Găsește referințe",
-    "Str.CodeEditor.Context.NoQuickFix": "_Nu a fost furnizată nicio remediere aplicabilă."
+    "Str.CodeEditor.Context.NoQuickFix": "_Nu a fost furnizată nicio remediere aplicabilă.",
+    "Str.Layout.Layouts": "Aranjamente de _panouri",
+    "Str.Layout.Save": "_Salvează aranjamentul ca…",
+    "Str.Layout.FullEditor": "Editor _complet",
+    "Str.Layout.Switch": "_Comută",
+    "Str.Layout.Rename": "_Redenumește…",
+    "Str.Layout.Delete": "Ș_terge",
+    "Str.Layout.NamePrompt": "Numele aranjamentului:",
+    "Str.Layout.InvalidName": "Introduceți un nume unic și nevid pentru aranjament.",
+    "Str.Layout.Skipped": "Ferestrele extensiilor indisponibile au fost omise: {0}",
+    "Str.Layout.SaveFailed": "Aranjamentele panourilor nu au putut fi salvate."
   }
 }

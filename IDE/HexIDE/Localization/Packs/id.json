@@ -1114,6 +1114,16 @@
     "Str.Menu.View.Outline": "Keran_gka",
     "Str.Menu.View.RecentEdits": "S_untingan Terbaru",
     "Str.CodeEditor.Context.FindReferences": "Cari referensi",
-    "Str.CodeEditor.Context.NoQuickFix": "_Tidak ada perbaikan yang dapat diterapkan."
+    "Str.CodeEditor.Context.NoQuickFix": "_Tidak ada perbaikan yang dapat diterapkan.",
+    "Str.Layout.Layouts": "_Tata Letak Panel",
+    "Str.Layout.Save": "_Simpan Tata Letak Sebagai…",
+    "Str.Layout.FullEditor": "_Editor Penuh",
+    "Str.Layout.Switch": "_Beralih",
+    "Str.Layout.Rename": "_Ganti Nama…",
+    "Str.Layout.Delete": "_Hapus",
+    "Str.Layout.NamePrompt": "Nama tata letak:",
+    "Str.Layout.InvalidName": "Masukkan nama tata letak yang unik dan tidak kosong.",
+    "Str.Layout.Skipped": "Jendela add-in yang tidak tersedia dilewati: {0}",
+    "Str.Layout.SaveFailed": "Tata letak panel tidak dapat disimpan."
   }
 }

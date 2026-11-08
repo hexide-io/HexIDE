@@ -137,6 +137,45 @@ at all, which is the state the IDE starts in.
 - **WHEN** the developer opens a different project
 - **THEN** the window geometry and panel arrangement are unchanged
 
+### Requirement: Named panel layouts
+
+The IDE SHALL offer saving, listing, switching, renaming and deleting named panel layouts through the
+Window menu. Names SHALL be non-empty and unique without regard to case. Named layouts SHALL persist
+independently of the current session layout. Switching SHALL preserve open editor and designer tabs.
+The built-in Full Editor layout SHALL close all tool panels.
+
+#### Scenario: Accessible layout menu
+- **WHEN** Window → Panel Layouts opens
+- **THEN** the parent exposes its localized text as its accessible name
+- **AND** each saved-layout item exposes the layout name as its accessible name
+
+#### Scenario: Switching working arrangements
+- **WHEN** a developer saves two arrangements and switches between them
+- **THEN** each arrangement restores its tool visibility, canonical regions, order and proportions
+- **AND** open editor and designer tabs survive the switch
+
+#### Scenario: Full Editor
+- **WHEN** the developer chooses Full Editor from Window → Panel Layouts
+- **THEN** all built-in and add-in tool panels close while documents remain open
+- **AND** previously saved named layouts remain available
+
+### Requirement: Add-in window identity in layouts
+
+Current and named layouts SHALL share add-in tool keys identifying the owning add-in and window.
+Registration SHALL refuse duplicates within an add-in while allowing different add-ins to reuse ids.
+The host facade SHALL retain ownership after initialization. Restoration SHALL use the owning add-in’s
+registration. Unavailable windows SHALL be deferred, retained and reported. Unknown keys SHALL be skipped.
+
+#### Scenario: Another add-in uses the same window id
+- **WHEN** a layout names an unavailable add-in's window and another add-in registers that window id
+- **THEN** the other add-in's window does not stand in for the missing window
+- **AND** the layout reports the unavailable tool key
+
+#### Scenario: A legacy add-in key is restored
+- **WHEN** an arrangement saved with `addin:aiChat` is read and its owning add-in registers
+- **THEN** its saved placement is restored without a skipped-window warning
+- **AND** subsequent saves retain the current key and discard the legacy key
+
 ### Requirement: Reopening a saved project SHALL restore its document tabs
 On project close and clean IDE exit, the IDE SHALL record open code editors, designers, carried-file
 editors and project views in tab order, including the active document, per saved project path in the

@@ -1114,6 +1114,16 @@
     "Str.Menu.View.Outline": "Структура",
     "Str.Menu.View.RecentEdits": "Последни редакции",
     "Str.CodeEditor.Context.FindReferences": "Търсене на препратки",
-    "Str.CodeEditor.Context.NoQuickFix": "Няма приложима корекция."
+    "Str.CodeEditor.Context.NoQuickFix": "Няма приложима корекция.",
+    "Str.Layout.Layouts": "Оформления на панелите",
+    "Str.Layout.Save": "Запис на оформлението като…",
+    "Str.Layout.FullEditor": "Цял редактор",
+    "Str.Layout.Switch": "Превключване",
+    "Str.Layout.Rename": "Преименуване…",
+    "Str.Layout.Delete": "Изтриване",
+    "Str.Layout.NamePrompt": "Име на оформлението:",
+    "Str.Layout.InvalidName": "Въведете уникално, непразно име на оформлението.",
+    "Str.Layout.Skipped": "Недостъпните прозорци на добавки бяха пропуснати: {0}",
+    "Str.Layout.SaveFailed": "Оформленията на панелите не можаха да бъдат записани."
   }
 }

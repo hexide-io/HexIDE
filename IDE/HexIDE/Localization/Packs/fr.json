@@ -1114,6 +1114,16 @@
     "Str.Menu.View.Outline": "Plan",
     "Str.Menu.View.RecentEdits": "Modifications récentes",
     "Str.CodeEditor.Context.FindReferences": "Rechercher les références",
-    "Str.CodeEditor.Context.NoQuickFix": "_Aucune correction applicable n’a été fournie."
+    "Str.CodeEditor.Context.NoQuickFix": "_Aucune correction applicable n’a été fournie.",
+    "Str.Layout.Layouts": "_Dispositions des panneaux",
+    "Str.Layout.Save": "_Enregistrer la disposition sous…",
+    "Str.Layout.FullEditor": "Éditeur _complet",
+    "Str.Layout.Switch": "_Basculer",
+    "Str.Layout.Rename": "_Renommer…",
+    "Str.Layout.Delete": "_Supprimer",
+    "Str.Layout.NamePrompt": "Nom de la disposition :",
+    "Str.Layout.InvalidName": "Saisissez un nom de disposition unique et non vide.",
+    "Str.Layout.Skipped": "Les fenêtres de compléments indisponibles ont été ignorées : {0}",
+    "Str.Layout.SaveFailed": "Impossible d’enregistrer les dispositions des panneaux."
   }
 }

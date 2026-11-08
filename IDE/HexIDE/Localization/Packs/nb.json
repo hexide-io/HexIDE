@@ -1114,6 +1114,16 @@
     "Str.Menu.View.Outline": "Disposis_jon",
     "Str.Menu.View.RecentEdits": "Nylige redigeringer",
     "Str.CodeEditor.Context.FindReferences": "Finn referanser",
-    "Str.CodeEditor.Context.NoQuickFix": "_Ingen anvendelig retting ble levert."
+    "Str.CodeEditor.Context.NoQuickFix": "_Ingen anvendelig retting ble levert.",
+    "Str.Layout.Layouts": "_Paneloppsett",
+    "Str.Layout.Save": "_Lagre oppsett som…",
+    "Str.Layout.FullEditor": "_Hele redigeringsvinduet",
+    "Str.Layout.Switch": "_Bytt",
+    "Str.Layout.Rename": "_Gi nytt navn…",
+    "Str.Layout.Delete": "_Slett",
+    "Str.Layout.NamePrompt": "Oppsettnavn:",
+    "Str.Layout.InvalidName": "Angi et unikt oppsettnavn som ikke er tomt.",
+    "Str.Layout.Skipped": "Utilgjengelige tilleggsvinduer ble hoppet over: {0}",
+    "Str.Layout.SaveFailed": "Paneloppsettene kunne ikke lagres."
   }
 }

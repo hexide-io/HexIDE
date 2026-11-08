@@ -55,7 +55,7 @@ public class LayoutManifestJsonTests
         var d = LayoutManifest.Default;
 
         d.Version.Should().Be(LayoutManifest.CurrentVersion);
-        d.Tools.Should().HaveCount(13);
+        d.Tools.Should().HaveCount(14);
         d.Tools.Single(t => t.Key == "outline").Open.Should().BeFalse();
         d.Tools.Single(t => t.Key == "outline").Region.Should().Be(DockRegion.Right);
 
@@ -89,6 +89,7 @@ public class LayoutManifestJsonTests
         var json = LayoutManifestJson.Serialize(LayoutManifest.Default);
 
         json.Should().Contain("\"version\": 2");
+        json.Should().NotContain("addinId");
         json.Should().Contain("\"region\": \"left\"");
         json.Should().Contain("\"region\": \"document\"");
     }

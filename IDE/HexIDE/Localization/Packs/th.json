@@ -1114,6 +1114,16 @@
     "Str.Menu.View.Outline": "โครงร่าง",
     "Str.Menu.View.RecentEdits": "การแก้ไขล่าสุด",
     "Str.CodeEditor.Context.FindReferences": "ค้นหาการอ้างอิง",
-    "Str.CodeEditor.Context.NoQuickFix": "ไม่มีการแก้ไขที่ใช้ได้"
+    "Str.CodeEditor.Context.NoQuickFix": "ไม่มีการแก้ไขที่ใช้ได้",
+    "Str.Layout.Layouts": "เค้าโครงแผง",
+    "Str.Layout.Save": "บันทึกเค้าโครงเป็น…",
+    "Str.Layout.FullEditor": "ตัวแก้ไขเต็มหน้าจอ",
+    "Str.Layout.Switch": "สลับ",
+    "Str.Layout.Rename": "เปลี่ยนชื่อ…",
+    "Str.Layout.Delete": "ลบ",
+    "Str.Layout.NamePrompt": "ชื่อเค้าโครง:",
+    "Str.Layout.InvalidName": "ป้อนชื่อเค้าโครงที่ไม่ซ้ำและไม่ว่าง",
+    "Str.Layout.Skipped": "ข้ามหน้าต่างส่วนเสริมที่ไม่พร้อมใช้งาน: {0}",
+    "Str.Layout.SaveFailed": "ไม่สามารถบันทึกเค้าโครงแผงได้"
   }
 }

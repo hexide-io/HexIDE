@@ -1114,6 +1114,16 @@
     "Str.Menu.View.Outline": "Disposition",
     "Str.Menu.View.RecentEdits": "Seneste redigeringer",
     "Str.CodeEditor.Context.FindReferences": "Find referen_cer",
-    "Str.CodeEditor.Context.NoQuickFix": "_Der blev ikke leveret en anvendelig rettelse."
+    "Str.CodeEditor.Context.NoQuickFix": "_Der blev ikke leveret en anvendelig rettelse.",
+    "Str.Layout.Layouts": "_Panellayout",
+    "Str.Layout.Save": "_Gem layout som…",
+    "Str.Layout.FullEditor": "_Hele editoren",
+    "Str.Layout.Switch": "_Skift",
+    "Str.Layout.Rename": "_Omdøb…",
+    "Str.Layout.Delete": "_Slet",
+    "Str.Layout.NamePrompt": "Layoutnavn:",
+    "Str.Layout.InvalidName": "Angiv et entydigt layoutnavn, der ikke er tomt.",
+    "Str.Layout.Skipped": "Utilgængelige tilføjelsesvinduer blev sprunget over: {0}",
+    "Str.Layout.SaveFailed": "Panellayoutene kunne ikke gemmes."
   }
 }
