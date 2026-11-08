@@ -3053,7 +3053,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
         [Description("True leaves the pointer on the point when the watch ends, for a snapshot: what it landed on keeps "
                      + "its pointer-over look, such as a flat toolbar button's hot image, and an opened tip stays open. "
                      + "The reply says whether it reads as under the pointer, as inspect_element's isPointerOver does. It "
-                     + "lasts until the next click, drag or hover in that window, or the real mouse's next move over it. "
+                     + "lasts until the next click, drag or hover in that window, a hover in another, or the real mouse's next move over it. "
                      + "Default false: the pointer leaves the window.")]
         bool stay = false,
         CancellationToken ct = default)

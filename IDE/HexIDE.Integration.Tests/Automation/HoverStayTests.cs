@@ -52,12 +52,59 @@ public class HoverStayTests
             var said = UiAutomationDriver.StayedNote(landing.Value.Receiver, moved: null, saidAlready: false);
 
             said.Should().Be("; the pointer stays there and 'Button' reads as under it (isPointerOver), so take_snapshot "
-                             + "shows its pointer-over look and any tip, until the next click, drag or hover in this window "
-                             + "or the real mouse's next move over it");
+                             + "shows its pointer-over look and any tip, until the next click, drag or hover in this window, "
+                             + "a hover in another, or the real mouse's next move over it");
             button.IsPointerOver.Should().BeTrue();
             ToolTip.GetIsOpen(button).Should().BeTrue("the tip a staying hover opened stays open for a snapshot");
             UiAutomationDriver.Inspect(button, "Window/Button").IsPointerOver.Should().BeTrue(
                 "inspect_element reads it back");
+        }
+        finally { window.Close(); }
+    }
+
+    // A pointer is over one window at a time, and two windows both read as under it after a staying hover in each (#2886).
+    [AvaloniaFact]
+    public async Task A_hover_in_another_window_ends_a_staying_hover_and_says_so()
+    {
+        var first = TippedButton("One", "First tip");
+        var second = TippedButton("Two", "Second tip");
+        var firstWindow = Show(first);
+        firstWindow.Title = "Hourglass form";
+        var secondWindow = Show(second);
+        try
+        {
+            UiAutomationDriver.Hover(first, null, null, null, out var landing).Success.Should().BeTrue();
+            await Settle(100);
+            UiAutomationDriver.StayHover(landing!.Value.Receiver);
+            await Settle(100);
+            first.IsPointerOver.Should().BeTrue("the first staying hover is what the second has to end");
+
+            var reply = UiAutomationDriver.Hover(second, null, null, null, out _);
+            await Settle(100);
+
+            reply.Success.Should().BeTrue(reply.Error);
+            reply.Detail.Should().Contain("; the pointer left 'Hourglass form'");
+            first.IsPointerOver.Should().BeFalse("the pointer has gone to the other window");
+            second.IsPointerOver.Should().BeTrue();
+        }
+        finally
+        {
+            firstWindow.Close();
+            secondWindow.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public async Task A_hover_with_no_staying_hover_elsewhere_says_nothing_of_another_window()
+    {
+        var button = TippedButton("Only", "Tip");
+        var window = Show(button);
+        try
+        {
+            var reply = UiAutomationDriver.Hover(button, null, null, null, out _);
+            await Settle(50);
+
+            reply.Detail.Should().NotContain("the pointer left");
         }
         finally { window.Close(); }
     }
