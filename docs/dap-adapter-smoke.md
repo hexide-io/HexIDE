@@ -238,7 +238,16 @@ already built.
    This setting overrides any inherited value only in the adapter's environment; the runner's environment is unchanged.
    The results header records the selected value and the reason for the default.
    Issue #3133 records RDCore 0e1afe06 matching three of five Erl rows with `LineLabel`; line numbers above
-   65535 and `Err.Clear` remain RDCore findings, not changes made by this runner.
+   65535 remain an RDCore finding.
+
+   The parity corpus runs as VB6: the adapter child also receives
+   `Configuration__Workspace__Language=vb6` and `Configuration__Environment__ErlAfterErrClear=Kept`,
+   overriding inherited values. These select VB6 implicit references and preserve `Erl` after `Err.Clear`,
+   measured against RDCore 82c0c0a6 and 37c0ae8a
+   ([#3317](https://github.com/hexide-io/HexIDE/issues/3317),
+   [#3188](https://github.com/hexide-io/HexIDE/issues/3188)).
+   `ProgramParityTests` reads both settings back from a launched fixture adapter over DAP; it does not
+   establish RDCore's resulting runtime behaviour.
 
 Outcomes compare HexIDE's Immediate output lines with RDCore's `stdout` lines, trimmed. Individual printed items
 retain their types and use the same formatter as `Debug.Print`, including Null and numeric spacing (#2119).

@@ -12,8 +12,9 @@ public static class Program
         var mode = args[0];
         // Started as an engine's adapter is, with `--dap --workspace <dir>`, the fixture takes its mode from the environment.
         if (mode == "--dap") mode = Environment.GetEnvironmentVariable("HEXIDE_DAP_FIXTURE_MODE") ?? mode;
+        var vb6Environment = mode == "vb6-environment";
         var erlEnvironment = mode == "erl-environment";
-        if (erlEnvironment) mode = "exception";
+        if (erlEnvironment || vb6Environment) mode = "exception";
         if (mode == "exit") { Console.Error.Write("adapter startup failed"); return 37; }
         // A failed test must not leave an orphan alive indefinitely.
         if (mode == "child") { await Task.Delay(TimeSpan.FromMinutes(1)); return 0; }
@@ -85,7 +86,9 @@ public static class Program
                 if (command == "initialize") await Send(new { seq = 31, type = "event", @event = "initialized" });
                 if (command == "configurationDone")
                     await Send(new { seq = 32, type = "event", @event = "output", body = new { category = "stdout",
-                        output = erlEnvironment ? Environment.GetEnvironmentVariable("Configuration__Environment__ErlLineNumbering") + "\n" : "before\n" } });
+                        output = vb6Environment ? Environment.GetEnvironmentVariable("Configuration__Workspace__Language") + "\n"
+                            + Environment.GetEnvironmentVariable("Configuration__Environment__ErlAfterErrClear") + "\n"
+                            : erlEnvironment ? Environment.GetEnvironmentVariable("Configuration__Environment__ErlLineNumbering") + "\n" : "before\n" } });
                 if (command is "configurationDone" or "continue")
                     await Send(new { seq = 33, type = "event", @event = "stopped",
                         body = new { threadId = 1, reason = "exception", description = "Division by zero" } });
