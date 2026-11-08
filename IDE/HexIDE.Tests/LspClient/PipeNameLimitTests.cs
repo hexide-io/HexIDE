@@ -57,6 +57,19 @@ public class PipeNameLimitTests
         PipeNameLimit.IsTooLong(new string('a', PipeNameLimit.Max + 1)).Should().BeTrue();
     }
 
+    [Theory]
+    [InlineData(103, false)]
+    [InlineData(104, true)]
+    public void OnUnixAnAbsoluteNameIsHeldToTheSocketPathLimitAlone(int length, bool tooLong)
+    {
+        // An absolute name on Unix is the socket path itself, with no temp directory or prefix in front, so
+        // macOS's long temp directory must not count against it (#381). On Windows every name is a pipe name
+        // and Max applies; the same lengths are well inside it there.
+        var name = "/" + new string('s', length - 1);
+
+        PipeNameLimit.IsTooLong(name).Should().Be(!OperatingSystem.IsWindows() && tooLong);
+    }
+
     [Fact]
     public void TheRefusalNamesTheBudgetAndTheNamesOwnLength()
     {
