@@ -304,6 +304,11 @@ public class PrePass : VB6BaseVisitor<object?>
                 // VB6's compile error (measured, #742).
                 if (subStmt.typeHint() != null && subStmt.asTypeClause() != null)
                     throw new VBCompileErrorException("Expected: end of statement");
+                if (ObjectModule && context.visibility()?.PUBLIC() != null)
+                {
+                    if (subStmt.asTypeClause()?.fieldLength() != null)
+                        throw new VBCompileErrorException(PublicMemberOfObjectModule);
+                }
                 bool isArray = false;
                 List<(int, int)>? dimensions = null;
                 if (subStmt.LPAREN() != null && subStmt.RPAREN() != null) // array
@@ -431,6 +436,8 @@ public class PrePass : VB6BaseVisitor<object?>
 
     public override object? VisitConstStmt(VB6Parser.ConstStmtContext context)
     {
+        if (ObjectModule && context.publicPrivateGlobalVisibility()?.PUBLIC() != null)
+            throw new VBCompileErrorException(PublicMemberOfObjectModule);
         declared = true;
         // Hoist module-level const names into rootEnv (mirrors the Dim hoist) so a Sub declared after the
         // Const can reference it. The value is filled by the runtime VisitConstStmt (PrePass can't evaluate
@@ -455,6 +462,8 @@ public class PrePass : VB6BaseVisitor<object?>
         // CALL to it raises the clean "Sub or Function not defined" error. This lets a module that merely declares
         // an API (a near-universal pattern in real VB6) load and run its non-API code.
     {
+        if (ObjectModule && context.visibility()?.PUBLIC() != null)
+            throw new VBCompileErrorException(PublicMemberOfObjectModule);
         declared = true;
         DeclareModuleName(context.ambiguousIdentifier().GetText());
         return default;

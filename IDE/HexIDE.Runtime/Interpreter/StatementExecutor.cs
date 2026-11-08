@@ -4246,7 +4246,14 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                     // module-scoped. The project name qualifies both.
                     var (qualifier, typeName) = SplitTypeName(ct.GetText());
                     if (interpreter.TryResolveType(typeName, currentModule, qualifier, out _))
+                    {
+                        // The type is resolved while allocating instance storage, never by the pre-pass (#3350).
+                        if (ownedSlots is null && currentModule?.PrePass.ObjectModule == true
+                            && subStmt.Parent?.Parent is VB6Parser.VariableStmtContext declaration
+                            && declaration.visibility()?.PUBLIC() != null)
+                            throw new VBCompileErrorException(PrePass.PublicMemberOfObjectModule);
                         value = Vb6Value.NewUdt(interpreter.NewUdt(typeName, qualifier: qualifier, from: currentModule));
+                    }
                     else if (qualifier is null && interpreter.TryResolveEnum(typeName, currentModule, out _))
                         value = new Vb6Value(0L);
                     // An IN-BOX enum is a type too: `Dim x As VbMsgBoxResult`, and — unlike a user enum,
