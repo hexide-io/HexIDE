@@ -142,6 +142,9 @@ Command links remain inert text. List markers align with the first line of linke
 including the link button's top inset, across font families and sizes (#3043).
 Plain-text content stays literal.
 
+`initialize.initializationOptions` carries a registration's server-specific JSON unchanged (#3317).
+An omitted or null configuration leaves the wire member absent; an explicitly configured empty object is retained.
+
 `initialize.locale` carries the resolved Options → Language UI language as a BCP 47 tag.
 System default uses the localization service's system resolution; pseudo-locales send `en`.
 A language change takes effect on the next connection: reconnect the server to send the new locale.

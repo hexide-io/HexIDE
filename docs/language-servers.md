@@ -80,6 +80,7 @@ and the JSON path. Non-ASCII text before the fault counts as characters, rather 
 | `endpoint` | for `websocket` | e.g. `ws://localhost:1234/`. |
 | `websocketRole` | for `websocket` | `connect` (default) dials the server; `listen` waits for the server to dial HexIDE. |
 | `displayName` | no | Shown wherever servers are listed. Defaults to the id. |
+| `initializationOptions` | no | Server-specific JSON passed unchanged in the `initialize` request. Omitted or null means the field is absent from the handshake; an empty object is sent as `{}`. |
 | `trace` | no | How much this server should say about its own work: `off` (default), `messages` or `verbose`. It travels in the handshake, so it sets what the server *starts* at; changing it on a running server is a separate thing the IDE does for you. Misspell it and the server still starts, with tracing off and a warning. |
 | `priority` | no | Breaks ties for features that cannot merge two answers, such as formatting and rename. Higher wins. The bundled server sits *below* the default, so your own server wins without you having to know this field exists. |
 | `enabled` | no | `false` switches an entry off entirely — no process, no registration. |
