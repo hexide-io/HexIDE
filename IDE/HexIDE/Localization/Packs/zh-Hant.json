@@ -2,6 +2,7 @@
   "name": "Chinese (Traditional)",
   "direction": "ltr",
   "strings": {
+    "Str.AIChat.Stop": "停止",
     "Str.Tool.LanguageServers.Problem.JsonSyntaxEscape": "組態檔「{0}」在第 {1} 行、第 {2} 欄包含無效的 JSON。路徑：{3} 請使用正斜線 (C:/tools/new/...) 或雙反斜線 (C:\\\\tools\\\\new\\\\...)。",
     "Str.Tool.LanguageServers.Problem.PathControlWarning": "欄位 '{0}' 包含逸出序列產生的控制字元；可能原本想寫的反斜線路徑：{1}。值保持不變。",
     "Str.Lsp.ServerMessage": "語言伺服器：{0}",
@@ -425,6 +426,7 @@
     "Str.Designer.Context.AlignToGrid": "對齊格線",
     "Str.Designer.Context.Properties": "屬性",
     "Str.CodeEditor.FileNotSaved.Banner": "此檔案不會被儲存 — HexIDE 目前尚無法忠實地重現它，儲存將會改變它。其程式碼是檔案的一部分，因此在此視窗中的輸入會被拒絕。",
+    "Str.CodeEditor.Msg.LineBreakSeparatesAttributes": "會在 {0} 的宣告或其行尾註解中插入換行，將其 Attribute 行分離。請在 Attribute 行之後插入新行。未做任何變更。",
     "Str.CodeEditor.Msg.RenameTouchesReadOnly": "未執行重新命名，因為這會變更此檔案的標頭或某個成員的 Attribute 行，而這些內容由 IDE 維護。",
     "Str.CodeEditor.Msg.RenameReachesOtherDocuments": "未重新命名，因為此操作還會編輯其他文件：{0}",
     "Str.CodeEditor.Msg.RenameDocumentRefused": "無法對 {0} 套用重新命名。",

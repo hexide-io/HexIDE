@@ -54,6 +54,28 @@ public class ProgramParityTests
     }
 
     [Theory]
+    [InlineData(0, "vb6")]
+    [InlineData(1, "Kept")]
+    public async Task The_launched_adapter_receives_VB6_language_and_Err_Clear_settings(int line, string expected)
+    {
+        var adapter = Path.ChangeExtension(typeof(Dap.TestAdapter.Program).Assembly.Location, OperatingSystem.IsWindows() ? ".exe" : null);
+        await RunTool("""
+            {"modules":[{"name":"Module1","kind":"startup","source":"","wrapped":"Public Sub HexDumpMain()\nEnd Sub"}],"printed":[]}
+            """, [], new()
+        {
+            ["HEXIDE_PARITY_ADAPTER"] = adapter,
+            ["HEXIDE_DAP_FIXTURE_MODE"] = "vb6-environment",
+            ["Configuration__Workspace__Language"] = "inherited",
+            ["Configuration__Environment__ErlAfterErrClear"] = "inherited",
+        }, (results, _) =>
+        {
+            // Read the launched child's environment back over DAP (#3317, #3188).
+            JsonNode.Parse(results[1])!["engine"]!["stdout"]!.GetValue<string>()
+                .ReplaceLineEndings("\n").Split('\n')[line].Should().Be(expected);
+        });
+    }
+
+    [Theory]
     [InlineData("Run-time error '11': Division by zero")]
     [InlineData("Application error '11': Division by zero")]
     public void Both_error_prefixes_compare_the_number(string message)

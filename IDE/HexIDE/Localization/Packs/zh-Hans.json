@@ -2,6 +2,7 @@
   "name": "Chinese (Simplified)",
   "direction": "ltr",
   "strings": {
+    "Str.AIChat.Stop": "停止",
     "Str.Tool.LanguageServers.Problem.JsonSyntaxEscape": "配置文件“{0}”在第 {1} 行、第 {2} 列包含无效的 JSON。路径：{3} 请使用正斜杠 (C:/tools/new/...) 或双反斜杠 (C:\\\\tools\\\\new\\\\...)。",
     "Str.Tool.LanguageServers.Problem.PathControlWarning": "字段 '{0}' 包含转义序列产生的控制字符；可能原本想写的反斜杠路径：{1}。值保持不变。",
     "Str.Lsp.ServerMessage": "语言服务器：{0}",
@@ -425,6 +426,7 @@
     "Str.Designer.Context.AlignToGrid": "对齐到网格",
     "Str.Designer.Context.Properties": "属性",
     "Str.CodeEditor.FileNotSaved.Banner": "此文件不会被保存 — HexIDE 目前还无法忠实地重现它，保存会改变它。其代码是文件的一部分，因此在此窗口中的输入会被拒绝。",
+    "Str.CodeEditor.Msg.LineBreakSeparatesAttributes": "会在 {0} 的声明或其行尾注释中插入换行，将其 Attribute 行分离。请在 Attribute 行之后插入新行。未做任何更改。",
     "Str.CodeEditor.Msg.RenameTouchesReadOnly": "未执行重命名，因为这会更改此文件的标头或某个成员的 Attribute 行，而这些内容由 IDE 维护。",
     "Str.CodeEditor.Msg.RenameReachesOtherDocuments": "未重命名，因为此操作还会编辑其他文档：{0}",
     "Str.CodeEditor.Msg.RenameDocumentRefused": "无法对 {0} 应用重命名。",

@@ -343,7 +343,7 @@ public partial class DISetup
             // Profiles
             .Bind<IProfileService>().As(Singleton).To<ProfileService>()
             // Theming
-            .Bind<IThemeService>().As(Singleton).To<ThemeService>()
+            .Bind<IThemeService>().As(Singleton).To(_ => new ThemeService())
             // Keymaps
             .Bind<IKeymapService>().As(Singleton).To(_ => new KeymapService())
             // Localization

@@ -2,6 +2,7 @@
   "name": "Slovak",
   "direction": "ltr",
   "strings": {
+    "Str.AIChat.Stop": "Zastaviť",
     "Str.Tool.LanguageServers.Problem.JsonSyntaxEscape": "Konfiguračný súbor „{0}“ obsahuje neplatný JSON na riadku {1}, v stĺpci {2}. Cesta: {3} Použite lomky (C:/tools/new/...) alebo dvojité spätné lomky (C:\\\\tools\\\\new\\\\...).",
     "Str.Tool.LanguageServers.Problem.PathControlWarning": "Pole '{0}' obsahuje riadiaci znak z únikovej sekvencie; pravdepodobne zamýšľaná cesta: {1}. Hodnota sa nemení.",
     "Str.Lsp.ServerMessage": "Jazykový server: {0}",
@@ -10,6 +11,7 @@
     "Str.Lsp.EditRequiresUserCommand": "HexIDE použije úpravy servera iba počas vykonávania príkazu spusteného používateľom.",
     "Str.Lsp.NoWorkspaceEditor": "Nie je dostupný žiadny editor pracovného priestoru.",
     "Str.Menu.Edit.CallHierarchy": "H_ierarchia volaní",
+    "Str.CodeEditor.Msg.LineBreakSeparatesAttributes": "by vložila zlom riadka do deklarácie {0} alebo jej koncového komentára a oddelila jej riadky Attribute. Nové riadky vložte za riadky Attribute. Nič sa nezmenilo.",
     "Str.CodeEditor.Context.CallHierarchy": "_Hierarchia volaní",
     "Str.Lsp.OpenExternalUri": "Otvoriť tento identifikátor URI mimo HexIDE?\n\n{0}",
     "Str.Tool.CallHierarchy.Title": "Hierarchia volaní",

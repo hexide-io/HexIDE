@@ -134,8 +134,8 @@ Three findings the table does not carry:
 
 Currently unexercised by anything real: the `pipe` and `websocket` transports (both supported, both tested
 only against fakes), a server that genuinely defers its analysis to save, and **workspace-wide pull
-diagnostics** (`workspace/diagnostic`), which HexIDE does not implement (#284) and which neither ruff nor
-rumdl advertises.
+diagnostics** (`workspace/diagnostic`), which HexIDE does not implement (it pulls per document, #284) and
+which neither ruff nor rumdl advertises.
 
 ## The reference implementation, and why it costs a runtime dependency
 
@@ -189,8 +189,8 @@ The advisory `build-ide (windows-arm, advisory)` job runs on `windows-11-arm` (#
 For rumdl, texlab, clangd and ruff, `win-arm64` deliberately selects the existing Windows x64
 archive under Windows' emulation, retaining its digest and provenance. The JSON server uses the
 Node runtime installed by `actions/setup-node` and the same npm lockfile. The leg keeps
-`HEXIDE_REQUIRE_FOREIGN_LSP=1`; an unavailable server fails visibly. Execution on Arm awaits
-its first CI run; the Linux asset tests check the pin choices, not emulation.
+`HEXIDE_REQUIRE_FOREIGN_LSP=1`; an unavailable server fails visibly. The leg has run on main
+(it passed on 2026-11-07); the Linux asset tests check the pin choices, not emulation.
 
 A checksum mismatch deletes the download and records the expected and actual digests. The affected
 foreign-server tests skip with a checksum-specific reason; an ordinary test in `RequiredServersTests`
@@ -204,6 +204,10 @@ fails even when `HEXIDE_REQUIRE_FOREIGN_LSP` is unset. Discovery never throws fo
   against*: it still catches a corrupted transfer, a replaced asset, or an unannounced rebuild under the
   same tag. It does **not** attest provenance. If the release had already been tampered with when it was
   first fetched, the digest records that faithfully.
+- **clangd** publishes no checksum file either, so its digests were computed here, with texlab's limits.
+- **ruff** releases a `.sha256` beside every asset, so its digests are publisher-attested, as rumdl's are.
+- **vscode-json-language-server** has no digest of its own here: `npm ci` installs it from the committed
+  lockfile, whose registry-attested integrity hashes npm checks.
 
 That distinction is trust-on-first-use versus attestation, and the code names it per server rather than
 letting a row of hex imply they are the same thing.

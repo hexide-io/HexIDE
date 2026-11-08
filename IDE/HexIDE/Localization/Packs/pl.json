@@ -2,6 +2,7 @@
   "name": "Polish",
   "direction": "ltr",
   "strings": {
+    "Str.AIChat.Stop": "Zatrzymaj",
     "Str.Tool.LanguageServers.Problem.JsonSyntaxEscape": "Plik konfiguracji „{0}” zawiera nieprawidłowy JSON w wierszu {1}, kolumnie {2}. Ścieżka: {3} Użyj ukośników (C:/tools/new/...) lub podwójnych ukośników odwrotnych (C:\\\\tools\\\\new\\\\...).",
     "Str.Tool.LanguageServers.Problem.PathControlWarning": "Pole '{0}' zawiera znak sterujący z sekwencji ucieczki; prawdopodobnie zamierzona ścieżka z ukośnikami odwrotnymi: {1}. Wartość pozostaje bez zmian.",
     "Str.Lsp.ServerMessage": "Serwer językowy: {0}",
@@ -425,6 +426,7 @@
     "Str.Designer.Context.AlignToGrid": "Wyrównaj do siatki",
     "Str.Designer.Context.Properties": "Właściwości",
     "Str.CodeEditor.FileNotSaved.Banner": "Ten plik nie zostanie zapisany — HexIDE nie potrafi go jeszcze wiernie odtworzyć, więc zapisanie go wprowadziłoby w nim zmiany. Jego kod jest częścią pliku, dlatego pisanie w tym oknie jest odrzucane.",
+    "Str.CodeEditor.Msg.LineBreakSeparatesAttributes": "wstawiłaby podział wiersza w deklaracji {0} lub jej komentarzu końcowym, oddzielając wiersze Attribute. Nowe wiersze wstaw po wierszach Attribute. Nic nie zmieniono.",
     "Str.CodeEditor.Msg.RenameTouchesReadOnly": "Nie zmieniono nazwy, ponieważ zmieniłoby to nagłówek tego pliku lub wiersze Attribute jednej ze składowych, którymi zarządza IDE.",
     "Str.CodeEditor.Msg.RenameReachesOtherDocuments": "Nie zmieniono nazwy, ponieważ zmiana edytuje także inne dokumenty: {0}",
     "Str.CodeEditor.Msg.RenameDocumentRefused": "Nie można zastosować zmiany nazwy do {0}.",

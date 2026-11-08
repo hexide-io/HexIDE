@@ -58,7 +58,7 @@ A form's run loads its code and the project's standard (`.bas`) and class (`.cls
 ### Requirement: The developer SHALL be able to suspend and resume a running program
 The IDE SHALL let the developer break into a running program, continue from break mode, and end the run from either state.
 
-Break mode is entered from a breakpoint, a step, an explicit pause, or a `Stop` statement, and left by continuing or ending the run.
+Break mode is entered from a breakpoint, a step, an explicit pause, or a `Stop` statement, and left by continuing, ending the run, or a step returning from the outermost event handler without another stop.
 
 #### Scenario: Breaking into a running program
 - **WHEN** the developer presses Ctrl+Break, or chooses Run ▸ Break, while the project is running
@@ -73,6 +73,12 @@ Break mode is entered from a breakpoint, a step, an explicit pause, or a `Stop` 
 #### Scenario: Continuing from break mode
 - **WHEN** the developer presses F5 while paused
 - **THEN** the program resumes, the current-statement bar clears, the inspection windows blank, and any frozen event handlers are released
+
+#### Scenario: A step returns to event idle
+- **WHEN** Step Into, Over or Out returns from the outermost event handler without another stop
+- **THEN** the pending step clears and the shell shows running mode
+- **AND** the current-statement bar clears, inspection windows blank, and frozen event handlers are released
+- **AND** Break is available again and the next unrelated event runs without the leftover step
 
 #### Scenario: Ending the run from break mode
 - **WHEN** the developer chooses End while paused
@@ -236,6 +242,25 @@ The debug keymap is the deepest layer of VB6 muscle memory and is bound by defau
 #### Scenario: Using the VB6 debug keys
 - **WHEN** the developer uses the default keymap
 - **THEN** F5 starts or continues, Shift+F5 restarts, Ctrl+Break breaks, F8 steps into, Shift+F8 steps over, Ctrl+Shift+F8 steps out, Ctrl+F8 runs to cursor, F9 toggles a breakpoint, Ctrl+Shift+F9 clears all breakpoints, Ctrl+F9 sets the next statement, Shift+F9 opens Quick Watch, Ctrl+W edits a watch, Ctrl+G opens the Immediate window, and Ctrl+L opens the Call Stack
+
+### Requirement: Debug command enablement follows the handler guards
+The shared routed Debug commands SHALL follow their handler guards: Toggle Breakpoint and Run To Cursor require a code window; Edit Watch requires a selected watch. Without an active external debugger, Set Next Statement SHALL require a code window and a current interpreter stop, and Show Next Statement SHALL require a current stop. Both commands SHALL retain their existing enablement during an active external debugger session.
+
+#### Scenario: Changing the active document
+- **WHEN** the active document changes between a code window and another document or no document
+- **THEN** Toggle Breakpoint, Run To Cursor and Set Next Statement refresh their enablement
+
+#### Scenario: Setting the next statement in design mode
+- **WHEN** a code window is active without a paused interpreter or an active external debugger
+- **THEN** Set Next Statement is disabled
+
+#### Scenario: Entering or leaving a debugger stop
+- **WHEN** the debug controller raises Stopped or Continued (including reset)
+- **THEN** Set Next Statement and Show Next Statement refresh their enablement from the current stop
+
+#### Scenario: Changing watch selection without changing focus
+- **WHEN** a watch row is selected or selection is cleared, including when the rows are rebuilt
+- **THEN** Edit Watch refreshes its enablement without requiring a focus change
 
 ### Requirement: The debugger SHALL be drivable by automation
 The debugger SHALL expose an automation surface mirroring the IDE debug commands.

@@ -2065,6 +2065,16 @@ public partial class CodeEditorView : UserControl
             Log.Debug("[auto-close] Line {LineNumber}: '{LineText}', caretOffset={Offset}, lineEnd={EndOffset}",
                 currentLineNumber, currentLineText, caretOffset, currentDocLine.EndOffset);
 
+            // A comment's remaining text follows the run, with ordinary mid-line indentation and no closer (#1037).
+            if (run is not null && caretOffset < run.Anchor
+                && ReadOnlyRegions.CommentStartOn(doc.Text, run.DescribedStart, run.Anchor) < run.Anchor
+                && vm?.InsertLineBreakPastRun(caretOffset, 0,
+                    "\n" + VbAutoCloseProvider.GetIndentation(currentLineText)) is { } commentSplit)
+            {
+                caret.Offset = commentSplit.End;
+                return true;
+            }
+
             // If caret is not at end of line content (ignoring trailing whitespace),
             // just do basic auto-indent — don't auto-close mid-line
             var textAfterCaret = doc.GetText(caretOffset, currentDocLine.EndOffset - caretOffset);
@@ -2476,8 +2486,9 @@ public partial class CodeEditorView : UserControl
         _completionCts = new CancellationTokenSource();
         var token = _completionCts.Token;
 
-        var caret = TextEditor.TextArea.Caret.Position;
-        var lspPos = new Position(caret.Line - 1, caret.Column - 1);
+        var (start, _) = CompletionWord(TextEditor.TextArea);
+        var location = TextEditor.Document.GetLocation(start);
+        var lspPos = new Position(location.Line - 1, location.Column - 1);
         _completionShown = ShowCompletionAsync(vm, lspPos, token, triggerCharacter, completeWord);
     }
 

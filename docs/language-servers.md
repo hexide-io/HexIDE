@@ -76,10 +76,11 @@ and the JSON path. Non-ASCII text before the fault counts as characters, rather 
 | `arguments` | no | Command-line string or array of strings. Part of the command's identity — see *A command you have not run before*. |
 | `environment` | no | Map of environment variable names to string values, layered over the inherited environment for a launched stdio or pipe server. |
 | `workingDirectory` | no | Empty means the server runs in whichever project is open, which is usually what you want. |
-| `pipeName` / `pipeRole` | for `pipe` | `pipeRole` is `connect` (default) or `listen`, ignoring case and surrounding whitespace. An unrecognised value produces a warning and falls back to `connect`. |
+| `pipeName` / `pipeRole` | for `pipe` | `pipeRole` is `connect` (default) or `listen`, ignoring case and surrounding whitespace. An unrecognised value produces a warning and falls back to `connect`. On Linux and macOS, an absolute `pipeName` is used verbatim as a Unix domain socket path; a bare name becomes `/tmp/CoreFxPipe_<name>`. |
 | `endpoint` | for `websocket` | e.g. `ws://localhost:1234/`. |
 | `websocketRole` | for `websocket` | `connect` (default) dials the server; `listen` waits for the server to dial HexIDE. |
 | `displayName` | no | Shown wherever servers are listed. Defaults to the id. |
+| `initializationOptions` | no | Server-specific JSON passed unchanged in the `initialize` request. Omitted or null means the field is absent from the handshake; an empty object is sent as `{}`. |
 | `trace` | no | How much this server should say about its own work: `off` (default), `messages` or `verbose`. It travels in the handshake, so it sets what the server *starts* at; changing it on a running server is a separate thing the IDE does for you. Misspell it and the server still starts, with tracing off and a warning. |
 | `priority` | no | Breaks ties for features that cannot merge two answers, such as formatting and rename. Higher wins. The bundled server sits *below* the default, so your own server wins without you having to know this field exists. |
 | `enabled` | no | `false` switches an entry off entirely — no process, no registration. |
@@ -222,6 +223,20 @@ only works if you remembered to launch the server first.
 }
 ```
 
+For a server listening on a Unix domain socket on Linux or macOS, use an absolute path:
+
+```jsonc
+{
+  "id": "example-unix",
+  "extensions": [".bas"],
+  "languageId": "vba",
+  "transport": "pipe",
+  "pipeName": "/tmp/hexide-example.sock",
+  "command": "/usr/local/bin/example-server",
+  "arguments": "--pipe {pipe}"
+}
+```
+
 ### Placeholders in `arguments`
 
 | Placeholder | Becomes |
@@ -250,8 +265,9 @@ per entry. Substituting nothing would hand the server a flag with no value.
 `{pid}` lets a server that supports watching its owner exit when HexIDE crashes or is forcibly stopped.
 On Windows, HexIDE also assigns stdio and launched pipe servers to a kill-on-close job, so assigned
 processes and descendants they subsequently launch end with HexIDE even without cooperative PID
-watching. A descendant launched before assignment is not covered. Linux and macOS still rely on
-cooperation after an unclean shutdown; the planned watchdog is not shipped yet (#406).
+watching. A descendant launched before assignment is not covered. On Linux and macOS, each stdio or pipe server
+HexIDE launches runs under a guard process, `HexIDE.LspGuard`, which ends the server's process group when
+HexIDE exits, cleanly or not (#2147).
 Pass it using that server's owner-process argument. It works without an open project. HexIDE still kills
 the launched process tree on clean shutdown; passing a PID does not enforce cleanup if the server ignores it.
 A launched pipe server gets two seconds to exit before that kill, even during bring-up. Once `initialize`

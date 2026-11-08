@@ -2,6 +2,7 @@
   "name": "Ukrainian",
   "direction": "ltr",
   "strings": {
+    "Str.AIChat.Stop": "Зупинити",
     "Str.Tool.LanguageServers.Problem.JsonSyntaxEscape": "Файл конфігурації «{0}» містить некоректний JSON у рядку {1}, стовпці {2}. Шлях: {3} Використовуйте прямі скісні риски (C:/tools/new/...) або подвоєні зворотні скісні риски (C:\\\\tools\\\\new\\\\...).",
     "Str.Tool.LanguageServers.Problem.PathControlWarning": "Поле '{0}' містить керівний символ з escape-послідовності; імовірно, мався на увазі шлях зі зворотними скісними рисками: {1}. Значення не змінено.",
     "Str.Lsp.ServerMessage": "Мовний сервер: {0}",
@@ -425,6 +426,7 @@
     "Str.Designer.Context.AlignToGrid": "Вирівняти за сіткою",
     "Str.Designer.Context.Properties": "Властивості",
     "Str.CodeEditor.FileNotSaved.Banner": "Цей файл не буде збережено — HexIDE поки що не може точно відтворити його, тому збереження змінило б його. Його код є частиною файлу, тож введення в цьому вікні відхиляється.",
+    "Str.CodeEditor.Msg.LineBreakSeparatesAttributes": "вставила б розрив рядка в оголошення {0} або його кінцевий коментар, відокремивши рядки Attribute. Вставляйте нові рядки після рядків Attribute. Нічого не змінено.",
     "Str.CodeEditor.Msg.RenameTouchesReadOnly": "Перейменування не виконано, оскільки воно змінило б заголовок цього файлу або рядки Attribute одного з членів, якими керує IDE.",
     "Str.CodeEditor.Msg.RenameReachesOtherDocuments": "Перейменування не виконано, оскільки воно також змінює інші документи: {0}",
     "Str.CodeEditor.Msg.RenameDocumentRefused": "Не вдалося застосувати перейменування до {0}.",

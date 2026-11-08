@@ -148,6 +148,88 @@ public class ImplicitDocumentNamingTests
         f.Dock.DidNotReceive().TryCloseAny(Arg.Any<Func<IDockable, bool>>());
     }
 
+    // A first-time caller passed "Var1" as `title` for the tab "Probe2 - Var1 (Code)" and was refused (#3338). A title
+    // that is no tab's is now tried as a document name, and the one tab showing that document is the one acted on.
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task A_document_name_passed_as_title_reaches_the_one_tab_showing_it(bool close)
+    {
+        using var f = new Fixture();
+        using var second = Designer(f.Second);
+        f.Tabs(second);
+        IDockable? target = null;
+        if (close)
+            f.Dock.TryCloseAny(Arg.Any<Func<IDockable, bool>>()).Returns(call =>
+            { target = f.Dock.AllTabs.Single(call.Arg<Func<IDockable, bool>>()); return true; });
+        else
+            f.Dock.TryActivateAny(Arg.Any<Func<IDockable, bool>>()).Returns(call =>
+            { target = f.Dock.AllTabs.Single(call.Arg<Func<IDockable, bool>>()); return true; });
+
+        second.Title.Should().NotBeEquivalentTo("form1", "the case only means something when the title is more than the name");
+        var result = await TabCall(f.Tools, close, title: "form1");
+
+        result.Success.Should().BeTrue();
+        target.Should().BeSameAs(second);
+        result.Project.Should().Be("Second");
+        result.Document.Should().Be("Form1");
+        result.Note.Should().StartWith($"No tab is titled 'form1', so it was taken as a document name: '{second.Title}' is the one tab")
+            .And.Contain("`name` is the parameter for a document");
+    }
+
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task A_document_name_passed_as_title_with_code_and_designer_open_asks_for_a_type(bool close)
+    {
+        using var f = new Fixture();
+        using var designer = Designer(f.Second);
+        using var code = Code(f.Second.Forms[0]);
+        f.Tabs(designer, code);
+
+        var result = await TabCall(f.Tools, close, title: "Form1");
+
+        result.Success.Should().BeFalse();
+        result.Error.Should().Contain($"'{designer.Title}'").And.Contain($"'{code.Title}'")
+            .And.Contain("`type` (code or designer)").And.NotContain("`project`");
+        f.Dock.DidNotReceive().TryActivateAny(Arg.Any<Func<IDockable, bool>>());
+        f.Dock.DidNotReceive().TryCloseAny(Arg.Any<Func<IDockable, bool>>());
+    }
+
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task A_document_name_passed_as_title_open_in_two_projects_asks_for_a_project(bool close)
+    {
+        using var f = new Fixture();
+        using var first = Designer(f.First);
+        using var second = Designer(f.Second);
+        f.Tabs(first, second);
+
+        var result = await TabCall(f.Tools, close, title: "Form1");
+
+        result.Success.Should().BeFalse();
+        result.Error.Should().Contain($"'{first.Title}'").And.Contain($"'{second.Title}'")
+            .And.Contain("`project` for the document").And.NotContain("`type`");
+        f.Dock.DidNotReceive().TryActivateAny(Arg.Any<Func<IDockable, bool>>());
+        f.Dock.DidNotReceive().TryCloseAny(Arg.Any<Func<IDockable, bool>>());
+    }
+
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task A_title_that_is_neither_a_tab_nor_a_document_still_lists_the_open_tabs(bool close)
+    {
+        using var f = new Fixture();
+        using var second = Designer(f.Second);
+        f.Tabs(second);
+
+        var result = await TabCall(f.Tools, close, title: "Var1");
+
+        result.Success.Should().BeFalse();
+        result.Error.Should().Be($"No document tab with title 'Var1'. Open tabs: {second.Title}.");
+    }
+
     [AvaloniaFact]
     public async Task Listings_identify_each_designer_and_the_active_editor()
     {

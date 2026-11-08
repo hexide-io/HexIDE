@@ -2,6 +2,7 @@
   "name": "Thai",
   "direction": "ltr",
   "strings": {
+    "Str.AIChat.Stop": "หยุด",
     "Str.Tool.LanguageServers.Problem.JsonSyntaxEscape": "ไฟล์การกำหนดค่า '{0}' มี JSON ที่ไม่ถูกต้องที่บรรทัด {1} คอลัมน์ {2} เส้นทาง: {3} ใช้เครื่องหมายทับ (C:/tools/new/...) หรือเครื่องหมายทับย้อนกลับสองตัว (C:\\\\tools\\\\new\\\\...)",
     "Str.Tool.LanguageServers.Problem.PathControlWarning": "ฟิลด์ '{0}' มีอักขระควบคุมจากลำดับหลีก เส้นทางที่น่าจะต้องการ: {1} ค่าจะไม่เปลี่ยนแปลง",
     "Str.Lsp.ServerMessage": "เซิร์ฟเวอร์ภาษา: {0}",
@@ -10,6 +11,7 @@
     "Str.Lsp.EditRequiresUserCommand": "HexIDE จะใช้การแก้ไขจากเซิร์ฟเวอร์เฉพาะในระหว่างที่คำสั่งที่ผู้ใช้เริ่มกำลังทำงานอยู่เท่านั้น",
     "Str.Lsp.NoWorkspaceEditor": "ไม่มีตัวแก้ไขพื้นที่ทำงานที่พร้อมใช้งาน",
     "Str.Menu.Edit.CallHierarchy": "ลำดับชั้นการเรียก",
+    "Str.CodeEditor.Msg.LineBreakSeparatesAttributes": "จะขึ้นบรรทัดใหม่ภายในคำประกาศของ {0} หรือข้อคิดเห็นท้ายบรรทัด ทำให้บรรทัด Attribute แยกออกจากคำประกาศ ให้แทรกบรรทัดใหม่หลังบรรทัด Attribute แทน ไม่มีการเปลี่ยนแปลงใด ๆ",
     "Str.CodeEditor.Context.CallHierarchy": "ลำดับชั้นการเรียก",
     "Str.Lsp.OpenExternalUri": "เปิด URI นี้ภายนอก HexIDE หรือไม่?\n\n{0}",
     "Str.Tool.CallHierarchy.Title": "ลำดับชั้นการเรียก",

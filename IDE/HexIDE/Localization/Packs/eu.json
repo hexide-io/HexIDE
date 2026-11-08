@@ -2,6 +2,7 @@
   "name": "Basque",
   "direction": "ltr",
   "strings": {
+    "Str.AIChat.Stop": "Gelditu",
     "Str.Tool.LanguageServers.Problem.JsonSyntaxEscape": "'{0}' konfigurazio-fitxategiak JSON baliogabea du {1}. lerroan, {2}. zutabean. Bidea: {3} Erabili barrak (C:/tools/new/...) edo alderantzizko barra bikoitzak (C:\\\\tools\\\\new\\\\...).",
     "Str.Tool.LanguageServers.Problem.PathControlWarning": "'{0}' eremuak ihes-sekuentzia bateko kontrol-karakterea dauka; ziurrenik nahi zen bidea: {1}. Balioa ez da aldatu.",
     "Str.Lsp.ServerMessage": "Hizkuntza-zerbitzaria: {0}",
@@ -10,6 +11,7 @@
     "Str.Lsp.EditRequiresUserCommand": "HexIDEk zerbitzari baten aldaketak erabiltzaileak abiarazitako komando bat exekutatzen ari den bitartean soilik aplikatzen ditu.",
     "Str.Lsp.NoWorkspaceEditor": "Ez dago laneko areako editorerik erabilgarri.",
     "Str.Menu.Edit.CallHierarchy": "D_eien hierarkia",
+    "Str.CodeEditor.Msg.LineBreakSeparatesAttributes": "lerro-jauzi bat txertatuko luke {0} deklarazioan edo haren amaierako iruzkinean, haren Attribute lerroak bereiziz. Txertatu lerro berriak Attribute lerroen ondoren. Ez da ezer aldatu.",
     "Str.CodeEditor.Context.CallHierarchy": "Deie_n hierarkia",
     "Str.Lsp.OpenExternalUri": "URI hau HexIDE-tik kanpo ireki?\n\n{0}",
     "Str.Tool.CallHierarchy.Title": "Deien hierarkia",

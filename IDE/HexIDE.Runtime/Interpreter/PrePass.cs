@@ -22,6 +22,12 @@ public class PrePass : VB6BaseVisitor<object?>
     // by then are both already built.
     public List<string> Implemented = new();
     public List<VB6Parser.BlockContext> topLevelBlocks = new();
+
+    /// <summary>True for a class or a form: an object module, where VB6 refuses some Public members outright.</summary>
+    public bool ObjectModule { get; init; }
+
+    internal const string PublicMemberOfObjectModule =
+        "Constants, fixed-length strings, arrays, user-defined types and Declare statements not allowed as Public members of object modules";
     // Each module-level Const by name: its declaration, and whether another module can see it (Public or Global; one
     // with no visibility is Private, measured). Collected for the allocation site of a module-level array, which
     // classifies what a bound reads, through the Consts it names (ModuleLevelBounds.Check and CheckConst).
@@ -302,6 +308,11 @@ public class PrePass : VB6BaseVisitor<object?>
                 List<(int, int)>? dimensions = null;
                 if (subStmt.LPAREN() != null && subStmt.RPAREN() != null) // array
                 {
+                    // A Public array in a class or a form, fixed or dynamic, is refused when the program loads, as vb6.exe
+                    // refuses it at /make and the IDE before Sub Main runs, with Compile On Demand on or off, used or not
+                    // (measured, #3335). A Private or Dim array there, and a Public one in a standard module, are not.
+                    if (ObjectModule && context.visibility()?.PUBLIC() != null)
+                        throw new VBCompileErrorException(PublicMemberOfObjectModule);
                     isArray = true;
                     // Bounds written as plain integers are read here. Anything else, such as a constant
                     // (`Dim d(N)`) or a typed literal (`Dim d(2&)`), is left to the Dim statement, which allocates

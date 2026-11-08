@@ -2,6 +2,7 @@
   "name": "Swedish",
   "direction": "ltr",
   "strings": {
+    "Str.AIChat.Stop": "Stoppa",
     "Str.Tool.LanguageServers.Problem.JsonSyntaxEscape": "Konfigurationsfilen '{0}' innehåller ogiltig JSON på rad {1}, kolumn {2}. Sökväg: {3} Använd snedstreck (C:/tools/new/...) eller dubbla omvända snedstreck (C:\\\\tools\\\\new\\\\...).",
     "Str.Tool.LanguageServers.Problem.PathControlWarning": "Fältet '{0}' innehåller ett styrtecken från en escape-sekvens; sannolikt avsedd sökväg med omvända snedstreck: {1}. Värdet är oförändrat.",
     "Str.Lsp.ServerMessage": "Språkserver: {0}",
@@ -425,6 +426,7 @@
     "Str.Designer.Context.AlignToGrid": "Justera mot rutnät",
     "Str.Designer.Context.Properties": "Egenskaper",
     "Str.CodeEditor.FileNotSaved.Banner": "Den här filen sparas inte — HexIDE kan ännu inte återge den exakt, så den skulle ändras om den sparades. Koden är en del av filen, därför avvisas inmatning i det här fönstret.",
+    "Str.CodeEditor.Msg.LineBreakSeparatesAttributes": "skulle infoga en radbrytning i deklarationen av {0} eller dess avslutande kommentar och skilja av dess Attribute-rader. Infoga nya rader efter Attribute-raderna. Inget ändrades.",
     "Str.CodeEditor.Msg.RenameTouchesReadOnly": "Namnbytet genomfördes inte eftersom det skulle ändra filens huvud eller en medlems Attribute-rader, som IDE:n underhåller.",
     "Str.CodeEditor.Msg.RenameReachesOtherDocuments": "Namnbytet genomfördes inte eftersom det också ändrar andra dokument: {0}",
     "Str.CodeEditor.Msg.RenameDocumentRefused": "Det går inte att tillämpa namnbytet på {0}.",

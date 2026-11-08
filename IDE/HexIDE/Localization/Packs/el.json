@@ -2,6 +2,7 @@
   "name": "Greek",
   "direction": "ltr",
   "strings": {
+    "Str.AIChat.Stop": "Διακοπή",
     "Str.Tool.LanguageServers.Problem.JsonSyntaxEscape": "Το αρχείο ρυθμίσεων «{0}» περιέχει μη έγκυρο JSON στη γραμμή {1}, στήλη {2}. Διαδρομή: {3} Χρησιμοποιήστε κάθετους (C:/tools/new/...) ή διπλές ανάστροφες καθέτους (C:\\\\tools\\\\new\\\\...).",
     "Str.Tool.LanguageServers.Problem.PathControlWarning": "Το πεδίο '{0}' περιέχει χαρακτήρα ελέγχου από ακολουθία διαφυγής· πιθανή επιθυμητή διαδρομή με ανάστροφες καθέτους: {1}. Η τιμή παραμένει αμετάβλητη.",
     "Str.Lsp.ServerMessage": "Διακομιστής γλώσσας: {0}",
@@ -425,6 +426,7 @@
     "Str.Designer.Context.AlignToGrid": "Στοίχιση στο πλέγμα",
     "Str.Designer.Context.Properties": "Ιδιότητες",
     "Str.CodeEditor.FileNotSaved.Banner": "Αυτό το αρχείο δεν θα αποθηκευτεί — το HexIDE δεν μπορεί ακόμη να το αναπαραγάγει πιστά, οπότε η αποθήκευσή του θα το άλλαζε. Ο κώδικάς του είναι μέρος του αρχείου, γι' αυτό η πληκτρολόγηση σε αυτό το παράθυρο απορρίπτεται.",
+    "Str.CodeEditor.Msg.LineBreakSeparatesAttributes": "θα εισήγαγε αλλαγή γραμμής στη δήλωση του {0} ή στο τελικό της σχόλιο, χωρίζοντας τις γραμμές Attribute. Εισαγάγετε νέες γραμμές μετά τις γραμμές Attribute. Δεν άλλαξε τίποτα.",
     "Str.CodeEditor.Msg.RenameTouchesReadOnly": "Η μετονομασία δεν εφαρμόστηκε, επειδή θα άλλαζε την κεφαλίδα αυτού του αρχείου ή τις γραμμές Attribute ενός μέλους, τις οποίες διαχειρίζεται το IDE.",
     "Str.CodeEditor.Msg.RenameReachesOtherDocuments": "Η μετονομασία δεν έγινε επειδή τροποποιεί και άλλα έγγραφα: {0}",
     "Str.CodeEditor.Msg.RenameDocumentRefused": "Δεν είναι δυνατή η εφαρμογή μετονομασίας στο {0}.",
