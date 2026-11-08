@@ -76,7 +76,7 @@ and the JSON path. Non-ASCII text before the fault counts as characters, rather 
 | `arguments` | no | Command-line string or array of strings. Part of the command's identity — see *A command you have not run before*. |
 | `environment` | no | Map of environment variable names to string values, layered over the inherited environment for a launched stdio or pipe server. |
 | `workingDirectory` | no | Empty means the server runs in whichever project is open, which is usually what you want. |
-| `pipeName` / `pipeRole` | for `pipe` | `pipeRole` is `connect` (default) or `listen`, ignoring case and surrounding whitespace. An unrecognised value produces a warning and falls back to `connect`. |
+| `pipeName` / `pipeRole` | for `pipe` | `pipeRole` is `connect` (default) or `listen`, ignoring case and surrounding whitespace. An unrecognised value produces a warning and falls back to `connect`. On Linux and macOS, an absolute `pipeName` is used verbatim as a Unix domain socket path; a bare name becomes `/tmp/CoreFxPipe_<name>`. |
 | `endpoint` | for `websocket` | e.g. `ws://localhost:1234/`. |
 | `websocketRole` | for `websocket` | `connect` (default) dials the server; `listen` waits for the server to dial HexIDE. |
 | `displayName` | no | Shown wherever servers are listed. Defaults to the id. |
@@ -219,6 +219,20 @@ only works if you remembered to launch the server first.
   "command": "C:/tools/example-server.exe",
   "arguments": "--pipe {pipe} --workspace {workspaceUri}",
   "workingDirectory": "C:/tools/example"
+}
+```
+
+For a server listening on a Unix domain socket on Linux or macOS, use an absolute path:
+
+```jsonc
+{
+  "id": "example-unix",
+  "extensions": [".bas"],
+  "languageId": "vba",
+  "transport": "pipe",
+  "pipeName": "/tmp/hexide-example.sock",
+  "command": "/usr/local/bin/example-server",
+  "arguments": "--pipe {pipe}"
 }
 ```
 

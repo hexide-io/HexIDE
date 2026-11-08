@@ -912,9 +912,11 @@ sets. See [the measurements](foreign-language-servers.md#normal-teardown-and-doc
 `stdio`, `pipe` (named pipe, connecting or listening) and `websocket` (connecting by default, or listening with `websocketRole: "listen"`) are all supported. Only `stdio` is
 exercised against a real foreign server; the other two are covered against fakes.
 
-`stdio`, `pipe` (named pipe, connecting or listening) and `websocket` are all supported. Only `stdio` is
-exercised against a real foreign server; the other two are covered against fakes. Named-pipe
-process-notice and workspace-argument tests await the specific stderr/exit/close callbacks, with a
+On Linux and macOS, an absolute `pipeName` connects verbatim to a Unix domain socket path, including a
+raw socket peer; a bare name becomes `/tmp/CoreFxPipe_<name>`. Windows uses Windows named pipes.
+`NamedPipeLspTransportTests` pins the absolute-path round trip against a raw Unix socket on non-Windows hosts.
+
+Named-pipe process-notice and workspace-argument tests await the specific stderr/exit/close callbacks, with a
 two-minute safety bound for a loaded runner (#892). A timeout names the callback still awaited and
 reports scheduling uncertainty; it does not establish that the server omitted an exit code.
 
