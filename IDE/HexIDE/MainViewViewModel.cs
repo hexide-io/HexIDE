@@ -1733,8 +1733,7 @@ public partial class MainViewViewModel : ObservableObject
 
     public async Task NewProject()
     {
-        await projectService.UnloadAllProjects();
-        await projectService.CreateNewProject();
+        await projectService.CreateNewProject(replaceExisting: true);
     }
 
     public async Task AddProject(IProjectTemplate? projectTemplate)
