@@ -85,6 +85,15 @@ parenthesis pair** and **2.8 KB per nested If**, the latter spanning about five 
 These are host stack measurements, not VB6 limits; the [runtime gap note](interpreter-gaps.md) records
 how HexIDE derives its guarded bounds from them.
 
+The standard-module Get/Let/Set measurements are recorded in
+[A standard module's Property procedures](vb6-fidelity-oracle/a-standard-modules-property-procedures.md)
+(measuring PR [#2279](https://github.com/hexide-io/HexIDE/pull/2279)).
+The later [#977 measurements](https://github.com/hexide-io/HexIDE/issues/977), by hexide-int on
+2026-10-28, establish that a class's or form's own bare property takes precedence over a
+standard module's Public property, that a class without its own uses the module's, that a
+Let-only property accepts bare and qualified assignments, and that a bare getter statement
+inside its class is Invalid use of property. VB6 SP6 native and p-code agreed.
+
 The [#2938 measurements](https://github.com/hexide-io/HexIDE/issues/2938) by hexide-int
 (vb6.exe SP6, `/make`, 2026-11-03, matching native and p-code) reject `Show 1,`,
 `Call Show(1, )` and `x = F(1, )` with "Syntax error", even with `Optional b = 7`.
