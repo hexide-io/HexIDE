@@ -801,7 +801,7 @@ public static class UiAutomationDriver
                         flyout.ShowAt(control);
                         return PopupVerified(() => IsOpenOn(flyout, control), true, "flyout", LabelOf(control, peer));
                     }
-                    return Unsupported("expand");
+                    return ThroughSoleMenuWrapper(control, peer, "expand", value) ?? Unsupported("expand");
 
                 case "collapse":
                     if (peer.GetProvider<IExpandCollapseProvider>() is { } col)
@@ -858,7 +858,7 @@ public static class UiAutomationDriver
                     if (control.ContextMenu is not null || FlyoutsOf(control).Any())
                         return Ok($"the {(control.ContextMenu is not null ? "context menu" : "flyout")} on "
                                   + $"'{LabelOf(control, peer)}' was not open; there is nothing to close");
-                    return Unsupported("collapse");
+                    return ThroughSoleMenuWrapper(control, peer, "collapse", value) ?? Unsupported("collapse");
 
                 case "setvalue":
                     if (peer.GetProvider<IValueProvider>() is not { } val) return Unsupported("set_value");
@@ -5122,6 +5122,28 @@ public static class UiAutomationDriver
     private static InteractOutcome Ok(string detail) => new(true, "peer", detail, null);
     private static InteractOutcome Err(string error) => new(false, "peer", null, error);
     private static InteractOutcome Unsupported(string action) => new(false, "peer", null, $"element does not support '{action}'");
+
+    /// <summary>
+    /// expand or collapse aimed at a node whose only menu is on one unnamed wrapper directly under it; null when there
+    /// is none, or more than one to choose between.
+    /// </summary>
+    /// <remarks>
+    /// A Properties row's context menu sits on the Border at the root of the row's template. The dump shows that Border
+    /// as the row's <c>None</c> child, with <c>expandCollapse</c>, but the row is what a caller aims at, and its refusal
+    /// gave no hint (#2877). Only a <c>None</c> node qualifies: a named control's own menu is that control's, and is
+    /// reached by its own path.
+    /// </remarks>
+    private static InteractOutcome? ThroughSoleMenuWrapper(Control control, AutomationPeer peer, string action, string? value)
+    {
+        var children = new List<MeaningfulChild>();
+        CollectMeaningfulChildren(control, children);
+        var wrappers = children.Where(c => c.Info.Type == "None" && (c.Control.ContextMenu is not null || FlyoutsOf(c.Control).Any())).ToArray();
+        if (wrappers.Length != 1) return null;
+        var through = Interact(wrappers[0].Control, action, value);
+        return through.Success && through.Detail is not null
+            ? through with { Detail = $"{through.Detail}, the unnamed child of '{LabelOf(control, peer)}' that holds the menu" }
+            : through;
+    }
     private static InteractOutcome ReflectErr(string error) => new(false, "reflection", null, error);
 
     // ── addressing ────────────────────────────────────────────────────────────────────────────────

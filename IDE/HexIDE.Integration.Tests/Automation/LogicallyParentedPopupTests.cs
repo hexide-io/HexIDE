@@ -175,6 +175,53 @@ public class LogicallyParentedPopupTests
         finally { window.Close(); }
     }
 
+    // A Properties row's menu sits on the Border at the root of its template, which the dump shows as the row's None
+    // child. The row is what a caller aims at, and expand on it was refused with no hint (#2877).
+    [AvaloniaFact]
+    public void Expand_on_a_row_reaches_the_menu_on_its_one_unnamed_wrapper()
+    {
+        var menu = new ContextMenu { ItemsSource = new[] { new MenuItem { Header = "Export picture..." } } };
+        var wrapper = new Border { ContextMenu = menu, Width = 50, Height = 20, Child = new TextBlock { Text = "Picture" } };
+        var row = new ContentControl { Content = wrapper };
+        var window = Show(row);
+        try
+        {
+            var opened = UiAutomationDriver.Interact(row, "expand", null);
+            Dispatcher.UIThread.RunJobs();
+
+            opened.Success.Should().BeTrue(opened.Error);
+            menu.IsOpen.Should().BeTrue();
+            opened.Detail.Should().Contain("the unnamed child of").And.Contain("that holds the menu");
+
+            var closed = UiAutomationDriver.Interact(row, "collapse", null);
+            Dispatcher.UIThread.RunJobs();
+
+            closed.Success.Should().BeTrue(closed.Error);
+            menu.IsOpen.Should().BeFalse();
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaFact]
+    public void Expand_on_a_node_with_two_unnamed_menu_wrappers_is_left_to_the_caller()
+    {
+        var first = new Border { ContextMenu = new ContextMenu(), Width = 50, Height = 20 };
+        var second = new Border { ContextMenu = new ContextMenu(), Width = 50, Height = 20 };
+        var row = new StackPanel { Children = { first, second } };
+        var holder = new ContentControl { Content = row };
+        var window = Show(holder);
+        try
+        {
+            var refused = UiAutomationDriver.Interact(holder, "expand", null);
+
+            refused.Success.Should().BeFalse();
+            refused.Error.Should().Be("element does not support 'expand'");
+            first.ContextMenu!.IsOpen.Should().BeFalse();
+            second.ContextMenu!.IsOpen.Should().BeFalse();
+        }
+        finally { window.Close(); }
+    }
+
     [AvaloniaFact]
     public void Expand_opens_a_flyout_and_collapse_shuts_it()
     {
