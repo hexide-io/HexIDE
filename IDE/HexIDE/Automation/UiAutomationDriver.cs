@@ -4399,6 +4399,8 @@ public static class UiAutomationDriver
             if (Shows(target) is not true and var shows)
                 return new InteractOutcome(false, "pointer", null, NotShowingRefusal(target, "hover", shows));
             EndStayingHover(topLevel);
+            // A pointer is over one window at a time, so one left in another by 'stay' has gone from it (#2886).
+            var left = EndStayingHoverElsewhere(topLevel) is { } was ? $"; the pointer left {was}" : string.Empty;
             var local = HoverPoint(target, x, y);
             if (target.TranslatePoint(local, topLevel) is not { } atTopLevel)
                 return new InteractOutcome(false, "pointer", null,
@@ -4446,7 +4448,7 @@ public static class UiAutomationDriver
                     : $"; it landed on {Describe(hit)}, not the target, as that is what is drawn at the point, so it is what a "
                       + "person's pointer there would be over";
                 return new InteractOutcome(true, "pointer",
-                    $"hovered ({local.X.ToString("0.#", CultureInfo.InvariantCulture)}, {local.Y.ToString("0.#", CultureInfo.InvariantCulture)}){Where()} through the window's input{landed}", null);
+                    $"hovered ({local.X.ToString("0.#", CultureInfo.InvariantCulture)}, {local.Y.ToString("0.#", CultureInfo.InvariantCulture)}){Where()} through the window's input{landed}{left}", null);
             }
 
             var pointer = new Avalonia.Input.Pointer(
@@ -4463,7 +4465,7 @@ public static class UiAutomationDriver
             landing = new HoverLanding(target, local);
             return new InteractOutcome(true, "pointer",
                 $"hovered ({local.X.ToString("0.#", CultureInfo.InvariantCulture)}, {local.Y.ToString("0.#", CultureInfo.InvariantCulture)}){Where()} (raised on the control, as the move through the window's input "
-                + $"{missed}, so a declared tooltip will not open)", null);
+                + $"{missed}, so a declared tooltip will not open){left}", null);
 
             string Where() => ReferenceEquals(target, control)
                 ? string.Empty
@@ -4523,7 +4525,7 @@ public static class UiAutomationDriver
     {
         if (hovered.IsPointerOver)
             return $"; the pointer stays there and '{Describe(hovered)}' reads as under it (isPointerOver), so take_snapshot "
-                   + "shows its pointer-over look and any tip, until the next click, drag or hover in this window or the real "
+                   + "shows its pointer-over look and any tip, until the next click, drag or hover in this window, a hover in another, or the real "
                    + "mouse's next move over it";
         var why = moved is null ? "input the hover did not send has moved it"
             : saidAlready ? "what moved the pointer, above, took it" : moved;
@@ -4542,6 +4544,24 @@ public static class UiAutomationDriver
             return;
         Stayed.Remove(topLevel);
         RawPointer.Leave(topLevel);
+    }
+
+    /// <summary>
+    /// Ends a hover 'stay' left in any window but <paramref name="topLevel"/>, and names the windows it left; null when
+    /// there is none. Two windows both read as under the pointer otherwise, which a real pointer can't do (#2886).
+    /// </summary>
+    internal static string? EndStayingHoverElsewhere(TopLevel topLevel)
+    {
+        var others = Stayed.Select(stayed => stayed.Key).Where(window => !ReferenceEquals(window, topLevel)).ToArray();
+        foreach (var other in others)
+        {
+            Stayed.Remove(other);
+            // A window closed since is still in the table until it is collected, and no pointer is over it.
+            if (other.IsVisible)
+                RawPointer.Leave(other);
+        }
+        var showing = others.Where(o => o.IsVisible).ToArray();
+        return showing.Length == 0 ? null : string.Join(", ", showing.Select(o => o is Window w ? $"'{TitleOf(w)}'" : "another window"));
     }
 
     // Where each window last had a click's pointer, so a click there again moves nothing first, as a still mouse sends no
