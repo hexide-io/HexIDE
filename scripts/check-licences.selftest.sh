@@ -78,6 +78,26 @@ check 'silent stub falls back to python'      python  silent  no  0
 check 'silent stubs cannot pass the guard'    none    silent  no  1
 check 'Python 2 falls back to Python 3'       python  python2 no  0
 check 'fallback still rejects bad notices'    py      missing yes 1
+# Foreign debug adapters include wheels, Python source and Unix binaries without extensions (#3302).
+printf '// SPDX-License-Identifier: MIT\n' > "$fixture/planted.cs"
+git -C "$fixture" add planted.cs
+for relative in artifacts/foreign-dap/debugpy.whl artifacts/foreign-dap/debugpy/adapter.py artifacts/foreign-dap/netcoredbg/netcoredbg; do
+  mkdir -p "$fixture/$(dirname "$relative")"
+  printf '# SPDX-License-Identifier: MIT\n' > "$fixture/$relative"
+  git -C "$fixture" add -f "$relative"
+  got=0
+  AVAILABLE=python3 STUB=missing PATH="$fixture/bin:$PATH" \
+    bash "$fixture/scripts/check-licences.sh" > "$fixture/output" 2>&1 || got=$?
+  if [ "$got" -ne 1 ] || ! grep -q "$relative" "$fixture/output"; then
+    echo "  WRONG  tracked adapter $relative (exit $got, expected 1)"
+    cat "$fixture/output"
+    fail=$((fail + 1))
+  else
+    echo "  ok     tracked adapter $relative is refused"
+    passed=$((passed + 1))
+  fi
+  git -C "$fixture" rm -q -f "$relative"
+done
 # Each name is tracked alone so another rejection cannot hide a false negative.
 check_name() {
   local name=$1 expected=$2 got=0

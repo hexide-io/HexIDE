@@ -236,6 +236,10 @@ translation: raise VB6's error number at run time instead of before it.
   the IDE, before `Sub Main` runs, under every Compile On Demand setting. So this is a real divergence. It is kept
   because checking at load would relate two modules' member tables up front, which the pre-pass rule forbids. The
   measurements are in the oracle page `a-public-array-in-an-object-module.md`.
+- **Public UDT members of a class or form (#3350)** — VB6 refuses these at compile time
+  ([#3349's measurements](vb6-fidelity-oracle/a-public-array-in-an-object-module.md)). HexIDE raises the
+  same message when allocating instance member storage, where the declared type is already resolved.
+  An unused class or form is not checked: checking at load would bind the member to a Type before execution.
 - **`LSet` between UDTs containing strings, objects or Variants** — VB6 refuses at compile time. The
   layout-compatibility judgement is static; `LSet` itself is a deferral.
 - **Default members of third-party COM types** — see Platform limits; the marker lives in a type library, not

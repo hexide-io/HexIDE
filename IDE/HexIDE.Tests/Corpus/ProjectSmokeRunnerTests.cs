@@ -24,6 +24,9 @@ internal sealed record SmokeStage(string Status, string? Detail = null)
 {
     public bool Failed => Status == "crashed";
     public static SmokeStage FromException(Exception exception) => exception is NotImplementedException
+        // Two evidence projects under corpus/member-attributes keep a Public Const in a class, which vb6.exe's
+        // IDE saves and its compiler refuses (#3335, #3350). Refusing them is the right answer, not a crash.
+        || exception is VBCompileErrorException && exception.Message.Contains(PrePass.PublicMemberOfObjectModule)
         ? new("refused", exception.Message) : new("crashed", exception.ToString());
 }
 

@@ -1607,3 +1607,19 @@ continuations of frames a time slice left waiting don't nest without bound.
 - **WHEN** a Sub with a handler calls a Sub that recurses without bound, on a 64 MiB thread, under a debugger that
   yields every 15 ms
 - **THEN** Error 28 reaches the handler in seconds, not minutes
+
+### Requirement: Public members refused in object modules
+
+The interpreter SHALL refuse an explicitly Public Const, fixed-length string variable or Declare
+in a class or form as the program loads, with "Constants, fixed-length strings, arrays, user-defined types
+and Declare statements not allowed as Public members of object modules". A Public UDT variable SHALL be refused
+with the same message when instance member storage is allocated and its type is resolved at run time; a class or form never instantiated is not checked.
+Measured by [#3349's oracle](../../../docs/vb6-fidelity-oracle/a-public-array-in-an-object-module.md); #3350 extends the array refusal.
+
+#### Scenario: A Public UDT variable names a type collected later
+- **WHEN** a class or form declares `Public t As TT` and a standard module declares `Public Type TT`
+- **THEN** loading the program succeeds, and allocating the instance's member storage refuses the Public member
+
+#### Scenario: A declaration outside the measured Public object-member scope
+- **WHEN** a declaration is Private, Dim, or in a standard module
+- **THEN** this refusal does not apply and its existing implementation or refusal is retained

@@ -52,15 +52,15 @@ while IFS= read -r hit; do
   [ -n "$hit" ] && note "GNU GPL licence text: $hit"
 done < <(git grep -nI 'GNU GENERAL PUBLIC LICENSE' -- . "${EXCLUDE[@]}")
 
-# 5. No downloaded foreign language server may become tracked.
+# 5. No downloaded foreign language server or debug adapter may become tracked.
 #    The foreign-backend tests fetch real third-party servers at run time into a gitignored cache. One of
 #    them is GPL-licensed, which is fine to DRIVE — a separate process across a protocol boundary is not a
 #    derivative work, and nothing is redistributed — and not fine to SHIP. That distinction rests entirely
 #    on the binary never entering the tree, so it is enforced here rather than left to .gitignore, which a
 #    `git add -f` or a re-scoped ignore rule would quietly defeat.
 while IFS= read -r f; do
-  [ -n "$f" ] && note "downloaded language server is tracked (it must never be committed): $f"
-done < <(git ls-files -- artifacts/ 'IDE/HexIDE.Tests/[Tt]ools/' | grep -Ei '(rumdl|texlab|clangd)|\.(exe|tar\.gz|zip)$')
+  [ -n "$f" ] && note "downloaded server or adapter is tracked (it must never be committed): $f"
+done < <(git ls-files -- artifacts/ 'IDE/HexIDE.Tests/[Tt]ools/' | grep -Ei '(rumdl|texlab|clangd)|^artifacts/foreign-dap/|\.(exe|tar\.gz|zip)$')
 
 # 6. Every centrally-managed package must have a RECORDED, PERMITTED licence.
 #
