@@ -262,6 +262,15 @@ The shared routed Debug commands SHALL follow their handler guards: Toggle Break
 - **WHEN** a watch row is selected or selection is cleared, including when the rows are rebuilt
 - **THEN** Edit Watch refreshes its enablement without requiring a focus change
 
+### Requirement: Set Next Statement is scoped to the running project
+The interpreter's Set Next Statement menu handler SHALL refuse a document outside the running project,
+or a request with no running project, before passing its module name to the debug controller. Refusal
+SHALL display the localized Set Next Statement refusal message.
+
+#### Scenario: Another project's same-named module
+- **WHEN** the interpreter is paused and the active code window belongs to another project with the same module name
+- **THEN** Set Next Statement refuses the move and leaves the execution point unchanged
+
 ### Requirement: The debugger SHALL be drivable by automation
 The debugger SHALL expose an automation surface mirroring the IDE debug commands.
 

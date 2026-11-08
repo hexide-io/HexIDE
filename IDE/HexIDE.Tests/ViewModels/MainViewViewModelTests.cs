@@ -1397,6 +1397,49 @@ public class MainViewViewModelTests
             Substitute.For<ILocalizationService>()).Initialize(module);
     }
 
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void SetNextStatement_refuses_a_document_outside_the_running_project(bool noRun)
+    {
+        var running = new ProjectDefinition(VBProjectType.EXE, "P");
+        using var runningCode = CodeWindow(running, "Module1", new HexIDE.Debugging.BreakpointService());
+        using var otherCode = CodeWindow(new ProjectDefinition(VBProjectType.EXE, "P"), "Module1",
+            new HexIDE.Debugging.BreakpointService());
+        var dock = Substitute.For<IDocumentDockService>();
+        dock.ActiveDocument.Returns(otherCode);
+        _runnerService.RunningProject.Returns(noRun ? null : running);
+        var debug = Substitute.For<HexIDE.Runtime.Debugging.IDebugController>();
+        debug.SetNextStatement(Arg.Any<string>(), Arg.Any<int>()).Returns(true);
+        var sut = Build(_runnerService, dock, debug: debug);
+        _localization.GetString("Str.Debug.SetNextStatement.Refused").Returns("localized refusal");
+
+        sut.SetNextStatement();
+
+        debug.DidNotReceive().SetNextStatement(Arg.Any<string>(), Arg.Any<int>());
+        _windowManager.Received(1).MessageBox("localized refusal", Arg.Any<string?>(),
+            Arg.Any<MessageBoxButtons>(), MessageBoxIcon.Information);
+    }
+
+    [AvaloniaFact]
+    public void SetNextStatement_passes_the_running_documents_name_and_caret_line()
+    {
+        var running = new ProjectDefinition(VBProjectType.EXE, "P");
+        using var code = CodeWindow(running, "Utilities", new HexIDE.Debugging.BreakpointService());
+        var dock = Substitute.For<IDocumentDockService>();
+        dock.ActiveDocument.Returns(code);
+        _runnerService.RunningProject.Returns(running);
+        var debug = Substitute.For<HexIDE.Runtime.Debugging.IDebugController>();
+        debug.SetNextStatement(Arg.Any<string>(), Arg.Any<int>()).Returns(true);
+        var sut = Build(_runnerService, dock, debug: debug);
+        code.CaretOffset = code.Document.Text.IndexOf("Debug.Print", StringComparison.Ordinal);
+
+        sut.SetNextStatement();
+
+        debug.Received(1).SetNextStatement("Utilities", code.Document.GetLineByOffset(code.CaretOffset).LineNumber);
+        _windowManager.DidNotReceiveWithAnyArgs().MessageBox(default!, default, default, default);
+    }
+
     [AvaloniaFact]
     public void TogglingABreakpointOnTheCaretLine()
     {
