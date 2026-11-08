@@ -3412,46 +3412,84 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     }
 
     [McpServerTool(Name = "activate_document_tab")]
-    [Description("Brings a tab to the front, giving an editor keyboard focus. Pass `name` (the document's VB6 name) and optional `project`, matched without regard to case through the same lookup as open_file. An ambiguous document is refused with candidates. If both code and designer tabs are open, pass `type`: code or designer. Alternatively pass `title` from get_document_tabs, including for tool tabs (type tool); a duplicate title is refused. Pass either title or name, not both. The reply names the target's project and document when it has one, and its note identifies the active tab and count afterward.")]
+    [Description("Brings a tab to the front, giving an editor keyboard focus. Pass `name` (the document's VB6 name) and optional `project`, matched without regard to case through the same lookup as open_file. An ambiguous document is refused with candidates. If both code and designer tabs are open, pass `type`: code or designer. Alternatively pass `title` from get_document_tabs, including for tool tabs (type tool); a duplicate title is refused, and a title no tab has is tried as a document name, used when one tab shows it. Pass either title or name, not both. The reply names the target's project and document when it has one, and its note identifies the active tab and count afterward.")]
     public async Task<MutateResult> ActivateDocumentTabAsync(string? title = null, string? name = null,
         string? project = null, string? type = null, CancellationToken ct = default)
     {
         return await FocusingTheActiveTabAsync(await Dispatcher.UIThread.InvokeAsync(() =>
         {
             var lookup = name is null ? default : ResolveDocument(name, project);
-            var (tab, error) = FindTab(title, lookup, type, project);
+            var (tab, error, matched) = FindTab(title, lookup, type, project);
             if (tab is null)
                 return Naming(new MutateResult(false, error), lookup);
             var found = ctx.DocumentDockService.TryActivateAny(d => ReferenceEquals(d, tab));
-            return Naming(new MutateResult(found, null, TabStateNote()),
+            return Naming(new MutateResult(found, null, matched + TabStateNote()),
                 (tab as BaseEditorWindowViewModel)?.OpenDocument);
         }));
     }
 
-    private (Dock.Model.Core.IDockable? Tab, string? Error) FindTab(
+    /// <summary>
+    /// The tab a call names, or why it names none. <c>Matched</c> is the note's opening sentence when a title that
+    /// is no tab's was taken as the name of the one document it fits, and null otherwise.
+    /// </summary>
+    private (Dock.Model.Core.IDockable? Tab, string? Error, string? Matched) FindTab(
         string? title, NamedDocument lookup, string? type, string? project)
     {
         if (title is not null && (lookup.Document is not null || lookup.Error is not null || project is not null))
-            return (null, "Pass either `title` or `name` with optional `project`, not both.");
+            return (null, "Pass either `title` or `name` with optional `project`, not both.", null);
         if (lookup.Error is not null)
-            return (null, lookup.Error);
+            return (null, lookup.Error, null);
         if (title is null && lookup.Document is null)
-            return (null, "Pass `name` with optional `project` for a document, or `title` for a tool tab. get_document_tabs lists both.");
+            return (null, "Pass `name` with optional `project` for a document, or `title` for a tool tab. get_document_tabs lists both.", null);
         if (type is not null && type is not ("code" or "designer" or "tool"))
-            return (null, "Use `type`: code, designer or tool, as get_document_tabs reports it.");
+            return (null, "Use `type`: code, designer or tool, as get_document_tabs reports it.", null);
         var matches = ctx.DocumentDockService.AllTabs.Where(d =>
             (lookup.Document is { } document
                 ? (d as BaseEditorWindowViewModel)?.OpenDocument == document
                 : string.Equals(d.Title, title, StringComparison.OrdinalIgnoreCase))
             && (type is null || TabType(d) == type)).ToArray();
+        if (matches.Length == 0 && lookup.Document is null)
+            return ByDocumentName(title!, type);
         return matches.Length switch
         {
-            1 => (matches[0], null),
-            0 => (null, lookup.Document is { } document
-                ? $"No open tab for {document.Display}" + (type is null ? "." : $" of type '{type}'.")
-                : NoSuchTab(title!)),
-            _ => (null, "More than one tab matches. Pass `name` and `project` to identify the document, and `type` (code or designer) to choose its tab. get_document_tabs lists them."),
+            1 => (matches[0], null, null),
+            0 => (null, $"No open tab for {lookup.Document!.Display}" + (type is null ? "." : $" of type '{type}'."), null),
+            _ => (null, "More than one tab matches. Pass `name` and `project` to identify the document, and `type` (code or designer) to choose its tab. get_document_tabs lists them.", null),
         };
+    }
+
+    /// <summary>
+    /// A title that is no tab's, taken as the name of a document the open tabs show (#3338).
+    /// </summary>
+    /// <remarks>
+    /// A caller holds a document's name, as get_project_info lists it and open_file takes it, and a tab tool's
+    /// <c>title</c> is the parameter it reaches for. A tab's title is built from that name, with the project before
+    /// it and the view after, so "Var1" matched no tab titled "Probe2 - Var1 (Code)", and the first call was
+    /// refused. Only a document exactly one tab shows is acted on. Several are refused, naming each and what picks
+    /// one, since guessing between two tabs is no better than a refusal.
+    /// </remarks>
+    private (Dock.Model.Core.IDockable? Tab, string? Error, string? Matched) ByDocumentName(string title, string? type)
+    {
+        var showing = ctx.DocumentDockService.AllTabs
+            .Select(d => (Tab: d, Document: (d as BaseEditorWindowViewModel)?.OpenDocument))
+            .Where(t => t.Document is not null && string.Equals(t.Document.Name, title, StringComparison.OrdinalIgnoreCase)
+                        && (type is null || TabType(t.Tab) == type))
+            .ToArray();
+        if (showing.Length == 0)
+            return (null, NoSuchTab(title), null);
+        if (showing.Length == 1)
+            return (showing[0].Tab, null,
+                $"No tab is titled '{title}', so it was taken as a document name: '{showing[0].Tab.Title}' is the one "
+                + $"tab showing {showing[0].Document!.Display}. `name` is the parameter for a document. ");
+        var documents = showing.Select(t => t.Document!).Distinct().ToArray();
+        var picks = new List<string>();
+        if (documents.Length > 1)
+            picks.Add("`project` for the document");
+        if (showing.Length > documents.Length)
+            picks.Add("`type` (code or designer) for its tab");
+        return (null, $"No tab is titled '{title}'. As a document name it fits {showing.Length} tabs: "
+                      + string.Join(", ", showing.Select(t => $"'{t.Tab.Title}'"))
+                      + $". Pass `name` \"{documents[0].Name}\" with {string.Join(" and ", picks)}.", null);
     }
 
     /// <summary>Says which tabs there are, rather than only that this one is not among them.</summary>
@@ -3472,14 +3510,14 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     }
 
     [McpServerTool(Name = "close_document_tab")]
-    [Description("Closes a tab; a save prompt can leave it open, which the note reports. Pass `name` (the document's VB6 name) and optional `project`, matched without regard to case through the same lookup as open_file. An ambiguous document is refused with candidates. If both code and designer tabs are open, pass `type`: code or designer. Alternatively pass `title` from get_document_tabs, including for tool tabs (type tool); a duplicate title is refused. Pass either title or name, not both. The reply names the target's project and document when it has one, and its note identifies the active tab and count afterward.")]
+    [Description("Closes a tab; a save prompt can leave it open, which the note reports. Pass `name` (the document's VB6 name) and optional `project`, matched without regard to case through the same lookup as open_file. An ambiguous document is refused with candidates. If both code and designer tabs are open, pass `type`: code or designer. Alternatively pass `title` from get_document_tabs, including for tool tabs (type tool); a duplicate title is refused, and a title no tab has is tried as a document name, used when one tab shows it. Pass either title or name, not both. The reply names the target's project and document when it has one, and its note identifies the active tab and count afterward.")]
     public async Task<MutateResult> CloseDocumentTabAsync(string? title = null, string? name = null,
         string? project = null, string? type = null, CancellationToken ct = default)
     {
         return await Dispatcher.UIThread.InvokeAsync(() =>
         {
             var lookup = name is null ? default : ResolveDocument(name, project);
-            var (tab, error) = FindTab(title, lookup, type, project);
+            var (tab, error, matched) = FindTab(title, lookup, type, project);
             if (tab is null)
                 return Naming(new MutateResult(false, error), lookup);
             var document = (tab as BaseEditorWindowViewModel)?.OpenDocument;
@@ -3487,10 +3525,10 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
             if (!closed)
                 return Naming(new MutateResult(false, "The tab could not be closed. " + TabStateNote()), document);
             var stillOpen = ctx.DocumentDockService.AllTabs.Any(d => ReferenceEquals(d, tab));
-            return Naming(new MutateResult(true, null, stillOpen
+            return Naming(new MutateResult(true, null, matched + (stillOpen
                 ? $"'{tab.Title}' is still open: closing it is waiting on an answer, most likely a save prompt, which "
                   + "dump_visual_tree shows. " + TabStateNote()
-                : $"Closed '{tab.Title}'. " + TabStateNote()), document);
+                : $"Closed '{tab.Title}'. " + TabStateNote())), document);
         });
     }
 
