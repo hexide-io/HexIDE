@@ -10,6 +10,7 @@
     "Str.Lsp.EditRequiresUserCommand": "HexIDE použije úpravy servera iba počas vykonávania príkazu spusteného používateľom.",
     "Str.Lsp.NoWorkspaceEditor": "Nie je dostupný žiadny editor pracovného priestoru.",
     "Str.Menu.Edit.CallHierarchy": "H_ierarchia volaní",
+    "Str.CodeEditor.Msg.LineBreakSeparatesAttributes": "by vložila zlom riadka do deklarácie {0} alebo jej koncového komentára a oddelila jej riadky Attribute. Nové riadky vložte za riadky Attribute. Nič sa nezmenilo.",
     "Str.CodeEditor.Context.CallHierarchy": "_Hierarchia volaní",
     "Str.Lsp.OpenExternalUri": "Otvoriť tento identifikátor URI mimo HexIDE?\n\n{0}",
     "Str.Tool.CallHierarchy.Title": "Hierarchia volaní",

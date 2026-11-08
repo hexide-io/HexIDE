@@ -1,4 +1,4 @@
-# `set_value` on a read-only ComboBox throws, though the combo lists the `value` provider
+# `set_value` on a read-only ComboBox throws, though the combo lists the `value` provider — **CLOSED** (#1672, 2026-10-24)
 
 **Symptom (2026-10-24, #1632, Windows).** In a UserControl's code window, `inspect_element` on the Object box,
 `ComboBox[ObjectCombo]`, listed providers `selection`, `value` and `expandCollapse`.
@@ -22,3 +22,13 @@ CodeEditorViewModel.SelectedObject = UserControl1`.
   `isReadOnly` for the value pattern.
 
 [#1672](https://github.com/hexide-io/HexIDE/issues/1672).
+
+**Fixed (#1683).** `set_value` on a ComboBox that isn't editable selects the item whose text matches, by `select`'s
+rule, and reports the selection as `select` does. A miss names the items. Any other read-only value is refused with a
+reply that says so. `inspect_element` reports `isReadOnly` beside the value. Guarded by the `ReadOnlyValue_*` tests in
+`UiAutomationDriverTests` and `InspectItemCountTests`.
+
+**Live (2026-11-08, Windows, a Debug build of main at `0ee530a5d`).** In Form1's code window, `inspect_element` on `…/ComboBox[ObjectCombo]` answered `"isReadOnly":true`
+with providers `selection`, `value` and `expandCollapse`, and
+`interact {"target":"…/ComboBox[ObjectCombo]","action":"set_value","value":"Form","window":"ide"}` answered
+`{"success":true,"mechanism":"peer","detail":"selected 'Form' and closed the dropdown, as a click does"}`.

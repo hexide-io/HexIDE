@@ -938,8 +938,9 @@ user-facing string is a localization key, never a hardcoded literal.**
    show English fall-through. That list is the shipped set, and it is deliberately not copied here. A missing key *inherits* English
    (no blank control), but that drift must not ship — close it at the point of creation. For more than a
    couple of keys, use the language-packs workflow (one agent per pack: translate the new keys,
-   **preserving `{0}`/`{1}` placeholders and each pack's mnemonic convention** — `_` kept for Latin scripts,
-   omitted for non-Latin). `en-GB` is a thin variant — add a key there only where British English differs
+   **preserving `{0}`/`{1}` placeholders and each pack's mnemonic convention** — `_` kept for Latin scripts;
+   Chinese and Japanese append the English letter in parentheses, as `(_F)`; other non-Latin scripts omit it).
+   `en-GB` is a thin variant — add a key there only where British English differs
    from `en`.
 4. **See the whole picture at once** with the coverage tool, which is the faster way to run a backfill: the
    build failure says *that* a pack is stale, this says *how*, across all of them together.

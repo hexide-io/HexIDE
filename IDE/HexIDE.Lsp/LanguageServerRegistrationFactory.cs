@@ -74,7 +74,7 @@ public sealed class LanguageServerRegistrationFactory(
                         (request, token) => showDocument(string.IsNullOrWhiteSpace(entry.DisplayName) ? id : entry.DisplayName, request, token),
                     showMessageRequest: showMessageRequest is null ? null :
                         (request, token) => showMessageRequest(string.IsNullOrWhiteSpace(entry.DisplayName) ? id : entry.DisplayName, request, token),
-                    applyEdit: applyEdit),
+                    applyEdit: applyEdit, initializationOptions: entry.InitializationOptions),
                 Priority: entry.Priority ?? 0,
                 Transport: transport.Kind,
                 Endpoint: transport.Endpoint,

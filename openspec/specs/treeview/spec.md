@@ -138,6 +138,29 @@ Missing extents on unchanged loaded controls SHALL retain their absence; that ed
 - **WHEN** a new TreeView is saved
 - **THEN** its block writes Style 7 and Appearance 1
 
+### Requirement: Scroll the runtime hierarchy
+
+Measured in [the TreeView oracle](../../../docs/vb6-fidelity-oracle/in-box-controls-the-treeview.md#scrolling) (#2359).
+
+With Scroll True (the default), the tree SHALL show 17-pixel bars when visible rows exceed
+whole client-row capacity or labels exceed client width. Each bar SHALL reduce the other axis.
+Selection SHALL scroll vertically as little as possible to fit a whole row. EnsureVisible SHALL
+expand ancestors and return True only when it scrolls. Expansion alone SHALL NOT scroll.
+PageDown SHALL first select the last whole row, then advance by capacity minus one; PageUp SHALL
+mirror this at the top. End SHALL reveal the last row. Wheel input SHALL move three rows per notch
+without selecting, or 15 pixels horizontally when only the horizontal bar is present.
+Scroll False SHALL suppress bars and all scrolling while preserving keyboard selection movement.
+
+#### Scenario: Reveal a fifth row
+
+- **WHEN** Down selects the fifth node in the measured four-row client
+- **THEN** the second node becomes the top row and the fifth is wholly visible
+
+#### Scenario: Suppress scrolling
+
+- **WHEN** Scroll is False and End selects the last node
+- **THEN** the viewport stays at the first row and EnsureVisible returns False
+
 ### Requirement: Edit a label
 
 StartLabelEdit SHALL open a shared label editor for a visible selected node in either LabelEdit mode.
@@ -164,3 +187,14 @@ pending edit. Commit-before-click ordering and focus ordering when an event hand
 - **THEN** MouseDown, NodeClick and MouseUp precede BeforeLabelEdit
 - **AND** the editor opens after the host double-click interval from MouseUp
 - **AND** a second press forming a double-click cancels that pending editor
+
+### Requirement: Keep the editing label visible on page keys
+
+PageDown and PageUp in the node label editor SHALL NOT scroll its text vertically (#3352).
+This is a HexIDE usability requirement; VB6's page-key caret and selection behaviour remains unmeasured.
+
+#### Scenario: Page through a label edit
+
+- **WHEN** PageDown and PageUp are pressed while a node label is being edited
+- **THEN** the label remains visible in the editor
+- **AND** Escape still cancels the edit

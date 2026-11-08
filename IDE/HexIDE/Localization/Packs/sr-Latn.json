@@ -10,6 +10,7 @@
     "Str.Lsp.EditRequiresUserCommand": "HexIDE primenjuje izmene servera samo dok se izvršava komanda koju je pokrenuo korisnik.",
     "Str.Lsp.NoWorkspaceEditor": "Nijedan uređivač radnog prostora nije dostupan.",
     "Str.Menu.Edit.CallHierarchy": "_Hijerarhija poziva",
+    "Str.CodeEditor.Msg.LineBreakSeparatesAttributes": "bi umetnula prelom reda unutar deklaracije {0} ili njenog završnog komentara i odvojila njene Attribute redove. Umetnite nove redove posle Attribute redova. Ništa nije promenjeno.",
     "Str.CodeEditor.Context.CallHierarchy": "_Hijerarhija poziva",
     "Str.Lsp.OpenExternalUri": "Otvoriti ovaj URI izvan HexIDE-a?\n\n{0}",
     "Str.Tool.CallHierarchy.Title": "Hijerarhija poziva",

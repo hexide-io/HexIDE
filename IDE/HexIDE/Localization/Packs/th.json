@@ -10,6 +10,7 @@
     "Str.Lsp.EditRequiresUserCommand": "HexIDE จะใช้การแก้ไขจากเซิร์ฟเวอร์เฉพาะในระหว่างที่คำสั่งที่ผู้ใช้เริ่มกำลังทำงานอยู่เท่านั้น",
     "Str.Lsp.NoWorkspaceEditor": "ไม่มีตัวแก้ไขพื้นที่ทำงานที่พร้อมใช้งาน",
     "Str.Menu.Edit.CallHierarchy": "ลำดับชั้นการเรียก",
+    "Str.CodeEditor.Msg.LineBreakSeparatesAttributes": "จะขึ้นบรรทัดใหม่ภายในคำประกาศของ {0} หรือข้อคิดเห็นท้ายบรรทัด ทำให้บรรทัด Attribute แยกออกจากคำประกาศ ให้แทรกบรรทัดใหม่หลังบรรทัด Attribute แทน ไม่มีการเปลี่ยนแปลงใด ๆ",
     "Str.CodeEditor.Context.CallHierarchy": "ลำดับชั้นการเรียก",
     "Str.Lsp.OpenExternalUri": "เปิด URI นี้ภายนอก HexIDE หรือไม่?\n\n{0}",
     "Str.Tool.CallHierarchy.Title": "ลำดับชั้นการเรียก",

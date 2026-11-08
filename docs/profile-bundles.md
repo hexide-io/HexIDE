@@ -126,7 +126,7 @@ failure. The format a profile wants exists three times over.
 
 Keymaps now discover JSON files in the active user-data directory's `keymaps` folder at startup (#414),
 using filenames as selection names alongside the reserved Default and VB6 choices. Themes still read
-`avares://` embedded resources against a hard-coded available-set array; a third party cannot ship a theme today. Language packs are the
+`avares://` embedded resources against a hard-coded available-set array; a third party cannot ship a standalone theme pack today (#413), though a profile bundle can carry one (below). Language packs are the
 partial exception and the useful one: `LocalizationService` merges disk-backed per-locale overrides over
 the embedded pack on every apply, with change notification, orphan-key rejection and placeholder
 validation. That is a working embedded-plus-disk-override layer a profile loader could extend rather than
@@ -135,8 +135,8 @@ invent.
 Embedded discovery is constrained by `avares://`, which has no trim- or AOT-safe directory enumeration.
 Disk keymaps use their filenames for discovery; a profile bundle would carry its own manifest.
 
-**The IDE has three disk-scanned extension points**: add-in packages, user translations and keymaps. A
-profile directory would add a fourth.
+**The IDE has four disk-scanned extension points**: add-in packages, user translations, keymaps and, since
+the survey, installed profiles (`profiles/<name>/`, `ProfileCatalog.DiscoverInstalled`).
 
 ### 3. The add-in system is almost the bundle loader, and structurally cannot be it
 
@@ -209,20 +209,20 @@ contradictions still want their `## Purpose` notes, the second half of that rule
 |---|---|---|
 | `specs/theme-packs` | Requires a user theme with "no code change and no rebuild". Packs are compiled resources behind a hard-coded array; both are required. | [#413](https://github.com/hexide-io/HexIDE/issues/413) |
 | `specs/keymap-packs` | Resolved: user JSON packs are discovered from disk alongside the two built-in choices. | [#414](https://github.com/hexide-io/HexIDE/issues/414) |
-| `specs/ide-personalities` | States a personality controls toolbar buttons. No toolbar button is gated on personality anywhere. | [#419](https://github.com/hexide-io/HexIDE/issues/419) |
-| `specs/icon-system` | A **Requirement**, not just the Purpose, says icons "SHALL be original vector geometries". They are Fluent UI System Icons — MIT, recorded in `THIRD-PARTY-NOTICES.md`, and the VB6-extracted artwork the clause was written against is gone. The licence position is sound; the word "original" is what is false. | [#420](https://github.com/hexide-io/HexIDE/issues/420) |
-| `specs/addin-system` | Promises menu items at "a named parent location". The code has two fixed anchors and silently redirects anything else. | [#416](https://github.com/hexide-io/HexIDE/issues/416) |
-| `specs/toolbars` | Requires all four toolbars in both toggle surfaces. The toolbar band's own context flyout offers three. | [#417](https://github.com/hexide-io/HexIDE/issues/417) |
-| `CLAUDE.md` | "Every shipped pack is 100% complete, enforced at build" — nothing checks pack parity. `LocalizationCoverageTests` covers AXAML keys against `en`, VB properties against `Str.PropDesc.*`, and region packs for orphan keys; the parity tool is manual and CI never runs it. | [#421](https://github.com/hexide-io/HexIDE/issues/421) |
-| `docs/MISSING_FEATURES.md` | Lists the Standard toolbar's Break button as permanently inert. It is wired and executes whenever a project is running. | [#422](https://github.com/hexide-io/HexIDE/issues/422) |
-| `IDE/HexIDE/Keymaps/KeymapPack.cs` | `CommandKeyMapping.Table` says to keep itself in sync with `ApplicationCommands.cs`; three commands are missing and no test checks it. | [#415](https://github.com/hexide-io/HexIDE/issues/415) |
-| Shipped artefacts | Two unit-test language packs (`zz`, `zz-ZZ`) are embedded in the Release assembly. Not selectable — `LanguagePack.cs` does not list them — so this is dead weight rather than a leak. | [#423](https://github.com/hexide-io/HexIDE/issues/423) |
+| `specs/ide-personalities` | Resolved in the spec. It stated a personality controls toolbar buttons. No toolbar button is gated on personality anywhere. | [#419](https://github.com/hexide-io/HexIDE/issues/419) |
+| `specs/icon-system` | Resolved. A **Requirement**, not just the Purpose, says icons "SHALL be original vector geometries". They are Fluent UI System Icons — MIT, recorded in `THIRD-PARTY-NOTICES.md`, and the VB6-extracted artwork the clause was written against is gone. The licence position is sound; the word "original" is what is false. | [#420](https://github.com/hexide-io/HexIDE/issues/420) |
+| `specs/addin-system` | Resolved. Promised menu items at "a named parent location". The code has two fixed anchors and silently redirects anything else. | [#416](https://github.com/hexide-io/HexIDE/issues/416) |
+| `specs/toolbars` | Resolved. Required all four toolbars in both toggle surfaces. The toolbar band's own context flyout offers three. | [#417](https://github.com/hexide-io/HexIDE/issues/417) |
+| `CLAUDE.md` | Resolved by `ShippedPackParityTests`. "Every shipped pack is 100% complete, enforced at build" — nothing checked pack parity. `LocalizationCoverageTests` covers AXAML keys against `en`, VB properties against `Str.PropDesc.*`, and region packs for orphan keys; the parity tool is manual and CI never runs it. | [#421](https://github.com/hexide-io/HexIDE/issues/421) |
+| `docs/MISSING_FEATURES.md` | Resolved. Listed the Standard toolbar's Break button as permanently inert. It is wired and executes whenever a project is running. | [#422](https://github.com/hexide-io/HexIDE/issues/422) |
+| `IDE/HexIDE/Keymaps/KeymapPack.cs` | Resolved. `CommandKeyMapping.Table` said to keep itself in sync with `ApplicationCommands.cs`; three commands are missing and no test checks it. | [#415](https://github.com/hexide-io/HexIDE/issues/415) |
+| Shipped artefacts | Resolved. Two unit-test language packs (`zz`, `zz-ZZ`) are embedded in the Release assembly. Not selectable — `LanguagePack.cs` does not list them — so this is dead weight rather than a leak. | [#423](https://github.com/hexide-io/HexIDE/issues/423) |
 
 The eleventh is a plain defect rather than a divergence, and is filed as one
 ([#418](https://github.com/hexide-io/HexIDE/issues/418)): under `--personality vba` the New Project dialog
 offers no project types at all, so its OK button can never enable, while the Standard toolbar's Add Project
 flyout hard-codes all four templates and bypasses the personality entirely. Two surfaces, disagreeing, and
-one of them a dead end.
+one of them a dead end. Both now read the same offerings, as the end of this file describes.
 
 ## Addendum (2026-10-11): what a shipped command registry adds
 
@@ -333,8 +333,8 @@ on focus.
    `invoke_menu_item`'s dependence on displayed text.
 
 It also confirms prior-art point 4 from the other direction. Its displayed shortcuts are derived from the
-live binding table. HexIDE's are copied once, and six are hard-coded literals
-([#732](https://github.com/hexide-io/HexIDE/issues/732)).
+live binding table. HexIDE's were copied once, and six were hard-coded literals, until
+[#732](https://github.com/hexide-io/HexIDE/issues/732) made them follow the keymap too.
 
 ### Two things not to copy
 
@@ -396,7 +396,7 @@ citation.
 [approved design](../openspec/changes/2026-10-25-profiles-supersede-personalities/design.md).
 It takes the active user-data directory and invocation directory explicitly, resolves `none`, paths
 and names, loads through `ProfileBundleLoader` in `IDE/HexIDE/IDE/Profiles/ProfileBundle.cs`, and
-adapts its captured JSON for the existing consumers. The shared embedded index in `IDE/Profiles/Builtins/` contains `vb6`,
+adapts its captured JSON for the existing consumers. The shared embedded index in `IDE/HexIDE/IDE/Profiles/Builtins/` contains `vb6`,
 `vbaode` and `vba`; installed names cannot shadow them. Explicit paths can select a bundle with any
 valid id. Missing/invalid files, unsupported manifest/surface ids, disallowed settings
 and traversal fail with source/file attribution and a localized remedy. The shared reader refuses links
@@ -433,7 +433,7 @@ stay in memory, including layout reset and translation edits. Explicit project o
 `ProfileRecoveryTests` cover the consumer guards and startup project hook on Linux. Language-server
 configuration and process launch are outside this recovery boundary. Toolbar button ids remain unsupported until
 the renderer publishes its catalogue; only the four approved band ids are accepted now. Direct toolbar
-visibility declarations are validated but not yet applied; #419 follow-through owns that consumer.
+visibility declarations are validated but not yet applied.
 `ProfileResolverTests` cover selection, validation, snapshot isolation and filesystem containment on
 Linux as well as other hosts. No VB6 measurement or language-coverage status changes.
 

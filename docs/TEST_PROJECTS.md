@@ -135,15 +135,15 @@ The corpus should cover the following axes. Track gaps in the table below.
 
 | Axis | Target | Current coverage |
 |---|---|---|
-| Project types | EXE, OleDll, OleExe, Control (.ocx) | EXE only |
-| Module types | Form, Module, Class, UserControl, PropertyPage | Form, Module |
-| References | Projects with many `Reference=` / `Object=` lines | Partial (PD) |
+| Project types | EXE, OleDll, OleExe, Control (.ocx) | EXE, and one Control (`corpus/designer/PagProbe.vbp`) |
+| Module types | Form, Module, Class, UserControl, PropertyPage | All five (`.ctl` and `.pag` in `corpus/designer/`) |
+| References | Projects with many `Reference=` / `Object=` lines | One `Object=` each (`corpus/inbox-controls/`) |
 | Project groups | `.vbg` with 2–3 member projects | None |
 | VB6 service pack versions | SP3, SP4, SP5, SP6 | Unknown |
-| OCX-heavy projects | Multiple third-party OCX dependencies | Krool only |
-| Large projects | 20+ forms, 50+ modules | PD only |
-| Small/trivial projects | Single form, no references | None |
-| Pure code projects | `.bas` / `.cls` only, no forms | None |
+| OCX-heavy projects | Multiple third-party OCX dependencies | None |
+| Large projects | 20+ forms, 50+ modules | None |
+| Small/trivial projects | Single form, no references | The probe projects under `corpus/` |
+| Pure code projects | `.bas` / `.cls` only, no forms | `corpus/member-attributes/` |
 
 ---
 
@@ -210,8 +210,8 @@ The following project types are needed but not yet sourced. If you add a project
 
 | Failure mode | Affected projects | Status |
 |---|---|---|
-| Unknown `.vbp` keys silently dropped | All — pass-through buckets not yet implemented | 🔴 Blocking |
-| `.frx` offset corruption on rewrite | Any project with blob-backed properties | 🔴 Blocking |
+| Unknown `.vbp` keys silently dropped | All | 🟢 Fixed: kept verbatim (`ProjectDeserializer`, `UnknownPreSectionLines`) |
+| `.frx` offset corruption on rewrite | Any project with blob-backed properties | 🟢 Fixed: companion files are preserved, never regenerated ([README](../README.md#real-projects)) |
 | Non-EXE project type serialisation | OleDll, OleExe, Control | 🟡 Partially fixed in Phase 22 |
-| `Object=` (OCX) round-trip | Any project with third-party controls | 🔲 Not yet tested |
+| `Object=` (OCX) round-trip | Any project with third-party controls | 🟡 In-box OCX forms covered (`corpus/inbox-controls/`, `InBoxCorpusStateTests`); third-party OCXs not yet tested |
 | `Reference=` MISSING state | Any project with unresolved references | 🔲 Not yet tested |

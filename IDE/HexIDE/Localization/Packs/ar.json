@@ -425,6 +425,7 @@
     "Str.Designer.Context.AlignToGrid": "محاذاة إلى الشبكة",
     "Str.Designer.Context.Properties": "الخصائص",
     "Str.CodeEditor.FileNotSaved.Banner": "لن يُحفظ هذا الملف — لا يستطيع HexIDE حتى الآن إعادة إنتاجه بأمانة، لذا فإن حفظه سيغيّره. تعليماته البرمجية جزء من الملف، ولذلك تُرفض الكتابة في هذه النافذة.",
+    "Str.CodeEditor.Msg.LineBreakSeparatesAttributes": "سيضع فاصل سطر داخل تصريح {0} أو تعليقه اللاحق، مما يفصل أسطر Attribute عنه. أدرج الأسطر الجديدة بعد أسطر Attribute. لم يتغير شيء.",
     "Str.CodeEditor.Msg.RenameTouchesReadOnly": "لم تُطبَّق إعادة التسمية لأنها ستغيّر رأس هذا الملف أو أسطر Attribute الخاصة بأحد الأعضاء، وهي أسطر تتولّاها بيئة التطوير.",
     "Str.CodeEditor.Msg.RenameReachesOtherDocuments": "لم تتم إعادة التسمية لأنها تعدّل أيضًا مستندات أخرى: {0}",
     "Str.CodeEditor.Msg.RenameDocumentRefused": "تعذر تطبيق إعادة التسمية على {0}.",

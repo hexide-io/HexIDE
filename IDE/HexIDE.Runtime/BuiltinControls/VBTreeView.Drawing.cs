@@ -14,7 +14,7 @@ internal sealed partial class VBTreeView
         context.DrawRectangle(Brushes.White, null, new Rect(Bounds.Size));
         DrawEdge(context);
         using var clip = context.PushClip(new Rect(ClientEdge, ClientEdge,
-            Math.Max(0, Bounds.Width - 2 * ClientEdge), Math.Max(0, Bounds.Height - 2 * ClientEdge)));
+            ClientWidth, ClientHeight));
         var row = 0;
         foreach (var root in Nodes.Roots) DrawNode(root, 0);
 
@@ -22,8 +22,8 @@ internal sealed partial class VBTreeView
         {
             const double height = RowHeight;
             var step = indentation * 96 / 2540;
-            var x = ClientEdge + (depth + 1) * step;
-            var y = ClientEdge + row++ * height;
+            var x = ClientEdge + (depth + 1) * step - horizontal.Value;
+            var y = ClientEdge + (row++ - vertical.Value) * height;
             var center = y + height / 2;
             var branch = x - step / 2;
             var pen = new Pen(Brushes.Gray, 1);
