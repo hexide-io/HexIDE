@@ -17,5 +17,6 @@ UTF mode on Linux would flag continuation bytes in ordinary punctuation.
   its clean and punctuation runs retain native matching.
 - **Git Bash, Git for Windows 2.55.0.windows.5 (issue #1881, 2026-10-25):** the original byte pattern
   missed the planted C1 file (four of 78 selftest assertions failed). The issue's probe matched
-  U+0085 with `(*UTF)\x{85}`. The revised guard's full selftest still needs a Windows run; Linux
-  emulation of UTF mode does not establish a Windows result.
+  U+0085 with `(*UTF)\x{85}`.
+- **Git Bash, Git for Windows 2.55.0.windows.5 (2026-11-08, main at `d3a7fd893`):** the revised guard's full
+  selftest passes on Windows, all 141 assertions.
