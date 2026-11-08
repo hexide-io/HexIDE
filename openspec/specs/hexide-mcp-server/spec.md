@@ -1208,7 +1208,7 @@ refusal SHALL name that bar.
 
 ### Requirement: Run-control replies SHALL say what the program printed
 For interpreter sessions, a successful reply from `run_project`, `stop_project`, `continue_program`,
-`break_program`, a step or `run_to_cursor`, or from `interact`, `press_key` or `type_text` acting on a running
+`break_program`, a step or `run_to_cursor`, or from `interact`, `press_key`, `type_text` or `hover` acting on a running
 program's form, SHALL give in `printed` what the program wrote with `Debug.Print` since its run began or a reply last
 reported it, and its note SHALL say how much, or that it wrote nothing.
 The buffer SHALL reset when the runner claims a new run, before any interpreter code can execute,
@@ -1232,6 +1232,11 @@ session output is not captured by this tool and direct the caller to the Immedia
 #### Scenario: A click on a running form
 - **WHEN** `interact` clicks a button whose `Click` handler prints a line
 - **THEN** the click's reply holds that line in `printed`, and a later `stop_project` does not report it again
+
+#### Scenario: A hover on a running form
+- **WHEN** `hover` raises a MouseMove handler that prints a line
+- **THEN** the reply waits for what the hover set off and reports that line in `printed`
+- **AND** a later `stop_project` does not report it again
 
 ### Requirement: Debug state SHALL describe the external session consistently
 During an external debug session and after it ends, until another run starts, `get_debug_state` SHALL
