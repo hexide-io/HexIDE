@@ -10,6 +10,7 @@
     "Str.Lsp.EditRequiresUserCommand": "HexIDE taiko serverio pakeitimus tik vykdant naudotojo paleistą komandą.",
     "Str.Lsp.NoWorkspaceEditor": "Nėra pasiekiamo darbo srities redaktoriaus.",
     "Str.Menu.Edit.CallHierarchy": "Iškvi_etimų hierarchija",
+    "Str.CodeEditor.Msg.LineBreakSeparatesAttributes": "įterptų eilutės lūžį į {0} deklaraciją arba jos galinį komentarą ir atskirtų jos Attribute eilutes. Naujas eilutes įterpkite po Attribute eilučių. Niekas nepakeista.",
     "Str.CodeEditor.Context.CallHierarchy": "I_škvietimų hierarchija",
     "Str.Lsp.OpenExternalUri": "Atverti šį URI už HexIDE ribų?\n\n{0}",
     "Str.Tool.CallHierarchy.Title": "Iškvietimų hierarchija",
