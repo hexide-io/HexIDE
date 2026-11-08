@@ -92,6 +92,29 @@ public class CodeEditorSelectionTests : IDisposable
     }
 
     [AvaloniaFact]
+    public void BreakpointContextItemUsesTheSharedCommandAndGesture()
+    {
+        var localization = new LocalizationService();
+        localization.Apply("en");
+        using var vm = MakeViewModel().Initialize(AModule());
+        var view = Show(vm);
+        var editor = view.FindControl<TextEditor>("TextEditor")!;
+        var flyout = (MenuFlyout)editor.ContextFlyout!;
+        try
+        {
+            editor.TextArea.Focus();
+            flyout.ShowAt(editor);
+            Dispatcher.UIThread.RunJobs();
+            var item = flyout.Items.OfType<MenuItem>()
+                .Single(i => Equals(i.Header, localization.GetString("Str.CodeEditor.Context.ToggleBreakpoint")));
+
+            item.Command.Should().BeSameAs(ApplicationCommands.ToggleBreakpointCommand);
+            item.InputGesture.Should().Be(ApplicationCommands.ToggleBreakpointCommand.Gestures.FirstOrDefault());
+        }
+        finally { flyout.Hide(); }
+    }
+
+    [AvaloniaFact]
     public void FormatSelectionHasACapabilityGatedCommandBesideFormatDocument()
     {
         using var vm = MakeViewModel().Initialize(AModule());

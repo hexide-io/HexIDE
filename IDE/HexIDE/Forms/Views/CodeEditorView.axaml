@@ -8,7 +8,7 @@
              xmlns:utils="clr-namespace:HexIDE.Utils"
              xmlns:viewModels="clr-namespace:HexIDE.Forms.ViewModels"
              xmlns:controls="clr-namespace:HexIDE.Controls"
-             xmlns:avaloniaEdit="https://github.com/avaloniaui/avaloniaedit"
+             xmlns:textEditing="clr-namespace:HexIDE.Controls.TextEditing"
              x:DataType="viewModels:CodeEditorViewModel"
              x:Name="Root"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
@@ -148,7 +148,7 @@
                                  IsVisible="{CompiledBinding Settings.IsMinimapVisible}" />
         <ClassicBorderDecorator BorderStyle="Sunken" BorderThickness="2">
             <Grid ClipToBounds="True">
-            <avaloniaEdit:TextEditor Name="TextEditor"
+            <textEditing:TextEditor Name="TextEditor"
                                      FontFamily="Courier New,Monospace"
                                      FontSize="13"
                                      ShowLineNumbers="True"
@@ -157,7 +157,7 @@
                                      HorizontalScrollBarVisibility="Visible"
                                      VerticalScrollBarVisibility="Visible"
                                      Padding="10,2,0,2">
-                <avaloniaEdit:TextEditor.ContextFlyout>
+                <textEditing:TextEditor.ContextFlyout>
                     <MenuFlyout>
                         <MenuItem Header="{DynamicResource Str.CodeEditor.Context.Cut}"   utils:MenuUtils.MenuIcon="{StaticResource Geo.Cut}"   Command="{x:Static vb:ApplicationCommands.CutCommand}" />
                         <MenuItem Header="{DynamicResource Str.CodeEditor.Context.Copy}"  utils:MenuUtils.MenuIcon="{StaticResource Geo.Copy}"  Command="{x:Static vb:ApplicationCommands.CopyCommand}" />
@@ -173,7 +173,7 @@
                         <MenuItem Header="{DynamicResource Str.CodeEditor.Context.Outdent}"     Command="{x:Static vb:ApplicationCommands.OutdentCommand}" />
                         <MenuItem Header="{DynamicResource Str.CodeEditor.Context.InsertFile}" Command="{x:Static vb:ApplicationCommands.InsertFileCommand}" />
                         <Separator />
-                        <MenuItem Header="{DynamicResource Str.CodeEditor.Context.ToggleBreakpoint}" utils:MenuUtils.MenuIcon="{StaticResource Geo.Togglebreakpoint}" Command="{x:Static vb:ApplicationCommands.DisabledCommand}" />
+                        <MenuItem Header="{DynamicResource Str.CodeEditor.Context.ToggleBreakpoint}" utils:MenuUtils.MenuIcon="{StaticResource Geo.Togglebreakpoint}" Command="{x:Static vb:ApplicationCommands.ToggleBreakpointCommand}" />
                         <Separator />
                         <MenuItem Header="{DynamicResource Str.CodeEditor.Context.ToggleFold}" Command="{x:Static vb:ApplicationCommands.ToggleFoldCommand}" />
                         <MenuItem Header="{DynamicResource Str.CodeEditor.Context.Bookmarks}">
@@ -201,8 +201,8 @@
                         <MenuItem Header="{DynamicResource Str.CodeEditor.Context.FormatDocument}"  Command="{x:Static vb:ApplicationCommands.FormatDocumentCommand}" />
                         <MenuItem Header="{DynamicResource Str.CodeEditor.Context.FormatSelection}" Command="{x:Static vb:ApplicationCommands.FormatSelectionCommand}" />
                     </MenuFlyout>
-                </avaloniaEdit:TextEditor.ContextFlyout>
-            </avaloniaEdit:TextEditor>
+                </textEditing:TextEditor.ContextFlyout>
+            </textEditing:TextEditor>
             <Canvas x:Name="CodeLensLayer" ClipToBounds="True" />
             <StackPanel x:Name="StickyHeaders" VerticalAlignment="Top" ClipToBounds="True" />
             </Grid>

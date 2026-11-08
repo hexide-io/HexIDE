@@ -195,7 +195,8 @@ already built.
 1. Write the corpus. With `HEXIDE_DUMP_PROGRAMS` naming it, `HexIDE.Runtime.Tests` appends one JSON line per program
    to `artifacts/program-dump/<name>.jsonl`. Each holds the program's modules, the startup module rewritten with its
    bare statements in `HexDumpMain`, what HexIDE printed with each value's `TypeName`, the Immediate output lines,
-   `VbLocale.Current.Name`, and the error if it raised one. Even a startup module with no bare statements gains an empty `HexDumpMain`.
+   `VbLocale.Current.Name`, `injectedGlobals` (the pre-run root names absent from a fresh environment), and the error
+   if it raised one. Even a startup module with no bare statements gains an empty `HexDumpMain`.
 
    **A module the dump can't rewrite faithfully has no rewritten text, and `notWrapped` says why (#2211).**
    - The rewrite reads the interpreter's parse tree. The interpreter parses only after conditional compilation is
@@ -241,6 +242,8 @@ already built.
 
 Outcomes compare HexIDE's Immediate output lines with RDCore's `stdout` lines, trimmed. Individual printed items
 retain their types and use the same formatter as `Debug.Print`, including Null and numeric spacing (#2119).
+Regenerate older dumps to record fixture globals; their missing `injectedGlobals` field is treated as empty.
+
 Older dumps without lines fall back to individual items; regenerate them for statement-level comparisons.
 
 | Outcome | HexIDE | RDCore |
@@ -255,6 +258,7 @@ Older dumps without lines fall back to individual items; regenerate them for sta
 | `locale-differs` | recorded locale differs from en-US | runs under en-US; not compared |
 | `timeout` / `launch-failed` | | ran past `--timeout`, or the session failed |
 | `excluded` | not compared | not started: the program would act outside its own process |
+| `not-reproducible` | not compared | not started: `notReproducible` is `fixture-global` (names in `injectedGlobals`) or `form-header` (startup source begins with `VERSION 5.00`); counted in `summary.json` (#2941) |
 | `not-wrapped` | not compared | not started: the dump couldn't rewrite the startup module without changing it, as its `notWrapped` says |
 
 RDCore runs each program for real, on the machine running the tool, so a program that would act outside its own

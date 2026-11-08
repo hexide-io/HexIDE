@@ -33,6 +33,7 @@
                         </ClassicBorderDecorator>
                     </BulletDecorator.Bullet>
                     <ContentPresenter Name="PART_ContentPresenter"
+                                      TextOptions.TextRenderingMode="Antialias"
                                       Content="{TemplateBinding Content}"
                                       ContentTemplate="{TemplateBinding ContentTemplate}"
                                       IsVisible="{TemplateBinding Content,
@@ -93,6 +94,7 @@
                         </ClassicBorderDecorator>
                     </BulletDecorator.Bullet>
                     <ContentPresenter Name="PART_ContentPresenter"
+                                      TextOptions.TextRenderingMode="Antialias"
                                       Margin="{TemplateBinding Padding}"
                                       Content="{TemplateBinding Content}"
                                       ContentTemplate="{TemplateBinding ContentTemplate}"

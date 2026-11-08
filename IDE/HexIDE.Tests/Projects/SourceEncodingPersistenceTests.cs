@@ -54,7 +54,7 @@ public class SourceEncodingPersistenceTests : IDisposable
         sidecar.LoadAsync(Arg.Any<ProjectDefinition>()).Returns(Task.CompletedTask);
         sidecar.SaveAsync(Arg.Any<ProjectDefinition>()).Returns(Task.CompletedTask);
         var localization = Substitute.For<HexIDE.Localization.ILocalizationService>();
-        localization.GetString("Str.ProjectLoad.FormNotFound").Returns("Form file not found: {0}");
+        localization.GetString("Str.ProjectLoad.MemberNotFound").Returns("Project file not found: {0}");
         localization.GetString("Str.Dialog.SourceEncoding.NothingWritten")
             .Returns("Nothing was written: {0}, in code page {1}, cannot hold {2} ({3}), in {4}.");
         localization.GetString("Str.Dialog.SourceEncoding.ReadByteForByte").Returns(ReadByteForByteText);
@@ -146,7 +146,7 @@ public class SourceEncodingPersistenceTests : IDisposable
         var elsewhere = Path.Join(dir, "elsewhere");
         Directory.CreateDirectory(elsewhere);
         var savedPath = Path.Join(elsewhere, "Moved.vbp");
-        windowManager.SaveFilePickerAsync(Arg.Any<FilePickerSaveOptions>()).Returns(savedPath);
+        windowManager.SaveFilePickerAsync(Arg.Any<FilePickerSaveOptions>(), Arg.Any<string?>()).Returns(savedPath);
 
         await svc.SaveProject(project, true);
 
@@ -167,7 +167,7 @@ public class SourceEncodingPersistenceTests : IDisposable
         var project = loaded.Single();
         var module = project.Modules.Single();
         var exePath = Path.Join(dir, "Program.exe");
-        windowManager.SaveFilePickerAsync(Arg.Any<FilePickerSaveOptions>()).Returns(exePath);
+        windowManager.SaveFilePickerAsync(Arg.Any<FilePickerSaveOptions>(), Arg.Any<string?>()).Returns(exePath);
         var standalone = Path.Join(dir, "standalone");
         Directory.CreateDirectory(standalone);
         // Copied, never executed: MadeProgramTests is the one that runs a real runner.
@@ -209,7 +209,7 @@ public class SourceEncodingPersistenceTests : IDisposable
         var carried = project.RelatedDocuments.Single();
         var original = File.ReadAllBytes(vbp);
         var exePath = Path.Join(dir, "Program.exe");
-        windowManager.SaveFilePickerAsync(Arg.Any<FilePickerSaveOptions>()).Returns(exePath);
+        windowManager.SaveFilePickerAsync(Arg.Any<FilePickerSaveOptions>(), Arg.Any<string?>()).Returns(exePath);
         var standalone = Path.Join(dir, "standalone");
         Directory.CreateDirectory(standalone);
         File.WriteAllText(Path.Join(standalone, ProjectService.StandaloneRunnerName()!), "runtime fixture");
@@ -397,7 +397,7 @@ public class SourceEncodingPersistenceTests : IDisposable
         await svc.OpenProject(vbp);
         var module = loaded.Single().Modules.Single();
         var copy = Path.Join(dir, "copy.bas");
-        windowManager.SaveFilePickerAsync(Arg.Any<Avalonia.Platform.Storage.FilePickerSaveOptions>())
+        windowManager.SaveFilePickerAsync(Arg.Any<Avalonia.Platform.Storage.FilePickerSaveOptions>(), Arg.Any<string?>())
             .Returns(Task.FromResult<string?>(copy));
 
         await svc.SaveModule(module, true);
@@ -495,7 +495,7 @@ public class SourceEncodingPersistenceTests : IDisposable
         var original = File.ReadAllBytes(path);
         module.UpdateCode(module.Code + "' こんにちは\r\n");
         var copy = Path.Join(dir, "copy.bas");
-        windowManager.SaveFilePickerAsync(Arg.Any<Avalonia.Platform.Storage.FilePickerSaveOptions>())
+        windowManager.SaveFilePickerAsync(Arg.Any<Avalonia.Platform.Storage.FilePickerSaveOptions>(), Arg.Any<string?>())
             .Returns(Task.FromResult<string?>(copy));
 
         Func<Task> save = async () => await svc.SaveModule(module, true);
@@ -1048,7 +1048,7 @@ public class SourceEncodingPersistenceTests : IDisposable
         var form = project.Forms.Single();
         var formPath = form.AbsolutePath;
         var chosen = Path.Join(dir, "Форма1.frm");
-        windowManager.SaveFilePickerAsync(Arg.Any<Avalonia.Platform.Storage.FilePickerSaveOptions>())
+        windowManager.SaveFilePickerAsync(Arg.Any<Avalonia.Platform.Storage.FilePickerSaveOptions>(), Arg.Any<string?>())
             .Returns(Task.FromResult<string?>(chosen));
         var before = Snapshot();
 
@@ -1068,7 +1068,7 @@ public class SourceEncodingPersistenceTests : IDisposable
         var (svc, project) = await OpenInWestern(WriteFormAndUserControlProject());
         project.Name = "Проект";
         var chosen = Path.Join(dir, "Form2.frm");
-        windowManager.SaveFilePickerAsync(Arg.Any<Avalonia.Platform.Storage.FilePickerSaveOptions>())
+        windowManager.SaveFilePickerAsync(Arg.Any<Avalonia.Platform.Storage.FilePickerSaveOptions>(), Arg.Any<string?>())
             .Returns(Task.FromResult<string?>(chosen));
 
         (await svc.SaveForm(project.Forms.Single(), saveAs: true)).Should().BeTrue();
@@ -1084,7 +1084,7 @@ public class SourceEncodingPersistenceTests : IDisposable
         var svc = MakeService();
         svc.HostAnsi = new Vb6TextEncoding(1252);
         await svc.OpenProject(vbg);
-        windowManager.SaveFilePickerAsync(Arg.Any<Avalonia.Platform.Storage.FilePickerSaveOptions>())
+        windowManager.SaveFilePickerAsync(Arg.Any<Avalonia.Platform.Storage.FilePickerSaveOptions>(), Arg.Any<string?>())
             .Returns(Task.FromResult<string?>(Path.Join(dir, "Проект.vbp")));
         var before = Snapshot();
 
@@ -1128,7 +1128,7 @@ public class SourceEncodingPersistenceTests : IDisposable
         Append(project.Modules[0], "' edited");
         var elsewhere = Path.Join(dir, "elsewhere");
         Directory.CreateDirectory(elsewhere);
-        windowManager.SaveFilePickerAsync(Arg.Any<Avalonia.Platform.Storage.FilePickerSaveOptions>())
+        windowManager.SaveFilePickerAsync(Arg.Any<Avalonia.Platform.Storage.FilePickerSaveOptions>(), Arg.Any<string?>())
             .Returns(Task.FromResult<string?>(Path.Join(elsewhere, "Test.vbp")));
         var vbp = project.AbsolutePath;
         var before = Snapshot();
@@ -1137,7 +1137,7 @@ public class SourceEncodingPersistenceTests : IDisposable
 
         var refusal = (await save.Should().ThrowAsync<SourceEncodingRefusal>()).Which;
         (refusal.Document, refusal.Character).Should().Be(("Test", "М"));
-        await windowManager.Received(1).SaveFilePickerAsync(Arg.Any<Avalonia.Platform.Storage.FilePickerSaveOptions>());
+        await windowManager.Received(1).SaveFilePickerAsync(Arg.Any<Avalonia.Platform.Storage.FilePickerSaveOptions>(), Arg.Any<string?>());
         ShouldBeUnchanged(before);
         project.AbsolutePath.Should().Be(vbp);
     }
@@ -1149,7 +1149,7 @@ public class SourceEncodingPersistenceTests : IDisposable
         var added = new ModuleDefinition(project, "Module2", ModuleKind.StandardModule) { TextEncoding = new Vb6TextEncoding(1252) };
         project.AddModule(added);
         var chosen = Path.Join(dir, "Модуль2.bas");
-        windowManager.SaveFilePickerAsync(Arg.Any<Avalonia.Platform.Storage.FilePickerSaveOptions>())
+        windowManager.SaveFilePickerAsync(Arg.Any<Avalonia.Platform.Storage.FilePickerSaveOptions>(), Arg.Any<string?>())
             .Returns(Task.FromResult<string?>(chosen));
         var before = Snapshot();
 
@@ -1173,9 +1173,9 @@ public class SourceEncodingPersistenceTests : IDisposable
         svc.HostAnsi = new Vb6TextEncoding(1252);
         await svc.OpenProject(vbg);
         projectManager.CurrentGroup!.TextEncoding.Should().Be(new Vb6TextEncoding(1252));
-        windowManager.SaveFilePickerAsync(Arg.Is<Avalonia.Platform.Storage.FilePickerSaveOptions>(o => o.DefaultExtension == "vbp"))
+        windowManager.SaveFilePickerAsync(Arg.Is<Avalonia.Platform.Storage.FilePickerSaveOptions>(o => o.DefaultExtension == "vbp"), Arg.Any<string?>())
             .Returns(Task.FromResult<string?>(Path.Join(dir, "Проект.vbp")));
-        windowManager.SaveFilePickerAsync(Arg.Is<Avalonia.Platform.Storage.FilePickerSaveOptions>(o => o.DefaultExtension == "vbg"))
+        windowManager.SaveFilePickerAsync(Arg.Is<Avalonia.Platform.Storage.FilePickerSaveOptions>(o => o.DefaultExtension == "vbg"), Arg.Any<string?>())
             .Returns(Task.FromResult<string?>(Path.Join(dir, "Group2.vbg")));
         Append(loaded.Single().Modules.Single(), "' edited");
         var before = Snapshot();
@@ -1195,7 +1195,7 @@ public class SourceEncodingPersistenceTests : IDisposable
         var (svc, project) = await OpenInWestern(WriteProject());
         Append(project.Modules.Single(), "' edited");
         project.AddModule(new ModuleDefinition(project, "Module2", ModuleKind.StandardModule));
-        windowManager.SaveFilePickerAsync(Arg.Any<Avalonia.Platform.Storage.FilePickerSaveOptions>())
+        windowManager.SaveFilePickerAsync(Arg.Any<Avalonia.Platform.Storage.FilePickerSaveOptions>(), Arg.Any<string?>())
             .Returns(Task.FromResult<string?>(null));
         var before = Snapshot();
 
@@ -1302,7 +1302,7 @@ public class SourceEncodingPersistenceTests : IDisposable
             control.TextEncoding.Should().Be(new Vb6TextEncoding(1250));
             control.FormPart!.TextEncoding.Should().Be(new Vb6TextEncoding(1250));
             // Written by its first save, not as it is added (#500).
-            windowManager.SaveFilePickerAsync(Arg.Any<Avalonia.Platform.Storage.FilePickerSaveOptions>())
+            windowManager.SaveFilePickerAsync(Arg.Any<Avalonia.Platform.Storage.FilePickerSaveOptions>(), Arg.Any<string?>())
                 .Returns(Task.FromResult<string?>(Path.Join(dir, "Café1.frm")));
             (await svc.SaveForm(form, saveAs: false)).Should().BeTrue();
             File.ReadAllBytes(form.AbsolutePath!).Should().Contain(0xE9, "é is written as its one Windows-1250 byte");

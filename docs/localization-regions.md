@@ -19,6 +19,12 @@ catalog tracks.
 The status bar’s caret position and insert/overtype indicators are translated in every shipped pack
 and refresh when the language changes (#960).
 Galician (`gl`, with fileless `gl-ES`) is complete and offered in the language picker (#2774).
+Polish (`pl`) preserves diacritics in early tool-window titles, commands and debugger columns
+(#350); access-key markers such as `_Kod` and `Wk_lej` remain unchanged.
+
+Japanese (`ja`) and both Chinese scripts (`zh-Hans`, `zh-Hant`) preserve English access keys
+in parenthesized Latin suffixes, stored as `(_F)` so Avalonia underlines the letter (#41).
+Literal underscores in identifiers such as `VB6_EXE` and `VB_Name` remain unchanged.
 
 ## How packs and regions work
 

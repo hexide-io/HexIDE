@@ -31,6 +31,8 @@ public partial class ProjectManager : IProjectManager
     {
         this.editorService = editorService;
         this.eventBus = eventBus;
+        // Open only after loading has established sidecars and the unedited baselines.
+        eventBus.Subscribe<ProjectOpenedEvent>(e => editorService.RestoreOpenDocuments(e.Project));
         PropertyChanged += async (_, args) =>
         {
             if (args.PropertyName != nameof(StartupProject) || lspClient is null) return;
@@ -55,6 +57,7 @@ public partial class ProjectManager : IProjectManager
 
     public void UnloadProject(ProjectDefinition proj)
     {
+        editorService.SaveOpenDocuments(proj);
         foreach (var form in proj.Forms)
             eventBus.Publish(new FormUnloadedEvent(form));
         eventBus.Publish(new ProjectUnloadedEvent(proj));

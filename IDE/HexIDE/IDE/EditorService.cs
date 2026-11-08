@@ -10,7 +10,7 @@ using Serilog;
 
 namespace HexIDE.IDE;
 
-public class EditorService : IEditorService
+public partial class EditorService : IEditorService
 {
     private readonly IDocumentDockService documentDockService;
     private readonly Func<CodeEditorViewModel> codeEditorViewModelFactory;

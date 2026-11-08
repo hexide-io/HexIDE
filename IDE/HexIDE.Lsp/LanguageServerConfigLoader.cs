@@ -46,6 +46,9 @@ public sealed class LanguageServerConfigLoader
     /// <summary>The shape this loader understands. A file declaring a later one is left alone.</summary>
     public const int SupportedVersion = 1;
 
+    private const string PathEscapeHint = """Use forward slashes (C:/tools/new/...) or doubled backslashes (C:\\tools\\new\\...).""";
+    private const string PathControlWarning = "Field '{0}' contains an escaped control character; likely intended backslash path: {1}. The value is unchanged.";
+
     private readonly string _filePath;
     private readonly ILogger<LanguageServerConfigLoader> _logger;
 
@@ -383,6 +386,20 @@ public sealed class LanguageServerConfigLoader
                 return null;
             }
 
+            foreach (var entry in file.Servers ?? [])
+            {
+                CheckPath(entry, "command", entry.Command, problems);
+                CheckPath(entry, "arguments", entry.Arguments?.Text, problems);
+                if (entry.Arguments?.List is { } arguments)
+                    for (var i = 0; i < arguments.Length; i++)
+                        CheckPath(entry, $"arguments[{i}]", arguments[i], problems);
+                if (entry.Environment is { } environment)
+                    foreach (var variable in environment)
+                        CheckPath(entry, $"environment.{variable.Key}", variable.Value, problems);
+                CheckPath(entry, "workingDirectory", entry.WorkingDirectory, problems);
+                CheckPath(entry, "workspaceArtifact.path", entry.WorkspaceArtifact?.Path, problems);
+            }
+
             return file;
         }
         catch (JsonException ex) when (text is not null && ex.LineNumber is { } line && ex.BytePositionInLine is { } position)
@@ -399,10 +416,13 @@ public sealed class LanguageServerConfigLoader
             }
             var length = (int)Math.Clamp(position, 0, bytes.Length - start);
             var column = Encoding.UTF8.GetCharCount(bytes.AsSpan(start, length)) + 1;
+            var badEscape = ex.Message.Contains("invalid escapable character", StringComparison.Ordinal)
+                || ex.Message.Contains("hex digit following", StringComparison.Ordinal);
             var message = $"The configuration file '{_filePath}' contains invalid JSON at line {line + 1}, column {column}. Path: {ex.Path}";
-            // Not logged here: DISetup logs every problem the loader returns, so a line here was written twice.
+            if (badEscape) message += " " + PathEscapeHint;
+            // DISetup logs every problem the loader returns.
             problems.Add(new LanguageServerConfigProblem(null, message, true)
-                .WithDetails("JsonSyntax", _filePath, line + 1, column, ex.Path ?? ""));
+                .WithDetails(badEscape ? "JsonSyntaxEscape" : "JsonSyntax", _filePath, line + 1, column, ex.Path ?? ""));
             return null;
         }
         catch (Exception ex)
@@ -413,6 +433,17 @@ public sealed class LanguageServerConfigLoader
                 null, $"The configuration file could not be read: {ex.Message}", true).WithDetails("ReadFailed", _filePath, ex.Message));
             return null;
         }
+    }
+
+    private void CheckPath(LanguageServerEntry entry, string field, string? value,
+        List<LanguageServerConfigProblem> problems)
+    {
+        if (value is null || value.IndexOfAny(['\t', '\n', '\r', '\b', '\f']) < 0) return;
+
+        var intended = value.Replace("\t", @"\t").Replace("\n", @"\n").Replace("\r", @"\r")
+            .Replace("\b", @"\b").Replace("\f", @"\f");
+        problems.Add(new LanguageServerConfigProblem(entry.Id,
+            string.Format(PathControlWarning, field, intended), false).WithDetails("PathControlWarning", field, intended));
     }
 
     /// <summary>

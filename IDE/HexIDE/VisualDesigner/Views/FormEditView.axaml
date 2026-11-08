@@ -309,6 +309,7 @@
                                         <controls:ControlsContainer.Styles>
                                             <Style Selector="controls|ControlItem"
                                                    x:DataType="visualDesigner:ComponentInstanceViewModel">
+                                                <Setter Property="IsEnabled" Value="{CompiledBinding HasDesignerPreview}" />
                                                 <Setter Property="Width" Value="{CompiledBinding Width, Mode=TwoWay}" />
                                                 <Setter Property="Height" Value="{CompiledBinding Height, Mode=TwoWay}" />
                                                 <Setter Property="(Canvas.Left)" Value="{CompiledBinding Left, Mode=TwoWay}" />

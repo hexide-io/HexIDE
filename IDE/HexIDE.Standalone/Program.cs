@@ -38,8 +38,9 @@ public class Program
             Error = e.Message;
         }
 
-        BuildAvaloniaApp()
-            .StartWithClassicDesktopLifetime(args);
+        // The made program's VB code runs on the UI thread, so it gets the IDE's stack rather than the
+        // launcher's, which is 1.5 MiB on Windows (#3228).
+        HexIDE.Runtime.UiThread.Run(() => BuildAvaloniaApp().StartWithClassicDesktopLifetime(args));
     }
 
     private static int RunCheck(string projectPath)
