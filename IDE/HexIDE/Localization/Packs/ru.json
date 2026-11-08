@@ -2,6 +2,7 @@
   "name": "Russian",
   "direction": "ltr",
   "strings": {
+    "Str.AIChat.Stop": "Остановить",
     "Str.Tool.LanguageServers.Problem.JsonSyntaxEscape": "Файл конфигурации «{0}» содержит некорректный JSON в строке {1}, столбце {2}. Путь: {3} Используйте прямые косые черты (C:/tools/new/...) или удвоенные обратные косые черты (C:\\\\tools\\\\new\\\\...).",
     "Str.Tool.LanguageServers.Problem.PathControlWarning": "Поле '{0}' содержит управляющий символ из escape-последовательности; вероятно, подразумевался путь с обратными косыми чертами: {1}. Значение не изменено.",
     "Str.Lsp.ServerMessage": "Языковой сервер: {0}",
@@ -425,6 +426,7 @@
     "Str.Designer.Context.AlignToGrid": "Выровнять по сетке",
     "Str.Designer.Context.Properties": "Свойства",
     "Str.CodeEditor.FileNotSaved.Banner": "Этот файл не будет сохранён — HexIDE пока не может воспроизвести его в точности, поэтому сохранение изменило бы его. Его код — часть файла, так что ввод в этом окне отклоняется.",
+    "Str.CodeEditor.Msg.LineBreakSeparatesAttributes": "вставила бы перенос строки в объявление {0} или его завершающий комментарий, отделив строки Attribute. Вставляйте новые строки после строк Attribute. Ничего не изменено.",
     "Str.CodeEditor.Msg.RenameTouchesReadOnly": "Переименование не выполнено, так как оно изменило бы заголовок этого файла или строки Attribute одного из членов, которыми управляет IDE.",
     "Str.CodeEditor.Msg.RenameReachesOtherDocuments": "Переименование не выполнено, поскольку оно также изменяет другие документы: {0}",
     "Str.CodeEditor.Msg.RenameDocumentRefused": "Не удалось применить переименование к {0}.",

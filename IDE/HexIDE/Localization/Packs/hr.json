@@ -2,6 +2,7 @@
   "name": "Croatian",
   "direction": "ltr",
   "strings": {
+    "Str.AIChat.Stop": "Zaustavi",
     "Str.Tool.LanguageServers.Problem.JsonSyntaxEscape": "Konfiguracijska datoteka „{0}” sadrži neispravan JSON u retku {1}, stupcu {2}. Putanja: {3} Koristite kose crte (C:/tools/new/...) ili dvostruke obrnute kose crte (C:\\\\tools\\\\new\\\\...).",
     "Str.Tool.LanguageServers.Problem.PathControlWarning": "Polje '{0}' sadrži kontrolni znak iz izlaznog niza; vjerojatno namjeravana putanja: {1}. Vrijednost je nepromijenjena.",
     "Str.Lsp.ServerMessage": "Jezični poslužitelj: {0}",
@@ -10,6 +11,7 @@
     "Str.Lsp.EditRequiresUserCommand": "HexIDE primjenjuje izmjene poslužitelja samo tijekom izvršavanja naredbe koju je pokrenuo korisnik.",
     "Str.Lsp.NoWorkspaceEditor": "Nijedan uređivač radnog prostora nije dostupan.",
     "Str.Menu.Edit.CallHierarchy": "_Hijerarhija poziva",
+    "Str.CodeEditor.Msg.LineBreakSeparatesAttributes": "bi umetnula prijelom retka unutar deklaracije {0} ili njezina završnog komentara i odvojila njezine retke Attribute. Umetnite nove retke iza redaka Attribute. Ništa nije promijenjeno.",
     "Str.CodeEditor.Context.CallHierarchy": "_Hijerarhija poziva",
     "Str.Lsp.OpenExternalUri": "Otvoriti ovaj URI izvan HexIDE-a?\n\n{0}",
     "Str.Tool.CallHierarchy.Title": "Hijerarhija poziva",

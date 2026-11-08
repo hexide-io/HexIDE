@@ -221,6 +221,10 @@ public sealed class LanguageServerEntry
     [JsonPropertyName("pipeRole")]
     public string? PipeRole { get; set; }
 
+    /// <summary>Server-specific JSON passed unchanged in the initialize request.</summary>
+    [JsonPropertyName("initializationOptions")]
+    public JsonElement? InitializationOptions { get; set; }
+
     /// <summary>
     /// Decides which server answers where only one can. Absent means zero; the entries HexIDE contributes
     /// as defaults sit below zero, so a user's server wins without them having to know this field exists.

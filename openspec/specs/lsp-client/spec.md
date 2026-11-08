@@ -12,6 +12,21 @@ later without the editor noticing.
 
 ## Requirements
 
+### Requirement: Configured initialization options
+
+The client SHALL pass a registration's `initializationOptions` JSON unchanged in the initialize request.
+It SHALL omit the member when the configuration is absent or null and preserve an explicitly configured empty object.
+
+#### Scenario: A server needs language-specific startup settings
+
+- **WHEN** a registration configures `initializationOptions` as `{"Language":"vb6"}`
+- **THEN** initialize carries that object unchanged
+
+#### Scenario: A registration has no startup settings
+
+- **WHEN** `initializationOptions` is omitted or null
+- **THEN** initialize has no `initializationOptions` member
+
 ### Requirement: User-requested server code actions
 
 The client SHALL request code actions only when the user opens Quick Fixes on a diagnostic in the code
@@ -1438,6 +1453,16 @@ worth showing, and the shape a user interface consumes should not need rebuildin
 - **WHEN** a server is configured for a language and no document of that language has been opened
 - **THEN** the connection is observable, and is distinguishable from a server that failed to start
 
+### Requirement: Absolute pipe names SHALL reach Unix domain sockets on Unix hosts
+On Linux and macOS, the pipe transport SHALL use an absolute `pipeName` verbatim as a Unix domain socket
+path. A bare name SHALL use .NET's `/tmp/CoreFxPipe_<name>` endpoint instead. On Windows the transport
+SHALL continue to use Windows named pipes.
+
+#### Scenario: Connecting to a raw Unix domain socket peer
+- **GIVEN** a server listening on a raw Unix domain socket at an absolute path on Linux or macOS
+- **WHEN** the pipe transport connects with that path as `pipeName`
+- **THEN** JSON-RPC messages round trip over that socket with Content-Length framing
+
 ### Requirement: Servers SHALL start on first use and own their transport
 A server SHALL be started when a document of a language it claims is first opened, and not before. Each
 registered server SHALL carry its own transport configuration.
@@ -1884,6 +1909,9 @@ and variables are unfinished.
 - **AND** Tab selects c and a further Tab finishes at the final stop
 
 ### Requirement: Completion presentation honours server metadata
+The editor SHALL request completion at the start of the identifier around the caret, including for
+Complete Word, so a server filtering by the preceding word can return the full list for that context (#3340).
+
 The client SHALL sort merged completion items ordinally by `sortText ?? label` and match the whole word around the caret using
 `filterText ?? label`, keeping the full list visible. The editor SHALL initially select the first preselected prefix match, otherwise
 its first prefix match, leaving no selection for an empty or unmatched word. It SHALL show string or MarkupContent documentation with detail as plain text and reuse
@@ -1901,6 +1929,11 @@ If no item matches the opening word, the editor SHALL retain the server's list f
 #### Scenario: Server replacements do not match the opening word
 - **WHEN** the server offers a snippet replacement labelled `zsnip` over the word `M` and no item matches `M`
 - **THEN** the item remains available to accept and its snippet fields activate normally
+
+#### Scenario: Requesting within a typed identifier
+- **WHEN** the user requests completion with the caret within or after `Ms`
+- **THEN** the request position is before `M`
+- **AND** after `c.` or `UBound(` with no identifier, the request position remains after the punctuation
 
 ### Requirement: Completion acceptance keys
 The editor SHALL follow the VB6 SP6 measurements linked in issue #3056: Enter accepts a selected

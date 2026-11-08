@@ -2,6 +2,7 @@
   "name": "Hungarian",
   "direction": "ltr",
   "strings": {
+    "Str.AIChat.Stop": "Leállítás",
     "Str.Tool.LanguageServers.Problem.JsonSyntaxEscape": "A(z) „{0}” konfigurációs fájl érvénytelen JSON-t tartalmaz a(z) {1}. sor {2}. oszlopában. Útvonal: {3} Használjon perjeleket (C:/tools/new/...) vagy kettős fordított perjeleket (C:\\\\tools\\\\new\\\\...).",
     "Str.Tool.LanguageServers.Problem.PathControlWarning": "A(z) '{0}' mező escape-szekvenciából származó vezérlőkaraktert tartalmaz; a valószínűleg szándékolt útvonal: {1}. Az érték változatlan.",
     "Str.Lsp.ServerMessage": "Nyelvi kiszolgáló: {0}",
@@ -10,6 +11,7 @@
     "Str.Lsp.EditRequiresUserCommand": "A HexIDE csak a felhasználó által indított parancs futása közben alkalmazza a kiszolgáló módosításait.",
     "Str.Lsp.NoWorkspaceEditor": "Nem érhető el munkaterület-szerkesztő.",
     "Str.Menu.Edit.CallHierarchy": "H_ívási hierarchia",
+    "Str.CodeEditor.Msg.LineBreakSeparatesAttributes": "sortörést szúrna be {0} deklarációjába vagy a sorvégi megjegyzésébe, elválasztva az Attribute sorait. Az új sorokat az Attribute sorok után szúrja be. Semmi sem változott.",
     "Str.CodeEditor.Context.CallHierarchy": "_Hívási hierarchia",
     "Str.Lsp.OpenExternalUri": "Megnyitja ezt az URI-t a HexIDE-on kívül?\n\n{0}",
     "Str.Tool.CallHierarchy.Title": "Hívási hierarchia",

@@ -2,6 +2,7 @@
   "name": "Estonian",
   "direction": "ltr",
   "strings": {
+    "Str.AIChat.Stop": "Peata",
     "Str.Tool.LanguageServers.Problem.JsonSyntaxEscape": "Konfiguratsioonifail „{0}“ sisaldab vigast JSON-i real {1}, veerus {2}. Tee: {3} Kasutage kaldkriipse (C:/tools/new/...) või kahekordseid längkriipse (C:\\\\tools\\\\new\\\\...).",
     "Str.Tool.LanguageServers.Problem.PathControlWarning": "Väli '{0}' sisaldab paojadast saadud juhtmärki; tõenäoliselt mõeldud tee: {1}. Väärtust ei muudeta.",
     "Str.Lsp.ServerMessage": "Keeleserver: {0}",
@@ -10,6 +11,7 @@
     "Str.Lsp.EditRequiresUserCommand": "HexIDE rakendab serveri muudatusi ainult kasutaja käivitatud käsu täitmise ajal.",
     "Str.Lsp.NoWorkspaceEditor": "Ükski tööruumi redaktor pole saadaval.",
     "Str.Menu.Edit.CallHierarchy": "K_utsete hierarhia",
+    "Str.CodeEditor.Msg.LineBreakSeparatesAttributes": "lisaks reavahetuse {0} deklaratsiooni või selle lõppkommentaari sisse, eraldades selle Attribute-read. Lisage uued read hoopis Attribute-ridade järele. Midagi ei muudetud.",
     "Str.CodeEditor.Context.CallHierarchy": "K_utsete hierarhia",
     "Str.Lsp.OpenExternalUri": "Kas avada see URI väljaspool HexIDE-d?\n\n{0}",
     "Str.Tool.CallHierarchy.Title": "Kutsete hierarhia",

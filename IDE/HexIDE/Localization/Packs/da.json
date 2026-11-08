@@ -2,6 +2,7 @@
   "name": "Danish",
   "direction": "ltr",
   "strings": {
+    "Str.AIChat.Stop": "Stop",
     "Str.Tool.LanguageServers.Problem.JsonSyntaxEscape": "Konfigurationsfilen '{0}' indeholder ugyldig JSON på linje {1}, kolonne {2}. Sti: {3} Brug skråstreger (C:/tools/new/...) eller dobbelte omvendte skråstreger (C:\\\\tools\\\\new\\\\...).",
     "Str.Tool.LanguageServers.Problem.PathControlWarning": "Feltet '{0}' indeholder et kontroltegn fra en escape-sekvens; sandsynligvis tilsigtet sti med omvendte skråstreger: {1}. Værdien er uændret.",
     "Str.Lsp.ServerMessage": "Sprogserver: {0}",
@@ -425,6 +426,7 @@
     "Str.Designer.Context.AlignToGrid": "Justér efter gitter",
     "Str.Designer.Context.Properties": "Egenskaber",
     "Str.CodeEditor.FileNotSaved.Banner": "Denne fil bliver ikke gemt — HexIDE kan endnu ikke gengive den nøjagtigt, så den ville blive ændret, hvis den blev gemt. Dens kode er en del af filen, så indtastning i dette vindue afvises.",
+    "Str.CodeEditor.Msg.LineBreakSeparatesAttributes": "ville indsætte et linjeskift i erklæringen af {0} eller dens afsluttende kommentar og adskille dens Attribute-linjer. Indsæt nye linjer efter Attribute-linjerne. Intet blev ændret.",
     "Str.CodeEditor.Msg.RenameTouchesReadOnly": "Omdøbningen blev ikke udført, fordi den ville ændre filens header eller et medlems Attribute-linjer, som IDE'et vedligeholder.",
     "Str.CodeEditor.Msg.RenameReachesOtherDocuments": "Omdøbningen blev ikke udført, fordi den også ændrer andre dokumenter: {0}",
     "Str.CodeEditor.Msg.RenameDocumentRefused": "Kan ikke anvende omdøbning på {0}.",

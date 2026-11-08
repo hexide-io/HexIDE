@@ -2,6 +2,7 @@
   "name": "Indonesian",
   "direction": "ltr",
   "strings": {
+    "Str.AIChat.Stop": "Hentikan",
     "Str.Tool.LanguageServers.Problem.JsonSyntaxEscape": "File konfigurasi '{0}' berisi JSON tidak valid pada baris {1}, kolom {2}. Jalur: {3} Gunakan garis miring (C:/tools/new/...) atau garis miring terbalik ganda (C:\\\\tools\\\\new\\\\...).",
     "Str.Tool.LanguageServers.Problem.PathControlWarning": "Kolom '{0}' berisi karakter kontrol dari urutan escape; kemungkinan jalur bergaris miring terbalik yang dimaksud: {1}. Nilai tidak diubah.",
     "Str.Lsp.ServerMessage": "Server bahasa: {0}",
@@ -425,6 +426,7 @@
     "Str.Designer.Context.AlignToGrid": "Sejajarkan ke Kisi",
     "Str.Designer.Context.Properties": "Properti",
     "Str.CodeEditor.FileNotSaved.Banner": "Berkas ini tidak akan disimpan — HexIDE belum dapat menghasilkannya kembali secara persis, sehingga menyimpannya akan mengubahnya. Kodenya adalah bagian dari berkas, jadi pengetikan di jendela ini ditolak.",
+    "Str.CodeEditor.Msg.LineBreakSeparatesAttributes": "akan menyisipkan pergantian baris dalam deklarasi {0} atau komentar akhirnya, memisahkan baris Attribute-nya. Sisipkan baris baru setelah baris Attribute. Tidak ada yang diubah.",
     "Str.CodeEditor.Msg.RenameTouchesReadOnly": "Penggantian nama tidak dilakukan karena akan mengubah header berkas ini atau baris Attribute milik suatu anggota, yang dikelola oleh IDE.",
     "Str.CodeEditor.Msg.RenameReachesOtherDocuments": "Penggantian nama tidak dilakukan karena juga mengubah dokumen lain: {0}",
     "Str.CodeEditor.Msg.RenameDocumentRefused": "Tidak dapat menerapkan penggantian nama pada {0}.",

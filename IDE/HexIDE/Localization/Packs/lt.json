@@ -2,6 +2,7 @@
   "name": "Lithuanian",
   "direction": "ltr",
   "strings": {
+    "Str.AIChat.Stop": "Stabdyti",
     "Str.Tool.LanguageServers.Problem.JsonSyntaxEscape": "Konfigūracijos faile „{0}“ yra netaisyklingas JSON {1} eilutėje, {2} stulpelyje. Kelias: {3} Naudokite pasviruosius brūkšnius (C:/tools/new/...) arba dvigubus atvirkštinius brūkšnius (C:\\\\tools\\\\new\\\\...).",
     "Str.Tool.LanguageServers.Problem.PathControlWarning": "Lauke '{0}' yra valdymo simbolis iš kaitos sekos; tikėtinas numatytas kelias: {1}. Reikšmė nepakeista.",
     "Str.Lsp.ServerMessage": "Kalbos serveris: {0}",
@@ -10,6 +11,7 @@
     "Str.Lsp.EditRequiresUserCommand": "HexIDE taiko serverio pakeitimus tik vykdant naudotojo paleistą komandą.",
     "Str.Lsp.NoWorkspaceEditor": "Nėra pasiekiamo darbo srities redaktoriaus.",
     "Str.Menu.Edit.CallHierarchy": "Iškvi_etimų hierarchija",
+    "Str.CodeEditor.Msg.LineBreakSeparatesAttributes": "įterptų eilutės lūžį į {0} deklaraciją arba jos galinį komentarą ir atskirtų jos Attribute eilutes. Naujas eilutes įterpkite po Attribute eilučių. Niekas nepakeista.",
     "Str.CodeEditor.Context.CallHierarchy": "I_škvietimų hierarchija",
     "Str.Lsp.OpenExternalUri": "Atverti šį URI už HexIDE ribų?\n\n{0}",
     "Str.Tool.CallHierarchy.Title": "Iškvietimų hierarchija",

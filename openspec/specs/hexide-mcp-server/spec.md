@@ -1592,3 +1592,17 @@ Cursor SHALL refuse with an explanation that the route lacks one-shot breakpoint
 - **GIVEN** an external adapter supporting gotoTargets and a saved module
 - **WHEN** `set_next_statement` names that module and a valid source line
 - **THEN** gotoTargets receives the document's file path and line, followed by goto for the returned target
+
+### Requirement: A tab tool SHALL take a document's name passed as its title
+`activate_document_tab` and `close_document_tab` SHALL, when `title` matches no tab, try it as a document name among the
+open tabs. When exactly one tab shows that document, the tool SHALL act on it and its note SHALL say the title was taken
+as a document name and that `name` is the parameter for a document. When several tabs show it, the tool SHALL refuse,
+naming each, and SHALL say whether `project` or `type` picks one. When none does, the refusal SHALL list the open tabs.
+
+#### Scenario: The name of a document one tab shows
+- **WHEN** `activate_document_tab` is passed `title` "Var1" and the only tab showing Var1 is titled "Probe2 - Var1 (Code)"
+- **THEN** that tab is brought to the front, and the note says "Var1" was taken as a document name
+
+#### Scenario: A document with its code and designer open
+- **WHEN** `title` names a document whose code and designer tabs are both open
+- **THEN** the call is refused, naming both tabs and asking for `type`

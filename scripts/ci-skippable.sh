@@ -37,6 +37,7 @@ cd "$(dirname "$0")/.."
 # list rots silently — into builds that were skipped and should not have been.
 DOC_BUILD_INPUTS="docs/ROADMAP.md
 docs/command-line.md
+docs/dap-client.md
 docs/lsp-client.md
 docs/lsp-server-features.md
 docs/mcp-first-contact.md

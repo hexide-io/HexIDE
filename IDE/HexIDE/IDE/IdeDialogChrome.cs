@@ -10,6 +10,8 @@ internal static class IdeDialogChrome
 {
     internal static void Apply(Window window)
     {
+        window.CanMinimize = false;
+        window.ShowInTaskbar = false;
         window.Classes.Add("ideDialog");
         window.Loaded += (_, _) => Dispatcher.UIThread.Post(() =>
         {

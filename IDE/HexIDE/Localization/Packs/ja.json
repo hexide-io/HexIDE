@@ -2,6 +2,7 @@
   "name": "Japanese",
   "direction": "ltr",
   "strings": {
+    "Str.AIChat.Stop": "停止",
     "Str.Tool.LanguageServers.Problem.JsonSyntaxEscape": "構成ファイル「{0}」の {1} 行、{2} 列に無効な JSON があります。パス: {3} スラッシュ (C:/tools/new/...) または二重のバックスラッシュ (C:\\\\tools\\\\new\\\\...) を使用してください。",
     "Str.Tool.LanguageServers.Problem.PathControlWarning": "フィールド '{0}' にエスケープシーケンスによる制御文字が含まれています。意図された可能性のあるバックスラッシュのパス: {1}。値は変更されていません。",
     "Str.Lsp.ServerMessage": "言語サーバー: {0}",
@@ -425,6 +426,7 @@
     "Str.Designer.Context.AlignToGrid": "グリッドに合わせる",
     "Str.Designer.Context.Properties": "プロパティ",
     "Str.CodeEditor.FileNotSaved.Banner": "このファイルは保存されません — HexIDE はまだこのファイルを忠実に再現できないため、保存するとファイルが変化してしまいます。コードもファイルの一部であるため、このウィンドウでの入力は拒否されます。",
+    "Str.CodeEditor.Msg.LineBreakSeparatesAttributes": "{0} の宣言または末尾のコメント内に改行を挿入すると、Attribute 行が宣言から離れます。新しい行は Attribute 行の後に挿入してください。何も変更されませんでした。",
     "Str.CodeEditor.Msg.RenameTouchesReadOnly": "名前の変更は行われませんでした。このファイルのヘッダー、またはメンバーの Attribute 行が変更されるためです。これらは IDE が管理しています。",
     "Str.CodeEditor.Msg.RenameReachesOtherDocuments": "他のドキュメントも編集するため、名前の変更は行われませんでした: {0}",
     "Str.CodeEditor.Msg.RenameDocumentRefused": "{0} に名前の変更を適用できません。",

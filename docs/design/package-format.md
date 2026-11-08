@@ -10,7 +10,7 @@ This is the document-only deliverable requested by the supervisor’s 2026-10-29
 implementation. It records Jen’s four 2026-11-03 policy decisions; open engineering questions below retain their
 alternatives and trade-offs. The issue's stated constraints are distinguished from candidate encodings. No manifest in this document is installable today.
 
-The design can now become `openspec/changes/package-format/`, with proposal, design, tasks,
+The design has since become `openspec/changes/2026-11-03-package-format/`, with proposal, design, tasks,
 manifest schema, examples and capability deltas. Keeping this draft under `docs/design/` avoids publishing
 unapproved choices as normative contracts. No live specification or archived change is modified.
 

@@ -2,6 +2,7 @@
   "name": "Catalan",
   "direction": "ltr",
   "strings": {
+    "Str.AIChat.Stop": "Atura",
     "Str.Tool.LanguageServers.Problem.JsonSyntaxEscape": "El fitxer de configuració «{0}» conté JSON no vàlid a la línia {1}, columna {2}. Camí: {3} Feu servir barres inclinades (C:/tools/new/...) o barres inverses dobles (C:\\\\tools\\\\new\\\\...).",
     "Str.Tool.LanguageServers.Problem.PathControlWarning": "El camp '{0}' conté un caràcter de control escapat; camí probablement desitjat: {1}. El valor no canvia.",
     "Str.Lsp.ServerMessage": "Servidor de llenguatge: {0}",
@@ -10,6 +11,7 @@
     "Str.Lsp.EditRequiresUserCommand": "HexIDE només aplica els canvis d’un servidor mentre s’executa una ordre iniciada per l’usuari.",
     "Str.Lsp.NoWorkspaceEditor": "No hi ha cap editor de l’espai de treball disponible.",
     "Str.Menu.Edit.CallHierarchy": "_Jerarquia de crides",
+    "Str.CodeEditor.Msg.LineBreakSeparatesAttributes": "inseriria un salt de línia dins de la declaració de {0} o del seu comentari final, separant-ne les línies Attribute. Inseriu les línies noves després de les línies Attribute. No s’ha canviat res.",
     "Str.CodeEditor.Context.CallHierarchy": "_Jerarquia de crides",
     "Str.Lsp.OpenExternalUri": "Voleu obrir aquest URI fora del HexIDE?\n\n{0}",
     "Str.Tool.CallHierarchy.Title": "Jerarquia de crides",

@@ -56,7 +56,8 @@ public class ShippedThemePackTests
     [Fact]
     public void ThePacksTestedHereAreTheOnesTheIdeShips()
     {
-        new ThemeService().AvailableThemes.Should().BeEquivalentTo(Packs.Select(row => (string)row.Data));
+        var missingDirectory = System.IO.Path.Combine(System.IO.Path.GetTempPath(), Guid.NewGuid().ToString());
+        new ThemeService(missingDirectory).AvailableThemes.Should().BeEquivalentTo(Packs.Select(row => (string)row.Data));
     }
 
     [Fact]

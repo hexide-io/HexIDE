@@ -73,7 +73,7 @@ internal sealed class ServerMessagePrompt
         {
             Classes = { "ideDialog" },
             Title = title, Content = content, FlowDirection = owner.FlowDirection, SizeToContent = SizeToContent.WidthAndHeight,
-            CanResize = false, WindowStartupLocation = WindowStartupLocation.CenterOwner
+            CanResize = false, CanMinimize = false, ShowInTaskbar = false, WindowStartupLocation = WindowStartupLocation.CenterOwner
         };
         window.KeyDown += (_, e) =>
         {

@@ -2,6 +2,7 @@
   "name": "Spanish",
   "direction": "ltr",
   "strings": {
+    "Str.AIChat.Stop": "Detener",
     "Str.Tool.LanguageServers.Problem.JsonSyntaxEscape": "El archivo de configuración «{0}» contiene JSON no válido en la línea {1}, columna {2}. Ruta: {3} Use barras normales (C:/tools/new/...) o barras inversas dobles (C:\\\\tools\\\\new\\\\...).",
     "Str.Tool.LanguageServers.Problem.PathControlWarning": "El campo '{0}' contiene un carácter de control producido por una secuencia de escape; ruta con barras inversas probablemente deseada: {1}. El valor no ha cambiado.",
     "Str.Lsp.ServerMessage": "Servidor de lenguaje: {0}",
@@ -425,6 +426,7 @@
     "Str.Designer.Context.AlignToGrid": "Alinear a la cuadrícula",
     "Str.Designer.Context.Properties": "Propiedades",
     "Str.CodeEditor.FileNotSaved.Banner": "Este archivo no se guardará — HexIDE todavía no puede reproducirlo con fidelidad, así que guardarlo lo alteraría. Su código forma parte del archivo, por eso se rechaza la escritura en esta ventana.",
+    "Str.CodeEditor.Msg.LineBreakSeparatesAttributes": "insertaría un salto de línea en la declaración de {0} o en su comentario final, separando sus líneas Attribute. Inserte líneas nuevas después de las líneas Attribute. No se cambió nada.",
     "Str.CodeEditor.Msg.RenameTouchesReadOnly": "No se cambió el nombre porque modificaría el encabezado de este archivo o las líneas Attribute de un miembro, que mantiene el IDE.",
     "Str.CodeEditor.Msg.RenameReachesOtherDocuments": "No se realizó el cambio de nombre porque también modifica otros documentos: {0}",
     "Str.CodeEditor.Msg.RenameDocumentRefused": "No se puede aplicar el cambio de nombre a {0}.",

@@ -57,6 +57,71 @@ public class MemberRunFollowsItsLineTests : IDisposable
         "Attribute Go.VB_Description = \"Goes\"\r\n" +
         "End Sub\r\n";
 
+    [AvaloniaTheory]
+    [InlineData("Public Sub Go() ' does X", "' does X", "Go")]
+    [InlineData("Public Sub Go() ' does X", "X", "Go")]
+    [InlineData("Public Sub Go(Optional s As String = \"it's\") ' does X", "' does X", "Go")]
+    [InlineData("Public Count As Long ' how many", "' how many", "Count")]
+    [InlineData("Public Sub Go( _\r\n    ByVal x As Long) ' does X", "' does X", "Go")]
+    public void ACommentTailMovesPastTheRunAndTheCaretPrecedesIt(string declaration, string tail, string member)
+    {
+        var attribute = member == "Count" ? "VB_VarDescription" : "VB_Description";
+        var vm = Open($"Option Explicit\r\n{declaration}\r\nAttribute {member}.{attribute} = \"Goes\"\r\nEnd Sub\r\n");
+        var before = vm.Document.Text;
+        var at = At(vm, tail);
+        var placed = vm.InsertLineBreakPastRun(at, 0, "A\nB");
+
+        placed.Should().NotBeNull();
+        vm.Document.Text.Should().Be(before.Remove(at, tail.Length).Insert(at, "A")
+            .Replace("\"Goes\"\r\n", "\"Goes\"\r\nB" + tail + "\r\n"));
+        placed!.End.Should().Be(At(vm, "B" + tail) + 1);
+        RunOf(vm, member).DescribesMember.Should().BeTrue();
+        vm.Document.UndoStack.Undo();
+        vm.Document.Text.Should().Be(before);
+    }
+
+    [AvaloniaFact]
+    public void AnApostropheInsideAStringDoesNotMakeTheDeclarationACommentTail()
+    {
+        var vm = Open("Option Explicit\r\nPublic Sub Go(Optional s As String = \"it's\") ' does X\r\n"
+            + "Attribute Go.VB_Description = \"Goes\"\r\nEnd Sub\r\n");
+
+        vm.ReadOnlySections.PlaceLineBreak(At(vm, "'s"), 0, "\n").Should().BeNull();
+    }
+
+    [AvaloniaFact]
+    public void AnAddInsLineBreakBeforeATrailingCommentIsRefused()
+    {
+        var vm = Open(Code.Replace("Public Sub Go()", "Public Sub Go() ' does X"));
+        var before = vm.Document.Text;
+
+        vm.ApplyEdits([new TextChange(At(vm, "' does X"), 0, "\n")]).Should().NotBeNull();
+        vm.Document.Text.Should().Be(before);
+    }
+
+    [AvaloniaFact]
+    public async Task InsertFileBeforeATrailingCommentMovesTheCommentPastTheRun()
+    {
+        var path = Path.Combine(Path.GetTempPath(), $"hexide-insert-{Guid.NewGuid():N}.txt");
+        await File.WriteAllTextAsync(path, "A\nB", TestContext.Current.CancellationToken);
+        try
+        {
+            windowManager.OpenFilePickerAsync(Arg.Any<Avalonia.Platform.Storage.FilePickerOpenOptions>())
+                .Returns(Task.FromResult<IReadOnlyList<string>?>([path]));
+            var vm = Open(Code.Replace("Public Sub Go()", "Public Sub Go() ' does X"));
+
+            await vm.InsertFileAsync(At(vm, "' does X"), 0);
+
+            vm.Document.Text.Should().Contain("Public Sub Go() A\r\nAttribute")
+                .And.Contain("VB_UserMemId = 0\r\nB' does X\r\n");
+            vm.CaretOffset.Should().Be(At(vm, "B' does X") + 1);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
     private CodeEditorViewModel Open(string code)
     {
         var eventBus = Substitute.For<IEventBus>();
@@ -69,7 +134,7 @@ public class MemberRunFollowsItsLineTests : IDisposable
             Substitute.For<ISettingsService>(), Substitute.For<IStatusBarService>(),
             Substitute.For<IBookmarkService>(), Substitute.For<HexIDE.Debugging.IBreakpointService>(),
             Substitute.For<HexIDE.Runtime.Debugging.IDebugController>(),
-            Substitute.For<HexIDE.Debugging.IRunScope>(), Substitute.For<ILocalizationService>());
+            Substitute.For<HexIDE.Debugging.IRunScope>(), new LocalizationService());
         made.Add(vm);
         var module = TestHelpers.CreateModule(name: "Module1", kind: ModuleKind.StandardModule);
         module.UpdateCode(code);

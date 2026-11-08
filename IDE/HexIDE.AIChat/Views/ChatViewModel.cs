@@ -26,6 +26,7 @@ public sealed class ChatViewModel : INotifyPropertyChanged
 
     private string _inputText = string.Empty;
     private bool _isResponding;
+    private CancellationTokenSource? _responseCancellation;
     private bool _reloadSettingsPending;
     private bool _egressNoticeShown;
     private ChatMessageViewModel? _activeStream;
@@ -101,6 +102,8 @@ public sealed class ChatViewModel : INotifyPropertyChanged
         var text = InputText.Trim();
         if (string.IsNullOrEmpty(text) || IsResponding) return;
 
+        using var cancellation = new CancellationTokenSource();
+        _responseCancellation = cancellation;
         InputText   = string.Empty;
         IsResponding = true;
 
@@ -112,7 +115,17 @@ public sealed class ChatViewModel : INotifyPropertyChanged
 
         try
         {
-            await RunAgenticLoopAsync();
+            await RunAgenticLoopAsync(cancellation.Token);
+        }
+        catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
+        {
+            if (_activeStream is { } stream)
+            {
+                stream.IsStreaming = false;
+                if (string.IsNullOrEmpty(stream.RawContent)) Messages.Remove(stream);
+                else _session.Add(new ConversationMessage("assistant", stream.RawContent));
+                _activeStream = null;
+            }
         }
         catch (Exception ex)
         {
@@ -122,6 +135,7 @@ public sealed class ChatViewModel : INotifyPropertyChanged
         {
             FlushHeldNotes();
             _session.SaveTo(_historyPath);
+            _responseCancellation = null;
             IsResponding = false;
         }
     }
@@ -143,6 +157,8 @@ public sealed class ChatViewModel : INotifyPropertyChanged
 
         Messages.Add(new ChatMessageViewModel("assistant", $"Error: {ex.Message}", isError: true));
     }
+
+    public void Stop() => _responseCancellation?.Cancel();
 
     public void NewChat()
     {
@@ -235,13 +251,14 @@ public sealed class ChatViewModel : INotifyPropertyChanged
 
     // ── agentic loop ─────────────────────────────────────────────────────────
 
-    private async Task RunAgenticLoopAsync()
+    private async Task RunAgenticLoopAsync(CancellationToken ct)
     {
         while (true)
         {
             // Here the last message is the developer's or a tool result, after which a note may come.
             FlushHeldNotes();
-            await MaybeCompactAsync();
+            ct.ThrowIfCancellationRequested();
+            await MaybeCompactAsync(ct);
 
             var systemPrompt = BuildSystemPrompt();
             var apiMessages  = _session.BuildApiMessages(systemPrompt);
@@ -255,8 +272,9 @@ public sealed class ChatViewModel : INotifyPropertyChanged
 
             await foreach (var chunk in _client.StreamAsync(
                 _settings.BaseUrl, _settings.ResolveApiKey(), _settings.ModelId,
-                apiMessages, IdeToolExecutor.ToolDefinitions))
+                apiMessages, IdeToolExecutor.ToolDefinitions, ct))
             {
+                ct.ThrowIfCancellationRequested();
                 if (chunk.IsDone) break;
 
                 if (chunk.ContentDelta is not null)
@@ -269,6 +287,7 @@ public sealed class ChatViewModel : INotifyPropertyChanged
                     toolCalls = [..chunk.FinishedToolCalls];
             }
 
+            ct.ThrowIfCancellationRequested();
             var finalContent = contentBuilder.ToString();
             var assistantMsg = new ConversationMessage("assistant", finalContent, toolCalls);
             _session.Add(assistantMsg);
@@ -281,11 +300,19 @@ public sealed class ChatViewModel : INotifyPropertyChanged
             {
                 // Write tools (edit / run / stop) pause for an in-panel approve/reject; read tools run
                 // freely. A rejection is fed back to the model as a tool result so it can adjust.
+                if (ct.IsCancellationRequested)
+                {
+                    _session.Add(new ConversationMessage("tool", "{\"success\":false,\"error\":\"Cancelled\"}",
+                        toolCallId: tc.Id, toolName: tc.Name));
+                    continue;
+                }
+
                 if (IdeToolExecutor.WriteTools.Contains(tc.Name))
                 {
                     var approval = new ChatMessageViewModel("assistant", DescribeWriteTool(tc), isApproval: true);
                     Dispatcher.UIThread.Post(() => Messages.Add(approval));
 
+                    using var registration = ct.Register(() => Dispatcher.UIThread.Post(approval.Reject));
                     if (!await approval.Decision)
                     {
                         var declined = JsonSerializer.Serialize(new { success = false, error = "The user declined this action." });
@@ -418,7 +445,7 @@ public sealed class ChatViewModel : INotifyPropertyChanged
 
     // ── compaction ───────────────────────────────────────────────────────────
 
-    private async Task MaybeCompactAsync()
+    private async Task MaybeCompactAsync(CancellationToken ct)
     {
         if (!_session.NeedsCompaction(_settings.MaxTurnsBeforeCompaction)) return;
 
@@ -458,7 +485,7 @@ public sealed class ChatViewModel : INotifyPropertyChanged
         var summary = new StringBuilder();
         await foreach (var chunk in _client.StreamAsync(
             _settings.BaseUrl, _settings.ResolveApiKey(), _settings.ModelId,
-            summaryPrompt, new System.Text.Json.Nodes.JsonArray()))
+            summaryPrompt, new System.Text.Json.Nodes.JsonArray(), ct))
         {
             if (chunk.ContentDelta is not null) summary.Append(chunk.ContentDelta);
             if (chunk.IsDone) break;
