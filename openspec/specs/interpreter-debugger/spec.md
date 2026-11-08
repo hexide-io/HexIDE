@@ -243,6 +243,25 @@ The debug keymap is the deepest layer of VB6 muscle memory and is bound by defau
 - **WHEN** the developer uses the default keymap
 - **THEN** F5 starts or continues, Shift+F5 restarts, Ctrl+Break breaks, F8 steps into, Shift+F8 steps over, Ctrl+Shift+F8 steps out, Ctrl+F8 runs to cursor, F9 toggles a breakpoint, Ctrl+Shift+F9 clears all breakpoints, Ctrl+F9 sets the next statement, Shift+F9 opens Quick Watch, Ctrl+W edits a watch, Ctrl+G opens the Immediate window, and Ctrl+L opens the Call Stack
 
+### Requirement: Debug command enablement follows the handler guards
+The shared routed Debug commands SHALL follow their handler guards: Toggle Breakpoint and Run To Cursor require a code window; Edit Watch requires a selected watch. Without an active external debugger, Set Next Statement SHALL require a code window and a current interpreter stop, and Show Next Statement SHALL require a current stop. Both commands SHALL retain their existing enablement during an active external debugger session.
+
+#### Scenario: Changing the active document
+- **WHEN** the active document changes between a code window and another document or no document
+- **THEN** Toggle Breakpoint, Run To Cursor and Set Next Statement refresh their enablement
+
+#### Scenario: Setting the next statement in design mode
+- **WHEN** a code window is active without a paused interpreter or an active external debugger
+- **THEN** Set Next Statement is disabled
+
+#### Scenario: Entering or leaving a debugger stop
+- **WHEN** the debug controller raises Stopped or Continued (including reset)
+- **THEN** Set Next Statement and Show Next Statement refresh their enablement from the current stop
+
+#### Scenario: Changing watch selection without changing focus
+- **WHEN** a watch row is selected or selection is cleared, including when the rows are rebuilt
+- **THEN** Edit Watch refreshes its enablement without requiring a focus change
+
 ### Requirement: The debugger SHALL be drivable by automation
 The debugger SHALL expose an automation surface mirroring the IDE debug commands.
 

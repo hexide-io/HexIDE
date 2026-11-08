@@ -212,8 +212,11 @@ public sealed class VBLspClient : ILspClient
         TimeProvider? timeProvider = null,
         Func<ShowDocumentParams, CancellationToken, Task<bool>>? showDocument = null,
         Func<ShowMessageRequestParams, CancellationToken, Task<MessageActionItem?>>? showMessageRequest = null,
-        Func<WorkspaceEdit, Func<string, RenameDocumentSnapshot?>, CancellationToken, Task<string?>>? applyEdit = null)
+        Func<WorkspaceEdit, Func<string, RenameDocumentSnapshot?>, CancellationToken, Task<string?>>? applyEdit = null,
+        JsonElement? initializationOptions = null)
     {
+        _initializationOptions = initializationOptions is { ValueKind: not (JsonValueKind.Null or JsonValueKind.Undefined) } value
+            ? value.Clone() : null;
         _showDocument = showDocument;
         _applyEdit = applyEdit;
         _showMessageRequest = showMessageRequest;
@@ -232,6 +235,7 @@ public sealed class VBLspClient : ILspClient
         _timeProvider = timeProvider ?? TimeProvider.System;
     }
 
+    private readonly JsonElement? _initializationOptions;
     private readonly Func<ShowMessageRequestParams, CancellationToken, Task<MessageActionItem?>>? _showMessageRequest;
     private readonly Func<ShowDocumentParams, CancellationToken, Task<bool>>? _showDocument;
     private readonly Func<WorkspaceEdit, Func<string, RenameDocumentSnapshot?>, CancellationToken, Task<string?>>? _applyEdit;
@@ -677,6 +681,7 @@ public sealed class VBLspClient : ILspClient
             // you, which is the difference between "we never asked" and "we asked and it said nothing".
             Trace: _trace,
             Locale: _locale(),
+            InitializationOptions: _initializationOptions,
             Capabilities: new ClientCapabilities(
                 new TextDocumentClientCapabilities(
                     PublishDiagnostics: new PublishDiagnosticsClientCapabilities(true, new DiagnosticTagSupport([1, 2])),

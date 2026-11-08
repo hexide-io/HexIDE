@@ -2486,8 +2486,9 @@ public partial class CodeEditorView : UserControl
         _completionCts = new CancellationTokenSource();
         var token = _completionCts.Token;
 
-        var caret = TextEditor.TextArea.Caret.Position;
-        var lspPos = new Position(caret.Line - 1, caret.Column - 1);
+        var (start, _) = CompletionWord(TextEditor.TextArea);
+        var location = TextEditor.Document.GetLocation(start);
+        var lspPos = new Position(location.Line - 1, location.Column - 1);
         _completionShown = ShowCompletionAsync(vm, lspPos, token, triggerCharacter, completeWord);
     }
 

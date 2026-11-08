@@ -101,7 +101,7 @@
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
             <RowDefinition Height="2" />
-            <RowDefinition Height="45" />
+            <RowDefinition Height="80" />
         </Grid.RowDefinitions>
         <ComboBox x:Name="ObjectSelector"
                   SelectedItem="{CompiledBinding SelectedComponentProxy}"

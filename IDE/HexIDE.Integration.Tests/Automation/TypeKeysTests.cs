@@ -294,8 +294,7 @@ public class TypeKeysTests : IDisposable
         entered.Should().Equal("M", "s");
         editor.Document.Text.Should().Contain("    Ms\r\nEnd Sub");
         // Line 4, counted from 0: the module's Attribute VB_Name header is its first line.
-        await lsp.Received().RequestCompletionAsync(Arg.Any<string>(), new Position(4, 5), Arg.Any<CancellationToken>());
-        await lsp.Received().RequestCompletionAsync(Arg.Any<string>(), new Position(4, 6), Arg.Any<CancellationToken>());
+        await lsp.Received(2).RequestCompletionAsync(Arg.Any<string>(), new Position(4, 4), Arg.Any<CancellationToken>());
     }
 
     [AvaloniaTheory]

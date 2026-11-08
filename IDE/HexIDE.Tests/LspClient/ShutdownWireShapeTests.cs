@@ -1,4 +1,5 @@
 ﻿using System.Globalization;
+using System.IO.Pipes;
 using System.Text;
 using System.Text.Json;
 using HexIDE.Lsp;
@@ -91,10 +92,17 @@ public class ShutdownWireShapeTests : IAsyncDisposable
 
     private async Task<VBLspClient> ConnectedAsync(
         bool answerShutdown = true, bool answerInitialize = true, bool leaveServerRunning = false,
-        Func<string>? locale = null, bool callHierarchy = true, string? hierarchyResult = null, bool hierarchyError = false, string rangeProvider = "true")
+        Func<string>? locale = null, bool callHierarchy = true, string? hierarchyResult = null, bool hierarchyError = false, string rangeProvider = "true", bool configured = false, string? options = null)
     {
-        var (clientSide, serverSide) = FullDuplexStream.CreatePair();
-        _disposables.Add(serverSide);
+        var (clientSide, duplexServer) = FullDuplexStream.CreatePair();
+        // Short enough for macOS, whose temp directory leaves 43 characters for a pipe name (PipeNameLimit).
+        var pipeName = "hx-init-" + Guid.NewGuid().ToString("N")[..12];
+        var pipe = configured ? new NamedPipeServerStream(pipeName, PipeDirection.InOut, 1,
+            PipeTransmissionMode.Byte, PipeOptions.Asynchronous) : null;
+        Stream serverSide = pipe ?? duplexServer;
+        _disposables.Add(clientSide);
+        _disposables.Add(duplexServer);
+        if (configured) _disposables.Add(serverSide);
 
         // A minimal server, spoken by hand. It answers initialize and shutdown so the client's own
         // sequence completes, records everything, and interprets nothing.
@@ -102,6 +110,7 @@ public class ShutdownWireShapeTests : IAsyncDisposable
         {
             try
             {
+                if (pipe is not null) await pipe.WaitForConnectionAsync(_cts.Token);
                 while (!_cts.IsCancellationRequested)
                 {
                     var json = await ReadFrameAsync(serverSide, _cts.Token);
@@ -157,12 +166,41 @@ public class ShutdownWireShapeTests : IAsyncDisposable
             .Returns(ci => Task.FromResult<IJsonRpcMessageHandler?>(
                 new HeaderDelimitedMessageHandler(clientSide, clientSide, ci.Arg<IJsonRpcMessageFormatter>())));
 
-        var client = new VBLspClient(transport, Substitute.For<ILogger<VBLspClient>>(), "vb6", locale: locale);
+        var optionsMember = options is null ? "" : ",\"initializationOptions\":" + options;
+        var client = configured
+            ? (VBLspClient)new LanguageServerRegistrationFactory(Substitute.For<ILoggerFactory>())
+                .Create(JsonSerializer.Deserialize<LanguageServerConfigFile>($$"""
+                    {"version":1,"servers":[{"id":"probe","languageId":"vb6","extensions":[".bas"],
+                    "transport":"pipe","pipeName":"{{pipeName}}"{{optionsMember}}}]}
+                    """)!.Servers!)
+                .Single().CreateClient()
+            : new VBLspClient(transport, Substitute.For<ILogger<VBLspClient>>(), "vb6", locale: locale);
         _disposables.Add(client);
         _starting = client.StartAsync();
         if (answerInitialize) await _starting;
         else await _initializeSeen.Task.WaitAsync(TimeSpan.FromSeconds(10), _cts.Token);
         return client;
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("null")]
+    public async Task InitializeOptionsAreAbsentWhenNotConfigured(string? options)
+    {
+        await ConnectedAsync(configured: true, options: options);
+        FrameFor("initialize").GetProperty("params").TryGetProperty("initializationOptions", out _)
+            .Should().BeFalse();
+    }
+
+    [Theory]
+    [InlineData("{}")]
+    [InlineData("{\"Language\":\"vb6\",\"nested\":{\"flags\":[true,2,null,\"opaque\"]}}")]
+    public async Task InitializeOptionsPassThroughRegistrationUnchanged(string options)
+    {
+        await ConnectedAsync(configured: true, options: options);
+        var parameters = FrameFor("initialize").GetProperty("params");
+        parameters.TryGetProperty("initializationOptions", out var sent).Should().BeTrue();
+        JsonElement.DeepEquals(sent, JsonDocument.Parse(options).RootElement).Should().BeTrue();
     }
 
     [Fact]
