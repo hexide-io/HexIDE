@@ -10,6 +10,7 @@
     "Str.Lsp.EditRequiresUserCommand": "HexIDE aplică modificările unui server numai în timpul executării unei comenzi pornite de utilizator.",
     "Str.Lsp.NoWorkspaceEditor": "Nu este disponibil niciun editor al spațiului de lucru.",
     "Str.Menu.Edit.CallHierarchy": "I_erarhia apelurilor",
+    "Str.CodeEditor.Msg.LineBreakSeparatesAttributes": "ar introduce un sfârșit de linie în declarația lui {0} sau în comentariul său final, separând liniile Attribute. Inserați linii noi după liniile Attribute. Nu s-a modificat nimic.",
     "Str.CodeEditor.Context.CallHierarchy": "Ierar_hia apelurilor",
     "Str.Lsp.OpenExternalUri": "Deschideți acest URI în afara HexIDE?\n\n{0}",
     "Str.Tool.CallHierarchy.Title": "Ierarhia apelurilor",

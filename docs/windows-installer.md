@@ -39,7 +39,7 @@ it is publisher-hosted, not computed here. Keep the Authenticode status and Pyrs
 check, as documented by [the publisher's verification instructions](https://jrsoftware.org/isdl-verify.php).
 Moving to Inno Setup 7 requires a separate evaluation.
 
-**#77 remains open until #314 and #315 land.** Package verification and revocation fixes are
+**#77 closed on 2026-10-28; #314 and #315 are still open.** Package verification and revocation fixes are
 reviewed separately; this installer creates the protected install location they must defend.
 Windows compilation and a real install/uninstall must be verified on Windows, including a
 standard user's inability to write `addins/`, Start-menu launch, and operation without a

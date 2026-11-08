@@ -1750,3 +1750,6 @@ default shortcuts. Both require a provider for the current document. Expand asks
 both selection endpoints, then selects the smallest enclosing range supplied for either endpoint;
 repeated invocations climb its parent chain. Shrink restores the previous selection, down to the original caret or selection.
 An edit or an outside caret/selection move clears the chain, and stale replies are ignored.
+
+The separate [DAP client coverage table](dap-client.md#protocol-coverage) uses DAP’s own pinned JSON schema
+and reads command/event support from the debug client code (#3302).

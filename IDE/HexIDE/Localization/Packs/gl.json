@@ -10,6 +10,7 @@
     "Str.Lsp.EditRequiresUserCommand": "HexIDE só aplica os cambios dun servidor mentres se executa unha orde iniciada polo usuario.",
     "Str.Lsp.NoWorkspaceEditor": "Non hai ningún editor do espazo de traballo dispoñible.",
     "Str.Menu.Edit.CallHierarchy": "_Xerarquía de chamadas",
+    "Str.CodeEditor.Msg.LineBreakSeparatesAttributes": "inseriría un salto de liña dentro da declaración de {0} ou do seu comentario final, separando as súas liñas Attribute. Insira as novas liñas despois das liñas Attribute. Non se cambiou nada.",
     "Str.CodeEditor.Context.CallHierarchy": "_Xerarquía de chamadas",
     "Str.Lsp.OpenExternalUri": "Abrir este URI fóra de HexIDE?\n\n{0}",
     "Str.Tool.CallHierarchy.Title": "Xerarquía de chamadas",

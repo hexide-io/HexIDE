@@ -425,6 +425,7 @@
     "Str.Designer.Context.AlignToGrid": "Alinhar à Grelha",
     "Str.Designer.Context.Properties": "Propriedades",
     "Str.CodeEditor.FileNotSaved.Banner": "Este ficheiro não será guardado — o HexIDE ainda não consegue reproduzi-lo fielmente, pelo que guardá-lo iria alterá-lo. O seu código faz parte do ficheiro, por isso a escrita nesta janela é recusada.",
+    "Str.CodeEditor.Msg.LineBreakSeparatesAttributes": "inseriria uma quebra de linha na declaração de {0} ou no seu comentário final, separando as linhas Attribute. Insira novas linhas após as linhas Attribute. Nada foi alterado.",
     "Str.CodeEditor.Msg.RenameTouchesReadOnly": "O nome não foi mudado, porque isso alteraria o cabeçalho deste ficheiro ou as linhas Attribute de um membro, que são geridos pelo IDE.",
     "Str.CodeEditor.Msg.RenameReachesOtherDocuments": "A alteração do nome não foi efetuada porque também modifica outros documentos: {0}",
     "Str.CodeEditor.Msg.RenameDocumentRefused": "Não é possível aplicar a mudança de nome a {0}.",

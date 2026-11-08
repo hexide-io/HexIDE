@@ -142,4 +142,5 @@ wire does not use, and a worked transcript that has drifted from the tools it sh
 they meet source they cannot parse. None of them can say whether a description *helps*, and the author is
 the one person who cannot judge that — the empty-reply defect above was caught by *being* the caller, not
 by re-reading prose that had just been written. That half is the first-contact exercise with a fresh model,
-[#534](https://github.com/hexide-io/HexIDE/issues/534), and it is still open.
+[#534](https://github.com/hexide-io/HexIDE/issues/534), which ran in October; its runs are recorded in
+[mcp-first-contact-runs.md](mcp-first-contact-runs.md).

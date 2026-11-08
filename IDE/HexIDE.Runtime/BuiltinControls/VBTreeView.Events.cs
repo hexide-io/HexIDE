@@ -52,7 +52,11 @@ internal sealed partial class VBTreeView
     {
         base.OnGotFocus(e);
         if (Nodes.SelectedItem is null && Nodes.Roots.FirstOrDefault() is { } first)
+        {
+            var top = vertical.Value;
             Nodes.SelectedItem = first;
+            vertical.Value = top;
+        }
     }
 
     private IEnumerable<(TreeNode Node, int Depth)> VisibleNodes()
@@ -74,6 +78,8 @@ internal sealed partial class VBTreeView
         if (editor is not null && (ReferenceEquals(e.Source, editor)
             || e.Source is Visual source && editor.IsVisualAncestorOf(source))) return;
         CancelPendingLabelEdit();
+        if (!ReferenceEquals(e.Source, this)) return;
+        UpdateScroll();
         var point = e.GetCurrentPoint(this);
         if (point.Properties.PointerUpdateKind is not (PointerUpdateKind.LeftButtonPressed or PointerUpdateKind.RightButtonPressed)) return;
         var selected = Nodes.SelectedItem;
@@ -81,9 +87,11 @@ internal sealed partial class VBTreeView
         e.Pointer.Capture(this);
         var secondPress = e.ClickCount % 2 == 0;
         var position = point.Position - new Avalonia.Vector(ClientEdge, ClientEdge);
-        if (position.X < 0 || position.Y < 0 || position.X >= Bounds.Width - 2 * ClientEdge
-            || position.Y >= Bounds.Height - 2 * ClientEdge) return;
-        var row = (int)(position.Y / RowHeight);
+        if (position.X < 0 || position.Y < 0 || position.X >= ClientWidth
+            || position.Y >= ClientHeight) return;
+        var screenRow = (int)(position.Y / RowHeight);
+        var row = screenRow + (int)vertical.Value;
+        position += new Avalonia.Vector(horizontal.Value, 0);
         var rows = VisibleNodes().ToArray();
         if (row >= rows.Length) return;
         var (node, depth) = rows[row];
@@ -92,7 +100,7 @@ internal sealed partial class VBTreeView
         var button = x - step / 2;
         var left = point.Properties.IsLeftButtonPressed;
         if (left && (depth > 0 || lineStyle == 1) && (style & 2) != 0 && node.ChildNodes.Count > 0
-            && Math.Abs(position.X - button) <= 4 && Math.Abs(position.Y - ((row + 0.5) * RowHeight)) <= 4)
+            && Math.Abs(position.X - button) <= 4 && Math.Abs(position.Y - ((screenRow + 0.5) * RowHeight)) <= 4)
         {
             node.Expanded = !node.Expanded;
             return;
@@ -154,12 +162,27 @@ internal sealed partial class VBTreeView
             case Key.Home:
                 if (Nodes.Roots.FirstOrDefault() is { } first) SelectFromInput(first);
                 break;
+            case Key.Up:
+            case Key.End:
+            case Key.PageDown:
+            case Key.PageUp:
             case Key.Down:
                 var visible = VisibleNodes().Select(r => r.Node).ToList();
                 var at = visible.IndexOf(node);
-                if (at >= 0 && at + 1 < visible.Count) SelectFromInput(visible[at + 1]);
+                var page = Math.Max(0, (int)GetVisibleCount() - 1);
+                var target = e.Key switch
+                {
+                    Key.Up => at - 1,
+                    Key.End => visible.Count - 1,
+                    Key.PageDown => at < vertical.Value + page ? (int)vertical.Value + page : at + page,
+                    Key.PageUp => at > vertical.Value ? (int)vertical.Value : at - page,
+                    _ => at + 1,
+                };
+                target = Math.Clamp(target, 0, visible.Count - 1);
+                if (at >= 0 && target != at) SelectFromInput(visible[target]);
                 break;
             case Key.Right:
+                if (node.ChildNodes.Count == 0) break;
                 if (!node.Expanded) node.Expanded = true;
                 else if (node.Child is { } child) SelectFromInput(child);
                 break;
@@ -167,6 +190,7 @@ internal sealed partial class VBTreeView
                 if (node.Expanded) node.Expanded = false;
                 else if (node.Parent is { } parent) SelectFromInput(parent);
                 break;
+            case Key.Add:
             case Key.Multiply: node.Expanded = true; break;
             case Key.Subtract: node.Expanded = false; break;
             case Key.Space when Nodes.Checkboxes:
