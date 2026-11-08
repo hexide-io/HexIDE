@@ -9,6 +9,24 @@ Optional shared capture makes wire traffic and process diagnostics available to 
 
 ## Requirements
 
+### Requirement: Schema-derived protocol coverage
+
+The DAP client documentation SHALL list every request, event and reverse request from a commit-pinned,
+SHA-256-verified official DAP JSON schema, with direction derived from the schema and command/event support
+derived from client code. A test SHALL reject drift in rows, support, directions and counts. Schema acquisition SHALL use
+`artifacts/`, skip visibly when unavailable offline, and fail when `HEXIDE_REQUIRE_FOREIGN_LSP` requires
+availability. A checksum mismatch SHALL fail even when availability is optional.
+
+#### Scenario: A coverage row drifts
+
+- **WHEN** a message is omitted, invented, duplicated or assigned the wrong direction or support
+- **THEN** the documentation guard fails and asks for regeneration
+
+#### Scenario: The schema is unavailable in CI
+
+- **WHEN** the schema cannot be obtained and `HEXIDE_REQUIRE_FOREIGN_LSP=1`
+- **THEN** an ordinary test fails rather than losing the guard at discovery
+
 ### Requirement: DAP stream framing and envelopes
 
 The client SHALL send and receive UTF-8 DAP messages with Content-Length byte-stream framing. It SHALL
