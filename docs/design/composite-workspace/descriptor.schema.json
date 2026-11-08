@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Composite workspace descriptor — unaccepted review draft",
+  "description": "Illustrative syntax for issue #1207. Not a published or implemented format.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "$schema": { "type": "string" },
+    "version": { "const": 1 },
+    "root": { "type": "boolean" },
+    "ignores": { "type": "array", "items": { "type": "string" } },
+    "roots": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["path", "provider"],
+        "properties": {
+          "path": { "type": "string" },
+          "provider": { "type": "string" }
+        }
+      }
+    },
+    "ownership": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["glob", "primary"],
+        "properties": {
+          "glob": { "type": "string" },
+          "primary": { "type": "string" },
+          "contributors": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    },
+    "ansiCodePage": { "type": "integer" },
+    "personality": { "type": "string" },
+    "recommendedProviders": { "type": "array", "items": { "type": "string" } }
+  }
+}
