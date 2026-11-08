@@ -47,6 +47,15 @@ SHALL NOT change VB6 controls on running forms or program message boxes.
 - **AND** an existing explicit focus choice is preserved with keyboard cues
 - **AND** program message boxes and input boxes retain their existing chrome and focus behaviour
 
+### Requirement: IDE dialogs cannot be minimized or add taskbar buttons
+IDE dialogs hosted by `DialogWindow`, IDE message/input boxes and language-server prompts SHALL set
+`CanMinimize` and `ShowInTaskbar` to false, as recorded in [#3341](https://github.com/hexide-io/HexIDE/issues/3341).
+Program MsgBox and InputBox windows SHALL retain their existing behaviour.
+
+#### Scenario: Opening an IDE dialog
+- **WHEN** any of these IDE dialog windows opens
+- **THEN** it cannot be minimized and does not add its own taskbar button
+
 ### Requirement: A theme SHALL be declared as data, not compiled in
 A theme SHALL be a data file declaring colour values by key, and adding one SHALL require no code change and
 no rebuild.
