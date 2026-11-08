@@ -28,7 +28,7 @@ VB6 features listed here will **not** be implemented in HexIDE. This is a delibe
 | **Source Safe integration** | Visual SourceSafe is a dead product and will never be supported. (Version control in general is no longer delegated wholesale to external tools — staged first-class **Git** integration is planned for the Modern shell.) |
 | **COM add-in hosting** | The popular VB6 add-ins rely on deep Win32 subclassing that is incompatible with Avalonia's rendering model — this is blocked by architecture, not just COM, and would not work even on Windows. A managed extensibility API is the correct long-term path. |
 | **Package and Deployment Wizard** | Produces MSI/CAB installers using VB6's native runtime DLLs. Incompatible with the HexIDE interpreter model. Projects requiring a deployable EXE use the *Make with VB6…* path (shells out to VB6.EXE if installed). |
-| **Data Environment Designer** | Enterprise add-on (`MSDATED.DLL`) that was niche even in 1998 and is unused today. Related hidden menu items (*Save Selection*, *Save Change Script*, *Delete Table from Database*, *Select All Columns*) are permanently hidden. |
+| **Data Environment Designer** | Enterprise add-on (`MSDATED.DLL`) that was niche even in 1998 and is unused today. Its VB6 menu items (*Save Selection*, *Save Change Script*, *Delete Table from Database*, *Select All Columns*) are not in HexIDE's menus. |
 | **Visual Data Manager** | VB6-era database browser backed by DAO/ADO. Enterprise tooling that saw minimal adoption and has been replaced by modern database tooling outside the IDE. |
 | **Visual Component Manager** | Enterprise add-on for storing reusable ActiveX components in a COM-registered repository. Essentially unused since VB6's commercial peak; no value in 2026. |
 
@@ -50,14 +50,14 @@ VB6 features listed here will **not** be implemented in HexIDE. This is a delibe
 
 ## UI surface items
 
-Individual menu items and toolbar buttons that appear in the IDE UI but belong to out-of-scope features. Each entry cross-references the feature-level rationale in the sections above.
+VB6's own menu items and toolbar buttons that belong to out-of-scope features. HexIDE's menus and toolbars leave them out, except for the managed Add-In Manager noted below. Each entry cross-references the feature-level rationale in the sections above.
 
 ### File Menu
 
 | Item | Reason |
 |---|---|
-| **Save Selection** | Hidden (`IsVisible=False`); belongs to the Data Environment Designer. |
-| **Save Change Script** | Hidden (`IsVisible=False`); belongs to the Data Environment Designer. |
+| **Save Selection** | Belongs to the Data Environment Designer. |
+| **Save Change Script** | Belongs to the Data Environment Designer. |
 
 ### Edit Menu
 
@@ -102,6 +102,6 @@ Individual menu items and toolbar buttons that appear in the IDE UI but belong t
 
 | Item | Reason |
 |---|---|
-| **Data** | The intrinsic DAO data control (`VB.Data`). It works through two layers HexIDE does not have. DAO and the database engine behind it open the database and build the recordset the control names. Binding then writes the current record into every control bound to it through `DataSource` and `DataField`, and keeps those controls current as the record moves. Supporting it would mean hosting or reproducing a database engine and adding a binding layer to every bindable control, and an approximation would show wrong records rather than refuse. The IDE’s own ends of that stack are already excluded (Data Environment Designer, Visual Data Manager). Code that calls DAO directly is COM automation, tracked in [MISSING_FEATURES.md](MISSING_FEATURES.md#windows-only-planned), not here. The ADO Data Control (MSADODC.OCX) is an ActiveX control and falls under ActiveX hosting. |
+| **Data** | The intrinsic DAO data control (`VB.Data`). It works through two layers HexIDE does not have. DAO and the database engine behind it open the database and build the recordset the control names. Binding then writes the current record into every control bound to it through `DataSource` and `DataField`, and keeps those controls current as the record moves. Supporting it would mean hosting or reproducing a database engine and adding a binding layer to every bindable control, and an approximation would show wrong records rather than refuse. The IDE’s own ends of that stack are already excluded (Data Environment Designer, Visual Data Manager). Code that calls DAO directly is COM automation, tracked in [MISSING_FEATURES.md](MISSING_FEATURES.md#windows-only-iswindows-gated), not here. The ADO Data Control (MSADODC.OCX) is an ActiveX control and falls under ActiveX hosting. |
 
-For what happens when a form holds a Data control, see [unmodelled controls](MISSING_FEATURES.md#unmodelled-controls).
+For what happens when a form holds a Data control, see the Standard control set row under [Interpreter / Runtime](MISSING_FEATURES.md#interpreter--runtime): like any unmodelled control, it is kept for save, shown as an inert designer box, and refused at F5.
