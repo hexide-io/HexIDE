@@ -50,7 +50,9 @@ need its own bespoke unregister call.
 ### Requirement: The IDE SHALL offer menu, tool window, command, control and template contribution
 The host surface SHALL let an add-in add menu items under Tools or AddIns (case-insensitive), register a dockable tool window
 from a factory, register a named command, register a custom VB6 control into the toolbox, and register a
-project template. A contributed control SHALL NOT be a container, and a form nesting a control under one
+project template. Tool-window ids SHALL be scoped to the owning add-in id: duplicates within an add-in
+SHALL be refused before invoking the content factory; different add-ins MAY reuse the same window id.
+The owner SHALL remain attached to the host facade after initialization. A contributed control SHALL NOT be a container, and a form nesting a control under one
 SHALL be held read-only rather than saved.
 
 These are the extension points the original add-in ecosystem actually used. Controls and project templates

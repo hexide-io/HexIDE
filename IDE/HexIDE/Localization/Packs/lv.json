@@ -1114,6 +1114,16 @@
     "Str.Menu.View.Outline": "Strukt_ūra",
     "Str.Menu.View.RecentEdits": "Nesenās i_zmaiņas",
     "Str.CodeEditor.Context.FindReferences": "Atrast atsau_ces",
-    "Str.CodeEditor.Context.NoQuickFix": "_Nav piedāvāts piemērojams labojums."
+    "Str.CodeEditor.Context.NoQuickFix": "_Nav piedāvāts piemērojams labojums.",
+    "Str.Layout.Layouts": "_Paneļu izkārtojumi",
+    "Str.Layout.Save": "_Saglabāt izkārtojumu kā…",
+    "Str.Layout.FullEditor": "_Pilns redaktors",
+    "Str.Layout.Switch": "_Pārslēgt",
+    "Str.Layout.Rename": "Pār_dēvēt…",
+    "Str.Layout.Delete": "_Dzēst",
+    "Str.Layout.NamePrompt": "Izkārtojuma nosaukums:",
+    "Str.Layout.InvalidName": "Ievadiet unikālu, netukšu izkārtojuma nosaukumu.",
+    "Str.Layout.Skipped": "Nepieejamie pievienojumprogrammu logi tika izlaisti: {0}",
+    "Str.Layout.SaveFailed": "Neizdevās saglabāt paneļu izkārtojumus."
   }
 }

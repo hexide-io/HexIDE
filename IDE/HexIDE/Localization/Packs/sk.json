@@ -1114,6 +1114,16 @@
     "Str.Menu.View.Outline": "Pre_hľad",
     "Str.Menu.View.RecentEdits": "Nedávne _úpravy",
     "Str.CodeEditor.Context.FindReferences": "Ná_jsť odkazy",
-    "Str.CodeEditor.Context.NoQuickFix": "_Nebola poskytnutá žiadna použiteľná oprava."
+    "Str.CodeEditor.Context.NoQuickFix": "_Nebola poskytnutá žiadna použiteľná oprava.",
+    "Str.Layout.Layouts": "Rozloženia _panelov",
+    "Str.Layout.Save": "_Uložiť rozloženie ako…",
+    "Str.Layout.FullEditor": "_Celý editor",
+    "Str.Layout.Switch": "_Prepnúť",
+    "Str.Layout.Rename": "_Premenovať…",
+    "Str.Layout.Delete": "_Odstrániť",
+    "Str.Layout.NamePrompt": "Názov rozloženia:",
+    "Str.Layout.InvalidName": "Zadajte jedinečný neprázdny názov rozloženia.",
+    "Str.Layout.Skipped": "Nedostupné okná doplnkov boli preskočené: {0}",
+    "Str.Layout.SaveFailed": "Rozloženia panelov sa nepodarilo uložiť."
   }
 }

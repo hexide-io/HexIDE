@@ -697,6 +697,144 @@ public class DockFactoryTests
 
         factory.CaptureManifest(root).Tools.Single(t => t.Key == "immediate").Open.Should().BeFalse();
     }
+    [Fact]
+    public void FullEditor_RemovesAllPanels_PreservesTheDocumentDockAndTabs()
+    {
+        var (factory, _) = CreateFactory();
+        var root = factory.CreateLayout();
+        factory.InitLayout(root);
+        var documents = factory.DocumentDock!;
+        var editor = new Dock.Model.Mvvm.Controls.Document { Id = "editor" };
+        documents.VisibleDockables!.Add(editor);
+        var browserLayout = LayoutManifest.Default with
+        {
+            Tools = LayoutManifest.Default.Tools.Select(t => t.Key == "objectBrowser" ? t with { Open = true } : t).ToArray(),
+        };
+        root = factory.ApplyLayout(browserLayout);
+        factory.InitLayout(root);
+        factory.InitDockable(editor, documents);
+        var tools = new HexIDE.Addins.AddinToolWindowService();
+        using var window = tools.Register("output", "Output", null, () => new object());
+        factory.PlaceTool(root, tools.Tools.Single(), true);
+
+        var saved = factory.CaptureManifest(root);
+        var full = factory.ApplyLayout(LayoutManifest.FullEditor);
+        factory.InitLayout(full);
+        factory.CaptureManifest(full).Tools.Should().OnlyContain(t => !t.Open);
+        factory.DocumentDock.Should().BeSameAs(documents);
+        documents.VisibleDockables.Should().Contain(editor);
+        documents.ActiveDockable.Should().BeSameAs(editor);
+
+        var restored = factory.ApplyLayout(saved);
+        factory.InitLayout(restored);
+        factory.CaptureManifest(restored).Tools.Should().Equal(saved.Tools);
+        documents.VisibleDockables.Should().Contain(editor);
+    }
+
+    [Theory]
+    [InlineData(DockRegion.Left, true)]
+    [InlineData(DockRegion.Right, true)]
+    [InlineData(DockRegion.Bottom, true)]
+    [InlineData(DockRegion.Document, true)]
+    [InlineData(DockRegion.Left, false)]
+    public void LegacyAddinKey_InTopology_RestoresAndDropsTheLegacyKey(DockRegion region, bool open)
+    {
+        const string key = "addin:addin:17:com.hexide.aichat:aiChat";
+        var manifest = LayoutManifest.Default with
+        {
+            Tools = LayoutManifest.Default.Tools.Append(new ToolLayoutState(key, true, region, 1, 0.4)).ToArray(),
+        };
+        var (source, _) = CreateFactory(manifest);
+        var original = source.CreateLayout();
+        source.InitLayout(original);
+        var tools = new HexIDE.Addins.AddinToolWindowService();
+        using var handle = tools.ForOwner("com.hexide.aichat").Register("aiChat", "AI Chat", null, () => new object());
+        var tool = tools.Tools.Single();
+        source.RegisterAddinTool(original, tool);
+        if (!open) source.CloseDockable(tool);
+        var legacy = LayoutManifestJson.Deserialize(LayoutManifestJson.Serialize(source.CaptureManifest(original))
+            .Replace(key, "addin:aiChat", StringComparison.Ordinal))!;
+        legacy.Topology.Should().NotBeNull();
+
+        var (restored, _) = CreateFactory(legacy);
+        var root = restored.CreateLayout();
+        restored.InitLayout(root);
+        var newTools = new HexIDE.Addins.AddinToolWindowService();
+        using var replacement = newTools.ForOwner("com.hexide.aichat").Register("aiChat", "AI Chat", null, () => new object());
+        restored.RegisterAddinTool(root, newTools.Tools.Single());
+        restored.SkippedTools.Should().BeEmpty();
+        var captured = restored.CaptureManifest(root);
+        captured.Tools.Single(t => t.Key == key).Open.Should().Be(open);
+        if (!open) restored.PlaceTool(root, newTools.Tools.Single(), true);
+        captured = restored.CaptureManifest(root);
+        captured.Tools.Single(t => t.Key == key).Region.Should().Be(region);
+        LayoutManifestJson.Serialize(captured).Should().NotContain("\"addin:aiChat\"");
+    }
+
+    [Fact]
+    public void RestoreAddinWindow_UsesToolKeys_AndDefersMissingWindow()
+    {
+        var manifest = LayoutManifestJson.Deserialize("""
+            {"version":2,"leftProportion":0.1,"rightProportion":0.2,"tools":[
+              {"key":"addin:addin:5:owner:output","open":true,"region":"bottom","order":0,"proportion":0.4},
+              {"key":"addin:addin:6:absent:output","open":true,"region":"right","order":0}
+            ]}
+            """)!;
+        var (factory, _) = CreateFactory(manifest);
+        var tools = new HexIDE.Addins.AddinToolWindowService();
+        using var first = tools.ForOwner("owner").Register("output", "Owner", null, () => new object());
+        using var second = tools.ForOwner("other").Register("output", "Other", null, () => new object());
+
+        var root = factory.CreateLayout();
+        factory.InitLayout(root);
+        foreach (var tool in tools.Tools) factory.RegisterAddinTool(root, tool);
+        factory.CloseDockable(tools.Tools[1]);
+        var captured = factory.CaptureManifest(root);
+        captured.Tools.Single(t => t.Key == "addin:addin:5:owner:output").Should().Be(manifest.Tools[0]);
+        captured.Tools.Single(t => t.Key == "addin:addin:5:other:output").Open.Should().BeFalse();
+        factory.SkippedTools.Should().Equal(manifest.Tools[1]);
+        captured.Tools.Should().Contain(manifest.Tools[1]);
+    }
+
+    [Fact]
+    public void ProtocolInspector_IsIncludedInCapturedLayouts()
+    {
+        var (factory, _) = CreateFactory();
+        var root = factory.CreateLayout();
+        factory.CaptureManifest(root).Tools.Should().Contain(t => t.Key == "protocolInspector" && !t.Open);
+    }
+
+    [Theory]
+    [InlineData(DockRegion.Left, "toolbox")]
+    [InlineData(DockRegion.Document, "objectBrowser")]
+    public void CaptureManifest_PreservesToolOrderWithinTabGroups(DockRegion region, string builtIn)
+    {
+        var manifest = LayoutManifest.Default with
+        {
+            Tools = new[]
+            {
+                new ToolLayoutState("addin:a", true, region, 2, null),
+                new ToolLayoutState(builtIn, true, region, 1, null),
+                new ToolLayoutState("addin:b", true, region, 0, null),
+            },
+        };
+        var (factory, _) = CreateFactory(manifest);
+        var tools = new HexIDE.Addins.AddinToolWindowService();
+        using var a = tools.Register("a", "A", null, () => new object());
+        using var b = tools.Register("b", "B", null, () => new object());
+        var root = factory.CreateLayout();
+        factory.InitLayout(root);
+
+        foreach (var tool in tools.Tools) factory.RegisterAddinTool(root, tool);
+        var captured = factory.CaptureManifest(root);
+        captured.Tools.Single(t => t.Key == builtIn).Order.Should().Be(1);
+        captured.Tools.Single(t => t.Key == "addin:a").Order.Should().Be(2);
+        captured.Tools.Single(t => t.Key == "addin:b").Order.Should().Be(0);
+        var restored = factory.ApplyLayout(captured);
+        factory.InitLayout(restored);
+        factory.CaptureManifest(restored).Tools.Should().Equal(captured.Tools);
+    }
+
 
     [Theory]
     [InlineData(false)]

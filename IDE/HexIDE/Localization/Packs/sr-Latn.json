@@ -1114,6 +1114,16 @@
     "Str.Menu.View.Outline": "Struktura",
     "Str.Menu.View.RecentEdits": "Nedavne izmene",
     "Str.CodeEditor.Context.FindReferences": "Prona_đi reference",
-    "Str.CodeEditor.Context.NoQuickFix": "_Nije ponuđena primenljiva ispravka."
+    "Str.CodeEditor.Context.NoQuickFix": "_Nije ponuđena primenljiva ispravka.",
+    "Str.Layout.Layouts": "Rasporedi _panela",
+    "Str.Layout.Save": "_Sačuvaj raspored kao…",
+    "Str.Layout.FullEditor": "_Ceo uređivač",
+    "Str.Layout.Switch": "_Prebaci",
+    "Str.Layout.Rename": "_Preimenuj…",
+    "Str.Layout.Delete": "_Izbriši",
+    "Str.Layout.NamePrompt": "Naziv rasporeda:",
+    "Str.Layout.InvalidName": "Unesite jedinstven naziv rasporeda koji nije prazan.",
+    "Str.Layout.Skipped": "Nedostupni prozori dodataka su preskočeni: {0}",
+    "Str.Layout.SaveFailed": "Rasporedi panela nisu mogli da se sačuvaju."
   }
 }

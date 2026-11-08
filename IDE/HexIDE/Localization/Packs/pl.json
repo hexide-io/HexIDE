@@ -1114,6 +1114,16 @@
     "Str.Menu.View.Outline": "Konspekt",
     "Str.Menu.View.RecentEdits": "Ostatnie ed_ycje",
     "Str.CodeEditor.Context.FindReferences": "Znajdź odwołania",
-    "Str.CodeEditor.Context.NoQuickFix": "_Nie dostarczono odpowiedniej poprawki."
+    "Str.CodeEditor.Context.NoQuickFix": "_Nie dostarczono odpowiedniej poprawki.",
+    "Str.Layout.Layouts": "_Układy paneli",
+    "Str.Layout.Save": "_Zapisz układ jako…",
+    "Str.Layout.FullEditor": "_Pełny edytor",
+    "Str.Layout.Switch": "_Przełącz",
+    "Str.Layout.Rename": "Zmień _nazwę…",
+    "Str.Layout.Delete": "_Usuń",
+    "Str.Layout.NamePrompt": "Nazwa układu:",
+    "Str.Layout.InvalidName": "Wprowadź unikatową, niepustą nazwę układu.",
+    "Str.Layout.Skipped": "Pominięto niedostępne okna dodatków: {0}",
+    "Str.Layout.SaveFailed": "Nie można zapisać układów paneli."
   }
 }

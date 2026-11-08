@@ -1114,6 +1114,16 @@
     "Str.Menu.View.Outline": "Over_zicht",
     "Str.Menu.View.RecentEdits": "Recente bewerkingen",
     "Str.CodeEditor.Context.FindReferences": "Verwijzingen _zoeken",
-    "Str.CodeEditor.Context.NoQuickFix": "_Er is geen toepasbare oplossing geleverd."
+    "Str.CodeEditor.Context.NoQuickFix": "_Er is geen toepasbare oplossing geleverd.",
+    "Str.Layout.Layouts": "_Paneelindelingen",
+    "Str.Layout.Save": "Indeling _opslaan als…",
+    "Str.Layout.FullEditor": "_Volledige editor",
+    "Str.Layout.Switch": "_Wisselen",
+    "Str.Layout.Rename": "_Naam wijzigen…",
+    "Str.Layout.Delete": "_Verwijderen",
+    "Str.Layout.NamePrompt": "Naam van indeling:",
+    "Str.Layout.InvalidName": "Voer een unieke, niet-lege naam voor de indeling in.",
+    "Str.Layout.Skipped": "Niet-beschikbare invoegtoepassingsvensters zijn overgeslagen: {0}",
+    "Str.Layout.SaveFailed": "De paneelindelingen konden niet worden opgeslagen."
   }
 }

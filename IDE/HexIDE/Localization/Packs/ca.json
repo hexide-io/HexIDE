@@ -1114,6 +1114,16 @@
     "Str.Menu.View.Outline": "Estr_uctura",
     "Str.Menu.View.RecentEdits": "Edicions recents",
     "Str.CodeEditor.Context.FindReferences": "Cerca refer_ències",
-    "Str.CodeEditor.Context.NoQuickFix": "_No s’ha proporcionat cap correcció aplicable."
+    "Str.CodeEditor.Context.NoQuickFix": "_No s’ha proporcionat cap correcció aplicable.",
+    "Str.Layout.Layouts": "Disposicions dels _panells",
+    "Str.Layout.Save": "_Desa la disposició com a…",
+    "Str.Layout.FullEditor": "Editor _complet",
+    "Str.Layout.Switch": "_Canvia",
+    "Str.Layout.Rename": "Canvia el _nom…",
+    "Str.Layout.Delete": "_Suprimeix",
+    "Str.Layout.NamePrompt": "Nom de la disposició:",
+    "Str.Layout.InvalidName": "Introduïu un nom de disposició únic i no buit.",
+    "Str.Layout.Skipped": "S’han omès les finestres de complements no disponibles: {0}",
+    "Str.Layout.SaveFailed": "No s’han pogut desar les disposicions dels panells."
   }
 }

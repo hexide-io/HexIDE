@@ -1114,6 +1114,16 @@
     "Str.Menu.View.Outline": "アウトライン(_U)",
     "Str.Menu.View.RecentEdits": "最近の編集",
     "Str.CodeEditor.Context.FindReferences": "参照の検索",
-    "Str.CodeEditor.Context.NoQuickFix": "適用可能な修正がありません。(_N)"
+"Str.CodeEditor.Context.NoQuickFix": "適用可能な修正がありません。(_N)",
+    "Str.Layout.Layouts": "パネルレイアウト(_P)",
+    "Str.Layout.Save": "名前を付けてレイアウトを保存…(_S)",
+    "Str.Layout.FullEditor": "エディター全体(_F)",
+    "Str.Layout.Switch": "切り替え(_S)",
+    "Str.Layout.Rename": "名前の変更…(_R)",
+    "Str.Layout.Delete": "削除(_D)",
+    "Str.Layout.NamePrompt": "レイアウト名:",
+    "Str.Layout.InvalidName": "重複しない空でないレイアウト名を入力してください。",
+    "Str.Layout.Skipped": "利用できないアドインのウィンドウはスキップされました: {0}",
+    "Str.Layout.SaveFailed": "パネルレイアウトを保存できませんでした。"
   }
 }

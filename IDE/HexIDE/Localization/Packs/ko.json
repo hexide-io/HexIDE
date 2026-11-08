@@ -1114,6 +1114,16 @@
     "Str.Menu.View.Outline": "개요",
     "Str.Menu.View.RecentEdits": "최근 편집",
     "Str.CodeEditor.Context.FindReferences": "참조 찾기",
-    "Str.CodeEditor.Context.NoQuickFix": "적용 가능한 수정이 제공되지 않았습니다."
+    "Str.CodeEditor.Context.NoQuickFix": "적용 가능한 수정이 제공되지 않았습니다.",
+    "Str.Layout.Layouts": "패널 레이아웃",
+    "Str.Layout.Save": "다른 이름으로 레이아웃 저장…",
+    "Str.Layout.FullEditor": "전체 편집기",
+    "Str.Layout.Switch": "전환",
+    "Str.Layout.Rename": "이름 바꾸기…",
+    "Str.Layout.Delete": "삭제",
+    "Str.Layout.NamePrompt": "레이아웃 이름:",
+    "Str.Layout.InvalidName": "고유하고 비어 있지 않은 레이아웃 이름을 입력하세요.",
+    "Str.Layout.Skipped": "사용할 수 없는 추가 기능 창을 건너뛰었습니다: {0}",
+    "Str.Layout.SaveFailed": "패널 레이아웃을 저장할 수 없습니다."
   }
 }

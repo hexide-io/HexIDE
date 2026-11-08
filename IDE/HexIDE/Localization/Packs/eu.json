@@ -1114,6 +1114,16 @@
     "Str.Menu.View.Outline": "Eskema",
     "Str.Menu.View.RecentEdits": "Azken edizioak",
     "Str.CodeEditor.Context.FindReferences": "Bilatu erreferentziak",
-    "Str.CodeEditor.Context.NoQuickFix": "_Ez da zuzenketa aplikagarririk eman."
+    "Str.CodeEditor.Context.NoQuickFix": "_Ez da zuzenketa aplikagarririk eman.",
+    "Str.Layout.Layouts": "_Panelen diseinuak",
+    "Str.Layout.Save": "_Gorde diseinua honela…",
+    "Str.Layout.FullEditor": "Editore _osoa",
+    "Str.Layout.Switch": "_Aldatu",
+    "Str.Layout.Rename": "Aldatu _izena…",
+    "Str.Layout.Delete": "_Ezabatu",
+    "Str.Layout.NamePrompt": "Diseinuaren izena:",
+    "Str.Layout.InvalidName": "Idatzi diseinuaren izen bakarra eta ez-hutsa.",
+    "Str.Layout.Skipped": "Erabilgarri ez dauden gehigarrien leihoak saltatu dira: {0}",
+    "Str.Layout.SaveFailed": "Ezin izan dira panelen diseinuak gorde."
   }
 }

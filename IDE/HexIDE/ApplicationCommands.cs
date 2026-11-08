@@ -96,15 +96,15 @@ public class ApplicationCommands
     public static readonly RoutedCommand ProjectPropertiesCommand = new RoutedCommand(nameof(ProjectPropertiesCommand));
 
     public static readonly RoutedCommand StepIntoCommand = new RoutedCommand(nameof(StepIntoCommand), new KeyGesture(Key.F8));
-    public static readonly RoutedCommand StepOverCommand = new RoutedCommand(nameof(StepOverCommand));
-    public static readonly RoutedCommand StepOutCommand = new RoutedCommand(nameof(StepOutCommand));
-    public static readonly RoutedCommand RunToCursorCommand = new RoutedCommand(nameof(RunToCursorCommand));
+    public static readonly RoutedCommand StepOverCommand = new RoutedCommand(nameof(StepOverCommand), new KeyGesture(Key.F8, KeyModifiers.Shift));
+    public static readonly RoutedCommand StepOutCommand = new RoutedCommand(nameof(StepOutCommand), new KeyGesture(Key.F8, GetPlatformCommandKey() | KeyModifiers.Shift));
+    public static readonly RoutedCommand RunToCursorCommand = new RoutedCommand(nameof(RunToCursorCommand), new KeyGesture(Key.F8, GetPlatformCommandKey()));
     public static readonly RoutedCommand AddWatchCommand = new RoutedCommand(nameof(AddWatchCommand));
     public static readonly RoutedCommand EditWatchCommand = new RoutedCommand(nameof(EditWatchCommand));
-    public static readonly RoutedCommand QuickWatchCommand = new RoutedCommand(nameof(QuickWatchCommand));
+    public static readonly RoutedCommand QuickWatchCommand = new RoutedCommand(nameof(QuickWatchCommand), new KeyGesture(Key.F9, KeyModifiers.Shift));
     public static readonly RoutedCommand ToggleBreakpointCommand = new RoutedCommand(nameof(ToggleBreakpointCommand), new KeyGesture(Key.F9));
     public static readonly RoutedCommand ClearAllBreakpointsCommand = new RoutedCommand(nameof(ClearAllBreakpointsCommand), new KeyGesture(Key.F9, GetPlatformCommandKey() | KeyModifiers.Shift));
-    public static readonly RoutedCommand SetNextStatementCommand = new RoutedCommand(nameof(SetNextStatementCommand));
+    public static readonly RoutedCommand SetNextStatementCommand = new RoutedCommand(nameof(SetNextStatementCommand), new KeyGesture(Key.F9, GetPlatformCommandKey()));
     public static readonly RoutedCommand ShowNextStatementCommand = new RoutedCommand(nameof(ShowNextStatementCommand));
 
     public static readonly RoutedCommand CenterHorizontallyCommand = new RoutedCommand(nameof(CenterHorizontallyCommand));

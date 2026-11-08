@@ -13,20 +13,22 @@ public class MenuGestureTests
     [InlineData("StepOverCommand")]
     [InlineData("StepOutCommand")]
     [InlineData("RunToCursorCommand")]
+    [InlineData("GoToDeclarationCommand")]
     public void Existing_items_follow_keymap_switches_in_both_directions(string name)
     {
         RuntimeHelpers.RunClassConstructor(typeof(MenuUtils).TypeHandle);
         var service = new KeymapService();
         var command = CommandKeyMapping.Table[name];
         service.Apply("Default");
+        var factoryGesture = command.Gestures.FirstOrDefault();
         var item = new MenuItem { Command = command };
-        item.InputGesture.Should().BeNull();
+        item.InputGesture.Should().Be(factoryGesture);
         try
         {
             service.Apply("VB6");
             item.InputGesture.Should().Be(command.Gestures[0]);
             service.Apply("Default");
-            item.InputGesture.Should().BeNull();
+            item.InputGesture.Should().Be(factoryGesture);
         }
         finally { service.Apply("Default"); }
     }

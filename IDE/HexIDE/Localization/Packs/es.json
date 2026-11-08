@@ -1114,6 +1114,16 @@
     "Str.Menu.View.Outline": "Es_quema",
     "Str.Menu.View.RecentEdits": "Ediciones recientes",
     "Str.CodeEditor.Context.FindReferences": "Buscar referencias",
-    "Str.CodeEditor.Context.NoQuickFix": "_No se proporcionó ninguna corrección aplicable."
+    "Str.CodeEditor.Context.NoQuickFix": "_No se proporcionó ninguna corrección aplicable.",
+    "Str.Layout.Layouts": "_Diseños de paneles",
+    "Str.Layout.Save": "_Guardar diseño como…",
+    "Str.Layout.FullEditor": "_Editor completo",
+    "Str.Layout.Switch": "_Cambiar",
+    "Str.Layout.Rename": "_Cambiar nombre…",
+    "Str.Layout.Delete": "_Eliminar",
+    "Str.Layout.NamePrompt": "Nombre del diseño:",
+    "Str.Layout.InvalidName": "Escriba un nombre de diseño único y no vacío.",
+    "Str.Layout.Skipped": "Se omitieron las ventanas de complementos no disponibles: {0}",
+    "Str.Layout.SaveFailed": "No se pudieron guardar los diseños de paneles."
   }
 }

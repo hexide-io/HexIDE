@@ -22,6 +22,9 @@ public sealed class AddinLanguageServerTests : IDisposable
     private readonly AddinDiagnosticsService _diagnostics;
     private readonly IAddinRegistry _addins = Substitute.For<IAddinRegistry>();
     private readonly HexIdeHost _host;
+    private readonly HexIDE.Debugging.DebugLaunchService _launches = new(
+        new HexIDE.Debugging.ExternalDebugService(new HexIDE.Conversations.ConversationLog()));
+    private readonly HexIDE.Projects.ContributedProjects _types = new();
 
     public AddinLanguageServerTests()
     {
@@ -37,8 +40,7 @@ public sealed class AddinLanguageServerTests : IDisposable
             new LanguageServerContributions(_router, new LanguageServerRegistrationFactory(NullLoggerFactory.Instance),
                 new LanguageServerConfigLoader(NullLogger<LanguageServerConfigLoader>.Instance),
                 new HashSet<string>(StringComparer.Ordinal), NullLogger<LanguageServerContributions>.Instance),
-            new HexIDE.Debugging.DebugLaunchService(new HexIDE.Debugging.ExternalDebugService(new HexIDE.Conversations.ConversationLog())),
-            new HexIDE.Projects.ContributedProjects());
+            _launches, _types);
     }
 
     public void Dispose()
@@ -65,6 +67,30 @@ public sealed class AddinLanguageServerTests : IDisposable
         using var connection = _host.RegisterLanguageServer(Probe());
 
         _router.Connections.Should().ContainSingle().Which.Origin.Should().Be(typeof(AddinLanguageServerTests).Assembly.GetName().Name);
+    }
+
+    [Fact]
+    public void OwnedHost_KeepsTheManifestOriginForEveryNewContribution()
+    {
+        var tools = new AddinToolWindowService();
+        var owned = new AddinOwnedHost(_host, tools.ForOwner("com.example.owner"),
+            new AddinOrigin("com.example.owner", "Owner Add-in"));
+        using var connection = owned.RegisterLanguageServer(Probe());
+        using var launch = owned.RegisterDebugLaunch(new AddinDebugLaunch("Fixture")
+        {
+            CreateConfigurationAsync = (_, _) => throw new NotSupportedException(),
+        });
+        using var type = owned.RegisterProjectType(new AddinProjectType("Fixture")
+        {
+            FileNames = ["*.fixture"],
+            OpenAsync = (_, _, _) => throw new NotSupportedException(),
+        });
+
+        _router.Connections.Should().ContainSingle().Which.Origin.Should().Be("Owner Add-in");
+        _launches.Launches.Should().ContainSingle().Which.Key.Should().Be("com.example.owner/Fixture");
+        _launches.Launches.Single().Origin.Should().Be("Owner Add-in");
+        _types.Types.Should().ContainSingle().Which.AddinId.Should().Be("com.example.owner");
+        _types.Types.Single().Origin.Should().Be("Owner Add-in");
     }
 
     // An assembly loaded as an add-in's: the DAP test adapter, which nothing shares with the host. From its bytes, so no
@@ -105,9 +131,9 @@ public sealed class AddinLanguageServerTests : IDisposable
             new ConsentStore(Path.Combine(_root, "consent.json")),
             new RevocationStore(null, Path.Combine(_root, "revocations")), Path.Combine(_root, "state.json"), _root);
         var addin = Substitute.For<IAddin>();
-        addin.When(a => a.Initialize(_host)).Do(_ =>
+        addin.When(a => a.Initialize(Arg.Any<IHexIdeHost>())).Do(call =>
         {
-            _host.RegisterLanguageServer(Probe());
+            call.Arg<IHexIdeHost>().RegisterLanguageServer(Probe());
             throw new InvalidOperationException("initialisation failed");
         });
         var ctx = new AddinContext(new AddinInfo("failed", "Failed", "", "", ""));

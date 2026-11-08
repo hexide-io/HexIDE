@@ -1114,6 +1114,16 @@
     "Str.Menu.View.Outline": "V_ázlat",
     "Str.Menu.View.RecentEdits": "Legut_óbbi szerkesztések",
     "Str.CodeEditor.Context.FindReferences": "Hiv_atkozások keresése",
-    "Str.CodeEditor.Context.NoQuickFix": "_Nincs alkalmazható javítás."
+    "Str.CodeEditor.Context.NoQuickFix": "_Nincs alkalmazható javítás.",
+    "Str.Layout.Layouts": "_Panelelrendezések",
+    "Str.Layout.Save": "Elrendezés _mentése másként…",
+    "Str.Layout.FullEditor": "_Teljes szerkesztő",
+    "Str.Layout.Switch": "_Váltás",
+    "Str.Layout.Rename": "Át_nevezés…",
+    "Str.Layout.Delete": "_Törlés",
+    "Str.Layout.NamePrompt": "Elrendezés neve:",
+    "Str.Layout.InvalidName": "Adjon meg egyedi, nem üres elrendezésnevet.",
+    "Str.Layout.Skipped": "A nem elérhető bővítményablakok kimaradtak: {0}",
+    "Str.Layout.SaveFailed": "A panelelrendezéseket nem sikerült menteni."
   }
 }

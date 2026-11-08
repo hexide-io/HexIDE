@@ -1114,6 +1114,16 @@
     "Str.Menu.View.Outline": "大綱(_U)",
     "Str.Menu.View.RecentEdits": "最近編輯",
     "Str.CodeEditor.Context.FindReferences": "尋找參照",
-    "Str.CodeEditor.Context.NoQuickFix": "未提供適用的修正。(_N)"
+"Str.CodeEditor.Context.NoQuickFix": "未提供適用的修正。(_N)",
+    "Str.Layout.Layouts": "面板配置(_P)",
+    "Str.Layout.Save": "另存配置為…(_S)",
+    "Str.Layout.FullEditor": "完整編輯器(_F)",
+    "Str.Layout.Switch": "切換(_S)",
+    "Str.Layout.Rename": "重新命名…(_R)",
+    "Str.Layout.Delete": "刪除(_D)",
+    "Str.Layout.NamePrompt": "配置名稱：",
+    "Str.Layout.InvalidName": "請輸入唯一且非空的配置名稱。",
+    "Str.Layout.Skipped": "已略過無法使用的增益集視窗：{0}",
+    "Str.Layout.SaveFailed": "無法儲存面板配置。"
   }
 }

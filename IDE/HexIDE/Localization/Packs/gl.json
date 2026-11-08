@@ -1114,6 +1114,16 @@
     "Str.Menu.View.Outline": "Estr_utura",
     "Str.Menu.View.RecentEdits": "Edicións recentes",
     "Str.CodeEditor.Context.FindReferences": "Buscar referencias",
-    "Str.CodeEditor.Context.NoQuickFix": "_Non se forneceu ningunha corrección aplicable."
+    "Str.CodeEditor.Context.NoQuickFix": "_Non se forneceu ningunha corrección aplicable.",
+    "Str.Layout.Layouts": "Disposicións dos _paneis",
+    "Str.Layout.Save": "_Gardar disposición como…",
+    "Str.Layout.FullEditor": "Editor _completo",
+    "Str.Layout.Switch": "_Cambiar",
+    "Str.Layout.Rename": "_Renomear…",
+    "Str.Layout.Delete": "_Eliminar",
+    "Str.Layout.NamePrompt": "Nome da disposición:",
+    "Str.Layout.InvalidName": "Introduza un nome de disposición único e non baleiro.",
+    "Str.Layout.Skipped": "Omitíronse as xanelas de complementos non dispoñibles: {0}",
+    "Str.Layout.SaveFailed": "Non se puideron gardar as disposicións dos paneis."
   }
 }

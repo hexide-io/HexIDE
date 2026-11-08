@@ -1114,6 +1114,16 @@
     "Str.Menu.View.Outline": "大纲(_U)",
     "Str.Menu.View.RecentEdits": "最近编辑",
     "Str.CodeEditor.Context.FindReferences": "查找引用",
-    "Str.CodeEditor.Context.NoQuickFix": "未提供适用的修复。(_N)"
+"Str.CodeEditor.Context.NoQuickFix": "未提供适用的修复。(_N)",
+    "Str.Layout.Layouts": "面板布局(_P)",
+    "Str.Layout.Save": "将布局另存为…(_S)",
+    "Str.Layout.FullEditor": "完整编辑器(_F)",
+    "Str.Layout.Switch": "切换(_S)",
+    "Str.Layout.Rename": "重命名…(_R)",
+    "Str.Layout.Delete": "删除(_D)",
+    "Str.Layout.NamePrompt": "布局名称：",
+    "Str.Layout.InvalidName": "请输入唯一且非空的布局名称。",
+    "Str.Layout.Skipped": "已跳过不可用的加载项窗口：{0}",
+    "Str.Layout.SaveFailed": "无法保存面板布局。"
   }
 }
