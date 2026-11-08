@@ -47,7 +47,7 @@
     "ToggleBreakpointCommand":                 "F9",
     "ClearAllBreakpointsCommand":              "Ctrl+Shift+F9",
     "QuickWatchCommand":                       "Shift+F9",
-    "EditWatchCommand":                        "Ctrl+W",
+    "EditWatchCommand":                        "",
     "RestartProjectCommand":                   "Shift+F5",
     "RunWithVb6Command":                       "Alt+F5",
     "BringToFrontCommand":                     "Ctrl+J",

@@ -59,6 +59,8 @@ impractical. Live rebinding also means a conflict is discovered immediately rath
 
 ### Requirement: The default keymap SHALL require no pack
 The IDE SHALL have a working set of shortcuts with no keymap file loaded.
+Every binding documented in `Default.json` SHALL match the declared factory gesture, accounting for
+the platform command modifier and the existing macOS Replace and Toggle Fold exceptions.
 
 The bindings declared alongside the commands are the baseline, and treating that baseline as a pack would
 mean a missing or malformed file could leave the IDE with no shortcuts at all. Keeping it as the state where
@@ -67,6 +69,12 @@ nothing has been applied makes the failure mode benign.
 #### Scenario: No keymap selected
 - **WHEN** no keymap pack is applied
 - **THEN** the IDE's built-in shortcuts are in force
+
+#### Scenario: Default debug shortcuts
+- **WHEN** Default is in force
+- **THEN** Step Over uses Shift+F8, Step Out uses the platform command modifier plus Shift+F8,
+  Run to Cursor uses the platform command modifier plus F8, Quick Watch uses Shift+F9,
+  and Set Next Statement uses the platform command modifier plus F9
 
 ### Requirement: A VB6 keymap SHALL be available
 A keymap reproducing VB6's shortcuts SHALL ship.

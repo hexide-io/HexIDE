@@ -1,7 +1,10 @@
 using System.Reflection;
+using System.Text.Json;
 using Avalonia.Labs.Input;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
+using Avalonia.Platform;
+using AwesomeAssertions.Execution;
 using HexIDE.Forms.ViewModels.Options;
 using HexIDE.IDE;
 using HexIDE.Keymaps;
@@ -15,6 +18,32 @@ public sealed class KeymapServiceTests : IDisposable
         .ToDictionary(pair => pair.Key, pair => pair.Value.Gestures.ToArray());
 
     public KeymapServiceTests() => Directory.CreateDirectory(_directory);
+
+    [AvaloniaFact]
+    public void DefaultPackDocumentsEveryDeclaredBinding()
+    {
+        using var stream = AssetLoader.Open(new Uri("avares://HexIDE/Keymaps/Packs/Default.json"));
+        var pack = JsonSerializer.Deserialize(stream, KeymapJsonContext.Default.KeymapPackRecord)!;
+        pack.Bindings.Should().NotBeNull().And.NotBeEmpty();
+        using var scope = new AssertionScope();
+        foreach (var (name, text) in pack.Bindings!)
+        {
+            CommandKeyMapping.Table.Should().ContainKey(name);
+            var expected = string.IsNullOrEmpty(text) ? [] : new[] { KeyGesture.Parse(text) };
+            if (OperatingSystem.IsMacOS())
+            {
+                expected = expected.Select(gesture => new KeyGesture(gesture.Key,
+                    gesture.KeyModifiers.HasFlag(KeyModifiers.Control)
+                        ? (gesture.KeyModifiers & ~KeyModifiers.Control) | KeyModifiers.Meta
+                        : gesture.KeyModifiers)).ToArray();
+                if (name == nameof(ApplicationCommands.ReplaceCommand))
+                    expected = [new KeyGesture(Key.F, KeyModifiers.Meta | KeyModifiers.Alt)];
+                if (name == nameof(ApplicationCommands.ToggleFoldCommand))
+                    expected = [];
+            }
+            CommandKeyMapping.Table[name].Gestures.Should().Equal(expected, "{0} must match Default.json", name);
+        }
+    }
 
     [Fact]
     public void CommandTableMatchesEveryRoutedCommandByNameAndInstance()
