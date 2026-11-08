@@ -5,6 +5,19 @@ namespace HexIDE.Tests;
 public class ApplicationCommandsTests
 {
     [Fact]
+    public void GoToDefinitionUsesShiftF2()
+    {
+        ApplicationCommands.GoToDefinitionCommand.Gestures.Should()
+            .Equal(new KeyGesture(Key.F2, KeyModifiers.Shift));
+    }
+
+    [Fact]
+    public void PreviousBookmarkHasNoDefaultGesture()
+    {
+        ApplicationCommands.PreviousBookmarkCommand.Gestures.Should().BeEmpty();
+    }
+
+    [Fact]
     public void ToggleFoldIsUnboundOnMacOS()
     {
         ApplicationCommands.GetToggleFoldKeyGestures(isMacOS: true).Should().BeEmpty();

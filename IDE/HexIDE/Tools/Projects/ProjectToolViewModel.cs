@@ -82,6 +82,9 @@ public partial class ProjectToolViewModel : Tool
     public DelegateCommand SaveFormAsCommand { get; }
 
     public DelegateCommand AddFormCommand { get; }
+    public DelegateCommand AddModuleCommand { get; }
+    public DelegateCommand AddClassModuleCommand { get; }
+    public DelegateCommand AddUserControlCommand { get; }
     public DelegateCommand SynchronizeArchiveFolderCommand { get; }
 
     private ProjectViewModel? GetSelectedProject()
@@ -156,6 +159,12 @@ public partial class ProjectToolViewModel : Tool
         }, () => SelectedForm != null);
         AddFormCommand = new DelegateCommand(() => AddFormAsync(GetSelectedProject()!.Definition).ListenErrors(),
             () => GetSelectedProject() is { Definition.ContributedBy: null });
+        AddModuleCommand = new DelegateCommand(() => AddModuleAsync(GetSelectedProject()!.Definition, ModuleKind.StandardModule).ListenErrors(),
+            () => GetSelectedProject() is { Definition.ContributedBy: null });
+        AddClassModuleCommand = new DelegateCommand(() => AddModuleAsync(GetSelectedProject()!.Definition, ModuleKind.ClassModule).ListenErrors(),
+            () => GetSelectedProject() is { Definition.ContributedBy: null });
+        AddUserControlCommand = new DelegateCommand(() => AddUserControlAsync(GetSelectedProject()!.Definition).ListenErrors(),
+            () => GetSelectedProject() is { Definition.ContributedBy: null });
 
         projectManager.ProjectLoaded += OnProjectLoaded;
         projectManager.ProjectUnloaded += OnProjectUnloaded;
@@ -212,6 +221,9 @@ public partial class ProjectToolViewModel : Tool
         ViewCodeCommand.RaiseCanExecutedChanged();
         FormPropertiesCommand.RaiseCanExecutedChanged();
         AddFormCommand.RaiseCanExecutedChanged();
+        AddModuleCommand.RaiseCanExecutedChanged();
+        AddClassModuleCommand.RaiseCanExecutedChanged();
+        AddUserControlCommand.RaiseCanExecutedChanged();
         SynchronizeArchiveFolderCommand.RaiseCanExecutedChanged();
     }
 
@@ -295,6 +307,18 @@ public partial class ProjectToolViewModel : Tool
     {
         var form = await projectService.AddNewForm(project, projectService.NextFreeFormName(project));
         editorService.EditForm(form);
+    }
+
+    private async Task AddModuleAsync(ProjectDefinition project, ModuleKind kind)
+    {
+        var module = await projectService.AddNewModule(project, projectService.NextFreeModuleName(project, kind), kind);
+        editorService.EditCode(module);
+    }
+
+    private async Task AddUserControlAsync(ProjectDefinition project)
+    {
+        var module = await projectService.AddNewUserControl(project, projectService.NextFreeModuleName(project, ModuleKind.UserControl));
+        editorService.EditForm(module.FormPart);
     }
 
     public async Task SynchronizeArchiveFolder()

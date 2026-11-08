@@ -43,7 +43,7 @@ public class WriteAtSaveTests : IDisposable
         projectManager.LoadedProjects.Returns(_ => loaded);
         // Every picker is answered with the chosen folder and the name it suggests, as a developer accepting
         // each suggestion there would.
-        windowManager.SaveFilePickerAsync(Arg.Any<Avalonia.Platform.Storage.FilePickerSaveOptions>())
+        windowManager.SaveFilePickerAsync(Arg.Any<Avalonia.Platform.Storage.FilePickerSaveOptions>(), Arg.Any<string?>())
             .Returns(ci => Task.FromResult<string?>(
                 Path.Join(dir, ci.Arg<Avalonia.Platform.Storage.FilePickerSaveOptions>().SuggestedFileName)));
         var sidecar = Substitute.For<IUserSidecarService>();
@@ -80,6 +80,60 @@ public class WriteAtSaveTests : IDisposable
             "UserControl" => svc.AddNewUserControl(project, name, interactive: false).ContinueWith(t => DocumentIdentity.For(t.Result)),
             _ => svc.AddNewPropertyPage(project, name, interactive: false).ContinueWith(t => DocumentIdentity.For(t.Result)),
         };
+
+    // Measured in #498 and the oracle's when-a-document-gets-a-file-and-what-a-dangling-startup-does page.
+    [Theory]
+    [InlineData("Form")]
+    [InlineData("Module")]
+    public async Task PathlessMemberPickerStartsInItsSavedProjectsFolder(string kind)
+    {
+        var svc = MakeService();
+        var project = Unsaved();
+        project.AbsolutePath = Path.Join(dir, "Project1.vbp");
+        await AddNew(svc, project, kind, "NewMember");
+
+        await svc.SaveProject(project, saveAs: false);
+
+        await windowManager.Received(1).SaveFilePickerAsync(
+            Arg.Is<Avalonia.Platform.Storage.FilePickerSaveOptions>(o => o.SuggestedFileName == "NewMember." + (kind == "Form" ? "frm" : "bas")),
+            dir);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task UnsavedProjectCarriesOnlyThisSavesPreviousPickerDirectory(bool scratch)
+    {
+        var svc = MakeService();
+        var project = Unsaved();
+        await svc.AddNewForm(project, "Form1", interactive: false);
+        await svc.AddNewModule(project, "Module1", ModuleKind.StandardModule, interactive: false);
+        if (scratch)
+        {
+            project.WorkingDirectory = Path.Join(dir, "scratch");
+            project.AbsolutePath = Path.Join(project.WorkingDirectory, "Project1.vbp");
+        }
+        var nextDirectory = Path.Join(dir, "next");
+        Directory.CreateDirectory(nextDirectory);
+        var calls = new List<(string? Name, string? Directory)>();
+        windowManager.SaveFilePickerAsync(Arg.Any<Avalonia.Platform.Storage.FilePickerSaveOptions>(), Arg.Any<string?>())
+            .Returns(ci =>
+            {
+                var name = ci.Arg<Avalonia.Platform.Storage.FilePickerSaveOptions>().SuggestedFileName;
+                calls.Add((name, ci.ArgAt<string?>(1)));
+                return Task.FromResult<string?>(Path.Join(name == "Module1.bas" ? nextDirectory : dir, name));
+            });
+
+        await svc.SaveProject(project, saveAs: false);
+
+        calls.Should().Equal(("Form1.frm", null), ("Module1.bas", dir), ("Project1.vbp", nextDirectory));
+        project.WorkingDirectory.Should().Be(scratch ? Path.Join(dir, "scratch") : null);
+        calls.Clear();
+        var second = Unsaved();
+        await svc.AddNewForm(second, "Form2", interactive: false);
+        await svc.SaveProject(second, saveAs: false);
+        calls[0].Should().Be(("Form2.frm", null));
+    }
 
     [Fact]
     public async Task SavingPreservesFilesAtOldStagingNames()
@@ -231,7 +285,7 @@ public class WriteAtSaveTests : IDisposable
         {
             await svc.SaveProjectToDirectory(project, scratch);
             var dialogs = new List<string>();
-            windowManager.SaveFilePickerAsync(Arg.Any<Avalonia.Platform.Storage.FilePickerSaveOptions>())
+            windowManager.SaveFilePickerAsync(Arg.Any<Avalonia.Platform.Storage.FilePickerSaveOptions>(), Arg.Any<string?>())
                 .Returns(ci =>
                 {
                     var name = ci.Arg<Avalonia.Platform.Storage.FilePickerSaveOptions>().SuggestedFileName!;
@@ -280,7 +334,7 @@ public class WriteAtSaveTests : IDisposable
             saved.Should().BeTrue();
             document.AbsolutePath.Should().Be(path);
             File.ReadAllText(path).ReplaceLineEndings("\n").Should().Contain(code.ReplaceLineEndings("\n"));
-            await windowManager.DidNotReceive().SaveFilePickerAsync(Arg.Any<Avalonia.Platform.Storage.FilePickerSaveOptions>());
+            await windowManager.DidNotReceive().SaveFilePickerAsync(Arg.Any<Avalonia.Platform.Storage.FilePickerSaveOptions>(), Arg.Any<string?>());
             Directory.GetFiles(dir).Should().BeEmpty();
             (document.Form is { } dirtyForm ? svc.HasUnsavedChanges(dirtyForm) : svc.HasUnsavedChanges(document.Module!))
                 .Should().BeTrue("persistence does not give a scratch member a user-chosen home");
@@ -324,7 +378,7 @@ public class WriteAtSaveTests : IDisposable
             form.UpdateCode("Private Sub Changed()\r\nEnd Sub\r\n");
             var original = Directory.GetFiles(scratch).ToDictionary(path => path, File.ReadAllBytes);
             var dialogs = new List<string>();
-            windowManager.SaveFilePickerAsync(Arg.Any<Avalonia.Platform.Storage.FilePickerSaveOptions>())
+            windowManager.SaveFilePickerAsync(Arg.Any<Avalonia.Platform.Storage.FilePickerSaveOptions>(), Arg.Any<string?>())
                 .Returns(ci =>
                 {
                     var name = ci.Arg<Avalonia.Platform.Storage.FilePickerSaveOptions>().SuggestedFileName!;

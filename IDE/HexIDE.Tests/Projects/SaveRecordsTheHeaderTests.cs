@@ -57,7 +57,7 @@ public class SaveRecordsTheHeaderTests : IDisposable
 
         // A member with no file asks where its first save goes: here, under the name it suggests.
         var windowManager = Substitute.For<IWindowManager>();
-        windowManager.SaveFilePickerAsync(Arg.Any<Avalonia.Platform.Storage.FilePickerSaveOptions>())
+        windowManager.SaveFilePickerAsync(Arg.Any<Avalonia.Platform.Storage.FilePickerSaveOptions>(), Arg.Any<string?>())
             .Returns(ci => Task.FromResult<string?>(
                 Path.Join(dir, ci.Arg<Avalonia.Platform.Storage.FilePickerSaveOptions>().SuggestedFileName)));
 

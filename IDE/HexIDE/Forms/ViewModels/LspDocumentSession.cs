@@ -60,7 +60,8 @@ internal sealed class LspDocumentSession : IDisposable
     private bool disposed;
 
     /// <param name="postToUiThread">
-    /// How to reach the UI thread. Defaults to the dispatcher, and is a parameter because the alternative
+    /// How to reach the UI thread. Defaults to the UI dispatcher as it is when the session is built, and is a
+    /// parameter because the alternative
     /// is a static call buried in a private method — which makes the thread affinity invisible to a reader
     /// and untestable without owning the dispatcher, since only the thread that initialised Avalonia may
     /// pump it.
@@ -156,7 +157,18 @@ internal sealed class LspDocumentSession : IDisposable
         this.client = client;
         this.document = document;
         this.isProjectMember = isProjectMember;
-        this.postToUiThread = postToUiThread ?? (work => Avalonia.Threading.Dispatcher.UIThread.Post(work));
+        // The dispatcher is taken here, where an editor builds its session on the UI thread, and not when a post
+        // is made. Posts come from pool threads: the debounced change, and diagnostics as a client reads them.
+        // Asking Dispatcher.UIThread from one of those threads at a moment when no UI dispatcher is set makes that
+        // thread the UI thread. Avalonia.Headless clears it as each test is set up, so a session a test never
+        // disposed took the UI thread from the next test's setup and hung the run (#2530). A late post now goes
+        // to the dispatcher the session was built on. If that dispatcher is gone, the post is simply not run.
+        if (postToUiThread is null)
+        {
+            var uiThread = Avalonia.Threading.Dispatcher.UIThread;
+            postToUiThread = work => uiThread.Post(work);
+        }
+        this.postToUiThread = postToUiThread;
         Uri = uri;
     }
 

@@ -118,6 +118,21 @@ public class LanguageServerProblemLocalizationTests
             language, "UnknownTransport", value, options);
     }
 
+    [AvaloniaFact]
+    public async Task InvalidEscapeGuidanceUsesLocalizedProseAndKeepsTheLocation()
+    {
+        await CheckProblem("""{"servers":[{"id":"s","command":"C:\Utilities\server.exe"}]}""",
+            "bg", "JsonSyntaxEscape", "ред 1, колона", "Използвайте наклонени черти",
+            "$.servers[0].command", "C:/tools/new/...");
+    }
+
+    [AvaloniaFact]
+    public async Task ControlWarningUsesLocalizedProseAndKeepsTheVariableAndPath()
+    {
+        await CheckProblem("""{"servers":[{"id":"s","enabled":false,"environment":{"SERVER_PATH":"C:\tools\new"}}]}""",
+            "bg", "PathControlWarning", "контролен знак", "environment.SERVER_PATH", @"C:\tools\new");
+    }
+
     private static async Task CheckProblem(string json, string language, string code, params string[] expected)
     {
         var file = Path.GetTempFileName();

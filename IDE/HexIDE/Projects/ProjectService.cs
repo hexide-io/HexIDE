@@ -404,7 +404,7 @@ public partial class ProjectService : IProjectService
     private async Task OpenContributed(ContributedProjectType type, string projectPath)
     {
         Log.Information("ProjectService: Opening {ProjectPath} as {Type}, from {Origin}", projectPath, type.Type.Title, type.Origin);
-        if (projectManager.LoadedProjects.Any(p => p.AbsolutePath != null && Path.GetFullPath(projectPath) == Path.GetFullPath(p.AbsolutePath)))
+        if (projectManager.LoadedProjects.Any(p => p.AbsolutePath != null && HexIDE.IO.HostFilePath.Equals(projectPath, p.AbsolutePath)))
         {
             await windowManager.MessageBox($"Project {Path.GetFileName(projectPath)} is already opened.", icon: MessageBoxIcon.Information);
             throw new OperationCanceledException();
@@ -914,9 +914,14 @@ public partial class ProjectService : IProjectService
         eventBus.Publish(new ApplyAllUnsavedChangesEvent());
 
         var destinations = new List<Destination>();
+        string? previousDirectory = null;
         foreach (var (document, saveAs) in files)
-            if (await DestinationOf(document, saveAs, userSave) is { } destination)
+            if (await DestinationOf(document, saveAs, userSave, previousDirectory) is { } destination)
+            {
                 destinations.Add(destination);
+                if (destination.Chosen)
+                    previousDirectory = Path.GetDirectoryName(destination.Path);
+            }
 
         // The gate in DestinationOf keeps a picker from asking about a file that will not be written; this one
         // keeps a reload during a later picker from slipping a file past it (see the remarks).
@@ -957,7 +962,7 @@ public partial class ProjectService : IProjectService
     /// contributed project's own file, which HexIDE never writes.
     /// </summary>
     /// <exception cref="OperationCanceledException">A picker was dismissed.</exception>
-    private async Task<Destination?> DestinationOf(object document, bool saveAs, bool userSave)
+    private async Task<Destination?> DestinationOf(object document, bool saveAs, bool userSave, string? previousDirectory)
     {
         switch (document)
         {
@@ -978,7 +983,7 @@ public partial class ProjectService : IProjectService
                     return null;
                 return form.AbsolutePath is { } formPath && !saveAs && (!userSave || !IsScratchFile(form.Owner, formPath))
                     ? new Destination(form, formPath)
-                    : new Destination(form, await ChooseFormPath(form), Chosen: true);
+                    : new Destination(form, await ChooseFormPath(form, form.AbsolutePath is null || IsScratchFile(form.Owner, form.AbsolutePath) ? PickerDirectory(form.Owner, previousDirectory) : null), Chosen: true);
 
             case ModuleDefinition module:
                 // Above the picker, as for a form. This used to sit below it, so Save As on an unfaithful
@@ -988,7 +993,7 @@ public partial class ProjectService : IProjectService
                     return null;
                 return module.AbsolutePath is { } modulePath && !saveAs && (!userSave || !IsScratchFile(module.Owner, modulePath))
                     ? new Destination(module, modulePath)
-                    : new Destination(module, await ChooseModulePath(module), Chosen: true);
+                    : new Destination(module, await ChooseModulePath(module, module.AbsolutePath is null || IsScratchFile(module.Owner, module.AbsolutePath) ? PickerDirectory(module.Owner, previousDirectory) : null), Chosen: true);
 
             // A contributed project's file is its add-in's program's to write, so a save never has it to write: no picker
             // asks where it goes, no check renders it, and Save As puts it nowhere new or in the recent list. Its
@@ -999,7 +1004,7 @@ public partial class ProjectService : IProjectService
             case ProjectDefinition project:
                 return project.AbsolutePath is { } projectPath && !saveAs && (!userSave || !IsScratchFile(project, projectPath))
                     ? new Destination(project, projectPath)
-                    : new Destination(project, await ChooseProjectPath(project), Chosen: true);
+                    : new Destination(project, await ChooseProjectPath(project, project.AbsolutePath is null || IsScratchFile(project, project.AbsolutePath) ? previousDirectory : null), Chosen: true);
 
             case ProjectGroupDefinition group:
                 return group.AbsolutePath is { } groupPath && !saveAs
@@ -1055,15 +1060,20 @@ public partial class ProjectService : IProjectService
         }
     }
 
-    private async Task<string> ChooseFormPath(FormDefinition form) =>
+    private static string? PickerDirectory(ProjectDefinition owner, string? previousDirectory) =>
+        owner.AbsolutePath is { } path && !IsScratchFile(owner, path)
+            ? Path.GetDirectoryName(path)
+            : previousDirectory;
+
+    private async Task<string> ChooseFormPath(FormDefinition form, string? directory) =>
         await windowManager.SaveFilePickerAsync(new FilePickerSaveOptions()
         {
             DefaultExtension = "frm",
             SuggestedFileName = form.Name + ".frm",
             FileTypeChoices = [new("Form Files") { Patterns = ["*.frm"] }, new("All Files") { Patterns = ["*.*"] }]
-        }) ?? throw new OperationCanceledException();
+        }, directory) ?? throw new OperationCanceledException();
 
-    private async Task<string> ChooseModulePath(ModuleDefinition module)
+    private async Task<string> ChooseModulePath(ModuleDefinition module, string? directory)
     {
         var ext = ModuleExtension(module.Kind);
         return await windowManager.SaveFilePickerAsync(new FilePickerSaveOptions()
@@ -1071,16 +1081,16 @@ public partial class ProjectService : IProjectService
             DefaultExtension = ext,
             SuggestedFileName = module.Name + "." + ext,
             FileTypeChoices = [new("Module Files") { Patterns = [$"*.{ext}"] }, new("All Files") { Patterns = ["*.*"] }]
-        }) ?? throw new OperationCanceledException();
+        }, directory) ?? throw new OperationCanceledException();
     }
 
-    private async Task<string> ChooseProjectPath(ProjectDefinition project) =>
+    private async Task<string> ChooseProjectPath(ProjectDefinition project, string? directory) =>
         await windowManager.SaveFilePickerAsync(new FilePickerSaveOptions()
         {
             DefaultExtension = "vbp",
             SuggestedFileName = project.Name + ".vbp",
             FileTypeChoices = [new("Project Files") { Patterns = ["*.vbp"] }, new("All Files") { Patterns = ["*.*"] }]
-        }) ?? throw new OperationCanceledException();
+        }, directory) ?? throw new OperationCanceledException();
 
     private async Task<string> ChooseGroupPath(ProjectGroupDefinition group) =>
         await windowManager.SaveFilePickerAsync(new FilePickerSaveOptions

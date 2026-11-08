@@ -56,6 +56,28 @@ public class ShippedPackParityTests
     private const string Canonical = "en";
 
     [Fact]
+    public void PackAmpersandsAreLiteralRatherThanAccessKeyMarkers()
+    {
+        string[] literalKeys =
+        [
+            "Str.PropDesc.UseMnemonic",
+            "Str.Tool.LanguageServers.Title",
+            "Str.Tool.ProtocolInspector.NoBody.Unarmed",
+        ];
+        var unexpected = new List<string>();
+        foreach (var file in Directory.EnumerateFiles(PacksDirectory(), "*.json"))
+        {
+            var pack = JsonSerializer.Deserialize(File.ReadAllText(file),
+                LocalizationJsonContext.Default.LanguagePackRecord)!;
+            unexpected.AddRange(pack.Strings!
+                .Where(pair => pair.Value.Contains('&') && !literalKeys.Contains(pair.Key))
+                .Select(pair => $"{Path.GetFileName(file)}: {pair.Key}"));
+        }
+
+        unexpected.Should().BeEmpty("Avalonia access keys are underscores, never ampersands (#347)");
+    }
+
+    [Fact]
     public void EveryShippedPackNameMatchesItsEnglishManifestName()
     {
         foreach (var language in LanguageManifest.Packs)

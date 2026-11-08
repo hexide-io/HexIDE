@@ -59,7 +59,7 @@ public class CorpusConformanceTests
     /// </remarks>
     private static readonly Dictionary<string, string> KnownDivergences = new()
     {
-        // ===== FALSE REJECTIONS (9) — the damaging direction. =====
+        // ===== FALSE REJECTIONS (6) — the damaging direction. =====
 
         // STRING-CONTINUATION (3)
         //   A trailing underscore INSIDE a string literal. Measured but NOT understood: it continues the
@@ -70,9 +70,8 @@ public class CorpusConformanceTests
         ["continuation-illegal/split-string-literal"] = "STRING-CONTINUATION",
         ["continuation-in-strings-comments/string-underscore-at-eol-unterminated"] = "STRING-CONTINUATION",
 
-        // OTHER-REJECTION (5) — individually caused; see each case's own why in the corpus.
+        // OTHER-REJECTION (3) — individually caused; see each case's own why in the corpus.
         ["continuation-basics/cont-after-member-dot"] = "OTHER-REJECTION",
-        ["separator-and-continuation-together/continuation-drags-a-label-onto-a-statement"] = "OTHER-REJECTION",
         ["separator-with-declarations/hashconst-value-continued"] = "OTHER-REJECTION",
         ["whitespace-and-eol-edges/eof-mid-continuation-no-trailing-newline"] = "OTHER-REJECTION",
 

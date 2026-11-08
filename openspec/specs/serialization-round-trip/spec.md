@@ -50,6 +50,23 @@ carries is not held to this yet ([#745](https://github.com/hexide-io/HexIDE/issu
 
 ## Requirements
 
+### Requirement: New member save pickers suggest the measured directory
+A save picker for a pathless form or module SHALL suggest its owning saved project's directory.
+For an unsaved project (including internal scratch persistence), subsequent pickers in the same save
+SHALL suggest the directory chosen by the previous picker. The first picker SHALL retain its platform
+default; the normally launched VB6 default is unmeasured (#498).
+
+Measured source: [document save oracle](../../../docs/vb6-fidelity-oracle/when-a-document-gets-a-file-and-what-a-dangling-startup-does.md).
+
+#### Scenario: A new form in a saved project
+- **WHEN** Save Project asks where to save a newly added Form2
+- **THEN** it suggests the project's directory and Form2.frm
+
+#### Scenario: A never-saved project
+- **WHEN** the developer chooses a directory for its first member
+- **THEN** its next member and project pickers suggest that directory
+- **AND** a separate save operation does not inherit that choice
+
 ### Requirement: Content the IDE does not understand SHALL survive a round-trip
 Where a file contains content the IDE has no model for — a property, a property block, an entire component
 type, a project key, or a trailing extension section — that content SHALL be preserved and written back.
@@ -896,6 +913,19 @@ StdPicture CLSID, `lt\0\0`, the size and the inserted BMP/ICO file bytes.
 - **WHEN** a form and its companion from `corpus/inbox-controls/saved/imagelist` are loaded and saved
 - **THEN** the form text and companion bytes match VB6's saved files
 - **AND** each saved image is available to the running program in index order with its Key, Tag and Picture
+
+### Requirement: Missing project members share a localized load warning
+
+The loader SHALL report a missing form, standard module, class module, UserControl or property page
+with the same localized message, naming its path as recorded in the `.vbp`, and SHALL retain its project
+entry for saving.
+
+#### Scenario: A module is absent from a project subdirectory
+
+- **GIVEN** a project containing `Module=Utilities; Code\Utilities.bas` whose file is absent
+- **WHEN** the project is opened
+- **THEN** the load warning names `Code\Utilities.bas` without prefixing the host project directory
+- **AND** the module's item line remains available for saving
 
 ### Requirement: In-box corpus state consistency
 
