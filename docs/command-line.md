@@ -37,7 +37,7 @@ This asymmetry is deliberate and it is easy to read the wrong way round.
 **`--server-port`, `--session`, `--developer-mode`, `--ansi-code-page` and `--dpi-unaware` are inert in a release build.** The automation
 server is compiled out entirely, and developer mode is hard-disabled, so a distributed binary opens no port
 and cannot be put into developer mode however it is launched. Nor can it be told to read files as another
-machine would: what a release reads a file as is what the machine it runs on reads it as. None of the four
+machine would: what a release reads a file as is what the machine it runs on reads it as. None of the five
 errors; each simply does nothing.
 
 **`--capture-lsp` is not.** The protocol capture ships in release builds, because the people it is for are
