@@ -32,6 +32,8 @@
                     <ListBox IsVisible="{CompiledBinding !HasNoTemplates}"
                              ItemsSource="{CompiledBinding Templates}"
                              SelectedItem="{CompiledBinding SelectedTemplate}"
+                             ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                             ScrollViewer.VerticalScrollBarVisibility="Auto"
                              DoubleTapped="TemplateDoubleTap">
                         <ListBox.Styles>
                             <!-- The template's own name, so automation can tell Standard EXE from the rest; each item
