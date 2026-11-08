@@ -154,6 +154,106 @@ replacements per source, separates requested and resolved lines, and applies mat
 Verification appears in the editor gutter; source edits remain session-only. Dynamic capability changes
 remain a future session operation.
 
+## Protocol coverage
+
+The table below is generated from Microsoft's
+[`debugAdapterProtocol.json`](https://github.com/microsoft/debug-adapter-protocol/blob/d2387e875a1ec4c2ed9964edea22617c81651cc0/debugAdapterProtocol.json),
+pinned to commit `d2387e875a1ec4c2ed9964edea22617c81651cc0` (#3302).
+Its SHA-256 is `5dc16664b5cd7a08a769c14dc19be900dc4c3e7d227cd922583780d25480877a`,
+**computed here**, not publisher-attested. The pinned
+[`License.txt`](https://github.com/microsoft/debug-adapter-protocol/blob/d2387e875a1ec4c2ed9964edea22617c81651cc0/License.txt)
+states documentation is CC BY 3.0 US and code is MIT; it also includes CC BY 4.0 legal text.
+The schema is a test fixture fetched into gitignored `artifacts/dap-schema/`, never a release asset.
+The table uses protocol names and implementation facts, without reproducing schema descriptions.
+
+✅ means a named request is sent by `DapSession`, or an event has specific handling in `DapSession`
+or `ExternalDebugService`. This is command/event coverage, not a claim that every optional argument,
+capability or multi-thread behavior is implemented. ○ means no such implementation. The generic
+`DapConnection.RequestAsync` API and forwarding/capturing arbitrary events do not count as feature support.
+All reverse requests are rejected. → is client to adapter; ← is adapter to client. The schema identifies
+reverse requests in their descriptions; other requests travel to the adapter and events to the client.
+
+`DapProtocolCoverageDocTests` compares the entire generated block against the schema and source code,
+including support marks and headline counts. Do not hand-edit the table. To regenerate it:
+
+```sh
+HEXIDE_UPDATE_DAP_COVERAGE=1 dotnet test IDE/HexIDE.Tests/ -- --filter-method '*CoverageMatchesSchemaAndClientCode'
+```
+
+The schema downloads on demand and every copy, including an override, must match the pinned digest.
+`HEXIDE_DAP_SCHEMA` selects a local copy; `HEXIDE_FOREIGN_LSP_DOWNLOAD=0` disables downloading.
+Unavailable schemas skip the table check visibly; `HEXIDE_REQUIRE_FOREIGN_LSP=1` (also `true` or `yes`)
+makes an ordinary availability test fail instead. A corrupt schema fails even outside CI.
+
+<!-- BEGIN GENERATED DAP COVERAGE -->
+The pinned schema defines **62 messages**. HexIDE implements 27 of the 62 at the command/event level.
+
+| Support | Message | Kind | Direction |
+|---|---|---|---|
+| ✅ | `breakpoint` | event | ← |
+| ○ | `capabilities` | event | ← |
+| ✅ | `continued` | event | ← |
+| ○ | `exited` | event | ← |
+| ✅ | `initialized` | event | ← |
+| ✅ | `invalidated` | event | ← |
+| ○ | `loadedSource` | event | ← |
+| ○ | `memory` | event | ← |
+| ○ | `module` | event | ← |
+| ✅ | `output` | event | ← |
+| ○ | `process` | event | ← |
+| ○ | `progressEnd` | event | ← |
+| ○ | `progressStart` | event | ← |
+| ○ | `progressUpdate` | event | ← |
+| ✅ | `stopped` | event | ← |
+| ✅ | `terminated` | event | ← |
+| ○ | `thread` | event | ← |
+| ○ | `attach` | request | → |
+| ○ | `breakpointLocations` | request | → |
+| ○ | `cancel` | request | → |
+| ○ | `completions` | request | → |
+| ✅ | `configurationDone` | request | → |
+| ✅ | `continue` | request | → |
+| ○ | `dataBreakpointInfo` | request | → |
+| ○ | `disassemble` | request | → |
+| ✅ | `disconnect` | request | → |
+| ✅ | `evaluate` | request | → |
+| ✅ | `exceptionInfo` | request | → |
+| ✅ | `goto` | request | → |
+| ✅ | `gotoTargets` | request | → |
+| ✅ | `initialize` | request | → |
+| ✅ | `launch` | request | → |
+| ○ | `loadedSources` | request | → |
+| ○ | `locations` | request | → |
+| ○ | `modules` | request | → |
+| ✅ | `next` | request | → |
+| ✅ | `pause` | request | → |
+| ○ | `readMemory` | request | → |
+| ○ | `restart` | request | → |
+| ○ | `restartFrame` | request | → |
+| ○ | `reverseContinue` | request | → |
+| ✅ | `scopes` | request | → |
+| ✅ | `setBreakpoints` | request | → |
+| ○ | `setDataBreakpoints` | request | → |
+| ✅ | `setExceptionBreakpoints` | request | → |
+| ○ | `setExpression` | request | → |
+| ○ | `setFunctionBreakpoints` | request | → |
+| ○ | `setInstructionBreakpoints` | request | → |
+| ○ | `setVariable` | request | → |
+| ○ | `source` | request | → |
+| ✅ | `stackTrace` | request | → |
+| ○ | `stepBack` | request | → |
+| ✅ | `stepIn` | request | → |
+| ○ | `stepInTargets` | request | → |
+| ✅ | `stepOut` | request | → |
+| ✅ | `terminate` | request | → |
+| ○ | `terminateThreads` | request | → |
+| ✅ | `threads` | request | → |
+| ✅ | `variables` | request | → |
+| ○ | `writeMemory` | request | → |
+| ○ | `runInTerminal` | reverse request | ← |
+| ○ | `startDebugging` | reverse request | ← |
+<!-- END GENERATED DAP COVERAGE -->
+
 ## Verification
 
 `HexIDE.Tests/DebugAdapter/DapConnectionTests.cs` provides an independent peer that reads and writes literal

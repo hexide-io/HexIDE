@@ -21,6 +21,16 @@ that the developer could not see them was a limitation of its code window, and t
 
 ## Requirements
 
+### Requirement: Selection scrolling does not re-enter itself
+The code and Immediate editors SHALL allow pointer selection when the viewport cannot fit the caret
+and its scrolling margin, without recursively scrolling the caret into view (#3273). Held pointer moves SHALL extend the selection,
+and releasing the pointer SHALL preserve it.
+
+#### Scenario: A held selection reaches outside a short editor
+- **WHEN** text is present and a pressed pointer moves beyond the editor's short viewport
+- **THEN** selection extends without a stack overflow
+- **AND** releasing the pointer retains the selected text
+
 ### Requirement: Scrolling context menus preserve editor commands
 The code window's context menu SHALL open with focus on its first enabled visible item when opened
 by the keyboard, even when it scrolls. A pointer-opened menu SHALL start with no item selected; Enter
@@ -207,6 +217,19 @@ end. This edge case is retained by decision #1019; the measured VB6-saved files 
 #### Scenario: A procedure with a description
 - **WHEN** a module containing a procedure with an `Attribute <Name>.VB_Description` line is opened
 - **THEN** the attribute is folded into the end of the procedure's declaration line, and cannot be edited
+
+#### Scenario: Splitting a described declaration's trailing comment
+- **WHEN** Enter, Shift+Enter, a paste, Insert File or automation's `type_text` puts a line break before or
+  inside a trailing comment on a described declaration
+- **THEN** the attribute run SHALL stay directly under the declaration, and the remaining comment text SHALL
+  move after the run, with the caret before that moved text
+- **AND** Enter SHALL use the declaration's physical line's indent without re-casing or adding a closer
+- **AND** an add-in's range edit putting a line break there SHALL be refused as a whole
+
+This settles #1037's option 2: the tail moves as if the folded run were absent. Spaces and tabs alone after
+the caret keep the existing rule and stay on the declaration's row. Comment boundaries come from the same
+lexer that reads declarations, so an apostrophe inside a string does not qualify. VB6's gesture and save
+after it remain unmeasured; this is the editor's placement contract.
 
 #### Scenario: Deleting a described procedure
 - **WHEN** the developer selects a procedure including its declaration line and deletes it

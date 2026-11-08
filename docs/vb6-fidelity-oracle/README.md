@@ -535,6 +535,7 @@ added afterwards.
 - [A click with real input: where Click and DblClick fall (2026-10-22, #1364)](a-click-with-real-input-where-click-and-dblclick-fall.md#a-click-with-real-input-where-click-and-dblclick-fall-2026-10-22-1364)
 - [A ListBox's Click: a left press on an item, or code or a key that moves the selection (2026-10-22, #1374)](a-listboxs-click-a-left-press-on-an-item-or-code-or-a-key-that-moves-the-selection.md#a-listboxs-click-a-left-press-on-an-item-or-code-or-a-key-that-moves-the-selection-2026-10-22-1374)
 - [A ListBox's Selected, SelCount and Text, with MultiSelect and without (2026-10-22, #1395)](a-listboxs-selected-selcount-and-text-with-multiselect-and-without.md#a-listboxs-selected-selcount-and-text-with-multiselect-and-without-2026-10-22-1395)
+- [A ListBox's Scroll event: what raises it, and what doesn't (2026-11-06, #3275)](a-listboxs-scroll-event.md#a-listboxs-scroll-event-what-raises-it-and-what-doesnt-2026-11-06-3275)
 - [One handler at a time (2026-10-14, #766)](one-handler-at-a-time.md#one-handler-at-a-time-2026-10-14-766)
 - [Unload Me (2026-10-14, #973)](unload-me.md#unload-me-2026-10-14-973)
 - [Overflow edges (2026-10-14, #234)](overflow-edges.md#overflow-edges-2026-10-14-234)
@@ -738,4 +739,5 @@ added afterwards.
 - [Long lines, line continuations and long expressions (2026-11-06, #3202)](long-lines-line-continuations-and-long-expressions.md#long-lines-line-continuations-and-long-expressions-2026-11-06-3202)
 - [Nested `If` blocks (2026-11-06, #3210)](long-lines-line-continuations-and-long-expressions.md#nested-if-blocks-2026-11-06-3210)
 - [`For Each` collections that vb6.exe refuses to compile (2026-11-06, #3213)](resume-next-into-a-block.md#for-each-collections-that-vb6exe-refuses-to-compile-2026-11-06-3213)
+- [A Public array in a class or a form, under /make and in the IDE (2026-11-08, #3335)](a-public-array-in-an-object-module.md#a-public-array-in-a-class-or-a-form-under-make-and-in-the-ide-2026-11-08-3335)
 - [`Print #` items with nothing between them, and a sign after `Spc` or `Tab` (2026-11-06, #3248)](sequential-files.md#print--items-with-nothing-between-them-and-a-sign-after-spc-or-tab-2026-11-06-3248)

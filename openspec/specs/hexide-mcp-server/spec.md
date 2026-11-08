@@ -47,6 +47,20 @@ explaining that HexIDE draws but does not model them, so they cannot be moved, s
 - **WHEN** a caller names a carried control with `controlName`
 - **THEN** the reply contains that row and its read-only note rather than a missing-control error
 
+### Requirement: A running form without menus omits its empty menu bar from discovery
+`dump_visual_tree` SHALL omit a running form's empty internal menu bar when the form declares no menus,
+with either value of `interactiveOnly`. A form with declared menus SHALL retain its menu bar under the
+ordinary discovery rules (#3276).
+
+#### Scenario: A form declares no menus
+- **WHEN** a running form without menus is dumped with `interactiveOnly` true or false
+- **THEN** no internal empty Menu node is listed
+
+#### Scenario: A form declares a visible menu
+- **WHEN** a running form with a visible menu is dumped with either value of `interactiveOnly`
+- **THEN** its menu bar is listed
+
+
 ### Requirement: Code edits during a run explain the running snapshot
 
 During a running or paused project, `set_file_content` and document-mode `type_text` SHALL edit without
@@ -1178,6 +1192,20 @@ handlers it let finish.
 - **WHEN** a click shows Form2, whose Load sets its caption to "Second"
 - **THEN** the reply says the program opened `Form2 ("Second")`
 
+### Requirement: interact SHALL turn the mouse wheel as a person does
+`interact`'s `wheel` SHALL send wheel input through the target's window, a notch at a time, at a point on the target or
+the centre of what shows of it, so the control's own wheel handling runs. Its reply SHALL say what scrolled, and how far,
+or that nothing did. `scroll` SHALL NOT say a control has nothing to scroll when it draws a scroll bar of its own; its
+refusal SHALL name that bar.
+
+#### Scenario: A wheel over a list
+- **WHEN** `wheel` turns 3 notches down over a ScrollViewer's content
+- **THEN** the viewer scrolls down by its own wheel step, and the reply says how far it went
+
+#### Scenario: A control that draws its own bar
+- **WHEN** `scroll` finds no scroller for a control that draws a vertical scroll bar
+- **THEN** the refusal names that bar and its position, with `set_range_value` and `wheel` as the routes that move it
+
 ### Requirement: Run-control replies SHALL say what the program printed
 For interpreter sessions, a successful reply from `run_project`, `stop_project`, `continue_program`,
 `break_program`, a step or `run_to_cursor`, or from `interact`, `press_key` or `type_text` acting on a running
@@ -1564,3 +1592,17 @@ Cursor SHALL refuse with an explanation that the route lacks one-shot breakpoint
 - **GIVEN** an external adapter supporting gotoTargets and a saved module
 - **WHEN** `set_next_statement` names that module and a valid source line
 - **THEN** gotoTargets receives the document's file path and line, followed by goto for the returned target
+
+### Requirement: A tab tool SHALL take a document's name passed as its title
+`activate_document_tab` and `close_document_tab` SHALL, when `title` matches no tab, try it as a document name among the
+open tabs. When exactly one tab shows that document, the tool SHALL act on it and its note SHALL say the title was taken
+as a document name and that `name` is the parameter for a document. When several tabs show it, the tool SHALL refuse,
+naming each, and SHALL say whether `project` or `type` picks one. When none does, the refusal SHALL list the open tabs.
+
+#### Scenario: The name of a document one tab shows
+- **WHEN** `activate_document_tab` is passed `title` "Var1" and the only tab showing Var1 is titled "Probe2 - Var1 (Code)"
+- **THEN** that tab is brought to the front, and the note says "Var1" was taken as a document name
+
+#### Scenario: A document with its code and designer open
+- **WHEN** `title` names a document whose code and designer tabs are both open
+- **THEN** the call is refused, naming both tabs and asking for `type`

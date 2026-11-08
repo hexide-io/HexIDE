@@ -12,6 +12,11 @@ side of the seam and forbidden on the other.
 An unrecognised `pipeRole` on a pipe entry is reported as a configuration problem; the entry remains
 registered with the `connect` fallback.
 
+Invalid JSON escapes in the server configuration remain errors, with guidance to use forward slashes or
+doubled backslashes. Escaped control characters in path-bearing fields produce a warning showing the
+likely intended path, including the index for array arguments and the variable name for environment values,
+without changing the value; see [Windows path syntax](language-servers.md#a-worked-example).
+
 For *configuring* a server, see [`language-servers.md`](./language-servers.md). For the third-party servers
 the test suite drives, see [`foreign-language-servers.md`](./foreign-language-servers.md).
 A pinned foreign-server download with a checksum mismatch fails an ordinary guard test even outside CI;
@@ -1745,3 +1750,6 @@ default shortcuts. Both require a provider for the current document. Expand asks
 both selection endpoints, then selects the smallest enclosing range supplied for either endpoint;
 repeated invocations climb its parent chain. Shrink restores the previous selection, down to the original caret or selection.
 An edit or an outside caret/selection move clears the chain, and stale replies are ignored.
+
+The separate [DAP client coverage table](dap-client.md#protocol-coverage) uses DAP’s own pinned JSON schema
+and reads command/event support from the debug client code (#3302).

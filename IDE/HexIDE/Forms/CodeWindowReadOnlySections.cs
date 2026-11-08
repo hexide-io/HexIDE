@@ -215,13 +215,12 @@ internal sealed class CodeWindowReadOnlySections : TextSegmentReadOnlySectionPro
 
     /// <summary>
     /// The member's run that hangs from the line <paramref name="offset"/> ends: the one whose anchor is at
-    /// <paramref name="offset"/>, or after it with only spaces and tabs between. Null when there is none.
+    /// <paramref name="offset"/>, or after it with only spaces, tabs or a trailing comment between. Null when there is none.
     /// </summary>
     /// <remarks>
     /// The whitespace is let in because Enter treats a caret before trailing whitespace as the end of the line,
     /// and a line break put there would leave the run hanging from a line of nothing but that whitespace, which
-    /// declares nothing. A trailing comment is not let in, so a line break before one still leaves the run under the
-    /// comment; which way to place it is an open question in the design record (#273 task 4.5 review).
+    /// declares nothing. A trailing comment qualifies too: its remaining text moves after the run (#1037).
     /// </remarks>
     internal MemberRun? RunHangingFrom(int offset)
     {
@@ -233,7 +232,10 @@ internal sealed class CodeWindowReadOnlySections : TextSegmentReadOnlySectionPro
             // offset and its anchor, and the blanks test below refuses it (equivalent under mutation).
             if (run.DescribedStart > offset)
                 break;
-            if (run.DescribesMember && OnlyBlanks(offset, run.Anchor))
+            if (!run.DescribesMember)
+                continue;
+            var comment = ReadOnlyRegions.CommentStartOn(document.Text, run.DescribedStart, run.Anchor);
+            if (offset >= comment || OnlyBlanks(offset, comment))
                 return run;
         }
         return null;
@@ -255,6 +257,10 @@ internal sealed class CodeWindowReadOnlySections : TextSegmentReadOnlySectionPro
     /// of the whole declaration keeps the run under the first compatible logical declaration it pastes. Trailing
     /// whitespace aside: spaces or tabs between the span's end and the anchor stay on the declaration's row, where
     /// with no run there the line break would carry them to the next (#273 task 4.5 review).
+    /// </para>
+    /// <para>
+    /// Before or inside a trailing comment, the replacement reaches the anchor and its remaining text follows the
+    /// inserted tail. The caret stays before that moved text, as a mid-line edit would leave it (#1037).
     /// </para>
     /// <para>
     /// <b>In the document's newline</b>: every line break in the text is written as the described line's own
@@ -321,7 +327,12 @@ internal sealed class CodeWindowReadOnlySections : TextSegmentReadOnlySectionPro
                 start = line.Offset + line.TotalLength;
             }
         }
-        return new LineBreakPastRun(run, offset, length, normalized[..lineBreak], run.LastContentEnd, normalized[lineBreak..]);
+        var end = offset + length;
+        var moved = ReadOnlyRegions.CommentStartOn(document.Text, run.DescribedStart, run.Anchor) < run.Anchor
+            ? document.GetText(end, run.Anchor - end)
+            : string.Empty;
+        return new LineBreakPastRun(run, offset, length + moved.Length, normalized[..lineBreak],
+            run.LastContentEnd, normalized[lineBreak..] + moved, moved.Length);
     }
 
     /// <summary>The first character of <paramref name="run"/>'s described line that is not a space or a tab.</summary>
@@ -363,12 +374,13 @@ internal sealed class CodeWindowReadOnlySections : TextSegmentReadOnlySectionPro
 /// <param name="Head">What replaces that span: through the first compatible declaration for a whole-line replacement,
 /// otherwise up to the first line break, perhaps nothing.</param>
 /// <param name="TailAt">Where the rest goes, in the text as it stood: the end of the run's last line's text.</param>
-/// <param name="Tail">The rest, including its leading line break; empty when the declaration ends the text.</param>
-internal sealed record LineBreakPastRun(MemberRun Run, int Offset, int Length, string Head, int TailAt, string Tail)
+/// <param name="Tail">The rest, including any leading line break and moved comment text; empty when neither remains.</param>
+/// <param name="MovedLength">The length of that moved text, which the caret precedes.</param>
+internal sealed record LineBreakPastRun(MemberRun Run, int Offset, int Length, string Head, int TailAt, string Tail, int MovedLength = 0)
 {
     /// <summary>Where the tail starts once both parts are written.</summary>
     public int TailStart => TailAt - Length + Head.Length;
 
-    /// <summary>Where the caret ends: past the tail, or past the head when no tail was pasted.</summary>
-    public int End => Tail.Length == 0 ? Offset + Head.Length : TailStart + Tail.Length;
+    /// <summary>Where the inserted text ends, before any moved comment: where the edit leaves the caret.</summary>
+    public int End => Tail.Length == 0 ? Offset + Head.Length : TailStart + Tail.Length - MovedLength;
 }

@@ -447,7 +447,9 @@ public static class UiAutomationDriver
             {
                 var lines = searchable.Document.LineCount;
                 return $"<{lines} line{(lines == 1 ? "" : "s")} as the editor holds them, unsaved edits included; "
-                       + "read the text with get_file_content>";
+                       // Moved here from inspect_element's description, which had no room for it (#2569).
+                       + "read the text with get_file_content, which CaretOffset, SelectionStart and SelectionLength "
+                       + "count into>";
             }, null);
 
         var t = Nullable.GetUnderlyingType(p.PropertyType) ?? p.PropertyType;
@@ -539,7 +541,7 @@ public static class UiAutomationDriver
     public static readonly IReadOnlyList<string> Verbs =
     [
         "invoke", "select", "add_to_selection", "remove_from_selection", "double_click", "click", "release", "set_value",
-        "set_range_value", "toggle", "expand", "collapse", "scroll", "invoke_command", "set_property", "close",
+        "set_range_value", "toggle", "expand", "collapse", "scroll", "wheel", "invoke_command", "set_property", "close",
     ];
 
     /// <summary>
@@ -647,8 +649,9 @@ public static class UiAutomationDriver
         if (norm.Length == 0) return Err("action is required");
 
         // One mouse: with its button held for a later release, a second press is input it cannot make (#2231).
-        if (norm is "click" or "doubleclick" && HeldButton.Current is { } held)
-            return new InteractOutcome(false, "pointer", null, held.Refusal(norm == "click" ? "click" : "double_click"));
+        if (norm is "click" or "doubleclick" or "wheel" && HeldButton.Current is { } held)
+            return new InteractOutcome(false, "pointer", null,
+                held.Refusal(norm switch { "click" => "click", "wheel" => "wheel", _ => "double_click" }));
 
         // A provider or pointer action stands for something a person does to the control, and nobody can press
         // what is not showing. The peer acts regardless, so without this a hidden Approve button reported that it
@@ -903,6 +906,9 @@ public static class UiAutomationDriver
 
                 case "scroll":
                     return DoScroll(control, value);
+
+                case "wheel":
+                    return DoWheel(control, value);
 
                 case "setrangevalue":
                     return DoSetRangeValue(control, peer, value);
@@ -2186,7 +2192,9 @@ public static class UiAutomationDriver
     {
         if (string.Equals(Normalise(action), "toggle", StringComparison.Ordinal))
             return await ToggleSettledAsync(control, action, value);
-        if (!string.Equals(Normalise(action), "click", StringComparison.Ordinal))
+        // A wheel is hit-tested as a press is, against what was drawn (#2576).
+        var verb = Normalise(action);
+        if (verb is not ("click" or "wheel"))
             return Interact(control, action, value);
         var wait = frameWait ?? ClickFrameWait;
         var drawn = await NextFrameDrawnAsync(control, wait);
@@ -2194,8 +2202,8 @@ public static class UiAutomationDriver
         if (!drawn && outcome is { Success: false, Error: { } error } && error.StartsWith(NothingTakesThePointer, StringComparison.Ordinal))
             outcome = outcome with
             {
-                Error = error + $"; or its window, which drew no frame in the {wait.TotalMilliseconds.ToString("0", CultureInfo.InvariantCulture)} ms the click waited, "
-                        + "has nothing drawn there yet, since a press is hit-tested against what was drawn: try again once it shows",
+                Error = error + $"; or its window, which drew no frame in the {wait.TotalMilliseconds.ToString("0", CultureInfo.InvariantCulture)} ms the {verb} waited, "
+                        + $"has nothing drawn there yet, since {(verb == "click" ? "a press" : "a wheel")} is hit-tested against what was drawn: try again once it shows",
             };
         return outcome;
     }
@@ -2713,9 +2721,16 @@ public static class UiAutomationDriver
             return Err($"scroll requires 'value', one of {ScrollDirections} (got '{value}')");
 
         var axis = move.Vertical ? "vertically" : "horizontally";
+        // What scroll looked for, rather than a claim about the content: a control that draws its own bars, as a
+        // TreeView on a running form does, has rows out of view that no scroller here reaches (#2576).
         if (ScrollerFor(control, move.Vertical) is not { } found)
-            return Err($"nothing to scroll {axis}: neither '{Describe(control)}' nor anything containing it " +
-                       $"has content {(move.Vertical ? "taller" : "wider")} than its viewport");
+            return Err($"found nothing that scrolls {axis} for '{Describe(control)}': scroll looks for a scroller of its "
+                       + "own or in its template, then for a container of it that scrolls, and there is none"
+                       + (OwnBars(control, move.Vertical).FirstOrDefault() is { } bar
+                           ? $". It draws a {(move.Vertical ? "vertical" : "horizontal")} scroll bar of its own, "
+                             + $"{BarPathUnder(control, bar)} under it, at {BarPosition(bar)}: set_range_value on that bar "
+                             + "moves it as dragging its thumb does, and wheel turns the mouse wheel over the control"
+                           : ""));
 
         var (scroller, owner) = found;
         var before = PercentAlong(scroller, move.Vertical);
@@ -2738,6 +2753,154 @@ public static class UiAutomationDriver
             ? Err($"did not scroll {where} {value}: it is already at that end ({position})")
             : Ok($"scrolled {where} {value}: {position}");
     }
+
+    private const string WheelValue =
+        "up, down, left or right, then how many notches (1 when omitted) and a point 'x,y' on the target (its centre when "
+        + "omitted), as 'down 3' or 'down 3 20,40'";
+
+    /// <summary>
+    /// Turns the mouse wheel over the target as a person does (#2576): one wheel event per notch through the window's
+    /// input, hit-tested and routed as the platform's are, so whatever the control does with a wheel it does, its step per
+    /// notch and its stop at an end included. scroll moves a scroller directly, and can't show that. The reply says what
+    /// moved: the scroller scroll would use, and the scroll bars the control draws itself, before and after.
+    /// </summary>
+    private static InteractOutcome DoWheel(Control control, string? value)
+    {
+        static InteractOutcome Fail(string error) => new(false, "pointer", null, error);
+
+        if (!TryParseWheel(value, out var vertical, out var delta, out var notches, out var at, out var problem))
+            return Fail(problem);
+        if (TopLevel.GetTopLevel(control) is not { } topLevel)
+            return Fail("the control is not attached to a window, so it has no coordinates to turn the wheel at");
+        var local = at ?? VisibleCentre(control, topLevel);
+        var where = $"({local.X.ToString("0.#", CultureInfo.InvariantCulture)}, {local.Y.ToString("0.#", CultureInfo.InvariantCulture)}) on '{Describe(control)}'";
+        if (control.TranslatePoint(local, topLevel) is not { } inWindow)
+            return Fail($"could not translate {where} into window coordinates");
+        if (topLevel.InputHitTest(inWindow) is not Control hit)
+            return Fail($"{NothingTakesThePointer}{where}, so the wheel was not turned: the point is outside the target, "
+                        + "or on a part of it that is not hit-tested");
+
+        var scroller = ScrollerFor(control, vertical);
+        var bars = OwnBars(control, vertical).ToList();
+        var before = scroller is { } s ? PercentAlong(s.Scroller, vertical) : 0;
+        var barsBefore = bars.Select(b => b.Value).ToList();
+
+        // The pointer goes there first, as a person's hand does, then leaves again as a hover's does, so nothing is left
+        // pointer-over behind the reply.
+        if (!RawPointer.Move(topLevel, inWindow))
+            return Fail("this Avalonia does not expose the members a wheel through the window's input needs, so the "
+                        + "wheel was not turned; scroll moves a scroller directly");
+        for (var i = 0; i < notches; i++)
+            RawPointer.Wheel(topLevel, inWindow, delta);
+        EndHover(control);
+        Avalonia.Threading.Dispatcher.UIThread.RunJobs(Avalonia.Threading.DispatcherPriority.Render);
+
+        var moved = new List<string>();
+        if (scroller is { } found)
+        {
+            var after = PercentAlong(found.Scroller, vertical);
+            if (Math.Abs(after - before) >= 0.01)
+                moved.Add($"'{Describe(found.Owner)}' went from {before.ToString("0.#", CultureInfo.InvariantCulture)}% to "
+                          + $"{after.ToString("0.#", CultureInfo.InvariantCulture)}% of the way along");
+        }
+        for (var i = 0; i < bars.Count; i++)
+            if (Math.Abs(bars[i].Value - barsBefore[i]) > 1e-9)
+                moved.Add($"its scroll bar {BarPathUnder(control, bars[i])} went from "
+                          + $"{barsBefore[i].ToString("0.###", CultureInfo.InvariantCulture)} to {BarPosition(bars[i])}"
+                          // A wheel stops at an end with notches to spare, which a count alone wouldn't show.
+                          + (bars[i].Value <= bars[i].Minimum || bars[i].Value >= bars[i].Maximum ? ", which is as far as it goes" : ""));
+
+        var turned = $"turned the wheel {notches.ToString(CultureInfo.InvariantCulture)} notch{(notches == 1 ? "" : "es")} "
+                     + $"{WheelDirection(vertical, delta)} at {where}, which reached '{Describe(hit)}'";
+        return moved.Count > 0
+            ? new InteractOutcome(true, "pointer", $"{turned}; {string.Join("; ", moved)}", null)
+            : new InteractOutcome(true, "pointer",
+                $"{turned}; nothing that scrolls moved: "
+                + (scroller is null && bars.Count == 0
+                    ? $"it has no scroller {(vertical ? "vertically" : "horizontally")}, of its own or around it, and draws no scroll bar"
+                    : "it may already be at that end, or the control takes no wheel")
+                + ". Its own handlers ran all the same, so a program's state may have changed", null);
+    }
+
+    // The centre of what shows of a control, in its own coordinates: a tall list's own centre can lie below its window,
+    // where no pointer reaches. The control's centre when none of it shows.
+    private static Point VisibleCentre(Control control, TopLevel topLevel)
+    {
+        var whole = new Rect(control.Bounds.Size);
+        var shown = whole;
+        foreach (var ancestor in control.GetVisualAncestors().OfType<Visual>())
+            if ((ancestor.ClipToBounds || ReferenceEquals(ancestor, topLevel))
+                && ancestor.TranslatePoint(default, control) is { } origin)
+                shown = shown.Intersect(new Rect(origin, ancestor.Bounds.Size));
+        return shown.Width > 0 && shown.Height > 0 ? shown.Center : whole.Center;
+    }
+
+    private static string WheelDirection(bool vertical, Vector delta) =>
+        vertical ? (delta.Y > 0 ? "up" : "down") : (delta.X > 0 ? "left" : "right");
+
+    // One notch is a delta of 1 along its axis, as a platform reports one: positive is up, or left.
+    private static bool TryParseWheel(string? value, out bool vertical, out Vector delta, out int notches, out Point? at,
+        out string problem)
+    {
+        vertical = true;
+        delta = default;
+        notches = 1;
+        at = null;
+        problem = string.Empty;
+        var tokens = (value ?? string.Empty).Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        if (tokens.Length == 0 || tokens.Length > 3)
+        {
+            problem = $"wheel takes {WheelValue} (got '{value}')";
+            return false;
+        }
+        (vertical, delta) = tokens[0].ToLowerInvariant() switch
+        {
+            "up" => (true, new Vector(0, 1)),
+            "down" => (true, new Vector(0, -1)),
+            "left" => (false, new Vector(1, 0)),
+            "right" => (false, new Vector(-1, 0)),
+            _ => (true, default(Vector)),
+        };
+        if (delta == default)
+        {
+            problem = $"wheel takes {WheelValue}; '{tokens[0]}' is not a direction";
+            return false;
+        }
+        foreach (var token in tokens.Skip(1))
+        {
+            if (token.Contains(','))
+            {
+                var xy = token.Split(',');
+                if (xy.Length != 2 || !double.TryParse(xy[0], NumberStyles.Float, CultureInfo.InvariantCulture, out var x)
+                                   || !double.TryParse(xy[1], NumberStyles.Float, CultureInfo.InvariantCulture, out var y))
+                {
+                    problem = $"wheel takes {WheelValue}; '{token}' is not a point 'x,y'";
+                    return false;
+                }
+                at = new Point(x, y);
+            }
+            else if (!int.TryParse(token, NumberStyles.None, CultureInfo.InvariantCulture, out notches) || notches is < 1 or > 50)
+            {
+                problem = $"wheel takes {WheelValue}; '{token}' is not a notch count from 1 to 50";
+                return false;
+            }
+        }
+        return true;
+    }
+
+    // The scroll bars a control draws itself along an axis, showing: not those of a ScrollViewer, which scroll reaches.
+    private static IEnumerable<ScrollBar> OwnBars(Control control, bool vertical) =>
+        control.GetVisualDescendants().OfType<ScrollBar>().Where(b =>
+            b.IsEffectivelyVisible
+            && b.Orientation == (vertical ? Avalonia.Layout.Orientation.Vertical : Avalonia.Layout.Orientation.Horizontal)
+            && (b.FindAncestorOfType<ScrollViewer>() is not { } viewer || viewer != control && !control.IsVisualAncestorOf(viewer)));
+
+    private static string BarPathUnder(Control control, ScrollBar bar) =>
+        PathWithin(control, string.Empty, bar) is { Length: > 1 } path ? $"'{path.TrimStart('/')}'" : $"'{Describe(bar)}'";
+
+    private static string BarPosition(ScrollBar bar) =>
+        $"{bar.Value.ToString("0.###", CultureInfo.InvariantCulture)}, in a range of {bar.Minimum.ToString("0.###", CultureInfo.InvariantCulture)} "
+        + $"to {bar.Maximum.ToString("0.###", CultureInfo.InvariantCulture)}";
 
     /// <summary>
     /// The target's own scroller if it can move along the requested axis, then a scroller in the target's own
@@ -3434,9 +3597,9 @@ public static class UiAutomationDriver
                 return new InteractOutcome(true, TypedMechanism,
                     $"typed {text.Length} char(s) into {surface.GetType().Name}"
                     + $"{(ReferenceEquals(surface, control) ? string.Empty : AddressOf(control, controlPath, surface))}{replaced}. "
-                    + $"The caret was at the end of the declaration of {placed.Run.Member?.Name}, so the text from its "
+                    + $"The edit ended on the declaration of {placed.Run.Member?.Name}, so the text from its "
                     + "first line break on went after that member's Attribute lines, which follow the line they "
-                    + $"describe; its line breaks were written as the file's. The caret is now at offset {placed.End}.",
+                    + $"describe; any remaining comment text followed it. Its line breaks were written as the file's. The caret is now at offset {placed.End}.",
                     null);
             }
 
@@ -4570,6 +4733,11 @@ public static class UiAutomationDriver
             public static readonly System.Reflection.ConstructorInfo? NewEvent =
                 typeof(Avalonia.Input.Raw.RawPointerEventArgs).GetConstructors().FirstOrDefault(c => c.GetParameters() is
                     [_, { ParameterType: var t }, _, _, { ParameterType: var p }, _] && t == typeof(ulong) && p == typeof(Point));
+            // A wheel event: device, timestamp, root, position, delta and modifiers (#2576).
+            public static readonly System.Reflection.ConstructorInfo? NewWheel = typeof(Avalonia.Input.Raw.RawInputEventArgs)
+                .Assembly.GetType("Avalonia.Input.Raw.RawMouseWheelEventArgs")?.GetConstructors().FirstOrDefault(c =>
+                    c.GetParameters() is [_, { ParameterType: var t }, _, { ParameterType: var p }, { ParameterType: var d }, _]
+                    && t == typeof(ulong) && p == typeof(Point) && d == typeof(Vector));
 
             static Members() { }
         }
@@ -4605,6 +4773,27 @@ public static class UiAutomationDriver
         }
 
         public static void Leave(TopLevel topLevel) => Send(topLevel, Avalonia.Input.Raw.RawPointerEventType.LeaveWindow, default);
+
+        /// <summary>Sends one wheel event at <paramref name="at"/>, in the window's coordinates, through the device every
+        /// hover sends through. False, having sent nothing, when a member it needs cannot be reached.</summary>
+        public static bool Wheel(TopLevel topLevel, Point at, Vector delta)
+        {
+            try
+            {
+                if (Members.NewWheel is not { } newWheel || mouse is null || topLevel.PlatformImpl is not { } impl
+                    || Members.PlatformInput?.GetValue(impl) is not Action<Avalonia.Input.Raw.RawInputEventArgs> input
+                    || Members.InputRoot?.GetValue(topLevel) is not IInputRoot root)
+                    return false;
+                input((Avalonia.Input.Raw.RawInputEventArgs)newWheel.Invoke(
+                    [mouse, (ulong)Environment.TickCount64, root, at, delta, RawInputModifiers.None]));
+                return true;
+            }
+            catch (Exception ex) when (ex is System.Reflection.TargetInvocationException or TypeInitializationException
+                                           or MemberAccessException or InvalidCastException or ArgumentException)
+            {
+                return false;
+            }
+        }
 
         /// <summary>Whether <paramref name="device"/> is the one every hover sends through.</summary>
         public static bool Sent(IInputDevice? device) => device is not null && ReferenceEquals(device, mouse);
@@ -5331,6 +5520,10 @@ public static class UiAutomationDriver
             // element below instead, so its paths read the way the screen does: a selected control's grab handles under
             // the control, not at the window's root (#2231).
             if (v is AdornerLayer)
+                continue;
+            // The loader keeps an empty hidden bar even on a form declaring no menus (#3276).
+            if (v is Menu { ItemCount: 0, IsVisible: false } menu
+                && menu.FindAncestorOfType<HexIDE.Runtime.VBFormRuntime>() is not null)
                 continue;
             if (v is Popup popup)
             {

@@ -157,6 +157,9 @@ xmlns:HexIDE="clr-namespace:HexIDE"
                     <Separator IsVisible="{CompiledBinding SelectedFormOrFormPart}"/>
                     <MenuItem Header="{DynamicResource Str.Tool.Project.Menu.Add}">
                         <MenuItem utils:MenuUtils.MenuIcon="{StaticResource Geo.Addform}"  Command="{CompiledBinding AddFormCommand}" Header="{DynamicResource Str.Tool.Project.Menu.Add.Form}" />
+                        <MenuItem utils:MenuUtils.MenuIcon="{StaticResource Geo.Addmodule}" Command="{CompiledBinding AddModuleCommand}" Header="{DynamicResource Str.AddItem.Module}" />
+                        <MenuItem utils:MenuUtils.MenuIcon="{StaticResource Geo.Addclassmodule}" Command="{CompiledBinding AddClassModuleCommand}" Header="{DynamicResource Str.AddItem.ClassModule}" />
+                        <MenuItem utils:MenuUtils.MenuIcon="{StaticResource Geo.Addusercontrol}" Command="{CompiledBinding AddUserControlCommand}" Header="{DynamicResource Str.AddItem.UserControl}" />
                     </MenuItem>
                     <MenuItem IsVisible="{CompiledBinding !!SelectedForm}" Header="{CompiledBinding SaveFormHeader}" Command="{CompiledBinding SaveFormCommand}" />
                     <MenuItem IsVisible="{CompiledBinding !!SelectedForm}" Header="{CompiledBinding SaveFormAsHeader}" Command="{CompiledBinding SaveFormAsCommand}" />

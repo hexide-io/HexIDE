@@ -29,4 +29,21 @@ public class BlockParsingCostTests(ITestOutputHelper output) : BaseVBTestFixture
         decisions.Sum(d => d.SLL_TotalLook).Should().BeLessThan(200L * depth);
         parser.ParseInfo.getDFASize().Should().BeLessThan(1000);
     }
+
+    [Theory]
+    [InlineData(100)]
+    [InlineData(400)]
+    public void PrintExpression_PredictionCostIsBounded(int terms)
+    {
+        var vb = new BasicInterpreter(new MockStdLib(debug), context, rootEnv, "Sub Main()\nEnd Sub\n");
+        var source = "Sub Main()\nDebug.Print " + string.Join(" + ", Enumerable.Repeat("1", terms)) + "\nEnd Sub\n";
+        var parser = new VB6Parser(NextCounterList.Tokens(new VB6Lexer(new AntlrInputStream(source))));
+        parser.Interpreter.ClearDFA();
+        parser.Profile = true;
+        vb.ParseWithFallback(parser, p => p.startRule());
+        parser.NumberOfSyntaxErrors.Should().Be(0);
+        var decisions = parser.ParseInfo.getDecisionInfo();
+        decisions.Sum(d => d.SLL_TotalLook).Should().BeLessThan(200L * terms);
+        decisions.Sum(d => d.LL_TotalLook).Should().BeLessThan(20L * terms);
+    }
 }

@@ -49,6 +49,17 @@ not; a language server is a process, so it belongs to the second group.
 
 Comments and trailing commas are allowed — this is a file you edit by hand, not a wire format.
 
+For Windows paths, write forward slashes first: `C:/tools/new/server.exe`. Doubled backslashes
+(`C:\\tools\\new\\server.exe`) also work. Single backslashes are JSON escapes: an invalid escape
+rejects the file with repair guidance and the field and position. A valid escape such as `\t` or `\n`
+silently means a tab or newline instead of a backslash and a letter.
+
+HexIDE warns about these control characters in `command`, `arguments`, `workingDirectory`, and
+`workspaceArtifact.path`, including every array `arguments` element and every `environment` value,
+naming the field (with the array index or environment variable) and showing the likely intended backslash
+path. This warning does not rewrite the value or reject the entry; other validation still applies.
+`cwd` is not a configuration field HexIDE supports.
+
 JSON errors in Tools → Language Servers name the file, a 1-based line and character column,
 and the JSON path. Non-ASCII text before the fault counts as characters, rather than UTF-8 bytes
 ([#3065](https://github.com/hexide-io/HexIDE/issues/3065)). The log keeps the report in English.
@@ -239,8 +250,9 @@ per entry. Substituting nothing would hand the server a flag with no value.
 `{pid}` lets a server that supports watching its owner exit when HexIDE crashes or is forcibly stopped.
 On Windows, HexIDE also assigns stdio and launched pipe servers to a kill-on-close job, so assigned
 processes and descendants they subsequently launch end with HexIDE even without cooperative PID
-watching. A descendant launched before assignment is not covered. Linux and macOS still rely on
-cooperation after an unclean shutdown; the planned watchdog is not shipped yet (#406).
+watching. A descendant launched before assignment is not covered. On Linux and macOS, each stdio or pipe server
+HexIDE launches runs under a guard process, `HexIDE.LspGuard`, which ends the server's process group when
+HexIDE exits, cleanly or not (#2147).
 Pass it using that server's owner-process argument. It works without an open project. HexIDE still kills
 the launched process tree on clean shutdown; passing a PID does not enforce cleanup if the server ignores it.
 A launched pipe server gets two seconds to exit before that kill, even during bring-up. Once `initialize`
@@ -311,9 +323,10 @@ In order of likelihood:
 
 1. **Check the log** — `%LocalAppData%/HexIDE/logs/ide/`. A malformed entry is reported there with the
    reason, the field, and the line and column. A rejected entry does not stop the others from working.
-2. **Windows paths need doubled backslashes in JSON**, or forward slashes. A path written with single
-   backslashes is not valid JSON at all — the log names the offending field, such as
-   `$.servers[0].command`, with the line and column.
+2. **Use forward slashes for Windows paths**, or double each backslash in JSON. An invalid escape
+   names the offending field, such as `$.servers[0].command`, with the line and position and the two
+   supported forms. Valid escapes can instead produce control characters: the loader warns about those
+   in path fields and shows the likely intended path, leaving the legal value unchanged.
 3. **Have you opened a file it claims?** Servers start lazily, so a server for a language you have not
    opened is *expected* to be absent.
 4. **Does it defer its analysis to save?** HexIDE tells a server about a save only if the server asked to

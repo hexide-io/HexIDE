@@ -108,7 +108,7 @@ never at the cost of familiarity. See **[PHILOSOPHY.md](PHILOSOPHY.md)** for the
 
 ### Form designer & project
 - 🎨 **Visual form designer** — drag-and-drop controls on a Win98-style canvas
-- 📦 **14 built-in controls** — CommandButton, TextBox, Label, CheckBox, OptionButton, ComboBox, ListBox, Frame, PictureBox, Timer, Shape, Menu, HScrollBar, VScrollBar
+- 📦 **Built-in controls** — CommandButton, TextBox, Label, CheckBox, OptionButton, ComboBox, ListBox, Frame, PictureBox, Timer, Shape, Menu, HScrollBar, VScrollBar, and Image, which loads and runs but is not yet in the toolbox ([#860](https://github.com/hexide-io/HexIDE/issues/860)); a project that references an in-box OCX library adds its implemented controls to the toolbox
 - 💾 **Native VB6 project format** — reads `.vbp`, `.frm`, `.frx`, `.bas`, `.cls`; writes `.vbp`,
   `.frm`, `.bas`, `.cls` (`.frx` companions are preserved as-is, not regenerated — see
   [Opening real VB6 projects](#real-projects))
@@ -116,7 +116,7 @@ never at the cost of familiarity. See **[PHILOSOPHY.md](PHILOSOPHY.md)** for the
 
 ### Code editor
 - 💡 **IntelliSense** — keyword and declared-name completion as you type
-- 📐 **Code folding** — Sub/Function/Property/If/For/Select and 11 other block types
+- 📐 **Code folding** — Sub, Function, Property, If, For, Do, While, With, Select Case, Enum, Type and `#If` blocks
 - 🔍 **Find & Replace** — modeless, with regex, whole word, match case, and scope options
 - 🖌️ **Format code (Shift+Alt+F)** — keyword casing + auto-indentation, with format-on-save
 - ⌨️ **Auto-close blocks** — type `Sub Foo()`, press Enter, and `End Sub` appears
@@ -144,9 +144,10 @@ Start with `hexide-<platform>-selfcontained.*`, which includes .NET. The smaller
 `hexide-<platform>.*` build needs the plain [.NET 10 Runtime](https://dotnet.microsoft.com/download/dotnet/10.0)
 (`Microsoft.NETCore.App`) installed on every platform.
 
-**Linux:** choose `amd64` if `uname -m` prints `x86_64`, or `arm64` if it prints `aarch64`.
+**Linux:** choose `amd64` if `uname -m` prints `x86_64`, `arm64` if it prints `aarch64`,
+or `arm` for 32-bit Arm (`armv7l`), whose self-contained archive is `hexide-linux-arm-selfcontained.tar.gz`.
 The archives have no top-level folder, so extract into a folder of their own. From the directory
-containing your download (substitute `arm64` in the filename if needed):
+containing your download (substitute `arm64` or `arm` in the filename if needed):
 
 ```sh
 mkdir -p ~/hexide
@@ -156,7 +157,7 @@ tar -xzf hexide-linux-amd64-selfcontained.tar.gz -C ~/hexide
 
 Self-contained builds still need native libraries, including the distro's `libX11`, `libICE`, `libSM`,
 `fontconfig` and ICU. The v0.2.0 amd64 self-contained build started and showed the New Project dialog on
-openSUSE Leap 16.0 with GNOME without adding any libraries; other distros, desktops and the arm64 build
+openSUSE Leap 16.0 with GNOME without adding any libraries; other distros, desktops and the Arm builds
 were not checked.
 
 That openSUSE install had no `tar`. If yours has none, these are alternatives:
@@ -222,8 +223,8 @@ Programs made with v0.2.0 don't start, because that release's runner wasn't a si
 
 ### Open in Visual Studio
 
-Open `HexIDE.slnx` at the repo root — all projects, in two solution folders (`IDE` and
-`LspServer`). Requires Visual Studio 2022 17.10+ for `.slnx` support.
+Open `HexIDE.slnx` at the repo root — the IDE and server projects and their tests, in two solution folders
+(`IDE` and `LspServer`). Requires Visual Studio 2022 17.10+ for `.slnx` support.
 
 ---
 
@@ -256,11 +257,12 @@ any change to the IDE.
 
 Under the hood, **`HexIDE.Core`** is a zero-dependency abstraction layer with no Avalonia
 imports; **Pure.DI** provides source-generated, AOT-safe dependency injection; and theming is
-driven by switchable theme packs (a Win98-style Classic theme ships today).
+driven by switchable theme packs (Classic, a Win98 style, ships with Dark and Abyss).
 
 The server currently handles: `initialize`, `didOpen`/`didChange`/`didClose`, `hover`,
 `completion`, `signatureHelp`, `definition`, `documentHighlight`, `documentSymbol`,
-`foldingRange`, `formatting`, `rename`, and `publishDiagnostics`.
+`foldingRange`, `formatting`, `inlayHint`, `rename`, and `publishDiagnostics`, plus HexIDE's own
+`vb/builtinSymbols`.
 
 ---
 

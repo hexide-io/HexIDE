@@ -2598,7 +2598,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
         + "the open windows listed, each form by its name and title: ask for an unknown name to discover them; the name is the stable handle.";
 
     [McpServerTool(Name = "dump_visual_tree")]
-    [Description("Returns the active window's live control tree to address controls (see 'window'). Uses the UIA 'control view': None-type wrappers without focus, AutomationId or non-scroll capability are collapsed; x:Name alone keeps no wrapper. Adorners are under their control. Overflow never inserts a path segment. Context menus and flyouts have a ContextMenu or Flyout segment under their owner; owner paths stay stable. Each node carries its addressing 'path' (feed it back as a target), ControlType, Name, AutomationId, ClassName, the DataContext ViewModel type, supported interaction providers, and enabled/offscreen flags. Providers and their interact actions: invoke → invoke, selection and selectionItem → select and remove_from_selection, multiSelectItem → add_to_selection and remove_from_selection, value → set_value, toggle → toggle, expandCollapse → expand/collapse (also a context menu or flyout the control owns), rangeValue → set_range_value, scroll → scroll. Only usable actions are reported: a list that fits has no scroll; a progress bar has no rangeValue. Range capability keeps a node even with unusable bounds. A .NET type used as a name is reported as 'typeNameAsName' instead; it cannot name a path. 'isHidden': true marks an effectively-invisible control; absent when showing. isOffscreen reports clipping and scroll position instead. A long ListBox makes rows only for what is in view, so its dump lists those, and a row out of view with keyboard focus; interact 'select' with a value finds the rest by scrolling to them. Top-level 'focusedPath' names the keyboard focus in the whole window, even with root/match filters; null with 'focusReason' when none is in this window. Scope a large dump with 'root', or find nodes with 'match'; see 'maxDepth' and 'interactiveOnly' for what it keeps and when a node is 'truncated'. A tree over about 40,000 characters, more than some clients take inline, keeps the active document, cutting hidden children then other branches; the 'note', written first, explains cuts.")]
+    [Description("Returns the active window's live control tree to address controls (see 'window'). Uses the UIA 'control view': None-type wrappers without focus, AutomationId or non-scroll capability are collapsed; x:Name alone keeps no wrapper. Adorners are under their control. Overflow never inserts a path segment. Context menus and flyouts have a ContextMenu or Flyout segment under their owner; owner paths stay stable. Each node carries its addressing 'path' (feed it back as a target), ControlType, Name, AutomationId, ClassName, the DataContext ViewModel type, supported interaction providers and isEnabled. Providers and their interact actions: invoke → invoke, selection and selectionItem → select and remove_from_selection, multiSelectItem → add_to_selection and remove_from_selection, value → set_value, toggle → toggle, expandCollapse → expand/collapse (also a context menu or flyout the control owns), rangeValue → set_range_value, scroll → scroll. Only usable actions are reported: a list that fits has no scroll; a progress bar has no rangeValue. Range capability keeps a node even with unusable bounds. A .NET type used as a name is reported as 'typeNameAsName' instead; it cannot name a path. Nodes may carry 'isHidden' and 'isOffscreen'; 'flagsNote' says what each means when a node has one. A long ListBox makes rows only for what is in view and a focused row, so its dump lists those; interact 'select' with a value scrolls to the rest. Top-level 'focusedPath' names the keyboard focus anywhere in the window, or 'focusReason' says why there is none. Scope a dump with 'root', or search with 'match'; 'maxDepth' and 'interactiveOnly' say what is kept and when a node is 'truncated'. A tree over about 40,000 characters is cut to fit, keeping the active document, and the 'note', written first, says what was cut.")]
     public async Task<VisualTreeResult> DumpVisualTreeAsync(
         [Description("A path to dump only that subtree; omit for the whole window. For deeply nested or large areas, "
                      + "scope the dump this way. name is x:Name when set; label is the peer text when different. A segment accepts either.")]
@@ -2682,7 +2682,36 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
             var (fitted, fitNote) = FitToReply(tree, activeDocumentPath);
             result = result with { Root = fitted, Note = fitNote ?? result.Note };
         }
-        return result;
+        var shown = result.Root is { } root2 ? [root2] : result.Matches ?? [];
+        return result with { FlagsNote = FlagsNote(shown) };
+    }
+
+    /// <summary>
+    /// What <c>isHidden</c> and <c>isOffscreen</c> mean, for the flags the reply's nodes carry, or null when none carries
+    /// either. Moved here from the description, which had no room for it (#2566), so it is read where the flags are.
+    /// </summary>
+    internal static string? FlagsNote(IEnumerable<UiNode> nodes)
+    {
+        bool hidden = false, offscreen = false;
+        var pending = new Stack<UiNode>(nodes);
+        while (pending.Count > 0 && !(hidden && offscreen))
+        {
+            var node = pending.Pop();
+            hidden |= node.IsHidden == true;
+            offscreen |= node.IsOffscreen;
+            foreach (var child in node.Children)
+                pending.Push(child);
+        }
+        var parts = new List<string>();
+        if (hidden)
+            parts.Add("isHidden true marks a control that is in the tree but does not show, and is absent on one that "
+                      + "shows; interact refuses all but invoke_command and set_property on it.");
+        if (offscreen)
+            // A row cut off in part reads false, which a first-contact caller took the old wording to deny (#2566).
+            parts.Add("isOffscreen true means a control is clipped or scrolled out of view, and one only partly cut off "
+                      + "reads false; it says nothing about whether it shows: scroll it into view, or 'select' an item by "
+                      + "its text.");
+        return parts.Count == 0 ? null : string.Join(" ", parts);
     }
 
     /// <summary>
@@ -2853,9 +2882,9 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     [DescribesEnum(typeof(WindowDecorations))]
     [DescribesEnum(typeof(WindowState))]
     [DescribesEnum(typeof(HexIDE.Automation.PointerSource))]
-    [Description("Deep-inspects one control addressed by 'target' (a path from dump_visual_tree): identity, providers, 'isFocused', 'isKeyboardFocusable', and 'boundingRect' (x, y, width, height in device-independent units from the window's client top-left, including popups; unavailable with boundingRectNote if its position cannot be read; map with take_snapshot's scale and offsets). Reports value with 'isReadOnly' (with a value provider), toggle state, 'expandCollapseState' (Collapsed, Expanded, PartiallyExpanded, LeafNode, with an expand/collapse provider), 'selectionItems', what is selected, not the list's items, which 'items' gives: each one's text for select, off-screen ones too (a dropdown only while open); 'itemCount', how many items a list, dropdown or tab holds, hidden ones too, a scroll bar/slider's 'range' (value, minimum, maximum, isReadOnly), and 'pointer': a running program's mousePointer, number and name, what it 'shows', and 'setBy' (Own, Override as Screen.MousePointer sets, Style) on 'setOn'; absent if none is set. A Window also reports 'frame': canResize, windowDecorations (None, BorderOnly, Full), canMinimize, canMaximize, showInTaskbar, windowState (Normal, Minimized, Maximized, FullScreen). On Windows, nativeStyle and nativeExStyle are the HWND's GWL_STYLE/GWL_EXSTYLE masks, or nativeStyleNote says why not. Lists the DataContext ViewModel's public commands, Command-bound methods and properties for interact's reflection actions, with values readable as text. A control that inherits its DataContext lists only its own resolved Command, if any, with binding details in 'dataContextNote'; 'dataContextOwner' gives the owner's path, and 'dataContextNote' counts omitted Dock base-type members. An editor's Document is a line count: get_file_content gives its text; the Immediate window gives its text here. Long values are cut and give their full length. Pass the same 'window' as the dump the path came from. 'isHidden' is true for a control in the tree that does not show, and absent when it does.")]
+    [Description("Deep-inspects one control addressed by 'target' (a path from dump_visual_tree, in the same 'window'): identity, providers, 'isFocused', 'isKeyboardFocusable', and 'boundingRect' (x, y, width, height in device-independent units from the window's client top-left, including popups; unavailable with boundingRectNote if its position cannot be read; map with take_snapshot's scale and offsets). Reports value with 'isReadOnly' (with a value provider), toggle state, 'expandCollapseState' (Collapsed, Expanded, PartiallyExpanded, LeafNode, with an expand/collapse provider), 'selectionItems', what is selected, not the list's items, which 'items' gives: each one's text for select, off-screen ones too (a dropdown only while open); 'itemCount', how many items a list, dropdown or tab holds, hidden ones too, a scroll bar/slider's 'range' (value, minimum, maximum, isReadOnly), and 'pointer': a running program's mousePointer, number and name, what it 'shows', and 'setBy' (Own, Override as Screen.MousePointer sets, Style) on 'setOn'; absent if none is set. A Window also reports 'frame': canResize, windowDecorations (None, BorderOnly, Full), canMinimize, canMaximize, showInTaskbar, windowState (Normal, Minimized, Maximized, FullScreen). On Windows, nativeStyle and nativeExStyle are the HWND's GWL_STYLE/GWL_EXSTYLE masks, or nativeStyleNote says why not. Lists the DataContext ViewModel's public commands, Command-bound methods and properties for interact's reflection actions, with values readable as text. A control that inherits its DataContext lists only its own resolved Command; 'dataContextNote' says what was left out and why, and 'dataContextOwner' gives the owner's path. An editor's Document reads as a line count; the Immediate window's editor gives its text as 'value'. 'isHidden' is true for a control in the tree that does not show, and absent when it does.")]
     public async Task<InspectResult> InspectElementAsync(
-        [Description("A path from dump_visual_tree, including ContextMenu/Flyout segments for attached popups.")]
+        [Description("A path from dump_visual_tree, including ContextMenu/Flyout segments for attached popups. Pass the same 'window' as the dump it came from.")]
         string target, [Description(WindowParameter)] string? window = null, CancellationToken ct = default)
     {
         return await Dispatcher.UIThread.InvokeAsync(() =>
@@ -2877,9 +2906,9 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     public async Task<InteractOutcome> InteractAsync(
         [Description("A path from dump_visual_tree, including ContextMenu/Flyout segments for attached popups.")]
         string target,
-        [Description("One of: invoke (click a Button or menu item); select (pick a ComboBox or ListBox item, a DataGrid row or a tree node; with 'value', a row out of view is scrolled to first; a dropdown's items exist only while it is open, so expand it, dump_visual_tree(root=combo), then select, which closes it as a click does); add_to_selection / remove_from_selection (add a multi-select list item or remove a list/tree item without replacing the selection; the reply names the primary, on a designer the last control added); double_click (raise DoubleTapped, selecting the target first as a real double-click does, or commit a completion item; how the Project Explorer opens an item); click (press and release a pointer on the target as a real click does, so a running form raises MouseDown, Click and MouseUp; the only verb that presses; to drags, and hold stops before letting go; any control, a Label or a form's area included); release (let go of that held button); set_value (set a TextBox's text, or a fixed ComboBox's item; a box bound to a property is committed as Enter would); toggle (flip a CheckBox); expand / collapse (a dropdown, tree node, expander or menu, or else the context menu or flyout the control owns); set_range_value (set a Slider or ScrollBar, as dragging its thumb would; a read-only bar or out-of-range value is refused, not clamped); scroll (moves the target's own scroller or bars, so an editor or a DataGrid works, else the nearest container that scrolls that way); invoke_command and set_property (reflection: use the DataContext members inspect_element lists, or value Command for the target's resolved command; invoke_command checks CanExecute, and set_property coerces to the property's type); close (the target's window, as its close box does; a Yes/No or Abort/Retry/Ignore MsgBox refuses, a form's QueryUnload may; not the IDE's main window).")]
+        [Description("One of: invoke (click a Button or menu item); select (pick a ComboBox or ListBox item, a DataGrid row or a tree node; with 'value', a row out of view is scrolled to first; a dropdown's items exist only while it is open, so expand it, dump_visual_tree(root=combo), then select, which closes it as a click does); add_to_selection / remove_from_selection (add a multi-select list item or remove a list/tree item without replacing the selection; the reply names the primary, on a designer the last control added); double_click (raise DoubleTapped, selecting the target first as a real double-click does, or commit a completion item; how the Project Explorer opens an item); click (press and release a pointer on the target as a real click does, so a running form raises MouseDown, Click and MouseUp; the only verb that presses; to drags, and hold stops before letting go; any control, a Label or a form's area included); release (let go of that held button); set_value (set a TextBox's text, or a fixed ComboBox's item; a box bound to a property is committed as Enter would); toggle (flip a CheckBox); expand / collapse (a dropdown, tree node, expander or menu, or else the context menu or flyout the control owns); set_range_value (set a Slider or ScrollBar, as dragging its thumb would); scroll (moves the target's own scroller or bars, so an editor or a DataGrid works, else the nearest container that scrolls that way); wheel (turn the mouse wheel over the target as a person does, so its own wheel handling runs; the reply says what moved); invoke_command and set_property (reflection: use the DataContext members inspect_element lists, or value Command for the target's resolved command); close (the target's window, as its close box does; a Yes/No or Abort/Retry/Ignore MsgBox refuses, a form's QueryUnload may; not the IDE's main window).")]
         string action,
-        [Description("Required for set_value (the text), set_range_value (a number, '.' for decimals), scroll (up, down, left or right for a page; line_up, line_down, line_left or line_right for a line; home or end for the top or bottom) and the reflection actions (invoke_command: Command runs the target’s resolved Command with its CommandParameter, checking CanExecute; otherwise the name of an ICommand property, or of a method XAML binds as a Command with no CommandParameter, refused when its Can<name>(object) returns false; set_property: \"PropertyName=NewValue\"). For select, the item text to match; omit it when 'target' already points at the item. Optional for click: a point 'x,y' relative to the target's top-left ('.' for decimals; the centre when omitted), a button, left, right or middle (left when omitted), any of shift, ctrl and alt to hold, and double for two clicks, in any order and separated by spaces, as in '10,5 right double' or 'double'; append to x,y or to <path>:x,y to drag (paste a dump_visual_tree path, including spaces); release coordinates are relative to that control, or the target without a path; to cannot accompany double; add hold to a drag to stop before its release, with the button still down at the to point until action release. While it is held, every reply's heldButton says where, a snapshot or a dump shows the drag in progress, click, double_click and hover are refused, and keys still go. For release: x,y relative to the target, or <path>:x,y, moves the held button there first; with no value it lets go where it is held. Example: click '20,20 to 100,60 hold' on the designer canvas shows the draw preview to 100,60, then release '140,90' draws to 140,90. With no call for 120 s a hold is abandoned; heldButton says how, and the next reply what it did.")]
+        [Description("Required for set_value (the text), set_range_value (a number, '.' for decimals), scroll (up, down, left or right for a page; line_up, line_down, line_left or line_right for a line; home or end for the top or bottom) and the reflection actions (invoke_command: Command runs the target’s resolved Command with its CommandParameter, checking CanExecute; otherwise the name of an ICommand property, or of a method XAML binds as a Command with no CommandParameter, refused when its Can<name>(object) returns false; set_property: \"PropertyName=NewValue\"). For select, the item text to match; omit it when 'target' already points at the item. For wheel: up, down, left or right, then notches (default 1) and an optional x,y, as 'down 3'. Optional for click: a point 'x,y' relative to the target's top-left ('.' for decimals; the centre when omitted), a button, left, right or middle (left when omitted), any of shift, ctrl and alt to hold, and double for two clicks, in any order and separated by spaces, as in '10,5 right double' or 'double'; append to x,y or to <path>:x,y to drag (paste a dump_visual_tree path, including spaces); release coordinates are relative to that control, or the target without a path; to cannot accompany double; add hold to a drag to stop before its release, with the button still down at the to point until action release. While it is held, every reply's heldButton says where, a snapshot or a dump shows the drag in progress, click, double_click and hover are refused, and keys still go. For release: x,y relative to the target, or <path>:x,y, moves the held button there first; with no value it lets go where it is held. Example: click '20,20 to 100,60 hold' on the designer canvas shows the draw preview to 100,60, then release '140,90' draws to 140,90. With no call for 120 s a hold is abandoned; heldButton says how, and the next reply what it did.")]
         string? value = null,
         [Description(WindowParameter)]
         string? window = null,
@@ -2929,7 +2958,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     }
 
     [McpServerTool(Name = "type_text")]
-    [Description("Types text into the control at 'target' (a path from dump_visual_tree) by inserting at the caret via the control's own API, writing over a standing selection as a person's typing does (the reply says how many characters it replaced), reported as mechanism \"document\" because it is an edit and not key events ('mode' \"keyboard\" sends key events instead, as a person types, Shift's own key around a capital); a read-only or disabled surface is refused, as a person's typing would be — works on the code editor (AvaloniaEdit), which has no value provider for 'interact set_value'. See 'target' for descendant surface selection and refusals. See 'text' for line breaks. Use press_key for Enter/Tab/commands. In a code window a selection reaching the file's header or a member's Attribute lines, which only the IDE changes, has only its editable parts replaced, and the reply says what stayed; with nothing editable, or the caret in such a region, it is refused, naming the region and giving an editable offset into the whole file (get_file_content). At the end of a declaration whose Attribute lines follow it, the text from its first line break on goes after those lines, with its line breaks written as the file's, as a person's paste does there; the reply says so and gives the caret's new offset. 'window' picks the top-level window the path is resolved against; its own description lists the values. " + ProgramWaitNote)]
+    [Description("Types text into the control at 'target' (a path from dump_visual_tree) by inserting at the caret via the control's own API, writing over a standing selection as a person's typing does (the reply says how many characters it replaced), reported as mechanism \"document\" because it is an edit and not key events ('mode' \"keyboard\" sends key events instead, as a person types, Shift's own key around a capital); a read-only or disabled surface is refused, as a person's typing would be — works on the code editor (AvaloniaEdit), which has no value provider for 'interact set_value'. See 'target' for descendant surface selection and refusals. See 'text' for line breaks. Use press_key for Enter/Tab/commands. In a code window a selection reaching the file's header or a member's Attribute lines, which only the IDE changes, has only its editable parts replaced, and the reply says what stayed; with nothing editable, or the caret in such a region, it is refused, naming the region and giving an editable offset into the whole file (get_file_content). At the end of a declaration whose Attribute lines follow it, or before or inside its trailing comment, the text from its first line break on goes after those lines, followed by any remaining comment text; the caret precedes that moved comment, with its line breaks written as the file's, as a person's paste does there; the reply says so and gives the caret's new offset. 'window' picks the top-level window the path is resolved against; its own description lists the values. " + ProgramWaitNote)]
     public async Task<InteractOutcome> TypeTextAsync(
         [Description("A path from dump_visual_tree. A target that is not showing is refused. If the target is not itself a text surface, a descendant editor/textbox is used (AvaloniaEdit is preferred over incidental textboxes); the reply gives the path of the surface that took the text. A target holding more than one showing surface of the chosen kind is refused, with their paths listed. In the default mode a dropdown that is not editable is refused with a pointer to select.")]
         string target,
@@ -3383,46 +3412,84 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     }
 
     [McpServerTool(Name = "activate_document_tab")]
-    [Description("Brings a tab to the front, giving an editor keyboard focus. Pass `name` (the document's VB6 name) and optional `project`, matched without regard to case through the same lookup as open_file. An ambiguous document is refused with candidates. If both code and designer tabs are open, pass `type`: code or designer. Alternatively pass `title` from get_document_tabs, including for tool tabs (type tool); a duplicate title is refused. Pass either title or name, not both. The reply names the target's project and document when it has one, and its note identifies the active tab and count afterward.")]
+    [Description("Brings a tab to the front, giving an editor keyboard focus. Pass `name` (the document's VB6 name) and optional `project`, matched without regard to case through the same lookup as open_file. An ambiguous document is refused with candidates. If both code and designer tabs are open, pass `type`: code or designer. Alternatively pass `title` from get_document_tabs, including for tool tabs (type tool); a duplicate title is refused, and a title no tab has is tried as a document name, used when one tab shows it. Pass either title or name, not both. The reply names the target's project and document when it has one, and its note identifies the active tab and count afterward.")]
     public async Task<MutateResult> ActivateDocumentTabAsync(string? title = null, string? name = null,
         string? project = null, string? type = null, CancellationToken ct = default)
     {
         return await FocusingTheActiveTabAsync(await Dispatcher.UIThread.InvokeAsync(() =>
         {
             var lookup = name is null ? default : ResolveDocument(name, project);
-            var (tab, error) = FindTab(title, lookup, type, project);
+            var (tab, error, matched) = FindTab(title, lookup, type, project);
             if (tab is null)
                 return Naming(new MutateResult(false, error), lookup);
             var found = ctx.DocumentDockService.TryActivateAny(d => ReferenceEquals(d, tab));
-            return Naming(new MutateResult(found, null, TabStateNote()),
+            return Naming(new MutateResult(found, null, matched + TabStateNote()),
                 (tab as BaseEditorWindowViewModel)?.OpenDocument);
         }));
     }
 
-    private (Dock.Model.Core.IDockable? Tab, string? Error) FindTab(
+    /// <summary>
+    /// The tab a call names, or why it names none. <c>Matched</c> is the note's opening sentence when a title that
+    /// is no tab's was taken as the name of the one document it fits, and null otherwise.
+    /// </summary>
+    private (Dock.Model.Core.IDockable? Tab, string? Error, string? Matched) FindTab(
         string? title, NamedDocument lookup, string? type, string? project)
     {
         if (title is not null && (lookup.Document is not null || lookup.Error is not null || project is not null))
-            return (null, "Pass either `title` or `name` with optional `project`, not both.");
+            return (null, "Pass either `title` or `name` with optional `project`, not both.", null);
         if (lookup.Error is not null)
-            return (null, lookup.Error);
+            return (null, lookup.Error, null);
         if (title is null && lookup.Document is null)
-            return (null, "Pass `name` with optional `project` for a document, or `title` for a tool tab. get_document_tabs lists both.");
+            return (null, "Pass `name` with optional `project` for a document, or `title` for a tool tab. get_document_tabs lists both.", null);
         if (type is not null && type is not ("code" or "designer" or "tool"))
-            return (null, "Use `type`: code, designer or tool, as get_document_tabs reports it.");
+            return (null, "Use `type`: code, designer or tool, as get_document_tabs reports it.", null);
         var matches = ctx.DocumentDockService.AllTabs.Where(d =>
             (lookup.Document is { } document
                 ? (d as BaseEditorWindowViewModel)?.OpenDocument == document
                 : string.Equals(d.Title, title, StringComparison.OrdinalIgnoreCase))
             && (type is null || TabType(d) == type)).ToArray();
+        if (matches.Length == 0 && lookup.Document is null)
+            return ByDocumentName(title!, type);
         return matches.Length switch
         {
-            1 => (matches[0], null),
-            0 => (null, lookup.Document is { } document
-                ? $"No open tab for {document.Display}" + (type is null ? "." : $" of type '{type}'.")
-                : NoSuchTab(title!)),
-            _ => (null, "More than one tab matches. Pass `name` and `project` to identify the document, and `type` (code or designer) to choose its tab. get_document_tabs lists them."),
+            1 => (matches[0], null, null),
+            0 => (null, $"No open tab for {lookup.Document!.Display}" + (type is null ? "." : $" of type '{type}'."), null),
+            _ => (null, "More than one tab matches. Pass `name` and `project` to identify the document, and `type` (code or designer) to choose its tab. get_document_tabs lists them.", null),
         };
+    }
+
+    /// <summary>
+    /// A title that is no tab's, taken as the name of a document the open tabs show (#3338).
+    /// </summary>
+    /// <remarks>
+    /// A caller holds a document's name, as get_project_info lists it and open_file takes it, and a tab tool's
+    /// <c>title</c> is the parameter it reaches for. A tab's title is built from that name, with the project before
+    /// it and the view after, so "Var1" matched no tab titled "Probe2 - Var1 (Code)", and the first call was
+    /// refused. Only a document exactly one tab shows is acted on. Several are refused, naming each and what picks
+    /// one, since guessing between two tabs is no better than a refusal.
+    /// </remarks>
+    private (Dock.Model.Core.IDockable? Tab, string? Error, string? Matched) ByDocumentName(string title, string? type)
+    {
+        var showing = ctx.DocumentDockService.AllTabs
+            .Select(d => (Tab: d, Document: (d as BaseEditorWindowViewModel)?.OpenDocument))
+            .Where(t => t.Document is not null && string.Equals(t.Document.Name, title, StringComparison.OrdinalIgnoreCase)
+                        && (type is null || TabType(t.Tab) == type))
+            .ToArray();
+        if (showing.Length == 0)
+            return (null, NoSuchTab(title), null);
+        if (showing.Length == 1)
+            return (showing[0].Tab, null,
+                $"No tab is titled '{title}', so it was taken as a document name: '{showing[0].Tab.Title}' is the one "
+                + $"tab showing {showing[0].Document!.Display}. `name` is the parameter for a document. ");
+        var documents = showing.Select(t => t.Document!).Distinct().ToArray();
+        var picks = new List<string>();
+        if (documents.Length > 1)
+            picks.Add("`project` for the document");
+        if (showing.Length > documents.Length)
+            picks.Add("`type` (code or designer) for its tab");
+        return (null, $"No tab is titled '{title}'. As a document name it fits {showing.Length} tabs: "
+                      + string.Join(", ", showing.Select(t => $"'{t.Tab.Title}'"))
+                      + $". Pass `name` \"{documents[0].Name}\" with {string.Join(" and ", picks)}.", null);
     }
 
     /// <summary>Says which tabs there are, rather than only that this one is not among them.</summary>
@@ -3443,14 +3510,14 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     }
 
     [McpServerTool(Name = "close_document_tab")]
-    [Description("Closes a tab; a save prompt can leave it open, which the note reports. Pass `name` (the document's VB6 name) and optional `project`, matched without regard to case through the same lookup as open_file. An ambiguous document is refused with candidates. If both code and designer tabs are open, pass `type`: code or designer. Alternatively pass `title` from get_document_tabs, including for tool tabs (type tool); a duplicate title is refused. Pass either title or name, not both. The reply names the target's project and document when it has one, and its note identifies the active tab and count afterward.")]
+    [Description("Closes a tab; a save prompt can leave it open, which the note reports. Pass `name` (the document's VB6 name) and optional `project`, matched without regard to case through the same lookup as open_file. An ambiguous document is refused with candidates. If both code and designer tabs are open, pass `type`: code or designer. Alternatively pass `title` from get_document_tabs, including for tool tabs (type tool); a duplicate title is refused, and a title no tab has is tried as a document name, used when one tab shows it. Pass either title or name, not both. The reply names the target's project and document when it has one, and its note identifies the active tab and count afterward.")]
     public async Task<MutateResult> CloseDocumentTabAsync(string? title = null, string? name = null,
         string? project = null, string? type = null, CancellationToken ct = default)
     {
         return await Dispatcher.UIThread.InvokeAsync(() =>
         {
             var lookup = name is null ? default : ResolveDocument(name, project);
-            var (tab, error) = FindTab(title, lookup, type, project);
+            var (tab, error, matched) = FindTab(title, lookup, type, project);
             if (tab is null)
                 return Naming(new MutateResult(false, error), lookup);
             var document = (tab as BaseEditorWindowViewModel)?.OpenDocument;
@@ -3458,10 +3525,10 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
             if (!closed)
                 return Naming(new MutateResult(false, "The tab could not be closed. " + TabStateNote()), document);
             var stillOpen = ctx.DocumentDockService.AllTabs.Any(d => ReferenceEquals(d, tab));
-            return Naming(new MutateResult(true, null, stillOpen
+            return Naming(new MutateResult(true, null, matched + (stillOpen
                 ? $"'{tab.Title}' is still open: closing it is waiting on an answer, most likely a save prompt, which "
                   + "dump_visual_tree shows. " + TabStateNote()
-                : $"Closed '{tab.Title}'. " + TabStateNote()), document);
+                : $"Closed '{tab.Title}'. " + TabStateNote())), document);
         });
     }
 
@@ -4248,6 +4315,8 @@ internal record LockKeyRow(HexIDE.Runtime.BuiltinControls.LockKey Key, bool? On,
 internal record VisualTreeResult(string? Error, string? Window, UiNode? Root, UiNode[]? Matches = null,
     [property: System.Text.Json.Serialization.JsonPropertyOrder(-1)] string? Note = null,
     [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.Never)]
-    string? FocusedPath = null, string? FocusReason = null);
+    string? FocusedPath = null, string? FocusReason = null,
+    // Ahead of the tree, so a caller reads what the flags mean before meeting them.
+    [property: System.Text.Json.Serialization.JsonPropertyOrder(-1)] string? FlagsNote = null);
 
 internal record InspectResult(string? Error, string? Window, UiNodeDetail? Element);
