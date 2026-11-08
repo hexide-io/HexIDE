@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Exercise interpreter selection through the complete guard, with stubs ahead of PATH.
+# Exercise filename checks and interpreter selection through the complete guard.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 mkdir -p artifacts
@@ -78,5 +78,31 @@ check 'silent stub falls back to python'      python  silent  no  0
 check 'silent stubs cannot pass the guard'    none    silent  no  1
 check 'Python 2 falls back to Python 3'       python  python2 no  0
 check 'fallback still rejects bad notices'    py      missing yes 1
+# Each name is tracked alone so another rejection cannot hide a false negative.
+check_name() {
+  local name=$1 expected=$2 got=0
+  printf '// SPDX-License-Identifier: MIT\n' > "$fixture/planted.cs"
+  mkdir -p "$fixture/names"
+  : > "$fixture/names/$name"
+  git -C "$fixture" add planted.cs "names/$name"
+  bash "$fixture/scripts/check-licences.sh" > "$fixture/output" 2>&1 || got=$?
+  if [ "$got" -ne "$expected" ] ||
+     { [ "$expected" -eq 1 ] && ! grep -Fq "GPL-named licence file present: names/$name" "$fixture/output"; }; then
+    echo "  WRONG  $name (exit $got, expected $expected)"
+    cat "$fixture/output"
+    fail=$((fail + 1))
+  else
+    echo "  ok     $name"
+    passed=$((passed + 1))
+  fi
+  git -C "$fixture" rm -qf "names/$name"
+}
+
+check_name COPYING.GPL 1
+check_name LICENSE-GPLv3 1
+check_name gpl-3.0.txt 1
+check_name lgpl-2.1.txt 1
+check_name TestingPlatformVersionTests.cs 0
+check_name gplot.c 0
 echo "check-licences self-test: $passed passed, $fail failed"
 [ "$fail" -eq 0 ]
