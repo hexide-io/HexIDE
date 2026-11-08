@@ -33,12 +33,14 @@ while IFS= read -r f; do
   [ -n "$f" ] && note "Rubberduck GPL grammar file present: $f"
 done < <(git ls-files -- . "${EXCLUDE[@]}" | grep -Ei '(VBALexer|VBAParser|VBAConditionalCompilationParser)\.g4$')
 
-# 2. No GPL-named licence files (basename contains "gpl": COPYING.GPL, LICENSE-GPLv3, gpl-3.0.txt…).
+# 2. No GPL-named licence files (COPYING.GPL, LICENSE-GPLv3, gpl-3.0.txt…).
+#    Require a licence-file shape and a GPL-family token, not the middle of TestingPlatform or gplot.
 #    A bare COPYING (a BSD/MIT dep may ship one) is intentionally NOT flagged by name — check 4
 #    catches any actual GPL licence file by its embedded text instead.
 while IFS= read -r f; do
   [ -n "$f" ] && note "GPL-named licence file present: $f"
-done < <(git ls-files -- . "${EXCLUDE[@]}" | grep -Ei 'gpl[^/]*$')
+done < <(git ls-files -- . "${EXCLUDE[@]}" | grep -Ei '(^|/)((COPYING|LICEN[CS]E)[^/]*|[^/]*\.txt)$' |
+  grep -Ei '(^|[^a-z])l?a?gpl(v[0-9]|[^a-z/]|$)[^/]*$')
 
 # 3. No GPL SPDX headers in tracked source (matches GPL / AGPL / LGPL variants).
 while IFS= read -r hit; do
