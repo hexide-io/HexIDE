@@ -1,4 +1,4 @@
-# A newly added module reads as having unsaved changes although its file matches
+# A newly added module reads as having unsaved changes although its file matches — **CLOSED** (#500, #597, 2026-10-26)
 
 **Symptom.** On a saved project, `add_file {"name":"Helpers","type":"Module"}` succeeds and writes
 `Helpers.bas`. Then `get_file_content {"name":"Helpers"}` (`project` left at null) answers
@@ -15,3 +15,8 @@ saving, an untouched document reads `false`. No render baseline should be record
 `WriteAtSaveTests.A_new_member_has_unsaved_changes_until_its_first_save` covers the transition for all
 five document kinds, in both saved and unsaved projects. The calls above record the original symptom,
 before #500; they no longer describe a file written by `add_file`.
+
+**Live (2026-11-08, Windows, a Debug build of main at `0ee530a5d`).** In an unsaved new project, `add_file {"name":"SweepCheck","type":"Module"}` answered that the
+module has no file yet, and `get_file_content {"name":"SweepCheck"}` answered
+`{"content":"Attribute VB_Name = \"SweepCheck\"
+","hasUnsavedChanges":true}`, as the paragraph above describes.
