@@ -104,3 +104,8 @@ is refused with "Can't change data types of array elements". The scalar Variant 
 `Dim Arr`, builds, and storing "Hello" reads back "Hello" with TypeName `String()`.
 The array probes are also recorded in [ReDim Preserve](vb6-fidelity-oracle/redim-preserve.md).
 These are the issue author's measurements, not new measurements by this implementation run.
+
+Issue [#3350](https://github.com/hexide-io/HexIDE/issues/3350) uses
+[#3349’s Public object-module member measurements](vb6-fidelity-oracle/a-public-array-in-an-object-module.md):
+Public constants, fixed-length strings, UDT variables and Declare statements receive the same compile refusal
+as Public arrays. HexIDE checks UDT members later, while allocating instance storage.
