@@ -106,6 +106,28 @@ public class CodeEditorPopupTests : IDisposable
             Dispatcher.UIThread.RunJobs();
     }
 
+    [AvaloniaTheory]
+    [InlineData("Ms", 2, 0)]
+    [InlineData("Ms", 1, 0)]
+    [InlineData("Ms", 0, 0)]
+    [InlineData("c.Ms", 4, 2)]
+    [InlineData("c.", 2, 2)]
+    [InlineData("UBound(Ms", 9, 7)]
+    [InlineData("UBound(", 7, 7)]
+    public async Task Completion_requests_the_start_of_the_word(string source, int caret, int start)
+    {
+        var (_, view, editor) = Show();
+        editor.Text = "Option Explicit\n" + source;
+        editor.CaretOffset = editor.Document.GetOffset(2, caret + 1);
+        lsp.ClearReceivedCalls();
+
+        view.TriggerCompletion();
+        Pump();
+
+        await lsp.Received(1).RequestCompletionAsync(Arg.Any<string>(), new Position(1, start),
+            Arg.Any<CancellationToken>());
+    }
+
     [AvaloniaFact]
     public void An_open_completion_list_is_in_the_tree_under_its_editor_and_its_items_can_be_found_and_selected()
     {

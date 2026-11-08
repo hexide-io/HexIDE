@@ -1884,6 +1884,9 @@ and variables are unfinished.
 - **AND** Tab selects c and a further Tab finishes at the final stop
 
 ### Requirement: Completion presentation honours server metadata
+The editor SHALL request completion at the start of the identifier around the caret, including for
+Complete Word, so a server filtering by the preceding word can return the full list for that context (#3340).
+
 The client SHALL sort merged completion items ordinally by `sortText ?? label` and match the whole word around the caret using
 `filterText ?? label`, keeping the full list visible. The editor SHALL initially select the first preselected prefix match, otherwise
 its first prefix match, leaving no selection for an empty or unmatched word. It SHALL show string or MarkupContent documentation with detail as plain text and reuse
@@ -1901,6 +1904,11 @@ If no item matches the opening word, the editor SHALL retain the server's list f
 #### Scenario: Server replacements do not match the opening word
 - **WHEN** the server offers a snippet replacement labelled `zsnip` over the word `M` and no item matches `M`
 - **THEN** the item remains available to accept and its snippet fields activate normally
+
+#### Scenario: Requesting within a typed identifier
+- **WHEN** the user requests completion with the caret within or after `Ms`
+- **THEN** the request position is before `M`
+- **AND** after `c.` or `UBound(` with no identifier, the request position remains after the punctuation
 
 ### Requirement: Completion acceptance keys
 The editor SHALL follow the VB6 SP6 measurements linked in issue #3056: Enter accepts a selected
