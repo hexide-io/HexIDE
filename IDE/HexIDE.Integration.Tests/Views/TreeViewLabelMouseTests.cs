@@ -151,6 +151,39 @@ public class TreeViewLabelMouseTests
         finally { window.Close(); }
     }
 
+    // UI regression from #3352, not a measured VB6 caret/selection contract.
+    [AvaloniaFact]
+    public async Task Page_keys_keep_the_editing_label_in_view()
+    {
+        var tree = new VBTreeView { Width = 300, Height = 200 };
+        var node = tree.Nodes.Add(text: "Node 01");
+        tree.Nodes.SelectedItem = node;
+        var window = new Window { Content = new Root { Child = tree } };
+        window.Show();
+        try
+        {
+            await tree.StartLabelEditAsync();
+            var editor = tree.GetVisualDescendants().OfType<LabelEditor>().Single();
+            // Make the line taller than the fixed edit box, independently of the host's font metrics.
+            editor.FontSize = 24;
+            window.UpdateLayout();
+            var scroll = editor.GetVisualDescendants().OfType<ScrollViewer>().Single();
+            foreach (var key in new[] { Key.PageDown, Key.PageUp, Key.PageDown, Key.PageUp })
+            {
+                window.KeyPress(key, RawInputModifiers.None, PhysicalKey.None, null);
+                window.KeyRelease(key, RawInputModifiers.None, PhysicalKey.None, null);
+                window.UpdateLayout();
+                scroll.Offset.Y.Should().Be(0, "page keys must not scroll a single-line label out of sight");
+                editor.Text.Should().Be("Node 01");
+                editor.IsFocused.Should().BeTrue();
+            }
+            window.KeyPress(Key.Escape, RawInputModifiers.None, PhysicalKey.Escape, null);
+            tree.GetVisualDescendants().OfType<LabelEditor>().Should().BeEmpty();
+            node.Text.Should().Be("Node 01");
+        }
+        finally { window.Close(); }
+    }
+
     [AvaloniaTheory]
     [InlineData(0)]
     [InlineData(1)]
