@@ -2,6 +2,7 @@
   "name": "Finnish",
   "direction": "ltr",
   "strings": {
+    "Str.AIChat.Stop": "Pysäytä",
     "Str.Tool.LanguageServers.Problem.JsonSyntaxEscape": "Asetustiedosto ”{0}” sisältää virheellistä JSONia rivillä {1}, sarakkeessa {2}. Polku: {3} Käytä kauttaviivoja (C:/tools/new/...) tai kaksinkertaisia kenoviivoja (C:\\\\tools\\\\new\\\\...).",
     "Str.Tool.LanguageServers.Problem.PathControlWarning": "Kenttä '{0}' sisältää escape-sekvenssistä syntyneen ohjausmerkin; todennäköisesti tarkoitettu polku kenoviivoilla: {1}. Arvoa ei muutettu.",
     "Str.Lsp.ServerMessage": "Kielipalvelin: {0}",

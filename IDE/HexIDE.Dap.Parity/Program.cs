@@ -218,7 +218,13 @@ async Task<Engine> RunEngine(string workspace, string module)
             // The case's own workspace, so a relative path the engine resolves lands there. Programs that touch the
             // file system are left out anyway (Effects); this is the second line.
             WorkingDirectory = workspace,
-            Environment = new Dictionary<string, string?> { ["Configuration__Environment__ErlLineNumbering"] = options.ErlLineNumbering },
+            Environment = new Dictionary<string, string?>
+            {
+                ["Configuration__Environment__ErlLineNumbering"] = options.ErlLineNumbering,
+                // VB6 corpus settings measured against RDCore 82c0c0a6 and 37c0ae8a (#3317, #3188).
+                ["Configuration__Workspace__Language"] = "vb6",
+                ["Configuration__Environment__ErlAfterErrClear"] = "Kept",
+            },
             ShutdownTimeout = TimeSpan.FromSeconds(5),
         });
         var running = session;

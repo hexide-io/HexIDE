@@ -2,6 +2,7 @@
   "name": "English",
   "direction": "ltr",
   "strings": {
+    "Str.AIChat.Stop": "Stop",
     "Str.Tool.LanguageServers.Problem.JsonSyntaxEscape": "The configuration file '{0}' contains invalid JSON at line {1}, column {2}. Path: {3} Use forward slashes (C:/tools/new/...) or doubled backslashes (C:\\\\tools\\\\new\\\\...).",
     "Str.Tool.LanguageServers.Problem.PathControlWarning": "Field '{0}' contains an escaped control character; likely intended backslash path: {1}. The value is unchanged.",
     "Str.Lsp.ServerMessage": "Language server: {0}",

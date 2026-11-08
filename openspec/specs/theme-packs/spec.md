@@ -11,6 +11,9 @@ user can have a theme the project never shipped, and adding one is a contributio
 This is one of three independent pack systems that follow the same shape and compose freely: this one swaps
 colours, `keymap-packs` swaps keyboard gestures, and `language-packs` swaps text.
 
+Disk discovery closes [#413](https://github.com/hexide-io/HexIDE/issues/413), which tracked the former
+embedded-only loader.
+
 ## Requirements
 
 ### Requirement: IDE dialog buttons expose keyboard focus and fixed defaults
@@ -47,6 +50,15 @@ SHALL NOT change VB6 controls on running forms or program message boxes.
 - **AND** an existing explicit focus choice is preserved with keyboard cues
 - **AND** program message boxes and input boxes retain their existing chrome and focus behaviour
 
+### Requirement: IDE dialogs cannot be minimized or add taskbar buttons
+IDE dialogs hosted by `DialogWindow`, IDE message/input boxes and language-server prompts SHALL set
+`CanMinimize` and `ShowInTaskbar` to false, as recorded in [#3341](https://github.com/hexide-io/HexIDE/issues/3341).
+Program MsgBox and InputBox windows SHALL retain their existing behaviour.
+
+#### Scenario: Opening an IDE dialog
+- **WHEN** any of these IDE dialog windows opens
+- **THEN** it cannot be minimized and does not add its own taskbar button
+
 ### Requirement: A theme SHALL be declared as data, not compiled in
 A theme SHALL be a data file declaring colour values by key, and adding one SHALL require no code change and
 no rebuild.
@@ -59,9 +71,35 @@ values, and expressing every theme as overrides on top, means the extensible par
 - **WHEN** a new theme is contributed
 - **THEN** it is a data file listing colour overrides, with no code change
 
+#### Scenario: Installing a user theme
+- **WHEN** a JSON pack is placed in the active user-data directory's `themes` subdirectory before launch
+- **THEN** its filename without `.json` appears in the theme selector alongside the shipped themes
+- **AND** selecting it loads that file without a rebuild
+
 #### Scenario: A theme that overrides some colours
 - **WHEN** a theme declares only some of the colour keys
 - **THEN** the remainder keep their default values
+
+### Requirement: Theme discovery SHALL preserve shipped defaults
+The shipped theme IDs SHALL be declared in `Themes/manifest.json`. At service creation, the IDE SHALL
+append top-level `*.json` files from `UserDataPath.For("themes")`, sorted by filename using ordinal order.
+Filename stems SHALL identify disk themes; shipped IDs SHALL take precedence over case-insensitive
+collisions. An absent or unreadable directory SHALL leave the shipped themes available.
+Recovery mode (`--profile none`) SHALL skip disk discovery and retain only shipped themes.
+Each selection SHALL reread the selected file, so edits can be previewed by switching away and back. A failed load
+SHALL remove the previous override and revert to Classic. Unknown colour keys SHALL be logged and skipped.
+
+#### Scenario: Starting in recovery mode
+- **WHEN** the IDE starts with `--profile none` and user theme files exist
+- **THEN** those files are neither listed nor loaded, and shipped themes remain available
+
+#### Scenario: A disk pack collides with a shipped theme
+- **WHEN** a disk filename has the same ID as a shipped theme, ignoring case
+- **THEN** the selector lists that ID once and applies the shipped theme
+
+#### Scenario: Editing a selected pack
+- **WHEN** the user edits a discovered pack and reselects it
+- **THEN** the new overrides apply, or Classic is restored if the file cannot be loaded
 
 ### Requirement: Changing theme SHALL take effect immediately
 Selecting a theme SHALL restyle the IDE without a restart, including windows already open.

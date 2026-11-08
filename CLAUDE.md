@@ -756,8 +756,8 @@ statements to each other; it is a map of the program, not a lookup for the walk.
 **The interpreter is an APPROXIMATION, not a reimplementation.** If a program is valid VB6 and can be made
 to run, running it beats refusing it — even at a different evaluation point, even with an error raised later
 than VB6 would raise it, even where a diagnostic VB6 gives at compile time can only be given here as the
-statement executes. `interpreter-core:40-42` already prescribes that translation: same error number, at run
-time rather than before it.
+statement executes. interpreter-core's *An error VB6 reports before running* scenario already prescribes that
+translation: same error number, at run time rather than before it.
 
 So a construct is walled only when it cannot be **executed** — never merely because it cannot be
 **validated the way VB6 validates it**. That distinction is what nine entries in `interpreter-gaps.md` got
@@ -783,8 +783,9 @@ holds it. What is out of reach is:
 1. **Binding — permanent.** Questions answerable only by relating two symbols *without executing either*:
    does this `Public` signature expose a `Private Type`, does `Property Let` agree with `Property Get`, does
    this class satisfy `Implements IFoo`. These cost **diagnostics, not constructs** — the construct is
-   always buildable, and `interpreter-core:40-42` prescribes the in-bounds translation: raise VB6's error
-   number at run time rather than before it. A second-order consequence worth stating: VB6 compiles the
+   always buildable, and interpreter-core's *An error VB6 reports before running* scenario prescribes the
+   in-bounds translation: raise VB6's error number at run time rather than before it. A second-order
+   consequence worth stating: VB6 compiles the
    whole program and HexIDE only sees executed statements, so an error on a never-taken path is invisible
    here and fatal there.
 2. **Tree-walking — an execution-strategy limit, NOT the AST limit.** `GoSub`/`Return`, `On expr
@@ -904,7 +905,7 @@ When a new `HexIDE.*` namespace becomes widely used in a project, add it to that
 2. **Server capability** in `VbServerCapabilities.RegisterCapability()` (`VbServerCapabilities.cs`).
 3. **Message types** in `IDE/HexIDE.Core/Lsp/Messages/LspMessages.cs` — `record` types with `[JsonPropertyName]` on every property. (`HexIDE.Lsp/Messages/` holds only the serializer context; the records are in Core.)
 4. **Serializer registration** in `IDE/HexIDE.Lsp/Messages/LspJsonContext.cs` — `[JsonSerializable(typeof(YourResponseType))]`. **Not optional, and not only an AOT concern** — `VBLspClient` builds its `JsonSerializerOptions` *from* this context, whose generated resolver ends in `return null` with nothing chained behind it, so an unregistered type throws under plain JIT too. The throw lands in a debug-level catch, which turns the omission into a server that connects, initializes and then answers nothing — indistinguishable from a broken server, and it has cost real time twice.
-5. **Client** in `IDE/HexIDE.Lsp/ILspClient.cs` + `VBLspClient.cs` — add interface method, implement with `_rpc.InvokeWithParameterObjectAsync<T>(...)`.
+5. **Client** in `IDE/HexIDE.Core/Lsp/ILspClient.cs` + `IDE/HexIDE.Lsp/VBLspClient.cs` — add interface method, implement with `_rpc.InvokeWithParameterObjectAsync<T>(...)`.
 
 ### Adding a new VB6 control
 

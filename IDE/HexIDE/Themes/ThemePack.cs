@@ -12,6 +12,7 @@ public record ThemePackRecord(
 );
 
 [JsonSerializable(typeof(ThemePackRecord))]
+[JsonSerializable(typeof(string[]))]
 [JsonSourceGenerationOptions(PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase)]
 internal partial class ThemeJsonContext : JsonSerializerContext { }
 
