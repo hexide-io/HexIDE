@@ -313,6 +313,96 @@ public class LanguageServerConfigLoaderTests : IDisposable
         problem.Message.Should().Contain("futureThing");
     }
 
+    [Theory]
+    [InlineData(@"C:\Utilities\server.exe")]
+    [InlineData(@"C:\updates\server.exe")]
+    public void InvalidEscapeExplainsWindowsPathSyntaxAndKeepsTheParseLocation(string path)
+    {
+        var result = LoaderFor($$"""
+            {"version":1,"servers":[{"id":"paths","command":"{{path}}"}]}
+            """).Load([BundledVb6()]);
+
+        result.Entries.Should().ContainSingle().Which.Id.Should().Be("hexide.vb6");
+        var problem = result.Problems.Should().ContainSingle().Which;
+        problem.EntryRejected.Should().BeTrue();
+        problem.Code.Should().Be("JsonSyntaxEscape");
+        problem.Message.Should().Contain("lsp-servers.json").And.Contain("C:/tools/new/...")
+            .And.Contain("doubled backslashes").And.Contain(@"C:\\tools\\new\\...")
+            .And.Contain("$.servers[0].command").And.Contain("line 1").And.Contain("column ");
+    }
+
+    [Theory]
+    [InlineData("command")]
+    [InlineData("arguments")]
+    [InlineData("workingDirectory")]
+    [InlineData("workspaceArtifact.path")]
+    public void EscapedControlsInPathFieldsWarnWithoutChangingTheValue(string field)
+    {
+        var pathJson = System.Text.Json.JsonSerializer.Serialize("C:\tools\new\repo\bin\file");
+        var property = field == "workspaceArtifact.path"
+            ? "\"workspaceArtifact\":{\"provider\":\"vb6-project\",\"path\":" + pathJson + "}"
+            : "\"" + field + "\":" + pathJson;
+        var command = field == "command" ? "" : "\"command\":\"server\",";
+        var result = LoaderFor("{\"version\":1,\"servers\":[{\"id\":\"paths\",\"extensions\":[\".x\"],"
+            + "\"languageId\":\"x\",\"transport\":\"stdio\"," + command + property + "}]}").Load([]);
+
+        var warning = result.Problems.Should().ContainSingle(p =>
+            p.Message.Contains("likely intended")).Which;
+        warning.Code.Should().Be("PathControlWarning");
+        warning.EntryId.Should().Be("paths");
+        warning.EntryRejected.Should().BeFalse();
+        warning.Message.Should().Contain(field).And.Contain(@"C:\tools\new\repo\bin\file");
+        var entry = result.Entries.Should().ContainSingle().Which;
+        var value = field switch
+        {
+            "command" => entry.Command,
+            "arguments" => entry.Arguments?.Text,
+            "workingDirectory" => entry.WorkingDirectory,
+            _ => entry.WorkspaceArtifact?.Path,
+        };
+        value.Should().Be("C:\tools\new\repo\bin\file");
+    }
+
+    [Theory]
+    [InlineData("arguments", "arguments[1]")]
+    [InlineData("environment", "environment.SERVER_PATH")]
+    public void EscapedControlsInArgumentElementsAndEnvironmentValuesWarnWithoutChangingTheValue(
+        string field, string expectedField)
+    {
+        var property = field == "arguments"
+            ? """
+              "arguments":["safe","C:\tools\new\repo\bin\file","D:\new"]
+              """
+            : """
+              "environment":{"SAFE":"safe","SERVER_PATH":"C:\tools\new\repo\bin\file","OTHER_PATH":"D:\new"}
+              """;
+        var result = LoaderFor($$"""
+            {"version":1,"servers":[{"id":"paths","extensions":[".x"],"languageId":"x",
+             "transport":"stdio","command":"server",{{property}}}]}
+            """).Load([]);
+
+        var warnings = result.Problems.Where(p => p.Message.Contains("likely intended")).ToArray();
+        warnings.Should().HaveCount(2);
+        var warning = warnings.Should().ContainSingle(p => p.Message.Contains(expectedField)).Which;
+        warning.Code.Should().Be("PathControlWarning");
+        warning.EntryId.Should().Be("paths");
+        warnings.Should().OnlyContain(p => !p.EntryRejected);
+        warning.Message.Should().Contain(@"C:\tools\new\repo\bin\file");
+        warnings.Should().ContainSingle(p => p.Message.Contains(
+            field == "arguments" ? "arguments[2]" : "environment.OTHER_PATH"))
+            .Which.Message.Should().Contain(@"D:\new");
+        var entry = result.Entries.Should().ContainSingle().Which;
+        if (field == "arguments")
+            entry.Arguments!.List.Should().Equal("safe", "C:\tools\new\repo\bin\file", "D:\new");
+        else
+        {
+            entry.Environment.Should().HaveCount(3);
+            entry.Environment!["SAFE"].Should().Be("safe");
+            entry.Environment["SERVER_PATH"].Should().Be("C:\tools\new\repo\bin\file");
+            entry.Environment["OTHER_PATH"].Should().Be("D:\new");
+        }
+    }
+
     // ── Whole-file failures ───────────────────────────────────────────────────────────────────────────
 
     [Fact]

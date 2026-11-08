@@ -1,6 +1,7 @@
 using System.Text.RegularExpressions;
 using HexIDE.Addins;
 using HexIDE.IDE;
+using HexIDE.IO;
 using HexIDE.Localization;
 using HexIDE.Runtime.ProjectElements;
 using HexIDE.Runtime.Serialization;
@@ -198,12 +199,8 @@ public sealed partial class ContributedProjects
 
     /// <summary>The module or other file of <paramref name="project"/> at <paramref name="path"/>, or null.</summary>
     internal static object? MemberAt(ProjectDefinition project, string path) =>
-        (object?)project.Modules.FirstOrDefault(module => SamePath(module.AbsolutePath, path))
-        ?? project.RelatedDocuments.FirstOrDefault(document => SamePath(document.AbsolutePath, path));
-
-    private static bool SamePath(string? a, string b) =>
-        a is not null && string.Equals(Path.GetFullPath(a), Path.GetFullPath(b),
-            OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal);
+        (object?)project.Modules.FirstOrDefault(module => module.AbsolutePath is { } at && HostFilePath.Equals(at, path))
+        ?? project.RelatedDocuments.FirstOrDefault(document => document.AbsolutePath is { } at && HostFilePath.Equals(at, path));
 
     /// <summary>A member left out because another has its name; the message says which, for the user.</summary>
     internal sealed class MemberNameTakenException(string message) : Exception(message);

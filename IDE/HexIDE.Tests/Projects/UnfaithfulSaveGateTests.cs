@@ -278,7 +278,7 @@ public class UnfaithfulSaveGateTests : IDisposable
         var written = await svc.SaveForm(loaded.Single().Forms.Single(), saveAs: true);
 
         written.Should().BeFalse();
-        await lastWindowManager!.DidNotReceive().SaveFilePickerAsync(Arg.Any<FilePickerSaveOptions>());
+        await lastWindowManager!.DidNotReceive().SaveFilePickerAsync(Arg.Any<FilePickerSaveOptions>(), Arg.Any<string?>());
     }
 
     [Fact]
@@ -364,7 +364,7 @@ public class UnfaithfulSaveGateTests : IDisposable
         var written = await svc.SaveModule(loaded.Single().Modules.Single(), saveAs: true);
 
         written.Should().BeFalse();
-        await lastWindowManager!.DidNotReceive().SaveFilePickerAsync(Arg.Any<FilePickerSaveOptions>());
+        await lastWindowManager!.DidNotReceive().SaveFilePickerAsync(Arg.Any<FilePickerSaveOptions>(), Arg.Any<string?>());
     }
 
     [Fact]
@@ -424,7 +424,7 @@ public class UnfaithfulSaveGateTests : IDisposable
         var ctlPath = Path.Join(dir, "UserControl1.ctl");
         var elsewhere = Path.Join(dir, "elsewhere");
         Directory.CreateDirectory(elsewhere);
-        lastWindowManager!.SaveFilePickerAsync(Arg.Any<FilePickerSaveOptions>()).Returns(async _ =>
+        lastWindowManager!.SaveFilePickerAsync(Arg.Any<FilePickerSaveOptions>(), Arg.Any<string?>()).Returns(async _ =>
         {
             File.WriteAllText(ctlPath, NestedContainerUserControl);
             await svc.ReloadModuleFromDisk(control);
@@ -446,7 +446,7 @@ public class UnfaithfulSaveGateTests : IDisposable
         await svc.OpenProject(Stage(FlatForm));
         var form = loaded.Single().Forms.Single();
         var copy = Path.Join(dir, "Copy.frm");
-        lastWindowManager!.SaveFilePickerAsync(Arg.Any<FilePickerSaveOptions>()).Returns(async _ =>
+        lastWindowManager!.SaveFilePickerAsync(Arg.Any<FilePickerSaveOptions>(), Arg.Any<string?>()).Returns(async _ =>
         {
             File.WriteAllText(Path.Join(dir, "Form1.frm"), NestedContainerForm);
             await svc.ReloadFormFromDisk(form);
@@ -474,7 +474,7 @@ public class UnfaithfulSaveGateTests : IDisposable
         var make = async () => await svc.MakeProject(loaded.Single());
 
         (await make.Should().ThrowAsync<OperationCanceledException>()).Which.Should().NotBeOfType<SourceEncodingRefusal>();
-        await lastWindowManager!.DidNotReceive().SaveFilePickerAsync(Arg.Any<FilePickerSaveOptions>());
+        await lastWindowManager!.DidNotReceive().SaveFilePickerAsync(Arg.Any<FilePickerSaveOptions>(), Arg.Any<string?>());
         warningsShown.Should().Be(1);
         requestedKeys.Should().Contain("Str.Dialog.UnfaithfulSave.Body.Many", "both are named in the one warning");
     }

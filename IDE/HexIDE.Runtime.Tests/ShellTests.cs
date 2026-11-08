@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.Diagnostics;
+using System.Linq;
 using System.Threading.Tasks;
 using HexIDE.Runtime.Interpreter;
 
@@ -33,8 +34,10 @@ public class ShellTests : BaseVBTestFixture
         await Run($"Debug.Print Shell({Literal(Command)}, 6)");
 
         var pid = (int)(double)debug[0].Value!;
-        ShellLaunches.All.Should().ContainSingle(l => l.ProcessId == pid)
-            .Which.Should().Match<ShellLaunches.Launch>(l => l.Command == Command && l.WindowStyle == 6);
+        // Reproduce an earlier launch's reused PID without relying on the OS to reuse one (#3277).
+        var launches = ShellLaunches.All.Prepend(new ShellLaunches.Launch(pid, "earlier", 1, null));
+        launches.Last(l => l.ProcessId == pid).Should()
+            .Match<ShellLaunches.Launch>(l => l.Command == Command && l.WindowStyle == 6);
     }
 
     [Fact]

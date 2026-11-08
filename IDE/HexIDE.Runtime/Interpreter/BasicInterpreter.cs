@@ -217,6 +217,32 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
     // frames are removed by identity — but it mirrors the physical stack, matching VB6's Call Stack semantics.
     private readonly List<StatementExecutor> activationStack = new();
 
+    /// <summary>
+    /// How many procedure activations deep one interpreter's VB code may go before Error 28, whatever the stack probe
+    /// in <see cref="RunProcedure"/> says (#3250).
+    /// </summary>
+    /// <remarks>
+    /// <para>The probe sees native frames only. A debugger's time-slice yield, under F5 and in a made EXE, releases
+    /// them and leaves the activations on the heap, so a runaway recursion there never raised 28. In a made EXE it
+    /// ran past 687,000 levels and 4 GB in two minutes. In the IDE it starved the machine.</para>
+    /// <para>The cap keeps the depth Jen chose on #3228, and bounds the rest. All figures are Windows x64:</para>
+    /// <list type="bullet">
+    /// <item><b>What 64 MiB of native stack holds with no yield,</b> where the probe decides: a recursive Function,
+    /// <c>StackSpaceTests</c>' <c>Down(n)</c>, gets about 1,490 levels in a Debug build and 4,300 in Release. 5,000 is
+    /// above both, so the cap doesn't change what that choice gave. A cheaper frame, a bare recursive Sub, is cut
+    /// short by it in Release: 64 MiB would hold about 11,260 of those at 5,958 bytes each.</item>
+    /// <item><b>What a runaway costs once it's held across yields.</b> In the IDE, commit grew by about 14 KB a level,
+    /// linearly (#3250's live check), so 5,000 levels should be about 70 MB. The live recheck at the cap peaked about
+    /// 170 MB above idle in the IDE and 140 MB in a made EXE, and reached Error 28 in about 2.5 seconds.</item>
+    /// </list>
+    /// <para>vb6.exe goes deeper, to 258,825 frames, so this is a divergence, recorded in interpreter-gaps.md.</para>
+    /// </remarks>
+    internal const int MaxCallDepth = 5_000;
+
+    /// <summary>How many procedures an unwinding error, Stop or End passes between yields, under a debugger (#3250). Small
+    /// enough to keep the inline nesting shallow; large enough that a shallow unwind, the usual one, never yields.</summary>
+    private const int UnwindYieldEvery = 32;
+
     /// <summary>The live procedure-activation call stack (outermost first). Read by the debugger only.</summary>
     public IReadOnlyList<StatementExecutor> ActivationStack => activationStack;
 
@@ -1424,6 +1450,9 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         // pathological NESTING — that is ParseDepthGuard, at parse time, on a different axis.
         if (!RuntimeHelpers.TryEnsureSufficientExecutionStack())
             throw new VBRunTimeException(VBStandardError.OutOfStackSpace);
+        // The same error by count, for the depth the probe cannot see: see MaxCallDepth (#3250).
+        if (activationStack.Count >= MaxCallDepth)
+            throw new VBRunTimeException(VBStandardError.OutOfStackSpace);
 
         // Named arguments go to their parameters, and are evaluated in parameter order (#1465), before anything of the call is
         // set up, so one that raises leaves nothing to undo.
@@ -1491,7 +1520,7 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
                     VariantReturn = proc.IsFunction && proc.ReturnsVariant && !proc.ReturnsObject,
                     Statics = me?.Value is VbObject instance ? instance.Statics ??= new StaticLocals() : ExecutionContext.State.ModuleStatics,
                 };
-                // Debugger call stack + depth: push before running, remove THIS executor after (Remove, not
+                // Debugger call stack + depth: push before running, remove THIS executor after (by identity, not
                 // RemoveAt(Count-1), so overlapping async re-entrancy pops the right frame). Reflects the physical
                 // call stack — matching VB6's Call Stack, which shows a re-entrant handler's frames above the
                 // suspended chain.
@@ -1519,7 +1548,14 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
                         await executor.ProcedureBoundary(ending.Stop.Line,
                             breakpointOnly: isEntry || ending is VB6Parser.PropertyGetStmtContext);
                 }
-                finally { activationStack.Remove(executor); }
+                // Searched from the top, where the frame almost always is: Remove searched from the bottom, which made a
+                // return N calls deep cost N (#3250).
+                finally
+                {
+                    var at = activationStack.LastIndexOf(executor);
+                    if (at >= 0)
+                        activationStack.RemoveAt(at);
+                }
             }
             if (proc.IsFunction)
                 ret = ExecutionContext.TryGetVariable(callee, proc.Name, out var rv)
@@ -1537,6 +1573,28 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
                     : proc.ReturnsVariant ? returned.AsVariant()
                     : returned;
             completed = true;
+        }
+        catch (Exception signal) when (signal is VBRunTimeException or VBCompileErrorException or Debugging.StopExecutionSignal)
+        {
+            // Every UnwindYieldEvery procedures, give the thread back once on the way down (#3250). A debugger's time
+            // slice leaves the frames it yielded across waiting on their callees, so each one's continuation runs inline
+            // inside the catch below it as the signal unwinds. Each throw then costs more the deeper that nesting goes,
+            // and a 64 MiB stack lets it go thousands deep: on it, Error 28 at 5,000 calls took 138 s to reach a
+            // handler, against 0.8 s on a 1.5 MiB thread, where .NET stops inlining early. A yield starts the nesting
+            // again from the dispatcher. It's the same yield the time slice makes, so it can only come where one could.
+            if (DebugController is not null && SynchronizationContext.Current is not null
+                && activationStack.Count is > 0 and var below && below % UnwindYieldEvery == 0)
+                await Task.Yield();
+            // A fresh throw, not a rethrow, so what the program's walk throws through its frames leaves each procedure
+            // carrying only this procedure's .NET stack trace: a run-time error (#3247), a compile error found as it
+            // runs, and the signal that Stop and End unwind with (#3250). Every await between here and whoever catches
+            // it rethrows it, and a rethrow appends to the trace it carries, so with the whole trace kept, one thrown
+            // N calls deep cost N² to surface: minutes on #3228's 64 MiB stack, and a Stop 113,000 calls deep grew
+            // memory by 5 GB in 29 seconds. The object is the same, so Err and Erl are untouched. Anything else is a fault in HexIDE, and
+            // keeps its whole trace for diagnosis.
+#pragma warning disable CA2200 // Rethrow to preserve stack details: resetting it is the point.
+            throw signal;
+#pragma warning restore CA2200
         }
         catch (Exception ex) when (MarkUnimplementedFault(ex)) { throw; }
         finally

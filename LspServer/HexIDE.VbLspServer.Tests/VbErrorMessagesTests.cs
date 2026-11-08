@@ -31,12 +31,14 @@ public class VbErrorMessagesTests
     }
 
     [Theory]
-    [InlineData("\n")]
-    [InlineData("\r\n")]
-    public void UnfinishedExpression_NamesEndOfLine(string newline)
+    [InlineData("\n", "+")]
+    [InlineData("\r\n", "+")]
+    [InlineData("\n", "-")]
+    [InlineData("\r\n", "-")]
+    public void UnfinishedExpression_NamesEndOfLine(string newline, string sign)
     {
         var code = string.Join(newline, "Private Sub Form_Load()", "    Dim a As Integer",
-            "    a = (1 +", "End Sub");
+            "    a = (1 " + sign, "End Sub");
 
         VbDiagnosticsProvider.GetDiagnostics(code).Should().Contain(d =>
             d.Message == "Syntax error: unexpected 'end of line'" &&

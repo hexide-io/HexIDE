@@ -140,7 +140,7 @@ public class DocumentSavedAnnouncementTests : IDisposable
         var original = module.AbsolutePath!;
         _lsp.ClearReceivedCalls();
         var target = Path.Combine(_dir, "Copy.bas");
-        _windows.SaveFilePickerAsync(Arg.Any<Avalonia.Platform.Storage.FilePickerSaveOptions>()).Returns(target);
+        _windows.SaveFilePickerAsync(Arg.Any<Avalonia.Platform.Storage.FilePickerSaveOptions>(), Arg.Any<string?>()).Returns(target);
         await service.SaveModule(module, true);
         File.Exists(original).Should().BeTrue();
         File.Exists(target).Should().BeTrue();

@@ -9,10 +9,6 @@ out what exists. That makes it more central than the equivalent in a modern IDE,
 are answered by go-to-definition and completion — here it is often the only way to discover a member at all,
 which is why VB6 gave it a dedicated key.
 
-> **Known divergence.** If the browser was opened before a language server started, the VBA library fills
-> in only when VBA or All Libraries is selected again; it does not refresh on its own when the server starts
-> ([#1957](https://github.com/hexide-io/HexIDE/issues/1957)).
-
 ## Requirements
 
 ### Requirement: The browser SHALL show everything visible to the project
@@ -44,6 +40,27 @@ rather than its default instance-name prefix, for listing, search, member headin
 - **WHEN** a form or module is added, removed or renamed, or its project is renamed
 - **THEN** the browser SHALL update the project library and its sorted class list, respecting the current filter
 - **AND** removed classes SHALL no longer be reachable through navigation history
+
+The browser SHALL retry loading an unloaded VBA library showing a status row when a language server
+becomes ready, without requiring the developer to reselect a library.
+
+#### Scenario: A server starts after the browser opens
+- **GIVEN** the VBA library shows a status row because no capable server was running
+- **WHEN** a server offering built-in symbols becomes ready
+- **THEN** the VBA library loads those symbols automatically
+- **AND** they appear under VBA or All Libraries without changing the selected library
+
+### Requirement: Browser rows SHALL show themed kind icons
+The classes, members and workspace search results SHALL show cached images from the icon factory,
+using the keyed Fluent geometries and active theme ink. Forms, modules, class modules and enums SHALL
+have class-kind icons; methods, properties, events, constants and enum members SHALL have member-kind
+icons, with a generic icon for unknown kinds. The description and copied signature SHALL contain the
+member signature without an icon prefix.
+
+#### Scenario: Browsing or searching for a property
+- **WHEN** a property appears in the members list or workspace search results
+- **THEN** both lists use the same themed property image beside its name
+- **AND** selecting and copying its signature produces only the signature text
 
 ### Requirement: Selecting a type SHALL show its members, and selecting a member SHALL describe it
 Selecting a type SHALL list its members; selecting a member SHALL show its signature and what it belongs to,

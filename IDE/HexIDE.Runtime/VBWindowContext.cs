@@ -241,6 +241,26 @@ public class VBWindowContext : IModuleExecutionRoot
             .OrderBy(TabOrder.Get).FirstOrDefault()?.Focus();
     }
 
+    private bool formFocused;
+
+    internal void FocusFormWithoutControl()
+    {
+        if (Window is null || Window.GetLogicalDescendants().OfType<Control>().Any(c =>
+                c is { Focusable: true, IsEffectivelyVisible: true, IsEffectivelyEnabled: true }
+                && FormControls.TryOf(c, out _)))
+            return;
+        formFocused = true;
+        ExecuteSub("Form_GotFocus");
+    }
+
+    internal void BlurForm()
+    {
+        if (!formFocused)
+            return;
+        formFocused = false;
+        ExecuteSub("Form_LostFocus");
+    }
+
     internal async Task ControlEvent(string name, IReadOnlyList<Vb6Value>? args = null)
     {
         await EnsureDeclarations();

@@ -368,7 +368,7 @@ public class WindowManager : IWindowManager
             .ToList();
     }
 
-    public async Task<string?> SaveFilePickerAsync(FilePickerSaveOptions options)
+    public async Task<string?> SaveFilePickerAsync(FilePickerSaveOptions options, string? directory = null)
     {
 #if DEBUG
         if (ScriptedFileDialogs.TryTake(takesSeveral: false, out var scripted, "a save picker"))
@@ -379,6 +379,9 @@ public class WindowManager : IWindowManager
             throw new Exception("This is supported only for desktop apps");
 
         var topLevel = TopLevel.GetTopLevel(GetTopWindow(classic))!;
+
+        if (directory is not null)
+            options.SuggestedStartLocation = await topLevel.StorageProvider.TryGetFolderFromPathAsync(directory);
 
         var file = await TrackNativeDialog(() => topLevel.StorageProvider.SaveFilePickerAsync(options));
 

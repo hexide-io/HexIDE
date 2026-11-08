@@ -414,6 +414,20 @@ position, and so does a refused step. What VB6 does with the caret there hasn't 
   the granularity: a nested handler finishes before the raiser's next statement, the end of its block, or the return
   of a call, rather than inside the very expression that raised it.
 
+### D31. An error unwinding a deep recursion gives up the thread every 32 procedures
+- **VB6:** an error, Stop or End unwinds the stack without giving up the thread. It isn't a place where VB6 runs
+  `DoEvents`.
+- **HexIDE:** under the debugger, in the IDE or a made EXE, a run-time error, a compile error met while running, or
+  Stop's and End's signal yields the UI thread once at every 32nd procedure it passes on the way down (#3250). It's the
+  same yield the time slice makes, and the event pump still lets nothing in (D21). So no event procedure runs inside the
+  unwind. What can happen in it is repainting, input reaching the IDE, and Ctrl+Break. An unwind shallower than 32
+  procedures, the usual one, never yields.
+- **Why:** the time slice leaves the frames it yielded across waiting on their callees. On #3228's 64 MiB UI thread,
+  .NET then ran their continuations inline inside one another as the error unwound, and each throw cost more than the
+  last. Error 28 from the 5,000-call cap took 138 s to reach its handler, against 0.8 s on a 1.5 MiB thread. A yield
+  starts the nesting again from the dispatcher: it takes about 2.5 s now.
+- **Status:** **deliberate**. Avoiding it would need an unwind that doesn't pass through each frame's await.
+
 ### D22. A compile error met while a program runs is a run-time error dialog, and the run carries on
 - **VB6:** a compile error found while the program runs, such as a call to a Sub that does not exist, is shown in
   the compile-error box (OK and Help), and the IDE stops at that line. That is how it is commonly described; it is
