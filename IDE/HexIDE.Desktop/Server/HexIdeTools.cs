@@ -3089,6 +3089,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
         });
 
         if (!raised.Success || landing is not { } at) return raised;
+        var sinceMove = System.Diagnostics.Stopwatch.StartNew();
         var hovered = at.Receiver;
         // The real mouse, or another hover running at the same time, takes the tip, and only the window's input says so (#2376).
         var watch = at.ThroughWindowInput
@@ -3108,6 +3109,9 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
         string? tip = null;
         string? declared = null;
         var enabled = true;
+        // How long after the move the poll first saw a tip open (#2949), and the delay the control declares when none did.
+        long? openedAfter = null;
+        var showDelay = 0;
         // Where the tip was while it was open, beside the point hovered, both in the window: it closes when the hover ends,
         // so this is the only time its placement can be read (#1303).
         (Rect Bounds, Point Hovered)? placed = null;
@@ -3134,6 +3138,8 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
                             && at.Receiver.TranslatePoint(at.Point, window) is { } point
                             ? (bounds, point) : placed);
                 });
+                if (tip is not null)
+                    openedAfter ??= sinceMove.ElapsedMilliseconds;
                 if (tip is not null && tip.EndsWith(UiAutomationDriver.NoTextToRead, StringComparison.Ordinal))
                     (textless, tip) = (tip, null);
             }
@@ -3146,8 +3152,9 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
             // Collapsing them would turn a limitation into a passing assertion.
             if (tip is null)
             {
-                (declared, enabled) = await Dispatcher.UIThread.InvokeAsync(
-                    () => (UiAutomationDriver.DeclaredToolTipAt(at.Receiver, at.Point), at.Receiver.IsEffectivelyEnabled));
+                (declared, enabled, showDelay) = await Dispatcher.UIThread.InvokeAsync(() =>
+                    (UiAutomationDriver.DeclaredToolTipAt(at.Receiver, at.Point), at.Receiver.IsEffectivelyEnabled,
+                     UiAutomationDriver.DeclaredToolTipOwnerAt(at.Receiver, at.Point) is { } owner ? ToolTip.GetShowDelay(owner) : 0));
                 // Read before the pointer leaves, which cancels a request still waiting and would report it as cancelled.
                 quickInfo = await QuickInfoNoteAsync(at, watermark, dwellMs);
             }
@@ -3185,10 +3192,11 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
 
         if (tip is not null)
             return await WaitForProgramAsync(program, placed is not { } where
-                ? raised with { Detail = raised.Detail + "; tip: " + tip + stayed }
+                ? raised with { Detail = raised.Detail + "; tip: " + tip + TipOpenedAfter(openedAfter ?? 0) + stayed }
                 : raised with
                 {
-                    Detail = raised.Detail + "; tip: " + tip + " (" + TipPlacement(where.Bounds, where.Hovered) + ")" + stayed,
+                    Detail = raised.Detail + "; tip: " + tip + " (" + TipPlacement(where.Bounds, where.Hovered) + ")"
+                             + TipOpenedAfter(openedAfter ?? 0) + stayed,
                     TipBounds = [Round(where.Bounds.X), Round(where.Bounds.Y), Round(where.Bounds.Width), Round(where.Bounds.Height)],
                 }, ct);
 
@@ -3206,9 +3214,23 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
                   + (took is not null ? string.Empty
                       : !at.ThroughWindowInput
                       ? " (the move was raised on the control, which Avalonia's ToolTipService never sees)"
-                      : enabled ? " (its ToolTip.ShowDelay may be longer than the watch)" : string.Empty)
+                      : enabled ? " (" + ShowDelayNote(showDelay, dwellMs) + ")" : string.Empty)
                   + "; declared tip: " + declared) + stayed,
         }, ct);
+    }
+
+    /// <summary>How long after the move a tip was first seen open (#2949); the poll looks every 50 ms, so "about".</summary>
+    internal static string TipOpenedAfter(long milliseconds) =>
+        "; seen open about " + milliseconds.ToString(System.Globalization.CultureInfo.InvariantCulture) + "ms after the move";
+
+    /// <summary>
+    /// What the delay a control declares says about a watch in which its tip did not open (#2949), so the next dwell
+    /// can be chosen and not found by trying several.
+    /// </summary>
+    internal static string ShowDelayNote(int showDelayMs, int dwellMs)
+    {
+        var delay = "its ToolTip.ShowDelay is " + showDelayMs.ToString(System.Globalization.CultureInfo.InvariantCulture) + "ms";
+        return showDelayMs >= dwellMs ? delay + ", longer than the watch: pass a dwellMs above that" : delay;
     }
 
     // The watch is bounded so a mistyped value cannot hold a call open for minutes. Refused rather than
