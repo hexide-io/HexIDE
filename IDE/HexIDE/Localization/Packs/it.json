@@ -425,6 +425,7 @@
     "Str.Designer.Context.AlignToGrid": "Allinea alla griglia",
     "Str.Designer.Context.Properties": "Proprietà",
     "Str.CodeEditor.FileNotSaved.Banner": "Questo file non verrà salvato — HexIDE non è ancora in grado di riprodurlo fedelmente, quindi salvarlo lo altererebbe. Il suo codice fa parte del file, perciò la digitazione in questa finestra viene rifiutata.",
+    "Str.CodeEditor.Msg.LineBreakSeparatesAttributes": "inserirebbe un’interruzione di riga nella dichiarazione di {0} o nel suo commento finale, separando le righe Attribute. Inserire nuove righe dopo le righe Attribute. Nessuna modifica apportata.",
     "Str.CodeEditor.Msg.RenameTouchesReadOnly": "La ridenominazione non è stata applicata perché modificherebbe l'intestazione di questo file o le righe Attribute di un membro, che sono gestite dall'IDE.",
     "Str.CodeEditor.Msg.RenameReachesOtherDocuments": "La ridenominazione non è stata eseguita perché modifica anche altri documenti: {0}",
     "Str.CodeEditor.Msg.RenameDocumentRefused": "Impossibile applicare la ridenominazione a {0}.",

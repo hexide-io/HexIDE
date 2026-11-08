@@ -425,6 +425,7 @@
     "Str.Designer.Context.AlignToGrid": "Izgaraya Hizala",
     "Str.Designer.Context.Properties": "Özellikler",
     "Str.CodeEditor.FileNotSaved.Banner": "Bu dosya kaydedilmeyecek — HexIDE bu dosyayı henüz aslına sadık biçimde yeniden üretemiyor, dolayısıyla kaydedilmesi onu değiştirirdi. Kodu da dosyanın bir parçası olduğundan bu pencerede yazma reddedilir.",
+    "Str.CodeEditor.Msg.LineBreakSeparatesAttributes": "{0} bildiriminin veya sonundaki yorumun içine satır sonu ekleyerek Attribute satırlarını ayırırdı. Yeni satırları Attribute satırlarından sonra ekleyin. Hiçbir şey değiştirilmedi.",
     "Str.CodeEditor.Msg.RenameTouchesReadOnly": "Yeniden adlandırma uygulanmadı; bu dosyanın üst bilgisini veya bir üyenin Attribute satırlarını değiştirirdi ve bunları IDE yönetir.",
     "Str.CodeEditor.Msg.RenameReachesOtherDocuments": "Yeniden adlandırma diğer belgeleri de düzenlediği için yapılmadı: {0}",
     "Str.CodeEditor.Msg.RenameDocumentRefused": "{0} için yeniden adlandırma uygulanamıyor.",

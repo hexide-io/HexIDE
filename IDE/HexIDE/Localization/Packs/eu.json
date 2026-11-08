@@ -10,6 +10,7 @@
     "Str.Lsp.EditRequiresUserCommand": "HexIDEk zerbitzari baten aldaketak erabiltzaileak abiarazitako komando bat exekutatzen ari den bitartean soilik aplikatzen ditu.",
     "Str.Lsp.NoWorkspaceEditor": "Ez dago laneko areako editorerik erabilgarri.",
     "Str.Menu.Edit.CallHierarchy": "D_eien hierarkia",
+    "Str.CodeEditor.Msg.LineBreakSeparatesAttributes": "lerro-jauzi bat txertatuko luke {0} deklarazioan edo haren amaierako iruzkinean, haren Attribute lerroak bereiziz. Txertatu lerro berriak Attribute lerroen ondoren. Ez da ezer aldatu.",
     "Str.CodeEditor.Context.CallHierarchy": "Deie_n hierarkia",
     "Str.Lsp.OpenExternalUri": "URI hau HexIDE-tik kanpo ireki?\n\n{0}",
     "Str.Tool.CallHierarchy.Title": "Deien hierarkia",

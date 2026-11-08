@@ -10,6 +10,7 @@
     "Str.Lsp.EditRequiresUserCommand": "HexIDE lieto servera izmaiņas tikai lietotāja palaistas komandas izpildes laikā.",
     "Str.Lsp.NoWorkspaceEditor": "Nav pieejams neviens darbvietas redaktors.",
     "Str.Menu.Edit.CallHierarchy": "Izsa_ukumu hierarhija",
+    "Str.CodeEditor.Msg.LineBreakSeparatesAttributes": "ievietotu rindas pārtraukumu {0} deklarācijā vai tās beigu komentārā, atdalot tās Attribute rindas. Ievietojiet jaunas rindas pēc Attribute rindām. Nekas netika mainīts.",
     "Str.CodeEditor.Context.CallHierarchy": "I_zsaukumu hierarhija",
     "Str.Lsp.OpenExternalUri": "Vai atvērt šo URI ārpus HexIDE?\n\n{0}",
     "Str.Tool.CallHierarchy.Title": "Izsaukumu hierarhija",
