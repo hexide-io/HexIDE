@@ -229,6 +229,10 @@ translation: raise VB6's error number at run time instead of before it.
   and `interpreter-core:40-42` prescribes the translation — which is exactly what shipped: HexIDE raises VB6's
   own message, verbatim, at first instantiation instead of refusing to build. A class never instantiated is
   never checked, which is the accepted error-on-a-path-never-taken divergence.
+  **Measured 2026-11-08 (#3335):** vb6.exe refuses such a program. `/make` does, native code and p-code, and so does
+  the IDE, before `Sub Main` runs, under every Compile On Demand setting. So this is a real divergence. It is kept
+  because checking at load would relate two modules' member tables up front, which the pre-pass rule forbids. The
+  measurements are in the oracle page `a-public-array-in-an-object-module.md`.
 - **`LSet` between UDTs containing strings, objects or Variants** — VB6 refuses at compile time. The
   layout-compatibility judgement is static; `LSet` itself is a deferral.
 - **Default members of third-party COM types** — see Platform limits; the marker lives in a type library, not
