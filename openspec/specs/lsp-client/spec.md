@@ -2602,3 +2602,16 @@ and be logged once per command.
 - **THEN** the existing Find References pane SHALL show its supplied locations
 - **AND** the document text and numbered lines SHALL remain unchanged
 - **AND** no `textDocument/references` request SHALL be sent
+
+### Requirement: Diagnostic and highlight ranges follow document edits
+
+The editor SHALL anchor diagnostic underlines, diagnostic text colouring and document-highlight
+boxes to its document so that edits before a range move it with the code without waiting for a
+replacement server response (#512).
+
+#### Scenario: A designer replaces a form header
+
+- **GIVEN** a diagnostic or document highlight is drawn over code below the form header
+- **WHEN** a designer edit replaces the header with a longer or shorter header
+- **THEN** the drawn range moves with that code immediately
+- **AND** no new diagnostic publication or document-highlight response is needed
