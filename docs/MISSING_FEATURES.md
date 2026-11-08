@@ -143,7 +143,7 @@
 | Step Out | Ctrl+Shift+F8 | Done (Phase 5) | Runs the rest of the current procedure, breaks in the caller; from the top-level frame runs to completion. Native debugger Phase 5; MCP `step_out` |
 | Run To Cursor | Ctrl+F8 | Done (P7a) | Runs to the caret line (a one-shot temp breakpoint in the gate); paused → continue to target, running → arm, idle → start-and-run. MCP `run_to_cursor`, which refuses a line of the header or of a member's `Attribute` lines (#273); the menu does not, and from such a line runs on as from any line that never executes |
 | Add Watch… | — | Done (P6a) | Opens the Add Watch dialog (Expression + Context + the three VB6 Watch Types); adds to the Watches window. MCP `add_watch` |
-| Edit Watch… | Ctrl+W | Done (P6a) | Re-opens the Add Watch dialog for the Watches window's selected row |
+| Edit Watch… | Ctrl+W | Done (P6a) | Re-opens the Add Watch dialog for the Watches window's selected row; unbound in Default |
 | Quick Watch… | Shift+F9 | Done (P6a) | Opens the Add Watch dialog pre-filled with the identifier under the caret |
 | Toggle Breakpoint | F9 | Done | Toggles a breakpoint on the active editor's caret line (red gutter margin, click-to-toggle); the code context menu uses the same command and keymap gesture as Debug > Toggle Breakpoint (#8; supervisor live verification pending); persists per-project in the `.user.hexproj` sidecar, with code marks anchored after the header across conflicted external edits and a reopen (#884). Sub declaration and Sub/Function/Property Get natural End-line breakpoints fire before the body and before return (#2172). Native interpreter debugger, Phase 1. Standard and class module breakpoints stop under their module name and file line through the IDE run path (#10); `.ctl`/`.pag` are not loaded as free-standing modules by that path. Refused on a line of the header or of a member's `Attribute` lines, which never execute, and the status bar says why ([`debugger-vb6-divergences.md`](debugger-vb6-divergences.md), "No breakpoint or bookmark on a header line or a member's `Attribute` line"; #273) |
 | Clear All Breakpoints | Ctrl+Shift+F9 | Done | Removes every breakpoint in the project |
@@ -515,11 +515,11 @@ The former Add-In Manager dialog has been replaced by Options → Add-Ins, which
 | Ctrl+Break | Break | Done | Pauses the running interpreter at the next statement (native debugger, Phase 1) |
 | Shift+F5 | Restart | Done | |
 | F8 | Step Into | Done | Step one statement / start-and-step from idle (native debugger, Phase 2) |
-| Shift+F8 | Step Over | Done | Run called proc to completion, break in current frame (native debugger, Phase 5) |
-| Ctrl+Shift+F8 | Step Out | Done | Run rest of proc, break in caller (native debugger, Phase 5) |
-| Ctrl+F8 | Run to Cursor | Done | Runs to the caret line — a one-shot temp breakpoint (native debugger P7a) |
-| Ctrl+F9 | Set Next Statement | Done | Moves the execution point to the caret line (top-level-body only — D18); native debugger P7b |
-| Shift+F9 | Quick Watch | Done | Opens Add Watch pre-filled with the caret identifier (native debugger P6a) |
+| Shift+F8 | Step Over | Done | Run called proc to completion, break in current frame (native debugger, Phase 5); factory gesture also available in Default (#3343) |
+| Ctrl+Shift+F8 | Step Out | Done | Run rest of proc, break in caller (native debugger, Phase 5); factory gesture also available in Default (#3343) |
+| Ctrl+F8 | Run to Cursor | Done | Runs to the caret line — a one-shot temp breakpoint (native debugger P7a); factory gesture also available in Default (#3343) |
+| Ctrl+F9 | Set Next Statement | Done | Moves the execution point to the caret line (top-level-body only — D18); native debugger P7b; factory gesture also available in Default (#3343) |
+| Shift+F9 | Quick Watch | Done | Opens Add Watch pre-filled with the caret identifier (native debugger P6a); factory gesture also available in Default (#3343) |
 | F9 | Toggle Breakpoint | Done | Toggles a breakpoint on the caret line (native debugger, Phase 1) |
 | Ctrl+Shift+F9 | Clear All Breakpoints | Done | |
 | Ctrl+E | Menu Editor | Done | |
