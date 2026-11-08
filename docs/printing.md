@@ -90,8 +90,8 @@ large project cannot allocate every raster page at once. Printer settings never 
 ## Dependencies and alternatives
 
 No package is added by this proposal. The candidate renderer is **SkiaSharp
-3.119.3-preview.1.1**, already resolved transitively in this checkout through Avalonia. Its prerelease
-status is a review concern: do not upgrade or replace Avalonia's native Skia stack independently to get
+3.119.4**, resolved transitively through Avalonia 12.0.5; when this was written, Avalonia brought in the
+prerelease 3.119.3-preview.1.1. Do not upgrade or replace Avalonia's native Skia stack independently to get
 printing. Propose reusing that exact resolved version, with an explicit central pin and licence entry
 if implementation introduces a direct reference. Verify native asset compatibility on all three hosts.
 `SKDocument.CreatePdf` provides PDF output in point units
@@ -100,7 +100,9 @@ if implementation introduces a direct reference. Verify native asset compatibili
 Licence checked on 2026-10-25: the pinned version's
 [NuGet registration leaf](https://api.nuget.org/v3/registration5-gz-semver2/skiasharp/3.119.3-preview.1.1.json)
 points to its [catalog entry](https://api.nuget.org/v3/catalog0/data/2026.02.11.12.51.43/skiasharp.3.119.3-preview.1.1.json),
-whose `licenseExpression` is **MIT** (permissive). Any later candidate/version must be checked again,
+whose `licenseExpression` is **MIT** (permissive). Rechecked on 2026-11-08 for 3.119.4: its
+[catalog entry](https://api.nuget.org/v3/catalog0/data/2026.05.25.08.14.31/skiasharp.3.119.4.json) is **MIT**
+too. Any later candidate/version must be checked again,
 including newly direct native-asset packages. Jen's dependency approval remains outstanding.
 
 Windows common dialogs/GDI and macOS AppKit/PDFKit are system APIs, used by locally authored interop;

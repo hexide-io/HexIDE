@@ -250,8 +250,9 @@ per entry. Substituting nothing would hand the server a flag with no value.
 `{pid}` lets a server that supports watching its owner exit when HexIDE crashes or is forcibly stopped.
 On Windows, HexIDE also assigns stdio and launched pipe servers to a kill-on-close job, so assigned
 processes and descendants they subsequently launch end with HexIDE even without cooperative PID
-watching. A descendant launched before assignment is not covered. Linux and macOS still rely on
-cooperation after an unclean shutdown; the planned watchdog is not shipped yet (#406).
+watching. A descendant launched before assignment is not covered. On Linux and macOS, each stdio or pipe server
+HexIDE launches runs under a guard process, `HexIDE.LspGuard`, which ends the server's process group when
+HexIDE exits, cleanly or not (#2147).
 Pass it using that server's owner-process argument. It works without an open project. HexIDE still kills
 the launched process tree on clean shutdown; passing a PID does not enforce cleanup if the server ignores it.
 A launched pipe server gets two seconds to exit before that kill, even during bring-up. Once `initialize`
