@@ -257,13 +257,13 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
             {
                 Log.Debug("CodeEditorViewModel: Handling CreateOrNavigateToSubEvent({SubName}) in {FormName}",
                     e.Sub, formDefinition?.Name);
-                var headerEnd = ReadOnlyRegions.HeaderEnd(Document.Text, bufferPrefix.Length);
-                var sub = Document.IndexOf($"Sub {e.Sub}", headerEnd, Document.TextLength - headerEnd, StringComparison.OrdinalIgnoreCase);
+                var sub = FindEventHandler(e.Sub);
                 if (sub != -1)
                 {
                     Log.Debug("CodeEditorViewModel: Found 'Sub {SubName}' at offset {Offset}, navigating", e.Sub, sub);
+                    var run = MemberRunsNow.FirstOrDefault(r => r.DescribesMember && r.DescribedStart <= sub && sub <= r.Anchor);
                     var nextNewLineIndex = Document.IndexOf("\n", sub, Document.TextLength - sub, StringComparison.OrdinalIgnoreCase);
-                    CaretOffset = nextNewLineIndex == -1 ? sub : nextNewLineIndex + 1;
+                    CaretOffset = run is not null ? run.Region.End : nextNewLineIndex == -1 ? sub : nextNewLineIndex + 1;
                 }
                 else
                 {
@@ -2432,9 +2432,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
         {
             // Event handler: find or generate Sub ObjectName_EventName(...)
             var handlerName = $"{SelectedObject}_{newValue}";
-            var searchText  = $"Sub {handlerName}";
-            var headerEnd = ReadOnlyRegions.HeaderEnd(Document.Text, bufferPrefix.Length);
-            var idx = Document.IndexOf(searchText, headerEnd, Document.TextLength - headerEnd, StringComparison.OrdinalIgnoreCase);
+            var idx = FindEventHandler(handlerName);
             if (idx >= 0)
             {
                 var line = Document.GetLineByOffset(idx);
@@ -2447,6 +2445,20 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
         }
 
         FocusWindowRequest?.Invoke();
+    }
+
+    private int FindEventHandler(string handlerName)
+    {
+        var searchText = $"Sub {handlerName}";
+        var start = ReadOnlyRegions.HeaderEnd(Document.Text, bufferPrefix.Length);
+        while (start < Document.TextLength)
+        {
+            var match = Document.IndexOf(searchText, start, Document.TextLength - start, StringComparison.OrdinalIgnoreCase);
+            if (match < 0 || !IsReadOnlyRegion(match, searchText.Length))
+                return match;
+            start = match + searchText.Length;
+        }
+        return -1;
     }
 
     private void InsertEventHandlerStub(string objectName, string eventName)
