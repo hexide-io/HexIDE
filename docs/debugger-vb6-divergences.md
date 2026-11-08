@@ -47,7 +47,7 @@ some are refinements we may take. Format: **What → VB6 → HexIDE → Why → 
     restores their enabled states afterwards. Headless tests cover both owners and Yes/No; native enabled-state
     verification on the running IDE remains required.
   - **Remaining differences:** ownership still differs from VB6, and the program isn't paused for the prompt in
-    run mode, so Timers keep firing. Floating a code window currently hides it instead (#1361).
+    run mode, so Timers keep firing. Code windows no longer float at all, so they stay in the IDE as VB6's did (#1361).
 - **HexIDE:** the interpreter can apply *no* edit live, so keyboard edits while running/paused pop that same
   prompt (OK = reset + keep the edit; Cancel = revert). So HexIDE over-prompts relative to VB6 (it resets even for a
   comment).
@@ -622,7 +622,7 @@ position, and so does a refused step. What VB6 does with the caret there hasn't 
 
 ---
 
-### D27. Watch context outside break mode (#2290)
+### D32. Watch context outside break mode (#2290)
 - **VB6:** module-wide watches cannot see procedure locals. An undefined name shows
   `<Expression not defined in context>` with type `Empty`, including at design time and after End.
   A valid but inactive context shows `<Out of context>` with type `Empty`.
