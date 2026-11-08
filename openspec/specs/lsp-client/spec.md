@@ -12,6 +12,21 @@ later without the editor noticing.
 
 ## Requirements
 
+### Requirement: Configured initialization options
+
+The client SHALL pass a registration's `initializationOptions` JSON unchanged in the initialize request.
+It SHALL omit the member when the configuration is absent or null and preserve an explicitly configured empty object.
+
+#### Scenario: A server needs language-specific startup settings
+
+- **WHEN** a registration configures `initializationOptions` as `{"Language":"vb6"}`
+- **THEN** initialize carries that object unchanged
+
+#### Scenario: A registration has no startup settings
+
+- **WHEN** `initializationOptions` is omitted or null
+- **THEN** initialize has no `initializationOptions` member
+
 ### Requirement: User-requested server code actions
 
 The client SHALL request code actions only when the user opens Quick Fixes on a diagnostic in the code
