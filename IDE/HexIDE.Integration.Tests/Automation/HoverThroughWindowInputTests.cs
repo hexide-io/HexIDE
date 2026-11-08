@@ -71,6 +71,23 @@ public class HoverThroughWindowInputTests
             elapsed.ElapsedMilliseconds, timeoutMs, condition, ToolTip.GetIsOpen(control), ToolTip.GetTip(control) ?? "<null>");
     }
 
+    // The delay hover quotes is the one on the control whose tip it found, not on what the point landed on (#2949).
+    [AvaloniaFact]
+    public void The_declared_tip_owner_is_the_nearest_control_with_a_tip()
+    {
+        var inner = new Button { Content = "inner", Width = 120, Height = 40 };
+        var outer = new Border { Child = inner };
+        ToolTip.SetTip(outer, "outer tip");
+        ToolTip.SetShowDelay(outer, 1234);
+        var window = Show(outer);
+
+        var middle = new Point(60, 20);
+        UiAutomationDriver.DeclaredToolTipOwnerAt(inner, middle).Should().BeSameAs(outer);
+        UiAutomationDriver.DeclaredToolTipAt(inner, middle).Should().Be("outer tip");
+        ToolTip.GetShowDelay(outer).Should().Be(1234);
+        window.Close();
+    }
+
     [AvaloniaFact]
     public async Task A_declared_tooltip_opens_and_the_reply_names_the_route()
     {

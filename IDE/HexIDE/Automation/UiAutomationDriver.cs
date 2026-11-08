@@ -4883,7 +4883,11 @@ public static class UiAutomationDriver
     /// disabled toolbar button is exactly where a caller asks what the tip says.
     /// </para>
     /// </remarks>
-    public static string? DeclaredToolTipAt(Control receiver, Point point)
+    public static string? DeclaredToolTipAt(Control receiver, Point point) =>
+        DeclaredToolTipOwnerAt(receiver, point) is { } owner ? TipText(ToolTip.GetTip(owner)) : null;
+
+    /// <summary>The control whose declared tip covers the point: the topmost one there, or its nearest ancestor with one.</summary>
+    public static Control? DeclaredToolTipOwnerAt(Control receiver, Point point)
     {
         Visual under = receiver;
         while (under.GetVisualChildren().Where(v => v.IsEffectivelyVisible).Reverse()
@@ -4892,7 +4896,7 @@ public static class UiAutomationDriver
             under = topmost;
 
         foreach (var c in under.GetSelfAndVisualAncestors().OfType<Control>())
-            if (TipText(ToolTip.GetTip(c)) is { } text) return text;
+            if (TipText(ToolTip.GetTip(c)) is not null) return c;
         return null;
     }
 
