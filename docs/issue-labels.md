@@ -330,7 +330,7 @@ and record it in the issue.
 - **Not a topic tag.** An issue that merely concerns VB6 behaviour, or quotes the fidelity principle,
   does not qualify. Neither does a feature whose scope and presentation are ours to choose.
 - Apply it if **any** part of the stated scope needs `vb6.exe`, even where the main fix can land
-  without that answer — and such an issue is never a `good first issue`.
+  without that answer.
 - It marks a measurement **still owed**. Drop it once the answer is in the oracle, even where the body
   still carries the questions it was filed with.
 
@@ -349,7 +349,7 @@ the gate admits.
 - A tool that **advertises a capability nothing implements** does qualify: that surface works and lies.
   A field that is simply wrong for its own name does not — that is an ordinary defect in its own area.
 - It names a cross-cutting quality rather than a place in the code, so **it never counts as an extra
-  area** in the `good first issue` test.
+  area**.
 
 > **What this label deliberately does not cover:** correct behaviour that cannot be *discovered*. #263
 > — a Windows path in `lsp-servers.json` needing doubled backslashes — is correct and undiscoverable,
@@ -392,120 +392,11 @@ alpha.
 `duplicate`, `invalid`, `wontfix`, `question` — closing verdicts and triage hygiene, not
 classifications. Leave them alone.
 
-### `good first issue` — derive it, do not judge it
+### `good first issue` and `help wanted`: retired
 
-All five must hold:
-
-1. size is `trivial` or `small`;
-2. **exactly one** area (the `misleading` state does not count as one);
-3. no `needs-oracle`;
-4. no `blocked`;
-5. no `needs-decision` — an issue that leaves a choice between two materially different resolutions to
-   the implementer is never a good first issue.
-
-Compute this from the other axes rather than judging it per issue: asked to judge it directly, a model
-certified an issue carrying two areas, which rule 2 forbids.
-
-**The derived list is a queue to pick from, not a label to apply.** It returns 67 of 184, plainly too
-many to advertise. Verifying `blocked` issue by issue grew that number rather than shrinking it, so the
-gate was never what stood between this and a usable list.
-
-### Then pick by hand, and these are the disqualifiers
-
-The five gates are **necessary and nowhere near sufficient**. They are all mechanical, which is what
-makes them reliable, and also what makes them blind to everything below. None of this can be derived,
-so it is a checklist rather than a rule, applied when choosing which of the 67 to actually advertise.
-
-Disqualify an issue, however well it scores on the gates, when:
-
-- **A plain fork cannot build or run it.** Check this first, because it is invisible from the issue.
-  The bundled AI Chat add-in is only packaged when a first-party signing key is present, and no fork
-  has one — `CONTRIBUTING.md` says so and CI prints it as expected. So the panel does not exist in a
-  contributor's build, there is no Tools menu entry for it, and they cannot produce the screenshot
-  `CONTRIBUTING.md` asks for on a UI change. That is intended behaviour rather than a defect, and it
-  still makes every `ai-chat` issue a poor first issue until someone writes down how to run bundled
-  add-ins from a keyless clone.
-- **A build guard pins it, and the way past the guard is a maintainer-only workflow.** Renaming a
-  `### Requirement:` heading in `openspec/specs/` looks like editing Markdown, but
-  `DesignRecordTests.EveryArchivedRequirementReachedTheSpecItTargeted` builds its expected set from the
-  deltas under `changes/archive/`, so the heading cannot move by editing `specs/` alone. The clean route
-  is a `## REMOVED Requirements` change archived through the openspec CLI — tooling `CONTRIBUTING.md`
-  calls optional, in a workflow `CLAUDE.md` says must never be done by hand, on files `CONTRIBUTING.md`
-  says are the maintainer's job. The contributor meets a red test with no obvious escape.
-- **The setup cost dwarfs the change.** Anything needing a foreign language server running locally, the
-  `vb6.exe` oracle VM, or a hand-built fixture tree. A newcomer's first hour should not be spent on
-  prerequisites, and they will not tell you they gave up.
-- **The result is invisible.** If the contributor cannot *see* the change work — plumbing, protocol
-  framing, an MCP tool description, a guard script — they finish without ever feeling they finished.
-  This is the one that rules out most of the backlog's genuinely small issues, and it is deliberate.
-- **Being wrong is silent.** VB6 semantics, coercion rules, arithmetic edges. A newcomer cannot
-  self-check a divergence they have no oracle for, and `needs-oracle` only catches the cases where we
-  already knew a measurement was owed.
-- **The work is diagnosis, not a fix.** An intermittent failure, or a cause that is not yet identified.
-  Sizing it as `small` prices the eventual fix, not the hunt, and the hunt is miserable without context.
-- **It has a prerequisite**, even an informal one. `blocked` catches the hard dependencies; a "do this
-  after that lands, or you will do the work twice" is just as expensive to walk into.
-- **It is entangled with a live design question.** If a decision in flight could invalidate the fix,
-  the contributor pays for our indecision.
-
-And one positive selector worth applying on purpose: **an issue that needs a language rather than C#**.
-The language-pack issues are JSON edits that need a speaker of the language, which is the widest door
-this repo has and reaches people the rest of the backlog never will.
-
-**The bar is not "is this easy".** It is *"can someone with no context finish this, and know that they
-finished?"* Most small issues fail the second half.
-
-### The standing target is twenty
-
-A **maximum**, not a quota. Twenty is enough that an arriving contributor finds something in their area
-and does not meet an empty shelf, and few enough that each one can be checked properly and reviewed
-promptly when the PR lands. If fewer than twenty survive the two passes below, advertise fewer — an
-issue that disappoints someone is more expensive than an issue they never saw. Promote from
-`help wanted` as advertised ones are taken, rather than topping up with whatever is left.
-
-### One gate: write the scaffolding comment
-
-Before the label goes on, **someone independent of the choice opens the code and writes the comment a
-newcomer would need** — a human, or a small red-team workflow whose agents did not pick the issue. That
-single act is both the review and the deliverable: it either produces a usable comment, or it produces the
-reason the issue is unsuitable.
-
-There is deliberately no separate approval step in front of it. On the first run of this process every
-rejection came out of the attempt to write the comment — a reviewer asked "is this a reasonable first
-issue?" says yes, because from the issue body it always is.
-
-**The comment says:** where the change goes, with files and symbols; the exact command to run; how they
-will know it worked; and the one gotcha specific to this issue. The newcomer's blocker is rarely finding
-the file — it is not knowing whether they have finished.
-
-**Write it against the tree, and check it claim by claim.** Every path, symbol and test command gets
-opened, not inferred. On the first run **nine of fourteen first drafts carried factual errors**: the
-wrong method on one of two paths through a feature, a test rationale that was backwards, an NSubstitute
-auto-value assumed to be `null` when it is `string.Empty`, a list of key namespaces that omitted the
-very settings page the comment then told the reader to open.
-
-Inaccurate scaffolding is worse than none. It sends someone confidently to the wrong place, and when it
-does not work they assume the fault is theirs. If a claim cannot be confirmed, leave it out.
-
-**Three of twenty picks failed this gate**, each for something invisible from the issue text:
-
-- a feature whose add-in is only packaged when a first-party signing key is present, so **no fork can
-  run it** at all;
-- an issue naming a `.vbp` key as undecided, where **no checked-in corpus file carries it**, so the
-  answer needed the oracle;
-- a Markdown rename **pinned by a build guard**, whose only clean escape is a maintainer-only workflow.
-
-All three read as clean small issues. None was findable without opening files. **If the comment cannot
-be written honestly, that is the answer** — do not apply the label, and say in the issue what would make
-it eligible.
-
-### `help wanted`
-
-A maintainer's judgement about wanting outside help. It cannot be derived. **Every `good first issue`
-carries it too, and not the other way round**: a `help wanted` issue can be too large, or not yet
-scaffolded, to offer a newcomer, and those are where `good first issue` is promoted from as advertised ones
-are taken. It is advertised in its own right — GitHub features it beside `good first issue` — so it is not
-a place to hold issues out of sight.
+Both were taken off every issue on 2026-11-07, when HexIDE was judged not to be a community repository yet, and
+neither is applied until the repository opens to outside contributors. How they were derived and chosen, and the
+scaffolding gate an advertised issue had to pass, are in this file's git history before that date.
 
 ### Claiming
 
