@@ -82,12 +82,12 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
     /// real-path project-scope hoist.</summary>
     public ModuleRegistry Modules { get; } = new();
 
-    private Debugging.IDebugController? debugController;
+    private Debugging.IDebugGate? debugController;
 
     /// <summary>The debug session driving step-through, or null for a non-debugged / headless run (tests, the
     /// Standalone runner). Set by the IDE right after construction (the shared per-session controller); read by the
     /// StatementExecutor's pause-gate. Null ⇒ zero debug overhead (the gate is skipped entirely).</summary>
-    public Debugging.IDebugController? DebugController
+    public Debugging.IDebugGate? DebugController
     {
         get => debugController;
         set
@@ -99,10 +99,10 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
     }
 
     // Origin survives a controller reset or detachment: static run events must still name the run that made us (#761).
-    private (Debugging.IDebugController Controller, int Session)? RunSession { get; set; }
+    private (Debugging.IDebugGate Controller, int Session)? RunSession { get; set; }
 
     /// <summary>Whether this interpreter belongs to the named run, even after its debugger has detached.</summary>
-    public bool IsInDebugSession(Debugging.IDebugController controller, int session) => RunSession == (controller, session);
+    public bool IsInDebugSession(Debugging.IDebugGate controller, int session) => RunSession == (controller, session);
 
     /// <summary>
     /// The run's event pump, when the program runs in a window: what keeps its handlers one at a time (#766). Null for code

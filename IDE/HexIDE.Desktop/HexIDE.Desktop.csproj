@@ -95,6 +95,10 @@
          the command. Read by HelpMark under the logical name, so the folder it lives in is not part of
          the contract. -->
     <EmbeddedResource Include="..\..\tools\hexlogo\hexide-logo-24.ans" LogicalName="hexide-logo-24.ans" />
+    <!-- The licence asks for its notice to travel with every copy, so both go out with every build.
+         scripts/check-release-output.sh fails a release that has lost either. -->
+    <None Include="..\..\LICENSE" Link="LICENSE" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" Visible="false" />
+    <None Include="..\..\THIRD-PARTY-NOTICES.md" Link="THIRD-PARTY-NOTICES.md" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" Visible="false" />
   </ItemGroup>
 
   <!-- ── First-party add-in packaging ────────────────────────────────────────────────

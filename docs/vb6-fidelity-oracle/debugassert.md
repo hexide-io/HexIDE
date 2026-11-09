@@ -48,7 +48,7 @@ error is the compiler's answer, so these came from the release build's compiler 
 `StatementExecutor` takes `Debug.Assert` as a statement beside `Debug.Print`:
 - **With a debugger** (`DebugController`, which every IDE run has), it evaluates the condition with `ConditionHolds`, the
   same reading `If` uses. When the condition does not hold it suspends through
-  `IDebugController.EnterBreakFromAssertionAsync`.
+  `IDebugGate.EnterBreakFromAssertionAsync`.
 - **Headless** (the Make EXE runner and the test fixture), it returns before evaluating anything, as `Stop` ends the
   program there.
 

@@ -487,6 +487,24 @@ and `ToolbarCaptionTests.Segoe_UI_nine_point_matches_console_measurements` (Wind
   command references/typed arguments, localized labels, live shortcut derivation and named providers
   for dynamic content. Guard command/provider joins, preserve focus routing and test visibility and
   invalid declarations. This is a new component with multiple behaviours and a suite of its own.
+  First slice (#3510): embedded host-owned main-menu declarations and registries, typed command
+  arguments, settings toggles and disabled placeholders, guarded recursively against MainView AXAML.
+  Dynamic captions retain host label bindings and fallback localization keys. Provider declarations
+  cover recent projects, run choices, closed documents, panel layouts and add-ins (including its
+  static Manager child). Contract: `openspec/specs/main-menu-model/spec.md`. No renderer, shortcut,
+  focus-routing or profile visibility changes; the wider task remains incomplete.
+  The declaration has 199 placements: 18 submenus, 127 command references, 40 separators, six
+  providers, three placeholders and five toggles. All 26 new cases pass without skips in an isolated
+  xUnit host compiling the actual component and test sources; all 26 fail against inert API scaffolds
+  (empty loading/parsing/validation and command registry, inert state accessors). The production files
+  were never replaced by those scaffolds. Desktop Debug builds with zero warnings/errors; strict
+  validation of `main-menu-model` and tree hygiene pass. No new localization key, VB6 measurement,
+  rendered surface, MISSING_FEATURES status change or MISSING_LANGUAGE count change.
+  Full HexIDE.Tests: 6,884 passed, 40 skipped, zero failures or xUnit errors (6,924 total),
+  including all 26 new cases passing. Raised the measured CI floor to 6,577. The skips are 27
+  Windows/platform cases, ten cases requiring the absent VB6 template tree, and one each requiring
+  the unavailable DAP schema, netcoredbg and debugpy; none is claimed as coverage. Changes remain
+  uncommitted for supervisor review. Rendering and the other surface split-outs remain later work.
 - [ ] **Data-driven toolbars — large:** publish bands/placement ids and render commands and host-owned
   dynamic providers from data, sharing the registry and visibility contract. Test command, toggle,
   flyout, enablement and visibility parity. The shippable model is larger than merely rendering today's

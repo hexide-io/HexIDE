@@ -15,8 +15,8 @@ internal sealed class AddinOwnedHost(IHexIdeHost host, IToolWindowContributor to
     public IOptionsPageContributor Options => host.Options;
     public IDisposable RegisterCommand(string id, string label, Action onInvoke, string? gesture = null, Func<bool>? canExecute = null) =>
         host.RegisterCommand(id, label, onInvoke, gesture, canExecute);
-    public void RegisterComponent(IComponentClass component) => host.RegisterComponent(component);
-    public void RegisterProjectTemplate(IAddinProjectTemplate template) => host.RegisterProjectTemplate(template);
+    public IDisposable RegisterComponent(IComponentClass component) => host.RegisterComponent(component);
+    public IDisposable RegisterProjectTemplate(IAddinProjectTemplate template) => host.RegisterProjectTemplate(template);
     public IAddinServerConnection RegisterLanguageServer(AddinLanguageServer server) =>
         host is HexIdeHost concrete ? concrete.RegisterLanguageServer(server, origin) : host.RegisterLanguageServer(server);
     public IDisposable RegisterDebugLaunch(AddinDebugLaunch launch) =>
