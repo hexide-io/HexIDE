@@ -46,7 +46,7 @@ public class PositionRowsTests
     }
 
     private static double[] Rows(PropertiesToolViewModel window) =>
-        [.. new[] { "Left", "Top", "Width", "Height" }.Select(name => (double)window.Properties.Single(p => p.Name == name).Value!)];
+        [.. new[] { "Left", "Top", "Width", "Height" }.Select(name => (double)window.Properties.OfType<PropertyViewModel>().Single(p => p.Name == name).Value!)];
 
     private static void Select(FormEditViewModel designer, string name) =>
         designer.SelectedComponent = designer.AllComponents.Single(c => c.Name == name);
@@ -72,12 +72,12 @@ public class PositionRowsTests
         var (file, designer, window) = Open();
         Select(designer, "Text5");
 
-        window.Properties.Single(p => p.Name == "Left").Value = "10.5";
+        window.Properties.OfType<PropertyViewModel>().Single(p => p.Name == "Left").Value = "10.5";
 
         var text5 = file.Components.Single(c => c.GetPropertyOrDefault(VBProperties.NameProperty) == "Text5");
         text5.GetPropertyOrDefault(VBProperties.LeftProperty).Should().Be(158 / 15d);
         new FormSerializer().Serialize(file, "Form2.frm").Item1.Should().Contain("      Left            =   158\r\n");
-        window.Properties.Single(p => p.Name == "Left").Value.Should().Be(10.533);
+        window.Properties.OfType<PropertyViewModel>().Single(p => p.Name == "Left").Value.Should().Be(10.533);
     }
 
     // The form's own Width is its client area and its frame, so typing VB6's 4920 keeps the 4680 client.
@@ -87,7 +87,7 @@ public class PositionRowsTests
         var (file, designer, window) = Open();
         Select(designer, "Form2");
 
-        window.Properties.Single(p => p.Name == "Width").Value = "5040";
+        window.Properties.OfType<PropertyViewModel>().Single(p => p.Name == "Width").Value = "5040";
 
         new FormSerializer().Serialize(file, "Form2.frm").Item1.Should().Contain("   ClientWidth     =   4800\r\n");
         Rows(window)[2].Should().Be(5040);
@@ -105,7 +105,7 @@ public class PositionRowsTests
         Select(designer, "Form1");
         Rows(window)[3].Should().Be(3525);
 
-        window.Properties.Single(p => p.Name == "Caption").Value = "";
+        window.Properties.OfType<PropertyViewModel>().Single(p => p.Name == "Caption").Value = "";
 
         Rows(window)[3].Should().Be(3120);
     }

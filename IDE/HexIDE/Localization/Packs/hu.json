@@ -41,6 +41,7 @@
     "Str.Tool.LanguageServers.Output": "Kimenet",
     "Str.Tool.LanguageServers.OutputEmpty": "Még nem érkezett kimenet.",
     "Str.Tool.Properties.LoadPicture": "Kép betöltése",
+    "Str.Tool.Properties.Binary": "(bináris)",
     "Str.Tool.Properties.LoadPictureFailed": "Nem tölthető be kép innen: „{0}”.",
     "Str.Designer.ShowTabOrder": "Tabulátorsorrend megjelenítése (áthúzva: a TabStop kikapcsolva)",
     "Str.Options.EditorGeneral.Display.StickyScroll": "Rögzített fejlécek görgetéskor",

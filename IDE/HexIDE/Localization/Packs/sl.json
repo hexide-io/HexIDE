@@ -41,6 +41,7 @@
     "Str.Tool.LanguageServers.Output": "Izhod",
     "Str.Tool.LanguageServers.OutputEmpty": "Izhod še ni bil prejet.",
     "Str.Tool.Properties.LoadPicture": "Naloži sliko",
+    "Str.Tool.Properties.Binary": "(binarno)",
     "Str.Tool.Properties.LoadPictureFailed": "Slike iz »{0}« ni mogoče naložiti.",
     "Str.Designer.ShowTabOrder": "Prikaži vrstni red tabulatorja (prečrtano: TabStop izklopljen)",
     "Str.Options.EditorGeneral.Display.StickyScroll": "Pripeto drsenje",

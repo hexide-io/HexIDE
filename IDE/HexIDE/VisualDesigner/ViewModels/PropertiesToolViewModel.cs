@@ -50,11 +50,11 @@ public partial class PropertiesToolViewModel : Tool
         return string.IsNullOrEmpty(value) || value == key ? category.ToString() : value;
     }
     public ObservableCollection<ComponentInstanceViewModel>? ComponentsProxy => currentDocument?.SelectableComponents;
-    public ObservableCollection<PropertyViewModel> Properties { get; } = new();
+    public ObservableCollection<BasePropertyViewModel> Properties { get; } = new();
     public ObservableCollection<BasePropertyViewModel> CategorizedProperties { get; } = new();
-    [Notify] private PropertyViewModel? selectedProperty;
+    [Notify] private BasePropertyViewModel? selectedProperty;
     [Notify] private string filterText = "";
-    private PropertyViewModel[] allProperties = [];
+    private BasePropertyViewModel[] allProperties = [];
     private BasePropertyViewModel[] allCategorizedProperties = [];
 
     private void CaptureProperties()
@@ -68,7 +68,7 @@ public partial class PropertiesToolViewModel : Tool
     {
         var matches = allProperties.Where(p => p.Name.Contains(FilterText ?? "", StringComparison.OrdinalIgnoreCase)).ToHashSet();
         foreach (var category in allCategorizedProperties.OfType<PropertyCategoryViewModel>())
-            foreach (var property in allProperties.Where(p => p.PropertyClass.Category == category.Category))
+            foreach (var property in allProperties.OfType<PropertyViewModel>().Where(p => p.PropertyClass.Category == category.Category))
                 property.IsVisible = category.IsExpanded;
         Properties.Clear();
         foreach (var property in allProperties.Where(matches.Contains))
@@ -76,8 +76,8 @@ public partial class PropertiesToolViewModel : Tool
         CategorizedProperties.Clear();
         foreach (var row in allCategorizedProperties)
         {
-            if (row is PropertyViewModel property && matches.Contains(property) ||
-                row is PropertyCategoryViewModel category && matches.Any(p => p.PropertyClass.Category == category.Category))
+            if (row is not PropertyCategoryViewModel && matches.Contains(row) ||
+                row is PropertyCategoryViewModel category && matches.OfType<PropertyViewModel>().Any(p => p.PropertyClass.Category == category.Category))
                 CategorizedProperties.Add(row);
         }
         if (SelectedProperty != null && !matches.Contains(SelectedProperty))
@@ -111,8 +111,10 @@ public partial class PropertiesToolViewModel : Tool
         localization.BindTitle(this, "Str.Tool.Properties.Title");
         localization.LanguageChanged += () =>
         {
-            foreach (var property in allProperties.Concat(Properties).Distinct())
+            foreach (var property in allProperties.Concat(Properties).OfType<PropertyViewModel>().Distinct())
                 property.RefreshDescription();
+            foreach (var raw in allProperties.Concat(Properties).OfType<RawPropertyViewModel>().Distinct())
+                raw.RefreshValue();
             foreach (var category in allCategorizedProperties.Concat(CategorizedProperties).OfType<PropertyCategoryViewModel>().Distinct())
                 category.RefreshHeader();
         };
@@ -187,12 +189,19 @@ public partial class PropertiesToolViewModel : Tool
                             }
                         }
 
-                        SelectedProperty = Properties.FirstOrDefault(x => x.PropertyClass == lastSelectedPropertyClass) ??
+                        foreach (var raw in component.Instance.UnknownRawProperties)
+                        {
+                            var row = new RawPropertyViewModel(raw, localization);
+                            Properties.Add(row);
+                            CategorizedProperties.Add(row);
+                        }
+
+                        SelectedProperty = Properties.OfType<PropertyViewModel>().FirstOrDefault(x => x.PropertyClass == lastSelectedPropertyClass) ??
                                            /* hardcoded default properties */
-                                           Properties.FirstOrDefault(x => x.PropertyClass == VBProperties.CaptionProperty) ??
-                                           Properties.FirstOrDefault(x => x.PropertyClass == VBProperties.IntervalProperty) ??
-                                           Properties.FirstOrDefault(x => x.PropertyClass == VBProperties.ShapeProperty) ??
-                                           Properties.FirstOrDefault(x => x.PropertyClass == VBProperties.NameProperty);
+                                           Properties.OfType<PropertyViewModel>().FirstOrDefault(x => x.PropertyClass == VBProperties.CaptionProperty) ??
+                                           Properties.OfType<PropertyViewModel>().FirstOrDefault(x => x.PropertyClass == VBProperties.IntervalProperty) ??
+                                           Properties.OfType<PropertyViewModel>().FirstOrDefault(x => x.PropertyClass == VBProperties.ShapeProperty) ??
+                                           Properties.OfType<PropertyViewModel>().FirstOrDefault(x => x.PropertyClass == VBProperties.NameProperty);
 
                         currentComponent.Instance.OnComponentPropertyChanged += OnComponentValueChanged;
                     }
@@ -256,7 +265,7 @@ public partial class PropertiesToolViewModel : Tool
         catch (DataValidationException e)
         {
             windowManager.MessageBox(e.Message, icon: MessageBoxIcon.Error).ListenErrors();
-            var row = Properties[0];
+            var row = (PropertyViewModel)Properties[0];
             Avalonia.Threading.Dispatcher.UIThread.Post(() => row.UpdateValueNoRaise(module.Name));
         }
     }
@@ -264,7 +273,7 @@ public partial class PropertiesToolViewModel : Tool
     private void OnComponentValueChanged(ComponentInstance instance, PropertyClass property)
     {
         // A position is shown with what decides its units and the frame round a form, which another property can change.
-        foreach (var prop in allProperties)
+        foreach (var prop in allProperties.OfType<PropertyViewModel>())
         {
             if (prop.PropertyClass == property || DesignPositions.IsPosition(prop.PropertyClass))
                 prop.UpdateValueNoRaise(Displayed(instance, prop.PropertyClass));
@@ -283,9 +292,9 @@ public partial class PropertiesToolViewModel : Tool
 
     private void OnSelectedPropertyChanged()
     {
-        if (selectedProperty != null)
+        if (selectedProperty is PropertyViewModel property)
         {
-            lastSelectedPropertyClass = selectedProperty.PropertyClass;
+            lastSelectedPropertyClass = property.PropertyClass;
         }
     }
 
@@ -443,7 +452,7 @@ public partial class PropertiesToolViewModel : Tool
         // grid displayed a value the control did not have, and a caller reading the row back saw the change it
         // had just been refused (#625). POSTED, and measured to need it: this runs inside the row's binding
         // writing to its source, and a change raised during that write is not carried back to the text box.
-        if (!committed && Properties.FirstOrDefault(p => p.PropertyClass == propertyClass) is { } row)
+        if (!committed && Properties.OfType<PropertyViewModel>().FirstOrDefault(p => p.PropertyClass == propertyClass) is { } row)
             Avalonia.Threading.Dispatcher.UIThread.Post(() => row.UpdateValueNoRaise(before));
 
         if (committed && !Equals(before, after))
@@ -472,6 +481,9 @@ public abstract partial class BasePropertyViewModel : ObservableObject
     /// </summary>
     public abstract string AccessibleName { get; }
 
+    public virtual string Name => AccessibleName;
+    public virtual string Description => "";
+
     [Notify] private bool isVisible = true;
 }
 
@@ -489,7 +501,7 @@ public partial class PropertyCategoryViewModel : BasePropertyViewModel
 
     private void OnIsExpandedChanged()
     {
-        foreach (var property in parent.Properties)
+        foreach (var property in parent.Properties.OfType<PropertyViewModel>())
         {
             if (property.PropertyClass.Category == category)
                 property.IsVisible = IsExpanded;
@@ -541,11 +553,11 @@ public partial class PropertyViewModel : BasePropertyViewModel
 
     public IAsyncRelayCommand ExportPictureCommand { get; }
 
-    public string Name { get; }
+    public override string Name { get; }
 
     public override string AccessibleName => Name;
     [Notify] private object? value;
-    public string Description => parent.ResolvePropertyDescription(PropertyClass);
+    public override string Description => parent.ResolvePropertyDescription(PropertyClass);
 
     internal void RefreshDescription() => OnPropertyChanged(nameof(Description));
     public PropertyClass PropertyClass { get; }
@@ -557,4 +569,25 @@ public partial class PropertyViewModel : BasePropertyViewModel
         OnPropertyChanged(nameof(CanExportPicture));
         ExportPictureCommand.NotifyCanExecuteChanged();
     }
+}
+
+public sealed class RawPropertyViewModel : BasePropertyViewModel
+{
+    private readonly ComponentInstance.UnknownRawProperty raw;
+    private readonly ILocalizationService localization;
+
+    public RawPropertyViewModel(ComponentInstance.UnknownRawProperty raw, ILocalizationService localization)
+    {
+        this.raw = raw;
+        this.localization = localization;
+    }
+
+    public override string Name => raw.Name;
+    public override string AccessibleName => Name;
+    public string Value => raw.Records is { Count: > 0 } || raw.Lines.Any(FrxDeserializer.IsFrxReference)
+        ? localization.GetString("Str.Tool.Properties.Binary")
+        : string.Join(Environment.NewLine, raw.Lines.Select((line, index) =>
+            index == 0 && line.IndexOf('=') is var split && split >= 0 ? line[(split + 1)..].Trim() : line));
+
+    internal void RefreshValue() => OnPropertyChanged(nameof(Value));
 }

@@ -41,6 +41,7 @@
     "Str.Tool.LanguageServers.Output": "Výstup",
     "Str.Tool.LanguageServers.OutputEmpty": "Zatiaľ nebol prijatý žiadny výstup.",
     "Str.Tool.Properties.LoadPicture": "Načítať obrázok",
+    "Str.Tool.Properties.Binary": "(binárne)",
     "Str.Tool.Properties.LoadPictureFailed": "Obrázok z „{0}“ sa nedá načítať.",
     "Str.Designer.ShowTabOrder": "Zobraziť poradie tabulátora (prečiarknuté: TabStop vypnuté)",
     "Str.Options.EditorGeneral.Display.StickyScroll": "Pripnuté hlavičky pri posúvaní",

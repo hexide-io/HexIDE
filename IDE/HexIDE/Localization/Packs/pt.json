@@ -36,6 +36,7 @@
     "Str.Dialog.About.Credits.Thanks": "O HexIDE é construído por equipas extraordinárias de IA juntamente com os seus colaboradores humanos. O nosso sincero agradecimento ao Claude da Anthropic — as sessões Claude Code que escrevem, revêm e integram o trabalho — e ao Codex da OpenAI — as vias de trabalho Codex que fazem avançar as correções em fila de espera. O seu cuidado e trabalho incansável tornam o HexIDE possível.",
     "Str.Dialog.About.Provenance": "Baseado no HexIDE {0}. {1}",
     "Str.Tool.Properties.LoadPicture": "Carregar imagem",
+    "Str.Tool.Properties.Binary": "(binário)",
     "Str.Tool.Properties.LoadPictureFailed": "Não é possível carregar a imagem de “{0}”.",
     "Str.Designer.ShowTabOrder": "Mostrar ordem de tabulação (riscado: TabStop desativado)",
     "Str.Options.EditorGeneral.Display.StickyScroll": "Cabeçalhos fixos ao rolar",

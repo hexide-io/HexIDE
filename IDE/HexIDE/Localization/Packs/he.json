@@ -36,6 +36,7 @@
     "Str.Dialog.About.Credits.Thanks": "HexIDE נבנה בידי צוותי AI יוצאי דופן לצד התורמים האנושיים שלו. תודתנו מעומק הלב ל-Claude מבית Anthropic — מפגשי Claude Code שכותבים, סוקרים וממזגים את העבודה — ול-Codex מבית OpenAI — מסלולי העבודה של Codex שמקדמים את התיקונים שבתור. תשומת הלב והעבודה הבלתי נלאית שלהם מאפשרות את HexIDE.",
     "Str.Dialog.About.Provenance": "מבוסס על HexIDE {0}. {1}",
     "Str.Tool.Properties.LoadPicture": "טעינת תמונה",
+    "Str.Tool.Properties.Binary": "(בינארי)",
     "Str.Tool.Properties.LoadPictureFailed": "לא ניתן לטעון תמונה מתוך ״{0}״.",
     "Str.Designer.ShowTabOrder": "הצגת סדר טאבים (מחוק: TabStop כבוי)",
     "Str.Options.EditorGeneral.Display.StickyScroll": "כותרות קבועות בעת גלילה",

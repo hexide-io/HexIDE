@@ -41,6 +41,7 @@
     "Str.Tool.LanguageServers.Output": "Išvestis",
     "Str.Tool.LanguageServers.OutputEmpty": "Išvesties dar negauta.",
     "Str.Tool.Properties.LoadPicture": "Įkelti paveikslėlį",
+    "Str.Tool.Properties.Binary": "(dvejetainiai duomenys)",
     "Str.Tool.Properties.LoadPictureFailed": "Nepavyko įkelti paveikslėlio iš „{0}“.",
     "Str.Designer.ShowTabOrder": "Rodyti tabuliavimo tvarką (perbraukta: TabStop išjungta)",
     "Str.Options.EditorGeneral.Display.StickyScroll": "Prisegtos antraštės slenkant",

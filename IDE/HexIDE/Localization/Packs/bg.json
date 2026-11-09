@@ -41,6 +41,7 @@
     "Str.Tool.LanguageServers.Output": "Изход",
     "Str.Tool.LanguageServers.OutputEmpty": "Все още няма получен изход.",
     "Str.Tool.Properties.LoadPicture": "Зареждане на изображение",
+    "Str.Tool.Properties.Binary": "(двоични данни)",
     "Str.Tool.Properties.LoadPictureFailed": "Изображението от „{0}“ не може да се зареди.",
     "Str.Designer.ShowTabOrder": "Показване на реда на табулация (зачеркнато: TabStop е изключено)",
     "Str.Options.EditorGeneral.Display.StickyScroll": "Закрепени заглавки при превъртане",

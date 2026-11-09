@@ -63,9 +63,9 @@ public class ModuleRenameTests
             Substitute.For<IEditorService>(), loc);
         explorer.SelectedModule = new ModuleViewModel(explorer.LoadedProjects[0], module);
 
-        grid.Properties.Should().ContainSingle().Which.PropertyClass.Should().Be(VBProperties.NameProperty);
+        grid.Properties.OfType<PropertyViewModel>().Should().ContainSingle().Which.PropertyClass.Should().Be(VBProperties.NameProperty);
         grid.CategorizedProperties.Should().ContainSingle();
-        grid.Properties[0].Value = "Renamed";
+        ((PropertyViewModel)grid.Properties[0]).Value = "Renamed";
 
         module.Name.Should().Be("Renamed");
         editor.Document.Text.Should().Contain("Attribute VB_Name = \"Renamed\"");
@@ -81,7 +81,7 @@ public class ModuleRenameTests
         }
         dock.ActiveDocument.Returns(editor);
         dock.PropertyChanged += Raise.Event<PropertyChangedEventHandler>(dock, new PropertyChangedEventArgs(nameof(dock.ActiveDocument)));
-        grid.Properties.Should().ContainSingle().Which.Value.Should().Be("Renamed");
+        grid.Properties.OfType<PropertyViewModel>().Should().ContainSingle().Which.Value.Should().Be("Renamed");
         dock.ActiveDocument.Returns((BaseEditorWindowViewModel?)null);
         explorer.SelectedItem = explorer.LoadedProjects[0];
         grid.Properties.Should().BeEmpty();
@@ -99,10 +99,10 @@ public class ModuleRenameTests
         var grid = Grid();
         bus.Publish(new ModulePropertiesSelectedEvent(module));
         grid.Properties.Should().ContainSingle();
-        grid.Properties[0].Value = proposed;
+        ((PropertyViewModel)grid.Properties[0]).Value = proposed;
         Dispatcher.UIThread.RunJobs();
         module.Name.Should().Be("Original");
-        grid.Properties[0].Value.Should().Be("Original");
+        ((PropertyViewModel)grid.Properties[0]).Value.Should().Be("Original");
         windows.Received().MessageBox(message, icon: MessageBoxIcon.Error);
     }
 
@@ -115,7 +115,7 @@ public class ModuleRenameTests
         var grid = Grid();
         bus.Publish(new ModulePropertiesSelectedEvent(module));
         grid.Properties.Should().ContainSingle();
-        grid.Properties[0].Value = "original";
+        ((PropertyViewModel)grid.Properties[0]).Value = "original";
         module.Name.Should().Be("original");
         windows.DidNotReceiveWithAnyArgs().MessageBox(default!);
     }

@@ -41,6 +41,7 @@
     "Str.Tool.LanguageServers.Output": "Izvade",
     "Str.Tool.LanguageServers.OutputEmpty": "Izvade vēl nav saņemta.",
     "Str.Tool.Properties.LoadPicture": "Ielādēt attēlu",
+    "Str.Tool.Properties.Binary": "(binārs)",
     "Str.Tool.Properties.LoadPictureFailed": "Nevar ielādēt attēlu no “{0}”.",
     "Str.Designer.ShowTabOrder": "Rādīt tabulēšanas secību (pārsvītrots: TabStop izslēgts)",
     "Str.Options.EditorGeneral.Display.StickyScroll": "Pielipinātā ritināšana",

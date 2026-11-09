@@ -36,6 +36,7 @@
     "Str.Dialog.About.Credits.Thanks": "HexIDEは、人間の貢献者と並んで、卓越したAIチームによって作られています。AnthropicのClaude — 作業の執筆、レビュー、マージを行うClaude Codeのセッション — と、OpenAIのCodex — キューに入った修正を進めるCodexの作業レーン — に心から感謝します。その細やかな配慮とたゆまぬ努力がHexIDEを可能にしています。",
     "Str.Dialog.About.Provenance": "HexIDE {0} をベースに構築。{1}",
     "Str.Tool.Properties.LoadPicture": "画像を読み込む",
+    "Str.Tool.Properties.Binary": "(バイナリ)",
     "Str.Tool.Properties.LoadPictureFailed": "「{0}」から画像を読み込めません。",
     "Str.Designer.ShowTabOrder": "タブ順序を表示（取り消し線: TabStop オフ）",
     "Str.Options.EditorGeneral.Display.StickyScroll": "スクロール時に見出しを固定",

@@ -41,6 +41,7 @@
     "Str.Tool.LanguageServers.Output": "Sortida",
     "Str.Tool.LanguageServers.OutputEmpty": "Encara no s’ha rebut cap sortida.",
     "Str.Tool.Properties.LoadPicture": "Carrega una imatge",
+    "Str.Tool.Properties.Binary": "(binari)",
     "Str.Tool.Properties.LoadPictureFailed": "No es pot carregar la imatge de «{0}».",
     "Str.Designer.ShowTabOrder": "Mostra l'ordre de tabulació (ratllat: TabStop desactivat)",
     "Str.Options.EditorGeneral.Display.StickyScroll": "Desplaçament amb capçaleres fixades",

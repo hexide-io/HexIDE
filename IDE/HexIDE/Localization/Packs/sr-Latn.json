@@ -41,6 +41,7 @@
     "Str.Tool.LanguageServers.Output": "Izlaz",
     "Str.Tool.LanguageServers.OutputEmpty": "Još nije primljen izlaz.",
     "Str.Tool.Properties.LoadPicture": "Učitaj sliku",
+    "Str.Tool.Properties.Binary": "(binarno)",
     "Str.Tool.Properties.LoadPictureFailed": "Nije moguće učitati sliku iz „{0}“.",
     "Str.Designer.ShowTabOrder": "Prikaži redosled tabulatora (precrtano: TabStop je isključen)",
     "Str.Options.EditorGeneral.Display.StickyScroll": "Zadržavanje zaglavlja pri pomeranju",

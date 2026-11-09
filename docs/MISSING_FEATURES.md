@@ -356,7 +356,7 @@ The former Add-In Manager dialog has been replaced by Options → Add-Ins, which
 | Feature | Status | Notes |
 |---|---|---|
 | Property list — categorized view | Done | Category headers update on a live language switch without changing expansion state (#2270) |
-| Property list — alphabetic view | Done | Alphabetic and Categorized tabs both present |
+| Property list — alphabetic view | Done | Both tabs append unmodelled raw properties as greyed read-only rows, included in filtering; binary records show a localized marker and displaying rows preserves the saved files (#158; supervisor live verification pending) |
 | String, numeric, boolean editors | Done | |
 | Colour picker editor | Done | |
 | Font picker editor | Done | |

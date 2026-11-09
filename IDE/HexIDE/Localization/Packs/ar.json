@@ -36,6 +36,7 @@
     "Str.Dialog.About.Credits.Thanks": "تُبنى HexIDE بجهود فرق ذكاء اصطناعي استثنائية إلى جانب مساهميها البشر. خالص شكرنا إلى Claude من Anthropic — جلسات Claude Code التي تكتب العمل وتراجعه وتدمجه — وإلى Codex من OpenAI — مسارات عمل Codex التي تدفع الإصلاحات الموضوعة في قائمة الانتظار إلى الأمام. عنايتهم وعملهم الدؤوب يجعلان HexIDE ممكناً.",
     "Str.Dialog.About.Provenance": "مبني على HexIDE {0}. {1}",
     "Str.Tool.Properties.LoadPicture": "تحميل صورة",
+    "Str.Tool.Properties.Binary": "(ثنائي)",
     "Str.Tool.Properties.LoadPictureFailed": "تعذر تحميل الصورة من «{0}».",
     "Str.Designer.ShowTabOrder": "إظهار ترتيب التنقل (المشطوب: TabStop معطل)",
     "Str.Options.EditorGeneral.Display.StickyScroll": "التمرير الثابت",

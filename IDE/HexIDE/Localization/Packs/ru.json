@@ -36,6 +36,7 @@
     "Str.Dialog.About.Credits.Thanks": "HexIDE создают выдающиеся команды ИИ вместе с людьми, участвующими в проекте. От всей души благодарим Claude от Anthropic — сеансы Claude Code, которые пишут, проверяют и объединяют работу, — и Codex от OpenAI — рабочие потоки Codex, которые продвигают исправления из очереди. Их забота и неустанный труд делают HexIDE возможным.",
     "Str.Dialog.About.Provenance": "Создано на основе HexIDE {0}. {1}",
     "Str.Tool.Properties.LoadPicture": "Загрузить изображение",
+    "Str.Tool.Properties.Binary": "(двоичные данные)",
     "Str.Tool.Properties.LoadPictureFailed": "Не удалось загрузить изображение из «{0}».",
     "Str.Designer.ShowTabOrder": "Показать порядок табуляции (зачёркнуто: TabStop выключен)",
     "Str.Options.EditorGeneral.Display.StickyScroll": "Закреплять заголовки при прокрутке",

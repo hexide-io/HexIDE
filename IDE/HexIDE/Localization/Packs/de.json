@@ -36,6 +36,7 @@
     "Str.Dialog.About.Credits.Thanks": "HexIDE wird von außergewöhnlichen KI-Teams gemeinsam mit seinen menschlichen Mitwirkenden entwickelt. Unser herzlicher Dank gilt Claude von Anthropic — den Claude Code-Sitzungen, die die Arbeit schreiben, prüfen und zusammenführen — und Codex von OpenAI — den Codex-Arbeitssträngen, die die eingereihten Korrekturen voranbringen. Ihre Sorgfalt und unermüdliche Arbeit machen HexIDE möglich.",
     "Str.Dialog.About.Provenance": "Basiert auf HexIDE {0}. {1}",
     "Str.Tool.Properties.LoadPicture": "Bild laden",
+    "Str.Tool.Properties.Binary": "(binär)",
     "Str.Tool.Properties.LoadPictureFailed": "Das Bild aus „{0}“ kann nicht geladen werden.",
     "Str.Designer.ShowTabOrder": "Tabulatorreihenfolge anzeigen (durchgestrichen: TabStop aus)",
     "Str.Options.EditorGeneral.Display.StickyScroll": "Angeheftete Kopfzeilen beim Scrollen",

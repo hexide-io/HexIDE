@@ -41,6 +41,7 @@
     "Str.Tool.LanguageServers.Output": "Väljund",
     "Str.Tool.LanguageServers.OutputEmpty": "Väljundit pole veel saabunud.",
     "Str.Tool.Properties.LoadPicture": "Laadi pilt",
+    "Str.Tool.Properties.Binary": "(binaarne)",
     "Str.Tool.Properties.LoadPictureFailed": "Pilti asukohast „{0}” ei saa laadida.",
     "Str.Designer.ShowTabOrder": "Näita tabeldusjärjekorda (läbikriipsutatud: TabStop on välja lülitatud)",
     "Str.Options.EditorGeneral.Display.StickyScroll": "Kinnitatud päised kerimisel",
