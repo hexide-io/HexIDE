@@ -349,6 +349,75 @@ public class MemberRunFollowsItsLineTests : IDisposable
         editor.TextArea.Caret.Column.Should().Be(5 + tabWidth);
     }
 
+    [AvaloniaTheory]
+    [InlineData("Sub Foo()", "End Sub")]
+    [InlineData("Function Foo() As Long", "End Function")]
+    [InlineData("Property Get Foo() As Long", "End Property")]
+    [InlineData("If True Then", "End If")]
+    [InlineData("Select Case x", "End Select")]
+    [InlineData("For i = 1 To 2", "Next i")]
+    [InlineData("Do", "Loop While x")]
+    [InlineData("Do Until x", "Loop Until x")]
+    [InlineData("While x", "Wend")]
+    [InlineData("With x", "End With")]
+    [InlineData("Type Foo", "End Type")]
+    [InlineData("Enum Foo", "End Enum")]
+    [InlineData("#If True Then", "#End If")]
+    [InlineData("If True Then", "End If ' comment")]
+    public void EnterDoesNotDuplicateAnExistingCloser(string opener, string closer)
+    {
+        var vm = Open(opener + "\n    ' body comment\n    x = 1\n" + closer);
+        var editor = Show(vm);
+        var line = LineWith(editor, opener);
+        var before = vm.Document.Text;
+        PutCaret(editor, line.EndOffset);
+
+        Press(editor, Key.Enter);
+
+        vm.Document.Text.ReplaceLineEndings("\n").Should().Be(
+            before.Insert(line.EndOffset, "\n").ReplaceLineEndings("\n"));
+        editor.Undo();
+        vm.Document.Text.Should().Be(before);
+    }
+
+    [AvaloniaTheory]
+    [InlineData("If True Then\nEnd If\nEnd If", false)]
+    [InlineData("If True Then\nEnd If", true)]
+    [InlineData("End Sub\nSub Other()\nEnd If\nEnd Sub", true)]
+    [InlineData("End IfSomething", true)]
+    [InlineData("' body _\nEnd If", false)]
+    [InlineData("' End If\nDebug.Print \"End If\"", true)]
+    [InlineData("If True _\n Then\nEnd If\nEnd If", false)]
+    public void EnterMatchesNestingAndStopsAtTheProcedureBoundary(string tail, bool insertsCloser)
+    {
+        var vm = Open("Sub Foo()\nIf True Then\n" + tail);
+        var editor = Show(vm);
+        var line = LineWith(editor, "If True Then");
+        PutCaret(editor, line.EndOffset);
+        var before = vm.Document.Text;
+
+        Press(editor, Key.Enter);
+
+        var inserted = insertsCloser ? "\n    \nEnd If" : "\n";
+        vm.Document.Text.ReplaceLineEndings("\n").Should().Be(
+            before.Insert(line.EndOffset, inserted).ReplaceLineEndings("\n"));
+    }
+
+    [AvaloniaFact]
+    public void EnterDoesNotDuplicateAModuleConditionalAroundAProcedure()
+    {
+        var vm = Open("#If True Then\nSub Foo()\nEnd Sub\n#End If");
+        var editor = Show(vm);
+        var offset = LineWith(editor, "#If True Then").EndOffset;
+        var before = vm.Document.Text;
+        PutCaret(editor, offset);
+
+        Press(editor, Key.Enter);
+
+        vm.Document.Text.ReplaceLineEndings("\n").Should().Be(
+            before.Insert(offset, "\n").ReplaceLineEndings("\n"));
+    }
+
     [AvaloniaFact]
     public void DeletingADescribedProcedure()
     {
