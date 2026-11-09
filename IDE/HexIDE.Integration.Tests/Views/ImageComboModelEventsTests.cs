@@ -5,6 +5,7 @@ using Avalonia.Headless.XUnit;
 using HexIDE.IDE;
 using HexIDE.Runtime;
 using HexIDE.Runtime.Interpreter;
+using HexIDE.Runtime.BuiltinControls;
 
 namespace HexIDE.Integration.Tests.Views;
 
@@ -13,11 +14,28 @@ public class ImageComboModelEventsTests
 {
     private sealed class Sink : IBasicStandardLibrary
     {
-        public void DebugPrint(Vb6Value value) { }
+        internal readonly List<Vb6Value> Values = [];
+        public void DebugPrint(Vb6Value value) => Values.Add(value);
         public Task<MessageBoxResult> MsgBox(string text, string? caption, MessageBoxButtons buttons, MessageBoxIcon icon)
             => throw new NotImplementedException();
         public Task<string?> InputBox(string prompt, string? title, string defaultText)
             => throw new NotImplementedException();
+    }
+
+    // #1092 issuecomment-6445666226: native and p-code retain Text1 with Set.
+    [AvaloniaFact]
+    public async Task Item_Tag_retains_a_TextBox_object_with_Set()
+    {
+        var context = new ModuleExecutionContext();
+        var env = new ExecutionEnvironment();
+        var items = new ImageComboItems();
+        var textBox = new VBTextBox { Text = "Text1" };
+        var sink = new Sink();
+        context.AllocVariable(env, "items", new Vb6Value(items));
+        context.AllocVariable(env, "Text1", new Vb6Value(textBox));
+        await new BasicInterpreter(sink, context, env,
+            "Set a = items.Add()\nSet a.Tag = Text1\nDebug.Print a.Tag Is Text1\n").Execute();
+        sink.Values.Should().Equal(new Vb6Value(true));
     }
 
     [AvaloniaFact]
