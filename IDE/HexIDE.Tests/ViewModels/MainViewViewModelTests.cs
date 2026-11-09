@@ -1114,6 +1114,8 @@ public class MainViewViewModelTests
         _projectManager.LoadedProjects.Returns([new ProjectDefinition(VBProjectType.EXE, "Project1")]);
         _projectManager.CurrentGroup.Returns(new ProjectGroupDefinition("Group1"));
         _projectService.ClearReceivedCalls();
+        _localization.GetString("Str.MainWindow.NotImplemented").Returns("This feature is not yet implemented");
+        _localization.GetString("Str.MainWindow.NotImplementedTitle").Returns("NYI");
 
         _sut.MakeProjectGroupCommand.Execute(null);
 

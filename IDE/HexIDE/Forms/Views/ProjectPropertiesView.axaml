@@ -16,7 +16,7 @@
                         <TextBlock Grid.Row="0" Grid.Column="0" Text="{DynamicResource Str.Dialog.ProjectProperties.General.ProjectType}" />
                         <TextBlock Grid.Row="0" Grid.Column="2" Text="{DynamicResource Str.Dialog.ProjectProperties.General.StartupObject}" />
                         <ComboBox Grid.Row="2" Grid.Column="0"
-                                    SelectedItem="{CompiledBinding SelectedProjectType}"
+                                    SelectedItem="{CompiledBinding SelectedProjectTypeChoice}"
                                     ItemsSource="{CompiledBinding ProjectTypes}" />
                         <ComboBox Grid.Row="2" Grid.Column="2"
                                     SelectedItem="{CompiledBinding SelectedStartupObject}"

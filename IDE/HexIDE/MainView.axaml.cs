@@ -50,11 +50,7 @@ public partial class MainView : UserControl
                 CommandParameter = template,
                 IsEnabled = template.Supported,
             };
-            var key = template == IProjectTemplate.StandardEXE ? "Str.ProjectType.StandardEXE"
-                : template == IProjectTemplate.ActiveXEXE ? "Str.ProjectType.ActiveXEXE"
-                : template == IProjectTemplate.ActiveXDLL ? "Str.ProjectType.ActiveXDLL"
-                : template == IProjectTemplate.ActiveXControl ? "Str.ProjectType.ActiveXControl" : null;
-            if (key != null)
+            if (template.NameKey is { } key)
                 item.Bind(HeaderedSelectingItemsControl.HeaderProperty, this.GetResourceObservable(key));
             _projectItems.Add(item);
         }

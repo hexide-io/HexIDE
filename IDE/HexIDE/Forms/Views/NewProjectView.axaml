@@ -51,7 +51,7 @@
                             <DataTemplate x:DataType="viewModels:ProjectTemplateViewModel">
                                 <StackPanel Orientation="Vertical" Width="64" Margin="4">
                                     <Image Source="{CompiledBinding Icon}" Width="32" Height="32" HorizontalAlignment="Center" />
-                                    <TextBlock Text="{CompiledBinding Name}" TextAlignment="Center" TextWrapping="Wrap" FontSize="11" />
+                                    <TextBlock Text="{CompiledBinding DisplayName}" TextAlignment="Center" TextWrapping="Wrap" FontSize="11" />
                                 </StackPanel>
                             </DataTemplate>
                         </ListBox.ItemTemplate>

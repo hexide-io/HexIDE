@@ -60,7 +60,7 @@ public partial class ComponentsViewModel : ObservableObject, IDialog
         project = projectDefinition;
         this.windowManager = windowManager;
         this.localization = localization;
-        Title = "Components";
+        Title = localization?.GetString("Str.Dialog.Components.Title") ?? "Components";
 
         var referenced = project.ObjectReferences.ToList();
         foreach (var library in ControlLibraries.All.OrderBy(l => l.Description, StringComparer.OrdinalIgnoreCase))

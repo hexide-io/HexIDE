@@ -1694,7 +1694,7 @@ public partial class MainViewViewModel : ObservableObject
 
     public void NYI()
     {
-        windowManager.MessageBox("This feature is not yet implemented", "NYI", MessageBoxButtons.Ok, MessageBoxIcon.Information);
+        windowManager.MessageBox(localization.GetString("Str.MainWindow.NotImplemented"), localization.GetString("Str.MainWindow.NotImplementedTitle"), MessageBoxButtons.Ok, MessageBoxIcon.Information);
     }
 
     /// <summary>
@@ -1801,7 +1801,7 @@ public partial class MainViewViewModel : ObservableObject
         {
             Copyright = "© 2026 The HexIDE Authors. Not affiliated with, endorsed by, or sponsored by Microsoft.",
             Title = $"HexIDE {BuildInfo.Display}",
-            SubTitle = "A cross-platform, VB6-compatible IDE",
+            SubTitle = localization.GetString("Str.Dialog.About.Tagline"),
             Icon = new Bitmap(AssetLoader.Open(new Uri("avares://HexIDE/Icons/AppIcon/hexide-logo-64.png")))
         }).ListenErrors();
     }
