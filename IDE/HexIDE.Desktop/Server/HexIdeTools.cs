@@ -3032,7 +3032,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     }
 
     [McpServerTool(Name = "hover")]
-    [Description("Moves the pointer onto the control at 'target' (a path from dump_visual_tree) by sending a mouse move through the window's own input, as the platform delivers a real one, watches for a tip, and reports its text: a declared ToolTip.Tip, such as a toolbar button's, and a tip a control raises from its own pointer handler, such as LSP quick-info and the debugger's Auto Data Tips in the code editor. A tip that is a control reads as its visible text blocks, joined with ' / '. The move is hit-tested as a real one is: when something else is drawn at the point the reply says what it landed on, and reports that control's tip, as that is what a person would be shown; a disabled target shows a tip only with ToolTip.ShowOnDisabled, and the reply says it is disabled. When nothing is drawn at the point, or Avalonia's input cannot be reached, the move is raised on the control instead, which opens only the second kind, and the reply says so. Without 'x' and 'y' a code editor is hovered at its CARET, which is how a particular identifier is hovered; see 'x'. 'dwellMs' is how long to watch, and 'window' picks the window. When no tip opens, the reply adds the 'declared tip' of the control under the hovered point or its nearest ancestor that sets one, which is the text a human would be shown there. The pointer then leaves the window, closing the tip, unless 'stay' keeps it there for a snapshot: 'tipBounds' places an opened tip in the window as inspect_element's boundingRect does, and 'detail' gives its offset from the point hovered. The cursor and pointer-over stay the hover's until the real mouse next moves.")]
+    [Description("Moves the pointer onto the control at 'target' (a path from dump_visual_tree) through the window's input, watches for a tip, and reports its text: a declared ToolTip.Tip, such as a toolbar button's, and a tip a control raises from its own pointer handler, such as LSP quick-info and the debugger's Auto Data Tips in the code editor. A tip that is a control reads as its visible text blocks, joined with ' / '. The move is hit-tested as a real one is: when something else is drawn at the point the reply says what it landed on, and reports its tip; a disabled target shows a tip only with ToolTip.ShowOnDisabled, and the reply says it is disabled. When nothing is drawn at the point, or Avalonia's input cannot be reached, the move is raised on the control instead, which opens only the second kind, and the reply says so. Without 'x' and 'y' a code editor is hovered at its CARET, to hover an identifier; see 'x'. 'dwellMs' is how long to watch, and 'window' picks the window. When no tip opens, the reply adds the 'declared tip' of the control under the hovered point or its nearest ancestor that sets one, as a person would see there. The pointer then leaves the window, closing the tip, unless 'stay' keeps it there for a snapshot: 'tipBounds' places an opened tip in the window as inspect_element's boundingRect does, and 'detail' gives its offset from the point hovered. The cursor and pointer-over stay the hover's until the real mouse next moves. " + ProgramWaitNote + " The reply reports Debug.Print output in 'printed', since the run began or the last reply that reported it, or says nothing was printed.")]
     public async Task<InteractOutcome> HoverAsync(
         [Description("A path from dump_visual_tree. A target that is not a code editor but contains one is hovered at "
                      + "that editor, the first showing under it, and the reply then names the editor and gives its path, "
@@ -3053,7 +3053,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
         [Description("True leaves the pointer on the point when the watch ends, for a snapshot: what it landed on keeps "
                      + "its pointer-over look, such as a flat toolbar button's hot image, and an opened tip stays open. "
                      + "The reply says whether it reads as under the pointer, as inspect_element's isPointerOver does. It "
-                     + "lasts until the next click, drag or hover in that window, or the real mouse's next move over it. "
+                     + "lasts until the next click, drag or hover in that window, a hover in another, or the real mouse's next move over it. "
                      + "Default false: the pointer leaves the window.")]
         bool stay = false,
         CancellationToken ct = default)
@@ -3063,6 +3063,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
                 $"dwellMs must be between 0 and {MaxHoverDwellMs}; it was {dwellMs}");
 
         UiAutomationDriver.HoverLanding? landing = null;
+        UiAutomationDriver.ProgramWatch? program = null;
 
         // The move is hit-tested against what the window last drew, as click's press is: a window opened a moment ago has
         // drawn nothing, so its next frame is waited for first (#1265).
@@ -3081,12 +3082,14 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
 
         var raised = await Dispatcher.UIThread.InvokeAsync(() =>
         {
+            program = UiAutomationDriver.WatchProgram(TopLevel.GetTopLevel(found) as Window, () => ctx.DebugController.CurrentStop);
             var outcome = UiAutomationDriver.Hover(found, x, y, target, out var landed);
             landing = landed;
             return outcome;
         });
 
         if (!raised.Success || landing is not { } at) return raised;
+        var sinceMove = System.Diagnostics.Stopwatch.StartNew();
         var hovered = at.Receiver;
         // The real mouse, or another hover running at the same time, takes the tip, and only the window's input says so (#2376).
         var watch = at.ThroughWindowInput
@@ -3106,6 +3109,9 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
         string? tip = null;
         string? declared = null;
         var enabled = true;
+        // How long after the move the poll first saw a tip open (#2949), and the delay the control declares when none did.
+        long? openedAfter = null;
+        var showDelay = 0;
         // Where the tip was while it was open, beside the point hovered, both in the window: it closes when the hover ends,
         // so this is the only time its placement can be read (#1303).
         (Rect Bounds, Point Hovered)? placed = null;
@@ -3132,6 +3138,8 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
                             && at.Receiver.TranslatePoint(at.Point, window) is { } point
                             ? (bounds, point) : placed);
                 });
+                if (tip is not null)
+                    openedAfter ??= sinceMove.ElapsedMilliseconds;
                 if (tip is not null && tip.EndsWith(UiAutomationDriver.NoTextToRead, StringComparison.Ordinal))
                     (textless, tip) = (tip, null);
             }
@@ -3144,8 +3152,9 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
             // Collapsing them would turn a limitation into a passing assertion.
             if (tip is null)
             {
-                (declared, enabled) = await Dispatcher.UIThread.InvokeAsync(
-                    () => (UiAutomationDriver.DeclaredToolTipAt(at.Receiver, at.Point), at.Receiver.IsEffectivelyEnabled));
+                (declared, enabled, showDelay) = await Dispatcher.UIThread.InvokeAsync(() =>
+                    (UiAutomationDriver.DeclaredToolTipAt(at.Receiver, at.Point), at.Receiver.IsEffectivelyEnabled,
+                     UiAutomationDriver.DeclaredToolTipOwnerAt(at.Receiver, at.Point) is { } owner ? ToolTip.GetShowDelay(owner) : 0));
                 // Read before the pointer leaves, which cancels a request still waiting and would report it as cancelled.
                 quickInfo = await QuickInfoNoteAsync(at, watermark, dwellMs);
             }
@@ -3182,13 +3191,14 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
         }
 
         if (tip is not null)
-            return placed is not { } where
-                ? raised with { Detail = raised.Detail + "; tip: " + tip + stayed }
+            return await WaitForProgramAsync(program, placed is not { } where
+                ? raised with { Detail = raised.Detail + "; tip: " + tip + TipOpenedAfter(openedAfter ?? 0) + stayed }
                 : raised with
                 {
-                    Detail = raised.Detail + "; tip: " + tip + " (" + TipPlacement(where.Bounds, where.Hovered) + ")" + stayed,
+                    Detail = raised.Detail + "; tip: " + tip + " (" + TipPlacement(where.Bounds, where.Hovered) + ")"
+                             + TipOpenedAfter(openedAfter ?? 0) + stayed,
                     TipBounds = [Round(where.Bounds.X), Round(where.Bounds.Y), Round(where.Bounds.Width), Round(where.Bounds.Height)],
-                };
+                }, ct);
 
         // Said as a fact when input the hover did not send moved the pointer during the watch, whether or not a tip is
         // declared: quick info and Auto Data Tips declare none, and missed the same way (#2376). Not for a disabled target,
@@ -3196,7 +3206,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
         var took = enabled ? moved : null;
         var unopened = raised.Detail + "; no tip opened within " + dwellMs + "ms" + (took is null ? string.Empty : " (" + took + ")")
                        + (quickInfo is null ? string.Empty : "; " + quickInfo);
-        return raised with
+        return await WaitForProgramAsync(program, raised with
         {
             Detail = (declared is null
                 ? unopened
@@ -3204,9 +3214,23 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
                   + (took is not null ? string.Empty
                       : !at.ThroughWindowInput
                       ? " (the move was raised on the control, which Avalonia's ToolTipService never sees)"
-                      : enabled ? " (its ToolTip.ShowDelay may be longer than the watch)" : string.Empty)
+                      : enabled ? " (" + ShowDelayNote(showDelay, dwellMs) + ")" : string.Empty)
                   + "; declared tip: " + declared) + stayed,
-        };
+        }, ct);
+    }
+
+    /// <summary>How long after the move a tip was first seen open (#2949); the poll looks every 50 ms, so "about".</summary>
+    internal static string TipOpenedAfter(long milliseconds) =>
+        "; seen open about " + milliseconds.ToString(System.Globalization.CultureInfo.InvariantCulture) + "ms after the move";
+
+    /// <summary>
+    /// What the delay a control declares says about a watch in which its tip did not open (#2949), so the next dwell
+    /// can be chosen and not found by trying several.
+    /// </summary>
+    internal static string ShowDelayNote(int showDelayMs, int dwellMs)
+    {
+        var delay = "its ToolTip.ShowDelay is " + showDelayMs.ToString(System.Globalization.CultureInfo.InvariantCulture) + "ms";
+        return showDelayMs >= dwellMs ? delay + ", longer than the watch: pass a dwellMs above that" : delay;
     }
 
     // The watch is bounded so a mistyped value cannot hold a call open for minutes. Refused rather than

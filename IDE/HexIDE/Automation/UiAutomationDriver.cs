@@ -801,7 +801,7 @@ public static class UiAutomationDriver
                         flyout.ShowAt(control);
                         return PopupVerified(() => IsOpenOn(flyout, control), true, "flyout", LabelOf(control, peer));
                     }
-                    return Unsupported("expand");
+                    return ThroughSoleMenuWrapper(control, peer, "expand", value) ?? Unsupported("expand");
 
                 case "collapse":
                     if (peer.GetProvider<IExpandCollapseProvider>() is { } col)
@@ -858,7 +858,7 @@ public static class UiAutomationDriver
                     if (control.ContextMenu is not null || FlyoutsOf(control).Any())
                         return Ok($"the {(control.ContextMenu is not null ? "context menu" : "flyout")} on "
                                   + $"'{LabelOf(control, peer)}' was not open; there is nothing to close");
-                    return Unsupported("collapse");
+                    return ThroughSoleMenuWrapper(control, peer, "collapse", value) ?? Unsupported("collapse");
 
                 case "setvalue":
                     if (peer.GetProvider<IValueProvider>() is not { } val) return Unsupported("set_value");
@@ -4399,6 +4399,8 @@ public static class UiAutomationDriver
             if (Shows(target) is not true and var shows)
                 return new InteractOutcome(false, "pointer", null, NotShowingRefusal(target, "hover", shows));
             EndStayingHover(topLevel);
+            // A pointer is over one window at a time, so one left in another by 'stay' has gone from it (#2886).
+            var left = EndStayingHoverElsewhere(topLevel) is { } was ? $"; the pointer left {was}" : string.Empty;
             var local = HoverPoint(target, x, y);
             if (target.TranslatePoint(local, topLevel) is not { } atTopLevel)
                 return new InteractOutcome(false, "pointer", null,
@@ -4446,7 +4448,7 @@ public static class UiAutomationDriver
                     : $"; it landed on {Describe(hit)}, not the target, as that is what is drawn at the point, so it is what a "
                       + "person's pointer there would be over";
                 return new InteractOutcome(true, "pointer",
-                    $"hovered ({local.X.ToString("0.#", CultureInfo.InvariantCulture)}, {local.Y.ToString("0.#", CultureInfo.InvariantCulture)}){Where()} through the window's input{landed}", null);
+                    $"hovered ({local.X.ToString("0.#", CultureInfo.InvariantCulture)}, {local.Y.ToString("0.#", CultureInfo.InvariantCulture)}){Where()} through the window's input{landed}{left}", null);
             }
 
             var pointer = new Avalonia.Input.Pointer(
@@ -4463,7 +4465,7 @@ public static class UiAutomationDriver
             landing = new HoverLanding(target, local);
             return new InteractOutcome(true, "pointer",
                 $"hovered ({local.X.ToString("0.#", CultureInfo.InvariantCulture)}, {local.Y.ToString("0.#", CultureInfo.InvariantCulture)}){Where()} (raised on the control, as the move through the window's input "
-                + $"{missed}, so a declared tooltip will not open)", null);
+                + $"{missed}, so a declared tooltip will not open){left}", null);
 
             string Where() => ReferenceEquals(target, control)
                 ? string.Empty
@@ -4523,7 +4525,7 @@ public static class UiAutomationDriver
     {
         if (hovered.IsPointerOver)
             return $"; the pointer stays there and '{Describe(hovered)}' reads as under it (isPointerOver), so take_snapshot "
-                   + "shows its pointer-over look and any tip, until the next click, drag or hover in this window or the real "
+                   + "shows its pointer-over look and any tip, until the next click, drag or hover in this window, a hover in another, or the real "
                    + "mouse's next move over it";
         var why = moved is null ? "input the hover did not send has moved it"
             : saidAlready ? "what moved the pointer, above, took it" : moved;
@@ -4542,6 +4544,24 @@ public static class UiAutomationDriver
             return;
         Stayed.Remove(topLevel);
         RawPointer.Leave(topLevel);
+    }
+
+    /// <summary>
+    /// Ends a hover 'stay' left in any window but <paramref name="topLevel"/>, and names the windows it left; null when
+    /// there is none. Two windows both read as under the pointer otherwise, which a real pointer can't do (#2886).
+    /// </summary>
+    internal static string? EndStayingHoverElsewhere(TopLevel topLevel)
+    {
+        var others = Stayed.Select(stayed => stayed.Key).Where(window => !ReferenceEquals(window, topLevel)).ToArray();
+        foreach (var other in others)
+        {
+            Stayed.Remove(other);
+            // A window closed since is still in the table until it is collected, and no pointer is over it.
+            if (other.IsVisible)
+                RawPointer.Leave(other);
+        }
+        var showing = others.Where(o => o.IsVisible).ToArray();
+        return showing.Length == 0 ? null : string.Join(", ", showing.Select(o => o is Window w ? $"'{TitleOf(w)}'" : "another window"));
     }
 
     // Where each window last had a click's pointer, so a click there again moves nothing first, as a still mouse sends no
@@ -4883,7 +4903,11 @@ public static class UiAutomationDriver
     /// disabled toolbar button is exactly where a caller asks what the tip says.
     /// </para>
     /// </remarks>
-    public static string? DeclaredToolTipAt(Control receiver, Point point)
+    public static string? DeclaredToolTipAt(Control receiver, Point point) =>
+        DeclaredToolTipOwnerAt(receiver, point) is { } owner ? TipText(ToolTip.GetTip(owner)) : null;
+
+    /// <summary>The control whose declared tip covers the point: the topmost one there, or its nearest ancestor with one.</summary>
+    public static Control? DeclaredToolTipOwnerAt(Control receiver, Point point)
     {
         Visual under = receiver;
         while (under.GetVisualChildren().Where(v => v.IsEffectivelyVisible).Reverse()
@@ -4892,7 +4916,7 @@ public static class UiAutomationDriver
             under = topmost;
 
         foreach (var c in under.GetSelfAndVisualAncestors().OfType<Control>())
-            if (TipText(ToolTip.GetTip(c)) is { } text) return text;
+            if (TipText(ToolTip.GetTip(c)) is not null) return c;
         return null;
     }
 
@@ -5118,6 +5142,28 @@ public static class UiAutomationDriver
     private static InteractOutcome Ok(string detail) => new(true, "peer", detail, null);
     private static InteractOutcome Err(string error) => new(false, "peer", null, error);
     private static InteractOutcome Unsupported(string action) => new(false, "peer", null, $"element does not support '{action}'");
+
+    /// <summary>
+    /// expand or collapse aimed at a node whose only menu is on one unnamed wrapper directly under it; null when there
+    /// is none, or more than one to choose between.
+    /// </summary>
+    /// <remarks>
+    /// A Properties row's context menu sits on the Border at the root of the row's template. The dump shows that Border
+    /// as the row's <c>None</c> child, with <c>expandCollapse</c>, but the row is what a caller aims at, and its refusal
+    /// gave no hint (#2877). Only a <c>None</c> node qualifies: a named control's own menu is that control's, and is
+    /// reached by its own path.
+    /// </remarks>
+    private static InteractOutcome? ThroughSoleMenuWrapper(Control control, AutomationPeer peer, string action, string? value)
+    {
+        var children = new List<MeaningfulChild>();
+        CollectMeaningfulChildren(control, children);
+        var wrappers = children.Where(c => c.Info.Type == "None" && (c.Control.ContextMenu is not null || FlyoutsOf(c.Control).Any())).ToArray();
+        if (wrappers.Length != 1) return null;
+        var through = Interact(wrappers[0].Control, action, value);
+        return through.Success && through.Detail is not null
+            ? through with { Detail = $"{through.Detail}, the unnamed child of '{LabelOf(control, peer)}' that holds the menu" }
+            : through;
+    }
     private static InteractOutcome ReflectErr(string error) => new(false, "reflection", null, error);
 
     // ── addressing ────────────────────────────────────────────────────────────────────────────────
