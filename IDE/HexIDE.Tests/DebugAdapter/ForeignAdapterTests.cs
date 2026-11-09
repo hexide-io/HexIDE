@@ -105,7 +105,28 @@ public class ForeignAdapterTests
             }
             throw;
         }
-        finally { Directory.Delete(directory, recursive: true); }
+        finally { DeleteWhenReleased(directory); }
+    }
+
+    /// <summary>Removes a session's folder once the adapter and its program have let go of it.</summary>
+    /// <remarks>
+    /// They can still hold it when the session ends: every run on Windows on Arm, and now and then on x64 (#3454). The
+    /// session has passed or failed by then, and a folder left in temp harms nothing, so giving up is not a failure.
+    /// </remarks>
+    private static void DeleteWhenReleased(string directory)
+    {
+        for (var attempt = 0; attempt < 40; attempt++)
+        {
+            try
+            {
+                Directory.Delete(directory, recursive: true);
+                return;
+            }
+            catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+            {
+                Thread.Sleep(250);
+            }
+        }
     }
 
     private static async Task<DapSessionUpdate> Event(DapSession session, string name, CancellationToken token)
