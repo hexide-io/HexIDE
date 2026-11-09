@@ -2,6 +2,7 @@ using Avalonia.Headless.XUnit;
 using HexIDE.Debugging;
 using HexIDE.IDE;
 using HexIDE.Localization;
+using HexIDE.Runtime;
 using HexIDE.Runtime.Debugging;
 using HexIDE.Runtime.Interpreter;
 using HexIDE.Runtime.ProjectElements;
@@ -192,8 +193,111 @@ public class RunEngineSeamTests
         engine.RefusesToStart(_project).Should().NotBeNullOrEmpty("the test project has no startup form");
     }
 
+    [AvaloniaFact]
+    public void An_error_the_engine_meets_reaches_whoever_listens_to_the_runner()
+    {
+        var met = new List<RunFailure>();
+        var failure = new RunFailure("Run-time error '5'", new ErrorLocation("Form1", 3));
+        _runner.ErrorMet += met.Add;
+
+        _engine.Meets(failure);
+        _runner.ErrorMet -= met.Add;
+        _engine.Meets(failure);
+
+        met.Should().Equal(failure);
+    }
+
+    [AvaloniaFact]
+    public void The_engine_asks_the_host_the_runner_was_given()
+    {
+        Func<RunFailure, Task<bool>> host = _ => Task.FromResult(true);
+
+        _runner.HaltHost = host;
+
+        _engine.HaltHost.Should().BeSameAs(host);
+        _runner.HaltHost.Should().BeSameAs(host);
+    }
+
+    [AvaloniaFact]
+    public void The_interpreter_halts_only_while_it_has_a_host_to_ask()
+    {
+        var controller = new DebugController();
+        var engine = new InterpreterRunEngine(Substitute.For<IWindowManager>(), Substitute.For<ILocalizationService>(), controller);
+
+        controller.CanHalt.Should().BeFalse("with nobody to ask, the error unwinds to be reported");
+        engine.HaltHost = _ => Task.FromResult(true);
+        controller.CanHalt.Should().BeTrue();
+        engine.HaltHost = null;
+        controller.CanHalt.Should().BeFalse();
+    }
+
+    [AvaloniaFact]
+    public async Task The_interpreter_asks_its_host_in_the_words_of_the_dialog_and_passes_on_the_answer()
+    {
+        var controller = new DebugController();
+        var engine = new InterpreterRunEngine(Substitute.For<IWindowManager>(), Substitute.For<ILocalizationService>(), controller);
+        var asked = new List<RunFailure>();
+        engine.HaltHost = failure =>
+        {
+            asked.Add(failure);
+            return Task.FromResult(false);
+        };
+        var error = await RaisedBy("Error \"x\"\n");
+        ErrorLocation.Note(error, "Module1", 1);
+
+        var answer = await controller.HaltHost!(error);
+
+        answer.Should().BeFalse();
+        asked.Should().Equal(new RunFailure("Run-time error '13':\n\nType mismatch\n\nat Error \"x\"", new ErrorLocation("Module1", 1)));
+    }
+
+    [AvaloniaFact]
+    public void A_run_time_error_that_leaves_the_run_going_is_passed_on_with_its_statement_and_place()
+    {
+        var met = ErrorsMetRunning("    Error \"x\"\n");
+
+        met.Should().Equal(new RunFailure("Run-time error '13':\n\nType mismatch\n\nat Error \"x\"", new ErrorLocation("Form1", 2)));
+    }
+
+    [AvaloniaFact]
+    public void A_compile_error_met_while_a_form_runs_is_passed_on_as_a_run_time_error_is()
+    {
+        // A call to a Sub that does not exist, reached from a click: the compile error a tree-walker meets mid-run.
+        var met = ErrorsMetRunning("    NoSuchSub\n");
+
+        met.Should().ContainSingle();
+        met[0].Text.Should().Contain("Sub or Function not defined");
+        met[0].Location.Should().Be(new ErrorLocation("Form1", 2));
+    }
+
+    private static List<RunFailure> ErrorsMetRunning(string body)
+    {
+        var engine = new InterpreterRunEngine(Substitute.For<IWindowManager>(), Substitute.For<ILocalizationService>(), new DebugController());
+        var met = new List<RunFailure>();
+        engine.ErrorMet += met.Add;
+        var form = new VBWindowContext(Substitute.For<IBasicStandardLibrary>());
+        form.SetCode($"Private Sub Command1_Click()\n{body}End Sub\n", "Form1");
+
+        form.ExecuteSub("Command1_Click");
+
+        return met;
+    }
+
+    private static async Task<VBRunTimeException> RaisedBy(string code)
+    {
+        var interpreter = new BasicInterpreter(Substitute.For<IBasicStandardLibrary>(), new ModuleExecutionContext(), new ExecutionEnvironment(), code);
+        var act = async () => await interpreter.Execute();
+        return (await act.Should().ThrowAsync<VBRunTimeException>()).Which;
+    }
+
     private sealed class FakeEngine : IRunEngine
     {
+        public event Action<RunFailure>? ErrorMet;
+
+        public Func<RunFailure, Task<bool>>? HaltHost { get; set; }
+
+        public void Meets(RunFailure failure) => ErrorMet?.Invoke(failure);
+
         public bool RunsIt { get; set; } = true;
         public string? Refusal { get; set; }
         public RunFailure? StartFailure { get; set; }

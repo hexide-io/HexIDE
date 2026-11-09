@@ -87,7 +87,26 @@ not-implemented rather than select an unmeasured locale-dependent value (#2625).
 - **WHEN** the counted string for an ID has length zero
 - **THEN** the reader reports no string for that ID
 
-The `LoadResString`, `LoadResData` and `LoadResPicture` intrinsic calls remain separate work (#2626).
+### Requirement: Resource intrinsics read the project snapshot
+
+`LoadResString` SHALL return counted UTF-16 strings and `LoadResData` SHALL return zero-based Byte arrays
+from the resource snapshot, following the [#2626 measurements](../../../docs/vb6-fidelity-oracle/loadresstring-loadresdata-and-loadrespicture.md).
+Empty strings, absent resources and string tables requested as raw data SHALL raise 326.
+`LoadResPicture` SHALL load the measured 24-bit bitmap layout into the shared Picture object, report
+326 for absent/wrong-kind resources and 485 for invalid kinds. Present icon/cursor groups, other bitmap
+layouts, named arguments and multi-language selection SHALL refuse as not implemented. Picture properties without measured
+return subtypes and native/default handles SHALL remain explicitly unimplemented.
+
+#### Scenario: Resource text and data
+
+- **WHEN** a project requests string 102 or raw resource 201 from the measured fixture
+- **THEN** the string is `café€` and the raw data is Byte() with bounds 0 to 3 and bytes 1, 2, 3, 250
+
+#### Scenario: Bitmap object
+
+- **WHEN** the program uses Set with `LoadResPicture(301, vbResBitmap)`
+- **THEN** it receives the shared picture object whose TypeName is `Picture`
+- **AND** native Handle access refuses rather than inventing a handle
 
 ### Requirement: ObjPtr SHALL preserve object identity
 `ObjPtr` SHALL return Long identities satisfying the relations measured in
@@ -1629,3 +1648,45 @@ Measured by [#3349's oracle](../../../docs/vb6-fidelity-oracle/a-public-array-in
 #### Scenario: A declaration outside the measured Public object-member scope
 - **WHEN** a declaration is Private, Dim, or in a standard module
 - **THEN** this refusal does not apply and its existing implementation or refusal is retained
+
+### Requirement: ListBox TopIndex assignments report a changed top row
+
+A laid-out, single-select ListBox SHALL expose TopIndex and coerce assignments through the standard Integer store
+(#3275, measuring PR #3286). An assignment SHALL clamp to the last page and raise Scroll once,
+synchronously, only if the resulting top row changes. The handler SHALL read the new TopIndex.
+An index below zero or at or above ListCount SHALL raise error 380 without Scroll.
+MultiSelect access and access before row layout SHALL refuse as not implemented.
+Scrollbar, keyboard and native-message Scroll delivery remains pending.
+
+#### Scenario: Move and repeat the top row
+- **WHEN** TopIndex changes from 0 to 5 and is then assigned 5 again
+- **THEN** the first assignment raises Scroll with TopIndex 5 inside the handler
+- **AND** the second assignment raises no Scroll
+
+#### Scenario: Assign beyond the last page
+- **WHEN** a 60-item list showing 11 rows is assigned TopIndex 59
+- **THEN** TopIndex becomes 49 and Scroll is raised only if that changes the top row
+- **AND** assigning 60 or -1 raises 380 without changing the row or raising Scroll
+
+### Requirement: Measured net present value and explicit cash-flow refusals
+
+The interpreter SHALL execute all five positional NPV rows measured in
+[#2525](https://github.com/hexide-io/HexIDE/issues/2525), preserving Double subtypes,
+exact result bits and measured error numbers. It SHALL retain the base and sum while rounding
+each cumulative discount power to Double as described in
+[Cash-flow precision](../../../docs/financial-precision-2525.md).
+Unmeasured conversions, named calls, empty/multidimensional arrays and unsupported arithmetic
+domains SHALL refuse as unimplemented. IRR and MIRR SHALL explicitly refuse as unimplemented
+until a precision model matches every measured row for the function.
+
+#### Scenario: Every cash flow is discounted
+- **WHEN** NPV is called with rate 0.1 and the measured five-element Double array a
+- **THEN** it returns a Double with bits `409C45757D31FA2E`
+
+#### Scenario: Invalid NPV rate or unallocated array
+- **WHEN** NPV is called with the measured rate -1 or unallocated Double array
+- **THEN** it raises error 5
+
+#### Scenario: A cash-flow function has no matching precision model
+- **WHEN** IRR or MIRR is called
+- **THEN** execution stops with HexIDE's not-implemented error rather than returning guessed bits

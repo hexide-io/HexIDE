@@ -142,9 +142,9 @@ public partial class MainView : UserControl
         }
     }
 
-    private void AvaloniaOnWeb(object? sender, ExecutedRoutedEventArgs e)
+    private void ProductOnWeb(object? sender, ExecutedRoutedEventArgs e)
     {
-        TopLevel.GetTopLevel(this)!.Launcher.LaunchUriAsync(new Uri("https://avaloniaui.net"));
+        (DataContext as MainViewViewModel)?.OpenGithubRepo();
     }
 
     private void OnDockPointerReleased(object? sender, PointerReleasedEventArgs e)

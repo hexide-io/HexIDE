@@ -66,6 +66,7 @@ public class ShutdownWireShapeTests : IAsyncDisposable
 
     /// <summary>Signals that the <c>exit</c> notification has actually been read off the wire.</summary>
     private readonly TaskCompletionSource _exitSeen = new(TaskCreationOptions.RunContinuationsAsynchronously);
+    private readonly TaskCompletionSource _cancellationSeen = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
     /// <summary>Waits for <c>exit</c> to arrive, so an assertion cannot race the server loop.</summary>
     private Task ExitArrivedAsync() => _exitSeen.Task.WaitAsync(TimeSpan.FromSeconds(10));
@@ -92,7 +93,8 @@ public class ShutdownWireShapeTests : IAsyncDisposable
 
     private async Task<VBLspClient> ConnectedAsync(
         bool answerShutdown = true, bool answerInitialize = true, bool leaveServerRunning = false,
-        Func<string>? locale = null, bool callHierarchy = true, string? hierarchyResult = null, bool hierarchyError = false, string rangeProvider = "true", bool configured = false, string? options = null)
+        Func<string>? locale = null, bool callHierarchy = true, string? hierarchyResult = null, bool hierarchyError = false, string rangeProvider = "true", bool configured = false, string? options = null,
+        string onTypeProvider = "null", bool answerOnType = true)
     {
         var (clientSide, duplexServer) = FullDuplexStream.CreatePair();
         // Short enough for macOS, whose temp directory leaves 43 characters for a pipe name (PipeNameLimit).
@@ -125,10 +127,12 @@ public class ShutdownWireShapeTests : IAsyncDisposable
                     // does not wait for us to read them. Without this signal the assertions race the
                     // server loop and fail intermittently on a correct implementation.
                     if (m.GetString() == "exit") _exitSeen.TrySetResult();
+                    if (m.GetString() == "$/cancelRequest") _cancellationSeen.TrySetResult();
 
                     if (!doc.RootElement.TryGetProperty("id", out var id)) continue;   // notification
 
                     if (m.GetString() == "shutdown" && !answerShutdown) continue;
+                    if (m.GetString() == "textDocument/onTypeFormatting" && !answerOnType) continue;
                     if (m.GetString() == "initialize")
                     {
                         _initializeSeen.TrySetResult();
@@ -139,7 +143,7 @@ public class ShutdownWireShapeTests : IAsyncDisposable
                     // result ends in three consecutive closing braces, which no $$"""...""" form accepts.
                     var head = "{\"jsonrpc\":\"2.0\",\"id\":" + id.GetRawText() + ",\"result\":";
                     var reply = m.GetString() == "initialize"
-                        ? head + "{\"capabilities\":{\"callHierarchyProvider\":" + (callHierarchy ? "{}" : "false") + ",\"documentFormattingProvider\":true,\"documentRangeFormattingProvider\":" + rangeProvider + "},\"serverInfo\":"
+                        ? head + "{\"capabilities\":{\"callHierarchyProvider\":" + (callHierarchy ? "{}" : "false") + ",\"documentFormattingProvider\":true,\"documentRangeFormattingProvider\":" + rangeProvider + ",\"documentOnTypeFormattingProvider\":" + onTypeProvider + "},\"serverInfo\":"
                                + "{\"name\":\"wire-probe\",\"version\":\"1.0.0\"}}}"
                         : head + "null}";
                     if (m.GetString() is "textDocument/prepareCallHierarchy" or
@@ -151,6 +155,8 @@ public class ShutdownWireShapeTests : IAsyncDisposable
                         else if (hierarchyResult is not null)
                             reply = head + hierarchyResult + "}";
                     }
+                    if (m.GetString() == "textDocument/onTypeFormatting")
+                        reply = head + """[{"range":{"start":{"line":2,"character":0},"end":{"line":2,"character":0}},"newText":"    "}]}""";
                     await WriteFrameAsync(serverSide, reply, _cts.Token);
                 }
             }
@@ -333,6 +339,62 @@ public class ShutdownWireShapeTests : IAsyncDisposable
             _ => () => client.RequestOutgoingCallsAsync(root, TestContext.Current.CancellationToken)
         };
         (await action.Should().ThrowAsync<RemoteInvocationException>()).Which.Message.Should().Contain("unavailable");
+    }
+
+    private const string OnTypeProvider = """{"firstTriggerCharacter":"\n","moreTriggerCharacter":["\""]}""";
+
+    private static Task<TextEdit[]> OnType(ILspClient client, string trigger, CancellationToken ct)
+    {
+        var method = typeof(ILspClient).GetMethod("RequestOnTypeFormattingAsync");
+        method.Should().NotBeNull();
+        return (Task<TextEdit[]>)method!.Invoke(client,
+            ["file:///M.bas", new Position(2, 4), trigger, new FormattingOptions(8, false), ct])!;
+    }
+
+    [Theory]
+    [InlineData("\n")]
+    [InlineData("\"")]
+    public async Task OnTypeFormattingCarriesTriggerPositionAndOptions(string trigger)
+    {
+        var client = await ConnectedAsync(onTypeProvider: OnTypeProvider);
+        var edits = await OnType(client, trigger, TestContext.Current.CancellationToken);
+        edits.Should().ContainSingle().Which.NewText.Should().Be("    ");
+        var p = FrameFor("textDocument/onTypeFormatting").GetProperty("params");
+        p.GetProperty("textDocument").GetProperty("uri").GetString().Should().Be("file:///M.bas");
+        p.GetProperty("position").GetProperty("line").GetInt32().Should().Be(2);
+        p.GetProperty("position").GetProperty("character").GetInt32().Should().Be(4);
+        p.GetProperty("ch").GetString().Should().Be(trigger);
+        p.GetProperty("options").GetProperty("tabSize").GetInt32().Should().Be(8);
+        p.GetProperty("options").GetProperty("insertSpaces").GetBoolean().Should().BeFalse();
+    }
+
+    [Theory]
+    [InlineData("null")]
+    [InlineData("false")]
+    [InlineData("{}")]
+    [InlineData("{\"firstTriggerCharacter\":\";\"}")]
+    public async Task OnTypeFormattingDoesNotSendAnUnclaimedTrigger(string provider)
+    {
+        var client = await ConnectedAsync(onTypeProvider: provider);
+        (await OnType(client, "\n", TestContext.Current.CancellationToken)).Should().BeEmpty();
+        await client.StopAsync();
+        await ExitArrivedAsync();
+        FrameFor("textDocument/onTypeFormatting").ValueKind.Should().Be(JsonValueKind.Undefined);
+    }
+
+    [Fact]
+    public async Task OnTypeFormattingTimeoutCancelsTheWireRequest()
+    {
+        var client = await ConnectedAsync(onTypeProvider: OnTypeProvider, answerOnType: false);
+        (await OnType(client, "\n", TestContext.Current.CancellationToken)
+            .WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken)).Should().BeEmpty();
+        // Cancellation is sent asynchronously; read it before Stop can dispose the connection.
+        await _cancellationSeen.Task.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
+        await client.StopAsync();
+        await ExitArrivedAsync();
+        var id = FrameFor("textDocument/onTypeFormatting").GetProperty("id");
+        FrameFor("$/cancelRequest").GetProperty("params").GetProperty("id").GetRawText()
+            .Should().Be(id.GetRawText());
     }
 
     [Theory]

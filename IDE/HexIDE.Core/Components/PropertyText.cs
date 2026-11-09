@@ -188,7 +188,7 @@ public static partial class PropertyText
         {
             if (!component.TryGetBoxedProperty(p, out _) && RawOf(component, p.Name) is { } unread)
                 return new PropertyRow(p.Name, unread, false,
-                    "the file holds this, which HexIDE could not read, so the Properties window shows the default; the "
+                    "the file holds this, which " + HexIDE.IDE.Distribution.DisplayName + " could not read, so the Properties window shows the default; the "
                     + "save keeps the file's text unless the property is set");
             var held = component.GetBoxedPropertyOrDefault(p);
             var shown = Shown(p, held);

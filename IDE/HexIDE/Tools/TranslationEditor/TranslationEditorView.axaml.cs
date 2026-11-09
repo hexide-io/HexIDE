@@ -8,4 +8,13 @@ public partial class TranslationEditorView : UserControl
     {
         InitializeComponent();
     }
+
+    private void OnBeginningEdit(object? sender, DataGridBeginningEditEventArgs e)
+    {
+        if (e.Row.DataContext is TranslationRowViewModel { IsProtected: true } row)
+        {
+            e.Cancel = true;
+            (DataContext as TranslationEditorViewModel)?.ExplainProtected(row);
+        }
+    }
 }

@@ -142,7 +142,7 @@ Effort: **S** ≤ ~2h, **M** ~½–2 days, **L** > 2 days / needs design.
 | K20 | `.vbp` `Name=` synthesised from the `.vbp` entry, never the file's `VB_Name` | `ProjectService.cs:347`/`:974` | **0/87** module entries mismatch — but the **harness** feeds the filename (`SerializationCorpusTests.cs:196`), producing 20 false `.bas` failures | **S** (harness) |
 | K21 | Shared blob array written twice, both refs point at the second copy | `FrxSerializer.cs:20-23` `ReferenceEqualityComparer` + last-write-wins | 0 corpus; HexIDE-authored only (paste path `FormEditViewModel.cs:613`) | **S** |
 | K22 | Shortcut/NegotiatePosition/Index/HelpContextID unmodelled on `VB.Menu` — lost via **clipboard**, not via save | `MenuComponentClass.cs:9`; `DesignerClipboard.cs:9-21` carries only `PropertyClass` values | 9 shortcut lines; 0 lost on plain save | **M** |
-| K23 | `"phase 1"` in the error message should say Phase 3 | `FormDeserializer.cs:262` vs `openspec/specs/serialization-round-trip/spec.md:192` | 8 error lines misdirected | **S** — 1 grep hit, no test |
+| K23 | `"phase 1"` in the error message should say Phase 3 | `FormDeserializer.cs:262` vs `openspec/specs/serialization-round-trip/spec.md` | 8 error lines misdirected | **S** — 1 grep hit, no test |
 
 ---
 

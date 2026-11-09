@@ -34,6 +34,12 @@ public sealed class StdioProcessLspTransport : ILspTransport
     private volatile bool _endedAfterShutdown;
 
     private bool _disposing;
+    private readonly SemaphoreSlim _disposeGate = new(1, 1);
+    private ChannelTapStream? _input;
+    private ChannelTapStream? _output;
+
+    internal bool UnansweredInitializeReached => IsAlive
+        && _input?.FirstWriteReached == true && _output?.FirstReadWaiting == true;
 
     /// <param name="serverInfo">
     /// What to launch. Resolving this — and deciding what to do when it cannot be resolved — belongs to
@@ -88,6 +94,11 @@ public sealed class StdioProcessLspTransport : ILspTransport
 
     public Task<IJsonRpcMessageHandler?> ConnectAsync(IJsonRpcMessageFormatter formatter, CancellationToken cancellationToken = default)
     {
+        _disposing = false;
+        _exitReported = false;
+        _shutdownCompleted = false;
+        _endedAfterShutdown = false;
+        LastFailure = null;
         var serverInfo = _serverInfo;
 
         // There used to be an interposed debug proxy here, reached by
@@ -240,9 +251,12 @@ public sealed class StdioProcessLspTransport : ILspTransport
 
         // Tapped, so the record can say when the first bytes actually reached the server and came back, not only
         // when a message was serialized (#390).
+        NoteChannel($"process started with pid {_process.Id}");
+        _input = new ChannelTapStream(_process.StandardInput.BaseStream, NoteChannel);
+        _output = new ChannelTapStream(_process.StandardOutput.BaseStream, NoteChannel);
         var handler = new HeaderDelimitedMessageHandler(
-            new ChannelTapStream(_process.StandardInput.BaseStream, NoteChannel),
-            new ChannelTapStream(_process.StandardOutput.BaseStream, NoteChannel),
+            _input,
+            _output,
             formatter);
 
         return Task.FromResult<IJsonRpcMessageHandler?>(handler);
@@ -318,6 +332,14 @@ public sealed class StdioProcessLspTransport : ILspTransport
     }
 
     public async ValueTask DisposeAsync()
+    {
+        // Stop can arrive while a silent-handshake restart is tearing down the same process.
+        await _disposeGate.WaitAsync();
+        try { await DisposeProcessAsync(); }
+        finally { _disposeGate.Release(); }
+    }
+
+    private async ValueTask DisposeProcessAsync()
     {
         var process = _process;
         if (process is null) return;

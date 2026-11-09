@@ -64,6 +64,20 @@ public partial class ProjectRunnerService : IProjectRunnerService
     public event Action<string>? RunFailed;
 
     /// <inheritdoc />
+    public event Action<RunFailure>? ErrorMet
+    {
+        add => runEngine.ErrorMet += value;
+        remove => runEngine.ErrorMet -= value;
+    }
+
+    /// <inheritdoc />
+    public Func<RunFailure, Task<bool>>? HaltHost
+    {
+        get => runEngine.HaltHost;
+        set => runEngine.HaltHost = value;
+    }
+
+    /// <inheritdoc />
     public ErrorLocation? FailureLocation { get; private set; }
 
     // Raises a failure event, with where its error was raised readable while the handlers run (#955).
@@ -171,8 +185,7 @@ public partial class ProjectRunnerService : IProjectRunnerService
             // of the same name, would otherwise move the running project's breakpoints.
             if (RunningProject is { } running && document.IsIn(running))
             {
-                NoticeIgnoredCondition(document);
-                debugController.SetBreakpoints(document.Name, breakpointService.GetBreakpoints(document));
+                PushBreakpoints(document);
             }
         };
 
@@ -204,14 +217,15 @@ public partial class ProjectRunnerService : IProjectRunnerService
         externalDebugger?.IsActive == true ? externalDebugger.State == HexIDE.Dap.DapSessionState.Stopped
             : debugController.State == DebugState.Paused, edit);
 
-    private bool conditionNoticeShown;
-
-    private void NoticeIgnoredCondition(DocumentIdentity document)
+    private void PushBreakpoints(DocumentIdentity document)
     {
-        if (conditionNoticeShown || !breakpointService.GetBreakpoints(document)
-            .Any(line => breakpointService.GetCondition(document, line) is not null)) return;
-        conditionNoticeShown = true;
-        VBDebugConsole.Write(localization.GetString("Str.Debug.Conditions.InterpreterIgnored") + "\r\n");
+        var lines = breakpointService.GetBreakpoints(document);
+        debugController.SetBreakpoints(document.Name, lines);
+        var conditions = new Dictionary<int, string>();
+        foreach (var line in lines)
+            if (breakpointService.GetCondition(document, line) is { } condition)
+                conditions[line] = condition;
+        debugController.SetBreakpointConditions(document.Name, conditions);
     }
 
     private void ApplyBreakpoints(ProjectDefinition project)
@@ -224,14 +238,6 @@ public partial class ProjectRunnerService : IProjectRunnerService
             PushBreakpoints(DocumentIdentity.For(form));
         foreach (var module in project.Modules)
             PushBreakpoints(DocumentIdentity.For(module));
-
-        void PushBreakpoints(DocumentIdentity document)
-        {
-            NoticeIgnoredCondition(document);
-            var lines = breakpointService.GetBreakpoints(document);
-            if (lines.Count > 0)
-                debugController.SetBreakpoints(document.Name, lines);
-        }
     }
 
     // Push the current break-type watches to the gate. Watch-Expression (display) watches don't affect execution, so
@@ -283,7 +289,6 @@ public partial class ProjectRunnerService : IProjectRunnerService
 
         // Fresh debug session: clear any prior break/abort state, then apply the current breakpoints so the very first
         // statement can already be a break.
-        conditionNoticeShown = false;
         debugController.Reset();
         ApplyBreakpoints(project);
         ApplyWatchBreaks();   // push Break-When-True/Changed watches so the run can break on them from line 1

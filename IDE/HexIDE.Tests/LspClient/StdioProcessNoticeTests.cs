@@ -91,10 +91,10 @@ public class StdioProcessNoticeTests
         transport.Notice += (_, n) => { lock (gate) seen.Add(n); };
 
         await transport.ConnectAsync(new SystemTextJsonFormatter(), TestContext.Current.CancellationToken);
-        await WaitFor(() => Count(seen, gate, TransportNoticeKind.Lifecycle) >= 1);
+        await WaitFor(() => { lock (gate) return seen.Any(n => n.Text.StartsWith("process exited")); });
 
         TransportNotice exit;
-        lock (gate) exit = seen.Last(n => n.Kind == TransportNoticeKind.Lifecycle);
+        lock (gate) exit = seen.Last(n => n.Text.StartsWith("process exited"));
 
         exit.Text.Should().Be("process exited with code 3",
             "the number is the finding; 'the process exited' is what the reader already knew");
@@ -115,7 +115,7 @@ public class StdioProcessNoticeTests
 
         transport.Notice += (_, n) =>
         {
-            if (n.Kind != TransportNoticeKind.Lifecycle) return;
+            if (!n.Text.StartsWith("process exited")) return;
             lock (gate) order.Add("exit-code");
         };
         transport.Closed += (_, _) =>

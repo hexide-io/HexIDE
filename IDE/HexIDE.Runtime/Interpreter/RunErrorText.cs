@@ -1,14 +1,12 @@
 using System;
-using HexIDE.Localization;
-using HexIDE.Runtime.Interpreter;
 
-namespace HexIDE.IDE;
+namespace HexIDE.Runtime.Interpreter;
 
 /// <summary>
 /// What the runtime-error dialog says about whatever stopped a running program. Built in one place so a form
 /// and Sub Main describe the same error the same way.
 /// </summary>
-internal static class RunErrorText
+public static class RunErrorText
 {
     /// <summary>A VB6 run-time error, followed by the statement that raised it where there is one.</summary>
     public static string For(VBRunTimeException e)
@@ -42,10 +40,12 @@ internal static class RunErrorText
     /// a bug report needs. The text has the shape <see cref="VBRunTimeException"/> gives a VB6 error, but no
     /// such exception is made: one would read as trappable to anyone who later threw it.</para>
     /// </remarks>
-    public static string ForFault(Exception e, ILocalizationService localization)
+    /// <param name="e">What stopped the program.</param>
+    /// <param name="notImplementedFormat">The words for a construct HexIDE does not implement, with <c>{0}</c> for which.</param>
+    public static string ForFault(Exception e, string notImplementedFormat)
     {
         if (e is NotImplementedException)
-            return string.Format(localization.GetString("Str.ProjectRunner.NotImplementedYet"), e.Message)
+            return string.Format(notImplementedFormat, e.Message)
                  + (ErrorLocation.StatementOf(e) is { } statement ? "\n\nat " + statement : "");
 
         var internalError = VBStandardError.InternalError;

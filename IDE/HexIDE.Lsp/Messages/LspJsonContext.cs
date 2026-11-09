@@ -78,6 +78,7 @@ namespace HexIDE.Lsp;
 [JsonSerializable(typeof(Dictionary<string, TextEdit[]>))]
 [JsonSerializable(typeof(DocumentFormattingParams))]
 [JsonSerializable(typeof(DocumentRangeFormattingParams))]
+[JsonSerializable(typeof(DocumentOnTypeFormattingParams))]
 [JsonSerializable(typeof(FormattingOptions))]
 [JsonSerializable(typeof(VbaBuiltinSymbol[]))]
 [JsonSerializable(typeof(WorkspaceSymbolParams))]

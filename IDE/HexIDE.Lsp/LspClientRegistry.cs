@@ -718,6 +718,25 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
     public async Task<RenameResult?> RequestRenameAsync(string uri, Position position, string newName, CancellationToken ct = default) =>
         await TopClaimantAdvertisingAsync(uri, "renameProvider", ct) is { } c ? await c.RequestRenameAsync(uri, position, newName, ct) : null;
 
+    public bool SupportsOnTypeFormatting(string uri, string trigger) => ClaimantsFor(uri, IsProjectMember(uri))
+        .Any(e => e.Client is { IsRunning: true } c
+            && ServerCapabilities.SupportsOnTypeFormatting(c.AdvertisedCapabilities, trigger));
+
+    public async Task<TextEdit[]> RequestOnTypeFormattingAsync(string uri, Position position, string trigger, FormattingOptions options, CancellationToken ct = default)
+    {
+        using var budget = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        budget.CancelAfter(VBLspClient.OnTypeFormattingTimeout);
+        var advertisers = ClaimantsFor(uri, IsProjectMember(uri))
+            .Where(e => e.Client is { IsRunning: true } c
+                && ServerCapabilities.SupportsOnTypeFormatting(c.AdvertisedCapabilities, trigger)).ToList();
+        if (advertisers.Count == 0) return [];
+        var winner = advertisers[0];
+        foreach (var skipped in advertisers.Skip(1))
+            skipped.Client!.NotePrioritySkip("documentOnTypeFormattingProvider", OwnerOf(winner.Client!));
+        return await OpenedOnAsync(winner, uri, budget.Token) is { } client
+            ? await client.RequestOnTypeFormattingAsync(uri, position, trigger, options, budget.Token) : [];
+    }
+
     public bool SupportsRangeFormatting(string uri) => ClaimantsFor(uri, IsProjectMember(uri))
         .Any(e => e.Client is { IsRunning: true } c
             && ServerCapabilities.Supports(c.AdvertisedCapabilities, "documentRangeFormattingProvider"));
@@ -1480,7 +1499,12 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
     private void OnInnerProgress(object? sender, ProgressParams p) => ProgressReceived?.Invoke(sender,
         p with { ServerDisplayName = _entries.FirstOrDefault(e => ReferenceEquals(e.Client, sender))?.Registration.DisplayName });
 
-    private void OnInnerMessage(object? sender, ShowMessageParams p) => MessageShown?.Invoke(this, p);
+    private void OnInnerMessage(object? sender, ShowMessageParams p) => MessageShown?.Invoke(this,
+        p.ServerDisplayName is null ? p : p with
+        {
+            ServerDisplayName = _entries.FirstOrDefault(e => ReferenceEquals(e.Client, sender))?.Registration.DisplayName
+                ?? p.ServerDisplayName,
+        });
 
     private void OnInnerCodeLensRefresh(object? sender, EventArgs e) =>
         CodeLensRefreshRequested?.Invoke(sender, e);

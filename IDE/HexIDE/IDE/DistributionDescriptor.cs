@@ -38,7 +38,7 @@ public static partial class DistributionDescriptor
     private const int MaximumLogoDimension = 1024;
 
     private static readonly string[] Members =
-        ["schemaVersion", "id", "name", "tagline", "copyright", "credits", "links", "logo"];
+        ["schemaVersion", "id", "name", "tagline", "copyright", "credits", "links", "logo", "defaultProfile"];
 
     private static readonly string[] LinkRoles = ["home", "support", "repository"];
 
@@ -137,9 +137,11 @@ public static partial class DistributionDescriptor
             var credits = ReadCredits(root, file);
             var links = ReadLinks(root, file);
             var logo = ReadLogo(root, file, readAsset);
+            var defaultProfile = ReadDefaultProfile(root, file);
 
             return new DistributionIdentity(id, name, tagline, copyright, credits,
-                links.GetValueOrDefault("home"), links.GetValueOrDefault("support"), links.GetValueOrDefault("repository"), logo);
+                links.GetValueOrDefault("home"), links.GetValueOrDefault("support"), links.GetValueOrDefault("repository"),
+                logo, defaultProfile);
         }
     }
 
@@ -213,6 +215,21 @@ public static partial class DistributionDescriptor
             throw Refuse(file, $"'logo' is {width}x{height}; each side must be from 1 to {MaximumLogoDimension} pixels");
 
         return bytes;
+    }
+
+    // A name, or a folder inside the installation. "none" is the user's recovery route, and a brand can't start there.
+    private static string? ReadDefaultProfile(JsonElement root, string file)
+    {
+        var reference = OptionalString(root, "defaultProfile", file);
+        if (reference == null)
+            return null;
+
+        var isFolder = reference.Contains('/') && !reference.Contains('\\') && !Path.IsPathRooted(reference)
+            && ProfilePaths.IsSafeReference(reference);
+        if (!isFolder && !ProfileCatalog.IsBundleId(reference))
+            throw Refuse(file, $"'defaultProfile' is '{reference}'; it must be a profile's name, or a folder inside the installation written with '/'");
+
+        return reference;
     }
 
     private static void RefuseUnknownMembers(JsonElement element, string[] known, string file, string where)

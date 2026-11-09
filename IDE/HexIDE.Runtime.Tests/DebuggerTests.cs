@@ -20,6 +20,56 @@ public class DebuggerTests : BaseVBTestFixture
         return tcs.Task;
     }
 
+    [Fact]
+    public async Task ConditionalBreakpoint_UsesLocalFrame_AndSkipsFalse()
+    {
+        var (vb, dbg) = NewDebuggable("Helper\nSub Helper()\nDim i As Integer\nFor i = 1 To 3\nDebug.Print i\nNext\nEnd Sub\n", "M");
+        dbg.SetBreakpoints("M", [5]);
+        dbg.SetBreakpointConditions("m", new Dictionary<int, string> { [5] = "i = 2" });
+        var hits = new List<string?>();
+        dbg.Stopped += _ => { hits.Add(dbg.EvaluateAsync("i").GetAwaiter().GetResult()); dbg.Continue(); };
+        await vb.Execute().Guarded();
+        hits.Should().Equal("2");
+        AssertDebugLog([1, 2, 3]);
+    }
+
+    [Fact]
+    public async Task ConditionalBreakpoint_ErrorStopsAndWritesImmediate()
+    {
+        var (vb, dbg) = NewDebuggable("Debug.Print 1\n", "M");
+        dbg.SetBreakpoints("M", [1]);
+        dbg.SetBreakpointConditions("M", new Dictionary<int, string> { [1] = "missingName" });
+        var output = new List<string>();
+        var hits = 0;
+        void Capture(string text) => output.Add(text);
+        VBDebugConsole.Written += Capture;
+        dbg.Stopped += info => { info.Reason.Should().Be(StopReason.Breakpoint); hits++; dbg.Continue(); };
+        try { await vb.Execute().Guarded(); }
+        finally { VBDebugConsole.Written -= Capture; }
+        hits.Should().Be(1);
+        output.Should().ContainSingle(text => text.Contains("missingName: Syntax error", StringComparison.Ordinal));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ConditionalBreakpoint_FalsePreservesOtherStops(bool runToCursor)
+    {
+        var (vb, dbg) = NewDebuggable("Debug.Print 1\nDebug.Print 2\n", "M");
+        dbg.SetBreakpoints("M", [1, 2]);
+        dbg.SetBreakpointConditions("M", new Dictionary<int, string> { [1] = "False", [2] = "False" });
+        if (runToCursor) dbg.RunToCursor("M", 1); else dbg.StepInto();
+        var hits = 0;
+        dbg.Stopped += info =>
+        {
+            info.Reason.Should().Be(runToCursor ? StopReason.Breakpoint : StopReason.Step);
+            hits++;
+            dbg.Continue();
+        };
+        await vb.Execute().Guarded();
+        hits.Should().Be(1);
+    }
+
     [Theory]
     [InlineData("Sub Helper()", "Debug.Print 1", "End Sub", "Helper", 3)]
     [InlineData("Sub Helper()", "Debug.Print 1", "End Sub", "Helper", 5)]

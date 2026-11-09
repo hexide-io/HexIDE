@@ -96,7 +96,7 @@ public class ControlRenderer : Decorator
             // (#2405): a StatusBar refuses only once it lays out its panels.
             try
             {
-                visual = ((ComponentBaseClass)Component.Instance.BaseClass).InstantiateForDesigner(Component.Instance);
+                visual = ((IDesignerComponentClass)Component.Instance.BaseClass).InstantiateForDesigner(Component.Instance);
                 RenderTargetBitmap target = new RenderTargetBitmap(new PixelSize((int)Bounds.Width, (int)Bounds.Height),
                     new Vector(96, 96));
                 // A Line draws itself from its endpoints in its container's scale, which only the form knows (#163).

@@ -53,6 +53,7 @@ public sealed class ContributedProjectTests : IDisposable
         var strings = Substitute.For<ILocalizationService>();
         strings.GetString(Arg.Any<string>()).Returns(call => call.Arg<string>() switch
         {
+            "Str.Project.AlreadyOpen" => "Projet {0} déjà ouvert.",
             "Str.ContributedProject.OpenError" => "Could not open {0} with {1}: {2}",
             "Str.ContributedProject.NoReader" => "Str.ContributedProject.NoReader {0}",
             var key => key + " {0} {1}",
@@ -457,6 +458,20 @@ public sealed class ContributedProjectTests : IDisposable
             Arg.Any<string?>(), Arg.Any<MessageBoxButtons>(), Arg.Any<MessageBoxIcon>(), Arg.Any<Avalonia.Controls.Window?>(), Arg.Any<bool>());
     }
 
+    [AvaloniaFact]
+    public async Task A_contributed_project_already_open_shows_the_localized_message()
+    {
+        using var type = Contribute();
+        await Opened();
+
+        Func<Task> reopen = () => _service.OpenProject(ProjectFile);
+
+        await reopen.Should().ThrowAsync<OperationCanceledException>();
+        _loaded.Should().ContainSingle();
+        await _windows.Received(1).MessageBox("Projet .rdproj déjà ouvert.",
+            Arg.Any<string?>(), Arg.Any<MessageBoxButtons>(), Arg.Any<MessageBoxIcon>(), Arg.Any<Avalonia.Controls.Window?>(), Arg.Any<bool>());
+    }
+
     [WindowsOnlyFact]
     public async Task A_contributed_project_already_open_is_refused_when_opened_again_with_different_drive_and_folder_case()
     {
@@ -471,7 +486,7 @@ public sealed class ContributedProjectTests : IDisposable
 
         await reopen.Should().ThrowAsync<OperationCanceledException>();
         _loaded.Should().ContainSingle();
-        await _windows.Received(1).MessageBox("Project .rdproj is already opened.",
+        await _windows.Received(1).MessageBox("Projet .rdproj déjà ouvert.",
             Arg.Any<string?>(), Arg.Any<MessageBoxButtons>(), Arg.Any<MessageBoxIcon>(), Arg.Any<Avalonia.Controls.Window?>(), Arg.Any<bool>());
     }
 

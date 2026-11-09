@@ -115,8 +115,7 @@ public class DialogChromeLocalizationTests
     [InlineData("Str.Dialog.AddProcedure.Title")]
     [InlineData("Str.Dialog.MenuEditor.Title")]
     [InlineData("Str.Dialog.About.Tagline")]
-    [InlineData("Str.MainWindow.NotImplemented")]
-    [InlineData("Str.MainWindow.NotImplementedTitle")]
+    [InlineData("Str.Shell.NotImplemented")]
     public void KeyReadFromCode_IsInTheCanonicalPack(string key)
     {
         CanonicalStrings().Should().ContainKey(key);

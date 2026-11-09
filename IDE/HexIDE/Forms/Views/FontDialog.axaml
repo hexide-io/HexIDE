@@ -45,7 +45,7 @@
         <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right"
                     Spacing="8" Margin="0,0,4,4">
             <Button Content="{DynamicResource Str.Dialog.Font.Button.Ok}" MinWidth="75" Click="OkClick" />
-            <Button Content="{DynamicResource Str.Dialog.Font.Button.Cancel}" MinWidth="75" Click="CancelClick" />
+            <Button Content="{DynamicResource Str.Dialog.Font.Button.Cancel}" MinWidth="75" Click="CancelClick" IsCancel="True" />
         </StackPanel>
     </Grid>
 </UserControl>

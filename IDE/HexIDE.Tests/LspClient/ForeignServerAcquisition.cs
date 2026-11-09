@@ -439,7 +439,7 @@ internal static class ForeignServerAcquisition
         }
     }
 
-    private static string? Acquire(ForeignServerSource server)
+    internal static string? Acquire(ForeignServerSource server, HttpClient? client = null)
     {
         if (AssetForThisPlatform(server) is not { } asset) return null;
 
@@ -458,12 +458,12 @@ internal static class ForeignServerAcquisition
         // The common case: already fetched by an earlier run, or restored from the CI cache.
         if (File.Exists(executable)) return executable;
 
-        if (Environment.GetEnvironmentVariable(OptOutVariable) is "0" or "false" or "off") return null;
+        if (client is null && Environment.GetEnvironmentVariable(OptOutVariable) is ("0" or "false" or "off")) return null;
 
         try
         {
             Directory.CreateDirectory(directory);
-            var archive = DownloadVerified(server, asset, directory);
+            var archive = DownloadVerified(server, asset, directory, client);
             if (archive is null) return null;
             Extract(archive, directory);
             File.Delete(archive);
@@ -500,20 +500,12 @@ internal static class ForeignServerAcquisition
     }
 
     private static string? DownloadVerified(
-        ForeignServerSource server, ForeignAsset asset, string directory)
+        ForeignServerSource server, ForeignAsset asset, string directory, HttpClient? client)
     {
         var url = string.Format(server.ReleaseUrlFormat, server.Version, asset.FileName);
         var path = Path.Combine(directory, asset.FileName);
-
-        using (var http = new HttpClient { Timeout = TimeSpan.FromMinutes(5) })
-        using (var response = http.GetAsync(url, HttpCompletionOption.ResponseHeadersRead)
-                   .GetAwaiter().GetResult())
-        {
-            response.EnsureSuccessStatusCode();
-            using var target = File.Create(path);
-            response.Content.CopyToAsync(target).GetAwaiter().GetResult();
-        }
-
+        using var ownedClient = client is null ? new HttpClient { Timeout = Timeout.InfiniteTimeSpan } : null;
+        DownloadRetry.ToFile(client ?? ownedClient!, url, path, TimeSpan.FromMinutes(5));
         return VerifyDownload(server, asset, path);
     }
 

@@ -284,6 +284,9 @@ public partial class TranslationEditorViewModel : Document
         lines.Add(string.Format(
             _localization.GetString("Str.TranslationEditor.Tooltip.Override"), overrideValue));
 
+        if (key == HexIDE.Localization.BrandText.UpstreamCreditsKey)
+            lines.Add(_localization.GetString("Str.TranslationEditor.ProtectedCredits"));
+
         return string.Join(Environment.NewLine, lines);
     }
 
@@ -297,9 +300,26 @@ public partial class TranslationEditorViewModel : Document
             CommitTo(row);
     }
 
+    internal void ExplainProtected(TranslationRowViewModel row)
+    {
+        if (row.IsProtected)
+            StatusMessage = _localization.GetString("Str.TranslationEditor.ProtectedCredits");
+    }
+
     private void CommitTo(TranslationRowViewModel row)
     {
         var toId = ToId;
+
+        // The grid will not open this cell for editing; this is for anything that sets the value another way.
+        if (row.IsProtected)
+        {
+            _suppressCommit = true;
+            try { row.ToValue = _localization.GetStringFrom(toId, row.Key); }
+            finally { _suppressCommit = false; }
+            StatusMessage = _localization.GetString("Str.TranslationEditor.ProtectedCredits");
+            return;
+        }
+
         var newValue = row.ToValue;
 
         if (string.IsNullOrWhiteSpace(newValue))

@@ -132,7 +132,7 @@ public partial class ToolBoxToolViewModel : Tool
             formEditViewModel.SpawnControlCenter(baseClass, tool.Library);
     }
 
-    public void SpawnControl(ComponentBaseClass baseClass)
+    public void SpawnControl(IDesignerComponentClass baseClass)
     {
         // that's not the best pattern to check the active window and call the method directly
         // but publishing an event also seems like a poor idea (then all windows need to react and see if they are active or not)
