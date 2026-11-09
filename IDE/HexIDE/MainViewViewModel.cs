@@ -1930,7 +1930,9 @@ public partial class MainViewViewModel : ObservableObject
             var line = code.Document.GetLineByOffset(code.CaretOffset).LineNumber;
             // The definition's own name, not a tail read off a URI: a module named Utilities saved as
             // util.bas answers to "Utilities", and the file stem would name nothing the controller knows.
-            if (!debugController.SetNextStatement(code.Identity.Name, line))
+            // The controller takes a bare name; another project in a group may have the same module.
+            if (projectRunnerService.RunningProject is not { } running || !code.Identity.IsIn(running)
+                || !debugController.SetNextStatement(code.Identity.Name, line))
                 windowManager.MessageBox(localization.GetString("Str.Debug.SetNextStatement.Refused"),
                     icon: MessageBoxIcon.Information).ListenErrors();
         }
