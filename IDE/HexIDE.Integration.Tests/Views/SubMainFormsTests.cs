@@ -98,7 +98,7 @@ public class SubMainFormsTests
 
         var localization = Substitute.For<ILocalizationService>();
         localization.GetString(Arg.Any<string>()).Returns(call => call.Arg<string>() + ": {0}");
-        var runner = new ProjectRunnerService(
+        var runner = TestRunners.WithInterpreter(
             Substitute.For<IEventBus>(), Substitute.For<IWindowManager>(), Substitute.For<IProjectManager>(),
             localization, new DebugController(), Substitute.For<IBreakpointService>(), new WatchService(), new RunScope());
 
