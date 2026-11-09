@@ -34,7 +34,7 @@
 
         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
             <Button Content="{DynamicResource Str.Dialog.AddWatch.Cancel}"
-                    Command="{CompiledBinding CancelCommand}" MinWidth="84" />
+                    Command="{CompiledBinding CancelCommand}" MinWidth="84" IsCancel="True" />
             <Button Content="{DynamicResource Str.Dialog.AddWatch.Ok}"
                     Command="{CompiledBinding OkCommand}" MinWidth="84" IsDefault="True" />
         </StackPanel>

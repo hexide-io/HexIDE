@@ -46,7 +46,7 @@
 
         <StackPanel Grid.Column="4" Spacing="4">
             <Button Command="{CompiledBinding OkCommand}" Content="{DynamicResource Str.Dialog.References.Ok}" />
-            <Button Command="{CompiledBinding CancelCommand}" Content="{DynamicResource Str.Dialog.References.Cancel}" />
+            <Button Command="{CompiledBinding CancelCommand}" Content="{DynamicResource Str.Dialog.References.Cancel}" IsCancel="True" />
             <Button Margin="0,9,0,0" Command="{CompiledBinding BrowseCommand}" Content="{DynamicResource Str.Dialog.References.Browse}" />
         </StackPanel>
 

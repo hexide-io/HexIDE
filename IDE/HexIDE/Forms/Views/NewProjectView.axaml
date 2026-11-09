@@ -59,7 +59,7 @@
 
                     <StackPanel Orientation="Vertical" Spacing="6" Grid.Row="2" HorizontalAlignment="Right" MinWidth="75" Margin="0,0,5,0">
                         <Button Command="{CompiledBinding OkNew}" Content="{DynamicResource Str.Dialog.NewProject.Button.Open}" />
-                        <Button Command="{CompiledBinding Cancel}" Content="{DynamicResource Str.Dialog.NewProject.Button.Cancel}" />
+                        <Button Command="{CompiledBinding Cancel}" Content="{DynamicResource Str.Dialog.NewProject.Button.Cancel}" IsCancel="True" />
                     </StackPanel>
                 </Grid>
             </TabItem>
@@ -137,7 +137,7 @@
                     <StackPanel Orientation="Horizontal" Spacing="6" Grid.Row="5"
                                 HorizontalAlignment="Right" Margin="0,0,5,0">
                         <Button Command="{CompiledBinding OkExisting}" MinWidth="75" Content="{DynamicResource Str.Dialog.NewProject.Button.Open}" />
-                        <Button Command="{CompiledBinding Cancel}" MinWidth="75" Content="{DynamicResource Str.Dialog.NewProject.Button.Cancel}" />
+                        <Button Command="{CompiledBinding Cancel}" MinWidth="75" Content="{DynamicResource Str.Dialog.NewProject.Button.Cancel}" IsCancel="True" />
                     </StackPanel>
                 </Grid>
             </TabItem>
@@ -171,7 +171,7 @@
 
                     <StackPanel Orientation="Vertical" Spacing="6" Grid.Row="2" HorizontalAlignment="Right" MinWidth="75" Margin="0,0,5,0">
                         <Button Command="{CompiledBinding OkRecent}" Content="{DynamicResource Str.Dialog.NewProject.Button.Open}" />
-                        <Button Command="{CompiledBinding Cancel}" Content="{DynamicResource Str.Dialog.NewProject.Button.Cancel}" />
+                        <Button Command="{CompiledBinding Cancel}" Content="{DynamicResource Str.Dialog.NewProject.Button.Cancel}" IsCancel="True" />
                     </StackPanel>
                 </Grid>
             </TabItem>
