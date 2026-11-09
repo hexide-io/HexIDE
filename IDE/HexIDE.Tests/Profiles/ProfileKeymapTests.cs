@@ -49,6 +49,22 @@ public sealed class ProfileKeymapTests : IDisposable
         ApplicationCommands.CopyCommand.Gestures.Should().Equal(gestures["CopyCommand"]);
     }
 
+    [AvaloniaFact]
+    public void UserOverridesTakePrecedenceOverProfilePayload()
+    {
+        var profile = Profile();
+        Directory.CreateDirectory(Path.Combine(root, "overrides"));
+        File.WriteAllText(Path.Combine(root, "overrides", "bindings.json"),
+            """{"bindings":{"CopyCommand":"Shift+F11","CutCommand":"Shift+F10"}}""");
+        var keymaps = new KeymapService(root);
+        keymaps.Apply(profile, new SettingsService(SettingsPath, profile));
+
+        keymaps.ActiveKeymap.Should().Be("Custom");
+        ApplicationCommands.CopyCommand.Gestures.Should().Equal(KeyGesture.Parse("Shift+F11"));
+        ApplicationCommands.CutCommand.Gestures.Should().Equal(KeyGesture.Parse("Shift+F10"));
+        ApplicationCommands.PasteCommand.Gestures.Should().Equal(gestures["PasteCommand"]);
+    }
+
     [AvaloniaTheory]
     [InlineData("Default")]
     [InlineData("VB6")]
