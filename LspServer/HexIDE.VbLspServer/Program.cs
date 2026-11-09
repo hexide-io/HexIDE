@@ -130,8 +130,25 @@ static string SessionKeyOf(string fileName, string prefix)
 
 internal partial class Program
 {
-    internal static async Task<int> RunServerAsync(Func<Task<int>> run)
+    internal static Task<int> RunServerAsync(Func<Task<int>> run)
+        => RunServerAsync(run, ParserWarmup.Run);
+
+    internal static async Task<int> RunServerAsync(Func<Task<int>> run, Func<ParseReport> warmup)
     {
+        _ = Task.Run(() =>
+        {
+            try
+            {
+                var report = warmup();
+                Log.Information("Parser warm-up finished in {ElapsedMs} ms ({Prediction})",
+                    report.Elapsed.TotalMilliseconds, report.Prediction);
+            }
+            catch (Exception ex)
+            {
+                Log.Warning(ex, "Parser warm-up failed");
+            }
+        });
+
         try
         {
             return await run();
