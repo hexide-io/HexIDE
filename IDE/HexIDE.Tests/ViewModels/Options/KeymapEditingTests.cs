@@ -320,6 +320,10 @@ public sealed class KeymapEditingTests : IDisposable
         CommandKeyMapping.Table.Keys.Except(["NYICommand"]).Should().OnlyContain(id => CommandDisplayNames.Keys.ContainsKey(id));
     }
 
+    [Fact]
+    public void ARowWithNoShortcutReadsWithoutAnEmptyGap() =>
+        new KeymapCommandViewModel("Add", "Add Project", "", "Pack", []).AccessibleName.Should().Be("Add Project, Pack");
+
     [AvaloniaFact]
     public void RowsAndSearchHaveAccessibleNames()
     {

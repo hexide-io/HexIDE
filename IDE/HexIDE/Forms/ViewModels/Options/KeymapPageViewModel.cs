@@ -199,5 +199,5 @@ public partial class KeymapPageViewModel : ObservableObject, IOptionsPage
 
 public sealed record KeymapCommandViewModel(string Id, string Name, string Gesture, string Source, IReadOnlyList<KeyGesture> Keys)
 {
-    public string AccessibleName => $"{Name}, {Gesture}, {Source}";
+    public string AccessibleName => string.Join(", ", new[] { Name, Gesture, Source }.Where(part => part.Length > 0));
 }
