@@ -51,7 +51,43 @@ and recovery files inside your product. `--help` still answers on a broken insta
 - **`--user-data-dir` still wins** over the folder `id` chooses. Pointing two products at one directory opts out of
   keeping them apart.
 
+## Making the Windows build your own
+
+`brand.json` changes what the running IDE says. The executable's own name, icon and version details, and the
+installer's identity, are in the files Windows reads, so a tool rewrites those from the same `brand.json`. Run it on
+Windows, from a clone of the tag you're repacking:
+
+```sh
+cd IDE
+dotnet run --project HexIDE.Repack -- --input <unpacked release> --brand <path to brand.json> --output <new directory>
+```
+
+`--input` is a published x64 build, such as an unpacked `hexide-windows-amd64-selfcontained.zip`. `--output` must not
+exist. The result is built beside it and moved into place only when it's complete, and the input is never changed.
+
+| In the output | Comes from |
+|---|---|
+| `app\<id>.exe` | Stock's `HexIDE.exe`, renamed from your `id`. |
+| Its icon | Your `logo`, which is required here, at 16, 32, 48 and 256 pixels. Nothing of stock's icon stays. |
+| Its product and company names and file description | Your `name`. |
+| Its copyright | Your `copyright`, or stock's if you have none. |
+| Its version numbers | The stock build's, because that's the code it holds. |
+| `app\brand.json`, your logo and a `defaultProfile` folder | Copied from beside your `brand.json`. |
+| `installer\brand.iss` | Compile it with [Inno Setup](https://jrsoftware.org/isinfo.php)'s `ISCC` to make your setup program. |
+
+The installer's AppId is a GUID derived from your `id`, so an upgrade finds the installed product and it installs
+alongside HexIDE. Windows groups your windows and shortcut under `HexIDE.Distribution.<id>`. Both come from `id`, which
+is another reason not to change it.
+
+The run stops if your name can't be a Windows folder name, or if the build is missing `LICENSE` or
+`THIRD-PARTY-NOTICES.md`. Those two are copied unchanged, as is every other file. That includes the helper programs
+such as `HexIDE.VbLspServer.exe`, which keep their names.
+
+**The output is not signed.** If the stock executable had a signature, rewriting the file invalidated it, so the tool
+removes it and says so. Sign the executable and your setup program yourself. The tool never touches a key or a trust
+anchor, and there's no update service: your support link is yours to use for that.
+
 ## Not done yet
 
-The executable's native icon and version details, the installer's identity, localized credits and some diagnostics
-written in English are still HexIDE's. See the issues linked from #2042.
+Repacking for Linux and macOS, localized credits and some diagnostics written in English. See the issues linked from
+#2042.
