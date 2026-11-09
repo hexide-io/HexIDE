@@ -98,6 +98,8 @@ public partial class WatchesToolViewModel : Tool
         SelectedItem = null;
         Rows = new ObservableCollection<WatchRowViewModel>(
             ActiveService.Watches.Select(w => new WatchRowViewModel(w, _localization)));
+        foreach (var row in Rows)
+            row.Update(null, inactive: !showingExternal && !_debug.IsSessionActive);
     }
 
     private void RefreshExternal(bool force = false)
@@ -154,7 +156,7 @@ public partial class WatchesToolViewModel : Tool
     private void Blank()
     {
         foreach (var row in Rows)
-            row.Update(null);
+            row.Update(null, inactive: !showingExternal && _debug.State == DebugState.Stopped);
     }
 
     // The context a new watch records: the paused Module.Procedure, else the "(All Procedures)" placeholder.

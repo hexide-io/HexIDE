@@ -628,9 +628,10 @@ position, and so does a refused step. What VB6 does with the caret there hasn't 
   A valid but inactive context shows `<Out of context>` with type `Empty`.
   [Measured table](vb6-fidelity-oracle/a-watch-and-its-context.md).
 - **HexIDE:** paused watches now respect the stored module/procedure scope and read a caller's frame.
-  Outside break mode all rows still show the localized out-of-context value with a blank type.
-- **Why:** design-time resolution needs collected declarations without a live interpreter frame; this first
-  slice changes evaluation of live frames only. The all-procedures placeholder still lacks a stored module
+  Outside break mode all rows still show the localized out-of-context value. At design time and after
+  End their type is `Empty`; while running it remains blank (running-state refresh was not measured).
+- **Why:** design-time name resolution needs collected declarations without a live interpreter frame.
+  The all-procedures placeholder still lacks a stored module
   at design time and uses the paused module. Explicit module contexts are supported within that module.
 - **Status:** **partial**, #2290. Remaining: design-time/after-End resolution and context selection/storage.
   Recursion, cross-module contexts, Break When types and running-state refresh were not measured and
