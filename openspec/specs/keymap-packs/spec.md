@@ -4,8 +4,6 @@
 Define how keyboard shortcuts are bound: as data rather than compiled constants, so a shortcut can be
 changed without changing code.
 
-**Known divergence:** four code-window keys are hard-coded, so a pack cannot clear or reassign them there (#3432).
-
 Shortcuts are the deepest muscle memory a developer has, and they are also where a familiarity-first project
 runs into a genuine conflict — VB6's bindings and modern conventions disagree, and some keys are wanted by
 two commands at once. Making bindings data means those conflicts are resolved by choosing a keymap rather
@@ -58,6 +56,11 @@ its field name and the same command instance. Non-routed helpers SHALL NOT appea
 - **WHEN** a pack assigns or clears a gesture for Call Stack, Reset Window Layout or Go To Declaration
 - **THEN** the corresponding routed command receives that binding
 - **AND** applying Default restores its factory gestures
+
+#### Scenario: Code-window gestures follow the pack
+- **WHEN** a pack clears or moves Find References, Go To Definition, Go To Declaration or Format Document
+- **THEN** the code window stops invoking that command through its former gesture
+- **AND** a former gesture assigned to another command invokes that command instead
 
 ### Requirement: A keymap SHALL take effect without restarting
 Applying a keymap SHALL rebind commands in the running IDE. Command-backed menu items SHALL display the
