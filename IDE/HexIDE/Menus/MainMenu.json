@@ -1,0 +1,1143 @@
+[
+  {
+    "kind": "Submenu",
+    "id": "file",
+    "labelKey": "Str.Menu.File",
+    "children": [
+      {
+        "kind": "Command",
+        "id": "file.newproject",
+        "labelKey": "Str.Menu.File.NewProject",
+        "command": "application.NewProjectCommand"
+      },
+      {
+        "kind": "Command",
+        "id": "file.openproject",
+        "labelKey": "Str.Menu.File.OpenProject",
+        "command": "application.OpenProjectCommand"
+      },
+      {
+        "kind": "Command",
+        "id": "file.recoverunsavedwork",
+        "labelKey": "Str.Menu.File.RecoverUnsavedWork",
+        "command": "shell.RecoverUnsavedWorkCommand"
+      },
+      {
+        "kind": "Separator",
+        "id": "file.separator3"
+      },
+      {
+        "kind": "Command",
+        "id": "file.addproject",
+        "labelKey": "Str.Menu.File.AddProject",
+        "command": "application.AddProjectCommand"
+      },
+      {
+        "kind": "Command",
+        "id": "file.removeprojectfallback",
+        "labelKey": "Str.Menu.File.RemoveProjectFallback",
+        "labelBinding": "RemoveProjectMenuHeader",
+        "command": "application.RemoveProjectCommand"
+      },
+      {
+        "kind": "Separator",
+        "id": "file.separator6"
+      },
+      {
+        "kind": "Command",
+        "id": "file.saveprojectfallback",
+        "labelKey": "Str.Menu.File.SaveProjectFallback",
+        "labelBinding": "SaveProjectMenuHeader",
+        "command": "application.SaveProjectCommand"
+      },
+      {
+        "kind": "Command",
+        "id": "file.saveprojectas",
+        "labelKey": "Str.Menu.File.SaveProjectAs",
+        "command": "application.SaveProjectAsCommand"
+      },
+      {
+        "kind": "Separator",
+        "id": "file.separator9"
+      },
+      {
+        "kind": "Command",
+        "id": "file.saveformfallback",
+        "labelKey": "Str.Menu.File.SaveFormFallback",
+        "labelBinding": "SaveFormMenuHeader",
+        "command": "application.SaveCommand"
+      },
+      {
+        "kind": "Command",
+        "id": "file.saveformasfallback",
+        "labelKey": "Str.Menu.File.SaveFormAsFallback",
+        "labelBinding": "SaveFormAsMenuHeader",
+        "command": "application.SaveAsCommand"
+      },
+      {
+        "kind": "Separator",
+        "id": "file.separator12"
+      },
+      {
+        "kind": "Command",
+        "id": "file.print",
+        "labelKey": "Str.Menu.File.Print",
+        "command": "application.NYICommand"
+      },
+      {
+        "kind": "Command",
+        "id": "file.printsetup",
+        "labelKey": "Str.Menu.File.PrintSetup",
+        "command": "application.NYICommand"
+      },
+      {
+        "kind": "Separator",
+        "id": "file.separator15"
+      },
+      {
+        "kind": "Command",
+        "id": "file.makeprojectfallback",
+        "labelKey": "Str.Menu.File.MakeProjectFallback",
+        "labelBinding": "MakeProjectMenuHeader",
+        "command": "application.MakeProjectCommand"
+      },
+      {
+        "kind": "Command",
+        "id": "file.makewithvb6fallback",
+        "labelKey": "Str.Menu.File.MakeWithVb6Fallback",
+        "labelBinding": "MakeWithVb6MenuHeader",
+        "command": "application.MakeWithVb6Command"
+      },
+      {
+        "kind": "Command",
+        "id": "file.makeprojectgroup",
+        "labelKey": "Str.Menu.File.MakeProjectGroup",
+        "command": "application.MakeProjectGroupCommand"
+      },
+      {
+        "kind": "Separator",
+        "id": "file.separator19"
+      },
+      {
+        "kind": "Provider",
+        "id": "file.recentprojects",
+        "labelKey": "Str.Menu.File.RecentProjects",
+        "provider": "recent-projects"
+      },
+      {
+        "kind": "Separator",
+        "id": "file.separator21"
+      },
+      {
+        "kind": "Command",
+        "id": "file.exit",
+        "labelKey": "Str.Menu.File.Exit",
+        "command": "application.ExitCommand"
+      }
+    ]
+  },
+  {
+    "kind": "Submenu",
+    "id": "edit",
+    "labelKey": "Str.Menu.Edit",
+    "children": [
+      {
+        "kind": "Command",
+        "id": "edit.undo",
+        "labelKey": "Str.Menu.Edit.Undo",
+        "labelBinding": "UndoHeader",
+        "command": "application.UndoCommand"
+      },
+      {
+        "kind": "Command",
+        "id": "edit.redo",
+        "labelKey": "Str.Menu.Edit.Redo",
+        "labelBinding": "RedoHeader",
+        "command": "application.RedoCommand"
+      },
+      {
+        "kind": "Separator",
+        "id": "edit.separator2"
+      },
+      {
+        "kind": "Command",
+        "id": "edit.cut",
+        "labelKey": "Str.Menu.Edit.Cut",
+        "command": "application.CutCommand"
+      },
+      {
+        "kind": "Command",
+        "id": "edit.copy",
+        "labelKey": "Str.Menu.Edit.Copy",
+        "command": "application.CopyCommand"
+      },
+      {
+        "kind": "Command",
+        "id": "edit.paste",
+        "labelKey": "Str.Menu.Edit.Paste",
+        "command": "application.PasteCommand"
+      },
+      {
+        "kind": "Command",
+        "id": "edit.pasteascomment",
+        "labelKey": "Str.Menu.Edit.PasteAsComment",
+        "command": "application.PasteAsCommentCommand"
+      },
+      {
+        "kind": "Command",
+        "id": "edit.pastelink",
+        "labelKey": "Str.Menu.Edit.PasteLink",
+        "command": "application.PasteLinkCommand"
+      },
+      {
+        "kind": "Command",
+        "id": "edit.remove",
+        "labelKey": "Str.Menu.Edit.Remove",
+        "command": "application.RemoveCommand"
+      },
+      {
+        "kind": "Command",
+        "id": "edit.delete",
+        "labelKey": "Str.Menu.Edit.Delete",
+        "command": "application.DeleteCommand"
+      },
+      {
+        "kind": "Command",
+        "id": "edit.selectall",
+        "labelKey": "Str.Menu.Edit.SelectAll",
+        "command": "application.SelectAllCommand"
+      },
+      {
+        "kind": "Separator",
+        "id": "edit.separator11"
+      },
+      {
+        "kind": "Command",
+        "id": "edit.find",
+        "labelKey": "Str.Menu.Edit.Find",
+        "command": "application.FindCommand"
+      },
+      {
+        "kind": "Command",
+        "id": "edit.title",
+        "labelKey": "Str.Tool.FindReferences.Title",
+        "command": "application.FindReferencesCommand"
+      },
+      {
+        "kind": "Command",
+        "id": "edit.callhierarchy",
+        "labelKey": "Str.Menu.Edit.CallHierarchy",
+        "command": "application.CallHierarchyCommand"
+      },
+      {
+        "kind": "Command",
+        "id": "edit.findnext",
+        "labelKey": "Str.Menu.Edit.FindNext",
+        "command": "application.FindNextCommand"
+      },
+      {
+        "kind": "Command",
+        "id": "edit.replace",
+        "labelKey": "Str.Menu.Edit.Replace",
+        "command": "application.ReplaceCommand"
+      },
+      {
+        "kind": "Separator",
+        "id": "edit.separator17"
+      },
+      {
+        "kind": "Command",
+        "id": "edit.indent",
+        "labelKey": "Str.Menu.Edit.Indent",
+        "command": "application.IndentCommand"
+      },
+      {
+        "kind": "Command",
+        "id": "edit.outdent",
+        "labelKey": "Str.Menu.Edit.Outdent",
+        "command": "application.OutdentCommand"
+      },
+      {
+        "kind": "Separator",
+        "id": "edit.separator20"
+      },
+      {
+        "kind": "Command",
+        "id": "edit.insertfile",
+        "labelKey": "Str.Menu.Edit.InsertFile",
+        "command": "application.InsertFileCommand"
+      },
+      {
+        "kind": "Separator",
+        "id": "edit.separator22"
+      },
+      {
+        "kind": "Command",
+        "id": "edit.listpropertiesmethods",
+        "labelKey": "Str.Menu.Edit.ListPropertiesMethods",
+        "command": "application.ListPropertiesMethodsCommand"
+      },
+      {
+        "kind": "Command",
+        "id": "edit.listconstants",
+        "labelKey": "Str.Menu.Edit.ListConstants",
+        "command": "application.ListConstantsCommand"
+      },
+      {
+        "kind": "Command",
+        "id": "edit.quickinfo",
+        "labelKey": "Str.Menu.Edit.QuickInfo",
+        "command": "application.QuickInfoCommand"
+      },
+      {
+        "kind": "Command",
+        "id": "edit.parameterinfo",
+        "labelKey": "Str.Menu.Edit.ParameterInfo",
+        "command": "application.ParameterInfoCommand"
+      },
+      {
+        "kind": "Command",
+        "id": "edit.completeword",
+        "labelKey": "Str.Menu.Edit.CompleteWord",
+        "command": "application.CompleteWordCommand"
+      },
+      {
+        "kind": "Separator",
+        "id": "edit.separator28"
+      },
+      {
+        "kind": "Command",
+        "id": "edit.togglefold",
+        "labelKey": "Str.Menu.Edit.ToggleFold",
+        "command": "application.ToggleFoldCommand"
+      },
+      {
+        "kind": "Submenu",
+        "id": "edit.bookmarks",
+        "labelKey": "Str.Menu.Edit.Bookmarks",
+        "children": [
+          {
+            "kind": "Command",
+            "id": "edit.bookmarks.toggle",
+            "labelKey": "Str.Menu.Edit.Bookmarks.Toggle",
+            "command": "application.ToggleBookmarkCommand"
+          },
+          {
+            "kind": "Command",
+            "id": "edit.bookmarks.next",
+            "labelKey": "Str.Menu.Edit.Bookmarks.Next",
+            "command": "application.NextBookmarkCommand"
+          },
+          {
+            "kind": "Command",
+            "id": "edit.bookmarks.previous",
+            "labelKey": "Str.Menu.Edit.Bookmarks.Previous",
+            "command": "application.PreviousBookmarkCommand"
+          },
+          {
+            "kind": "Separator",
+            "id": "edit.bookmarks.separator3"
+          },
+          {
+            "kind": "Command",
+            "id": "edit.bookmarks.clearall",
+            "labelKey": "Str.Menu.Edit.Bookmarks.ClearAll",
+            "command": "application.ClearAllBookmarksCommand"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "kind": "Submenu",
+    "id": "view",
+    "labelKey": "Str.Menu.View",
+    "children": [
+      {
+        "kind": "Command",
+        "id": "view.code",
+        "labelKey": "Str.Menu.View.Code",
+        "command": "application.ViewCodeCommand"
+      },
+      {
+        "kind": "Command",
+        "id": "view.object",
+        "labelKey": "Str.Menu.View.Object",
+        "command": "application.ViewObjectCommand"
+      },
+      {
+        "kind": "Separator",
+        "id": "view.separator2"
+      },
+      {
+        "kind": "Command",
+        "id": "view.definition",
+        "labelKey": "Str.Menu.View.Definition",
+        "command": "application.GoToDefinitionCommand"
+      },
+      {
+        "kind": "Command",
+        "id": "view.implementation",
+        "labelKey": "Str.Menu.View.Implementation",
+        "command": "application.GoToImplementationCommand"
+      },
+      {
+        "kind": "Command",
+        "id": "view.typedefinition",
+        "labelKey": "Str.Menu.View.TypeDefinition",
+        "command": "application.GoToTypeDefinitionCommand"
+      },
+      {
+        "kind": "Command",
+        "id": "view.declaration",
+        "labelKey": "Str.Menu.View.Declaration",
+        "command": "application.GoToDeclarationCommand"
+      },
+      {
+        "kind": "Placeholder",
+        "id": "view.lastposition",
+        "labelKey": "Str.Menu.View.LastPosition"
+      },
+      {
+        "kind": "Command",
+        "id": "view.recentedits",
+        "labelKey": "Str.Menu.View.RecentEdits",
+        "command": "shell.OpenRecentEditsTool"
+      },
+      {
+        "kind": "Separator",
+        "id": "view.separator9"
+      },
+      {
+        "kind": "Command",
+        "id": "view.objectbrowser",
+        "labelKey": "Str.Menu.View.ObjectBrowser",
+        "command": "application.OpenObjectBrowserCommand"
+      },
+      {
+        "kind": "Separator",
+        "id": "view.separator11"
+      },
+      {
+        "kind": "Command",
+        "id": "view.immediatewindow",
+        "labelKey": "Str.Menu.View.ImmediateWindow",
+        "command": "application.OpenImmediateCommand"
+      },
+      {
+        "kind": "Command",
+        "id": "view.outline",
+        "labelKey": "Str.Menu.View.Outline",
+        "command": "shell.OpenOutlineCommand"
+      },
+      {
+        "kind": "Command",
+        "id": "view.localswindow",
+        "labelKey": "Str.Menu.View.LocalsWindow",
+        "command": "application.OpenLocalsCommand"
+      },
+      {
+        "kind": "Command",
+        "id": "view.watchwindow",
+        "labelKey": "Str.Menu.View.WatchWindow",
+        "command": "application.OpenWatchesCommand"
+      },
+      {
+        "kind": "Command",
+        "id": "view.callstack",
+        "labelKey": "Str.Menu.View.CallStack",
+        "command": "application.OpenCallStackCommand"
+      },
+      {
+        "kind": "Separator",
+        "id": "view.separator17"
+      },
+      {
+        "kind": "Command",
+        "id": "view.projectexplorer",
+        "labelKey": "Str.Menu.View.ProjectExplorer",
+        "command": "application.OpenProjectExplorerCommand"
+      },
+      {
+        "kind": "Command",
+        "id": "view.propertieswindow",
+        "labelKey": "Str.Menu.View.PropertiesWindow",
+        "command": "application.OpenPropertiesCommand"
+      },
+      {
+        "kind": "Command",
+        "id": "view.formlayoutwindow",
+        "labelKey": "Str.Menu.View.FormLayoutWindow",
+        "command": "application.OpenFormLayoutCommand"
+      },
+      {
+        "kind": "Placeholder",
+        "id": "view.propertypages",
+        "labelKey": "Str.Menu.View.PropertyPages"
+      },
+      {
+        "kind": "Separator",
+        "id": "view.separator22"
+      },
+      {
+        "kind": "Command",
+        "id": "view.toolbox",
+        "labelKey": "Str.Menu.View.Toolbox",
+        "command": "application.OpenToolBoxCommand"
+      },
+      {
+        "kind": "Command",
+        "id": "view.colorpalette",
+        "labelKey": "Str.Menu.View.ColorPalette",
+        "command": "application.OpenColorPaletteCommand"
+      },
+      {
+        "kind": "Separator",
+        "id": "view.separator25"
+      },
+      {
+        "kind": "Submenu",
+        "id": "view.toolbars",
+        "labelKey": "Str.Menu.View.Toolbars",
+        "children": [
+          {
+            "kind": "Toggle",
+            "id": "view.toolbars.standard",
+            "labelKey": "Str.Toolbar.Standard",
+            "state": "toolbar.standard.visible"
+          },
+          {
+            "kind": "Toggle",
+            "id": "view.toolbars.edit",
+            "labelKey": "Str.Toolbar.Edit",
+            "state": "toolbar.edit.visible"
+          },
+          {
+            "kind": "Toggle",
+            "id": "view.toolbars.debug",
+            "labelKey": "Str.Toolbar.Debug",
+            "state": "toolbar.debug.visible"
+          },
+          {
+            "kind": "Toggle",
+            "id": "view.toolbars.formeditor",
+            "labelKey": "Str.Toolbar.FormEditor",
+            "state": "toolbar.form-editor.visible"
+          }
+        ]
+      },
+      {
+        "kind": "Toggle",
+        "id": "view.minimap",
+        "labelKey": "Str.Menu.View.Minimap",
+        "state": "editor.minimap.visible"
+      },
+      {
+        "kind": "Separator",
+        "id": "view.separator28"
+      }
+    ]
+  },
+  {
+    "kind": "Submenu",
+    "id": "project",
+    "labelKey": "Str.Menu.Project",
+    "children": [
+      {
+        "kind": "Command",
+        "id": "project.addform",
+        "labelKey": "Str.Menu.Project.AddForm",
+        "command": "shell.AddFormCommand"
+      },
+      {
+        "kind": "Command",
+        "id": "project.addmdiform",
+        "labelKey": "Str.Menu.Project.AddMDIForm",
+        "command": "application.DisabledCommand"
+      },
+      {
+        "kind": "Command",
+        "id": "project.addmodule",
+        "labelKey": "Str.Menu.Project.AddModule",
+        "command": "shell.AddModuleCommand"
+      },
+      {
+        "kind": "Command",
+        "id": "project.addclassmodule",
+        "labelKey": "Str.Menu.Project.AddClassModule",
+        "command": "shell.AddClassModuleCommand"
+      },
+      {
+        "kind": "Command",
+        "id": "project.addusercontrol",
+        "labelKey": "Str.Menu.Project.AddUserControl",
+        "command": "shell.AddUserControlCommand"
+      },
+      {
+        "kind": "Command",
+        "id": "project.addpropertypage",
+        "labelKey": "Str.Menu.Project.AddPropertyPage",
+        "command": "shell.AddPropertyPageCommand"
+      },
+      {
+        "kind": "Command",
+        "id": "project.addfile",
+        "labelKey": "Str.Menu.Project.AddFile",
+        "command": "shell.AddFileCommand"
+      },
+      {
+        "kind": "Separator",
+        "id": "project.separator7"
+      },
+      {
+        "kind": "Command",
+        "id": "project.removeformfallback",
+        "labelKey": "Str.Menu.Project.RemoveFormFallback",
+        "labelBinding": "RemoveFormMenuHeader",
+        "command": "shell.RemoveDocumentCommand"
+      },
+      {
+        "kind": "Separator",
+        "id": "project.separator9"
+      },
+      {
+        "kind": "Command",
+        "id": "project.references",
+        "labelKey": "Str.Menu.Project.References",
+        "command": "application.ProjectReferencesCommand"
+      },
+      {
+        "kind": "Command",
+        "id": "project.components",
+        "labelKey": "Str.Menu.Project.Components",
+        "command": "application.ProjectComponentsCommand"
+      },
+      {
+        "kind": "Separator",
+        "id": "project.separator12"
+      },
+      {
+        "kind": "Command",
+        "id": "project.propertiesfallback",
+        "labelKey": "Str.Menu.Project.PropertiesFallback",
+        "labelBinding": "ProjectPropertiesMenuHeader",
+        "command": "application.ProjectPropertiesCommand"
+      }
+    ]
+  },
+  {
+    "kind": "Submenu",
+    "id": "format",
+    "labelKey": "Str.Menu.Format",
+    "children": [
+      {
+        "kind": "Submenu",
+        "id": "format.align",
+        "labelKey": "Str.Menu.Format.Align",
+        "children": [
+          {
+            "kind": "Command",
+            "id": "format.align.lefts",
+            "labelKey": "Str.Menu.Format.Align.Lefts",
+            "command": "application.AlignLeftsCommand"
+          },
+          {
+            "kind": "Command",
+            "id": "format.align.centershorizontally",
+            "labelKey": "Str.Menu.Format.Align.CentersHorizontally",
+            "command": "application.AlignCentersHCommand"
+          },
+          {
+            "kind": "Command",
+            "id": "format.align.rights",
+            "labelKey": "Str.Menu.Format.Align.Rights",
+            "command": "application.AlignRightsCommand"
+          },
+          {
+            "kind": "Separator",
+            "id": "format.align.separator3"
+          },
+          {
+            "kind": "Command",
+            "id": "format.align.tops",
+            "labelKey": "Str.Menu.Format.Align.Tops",
+            "command": "application.AlignTopsCommand"
+          },
+          {
+            "kind": "Command",
+            "id": "format.align.centersvertically",
+            "labelKey": "Str.Menu.Format.Align.CentersVertically",
+            "command": "application.AlignCentersVCommand"
+          },
+          {
+            "kind": "Command",
+            "id": "format.align.bottoms",
+            "labelKey": "Str.Menu.Format.Align.Bottoms",
+            "command": "application.AlignBottomsCommand"
+          }
+        ]
+      },
+      {
+        "kind": "Submenu",
+        "id": "format.makesamesize",
+        "labelKey": "Str.Menu.Format.MakeSameSize",
+        "children": [
+          {
+            "kind": "Command",
+            "id": "format.makesamesize.width",
+            "labelKey": "Str.Menu.Format.MakeSameSize.Width",
+            "command": "application.MakeSameWidthCommand"
+          },
+          {
+            "kind": "Command",
+            "id": "format.makesamesize.height",
+            "labelKey": "Str.Menu.Format.MakeSameSize.Height",
+            "command": "application.MakeSameHeightCommand"
+          },
+          {
+            "kind": "Command",
+            "id": "format.makesamesize.both",
+            "labelKey": "Str.Menu.Format.MakeSameSize.Both",
+            "command": "application.MakeSameSizeCommand"
+          }
+        ]
+      },
+      {
+        "kind": "Separator",
+        "id": "format.separator2"
+      },
+      {
+        "kind": "Command",
+        "id": "format.sizetogrid",
+        "labelKey": "Str.Menu.Format.SizeToGrid",
+        "command": "application.SizeToGridCommand"
+      },
+      {
+        "kind": "Separator",
+        "id": "format.separator4"
+      },
+      {
+        "kind": "Submenu",
+        "id": "format.horizontalspacing",
+        "labelKey": "Str.Menu.Format.HorizontalSpacing",
+        "children": [
+          {
+            "kind": "Command",
+            "id": "format.horizontalspacing.makeequal",
+            "labelKey": "Str.Menu.Format.Spacing.MakeEqual",
+            "command": "application.MakeHorizontalSpacingEqualCommand"
+          },
+          {
+            "kind": "Command",
+            "id": "format.horizontalspacing.increase",
+            "labelKey": "Str.Menu.Format.Spacing.Increase",
+            "command": "application.IncreaseHorizontalSpacingCommand"
+          },
+          {
+            "kind": "Command",
+            "id": "format.horizontalspacing.decrease",
+            "labelKey": "Str.Menu.Format.Spacing.Decrease",
+            "command": "application.DecreaseHorizontalSpacingCommand"
+          },
+          {
+            "kind": "Command",
+            "id": "format.horizontalspacing.remove",
+            "labelKey": "Str.Menu.Format.Spacing.Remove",
+            "command": "application.RemoveHorizontalSpacingCommand"
+          }
+        ]
+      },
+      {
+        "kind": "Submenu",
+        "id": "format.verticalspacing",
+        "labelKey": "Str.Menu.Format.VerticalSpacing",
+        "children": [
+          {
+            "kind": "Command",
+            "id": "format.verticalspacing.makeequal",
+            "labelKey": "Str.Menu.Format.Spacing.MakeEqual",
+            "command": "application.MakeVerticalSpacingEqualCommand"
+          },
+          {
+            "kind": "Command",
+            "id": "format.verticalspacing.increase",
+            "labelKey": "Str.Menu.Format.Spacing.Increase",
+            "command": "application.IncreaseVerticalSpacingCommand"
+          },
+          {
+            "kind": "Command",
+            "id": "format.verticalspacing.decrease",
+            "labelKey": "Str.Menu.Format.Spacing.Decrease",
+            "command": "application.DecreaseVerticalSpacingCommand"
+          },
+          {
+            "kind": "Command",
+            "id": "format.verticalspacing.remove",
+            "labelKey": "Str.Menu.Format.Spacing.Remove",
+            "command": "application.RemoveVerticalSpacingCommand"
+          }
+        ]
+      },
+      {
+        "kind": "Separator",
+        "id": "format.separator7"
+      },
+      {
+        "kind": "Submenu",
+        "id": "format.centerinform",
+        "labelKey": "Str.Menu.Format.CenterInForm",
+        "children": [
+          {
+            "kind": "Command",
+            "id": "format.centerinform.horizontally",
+            "labelKey": "Str.Menu.Format.CenterInForm.Horizontally",
+            "command": "application.CenterHorizontallyCommand"
+          },
+          {
+            "kind": "Command",
+            "id": "format.centerinform.vertically",
+            "labelKey": "Str.Menu.Format.CenterInForm.Vertically",
+            "command": "application.CenterVerticallyCommand"
+          }
+        ]
+      },
+      {
+        "kind": "Separator",
+        "id": "format.separator9"
+      },
+      {
+        "kind": "Submenu",
+        "id": "format.order",
+        "labelKey": "Str.Menu.Format.Order",
+        "children": [
+          {
+            "kind": "Command",
+            "id": "format.order.bringtofront",
+            "labelKey": "Str.Menu.Format.Order.BringToFront",
+            "command": "application.BringToFrontCommand"
+          },
+          {
+            "kind": "Command",
+            "id": "format.order.sendtoback",
+            "labelKey": "Str.Menu.Format.Order.SendToBack",
+            "command": "application.SendToBackCommand"
+          }
+        ]
+      },
+      {
+        "kind": "Separator",
+        "id": "format.separator11"
+      },
+      {
+        "kind": "Command",
+        "id": "format.lockcontrols",
+        "labelKey": "Str.Menu.Format.LockControls",
+        "command": "application.LockControlsCommand"
+      }
+    ]
+  },
+  {
+    "kind": "Submenu",
+    "id": "debug",
+    "labelKey": "Str.Menu.Debug",
+    "children": [
+      {
+        "kind": "Command",
+        "id": "debug.stepinto",
+        "labelKey": "Str.Menu.Debug.StepInto",
+        "command": "application.StepIntoCommand"
+      },
+      {
+        "kind": "Command",
+        "id": "debug.stepover",
+        "labelKey": "Str.Menu.Debug.StepOver",
+        "command": "application.StepOverCommand"
+      },
+      {
+        "kind": "Command",
+        "id": "debug.stepout",
+        "labelKey": "Str.Menu.Debug.StepOut",
+        "command": "application.StepOutCommand"
+      },
+      {
+        "kind": "Command",
+        "id": "debug.runtocursor",
+        "labelKey": "Str.Menu.Debug.RunToCursor",
+        "command": "application.RunToCursorCommand"
+      },
+      {
+        "kind": "Separator",
+        "id": "debug.separator4"
+      },
+      {
+        "kind": "Command",
+        "id": "debug.addwatch",
+        "labelKey": "Str.Menu.Debug.AddWatch",
+        "command": "application.AddWatchCommand"
+      },
+      {
+        "kind": "Command",
+        "id": "debug.editwatch",
+        "labelKey": "Str.Menu.Debug.EditWatch",
+        "command": "application.EditWatchCommand"
+      },
+      {
+        "kind": "Command",
+        "id": "debug.quickwatch",
+        "labelKey": "Str.Menu.Debug.QuickWatch",
+        "command": "application.QuickWatchCommand"
+      },
+      {
+        "kind": "Separator",
+        "id": "debug.separator8"
+      },
+      {
+        "kind": "Command",
+        "id": "debug.togglebreakpoint",
+        "labelKey": "Str.Menu.Debug.ToggleBreakpoint",
+        "command": "application.ToggleBreakpointCommand"
+      },
+      {
+        "kind": "Command",
+        "id": "debug.clearallbreakpoints",
+        "labelKey": "Str.Menu.Debug.ClearAllBreakpoints",
+        "command": "application.ClearAllBreakpointsCommand"
+      },
+      {
+        "kind": "Separator",
+        "id": "debug.separator11"
+      },
+      {
+        "kind": "Command",
+        "id": "debug.setnextstatement",
+        "labelKey": "Str.Menu.Debug.SetNextStatement",
+        "command": "application.SetNextStatementCommand"
+      },
+      {
+        "kind": "Command",
+        "id": "debug.shownextstatement",
+        "labelKey": "Str.Menu.Debug.ShowNextStatement",
+        "command": "application.ShowNextStatementCommand"
+      }
+    ]
+  },
+  {
+    "kind": "Submenu",
+    "id": "run",
+    "labelKey": "Str.Menu.Run",
+    "children": [
+      {
+        "kind": "Command",
+        "id": "run.start",
+        "labelKey": "Str.Menu.Run.Start",
+        "command": "application.StartDefaultProjectCommand"
+      },
+      {
+        "kind": "Command",
+        "id": "run.startwithfullcompile",
+        "labelKey": "Str.Menu.Run.StartWithFullCompile",
+        "command": "application.StartDefaultProjectWithFullCompileCommand"
+      },
+      {
+        "kind": "Command",
+        "id": "run.startexternal",
+        "labelKey": "Str.Menu.Run.StartExternal",
+        "command": "shell.StartExternalDebugCommand"
+      },
+      {
+        "kind": "Provider",
+        "id": "run.startwith",
+        "labelKey": "Str.Menu.Run.StartWith",
+        "provider": "run-starts"
+      },
+      {
+        "kind": "Provider",
+        "id": "run.runwith",
+        "labelKey": "Str.Menu.Run.RunWith",
+        "provider": "run-choices"
+      },
+      {
+        "kind": "Command",
+        "id": "run.break",
+        "labelKey": "Str.Menu.Run.Break",
+        "command": "application.BreakProjectCommand"
+      },
+      {
+        "kind": "Command",
+        "id": "run.end",
+        "labelKey": "Str.Menu.Run.End",
+        "command": "application.EndProjectCommand"
+      },
+      {
+        "kind": "Command",
+        "id": "run.restart",
+        "labelKey": "Str.Menu.Run.Restart",
+        "command": "application.RestartProjectCommand"
+      },
+      {
+        "kind": "Separator",
+        "id": "run.separator8"
+      },
+      {
+        "kind": "Command",
+        "id": "run.startwithvb6",
+        "labelKey": "Str.Menu.Run.StartWithVB6",
+        "command": "application.RunWithVb6Command"
+      }
+    ]
+  },
+  {
+    "kind": "Submenu",
+    "id": "tools",
+    "labelKey": "Str.Menu.Tools",
+    "children": [
+      {
+        "kind": "Command",
+        "id": "tools.addprocedure",
+        "labelKey": "Str.Menu.Tools.AddProcedure",
+        "command": "application.AddProcedureCommand"
+      },
+      {
+        "kind": "Command",
+        "id": "tools.procedureattributes",
+        "labelKey": "Str.Menu.Tools.ProcedureAttributes",
+        "command": "application.NYICommand"
+      },
+      {
+        "kind": "Separator",
+        "id": "tools.separator2"
+      },
+      {
+        "kind": "Command",
+        "id": "tools.menueditor",
+        "labelKey": "Str.Menu.Tools.MenuEditor",
+        "command": "application.EditMenuCommand"
+      },
+      {
+        "kind": "Separator",
+        "id": "tools.separator4"
+      },
+      {
+        "kind": "Command",
+        "id": "tools.references",
+        "labelKey": "Str.Menu.Project.References",
+        "command": "application.ProjectReferencesCommand"
+      },
+      {
+        "kind": "Separator",
+        "id": "tools.separator6"
+      },
+      {
+        "kind": "Command",
+        "id": "tools.options",
+        "labelKey": "Str.Menu.Tools.Options",
+        "command": "application.OpenOptionsCommand"
+      },
+      {
+        "kind": "Separator",
+        "id": "tools.separator8"
+      },
+      {
+        "kind": "Command",
+        "id": "tools.languageservers",
+        "labelKey": "Str.Menu.Tools.LanguageServers",
+        "command": "shell.OpenLanguageServersCommand"
+      },
+      {
+        "kind": "Command",
+        "id": "tools.title",
+        "labelKey": "Str.Tool.Diagnostics.Title",
+        "command": "shell.OpenDiagnosticsCommand"
+      },
+      {
+        "kind": "Command",
+        "id": "tools.protocolinspector",
+        "labelKey": "Str.Menu.Tools.ProtocolInspector",
+        "command": "shell.OpenProtocolInspectorCommand"
+      }
+    ]
+  },
+  {
+    "kind": "Provider",
+    "id": "addins",
+    "labelKey": "Str.Menu.AddIns",
+    "provider": "add-ins",
+    "children": [
+      {
+        "kind": "Command",
+        "id": "addins.manager",
+        "labelKey": "Str.Menu.AddIns.Manager",
+        "command": "shell.OpenAddInManager"
+      }
+    ]
+  },
+  {
+    "kind": "Submenu",
+    "id": "window",
+    "labelKey": "Str.Menu.Window",
+    "children": [
+      {
+        "kind": "Command",
+        "id": "window.reopenclosed",
+        "labelKey": "Str.Menu.Window.ReopenClosed",
+        "command": "application.ReopenClosedDocumentCommand"
+      },
+      {
+        "kind": "Provider",
+        "id": "window.recentlyclosed",
+        "labelKey": "Str.Menu.Window.RecentlyClosed",
+        "provider": "closed-documents"
+      },
+      {
+        "kind": "Placeholder",
+        "id": "window.split",
+        "labelKey": "Str.Menu.Window.Split"
+      },
+      {
+        "kind": "Separator",
+        "id": "window.separator3"
+      },
+      {
+        "kind": "Provider",
+        "id": "window.layouts",
+        "labelKey": "Str.Layout.Layouts",
+        "provider": "panel-layouts"
+      },
+      {
+        "kind": "Command",
+        "id": "window.resetlayout",
+        "labelKey": "Str.Menu.Window.ResetLayout",
+        "command": "application.ResetWindowLayoutCommand"
+      }
+    ]
+  },
+  {
+    "kind": "Submenu",
+    "id": "help",
+    "labelKey": "Str.Menu.Help",
+    "children": [
+      {
+        "kind": "Command",
+        "id": "help.avaloniaonweb",
+        "labelKey": "Str.Menu.Help.AvaloniaOnWeb",
+        "command": "application.AvaloniaOnWebCommand"
+      },
+      {
+        "kind": "Separator",
+        "id": "help.separator1"
+      },
+      {
+        "kind": "Command",
+        "id": "help.about",
+        "labelKey": "Str.Menu.Help.About",
+        "command": "application.AboutCommand"
+      }
+    ]
+  },
+  {
+    "kind": "Command",
+    "id": "gotogithubrepo",
+    "labelKey": "Str.Menu.GoToGithubRepo",
+    "command": "shell.OpenGithubRepo"
+  }
+]
