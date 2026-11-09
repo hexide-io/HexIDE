@@ -91,7 +91,9 @@ public class ProcessWindowsToolTests
         var reply = await ProcessWindowsTool.DescribeAsync(Environment.ProcessId, TestContext.Current.CancellationToken);
 
         reply.Note.Should().Contain("It has exited, and its ID now belongs to a process that started later, which isn't read.");
-        reply.Windows.Should().BeNullOrEmpty();
+        // Not that there are none: the fake earlier launch stands for whatever once had this ID, and on a shared machine a
+        // process that really was started under it can still be running, as a hosted runner's own terminal has been.
+        (reply.Windows ?? []).Should().NotContain(w => w.ProcessId == Environment.ProcessId);
     }
 
     [Fact]

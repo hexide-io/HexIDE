@@ -914,10 +914,13 @@ freed storage SHALL report it as out of scope without throwing into the UI.
 The interpreter SHALL support the internal ImageCombo collection model with one-based integer indices,
 string keys, insertion, removal, clearing and held-item renumbering. Item Text SHALL be its default member
 and Tag SHALL retain the assigned scalar value's type, except that Empty SHALL become an empty String.
-A new item's Tag SHALL be an empty String, and assigning Nothing SHALL preserve Nothing. String keys
+A new item's Tag SHALL be an empty String, and assigning Nothing SHALL preserve Nothing.
+Assigning a TextBox to Tag with Set SHALL retain that object,
+as [measured for #1092](../../../docs/vb6-fidelity-oracle/in-box-controls-the-imagecombo.md#return-types-tag-and-the-case-of-a-key-2026-10-27). String keys
 SHALL compare case-sensitively. Forms carrying MSComctlLib.ImageCombo SHALL refuse at F5 with a message naming #1092 until drawing and input are implemented.
 The designer SHALL preserve the original carried block and warn that the control is unsupported.
-ImageList binding and the remaining owner members are pending.
+ImageList binding and the remaining owner members are pending. TextBox Tag assignment without Set remains
+refused at the control default-member boundary (#790).
 The internal owner SHALL support Text, SelectedItem, Locked and default Indentation for new items.
 Selecting an item SHALL copy its Text to the owner; changing that selected item's Text SHALL update the owner.
 Removing the selected item or assigning Nothing SHALL clear selection while retaining Text.
@@ -1573,6 +1576,13 @@ and unmeasured combinations remain outside this additional code-mapping slice.
 #### Scenario: Numeric keypad Clear
 - **WHEN** the host reports keypad 5 with NumLock off as Clear
 - **THEN** the TextBox's KeyDown and KeyUp handlers receive KeyCode 12
+
+#### Scenario: Ctrl+Backspace can be filtered by KeyPress
+- **WHEN** Ctrl+Backspace is pressed in a TextBox
+- **THEN** KeyPress receives KeyAscii 127, following KeyDown 8 with Shift 2
+- **AND** the control or KeyPreview form handler can swallow it with 0 or replace it with an ASCII character
+- **AND** KeyUp still receives KeyCode 8 with Shift 2
+- **AND** the default editing action remains the host's behavior pending measurement
 
 ### Requirement: Runtime parsing has a sized synchronous stack
 

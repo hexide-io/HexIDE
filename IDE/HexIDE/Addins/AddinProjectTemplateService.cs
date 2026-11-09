@@ -7,9 +7,11 @@ public sealed class AddinProjectTemplateService
     private readonly List<IAddinProjectTemplate> _templates = [];
     public IReadOnlyList<IAddinProjectTemplate> Templates => _templates;
 
-    public void Register(IAddinProjectTemplate template)
+    public IDisposable Register(IAddinProjectTemplate template)
     {
         _templates.Add(template);
-        AddinInitializationScope.Record(() => _templates.RemoveAt(_templates.LastIndexOf(template)));
+        var handle = new ActionDisposable(() => _templates.RemoveAt(_templates.LastIndexOf(template)));
+        AddinInitializationScope.Record(handle.Dispose);
+        return handle;
     }
 }

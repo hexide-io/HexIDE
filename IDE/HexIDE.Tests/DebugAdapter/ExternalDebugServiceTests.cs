@@ -570,7 +570,7 @@ public class ExternalDebugServiceTests
         await using var log = new ConversationLog();
         var service = new ExternalDebugService(log);
         var localization = Substitute.For<ILocalizationService>();
-        var interpreter = Substitute.For<IDebugController>();
+        var interpreter = Substitute.For<IDebugGate>();
         var runner = TestRunners.WithInterpreter(Substitute.For<IEventBus>(), Substitute.For<IWindowManager>(),
             Substitute.For<IProjectManager>(), localization, interpreter, Substitute.For<IBreakpointService>(),
             new WatchService(), new RunScope(), service);

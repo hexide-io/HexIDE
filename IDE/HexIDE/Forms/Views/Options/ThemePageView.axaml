@@ -14,7 +14,20 @@
                       AutomationProperties.Name="{CompiledBinding #ThemeLabel.Text, Converter={x:Static converters:AccessKeyNameConverter.Instance}, ConverterParameter=TrimColon}"
                       SelectedItem="{CompiledBinding SelectedTheme}"
                       HorizontalAlignment="Left"
-                      Width="160" />
+                      MinWidth="160">
+                <ComboBox.ItemTemplate>
+                    <DataTemplate x:DataType="x:String">
+                        <Grid>
+                            <TextBlock Text="{CompiledBinding .}"
+                                       IsVisible="{CompiledBinding ., Converter={x:Static converters:ThemeNameVisibilityConverter.Instance}}" />
+                            <TextBlock Text="{DynamicResource Str.Theme.HighContrastLight}"
+                                       IsVisible="{CompiledBinding ., Converter={x:Static converters:ThemeNameVisibilityConverter.Instance}, ConverterParameter=HighContrastLight}" />
+                            <TextBlock Text="{DynamicResource Str.Theme.HighContrastDark}"
+                                       IsVisible="{CompiledBinding ., Converter={x:Static converters:ThemeNameVisibilityConverter.Instance}, ConverterParameter=HighContrastDark}" />
+                        </Grid>
+                    </DataTemplate>
+                </ComboBox.ItemTemplate>
+            </ComboBox>
         </DockPanel>
     </HeaderedContentControl>
 </UserControl>

@@ -42,6 +42,15 @@ public class TextBoxKeyPressTests
     public void Real_handlers_filter_typing_and_preview_interleaves(bool preview, string input, string expected, string events)
         => Run(preview, input, expected, events);
 
+    // docs/vb6-fidelity-oracle/key-events-keydown-keypress-and-keyup.md: Ctrl+Backspace is 127.
+    [AvaloniaTheory]
+    [InlineData(false, false, "b", "D8,P127,C,U8")]
+    [InlineData(false, true, "", "D8,P127,U8")]
+    [InlineData(true, false, "b", "FD8,D8,FP127,P98,C,FU8,U8")]
+    [InlineData(true, true, "", "FD8,D8,FP127,FU8,U8")]
+    public void Ctrl_Backspace_KeyAscii_can_be_replaced_or_swallowed(bool preview, bool swallow,
+        string expected, string events) => Run(preview, swallow ? "CtrlBackSwallow" : "CtrlBackReplace", expected, events);
+
     [AvaloniaFact]
     public void KeyPreview_can_be_set_and_read_by_the_running_program() =>
         Run(true, "k", "k", "FD75,D75,FP107,P107,C,FU75,U75", runtimePreview: true);
@@ -99,6 +108,9 @@ public class TextBoxKeyPressTests
             End Sub
 
             """;
+        if (input.StartsWith("CtrlBack", StringComparison.Ordinal))
+            source = source.Replace(preview ? "If KeyAscii = 101 Then KeyAscii = 69" : "If KeyAscii = 97 Then KeyAscii = 98",
+                "If KeyAscii = 127 Then KeyAscii = " + (input == "CtrlBackSwallow" ? "0" : "98"));
         if (unsupported)
             source = source.Replace("KeyAscii = 98", "KeyAscii = 128");
         if (runtimePreview)
@@ -138,12 +150,13 @@ public class TextBoxKeyPressTests
             var key = input switch
             {
                 "AltX" => Key.X, "CtrlA" => Key.A,
+                "CtrlBackSwallow" or "CtrlBackReplace" => Key.Back,
                 _ => Enum.Parse<Key>(input, true),
             };
             var modifiers = input switch
             {
                 "K" => KeyModifiers.Shift, "AltX" => KeyModifiers.Alt,
-                "CtrlA" => KeyModifiers.Control, _ => KeyModifiers.None,
+                "CtrlA" or "CtrlBackSwallow" or "CtrlBackReplace" => KeyModifiers.Control, _ => KeyModifiers.None,
             };
             window.KeyPress(key, (RawInputModifiers)modifiers, PhysicalKey.None, null);
             if (input.Length == 1)

@@ -143,6 +143,114 @@ public sealed class KeymapServiceTests : IDisposable
             command.Gestures.Should().Equal(_gestures[name]);
     }
 
+    private void WriteOverrides(string bindings)
+    {
+        var directory = Path.Combine(_directory, "overrides");
+        Directory.CreateDirectory(directory);
+        File.WriteAllText(Path.Combine(directory, "bindings.json"),
+            "{\"bindings\":{" + bindings + "}}");
+    }
+
+    [AvaloniaFact]
+    public void UserOverridesRebindClearAndAddWithoutChangingOtherCommands()
+    {
+        WriteOverrides("\"CopyCommand\":\"Shift+F12\",\"CutCommand\":\"\",\"ExpandSelectionCommand\":\"Shift+F11\"");
+        var service = new KeymapService(_directory);
+        service.Apply("Default");
+
+        ApplicationCommands.CopyCommand.Gestures.Should().Equal(KeyGesture.Parse("Shift+F12"));
+        ApplicationCommands.CutCommand.Gestures.Should().BeEmpty();
+        ApplicationCommands.ExpandSelectionCommand.Gestures.Should().Equal(KeyGesture.Parse("Shift+F11"));
+        ApplicationCommands.PasteCommand.Gestures.Should().Equal(_gestures["PasteCommand"]);
+        service.AvailableKeymaps.Should().Equal("Default", "VB6");
+    }
+
+    [AvaloniaFact]
+    public void UserOverridesSurvivePackSwitchUpdateAndServiceRecreation()
+    {
+        File.WriteAllText(Path.Combine(_directory, "Custom.json"), Pack);
+        WriteOverrides("\"CopyCommand\":\"Shift+F11\"");
+        var service = new KeymapService(_directory);
+        foreach (var keymap in new[] { "Custom", "VB6", "Default" })
+        {
+            service.Apply(keymap);
+            ApplicationCommands.CopyCommand.Gestures.Should().Equal(KeyGesture.Parse("Shift+F11"));
+            service.ActiveKeymap.Should().Be(keymap);
+        }
+        File.WriteAllText(Path.Combine(_directory, "Custom.json"),
+            """{"bindings":{"CopyCommand":"F12","PasteCommand":"Shift+F10"}}""");
+        service.Apply("Custom");
+        ApplicationCommands.CopyCommand.Gestures.Should().Equal(KeyGesture.Parse("Shift+F11"));
+        ApplicationCommands.PasteCommand.Gestures.Should().Equal(KeyGesture.Parse("Shift+F10"));
+        new KeymapService(_directory).Apply("Custom");
+        ApplicationCommands.CopyCommand.Gestures.Should().Equal(KeyGesture.Parse("Shift+F11"));
+    }
+
+    [AvaloniaFact]
+    public void RemovingOverrideRestoresSelectedPackBinding()
+    {
+        File.WriteAllText(Path.Combine(_directory, "Custom.json"), Pack);
+        WriteOverrides("\"CopyCommand\":\"Shift+F11\"");
+        var service = new KeymapService(_directory);
+        service.Apply("Custom");
+        ApplicationCommands.CopyCommand.Gestures.Should().Equal(KeyGesture.Parse("Shift+F11"));
+        WriteOverrides("");
+        service.Apply("Custom");
+        ApplicationCommands.CopyCommand.Gestures.Should().Equal(KeyGesture.Parse("Shift+F12"));
+    }
+
+    [AvaloniaFact]
+    public void UnknownOverrideCommandDoesNotDiscardKnownOverrides()
+    {
+        WriteOverrides("\"UnknownCommand\":\"NotAKey\",\"CopyCommand\":\"Shift+F11\"");
+        new KeymapService(_directory).Apply("Default");
+        ApplicationCommands.CopyCommand.Gestures.Should().Equal(KeyGesture.Parse("Shift+F11"));
+    }
+
+    [AvaloniaFact]
+    public void InvalidOverridesAreRejectedAsAWholeWithoutDiscardingSelectedPack()
+    {
+        File.WriteAllText(Path.Combine(_directory, "Custom.json"), Pack);
+        WriteOverrides("\"CopyCommand\":\"Shift+F11\"");
+        var service = new KeymapService(_directory);
+        service.Apply("Custom");
+        ApplicationCommands.CopyCommand.Gestures.Should().Equal(KeyGesture.Parse("Shift+F11"));
+        foreach (var content in new[]
+                 {
+                     """{"bindings":{"CopyCommand":"F11","CutCommand":"NotAKey"}}""",
+                     "{",
+                     "null",
+                     """{"bindings":{"CopyCommand":42}}"""
+                 })
+        {
+            File.WriteAllText(Path.Combine(_directory, "overrides", "bindings.json"), content);
+            service.Apply("Custom");
+            service.ActiveKeymap.Should().Be("Custom");
+            ApplicationCommands.CopyCommand.Gestures.Should().Equal(KeyGesture.Parse("Shift+F12"));
+            ApplicationCommands.CutCommand.Gestures.Should().BeEmpty();
+        }
+    }
+
+    [AvaloniaFact]
+    public void RecoveryBypassesUserOverrides()
+    {
+        WriteOverrides("\"CopyCommand\":\"Shift+F11\"");
+        var service = new KeymapService(_directory);
+        service.Apply("Default");
+        ApplicationCommands.CopyCommand.Gestures.Should().Equal(KeyGesture.Parse("Shift+F11"));
+        var previous = Static.IsRecoveryMode;
+        try
+        {
+            Static.IsRecoveryMode = true;
+            service.Apply("Default");
+            ApplicationCommands.CopyCommand.Gestures.Should().Equal(_gestures["CopyCommand"]);
+        }
+        finally
+        {
+            Static.IsRecoveryMode = previous;
+        }
+    }
+
     private const string Pack = """
         {"name":"Display metadata","bindings":{"CopyCommand":"Shift+F12","CutCommand":"","UnknownCommand":"F11"}}
         """;

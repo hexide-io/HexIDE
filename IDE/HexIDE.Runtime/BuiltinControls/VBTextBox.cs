@@ -73,13 +73,14 @@ public class VBTextBox : TextBox
         if (!e.Handled && (e.Key == Key.Back || e.Key == Key.A && e.KeyModifiers == KeyModifiers.Control))
         {
             e.Handled = true;
-            TextBoxKeyEvents.Deliver(this, ComponentBaseClass.KeyPressEvent, e.Key == Key.Back ? 8 : 1, null, ascii =>
+            var keyAscii = e.Key == Key.Back ? e.KeyModifiers == KeyModifiers.Control ? 127 : 8 : 1;
+            TextBoxKeyEvents.Deliver(this, ComponentBaseClass.KeyPressEvent, keyAscii, null, ascii =>
             {
                 if (ascii is < 0 or > 127)
                     throw new NotImplementedException("Non-ASCII KeyAscii conversion is not implemented (#2325)");
                 if (ascii == 0)
                     return;
-                if (ascii == 8 || ascii == 1)
+                if (ascii == 8 || ascii == 1 || ascii == keyAscii)
                 {
                     e.Handled = false;
                     base.OnKeyDown(e);

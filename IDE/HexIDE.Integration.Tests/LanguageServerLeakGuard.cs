@@ -72,7 +72,6 @@ public sealed class LanguageServerLeakGuard : IAsyncDisposable
     public ValueTask DisposeAsync()
     {
         LaunchedServerGuard.Started -= Note;
-        Check();
         return ValueTask.CompletedTask;
     }
 }

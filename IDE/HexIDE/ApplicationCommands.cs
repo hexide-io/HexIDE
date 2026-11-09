@@ -76,15 +76,16 @@ public class ApplicationCommands
     public static readonly RoutedCommand CallHierarchyCommand = new RoutedCommand(nameof(CallHierarchyCommand));
     public static readonly RoutedCommand RunCodeLensCommand = new RoutedCommand(nameof(RunCodeLensCommand));
     public static readonly RoutedCommand FindReferencesCommand = new RoutedCommand(nameof(FindReferencesCommand), new KeyGesture(Key.F12, KeyModifiers.Shift));
-    public static readonly RoutedCommand GoToDefinitionCommand = new RoutedCommand(nameof(GoToDefinitionCommand), new KeyGesture(Key.F2, KeyModifiers.Shift));
+    // F12 beside VB6's Shift+F2: both have always worked here, so Default.json can't document this one in its single slot.
+    public static readonly RoutedCommand GoToDefinitionCommand = AlsoOn(new RoutedCommand(nameof(GoToDefinitionCommand), new KeyGesture(Key.F2, KeyModifiers.Shift)), new KeyGesture(Key.F12));
     public static readonly RoutedCommand GoToImplementationCommand = new RoutedCommand(nameof(GoToImplementationCommand));
     public static readonly RoutedCommand GoToTypeDefinitionCommand = new RoutedCommand(nameof(GoToTypeDefinitionCommand));
-    public static readonly RoutedCommand GoToDeclarationCommand = new RoutedCommand(nameof(GoToDeclarationCommand));
+    public static readonly RoutedCommand GoToDeclarationCommand = new RoutedCommand(nameof(GoToDeclarationCommand), new KeyGesture(Key.F12, GetPlatformCommandKey()));
     public static readonly RoutedCommand RenameSymbolCommand = new RoutedCommand(nameof(RenameSymbolCommand));
     public static readonly RoutedCommand ExpandSelectionCommand = new RoutedCommand(nameof(ExpandSelectionCommand));
     public static readonly RoutedCommand ShrinkSelectionCommand = new RoutedCommand(nameof(ShrinkSelectionCommand));
     public static readonly RoutedCommand FormatSelectionCommand = new RoutedCommand(nameof(FormatSelectionCommand));
-    public static readonly RoutedCommand FormatDocumentCommand = new RoutedCommand(nameof(FormatDocumentCommand));
+    public static readonly RoutedCommand FormatDocumentCommand = new RoutedCommand(nameof(FormatDocumentCommand), new KeyGesture(Key.F, KeyModifiers.Shift | KeyModifiers.Alt));
     public static readonly RoutedCommand BringToFrontCommand = new RoutedCommand(nameof(BringToFrontCommand), new KeyGesture(Key.J, GetPlatformCommandKey()));
     public static readonly RoutedCommand SendToBackCommand = new RoutedCommand(nameof(SendToBackCommand), new KeyGesture(Key.K, GetPlatformCommandKey()));
     public static readonly RoutedCommand MakeProjectCommand = new RoutedCommand(nameof(MakeProjectCommand));
@@ -139,6 +140,12 @@ public class ApplicationCommands
 #pragma warning disable CS0067
         public event EventHandler? CanExecuteChanged;
 #pragma warning restore CS0067
+    }
+
+    private static RoutedCommand AlsoOn(RoutedCommand command, KeyGesture gesture)
+    {
+        command.Gestures.Add(gesture);
+        return command;
     }
 
     private static KeyModifiers GetPlatformCommandKey()

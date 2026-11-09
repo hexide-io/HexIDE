@@ -95,7 +95,7 @@ public sealed class VBProgram : IFormProgram
     /// How the host makes a window for another form. Null in a host that runs one form only: another form's use is then
     /// refused, naming #822.
     /// </param>
-    public VBProgram(FormDefinition startup, VBWindowContext startupContext, Debugging.IDebugController? debugController,
+    public VBProgram(FormDefinition startup, VBWindowContext startupContext, Debugging.IDebugGate? debugController,
         Func<FormDefinition, IFormView>? openForm)
         : this(startup.Owner, startup, startupContext, debugController, openForm)
     {
@@ -108,14 +108,14 @@ public sealed class VBProgram : IFormProgram
     /// </summary>
     /// <param name="rootContext">The library, state and root environment the program runs in. It is no form's handle.</param>
     /// <param name="openForm">How the host makes a window for a form, or null in a host that shows none.</param>
-    public VBProgram(ProjectDefinition project, VBWindowContext rootContext, Debugging.IDebugController? debugController,
+    public VBProgram(ProjectDefinition project, VBWindowContext rootContext, Debugging.IDebugGate? debugController,
         Func<FormDefinition, IFormView>? openForm)
         : this(project, startup: null, rootContext, debugController, openForm)
     {
     }
 
     private VBProgram(ProjectDefinition? project, FormDefinition? startup, VBWindowContext rootContext,
-        Debugging.IDebugController? debugController, Func<FormDefinition, IFormView>? openForm)
+        Debugging.IDebugGate? debugController, Func<FormDefinition, IFormView>? openForm)
     {
         this.openForm = openForm;
         if (project is not null)

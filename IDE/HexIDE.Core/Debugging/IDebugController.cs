@@ -5,37 +5,23 @@ using System.Threading.Tasks;
 namespace HexIDE.Runtime.Debugging;
 
 /// <summary>
-/// The DAP-shaped seam between the running interpreter and any debugger front-end (the IDE debug UI, the MCP
-/// debug tools, or a future external DAP client). It models DAP <em>concepts</em> — breakpoints, a "stopped"
-/// event carrying a reason + location, continue/step commands, and (later phases) scopes/variables/evaluate —
-/// <em>without</em> the DAP wire protocol. The interpreter calls <see cref="OnStatementAsync"/> at every statement
-/// (the cooperative pause-gate); the front-end sets breakpoints and issues Continue/Pause/Step/Stop.
+/// The DAP-shaped seam between a running program and any debugger front-end (the IDE debug UI, the MCP debug tools,
+/// or a future external DAP client). It models DAP <em>concepts</em> — breakpoints, a "stopped" event carrying a
+/// reason + location, continue/step commands, and scopes/variables/evaluate — <em>without</em> the DAP wire protocol.
 ///
-/// This is runtime <b>execution machinery</b> (it suspends and inspects a live walk) — it does no static
-/// analysis, and so is in-bounds under the CST-not-AST limit.
+/// This is the half a front end uses: it sets breakpoints and issues Continue/Pause/Step/Stop. It names nothing of
+/// any one engine's. What the interpreter itself calls, at every statement, is <c>IDebugGate</c> in
+/// <c>HexIDE.Runtime</c>, which extends this.
 /// </summary>
 public interface IDebugController
 {
     /// <summary>Running (walking), Paused (in Break mode), or Stopped (reset/torn down).</summary>
     DebugState State { get; }
 
-    /// <summary>Whether this host offers debugging, rather than only a fatal-error halt.</summary>
-    bool CanBreak => true;
-
-    /// <summary>True from the moment a reset (<see cref="Stop"/>) begins until the walk finishes unwinding. While
-    /// set, the gate raises <see cref="StopExecutionSignal"/> and the interpreter suppresses <c>Class_Terminate</c>
-    /// — VB6 <c>End</c> abruptly terminates and fires NO Terminate (oracle-verified).</summary>
-    bool IsAborting { get; }
-
     /// <summary>True from a run's <see cref="Reset"/> (run start) until its <see cref="Stop"/> (run end) — i.e.
     /// while the project is running OR paused in the debugger. Lets the IDE know a run is live without depending on
     /// the project runner (which would cycle through the editor factory).</summary>
     bool IsSessionActive { get; }
-
-    /// <summary>The run's generation, which <see cref="Reset"/> advances. Code of a run that has ended can resume
-    /// after the next run has begun, by which time <see cref="IsAborting"/> has been cleared again; a generation
-    /// taken while the run was live tells it the run it belongs to has gone.</summary>
-    int Session { get; }
 
     /// <summary>Where the walk is paused (module + 1-based line + reason), or null when not paused.</summary>
     StoppedInfo? CurrentStop { get; }
@@ -105,51 +91,9 @@ public interface IDebugController
     /// current-statement bar moves to the target.</summary>
     bool SetNextStatement(string module, int line);
 
-    /// <summary>Reset: unwind the running walk (via <see cref="StopExecutionSignal"/>) with no Class_Terminate,
+    /// <summary>Reset: unwind the running walk with no Class_Terminate,
     /// matching VB6 <c>End</c>. Idempotent.</summary>
     void Stop();
-
-    /// <summary>Called by the interpreter when the outermost activation unwinds — a dispatch (event-handler chain)
-    /// has returned to idle. Disarms any step that was armed but never consumed, so a leftover Step Into/Over/Out
-    /// can't spuriously break the NEXT, unrelated event. A no-op unless a step is armed and the state is Running.</summary>
-    void NotifyDispatchIdle();
-
-    /// <summary>The cooperative pause-gate — the interpreter awaits this before executing each statement. Fast,
-    /// synchronous, and allocation-free on the hot path (no breakpoint here, not stepping, not paused); it only
-    /// goes async to suspend at a break, to hold a frozen newcomer, or to time-slice a yield so a Ctrl+Break can
-    /// land on a tight loop. <paramref name="line"/> is the statement's 1-based source line; <paramref
-    /// name="module"/> is the runtime module name (matched against the breakpoint set); <paramref name="frame"/> is
-    /// the executing activation (captured for Locals only when this statement decides to break — no hot-path cost).</summary>
-    ValueTask OnStatementAsync(int line, string module, IDebugFrame? frame);
-
-    /// <summary>A breakpoint-only position leaves stepping at its existing statement positions.</summary>
-    ValueTask OnBreakpointPositionAsync(int line, string module, IDebugFrame frame) => ValueTask.CompletedTask;
-
-    /// <summary>Enter Break for the <c>Stop</c> statement (reason = StopStatement). Awaited by the interpreter so
-    /// execution suspends exactly as it would at a breakpoint.</summary>
-    ValueTask EnterBreakFromStopStatementAsync(int line, string module, IDebugFrame? frame);
-
-    /// <summary>Enter Break for a <c>Debug.Assert</c> whose condition does not hold (reason = Assertion), as for
-    /// <see cref="EnterBreakFromStopStatementAsync"/>.</summary>
-    ValueTask EnterBreakFromAssertionAsync(int line, string module, IDebugFrame? frame);
-
-    /// <summary>
-    /// Who answers a run-time error that nothing handles (#1011): the host, which shows VB6's dialog. It answers true for
-    /// Debug, and false for End once it has ended the run. A standalone host offers only OK and exits. While it is null
-    /// the program does not halt: the error unwinds to the event's dispatch, which reports it, as before.
-    /// </summary>
-    Func<VBRunTimeException, Task<bool>>? HaltHost { get; set; }
-
-    /// <summary>Whether a run-time error nothing handles halts the program: whether <see cref="HaltHost"/> is set.</summary>
-    bool CanHalt { get; }
-
-    /// <summary>
-    /// Halt on a run-time error nothing handles, at the statement that raised it, before anything unwinds (#1011). The
-    /// interpreter awaits this inside the faulting statement. It returns true once the developer chose Debug and the break
-    /// that followed has been resumed, for the statement to run again, all of it, as VB6 retries it (measured). End raises
-    /// <see cref="StopExecutionSignal"/>, as the End button does. False means no host is set, and the error goes on.
-    /// </summary>
-    ValueTask<bool> HaltAsync(VBRunTimeException error, int line, string module, IDebugFrame? frame);
 
     /// <summary>The Locals for the frame that is currently paused, or null when not in Break mode. Read by the IDE
     /// Locals pane and the MCP <c>get_locals</c> tool on each <see cref="Stopped"/>. Children are lazy per node.</summary>
@@ -186,23 +130,3 @@ public readonly record struct WatchBreakSpec(string Expression, bool BreakOnChan
 
 /// <summary>Where and why execution is paused (line is 1-based, matching the editor and ANTLR).</summary>
 public readonly record struct StoppedInfo(StopReason Reason, string Module, int Line);
-
-/// <summary>
-/// Internal control-flow exception that unwinds the interpreter's walk on a debugger reset (Stop). Like the
-/// interpreter's <c>GoToSignal</c>/<c>ResumeSignal</c> it is NOT a <c>VBRunTimeException</c>, so the On-Error
-/// traps never catch it; it propagates through every <c>try/finally</c> (refcount teardown runs but is suppressed
-/// while <see cref="IDebugController.IsAborting"/> is set) up to the interpreter's entry point, which swallows it.
-/// Public so the run-window boundary can defensively catch it too.
-/// </summary>
-public sealed class StopExecutionSignal : Exception
-{
-    public StopExecutionSignal() : base("Debugger reset (Stop)") { }
-}
-
-/// <summary>Raised inside an Immediate-window evaluation for an operation that isn't supported there (v1: calling a
-/// user Sub/Function, which would also deadlock the paused UI-thread gate). The evaluator catches it and returns
-/// the message as the printed result — it is NOT a program runtime error.</summary>
-public sealed class ImmediateEvalException : Exception
-{
-    public ImmediateEvalException(string message) : base(message) { }
-}

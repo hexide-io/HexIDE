@@ -8,7 +8,7 @@ An adopter ships the unchanged managed implementation plus a JSON descriptor, wi
 carried patches. A supported repack tool supplies native identity; the adopter signs its output.
 The policy is decided; the [OpenSpec change](../../openspec/changes/2026-11-03-white-label/)
 records intended behaviour and the engineering acceptance still needed before implementation.
-A first slice of descriptor loading has shipped ([how to use it](../white-label.md)); repacking is not implemented.
+A first slice of descriptor loading has shipped ([how to use it](../white-label.md)); repacking exists for Windows only.
 
 The issue's 2026-10-26 inventory was re-checked against `upstream/main` at `419088e1` on 2026-11-03.
 The source locations below are that revision's locations. The landed profile consumers and recovery

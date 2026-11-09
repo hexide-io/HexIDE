@@ -97,7 +97,7 @@ public class VBWindowContext : IModuleExecutionRoot
     /// <param name="classModules">
     /// The project's class modules, so <c>New SomeClass</c> resolves from a form.
     /// </param>
-    public void SetCode(string code, string moduleName = "Module1", Debugging.IDebugController? debugController = null,
+    public void SetCode(string code, string moduleName = "Module1", Debugging.IDebugGate? debugController = null,
         Interpreter.AppInfo? appInfo = null,
         IReadOnlyList<(string Name, string Code)>? additionalModules = null,
         IReadOnlyList<(string Name, string Code)>? classModules = null)
@@ -125,7 +125,7 @@ public class VBWindowContext : IModuleExecutionRoot
     internal BasicInterpreter? Interpreter => interpreter;
 
     /// <summary>Whether this context belongs to the named run, for hosts listening to static runtime events.</summary>
-    public bool IsInDebugSession(Debugging.IDebugController controller, int session)
+    public bool IsInDebugSession(Debugging.IDebugGate controller, int session)
         => interpreter?.IsInDebugSession(controller, session) == true;
 
     /// <summary>The running form, an instance of the form module (#822), or null before <see cref="SetCode"/>.</summary>

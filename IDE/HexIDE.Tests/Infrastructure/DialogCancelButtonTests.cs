@@ -36,7 +36,11 @@ public class DialogCancelButtonTests
                 continue;
             var document = XDocument.Load(file, LoadOptions.SetLineInfo);
             foreach (var button in document.Descendants().Where(e => e.Name.LocalName == "Button" && IsCancel(e)))
+            {
+                // This inline action discards a pending shortcut, not the Options dialog.
+                if ((string?)button.Attribute("Command") == "{CompiledBinding CancelCaptureCommand}") continue;
                 yield return (button, $"{relative}:{((IXmlLineInfo)button).LineNumber}");
+            }
         }
     }
 

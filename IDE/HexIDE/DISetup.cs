@@ -161,7 +161,7 @@ public partial class DISetup
                 ctx.Inject<IClock>(out var clock);
                 return new HexIDE.Recovery.RecoveryService(projects, clock);
             })
-            .Bind<ISettingsService>().As(Singleton).To<SettingsService>()
+            .Bind<ISettingsService>().As(Singleton).To(_ => new SettingsService())
             .Bind<IWindowStateService>().As(Singleton).To(ctx =>
             {
                 ctx.Inject<ISettingsService>(out var settings);
@@ -174,7 +174,8 @@ public partial class DISetup
             .Bind<HexIDE.Debugging.IBreakpointService>().As(Singleton).To<HexIDE.Debugging.BreakpointService>()
             .Bind().As(Singleton).To<HexIDE.Debugging.WatchService>()
             .Bind<HexIDE.Debugging.IRunScope>().Bind().As(Singleton).To<HexIDE.Debugging.RunScope>()
-            .Bind<HexIDE.Runtime.Debugging.IDebugController>().As(Singleton).To<HexIDE.Runtime.Debugging.DebugController>()
+            .Bind<HexIDE.Runtime.Debugging.IDebugController>().Bind<HexIDE.Runtime.Debugging.IDebugGate>().As(Singleton)
+                .To<HexIDE.Runtime.Debugging.DebugController>()
             .Bind().As(Singleton).To<HexIDE.Debugging.ExternalDebugService>()
             .Bind<HexIDE.Debugging.IRunChoiceStore>().As(Singleton).To<HexIDE.Debugging.RunChoiceStore>()
             // Bound, so the main view's optional parameter is given it rather than its default.
@@ -349,14 +350,15 @@ public partial class DISetup
             })
             .Bind<ILoggerFactory>().As(Singleton).To(_ => LoggingSetup.LoggerFactory)
             .Bind<ILogger<TT>>().As(Singleton).To<Logger<TT>>()
+            // Pin production constructors: path/snapshot overloads are test seams, not dependencies.
             // Profiles
-            .Bind<IProfileService>().As(Singleton).To<ProfileService>()
+            .Bind<IProfileService>().As(Singleton).To(_ => new ProfileService())
             // Theming
             .Bind<IThemeService>().As(Singleton).To(_ => new ThemeService())
             // Keymaps
             .Bind<IKeymapService>().As(Singleton).To(_ => new KeymapService())
             // Localization
-            .Bind<IUserTranslationsService>().As(Singleton).To<UserTranslationsService>()
+            .Bind<IUserTranslationsService>().As(Singleton).To(_ => new UserTranslationsService())
             .Bind<ILocalizationService>().As(Singleton).To(ctx =>
             {
                 ctx.Inject<IUserTranslationsService>(out var translations);

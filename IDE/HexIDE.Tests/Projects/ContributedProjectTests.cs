@@ -532,7 +532,7 @@ public sealed class ContributedProjectTests : IDisposable
         var projects = Substitute.For<IProjectManager>();
         projects.StartupProject.Returns(project);
         var events = Substitute.For<IEventBus>();
-        var interpreter = Substitute.For<IDebugController>();
+        var interpreter = Substitute.For<IDebugGate>();
         var runner = HexIDE.IDE.TestRunners.WithInterpreter(events, _windows, projects, Substitute.For<ILocalizationService>(),
             interpreter, Substitute.For<IBreakpointService>(), new WatchService(), new RunScope());
 

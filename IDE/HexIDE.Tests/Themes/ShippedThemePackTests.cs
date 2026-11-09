@@ -34,7 +34,7 @@ public class ShippedThemePackTests
     /// </summary>
     private const double Distinct = 1.5;
 
-    public static TheoryData<string> Packs => new() { "Classic", "Dark", "Abyss" };
+    public static TheoryData<string> Packs => new() { "Classic", "Dark", "Abyss", "HighContrastLight", "HighContrastDark" };
 
     [Theory]
     [MemberData(nameof(Packs))]

@@ -17,8 +17,10 @@ public interface IHexIdeHost
     IOptionsPageContributor Options { get; }
 
     IDisposable RegisterCommand(string id, string label, Action onInvoke, string? gesture = null, Func<bool>? canExecute = null);
-    void RegisterComponent(IComponentClass component);
-    void RegisterProjectTemplate(IAddinProjectTemplate template);
+    /// <summary>Contributes a toolbox control until the returned handle is disposed.</summary>
+    IDisposable RegisterComponent(IComponentClass component);
+    /// <summary>Contributes a template to subsequently opened New Project dialogs until the returned handle is disposed.</summary>
+    IDisposable RegisterProjectTemplate(IAddinProjectTemplate template);
 
     /// <summary>Starts the startup project in the IDE runtime. Returns false if it cannot start (none loaded or already running).</summary>
     bool RunProject();
