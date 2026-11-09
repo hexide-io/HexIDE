@@ -1909,7 +1909,10 @@ public static class UiAutomationDriver
         var holding = keys == KeyModifiers.None ? "" : " holding " + string.Join(" and ",
             new[] { (KeyModifiers.Shift, "shift"), (KeyModifiers.Control, "ctrl"), (KeyModifiers.Alt, "alt") }
                 .Where(k => keys.HasFlag(k.Item1)).Select(k => k.Item2));
-        var pressed = $"the {name} button{holding} at {where}{landing}";
+        // Here and not with the same window's above: no press is refused past this point, so nothing ends one for a click
+        // that never happened. The pointer is over one window at a time (#3424).
+        var left = EndStayingHoverElsewhere(topLevel) is { } was ? $"; the pointer left {was}" : string.Empty;
+        var pressed = $"the {name} button{holding} at {where}{landing}{left}";
         // Each held move is input of its own, raised by FinishAsync with the dispatcher's layout run between them, as a
         // real pointer's moves are. Dock adds its drop target on the first move past its threshold and finds the drop
         // from that target's layout, so eight moves raised in one burst left the release over a target with no size,
@@ -4525,7 +4528,7 @@ public static class UiAutomationDriver
     {
         if (hovered.IsPointerOver)
             return $"; the pointer stays there and '{Describe(hovered)}' reads as under it (isPointerOver), so take_snapshot "
-                   + "shows its pointer-over look and any tip, until the next click, drag or hover in this window, a hover in another, or the real "
+                   + "shows its pointer-over look and any tip, until the next click, drag or hover, in this window or another, or the real "
                    + "mouse's next move over it";
         var why = moved is null ? "input the hover did not send has moved it"
             : saidAlready ? "what moved the pointer, above, took it" : moved;

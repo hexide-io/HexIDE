@@ -1166,8 +1166,8 @@ SHALL send nothing to any window.
 `hover` with `stay` SHALL leave the pointer on the point when its watch ends, so the control it landed on reads as under
 the pointer and a tip it opened stays open, and `take_snapshot` SHALL draw that tip with the window. The reply SHALL say
 whether the control reads as under the pointer once the move has settled, and what took it when it does not. The next
-click, drag or hover in that window SHALL end a staying hover before it acts. A hover in another window SHALL end it
-too, and its reply SHALL name the window the pointer left. `inspect_element` SHALL report `isPointerOver`.
+click, drag or hover in that window SHALL end a staying hover before it acts. A click, drag or hover in another window
+SHALL end it too, and its reply SHALL name the window the pointer left. `inspect_element` SHALL report `isPointerOver`.
 
 #### Scenario: A toolbar button's hover look
 - **WHEN** `hover` with `stay` lands on a toolbar button that has a tip, with the real mouse off the window
