@@ -606,6 +606,33 @@ public class GuardedWritersTests : IDisposable
         vm.Document.Text.Should().Be(before);
     }
 
+    [AvaloniaFact]
+    public void WholeFileReadOnlyRefusesContentReplacement()
+    {
+        localization.GetString("Str.CodeEditor.FileNotSaved.Banner").Returns("file cannot be saved");
+        var vm = OpenFormHeldReadOnly();
+        var before = vm.Document.Text;
+
+        vm.ReplaceContent(before.Replace("= False", "= True")).Refusal.Should().Be("file cannot be saved");
+
+        vm.Document.Text.Should().Be(before);
+        vm.Document.UndoStack.CanUndo.Should().BeFalse();
+    }
+
+    [AvaloniaFact]
+    public void WholeFileReadOnlyRefusesRangeEdits()
+    {
+        localization.GetString("Str.CodeEditor.FileNotSaved.Banner").Returns("file cannot be saved");
+        var vm = OpenFormHeldReadOnly();
+        var before = vm.Document.Text;
+
+        vm.ApplyEdits([new TextChange(before.IndexOf("False", StringComparison.Ordinal), 5, "True")])
+            .Should().Be("file cannot be saved");
+
+        vm.Document.Text.Should().Be(before);
+        vm.Document.UndoStack.CanUndo.Should().BeFalse();
+    }
+
     // ── Add-in SetContent and automation set_file_content: whole file with its header, or code alone ────
 
     [AvaloniaFact]

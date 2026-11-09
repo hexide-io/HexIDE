@@ -316,6 +316,16 @@ one visible line, so a mark set there would land on a line the developer cannot 
 - **WHEN** the developer sets a breakpoint on a line of code in such a form
 - **THEN** it is set, because the document being read-only as a whole is not a read-only region
 
+### Requirement: Add-in writes to an open unsaveable form SHALL be refused
+When a code window holds a form read-only as a whole because it cannot be saved faithfully, its whole-content
+replacement and add-in range-edit paths SHALL refuse before changing the buffer or undo history. The refusal
+SHALL use `Str.CodeEditor.FileNotSaved.Banner`, the same explanation the window shows. This also applies to
+automation's `set_file_content` when it writes through that open code window (#701).
+
+#### Scenario: An add-in changes only ordinary code in an unsaveable form
+- **WHEN** an add-in replaces the content or applies range edits entirely outside the protected regions
+- **THEN** the write is refused with the whole-file explanation and the buffer and undo history are unchanged
+
 ### Requirement: A designer change SHALL reach the header without becoming a code edit
 A committed change in a form's designer — a property, a control added or removed, a move, the menu editor, the
 colour palette, the same change made through automation — SHALL be reflected in the header of the form's open
