@@ -174,7 +174,8 @@ public partial class DISetup
             .Bind<HexIDE.Debugging.IBreakpointService>().As(Singleton).To<HexIDE.Debugging.BreakpointService>()
             .Bind().As(Singleton).To<HexIDE.Debugging.WatchService>()
             .Bind<HexIDE.Debugging.IRunScope>().Bind().As(Singleton).To<HexIDE.Debugging.RunScope>()
-            .Bind<HexIDE.Runtime.Debugging.IDebugController>().As(Singleton).To<HexIDE.Runtime.Debugging.DebugController>()
+            .Bind<HexIDE.Runtime.Debugging.IDebugController>().Bind<HexIDE.Runtime.Debugging.IDebugGate>().As(Singleton)
+                .To<HexIDE.Runtime.Debugging.DebugController>()
             .Bind().As(Singleton).To<HexIDE.Debugging.ExternalDebugService>()
             .Bind<HexIDE.Debugging.IRunChoiceStore>().As(Singleton).To<HexIDE.Debugging.RunChoiceStore>()
             // Bound, so the main view's optional parameter is given it rather than its default.

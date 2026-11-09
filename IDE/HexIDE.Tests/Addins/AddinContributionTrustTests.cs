@@ -81,7 +81,7 @@ public sealed class AddinContributionTrustTests : IAsyncDisposable
         _launches = new DebugLaunchService(_debugger);
         _projects.StartupProject.Returns(_project);
         _runner = TestRunners.WithInterpreter(Substitute.For<IEventBus>(), Substitute.For<IWindowManager>(), _projects, localization,
-            Substitute.For<IDebugController>(), Substitute.For<IBreakpointService>(), new WatchService(), new RunScope(), _debugger,
+            Substitute.For<IDebugGate>(), Substitute.For<IBreakpointService>(), new WatchService(), new RunScope(), _debugger,
             debugLaunches: _launches, runChoices: _choices, statusBar: Substitute.For<IStatusBarService>());
         // The test project has no startup form, so F5 that goes to the interpreter fails at once and says so.
         _runner.StartFailed += _interpreterStarts.Add;
