@@ -82,9 +82,11 @@ public class ListViewDrawingTests
         void Pixel(int x, int y, Avalonia.Media.Color expected)
         {
             var offset = (y * 320 + x) * 4;
-            pixels[offset].Should().Be(expected.B);
+            // macOS renders Rgba8888 where Windows and Linux render Bgra8888.
+            var rgba = bitmap.Format == Avalonia.Platform.PixelFormat.Rgba8888;
+            pixels[offset].Should().Be(rgba ? expected.R : expected.B);
             pixels[offset + 1].Should().Be(expected.G);
-            pixels[offset + 2].Should().Be(expected.R);
+            pixels[offset + 2].Should().Be(rgba ? expected.B : expected.R);
             pixels[offset + 3].Should().Be(255);
         }
 
