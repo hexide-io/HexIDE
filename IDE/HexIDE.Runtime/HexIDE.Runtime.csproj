@@ -15,6 +15,9 @@
     <ItemGroup>
         <PackageReference Include="Avalonia" />
         <PackageReference Include="Classic.Avalonia.Theme" />
+        <!-- Direct, so the central version wins: Classic asks for Avalonia.Skia 12.0.1, and a build with an older Skia than
+             Avalonia core fails every type scan in the process with a TypeLoadException (#868). -->
+        <PackageReference Include="Avalonia.Skia" />
         <PackageReference Include="LanguageExt.Core" />
         <PackageReference Include="Serilog" />
         <PackageReference Include="PropertyChanged.SourceGenerator" PrivateAssets="all" IncludeAssets="runtime; build; native; contentfiles; analyzers; buildtransitive" />
