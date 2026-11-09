@@ -74,11 +74,17 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
     [Notify]
     private ComponentInstanceViewModel? selectedComponent;
 
+    private void OnSelectedComponentChanged()
+    {
+        if (selectedComponent is { HasDesignerPreview: false })
+            SelectedComponent = Form;
+    }
+
     public IReadOnlyList<ComponentInstanceViewModel> SelectedComponents { get; private set; } = [];
 
     public void SetSelectedComponents(IEnumerable<ComponentInstanceViewModel> components)
     {
-        SelectedComponents = [.. components];
+        SelectedComponents = [.. components.Where(c => c.HasDesignerPreview)];
         OnPropertyChanged(new PropertyChangedEventArgs(nameof(SelectedComponents)));
         CommandManager.InvalidateRequerySuggested();
     }
@@ -96,6 +102,24 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
     public bool CanMakeSameSize(object? parameter) => HasMultipleSelectedControls;
 
     public ObservableCollection<ComponentInstanceViewModel> AllComponents { get; } = new();
+    public ObservableCollection<ComponentInstanceViewModel> SelectableComponents { get; } = new();
+
+    internal void RefreshPreviewSelection()
+    {
+        OnSelectedComponentChanged();
+        SetSelectedComponents(SelectedComponents);
+        var selectable = AllComponents.Where(c => c.HasDesignerPreview).ToList();
+        foreach (var item in SelectableComponents.Except(selectable).ToList())
+            SelectableComponents.Remove(item);
+        for (var i = 0; i < selectable.Count; i++)
+        {
+            var oldIndex = SelectableComponents.IndexOf(selectable[i]);
+            if (oldIndex < 0)
+                SelectableComponents.Insert(i, selectable[i]);
+            else if (oldIndex != i)
+                SelectableComponents.Move(oldIndex, i);
+        }
+    }
 
     /// <summary>
     /// The view-model wrapping a given model component, for the walks that start from the model tree — the
@@ -140,6 +164,7 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
     // is deleted, and comes back with it on undo. No other change can alter the boxes.
     private void OnAllComponentsChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {
+        RefreshPreviewSelection();
         static bool HoldsAny(IList? items) =>
             items?.OfType<ComponentInstanceViewModel>().Any(c => c.Instance.PreservedChildSubtrees.Count > 0) == true;
 
