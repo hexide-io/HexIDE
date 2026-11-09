@@ -73,7 +73,7 @@ public class DialogButtonCueTests
     {
         var themes = new ThemeService();
         themes.Apply(theme);
-        var box = new HexIDE.Runtime.Dialogs.MessageBox { Text = "Choose", Buttons = MessageBoxButtons.YesNo };
+        var box = new HexIDE.Dialogs.MessageBox { Text = "Choose", Buttons = MessageBoxButtons.YesNo };
         var window = new Window { Content = box, Width = 360, Height = 180 };
         window.Show();
         Dispatcher.UIThread.RunJobs();
@@ -110,12 +110,12 @@ public class DialogButtonCueTests
     {
         var themes = new ThemeService();
         themes.Apply(theme);
-        var runtime = view is "ColorDialog" or "PrintDialog" or "InputBox";
-        var assembly = runtime ? typeof(HexIDE.Runtime.Dialogs.InputBox).Assembly : typeof(DialogWindow).Assembly;
-        var prefix = runtime ? "HexIDE.Runtime.Dialogs." : view == "MenuEditorView"
+        var managed = view is "ColorDialog" or "PrintDialog" or "InputBox";
+        var assembly = typeof(DialogWindow).Assembly;
+        var prefix = managed ? "HexIDE.Dialogs." : view == "MenuEditorView"
             ? "HexIDE.VisualDesigner." : "HexIDE.Forms.Views.";
         var content = (Control)System.Activator.CreateInstance(assembly.GetType(prefix + view)!)!;
-        var factory = runtime || view is "AboutDialog" or "FontDialog";
+        var factory = managed || view is "AboutDialog" or "FontDialog";
         var window = factory
             ? new WindowManager(Substitute.For<HexIDE.Localization.ILocalizationService>()).MakeDialogWindow("Title", content)
             : new DialogWindow { Content = content };
@@ -213,10 +213,8 @@ public class DialogButtonCueTests
     public void DialogFactoryExcludesProgramDialogs(bool program)
     {
         var manager = new WindowManager(Substitute.For<HexIDE.Localization.ILocalizationService>());
-        var window = manager.MakeDialogWindow("Title", new HexIDE.Runtime.Dialogs.MessageBox
-        {
-            IsProgramDialog = program
-        });
+        var window = manager.MakeDialogWindow("Title", program ? new HexIDE.Runtime.Dialogs.MessageBox { IsProgramDialog = true }
+            : new HexIDE.Dialogs.MessageBox());
         try { window.Classes.Contains("ideDialog").Should().Be(!program); }
         finally { window.Close(); }
     }
@@ -265,9 +263,9 @@ public class DialogButtonCueTests
     {
         var themes = new ThemeService();
         themes.Apply(theme);
-        var runtime = view is "ColorDialog" or "PrintDialog" or "InputBox" or "MessageBox";
-        var assembly = runtime ? typeof(HexIDE.Runtime.Dialogs.InputBox).Assembly : typeof(DialogWindow).Assembly;
-        var prefix = runtime ? "HexIDE.Runtime.Dialogs." : view == "MenuEditorView"
+        var managed = view is "ColorDialog" or "PrintDialog" or "InputBox" or "MessageBox";
+        var assembly = typeof(DialogWindow).Assembly;
+        var prefix = managed ? "HexIDE.Dialogs." : view == "MenuEditorView"
             ? "HexIDE.VisualDesigner." : "HexIDE.Forms.Views.";
         var viewType = view is "NewProjectExisting" or "NewProjectRecent" ? "NewProjectView" : view;
         var content = (Control)System.Activator.CreateInstance(assembly.GetType(prefix + viewType)!)!;

@@ -32,8 +32,8 @@ public class ProgramWindowTests : WindowTestFixture
         {
             Content = kind switch
             {
-                "message" => new HexIDE.Runtime.Dialogs.MessageBox(),
-                "input" => new HexIDE.Runtime.Dialogs.InputBox(),
+                "message" => new HexIDE.Dialogs.MessageBox(),
+                "input" => new HexIDE.Dialogs.InputBox(),
                 _ => new CheckBox()
             }
         };

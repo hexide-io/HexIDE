@@ -22,7 +22,11 @@ public static class OpenDialogs
     /// </summary>
     public static List<Window> Among(IEnumerable<Window> windows) =>
         [.. windows.Where(w => w.IsVisible
-            && (w.IsDialog || w.Content is HexIDE.Runtime.Dialogs.MessageBox or HexIDE.Runtime.Dialogs.InputBox))];
+            && (w.IsDialog || IsBox(w.Content)))];
+
+    internal static bool IsBox(object? content) =>
+        content is HexIDE.Dialogs.MessageBox or HexIDE.Dialogs.InputBox
+        || HexIDE.IDE.ProgramDialogs.IsRuntimeBox(content);
 
     // The watch of the call under way, for the wait for a program to record the dialog it named.
     private static readonly AsyncLocal<DialogWatch?> Current = new();
@@ -79,7 +83,8 @@ public static class OpenDialogs
         var content = dialog.Content;
         var kind = content switch
         {
-            HexIDE.Runtime.Dialogs.MessageBox => "a message box",
+            HexIDE.Dialogs.MessageBox => "a message box",
+            _ when HexIDE.IDE.ProgramDialogs.IsRuntimeMessageBox(content) => "a message box",
             HexIDE.Forms.Views.RuntimeErrorView => "the run-time error dialog",
             Control { DataContext: HexIDE.Forms.ViewModels.RuntimeErrorViewModel } => "the run-time error dialog",
             HexIDE.Forms.ViewModels.RuntimeErrorViewModel => "the run-time error dialog",

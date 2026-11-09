@@ -2492,7 +2492,7 @@ public static class UiAutomationDriver
                         // first waits for the next one rather than describe an empty box (#1975 review).
                         Built = dialog?.Content is not Control { IsLoaded: false },
                         // A program's own box holds its handler; another window, such as the IDE's compile error, may not.
-                        Box = dialog?.Content is HexIDE.Runtime.Dialogs.MessageBox or HexIDE.Runtime.Dialogs.InputBox,
+                        Box = OpenDialogs.IsBox(dialog?.Content),
                         Opened = OpenedForms(watch),
                         Finished = watch.Pump.FinishedSince(watch.LiveBefore),
                         // Read here, on the UI thread, as the reply below is composed off it.
@@ -2562,8 +2562,7 @@ public static class UiAutomationDriver
     {
         if (window is HexIDE.Runtime.IModuleExecutionRoot { Events: { } events })
             return (events, window);
-        if (window.Content is not (HexIDE.Runtime.Dialogs.MessageBox { IsProgramDialog: true }
-            or HexIDE.Runtime.Dialogs.InputBox { IsProgramDialog: true }))
+        if (!HexIDE.IDE.ProgramDialogs.IsProgramBox(window.Content))
             return null;
         for (var at = window.Owner as Window; at is not null; at = at.Owner as Window)
             if (at is HexIDE.Runtime.IModuleExecutionRoot { Events: { } ownerEvents })
@@ -2605,8 +2604,7 @@ public static class UiAutomationDriver
     /// </summary>
     private static Window? DialogOf(ProgramWatch watch) =>
         OpenWindows().Where(w => !watch.Before.Contains(w))
-            .Concat((watch.Form?.OwnedWindows ?? []).OrderBy(w => w.Content is HexIDE.Runtime.Dialogs.MessageBox
-                                                                       or HexIDE.Runtime.Dialogs.InputBox ? 0 : 1))
+            .Concat((watch.Form?.OwnedWindows ?? []).OrderBy(w => OpenDialogs.IsBox(w.Content) ? 0 : 1))
             .FirstOrDefault(w => w.IsVisible && w != watch.Form && w is not HexIDE.Runtime.IModuleExecutionRoot
                                  && (watch.WaitingOnWindowBefore || !watch.Before.Contains(w)));
 

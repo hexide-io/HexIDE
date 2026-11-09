@@ -10,10 +10,10 @@ using Avalonia.Media;
 using Avalonia.Platform;
 using Avalonia.Platform.Storage;
 using HexIDE.Controls;
+using HexIDE.Dialogs;
 using HexIDE.Forms.ViewModels;
 using HexIDE.Forms.Views;
 using HexIDE.Localization;
-using HexIDE.Runtime.Dialogs;
 using HexIDE.Utils;
 
 namespace HexIDE.IDE;
@@ -42,7 +42,7 @@ public class WindowManager : IWindowManager
         _localization = localization;
     }
 
-    private Window GetTopWindow(IClassicDesktopStyleApplicationLifetime lifetime)
+    internal Window GetTopWindow(IClassicDesktopStyleApplicationLifetime lifetime)
     {
         foreach (var window in lifetime.Windows)
         {
@@ -76,7 +76,7 @@ public class WindowManager : IWindowManager
         return WindowTask();
     }
 
-    private Task ShowManagedWindow(out MDIWindow window, string? title = null, object? content = null, bool canClose = true)
+    internal Task ShowManagedWindow(out MDIWindow window, string? title = null, object? content = null, bool canClose = true)
     {
         window = new MDIWindow()
         {
@@ -90,7 +90,7 @@ public class WindowManager : IWindowManager
             HorizontalAlignment = HorizontalAlignment.Center,
             VerticalAlignment = VerticalAlignment.Center
         };
-        if (content is not (MessageBox { IsProgramDialog: true } or InputBox { IsProgramDialog: true }))
+        if (!ProgramDialogs.IsProgramBox(content))
             window.Classes.Add("ideDialog");
         return ShowManagedWindow(window);
     }
@@ -133,12 +133,13 @@ public class WindowManager : IWindowManager
 
     public async Task<string?> InputBox(string prompt, string? caption, string defaultText, bool isProgramDialog = false)
     {
+        if (isProgramDialog)
+            return await ProgramDialogs.ShowInputBox(this, prompt, caption, defaultText);
         caption ??= Distribution.DisplayName;
         if (Static.SingleView)
         {
             var inputBox = new InputBox
             {
-                IsProgramDialog = isProgramDialog,
                 Prompt = prompt,
                 Text = defaultText
             };
@@ -163,7 +164,7 @@ public class WindowManager : IWindowManager
         else if (Application.Current!.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
             string? result = null;
-            var inputBox = new InputBox { IsProgramDialog = isProgramDialog, Prompt = prompt, Text = defaultText };
+            var inputBox = new InputBox { Prompt = prompt, Text = defaultText };
             var window = MakeDialogWindow(caption, inputBox);
             inputBox.TextRequest += r => { result = r; window.Close(); };
             await window.ShowDialog(GetTopWindow(desktop));
@@ -204,21 +205,22 @@ public class WindowManager : IWindowManager
         }
     }
 
-    private Task<MessageBoxResult> ShowDesktopMessageBox(IClassicDesktopStyleApplicationLifetime desktop, string text, string caption, MessageBoxButtons buttons, MessageBoxIcon icon, Window? owner, bool isProgramDialog = false)
+    private Task<MessageBoxResult> ShowDesktopMessageBox(IClassicDesktopStyleApplicationLifetime desktop, string text, string caption, MessageBoxButtons buttons, MessageBoxIcon icon, Window? owner)
     {
-        var messageBox = new MessageBox { IsProgramDialog = isProgramDialog, Text = text, Buttons = buttons, Icon = icon };
+        var messageBox = new MessageBox { Text = text, Buttons = buttons, Icon = icon };
         var window = MakeDialogWindow(caption, messageBox);
         return messageBox.ShowAndWait(window, owner ?? GetTopWindow(desktop));
     }
 
     public async Task<MessageBoxResult> MessageBox(string text, string? caption, MessageBoxButtons buttons, MessageBoxIcon icon, Window? owner, bool isProgramDialog = false)
     {
+        if (isProgramDialog)
+            return await ProgramDialogs.ShowMessageBox(this, text, caption, buttons, icon, owner);
         caption ??= Distribution.DisplayName;
         if (Static.SingleView)
         {
             var messageBox = new MessageBox
             {
-                IsProgramDialog = isProgramDialog,
                 Text = text,
                 Buttons = buttons,
                 Icon = icon
@@ -245,7 +247,7 @@ public class WindowManager : IWindowManager
         {
             // A person's close answers as Windows' does, or is refused where the box has none, and a box hidden with
             // its owner keeps waiting (see ShowAndWait).
-            return await ShowDesktopMessageBox(desktop, text, caption, buttons, icon, owner, isProgramDialog);
+            return await ShowDesktopMessageBox(desktop, text, caption, buttons, icon, owner);
         }
         else
             throw new NotImplementedException();
@@ -452,7 +454,7 @@ public class WindowManager : IWindowManager
         {
             Title = title,
             Content = content,
-            FlowDirection = content is MessageBox { IsProgramDialog: true } or InputBox { IsProgramDialog: true }
+            FlowDirection = ProgramDialogs.IsProgramBox(content)
                 ? FlowDirection.LeftToRight
                 : _localization.FlowDirection,
             SizeToContent = SizeToContent.WidthAndHeight,
@@ -460,7 +462,7 @@ public class WindowManager : IWindowManager
             CanResize = false,
             ShowActivated = true
         };
-        if (content is not (MessageBox { IsProgramDialog: true } or InputBox { IsProgramDialog: true }))
+        if (!ProgramDialogs.IsProgramBox(content))
             IdeDialogChrome.Apply(window);
         return window;
     }

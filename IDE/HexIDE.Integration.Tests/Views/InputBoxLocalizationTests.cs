@@ -4,7 +4,7 @@ using Avalonia.Headless.XUnit;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using HexIDE.Localization;
-using HexIDE.Runtime.Dialogs;
+using HexIDE.Dialogs;
 
 namespace HexIDE.Integration.Tests.Views;
 

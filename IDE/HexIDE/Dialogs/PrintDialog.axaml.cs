@@ -2,7 +2,7 @@ using System;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 
-namespace HexIDE.Runtime.Dialogs;
+namespace HexIDE.Dialogs;
 
 public partial class PrintDialog : UserControl
 {
