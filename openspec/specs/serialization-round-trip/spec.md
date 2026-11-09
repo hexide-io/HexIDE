@@ -50,6 +50,16 @@ carries is read as UTF-8 or, where that fails, as Latin-1, and is saved in the e
 
 ## Requirements
 
+### Requirement: Directory saves require replacement consent
+HexIDE's SaveProjectToDirectory operation SHALL name existing source, binary companion and project
+file destinations in one replacement question before writing any output. Only an explicit Yes SHALL
+allow the operation to proceed. This requirement describes a HexIDE addition, not VB6 Save As behavior.
+
+#### Scenario: A directory save would replace an existing file
+- **WHEN** a directory save targets an existing source, companion or project file
+- **THEN** the replacement question names that file
+- **AND** No or cancellation leaves every destination and the project's document paths unchanged
+
 ### Requirement: New member save pickers suggest the measured directory
 A save picker for a pathless form or module SHALL suggest its owning saved project's directory.
 For an unsaved project (including internal scratch persistence), subsequent pickers in the same save

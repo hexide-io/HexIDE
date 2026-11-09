@@ -67,6 +67,8 @@ public sealed class MemberAttributesFollowARenameTests : IDisposable
 
     private ProjectService MakeService()
     {
+        windows.MessageBox(Arg.Any<string>(), buttons: MessageBoxButtons.YesNo, icon: MessageBoxIcon.Warning)
+            .Returns(MessageBoxResult.Yes);
         var projectManager = Substitute.For<IProjectManager>();
         projectManager.LoadedProjects.Returns(_ => loaded);
         projectManager.When(m => m.AddProject(Arg.Any<ProjectDefinition>()))
