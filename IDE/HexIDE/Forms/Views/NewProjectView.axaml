@@ -4,6 +4,8 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:commonControls="clr-namespace:Classic.CommonControls;assembly=Classic.CommonControls.Avalonia"
              xmlns:viewModels="clr-namespace:HexIDE.Forms.ViewModels"
+             xmlns:ide="clr-namespace:HexIDE.IDE;assembly=HexIDE"
+             xmlns:core="clr-namespace:HexIDE.IDE;assembly=HexIDE.Core"
              x:DataType="viewModels:NewProjectViewModel"
              mc:Ignorable="d" d:DesignWidth="470" d:DesignHeight="401"
              Width="470"
@@ -14,8 +16,8 @@
 
         <ClassicBorderDecorator BorderStyle="ThinPressed" BorderThickness="1">
             <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="12,0" Spacing="12">
-                <Image Source="/Icons/AppIcon/hexide-logo-64.png" Width="46" Height="46" />
-                <TextBlock Text="HexIDE" VerticalAlignment="Center" FontSize="24" FontWeight="Bold" />
+                <Image Source="{x:Static ide:BrandAssets.Logo}" Width="46" Height="46" />
+                <TextBlock Text="{x:Static core:Distribution.DisplayName}" VerticalAlignment="Center" FontSize="24" FontWeight="Bold" />
             </StackPanel>
         </ClassicBorderDecorator>
 

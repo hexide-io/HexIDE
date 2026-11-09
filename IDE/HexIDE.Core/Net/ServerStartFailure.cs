@@ -43,7 +43,7 @@ public static class ServerStartFailure
     {
         if (IsPortInUse(failure))
             return (PortInUseExitCode,
-                $"HexIDE did not start: port {port} is already in use, most likely by another HexIDE started with "
+                $"{HexIDE.IDE.Distribution.DisplayName} did not start: port {port} is already in use, most likely by another {HexIDE.IDE.Distribution.DisplayName} started with "
               + $"--server-port {port}. Starting anyway would open an IDE with no automation server, and a client "
               + "would go on talking to the other one. Stop that one, or pass a different port."
               + Environment.NewLine);
@@ -52,7 +52,7 @@ public static class ServerStartFailure
         while (cause.InnerException is not null)
             cause = cause.InnerException;
         return (FailedToStartExitCode,
-            $"HexIDE did not start: the automation server could not listen on port {port}. {cause.Message}"
+            $"{HexIDE.IDE.Distribution.DisplayName} did not start: the automation server could not listen on port {port}. {cause.Message}"
           + Environment.NewLine);
     }
 }

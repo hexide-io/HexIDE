@@ -302,35 +302,47 @@ internal static class ServerOptions
     /// into bands — note that between about 94 and 120 columns the option lines do not themselves wrap,
     /// so those rows are a real cost rather than a free one.
     /// </remarks>
-    public static string HelpText(ConsoleTarget target)
+    public static string HelpText(ConsoleTarget target) => HelpText(target, Distribution.Current);
+
+    internal static string HelpText(ConsoleTarget target, DistributionIdentity identity)
     {
         var width = Options.Max(o => Spelling(o).Length);
+        var invocation = identity.IsStock
+            ? "HexIDE.Desktop"
+            : Path.GetFileNameWithoutExtension(Environment.ProcessPath) ?? identity.Name;
+        var heading = identity.IsStock
+            ? "HexIDE - an open, cross-platform IDE for Visual Basic 6 & VBA."
+            : identity.Tagline is { } tagline ? $"{identity.Name} - {tagline}" : identity.Name;
 
         string[] text =
         [
             "",
-            "HexIDE - an open, cross-platform IDE for Visual Basic 6 & VBA.",
+            heading,
             "",
             "Usage:",
-            "  HexIDE.Desktop [options] [<project>.vbp|.vbg|.twinproj]",
+            $"  {invocation} [options] [<project>.vbp|.vbg|.twinproj]",
             "",
             "Options:",
             .. Options.Select(o => $"  {Spelling(o).PadRight(width)}  {o.Summary}"),
         ];
 
-        var mark = target.Colour ? HelpMark.Colour() : HelpMark.Mono();
-        var body = ConsoleLayout.FitsBeside(target.Width, HelpMark.Width, text)
-            ? ConsoleLayout.Beside(mark, text, HelpMark.Width)
-            : ConsoleLayout.Stacked(mark, text);
+        // HexIDE's mark is HexIDE's. A distribution's help is the text alone.
+        IReadOnlyList<string> body = text;
+        if (identity.IsStock)
+        {
+            var mark = target.Colour ? HelpMark.Colour() : HelpMark.Mono();
+            body = ConsoleLayout.FitsBeside(target.Width, HelpMark.Width, text)
+                ? ConsoleLayout.Beside(mark, text, HelpMark.Width)
+                : ConsoleLayout.Stacked(mark, text);
+        }
 
         string[] tail =
         [
             "",
             "Both prefixes work: --newproject and /newproject are the same flag, matched",
-            "case-insensitively. An argument HexIDE does not recognise is ignored without",
+            $"case-insensitively. An argument {identity.Name} does not recognise is ignored without",
             "complaint, so a flag that appears to do nothing may simply be misspelled.",
-            "",
-            "Full reference: docs/command-line.md",
+            .. identity.IsStock ? (string[])["", "Full reference: docs/command-line.md"] : [],
         ];
 
         return string.Join(Environment.NewLine, [.. body, .. tail]);

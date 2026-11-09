@@ -6,11 +6,37 @@ using Classic.CommonControls;
 
 namespace HexIDE.Desktop;
 
-sealed class Program
+sealed partial class Program
 {
     // Initialization code. Don't use any Avalonia, third-party APIs or any
     // SynchronizationContext-reliant code before AppMain is called: things aren't initialized
     // yet and stuff might break.
+    [System.Runtime.InteropServices.LibraryImport("user32.dll", EntryPoint = "MessageBoxW",
+        StringMarshalling = System.Runtime.InteropServices.StringMarshalling.Utf16)]
+    private static partial int ShowNativeMessageBox(nint owner, string text, string caption, uint type);
+
+    private static string? EstablishDistribution()
+    {
+        try
+        {
+            HexIDE.IDE.Distribution.Establish(HexIDE.IDE.DistributionDescriptor.Resolve(AppContext.BaseDirectory));
+            return null;
+        }
+        catch (HexIDE.IDE.DistributionDescriptorException ex)
+        {
+            return $"This installation's branding cannot be used, so the IDE has not started and no settings, logs or "
+                 + $"recovery files were opened. {ex.Message}";
+        }
+    }
+
+    // A shortcut or Explorer gives this program no console, and on Windows a start that says nothing looks like a hang.
+    private static void ReportDistributionError(string message)
+    {
+        const uint iconError = 0x10;
+        if (!ConsoleOutput.Write(message + Environment.NewLine) && OperatingSystem.IsWindows())
+            ShowNativeMessageBox(0, message, "Cannot start", iconError);
+    }
+
     [STAThread]
     public static void Main(string[] args)
     {
@@ -19,13 +45,32 @@ sealed class Program
         // bin/ and the IDE opened nothing, without a word.
         var invocationDirectory = Environment.CurrentDirectory;
         FixCurrentWorkingDictionary();
+
+        // First of all: every per-user path, log and caption is derived from this (#2042). A failure is held until
+        // the arguments are read, so that --help still answers on a broken installation.
+        var distributionError = EstablishDistribution();
+
         ServerOptions.ParseArgs(args, invocationDirectory);
 
         // Before anything Avalonia touches: --help answers and leaves, so asking what the flags are never
         // starts an IDE, loads a project or opens a port.
         if (ServerOptions.HelpRequested)
         {
+            if (distributionError != null)
+            {
+                ConsoleOutput.Write(distributionError + Environment.NewLine);
+                Environment.ExitCode = 2;
+            }
+
             ConsoleOutput.Write(ServerOptions.HelpText);
+            return;
+        }
+
+        // Refused rather than started as stock: stock would open HexIDE's own settings and recovery files.
+        if (distributionError != null)
+        {
+            ReportDistributionError(distributionError);
+            Environment.ExitCode = 2;
             return;
         }
 
@@ -40,7 +85,7 @@ sealed class Program
         if (ServerOptions.UserDataDirectoryMissing)
         {
             ConsoleOutput.Write(
-                "--user-data-dir needs a directory after it. HexIDE has not started, rather than start on "
+                "--user-data-dir needs a directory after it. " + HexIDE.IDE.Distribution.DisplayName + " has not started, rather than start on "
               + "the settings you asked it to keep away from." + Environment.NewLine);
             Environment.ExitCode = 2;
             return;
@@ -50,7 +95,7 @@ sealed class Program
         if (ServerOptions.ServerPortInvalid is { } badPort)
         {
             ConsoleOutput.Write(
-                $"--server-port needs a port number from 1 to 65535 after it, and got '{badPort}'. HexIDE has not "
+                $"--server-port needs a port number from 1 to 65535 after it, and got '{badPort}'. " + HexIDE.IDE.Distribution.DisplayName + " has not "
               + "started, rather than start without the automation server you asked for." + Environment.NewLine);
             Environment.ExitCode = 2;
             return;
@@ -59,7 +104,7 @@ sealed class Program
         if (ServerOptions.SessionMissing)
         {
             ConsoleOutput.Write(
-                "--session needs the name of an agent session after it. HexIDE has not started, rather than start an "
+                "--session needs the name of an agent session after it. " + HexIDE.IDE.Distribution.DisplayName + " has not started, rather than start an "
               + "automation server that answers every session's client." + Environment.NewLine);
             Environment.ExitCode = 2;
             return;
@@ -69,7 +114,7 @@ sealed class Program
         {
             ConsoleOutput.Write(
                 $"--ansi-code-page needs a Windows code page number after it, such as 932, and got '{badCodePage}'. "
-              + "HexIDE has not started: reading files in this machine's own code page instead would look as "
+              + "" + HexIDE.IDE.Distribution.DisplayName + " has not started: reading files in this machine's own code page instead would look as "
               + "though the flag had worked." + Environment.NewLine);
             Environment.ExitCode = 2;
             return;
@@ -78,7 +123,7 @@ sealed class Program
         if (ServerOptions.DpiUnaware && !OperatingSystem.IsWindows())
         {
             ConsoleOutput.Write(
-                "--dpi-unaware works on Windows only. HexIDE has not started, rather than start at the display's own "
+                "--dpi-unaware works on Windows only. " + HexIDE.IDE.Distribution.DisplayName + " has not started, rather than start at the display's own "
               + "scale and look as though the flag had worked. On Linux, Avalonia's X11 platform reads "
               + "AVALONIA_GLOBAL_SCALE_FACTOR instead." + Environment.NewLine);
             Environment.ExitCode = 2;
