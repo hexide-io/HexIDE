@@ -151,6 +151,26 @@ public class CarriedBoxStackingTests
         return hit == visual || hit?.GetVisualAncestors().Contains(visual) == true;
     }
 
+    [AvaloniaTheory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void Routed_z_order_command_moves_the_selected_control(bool toFront)
+    {
+        var d = Open();
+        try
+        {
+            var component = d.Vm.AllComponents.Single(c => c.Name == "Command2");
+            if (!toFront)
+                d.Vm.BringToFront(component);
+            d.Vm.SelectedComponent = component;
+            var command = toFront ? ApplicationCommands.BringToFrontCommand : ApplicationCommands.SendToBackCommand;
+            command.Execute(null, d.View);
+            Render();
+            Topmost(d, Item(d, "Command2"), new Point(20, 10)).Should().Be(toFront);
+        }
+        finally { d.Window.Close(); }
+    }
+
     [AvaloniaFact]
     public void A_control_written_after_a_carried_one_is_drawn_under_its_box()
     {
