@@ -4282,7 +4282,7 @@ public static class UiAutomationDriver
         // reads as a key that went astray rather than one that was refused.
         if (editor.IsReadOnly)
             return new InteractOutcome(false, mechanism, null,
-                $"{tool} refused: this file will not be saved, because HexIDE cannot yet reproduce it faithfully"
+                $"{tool} refused: this file will not be saved, because {HexIDE.IDE.Distribution.DisplayName} cannot yet reproduce it faithfully"
               + (editor.ReadOnlyReason is { Length: > 0 } why ? $" ({why})" : string.Empty)
               + ". Its code is part of the file, so typing in its code window is refused anywhere, as the "
               + "window's banner says. " + (written ?? "Nothing was written."));

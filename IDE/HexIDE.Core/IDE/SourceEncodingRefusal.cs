@@ -99,7 +99,7 @@ public sealed class SourceEncodingRefusal : OperationCanceledException
     private static string Describe(string document, int codePage, string character, int value, string line) =>
         $"{document} is kept in code page {codePage}, which cannot hold '{character}' (U+{value:X4})"
         + (line.Length > 0 ? $", found in the line `{line}`" : "")
-        + ". Nothing was written. HexIDE keeps a file in the code page it was read or created in rather than "
+        + ". Nothing was written. " + HexIDE.IDE.Distribution.DisplayName + " keeps a file in the code page it was read or created in rather than "
         + "convert it, so use characters that code page holds"
         + (line.Length > 0 ? ", and where that line names a file or folder, a name it can hold." : ".");
 }
