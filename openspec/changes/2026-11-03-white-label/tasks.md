@@ -16,7 +16,7 @@
 - [x] Implement descriptor/schema validation, contained asset capture and immutable identity snapshot.
 - [x] Implement early bootstrap and safe help/failure diagnostics before mutable-state access.
 - [ ] Implement isolated configuration/log/recovery/cache/session roots and bundled-child path propagation.
-- [ ] Implement installation default-profile resolution with explicit selection and recovery-mode precedence.
+- [x] Implement installation default-profile resolution with explicit selection and recovery-mode precedence.
 - [ ] Implement host title/dialog/help/asset/link consumers and localized brand templates.
 - [ ] Implement protected upstream credits and append-only additions across all override tiers.
 - [ ] Implement common native/installer repack tooling with unchanged managed implementation and adopter signing.
