@@ -122,3 +122,10 @@ The [#3275 supervisor correction](https://github.com/hexide-io/HexIDE/issues/327
 TopIndex to use the existing Integer store coercion: Long and numeric Variant assignments
 are accepted, and Integer overflow raises error 6. This is supplied provenance, not a new
 measurement by this implementation run.
+
+The [#2525 measurements](https://github.com/hexide-io/HexIDE/issues/2525) of NPV, IRR and MIRR
+are recorded in the measuring author's [cash-flow oracle page](vb6-fidelity-oracle/npv-irr-and-mirr.md).
+They pin exact Double bits and errors for Double cash-flow arrays, including NPV's first-value
+discount, its rate -1 and unallocated-array error 5, IRR's guess-dependent bits and all-positive
+error 5, and MIRR's all-positive error 11 and finance-rate -1 error 5. Native and p-code agree.
+[Cash-flow precision](financial-precision-2525.md) records model comparisons, not new measurements.

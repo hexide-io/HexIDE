@@ -109,7 +109,7 @@ Platform: 4 · Partial: 12 · Other: 0.
 >   index groups (`Split(s)(0)`; since fixed, #1476) · AddressOf · string-vs-number comparison (`5 < "10"`) · **Declare … Lib** (no longer
 >   fails the module load — the declaration (including VBA7 `PtrSafe`, #1548) is skipped, so the module runs; an actual
 >   call raises the clean "Sub or Function not defined") · selection/system/financial intrinsics (IIf, Choose and Switch
->   have since been added, and of the financials only NPV, IRR, MIRR and DDB remain).
+>   have since been added, and of the financials only IRR, MIRR and DDB remain).
 > - **→ Platform limits:** AppActivate / SendKeys (OS automation). The array-element/call-result lead in a member
 >   chain, once walled here, has since been fixed: see its entry below.
 
@@ -141,7 +141,7 @@ _Original per-item findings (retained for detail; dispositions above supersede t
   - **A character outside cp1252 is unmeasured.** It sorts after every measured one, by its invariant lower case.
   `Like` keeps its own per-character fold (#1547), which nothing has measured against the compare. A different comparer was weighed and refused: .NET's ICU collation, and Windows' NLS mode, which is process-wide. Measured on the same pairs, ICU got 6,337 of the 212,956 wrong, against the rows' 0.
 - **Static local variables / Static procedure modifier** — **done (#1491).** A Static's slot is kept per declaration, for the run in a standard module and per instance in a class or form, and a `Static` procedure makes its Dim locals Static (oracle, "Static"). Collected at procedure entry like any local; nothing relates one declaration to another.
-- **Selection/system/financial intrinsics** — four financials, NPV, IRR, MIRR and DDB, are still unregistered in every `VB6BuiltIns` partial (they throw Sub-or-Function-not-defined, even via `VBA.`/`VB.` qualifiers). The rest of this group now runs, measured: IIf and Choose (#1461, #1464), Command (#742), RGB and QBColor (#826), Switch, Environ and Error() (#1560), Partition (#2526), and SLN and SYD (#2524).
+- **Selection/system/financial intrinsics** — DDB remains unregistered; IRR and MIRR explicitly refuse as not implemented because no tested precision model matches every #2525 row. NPV now matches all five measured rows; unmeasured conversions and domains refuse. The [precision note](financial-precision-2525.md) records the models and nearest misses. The rest of this group now runs, measured: IIf and Choose (#1461, #1464), Command (#742), RGB and QBColor (#826), Switch, Environ and Error() (#1560), Partition (#2526), and SLN and SYD (#2524).
   - **DDB stays refused because no evaluation model matches its measured bits** (#2524). `scripts/probes/depreciation-2524.py` tries Double spills at rate, base, power, book value and amount, 32 variants with exact intermediates otherwise; none gives period 10's measured `40361F5F40D83797`. The closest is `…3791`, with the base rounded to a Double; `…3764` has no spills and `…3790` has every one. SLN's and SYD's rows don't pin their spills either, since their intermediates are exact, so the model that matches them isn't proof of VB6's algorithm. The measurements are hexide-int's, on `docs/vb6-fidelity-oracle/ddb-sln-and-syd.md`.
 
 ## Deferred
