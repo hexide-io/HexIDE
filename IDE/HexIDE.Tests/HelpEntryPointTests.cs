@@ -6,10 +6,6 @@ namespace HexIDE.Tests;
 public class HelpEntryPointTests
 {
     [Theory]
-    [InlineData("MainView.axaml", "Str.Menu.Help.Contents")]
-    [InlineData("MainView.axaml", "Str.Menu.Help.Index")]
-    [InlineData("MainView.axaml", "Str.Menu.Help.Search")]
-    [InlineData("MainView.axaml", "Str.Menu.Help.TechnicalSupport")]
     [InlineData("Forms/Views/NewProjectView.axaml", "Str.Dialog.NewProject.Button.Help")]
     [InlineData("Forms/Views/ReferencesView.axaml", "Str.Dialog.References.Help")]
     public void UnsupportedHelpEntryPoint_IsNotOffered(string view, string key)
@@ -17,6 +13,22 @@ public class HelpEntryPointTests
         var document = XDocument.Load(Path.Combine(ViewDirectory(), view));
         document.Descendants().SelectMany(element => element.Attributes())
             .Should().NotContain(attribute => attribute.Value == "{DynamicResource " + key + "}");
+    }
+
+    /// <summary>
+    /// The Help menu's retired entries left their strings behind in every pack (#3387). A key nothing references
+    /// is a translation every later language pays for, so these stay out.
+    /// </summary>
+    [Theory]
+    [InlineData("Str.Menu.Help.Contents")]
+    [InlineData("Str.Menu.Help.Index")]
+    [InlineData("Str.Menu.Help.Search")]
+    [InlineData("Str.Menu.Help.TechnicalSupport")]
+    [InlineData("Str.Menu.Help.AvaloniaOnWeb")]
+    public void RetiredHelpString_IsInNoLanguagePack(string key)
+    {
+        foreach (var pack in Directory.EnumerateFiles(Path.Combine(ViewDirectory(), "Localization", "Packs"), "*.json"))
+            File.ReadAllText(pack).Should().NotContain('"' + key + '"', Path.GetFileName(pack));
     }
 
     private static string ViewDirectory()

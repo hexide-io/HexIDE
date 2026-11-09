@@ -184,14 +184,8 @@ public partial class ProjectDocumentViewModel : BaseEditorWindowViewModel
     /// The enum spells these the way the <c>.vbp</c>'s <c>Type=</c> line does; the IDE has always shown
     /// users the VB6 dialog wording, and this uses the same four keys the New Project dialog does.
     /// </summary>
-    private string ProjectTypeName(VBProjectType type) => type switch
-    {
-        VBProjectType.EXE => localization.GetString("Str.ProjectType.StandardEXE"),
-        VBProjectType.OleExe => localization.GetString("Str.ProjectType.ActiveXEXE"),
-        VBProjectType.OleDll => localization.GetString("Str.ProjectType.ActiveXDLL"),
-        VBProjectType.Control => localization.GetString("Str.ProjectType.ActiveXControl"),
-        _ => type.ToString(),
-    };
+    private string ProjectTypeName(VBProjectType type) =>
+        HexIDE.Projects.ProjectTypeNames.KeyOf(type) is { } key ? localization.GetString(key) : type.ToString();
 
     /// <summary>
     /// What runs first. <c>Sub Main</c> is a literal of the language rather than prose, so it is not a

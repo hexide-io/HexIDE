@@ -5,10 +5,30 @@
              x:DataType="vm:DiagnosticsToolViewModel">
     <Grid RowDefinitions="Auto,*">
         <StackPanel Orientation="Horizontal" Spacing="12" Margin="8">
-            <CheckBox Content="{DynamicResource Str.Tool.Diagnostics.Errors}" IsChecked="{CompiledBinding Errors}" />
-            <CheckBox Content="{DynamicResource Str.Tool.Diagnostics.Warnings}" IsChecked="{CompiledBinding Warnings}" />
-            <CheckBox Content="{DynamicResource Str.Tool.Diagnostics.Information}" IsChecked="{CompiledBinding Information}" />
-            <CheckBox Content="{DynamicResource Str.Tool.Diagnostics.Hints}" IsChecked="{CompiledBinding Hints}" />
+            <CheckBox IsChecked="{CompiledBinding Errors}">
+                <StackPanel Orientation="Horizontal" Spacing="4">
+                    <TextBlock Text="{DynamicResource Str.Tool.Diagnostics.Errors}" />
+                    <TextBlock Text="{CompiledBinding ErrorCount}" />
+                </StackPanel>
+            </CheckBox>
+            <CheckBox IsChecked="{CompiledBinding Warnings}">
+                <StackPanel Orientation="Horizontal" Spacing="4">
+                    <TextBlock Text="{DynamicResource Str.Tool.Diagnostics.Warnings}" />
+                    <TextBlock Text="{CompiledBinding WarningCount}" />
+                </StackPanel>
+            </CheckBox>
+            <CheckBox IsChecked="{CompiledBinding Information}">
+                <StackPanel Orientation="Horizontal" Spacing="4">
+                    <TextBlock Text="{DynamicResource Str.Tool.Diagnostics.Information}" />
+                    <TextBlock Text="{CompiledBinding InformationCount}" />
+                </StackPanel>
+            </CheckBox>
+            <CheckBox IsChecked="{CompiledBinding Hints}">
+                <StackPanel Orientation="Horizontal" Spacing="4">
+                    <TextBlock Text="{DynamicResource Str.Tool.Diagnostics.Hints}" />
+                    <TextBlock Text="{CompiledBinding HintCount}" />
+                </StackPanel>
+            </CheckBox>
             <CheckBox Content="{DynamicResource Str.Tool.Diagnostics.CurrentDocument}" IsChecked="{CompiledBinding CurrentDocumentOnly}" />
         </StackPanel>
         <DataGrid Grid.Row="1" ItemsSource="{CompiledBinding Rows}" SelectedItem="{CompiledBinding SelectedRow, Mode=TwoWay}"
@@ -32,6 +52,7 @@
                         </DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
+                <DataGridTextColumn Header="{DynamicResource Str.Tool.Diagnostics.Source}" Binding="{CompiledBinding Source, x:DataType=vm:DiagnosticRow}" Width="Auto" />
             </DataGrid.Columns>
         </DataGrid>
     </Grid>

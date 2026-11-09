@@ -34,7 +34,10 @@ public partial class SettingsService : ObservableObject, ISettingsService
     private bool _autoListMembers = SettingsDefaults.AutoListMembers;
     private bool _autoQuickInfo = SettingsDefaults.AutoQuickInfo;
     private bool _autoIndent = SettingsDefaults.AutoIndent;
+    private string _editorFontFamily = SettingsDefaults.EditorFontFamily;
+    private double _editorFontSize = SettingsDefaults.EditorFontSize;
     private int _tabWidth = SettingsDefaults.TabWidth;
+    private Dictionary<string, Dictionary<string, EditorTokenColors>> _editorColorOverrides = new();
     private bool _formatOnSave = SettingsDefaults.FormatOnSave;
 
     // ── General defaults ────────────────────────────────────────
@@ -73,6 +76,36 @@ public partial class SettingsService : ObservableObject, ISettingsService
 
     // ── Editor properties ───────────────────────────────────────
 
+    public Dictionary<string, Dictionary<string, EditorTokenColors>> EditorColorOverrides
+    {
+        get => CopyEditorColors(_editorColorOverrides);
+        set => SetProperty(ref _editorColorOverrides, CopyEditorColors(value));
+    }
+
+    private static Dictionary<string, Dictionary<string, EditorTokenColors>> CopyEditorColors(
+        Dictionary<string, Dictionary<string, EditorTokenColors>>? source)
+    {
+        var copy = new Dictionary<string, Dictionary<string, EditorTokenColors>>(StringComparer.OrdinalIgnoreCase);
+        if (source is not null)
+            foreach (var (theme, tokens) in source)
+                if (tokens is not null)
+                    copy[theme] = new Dictionary<string, EditorTokenColors>(tokens, StringComparer.Ordinal);
+        return copy;
+    }
+
+    public void ResetEditorColors(string theme, string? token = null)
+    {
+        var colors = EditorColorOverrides;
+        if (token is null)
+            colors.Remove(theme);
+        else if (colors.TryGetValue(theme, out var tokens))
+        {
+            tokens.Remove(token);
+            if (tokens.Count == 0) colors.Remove(theme);
+        }
+        EditorColorOverrides = colors;
+    }
+
     public bool RequireVariableDeclaration
     {
         get => _requireVariableDeclaration;
@@ -95,6 +128,18 @@ public partial class SettingsService : ObservableObject, ISettingsService
     {
         get => _autoIndent;
         set => SetProperty(ref _autoIndent, value);
+    }
+
+    public string EditorFontFamily
+    {
+        get => _editorFontFamily;
+        set => SetProperty(ref _editorFontFamily, string.IsNullOrWhiteSpace(value) ? SettingsDefaults.EditorFontFamily : value);
+    }
+
+    public double EditorFontSize
+    {
+        get => _editorFontSize;
+        set => SetProperty(ref _editorFontSize, double.IsFinite(value) ? Math.Clamp(value, 6, 72) : SettingsDefaults.EditorFontSize);
     }
 
     public int TabWidth
@@ -303,6 +348,9 @@ public partial class SettingsService : ObservableObject, ISettingsService
                 AutoQuickInfo = _autoQuickInfo,
                 AutoIndent = _autoIndent,
                 TabWidth = _tabWidth,
+                EditorFontFamily = _editorFontFamily,
+                EditorFontSize = _editorFontSize,
+                EditorColorOverrides = _editorColorOverrides,
                 FormatOnSave = _formatOnSave,
                 ShowGrid = _showGrid,
                 GridWidth = _gridWidth,
@@ -398,6 +446,9 @@ public partial class SettingsService : ObservableObject, ISettingsService
             AutoQuickInfo = data.AutoQuickInfo;
             AutoIndent = data.AutoIndent;
             TabWidth = data.TabWidth;
+            EditorFontFamily = data.EditorFontFamily;
+            EditorFontSize = data.EditorFontSize;
+            EditorColorOverrides = data.EditorColorOverrides;
             FormatOnSave = data.FormatOnSave;
             ShowGrid = data.ShowGrid;
             GridWidth = data.GridWidth;
@@ -452,6 +503,15 @@ public partial class SettingsService : ObservableObject, ISettingsService
 
         [JsonPropertyName("autoIndent")]
         public bool AutoIndent { get; set; } = SettingsDefaults.AutoIndent;
+
+        [JsonPropertyName("editorColorOverrides")]
+        public Dictionary<string, Dictionary<string, EditorTokenColors>> EditorColorOverrides { get; set; } = new();
+
+        [JsonPropertyName("editorFontFamily")]
+        public string EditorFontFamily { get; set; } = SettingsDefaults.EditorFontFamily;
+
+        [JsonPropertyName("editorFontSize")]
+        public double EditorFontSize { get; set; } = SettingsDefaults.EditorFontSize;
 
         [JsonPropertyName("tabWidth")]
         public int TabWidth { get; set; } = SettingsDefaults.TabWidth;

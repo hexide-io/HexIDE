@@ -132,3 +132,8 @@ public record AddinDiagnostic(
     string? Code = null,
     string? Source = null,
     string? Project = null);
+
+/// <summary>A document's whole file, or why it could not be read. Built by the IDE, read by add-ins.</summary>
+/// <param name="Document">The document read, or null when refused.</param>
+/// <param name="Reason">Why it could not be read, in English as <see cref="AddinEditResult.Reason"/> is.</param>
+public record AddinDocumentResult(AddinDocument? Document, string? Reason = null);

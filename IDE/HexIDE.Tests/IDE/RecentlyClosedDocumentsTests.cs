@@ -18,6 +18,9 @@ public class RecentlyClosedDocumentsTests : CompositionTestBase
         return (composition, composition.DocumentDockService, composition.EditorService, root);
     }
 
+    // A window closed with unsaved text leaves its session held until its project closes (#3476).
+    private void Unload(ProjectDefinition project) => Composition.EventBus.Publish(new HexIDE.Events.ProjectUnloadedEvent(project));
+
     [Fact]
     public void ClosedToolsReopenNewestFirstAndHistoryIsSessionOnly()
     {
@@ -84,6 +87,7 @@ public class RecentlyClosedDocumentsTests : CompositionTestBase
             dock.CloseAll();
         }
         finally { File.Delete(path); }
+        Unload(project);
     }
 
     [AvaloniaFact]
@@ -100,6 +104,7 @@ public class RecentlyClosedDocumentsTests : CompositionTestBase
         dock.RecentlyClosed.Entries.Should().HaveCount(2);
         project.DeleteForm(form);
         dock.RecentlyClosed.Entries.Should().BeEmpty();
+        Unload(project);
     }
 
     [AvaloniaTheory]
@@ -120,6 +125,7 @@ public class RecentlyClosedDocumentsTests : CompositionTestBase
         if (carried) project.DeleteRelatedDocument(related);
         else project.DeleteModule(module);
         dock.RecentlyClosed.Entries.Should().BeEmpty();
+        Unload(project);
     }
 
     [AvaloniaFact]
@@ -141,6 +147,7 @@ public class RecentlyClosedDocumentsTests : CompositionTestBase
         dock.RecentlyClosed.Entries.Should().BeEmpty();
         dock.OpenDocuments.Should().ContainSingle().Which.OpenDocument.Should().Be(DocumentIdentity.For(siblingModule));
         dock.CloseAll();
+        Unload(sibling);
     }
 
     [AvaloniaFact]

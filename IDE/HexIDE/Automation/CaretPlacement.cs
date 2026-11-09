@@ -70,7 +70,7 @@ public static class CaretPlacement
     internal static string? Unwritable(CodeEditorViewModel code)
     {
         if (code.IsReadOnly)
-            return "Typing is refused anywhere in this window: HexIDE cannot yet reproduce this file faithfully, so it will "
+            return "Typing is refused anywhere in this window: " + HexIDE.IDE.Distribution.DisplayName + " cannot yet reproduce this file faithfully, so it will "
                    + "not be saved" + (code.ReadOnlyReason is { Length: > 0 } why ? $" ({why})" : "") + ".";
         var caret = code.CaretOffset;
         if (!code.IsReadOnlyRegion(caret, 0))

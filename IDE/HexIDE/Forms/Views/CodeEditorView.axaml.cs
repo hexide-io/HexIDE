@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using Avalonia;
@@ -109,9 +110,11 @@ public partial class CodeEditorView : UserControl
     private TextDocument? _watchedDocument;
     private int _preEditCaret;
     private Action? _onPaletteChanged;
+    private PropertyChangedEventHandler? _fontSettingsChanged;
 
     public DelegateCommand Undo { get; }
     public DelegateCommand Redo { get; }
+    public DelegateCommand DeleteLine { get; }
     public DelegateCommand Copy { get; }
     public DelegateCommand Cut { get; }
     public DelegateCommand Delete { get; }
@@ -142,6 +145,12 @@ public partial class CodeEditorView : UserControl
             () => TextEditor?.CanUndo ?? false);
         Redo = new DelegateCommand(() => TextEditor.Redo(), () =>
             TextEditor?.CanRedo ?? false);
+        DeleteLine = new DelegateCommand(() =>
+        {
+            ArmResetPrompt();
+            if (!DeleteLinesWithTheirRuns())
+                AvaloniaEditCommands.DeleteLine.Execute(null, TextEditor.TextArea);
+        }, () => true);
         Copy = new DelegateCommand(() => TextEditor.Copy(), () => true);
         // Cut, Delete and Paste are where their keys arrive, not OnEditorKeyDown: each key is bound to its command,
         // which takes it before the text area sees it. So each command asks about resetting a run itself, for the
@@ -189,6 +198,13 @@ public partial class CodeEditorView : UserControl
 
         InitializeComponent();
         InstallReadOnlySections();
+        // Keep TextEditor.Redo's routed handler, but let only the keymap supply its gesture (#513).
+        var bindings = TextEditor.TextArea.DefaultInputHandler.CommandBindings;
+        foreach (var binding in bindings.Where(binding => binding.Command == AvaloniaEdit.ApplicationCommands.Redo).ToArray())
+        {
+            bindings.Remove(binding);
+            TextEditor.TextArea.CommandBindings.Add(binding);
+        }
 
         // One Find surface, the region-aware dialog (#273 task 3.11). AvaloniaEdit installs its own search
         // panel on every editor when the template is applied, and its Replace All writes straight to the
@@ -501,15 +517,30 @@ public partial class CodeEditorView : UserControl
 
             TextEditor.SyntaxHighlighting = SyntaxHighlightingTheme.Definition;
 
-            // Minimap (prototype)
-            Minimap.Attach(TextEditor, SyntaxHighlightingTheme.Definition);
-
             // On a theme switch SyntaxHighlightingTheme has already retinted the shared definition by
             // the time this fires — but AvaloniaEdit baked the old brushes into the visual lines it
             // built, so Redraw() is what clears that cache and re-runs the colorizer. This is what
             // makes ALREADY-OPEN editors recolour live instead of only on restart.
             _onPaletteChanged = () => TextEditor.TextArea.TextView.Redraw();
             SyntaxHighlightingTheme.PaletteChanged += _onPaletteChanged;
+
+            void ApplyFont()
+            {
+                TextEditor.FontFamily = new FontFamily(string.IsNullOrWhiteSpace(vm.Settings.EditorFontFamily) ? SettingsDefaults.EditorFontFamily : vm.Settings.EditorFontFamily);
+                TextEditor.FontSize = vm.Settings.EditorFontSize > 0 ? vm.Settings.EditorFontSize : SettingsDefaults.EditorFontSize;
+                Minimap.Attach(TextEditor, SyntaxHighlightingTheme.Definition);
+                foreach (var header in StickyHeaders.Children.OfType<Button>())
+                {
+                    header.FontFamily = TextEditor.FontFamily;
+                    header.FontSize = TextEditor.FontSize;
+                }
+            }
+            ApplyFont();
+            _fontSettingsChanged = (_, e) =>
+            {
+                if (e.PropertyName is nameof(ISettingsService.EditorFontFamily) or nameof(ISettingsService.EditorFontSize)) ApplyFont();
+            };
+            vm.Settings.PropertyChanged += _fontSettingsChanged;
 
             // Apply tab width from settings
             TextEditor.Options.IndentationSize = vm.Settings.TabWidth;
@@ -615,6 +646,8 @@ public partial class CodeEditorView : UserControl
                 _watchedDocument = null;
             }
             vm.LanguageServerStateChanged -= OnLanguageServerStateChanged;
+            if (_fontSettingsChanged is not null) vm.Settings.PropertyChanged -= _fontSettingsChanged;
+            _fontSettingsChanged = null;
             if (_inlaySettingsChanged is not null)
                 vm.Settings.PropertyChanged -= _inlaySettingsChanged;
             _inlaySettingsChanged = null;
@@ -2158,7 +2191,7 @@ public partial class CodeEditorView : UserControl
                 var updatedLineText = doc.GetText(updatedLine.Offset, updatedLine.Length);
                 var indent = VbAutoCloseProvider.GetIndentation(updatedLineText);
                 var bodyIndent = VbAutoCloseProvider.GetBodyIndent(indent, TextEditor.Options.IndentationSize);
-                var addCloser = closer is not null && !NextNonEmptyLineIs(doc, lastLineBefore, closer);
+                var addCloser = closer is not null && !HasMatchingCloser(doc, lastLineBefore, closer);
                 var insertText = addCloser ? newline + bodyIndent + newline + indent + closer : newline + indent;
 
                 // After the run: the provider places it, writing each line break as the described line's own. The
@@ -2209,18 +2242,58 @@ public partial class CodeEditorView : UserControl
     }
 
     /// <summary>
-    /// Checks whether the next non-empty line after <paramref name="currentLineNumber"/>
-    /// contains the expected closing statement (case-insensitive, ignoring whitespace).
+    /// Looks past the body for a closer, counting nested blocks of the same kind.
+    /// A different procedure cannot supply the missing closer.
     /// </summary>
-    private static bool NextNonEmptyLineIs(TextDocument doc, int currentLineNumber, string closer)
+    private static bool HasMatchingCloser(TextDocument doc, int currentLineNumber, string closer)
     {
+        string CodeOn(DocumentLine line)
+        {
+            var text = doc.GetText(line.Offset, line.Length);
+            return text[..ReadOnlyRegions.CommentStartOn(text, 0, text.Length)];
+        }
+
+        var closingPattern = new Regex(@"^\s*" + Regex.Escape(closer).Replace("\\ ", @"\s+") + @"\b",
+            RegexOptions.IgnoreCase);
+        var procedureEnd = new Regex(@"^\s*End\s+(Sub|Function|Property)\b", RegexOptions.IgnoreCase);
+        var insideProcedure = false;
+        for (var i = currentLineNumber; i > 0; i--)
+        {
+            var line = doc.GetLineByNumber(i);
+            var text = CodeOn(line);
+            if (procedureEnd.IsMatch(text))
+                break;
+            if (VbAutoCloseProvider.GetClosingStatement(text) is "End Sub" or "End Function" or "End Property")
+            {
+                insideProcedure = true;
+                break;
+            }
+        }
+
+        var depth = 1;
         for (var i = currentLineNumber + 1; i <= doc.LineCount; i++)
         {
             var line = doc.GetLineByNumber(i);
-            var text = doc.GetText(line.Offset, line.Length).Trim();
-            if (text.Length == 0)
+            var text = CodeOn(line);
+            while (VbAutoCloseProvider.IsContinuationLine(text) && i < doc.LineCount)
+            {
+                line = doc.GetLineByNumber(++i);
+                text = text.TrimEnd()[..^1] + " " + CodeOn(line).TrimStart();
+            }
+
+            if (closingPattern.IsMatch(text))
+            {
+                if (--depth == 0)
+                    return true;
                 continue;
-            return string.Equals(text, closer, StringComparison.OrdinalIgnoreCase);
+            }
+
+            var nestedCloser = VbAutoCloseProvider.GetClosingStatement(text);
+            if ((insideProcedure || closer != "#End If")
+                && (nestedCloser is "End Sub" or "End Function" or "End Property" || procedureEnd.IsMatch(text)))
+                return false;
+            if (nestedCloser == closer)
+                depth++;
         }
         return false;
     }

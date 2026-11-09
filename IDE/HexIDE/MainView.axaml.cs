@@ -107,11 +107,7 @@ public partial class MainView : UserControl
                 CommandParameter = template,
                 IsEnabled = template.Supported,
             };
-            var key = template == IProjectTemplate.StandardEXE ? "Str.ProjectType.StandardEXE"
-                : template == IProjectTemplate.ActiveXEXE ? "Str.ProjectType.ActiveXEXE"
-                : template == IProjectTemplate.ActiveXDLL ? "Str.ProjectType.ActiveXDLL"
-                : template == IProjectTemplate.ActiveXControl ? "Str.ProjectType.ActiveXControl" : null;
-            if (key != null)
+            if (template.NameKey is { } key)
                 item.Bind(HeaderedSelectingItemsControl.HeaderProperty, this.GetResourceObservable(key));
             _projectItems.Add(item);
         }
@@ -146,9 +142,9 @@ public partial class MainView : UserControl
         }
     }
 
-    private void AvaloniaOnWeb(object? sender, ExecutedRoutedEventArgs e)
+    private void ProductOnWeb(object? sender, ExecutedRoutedEventArgs e)
     {
-        TopLevel.GetTopLevel(this)!.Launcher.LaunchUriAsync(new Uri("https://avaloniaui.net"));
+        (DataContext as MainViewViewModel)?.OpenGithubRepo();
     }
 
     private void OnDockPointerReleased(object? sender, PointerReleasedEventArgs e)

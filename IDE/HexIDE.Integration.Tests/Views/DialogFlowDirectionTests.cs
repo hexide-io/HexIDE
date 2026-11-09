@@ -9,7 +9,7 @@ using HexIDE.Forms.ViewModels;
 using HexIDE.Forms.Views;
 using HexIDE.IDE;
 using HexIDE.Localization;
-using HexIDE.Runtime.Dialogs;
+using HexIDE.Dialogs;
 
 namespace HexIDE.Integration.Tests.Views;
 
@@ -50,8 +50,8 @@ public class DialogFlowDirectionTests
             Control content = dialog switch
             {
                 "About" => new AboutDialog { DataContext = new AboutDialogViewModel(new AboutDialogOptions { Title = "HexIDE" }, localization) },
-                "Input" => new InputBox { IsProgramDialog = isProgramDialog },
-                "Message" => new MessageBox { IsProgramDialog = isProgramDialog },
+                "Input" => isProgramDialog ? new HexIDE.Runtime.Dialogs.InputBox { IsProgramDialog = true } : new InputBox(),
+                "Message" => isProgramDialog ? new HexIDE.Runtime.Dialogs.MessageBox { IsProgramDialog = true } : new MessageBox(),
                 "Font" => new FontDialog { DataContext = new FontDialogViewModel(null) },
                 "Color" => new ColorDialog(0),
                 "Print" => new PrintDialog(),

@@ -79,8 +79,8 @@ the production formatter and source-generated context to guard absence and prese
 | Custom | `vb/builtinSymbols` — see *Custom methods* |
 
 Initialize declares `textDocument.completion` with all 25 LSP completion kinds, `preselectSupport: true`,
-`documentationFormat: ["plaintext"]`, and default `insertTextMode: 1` (`asIs`). Snippets, insert/replace
-edits, resolve, commit characters, context and list item defaults are not advertised (#2670).
+`documentationFormat: ["plaintext"]`, and default `insertTextMode: 1` (`asIs`). Snippets and insert/replace
+edits (#3483), resolve, commit characters, context and list item defaults are not advertised.
 This follows the [LSP 3.17 completion capability contract](https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#completionClientCapabilities).
 Items from all servers are ordered by `sortText ?? label`, ordinal. Matching uses `filterText ?? label`,
 while the displayed label and insertion fallback remain the label. The full list stays visible. The first
@@ -108,7 +108,7 @@ with each choice named by its text. Enter accepts a choice without a line break 
 After typing in a placeholder, Tab advances when no completion list is open. With a completion
 list open, Tab accepts its selected item, following the editor's ordinary completion rule;
 close that list before using Tab to navigate the snippet.
-This is a partial third slice of #2670: nested placeholders and variables still need support
+What's left is #3483: nested placeholders and variables still need support
 before `snippetSupport` can be advertised. Insert/replace edits and indentation adjustment also remain.
 
 Completion replies accept `CompletionItem[]`, `CompletionList`, or `null` (#2204). Bare arrays
@@ -708,7 +708,8 @@ queues its own ledger/cache retirement after closing its claimants.
 
 Tools → Diagnostics shows the registry's current diagnostic store, including reports for unopened
 workspace documents. Each row names its publishing server (the configured display name), document,
-severity, line and message. Documents use the loaded member name or outside file name, with the full
+severity, source (when supplied by the server), line and message. Counts beside each severity switch
+follow the current-document filter and include severities hidden from the list (#1871). Documents use the loaded member name or outside file name, with the full
 path in a tooltip; navigation retains the URI. Severity captions are singular and headers size to
 their localized text. Severity switches and a current-document filter narrow the list; the latter
 retains the last editor while the panel has focus. Reports replace their publisher's previous rows and
@@ -1084,7 +1085,18 @@ context menu. It requires a nonempty selection and a claimant advertising
 `textDocument/rangeFormatting` with the selection's zero-based UTF-16 range and the same formatting
 options. The client declares `textDocument.rangeFormatting` at initialization. Returned edits use
 Format Document's guarded path: one undo step, with IDE-only header and member attribute lines protected.
-The keymap command `FormatSelectionCommand` has no default shortcut. On-type formatting is not implemented.
+The keymap command `FormatSelectionCommand` has no default shortcut.
+
+On-type formatting has a client protocol seam (#2672): `ILspClient` can query support for a specific
+character and request `textDocument/onTypeFormatting` with the post-typing position and formatting
+options. Only the highest-priority running document claimant declaring that character in
+`documentOnTypeFormattingProvider.firstTriggerCharacter` or `moreTriggerCharacter` receives the request.
+A request has a 250 ms budget and sends `$/cancelRequest` on timeout, returning no edits.
+The editor does not yet call this seam: Enter still uses HexIDE's closer and keyword correction.
+The remaining editor work is to insert the indented line break without those helpers, flush didChange,
+map the caret through returned edits, discard replies after a document version change, and group the
+line break and edits into one undo step. The same ownership rule must cover other claimed characters
+where HexIDE handles them. Until that work lands, typing does not invoke a server's formatter.
 
 Completion requests use the start of the identifier around the caret, including for Complete Word,
 so servers that filter by the preceding word return the full list for that context ([#3340](https://github.com/hexide-io/HexIDE/issues/3340)).
@@ -1369,7 +1381,7 @@ specification's own [`metaModel.json`](https://raw.githubusercontent.com/microso
 the canonical machine-readable list, so the method names and directions are the specification's rather than
 this document's recollection of them.
 
-**HexIDE implements 52 of the 93.** That is not a deficiency in itself — no client implements them all, and
+**HexIDE implements 53 of the 93.** That is not a deficiency in itself — no client implements them all, and
 most of the remainder are features no VB6 IDE needs. It is here so the shape of the gap is visible rather
 than inferred.
 
@@ -1391,7 +1403,7 @@ than inferred.
 | ✅ | `initialized` | → |  |
 | ✅ | `shutdown` | → |  |
 
-### `textDocument/*` — 27 of 41
+### `textDocument/*` — 28 of 41
 
 | | Method | Dir | Notes |
 |---|---|---|---|
@@ -1419,7 +1431,7 @@ than inferred.
 | ○ | `textDocument/inlineValue` | → |  |
 | ○ | `textDocument/linkedEditingRange` | → |  |
 | ○ | `textDocument/moniker` | → |  |
-| ○ | `textDocument/onTypeFormatting` | → |  |
+| ◐ | `textDocument/onTypeFormatting` | → | Client seam only; editor does not invoke it (#2672) |
 | ✅ | `textDocument/prepareCallHierarchy` | → | Shows the server's call hierarchy; computes none |
 | ✅ | `textDocument/prepareRename` | → | Asks every claimant advertising prepareProvider before the prompt; range/placeholder seeds it, null/error refuses it (#3073) |
 | ○ | `textDocument/prepareTypeHierarchy` | → |  |

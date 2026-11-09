@@ -51,6 +51,13 @@ public interface IProjectRunnerService : INotifyPropertyChanged
     bool CanRestartProject { get; }
     bool IsRunning { get; }
 
+    /// <summary>
+    /// The startup project, when nothing is running and no run engine runs it, with the launches add-ins offer for it; null
+    /// otherwise. It is what a tool that needs an engine has to explain (#3514). Each launch is asked whether it runs the
+    /// project every time this is read, so read it on the UI thread.
+    /// </summary>
+    NoEngineStartup? StartupWithNoEngine { get; }
+
     /// <summary>The running snapshot and documents edited since start, for automation replies.</summary>
     string? CodeEditNote(bool edit = false);
 
@@ -73,6 +80,18 @@ public interface IProjectRunnerService : INotifyPropertyChanged
     event Action<string>? RunFailed;
 
     /// <summary>
+    /// A running program met an error and carries on: an event procedure was abandoned and the form is still there, until
+    /// End is pressed. The failure gives the text to show and where the error was raised.
+    /// </summary>
+    event Action<RunFailure>? ErrorMet;
+
+    /// <summary>
+    /// Who answers an error nothing in the program handles, while the program waits at the statement that raised it
+    /// (#1011). It answers true for Debug, and false for End once it has ended the run.
+    /// </summary>
+    Func<RunFailure, Task<bool>>? HaltHost { get; set; }
+
+    /// <summary>
     /// Where the error that <see cref="StartFailed"/> or <see cref="RunFailed"/> is reporting was raised, for a handler to
     /// read while it runs; null at any other time, and when no statement raised it, as for a syntax error found before
     /// the run began (#955).
@@ -82,3 +101,8 @@ public interface IProjectRunnerService : INotifyPropertyChanged
     /// <summary>The project currently running, or null when nothing is.</summary>
     ProjectDefinition? RunningProject { get; }
 }
+
+/// <summary>A startup project no run engine runs, and what can run it instead.</summary>
+/// <param name="Project">The project.</param>
+/// <param name="Launches">The launches add-ins offer for it, in the order the Run menu lists them. Empty when none does.</param>
+public sealed record NoEngineStartup(ProjectDefinition Project, IReadOnlyList<HexIDE.Debugging.ContributedDebugLaunch> Launches);

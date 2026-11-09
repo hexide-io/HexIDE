@@ -87,7 +87,26 @@ not-implemented rather than select an unmeasured locale-dependent value (#2625).
 - **WHEN** the counted string for an ID has length zero
 - **THEN** the reader reports no string for that ID
 
-The `LoadResString`, `LoadResData` and `LoadResPicture` intrinsic calls remain separate work (#2626).
+### Requirement: Resource intrinsics read the project snapshot
+
+`LoadResString` SHALL return counted UTF-16 strings and `LoadResData` SHALL return zero-based Byte arrays
+from the resource snapshot, following the [#2626 measurements](../../../docs/vb6-fidelity-oracle/loadresstring-loadresdata-and-loadrespicture.md).
+Empty strings, absent resources and string tables requested as raw data SHALL raise 326.
+`LoadResPicture` SHALL load the measured 24-bit bitmap layout into the shared Picture object, report
+326 for absent/wrong-kind resources and 485 for invalid kinds. Present icon/cursor groups, other bitmap
+layouts, named arguments and multi-language selection SHALL refuse as not implemented. Picture properties without measured
+return subtypes and native/default handles SHALL remain explicitly unimplemented.
+
+#### Scenario: Resource text and data
+
+- **WHEN** a project requests string 102 or raw resource 201 from the measured fixture
+- **THEN** the string is `café€` and the raw data is Byte() with bounds 0 to 3 and bytes 1, 2, 3, 250
+
+#### Scenario: Bitmap object
+
+- **WHEN** the program uses Set with `LoadResPicture(301, vbResBitmap)`
+- **THEN** it receives the shared picture object whose TypeName is `Picture`
+- **AND** native Handle access refuses rather than inventing a handle
 
 ### Requirement: ObjPtr SHALL preserve object identity
 `ObjPtr` SHALL return Long identities satisfying the relations measured in
@@ -679,8 +698,8 @@ Parent SHALL return the owning form. Left and Top SHALL raise 393 on reads and 3
 absent members SHALL raise trappable 438 when executed, including early-bound accesses translated to runtime,
 except early-bound TabIndex and ToolTipText reads SHALL retain the missing-member compile error (#801 review).
 
-Implementation gap (#3431): TabIndex and ToolTipText reads currently use that compile error through Object references too,
-where the measured late-bound result is trappable 438.
+TabIndex and ToolTipText reads through Object references SHALL raise trappable 438, as measured in
+[the Timer oracle](../../../docs/vb6-fidelity-oracle/what-a-timer-has-at-run-time.md) (#3431).
 Unmeasured members and scroll-bar BackColor/ForeColor SHALL refuse as not implemented (#801).
 
 #### Scenario: Timer size is absent
@@ -696,6 +715,10 @@ Unmeasured members and scroll-bar BackColor/ForeColor SHALL refuse as not implem
 #### Scenario: Timer extender members remain absent
 - **WHEN** code reads Timer1.TabIndex or Timer1.ToolTipText under On Error Resume Next
 - **THEN** the missing-member compile error is raised rather than swallowed by the handler
+
+#### Scenario: Timer extender reads through Object
+- **WHEN** an Object variable holds a Timer and code reads its TabIndex or ToolTipText under On Error Resume Next
+- **THEN** Err.Number is 438 and execution continues after the read
 
 #### Scenario: Timer Interval arithmetic
 - **WHEN** a Timer with Interval 1000 is read and multiplied by 40
@@ -1493,6 +1516,19 @@ SHALL follow Form_Activate (#2436, measured on vb6.exe, native and p-code agreei
 - **THEN** it raises error 5 and showing the form subsequently focuses its first eligible control
 - **WHEN** Form_Load instead calls Me.Show then Text2.SetFocus
 - **THEN** Form_Activate, the first control's GotFocus and Text2_GotFocus occur inside Form_Load in that order
+
+### Requirement: Project library order determines bare ProgressBar binding
+The runtime SHALL resolve a bare ProgressBar type using the first matching library in the combined
+`Reference=` and `Object=` read order of the project. Form-header libraries SHALL be fallbacks after
+project libraries. Qualified types SHALL select their named library. This follows the measured
+[bare-name binding](../../../docs/vb6-fidelity-oracle/in-box-classes-a-bare-name-binds-to-the-first-library.md).
+
+#### Scenario: A component precedes a reference to the other common-controls library
+- **GIVEN** an MSComctlLib `Object=` line before a ComctlLib `Reference=` line
+- **WHEN** code declares a bare ProgressBar variable
+- **THEN** it holds Nothing until assigned and accepts an MSComctlLib ProgressBar
+- **AND** assigning a ComctlLib ProgressBar raises 13 and `TypeOf` follows the same binding
+- **AND** reversing the lines reverses the binding, regardless of form-header order
 
 ### Requirement: CommonDialog uses the shared control library
 The runtime SHALL resolve CommonDialog constants through the referenced MSComDlg library record and take its

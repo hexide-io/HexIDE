@@ -213,6 +213,12 @@ The strip SHALL remain excluded from the designer's container classes.
 - **THEN** a running form reports the not-implemented error through its event queue
 - **AND** it does not substitute a guessed layout
 
+#### Scenario: Designer drawing outside the supported slice
+
+- **WHEN** the designer previews a strip with an unsupported drawing layout
+- **THEN** it SHALL show the view-only placeholder with the control name and refusal reason
+- **AND** the saved block remains unchanged
+
 ### Requirement: TabStrip saved property bags
 
 An MSComctlLib.TabStrip SHALL write its measured own-property order, with `_Version` after the

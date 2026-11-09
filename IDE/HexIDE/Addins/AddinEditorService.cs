@@ -32,6 +32,21 @@ public sealed class AddinEditorService(
         return editor is null ? null : BuildDocument(editor);
     }
 
+    public async Task<AddinDocumentResult> TryGetDocument(string fileName, string? project = null)
+    {
+        return await Dispatcher.UIThread.InvokeAsync(() =>
+        {
+            var found = Resolve(fileName, project);
+            if (found.Document is not { } document)
+                return new AddinDocumentResult(null, found.Error);
+
+            return new AddinDocumentResult(new AddinDocument(document.Name,
+                document.AbsolutePath ?? string.Empty,
+                DocumentContent.Read(document, FindEditor(document)),
+                GetKind(document.Module?.Kind), document.Project.Name));
+        });
+    }
+
     public AddinSelection? GetSelection()
     {
         var editor = documentDock.ActiveDocument as CodeEditorViewModel;
@@ -281,8 +296,8 @@ public sealed class AddinEditorService(
         : editor.FormDefinition is { } form ? DocumentIdentity.For(form)
         : null;
 
-    private static AddinDocumentKind GetKind(CodeEditorViewModel e) =>
-        e.ModuleDefinition?.Kind switch
+    private static AddinDocumentKind GetKind(ModuleKind? kind) =>
+        kind switch
         {
             ModuleKind.UserControl => AddinDocumentKind.UserControl,
             ModuleKind.StandardModule or ModuleKind.ClassModule => AddinDocumentKind.Module,
@@ -300,6 +315,6 @@ public sealed class AddinEditorService(
         new(editor.Identity.Name,
             editor.Identity.AbsolutePath ?? string.Empty,
             editor.Document.Text,
-            GetKind(editor),
+            GetKind(editor.ModuleDefinition?.Kind),
             editor.Identity.Project.Name);
 }

@@ -19,7 +19,14 @@
                       HorizontalAlignment="Left" Width="200">
                 <ComboBox.ItemTemplate>
                     <DataTemplate x:DataType="loc:LanguageInfo">
-                        <TextBlock Text="{CompiledBinding DisplayName}" />
+                        <!-- "system" is the one row whose name is itself translated, so it follows the language switch.
+                             Every other row is a language's own name. -->
+                        <Panel>
+                            <TextBlock Text="{CompiledBinding DisplayName}"
+                                       IsVisible="{CompiledBinding Id, Converter={x:Static ObjectConverters.NotEqual}, ConverterParameter=system}" />
+                            <TextBlock Text="{DynamicResource Str.Options.Language.SystemDefault}"
+                                       IsVisible="{CompiledBinding Id, Converter={x:Static ObjectConverters.Equal}, ConverterParameter=system}" />
+                        </Panel>
                     </DataTemplate>
                 </ComboBox.ItemTemplate>
             </ComboBox>

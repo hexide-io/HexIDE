@@ -52,7 +52,20 @@
                      even asked" is a native question here and a per-server channel cannot express it. -->
                 <ComboBox Grid.Column="1" MinWidth="180" VerticalAlignment="Center"
                           ItemsSource="{CompiledBinding Connections}"
-                          SelectedItem="{CompiledBinding SelectedConnection}" />
+                          SelectedItem="{CompiledBinding SelectedConnection}">
+                    <ComboBox.ItemTemplate>
+                        <!-- The "every server" row keeps its fixed value for the view model to compare, and reads in
+                             the IDE's language here. A server id is shown as it is. -->
+                        <DataTemplate x:DataType="x:String">
+                            <Panel>
+                                <TextBlock Text="{CompiledBinding .}"
+                                           IsVisible="{CompiledBinding ., Converter={x:Static ObjectConverters.NotEqual}, ConverterParameter={x:Static pi:ProtocolInspectorToolViewModel.AllConnections}}" />
+                                <TextBlock Text="{DynamicResource Str.Tool.ProtocolInspector.AllServers}"
+                                           IsVisible="{CompiledBinding ., Converter={x:Static ObjectConverters.Equal}, ConverterParameter={x:Static pi:ProtocolInspectorToolViewModel.AllConnections}}" />
+                            </Panel>
+                        </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                </ComboBox>
 
                 <CheckBox Grid.Column="2" VerticalAlignment="Center" Margin="12,0,0,0"
                           IsChecked="{CompiledBinding FailuresOnly}"

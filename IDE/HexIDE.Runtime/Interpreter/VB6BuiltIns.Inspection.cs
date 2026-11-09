@@ -91,7 +91,7 @@ public partial class VB6BuiltIns
         ListViewColumns => "IColumnHeaders",
         ListViewColumn => "IColumnHeader",
         ListViewSubItem => "IListSubItem",
-        PanelPicture => throw new NotImplementedException("Panel.Picture TypeName is unmeasured (#1087)"),
+        PanelPicture => "Picture",
         StatusBarPanel => "IPanel",
         StatusBarPanels => "IPanels",
         ImageListImages => "IImages",

@@ -39,6 +39,14 @@ public interface IEditorAccess
     /// <summary>The document in the active code window, or null when the active window is not a code window.</summary>
     AddinDocument? GetActiveDocument();
 
+    /// <summary>
+    /// Reads a named document's whole file without opening a window, activating a tab or moving the caret.
+    /// HexIDE reads the open buffer, or the IDE's copy when closed. Older hosts refuse without navigating.
+    /// </summary>
+    /// <inheritdoc cref="NavigateTo(string, int, int, string?)" path="/param"/>
+    Task<AddinDocumentResult> TryGetDocument(string fileName, string? project = null) =>
+        Task.FromResult(new AddinDocumentResult(null, "This host does not support reading a document by name."));
+
     AddinSelection? GetSelection();
 
     /// <inheritdoc cref="NavigateTo(string, int, int, string?)"/>

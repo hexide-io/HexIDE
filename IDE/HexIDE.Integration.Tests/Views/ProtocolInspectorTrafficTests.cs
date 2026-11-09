@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Threading.Tasks;
 using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
@@ -12,6 +13,34 @@ namespace HexIDE.Integration.Tests.Views;
 
 public class ProtocolInspectorTrafficTests
 {
+    [AvaloniaFact]
+    public async Task TheEveryServerRowReadsInTheIdesLanguageAndKeepsItsValue()
+    {
+        await using var capture = new ConversationLog();
+        var loc = Substitute.For<ILocalizationService>();
+        loc.GetString(Arg.Any<string>()).Returns("{0}");
+        var vm = new ProtocolInspectorToolViewModel(capture, loc, new Pseudonymiser(),
+            Substitute.For<IWindowManager>());
+        var view = new ProtocolInspectorToolView { DataContext = vm };
+        view.Resources["Str.Tool.ProtocolInspector.AllServers"] = "localized all";
+        var window = new Window { Content = view };
+        window.Show();
+        try
+        {
+            Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+
+            vm.SelectedConnection.Should().Be(ProtocolInspectorToolViewModel.AllConnections,
+                "the view model still compares against the fixed value");
+            var shown = Avalonia.VisualTree.VisualExtensions.GetVisualDescendants(view).OfType<TextBlock>()
+                .Where(text => text.IsEffectivelyVisible).Select(text => text.Text).ToList();
+            shown.Should().Contain("localized all").And.NotContain(ProtocolInspectorToolViewModel.AllConnections);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
     [AvaloniaFact]
     public async Task VisibleInspectorReportsArrivalsWithoutMovingTheGrid()
     {

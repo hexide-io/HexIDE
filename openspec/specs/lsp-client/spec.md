@@ -2033,7 +2033,8 @@ deadline and caller cancellation.
 ### Requirement: Project diagnostics panel
 
 The IDE SHALL provide a Diagnostics panel listing current diagnostics across documents with publisher,
-severity, document, line and message. It SHALL filter by severity and current document, update when
+severity, source when supplied, document, line and message. It SHALL show counts per severity,
+respecting the current-document filter but including hidden severities. It SHALL filter by severity and current document, update when
 reports change, and navigate a double-clicked row through the project document resolver.
 Document cells SHALL show the loaded member name, or the file name for an outside file, with the full
 path only in a tooltip and the URI retained for navigation. Severity cells SHALL use localized singular
@@ -2638,3 +2639,23 @@ replacement server response (#512).
 - **WHEN** a designer edit replaces the header with a longer or shorter header
 - **THEN** the drawn range moves with that code immediately
 - **AND** no new diagnostic publication or document-highlight response is needed
+
+### Requirement: On-type formatting protocol seam selects one trigger owner
+
+The client SHALL expose a query and a request for a document URI and typed character. It SHALL send
+`textDocument/onTypeFormatting` only to the highest-priority running document claimant declaring that
+character in `documentOnTypeFormattingProvider.firstTriggerCharacter` or `moreTriggerCharacter`.
+The request SHALL carry the post-typing position and formatting options, return the server's text edits,
+and cancel after a 250 ms budget with no edits on timeout. This protocol seam does not yet transfer
+ownership of typing from the editor's local helpers (#2672).
+
+#### Scenario: A higher-priority server declares a different character
+
+- **WHEN** the first claimant declares only `;` and two lower claimants declare newline
+- **AND** the caller requests on-type formatting for newline
+- **THEN** only the higher-priority of the two newline claimants receives the request
+
+#### Scenario: The selected server does not answer
+
+- **WHEN** the on-type formatting request exhausts its budget
+- **THEN** the client sends `$/cancelRequest` for that request and returns no edits

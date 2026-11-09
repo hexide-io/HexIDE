@@ -48,6 +48,7 @@ internal static class CommandKeyMapping
             ["PasteAsCommentCommand"]                   = ApplicationCommands.PasteAsCommentCommand,
             ["PasteLinkCommand"]                       = ApplicationCommands.PasteLinkCommand,
             ["RemoveCommand"]                          = ApplicationCommands.RemoveCommand,
+            ["DeleteLineCommand"]                      = ApplicationCommands.DeleteLineCommand,
             ["DeleteCommand"]                          = ApplicationCommands.DeleteCommand,
             ["SelectAllCommand"]                       = ApplicationCommands.SelectAllCommand,
             ["FindCommand"]                            = ApplicationCommands.FindCommand,
@@ -119,7 +120,7 @@ internal static class CommandKeyMapping
             ["OpenOptionsCommand"]                     = ApplicationCommands.OpenOptionsCommand,
             ["AddProcedureCommand"]                    = ApplicationCommands.AddProcedureCommand,
             ["AboutCommand"]                           = ApplicationCommands.AboutCommand,
-            ["AvaloniaOnWebCommand"]                   = ApplicationCommands.AvaloniaOnWebCommand,
+            ["ProductOnWebCommand"]                    = ApplicationCommands.ProductOnWebCommand,
             // ── Project ────────────────────────────────────────────
             ["ProjectReferencesCommand"]               = ApplicationCommands.ProjectReferencesCommand,
             ["ProjectComponentsCommand"]               = ApplicationCommands.ProjectComponentsCommand,

@@ -87,6 +87,18 @@ those documents and explain the possible line mismatch.
 - **WHEN** code changes during a run
 - **THEN** debug-state and breakpoint replies name the changed document until the run ends
 
+### Requirement: Offscreen state includes scroll clipping
+
+`inspect_element` and `dump_visual_tree` SHALL report `isOffscreen: true` when a control's bounds
+have no visible intersection with its enclosing scroll viewports and top-level client area, even
+when its automation peer reports otherwise. A partially visible control SHALL remain onscreen
+unless its peer reports it offscreen.
+
+#### Scenario: A row lies inside the window but below its scroll viewport
+- **WHEN** a control is wholly clipped by an enclosing scroll viewport
+- **THEN** inspection and tree dumps report it offscreen
+- **AND** scrolling it partly into view clears that state if its peer also reports it onscreen
+
 ### Requirement: Inspected popup bounds share the window coordinate space
 
 `inspect_element` SHALL report `boundingRect` in device-independent client coordinates of the selected
@@ -521,7 +533,7 @@ dialog. Nothing about the flow below the dialog SHALL be bypassed, and no file S
 an answer. The facility SHALL be absent from builds the automation server is absent from.
 
 A file picker is a native operating-system dialog. It is outside the control tree, so the tree cannot see
-it and no path addresses it, and while a modal one is up the server does not answer at all. Every feature
+it and no path addresses it. The server can keep answering while one is open (#2870). Every feature
 that ends in Save As, Open, Make EXE, Add File or Export was therefore verifiable only by asking a person
 to click, which is the one thing the development loop is not allowed to require.
 
@@ -543,6 +555,23 @@ unrelated save, and that damage surfaces somewhere other than where it was cause
 #### Scenario: A distributed build
 - **WHEN** a build excludes the automation server
 - **THEN** it contains no way to bypass a file dialog
+
+### Requirement: An uncovered native picker is reported and blocks further actions
+The server SHALL track native file pickers until they complete or fail, recording their title and suggested file
+name. `invoke_menu_item`, `interact`, `clear_file_dialog_answers` and `dump_visual_tree` SHALL report an open picker.
+Menu and control actions SHALL refuse while one is open, leaving armed answers untouched. The note SHALL explain
+that the picker is outside the control tree, must be closed or cancelled in the operating system, and cannot be
+answered after opening by arming an answer. Clearing answers SHALL NOT close the picker.
+
+#### Scenario: A project save exhausts its armed answers
+- **WHEN** a save consumes the last armed answer and opens another native picker
+- **THEN** its action reply and subsequent tree and clear replies name the open picker
+- **AND** another menu or control action is refused without consuming any newly armed answer
+
+#### Scenario: Arming a project save
+- **WHEN** a caller reads `answer_next_file_dialog`'s description
+- **THEN** it explains one answer per picker, in forms, modules, project and group order as needed
+- **AND** it explains that Save As and a scratch project's user save ask for every member and the project even with working-copy paths
 
 ### Requirement: One armed answer SHALL be able to name several files, for an Open that allows them
 The server SHALL let a client arm one answer that names several files, in order, as a person selects them in an
@@ -1211,6 +1240,33 @@ refusal SHALL name that bar.
 #### Scenario: A control that draws its own bar
 - **WHEN** `scroll` finds no scroller for a control that draws a vertical scroll bar
 - **THEN** the refusal names that bar and its position, with `set_range_value` and `wheel` as the routes that move it
+
+### Requirement: A tool that needs a run engine SHALL say when none runs the project
+While nothing is running and no run engine runs the startup project, as for a project an add-in read, every tool that
+starts, drives or reads a run SHALL say so and name what can run it: each launch add-ins offer for it, as the
+`invoke_menu_item` path that starts it, or, with none, how to run it under a debug adapter. A refusal SHALL say it in its
+error and a report in its `note`. No tool SHALL report such a project as already running or as not loaded, and each SHALL
+take this from the run engine.
+
+#### Scenario: An add-in's project with a launch
+- **WHEN** `run_project` is called with an add-in's project at startup, and an add-in offers a launch for it
+- **THEN** the reply is an error naming the project and the add-in, and the launch's path under Run > Start Once With
+
+#### Scenario: An add-in's project with no launch
+- **WHEN** `step_into` is called with an add-in's project at startup, and no add-in offers a launch for it
+- **THEN** the reply is an error that says so and names Run > Start External Debug Session and `answer_next_file_dialog`
+
+#### Scenario: A tool that reads a paused program
+- **WHEN** `get_locals` is called with an add-in's project at startup and nothing running
+- **THEN** the refusal says no run engine runs it, and does not send the caller to `run_project`
+
+#### Scenario: A tool that reports on a run
+- **WHEN** `get_debug_state`, `get_watches`, `add_watch` or `get_last_runtime_error` is called with an add-in's project at startup and nothing running
+- **THEN** its `note` says no run engine runs it
+
+#### Scenario: A project the engine runs
+- **WHEN** `get_locals` is called with nothing running and a project the engine runs at startup
+- **THEN** the refusal says to set a breakpoint and call `run_project`, and `get_debug_state` has no note about an engine
 
 ### Requirement: Run-control replies SHALL say what the program printed
 For interpreter sessions, a successful reply from `run_project`, `stop_project`, `continue_program`,

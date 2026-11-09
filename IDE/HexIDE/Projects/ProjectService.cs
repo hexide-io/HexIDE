@@ -411,7 +411,7 @@ public partial class ProjectService : IProjectService
         Log.Information("ProjectService: Opening {ProjectPath} as {Type}, from {Origin}", projectPath, type.Type.Title, type.Origin);
         if (projectManager.LoadedProjects.Any(p => p.AbsolutePath != null && HexIDE.IO.HostFilePath.Equals(projectPath, p.AbsolutePath)))
         {
-            await windowManager.MessageBox($"Project {Path.GetFileName(projectPath)} is already opened.", icon: MessageBoxIcon.Information);
+            await windowManager.MessageBox(string.Format(localization.GetString("Str.Project.AlreadyOpen"), Path.GetFileName(projectPath)), icon: MessageBoxIcon.Information);
             throw new OperationCanceledException();
         }
 
@@ -665,7 +665,7 @@ public partial class ProjectService : IProjectService
         Log.Information("ProjectService: Opening project {ProjectPath}", projectPath);
         if (projectManager.LoadedProjects.Any(p => p.AbsolutePath != null && HexIDE.IO.HostFilePath.Equals(projectPath, p.AbsolutePath)))
         {
-            await windowManager.MessageBox($"Project {Path.GetFileName(projectPath)} is already opened.", icon: MessageBoxIcon.Information);
+            await windowManager.MessageBox(string.Format(localization.GetString("Str.Project.AlreadyOpen"), Path.GetFileName(projectPath)), icon: MessageBoxIcon.Information);
             throw new OperationCanceledException();
         }
         var errorSink = new DeserializeErrorSink(localization);
@@ -1163,7 +1163,7 @@ public partial class ProjectService : IProjectService
                 ProjectDefinition project => (project.Name,
                     new ProjectSerializer().Serialize(project, destination.Path, PathOf), project.TextEncoding),
                 ProjectGroupDefinition group => (group.Name, RenderGroup(group, destination.Path, PathOf), group.TextEncoding),
-                _ => throw new ArgumentException($"HexIDE does not save a {destination.Document.GetType().Name}.")
+                _ => throw new ArgumentException($"{HexIDE.IDE.Distribution.DisplayName} does not save a {destination.Document.GetType().Name}.")
             };
             Vb6TextFile.EncodeDocument(document, text, encoding);
         }
@@ -1268,7 +1268,7 @@ public partial class ProjectService : IProjectService
                 Log.Information("ProjectService: Saved group {Path}", group.AbsolutePath);
                 return true;
             default:
-                throw new ArgumentException($"HexIDE does not save a {destination.Document.GetType().Name}.");
+                throw new ArgumentException($"{HexIDE.IDE.Distribution.DisplayName} does not save a {destination.Document.GetType().Name}.");
         }
     }
 
@@ -1403,7 +1403,7 @@ public partial class ProjectService : IProjectService
                 ? string.Format(localization.GetString("Str.Naming.Msg.NotAVb6Name"), proposed)
             : ProjectNaming.IsProjectNameTaken(projectManager.LoadedProjects, proposed, project)
                 ? string.Format(localization.GetString("Str.Naming.Msg.ProjectNameTaken"), proposed)
-            : null);
+            : null, localization);
         if (!await windowManager.ShowDialog(vm))
             return;
 
@@ -1414,7 +1414,7 @@ public partial class ProjectService : IProjectService
     {
         if (await RefusedSettings(project))
             return;
-        var vm = new ReferencesViewModel(project, referenceLibraryService, windowManager);
+        var vm = new ReferencesViewModel(project, referenceLibraryService, windowManager, localization);
         if (!await windowManager.ShowDialog(vm))
             return;
         vm.Apply(project);
@@ -1471,7 +1471,7 @@ public partial class ProjectService : IProjectService
         // in place of the file the add-in owns.
         if (projectDefinition.ContributedBy is { } contributor)
         {
-            make.NotMade($"{projectDefinition.Name} is opened by the {contributor} add-in, so HexIDE doesn't make it", true);
+            make.NotMade($"{projectDefinition.Name} is opened by the {contributor} add-in, so {HexIDE.IDE.Distribution.DisplayName} doesn't make it", true);
             await windowManager.MessageBox(string.Format(localization.GetString("Str.ContributedProject.NotMade"),
                 projectDefinition.Name, projectDefinition.ContributorTitle), icon: MessageBoxIcon.Information);
             throw new OperationCanceledException();
@@ -1529,7 +1529,7 @@ public partial class ProjectService : IProjectService
         make.Reached(MakeOutcomes.Stage.Writing);
         if (StandaloneRunnerName() is not { } runnerName)
         {
-            make.NotMade("HexIDE has no standalone runner for this platform, so nothing was written", true);
+            make.NotMade(HexIDE.IDE.Distribution.DisplayName + " has no standalone runner for this platform, so nothing was written", true);
             await windowManager.MessageBox(localization.GetString("Str.MakeProject.UnsupportedPlatform"), icon: MessageBoxIcon.Information);
             throw new OperationCanceledException();
         }
@@ -1648,7 +1648,7 @@ public partial class ProjectService : IProjectService
 
     /// <summary>Why a Make refused the forms and modules banked for <see cref="ReportRefusedSaves"/>, for its outcome.</summary>
     private string Unfaithful() =>
-        $"HexIDE can't write {string.Join(", ", refusedThisSave)} as they were read, so nothing was written";
+        $"{HexIDE.IDE.Distribution.DisplayName} can't write {string.Join(", ", refusedThisSave)} as they were read, so nothing was written";
 
     /// <summary>The folder Make finds the standalone runtime in: the IDE's own, whatever the current directory is (#1947).</summary>
     internal string RuntimeDirectory { get; set; } = AppContext.BaseDirectory;
@@ -1716,7 +1716,7 @@ public partial class ProjectService : IProjectService
             .ToList();
         if (refused.Count > 0)
             throw new InvalidOperationException(
-                $"Cannot write this project to {directory}: HexIDE cannot reproduce "
+                $"Cannot write this project to {directory}: {HexIDE.IDE.Distribution.DisplayName} cannot reproduce "
               + $"{string.Join(", ", refused)}, so nothing was written.");
 
         // Modules as well. Writing the forms and the .vbp but not the modules produced a directory whose
@@ -1733,6 +1733,33 @@ public partial class ProjectService : IProjectService
             new Destination(project, Path.Join(directory, project.Name + ".vbp"))
         ];
         EnsureEncodable(files);
+        // This HexIDE-only operation has no picker to ask about existing destinations (#2504).
+        // Ask once, including companions, before any write or permanent path change.
+        var outputs = new List<string>();
+        foreach (var file in files)
+        {
+            outputs.Add(file.Path);
+            var designer = file.Document switch
+            {
+                FormDefinition form => form,
+                ModuleDefinition module => DesignerPartOf(module),
+                _ => null
+            };
+            if (designer is null)
+                continue;
+            var (_, companion) = file.Document is ModuleDefinition moduleDocument
+                ? RenderModule(moduleDocument, file.Path)
+                : RenderForm(designer, file.Path);
+            if (companion is { Length: > 0 } || designer.CitedCompanionBlobCount > 0)
+                outputs.Add(Path.ChangeExtension(file.Path, CompanionBinaryExtension(file.Path)));
+        }
+        var existing = outputs.Where(File.Exists).Distinct().ToArray();
+        if (existing.Length > 0
+            && await windowManager.MessageBox(
+                string.Format(localization.GetString("Str.Tool.ProtocolInspector.ReplaceFiles"),
+                    string.Join(Environment.NewLine, existing)),
+                buttons: MessageBoxButtons.YesNo, icon: MessageBoxIcon.Warning) != MessageBoxResult.Yes)
+            throw new OperationCanceledException();
         Directory.CreateDirectory(directory);
         // Not each member's own Save: a member written to a file other than its own has its attribute qualifiers
         // rewritten for that reason alone, as VB6's Save As writes them, and one written back to its own file is a

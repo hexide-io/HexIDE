@@ -188,10 +188,10 @@ public sealed class NamedPipeLspTransport : ILspTransport
     /// </remarks>
     public string? Unobservable =>
         _launch is null
-            ? "This server was already running when HexIDE connected to it, so its start, its exit code and "
+            ? "This server was already running when " + HexIDE.IDE.Distribution.DisplayName + " connected to it, so its start, its exit code and "
               + "anything it writes to standard error belong to whoever launched it. Messages are captured in full."
         : _launchedWithoutHandle
-            ? "HexIDE started this server but the operating system gave back no handle for it — the request "
+            ? HexIDE.IDE.Distribution.DisplayName + " started this server but the operating system gave back no handle for it — the request "
               + "went to an instance that was already running — so its exit code and standard error cannot be "
               + "read. Messages are captured in full."
             : null;

@@ -47,14 +47,14 @@ public class SSTabDrawingTests : WindowTestFixture
             using var before = window.CaptureRenderedFrame();
             before.Should().NotBeNull();
             using var beforeBytes = new MemoryStream();
-            before!.Save(beforeBytes);
+            before!.Save(beforeBytes, Avalonia.Media.Imaging.PngBitmapEncoderOptions.Default);
             if (focusRectangle) tab.ShowFocusRect = false;
             else tab.Tab = 1;
             Dispatcher.UIThread.RunJobs();
             using var after = window.CaptureRenderedFrame();
             after.Should().NotBeNull();
             using var afterBytes = new MemoryStream();
-            after!.Save(afterBytes);
+            after!.Save(afterBytes, Avalonia.Media.Imaging.PngBitmapEncoderOptions.Default);
             afterBytes.ToArray().Should().NotEqual(beforeBytes.ToArray());
         }
         finally

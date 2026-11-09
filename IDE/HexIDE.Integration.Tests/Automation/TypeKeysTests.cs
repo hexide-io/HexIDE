@@ -602,7 +602,7 @@ public class TypeKeysTests : IDisposable
         var open = new Window
         {
             Title = "HexIDE",
-            Content = new HexIDE.Runtime.Dialogs.MessageBox { Text = "Reset?", Buttons = HexIDE.IDE.MessageBoxButtons.OkCancel },
+            Content = new HexIDE.Dialogs.MessageBox { Text = "Reset?", Buttons = HexIDE.IDE.MessageBoxButtons.OkCancel },
         };
         _ = open.ShowDialog(window);
         Dispatcher.UIThread.RunJobs();
@@ -629,7 +629,7 @@ public class TypeKeysTests : IDisposable
         var open = new Window
         {
             Title = "",
-            Content = new HexIDE.Runtime.Dialogs.MessageBox { Text = "Reset?", Buttons = HexIDE.IDE.MessageBoxButtons.OkCancel },
+            Content = new HexIDE.Dialogs.MessageBox { Text = "Reset?", Buttons = HexIDE.IDE.MessageBoxButtons.OkCancel },
         };
         _ = open.ShowDialog(window);
         Dispatcher.UIThread.RunJobs();

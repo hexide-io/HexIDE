@@ -25,7 +25,7 @@ public class PropertyFilterTests
         var grid = new PropertiesToolViewModel(dock, bus, Substitute.For<IWindowManager>(), loc);
         dock.ActiveDocument.Returns(designer);
         dock.PropertyChanged += Raise.Event<PropertyChangedEventHandler>(dock, new PropertyChangedEventArgs(nameof(dock.ActiveDocument)));
-        var original = grid.Properties.ToArray();
+        var original = grid.Properties.OfType<PropertyViewModel>().ToArray();
         original.Length.Should().BeGreaterThan(1);
         var categorized = grid.CategorizedProperties.ToArray();
         var collapsed = grid.CategorizedProperties.OfType<PropertyCategoryViewModel>().First();
@@ -42,7 +42,7 @@ public class PropertyFilterTests
         grid.Properties.Should().Equal(original);
         grid.CategorizedProperties.Should().Equal(categorized);
         collapsed.IsExpanded.Should().BeFalse();
-        grid.Properties.Where(p => p.PropertyClass.Category == collapsed.Category)
+        grid.Properties.OfType<PropertyViewModel>().Where(p => p.PropertyClass.Category == collapsed.Category)
             .Should().OnlyContain(p => !p.IsVisible);
     }
 }

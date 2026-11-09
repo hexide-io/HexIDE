@@ -321,6 +321,11 @@ public interface ILspClient : IAsyncDisposable
     /// <summary>Sends textDocument/rename and returns edits, a refusal, or null for no change.</summary>
     Task<RenameResult?> RequestRenameAsync(string uri, Position position, string newName, CancellationToken cancellationToken = default);
 
+    /// <summary>Whether a running document claimant declares this on-type formatting trigger.</summary>
+    bool SupportsOnTypeFormatting(string uri, string trigger);
+    /// <summary>Requests edits from one claimant declaring the trigger, with a short cancellation budget.</summary>
+    Task<TextEdit[]> RequestOnTypeFormattingAsync(string uri, Position position, string trigger, FormattingOptions options, CancellationToken cancellationToken = default);
+
     /// <summary>Whether an open document has a running claimant advertising range formatting.</summary>
     bool SupportsRangeFormatting(string uri);
     /// <summary>Sends textDocument/rangeFormatting to one advertising claimant.</summary>

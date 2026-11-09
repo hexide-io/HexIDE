@@ -2496,7 +2496,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
 
     public async Task AddProcedure()
     {
-        var vm = new AddProcedureViewModel();
+        var vm = new AddProcedureViewModel(localization);
         if (!await windowManager.ShowDialog(vm))
             return;
 
@@ -2525,12 +2525,19 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
         var hasCode = PastReadOnlyRegion(0) < text.Length;
         if (hasCode && !(text + separator).EndsWith(lineBreak + lineBreak, StringComparison.Ordinal))
             separator += lineBreak;
-        Document.Insert(Document.TextLength, separator);
-
-        Document.Insert(Document.TextLength, beginCode);
-        var offset = Document.TextLength;
-        Document.Insert(Document.TextLength, endCode);
-        CaretOffset = offset;
+        Document.UndoStack.StartUndoGroup();
+        try
+        {
+            Document.Insert(Document.TextLength, separator);
+            Document.Insert(Document.TextLength, beginCode);
+            var offset = Document.TextLength;
+            Document.Insert(Document.TextLength, endCode);
+            CaretOffset = offset;
+        }
+        finally
+        {
+            Document.UndoStack.EndUndoGroup();
+        }
         FocusWindowRequest?.Invoke();
     }
 }

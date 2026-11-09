@@ -7,10 +7,12 @@ using Avalonia.Automation;
 using Avalonia.Automation.Peers;
 using Avalonia.Controls;
 using Avalonia.Controls.Templates;
+using Avalonia.Controls.Primitives;
 using Avalonia.Data;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Styling;
+using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
@@ -117,6 +119,84 @@ public class UiAutomationDriverTests
         {
             var nodes = Flatten(UiAutomationDriver.Dump(window, "Window", 20, interactiveOnly));
             nodes.Any(n => n.ClassName == "Menu").Should().Be(hasMenus);
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaFact]
+    public void Offscreen_accounts_for_window_client_area()
+    {
+        var target = new Button { Name = "OutsideWindow", Width = 40, Height = 40 };
+        Canvas.SetLeft(target, 300);
+        var window = new Window
+        {
+            Content = new Canvas { Children = { target } }, Width = 200, Height = 150
+        };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+        try
+        {
+            UiAutomationDriver.Inspect(target, "target").IsOffscreen.Should().BeTrue();
+            Flatten(UiAutomationDriver.Dump(window, "Window", 10, false))
+                .Single(n => n.Name == target.Name).IsOffscreen.Should().BeTrue();
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaTheory]
+    [InlineData(false, 1)]
+    [InlineData(true, 1.5)]
+    public void Offscreen_accounts_for_scroll_viewports(bool nested, double scaling)
+    {
+        var target = new Button { Name = "ScrollTarget", Width = 80, Height = 40 };
+        var canvas = new Canvas { Width = 600, Height = 600, Children = { target } };
+        Canvas.SetTop(target, 240);
+        var inner = new ScrollViewer
+        {
+            Content = canvas, Width = 180, Height = 120,
+            HorizontalScrollBarVisibility = ScrollBarVisibility.Auto
+        };
+        Control content = inner;
+        if (nested)
+            content = new ScrollViewer { Content = new StackPanel { Children = { inner } }, Height = 80 };
+        var window = new Window { Content = content, Width = 400, Height = 400 };
+        window.SetRenderScaling(scaling);
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+        try
+        {
+            void Check(bool offscreen)
+            {
+                UiAutomationDriver.Inspect(target, "target").IsOffscreen.Should().Be(offscreen);
+                Flatten(UiAutomationDriver.Dump(window, "Window", 30, false))
+                    .Single(n => n.Name == target.Name).IsOffscreen.Should().Be(offscreen);
+            }
+
+            Check(true);
+            if (nested)
+            {
+                Canvas.SetTop(target, 330);
+                inner.Offset = new Vector(0, 240);
+                window.UpdateLayout();
+                Check(true); // In the inner viewport, but below the outer viewport.
+                Canvas.SetTop(target, 240);
+            }
+            inner.Offset = new Vector(0, 220);
+            window.UpdateLayout();
+            Check(false);
+            inner.Offset = new Vector(0, 270);
+            window.UpdateLayout();
+            Check(false); // The last ten pixels still intersect the viewport.
+            inner.Offset = new Vector(0, 300);
+            window.UpdateLayout();
+            Check(true);
+            Canvas.SetLeft(target, 240);
+            inner.Offset = new Vector(0, 220);
+            window.UpdateLayout();
+            Check(true);
+            inner.Offset = new Vector(220, 220);
+            window.UpdateLayout();
+            Check(false);
         }
         finally { window.Close(); }
     }

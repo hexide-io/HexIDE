@@ -32,6 +32,8 @@ public sealed class UnsavedWorkCaptureTests : IDisposable
     public void Dispose()
     {
         foreach (var vm in created) vm.Dispose();
+        // A window closed with unsaved typing leaves its session held until the project closes.
+        foreach (var project in loaded) bus.Publish(new ProjectUnloadedEvent(project));
         try { Directory.Delete(dir, recursive: true); } catch (IOException) { }
     }
 

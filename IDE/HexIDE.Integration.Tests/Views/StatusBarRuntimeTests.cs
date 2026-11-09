@@ -329,9 +329,9 @@ public class StatusBarRuntimeTests
                     $"Debug.Print StatusBar1.Panels(2).Picture.{member}");
                 await readMember.Should().ThrowAsync<NotImplementedException>().WithMessage($"*Panel.Picture.{member}*");
             }
-            var typeName = () => ContainerRuntimeHarness.Run(ctx, env,
+            var typeName = await ContainerRuntimeHarness.Run(ctx, env,
                 "Debug.Print TypeName(StatusBar1.Panels(2).Picture)");
-            await typeName.Should().ThrowAsync<NotImplementedException>().WithMessage("*TypeName*unmeasured*");
+            typeName.Select(v => v.Value).Should().Equal("Picture");
         }
     }
 

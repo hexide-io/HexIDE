@@ -162,7 +162,7 @@ public class DropdownListNameTests
             Dispatcher.UIThread.RunJobs();
             var bitmap = (Bitmap)((Image)renderer.Child!).Source!;
             using var png = new MemoryStream();
-            bitmap.Save(png);
+            bitmap.Save(png, Avalonia.Media.Imaging.PngBitmapEncoderOptions.Default);
             window.Close();
             return png.ToArray();
         }

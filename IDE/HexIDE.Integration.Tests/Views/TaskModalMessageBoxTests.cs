@@ -9,7 +9,7 @@ using Avalonia.Threading;
 using Avalonia.VisualTree;
 using HexIDE.IDE;
 using HexIDE.Localization;
-using HexIDE.Runtime.Dialogs;
+using HexIDE.Dialogs;
 
 namespace HexIDE.Integration.Tests.Views;
 
@@ -49,6 +49,7 @@ public class TaskModalMessageBoxTests
             hidden.IsEnabled.Should().BeFalse("hidden windows must stay held if shown under the question");
             disabled.IsEnabled.Should().BeFalse();
             prompt.IsEnabled.Should().BeTrue();
+            prompt.Content!.GetType().FullName.Should().Be("HexIDE.Dialogs.MessageBox");
             var box = (MessageBox)prompt.Content!;
             var button = box.GetVisualDescendants().OfType<Button>().Single(b => Equals(b.Content, answer.ToString()));
             button.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));

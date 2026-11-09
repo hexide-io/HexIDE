@@ -32,6 +32,25 @@ Matching SHALL use a case-insensitive substring of the property name, independen
 - **THEN** the full property lists return, preserving category expansion state
 
 
+### Requirement: Unmodelled properties remain visible and read-only
+
+The Properties window SHALL append every raw property carried by the selected modelled component after
+its modelled properties in both tabs, as greyed read-only rows included in name filtering. Text values
+SHALL retain the file's textual representation; a property with a binary record or companion citation
+SHALL show a localized `(binary)` marker instead. Displaying these rows SHALL NOT alter the saved form
+or companion bytes. This is the presentation contract decided in [#158](https://github.com/hexide-io/HexIDE/issues/158).
+
+#### Scenario: Inspect a carried property
+
+- **WHEN** a selected component carries an unmodelled textual property
+- **THEN** both tabs show its name and saved value after the modelled rows, without an editor
+- **AND** saving after inspecting or filtering the row preserves the form and companion byte for byte
+
+#### Scenario: Inspect a binary record
+
+- **WHEN** the carried property cites a companion record
+- **THEN** its value is the localized binary marker, never the citation or binary bytes
+
 ### Requirement: PictureBox designer bitmap assignment honors AutoSize
 When a bitmap is assigned to a PictureBox with AutoSize True, the designer SHALL set Width and Height to the bitmap's pixel dimensions plus two pixels on each side for the default 3-D Fixed Single border, or no extra pixels with BorderStyle None. It SHALL record those dimensions with the picture edit as one undo step. This implements the measured bitmap cases in [#922's oracle](../../../docs/vb6-fidelity-oracle/autosize-on-a-label-and-a-picturebox.md); Label AutoSize remains pending; runtime bitmap sizing is specified in [container-controls](../container-controls/spec.md).
 

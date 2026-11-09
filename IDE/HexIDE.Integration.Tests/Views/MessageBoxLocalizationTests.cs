@@ -7,7 +7,7 @@ using Avalonia.Threading;
 using Avalonia.VisualTree;
 using HexIDE.IDE;
 using HexIDE.Localization;
-using MessageBox = HexIDE.Runtime.Dialogs.MessageBox;
+using MessageBox = HexIDE.Dialogs.MessageBox;
 
 namespace HexIDE.Integration.Tests.Views;
 

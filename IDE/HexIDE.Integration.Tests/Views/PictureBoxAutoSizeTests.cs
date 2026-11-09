@@ -131,7 +131,7 @@ public class PictureBoxAutoSizeTests
             windows.OpenFilePickerAsync(Arg.Any<FilePickerOpenOptions>()).Returns(new[] { path });
             var grid = new PropertiesToolViewModel(dock, bus, windows, loc);
             designer.SelectedComponent = designer.AllComponents.Single(c => c.Instance == instance);
-            var row = grid.Properties.Single(p => p.PropertyClass == VBProperties.PictureProperty);
+            var row = grid.Properties.OfType<PropertyViewModel>().Single(p => p.PropertyClass == VBProperties.PictureProperty);
             await row.LoadPictureCommand.ExecuteAsync(null);
             await windows.Received(1).MessageBox(Arg.Is<string>(s => s.StartsWith("Not implemented:")
                 && s.Contains("flat border") && s.Contains("not measured")), icon: MessageBoxIcon.Error);

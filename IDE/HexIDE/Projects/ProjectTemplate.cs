@@ -12,11 +12,13 @@ public class ProjectTemplate : IProjectTemplate
     public ProjectTemplate(string name,
         string iconName,
         bool supported,
-        Func<string, ProjectDefinition> creator)
+        Func<string, ProjectDefinition> creator,
+        string? nameKey = null)
     {
         this.creator = creator;
         Supported = supported;
         Name = name;
+        NameKey = nameKey;
         Icon = IconFactory.Themed(iconName switch
         {
             "standard_exe" => "Geo.Standardexe16",
@@ -29,6 +31,8 @@ public class ProjectTemplate : IProjectTemplate
     }
 
     public string Name { get; set; }
+
+    public string? NameKey { get; }
 
     public IImage Icon { get; set; }
 

@@ -29,6 +29,7 @@ public sealed class InterpreterRunEngine : IRunEngine
     private readonly IWindowManager windowManager;
     private readonly ILocalizationService localization;
     private readonly IDebugController debugController;
+    private Func<RunFailure, Task<bool>>? haltHost;
 
     public InterpreterRunEngine(IWindowManager windowManager, ILocalizationService localization, IDebugController debugController)
     {
@@ -40,6 +41,33 @@ public sealed class InterpreterRunEngine : IRunEngine
         HostDialogs.Print = windowManager.ShowPrintDialog;
         HostDialogs.Color = windowManager.ShowColorDialog;
         HostDialogs.Font = initial => MDIStandaloneStandardLib.ShowFontDialog(windowManager, initial);
+
+        VBWindowContext.RunTimeError += (_, e) => ErrorMet?.Invoke(new RunFailure(RunErrorText.For(e), ErrorLocation.Of(e)));
+
+        // A compile error met while a form runs, such as a call to a Sub that does not exist, reached from a click.
+        // Reported as a run-time error is: recorded, so get_last_runtime_error sees it, and shown in the dialog
+        // whose End ends the run. It was a message box nothing recorded (#759). One route for every error a run
+        // meets, rather than VB6's separate compile-error box with OK and Help, because #754 already sends Sub
+        // Main's compile errors through this dialog and two routes would answer the same error differently.
+        // The run carries on, with the handler abandoned, as it does after a run-time error.
+        VBWindowContext.CompileError += (_, e) => ErrorMet?.Invoke(new RunFailure(e.Message, ErrorLocation.Of(e)));
+    }
+
+    /// <inheritdoc />
+    public event Action<RunFailure>? ErrorMet;
+
+    /// <inheritdoc />
+    /// <remarks>The debugger halts only while there is someone to ask, so it is left without a host while this has none.</remarks>
+    public Func<RunFailure, Task<bool>>? HaltHost
+    {
+        get => haltHost;
+        set
+        {
+            haltHost = value;
+            debugController.HaltHost = value is { } host
+                ? error => host(new RunFailure(RunErrorText.For(error), ErrorLocation.Of(error)))
+                : null;
+        }
     }
 
     /// <inheritdoc />
@@ -182,7 +210,7 @@ public sealed class InterpreterRunEngine : IRunEngine
     }
 
     private RunFailure? FaultOf(RunWatch watch) =>
-        watch.Fault is { } fault ? new RunFailure(RunErrorText.ForFault(fault, localization), ErrorLocation.Of(fault)) : null;
+        watch.Fault is { } fault ? new RunFailure(DescribeFault(fault), ErrorLocation.Of(fault)) : null;
 
     /// <summary>
     /// What a start that never became a run says, the same way on both paths (#759). A compile error is the program's
@@ -204,8 +232,11 @@ public sealed class InterpreterRunEngine : IRunEngine
     {
         VBRunTimeException runTime => RunErrorText.For(runTime),
         VBCompileErrorException compile => compile.Message,
-        _ => RunErrorText.ForFault(e, localization),
+        _ => DescribeFault(e),
     };
+
+    private string DescribeFault(Exception e) =>
+        RunErrorText.ForFault(e, localization.GetString("Str.ProjectRunner.NotImplementedYet"));
 
     private sealed class Run(Func<Task<RunFailure?>> toEnd, Action end) : IEngineRun
     {

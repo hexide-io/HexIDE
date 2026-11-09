@@ -88,6 +88,7 @@
                   CanUserResizeColumns="True"
                   CanUserSortColumns="False"
                   GridLinesVisibility="All"
+                  BeginningEdit="OnBeginningEdit"
                   VerticalScrollBarVisibility="Visible">
             <DataGrid.Columns>
                 <DataGridTextColumn Width="2*"

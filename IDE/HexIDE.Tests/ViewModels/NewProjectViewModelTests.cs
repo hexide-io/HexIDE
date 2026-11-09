@@ -20,6 +20,7 @@ public class NewProjectViewModelTests
         _profile.AvailableProjectTypes.Returns(new List<IProjectTemplate>(IProjectTemplate.Templates));
         _localization.GetString("Str.NewProject.Msg.Title").Returns("New Project");
         _localization.GetString("Str.NewProject.Msg.VersionDoesNotSupport").Returns("Your HexIDE version doesn't support {0}");
+        _localization.GetString("Str.ProjectType.ActiveXEXE").Returns("localized ActiveX EXE");
         _localization.GetString("Str.NewProject.Msg.ProjectNoLongerExists").Returns("The project file no longer exists:\n{0}");
     }
 
@@ -104,7 +105,7 @@ public class NewProjectViewModelTests
 
         received.Should().BeNull();
         _windowManager.Received(1).MessageBox(
-            Arg.Is<string>(s => s.Contains(unsupported.Name)),
+            Arg.Is<string>(s => s.Contains(unsupported.DisplayName) && unsupported.DisplayName == "localized ActiveX EXE"),
             "HexIDE",
             MessageBoxButtons.Ok,
             MessageBoxIcon.Information);
