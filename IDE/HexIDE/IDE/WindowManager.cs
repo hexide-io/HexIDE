@@ -133,7 +133,7 @@ public class WindowManager : IWindowManager
 
     public async Task<string?> InputBox(string prompt, string? caption, string defaultText, bool isProgramDialog = false)
     {
-        caption ??= "HexIDE";
+        caption ??= Distribution.DisplayName;
         if (Static.SingleView)
         {
             var inputBox = new InputBox
@@ -190,7 +190,7 @@ public class WindowManager : IWindowManager
                 // IsEnabled holds Avalonia input; the native window must also refuse activation and clicks (#1366).
                 if (window.PlatformImpl is { } platform) SetNativeEnabled(platform, false);
             }
-            return await ShowDesktopMessageBox(desktop, text, caption ?? "HexIDE", buttons, icon, owner);
+            return await ShowDesktopMessageBox(desktop, text, caption ?? Distribution.DisplayName, buttons, icon, owner);
         }
         finally
         {
@@ -213,7 +213,7 @@ public class WindowManager : IWindowManager
 
     public async Task<MessageBoxResult> MessageBox(string text, string? caption, MessageBoxButtons buttons, MessageBoxIcon icon, Window? owner, bool isProgramDialog = false)
     {
-        caption ??= "HexIDE";
+        caption ??= Distribution.DisplayName;
         if (Static.SingleView)
         {
             var messageBox = new MessageBox

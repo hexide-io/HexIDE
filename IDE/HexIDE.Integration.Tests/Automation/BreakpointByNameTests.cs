@@ -212,7 +212,7 @@ public sealed class BreakpointByNameTests : IDisposable
         var debugger = new DebugController();
         var strings = Substitute.For<ILocalizationService>();
         strings.GetString("Str.Debug.Conditions.InterpreterIgnored").Returns("conditions ignored");
-        var runner = new ProjectRunnerService(Substitute.For<IEventBus>(), Substitute.For<IWindowManager>(),
+        var runner = TestRunners.WithInterpreter(Substitute.For<IEventBus>(), Substitute.For<IWindowManager>(),
             Substitute.For<IProjectManager>(), strings, debugger, store, new WatchService(), new RunScope());
         var notices = new List<string>();
         void Capture(string text) { if (text.Contains("conditions ignored", StringComparison.Ordinal)) notices.Add(text); }
@@ -280,7 +280,7 @@ public sealed class BreakpointByNameTests : IDisposable
 
         // ---- pushed to the next run ----
         var debugger = new DebugController();
-        var runner = new ProjectRunnerService(
+        var runner = TestRunners.WithInterpreter(
             Substitute.For<IEventBus>(), Substitute.For<IWindowManager>(), projectManager,
             Substitute.For<ILocalizationService>(), debugger, breakpoints, new WatchService(), new RunScope());
         var stopped = new TaskCompletionSource<StoppedInfo>(TaskCreationOptions.RunContinuationsAsynchronously);

@@ -8,6 +8,12 @@
              x:Class="HexIDE.Forms.Views.ProjectPropertiesView">
     <Grid Margin="6" RowDefinitions="*,6,Auto">
         <TabControl>
+            <!-- Avoid remembered content focus in the strip's Once mode (AvaloniaUI/Avalonia#22003). -->
+            <TabControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                    <WrapPanel KeyboardNavigation.TabNavigation="Continue" />
+                </ItemsPanelTemplate>
+            </TabControl.ItemsPanel>
 
             <TabItem Header="{DynamicResource Str.Dialog.ProjectProperties.Tab.General}">
                 <StackPanel Orientation="Vertical" Margin="12,7" Spacing="5">

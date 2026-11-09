@@ -17,9 +17,10 @@ replaceable — not for any licensing reason (the whole tree is MIT).
 - Parses VB6/VBA using the proleap / grammars-v4 VB6 grammar (two-stage SLL→LL prediction with a
   wall-clock backstop for keystroke-time robustness)
 - Syntax diagnostics (squiggle underlines) via `textDocument/publishDiagnostics`
-- `Option Explicit` / undeclared-variable warnings via scope analysis
+- `Option Explicit` / undeclared-variable warnings via scope analysis, compiled off by default because a trustworthy
+  check needs a semantic model
 - Document symbols, code folding, hover, completion, signature help, go-to-definition, document
-  highlight, rename, and formatting
+  highlight, rename, inlay hints and formatting
 - The non-spec `vb/builtinSymbols` method the Object Browser depends on
 - Communicates over **stdio** with standard LSP `Content-Length` framing
 

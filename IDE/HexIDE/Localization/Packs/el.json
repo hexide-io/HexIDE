@@ -364,6 +364,7 @@
     "Str.Tool.Project.Menu.Add.Form": "Φόρμα",
     "Str.Tool.Project.Menu.Print": "Εκτύπωση",
     "Str.Tool.FormLayout.Preview.FormName": "Form1",
+    "Str.Tool.ColorPalette.Title": "Παλέτα χρωμάτων",
     "Str.Tool.ColorPalette.Button.Default": "Προεπιλογή",
     "Str.Tool.ColorPalette.Button.DefineColors": "Ορισμός χρωμάτων",
     "Str.Tool.Locals.ContextReady": "<Έτοιμο>",

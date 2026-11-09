@@ -87,7 +87,7 @@ public class MessageBoxAcrossRestartTests
         var projects = Substitute.For<IProjectManager>();
         projects.StartupProject.Returns(project);
         var controller = new DebugController { TimeSliceMs = null };
-        var runner = new ProjectRunnerService(
+        var runner = TestRunners.WithInterpreter(
             Substitute.For<IEventBus>(), Substitute.For<IWindowManager>(), projects, Substitute.For<ILocalizationService>(),
             controller, Substitute.For<IBreakpointService>(), new WatchService(), new RunScope());
         var failed = new List<string>();

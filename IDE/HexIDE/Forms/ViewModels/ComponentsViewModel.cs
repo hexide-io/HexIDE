@@ -118,7 +118,7 @@ public partial class ComponentsViewModel : ObservableObject, IDialog
         });
         Refused?.Invoke(library);
         _ = windowManager?.MessageBox(localization?.GetString("Str.Dialog.Components.InUse") ?? "Can't remove control or reference; in use",
-            "HexIDE", MessageBoxButtons.Ok, MessageBoxIcon.Warning);
+            HexIDE.IDE.Distribution.DisplayName, MessageBoxButtons.Ok, MessageBoxIcon.Warning);
     }
 
     /// <summary>Raised when unchecking a library is refused because a form uses it.</summary>

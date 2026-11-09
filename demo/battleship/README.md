@@ -39,16 +39,15 @@ Inspired by the **Rubberduck Battleship** (MIT, © Mathieu Guindon / the Rubberd
 **original clean-room analog of the game *engine***, not a port — the code here was written from the concept, not
 copied.
 
-A *faithful* port of the real Rubberduck Battleship deliberately **cannot** run in HexIDE's interpreter, and that
-is by design: the original is built on **`Implements`** (VBA interfaces — its whole point), **MSForms** UserForms
-for the UI, and the **Excel object model** — all permanent walls, because they require a static/bound type model
-(interface-vtable dispatch), which is the job of a real language engine behind the replaceable backend seam, not a CST-level
-demonstrator. The object-oriented *engine* underneath, though — classes, properties, `Class_Initialize`, object
+A *faithful* port of the real Rubberduck Battleship can't run in HexIDE's interpreter yet. The original is built on
+**`Implements`** (VBA interfaces — its whole point), **MSForms** UserForms for the UI, and the **Excel object model**.
+`Implements` runs since #186. MSForms is #1114, and Excel needs COM activation, which is Windows-gated. The
+object-oriented *engine* underneath, though — classes, properties, `Class_Initialize`, object
 arrays, and `WithEvents` — runs identically to VB6, which is exactly what this demo shows.
 
 ## Running it
 
-- **Pre-built:** run `Battleship.exe`; it writes `output.txt` next to itself.
-- **Rebuild** (needs VB6 installed): `VB6.EXE /make Battleship.vbp`.
+- **Build** (needs VB6 installed): `VB6.EXE /make Battleship.vbp`, then run `Battleship.exe`. It writes `output.txt`
+  next to itself.
 - **In HexIDE's interpreter:** the same program is the `BattleshipChallenge` test in
-  `IDE/HexIDE.Runtime.Tests/` — `dotnet test HexIDE.Runtime.Tests/ --filter BattleshipChallenge`.
+  `IDE/HexIDE.Runtime.Tests/` — from `IDE/`, `dotnet test HexIDE.Runtime.Tests/ -- --filter-class "*BattleshipChallenge"`.

@@ -52,8 +52,8 @@ public class HoverStayTests
             var said = UiAutomationDriver.StayedNote(landing.Value.Receiver, moved: null, saidAlready: false);
 
             said.Should().Be("; the pointer stays there and 'Button' reads as under it (isPointerOver), so take_snapshot "
-                             + "shows its pointer-over look and any tip, until the next click, drag or hover in this window, "
-                             + "a hover in another, or the real mouse's next move over it");
+                             + "shows its pointer-over look and any tip, until the next click, drag or hover, in this window "
+                             + "or another, or the real mouse's next move over it");
             button.IsPointerOver.Should().BeTrue();
             ToolTip.GetIsOpen(button).Should().BeTrue("the tip a staying hover opened stays open for a snapshot");
             UiAutomationDriver.Inspect(button, "Window/Button").IsPointerOver.Should().BeTrue(
@@ -89,6 +89,38 @@ public class HoverStayTests
         }
         finally
         {
+            firstWindow.Close();
+            secondWindow.Close();
+        }
+    }
+
+    // A click takes the pointer to its own window as a hover does, and two windows read as under it otherwise (#3424).
+    [AvaloniaFact]
+    public async Task A_click_in_another_window_ends_a_staying_hover_and_says_so()
+    {
+        var first = TippedButton("One", "First tip");
+        var second = TippedButton("Two", "Second tip");
+        var firstWindow = Show(first);
+        firstWindow.Title = "Hourglass form";
+        var secondWindow = Show(second);
+        try
+        {
+            UiAutomationDriver.Hover(first, null, null, null, out var landing).Success.Should().BeTrue();
+            await Settle(100);
+            UiAutomationDriver.StayHover(landing!.Value.Receiver);
+            await Settle(100);
+            first.IsPointerOver.Should().BeTrue("the staying hover is what the click has to end");
+
+            var reply = await UiAutomationDriver.FinishAsync(UiAutomationDriver.Interact(second, "click", null));
+            await Settle(100);
+
+            reply.Success.Should().BeTrue(reply.Error);
+            reply.Detail.Should().Contain("; the pointer left 'Hourglass form'");
+            first.IsPointerOver.Should().BeFalse("the pointer has gone to the other window");
+        }
+        finally
+        {
+            UiAutomationDriver.EndHover(second);
             firstWindow.Close();
             secondWindow.Close();
         }

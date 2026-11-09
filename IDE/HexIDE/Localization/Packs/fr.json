@@ -364,6 +364,7 @@
     "Str.Tool.Project.Menu.Add.Form": "Feuille",
     "Str.Tool.Project.Menu.Print": "Imprimer",
     "Str.Tool.FormLayout.Preview.FormName": "Form1",
+    "Str.Tool.ColorPalette.Title": "Palette de couleurs",
     "Str.Tool.ColorPalette.Button.Default": "Par défaut",
     "Str.Tool.ColorPalette.Button.DefineColors": "Définir les couleurs",
     "Str.Tool.Locals.ContextReady": "<Prêt>",

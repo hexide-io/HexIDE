@@ -364,6 +364,7 @@
     "Str.Tool.Project.Menu.Add.Form": "Formulier",
     "Str.Tool.Project.Menu.Print": "Afdrukken",
     "Str.Tool.FormLayout.Preview.FormName": "Form1",
+    "Str.Tool.ColorPalette.Title": "Kleurenpalet",
     "Str.Tool.ColorPalette.Button.Default": "Standaard",
     "Str.Tool.ColorPalette.Button.DefineColors": "Kleuren definiëren",
     "Str.Tool.Locals.ContextReady": "<Gereed>",

@@ -3,6 +3,7 @@ using System.ComponentModel;
 using System.Linq;
 using Avalonia.Media;
 using HexIDE.IDE;
+using HexIDE.Localization;
 using HexIDE.Runtime.BuiltinTypes;
 using HexIDE.Runtime.Components;
 using HexIDE.VisualDesigner;
@@ -22,12 +23,12 @@ public partial class ColorPaletteToolViewModel : Tool
 
     private bool ignoreNotifications;
 
-    public ColorPaletteToolViewModel(IDocumentDockService documentDockService)
+    public ColorPaletteToolViewModel(IDocumentDockService documentDockService, ILocalizationService localization)
     {
         this.documentDockService = documentDockService;
         selectedBackColor = new ColorPaletteViewModel(this, Colors.Transparent);
         selectedForeColor = new ColorPaletteViewModel(this, Colors.Transparent);
-        Title = "";
+        localization.BindTitle(this, "Str.Tool.ColorPalette.Title");
         CanPin = false;
         CanClose = true;
 
