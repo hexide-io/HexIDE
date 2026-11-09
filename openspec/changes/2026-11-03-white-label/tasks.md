@@ -11,10 +11,10 @@
 - [ ] First-adopter consultation confirms needs; any trust-model conflict returns to Jen.
 - [ ] Supervisor reviews strict validation, design-record and changelog guards and tree hygiene results.
 
-## Implementation (not started)
+## Implementation
 
-- [ ] Implement descriptor/schema validation, contained asset capture and immutable identity snapshot.
-- [ ] Implement early bootstrap and safe help/failure diagnostics before mutable-state access.
+- [x] Implement descriptor/schema validation, contained asset capture and immutable identity snapshot.
+- [x] Implement early bootstrap and safe help/failure diagnostics before mutable-state access.
 - [ ] Implement isolated configuration/log/recovery/cache/session roots and bundled-child path propagation.
 - [ ] Implement installation default-profile resolution with explicit selection and recovery-mode precedence.
 - [ ] Implement host title/dialog/help/asset/link consumers and localized brand templates.

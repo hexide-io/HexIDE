@@ -191,7 +191,7 @@ public partial class MainViewViewModel : ObservableObject
                       ?? FocusedProjectUtil.FocusedOrStartupProject?.Name;
             return prefix == null
                 ? localization.GetString("Str.MainWindow.NoProjectTitle")
-                : $"{prefix} - HexIDE " + localization.GetString(IsInBreakMode
+                : $"{prefix} - {Distribution.DisplayName} " + localization.GetString(IsInBreakMode
                     ? "Str.MainWindow.BreakTag"
                     : IsProgramRunning ? "Str.MainWindow.RunTag" : "Str.MainWindow.DesignTag");
         }
@@ -1797,12 +1797,17 @@ public partial class MainViewViewModel : ObservableObject
 
     public void About()
     {
+        const string upstreamNotice = "© 2026 The HexIDE Authors. Not affiliated with, endorsed by, or sponsored by Microsoft.";
+        var brand = Distribution.Current;
         windowManager.ShowAbout(new AboutDialogOptions()
         {
-            Copyright = "© 2026 The HexIDE Authors. Not affiliated with, endorsed by, or sponsored by Microsoft.",
-            Title = $"HexIDE {BuildInfo.Display}",
-            SubTitle = "A cross-platform, VB6-compatible IDE",
-            Icon = new Bitmap(AssetLoader.Open(new Uri("avares://HexIDE/Icons/AppIcon/hexide-logo-64.png")))
+            Copyright = brand.IsStock ? upstreamNotice : brand.Copyright ?? "",
+            // A branded About still says what it is built on, and carries HexIDE's own notice (#2042).
+            Provenance = brand.IsStock ? "" : $"Built on HexIDE {BuildInfo.Display}. {upstreamNotice}",
+            Title = brand.IsStock ? $"{brand.Name} {BuildInfo.Display}" : brand.Name,
+            SubTitle = brand.Tagline ?? "A cross-platform, VB6-compatible IDE",
+            AdditionalCredits = brand.AdditionalCredits,
+            Icon = BrandAssets.Logo
         }).ListenErrors();
     }
 
@@ -1967,7 +1972,7 @@ public partial class MainViewViewModel : ObservableObject
 
     public Task OpenGithubRepo()
     {
-        TopLevel.GetTopLevel(Static.MainView)!.Launcher.LaunchUriAsync(new Uri("https://github.com/hexide-io/hexide")).ListenErrors();
+        TopLevel.GetTopLevel(Static.MainView)!.Launcher.LaunchUriAsync(new Uri(Distribution.Current.RepositoryUrl ?? DistributionIdentity.StockRepositoryUrl)).ListenErrors();
         return Task.CompletedTask;
     }
 

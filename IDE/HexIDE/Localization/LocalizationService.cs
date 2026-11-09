@@ -242,6 +242,47 @@ public sealed class LocalizationService : ILocalizationService
     /// </summary>
     internal bool TryResolveMap(string id, out Dictionary<string, string> map, out string direction)
     {
+        var resolved = TryResolveLayers(id, out map, out direction);
+        KeepUpstreamCredits(id, map);
+        if (!Distribution.Current.IsStock)
+            BrandText.Apply(map, Distribution.Current.Name);
+        return resolved;
+    }
+
+    /// <summary>
+    /// Restores HexIDE's own thanks if a profile or user override changed them. Jen (#2746): "a whitelabelled IDE
+    /// should _not_ get an API to remove HexIDE credits, only to add to them."
+    /// </summary>
+    private void KeepUpstreamCredits(string id, Dictionary<string, string> map)
+    {
+        // The pseudo packs are a transformation of canonical English, with no override tier to defend against.
+        if (id is "pseudo" or "pseudo-rtl")
+            return;
+
+        var language = id == "system" ? ResolveOsLanguage() : id;
+        var shipped = ShippedCredits(language);
+        if (map.TryGetValue(BrandText.UpstreamCreditsKey, out var current) && current == shipped)
+            return;
+
+        Log.Warning("LocalizationService: An override of {Key} for '{Language}' was ignored: HexIDE's credits can be added to, not replaced",
+            BrandText.UpstreamCreditsKey, language);
+        map[BrandText.UpstreamCreditsKey] = shipped;
+    }
+
+    private string ShippedCredits(string language)
+    {
+        foreach (var layer in new[] { language, NeutralLanguageOf(language) })
+        {
+            if (layer != "en" && LoadPackOwnStrings(layer).TryGetValue(BrandText.UpstreamCreditsKey, out var text)
+                && !string.IsNullOrWhiteSpace(text))
+                return text;
+        }
+
+        return _englishStrings.GetValueOrDefault(BrandText.UpstreamCreditsKey, BrandText.UpstreamCreditsKey);
+    }
+
+    private bool TryResolveLayers(string id, out Dictionary<string, string> map, out string direction)
+    {
         direction = "ltr";
 
         if (id == "system")
@@ -260,7 +301,10 @@ public sealed class LocalizationService : ILocalizationService
         if (id is "pseudo" or "pseudo-rtl")
         {
             var rtl = id == "pseudo-rtl";
-            map = PseudoLocalizer.Transform(_englishStrings, rtl);
+            var source = new Dictionary<string, string>(_englishStrings);
+            if (!Distribution.Current.IsStock)
+                BrandText.Apply(source, Distribution.Current.Name);
+            map = PseudoLocalizer.Transform(source, rtl);
             direction = rtl ? "rtl" : "ltr";
             return true;
         }

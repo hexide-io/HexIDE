@@ -158,8 +158,7 @@ public static class LoggingSetup
     /// </summary>
     public static string GetLogDirectory(string subsystem)
     {
-        var localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-        var logDir = Path.Combine(localAppData, "HexIDE", "logs", subsystem);
+        var logDir = Path.Combine(HexIDE.IDE.Distribution.LogsDirectory, subsystem);
         Directory.CreateDirectory(logDir);
         return logDir;
     }
