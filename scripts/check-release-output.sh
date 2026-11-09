@@ -3,7 +3,7 @@
 set -euo pipefail
 output="${1:?usage: check-release-output.sh <Desktop output directory>}"
 
-for file in HexIDE.Desktop.dll HexIDE.Desktop.deps.json HexIDE.Desktop.runtimeconfig.json; do
+for file in HexIDE.Desktop.dll HexIDE.Desktop.deps.json HexIDE.Desktop.runtimeconfig.json LICENSE THIRD-PARTY-NOTICES.md; do
     if [ ! -s "$output/$file" ]; then
         echo "Missing Release output: $output/$file" >&2
         exit 1
