@@ -5,6 +5,7 @@
     "Str.AIChat.Stop": "Zatrzymaj",
     "Str.Tool.LanguageServers.Problem.JsonSyntaxEscape": "Plik konfiguracji „{0}” zawiera nieprawidłowy JSON w wierszu {1}, kolumnie {2}. Ścieżka: {3} Użyj ukośników (C:/tools/new/...) lub podwójnych ukośników odwrotnych (C:\\\\tools\\\\new\\\\...).",
     "Str.Tool.LanguageServers.Problem.PathControlWarning": "Pole '{0}' zawiera znak sterujący z sekwencji ucieczki; prawdopodobnie zamierzona ścieżka z ukośnikami odwrotnymi: {1}. Wartość pozostaje bez zmian.",
+    "Str.Lsp.RestartedAfterSilence": "{0} nie odpowiedział; został uruchomiony ponownie.",
     "Str.Lsp.ServerMessage": "Serwer językowy: {0}",
     "Str.Lsp.ServerError": "Błąd serwera językowego: {0}",
     "Str.Lsp.EditNotApplied": "Nie zastosowano edycji serwera: {0}",

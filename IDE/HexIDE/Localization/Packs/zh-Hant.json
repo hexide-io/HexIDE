@@ -5,6 +5,7 @@
     "Str.AIChat.Stop": "停止",
     "Str.Tool.LanguageServers.Problem.JsonSyntaxEscape": "組態檔「{0}」在第 {1} 行、第 {2} 欄包含無效的 JSON。路徑：{3} 請使用正斜線 (C:/tools/new/...) 或雙反斜線 (C:\\\\tools\\\\new\\\\...)。",
     "Str.Tool.LanguageServers.Problem.PathControlWarning": "欄位 '{0}' 包含逸出序列產生的控制字元；可能原本想寫的反斜線路徑：{1}。值保持不變。",
+    "Str.Lsp.RestartedAfterSilence": "{0} 未回應；已將其重新啟動。",
     "Str.Lsp.ServerMessage": "語言伺服器：{0}",
     "Str.Lsp.ServerError": "語言伺服器錯誤：{0}",
     "Str.Lsp.EditNotApplied": "未套用伺服器編輯：{0}",

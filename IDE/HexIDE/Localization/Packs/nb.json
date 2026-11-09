@@ -5,6 +5,7 @@
     "Str.AIChat.Stop": "Stopp",
     "Str.Tool.LanguageServers.Problem.JsonSyntaxEscape": "Konfigurasjonsfilen '{0}' inneholder ugyldig JSON på linje {1}, kolonne {2}. Sti: {3} Bruk skråstreker (C:/tools/new/...) eller doble omvendte skråstreker (C:\\\\tools\\\\new\\\\...).",
     "Str.Tool.LanguageServers.Problem.PathControlWarning": "Feltet '{0}' inneholder et kontrolltegn fra en escape-sekvens; sannsynligvis tiltenkt sti med omvendte skråstreker: {1}. Verdien er uendret.",
+    "Str.Lsp.RestartedAfterSilence": "{0} svarte ikke; den ble startet på nytt.",
     "Str.Lsp.ServerMessage": "Språkserver: {0}",
     "Str.Lsp.ServerError": "Språkserverfeil: {0}",
     "Str.Lsp.EditNotApplied": "Serverendringen ble ikke brukt: {0}",

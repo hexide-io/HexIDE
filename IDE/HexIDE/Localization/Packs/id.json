@@ -5,6 +5,7 @@
     "Str.AIChat.Stop": "Hentikan",
     "Str.Tool.LanguageServers.Problem.JsonSyntaxEscape": "File konfigurasi '{0}' berisi JSON tidak valid pada baris {1}, kolom {2}. Jalur: {3} Gunakan garis miring (C:/tools/new/...) atau garis miring terbalik ganda (C:\\\\tools\\\\new\\\\...).",
     "Str.Tool.LanguageServers.Problem.PathControlWarning": "Kolom '{0}' berisi karakter kontrol dari urutan escape; kemungkinan jalur bergaris miring terbalik yang dimaksud: {1}. Nilai tidak diubah.",
+    "Str.Lsp.RestartedAfterSilence": "{0} tidak menjawab; telah dimulai ulang.",
     "Str.Lsp.ServerMessage": "Server bahasa: {0}",
     "Str.Lsp.ServerError": "Kesalahan server bahasa: {0}",
     "Str.Lsp.EditNotApplied": "Suntingan server tidak diterapkan: {0}",

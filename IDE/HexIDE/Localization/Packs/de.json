@@ -5,6 +5,7 @@
     "Str.AIChat.Stop": "Stoppen",
     "Str.Tool.LanguageServers.Problem.JsonSyntaxEscape": "Die Konfigurationsdatei „{0}“ enthält ungültiges JSON in Zeile {1}, Spalte {2}. Pfad: {3} Verwenden Sie Schrägstriche (C:/tools/new/...) oder doppelte Rückstriche (C:\\\\tools\\\\new\\\\...).",
     "Str.Tool.LanguageServers.Problem.PathControlWarning": "Feld '{0}' enthält ein Steuerzeichen aus einer Escape-Sequenz; vermutlich beabsichtigter Pfad mit Rückstrichen: {1}. Der Wert bleibt unverändert.",
+    "Str.Lsp.RestartedAfterSilence": "{0} hat nicht geantwortet; der Server wurde neu gestartet.",
     "Str.Lsp.ServerMessage": "Sprachserver: {0}",
     "Str.Lsp.ServerError": "Sprachserverfehler: {0}",
     "Str.Lsp.EditNotApplied": "Serveränderung nicht angewendet: {0}",

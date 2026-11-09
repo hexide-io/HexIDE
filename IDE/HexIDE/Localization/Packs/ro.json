@@ -5,6 +5,7 @@
     "Str.AIChat.Stop": "Oprește",
     "Str.Tool.LanguageServers.Problem.JsonSyntaxEscape": "Fișierul de configurare „{0}” conține JSON nevalid la linia {1}, coloana {2}. Cale: {3} Folosiți bare oblice (C:/tools/new/...) sau bare oblice inverse duble (C:\\\\tools\\\\new\\\\...).",
     "Str.Tool.LanguageServers.Problem.PathControlWarning": "Câmpul '{0}' conține un caracter de control dintr-o secvență escape; calea probabil intenționată: {1}. Valoarea rămâne neschimbată.",
+    "Str.Lsp.RestartedAfterSilence": "{0} nu a răspuns; a fost repornit.",
     "Str.Lsp.ServerMessage": "Server de limbaj: {0}",
     "Str.Lsp.ServerError": "Eroare a serverului de limbaj: {0}",
     "Str.Lsp.EditNotApplied": "Modificarea serverului nu a fost aplicată: {0}",

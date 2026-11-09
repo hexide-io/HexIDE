@@ -50,6 +50,7 @@ public sealed class VBLspClient : ILspClient
     private JsonRpc? _rpc;
     private volatile bool _initialized;
     private volatile bool _initializeAnswered;
+    private bool _stdioRestarted;
 
     // What the connected server said it supports, kept exactly as it arrived. Raw is the single source of
     // truth: a typed view is one Deserialize away, whereas a summary cannot be turned back into the answer.
@@ -378,7 +379,7 @@ public sealed class VBLspClient : ILspClient
 
     /// <summary>Connects the transport, binds JSON-RPC, performs the initialize handshake, and
     /// replays any tracked documents. Used for the first connect and for every reconnect.</summary>
-    private async Task ConnectAndInitializeAsync(CancellationToken cancellationToken)
+    private async Task ConnectAndInitializeAsync(CancellationToken cancellationToken, bool restarted = false)
     {
         _serverRefreshesDiagnostics = false;
         // A FRESH formatter per connection: StreamJsonRpc formatters carry per-connection state and
@@ -423,6 +424,13 @@ public sealed class VBLspClient : ILspClient
             return;
         }
 
+        if (restarted)
+            RaiseMessageShown(new ShowMessageParams(LspMessageType.Warning, "")
+            {
+                LocalizationKey = "Str.Lsp.RestartedAfterSilence",
+                ServerDisplayName = _connectionId ?? _languageId,
+            });
+
         attempt.Reached(LanguageConnectionStage.Connected);
         Note(ConversationDirection.Local, ConversationEntryKind.Lifecycle, null, "connected");
 
@@ -444,7 +452,7 @@ public sealed class VBLspClient : ILspClient
 
         await InitializeAsync(cancellationToken, attempt);
 
-        if (_initialized)
+        if (_initialized && ReferenceEquals(_rpc, rpc))
         {
             RaiseConnected();
             await ReopenTrackedDocumentsAsync();
@@ -541,13 +549,6 @@ public sealed class VBLspClient : ILspClient
     /// live channel forever — and because <see cref="DisposeRpc"/> detaches the handler before disposing,
     /// so nothing else here will notice. The reconnect loop is therefore started explicitly rather than
     /// waited for.
-    /// </para>
-    ///
-    /// <para>
-    /// For <c>stdio</c> that loop does not exist — <c>CanReconnect</c> is false, because the server is a
-    /// child process this client launched and re-dialling it is not a thing the transport can do. In that
-    /// case this is as far as recovery goes, and the point is the log line: the failure stops being
-    /// invisible, which is the whole of the bug.
     /// </para>
     /// </summary>
     private void AbandonUnansweredHandshake()
@@ -775,9 +776,27 @@ public sealed class VBLspClient : ILspClient
         }
         catch (TimeoutException)
         {
+            if (!_stopping && !cancellationToken.IsCancellationRequested
+                && !_stdioRestarted && _transport is StdioProcessLspTransport { UnansweredInitializeReached: true })
+            {
+                _stdioRestarted = true;
+                Note(ConversationDirection.Local, ConversationEntryKind.Lifecycle, null,
+                    "initialize unanswered; restarting stdio server once");
+                DisposeRpc();
+                await _transport.DisposeAsync();
+                if (_stopping || cancellationToken.IsCancellationRequested)
+                {
+                    _attempt = attempt.StoppedAt(LanguageConnectionStage.HandshakeSent,
+                        "the client was stopped during the handshake", LanguageConnectionStepOutcome.Cancelled);
+                    return;
+                }
+                await ConnectAndInitializeAsync(cancellationToken, restarted: true);
+                return;
+            }
             _attempt = attempt.StoppedAt(
                 LanguageConnectionStage.HandshakeSent,
-                $"the server did not answer initialize within {_initializeTimeout:g}");
+                $"the server did not answer initialize within {_initializeTimeout:g}"
+                + (_stdioRestarted ? "; tried twice" : ""));
             AbandonUnansweredHandshake();
             RaiseStateChanged();
             return;

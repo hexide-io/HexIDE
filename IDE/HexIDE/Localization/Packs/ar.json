@@ -5,6 +5,7 @@
     "Str.AIChat.Stop": "إيقاف",
     "Str.Tool.LanguageServers.Problem.JsonSyntaxEscape": "يحتوي ملف الإعدادات «{0}» على JSON غير صالح في السطر {1}، العمود {2}. المسار: {3} استخدم الشرطات المائلة (C:/tools/new/...) أو الشرطات المائلة العكسية المزدوجة (C:\\\\tools\\\\new\\\\...).",
     "Str.Tool.LanguageServers.Problem.PathControlWarning": "يحتوي الحقل '{0}' على محرف تحكم ناتج عن تسلسل هروب؛ المسار المقصود على الأرجح: {1}. لم تتغير القيمة.",
+    "Str.Lsp.RestartedAfterSilence": "لم يستجب {0}؛ تمت إعادة تشغيله.",
     "Str.Lsp.ServerMessage": "خادم اللغة: {0}",
     "Str.Lsp.ServerError": "خطأ في خادم اللغة: {0}",
     "Str.Lsp.EditNotApplied": "لم يُطبّق تعديل الخادم: {0}",
