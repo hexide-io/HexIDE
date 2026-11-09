@@ -91,7 +91,7 @@
 | Form Layout Window | — | Done | Monitor illustration with correct aspect ratio and live form thumbnail (StartUpPosition, Left, Top, Width, Height); closed by default on first run and Reset Layout (#531) |
 | Property Pages | — | Missing | Windows-only; see below. `IPropertyPage`/`IPropertyPageSite` COM runtime display |
 | Toolbox | — | Done | Contributed tools can request a measured usable width on first display without widening the Toolbox alone (#2361). Default and Reset place it on the left; reopening retains its home and is captured for restart (#895); recreated left docks are initialized with their tools so they remain visible (#2238). `DockFactoryTests.ReopenedTool_HasVisibleBoundsInItsLastColumn` checks Toolbox and Properties bounds, column and size across repeated close/show cycles at 150% scaling, with default and resized layouts (#895) |
-| Color Palette | — | Done | |
+| Color Palette | — | Done | Localized pane title, updated live when the language changes (#3388) |
 | Toolbars > Standard | — | Done | Toggle persisted; right-click context menu on toolbar band |
 | Toolbars > Edit | — | Done | 12 buttons: IntelliSense, indent/outdent, breakpoint, bookmarks |
 | Toolbars > Debug | — | Done | 12 buttons: Start/Break/End, breakpoint, Step Into/Over/Out, Locals/Immediate/Watches/Call Stack, Quick Watch |

@@ -321,6 +321,7 @@
     "Str.Tool.Project.Menu.Add.Form": "Formulario",
     "Str.Tool.Project.Menu.Print": "Imprimir",
     "Str.Tool.FormLayout.Preview.FormName": "Formulario1",
+    "Str.Tool.ColorPalette.Title": "Paleta de cores",
     "Str.Tool.ColorPalette.Button.Default": "Predeterminado",
     "Str.Tool.ColorPalette.Button.DefineColors": "Definir cores",
     "Str.Tool.Locals.ContextReady": "<Preparado>",
