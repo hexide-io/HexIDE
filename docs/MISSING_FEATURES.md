@@ -525,6 +525,7 @@ The former Add-In Manager dialog has been replaced by Options → Add-Ins, which
 | F9 | Toggle Breakpoint | Done | Toggles a breakpoint on the caret line (native debugger, Phase 1) |
 | Ctrl+Shift+F9 | Clear All Breakpoints | Done | |
 | Ctrl+E | Menu Editor | Done | |
+| Ctrl+T | Components | Done | Factory gesture in Default; uses the platform command key (#3397) |
 | Alt+F5 | Run with VB6 | Done | |
 | Shift+F2 | View Definition | Done | Routed GoToDefinitionCommand; F12 also remains available (#3) |
 | F2 | Object Browser | Done | OpenObjectBrowserCommand on F2; next and previous bookmark have no default gesture, so nothing else takes it |
