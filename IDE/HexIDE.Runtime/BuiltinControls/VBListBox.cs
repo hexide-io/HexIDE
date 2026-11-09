@@ -95,6 +95,46 @@ public class VBListBox : ListBox
         };
     }
 
+    // #3275: TopIndex assignments raise Scroll only when the resulting top row changes.
+    internal int TopIndex
+    {
+        get
+        {
+            if (IsMultiSelect)
+                throw new NotImplementedException("ListBox.TopIndex with MultiSelect is unmeasured (#3275)");
+            var height = RowHeight();
+            if (height <= 0 || Scroll is not { } scroll)
+                throw new NotImplementedException("ListBox.TopIndex before rows are laid out is not implemented (#3275)");
+            return (int)Math.Floor(scroll.Offset.Y / height + 0.000001);
+        }
+    }
+
+    private double RowHeight()
+    {
+        foreach (var container in GetRealizedContainers())
+            if (container.Bounds.Height > 0)
+                return container.Bounds.Height;
+        return 0;
+    }
+
+    internal void SetTopIndexFromCode(int index)
+    {
+        if (IsMultiSelect)
+            throw new NotImplementedException("ListBox.TopIndex with MultiSelect is unmeasured (#3275)");
+        if (index < 0 || index >= ItemCount)
+            throw new VBRunTimeException(VBStandardError.InvalidPropertyValue);
+        UpdateLayout();
+        var height = RowHeight();
+        if (height <= 0 || Scroll is not { } scroll)
+            throw new NotImplementedException("ListBox.TopIndex before rows are laid out is not implemented (#3275)");
+        var before = TopIndex;
+        var lastPage = Math.Max(0, ItemCount - (int)Math.Floor(scroll.Viewport.Height / height));
+        scroll.Offset = new Vector(scroll.Offset.X, Math.Min(index, lastPage) * height);
+        UpdateLayout();
+        if (TopIndex != before)
+            this.ExecuteSub(ListBoxComponentClass.ScrollEvent);
+    }
+
     /// <summary>The form's MultiSelect, which VB6 sets at design time only.</summary>
     public VBMultiSelect MultiSelect
     {

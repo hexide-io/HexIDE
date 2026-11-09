@@ -1629,3 +1629,22 @@ Measured by [#3349's oracle](../../../docs/vb6-fidelity-oracle/a-public-array-in
 #### Scenario: A declaration outside the measured Public object-member scope
 - **WHEN** a declaration is Private, Dim, or in a standard module
 - **THEN** this refusal does not apply and its existing implementation or refusal is retained
+
+### Requirement: ListBox TopIndex assignments report a changed top row
+
+A laid-out, single-select ListBox SHALL expose TopIndex and coerce assignments through the standard Integer store
+(#3275, measuring PR #3286). An assignment SHALL clamp to the last page and raise Scroll once,
+synchronously, only if the resulting top row changes. The handler SHALL read the new TopIndex.
+An index below zero or at or above ListCount SHALL raise error 380 without Scroll.
+MultiSelect access and access before row layout SHALL refuse as not implemented.
+Scrollbar, keyboard and native-message Scroll delivery remains pending.
+
+#### Scenario: Move and repeat the top row
+- **WHEN** TopIndex changes from 0 to 5 and is then assigned 5 again
+- **THEN** the first assignment raises Scroll with TopIndex 5 inside the handler
+- **AND** the second assignment raises no Scroll
+
+#### Scenario: Assign beyond the last page
+- **WHEN** a 60-item list showing 11 rows is assigned TopIndex 59
+- **THEN** TopIndex becomes 49 and Scroll is raised only if that changes the top row
+- **AND** assigning 60 or -1 raises 380 without changing the row or raising Scroll
