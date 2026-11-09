@@ -22,6 +22,55 @@ namespace HexIDE.Integration.Tests.Views;
 
 public class DesignerInstantiationFailureTests
 {
+    [AvaloniaTheory]
+    [InlineData("Placement = 1", false)]
+    [InlineData("MultiRow = -1", false)]
+    [InlineData("TabWidthStyle = 1", false)]
+    [InlineData("TabFixedWidth = 1200", false)]
+    [InlineData("TabFixedHeight = 400", false)]
+    [InlineData("TabStyle = 1", false)]
+    [InlineData("", true)]
+    public void Unsupported_TabStrip_layout_has_a_view_only_placeholder(string property, bool overflow)
+    {
+        var tabs = string.Join("\r\n", Enumerable.Range(1, overflow ? 12 : 1).Select(i =>
+            $"         BeginProperty Tab{i} {{1EFB659A-857C-11D1-B16A-00C0F0283628}}\r\n" +
+            "            Caption = \"Another tab\"\r\n" +
+            "            ImageVarType = 2\r\n" +
+            "         EndProperty"));
+        var (form, original, view, window) = Open(
+            "VERSION 5.00\r\n" +
+            "Object = \"{831FDD16-0C5C-11D2-A9FC-0000F8754DA1}#2.0#0\"; \"MSCOMCTL.OCX\"\r\n" +
+            "Begin VB.Form Form1\r\n" +
+            "   ClientHeight = 3600\r\n" +
+            "   ClientWidth = 6000\r\n" +
+            "   Begin MSComctlLib.TabStrip TabStrip1\r\n" +
+            "      Height = 1500\r\n" +
+            "      Left = 120\r\n" +
+            "      Top = 120\r\n" +
+            "      Width = 3600\r\n" +
+            "      _ExtentX = 6350\r\n" +
+            "      _ExtentY = 2646\r\n" +
+            $"      {property}\r\n" +
+            "      _Version = 393216\r\n" +
+            "      BeginProperty Tabs {1EFB6598-857C-11D1-B16A-00C0F0283628}\r\n" +
+            $"         NumTabs = {(overflow ? 12 : 1)}\r\n{tabs}\r\n" +
+            "      EndProperty\r\n" +
+            "   End\r\n" +
+            "End\r\n");
+        try
+        {
+            var renderer = view.GetVisualDescendants().OfType<ControlRenderer>().Single(r => r.Component!.Name == "TabStrip1");
+            renderer.Child.Should().BeOfType<Border>();
+            renderer.GetVisualDescendants().OfType<TextBlock>().Single().Text.Should()
+                .Contain("TabStrip1").And.Contain("View-only in the designer").And.Contain("drawing").And.Contain("#1089");
+            renderer.Component!.HasDesignerPreview.Should().BeFalse();
+            ToolTip.GetTip(renderer).Should().NotBeNull();
+            window.IsVisible.Should().BeTrue();
+            new FormSerializer().Serialize(form, "Form1.frm").frmText.Should().Be(original);
+        }
+        finally { window.Close(); }
+    }
+
     private sealed class ThrowingComponent(bool notImplemented) : ComponentBaseClass([])
     {
         public override string Name => "Broken";
