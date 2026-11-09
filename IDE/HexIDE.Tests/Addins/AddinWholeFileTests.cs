@@ -150,6 +150,61 @@ public class AddinWholeFileTests : IDisposable
         return editor;
     }
 
+    [AvaloniaFact]
+    public async Task ReadingByNameUsesTheBackgroundBufferWithoutMovingTheCaret()
+    {
+        var background = OpenForm();
+        background.Document.Insert(background.Document.TextLength, "\r\n' unsaved buffer edit");
+        background.CaretOffset = background.Document.TextLength;
+        var caret = background.CaretOffset;
+        var front = OpenModule("Shop", "Module1");
+
+        var result = await ((IEditorAccess)sut).TryGetDocument("frmorders", "shop");
+
+        result.Reason.Should().BeNull();
+        result.Document!.Content.Should().Be(background.Document.Text);
+        result.Document.Project.Should().Be("Shop");
+        active.Should().BeSameAs(front);
+        background.CaretOffset.Should().Be(caret);
+    }
+
+    [AvaloniaFact]
+    public async Task ReadingAClosedDocumentReturnsItsWholeFileWithoutOpeningIt()
+    {
+        var editor = OpenForm();
+        var expected = editor.Document.Text;
+        open.Clear();
+        active = null;
+
+        var result = await ((IEditorAccess)sut).TryGetDocument("frmOrders");
+
+        result.Reason.Should().BeNull();
+        result.Document!.Content.Should().Be(expected);
+        open.Should().BeEmpty();
+        active.Should().BeNull();
+    }
+
+    [AvaloniaFact]
+    public async Task ReadingAnAmbiguousNameSaysWhichProjectsHaveIt()
+    {
+        OpenModule("Shop", "Module1");
+        OpenModule("Stock", "Module1");
+
+        var result = await ((IEditorAccess)sut).TryGetDocument("Module1");
+
+        result.Document.Should().BeNull();
+        result.Reason.Should().Contain("Shop").And.Contain("Stock");
+    }
+
+    [Fact]
+    public async Task AnEarlierHostRefusesReadingByName()
+    {
+        IEditorAccess host = new EarlierHost(true);
+        var result = await host.TryGetDocument("Module1");
+        result.Document.Should().BeNull();
+        result.Reason.Should().Contain("does not support reading");
+    }
+
     private static int LineOf(string text, string needle) =>
         text[..text.IndexOf(needle, StringComparison.Ordinal)].Split('\n').Length;
 
