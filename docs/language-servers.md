@@ -414,8 +414,9 @@ without which it analyses nothing. Current RDCore builds import the project inst
 It lists every form, module, class and user control the project carries by its path relative to the
 workspace root, including one in a subfolder or beside the project's folder, and carries the project's
 references and its Conditional Compilation Arguments. It lists no other files, because RDCore parses
-anything listed as code. `settings.version` sets the file's `Version`, which must be no newer than the
-server reading it; the default, `0.1.0`, suits every RDCore build so far. A `.rdproj` you wrote yourself
+anything listed as code. `settings.version` sets the file's `Version`, which names the file's format. The
+default is `1.0`, the format RDCore reads and writes, and RDCore opens a file of any version from `6c1ed90d` on. An
+older build refuses a version newer than its own, so set `settings.version` to `0.1.0` for one. A `.rdproj` you wrote yourself
 is left alone. For a build that reads the file only when it starts, the entry should also set
 `"restartOnChange": true`: then a module added while it runs is analysed after a restart, rather than from its
 next start.

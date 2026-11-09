@@ -12,6 +12,8 @@ public class AboutDialogViewModel
     public string Title { get; }
     public string SubTitle { get; }
     public string Copyright { get; }
+    public string Provenance { get; }
+    public bool HasProvenance => Provenance.Length > 0;
     public IReadOnlyList<string> Credits { get; }
     public Bitmap? Icon { get; }
 
@@ -28,6 +30,7 @@ public class AboutDialogViewModel
         Title = options.Title;
         SubTitle = options.SubTitle;
         Copyright = options.Copyright;
+        Provenance = options.Provenance;
         Icon = options.Icon;
         // Append-only by design. Jen (#2746): "a whitelabelled IDE should _not_ get an API to remove
         // HexIDE credits, only to add to them. They can obviously strip that by forking, but we

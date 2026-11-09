@@ -283,7 +283,7 @@ public class MainViewViewModelTests
         var callStack = new CallStackToolViewModel(loc, Substitute.For<HexIDE.Runtime.Debugging.IDebugController>());
         var editorService = editor ?? Substitute.For<IEditorService>();
         var projectExplorer = new ProjectToolViewModel(_projectManager, _eventBus, projects, editorService, loc);
-        var colorPalette = new ColorPaletteToolViewModel(mockDocDock);
+        var colorPalette = new ColorPaletteToolViewModel(mockDocDock, loc);
         var objectBrowser = new ObjectBrowserToolViewModel(_projectManager, Substitute.For<ILspClient>(), editorService, Substitute.For<IComponentRegistry>(), Substitute.For<ITypeLibraryService>(), Substitute.For<IFocusedProjectUtil>(), loc,
             Substitute.For<ILanguageConnectionRegistry>());
         var translationEditor = new TranslationEditorViewModel(loc, Substitute.For<IUserTranslationsService>(), _windowManager);
@@ -1572,7 +1572,7 @@ public class MainViewViewModelTests
         project.StartsAtSubMain = true;
         var localization = Substitute.For<ILocalizationService>();
         localization.GetString("Str.ProjectRunner.NotImplementedYet").Returns("Not implemented yet: {0}");
-        var runner = new ProjectRunnerService(_eventBus, _windowManager, _projectManager, localization,
+        var runner = TestRunners.WithInterpreter(_eventBus, _windowManager, _projectManager, localization,
             new HexIDE.Runtime.Debugging.DebugController(), Substitute.For<HexIDE.Debugging.IBreakpointService>(),
             new HexIDE.Debugging.WatchService(), new HexIDE.Debugging.RunScope());
         var sut = Build(runner);
@@ -1599,7 +1599,7 @@ public class MainViewViewModelTests
             + "Sub Main()\nEnd Sub\n");
         project.AddModule(module);
         project.StartsAtSubMain = true;
-        var runner = new ProjectRunnerService(_eventBus, _windowManager, _projectManager,
+        var runner = TestRunners.WithInterpreter(_eventBus, _windowManager, _projectManager,
             Substitute.For<ILocalizationService>(), new HexIDE.Runtime.Debugging.DebugController(),
             Substitute.For<HexIDE.Debugging.IBreakpointService>(), new HexIDE.Debugging.WatchService(),
             new HexIDE.Debugging.RunScope());

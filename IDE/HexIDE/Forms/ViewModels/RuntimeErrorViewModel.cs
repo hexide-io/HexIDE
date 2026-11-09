@@ -6,7 +6,7 @@ namespace HexIDE.Forms.ViewModels;
 
 public class RuntimeErrorViewModel : ObservableObject, IDialog
 {
-    public string Title => "HexIDE";
+    public string Title => HexIDE.IDE.Distribution.DisplayName;
     public bool CanResize => false;
     public event Action<bool>? CloseRequested;
     public string ErrorText { get; }

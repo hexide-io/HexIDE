@@ -1,7 +1,7 @@
 # compiler-wire-codec Specification
 
 ## Purpose
-Provide bounded message codecs for an external compiler adapter while preserving protocol-specific content and keeping framing independent of connection lifecycle. Tracks #1194.
+Provide bounded message codecs for an external compiler adapter while preserving protocol-specific content and keeping framing independent of connection lifecycle. Introduced by #1194.
 
 ## Requirements
 

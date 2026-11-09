@@ -10,6 +10,7 @@
     "Str.ProjectLoad.Heading": "Couldn't properly deserialise the project:",
     "Str.Toolbar.Customize": "Customise...",
     "Str.Menu.View.ColorPalette": "Colour P_alette",
+    "Str.Tool.ColorPalette.Title": "Colour Palette",
     "Str.Menu.Format.Align.CentersHorizontally": "Centres _Horizontally",
     "Str.Menu.Format.Align.CentersVertically": "Centres _Vertically",
     "Str.Menu.Format.CenterInForm": "_Centre in Form",

@@ -357,6 +357,7 @@
     "Str.Tool.Project.Menu.Add.Form": "Форма",
     "Str.Tool.Project.Menu.Print": "Друк",
     "Str.Tool.FormLayout.Preview.FormName": "Form1",
+    "Str.Tool.ColorPalette.Title": "Палітра кольорів",
     "Str.Tool.ColorPalette.Button.Default": "За замовчуванням",
     "Str.Tool.ColorPalette.Button.DefineColors": "Визначити кольори",
     "Str.Tool.Locals.ContextReady": "<Готово>",

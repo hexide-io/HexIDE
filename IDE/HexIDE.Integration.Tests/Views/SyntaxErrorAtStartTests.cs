@@ -51,7 +51,7 @@ public class SyntaxErrorAtStartTests
         localization.GetString("Str.ProjectRunner.StartupFormFailedToLoad")
             .Returns("Form '{0}' could not be loaded, so the project did not start.\n\n{1}");
         localization.GetString("Str.ProjectRunner.NotImplementedYet").Returns("HexIDE does not implement this yet:\n\n{0}");
-        var runner = new ProjectRunnerService(
+        var runner = TestRunners.WithInterpreter(
             Substitute.For<IEventBus>(), windows, projects, localization, controller, Substitute.For<IBreakpointService>(),
             new WatchService(), new RunScope());
         var reported = new List<string>();

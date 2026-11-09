@@ -44,7 +44,7 @@ public class ResultsLayoutRenderTests
         var watches = new WatchesToolViewModel(loc, new HexIDE.Debugging.WatchService(), Substitute.For<HexIDE.Runtime.Debugging.IDebugController>(), Substitute.For<HexIDE.IDE.IWindowManager>());
         var callStack = new CallStackToolViewModel(loc, Substitute.For<HexIDE.Runtime.Debugging.IDebugController>());
         var projectExplorer = new ProjectToolViewModel(projectManager, eventBus, projectService, editorService, loc);
-        var colorPalette = new ColorPaletteToolViewModel(docDock);
+        var colorPalette = new ColorPaletteToolViewModel(docDock, loc);
         var objectBrowser = new ObjectBrowserToolViewModel(projectManager, Substitute.For<ILspClient>(),
             editorService, Substitute.For<IComponentRegistry>(), Substitute.For<ITypeLibraryService>(),
             Substitute.For<IFocusedProjectUtil>(), loc,

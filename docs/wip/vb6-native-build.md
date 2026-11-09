@@ -40,8 +40,8 @@ As of `upstream/main` at 7ae689d. The code is `IDE/HexIDE/IDE/Vb6ToolchainServic
   process tree is killed. It builds the files as last saved, not the editor's contents (#749).
 - **On success:** nothing is shown. VB6's "Build of 'x.exe' succeeded." is discarded.
 - **On failure:** the parser expects the Visual C++ shape `path(N) : error …`, but VB6 writes
-  `Compile Error in File '<path>', Line <N> : <message>` (#477). So every failure falls through to a modal
-  dialog showing the raw log. The fix is on the #273 branch, not yet on main. Errors outside a form never
+  `Compile Error in File '<path>', Line <N> : <message>` (#477). So every failure used to fall through to a modal
+  dialog showing the raw log (#477, since fixed). Errors outside a form never
   reach the editor at all (#376), and a diagnostic's message has nowhere to be read (#451).
 - **C2 and LINK:** never referenced. Nothing they print is seen.
 - **Project Properties:** the Make, Compile, Component and Debugging tabs are disabled (#48).

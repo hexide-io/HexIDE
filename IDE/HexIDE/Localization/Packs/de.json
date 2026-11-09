@@ -357,6 +357,7 @@
     "Str.Tool.Project.Menu.Add.Form": "Formular",
     "Str.Tool.Project.Menu.Print": "Drucken",
     "Str.Tool.FormLayout.Preview.FormName": "Form1",
+    "Str.Tool.ColorPalette.Title": "Farbpalette",
     "Str.Tool.ColorPalette.Button.Default": "Standard",
     "Str.Tool.ColorPalette.Button.DefineColors": "Farben definieren",
     "Str.Tool.Locals.ContextReady": "<Bereit>",
