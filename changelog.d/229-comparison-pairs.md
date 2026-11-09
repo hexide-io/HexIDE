@@ -1,3 +1,0 @@
-### Fixed
-
-- **Numeric comparisons compare in VB6's measured pair domains** (#229), including Single/Double, Single/Long, Currency/Double and Decimal/Double. Boolean ordering treats True as -1 and False as 0.

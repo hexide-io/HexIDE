@@ -322,6 +322,7 @@
     "Str.Tool.Project.Menu.Add.Form": "ฟอร์ม",
     "Str.Tool.Project.Menu.Print": "พิมพ์",
     "Str.Tool.FormLayout.Preview.FormName": "Form1",
+    "Str.Tool.ColorPalette.Title": "จานสี",
     "Str.Tool.ColorPalette.Button.Default": "ค่าเริ่มต้น",
     "Str.Tool.ColorPalette.Button.DefineColors": "กำหนดสี",
     "Str.Tool.Locals.ContextReady": "<พร้อม>",

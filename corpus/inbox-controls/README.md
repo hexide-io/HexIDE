@@ -34,7 +34,7 @@ The StatusBar saves were written on 2026-10-26 for the [StatusBar console measur
 of every Style, an ImageList and nested ButtonMenus; ShowTips was set False in the Properties window and saved as
 `ToolTips` (#1088, issuecomment-6428845889). The `.frx` is the ImageList's; the `.vbp` is hand-written. Moved from
 `pending/` after `ToolbarSerializationTests` verified both files byte for byte, including after a form-caption edit.
-The Toolbar's blocks are carried verbatim, and the ImageList's is modelled (#1083); ImageList binding is not implemented yet.
+The Toolbar's blocks are carried verbatim, and the ImageList's is modelled (#1083). A Toolbar binds a populated ImageList at run time, in part (#2334).
 
 **`saved/treeview/`: written by VB6's IDE on 2026-10-26**, on the same oracle VM console, from a hand-written form (#1086).
 Its companion belongs to the bound ImageList; its project is hand-written. Moved from `pending/` once
@@ -65,7 +65,7 @@ too: VB6's save of a form doesn't rewrite the project, so none is VB6's.
 | `saved/listview-columns/` | A form like `saved/listview/`, whose first ListView has HideColumnHeaders, AllowReorder and ColHdrIcons set and three plain columns, saved after a column's Icon Index was set and a column inserted in that ListView's Column Headers property page: VB6 wrote the icon as `ImageIndex` and the new column's 1440 twips as `Object.Width = 2540`, which is HIMETRIC, and moved the later columns' SubItemIndex up (#1085) |
 
 The ListView saves were written by VB6 SP6 on the oracle VM’s console, 2026-10-26.
-Their hand-written projects and carried ImageList records do not imply runtime ImageList binding support.
+Their hand-written projects and carried ImageList records say nothing about binding at run time; `docs/MISSING_LANGUAGE.md` has the ListView's, which is partial.
 
 The MaskedEdBox save is documented in [the MaskedEdBox oracle](../../docs/vb6-fidelity-oracle/the-maskededbox-mask-text-and-keystrokes.md).
 It moved from pending after `MaskedEdBoxSerializationTests` verified the save and input normalization.

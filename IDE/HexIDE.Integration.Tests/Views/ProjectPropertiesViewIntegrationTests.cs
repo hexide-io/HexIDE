@@ -1,6 +1,9 @@
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
+using Avalonia.Input;
+using Avalonia.LogicalTree;
 using HexIDE.Forms.ViewModels;
 using HexIDE.Forms.Views;
 using HexIDE.Runtime.Components;
@@ -16,6 +19,47 @@ public class ProjectPropertiesViewIntegrationTests
     /// rules have their own, in <c>ProjectNameRefusalTests</c>.
     /// </summary>
     private static string? NoNameObjection(string _) => null;
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Tab_WrapsThroughEveryEnabledGeneralControl(bool reverse)
+    {
+        var projectDef = new ProjectDefinition(VBProjectType.EXE, "TestProject");
+        var vm = new ProjectPropertiesViewModel(projectDef, NoNameObjection);
+        var view = new ProjectPropertiesView { DataContext = vm };
+        var window = new Window { Content = view, Width = 500, Height = 500 };
+        window.Show();
+        try
+        {
+            window.UpdateLayout();
+            var controls = view.GetLogicalDescendants().OfType<Control>().Distinct().ToArray();
+            var name = controls.OfType<TextBox>().Single(t => t.Text == vm.ProjectName);
+            var description = controls.OfType<TextBox>().Single(t => t.IsEffectivelyEnabled && t != name);
+            var ok = controls.OfType<Button>().Single(b => b.Command == vm.OkCommand);
+            var cancel = controls.OfType<Button>().Single(b => b.Command == vm.CancelCommand);
+            var general = controls.OfType<TabItem>().First();
+            var combos = controls.OfType<ComboBox>().Where(c => c.IsEffectivelyEnabled).ToArray();
+            var sequence = reverse
+                ? new Control[] { combos[1], combos[0], general, cancel, ok, description, name }
+                : new Control[] { description, ok, cancel, general, combos[0], combos[1], name };
+            name.Focus();
+
+            // Two laps catch the remembered last control that previously trapped the wrap (#3391).
+            for (var lap = 0; lap < 2; lap++)
+            {
+                foreach (var expected in sequence)
+                {
+                    window.KeyPressQwerty(PhysicalKey.Tab, reverse ? RawInputModifiers.Shift : RawInputModifiers.None);
+                    window.FocusManager!.GetFocusedElement().Should().BeSameAs(expected);
+                }
+            }
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
     [AvaloniaFact]
     public void View_WithProjectDefinition_RendersWithoutErrors()
     {

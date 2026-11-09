@@ -47,7 +47,7 @@ public sealed class DocumentDockService : IDocumentDockService, IDisposable
             if (Dock is not { } dock) return;
             dock.VisibleDockables!.Add(tab);
             factory.Value!.InitDockable(tab, dock);
-            factory.Value.SetFocusedDockable(dock, tab);
+            factory.Value.FocusDockable(dock, tab);
             dock.ActiveDockable = tab;
         }, entry);
     }
@@ -71,7 +71,7 @@ public sealed class DocumentDockService : IDocumentDockService, IDisposable
         var match = dock.VisibleDockables.FirstOrDefault(predicate);
         if (match is null) return false;
 
-        factory.Value!.SetFocusedDockable(dock, match);
+        factory.Value!.FocusDockable(dock, match);
         dock.ActiveDockable = match;
         return true;
     }
@@ -122,7 +122,7 @@ public sealed class DocumentDockService : IDocumentDockService, IDisposable
         if (match is null) return false;
 
         if (!takeFocus) return true;
-        factory.Value!.SetFocusedDockable(dock, match);
+        factory.Value!.FocusDockable(dock, match);
         dock.ActiveDockable = match;
         return true;
     }
@@ -149,7 +149,7 @@ public sealed class DocumentDockService : IDocumentDockService, IDisposable
         factory.Value!.InitDockable(vm, dock);
         if (takeFocus)
         {
-            factory.Value!.SetFocusedDockable(dock, vm);
+            factory.Value!.FocusDockable(dock, vm);
             dock.ActiveDockable = vm;
         }
     }

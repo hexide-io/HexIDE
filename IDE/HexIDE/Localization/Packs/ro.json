@@ -322,6 +322,7 @@
     "Str.Tool.Project.Menu.Add.Form": "Formular",
     "Str.Tool.Project.Menu.Print": "Imprimă",
     "Str.Tool.FormLayout.Preview.FormName": "Form1",
+    "Str.Tool.ColorPalette.Title": "Paletă de culori",
     "Str.Tool.ColorPalette.Button.Default": "Implicit",
     "Str.Tool.ColorPalette.Button.DefineColors": "Definește culorile",
     "Str.Tool.Locals.ContextReady": "<Pregătit>",

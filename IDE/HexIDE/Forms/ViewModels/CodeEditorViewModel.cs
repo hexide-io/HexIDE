@@ -257,13 +257,13 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
             {
                 Log.Debug("CodeEditorViewModel: Handling CreateOrNavigateToSubEvent({SubName}) in {FormName}",
                     e.Sub, formDefinition?.Name);
-                var headerEnd = ReadOnlyRegions.HeaderEnd(Document.Text, bufferPrefix.Length);
-                var sub = Document.IndexOf($"Sub {e.Sub}", headerEnd, Document.TextLength - headerEnd, StringComparison.OrdinalIgnoreCase);
+                var sub = FindEventHandler(e.Sub);
                 if (sub != -1)
                 {
                     Log.Debug("CodeEditorViewModel: Found 'Sub {SubName}' at offset {Offset}, navigating", e.Sub, sub);
+                    var run = MemberRunsNow.FirstOrDefault(r => r.DescribesMember && r.DescribedStart <= sub && sub <= r.Anchor);
                     var nextNewLineIndex = Document.IndexOf("\n", sub, Document.TextLength - sub, StringComparison.OrdinalIgnoreCase);
-                    CaretOffset = nextNewLineIndex == -1 ? sub : nextNewLineIndex + 1;
+                    CaretOffset = run is not null ? run.Region.End : nextNewLineIndex == -1 ? sub : nextNewLineIndex + 1;
                 }
                 else
                 {
@@ -750,11 +750,8 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     /// moves everything below it by the difference instead, which is what actually happened.
     ///
     /// <para>
-    /// <b>The diagnostic markers are NOT among them, and this used to claim they were.</b> An
-    /// <c>LspMarker</c> is a plain record struct of two offsets in a list, not an anchored segment, so a
-    /// header that changes height leaves every underline drawn against stale offsets until the next
-    /// <c>publishDiagnostics</c> arrives -- which it does, because the replace debounces a <c>didChange</c>.
-    /// Transient and self-healing, and hexide-io/HexIDE#512 covers making it not happen at all.
+    /// Diagnostic underlines, text colouring and document highlights use anchored segments too (#512),
+    /// so a header replacement moves them with the code before the server answers again.
     /// </para>
     ///
     /// <para>
@@ -1542,10 +1539,6 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     /// themselves (Enter's auto-close and auto-indent, a completion's commit), so the banner's "typing in this
     /// window is refused" holds for them too.
     /// </summary>
-    /// <remarks>
-    /// The programmatic writers (Replace All, formatting, rename, Insert File, add-ins, automation's whole
-    /// replacement) still ask <see cref="IsReadOnlyRegion"/> alone; giving them the whole-file verdict is #701.
-    /// </remarks>
     public bool RefusesTyping(int offset, int length) =>
         IsReadOnly || IsReadOnlyRegion(offset, length);
 
@@ -2022,11 +2015,15 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
 
     /// <summary>
     /// Replaces this document's content, keeping its header: the rule add-in <c>SetContent</c> and automation
-    /// <c>set_file_content</c> share. Refused when the content would change the header, or a member's attribute
-    /// lines other than by moving or renaming them with it or deleting them with its declaration (#273 task 4.5b).
+    /// <c>set_file_content</c> share. Refused when the file is held read-only as a whole, or the content would
+    /// change the header or a member's attribute lines other than by moving or renaming them with it or deleting
+    /// them with its declaration (#273 task 4.5b).
     /// </summary>
     public ContentReplacement ReplaceContent(string incoming)
     {
+        if (IsReadOnly)
+            return new ContentReplacement(null, localization.GetString("Str.CodeEditor.FileNotSaved.Banner"), HeaderKept: false);
+
         var result = GuardedContent.Replace(Document.Text, bufferPrefix.Length, DocumentNewLines.Normalize(incoming, Document.Text));
         if (result.NewText is { } text)
             ReplaceBody(text[bufferPrefix.Length..]);
@@ -2034,8 +2031,8 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     }
 
     /// <summary>
-    /// Applies edits an add-in computed against this buffer, or refuses them all when any would change a
-    /// read-only region.
+    /// Applies edits an add-in computed against this buffer, or refuses them all when the file is held
+    /// read-only as a whole or any would change a read-only region.
     /// </summary>
     /// <param name="edits">The edits, as offsets in this buffer.</param>
     /// <param name="describe">
@@ -2045,6 +2042,9 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     /// <returns>Null when applied; otherwise why not, naming the refused edit or the members the result would change.</returns>
     internal string? ApplyEdits(IReadOnlyList<TextChange> edits, Func<int, string>? describe = null)
     {
+        if (IsReadOnly)
+            return localization.GetString("Str.CodeEditor.FileNotSaved.Banner");
+
         var regions = ReadOnlyRegionsNow;
         for (var i = 0; i < edits.Count; i++)
         {
@@ -2432,9 +2432,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
         {
             // Event handler: find or generate Sub ObjectName_EventName(...)
             var handlerName = $"{SelectedObject}_{newValue}";
-            var searchText  = $"Sub {handlerName}";
-            var headerEnd = ReadOnlyRegions.HeaderEnd(Document.Text, bufferPrefix.Length);
-            var idx = Document.IndexOf(searchText, headerEnd, Document.TextLength - headerEnd, StringComparison.OrdinalIgnoreCase);
+            var idx = FindEventHandler(handlerName);
             if (idx >= 0)
             {
                 var line = Document.GetLineByOffset(idx);
@@ -2447,6 +2445,20 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
         }
 
         FocusWindowRequest?.Invoke();
+    }
+
+    private int FindEventHandler(string handlerName)
+    {
+        var searchText = $"Sub {handlerName}";
+        var start = ReadOnlyRegions.HeaderEnd(Document.Text, bufferPrefix.Length);
+        while (start < Document.TextLength)
+        {
+            var match = Document.IndexOf(searchText, start, Document.TextLength - start, StringComparison.OrdinalIgnoreCase);
+            if (match < 0 || !IsReadOnlyRegion(match, searchText.Length))
+                return match;
+            start = match + searchText.Length;
+        }
+        return -1;
     }
 
     private void InsertEventHandlerStub(string objectName, string eventName)

@@ -108,7 +108,7 @@ public class RunFaultTests
         // nested-event test below fail on a busy box and pass on an idle one. Since #766 the raiser waits, so these run
         // with the slice at its most disruptive rather than off.
         var controller = new DebugController { TimeSliceMs = -1 };
-        var runner = new ProjectRunnerService(
+        var runner = TestRunners.WithInterpreter(
             Substitute.For<IEventBus>(), windowManager, Substitute.For<IProjectManager>(),
             localization, controller, Substitute.For<IBreakpointService>(), new WatchService(), new RunScope());
         var run = new Run { Runner = runner, Controller = controller, WindowManager = windowManager, Project = project };

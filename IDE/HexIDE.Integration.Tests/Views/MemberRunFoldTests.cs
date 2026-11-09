@@ -60,6 +60,7 @@ public class MemberRunFoldTests : IDisposable
     private Func<CodeEditorViewModel, FoldingRange[]> folds = _ => [];
 
     private CodeEditorViewModel? answering;
+    private Action<CreateOrNavigateToSubEvent>? navigate;
 
     public MemberRunFoldTests()
     {
@@ -103,7 +104,7 @@ public class MemberRunFoldTests : IDisposable
     private CodeEditorViewModel MakeViewModel()
     {
         var eventBus = Substitute.For<IEventBus>();
-        eventBus.Subscribe<CreateOrNavigateToSubEvent>(Arg.Any<Action<CreateOrNavigateToSubEvent>>()).Returns(Substitute.For<IDisposable>());
+        eventBus.Subscribe(Arg.Do<Action<CreateOrNavigateToSubEvent>>(a => navigate = a)).Returns(Substitute.For<IDisposable>());
         eventBus.Subscribe<ApplyAllUnsavedChangesEvent>(Arg.Any<Action<ApplyAllUnsavedChangesEvent>>()).Returns(Substitute.For<IDisposable>());
         eventBus.Subscribe<FormUnloadedEvent>(Arg.Any<Action<FormUnloadedEvent>>()).Returns(Substitute.For<IDisposable>());
         eventBus.Subscribe<DocumentSavedEvent>(Arg.Any<Action<DocumentSavedEvent>>()).Returns(Substitute.For<IDisposable>());
@@ -117,6 +118,24 @@ public class MemberRunFoldTests : IDisposable
             Substitute.For<IDebugController>(), new RunScope(), Substitute.For<ILocalizationService>());
         made.Add(vm);
         return vm;
+    }
+
+    [AvaloniaFact]
+    public void Navigating_to_a_described_handler_keeps_its_attribute_run_folded()
+    {
+        var form = FormDefinition.NewForm(new ProjectDefinition(VBProjectType.EXE, "P"), FormComponentClass.Instance, "Form1");
+        form.UpdateCode(Procedure.Replace("Go", "Form_Load"));
+        var vm = MakeViewModel().Initialize(form);
+        answering = vm;
+        var (_, editor) = Show(vm);
+        RunFold(editor, "Public Sub Form_Load()")!.IsFolded.Should().BeTrue();
+
+        navigate!(new CreateOrNavigateToSubEvent(form, "Form_Load"));
+        Dispatcher.UIThread.RunJobs();
+
+        editor.CaretOffset.Should().Be(editor.Document.Text.IndexOf("    Debug.Print 1", StringComparison.Ordinal));
+        RunFold(editor, "Public Sub Form_Load()")!.IsFolded.Should().BeTrue();
+        vm.ExpandedMemberRuns.Should().BeEmpty();
     }
 
     private CodeEditorViewModel Open(string code, ModuleKind kind = ModuleKind.StandardModule)

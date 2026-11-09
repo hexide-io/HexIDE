@@ -5,7 +5,8 @@ namespace HexIDE.Projects;
 
 public interface IProjectService
 {
-    Task CreateNewProject();
+    /// <summary>Shows the project chooser, unloading existing projects only after confirmation when requested.</summary>
+    Task CreateNewProject(bool replaceExisting = false);
     Task CreateNewProject(IProjectTemplate template);
     Task UnloadAllProjects();
     Task UnloadProject(ProjectDefinition project);

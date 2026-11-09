@@ -79,6 +79,64 @@ public class MainViewViewModelTests
             Substitute.For<IHeaderRefresher>());
     }
 
+    [AvaloniaTheory]
+    [InlineData(false, false)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public async Task NewProject_ChoosesBeforeUnloading(bool chooseTemplate, bool cancelSave)
+    {
+        var project = new ProjectDefinition(VBProjectType.EXE, "Original");
+        var module = new ModuleDefinition(project, "Module1", ModuleKind.StandardModule);
+        module.UpdateCode("Public Sub Edited()\r\nEnd Sub\r\n");
+        project.AddModule(module);
+        var loaded = new List<ProjectDefinition> { project };
+        _projectManager.LoadedProjects.Returns(loaded);
+        _projectManager.When(m => m.UnloadAllProjects()).Do(_ => loaded.Clear());
+        var profile = Substitute.For<IProfileService>();
+        profile.AvailableProjectTypes.Returns(new[] { IProjectTemplate.StandardEXE });
+        _recentProjects.GetRecent().Returns(new List<string>());
+        var dialogs = new List<string>();
+        _windowManager.ShowDialog(Arg.Any<IDialog>()).Returns(ci =>
+        {
+            loaded.Should().ContainSingle().Which.Should().BeSameAs(project);
+            if (ci.Arg<IDialog>() is HexIDE.Forms.ViewModels.NewProjectViewModel)
+            {
+                dialogs.Add("template");
+                return Task.FromResult(chooseTemplate);
+            }
+            dialogs.Add("save");
+            ((HexIDE.Forms.ViewModels.SaveChangesViewModel)ci.Arg<IDialog>()).No();
+            return Task.FromResult(!cancelSave);
+        });
+        var service = new ProjectService(
+            () => new HexIDE.Forms.ViewModels.NewProjectViewModel(_windowManager, _recentProjects,
+                _settingsService, profile, _localization),
+            _windowManager, _eventBus, _projectManager, _recentProjects,
+            Substitute.For<IReferenceLibraryService>(), Substitute.For<HexIDE.Sidecar.IUserSidecarService>(),
+            new FileBaselineStore(), _localization, Substitute.For<IHeaderRefresher>());
+        var shell = Build(_runnerService, projects: service);
+
+        Func<Task> create = shell.NewProject;
+        if (chooseTemplate && cancelSave)
+            await create.Should().ThrowAsync<OperationCanceledException>();
+        else
+            await create();
+
+        dialogs.Should().Equal(chooseTemplate ? new[] { "template", "save" } : new[] { "template" });
+        if (!chooseTemplate || cancelSave)
+        {
+            loaded.Should().ContainSingle().Which.Should().BeSameAs(project);
+            module.Should().BeSameAs(project.Modules.Single());
+            module.Code.Should().Contain("Edited");
+            _projectManager.DidNotReceive().NewProject(Arg.Any<HexIDE.Addins.IAddinProjectTemplate>(), Arg.Any<string>());
+        }
+        else
+        {
+            loaded.Should().BeEmpty();
+            _projectManager.Received(1).NewProject(IProjectTemplate.StandardEXE, "Project1");
+        }
+    }
+
     [AvaloniaFact]
     public void GivenReferencesOpenInTheImmediateWindowGroup()
     {
@@ -225,7 +283,7 @@ public class MainViewViewModelTests
         var callStack = new CallStackToolViewModel(loc, Substitute.For<HexIDE.Runtime.Debugging.IDebugController>());
         var editorService = editor ?? Substitute.For<IEditorService>();
         var projectExplorer = new ProjectToolViewModel(_projectManager, _eventBus, projects, editorService, loc);
-        var colorPalette = new ColorPaletteToolViewModel(mockDocDock);
+        var colorPalette = new ColorPaletteToolViewModel(mockDocDock, loc);
         var objectBrowser = new ObjectBrowserToolViewModel(_projectManager, Substitute.For<ILspClient>(), editorService, Substitute.For<IComponentRegistry>(), Substitute.For<ITypeLibraryService>(), Substitute.For<IFocusedProjectUtil>(), loc,
             Substitute.For<ILanguageConnectionRegistry>());
         var translationEditor = new TranslationEditorViewModel(loc, Substitute.For<IUserTranslationsService>(), _windowManager);
@@ -1514,7 +1572,7 @@ public class MainViewViewModelTests
         project.StartsAtSubMain = true;
         var localization = Substitute.For<ILocalizationService>();
         localization.GetString("Str.ProjectRunner.NotImplementedYet").Returns("Not implemented yet: {0}");
-        var runner = new ProjectRunnerService(_eventBus, _windowManager, _projectManager, localization,
+        var runner = TestRunners.WithInterpreter(_eventBus, _windowManager, _projectManager, localization,
             new HexIDE.Runtime.Debugging.DebugController(), Substitute.For<HexIDE.Debugging.IBreakpointService>(),
             new HexIDE.Debugging.WatchService(), new HexIDE.Debugging.RunScope());
         var sut = Build(runner);
@@ -1541,7 +1599,7 @@ public class MainViewViewModelTests
             + "Sub Main()\nEnd Sub\n");
         project.AddModule(module);
         project.StartsAtSubMain = true;
-        var runner = new ProjectRunnerService(_eventBus, _windowManager, _projectManager,
+        var runner = TestRunners.WithInterpreter(_eventBus, _windowManager, _projectManager,
             Substitute.For<ILocalizationService>(), new HexIDE.Runtime.Debugging.DebugController(),
             Substitute.For<HexIDE.Debugging.IBreakpointService>(), new HexIDE.Debugging.WatchService(),
             new HexIDE.Debugging.RunScope());
@@ -1575,6 +1633,49 @@ public class MainViewViewModelTests
             Substitute.For<HexIDE.Bookmarks.IBookmarkService>(), breakpoints,
             Substitute.For<HexIDE.Runtime.Debugging.IDebugController>(), Substitute.For<HexIDE.Debugging.IRunScope>(),
             Substitute.For<ILocalizationService>()).Initialize(module);
+    }
+
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void SetNextStatement_refuses_a_document_outside_the_running_project(bool noRun)
+    {
+        var running = new ProjectDefinition(VBProjectType.EXE, "P");
+        using var runningCode = CodeWindow(running, "Module1", new HexIDE.Debugging.BreakpointService());
+        using var otherCode = CodeWindow(new ProjectDefinition(VBProjectType.EXE, "P"), "Module1",
+            new HexIDE.Debugging.BreakpointService());
+        var dock = Substitute.For<IDocumentDockService>();
+        dock.ActiveDocument.Returns(otherCode);
+        _runnerService.RunningProject.Returns(noRun ? null : running);
+        var debug = Substitute.For<HexIDE.Runtime.Debugging.IDebugController>();
+        debug.SetNextStatement(Arg.Any<string>(), Arg.Any<int>()).Returns(true);
+        var sut = Build(_runnerService, dock, debug: debug);
+        _localization.GetString("Str.Debug.SetNextStatement.Refused").Returns("localized refusal");
+
+        sut.SetNextStatement();
+
+        debug.DidNotReceive().SetNextStatement(Arg.Any<string>(), Arg.Any<int>());
+        _windowManager.Received(1).MessageBox("localized refusal", Arg.Any<string?>(),
+            Arg.Any<MessageBoxButtons>(), MessageBoxIcon.Information);
+    }
+
+    [AvaloniaFact]
+    public void SetNextStatement_passes_the_running_documents_name_and_caret_line()
+    {
+        var running = new ProjectDefinition(VBProjectType.EXE, "P");
+        using var code = CodeWindow(running, "Utilities", new HexIDE.Debugging.BreakpointService());
+        var dock = Substitute.For<IDocumentDockService>();
+        dock.ActiveDocument.Returns(code);
+        _runnerService.RunningProject.Returns(running);
+        var debug = Substitute.For<HexIDE.Runtime.Debugging.IDebugController>();
+        debug.SetNextStatement(Arg.Any<string>(), Arg.Any<int>()).Returns(true);
+        var sut = Build(_runnerService, dock, debug: debug);
+        code.CaretOffset = code.Document.Text.IndexOf("Debug.Print", StringComparison.Ordinal);
+
+        sut.SetNextStatement();
+
+        debug.Received(1).SetNextStatement("Utilities", code.Document.GetLineByOffset(code.CaretOffset).LineNumber);
+        _windowManager.DidNotReceiveWithAnyArgs().MessageBox(default!, default, default, default);
     }
 
     [AvaloniaFact]

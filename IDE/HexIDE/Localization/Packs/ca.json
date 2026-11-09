@@ -322,6 +322,7 @@
     "Str.Tool.Project.Menu.Add.Form": "Formulari",
     "Str.Tool.Project.Menu.Print": "Imprimeix",
     "Str.Tool.FormLayout.Preview.FormName": "Form1",
+    "Str.Tool.ColorPalette.Title": "Paleta de colors",
     "Str.Tool.ColorPalette.Button.Default": "Per defecte",
     "Str.Tool.ColorPalette.Button.DefineColors": "Defineix els colors",
     "Str.Tool.Locals.ContextReady": "<A punt>",

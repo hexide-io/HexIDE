@@ -37,13 +37,10 @@ Requires VB6 installed (`VB98\VB6.EXE`).
 NeonVertigo.exe
 ```
 
-`NeonVertigo.exe` (committed) is the pre-built binary — just run it.
-
 ## Files
 
 | File | Role |
 |------|------|
 | `NeonVertigo.vbp` | VB6 project (Standard EXE) |
 | `Form1.frm` | Form + Timer + the whole effect (point setup, rotation, projection, depth sort) |
-| `NeonVertigo.exe` | Pre-compiled binary |
 | `screenshot.png` | The effect running |

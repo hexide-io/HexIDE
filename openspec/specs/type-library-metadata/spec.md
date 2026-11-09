@@ -28,7 +28,7 @@ documentation too costs nothing, since the library already carries it.
 
 ### Requirement: Library reading SHALL be confined to the platform that supports it
 Reading component libraries SHALL be attempted only on the platform where that component technology exists,
-and SHALL be compiled so that unsupported platforms carry no such code path.
+guarded at run time, and SHALL make no attempt to load the platform's libraries elsewhere.
 
 The technology is Windows-only and always will be — there is nothing to read on another platform because the
 libraries are not there. Guarding it explicitly rather than letting it fail at runtime keeps the failure

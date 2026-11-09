@@ -117,6 +117,47 @@ public class CaretPlacementTests : IDisposable
             .Contain("Private Sub Form_Click()\nDebug.Print \"loaded\"\nEnd Sub");
     }
 
+    [AvaloniaTheory]
+    [InlineData(false, "body")]
+    [InlineData(true, "body")]
+    [InlineData(false, "header")]
+    [InlineData(true, "header")]
+    [InlineData(false, "attribute")]
+    [InlineData(true, "attribute")]
+    public async Task Opening_without_a_line_reads_the_caret_without_moving_it(bool alreadyOpen, string position)
+    {
+        var vm = Model(position == "attribute" ? WithRun : Body);
+        var module = vm.ModuleDefinition!;
+        module.Owner.AddModule(module);
+        var projects = Substitute.For<IProjectManager>();
+        projects.LoadedProjects.Returns([module.Owner]);
+        var dock = Substitute.For<IDocumentDockService>();
+        var editors = Substitute.For<IEditorService>();
+        void Open()
+        {
+            dock.OpenDocuments.Returns([vm]);
+            Show(vm);
+        }
+        if (alreadyOpen) Open();
+        else editors.When(e => e.EditCode(module)).Do(_ => Open());
+        var offset = position == "header" ? 0 : position == "attribute"
+            ? vm.Document.Text.IndexOf("Attribute Init.", StringComparison.Ordinal)
+            : vm.Document.GetLineByNumber(5).Offset + 2;
+        vm.CaretOffset = offset;
+        using var context = new HexIDE.Desktop.Server.IdeContext(projects, dock, lsp, editors,
+            null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!);
+        var tools = new HexIDE.Desktop.Server.HexIdeTools(context);
+
+        var reply = await tools.OpenFileAsync("Module1");
+
+        reply.Success.Should().BeTrue(reply.Error);
+        var at = vm.Document.GetLocation(vm.CaretOffset);
+        reply.Note.Should().Contain($"The caret is at line {at.Line}, column {at.Column}: offset {vm.CaretOffset} in the text get_file_content returns.")
+            .And.NotContain("as asked");
+        vm.CaretOffset.Should().Be(offset);
+        if (position != "body") reply.Note.Should().Contain("nearest place that can be edited");
+    }
+
     private static FoldingManager Folds(TextEditor editor) =>
         (FoldingManager)editor.TextArea.TextView.GetService(typeof(FoldingManager))!;
 
