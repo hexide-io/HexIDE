@@ -750,11 +750,8 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     /// moves everything below it by the difference instead, which is what actually happened.
     ///
     /// <para>
-    /// <b>The diagnostic markers are NOT among them, and this used to claim they were.</b> An
-    /// <c>LspMarker</c> is a plain record struct of two offsets in a list, not an anchored segment, so a
-    /// header that changes height leaves every underline drawn against stale offsets until the next
-    /// <c>publishDiagnostics</c> arrives -- which it does, because the replace debounces a <c>didChange</c>.
-    /// Transient and self-healing, and hexide-io/HexIDE#512 covers making it not happen at all.
+    /// Diagnostic underlines, text colouring and document highlights use anchored segments too (#512),
+    /// so a header replacement moves them with the code before the server answers again.
     /// </para>
     ///
     /// <para>

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Avalonia.Media;
 using AvaloniaEdit;
 using AvaloniaEdit.Document;
@@ -14,7 +15,7 @@ namespace HexIDE.Controls;
 public sealed class LspTextMarkerService : IBackgroundRenderer
 {
     private readonly TextEditor _editor;
-    private readonly List<LspMarker> _markers = new();
+    private readonly TextSegmentCollection<AnchoredLspMarker> _markers;
 
     public KnownLayer Layer => KnownLayer.Selection;
 
@@ -23,18 +24,20 @@ public sealed class LspTextMarkerService : IBackgroundRenderer
     /// holds the diagnostics" are different claims, and a view that attaches after a publish satisfies only
     /// the first unless it catches up.
     /// </summary>
-    internal IReadOnlyList<LspMarker> Markers => _markers;
+    internal IReadOnlyList<LspMarker> Markers => _markers.Select(m => m.Marker).ToArray();
 
     public LspTextMarkerService(TextEditor editor)
     {
         _editor = editor;
+        _markers = new TextSegmentCollection<AnchoredLspMarker>(editor.Document);
     }
 
     /// <summary>Replace all current markers with <paramref name="markers"/> and redraw.</summary>
     public void SetMarkers(IEnumerable<LspMarker> markers)
     {
         _markers.Clear();
-        _markers.AddRange(markers);
+        foreach (var marker in markers)
+            _markers.Add(new AnchoredLspMarker(marker));
         _editor.TextArea.TextView.InvalidateLayer(Layer);
     }
 
@@ -57,11 +60,11 @@ public sealed class LspTextMarkerService : IBackgroundRenderer
             if (marker.StartOffset < 0 || marker.EndOffset > document.TextLength)
                 continue;
 
-            var brush = marker.IsError ? Brushes.Red : Brushes.Orange;
+            var brush = marker.Marker.IsError ? Brushes.Red : Brushes.Orange;
             var pen = new Pen(brush, 1.0);
 
             foreach (var rect in BackgroundGeometryBuilder.GetRectsForSegment(
-                         textView, new TextSegment { StartOffset = marker.StartOffset, EndOffset = marker.EndOffset }))
+                         textView, marker))
             {
                 drawingContext.DrawGeometry(null, pen, BuildSquiggle(rect.Left, rect.Right, rect.Bottom - 1.5));
             }
@@ -103,17 +106,19 @@ public sealed class LspTextMarkerService : IBackgroundRenderer
 public sealed class LspDiagnosticsColorizer : DocumentColorizingTransformer
 {
     private readonly TextView _textView;
-    private readonly List<LspMarker> _markers = new();
+    private readonly TextSegmentCollection<AnchoredLspMarker> _markers;
 
     public LspDiagnosticsColorizer(TextView textView)
     {
         _textView = textView;
+        _markers = new TextSegmentCollection<AnchoredLspMarker>(textView.Document);
     }
 
     public void SetMarkers(IEnumerable<LspMarker> markers)
     {
         _markers.Clear();
-        _markers.AddRange(markers);
+        foreach (var marker in markers)
+            _markers.Add(new AnchoredLspMarker(marker));
         // Redraw() clears the visual line cache so ColorizeLine is re-invoked.
         // InvalidateLayer() alone only repaints background renderers and is not enough.
         _textView.Redraw();
@@ -127,8 +132,9 @@ public sealed class LspDiagnosticsColorizer : DocumentColorizingTransformer
 
     protected override void ColorizeLine(DocumentLine line)
     {
-        foreach (var marker in _markers)
+        foreach (var segment in _markers)
         {
+            var marker = segment.Marker;
             if (!marker.IsError && marker.Tags is not { Length: > 0 })
                 continue;
 
@@ -158,3 +164,17 @@ public sealed class LspDiagnosticsColorizer : DocumentColorizingTransformer
 
 public readonly record struct LspMarker(int StartOffset, int EndOffset, bool IsError, string Message, string? Source = null,
     int[]? Tags = null, DiagnosticRelatedInformation[]? RelatedInformation = null);
+
+internal sealed class AnchoredLspMarker : TextSegment
+{
+    private readonly LspMarker _marker;
+
+    public AnchoredLspMarker(LspMarker marker)
+    {
+        _marker = marker;
+        StartOffset = marker.StartOffset;
+        EndOffset = marker.EndOffset;
+    }
+
+    public LspMarker Marker => _marker with { StartOffset = StartOffset, EndOffset = EndOffset };
+}
