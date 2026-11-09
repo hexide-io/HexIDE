@@ -64,6 +64,20 @@ public partial class ProjectRunnerService : IProjectRunnerService
     public event Action<string>? RunFailed;
 
     /// <inheritdoc />
+    public event Action<RunFailure>? ErrorMet
+    {
+        add => runEngine.ErrorMet += value;
+        remove => runEngine.ErrorMet -= value;
+    }
+
+    /// <inheritdoc />
+    public Func<RunFailure, Task<bool>>? HaltHost
+    {
+        get => runEngine.HaltHost;
+        set => runEngine.HaltHost = value;
+    }
+
+    /// <inheritdoc />
     public ErrorLocation? FailureLocation { get; private set; }
 
     // Raises a failure event, with where its error was raised readable while the handlers run (#955).

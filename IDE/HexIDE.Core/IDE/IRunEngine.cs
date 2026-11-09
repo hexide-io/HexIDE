@@ -1,3 +1,4 @@
+using System;
 using System.Threading.Tasks;
 using HexIDE.Runtime.Interpreter;
 using HexIDE.Runtime.ProjectElements;
@@ -9,7 +10,7 @@ namespace HexIDE.IDE;
 /// debugger, and reports what happens; an engine builds the program and runs it. Add-ins' launches are the other way a
 /// project runs: they go through the External Debug Session and never reach an engine.
 /// </summary>
-/// <remarks>The members are called on the UI thread, in the order given here, once for each start.</remarks>
+/// <remarks>The three methods are called on the UI thread, in the order given here, once for each start.</remarks>
 public interface IRunEngine
 {
     /// <summary>Whether this engine runs this project. When it does not, no start reaches the engine.</summary>
@@ -27,6 +28,19 @@ public interface IRunEngine
     /// </summary>
     /// <remarks>May begin the program, as a form's Load does, but must not wait for it to end.</remarks>
     RunStart Prepare(ProjectDefinition project);
+
+    /// <summary>
+    /// A running program met an error and carries on: an event procedure was abandoned and the form is still there. The
+    /// host records it and shows it.
+    /// </summary>
+    event Action<RunFailure>? ErrorMet;
+
+    /// <summary>
+    /// Who answers an error nothing in the program handles, at the statement that raised it and before anything unwinds
+    /// (#1011). It answers true for Debug, and false for End once it has ended the run. While it is null the program does
+    /// not halt, and the error unwinds to be reported by <see cref="ErrorMet"/> or as what ended the run.
+    /// </summary>
+    Func<RunFailure, Task<bool>>? HaltHost { get; set; }
 }
 
 /// <summary>A program an engine has built.</summary>

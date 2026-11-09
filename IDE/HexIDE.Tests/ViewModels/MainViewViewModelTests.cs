@@ -1454,36 +1454,48 @@ public class MainViewViewModelTests
         opened.Should().BeTrue("the restored work and the project named on the command line are both wanted");
     }
 
-    // --- A compile error met mid-run (#759) ---
+    // --- An error the program carries on after (#759) ---
 
     [AvaloniaFact]
-    public void A_compile_error_met_while_a_form_runs_is_recorded_and_shown_as_a_run_time_error_is()
+    public void An_error_the_program_carries_on_after_is_recorded_and_shown()
     {
+        var at = new HexIDE.Runtime.Interpreter.ErrorLocation("Form1", 2);
         _windowManager.ShowDialog(Arg.Any<IDialog>()).Returns(false);
 
-        // A call to a Sub that does not exist, reached from a click: the compile error a tree-walker meets mid-run.
-        var form = new HexIDE.Runtime.VBWindowContext(Substitute.For<HexIDE.Runtime.Interpreter.IBasicStandardLibrary>());
-        form.SetCode("Private Sub Command1_Click()\n    NoSuchSub\nEnd Sub\n", "Form1");
-        form.ExecuteSub("Command1_Click");
+        _runnerService.ErrorMet += Raise.Event<System.Action<RunFailure>>(new RunFailure("Sub or Function not defined", at));
 
         _sut.RuntimeErrors.Last.Should().NotBeNull("it used to be a message box that nothing recorded");
-        _sut.RuntimeErrors.Last!.Value.Message.Should().Contain("Sub or Function not defined");
-        _windowManager.Received(1).ShowDialog(Arg.Any<HexIDE.Forms.ViewModels.RuntimeErrorViewModel>());
+        _sut.RuntimeErrors.Last!.Value.Message.Should().Be("Sub or Function not defined");
+        _sut.RuntimeErrors.Last!.Value.Where.Should().Be(at);
+        _windowManager.Received(1).ShowDialog(
+            Arg.Is<HexIDE.Forms.ViewModels.RuntimeErrorViewModel>(vm => vm.ErrorText == "Sub or Function not defined" && !vm.CanDebug(null)));
         _windowManager.DidNotReceiveWithAnyArgs().MessageBox(default!, default, default, default);
     }
 
+    // --- A halt on an error nothing handles (#1011) ---
+
     [AvaloniaTheory]
-    [InlineData(true, true)]     // End pressed while the run goes on: it ends
-    [InlineData(false, false)]   // closed any other way: the run carries on
-    public void End_on_a_mid_run_compile_errors_dialog_ends_the_run(bool answer, bool ends)
+    [InlineData(false, true, true, false)]    // Debug, or closed by stop_project: it breaks there, and nothing ends
+    [InlineData(true, true, false, true)]     // End while the run goes on: it ends
+    [InlineData(true, false, false, false)]   // End after the run has ended some other way: nothing to end
+    public async Task A_halt_is_recorded_before_its_dialog_and_answered_from_it(bool answer, bool canEnd, bool debug, bool ends)
     {
-        _windowManager.ShowDialog(Arg.Any<IDialog>()).Returns(answer);
-        _runnerService.CanEndProject.Returns(true);
+        var at = new HexIDE.Runtime.Interpreter.ErrorLocation("Form1", 2);
+        var recordedFirst = false;
+        _windowManager.ShowDialog(Arg.Any<IDialog>()).Returns(_ =>
+        {
+            recordedFirst = _sut.RuntimeErrors.Last?.Message == "Division by zero";
+            return Task.FromResult(answer);
+        });
+        _runnerService.CanEndProject.Returns(canEnd);
 
-        var form = new HexIDE.Runtime.VBWindowContext(Substitute.For<HexIDE.Runtime.Interpreter.IBasicStandardLibrary>());
-        form.SetCode("Private Sub Command1_Click()\n    NoSuchSub\nEnd Sub\n", "Form1");
-        form.ExecuteSub("Command1_Click");
+        var answered = await _runnerService.HaltHost!(new RunFailure("Division by zero", at));
 
+        answered.Should().Be(debug);
+        recordedFirst.Should().BeTrue("stop_project and shutdown_ide close the dialog");
+        _sut.RuntimeErrors.Last!.Value.Where.Should().Be(at);
+        _ = _windowManager.Received(1).ShowDialog(
+            Arg.Is<HexIDE.Forms.ViewModels.RuntimeErrorViewModel>(vm => vm.ErrorText == "Division by zero" && vm.CanDebug(null)));
         if (ends)
             _runnerService.Received(1).EndProject();
         else
@@ -1501,11 +1513,9 @@ public class MainViewViewModelTests
         _windowManager.ShowDialog(Arg.Any<IDialog>()).Returns(answer);
         _runnerService.CanEndProject.Returns(canEnd);
 
-        // A VB6 run-time error in an event procedure, which leaves the run going: the one dialog whose End has a
-        // run to end. A run that failed or never started has its own test below.
-        var form = new HexIDE.Runtime.VBWindowContext(Substitute.For<HexIDE.Runtime.Interpreter.IBasicStandardLibrary>());
-        form.SetCode("Private Sub Command1_Click()\n    Error 5\nEnd Sub\n", "Form1");
-        form.ExecuteSub("Command1_Click");
+        // An error in an event procedure, which leaves the run going: the one dialog whose End has a run to end. A run
+        // that failed or never started has its own test below.
+        _runnerService.ErrorMet += Raise.Event<System.Action<RunFailure>>(new RunFailure("Run-time error '5'", null));
 
         if (ends)
             _runnerService.Received(1).EndProject();
