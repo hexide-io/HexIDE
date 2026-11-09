@@ -24,8 +24,8 @@ namespace HexIDE.Tests.ViewModels;
 /// So the write IS recorded, paired with an operation that carries the buffer's prefix, and the code
 /// window's Undo pops header writes until an ordinary edit comes off with them and then puts the current
 /// header back. The tests below are split accordingly: the first group is that policy, and the second is the
-/// safety net underneath it — an undo arriving by a route HexIDE does not own (AvaloniaEdit answers Ctrl+Y
-/// itself) still leaves the buffer and the prefix agreeing about where the header ends.
+/// safety net underneath it — a direct document undo still leaves the buffer and the prefix agreeing about
+/// where the header ends.
 /// </para>
 /// </remarks>
 public class CodeEditorUndoTests : IDisposable
@@ -73,6 +73,22 @@ public class CodeEditorUndoTests : IDisposable
     {
         module.RecordOriginalHeader(header);
         vm.RefreshPrefix(header);
+    }
+
+    [AvaloniaFact]
+    public void InsertAtEndUndoesTheWholeProcedureInOneStep()
+    {
+        var vm = OpenOn(AModule("Option Explicit\r\n"));
+        var original = vm.Document.Text;
+        typeof(CodeEditorViewModel).GetMethod("InsertAtEnd",
+            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
+            .Invoke(vm, ["Private Sub Added()\n", "\nEnd Sub\n"]);
+        vm.BufferBody.Should().Contain("Private Sub Added()");
+
+        Undo(vm);
+
+        vm.Document.Text.Should().Be(original);
+        vm.Document.UndoStack.CanUndo.Should().BeFalse();
     }
 
     // -- The policy ---------------------------------------------------------------------------------
@@ -244,8 +260,7 @@ public class CodeEditorUndoTests : IDisposable
     [AvaloniaFact]
     public void AHeaderWriteUndoneByARouteHexIdeDoesNotOwnStillLeavesTheSplitHonest()
     {
-        // Ctrl+Y is AvaloniaEdit's own redo gesture and HexIDE binds nothing to it, so an undo or redo can
-        // reach this document without passing through UndoRequested at all. That is why the prefix rides in
+        // A direct document undo can reach this buffer without passing through UndoRequested. The prefix rides in
         // the undo group as an operation rather than being fixed up by the caller: whatever pops the entry,
         // the buffer and the prefix move together.
         var module = AModule("Option Explicit\r\nDim x As Long\r\n");

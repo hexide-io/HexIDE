@@ -53,6 +53,7 @@ public class ApplicationCommands
     public static readonly RoutedCommand PasteAsCommentCommand = new RoutedCommand(nameof(PasteAsCommentCommand));
     public static readonly RoutedCommand PasteLinkCommand = new RoutedCommand(nameof(PasteLinkCommand));
     public static readonly RoutedCommand RemoveCommand = new RoutedCommand(nameof(RemoveCommand));
+    public static readonly RoutedCommand DeleteLineCommand = new RoutedCommand(nameof(DeleteLineCommand), new KeyGesture(Key.Y, GetPlatformCommandKey()));
     public static readonly RoutedCommand DeleteCommand = new RoutedCommand(nameof(DeleteCommand), new KeyGesture(Key.Delete));
     public static readonly RoutedCommand SelectAllCommand = new RoutedCommand(nameof(SelectAllCommand), new KeyGesture(Key.A, GetPlatformCommandKey()));
     public static readonly RoutedCommand FindCommand = new RoutedCommand(nameof(FindCommand), new KeyGesture(Key.F, GetPlatformCommandKey()));
