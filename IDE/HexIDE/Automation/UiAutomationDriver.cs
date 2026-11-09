@@ -237,7 +237,21 @@ public static class UiAutomationDriver
             // The pointer it shows, and where that is set (#2453).
             Safe(() => PointerReader.Read(control, c => root is null ? Describe(c) : PathWithin(root, "Window", c)), null),
             control.IsPointerOver,
-            rectNote);
+            rectNote,
+            IsSelectedOf(control, peer));
+    }
+
+    // Whether a row is selected, read as SelectVerified reads it: the pattern's own answer, or the list's mark on a row it
+    // still holds. Absent for a control without that pattern, and when neither can be read (#2863).
+    private static bool? IsSelectedOf(Control control, AutomationPeer peer)
+    {
+        if (peer.GetProvider<ISelectionItemProvider>() is not { } item)
+            return null;
+        return Safe<bool?>(() => item.IsSelected, null)
+               ?? (ItemsControl.ItemsControlFromItemContainer(control) is SelectingItemsControl list
+                   && list.IndexFromContainer(control) >= 0
+                   ? control.GetValue(SelectingItemsControl.IsSelectedProperty)
+                   : null);
     }
 
     private static (double[]? Rect, string? Note) WindowBounds(Control control, AutomationPeer peer, Control? root)
@@ -5985,7 +5999,10 @@ public record UiNodeDetail(
     // Whether the pointer is over it, as its :pointerover style reads it (#2562): a hover that stays sets it, and the real
     // mouse's next move takes it back.
     bool IsPointerOver = false,
-    string? BoundingRectNote = null);
+    string? BoundingRectNote = null,
+    // Whether this row is one its list has selected (#2863): SelectionItems says that of a list, and is empty on a row
+    // whichever it is. Absent on anything without the selectionItem provider.
+    bool? IsSelected = null);
 
 /// <summary>The inspected Window's Avalonia frame properties and, on Windows, its native style masks.</summary>
 public record WindowFrameState(bool CanResize, string WindowDecorations, bool CanMinimize, bool CanMaximize,
