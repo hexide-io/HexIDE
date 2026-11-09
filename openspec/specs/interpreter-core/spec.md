@@ -1624,3 +1624,26 @@ Measured by [#3349's oracle](../../../docs/vb6-fidelity-oracle/a-public-array-in
 #### Scenario: A declaration outside the measured Public object-member scope
 - **WHEN** a declaration is Private, Dim, or in a standard module
 - **THEN** this refusal does not apply and its existing implementation or refusal is retained
+
+### Requirement: Measured net present value and explicit cash-flow refusals
+
+The interpreter SHALL execute all five positional NPV rows measured in
+[#2525](https://github.com/hexide-io/HexIDE/issues/2525), preserving Double subtypes,
+exact result bits and measured error numbers. It SHALL retain the base and sum while rounding
+each cumulative discount power to Double as described in
+[Cash-flow precision](../../../docs/financial-precision-2525.md).
+Unmeasured conversions, named calls, empty/multidimensional arrays and unsupported arithmetic
+domains SHALL refuse as unimplemented. IRR and MIRR SHALL explicitly refuse as unimplemented
+until a precision model matches every measured row for the function.
+
+#### Scenario: Every cash flow is discounted
+- **WHEN** NPV is called with rate 0.1 and the measured five-element Double array a
+- **THEN** it returns a Double with bits `409C45757D31FA2E`
+
+#### Scenario: Invalid NPV rate or unallocated array
+- **WHEN** NPV is called with the measured rate -1 or unallocated Double array
+- **THEN** it raises error 5
+
+#### Scenario: A cash-flow function has no matching precision model
+- **WHEN** IRR or MIRR is called
+- **THEN** execution stops with HexIDE's not-implemented error rather than returning guessed bits

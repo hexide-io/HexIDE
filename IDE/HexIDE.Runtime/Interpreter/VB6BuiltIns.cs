@@ -132,7 +132,10 @@ public partial class VB6BuiltIns
             || string.Equals(name, "NPer", StringComparison.OrdinalIgnoreCase)
             || string.Equals(name, "IPmt", StringComparison.OrdinalIgnoreCase)
             || string.Equals(name, "PPmt", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(name, "Rate", StringComparison.OrdinalIgnoreCase)) return arg;
+            || string.Equals(name, "Rate", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(name, "NPV", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(name, "IRR", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(name, "MIRR", StringComparison.OrdinalIgnoreCase)) return arg;
         if (TakesTheArgumentItself.Contains(name) || (index == 0 && TakesAnArrayFirst.Contains(name))
             || (index >= 1 && TakesItsChoicesThemselves.Contains(name))
             || (index == 1 && string.Equals(name, "Join", StringComparison.OrdinalIgnoreCase))

@@ -109,3 +109,10 @@ Issue [#3350](https://github.com/hexide-io/HexIDE/issues/3350) uses
 [#3349’s Public object-module member measurements](vb6-fidelity-oracle/a-public-array-in-an-object-module.md):
 Public constants, fixed-length strings, UDT variables and Declare statements receive the same compile refusal
 as Public arrays. HexIDE checks UDT members later, while allocating instance storage.
+
+The [#2525 measurements](https://github.com/hexide-io/HexIDE/issues/2525) of NPV, IRR and MIRR
+are recorded in the measuring author's [cash-flow oracle page](vb6-fidelity-oracle/npv-irr-and-mirr.md).
+They pin exact Double bits and errors for Double cash-flow arrays, including NPV's first-value
+discount, its rate -1 and unallocated-array error 5, IRR's guess-dependent bits and all-positive
+error 5, and MIRR's all-positive error 11 and finance-rate -1 error 5. Native and p-code agree.
+[Cash-flow precision](financial-precision-2525.md) records model comparisons, not new measurements.

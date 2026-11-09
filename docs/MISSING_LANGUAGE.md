@@ -128,13 +128,13 @@ on the *read* path — seven rows describe the single-dot restriction it removed
 |---|---:|---:|---:|---:|---:|---:|---:|
 | Statements | 0 | 0 | 9 | 51 | 0 | 47 | 107 |
 | Operators | 0 | 0 | 1 | 20 | 0 | 11 | 32 |
-| Intrinsic functions | 0 | 0 | 10 | 69 | 0 | 74 | 153 |
+| Intrinsic functions | 0 | 0 | 9 | 70 | 0 | 74 | 153 |
 | Keywords and modifiers | 0 | 0 | 2 | 22 | 1 | 26 | 51 |
 | Literals, types and suffixes | 0 | 0 | 0 | 17 | 0 | 33 | 50 |
 | Compiler directives and options | 0 | 0 | 0 | 14 | 19 | 14 | 47 |
 | In-box objects | 0 | 0 | 58 | 28 | 0 | 38 | 124 |
 | Intrinsic constants | 0 | 0 | 0 | 258 | 0 | 363 | 621 |
-| **Total** | **0** | **0** | **80** | **479** | **20** | **606** | **1185** |
+| **Total** | **0** | **0** | **79** | **480** | **20** | **606** | **1185** |
 
 The *Silently wrong* column counts only what a verifier proved by running it. It is a floor, not a
 census — see the caveat above.
@@ -276,7 +276,7 @@ operator `:=`, the other such gap, since [#1465](https://github.com/hexide-io/He
 | Name | Status | Detail | Source |
 |---|---|---|---|
 
-## Dies mid-run — 80 names
+## Dies mid-run — 79 names
 
 These parse. The program starts, reaches the statement, and throws. Grouped by area below so the clusters
 are visible — and they are very clustered: the file-I/O family beyond text files is absent as a block, and so is
@@ -330,15 +330,14 @@ most of the in-box object model.
 | `GoSub...Return` | **Dies** | throws `"GoSub not implemented"` — Both halves parse and both throw. GoSub: (StatementExecutor.cs). Return: `throw new NotImplementedException("Return not implemented")`… | StatementExecutor.cs |
 | `Hyperlink` | **Dies** | `Dim h As Hyperlink` declares an object variable that holds Nothing, from the VBRUN type table (`vb6-inbox-types.json`, since #822; checked 2026-11-08). Its members are not modelled. | StatementExecutor.cs |
 | `InputB` | **Dies** | **[#1645](https://github.com/hexide-io/HexIDE/issues/1645):** refused as not implemented: vb6.exe returns a byte string, `LenB` 3 and `Len` 1 for three bytes (measured), which HexIDE has not got ([#1510](https://github.com/hexide-io/HexIDE/issues/1510)). | VB6BuiltIns.cs |
-| `IRR` | **Dies** | Unregistered in BuildRegistry (VB6BuiltIns.cs); ExpressionExecutor.cs throws "Compile error:\n\nSub or Function not defined (IRR)". Named in the deferral list at docs/interpreter-gaps.md. | VB6BuiltIns.cs |
+| `IRR` | **Dies** | Explicitly refuses as not implemented (#2525): the tested secant/spill models miss all three measured successful results. [Variants and nearest bits](financial-precision-2525.md#irr--refused). | VB6BuiltIns.Financial.cs |
 | `LicenseInfo` | **Dies** | `Dim l As LicenseInfo` declares an object variable that holds Nothing, from the VBRUN type table (`vb6-inbox-types.json`, since #822; checked 2026-11-08). Its members are not modelled. | StatementExecutor.cs |
 | `Licenses` | **Dies** | Measured for `Debug.Print Licenses.Count`: VBVariableNotDefinedException: "Variable not defined (Licenses)" (ExpressionExecutor.cs) — the global object is not seeded; only Debug, Err and… | BasicInterpreter.cs |
 | `Line` | **Dies** | There is no standalone LINE token; `Line Input` is lexed as ONE token, `LINE_INPUT : L I N E ' ' I N P U T` (Grammar/VB6.g4), consumed by `lineInputStmt : LINE_INPUT WS valueStmt WS? COMMA… | StatementExecutor.cs |
 | `LoadResData` | **Dies** | Not in BuildRegistry; calls still throw VBSubOrFunctionNotDefinedException (#2626). The project resource reader now loads ResFile32 read-only (#2625), including raw data and counted strings. Selecting among multiple languages is unmeasured and explicitly refused by the reader. | ExpressionExecutor.cs |
 | `LoadResPicture` | **Dies** | Not in BuildRegistry; calls still throw VBSubOrFunctionNotDefinedException (#2626). The project resource reader now loads ResFile32 read-only (#2625), including raw data and counted strings. Selecting among multiple languages is unmeasured and explicitly refused by the reader. | ExpressionExecutor.cs |
 | `LoadResString` | **Dies** | Not in BuildRegistry; calls still throw VBSubOrFunctionNotDefinedException (#2626). The project resource reader now loads ResFile32 read-only (#2625), including raw data and counted strings. Selecting among multiple languages is unmeasured and explicitly refused by the reader. | ExpressionExecutor.cs |
-| `MIRR` | **Dies** | Unregistered in BuildRegistry (VB6BuiltIns.cs); ExpressionExecutor.cs throws "Compile error:\n\nSub or Function not defined (MIRR)". Named in the deferral list at… | VB6BuiltIns.cs |
-| `NPV` | **Dies** | Unregistered in BuildRegistry (VB6BuiltIns.cs); ExpressionExecutor.cs throws "Compile error:\n\nSub or Function not defined (NPV)". Named in the deferral list at docs/interpreter-gaps.md. | VB6BuiltIns.cs |
+| `MIRR` | **Dies** | Explicitly refuses as not implemented (#2525): no tested precision model matches both measured successful results. [Variants and nearest bits](financial-precision-2525.md#mirr--refused). | VB6BuiltIns.Financial.cs |
 | `On...GoSub` | **Dies** | throws `"OnGoSub not implemented"` — (onGoSubStmt, VB6.g4) and throws at run time. Verbatim: Measured: `On i GoSub L1` -> NotImplementedException: OnGoSub not implemented. | StatementExecutor.cs |
 | `On...GoTo` | **Dies** | throws `"OnGoTo not implemented"` — (onGoToStmt, VB6.g4) and throws at run time. Verbatim: Measured: `On i GoTo L1, L2` -> NotImplementedException: OnGoTo not implemented. | StatementExecutor.cs |
 | `ParentControls` | **Dies** | `Dim p As ParentControls` declares an object variable that holds Nothing, from the VBRUN type table (`vb6-inbox-types.json`, since #822; checked 2026-11-08). Its members are not modelled. | StatementExecutor.cs |
@@ -523,7 +522,7 @@ missing.
 | `TypeOf ... Is` | Supported | #1962: CommonDialog takes its library identity from the registered component class. **#2265:** bare `ProgressBar` follows the first referenced control library, while the qualified name selects its own library. **[#1060](https://github.com/hexide-io/HexIDE/issues/1060):** a control was False whatever the type named, so the usual loop over a form's Controls did nothing, silently. Measured and fixed: a control is its class, with its library or without (`TextBox`, `VB.TextBox`, `MSComDlg.CommonDialog`, and since #1082 `MSComctlLib.ProgressBar`, or `ComctlLib.ProgressBar` for one read under the 5.0 library), a `Control` and an `Object`; a control array and Controls are an `Object`, and Controls is no `Collection`; a form is a `Form`. `VisitVsTypeOf`, including an explicit grammar-greediness workaround: "`TypeOf p Is Clock` parses the operand as the comparison `p Is Clock` with NO Is-type clause. Recover by… | ExpressionExecutor.cs |
 | `Xor` | Supported | `VisitVsXor` — same raw-pair `VbBitwise` treatment (`static (a, b) => a ^ b`). Measured `(True Xor False)` -> Boolean True. | ExpressionExecutor.cs |
 
-### Intrinsic functions — 153 names (10 absent, 69 partial, 74 supported)
+### Intrinsic functions — 153 names (9 absent, 70 partial, 74 supported)
 
 
 **array** (3)
@@ -654,10 +653,10 @@ missing.
 | `DDB` | **Dies** | Unregistered: #2524 precision probe matches nine of ten measured rows, but period 10 remains unmatched (closest spill model ends in 3791; measured 3797). Refused pending a model matching every row. | VB6BuiltIns.cs; scripts/probes/depreciation-2524.py |
 | `FV` | Partial | **#2523:** measured positional future values, optional present value/Type, zero rate and zero periods; exact Double bits pinned to [the issue](https://github.com/hexide-io/HexIDE/issues/2523). Named calls, Date/nonnumeric/Null conversions, missing/count errors, singular powers, nonpositive bases and periods beyond 10,000 refuse as unimplemented; these edges are unmeasured. | VB6BuiltIns.Financial.cs |
 | `IPmt` | Partial | **#2523:** every measured positional row in [the issue](https://github.com/hexide-io/HexIDE/issues/2523) passes with exact Double bits and errors; fitted spills in [Financial precision](financial-precision-2523.md). Named calls, missing/count errors, Date/nonnumeric/Null conversions and singular/extreme domains refuse as unimplemented. | VB6BuiltIns.Financial.cs |
-| `IRR` | **Dies** | Unregistered in BuildRegistry (VB6BuiltIns.cs); ExpressionExecutor.cs throws "Compile error:\n\nSub or Function not defined (IRR)". Named in the deferral list at docs/interpreter-gaps.md. | VB6BuiltIns.cs |
-| `MIRR` | **Dies** | Unregistered in BuildRegistry (VB6BuiltIns.cs); ExpressionExecutor.cs throws "Compile error:\n\nSub or Function not defined (MIRR)". Named in the deferral list at… | VB6BuiltIns.cs |
+| `IRR` | **Dies** | Explicitly refuses as not implemented (#2525): the tested secant/spill models miss all three measured successful results. [Variants and nearest bits](financial-precision-2525.md#irr--refused). | VB6BuiltIns.Financial.cs |
+| `MIRR` | **Dies** | Explicitly refuses as not implemented (#2525): no tested precision model matches both measured successful results. [Variants and nearest bits](financial-precision-2525.md#mirr--refused). | VB6BuiltIns.Financial.cs |
 | `NPer` | Partial | **#2523:** every measured positional row in [the issue](https://github.com/hexide-io/HexIDE/issues/2523) passes with exact Double bits and errors; fitted spills in [Financial precision](financial-precision-2523.md). Named calls, missing/count errors, Date/nonnumeric/Null conversions and singular/extreme domains refuse as unimplemented. | VB6BuiltIns.Financial.cs |
-| `NPV` | **Dies** | Unregistered in BuildRegistry (VB6BuiltIns.cs); ExpressionExecutor.cs throws "Compile error:\n\nSub or Function not defined (NPV)". Named in the deferral list at docs/interpreter-gaps.md. | VB6BuiltIns.cs |
+| `NPV` | Partial | Measured positional numeric-rate/Double-array calls match all five #2525 rows, exact Double bits and errors. Other conversions, named calls, empty/multidimensional arrays and extreme domains refuse as unimplemented. [Precision note](financial-precision-2525.md). | VB6BuiltIns.Financial.cs |
 | `Pmt` | Partial | **#2523:** measured positional payments, zero/negative rates, fractional periods, nonzero Type, numeric rate String and Null-rate error; Double bits pinned to [the issue](https://github.com/hexide-io/HexIDE/issues/2523). Named calls, Date and other nonnumeric conversions, missing/count errors, singular powers, nonpositive bases and periods beyond 10,000 refuse as unimplemented; these edges are unmeasured. | VB6BuiltIns.Financial.cs |
 | `PPmt` | Partial | **#2523:** every measured positional row in [the issue](https://github.com/hexide-io/HexIDE/issues/2523) passes with exact Double bits and errors; fitted spills in [Financial precision](financial-precision-2523.md). Named calls, missing/count errors, Date/nonnumeric/Null conversions and singular/extreme domains refuse as unimplemented. | VB6BuiltIns.Financial.cs |
 | `PV` | Partial | **#2523:** measured positional present values, optional future value/Type and zero rate; exact Double bits pinned to [the issue](https://github.com/hexide-io/HexIDE/issues/2523). Named calls, Date/nonnumeric/Null conversions, missing/count errors, singular powers, nonpositive bases and periods beyond 10,000 refuse as unimplemented; these edges are unmeasured. | VB6BuiltIns.Financial.cs |
