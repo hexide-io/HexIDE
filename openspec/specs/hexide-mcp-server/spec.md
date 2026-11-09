@@ -189,7 +189,12 @@ SHALL be reported as not recorded, never guessed, and a control with none set SH
 ### Requirement: Inspection SHALL report what a tree has selected
 `inspect_element` on a tree SHALL report in `selectionItems` the rows the tree has selected, each named as its row
 reads, and SHALL report an empty list only when nothing is selected. A tree whose peer offers no selection provider
-SHALL be read from the tree itself.
+SHALL be read from the tree itself. `inspect_element` on a node with the `selectionItem` provider SHALL report in
+`isSelected` whether its own list has it selected, and SHALL leave that field out on a node without the provider.
+
+#### Scenario: A row reads as selected or not
+- **WHEN** one row of a list is selected and each row is inspected
+- **THEN** `isSelected` is true on that row, false on the other, and absent on the list
 
 #### Scenario: A selected watch row
 - **WHEN** a Watches row is selected and the Watches tree is inspected
