@@ -1,17 +1,12 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
 using Avalonia.Controls;
-using Avalonia.Headless;
-
-[assembly: AssemblyFixture(typeof(HexIDE.Integration.Tests.WindowLeakGuard))]
 
 namespace HexIDE.Integration.Tests;
 
-// Check after fixture disposal, so tests may close their windows in Dispose as well as finally.
-public sealed class WindowLeakGuard : IAsyncDisposable
+// The final collection checks after other collections' fixtures have been disposed.
+public static class WindowLeakGuard
 {
     internal static readonly Dictionary<Window, string> Open = new();
 
@@ -26,8 +21,4 @@ public sealed class WindowLeakGuard : IAsyncDisposable
         "every test must close every window it opened, including hidden windows:{0}{1}",
         Environment.NewLine, string.Join(Environment.NewLine, Open.Select(pair =>
             $"'{pair.Key.Title}' ({pair.Key.GetType().Name}), opened by {pair.Value}")));
-
-    public async ValueTask DisposeAsync() =>
-        await HeadlessUnitTestSession.GetOrStartForAssembly(typeof(TestApp).Assembly)
-            .Dispatch(Check, CancellationToken.None);
 }
