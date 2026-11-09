@@ -28,23 +28,13 @@ if (input is null || brand is null || output is null)
     return 2;
 }
 
-if (!OperatingSystem.IsWindows())
-{
-    Console.Error.WriteLine("This version repacks Windows builds and has to run on Windows, because it rewrites the executable through Windows' own resource functions.");
-    return 1;
-}
-
 try
 {
-    var result = WindowsRepacker.Run(input, brand, output);
+    var target = RepackTarget.For(input);
+    var result = Repacker.Run(target, input, brand, output);
     Console.WriteLine($"Wrote {output}");
-    Console.WriteLine($"  app\\{result.ExecutableName}: its name, icon and version details are now {result.ProductName}'s.");
-    Console.WriteLine($"  installer\\{InstallerInputs.ScriptName}: compile this with Inno Setup's ISCC to make the setup program.");
-    Console.WriteLine("  The helper programs beside it keep HexIDE's names, and every other file is as published.");
-    Console.WriteLine();
-    if (result.RemovedSignature)
-        Console.WriteLine($"Removed the signature from {result.ExecutableName}, because rewriting the file invalidated it.");
-    Console.WriteLine($"This output is not signed. Sign {result.ExecutableName} and the setup program before you ship them.");
+    foreach (var line in target.Describe(result))
+        Console.WriteLine(line);
     return 0;
 }
 catch (RepackException ex)
