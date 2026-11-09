@@ -49,7 +49,7 @@ public partial class PropertiesToolViewModel : Tool
         var value = localization.GetString(key);
         return string.IsNullOrEmpty(value) || value == key ? category.ToString() : value;
     }
-    public ObservableCollection<ComponentInstanceViewModel>? ComponentsProxy => currentDocument?.AllComponents;
+    public ObservableCollection<ComponentInstanceViewModel>? ComponentsProxy => currentDocument?.SelectableComponents;
     public ObservableCollection<PropertyViewModel> Properties { get; } = new();
     public ObservableCollection<BasePropertyViewModel> CategorizedProperties { get; } = new();
     [Notify] private PropertyViewModel? selectedProperty;

@@ -387,7 +387,7 @@ command. A form the runtime loader cannot create SHALL report its existing unsup
 
 ### Requirement: Designer instantiation failures are contained per control
 
-The designer SHALL catch an exception from a control's designer instantiation, layout or drawing, log the exception, and show a disabled placeholder at that control's bounds with its name and the exception message. The view-only label SHALL be localized. The failed preview SHALL NOT prevent the form from remaining open.
+The designer SHALL catch an exception from a control's designer instantiation, layout or drawing, log the exception, and show a disabled placeholder at that control's bounds with its name and the exception message. The view-only label SHALL be localized. The failed preview SHALL NOT prevent the form from remaining open. The designer SHALL exclude a failed preview from the Properties object selector and multi-selection. If a selected preview fails, the designer SHALL select the form instead and remove the failed preview from multi-selection.
 
 #### Scenario: A registered component refuses its designer instance
 
@@ -402,7 +402,13 @@ The designer SHALL catch an exception from a control's designer instantiation, l
 - **THEN** the designer shows that StatusBar's name and reason in a disabled placeholder at its bounds, and the form stays open
 - **AND** opening the preview does not change the serialized form
 
-Conversion to an inert carried block, exclusion from property selection and verbatim carry-over after edits elsewhere on the form remain outstanding under #2405.
+#### Scenario: A selected control preview fails
+
+- **WHEN** a selected control fails to produce its designer preview
+- **THEN** Properties shows the form and its object selector excludes the failed control
+- **AND** multi-selection excludes the failed control, including subsequent attempts to select it
+
+Conversion to an inert carried block and verbatim carry-over after edits elsewhere on the form remain outstanding under #2405.
 
 ### Requirement: ImageList designer icon
 The designer SHALL show a modelled MSComctlLib.ImageList as a 38 × 38 box with a two-pixel raised edge.
