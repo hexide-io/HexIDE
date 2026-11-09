@@ -2,6 +2,7 @@
   "name": "Danish",
   "direction": "ltr",
   "strings": {
+    "Str.Shell.NotImplemented": "Denne funktion er endnu ikke implementeret",
     "Str.AIChat.Stop": "Stop",
     "Str.Tool.LanguageServers.Problem.JsonSyntaxEscape": "Konfigurationsfilen '{0}' indeholder ugyldig JSON på linje {1}, kolonne {2}. Sti: {3} Brug skråstreger (C:/tools/new/...) eller dobbelte omvendte skråstreger (C:\\\\tools\\\\new\\\\...).",
     "Str.Tool.LanguageServers.Problem.PathControlWarning": "Feltet '{0}' indeholder et kontroltegn fra en escape-sekvens; sandsynligvis tilsigtet sti med omvendte skråstreger: {1}. Værdien er uændret.",
