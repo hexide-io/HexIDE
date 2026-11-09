@@ -4,8 +4,6 @@ using System.Linq;
 using AvaloniaEdit.Document;
 using HexIDE.Language;
 using HexIDE.Localization;
-using HexIDE.Runtime.Interpreter;
-using HexIDE.Runtime.Interpreter.ConditionalCompilation;
 using HexIDE.TwinBasic;
 using PropertyChanged.SourceGenerator;
 
@@ -14,6 +12,7 @@ namespace HexIDE.Forms.ViewModels;
 public partial class ArchiveDocumentViewModel : BaseEditorWindowViewModel, ISearchableDocument
 {
     private readonly ILocalizationService localization;
+    private readonly IConditionalCodeReader conditionalCode;
     public ArchiveProjectEntry Entry { get; private set; }
     [Notify] private TextDocument document = new();
     [Notify] private string notice = "";
@@ -30,9 +29,11 @@ public partial class ArchiveDocumentViewModel : BaseEditorWindowViewModel, ISear
     public bool IsReadOnlyRegion(int offset, int length) => false;
     public Func<int, int, bool> SnapshotReadOnlyRegions() => static (_, _) => true;
 
-    public ArchiveDocumentViewModel(ArchiveProjectEntry entry, ILocalizationService localization, string? buildType = null)
+    public ArchiveDocumentViewModel(ArchiveProjectEntry entry, ILocalizationService localization,
+        IConditionalCodeReader conditionalCode, string? buildType = null)
     {
         this.localization = localization;
+        this.conditionalCode = conditionalCode;
         Entry = entry;
         Update(entry, buildType);
     }
@@ -58,40 +59,25 @@ public partial class ArchiveDocumentViewModel : BaseEditorWindowViewModel, ISear
             entry.Source.Category, entry.Source.Flags, entry.Source.Revision,
             (entry as ArchiveProjectDocument)?.File.Content.Length ?? 0);
         InactiveLines = preview?.Status == ArchiveTextStatus.Available && entry.Name.EndsWith(".twin", StringComparison.OrdinalIgnoreCase)
-            ? InactiveLinesOf(preview.Text!, entry.Name, buildType)
+            ? InactiveLinesOf(preview.Text!, buildType)
             : [];
         Title = ComputeTitle();
     }
 
     internal ArchiveDocumentViewModel Reopen()
     {
-        var reopened = new ArchiveDocumentViewModel(Entry, localization);
+        var reopened = new ArchiveDocumentViewModel(Entry, localization, conditionalCode);
         reopened.CaretOffset = Math.Clamp(CaretOffset, 0, reopened.Document.TextLength);
         return reopened;
     }
 
-    private static IReadOnlyList<LineRange> InactiveLinesOf(string text, string name, string? buildType)
-    {
-        var builtIns = new Dictionary<string, Vb6Value>(StringComparer.OrdinalIgnoreCase);
-        foreach (var (constant, value) in TwinBasicCompilationConstants.BuiltIns(win64: false, build: null, buildType))
-            builtIns[constant] = value switch
-            {
-                int number => new Vb6Value(number).AsVariant(),
-                string s => new Vb6Value(s).AsVariant(),
-                _ => Vb6Value.Null,
-            };
-        var constants = new CompilationConstants(CompilationArguments.None, builtIns) { CallsReadZero = true, NullIsUndetermined = true };
-        try
+    private IReadOnlyList<LineRange> InactiveLinesOf(string text, string? buildType) =>
+        conditionalCode.InactiveLines(text, new ConditionalConstants(ConditionalConstants.NoArguments)
         {
-            var result = ConditionalCompiler.Preprocess(text, constants, name);
-            return result.InactiveLines.Where(range =>
-                !result.UndeterminedLines.Any(unknown => unknown.First <= range.Last && unknown.Last >= range.First)).ToArray();
-        }
-        catch (VBCompileErrorException)
-        {
-            return [];
-        }
-    }
+            BuiltIns = TwinBasicCompilationConstants.BuiltIns(win64: false, build: null, buildType),
+            CallsReadZero = true,
+            NullIsUndetermined = true,
+        });
 
     private static void RejectEdit(object? sender, DocumentChangeEventArgs e) =>
         throw new InvalidOperationException("Archive documents are read-only.");

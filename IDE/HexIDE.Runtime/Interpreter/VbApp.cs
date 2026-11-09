@@ -50,7 +50,7 @@ public record AppInfo(
 
         return new AppInfo(
             // With no Title=, F5 uses the project file name (#2413). Keep the unsaved fallback.
-            Title: PreSectionValue(project, "Title")
+            Title: project.PreSectionValue("Title")
                 ?? (path is null ? project.Name : System.IO.Path.GetFileNameWithoutExtension(path)),
 
             // The PROJECT FILE's name, not project.Name and not ExeName32. Measured under F5 with all
@@ -62,50 +62,22 @@ public record AppInfo(
             Major: PreSectionInt(project, "MajorVer") ?? 1,
             Minor: PreSectionInt(project, "MinorVer") ?? 0,
             Revision: PreSectionInt(project, "RevisionVer") ?? 0,
-            CompanyName: PreSectionValue(project, "VersionCompanyName") ?? "",
-            FileDescription: PreSectionValue(project, "VersionFileDescription") ?? "",
-            LegalCopyright: PreSectionValue(project, "VersionLegalCopyright") ?? "",
-            LegalTrademarks: PreSectionValue(project, "VersionLegalTrademarks") ?? "",
-            Comments: PreSectionValue(project, "VersionComments") ?? "",
+            CompanyName: project.PreSectionValue("VersionCompanyName") ?? "",
+            FileDescription: project.PreSectionValue("VersionFileDescription") ?? "",
+            LegalCopyright: project.PreSectionValue("VersionLegalCopyright") ?? "",
+            LegalTrademarks: project.PreSectionValue("VersionLegalTrademarks") ?? "",
+            Comments: project.PreSectionValue("VersionComments") ?? "",
             // The in-box control libraries the project references, whose constants then resolve (#1082).
             ControlLibraries: Components.InBox.RuntimeLibraries.ReferencedBy(project),
             // Project Properties' "Command Line Arguments", which is what Command gives under F5, and HexIDE runs as F5 runs.
-            CommandLine: PreSectionValue(project, "Command32") ?? "",
+            CommandLine: project.PreSectionValue("Command32") ?? "",
             ProjectName: project.Name,
-            HasProjectHelpFile: !string.IsNullOrEmpty(PreSectionValue(project, "HelpFile")),
+            HasProjectHelpFile: !string.IsNullOrEmpty(project.PreSectionValue("HelpFile")),
             ResourceFilePath: Win32Resources.PathFor(project));
     }
 
-    /// <summary>
-    /// Read a <c>key=value</c> line the project loader kept verbatim.
-    /// </summary>
-    /// <remarks>
-    /// These keys are deliberately read from the preserved lines rather than promoted into the project
-    /// model. Modelling a key means the writer owns emitting it, and the <c>.vbp</c> currently round-trips
-    /// byte-for-byte against VB6's own files — not worth risking that gate to read a caption.
-    /// </remarks>
-    internal static string? PreSectionValue(ProjectElements.ProjectDefinition project, string key)
-    {
-        foreach (var (_, raw) in project.UnknownPreSectionLines)
-        {
-            var line = raw.TrimStart();
-            if (!line.StartsWith(key + "=", System.StringComparison.OrdinalIgnoreCase)) continue;
-
-            var value = line[(key.Length + 1)..].Trim();
-
-            // Quoted titles read back without either quote under F5 and compiled p-code (#2413).
-            if (value.Length >= 2 && value[0] == '"' && value[^1] == '"')
-                value = value[1..^1];
-            else if (value.Length >= 1 && value[0] == '"')
-                value = value[1..];
-
-            return value;
-        }
-        return null;
-    }
-
     private static int? PreSectionInt(ProjectElements.ProjectDefinition project, string key)
-        => int.TryParse(PreSectionValue(project, key), System.Globalization.NumberStyles.Integer,
+        => int.TryParse(project.PreSectionValue(key), System.Globalization.NumberStyles.Integer,
             System.Globalization.CultureInfo.InvariantCulture, out var n) ? n : null;
 }
 

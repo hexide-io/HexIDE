@@ -6,6 +6,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using HexIDE.Forms.ViewModels;
 using HexIDE.IDE;
+using HexIDE.Language;
 using HexIDE.Localization;
 using HexIDE.TwinBasic;
 
@@ -20,6 +21,7 @@ public sealed class ArchiveProjectService
     private readonly IRecentProjectsService recent;
     private readonly ILocalizationService localization;
     private readonly IWindowManager windows;
+    private readonly IConditionalCodeReader conditionalCode;
     private bool treeSelected;
     public IReadOnlyList<ArchiveProjectSnapshot> Projects { get; private set; } = [];
     public event Action? Changed;
@@ -27,12 +29,13 @@ public sealed class ArchiveProjectService
     public bool IsActive => treeSelected || dock.ActiveDocument is ArchiveDocumentViewModel;
 
     public ArchiveProjectService(IDocumentDockService dock, IRecentProjectsService recent,
-        ILocalizationService localization, IWindowManager windows)
+        ILocalizationService localization, IWindowManager windows, IConditionalCodeReader conditionalCode)
     {
         this.dock = dock;
         this.recent = recent;
         this.localization = localization;
         this.windows = windows;
+        this.conditionalCode = conditionalCode;
         dock.PropertyChanged += (_, e) =>
         {
             if (e.PropertyName != nameof(dock.ActiveDocument)) return;
@@ -122,7 +125,7 @@ public sealed class ArchiveProjectService
             ArchiveEntryIdentity.ContainerPathComparer.Equals(p.ContainerPath, entry.Identity.ContainerPath));
         if (project == null || !project.TryGetEntry(entry.Identity, out var current)) return;
         if (!dock.TryActivate<ArchiveDocumentViewModel>(vm => vm.Entry.Identity.Equals(current.Identity)))
-            dock.OpenDocument(new ArchiveDocumentViewModel(current, localization, TwinBasicCompilationConstants.BuildTypeOf(project.Container)));
+            dock.OpenDocument(new ArchiveDocumentViewModel(current, localization, conditionalCode, TwinBasicCompilationConstants.BuildTypeOf(project.Container)));
     }
 
     private ArchiveDocumentViewModel[] Tabs(string? path) => dock.OpenDocuments
