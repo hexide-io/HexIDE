@@ -2,6 +2,7 @@
   "name": "Spanish",
   "direction": "ltr",
   "strings": {
+    "Str.Options.Addins.Overview": "Los complementos amplían HexIDE con herramientas y opciones. Para instalar uno, extraiga un paquete firmado en su propia carpeta dentro del directorio indicado abajo y reinicie HexIDE. Seleccione un complemento en el árbol para administrarlo.",
     "Str.AIChat.Stop": "Detener",
     "Str.Tool.LanguageServers.Problem.JsonSyntaxEscape": "El archivo de configuración «{0}» contiene JSON no válido en la línea {1}, columna {2}. Ruta: {3} Use barras normales (C:/tools/new/...) o barras inversas dobles (C:\\\\tools\\\\new\\\\...).",
     "Str.Tool.LanguageServers.Problem.PathControlWarning": "El campo '{0}' contiene un carácter de control producido por una secuencia de escape; ruta con barras inversas probablemente deseada: {1}. El valor no ha cambiado.",

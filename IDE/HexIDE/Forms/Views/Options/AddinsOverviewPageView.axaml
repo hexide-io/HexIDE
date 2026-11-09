@@ -1,0 +1,25 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="clr-namespace:HexIDE.Forms.ViewModels.Options"
+             xmlns:addins="clr-namespace:HexIDE.Addins;assembly=HexIDE.Core"
+             x:DataType="vm:AddinsOverviewPageViewModel"
+             x:Class="HexIDE.Forms.Views.Options.AddinsOverviewPageView">
+    <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+        <StackPanel Spacing="12">
+            <TextBlock Text="{DynamicResource Str.Options.Node.AddIns}" FontWeight="Bold" FontSize="15" />
+            <TextBlock Text="{DynamicResource Str.Options.Addins.Overview}" TextWrapping="Wrap" />
+            <TextBlock Text="{CompiledBinding InstallationDirectory}" TextWrapping="Wrap" />
+            <TextBlock Text="{DynamicResource Str.Options.Node.NoAddins}" IsVisible="{CompiledBinding !HasAddins}" />
+            <ItemsControl ItemsSource="{CompiledBinding Addins}">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="addins:AddinInfo">
+                        <StackPanel Spacing="4" Margin="0,0,0,12">
+                            <TextBlock Text="{CompiledBinding Title}" FontWeight="Bold" TextWrapping="Wrap" />
+                            <TextBlock Text="{CompiledBinding Description}" TextWrapping="Wrap" />
+                        </StackPanel>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

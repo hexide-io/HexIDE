@@ -58,6 +58,36 @@ public class OptionsViewIntegrationTests
     [AvaloniaTheory]
     [InlineData(false)]
     [InlineData(true)]
+    public void AddInManager_ShowsOverviewAndInstalledAddins(bool installed)
+    {
+        var (settings, theme, keymap, languageSwitch, registry, addinOptions) = Mocks();
+        if (!installed) registry.GetAll().Returns([]);
+        var vm = new OptionsViewModel(settings, theme, keymap, languageSwitch, registry, addinOptions,
+            Substitute.For<IDeveloperModeService>(), new LocalizationService(), Substitute.For<IEventBus>(),
+            "Str.Options.Node.AddIns");
+        var view = new OptionsView { DataContext = vm };
+        view.DataTemplates.Add(new ViewLocator());
+        view.Resources["Str.Options.Addins.Overview"] = "Add-in overview guidance";
+        view.Resources["Str.Options.Node.NoAddins"] = "No add-ins";
+        var window = new Window { Content = view, Width = 720, Height = 520 };
+        window.Show();
+        try
+        {
+            Dispatcher.UIThread.RunJobs();
+            var texts = view.GetVisualDescendants().OfType<TextBlock>().Select(t => t.Text).ToArray();
+            texts.Should().Contain("Add-in overview guidance");
+            texts.Should().Contain(Path.Combine(AppContext.BaseDirectory, "addins"));
+            if (installed)
+                texts.Count(t => t == SampleAddin.Title).Should().Be(2, "the tree and the overview both list the add-in");
+            else
+                texts.Should().Contain("No add-ins");
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
     public void StickyDepth_IsNamedByItsLocalizedLabel(bool enabled)
     {
         var settings = Substitute.For<ISettingsService>();

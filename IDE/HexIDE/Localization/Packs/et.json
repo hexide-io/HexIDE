@@ -2,6 +2,7 @@
   "name": "Estonian",
   "direction": "ltr",
   "strings": {
+    "Str.Options.Addins.Overview": "Lisandmoodulid laiendavad HexIDE tööriistade ja sätetega. Paigaldamiseks paki allkirjastatud pakett eraldi kausta allolevas kataloogis ja taaskäivita HexIDE. Haldamiseks vali lisandmoodul puust.",
     "Str.AIChat.Stop": "Peata",
     "Str.Tool.LanguageServers.Problem.JsonSyntaxEscape": "Konfiguratsioonifail „{0}“ sisaldab vigast JSON-i real {1}, veerus {2}. Tee: {3} Kasutage kaldkriipse (C:/tools/new/...) või kahekordseid längkriipse (C:\\\\tools\\\\new\\\\...).",
     "Str.Tool.LanguageServers.Problem.PathControlWarning": "Väli '{0}' sisaldab paojadast saadud juhtmärki; tõenäoliselt mõeldud tee: {1}. Väärtust ei muudeta.",

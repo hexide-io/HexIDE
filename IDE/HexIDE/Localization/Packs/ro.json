@@ -2,6 +2,7 @@
   "name": "Romanian",
   "direction": "ltr",
   "strings": {
+    "Str.Options.Addins.Overview": "Programele de completare extind HexIDE cu instrumente și setări. Pentru instalare, extrageți un pachet semnat într-un folder propriu din directorul de mai jos și reporniți HexIDE. Selectați un program de completare în arbore pentru a-l gestiona.",
     "Str.AIChat.Stop": "Oprește",
     "Str.Tool.LanguageServers.Problem.JsonSyntaxEscape": "Fișierul de configurare „{0}” conține JSON nevalid la linia {1}, coloana {2}. Cale: {3} Folosiți bare oblice (C:/tools/new/...) sau bare oblice inverse duble (C:\\\\tools\\\\new\\\\...).",
     "Str.Tool.LanguageServers.Problem.PathControlWarning": "Câmpul '{0}' conține un caracter de control dintr-o secvență escape; calea probabil intenționată: {1}. Valoarea rămâne neschimbată.",

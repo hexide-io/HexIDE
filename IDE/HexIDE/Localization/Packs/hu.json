@@ -2,6 +2,7 @@
   "name": "Hungarian",
   "direction": "ltr",
   "strings": {
+    "Str.Options.Addins.Overview": "A bővítmények eszközökkel és beállításokkal egészítik ki a HexIDE-t. Telepítéshez csomagoljon ki egy aláírt bővítménycsomagot az alábbi könyvtár saját almappájába, majd indítsa újra a HexIDE-t. Kezeléshez válasszon bővítményt a fában.",
     "Str.AIChat.Stop": "Leállítás",
     "Str.Tool.LanguageServers.Problem.JsonSyntaxEscape": "A(z) „{0}” konfigurációs fájl érvénytelen JSON-t tartalmaz a(z) {1}. sor {2}. oszlopában. Útvonal: {3} Használjon perjeleket (C:/tools/new/...) vagy kettős fordított perjeleket (C:\\\\tools\\\\new\\\\...).",
     "Str.Tool.LanguageServers.Problem.PathControlWarning": "A(z) '{0}' mező escape-szekvenciából származó vezérlőkaraktert tartalmaz; a valószínűleg szándékolt útvonal: {1}. Az érték változatlan.",

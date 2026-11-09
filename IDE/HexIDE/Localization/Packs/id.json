@@ -2,6 +2,7 @@
   "name": "Indonesian",
   "direction": "ltr",
   "strings": {
+    "Str.Options.Addins.Overview": "Add-in memperluas HexIDE dengan alat dan pengaturan tambahan. Untuk memasangnya, ekstrak paket add-in bertanda tangan ke folder tersendiri di direktori di bawah, lalu mulai ulang HexIDE. Pilih add-in di pohon untuk mengelolanya.",
     "Str.AIChat.Stop": "Hentikan",
     "Str.Tool.LanguageServers.Problem.JsonSyntaxEscape": "File konfigurasi '{0}' berisi JSON tidak valid pada baris {1}, kolom {2}. Jalur: {3} Gunakan garis miring (C:/tools/new/...) atau garis miring terbalik ganda (C:\\\\tools\\\\new\\\\...).",
     "Str.Tool.LanguageServers.Problem.PathControlWarning": "Kolom '{0}' berisi karakter kontrol dari urutan escape; kemungkinan jalur bergaris miring terbalik yang dimaksud: {1}. Nilai tidak diubah.",

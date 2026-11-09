@@ -2,6 +2,7 @@
   "name": "Norwegian Bokmål",
   "direction": "ltr",
   "strings": {
+    "Str.Options.Addins.Overview": "Tillegg utvider HexIDE med verktøy og innstillinger. Installer ved å pakke ut en signert tilleggspakke i en egen mappe i katalogen nedenfor, og start HexIDE på nytt. Velg et tillegg i treet for å administrere det.",
     "Str.AIChat.Stop": "Stopp",
     "Str.Tool.LanguageServers.Problem.JsonSyntaxEscape": "Konfigurasjonsfilen '{0}' inneholder ugyldig JSON på linje {1}, kolonne {2}. Sti: {3} Bruk skråstreker (C:/tools/new/...) eller doble omvendte skråstreker (C:\\\\tools\\\\new\\\\...).",
     "Str.Tool.LanguageServers.Problem.PathControlWarning": "Feltet '{0}' inneholder et kontrolltegn fra en escape-sekvens; sannsynligvis tiltenkt sti med omvendte skråstreker: {1}. Verdien er uendret.",

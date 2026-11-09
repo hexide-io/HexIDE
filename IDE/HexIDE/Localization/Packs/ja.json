@@ -2,6 +2,7 @@
   "name": "Japanese",
   "direction": "ltr",
   "strings": {
+    "Str.Options.Addins.Overview": "アドインは HexIDE にツールや設定を追加します。インストールするには、署名済みのアドインパッケージを以下のディレクトリ内の専用フォルダーに展開し、HexIDE を再起動してください。管理するアドインをツリーで選択してください。",
     "Str.AIChat.Stop": "停止",
     "Str.Tool.LanguageServers.Problem.JsonSyntaxEscape": "構成ファイル「{0}」の {1} 行、{2} 列に無効な JSON があります。パス: {3} スラッシュ (C:/tools/new/...) または二重のバックスラッシュ (C:\\\\tools\\\\new\\\\...) を使用してください。",
     "Str.Tool.LanguageServers.Problem.PathControlWarning": "フィールド '{0}' にエスケープシーケンスによる制御文字が含まれています。意図された可能性のあるバックスラッシュのパス: {1}。値は変更されていません。",

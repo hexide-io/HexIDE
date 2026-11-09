@@ -2,6 +2,7 @@
   "name": "French",
   "direction": "ltr",
   "strings": {
+    "Str.Options.Addins.Overview": "Les compléments ajoutent des outils et des paramètres à HexIDE. Pour en installer un, extrayez un paquet signé dans son propre dossier dans le répertoire ci-dessous, puis redémarrez HexIDE. Sélectionnez un complément dans l’arborescence pour le gérer.",
     "Str.AIChat.Stop": "Arrêter",
     "Str.Tool.LanguageServers.Problem.JsonSyntaxEscape": "Le fichier de configuration « {0} » contient du JSON non valide à la ligne {1}, colonne {2}. Chemin : {3} Utilisez des barres obliques (C:/tools/new/...) ou des barres obliques inverses doublées (C:\\\\tools\\\\new\\\\...).",
     "Str.Tool.LanguageServers.Problem.PathControlWarning": "Le champ '{0}' contient un caractère de contrôle issu d’une séquence d’échappement ; chemin probablement voulu avec des barres obliques inverses : {1}. La valeur reste inchangée.",

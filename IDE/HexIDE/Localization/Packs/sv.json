@@ -2,6 +2,7 @@
   "name": "Swedish",
   "direction": "ltr",
   "strings": {
+    "Str.Options.Addins.Overview": "Tillägg utökar HexIDE med verktyg och inställningar. Installera genom att packa upp ett signerat tilläggspaket i en egen mapp i katalogen nedan och starta om HexIDE. Välj ett tillägg i trädet för att hantera det.",
     "Str.AIChat.Stop": "Stoppa",
     "Str.Tool.LanguageServers.Problem.JsonSyntaxEscape": "Konfigurationsfilen '{0}' innehåller ogiltig JSON på rad {1}, kolumn {2}. Sökväg: {3} Använd snedstreck (C:/tools/new/...) eller dubbla omvända snedstreck (C:\\\\tools\\\\new\\\\...).",
     "Str.Tool.LanguageServers.Problem.PathControlWarning": "Fältet '{0}' innehåller ett styrtecken från en escape-sekvens; sannolikt avsedd sökväg med omvända snedstreck: {1}. Värdet är oförändrat.",

@@ -2,6 +2,7 @@
   "name": "Chinese (Simplified)",
   "direction": "ltr",
   "strings": {
+    "Str.Options.Addins.Overview": "加载项为 HexIDE 添加工具和设置。要安装加载项，请将已签名的加载项包解压到下方目录中的独立文件夹，然后重启 HexIDE。在树中选择加载项即可管理。",
     "Str.AIChat.Stop": "停止",
     "Str.Tool.LanguageServers.Problem.JsonSyntaxEscape": "配置文件“{0}”在第 {1} 行、第 {2} 列包含无效的 JSON。路径：{3} 请使用正斜杠 (C:/tools/new/...) 或双反斜杠 (C:\\\\tools\\\\new\\\\...)。",
     "Str.Tool.LanguageServers.Problem.PathControlWarning": "字段 '{0}' 包含转义序列产生的控制字符；可能原本想写的反斜杠路径：{1}。值保持不变。",

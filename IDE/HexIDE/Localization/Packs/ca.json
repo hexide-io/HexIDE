@@ -2,6 +2,7 @@
   "name": "Catalan",
   "direction": "ltr",
   "strings": {
+    "Str.Options.Addins.Overview": "Els complements amplien HexIDE amb eines i opcions. Per instal·lar-ne un, extraieu un paquet signat a la seva pròpia carpeta dins del directori indicat a sota i reinicieu HexIDE. Seleccioneu un complement a l’arbre per gestionar-lo.",
     "Str.AIChat.Stop": "Atura",
     "Str.Tool.LanguageServers.Problem.JsonSyntaxEscape": "El fitxer de configuració «{0}» conté JSON no vàlid a la línia {1}, columna {2}. Camí: {3} Feu servir barres inclinades (C:/tools/new/...) o barres inverses dobles (C:\\\\tools\\\\new\\\\...).",
     "Str.Tool.LanguageServers.Problem.PathControlWarning": "El camp '{0}' conté un caràcter de control escapat; camí probablement desitjat: {1}. El valor no canvia.",

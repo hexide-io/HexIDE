@@ -2,6 +2,7 @@
   "name": "Hebrew",
   "direction": "rtl",
   "strings": {
+    "Str.Options.Addins.Overview": "תוספים מרחיבים את HexIDE עם כלים והגדרות נוספים. להתקנה, יש לחלץ חבילת תוסף חתומה לתיקייה משלה בספרייה שלהלן ולהפעיל מחדש את HexIDE. יש לבחור תוסף בעץ כדי לנהל אותו.",
     "Str.AIChat.Stop": "עצור",
     "Str.Tool.LanguageServers.Problem.JsonSyntaxEscape": "קובץ התצורה „{0}” מכיל JSON לא תקין בשורה {1}, עמודה {2}. נתיב: {3} יש להשתמש בלוכסנים (C:/tools/new/...) או בלוכסנים הפוכים כפולים (C:\\\\tools\\\\new\\\\...).",
     "Str.Tool.LanguageServers.Problem.PathControlWarning": "השדה '{0}' מכיל תו בקרה שנוצר מרצף מילוט; הנתיב המיועד כנראה עם לוכסנים הפוכים: {1}. הערך לא השתנה.",

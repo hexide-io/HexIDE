@@ -145,7 +145,8 @@ public class OptionsViewModelTests
 
         sut.SelectedNode.Should().BeSameAs(sut.RootNodes.Single(n => n.Key == "Str.Options.Node.AddIns"));
         sut.SelectedNode!.IsExpanded.Should().BeTrue();
-        sut.CurrentPage.Should().BeNull();
+        var overview = sut.CurrentPage.Should().BeOfType<AddinsOverviewPageViewModel>().Subject;
+        overview.Addins.Should().Equal(installed ? new[] { _addinA, _addinB } : []);
         sut.CanRestorePageDefaults.Should().BeFalse();
     }
 
@@ -459,7 +460,8 @@ public class OptionsViewModelTests
         group.Children.Should().ContainSingle();
         sut.SelectedNode = group.Children[0];
         sut.SelectedNode.Title.Should().Be("(no add-ins installed)");
-        sut.CurrentPage.Should().BeNull();
+        sut.CurrentPage.Should().BeSameAs(group.Page);
+        sut.CurrentPage.Should().BeOfType<AddinsOverviewPageViewModel>().Subject.Addins.Should().BeEmpty();
         sut.CanRestorePageDefaults.Should().BeFalse();
     }
 
