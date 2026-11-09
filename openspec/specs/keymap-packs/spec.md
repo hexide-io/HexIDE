@@ -17,6 +17,18 @@ This is one of three independent pack systems following the same shape: this one
 Disk discovery closes the embedded-only gap tracked in [#414](https://github.com/hexide-io/HexIDE/issues/414).
 
 ## Requirements
+
+### Requirement: Window commands transfer keyboard focus
+The View Code, Properties, Project Explorer, Immediate and Object Browser commands SHALL transfer keyboard
+focus into the requested window after its content is shown, including when that window is already open.
+Code and Immediate SHALL focus their text area, Properties its visible property list, Project Explorer its
+tree and Object Browser its search input (#3393).
+
+#### Scenario: Invoking a window shortcut from the designer
+- **WHEN** a window command is invoked while the form designer has keyboard focus
+- **THEN** the requested window is shown and its input control receives keyboard focus
+- **AND** invoking the command again after returning to the designer transfers focus again
+
 ### Requirement: Shortcuts SHALL be declared as data
 A keymap SHALL be a data file mapping commands to gestures, and adding one SHALL require no code change.
 

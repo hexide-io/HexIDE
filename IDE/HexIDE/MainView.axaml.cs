@@ -2,6 +2,17 @@ using System;
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.Windows.Input;
+using System.Linq;
+using Avalonia.Threading;
+using Avalonia.VisualTree;
+using TextEditor = AvaloniaEdit.TextEditor;
+using Dock.Model.Core;
+using HexIDE.Forms.Views;
+using HexIDE.Forms.ViewModels;
+using HexIDE.VisualDesigner;
+using HexIDE.Tools;
+using HexIDE.Tools.ObjectBrowser;
+using HexIDE.VisualDesigner.Views;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
@@ -23,6 +34,15 @@ public partial class MainView : UserControl
     public MainView()
     {
         InitializeComponent();
+        DataContextChanged += (_, _) =>
+        {
+            ++_focusRequest;
+            _pendingFocus = null;
+            if (_focusOwner != null) _focusOwner.KeyboardFocusRequested -= FocusDockable;
+            _focusOwner = DataContext as MainViewViewModel;
+            if (_focusOwner != null) _focusOwner.KeyboardFocusRequested += FocusDockable;
+        };
+        LayoutUpdated += (_, _) => TryFocusDockable();
         // The presenter is created before Opening; keep its source live while the handler fills it.
         ((MenuFlyout)AddProjectButton.Flyout!).ItemsSource = _projectItems;
 #if DEBUG
@@ -32,6 +52,43 @@ public partial class MainView : UserControl
         DockPanel.SetDock(automation, Avalonia.Controls.Dock.Right);
         StatusBarPanel.Children.Insert(2, automation);
 #endif
+    }
+
+    private MainViewViewModel? _focusOwner;
+    private IDockable? _pendingFocus;
+    private int _focusRequest;
+
+    private void FocusDockable(IDockable dockable)
+    {
+        var request = ++_focusRequest;
+        _pendingFocus = dockable is CodeEditorViewModel or ImmediateToolViewModel or ProjectToolViewModel
+            or PropertiesToolViewModel or ObjectBrowserToolViewModel ? dockable : null;
+        // Existing panes need no layout; new content is picked up by LayoutUpdated when Dock creates it.
+        Dispatcher.UIThread.Post(() =>
+        {
+            if (request == _focusRequest) TryFocusDockable();
+        }, DispatcherPriority.Background);
+    }
+
+    private void TryFocusDockable()
+    {
+        if (_pendingFocus is not { } dockable) return;
+        var view = this.GetVisualDescendants().OfType<UserControl>()
+            .FirstOrDefault(c => ReferenceEquals(c.DataContext, dockable) && c.IsEffectivelyVisible
+                && c is CodeEditorView or ImmediateToolView or ProjectToolView or PropertiesToolView or ObjectBrowserToolView);
+        if (view == null) return;
+        var children = view.GetVisualDescendants().OfType<Control>();
+        Control? input = view switch
+        {
+            CodeEditorView or ImmediateToolView => children.OfType<TextEditor>().FirstOrDefault()?.TextArea,
+            ProjectToolView => children.OfType<TreeViewItem>().FirstOrDefault(c => c.IsSelected && c.IsEffectivelyVisible)
+                ?? children.OfType<TreeViewItem>().FirstOrDefault(c => c.IsEffectivelyVisible),
+            PropertiesToolView => children.OfType<ListBoxItem>().FirstOrDefault(c => c.IsSelected && c.IsEffectivelyVisible)
+                ?? children.OfType<ListBoxItem>().FirstOrDefault(c => c.IsEffectivelyVisible),
+            ObjectBrowserToolView => children.OfType<TextBox>().FirstOrDefault(c => c.IsEffectivelyVisible),
+            _ => null,
+        };
+        if (input?.Focus() == true) _pendingFocus = null;
     }
 
     private void ProjectFlyoutOpening(object? sender, EventArgs e)
