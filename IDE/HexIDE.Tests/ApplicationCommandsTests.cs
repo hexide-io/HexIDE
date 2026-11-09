@@ -12,10 +12,10 @@ public class ApplicationCommandsTests
     }
 
     [Fact]
-    public void GoToDefinitionUsesShiftF2()
+    public void GoToDefinitionUsesShiftF2AndF12()
     {
         ApplicationCommands.GoToDefinitionCommand.Gestures.Should()
-            .Equal(new KeyGesture(Key.F2, KeyModifiers.Shift));
+            .Equal(new KeyGesture(Key.F2, KeyModifiers.Shift), new KeyGesture(Key.F12));
     }
 
     [Fact]
