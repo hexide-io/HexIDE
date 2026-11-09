@@ -3,15 +3,89 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:converters="clr-namespace:HexIDE.Converters"
+             xmlns:commonControls="clr-namespace:Classic.CommonControls;assembly=Classic.CommonControls.Avalonia"
+             xmlns:edit="clr-namespace:AvaloniaEdit;assembly=AvaloniaEdit"
              xmlns:vm="clr-namespace:HexIDE.Forms.ViewModels.Options"
              mc:Ignorable="d" d:DesignWidth="420" d:DesignHeight="300"
              x:DataType="vm:EditorFormattingPageViewModel"
              x:Class="HexIDE.Forms.Views.Options.EditorFormattingPageView">
-    <HeaderedContentControl Header="{DynamicResource Str.Options.EditorFormatting.Indentation.Header}" Padding="10" VerticalAlignment="Top">
-        <DockPanel>
-            <AccessText x:Name="TabWidthLabel" VerticalAlignment="Center" Margin="0,0,10,0" Text="{DynamicResource Str.Options.EditorFormatting.Indentation.TabWidth}" />
-            <TextBox Width="60" HorizontalAlignment="Left" Text="{CompiledBinding TabWidth}"
-                         AutomationProperties.Name="{CompiledBinding #TabWidthLabel.Text, Converter={x:Static converters:AccessKeyNameConverter.Instance}, ConverterParameter=TrimColon}" />
-        </DockPanel>
-    </HeaderedContentControl>
+    <UserControl.Styles>
+        <StyleInclude Source="avares://Avalonia.Controls.ColorPicker/Themes/Simple/Simple.xaml" />
+        <Style Selector="ColorPicker /template/ :is(Button)">
+            <Setter Property="AutomationProperties.Name" Value="{DynamicResource Str.Automation.ChooseColor}" />
+        </Style>
+        <Style Selector="NumericUpDown /template/ ButtonSpinner /template/ RepeatButton#PART_IncreaseButton">
+            <Setter Property="AutomationProperties.Name" Value="{DynamicResource Str.Spinner.Increase}" />
+        </Style>
+        <Style Selector="NumericUpDown /template/ ButtonSpinner /template/ RepeatButton#PART_DecreaseButton">
+            <Setter Property="AutomationProperties.Name" Value="{DynamicResource Str.Spinner.Decrease}" />
+        </Style>
+    </UserControl.Styles>
+    <ScrollViewer>
+        <StackPanel Spacing="8">
+            <HeaderedContentControl Header="{DynamicResource Str.Options.EditorFormatting.Indentation.Header}" Padding="10" VerticalAlignment="Top">
+                <DockPanel>
+                    <AccessText x:Name="TabWidthLabel" VerticalAlignment="Center" Margin="0,0,10,0" Text="{DynamicResource Str.Options.EditorFormatting.Indentation.TabWidth}" />
+                    <TextBox Width="60" HorizontalAlignment="Left" Text="{CompiledBinding TabWidth}"
+                                 AutomationProperties.Name="{CompiledBinding #TabWidthLabel.Text, Converter={x:Static converters:AccessKeyNameConverter.Instance}, ConverterParameter=TrimColon}" />
+                </DockPanel>
+            </HeaderedContentControl>
+            <Grid ColumnDefinitions="Auto,*,Auto,80" ColumnSpacing="6">
+                <TextBlock x:Name="FontLabel" VerticalAlignment="Center" Text="{DynamicResource Str.Dialog.Font.Label.Font}" />
+                <TextBox Grid.Column="1" Text="{CompiledBinding FontFamily}" AutomationProperties.Name="{CompiledBinding #FontLabel.Text, Converter={x:Static converters:AccessKeyNameConverter.Instance}, ConverterParameter=TrimColon}" />
+                <TextBlock x:Name="FontSizeLabel" Grid.Column="2" VerticalAlignment="Center" Text="{DynamicResource Str.Dialog.Font.Label.Size}" />
+                <NumericUpDown Grid.Column="3" Minimum="6" Maximum="72" Value="{CompiledBinding FontSize}" AutomationProperties.Name="{CompiledBinding #FontSizeLabel.Text, Converter={x:Static converters:AccessKeyNameConverter.Instance}, ConverterParameter=TrimColon}" />
+            </Grid>
+            <ListBox Height="110" ItemsSource="{CompiledBinding Tokens}" SelectedItem="{CompiledBinding SelectedToken}" AutomationProperties.Name="{DynamicResource Str.Options.Formatting.Tokens}">
+                <ListBox.Styles>
+                    <Style Selector="ListBoxItem">
+                        <Setter Property="AutomationProperties.Name" Value="{CompiledBinding Label}" x:DataType="vm:EditorTokenViewModel" />
+                    </Style>
+                </ListBox.Styles>
+                <ListBox.ItemTemplate>
+                    <DataTemplate x:DataType="vm:EditorTokenViewModel">
+                        <TextBlock Text="{CompiledBinding Label}" />
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
+            <ContentControl Content="{CompiledBinding SelectedToken}">
+                <ContentControl.DataTemplates>
+                    <DataTemplate x:DataType="vm:EditorTokenViewModel">
+                        <StackPanel Spacing="4">
+                            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="6">
+                                <TextBlock VerticalAlignment="Center" Text="{DynamicResource Str.Options.Formatting.Foreground}" />
+                                <ColorPicker Grid.Column="1" Color="{CompiledBinding ForegroundColor}" AutomationProperties.Name="{DynamicResource Str.Options.Formatting.Foreground}" />
+                            </Grid>
+                            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="6">
+                                <TextBlock VerticalAlignment="Center" Text="{DynamicResource Str.Options.Formatting.Background}" />
+                                <ColorPicker Grid.Column="1" Color="{CompiledBinding BackgroundColor}" AutomationProperties.Name="{DynamicResource Str.Options.Formatting.Background}" />
+                            </Grid>
+                            <Button Command="{CompiledBinding ResetCommand}" Content="{DynamicResource Str.Options.Shell.Buttons.RestoreDefaults}" />
+                        </StackPanel>
+                    </DataTemplate>
+                </ContentControl.DataTemplates>
+            </ContentControl>
+            <Button HorizontalAlignment="Left" Command="{CompiledBinding ResetColorsCommand}" Content="{DynamicResource Str.Options.Shell.Buttons.ResetAll}" />
+            <TextBlock Text="{DynamicResource Str.Options.Formatting.Preview}" />
+            <ItemsControl x:Name="TokenPreview" ItemsSource="{CompiledBinding Tokens}"
+                          FontFamily="{CompiledBinding FontFamily}" FontSize="{CompiledBinding FontSize}"
+                          Background="{DynamicResource {x:Static commonControls:SystemColors.WindowBrushKey}}">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="vm:EditorTokenViewModel">
+                        <TextBlock Margin="4" Text="{CompiledBinding Label}"
+                                   Foreground="{CompiledBinding ForegroundBrush}" Background="{CompiledBinding BackgroundBrush}" />
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+            <edit:TextEditor Height="120" IsReadOnly="True" ShowLineNumbers="True"
+                             AutomationProperties.Name="{DynamicResource Str.Options.Formatting.Preview}"
+                             FontFamily="{CompiledBinding FontFamily}" FontSize="{CompiledBinding FontSize}"
+                             Foreground="{DynamicResource {x:Static commonControls:SystemColors.WindowTextBrushKey}}" Background="{DynamicResource {x:Static commonControls:SystemColors.WindowBrushKey}}"
+                             SyntaxHighlighting="{CompiledBinding PreviewDefinition}"
+                             Text="Attribute VB_Name = &quot;VB6&quot;&#10;' VB6&#10;Public Sub Example()&#10;    Dim count As Integer&#10;    count = Len(&quot;VB6&quot;) + 42&#10;    If True Then Debug.Print &quot;VB6&quot;, count&#10;End Sub" />
+        </StackPanel>
+    </ScrollViewer>
 </UserControl>

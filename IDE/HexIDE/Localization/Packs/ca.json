@@ -1125,6 +1125,17 @@
     "Str.Layout.NamePrompt": "Nom de la disposició:",
     "Str.Layout.InvalidName": "Introduïu un nom de disposició únic i no buit.",
     "Str.Layout.Skipped": "S’han omès les finestres de complements no disponibles: {0}",
-    "Str.Layout.SaveFailed": "No s’han pogut desar les disposicions dels panells."
+    "Str.Layout.SaveFailed": "No s’han pogut desar les disposicions dels panells.",
+    "Str.Options.Formatting.Tokens": "Tipus de tokens",
+    "Str.Options.Formatting.Foreground": "Primer pla (#RRGGBB)",
+    "Str.Options.Formatting.Background": "Fons (#RRGGBB)",
+    "Str.Options.Formatting.Preview": "Vista prèvia",
+    "Str.Options.Formatting.Token.Comment": "Comentari",
+    "Str.Options.Formatting.Token.Keyword": "Paraula clau",
+    "Str.Options.Formatting.Token.IOKeyword": "Paraula clau d’entrada/sortida",
+    "Str.Options.Formatting.Token.StorageModifier": "Modificador d’emmagatzematge",
+    "Str.Options.Formatting.Token.Type": "Tipus",
+    "Str.Options.Formatting.Token.Identifier": "Identificador",
+    "Str.Options.Formatting.Token.MetadataKeyword": "Paraula clau de metadades"
   }
 }

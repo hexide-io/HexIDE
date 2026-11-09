@@ -1125,6 +1125,17 @@
     "Str.Layout.NamePrompt": "レイアウト名:",
     "Str.Layout.InvalidName": "重複しない空でないレイアウト名を入力してください。",
     "Str.Layout.Skipped": "利用できないアドインのウィンドウはスキップされました: {0}",
-    "Str.Layout.SaveFailed": "パネルレイアウトを保存できませんでした。"
+    "Str.Layout.SaveFailed": "パネルレイアウトを保存できませんでした。",
+    "Str.Options.Formatting.Tokens": "トークンの種類",
+    "Str.Options.Formatting.Foreground": "文字色 (#RRGGBB)",
+    "Str.Options.Formatting.Background": "背景色 (#RRGGBB)",
+    "Str.Options.Formatting.Preview": "プレビュー",
+    "Str.Options.Formatting.Token.Comment": "コメント",
+    "Str.Options.Formatting.Token.Keyword": "キーワード",
+    "Str.Options.Formatting.Token.IOKeyword": "入出力キーワード",
+    "Str.Options.Formatting.Token.StorageModifier": "記憶域修飾子",
+    "Str.Options.Formatting.Token.Type": "型",
+    "Str.Options.Formatting.Token.Identifier": "識別子",
+    "Str.Options.Formatting.Token.MetadataKeyword": "メタデータキーワード"
   }
 }

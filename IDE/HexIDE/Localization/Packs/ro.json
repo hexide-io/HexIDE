@@ -1125,6 +1125,17 @@
     "Str.Layout.NamePrompt": "Numele aranjamentului:",
     "Str.Layout.InvalidName": "Introduceți un nume unic și nevid pentru aranjament.",
     "Str.Layout.Skipped": "Ferestrele extensiilor indisponibile au fost omise: {0}",
-    "Str.Layout.SaveFailed": "Aranjamentele panourilor nu au putut fi salvate."
+    "Str.Layout.SaveFailed": "Aranjamentele panourilor nu au putut fi salvate.",
+    "Str.Options.Formatting.Tokens": "Tipuri de tokenuri",
+    "Str.Options.Formatting.Foreground": "Prim-plan (#RRGGBB)",
+    "Str.Options.Formatting.Background": "Fundal (#RRGGBB)",
+    "Str.Options.Formatting.Preview": "Previzualizare",
+    "Str.Options.Formatting.Token.Comment": "Comentariu",
+    "Str.Options.Formatting.Token.Keyword": "Cuvânt-cheie",
+    "Str.Options.Formatting.Token.IOKeyword": "Cuvânt-cheie de intrare/ieșire",
+    "Str.Options.Formatting.Token.StorageModifier": "Modificator de stocare",
+    "Str.Options.Formatting.Token.Type": "Tip",
+    "Str.Options.Formatting.Token.Identifier": "Identificator",
+    "Str.Options.Formatting.Token.MetadataKeyword": "Cuvânt-cheie de metadate"
   }
 }

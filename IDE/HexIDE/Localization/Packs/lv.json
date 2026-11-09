@@ -1125,6 +1125,17 @@
     "Str.Layout.NamePrompt": "Izkārtojuma nosaukums:",
     "Str.Layout.InvalidName": "Ievadiet unikālu, netukšu izkārtojuma nosaukumu.",
     "Str.Layout.Skipped": "Nepieejamie pievienojumprogrammu logi tika izlaisti: {0}",
-    "Str.Layout.SaveFailed": "Neizdevās saglabāt paneļu izkārtojumus."
+    "Str.Layout.SaveFailed": "Neizdevās saglabāt paneļu izkārtojumus.",
+    "Str.Options.Formatting.Tokens": "Leksēmu veidi",
+    "Str.Options.Formatting.Foreground": "Teksta krāsa (#RRGGBB)",
+    "Str.Options.Formatting.Background": "Fona krāsa (#RRGGBB)",
+    "Str.Options.Formatting.Preview": "Priekšskatījums",
+    "Str.Options.Formatting.Token.Comment": "Komentārs",
+    "Str.Options.Formatting.Token.Keyword": "Atslēgvārds",
+    "Str.Options.Formatting.Token.IOKeyword": "Ievades/izvades atslēgvārds",
+    "Str.Options.Formatting.Token.StorageModifier": "Glabāšanas modifikators",
+    "Str.Options.Formatting.Token.Type": "Tips",
+    "Str.Options.Formatting.Token.Identifier": "Identifikators",
+    "Str.Options.Formatting.Token.MetadataKeyword": "Metadatu atslēgvārds"
   }
 }

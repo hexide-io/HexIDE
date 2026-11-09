@@ -1125,6 +1125,17 @@
     "Str.Layout.NamePrompt": "配置名稱：",
     "Str.Layout.InvalidName": "請輸入唯一且非空的配置名稱。",
     "Str.Layout.Skipped": "已略過無法使用的增益集視窗：{0}",
-    "Str.Layout.SaveFailed": "無法儲存面板配置。"
+    "Str.Layout.SaveFailed": "無法儲存面板配置。",
+    "Str.Options.Formatting.Tokens": "權杖類型",
+    "Str.Options.Formatting.Foreground": "前景色 (#RRGGBB)",
+    "Str.Options.Formatting.Background": "背景色 (#RRGGBB)",
+    "Str.Options.Formatting.Preview": "預覽",
+    "Str.Options.Formatting.Token.Comment": "註解",
+    "Str.Options.Formatting.Token.Keyword": "關鍵字",
+    "Str.Options.Formatting.Token.IOKeyword": "輸入/輸出關鍵字",
+    "Str.Options.Formatting.Token.StorageModifier": "儲存修飾詞",
+    "Str.Options.Formatting.Token.Type": "類型",
+    "Str.Options.Formatting.Token.Identifier": "識別項",
+    "Str.Options.Formatting.Token.MetadataKeyword": "中繼資料關鍵字"
   }
 }

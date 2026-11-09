@@ -109,6 +109,7 @@ public partial class CodeEditorView : UserControl
     private TextDocument? _watchedDocument;
     private int _preEditCaret;
     private Action? _onPaletteChanged;
+    private PropertyChangedEventHandler? _fontSettingsChanged;
 
     public DelegateCommand Undo { get; }
     public DelegateCommand Redo { get; }
@@ -501,15 +502,30 @@ public partial class CodeEditorView : UserControl
 
             TextEditor.SyntaxHighlighting = SyntaxHighlightingTheme.Definition;
 
-            // Minimap (prototype)
-            Minimap.Attach(TextEditor, SyntaxHighlightingTheme.Definition);
-
             // On a theme switch SyntaxHighlightingTheme has already retinted the shared definition by
             // the time this fires — but AvaloniaEdit baked the old brushes into the visual lines it
             // built, so Redraw() is what clears that cache and re-runs the colorizer. This is what
             // makes ALREADY-OPEN editors recolour live instead of only on restart.
             _onPaletteChanged = () => TextEditor.TextArea.TextView.Redraw();
             SyntaxHighlightingTheme.PaletteChanged += _onPaletteChanged;
+
+            void ApplyFont()
+            {
+                TextEditor.FontFamily = new FontFamily(string.IsNullOrWhiteSpace(vm.Settings.EditorFontFamily) ? SettingsDefaults.EditorFontFamily : vm.Settings.EditorFontFamily);
+                TextEditor.FontSize = vm.Settings.EditorFontSize > 0 ? vm.Settings.EditorFontSize : SettingsDefaults.EditorFontSize;
+                Minimap.Attach(TextEditor, SyntaxHighlightingTheme.Definition);
+                foreach (var header in StickyHeaders.Children.OfType<Button>())
+                {
+                    header.FontFamily = TextEditor.FontFamily;
+                    header.FontSize = TextEditor.FontSize;
+                }
+            }
+            ApplyFont();
+            _fontSettingsChanged = (_, e) =>
+            {
+                if (e.PropertyName is nameof(ISettingsService.EditorFontFamily) or nameof(ISettingsService.EditorFontSize)) ApplyFont();
+            };
+            vm.Settings.PropertyChanged += _fontSettingsChanged;
 
             // Apply tab width from settings
             TextEditor.Options.IndentationSize = vm.Settings.TabWidth;
@@ -615,6 +631,8 @@ public partial class CodeEditorView : UserControl
                 _watchedDocument = null;
             }
             vm.LanguageServerStateChanged -= OnLanguageServerStateChanged;
+            if (_fontSettingsChanged is not null) vm.Settings.PropertyChanged -= _fontSettingsChanged;
+            _fontSettingsChanged = null;
             if (_inlaySettingsChanged is not null)
                 vm.Settings.PropertyChanged -= _inlaySettingsChanged;
             _inlaySettingsChanged = null;

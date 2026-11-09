@@ -1125,6 +1125,17 @@
     "Str.Layout.NamePrompt": "Name der Anordnung:",
     "Str.Layout.InvalidName": "Geben Sie einen eindeutigen, nicht leeren Namen für die Anordnung ein.",
     "Str.Layout.Skipped": "Nicht verfügbare Add-In-Fenster wurden übersprungen: {0}",
-    "Str.Layout.SaveFailed": "Die Panelanordnungen konnten nicht gespeichert werden."
+    "Str.Layout.SaveFailed": "Die Panelanordnungen konnten nicht gespeichert werden.",
+    "Str.Options.Formatting.Tokens": "Tokentypen",
+    "Str.Options.Formatting.Foreground": "Vordergrund (#RRGGBB)",
+    "Str.Options.Formatting.Background": "Hintergrund (#RRGGBB)",
+    "Str.Options.Formatting.Preview": "Vorschau",
+    "Str.Options.Formatting.Token.Comment": "Kommentar",
+    "Str.Options.Formatting.Token.Keyword": "Schlüsselwort",
+    "Str.Options.Formatting.Token.IOKeyword": "Ein-/Ausgabeschlüsselwort",
+    "Str.Options.Formatting.Token.StorageModifier": "Speichermodifizierer",
+    "Str.Options.Formatting.Token.Type": "Typ",
+    "Str.Options.Formatting.Token.Identifier": "Bezeichner",
+    "Str.Options.Formatting.Token.MetadataKeyword": "Metadatenschlüsselwort"
   }
 }

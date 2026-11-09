@@ -1125,6 +1125,17 @@
     "Str.Layout.NamePrompt": "اسم التخطيط:",
     "Str.Layout.InvalidName": "أدخل اسم تخطيط فريدًا وغير فارغ.",
     "Str.Layout.Skipped": "تم تخطي نوافذ الوظائف الإضافية غير المتاحة: {0}",
-    "Str.Layout.SaveFailed": "تعذر حفظ تخطيطات اللوحات."
+    "Str.Layout.SaveFailed": "تعذر حفظ تخطيطات اللوحات.",
+    "Str.Options.Formatting.Tokens": "أنواع الرموز",
+    "Str.Options.Formatting.Foreground": "لون النص (#RRGGBB)",
+    "Str.Options.Formatting.Background": "لون الخلفية (#RRGGBB)",
+    "Str.Options.Formatting.Preview": "معاينة",
+    "Str.Options.Formatting.Token.Comment": "تعليق",
+    "Str.Options.Formatting.Token.Keyword": "كلمة أساسية",
+    "Str.Options.Formatting.Token.IOKeyword": "كلمة إدخال وإخراج",
+    "Str.Options.Formatting.Token.StorageModifier": "معدّل التخزين",
+    "Str.Options.Formatting.Token.Type": "نوع",
+    "Str.Options.Formatting.Token.Identifier": "معرّف",
+    "Str.Options.Formatting.Token.MetadataKeyword": "كلمة بيانات وصفية"
   }
 }

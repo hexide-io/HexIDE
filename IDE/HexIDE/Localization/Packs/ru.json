@@ -1125,6 +1125,17 @@
     "Str.Layout.NamePrompt": "Имя макета:",
     "Str.Layout.InvalidName": "Введите уникальное непустое имя макета.",
     "Str.Layout.Skipped": "Недоступные окна надстроек пропущены: {0}",
-    "Str.Layout.SaveFailed": "Не удалось сохранить макеты панелей."
+    "Str.Layout.SaveFailed": "Не удалось сохранить макеты панелей.",
+    "Str.Options.Formatting.Tokens": "Типы токенов",
+    "Str.Options.Formatting.Foreground": "Цвет текста (#RRGGBB)",
+    "Str.Options.Formatting.Background": "Цвет фона (#RRGGBB)",
+    "Str.Options.Formatting.Preview": "Предпросмотр",
+    "Str.Options.Formatting.Token.Comment": "Комментарий",
+    "Str.Options.Formatting.Token.Keyword": "Ключевое слово",
+    "Str.Options.Formatting.Token.IOKeyword": "Ключевое слово ввода/вывода",
+    "Str.Options.Formatting.Token.StorageModifier": "Модификатор хранения",
+    "Str.Options.Formatting.Token.Type": "Тип",
+    "Str.Options.Formatting.Token.Identifier": "Идентификатор",
+    "Str.Options.Formatting.Token.MetadataKeyword": "Ключевое слово метаданных"
   }
 }

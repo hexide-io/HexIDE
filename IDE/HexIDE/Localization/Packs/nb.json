@@ -1125,6 +1125,17 @@
     "Str.Layout.NamePrompt": "Oppsettnavn:",
     "Str.Layout.InvalidName": "Angi et unikt oppsettnavn som ikke er tomt.",
     "Str.Layout.Skipped": "Utilgjengelige tilleggsvinduer ble hoppet over: {0}",
-    "Str.Layout.SaveFailed": "Paneloppsettene kunne ikke lagres."
+    "Str.Layout.SaveFailed": "Paneloppsettene kunne ikke lagres.",
+    "Str.Options.Formatting.Tokens": "Tokentyper",
+    "Str.Options.Formatting.Foreground": "Forgrunn (#RRGGBB)",
+    "Str.Options.Formatting.Background": "Bakgrunn (#RRGGBB)",
+    "Str.Options.Formatting.Preview": "Forhåndsvisning",
+    "Str.Options.Formatting.Token.Comment": "Kommentar",
+    "Str.Options.Formatting.Token.Keyword": "Nøkkelord",
+    "Str.Options.Formatting.Token.IOKeyword": "Inn-/utdatanøkkelord",
+    "Str.Options.Formatting.Token.StorageModifier": "Lagringsmodifikator",
+    "Str.Options.Formatting.Token.Type": "Type",
+    "Str.Options.Formatting.Token.Identifier": "Identifikator",
+    "Str.Options.Formatting.Token.MetadataKeyword": "Metadatanøkkelord"
   }
 }

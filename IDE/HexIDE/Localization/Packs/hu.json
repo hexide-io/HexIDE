@@ -1125,6 +1125,17 @@
     "Str.Layout.NamePrompt": "Elrendezés neve:",
     "Str.Layout.InvalidName": "Adjon meg egyedi, nem üres elrendezésnevet.",
     "Str.Layout.Skipped": "A nem elérhető bővítményablakok kimaradtak: {0}",
-    "Str.Layout.SaveFailed": "A panelelrendezéseket nem sikerült menteni."
+    "Str.Layout.SaveFailed": "A panelelrendezéseket nem sikerült menteni.",
+    "Str.Options.Formatting.Tokens": "Tokentípusok",
+    "Str.Options.Formatting.Foreground": "Előtér (#RRGGBB)",
+    "Str.Options.Formatting.Background": "Háttér (#RRGGBB)",
+    "Str.Options.Formatting.Preview": "Előnézet",
+    "Str.Options.Formatting.Token.Comment": "Megjegyzés",
+    "Str.Options.Formatting.Token.Keyword": "Kulcsszó",
+    "Str.Options.Formatting.Token.IOKeyword": "Bemeneti/kimeneti kulcsszó",
+    "Str.Options.Formatting.Token.StorageModifier": "Tárolási módosító",
+    "Str.Options.Formatting.Token.Type": "Típus",
+    "Str.Options.Formatting.Token.Identifier": "Azonosító",
+    "Str.Options.Formatting.Token.MetadataKeyword": "Metaadat-kulcsszó"
   }
 }

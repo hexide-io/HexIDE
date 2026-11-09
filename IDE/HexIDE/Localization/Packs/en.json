@@ -1125,6 +1125,17 @@
     "Str.Layout.NamePrompt": "Layout name:",
     "Str.Layout.InvalidName": "Enter a unique, non-empty layout name.",
     "Str.Layout.Skipped": "Unavailable add-in windows were skipped: {0}",
-    "Str.Layout.SaveFailed": "The panel layouts could not be saved."
+    "Str.Layout.SaveFailed": "The panel layouts could not be saved.",
+    "Str.Options.Formatting.Tokens": "Token types",
+    "Str.Options.Formatting.Foreground": "Foreground (#RRGGBB)",
+    "Str.Options.Formatting.Background": "Background (#RRGGBB)",
+    "Str.Options.Formatting.Preview": "Preview",
+    "Str.Options.Formatting.Token.Comment": "Comment",
+    "Str.Options.Formatting.Token.Keyword": "Keyword",
+    "Str.Options.Formatting.Token.IOKeyword": "Input/output keyword",
+    "Str.Options.Formatting.Token.StorageModifier": "Storage modifier",
+    "Str.Options.Formatting.Token.Type": "Type",
+    "Str.Options.Formatting.Token.Identifier": "Identifier",
+    "Str.Options.Formatting.Token.MetadataKeyword": "Metadata keyword"
   }
 }

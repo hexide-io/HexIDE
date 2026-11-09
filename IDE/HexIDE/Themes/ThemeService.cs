@@ -32,6 +32,7 @@ public sealed class ThemeService : IThemeService
         app.Resources.MergedDictionaries.Add(dictionary);
         ActiveTheme = pack.Name;
         app.RequestedThemeVariant = pack.ThemeVariant == "Dark" ? ThemeVariant.Dark : ThemeVariant.Light;
+        ThemeChanged?.Invoke();
     }
 
     internal static (ThemePackRecord Pack, ResourceDictionary Resources) PrepareProfileTheme(string source, ProfilePayload payload)
@@ -77,7 +78,15 @@ public sealed class ThemeService : IThemeService
         AvailableThemes = _packs.Keys.ToArray();
     }
 
+    public event Action? ThemeChanged;
+
     public void Apply(string themeName)
+    {
+        ApplyCore(themeName);
+        ThemeChanged?.Invoke();
+    }
+
+    private void ApplyCore(string themeName)
     {
         var app = Application.Current!;
 

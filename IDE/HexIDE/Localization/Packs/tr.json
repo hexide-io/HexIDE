@@ -1125,6 +1125,17 @@
     "Str.Layout.NamePrompt": "Düzen adı:",
     "Str.Layout.InvalidName": "Benzersiz, boş olmayan bir düzen adı girin.",
     "Str.Layout.Skipped": "Kullanılamayan eklenti pencereleri atlandı: {0}",
-    "Str.Layout.SaveFailed": "Panel düzenleri kaydedilemedi."
+    "Str.Layout.SaveFailed": "Panel düzenleri kaydedilemedi.",
+    "Str.Options.Formatting.Tokens": "Belirteç türleri",
+    "Str.Options.Formatting.Foreground": "Ön plan (#RRGGBB)",
+    "Str.Options.Formatting.Background": "Arka plan (#RRGGBB)",
+    "Str.Options.Formatting.Preview": "Önizleme",
+    "Str.Options.Formatting.Token.Comment": "Açıklama",
+    "Str.Options.Formatting.Token.Keyword": "Anahtar sözcük",
+    "Str.Options.Formatting.Token.IOKeyword": "Giriş/çıkış anahtar sözcüğü",
+    "Str.Options.Formatting.Token.StorageModifier": "Depolama değiştiricisi",
+    "Str.Options.Formatting.Token.Type": "Tür",
+    "Str.Options.Formatting.Token.Identifier": "Tanımlayıcı",
+    "Str.Options.Formatting.Token.MetadataKeyword": "Meta veri anahtar sözcüğü"
   }
 }

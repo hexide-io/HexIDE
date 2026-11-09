@@ -1125,6 +1125,17 @@
     "Str.Layout.NamePrompt": "Layoutnavn:",
     "Str.Layout.InvalidName": "Angiv et entydigt layoutnavn, der ikke er tomt.",
     "Str.Layout.Skipped": "Utilgængelige tilføjelsesvinduer blev sprunget over: {0}",
-    "Str.Layout.SaveFailed": "Panellayoutene kunne ikke gemmes."
+    "Str.Layout.SaveFailed": "Panellayoutene kunne ikke gemmes.",
+    "Str.Options.Formatting.Tokens": "Tokentyper",
+    "Str.Options.Formatting.Foreground": "Forgrund (#RRGGBB)",
+    "Str.Options.Formatting.Background": "Baggrund (#RRGGBB)",
+    "Str.Options.Formatting.Preview": "Forhåndsvisning",
+    "Str.Options.Formatting.Token.Comment": "Kommentar",
+    "Str.Options.Formatting.Token.Keyword": "Nøgleord",
+    "Str.Options.Formatting.Token.IOKeyword": "Input-/outputnøgleord",
+    "Str.Options.Formatting.Token.StorageModifier": "Lagermodifikator",
+    "Str.Options.Formatting.Token.Type": "Type",
+    "Str.Options.Formatting.Token.Identifier": "Identifikator",
+    "Str.Options.Formatting.Token.MetadataKeyword": "Metadatanøgleord"
   }
 }

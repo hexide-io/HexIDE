@@ -1125,6 +1125,17 @@
     "Str.Layout.NamePrompt": "Naam van indeling:",
     "Str.Layout.InvalidName": "Voer een unieke, niet-lege naam voor de indeling in.",
     "Str.Layout.Skipped": "Niet-beschikbare invoegtoepassingsvensters zijn overgeslagen: {0}",
-    "Str.Layout.SaveFailed": "De paneelindelingen konden niet worden opgeslagen."
+    "Str.Layout.SaveFailed": "De paneelindelingen konden niet worden opgeslagen.",
+    "Str.Options.Formatting.Tokens": "Tokentypen",
+    "Str.Options.Formatting.Foreground": "Voorgrond (#RRGGBB)",
+    "Str.Options.Formatting.Background": "Achtergrond (#RRGGBB)",
+    "Str.Options.Formatting.Preview": "Voorbeeld",
+    "Str.Options.Formatting.Token.Comment": "Opmerking",
+    "Str.Options.Formatting.Token.Keyword": "Trefwoord",
+    "Str.Options.Formatting.Token.IOKeyword": "Invoer-/uitvoertrefwoord",
+    "Str.Options.Formatting.Token.StorageModifier": "Opslagmodificator",
+    "Str.Options.Formatting.Token.Type": "Type",
+    "Str.Options.Formatting.Token.Identifier": "Id",
+    "Str.Options.Formatting.Token.MetadataKeyword": "Metagegevenstrefwoord"
   }
 }

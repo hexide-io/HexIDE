@@ -1125,6 +1125,17 @@
     "Str.Layout.NamePrompt": "Asettelun nimi:",
     "Str.Layout.InvalidName": "Anna yksilöllinen asettelun nimi, joka ei ole tyhjä.",
     "Str.Layout.Skipped": "Lisäosien ikkunat, jotka eivät olleet käytettävissä, ohitettiin: {0}",
-    "Str.Layout.SaveFailed": "Paneeliasetteluja ei voitu tallentaa."
+    "Str.Layout.SaveFailed": "Paneeliasetteluja ei voitu tallentaa.",
+    "Str.Options.Formatting.Tokens": "Tokenien tyypit",
+    "Str.Options.Formatting.Foreground": "Tekstin väri (#RRGGBB)",
+    "Str.Options.Formatting.Background": "Taustaväri (#RRGGBB)",
+    "Str.Options.Formatting.Preview": "Esikatselu",
+    "Str.Options.Formatting.Token.Comment": "Kommentti",
+    "Str.Options.Formatting.Token.Keyword": "Avainsana",
+    "Str.Options.Formatting.Token.IOKeyword": "Syötön/tulostuksen avainsana",
+    "Str.Options.Formatting.Token.StorageModifier": "Tallennusmäärite",
+    "Str.Options.Formatting.Token.Type": "Tyyppi",
+    "Str.Options.Formatting.Token.Identifier": "Tunniste",
+    "Str.Options.Formatting.Token.MetadataKeyword": "Metatietojen avainsana"
   }
 }

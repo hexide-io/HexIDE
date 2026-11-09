@@ -1125,6 +1125,17 @@
     "Str.Layout.NamePrompt": "Nome da disposição:",
     "Str.Layout.InvalidName": "Introduza um nome de disposição único e não vazio.",
     "Str.Layout.Skipped": "As janelas de suplementos indisponíveis foram ignoradas: {0}",
-    "Str.Layout.SaveFailed": "Não foi possível guardar as disposições dos painéis."
+    "Str.Layout.SaveFailed": "Não foi possível guardar as disposições dos painéis.",
+    "Str.Options.Formatting.Tokens": "Tipos de tokens",
+    "Str.Options.Formatting.Foreground": "Primeiro plano (#RRGGBB)",
+    "Str.Options.Formatting.Background": "Fundo (#RRGGBB)",
+    "Str.Options.Formatting.Preview": "Pré-visualização",
+    "Str.Options.Formatting.Token.Comment": "Comentário",
+    "Str.Options.Formatting.Token.Keyword": "Palavra-chave",
+    "Str.Options.Formatting.Token.IOKeyword": "Palavra-chave de entrada/saída",
+    "Str.Options.Formatting.Token.StorageModifier": "Modificador de armazenamento",
+    "Str.Options.Formatting.Token.Type": "Tipo",
+    "Str.Options.Formatting.Token.Identifier": "Identificador",
+    "Str.Options.Formatting.Token.MetadataKeyword": "Palavra-chave de metadados"
   }
 }

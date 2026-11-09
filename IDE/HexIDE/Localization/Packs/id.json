@@ -1125,6 +1125,17 @@
     "Str.Layout.NamePrompt": "Nama tata letak:",
     "Str.Layout.InvalidName": "Masukkan nama tata letak yang unik dan tidak kosong.",
     "Str.Layout.Skipped": "Jendela add-in yang tidak tersedia dilewati: {0}",
-    "Str.Layout.SaveFailed": "Tata letak panel tidak dapat disimpan."
+    "Str.Layout.SaveFailed": "Tata letak panel tidak dapat disimpan.",
+    "Str.Options.Formatting.Tokens": "Jenis token",
+    "Str.Options.Formatting.Foreground": "Warna teks (#RRGGBB)",
+    "Str.Options.Formatting.Background": "Latar belakang (#RRGGBB)",
+    "Str.Options.Formatting.Preview": "Pratinjau",
+    "Str.Options.Formatting.Token.Comment": "Komentar",
+    "Str.Options.Formatting.Token.Keyword": "Kata kunci",
+    "Str.Options.Formatting.Token.IOKeyword": "Kata kunci masukan/keluaran",
+    "Str.Options.Formatting.Token.StorageModifier": "Pengubah penyimpanan",
+    "Str.Options.Formatting.Token.Type": "Tipe",
+    "Str.Options.Formatting.Token.Identifier": "Pengenal",
+    "Str.Options.Formatting.Token.MetadataKeyword": "Kata kunci metadata"
   }
 }

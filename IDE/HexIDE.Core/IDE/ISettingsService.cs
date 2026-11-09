@@ -1,6 +1,12 @@
 using System.ComponentModel;
+using System.Text.Json.Serialization;
+using System.Collections.Generic;
 
 namespace HexIDE.IDE;
+
+public record EditorTokenColors(
+    [property: JsonPropertyName("foreground")] string? Foreground = null,
+    [property: JsonPropertyName("background")] string? Background = null);
 
 public record WindowData(string State, int X, int Y, int Width, int Height)
 {
@@ -40,6 +46,14 @@ public interface ISettingsService : INotifyPropertyChanged
     /// Number of spaces per indentation level (1–32).
     /// </summary>
     int TabWidth { get; set; }
+    string EditorFontFamily { get; set; }
+    double EditorFontSize { get; set; }
+
+    /// <summary>Per-theme lexical colours. Getters and setters use detached snapshots.</summary>
+    Dictionary<string, Dictionary<string, EditorTokenColors>> EditorColorOverrides { get; set; }
+
+    /// <summary>Remove a theme's overrides, or just one token's overrides.</summary>
+    void ResetEditorColors(string theme, string? token = null);
 
     /// <summary>
     /// Apply LSP formatting (keyword casing + indentation) on Ctrl+S.

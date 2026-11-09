@@ -1125,6 +1125,17 @@
     "Str.Layout.NamePrompt": "Název rozložení:",
     "Str.Layout.InvalidName": "Zadejte jedinečný neprázdný název rozložení.",
     "Str.Layout.Skipped": "Nedostupná okna doplňků byla přeskočena: {0}",
-    "Str.Layout.SaveFailed": "Rozložení panelů se nepodařilo uložit."
+    "Str.Layout.SaveFailed": "Rozložení panelů se nepodařilo uložit.",
+    "Str.Options.Formatting.Tokens": "Typy tokenů",
+    "Str.Options.Formatting.Foreground": "Popředí (#RRGGBB)",
+    "Str.Options.Formatting.Background": "Pozadí (#RRGGBB)",
+    "Str.Options.Formatting.Preview": "Náhled",
+    "Str.Options.Formatting.Token.Comment": "Komentář",
+    "Str.Options.Formatting.Token.Keyword": "Klíčové slovo",
+    "Str.Options.Formatting.Token.IOKeyword": "Klíčové slovo vstupu/výstupu",
+    "Str.Options.Formatting.Token.StorageModifier": "Modifikátor úložiště",
+    "Str.Options.Formatting.Token.Type": "Typ",
+    "Str.Options.Formatting.Token.Identifier": "Identifikátor",
+    "Str.Options.Formatting.Token.MetadataKeyword": "Klíčové slovo metadat"
   }
 }

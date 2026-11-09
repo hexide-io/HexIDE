@@ -43,12 +43,9 @@ be back where they started.
 - **THEN** none of them take effect, including any that were previewed live
 
 ### Requirement: Settings that can be seen SHALL be previewed while choosing
-Where a setting changes the IDE's appearance, the dialog SHALL apply it as the developer selects it, and
-SHALL restore the previous value if the dialog is cancelled.
-
-Choosing a theme or a keymap from a name is guesswork; choosing it by seeing it is not. The requirement that
-makes the preview safe rather than a trap is the second half — a previewed change is still a change the
-developer has not confirmed, so cancelling has to put it back.
+Where a setting changes the IDE's appearance, the dialog SHALL preview it as the developer selects it,
+and SHALL restore the previous value if cancelled. Themes SHALL preview across the IDE; editor formatting
+SHALL preview locally on its page until confirmation.
 
 #### Scenario: Previewing a theme
 - **WHEN** the developer selects a different theme in the dialog
@@ -125,3 +122,39 @@ Increase and Decrease names describing a number changing rather than a size chan
 - **WHEN** the Editor General page is rendered
 - **THEN** the spinner exposes its localized row label without a trailing colon
 - **AND** its buttons expose localized Increase and Decrease names, including while disabled
+
+### Requirement: Stored lexical colour overrides SHALL be kept per theme
+The settings store SHALL retain foreground and background overrides by theme and VB6 highlighter colour
+name. The highlighter SHALL apply these after its existing light/dark palette, including for tokens absent
+from a theme pack. Removing an override SHALL restore the existing fallback without modifying the pack.
+
+#### Scenario: Switching between themes with the same variant
+- **WHEN** the active theme changes from Dark to Abyss and back
+- **THEN** each theme's own stored lexical overrides are restored
+- **AND** backgrounds omitted by the newly active theme revert to the existing fallback
+
+#### Scenario: Resetting stored choices
+- **WHEN** a token's overrides or all overrides for a theme are removed
+- **THEN** the affected colours return to the existing theme palette
+- **AND** other themes' choices survive saving and restarting
+
+### Requirement: Editor formatting SHALL preview locally and apply on confirmation
+Editor → Formatting SHALL list the VB6 highlighter's named colours, allow foreground and background
+choices, and offer reset for one token or the current theme. It SHALL offer editor font family and size.
+The page SHALL preview staged choices locally. Open code windows and persisted settings SHALL change only
+on confirmation; Cancel SHALL preserve the original overrides and font settings.
+
+#### Scenario: Previewing and confirming editor formatting
+- **WHEN** the developer changes a token colour or the editor font and size
+- **THEN** the page preview reflects the choices while open code windows keep their confirmed settings
+- **WHEN** the developer confirms Options
+- **THEN** open code windows use the chosen colours and font and the choices survive a restart
+- **AND** foreground and background choices apply to lexical and semantic token spans
+
+#### Scenario: Cancelling editor formatting
+- **WHEN** the developer edits colours, resets tokens or a theme, or changes font and size, then cancels
+- **THEN** persisted overrides and font settings remain unchanged
+
+#### Scenario: Switching themes during editing
+- **WHEN** the developer switches themes while Options is open
+- **THEN** Formatting shows that theme's overrides, retaining unconfirmed choices for the previous theme

@@ -1125,6 +1125,17 @@
     "Str.Layout.NamePrompt": "Tên bố cục:",
     "Str.Layout.InvalidName": "Nhập tên bố cục duy nhất và không để trống.",
     "Str.Layout.Skipped": "Đã bỏ qua các cửa sổ phần bổ trợ không khả dụng: {0}",
-    "Str.Layout.SaveFailed": "Không thể lưu các bố cục bảng."
+    "Str.Layout.SaveFailed": "Không thể lưu các bố cục bảng.",
+    "Str.Options.Formatting.Tokens": "Loại mã thông báo",
+    "Str.Options.Formatting.Foreground": "Màu chữ (#RRGGBB)",
+    "Str.Options.Formatting.Background": "Màu nền (#RRGGBB)",
+    "Str.Options.Formatting.Preview": "Xem trước",
+    "Str.Options.Formatting.Token.Comment": "Chú thích",
+    "Str.Options.Formatting.Token.Keyword": "Từ khóa",
+    "Str.Options.Formatting.Token.IOKeyword": "Từ khóa nhập/xuất",
+    "Str.Options.Formatting.Token.StorageModifier": "Bộ sửa đổi lưu trữ",
+    "Str.Options.Formatting.Token.Type": "Kiểu",
+    "Str.Options.Formatting.Token.Identifier": "Định danh",
+    "Str.Options.Formatting.Token.MetadataKeyword": "Từ khóa siêu dữ liệu"
   }
 }

@@ -1125,6 +1125,17 @@
     "Str.Layout.NamePrompt": "布局名称：",
     "Str.Layout.InvalidName": "请输入唯一且非空的布局名称。",
     "Str.Layout.Skipped": "已跳过不可用的加载项窗口：{0}",
-    "Str.Layout.SaveFailed": "无法保存面板布局。"
+    "Str.Layout.SaveFailed": "无法保存面板布局。",
+    "Str.Options.Formatting.Tokens": "标记类型",
+    "Str.Options.Formatting.Foreground": "前景色 (#RRGGBB)",
+    "Str.Options.Formatting.Background": "背景色 (#RRGGBB)",
+    "Str.Options.Formatting.Preview": "预览",
+    "Str.Options.Formatting.Token.Comment": "注释",
+    "Str.Options.Formatting.Token.Keyword": "关键字",
+    "Str.Options.Formatting.Token.IOKeyword": "输入/输出关键字",
+    "Str.Options.Formatting.Token.StorageModifier": "存储修饰符",
+    "Str.Options.Formatting.Token.Type": "类型",
+    "Str.Options.Formatting.Token.Identifier": "标识符",
+    "Str.Options.Formatting.Token.MetadataKeyword": "元数据关键字"
   }
 }

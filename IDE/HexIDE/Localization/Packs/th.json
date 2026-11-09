@@ -1125,6 +1125,17 @@
     "Str.Layout.NamePrompt": "ชื่อเค้าโครง:",
     "Str.Layout.InvalidName": "ป้อนชื่อเค้าโครงที่ไม่ซ้ำและไม่ว่าง",
     "Str.Layout.Skipped": "ข้ามหน้าต่างส่วนเสริมที่ไม่พร้อมใช้งาน: {0}",
-    "Str.Layout.SaveFailed": "ไม่สามารถบันทึกเค้าโครงแผงได้"
+    "Str.Layout.SaveFailed": "ไม่สามารถบันทึกเค้าโครงแผงได้",
+    "Str.Options.Formatting.Tokens": "ชนิดโทเค็น",
+    "Str.Options.Formatting.Foreground": "สีข้อความ (#RRGGBB)",
+    "Str.Options.Formatting.Background": "สีพื้นหลัง (#RRGGBB)",
+    "Str.Options.Formatting.Preview": "ตัวอย่าง",
+    "Str.Options.Formatting.Token.Comment": "ข้อคิดเห็น",
+    "Str.Options.Formatting.Token.Keyword": "คำสำคัญ",
+    "Str.Options.Formatting.Token.IOKeyword": "คำสำคัญนำเข้า/ส่งออก",
+    "Str.Options.Formatting.Token.StorageModifier": "ตัวปรับแต่งการจัดเก็บ",
+    "Str.Options.Formatting.Token.Type": "ชนิด",
+    "Str.Options.Formatting.Token.Identifier": "ตัวระบุ",
+    "Str.Options.Formatting.Token.MetadataKeyword": "คำสำคัญเมทาดาทา"
   }
 }

@@ -1125,6 +1125,17 @@
     "Str.Layout.NamePrompt": "Όνομα διάταξης:",
     "Str.Layout.InvalidName": "Εισαγάγετε ένα μοναδικό, μη κενό όνομα διάταξης.",
     "Str.Layout.Skipped": "Παραλείφθηκαν μη διαθέσιμα παράθυρα προσθέτων: {0}",
-    "Str.Layout.SaveFailed": "Δεν ήταν δυνατή η αποθήκευση των διατάξεων πάνελ."
+    "Str.Layout.SaveFailed": "Δεν ήταν δυνατή η αποθήκευση των διατάξεων πάνελ.",
+    "Str.Options.Formatting.Tokens": "Τύποι λεκτικών μονάδων",
+    "Str.Options.Formatting.Foreground": "Προσκήνιο (#RRGGBB)",
+    "Str.Options.Formatting.Background": "Παρασκήνιο (#RRGGBB)",
+    "Str.Options.Formatting.Preview": "Προεπισκόπηση",
+    "Str.Options.Formatting.Token.Comment": "Σχόλιο",
+    "Str.Options.Formatting.Token.Keyword": "Λέξη-κλειδί",
+    "Str.Options.Formatting.Token.IOKeyword": "Λέξη-κλειδί εισόδου/εξόδου",
+    "Str.Options.Formatting.Token.StorageModifier": "Τροποποιητής αποθήκευσης",
+    "Str.Options.Formatting.Token.Type": "Τύπος",
+    "Str.Options.Formatting.Token.Identifier": "Αναγνωριστικό",
+    "Str.Options.Formatting.Token.MetadataKeyword": "Λέξη-κλειδί μεταδεδομένων"
   }
 }

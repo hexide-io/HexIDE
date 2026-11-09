@@ -1125,6 +1125,17 @@
     "Str.Layout.NamePrompt": "Naziv rasporeda:",
     "Str.Layout.InvalidName": "Unesite jedinstven naziv rasporeda koji nije prazan.",
     "Str.Layout.Skipped": "Nedostupni prozori dodataka su preskočeni: {0}",
-    "Str.Layout.SaveFailed": "Rasporedi panela nisu se mogli spremiti."
+    "Str.Layout.SaveFailed": "Rasporedi panela nisu se mogli spremiti.",
+    "Str.Options.Formatting.Tokens": "Vrste tokena",
+    "Str.Options.Formatting.Foreground": "Boja teksta (#RRGGBB)",
+    "Str.Options.Formatting.Background": "Boja pozadine (#RRGGBB)",
+    "Str.Options.Formatting.Preview": "Pretpregled",
+    "Str.Options.Formatting.Token.Comment": "Komentar",
+    "Str.Options.Formatting.Token.Keyword": "Ključna riječ",
+    "Str.Options.Formatting.Token.IOKeyword": "Ulazno-izlazna ključna riječ",
+    "Str.Options.Formatting.Token.StorageModifier": "Modifikator pohrane",
+    "Str.Options.Formatting.Token.Type": "Tip",
+    "Str.Options.Formatting.Token.Identifier": "Identifikator",
+    "Str.Options.Formatting.Token.MetadataKeyword": "Ključna riječ metapodataka"
   }
 }

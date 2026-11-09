@@ -1125,6 +1125,17 @@
     "Str.Layout.NamePrompt": "레이아웃 이름:",
     "Str.Layout.InvalidName": "고유하고 비어 있지 않은 레이아웃 이름을 입력하세요.",
     "Str.Layout.Skipped": "사용할 수 없는 추가 기능 창을 건너뛰었습니다: {0}",
-    "Str.Layout.SaveFailed": "패널 레이아웃을 저장할 수 없습니다."
+    "Str.Layout.SaveFailed": "패널 레이아웃을 저장할 수 없습니다.",
+    "Str.Options.Formatting.Tokens": "토큰 유형",
+    "Str.Options.Formatting.Foreground": "전경색 (#RRGGBB)",
+    "Str.Options.Formatting.Background": "배경색 (#RRGGBB)",
+    "Str.Options.Formatting.Preview": "미리 보기",
+    "Str.Options.Formatting.Token.Comment": "주석",
+    "Str.Options.Formatting.Token.Keyword": "키워드",
+    "Str.Options.Formatting.Token.IOKeyword": "입출력 키워드",
+    "Str.Options.Formatting.Token.StorageModifier": "저장소 한정자",
+    "Str.Options.Formatting.Token.Type": "형식",
+    "Str.Options.Formatting.Token.Identifier": "식별자",
+    "Str.Options.Formatting.Token.MetadataKeyword": "메타데이터 키워드"
   }
 }
