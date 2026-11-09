@@ -32,7 +32,7 @@ public class ProgramPrintedStartTests
         projects.StartupProject.Returns(project);
         var controller = new DebugController { TimeSliceMs = -1 };
         var marks = new BreakpointService();
-        var runner = new ProjectRunnerService(new EventBus(), Substitute.For<IWindowManager>(), projects,
+        var runner = TestRunners.WithInterpreter(new EventBus(), Substitute.For<IWindowManager>(), projects,
             composition.LocalizationService, controller, marks, new WatchService(), new RunScope());
         using var context = new IdeContext(projects, Substitute.For<IDocumentDockService>(), Substitute.For<ILspClient>(),
             null!, runner, null!, null!, null!, marks, controller, composition.Root, null!, null!, null!, null!,
@@ -102,7 +102,7 @@ public class ProgramPrintedStartTests
         projects.StartupProject.Returns(project);
         var controller = new DebugController { TimeSliceMs = timeSliceMs };
         var marks = new BreakpointService();
-        var runner = new ProjectRunnerService(new EventBus(), Substitute.For<IWindowManager>(), projects,
+        var runner = TestRunners.WithInterpreter(new EventBus(), Substitute.For<IWindowManager>(), projects,
             composition.LocalizationService, controller, marks, new WatchService(), new RunScope());
         using var context = new IdeContext(projects, Substitute.For<IDocumentDockService>(), Substitute.For<ILspClient>(),
             null!, runner, null!, null!, null!, marks, controller, composition.Root, null!, null!, null!, null!,

@@ -104,25 +104,26 @@ public partial class DISetup
             .Bind().As(Singleton).To<ProjectManager>()
             .Bind().As(Singleton).To<EditorService>()
             .Bind().As(Singleton).To<DockFactoryReference>()
+            .Bind<IRunEngine>().As(Singleton).To<InterpreterRunEngine>()
             .Bind<IDocumentDockService>().As(Singleton).To<DocumentDockService>()
             .Bind().As(Singleton).To<MainViewViewModel.DockFactory>()
             .Bind().As(Singleton).To<EventBus>()
             .Bind().As(Singleton).To(ctx =>
             {
                 ctx.Inject<IEventBus>(out var eventBus);
-                ctx.Inject<IWindowManager>(out var windowManager);
                 ctx.Inject<IProjectManager>(out var projectManager);
                 ctx.Inject<ILocalizationService>(out var localization);
                 ctx.Inject<IDebugController>(out var debugController);
                 ctx.Inject<IBreakpointService>(out var breakpointService);
                 ctx.Inject<WatchService>(out var watchService);
                 ctx.Inject<RunScope>(out var runScope);
+                ctx.Inject<IRunEngine>(out var runEngine);
                 ctx.Inject<ExternalDebugService>(out var externalDebugger);
                 ctx.Inject<HexIDE.Projects.ArchiveProjectService>(out var archives);
                 ctx.Inject<HexIDE.Debugging.DebugLaunchService>(out var debugLaunches);
                 ctx.Inject<HexIDE.Debugging.IRunChoiceStore>(out var runChoices);
                 ctx.Inject<IStatusBarService>(out var statusBar);
-                return new ProjectRunnerService(eventBus, windowManager, projectManager, localization, debugController, breakpointService, watchService, runScope, externalDebugger, archives,
+                return new ProjectRunnerService(eventBus, projectManager, localization, debugController, breakpointService, watchService, runScope, runEngine, externalDebugger, archives,
                     debugLaunches, runChoices, statusBar);
             })
             .Bind().As(Singleton).To(ctx =>
