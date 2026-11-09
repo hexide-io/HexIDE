@@ -1075,6 +1075,7 @@
     "Str.Tool.Diagnostics.Hints": "Petunjuk",
     "Str.Tool.Diagnostics.CurrentDocument": "Dokumen saat ini",
     "Str.Tool.Diagnostics.Server": "Server",
+    "Str.Tool.Diagnostics.Source": "Sumber",
     "Str.Tool.Diagnostics.Document": "Dokumen",
     "Str.Tool.Diagnostics.Line": "Baris",
     "Str.Tool.Diagnostics.Message": "Pesan",

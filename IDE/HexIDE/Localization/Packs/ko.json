@@ -1075,6 +1075,7 @@
     "Str.Tool.Diagnostics.Hints": "힌트",
     "Str.Tool.Diagnostics.CurrentDocument": "현재 문서",
     "Str.Tool.Diagnostics.Server": "서버",
+    "Str.Tool.Diagnostics.Source": "출처",
     "Str.Tool.Diagnostics.Document": "문서",
     "Str.Tool.Diagnostics.Line": "줄",
     "Str.Tool.Diagnostics.Message": "메시지",

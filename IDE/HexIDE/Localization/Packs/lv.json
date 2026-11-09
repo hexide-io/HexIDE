@@ -1075,6 +1075,7 @@
     "Str.Tool.Diagnostics.Hints": "Padomi",
     "Str.Tool.Diagnostics.CurrentDocument": "Pašreizējais dokuments",
     "Str.Tool.Diagnostics.Server": "Serveris",
+    "Str.Tool.Diagnostics.Source": "Avots",
     "Str.Tool.Diagnostics.Document": "Dokuments",
     "Str.Tool.Diagnostics.Line": "Rinda",
     "Str.Tool.Diagnostics.Message": "Ziņojums",

@@ -1075,6 +1075,7 @@
     "Str.Tool.Diagnostics.Hints": "Wskazówki",
     "Str.Tool.Diagnostics.CurrentDocument": "Bieżący dokument",
     "Str.Tool.Diagnostics.Server": "Serwer",
+    "Str.Tool.Diagnostics.Source": "Źródło",
     "Str.Tool.Diagnostics.Document": "Dokument",
     "Str.Tool.Diagnostics.Line": "Wiersz",
     "Str.Tool.Diagnostics.Message": "Komunikat",

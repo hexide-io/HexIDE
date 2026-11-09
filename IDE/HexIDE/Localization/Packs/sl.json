@@ -1075,6 +1075,7 @@
     "Str.Tool.Diagnostics.Hints": "Namigi",
     "Str.Tool.Diagnostics.CurrentDocument": "Trenutni dokument",
     "Str.Tool.Diagnostics.Server": "Strežnik",
+    "Str.Tool.Diagnostics.Source": "Vir",
     "Str.Tool.Diagnostics.Document": "Dokument",
     "Str.Tool.Diagnostics.Line": "Vrstica",
     "Str.Tool.Diagnostics.Message": "Sporočilo",

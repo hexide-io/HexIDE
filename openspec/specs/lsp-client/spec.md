@@ -2010,7 +2010,8 @@ deadline and caller cancellation.
 ### Requirement: Project diagnostics panel
 
 The IDE SHALL provide a Diagnostics panel listing current diagnostics across documents with publisher,
-severity, document, line and message. It SHALL filter by severity and current document, update when
+severity, source when supplied, document, line and message. It SHALL show counts per severity,
+respecting the current-document filter but including hidden severities. It SHALL filter by severity and current document, update when
 reports change, and navigate a double-clicked row through the project document resolver.
 Document cells SHALL show the loaded member name, or the file name for an outside file, with the full
 path only in a tooltip and the URI retained for navigation. Severity cells SHALL use localized singular

@@ -1075,6 +1075,7 @@
     "Str.Tool.Diagnostics.Hints": "التلميحات",
     "Str.Tool.Diagnostics.CurrentDocument": "المستند الحالي",
     "Str.Tool.Diagnostics.Server": "الخادم",
+    "Str.Tool.Diagnostics.Source": "المصدر",
     "Str.Tool.Diagnostics.Document": "المستند",
     "Str.Tool.Diagnostics.Line": "السطر",
     "Str.Tool.Diagnostics.Message": "الرسالة",

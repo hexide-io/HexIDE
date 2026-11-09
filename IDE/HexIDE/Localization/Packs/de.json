@@ -1075,6 +1075,7 @@
     "Str.Tool.Diagnostics.Hints": "Hinweise",
     "Str.Tool.Diagnostics.CurrentDocument": "Aktuelles Dokument",
     "Str.Tool.Diagnostics.Server": "Server",
+    "Str.Tool.Diagnostics.Source": "Quelle",
     "Str.Tool.Diagnostics.Document": "Dokument",
     "Str.Tool.Diagnostics.Line": "Zeile",
     "Str.Tool.Diagnostics.Message": "Meldung",

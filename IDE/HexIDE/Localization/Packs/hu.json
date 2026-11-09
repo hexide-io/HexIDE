@@ -1075,6 +1075,7 @@
     "Str.Tool.Diagnostics.Hints": "Tippek",
     "Str.Tool.Diagnostics.CurrentDocument": "Aktuális dokumentum",
     "Str.Tool.Diagnostics.Server": "Kiszolgáló",
+    "Str.Tool.Diagnostics.Source": "Forrás",
     "Str.Tool.Diagnostics.Document": "Dokumentum",
     "Str.Tool.Diagnostics.Line": "Sor",
     "Str.Tool.Diagnostics.Message": "Üzenet",

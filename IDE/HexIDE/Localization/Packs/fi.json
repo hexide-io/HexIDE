@@ -1075,6 +1075,7 @@
     "Str.Tool.Diagnostics.Hints": "Vihjeet",
     "Str.Tool.Diagnostics.CurrentDocument": "Nykyinen asiakirja",
     "Str.Tool.Diagnostics.Server": "Palvelin",
+    "Str.Tool.Diagnostics.Source": "Lähde",
     "Str.Tool.Diagnostics.Document": "Asiakirja",
     "Str.Tool.Diagnostics.Line": "Rivi",
     "Str.Tool.Diagnostics.Message": "Viesti",

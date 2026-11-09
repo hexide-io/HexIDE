@@ -1075,6 +1075,7 @@
     "Str.Tool.Diagnostics.Hints": "Подсказки",
     "Str.Tool.Diagnostics.CurrentDocument": "Текущ документ",
     "Str.Tool.Diagnostics.Server": "Сървър",
+    "Str.Tool.Diagnostics.Source": "Източник",
     "Str.Tool.Diagnostics.Document": "Документ",
     "Str.Tool.Diagnostics.Line": "Ред",
     "Str.Tool.Diagnostics.Message": "Съобщение",

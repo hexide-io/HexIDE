@@ -1075,6 +1075,7 @@
     "Str.Tool.Diagnostics.Hints": "Suxestións",
     "Str.Tool.Diagnostics.CurrentDocument": "Documento actual",
     "Str.Tool.Diagnostics.Server": "Servidor",
+    "Str.Tool.Diagnostics.Source": "Orixe",
     "Str.Tool.Diagnostics.Document": "Documento",
     "Str.Tool.Diagnostics.Line": "Liña",
     "Str.Tool.Diagnostics.Message": "Mensaxe",
