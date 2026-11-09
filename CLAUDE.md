@@ -856,7 +856,8 @@ it's a mitigation.**
   what's in flight, push it, and start nothing new. **Red** (`pause`, from 90%): the team is paused, and nothing
   new starts. Jen may still contact a session about a specific item. If she does, keep the reply short and
   token-light, and don't wake other sessions unless it's urgent. Only Jen lifts the pause; the weekly reset
-  doesn't. Codex lanes keep running what's queued.
+  doesn't. Codex lanes keep running what's queued. **A docs-only oracle PR is outside a pause**, and is queued
+  as usual: oracle pages once sat unqueued for nine days because of one, while main was already citing them.
 
 - **Avalonia 12.0.5 / Dock 12.0.0.2** — the project is on Avalonia 12. `Classic.Avalonia.Theme 12.0.1-beta1` is kept as a **controls-only** dependency (provides `ClassicBorderDecorator`, `ClassicBorderStyle`). **Do not pin it back to 11.3.0.3**: that build was compiled against Avalonia 11, so `ClassicBorderDecorator.DrawRadioButtonBorder` called a `StreamGeometryContext.ArcTo` overload Avalonia 12 replaced, and **every VB6 option button killed the process on render** (`MissingMethodException`, thrown on the render thread — uncatchable, and nothing reaches the Serilog log; the stack only exists in the Windows Application event log). It is a prerelease because it is the only Avalonia-12 build published. `<ClassicTheme />` remains **NOT loaded** and this change does not re-open that question — do not add it back. The `Classic.Avalonia.Theme.Dock`, `.ColorPicker`, and `.DataGrid` sub-packages have been removed. `Avalonia.Themes.Simple 12.0.5` is the base theme (`<SimpleTheme />` in App.axaml).
 - **`Classic.CommonControls.Avalonia 12.0.1-beta1` controls** (`ToolBar`, `ToolBarButton`, `RebarHandle`, `ListView`, `ListViewItem`) are **NOT used** — the `TypeLoadException: PseudolassesExtensions` applied to the 11.x build, but they stay unused by design (removing VB6 chrome is intended, not incidental). Use standard Avalonia `StackPanel`/`Button`/`ToggleButton`/`ListBox` instead. The version follows `Classic.Avalonia.Theme` transitively; no project references it directly. `SystemColors` static resource keys from that assembly are still used for color lookups and do not crash.
@@ -1147,6 +1148,9 @@ the PR. Typo-level fixes need no issue.
   `LspClientRegistry.cs`:
   `gh pr list --repo hexide-io/HexIDE --state open --limit 200 --json number,files -q '[.[] | select(any(.files[]; .path | endswith("LspClientRegistry.cs"))) | .number]'`
 - **A label you set is yours to remove**, and one that Jen or another session set is theirs (#499).
+- **A PR that closes an issue updates every doc citing it, and files whatever it left undone so the doc can cite
+  that instead.** A sweep found 21 closed-issue citations in live text, 16 of them for work still undone (#3364), and
+  no guard can tell that a PR left work behind.
 - **Clear `bin/` and `obj/`, or remove the worktree, once its result is posted or its PR merges.** C: ran low
   four times in the week of 10-26.
 
