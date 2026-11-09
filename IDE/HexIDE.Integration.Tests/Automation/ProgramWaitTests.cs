@@ -107,7 +107,7 @@ public class ProgramWaitTests
         localization.GetString(Arg.Any<string>()).Returns(call => call.Arg<string>() + ": {0}");
         var controller = composition is null ? new DebugController() : (DebugController)composition.DebugController;
         controller.TimeSliceMs = timeSliceMs;
-        var runner = composition?.ProjectRunnerService as ProjectRunnerService ?? new ProjectRunnerService(
+        var runner = composition?.ProjectRunnerService as ProjectRunnerService ?? TestRunners.WithInterpreter(
             Substitute.For<IEventBus>(), Substitute.For<IWindowManager>(), Substitute.For<IProjectManager>(),
             localization, controller, Substitute.For<IBreakpointService>(), new WatchService(), new RunScope());
 

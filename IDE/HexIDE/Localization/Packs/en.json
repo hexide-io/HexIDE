@@ -314,6 +314,7 @@
     "Str.Tool.Project.Menu.Add.Form": "Form",
     "Str.Tool.Project.Menu.Print": "Print",
     "Str.Tool.FormLayout.Preview.FormName": "Form1",
+    "Str.Tool.ColorPalette.Title": "Color Palette",
     "Str.Tool.ColorPalette.Button.Default": "Default",
     "Str.Tool.ColorPalette.Button.DefineColors": "Define Colors",
     "Str.Tool.Locals.ContextReady": "<Ready>",

@@ -53,6 +53,7 @@
     "BringToFrontCommand":                     "Ctrl+J",
     "SendToBackCommand":                       "Ctrl+K",
     "EditMenuCommand":                         "Ctrl+E",
+    "ProjectComponentsCommand":                "Ctrl+T",
     "CallHierarchyCommand": "",
     "FormatSelectionCommand":                  "",
     "NextBookmarkCommand":                     ""

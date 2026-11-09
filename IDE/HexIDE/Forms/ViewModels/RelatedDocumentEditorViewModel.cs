@@ -262,7 +262,7 @@ public partial class RelatedDocumentEditorViewModel(ILspClient lspClient, IWindo
                 string.Format(localization.GetString("Str.Dialog.SourceEncoding.NothingWritten"),
                     refusal.Document, refusal.CodePage, refusal.Character, refusal.CodePoint,
                     refusal.Line.Length > 0 ? refusal.Line : refusal.Character),
-                "HexIDE", MessageBoxButtons.Ok, MessageBoxIcon.Warning);
+                HexIDE.IDE.Distribution.DisplayName, MessageBoxButtons.Ok, MessageBoxIcon.Warning);
             throw;
         }
 

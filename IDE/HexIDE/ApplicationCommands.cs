@@ -92,7 +92,7 @@ public class ApplicationCommands
     public static readonly RoutedCommand MakeWithVb6Command = new RoutedCommand(nameof(MakeWithVb6Command));
     public static readonly RoutedCommand RemoveProjectCommand = new RoutedCommand(nameof(RemoveProjectCommand));
     public static readonly RoutedCommand ProjectReferencesCommand = new RoutedCommand(nameof(ProjectReferencesCommand));
-    public static readonly RoutedCommand ProjectComponentsCommand = new RoutedCommand(nameof(ProjectComponentsCommand));
+    public static readonly RoutedCommand ProjectComponentsCommand = new RoutedCommand(nameof(ProjectComponentsCommand), new KeyGesture(Key.T, GetPlatformCommandKey()));
     public static readonly RoutedCommand ProjectPropertiesCommand = new RoutedCommand(nameof(ProjectPropertiesCommand));
 
     public static readonly RoutedCommand StepIntoCommand = new RoutedCommand(nameof(StepIntoCommand), new KeyGesture(Key.F8));

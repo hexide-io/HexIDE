@@ -111,7 +111,7 @@ public class SingleViewFormsTests
             w.CloseCommand = new DelegateCommand(() => gone.TrySetResult(), () => true);
             return gone.Task;
         });
-        var runner = new ProjectRunnerService(
+        var runner = TestRunners.WithInterpreter(
             Substitute.For<IEventBus>(), windows, Substitute.For<IProjectManager>(),
             localization, new DebugController(), Substitute.For<IBreakpointService>(), new WatchService(), new RunScope());
 

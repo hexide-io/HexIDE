@@ -27,6 +27,55 @@ public class LogicallyParentedPopupTests
     private static UiNode? Find(UiNode node, string name) =>
         node.Name == name ? node : node.Children.Select(c => Find(c, name)).FirstOrDefault(n => n is not null);
 
+    private sealed class OwnerViewModel { public string Title { get; set; } = "x"; }
+
+    // A popup's content is in a visual tree of its own, so the walk for where a DataContext is set stopped at the popup, and
+    // a control in it listed every member of what it inherited as though the context started there (#2892). The context is
+    // on the owner and not the window because a headless popup is in the window's overlay layer: a walk up the visuals gets
+    // to the window from there, as a real popup's can't, and only the popup's logical parent leads to the owner.
+    [AvaloniaFact]
+    public void A_control_in_a_popup_says_where_it_inherits_its_DataContext_from()
+    {
+        var item = new MenuItem { Header = "Properties" };
+        var menu = new ContextMenu { ItemsSource = new[] { item } };
+        var target = new Border { ContextMenu = menu, Width = 50, Height = 50, DataContext = new OwnerViewModel() };
+        var window = Show(target);
+        try
+        {
+            UiAutomationDriver.Interact(target, "expand", null).Success.Should().BeTrue();
+            Dispatcher.UIThread.RunJobs();
+            item.DataContext.Should().BeOfType<OwnerViewModel>("the case is a context inherited through the popup");
+
+            var inspected = UiAutomationDriver.Inspect(item, "Window/ContextMenu/MenuItem", window);
+
+            inspected.DataContextOwner.Should().Be(UiAutomationDriver.PathWithin(window, "Window", target));
+            inspected.DataContextMembers.Should().NotContain(m => m.Name == "Title");
+            inspected.DataContextNote.Should().Contain("inherits its DataContext");
+        }
+        finally { window.Close(); }
+    }
+
+    // A context set on the popup's own content starts there, so it's still that content's, and the walk stops at it.
+    [AvaloniaFact]
+    public void A_DataContext_set_inside_a_popup_is_not_reported_as_inherited_from_outside_it()
+    {
+        var item = new MenuItem { Header = "Properties" };
+        var menu = new ContextMenu { ItemsSource = new[] { item }, DataContext = new OwnerViewModel() };
+        var target = new Border { ContextMenu = menu, Width = 50, Height = 50, DataContext = "outside" };
+        var window = Show(target);
+        try
+        {
+            UiAutomationDriver.Interact(target, "expand", null).Success.Should().BeTrue();
+            Dispatcher.UIThread.RunJobs();
+
+            var inspected = UiAutomationDriver.Inspect(menu, "Window/ContextMenu", window);
+
+            inspected.DataContextOwner.Should().BeNull();
+            inspected.DataContextMembers.Should().Contain(m => m.Name == "Title");
+        }
+        finally { window.Close(); }
+    }
+
     [AvaloniaFact]
     public void An_open_flyouts_items_are_in_the_tree()
     {

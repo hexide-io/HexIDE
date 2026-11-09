@@ -41,9 +41,10 @@ Written the natural way, it ran into four things HexIDE got wrong, each measured
   precedence level of its own. That was fixed on its own, in #1074, since it touches every program.
 
 It found four more that it doesn't depend on:
-- **A form's Width and Height** are its client size in HexIDE, where VB6's include the border and caption (#1072).
+- **A form's Width and Height** were its client size in HexIDE, where VB6's include the border and caption (#1072,
+  since fixed).
   `Width = (Width - ScaleWidth) + needed` comes out right either way.
-- **`-2 ^ 2`** is 4 in HexIDE and -4 in VB6 (#1073).
+- **`-2 ^ 2`** was 4 in HexIDE and is -4 in VB6 (#1073, since fixed).
 - **The cells' `BorderStyle = 1`** drew no border, so the board was one block of colour where VB6 draws a grid of
   sunken cells (#1077, since fixed).
-- **The setup dialog's TextBox** clips its text and shows part of a scroll bar (#914).
+- **The setup dialog's TextBox** clipped its text and showed part of a scroll bar (#914, since fixed).

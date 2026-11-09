@@ -160,8 +160,8 @@ leave out items that do not show, and list at most 200, with `itemsNote` saying 
 that is closed it SHALL give no `items`, and `itemsNote` SHALL say to expand it; it SHALL NOT open it.
 
 #### Scenario: Options' Language dropdown
-- **WHEN** the Language dropdown, holding 31 items of which ten have rows, is expanded and inspected
-- **THEN** `items` gives all 31 texts, and `select` takes any of them as written
+- **WHEN** the Language dropdown, which holds more items than it makes rows for, is expanded and inspected
+- **THEN** `items` gives the text of every item, and `select` takes any of them as written
 
 ### Requirement: The Immediate window's editor SHALL be found by match and read where it is shown
 `dump_visual_tree`'s `match` SHALL find the Immediate window's editor by its class, `TextEditor`, and by the window's
@@ -189,7 +189,12 @@ SHALL be reported as not recorded, never guessed, and a control with none set SH
 ### Requirement: Inspection SHALL report what a tree has selected
 `inspect_element` on a tree SHALL report in `selectionItems` the rows the tree has selected, each named as its row
 reads, and SHALL report an empty list only when nothing is selected. A tree whose peer offers no selection provider
-SHALL be read from the tree itself.
+SHALL be read from the tree itself. `inspect_element` on a node with the `selectionItem` provider SHALL report in
+`isSelected` whether its own list has it selected, and SHALL leave that field out on a node without the provider.
+
+#### Scenario: A row reads as selected or not
+- **WHEN** one row of a list is selected and each row is inspected
+- **THEN** `isSelected` is true on that row, false on the other, and absent on the list
 
 #### Scenario: A selected watch row
 - **WHEN** a Watches row is selected and the Watches tree is inspected
@@ -502,8 +507,8 @@ that removing the server from a distributed build does not remove the ability to
 
 The automation server is a development tool and is compiled out of distributed builds. The inspector is not:
 its audience is somebody writing a language server against a HexIDE they downloaded. Placing the recording
-beside the tools that read it would tie the shipped feature to the unshipped one, and the failure would be
-silent, appearing only in a configuration nothing in CI currently builds.
+beside the tools that read it would tie the shipped feature to the unshipped one, and the failure would show only
+in a Release build, which is why CI compiles that configuration and a test guards where the recording lives.
 
 #### Scenario: A distributed build
 - **WHEN** a build that excludes the automation server is asked to record a conversation
@@ -557,7 +562,8 @@ a reply SHALL say so: the reply of the save that took it, or else the next reply
 Given a line, and a column if wanted, `open_file` SHALL put the caret there in the editor it opens, a code window's or
 a carried file's, numbering both from 1 as the editor does, against the text `get_file_content` returns. A place off
 the text SHALL be refused before anything opens. A fold over the caret SHALL be opened, and the note SHALL read the
-caret's line, column and offset back from the editor.
+caret's line, column and offset back from the editor. Without `line`, the note SHALL still read the caret back,
+without requesting a new position, both when opening a new window and activating an existing one.
 
 #### Scenario: A carried file
 - **WHEN** `open_file` opens a carried file at line 3, column 5
@@ -568,8 +574,8 @@ caret's line, column and offset back from the editor.
 - **THEN** nothing opens, and the reply gives the lines it has
 
 ### Requirement: open_file SHALL say when its caret is where type_text would be refused
-When the caret `open_file` places is in a part of a code window only the IDE changes, a form's header or a member's
-Attribute lines, the note SHALL name that part and give the nearest place that can be edited by line, column and offset.
+When the caret after `open_file`, with or without `line`, is in a part of a code window only the IDE changes, a form's
+header or a member's Attribute lines, the note SHALL name that part and give the nearest place that can be edited by line, column and offset.
 When the whole window refuses typing, the note SHALL say so. A caret where `type_text` writes SHALL add nothing.
 
 #### Scenario: A line inside a form's header
@@ -1165,8 +1171,8 @@ SHALL send nothing to any window.
 `hover` with `stay` SHALL leave the pointer on the point when its watch ends, so the control it landed on reads as under
 the pointer and a tip it opened stays open, and `take_snapshot` SHALL draw that tip with the window. The reply SHALL say
 whether the control reads as under the pointer once the move has settled, and what took it when it does not. The next
-click, drag or hover in that window SHALL end a staying hover before it acts. A hover in another window SHALL end it
-too, and its reply SHALL name the window the pointer left. `inspect_element` SHALL report `isPointerOver`.
+click, drag or hover in that window SHALL end a staying hover before it acts. A click, drag or hover in another window
+SHALL end it too, and its reply SHALL name the window the pointer left. `inspect_element` SHALL report `isPointerOver`.
 
 #### Scenario: A toolbar button's hover look
 - **WHEN** `hover` with `stay` lands on a toolbar button that has a tip, with the real mouse off the window

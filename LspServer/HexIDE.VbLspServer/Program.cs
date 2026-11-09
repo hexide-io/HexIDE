@@ -23,7 +23,10 @@ const int RetainedPartsPerSession = 5;
 const int RetainedSessionCount = 7;
 const string LogFilePrefix = "lsp-";
 
-var logDir = GetLogDirectory("lsp");
+// A branded host names its own log root (#2042), since a server started by it must not log under HexIDE's.
+var logRootArgument = Array.IndexOf(args, "--log-root");
+var logRoot = logRootArgument >= 0 && logRootArgument + 1 < args.Length ? args[logRootArgument + 1] : null;
+var logDir = GetLogDirectory(logRoot, "lsp");
 var sessionStamp = DateTime.Now.ToString("yyyyMMdd-HHmmss");
 
 Log.Logger = new LoggerConfiguration()
@@ -56,10 +59,10 @@ finally
     Log.CloseAndFlush();
 }
 
-static string GetLogDirectory(string subsystem)
+static string GetLogDirectory(string? root, string subsystem)
 {
     var localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-    var dir = Path.Combine(localAppData, "HexIDE", "logs", subsystem);
+    var dir = Path.Combine(root ?? Path.Combine(localAppData, "HexIDE", "logs"), subsystem);
     Directory.CreateDirectory(dir);
     return dir;
 }

@@ -53,11 +53,11 @@ it to run the same in HexIDE took six fixes, each measured on vb6.exe first:
   symbol font's characters.
 - **`FontName` couldn't be set at run time** (#1141), and how vb6.exe answers it decided how the game falls back.
 
-It also met three things still open:
-- **The automation tree names the menu `&Game`,** VB6's access-key marker included (#1128).
-- **No Label on a running form is in the automation tree,** so the field is played by clicking points on the form
-  (#1076).
-- **Under a dark theme the running form draws dark** (#806, #909).
+It also met three things it doesn't depend on:
+- **The automation tree named the menu `&Game`,** VB6's access-key marker included (#1128, since fixed).
+- **No Label on a running form was in the automation tree,** so the field was played by clicking points on the form
+  (#1076, since fixed).
+- **Under a dark theme the running form draws dark** (#806, #909, still open).
 
-Left out, because the interpreter doesn't have them yet: a best-times table, which wants `SaveSetting` and
-`GetSetting` or file I/O.
+Left out: a best-times table, which wants `SaveSetting` and `GetSetting` or file I/O. The interpreter had neither when
+this was written, and has both now (#1562, #1145).

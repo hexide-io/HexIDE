@@ -152,7 +152,7 @@ public partial class ProjectService : IProjectService
     private static string ItemLineFor(ModuleKind kind, string name, string relativePath) =>
         ProjectLoader.ItemLineFor(kind, name, relativePath);
 
-    private async Task<IAddinProjectTemplate?> ChooseNewProject()
+    private async Task<IAddinProjectTemplate?> ChooseNewProject(bool replaceExisting)
     {
         var vm = newProjectVm();
         if (!await windowManager.ShowDialog(vm))
@@ -162,6 +162,8 @@ public partial class ProjectService : IProjectService
         if (vm.ResultFilePath != null)
         {
             // "Existing" or "Recent" tab selected a .vbp file
+            if (replaceExisting)
+                await UnloadAllProjects();
             await OpenProject(vm.ResultFilePath);
             return null;
         }
@@ -169,15 +171,18 @@ public partial class ProjectService : IProjectService
         return vm.SelectedTemplate?.Template;
     }
 
-    public async Task CreateNewProject()
+    public async Task CreateNewProject(bool replaceExisting = false)
     {
         Log.Debug("ProjectService: CreateNewProject — showing dialog");
-        var template = await ChooseNewProject();
+        var template = await ChooseNewProject(replaceExisting);
         if (template == null)
         {
             Log.Debug("ProjectService: CreateNewProject — no template selected (cancelled or file opened)");
             return;
         }
+
+        if (replaceExisting)
+            await UnloadAllProjects();
 
         var name = ProjectNaming.NextFreeProjectName(projectManager.LoadedProjects);
         Log.Debug("ProjectService: Creating project '{ProjectName}' from template {Template}", name, template.Name);
@@ -189,7 +194,7 @@ public partial class ProjectService : IProjectService
     {
         if (template.Supported == false)
         {
-            await windowManager.MessageBox("Your HexIDE version doesn't support " + template.Name, "HexIDE", MessageBoxButtons.Ok, MessageBoxIcon.Information);
+            await windowManager.MessageBox($"Your {HexIDE.IDE.Distribution.DisplayName} version doesn't support " + template.Name, HexIDE.IDE.Distribution.DisplayName, MessageBoxButtons.Ok, MessageBoxIcon.Information);
             return;
         }
 
@@ -840,7 +845,7 @@ public partial class ProjectService : IProjectService
                     string.Format(localization.GetString("Str.Dialog.SourceEncoding.NothingWritten"),
                         refusal.Document, refusal.CodePage, refusal.Character, refusal.CodePoint,
                         refusal.Line.Length > 0 ? refusal.Line : refusal.Character),
-                    "HexIDE", MessageBoxButtons.Ok, MessageBoxIcon.Warning);
+                    HexIDE.IDE.Distribution.DisplayName, MessageBoxButtons.Ok, MessageBoxIcon.Warning);
             throw;
         }
         catch (UnsavedMemberRefusal refusal)
@@ -853,7 +858,7 @@ public partial class ProjectService : IProjectService
                 await windowManager.MessageBox(
                     string.Format(localization.GetString("Str.Dialog.UnsavedMembers.NothingWritten"),
                         refusal.Project, string.Join("\n", refusal.Members.Select(m => $"  • {m}"))),
-                    "HexIDE", MessageBoxButtons.Ok, MessageBoxIcon.Warning);
+                    HexIDE.IDE.Distribution.DisplayName, MessageBoxButtons.Ok, MessageBoxIcon.Warning);
             throw;
         }
     }
@@ -2116,7 +2121,7 @@ public partial class ProjectService : IProjectService
         if (interactive)
             await windowManager.MessageBox(
                 string.Format(body, names),
-                "HexIDE", MessageBoxButtons.Ok, MessageBoxIcon.Warning);
+                HexIDE.IDE.Distribution.DisplayName, MessageBoxButtons.Ok, MessageBoxIcon.Warning);
     }
 
     public Task SaveAllProjects(bool saveAs)

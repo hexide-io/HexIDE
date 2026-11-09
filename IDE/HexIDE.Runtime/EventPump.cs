@@ -183,7 +183,11 @@ public sealed class EventPump
         }
         if (Current is { } raiser)
         {
-            var started = Start(name, work, coalescing == EventCoalescing.Timer);
+            // A statement can raise several events before it can await any of them (#2547). A suspended
+            // sibling must finish first, just as it would if its handler had never given up the thread.
+            var started = raiser.Raised is { Count: > 0 } raised && !raised[^1].IsCompleted
+                ? StartAfter(raised[^1], name, work, coalescing == EventCoalescing.Timer)
+                : Start(name, work, coalescing == EventCoalescing.Timer);
             if (!started.IsCompleted)
                 (raiser.Raised ??= []).Add(started);
             return;
@@ -469,6 +473,13 @@ public sealed class EventPump
                 topLevel--;
             }
         }
+    }
+
+    private async Task StartAfter(Task previous, string name, Func<Task> work, bool byTimer)
+    {
+        await previous;
+        if (!closed)
+            await Start(name, work, byTimer);
     }
 
     private async Task Start(string name, Func<Task> work, bool byTimer = false)

@@ -13,20 +13,24 @@ namespace HexIDE.Controls;
 public sealed class DocumentHighlightRenderer : IBackgroundRenderer
 {
     private readonly TextEditor _editor;
-    private readonly List<(int Start, int End)> _segments = new();
+    private readonly TextSegmentCollection<TextSegment> _segments;
     private static readonly IBrush HighlightBrush = new SolidColorBrush(Color.FromArgb(80, 100, 180, 255));
+
+    internal IEnumerable<TextSegment> Segments => _segments;
 
     public KnownLayer Layer => KnownLayer.Background;
 
     public DocumentHighlightRenderer(TextEditor editor)
     {
         _editor = editor;
+        _segments = new TextSegmentCollection<TextSegment>(editor.Document);
     }
 
     public void SetHighlights(IEnumerable<(int Start, int End)> segments)
     {
         _segments.Clear();
-        _segments.AddRange(segments);
+        foreach (var (start, end) in segments)
+            _segments.Add(new TextSegment { StartOffset = start, EndOffset = end });
         _editor.TextArea.TextView.InvalidateLayer(Layer);
     }
 
@@ -40,11 +44,11 @@ public sealed class DocumentHighlightRenderer : IBackgroundRenderer
     {
         if (_segments.Count == 0) return;
         var document = _editor.Document;
-        foreach (var (start, end) in _segments)
+        foreach (var segment in _segments)
         {
-            if (start < 0 || end > document.TextLength || start > end) continue;
+            if (segment.StartOffset < 0 || segment.EndOffset > document.TextLength) continue;
             foreach (var rect in BackgroundGeometryBuilder.GetRectsForSegment(
-                         textView, new TextSegment { StartOffset = start, EndOffset = end }))
+                         textView, segment))
             {
                 drawingContext.DrawRectangle(HighlightBrush, null, rect);
             }

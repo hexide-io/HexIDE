@@ -111,7 +111,7 @@ public class CommonDialogTests
         var localization = Substitute.For<ILocalizationService>();
         localization.GetString(Arg.Any<string>()).Returns("{0}");
         localization.GetString("Str.ProjectRunner.StartupFormFailedToLoad").Returns("{1}");
-        var runner = new ProjectRunnerService(
+        var runner = TestRunners.WithInterpreter(
             Substitute.For<IEventBus>(), windows, Substitute.For<IProjectManager>(),
             localization, new DebugController(), Substitute.For<IBreakpointService>(), new WatchService(), new RunScope());
         var ran = new Ran([], []);

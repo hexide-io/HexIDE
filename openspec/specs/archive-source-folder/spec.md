@@ -1,7 +1,7 @@
 # archive-source-folder Specification
 
 ## Purpose
-Provide a persistent, byte-preserving physical projection of a saved archive project for source control, while protecting external edits, with explicit synchronization through Project Explorer. Tracks #1190.
+Provide a persistent, byte-preserving physical projection of a saved archive project for source control, while protecting external edits, with explicit synchronization through Project Explorer. Introduced by #1190.
 
 ## Requirements
 

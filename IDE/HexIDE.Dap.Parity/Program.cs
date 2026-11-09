@@ -19,6 +19,7 @@ if (options is null)
         Usage: HexIDE.Dap.Parity <dump.jsonl> [--label <text>] [--timeout <seconds>] [--parallel <n>]
                                  [--project-template <file>] [--out <dir>] [--dry-run]
                                  [--erl-line-numbering <LineLabel|DocumentLine>]
+                                 [--execution-engine <Compiled|Interpreter>]
 
         Set HEXIDE_PARITY_ADAPTER to the debug adapter's executable. --dry-run writes the workspaces and starts nothing.
         Results go to <out>/results.jsonl, one line per program as it finishes, and the counts to <out>/summary.json.
@@ -60,6 +61,7 @@ Write(new JsonObject
     ["parallel"] = options.Parallel,
     ["erlLineNumbering"] = options.ErlLineNumbering,
     ["erlLineNumberingReason"] = "vb6.exe's Erl returns the line label; RDCore's default DocumentLine is by design (RD-VBAL 6.1.2.7.1.14).",
+    ["executionEngine"] = options.ExecutionEngine ?? "adapter's default",
     ["programs"] = cases.Count,
 });
 
@@ -224,6 +226,9 @@ async Task<Engine> RunEngine(string workspace, string module)
                 // VB6 corpus settings measured against RDCore 82c0c0a6 and 37c0ae8a (#3317, #3188).
                 ["Configuration__Workspace__Language"] = "vb6",
                 ["Configuration__Environment__ErlAfterErrClear"] = "Kept",
+                // Only when asked for: RDCore's default engine is compiled from 950a394d on, and a run should say which it used.
+                ["Configuration__Environment__ExecutionEngine"] = options.ExecutionEngine
+                    ?? Environment.GetEnvironmentVariable("Configuration__Environment__ExecutionEngine"),
             },
             ShutdownTimeout = TimeSpan.FromSeconds(5),
         });
@@ -379,14 +384,14 @@ partial class Program
     // The project file docs/dap-adapter-smoke.md describes, with no references: the intrinsics need none (measured).
     const string DefaultProject = """
         {
-          "Version": "0.1.0",
+          "Version": "1.0",
           "Configuration": [],
           "ProjectInfo": { "Name": "", "References": [], "Modules": [], "OtherFiles": [], "Folders": [], "PrecompilerConstants": {} }
         }
         """;
 }
 
-sealed record Options(string Dump, string? Label, int TimeoutSeconds, int Parallel, string? ProjectTemplate, string? Out, bool DryRun, string ErlLineNumbering)
+sealed record Options(string Dump, string? Label, int TimeoutSeconds, int Parallel, string? ProjectTemplate, string? Out, bool DryRun, string ErlLineNumbering, string? ExecutionEngine = null)
 {
     public static Options? Parse(string[] args)
     {
@@ -394,6 +399,7 @@ sealed record Options(string Dump, string? Label, int TimeoutSeconds, int Parall
         int timeout = 60, parallel = 1;
         var dryRun = false;
         var erlLineNumbering = "LineLabel";
+        string? executionEngine = null;
         for (var i = 0; i < args.Length; i++)
         {
             string? Next() => i + 1 < args.Length ? args[++i] : null;
@@ -411,6 +417,12 @@ sealed record Options(string Dump, string? Label, int TimeoutSeconds, int Parall
                         return null;
                     erlLineNumbering = numbering;
                     break;
+                case "--execution-engine":
+                    var engine = Next();
+                    if (engine is not ("Compiled" or "Interpreter"))
+                        return null;
+                    executionEngine = engine;
+                    break;
                 default:
                     if (args[i].StartsWith("--", StringComparison.Ordinal) || dump is not null)
                         return null;
@@ -418,7 +430,7 @@ sealed record Options(string Dump, string? Label, int TimeoutSeconds, int Parall
                     break;
             }
         }
-        return dump is not null && File.Exists(dump) ? new Options(dump, label, timeout, parallel, template, output, dryRun, erlLineNumbering) : null;
+        return dump is not null && File.Exists(dump) ? new Options(dump, label, timeout, parallel, template, output, dryRun, erlLineNumbering, executionEngine) : null;
     }
 }
 

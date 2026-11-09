@@ -73,7 +73,7 @@ public class RunningCodeEditTests : IAsyncDisposable
         var scope = new RunScope();
         var bus = new EventBus();
         Phase("create runner");
-        var runner = new ProjectRunnerService(bus, Substitute.For<IWindowManager>(), projects,
+        var runner = TestRunners.WithInterpreter(bus, Substitute.For<IWindowManager>(), projects,
             Composition.LocalizationService, controller, marks, new WatchService(), scope);
         var dock = Substitute.For<IDocumentDockService>();
         Phase("create context and root");

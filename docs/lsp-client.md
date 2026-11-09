@@ -741,6 +741,10 @@ build's errors. That is driven by what the source published rather than by a lis
 assembles, because the two disagree exactly when it matters — a form renamed since the last build is absent
 from the caller's list and still carries the marks.
 
+Diagnostic underlines and text colouring, and document-highlight boxes, are anchored to the editor's
+document. Replacing a designer header moves their ranges with the code before another server response
+arrives ([#512](https://github.com/hexide-io/HexIDE/issues/512)).
+
 ### What a diagnostic carries
 
 `range`, `message`, `severity`, `source`, `code` and `codeDescription.href`. `code` is the rule that fired

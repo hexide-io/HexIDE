@@ -5,6 +5,8 @@ Define the VB6-style step-through debugging experience over HexIDE's in-box tree
 breakpoints, break mode, stepping, and the inspection windows a VB6 developer expects to find behind
 F5, F8 and F9.
 
+**Known divergence:** Edit Watch has no default key, where the scenarios below bind Ctrl+W (#3430).
+
 The debugger is deliberately built on the interpreter rather than deferred to an external compiled-execution
 backend, because the interpreter is a permanent part of HexIDE and a developer who cannot stop a program on a
 line cannot evaluate the IDE at all. Its limits follow from that choice and are stated as behaviour, not
@@ -261,6 +263,15 @@ The shared routed Debug commands SHALL follow their handler guards: Toggle Break
 #### Scenario: Changing watch selection without changing focus
 - **WHEN** a watch row is selected or selection is cleared, including when the rows are rebuilt
 - **THEN** Edit Watch refreshes its enablement without requiring a focus change
+
+### Requirement: Set Next Statement is scoped to the running project
+The interpreter's Set Next Statement menu handler SHALL refuse a document outside the running project,
+or a request with no running project, before passing its module name to the debug controller. Refusal
+SHALL display the localized Set Next Statement refusal message.
+
+#### Scenario: Another project's same-named module
+- **WHEN** the interpreter is paused and the active code window belongs to another project with the same module name
+- **THEN** Set Next Statement refuses the move and leaves the execution point unchanged
 
 ### Requirement: The debugger SHALL be drivable by automation
 The debugger SHALL expose an automation surface mirroring the IDE debug commands.

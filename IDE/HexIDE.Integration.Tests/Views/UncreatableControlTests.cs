@@ -89,7 +89,7 @@ public class UncreatableControlTests
         localization.GetString("Str.ProjectRunner.StartupFormFailedToLoad").Returns("Form '{0}' failed: {1}");
         localization.GetString("Str.ProjectRunner.NotImplementedYet").Returns("Not implemented yet: {0}");
         var controller = new DebugController();
-        var runner = new ProjectRunnerService(
+        var runner = TestRunners.WithInterpreter(
             Substitute.For<IEventBus>(), Substitute.For<IWindowManager>(), Substitute.For<IProjectManager>(),
             localization, controller, Substitute.For<IBreakpointService>(), new WatchService(), new RunScope());
         return (runner, controller);

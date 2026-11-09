@@ -24,6 +24,29 @@ public class EventPumpTests
         });
 
     [Fact]
+    public void Sibling_events_from_one_statement_wait_for_the_first_suspended_handler()
+    {
+        var pump = new EventPump();
+        var ran = new List<string>();
+        var gate = new TaskCompletionSource();
+        pump.Raise("Click", () =>
+        {
+            pump.Raise("SelChange", async () =>
+            {
+                await pump.WhileSuspended(new ValueTask(gate.Task));
+                ran.Add("SelChange");
+            });
+            pump.Raise("Change", Logs(ran, "Change"));
+            return Task.CompletedTask;
+        });
+
+        ran.Should().BeEmpty();
+        gate.SetResult();
+        ran.Should().Equal("SelChange", "Change");
+        pump.IsIdle.Should().BeTrue();
+    }
+
+    [Fact]
     public void Events_that_come_while_a_handler_is_suspended_run_after_it_in_the_order_they_came()
     {
         var pump = new EventPump();
