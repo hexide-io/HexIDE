@@ -9,7 +9,7 @@
              x:Class="HexIDE.Forms.Views.AddProcedureView">
     <Border Margin="12,18,15,13">
 
-        <Grid ColumnDefinitions="*,10,75">
+        <Grid ColumnDefinitions="*,10,Auto">
 
             <StackPanel Spacing="7">
 
@@ -39,9 +39,9 @@
 
             </StackPanel>
 
-            <StackPanel Grid.Column="2" Spacing="10">
+            <StackPanel Grid.Column="2" Spacing="10" MinWidth="75">
                 <Button Command="{CompiledBinding OkCommand}" Content="{DynamicResource Str.Dialog.AddProcedure.Ok}" />
-                <Button Command="{CompiledBinding Cancel}" Content="{DynamicResource Str.Dialog.AddProcedure.Cancel}" />
+                <Button Command="{CompiledBinding Cancel}" Content="{DynamicResource Str.Dialog.AddProcedure.Cancel}" IsCancel="True" />
             </StackPanel>
 
         </Grid>

@@ -12,6 +12,29 @@ later without the editor noticing.
 
 ## Requirements
 
+### Requirement: One restart after a silent stdio initialize
+
+The client SHALL restart a live stdio server at most once when initialize times out, only if the channel tap
+confirms the request reached the channel and a read was waiting with no bytes returned. It SHALL record the
+restart and process identities in the protocol inspector and show a localized status-bar notice naming the
+server. A second unanswered handshake SHALL fail with a reason stating that it was tried twice.
+
+#### Scenario: The replacement answers
+- **WHEN** a live stdio server receives initialize but stays silent until the handshake deadline
+- **AND** its replacement answers initialize
+- **THEN** language features become available on the replacement connection
+- **AND** the inspector and status bar report the restart
+
+#### Scenario: Both processes stay silent
+- **WHEN** both the original and replacement stay silent past their initialize deadlines
+- **THEN** the connection fails with a reason saying it was tried twice
+- **AND** no third process is launched
+
+#### Scenario: Other startup failures
+- **WHEN** a server exits, refuses initialize, returns partial bytes, never receives the write, or startup is cancelled
+- **THEN** this automatic stdio restart does not apply
+
+
 ### Requirement: Configured initialization options
 
 The client SHALL pass a registration's `initializationOptions` JSON unchanged in the initialize request.
@@ -2615,3 +2638,23 @@ replacement server response (#512).
 - **WHEN** a designer edit replaces the header with a longer or shorter header
 - **THEN** the drawn range moves with that code immediately
 - **AND** no new diagnostic publication or document-highlight response is needed
+
+### Requirement: On-type formatting protocol seam selects one trigger owner
+
+The client SHALL expose a query and a request for a document URI and typed character. It SHALL send
+`textDocument/onTypeFormatting` only to the highest-priority running document claimant declaring that
+character in `documentOnTypeFormattingProvider.firstTriggerCharacter` or `moreTriggerCharacter`.
+The request SHALL carry the post-typing position and formatting options, return the server's text edits,
+and cancel after a 250 ms budget with no edits on timeout. This protocol seam does not yet transfer
+ownership of typing from the editor's local helpers (#2672).
+
+#### Scenario: A higher-priority server declares a different character
+
+- **WHEN** the first claimant declares only `;` and two lower claimants declare newline
+- **AND** the caller requests on-type formatting for newline
+- **THEN** only the higher-priority of the two newline claimants receives the request
+
+#### Scenario: The selected server does not answer
+
+- **WHEN** the on-type formatting request exhausts its budget
+- **THEN** the client sends `$/cancelRequest` for that request and returns no edits

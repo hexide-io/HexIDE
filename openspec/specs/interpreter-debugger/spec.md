@@ -324,6 +324,10 @@ Watches persist an expression across breaks, so the developer does not re-type i
 - **AND** an undefined module-scoped name SHALL display `<Expression not defined in context>` with type `Empty`
 - **AND** a procedure that has returned SHALL display `<Out of context>` with type `Empty`
 
+#### Scenario: Inactive watch types
+- **WHEN** an interpreter watch is displayed at design time or after End
+- **THEN** its Type column SHALL show `Empty`
+
 #### Scenario: Selecting an expanded watch child
 - **WHEN** the developer selects a child of an expanded watch after selecting another watch
 - **THEN** Edit Watch and Delete SHALL do nothing, including the context menu and Delete key

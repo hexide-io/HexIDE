@@ -1358,13 +1358,7 @@ public partial class MainViewViewModel : ObservableObject
         dockFactory.LayoutChanged += ScheduleLayoutSave;
         ReportSkippedPanelWindows();
 
-        VBWindowContext.RunTimeError += (form, e) =>
-        {
-            // Recorded BEFORE the dialog, and deliberately not tied to its lifetime: stop_project and
-            // shutdown_ide both close open dialogs, so anything that only exists while the modal is up is
-            // gone by the time a caller looks. (docs/mcp-server-gaps.md)
-            ReportRuntimeError(RunErrorText.For(e), HexIDE.Runtime.Interpreter.ErrorLocation.Of(e));
-        };
+        projectRunnerService.ErrorMet += ReportRuntimeError;
 
         // A startup form that cannot be built is reported the way a runtime error is, so the person sees it and
         // get_last_runtime_error returns it. It used to reach only the log, while F5 appeared to do nothing (#590).
@@ -1374,10 +1368,13 @@ public partial class MainViewViewModel : ObservableObject
         // error Sub Main did not handle. Those reached only the log or an unrecorded message box (#754).
         projectRunnerService.RunFailed += ReportEndedRun;
 
-        void ReportRuntimeError(string message, HexIDE.Runtime.Interpreter.ErrorLocation? where)
+        // Recorded BEFORE the dialog, and deliberately not tied to its lifetime: stop_project and
+        // shutdown_ide both close open dialogs, so anything that only exists while the modal is up is
+        // gone by the time a caller looks. (docs/mcp-server-gaps.md)
+        void ReportRuntimeError(RunFailure failure)
         {
-            RuntimeErrors.Record(message, where);
-            EndIfAsked(new RuntimeErrorViewModel(message)).ListenErrors();
+            RuntimeErrors.Record(failure.Text, failure.Location);
+            EndIfAsked(new RuntimeErrorViewModel(failure.Text)).ListenErrors();
         }
 
         // Nothing of a run that failed to start, or that something ended, is still running when it is reported.
@@ -1403,24 +1400,15 @@ public partial class MainViewViewModel : ObservableObject
         // and Continue runs the statement again. Recorded before the dialog, as every run-time error is. A dialog closed
         // without an answer, as stop_project and shutdown_ide close it, takes Debug, which loses nothing: what VB6 does
         // then is not measured.
-        debugController.HaltHost = async error =>
+        projectRunnerService.HaltHost = async failure =>
         {
-            var message = RunErrorText.For(error);
-            RuntimeErrors.Record(message, HexIDE.Runtime.Interpreter.ErrorLocation.Of(error));
-            if (!await windowManager.ShowDialog(new RuntimeErrorViewModel(message, canDebug: true)))
+            RuntimeErrors.Record(failure.Text, failure.Location);
+            if (!await windowManager.ShowDialog(new RuntimeErrorViewModel(failure.Text, canDebug: true)))
                 return true;
             if (projectRunnerService.CanEndProject)
                 projectRunnerService.EndProject();
             return false;
         };
-
-        // A compile error met while a form runs, such as a call to a Sub that does not exist, reached from a click.
-        // Reported as a run-time error is: recorded, so get_last_runtime_error sees it, and shown in the dialog
-        // whose End ends the run. It was a message box nothing recorded (#759). One route for every error a run
-        // meets, rather than VB6's separate compile-error box with OK and Help, because #754 already sends Sub
-        // Main's compile errors through this dialog and two routes would answer the same error differently.
-        // The run carries on, with the handler abandoned, as it does after a run-time error.
-        VBWindowContext.CompileError += (_, e) => ReportRuntimeError(e.Message, HexIDE.Runtime.Interpreter.ErrorLocation.Of(e));
 
         // Route `Debug.Print` output from the running program into the Immediate pane (VB6's Immediate window), as it is
         // written, so a line a statement left open shows at once and the next Debug.Print continues it (#1380).
@@ -1705,7 +1693,7 @@ public partial class MainViewViewModel : ObservableObject
 
     public void NYI()
     {
-        windowManager.MessageBox("This feature is not yet implemented", "NYI", MessageBoxButtons.Ok, MessageBoxIcon.Information);
+        windowManager.MessageBox(localization.GetString("Str.Shell.NotImplemented"), null, MessageBoxButtons.Ok, MessageBoxIcon.Information);
     }
 
     /// <summary>
@@ -1814,7 +1802,7 @@ public partial class MainViewViewModel : ObservableObject
         {
             Copyright = brand.IsStock ? upstreamNotice : brand.Copyright ?? "",
             // A branded About still says what it is built on, and carries HexIDE's own notice (#2042).
-            Provenance = brand.IsStock ? "" : $"Built on HexIDE {BuildInfo.Display}. {upstreamNotice}",
+            Provenance = brand.IsStock ? "" : string.Format(localization.GetString("Str.Dialog.About.Provenance"), BuildInfo.Display, upstreamNotice),
             Title = brand.IsStock ? $"{brand.Name} {BuildInfo.Display}" : brand.Name,
             SubTitle = brand.Tagline ?? "A cross-platform, VB6-compatible IDE",
             AdditionalCredits = brand.AdditionalCredits,

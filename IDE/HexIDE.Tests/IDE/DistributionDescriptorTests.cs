@@ -308,6 +308,7 @@ public sealed class DistributionDescriptorTests
 
     [Theory]
     [InlineData("Str.Dialog.About.Credits.Thanks")]
+    [InlineData("Str.Dialog.About.Provenance")]
     [InlineData("Str.Dialog.About.SigningKeys.RootKey")]
     [InlineData("Str.Dialog.About.SigningKeys.FirstPartyKey")]
     [InlineData("Str.Addins.Incompatible")]
@@ -318,6 +319,57 @@ public sealed class DistributionDescriptorTests
         BrandText.Apply(strings, "Acme");
 
         strings[key].Should().Be("HexIDE made this");
+    }
+
+    [Theory]
+    [InlineData("vba")]
+    [InlineData("acme-defaults")]
+    [InlineData("branding/profile")]
+    public void A_default_profile_may_be_a_name_or_a_folder_in_the_installation(string reference) =>
+        Parse($$"""{"schemaVersion":1,"id":"a","name":"A","defaultProfile":"{{reference}}"}""").DefaultProfile.Should().Be(reference);
+
+    [Theory]
+    [InlineData("none")]
+    [InlineData("../outside")]
+    [InlineData("/rooted/profile")]
+    [InlineData("C:/rooted/profile")]
+    [InlineData("a/../../b")]
+    [InlineData("Upper")]
+    public void An_unusable_default_profile_is_refused(string reference)
+    {
+        var parse = () => Parse($$"""{"schemaVersion":1,"id":"a","name":"A","defaultProfile":"{{reference}}"}""");
+
+        parse.Should().Throw<DistributionDescriptorException>().WithMessage("*defaultProfile*");
+    }
+
+    [Fact]
+    public void An_installations_default_profile_is_used_when_none_is_named_and_is_relative_to_the_installation()
+    {
+        var brand = new DistributionIdentity("a", "A", defaultProfile: "branding/profile");
+
+        ServerOptions.SelectProfile(null, "/where/typed", brand, "/installed").Should().Be(("branding/profile", "/installed"));
+    }
+
+    [Theory]
+    [InlineData("vba")]
+    [InlineData("none")]
+    [InlineData("./mine")]
+    public void A_profile_named_on_the_command_line_beats_the_installations_default(string selector)
+    {
+        var brand = new DistributionIdentity("a", "A", defaultProfile: "branding/profile");
+
+        ServerOptions.SelectProfile(selector, "/where/typed", brand, "/installed").Should().Be((selector, "/where/typed"));
+    }
+
+    [Fact]
+    public void Stock_HexIDE_selects_a_profile_as_it_always_has() =>
+        ServerOptions.SelectProfile(null, "/where/typed", DistributionIdentity.Stock, "/installed").Should().Be(((string?)null, "/where/typed"));
+
+    [Fact]
+    public void HexIDEs_credits_are_the_only_protected_row()
+    {
+        new HexIDE.Tools.TranslationEditor.TranslationRowViewModel(BrandText.UpstreamCreditsKey).IsProtected.Should().BeTrue();
+        new HexIDE.Tools.TranslationEditor.TranslationRowViewModel("Str.Menu.Help").IsProtected.Should().BeFalse();
     }
 
     private static IUserTranslationsService Overrides(string packId, string key, string value)

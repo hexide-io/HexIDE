@@ -287,6 +287,27 @@ public class ReadOnlyGreyingTests : IDisposable
 
     // ── The deltas' scenarios ───────────────────────────────────────────────────────────────────────────
 
+    [AvaloniaFact]
+    public void EditableLinksFollowThemeIncludingBetweenDarkPacks()
+    {
+        var themes = new ThemeService();
+        using var scope = TheIdesThemes(themes);
+        themes.Apply("Dark");
+        var editor = Show(OpenModule(ModuleKind.StandardModule, "Links", "' see https://example.com/orders or mail@example.com\n"));
+        Color LinkColour() => ((ISolidColorBrush)editor.TextArea.TextView.LinkTextForegroundBrush).Color;
+        var dark = LinkColour();
+        foreach (var pack in new[] { "Dark", "Abyss", "Classic" })
+        {
+            themes.Apply(pack);
+            RunJobsKeepingContext();
+            LinksOn(editor, LineOf(editor, "https://")).Should().HaveCount(2);
+            var background = ((ISolidColorBrush)editor.Background!).Color;
+            SyntaxHighlightingTheme.ContrastRatio(LinkColour(), background).Should().BeGreaterThanOrEqualTo(4.5);
+            LinkColour().Should().Be(((ISolidColorBrush)editor.FindResource("LinkTextBrush")!).Color);
+            if (pack == "Abyss") LinkColour().Should().NotBe(dark);
+        }
+    }
+
     [AvaloniaTheory]
     [InlineData(0, 6)]
     [InlineData(1, 2)]

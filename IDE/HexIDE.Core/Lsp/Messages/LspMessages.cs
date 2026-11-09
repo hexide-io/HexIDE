@@ -176,6 +176,9 @@ public record ShowMessageParams(
 
     [JsonIgnore]
     public bool IsEditRefusal { get; init; }
+
+    [JsonIgnore]
+    public string? ServerDisplayName { get; init; }
 }
 
 /// <param name="RootUri">
@@ -631,6 +634,18 @@ public record ServerCapabilities(
         && caps.ValueKind == System.Text.Json.JsonValueKind.Object
         && caps.TryGetProperty(capabilityName, out var value)
         && IsEnabled(value);
+
+    public static bool SupportsOnTypeFormatting(System.Text.Json.JsonElement? capabilities, string trigger) =>
+        trigger.Length > 0
+        && capabilities is { ValueKind: System.Text.Json.JsonValueKind.Object } caps
+        && caps.TryGetProperty("documentOnTypeFormattingProvider", out var provider)
+        && provider.ValueKind == System.Text.Json.JsonValueKind.Object
+        && ((provider.TryGetProperty("firstTriggerCharacter", out var first)
+             && first.ValueKind == System.Text.Json.JsonValueKind.String && first.GetString() == trigger)
+            || (provider.TryGetProperty("moreTriggerCharacter", out var more)
+                && more.ValueKind == System.Text.Json.JsonValueKind.Array
+                && more.EnumerateArray().Any(c => c.ValueKind == System.Text.Json.JsonValueKind.String
+                    && c.GetString() == trigger)));
 
     /// <summary>
     /// True when the server named this command in its <c>executeCommandProvider.commands</c>.
@@ -1134,6 +1149,13 @@ public record FormattingOptions(
 public record DocumentRangeFormattingParams(
     [property: JsonPropertyName("textDocument")] TextDocumentIdentifier TextDocument,
     [property: JsonPropertyName("range")] Range Range,
+    [property: JsonPropertyName("options")] FormattingOptions Options);
+
+/// <summary>Formatting after a typed trigger; Position is after the character was inserted.</summary>
+public record DocumentOnTypeFormattingParams(
+    [property: JsonPropertyName("textDocument")] TextDocumentIdentifier TextDocument,
+    [property: JsonPropertyName("position")] Position Position,
+    [property: JsonPropertyName("ch")] string Ch,
     [property: JsonPropertyName("options")] FormattingOptions Options);
 
 /// <summary>Document formatting request parameters.</summary>

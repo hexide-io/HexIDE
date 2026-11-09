@@ -73,6 +73,18 @@ public interface IProjectRunnerService : INotifyPropertyChanged
     event Action<string>? RunFailed;
 
     /// <summary>
+    /// A running program met an error and carries on: an event procedure was abandoned and the form is still there, until
+    /// End is pressed. The failure gives the text to show and where the error was raised.
+    /// </summary>
+    event Action<RunFailure>? ErrorMet;
+
+    /// <summary>
+    /// Who answers an error nothing in the program handles, while the program waits at the statement that raised it
+    /// (#1011). It answers true for Debug, and false for End once it has ended the run.
+    /// </summary>
+    Func<RunFailure, Task<bool>>? HaltHost { get; set; }
+
+    /// <summary>
     /// Where the error that <see cref="StartFailed"/> or <see cref="RunFailed"/> is reporting was raised, for a handler to
     /// read while it runs; null at any other time, and when no statement raised it, as for a syntax error found before
     /// the run began (#955).

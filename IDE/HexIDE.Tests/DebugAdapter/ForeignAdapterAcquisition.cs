@@ -71,18 +71,8 @@ internal static class ForeignAdapterAcquisition
             if (Environment.GetEnvironmentVariable("HEXIDE_FOREIGN_LSP_DOWNLOAD") is "0" or "false" or "off")
                 return new(null, $"{adapter} {version} is not cached; HEXIDE_FOREIGN_LSP_DOWNLOAD disables acquisition.");
             Directory.CreateDirectory(directory);
-            using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(60) };
-            using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(60));
-            using var response = http.GetAsync(asset.Url, HttpCompletionOption.ResponseHeadersRead, deadline.Token).GetAwaiter().GetResult();
-            response.EnsureSuccessStatusCode();
-            var partial = archive + ".partial";
-            try
-            {
-                using (var target = File.Create(partial)) response.Content.CopyToAsync(target, deadline.Token).GetAwaiter().GetResult();
-                Verify(partial, asset.Sha256);
-                File.Move(partial, archive, overwrite: true);
-            }
-            finally { if (File.Exists(partial)) File.Delete(partial); }
+            using var http = new HttpClient();
+            DownloadVerified(http, asset.Url, asset.Sha256, archive);
         }
         // Recheck even a cached archive before extraction/execution. An interrupted extraction is never reused.
         Verify(archive, asset.Sha256);
@@ -112,6 +102,18 @@ internal static class ForeignAdapterAcquisition
         if (!OperatingSystem.IsWindows())
             File.SetUnixFileMode(entry, File.GetUnixFileMode(entry) | UnixFileMode.UserExecute);
         return new(new(entry) { Arguments = ["--interpreter=vscode"], ShutdownTimeout = TimeSpan.FromSeconds(10) }, null);
+    }
+
+    internal static void DownloadVerified(HttpClient http, string url, string sha256, string archive)
+    {
+        var partial = archive + ".partial";
+        try
+        {
+            DownloadRetry.ToFile(http, url, partial, TimeSpan.FromSeconds(60));
+            Verify(partial, sha256);
+            File.Move(partial, archive, overwrite: true);
+        }
+        finally { if (File.Exists(partial)) File.Delete(partial); }
     }
 
     internal static void Verify(string file, string expected)

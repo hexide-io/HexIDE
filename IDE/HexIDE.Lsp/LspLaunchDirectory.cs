@@ -74,7 +74,7 @@ public static class LspLaunchDirectory
         // line is still there for whoever is asking why a server resolved its configuration oddly.
         logger.LogInformation(
             "Workspace directory '{Directory}' does not exist yet, so the language server will run in "
-            + "HexIDE's own working directory instead. Expected for a project that has not been saved; the "
+            + "" + HexIDE.IDE.Distribution.DisplayName + "'s own working directory instead. Expected for a project that has not been saved; the "
             + "server is still told that directory as the workspace to analyse.",
             directory);
 

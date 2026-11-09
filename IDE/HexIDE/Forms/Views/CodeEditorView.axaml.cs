@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using Avalonia;
@@ -2158,7 +2159,7 @@ public partial class CodeEditorView : UserControl
                 var updatedLineText = doc.GetText(updatedLine.Offset, updatedLine.Length);
                 var indent = VbAutoCloseProvider.GetIndentation(updatedLineText);
                 var bodyIndent = VbAutoCloseProvider.GetBodyIndent(indent, TextEditor.Options.IndentationSize);
-                var addCloser = closer is not null && !NextNonEmptyLineIs(doc, lastLineBefore, closer);
+                var addCloser = closer is not null && !HasMatchingCloser(doc, lastLineBefore, closer);
                 var insertText = addCloser ? newline + bodyIndent + newline + indent + closer : newline + indent;
 
                 // After the run: the provider places it, writing each line break as the described line's own. The
@@ -2209,18 +2210,58 @@ public partial class CodeEditorView : UserControl
     }
 
     /// <summary>
-    /// Checks whether the next non-empty line after <paramref name="currentLineNumber"/>
-    /// contains the expected closing statement (case-insensitive, ignoring whitespace).
+    /// Looks past the body for a closer, counting nested blocks of the same kind.
+    /// A different procedure cannot supply the missing closer.
     /// </summary>
-    private static bool NextNonEmptyLineIs(TextDocument doc, int currentLineNumber, string closer)
+    private static bool HasMatchingCloser(TextDocument doc, int currentLineNumber, string closer)
     {
+        string CodeOn(DocumentLine line)
+        {
+            var text = doc.GetText(line.Offset, line.Length);
+            return text[..ReadOnlyRegions.CommentStartOn(text, 0, text.Length)];
+        }
+
+        var closingPattern = new Regex(@"^\s*" + Regex.Escape(closer).Replace("\\ ", @"\s+") + @"\b",
+            RegexOptions.IgnoreCase);
+        var procedureEnd = new Regex(@"^\s*End\s+(Sub|Function|Property)\b", RegexOptions.IgnoreCase);
+        var insideProcedure = false;
+        for (var i = currentLineNumber; i > 0; i--)
+        {
+            var line = doc.GetLineByNumber(i);
+            var text = CodeOn(line);
+            if (procedureEnd.IsMatch(text))
+                break;
+            if (VbAutoCloseProvider.GetClosingStatement(text) is "End Sub" or "End Function" or "End Property")
+            {
+                insideProcedure = true;
+                break;
+            }
+        }
+
+        var depth = 1;
         for (var i = currentLineNumber + 1; i <= doc.LineCount; i++)
         {
             var line = doc.GetLineByNumber(i);
-            var text = doc.GetText(line.Offset, line.Length).Trim();
-            if (text.Length == 0)
+            var text = CodeOn(line);
+            while (VbAutoCloseProvider.IsContinuationLine(text) && i < doc.LineCount)
+            {
+                line = doc.GetLineByNumber(++i);
+                text = text.TrimEnd()[..^1] + " " + CodeOn(line).TrimStart();
+            }
+
+            if (closingPattern.IsMatch(text))
+            {
+                if (--depth == 0)
+                    return true;
                 continue;
-            return string.Equals(text, closer, StringComparison.OrdinalIgnoreCase);
+            }
+
+            var nestedCloser = VbAutoCloseProvider.GetClosingStatement(text);
+            if ((insideProcedure || closer != "#End If")
+                && (nestedCloser is "End Sub" or "End Function" or "End Property" || procedureEnd.IsMatch(text)))
+                return false;
+            if (nestedCloser == closer)
+                depth++;
         }
         return false;
     }

@@ -10,16 +10,15 @@
     <HeaderedContentControl Header="{DynamicResource Str.Options.Grid.GroupHeader}" Padding="10" VerticalAlignment="Top">
         <StackPanel Orientation="Vertical" Spacing="6">
             <CheckBox IsChecked="{CompiledBinding ShowGrid}" Content="{DynamicResource Str.Options.Grid.ShowGrid}" />
-            <DockPanel Margin="20,0,0,0">
-                <AccessText x:Name="GridWidthLabel" VerticalAlignment="Center" Width="80" Text="{DynamicResource Str.Options.Grid.Width}" />
-                <TextBox Width="60" HorizontalAlignment="Left" Text="{CompiledBinding GridWidth}"
+            <!-- One grid, so the boxes line up after the longer caption, whatever the language (#3385). -->
+            <Grid Margin="20,0,0,0" ColumnDefinitions="Auto,Auto" RowDefinitions="Auto,6,Auto">
+                <AccessText x:Name="GridWidthLabel" VerticalAlignment="Center" MinWidth="74" Margin="0,0,6,0" Text="{DynamicResource Str.Options.Grid.Width}" />
+                <TextBox Grid.Column="1" Width="60" HorizontalAlignment="Left" Text="{CompiledBinding GridWidth}"
                          AutomationProperties.Name="{CompiledBinding #GridWidthLabel.Text, Converter={x:Static converters:AccessKeyNameConverter.Instance}, ConverterParameter=TrimColon}" />
-            </DockPanel>
-            <DockPanel Margin="20,0,0,0">
-                <AccessText x:Name="GridHeightLabel" VerticalAlignment="Center" Width="80" Text="{DynamicResource Str.Options.Grid.Height}" />
-                <TextBox Width="60" HorizontalAlignment="Left" Text="{CompiledBinding GridHeight}"
+                <AccessText x:Name="GridHeightLabel" Grid.Row="2" VerticalAlignment="Center" MinWidth="74" Margin="0,0,6,0" Text="{DynamicResource Str.Options.Grid.Height}" />
+                <TextBox Grid.Row="2" Grid.Column="1" Width="60" HorizontalAlignment="Left" Text="{CompiledBinding GridHeight}"
                          AutomationProperties.Name="{CompiledBinding #GridHeightLabel.Text, Converter={x:Static converters:AccessKeyNameConverter.Instance}, ConverterParameter=TrimColon}" />
-            </DockPanel>
+            </Grid>
             <CheckBox IsChecked="{CompiledBinding AlignToGrid}" Content="{DynamicResource Str.Options.Grid.AlignControls}" />
         </StackPanel>
     </HeaderedContentControl>

@@ -12,7 +12,7 @@
 # editor backups in the tree, dangling relative links in Markdown, machine-specific absolute
 # paths, C# code that writes to a fixed absolute path, personal-identity references, a
 # third-party project named outside the places we agreed it may be, and unresolved
-# merge-conflict markers, xUnit assertions in test sources, and C1 control characters.
+# merge-conflict markers, xUnit assertions in test sources, C1 control characters, and a doc or spec cited by line number.
 # Warns (exit 0) on: key material .gitignore already covers, clone roots under a Windows
 # Repos directory, and the upstream-attribution mention. Exits 2 when git cannot read the tree or the link scan cannot create its temp file.
 #
@@ -302,6 +302,17 @@ done < <(git grep --untracked -nIE '(^|[^.[:alnum:]_])Assert\.[[:upper:]][[:alnu
 while IFS= read -r hit; do
   [ -n "$hit" ] && note "C1 control character: $hit"
 done < <(LC_ALL=C git grep --untracked -nIP '(*UTF)[\x{80}-\x{9F}]' -- .)
+
+# 11. A doc or spec cited by line number. The line moves the next time anything above it changes, and the
+#     citation goes on reading as an authority: docs/interpreter-gaps.md records about nineteen that pointed
+#     past the end of the file (#3478). Cite a heading or a scenario, which survive an edit. A source file's
+#     line stays legal, because an audit reports what it read at a commit. Records of past state aren't scanned.
+capabilities="$(ls openspec/specs 2>/dev/null | paste -sd'|' -)"
+while IFS= read -r hit; do
+  [ -n "$hit" ] && note "doc or spec cited by line number (cite a heading or scenario): $hit"
+done < <(git grep --untracked -nIE "[[:alnum:]_-]+\.md:[0-9]+|(^|[^[:alnum:]_/.-])(${capabilities:-no-specs-found}):[0-9]+" -- '*.md' \
+  ':(exclude)CHANGELOG.md' ':(exclude)changelog.d/**' ':(exclude)openspec/changes/archive/**' ':(exclude)docs/archive/**' \
+  ':(exclude)docs/vb6-fidelity-oracle.md' ':(exclude)docs/vb6-fidelity-oracle/**' ':(exclude)scripts/probes/**')
 
 echo
 if [ "$fails" -eq 0 ]; then

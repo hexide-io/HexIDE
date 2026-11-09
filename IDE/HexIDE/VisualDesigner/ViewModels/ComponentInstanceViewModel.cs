@@ -34,7 +34,10 @@ public partial class ComponentInstanceViewModel : ObservableObject
         internal set
         {
             if (SetProperty(ref previewFailure, value))
+            {
                 OnPropertyChanged(nameof(HasDesignerPreview));
+                parentViewModel.RefreshPreviewSelection();
+            }
         }
     }
 

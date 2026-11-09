@@ -26,6 +26,9 @@ internal static class VbSignatures
             ["IPmt"] = [new SignatureEntry("IPmt(Rate, Per, NPer, PV, [FV], [Type]) As Double", ["Rate", "Per", "NPer", "PV", "FV", "Type"])],
             ["PPmt"] = [new SignatureEntry("PPmt(Rate, Per, NPer, PV, [FV], [Type]) As Double", ["Rate", "Per", "NPer", "PV", "FV", "Type"])],
             ["Rate"] = [new SignatureEntry("Rate(NPer, Pmt, PV, [FV], [Type], [Guess]) As Double", ["NPer", "Pmt", "PV", "FV", "Type", "Guess"])],
+            ["NPV"] = [new SignatureEntry("NPV(Rate, ValueArray) As Double", ["Rate", "ValueArray"])],
+            ["IRR"] = [new SignatureEntry("IRR(ValueArray, [Guess]) As Double", ["ValueArray", "Guess"])],
+            ["MIRR"] = [new SignatureEntry("MIRR(ValueArray, FinanceRate, ReinvestRate) As Double", ["ValueArray", "FinanceRate", "ReinvestRate"])],
             ["Pmt"] = [new SignatureEntry("Pmt(Rate, NPer, PV, [FV], [Type]) As Double", ["Rate", "NPer", "PV", "FV", "Type"])],
             ["FV"] = [new SignatureEntry("FV(Rate, NPer, Pmt, [PV], [Type]) As Double", ["Rate", "NPer", "Pmt", "PV", "Type"])],
             ["PV"] = [new SignatureEntry("PV(Rate, NPer, Pmt, [FV], [Type]) As Double", ["Rate", "NPer", "Pmt", "FV", "Type"])],
@@ -313,6 +316,11 @@ internal static class VbSignatures
             ["Minute"] = [new SignatureEntry("Minute(Time) As Integer", ["Time"],  "Returns the minute (0–59).")],
             ["Second"] = [new SignatureEntry("Second(Time) As Integer", ["Time"],  "Returns the second (0–59).")],
             ["Weekday"] = [new SignatureEntry("Weekday(Date, [FirstDayOfWeek]) As Integer", ["Date", "FirstDayOfWeek"], "Returns the day of the week (1–7).")],
+
+            // Descriptive positional labels; resource named arguments remain unmeasured (#2626).
+            ["LoadResString"] = [new SignatureEntry("LoadResString(id) As String", ["id"], "Reads a string from the project resource file.")],
+            ["LoadResData"] = [new SignatureEntry("LoadResData(id, type) As Byte()", ["id", "type"], "Reads bytes from the project resource file.")],
+            ["LoadResPicture"] = [new SignatureEntry("LoadResPicture(id, type) As Picture", ["id", "type"], "Reads a bitmap picture from the project resource file.")],
 
             // Inspection
             ["TypeName"]  = [new SignatureEntry("TypeName(VarName) As String",   ["VarName"], "Returns a String that provides information about a variable.")],

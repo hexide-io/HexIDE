@@ -20,7 +20,13 @@
     </UserControl.Styles>
     <Border Padding="5,8">
         <StackPanel Orientation="Vertical" Spacing="6">
-            <Grid ColumnDefinitions="50,*,12,75" RowDefinitions="Auto,3,Auto,6,Auto">
+            <Grid RowDefinitions="Auto,3,Auto,6,Auto">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" MinWidth="50" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="12" />
+                    <ColumnDefinition Width="Auto" MinWidth="75" />
+                </Grid.ColumnDefinitions>
 
                 <Label Content="{DynamicResource Str.Dialog.MenuEditor.Caption}" Grid.Row="0" Grid.Column="0"/>
                 <TextBox Grid.Row="0" Grid.Column="1" Text="{CompiledBinding SelectedMenu.Caption}" />
@@ -28,7 +34,7 @@
 
                 <Label Content="{DynamicResource Str.Dialog.MenuEditor.Name}" Grid.Row="2" Grid.Column="0"/>
                 <TextBox Grid.Row="2" Grid.Column="1" Text="{CompiledBinding SelectedMenu.Name}"/>
-                <Button Content="{DynamicResource Str.Dialog.MenuEditor.Cancel}" Command="{CompiledBinding Cancel}" Grid.Row="2" Grid.Column="3" />
+                <Button Content="{DynamicResource Str.Dialog.MenuEditor.Cancel}" Command="{CompiledBinding Cancel}" Grid.Row="2" Grid.Column="3" IsCancel="True" />
 
                 <Label Content="{DynamicResource Str.Dialog.MenuEditor.Index}" Grid.Row="4" Grid.Column="0"/>
                 <DockPanel Grid.Row="4" Grid.Column="1" Grid.ColumnSpan="3" LastChildFill="False">
@@ -54,7 +60,7 @@
                 <CheckBox Content="{DynamicResource Str.Dialog.MenuEditor.WindowList}" IsChecked="{CompiledBinding SelectedMenu.IsWindowsList}" Grid.Column="3" />
             </Grid>
             <Separator />
-            <Grid ColumnDefinitions="18,5,18,5,18,5,18,14,68,7,68,7,68" Margin="9,0">
+            <Grid ColumnDefinitions="18,5,18,5,18,5,18,14,Auto,7,Auto,7,Auto" Margin="9,0">
 
                 <Button Grid.Column="0" Padding="0" Command="{CompiledBinding MoveLeft}">
                     <Path Data="{StaticResource Geo.Left}" Fill="{DynamicResource IconInk}" Stretch="Uniform" Width="9" Height="9" />
@@ -68,9 +74,9 @@
                 <Button Grid.Column="6" Padding="0" Command="{CompiledBinding MoveDown}">
                     <Path Data="{StaticResource Geo.Bottom}" Fill="{DynamicResource IconInk}" Stretch="Uniform" Width="9" Height="9" />
                 </Button>
-                <Button Grid.Column="8" Command="{CompiledBinding Next}" Content="{DynamicResource Str.Dialog.MenuEditor.Next}" />
-                <Button Grid.Column="10" Command="{CompiledBinding Insert}" Content="{DynamicResource Str.Dialog.MenuEditor.Insert}" />
-                <Button Grid.Column="12" Command="{CompiledBinding Delete}" Content="{DynamicResource Str.Dialog.MenuEditor.Delete}" />
+                <Button Grid.Column="8" MinWidth="68" Command="{CompiledBinding Next}" Content="{DynamicResource Str.Dialog.MenuEditor.Next}" />
+                <Button Grid.Column="10" MinWidth="68" Command="{CompiledBinding Insert}" Content="{DynamicResource Str.Dialog.MenuEditor.Insert}" />
+                <Button Grid.Column="12" MinWidth="68" Command="{CompiledBinding Delete}" Content="{DynamicResource Str.Dialog.MenuEditor.Delete}" />
             </Grid>
             <ListBox Margin="3,0" Height="147" SelectedItem="{CompiledBinding SelectedMenu, Mode=TwoWay}"
                      ItemsSource="{CompiledBinding FlatMenu}">

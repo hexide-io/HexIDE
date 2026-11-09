@@ -537,6 +537,24 @@ reference implementation the client half is proved against.
 
 ---
 
+## Parser startup
+
+At startup the bundled server schedules a background parse of a small synthetic module containing
+declarations, calls, a loop and an incomplete assignment (#2502). The assignment forces SLL to fall
+back to LL with error recovery. The stdio read loop starts without waiting: initialization and document
+analysis can overlap the warm-up. Synthetic diagnostics are never published. Completion logs the duration
+and prediction stage; a warm-up failure is logged without stopping the server.
+
+Each parse owns its lexer, parser and token stream. ANTLR 4.13.1's `ParserATNSimulator` thread-safety
+contract permits sharing the generated decision DFAs and prediction-context cache across parser instances;
+its DFA updates and context-cache interning are locked (see the pinned C#
+[parser](https://github.com/antlr/antlr4/blob/4.13.1/runtime/CSharp/src/Atn/ParserATNSimulator.cs),
+[lexer](https://github.com/antlr/antlr4/blob/4.13.1/runtime/CSharp/src/Atn/LexerATNSimulator.cs) and
+[cache](https://github.com/antlr/antlr4/blob/4.13.1/runtime/CSharp/src/Atn/ATNSimulator.cs) implementations).
+This warms representative grammar paths, not every possible input, and an edit arriving during warm-up can still pay cold costs. The existing per-document
+budget and cached-result fallback still apply. Startup measurements are recorded in
+[issue #2502](https://github.com/hexide-io/HexIDE/issues/2502).
+
 ## Summary
 
 | Feature | Method | Depth | Principal limit |

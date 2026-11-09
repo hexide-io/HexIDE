@@ -110,6 +110,52 @@ public class DesignerInstantiationFailureTests
         finally { window.Close(); }
     }
 
+    [AvaloniaTheory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void Failed_preview_is_excluded_from_property_and_multiple_selection(bool selectBeforeFailure)
+    {
+        var component = new ThrowingComponent(true);
+        var (form, _, view, window) = Open(
+            "VERSION 5.00\r\nBegin VB.Form Form1\r\n" +
+            "   ClientHeight = 4500\r\n   ClientWidth = 6000\r\n" +
+            "   Begin Test.Broken Broken1\r\n" +
+            "      Width = 1500\r\n      Height = 450\r\n   End\r\nEnd\r\n",
+            new Dictionary<string, ComponentBaseClass> { [component.VBTypeName] = component });
+        try
+        {
+            var designer = (FormEditViewModel)view.DataContext!;
+            var broken = designer.AllComponents.Single(c => c.Name == "Broken1");
+            var dock = Substitute.For<IDocumentDockService>();
+            var grid = new PropertiesToolViewModel(dock, Substitute.For<IEventBus>(),
+                Substitute.For<IWindowManager>(), Substitute.For<ILocalizationService>());
+            dock.ActiveDocument.Returns(designer);
+            dock.PropertyChanged += Raise.Event<PropertyChangedEventHandler>(dock,
+                new PropertyChangedEventArgs(nameof(dock.ActiveDocument)));
+            if (selectBeforeFailure)
+            {
+                broken.PreviewFailure = null;
+                designer.SelectedComponent = broken;
+                designer.SetSelectedComponents([broken]);
+                broken.PreviewFailure = "Preview refused";
+            }
+            else
+            {
+                designer.SelectedComponent = broken;
+                designer.SetSelectedComponents([broken]);
+            }
+            designer.SelectedComponent.Should().BeSameAs(designer.Form);
+            designer.SelectedComponents.Should().BeEmpty();
+            grid.ComponentsProxy.Should().NotContain(broken);
+            grid.ComponentsProxy.Should().Contain(designer.Form);
+            grid.SelectedComponentProxy = broken;
+            grid.SelectedComponentProxy.Should().BeSameAs(designer.Form);
+            designer.SetSelectedComponents([broken, designer.Form]);
+            designer.SelectedComponents.Should().Equal(designer.Form);
+        }
+        finally { window.Close(); }
+    }
+
     // A StatusBar's designer instance builds, and refuses only when it is drawn: the usual "Ready … NUM" bar, a spring
     // panel beside a Contents panel with text, needs the Contents width HexIDE has not measured. That took the IDE down
     // from the render after the instance was made, so the guard covers layout and drawing as well (#2405).

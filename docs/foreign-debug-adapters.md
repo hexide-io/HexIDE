@@ -33,6 +33,10 @@ are **registry-attested at upload**, not computed-here provenance:
 - debugpy's portable `py2.py3-none-any.whl`: PyPI computes the SHA-256 when the publisher uploads the wheel and records it in [PyPI's version metadata](https://pypi.org/pypi/debugpy/1.8.22/json).
 - netcoredbg's release archives: GitHub computes the SHA-256 when the publisher uploads each asset and records it in the `digest` fields in the [official release API](https://api.github.com/repos/Samsung/netcoredbg/releases/tags/3.2.0-1092).
 
+Adapter and DAP schema downloads make up to three attempts for HTTP 5xx responses, timeouts or dropped
+connections, with 250 ms and 500 ms backoffs (#3489). Other HTTP errors and checksum mismatches do not
+retry; exhausting the attempts still leaves the adapter unavailable.
+
 Downloads use a partial file and are verified before promotion to the cache. Cached archives are
 verified again before each test process extracts them, so an interrupted extraction is never trusted.
 A mismatch refuses execution and fails an ordinary test even when adapters are optional. Only verified

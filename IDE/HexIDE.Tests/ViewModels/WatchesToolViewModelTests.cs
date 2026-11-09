@@ -88,6 +88,29 @@ public class WatchesToolViewModelTests
     private static DebugEvalResult OkResult(string display, string type)
         => new(true, display, type, false, new DebugNode("x", display, type));
 
+    // Measured design-time/after-End Type column: docs/vb6-fidelity-oracle/a-watch-and-its-context.md.
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task InactiveWatch_HasEmptyType(bool afterEnd)
+    {
+        _watchService.Add(new WatchExpression("modvar", WatchType.Expression, "Module1"));
+        var sut = CreateSut();
+        if (afterEnd)
+        {
+            _debug.State.Returns(DebugState.Paused);
+            _debug.EvaluateScopedWatchAsync("modvar", "Module1")
+                .Returns(Task.FromResult<DebugEvalResult?>(OkResult("5", "Integer")));
+            _debug.Stopped += Raise.Event<Action<StoppedInfo>>(new StoppedInfo(StopReason.StopStatement, "Module1", 7));
+            await Task.Yield();
+            sut.Rows[0].TypeName.Should().Be("Integer");
+            _debug.State.Returns(DebugState.Stopped);
+            _debug.Continued += Raise.Event<Action>();
+        }
+        sut.Rows[0].TypeName.Should().Be("Empty");
+        sut.Rows[0].Value.Should().Be("Str.Tool.Watches.OutOfContext");
+    }
+
     [AvaloniaFact]
     public void AddingWatchToService_CreatesRow()
     {

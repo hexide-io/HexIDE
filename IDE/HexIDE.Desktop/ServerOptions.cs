@@ -352,8 +352,21 @@ internal static class ServerOptions
         !string.IsNullOrWhiteSpace(value) && !value.StartsWith('-') &&
         Match(value) == null && !value.Equals("/personality", StringComparison.OrdinalIgnoreCase);
 
-    internal static HexIDE.Profiles.ProfileSnapshot? ResolveProfile(string invocationDirectory, string userDataDirectory) =>
-        new HexIDE.Profiles.ProfileResolver(UserDataDirectory ?? userDataDirectory, invocationDirectory).Resolve(Profile);
+    internal static HexIDE.Profiles.ProfileSnapshot? ResolveProfile(string invocationDirectory, string userDataDirectory)
+    {
+        var (selector, directory) = SelectProfile(Profile, invocationDirectory, Distribution.Current, AppContext.BaseDirectory);
+        return new HexIDE.Profiles.ProfileResolver(UserDataDirectory ?? userDataDirectory, directory).Resolve(selector);
+    }
+
+    /// <summary>
+    /// What to resolve, and what a relative path in it is relative to. A <c>--profile</c> on the command line beats the
+    /// installation's default and is relative to where it was typed; the default is relative to the installation.
+    /// </summary>
+    internal static (string? Selector, string Directory) SelectProfile(string? explicitSelector, string invocationDirectory,
+        DistributionIdentity distribution, string installationDirectory) =>
+        explicitSelector == null && distribution.DefaultProfile is { } installationDefault
+            ? (installationDefault, installationDirectory)
+            : (explicitSelector, invocationDirectory);
 
     private static string Spelling(CommandLineOption option) =>
         option.TakesValue ? $"--{option.Name} {option.ValueName}" : $"--{option.Name}";

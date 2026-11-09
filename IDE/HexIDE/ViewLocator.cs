@@ -54,6 +54,7 @@ public class ViewLocator : IDataTemplate
         Register<FormDesignerGridPageViewModel, FormDesignerGridPageView>();
         Register<DeveloperPageViewModel, DeveloperPageView>();
         Register<AddinOptionsPageViewModel, AddinOptionsPageView>();
+        Register<AddinsOverviewPageViewModel, AddinsOverviewPageView>();
         Register<AddinConsentDialogViewModel, AddinConsentDialog>();
         Register<WorkspaceArtifactConsentViewModel, WorkspaceArtifactConsentView>();
         Register<WorkspaceArtifactPageViewModel, WorkspaceArtifactPageView>();

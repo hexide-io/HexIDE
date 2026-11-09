@@ -141,10 +141,10 @@ public class HaltOnErrorTests
         var halts = new List<string>();
         var places = new List<HexIDE.Runtime.Interpreter.ErrorLocation?>();
         var pending = new Queue<TaskCompletionSource<bool>>();
-        controller.HaltHost = async error =>
+        runner.HaltHost = async failure =>
         {
-            halts.Add(error.Message);
-            places.Add(HexIDE.Runtime.Interpreter.ErrorLocation.Of(error));
+            halts.Add(failure.Text);
+            places.Add(failure.Location);
             var answer = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
             pending.Enqueue(answer);
             var debug = await answer.Task;

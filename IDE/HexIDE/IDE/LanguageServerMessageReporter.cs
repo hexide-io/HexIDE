@@ -58,7 +58,9 @@ public sealed class LanguageServerMessageReporter : IDisposable
         // whitespace keeps a multi-line message from pushing the status bar around, and the length cap
         // stops a runaway one from filling it — neither is sanitisation, because nothing here interprets
         // the string; it is only ever displayed.
-        var text = Flatten(p.LocalizationKey is { } key ? _localization.GetString(key) : p.Message);
+        var text = p.LocalizationKey is { } key ? _localization.GetString(key) : p.Message;
+        if (p.ServerDisplayName is { } name) text = string.Format(text, name);
+        text = Flatten(text);
         if (text.Length == 0) return;
 
         var formatKey = p.IsEditRefusal ? "Str.Lsp.EditNotApplied"
