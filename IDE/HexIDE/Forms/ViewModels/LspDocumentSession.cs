@@ -212,6 +212,12 @@ internal sealed class LspDocumentSession : IDisposable
     /// </remarks>
     public bool IsOpen => started && !disposed && !renaming;
 
+    // Raised for each session started. Nothing in the IDE listens. The test suites' LspSessionLeakGuard does, and fails
+    // the run on any still open at the end (#3476).
+    internal static event Action<LspDocumentSession>? Started;
+
+    internal bool IsDisposed => disposed;
+
     /// <summary>
     /// True while the document is open and no diagnostics have arrived since it was opened or last edited,
     /// so whatever a caller holds for it describes older text or nothing at all.
@@ -263,6 +269,7 @@ internal sealed class LspDocumentSession : IDisposable
     {
         if (started || disposed) return;
         started = true;
+        Started?.Invoke(this);
 
         client.DiagnosticsPublished += OnDiagnosticsPublished;
 
