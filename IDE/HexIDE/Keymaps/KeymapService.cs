@@ -17,10 +17,14 @@ public sealed class KeymapService : IKeymapService
     internal static event Action? GesturesChanged;
 
     private readonly Dictionary<string, IReadOnlyList<KeyGesture>> _defaults;
+    private readonly string _overridesPath;
+    private Dictionary<string, IReadOnlyList<KeyGesture>>? _activeBaseline;
 
     private readonly Dictionary<string, string> _packPaths = new(StringComparer.OrdinalIgnoreCase);
 
     public string ActiveKeymap { get; private set; } = "Default";
+
+    public bool HasProfileKeymap { get; private set; }
 
     public IReadOnlyList<string> AvailableKeymaps { get; }
 
@@ -28,6 +32,7 @@ public sealed class KeymapService : IKeymapService
 
     internal KeymapService(string packDirectory)
     {
+        _overridesPath = Path.Combine(packDirectory, "overrides", "bindings.json");
         var names = new List<string> { "Default", "VB6" };
         try
         {
@@ -72,7 +77,9 @@ public sealed class KeymapService : IKeymapService
             foreach (var gesture in bindings.TryGetValue(name, out var binding) ? binding : _defaults[name])
                 command.Gestures.Add(gesture);
         }
+        HasProfileKeymap = true;
         ActiveKeymap = pack.Name;
+        ApplyUserOverrides();
         GesturesChanged?.Invoke();
     }
 
@@ -104,6 +111,7 @@ public sealed class KeymapService : IKeymapService
 
     public void Apply(string keymapName)
     {
+        HasProfileKeymap = false;
         ActiveKeymap = keymapName;
 
         // Step 1: Reset all commands to factory defaults.
@@ -117,6 +125,7 @@ public sealed class KeymapService : IKeymapService
         if (keymapName == "Default")
         {
             Log.Debug("KeymapService: Applied Default keymap (factory gestures restored)");
+            ApplyUserOverrides();
             GesturesChanged?.Invoke();
             return;
         }
@@ -168,6 +177,114 @@ public sealed class KeymapService : IKeymapService
             return;
         }
 
+        ApplyUserOverrides();
         GesturesChanged?.Invoke();
+    }
+
+    public IReadOnlyDictionary<string, IReadOnlyList<KeyGesture>> GetPackBindings(string keymapName)
+    {
+        if (keymapName == ActiveKeymap && _activeBaseline is not null)
+            return new Dictionary<string, IReadOnlyList<KeyGesture>>(_activeBaseline);
+        var result = new Dictionary<string, IReadOnlyList<KeyGesture>>(_defaults);
+        if (keymapName == "Default") return result;
+        using var stream = _packPaths.TryGetValue(keymapName, out var path)
+            ? File.OpenRead(path)
+            : keymapName == "VB6"
+                ? AssetLoader.Open(new Uri("avares://HexIDE/Keymaps/Packs/VB6.json"))
+                : throw new InvalidOperationException($"Unknown keymap '{keymapName}'.");
+        var pack = JsonSerializer.Deserialize(stream, KeymapJsonContext.Default.KeymapPackRecord)
+                   ?? throw new JsonException();
+        if (pack.Bindings is not null)
+            foreach (var (name, value) in pack.Bindings)
+                if (result.ContainsKey(name))
+                    result[name] = string.IsNullOrEmpty(value) ? [] : [KeyGesture.Parse(value)];
+        return result;
+    }
+
+    public IReadOnlyDictionary<string, string> LoadOverrides()
+    {
+        if (Static.IsRecoveryMode || !File.Exists(_overridesPath)) return new Dictionary<string, string>();
+        try { return ParseOverrides(File.ReadAllText(_overridesPath)); }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "KeymapService: Failed to read overrides '{Path}'", _overridesPath);
+            return new Dictionary<string, string>();
+        }
+    }
+
+    internal static Dictionary<string, string> ParseOverrides(string json)
+    {
+        var pack = JsonSerializer.Deserialize(json, KeymapJsonContext.Default.KeymapPackRecord)
+                   ?? throw new JsonException();
+        if (pack.Bindings is null) throw new JsonException();
+        var result = new Dictionary<string, string>();
+        foreach (var (name, value) in pack.Bindings)
+        {
+            if (!CommandKeyMapping.Table.ContainsKey(name)) continue;
+            result[name] = string.IsNullOrEmpty(value) ? "" : KeyGesture.Parse(value).ToString();
+        }
+        return result;
+    }
+
+    internal static string SerializeOverrides(IReadOnlyDictionary<string, string> bindings) =>
+        JsonSerializer.Serialize(new KeymapPackRecord("Overrides", null, new(bindings)),
+            new KeymapJsonContext(new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase, Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping }).KeymapPackRecord);
+
+    public void SaveOverrides(IReadOnlyDictionary<string, string> bindings)
+    {
+        if (!Static.IsRecoveryMode)
+            AtomicFileWriter.WriteAllText(_overridesPath, SerializeOverrides(bindings));
+    }
+
+    public void RefreshOverrides()
+    {
+        if (_activeBaseline is not null)
+            foreach (var (name, gestures) in _activeBaseline)
+            {
+                var command = CommandKeyMapping.Table[name];
+                command.Gestures.Clear();
+                foreach (var gesture in gestures) command.Gestures.Add(gesture);
+            }
+        ApplyUserOverrides();
+        GesturesChanged?.Invoke();
+    }
+
+    private void ApplyUserOverrides()
+    {
+        _activeBaseline = CommandKeyMapping.Table.ToDictionary(p => p.Key,
+            p => (IReadOnlyList<KeyGesture>)p.Value.Gestures.ToArray());
+        if (Static.IsRecoveryMode || !File.Exists(_overridesPath))
+            return;
+
+        try
+        {
+            using var stream = File.OpenRead(_overridesPath);
+            var pack = JsonSerializer.Deserialize(stream, KeymapJsonContext.Default.KeymapPackRecord)
+                       ?? throw new JsonException();
+            var bindings = new Dictionary<string, KeyGesture?>();
+            if (pack.Bindings is not null)
+                foreach (var (name, value) in pack.Bindings)
+                {
+                    if (!CommandKeyMapping.Table.ContainsKey(name))
+                    {
+                        Log.Warning("KeymapService: Unknown command '{Name}' in overrides '{Path}'", name, _overridesPath);
+                        continue;
+                    }
+                    bindings[name] = string.IsNullOrEmpty(value) ? null : KeyGesture.Parse(value);
+                }
+
+            // Validate every binding before changing any command.
+            foreach (var (name, gesture) in bindings)
+            {
+                var command = CommandKeyMapping.Table[name];
+                command.Gestures.Clear();
+                if (gesture is not null)
+                    command.Gestures.Add(gesture);
+            }
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "KeymapService: Failed to apply user overrides '{Path}', keeping selected pack", _overridesPath);
+        }
     }
 }
