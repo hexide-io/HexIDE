@@ -302,7 +302,7 @@ control SHALL be written back once, from the block it was read as.
 Unseen, it is edited around blindly. VB6's box is an empty PictureBox; labelling it is HexIDE's one divergence.
 
 #### Scenario: A control recording only its extents
-- **WHEN** a form holds an ImageList, which records `Left`, `Top`, `_ExtentX` and `_ExtentY` and no `Width` or `Height`
+- **WHEN** a form holds a control HexIDE does not model that records `Left`, `Top`, `_ExtentX` and `_ExtentY` and no `Width` or `Height`
 - **THEN** its box is at `Left` and `Top`, 1200 by 480 twips, as VB6 draws it, whatever the extents say
 
 #### Scenario: A control inside a Frame

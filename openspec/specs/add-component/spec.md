@@ -13,10 +13,11 @@ and unforgiving impression.
 The IDE SHALL provide commands to add a standard module, a class module, a form, a user control and a
 property page to the current project.
 
-These five are the component kinds a HexIDE project can contain, so the menu covers the model exactly. VB6's
-menu also offered kinds that depended on technologies HexIDE deliberately does not carry — an MDI parent
-form, browser-hosted documents, and third-party designer plug-ins. Those are absent rather than disabled:
-offering a command that cannot work is worse than not offering it.
+These five are the component kinds a HexIDE project can contain today. Add MDI Form SHALL be shown, disabled, on the
+Project menu and the toolbar's Add flyout until MDI forms are built, because that is unbuilt work and not a technology
+HexIDE refuses (#902). VB6's menu also offered kinds that depended on technologies HexIDE deliberately does not carry
+— browser-hosted documents and third-party designer plug-ins. Those SHALL be absent rather than disabled: offering a
+command that cannot work is worse than not offering it.
 
 #### Scenario: Adding each kind
 - **WHEN** the developer adds any of the five supported kinds

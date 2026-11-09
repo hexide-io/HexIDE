@@ -1,7 +1,7 @@
 # compiler-root-session Specification
 
 ## Purpose
-Initialize an explicitly supplied compiler root endpoint with bounded I/O, validated metadata and clear socket ownership. Tracks #1199.
+Initialize an explicitly supplied compiler root endpoint with bounded I/O, validated metadata and clear socket ownership. Introduced by #1199.
 
 ## Requirements
 
@@ -50,7 +50,7 @@ The adapter SHALL close its socket on initialization failure or cancellation wit
 ### Requirement: Limited compatibility claim
 The adapter SHALL NOT claim independent process launch, project loading, ongoing notification handling or language/debug services from successful initialization alone. Compiler language-data schema compatibility SHALL remain distinct from nonempty-object validation.
 
-#### Scenario: Live initialization through native-host startup
-- **WHEN** a fresh compiler launched by the isolated stock IDE completes initialization
-- **THEN** evidence identifies the compiler build and the native-host dependency
-- **AND** standalone startup remains unverified
+#### Scenario: Live initialization of a compiler the adapter started
+- **WHEN** a compiler started as `compiler-process` requires completes initialization
+- **THEN** evidence identifies the compiler build
+- **AND** that evidence SHALL NOT be taken as project loading or as language or debug services working

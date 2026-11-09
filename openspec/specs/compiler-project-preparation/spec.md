@@ -1,7 +1,7 @@
 # compiler-project-preparation Specification
 
 ## Purpose
-Prepare an owned staged project for an external compiler without changing the original project or persistent source projection. Tracks #1202.
+Prepare an owned staged project for an external compiler without changing the original project or persistent source projection. Introduced by #1202.
 
 ## Requirements
 
