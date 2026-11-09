@@ -1213,14 +1213,11 @@ refusal SHALL name that bar.
 - **THEN** the refusal names that bar and its position, with `set_range_value` and `wheel` as the routes that move it
 
 ### Requirement: A tool that needs a run engine SHALL say when none runs the project
-While nothing is running and no run engine runs the startup project, as for a project an add-in read, `run_project`,
-`step_into`, `step_over`, `step_out`, `run_to_cursor`, `break_program`, `continue_program`, `stop_project`,
-`set_next_statement`, `get_locals`, `get_call_stack` and `evaluate` SHALL refuse, and the refusal SHALL say that no run
-engine runs the project and name what can run it: each launch add-ins offer for it, as the `invoke_menu_item` path that
-starts it, or, with none, that no add-in offers one and how to run it under a debug adapter. `get_debug_state`,
-`get_watches`, `add_watch` and `get_last_runtime_error` SHALL say the same in their `note`.
-No tool SHALL report such a project as already running or as not loaded. A tool SHALL take this from the run engine,
-through the project runner, and SHALL NOT decide it from who read the project.
+While nothing is running and no run engine runs the startup project, as for a project an add-in read, every tool that
+starts, drives or reads a run SHALL say so and name what can run it: each launch add-ins offer for it, as the
+`invoke_menu_item` path that starts it, or, with none, how to run it under a debug adapter. A refusal SHALL say it in its
+error and a report in its `note`. No tool SHALL report such a project as already running or as not loaded, and each SHALL
+take this from the run engine.
 
 #### Scenario: An add-in's project with a launch
 - **WHEN** `run_project` is called with an add-in's project at startup, and an add-in offers a launch for it
@@ -1233,6 +1230,10 @@ through the project runner, and SHALL NOT decide it from who read the project.
 #### Scenario: A tool that reads a paused program
 - **WHEN** `get_locals` is called with an add-in's project at startup and nothing running
 - **THEN** the refusal says no run engine runs it, and does not send the caller to `run_project`
+
+#### Scenario: A tool that reports on a run
+- **WHEN** `get_debug_state`, `get_watches`, `add_watch` or `get_last_runtime_error` is called with an add-in's project at startup and nothing running
+- **THEN** its `note` says no run engine runs it
 
 #### Scenario: A project the engine runs
 - **WHEN** `get_locals` is called with nothing running and a project the engine runs at startup
