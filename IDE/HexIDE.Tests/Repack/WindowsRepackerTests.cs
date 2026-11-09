@@ -1,14 +1,32 @@
 using System.Buffers.Binary;
 using System.Diagnostics;
 using System.Reflection.PortableExecutable;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
 using HexIDE.Desktop;
 using HexIDE.IDE;
 using HexIDE.Repack;
+using HexIDE.Tests.Infrastructure;
 using SkiaSharp;
 
 namespace HexIDE.Tests.Repack;
+
+/// <summary>
+/// For a test that repacks a real executable. The test host's own launcher is what it uses, and the tool only takes
+/// x64 builds, so an Arm runner has nothing it can repack.
+/// </summary>
+public sealed class WindowsX64OnlyFactAttribute : FactAttribute
+{
+    public WindowsX64OnlyFactAttribute(
+        [CallerFilePath] string? sourceFilePath = null,
+        [CallerLineNumber] int sourceLineNumber = -1)
+            : base(sourceFilePath, sourceLineNumber)
+    {
+        if (!OperatingSystem.IsWindows() || RuntimeInformation.ProcessArchitecture != Architecture.X64)
+            Skip = "Needs a Windows x64 test host, whose launcher stands in for a stock executable.";
+    }
+}
 
 /// <summary>
 /// The Windows repack tool (#3413). What Windows itself reports about the output is asserted on Windows, where the
@@ -228,7 +246,7 @@ public sealed class WindowsRepackerTests : IDisposable
     public void Stock_keeps_its_installer_identity()
     {
         // The defaults in the one script: changing these would orphan every stock installation.
-        var script = File.ReadAllText(Path.Combine(RepositoryRoot(), "installer", "HexIDE.iss")).ReplaceLineEndings("\n");
+        var script = File.ReadAllText(Path.Combine(RepoTree.Root(), "installer", "HexIDE.iss")).ReplaceLineEndings("\n");
 
         script.Should().Contain("""#define AppId "{{B2630434-546D-47B0-A96E-EE613B99F71D}" """.TrimEnd());
         script.Should().Contain("""#define AppName "HexIDE" """.TrimEnd());
@@ -236,17 +254,6 @@ public sealed class WindowsRepackerTests : IDisposable
         script.Should().Contain("""#define SetupOutputDir "..\IDE\bin" """.TrimEnd());
         script.Should().Contain("""#define SetupBaseName "hexide-windows-amd64-setup" """.TrimEnd());
         script.Should().Contain("#ifdef AppUserModelId", "stock's shortcut declares no taskbar identity");
-    }
-
-    private static string RepositoryRoot()
-    {
-        for (var directory = new DirectoryInfo(AppContext.BaseDirectory); directory != null; directory = directory.Parent)
-        {
-            if (Directory.Exists(Path.Combine(directory.FullName, "installer")) && Directory.Exists(Path.Combine(directory.FullName, "IDE")))
-                return directory.FullName;
-        }
-
-        throw new DirectoryNotFoundException("No repository root above the test output.");
     }
 
     // --- The taskbar's identity ---
@@ -331,7 +338,7 @@ public sealed class WindowsRepackerTests : IDisposable
 
     // --- A whole run, on the platform that can do one ---
 
-    [WindowsOnlyFact]
+    [WindowsX64OnlyFact]
     public void A_repacked_executable_says_it_is_the_brand_when_Windows_reads_it()
     {
         WriteStock();
@@ -354,7 +361,7 @@ public sealed class WindowsRepackerTests : IDisposable
         version.ProductBuildPart.Should().Be(stock.ProductBuildPart);
     }
 
-    [WindowsOnlyFact]
+    [WindowsX64OnlyFact]
     public void A_brand_with_no_copyright_keeps_stocks_rather_than_claiming_none()
     {
         WriteStock();
@@ -366,7 +373,7 @@ public sealed class WindowsRepackerTests : IDisposable
         FileVersionInfo.GetVersionInfo(RepackedExecutable).LegalCopyright.Should().Be(stock.LegalCopyright);
     }
 
-    [WindowsOnlyFact]
+    [WindowsX64OnlyFact]
     public void The_icon_is_the_brands_with_nothing_left_of_stocks()
     {
         WriteStock();
@@ -395,7 +402,7 @@ public sealed class WindowsRepackerTests : IDisposable
         large.GetPixel(128, 128).Should().Be(SKColors.OrangeRed);
     }
 
-    [WindowsOnlyFact]
+    [WindowsX64OnlyFact]
     public void Every_file_but_the_executable_is_exactly_as_published()
     {
         WriteStock();
@@ -411,7 +418,7 @@ public sealed class WindowsRepackerTests : IDisposable
         File.ReadAllText(Path.Combine(app, "addins", "nested.dat")).Should().Be("nested");
     }
 
-    [WindowsOnlyFact]
+    [WindowsX64OnlyFact]
     public void The_brands_files_land_where_the_IDE_will_look_for_them()
     {
         WriteStock();
@@ -424,7 +431,7 @@ public sealed class WindowsRepackerTests : IDisposable
         resolved.OpenLogo().Should().NotBeNull();
     }
 
-    [WindowsOnlyFact]
+    [WindowsX64OnlyFact]
     public void A_default_profile_folder_travels_with_the_brand()
     {
         WriteStock();
@@ -437,7 +444,7 @@ public sealed class WindowsRepackerTests : IDisposable
         File.Exists(Path.Combine(Output, "app", "branding", "profile", "profile.json")).Should().BeTrue();
     }
 
-    [WindowsOnlyFact]
+    [WindowsX64OnlyFact]
     public void The_installer_inputs_are_written_beside_the_build_and_not_inside_it()
     {
         WriteStock();
@@ -450,7 +457,7 @@ public sealed class WindowsRepackerTests : IDisposable
         Directory.Exists(Path.Combine(Output, "app", "installer")).Should().BeFalse();
     }
 
-    [WindowsOnlyFact]
+    [WindowsX64OnlyFact]
     public void A_signed_stock_executable_comes_out_unsigned_and_the_run_says_so()
     {
         var signed = AppendCertificate(File.ReadAllBytes(HostExecutable));

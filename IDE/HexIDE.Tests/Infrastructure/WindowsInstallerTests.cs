@@ -9,7 +9,7 @@ public class WindowsInstallerTests
     public void InstallerUsesProtectedPerMachineDirectory()
     {
         Script.Should().Contain("PrivilegesRequired=admin\n");
-        Script.Should().Contain("DefaultDirName={autopf}\\HexIDE\n");
+        Script.Should().Contain("DefaultDirName={autopf}\\{#AppName}\n");
         Script.Should().Contain("ArchitecturesInstallIn64BitMode=x64compatible\n");
         Script.Should().NotContain("PrivilegesRequiredOverridesAllowed");
         Script.Should().NotContain("Permissions:");
@@ -20,7 +20,7 @@ public class WindowsInstallerTests
     {
         Script.Should().Contain("Source: \"{#PublishDir}\\*\"; DestDir: \"{app}\"; Flags: ignoreversion recursesubdirs createallsubdirs");
         Script.Should().Contain("Name: \"{app}\\addins\"");
-        Script.Should().Contain("Name: \"{group}\\HexIDE\"; Filename: \"{app}\\HexIDE.exe\"");
+        Script.Should().Contain("Name: \"{group}\\{#AppName}\"; Filename: \"{app}\\{#AppExe}\"");
         Script.Should().Contain("Uninstallable=yes\n");
         Script.Should().NotContain("[Registry]");
     }
@@ -37,7 +37,8 @@ public class WindowsInstallerTests
         Script.Should().Contain("AppVersion={#AppVersion}\n");
         // Fixed, like every other asset: hexide.io links downloads through releases/latest/download/<name>,
         // which cannot reach a name with the version in it.
-        Script.Should().Contain("OutputBaseFilename=hexide-windows-amd64-setup\n");
+        Script.Should().Contain("OutputBaseFilename={#SetupBaseName}\n");
+        Script.Should().Contain("#define SetupBaseName \"hexide-windows-amd64-setup\"\n");
     }
 
     [Fact]
