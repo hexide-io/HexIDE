@@ -5,19 +5,35 @@
   #error PublishDir must name the staged self-contained Desktop publish
 #endif
 
+#ifndef AppId
+  #define AppId "{{B2630434-546D-47B0-A96E-EE613B99F71D}"
+#endif
+#ifndef AppName
+  #define AppName "HexIDE"
+#endif
+#ifndef AppExe
+  #define AppExe "HexIDE.exe"
+#endif
+#ifndef SetupOutputDir
+  #define SetupOutputDir "..\IDE\bin"
+#endif
+#ifndef SetupBaseName
+  #define SetupBaseName "hexide-windows-amd64-setup"
+#endif
+
 [Setup]
-AppId={{B2630434-546D-47B0-A96E-EE613B99F71D}
-AppName=HexIDE
+AppId={#AppId}
+AppName={#AppName}
 AppVersion={#AppVersion}
-DefaultDirName={autopf}\HexIDE
-DefaultGroupName=HexIDE
+DefaultDirName={autopf}\{#AppName}
+DefaultGroupName={#AppName}
 PrivilegesRequired=admin
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 Uninstallable=yes
-UninstallDisplayIcon={app}\HexIDE.exe
-OutputDir=..\IDE\bin
-OutputBaseFilename=hexide-windows-amd64-setup
+UninstallDisplayIcon={app}\{#AppExe}
+OutputDir={#SetupOutputDir}
+OutputBaseFilename={#SetupBaseName}
 Compression=lzma2
 SolidCompression=yes
 
@@ -28,4 +44,8 @@ Name: "{app}\addins"
 Source: "{#PublishDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
-Name: "{group}\HexIDE"; Filename: "{app}\HexIDE.exe"
+#ifdef AppUserModelId
+Name: "{group}\{#AppName}"; Filename: "{app}\{#AppExe}"; AppUserModelID: "{#AppUserModelId}"
+#else
+Name: "{group}\{#AppName}"; Filename: "{app}\{#AppExe}"
+#endif

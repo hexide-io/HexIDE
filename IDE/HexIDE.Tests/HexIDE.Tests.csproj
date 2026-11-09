@@ -48,6 +48,7 @@
         <ProjectReference Include="..\HexIDE.AIChat\HexIDE.AIChat.csproj" />
         <!-- PackageSigner is used to produce signed fixtures for the verifier tests. -->
         <ProjectReference Include="..\HexIDE.AddinPacker\HexIDE.AddinPacker.csproj" />
+        <ProjectReference Include="..\HexIDE.Repack\HexIDE.Repack.csproj" />
     </ItemGroup>
 
     <!-- Exercise the actual Debug automation server, including its generated native stubs.
