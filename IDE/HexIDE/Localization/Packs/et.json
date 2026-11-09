@@ -1128,6 +1128,7 @@
     "Str.Layout.InvalidName": "Sisestage kordumatu ja mittetühi paigutuse nimi.",
     "Str.Layout.Skipped": "Kättesaamatud lisandmooduli aknad jäeti vahele: {0}",
     "Str.Layout.SaveFailed": "Paneelipaigutusi ei saanud salvestada.",
+    "Str.Project.AlreadyOpen": "Projekt {0} on juba avatud.",
     "Str.Options.Addins.Overview": "Lisandmoodulid laiendavad HexIDE tööriistade ja sätetega. Paigaldamiseks paki allkirjastatud pakett eraldi kausta allolevas kataloogis ja taaskäivita HexIDE. Haldamiseks vali lisandmoodul puust."
   }
 }

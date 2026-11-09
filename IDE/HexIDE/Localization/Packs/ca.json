@@ -1128,6 +1128,7 @@
     "Str.Layout.InvalidName": "Introduïu un nom de disposició únic i no buit.",
     "Str.Layout.Skipped": "S’han omès les finestres de complements no disponibles: {0}",
     "Str.Layout.SaveFailed": "No s’han pogut desar les disposicions dels panells.",
+    "Str.Project.AlreadyOpen": "El projecte {0} ja està obert.",
     "Str.Options.Addins.Overview": "Els complements amplien HexIDE amb eines i opcions. Per instal·lar-ne un, extraieu un paquet signat a la seva pròpia carpeta dins del directori indicat a sota i reinicieu HexIDE. Seleccioneu un complement a l’arbre per gestionar-lo."
   }
 }

@@ -1128,6 +1128,7 @@
     "Str.Layout.InvalidName": "Voer een unieke, niet-lege naam voor de indeling in.",
     "Str.Layout.Skipped": "Niet-beschikbare invoegtoepassingsvensters zijn overgeslagen: {0}",
     "Str.Layout.SaveFailed": "De paneelindelingen konden niet worden opgeslagen.",
+    "Str.Project.AlreadyOpen": "Project {0} is al geopend.",
     "Str.Options.Addins.Overview": "Invoegtoepassingen breiden HexIDE uit met hulpmiddelen en instellingen. Pak voor installatie een ondertekend pakket uit in een eigen map in de onderstaande directory en start HexIDE opnieuw. Selecteer een invoegtoepassing in de boom om deze te beheren."
   }
 }

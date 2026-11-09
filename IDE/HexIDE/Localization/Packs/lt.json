@@ -1128,6 +1128,7 @@
     "Str.Layout.InvalidName": "Įveskite unikalų netuščią išdėstymo pavadinimą.",
     "Str.Layout.Skipped": "Nepasiekiami papildinių langai praleisti: {0}",
     "Str.Layout.SaveFailed": "Nepavyko įrašyti skydelių išdėstymų.",
+    "Str.Project.AlreadyOpen": "Projektas {0} jau atidarytas.",
     "Str.Options.Addins.Overview": "Priedai papildo HexIDE įrankiais ir nuostatomis. Norėdami įdiegti, išskleiskite pasirašytą priedo paketą į atskirą aplanką toliau nurodytame kataloge ir paleiskite HexIDE iš naujo. Pasirinkite priedą medyje, kad jį tvarkytumėte."
   }
 }

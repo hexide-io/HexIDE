@@ -1128,6 +1128,7 @@
     "Str.Layout.InvalidName": "Escriba un nombre de diseño único y no vacío.",
     "Str.Layout.Skipped": "Se omitieron las ventanas de complementos no disponibles: {0}",
     "Str.Layout.SaveFailed": "No se pudieron guardar los diseños de paneles.",
+    "Str.Project.AlreadyOpen": "El proyecto {0} ya está abierto.",
     "Str.Options.Addins.Overview": "Los complementos amplían HexIDE con herramientas y opciones. Para instalar uno, extraiga un paquete firmado en su propia carpeta dentro del directorio indicado abajo y reinicie HexIDE. Seleccione un complemento en el árbol para administrarlo."
   }
 }

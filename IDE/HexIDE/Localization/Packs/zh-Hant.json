@@ -1128,6 +1128,7 @@
     "Str.Layout.InvalidName": "請輸入唯一且非空的配置名稱。",
     "Str.Layout.Skipped": "已略過無法使用的增益集視窗：{0}",
     "Str.Layout.SaveFailed": "無法儲存面板配置。",
+    "Str.Project.AlreadyOpen": "專案 {0} 已開啟。",
     "Str.Options.Addins.Overview": "增益集為 HexIDE 加入工具和設定。若要安裝增益集，請將已簽署的增益集套件解壓縮至下方目錄中的獨立資料夾，然後重新啟動 HexIDE。在樹狀清單中選取增益集即可管理。"
   }
 }

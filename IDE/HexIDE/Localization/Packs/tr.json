@@ -1128,6 +1128,7 @@
     "Str.Layout.InvalidName": "Benzersiz, boş olmayan bir düzen adı girin.",
     "Str.Layout.Skipped": "Kullanılamayan eklenti pencereleri atlandı: {0}",
     "Str.Layout.SaveFailed": "Panel düzenleri kaydedilemedi.",
+    "Str.Project.AlreadyOpen": "{0} projesi zaten açık.",
     "Str.Options.Addins.Overview": "Eklentiler HexIDE'ye araçlar ve ayarlar ekler. Yüklemek için imzalı bir eklenti paketini aşağıdaki dizinde kendine ait bir klasöre çıkarın ve HexIDE'yi yeniden başlatın. Yönetmek için ağaçtan bir eklenti seçin."
   }
 }

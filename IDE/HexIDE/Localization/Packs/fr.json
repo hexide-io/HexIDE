@@ -1128,6 +1128,7 @@
     "Str.Layout.InvalidName": "Saisissez un nom de disposition unique et non vide.",
     "Str.Layout.Skipped": "Les fenêtres de compléments indisponibles ont été ignorées : {0}",
     "Str.Layout.SaveFailed": "Impossible d’enregistrer les dispositions des panneaux.",
+    "Str.Project.AlreadyOpen": "Le projet {0} est déjà ouvert.",
     "Str.Options.Addins.Overview": "Les compléments ajoutent des outils et des paramètres à HexIDE. Pour en installer un, extrayez un paquet signé dans son propre dossier dans le répertoire ci-dessous, puis redémarrez HexIDE. Sélectionnez un complément dans l’arborescence pour le gérer."
   }
 }

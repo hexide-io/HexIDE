@@ -1128,6 +1128,7 @@
     "Str.Layout.InvalidName": "重複しない空でないレイアウト名を入力してください。",
     "Str.Layout.Skipped": "利用できないアドインのウィンドウはスキップされました: {0}",
     "Str.Layout.SaveFailed": "パネルレイアウトを保存できませんでした。",
+    "Str.Project.AlreadyOpen": "プロジェクト {0} は既に開いています。",
     "Str.Options.Addins.Overview": "アドインは HexIDE にツールや設定を追加します。インストールするには、署名済みのアドインパッケージを以下のディレクトリ内の専用フォルダーに展開し、HexIDE を再起動してください。管理するアドインをツリーで選択してください。"
   }
 }

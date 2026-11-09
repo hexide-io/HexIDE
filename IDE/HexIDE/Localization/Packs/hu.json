@@ -1128,6 +1128,7 @@
     "Str.Layout.InvalidName": "Adjon meg egyedi, nem üres elrendezésnevet.",
     "Str.Layout.Skipped": "A nem elérhető bővítményablakok kimaradtak: {0}",
     "Str.Layout.SaveFailed": "A panelelrendezéseket nem sikerült menteni.",
+    "Str.Project.AlreadyOpen": "A(z) {0} projekt már meg van nyitva.",
     "Str.Options.Addins.Overview": "A bővítmények eszközökkel és beállításokkal egészítik ki a HexIDE-t. Telepítéshez csomagoljon ki egy aláírt bővítménycsomagot az alábbi könyvtár saját almappájába, majd indítsa újra a HexIDE-t. Kezeléshez válasszon bővítményt a fában."
   }
 }

@@ -1128,6 +1128,7 @@
     "Str.Layout.InvalidName": "고유하고 비어 있지 않은 레이아웃 이름을 입력하세요.",
     "Str.Layout.Skipped": "사용할 수 없는 추가 기능 창을 건너뛰었습니다: {0}",
     "Str.Layout.SaveFailed": "패널 레이아웃을 저장할 수 없습니다.",
+    "Str.Project.AlreadyOpen": "프로젝트 {0}이(가) 이미 열려 있습니다.",
     "Str.Options.Addins.Overview": "추가 기능은 HexIDE에 도구와 설정을 추가합니다. 설치하려면 서명된 추가 기능 패키지를 아래 디렉터리의 별도 폴더에 압축 해제한 다음 HexIDE를 다시 시작하세요. 트리에서 추가 기능을 선택하여 관리하세요."
   }
 }

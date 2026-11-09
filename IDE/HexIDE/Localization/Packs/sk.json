@@ -1128,6 +1128,7 @@
     "Str.Layout.InvalidName": "Zadajte jedinečný neprázdny názov rozloženia.",
     "Str.Layout.Skipped": "Nedostupné okná doplnkov boli preskočené: {0}",
     "Str.Layout.SaveFailed": "Rozloženia panelov sa nepodarilo uložiť.",
+    "Str.Project.AlreadyOpen": "Projekt {0} je už otvorený.",
     "Str.Options.Addins.Overview": "Doplnky rozširujú HexIDE o nástroje a nastavenia. Ak chcete doplnok nainštalovať, rozbaľte podpísaný balík do vlastného priečinka v nižšie uvedenom adresári a reštartujte HexIDE. Doplnok môžete spravovať výberom v strome."
   }
 }

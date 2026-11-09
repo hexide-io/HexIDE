@@ -1128,6 +1128,7 @@
     "Str.Layout.InvalidName": "Unesite jedinstven naziv rasporeda koji nije prazan.",
     "Str.Layout.Skipped": "Nedostupni prozori dodataka su preskočeni: {0}",
     "Str.Layout.SaveFailed": "Rasporedi panela nisu se mogli spremiti.",
+    "Str.Project.AlreadyOpen": "Projekt {0} već je otvoren.",
     "Str.Options.Addins.Overview": "Dodaci proširuju HexIDE alatima i postavkama. Za instalaciju raspakirajte potpisani paket u zasebnu mapu unutar donjeg direktorija i ponovno pokrenite HexIDE. Odaberite dodatak u stablu da biste njime upravljali."
   }
 }

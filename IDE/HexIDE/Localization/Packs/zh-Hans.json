@@ -1128,6 +1128,7 @@
     "Str.Layout.InvalidName": "请输入唯一且非空的布局名称。",
     "Str.Layout.Skipped": "已跳过不可用的加载项窗口：{0}",
     "Str.Layout.SaveFailed": "无法保存面板布局。",
+    "Str.Project.AlreadyOpen": "项目 {0} 已打开。",
     "Str.Options.Addins.Overview": "加载项为 HexIDE 添加工具和设置。要安装加载项，请将已签名的加载项包解压到下方目录中的独立文件夹，然后重启 HexIDE。在树中选择加载项即可管理。"
   }
 }
