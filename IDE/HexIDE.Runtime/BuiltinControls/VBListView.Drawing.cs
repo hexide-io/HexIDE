@@ -31,8 +31,7 @@ public sealed partial class VBListView
         using var clip = context.PushClip(area);
         context.FillRectangle(VBColor.FromOle(Number("BackColor")).ToBrush(), area);
         var frame = new Pen(SystemBrush(VbSystemColor.Btnshadow));
-        if (Number("BorderStyle") != 0)
-            context.DrawRectangle(null, frame, area.Deflate(0.5));
+        VBClientEdge.Draw(context, Bounds.Size, Number("Appearance") == 1, Number("BorderStyle") == 1);
         var content = area.Deflate(VBProps.GetClientInset(this));
         if (content.Width <= 0 || content.Height <= 0)
             return;
