@@ -90,6 +90,11 @@ nothing has been applied makes the failure mode benign.
   Run to Cursor uses the platform command modifier plus F8, Quick Watch uses Shift+F9,
   and Set Next Statement uses the platform command modifier plus F9
 
+#### Scenario: Default Components shortcut
+- **WHEN** Default is in force
+- **THEN** Components uses the platform command modifier plus T
+- **AND** Project → Components displays that gesture
+
 ### Requirement: A VB6 keymap SHALL be available
 A keymap reproducing VB6's shortcuts SHALL ship.
 
