@@ -247,10 +247,21 @@ public static class RuntimeLibraries
         IReadOnlyList<RuntimeLibrary>? known = null)
     {
         var result = new List<RuntimeLibrary>();
-        foreach (var reference in project.References)
+        var entries = new List<(int Slot, int Kind, RuntimeLibrary Library)>();
+        var referenceSlots = project.KnownLineKeys.Select((key, slot) => (key, slot))
+            .Where(entry => entry.key.Equals("Reference", StringComparison.OrdinalIgnoreCase))
+            .Select(entry => entry.slot).ToList();
+        for (var i = 0; i < project.References.Count; i++)
             foreach (var library in known ?? All)
-                if (library.IsNamedBy(reference) && !result.Contains(library))
-                    result.Add(library);
+                if (library.IsNamedBy(project.References[i]))
+                    entries.Add((i < referenceSlots.Count ? referenceSlots[i] : -1, 1, library));
+        var afterForms = project.KnownLineKeys.FindLastIndex(key => key.Equals("Form", StringComparison.OrdinalIgnoreCase)) + 1;
+        foreach (var (hint, line) in project.UnknownPreSectionLines)
+            if (ObjectReference.TryParse(line, out var reference) && ControlLibraries.For(reference) is { } library)
+                entries.Add((hint == ProjectDefinition.AfterFormsHint ? afterForms : hint, 0, library));
+        // Unknown lines precede the recognised key at their slot; ties retain their read order (#2265).
+        foreach (var entry in entries.OrderBy(entry => entry.Slot).ThenBy(entry => entry.Kind))
+            if (!result.Contains(entry.Library)) result.Add(entry.Library);
         foreach (var library in ControlLibraries.ReferencedBy(project))
             if (!result.Contains(library)) result.Add(library);
         return result;
