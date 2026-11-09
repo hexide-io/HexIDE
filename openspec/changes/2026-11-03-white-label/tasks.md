@@ -4,10 +4,10 @@
 - [x] Draft capability deltas against live specs, separate from implementation and package policy.
 - [x] Supervisor accepts descriptor schema/discovery, id mapping, compatibility and asset validation limits.
 - [x] Supervisor accepts root mapping, explicit redirect semantics, child-process propagation and migration policy.
-- [ ] Supervisor accepts profile-reference resolution and reconciles package/profile work in flight.
-- [ ] Supervisor accepts localization templates, read-only protected-credit editor rows and override diagnostics.
-- [ ] Supervisor accepts platform repack coverage, metadata mapping, signing, updates and notice staging.
-- [ ] Supervisor resolves project-local state sharing/namespacing and remaining inventory consumers.
+- [x] Supervisor accepts profile-reference resolution and reconciles package/profile work in flight.
+- [x] Supervisor accepts localization templates, read-only protected-credit editor rows and override diagnostics.
+- [x] Supervisor accepts platform repack coverage, metadata mapping, signing, updates and notice staging.
+- [x] Supervisor resolves project-local state sharing/namespacing and remaining inventory consumers.
 - [ ] First-adopter consultation confirms needs; any trust-model conflict returns to Jen.
 - [ ] Supervisor reviews strict validation, design-record and changelog guards and tree hygiene results.
 
