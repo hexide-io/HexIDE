@@ -569,7 +569,7 @@ public class HeaderRefresherTests
         // LayoutChanged fires on every committed nudge of a control. An undo entry per nudge would be one
         // Ctrl+Z the developer did not earn, and pushing any entry clears their redo stack.
         var form = Deserialize(FiveAttributes);
-        var editor = NewCodeEditor().Initialize(form);
+        using var editor = NewCodeEditor().Initialize(form);
         dock.OpenDocuments.Returns(new List<BaseEditorWindowViewModel> { editor });
         var sut = new HeaderRefresher(bus, dock, breakpoints, bookmarks);
         sut.LayoutChanged(form);                  // settle the header on the serializer's own formatting
@@ -587,7 +587,7 @@ public class HeaderRefresherTests
         // the code window's own Undo (#513), two entries would separate them and leave the buffer naming the
         // form one way in its header and another in its code.
         var form = Deserialize(FiveAttributes);
-        var editor = NewCodeEditor().Initialize(form);
+        using var editor = NewCodeEditor().Initialize(form);
         dock.OpenDocuments.Returns(new List<BaseEditorWindowViewModel> { editor });
         var sut = new HeaderRefresher(bus, dock, breakpoints, bookmarks);
         sut.LayoutChanged(form);

@@ -407,7 +407,13 @@ public class ProgramWaitTests
             await WaitFor(() => !button.IsEffectivelyEnabled);
             button.IsEffectivelyEnabled.Should().BeFalse();
         }
-        finally { shell.Close(); }
+        finally
+        {
+            shell.Close();
+            // Closing the project closes the code window the break opened, and holds nothing for it (#3476).
+            foreach (var project in composition.DocumentDockService.OpenDocuments.Select(d => d.OpenDocument?.Project).Distinct().ToArray())
+                if (project is not null) composition.EventBus.Publish(new HexIDE.Events.ProjectUnloadedEvent(project));
+        }
 
         static async Task WaitFor(Func<bool> ready)
         {

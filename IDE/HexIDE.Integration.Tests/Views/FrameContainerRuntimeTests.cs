@@ -215,7 +215,7 @@ public class FrameContainerRuntimeTests : WindowTestFixture
 
         // A Timer is not drawn, so it has no business inside a Frame's clipped host — but the model still
         // records the container so the file round-trips. It is also explicitly hidden: a Timer has no
-        // Width/Height in the .frm, those read back as zero, and VBTimer's template pins Min/MaxWidth to 28
+        // Width/Height in the .frm, and VBTimer's template pins Min/MaxWidth to 28
         // — which is why a running form used to show a clock face in its corner.
         var timer = Child(canvas, "Timer1");
         timer.IsVisible.Should().BeFalse();

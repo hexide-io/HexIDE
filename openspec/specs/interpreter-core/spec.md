@@ -1513,6 +1513,19 @@ SHALL follow Form_Activate (#2436, measured on vb6.exe, native and p-code agreei
 - **WHEN** Form_Load instead calls Me.Show then Text2.SetFocus
 - **THEN** Form_Activate, the first control's GotFocus and Text2_GotFocus occur inside Form_Load in that order
 
+### Requirement: Project library order determines bare ProgressBar binding
+The runtime SHALL resolve a bare ProgressBar type using the first matching library in the combined
+`Reference=` and `Object=` read order of the project. Form-header libraries SHALL be fallbacks after
+project libraries. Qualified types SHALL select their named library. This follows the measured
+[bare-name binding](../../../docs/vb6-fidelity-oracle/in-box-classes-a-bare-name-binds-to-the-first-library.md).
+
+#### Scenario: A component precedes a reference to the other common-controls library
+- **GIVEN** an MSComctlLib `Object=` line before a ComctlLib `Reference=` line
+- **WHEN** code declares a bare ProgressBar variable
+- **THEN** it holds Nothing until assigned and accepts an MSComctlLib ProgressBar
+- **AND** assigning a ComctlLib ProgressBar raises 13 and `TypeOf` follows the same binding
+- **AND** reversing the lines reverses the binding, regardless of form-header order
+
 ### Requirement: CommonDialog uses the shared control library
 The runtime SHALL resolve CommonDialog constants through the referenced MSComDlg library record and take its
 TypeOf library identity from its component class, without a separate CommonDialog reference flag.

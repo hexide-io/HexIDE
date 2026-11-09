@@ -16,8 +16,14 @@ using LspRange = HexIDE.Lsp.Messages.Range;
 
 namespace HexIDE.Tests.ViewModels;
 
-public partial class FindReplaceViewModelTests
+public partial class FindReplaceViewModelTests : IDisposable
 {
+    public void Dispose()
+    {
+        foreach (var editor in _findOpen) editor.Dispose();
+        GC.SuppressFinalize(this);
+    }
+
     private readonly IProjectManager _findProjects = Substitute.For<IProjectManager>();
     private readonly IEditorService _findEditors = Substitute.For<IEditorService>();
     private ProjectDefinition? _selectedFindProject;

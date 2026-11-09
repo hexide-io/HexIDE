@@ -24,6 +24,26 @@ public class DiagnosticsToolViewModelTests
 
     private static LspClientRegistry Registry() => new([], Substitute.For<ILogger<LspClientRegistry>>());
 
+    [AvaloniaFact]
+    public async Task CountsIncludeHiddenSeveritiesAndTrackReplacementAndWithdrawal()
+    {
+        await using var registry = Registry();
+        await registry.InjectDiagnosticsAsync(Uri, [Say(DiagnosticSeverity.Error), Say(DiagnosticSeverity.Warning),
+            Say(DiagnosticSeverity.Information), Say(DiagnosticSeverity.Hint)], "server");
+        var vm = View(registry);
+        vm.Errors = false;
+        new[] { vm.ErrorCount, vm.WarningCount, vm.InformationCount, vm.HintCount }.Should().Equal(1, 1, 1, 1);
+        await registry.InjectDiagnosticsAsync(Uri, [Say(DiagnosticSeverity.Warning), Say(DiagnosticSeverity.Warning)], "server");
+        Dispatcher.UIThread.RunJobs();
+        vm.ErrorCount.Should().Be(0);
+        vm.WarningCount.Should().Be(2);
+        vm.InformationCount.Should().Be(0);
+        vm.HintCount.Should().Be(0);
+        await registry.ClearDiagnosticsFromAsync("server");
+        Dispatcher.UIThread.RunJobs();
+        vm.WarningCount.Should().Be(0);
+    }
+
     [AvaloniaTheory]
     [InlineData("file:///project/source.bas", "Module1", "Module1")]
     [InlineData("file:///project/read%20me.md", "read me.md", "read me.md")]
@@ -141,6 +161,8 @@ public class DiagnosticsToolViewModelTests
         var vm = View(registry);
         vm.CurrentDocumentOnly = true;
         vm.Rows.Should().ContainSingle().Which.Uri.Should().Be(LspDocumentUri.ForFile(path));
+        vm.ErrorCount.Should().Be(1);
+        vm.WarningCount.Should().Be(0);
         dock.ActiveDocument.Returns((BaseEditorWindowViewModel?)null);
         vm.Refresh();
         vm.Rows.Should().ContainSingle();
@@ -149,6 +171,8 @@ public class DiagnosticsToolViewModelTests
         dock.ActiveDocument.Returns(other);
         dock.PropertyChanged += Raise.Event<PropertyChangedEventHandler>(dock, new PropertyChangedEventArgs(nameof(IDocumentDockService.ActiveDocument)));
         vm.Rows.Should().ContainSingle().Which.Uri.Should().Be(LspDocumentUri.ForFile(otherPath));
+        vm.ErrorCount.Should().Be(0);
+        vm.WarningCount.Should().Be(1);
         vm.CurrentDocumentOnly = false;
         vm.Rows.Should().HaveCount(2);
     }

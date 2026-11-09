@@ -1078,6 +1078,7 @@
     "Str.Tool.Diagnostics.Hints": "Υποδείξεις",
     "Str.Tool.Diagnostics.CurrentDocument": "Τρέχον έγγραφο",
     "Str.Tool.Diagnostics.Server": "Διακομιστής",
+    "Str.Tool.Diagnostics.Source": "Πηγή",
     "Str.Tool.Diagnostics.Document": "Έγγραφο",
     "Str.Tool.Diagnostics.Line": "Γραμμή",
     "Str.Tool.Diagnostics.Message": "Μήνυμα",

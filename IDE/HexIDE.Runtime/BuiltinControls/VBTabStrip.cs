@@ -14,6 +14,7 @@ namespace HexIDE.Runtime.BuiltinControls;
 // The measured single top row; additional layouts remain separate work (#1089).
 public sealed class VBTabStrip : Control
 {
+    internal bool DesignerPreview { get; init; }
     internal TabStripModel Model { get; } = new();
     internal TabStripTabs Tabs { get; }
     internal Dictionary<string, Vb6Value> Values { get; } = new(StringComparer.OrdinalIgnoreCase)
@@ -36,9 +37,12 @@ public sealed class VBTabStrip : Control
     {
         base.Render(context);
         context.DrawRectangle(Brushes.Transparent, null, new Rect(Bounds.Size));
-        // Keep failures on the form's event queue, never the render thread.
         if (DrawingRefusal is { } reason)
         {
+            // Let the designer's preview guard show the carried placeholder (#1089, #2405).
+            if (DesignerPreview)
+                throw TabStripMembers.Refused(reason);
+            // Keep runtime failures on the form's event queue, never the render thread.
             if (!drawingRefused && this.FindLogicalAncestorOfType<IFormView>() is { } form)
             {
                 drawingRefused = true;

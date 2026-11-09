@@ -11,6 +11,8 @@ using Avalonia.Headless.XUnit;
 using Avalonia.Threading;
 using Avalonia.Media.Imaging;
 using HexIDE.Runtime.BuiltinControls;
+using HexIDE.Runtime.BuiltinTypes;
+using Avalonia.Media;
 using HexIDE.Runtime.Interpreter;
 
 namespace HexIDE.Integration.Tests.Views;
@@ -39,6 +41,72 @@ public class ListViewDrawingTests
         using var stream = new MemoryStream();
         bitmap.Save(stream);
         return Convert.ToHexString(SHA256.HashData(stream.ToArray()));
+    }
+
+    // Edge order and widths: docs/vb6-fidelity-oracle/in-box-controls-the-listview.md
+    // (client-area origin), with standard client-edge colours as recorded in #2884.
+    [AvaloniaTheory]
+    [InlineData(0, 0)]
+    [InlineData(0, 1)]
+    [InlineData(1, 0)]
+    [InlineData(1, 1)]
+    public void Appearance_and_BorderStyle_paint_the_measured_edge(int appearance, int border)
+    {
+        var (_, canvas, _, _) = ContainerRuntimeHarness.Spawn($"""
+            VERSION 5.00
+            Begin VB.Form Form1
+               Begin MSComctlLib.ListView ListView1
+                  Height = 2700
+                  Width = 4800
+                  Appearance = {appearance}
+                  BorderStyle = {border}
+                  BackColor = 255
+               End
+            End
+            Attribute VB_Name = "Form1"
+            """);
+        var list = canvas.Children.OfType<VBListView>().Single();
+        list.Measure(new Size(320, 180));
+        list.Arrange(new Rect(0, 0, 320, 180));
+        using var bitmap = new RenderTargetBitmap(new PixelSize(320, 180));
+        bitmap.Render(list);
+        var pixels = new byte[320 * 180 * 4];
+        var buffer = Marshal.AllocHGlobal(pixels.Length);
+        try
+        {
+            bitmap.CopyPixels(new PixelRect(0, 0, 320, 180), buffer, pixels.Length, 320 * 4);
+            Marshal.Copy(buffer, pixels, 0, pixels.Length);
+        }
+        finally { Marshal.FreeHGlobal(buffer); }
+
+        void Pixel(int x, int y, Avalonia.Media.Color expected)
+        {
+            var offset = (y * 320 + x) * 4;
+            // macOS renders Rgba8888 where Windows and Linux render Bgra8888.
+            var rgba = bitmap.Format == Avalonia.Platform.PixelFormat.Rgba8888;
+            pixels[offset].Should().Be(rgba ? expected.R : expected.B);
+            pixels[offset + 1].Should().Be(expected.G);
+            pixels[offset + 2].Should().Be(rgba ? expected.B : expected.R);
+            pixels[offset + 3].Should().Be(255);
+        }
+
+        var edge = appearance * 2 + border;
+        for (var inset = 0; inset <= edge; inset++)
+        {
+            var top = Avalonia.Media.Colors.Red;
+            var bottom = top;
+            if (appearance == 1 && inset < 2)
+            {
+                top = ((ISolidColorBrush)VBColor.FromSystemColor(inset == 0 ? VbSystemColor.Btnshadow : VbSystemColor._3DDKSHADOW).ToBrush()).Color;
+                bottom = ((ISolidColorBrush)VBColor.FromSystemColor(inset == 0 ? VbSystemColor.Btnhighlight : VbSystemColor._3DLIGHT).ToBrush()).Color;
+            }
+            else if (inset < edge)
+                top = bottom = ((ISolidColorBrush)VBColor.FromSystemColor(VbSystemColor.Windowframe).ToBrush()).Color;
+            Pixel(160, inset, top);
+            Pixel(inset, 90, top);
+            Pixel(160, 179 - inset, bottom);
+            Pixel(319 - inset, 90, bottom);
+        }
     }
 
     private static async Task<ListViewItem> Add(VBListView list, string text) =>

@@ -113,6 +113,7 @@ public partial class CodeEditorView : UserControl
 
     public DelegateCommand Undo { get; }
     public DelegateCommand Redo { get; }
+    public DelegateCommand DeleteLine { get; }
     public DelegateCommand Copy { get; }
     public DelegateCommand Cut { get; }
     public DelegateCommand Delete { get; }
@@ -143,6 +144,12 @@ public partial class CodeEditorView : UserControl
             () => TextEditor?.CanUndo ?? false);
         Redo = new DelegateCommand(() => TextEditor.Redo(), () =>
             TextEditor?.CanRedo ?? false);
+        DeleteLine = new DelegateCommand(() =>
+        {
+            ArmResetPrompt();
+            if (!DeleteLinesWithTheirRuns())
+                AvaloniaEditCommands.DeleteLine.Execute(null, TextEditor.TextArea);
+        }, () => true);
         Copy = new DelegateCommand(() => TextEditor.Copy(), () => true);
         // Cut, Delete and Paste are where their keys arrive, not OnEditorKeyDown: each key is bound to its command,
         // which takes it before the text area sees it. So each command asks about resetting a run itself, for the
@@ -190,6 +197,13 @@ public partial class CodeEditorView : UserControl
 
         InitializeComponent();
         InstallReadOnlySections();
+        // Keep TextEditor.Redo's routed handler, but let only the keymap supply its gesture (#513).
+        var bindings = TextEditor.TextArea.DefaultInputHandler.CommandBindings;
+        foreach (var binding in bindings.Where(binding => binding.Command == AvaloniaEdit.ApplicationCommands.Redo).ToArray())
+        {
+            bindings.Remove(binding);
+            TextEditor.TextArea.CommandBindings.Add(binding);
+        }
 
         // One Find surface, the region-aware dialog (#273 task 3.11). AvaloniaEdit installs its own search
         // panel on every editor when the template is applied, and its Replace All writes straight to the

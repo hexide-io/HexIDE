@@ -1078,6 +1078,7 @@
     "Str.Tool.Diagnostics.Hints": "คำแนะนำ",
     "Str.Tool.Diagnostics.CurrentDocument": "เอกสารปัจจุบัน",
     "Str.Tool.Diagnostics.Server": "เซิร์ฟเวอร์",
+    "Str.Tool.Diagnostics.Source": "แหล่งที่มา",
     "Str.Tool.Diagnostics.Document": "เอกสาร",
     "Str.Tool.Diagnostics.Line": "บรรทัด",
     "Str.Tool.Diagnostics.Message": "ข้อความ",

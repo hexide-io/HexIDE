@@ -12,6 +12,7 @@
     "CutCommand":                              "Ctrl+X",
     "CopyCommand":                             "Ctrl+C",
     "PasteCommand":                            "Ctrl+V",
+    "DeleteLineCommand":                       "Ctrl+Y",
     "DeleteCommand":                           "Delete",
     "SelectAllCommand":                        "Ctrl+A",
     "FindCommand":                             "Ctrl+F",

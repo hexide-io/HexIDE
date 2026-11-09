@@ -129,33 +129,15 @@ public sealed class IdeToolExecutor(IHexIdeHost host)
         return Reply(new { doc.FileName, doc.Project, doc.Content });
     }
 
-    /// <remarks>
-    /// The add-in surface has no member that reads a document by name, so this opens the file, waits until the
-    /// IDE has brought it to the front, and reads the active document. It checks that the active document is the
-    /// one asked for before answering. Without that check it answered with whatever window was in front, which
-    /// for a file already open in a background tab was a different file under the name the model asked for
-    /// (hexide-io/HexIDE#273 task 3.19 review). Reading this way also moves the caret to the file's first line.
-    /// A member that reads by name would do neither; that is hexide-io/HexIDE#887.
-    /// </remarks>
     private async Task<string> GetFileContentAsync(JsonObject? args)
     {
         var (file, refusal) = FindFile(args);
         if (file is null) return refusal!;
 
-        var opened = await host.Editor.TryNavigateTo(file.FileName, 1, 1, file.Project);
-        if (!opened.Succeeded)
-            return Reply(new { error = $"Could not open {file.FileName}: {opened.Reason}" });
+        var result = await host.Editor.TryGetDocument(file.FileName, file.Project);
+        if (result.Document is not { } doc)
+            return Reply(new { error = $"Could not read {file.FileName}: {result.Reason}" });
 
-        var doc = host.Editor.GetActiveDocument();
-        if (doc is null
-            || !doc.FileName.Equals(file.FileName, StringComparison.OrdinalIgnoreCase)
-            || !string.Equals(doc.Project, file.Project, StringComparison.OrdinalIgnoreCase))
-            return Reply(new
-            {
-                error = $"Could not read {file.FileName}: the IDE opened it, but the active code window holds "
-                        + (doc is null ? "no file" : $"{doc.FileName}{(doc.Project is { } p ? $" in project {p}" : "")}")
-                        + ", so its content would not be the file asked for."
-            });
         return Reply(new { doc.FileName, doc.Project, doc.Content });
     }
 
