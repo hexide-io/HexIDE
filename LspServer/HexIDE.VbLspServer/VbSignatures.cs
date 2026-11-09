@@ -314,6 +314,11 @@ internal static class VbSignatures
             ["Second"] = [new SignatureEntry("Second(Time) As Integer", ["Time"],  "Returns the second (0–59).")],
             ["Weekday"] = [new SignatureEntry("Weekday(Date, [FirstDayOfWeek]) As Integer", ["Date", "FirstDayOfWeek"], "Returns the day of the week (1–7).")],
 
+            // Descriptive positional labels; resource named arguments remain unmeasured (#2626).
+            ["LoadResString"] = [new SignatureEntry("LoadResString(id) As String", ["id"], "Reads a string from the project resource file.")],
+            ["LoadResData"] = [new SignatureEntry("LoadResData(id, type) As Byte()", ["id", "type"], "Reads bytes from the project resource file.")],
+            ["LoadResPicture"] = [new SignatureEntry("LoadResPicture(id, type) As Picture", ["id", "type"], "Reads a bitmap picture from the project resource file.")],
+
             // Inspection
             ["TypeName"]  = [new SignatureEntry("TypeName(VarName) As String",   ["VarName"], "Returns a String that provides information about a variable.")],
             ["VarType"]   = [new SignatureEntry("VarType(VarName) As VbVarType", ["VarName"], "Returns a value indicating the subtype of a variable.")],

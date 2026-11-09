@@ -109,3 +109,7 @@ Issue [#3350](https://github.com/hexide-io/HexIDE/issues/3350) uses
 [#3349’s Public object-module member measurements](vb6-fidelity-oracle/a-public-array-in-an-object-module.md):
 Public constants, fixed-length strings, UDT variables and Declare statements receive the same compile refusal
 as Public arrays. HexIDE checks UDT members later, while allocating instance storage.
+
+The #2626 resource function measurements (vb6.exe SP6, matching native and p-code runs) are recorded in
+[LoadResString, LoadResData and LoadResPicture](vb6-fidelity-oracle/loadresstring-loadresdata-and-loadrespicture.md).
+The measuring authors' page remains the source for string, byte-array, bitmap and error results.

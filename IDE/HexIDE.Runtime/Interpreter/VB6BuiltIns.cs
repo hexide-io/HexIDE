@@ -124,8 +124,9 @@ public partial class VB6BuiltIns
     /// </summary>
     private static Vb6Value ArgumentAsUsed(string name, int index, Vb6Value arg)
     {
-        // LoadPicture and the financials accept only measured argument shapes; other conversions refuse there.
-        if (string.Equals(name, "LoadPicture", StringComparison.OrdinalIgnoreCase)
+        // Picture/resource functions and the financials accept only measured argument shapes; other conversions refuse there.
+        if (name.StartsWith("LoadRes", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(name, "LoadPicture", StringComparison.OrdinalIgnoreCase)
             || string.Equals(name, "Pmt", StringComparison.OrdinalIgnoreCase)
             || string.Equals(name, "FV", StringComparison.OrdinalIgnoreCase)
             || string.Equals(name, "PV", StringComparison.OrdinalIgnoreCase)
@@ -186,6 +187,7 @@ public partial class VB6BuiltIns
         RegisterFinancial(d);
         RegisterDepreciation(d);
         RegisterArray(d);
+        RegisterResources(d);
         RegisterInspection(d);
         d["LoadPicture"] = (self, args, _) => PanelPicture.Load(args, self.Files);
         RegisterDateTime(d);
