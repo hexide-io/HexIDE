@@ -19,7 +19,7 @@ public sealed class DistributionIdentity
 
     public DistributionIdentity(string id, string name, string? tagline = null, string? copyright = null,
         IReadOnlyList<string>? additionalCredits = null, string? homeUrl = null, string? supportUrl = null,
-        string? repositoryUrl = null, byte[]? logo = null)
+        string? repositoryUrl = null, byte[]? logo = null, string? defaultProfile = null)
     {
         Id = id;
         Name = name;
@@ -30,6 +30,7 @@ public sealed class DistributionIdentity
         SupportUrl = supportUrl;
         RepositoryUrl = repositoryUrl;
         _logo = logo;
+        DefaultProfile = defaultProfile;
     }
 
     /// <summary>The product this tree builds, used wherever no descriptor sits beside the executable.</summary>
@@ -49,6 +50,12 @@ public sealed class DistributionIdentity
     public string? HomeUrl { get; }
     public string? SupportUrl { get; }
     public string? RepositoryUrl { get; }
+
+    /// <summary>
+    /// The profile used when the command line names none: a profile's name, or a folder relative to the
+    /// installation. A profile changes preferences only, so this never affects <see cref="Id"/> or any path.
+    /// </summary>
+    public string? DefaultProfile { get; }
 
     public bool IsStock => Id == StockId;
 

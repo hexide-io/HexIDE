@@ -1163,7 +1163,7 @@ public partial class ProjectService : IProjectService
                 ProjectDefinition project => (project.Name,
                     new ProjectSerializer().Serialize(project, destination.Path, PathOf), project.TextEncoding),
                 ProjectGroupDefinition group => (group.Name, RenderGroup(group, destination.Path, PathOf), group.TextEncoding),
-                _ => throw new ArgumentException($"HexIDE does not save a {destination.Document.GetType().Name}.")
+                _ => throw new ArgumentException($"{HexIDE.IDE.Distribution.DisplayName} does not save a {destination.Document.GetType().Name}.")
             };
             Vb6TextFile.EncodeDocument(document, text, encoding);
         }
@@ -1268,7 +1268,7 @@ public partial class ProjectService : IProjectService
                 Log.Information("ProjectService: Saved group {Path}", group.AbsolutePath);
                 return true;
             default:
-                throw new ArgumentException($"HexIDE does not save a {destination.Document.GetType().Name}.");
+                throw new ArgumentException($"{HexIDE.IDE.Distribution.DisplayName} does not save a {destination.Document.GetType().Name}.");
         }
     }
 
@@ -1471,7 +1471,7 @@ public partial class ProjectService : IProjectService
         // in place of the file the add-in owns.
         if (projectDefinition.ContributedBy is { } contributor)
         {
-            make.NotMade($"{projectDefinition.Name} is opened by the {contributor} add-in, so HexIDE doesn't make it", true);
+            make.NotMade($"{projectDefinition.Name} is opened by the {contributor} add-in, so {HexIDE.IDE.Distribution.DisplayName} doesn't make it", true);
             await windowManager.MessageBox(string.Format(localization.GetString("Str.ContributedProject.NotMade"),
                 projectDefinition.Name, projectDefinition.ContributorTitle), icon: MessageBoxIcon.Information);
             throw new OperationCanceledException();
@@ -1529,7 +1529,7 @@ public partial class ProjectService : IProjectService
         make.Reached(MakeOutcomes.Stage.Writing);
         if (StandaloneRunnerName() is not { } runnerName)
         {
-            make.NotMade("HexIDE has no standalone runner for this platform, so nothing was written", true);
+            make.NotMade(HexIDE.IDE.Distribution.DisplayName + " has no standalone runner for this platform, so nothing was written", true);
             await windowManager.MessageBox(localization.GetString("Str.MakeProject.UnsupportedPlatform"), icon: MessageBoxIcon.Information);
             throw new OperationCanceledException();
         }
@@ -1648,7 +1648,7 @@ public partial class ProjectService : IProjectService
 
     /// <summary>Why a Make refused the forms and modules banked for <see cref="ReportRefusedSaves"/>, for its outcome.</summary>
     private string Unfaithful() =>
-        $"HexIDE can't write {string.Join(", ", refusedThisSave)} as they were read, so nothing was written";
+        $"{HexIDE.IDE.Distribution.DisplayName} can't write {string.Join(", ", refusedThisSave)} as they were read, so nothing was written";
 
     /// <summary>The folder Make finds the standalone runtime in: the IDE's own, whatever the current directory is (#1947).</summary>
     internal string RuntimeDirectory { get; set; } = AppContext.BaseDirectory;
@@ -1716,7 +1716,7 @@ public partial class ProjectService : IProjectService
             .ToList();
         if (refused.Count > 0)
             throw new InvalidOperationException(
-                $"Cannot write this project to {directory}: HexIDE cannot reproduce "
+                $"Cannot write this project to {directory}: {HexIDE.IDE.Distribution.DisplayName} cannot reproduce "
               + $"{string.Join(", ", refused)}, so nothing was written.");
 
         // Modules as well. Writing the forms and the .vbp but not the modules produced a directory whose

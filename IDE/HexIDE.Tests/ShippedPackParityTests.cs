@@ -78,6 +78,40 @@ public class ShippedPackParityTests
     }
 
     [Fact]
+    public void TheBrandRewriteNeverReachesAUrlOrAPathInAPack()
+    {
+        // BrandText takes the literal product name in a pack as the place a distribution's own name goes (#2042). A link
+        // or a folder spelled with that name would come out broken in every branded build, and nothing else would say so.
+        const string brand = "BRANDNAME";
+        var broken = new List<string>();
+        foreach (var file in Directory.EnumerateFiles(PacksDirectory(), "*.json"))
+        {
+            var strings = JsonSerializer.Deserialize(File.ReadAllText(file),
+                LocalizationJsonContext.Default.LanguagePackRecord)!.Strings!;
+            BrandText.Apply(strings, brand);
+            broken.AddRange(strings
+                .Where(pair => PutsNameInAUrlOrAPath(pair.Value, brand))
+                .Select(pair => $"{Path.GetFileName(file)}: {pair.Key}"));
+        }
+
+        broken.Should().BeEmpty("a URL or a path must not spell the product name where BrandText would rewrite it");
+    }
+
+    [Theory]
+    [InlineData("See https://github.com/hexide-io/BRANDNAME for more.", true)]
+    [InlineData(@"Look in logs\BRANDNAME\today.", true)]
+    [InlineData("Look in ~/.config/BRANDNAME.", true)]
+    [InlineData("About BRANDNAME...", false)]
+    [InlineData("BRANDNAME's safety", false)]
+    [InlineData("Either/or, in BRANDNAME", false)]
+    public void TheUrlOrPathGuardCatchesTheNameInsideOneOnly(string text, bool caught) =>
+        PutsNameInAUrlOrAPath(text, "BRANDNAME").Should().Be(caught);
+
+    private static bool PutsNameInAUrlOrAPath(string text, string brand) =>
+        text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries)
+            .Any(word => word.Contains(brand, StringComparison.Ordinal) && (word.Contains('/') || word.Contains('\\')));
+
+    [Fact]
     public void EveryShippedPackNameMatchesItsEnglishManifestName()
     {
         foreach (var language in LanguageManifest.Packs)
