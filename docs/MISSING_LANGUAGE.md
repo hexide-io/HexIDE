@@ -145,8 +145,8 @@ census — see the caveat above.
 **No construct in this inventory fails to parse.** The last one, a `Function` declared with a type
 character (`Function GetName$()`, [#740](https://github.com/hexide-io/HexIDE/issues/740)), parses now. Every
 gap parses cleanly and goes wrong at run time: mostly by throwing, sometimes by running on with a wrong
-value. The zero Silently wrong rows below are the wrong values counted as such, since #977; the `()` row records one
-under [#741](https://github.com/hexide-io/HexIDE/issues/741) and stays Partial, for the reason given there. The grammar comprehends essentially the whole of VB6; what is missing is execution.
+value. The zero Silently wrong rows below are the wrong values counted as such, since #977; the `()` row stays
+Partial for the parameterless `Left` refusal recorded under [#741](https://github.com/hexide-io/HexIDE/issues/741). The grammar comprehends essentially the whole of VB6; what is missing is execution.
 
 It was four until numeric line labels were ported in from the LSP server's grammar, which already had
 the rule — see below. It went back to four when the suffixed `Function` was measured, and that one has
@@ -188,28 +188,27 @@ now reach the variable of the bare name, checked against its declared type, as t
 assignment probes and its 2026-10-27 counter probes measured, and an undeclared name takes the character's type.
 A read through one runs too since [#742](https://github.com/hexide-io/HexIDE/issues/742), checked the same way, so the six rows have left Dies for Partial.
 
-**Measured, and recorded under [#741](https://github.com/hexide-io/HexIDE/issues/741) rather than here:
-call resolution.** A parameterless `Function Left() As String` called as `Left("abc", 1)` returns the
-program's own value here, where VB6 compiles the call and returns the library's `"a"` (TE_01). The same
-function without an `As` clause returns its value here with no error, where VB6 compiles the call and
-raises error 13 at run time (TE_04). TE_01 is a wrong result from a program VB6 runs; TE_04 is a missing
-run-time error, not a wrong result. TE_01 needs a parameterless procedure that shares a library
-function's name and is called with that function's arguments, since the library supplies VB6's answer;
-whether TE_04's needs the name too is open (see the `F` bullet below). Rating the call operator itself Silently wrong for
-TE_01 would misdescribe the common case, which resolves correctly, so it is recorded under #741 and the
-`() (call / array index)` row stays Partial and carries the link. Two neighbours in the same issue, both
-missing errors rather than wrong results:
+**Call resolution ([#741](https://github.com/hexide-io/HexIDE/issues/741)).** A parameterless
+`Function Left() As String` called as `Left("abc", 1)` now raises "Wrong number of arguments or invalid
+property assignment" as the statement executes. VB6 compiles the call and returns the library's `"a"`
+(oracle TE_01). HexIDE refuses this valid program rather than returning a wrong value; the
+`() (call / array index)` row stays Partial. See [interpreter-gaps.md](interpreter-gaps.md#other).
 
-- `Dim Left As String` followed by `Left("abc", 1)` reaches the library's `Left` here, where VB6 refuses
-  to compile it with "Expected array" (TL_07; TF_04 for a module variable).
-- Surplus arguments are dropped, where VB6 refuses to compile the call. `H(5, 6)` on
-  `Function H(ByVal a As Long) As Long` gives 5 here, and `G(5, 6)` on a parameterless
-  `Function G() As Long` gives 1; for both, VB6 gives the compile error "Wrong number of arguments or
-  invalid property assignment". `F(5, 6)` on a parameterless `Function F()` with no `As` clause gives 1
-  here, and VB6 gives the compile error "Expected array", where TE_04, the same shape named `Left`,
-  compiles and raises error 13; `F` ran in the scripted harness and TE_04 in a project, so whether the
-  name or the harness makes that difference is open. None of the three raises anything here. (Oracle: the 2026-10-11
-  entry "A type character on a name the program also declares", the surplus-argument rows beside TE_01–TE_04.)
+The neighbouring missing errors are no longer silent either:
+
+- `Dim Left As String` followed by `Left("abc", 1)` raises "Expected array" as the statement executes,
+  matching VB6's compile-error message (TL_07; TF_04 for a module variable).
+- Surplus arguments to `Function H(ByVal a As Long) As Long` or a parameterless
+  `Function G() As Long` raise "Wrong number of arguments or invalid property assignment" as the
+  statement executes, rather than being dropped.
+- A parameterless Function returning a Variant or object uses its arguments to index its result
+  (#1476). A scalar result raises error 13, including `Function Left()` without an `As` clause
+  (TE_04), rather than returning the function's value unchanged. The earlier scripted `F(5, 6)`
+  measurement gave "Expected array" at compile time; #1476's project measurement compiles and raises
+  13. Both measurements stand; HexIDE follows the latter execution behaviour.
+
+Measurements: [the #741 oracle](vb6-fidelity-oracle/a-type-character-on-a-name-the-program-also-declares-left-beside-a-user-left.md)
+and [indexing a call's result (#1476)](vb6-fidelity-oracle/indexing-a-calls-result.md).
 
 **Closed earlier by [#191](https://github.com/hexide-io/HexIDE/issues/191).** Eight constructs used to
 sit here: `Shell`, `FreeFile`, `Command`, `CurDir`, `Cls`, `Erl`, `Dir` and `Time = x`. Each parsed, ran,
@@ -796,7 +795,7 @@ missing.
 | `Decimal` | Partial | `Decimal` has no token in the grammar's `baseType` rule (BOOLEAN, BYTE, COLLECTION, CURRENCY, DATE, DOUBLE, INTEGER, LONG, OBJECT, SINGLE, STRING, VARIANT), so `As Decimal` parses as a… | VB6.g4 |
 | `&H` | Partial | Implemented and oracle-faithful in `ClassifyRadixLiteral`, whose comment records the measurement: "VB6 &H hex / &O octal literals are unsigned bit-patterns (verified against vb6.exe): with… | ExpressionExecutor.cs |
 | `&O` | Partial | The same `ClassifyRadixLiteral` path with radix 8. Measured `&O17` = 15 Integer; a trailing `&`/`%` forces the Long/Integer reading as for hex. | ExpressionExecutor.cs |
-| `() (call / array index)` | Partial | **#2474:** a declared array named with empty parentheses passes or evaluates as the whole array: array and ByRef Variant parameters share it, ByVal Variant parameters and Variant Let stores copy it (measured, native and p-code). Empty parentheses on a Variant holding an array raise "Expected Sub, Function, or Property" when executed. The ParamArray form `T a()` arrives as one element holding a copy, leaving the caller unchanged on writes through that element (#2532; measured native and p-code in #2474). **#849:** an array subscript is coerced as `CLng` coerces it (measured: banker's rounding, a numeric string, True -1, Null 94, "x" 13, beyond a Long 6, and an omitted `Optional` 13), and a control-array index as `CInt` (6 outside an Integer, 341 for a negative index, 13 for an omitted `Optional`), where only an Integer was accepted. **Kept Partial on purpose; a wrong result recorded under [#741](https://github.com/hexide-io/HexIDE/issues/741).** A parameterless `Function Left() As String` called as `Left("abc", 1)` returns the program's own value, where VB6 returns the library's `"a"` (oracle TE_01): a wrong result from a program VB6 runs. The same function without an `As` clause returns its value with no error, where VB6 raises error 13 at run time (TE_04): a missing run-time error, not a wrong result. TE_01 needs a parameterless procedure that shares a library function's name and is called with that function's arguments, so it is recorded under #741 rather than rating the call operator Silently wrong, which would misdescribe the common case. Missing compile errors besides: `Dim Left As String` then `Left("abc", 1)` reaches the library where VB6 refuses to compile it with "Expected array" (TL_07, TF_04); and surplus arguments are dropped with no error, `H(5, 6)` on `Function H(ByVal a As Long) As Long` giving 5 and `G(5, 6)` on a parameterless `Function G() As Long` giving 1, where VB6 gives "Wrong number of arguments or invalid property assignment", and `F(5, 6)` on a parameterless `Function F()` with no `As` clause giving 1, where VB6 gives "Expected array" (the oracle's surplus-argument rows beside TE_01–TE_04; whether TE_04 differs from `F` by name or by harness is open there). See Silently wrong. — `EvaluateProcedureOrArrayCall` resolves in the documented VB6 order: a control-array element (missing element -> Err 340, oracle-pinned), then a local ARRAY variable (multi-dimensional… | ExpressionExecutor.cs |
+| `() (call / array index)` | Partial | **#2474:** a declared array named with empty parentheses passes or evaluates as the whole array: array and ByRef Variant parameters share it, ByVal Variant parameters and Variant Let stores copy it (measured, native and p-code). Empty parentheses on a Variant holding an array raise "Expected Sub, Function, or Property" when executed. The ParamArray form `T a()` arrives as one element holding a copy, leaving the caller unchanged on writes through that element (#2532; measured native and p-code in #2474). **#849:** an array subscript is coerced as `CLng` coerces it (measured: banker's rounding, a numeric string, True -1, Null 94, "x" 13, beyond a Long 6, and an omitted `Optional` 13), and a control-array index as `CInt` (6 outside an Integer, 341 for a negative index, 13 for an omitted `Optional`), where only an Integer was accepted. **Kept Partial on purpose; the parameterless `Left` divergence recorded under [#741](https://github.com/hexide-io/HexIDE/issues/741).** A parameterless `Function Left() As String` called as `Left("abc", 1)` raises "Wrong number of arguments or invalid property assignment" as the statement executes, where VB6 returns the library's `"a"` (oracle TE_01): a valid program is refused rather than given a wrong result. Declared scalars claim their names before the library and raise "Expected array"; surplus arguments to procedures with parameters or parameterless typed returns are refused. Parameterless Variant/object results are indexed (#1476); scalar results raise error 13, including TE_04. See [call resolution above](#silently-wrong--0-names) and [interpreter-gaps.md](interpreter-gaps.md#other). — `EvaluateProcedureOrArrayCall` resolves in the documented VB6 order: a control-array element (missing element -> Err 340, oracle-pinned), then a local ARRAY variable (multi-dimensional… | ExpressionExecutor.cs |
 | `:` | Partial | Colons separate statements with or without surrounding spaces, including repeated and leading colons (**#223**). Measured block-opener and Then-line false acceptances remain in the corpus parse gate. | VB6.g4 |
 | `Comment` | Partial | `COMMENT : ( '\'' (LINE_CONTINUATION \| ~ ('\n' \| '\r'))* \| COLON? REM (REMTAIL (LINE_CONTINUATION \| ~ ('\n' \| '\r'))*)? ) -> channel(HIDDEN)` — comments lex to the hidden channel and are ignored. Measured working: a full-line `'… | VB6.g4 |
 | `Line label` | Supported | **#2529, #2561:** a label on a closing or middle line, `Skip: Next`, `Done: End If`, `Skip: Else`, is a label, and a `GoTo` to it does what one to a number there does; `Skip: Next` read `Skip` as a call. **#223:** falling through `Fin: End If` runs. **Fixed** — a label is now a `lineHead` on the block, reachable only after a separator containing a real line break, so a label SHARING its line with a statement registers as a jump target. Ten of fourteen measured-legal forms used to be silently lost (`Skip: stmt`, `Later : stmt`, `Skip:: stmt`, an On Error handler target, a label split from its colon by a continuation, …), because `lineLabel` was a `blockStmt` competing for the colon the block needed as a separator. A label named for a keyword (`Error:`, `Name:`) now parses too. A label sharing its line with a construct terminator was filed as the tree-walking limit, and was not one: it marks the end of the block before it (#2529) | VB6.g4, StatementExecutor.cs |
