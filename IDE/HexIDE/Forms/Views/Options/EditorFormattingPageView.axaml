@@ -68,7 +68,7 @@
             <Button HorizontalAlignment="Left" Command="{CompiledBinding ResetColorsCommand}" Content="{DynamicResource Str.Options.Shell.Buttons.ResetAll}" />
             <TextBlock Text="{DynamicResource Str.Options.Formatting.Preview}" />
             <ItemsControl x:Name="TokenPreview" ItemsSource="{CompiledBinding Tokens}"
-                          FontFamily="{CompiledBinding FontFamily}" FontSize="{CompiledBinding FontSize}"
+                          FontFamily="{CompiledBinding PreviewFontFamily}" FontSize="{CompiledBinding FontSize}"
                           Background="{DynamicResource {x:Static commonControls:SystemColors.WindowBrushKey}}">
                 <ItemsControl.ItemsPanel>
                     <ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate>
@@ -82,7 +82,7 @@
             </ItemsControl>
             <edit:TextEditor Height="120" IsReadOnly="True" ShowLineNumbers="True"
                              AutomationProperties.Name="{DynamicResource Str.Options.Formatting.Preview}"
-                             FontFamily="{CompiledBinding FontFamily}" FontSize="{CompiledBinding FontSize}"
+                             FontFamily="{CompiledBinding PreviewFontFamily}" FontSize="{CompiledBinding FontSize}"
                              Foreground="{DynamicResource {x:Static commonControls:SystemColors.WindowTextBrushKey}}" Background="{DynamicResource {x:Static commonControls:SystemColors.WindowBrushKey}}"
                              SyntaxHighlighting="{CompiledBinding PreviewDefinition}"
                              Text="Attribute VB_Name = &quot;VB6&quot;&#10;' VB6&#10;Public Sub Example()&#10;    Dim count As Integer&#10;    count = Len(&quot;VB6&quot;) + 42&#10;    If True Then Debug.Print &quot;VB6&quot;, count&#10;End Sub" />

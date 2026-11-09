@@ -35,7 +35,14 @@ public partial class EditorFormattingPageViewModel : ObservableObject, IOptionsP
     [ObservableProperty] private EditorTokenViewModel? _selectedToken;
     [ObservableProperty] private IHighlightingDefinition? _previewDefinition;
     [ObservableProperty] private int _tabWidth;
-    [ObservableProperty] private string _fontFamily = SettingsDefaults.EditorFontFamily;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(PreviewFontFamily))]
+    private string _fontFamily = SettingsDefaults.EditorFontFamily;
+
+    // Built as the code window builds it, so the preview shows the face the code window will use.
+    public FontFamily PreviewFontFamily =>
+        new(string.IsNullOrWhiteSpace(FontFamily) ? SettingsDefaults.EditorFontFamily : FontFamily);
+
     [ObservableProperty] private double _fontSize = SettingsDefaults.EditorFontSize;
 
     public void LoadFromSettings()
