@@ -2,9 +2,11 @@
   "name": "Thai",
   "direction": "ltr",
   "strings": {
+    "Str.Shell.NotImplemented": "ยังไม่ได้พัฒนาฟีเจอร์นี้",
     "Str.AIChat.Stop": "หยุด",
     "Str.Tool.LanguageServers.Problem.JsonSyntaxEscape": "ไฟล์การกำหนดค่า '{0}' มี JSON ที่ไม่ถูกต้องที่บรรทัด {1} คอลัมน์ {2} เส้นทาง: {3} ใช้เครื่องหมายทับ (C:/tools/new/...) หรือเครื่องหมายทับย้อนกลับสองตัว (C:\\\\tools\\\\new\\\\...)",
     "Str.Tool.LanguageServers.Problem.PathControlWarning": "ฟิลด์ '{0}' มีอักขระควบคุมจากลำดับหลีก เส้นทางที่น่าจะต้องการ: {1} ค่าจะไม่เปลี่ยนแปลง",
+    "Str.Lsp.RestartedAfterSilence": "{0} ไม่ตอบสนอง จึงเริ่มการทำงานใหม่แล้ว",
     "Str.Lsp.ServerMessage": "เซิร์ฟเวอร์ภาษา: {0}",
     "Str.Lsp.ServerError": "ข้อผิดพลาดของเซิร์ฟเวอร์ภาษา: {0}",
     "Str.Lsp.EditNotApplied": "ไม่ได้นำการแก้ไขจากเซิร์ฟเวอร์ไปใช้: {0}",
@@ -1125,6 +1127,7 @@
     "Str.Layout.NamePrompt": "ชื่อเค้าโครง:",
     "Str.Layout.InvalidName": "ป้อนชื่อเค้าโครงที่ไม่ซ้ำและไม่ว่าง",
     "Str.Layout.Skipped": "ข้ามหน้าต่างส่วนเสริมที่ไม่พร้อมใช้งาน: {0}",
-    "Str.Layout.SaveFailed": "ไม่สามารถบันทึกเค้าโครงแผงได้"
+    "Str.Layout.SaveFailed": "ไม่สามารถบันทึกเค้าโครงแผงได้",
+    "Str.Options.Addins.Overview": "ส่วนเสริมเพิ่มเครื่องมือและการตั้งค่าให้ HexIDE หากต้องการติดตั้ง ให้แตกแพ็กเกจส่วนเสริมที่ลงลายเซ็นแล้วลงในโฟลเดอร์ของตัวเองภายในไดเรกทอรีด้านล่าง แล้วเริ่ม HexIDE ใหม่ เลือกส่วนเสริมในแผนผังเพื่อจัดการ"
   }
 }

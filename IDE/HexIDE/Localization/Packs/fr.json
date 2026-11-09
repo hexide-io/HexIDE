@@ -2,9 +2,11 @@
   "name": "French",
   "direction": "ltr",
   "strings": {
+    "Str.Shell.NotImplemented": "Cette fonctionnalité n’est pas encore implémentée",
     "Str.AIChat.Stop": "Arrêter",
     "Str.Tool.LanguageServers.Problem.JsonSyntaxEscape": "Le fichier de configuration « {0} » contient du JSON non valide à la ligne {1}, colonne {2}. Chemin : {3} Utilisez des barres obliques (C:/tools/new/...) ou des barres obliques inverses doublées (C:\\\\tools\\\\new\\\\...).",
     "Str.Tool.LanguageServers.Problem.PathControlWarning": "Le champ '{0}' contient un caractère de contrôle issu d’une séquence d’échappement ; chemin probablement voulu avec des barres obliques inverses : {1}. La valeur reste inchangée.",
+    "Str.Lsp.RestartedAfterSilence": "{0} n’a pas répondu ; il a été redémarré.",
     "Str.Lsp.ServerMessage": "Serveur de langage : {0}",
     "Str.Lsp.ServerError": "Erreur du serveur de langage : {0}",
     "Str.Lsp.EditNotApplied": "Modification du serveur non appliquée : {0}",
@@ -1125,6 +1127,7 @@
     "Str.Layout.NamePrompt": "Nom de la disposition :",
     "Str.Layout.InvalidName": "Saisissez un nom de disposition unique et non vide.",
     "Str.Layout.Skipped": "Les fenêtres de compléments indisponibles ont été ignorées : {0}",
-    "Str.Layout.SaveFailed": "Impossible d’enregistrer les dispositions des panneaux."
+    "Str.Layout.SaveFailed": "Impossible d’enregistrer les dispositions des panneaux.",
+    "Str.Options.Addins.Overview": "Les compléments ajoutent des outils et des paramètres à HexIDE. Pour en installer un, extrayez un paquet signé dans son propre dossier dans le répertoire ci-dessous, puis redémarrez HexIDE. Sélectionnez un complément dans l’arborescence pour le gérer."
   }
 }

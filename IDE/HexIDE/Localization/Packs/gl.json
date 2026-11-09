@@ -2,9 +2,11 @@
   "name": "Galician",
   "direction": "ltr",
   "strings": {
+    "Str.Shell.NotImplemented": "Esta función aínda non está implementada",
     "Str.AIChat.Stop": "Deter",
     "Str.Tool.LanguageServers.Problem.JsonSyntaxEscape": "O ficheiro de configuración «{0}» contén JSON non válido na liña {1}, columna {2}. Ruta: {3} Use barras (C:/tools/new/...) ou barras inversas dobres (C:\\\\tools\\\\new\\\\...).",
     "Str.Tool.LanguageServers.Problem.PathControlWarning": "O campo '{0}' contén un carácter de control escapado; ruta probablemente desexada: {1}. O valor non cambia.",
+    "Str.Lsp.RestartedAfterSilence": "{0} non respondeu; reiniciouse.",
     "Str.Lsp.ServerMessage": "Servidor de linguaxe: {0}",
     "Str.Lsp.ServerError": "Erro do servidor de linguaxe: {0}",
     "Str.Lsp.EditNotApplied": "Non se aplicou a edición do servidor: {0}",
@@ -1125,6 +1127,7 @@
     "Str.Layout.NamePrompt": "Nome da disposición:",
     "Str.Layout.InvalidName": "Introduza un nome de disposición único e non baleiro.",
     "Str.Layout.Skipped": "Omitíronse as xanelas de complementos non dispoñibles: {0}",
-    "Str.Layout.SaveFailed": "Non se puideron gardar as disposicións dos paneis."
+    "Str.Layout.SaveFailed": "Non se puideron gardar as disposicións dos paneis.",
+    "Str.Options.Addins.Overview": "Os complementos amplían HexIDE con ferramentas e opcións. Para instalar un, extraia un paquete asinado no seu propio cartafol dentro do directorio indicado abaixo e reinicie HexIDE. Seleccione un complemento na árbore para xestionalo."
   }
 }

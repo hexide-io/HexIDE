@@ -2,9 +2,11 @@
   "name": "Dutch",
   "direction": "ltr",
   "strings": {
+    "Str.Shell.NotImplemented": "Deze functie is nog niet geïmplementeerd",
     "Str.AIChat.Stop": "Stoppen",
     "Str.Tool.LanguageServers.Problem.JsonSyntaxEscape": "Het configuratiebestand '{0}' bevat ongeldige JSON op regel {1}, kolom {2}. Pad: {3} Gebruik schuine strepen (C:/tools/new/...) of dubbele backslashes (C:\\\\tools\\\\new\\\\...).",
     "Str.Tool.LanguageServers.Problem.PathControlWarning": "Veld '{0}' bevat een besturingsteken uit een escape-reeks; waarschijnlijk bedoeld pad met backslashes: {1}. De waarde is ongewijzigd.",
+    "Str.Lsp.RestartedAfterSilence": "{0} antwoordde niet; de server is opnieuw gestart.",
     "Str.Lsp.ServerMessage": "Taalserver: {0}",
     "Str.Lsp.ServerError": "Taalserverfout: {0}",
     "Str.Lsp.EditNotApplied": "Serverbewerking niet toegepast: {0}",
@@ -1125,6 +1127,7 @@
     "Str.Layout.NamePrompt": "Naam van indeling:",
     "Str.Layout.InvalidName": "Voer een unieke, niet-lege naam voor de indeling in.",
     "Str.Layout.Skipped": "Niet-beschikbare invoegtoepassingsvensters zijn overgeslagen: {0}",
-    "Str.Layout.SaveFailed": "De paneelindelingen konden niet worden opgeslagen."
+    "Str.Layout.SaveFailed": "De paneelindelingen konden niet worden opgeslagen.",
+    "Str.Options.Addins.Overview": "Invoegtoepassingen breiden HexIDE uit met hulpmiddelen en instellingen. Pak voor installatie een ondertekend pakket uit in een eigen map in de onderstaande directory en start HexIDE opnieuw. Selecteer een invoegtoepassing in de boom om deze te beheren."
   }
 }

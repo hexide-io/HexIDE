@@ -2,9 +2,11 @@
   "name": "Chinese (Simplified)",
   "direction": "ltr",
   "strings": {
+    "Str.Shell.NotImplemented": "此功能尚未实现",
     "Str.AIChat.Stop": "停止",
     "Str.Tool.LanguageServers.Problem.JsonSyntaxEscape": "配置文件“{0}”在第 {1} 行、第 {2} 列包含无效的 JSON。路径：{3} 请使用正斜杠 (C:/tools/new/...) 或双反斜杠 (C:\\\\tools\\\\new\\\\...)。",
     "Str.Tool.LanguageServers.Problem.PathControlWarning": "字段 '{0}' 包含转义序列产生的控制字符；可能原本想写的反斜杠路径：{1}。值保持不变。",
+    "Str.Lsp.RestartedAfterSilence": "{0} 未响应；已将其重启。",
     "Str.Lsp.ServerMessage": "语言服务器：{0}",
     "Str.Lsp.ServerError": "语言服务器错误：{0}",
     "Str.Lsp.EditNotApplied": "未应用服务器编辑：{0}",
@@ -1115,7 +1117,7 @@
     "Str.Menu.View.Outline": "大纲(_U)",
     "Str.Menu.View.RecentEdits": "最近编辑",
     "Str.CodeEditor.Context.FindReferences": "查找引用",
-"Str.CodeEditor.Context.NoQuickFix": "未提供适用的修复。(_N)",
+    "Str.CodeEditor.Context.NoQuickFix": "未提供适用的修复。(_N)",
     "Str.Layout.Layouts": "面板布局(_P)",
     "Str.Layout.Save": "将布局另存为…(_S)",
     "Str.Layout.FullEditor": "完整编辑器(_F)",
@@ -1125,6 +1127,7 @@
     "Str.Layout.NamePrompt": "布局名称：",
     "Str.Layout.InvalidName": "请输入唯一且非空的布局名称。",
     "Str.Layout.Skipped": "已跳过不可用的加载项窗口：{0}",
-    "Str.Layout.SaveFailed": "无法保存面板布局。"
+    "Str.Layout.SaveFailed": "无法保存面板布局。",
+    "Str.Options.Addins.Overview": "加载项为 HexIDE 添加工具和设置。要安装加载项，请将已签名的加载项包解压到下方目录中的独立文件夹，然后重启 HexIDE。在树中选择加载项即可管理。"
   }
 }

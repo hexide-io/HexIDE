@@ -2,9 +2,11 @@
   "name": "Slovak",
   "direction": "ltr",
   "strings": {
+    "Str.Shell.NotImplemented": "Táto funkcia zatiaľ nie je implementovaná",
     "Str.AIChat.Stop": "Zastaviť",
     "Str.Tool.LanguageServers.Problem.JsonSyntaxEscape": "Konfiguračný súbor „{0}“ obsahuje neplatný JSON na riadku {1}, v stĺpci {2}. Cesta: {3} Použite lomky (C:/tools/new/...) alebo dvojité spätné lomky (C:\\\\tools\\\\new\\\\...).",
     "Str.Tool.LanguageServers.Problem.PathControlWarning": "Pole '{0}' obsahuje riadiaci znak z únikovej sekvencie; pravdepodobne zamýšľaná cesta: {1}. Hodnota sa nemení.",
+    "Str.Lsp.RestartedAfterSilence": "{0} neodpovedal; bol reštartovaný.",
     "Str.Lsp.ServerMessage": "Jazykový server: {0}",
     "Str.Lsp.ServerError": "Chyba jazykového servera: {0}",
     "Str.Lsp.EditNotApplied": "Úprava zo servera nebola použitá: {0}",
@@ -1125,6 +1127,7 @@
     "Str.Layout.NamePrompt": "Názov rozloženia:",
     "Str.Layout.InvalidName": "Zadajte jedinečný neprázdny názov rozloženia.",
     "Str.Layout.Skipped": "Nedostupné okná doplnkov boli preskočené: {0}",
-    "Str.Layout.SaveFailed": "Rozloženia panelov sa nepodarilo uložiť."
+    "Str.Layout.SaveFailed": "Rozloženia panelov sa nepodarilo uložiť.",
+    "Str.Options.Addins.Overview": "Doplnky rozširujú HexIDE o nástroje a nastavenia. Ak chcete doplnok nainštalovať, rozbaľte podpísaný balík do vlastného priečinka v nižšie uvedenom adresári a reštartujte HexIDE. Doplnok môžete spravovať výberom v strome."
   }
 }

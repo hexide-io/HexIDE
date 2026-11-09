@@ -313,6 +313,13 @@ wait separately for the stopped client and its warning, since the warning may be
 clears (#2244). It is an in-process server over raw frames, so it proves nothing about interoperability:
 that stays with the foreign servers.
 
+A stdio server that remains alive but sends no bytes after `initialize` times out is restarted once
+(#808), provided the channel tap confirms that the request was flushed and a read was waiting.
+The inspector records the restart and both process IDs; the status bar names the restarted server.
+If the second handshake also times out, the failed attempt says “tried twice”. An exit, error reply,
+partial response, blocked write or cancellation does not trigger this restart. Pipe and socket reconnect
+policy is unchanged. `SilentStdioRestartTests` checks receipt of initialize in two distinct real processes.
+
 `SilentServerTests.GivingUpIsReportedAtWarning_BecauseSilenceIsTheSymptom` keeps the timeout warning
 assertion strict and includes the last connection attempt and recorded logs (with exceptions) on failure.
 The isolated 6 ms Windows CI failure in #1937 has not yet been explained; these diagnostics distinguish

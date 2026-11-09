@@ -2,9 +2,11 @@
   "name": "Italian",
   "direction": "ltr",
   "strings": {
+    "Str.Shell.NotImplemented": "Questa funzionalità non è ancora implementata",
     "Str.AIChat.Stop": "Interrompi",
     "Str.Tool.LanguageServers.Problem.JsonSyntaxEscape": "Il file di configurazione «{0}» contiene JSON non valido alla riga {1}, colonna {2}. Percorso: {3} Usare barre (C:/tools/new/...) o barre inverse doppie (C:\\\\tools\\\\new\\\\...).",
     "Str.Tool.LanguageServers.Problem.PathControlWarning": "Il campo '{0}' contiene un carattere di controllo prodotto da una sequenza di escape; probabile percorso desiderato con barre inverse: {1}. Il valore resta invariato.",
+    "Str.Lsp.RestartedAfterSilence": "{0} non ha risposto; è stato riavviato.",
     "Str.Lsp.ServerMessage": "Server di linguaggio: {0}",
     "Str.Lsp.ServerError": "Errore del server di linguaggio: {0}",
     "Str.Lsp.EditNotApplied": "Modifica del server non applicata: {0}",
@@ -1125,6 +1127,7 @@
     "Str.Layout.NamePrompt": "Nome della disposizione:",
     "Str.Layout.InvalidName": "Inserire un nome di disposizione univoco e non vuoto.",
     "Str.Layout.Skipped": "Le finestre dei componenti aggiuntivi non disponibili sono state ignorate: {0}",
-    "Str.Layout.SaveFailed": "Impossibile salvare le disposizioni dei pannelli."
+    "Str.Layout.SaveFailed": "Impossibile salvare le disposizioni dei pannelli.",
+    "Str.Options.Addins.Overview": "I componenti aggiuntivi estendono HexIDE con strumenti e impostazioni. Per installarne uno, estrarre un pacchetto firmato in una cartella dedicata nella directory sottostante e riavviare HexIDE. Selezionare un componente nell’albero per gestirlo."
   }
 }

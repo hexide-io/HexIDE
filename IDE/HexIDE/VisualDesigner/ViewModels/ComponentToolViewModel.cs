@@ -10,7 +10,7 @@ public partial class ComponentToolViewModel : ObservableObject
 {
     private readonly ToolBoxToolViewModel parent;
 
-    public ComponentToolViewModel(ToolBoxToolViewModel parent, ComponentBaseClass baseClass, IImage icon)
+    public ComponentToolViewModel(ToolBoxToolViewModel parent, IDesignerComponentClass baseClass, IImage icon)
     {
         this.parent = parent;
         BaseClass = baseClass;
@@ -28,12 +28,12 @@ public partial class ComponentToolViewModel : ObservableObject
     public ComponentToolViewModel(ToolBoxToolViewModel parent, IComponentClass component, IImage icon)
     {
         this.parent = parent;
-        BaseClass = component as ComponentBaseClass;
+        BaseClass = component as IDesignerComponentClass;
         Icon = icon;
         Name = component.Name;
     }
 
-    public ComponentBaseClass? BaseClass { get; }
+    public IDesignerComponentClass? BaseClass { get; }
 
     /// <summary>The library an in-box control is placed from, which its type name and its form's header name (#1103).</summary>
     public RuntimeLibrary? Library { get; init; }

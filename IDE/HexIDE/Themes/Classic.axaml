@@ -112,6 +112,7 @@
     <SolidColorBrush x:Key="BracketDepth2Brush" Color="#0000B0" />
     <SolidColorBrush x:Key="BracketDepth3Brush" Color="#800080" />
     <SolidColorBrush x:Key="BracketUnmatchedBrush" Color="#B00020" />
+    <SolidColorBrush x:Key="LinkTextBrush" Color="#0000FF" />
     <SolidColorBrush x:Key="ReadOnlyTextBrush" Color="#707070" />
     <SolidColorBrush x:Key="InactiveCodeTextBrush" Color="#707070" />
 

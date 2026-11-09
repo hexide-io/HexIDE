@@ -58,6 +58,20 @@ public sealed class KeymapServiceTests : IDisposable
     }
 
     [AvaloniaTheory]
+    [InlineData("Default")]
+    [InlineData("VB6")]
+    public void EditWatchRetainsItsDefaultGesture(string keymap)
+    {
+        var service = new KeymapService(_directory);
+        service.Apply(keymap);
+
+        var gesture = new KeyGesture(Key.W, ApplicationCommands.CopyCommand.Gestures.Single().KeyModifiers);
+        ApplicationCommands.EditWatchCommand.Gestures.Should().Equal(gesture);
+        CommandKeyMapping.Table.Where(pair => pair.Value.Gestures.Contains(gesture))
+            .Select(pair => pair.Key).Should().Equal(nameof(ApplicationCommands.EditWatchCommand));
+    }
+
+    [AvaloniaTheory]
     [InlineData(nameof(ApplicationCommands.OpenCallStackCommand))]
     [InlineData(nameof(ApplicationCommands.ResetWindowLayoutCommand))]
     [InlineData(nameof(ApplicationCommands.GoToDeclarationCommand))]

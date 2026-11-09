@@ -2,9 +2,11 @@
   "name": "Serbian (Latin)",
   "direction": "ltr",
   "strings": {
+    "Str.Shell.NotImplemented": "Ova funkcija još nije implementirana",
     "Str.AIChat.Stop": "Zaustavi",
     "Str.Tool.LanguageServers.Problem.JsonSyntaxEscape": "Konfiguraciona datoteka „{0}” sadrži neispravan JSON u redu {1}, koloni {2}. Putanja: {3} Koristite kose crte (C:/tools/new/...) ili dvostruke obrnute kose crte (C:\\\\tools\\\\new\\\\...).",
     "Str.Tool.LanguageServers.Problem.PathControlWarning": "Polje '{0}' sadrži kontrolni znak iz izlazne sekvence; verovatno željena putanja: {1}. Vrednost nije promenjena.",
+    "Str.Lsp.RestartedAfterSilence": "{0} nije odgovorio; ponovo je pokrenut.",
     "Str.Lsp.ServerMessage": "Jezički server: {0}",
     "Str.Lsp.ServerError": "Greška jezičkog servera: {0}",
     "Str.Lsp.EditNotApplied": "Izmena servera nije primenjena: {0}",
@@ -1125,6 +1127,7 @@
     "Str.Layout.NamePrompt": "Naziv rasporeda:",
     "Str.Layout.InvalidName": "Unesite jedinstven naziv rasporeda koji nije prazan.",
     "Str.Layout.Skipped": "Nedostupni prozori dodataka su preskočeni: {0}",
-    "Str.Layout.SaveFailed": "Rasporedi panela nisu mogli da se sačuvaju."
+    "Str.Layout.SaveFailed": "Rasporedi panela nisu mogli da se sačuvaju.",
+    "Str.Options.Addins.Overview": "Dodaci proširuju HexIDE alatkama i podešavanjima. Za instalaciju raspakujte potpisani paket u zasebnu fasciklu u direktorijumu ispod i ponovo pokrenite HexIDE. Izaberite dodatak u stablu da biste njime upravljali."
   }
 }

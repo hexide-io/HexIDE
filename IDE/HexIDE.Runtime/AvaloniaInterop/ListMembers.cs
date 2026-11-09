@@ -55,6 +55,11 @@ internal static class ListMembers
         value = default;
         if (control is not SelectingItemsControl list || !IsList(control))
             return false;
+        if (control is VBListBox topList && member.Equals("TopIndex", StringComparison.OrdinalIgnoreCase))
+        {
+            value = new Vb6Value(topList.TopIndex);
+            return true;
+        }
         if (control is VBListBox listBox && member.Equals("SelCount", StringComparison.OrdinalIgnoreCase))
         {
             value = new Vb6Value(listBox.SelectedCount);
@@ -86,6 +91,11 @@ internal static class ListMembers
     {
         if (!IsList(control))
             return false;
+        if (control is VBListBox topList && member.Equals("TopIndex", StringComparison.OrdinalIgnoreCase))
+        {
+            topList.SetTopIndexFromCode(Integer(value));
+            return true;
+        }
         if (control is VBListBox listBox && member.Equals("Text", StringComparison.OrdinalIgnoreCase))
         {
             listBox.SetTextFromCode(Text(value));

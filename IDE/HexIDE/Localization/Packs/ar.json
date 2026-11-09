@@ -2,9 +2,11 @@
   "name": "Arabic",
   "direction": "rtl",
   "strings": {
+    "Str.Shell.NotImplemented": "لم تُنفّذ هذه الميزة بعد",
     "Str.AIChat.Stop": "إيقاف",
     "Str.Tool.LanguageServers.Problem.JsonSyntaxEscape": "يحتوي ملف الإعدادات «{0}» على JSON غير صالح في السطر {1}، العمود {2}. المسار: {3} استخدم الشرطات المائلة (C:/tools/new/...) أو الشرطات المائلة العكسية المزدوجة (C:\\\\tools\\\\new\\\\...).",
     "Str.Tool.LanguageServers.Problem.PathControlWarning": "يحتوي الحقل '{0}' على محرف تحكم ناتج عن تسلسل هروب؛ المسار المقصود على الأرجح: {1}. لم تتغير القيمة.",
+    "Str.Lsp.RestartedAfterSilence": "لم يستجب {0}؛ تمت إعادة تشغيله.",
     "Str.Lsp.ServerMessage": "خادم اللغة: {0}",
     "Str.Lsp.ServerError": "خطأ في خادم اللغة: {0}",
     "Str.Lsp.EditNotApplied": "لم يُطبّق تعديل الخادم: {0}",
@@ -1125,6 +1127,7 @@
     "Str.Layout.NamePrompt": "اسم التخطيط:",
     "Str.Layout.InvalidName": "أدخل اسم تخطيط فريدًا وغير فارغ.",
     "Str.Layout.Skipped": "تم تخطي نوافذ الوظائف الإضافية غير المتاحة: {0}",
-    "Str.Layout.SaveFailed": "تعذر حفظ تخطيطات اللوحات."
+    "Str.Layout.SaveFailed": "تعذر حفظ تخطيطات اللوحات.",
+    "Str.Options.Addins.Overview": "تضيف الوظائف الإضافية أدوات وإعدادات إلى HexIDE. لتثبيت إحداها، استخرج حزمة موقعة في مجلد خاص بها داخل الدليل أدناه، ثم أعد تشغيل HexIDE. حدد وظيفة إضافية في الشجرة لإدارتها."
   }
 }

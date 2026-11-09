@@ -24,9 +24,11 @@ public class ListBoxComponentClass : ComponentBaseClass
         AppearanceProperty,
         TabStopProperty,
         TabIndexProperty,
-        ToolTipTextProperty], [ClickEvent, DblClickEvent, GotFocusEvent, LostFocusEvent, MouseDownEvent, MouseMoveEvent, MouseUpEvent])
+        ToolTipTextProperty], [ClickEvent, ScrollEvent, DblClickEvent, GotFocusEvent, LostFocusEvent, MouseDownEvent, MouseMoveEvent, MouseUpEvent])
     {
     }
+
+    public static readonly EventClass ScrollEvent = new("Scroll");
 
     public override string Name => "List";
     public override string VBTypeName => "VB.ListBox";

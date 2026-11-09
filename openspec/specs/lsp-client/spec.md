@@ -12,6 +12,29 @@ later without the editor noticing.
 
 ## Requirements
 
+### Requirement: One restart after a silent stdio initialize
+
+The client SHALL restart a live stdio server at most once when initialize times out, only if the channel tap
+confirms the request reached the channel and a read was waiting with no bytes returned. It SHALL record the
+restart and process identities in the protocol inspector and show a localized status-bar notice naming the
+server. A second unanswered handshake SHALL fail with a reason stating that it was tried twice.
+
+#### Scenario: The replacement answers
+- **WHEN** a live stdio server receives initialize but stays silent until the handshake deadline
+- **AND** its replacement answers initialize
+- **THEN** language features become available on the replacement connection
+- **AND** the inspector and status bar report the restart
+
+#### Scenario: Both processes stay silent
+- **WHEN** both the original and replacement stay silent past their initialize deadlines
+- **THEN** the connection fails with a reason saying it was tried twice
+- **AND** no third process is launched
+
+#### Scenario: Other startup failures
+- **WHEN** a server exits, refuses initialize, returns partial bytes, never receives the write, or startup is cancelled
+- **THEN** this automatic stdio restart does not apply
+
+
 ### Requirement: Configured initialization options
 
 The client SHALL pass a registration's `initializationOptions` JSON unchanged in the initialize request.

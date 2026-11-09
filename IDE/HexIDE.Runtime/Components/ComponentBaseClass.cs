@@ -9,7 +9,7 @@ using static HexIDE.Runtime.Components.VBProperties;
 
 namespace HexIDE.Runtime.Components;
 
-public abstract class ComponentBaseClass : IComponentClass
+public abstract class ComponentBaseClass : IDesignerComponentClass
 {
     public ComponentBaseClass(IReadOnlyList<PropertyClass> extendedProperties,
         IReadOnlyList<EventClass>? events = null)

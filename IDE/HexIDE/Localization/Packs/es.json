@@ -2,9 +2,11 @@
   "name": "Spanish",
   "direction": "ltr",
   "strings": {
+    "Str.Shell.NotImplemented": "Esta función aún no está implementada",
     "Str.AIChat.Stop": "Detener",
     "Str.Tool.LanguageServers.Problem.JsonSyntaxEscape": "El archivo de configuración «{0}» contiene JSON no válido en la línea {1}, columna {2}. Ruta: {3} Use barras normales (C:/tools/new/...) o barras inversas dobles (C:\\\\tools\\\\new\\\\...).",
     "Str.Tool.LanguageServers.Problem.PathControlWarning": "El campo '{0}' contiene un carácter de control producido por una secuencia de escape; ruta con barras inversas probablemente deseada: {1}. El valor no ha cambiado.",
+    "Str.Lsp.RestartedAfterSilence": "{0} no respondió; se ha reiniciado.",
     "Str.Lsp.ServerMessage": "Servidor de lenguaje: {0}",
     "Str.Lsp.ServerError": "Error del servidor de lenguaje: {0}",
     "Str.Lsp.EditNotApplied": "No se aplicó la edición del servidor: {0}",
@@ -1125,6 +1127,7 @@
     "Str.Layout.NamePrompt": "Nombre del diseño:",
     "Str.Layout.InvalidName": "Escriba un nombre de diseño único y no vacío.",
     "Str.Layout.Skipped": "Se omitieron las ventanas de complementos no disponibles: {0}",
-    "Str.Layout.SaveFailed": "No se pudieron guardar los diseños de paneles."
+    "Str.Layout.SaveFailed": "No se pudieron guardar los diseños de paneles.",
+    "Str.Options.Addins.Overview": "Los complementos amplían HexIDE con herramientas y opciones. Para instalar uno, extraiga un paquete firmado en su propia carpeta dentro del directorio indicado abajo y reinicie HexIDE. Seleccione un complemento en el árbol para administrarlo."
   }
 }

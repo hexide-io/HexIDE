@@ -16,6 +16,16 @@ embedded-only loader.
 
 ## Requirements
 
+### Requirement: Editor links SHALL follow the theme
+Editors SHALL use the `LinkText` theme colour (`LinkTextBrush`) for web and mail links.
+Every shipped pack SHALL declare it with at least 4.5:1 contrast against its own `Window` background.
+An open editor SHALL update links immediately when that resource changes, including between dark packs.
+
+#### Scenario: Switching between dark packs with a link visible
+- **WHEN** Dark is changed to Abyss while an editable comment contains a URL
+- **THEN** the link uses Abyss's link colour without reopening the editor
+
+
 ### Requirement: IDE dialog buttons expose keyboard focus and fixed defaults
 IDE message boxes, server prompts and all dialogs hosted by the IDE window manager SHALL show a dotted inset
 focus rectangle for keyboard focus, using the active theme's control-text brush. Mouse focus alone

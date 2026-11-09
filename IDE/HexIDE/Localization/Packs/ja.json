@@ -2,9 +2,11 @@
   "name": "Japanese",
   "direction": "ltr",
   "strings": {
+    "Str.Shell.NotImplemented": "この機能はまだ実装されていません",
     "Str.AIChat.Stop": "停止",
     "Str.Tool.LanguageServers.Problem.JsonSyntaxEscape": "構成ファイル「{0}」の {1} 行、{2} 列に無効な JSON があります。パス: {3} スラッシュ (C:/tools/new/...) または二重のバックスラッシュ (C:\\\\tools\\\\new\\\\...) を使用してください。",
     "Str.Tool.LanguageServers.Problem.PathControlWarning": "フィールド '{0}' にエスケープシーケンスによる制御文字が含まれています。意図された可能性のあるバックスラッシュのパス: {1}。値は変更されていません。",
+    "Str.Lsp.RestartedAfterSilence": "{0} が応答しなかったため、再起動しました。",
     "Str.Lsp.ServerMessage": "言語サーバー: {0}",
     "Str.Lsp.ServerError": "言語サーバーのエラー: {0}",
     "Str.Lsp.EditNotApplied": "サーバーの編集は適用されませんでした: {0}",
@@ -1115,7 +1117,7 @@
     "Str.Menu.View.Outline": "アウトライン(_U)",
     "Str.Menu.View.RecentEdits": "最近の編集",
     "Str.CodeEditor.Context.FindReferences": "参照の検索",
-"Str.CodeEditor.Context.NoQuickFix": "適用可能な修正がありません。(_N)",
+    "Str.CodeEditor.Context.NoQuickFix": "適用可能な修正がありません。(_N)",
     "Str.Layout.Layouts": "パネルレイアウト(_P)",
     "Str.Layout.Save": "名前を付けてレイアウトを保存…(_S)",
     "Str.Layout.FullEditor": "エディター全体(_F)",
@@ -1125,6 +1127,7 @@
     "Str.Layout.NamePrompt": "レイアウト名:",
     "Str.Layout.InvalidName": "重複しない空でないレイアウト名を入力してください。",
     "Str.Layout.Skipped": "利用できないアドインのウィンドウはスキップされました: {0}",
-    "Str.Layout.SaveFailed": "パネルレイアウトを保存できませんでした。"
+    "Str.Layout.SaveFailed": "パネルレイアウトを保存できませんでした。",
+    "Str.Options.Addins.Overview": "アドインは HexIDE にツールや設定を追加します。インストールするには、署名済みのアドインパッケージを以下のディレクトリ内の専用フォルダーに展開し、HexIDE を再起動してください。管理するアドインをツリーで選択してください。"
   }
 }

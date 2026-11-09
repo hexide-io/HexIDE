@@ -109,3 +109,16 @@ Issue [#3350](https://github.com/hexide-io/HexIDE/issues/3350) uses
 [#3349’s Public object-module member measurements](vb6-fidelity-oracle/a-public-array-in-an-object-module.md):
 Public constants, fixed-length strings, UDT variables and Declare statements receive the same compile refusal
 as Public arrays. HexIDE checks UDT members later, while allocating instance storage.
+
+The [#3275 measurements](https://github.com/hexide-io/HexIDE/issues/3275), made by hexide-int
+with VB6 SP6 on the Win10 guest in matching native and p-code builds, establish ListBox Scroll:
+scrollbar movement, keyboard movement, WM_VSCROLL and TopIndex assignments raise it once per
+changed top row; unchanged rows, wheel input and ListIndex assignments do not. Keyboard Click
+precedes Scroll, and both see the updated TopIndex. TopIndex clamps to the last page and rejects
+indices below zero or at/above ListCount with 380. The measuring author's page belongs to
+[PR #3286](https://github.com/hexide-io/HexIDE/pull/3286).
+
+The [#3275 supervisor correction](https://github.com/hexide-io/HexIDE/issues/3275) requires
+TopIndex to use the existing Integer store coercion: Long and numeric Variant assignments
+are accepted, and Integer overflow raises error 6. This is supplied provenance, not a new
+measurement by this implementation run.

@@ -2,9 +2,11 @@
   "name": "Swedish",
   "direction": "ltr",
   "strings": {
+    "Str.Shell.NotImplemented": "Den här funktionen är inte implementerad ännu",
     "Str.AIChat.Stop": "Stoppa",
     "Str.Tool.LanguageServers.Problem.JsonSyntaxEscape": "Konfigurationsfilen '{0}' innehåller ogiltig JSON på rad {1}, kolumn {2}. Sökväg: {3} Använd snedstreck (C:/tools/new/...) eller dubbla omvända snedstreck (C:\\\\tools\\\\new\\\\...).",
     "Str.Tool.LanguageServers.Problem.PathControlWarning": "Fältet '{0}' innehåller ett styrtecken från en escape-sekvens; sannolikt avsedd sökväg med omvända snedstreck: {1}. Värdet är oförändrat.",
+    "Str.Lsp.RestartedAfterSilence": "{0} svarade inte; den startades om.",
     "Str.Lsp.ServerMessage": "Språkserver: {0}",
     "Str.Lsp.ServerError": "Språkserverfel: {0}",
     "Str.Lsp.EditNotApplied": "Serverändringen tillämpades inte: {0}",
@@ -1125,6 +1127,7 @@
     "Str.Layout.NamePrompt": "Layoutnamn:",
     "Str.Layout.InvalidName": "Ange ett unikt layoutnamn som inte är tomt.",
     "Str.Layout.Skipped": "Otillgängliga tilläggsfönster hoppades över: {0}",
-    "Str.Layout.SaveFailed": "Panellayouterna kunde inte sparas."
+    "Str.Layout.SaveFailed": "Panellayouterna kunde inte sparas.",
+    "Str.Options.Addins.Overview": "Tillägg utökar HexIDE med verktyg och inställningar. Installera genom att packa upp ett signerat tilläggspaket i en egen mapp i katalogen nedan och starta om HexIDE. Välj ett tillägg i trädet för att hantera det."
   }
 }

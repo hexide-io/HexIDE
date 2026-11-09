@@ -2,9 +2,11 @@
   "name": "Turkish",
   "direction": "ltr",
   "strings": {
+    "Str.Shell.NotImplemented": "Bu özellik henüz uygulanmadı",
     "Str.AIChat.Stop": "Durdur",
     "Str.Tool.LanguageServers.Problem.JsonSyntaxEscape": "'{0}' yapılandırma dosyası {1}. satır, {2}. sütunda geçersiz JSON içeriyor. Yol: {3} Eğik çizgi (C:/tools/new/...) veya çift ters eğik çizgi (C:\\\\tools\\\\new\\\\...) kullanın.",
     "Str.Tool.LanguageServers.Problem.PathControlWarning": "'{0}' alanı bir kaçış dizisinden oluşan kontrol karakteri içeriyor; muhtemelen amaçlanan ters eğik çizgili yol: {1}. Değer değiştirilmedi.",
+    "Str.Lsp.RestartedAfterSilence": "{0} yanıt vermedi; yeniden başlatıldı.",
     "Str.Lsp.ServerMessage": "Dil sunucusu: {0}",
     "Str.Lsp.ServerError": "Dil sunucusu hatası: {0}",
     "Str.Lsp.EditNotApplied": "Sunucu düzenlemesi uygulanmadı: {0}",
@@ -1125,6 +1127,7 @@
     "Str.Layout.NamePrompt": "Düzen adı:",
     "Str.Layout.InvalidName": "Benzersiz, boş olmayan bir düzen adı girin.",
     "Str.Layout.Skipped": "Kullanılamayan eklenti pencereleri atlandı: {0}",
-    "Str.Layout.SaveFailed": "Panel düzenleri kaydedilemedi."
+    "Str.Layout.SaveFailed": "Panel düzenleri kaydedilemedi.",
+    "Str.Options.Addins.Overview": "Eklentiler HexIDE'ye araçlar ve ayarlar ekler. Yüklemek için imzalı bir eklenti paketini aşağıdaki dizinde kendine ait bir klasöre çıkarın ve HexIDE'yi yeniden başlatın. Yönetmek için ağaçtan bir eklenti seçin."
   }
 }
