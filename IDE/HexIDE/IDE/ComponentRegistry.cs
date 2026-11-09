@@ -29,14 +29,16 @@ public class ComponentRegistry : IComponentRegistry
 
     public event Action<IComponentClass>? ComponentUnregistered;
 
-    public void Register(IComponentClass component)
+    public IDisposable Register(IComponentClass component)
     {
         _components.Add(component);
-        HexIDE.Addins.AddinInitializationScope.Record(() =>
+        var handle = new HexIDE.Utils.ActionDisposable(() =>
         {
             _components.RemoveAt(_components.LastIndexOf(component));
             ComponentUnregistered?.Invoke(component);
         });
+        HexIDE.Addins.AddinInitializationScope.Record(handle.Dispose);
         ComponentRegistered?.Invoke(component);
+        return handle;
     }
 }

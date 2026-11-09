@@ -4,9 +4,6 @@
 Define how third-party code extends the IDE: what an add-in is, what the IDE offers it, and what happens
 when one misbehaves.
 
-**Known divergence:** `RegisterComponent` and `RegisterProjectTemplate` return no handle, so an add-in cannot yet
-withdraw a control or a project template (#3425). The requirement below states the intent.
-
 VB6 had a community-extensible IDE, and the tooling built on that surface is part of why people stayed with
 it. Reproducing the original mechanism is not possible — it was built on a component technology that does
 not exist on the platforms HexIDE targets — so this is a deliberate replacement rather than a port: the same
@@ -45,6 +42,11 @@ need its own bespoke unregister call.
 #### Scenario: Withdrawing a contribution
 - **WHEN** an add-in disposes the handle returned by a registration
 - **THEN** the contributed item disappears from the surface it was added to
+
+#### Scenario: Withdrawing a control or project template
+- **WHEN** an add-in disposes a `RegisterComponent` or `RegisterProjectTemplate` handle
+- **THEN** that registration is removed from the toolbox or the templates offered by subsequently opened New Project dialogs
+- **AND** disposing the handle again, including during initialization rollback, has no further effect
 
 #### Scenario: Shutting down
 - **WHEN** the IDE shuts down

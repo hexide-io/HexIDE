@@ -6,7 +6,7 @@ namespace HexIDE.IDE;
 public interface IComponentRegistry
 {
     IReadOnlyList<IComponentClass> Components { get; }
-    void Register(IComponentClass component);
+    IDisposable Register(IComponentClass component);
     event Action<IComponentClass>? ComponentRegistered;
     event Action<IComponentClass>? ComponentUnregistered;
 }
