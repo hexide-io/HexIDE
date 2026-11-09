@@ -236,6 +236,13 @@ write did not land.
 - **WHEN** an add-in reads a form that is open
 - **THEN** it receives the form's designer block and code together, as the file holds them
 
+#### Scenario: Reading a document by name
+- **WHEN** an add-in calls `TryGetDocument` with a document name and optional project
+- **THEN** HexIDE SHALL return its open buffer or, when closed, its whole-file model text
+- **AND** SHALL NOT open a code window, activate a tab or move the caret
+- **AND** a name that resolves to no document or more than one SHALL return a reason instead of content
+- **AND** an older host using the default interface member SHALL refuse with a reason without navigating
+
 #### Scenario: Rewriting a module and keeping its header
 - **WHEN** an add-in replaces a module's content with text whose header is unchanged
 - **THEN** the replacement is applied

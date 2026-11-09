@@ -15,6 +15,14 @@ disclosure, consent and the handling of credentials.
 
 ## Requirements
 
+### Requirement: Reading a named file SHALL leave the developer's view in place
+The assistant's `get_file_content` SHALL call the add-in host's `TryGetDocument` member and report its
+content or refusal reason without navigating to the document.
+
+#### Scenario: Reading a background or closed document
+- **WHEN** the model asks for a named file's content
+- **THEN** the assistant returns the host's whole-file text without changing the active tab or caret
+
 ### Requirement: The input row SHALL fit a narrow dock pane
 The assistant view SHALL allow its prompt box to narrow with the dock pane, keeping Send and New within
 the pane at widths of 212 and 254 logical pixels.

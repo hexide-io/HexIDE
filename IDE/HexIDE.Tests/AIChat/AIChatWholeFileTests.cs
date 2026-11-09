@@ -367,42 +367,33 @@ public class AIChatWholeFileTests : IDisposable
     }
 
     [Fact]
-    public async Task ReadingAFileInTheProjectNamedOpensThatOneAndReturnsIt()
+    public async Task ReadingAFileInTheProjectNamedLeavesTheActiveDocumentAlone()
     {
         TwoProjectsLoaded();
-        const string stock = "Attribute VB_Name = \"Module1\"\r\nOption Explicit\r\n";
         editor.TryNavigateTo("Module1", 1, 1, "Stock").Returns(new AddinEditResult(true));
-        editor.GetActiveDocument().Returns(new AddinDocument("Module1", @"C:\s\Module1.bas", stock, AddinDocumentKind.Module, "Stock"));
+        const string stock = "Attribute VB_Name = \"Module1\"\r\nOption Explicit\r\n";
+        editor.TryGetDocument("Module1", "Stock").Returns(new AddinDocumentResult(
+            new AddinDocument("Module1", @"C:\s\Module1.bas", stock, AddinDocumentKind.Module, "Stock")));
 
         var reply = await Execute("get_file_content", new { file_name = "Module1", project = "Stock" });
 
+        reply["error"].Should().BeNull();
         reply["content"]!.GetValue<string>().Should().Be(stock);
         reply["project"]!.GetValue<string>().Should().Be("Stock");
+        _ = editor.DidNotReceiveWithAnyArgs().TryNavigateTo(default!, default, default, default);
+        editor.DidNotReceive().GetActiveDocument();
     }
 
     [Fact]
-    public async Task ReadingAFileThatDidNotComeToTheFrontIsRefusedRatherThanAnsweredWithAnother()
-    {
-        // The file is read as the active document. When the window in front is another file, that file's content
-        // came back under the name asked for.
-        TwoProjectsLoaded();
-        editor.TryNavigateTo("Module1", 1, 1, "Stock").Returns(new AddinEditResult(true));
-
-        var reply = await Execute("get_file_content", new { file_name = "Module1", project = "Stock" });
-
-        reply["content"].Should().BeNull("Form1 is in front, and its content is not Module1's");
-        reply["error"]!.GetValue<string>().Should().Contain("Could not read Module1").And.Contain("holds Form1 in project Orders");
-    }
-
-    [Fact]
-    public async Task ReadingAFileTheIdeCannotOpenSaysWhy()
+    public async Task ReadingAFileTheIdeCannotReadSaysWhy()
     {
         TwoProjectsLoaded();
-        editor.TryNavigateTo("Form1", 1, 1, "Orders").Returns(new AddinEditResult(false, "No code window could be opened on Orders/Form1."));
+        editor.TryNavigateTo("Form1", 1, 1, "Orders").Returns(new AddinEditResult(false, "Navigation is unavailable."));
+        editor.TryGetDocument("Form1", "Orders").Returns(new AddinDocumentResult(null, "Reading is unavailable."));
 
         var reply = await Execute("get_file_content", new { file_name = "Form1" });
 
-        reply["error"]!.GetValue<string>().Should().Be("Could not open Form1: No code window could be opened on Orders/Form1.");
+        reply["error"]!.GetValue<string>().Should().Be("Could not read Form1: Reading is unavailable.");
     }
 
     [Fact]
