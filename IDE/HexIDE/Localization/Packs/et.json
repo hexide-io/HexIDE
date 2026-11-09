@@ -460,6 +460,7 @@
     "Str.TranslationEditor.ResetAll": "Lähtesta kõik kohandused…",
     "Str.TranslationEditor.ResetAllConfirm": "Kas eemaldada kõik selle keele kohandused?",
     "Str.TranslationEditor.PlaceholderError": "Muudatus lükati tagasi: see peab säilitama samad {0}, {1} … kohatäited nagu originaal.",
+    "Str.TranslationEditor.ProtectedCredits": "HexIDE enda tänusõnu ei saa siin asendada. HexIDE-l põhinev toode saab neile ainult lisada.",
     "Str.TranslationEditor.Tooltip.Override": "kohandus: {0}",
     "Str.TranslationEditor.Tooltip.None": "(puudub)",
     "Str.TranslationEditor.Area.Menu": "Menüüd",

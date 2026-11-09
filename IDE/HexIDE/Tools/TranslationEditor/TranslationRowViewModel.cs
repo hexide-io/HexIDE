@@ -15,6 +15,10 @@ public partial class TranslationRowViewModel
     /// <summary>The localization key (e.g. <c>Str.Menu.File.Open</c>).</summary>
     public string Key { get; }
 
+    /// <summary>True for HexIDE's own credits, which can be added to and never replaced (Jen, #2746). The row shows
+    /// the shipped text and can't be edited.</summary>
+    public bool IsProtected => Key == HexIDE.Localization.BrandText.UpstreamCreditsKey;
+
     /// <summary>The raw grouping bucket: the first segment after <c>Str.</c> (e.g. <c>Menu</c>), or
     /// <c>Other</c> when the key has no such segment. Maps to a localized <see cref="AreaLabel"/>.</summary>
     public string Area { get; }

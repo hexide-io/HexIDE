@@ -460,6 +460,7 @@
     "Str.TranslationEditor.ResetAll": "Poništi sve izmene prevoda…",
     "Str.TranslationEditor.ResetAllConfirm": "Ukloniti sve vaše izmene prevoda za ovaj jezik?",
     "Str.TranslationEditor.PlaceholderError": "Izmena je odbijena: mora da zadrži iste oznake mesta {0}, {1} … kao original.",
+    "Str.TranslationEditor.ProtectedCredits": "Zahvalnice HexIDE-a ne mogu se ovde zameniti. Proizvod zasnovan na HexIDE-u može samo da ih dopuni.",
     "Str.TranslationEditor.Tooltip.Override": "izmenjeni prevod: {0}",
     "Str.TranslationEditor.Tooltip.None": "(nema)",
     "Str.TranslationEditor.Area.Menu": "Meniji",

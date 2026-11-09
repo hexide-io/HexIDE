@@ -460,6 +460,7 @@
     "Str.TranslationEditor.ResetAll": "Zrušiť všetky vlastné preklady…",
     "Str.TranslationEditor.ResetAllConfirm": "Odstrániť všetky vaše vlastné preklady pre tento jazyk?",
     "Str.TranslationEditor.PlaceholderError": "Úprava bola odmietnutá: musí zachovať rovnaké zástupné symboly {0}, {1} … ako originál.",
+    "Str.TranslationEditor.ProtectedCredits": "Poďakovanie HexIDE tu nemožno prepísať. Produkt postavený na HexIDE ho môže iba doplniť.",
     "Str.TranslationEditor.Tooltip.Override": "vlastný preklad: {0}",
     "Str.TranslationEditor.Tooltip.None": "(žiadny)",
     "Str.TranslationEditor.Area.Menu": "Ponuky",

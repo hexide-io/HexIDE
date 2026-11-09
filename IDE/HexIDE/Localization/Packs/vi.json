@@ -105,6 +105,7 @@
     "Str.TranslationEditor.ResetAll": "Đặt lại tất cả ghi đè…",
     "Str.TranslationEditor.ResetAllConfirm": "Xóa tất cả ghi đè của bạn cho ngôn ngữ này?",
     "Str.TranslationEditor.PlaceholderError": "Chỉnh sửa bị từ chối: nó phải giữ nguyên các trình giữ chỗ {0}, {1} … như bản gốc.",
+    "Str.TranslationEditor.ProtectedCredits": "Không thể thay thế lời cảm ơn của HexIDE tại đây. Sản phẩm xây dựng trên HexIDE chỉ có thể bổ sung.",
     "Str.TranslationEditor.Tooltip.Override": "ghi đè: {0}",
     "Str.TranslationEditor.Tooltip.None": "(không có)",
     "Str.TranslationEditor.Area.Menu": "Menu",

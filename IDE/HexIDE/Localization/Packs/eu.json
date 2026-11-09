@@ -460,6 +460,7 @@
     "Str.TranslationEditor.ResetAll": "Berrezarri gainidazketa guztiak…",
     "Str.TranslationEditor.ResetAllConfirm": "Kendu hizkuntza honetarako zure gainidazketa guztiak?",
     "Str.TranslationEditor.PlaceholderError": "Edizioa baztertuta: jatorrizkoaren {0}, {1} … leku-marka berberak mantendu behar ditu.",
+    "Str.TranslationEditor.ProtectedCredits": "HexIDEren eskerrak ezin dira hemen ordeztu. HexIDEn oinarritutako produktu batek gehitu baino ezin du egin.",
     "Str.TranslationEditor.Tooltip.Override": "gainidazketa: {0}",
     "Str.TranslationEditor.Tooltip.None": "(bat ere ez)",
     "Str.TranslationEditor.Area.Menu": "Menuak",

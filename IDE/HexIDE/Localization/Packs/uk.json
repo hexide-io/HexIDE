@@ -105,6 +105,7 @@
     "Str.TranslationEditor.ResetAll": "Скинути всі перевизначення…",
     "Str.TranslationEditor.ResetAllConfirm": "Вилучити всі ваші перевизначення для цієї мови?",
     "Str.TranslationEditor.PlaceholderError": "Зміну відхилено: вона має зберігати ті самі заповнювачі {0}, {1} …, що й оригінал.",
+    "Str.TranslationEditor.ProtectedCredits": "Подяки HexIDE тут не можна замінити. Продукт на основі HexIDE може лише доповнити їх.",
     "Str.TranslationEditor.Tooltip.Override": "перевизначення: {0}",
     "Str.TranslationEditor.Tooltip.None": "(немає)",
     "Str.TranslationEditor.Area.Menu": "Меню",

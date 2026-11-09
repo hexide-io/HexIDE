@@ -460,6 +460,7 @@
     "Str.TranslationEditor.ResetAll": "Restablecer todas as personalizacións…",
     "Str.TranslationEditor.ResetAllConfirm": "Retirar todas as súas personalizacións deste idioma?",
     "Str.TranslationEditor.PlaceholderError": "Edición rexeitada: debe conservar os mesmos marcadores de posición {0}, {1} … ca o orixinal.",
+    "Str.TranslationEditor.ProtectedCredits": "Os agradecementos de HexIDE non se poden substituír aquí. Un produto baseado en HexIDE só pode engadir outros.",
     "Str.TranslationEditor.Tooltip.Override": "personalización: {0}",
     "Str.TranslationEditor.Tooltip.None": "(ningunha)",
     "Str.TranslationEditor.Area.Menu": "Menús",

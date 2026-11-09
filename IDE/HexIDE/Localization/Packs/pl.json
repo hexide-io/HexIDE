@@ -105,6 +105,7 @@
     "Str.TranslationEditor.ResetAll": "Resetuj wszystkie zmiany…",
     "Str.TranslationEditor.ResetAllConfirm": "Usunąć wszystkie Twoje zmiany dla tego języka?",
     "Str.TranslationEditor.PlaceholderError": "Edycja odrzucona: musi zachować te same symbole zastępcze {0}, {1} … co oryginał.",
+    "Str.TranslationEditor.ProtectedCredits": "Podziękowań HexIDE nie można tu zastąpić. Produkt oparty na HexIDE może je tylko uzupełnić.",
     "Str.TranslationEditor.Tooltip.Override": "zmiana: {0}",
     "Str.TranslationEditor.Tooltip.None": "(brak)",
     "Str.TranslationEditor.Area.Menu": "Menu",

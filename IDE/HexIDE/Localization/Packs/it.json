@@ -105,6 +105,7 @@
     "Str.TranslationEditor.ResetAll": "Reimposta tutte le sostituzioni…",
     "Str.TranslationEditor.ResetAllConfirm": "Rimuovere tutte le tue sostituzioni per questa lingua?",
     "Str.TranslationEditor.PlaceholderError": "Modifica rifiutata: deve mantenere gli stessi segnaposto {0}, {1} … dell'originale.",
+    "Str.TranslationEditor.ProtectedCredits": "I ringraziamenti di HexIDE non possono essere sostituiti qui. Un prodotto basato su HexIDE può solo aggiungerne altri.",
     "Str.TranslationEditor.Tooltip.Override": "sostituzione: {0}",
     "Str.TranslationEditor.Tooltip.None": "(nessuna)",
     "Str.TranslationEditor.Area.Menu": "Menu",

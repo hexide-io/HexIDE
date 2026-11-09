@@ -105,6 +105,7 @@
     "Str.TranslationEditor.ResetAll": "Restablecer todas las modificaciones…",
     "Str.TranslationEditor.ResetAllConfirm": "¿Quitar todas sus modificaciones para este idioma?",
     "Str.TranslationEditor.PlaceholderError": "Edición rechazada: debe conservar los mismos marcadores de posición {0}, {1} … que el original.",
+    "Str.TranslationEditor.ProtectedCredits": "Los créditos de HexIDE no se pueden reemplazar aquí. Un producto basado en HexIDE solo puede añadir otros.",
     "Str.TranslationEditor.Tooltip.Override": "modificación: {0}",
     "Str.TranslationEditor.Tooltip.None": "(ninguna)",
     "Str.TranslationEditor.Area.Menu": "Menús",

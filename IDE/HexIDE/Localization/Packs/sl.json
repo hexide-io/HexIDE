@@ -460,6 +460,7 @@
     "Str.TranslationEditor.ResetAll": "Ponastavi vse prilagoditve…",
     "Str.TranslationEditor.ResetAllConfirm": "Odstranim vse vaše prilagoditve za ta jezik?",
     "Str.TranslationEditor.PlaceholderError": "Sprememba je zavrnjena: ohraniti mora ista nadomestna mesta {0}, {1} … kot izvirnik.",
+    "Str.TranslationEditor.ProtectedCredits": "Zahval HexIDE tukaj ni mogoče zamenjati. Izdelek, zgrajen na HexIDE, jih lahko le dopolni.",
     "Str.TranslationEditor.Tooltip.Override": "prilagoditev: {0}",
     "Str.TranslationEditor.Tooltip.None": "(brez)",
     "Str.TranslationEditor.Area.Menu": "Meniji",

@@ -460,6 +460,7 @@
     "Str.TranslationEditor.ResetAll": "Poništi sve prilagodbe…",
     "Str.TranslationEditor.ResetAllConfirm": "Ukloniti sve vaše prilagodbe za ovaj jezik?",
     "Str.TranslationEditor.PlaceholderError": "Izmjena je odbijena: mora zadržati iste rezervirane oznake {0}, {1} … kao izvornik.",
+    "Str.TranslationEditor.ProtectedCredits": "Zahvale HexIDE-a ovdje se ne mogu zamijeniti. Proizvod izgrađen na HexIDE-u može ih samo dopuniti.",
     "Str.TranslationEditor.Tooltip.Override": "prilagodba: {0}",
     "Str.TranslationEditor.Tooltip.None": "(nema)",
     "Str.TranslationEditor.Area.Menu": "Izbornici",

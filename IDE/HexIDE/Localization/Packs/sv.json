@@ -105,6 +105,7 @@
     "Str.TranslationEditor.ResetAll": "Återställ alla åsidosättningar…",
     "Str.TranslationEditor.ResetAllConfirm": "Vill du ta bort alla dina åsidosättningar för det här språket?",
     "Str.TranslationEditor.PlaceholderError": "Ändringen avvisades: den måste behålla samma platshållare {0}, {1} … som originalet.",
+    "Str.TranslationEditor.ProtectedCredits": "HexIDE:s egna tack kan inte ersättas här. En produkt byggd på HexIDE kan bara lägga till.",
     "Str.TranslationEditor.Tooltip.Override": "åsidosättning: {0}",
     "Str.TranslationEditor.Tooltip.None": "(ingen)",
     "Str.TranslationEditor.Area.Menu": "Menyer",

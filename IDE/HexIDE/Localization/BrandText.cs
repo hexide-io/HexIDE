@@ -30,6 +30,7 @@ internal static partial class BrandText
         "Str.Dialog.About.SigningKeys.RootKey",
         "Str.Dialog.About.SigningKeys.FirstPartyKey",
         "Str.Addins.Incompatible",
+        "Str.TranslationEditor.ProtectedCredits",
     };
 
     // Not when a dot and a letter follow: that is a file or assembly name, HexIDE.Standalone for one, and those keep

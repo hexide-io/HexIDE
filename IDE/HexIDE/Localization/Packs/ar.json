@@ -105,6 +105,7 @@
     "Str.TranslationEditor.ResetAll": "إعادة تعيين جميع التجاوزات…",
     "Str.TranslationEditor.ResetAllConfirm": "هل تريد إزالة جميع تجاوزاتك لهذه اللغة؟",
     "Str.TranslationEditor.PlaceholderError": "تم رفض التعديل: يجب أن يحتفظ بنفس العناصر النائبة {0}، {1} … الموجودة في النص الأصلي.",
+    "Str.TranslationEditor.ProtectedCredits": "لا يمكن تجاوز شكر HexIDE هنا. يمكن للمنتجات المبنية على HexIDE الإضافة إليه فقط.",
     "Str.TranslationEditor.Tooltip.Override": "تجاوز: {0}",
     "Str.TranslationEditor.Tooltip.None": "(بلا)",
     "Str.TranslationEditor.Area.Menu": "القوائم",

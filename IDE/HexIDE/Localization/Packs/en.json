@@ -458,6 +458,7 @@
     "Str.TranslationEditor.ResetAll": "Reset all overrides…",
     "Str.TranslationEditor.ResetAllConfirm": "Remove all your overrides for this language?",
     "Str.TranslationEditor.PlaceholderError": "Edit rejected: it must keep the same {0}, {1} … placeholders as the original.",
+    "Str.TranslationEditor.ProtectedCredits": "HexIDE's own credits can't be overridden here. A product built on HexIDE can only add to them.",
     "Str.TranslationEditor.Tooltip.Override": "override: {0}",
     "Str.TranslationEditor.Tooltip.None": "(none)",
     "Str.TranslationEditor.Area.Menu": "Menus",

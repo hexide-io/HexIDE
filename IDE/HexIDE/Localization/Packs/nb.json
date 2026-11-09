@@ -105,6 +105,7 @@
     "Str.TranslationEditor.ResetAll": "Tilbakestill alle overstyringer…",
     "Str.TranslationEditor.ResetAllConfirm": "Fjerne alle overstyringene dine for dette språket?",
     "Str.TranslationEditor.PlaceholderError": "Redigeringen ble avvist: den må beholde de samme {0}, {1} … plassholderne som originalen.",
+    "Str.TranslationEditor.ProtectedCredits": "HexIDEs egen takk kan ikke overstyres her. Et produkt bygget på HexIDE kan bare legge til.",
     "Str.TranslationEditor.Tooltip.Override": "overstyring: {0}",
     "Str.TranslationEditor.Tooltip.None": "(ingen)",
     "Str.TranslationEditor.Area.Menu": "Menyer",

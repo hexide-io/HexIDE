@@ -364,6 +364,13 @@ public sealed class DistributionDescriptorTests
     public void Stock_HexIDE_selects_a_profile_as_it_always_has() =>
         ServerOptions.SelectProfile(null, "/where/typed", DistributionIdentity.Stock, "/installed").Should().Be(((string?)null, "/where/typed"));
 
+    [Fact]
+    public void HexIDEs_credits_are_the_only_protected_row()
+    {
+        new HexIDE.Tools.TranslationEditor.TranslationRowViewModel(BrandText.UpstreamCreditsKey).IsProtected.Should().BeTrue();
+        new HexIDE.Tools.TranslationEditor.TranslationRowViewModel("Str.Menu.Help").IsProtected.Should().BeFalse();
+    }
+
     private static IUserTranslationsService Overrides(string packId, string key, string value)
     {
         var service = Substitute.For<IUserTranslationsService>();

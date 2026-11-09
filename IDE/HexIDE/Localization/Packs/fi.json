@@ -105,6 +105,7 @@
     "Str.TranslationEditor.ResetAll": "Palauta kaikki ohitukset…",
     "Str.TranslationEditor.ResetAllConfirm": "Poistetaanko kaikki tämän kielen ohituksesi?",
     "Str.TranslationEditor.PlaceholderError": "Muokkaus hylättiin: sen on säilytettävä samat {0}, {1} … paikkamerkit kuin alkuperäisessä.",
+    "Str.TranslationEditor.ProtectedCredits": "HexIDEn omia kiitoksia ei voi korvata täällä. HexIDEen perustuva tuote voi vain lisätä niihin.",
     "Str.TranslationEditor.Tooltip.Override": "ohitus: {0}",
     "Str.TranslationEditor.Tooltip.None": "(ei mitään)",
     "Str.TranslationEditor.Area.Menu": "Valikot",

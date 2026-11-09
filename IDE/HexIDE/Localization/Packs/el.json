@@ -105,6 +105,7 @@
     "Str.TranslationEditor.ResetAll": "Επαναφορά όλων των παρακάμψεων…",
     "Str.TranslationEditor.ResetAllConfirm": "Κατάργηση όλων των παρακάμψεών σας για αυτή τη γλώσσα;",
     "Str.TranslationEditor.PlaceholderError": "Η επεξεργασία απορρίφθηκε: πρέπει να διατηρεί τα ίδια σύμβολα κράτησης θέσης {0}, {1} … με το πρωτότυπο.",
+    "Str.TranslationEditor.ProtectedCredits": "Οι ευχαριστίες του HexIDE δεν μπορούν να αντικατασταθούν εδώ. Ένα προϊόν βασισμένο στο HexIDE μπορεί μόνο να προσθέσει σε αυτές.",
     "Str.TranslationEditor.Tooltip.Override": "παράκαμψη: {0}",
     "Str.TranslationEditor.Tooltip.None": "(καμία)",
     "Str.TranslationEditor.Area.Menu": "Μενού",

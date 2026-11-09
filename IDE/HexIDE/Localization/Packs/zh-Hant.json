@@ -105,6 +105,7 @@
     "Str.TranslationEditor.ResetAll": "重設所有覆寫…",
     "Str.TranslationEditor.ResetAllConfirm": "要移除您對此語言的所有覆寫嗎？",
     "Str.TranslationEditor.PlaceholderError": "編輯遭拒：它必須保留與原文相同的 {0}、{1} … 預留位置。",
+    "Str.TranslationEditor.ProtectedCredits": "此處無法取代 HexIDE 的致謝內容。以 HexIDE 為基礎的產品只能在其後新增。",
     "Str.TranslationEditor.Tooltip.Override": "覆寫: {0}",
     "Str.TranslationEditor.Tooltip.None": "(無)",
     "Str.TranslationEditor.Area.Menu": "功能表",

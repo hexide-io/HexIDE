@@ -105,6 +105,7 @@
     "Str.TranslationEditor.ResetAll": "אפס את כל ההתאמות…",
     "Str.TranslationEditor.ResetAllConfirm": "להסיר את כל ההתאמות שלך עבור שפה זו?",
     "Str.TranslationEditor.PlaceholderError": "העריכה נדחתה: עליה לשמור את אותם מצייני המיקום {0}, {1} … כמו במקור.",
+    "Str.TranslationEditor.ProtectedCredits": "לא ניתן להחליף כאן את התודות של HexIDE. מוצר המבוסס על HexIDE יכול רק להוסיף להן.",
     "Str.TranslationEditor.Tooltip.Override": "התאמה: {0}",
     "Str.TranslationEditor.Tooltip.None": "(ללא)",
     "Str.TranslationEditor.Area.Menu": "תפריטים",

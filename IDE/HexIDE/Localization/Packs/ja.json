@@ -105,6 +105,7 @@
     "Str.TranslationEditor.ResetAll": "すべての上書きをリセット…",
     "Str.TranslationEditor.ResetAllConfirm": "この言語のすべての上書きを削除しますか?",
     "Str.TranslationEditor.PlaceholderError": "編集は拒否されました: 元の文字列と同じ {0}、{1} … のプレースホルダーを保持する必要があります。",
+    "Str.TranslationEditor.ProtectedCredits": "HexIDE の謝辞はここでは上書きできません。HexIDE をもとにした製品は、追加のみ行えます。",
     "Str.TranslationEditor.Tooltip.Override": "上書き: {0}",
     "Str.TranslationEditor.Tooltip.None": "(なし)",
     "Str.TranslationEditor.Area.Menu": "メニュー",

@@ -460,6 +460,7 @@
     "Str.TranslationEditor.ResetAll": "Atšaukti visus pakeitimus…",
     "Str.TranslationEditor.ResetAllConfirm": "Pašalinti visus jūsų šios kalbos pakeitimus?",
     "Str.TranslationEditor.PlaceholderError": "Pakeitimas atmestas: būtina išlaikyti tuos pačius {0}, {1} … vietaženklius kaip originale.",
+    "Str.TranslationEditor.ProtectedCredits": "HexIDE padėkų čia pakeisti negalima. HexIDE pagrindu sukurtas produktas gali jas tik papildyti.",
     "Str.TranslationEditor.Tooltip.Override": "pakeitimas: {0}",
     "Str.TranslationEditor.Tooltip.None": "(nėra)",
     "Str.TranslationEditor.Area.Menu": "Meniu",

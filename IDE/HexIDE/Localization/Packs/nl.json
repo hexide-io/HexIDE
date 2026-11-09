@@ -105,6 +105,7 @@
     "Str.TranslationEditor.ResetAll": "Alle aanpassingen opnieuw instellen…",
     "Str.TranslationEditor.ResetAllConfirm": "Al uw aanpassingen voor deze taal verwijderen?",
     "Str.TranslationEditor.PlaceholderError": "Bewerking geweigerd: dezelfde tijdelijke aanduidingen {0}, {1} … als het origineel moeten behouden blijven.",
+    "Str.TranslationEditor.ProtectedCredits": "De dankbetuiging van HexIDE kan hier niet worden vervangen. Een product op basis van HexIDE kan er alleen aan toevoegen.",
     "Str.TranslationEditor.Tooltip.Override": "aanpassing: {0}",
     "Str.TranslationEditor.Tooltip.None": "(geen)",
     "Str.TranslationEditor.Area.Menu": "Menu's",

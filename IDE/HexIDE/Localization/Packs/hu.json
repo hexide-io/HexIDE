@@ -460,6 +460,7 @@
     "Str.TranslationEditor.ResetAll": "Összes felülírás visszaállítása…",
     "Str.TranslationEditor.ResetAllConfirm": "Eltávolítja az összes saját felülírását ehhez a nyelvhez?",
     "Str.TranslationEditor.PlaceholderError": "A módosítás elutasítva: meg kell tartania az eredetivel azonos {0}, {1} … helyőrzőket.",
+    "Str.TranslationEditor.ProtectedCredits": "A HexIDE köszönetnyilvánítása itt nem írható felül. A HexIDE-ra épülő termék csak kiegészítheti.",
     "Str.TranslationEditor.Tooltip.Override": "felülírás: {0}",
     "Str.TranslationEditor.Tooltip.None": "(nincs)",
     "Str.TranslationEditor.Area.Menu": "Menük",

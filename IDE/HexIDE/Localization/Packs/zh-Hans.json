@@ -105,6 +105,7 @@
     "Str.TranslationEditor.ResetAll": "重置所有替代…",
     "Str.TranslationEditor.ResetAllConfirm": "移除此语言的所有替代吗？",
     "Str.TranslationEditor.PlaceholderError": "编辑被拒绝：它必须保留与原文相同的 {0}、{1} … 占位符。",
+    "Str.TranslationEditor.ProtectedCredits": "此处无法替换 HexIDE 的致谢内容。基于 HexIDE 的产品只能在其后添加。",
     "Str.TranslationEditor.Tooltip.Override": "替代：{0}",
     "Str.TranslationEditor.Tooltip.None": "（无）",
     "Str.TranslationEditor.Area.Menu": "菜单",

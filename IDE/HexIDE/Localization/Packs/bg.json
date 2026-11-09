@@ -460,6 +460,7 @@
     "Str.TranslationEditor.ResetAll": "Нулиране на всички замени…",
     "Str.TranslationEditor.ResetAllConfirm": "Да се премахнат ли всички ваши замени за този език?",
     "Str.TranslationEditor.PlaceholderError": "Редакцията е отхвърлена: трябва да се запазят същите заместители {0}, {1} … като в оригинала.",
+    "Str.TranslationEditor.ProtectedCredits": "Благодарностите на HexIDE не могат да бъдат заменени тук. Продукт, изграден върху HexIDE, може само да добавя към тях.",
     "Str.TranslationEditor.Tooltip.Override": "замяна: {0}",
     "Str.TranslationEditor.Tooltip.None": "(няма)",
     "Str.TranslationEditor.Area.Menu": "Менюта",

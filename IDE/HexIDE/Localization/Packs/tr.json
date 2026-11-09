@@ -105,6 +105,7 @@
     "Str.TranslationEditor.ResetAll": "Tüm geçersiz kılmaları sıfırla…",
     "Str.TranslationEditor.ResetAllConfirm": "Bu dil için tüm geçersiz kılmalarınız kaldırılsın mı?",
     "Str.TranslationEditor.PlaceholderError": "Düzenleme reddedildi: orijinaldeki ile aynı {0}, {1} … yer tutucularını korumalıdır.",
+    "Str.TranslationEditor.ProtectedCredits": "HexIDE'nin teşekkürleri burada değiştirilemez. HexIDE üzerine kurulu bir ürün yalnızca ekleme yapabilir.",
     "Str.TranslationEditor.Tooltip.Override": "geçersiz kılma: {0}",
     "Str.TranslationEditor.Tooltip.None": "(yok)",
     "Str.TranslationEditor.Area.Menu": "Menüler",

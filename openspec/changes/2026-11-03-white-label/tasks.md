@@ -18,7 +18,7 @@
 - [ ] Implement isolated configuration/log/recovery/cache/session roots and bundled-child path propagation.
 - [x] Implement installation default-profile resolution with explicit selection and recovery-mode precedence.
 - [ ] Implement host title/dialog/help/asset/link consumers and localized brand templates.
-- [ ] Implement protected upstream credits and append-only additions across all override tiers.
+- [x] Implement protected upstream credits and append-only additions across all override tiers.
 - [ ] Implement common native/installer repack tooling with unchanged managed implementation and adopter signing.
 - [ ] Preserve trust anchors, first-party pinning, consent/revocation and compatibility vocabulary throughout.
 - [ ] Add behaviour tests with demonstrated pre-change failures, including runnable Linux helpers and coexistence.
