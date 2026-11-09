@@ -301,7 +301,7 @@ Now **Deferred**, with the real work named. None needs a bound AST; each is unim
 
 - **UDT array stores and indexed fields (#178)** — fixed: whole-element stores use `CopyForStore` (already
   present before #178), array fields are included in deep copies, and indexed field writes retain their subscripts.
-- **Several boundary throws carry no message at all** — against `interpreter-advanced:70-72`, which requires a
+- **Several boundary throws carry no message at all** — against interpreter-advanced's *Unimplemented constructs SHALL be documented as boundaries*, which requires a
   boundary construct to *"fail clearly"*. The dialog then shows .NET's default "The method or operation is not
   implemented." in place of the construct's name.
   - **#181:** bang access in an array-result assignment target now names the unsupported construct. Collection

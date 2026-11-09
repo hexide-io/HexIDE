@@ -103,7 +103,7 @@ The rules it implements, each measured (`corpus/.../inbox-constant-addressing.js
 - **An enum name is a type; a module name is not.** `Dim x As VbMsgBoxResult` and
   `Dim x As VBA.VbMsgBoxResult` both work, `Dim x As Constants` is refused.
 - **The refusals arrive at run time, not before it.** VB6 rejects them at compile time; the interpreter
-  raises the same error as the statement executes, which is the translation `interpreter-core:40-42`
+  raises the same error as the statement executes, which is the translation interpreter-core's *An error VB6 reports before running* scenario
   prescribes. Those cases are recorded in the parse gate's `KnownDivergences` as
   `COMPILE-CHECK-DEFERRED-TO-RUN-TIME`, since a parse check cannot see them.
 

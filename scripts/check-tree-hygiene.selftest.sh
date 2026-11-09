@@ -70,9 +70,9 @@ checks=0
 # The two failure totals differ by exactly two, and that difference IS the point of run D: staging
 # `planted.key` and `planted.pfx` moves them from the warn branch to the fail branch, because git has
 # stopped standing between them and a push.
-EXPECTED_CHECKS=141
-FAILURES_UNTRACKED=21   # 23 until #2071 let twinBASIC and RDCore be named anywhere
-FAILURES_STAGED=23
+EXPECTED_CHECKS=146
+FAILURES_UNTRACKED=23   # #2071 let twinBASIC and RDCore be named anywhere (23 to 21); the two line-number probes (#3478) made it 23 again
+FAILURES_STAGED=25
 
 # Built rather than written, so the comparison is against the same bytes the guard emits and this file
 # needs no particular encoding to survive.
@@ -218,6 +218,7 @@ plant() {
   printf '%s\nours\n%s\ntheirs\n%s\n' "$MARK_OURS" "$MARK_SPLIT" "$MARK_THEIRS" > "$PROBE/conflict.md" # 8
 
   printf '\xFF\xC2\x80\xC2\x94\xC2\x9F\n'                > "$PROBE/c1.txt"       # 10, both ends, mojibake control, invalid UTF-8
+  printf 'See docs/guide.md:12 for this.\nAs interpreter-core:40-42 says.\n' > "$PROBE/line-cite.md" # 11, a file and a capability
 
   # The three converted scans again, under a name git C-quotes. Each was blind to this until `-z`.
   printf 'not a real key\n'                                 > "$PROBE/$ACCENTED.pem"
@@ -269,6 +270,8 @@ assert_every_scan_reported() {
   seen "5.  root-level Markdown links are checked too" "$FAILMARK dangling relative link: $ROOT_PROBE->./no-such-file.md"
 
   seen "10. C1 control characters FAIL"             "$FAILMARK C1 control character: $PROBE/c1.txt:1:"
+  seen "11. a doc cited by line number FAILS"        "$FAILMARK doc or spec cited by line number (cite a heading or scenario): $PROBE/line-cite.md:1:"
+  seen "11. ...and so does a spec, by capability"    "$FAILMARK doc or spec cited by line number (cite a heading or scenario): $PROBE/line-cite.md:2:"
 
   # The count is what catches a `note` lost to a subshell: the line is still printed, the increment is not.
   seen "the summary counts every failure"            "check-tree-hygiene: FAILED"
@@ -329,6 +332,8 @@ printf '# planted\n\nDerived from %s6, with thanks.\n' "$UPSTREAM" > "$PROBE/att
 printf '\xE2\x80\x94 \xE2\x80\x9Cquotes\xE2\x80\x9D\n' > "$PROBE/punctuation.txt"
 # A setext heading. Its underline is the bare middle marker of a conflict block, and it must not fail.
 printf 'Planted heading\n%s\n\nText.\n' "$MARK_SPLIT" > "$PROBE/setext.md"
+# What a line-number scan must leave alone: a scenario by name, a source file's line, and a port.
+printf '%s\n' 'See the *Limits* scenario of interpreter-core, Foo.cs:12 and http://localhost:5123.' > "$PROBE/good-cite.md"
 
 printf 'target\n' > "$PROBE/real.md"
 printf 'target\n' > "$PROBE/real file.md"
@@ -347,6 +352,7 @@ seen   "the upstream attribution is seen and WARNS" "$WARNMARK $UPSTREAM mention
 absent "gitignored build output stays outside artefact and Markdown scans" "$PROBE/bin/"
 absent "nothing in a warn-only tree is reported as a failure" "$FAILMARK"
 absent "a setext heading underline is not taken for a conflict marker" "unresolved merge-conflict marker"
+absent "11. a scenario by name, a source line and a port all pass" "cited by line number"
 seen   "the summary still says OK" "check-tree-hygiene: OK"
 exited "a tree whose only findings are warnings still passes" 0
 
