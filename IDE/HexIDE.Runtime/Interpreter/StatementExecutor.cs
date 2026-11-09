@@ -451,7 +451,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
 
     // The debugger's gate. A pause or a time slice there gives up the thread, which the pump has to be told of, or it would
     // take the suspended handler for one still running and start the next event inside it (#766).
-    private ValueTask DebugGate(Debugging.IDebugController dbg)
+    private ValueTask DebugGate(Debugging.IDebugGate dbg)
     {
         var gate = dbg.OnStatementAsync(currentLine, currentModule.Name, this);
         return interpreter.Events is { } events ? events.WhileSuspended(gate) : gate;

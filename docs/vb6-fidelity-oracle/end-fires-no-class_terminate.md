@@ -3,7 +3,7 @@
 Verified: a module-level object held live, then `End` — the class's `Class_Terminate` does **not** run (output is
 `BEFORE-END` only; no `TERMINATE-FIRED`). VB6 `End` terminates abruptly and invokes **no** `Terminate` (nor
 `Unload`/`QueryUnload`). So the debugger's reset ("Stop") must unwind the walk **without** firing `Class_Terminate`
-— the interpreter suppresses it via an aborting-guard on `FireTerminate` while `IDebugController.IsAborting` is set.
+— the interpreter suppresses it via an aborting-guard on `FireTerminate` while `IDebugGate.IsAborting` is set.
 
 ### `End` itself, from three places (2026-10-12, #775)
 

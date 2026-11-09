@@ -1050,7 +1050,7 @@ public class VBLoader
     }
 
     public static Task RunForm(FormDefinition element, CancellationToken token, out VBFormRuntime window,
-        Debugging.IDebugController? debugController = null)
+        Debugging.IDebugGate? debugController = null)
     {
         var form = FormComponentOf(element);
         var shown = window = ((FormComponentClass)form.BaseClass).InstantiateWindow(form, HasMenuBar(element));
@@ -1074,7 +1074,7 @@ public class VBLoader
     /// </summary>
     /// <param name="startupWindow">The startup form's window, or null for a program that starts at Sub Main.</param>
     public static Task RunMadeProgram(ProjectDefinition project, CancellationToken token, out VBFormRuntime? startupWindow,
-        Debugging.IDebugController? debugController = null)
+        Debugging.IDebugGate? debugController = null)
     {
         if (!project.StartsAtSubMain)
         {
@@ -1152,7 +1152,7 @@ public class VBLoader
     /// a use of another form is then refused, naming #822.
     /// </param>
     public static VBProgram PrepareForm(FormDefinition element, VBWindowContext context, Action<Control> setContent,
-        Debugging.IDebugController? debugController, Func<FormDefinition, IFormView>? openForm = null)
+        Debugging.IDebugGate? debugController, Func<FormDefinition, IFormView>? openForm = null)
     {
         var program = new VBProgram(element, context, debugController, openForm);
         setContent(SpawnComponents(element, context.ExecutionContext, context.InstanceEnv, context.StandardLibrary,

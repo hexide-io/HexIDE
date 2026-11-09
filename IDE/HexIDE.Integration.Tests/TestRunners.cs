@@ -9,7 +9,7 @@ namespace HexIDE.IDE;
 internal static class TestRunners
 {
     public static ProjectRunnerService WithInterpreter(IEventBus eventBus, IWindowManager windowManager, IProjectManager projectManager,
-        ILocalizationService localization, IDebugController debugController, IBreakpointService breakpointService,
+        ILocalizationService localization, IDebugGate debugController, IBreakpointService breakpointService,
         WatchService watchService, RunScope runScope, ExternalDebugService? externalDebugger = null,
         ArchiveProjectService? archives = null, DebugLaunchService? debugLaunches = null, IRunChoiceStore? runChoices = null,
         IStatusBarService? statusBar = null) =>

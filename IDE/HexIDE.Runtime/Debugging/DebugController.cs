@@ -5,7 +5,7 @@ using System.Threading.Tasks;
 namespace HexIDE.Runtime.Debugging;
 
 /// <summary>
-/// The default <see cref="IDebugController"/> — a cooperative, single-threaded (UI-thread) debug session for the
+/// The default <see cref="IDebugGate"/> — a cooperative, single-threaded (UI-thread) debug session for the
 /// tree-walking interpreter. Everything runs on one thread, so no locking is needed: the walk and the front-end
 /// (Continue/Pause/Stop) never run concurrently — the walk is suspended at a <c>TaskCompletionSource</c>
 /// whenever the front-end acts.
@@ -25,7 +25,7 @@ namespace HexIDE.Runtime.Debugging;
 /// opens both (break-frame first); a reset resumes them so their gate re-checks <see cref="IsAborting"/> and
 /// raises <see cref="StopExecutionSignal"/> to unwind.
 /// </summary>
-public sealed class DebugController : IDebugController
+public sealed class DebugController : IDebugGate
 {
     public bool CanBreak { get; init; } = true;
 

@@ -28,10 +28,10 @@ public sealed class InterpreterRunEngine : IRunEngine
 {
     private readonly IWindowManager windowManager;
     private readonly ILocalizationService localization;
-    private readonly IDebugController debugController;
+    private readonly IDebugGate debugController;
     private Func<RunFailure, Task<bool>>? haltHost;
 
-    public InterpreterRunEngine(IWindowManager windowManager, ILocalizationService localization, IDebugController debugController)
+    public InterpreterRunEngine(IWindowManager windowManager, ILocalizationService localization, IDebugGate debugController)
     {
         this.windowManager = windowManager;
         this.localization = localization;
@@ -251,11 +251,11 @@ public sealed class InterpreterRunEngine : IRunEngine
     /// </summary>
     private sealed class RunWatch : IDisposable
     {
-        private readonly IDebugController debugController;
+        private readonly IDebugGate debugController;
         private readonly CancellationTokenSource tokenSource;
         private readonly int session;
 
-        public RunWatch(IDebugController debugController, CancellationTokenSource tokenSource)
+        public RunWatch(IDebugGate debugController, CancellationTokenSource tokenSource)
         {
             this.debugController = debugController;
             this.tokenSource = tokenSource;
@@ -321,7 +321,7 @@ public sealed class InterpreterRunEngine : IRunEngine
     }
 
     private Task RunFormInBrowser(FormDefinition element, CancellationToken token, out VBMDIFormRuntime window,
-        IDebugController? debugController = null)
+        IDebugGate? debugController = null)
     {
         // The same build, start and show as VBLoader.RunForm, in an MDI window (#822). Parsed before anything is shown, so
         // a syntax error fails the start without leaving a window behind that nothing would close. The program's other

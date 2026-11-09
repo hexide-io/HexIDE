@@ -17,7 +17,7 @@ public class RunEngineSeamTests
 {
     private readonly ProjectDefinition _project = TestHelpers.CreateProject("Invoices");
     private readonly IProjectManager _projects = Substitute.For<IProjectManager>();
-    private readonly IDebugController _debugger = Substitute.For<IDebugController>();
+    private readonly IDebugGate _debugger = Substitute.For<IDebugGate>();
     private readonly FakeEngine _engine = new();
     private readonly ProjectRunnerService _runner;
     private readonly List<string> _startFailures = [];

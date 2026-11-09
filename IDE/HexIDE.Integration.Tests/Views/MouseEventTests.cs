@@ -126,7 +126,7 @@ public class MouseEventTests
         }
     }
 
-    private static Running Start(string frm, string code, HexIDE.Runtime.Debugging.IDebugController? debugger = null)
+    private static Running Start(string frm, string code, HexIDE.Runtime.Debugging.IDebugGate? debugger = null)
     {
         var project = new ProjectDefinition(VBProjectType.EXE, "P");
         var form = new FormDeserializer().Deserialize(project, frm + code, new NullSink())!;
