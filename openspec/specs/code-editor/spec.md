@@ -524,6 +524,23 @@ closer at the opener's indentation (#2669).
 - **THEN** the body is respectively 2 or 8 spaces deeper than the opener
 - **AND** the closer retains the opener's indentation
 
+### Requirement: Auto-close preserves existing block closers
+
+Enter at the end of a block opener SHALL insert a closer only when the block has no matching
+closer ahead (#471). The syntactic scan SHALL count nested openers of the same kind, accept
+closer keyword prefixes such as `Next i`, `Loop While x` and `End If ' comment`, and stop at
+an enclosing procedure boundary. A module-level `#If` SHALL be allowed to enclose procedures.
+Body statements and comments SHALL NOT hide an existing closer.
+
+#### Scenario: Add a line to an existing procedure
+- **WHEN** Enter is pressed at the end of `Sub Foo()` above a body and `End Sub`
+- **THEN** a line break is inserted without a second `End Sub`
+- **AND** one undo restores the original text
+
+#### Scenario: A nested block is closed but its parent is not
+- **WHEN** Enter is pressed at an opener whose only following closer belongs to a nested block
+- **THEN** auto-close inserts the parent's missing closer
+
 ### Requirement: Indentation guides
 
 The code window SHALL draw vertical guides at each complete indentation level, using the configured tab width and tab stops. The innermost indentation block containing the caret SHALL use the active-guide theme colour; other guides SHALL use the normal-guide theme colour. Blank lines SHALL continue indentation shared by the surrounding nonblank lines. Options → Editor → General SHALL offer a persisted Show indent guides toggle, enabled by default.
