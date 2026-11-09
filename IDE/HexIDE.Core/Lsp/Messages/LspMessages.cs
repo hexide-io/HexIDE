@@ -176,6 +176,9 @@ public record ShowMessageParams(
 
     [JsonIgnore]
     public bool IsEditRefusal { get; init; }
+
+    [JsonIgnore]
+    public string? ServerDisplayName { get; init; }
 }
 
 /// <param name="RootUri">

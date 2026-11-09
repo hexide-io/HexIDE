@@ -1480,7 +1480,12 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
     private void OnInnerProgress(object? sender, ProgressParams p) => ProgressReceived?.Invoke(sender,
         p with { ServerDisplayName = _entries.FirstOrDefault(e => ReferenceEquals(e.Client, sender))?.Registration.DisplayName });
 
-    private void OnInnerMessage(object? sender, ShowMessageParams p) => MessageShown?.Invoke(this, p);
+    private void OnInnerMessage(object? sender, ShowMessageParams p) => MessageShown?.Invoke(this,
+        p.ServerDisplayName is null ? p : p with
+        {
+            ServerDisplayName = _entries.FirstOrDefault(e => ReferenceEquals(e.Client, sender))?.Registration.DisplayName
+                ?? p.ServerDisplayName,
+        });
 
     private void OnInnerCodeLensRefresh(object? sender, EventArgs e) =>
         CodeLensRefreshRequested?.Invoke(sender, e);

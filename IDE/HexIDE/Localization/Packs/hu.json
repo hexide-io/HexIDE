@@ -6,6 +6,7 @@
     "Str.AIChat.Stop": "Leállítás",
     "Str.Tool.LanguageServers.Problem.JsonSyntaxEscape": "A(z) „{0}” konfigurációs fájl érvénytelen JSON-t tartalmaz a(z) {1}. sor {2}. oszlopában. Útvonal: {3} Használjon perjeleket (C:/tools/new/...) vagy kettős fordított perjeleket (C:\\\\tools\\\\new\\\\...).",
     "Str.Tool.LanguageServers.Problem.PathControlWarning": "A(z) '{0}' mező escape-szekvenciából származó vezérlőkaraktert tartalmaz; a valószínűleg szándékolt útvonal: {1}. Az érték változatlan.",
+    "Str.Lsp.RestartedAfterSilence": "{0} nem válaszolt; újraindítva.",
     "Str.Lsp.ServerMessage": "Nyelvi kiszolgáló: {0}",
     "Str.Lsp.ServerError": "Nyelvi kiszolgáló hibája: {0}",
     "Str.Lsp.EditNotApplied": "A kiszolgáló módosítása nem lett alkalmazva: {0}",

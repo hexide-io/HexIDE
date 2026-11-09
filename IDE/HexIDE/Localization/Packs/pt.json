@@ -6,6 +6,7 @@
     "Str.AIChat.Stop": "Parar",
     "Str.Tool.LanguageServers.Problem.JsonSyntaxEscape": "O ficheiro de configuração «{0}» contém JSON inválido na linha {1}, coluna {2}. Caminho: {3} Use barras (C:/tools/new/...) ou barras invertidas duplas (C:\\\\tools\\\\new\\\\...).",
     "Str.Tool.LanguageServers.Problem.PathControlWarning": "O campo '{0}' contém um caractere de controle produzido por uma sequência de escape; caminho com barras invertidas provavelmente pretendido: {1}. O valor permanece inalterado.",
+    "Str.Lsp.RestartedAfterSilence": "{0} não respondeu; foi reiniciado.",
     "Str.Lsp.ServerMessage": "Servidor de linguagem: {0}",
     "Str.Lsp.ServerError": "Erro do servidor de linguagem: {0}",
     "Str.Lsp.EditNotApplied": "Edição do servidor não aplicada: {0}",

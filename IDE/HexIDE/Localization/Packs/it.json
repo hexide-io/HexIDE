@@ -6,6 +6,7 @@
     "Str.AIChat.Stop": "Interrompi",
     "Str.Tool.LanguageServers.Problem.JsonSyntaxEscape": "Il file di configurazione «{0}» contiene JSON non valido alla riga {1}, colonna {2}. Percorso: {3} Usare barre (C:/tools/new/...) o barre inverse doppie (C:\\\\tools\\\\new\\\\...).",
     "Str.Tool.LanguageServers.Problem.PathControlWarning": "Il campo '{0}' contiene un carattere di controllo prodotto da una sequenza di escape; probabile percorso desiderato con barre inverse: {1}. Il valore resta invariato.",
+    "Str.Lsp.RestartedAfterSilence": "{0} non ha risposto; è stato riavviato.",
     "Str.Lsp.ServerMessage": "Server di linguaggio: {0}",
     "Str.Lsp.ServerError": "Errore del server di linguaggio: {0}",
     "Str.Lsp.EditNotApplied": "Modifica del server non applicata: {0}",

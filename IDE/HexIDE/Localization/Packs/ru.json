@@ -6,6 +6,7 @@
     "Str.AIChat.Stop": "Остановить",
     "Str.Tool.LanguageServers.Problem.JsonSyntaxEscape": "Файл конфигурации «{0}» содержит некорректный JSON в строке {1}, столбце {2}. Путь: {3} Используйте прямые косые черты (C:/tools/new/...) или удвоенные обратные косые черты (C:\\\\tools\\\\new\\\\...).",
     "Str.Tool.LanguageServers.Problem.PathControlWarning": "Поле '{0}' содержит управляющий символ из escape-последовательности; вероятно, подразумевался путь с обратными косыми чертами: {1}. Значение не изменено.",
+    "Str.Lsp.RestartedAfterSilence": "{0} не ответил; сервер перезапущен.",
     "Str.Lsp.ServerMessage": "Языковой сервер: {0}",
     "Str.Lsp.ServerError": "Ошибка языкового сервера: {0}",
     "Str.Lsp.EditNotApplied": "Изменение сервера не применено: {0}",

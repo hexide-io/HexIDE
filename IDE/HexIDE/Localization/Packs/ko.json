@@ -6,6 +6,7 @@
     "Str.AIChat.Stop": "중지",
     "Str.Tool.LanguageServers.Problem.JsonSyntaxEscape": "구성 파일 '{0}'의 {1}행, {2}열에 잘못된 JSON이 있습니다. 경로: {3} 슬래시(C:/tools/new/...) 또는 이중 백슬래시(C:\\\\tools\\\\new\\\\...)를 사용하세요.",
     "Str.Tool.LanguageServers.Problem.PathControlWarning": "필드 '{0}'에 이스케이프 시퀀스로 생성된 제어 문자가 있습니다. 의도했을 가능성이 있는 백슬래시 경로: {1}. 값은 변경되지 않았습니다.",
+    "Str.Lsp.RestartedAfterSilence": "{0}이(가) 응답하지 않아 다시 시작했습니다.",
     "Str.Lsp.ServerMessage": "언어 서버: {0}",
     "Str.Lsp.ServerError": "언어 서버 오류: {0}",
     "Str.Lsp.EditNotApplied": "서버 편집이 적용되지 않았습니다: {0}",

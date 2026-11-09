@@ -6,6 +6,7 @@
     "Str.AIChat.Stop": "Zaustavi",
     "Str.Tool.LanguageServers.Problem.JsonSyntaxEscape": "Konfiguraciona datoteka „{0}” sadrži neispravan JSON u redu {1}, koloni {2}. Putanja: {3} Koristite kose crte (C:/tools/new/...) ili dvostruke obrnute kose crte (C:\\\\tools\\\\new\\\\...).",
     "Str.Tool.LanguageServers.Problem.PathControlWarning": "Polje '{0}' sadrži kontrolni znak iz izlazne sekvence; verovatno željena putanja: {1}. Vrednost nije promenjena.",
+    "Str.Lsp.RestartedAfterSilence": "{0} nije odgovorio; ponovo je pokrenut.",
     "Str.Lsp.ServerMessage": "Jezički server: {0}",
     "Str.Lsp.ServerError": "Greška jezičkog servera: {0}",
     "Str.Lsp.EditNotApplied": "Izmena servera nije primenjena: {0}",

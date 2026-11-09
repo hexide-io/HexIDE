@@ -6,6 +6,7 @@
     "Str.AIChat.Stop": "Зупинити",
     "Str.Tool.LanguageServers.Problem.JsonSyntaxEscape": "Файл конфігурації «{0}» містить некоректний JSON у рядку {1}, стовпці {2}. Шлях: {3} Використовуйте прямі скісні риски (C:/tools/new/...) або подвоєні зворотні скісні риски (C:\\\\tools\\\\new\\\\...).",
     "Str.Tool.LanguageServers.Problem.PathControlWarning": "Поле '{0}' містить керівний символ з escape-послідовності; імовірно, мався на увазі шлях зі зворотними скісними рисками: {1}. Значення не змінено.",
+    "Str.Lsp.RestartedAfterSilence": "{0} не відповів; сервер перезапущено.",
     "Str.Lsp.ServerMessage": "Мовний сервер: {0}",
     "Str.Lsp.ServerError": "Помилка мовного сервера: {0}",
     "Str.Lsp.EditNotApplied": "Зміну сервера не застосовано: {0}",

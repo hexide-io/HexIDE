@@ -6,6 +6,7 @@
     "Str.AIChat.Stop": "Stabdyti",
     "Str.Tool.LanguageServers.Problem.JsonSyntaxEscape": "Konfigūracijos faile „{0}“ yra netaisyklingas JSON {1} eilutėje, {2} stulpelyje. Kelias: {3} Naudokite pasviruosius brūkšnius (C:/tools/new/...) arba dvigubus atvirkštinius brūkšnius (C:\\\\tools\\\\new\\\\...).",
     "Str.Tool.LanguageServers.Problem.PathControlWarning": "Lauke '{0}' yra valdymo simbolis iš kaitos sekos; tikėtinas numatytas kelias: {1}. Reikšmė nepakeista.",
+    "Str.Lsp.RestartedAfterSilence": "{0} neatsakė; jis paleistas iš naujo.",
     "Str.Lsp.ServerMessage": "Kalbos serveris: {0}",
     "Str.Lsp.ServerError": "Kalbos serverio klaida: {0}",
     "Str.Lsp.EditNotApplied": "Serverio pakeitimas nepritaikytas: {0}",
