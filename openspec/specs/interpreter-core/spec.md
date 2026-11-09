@@ -1538,6 +1538,13 @@ and unmeasured combinations remain outside this additional code-mapping slice.
 - **WHEN** the host reports keypad 5 with NumLock off as Clear
 - **THEN** the TextBox's KeyDown and KeyUp handlers receive KeyCode 12
 
+#### Scenario: Ctrl+Backspace can be filtered by KeyPress
+- **WHEN** Ctrl+Backspace is pressed in a TextBox
+- **THEN** KeyPress receives KeyAscii 127, following KeyDown 8 with Shift 2
+- **AND** the control or KeyPreview form handler can swallow it with 0 or replace it with an ASCII character
+- **AND** KeyUp still receives KeyCode 8 with Shift 2
+- **AND** the default editing action remains the host's behavior pending measurement
+
 ### Requirement: Runtime parsing has a sized synchronous stack
 
 Module parsing and PrePass, SyntaxChecker and standalone expression/statement parsing SHALL run on a

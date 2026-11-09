@@ -34,7 +34,10 @@ The #1483 comments' project-name and sourceless Raise measurements are recorded 
 [Err.Source after a run-time error and after Err.Raise](vb6-fidelity-oracle/when-err-is-cleared-and-what-a-running-handler-traps.md#errsource-after-a-run-time-error-and-after-errraise-1483).
 
 The #2325 comments’ measured keyboard input is recorded in
-[Key events](vb6-fidelity-oracle/key-events.md).
+[Key events](vb6-fidelity-oracle/key-events.md). The later native/p-code whole-keyboard sweep
+records Ctrl+Backspace as KeyCode 8, Shift 2 and KeyAscii 127 in
+[the TextBox keyboard table](vb6-fidelity-oracle/key-events-keydown-keypress-and-keyup.md#the-whole-keyboard-on-a-textbox)
+(PR #2279, ac291b2a; issue comment 6454480155).
 
 The #2474 measurements of declared arrays named with empty parentheses are recorded in
 [Whole-array parentheses](vb6-fidelity-oracle/whole-array-parentheses.md).
