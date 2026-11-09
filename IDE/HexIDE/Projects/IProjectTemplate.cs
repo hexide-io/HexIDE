@@ -9,6 +9,9 @@ public interface IProjectTemplate : IAddinProjectTemplate
 {
     IImage Icon { get; }
 
+    /// <summary>The <c>Str.*</c> key for the name shown to the developer. <see cref="IAddinProjectTemplate.Name"/> stays the English identity.</summary>
+    string? NameKey { get; }
+
     public static readonly IProjectTemplate StandardEXE = new ProjectTemplate("Standard EXE", "standard_exe", true, name =>
     {
         var project = new ProjectDefinition(VBProjectType.EXE, name);
@@ -20,11 +23,11 @@ public interface IProjectTemplate : IAddinProjectTemplate
             "{00020430-0000-0000-C000-000000000046}", "2.0", 0, null, "OLE Automation"));
 
         return project;
-    });
+    }, "Str.ProjectType.StandardEXE");
 
-    public static readonly IProjectTemplate ActiveXEXE = new ProjectTemplate("ActiveX EXE", "activex_exe", false, _ => new ProjectDefinition(0, ""));
-    public static readonly IProjectTemplate ActiveXDLL = new ProjectTemplate("ActiveX DLL", "activex_dll", false, _ => new ProjectDefinition(0, ""));
-    public static readonly IProjectTemplate ActiveXControl = new ProjectTemplate("ActiveX Control", "activex_control", false, _ => new ProjectDefinition(0, ""));
+    public static readonly IProjectTemplate ActiveXEXE = new ProjectTemplate("ActiveX EXE", "activex_exe", false, _ => new ProjectDefinition(0, ""), "Str.ProjectType.ActiveXEXE");
+    public static readonly IProjectTemplate ActiveXDLL = new ProjectTemplate("ActiveX DLL", "activex_dll", false, _ => new ProjectDefinition(0, ""), "Str.ProjectType.ActiveXDLL");
+    public static readonly IProjectTemplate ActiveXControl = new ProjectTemplate("ActiveX Control", "activex_control", false, _ => new ProjectDefinition(0, ""), "Str.ProjectType.ActiveXControl");
 
     static readonly IProjectTemplate[] Templates =
     [
@@ -32,9 +35,9 @@ public interface IProjectTemplate : IAddinProjectTemplate
         ActiveXEXE,
         ActiveXDLL,
         ActiveXControl,
-        new ProjectTemplate("VB Application Wizard", "wizard", false, _ => new ProjectDefinition(0, "")),
-        new ProjectTemplate("VB Wizard Manager", "wizard", false, _ => new ProjectDefinition(0, "")),
-        new ProjectTemplate("Data Project", "generic", false, _ => new ProjectDefinition(0, "")),
-        new ProjectTemplate("VB Enterprise Edition Controls", "generic", false, _ => new ProjectDefinition(0, "")),
+        new ProjectTemplate("VB Application Wizard", "wizard", false, _ => new ProjectDefinition(0, ""), "Str.ProjectType.VBApplicationWizard"),
+        new ProjectTemplate("VB Wizard Manager", "wizard", false, _ => new ProjectDefinition(0, ""), "Str.ProjectType.VBWizardManager"),
+        new ProjectTemplate("Data Project", "generic", false, _ => new ProjectDefinition(0, ""), "Str.ProjectType.DataProject"),
+        new ProjectTemplate("VB Enterprise Edition Controls", "generic", false, _ => new ProjectDefinition(0, ""), "Str.ProjectType.VBEnterpriseControls"),
     ];
 }

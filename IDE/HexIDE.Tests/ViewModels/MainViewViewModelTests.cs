@@ -1172,7 +1172,6 @@ public class MainViewViewModelTests
         _projectManager.LoadedProjects.Returns([new ProjectDefinition(VBProjectType.EXE, "Project1")]);
         _projectManager.CurrentGroup.Returns(new ProjectGroupDefinition("Group1"));
         _projectService.ClearReceivedCalls();
-
         _localization.GetString("Str.Shell.NotImplemented").Returns("Translated not-implemented notice");
 
         _sut.MakeProjectGroupCommand.Execute(null);

@@ -2496,7 +2496,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
 
     public async Task AddProcedure()
     {
-        var vm = new AddProcedureViewModel();
+        var vm = new AddProcedureViewModel(localization);
         if (!await windowManager.ShowDialog(vm))
             return;
 

@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using Avalonia.Platform.Storage;
 using CommunityToolkit.Mvvm.ComponentModel;
 using HexIDE.IDE;
+using HexIDE.Localization;
 using HexIDE.Runtime.ProjectElements;
 using HexIDE.Utils;
 using PropertyChanged.SourceGenerator;
@@ -44,13 +45,16 @@ public partial class ReferencesViewModel : ObservableObject, IDialog
     [Notify] private ReferencesReferenceViewModel? selectedReference;
 
     private readonly IWindowManager windowManager;
+    private readonly ILocalizationService? localization;
 
     public ReferencesViewModel(ProjectDefinition definition,
         IReferenceLibraryService libraryService,
-        IWindowManager windowManager)
+        IWindowManager windowManager,
+        ILocalizationService? localization = null)
     {
-        Title = $"References - {definition.Name}";
+        Title = string.Format(localization?.GetString("Str.Dialog.References.TitleFormat") ?? "References - {0}", definition.Name);
         this.windowManager = windowManager;
+        this.localization = localization;
 
         foreach (var name in BuiltInNames)
             References.Add(ReferencesReferenceViewModel.BuiltIn(name));
@@ -119,7 +123,7 @@ public partial class ReferencesViewModel : ObservableObject, IDialog
     {
         var files = await windowManager.OpenFilePickerAsync(new FilePickerOpenOptions
         {
-            Title = "Select Type Library",
+            Title = localization?.GetString("Str.Dialog.References.SelectTypeLibrary") ?? "Select Type Library",
             AllowMultiple = false,
             FileTypeFilter = new[]
             {

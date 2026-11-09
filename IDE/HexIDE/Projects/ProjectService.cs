@@ -1403,7 +1403,7 @@ public partial class ProjectService : IProjectService
                 ? string.Format(localization.GetString("Str.Naming.Msg.NotAVb6Name"), proposed)
             : ProjectNaming.IsProjectNameTaken(projectManager.LoadedProjects, proposed, project)
                 ? string.Format(localization.GetString("Str.Naming.Msg.ProjectNameTaken"), proposed)
-            : null);
+            : null, localization);
         if (!await windowManager.ShowDialog(vm))
             return;
 
@@ -1414,7 +1414,7 @@ public partial class ProjectService : IProjectService
     {
         if (await RefusedSettings(project))
             return;
-        var vm = new ReferencesViewModel(project, referenceLibraryService, windowManager);
+        var vm = new ReferencesViewModel(project, referenceLibraryService, windowManager, localization);
         if (!await windowManager.ShowDialog(vm))
             return;
         vm.Apply(project);

@@ -1804,7 +1804,7 @@ public partial class MainViewViewModel : ObservableObject
             // A branded About still says what it is built on, and carries HexIDE's own notice (#2042).
             Provenance = brand.IsStock ? "" : string.Format(localization.GetString("Str.Dialog.About.Provenance"), BuildInfo.Display, upstreamNotice),
             Title = brand.IsStock ? $"{brand.Name} {BuildInfo.Display}" : brand.Name,
-            SubTitle = brand.Tagline ?? "A cross-platform, VB6-compatible IDE",
+            SubTitle = brand.Tagline ?? localization.GetString("Str.Dialog.About.Tagline"),
             AdditionalCredits = brand.AdditionalCredits,
             Icon = BrandAssets.Logo
         }).ListenErrors();
