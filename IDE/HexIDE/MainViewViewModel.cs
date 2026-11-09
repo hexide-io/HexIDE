@@ -1694,7 +1694,7 @@ public partial class MainViewViewModel : ObservableObject
 
     public void NYI()
     {
-        windowManager.MessageBox("This feature is not yet implemented", "NYI", MessageBoxButtons.Ok, MessageBoxIcon.Information);
+        windowManager.MessageBox(localization.GetString("Str.Shell.NotImplemented"), null, MessageBoxButtons.Ok, MessageBoxIcon.Information);
     }
 
     /// <summary>

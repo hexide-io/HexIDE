@@ -2,6 +2,7 @@
   "name": "Croatian",
   "direction": "ltr",
   "strings": {
+    "Str.Shell.NotImplemented": "Ova značajka još nije implementirana",
     "Str.AIChat.Stop": "Zaustavi",
     "Str.Tool.LanguageServers.Problem.JsonSyntaxEscape": "Konfiguracijska datoteka „{0}” sadrži neispravan JSON u retku {1}, stupcu {2}. Putanja: {3} Koristite kose crte (C:/tools/new/...) ili dvostruke obrnute kose crte (C:\\\\tools\\\\new\\\\...).",
     "Str.Tool.LanguageServers.Problem.PathControlWarning": "Polje '{0}' sadrži kontrolni znak iz izlaznog niza; vjerojatno namjeravana putanja: {1}. Vrijednost je nepromijenjena.",

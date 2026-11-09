@@ -164,8 +164,8 @@
                             <MenuItem Header="{CompiledBinding SaveFormMenuHeader}" Command="{x:Static vb:ApplicationCommands.SaveCommand}" />
                             <MenuItem Header="{CompiledBinding SaveFormAsMenuHeader}" Command="{x:Static vb:ApplicationCommands.SaveAsCommand}" />
                             <Separator />
-                            <MenuItem Header="{DynamicResource Str.Menu.File.Print}" utils:MenuUtils.MenuIcon="{StaticResource Geo.Print}" Command="{x:Static vb:ApplicationCommands.NYICommand}" />
-                            <MenuItem Header="{DynamicResource Str.Menu.File.PrintSetup}" utils:MenuUtils.MenuIcon="{StaticResource Geo.Pagesetup}" Command="{x:Static vb:ApplicationCommands.NYICommand}" />
+                            <MenuItem Header="{DynamicResource Str.Menu.File.Print}" utils:MenuUtils.MenuIcon="{StaticResource Geo.Print}" Command="{x:Static vb:ApplicationCommands.DisabledCommand}" />
+                            <MenuItem Header="{DynamicResource Str.Menu.File.PrintSetup}" utils:MenuUtils.MenuIcon="{StaticResource Geo.Pagesetup}" Command="{x:Static vb:ApplicationCommands.DisabledCommand}" />
                             <Separator />
                             <MenuItem Header="{CompiledBinding MakeProjectMenuHeader}" Command="{x:Static vb:ApplicationCommands.MakeProjectCommand}"/>
                             <MenuItem Header="{CompiledBinding MakeWithVb6MenuHeader}" Command="{x:Static vb:ApplicationCommands.MakeWithVb6Command}"/>
@@ -397,7 +397,7 @@
                         </MenuItem>
                         <MenuItem Header="{DynamicResource Str.Menu.Tools}" x:Name="ToolsMenuItem">
                             <MenuItem Header="{DynamicResource Str.Menu.Tools.AddProcedure}" Command="{x:Static vb:ApplicationCommands.AddProcedureCommand}" utils:MenuUtils.MenuIcon="{StaticResource Geo.Addprocedure}" />
-                            <MenuItem Header="{DynamicResource Str.Menu.Tools.ProcedureAttributes}" Command="{x:Static vb:ApplicationCommands.NYICommand}" />
+                            <MenuItem Header="{DynamicResource Str.Menu.Tools.ProcedureAttributes}" Command="{x:Static vb:ApplicationCommands.DisabledCommand}" />
                             <Separator />
                             <MenuItem Header="{DynamicResource Str.Menu.Tools.MenuEditor}" utils:MenuUtils.MenuIcon="{StaticResource Geo.Menubar}" Command="{x:Static vb:ApplicationCommands.EditMenuCommand}" />
                             <Separator />

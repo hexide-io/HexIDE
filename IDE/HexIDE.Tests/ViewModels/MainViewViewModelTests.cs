@@ -1115,9 +1115,11 @@ public class MainViewViewModelTests
         _projectManager.CurrentGroup.Returns(new ProjectGroupDefinition("Group1"));
         _projectService.ClearReceivedCalls();
 
+        _localization.GetString("Str.Shell.NotImplemented").Returns("Translated not-implemented notice");
+
         _sut.MakeProjectGroupCommand.Execute(null);
 
-        _windowManager.Received(1).MessageBox("This feature is not yet implemented", "NYI", MessageBoxButtons.Ok, MessageBoxIcon.Information);
+        _windowManager.Received(1).MessageBox("Translated not-implemented notice", null, MessageBoxButtons.Ok, MessageBoxIcon.Information);
         _projectService.ReceivedCalls().Should().BeEmpty("nothing is saved, built or asked of the project service");
     }
 
