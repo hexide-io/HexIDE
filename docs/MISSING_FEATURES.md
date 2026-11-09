@@ -208,7 +208,7 @@ The former Add-In Manager dialog has been replaced by Options → Add-Ins, which
 | Index… | — | Removed | Unsupported Help entry removed rather than offered inert (#46) |
 | Search… | — | Removed | Unsupported Help entry removed rather than offered inert (#46) |
 | Technical Support | — | Removed | Unsupported Help entry removed rather than offered inert (#46) |
-| Avalonia on the Web | — | Done | Opens https://avaloniaui.net |
+| HexIDE on the Web | — | Done | Opens the project's repository (#3387) |
 | About HexIDE… | — | Done | |
 
 ---

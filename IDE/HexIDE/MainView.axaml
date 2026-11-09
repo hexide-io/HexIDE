@@ -24,8 +24,8 @@
                               ExecutingCommand="{CompiledBinding NewProject}"/>
         <input:CommandBinding Command="{x:Static vb:ApplicationCommands.AddProjectCommand}"
                               ExecutingCommand="{CompiledBinding AddProject}"/>
-        <input:CommandBinding Command="{x:Static vb:ApplicationCommands.AvaloniaOnWebCommand}"
-                              Executed="AvaloniaOnWeb"/>
+        <input:CommandBinding Command="{x:Static vb:ApplicationCommands.ProductOnWebCommand}"
+                              Executed="ProductOnWeb"/>
         <input:CommandBinding Command="{x:Static vb:ApplicationCommands.AboutCommand}"
                               ExecutingCommand="{CompiledBinding About}" />
         <input:CommandBinding Command="{x:Static vb:ApplicationCommands.OpenOptionsCommand}"
@@ -433,7 +433,7 @@
                             <MenuItem Header="{DynamicResource Str.Menu.Window.ResetLayout}" Command="{x:Static vb:ApplicationCommands.ResetWindowLayoutCommand}" />
                         </MenuItem>
                         <MenuItem Header="{DynamicResource Str.Menu.Help}">
-                            <MenuItem Header="{DynamicResource Str.Menu.Help.AvaloniaOnWeb}" Command="{x:Static vb:ApplicationCommands.AvaloniaOnWebCommand}" />
+                            <MenuItem Header="{DynamicResource Str.Menu.Help.ProductOnWeb}" Command="{x:Static vb:ApplicationCommands.ProductOnWebCommand}" />
                             <Separator />
                             <MenuItem Header="{DynamicResource Str.Menu.Help.About}" Command="{x:Static vb:ApplicationCommands.AboutCommand}" />
                         </MenuItem>

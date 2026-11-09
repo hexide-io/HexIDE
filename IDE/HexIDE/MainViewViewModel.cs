@@ -1965,9 +1965,12 @@ public partial class MainViewViewModel : ObservableObject
         await ExternalDebugger.StartAsync(file);
     }
 
+    /// <summary>The project's repository, which Help's web item and the browser build's menu item open.</summary>
+    public const string RepositoryUrl = "https://github.com/hexide-io/hexide";
+
     public Task OpenGithubRepo()
     {
-        TopLevel.GetTopLevel(Static.MainView)!.Launcher.LaunchUriAsync(new Uri("https://github.com/hexide-io/hexide")).ListenErrors();
+        TopLevel.GetTopLevel(Static.MainView)!.Launcher.LaunchUriAsync(new Uri(RepositoryUrl)).ListenErrors();
         return Task.CompletedTask;
     }
 
