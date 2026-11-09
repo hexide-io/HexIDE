@@ -34,10 +34,10 @@ internal sealed class HexIdeHost(
     public IDisposable RegisterCommand(string id, string label, Action onInvoke, string? gesture = null, Func<bool>? canExecute = null) =>
         commandService.Register(id, label, onInvoke, gesture, canExecute);
 
-    public void RegisterComponent(IComponentClass component) =>
+    public IDisposable RegisterComponent(IComponentClass component) =>
         componentRegistry.Register(component);
 
-    public void RegisterProjectTemplate(IAddinProjectTemplate template) =>
+    public IDisposable RegisterProjectTemplate(IAddinProjectTemplate template) =>
         projectTemplateService.Register(template);
 
     public bool RunProject() => Dispatcher.UIThread.Invoke(() =>
