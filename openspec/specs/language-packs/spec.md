@@ -4,6 +4,8 @@
 Define what a language pack is and the conventions every one follows, so that adding a language is a
 contained piece of work rather than a project.
 
+**Known divergence:** the guard that fails the build on an undefined key covers AXAML, not C# `GetString` calls (#3433).
+
 The localization mechanism is a separate capability; this is the content that rides on it. The bar being set
 here is deliberately low in effort and high in consistency — a pack should be one file that anyone who
 speaks the language can contribute to, and every pack should behave the same way once it is in.
@@ -53,7 +55,7 @@ that grows one section at a time is valid at every point along the way.
 
 A **region** is a country or territory variant of a language that already ships — `fr-CA`, `pt-BR`,
 `en-GB` — and overriding only what differs from its neutral is the whole of its job: `en-GB` carries
-eighteen keys of seven hundred and twenty-seven, deliberately. The word is easy to misread as *dialect* or
+a few dozen keys out of more than a thousand, deliberately. The word is easy to misread as *dialect* or
 *minority language*, and that reading is wrong: Basque is not a region of Spanish, it is a language, and it
 ships as the neutral pack `eu`. Anything that is a language rather than a variant of one is a neutral,
 and the requirement below governs it once declared.

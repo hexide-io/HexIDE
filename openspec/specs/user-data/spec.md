@@ -51,8 +51,8 @@ which ones the user allowed or blocked moves with the directory.
 When `--user-data-dir` is given with no directory after it, or with another option where the directory
 should be, HexIDE SHALL NOT start. It SHALL state why and exit with a non-zero status.
 
-Every other malformed argument is skipped and the IDE starts normally. This one is not, because the option
-is given to keep a session away from the user's real settings, and starting normally would run the session
+An argument HexIDE does not recognise is skipped and the IDE starts normally. A malformed `--user-data-dir` is not,
+because the option is given to keep a session away from the user's real settings, and starting normally would run the session
 on exactly those.
 
 #### Scenario: The directory is missing
