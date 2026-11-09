@@ -1070,6 +1070,32 @@ public partial class FindReplaceViewModelTests
             Arg.Any<MessageBoxIcon>());
     }
 
+    [AvaloniaFact]
+    public async Task ReplaceAllUndoesAllReplacementsInEachWindowTogether()
+    {
+        using var active = CreateMockEditor("alpha alpha");
+        using var other = CreateMockEditor("alpha there alpha");
+        SetOpenDocuments(active, other);
+        active.Document.UndoStack.ClearAll();
+        other.Document.UndoStack.ClearAll();
+        var sut = CreateSut();
+        sut.Scope = FindScope.AllOpenDocuments;
+        sut.SearchText = "alpha";
+        sut.ReplaceText = "beta";
+
+        await sut.ReplaceAllAsync();
+
+        active.Document.Text.Should().Be("beta beta");
+        other.Document.Text.Should().Be("beta there beta");
+        active.Document.UndoStack.Undo();
+        active.Document.Text.Should().Be("alpha alpha");
+        other.Document.Text.Should().Be("beta there beta");
+        other.Document.UndoStack.Undo();
+        other.Document.Text.Should().Be("alpha there alpha");
+        active.Document.UndoStack.CanUndo.Should().BeFalse();
+        other.Document.UndoStack.CanUndo.Should().BeFalse();
+    }
+
     // --- Not found ---
 
     [AvaloniaFact]

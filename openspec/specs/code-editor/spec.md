@@ -642,7 +642,12 @@ Replace All, including plain text, patterns, either direction and wrapping.
 ### Requirement: Replace All SHALL confirm changes across files
 Before Replace All changes matches in more than one document, it SHALL ask for confirmation.
 Refusal SHALL leave every buffer unchanged and SHALL NOT open closed editors for replacement.
-Accepted replacement SHALL edit live editor buffers, leaving saving to the developer.
+Accepted replacement SHALL edit live editor buffers, leaving saving to the developer. All replacements
+in each window SHALL form one undo step; each window SHALL keep its own undo history.
+
+#### Scenario: Undo after replacement across files
+- **WHEN** Replace All changes several matches in each of two windows
+- **THEN** one Undo in either window restores all its replacements, leaving the other window unchanged
 
 #### Scenario: Cross-file replacement is cancelled
 - **WHEN** matches exist in multiple files and the developer refuses confirmation

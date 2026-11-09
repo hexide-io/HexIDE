@@ -48,6 +48,7 @@ internal static class CommandKeyMapping
             ["PasteAsCommentCommand"]                   = ApplicationCommands.PasteAsCommentCommand,
             ["PasteLinkCommand"]                       = ApplicationCommands.PasteLinkCommand,
             ["RemoveCommand"]                          = ApplicationCommands.RemoveCommand,
+            ["DeleteLineCommand"]                      = ApplicationCommands.DeleteLineCommand,
             ["DeleteCommand"]                          = ApplicationCommands.DeleteCommand,
             ["SelectAllCommand"]                       = ApplicationCommands.SelectAllCommand,
             ["FindCommand"]                            = ApplicationCommands.FindCommand,
