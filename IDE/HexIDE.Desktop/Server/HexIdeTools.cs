@@ -490,7 +490,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
                      + "not the summary's pixels: in the container's ScaleMode, twips on a form unless it says otherwise, "
                      + "twips inside a Frame, and a form's own Width and Height with its frame; the row's 'note' names the "
                      + "unit. 'settable' says whether set_control_property takes that text back; a "
-                     + "picture is loaded with its row's ... button in the Properties window (arm answer_next_file_dialog first). Properties the file holds that HexIDE does not model, or "
+                     + "picture is loaded with its row's ... button in the Properties window (arm answer_next_file_dialog first), and '(None)' clears one. Properties the file holds that HexIDE does not model, or "
                      + "could not read, are rows too, with the file's text, not settable, and a 'note' saying which. "
                      + "A control array named without an index is its first element, and the reply's 'note' says so.")]
         string? controlName = null,
@@ -614,7 +614,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
                      + "value's reply says why where it can, and lists what that property takes. Left, Top, Width and "
                      + "Height are in the unit the Properties window shows them in, which get_form_controls' row for "
                      + "each names: twips, or the container's ScaleMode. Not the pixels of get_form_controls' summary "
-                     + "or of move_control.")]
+                     + "or of move_control. '(None)' clears a picture.")]
         string value, string? project = null,
         CancellationToken ct = default)
     {
