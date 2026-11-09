@@ -83,6 +83,33 @@ public class LspClientRegistryTests
         await unsupported.DidNotReceiveWithAnyArgs().RequestPrepareRenameAsync(default!, default!, Arg.Any<CancellationToken>());
     }
 
+    [Fact]
+    public async Task OnTypeFormattingSelectsOneClaimantForTheSpecificTrigger()
+    {
+        var method = typeof(ILspClient).GetMethod("RequestOnTypeFormattingAsync");
+        method.Should().NotBeNull();
+        var supports = typeof(ILspClient).GetMethod("SupportsOnTypeFormatting");
+        supports.Should().NotBeNull();
+        var cannot = FakeServer(capabilitiesJson: """{"documentOnTypeFormattingProvider":{"firstTriggerCharacter":";"}}""");
+        var high = FakeServer(capabilitiesJson: """{"documentOnTypeFormattingProvider":{"firstTriggerCharacter":"\n"}}""");
+        var low = FakeServer(capabilitiesJson: """{"documentOnTypeFormattingProvider":{"firstTriggerCharacter":"\n"}}""");
+        var ct = TestContext.Current.CancellationToken;
+        Task<TextEdit[]> Format(ILspClient client, CancellationToken token) =>
+            (Task<TextEdit[]>)method!.Invoke(client,
+                [Vb6Doc, new Position(2, 4), "\n", new FormattingOptions(4, true), token])!;
+        Format(high, Arg.Any<CancellationToken>()).Returns([new TextEdit(Span(2), "formatted")]);
+        await using var sut = Registry(Registration("cannot", cannot, priority: 20),
+            Registration("high", high, priority: 10), Registration("low", low));
+        await sut.OpenDocumentAsync(Vb6Doc, "code", ct);
+        ((bool)supports!.Invoke(sut, [Vb6Doc, "\n"])!).Should().BeTrue();
+        ((bool)supports.Invoke(sut, ["file:///unclaimed.txt", "\n"])!).Should().BeFalse();
+        ((bool)supports.Invoke(sut, [Vb6Doc, "\""])!).Should().BeFalse();
+        (await Format(sut, ct)).Should().ContainSingle()
+            .Which.NewText.Should().Be("formatted");
+        await Format(cannot.DidNotReceive(), Arg.Any<CancellationToken>());
+        await Format(low.DidNotReceive(), Arg.Any<CancellationToken>());
+    }
+
     private static Task<TextEdit[]> RangeFormat(ILspClient client, string uri, LspRange range, FormattingOptions options, CancellationToken ct)
     {
         var method = typeof(ILspClient).GetMethod("RequestRangeFormattingAsync");
