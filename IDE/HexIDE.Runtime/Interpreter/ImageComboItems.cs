@@ -167,7 +167,7 @@ internal sealed class ImageComboItem(ImageComboItems items) : ICSharpAsyncProxy,
                 break;
             case "tag":
                 if (value.Type != Vb6Value.ValueType.EmptyVariant && value.Type != Vb6Value.ValueType.Null
-                    && value != Vb6Value.Nothing && value.Value is not (string or bool) && !Vb6Value.TryNumericToDouble(value, out _))
+                    && value != Vb6Value.Nothing && value.Value is not (string or bool or VBTextBox) && !Vb6Value.TryNumericToDouble(value, out _))
                     throw ImageComboItems.Unmeasured();
                 tag = value.Type == Vb6Value.ValueType.EmptyVariant ? new Vb6Value("") : value; break;
             case "indentation": SetIndentation(value); break;
