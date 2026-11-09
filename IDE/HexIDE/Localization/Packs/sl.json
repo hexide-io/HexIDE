@@ -612,6 +612,8 @@
     "Str.Dialog.ProjectProperties.Button.Help": "_Pomoč",
     "Str.Dialog.References.AvailableReferences": "Razpoložljivi sklici:",
     "Str.Dialog.References.Priority": "Prednost",
+    "Str.Dialog.References.MoveUp": "Premakni izbrani sklic navzgor",
+    "Str.Dialog.References.MoveDown": "Premakni izbrani sklic navzdol",
     "Str.Dialog.References.Ok": "V redu",
     "Str.Dialog.References.Cancel": "Prekliči",
     "Str.Dialog.References.Browse": "Prebrskaj",

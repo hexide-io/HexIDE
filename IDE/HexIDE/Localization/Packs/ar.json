@@ -608,6 +608,8 @@
     "Str.Dialog.ProjectProperties.Button.Help": "تعليمات",
     "Str.Dialog.References.AvailableReferences": "المراجع المتوفرة:",
     "Str.Dialog.References.Priority": "الأولوية",
+    "Str.Dialog.References.MoveUp": "نقل المرجع المحدد لأعلى",
+    "Str.Dialog.References.MoveDown": "نقل المرجع المحدد لأسفل",
     "Str.Dialog.References.Ok": "موافق",
     "Str.Dialog.References.Cancel": "إلغاء",
     "Str.Dialog.References.Browse": "استعراض",

@@ -608,6 +608,8 @@
     "Str.Dialog.ProjectProperties.Button.Help": "_Hjelp",
     "Str.Dialog.References.AvailableReferences": "Tilgjengelige referanser:",
     "Str.Dialog.References.Priority": "Prioritet",
+    "Str.Dialog.References.MoveUp": "Flytt valgt referanse opp",
+    "Str.Dialog.References.MoveDown": "Flytt valgt referanse ned",
     "Str.Dialog.References.Ok": "OK",
     "Str.Dialog.References.Cancel": "Avbryt",
     "Str.Dialog.References.Browse": "Bla gjennom",

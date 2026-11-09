@@ -608,6 +608,8 @@
     "Str.Dialog.ProjectProperties.Button.Help": "Ba_ntuan",
     "Str.Dialog.References.AvailableReferences": "Referensi Tersedia:",
     "Str.Dialog.References.Priority": "Prioritas",
+    "Str.Dialog.References.MoveUp": "Pindahkan referensi yang dipilih ke atas",
+    "Str.Dialog.References.MoveDown": "Pindahkan referensi yang dipilih ke bawah",
     "Str.Dialog.References.Ok": "OK",
     "Str.Dialog.References.Cancel": "Batal",
     "Str.Dialog.References.Browse": "Telusuri",

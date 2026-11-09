@@ -608,6 +608,8 @@
     "Str.Dialog.ProjectProperties.Button.Help": "עזרה",
     "Str.Dialog.References.AvailableReferences": "הפניות זמינות:",
     "Str.Dialog.References.Priority": "עדיפות",
+    "Str.Dialog.References.MoveUp": "הזזת ההפניה שנבחרה למעלה",
+    "Str.Dialog.References.MoveDown": "הזזת ההפניה שנבחרה למטה",
     "Str.Dialog.References.Ok": "אישור",
     "Str.Dialog.References.Cancel": "ביטול",
     "Str.Dialog.References.Browse": "עיון",

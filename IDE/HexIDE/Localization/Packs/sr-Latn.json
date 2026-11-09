@@ -612,6 +612,8 @@
     "Str.Dialog.ProjectProperties.Button.Help": "_Pomoć",
     "Str.Dialog.References.AvailableReferences": "Dostupne reference:",
     "Str.Dialog.References.Priority": "Prioritet",
+    "Str.Dialog.References.MoveUp": "Pomeri izabranu referencu nagore",
+    "Str.Dialog.References.MoveDown": "Pomeri izabranu referencu nadole",
     "Str.Dialog.References.Ok": "U redu",
     "Str.Dialog.References.Cancel": "Otkaži",
     "Str.Dialog.References.Browse": "Pregledaj",

@@ -608,6 +608,8 @@
     "Str.Dialog.ProjectProperties.Button.Help": "帮助(_H)",
     "Str.Dialog.References.AvailableReferences": "可用的引用：",
     "Str.Dialog.References.Priority": "优先级",
+    "Str.Dialog.References.MoveUp": "上移所选引用",
+    "Str.Dialog.References.MoveDown": "下移所选引用",
     "Str.Dialog.References.Ok": "确定",
     "Str.Dialog.References.Cancel": "取消",
     "Str.Dialog.References.Browse": "浏览",

@@ -608,6 +608,8 @@
     "Str.Dialog.ProjectProperties.Button.Help": "_Nápověda",
     "Str.Dialog.References.AvailableReferences": "Dostupné odkazy:",
     "Str.Dialog.References.Priority": "Priorita",
+    "Str.Dialog.References.MoveUp": "Přesunout vybraný odkaz nahoru",
+    "Str.Dialog.References.MoveDown": "Přesunout vybraný odkaz dolů",
     "Str.Dialog.References.Ok": "OK",
     "Str.Dialog.References.Cancel": "Storno",
     "Str.Dialog.References.Browse": "Procházet",

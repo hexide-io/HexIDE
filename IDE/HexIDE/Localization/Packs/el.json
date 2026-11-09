@@ -608,6 +608,8 @@
     "Str.Dialog.ProjectProperties.Button.Help": "Βοήθεια",
     "Str.Dialog.References.AvailableReferences": "Διαθέσιμες αναφορές:",
     "Str.Dialog.References.Priority": "Προτεραιότητα",
+    "Str.Dialog.References.MoveUp": "Μετακίνηση της επιλεγμένης αναφοράς προς τα πάνω",
+    "Str.Dialog.References.MoveDown": "Μετακίνηση της επιλεγμένης αναφοράς προς τα κάτω",
     "Str.Dialog.References.Ok": "OK",
     "Str.Dialog.References.Cancel": "Άκυρο",
     "Str.Dialog.References.Browse": "Αναζήτηση",

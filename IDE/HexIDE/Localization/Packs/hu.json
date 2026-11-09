@@ -612,6 +612,8 @@
     "Str.Dialog.ProjectProperties.Button.Help": "_Súgó",
     "Str.Dialog.References.AvailableReferences": "Elérhető hivatkozások:",
     "Str.Dialog.References.Priority": "Prioritás",
+    "Str.Dialog.References.MoveUp": "Kijelölt hivatkozás mozgatása felfelé",
+    "Str.Dialog.References.MoveDown": "Kijelölt hivatkozás mozgatása lefelé",
     "Str.Dialog.References.Ok": "OK",
     "Str.Dialog.References.Cancel": "Mégse",
     "Str.Dialog.References.Browse": "Tallózás",

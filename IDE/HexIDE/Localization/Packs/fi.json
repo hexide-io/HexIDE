@@ -608,6 +608,8 @@
     "Str.Dialog.ProjectProperties.Button.Help": "O_hje",
     "Str.Dialog.References.AvailableReferences": "Käytettävissä olevat viittaukset:",
     "Str.Dialog.References.Priority": "Prioriteetti",
+    "Str.Dialog.References.MoveUp": "Siirrä valittua viitettä ylöspäin",
+    "Str.Dialog.References.MoveDown": "Siirrä valittua viitettä alaspäin",
     "Str.Dialog.References.Ok": "OK",
     "Str.Dialog.References.Cancel": "Peruuta",
     "Str.Dialog.References.Browse": "Selaa",

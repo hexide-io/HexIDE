@@ -612,6 +612,8 @@
     "Str.Dialog.ProjectProperties.Button.Help": "_Pomocník",
     "Str.Dialog.References.AvailableReferences": "Dostupné referencie:",
     "Str.Dialog.References.Priority": "Priorita",
+    "Str.Dialog.References.MoveUp": "Presunúť vybratý odkaz nahor",
+    "Str.Dialog.References.MoveDown": "Presunúť vybratý odkaz nadol",
     "Str.Dialog.References.Ok": "OK",
     "Str.Dialog.References.Cancel": "Zrušiť",
     "Str.Dialog.References.Browse": "Prehľadávať",

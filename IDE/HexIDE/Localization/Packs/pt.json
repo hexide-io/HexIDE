@@ -608,6 +608,8 @@
     "Str.Dialog.ProjectProperties.Button.Help": "A_juda",
     "Str.Dialog.References.AvailableReferences": "Referências disponíveis:",
     "Str.Dialog.References.Priority": "Prioridade",
+    "Str.Dialog.References.MoveUp": "Mover a referência selecionada para cima",
+    "Str.Dialog.References.MoveDown": "Mover a referência selecionada para baixo",
     "Str.Dialog.References.Ok": "OK",
     "Str.Dialog.References.Cancel": "Cancelar",
     "Str.Dialog.References.Browse": "Procurar",

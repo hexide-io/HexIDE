@@ -608,6 +608,8 @@
     "Str.Dialog.ProjectProperties.Button.Help": "_Yardım",
     "Str.Dialog.References.AvailableReferences": "Kullanılabilir Başvurular:",
     "Str.Dialog.References.Priority": "Öncelik",
+    "Str.Dialog.References.MoveUp": "Seçili başvuruyu yukarı taşı",
+    "Str.Dialog.References.MoveDown": "Seçili başvuruyu aşağı taşı",
     "Str.Dialog.References.Ok": "Tamam",
     "Str.Dialog.References.Cancel": "İptal",
     "Str.Dialog.References.Browse": "Gözat",
