@@ -193,7 +193,7 @@ window.separator3
 window.layouts
 window.resetlayout
 help
-help.avaloniaonweb
+help.productonweb
 help.separator1
 help.about
 gotogithubrepo

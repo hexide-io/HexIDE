@@ -14,9 +14,14 @@ collects every destination first, but confirming the second would have written F
 call.
 
 **Workaround.** Arm one answer per picker the command raises, in order: each form or module without a path (every
-one, under Save As), then the project, then the group. Outside the tools, a window listing of the IDE's process shows a
+one under Save As or a scratch project user save, including `--newproject`), then the project, then the group. Outside the tools, a window listing of the IDE's process shows a
 picker left open.
 
 **Suggested fix.** Record when `WindowManager` falls through to the real storage provider, and say so in the replies
 of `invoke_menu_item`, `interact`, `clear_file_dialog_answers` and `dump_visual_tree`'s note. Refuse a command that
 would open another save while one is open. [#2870](https://github.com/hexide-io/HexIDE/issues/2870).
+
+**Implementation (2026-11-09, #2870; live verification pending).** WindowManager now records picker metadata until
+completion or failure. Menu, control, tree and clear replies report it; menu and control actions refuse underneath it
+without spending answers. The arming description includes scratch project saves. Headless tests cover this feedback;
+the supervisor still needs to reproduce the original two-save sequence on Windows before moving this entry to closed.

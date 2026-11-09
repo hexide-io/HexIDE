@@ -25,12 +25,12 @@
 
         <TabControl>
             <TabItem Header="{DynamicResource Str.Dialog.Components.Tab.Controls}">
-                <Grid Margin="10" RowDefinitions="*,10,Auto" ColumnDefinitions="*,10,138">
+                <Grid Margin="10" RowDefinitions="*,10,Auto" ColumnDefinitions="*,10,Auto">
                     <ListBox
                         ItemsSource="{CompiledBinding Controls}"
                         SelectedItem="{CompiledBinding SelectedControl}">
                     </ListBox>
-                    <DockPanel Grid.Column="2" LastChildFill="False">
+                    <DockPanel Grid.Column="2" LastChildFill="False" MinWidth="138">
                         <Path Data="{StaticResource Geo.Controls}" Fill="{DynamicResource IconInk}" Width="16" Height="16" Stretch="Uniform" DockPanel.Dock="Top" HorizontalAlignment="Left" />
 
                         <CheckBox DockPanel.Dock="Bottom"
@@ -47,13 +47,13 @@
                 </Grid>
             </TabItem>
             <TabItem Header="{DynamicResource Str.Dialog.Components.Tab.Designers}">
-                <Grid Margin="10" RowDefinitions="*,10,Auto" ColumnDefinitions="*,10,138">
+                <Grid Margin="10" RowDefinitions="*,10,Auto" ColumnDefinitions="*,10,Auto">
                     <ListBox
                         ItemsSource="{CompiledBinding Designers}"
                         SelectedItem="{CompiledBinding SelectedDesigner}">
 
                     </ListBox>
-                    <DockPanel Grid.Column="2" LastChildFill="False">
+                    <DockPanel Grid.Column="2" LastChildFill="False" MinWidth="138">
                         <Path Data="{StaticResource Geo.Designers}" Fill="{DynamicResource IconInk}" Width="16" Height="16" Stretch="Uniform" DockPanel.Dock="Top" HorizontalAlignment="Left" />
 
                         <CheckBox DockPanel.Dock="Bottom"
@@ -70,13 +70,13 @@
             </TabItem>
             <TabItem Header="{DynamicResource Str.Dialog.Components.Tab.InsertableObjects}">
 
-                <Grid Margin="10" RowDefinitions="*,10,Auto" ColumnDefinitions="*,10,138">
+                <Grid Margin="10" RowDefinitions="*,10,Auto" ColumnDefinitions="*,10,Auto">
                     <ListBox
                         ItemsSource="{CompiledBinding InsertableObjects}"
                         SelectedItem="{CompiledBinding SelectedInsertableObject}">
 
                     </ListBox>
-                    <DockPanel Grid.Column="2" LastChildFill="False">
+                    <DockPanel Grid.Column="2" LastChildFill="False" MinWidth="138">
                         <Path Data="{StaticResource Geo.Insertableobjects}" Fill="{DynamicResource IconInk}" Width="16" Height="16" Stretch="Uniform" DockPanel.Dock="Top" HorizontalAlignment="Left" />
 
                         <CheckBox DockPanel.Dock="Bottom"
@@ -95,11 +95,11 @@
 
         <StackPanel Orientation="Horizontal" Spacing="7" Grid.Row="2" HorizontalAlignment="Right">
             <Button Command="{CompiledBinding OkCommand}" IsDefault="True" Content="{DynamicResource Str.Dialog.Components.Ok}" />
-            <Button Command="{CompiledBinding CancelCommand}" Content="{DynamicResource Str.Dialog.Components.Cancel}" />
+            <Button Command="{CompiledBinding CancelCommand}" Content="{DynamicResource Str.Dialog.Components.Cancel}" IsCancel="True" />
             <Button Command="{CompiledBinding ApplyCommand}" Content="{DynamicResource Str.Dialog.Components.Apply}" />
             <StackPanel.Styles>
                 <Style Selector="Button">
-                    <Setter Property="Width" Value="75"/>
+                    <Setter Property="MinWidth" Value="75"/>
                 </Style>
             </StackPanel.Styles>
         </StackPanel>

@@ -200,14 +200,15 @@ public sealed class BreakpointByNameTests : IDisposable
     }
 
     [AvaloniaFact]
-    public async Task Interpreter_conditions_stop_unconditionally_and_notice_once_per_run()
+    public async Task Interpreter_conditions_apply_at_launch_and_when_edited_live()
     {
         var project = new ProjectDefinition(VBProjectType.EXE, "P");
-        var form = new FormDeserializer().Deserialize(project, Frm, NullSink.Instance)!;
+        var form = new FormDeserializer().Deserialize(project, Frm.Replace("    Debug.Print 1\r\n",
+            "    Debug.Print 1\r\n    Debug.Print 2\r\n    Debug.Print 3\r\n", StringComparison.Ordinal), NullSink.Instance)!;
         project.AddForm(form);
         var store = new BreakpointService();
         var document = DocumentIdentity.For(form);
-        store.SetDocument(document, [Line]);
+        store.SetDocument(document, [Line, Line + 1, Line + 2, Line + 3]);
         store.SetCondition(document, Line, "False");
         var debugger = new DebugController();
         var strings = Substitute.For<ILocalizationService>();
@@ -228,10 +229,21 @@ public sealed class BreakpointByNameTests : IDisposable
                 {
                     runner.RunProject(project);
                     var at = await stopped.Task.WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
-                    at.Line.Should().Be(Line);
+                    at.Line.Should().Be(Line + 1);
                     at.Reason.Should().Be(StopReason.Breakpoint);
-                    store.SetCondition(document, Line, "1 = 0");
-                    notices.Should().HaveCount(iteration + 1);
+                    notices.Should().BeEmpty();
+                    store.SetCondition(document, Line + 2, "False");
+                    var nextStop = new TaskCompletionSource<StoppedInfo>(TaskCreationOptions.RunContinuationsAsynchronously);
+                    void NextStopped(StoppedInfo info) => nextStop.TrySetResult(info);
+                    debugger.Stopped += NextStopped;
+                    try
+                    {
+                        debugger.Continue();
+                        var next = await nextStop.Task.WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
+                        next.Line.Should().Be(Line + 3);
+                    }
+                    finally { debugger.Stopped -= NextStopped; }
+                    store.SetCondition(document, Line + 2, null);
                 }
                 finally
                 {

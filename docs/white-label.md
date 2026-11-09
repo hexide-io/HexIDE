@@ -35,6 +35,7 @@ This is the first slice of [#2042](https://github.com/hexide-io/HexIDE/issues/20
 | `credits` | No | Up to 32 entries, shown in About **after** HexIDE's own. |
 | `logo` | No | A PNG of up to 1024×1024 pixels, inside the installation folder, for About, New Project and the window icon. |
 | `links` | No | `home`, `support` and `repository`, each an absolute `https` URL. |
+| `defaultProfile` | No | The profile used when the command line names none: a profile's name, or a folder inside the installation written with `/`, such as `branding/profile`. A profile sets your theme, keymap and defaults, and never your identity. `--profile`, including `--profile none`, still wins. |
 
 A member that isn't in this table stops the IDE from starting. So does anything else wrong with the file: the IDE
 reports the file and the problem, and doesn't fall back to being HexIDE, because that would open HexIDE's settings
@@ -52,5 +53,5 @@ and recovery files inside your product. `--help` still answers on a broken insta
 
 ## Not done yet
 
-The executable's native icon and version details, the installer's identity, a default profile, localized credits and
-some diagnostics written in English are still HexIDE's. See the issues linked from #2042.
+The executable's native icon and version details, the installer's identity, localized credits and some diagnostics
+written in English are still HexIDE's. See the issues linked from #2042.

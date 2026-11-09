@@ -635,6 +635,7 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         BuiltIns = new VB6BuiltIns(stdLib)
         {
             AppTitle = () => App.TitleOrNull,
+            ProjectResources = () => Resources,
             ErrObject = () => Err,
             WatchRunEnd = () =>
             {

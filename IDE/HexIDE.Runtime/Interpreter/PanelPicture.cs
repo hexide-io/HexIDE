@@ -32,6 +32,23 @@ internal sealed class PanelPicture : ICSharpProxy, ICSharpPropertyBag
         return picture;
     }
 
+    internal static PanelPicture FromResourceBitmap(byte[] dib)
+    {
+        // Only the measured 24-bit BITMAPINFOHEADER layout is supported.
+        if (dib.Length < 40 || BitConverter.ToInt32(dib, 0) != 40
+            || BitConverter.ToInt16(dib, 12) != 1 || BitConverter.ToInt16(dib, 14) != 24
+            || BitConverter.ToInt32(dib, 16) != 0 || BitConverter.ToInt32(dib, 32) != 0)
+            throw new NotImplementedException("This resource bitmap layout is unmeasured (#2626)");
+        using var stream = new MemoryStream();
+        using var writer = new BinaryWriter(stream);
+        writer.Write((ushort)0x4d42);
+        writer.Write(14 + dib.Length);
+        writer.Write(0);
+        writer.Write(54);
+        writer.Write(dib);
+        return FromFile(stream.ToArray());
+    }
+
     internal Bitmap? Bitmap => bitmap.Value;
 
     internal static Vb6Value Load(IReadOnlyList<Vb6Value> args, VbFiles files)

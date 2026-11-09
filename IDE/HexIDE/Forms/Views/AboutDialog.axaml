@@ -18,7 +18,7 @@
         </StackPanel>
         <Separator />
         <TextBlock Text="{CompiledBinding Copyright}" FlowDirection="LeftToRight" HorizontalAlignment="Center" FontSize="11" />
-        <TextBlock Text="{CompiledBinding Provenance}" IsVisible="{CompiledBinding HasProvenance}" FlowDirection="LeftToRight"
+        <TextBlock Text="{CompiledBinding Provenance}" IsVisible="{CompiledBinding HasProvenance}"
                    HorizontalAlignment="Center" FontSize="11" TextWrapping="Wrap" />
 
         <Expander Header="{DynamicResource Str.Dialog.About.Credits.Header}" IsExpanded="True"

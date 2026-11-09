@@ -27,9 +27,11 @@ internal static partial class BrandText
     private static readonly HashSet<string> UpstreamKeys = new(StringComparer.Ordinal)
     {
         UpstreamCreditsKey,
+        "Str.Dialog.About.Provenance",
         "Str.Dialog.About.SigningKeys.RootKey",
         "Str.Dialog.About.SigningKeys.FirstPartyKey",
         "Str.Addins.Incompatible",
+        "Str.TranslationEditor.ProtectedCredits",
     };
 
     // Not when a dot and a letter follow: that is a file or assembly name, HexIDE.Standalone for one, and those keep

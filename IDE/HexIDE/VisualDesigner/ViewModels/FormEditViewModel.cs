@@ -74,11 +74,17 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
     [Notify]
     private ComponentInstanceViewModel? selectedComponent;
 
+    private void OnSelectedComponentChanged()
+    {
+        if (selectedComponent is { HasDesignerPreview: false })
+            SelectedComponent = Form;
+    }
+
     public IReadOnlyList<ComponentInstanceViewModel> SelectedComponents { get; private set; } = [];
 
     public void SetSelectedComponents(IEnumerable<ComponentInstanceViewModel> components)
     {
-        SelectedComponents = [.. components];
+        SelectedComponents = [.. components.Where(c => c.HasDesignerPreview)];
         OnPropertyChanged(new PropertyChangedEventArgs(nameof(SelectedComponents)));
         CommandManager.InvalidateRequerySuggested();
     }
@@ -96,6 +102,24 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
     public bool CanMakeSameSize(object? parameter) => HasMultipleSelectedControls;
 
     public ObservableCollection<ComponentInstanceViewModel> AllComponents { get; } = new();
+    public ObservableCollection<ComponentInstanceViewModel> SelectableComponents { get; } = new();
+
+    internal void RefreshPreviewSelection()
+    {
+        OnSelectedComponentChanged();
+        SetSelectedComponents(SelectedComponents);
+        var selectable = AllComponents.Where(c => c.HasDesignerPreview).ToList();
+        foreach (var item in SelectableComponents.Except(selectable).ToList())
+            SelectableComponents.Remove(item);
+        for (var i = 0; i < selectable.Count; i++)
+        {
+            var oldIndex = SelectableComponents.IndexOf(selectable[i]);
+            if (oldIndex < 0)
+                SelectableComponents.Insert(i, selectable[i]);
+            else if (oldIndex != i)
+                SelectableComponents.Move(oldIndex, i);
+        }
+    }
 
     /// <summary>
     /// The view-model wrapping a given model component, for the walks that start from the model tree — the
@@ -140,6 +164,7 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
     // is deleted, and comes back with it on undo. No other change can alter the boxes.
     private void OnAllComponentsChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {
+        RefreshPreviewSelection();
         static bool HoldsAny(IList? items) =>
             items?.OfType<ComponentInstanceViewModel>().Any(c => c.Instance.PreservedChildSubtrees.Count > 0) == true;
 
@@ -390,7 +415,7 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
 
     private static bool IsMenu(ComponentInstanceViewModel component) => component.Instance.BaseClass is MenuComponentClass;
 
-    private static bool IsWindowless(IComponentClass type) => type is ComponentBaseClass { IsWindowless: true };
+    internal static bool IsWindowless(IComponentClass type) => type is IDesignerComponentClass { IsWindowless: true };
 
     private bool IsContentOf(ComponentInstanceViewModel component, ComponentInstance container) =>
         !IsMenu(component) && ReferenceEquals(ParentOf(component.Instance), container);
@@ -691,9 +716,9 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
     /// nearest grid line when Align to Grid is on, as VB6 puts it (measured, #929: a 1215 x 495 button on a 6000 x 4500
     /// form went to 2400, 2040, where its centre is 2392.5, 2002.5). A position exactly between two lines goes to the
     /// higher: 12.5 grid units became 13 (measured), where the default to-even rounding gives 12. Its size is its class's
-    /// <see cref="ComponentBaseClass.AddedSize"/>, the one VB6 gives it (measured, #1473).
+    /// <see cref="IDesignerComponentClass.AddedSize"/>, the one VB6 gives it (measured, #1473).
     /// </summary>
-    public void SpawnControlCenter(ComponentBaseClass componentClass, RuntimeLibrary? library = null)
+    public void SpawnControlCenter(IDesignerComponentClass componentClass, RuntimeLibrary? library = null)
     {
         if (componentClass is StatusBarComponentClass)
         {
@@ -836,7 +861,7 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
     /// For an in-box control, the library it is placed from, when the toolbox offers it from an older library than its
     /// class's newest: a ProgressBar from COMCTL32.OCX is <c>ComctlLib.ProgressBar</c> (#1103).
     /// </param>
-    public void SpawnControlAt(ComponentBaseClass baseClass, Rect rect, Point? pressedAt = null,
+    public void SpawnControlAt(IDesignerComponentClass baseClass, Rect rect, Point? pressedAt = null,
         RuntimeLibrary? library = null)
     {
         var container = pressedAt is { } press ? ContainerAt(press) : null;
@@ -845,7 +870,7 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
         SpawnControl(baseClass, rect, container, library);
     }
 
-    private void SpawnControl(ComponentBaseClass baseClass, Rect rect, ComponentInstanceViewModel? container,
+    private void SpawnControl(IDesignerComponentClass baseClass, Rect rect, ComponentInstanceViewModel? container,
         RuntimeLibrary? library)
     {
         var newName = FreeName(baseClass);
@@ -1500,7 +1525,7 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
 
     /// <summary>
     /// Record a property just set on <paramref name="target"/> as one undoable change, with what VB6's designer changes
-    /// along with it, which this applies (<see cref="ComponentBaseClass.ApplyDesignerConsequences"/>). Returns those.
+    /// along with it, which this applies (<see cref="IComponentClass.ApplyDesignerConsequences"/>). Returns those.
     /// </summary>
     public IReadOnlyList<PropertyChange> PushSetPropertyCommand(ComponentInstance target, PropertyClass property, object? before, object? after)
     {

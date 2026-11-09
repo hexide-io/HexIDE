@@ -26,6 +26,9 @@ internal sealed class ChannelTapStream(Stream inner, Action<string> note) : Stre
     private int _readArrived;
     private long _bytesWritten;
 
+    internal bool FirstWriteReached => Volatile.Read(ref _writeReached) != 0;
+    internal bool FirstReadWaiting => Volatile.Read(ref _readStarted) != 0 && Volatile.Read(ref _readArrived) == 0;
+
     public override bool CanRead => inner.CanRead;
     public override bool CanWrite => inner.CanWrite;
     public override bool CanSeek => false;

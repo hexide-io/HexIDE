@@ -69,7 +69,8 @@
                 </Border.ContextMenu>
                 <Grid>
                     <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="80" SharedSizeGroup="Key" />
+                        <!-- Fits the longest built-in property name, CausesValidation: 90 units in Segoe UI and 103 in DejaVu Sans at this size (#3389). -->
+                        <ColumnDefinition Width="110" SharedSizeGroup="Key" />
                         <ColumnDefinition Width="1" />
                         <ColumnDefinition Width="*" SharedSizeGroup="Value" />
                         <ColumnDefinition Width="Auto" />

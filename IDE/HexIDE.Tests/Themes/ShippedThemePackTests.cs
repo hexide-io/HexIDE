@@ -36,6 +36,20 @@ public class ShippedThemePackTests
 
     public static TheoryData<string> Packs => new() { "Classic", "Dark", "Abyss" };
 
+    [Theory]
+    [MemberData(nameof(Packs))]
+    public void LinkTextIsThemedAndLegible(string pack)
+    {
+        ColorKeyMapping.Table.Should().ContainKey("LinkText");
+        ColorKeyMapping.Table["LinkText"].Should().Be(("LinkTextBrush", true));
+        var colours = ColoursOf(pack);
+        colours.Should().ContainKey("LinkText");
+        var link = Color.Parse(colours["LinkText"]);
+        if (pack == "Classic") link.Should().Be(ClassicDefault("LinkTextBrush"));
+        SyntaxHighlightingTheme.ContrastRatio(link, Color.Parse(colours["Window"]))
+            .Should().BeGreaterThanOrEqualTo(Legible);
+    }
+
     [Fact]
     public void IndentGuidesHaveDistinctThemeColours()
     {

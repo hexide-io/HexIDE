@@ -24,6 +24,20 @@ public class MenuBindingTests
         button.Attribute("Command")!.Value.Should().Be("{CompiledBinding EndProjectCommand}");
     }
 
+    [Theory]
+    [InlineData("Str.Menu.File.Print")]
+    [InlineData("Str.Menu.File.PrintSetup")]
+    [InlineData("Str.Menu.Tools.ProcedureAttributes")]
+    public void Unimplemented_printing_and_procedure_attributes_are_disabled(string key)
+    {
+        var item = XDocument.Load(Path.Combine(ViewsDirectory(), "MainView.axaml"))
+            .Descendants().Single(e => e.Name.LocalName == "MenuItem" &&
+                (string?)e.Attribute("Header") == "{DynamicResource " + key + "}");
+        ((string?)item.Attribute("Command")).Should()
+            .Be("{x:Static vb:ApplicationCommands.DisabledCommand}");
+        ApplicationCommands.DisabledCommand.CanExecute(null).Should().BeFalse();
+    }
+
     [Fact]
     public void ReopenClosedWindowUsesTheRebindableShellCommandAndListsHistory()
     {

@@ -22,6 +22,10 @@ internal sealed class CodeLensDisplay : VisualLineElementGenerator, IDisposable
     private CodeLens[] lenses = [];
     private bool disposed;
     private CodeLens[] shown = [];
+    // Taken when the editor builds this, on the UI thread: the session's Changed arrives with a server's reply, off
+    // it. Asking Dispatcher.UIThread there while a headless test's setup has it cleared makes that thread the UI
+    // thread (#2530).
+    private readonly Dispatcher uiThread = Dispatcher.UIThread;
 
     public CodeLensDisplay(TextEditor editor, Canvas layer, CodeLensSession session, Action<Command> execute)
     {
@@ -43,7 +47,7 @@ internal sealed class CodeLensDisplay : VisualLineElementGenerator, IDisposable
 
     private void OnFailed(object? sender, Exception error) => Serilog.Log.Warning(error, "Code lens request failed");
 
-    private void OnChanged(object? sender, EventArgs args) => Dispatcher.UIThread.Post(() =>
+    private void OnChanged(object? sender, EventArgs args) => uiThread.Post(() =>
     {
         if (disposed) return;
         lenses = session.Lenses;

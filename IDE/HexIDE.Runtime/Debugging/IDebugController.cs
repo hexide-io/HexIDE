@@ -55,6 +55,9 @@ public interface IDebugController
     /// set; the gate matches against it. An empty set clears the module's breakpoints.</summary>
     void SetBreakpoints(string module, IReadOnlyCollection<int> lines);
 
+    /// <summary>Replace per-line expressions after pushing the module's breakpoint line set.</summary>
+    void SetBreakpointConditions(string module, IReadOnlyDictionary<int, string> conditions);
+
     /// <summary>Drop every module's breakpoints. The front-end calls this before re-applying at run start so a
     /// document cleared between runs doesn't leave a stale set (breakpoints survive <see cref="Reset"/>).</summary>
     void ClearBreakpoints();

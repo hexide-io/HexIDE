@@ -20,7 +20,7 @@ internal static class MenuHostRegistry
             ["application.AlignLeftsCommand"] = new("{x:Static vb:ApplicationCommands.AlignLeftsCommand}", ApplicationCommands.AlignLeftsCommand, null),
             ["application.AlignRightsCommand"] = new("{x:Static vb:ApplicationCommands.AlignRightsCommand}", ApplicationCommands.AlignRightsCommand, null),
             ["application.AlignTopsCommand"] = new("{x:Static vb:ApplicationCommands.AlignTopsCommand}", ApplicationCommands.AlignTopsCommand, null),
-            ["application.AvaloniaOnWebCommand"] = new("{x:Static vb:ApplicationCommands.AvaloniaOnWebCommand}", ApplicationCommands.AvaloniaOnWebCommand, null),
+            ["application.ProductOnWebCommand"] = new("{x:Static vb:ApplicationCommands.ProductOnWebCommand}", ApplicationCommands.ProductOnWebCommand, null),
             ["application.BreakProjectCommand"] = new("{x:Static vb:ApplicationCommands.BreakProjectCommand}", ApplicationCommands.BreakProjectCommand, null),
             ["application.BringToFrontCommand"] = new("{x:Static vb:ApplicationCommands.BringToFrontCommand}", ApplicationCommands.BringToFrontCommand, null),
             ["application.CallHierarchyCommand"] = new("{x:Static vb:ApplicationCommands.CallHierarchyCommand}", ApplicationCommands.CallHierarchyCommand, null),

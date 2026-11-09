@@ -207,8 +207,10 @@ public partial class RelatedDocumentEditorViewModel(ILspClient lspClient, IWindo
             Markers = markers;
             MarkersChanged?.Invoke(markers);
         };
-        EventHandler stateChanged = (_, _) => Avalonia.Threading.Dispatcher.UIThread.Post(
-            () => LanguageServerStateChanged?.Invoke());
+        // Taken here, on the UI thread: StateChanged arrives on the connection's thread, and asking Dispatcher.UIThread
+        // there while a headless test's setup has it cleared makes that thread the UI thread (#2530).
+        var uiThread = Avalonia.Threading.Dispatcher.UIThread;
+        EventHandler stateChanged = (_, _) => uiThread.Post(() => LanguageServerStateChanged?.Invoke());
         lspClient.StateChanged += stateChanged;
         AutoDispose(new ActionDisposable(() => lspClient.StateChanged -= stateChanged));
         session.Start();

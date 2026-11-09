@@ -149,12 +149,8 @@ internal static class LspSpecificationModel
 
         try
         {
-            using (var http = new HttpClient { Timeout = TimeSpan.FromMinutes(2) })
-            using (var source = http.GetStreamAsync(Url).GetAwaiter().GetResult())
-            using (var file = File.Create(temporary))
-            {
-                source.CopyTo(file);
-            }
+            using (var http = new HttpClient { Timeout = Timeout.InfiniteTimeSpan })
+                DownloadRetry.ToFile(http, Url, temporary, TimeSpan.FromMinutes(2));
 
             var actual = DigestOf(temporary);
             if (!actual.Equals(Sha256Hex, StringComparison.OrdinalIgnoreCase))

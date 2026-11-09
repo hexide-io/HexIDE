@@ -82,13 +82,13 @@
         "kind": "Command",
         "id": "file.print",
         "labelKey": "Str.Menu.File.Print",
-        "command": "application.NYICommand"
+        "command": "application.DisabledCommand"
       },
       {
         "kind": "Command",
         "id": "file.printsetup",
         "labelKey": "Str.Menu.File.PrintSetup",
-        "command": "application.NYICommand"
+        "command": "application.DisabledCommand"
       },
       {
         "kind": "Separator",
@@ -1001,7 +1001,7 @@
         "kind": "Command",
         "id": "tools.procedureattributes",
         "labelKey": "Str.Menu.Tools.ProcedureAttributes",
-        "command": "application.NYICommand"
+        "command": "application.DisabledCommand"
       },
       {
         "kind": "Separator",
@@ -1118,9 +1118,9 @@
     "children": [
       {
         "kind": "Command",
-        "id": "help.avaloniaonweb",
-        "labelKey": "Str.Menu.Help.AvaloniaOnWeb",
-        "command": "application.AvaloniaOnWebCommand"
+        "id": "help.productonweb",
+        "labelKey": "Str.Menu.Help.ProductOnWeb",
+        "command": "application.ProductOnWebCommand"
       },
       {
         "kind": "Separator",
