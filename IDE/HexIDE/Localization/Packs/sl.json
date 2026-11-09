@@ -35,6 +35,7 @@
     "Str.NewProject.NoTemplates": "Ta profil ne ponuja predlog za nove projekte. Odprite obstoječi projekt.",
     "Str.Dialog.About.Credits.Header": "Zahvale",
     "Str.Dialog.About.Credits.Thanks": "HexIDE skupaj s človeškimi sodelavci gradijo izjemne ekipe AI. Iskreno se zahvaljujemo Claude by Anthropic — sejam Claude Code, ki pišejo, pregledujejo in združujejo delo — ter Codex by OpenAI — delovnim tokovom Codex, ki izvajajo čakajoče popravke. Njihova skrbnost in neutrudno delo omogočata HexIDE.",
+    "Str.Dialog.About.Provenance": "Temelji na HexIDE {0}. {1}",
     "Str.Tool.LanguageServers.Output": "Izhod",
     "Str.Tool.LanguageServers.OutputEmpty": "Izhod še ni bil prejet.",
     "Str.Tool.Properties.LoadPicture": "Naloži sliko",

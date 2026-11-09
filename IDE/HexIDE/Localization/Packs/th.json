@@ -35,6 +35,7 @@
     "Str.NewProject.NoTemplates": "โปรไฟล์นี้ไม่มีแม่แบบโครงการใหม่ ให้เปิดโครงการที่มีอยู่แทน",
     "Str.Dialog.About.Credits.Header": "กิตติกรรมประกาศ",
     "Str.Dialog.About.Credits.Thanks": "HexIDE สร้างขึ้นโดยทีม AI ที่ยอดเยี่ยมร่วมกับผู้ร่วมพัฒนาที่เป็นมนุษย์ เราขอขอบคุณจากใจต่อ Claude by Anthropic — เซสชัน Claude Code ที่เขียน ตรวจทาน และผสานงาน — และ Codex by OpenAI — สายงาน Codex ที่ดำเนินการแก้ไขซึ่งรออยู่ในคิวให้คืบหน้า ความเอาใจใส่และการทำงานอย่างไม่รู้เหน็ดเหนื่อยของพวกเขาทำให้ HexIDE เป็นไปได้",
+    "Str.Dialog.About.Provenance": "สร้างบนพื้นฐานของ HexIDE {0} {1}",
     "Str.Tool.LanguageServers.Output": "เอาต์พุต",
     "Str.Tool.LanguageServers.OutputEmpty": "ยังไม่ได้รับเอาต์พุต",
     "Str.Tool.Properties.LoadPicture": "โหลดรูปภาพ",

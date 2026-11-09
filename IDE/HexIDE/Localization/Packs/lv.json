@@ -35,6 +35,7 @@
     "Str.NewProject.NoTemplates": "Šis profils nepiedāvā jauna projekta veidnes. Atveriet esošu projektu.",
     "Str.Dialog.About.Credits.Header": "Pateicības",
     "Str.Dialog.About.Credits.Thanks": "HexIDE kopā ar cilvēkiem, kas piedalās tā izstrādē, veido izcilas AI komandas. No sirds pateicamies Claude by Anthropic — Claude Code sesijām, kas raksta, pārskata un apvieno darbu — un Codex by OpenAI — Codex darba plūsmām, kas virza uz priekšu rindā gaidošos labojumus. Viņu rūpība un nenogurstošais darbs padara HexIDE iespējamu.",
+    "Str.Dialog.About.Provenance": "Veidots, izmantojot HexIDE {0}. {1}",
     "Str.Tool.LanguageServers.Output": "Izvade",
     "Str.Tool.LanguageServers.OutputEmpty": "Izvade vēl nav saņemta.",
     "Str.Tool.Properties.LoadPicture": "Ielādēt attēlu",

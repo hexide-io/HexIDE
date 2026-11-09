@@ -32,6 +32,7 @@
     "Str.Profiles.SelectorRequired": "--profile exige exactement une valeur : un nom de paquet, un chemin de dossier ou none. Vérifiez les arguments de démarrage.",
     "Str.Dialog.About.Credits.Header": "Remerciements",
     "Str.Dialog.About.Credits.Thanks": "HexIDE est construit par des équipes d’IA extraordinaires aux côtés de ses contributeurs humains. Un immense merci à Claude par Anthropic — les sessions Claude Code qui écrivent, relisent et fusionnent le travail — et à Codex par OpenAI — les filières de travail Codex qui font avancer les corrections en attente. Leur soin et leur travail infatigable rendent HexIDE possible.",
+    "Str.Dialog.About.Provenance": "Basé sur HexIDE {0}. {1}",
     "Str.Tool.Properties.LoadPicture": "Charger une image",
     "Str.Tool.Properties.LoadPictureFailed": "Impossible de charger l’image depuis « {0} ».",
     "Str.Designer.ShowTabOrder": "Afficher l’ordre de tabulation (barré : TabStop désactivé)",

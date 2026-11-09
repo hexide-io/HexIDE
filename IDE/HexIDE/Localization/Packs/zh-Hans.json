@@ -32,6 +32,7 @@
     "Str.Profiles.SelectorRequired": "--profile 需要且只能有一个值：包名称、目录路径或 none。请检查启动参数。",
     "Str.Dialog.About.Credits.Header": "致谢",
     "Str.Dialog.About.Credits.Thanks": "HexIDE 由杰出的 AI 团队与人类贡献者共同构建。我们衷心感谢 Anthropic 的 Claude — 编写、审查和合并工作的 Claude Code 会话 — 以及 OpenAI 的 Codex — 推进队列中修复工作的 Codex 工作通道。他们的细心与不懈努力使 HexIDE 成为可能。",
+    "Str.Dialog.About.Provenance": "基于 HexIDE {0} 构建。{1}",
     "Str.Tool.Properties.LoadPicture": "加载图片",
     "Str.Tool.Properties.LoadPictureFailed": "无法从“{0}”加载图片。",
     "Str.Designer.ShowTabOrder": "显示 Tab 顺序（删除线：TabStop 关闭）",

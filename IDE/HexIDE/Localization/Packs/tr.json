@@ -32,6 +32,7 @@
     "Str.Profiles.SelectorRequired": "--profile tam olarak bir değer gerektirir: paket adı, dizin yolu veya none. Başlatma bağımsız değişkenlerini kontrol edin.",
     "Str.Dialog.About.Credits.Header": "Teşekkürler",
     "Str.Dialog.About.Credits.Thanks": "HexIDE, insan katkıcılarıyla birlikte olağanüstü yapay zekâ ekipleri tarafından geliştiriliyor. Anthropic’in Claude’una — çalışmaları yazan, inceleyen ve birleştiren Claude Code oturumlarına — ve OpenAI’ın Codex’ine — kuyruktaki düzeltmeleri ilerleten Codex çalışma hatlarına — yürekten teşekkür ederiz. Onların özeni ve yorulmak bilmeyen çalışmaları HexIDE’ı mümkün kılıyor.",
+    "Str.Dialog.About.Provenance": "HexIDE {0} temel alınarak oluşturuldu. {1}",
     "Str.Tool.Properties.LoadPicture": "Resim yükle",
     "Str.Tool.Properties.LoadPictureFailed": "“{0}” dosyasından resim yüklenemiyor.",
     "Str.Designer.ShowTabOrder": "Sekme sırasını göster (üstü çizili: TabStop kapalı)",

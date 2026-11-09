@@ -27,6 +27,7 @@ internal static partial class BrandText
     private static readonly HashSet<string> UpstreamKeys = new(StringComparer.Ordinal)
     {
         UpstreamCreditsKey,
+        "Str.Dialog.About.Provenance",
         "Str.Dialog.About.SigningKeys.RootKey",
         "Str.Dialog.About.SigningKeys.FirstPartyKey",
         "Str.Addins.Incompatible",

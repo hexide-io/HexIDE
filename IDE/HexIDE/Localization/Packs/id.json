@@ -32,6 +32,7 @@
     "Str.Profiles.SelectorRequired": "--profile memerlukan tepat satu nilai: nama bundel, jalur direktori, atau none. Periksa argumen peluncuran.",
     "Str.Dialog.About.Credits.Header": "Ucapan terima kasih",
     "Str.Dialog.About.Credits.Thanks": "HexIDE dibangun oleh tim AI yang luar biasa bersama para kontributor manusianya. Terima kasih sepenuh hati kepada Claude dari Anthropic — sesi Claude Code yang menulis, meninjau, dan menggabungkan pekerjaan — serta Codex dari OpenAI — jalur kerja Codex yang memajukan perbaikan dalam antrean. Ketelitian dan kerja tanpa lelah mereka memungkinkan hadirnya HexIDE.",
+    "Str.Dialog.About.Provenance": "Dibangun di atas HexIDE {0}. {1}",
     "Str.Tool.Properties.LoadPicture": "Muat gambar",
     "Str.Tool.Properties.LoadPictureFailed": "Tidak dapat memuat gambar dari “{0}”.",
     "Str.Designer.ShowTabOrder": "Tampilkan urutan tab (dicoret: TabStop nonaktif)",

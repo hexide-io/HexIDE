@@ -35,6 +35,7 @@
     "Str.NewProject.NoTemplates": "Aquest perfil no ofereix plantilles de projecte nou. Obriu un projecte existent.",
     "Str.Dialog.About.Credits.Header": "Crèdits",
     "Str.Dialog.About.Credits.Thanks": "HexIDE es construeix al costat dels seus col·laboradors humans amb equips extraordinaris d’AI. Agraïm de tot cor a Claude by Anthropic — les sessions de Claude Code que escriuen, revisen i integren la feina — i a Codex by OpenAI — els fluxos de Codex que fan avançar les correccions en cua. La seva cura i feina incansable fan possible HexIDE.",
+    "Str.Dialog.About.Provenance": "Basat en HexIDE {0}. {1}",
     "Str.Tool.LanguageServers.Output": "Sortida",
     "Str.Tool.LanguageServers.OutputEmpty": "Encara no s’ha rebut cap sortida.",
     "Str.Tool.Properties.LoadPicture": "Carrega una imatge",

@@ -35,6 +35,7 @@
     "Str.NewProject.NoTemplates": "Šis profilis nesiūlo naujo projekto šablonų. Atverkite esamą projektą.",
     "Str.Dialog.About.Credits.Header": "Padėkos",
     "Str.Dialog.About.Credits.Thanks": "HexIDE kartu su žmonėmis kūrėjais kuria nepaprastos AI komandos. Nuoširdžiai dėkojame Claude by Anthropic — Claude Code seansams, kurie rašo, peržiūri ir sujungia darbą — ir Codex by OpenAI — Codex darbo srautams, kurie įgyvendina eilėje laukiančias pataisas. Jų rūpestingumas ir nenuilstamas darbas leidžia gyvuoti HexIDE.",
+    "Str.Dialog.About.Provenance": "Sukurta pagal HexIDE {0}. {1}",
     "Str.Tool.LanguageServers.Output": "Išvestis",
     "Str.Tool.LanguageServers.OutputEmpty": "Išvesties dar negauta.",
     "Str.Tool.Properties.LoadPicture": "Įkelti paveikslėlį",

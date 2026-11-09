@@ -35,6 +35,7 @@
     "Str.NewProject.NoTemplates": "Acest profil nu oferă șabloane pentru proiecte noi. Deschideți un proiect existent.",
     "Str.Dialog.About.Credits.Header": "Credite",
     "Str.Dialog.About.Credits.Thanks": "HexIDE este construit alături de contribuitorii săi umani de echipe AI extraordinare. Mulțumim din suflet Claude by Anthropic — sesiunilor Claude Code care scriu, revizuiesc și integrează munca — și Codex by OpenAI — fluxurilor Codex care duc mai departe corecțiile din coadă. Grija și munca lor neobosită fac HexIDE posibil.",
+    "Str.Dialog.About.Provenance": "Bazat pe HexIDE {0}. {1}",
     "Str.Tool.LanguageServers.Output": "Ieșire",
     "Str.Tool.LanguageServers.OutputEmpty": "Nu s-a primit încă nicio ieșire.",
     "Str.Tool.Properties.LoadPicture": "Încarcă imaginea",

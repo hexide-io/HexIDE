@@ -308,6 +308,7 @@ public sealed class DistributionDescriptorTests
 
     [Theory]
     [InlineData("Str.Dialog.About.Credits.Thanks")]
+    [InlineData("Str.Dialog.About.Provenance")]
     [InlineData("Str.Dialog.About.SigningKeys.RootKey")]
     [InlineData("Str.Dialog.About.SigningKeys.FirstPartyKey")]
     [InlineData("Str.Addins.Incompatible")]

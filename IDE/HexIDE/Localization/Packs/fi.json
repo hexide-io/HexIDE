@@ -32,6 +32,7 @@
     "Str.Profiles.SelectorRequired": "--profile tarvitsee täsmälleen yhden arvon: paketin nimen, hakemistopolun tai none. Tarkista käynnistysargumentit.",
     "Str.Dialog.About.Credits.Header": "Kiitokset",
     "Str.Dialog.About.Credits.Thanks": "HexIDEä rakentavat poikkeukselliset tekoälytiimit yhdessä sen ihmisosallistujien kanssa. Lämmin kiitoksemme kuuluu Anthropicin Claude-palvelulle — Claude Code -istunnoille, jotka kirjoittavat, katselmoivat ja yhdistävät työn — sekä OpenAI:n Codex-palvelulle — Codex-työlinjoille, jotka vievät jonossa olevia korjauksia eteenpäin. Heidän huolellisuutensa ja väsymätön työnsä tekevät HexIDEn mahdolliseksi.",
+    "Str.Dialog.About.Provenance": "Pohjana HexIDE {0}. {1}",
     "Str.Tool.Properties.LoadPicture": "Lataa kuva",
     "Str.Tool.Properties.LoadPictureFailed": "Kuvaa ei voi ladata tiedostosta ”{0}”.",
     "Str.Designer.ShowTabOrder": "Näytä sarkainjärjestys (yliviivattu: TabStop pois)",
