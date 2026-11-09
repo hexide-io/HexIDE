@@ -119,7 +119,7 @@ internal static class CommandKeyMapping
             ["OpenOptionsCommand"]                     = ApplicationCommands.OpenOptionsCommand,
             ["AddProcedureCommand"]                    = ApplicationCommands.AddProcedureCommand,
             ["AboutCommand"]                           = ApplicationCommands.AboutCommand,
-            ["AvaloniaOnWebCommand"]                   = ApplicationCommands.AvaloniaOnWebCommand,
+            ["ProductOnWebCommand"]                    = ApplicationCommands.ProductOnWebCommand,
             // ── Project ────────────────────────────────────────────
             ["ProjectReferencesCommand"]               = ApplicationCommands.ProjectReferencesCommand,
             ["ProjectComponentsCommand"]               = ApplicationCommands.ProjectComponentsCommand,
