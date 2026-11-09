@@ -64,6 +64,8 @@
          that finds nothing failing rather than skipping (#1440). -->
     <ItemGroup>
         <Compile Include="..\HexIDE.Runtime.Tests\Vb6Template.cs" Link="Infrastructure\Vb6Template.cs" />
+        <Compile Include="..\HexIDE.Integration.Tests\LspSessionLeakGuard.cs" Link="Infrastructure\LspSessionLeakGuard.cs" />
+        <Compile Include="..\HexIDE.Integration.Tests\LspSessionLeakGuardTests.cs" Link="Infrastructure\LspSessionLeakGuardTests.cs" />
     </ItemGroup>
 
     <!-- Keep the executable helper's dependency manifest and dependencies together, rather than

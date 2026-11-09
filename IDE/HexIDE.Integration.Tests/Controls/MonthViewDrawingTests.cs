@@ -19,7 +19,7 @@ public class MonthViewDrawingTests
         using var bitmap = new RenderTargetBitmap(new PixelSize(180, 158));
         bitmap.Render(calendar);
         using var stream = new MemoryStream();
-        bitmap.Save(stream);
+        bitmap.Save(stream, Avalonia.Media.Imaging.PngBitmapEncoderOptions.Default);
         return stream.ToArray();
     }
 

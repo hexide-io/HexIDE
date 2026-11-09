@@ -5,6 +5,8 @@ using Avalonia.Headless.XUnit;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using HexIDE.Localization;
+using HexIDE.IDE;
+using HexIDE.Lsp;
 using HexIDE.Lsp.Messages;
 using HexIDE.Tools.Diagnostics;
 
@@ -12,6 +14,36 @@ namespace HexIDE.Integration.Tests.Views;
 
 public class DiagnosticsPresentationTests
 {
+    [AvaloniaFact]
+    public void ListShowsTheDiagnosticSourceSeparatelyFromItsServer()
+    {
+        var view = new DiagnosticsToolView();
+        var grid = (DataGrid)((Grid)view.Content!).Children[1];
+        var diagnostic = new Diagnostic(new HexIDE.Lsp.Messages.Range(new Position(0, 0), new Position(0, 1)),
+            "x", DiagnosticSeverity.Error, Source: "syntax-checker");
+        var registry = Substitute.For<ILanguageConnectionRegistry>();
+        registry.Diagnostics.Returns(new[] { new OwnedDiagnostic("file:///outside/a.txt", "Configured server", diagnostic) });
+        var vm = new DiagnosticsToolViewModel(registry, Substitute.For<ILspClient>(),
+            Substitute.For<IDocumentDockService>(), Substitute.For<IEditorService>(), Substitute.For<ILocalizationService>());
+        view.DataContext = vm;
+        var window = new Window { Content = view, Width = 1000, Height = 400 };
+        try
+        {
+            window.Show();
+            Dispatcher.UIThread.RunJobs();
+            var text = view.GetVisualDescendants().OfType<TextBlock>().Select(t => t.Text).ToArray();
+            text.Should().Contain("syntax-checker");
+            text.Should().Contain("Configured server");
+            var errors = view.GetVisualDescendants().OfType<CheckBox>().First();
+            errors.GetVisualDescendants().OfType<TextBlock>().Select(t => t.Text).Should().Contain("1");
+            vm.Errors = false;
+            Dispatcher.UIThread.RunJobs();
+            errors.GetVisualDescendants().OfType<TextBlock>().Select(t => t.Text).Should().Contain("1");
+            grid.ItemsSource.Cast<DiagnosticRow>().Should().BeEmpty();
+        }
+        finally { window.Close(); }
+    }
+
     [AvaloniaTheory]
     [InlineData(1)]
     [InlineData(2)]
@@ -141,7 +173,7 @@ public class DiagnosticsPresentationTests
                 Dispatcher.UIThread.RunJobs();
                 window.UpdateLayout();
                 var headers = view.GetVisualDescendants().OfType<DataGridColumnHeader>().Where(h => h.Content is string).ToArray();
-                headers.Should().HaveCount(5);
+                headers.Should().HaveCount(6);
                 foreach (var header in headers)
                 {
                     var text = new TextBlock { Text = (string)header.Content!, FontFamily = header.FontFamily,

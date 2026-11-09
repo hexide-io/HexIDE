@@ -56,7 +56,7 @@ public partial class NewProjectViewModel : ObservableObject, IDialog
         {
             if (SelectedTemplate?.Supported == false)
             {
-                windowManager.MessageBox(string.Format(_localization.GetString("Str.NewProject.Msg.VersionDoesNotSupport"), SelectedTemplate.Name), "HexIDE", MessageBoxButtons.Ok, MessageBoxIcon.Information);
+                windowManager.MessageBox(string.Format(_localization.GetString("Str.NewProject.Msg.VersionDoesNotSupport"), SelectedTemplate.DisplayName), "HexIDE", MessageBoxButtons.Ok, MessageBoxIcon.Information);
                 return;
             }
             ResultFilePath = null;
@@ -95,7 +95,7 @@ public partial class NewProjectViewModel : ObservableObject, IDialog
         Cancel = new DelegateCommand(() => CloseRequested?.Invoke(false), () => true);
 
         // Populate templates
-        Templates.AddRange(profileService.AvailableProjectTypes.Select(template => new ProjectTemplateViewModel(template)));
+        Templates.AddRange(profileService.AvailableProjectTypes.Select(template => new ProjectTemplateViewModel(template, _localization)));
         if (addinProjectTemplateService is not null)
             Templates.AddRange(addinProjectTemplateService.Templates.Select(template => new ProjectTemplateViewModel(template)));
         SelectedTemplate = Templates.FirstOrDefault();

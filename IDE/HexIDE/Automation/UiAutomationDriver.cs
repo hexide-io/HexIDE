@@ -587,9 +587,8 @@ public static class UiAutomationDriver
     /// <summary>
     /// The action tokens a control actually accepts. Mostly its automation providers, but not only:
     /// <see cref="Interact"/> has fallbacks for controls whose peer offers nothing, and a token missing
-    /// here is a token nobody tries. <c>MenuItemAutomationPeer</c> exposes no invoke or expandCollapse provider,
-    /// and from 12.0.5 only a toggle that skips the click, so reporting the peer verbatim would advertise a menu as
-    /// undrivable while every verb on it works.
+    /// here is a token nobody tries. Avalonia 12.1.4 supplies menu invoke and expandCollapse providers
+    /// (AvaloniaUI/Avalonia#22295); the fallbacks also describe actions beyond a peer's providers.
     /// </summary>
     public static string[] DescribeProviders(AutomationPeer peer, Control? control = null)
     {
@@ -714,7 +713,8 @@ public static class UiAutomationDriver
                     // invoke returns, its styles go with it, and its name falls back to the raw caption:
                     // the New Project dialog's Open reported itself as '_Open' (#578).
                     var invoked = LabelOf(control, peer);
-                    if (peer.GetProvider<IInvokeProvider>() is { } inv)
+                    // Keep the menu path's state readback and bar cleanup with 12.1.4's new providers (#22295).
+                    if (control is not MenuItem && peer.GetProvider<IInvokeProvider>() is { } inv)
                     {
 #if DEBUG
                         // Read only after visibility/peer guards, inside the same exception boundary as the invoke.
@@ -728,8 +728,7 @@ public static class UiAutomationDriver
                         return outcome;
 #endif
                     }
-                    // MenuItemAutomationPeer exposes no invoke and no expandCollapse provider, so every verb failed
-                    // on a menu and none of it was reachable.
+                    // Menus retain the click path and its state readback.
                     // ClickMenuItem clicks it as Avalonia's menu does: it moves a checkable item's tick, raises
                     // Click, whose class handler executes Command, so plain Click handlers and bound commands
                     // fire once, then closes the menu. Raising Click alone was the #947 defect.
@@ -775,7 +774,7 @@ public static class UiAutomationDriver
                     return ToggleVerified(tog, LabelOf(control, peer), control is RadioButton, InProgram(control));
 
                 case "expand":
-                    if (peer.GetProvider<IExpandCollapseProvider>() is { } exp)
+                    if (control is not MenuItem && peer.GetProvider<IExpandCollapseProvider>() is { } exp)
                     {
                         if (exp.ExpandCollapseState == ExpandCollapseState.Expanded)
                             return Ok($"'{LabelOf(control, peer)}' was already expanded");
@@ -784,9 +783,8 @@ public static class UiAutomationDriver
                     }
                     if (control is TreeViewItem { ItemCount: > 0 } openNode)
                         return SetTreeNodeExpanded(openNode, peer, true);
-                    // A MenuItem exposes no ExpandCollapse provider, so without this a menu could not be
-                    // opened through automation at all — and a menu that cannot be opened cannot be read
-                    // either, since its items are only realised once the popup is up.
+                    // Menus retain their state readback and bar cleanup; their items are only
+                    // realised once the popup is up.
                     if (control is MenuItem { HasSubMenu: true } openMenu)
                     {
                         if (openMenu.IsSubMenuOpen)
@@ -826,7 +824,7 @@ public static class UiAutomationDriver
                     return ThroughSoleMenuWrapper(control, peer, "expand", value) ?? Unsupported("expand");
 
                 case "collapse":
-                    if (peer.GetProvider<IExpandCollapseProvider>() is { } col)
+                    if (control is not MenuItem && peer.GetProvider<IExpandCollapseProvider>() is { } col)
                     {
                         if (col.ExpandCollapseState == ExpandCollapseState.Collapsed)
                             return Ok($"'{LabelOf(control, peer)}' was already collapsed");
@@ -2492,7 +2490,7 @@ public static class UiAutomationDriver
                         // first waits for the next one rather than describe an empty box (#1975 review).
                         Built = dialog?.Content is not Control { IsLoaded: false },
                         // A program's own box holds its handler; another window, such as the IDE's compile error, may not.
-                        Box = dialog?.Content is HexIDE.Runtime.Dialogs.MessageBox or HexIDE.Runtime.Dialogs.InputBox,
+                        Box = OpenDialogs.IsBox(dialog?.Content),
                         Opened = OpenedForms(watch),
                         Finished = watch.Pump.FinishedSince(watch.LiveBefore),
                         // Read here, on the UI thread, as the reply below is composed off it.
@@ -2562,8 +2560,7 @@ public static class UiAutomationDriver
     {
         if (window is HexIDE.Runtime.IModuleExecutionRoot { Events: { } events })
             return (events, window);
-        if (window.Content is not (HexIDE.Runtime.Dialogs.MessageBox { IsProgramDialog: true }
-            or HexIDE.Runtime.Dialogs.InputBox { IsProgramDialog: true }))
+        if (!HexIDE.IDE.ProgramDialogs.IsProgramBox(window.Content))
             return null;
         for (var at = window.Owner as Window; at is not null; at = at.Owner as Window)
             if (at is HexIDE.Runtime.IModuleExecutionRoot { Events: { } ownerEvents })
@@ -2605,8 +2602,7 @@ public static class UiAutomationDriver
     /// </summary>
     private static Window? DialogOf(ProgramWatch watch) =>
         OpenWindows().Where(w => !watch.Before.Contains(w))
-            .Concat((watch.Form?.OwnedWindows ?? []).OrderBy(w => w.Content is HexIDE.Runtime.Dialogs.MessageBox
-                                                                       or HexIDE.Runtime.Dialogs.InputBox ? 0 : 1))
+            .Concat((watch.Form?.OwnedWindows ?? []).OrderBy(w => OpenDialogs.IsBox(w.Content) ? 0 : 1))
             .FirstOrDefault(w => w.IsVisible && w != watch.Form && w is not HexIDE.Runtime.IModuleExecutionRoot
                                  && (watch.WaitingOnWindowBefore || !watch.Before.Contains(w)));
 

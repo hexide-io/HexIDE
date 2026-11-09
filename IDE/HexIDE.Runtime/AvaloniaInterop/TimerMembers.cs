@@ -32,11 +32,11 @@ internal static class TimerMembers
             throw new NotImplementedException($"A Timer's {name} is not measured (#801)");
     }
 
-    public static bool TryGet(Control control, string name, out Vb6Value value)
+    public static bool TryGet(Control control, string name, out Vb6Value value, bool throughObject = false)
     {
-        // Preserve the existing extender compile-error refusals (#1974, #1403, #801 review).
-        if (name.Equals("TabIndex", StringComparison.OrdinalIgnoreCase)
-            || name.Equals("ToolTipText", StringComparison.OrdinalIgnoreCase))
+        // Preserve early-bound extender compile errors; through Object these are trappable 438 (#801, #3431).
+        if (!throughObject && (name.Equals("TabIndex", StringComparison.OrdinalIgnoreCase)
+            || name.Equals("ToolTipText", StringComparison.OrdinalIgnoreCase)))
             throw new VBMethodOrDataMemberNotFoundException(name, Vb6Value.ValueType.Control);
         Check(name);
         value = default;

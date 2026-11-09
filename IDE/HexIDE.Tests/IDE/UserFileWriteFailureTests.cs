@@ -63,12 +63,102 @@ public sealed class UserFileWriteFailureTests : IDisposable
     }
 
     [Theory]
+    [InlineData("Form1.frm", MessageBoxResult.Yes)]
+    [InlineData("Form1.frm", MessageBoxResult.No)]
+    [InlineData("Form1.frm", MessageBoxResult.Cancel)]
+    [InlineData("Form1.frx", MessageBoxResult.Yes)]
+    [InlineData("Form1.frx", MessageBoxResult.No)]
+    [InlineData("Form1.frx", MessageBoxResult.Cancel)]
+    [InlineData("Module1.bas", MessageBoxResult.Yes)]
+    [InlineData("Module1.bas", MessageBoxResult.No)]
+    [InlineData("Module1.bas", MessageBoxResult.Cancel)]
+    [InlineData("Project1.vbp", MessageBoxResult.Yes)]
+    [InlineData("Project1.vbp", MessageBoxResult.No)]
+    [InlineData("Project1.vbp", MessageBoxResult.Cancel)]
+    [InlineData("UserControl1.ctx", MessageBoxResult.Yes)]
+    [InlineData("UserControl1.ctx", MessageBoxResult.No)]
+    [InlineData("UserControl1.ctx", MessageBoxResult.Cancel)]
+    [InlineData("PropertyPage1.pgx", MessageBoxResult.Yes)]
+    [InlineData("PropertyPage1.pgx", MessageBoxResult.No)]
+    [InlineData("PropertyPage1.pgx", MessageBoxResult.Cancel)]
+    [InlineData("all", MessageBoxResult.Yes)]
+    [InlineData("all", MessageBoxResult.No)]
+    [InlineData("all", MessageBoxResult.Cancel)]
+    [InlineData("cleared picture", MessageBoxResult.Yes)]
+    [InlineData("cleared picture", MessageBoxResult.No)]
+    [InlineData("cleared picture", MessageBoxResult.Cancel)]
+    public async Task DirectorySaveAsksBeforeReplacingAnyOutput(string name, MessageBoxResult answer)
+    {
+        var localization = Substitute.For<ILocalizationService>();
+        localization.GetString("Str.Tool.ProtocolInspector.ReplaceFiles").Returns("Replace these existing files?\n{0}");
+        var service = new ProjectService(() => throw new InvalidOperationException(), windows,
+            Substitute.For<IEventBus>(), Substitute.For<IProjectManager>(), Substitute.For<IRecentProjectsService>(),
+            Substitute.For<IReferenceLibraryService>(), Substitute.For<IUserSidecarService>(), new FileBaselineStore(),
+            localization, Substitute.For<IHeaderRefresher>());
+        var project = new ProjectDefinition(VBProjectType.EXE, "Project1");
+        var form = await service.AddNewForm(project, "Form1", interactive: false);
+        form.Components[0].SetProperty(VBProperties.IconProperty, new byte[] { 1, 2, 3, 4 });
+        var module = await service.AddNewModule(project, "Module1", ModuleKind.StandardModule, interactive: false);
+        if (name is "UserControl1.ctx" or "PropertyPage1.pgx")
+        {
+            var designer = name == "UserControl1.ctx"
+                ? await service.AddNewUserControl(project, "UserControl1", interactive: false)
+                : await service.AddNewPropertyPage(project, "PropertyPage1", interactive: false);
+            var image = new ComponentInstance(ImageComponentClass.Instance, "Image1");
+            image.SetProperty(VBProperties.PictureProperty, new byte[] { 1, 2, 3, 4 });
+            designer.FormPart!.UpdateComponents([.. designer.FormPart.Components, image]);
+        }
+        var deletesCompanion = name == "cleared picture";
+        if (deletesCompanion)
+        {
+            form.RecordCitedCompanionBlobCount(1);
+            form.Components[0].SetProperty(VBProperties.IconProperty, null);
+        }
+        string[] existing = name == "all" ? ["Form1.frm", "Form1.frx", "Module1.bas", "Project1.vbp"]
+            : [deletesCompanion ? "Form1.frx" : name];
+        foreach (var file in existing)
+            File.WriteAllText(Target(file), "user data");
+        windows.MessageBox(Arg.Any<string>(), buttons: MessageBoxButtons.YesNo, icon: MessageBoxIcon.Warning)
+            .Returns(answer);
+
+        Func<Task> save = () => service.SaveProjectToDirectory(project, root);
+        if (answer == MessageBoxResult.Yes)
+        {
+            await save();
+            foreach (var file in existing)
+            {
+                if (deletesCompanion)
+                    File.Exists(Target(file)).Should().BeFalse();
+                else
+                    File.ReadAllText(Target(file)).Should().NotBe("user data");
+            }
+            File.Exists(Target("Form1.frm")).Should().BeTrue();
+            File.Exists(Target("Module1.bas")).Should().BeTrue();
+            File.Exists(Target("Project1.vbp")).Should().BeTrue();
+        }
+        else
+        {
+            await save.Should().ThrowAsync<OperationCanceledException>();
+            foreach (var file in existing)
+                File.ReadAllText(Target(file)).Should().Be("user data");
+            Directory.GetFiles(root).Should().BeEquivalentTo(existing.Select(Target));
+            form.AbsolutePath.Should().BeNull();
+            module.AbsolutePath.Should().BeNull();
+            project.AbsolutePath.Should().BeNull();
+        }
+        await windows.Received(1).MessageBox("Replace these existing files?\n" + string.Join(Environment.NewLine, existing.Select(Target)),
+            buttons: MessageBoxButtons.YesNo, icon: MessageBoxIcon.Warning);
+    }
+
+    [Theory]
     [InlineData("Form1.frm")]
     [InlineData("Form1.frx")]
     [InlineData("Module1.bas")]
     [InlineData("Project1.vbp")]
     public async Task ProjectSavePreservesEachTargetOnPartialWrite(string name)
     {
+        windows.MessageBox(Arg.Any<string>(), buttons: MessageBoxButtons.YesNo, icon: MessageBoxIcon.Warning)
+            .Returns(MessageBoxResult.Yes);
         var service = new ProjectService(() => throw new InvalidOperationException(), windows,
             Substitute.For<IEventBus>(), Substitute.For<IProjectManager>(), Substitute.For<IRecentProjectsService>(),
             Substitute.For<IReferenceLibraryService>(), Substitute.For<IUserSidecarService>(), new FileBaselineStore(),

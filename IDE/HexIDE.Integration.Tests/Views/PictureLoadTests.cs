@@ -49,7 +49,7 @@ public class PictureLoadTests
             {
                 view.FindControl<TabItem>(tab)!.IsSelected = true;
                 window.UpdateLayout();
-                foreach (var row in grid.Properties)
+                foreach (var row in grid.Properties.OfType<PropertyViewModel>())
                 {
                     var buttons = view.GetVisualDescendants().OfType<Button>()
                         .Where(b => b.IsEffectivelyVisible && ReferenceEquals(b.DataContext, row)
@@ -131,7 +131,7 @@ public class PictureLoadTests
                 .Returns(outcome == "cancel" ? null : new[] { path });
             var grid = new PropertiesToolViewModel(dock, bus, windows, loc);
             designer.SelectedComponent = designer.AllComponents.Single(c => c.Instance == instance);
-            var row = grid.Properties.Single(p => p.PropertyClass == property);
+            var row = grid.Properties.OfType<PropertyViewModel>().Single(p => p.PropertyClass == property);
             row.CanLoadPicture.Should().BeTrue();
             await row.LoadPictureCommand.ExecuteAsync(null);
             await windows.Received(1).OpenFilePickerAsync(Arg.Is<FilePickerOpenOptions>(o => !o.AllowMultiple));

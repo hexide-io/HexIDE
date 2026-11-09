@@ -105,7 +105,7 @@ public class SnapshotComposerTests : WindowTestFixture
     internal static Bitmap Readable(Bitmap image)
     {
         using var png = new System.IO.MemoryStream();
-        image.Save(png);
+        image.Save(png, Avalonia.Media.Imaging.PngBitmapEncoderOptions.Default);
         png.Position = 0;
         return new Bitmap(png);
     }

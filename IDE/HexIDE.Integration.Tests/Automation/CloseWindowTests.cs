@@ -78,7 +78,7 @@ public class CloseWindowTests
         var dialog = new Window
         {
             Title = "HexIDE",
-            Content = new HexIDE.Runtime.Dialogs.MessageBox { Text = "Reset?", Buttons = HexIDE.IDE.MessageBoxButtons.OkCancel },
+            Content = new HexIDE.Dialogs.MessageBox { Text = "Reset?", Buttons = HexIDE.IDE.MessageBoxButtons.OkCancel },
         };
         _ = dialog.ShowDialog(owner);
         Dispatcher.UIThread.RunJobs();

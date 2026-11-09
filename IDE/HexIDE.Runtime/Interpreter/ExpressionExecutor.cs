@@ -1836,7 +1836,8 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         if (control is VBShape or VBLine && memberIdentifier.Equals("MousePointer", StringComparison.OrdinalIgnoreCase))
             throw new VBRunTimeException(VBStandardError.ObjectDoesntSupportThisPropertyOrMethod);
 
-        if (control is VBTimer && TimerMembers.TryGet(control, memberIdentifier, out var timerValue))
+        if (control is VBTimer && TimerMembers.TryGet(control, memberIdentifier, out var timerValue,
+                throughObject: string.Equals(variable.DeclaredAs, "Object", StringComparison.OrdinalIgnoreCase)))
             return timerValue;
 
         AvaloniaInterop.UserControlMembers.Check(variable, memberIdentifier, reading: true);

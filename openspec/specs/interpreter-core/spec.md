@@ -698,8 +698,8 @@ Parent SHALL return the owning form. Left and Top SHALL raise 393 on reads and 3
 absent members SHALL raise trappable 438 when executed, including early-bound accesses translated to runtime,
 except early-bound TabIndex and ToolTipText reads SHALL retain the missing-member compile error (#801 review).
 
-Implementation gap (#3431): TabIndex and ToolTipText reads currently use that compile error through Object references too,
-where the measured late-bound result is trappable 438.
+TabIndex and ToolTipText reads through Object references SHALL raise trappable 438, as measured in
+[the Timer oracle](../../../docs/vb6-fidelity-oracle/what-a-timer-has-at-run-time.md) (#3431).
 Unmeasured members and scroll-bar BackColor/ForeColor SHALL refuse as not implemented (#801).
 
 #### Scenario: Timer size is absent
@@ -715,6 +715,10 @@ Unmeasured members and scroll-bar BackColor/ForeColor SHALL refuse as not implem
 #### Scenario: Timer extender members remain absent
 - **WHEN** code reads Timer1.TabIndex or Timer1.ToolTipText under On Error Resume Next
 - **THEN** the missing-member compile error is raised rather than swallowed by the handler
+
+#### Scenario: Timer extender reads through Object
+- **WHEN** an Object variable holds a Timer and code reads its TabIndex or ToolTipText under On Error Resume Next
+- **THEN** Err.Number is 438 and execution continues after the read
 
 #### Scenario: Timer Interval arithmetic
 - **WHEN** a Timer with Interval 1000 is read and multiplied by 40
@@ -1512,6 +1516,19 @@ SHALL follow Form_Activate (#2436, measured on vb6.exe, native and p-code agreei
 - **THEN** it raises error 5 and showing the form subsequently focuses its first eligible control
 - **WHEN** Form_Load instead calls Me.Show then Text2.SetFocus
 - **THEN** Form_Activate, the first control's GotFocus and Text2_GotFocus occur inside Form_Load in that order
+
+### Requirement: Project library order determines bare ProgressBar binding
+The runtime SHALL resolve a bare ProgressBar type using the first matching library in the combined
+`Reference=` and `Object=` read order of the project. Form-header libraries SHALL be fallbacks after
+project libraries. Qualified types SHALL select their named library. This follows the measured
+[bare-name binding](../../../docs/vb6-fidelity-oracle/in-box-classes-a-bare-name-binds-to-the-first-library.md).
+
+#### Scenario: A component precedes a reference to the other common-controls library
+- **GIVEN** an MSComctlLib `Object=` line before a ComctlLib `Reference=` line
+- **WHEN** code declares a bare ProgressBar variable
+- **THEN** it holds Nothing until assigned and accepts an MSComctlLib ProgressBar
+- **AND** assigning a ComctlLib ProgressBar raises 13 and `TypeOf` follows the same binding
+- **AND** reversing the lines reverses the binding, regardless of form-header order
 
 ### Requirement: CommonDialog uses the shared control library
 The runtime SHALL resolve CommonDialog constants through the referenced MSComDlg library record and take its

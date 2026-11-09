@@ -10,6 +10,13 @@ public class TimerComponentClass : ComponentBaseClass
     {
     }
 
+    // A .frm holds only a Timer's Left and Top, so its size comes from here: the icon's, as VBTimer's template pins it.
+    static TimerComponentClass()
+    {
+        WidthProperty.OverrideDefault<TimerComponentClass>(28);
+        HeightProperty.OverrideDefault<TimerComponentClass>(28);
+    }
+
     public override string Name => "Timer";
     public override string VBTypeName => "VB.Timer";
 

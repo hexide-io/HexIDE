@@ -1,5 +1,6 @@
 using System;
 using HexIDE.IDE;
+using HexIDE.Localization;
 using HexIDE.Utils;
 using CommunityToolkit.Mvvm.ComponentModel;
 using PropertyChanged.SourceGenerator;
@@ -8,7 +9,7 @@ namespace HexIDE.Forms.ViewModels;
 
 public partial class AddProcedureViewModel : ObservableObject, IDialog
 {
-    public string Title => "Add Procedure";
+    public string Title { get; }
     public bool CanResize => false;
     public event Action<bool>? CloseRequested;
 
@@ -23,8 +24,9 @@ public partial class AddProcedureViewModel : ObservableObject, IDialog
 
     public DelegateCommand OkCommand { get; }
 
-    public AddProcedureViewModel()
+    public AddProcedureViewModel(ILocalizationService? localization = null)
     {
+        Title = localization?.GetString("Str.Dialog.AddProcedure.Title") ?? "Add Procedure";
         OkCommand = new DelegateCommand(() => CloseRequested?.Invoke(true), () => !string.IsNullOrWhiteSpace(name));
     }
 

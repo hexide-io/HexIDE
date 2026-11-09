@@ -42,6 +42,8 @@ public class CarriedFileDiagnosticsIntegrationTests : IDisposable
 
     private readonly List<Window> _windows = [];
 
+    private readonly List<RelatedDocumentEditorViewModel> _editors = [];
+
     public CarriedFileDiagnosticsIntegrationTests()
     {
         Directory.CreateDirectory(_dir);
@@ -51,8 +53,15 @@ public class CarriedFileDiagnosticsIntegrationTests : IDisposable
     public void Dispose()
     {
         foreach (var w in _windows) w.Close();
+        foreach (var editor in _editors) editor.Dispose();
         try { Directory.Delete(_dir, recursive: true); } catch { /* best effort */ }
         GC.SuppressFinalize(this);
+    }
+
+    private RelatedDocumentEditorViewModel Owned(RelatedDocumentEditorViewModel editor)
+    {
+        _editors.Add(editor);
+        return editor;
     }
 
     private RelatedDocumentEditorViewModel OpenCarried(string fileName, string content)
@@ -60,8 +69,8 @@ public class CarriedFileDiagnosticsIntegrationTests : IDisposable
         var path = Path.Combine(_dir, fileName);
         File.WriteAllText(path, content);
         var project = new ProjectDefinition(VBProjectType.EXE, "P");
-        return new RelatedDocumentEditorViewModel(_lspClient, Substitute.For<IWindowManager>(), Substitute.For<ILocalizationService>())
-            .Initialize(new RelatedDocumentDefinition(project, fileName, path));
+        return Owned(new RelatedDocumentEditorViewModel(_lspClient, Substitute.For<IWindowManager>(), Substitute.For<ILocalizationService>())
+            .Initialize(new RelatedDocumentDefinition(project, fileName, path)));
     }
 
     /// <summary>Puts the view in a real visual tree, which is what raises the attach the wiring hangs off.</summary>
@@ -188,8 +197,8 @@ public class CarriedFileDiagnosticsIntegrationTests : IDisposable
         var path = Path.Combine(_dir, "README.md");
         File.WriteAllText(path, "# hello");
         var project = new ProjectDefinition(VBProjectType.EXE, "P");
-        var vm = new RelatedDocumentEditorViewModel(_lspClient, Substitute.For<IWindowManager>(), Substitute.For<ILocalizationService>())
-            .Initialize(new RelatedDocumentDefinition(project, "README.md", path));
+        var vm = Owned(new RelatedDocumentEditorViewModel(_lspClient, Substitute.For<IWindowManager>(), Substitute.For<ILocalizationService>())
+            .Initialize(new RelatedDocumentDefinition(project, "README.md", path)));
         Show(vm);
         vm.Document.Text = "# edited";
 

@@ -32,6 +32,8 @@
                               ExecutingCommand="{CompiledBinding #Root.Paste}" />
         <input:CommandBinding Command="{x:Static vb:ApplicationCommands.CutCommand}"
                               ExecutingCommand="{CompiledBinding #Root.Cut}" />
+        <input:CommandBinding Command="{x:Static vb:ApplicationCommands.DeleteLineCommand}"
+                              ExecutingCommand="{CompiledBinding #Root.DeleteLine}" />
         <input:CommandBinding Command="{x:Static vb:ApplicationCommands.DeleteCommand}"
                               ExecutingCommand="{CompiledBinding #Root.Delete}" />
         <input:CommandBinding Command="{x:Static vb:ApplicationCommands.RemoveCommand}"

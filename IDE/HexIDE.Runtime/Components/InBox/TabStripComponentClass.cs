@@ -76,7 +76,7 @@ public sealed class TabStripComponentClass : InBoxComponentClass
         foreach (var property in instance.UnknownRawProperties)
             if (!designer && property.Name is not ("_ExtentX" or "_ExtentY" or "_Version") && !TabStripPersistence.OwnLine(property.Name))
                 throw new NotImplementedException($"Loading TabStrip {property.Name} is not implemented (#1089)");
-        var strip = new VBTabStrip();
+        var strip = new VBTabStrip { DesignerPreview = designer };
         if (instance.GetPropertyOrDefault(TabStripPersistence.SavedProperty) is { } saved)
         {
             foreach (var name in new[] { "ImageList", "Font" })

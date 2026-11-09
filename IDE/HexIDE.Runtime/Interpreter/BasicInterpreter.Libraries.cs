@@ -9,10 +9,10 @@ public partial class BasicInterpreter
 
     internal string? ControlClassFor(string name)
     {
-        // Reference= class precedence against Object= is unmeasured; retain the existing library-class lookup.
+        // Managed library classes retain their existing lookup.
         if (LibraryClassFor(name) is not null)
             return null;
-        // ProgressBar is the first implemented control in these libraries. The project's Object= order wins (#2265).
+        // ProgressBar is the first implemented control here. Project Reference=/Object= read order wins (#2265).
         foreach (var library in BuiltIns.ControlLibraries)
             if (library.Controls.ContainsKey("ProgressBar")
                 && (name.Equals("ProgressBar", StringComparison.OrdinalIgnoreCase)
