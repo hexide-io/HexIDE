@@ -79,8 +79,8 @@ the production formatter and source-generated context to guard absence and prese
 | Custom | `vb/builtinSymbols` — see *Custom methods* |
 
 Initialize declares `textDocument.completion` with all 25 LSP completion kinds, `preselectSupport: true`,
-`documentationFormat: ["plaintext"]`, and default `insertTextMode: 1` (`asIs`). Snippets, insert/replace
-edits, resolve, commit characters, context and list item defaults are not advertised (#2670).
+`documentationFormat: ["plaintext"]`, and default `insertTextMode: 1` (`asIs`). Snippets and insert/replace
+edits (#3483), resolve, commit characters, context and list item defaults are not advertised.
 This follows the [LSP 3.17 completion capability contract](https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#completionClientCapabilities).
 Items from all servers are ordered by `sortText ?? label`, ordinal. Matching uses `filterText ?? label`,
 while the displayed label and insertion fallback remain the label. The full list stays visible. The first
@@ -108,7 +108,7 @@ with each choice named by its text. Enter accepts a choice without a line break 
 After typing in a placeholder, Tab advances when no completion list is open. With a completion
 list open, Tab accepts its selected item, following the editor's ordinary completion rule;
 close that list before using Tab to navigate the snippet.
-This is a partial third slice of #2670: nested placeholders and variables still need support
+What's left is #3483: nested placeholders and variables still need support
 before `snippetSupport` can be advertised. Insert/replace edits and indentation adjustment also remain.
 
 Completion replies accept `CompletionItem[]`, `CompletionList`, or `null` (#2204). Bare arrays
