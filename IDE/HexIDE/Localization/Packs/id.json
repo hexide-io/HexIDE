@@ -34,6 +34,7 @@
     "Str.Profiles.SelectorRequired": "--profile memerlukan tepat satu nilai: nama bundel, jalur direktori, atau none. Periksa argumen peluncuran.",
     "Str.Dialog.About.Credits.Header": "Ucapan terima kasih",
     "Str.Dialog.About.Credits.Thanks": "HexIDE dibangun oleh tim AI yang luar biasa bersama para kontributor manusianya. Terima kasih sepenuh hati kepada Claude dari Anthropic — sesi Claude Code yang menulis, meninjau, dan menggabungkan pekerjaan — serta Codex dari OpenAI — jalur kerja Codex yang memajukan perbaikan dalam antrean. Ketelitian dan kerja tanpa lelah mereka memungkinkan hadirnya HexIDE.",
+    "Str.Dialog.About.Provenance": "Dibangun di atas HexIDE {0}. {1}",
     "Str.Tool.Properties.LoadPicture": "Muat gambar",
     "Str.Tool.Properties.LoadPictureFailed": "Tidak dapat memuat gambar dari “{0}”.",
     "Str.Designer.ShowTabOrder": "Tampilkan urutan tab (dicoret: TabStop nonaktif)",
@@ -107,6 +108,7 @@
     "Str.TranslationEditor.ResetAll": "Atur ulang semua penggantian…",
     "Str.TranslationEditor.ResetAllConfirm": "Hapus semua penggantian Anda untuk bahasa ini?",
     "Str.TranslationEditor.PlaceholderError": "Suntingan ditolak: harus mempertahankan placeholder {0}, {1} … yang sama dengan aslinya.",
+    "Str.TranslationEditor.ProtectedCredits": "Ucapan terima kasih HexIDE tidak dapat diganti di sini. Produk yang dibangun di atas HexIDE hanya dapat menambahkannya.",
     "Str.TranslationEditor.Tooltip.Override": "penggantian: {0}",
     "Str.TranslationEditor.Tooltip.None": "(tidak ada)",
     "Str.TranslationEditor.Area.Menu": "Menu",
@@ -272,11 +274,7 @@
     "Str.Menu.Window.Split": "_Bagi",
     "Str.Menu.Window.ResetLayout": "_Atur Ulang Tata Letak Jendela",
     "Str.Menu.Help": "Bant_uan",
-    "Str.Menu.Help.Contents": "_Daftar Isi...",
-    "Str.Menu.Help.Index": "_Indeks...",
-    "Str.Menu.Help.Search": "_Cari...",
-    "Str.Menu.Help.TechnicalSupport": "_Dukungan Teknis",
-    "Str.Menu.Help.AvaloniaOnWeb": "Avalonia di _Web",
+    "Str.Menu.Help.ProductOnWeb": "HexIDE di _Web",
     "Str.Menu.Help.About": "_Tentang HexIDE...",
     "Str.Menu.GoToGithubRepo": "Buka repo github",
     "Str.NewProject.NoTemplates": "Profil ini tidak menyediakan templat proyek baru. Buka proyek yang sudah ada.",
@@ -1130,6 +1128,7 @@
     "Str.Layout.InvalidName": "Masukkan nama tata letak yang unik dan tidak kosong.",
     "Str.Layout.Skipped": "Jendela add-in yang tidak tersedia dilewati: {0}",
     "Str.Layout.SaveFailed": "Tata letak panel tidak dapat disimpan.",
+    "Str.Project.AlreadyOpen": "Proyek {0} sudah terbuka.",
     "Str.Options.Addins.Overview": "Add-in memperluas HexIDE dengan alat dan pengaturan tambahan. Untuk memasangnya, ekstrak paket add-in bertanda tangan ke folder tersendiri di direktori di bawah, lalu mulai ulang HexIDE. Pilih add-in di pohon untuk mengelolanya."
   }
 }

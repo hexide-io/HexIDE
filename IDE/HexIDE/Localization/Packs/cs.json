@@ -34,6 +34,7 @@
     "Str.Profiles.SelectorRequired": "--profile vyžaduje právě jednu hodnotu: název balíčku, cestu k adresáři nebo none. Zkontrolujte argumenty spuštění.",
     "Str.Dialog.About.Credits.Header": "Poděkování",
     "Str.Dialog.About.Credits.Thanks": "HexIDE vytvářejí výjimečné týmy AI společně s lidskými přispěvateli. Ze srdce děkujeme Claude od Anthropic — relacím Claude Code, které píší, kontrolují a slučují práci — a Codex od OpenAI — pracovním větvím Codex, které posouvají opravy ve frontě kupředu. Jejich péče a neúnavná práce umožňují vznik HexIDE.",
+    "Str.Dialog.About.Provenance": "Založeno na HexIDE {0}. {1}",
     "Str.Tool.Properties.LoadPicture": "Načíst obrázek",
     "Str.Tool.Properties.LoadPictureFailed": "Nelze načíst obrázek ze souboru „{0}“.",
     "Str.Designer.ShowTabOrder": "Zobrazit pořadí tabulátoru (přeškrtnuté: TabStop vypnuto)",
@@ -107,6 +108,7 @@
     "Str.TranslationEditor.ResetAll": "Obnovit všechna přepsání…",
     "Str.TranslationEditor.ResetAllConfirm": "Odebrat všechna vaše přepsání pro tento jazyk?",
     "Str.TranslationEditor.PlaceholderError": "Úprava zamítnuta: musí zachovat stejné zástupné symboly {0}, {1} … jako originál.",
+    "Str.TranslationEditor.ProtectedCredits": "Vlastní poděkování HexIDE zde nelze přepsat. Produkt postavený na HexIDE je může pouze doplnit.",
     "Str.TranslationEditor.Tooltip.Override": "přepsání: {0}",
     "Str.TranslationEditor.Tooltip.None": "(žádné)",
     "Str.TranslationEditor.Area.Menu": "Nabídky",
@@ -272,11 +274,7 @@
     "Str.Menu.Window.Split": "_Rozdělit",
     "Str.Menu.Window.ResetLayout": "O_bnovit rozložení oken",
     "Str.Menu.Help": "_Nápověda",
-    "Str.Menu.Help.Contents": "_Obsah...",
-    "Str.Menu.Help.Index": "_Rejstřík...",
-    "Str.Menu.Help.Search": "_Hledat...",
-    "Str.Menu.Help.TechnicalSupport": "_Technická podpora",
-    "Str.Menu.Help.AvaloniaOnWeb": "Avalonia na _webu",
+    "Str.Menu.Help.ProductOnWeb": "HexIDE na _webu",
     "Str.Menu.Help.About": "_O aplikaci HexIDE...",
     "Str.Menu.GoToGithubRepo": "Přejít na úložiště github",
     "Str.NewProject.NoTemplates": "Tento profil nenabízí žádné šablony nových projektů. Otevřete existující projekt.",
@@ -1130,6 +1128,7 @@
     "Str.Layout.InvalidName": "Zadejte jedinečný neprázdný název rozložení.",
     "Str.Layout.Skipped": "Nedostupná okna doplňků byla přeskočena: {0}",
     "Str.Layout.SaveFailed": "Rozložení panelů se nepodařilo uložit.",
+    "Str.Project.AlreadyOpen": "Projekt {0} je již otevřen.",
     "Str.Options.Addins.Overview": "Doplňky rozšiřují HexIDE o nástroje a nastavení. Pro instalaci rozbalte podepsaný balíček do vlastní složky v níže uvedeném adresáři a restartujte HexIDE. Doplněk můžete spravovat výběrem ve stromu."
   }
 }

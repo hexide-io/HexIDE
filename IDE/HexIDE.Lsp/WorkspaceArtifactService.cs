@@ -196,7 +196,7 @@ public sealed class WorkspaceArtifactService : IWorkspaceArtifactService, IDispo
         var bytes = Encoding.UTF8.GetBytes(content);
         if (bytes.Length > MaxArtifactLength)
         {
-            Note(server, $"Workspace artefact {spec.RelativePath} not written: larger than any artefact HexIDE writes.");
+            Note(server, $"Workspace artefact {spec.RelativePath} not written: larger than any artefact {HexIDE.IDE.Distribution.DisplayName} writes.");
             return false;
         }
         Directory.CreateDirectory(Path.GetDirectoryName(target)!);

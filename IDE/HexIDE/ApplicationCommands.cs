@@ -18,7 +18,7 @@ public class ApplicationCommands
     public static readonly RoutedCommand NYICommand = new RoutedCommand(nameof(NYICommand));
     public static readonly RoutedCommand ExitCommand = new RoutedCommand(nameof(ExitCommand), new KeyGesture(Key.Q, GetPlatformCommandKey()));
     public static readonly RoutedCommand AboutCommand = new RoutedCommand(nameof(AboutCommand));
-    public static readonly RoutedCommand AvaloniaOnWebCommand = new RoutedCommand(nameof(AvaloniaOnWebCommand));
+    public static readonly RoutedCommand ProductOnWebCommand = new RoutedCommand(nameof(ProductOnWebCommand));
     public static readonly RoutedCommand AddProcedureCommand = new RoutedCommand(nameof(AddProcedureCommand));
     public static readonly RoutedCommand OpenOptionsCommand = new RoutedCommand(nameof(OpenOptionsCommand));
     public static readonly RoutedCommand SaveProjectCommand = new RoutedCommand(nameof(SaveProjectCommand));

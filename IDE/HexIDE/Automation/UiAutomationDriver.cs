@@ -216,7 +216,7 @@ public static class UiAutomationDriver
             // The peer answers for Focusable alone, so a disabled combo read as focusable, as if a key could reach it (#2366).
             Safe(() => peer.IsKeyboardFocusable(), false) && control.IsEffectivelyEnabled,
             control.IsFocused,
-            Safe(() => peer.IsOffscreen(), false),
+            Offscreen(control, peer),
             Hidden(control),
             rect,
             selection,
@@ -4307,7 +4307,7 @@ public static class UiAutomationDriver
         // reads as a key that went astray rather than one that was refused.
         if (editor.IsReadOnly)
             return new InteractOutcome(false, mechanism, null,
-                $"{tool} refused: this file will not be saved, because HexIDE cannot yet reproduce it faithfully"
+                $"{tool} refused: this file will not be saved, because {HexIDE.IDE.Distribution.DisplayName} cannot yet reproduce it faithfully"
               + (editor.ReadOnlyReason is { Length: > 0 } why ? $" ({why})" : string.Empty)
               + ". Its code is part of the file, so typing in its code window is refused anywhere, as the "
               + "window's banner says. " + (written ?? "Nothing was written."));
@@ -5519,7 +5519,7 @@ public static class UiAutomationDriver
             node.Control.DataContext?.GetType().Name,
             info.Providers,
             info.Peer is null || Safe(() => info.Peer.IsEnabled(), true),
-            info.Peer is not null && Safe(() => info.Peer.IsOffscreen(), false),
+            Offscreen(node.Control, info.Peer),
             Hidden(node.Control),
             children,
             TypeNameAsNameOf(info.Peer),
@@ -5529,6 +5529,29 @@ public static class UiAutomationDriver
     }
 
 
+    // Avalonia's peer does not account for scroll clipping (#2867). Intersect in one visual
+    // coordinate space, retaining each inner clip when testing the next outer viewport.
+    private static bool Offscreen(Control control, AutomationPeer? peer) =>
+        (peer is not null && Safe(() => peer.IsOffscreen(), false)) || Safe(() =>
+        {
+            if (TopLevel.GetTopLevel(control) is not { } root
+                || control.TransformToVisual(root) is not { } transform)
+                return false;
+
+            var visible = new Rect(control.Bounds.Size).TransformToAABB(transform);
+            foreach (var ancestor in control.GetVisualAncestors())
+            {
+                if (ancestor is not (ScrollContentPresenter or TopLevel)
+                    || ancestor.TransformToVisual(root) is not { } clipTransform)
+                    continue;
+
+                visible = visible.Intersect(new Rect(ancestor.Bounds.Size).TransformToAABB(clipTransform));
+                if (visible.Width <= 0 || visible.Height <= 0)
+                    return true;
+            }
+            return false;
+        }, false);
+
     /// <summary>
     /// <c>true</c> when a control is in the tree but not on screen; null when it is showing.
     /// </summary>
@@ -5537,8 +5560,8 @@ public static class UiAutomationDriver
     /// still be invisible because an ancestor is collapsed, so reporting the local property would move the
     /// same trap up one level rather than close it.</para>
     ///
-    /// <para><b>Not the same question as <c>IsOffscreen</c>,</b> which is a UIA concept about clipping and
-    /// scroll position: a control scrolled out of view is offscreen and visible, and a collapsed one is
+    /// <para><b>Not the same question as <c>IsOffscreen</c>,</b> which combines the UIA peer with viewport and
+    /// window clipping: a control scrolled out of view is offscreen and visible, and a collapsed one is
     /// visible-to-UIA and not showing. Neither answers "is this on screen", which is the whole meaning of a
     /// banner, a validation message, an overlay or an empty-state placeholder.</para>
     ///

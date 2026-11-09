@@ -37,6 +37,7 @@
     "Str.NewProject.NoTemplates": "See profiil ei paku uue projekti malle. Avage selle asemel olemasolev projekt.",
     "Str.Dialog.About.Credits.Header": "Tänuavaldused",
     "Str.Dialog.About.Credits.Thanks": "HexIDE-d loovad koos inimestest kaastöölistega erakordsed AI-meeskonnad. Täname südamest Claude by Anthropic — Claude Code seansse, mis kirjutavad, vaatavad üle ja ühendavad töö — ning Codex by OpenAI — Codex töövooge, mis viivad järjekorras ootavaid parandusi edasi. Nende hool ja väsimatu töö teevad HexIDE võimalikuks.",
+    "Str.Dialog.About.Provenance": "Põhineb tarkvaral HexIDE {0}. {1}",
     "Str.Tool.LanguageServers.Output": "Väljund",
     "Str.Tool.LanguageServers.OutputEmpty": "Väljundit pole veel saabunud.",
     "Str.Tool.Properties.LoadPicture": "Laadi pilt",
@@ -237,11 +238,7 @@
     "Str.Menu.Window.Split": "_Tükelda",
     "Str.Menu.Window.ResetLayout": "_Lähtesta akende paigutus",
     "Str.Menu.Help": "_Abi",
-    "Str.Menu.Help.Contents": "_Sisukord...",
-    "Str.Menu.Help.Index": "_Register...",
-    "Str.Menu.Help.Search": "_Otsi...",
-    "Str.Menu.Help.TechnicalSupport": "_Tehniline tugi",
-    "Str.Menu.Help.AvaloniaOnWeb": "Avalonia _veebis",
+    "Str.Menu.Help.ProductOnWeb": "HexIDE _veebis",
     "Str.Menu.Help.About": "_Teave HexIDE kohta...",
     "Str.Menu.GoToGithubRepo": "Ava GitHubi hoidla",
     "Str.ProjectType.StandardEXE": "Standardne EXE",
@@ -463,6 +460,7 @@
     "Str.TranslationEditor.ResetAll": "Lähtesta kõik kohandused…",
     "Str.TranslationEditor.ResetAllConfirm": "Kas eemaldada kõik selle keele kohandused?",
     "Str.TranslationEditor.PlaceholderError": "Muudatus lükati tagasi: see peab säilitama samad {0}, {1} … kohatäited nagu originaal.",
+    "Str.TranslationEditor.ProtectedCredits": "HexIDE enda tänusõnu ei saa siin asendada. HexIDE-l põhinev toode saab neile ainult lisada.",
     "Str.TranslationEditor.Tooltip.Override": "kohandus: {0}",
     "Str.TranslationEditor.Tooltip.None": "(puudub)",
     "Str.TranslationEditor.Area.Menu": "Menüüd",
@@ -1130,6 +1128,7 @@
     "Str.Layout.InvalidName": "Sisestage kordumatu ja mittetühi paigutuse nimi.",
     "Str.Layout.Skipped": "Kättesaamatud lisandmooduli aknad jäeti vahele: {0}",
     "Str.Layout.SaveFailed": "Paneelipaigutusi ei saanud salvestada.",
+    "Str.Project.AlreadyOpen": "Projekt {0} on juba avatud.",
     "Str.Options.Addins.Overview": "Lisandmoodulid laiendavad HexIDE tööriistade ja sätetega. Paigaldamiseks paki allkirjastatud pakett eraldi kausta allolevas kataloogis ja taaskäivita HexIDE. Haldamiseks vali lisandmoodul puust."
   }
 }

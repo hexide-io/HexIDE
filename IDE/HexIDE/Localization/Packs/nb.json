@@ -34,6 +34,7 @@
     "Str.Profiles.SelectorRequired": "--profile krever nøyaktig én verdi: et pakkenavn, en mappebane eller none. Kontroller oppstartsargumentene.",
     "Str.Dialog.About.Credits.Header": "Takk til",
     "Str.Dialog.About.Credits.Thanks": "HexIDE bygges av fremragende KI-team sammen med sine menneskelige bidragsytere. Vår hjertelige takk til Claude fra Anthropic — Claude Code-øktene som skriver, gjennomgår og fletter arbeidet — og Codex fra OpenAI — Codex-arbeidssporene som fører rettelsene i køen fremover. Deres omtanke og utrettelige arbeid gjør HexIDE mulig.",
+    "Str.Dialog.About.Provenance": "Bygd på HexIDE {0}. {1}",
     "Str.Tool.Properties.LoadPicture": "Last inn bilde",
     "Str.Tool.Properties.LoadPictureFailed": "Kan ikke laste inn bildet fra «{0}».",
     "Str.Designer.ShowTabOrder": "Vis tabulatorrekkefølge (overstreket: TabStop av)",
@@ -107,6 +108,7 @@
     "Str.TranslationEditor.ResetAll": "Tilbakestill alle overstyringer…",
     "Str.TranslationEditor.ResetAllConfirm": "Fjerne alle overstyringene dine for dette språket?",
     "Str.TranslationEditor.PlaceholderError": "Redigeringen ble avvist: den må beholde de samme {0}, {1} … plassholderne som originalen.",
+    "Str.TranslationEditor.ProtectedCredits": "HexIDEs egen takk kan ikke overstyres her. Et produkt bygget på HexIDE kan bare legge til.",
     "Str.TranslationEditor.Tooltip.Override": "overstyring: {0}",
     "Str.TranslationEditor.Tooltip.None": "(ingen)",
     "Str.TranslationEditor.Area.Menu": "Menyer",
@@ -272,11 +274,7 @@
     "Str.Menu.Window.Split": "_Del",
     "Str.Menu.Window.ResetLayout": "_Tilbakestill vindusoppsett",
     "Str.Menu.Help": "_Hjelp",
-    "Str.Menu.Help.Contents": "_Innhold...",
-    "Str.Menu.Help.Index": "_Stikkordliste...",
-    "Str.Menu.Help.Search": "_Søk...",
-    "Str.Menu.Help.TechnicalSupport": "_Teknisk støtte",
-    "Str.Menu.Help.AvaloniaOnWeb": "Avalonia på _nettet",
+    "Str.Menu.Help.ProductOnWeb": "HexIDE på _nettet",
     "Str.Menu.Help.About": "_Om HexIDE...",
     "Str.Menu.GoToGithubRepo": "Gå til GitHub-repo",
     "Str.NewProject.NoTemplates": "Denne profilen tilbyr ingen maler for nye prosjekter. Åpne et eksisterende prosjekt i stedet.",
@@ -1130,6 +1128,7 @@
     "Str.Layout.InvalidName": "Angi et unikt oppsettnavn som ikke er tomt.",
     "Str.Layout.Skipped": "Utilgjengelige tilleggsvinduer ble hoppet over: {0}",
     "Str.Layout.SaveFailed": "Paneloppsettene kunne ikke lagres.",
+    "Str.Project.AlreadyOpen": "Prosjektet {0} er allerede åpent.",
     "Str.Options.Addins.Overview": "Tillegg utvider HexIDE med verktøy og innstillinger. Installer ved å pakke ut en signert tilleggspakke i en egen mappe i katalogen nedenfor, og start HexIDE på nytt. Velg et tillegg i treet for å administrere det."
   }
 }

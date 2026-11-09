@@ -167,7 +167,7 @@ public sealed class LanguageServerConfigLoader
             if (LaunchedCommandOf(entry) is null)
             {
                 problems.Add(new LanguageServerConfigProblem(id,
-                    $"\"arguments\" names '{id}', which HexIDE connects to but starts no process for. They have been ignored.",
+                    $"\"arguments\" names '{id}', which {HexIDE.IDE.Distribution.DisplayName} connects to but starts no process for. They have been ignored.",
                     false, LanguageServerConfigProblemKind.IgnoredField).WithDetails("ArgumentsNoProcess", "arguments", id));
                 continue;
             }
@@ -274,7 +274,7 @@ public sealed class LanguageServerConfigLoader
 
             problems.Add(new LanguageServerConfigProblem(
                 id,
-                $"'{id}' will run a command HexIDE has not run before: {command}",
+                $"'{id}' will run a command {HexIDE.IDE.Distribution.DisplayName} has not run before: {command}",
                 false,
                 LanguageServerConfigProblemKind.UnseenCommand).WithDetails("UnseenCommand", id, command));
 
@@ -380,7 +380,7 @@ public sealed class LanguageServerConfigLoader
                 // add-in consent store makes about a future schema.
                 problems.Add(new LanguageServerConfigProblem(
                     null,
-                    $"The configuration declares version {file.Version}, but this HexIDE understands "
+                    $"The configuration declares version {file.Version}, but this {HexIDE.IDE.Distribution.DisplayName} understands "
                   + $"{SupportedVersion}. It has been ignored; the built-in servers are in use.",
                     true).WithDetails("FutureVersion", file.Version, SupportedVersion));
                 return null;

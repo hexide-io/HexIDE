@@ -34,6 +34,7 @@
     "Str.Profiles.SelectorRequired": "--profile tam olarak bir değer gerektirir: paket adı, dizin yolu veya none. Başlatma bağımsız değişkenlerini kontrol edin.",
     "Str.Dialog.About.Credits.Header": "Teşekkürler",
     "Str.Dialog.About.Credits.Thanks": "HexIDE, insan katkıcılarıyla birlikte olağanüstü yapay zekâ ekipleri tarafından geliştiriliyor. Anthropic’in Claude’una — çalışmaları yazan, inceleyen ve birleştiren Claude Code oturumlarına — ve OpenAI’ın Codex’ine — kuyruktaki düzeltmeleri ilerleten Codex çalışma hatlarına — yürekten teşekkür ederiz. Onların özeni ve yorulmak bilmeyen çalışmaları HexIDE’ı mümkün kılıyor.",
+    "Str.Dialog.About.Provenance": "HexIDE {0} temel alınarak oluşturuldu. {1}",
     "Str.Tool.Properties.LoadPicture": "Resim yükle",
     "Str.Tool.Properties.LoadPictureFailed": "“{0}” dosyasından resim yüklenemiyor.",
     "Str.Designer.ShowTabOrder": "Sekme sırasını göster (üstü çizili: TabStop kapalı)",
@@ -107,6 +108,7 @@
     "Str.TranslationEditor.ResetAll": "Tüm geçersiz kılmaları sıfırla…",
     "Str.TranslationEditor.ResetAllConfirm": "Bu dil için tüm geçersiz kılmalarınız kaldırılsın mı?",
     "Str.TranslationEditor.PlaceholderError": "Düzenleme reddedildi: orijinaldeki ile aynı {0}, {1} … yer tutucularını korumalıdır.",
+    "Str.TranslationEditor.ProtectedCredits": "HexIDE'nin teşekkürleri burada değiştirilemez. HexIDE üzerine kurulu bir ürün yalnızca ekleme yapabilir.",
     "Str.TranslationEditor.Tooltip.Override": "geçersiz kılma: {0}",
     "Str.TranslationEditor.Tooltip.None": "(yok)",
     "Str.TranslationEditor.Area.Menu": "Menüler",
@@ -272,11 +274,7 @@
     "Str.Menu.Window.Split": "_Böl",
     "Str.Menu.Window.ResetLayout": "Pencere _Düzenini Sıfırla",
     "Str.Menu.Help": "_Yardım",
-    "Str.Menu.Help.Contents": "_İçindekiler...",
-    "Str.Menu.Help.Index": "_Dizin...",
-    "Str.Menu.Help.Search": "_Ara...",
-    "Str.Menu.Help.TechnicalSupport": "_Teknik Destek",
-    "Str.Menu.Help.AvaloniaOnWeb": "_Web'de Avalonia",
+    "Str.Menu.Help.ProductOnWeb": "_Web'de HexIDE",
     "Str.Menu.Help.About": "HexIDE _Hakkında...",
     "Str.Menu.GoToGithubRepo": "github deposuna git",
     "Str.NewProject.NoTemplates": "Bu profil yeni proje şablonu sunmuyor. Bunun yerine mevcut bir projeyi açın.",
@@ -1130,6 +1128,7 @@
     "Str.Layout.InvalidName": "Benzersiz, boş olmayan bir düzen adı girin.",
     "Str.Layout.Skipped": "Kullanılamayan eklenti pencereleri atlandı: {0}",
     "Str.Layout.SaveFailed": "Panel düzenleri kaydedilemedi.",
+    "Str.Project.AlreadyOpen": "{0} projesi zaten açık.",
     "Str.Options.Addins.Overview": "Eklentiler HexIDE'ye araçlar ve ayarlar ekler. Yüklemek için imzalı bir eklenti paketini aşağıdaki dizinde kendine ait bir klasöre çıkarın ve HexIDE'yi yeniden başlatın. Yönetmek için ağaçtan bir eklenti seçin."
   }
 }

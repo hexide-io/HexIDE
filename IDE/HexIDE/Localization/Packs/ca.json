@@ -37,6 +37,7 @@
     "Str.NewProject.NoTemplates": "Aquest perfil no ofereix plantilles de projecte nou. Obriu un projecte existent.",
     "Str.Dialog.About.Credits.Header": "Crèdits",
     "Str.Dialog.About.Credits.Thanks": "HexIDE es construeix al costat dels seus col·laboradors humans amb equips extraordinaris d’AI. Agraïm de tot cor a Claude by Anthropic — les sessions de Claude Code que escriuen, revisen i integren la feina — i a Codex by OpenAI — els fluxos de Codex que fan avançar les correccions en cua. La seva cura i feina incansable fan possible HexIDE.",
+    "Str.Dialog.About.Provenance": "Basat en HexIDE {0}. {1}",
     "Str.Tool.LanguageServers.Output": "Sortida",
     "Str.Tool.LanguageServers.OutputEmpty": "Encara no s’ha rebut cap sortida.",
     "Str.Tool.Properties.LoadPicture": "Carrega una imatge",
@@ -237,11 +238,7 @@
     "Str.Menu.Window.Split": "_Divideix",
     "Str.Menu.Window.ResetLayout": "_Restableix la disposició de les finestres",
     "Str.Menu.Help": "_Ajuda",
-    "Str.Menu.Help.Contents": "_Contingut...",
-    "Str.Menu.Help.Index": "_Índex...",
-    "Str.Menu.Help.Search": "_Cerca...",
-    "Str.Menu.Help.TechnicalSupport": "_Suport tècnic",
-    "Str.Menu.Help.AvaloniaOnWeb": "Avalonia al _web",
+    "Str.Menu.Help.ProductOnWeb": "HexIDE al _web",
     "Str.Menu.Help.About": "_Quant a HexIDE...",
     "Str.Menu.GoToGithubRepo": "Ves al repositori de GitHub",
     "Str.ProjectType.StandardEXE": "EXE estàndard",
@@ -463,6 +460,7 @@
     "Str.TranslationEditor.ResetAll": "Restableix totes les personalitzacions…",
     "Str.TranslationEditor.ResetAllConfirm": "Voleu suprimir totes les personalitzacions d'aquest idioma?",
     "Str.TranslationEditor.PlaceholderError": "Edició rebutjada: cal mantenir els mateixos marcadors {0}, {1}… que a l'original.",
+    "Str.TranslationEditor.ProtectedCredits": "Els agraïments d'HexIDE no es poden substituir aquí. Un producte basat en HexIDE només hi pot afegir.",
     "Str.TranslationEditor.Tooltip.Override": "Personalització: {0}",
     "Str.TranslationEditor.Tooltip.None": "(cap)",
     "Str.TranslationEditor.Area.Menu": "Menús",
@@ -1130,6 +1128,7 @@
     "Str.Layout.InvalidName": "Introduïu un nom de disposició únic i no buit.",
     "Str.Layout.Skipped": "S’han omès les finestres de complements no disponibles: {0}",
     "Str.Layout.SaveFailed": "No s’han pogut desar les disposicions dels panells.",
+    "Str.Project.AlreadyOpen": "El projecte {0} ja està obert.",
     "Str.Options.Addins.Overview": "Els complements amplien HexIDE amb eines i opcions. Per instal·lar-ne un, extraieu un paquet signat a la seva pròpia carpeta dins del directori indicat a sota i reinicieu HexIDE. Seleccioneu un complement a l’arbre per gestionar-lo."
   }
 }

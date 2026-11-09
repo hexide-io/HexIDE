@@ -37,6 +37,7 @@
     "Str.NewProject.NoTemplates": "Tento profil neponúka šablóny nových projektov. Otvorte existujúci projekt.",
     "Str.Dialog.About.Credits.Header": "Poďakovanie",
     "Str.Dialog.About.Credits.Thanks": "HexIDE spolu s ľudskými prispievateľmi vytvárajú výnimočné AI tímy. Zo srdca ďakujeme Claude by Anthropic — reláciám Claude Code, ktoré píšu, kontrolujú a zlučujú prácu — a Codex by OpenAI — pracovným prúdom Codex, ktoré posúvajú čakajúce opravy vpred. Ich starostlivosť a neúnavná práca umožňujú existenciu HexIDE.",
+    "Str.Dialog.About.Provenance": "Založené na HexIDE {0}. {1}",
     "Str.Tool.LanguageServers.Output": "Výstup",
     "Str.Tool.LanguageServers.OutputEmpty": "Zatiaľ nebol prijatý žiadny výstup.",
     "Str.Tool.Properties.LoadPicture": "Načítať obrázok",
@@ -237,11 +238,7 @@
     "Str.Menu.Window.Split": "_Rozdeliť",
     "Str.Menu.Window.ResetLayout": "_Obnoviť rozloženie okien",
     "Str.Menu.Help": "_Pomocník",
-    "Str.Menu.Help.Contents": "_Obsah...",
-    "Str.Menu.Help.Index": "_Register...",
-    "Str.Menu.Help.Search": "_Hľadať...",
-    "Str.Menu.Help.TechnicalSupport": "_Technická podpora",
-    "Str.Menu.Help.AvaloniaOnWeb": "Avalonia na _webe",
+    "Str.Menu.Help.ProductOnWeb": "HexIDE na _webe",
     "Str.Menu.Help.About": "_O programe HexIDE...",
     "Str.Menu.GoToGithubRepo": "Prejsť do repozitára na GitHube",
     "Str.ProjectType.StandardEXE": "Štandardný EXE",
@@ -463,6 +460,7 @@
     "Str.TranslationEditor.ResetAll": "Zrušiť všetky vlastné preklady…",
     "Str.TranslationEditor.ResetAllConfirm": "Odstrániť všetky vaše vlastné preklady pre tento jazyk?",
     "Str.TranslationEditor.PlaceholderError": "Úprava bola odmietnutá: musí zachovať rovnaké zástupné symboly {0}, {1} … ako originál.",
+    "Str.TranslationEditor.ProtectedCredits": "Poďakovanie HexIDE tu nemožno prepísať. Produkt postavený na HexIDE ho môže iba doplniť.",
     "Str.TranslationEditor.Tooltip.Override": "vlastný preklad: {0}",
     "Str.TranslationEditor.Tooltip.None": "(žiadny)",
     "Str.TranslationEditor.Area.Menu": "Ponuky",
@@ -1130,6 +1128,7 @@
     "Str.Layout.InvalidName": "Zadajte jedinečný neprázdny názov rozloženia.",
     "Str.Layout.Skipped": "Nedostupné okná doplnkov boli preskočené: {0}",
     "Str.Layout.SaveFailed": "Rozloženia panelov sa nepodarilo uložiť.",
+    "Str.Project.AlreadyOpen": "Projekt {0} je už otvorený.",
     "Str.Options.Addins.Overview": "Doplnky rozširujú HexIDE o nástroje a nastavenia. Ak chcete doplnok nainštalovať, rozbaľte podpísaný balík do vlastného priečinka v nižšie uvedenom adresári a reštartujte HexIDE. Doplnok môžete spravovať výberom v strome."
   }
 }

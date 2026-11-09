@@ -37,6 +37,7 @@
     "Str.NewProject.NoTemplates": "Profil honek ez du proiektu berrietarako txantiloirik eskaintzen. Ireki lehendik dagoen proiektu bat.",
     "Str.Dialog.About.Credits.Header": "Eskerrak",
     "Str.Dialog.About.Credits.Thanks": "HexIDE giza laguntzaileekin batera eraikitzen dute aparteko AI taldeek. Bihotzez eskertzen ditugu Claude by Anthropic — lana idatzi, berrikusi eta bateratzen duten Claude Code saioak — eta Codex by OpenAI — ilaran dauden konponketak aurrera eramaten dituzten Codex lan-fluxuak. Haien arretak eta lan nekaezinak HexIDE ahalbidetzen dute.",
+    "Str.Dialog.About.Provenance": "HexIDE {0} oinarri hartuta eraikia. {1}",
     "Str.Tool.LanguageServers.Output": "Irteera",
     "Str.Tool.LanguageServers.OutputEmpty": "Oraindik ez da irteerarik jaso.",
     "Str.Tool.Properties.LoadPicture": "Kargatu irudia",
@@ -237,11 +238,7 @@
     "Str.Menu.Window.Split": "_Zatitu",
     "Str.Menu.Window.ResetLayout": "_Berrezarri leihoen diseinua",
     "Str.Menu.Help": "_Laguntza",
-    "Str.Menu.Help.Contents": "_Edukia...",
-    "Str.Menu.Help.Index": "_Indizea...",
-    "Str.Menu.Help.Search": "_Bilatu...",
-    "Str.Menu.Help.TechnicalSupport": "Laguntza _teknikoa",
-    "Str.Menu.Help.AvaloniaOnWeb": "Avalonia _webean",
+    "Str.Menu.Help.ProductOnWeb": "HexIDE _webean",
     "Str.Menu.Help.About": "HexIDEri _buruz...",
     "Str.Menu.GoToGithubRepo": "Joan GitHub biltegira",
     "Str.ProjectType.StandardEXE": "EXE estandarra",
@@ -463,6 +460,7 @@
     "Str.TranslationEditor.ResetAll": "Berrezarri gainidazketa guztiak…",
     "Str.TranslationEditor.ResetAllConfirm": "Kendu hizkuntza honetarako zure gainidazketa guztiak?",
     "Str.TranslationEditor.PlaceholderError": "Edizioa baztertuta: jatorrizkoaren {0}, {1} … leku-marka berberak mantendu behar ditu.",
+    "Str.TranslationEditor.ProtectedCredits": "HexIDEren eskerrak ezin dira hemen ordeztu. HexIDEn oinarritutako produktu batek gehitu baino ezin du egin.",
     "Str.TranslationEditor.Tooltip.Override": "gainidazketa: {0}",
     "Str.TranslationEditor.Tooltip.None": "(bat ere ez)",
     "Str.TranslationEditor.Area.Menu": "Menuak",
@@ -1130,6 +1128,7 @@
     "Str.Layout.InvalidName": "Idatzi diseinuaren izen bakarra eta ez-hutsa.",
     "Str.Layout.Skipped": "Erabilgarri ez dauden gehigarrien leihoak saltatu dira: {0}",
     "Str.Layout.SaveFailed": "Ezin izan dira panelen diseinuak gorde.",
+    "Str.Project.AlreadyOpen": "{0} proiektua irekita dago jada.",
     "Str.Options.Addins.Overview": "Gehigarriek tresnak eta ezarpenak gehitzen dizkiote HexIDEri. Instalatzeko, deskonprimitu sinatutako gehigarri-paketea beheko direktorioko bere karpetan eta berrabiarazi HexIDE. Hautatu gehigarri bat zuhaitzean hura kudeatzeko."
   }
 }

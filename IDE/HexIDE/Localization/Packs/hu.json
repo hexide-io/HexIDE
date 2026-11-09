@@ -37,6 +37,7 @@
     "Str.NewProject.NoTemplates": "Ez a profil nem kínál újprojektsablonokat. Nyisson meg egy meglévő projektet.",
     "Str.Dialog.About.Credits.Header": "Köszönetnyilvánítás",
     "Str.Dialog.About.Credits.Thanks": "A HexIDE fejlesztésén emberi közreműködői mellett rendkívüli AI-csapatok dolgoznak. Szívből köszönjük a Claude by Anthropic — a munkát megíró, ellenőrző és egyesítő Claude Code munkamenetek — és a Codex by OpenAI — a sorban álló javításokat előrevivő Codex munkafolyamatok — segítségét. Gondosságuk és fáradhatatlan munkájuk teszi lehetővé a HexIDE létét.",
+    "Str.Dialog.About.Provenance": "A HexIDE {0} alapján készült. {1}",
     "Str.Tool.LanguageServers.Output": "Kimenet",
     "Str.Tool.LanguageServers.OutputEmpty": "Még nem érkezett kimenet.",
     "Str.Tool.Properties.LoadPicture": "Kép betöltése",
@@ -237,11 +238,7 @@
     "Str.Menu.Window.Split": "_Felosztás",
     "Str.Menu.Window.ResetLayout": "Ablakelrendezés _visszaállítása",
     "Str.Menu.Help": "Sú_gó",
-    "Str.Menu.Help.Contents": "_Tartalom...",
-    "Str.Menu.Help.Index": "_Tárgymutató...",
-    "Str.Menu.Help.Search": "_Keresés...",
-    "Str.Menu.Help.TechnicalSupport": "_Terméktámogatás",
-    "Str.Menu.Help.AvaloniaOnWeb": "Avalonia a _weben",
+    "Str.Menu.Help.ProductOnWeb": "HexIDE a _weben",
     "Str.Menu.Help.About": "A HexIDE _névjegye...",
     "Str.Menu.GoToGithubRepo": "GitHub-tároló megnyitása",
     "Str.ProjectType.StandardEXE": "Szokásos EXE",
@@ -463,6 +460,7 @@
     "Str.TranslationEditor.ResetAll": "Összes felülírás visszaállítása…",
     "Str.TranslationEditor.ResetAllConfirm": "Eltávolítja az összes saját felülírását ehhez a nyelvhez?",
     "Str.TranslationEditor.PlaceholderError": "A módosítás elutasítva: meg kell tartania az eredetivel azonos {0}, {1} … helyőrzőket.",
+    "Str.TranslationEditor.ProtectedCredits": "A HexIDE köszönetnyilvánítása itt nem írható felül. A HexIDE-ra épülő termék csak kiegészítheti.",
     "Str.TranslationEditor.Tooltip.Override": "felülírás: {0}",
     "Str.TranslationEditor.Tooltip.None": "(nincs)",
     "Str.TranslationEditor.Area.Menu": "Menük",
@@ -1130,6 +1128,7 @@
     "Str.Layout.InvalidName": "Adjon meg egyedi, nem üres elrendezésnevet.",
     "Str.Layout.Skipped": "A nem elérhető bővítményablakok kimaradtak: {0}",
     "Str.Layout.SaveFailed": "A panelelrendezéseket nem sikerült menteni.",
+    "Str.Project.AlreadyOpen": "A(z) {0} projekt már meg van nyitva.",
     "Str.Options.Addins.Overview": "A bővítmények eszközökkel és beállításokkal egészítik ki a HexIDE-t. Telepítéshez csomagoljon ki egy aláírt bővítménycsomagot az alábbi könyvtár saját almappájába, majd indítsa újra a HexIDE-t. Kezeléshez válasszon bővítményt a fában."
   }
 }

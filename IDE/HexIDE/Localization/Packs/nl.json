@@ -34,6 +34,7 @@
     "Str.Profiles.SelectorRequired": "--profile vereist precies één waarde: een bundelnaam, een mappad of none. Controleer de startargumenten.",
     "Str.Dialog.About.Credits.Header": "Dankwoord",
     "Str.Dialog.About.Credits.Thanks": "HexIDE wordt gebouwd door buitengewone AI-teams samen met zijn menselijke bijdragers. Onze hartelijke dank aan Claude van Anthropic — de Claude Code-sessies die het werk schrijven, beoordelen en samenvoegen — en Codex van OpenAI — de Codex-werkstromen die de reparaties in de wachtrij vooruithelpen. Hun zorg en onvermoeibare werk maken HexIDE mogelijk.",
+    "Str.Dialog.About.Provenance": "Gebaseerd op HexIDE {0}. {1}",
     "Str.Tool.Properties.LoadPicture": "Afbeelding laden",
     "Str.Tool.Properties.LoadPictureFailed": "Kan de afbeelding uit “{0}” niet laden.",
     "Str.Designer.ShowTabOrder": "Tabvolgorde tonen (doorgestreept: TabStop uit)",
@@ -107,6 +108,7 @@
     "Str.TranslationEditor.ResetAll": "Alle aanpassingen opnieuw instellen…",
     "Str.TranslationEditor.ResetAllConfirm": "Al uw aanpassingen voor deze taal verwijderen?",
     "Str.TranslationEditor.PlaceholderError": "Bewerking geweigerd: dezelfde tijdelijke aanduidingen {0}, {1} … als het origineel moeten behouden blijven.",
+    "Str.TranslationEditor.ProtectedCredits": "De dankbetuiging van HexIDE kan hier niet worden vervangen. Een product op basis van HexIDE kan er alleen aan toevoegen.",
     "Str.TranslationEditor.Tooltip.Override": "aanpassing: {0}",
     "Str.TranslationEditor.Tooltip.None": "(geen)",
     "Str.TranslationEditor.Area.Menu": "Menu's",
@@ -272,11 +274,7 @@
     "Str.Menu.Window.Split": "S_plitsen",
     "Str.Menu.Window.ResetLayout": "Vensterindeling _herstellen",
     "Str.Menu.Help": "_Help",
-    "Str.Menu.Help.Contents": "_Inhoud...",
-    "Str.Menu.Help.Index": "_Index...",
-    "Str.Menu.Help.Search": "_Zoeken...",
-    "Str.Menu.Help.TechnicalSupport": "_Technische ondersteuning",
-    "Str.Menu.Help.AvaloniaOnWeb": "Avalonia op het _web",
+    "Str.Menu.Help.ProductOnWeb": "HexIDE op het _web",
     "Str.Menu.Help.About": "_Over HexIDE...",
     "Str.Menu.GoToGithubRepo": "Ga naar github-repo",
     "Str.NewProject.NoTemplates": "Dit profiel biedt geen sjablonen voor nieuwe projecten. Open een bestaand project.",
@@ -1130,6 +1128,7 @@
     "Str.Layout.InvalidName": "Voer een unieke, niet-lege naam voor de indeling in.",
     "Str.Layout.Skipped": "Niet-beschikbare invoegtoepassingsvensters zijn overgeslagen: {0}",
     "Str.Layout.SaveFailed": "De paneelindelingen konden niet worden opgeslagen.",
+    "Str.Project.AlreadyOpen": "Project {0} is al geopend.",
     "Str.Options.Addins.Overview": "Invoegtoepassingen breiden HexIDE uit met hulpmiddelen en instellingen. Pak voor installatie een ondertekend pakket uit in een eigen map in de onderstaande directory en start HexIDE opnieuw. Selecteer een invoegtoepassing in de boom om deze te beheren."
   }
 }

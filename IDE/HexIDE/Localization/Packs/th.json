@@ -37,6 +37,7 @@
     "Str.NewProject.NoTemplates": "โปรไฟล์นี้ไม่มีแม่แบบโครงการใหม่ ให้เปิดโครงการที่มีอยู่แทน",
     "Str.Dialog.About.Credits.Header": "กิตติกรรมประกาศ",
     "Str.Dialog.About.Credits.Thanks": "HexIDE สร้างขึ้นโดยทีม AI ที่ยอดเยี่ยมร่วมกับผู้ร่วมพัฒนาที่เป็นมนุษย์ เราขอขอบคุณจากใจต่อ Claude by Anthropic — เซสชัน Claude Code ที่เขียน ตรวจทาน และผสานงาน — และ Codex by OpenAI — สายงาน Codex ที่ดำเนินการแก้ไขซึ่งรออยู่ในคิวให้คืบหน้า ความเอาใจใส่และการทำงานอย่างไม่รู้เหน็ดเหนื่อยของพวกเขาทำให้ HexIDE เป็นไปได้",
+    "Str.Dialog.About.Provenance": "สร้างบนพื้นฐานของ HexIDE {0} {1}",
     "Str.Tool.LanguageServers.Output": "เอาต์พุต",
     "Str.Tool.LanguageServers.OutputEmpty": "ยังไม่ได้รับเอาต์พุต",
     "Str.Tool.Properties.LoadPicture": "โหลดรูปภาพ",
@@ -237,11 +238,7 @@
     "Str.Menu.Window.Split": "แบ่ง",
     "Str.Menu.Window.ResetLayout": "รีเซ็ตเค้าโครงหน้าต่าง",
     "Str.Menu.Help": "วิธีใช้",
-    "Str.Menu.Help.Contents": "สารบัญ...",
-    "Str.Menu.Help.Index": "ดัชนี...",
-    "Str.Menu.Help.Search": "ค้นหา...",
-    "Str.Menu.Help.TechnicalSupport": "ฝ่ายสนับสนุนทางเทคนิค",
-    "Str.Menu.Help.AvaloniaOnWeb": "Avalonia บนเว็บ",
+    "Str.Menu.Help.ProductOnWeb": "HexIDE บนเว็บ",
     "Str.Menu.Help.About": "เกี่ยวกับ HexIDE...",
     "Str.Menu.GoToGithubRepo": "ไปที่คลัง GitHub",
     "Str.ProjectType.StandardEXE": "EXE มาตรฐาน",
@@ -463,6 +460,7 @@
     "Str.TranslationEditor.ResetAll": "รีเซ็ตค่าที่แทนที่ทั้งหมด…",
     "Str.TranslationEditor.ResetAllConfirm": "เอาค่าที่คุณแทนที่ไว้ทั้งหมดสำหรับภาษานี้ออกหรือไม่?",
     "Str.TranslationEditor.PlaceholderError": "ปฏิเสธการแก้ไข: ต้องคงตัวแทนค่า {0}, {1} … เหมือนต้นฉบับ",
+    "Str.TranslationEditor.ProtectedCredits": "ไม่สามารถแทนที่คำขอบคุณของ HexIDE ได้ที่นี่ ผลิตภัณฑ์ที่สร้างบน HexIDE ทำได้เพียงเพิ่มเติมเท่านั้น",
     "Str.TranslationEditor.Tooltip.Override": "ค่าที่แทนที่: {0}",
     "Str.TranslationEditor.Tooltip.None": "(ไม่มี)",
     "Str.TranslationEditor.Area.Menu": "เมนู",
@@ -1130,6 +1128,7 @@
     "Str.Layout.InvalidName": "ป้อนชื่อเค้าโครงที่ไม่ซ้ำและไม่ว่าง",
     "Str.Layout.Skipped": "ข้ามหน้าต่างส่วนเสริมที่ไม่พร้อมใช้งาน: {0}",
     "Str.Layout.SaveFailed": "ไม่สามารถบันทึกเค้าโครงแผงได้",
+    "Str.Project.AlreadyOpen": "โครงการ {0} เปิดอยู่แล้ว",
     "Str.Options.Addins.Overview": "ส่วนเสริมเพิ่มเครื่องมือและการตั้งค่าให้ HexIDE หากต้องการติดตั้ง ให้แตกแพ็กเกจส่วนเสริมที่ลงลายเซ็นแล้วลงในโฟลเดอร์ของตัวเองภายในไดเรกทอรีด้านล่าง แล้วเริ่ม HexIDE ใหม่ เลือกส่วนเสริมในแผนผังเพื่อจัดการ"
   }
 }

@@ -34,6 +34,7 @@
     "Str.Profiles.SelectorRequired": "--profile 需要且只能有一个值：包名称、目录路径或 none。请检查启动参数。",
     "Str.Dialog.About.Credits.Header": "致谢",
     "Str.Dialog.About.Credits.Thanks": "HexIDE 由杰出的 AI 团队与人类贡献者共同构建。我们衷心感谢 Anthropic 的 Claude — 编写、审查和合并工作的 Claude Code 会话 — 以及 OpenAI 的 Codex — 推进队列中修复工作的 Codex 工作通道。他们的细心与不懈努力使 HexIDE 成为可能。",
+    "Str.Dialog.About.Provenance": "基于 HexIDE {0} 构建。{1}",
     "Str.Tool.Properties.LoadPicture": "加载图片",
     "Str.Tool.Properties.LoadPictureFailed": "无法从“{0}”加载图片。",
     "Str.Designer.ShowTabOrder": "显示 Tab 顺序（删除线：TabStop 关闭）",
@@ -107,6 +108,7 @@
     "Str.TranslationEditor.ResetAll": "重置所有替代…",
     "Str.TranslationEditor.ResetAllConfirm": "移除此语言的所有替代吗？",
     "Str.TranslationEditor.PlaceholderError": "编辑被拒绝：它必须保留与原文相同的 {0}、{1} … 占位符。",
+    "Str.TranslationEditor.ProtectedCredits": "此处无法替换 HexIDE 的致谢内容。基于 HexIDE 的产品只能在其后添加。",
     "Str.TranslationEditor.Tooltip.Override": "替代：{0}",
     "Str.TranslationEditor.Tooltip.None": "（无）",
     "Str.TranslationEditor.Area.Menu": "菜单",
@@ -272,11 +274,7 @@
     "Str.Menu.Window.Split": "拆分(_P)",
     "Str.Menu.Window.ResetLayout": "重置窗口布局(_R)",
     "Str.Menu.Help": "帮助(_H)",
-    "Str.Menu.Help.Contents": "目录(_C)...",
-    "Str.Menu.Help.Index": "索引(_I)...",
-    "Str.Menu.Help.Search": "搜索(_S)...",
-    "Str.Menu.Help.TechnicalSupport": "技术支持(_T)",
-    "Str.Menu.Help.AvaloniaOnWeb": "Avalonia 网站(_W)",
+    "Str.Menu.Help.ProductOnWeb": "HexIDE 网站(_W)",
     "Str.Menu.Help.About": "关于 HexIDE(_A)...",
     "Str.Menu.GoToGithubRepo": "前往 github 仓库",
     "Str.NewProject.NoTemplates": "此配置不提供新建项目模板。请打开现有项目。",
@@ -1130,6 +1128,7 @@
     "Str.Layout.InvalidName": "请输入唯一且非空的布局名称。",
     "Str.Layout.Skipped": "已跳过不可用的加载项窗口：{0}",
     "Str.Layout.SaveFailed": "无法保存面板布局。",
+    "Str.Project.AlreadyOpen": "项目 {0} 已打开。",
     "Str.Options.Addins.Overview": "加载项为 HexIDE 添加工具和设置。要安装加载项，请将已签名的加载项包解压到下方目录中的独立文件夹，然后重启 HexIDE。在树中选择加载项即可管理。"
   }
 }

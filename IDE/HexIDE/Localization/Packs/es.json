@@ -34,6 +34,7 @@
     "Str.Profiles.SelectorRequired": "--profile necesita exactamente un valor: un nombre de paquete, una ruta de directorio o none. Revise los argumentos de inicio.",
     "Str.Dialog.About.Credits.Header": "Créditos",
     "Str.Dialog.About.Credits.Thanks": "HexIDE se construye con equipos extraordinarios de IA junto a sus colaboradores humanos. Nuestro más sincero agradecimiento a Claude de Anthropic — las sesiones de Claude Code que escriben, revisan e integran el trabajo — y a Codex de OpenAI — las líneas de trabajo de Codex que hacen avanzar las correcciones en cola. Su dedicación y trabajo incansable hacen posible HexIDE.",
+    "Str.Dialog.About.Provenance": "Basado en HexIDE {0}. {1}",
     "Str.Tool.Properties.LoadPicture": "Cargar imagen",
     "Str.Tool.Properties.LoadPictureFailed": "No se puede cargar la imagen de «{0}».",
     "Str.Designer.ShowTabOrder": "Mostrar orden de tabulación (tachado: TabStop desactivado)",
@@ -107,6 +108,7 @@
     "Str.TranslationEditor.ResetAll": "Restablecer todas las modificaciones…",
     "Str.TranslationEditor.ResetAllConfirm": "¿Quitar todas sus modificaciones para este idioma?",
     "Str.TranslationEditor.PlaceholderError": "Edición rechazada: debe conservar los mismos marcadores de posición {0}, {1} … que el original.",
+    "Str.TranslationEditor.ProtectedCredits": "Los créditos de HexIDE no se pueden reemplazar aquí. Un producto basado en HexIDE solo puede añadir otros.",
     "Str.TranslationEditor.Tooltip.Override": "modificación: {0}",
     "Str.TranslationEditor.Tooltip.None": "(ninguna)",
     "Str.TranslationEditor.Area.Menu": "Menús",
@@ -272,11 +274,7 @@
     "Str.Menu.Window.Split": "_Dividir",
     "Str.Menu.Window.ResetLayout": "_Restablecer diseño de ventanas",
     "Str.Menu.Help": "A_yuda",
-    "Str.Menu.Help.Contents": "_Contenido...",
-    "Str.Menu.Help.Index": "Í_ndice...",
-    "Str.Menu.Help.Search": "_Buscar...",
-    "Str.Menu.Help.TechnicalSupport": "Soporte _Técnico",
-    "Str.Menu.Help.AvaloniaOnWeb": "Avalonia en la _Web",
+    "Str.Menu.Help.ProductOnWeb": "HexIDE en la _Web",
     "Str.Menu.Help.About": "_Acerca de HexIDE...",
     "Str.Menu.GoToGithubRepo": "Ir al repositorio de github",
     "Str.NewProject.NoTemplates": "Este perfil no ofrece plantillas para nuevos proyectos. Abra un proyecto existente.",
@@ -1130,6 +1128,7 @@
     "Str.Layout.InvalidName": "Escriba un nombre de diseño único y no vacío.",
     "Str.Layout.Skipped": "Se omitieron las ventanas de complementos no disponibles: {0}",
     "Str.Layout.SaveFailed": "No se pudieron guardar los diseños de paneles.",
+    "Str.Project.AlreadyOpen": "El proyecto {0} ya está abierto.",
     "Str.Options.Addins.Overview": "Los complementos amplían HexIDE con herramientas y opciones. Para instalar uno, extraiga un paquete firmado en su propia carpeta dentro del directorio indicado abajo y reinicie HexIDE. Seleccione un complemento en el árbol para administrarlo."
   }
 }

@@ -37,6 +37,7 @@
     "Str.NewProject.NoTemplates": "Ovaj profil ne nudi predloške za nove projekte. Umjesto toga otvorite postojeći projekt.",
     "Str.Dialog.About.Credits.Header": "Zasluge",
     "Str.Dialog.About.Credits.Thanks": "HexIDE uz ljudske suradnike grade izvanredni AI timovi. Od srca zahvaljujemo Claude by Anthropic — sesijama Claude Code koje pišu, pregledavaju i spajaju rad — i Codex by OpenAI — radnim tokovima Codex koji unapređuju popravke na čekanju. Njihova brižnost i neumoran rad omogućuju HexIDE.",
+    "Str.Dialog.About.Provenance": "Temeljeno na programu HexIDE {0}. {1}",
     "Str.Tool.LanguageServers.Output": "Izlaz",
     "Str.Tool.LanguageServers.OutputEmpty": "Još nije primljen izlaz.",
     "Str.Tool.Properties.LoadPicture": "Učitaj sliku",
@@ -237,11 +238,7 @@
     "Str.Menu.Window.Split": "_Podijeli",
     "Str.Menu.Window.ResetLayout": "_Vrati raspored prozora",
     "Str.Menu.Help": "_Pomoć",
-    "Str.Menu.Help.Contents": "_Sadržaj...",
-    "Str.Menu.Help.Index": "_Kazalo...",
-    "Str.Menu.Help.Search": "_Pretraži...",
-    "Str.Menu.Help.TechnicalSupport": "_Tehnička podrška",
-    "Str.Menu.Help.AvaloniaOnWeb": "Avalonia na _webu",
+    "Str.Menu.Help.ProductOnWeb": "HexIDE na _webu",
     "Str.Menu.Help.About": "_O programu HexIDE...",
     "Str.Menu.GoToGithubRepo": "Otvori repozitorij na GitHubu",
     "Str.ProjectType.StandardEXE": "Standardni EXE",
@@ -463,6 +460,7 @@
     "Str.TranslationEditor.ResetAll": "Poništi sve prilagodbe…",
     "Str.TranslationEditor.ResetAllConfirm": "Ukloniti sve vaše prilagodbe za ovaj jezik?",
     "Str.TranslationEditor.PlaceholderError": "Izmjena je odbijena: mora zadržati iste rezervirane oznake {0}, {1} … kao izvornik.",
+    "Str.TranslationEditor.ProtectedCredits": "Zahvale HexIDE-a ovdje se ne mogu zamijeniti. Proizvod izgrađen na HexIDE-u može ih samo dopuniti.",
     "Str.TranslationEditor.Tooltip.Override": "prilagodba: {0}",
     "Str.TranslationEditor.Tooltip.None": "(nema)",
     "Str.TranslationEditor.Area.Menu": "Izbornici",
@@ -1130,6 +1128,7 @@
     "Str.Layout.InvalidName": "Unesite jedinstven naziv rasporeda koji nije prazan.",
     "Str.Layout.Skipped": "Nedostupni prozori dodataka su preskočeni: {0}",
     "Str.Layout.SaveFailed": "Rasporedi panela nisu se mogli spremiti.",
+    "Str.Project.AlreadyOpen": "Projekt {0} već je otvoren.",
     "Str.Options.Addins.Overview": "Dodaci proširuju HexIDE alatima i postavkama. Za instalaciju raspakirajte potpisani paket u zasebnu mapu unutar donjeg direktorija i ponovno pokrenite HexIDE. Odaberite dodatak u stablu da biste njime upravljali."
   }
 }

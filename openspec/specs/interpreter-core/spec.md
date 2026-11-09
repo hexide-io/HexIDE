@@ -87,7 +87,26 @@ not-implemented rather than select an unmeasured locale-dependent value (#2625).
 - **WHEN** the counted string for an ID has length zero
 - **THEN** the reader reports no string for that ID
 
-The `LoadResString`, `LoadResData` and `LoadResPicture` intrinsic calls remain separate work (#2626).
+### Requirement: Resource intrinsics read the project snapshot
+
+`LoadResString` SHALL return counted UTF-16 strings and `LoadResData` SHALL return zero-based Byte arrays
+from the resource snapshot, following the [#2626 measurements](../../../docs/vb6-fidelity-oracle/loadresstring-loadresdata-and-loadrespicture.md).
+Empty strings, absent resources and string tables requested as raw data SHALL raise 326.
+`LoadResPicture` SHALL load the measured 24-bit bitmap layout into the shared Picture object, report
+326 for absent/wrong-kind resources and 485 for invalid kinds. Present icon/cursor groups, other bitmap
+layouts, named arguments and multi-language selection SHALL refuse as not implemented. Picture properties without measured
+return subtypes and native/default handles SHALL remain explicitly unimplemented.
+
+#### Scenario: Resource text and data
+
+- **WHEN** a project requests string 102 or raw resource 201 from the measured fixture
+- **THEN** the string is `café€` and the raw data is Byte() with bounds 0 to 3 and bytes 1, 2, 3, 250
+
+#### Scenario: Bitmap object
+
+- **WHEN** the program uses Set with `LoadResPicture(301, vbResBitmap)`
+- **THEN** it receives the shared picture object whose TypeName is `Picture`
+- **AND** native Handle access refuses rather than inventing a handle
 
 ### Requirement: ObjPtr SHALL preserve object identity
 `ObjPtr` SHALL return Long identities satisfying the relations measured in

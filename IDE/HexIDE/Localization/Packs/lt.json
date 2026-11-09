@@ -37,6 +37,7 @@
     "Str.NewProject.NoTemplates": "Šis profilis nesiūlo naujo projekto šablonų. Atverkite esamą projektą.",
     "Str.Dialog.About.Credits.Header": "Padėkos",
     "Str.Dialog.About.Credits.Thanks": "HexIDE kartu su žmonėmis kūrėjais kuria nepaprastos AI komandos. Nuoširdžiai dėkojame Claude by Anthropic — Claude Code seansams, kurie rašo, peržiūri ir sujungia darbą — ir Codex by OpenAI — Codex darbo srautams, kurie įgyvendina eilėje laukiančias pataisas. Jų rūpestingumas ir nenuilstamas darbas leidžia gyvuoti HexIDE.",
+    "Str.Dialog.About.Provenance": "Sukurta pagal HexIDE {0}. {1}",
     "Str.Tool.LanguageServers.Output": "Išvestis",
     "Str.Tool.LanguageServers.OutputEmpty": "Išvesties dar negauta.",
     "Str.Tool.Properties.LoadPicture": "Įkelti paveikslėlį",
@@ -237,11 +238,7 @@
     "Str.Menu.Window.Split": "_Skaidyti",
     "Str.Menu.Window.ResetLayout": "_Atkurti langų išdėstymą",
     "Str.Menu.Help": "_Žinynas",
-    "Str.Menu.Help.Contents": "_Turinys...",
-    "Str.Menu.Help.Index": "_Rodyklė...",
-    "Str.Menu.Help.Search": "_Ieškoti...",
-    "Str.Menu.Help.TechnicalSupport": "_Techninė pagalba",
-    "Str.Menu.Help.AvaloniaOnWeb": "Avalonia _žiniatinklyje",
+    "Str.Menu.Help.ProductOnWeb": "HexIDE _žiniatinklyje",
     "Str.Menu.Help.About": "_Apie HexIDE...",
     "Str.Menu.GoToGithubRepo": "Atverti GitHub saugyklą",
     "Str.ProjectType.StandardEXE": "Standartinė EXE",
@@ -463,6 +460,7 @@
     "Str.TranslationEditor.ResetAll": "Atšaukti visus pakeitimus…",
     "Str.TranslationEditor.ResetAllConfirm": "Pašalinti visus jūsų šios kalbos pakeitimus?",
     "Str.TranslationEditor.PlaceholderError": "Pakeitimas atmestas: būtina išlaikyti tuos pačius {0}, {1} … vietaženklius kaip originale.",
+    "Str.TranslationEditor.ProtectedCredits": "HexIDE padėkų čia pakeisti negalima. HexIDE pagrindu sukurtas produktas gali jas tik papildyti.",
     "Str.TranslationEditor.Tooltip.Override": "pakeitimas: {0}",
     "Str.TranslationEditor.Tooltip.None": "(nėra)",
     "Str.TranslationEditor.Area.Menu": "Meniu",
@@ -1130,6 +1128,7 @@
     "Str.Layout.InvalidName": "Įveskite unikalų netuščią išdėstymo pavadinimą.",
     "Str.Layout.Skipped": "Nepasiekiami papildinių langai praleisti: {0}",
     "Str.Layout.SaveFailed": "Nepavyko įrašyti skydelių išdėstymų.",
+    "Str.Project.AlreadyOpen": "Projektas {0} jau atidarytas.",
     "Str.Options.Addins.Overview": "Priedai papildo HexIDE įrankiais ir nuostatomis. Norėdami įdiegti, išskleiskite pasirašytą priedo paketą į atskirą aplanką toliau nurodytame kataloge ir paleiskite HexIDE iš naujo. Pasirinkite priedą medyje, kad jį tvarkytumėte."
   }
 }

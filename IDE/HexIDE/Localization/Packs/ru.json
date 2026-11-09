@@ -34,6 +34,7 @@
     "Str.Profiles.SelectorRequired": "--profile требует ровно одно значение: имя пакета, путь к каталогу или none. Проверьте аргументы запуска.",
     "Str.Dialog.About.Credits.Header": "Благодарности",
     "Str.Dialog.About.Credits.Thanks": "HexIDE создают выдающиеся команды ИИ вместе с людьми, участвующими в проекте. От всей души благодарим Claude от Anthropic — сеансы Claude Code, которые пишут, проверяют и объединяют работу, — и Codex от OpenAI — рабочие потоки Codex, которые продвигают исправления из очереди. Их забота и неустанный труд делают HexIDE возможным.",
+    "Str.Dialog.About.Provenance": "Создано на основе HexIDE {0}. {1}",
     "Str.Tool.Properties.LoadPicture": "Загрузить изображение",
     "Str.Tool.Properties.LoadPictureFailed": "Не удалось загрузить изображение из «{0}».",
     "Str.Designer.ShowTabOrder": "Показать порядок табуляции (зачёркнуто: TabStop выключен)",
@@ -107,6 +108,7 @@
     "Str.TranslationEditor.ResetAll": "Сбросить все переопределения…",
     "Str.TranslationEditor.ResetAllConfirm": "Удалить все ваши переопределения для этого языка?",
     "Str.TranslationEditor.PlaceholderError": "Изменение отклонено: оно должно сохранять те же подстановки {0}, {1} …, что и оригинал.",
+    "Str.TranslationEditor.ProtectedCredits": "Благодарности HexIDE нельзя заменить здесь. Продукт на основе HexIDE может только дополнить их.",
     "Str.TranslationEditor.Tooltip.Override": "переопределение: {0}",
     "Str.TranslationEditor.Tooltip.None": "(нет)",
     "Str.TranslationEditor.Area.Menu": "Меню",
@@ -272,11 +274,7 @@
     "Str.Menu.Window.Split": "Разделить",
     "Str.Menu.Window.ResetLayout": "Сбросить расположение окон",
     "Str.Menu.Help": "Справка",
-    "Str.Menu.Help.Contents": "Содержание...",
-    "Str.Menu.Help.Index": "Указатель...",
-    "Str.Menu.Help.Search": "Поиск...",
-    "Str.Menu.Help.TechnicalSupport": "Техническая поддержка",
-    "Str.Menu.Help.AvaloniaOnWeb": "Avalonia в Интернете",
+    "Str.Menu.Help.ProductOnWeb": "HexIDE в Интернете",
     "Str.Menu.Help.About": "О программе HexIDE...",
     "Str.Menu.GoToGithubRepo": "Перейти в репозиторий github",
     "Str.NewProject.NoTemplates": "В этом профиле нет шаблонов новых проектов. Откройте существующий проект.",
@@ -1130,6 +1128,7 @@
     "Str.Layout.InvalidName": "Введите уникальное непустое имя макета.",
     "Str.Layout.Skipped": "Недоступные окна надстроек пропущены: {0}",
     "Str.Layout.SaveFailed": "Не удалось сохранить макеты панелей.",
+    "Str.Project.AlreadyOpen": "Проект {0} уже открыт.",
     "Str.Options.Addins.Overview": "Надстройки добавляют в HexIDE инструменты и настройки. Для установки распакуйте подписанный пакет в отдельную папку в указанном ниже каталоге и перезапустите HexIDE. Выберите надстройку в дереве для управления ею."
   }
 }

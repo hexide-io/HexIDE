@@ -34,6 +34,7 @@
     "Str.Profiles.SelectorRequired": "Το --profile απαιτεί ακριβώς μία τιμή: όνομα πακέτου, διαδρομή καταλόγου ή none. Ελέγξτε τα ορίσματα εκκίνησης.",
     "Str.Dialog.About.Credits.Header": "Ευχαριστίες",
     "Str.Dialog.About.Credits.Thanks": "Το HexIDE δημιουργείται από εξαιρετικές ομάδες AI μαζί με τους ανθρώπους που συνεισφέρουν σε αυτό. Ευχαριστούμε από καρδιάς το Claude της Anthropic — τις συνεδρίες Claude Code που γράφουν, ελέγχουν και συγχωνεύουν την εργασία — και το Codex της OpenAI — τις ροές εργασίας Codex που προωθούν τις διορθώσεις στην ουρά. Η φροντίδα και η ακούραστη εργασία τους κάνουν το HexIDE δυνατό.",
+    "Str.Dialog.About.Provenance": "Βασίζεται στο HexIDE {0}. {1}",
     "Str.Tool.Properties.LoadPicture": "Φόρτωση εικόνας",
     "Str.Tool.Properties.LoadPictureFailed": "Δεν είναι δυνατή η φόρτωση εικόνας από το «{0}».",
     "Str.Designer.ShowTabOrder": "Εμφάνιση σειράς Tab (διαγραφή: TabStop ανενεργό)",
@@ -107,6 +108,7 @@
     "Str.TranslationEditor.ResetAll": "Επαναφορά όλων των παρακάμψεων…",
     "Str.TranslationEditor.ResetAllConfirm": "Κατάργηση όλων των παρακάμψεών σας για αυτή τη γλώσσα;",
     "Str.TranslationEditor.PlaceholderError": "Η επεξεργασία απορρίφθηκε: πρέπει να διατηρεί τα ίδια σύμβολα κράτησης θέσης {0}, {1} … με το πρωτότυπο.",
+    "Str.TranslationEditor.ProtectedCredits": "Οι ευχαριστίες του HexIDE δεν μπορούν να αντικατασταθούν εδώ. Ένα προϊόν βασισμένο στο HexIDE μπορεί μόνο να προσθέσει σε αυτές.",
     "Str.TranslationEditor.Tooltip.Override": "παράκαμψη: {0}",
     "Str.TranslationEditor.Tooltip.None": "(καμία)",
     "Str.TranslationEditor.Area.Menu": "Μενού",
@@ -272,11 +274,7 @@
     "Str.Menu.Window.Split": "Διαίρεση",
     "Str.Menu.Window.ResetLayout": "Επαναφορά διάταξης παραθύρων",
     "Str.Menu.Help": "Βοήθεια",
-    "Str.Menu.Help.Contents": "Περιεχόμενα...",
-    "Str.Menu.Help.Index": "Ευρετήριο...",
-    "Str.Menu.Help.Search": "Αναζήτηση...",
-    "Str.Menu.Help.TechnicalSupport": "Τεχνική υποστήριξη",
-    "Str.Menu.Help.AvaloniaOnWeb": "Avalonia στον ιστό",
+    "Str.Menu.Help.ProductOnWeb": "HexIDE στον ιστό",
     "Str.Menu.Help.About": "Πληροφορίες για το HexIDE...",
     "Str.Menu.GoToGithubRepo": "Μετάβαση στο αποθετήριο github",
     "Str.NewProject.NoTemplates": "Αυτό το προφίλ δεν προσφέρει πρότυπα νέων έργων. Ανοίξτε ένα υπάρχον έργο.",
@@ -1130,6 +1128,7 @@
     "Str.Layout.InvalidName": "Εισαγάγετε ένα μοναδικό, μη κενό όνομα διάταξης.",
     "Str.Layout.Skipped": "Παραλείφθηκαν μη διαθέσιμα παράθυρα προσθέτων: {0}",
     "Str.Layout.SaveFailed": "Δεν ήταν δυνατή η αποθήκευση των διατάξεων πάνελ.",
+    "Str.Project.AlreadyOpen": "Το έργο {0} είναι ήδη ανοιχτό.",
     "Str.Options.Addins.Overview": "Τα πρόσθετα επεκτείνουν το HexIDE με εργαλεία και ρυθμίσεις. Για εγκατάσταση, αποσυμπιέστε ένα υπογεγραμμένο πακέτο σε δικό του φάκελο στον παρακάτω κατάλογο και επανεκκινήστε το HexIDE. Επιλέξτε ένα πρόσθετο στο δέντρο για να το διαχειριστείτε."
   }
 }
