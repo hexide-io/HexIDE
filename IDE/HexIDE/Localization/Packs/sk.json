@@ -442,6 +442,8 @@
     "Str.Options.Environment.FileHandling.Header": "Práca so súbormi",
     "Str.Options.Environment.ReloadExternalChanges": "Znova načítať súbory zmenené mimo IDE",
     "Str.Options.Theme.GroupHeader": "Motív IDE",
+    "Str.Theme.HighContrastLight": "Vysoký kontrast svetlý",
+    "Str.Theme.HighContrastDark": "Vysoký kontrast tmavý",
     "Str.Options.Theme.ThemeLabel": "Motív:",
     "Str.Options.Language.Header": "Jazyk IDE",
     "Str.Options.Language.LanguageLabel": "_Jazyk:",

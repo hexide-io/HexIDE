@@ -478,6 +478,8 @@
     "Str.Options.Environment.WhenStarts.Header": "Κατά την εκκίνηση του HexIDE",
     "Str.Options.Environment.WhenStarts.PromptForProject": "Ερώτηση για έργο",
     "Str.Options.Theme.GroupHeader": "Θέμα IDE",
+    "Str.Theme.HighContrastLight": "Υψηλή αντίθεση φωτεινό",
+    "Str.Theme.HighContrastDark": "Υψηλή αντίθεση σκοτεινό",
     "Str.Options.Theme.ThemeLabel": "Θέμα:",
     "Str.Options.Language.Header": "Γλώσσα IDE",
     "Str.Options.Language.LanguageLabel": "Γλώσσα:",

@@ -442,6 +442,8 @@
     "Str.Options.Environment.FileHandling.Header": "Failų tvarkymas",
     "Str.Options.Environment.ReloadExternalChanges": "Iš naujo įkelti už IDE ribų pakeistus failus",
     "Str.Options.Theme.GroupHeader": "IDE apipavidalinimas",
+    "Str.Theme.HighContrastLight": "Didelis kontrastas šviesus",
+    "Str.Theme.HighContrastDark": "Didelis kontrastas tamsus",
     "Str.Options.Theme.ThemeLabel": "Apipavidalinimas:",
     "Str.Options.Language.Header": "IDE kalba",
     "Str.Options.Language.LanguageLabel": "_Kalba:",

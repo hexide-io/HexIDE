@@ -442,6 +442,8 @@
     "Str.Options.Environment.FileHandling.Header": "Работа с файлове",
     "Str.Options.Environment.ReloadExternalChanges": "Презареждане на файлове, променени извън IDE",
     "Str.Options.Theme.GroupHeader": "Тема на IDE",
+    "Str.Theme.HighContrastLight": "Висок контраст — светла",
+    "Str.Theme.HighContrastDark": "Висок контраст — тъмна",
     "Str.Options.Theme.ThemeLabel": "Тема:",
     "Str.Options.Language.Header": "Език на IDE",
     "Str.Options.Language.LanguageLabel": "Език:",

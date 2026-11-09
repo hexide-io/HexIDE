@@ -440,6 +440,8 @@
     "Str.Options.Environment.FileHandling.Header": "File handling",
     "Str.Options.Environment.ReloadExternalChanges": "Reload files changed outside the IDE",
     "Str.Options.Theme.GroupHeader": "IDE Theme",
+    "Str.Theme.HighContrastLight": "High contrast light",
+    "Str.Theme.HighContrastDark": "High contrast dark",
     "Str.Options.Theme.ThemeLabel": "Theme:",
     "Str.Options.Language.Header": "IDE Language",
     "Str.Options.Language.LanguageLabel": "_Language:",

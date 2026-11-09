@@ -478,6 +478,8 @@
     "Str.Options.Environment.WhenStarts.Header": "Wenn HexIDE startet",
     "Str.Options.Environment.WhenStarts.PromptForProject": "Nach Projekt fragen",
     "Str.Options.Theme.GroupHeader": "IDE-Design",
+    "Str.Theme.HighContrastLight": "Hoher Kontrast hell",
+    "Str.Theme.HighContrastDark": "Hoher Kontrast dunkel",
     "Str.Options.Theme.ThemeLabel": "Design:",
     "Str.Options.Language.Header": "IDE-Sprache",
     "Str.Options.Language.LanguageLabel": "_Sprache:",

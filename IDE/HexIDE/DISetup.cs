@@ -161,7 +161,7 @@ public partial class DISetup
                 ctx.Inject<IClock>(out var clock);
                 return new HexIDE.Recovery.RecoveryService(projects, clock);
             })
-            .Bind<ISettingsService>().As(Singleton).To<SettingsService>()
+            .Bind<ISettingsService>().As(Singleton).To(_ => new SettingsService())
             .Bind<IWindowStateService>().As(Singleton).To(ctx =>
             {
                 ctx.Inject<ISettingsService>(out var settings);
@@ -349,14 +349,15 @@ public partial class DISetup
             })
             .Bind<ILoggerFactory>().As(Singleton).To(_ => LoggingSetup.LoggerFactory)
             .Bind<ILogger<TT>>().As(Singleton).To<Logger<TT>>()
+            // Pin production constructors: path/snapshot overloads are test seams, not dependencies.
             // Profiles
-            .Bind<IProfileService>().As(Singleton).To<ProfileService>()
+            .Bind<IProfileService>().As(Singleton).To(_ => new ProfileService())
             // Theming
             .Bind<IThemeService>().As(Singleton).To(_ => new ThemeService())
             // Keymaps
             .Bind<IKeymapService>().As(Singleton).To(_ => new KeymapService())
             // Localization
-            .Bind<IUserTranslationsService>().As(Singleton).To<UserTranslationsService>()
+            .Bind<IUserTranslationsService>().As(Singleton).To(_ => new UserTranslationsService())
             .Bind<ILocalizationService>().As(Singleton).To(ctx =>
             {
                 ctx.Inject<IUserTranslationsService>(out var translations);

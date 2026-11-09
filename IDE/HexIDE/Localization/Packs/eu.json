@@ -442,6 +442,8 @@
     "Str.Options.Environment.FileHandling.Header": "Fitxategien kudeaketa",
     "Str.Options.Environment.ReloadExternalChanges": "Birkargatu IDEtik kanpo aldatutako fitxategiak",
     "Str.Options.Theme.GroupHeader": "IDEaren gaia",
+    "Str.Theme.HighContrastLight": "Kontraste handiko argia",
+    "Str.Theme.HighContrastDark": "Kontraste handiko iluna",
     "Str.Options.Theme.ThemeLabel": "Gaia:",
     "Str.Options.Language.Header": "IDEaren hizkuntza",
     "Str.Options.Language.LanguageLabel": "_Hizkuntza:",

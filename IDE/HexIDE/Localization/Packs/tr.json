@@ -478,6 +478,8 @@
     "Str.Options.Environment.WhenStarts.Header": "HexIDE başladığında",
     "Str.Options.Environment.WhenStarts.PromptForProject": "Proje sor",
     "Str.Options.Theme.GroupHeader": "IDE Teması",
+    "Str.Theme.HighContrastLight": "Yüksek karşıtlık açık",
+    "Str.Theme.HighContrastDark": "Yüksek karşıtlık koyu",
     "Str.Options.Theme.ThemeLabel": "Tema:",
     "Str.Options.Language.Header": "IDE Dili",
     "Str.Options.Language.LanguageLabel": "_Dil:",

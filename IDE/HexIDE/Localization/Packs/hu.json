@@ -442,6 +442,8 @@
     "Str.Options.Environment.FileHandling.Header": "Fájlkezelés",
     "Str.Options.Environment.ReloadExternalChanges": "Az IDE-n kívül módosított fájlok újratöltése",
     "Str.Options.Theme.GroupHeader": "IDE-téma",
+    "Str.Theme.HighContrastLight": "Kontrasztos világos",
+    "Str.Theme.HighContrastDark": "Kontrasztos sötét",
     "Str.Options.Theme.ThemeLabel": "Téma:",
     "Str.Options.Language.Header": "IDE nyelve",
     "Str.Options.Language.LanguageLabel": "_Nyelv:",

@@ -478,6 +478,8 @@
     "Str.Options.Environment.WhenStarts.Header": "Při spuštění HexIDE",
     "Str.Options.Environment.WhenStarts.PromptForProject": "Dotázat se na projekt",
     "Str.Options.Theme.GroupHeader": "Motiv IDE",
+    "Str.Theme.HighContrastLight": "Vysoký kontrast světlý",
+    "Str.Theme.HighContrastDark": "Vysoký kontrast tmavý",
     "Str.Options.Theme.ThemeLabel": "Motiv:",
     "Str.Options.Language.Header": "Jazyk IDE",
     "Str.Options.Language.LanguageLabel": "_Jazyk:",

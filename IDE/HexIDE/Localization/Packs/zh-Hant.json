@@ -478,6 +478,8 @@
     "Str.Options.Environment.WhenStarts.Header": "HexIDE 啟動時",
     "Str.Options.Environment.WhenStarts.PromptForProject": "提示選擇專案",
     "Str.Options.Theme.GroupHeader": "IDE 佈景主題",
+    "Str.Theme.HighContrastLight": "高對比淺色",
+    "Str.Theme.HighContrastDark": "高對比深色",
     "Str.Options.Theme.ThemeLabel": "佈景主題:",
     "Str.Options.Language.Header": "IDE 語言",
     "Str.Options.Language.LanguageLabel": "語言(_L):",

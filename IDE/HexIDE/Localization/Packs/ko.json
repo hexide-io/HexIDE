@@ -478,6 +478,8 @@
     "Str.Options.Environment.WhenStarts.Header": "HexIDE 시작 시",
     "Str.Options.Environment.WhenStarts.PromptForProject": "프로젝트 묻기",
     "Str.Options.Theme.GroupHeader": "IDE 테마",
+    "Str.Theme.HighContrastLight": "고대비 밝게",
+    "Str.Theme.HighContrastDark": "고대비 어둡게",
     "Str.Options.Theme.ThemeLabel": "테마:",
     "Str.Options.Language.Header": "IDE 언어",
     "Str.Options.Language.LanguageLabel": "언어:",

@@ -478,6 +478,8 @@
     "Str.Options.Environment.WhenStarts.Header": "HexIDE の起動時",
     "Str.Options.Environment.WhenStarts.PromptForProject": "プロジェクトの選択を確認する",
     "Str.Options.Theme.GroupHeader": "IDE テーマ",
+    "Str.Theme.HighContrastLight": "ハイコントラスト（ライト）",
+    "Str.Theme.HighContrastDark": "ハイコントラスト（ダーク）",
     "Str.Options.Theme.ThemeLabel": "テーマ:",
     "Str.Options.Language.Header": "IDE の言語",
     "Str.Options.Language.LanguageLabel": "言語(_L):",

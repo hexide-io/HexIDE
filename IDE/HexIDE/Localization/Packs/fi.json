@@ -478,6 +478,8 @@
     "Str.Options.Environment.WhenStarts.Header": "Kun HexIDE käynnistyy",
     "Str.Options.Environment.WhenStarts.PromptForProject": "Kysy projektia",
     "Str.Options.Theme.GroupHeader": "IDE:n teema",
+    "Str.Theme.HighContrastLight": "Suuri kontrasti vaalea",
+    "Str.Theme.HighContrastDark": "Suuri kontrasti tumma",
     "Str.Options.Theme.ThemeLabel": "Teema:",
     "Str.Options.Language.Header": "IDE:n kieli",
     "Str.Options.Language.LanguageLabel": "_Kieli:",

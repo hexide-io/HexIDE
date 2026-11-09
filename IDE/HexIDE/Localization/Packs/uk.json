@@ -478,6 +478,8 @@
     "Str.Options.Environment.WhenStarts.Header": "Під час запуску HexIDE",
     "Str.Options.Environment.WhenStarts.PromptForProject": "Запитувати про проєкт",
     "Str.Options.Theme.GroupHeader": "Тема IDE",
+    "Str.Theme.HighContrastLight": "Висока контрастність — світла",
+    "Str.Theme.HighContrastDark": "Висока контрастність — темна",
     "Str.Options.Theme.ThemeLabel": "Тема:",
     "Str.Options.Language.Header": "Мова IDE",
     "Str.Options.Language.LanguageLabel": "Мова:",

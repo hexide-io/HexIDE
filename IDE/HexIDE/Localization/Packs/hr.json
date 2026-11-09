@@ -442,6 +442,8 @@
     "Str.Options.Environment.FileHandling.Header": "Rukovanje datotekama",
     "Str.Options.Environment.ReloadExternalChanges": "Ponovno učitaj datoteke izmijenjene izvan IDE-a",
     "Str.Options.Theme.GroupHeader": "Tema IDE-a",
+    "Str.Theme.HighContrastLight": "Visoki kontrast svijetli",
+    "Str.Theme.HighContrastDark": "Visoki kontrast tamni",
     "Str.Options.Theme.ThemeLabel": "Tema:",
     "Str.Options.Language.Header": "Jezik IDE-a",
     "Str.Options.Language.LanguageLabel": "_Jezik:",
