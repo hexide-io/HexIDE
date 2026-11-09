@@ -79,6 +79,64 @@ public class MainViewViewModelTests
             Substitute.For<IHeaderRefresher>());
     }
 
+    [AvaloniaTheory]
+    [InlineData(false, false)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public async Task NewProject_ChoosesBeforeUnloading(bool chooseTemplate, bool cancelSave)
+    {
+        var project = new ProjectDefinition(VBProjectType.EXE, "Original");
+        var module = new ModuleDefinition(project, "Module1", ModuleKind.StandardModule);
+        module.UpdateCode("Public Sub Edited()\r\nEnd Sub\r\n");
+        project.AddModule(module);
+        var loaded = new List<ProjectDefinition> { project };
+        _projectManager.LoadedProjects.Returns(loaded);
+        _projectManager.When(m => m.UnloadAllProjects()).Do(_ => loaded.Clear());
+        var profile = Substitute.For<IProfileService>();
+        profile.AvailableProjectTypes.Returns(new[] { IProjectTemplate.StandardEXE });
+        _recentProjects.GetRecent().Returns(new List<string>());
+        var dialogs = new List<string>();
+        _windowManager.ShowDialog(Arg.Any<IDialog>()).Returns(ci =>
+        {
+            loaded.Should().ContainSingle().Which.Should().BeSameAs(project);
+            if (ci.Arg<IDialog>() is HexIDE.Forms.ViewModels.NewProjectViewModel)
+            {
+                dialogs.Add("template");
+                return Task.FromResult(chooseTemplate);
+            }
+            dialogs.Add("save");
+            ((HexIDE.Forms.ViewModels.SaveChangesViewModel)ci.Arg<IDialog>()).No();
+            return Task.FromResult(!cancelSave);
+        });
+        var service = new ProjectService(
+            () => new HexIDE.Forms.ViewModels.NewProjectViewModel(_windowManager, _recentProjects,
+                _settingsService, profile, _localization),
+            _windowManager, _eventBus, _projectManager, _recentProjects,
+            Substitute.For<IReferenceLibraryService>(), Substitute.For<HexIDE.Sidecar.IUserSidecarService>(),
+            new FileBaselineStore(), _localization, Substitute.For<IHeaderRefresher>());
+        var shell = Build(_runnerService, projects: service);
+
+        Func<Task> create = shell.NewProject;
+        if (chooseTemplate && cancelSave)
+            await create.Should().ThrowAsync<OperationCanceledException>();
+        else
+            await create();
+
+        dialogs.Should().Equal(chooseTemplate ? new[] { "template", "save" } : new[] { "template" });
+        if (!chooseTemplate || cancelSave)
+        {
+            loaded.Should().ContainSingle().Which.Should().BeSameAs(project);
+            module.Should().BeSameAs(project.Modules.Single());
+            module.Code.Should().Contain("Edited");
+            _projectManager.DidNotReceive().NewProject(Arg.Any<HexIDE.Addins.IAddinProjectTemplate>(), Arg.Any<string>());
+        }
+        else
+        {
+            loaded.Should().BeEmpty();
+            _projectManager.Received(1).NewProject(IProjectTemplate.StandardEXE, "Project1");
+        }
+    }
+
     [AvaloniaFact]
     public void GivenReferencesOpenInTheImmediateWindowGroup()
     {
