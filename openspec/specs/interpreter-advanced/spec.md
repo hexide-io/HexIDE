@@ -4,6 +4,8 @@
 Define the interpreter's object model — multiple modules, user-defined types, classes, properties and events —
 and, more importantly, define where it stops and why stopping there is deliberate.
 
+**Known divergence:** the refusal naming another implementation, specified below, was never built (#3434).
+
 These constructs are what separates a program from a script. A large share of real VB6 is built on a
 collection of objects with properties and events, so an engine without them can run examples but not
 anything a developer recognises as their own code.
@@ -23,7 +25,7 @@ with a production VB6 runtime, and changes that increase completeness at the cos
 declined on principle rather than on quality.
 
 The reason to write this down is that every individual step toward completeness looks reasonable. Exhaustive
-quirk coverage, deterministic reference counting, a bytecode virtual machine, static checking — each is
+quirk coverage, a bytecode virtual machine, static checking — each is
 defensible alone, and together they are a second-rate reimplementation of something another engine already
 does properly behind the replaceable backend seam. The triage question is therefore whether a change keeps
 this a simple demonstrator, not whether it makes it more correct; a change can be entirely correct and still

@@ -89,7 +89,7 @@ The client SHALL declare `textDocument.selectionRange` without dynamic registrat
 these requests to the highest-priority claimant advertising `selectionRangeProvider`, accepting
 both boolean and options advertisements. The client SHALL preserve the returned ranges and recursive
 parents without computing enclosing ranges locally. Null replies and failed requests SHALL yield
-empty arrays. Editor commands and selection history remain pending (#3076).
+empty arrays. The editor's Expand Selection and Shrink Selection commands SHALL use these ranges, and SHALL keep the enclosing chain so that Shrink Selection returns through it.
 
 #### Scenario: A server supplies enclosing ranges
 - **WHEN** a caller requests ranges at two selection endpoints from an offering server
@@ -2278,8 +2278,8 @@ reach disk. Overwriting an existing file SHALL NOT report creation. Temporary Ma
 report file operations. Save As retains the original, so it SHALL NOT report a rename. Explorer name
 changes and removal without disk deletion SHALL NOT report file operations.
 
-Disk rename and Remove-with-delete hooks remain outstanding (#2248): current explorer operations change
-names and membership only.
+No explorer operation renames or deletes a file on disk, so the client sends no `didRenameFiles` or
+`didDeleteFiles` today: names and membership change without touching the disk.
 
 #### Scenario: A server requests only Basic modules
 - **GIVEN** a server registers `didCreate` with a `file` scheme and `**/*.bas` file pattern

@@ -5,6 +5,8 @@ Define the VB6-style step-through debugging experience over HexIDE's in-box tree
 breakpoints, break mode, stepping, and the inspection windows a VB6 developer expects to find behind
 F5, F8 and F9.
 
+**Known divergence:** Edit Watch has no default key, where the scenarios below bind Ctrl+W (#3430).
+
 The debugger is deliberately built on the interpreter rather than deferred to an external compiled-execution
 backend, because the interpreter is a permanent part of HexIDE and a developer who cannot stop a program on a
 line cannot evaluate the IDE at all. Its limits follow from that choice and are stated as behaviour, not

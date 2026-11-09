@@ -4,6 +4,8 @@
 Define how keyboard shortcuts are bound: as data rather than compiled constants, so a shortcut can be
 changed without changing code.
 
+**Known divergence:** four code-window keys are hard-coded, so a pack cannot clear or reassign them there (#3432).
+
 Shortcuts are the deepest muscle memory a developer has, and they are also where a familiarity-first project
 runs into a genuine conflict — VB6's bindings and modern conventions disagree, and some keys are wanted by
 two commands at once. Making bindings data means those conflicts are resolved by choosing a keymap rather

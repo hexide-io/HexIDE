@@ -18,7 +18,7 @@ The text is content in the same sense. VB6 source declares no encoding: it is in
 machine that wrote it. So the IDE keeps each source file of a project in the encoding it was read in, and
 refuses an edit that encoding cannot hold rather than converting the file. A file in a code page this machine
 cannot read is still loaded, byte for byte, rather than dropped from the project. A file the project only
-carries is not held to this yet ([#745](https://github.com/hexide-io/HexIDE/issues/745)).
+carries is read as UTF-8 or, where that fails, as Latin-1, and is saved in the encoding it was read in.
 
 > **Known divergence — narrower than this note once said.** The requirements below state the intended
 > contract. It once read that no file of VB6's own shipped samples survived a save byte-identically, and that
@@ -295,8 +295,12 @@ meaningful.
 - **THEN** it is editable and saveable
 
 #### Scenario: A form with a populated container
-- **WHEN** such a form is loaded, while container nesting does not round-trip
-- **THEN** it is still presented read-only
+- **WHEN** such a form is loaded
+- **THEN** it is editable and saveable
+
+#### Scenario: A structure still not reproduced
+- **WHEN** a form holds a control nested under a class that cannot contain one
+- **THEN** it is presented read-only
 
 ### Requirement: A container's children SHALL be written back inside their container
 Where a file expresses a control as a child of a container, the IDE SHALL write it back inside that
