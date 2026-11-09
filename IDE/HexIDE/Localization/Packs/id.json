@@ -1126,6 +1126,7 @@
     "Str.Layout.NamePrompt": "Nama tata letak:",
     "Str.Layout.InvalidName": "Masukkan nama tata letak yang unik dan tidak kosong.",
     "Str.Layout.Skipped": "Jendela add-in yang tidak tersedia dilewati: {0}",
-    "Str.Layout.SaveFailed": "Tata letak panel tidak dapat disimpan."
+    "Str.Layout.SaveFailed": "Tata letak panel tidak dapat disimpan.",
+    "Str.Options.Addins.Overview": "Add-in memperluas HexIDE dengan alat dan pengaturan tambahan. Untuk memasangnya, ekstrak paket add-in bertanda tangan ke folder tersendiri di direktori di bawah, lalu mulai ulang HexIDE. Pilih add-in di pohon untuk mengelolanya."
   }
 }

@@ -1126,6 +1126,7 @@
     "Str.Layout.NamePrompt": "Izkārtojuma nosaukums:",
     "Str.Layout.InvalidName": "Ievadiet unikālu, netukšu izkārtojuma nosaukumu.",
     "Str.Layout.Skipped": "Nepieejamie pievienojumprogrammu logi tika izlaisti: {0}",
-    "Str.Layout.SaveFailed": "Neizdevās saglabāt paneļu izkārtojumus."
+    "Str.Layout.SaveFailed": "Neizdevās saglabāt paneļu izkārtojumus.",
+    "Str.Options.Addins.Overview": "Pievienojumprogrammas papildina HexIDE ar rīkiem un iestatījumiem. Lai instalētu, izpakojiet parakstītu pakotni atsevišķā mapē tālāk norādītajā direktorijā un restartējiet HexIDE. Atlasiet pievienojumprogrammu kokā, lai to pārvaldītu."
   }
 }

@@ -1126,6 +1126,7 @@
     "Str.Layout.NamePrompt": "Layoutnavn:",
     "Str.Layout.InvalidName": "Angiv et entydigt layoutnavn, der ikke er tomt.",
     "Str.Layout.Skipped": "Utilgængelige tilføjelsesvinduer blev sprunget over: {0}",
-    "Str.Layout.SaveFailed": "Panellayoutene kunne ikke gemmes."
+    "Str.Layout.SaveFailed": "Panellayoutene kunne ikke gemmes.",
+    "Str.Options.Addins.Overview": "Tilføjelsesprogrammer udvider HexIDE med værktøjer og indstillinger. Installér ved at udpakke en signeret pakke i sin egen mappe i nedenstående mappe, og genstart HexIDE. Vælg et tilføjelsesprogram i træet for at administrere det."
   }
 }

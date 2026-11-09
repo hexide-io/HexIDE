@@ -1126,6 +1126,7 @@
     "Str.Layout.NamePrompt": "Asettelun nimi:",
     "Str.Layout.InvalidName": "Anna yksilöllinen asettelun nimi, joka ei ole tyhjä.",
     "Str.Layout.Skipped": "Lisäosien ikkunat, jotka eivät olleet käytettävissä, ohitettiin: {0}",
-    "Str.Layout.SaveFailed": "Paneeliasetteluja ei voitu tallentaa."
+    "Str.Layout.SaveFailed": "Paneeliasetteluja ei voitu tallentaa.",
+    "Str.Options.Addins.Overview": "Lisäosat laajentavat HexIDEä työkaluilla ja asetuksilla. Asenna purkamalla allekirjoitettu lisäosapaketti omaan kansioonsa alla olevassa hakemistossa ja käynnistä HexIDE uudelleen. Hallitse lisäosaa valitsemalla se puusta."
   }
 }

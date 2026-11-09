@@ -1126,6 +1126,7 @@
     "Str.Layout.NamePrompt": "Layout name:",
     "Str.Layout.InvalidName": "Enter a unique, non-empty layout name.",
     "Str.Layout.Skipped": "Unavailable add-in windows were skipped: {0}",
-    "Str.Layout.SaveFailed": "The panel layouts could not be saved."
+    "Str.Layout.SaveFailed": "The panel layouts could not be saved.",
+    "Str.Options.Addins.Overview": "Add-ins extend HexIDE with extra tools and settings. To install one, extract a signed add-in package into its own folder in the directory below, then restart HexIDE. Select an add-in in the tree to manage it."
   }
 }

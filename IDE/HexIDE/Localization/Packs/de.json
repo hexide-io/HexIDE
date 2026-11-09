@@ -1126,6 +1126,7 @@
     "Str.Layout.NamePrompt": "Name der Anordnung:",
     "Str.Layout.InvalidName": "Geben Sie einen eindeutigen, nicht leeren Namen für die Anordnung ein.",
     "Str.Layout.Skipped": "Nicht verfügbare Add-In-Fenster wurden übersprungen: {0}",
-    "Str.Layout.SaveFailed": "Die Panelanordnungen konnten nicht gespeichert werden."
+    "Str.Layout.SaveFailed": "Die Panelanordnungen konnten nicht gespeichert werden.",
+    "Str.Options.Addins.Overview": "Add-Ins erweitern HexIDE um Werkzeuge und Einstellungen. Zum Installieren entpacken Sie ein signiertes Add-In-Paket in einen eigenen Ordner im unten angegebenen Verzeichnis und starten HexIDE neu. Wählen Sie ein Add-In im Baum aus, um es zu verwalten."
   }
 }

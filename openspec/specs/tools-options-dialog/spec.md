@@ -70,15 +70,23 @@ the controls. Settings is where people look for it, and it is reachable regardle
 - **WHEN** the developer opens the add-ins category
 - **THEN** each installed add-in is listed with its status
 
-#### Scenario: Opening management without installed add-ins
-- **WHEN** the developer chooses Add-Ins → Add-In Manager… with no add-ins installed
-- **THEN** Options opens with the Add-Ins category selected and expanded
-- **AND** the category contains a localized “(no add-ins installed)” leaf with no page
-- **AND** Restore Defaults is disabled
-
 #### Scenario: Disabling an add-in
 - **WHEN** the developer disables an add-in
 - **THEN** the choice is recorded and takes effect on the next start
+
+### Requirement: The Add-Ins category SHALL provide an overview
+The Add-Ins category SHALL explain add-ins, list installed add-ins, and describe signed-package installation
+with the installation directory and restart instruction.
+
+#### Scenario: Reviewing the overview
+- **WHEN** the developer selects the Add-Ins category
+- **THEN** its page explains add-ins and how to install one, and lists the installed add-ins
+
+#### Scenario: Opening management without installed add-ins
+- **WHEN** the developer chooses Add-Ins → Add-In Manager… with no add-ins installed
+- **THEN** Options opens with the Add-Ins category selected and expanded
+- **AND** the category contains a localized “(no add-ins installed)” leaf showing the same overview as the category
+- **AND** Restore Defaults is disabled
 
 ### Requirement: An add-in SHALL be able to contribute its own settings page
 The dialog SHALL accept settings pages contributed by add-ins, presenting them alongside the IDE's own.

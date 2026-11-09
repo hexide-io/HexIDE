@@ -1126,6 +1126,7 @@
     "Str.Layout.NamePrompt": "Nazwa układu:",
     "Str.Layout.InvalidName": "Wprowadź unikatową, niepustą nazwę układu.",
     "Str.Layout.Skipped": "Pominięto niedostępne okna dodatków: {0}",
-    "Str.Layout.SaveFailed": "Nie można zapisać układów paneli."
+    "Str.Layout.SaveFailed": "Nie można zapisać układów paneli.",
+    "Str.Options.Addins.Overview": "Dodatki rozszerzają HexIDE o narzędzia i ustawienia. Aby zainstalować dodatek, rozpakuj podpisany pakiet do osobnego folderu w poniższym katalogu i uruchom ponownie HexIDE. Wybierz dodatek w drzewie, aby nim zarządzać."
   }
 }

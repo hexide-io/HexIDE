@@ -4,9 +4,9 @@ using CommunityToolkit.Mvvm.ComponentModel;
 namespace HexIDE.Forms.ViewModels.Options;
 
 /// <summary>
-/// A node in the Options dialog category tree. A node is either a grouping node
-/// (<see cref="Page"/> is null — it only expands its children) or a leaf page node
-/// (<see cref="Page"/> drives the right-hand content pane when the node is selected).
+/// A node in the Options dialog category tree. A node can hold children and an optional page.
+/// <see cref="Page"/> drives the right-hand content pane when the node is selected;
+/// categories without an overview have no page.
 /// A leaf's page is an <see cref="IOptionsPage"/> for first-party settings pages, or an
 /// add-in page ViewModel for the Add-Ins section; the View is resolved by the ViewLocator.
 /// </summary>
@@ -26,7 +26,7 @@ public partial class OptionsNodeViewModel : ObservableObject
     /// (e.g. add-in nodes, whose title is the add-in's own name).</summary>
     public string? Key { get; }
 
-    /// <summary>The page rendered on the right when this node is selected; null for group nodes.</summary>
+    /// <summary>The page rendered on the right when this node is selected; null for categories without an overview.</summary>
     public object? Page { get; }
 
     public ObservableCollection<OptionsNodeViewModel> Children { get; } = [];

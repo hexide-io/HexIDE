@@ -1126,6 +1126,7 @@
     "Str.Layout.NamePrompt": "Diseinuaren izena:",
     "Str.Layout.InvalidName": "Idatzi diseinuaren izen bakarra eta ez-hutsa.",
     "Str.Layout.Skipped": "Erabilgarri ez dauden gehigarrien leihoak saltatu dira: {0}",
-    "Str.Layout.SaveFailed": "Ezin izan dira panelen diseinuak gorde."
+    "Str.Layout.SaveFailed": "Ezin izan dira panelen diseinuak gorde.",
+    "Str.Options.Addins.Overview": "Gehigarriek tresnak eta ezarpenak gehitzen dizkiote HexIDEri. Instalatzeko, deskonprimitu sinatutako gehigarri-paketea beheko direktorioko bere karpetan eta berrabiarazi HexIDE. Hautatu gehigarri bat zuhaitzean hura kudeatzeko."
   }
 }

@@ -1126,6 +1126,7 @@
     "Str.Layout.NamePrompt": "Název rozložení:",
     "Str.Layout.InvalidName": "Zadejte jedinečný neprázdný název rozložení.",
     "Str.Layout.Skipped": "Nedostupná okna doplňků byla přeskočena: {0}",
-    "Str.Layout.SaveFailed": "Rozložení panelů se nepodařilo uložit."
+    "Str.Layout.SaveFailed": "Rozložení panelů se nepodařilo uložit.",
+    "Str.Options.Addins.Overview": "Doplňky rozšiřují HexIDE o nástroje a nastavení. Pro instalaci rozbalte podepsaný balíček do vlastní složky v níže uvedeném adresáři a restartujte HexIDE. Doplněk můžete spravovat výběrem ve stromu."
   }
 }

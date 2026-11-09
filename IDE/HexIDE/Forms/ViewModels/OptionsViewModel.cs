@@ -47,7 +47,7 @@ public partial class OptionsViewModel : ObservableObject, IDialog
     [ObservableProperty]
     private OptionsNodeViewModel? _selectedNode;
 
-    /// <summary>The page ViewModel for the right-hand pane; null when a group node is selected.</summary>
+    /// <summary>The page ViewModel for the right-hand pane; null when a category without an overview is selected.</summary>
     public object? CurrentPage => SelectedNode?.Page;
 
     /// <summary>True when a resettable first-party settings page is selected — gates "Restore Defaults".</summary>
@@ -120,10 +120,10 @@ public partial class OptionsViewModel : ObservableObject, IDialog
             RootNodes.Add(Leaf(new DeveloperPageViewModel(_settings), "Str.Options.Node.Developer"));
     }
 
-    /// <summary>Creates a localized grouping node and records it for live re-localization.</summary>
-    private OptionsNodeViewModel Group(string key)
+    /// <summary>Creates a localized category node and records it for live re-localization.</summary>
+    private OptionsNodeViewModel Group(string key, object? page = null)
     {
-        var node = new OptionsNodeViewModel(_localization.GetString(key), page: null, key: key);
+        var node = new OptionsNodeViewModel(_localization.GetString(key), page: page, key: key);
         _keyedNodes.Add(node);
         return node;
     }
@@ -137,9 +137,10 @@ public partial class OptionsViewModel : ObservableObject, IDialog
     {
         var addins = _addinRegistry.GetAll();
 
-        var group = Group("Str.Options.Node.AddIns");
+        var overview = new AddinsOverviewPageViewModel(addins);
+        var group = Group("Str.Options.Node.AddIns", overview);
         if (addins.Count == 0)
-            group.Add(Group("Str.Options.Node.NoAddins"));
+            group.Add(Group("Str.Options.Node.NoAddins", overview));
         foreach (var info in addins)
         {
             var page = new AddinOptionsPageViewModel(_addinRegistry, info, _addinOptions.GetFactoryFor(info.AssemblyPath));
