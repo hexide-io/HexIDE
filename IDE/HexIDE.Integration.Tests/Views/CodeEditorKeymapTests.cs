@@ -21,6 +21,20 @@ namespace HexIDE.Integration.Tests.Views;
 
 public class CodeEditorKeymapTests
 {
+    // These four had only hard-coded handling once, so a stock install has to bind them (#3432's live check).
+    [AvaloniaTheory]
+    [InlineData("FindReferencesCommand", Key.F12, KeyModifiers.Shift)]
+    [InlineData("GoToDefinitionCommand", Key.F12, KeyModifiers.None)]
+    [InlineData("GoToDefinitionCommand", Key.F2, KeyModifiers.Shift)]
+    [InlineData("FormatDocumentCommand", Key.F, KeyModifiers.Shift | KeyModifiers.Alt)]
+    public void StockGesturesStayBound(string command, Key key, KeyModifiers modifiers) =>
+        CommandKeyMapping.Table[command].Gestures.Should().Contain(new KeyGesture(key, modifiers));
+
+    [AvaloniaFact]
+    public void GoToDeclarationIsBoundOnThePlatformCommandKey() =>
+        CommandKeyMapping.Table["GoToDeclarationCommand"].Gestures.Should().Contain(
+            new KeyGesture(Key.F12, ApplicationCommands.CopyCommand.Gestures[0].KeyModifiers));
+
     [AvaloniaTheory]
     [InlineData("FindReferencesCommand", "Shift+F12", "")]
     [InlineData("GoToDefinitionCommand", "F12", "")]
