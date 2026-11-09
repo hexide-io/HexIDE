@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    The repack tool (#3413): takes a published stock build and a brand.json, and writes a build that is that
+    product natively. It isn't shipped in the IDE. It references HexIDE for one reason, so that a descriptor is
+    validated by the same code that reads it at startup.
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="HexIDE.Tests" />
+    <EmbeddedResource Include="..\..\installer\HexIDE.iss" LogicalName="HexIDE.iss" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\HexIDE\HexIDE.csproj" />
+    <!-- For SkiaSharp, which scales the brand's logo into the executable's icon. -->
+    <PackageReference Include="Avalonia.Skia" />
+  </ItemGroup>
+
+</Project>

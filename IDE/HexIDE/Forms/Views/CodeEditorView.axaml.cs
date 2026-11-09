@@ -2021,29 +2021,6 @@ public partial class CodeEditorView : UserControl
                 }
             }
         }
-        else if (e.Key == Key.F12 && e.KeyModifiers == KeyModifiers.Shift)
-        {
-            e.Handled = true;
-            FindReferences();
-        }
-        // F12 = go to definition
-        else if (e.Key == Key.F12 && e.KeyModifiers == KeyModifiers.None)
-        {
-            e.Handled = true;
-            GoToDefinition();
-        }
-        // Ctrl+F12 = go to declaration, next to F12 because it answers the neighbouring question
-        else if (e.Key == Key.F12 && e.KeyModifiers == KeyModifiers.Control)
-        {
-            e.Handled = true;
-            GoToDeclaration();
-        }
-        // Shift+Alt+F = format document
-        else if (e.Key == Key.F && e.KeyModifiers == (KeyModifiers.Shift | KeyModifiers.Alt))
-        {
-            e.Handled = true;
-            FormatDocument();
-        }
     }
 
     /// <summary>

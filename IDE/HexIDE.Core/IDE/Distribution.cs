@@ -65,6 +65,12 @@ public sealed class DistributionIdentity
     /// </summary>
     public string StateDirectoryName => IsStock ? StockName : Id;
 
+    /// <summary>
+    /// The identity Windows groups this product's taskbar buttons by, from its id so that a rename leaves pinned
+    /// shortcuts working. Null for stock, which has never declared one.
+    /// </summary>
+    public string? AppUserModelId => IsStock ? null : $"HexIDE.Distribution.{Id}";
+
     /// <summary>This distribution's log root. Bundled child processes are told it, so they log beside the host.</summary>
     public string LogsDirectory => Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), StateDirectoryName, "logs");

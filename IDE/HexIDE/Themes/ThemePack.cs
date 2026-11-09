@@ -45,6 +45,13 @@ internal static class ColorKeyMapping
             ["GrayText"]                = (SystemColors.GrayTextBrushKey,               true),
             ["InactiveCaption"]         = (SystemColors.InactiveCaptionBrushKey,         true),
             ["InactiveCaptionText"]     = (SystemColors.InactiveCaptionTextBrushKey,     true),
+            ["WindowFrame"]             = (SystemColors.WindowFrameBrushKey,             true),
+            ["ScrollBar"]               = (SystemColors.ScrollBarBrushKey,               true),
+            ["ActiveCaption"]           = (SystemColors.ActiveCaptionBrushKey,           true),
+            ["ActiveBorder"]            = (SystemColors.ActiveBorderBrushKey,            true),
+            ["InactiveBorder"]          = (SystemColors.InactiveBorderBrushKey,          true),
+            ["InfoText"]                = (SystemColors.InfoTextBrushKey,                true),
+            ["Info"]                    = (SystemColors.InfoBrushKey,                    true),
             // Custom string-keyed brushes
             ["ActiveTitleBar"]          = ("ActiveTitleBarBrush",                        true),
             ["InactiveTitleBar"]        = ("InactiveTitleBarBrush",                      true),

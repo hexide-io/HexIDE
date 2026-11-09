@@ -62,7 +62,7 @@ public partial class OptionsViewModel : ObservableObject, IDialog
     public OptionsViewModel(ISettingsService settings, IThemeService themeService, IKeymapService keymapService,
                             ILanguageSwitchService languageSwitch, IAddinRegistry addinRegistry,
                             AddinOptionsService addinOptions, IDeveloperModeService devMode,
-                            ILocalizationService localization, IEventBus eventBus, string? initialNodeKey = null)
+                            ILocalizationService localization, IEventBus eventBus, string? initialNodeKey = null, IWindowManager? windows = null)
     {
         _settings = settings;
         _themeService = themeService;
@@ -76,7 +76,7 @@ public partial class OptionsViewModel : ObservableObject, IDialog
         _originalTheme = themeService.ActiveTheme;
         _originalLanguage = languageSwitch.ActiveLanguage;
 
-        BuildTree();
+        BuildTree(windows);
         SelectedNode = RootNodes.FirstOrDefault(n => n.Key == initialNodeKey) ?? FirstLeaf(RootNodes);
 
         // The Language page lives in this dialog and previews live, so re-localize the tree (and the
@@ -91,13 +91,13 @@ public partial class OptionsViewModel : ObservableObject, IDialog
         OnPropertyChanged(nameof(Title));
     }
 
-    private void BuildTree()
+    private void BuildTree(IWindowManager? windows)
     {
         var environment = Group("Str.Options.Node.Environment")
             .Add(Leaf(new EnvironmentGeneralPageViewModel(_settings), "Str.Options.Node.General"))
             .Add(Leaf(new ThemePageViewModel(_settings, _themeService), "Str.Options.Node.Theme"))
             .Add(Leaf(new LanguagePageViewModel(_settings, _languageSwitch, _localization, CustomizeLanguage), "Str.Options.Node.Language"))
-            .Add(Leaf(new KeymapPageViewModel(_settings, _keymapService), "Str.Options.Node.Keymap"))
+            .Add(Leaf(new KeymapPageViewModel(_settings, _keymapService, _localization, windows), "Str.Options.Node.Keymap"))
             .Add(Leaf(new ToolbarsPageViewModel(_settings), "Str.Options.Node.Toolbars"));
 
         var editor = Group("Str.Options.Node.Editor")

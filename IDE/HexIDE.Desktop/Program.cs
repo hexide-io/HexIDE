@@ -20,6 +20,7 @@ sealed partial class Program
         try
         {
             HexIDE.IDE.Distribution.Establish(HexIDE.IDE.DistributionDescriptor.Resolve(AppContext.BaseDirectory));
+            WindowsTaskbarIdentity.Apply(HexIDE.IDE.Distribution.Current);
             return null;
         }
         catch (HexIDE.IDE.DistributionDescriptorException ex)
