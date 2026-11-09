@@ -1733,6 +1733,33 @@ public partial class ProjectService : IProjectService
             new Destination(project, Path.Join(directory, project.Name + ".vbp"))
         ];
         EnsureEncodable(files);
+        // This HexIDE-only operation has no picker to ask about existing destinations (#2504).
+        // Ask once, including companions, before any write or permanent path change.
+        var outputs = new List<string>();
+        foreach (var file in files)
+        {
+            outputs.Add(file.Path);
+            var designer = file.Document switch
+            {
+                FormDefinition form => form,
+                ModuleDefinition module => DesignerPartOf(module),
+                _ => null
+            };
+            if (designer is null)
+                continue;
+            var (_, companion) = file.Document is ModuleDefinition moduleDocument
+                ? RenderModule(moduleDocument, file.Path)
+                : RenderForm(designer, file.Path);
+            if (companion is { Length: > 0 } || designer.CitedCompanionBlobCount > 0)
+                outputs.Add(Path.ChangeExtension(file.Path, CompanionBinaryExtension(file.Path)));
+        }
+        var existing = outputs.Where(File.Exists).Distinct().ToArray();
+        if (existing.Length > 0
+            && await windowManager.MessageBox(
+                string.Format(localization.GetString("Str.Tool.ProtocolInspector.ReplaceFiles"),
+                    string.Join(Environment.NewLine, existing)),
+                buttons: MessageBoxButtons.YesNo, icon: MessageBoxIcon.Warning) != MessageBoxResult.Yes)
+            throw new OperationCanceledException();
         Directory.CreateDirectory(directory);
         // Not each member's own Save: a member written to a file other than its own has its attribute qualifiers
         // rewritten for that reason alone, as VB6's Save As writes them, and one written back to its own file is a
