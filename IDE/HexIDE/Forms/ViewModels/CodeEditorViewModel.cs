@@ -1065,9 +1065,12 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
         if (languageServerStateHandler is null)
         {
             // Posted rather than raised inline: this arrives on whichever thread the connection is
-            // running on, and every subscriber is a view.
+            // running on, and every subscriber is a view. The dispatcher is taken here, on the UI thread: asked
+            // for on the connection's thread while a headless test's setup has it cleared, Dispatcher.UIThread
+            // makes that thread the UI thread (#2530).
+            var uiThread = Avalonia.Threading.Dispatcher.UIThread;
             languageServerStateHandler = (_, _) =>
-                Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+                uiThread.Post(() =>
                 {
                     analysis?.Invalidate();
                     LanguageServerStateChanged?.Invoke();

@@ -55,6 +55,11 @@ public partial class LanguageServersToolViewModel : Document
     private readonly IProjectManager? _projects;
     private readonly HashSet<string> _pendingOutput = new(StringComparer.Ordinal);
 
+    // Taken when the window is built, on the UI thread, rather than asked for by the handlers below. They run on
+    // transport and RPC threads, and asking Dispatcher.UIThread there while it is cleared makes that thread the UI
+    // thread. Avalonia.Headless clears it as each test is set up, so an earlier test's connection hung the run (#2530).
+    private readonly Dispatcher _uiThread = Dispatcher.UIThread;
+
     internal event Action? LanguageChanged;
 
     public ObservableCollection<LanguageServerGroupViewModel> Groups { get; } = [];
@@ -126,8 +131,8 @@ public partial class LanguageServersToolViewModel : Document
     private void OnArmingChanged(object? sender, string? connectionId)
     {
         // Arming can come from the automation server's thread, and everything below touches a view.
-        if (Dispatcher.UIThread.CheckAccess()) Apply();
-        else Dispatcher.UIThread.Post(Apply);
+        if (_uiThread.CheckAccess()) Apply();
+        else _uiThread.Post(Apply);
 
         void Apply()
         {
@@ -155,7 +160,7 @@ public partial class LanguageServersToolViewModel : Document
             if (alreadyQueued) return;
         }
         // A noisy server must not queue one dispatcher job for every line.
-        Dispatcher.UIThread.Post(() =>
+        _uiThread.Post(() =>
         {
             string[] changed;
             lock (_pendingOutput)
@@ -170,8 +175,8 @@ public partial class LanguageServersToolViewModel : Document
 
     private void OnLanguageChanged()
     {
-        if (Dispatcher.UIThread.CheckAccess()) Apply();
-        else Dispatcher.UIThread.Post(Apply);
+        if (_uiThread.CheckAccess()) Apply();
+        else _uiThread.Post(Apply);
 
         void Apply()
         {
@@ -186,8 +191,8 @@ public partial class LanguageServersToolViewModel : Document
     private void OnConnectionsChanged(object? sender, EventArgs e)
     {
         // The registry raises this from transport and RPC callbacks, which are not the UI thread.
-        if (Dispatcher.UIThread.CheckAccess()) Refresh();
-        else Dispatcher.UIThread.Post(Refresh);
+        if (_uiThread.CheckAccess()) Refresh();
+        else _uiThread.Post(Refresh);
     }
 
     /// <summary>

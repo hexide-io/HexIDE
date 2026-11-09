@@ -100,6 +100,10 @@ public partial class ObjectBrowserToolViewModel : Document
     private int _navIndex = -1;
     private bool _isNavigatingHistory;
 
+    // Taken when the window is built, on the UI thread. Asked for on a transport thread while a headless test's setup
+    // has it cleared, Dispatcher.UIThread makes that thread the UI thread, and CheckAccess then says yes there (#2530).
+    private readonly Dispatcher uiThread = Dispatcher.UIThread;
+
     public ObjectBrowserToolViewModel(IProjectManager projectManager, ILspClient lspClient,
         IEditorService editorService, IComponentRegistry componentRegistry,
         ITypeLibraryService typeLibraryService, IFocusedProjectUtil focusedProjectUtil,
@@ -202,8 +206,8 @@ public partial class ObjectBrowserToolViewModel : Document
     private void OnConnectionsChanged(object? sender, EventArgs e)
     {
         // Registry notifications can arrive from a transport thread.
-        if (Dispatcher.UIThread.CheckAccess()) Retry();
-        else Dispatcher.UIThread.Post(Retry);
+        if (uiThread.CheckAccess()) Retry();
+        else uiThread.Post(Retry);
 
         void Retry()
         {
