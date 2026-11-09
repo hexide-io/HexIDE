@@ -70,6 +70,7 @@ internal static class ObjectAsValue
         FormControls => throw new VBRunTimeException(context, VBStandardError.WrongNumberOfArgumentsOrInvalidPropertyAssignment),
         // And Forms: `v = Forms` is 450, and v stays Empty (measured, #2496).
         VbForms => throw new VBRunTimeException(context, VBStandardError.WrongNumberOfArgumentsOrInvalidPropertyAssignment),
+        PanelPicture => throw new NotImplementedException("Picture default Handle is not implemented (#2626)"),
         ICSharpProxy => throw new VBRunTimeException(context, VBStandardError.ObjectDoesntSupportThisPropertyOrMethod),
         _ => value,
     };

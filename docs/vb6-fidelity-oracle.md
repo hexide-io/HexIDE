@@ -129,3 +129,7 @@ They pin exact Double bits and errors for Double cash-flow arrays, including NPV
 discount, its rate -1 and unallocated-array error 5, IRR's guess-dependent bits and all-positive
 error 5, and MIRR's all-positive error 11 and finance-rate -1 error 5. Native and p-code agree.
 [Cash-flow precision](financial-precision-2525.md) records model comparisons, not new measurements.
+
+The #2626 resource function measurements (vb6.exe SP6, matching native and p-code runs) are recorded in
+[LoadResString, LoadResData and LoadResPicture](vb6-fidelity-oracle/loadresstring-loadresdata-and-loadrespicture.md).
+The measuring authors' page remains the source for string, byte-array, bitmap and error results.
