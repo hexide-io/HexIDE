@@ -87,6 +87,18 @@ those documents and explain the possible line mismatch.
 - **WHEN** code changes during a run
 - **THEN** debug-state and breakpoint replies name the changed document until the run ends
 
+### Requirement: Offscreen state includes scroll clipping
+
+`inspect_element` and `dump_visual_tree` SHALL report `isOffscreen: true` when a control's bounds
+have no visible intersection with its enclosing scroll viewports and top-level client area, even
+when its automation peer reports otherwise. A partially visible control SHALL remain onscreen
+unless its peer reports it offscreen.
+
+#### Scenario: A row lies inside the window but below its scroll viewport
+- **WHEN** a control is wholly clipped by an enclosing scroll viewport
+- **THEN** inspection and tree dumps report it offscreen
+- **AND** scrolling it partly into view clears that state if its peer also reports it onscreen
+
 ### Requirement: Inspected popup bounds share the window coordinate space
 
 `inspect_element` SHALL report `boundingRect` in device-independent client coordinates of the selected

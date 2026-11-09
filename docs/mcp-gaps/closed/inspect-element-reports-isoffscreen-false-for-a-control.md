@@ -12,3 +12,9 @@ row is not in. The peer's `IsOffscreen` does not count a scroll viewer's clip on
 
 **Suggested fix.** Compute `isOffscreen` from the control's bounds against each enclosing scroll viewer's viewport and
 the window, not from the peer alone. [#2867](https://github.com/hexide-io/HexIDE/issues/2867).
+
+**Fixed (#2867).** Inspection and tree dumps now intersect the control's bounds with every enclosing
+scroll content presenter's viewport and its top-level client area, in a shared visual coordinate space.
+A partial intersection remains onscreen. Headless regression coverage is in
+`UiAutomationDriverTests.Offscreen_accounts_for_scroll_viewports`, including nested viewers and 150% scaling.
+The original Windows Language & Debug Servers snapshot check remains for live verification.
