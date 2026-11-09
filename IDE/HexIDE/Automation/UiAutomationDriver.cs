@@ -360,7 +360,7 @@ public static class UiAutomationDriver
         var dataContext = control.DataContext;
         var owner = control;
         if (dataContext is null || ReferenceEquals(control, root)) return owner;
-        for (var a = control.GetVisualParent(); a is not null; a = a.GetVisualParent())
+        for (var a = InheritsFrom(control); a is not null; a = InheritsFrom(a))
         {
             if (a is not Control c || Classify(c).Structural) continue;
             if (!ReferenceEquals(c.DataContext, dataContext)) break;
@@ -368,6 +368,14 @@ public static class UiAutomationDriver
             if (ReferenceEquals(c, root)) break;
         }
         return owner;
+
+        // A popup's content is in a visual tree of its own, whose top has nothing above it. What it inherits comes through
+        // the popup's logical parent, which is not always where it's placed: a code window's completion list is placed on
+        // the editor and inherits from the window (#2892).
+        static Visual? InheritsFrom(Visual v) =>
+            v is Control { Parent: Popup popup } && ReferenceEquals(popup.Child, v)
+                ? popup.Parent as Visual ?? popup.PlacementTarget ?? popup.GetVisualParent()
+                : v.GetVisualParent();
     }
 
     /// <summary>Reflects the command, Command-bound method and property members of a control's DataContext.</summary>

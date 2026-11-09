@@ -357,6 +357,7 @@
     "Str.Tool.Project.Menu.Add.Form": "窗体",
     "Str.Tool.Project.Menu.Print": "打印",
     "Str.Tool.FormLayout.Preview.FormName": "Form1",
+    "Str.Tool.ColorPalette.Title": "调色板",
     "Str.Tool.ColorPalette.Button.Default": "默认",
     "Str.Tool.ColorPalette.Button.DefineColors": "定义颜色",
     "Str.Tool.Locals.ContextReady": "<就绪>",

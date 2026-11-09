@@ -194,7 +194,7 @@ public partial class ProjectService : IProjectService
     {
         if (template.Supported == false)
         {
-            await windowManager.MessageBox("Your HexIDE version doesn't support " + template.Name, "HexIDE", MessageBoxButtons.Ok, MessageBoxIcon.Information);
+            await windowManager.MessageBox($"Your {HexIDE.IDE.Distribution.DisplayName} version doesn't support " + template.Name, HexIDE.IDE.Distribution.DisplayName, MessageBoxButtons.Ok, MessageBoxIcon.Information);
             return;
         }
 
@@ -845,7 +845,7 @@ public partial class ProjectService : IProjectService
                     string.Format(localization.GetString("Str.Dialog.SourceEncoding.NothingWritten"),
                         refusal.Document, refusal.CodePage, refusal.Character, refusal.CodePoint,
                         refusal.Line.Length > 0 ? refusal.Line : refusal.Character),
-                    "HexIDE", MessageBoxButtons.Ok, MessageBoxIcon.Warning);
+                    HexIDE.IDE.Distribution.DisplayName, MessageBoxButtons.Ok, MessageBoxIcon.Warning);
             throw;
         }
         catch (UnsavedMemberRefusal refusal)
@@ -858,7 +858,7 @@ public partial class ProjectService : IProjectService
                 await windowManager.MessageBox(
                     string.Format(localization.GetString("Str.Dialog.UnsavedMembers.NothingWritten"),
                         refusal.Project, string.Join("\n", refusal.Members.Select(m => $"  • {m}"))),
-                    "HexIDE", MessageBoxButtons.Ok, MessageBoxIcon.Warning);
+                    HexIDE.IDE.Distribution.DisplayName, MessageBoxButtons.Ok, MessageBoxIcon.Warning);
             throw;
         }
     }
@@ -2121,7 +2121,7 @@ public partial class ProjectService : IProjectService
         if (interactive)
             await windowManager.MessageBox(
                 string.Format(body, names),
-                "HexIDE", MessageBoxButtons.Ok, MessageBoxIcon.Warning);
+                HexIDE.IDE.Distribution.DisplayName, MessageBoxButtons.Ok, MessageBoxIcon.Warning);
     }
 
     public Task SaveAllProjects(bool saveAs)

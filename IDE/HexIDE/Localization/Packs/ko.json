@@ -357,6 +357,7 @@
     "Str.Tool.Project.Menu.Add.Form": "폼",
     "Str.Tool.Project.Menu.Print": "인쇄",
     "Str.Tool.FormLayout.Preview.FormName": "Form1",
+    "Str.Tool.ColorPalette.Title": "색상 팔레트",
     "Str.Tool.ColorPalette.Button.Default": "기본값",
     "Str.Tool.ColorPalette.Button.DefineColors": "색 정의",
     "Str.Tool.Locals.ContextReady": "<준비됨>",

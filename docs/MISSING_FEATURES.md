@@ -91,7 +91,7 @@
 | Form Layout Window | — | Done | Monitor illustration with correct aspect ratio and live form thumbnail (StartUpPosition, Left, Top, Width, Height); closed by default on first run and Reset Layout (#531) |
 | Property Pages | — | Missing | Windows-only; see below. `IPropertyPage`/`IPropertyPageSite` COM runtime display |
 | Toolbox | — | Done | Contributed tools can request a measured usable width on first display without widening the Toolbox alone (#2361). Default and Reset place it on the left; reopening retains its home and is captured for restart (#895); recreated left docks are initialized with their tools so they remain visible (#2238). `DockFactoryTests.ReopenedTool_HasVisibleBoundsInItsLastColumn` checks Toolbox and Properties bounds, column and size across repeated close/show cycles at 150% scaling, with default and resized layouts (#895) |
-| Color Palette | — | Done | |
+| Color Palette | — | Done | Localized pane title, updated live when the language changes (#3388) |
 | Toolbars > Standard | — | Done | Toggle persisted; right-click context menu on toolbar band |
 | Toolbars > Edit | — | Done | 12 buttons: IntelliSense, indent/outdent, breakpoint, bookmarks |
 | Toolbars > Debug | — | Done | 12 buttons: Start/Break/End, breakpoint, Step Into/Over/Out, Locals/Immediate/Watches/Call Stack, Quick Watch |
@@ -455,7 +455,7 @@ The former Add-In Manager dialog has been replaced by Options → Add-Ins, which
 |---|---|---|
 | New Project | Done | New / Existing / Recent tabs; template icons wrap into rows with vertical scrolling and keyboard access (#3294) |
 | IDE dialog window chrome | Done | IDialog hosts, IDE message/input boxes and language-server prompts cannot be minimized and have no separate taskbar button ([#3341](https://github.com/hexide-io/HexIDE/issues/3341)); runtime MsgBox/InputBox are outside this change |
-| Project Properties | Partial | EXE-only project type; startup form selection works |
+| Project Properties | Partial | EXE-only project type; startup form selection works; Tab reaches every enabled General control and wraps through the page (#3391) |
 | References | Done | Registry enumeration (Windows); Browse; persisted to .vbp with hexadecimal LCIDs (#2273). Saves use Windows drive semantics on every host to relativise same-drive reference paths and preserve read line order; accepting References regroups references before read components and members (#2274); empty paths remain empty without registry resolution. VB6's three fixed rows head the list, and the project's own OLE Automation reference is an ordinary row that OK keeps (#1026) |
 | Components | Partial | Apply adds and drops the in-box libraries' `Object=` lines (see the Project menu row); Designers and Insertable Objects lists always empty |
 | Add Procedure | Done | |

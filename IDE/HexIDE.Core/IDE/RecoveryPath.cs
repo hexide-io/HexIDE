@@ -29,7 +29,8 @@ public static class RecoveryPath
         OperatingSystem.IsWindows(),
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
         Environment.GetEnvironmentVariable("XDG_STATE_HOME"),
-        Environment.GetFolderPath(Environment.SpecialFolder.UserProfile));
+        Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+        Distribution.Current.StateDirectoryName);
 
     /// <summary>
     /// <see cref="Directory"/> from its inputs, so each platform's rule can be tested on any host.
@@ -39,19 +40,21 @@ public static class RecoveryPath
     /// <param name="localAppData">Windows' local application data directory.</param>
     /// <param name="xdgStateHome"><c>XDG_STATE_HOME</c>, or null when unset.</param>
     /// <param name="home">The user's home directory.</param>
-    internal static string For(string? redirected, bool windows, string localAppData, string? xdgStateHome, string home)
+    /// <param name="stateDirectory">The distribution's own folder under those roots.</param>
+    internal static string For(string? redirected, bool windows, string localAppData, string? xdgStateHome, string home,
+        string stateDirectory = DistributionIdentity.StockName)
     {
         if (redirected is not null)
             return Path.Combine(redirected, "Recovery");
 
         if (windows)
-            return Path.Combine(Rooted(localAppData, "%LocalAppData%"), "HexIDE", "Recovery");
+            return Path.Combine(Rooted(localAppData, "%LocalAppData%"), stateDirectory, "Recovery");
 
         // The XDG specification has an implementation ignore a relative path in any of its variables, rather than use it.
         if (xdgStateHome is { Length: > 0 } && Path.IsPathRooted(xdgStateHome))
-            return Path.Combine(xdgStateHome, "HexIDE", "Recovery");
+            return Path.Combine(xdgStateHome, stateDirectory, "Recovery");
 
-        return Path.Combine(Rooted(home, "the user's home directory"), ".local", "state", "HexIDE", "Recovery");
+        return Path.Combine(Rooted(home, "the user's home directory"), ".local", "state", stateDirectory, "Recovery");
     }
 
     // Loud rather than relative, for the reason UserDataPath gives: a relative path would put the backup wherever the

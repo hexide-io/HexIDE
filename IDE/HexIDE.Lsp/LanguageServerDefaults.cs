@@ -1,3 +1,4 @@
+using HexIDE.IDE;
 using Microsoft.Extensions.Logging;
 
 namespace HexIDE.Lsp;
@@ -15,6 +16,18 @@ namespace HexIDE.Lsp;
 /// </summary>
 public static class LanguageServerDefaults
 {
+    /// <summary>
+    /// A branded host tells the server it bundles where to log, so that server does not write under HexIDE's
+    /// folder (#2042). Stock HexIDE passes nothing, as it always has.
+    /// </summary>
+    internal static string BundledArguments(string arguments, DistributionIdentity distribution)
+    {
+        if (distribution.IsStock)
+            return arguments;
+        var logRoot = $"--log-root \"{distribution.LogsDirectory}\"";
+        return arguments.Length == 0 ? logRoot : $"{arguments} {logRoot}";
+    }
+
     public const string BundledVb6Id = "hexide.vb6";
 
     /// <summary>
@@ -43,12 +56,12 @@ public static class LanguageServerDefaults
             new LanguageServerEntry
             {
                 Id = BundledVb6Id,
-                DisplayName = "HexIDE VB6 Language Server",
+                DisplayName = $"{Distribution.DisplayName} VB6 Language Server",
                 Extensions = DocumentLanguage.Vb6Extensions,
                 LanguageId = DocumentLanguage.Vb6,
                 Transport = "stdio",
                 Command = server.FileName,
-                Arguments = server.Arguments,
+                Arguments = BundledArguments(server.Arguments, Distribution.Current),
 
                 // Deliberately not the locator's working directory. Left empty so the transport asks the
                 // workspace at start, and the server runs in whichever project is open by then.
