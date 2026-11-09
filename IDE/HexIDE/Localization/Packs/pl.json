@@ -1124,6 +1124,7 @@
     "Str.Layout.NamePrompt": "Nazwa układu:",
     "Str.Layout.InvalidName": "Wprowadź unikatową, niepustą nazwę układu.",
     "Str.Layout.Skipped": "Pominięto niedostępne okna dodatków: {0}",
-    "Str.Layout.SaveFailed": "Nie można zapisać układów paneli."
+    "Str.Layout.SaveFailed": "Nie można zapisać układów paneli.",
+    "Str.Project.AlreadyOpen": "Projekt {0} jest już otwarty."
   }
 }

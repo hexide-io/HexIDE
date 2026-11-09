@@ -1124,6 +1124,7 @@
     "Str.Layout.NamePrompt": "Nom de la disposició:",
     "Str.Layout.InvalidName": "Introduïu un nom de disposició únic i no buit.",
     "Str.Layout.Skipped": "S’han omès les finestres de complements no disponibles: {0}",
-    "Str.Layout.SaveFailed": "No s’han pogut desar les disposicions dels panells."
+    "Str.Layout.SaveFailed": "No s’han pogut desar les disposicions dels panells.",
+    "Str.Project.AlreadyOpen": "El projecte {0} ja està obert."
   }
 }

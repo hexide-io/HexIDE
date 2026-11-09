@@ -1124,6 +1124,7 @@
     "Str.Layout.NamePrompt": "レイアウト名:",
     "Str.Layout.InvalidName": "重複しない空でないレイアウト名を入力してください。",
     "Str.Layout.Skipped": "利用できないアドインのウィンドウはスキップされました: {0}",
-    "Str.Layout.SaveFailed": "パネルレイアウトを保存できませんでした。"
+    "Str.Layout.SaveFailed": "パネルレイアウトを保存できませんでした。",
+    "Str.Project.AlreadyOpen": "プロジェクト {0} は既に開いています。"
   }
 }

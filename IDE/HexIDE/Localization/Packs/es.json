@@ -1124,6 +1124,7 @@
     "Str.Layout.NamePrompt": "Nombre del diseño:",
     "Str.Layout.InvalidName": "Escriba un nombre de diseño único y no vacío.",
     "Str.Layout.Skipped": "Se omitieron las ventanas de complementos no disponibles: {0}",
-    "Str.Layout.SaveFailed": "No se pudieron guardar los diseños de paneles."
+    "Str.Layout.SaveFailed": "No se pudieron guardar los diseños de paneles.",
+    "Str.Project.AlreadyOpen": "El proyecto {0} ya está abierto."
   }
 }

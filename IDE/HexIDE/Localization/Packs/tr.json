@@ -1124,6 +1124,7 @@
     "Str.Layout.NamePrompt": "Düzen adı:",
     "Str.Layout.InvalidName": "Benzersiz, boş olmayan bir düzen adı girin.",
     "Str.Layout.Skipped": "Kullanılamayan eklenti pencereleri atlandı: {0}",
-    "Str.Layout.SaveFailed": "Panel düzenleri kaydedilemedi."
+    "Str.Layout.SaveFailed": "Panel düzenleri kaydedilemedi.",
+    "Str.Project.AlreadyOpen": "{0} projesi zaten açık."
   }
 }

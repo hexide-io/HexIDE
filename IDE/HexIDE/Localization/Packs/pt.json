@@ -1124,6 +1124,7 @@
     "Str.Layout.NamePrompt": "Nome da disposição:",
     "Str.Layout.InvalidName": "Introduza um nome de disposição único e não vazio.",
     "Str.Layout.Skipped": "As janelas de suplementos indisponíveis foram ignoradas: {0}",
-    "Str.Layout.SaveFailed": "Não foi possível guardar as disposições dos painéis."
+    "Str.Layout.SaveFailed": "Não foi possível guardar as disposições dos painéis.",
+    "Str.Project.AlreadyOpen": "O projeto {0} já está aberto."
   }
 }

@@ -1124,6 +1124,7 @@
     "Str.Layout.NamePrompt": "Paigutuse nimi:",
     "Str.Layout.InvalidName": "Sisestage kordumatu ja mittetühi paigutuse nimi.",
     "Str.Layout.Skipped": "Kättesaamatud lisandmooduli aknad jäeti vahele: {0}",
-    "Str.Layout.SaveFailed": "Paneelipaigutusi ei saanud salvestada."
+    "Str.Layout.SaveFailed": "Paneelipaigutusi ei saanud salvestada.",
+    "Str.Project.AlreadyOpen": "Projekt {0} on juba avatud."
   }
 }

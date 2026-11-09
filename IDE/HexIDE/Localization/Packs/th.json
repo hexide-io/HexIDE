@@ -1124,6 +1124,7 @@
     "Str.Layout.NamePrompt": "ชื่อเค้าโครง:",
     "Str.Layout.InvalidName": "ป้อนชื่อเค้าโครงที่ไม่ซ้ำและไม่ว่าง",
     "Str.Layout.Skipped": "ข้ามหน้าต่างส่วนเสริมที่ไม่พร้อมใช้งาน: {0}",
-    "Str.Layout.SaveFailed": "ไม่สามารถบันทึกเค้าโครงแผงได้"
+    "Str.Layout.SaveFailed": "ไม่สามารถบันทึกเค้าโครงแผงได้",
+    "Str.Project.AlreadyOpen": "โครงการ {0} เปิดอยู่แล้ว"
   }
 }

@@ -1124,6 +1124,7 @@
     "Str.Layout.NamePrompt": "שם הפריסה:",
     "Str.Layout.InvalidName": "יש להזין שם פריסה ייחודי שאינו ריק.",
     "Str.Layout.Skipped": "דולגו חלונות תוספים שאינם זמינים: {0}",
-    "Str.Layout.SaveFailed": "לא ניתן לשמור את פריסות החלוניות."
+    "Str.Layout.SaveFailed": "לא ניתן לשמור את פריסות החלוניות.",
+    "Str.Project.AlreadyOpen": "הפרויקט {0} כבר פתוח."
   }
 }

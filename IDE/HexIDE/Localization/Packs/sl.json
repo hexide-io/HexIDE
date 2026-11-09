@@ -1124,6 +1124,7 @@
     "Str.Layout.NamePrompt": "Ime postavitve:",
     "Str.Layout.InvalidName": "Vnesite enolično ime postavitve, ki ni prazno.",
     "Str.Layout.Skipped": "Nerazpoložljiva okna dodatkov so bila preskočena: {0}",
-    "Str.Layout.SaveFailed": "Postavitev podoken ni bilo mogoče shraniti."
+    "Str.Layout.SaveFailed": "Postavitev podoken ni bilo mogoče shraniti.",
+    "Str.Project.AlreadyOpen": "Projekt {0} je že odprt."
   }
 }

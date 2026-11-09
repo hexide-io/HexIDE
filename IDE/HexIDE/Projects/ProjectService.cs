@@ -411,7 +411,7 @@ public partial class ProjectService : IProjectService
         Log.Information("ProjectService: Opening {ProjectPath} as {Type}, from {Origin}", projectPath, type.Type.Title, type.Origin);
         if (projectManager.LoadedProjects.Any(p => p.AbsolutePath != null && HexIDE.IO.HostFilePath.Equals(projectPath, p.AbsolutePath)))
         {
-            await windowManager.MessageBox($"Project {Path.GetFileName(projectPath)} is already opened.", icon: MessageBoxIcon.Information);
+            await windowManager.MessageBox(string.Format(localization.GetString("Str.Project.AlreadyOpen"), Path.GetFileName(projectPath)), icon: MessageBoxIcon.Information);
             throw new OperationCanceledException();
         }
 
@@ -665,7 +665,7 @@ public partial class ProjectService : IProjectService
         Log.Information("ProjectService: Opening project {ProjectPath}", projectPath);
         if (projectManager.LoadedProjects.Any(p => p.AbsolutePath != null && HexIDE.IO.HostFilePath.Equals(projectPath, p.AbsolutePath)))
         {
-            await windowManager.MessageBox($"Project {Path.GetFileName(projectPath)} is already opened.", icon: MessageBoxIcon.Information);
+            await windowManager.MessageBox(string.Format(localization.GetString("Str.Project.AlreadyOpen"), Path.GetFileName(projectPath)), icon: MessageBoxIcon.Information);
             throw new OperationCanceledException();
         }
         var errorSink = new DeserializeErrorSink(localization);

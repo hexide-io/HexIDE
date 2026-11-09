@@ -1124,6 +1124,7 @@
     "Str.Layout.NamePrompt": "Naam van indeling:",
     "Str.Layout.InvalidName": "Voer een unieke, niet-lege naam voor de indeling in.",
     "Str.Layout.Skipped": "Niet-beschikbare invoegtoepassingsvensters zijn overgeslagen: {0}",
-    "Str.Layout.SaveFailed": "De paneelindelingen konden niet worden opgeslagen."
+    "Str.Layout.SaveFailed": "De paneelindelingen konden niet worden opgeslagen.",
+    "Str.Project.AlreadyOpen": "Project {0} is al geopend."
   }
 }

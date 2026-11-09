@@ -1124,6 +1124,7 @@
     "Str.Layout.NamePrompt": "Nome da disposición:",
     "Str.Layout.InvalidName": "Introduza un nome de disposición único e non baleiro.",
     "Str.Layout.Skipped": "Omitíronse as xanelas de complementos non dispoñibles: {0}",
-    "Str.Layout.SaveFailed": "Non se puideron gardar as disposicións dos paneis."
+    "Str.Layout.SaveFailed": "Non se puideron gardar as disposicións dos paneis.",
+    "Str.Project.AlreadyOpen": "O proxecto {0} xa está aberto."
   }
 }

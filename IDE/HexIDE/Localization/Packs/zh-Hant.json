@@ -1124,6 +1124,7 @@
     "Str.Layout.NamePrompt": "配置名稱：",
     "Str.Layout.InvalidName": "請輸入唯一且非空的配置名稱。",
     "Str.Layout.Skipped": "已略過無法使用的增益集視窗：{0}",
-    "Str.Layout.SaveFailed": "無法儲存面板配置。"
+    "Str.Layout.SaveFailed": "無法儲存面板配置。",
+    "Str.Project.AlreadyOpen": "專案 {0} 已開啟。"
   }
 }

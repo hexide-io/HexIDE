@@ -1124,6 +1124,7 @@
     "Str.Layout.NamePrompt": "Numele aranjamentului:",
     "Str.Layout.InvalidName": "Introduceți un nume unic și nevid pentru aranjament.",
     "Str.Layout.Skipped": "Ferestrele extensiilor indisponibile au fost omise: {0}",
-    "Str.Layout.SaveFailed": "Aranjamentele panourilor nu au putut fi salvate."
+    "Str.Layout.SaveFailed": "Aranjamentele panourilor nu au putut fi salvate.",
+    "Str.Project.AlreadyOpen": "Proiectul {0} este deja deschis."
   }
 }

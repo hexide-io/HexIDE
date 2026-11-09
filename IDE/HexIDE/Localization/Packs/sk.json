@@ -1124,6 +1124,7 @@
     "Str.Layout.NamePrompt": "Názov rozloženia:",
     "Str.Layout.InvalidName": "Zadajte jedinečný neprázdny názov rozloženia.",
     "Str.Layout.Skipped": "Nedostupné okná doplnkov boli preskočené: {0}",
-    "Str.Layout.SaveFailed": "Rozloženia panelov sa nepodarilo uložiť."
+    "Str.Layout.SaveFailed": "Rozloženia panelov sa nepodarilo uložiť.",
+    "Str.Project.AlreadyOpen": "Projekt {0} je už otvorený."
   }
 }

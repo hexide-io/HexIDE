@@ -1124,6 +1124,7 @@
     "Str.Layout.NamePrompt": "Nome della disposizione:",
     "Str.Layout.InvalidName": "Inserire un nome di disposizione univoco e non vuoto.",
     "Str.Layout.Skipped": "Le finestre dei componenti aggiuntivi non disponibili sono state ignorate: {0}",
-    "Str.Layout.SaveFailed": "Impossibile salvare le disposizioni dei pannelli."
+    "Str.Layout.SaveFailed": "Impossibile salvare le disposizioni dei pannelli.",
+    "Str.Project.AlreadyOpen": "Il progetto {0} è già aperto."
   }
 }

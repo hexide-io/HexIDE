@@ -1124,6 +1124,7 @@
     "Str.Layout.NamePrompt": "Oppsettnavn:",
     "Str.Layout.InvalidName": "Angi et unikt oppsettnavn som ikke er tomt.",
     "Str.Layout.Skipped": "Utilgjengelige tilleggsvinduer ble hoppet over: {0}",
-    "Str.Layout.SaveFailed": "Paneloppsettene kunne ikke lagres."
+    "Str.Layout.SaveFailed": "Paneloppsettene kunne ikke lagres.",
+    "Str.Project.AlreadyOpen": "Prosjektet {0} er allerede åpent."
   }
 }

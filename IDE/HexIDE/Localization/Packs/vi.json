@@ -1124,6 +1124,7 @@
     "Str.Layout.NamePrompt": "Tên bố cục:",
     "Str.Layout.InvalidName": "Nhập tên bố cục duy nhất và không để trống.",
     "Str.Layout.Skipped": "Đã bỏ qua các cửa sổ phần bổ trợ không khả dụng: {0}",
-    "Str.Layout.SaveFailed": "Không thể lưu các bố cục bảng."
+    "Str.Layout.SaveFailed": "Không thể lưu các bố cục bảng.",
+    "Str.Project.AlreadyOpen": "Dự án {0} đã được mở."
   }
 }

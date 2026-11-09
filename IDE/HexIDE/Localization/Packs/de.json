@@ -1124,6 +1124,7 @@
     "Str.Layout.NamePrompt": "Name der Anordnung:",
     "Str.Layout.InvalidName": "Geben Sie einen eindeutigen, nicht leeren Namen für die Anordnung ein.",
     "Str.Layout.Skipped": "Nicht verfügbare Add-In-Fenster wurden übersprungen: {0}",
-    "Str.Layout.SaveFailed": "Die Panelanordnungen konnten nicht gespeichert werden."
+    "Str.Layout.SaveFailed": "Die Panelanordnungen konnten nicht gespeichert werden.",
+    "Str.Project.AlreadyOpen": "Das Projekt {0} ist bereits geöffnet."
   }
 }

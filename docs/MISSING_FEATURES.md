@@ -14,7 +14,7 @@
 | Item | Shortcut | Status | Notes |
 |---|---|---|---|
 | New Project | Ctrl+N | Done | Template selection precedes unloading; Cancel preserves the workspace and unsaved changes (#3394) |
-| Open Project… | Ctrl+O | Done | Missing forms, standard/class modules, UserControls and property pages share one localized warning naming the path from the `.vbp` (#2294). Missing/unsupported Explorer nodes retain main’s file and status markers (#1876); their raw-line labels remain outstanding. |
+| Open Project… | Ctrl+O | Done | Already-open warnings for VB6 and add-in-contributed projects follow the IDE language (#3199). Missing forms, standard/class modules, UserControls and property pages share one localized warning naming the path from the `.vbp` (#2294). Missing/unsupported Explorer nodes retain main’s file and status markers (#1876); their raw-line labels remain outstanding. |
 | Recover Unsaved Work… | — | Done | A HexIDE addition: VB6 had no crash recovery (#499). While the IDE runs, every unsaved document is copied every five seconds to a private store outside the project, and an unclean exit leaves the copy for the next start. A never-saved or scratch project is offered at start; a saved one when it is opened, matched by path, or by its project file once the old path is empty. Restored work comes back unsaved; the dialog names files changed on disk since the copy. This item lists whatever is still waiting. A saved project's other settings, such as its startup object, are not restored. See [crash-recovery.md](crash-recovery.md) |
 | Add Project… | — | Done | Adds second project; implicit `CurrentGroup` created when >1 project loaded |
 | Remove *{project}* | — | Done | |

@@ -1124,6 +1124,7 @@
     "Str.Layout.NamePrompt": "Nama tata letak:",
     "Str.Layout.InvalidName": "Masukkan nama tata letak yang unik dan tidak kosong.",
     "Str.Layout.Skipped": "Jendela add-in yang tidak tersedia dilewati: {0}",
-    "Str.Layout.SaveFailed": "Tata letak panel tidak dapat disimpan."
+    "Str.Layout.SaveFailed": "Tata letak panel tidak dapat disimpan.",
+    "Str.Project.AlreadyOpen": "Proyek {0} sudah terbuka."
   }
 }

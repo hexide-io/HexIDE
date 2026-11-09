@@ -1124,6 +1124,7 @@
     "Str.Layout.NamePrompt": "Naziv rasporeda:",
     "Str.Layout.InvalidName": "Unesite jedinstven naziv rasporeda koji nije prazan.",
     "Str.Layout.Skipped": "Nedostupni prozori dodataka su preskočeni: {0}",
-    "Str.Layout.SaveFailed": "Rasporedi panela nisu mogli da se sačuvaju."
+    "Str.Layout.SaveFailed": "Rasporedi panela nisu mogli da se sačuvaju.",
+    "Str.Project.AlreadyOpen": "Projekat {0} je već otvoren."
   }
 }

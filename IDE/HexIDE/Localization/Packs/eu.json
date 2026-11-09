@@ -1124,6 +1124,7 @@
     "Str.Layout.NamePrompt": "Diseinuaren izena:",
     "Str.Layout.InvalidName": "Idatzi diseinuaren izen bakarra eta ez-hutsa.",
     "Str.Layout.Skipped": "Erabilgarri ez dauden gehigarrien leihoak saltatu dira: {0}",
-    "Str.Layout.SaveFailed": "Ezin izan dira panelen diseinuak gorde."
+    "Str.Layout.SaveFailed": "Ezin izan dira panelen diseinuak gorde.",
+    "Str.Project.AlreadyOpen": "{0} proiektua irekita dago jada."
   }
 }

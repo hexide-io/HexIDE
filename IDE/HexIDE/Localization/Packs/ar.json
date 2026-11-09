@@ -1124,6 +1124,7 @@
     "Str.Layout.NamePrompt": "اسم التخطيط:",
     "Str.Layout.InvalidName": "أدخل اسم تخطيط فريدًا وغير فارغ.",
     "Str.Layout.Skipped": "تم تخطي نوافذ الوظائف الإضافية غير المتاحة: {0}",
-    "Str.Layout.SaveFailed": "تعذر حفظ تخطيطات اللوحات."
+    "Str.Layout.SaveFailed": "تعذر حفظ تخطيطات اللوحات.",
+    "Str.Project.AlreadyOpen": "المشروع {0} مفتوح بالفعل."
   }
 }

@@ -1124,6 +1124,7 @@
     "Str.Layout.NamePrompt": "Layoutnavn:",
     "Str.Layout.InvalidName": "Angiv et entydigt layoutnavn, der ikke er tomt.",
     "Str.Layout.Skipped": "Utilgængelige tilføjelsesvinduer blev sprunget over: {0}",
-    "Str.Layout.SaveFailed": "Panellayoutene kunne ikke gemmes."
+    "Str.Layout.SaveFailed": "Panellayoutene kunne ikke gemmes.",
+    "Str.Project.AlreadyOpen": "Projektet {0} er allerede åbent."
   }
 }
