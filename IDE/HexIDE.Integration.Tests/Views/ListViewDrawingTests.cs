@@ -37,7 +37,7 @@ public class ListViewDrawingTests
             finally { Marshal.FreeHGlobal(buffer); }
         }
         using var stream = new MemoryStream();
-        bitmap.Save(stream);
+        bitmap.Save(stream, Avalonia.Media.Imaging.PngBitmapEncoderOptions.Default);
         return Convert.ToHexString(SHA256.HashData(stream.ToArray()));
     }
 
@@ -238,7 +238,7 @@ public class ListViewDrawingTests
             using var bitmap = window.CaptureRenderedFrame();
             bitmap.Should().NotBeNull();
             using var stream = new MemoryStream();
-            bitmap!.Save(stream);
+            bitmap!.Save(stream, Avalonia.Media.Imaging.PngBitmapEncoderOptions.Default);
             return Convert.ToHexString(SHA256.HashData(stream.ToArray()));
         }
         try

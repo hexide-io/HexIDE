@@ -2518,7 +2518,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
 
             // A file per capture, so the path an earlier call returned still holds its image (#756).
             var path = HexIDE.Automation.SnapshotComposer.NewCapturePath(System.IO.Path.GetTempPath(), DateTime.UtcNow);
-            bitmap.Save(path);
+            bitmap.Save(path, Avalonia.Media.Imaging.PngBitmapEncoderOptions.Default);
 
             // The window origin includes any space left for a popup above or to its left (#648).
             var result = new SnapshotResult(path, null, activeDialog,
@@ -2537,7 +2537,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
             var (width, height) = InlineSnapshot.Fit(bitmap.PixelSize.Width, bitmap.PixelSize.Height);
             // A render target cannot be scaled directly, so a larger image is encoded and decoded again at the fitted width.
             using var png = new System.IO.MemoryStream();
-            bitmap.Save(png);
+            bitmap.Save(png, Avalonia.Media.Imaging.PngBitmapEncoderOptions.Default);
             if (width != bitmap.PixelSize.Width)
             {
                 png.Position = 0;
@@ -2545,7 +2545,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
                     png, width, Avalonia.Media.Imaging.BitmapInterpolationMode.HighQuality);
                 height = fitted.PixelSize.Height;
                 png.SetLength(0);
-                fitted.Save(png);
+                fitted.Save(png, Avalonia.Media.Imaging.PngBitmapEncoderOptions.Default);
             }
             InlineSnapshot.Hold(path, png.ToArray());
             var inlineScale = active.DesktopScaling * width / bitmap.PixelSize.Width;

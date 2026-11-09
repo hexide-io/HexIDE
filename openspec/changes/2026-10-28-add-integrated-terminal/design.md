@@ -90,7 +90,7 @@ own the rendering, input and automation that HexIDE needs to own. This design ne
   - Porta.Pty is unchanged at 2.2.3.
   - `Microsoft.Windows.Console.ConPTY`'s newest listing is a preview, 1.26.260930004-preview. The stable 1.25.260930003 stays the pin.
 - **Avalonia controls:**
-  - Main is on Avalonia 12.0.5, and #868, the move to 12.1, is open. So the four controls that need 12.1 are still out of reach.
+  - Main was on Avalonia 12.0.5 at this check. The #868 migration to 12.1.4 removes the version blocker for the four controls that need 12.1; the engine and licensing findings above still apply.
   - Iciclecreek.Avalonia.Terminal is now 4.1.3 (2026-11-02). It still depends on Unicode.net 2.0.0, whose `licenseExpression` is still `''`.
 
 ### Recommendation: XTerm.NET, behind HexIDE's own interface

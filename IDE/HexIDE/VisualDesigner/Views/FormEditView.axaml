@@ -28,9 +28,9 @@
         <input:CommandBinding Command="{x:Static vb:ApplicationCommands.ViewObjectCommand}"
                               ExecutingCommand="{CompiledBinding ViewObject}" />
         <input:CommandBinding Command="{x:Static vb:ApplicationCommands.BringToFrontCommand}"
-                              ExecutingCommand="{CompiledBinding BringToFront}" />
+                              ExecutingCommand="{CompiledBinding BringSelectedToFront}" />
         <input:CommandBinding Command="{x:Static vb:ApplicationCommands.SendToBackCommand}"
-                              ExecutingCommand="{CompiledBinding SendToBack}" />
+                              ExecutingCommand="{CompiledBinding SendSelectedToBack}" />
         <input:CommandBinding Command="{x:Static vb:ApplicationCommands.CenterHorizontallyCommand}"
                               ExecutingCommand="{CompiledBinding CenterHorizontally}" />
         <input:CommandBinding Command="{x:Static vb:ApplicationCommands.CenterVerticallyCommand}"

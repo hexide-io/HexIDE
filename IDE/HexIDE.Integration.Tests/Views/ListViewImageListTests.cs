@@ -134,7 +134,7 @@ public class ListViewImageListTests
                 finally { Marshal.FreeHGlobal(buffer); }
             }
             using var stream = new MemoryStream();
-            bitmap.Save(stream);
+            bitmap.Save(stream, Avalonia.Media.Imaging.PngBitmapEncoderOptions.Default);
             return stream.ToArray();
         }
         var inset = HexIDE.Runtime.BuiltinControls.VBProps.GetClientInset(list);

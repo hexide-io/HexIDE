@@ -920,7 +920,8 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
             settingsService.AlignToGrid && grid > 0 ? Math.Floor(pixels / grid) * grid : pixels;
     }
 
-    public void BringToFront()
+    // Separate command names avoid the typed-overload preference in AvaloniaUI/Avalonia#21867.
+    public void BringSelectedToFront()
     {
         if (selectedComponent != null)
             BringToFront(selectedComponent);
@@ -958,7 +959,7 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
 
     public void BringToFront(ComponentInstanceViewModel instance) => MoveInPlane(instance, toFront: true, "Bring to Front");
 
-    public void SendToBack()
+    public void SendSelectedToBack()
     {
         if (selectedComponent != null)
             SendToBack(selectedComponent);

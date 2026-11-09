@@ -330,7 +330,7 @@ public class DialogButtonCueTests
         using var bitmap = window.CaptureRenderedFrame();
         bitmap.Should().NotBeNull();
         using var stream = new MemoryStream();
-        bitmap!.Save(stream);
+        bitmap!.Save(stream, Avalonia.Media.Imaging.PngBitmapEncoderOptions.Default);
         return stream.ToArray();
     }
 }
