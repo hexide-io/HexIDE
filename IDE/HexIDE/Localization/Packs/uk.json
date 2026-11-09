@@ -2,7 +2,6 @@
   "name": "Ukrainian",
   "direction": "ltr",
   "strings": {
-    "Str.Tool.Properties.Binary": "(двійкові дані)",
     "Str.AIChat.Stop": "Зупинити",
     "Str.Tool.LanguageServers.Problem.JsonSyntaxEscape": "Файл конфігурації «{0}» містить некоректний JSON у рядку {1}, стовпці {2}. Шлях: {3} Використовуйте прямі скісні риски (C:/tools/new/...) або подвоєні зворотні скісні риски (C:\\\\tools\\\\new\\\\...).",
     "Str.Tool.LanguageServers.Problem.PathControlWarning": "Поле '{0}' містить керівний символ з escape-послідовності; імовірно, мався на увазі шлях зі зворотними скісними рисками: {1}. Значення не змінено.",
@@ -34,6 +33,7 @@
     "Str.Dialog.About.Credits.Header": "Подяки",
     "Str.Dialog.About.Credits.Thanks": "HexIDE створюють надзвичайні команди ШІ разом із людьми, які долучаються до проєкту. Щиро дякуємо Claude від Anthropic — сеансам Claude Code, які пишуть, перевіряють і зливають роботу, — та Codex від OpenAI — робочим потокам Codex, які просувають виправлення з черги. Їхня турбота й невтомна праця роблять HexIDE можливим.",
     "Str.Tool.Properties.LoadPicture": "Завантажити зображення",
+    "Str.Tool.Properties.Binary": "(двійкові дані)",
     "Str.Tool.Properties.LoadPictureFailed": "Не вдалося завантажити зображення з «{0}».",
     "Str.Designer.ShowTabOrder": "Показати порядок табуляції (закреслено: TabStop вимкнено)",
     "Str.Options.EditorGeneral.Display.StickyScroll": "Закріплювати заголовки під час прокручування",

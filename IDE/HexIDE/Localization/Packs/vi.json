@@ -2,7 +2,6 @@
   "name": "Vietnamese",
   "direction": "ltr",
   "strings": {
-    "Str.Tool.Properties.Binary": "(nhị phân)",
     "Str.AIChat.Stop": "Dừng",
     "Str.Tool.LanguageServers.Problem.JsonSyntaxEscape": "Tệp cấu hình '{0}' chứa JSON không hợp lệ tại dòng {1}, cột {2}. Đường dẫn: {3} Dùng dấu gạch chéo xuôi (C:/tools/new/...) hoặc dấu gạch chéo ngược kép (C:\\\\tools\\\\new\\\\...).",
     "Str.Tool.LanguageServers.Problem.PathControlWarning": "Trường '{0}' chứa ký tự điều khiển từ chuỗi thoát; đường dẫn có dấu gạch chéo ngược có thể được định dùng: {1}. Giá trị không thay đổi.",
@@ -34,6 +33,7 @@
     "Str.Dialog.About.Credits.Header": "Lời cảm ơn",
     "Str.Dialog.About.Credits.Thanks": "HexIDE được xây dựng bởi các nhóm AI xuất sắc cùng với những người đóng góp là con người. Xin chân thành cảm ơn Claude của Anthropic — các phiên Claude Code viết, đánh giá và hợp nhất công việc — và Codex của OpenAI — các luồng công việc Codex thúc đẩy những bản sửa lỗi trong hàng đợi. Sự tận tâm và nỗ lực không mệt mỏi của họ làm nên HexIDE.",
     "Str.Tool.Properties.LoadPicture": "Tải hình ảnh",
+    "Str.Tool.Properties.Binary": "(nhị phân)",
     "Str.Tool.Properties.LoadPictureFailed": "Không thể tải hình ảnh từ “{0}”.",
     "Str.Designer.ShowTabOrder": "Hiện thứ tự tab (gạch ngang: TabStop tắt)",
     "Str.Options.EditorGeneral.Display.StickyScroll": "Ghim tiêu đề khi cuộn",

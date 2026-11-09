@@ -2,7 +2,6 @@
   "name": "Hungarian",
   "direction": "ltr",
   "strings": {
-    "Str.Tool.Properties.Binary": "(bináris)",
     "Str.AIChat.Stop": "Leállítás",
     "Str.Tool.LanguageServers.Problem.JsonSyntaxEscape": "A(z) „{0}” konfigurációs fájl érvénytelen JSON-t tartalmaz a(z) {1}. sor {2}. oszlopában. Útvonal: {3} Használjon perjeleket (C:/tools/new/...) vagy kettős fordított perjeleket (C:\\\\tools\\\\new\\\\...).",
     "Str.Tool.LanguageServers.Problem.PathControlWarning": "A(z) '{0}' mező escape-szekvenciából származó vezérlőkaraktert tartalmaz; a valószínűleg szándékolt útvonal: {1}. Az érték változatlan.",
@@ -39,6 +38,7 @@
     "Str.Tool.LanguageServers.Output": "Kimenet",
     "Str.Tool.LanguageServers.OutputEmpty": "Még nem érkezett kimenet.",
     "Str.Tool.Properties.LoadPicture": "Kép betöltése",
+    "Str.Tool.Properties.Binary": "(bináris)",
     "Str.Tool.Properties.LoadPictureFailed": "Nem tölthető be kép innen: „{0}”.",
     "Str.Designer.ShowTabOrder": "Tabulátorsorrend megjelenítése (áthúzva: a TabStop kikapcsolva)",
     "Str.Options.EditorGeneral.Display.StickyScroll": "Rögzített fejlécek görgetéskor",

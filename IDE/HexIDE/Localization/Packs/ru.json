@@ -2,7 +2,6 @@
   "name": "Russian",
   "direction": "ltr",
   "strings": {
-    "Str.Tool.Properties.Binary": "(двоичные данные)",
     "Str.AIChat.Stop": "Остановить",
     "Str.Tool.LanguageServers.Problem.JsonSyntaxEscape": "Файл конфигурации «{0}» содержит некорректный JSON в строке {1}, столбце {2}. Путь: {3} Используйте прямые косые черты (C:/tools/new/...) или удвоенные обратные косые черты (C:\\\\tools\\\\new\\\\...).",
     "Str.Tool.LanguageServers.Problem.PathControlWarning": "Поле '{0}' содержит управляющий символ из escape-последовательности; вероятно, подразумевался путь с обратными косыми чертами: {1}. Значение не изменено.",
@@ -34,6 +33,7 @@
     "Str.Dialog.About.Credits.Header": "Благодарности",
     "Str.Dialog.About.Credits.Thanks": "HexIDE создают выдающиеся команды ИИ вместе с людьми, участвующими в проекте. От всей души благодарим Claude от Anthropic — сеансы Claude Code, которые пишут, проверяют и объединяют работу, — и Codex от OpenAI — рабочие потоки Codex, которые продвигают исправления из очереди. Их забота и неустанный труд делают HexIDE возможным.",
     "Str.Tool.Properties.LoadPicture": "Загрузить изображение",
+    "Str.Tool.Properties.Binary": "(двоичные данные)",
     "Str.Tool.Properties.LoadPictureFailed": "Не удалось загрузить изображение из «{0}».",
     "Str.Designer.ShowTabOrder": "Показать порядок табуляции (зачёркнуто: TabStop выключен)",
     "Str.Options.EditorGeneral.Display.StickyScroll": "Закреплять заголовки при прокрутке",

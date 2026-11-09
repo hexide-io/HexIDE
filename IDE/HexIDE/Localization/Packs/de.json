@@ -2,7 +2,6 @@
   "name": "German",
   "direction": "ltr",
   "strings": {
-    "Str.Tool.Properties.Binary": "(binär)",
     "Str.AIChat.Stop": "Stoppen",
     "Str.Tool.LanguageServers.Problem.JsonSyntaxEscape": "Die Konfigurationsdatei „{0}“ enthält ungültiges JSON in Zeile {1}, Spalte {2}. Pfad: {3} Verwenden Sie Schrägstriche (C:/tools/new/...) oder doppelte Rückstriche (C:\\\\tools\\\\new\\\\...).",
     "Str.Tool.LanguageServers.Problem.PathControlWarning": "Feld '{0}' enthält ein Steuerzeichen aus einer Escape-Sequenz; vermutlich beabsichtigter Pfad mit Rückstrichen: {1}. Der Wert bleibt unverändert.",
@@ -34,6 +33,7 @@
     "Str.Dialog.About.Credits.Header": "Danksagung",
     "Str.Dialog.About.Credits.Thanks": "HexIDE wird von außergewöhnlichen KI-Teams gemeinsam mit seinen menschlichen Mitwirkenden entwickelt. Unser herzlicher Dank gilt Claude von Anthropic — den Claude Code-Sitzungen, die die Arbeit schreiben, prüfen und zusammenführen — und Codex von OpenAI — den Codex-Arbeitssträngen, die die eingereihten Korrekturen voranbringen. Ihre Sorgfalt und unermüdliche Arbeit machen HexIDE möglich.",
     "Str.Tool.Properties.LoadPicture": "Bild laden",
+    "Str.Tool.Properties.Binary": "(binär)",
     "Str.Tool.Properties.LoadPictureFailed": "Das Bild aus „{0}“ kann nicht geladen werden.",
     "Str.Designer.ShowTabOrder": "Tabulatorreihenfolge anzeigen (durchgestrichen: TabStop aus)",
     "Str.Options.EditorGeneral.Display.StickyScroll": "Angeheftete Kopfzeilen beim Scrollen",

@@ -2,7 +2,6 @@
   "name": "Indonesian",
   "direction": "ltr",
   "strings": {
-    "Str.Tool.Properties.Binary": "(biner)",
     "Str.AIChat.Stop": "Hentikan",
     "Str.Tool.LanguageServers.Problem.JsonSyntaxEscape": "File konfigurasi '{0}' berisi JSON tidak valid pada baris {1}, kolom {2}. Jalur: {3} Gunakan garis miring (C:/tools/new/...) atau garis miring terbalik ganda (C:\\\\tools\\\\new\\\\...).",
     "Str.Tool.LanguageServers.Problem.PathControlWarning": "Kolom '{0}' berisi karakter kontrol dari urutan escape; kemungkinan jalur bergaris miring terbalik yang dimaksud: {1}. Nilai tidak diubah.",
@@ -34,6 +33,7 @@
     "Str.Dialog.About.Credits.Header": "Ucapan terima kasih",
     "Str.Dialog.About.Credits.Thanks": "HexIDE dibangun oleh tim AI yang luar biasa bersama para kontributor manusianya. Terima kasih sepenuh hati kepada Claude dari Anthropic — sesi Claude Code yang menulis, meninjau, dan menggabungkan pekerjaan — serta Codex dari OpenAI — jalur kerja Codex yang memajukan perbaikan dalam antrean. Ketelitian dan kerja tanpa lelah mereka memungkinkan hadirnya HexIDE.",
     "Str.Tool.Properties.LoadPicture": "Muat gambar",
+    "Str.Tool.Properties.Binary": "(biner)",
     "Str.Tool.Properties.LoadPictureFailed": "Tidak dapat memuat gambar dari “{0}”.",
     "Str.Designer.ShowTabOrder": "Tampilkan urutan tab (dicoret: TabStop nonaktif)",
     "Str.Options.EditorGeneral.Display.StickyScroll": "Judul tetap saat menggulir",

@@ -2,7 +2,6 @@
   "name": "Turkish",
   "direction": "ltr",
   "strings": {
-    "Str.Tool.Properties.Binary": "(ikili)",
     "Str.AIChat.Stop": "Durdur",
     "Str.Tool.LanguageServers.Problem.JsonSyntaxEscape": "'{0}' yapılandırma dosyası {1}. satır, {2}. sütunda geçersiz JSON içeriyor. Yol: {3} Eğik çizgi (C:/tools/new/...) veya çift ters eğik çizgi (C:\\\\tools\\\\new\\\\...) kullanın.",
     "Str.Tool.LanguageServers.Problem.PathControlWarning": "'{0}' alanı bir kaçış dizisinden oluşan kontrol karakteri içeriyor; muhtemelen amaçlanan ters eğik çizgili yol: {1}. Değer değiştirilmedi.",
@@ -34,6 +33,7 @@
     "Str.Dialog.About.Credits.Header": "Teşekkürler",
     "Str.Dialog.About.Credits.Thanks": "HexIDE, insan katkıcılarıyla birlikte olağanüstü yapay zekâ ekipleri tarafından geliştiriliyor. Anthropic’in Claude’una — çalışmaları yazan, inceleyen ve birleştiren Claude Code oturumlarına — ve OpenAI’ın Codex’ine — kuyruktaki düzeltmeleri ilerleten Codex çalışma hatlarına — yürekten teşekkür ederiz. Onların özeni ve yorulmak bilmeyen çalışmaları HexIDE’ı mümkün kılıyor.",
     "Str.Tool.Properties.LoadPicture": "Resim yükle",
+    "Str.Tool.Properties.Binary": "(ikili)",
     "Str.Tool.Properties.LoadPictureFailed": "“{0}” dosyasından resim yüklenemiyor.",
     "Str.Designer.ShowTabOrder": "Sekme sırasını göster (üstü çizili: TabStop kapalı)",
     "Str.Options.EditorGeneral.Display.StickyScroll": "Kaydırırken başlıkları sabitle",

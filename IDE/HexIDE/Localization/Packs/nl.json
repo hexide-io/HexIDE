@@ -2,7 +2,6 @@
   "name": "Dutch",
   "direction": "ltr",
   "strings": {
-    "Str.Tool.Properties.Binary": "(binair)",
     "Str.AIChat.Stop": "Stoppen",
     "Str.Tool.LanguageServers.Problem.JsonSyntaxEscape": "Het configuratiebestand '{0}' bevat ongeldige JSON op regel {1}, kolom {2}. Pad: {3} Gebruik schuine strepen (C:/tools/new/...) of dubbele backslashes (C:\\\\tools\\\\new\\\\...).",
     "Str.Tool.LanguageServers.Problem.PathControlWarning": "Veld '{0}' bevat een besturingsteken uit een escape-reeks; waarschijnlijk bedoeld pad met backslashes: {1}. De waarde is ongewijzigd.",
@@ -34,6 +33,7 @@
     "Str.Dialog.About.Credits.Header": "Dankwoord",
     "Str.Dialog.About.Credits.Thanks": "HexIDE wordt gebouwd door buitengewone AI-teams samen met zijn menselijke bijdragers. Onze hartelijke dank aan Claude van Anthropic — de Claude Code-sessies die het werk schrijven, beoordelen en samenvoegen — en Codex van OpenAI — de Codex-werkstromen die de reparaties in de wachtrij vooruithelpen. Hun zorg en onvermoeibare werk maken HexIDE mogelijk.",
     "Str.Tool.Properties.LoadPicture": "Afbeelding laden",
+    "Str.Tool.Properties.Binary": "(binair)",
     "Str.Tool.Properties.LoadPictureFailed": "Kan de afbeelding uit “{0}” niet laden.",
     "Str.Designer.ShowTabOrder": "Tabvolgorde tonen (doorgestreept: TabStop uit)",
     "Str.Options.EditorGeneral.Display.StickyScroll": "Vaste koppen bij scrollen",

@@ -2,7 +2,6 @@
   "name": "Japanese",
   "direction": "ltr",
   "strings": {
-    "Str.Tool.Properties.Binary": "(バイナリ)",
     "Str.AIChat.Stop": "停止",
     "Str.Tool.LanguageServers.Problem.JsonSyntaxEscape": "構成ファイル「{0}」の {1} 行、{2} 列に無効な JSON があります。パス: {3} スラッシュ (C:/tools/new/...) または二重のバックスラッシュ (C:\\\\tools\\\\new\\\\...) を使用してください。",
     "Str.Tool.LanguageServers.Problem.PathControlWarning": "フィールド '{0}' にエスケープシーケンスによる制御文字が含まれています。意図された可能性のあるバックスラッシュのパス: {1}。値は変更されていません。",
@@ -34,6 +33,7 @@
     "Str.Dialog.About.Credits.Header": "謝辞",
     "Str.Dialog.About.Credits.Thanks": "HexIDEは、人間の貢献者と並んで、卓越したAIチームによって作られています。AnthropicのClaude — 作業の執筆、レビュー、マージを行うClaude Codeのセッション — と、OpenAIのCodex — キューに入った修正を進めるCodexの作業レーン — に心から感謝します。その細やかな配慮とたゆまぬ努力がHexIDEを可能にしています。",
     "Str.Tool.Properties.LoadPicture": "画像を読み込む",
+    "Str.Tool.Properties.Binary": "(バイナリ)",
     "Str.Tool.Properties.LoadPictureFailed": "「{0}」から画像を読み込めません。",
     "Str.Designer.ShowTabOrder": "タブ順序を表示（取り消し線: TabStop オフ）",
     "Str.Options.EditorGeneral.Display.StickyScroll": "スクロール時に見出しを固定",

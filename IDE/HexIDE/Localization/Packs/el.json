@@ -2,7 +2,6 @@
   "name": "Greek",
   "direction": "ltr",
   "strings": {
-    "Str.Tool.Properties.Binary": "(δυαδικό)",
     "Str.AIChat.Stop": "Διακοπή",
     "Str.Tool.LanguageServers.Problem.JsonSyntaxEscape": "Το αρχείο ρυθμίσεων «{0}» περιέχει μη έγκυρο JSON στη γραμμή {1}, στήλη {2}. Διαδρομή: {3} Χρησιμοποιήστε κάθετους (C:/tools/new/...) ή διπλές ανάστροφες καθέτους (C:\\\\tools\\\\new\\\\...).",
     "Str.Tool.LanguageServers.Problem.PathControlWarning": "Το πεδίο '{0}' περιέχει χαρακτήρα ελέγχου από ακολουθία διαφυγής· πιθανή επιθυμητή διαδρομή με ανάστροφες καθέτους: {1}. Η τιμή παραμένει αμετάβλητη.",
@@ -34,6 +33,7 @@
     "Str.Dialog.About.Credits.Header": "Ευχαριστίες",
     "Str.Dialog.About.Credits.Thanks": "Το HexIDE δημιουργείται από εξαιρετικές ομάδες AI μαζί με τους ανθρώπους που συνεισφέρουν σε αυτό. Ευχαριστούμε από καρδιάς το Claude της Anthropic — τις συνεδρίες Claude Code που γράφουν, ελέγχουν και συγχωνεύουν την εργασία — και το Codex της OpenAI — τις ροές εργασίας Codex που προωθούν τις διορθώσεις στην ουρά. Η φροντίδα και η ακούραστη εργασία τους κάνουν το HexIDE δυνατό.",
     "Str.Tool.Properties.LoadPicture": "Φόρτωση εικόνας",
+    "Str.Tool.Properties.Binary": "(δυαδικό)",
     "Str.Tool.Properties.LoadPictureFailed": "Δεν είναι δυνατή η φόρτωση εικόνας από το «{0}».",
     "Str.Designer.ShowTabOrder": "Εμφάνιση σειράς Tab (διαγραφή: TabStop ανενεργό)",
     "Str.Options.EditorGeneral.Display.StickyScroll": "Καρφιτσωμένες κεφαλίδες κατά την κύλιση",

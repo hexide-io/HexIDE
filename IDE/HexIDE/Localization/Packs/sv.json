@@ -2,7 +2,6 @@
   "name": "Swedish",
   "direction": "ltr",
   "strings": {
-    "Str.Tool.Properties.Binary": "(binär)",
     "Str.AIChat.Stop": "Stoppa",
     "Str.Tool.LanguageServers.Problem.JsonSyntaxEscape": "Konfigurationsfilen '{0}' innehåller ogiltig JSON på rad {1}, kolumn {2}. Sökväg: {3} Använd snedstreck (C:/tools/new/...) eller dubbla omvända snedstreck (C:\\\\tools\\\\new\\\\...).",
     "Str.Tool.LanguageServers.Problem.PathControlWarning": "Fältet '{0}' innehåller ett styrtecken från en escape-sekvens; sannolikt avsedd sökväg med omvända snedstreck: {1}. Värdet är oförändrat.",
@@ -34,6 +33,7 @@
     "Str.Dialog.About.Credits.Header": "Tack till",
     "Str.Dialog.About.Credits.Thanks": "HexIDE byggs av enastående AI-team tillsammans med sina mänskliga bidragsgivare. Vårt varma tack till Claude från Anthropic — Claude Code-sessionerna som skriver, granskar och sammanfogar arbetet — och Codex från OpenAI — Codex-arbetsspåren som för rättningarna i kön framåt. Deras omsorg och outtröttliga arbete gör HexIDE möjligt.",
     "Str.Tool.Properties.LoadPicture": "Läs in bild",
+    "Str.Tool.Properties.Binary": "(binär)",
     "Str.Tool.Properties.LoadPictureFailed": "Det går inte att läsa in bilden från ”{0}”.",
     "Str.Designer.ShowTabOrder": "Visa tabbordning (överstruket: TabStop av)",
     "Str.Options.EditorGeneral.Display.StickyScroll": "Fästa rubriker vid rullning",

@@ -2,7 +2,6 @@
   "name": "Hebrew",
   "direction": "rtl",
   "strings": {
-    "Str.Tool.Properties.Binary": "(בינארי)",
     "Str.AIChat.Stop": "עצור",
     "Str.Tool.LanguageServers.Problem.JsonSyntaxEscape": "קובץ התצורה „{0}” מכיל JSON לא תקין בשורה {1}, עמודה {2}. נתיב: {3} יש להשתמש בלוכסנים (C:/tools/new/...) או בלוכסנים הפוכים כפולים (C:\\\\tools\\\\new\\\\...).",
     "Str.Tool.LanguageServers.Problem.PathControlWarning": "השדה '{0}' מכיל תו בקרה שנוצר מרצף מילוט; הנתיב המיועד כנראה עם לוכסנים הפוכים: {1}. הערך לא השתנה.",
@@ -34,6 +33,7 @@
     "Str.Dialog.About.Credits.Header": "תודות",
     "Str.Dialog.About.Credits.Thanks": "HexIDE נבנה בידי צוותי AI יוצאי דופן לצד התורמים האנושיים שלו. תודתנו מעומק הלב ל-Claude מבית Anthropic — מפגשי Claude Code שכותבים, סוקרים וממזגים את העבודה — ול-Codex מבית OpenAI — מסלולי העבודה של Codex שמקדמים את התיקונים שבתור. תשומת הלב והעבודה הבלתי נלאית שלהם מאפשרות את HexIDE.",
     "Str.Tool.Properties.LoadPicture": "טעינת תמונה",
+    "Str.Tool.Properties.Binary": "(בינארי)",
     "Str.Tool.Properties.LoadPictureFailed": "לא ניתן לטעון תמונה מתוך ״{0}״.",
     "Str.Designer.ShowTabOrder": "הצגת סדר טאבים (מחוק: TabStop כבוי)",
     "Str.Options.EditorGeneral.Display.StickyScroll": "כותרות קבועות בעת גלילה",

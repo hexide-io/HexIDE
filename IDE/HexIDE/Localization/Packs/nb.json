@@ -2,7 +2,6 @@
   "name": "Norwegian Bokmål",
   "direction": "ltr",
   "strings": {
-    "Str.Tool.Properties.Binary": "(binær)",
     "Str.AIChat.Stop": "Stopp",
     "Str.Tool.LanguageServers.Problem.JsonSyntaxEscape": "Konfigurasjonsfilen '{0}' inneholder ugyldig JSON på linje {1}, kolonne {2}. Sti: {3} Bruk skråstreker (C:/tools/new/...) eller doble omvendte skråstreker (C:\\\\tools\\\\new\\\\...).",
     "Str.Tool.LanguageServers.Problem.PathControlWarning": "Feltet '{0}' inneholder et kontrolltegn fra en escape-sekvens; sannsynligvis tiltenkt sti med omvendte skråstreker: {1}. Verdien er uendret.",
@@ -34,6 +33,7 @@
     "Str.Dialog.About.Credits.Header": "Takk til",
     "Str.Dialog.About.Credits.Thanks": "HexIDE bygges av fremragende KI-team sammen med sine menneskelige bidragsytere. Vår hjertelige takk til Claude fra Anthropic — Claude Code-øktene som skriver, gjennomgår og fletter arbeidet — og Codex fra OpenAI — Codex-arbeidssporene som fører rettelsene i køen fremover. Deres omtanke og utrettelige arbeid gjør HexIDE mulig.",
     "Str.Tool.Properties.LoadPicture": "Last inn bilde",
+    "Str.Tool.Properties.Binary": "(binær)",
     "Str.Tool.Properties.LoadPictureFailed": "Kan ikke laste inn bildet fra «{0}».",
     "Str.Designer.ShowTabOrder": "Vis tabulatorrekkefølge (overstreket: TabStop av)",
     "Str.Options.EditorGeneral.Display.StickyScroll": "Festede overskrifter ved rulling",

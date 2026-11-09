@@ -2,7 +2,6 @@
   "name": "Galician",
   "direction": "ltr",
   "strings": {
-    "Str.Tool.Properties.Binary": "(binario)",
     "Str.AIChat.Stop": "Deter",
     "Str.Tool.LanguageServers.Problem.JsonSyntaxEscape": "O ficheiro de configuración «{0}» contén JSON non válido na liña {1}, columna {2}. Ruta: {3} Use barras (C:/tools/new/...) ou barras inversas dobres (C:\\\\tools\\\\new\\\\...).",
     "Str.Tool.LanguageServers.Problem.PathControlWarning": "O campo '{0}' contén un carácter de control escapado; ruta probablemente desexada: {1}. O valor non cambia.",
@@ -39,6 +38,7 @@
     "Str.Tool.LanguageServers.Output": "Saída",
     "Str.Tool.LanguageServers.OutputEmpty": "Aínda non se recibiu ningunha saída.",
     "Str.Tool.Properties.LoadPicture": "Cargar imaxe",
+    "Str.Tool.Properties.Binary": "(binario)",
     "Str.Tool.Properties.LoadPictureFailed": "Non se pode cargar a imaxe de «{0}».",
     "Str.Designer.ShowTabOrder": "Mostrar a orde de tabulación (riscado: TabStop desactivado)",
     "Str.Options.EditorGeneral.Display.StickyScroll": "Desprazamento fixo",

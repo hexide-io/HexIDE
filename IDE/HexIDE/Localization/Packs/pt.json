@@ -2,7 +2,6 @@
   "name": "Portuguese",
   "direction": "ltr",
   "strings": {
-    "Str.Tool.Properties.Binary": "(binário)",
     "Str.AIChat.Stop": "Parar",
     "Str.Tool.LanguageServers.Problem.JsonSyntaxEscape": "O ficheiro de configuração «{0}» contém JSON inválido na linha {1}, coluna {2}. Caminho: {3} Use barras (C:/tools/new/...) ou barras invertidas duplas (C:\\\\tools\\\\new\\\\...).",
     "Str.Tool.LanguageServers.Problem.PathControlWarning": "O campo '{0}' contém um caractere de controle produzido por uma sequência de escape; caminho com barras invertidas provavelmente pretendido: {1}. O valor permanece inalterado.",
@@ -34,6 +33,7 @@
     "Str.Dialog.About.Credits.Header": "Agradecimentos",
     "Str.Dialog.About.Credits.Thanks": "O HexIDE é construído por equipas extraordinárias de IA juntamente com os seus colaboradores humanos. O nosso sincero agradecimento ao Claude da Anthropic — as sessões Claude Code que escrevem, revêm e integram o trabalho — e ao Codex da OpenAI — as vias de trabalho Codex que fazem avançar as correções em fila de espera. O seu cuidado e trabalho incansável tornam o HexIDE possível.",
     "Str.Tool.Properties.LoadPicture": "Carregar imagem",
+    "Str.Tool.Properties.Binary": "(binário)",
     "Str.Tool.Properties.LoadPictureFailed": "Não é possível carregar a imagem de “{0}”.",
     "Str.Designer.ShowTabOrder": "Mostrar ordem de tabulação (riscado: TabStop desativado)",
     "Str.Options.EditorGeneral.Display.StickyScroll": "Cabeçalhos fixos ao rolar",

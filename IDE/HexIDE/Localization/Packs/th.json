@@ -2,7 +2,6 @@
   "name": "Thai",
   "direction": "ltr",
   "strings": {
-    "Str.Tool.Properties.Binary": "(ไบนารี)",
     "Str.AIChat.Stop": "หยุด",
     "Str.Tool.LanguageServers.Problem.JsonSyntaxEscape": "ไฟล์การกำหนดค่า '{0}' มี JSON ที่ไม่ถูกต้องที่บรรทัด {1} คอลัมน์ {2} เส้นทาง: {3} ใช้เครื่องหมายทับ (C:/tools/new/...) หรือเครื่องหมายทับย้อนกลับสองตัว (C:\\\\tools\\\\new\\\\...)",
     "Str.Tool.LanguageServers.Problem.PathControlWarning": "ฟิลด์ '{0}' มีอักขระควบคุมจากลำดับหลีก เส้นทางที่น่าจะต้องการ: {1} ค่าจะไม่เปลี่ยนแปลง",
@@ -39,6 +38,7 @@
     "Str.Tool.LanguageServers.Output": "เอาต์พุต",
     "Str.Tool.LanguageServers.OutputEmpty": "ยังไม่ได้รับเอาต์พุต",
     "Str.Tool.Properties.LoadPicture": "โหลดรูปภาพ",
+    "Str.Tool.Properties.Binary": "(ไบนารี)",
     "Str.Tool.Properties.LoadPictureFailed": "ไม่สามารถโหลดรูปภาพจาก “{0}” ได้",
     "Str.Designer.ShowTabOrder": "แสดงลำดับแท็บ (ขีดฆ่า: ปิด TabStop)",
     "Str.Options.EditorGeneral.Display.StickyScroll": "ตรึงหัวข้อขณะเลื่อน",

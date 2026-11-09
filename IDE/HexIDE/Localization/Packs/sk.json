@@ -2,7 +2,6 @@
   "name": "Slovak",
   "direction": "ltr",
   "strings": {
-    "Str.Tool.Properties.Binary": "(binárne)",
     "Str.AIChat.Stop": "Zastaviť",
     "Str.Tool.LanguageServers.Problem.JsonSyntaxEscape": "Konfiguračný súbor „{0}“ obsahuje neplatný JSON na riadku {1}, v stĺpci {2}. Cesta: {3} Použite lomky (C:/tools/new/...) alebo dvojité spätné lomky (C:\\\\tools\\\\new\\\\...).",
     "Str.Tool.LanguageServers.Problem.PathControlWarning": "Pole '{0}' obsahuje riadiaci znak z únikovej sekvencie; pravdepodobne zamýšľaná cesta: {1}. Hodnota sa nemení.",
@@ -39,6 +38,7 @@
     "Str.Tool.LanguageServers.Output": "Výstup",
     "Str.Tool.LanguageServers.OutputEmpty": "Zatiaľ nebol prijatý žiadny výstup.",
     "Str.Tool.Properties.LoadPicture": "Načítať obrázok",
+    "Str.Tool.Properties.Binary": "(binárne)",
     "Str.Tool.Properties.LoadPictureFailed": "Obrázok z „{0}“ sa nedá načítať.",
     "Str.Designer.ShowTabOrder": "Zobraziť poradie tabulátora (prečiarknuté: TabStop vypnuté)",
     "Str.Options.EditorGeneral.Display.StickyScroll": "Pripnuté hlavičky pri posúvaní",

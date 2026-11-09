@@ -2,7 +2,6 @@
   "name": "Lithuanian",
   "direction": "ltr",
   "strings": {
-    "Str.Tool.Properties.Binary": "(dvejetainiai duomenys)",
     "Str.AIChat.Stop": "Stabdyti",
     "Str.Tool.LanguageServers.Problem.JsonSyntaxEscape": "Konfigūracijos faile „{0}“ yra netaisyklingas JSON {1} eilutėje, {2} stulpelyje. Kelias: {3} Naudokite pasviruosius brūkšnius (C:/tools/new/...) arba dvigubus atvirkštinius brūkšnius (C:\\\\tools\\\\new\\\\...).",
     "Str.Tool.LanguageServers.Problem.PathControlWarning": "Lauke '{0}' yra valdymo simbolis iš kaitos sekos; tikėtinas numatytas kelias: {1}. Reikšmė nepakeista.",
@@ -39,6 +38,7 @@
     "Str.Tool.LanguageServers.Output": "Išvestis",
     "Str.Tool.LanguageServers.OutputEmpty": "Išvesties dar negauta.",
     "Str.Tool.Properties.LoadPicture": "Įkelti paveikslėlį",
+    "Str.Tool.Properties.Binary": "(dvejetainiai duomenys)",
     "Str.Tool.Properties.LoadPictureFailed": "Nepavyko įkelti paveikslėlio iš „{0}“.",
     "Str.Designer.ShowTabOrder": "Rodyti tabuliavimo tvarką (perbraukta: TabStop išjungta)",
     "Str.Options.EditorGeneral.Display.StickyScroll": "Prisegtos antraštės slenkant",

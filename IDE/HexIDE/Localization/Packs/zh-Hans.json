@@ -2,7 +2,6 @@
   "name": "Chinese (Simplified)",
   "direction": "ltr",
   "strings": {
-    "Str.Tool.Properties.Binary": "(二进制)",
     "Str.AIChat.Stop": "停止",
     "Str.Tool.LanguageServers.Problem.JsonSyntaxEscape": "配置文件“{0}”在第 {1} 行、第 {2} 列包含无效的 JSON。路径：{3} 请使用正斜杠 (C:/tools/new/...) 或双反斜杠 (C:\\\\tools\\\\new\\\\...)。",
     "Str.Tool.LanguageServers.Problem.PathControlWarning": "字段 '{0}' 包含转义序列产生的控制字符；可能原本想写的反斜杠路径：{1}。值保持不变。",
@@ -34,6 +33,7 @@
     "Str.Dialog.About.Credits.Header": "致谢",
     "Str.Dialog.About.Credits.Thanks": "HexIDE 由杰出的 AI 团队与人类贡献者共同构建。我们衷心感谢 Anthropic 的 Claude — 编写、审查和合并工作的 Claude Code 会话 — 以及 OpenAI 的 Codex — 推进队列中修复工作的 Codex 工作通道。他们的细心与不懈努力使 HexIDE 成为可能。",
     "Str.Tool.Properties.LoadPicture": "加载图片",
+    "Str.Tool.Properties.Binary": "(二进制)",
     "Str.Tool.Properties.LoadPictureFailed": "无法从“{0}”加载图片。",
     "Str.Designer.ShowTabOrder": "显示 Tab 顺序（删除线：TabStop 关闭）",
     "Str.Options.EditorGeneral.Display.StickyScroll": "滚动时固定标题",

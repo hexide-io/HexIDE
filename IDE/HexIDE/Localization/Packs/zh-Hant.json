@@ -2,7 +2,6 @@
   "name": "Chinese (Traditional)",
   "direction": "ltr",
   "strings": {
-    "Str.Tool.Properties.Binary": "(二進位)",
     "Str.AIChat.Stop": "停止",
     "Str.Tool.LanguageServers.Problem.JsonSyntaxEscape": "組態檔「{0}」在第 {1} 行、第 {2} 欄包含無效的 JSON。路徑：{3} 請使用正斜線 (C:/tools/new/...) 或雙反斜線 (C:\\\\tools\\\\new\\\\...)。",
     "Str.Tool.LanguageServers.Problem.PathControlWarning": "欄位 '{0}' 包含逸出序列產生的控制字元；可能原本想寫的反斜線路徑：{1}。值保持不變。",
@@ -34,6 +33,7 @@
     "Str.Dialog.About.Credits.Header": "致謝",
     "Str.Dialog.About.Credits.Thanks": "HexIDE 由傑出的 AI 團隊與人類貢獻者共同建構。我們衷心感謝 Anthropic 的 Claude — 編寫、審查和合併工作的 Claude Code 工作階段 — 以及 OpenAI 的 Codex — 推進佇列中修正工作的 Codex 工作通道。他們的細心與不懈努力使 HexIDE 成為可能。",
     "Str.Tool.Properties.LoadPicture": "載入圖片",
+    "Str.Tool.Properties.Binary": "(二進位)",
     "Str.Tool.Properties.LoadPictureFailed": "無法從「{0}」載入圖片。",
     "Str.Designer.ShowTabOrder": "顯示 Tab 順序（刪除線：TabStop 關閉）",
     "Str.Options.EditorGeneral.Display.StickyScroll": "捲動時固定標題",

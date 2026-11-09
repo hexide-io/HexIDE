@@ -2,7 +2,6 @@
   "name": "Romanian",
   "direction": "ltr",
   "strings": {
-    "Str.Tool.Properties.Binary": "(binar)",
     "Str.AIChat.Stop": "Oprește",
     "Str.Tool.LanguageServers.Problem.JsonSyntaxEscape": "Fișierul de configurare „{0}” conține JSON nevalid la linia {1}, coloana {2}. Cale: {3} Folosiți bare oblice (C:/tools/new/...) sau bare oblice inverse duble (C:\\\\tools\\\\new\\\\...).",
     "Str.Tool.LanguageServers.Problem.PathControlWarning": "Câmpul '{0}' conține un caracter de control dintr-o secvență escape; calea probabil intenționată: {1}. Valoarea rămâne neschimbată.",
@@ -39,6 +38,7 @@
     "Str.Tool.LanguageServers.Output": "Ieșire",
     "Str.Tool.LanguageServers.OutputEmpty": "Nu s-a primit încă nicio ieșire.",
     "Str.Tool.Properties.LoadPicture": "Încarcă imaginea",
+    "Str.Tool.Properties.Binary": "(binar)",
     "Str.Tool.Properties.LoadPictureFailed": "Nu se poate încărca imaginea din „{0}”.",
     "Str.Designer.ShowTabOrder": "Afișează ordinea de tabulare (tăiat: TabStop dezactivat)",
     "Str.Options.EditorGeneral.Display.StickyScroll": "Derulare cu antete fixate",

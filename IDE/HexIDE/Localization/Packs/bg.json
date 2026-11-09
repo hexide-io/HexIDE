@@ -2,7 +2,6 @@
   "name": "Bulgarian",
   "direction": "ltr",
   "strings": {
-    "Str.Tool.Properties.Binary": "(двоични данни)",
     "Str.AIChat.Stop": "Спри",
     "Str.Tool.LanguageServers.Problem.JsonSyntaxEscape": "Конфигурационният файл „{0}“ съдържа невалиден JSON на ред {1}, колона {2}. Път: {3} Използвайте наклонени черти (C:/tools/new/...) или двойни обратни наклонени черти (C:\\\\tools\\\\new\\\\...).",
     "Str.Tool.LanguageServers.Problem.PathControlWarning": "Полето '{0}' съдържа екраниран контролен знак; вероятно желаният път с обратни наклонени черти е: {1}. Стойността е непроменена.",
@@ -39,6 +38,7 @@
     "Str.Tool.LanguageServers.Output": "Изход",
     "Str.Tool.LanguageServers.OutputEmpty": "Все още няма получен изход.",
     "Str.Tool.Properties.LoadPicture": "Зареждане на изображение",
+    "Str.Tool.Properties.Binary": "(двоични данни)",
     "Str.Tool.Properties.LoadPictureFailed": "Изображението от „{0}“ не може да се зареди.",
     "Str.Designer.ShowTabOrder": "Показване на реда на табулация (зачеркнато: TabStop е изключено)",
     "Str.Options.EditorGeneral.Display.StickyScroll": "Закрепени заглавки при превъртане",

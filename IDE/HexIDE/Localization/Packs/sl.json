@@ -2,7 +2,6 @@
   "name": "Slovenian",
   "direction": "ltr",
   "strings": {
-    "Str.Tool.Properties.Binary": "(binarno)",
     "Str.AIChat.Stop": "Ustavi",
     "Str.Tool.LanguageServers.Problem.JsonSyntaxEscape": "Konfiguracijska datoteka »{0}« vsebuje neveljaven JSON v vrstici {1}, stolpcu {2}. Pot: {3} Uporabite poševnice (C:/tools/new/...) ali dvojne obratne poševnice (C:\\\\tools\\\\new\\\\...).",
     "Str.Tool.LanguageServers.Problem.PathControlWarning": "Polje '{0}' vsebuje ubežno zapisan kontrolni znak; verjetno želena pot: {1}. Vrednost je nespremenjena.",
@@ -39,6 +38,7 @@
     "Str.Tool.LanguageServers.Output": "Izhod",
     "Str.Tool.LanguageServers.OutputEmpty": "Izhod še ni bil prejet.",
     "Str.Tool.Properties.LoadPicture": "Naloži sliko",
+    "Str.Tool.Properties.Binary": "(binarno)",
     "Str.Tool.Properties.LoadPictureFailed": "Slike iz »{0}« ni mogoče naložiti.",
     "Str.Designer.ShowTabOrder": "Prikaži vrstni red tabulatorja (prečrtano: TabStop izklopljen)",
     "Str.Options.EditorGeneral.Display.StickyScroll": "Pripeto drsenje",

@@ -185,7 +185,10 @@
                                             Margin="15,0,0,0" />
                         </DataTemplate>
                         <DataTemplate x:DataType="visualDesigner:RawPropertyViewModel">
-                            <ContentControl Content="{CompiledBinding}" ContentTemplate="{StaticResource RawPropertyTemplate}" />
+                            <ContentControl Content="{CompiledBinding}" ContentTemplate="{StaticResource RawPropertyTemplate}"
+                                            BorderBrush="{DynamicResource {x:Static commonControls:SystemColors.ControlBrushKey}}"
+                                            BorderThickness="1,0,0,0"
+                                            Margin="15,0,0,0" />
                         </DataTemplate>
                         <DataTemplate x:DataType="visualDesigner:PropertyCategoryViewModel">
                             <DockPanel>

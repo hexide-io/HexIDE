@@ -2,7 +2,6 @@
   "name": "Croatian",
   "direction": "ltr",
   "strings": {
-    "Str.Tool.Properties.Binary": "(binarno)",
     "Str.AIChat.Stop": "Zaustavi",
     "Str.Tool.LanguageServers.Problem.JsonSyntaxEscape": "Konfiguracijska datoteka „{0}” sadrži neispravan JSON u retku {1}, stupcu {2}. Putanja: {3} Koristite kose crte (C:/tools/new/...) ili dvostruke obrnute kose crte (C:\\\\tools\\\\new\\\\...).",
     "Str.Tool.LanguageServers.Problem.PathControlWarning": "Polje '{0}' sadrži kontrolni znak iz izlaznog niza; vjerojatno namjeravana putanja: {1}. Vrijednost je nepromijenjena.",
@@ -39,6 +38,7 @@
     "Str.Tool.LanguageServers.Output": "Izlaz",
     "Str.Tool.LanguageServers.OutputEmpty": "Još nije primljen izlaz.",
     "Str.Tool.Properties.LoadPicture": "Učitaj sliku",
+    "Str.Tool.Properties.Binary": "(binarno)",
     "Str.Tool.Properties.LoadPictureFailed": "Nije moguće učitati sliku iz „{0}”.",
     "Str.Designer.ShowTabOrder": "Prikaži redoslijed tabulatora (precrtano: TabStop isključen)",
     "Str.Options.EditorGeneral.Display.StickyScroll": "Zadržavanje zaglavlja pri pomicanju",

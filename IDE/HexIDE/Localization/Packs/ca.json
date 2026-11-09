@@ -2,7 +2,6 @@
   "name": "Catalan",
   "direction": "ltr",
   "strings": {
-    "Str.Tool.Properties.Binary": "(binari)",
     "Str.AIChat.Stop": "Atura",
     "Str.Tool.LanguageServers.Problem.JsonSyntaxEscape": "El fitxer de configuració «{0}» conté JSON no vàlid a la línia {1}, columna {2}. Camí: {3} Feu servir barres inclinades (C:/tools/new/...) o barres inverses dobles (C:\\\\tools\\\\new\\\\...).",
     "Str.Tool.LanguageServers.Problem.PathControlWarning": "El camp '{0}' conté un caràcter de control escapat; camí probablement desitjat: {1}. El valor no canvia.",
@@ -39,6 +38,7 @@
     "Str.Tool.LanguageServers.Output": "Sortida",
     "Str.Tool.LanguageServers.OutputEmpty": "Encara no s’ha rebut cap sortida.",
     "Str.Tool.Properties.LoadPicture": "Carrega una imatge",
+    "Str.Tool.Properties.Binary": "(binari)",
     "Str.Tool.Properties.LoadPictureFailed": "No es pot carregar la imatge de «{0}».",
     "Str.Designer.ShowTabOrder": "Mostra l'ordre de tabulació (ratllat: TabStop desactivat)",
     "Str.Options.EditorGeneral.Display.StickyScroll": "Desplaçament amb capçaleres fixades",

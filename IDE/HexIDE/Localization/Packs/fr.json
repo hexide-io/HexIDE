@@ -2,7 +2,6 @@
   "name": "French",
   "direction": "ltr",
   "strings": {
-    "Str.Tool.Properties.Binary": "(binaire)",
     "Str.AIChat.Stop": "Arrêter",
     "Str.Tool.LanguageServers.Problem.JsonSyntaxEscape": "Le fichier de configuration « {0} » contient du JSON non valide à la ligne {1}, colonne {2}. Chemin : {3} Utilisez des barres obliques (C:/tools/new/...) ou des barres obliques inverses doublées (C:\\\\tools\\\\new\\\\...).",
     "Str.Tool.LanguageServers.Problem.PathControlWarning": "Le champ '{0}' contient un caractère de contrôle issu d’une séquence d’échappement ; chemin probablement voulu avec des barres obliques inverses : {1}. La valeur reste inchangée.",
@@ -34,6 +33,7 @@
     "Str.Dialog.About.Credits.Header": "Remerciements",
     "Str.Dialog.About.Credits.Thanks": "HexIDE est construit par des équipes d’IA extraordinaires aux côtés de ses contributeurs humains. Un immense merci à Claude par Anthropic — les sessions Claude Code qui écrivent, relisent et fusionnent le travail — et à Codex par OpenAI — les filières de travail Codex qui font avancer les corrections en attente. Leur soin et leur travail infatigable rendent HexIDE possible.",
     "Str.Tool.Properties.LoadPicture": "Charger une image",
+    "Str.Tool.Properties.Binary": "(binaire)",
     "Str.Tool.Properties.LoadPictureFailed": "Impossible de charger l’image depuis « {0} ».",
     "Str.Designer.ShowTabOrder": "Afficher l’ordre de tabulation (barré : TabStop désactivé)",
     "Str.Options.EditorGeneral.Display.StickyScroll": "En-têtes fixes pendant le défilement",
