@@ -670,10 +670,11 @@ position, and so does a refused step. What VB6 does with the caret there hasn't 
 ## Deferred debugger surfaces (not divergences yet — just not built)
 
 Immediate USER-CALL execution (calling a user Sub/Function from the Immediate window — the deadlock-prone part, D15;
-assignment/Set landed in P7c, D14); hit counts and interpreter evaluation of per-line conditions (additive Evolution
+assignment/Set landed in P7c, D14); hit counts (additive Evolution
 item — VB6's watch-based Break-When-True/Changed shipped in P6b). Condition… edits per-line expressions
-with gutter glyphs/tooltips and sidecar persistence (#2914). Interpreter runs ignore these expressions
-and stop unconditionally, with a localized Immediate notice once per run; capable DAP adapters evaluate them. Tracked in
+with gutter glyphs/tooltips and sidecar persistence (#2914). Interpreter runs evaluate these expressions
+in the executing frame using the read-only watch evaluator, skip false results and stop with the expression
+and error in Immediate on evaluation failure (#3005); capable DAP adapters evaluate them. Tracked in
 [`MISSING_FEATURES.md`](MISSING_FEATURES.md) and the spec's v2 list (P8). Serious/compiled debugging belongs to a
 compiled backend over DAP. *(Landed since this list was written: Watches + Break-When-True/Changed + Data Tips (P6), Run To Cursor
 + Set Next Statement + Immediate assignment/Set (P7), the Locals property/control surface incl. the form-`Me` +

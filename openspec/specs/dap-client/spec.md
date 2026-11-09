@@ -525,13 +525,20 @@ glyph and a tooltip showing its expression and adapter verification/message (#29
 The IDE SHALL include breakpoint conditions in initial and live `setBreakpoints` requests only when the
 adapter advertises `supportsConditionalBreakpoints`. Without that capability it SHALL send line-only
 breakpoints and explain once per session in localized Immediate output that conditions are ignored and
-stops are unconditional. Interpreter runs SHALL also stop unconditionally and show a corresponding
-once-per-run notice. Launch-file conditions SHALL remain refused.
+stops are unconditional. Interpreter runs SHALL evaluate conditions in the executing frame using the
+read-only watch evaluator, stop only for true results, and stop with the expression and error in Immediate
+when evaluation fails. Launch-file conditions SHALL remain refused.
 
 #### Scenario: Capable adapter
 - **WHEN** an IDE breakpoint with a condition is sent to a capable adapter
 - **THEN** its source breakpoint contains the line and condition expression
 
-#### Scenario: Incapable adapter or interpreter
+#### Scenario: Incapable adapter
 - **WHEN** a run first receives a conditional breakpoint without condition evaluation support
 - **THEN** it keeps the unconditional breakpoint and emits one localized notice for that run
+
+#### Scenario: Interpreter condition
+- **WHEN** an interpreter breakpoint has a condition
+- **THEN** the condition reads the executing frame's scope and a false result skips the breakpoint
+- **AND** an evaluation error stops and reports the expression and error in Immediate
+- **AND** stepping, pause, watches and Run To Cursor still stop independently of a false condition
