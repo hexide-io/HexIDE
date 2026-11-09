@@ -498,4 +498,10 @@ public partial class ProjectRunnerService : IProjectRunnerService
     public bool CanRunToCursor => externalDebugger?.IsActive != true && (CanRunStartupProject || IsRunning);
     public bool CanEndProject => IsRunning;
     public bool CanRestartProject => IsRunning && externalDebugger?.IsActive != true;
+
+    /// <inheritdoc />
+    public NoEngineStartup? StartupWithNoEngine =>
+        !IsRunning && projectManager.StartupProject is { } project && !runEngine.Runs(project)
+            ? new NoEngineStartup(project, debugLaunches?.For(project) ?? [])
+            : null;
 }

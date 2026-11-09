@@ -1212,6 +1212,32 @@ refusal SHALL name that bar.
 - **WHEN** `scroll` finds no scroller for a control that draws a vertical scroll bar
 - **THEN** the refusal names that bar and its position, with `set_range_value` and `wheel` as the routes that move it
 
+### Requirement: A tool that needs a run engine SHALL say when none runs the project
+While nothing is running and no run engine runs the startup project, as for a project an add-in read, `run_project`,
+`step_into`, `step_over`, `step_out`, `run_to_cursor`, `break_program`, `continue_program`, `stop_project`,
+`set_next_statement`, `get_locals`, `get_call_stack` and `evaluate` SHALL refuse, and the refusal SHALL say that no run
+engine runs the project and name what can run it: each launch add-ins offer for it, as the `invoke_menu_item` path that
+starts it, or, with none, that no add-in offers one and how to run it under a debug adapter. `get_debug_state`,
+`get_watches`, `add_watch` and `get_last_runtime_error` SHALL say the same in their `note`.
+No tool SHALL report such a project as already running or as not loaded. A tool SHALL take this from the run engine,
+through the project runner, and SHALL NOT decide it from who read the project.
+
+#### Scenario: An add-in's project with a launch
+- **WHEN** `run_project` is called with an add-in's project at startup, and an add-in offers a launch for it
+- **THEN** the reply is an error naming the project and the add-in, and the launch's path under Run > Start Once With
+
+#### Scenario: An add-in's project with no launch
+- **WHEN** `step_into` is called with an add-in's project at startup, and no add-in offers a launch for it
+- **THEN** the reply is an error that says so and names Run > Start External Debug Session and `answer_next_file_dialog`
+
+#### Scenario: A tool that reads a paused program
+- **WHEN** `get_locals` is called with an add-in's project at startup and nothing running
+- **THEN** the refusal says no run engine runs it, and does not send the caller to `run_project`
+
+#### Scenario: A project the engine runs
+- **WHEN** `get_locals` is called with nothing running and a project the engine runs at startup
+- **THEN** the refusal says to set a breakpoint and call `run_project`, and `get_debug_state` has no note about an engine
+
 ### Requirement: Run-control replies SHALL say what the program printed
 For interpreter sessions, a successful reply from `run_project`, `stop_project`, `continue_program`,
 `break_program`, a step or `run_to_cursor`, or from `interact`, `press_key`, `type_text` or `hover` acting on a running

@@ -960,18 +960,13 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     }
 
     [McpServerTool(Name = "run_project")]
-    [Description("Starts running the current VB6 project in the IDE. Returns an error if no project is loaded, if it is already running, or if the start never becomes a run: a syntax error in the startup form or in any standard or class module (the error names the module), no startup form, a Sub Main project with no usable or with two Sub Mains, a startup form that cannot be built, or a declaration that cannot be loaded — in those cases nothing is running, the IDE has opened a runtime-error dialog, and get_last_runtime_error returns the same text. step_into, step_over, step_out and run_to_cursor report a failed start from idle the same way. The reply's 'note' says, after up to 2 s, whether it paused (at a breakpoint or Stop, with the module and the line, counted from the top of the file as the code window numbers it), is running, or ended, and names any run-time error it raised, including reaching a construct HexIDE does not implement, which ends the run. It also says how much Debug.Print wrote, which 'printed' holds.")]
+    [Description("Starts running the current VB6 project in the IDE. Returns an error if no project is loaded, if it is already running, if no run engine runs it (the error says what can), or if the start never becomes a run: a syntax error in the startup form or in any standard or class module (the error names the module), no startup form, a Sub Main project with no usable or with two Sub Mains, a startup form that cannot be built, or a declaration that cannot be loaded — in those cases nothing is running, the IDE has opened a runtime-error dialog, and get_last_runtime_error returns the same text. step_into, step_over, step_out and run_to_cursor report a failed start from idle the same way. The reply's 'note' says, after up to 2 s, whether it paused (at a breakpoint or Stop, with the module and the line, counted from the top of the file as the code window numbers it), is running, or ended, and names any run-time error it raised, including reaching a construct HexIDE does not implement, which ends the run. It also says how much Debug.Print wrote, which 'printed' holds.")]
     public async Task<MutateResult> RunProjectAsync(CancellationToken ct)
     {
         var (refused, outcome) = await StartAndAwaitStopAsync(() =>
         {
             if (!ctx.ProjectRunnerService.CanRunStartupProject)
-            {
-                var reason = ctx.ProjectManager.StartupProject is null
-                    ? "No project loaded"
-                    : "Project is already running";
-                return new MutateResult(false, reason);
-            }
+                return new MutateResult(false, WhyNoStart("No project loaded"));
             // So get_last_runtime_error answers "did THIS run raise" rather than "has anything ever".
             // The sequence survives, so a caller holding an older one can still tell something happened.
             ctx.RootViewModel.RuntimeErrors.Clear();
@@ -1014,6 +1009,26 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
             : new MutateResult(false, HexIDE.IDE.MessageText.StartFailedReply(failure));
     }
 
+    /// <summary>
+    /// Why the startup project can't start, for a tool that found it can't. The reason used to be inferred from the
+    /// answer being no, so a project no engine runs was reported as already running, or as not loaded (#3514).
+    /// </summary>
+    private string WhyNoStart(string noProject) =>
+        ctx.ProjectManager.StartupProject is null ? noProject
+        : ctx.ProjectRunnerService.IsRunning ? "Project is already running"
+        : NoEngineNote() ?? "The startup project can't be started now. If a project archive has the focus, open_file or "
+          + "activate_document_tab on one of the project's documents moves it.";
+
+    /// <summary>
+    /// What a tool that needs a run engine says when none runs the startup project, or null when one does or something
+    /// is running. On the UI thread: it asks each launch whether it runs the project.
+    /// </summary>
+    private string? NoEngineNote() =>
+        ctx.ProjectRunnerService.StartupWithNoEngine is { } none ? NoRunEngine.Explain(none, ctx.Localization) : null;
+
+    /// <summary>A refusal for having nothing running, which says so when nothing could be (#3514).</summary>
+    private string NothingRunning(string refusal) => NoEngineNote() is { } none ? $"{refusal}. {none}" : refusal;
+
     [McpServerTool(Name = "get_last_runtime_error")]
     [Description("Returns the last runtime error the running program raised, WITH ITS TEXT, and keeps it after the error dialog has been dismissed. That includes a compile error met while it ran, and the reason a start never became a run; a line such an error names counts from the top of the file, header included, as the code window numbers it. Use it after any run that might raise: stop_project and shutdown_ide both close open dialogs, so a run whose form silently did nothing is otherwise indistinguishable from a run whose error dialog was dismissed a moment earlier. run_project clears the message first, so a result here belongs to the most recent run. 'sequence' only ever increases and is not cleared — compare it across runs to tell 'no error' from 'the same error again', which message text cannot do. 'module' and 'line' say where it was raised, the line counted as the code window numbers it, when a statement of the program raised it; a start that never became a run has neither. 'at' is when it was raised, in UTC like every other stamp the tools return. Returns raised:false when the current run has raised nothing.")]
     public async Task<RuntimeErrorResult> GetLastRuntimeErrorAsync(CancellationToken ct)
@@ -1022,7 +1037,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
         {
             var last = ctx.RootViewModel.RuntimeErrors.Last;
             return last is null
-                ? new RuntimeErrorResult(false, null, null, ctx.RootViewModel.RuntimeErrors.Sequence)
+                ? new RuntimeErrorResult(false, null, null, ctx.RootViewModel.RuntimeErrors.Sequence, Note: NoEngineNote())
                 : new RuntimeErrorResult(true, last.Value.Message,
                                          last.Value.At.ToString("o"), last.Value.Sequence,
                                          last.Value.Where?.Module, last.Value.Where?.Line);
@@ -1036,7 +1051,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
         return await Dispatcher.UIThread.InvokeAsync(() =>
         {
             if (!ctx.ProjectRunnerService.CanEndProject)
-                return new MutateResult(false, "No project is currently running");
+                return new MutateResult(false, NothingRunning("No project is currently running"));
             var isExternal = ctx.RootViewModel.ExternalDebugger?.IsActive == true;
             ctx.ProjectRunnerService.EndProject();
             if (isExternal)
@@ -1611,8 +1626,10 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
         ctx.ProjectRunnerService.IsRunning
             ? $"The project is running, not paused, so {what}. break_program pauses it where it is, or "
               + "set_breakpoints on a line it will reach and it stops there."
-            : $"No project is running, so {what}. set_breakpoints on the line you want, then run_project; "
-              + "step_into starts it and breaks on the first statement.";
+            : NoEngineNote() is { } none
+                ? $"No project is running, so {what}. {none}"
+                : $"No project is running, so {what}. set_breakpoints on the line you want, then run_project; "
+                  + "step_into starts it and breaks on the first statement.";
 
     /// <summary>The UserControl or PropertyPage module whose designer half this is, or null for a form.</summary>
     private ModuleDefinition? OwnerModuleOf(FormDefinition? form) =>
@@ -1775,7 +1792,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
         var (refused, outcome) = await StartAndAwaitStopAsync(() =>
         {
             if (!ctx.ProjectRunnerService.CanBreakProject)
-                return new MutateResult(false, ctx.ProjectRunnerService.IsRunning ? "Already paused" : "No project is running");
+                return new MutateResult(false, ctx.ProjectRunnerService.IsRunning ? "Already paused" : NothingRunning("No project is running"));
             ctx.ProjectRunnerService.BreakCurrentProject();
             return null;
         }, StepReplyWait, ct, externalControl: true);
@@ -1797,7 +1814,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
         var (refused, outcome) = await StartAndAwaitStopAsync(() =>
         {
             if (!ctx.ProjectRunnerService.CanContinueProject)
-                return new MutateResult(false, "Project is not paused");
+                return new MutateResult(false, NoEngineNote() is { } none ? $"No project is running. {none}" : "Project is not paused");
             ctx.ProjectRunnerService.ContinueProject();
             return null;
         }, RunReplyWait, ct, externalControl: true);
@@ -1968,7 +1985,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
             () => can() ? StartFailure(start) : new MutateResult(false,
                 ctx.RootViewModel.ExternalDebugger?.IsActive == true
                     ? "The external session must be paused and the adapter ready before stepping."
-                    : "No project to step — load a project first"),
+                    : WhyNoStart("No project to step — load a project first")),
             StepReplyWait, ct, externalControl: true);
         if (refused is not null)
             return refused;
@@ -2007,7 +2024,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
         var (refused, outcome) = await StartAndAwaitStopAsync(() =>
         {
             if (!ctx.ProjectRunnerService.CanRunToCursor)
-                return new MutateResult(false, "No project to run — load a project first");
+                return new MutateResult(false, WhyNoStart("No project to run — load a project first"));
 
             var lookup = ResolveDocument(module, project);
             if (lookup.Document is not { } document)
@@ -2077,7 +2094,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
             // hold a module called the same thing — which would move the execution point of the running
             // project to a line of a document that is not executing.
             if (ctx.ProjectRunnerService.RunningProject is not { } running)
-                return Naming(new MutateResult(false, "No project is running"), document);
+                return Naming(new MutateResult(false, NothingRunning("No project is running")), document);
             if (!document.IsIn(running))
                 return Naming(new MutateResult(false,
                     $"{document.Display} is not in the running project ('{running.Name}')"), document);
@@ -2092,7 +2109,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     [DescribesEnum(typeof(DebugState))]
     [DescribesEnum(typeof(StopReason))]
     [DescribesEnum(typeof(HexIDE.Dap.DapSessionState), "Created", "Stopped")]
-    [Description("Returns the current or most recent session's debug state. Interpreter states: Running/Paused/Stopped. External states: Starting/Running/Paused (adapter Stopped)/Ended/Faulted; running is true only for Starting, Running or Paused, even during adapter cleanup. When paused, module and 1-based line locate the break, counted from the file top, header included, as the code window numbers it. Interpreter module is a module name and project names its running project. External module is the adapter's source file path, project is absent; set_next_statement takes a module name, not that path. stopReason is Breakpoint (breakpoint or Run To Cursor), Watch (a break watch), Step (step completed), StopStatement (VB6 Stop), Assertion (failed Debug.Assert), Pause (requested break), or RuntimeError (unhandled error, Debug chosen). External reasons map breakpoint/function breakpoint to Breakpoint, data breakpoint to Watch, step/goto to Step, pause to Pause, exception to RuntimeError; unknown reasons give null. adapterStopReason retains the external adapter's raw reason. Both reasons are null unless Paused.")]
+    [Description("Returns the current or most recent session's debug state. Interpreter states: Running/Paused/Stopped. External states: Starting/Running/Paused (adapter Stopped)/Ended/Faulted; running is true only for Starting, Running or Paused, even during adapter cleanup. When paused, module and 1-based line locate the break, counted from the file top, header included, as the code window numbers it. Interpreter module is a module name and project names its running project. External module is the adapter's source file path, project is absent; set_next_statement takes a module name, not that path. stopReason is Breakpoint (breakpoint or Run To Cursor), Watch (a break watch), Step (step completed), StopStatement (VB6 Stop), Assertion (failed Debug.Assert), Pause (requested break), or RuntimeError (unhandled error, Debug chosen). External reasons map breakpoint/function breakpoint to Breakpoint, data breakpoint to Watch, step/goto to Step, pause to Pause, exception to RuntimeError; unknown reasons give null. adapterStopReason retains the external adapter's raw reason. Both reasons are null unless Paused. 'note' says when no run engine runs the startup project.")]
     public async Task<DebugStateResult> GetDebugStateAsync(CancellationToken ct)
     {
         return await Dispatcher.UIThread.InvokeAsync(() =>
@@ -2134,7 +2151,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
                 // The module is a bare name, and a group may hold two of it: the running project says which.
                 stop is null ? null : ctx.ProjectRunnerService.RunningProject?.Name,
                 // The note is written to follow another sentence; standing alone, it starts with no space.
-                Note: ctx.ProjectRunnerService.CodeEditNote()?.TrimStart());
+                Note: ctx.ProjectRunnerService.CodeEditNote()?.TrimStart() ?? NoEngineNote());
         });
     }
 
@@ -2269,7 +2286,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
                 w.Expression, w.Type.ToString(), w.Context,
                 result?.Display ?? "<Out of context>", result?.TypeName ?? "", result?.Ok ?? false));
         }
-        return new WatchesResult(true, null, rows.ToArray(), ctx.ProjectRunnerService.RunningProject?.Name);
+        return new WatchesResult(true, null, rows.ToArray(), ctx.ProjectRunnerService.RunningProject?.Name, NoEngineNote());
     }
 
     [McpServerTool(Name = "evaluate")]
@@ -2280,7 +2297,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
             return new EvaluateResult(false, ctx.Localization.GetString("Str.Debug.External.Unsupported"), null);
         string? result = await Dispatcher.UIThread.InvokeAsync(() => ctx.DebugController.EvaluateAsync(expression));
         return result is null
-            ? new EvaluateResult(false, NotPausedRefusal("there is no frame to evaluate against"), null)
+            ? new EvaluateResult(false, await Dispatcher.UIThread.InvokeAsync(() => NotPausedRefusal("there is no frame to evaluate against")), null)
             : new EvaluateResult(true, null, result);
     }
 
@@ -4312,7 +4329,8 @@ internal record CallStackResult(bool Success, string? Error, CallStackFrameRow[]
 
 internal record CallStackFrameRow(string Proc, string Module, int Line, int Count = 1);
 
-internal record WatchesResult(bool Success, string? Error, WatchRow[] Watches, string? Project = null);
+/// <param name="Note">Says that no run engine runs the startup project, so the values stay out of context (#3514). Absent otherwise.</param>
+internal record WatchesResult(bool Success, string? Error, WatchRow[] Watches, string? Project = null, string? Note = null);
 
 internal record WatchRow(string Expression, string WatchType, string Context, string Value, string Type, bool Ok);
 
@@ -4324,7 +4342,8 @@ internal record TemplateInfo(string Name, bool Supported, string Source);
 
 internal record NewProjectTemplatesResult(TemplateInfo[] Templates);
 
-internal record RuntimeErrorResult(bool Raised, string? Message, string? At, int Sequence, string? Module = null, int? Line = null);
+internal record RuntimeErrorResult(bool Raised, string? Message, string? At, int Sequence, string? Module = null, int? Line = null,
+    string? Note = null);
 
 /// <param name="Path">What the next dialog will return, or null when it will answer as cancelled or return several.</param>
 /// <param name="Pending">How many answers are still armed, so a stale one is visible rather than latent.</param>

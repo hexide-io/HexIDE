@@ -51,6 +51,13 @@ public interface IProjectRunnerService : INotifyPropertyChanged
     bool CanRestartProject { get; }
     bool IsRunning { get; }
 
+    /// <summary>
+    /// The startup project, when nothing is running and no run engine runs it, with the launches add-ins offer for it; null
+    /// otherwise. It is what a tool that needs an engine has to explain (#3514). Each launch is asked whether it runs the
+    /// project every time this is read, so read it on the UI thread.
+    /// </summary>
+    NoEngineStartup? StartupWithNoEngine { get; }
+
     /// <summary>The running snapshot and documents edited since start, for automation replies.</summary>
     string? CodeEditNote(bool edit = false);
 
@@ -82,3 +89,8 @@ public interface IProjectRunnerService : INotifyPropertyChanged
     /// <summary>The project currently running, or null when nothing is.</summary>
     ProjectDefinition? RunningProject { get; }
 }
+
+/// <summary>A startup project no run engine runs, and what can run it instead.</summary>
+/// <param name="Project">The project.</param>
+/// <param name="Launches">The launches add-ins offer for it, in the order the Run menu lists them. Empty when none does.</param>
+public sealed record NoEngineStartup(ProjectDefinition Project, IReadOnlyList<HexIDE.Debugging.ContributedDebugLaunch> Launches);
