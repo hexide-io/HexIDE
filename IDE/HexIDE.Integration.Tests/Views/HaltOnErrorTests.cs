@@ -133,7 +133,7 @@ public class HaltOnErrorTests
             var key => key + ": {0}",
         });
         var controller = new DebugController { TimeSliceMs = -1 };
-        var runner = new ProjectRunnerService(
+        var runner = TestRunners.WithInterpreter(
             Substitute.For<IEventBus>(), Substitute.For<IWindowManager>(), Substitute.For<IProjectManager>(),
             localization, controller, Substitute.For<IBreakpointService>(), new WatchService(), new RunScope());
 

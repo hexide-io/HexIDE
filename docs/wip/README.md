@@ -26,4 +26,3 @@ Measurements of real `vb6.exe` made while writing one belong in
 |---|---|---|
 | [Building with the real VB6](vb6-native-build.md) | 2026-10-13 | The native build's hidden compiler and linker switches, capturing what C2 and LINK print, and a private copy of the user's VB6 so HexIDE can do both without touching the install |
 | [One Build command, many compilers](choosing-the-compiler.md) | 2026-10-13 | Retiring "Make with VB6" in favour of a per-project toolchain setting, and what VS Code and others teach about building a polyglot repository |
-| [The next forms demos](forms-demos.md) | 2026-10-13 | A forms-based Battleship, then Minesweeper, as showcases of what the interpreter runs |

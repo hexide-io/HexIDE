@@ -116,7 +116,7 @@ public class UnloadTests
         });
         // A yield at every statement, so nothing here holds only because no handler gave up the thread (#766).
         var controller = new DebugController { TimeSliceMs = -1 };
-        var runner = new ProjectRunnerService(
+        var runner = TestRunners.WithInterpreter(
             Substitute.For<IEventBus>(), Substitute.For<IWindowManager>(), Substitute.For<IProjectManager>(),
             localization, controller, Substitute.For<IBreakpointService>(), new WatchService(), new RunScope());
 

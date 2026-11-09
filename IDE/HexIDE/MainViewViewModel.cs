@@ -280,8 +280,18 @@ public partial class MainViewViewModel : ObservableObject
 
     private readonly AddinToolWindowService _addinToolWindowService;
 
+    internal event Action<IDockable>? KeyboardFocusRequested;
+
     public class DockFactory : Factory
     {
+        internal event Action<IDockable>? KeyboardFocusRequested;
+
+        internal void FocusDockable(IDock dock, IDockable dockable)
+        {
+            base.SetFocusedDockable(dock, dockable);
+            KeyboardFocusRequested?.Invoke(dockable);
+        }
+
         internal const double MinimumDocumentHeight = 120;
 
         private readonly IWindowStateService windowStateService;
@@ -948,7 +958,7 @@ public partial class MainViewViewModel : ObservableObject
                     slot.Parent.ActiveDockable = slot.Child;
                 }
                 InitDockable(path[^1].Parent, path[^1].Parent.Owner);
-                SetFocusedDockable((IDock)tool.Owner!, tool);
+                FocusDockable((IDock)tool.Owner!, tool);
                 RefreshLayout(layout);
                 LayoutChanged?.Invoke();
                 return;
@@ -1006,7 +1016,7 @@ public partial class MainViewViewModel : ObservableObject
                     left.ActiveDockable = tool;
                     // Initialize after adding the tool so Dock does not retain IsEmpty = true.
                     InitDockable(left, layout.DefaultDockable);
-                    SetFocusedDockable(left, tool);
+                    FocusDockable(left, tool);
                     break;
                 }
                 case DockRegion.Right:
@@ -1015,7 +1025,7 @@ public partial class MainViewViewModel : ObservableObject
                     var td = MakeToolDock(tool, Alignment.Top, proportion ?? FairProportion(rd));
                     InsertToolDock(rd, td, order, documentFirst: false);
                     InitDockable(td, rd);
-                    SetFocusedDockable(td, tool);
+                    FocusDockable(td, tool);
                     break;
                 }
                 case DockRegion.Bottom:
@@ -1026,7 +1036,7 @@ public partial class MainViewViewModel : ObservableObject
                     var td = MakeToolDock(tool, Alignment.Bottom, proportion ?? FairProportion(mid) ?? 0.3);
                     InsertToolDock(mid, td, order, documentFirst: true);
                     InitDockable(td, mid);
-                    SetFocusedDockable(td, tool);
+                    FocusDockable(td, tool);
                     break;
                 }
             }
@@ -1177,7 +1187,7 @@ public partial class MainViewViewModel : ObservableObject
             dockFactory.AddDockable((IToolDock)Immediate.Owner!, tool);
         }
         ((IDock)tool.Owner!).ActiveDockable = tool;
-        dockFactory.SetFocusedDockable((IDock)tool.Owner!, tool);
+        dockFactory.FocusDockable((IDock)tool.Owner!, tool);
     }
 
     public MainViewViewModel(IWindowManager windowManager,
@@ -1267,6 +1277,7 @@ public partial class MainViewViewModel : ObservableObject
         this.projectService = projectService;
         this.documentDockService = documentDockService;
         this.dockFactory = dockFactory;
+        dockFactory.KeyboardFocusRequested += dockable => KeyboardFocusRequested?.Invoke(dockable);
         this.projectRunnerService = projectRunnerService;
         this.eventBus = eventBus;
         this.vb6Toolchain = vb6Toolchain;
@@ -1813,8 +1824,7 @@ public partial class MainViewViewModel : ObservableObject
 
     public async Task NewProject()
     {
-        await projectService.UnloadAllProjects();
-        await projectService.CreateNewProject();
+        await projectService.CreateNewProject(replaceExisting: true);
     }
 
     public async Task AddProject(IProjectTemplate? projectTemplate)
@@ -1935,7 +1945,9 @@ public partial class MainViewViewModel : ObservableObject
             var line = code.Document.GetLineByOffset(code.CaretOffset).LineNumber;
             // The definition's own name, not a tail read off a URI: a module named Utilities saved as
             // util.bas answers to "Utilities", and the file stem would name nothing the controller knows.
-            if (!debugController.SetNextStatement(code.Identity.Name, line))
+            // The controller takes a bare name; another project in a group may have the same module.
+            if (projectRunnerService.RunningProject is not { } running || !code.Identity.IsIn(running)
+                || !debugController.SetNextStatement(code.Identity.Name, line))
                 windowManager.MessageBox(localization.GetString("Str.Debug.SetNextStatement.Refused"),
                     icon: MessageBoxIcon.Information).ListenErrors();
         }
@@ -2193,7 +2205,7 @@ public partial class MainViewViewModel : ObservableObject
         var opened = FindDock<IDockable>(x => ReferenceEquals(x, tool));
         if (opened != null)
         {
-            dockFactory.SetFocusedDockable((IDock)opened.Owner!, opened);
+            dockFactory.FocusDockable((IDock)opened.Owner!, opened);
             return;
         }
 
@@ -2346,7 +2358,7 @@ public partial class MainViewViewModel : ObservableObject
 
         if (docDock.VisibleDockables?.Contains(ObjectBrowser) == true)
         {
-            dockFactory.SetFocusedDockable(docDock, ObjectBrowser);
+            dockFactory.FocusDockable(docDock, ObjectBrowser);
             docDock.ActiveDockable = ObjectBrowser;
             return;
         }
@@ -2354,7 +2366,7 @@ public partial class MainViewViewModel : ObservableObject
         docDock.VisibleDockables ??= dockFactory.CreateList<IDockable>();
         docDock.VisibleDockables.Add(ObjectBrowser);
         dockFactory.InitDockable(ObjectBrowser, docDock);
-        dockFactory.SetFocusedDockable(docDock, ObjectBrowser);
+        dockFactory.FocusDockable(docDock, ObjectBrowser);
         docDock.ActiveDockable = ObjectBrowser;
         ScheduleLayoutSave();
     }
@@ -2400,7 +2412,7 @@ public partial class MainViewViewModel : ObservableObject
 
         if (docDock.VisibleDockables?.Contains(ProtocolInspector) == true)
         {
-            dockFactory.SetFocusedDockable(docDock, ProtocolInspector);
+            dockFactory.FocusDockable(docDock, ProtocolInspector);
             docDock.ActiveDockable = ProtocolInspector;
             return;
         }
@@ -2408,7 +2420,7 @@ public partial class MainViewViewModel : ObservableObject
         docDock.VisibleDockables ??= dockFactory.CreateList<IDockable>();
         docDock.VisibleDockables.Add(ProtocolInspector);
         dockFactory.InitDockable(ProtocolInspector, docDock);
-        dockFactory.SetFocusedDockable(docDock, ProtocolInspector);
+        dockFactory.FocusDockable(docDock, ProtocolInspector);
         docDock.ActiveDockable = ProtocolInspector;
         ScheduleLayoutSave();
     }
@@ -2420,7 +2432,7 @@ public partial class MainViewViewModel : ObservableObject
 
         if (docDock.VisibleDockables?.Contains(LanguageServers) == true)
         {
-            dockFactory.SetFocusedDockable(docDock, LanguageServers);
+            dockFactory.FocusDockable(docDock, LanguageServers);
             docDock.ActiveDockable = LanguageServers;
             return;
         }
@@ -2428,7 +2440,7 @@ public partial class MainViewViewModel : ObservableObject
         docDock.VisibleDockables ??= dockFactory.CreateList<IDockable>();
         docDock.VisibleDockables.Add(LanguageServers);
         dockFactory.InitDockable(LanguageServers, docDock);
-        dockFactory.SetFocusedDockable(docDock, LanguageServers);
+        dockFactory.FocusDockable(docDock, LanguageServers);
         docDock.ActiveDockable = LanguageServers;
         ScheduleLayoutSave();
     }
@@ -2440,7 +2452,7 @@ public partial class MainViewViewModel : ObservableObject
 
         if (docDock.VisibleDockables?.Contains(TranslationEditor) == true)
         {
-            dockFactory.SetFocusedDockable(docDock, TranslationEditor);
+            dockFactory.FocusDockable(docDock, TranslationEditor);
             docDock.ActiveDockable = TranslationEditor;
             return;
         }
@@ -2448,7 +2460,7 @@ public partial class MainViewViewModel : ObservableObject
         docDock.VisibleDockables ??= dockFactory.CreateList<IDockable>();
         docDock.VisibleDockables.Add(TranslationEditor);
         dockFactory.InitDockable(TranslationEditor, docDock);
-        dockFactory.SetFocusedDockable(docDock, TranslationEditor);
+        dockFactory.FocusDockable(docDock, TranslationEditor);
         docDock.ActiveDockable = TranslationEditor;
         ScheduleLayoutSave();
     }

@@ -357,6 +357,7 @@
     "Str.Tool.Project.Menu.Add.Form": "Lomake",
     "Str.Tool.Project.Menu.Print": "Tulosta",
     "Str.Tool.FormLayout.Preview.FormName": "Form1",
+    "Str.Tool.ColorPalette.Title": "Väripaletti",
     "Str.Tool.ColorPalette.Button.Default": "Oletus",
     "Str.Tool.ColorPalette.Button.DefineColors": "Määritä värit",
     "Str.Tool.Locals.ContextReady": "<Valmis>",

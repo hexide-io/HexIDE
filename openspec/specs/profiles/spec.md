@@ -118,7 +118,7 @@ as user translations. Startup SHALL supply the selected snapshot to this adapter
 The desktop CLI SHALL accept one `--profile <value>` or `/profile <value>` selector in Debug and Release.
 It SHALL resolve against the invocation directory and the fully parsed user-data directory, independent
 of flag order. Omission SHALL select embedded `vb6`; `none` SHALL select a null snapshot with baseline
-offerings. Recovery-mode customization and write suppression remain a subsequent delivery. A selected
+offerings. A selected
 bundle MUST validate before application, and rejection MUST exit with code 2 and an attributed localized
 remedy rather than silently selecting a different bundle. Selection SHALL NOT be persisted.
 

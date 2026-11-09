@@ -321,6 +321,7 @@
     "Str.Tool.Project.Menu.Add.Form": "Формуляр",
     "Str.Tool.Project.Menu.Print": "Печат",
     "Str.Tool.FormLayout.Preview.FormName": "Form1",
+    "Str.Tool.ColorPalette.Title": "Цветова палитра",
     "Str.Tool.ColorPalette.Button.Default": "По подразбиране",
     "Str.Tool.ColorPalette.Button.DefineColors": "Определяне на цветове",
     "Str.Tool.Locals.ContextReady": "<Готово>",

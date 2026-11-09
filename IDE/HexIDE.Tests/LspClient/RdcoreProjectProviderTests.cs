@@ -56,10 +56,10 @@ public sealed class RdcoreProjectProviderTests
     }
 
     [Theory]
-    [InlineData(null, "0.1.0")]
-    [InlineData("""{"version":"1.0.0"}""", "1.0.0")]
-    [InlineData("""{"version":3}""", "0.1.0")]
-    public void VersionIsTheOldestRDCoreReportsUnlessSettingsSayOtherwise(string? settings, string expected)
+    [InlineData(null, "1.0")]
+    [InlineData("""{"version":"0.1.0"}""", "0.1.0")]
+    [InlineData("""{"version":3}""", "1.0")]
+    public void VersionIsTheFormatRDCoreWritesUnlessSettingsSayOtherwise(string? settings, string expected)
     {
         using var json = Produce(new("Probe", null, [File("Main.bas", WorkspaceProjectFileKind.Module)], []), settings);
         json.RootElement.GetProperty("Version").GetString().Should().Be(expected);

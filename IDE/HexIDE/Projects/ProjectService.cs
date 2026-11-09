@@ -152,7 +152,7 @@ public partial class ProjectService : IProjectService
     private static string ItemLineFor(ModuleKind kind, string name, string relativePath) =>
         ProjectLoader.ItemLineFor(kind, name, relativePath);
 
-    private async Task<IAddinProjectTemplate?> ChooseNewProject()
+    private async Task<IAddinProjectTemplate?> ChooseNewProject(bool replaceExisting)
     {
         var vm = newProjectVm();
         if (!await windowManager.ShowDialog(vm))
@@ -162,6 +162,8 @@ public partial class ProjectService : IProjectService
         if (vm.ResultFilePath != null)
         {
             // "Existing" or "Recent" tab selected a .vbp file
+            if (replaceExisting)
+                await UnloadAllProjects();
             await OpenProject(vm.ResultFilePath);
             return null;
         }
@@ -169,15 +171,18 @@ public partial class ProjectService : IProjectService
         return vm.SelectedTemplate?.Template;
     }
 
-    public async Task CreateNewProject()
+    public async Task CreateNewProject(bool replaceExisting = false)
     {
         Log.Debug("ProjectService: CreateNewProject — showing dialog");
-        var template = await ChooseNewProject();
+        var template = await ChooseNewProject(replaceExisting);
         if (template == null)
         {
             Log.Debug("ProjectService: CreateNewProject — no template selected (cancelled or file opened)");
             return;
         }
+
+        if (replaceExisting)
+            await UnloadAllProjects();
 
         var name = ProjectNaming.NextFreeProjectName(projectManager.LoadedProjects);
         Log.Debug("ProjectService: Creating project '{ProjectName}' from template {Template}", name, template.Name);

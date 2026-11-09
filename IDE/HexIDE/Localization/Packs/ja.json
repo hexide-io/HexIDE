@@ -357,6 +357,7 @@
     "Str.Tool.Project.Menu.Add.Form": "フォーム",
     "Str.Tool.Project.Menu.Print": "印刷",
     "Str.Tool.FormLayout.Preview.FormName": "Form1",
+    "Str.Tool.ColorPalette.Title": "カラーパレット",
     "Str.Tool.ColorPalette.Button.Default": "既定",
     "Str.Tool.ColorPalette.Button.DefineColors": "色の定義",
     "Str.Tool.Locals.ContextReady": "<準備完了>",

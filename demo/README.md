@@ -1,8 +1,9 @@
 # Demos
 
-A gallery of small, self-running VB6 demoscene intros — each built end-to-end by driving the live
-HexIDE IDE entirely through its MCP automation tools (the `demo-hexide-mcp` skill), then compiled
-with the real VB6 compiler and verified by screenshot + resize.
+A gallery of small VB6 programs. Three are self-running demoscene intros, each built end-to-end by
+driving the live HexIDE IDE entirely through its MCP automation tools (the `demo-hexide-mcp` skill),
+then compiled with the real VB6 compiler and verified by screenshot + resize. The others, marked
+*different kind* below, each exist for a reason of their own.
 
 Every **verified** demo is archived here in its own subfolder with its full VB6 source, a screenshot
 and a README. They are meant to be kept — each is a working example of what MCP-driven HexIDE
@@ -13,7 +14,7 @@ automation can produce.
 Each demo lives in `demo/<jaunty-name>/` and contains:
 
 - `<Name>.vbp` + `.frm`/`.cls`/`.bas` — the complete, self-contained VB6 source
-- `screenshot.png` — the effect running
+- `screenshot.png` — the effect running, for a demo that draws one
 - `README.md` — what it is and how it works
 
 The built `.exe` is **not** committed. `scripts/check-tree-hygiene.sh` rejects a build artefact in the
@@ -39,8 +40,8 @@ with another's. To rebuild any of them you need VB6 installed (`VB98\VB6.EXE`):
 | [bill-of-fare](bill-of-fare/) | *(different kind)* A tour of the VB6 **menu** surface — bar, nested submenus, separators, shortcuts, access keys, a disabled item and click dispatch — hand-written to be looked at and clicked, and to give CI a menu form to round-trip |
 | [spring-tide](spring-tide/) | *(different kind)* A short module with a deliberate syntax error, for opening with a **foreign language server** attached — its folding regions and diagnostics rendered in HexIDE's editor. Does not build, by design |
 
-> **Note:** most demos above are graphical demoscene intros built by driving the live IDE through MCP. Two
-> entries are different beasts. [battleship](battleship/) is a hand-written VBA program archived as an
+> **Note:** the first three demos above are graphical demoscene intros built by driving the live IDE through MCP.
+> The other six are different beasts. Two examples: [battleship](battleship/) is a hand-written VBA program archived as an
 > end-to-end **fidelity cross-check** (the same source runs identically on HexIDE's tree-walking interpreter
 > and on the real VB6 compiler). [bill-of-fare](bill-of-fare/) is a hand-written tour of the **menu**
 > surface, kept because every part of it once shipped broken under a green test suite, and each part was

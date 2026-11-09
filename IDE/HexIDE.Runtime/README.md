@@ -20,10 +20,11 @@ where that line falls is the point of this document.
   overflow code, a rounding rule, a `Format` mask, a coercion — the expected result is pinned against real
   `vb6.exe` (the "fidelity oracle") rather than guessed. The aim is *intended* VB6 behaviour, not VB6's bugs.
 
-**What works today** is a real, usable subset: procedures and the full type system, ~80 intrinsics including a
-complete `Format` engine, the statement set, structured error handling (`On Error`/`Err`/`Resume`), the object-model
-core (classes, `UDT`s, `Property` procedures, custom `Event`s), and control arrays (indexing, shared-event `Index`,
-`Load`/`Unload`). It is enough to run real forms and non-trivial programs.
+**What works today** is a real, usable subset: procedures and the full type system, most of VB6's intrinsic functions
+including a complete `Format` engine, the statement set, files, structured error handling (`On Error`/`Err`/`Resume`),
+the object-model core (classes, `Implements`, `UDT`s, `Property` procedures, custom `Event`s, `Collection`), and control
+arrays (indexing, shared-event `Index`, `Load`/`Unload`). It is enough to run real forms and non-trivial programs.
+[`docs/MISSING_LANGUAGE.md`](../../docs/MISSING_LANGUAGE.md) gives the status of every name.
 
 ## The three hard caps (permanent, by design)
 
@@ -51,44 +52,35 @@ It **does not** reimpose VB6's *artificial* limits (module line counts, nesting 
 respect physically-real ones: runaway recursion runs out of stack, and pathologically deep nesting is rejected with
 a clean compile error instead of crashing.
 
-## Language features permanently out of scope
+## What is permanently out of reach
 
-These need a bound semantic model to do correctly, so they belong to a real language engine — **not** to this
-interpreter. They are principled walls, not backlog:
-
-| Area | Out of scope (permanent) |
-|---|---|
-| **Bang / dictionary** | `rs!Field`, `obj!key` |
-| **Parameterized properties** | `Property Get Item(i)`, `obj.Item(1) = x` (there is no built-in `Collection` either, so the exception this row used to name does not exist) |
-| **Advanced classes** | `As New` / auto-instantiation, instancing modes. (`Implements` is now supported; `Friend` is not walled either — it parses and is deliberately treated as Public, there being no external COM clients to hide from. See [`MISSING_LANGUAGE.md`](../../docs/MISSING_LANGUAGE.md).) |
-| **Fixed-length strings** | `Dim s As String * 10` |
-| **UDT composition** | Arrays *of* a UDT (`Dim a(5) As TThing`), array *fields inside* a UDT |
-| **Type/Enum scoping** | `Private Type` / `Private Enum` isolation (all aggregate program-wide) |
-| **`LSet` / `RSet`** | Record/string block assignment |
-| **COM / OLE automation** | `CreateObject`, `GetObject`, and the wider automation surface |
-| **OS automation** | `AppActivate`, `SendKeys` |
-
-**Default members are not among them**, though this table used to list them. A class's default member is declared by
-an `Attribute` line the pre-pass collects (`VB_UserMemId`, `VB_VarUserMemId`), and reading it is a call made as the
-program runs, which needs no binding. It is not implemented yet: #174 for a class, #790 for a control. Until then a
-class's default member used as a value is refused, untrappably, naming #174, and a class with none raises 438, as in
-VB6. A control is refused in a Let and in a numeric conversion, and still gives its .NET type name in a concatenation.
+No language construct. The permanent limit is **binding**: a check that relates two declarations without running
+either, such as whether a `Property Let` agrees with its `Property Get`, or whether a `Public` signature exposes a
+`Private Type`. VB6 reports those when it compiles. Here the same error is raised when the code runs, where that is
+possible, and a path never taken is never checked. The *Walled off* section of
+[`docs/interpreter-gaps.md`](../../docs/interpreter-gaps.md) has the list.
 
 ## What is still being filled in (deferred, *not* walls)
 
-For contrast: these are ordinary language surface that simply isn't implemented **yet**. They are on the fidelity
-roadmap, not walled off — expect them to arrive over time:
+For contrast, this is ordinary language surface that isn't implemented yet, or not fully:
 
-- **File & directory I/O** — Binary and Random files (`Get`/`Put`), `Kill`/`Name`/`MkDir`, `Dir`. Text files run:
-  `Open`, `Close`, `Print #`, `Write #`, `Line Input #`, `Input #`, `FreeFile` and `EOF` (#1145, #1521)
-- **Some intrinsics** — the `$`-typed string twins (`Left$`, `Mid$`, `Format$`), `Like`, `Switch`, the financial
-  functions, and some string/format helpers
-- **`Collection`** and `For Each` over non-array enumerables
-- **Legacy branching** — `GoSub`/`Return`, computed `On … GoTo`, and numeric line labels (`10  GoTo 10`)
-- **Odds and ends** — conditional compilation (`#If`), and actually *calling* `Declare … Lib` Win32 APIs
+- **Legacy branching:** `GoSub`/`Return` and computed `On … GoTo` or `On … GoSub` stop the run with a clear error.
+  They need a position in a linear statement sequence, which a tree-walk doesn't have.
+- **Default members:** #174 for a class, #790 for a control. A class's default member used as a value is refused,
+  untrappably, naming #174, and a class with none raises 438, as in VB6. A control is refused in a Let and in a numeric
+  conversion, and still gives its .NET type name in a concatenation.
+- **Forms that run only in part:** fixed-length strings, `LSet` and `RSet` beyond named Strings and Variants, bang
+  access on anything but a `Collection`, indexed `Property Let` and `Set` on a class instance, and type-declaration
+  characters (#742).
+- **Missing objects and statements:** the `Printer` object.
+- **What needs the platform:** COM activation (`New Excel.Application`, `CreateObject` of anything but a known,
+  referenced library), `GetObject`, `AppActivate`, `SendKeys` and actually *calling* a `Declare … Lib` function. COM is
+  in scope but Windows-gated.
 
-The full, continuously-maintained catalogue lives in the project's `docs/` (`interpreter-gaps.md`, and
-`vb6-fidelity-oracle/conditional-compilation.md` for every behaviour verified against `vb6.exe`).
+[`docs/MISSING_LANGUAGE.md`](../../docs/MISSING_LANGUAGE.md) says what runs, name by name.
+[`docs/interpreter-gaps.md`](../../docs/interpreter-gaps.md) says why something is missing, and
+[`docs/vb6-fidelity-oracle/README.md`](../../docs/vb6-fidelity-oracle/README.md) records what was verified against
+`vb6.exe`.
 
 ## Debugging features permanently out of scope
 

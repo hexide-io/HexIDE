@@ -5,6 +5,13 @@ namespace HexIDE.Tests;
 public class ApplicationCommandsTests
 {
     [Fact]
+    public void ProjectComponentsUsesThePlatformCommandKeyAndT()
+    {
+        ApplicationCommands.ProjectComponentsCommand.Gestures.Should()
+            .Equal(new KeyGesture(Key.T, ApplicationCommands.SaveCommand.Gestures[0].KeyModifiers));
+    }
+
+    [Fact]
     public void GoToDefinitionUsesShiftF2()
     {
         ApplicationCommands.GoToDefinitionCommand.Gestures.Should()

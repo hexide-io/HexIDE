@@ -158,7 +158,7 @@ scheduled as **feature work with a fidelity dividend**, not as fidelity debt nob
 | 1 | Byte comparison after load+save | `SerializationCorpusTests.Forms_and_controls_round_trip_byte_for_byte` |
 | 2 | Every offset the form cites resolves to a record, and that record is unchanged | `SerializationCorpusTests.Every_companion_offset_cited_by_a_form_resolves_to_a_blob` |
 | 4 | Load failure on our own output | Implicit — a failed re-read |
-| 0 | Deliberate refusal | Not yet implemented as a gate |
+| 0 | Deliberate refusal | `FormDefinition.CanSaveFaithfully`, consulted before a save |
 | **3** | **Only the oracle can see this** | `Vb6OracleRoundTripTests` — round-trip through HexIDE, then `vb6.exe /make` |
 
 **Category 3 is the only outcome we cannot detect by reasoning about our own code.** Every other check is
@@ -184,6 +184,10 @@ HexIDE. Only "VB6 built the original but not our output" counts as a failure, wh
 ---
 
 ## Status: the gate is in place (2026-08-11)
+
+> **Since then:** the parenting model landed (#84), so a container's children and a menu's items round-trip, and the gate
+> now refuses only what still cannot be reproduced. The editing surface is gated as well: a form that cannot be saved
+> faithfully is held read-only in the designer and the code window. The rest of this section is the 2026-08-11 position.
 
 Forms HexIDE cannot reproduce are now **refused on save** rather than written. Detection is the deepest
 `Begin` nesting seen at load: depth 1 is the root, 2 is the root plus direct children, and 3+ means a

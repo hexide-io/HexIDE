@@ -296,8 +296,8 @@ file on disk. Removing a saved member SHALL make the project changed, and its ne
 member's entry.
 The Project menu SHALL offer the same removal for the selected Explorer member, falling back to the focused
 editor member when the Explorer has no removable selection. Its header SHALL name that member and its
-command SHALL be disabled when neither identifies a loaded member. Designers and related documents remain
-outstanding under #835.
+command SHALL be disabled when neither identifies a loaded member. Designers and carried files are not
+removable through this command.
 
 #### Scenario: Removing an unchanged saved module
 - **WHEN** the developer removes an unchanged saved module through the Explorer

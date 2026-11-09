@@ -54,6 +54,29 @@ public class ProgramParityTests
     }
 
     [Theory]
+    [InlineData(null, null, "", "adapter's default")]
+    [InlineData(null, "Compiled", "Compiled", "adapter's default")]
+    [InlineData("Interpreter", "Compiled", "Interpreter", "Interpreter")]
+    public async Task The_results_header_names_the_engine_and_the_adapter_gets_the_one_chosen(
+        string? chosen, string? inherited, string adapterSees, string header)
+    {
+        var adapter = Path.ChangeExtension(typeof(Dap.TestAdapter.Program).Assembly.Location, OperatingSystem.IsWindows() ? ".exe" : null);
+        var environment = new Dictionary<string, string>
+        {
+            ["HEXIDE_PARITY_ADAPTER"] = adapter,
+            ["HEXIDE_DAP_FIXTURE_MODE"] = "engine-environment",
+        };
+        if (inherited is not null) environment["Configuration__Environment__ExecutionEngine"] = inherited;
+        await RunTool("""
+            {"modules":[{"name":"Module1","kind":"startup","source":"","wrapped":"Public Sub HexDumpMain()\nEnd Sub"}],"printed":[]}
+            """, chosen is null ? [] : ["--execution-engine", chosen], environment, (results, _) =>
+        {
+            JsonNode.Parse(results[1])!["engine"]!["stdout"]!.GetValue<string>().ReplaceLineEndings("\n").Should().Be(adapterSees + "\n");
+            JsonNode.Parse(results[0])!["executionEngine"]!.GetValue<string>().Should().Be(header);
+        });
+    }
+
+    [Theory]
     [InlineData(0, "vb6")]
     [InlineData(1, "Kept")]
     public async Task The_launched_adapter_receives_VB6_language_and_Err_Clear_settings(int line, string expected)

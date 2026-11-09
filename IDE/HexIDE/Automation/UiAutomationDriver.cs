@@ -237,7 +237,21 @@ public static class UiAutomationDriver
             // The pointer it shows, and where that is set (#2453).
             Safe(() => PointerReader.Read(control, c => root is null ? Describe(c) : PathWithin(root, "Window", c)), null),
             control.IsPointerOver,
-            rectNote);
+            rectNote,
+            IsSelectedOf(control, peer));
+    }
+
+    // Whether a row is selected, read as SelectVerified reads it: the pattern's own answer, or the list's mark on a row it
+    // still holds. Absent for a control without that pattern, and when neither can be read (#2863).
+    private static bool? IsSelectedOf(Control control, AutomationPeer peer)
+    {
+        if (peer.GetProvider<ISelectionItemProvider>() is not { } item)
+            return null;
+        return Safe<bool?>(() => item.IsSelected, null)
+               ?? (ItemsControl.ItemsControlFromItemContainer(control) is SelectingItemsControl list
+                   && list.IndexFromContainer(control) >= 0
+                   ? control.GetValue(SelectingItemsControl.IsSelectedProperty)
+                   : null);
     }
 
     private static (double[]? Rect, string? Note) WindowBounds(Control control, AutomationPeer peer, Control? root)
@@ -346,7 +360,7 @@ public static class UiAutomationDriver
         var dataContext = control.DataContext;
         var owner = control;
         if (dataContext is null || ReferenceEquals(control, root)) return owner;
-        for (var a = control.GetVisualParent(); a is not null; a = a.GetVisualParent())
+        for (var a = InheritsFrom(control); a is not null; a = InheritsFrom(a))
         {
             if (a is not Control c || Classify(c).Structural) continue;
             if (!ReferenceEquals(c.DataContext, dataContext)) break;
@@ -354,6 +368,14 @@ public static class UiAutomationDriver
             if (ReferenceEquals(c, root)) break;
         }
         return owner;
+
+        // A popup's content is in a visual tree of its own, whose top has nothing above it. What it inherits comes through
+        // the popup's logical parent, which is not always where it's placed: a code window's completion list is placed on
+        // the editor and inherits from the window (#2892).
+        static Visual? InheritsFrom(Visual v) =>
+            v is Control { Parent: Popup popup } && ReferenceEquals(popup.Child, v)
+                ? popup.Parent as Visual ?? popup.PlacementTarget ?? popup.GetVisualParent()
+                : v.GetVisualParent();
     }
 
     /// <summary>Reflects the command, Command-bound method and property members of a control's DataContext.</summary>
@@ -1909,7 +1931,10 @@ public static class UiAutomationDriver
         var holding = keys == KeyModifiers.None ? "" : " holding " + string.Join(" and ",
             new[] { (KeyModifiers.Shift, "shift"), (KeyModifiers.Control, "ctrl"), (KeyModifiers.Alt, "alt") }
                 .Where(k => keys.HasFlag(k.Item1)).Select(k => k.Item2));
-        var pressed = $"the {name} button{holding} at {where}{landing}";
+        // Here and not with the same window's above: no press is refused past this point, so nothing ends one for a click
+        // that never happened. The pointer is over one window at a time (#3424).
+        var left = EndStayingHoverElsewhere(topLevel) is { } was ? $"; the pointer left {was}" : string.Empty;
+        var pressed = $"the {name} button{holding} at {where}{landing}{left}";
         // Each held move is input of its own, raised by FinishAsync with the dispatcher's layout run between them, as a
         // real pointer's moves are. Dock adds its drop target on the first move past its threshold and finds the drop
         // from that target's layout, so eight moves raised in one burst left the release over a target with no size,
@@ -4525,7 +4550,7 @@ public static class UiAutomationDriver
     {
         if (hovered.IsPointerOver)
             return $"; the pointer stays there and '{Describe(hovered)}' reads as under it (isPointerOver), so take_snapshot "
-                   + "shows its pointer-over look and any tip, until the next click, drag or hover in this window, a hover in another, or the real "
+                   + "shows its pointer-over look and any tip, until the next click, drag or hover, in this window or another, or the real "
                    + "mouse's next move over it";
         var why = moved is null ? "input the hover did not send has moved it"
             : saidAlready ? "what moved the pointer, above, took it" : moved;
@@ -5982,7 +6007,10 @@ public record UiNodeDetail(
     // Whether the pointer is over it, as its :pointerover style reads it (#2562): a hover that stays sets it, and the real
     // mouse's next move takes it back.
     bool IsPointerOver = false,
-    string? BoundingRectNote = null);
+    string? BoundingRectNote = null,
+    // Whether this row is one its list has selected (#2863): SelectionItems says that of a list, and is empty on a row
+    // whichever it is. Absent on anything without the selectionItem provider.
+    bool? IsSelected = null);
 
 /// <summary>The inspected Window's Avalonia frame properties and, on Windows, its native style masks.</summary>
 public record WindowFrameState(bool CanResize, string WindowDecorations, bool CanMinimize, bool CanMaximize,
