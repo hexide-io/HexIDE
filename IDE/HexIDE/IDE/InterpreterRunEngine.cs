@@ -288,7 +288,7 @@ public sealed class InterpreterRunEngine : IRunEngine
         VBProps.SetName(form, instance.GetPropertyOrDefault(VBProperties.NameProperty));
         return form;
     }
-    
+
     private Task RunFormInBrowser(FormDefinition element, CancellationToken token, out VBMDIFormRuntime window,
         IDebugController? debugController = null)
     {
