@@ -18,6 +18,9 @@ namespace HexIDE.Localization;
 /// </remarks>
 internal static partial class BrandText
 {
+    internal static IEnumerable<string> LanguageChain(ILocalizationService localization) =>
+        [localization.ResolvedLanguage, LocalizationService.NeutralLanguageOf(localization.ResolvedLanguage), "en"];
+
     internal const string UpstreamCreditsKey = "Str.Dialog.About.Credits.Thanks";
 
     /// <summary>

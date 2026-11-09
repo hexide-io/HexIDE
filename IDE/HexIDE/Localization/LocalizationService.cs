@@ -433,7 +433,7 @@ public sealed class LocalizationService : ILocalizationService
     /// <summary>The neutral pack a region inherits: a script neutral for Chinese (see
     /// <see cref="ScriptNeutrals"/>), else the language prefix (<c>fr</c> from <c>fr-CA</c>), else the id
     /// itself when it has no region part.</summary>
-    private static string NeutralLanguageOf(string id)
+    internal static string NeutralLanguageOf(string id)
     {
         if (ScriptNeutrals.TryGetValue(id, out var scriptNeutral))
             return scriptNeutral;

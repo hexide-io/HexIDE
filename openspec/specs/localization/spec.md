@@ -279,3 +279,15 @@ resolved last would decide where the IDE ended up. That could leave the IDE in a
 - **WHEN** a language confirmation opens while Options is open, regardless of which window is active
 - **THEN** the gate is owned by the topmost visible window in the main window's ownership chain
 - **AND** Options cannot accept Language or Region input until the gate closes
+
+### Requirement: Brand text resolves per entry
+A brand's tagline and each additional credit SHALL accept a string or a `text`/`translations` object.
+About SHALL resolve each through the UI locale, its neutral pack (including Chinese script mappings),
+`en`, then required `text`. Translations SHALL use the plain entries' validation limits.
+Credits SHALL remain append-only after HexIDE's protected upstream credits.
+
+#### Scenario: A region translates only the tagline
+- **WHEN** a brand has a French tagline and credits, a Canadian French tagline, and an untranslated sponsor credit
+- **AND** the user opens About in Canadian French
+- **THEN** the Canadian tagline, French credits and fallback sponsor text appear
+- **AND** HexIDE's own credits remain first

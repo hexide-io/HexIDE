@@ -19,13 +19,16 @@ public sealed class DistributionIdentity
 
     public DistributionIdentity(string id, string name, string? tagline = null, string? copyright = null,
         IReadOnlyList<string>? additionalCredits = null, string? homeUrl = null, string? supportUrl = null,
-        string? repositoryUrl = null, byte[]? logo = null, string? defaultProfile = null)
+        string? repositoryUrl = null, byte[]? logo = null, string? defaultProfile = null, DistributionText? localizedTagline = null,
+        IReadOnlyList<DistributionText>? localizedCredits = null)
     {
         Id = id;
         Name = name;
-        Tagline = tagline;
+        LocalizedTagline = localizedTagline ?? (tagline is null ? null : new DistributionText(tagline));
         Copyright = copyright;
-        AdditionalCredits = additionalCredits?.ToArray() ?? [];
+        LocalizedCredits = Array.AsReadOnly(localizedCredits?.ToArray()
+            ?? additionalCredits?.Select(text => new DistributionText(text)).ToArray() ?? []);
+        AdditionalCredits = Array.AsReadOnly(LocalizedCredits.Select(text => text.Text).ToArray());
         HomeUrl = homeUrl;
         SupportUrl = supportUrl;
         RepositoryUrl = repositoryUrl;
@@ -38,7 +41,9 @@ public sealed class DistributionIdentity
 
     public string Id { get; }
     public string Name { get; }
-    public string? Tagline { get; }
+    public string? Tagline => LocalizedTagline?.Text;
+    public DistributionText? LocalizedTagline { get; }
+    public IReadOnlyList<DistributionText> LocalizedCredits { get; }
     public string? Copyright { get; }
 
     /// <summary>
@@ -128,4 +133,22 @@ public static class Distribution
 
     /// <summary>This process's log root.</summary>
     public static string LogsDirectory => Current.LogsDirectory;
+}
+
+/// <summary>A brand's inert text, with a required fallback and optional per-locale translations.</summary>
+public sealed class DistributionText(string text, IReadOnlyDictionary<string, string>? translations = null)
+{
+    private readonly IReadOnlyDictionary<string, string> _translations =
+        new System.Collections.ObjectModel.ReadOnlyDictionary<string, string>(
+            translations is null ? new Dictionary<string, string>() : new Dictionary<string, string>(translations));
+
+    public string Text { get; } = text;
+
+    public string Resolve(IEnumerable<string> languages)
+    {
+        foreach (var language in languages)
+            if (_translations.TryGetValue(language, out var translated))
+                return translated;
+        return Text;
+    }
 }
