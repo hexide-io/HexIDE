@@ -223,8 +223,11 @@ public sealed class DistributionDescriptorTests
     [Fact]
     public void Recovery_files_live_under_the_distributions_own_folder()
     {
-        RecoveryPath.For(null, windows: true, @"C:\Local", null, @"C:\Home", "acme")
-            .Should().Contain("acme").And.NotContain("HexIDE");
+        // A real path on whichever host runs this: the method refuses one that is not rooted, as a drive letter is not on Linux.
+        var local = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "local"));
+
+        RecoveryPath.For(null, windows: true, local, null, "/home/u", "acme")
+            .Should().Be(Path.Combine(local, "acme", "Recovery"));
         RecoveryPath.For(null, windows: false, "", "/state", "/home/u", "acme")
             .Should().Be(Path.Combine("/state", "acme", "Recovery"));
     }

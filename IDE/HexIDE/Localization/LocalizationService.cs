@@ -260,6 +260,11 @@ public sealed class LocalizationService : ILocalizationService
             return;
 
         var language = id == "system" ? ResolveOsLanguage() : id;
+
+        // This runs on every resolve, and a pack is a large file to parse for a question that is nearly always no.
+        if (!IsCreditsOverridden(language))
+            return;
+
         var shipped = ShippedCredits(language);
         if (map.TryGetValue(BrandText.UpstreamCreditsKey, out var current) && current == shipped)
             return;
@@ -267,6 +272,19 @@ public sealed class LocalizationService : ILocalizationService
         Log.Warning("LocalizationService: An override of {Key} for '{Language}' was ignored: HexIDE's credits can be added to, not replaced",
             BrandText.UpstreamCreditsKey, language);
         map[BrandText.UpstreamCreditsKey] = shipped;
+    }
+
+    private bool IsCreditsOverridden(string language)
+    {
+        foreach (var layer in new[] { language, NeutralLanguageOf(language) })
+        {
+            if (_profileStrings.TryGetValue(layer, out var profile) && profile.ContainsKey(BrandText.UpstreamCreditsKey))
+                return true;
+            if (_userTranslations?.GetOverrides(layer)?.ContainsKey(BrandText.UpstreamCreditsKey) == true)
+                return true;
+        }
+
+        return false;
     }
 
     private string ShippedCredits(string language)

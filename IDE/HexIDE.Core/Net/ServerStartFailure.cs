@@ -43,7 +43,7 @@ public static class ServerStartFailure
     {
         if (IsPortInUse(failure))
             return (PortInUseExitCode,
-                $"{HexIDE.IDE.Distribution.DisplayName} did not start: port {port} is already in use, most likely by another copy started with "
+                $"{HexIDE.IDE.Distribution.DisplayName} did not start: port {port} is already in use, most likely by another {HexIDE.IDE.Distribution.DisplayName} started with "
               + $"--server-port {port}. Starting anyway would open an IDE with no automation server, and a client "
               + "would go on talking to the other one. Stop that one, or pass a different port."
               + Environment.NewLine);
