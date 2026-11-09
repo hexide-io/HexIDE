@@ -24,7 +24,7 @@
     </UserControl.Styles>
     <Grid Margin="7"
           RowDefinitions="*,10,Auto"
-          ColumnDefinitions="*,8,38,8,75">
+          ColumnDefinitions="*,8,Auto,8,Auto">
         <DockPanel>
             <TextBlock DockPanel.Dock="Top" Margin="0,0,0,10" Text="{DynamicResource Str.Dialog.References.AvailableReferences}" />
             <ListBox
@@ -32,7 +32,7 @@
                 SelectedItem="{CompiledBinding SelectedReference}" />
         </DockPanel>
 
-        <StackPanel Grid.Column="2" Orientation="Vertical" VerticalAlignment="Center" Spacing="12">
+        <StackPanel Grid.Column="2" Orientation="Vertical" VerticalAlignment="Center" Spacing="12" MinWidth="38">
             <Button Padding="0" Width="21" Height="23"
                     Command="{CompiledBinding MoveUpCommand}">
                 <Path Data="{StaticResource Geo.Up}" Fill="{DynamicResource IconInk}" Stretch="Uniform" Width="9" Height="9" />
@@ -44,7 +44,7 @@
             </Button>
         </StackPanel>
 
-        <StackPanel Grid.Column="4" Spacing="4">
+        <StackPanel Grid.Column="4" Spacing="4" MinWidth="75">
             <Button Command="{CompiledBinding OkCommand}" Content="{DynamicResource Str.Dialog.References.Ok}" />
             <Button Command="{CompiledBinding CancelCommand}" Content="{DynamicResource Str.Dialog.References.Cancel}" />
             <Button Margin="0,9,0,0" Command="{CompiledBinding BrowseCommand}" Content="{DynamicResource Str.Dialog.References.Browse}" />

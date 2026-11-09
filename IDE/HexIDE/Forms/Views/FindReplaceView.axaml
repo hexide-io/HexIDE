@@ -8,7 +8,7 @@
     <DockPanel Margin="8" LastChildFill="False">
 
         <!-- Right-side buttons -->
-        <StackPanel DockPanel.Dock="Right" Width="80" Margin="8,0,0,0" Spacing="4">
+        <StackPanel DockPanel.Dock="Right" MinWidth="80" Margin="8,0,0,0" Spacing="4">
             <Button Content="{DynamicResource Str.Dialog.FindReplace.Button.FindNext}" Command="{CompiledBinding FindNextCommand}" IsDefault="True"
                     HorizontalContentAlignment="Center" HorizontalAlignment="Stretch" />
             <Button Content="{DynamicResource Str.Dialog.FindReplace.Button.Replace}" Command="{CompiledBinding ReplaceOneCommand}"
@@ -22,46 +22,42 @@
         </StackPanel>
 
         <!-- Main content -->
-        <StackPanel DockPanel.Dock="Left" Spacing="6" MinWidth="320" MaxWidth="520">
+        <StackPanel DockPanel.Dock="Left" MinWidth="320" MaxWidth="520">
 
-            <!-- Find What. Both boxes hold code, so they read left to right whatever the IDE's language (#1944). -->
-            <DockPanel>
+            <!-- One grid, so the boxes line up after the longest caption, whatever the language (#3385). -->
+            <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto">
+
+                <!-- Find What. Both boxes hold code, so they read left to right whatever the IDE's language (#1944). -->
                 <!-- Each box is named by its caption, without the access-key underscore, so a screen reader and the automation
                      tree know which box takes what (#2717). -->
-                <TextBlock x:Name="FindWhatLabel" DockPanel.Dock="Left" Text="{DynamicResource Str.Dialog.FindReplace.Label.FindWhat}" VerticalAlignment="Center" Width="75" />
-                <TextBox Classes="dialogInitialFocus" Text="{CompiledBinding SearchText, Mode=TwoWay}" FlowDirection="LeftToRight"
+                <TextBlock x:Name="FindWhatLabel" MinWidth="69" Margin="0,0,6,0" Text="{DynamicResource Str.Dialog.FindReplace.Label.FindWhat}" VerticalAlignment="Center" />
+                <TextBox Grid.Column="1" Classes="dialogInitialFocus" Text="{CompiledBinding SearchText, Mode=TwoWay}" FlowDirection="LeftToRight"
                          AutomationProperties.Name="{CompiledBinding #FindWhatLabel.Text, Converter={x:Static converters:AccessKeyNameConverter.Instance}}" />
-            </DockPanel>
 
-            <!-- Replace With (conditional) -->
-            <DockPanel IsVisible="{CompiledBinding ShowReplace}">
-                <TextBlock x:Name="ReplaceWithLabel" DockPanel.Dock="Left" Text="{DynamicResource Str.Dialog.FindReplace.Label.ReplaceWith}" VerticalAlignment="Center" Width="75" />
-                <TextBox Text="{CompiledBinding ReplaceText, Mode=TwoWay}" FlowDirection="LeftToRight"
+                <!-- Replace With (conditional) -->
+                <TextBlock x:Name="ReplaceWithLabel" Grid.Row="1" Margin="0,6,6,0" IsVisible="{CompiledBinding ShowReplace}" Text="{DynamicResource Str.Dialog.FindReplace.Label.ReplaceWith}" VerticalAlignment="Center" />
+                <TextBox Grid.Row="1" Grid.Column="1" Margin="0,6,0,0" IsVisible="{CompiledBinding ShowReplace}" Text="{CompiledBinding ReplaceText, Mode=TwoWay}" FlowDirection="LeftToRight"
                          AutomationProperties.Name="{CompiledBinding #ReplaceWithLabel.Text, Converter={x:Static converters:AccessKeyNameConverter.Instance}}" />
-            </DockPanel>
 
-            <!-- Search scope -->
-            <DockPanel>
-                <TextBlock x:Name="SearchLabel" DockPanel.Dock="Left" Text="{DynamicResource Str.Dialog.FindReplace.Label.Search}" VerticalAlignment="Center" Width="75" />
-                <ComboBox ItemsSource="{CompiledBinding ScopeItems}"
+                <!-- Search scope -->
+                <TextBlock x:Name="SearchLabel" Grid.Row="2" Margin="0,6,6,0" Text="{DynamicResource Str.Dialog.FindReplace.Label.Search}" VerticalAlignment="Center" />
+                <ComboBox Grid.Row="2" Grid.Column="1" Margin="0,6,0,0" ItemsSource="{CompiledBinding ScopeItems}"
                           AutomationProperties.Name="{CompiledBinding #SearchLabel.Text, Converter={x:Static converters:AccessKeyNameConverter.Instance}}"
                           SelectedIndex="{CompiledBinding SelectedScopeIndex, Mode=TwoWay}"
                           HorizontalAlignment="Stretch" />
-            </DockPanel>
+
+                <!-- Direction -->
+                <TextBlock Grid.Row="3" Margin="0,8,6,0" Text="{DynamicResource Str.Dialog.FindReplace.Label.Direction}" VerticalAlignment="Center" />
+                <StackPanel Grid.Row="3" Grid.Column="1" Margin="0,8,0,0" Orientation="Horizontal" Spacing="12">
+                    <RadioButton Content="{DynamicResource Str.Dialog.FindReplace.Direction.Up}" GroupName="Direction"
+                                 IsChecked="{CompiledBinding Direction, Converter={x:Static vm:FindDirectionConverters.IsUp}}" />
+                    <RadioButton Content="{DynamicResource Str.Dialog.FindReplace.Direction.Down}" GroupName="Direction"
+                                 IsChecked="{CompiledBinding Direction, Converter={x:Static vm:FindDirectionConverters.IsDown}}" />
+                </StackPanel>
+            </Grid>
 
             <!-- Options -->
             <StackPanel Spacing="2" Margin="0,2,0,0">
-
-                <!-- Direction -->
-                <DockPanel>
-                    <TextBlock DockPanel.Dock="Left" Text="{DynamicResource Str.Dialog.FindReplace.Label.Direction}" VerticalAlignment="Center" Width="75" />
-                    <StackPanel Orientation="Horizontal" Spacing="12">
-                        <RadioButton Content="{DynamicResource Str.Dialog.FindReplace.Direction.Up}" GroupName="Direction"
-                                     IsChecked="{CompiledBinding Direction, Converter={x:Static vm:FindDirectionConverters.IsUp}}" />
-                        <RadioButton Content="{DynamicResource Str.Dialog.FindReplace.Direction.Down}" GroupName="Direction"
-                                     IsChecked="{CompiledBinding Direction, Converter={x:Static vm:FindDirectionConverters.IsDown}}" />
-                    </StackPanel>
-                </DockPanel>
 
                 <CheckBox Content="{DynamicResource Str.Dialog.FindReplace.Option.MatchCase}" IsChecked="{CompiledBinding MatchCase}" />
                 <CheckBox Content="{DynamicResource Str.Dialog.FindReplace.Option.WholeWordOnly}" IsChecked="{CompiledBinding WholeWordOnly}" />
