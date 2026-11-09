@@ -12,7 +12,7 @@
         <viewModels:SaveChangesViewModel/>
     </Design.DataContext>
 
-    <Grid Margin="11,12,11,15" ColumnDefinitions="284,20,75">
+    <Grid Margin="11,12,11,15" ColumnDefinitions="284,20,Auto">
 
         <DockPanel>
             <TextBlock TextWrapping="WrapWithOverflow" DockPanel.Dock="Top" Margin="0,0,0,10" Text="{DynamicResource Str.Dialog.SaveChanges.Prompt}" />
@@ -34,7 +34,7 @@
             </ListBox>
         </DockPanel>
 
-        <StackPanel Grid.Column="2" Orientation="Vertical" Spacing="5">
+        <StackPanel Grid.Column="2" Orientation="Vertical" Spacing="5" MinWidth="75">
             <Button IsDefault="True" Command="{CompiledBinding Yes}" Content="{DynamicResource Str.Dialog.SaveChanges.Button.Yes}" />
             <Button Command="{CompiledBinding No}" Content="{DynamicResource Str.Dialog.SaveChanges.Button.No}" />
             <Button Command="{CompiledBinding Cancel}" Content="{DynamicResource Str.Dialog.SaveChanges.Button.Cancel}" IsCancel="True" />
