@@ -615,6 +615,8 @@
     "Str.Dialog.ProjectProperties.Button.Help": "Помощ",
     "Str.Dialog.References.AvailableReferences": "Налични препратки:",
     "Str.Dialog.References.Priority": "Приоритет",
+    "Str.Dialog.References.MoveUp": "Преместване на избраната препратка нагоре",
+    "Str.Dialog.References.MoveDown": "Преместване на избраната препратка надолу",
     "Str.Dialog.References.Ok": "OK",
     "Str.Dialog.References.Cancel": "Отказ",
     "Str.Dialog.References.Browse": "Преглед",

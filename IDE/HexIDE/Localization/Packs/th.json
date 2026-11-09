@@ -615,6 +615,8 @@
     "Str.Dialog.ProjectProperties.Button.Help": "วิธีใช้",
     "Str.Dialog.References.AvailableReferences": "การอ้างอิงที่พร้อมใช้:",
     "Str.Dialog.References.Priority": "ลำดับความสำคัญ",
+    "Str.Dialog.References.MoveUp": "ย้ายการอ้างอิงที่เลือกขึ้น",
+    "Str.Dialog.References.MoveDown": "ย้ายการอ้างอิงที่เลือกลง",
     "Str.Dialog.References.Ok": "ตกลง",
     "Str.Dialog.References.Cancel": "ยกเลิก",
     "Str.Dialog.References.Browse": "เรียกดู",

@@ -615,6 +615,8 @@
     "Str.Dialog.ProjectProperties.Button.Help": "_Laguntza",
     "Str.Dialog.References.AvailableReferences": "Erreferentzia erabilgarriak:",
     "Str.Dialog.References.Priority": "Lehentasuna",
+    "Str.Dialog.References.MoveUp": "Eraman hautatutako erreferentzia gora",
+    "Str.Dialog.References.MoveDown": "Eraman hautatutako erreferentzia behera",
     "Str.Dialog.References.Ok": "Ados",
     "Str.Dialog.References.Cancel": "Utzi",
     "Str.Dialog.References.Browse": "Arakatu",

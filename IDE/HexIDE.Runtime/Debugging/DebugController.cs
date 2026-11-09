@@ -33,6 +33,7 @@ public sealed class DebugController : IDebugController
 
     private readonly Dictionary<string, HashSet<int>> _breakpoints = new(StringComparer.OrdinalIgnoreCase);
     private bool _anyBreakpoints;
+    private readonly Dictionary<string, Dictionary<int, string>> _conditions = new(StringComparer.OrdinalIgnoreCase);
 
     // Break-type watches (Break When True / Changed), evaluated against the executing frame at every statement while
     // running. Gated behind _anyWatchBreaks so the common (no-watch) hot path pays nothing.
@@ -108,6 +109,7 @@ public sealed class DebugController : IDebugController
 
     public void SetBreakpoints(string module, IReadOnlyCollection<int> lines)
     {
+        _conditions.Remove(module);
         if (lines.Count == 0)
             _breakpoints.Remove(module);
         else
@@ -115,9 +117,13 @@ public sealed class DebugController : IDebugController
         _anyBreakpoints = _breakpoints.Count > 0;
     }
 
+    public void SetBreakpointConditions(string module, IReadOnlyDictionary<int, string> conditions)
+        => _conditions[module] = new Dictionary<int, string>(conditions);
+
     public void ClearBreakpoints()
     {
         _breakpoints.Clear();
+        _conditions.Clear();
         _anyBreakpoints = false;
     }
 
@@ -229,11 +235,12 @@ public sealed class DebugController : IDebugController
 
             bool runToHit = MatchesRunTo(line, module);
 
-            if (ShouldBreak(line, module, frame) || watchTripped)
+            bool breakpointHit = MatchesBreakpoint(line, module) && await EvaluateBreakpointConditionAsync(line, module, frame);
+            if (_pauseRequested || StepWantsBreak(frame) || breakpointHit || runToHit || watchTripped)
             {
                 // Breakpoint wins (VB6 shows a breakpoint hit even mid-step); then Run To Cursor (a temp breakpoint);
                 // then a watch; then a step; then pause.
-                var reason = MatchesBreakpoint(line, module) || runToHit ? StopReason.Breakpoint
+                var reason = breakpointHit || runToHit ? StopReason.Breakpoint
                            : watchTripped ? StopReason.Watch
                            : _stepMode != StepMode.None ? StopReason.Step
                            : StopReason.Pause;
@@ -306,6 +313,24 @@ public sealed class DebugController : IDebugController
 
     private bool MatchesRunTo(int line, string module)
         => _runToTarget is (var m, var l) && l == line && string.Equals(m, module, StringComparison.OrdinalIgnoreCase);
+
+    private async ValueTask<bool> EvaluateBreakpointConditionAsync(int line, string module, IDebugFrame? frame)
+    {
+        if (!_conditions.TryGetValue(module, out var conditions) || !conditions.TryGetValue(line, out var expression))
+            return true;
+        if (frame is null)
+            return true;
+        DebugEvalResult result;
+        try { result = await frame.EvaluateTypedAsync(expression); }
+        catch (Exception ex)
+        {
+            VBDebugConsole.Write(expression + ": " + ex.Message + "\r\n");
+            return true;
+        }
+        if (!result.Ok)
+            VBDebugConsole.Write(expression + ": " + result.Display + "\r\n");
+        return !result.Ok || result.Truthy;
+    }
 
     // Evaluate each break-type watch against the executing frame. Break-When-True trips whenever the expression
     // coerces to True (level-triggered — VB6: "break when the expression evaluates to True"); Break-When-Changed

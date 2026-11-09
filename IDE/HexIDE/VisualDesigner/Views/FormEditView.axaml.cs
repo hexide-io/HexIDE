@@ -38,6 +38,15 @@ public partial class FormEditView : UserControl
         FormContainer.AddHandler(PointerReleasedEvent, OnFormPointerReleased);
     }
 
+    // A control's context menu is IDE chrome, but it opens from inside the ThemeVariantScope that keeps the form's canvas
+    // Light, and a popup takes the theme of what it opened from (#3400). So its popup is given the IDE's theme instead, on
+    // each opening, because a theme pack can change between two of them. The canvas keeps its own.
+    private void ControlMenuOpening(object? sender, EventArgs e)
+    {
+        if (sender is PopupFlyoutBase flyout && Application.Current is { } app)
+            flyout.Popup.SetValue(ThemeVariantScope.RequestedThemeVariantProperty, app.ActualThemeVariant);
+    }
+
     private void OnDesignerPagePressed(object? sender, PointerPressedEventArgs e)
     {
         if (DataContext is FormEditViewModel vm && vm.ToolsBoxToolViewModel is { IsCursorSelected: true }

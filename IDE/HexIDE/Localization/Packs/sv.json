@@ -611,6 +611,8 @@
     "Str.Dialog.ProjectProperties.Button.Help": "_Hjälp",
     "Str.Dialog.References.AvailableReferences": "Tillgängliga referenser:",
     "Str.Dialog.References.Priority": "Prioritet",
+    "Str.Dialog.References.MoveUp": "Flytta markerad referens uppåt",
+    "Str.Dialog.References.MoveDown": "Flytta markerad referens nedåt",
     "Str.Dialog.References.Ok": "OK",
     "Str.Dialog.References.Cancel": "Avbryt",
     "Str.Dialog.References.Browse": "Bläddra",

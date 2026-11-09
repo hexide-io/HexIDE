@@ -611,6 +611,8 @@
     "Str.Dialog.ProjectProperties.Button.Help": "_Aide",
     "Str.Dialog.References.AvailableReferences": "Références disponibles :",
     "Str.Dialog.References.Priority": "Priorité",
+    "Str.Dialog.References.MoveUp": "Monter la référence sélectionnée",
+    "Str.Dialog.References.MoveDown": "Descendre la référence sélectionnée",
     "Str.Dialog.References.Ok": "OK",
     "Str.Dialog.References.Cancel": "Annuler",
     "Str.Dialog.References.Browse": "Parcourir",

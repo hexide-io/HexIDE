@@ -615,6 +615,8 @@
     "Str.Dialog.ProjectProperties.Button.Help": "_Žinynas",
     "Str.Dialog.References.AvailableReferences": "Galimos nuorodos:",
     "Str.Dialog.References.Priority": "Prioritetas",
+    "Str.Dialog.References.MoveUp": "Perkelti pasirinktą nuorodą aukštyn",
+    "Str.Dialog.References.MoveDown": "Perkelti pasirinktą nuorodą žemyn",
     "Str.Dialog.References.Ok": "Gerai",
     "Str.Dialog.References.Cancel": "Atsisakyti",
     "Str.Dialog.References.Browse": "Naršyti",

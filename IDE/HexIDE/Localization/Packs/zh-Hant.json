@@ -611,6 +611,8 @@
     "Str.Dialog.ProjectProperties.Button.Help": "說明(_H)",
     "Str.Dialog.References.AvailableReferences": "可用的參考:",
     "Str.Dialog.References.Priority": "優先順序",
+    "Str.Dialog.References.MoveUp": "上移選取的參照",
+    "Str.Dialog.References.MoveDown": "下移選取的參照",
     "Str.Dialog.References.Ok": "確定",
     "Str.Dialog.References.Cancel": "取消",
     "Str.Dialog.References.Browse": "瀏覽",

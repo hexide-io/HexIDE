@@ -12,6 +12,38 @@ public partial class VB6BuiltIns
         foreach (var name in new[] { "NPer", "IPmt", "PPmt", "Rate" })
             d[name] = (_, a, _) => FinancialAdditional(a, name);
         d["PV"] = (_, a, _) => Financial(a, "PV");
+        d["NPV"] = (_, a, _) => FinancialNpv(a);
+        foreach (var name in new[] { "IRR", "MIRR" })
+            d[name] = (_, _, _) => throw new NotImplementedException($"{name}: no precision model matches every measured row (#2525)");
+    }
+
+    private static Vb6Value FinancialNpv(IReadOnlyList<Vb6Value> args)
+    {
+        if (args.Count != 2 || !Supplied(args, 0) || !Supplied(args, 1))
+            throw new NotImplementedException("NPV argument-count and missing-argument errors are unmeasured (#2525)");
+        if (args[0].IsNull || args[0].Value is VbDate || !Vb6Value.TryNumericToDouble(args[0], out double rate)
+            || args[1].Value is not VBArray array
+            || array.ElementType != Vb6Value.ValueType.Double)
+            throw new NotImplementedException("This NPV argument conversion is unmeasured (#2525)");
+        if (!array.IsDefined) throw InvalidCall();
+        if (array.Rank != 1 || array.Length() == 0)
+            throw new NotImplementedException("Empty and multidimensional NPV arrays are unmeasured (#2525)");
+        if (rate == -1) throw InvalidCall();
+        var basis = 1 + FinancialNumber.FromDouble(rate);
+        FinancialNumber power = 1, total = 0;
+        // #2525 matches only when each cumulative power spills, with the base and sum retained.
+        foreach (var value in array.EnumerateElements())
+        {
+            double discount = (power * basis).ToDouble();
+            if (discount == 0 || !double.IsFinite(discount))
+                throw new NotImplementedException("This NPV arithmetic domain is unmeasured (#2525)");
+            power = FinancialNumber.FromDouble(discount);
+            total += FinancialNumber.FromDouble((double)value.Value!) / power;
+        }
+        double result = total.ToDouble();
+        if (!double.IsFinite(result))
+            throw new NotImplementedException("NPV overflow errors are unmeasured (#2525)");
+        return new Vb6Value(result);
     }
 
     // Positional calls measured in vb6.exe SP6, native and p-code (#2523). The base is a Double

@@ -611,6 +611,8 @@
     "Str.Dialog.ProjectProperties.Button.Help": "Справка",
     "Str.Dialog.References.AvailableReferences": "Доступные ссылки:",
     "Str.Dialog.References.Priority": "Приоритет",
+    "Str.Dialog.References.MoveUp": "Переместить выбранную ссылку вверх",
+    "Str.Dialog.References.MoveDown": "Переместить выбранную ссылку вниз",
     "Str.Dialog.References.Ok": "OK",
     "Str.Dialog.References.Cancel": "Отмена",
     "Str.Dialog.References.Browse": "Обзор",

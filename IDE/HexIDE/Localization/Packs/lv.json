@@ -615,6 +615,8 @@
     "Str.Dialog.ProjectProperties.Button.Help": "_Palīdzība",
     "Str.Dialog.References.AvailableReferences": "Pieejamās atsauces:",
     "Str.Dialog.References.Priority": "Prioritāte",
+    "Str.Dialog.References.MoveUp": "Pārvietot atlasīto atsauci uz augšu",
+    "Str.Dialog.References.MoveDown": "Pārvietot atlasīto atsauci uz leju",
     "Str.Dialog.References.Ok": "Labi",
     "Str.Dialog.References.Cancel": "Atcelt",
     "Str.Dialog.References.Browse": "Pārlūkot",
