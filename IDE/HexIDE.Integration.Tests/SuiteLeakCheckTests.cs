@@ -62,9 +62,12 @@ public class SuiteLeakCheckTests
         attribute.Should().NotBeNull();
         var orderer = (ITestCollectionOrderer)Activator.CreateInstance(attribute!.OrdererType)!;
         var final = Substitute.For<ITestCollection>();
-        final.TestCollectionClassName.Returns(collection!.Type!.FullName);
+        final.TestCollectionDisplayName.Returns(collection!.Name);
+        final.UniqueID.Returns("0");
         var first = Substitute.For<ITestCollection>();
+        first.UniqueID.Returns("1");
         var second = Substitute.For<ITestCollection>();
+        second.UniqueID.Returns("2");
         var collections = new[] { first, second }.ToList();
         collections.Insert(position, final);
         orderer.OrderTestCollections(collections).Should().Equal(first, second, final);
