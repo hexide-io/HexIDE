@@ -212,7 +212,7 @@ public partial class ComponentInstanceViewModel : ObservableObject
 
     /// <summary>How far inside its own bounds this component measures its contents from.</summary>
     private Thickness ClientInset =>
-        instance.BaseClass is ComponentBaseClass baseClass ? baseClass.ClientInset(instance) : default;
+        instance.BaseClass is IDesignerComponentClass baseClass ? baseClass.ClientInset(instance) : default;
 
     /// <summary>
     /// The canvas position, which is NOT what the model stores. The model stores the VB6 value — relative to
