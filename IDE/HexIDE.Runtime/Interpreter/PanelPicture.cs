@@ -9,7 +9,13 @@ internal sealed class PanelPicture : ICSharpProxy, ICSharpPropertyBag
 {
     private readonly Lazy<Bitmap?> bitmap;
 
-    private PanelPicture(byte[] file) => bitmap = new(() => FrxImageHelper.TryDecodeToAvaloniaBitmap(file));
+    internal byte[] FileBytes { get; }
+
+    private PanelPicture(byte[] file)
+    {
+        FileBytes = file;
+        bitmap = new(() => FrxImageHelper.TryDecodeToAvaloniaBitmap(file));
+    }
 
     internal static PanelPicture FromRecord(byte[] record)
     {
@@ -36,6 +42,9 @@ internal sealed class PanelPicture : ICSharpProxy, ICSharpPropertyBag
 
     internal static Vb6Value Load(IReadOnlyList<Vb6Value> args, VbFiles files)
     {
+        // Clearing with LoadPicture() keeps an AutoSize PictureBox's dimensions (#922).
+        if (args.Count == 0)
+            return new Vb6Value(new PanelPicture([]));
         if (args.Count != 1 || args[0].Type != Vb6Value.ValueType.String || args[0].Value is not string { Length: > 0 } path)
             throw new NotImplementedException("This LoadPicture argument combination is unmeasured (#1087)");
         try { return new Vb6Value(FromFile(File.ReadAllBytes(files.FullPath(path)))); }

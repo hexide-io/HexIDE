@@ -425,3 +425,23 @@ in the measured page order. A page switch SHALL add no undo entry until VB6 desi
 - **WHEN** a child is cut from tab one and pasted with tab zero showing
 - **THEN** it belongs to tab zero and follows tab zero on subsequent switches
 - **AND** saving removes its old reference and writes its new reference
+
+### Requirement: Runtime PictureBox bitmap assignment honors AutoSize
+A running AutoSize PictureBox SHALL fit an assigned bitmap plus its measured border. It SHALL retain dimensions on load, when cleared with LoadPicture(), and when AutoSize is enabled without a picture. Explicit Width SHALL hold until the next picture assignment. [Measurements](../../../docs/vb6-fidelity-oracle/autosize-on-a-label-and-a-picturebox.md).
+
+#### Scenario: Assigning and clearing a bitmap
+- **GIVEN** an AutoSize PictureBox with the default border
+- **WHEN** code assigns a 40 by 30 pixel bitmap with LoadPicture
+- **THEN** Width reads 660 twips and Height reads 510 twips
+- **AND** with no border they read 600 and 450 twips
+- **WHEN** code assigns Width 3000 and clears the picture with LoadPicture()
+- **THEN** Width remains 3000 and Height stays unchanged
+
+#### Scenario: An unmeasured sizing case
+- **WHEN** AutoSize would fit a non-bitmap picture or a flat Fixed Single border
+- **THEN** the runtime refuses as not implemented before replacing the picture
+- **AND** other unmeasured Picture assignment conversions refuse as not implemented
+
+#### Scenario: Turning AutoSize on with a picture already present
+- **WHEN** code enables AutoSize with a picture already present
+- **THEN** the runtime refuses the unmeasured transition as not implemented before changing AutoSize
