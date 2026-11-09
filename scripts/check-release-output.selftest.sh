@@ -6,7 +6,8 @@ trap 'rm -rf "$fixture"' EXIT
 
 clean() {
     rm -rf "$fixture"/*
-    for file in HexIDE.Desktop.dll HexIDE.Desktop.deps.json HexIDE.Desktop.runtimeconfig.json; do
+    for file in HexIDE.Desktop.dll HexIDE.Desktop.deps.json HexIDE.Desktop.runtimeconfig.json \
+                LICENSE THIRD-PARTY-NOTICES.md; do
         printf '{}' > "$fixture/$file"
     done
 }
@@ -34,4 +35,9 @@ done
 clean
 rm "$fixture/HexIDE.Desktop.dll"
 reject 'missing assembly'
-echo 'Release guard self-test passed (six rejected fixtures)'
+for notice in LICENSE THIRD-PARTY-NOTICES.md; do
+    clean
+    rm "$fixture/$notice"
+    reject "missing $notice"
+done
+echo 'Release guard self-test passed (eight rejected fixtures)'
