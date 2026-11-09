@@ -100,7 +100,7 @@ public class ApplicationCommands
     public static readonly RoutedCommand StepOutCommand = new RoutedCommand(nameof(StepOutCommand), new KeyGesture(Key.F8, GetPlatformCommandKey() | KeyModifiers.Shift));
     public static readonly RoutedCommand RunToCursorCommand = new RoutedCommand(nameof(RunToCursorCommand), new KeyGesture(Key.F8, GetPlatformCommandKey()));
     public static readonly RoutedCommand AddWatchCommand = new RoutedCommand(nameof(AddWatchCommand));
-    public static readonly RoutedCommand EditWatchCommand = new RoutedCommand(nameof(EditWatchCommand));
+    public static readonly RoutedCommand EditWatchCommand = new RoutedCommand(nameof(EditWatchCommand), new KeyGesture(Key.W, GetPlatformCommandKey()));
     public static readonly RoutedCommand QuickWatchCommand = new RoutedCommand(nameof(QuickWatchCommand), new KeyGesture(Key.F9, KeyModifiers.Shift));
     public static readonly RoutedCommand ToggleBreakpointCommand = new RoutedCommand(nameof(ToggleBreakpointCommand), new KeyGesture(Key.F9));
     public static readonly RoutedCommand ClearAllBreakpointsCommand = new RoutedCommand(nameof(ClearAllBreakpointsCommand), new KeyGesture(Key.F9, GetPlatformCommandKey() | KeyModifiers.Shift));
