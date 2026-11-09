@@ -516,7 +516,7 @@ dialog. Nothing about the flow below the dialog SHALL be bypassed, and no file S
 an answer. The facility SHALL be absent from builds the automation server is absent from.
 
 A file picker is a native operating-system dialog. It is outside the control tree, so the tree cannot see
-it and no path addresses it, and while a modal one is up the server does not answer at all. Every feature
+it and no path addresses it. The server can keep answering while one is open (#2870). Every feature
 that ends in Save As, Open, Make EXE, Add File or Export was therefore verifiable only by asking a person
 to click, which is the one thing the development loop is not allowed to require.
 
@@ -538,6 +538,23 @@ unrelated save, and that damage surfaces somewhere other than where it was cause
 #### Scenario: A distributed build
 - **WHEN** a build excludes the automation server
 - **THEN** it contains no way to bypass a file dialog
+
+### Requirement: An uncovered native picker is reported and blocks further actions
+The server SHALL track native file pickers until they complete or fail, recording their title and suggested file
+name. `invoke_menu_item`, `interact`, `clear_file_dialog_answers` and `dump_visual_tree` SHALL report an open picker.
+Menu and control actions SHALL refuse while one is open, leaving armed answers untouched. The note SHALL explain
+that the picker is outside the control tree, must be closed or cancelled in the operating system, and cannot be
+answered after opening by arming an answer. Clearing answers SHALL NOT close the picker.
+
+#### Scenario: A project save exhausts its armed answers
+- **WHEN** a save consumes the last armed answer and opens another native picker
+- **THEN** its action reply and subsequent tree and clear replies name the open picker
+- **AND** another menu or control action is refused without consuming any newly armed answer
+
+#### Scenario: Arming a project save
+- **WHEN** a caller reads `answer_next_file_dialog`'s description
+- **THEN** it explains one answer per picker, in forms, modules, project and group order as needed
+- **AND** it explains that Save As and a scratch project's user save ask for every member and the project even with working-copy paths
 
 ### Requirement: One armed answer SHALL be able to name several files, for an Open that allows them
 The server SHALL let a client arm one answer that names several files, in order, as a person selects them in an

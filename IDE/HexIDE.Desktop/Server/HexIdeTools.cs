@@ -1493,8 +1493,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
             }
 
             // REFUSED before anything is placed, rather than placed and then blocked. This tool saves the
-            // form, and a form with no file saves through the native picker, which stops this server
-            // answering: the call never returned and every call behind it hung. An armed answer makes the
+            // form, and a form with no file saves through a native picker outside the control tree. An armed answer makes the
             // save safe to attempt, including an armed cancel, which keeps the form without a file. (#514)
             //
             // A UserControl or PropertyPage is saved through its MODULE, which holds the .ctl/.pag path; the
@@ -2688,7 +2687,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
             result = result with { Root = fitted, Note = fitNote ?? result.Note };
         }
         var shown = result.Root is { } root2 ? [root2] : result.Matches ?? [];
-        return result with { FlagsNote = FlagsNote(shown) };
+        return result with { FlagsNote = FlagsNote(shown), Note = ScriptedFileDialogs.WithNativePickerNote(result.Note) };
     }
 
     /// <summary>
@@ -2919,12 +2918,16 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
         string? window = null,
         CancellationToken ct = default)
     {
+        if (ScriptedFileDialogs.NativePickerNote is { } blocking)
+            return new InteractOutcome(false, "peer", null, blocking);
         Control? acted = null;
         UiAutomationDriver.ProgramWatch? watch = null;
         // A Make asking whether to replace its archive: an action that answers the box is told what Make did then (#2718).
         var asking = HexIDE.Projects.MakeOutcomes.Latest is { Current: HexIDE.Projects.MakeOutcomes.Stage.Asking } make ? make : null;
         var outcome = await Dispatcher.UIThread.InvokeAsync(async () =>
         {
+            if (ScriptedFileDialogs.NativePickerNote is { } blockingNow)
+                return new InteractOutcome(false, "peer", null, blockingNow);
             var (active, _, error) = ResolveActiveWindow(window);
             if (active is null)
                 return new InteractOutcome(false, "peer", null, error);
@@ -2959,7 +2962,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
             outcome = await Dispatcher.UIThread.InvokeAsync(() => UiAutomationDriver.AfterClose(acted, outcome, watch));
         if (outcome.Success && await MakeReply.AfterAnswerAsync(asking, ct) is { } made)
             outcome = outcome with { Detail = outcome.Detail is null ? made : outcome.Detail.TrimEnd('.') + ". " + made };
-        return outcome;
+        return outcome with { Detail = ScriptedFileDialogs.WithNativePickerNote(outcome.Detail) };
     }
 
     [McpServerTool(Name = "type_text")]
@@ -3565,9 +3568,13 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     [Description("Invokes a menu item by slash-separated path, e.g. 'Tools/Hello from TestAddin' or 'Add-Ins/TestAddin/Do Something'. Each segment is the text the menu displays, matched case-insensitively: 'Project/Add Module' reaches the item whose header is 'Add _Module' (the underscore marks the access key, wherever it falls), and a trailing '...' may be left off, so 'Tools/Options' reaches 'Options...'. A menu need not be open first: each submenu on the path gets its SubmenuOpened, as opening it does, so one filled then holds its items. An item whose header is a control is matched by its automation name, as dump_visual_tree names it. If a segment is not found, the error names the menu it looked in and every item that menu holds. Most built-in items are routed commands, which act on the control that has keyboard focus, as a real click does: one that belongs to a document (Tools/Add Procedure to a code window) needs focus in that document, which open_file, view_designer and activate_document_tab give it, as opening it by hand does; the refusal names what has focus instead. A checkable item with no command of its own, such as View/Minimap, is ticked or unticked, as a click does. Returns an error if the path cannot be resolved or the item cannot execute. The reply's 'note' names the item invoked, as its menu shows it. File/Make waits for its result: the program it wrote, with its size, or why it wrote none.")]
     public async Task<MutateResult> InvokeMenuItemAsync(string path, CancellationToken ct)
     {
+        if (ScriptedFileDialogs.NativePickerNote is { } blocking)
+            return new MutateResult(false, blocking);
         var makes = HexIDE.Projects.MakeOutcomes.Started;
         var invoked = await Dispatcher.UIThread.InvokeAsync(() =>
         {
+            if (ScriptedFileDialogs.NativePickerNote is { } blockingNow)
+                return new MutateResult(false, blockingNow);
             var lifetime = Avalonia.Application.Current!.ApplicationLifetime
                 as IClassicDesktopStyleApplicationLifetime;
             var window = lifetime?.MainWindow;
@@ -3607,7 +3614,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
         // Make runs on after its command returns, and said how it ended only in its own message box (#2671).
         if (invoked.Success && HexIDE.Projects.MakeOutcomes.Latest is { } make && make.Number > makes)
             invoked = invoked with { Note = invoked.Note + " " + await MakeReply.AwaitAsync(make, ct) };
-        return invoked;
+        return invoked with { Note = ScriptedFileDialogs.WithNativePickerNote(invoked.Note) };
     }
 
     /// <summary>What has keyboard focus in <paramref name="window"/>, for a refusal that depends on it.</summary>
@@ -3846,7 +3853,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
 
 
     [McpServerTool(Name = "answer_next_file_dialog")]
-    [Description("Pre-answers the next file dialog the IDE opens, so a Save As / Open / Export flow can be driven end to end. A file picker is a NATIVE operating-system dialog: it is outside the control tree, dump_visual_tree cannot see it, interact cannot address it, and a modal one stops this server answering at all — so without this every feature ending in a file dialog needed a person to click.\n\nPass the absolute path the dialog should return as `path`. For an Open that lets a person select several files, pass them all as `paths` instead, one answer; a save, or an Open that takes one file, answers that as cancelled and a reply says so. Omit both to answer as CANCELLED, which is a distinct path through most of these flows and the one least likely to have been exercised by hand. The answer is consumed by ONE dialog and is not sticky: arm it immediately before the action that opens the picker, or it will be spent by whichever dialog opens first. set_file_content, set_control_property and add_control say when their save took no answer and one armed before the call is still pending. So do invoke_menu_item for Save Project / Save Project As and interact on project-save toolbar buttons. A document save reached through invoke_menu_item, press_key or interact can still be waiting on formatting when they reply: check with clear_file_dialog_answers, but a pending count then can mean the picker has not opened yet.\n\nThis does not simulate the dialog. Everything downstream of the picker — the writing, the naming, the refusals — is the same code a real click reaches; only the part a person performs is skipped. Nothing is created: name a path in a directory that exists, or the flow under test will report the failure it would really report.")]
+    [Description("Pre-answers the next file dialog the IDE opens, so a Save As / Open / Export flow can be driven end to end. A native picker is outside the control tree. Tools report an open picker, but cannot answer it: close or cancel it in the operating system. Arm one answer per picker before the action: project saves ask in order for forms, modules, project, then group when needed. Save As and a scratch project (including --newproject) ask for every member and the project, even with working-copy paths; ordinary Save asks for files without paths.\n\nPass the absolute path the dialog should return as `path`. For an Open that lets a person select several files, pass them all as `paths` instead, one answer; a save, or an Open that takes one file, answers that as cancelled and a reply says so. Omit both to answer as CANCELLED, which is a distinct path through most of these flows and the one least likely to have been exercised by hand. The answer is consumed by ONE dialog and is not sticky: arm it immediately before the action that opens the picker, or it will be spent by whichever dialog opens first. set_file_content, set_control_property and add_control say when their save took no answer and one armed before the call is still pending. So do invoke_menu_item for Save Project / Save Project As and interact on project-save toolbar buttons. A document save reached through invoke_menu_item, press_key or interact can still be waiting on formatting when they reply: check with clear_file_dialog_answers, but a pending count then can mean the picker has not opened yet.\n\nNothing is created by arming: name a path in an existing directory.")]
     public Task<FileDialogAnsweredResult> AnswerNextFileDialogAsync(
         string? path = null, string[]? paths = null, CancellationToken ct = default)
     {
@@ -3898,7 +3905,8 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
             (discarded == 0
                 ? "Nothing was armed."
                 : $"Discarded {discarded} armed answer(s); the next file dialog will be shown for real.")
-            + HexIDE.IDE.ScriptedFileDialogs.TakeUnreportedRefusal()));
+            + HexIDE.IDE.ScriptedFileDialogs.TakeUnreportedRefusal()
+            + (ScriptedFileDialogs.NativePickerNote is { } open ? " " + open : "")));
     }
 
     [McpServerTool(Name = "set_lock_key")]

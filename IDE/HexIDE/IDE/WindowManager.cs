@@ -24,11 +24,20 @@ public class WindowManager : IWindowManager
     private int _nativeDialogs;
     public bool IsNativeDialogOpen => _nativeDialogs > 0;
 
-    internal async Task<T> TrackNativeDialog<T>(Func<Task<T>> show)
+    internal async Task<T> TrackNativeDialog<T>(Func<Task<T>> show, string? title = null, string? suggestedFileName = null)
     {
         _nativeDialogs++;
+#if DEBUG
+        var token = ScriptedFileDialogs.NativePickerOpened(title, suggestedFileName);
+#endif
         try { return await show(); }
-        finally { _nativeDialogs--; }
+        finally
+        {
+            _nativeDialogs--;
+#if DEBUG
+            ScriptedFileDialogs.NativePickerClosed(token);
+#endif
+        }
     }
 
 
@@ -346,8 +355,7 @@ public class WindowManager : IWindowManager
     public async Task<IReadOnlyList<string>?> OpenFilePickerAsync(FilePickerOpenOptions options)
     {
 #if DEBUG
-        // An automation client cannot reach a native dialog — it is outside the control tree, and a modal
-        // one stops the automation server answering at all. An armed answer replaces the question a person
+        // An automation client cannot reach a native dialog — it is outside the control tree. An armed answer replaces the question a person
         // would have answered, and nothing else: every line below the picker is the code a real click
         // reaches. Compiled out of a shipped build along with the server it exists for.
         if (ScriptedFileDialogs.TryTake(options.AllowMultiple, out var scripted,
@@ -360,7 +368,7 @@ public class WindowManager : IWindowManager
 
         var topLevel = TopLevel.GetTopLevel(GetTopWindow(classic))!;
 
-        var files = await TrackNativeDialog(() => topLevel.StorageProvider.OpenFilePickerAsync(options));
+        var files = await TrackNativeDialog(() => topLevel.StorageProvider.OpenFilePickerAsync(options), options.Title, options.SuggestedFileName);
 
         return files.Select(f => f.TryGetLocalPath())
             .Where(x => x != null)
@@ -383,7 +391,7 @@ public class WindowManager : IWindowManager
         if (directory is not null)
             options.SuggestedStartLocation = await topLevel.StorageProvider.TryGetFolderFromPathAsync(directory);
 
-        var file = await TrackNativeDialog(() => topLevel.StorageProvider.SaveFilePickerAsync(options));
+        var file = await TrackNativeDialog(() => topLevel.StorageProvider.SaveFilePickerAsync(options), options.Title, options.SuggestedFileName);
 
         return file?.TryGetLocalPath();
     }
