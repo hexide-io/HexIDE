@@ -239,6 +239,8 @@
     "Str.Menu.Window.Split": "_Tükelda",
     "Str.Menu.Window.ResetLayout": "_Lähtesta akende paigutus",
     "Str.Menu.Help": "_Abi",
+    "Str.Menu.Help.BrandHome": "{0} _avaleht",
+    "Str.Menu.Help.BrandSupport": "{0} _tugi",
     "Str.Menu.Help.ProductOnWeb": "HexIDE _veebis",
     "Str.Menu.Help.About": "_Teave HexIDE kohta...",
     "Str.Menu.GoToGithubRepo": "Ava GitHubi hoidla",

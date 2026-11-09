@@ -276,6 +276,8 @@
     "Str.Menu.Window.Split": "Di_vidir",
     "Str.Menu.Window.ResetLayout": "_Repor Esquema das Janelas",
     "Str.Menu.Help": "A_juda",
+    "Str.Menu.Help.BrandHome": "Página _inicial do {0}",
+    "Str.Menu.Help.BrandSupport": "_Suporte de {0}",
     "Str.Menu.Help.ProductOnWeb": "HexIDE na _Web",
     "Str.Menu.Help.About": "_Acerca do HexIDE...",
     "Str.Menu.GoToGithubRepo": "Ir para o repositório github",

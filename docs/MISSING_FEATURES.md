@@ -208,6 +208,7 @@ The former Add-In Manager dialog has been replaced by Options → Add-Ins, which
 | Index… | — | Removed | Unsupported Help entry removed rather than offered inert (#46) |
 | Search… | — | Removed | Unsupported Help entry removed rather than offered inert (#46) |
 | Technical Support | — | Removed | Unsupported Help entry removed rather than offered inert (#46) |
+| Brand home and support | — | Done | Optional brand-named Home Page and support Help links from `brand.json`; absent links are hidden; repository fallback retains HexIDE's name (#3418) |
 | HexIDE on the Web | — | Done | Opens the project's repository (#3387) |
 | About HexIDE… | — | Done | |
 

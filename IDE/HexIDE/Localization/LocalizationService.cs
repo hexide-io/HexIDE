@@ -245,7 +245,7 @@ public sealed class LocalizationService : ILocalizationService
         var resolved = TryResolveLayers(id, out map, out direction);
         KeepUpstreamCredits(id, map);
         if (!Distribution.Current.IsStock)
-            BrandText.Apply(map, Distribution.Current.Name);
+            BrandText.Apply(map, Distribution.Current.Name, hasRepository: Distribution.Current.RepositoryUrl is not null);
         return resolved;
     }
 
@@ -321,7 +321,7 @@ public sealed class LocalizationService : ILocalizationService
             var rtl = id == "pseudo-rtl";
             var source = new Dictionary<string, string>(_englishStrings);
             if (!Distribution.Current.IsStock)
-                BrandText.Apply(source, Distribution.Current.Name);
+                BrandText.Apply(source, Distribution.Current.Name, hasRepository: Distribution.Current.RepositoryUrl is not null);
             map = PseudoLocalizer.Transform(source, rtl);
             direction = rtl ? "rtl" : "ltr";
             return true;

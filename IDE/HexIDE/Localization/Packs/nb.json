@@ -276,6 +276,8 @@
     "Str.Menu.Window.Split": "_Del",
     "Str.Menu.Window.ResetLayout": "_Tilbakestill vindusoppsett",
     "Str.Menu.Help": "_Hjelp",
+    "Str.Menu.Help.BrandHome": "{0} _hjemmeside",
+    "Str.Menu.Help.BrandSupport": "{0}-_støtte",
     "Str.Menu.Help.ProductOnWeb": "HexIDE på _nettet",
     "Str.Menu.Help.About": "_Om HexIDE...",
     "Str.Menu.GoToGithubRepo": "Gå til GitHub-repo",

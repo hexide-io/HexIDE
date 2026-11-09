@@ -239,6 +239,8 @@
     "Str.Menu.Window.Split": "_Zatitu",
     "Str.Menu.Window.ResetLayout": "_Berrezarri leihoen diseinua",
     "Str.Menu.Help": "_Laguntza",
+    "Str.Menu.Help.BrandHome": "{0}(r)en _hasierako orria",
+    "Str.Menu.Help.BrandSupport": "{0} _laguntza",
     "Str.Menu.Help.ProductOnWeb": "HexIDE _webean",
     "Str.Menu.Help.About": "HexIDEri _buruz...",
     "Str.Menu.GoToGithubRepo": "Joan GitHub biltegira",

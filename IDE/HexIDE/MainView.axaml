@@ -433,6 +433,8 @@
                             <MenuItem Header="{DynamicResource Str.Menu.Window.ResetLayout}" Command="{x:Static vb:ApplicationCommands.ResetWindowLayoutCommand}" />
                         </MenuItem>
                         <MenuItem Header="{DynamicResource Str.Menu.Help}">
+                            <MenuItem Header="{CompiledBinding BrandHomeMenuHeader}" IsVisible="{CompiledBinding HasBrandHome}" Command="{CompiledBinding OpenBrandHomeCommand}" />
+                            <MenuItem Header="{CompiledBinding BrandSupportMenuHeader}" IsVisible="{CompiledBinding HasBrandSupport}" Command="{CompiledBinding OpenBrandSupportCommand}" />
                             <MenuItem Header="{DynamicResource Str.Menu.Help.ProductOnWeb}" Command="{x:Static vb:ApplicationCommands.ProductOnWebCommand}" />
                             <Separator />
                             <MenuItem Header="{DynamicResource Str.Menu.Help.About}" Command="{x:Static vb:ApplicationCommands.AboutCommand}" />

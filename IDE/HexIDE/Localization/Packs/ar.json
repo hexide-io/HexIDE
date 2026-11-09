@@ -276,6 +276,8 @@
     "Str.Menu.Window.Split": "تقسيم",
     "Str.Menu.Window.ResetLayout": "إعادة تعيين تخطيط النوافذ",
     "Str.Menu.Help": "تعليمات",
+    "Str.Menu.Help.BrandHome": "الصفحة الرئيسية لـ {0}",
+    "Str.Menu.Help.BrandSupport": "دعم {0}",
     "Str.Menu.Help.ProductOnWeb": "HexIDE على الويب",
     "Str.Menu.Help.About": "حول HexIDE...",
     "Str.Menu.GoToGithubRepo": "الانتقال إلى مستودع github",

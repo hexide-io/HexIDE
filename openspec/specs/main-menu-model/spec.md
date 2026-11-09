@@ -27,6 +27,12 @@ Recent Projects, Start With, Run With, Recently Closed, Panel Layouts and Add-in
 providers. Add-ins retains its static Manager child; Panel Layouts' AXAML separator is an opening-time
 sentinel rather than declared menu content.
 
+#### Scenario: Brand Help links
+
+Help's brand home and support commands retain their dynamic caption bindings and localization keys,
+precede the existing repository web entry, and record the `HasBrandHome` and `HasBrandSupport`
+visibility bindings used by AXAML.
+
 ### Requirement: Command arguments have registered types
 
 Command arguments SHALL carry explicit string, boolean or integer types and match the registered command

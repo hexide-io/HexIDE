@@ -239,6 +239,8 @@
     "Str.Menu.Window.Split": "_Skaidyti",
     "Str.Menu.Window.ResetLayout": "_Atkurti langų išdėstymą",
     "Str.Menu.Help": "_Žinynas",
+    "Str.Menu.Help.BrandHome": "{0} _pradžios puslapis",
+    "Str.Menu.Help.BrandSupport": "{0} _pagalba",
     "Str.Menu.Help.ProductOnWeb": "HexIDE _žiniatinklyje",
     "Str.Menu.Help.About": "_Apie HexIDE...",
     "Str.Menu.GoToGithubRepo": "Atverti GitHub saugyklą",

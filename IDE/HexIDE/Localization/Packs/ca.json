@@ -239,6 +239,8 @@
     "Str.Menu.Window.Split": "_Divideix",
     "Str.Menu.Window.ResetLayout": "_Restableix la disposició de les finestres",
     "Str.Menu.Help": "_Ajuda",
+    "Str.Menu.Help.BrandHome": "Pàgina d’_inici de {0}",
+    "Str.Menu.Help.BrandSupport": "_Suport de {0}",
     "Str.Menu.Help.ProductOnWeb": "HexIDE al _web",
     "Str.Menu.Help.About": "_Quant a HexIDE...",
     "Str.Menu.GoToGithubRepo": "Ves al repositori de GitHub",

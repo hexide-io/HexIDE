@@ -19,6 +19,7 @@ internal sealed record MenuDeclaration
     public required string Id { get; init; }
     public string? LabelKey { get; init; }
     public string? LabelBinding { get; init; }
+    public string? VisibilityBinding { get; init; }
     public string? Command { get; init; }
     public Dictionary<string, MenuArgument>? Arguments { get; init; }
     public string? Provider { get; init; }
@@ -80,6 +81,9 @@ internal static class MainMenuDeclaration
             if (item.LabelBinding is not null)
                 Require(MenuHostRegistry.Labels.TryGetValue(item.LabelBinding, out var key) && key == item.LabelKey,
                     "Unknown or mismatched host label binding.");
+            if (item.VisibilityBinding is not null)
+                Require(MenuHostRegistry.VisibilityBindings.Contains(item.VisibilityBinding),
+                    "Unknown host visibility binding.");
             Require((item.Command is not null) == (item.Kind == MenuItemKind.Command), "Command belongs only on a command item.");
             Require((item.Provider is not null) == (item.Kind == MenuItemKind.Provider), "Provider belongs only on a provider item.");
             Require((item.State is not null) == (item.Kind == MenuItemKind.Toggle), "State belongs only on a toggle item.");

@@ -276,6 +276,8 @@
     "Str.Menu.Window.Split": "_Teilen",
     "Str.Menu.Window.ResetLayout": "Fensterlayout _zurücksetzen",
     "Str.Menu.Help": "_Hilfe",
+    "Str.Menu.Help.BrandHome": "{0}-_Startseite",
+    "Str.Menu.Help.BrandSupport": "{0}-_Support",
     "Str.Menu.Help.ProductOnWeb": "HexIDE im _Web",
     "Str.Menu.Help.About": "Ü_ber HexIDE...",
     "Str.Menu.GoToGithubRepo": "Zum GitHub-Repository wechseln",
