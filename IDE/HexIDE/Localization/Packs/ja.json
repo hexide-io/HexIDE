@@ -611,6 +611,8 @@
     "Str.Dialog.ProjectProperties.Button.Help": "ヘルプ(_H)",
     "Str.Dialog.References.AvailableReferences": "利用可能な参照:",
     "Str.Dialog.References.Priority": "優先順位",
+    "Str.Dialog.References.MoveUp": "選択した参照を上に移動",
+    "Str.Dialog.References.MoveDown": "選択した参照を下に移動",
     "Str.Dialog.References.Ok": "OK",
     "Str.Dialog.References.Cancel": "キャンセル",
     "Str.Dialog.References.Browse": "参照",

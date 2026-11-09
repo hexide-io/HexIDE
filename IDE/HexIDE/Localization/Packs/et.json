@@ -615,6 +615,8 @@
     "Str.Dialog.ProjectProperties.Button.Help": "_Abi",
     "Str.Dialog.References.AvailableReferences": "Saadaolevad viited:",
     "Str.Dialog.References.Priority": "Prioriteet",
+    "Str.Dialog.References.MoveUp": "Liiguta valitud viide üles",
+    "Str.Dialog.References.MoveDown": "Liiguta valitud viide alla",
     "Str.Dialog.References.Ok": "OK",
     "Str.Dialog.References.Cancel": "Loobu",
     "Str.Dialog.References.Browse": "Sirvi",

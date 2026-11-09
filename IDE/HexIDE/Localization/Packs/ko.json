@@ -611,6 +611,8 @@
     "Str.Dialog.ProjectProperties.Button.Help": "도움말",
     "Str.Dialog.References.AvailableReferences": "사용 가능한 참조:",
     "Str.Dialog.References.Priority": "우선순위",
+    "Str.Dialog.References.MoveUp": "선택한 참조를 위로 이동",
+    "Str.Dialog.References.MoveDown": "선택한 참조를 아래로 이동",
     "Str.Dialog.References.Ok": "확인",
     "Str.Dialog.References.Cancel": "취소",
     "Str.Dialog.References.Browse": "찾아보기",

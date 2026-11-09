@@ -611,6 +611,8 @@
     "Str.Dialog.ProjectProperties.Button.Help": "_Trợ giúp",
     "Str.Dialog.References.AvailableReferences": "Tham chiếu khả dụng:",
     "Str.Dialog.References.Priority": "Ưu tiên",
+    "Str.Dialog.References.MoveUp": "Di chuyển tham chiếu đã chọn lên",
+    "Str.Dialog.References.MoveDown": "Di chuyển tham chiếu đã chọn xuống",
     "Str.Dialog.References.Ok": "OK",
     "Str.Dialog.References.Cancel": "Hủy",
     "Str.Dialog.References.Browse": "Duyệt",

@@ -611,6 +611,8 @@
     "Str.Dialog.ProjectProperties.Button.Help": "_Help",
     "Str.Dialog.References.AvailableReferences": "Beschikbare verwijzingen:",
     "Str.Dialog.References.Priority": "Prioriteit",
+    "Str.Dialog.References.MoveUp": "Geselecteerde verwijzing omhoog verplaatsen",
+    "Str.Dialog.References.MoveDown": "Geselecteerde verwijzing omlaag verplaatsen",
     "Str.Dialog.References.Ok": "OK",
     "Str.Dialog.References.Cancel": "Annuleren",
     "Str.Dialog.References.Browse": "Bladeren",

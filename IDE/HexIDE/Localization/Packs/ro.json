@@ -615,6 +615,8 @@
     "Str.Dialog.ProjectProperties.Button.Help": "_Ajutor",
     "Str.Dialog.References.AvailableReferences": "Referințe disponibile:",
     "Str.Dialog.References.Priority": "Prioritate",
+    "Str.Dialog.References.MoveUp": "Mută referința selectată în sus",
+    "Str.Dialog.References.MoveDown": "Mută referința selectată în jos",
     "Str.Dialog.References.Ok": "OK",
     "Str.Dialog.References.Cancel": "Anulare",
     "Str.Dialog.References.Browse": "Răsfoiește",

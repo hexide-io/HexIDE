@@ -611,6 +611,8 @@
     "Str.Dialog.ProjectProperties.Button.Help": "Довідка",
     "Str.Dialog.References.AvailableReferences": "Доступні посилання:",
     "Str.Dialog.References.Priority": "Пріоритет",
+    "Str.Dialog.References.MoveUp": "Перемістити вибране посилання вгору",
+    "Str.Dialog.References.MoveDown": "Перемістити вибране посилання вниз",
     "Str.Dialog.References.Ok": "OK",
     "Str.Dialog.References.Cancel": "Скасувати",
     "Str.Dialog.References.Browse": "Огляд",
