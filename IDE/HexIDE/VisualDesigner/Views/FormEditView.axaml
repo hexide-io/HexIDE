@@ -263,7 +263,7 @@
                                                     </ControlTemplate>
                                                 </Setter>
                                                 <Setter Property="ContextFlyout">
-                                                    <MenuFlyout>
+                                                    <MenuFlyout Opening="ControlMenuOpening">
                                                         <MenuItem Header="{DynamicResource Str.Designer.Context.Cut}" utils:MenuUtils.MenuIcon="{StaticResource Geo.Cut}"
                                                                   Command="{x:Static vb:ApplicationCommands.CutCommand}" />
                                                         <MenuItem Header="{DynamicResource Str.Designer.Context.Copy}" utils:MenuUtils.MenuIcon="{StaticResource Geo.Copy}"
