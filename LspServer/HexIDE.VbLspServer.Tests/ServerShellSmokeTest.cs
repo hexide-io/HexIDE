@@ -94,7 +94,8 @@ public class ServerShellSmokeTest
             .WaitAsync(Timeout, TestContext.Current.CancellationToken);
         await rpc.NotifyWithParameterObjectAsync("exit", null);
 
-        server.Exit();
+        // Let the exit notification finish Run before disposing the client (#3529).
+        // A direct server.Exit() here races the notification and throws once Run has ended.
         await loop.WaitAsync(Timeout, TestContext.Current.CancellationToken);
     }
 }
