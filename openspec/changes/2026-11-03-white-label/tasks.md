@@ -2,8 +2,8 @@
 
 - [x] Record Jen's three dated decisions and `q-2042-white-label`, retaining append-only credits and MIT.
 - [x] Draft capability deltas against live specs, separate from implementation and package policy.
-- [ ] Supervisor accepts descriptor schema/discovery, id mapping, compatibility and asset validation limits.
-- [ ] Supervisor accepts root mapping, explicit redirect semantics, child-process propagation and migration policy.
+- [x] Supervisor accepts descriptor schema/discovery, id mapping, compatibility and asset validation limits.
+- [x] Supervisor accepts root mapping, explicit redirect semantics, child-process propagation and migration policy.
 - [ ] Supervisor accepts profile-reference resolution and reconciles package/profile work in flight.
 - [ ] Supervisor accepts localization templates, read-only protected-credit editor rows and override diagnostics.
 - [ ] Supervisor accepts platform repack coverage, metadata mapping, signing, updates and notice staging.
