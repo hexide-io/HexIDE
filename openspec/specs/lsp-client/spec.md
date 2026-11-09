@@ -2638,3 +2638,23 @@ replacement server response (#512).
 - **WHEN** a designer edit replaces the header with a longer or shorter header
 - **THEN** the drawn range moves with that code immediately
 - **AND** no new diagnostic publication or document-highlight response is needed
+
+### Requirement: On-type formatting protocol seam selects one trigger owner
+
+The client SHALL expose a query and a request for a document URI and typed character. It SHALL send
+`textDocument/onTypeFormatting` only to the highest-priority running document claimant declaring that
+character in `documentOnTypeFormattingProvider.firstTriggerCharacter` or `moreTriggerCharacter`.
+The request SHALL carry the post-typing position and formatting options, return the server's text edits,
+and cancel after a 250 ms budget with no edits on timeout. This protocol seam does not yet transfer
+ownership of typing from the editor's local helpers (#2672).
+
+#### Scenario: A higher-priority server declares a different character
+
+- **WHEN** the first claimant declares only `;` and two lower claimants declare newline
+- **AND** the caller requests on-type formatting for newline
+- **THEN** only the higher-priority of the two newline claimants receives the request
+
+#### Scenario: The selected server does not answer
+
+- **WHEN** the on-type formatting request exhausts its budget
+- **THEN** the client sends `$/cancelRequest` for that request and returns no edits

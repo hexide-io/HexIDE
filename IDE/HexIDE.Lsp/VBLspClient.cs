@@ -2065,6 +2065,29 @@ public sealed class VBLspClient : ILspClient
         }
     }
 
+    public bool SupportsOnTypeFormatting(string uri, string trigger) => IsRunning
+        && ServerCapabilities.SupportsOnTypeFormatting(AdvertisedCapabilities, trigger);
+
+    internal static readonly TimeSpan OnTypeFormattingTimeout = TimeSpan.FromMilliseconds(250);
+
+    public async Task<TextEdit[]> RequestOnTypeFormattingAsync(string uri, Position position, string trigger, FormattingOptions options, CancellationToken cancellationToken = default)
+    {
+        if (_rpc is null || !_initialized || !SupportsOnTypeFormatting(uri, trigger)) return [];
+        using var budget = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        budget.CancelAfter(OnTypeFormattingTimeout);
+        var p = new DocumentOnTypeFormattingParams(new TextDocumentIdentifier(uri), position, trigger, options);
+        try
+        {
+            return await InvokeRequestAsync<TextEdit[]?>(_rpc, "textDocument/onTypeFormatting", p,
+                budget.Token, timeout: OnTypeFormattingTimeout, documentUri: uri) ?? [];
+        }
+        catch (Exception ex)
+        {
+            WarnRequestFailedOnce("textDocument/onTypeFormatting", ex, cancellationToken);
+            return [];
+        }
+    }
+
     public bool SupportsRangeFormatting(string uri) => IsRunning
         && ServerCapabilities.Supports(AdvertisedCapabilities, "documentRangeFormattingProvider");
 
@@ -2944,6 +2967,7 @@ public sealed class VBLspClient : ILspClient
         // advertises it IS taken up on it; the absence of a warning is about what its ABSENCE means.
         "diagnosticProvider",
         "documentFormattingProvider",
+        "documentOnTypeFormattingProvider",
         "documentRangeFormattingProvider",
         "documentHighlightProvider",
         "documentSymbolProvider",
