@@ -1143,6 +1143,17 @@
     "Str.Layout.InvalidName": "Angi et unikt oppsettnavn som ikke er tomt.",
     "Str.Layout.Skipped": "Utilgjengelige tilleggsvinduer ble hoppet over: {0}",
     "Str.Layout.SaveFailed": "Paneloppsettene kunne ikke lagres.",
+    "Str.Options.Formatting.Tokens": "Tokentyper",
+    "Str.Options.Formatting.Foreground": "Forgrunn",
+    "Str.Options.Formatting.Background": "Bakgrunn",
+    "Str.Options.Formatting.Preview": "Forhåndsvisning",
+    "Str.Options.Formatting.Token.Comment": "Kommentar",
+    "Str.Options.Formatting.Token.Keyword": "Nøkkelord",
+    "Str.Options.Formatting.Token.IOKeyword": "Inn-/utdatanøkkelord",
+    "Str.Options.Formatting.Token.StorageModifier": "Lagringsmodifikator",
+    "Str.Options.Formatting.Token.Type": "Type",
+    "Str.Options.Formatting.Token.Identifier": "Identifikator",
+    "Str.Options.Formatting.Token.MetadataKeyword": "Metadatanøkkelord",
     "Str.Project.AlreadyOpen": "Prosjektet {0} er allerede åpent.",
     "Str.Options.Addins.Overview": "Tillegg utvider HexIDE med verktøy og innstillinger. Installer ved å pakke ut en signert tilleggspakke i en egen mappe i katalogen nedenfor, og start HexIDE på nytt. Velg et tillegg i treet for å administrere det."
   }

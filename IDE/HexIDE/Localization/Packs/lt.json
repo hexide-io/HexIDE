@@ -1143,6 +1143,17 @@
     "Str.Layout.InvalidName": "Įveskite unikalų netuščią išdėstymo pavadinimą.",
     "Str.Layout.Skipped": "Nepasiekiami papildinių langai praleisti: {0}",
     "Str.Layout.SaveFailed": "Nepavyko įrašyti skydelių išdėstymų.",
+    "Str.Options.Formatting.Tokens": "Leksemų tipai",
+    "Str.Options.Formatting.Foreground": "Teksto spalva",
+    "Str.Options.Formatting.Background": "Fono spalva",
+    "Str.Options.Formatting.Preview": "Peržiūra",
+    "Str.Options.Formatting.Token.Comment": "Komentaras",
+    "Str.Options.Formatting.Token.Keyword": "Raktažodis",
+    "Str.Options.Formatting.Token.IOKeyword": "Įvesties/išvesties raktažodis",
+    "Str.Options.Formatting.Token.StorageModifier": "Saugojimo modifikatorius",
+    "Str.Options.Formatting.Token.Type": "Tipas",
+    "Str.Options.Formatting.Token.Identifier": "Identifikatorius",
+    "Str.Options.Formatting.Token.MetadataKeyword": "Metaduomenų raktažodis",
     "Str.Project.AlreadyOpen": "Projektas {0} jau atidarytas.",
     "Str.Options.Addins.Overview": "Priedai papildo HexIDE įrankiais ir nuostatomis. Norėdami įdiegti, išskleiskite pasirašytą priedo paketą į atskirą aplanką toliau nurodytame kataloge ir paleiskite HexIDE iš naujo. Pasirinkite priedą medyje, kad jį tvarkytumėte."
   }

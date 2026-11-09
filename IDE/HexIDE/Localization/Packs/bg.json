@@ -1143,6 +1143,17 @@
     "Str.Layout.InvalidName": "Въведете уникално, непразно име на оформлението.",
     "Str.Layout.Skipped": "Недостъпните прозорци на добавки бяха пропуснати: {0}",
     "Str.Layout.SaveFailed": "Оформленията на панелите не можаха да бъдат записани.",
+    "Str.Options.Formatting.Tokens": "Типове лексеми",
+    "Str.Options.Formatting.Foreground": "Цвят на текста",
+    "Str.Options.Formatting.Background": "Цвят на фона",
+    "Str.Options.Formatting.Preview": "Преглед",
+    "Str.Options.Formatting.Token.Comment": "Коментар",
+    "Str.Options.Formatting.Token.Keyword": "Ключова дума",
+    "Str.Options.Formatting.Token.IOKeyword": "Ключова дума за вход/изход",
+    "Str.Options.Formatting.Token.StorageModifier": "Модификатор за съхранение",
+    "Str.Options.Formatting.Token.Type": "Тип",
+    "Str.Options.Formatting.Token.Identifier": "Идентификатор",
+    "Str.Options.Formatting.Token.MetadataKeyword": "Ключова дума за метаданни",
     "Str.Project.AlreadyOpen": "Проектът {0} вече е отворен.",
     "Str.Options.Addins.Overview": "Добавките разширяват HexIDE с инструменти и настройки. За инсталиране разархивирайте подписан пакет в отделна папка в директорията по-долу и рестартирайте HexIDE. Изберете добавка в дървото, за да я управлявате."
   }

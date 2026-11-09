@@ -102,7 +102,7 @@ public partial class OptionsViewModel : ObservableObject, IDialog
 
         var editor = Group("Str.Options.Node.Editor")
             .Add(Leaf(new EditorGeneralPageViewModel(_settings), "Str.Options.Node.General"))
-            .Add(Leaf(new EditorFormattingPageViewModel(_settings), "Str.Options.Node.Formatting"));
+            .Add(Leaf(new EditorFormattingPageViewModel(_settings, _themeService, _localization), "Str.Options.Node.Formatting"));
 
         var designer = Group("Str.Options.Node.FormDesigner")
             .Add(Leaf(new FormDesignerGridPageViewModel(_settings), "Str.Options.Node.Grid"));
@@ -186,6 +186,7 @@ public partial class OptionsViewModel : ObservableObject, IDialog
     {
         foreach (var page in _pages) page.SaveToSettings();
         _settings.Save();
+        foreach (var page in _pages.OfType<IDisposable>()) page.Dispose();
         Log.Debug("OptionsViewModel: OK — settings saved");
         _localization.LanguageChanged -= OnLanguageChanged;
         CloseRequested?.Invoke(true);
@@ -197,6 +198,7 @@ public partial class OptionsViewModel : ObservableObject, IDialog
         // Both Theme and Language preview live, so revert both to their pre-dialog values.
         // The language revert is silent (no gate) — Cancel is itself the confirmation.
         _localization.LanguageChanged -= OnLanguageChanged;
+        foreach (var page in _pages.OfType<IDisposable>()) page.Dispose();
         _themeService.Apply(_originalTheme);
         _languageSwitch.Apply(_originalLanguage);
         Log.Debug("OptionsViewModel: Cancel — changes discarded");

@@ -1143,6 +1143,17 @@
     "Str.Layout.InvalidName": "Unesite jedinstven naziv rasporeda koji nije prazan.",
     "Str.Layout.Skipped": "Nedostupni prozori dodataka su preskočeni: {0}",
     "Str.Layout.SaveFailed": "Rasporedi panela nisu mogli da se sačuvaju.",
+    "Str.Options.Formatting.Tokens": "Tipovi tokena",
+    "Str.Options.Formatting.Foreground": "Boja teksta",
+    "Str.Options.Formatting.Background": "Boja pozadine",
+    "Str.Options.Formatting.Preview": "Pregled",
+    "Str.Options.Formatting.Token.Comment": "Komentar",
+    "Str.Options.Formatting.Token.Keyword": "Ključna reč",
+    "Str.Options.Formatting.Token.IOKeyword": "Ulazno-izlazna ključna reč",
+    "Str.Options.Formatting.Token.StorageModifier": "Modifikator skladištenja",
+    "Str.Options.Formatting.Token.Type": "Tip",
+    "Str.Options.Formatting.Token.Identifier": "Identifikator",
+    "Str.Options.Formatting.Token.MetadataKeyword": "Ključna reč metapodataka",
     "Str.Project.AlreadyOpen": "Projekat {0} je već otvoren.",
     "Str.Options.Addins.Overview": "Dodaci proširuju HexIDE alatkama i podešavanjima. Za instalaciju raspakujte potpisani paket u zasebnu fasciklu u direktorijumu ispod i ponovo pokrenite HexIDE. Izaberite dodatak u stablu da biste njime upravljali."
   }

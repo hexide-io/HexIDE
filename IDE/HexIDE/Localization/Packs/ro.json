@@ -1143,6 +1143,17 @@
     "Str.Layout.InvalidName": "Introduceți un nume unic și nevid pentru aranjament.",
     "Str.Layout.Skipped": "Ferestrele extensiilor indisponibile au fost omise: {0}",
     "Str.Layout.SaveFailed": "Aranjamentele panourilor nu au putut fi salvate.",
+    "Str.Options.Formatting.Tokens": "Tipuri de tokenuri",
+    "Str.Options.Formatting.Foreground": "Prim-plan",
+    "Str.Options.Formatting.Background": "Fundal",
+    "Str.Options.Formatting.Preview": "Previzualizare",
+    "Str.Options.Formatting.Token.Comment": "Comentariu",
+    "Str.Options.Formatting.Token.Keyword": "Cuvânt-cheie",
+    "Str.Options.Formatting.Token.IOKeyword": "Cuvânt-cheie de intrare/ieșire",
+    "Str.Options.Formatting.Token.StorageModifier": "Modificator de stocare",
+    "Str.Options.Formatting.Token.Type": "Tip",
+    "Str.Options.Formatting.Token.Identifier": "Identificator",
+    "Str.Options.Formatting.Token.MetadataKeyword": "Cuvânt-cheie de metadate",
     "Str.Project.AlreadyOpen": "Proiectul {0} este deja deschis.",
     "Str.Options.Addins.Overview": "Programele de completare extind HexIDE cu instrumente și setări. Pentru instalare, extrageți un pachet semnat într-un folder propriu din directorul de mai jos și reporniți HexIDE. Selectați un program de completare în arbore pentru a-l gestiona."
   }

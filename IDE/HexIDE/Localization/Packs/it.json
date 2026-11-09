@@ -1143,6 +1143,17 @@
     "Str.Layout.InvalidName": "Inserire un nome di disposizione univoco e non vuoto.",
     "Str.Layout.Skipped": "Le finestre dei componenti aggiuntivi non disponibili sono state ignorate: {0}",
     "Str.Layout.SaveFailed": "Impossibile salvare le disposizioni dei pannelli.",
+    "Str.Options.Formatting.Tokens": "Tipi di token",
+    "Str.Options.Formatting.Foreground": "Primo piano",
+    "Str.Options.Formatting.Background": "Sfondo",
+    "Str.Options.Formatting.Preview": "Anteprima",
+    "Str.Options.Formatting.Token.Comment": "Commento",
+    "Str.Options.Formatting.Token.Keyword": "Parola chiave",
+    "Str.Options.Formatting.Token.IOKeyword": "Parola chiave di input/output",
+    "Str.Options.Formatting.Token.StorageModifier": "Modificatore di archiviazione",
+    "Str.Options.Formatting.Token.Type": "Tipo",
+    "Str.Options.Formatting.Token.Identifier": "Identificatore",
+    "Str.Options.Formatting.Token.MetadataKeyword": "Parola chiave dei metadati",
     "Str.Project.AlreadyOpen": "Il progetto {0} è già aperto.",
     "Str.Options.Addins.Overview": "I componenti aggiuntivi estendono HexIDE con strumenti e impostazioni. Per installarne uno, estrarre un pacchetto firmato in una cartella dedicata nella directory sottostante e riavviare HexIDE. Selezionare un componente nell’albero per gestirlo."
   }

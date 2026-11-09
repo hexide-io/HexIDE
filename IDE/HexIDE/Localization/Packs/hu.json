@@ -1143,6 +1143,17 @@
     "Str.Layout.InvalidName": "Adjon meg egyedi, nem üres elrendezésnevet.",
     "Str.Layout.Skipped": "A nem elérhető bővítményablakok kimaradtak: {0}",
     "Str.Layout.SaveFailed": "A panelelrendezéseket nem sikerült menteni.",
+    "Str.Options.Formatting.Tokens": "Tokentípusok",
+    "Str.Options.Formatting.Foreground": "Előtér",
+    "Str.Options.Formatting.Background": "Háttér",
+    "Str.Options.Formatting.Preview": "Előnézet",
+    "Str.Options.Formatting.Token.Comment": "Megjegyzés",
+    "Str.Options.Formatting.Token.Keyword": "Kulcsszó",
+    "Str.Options.Formatting.Token.IOKeyword": "Bemeneti/kimeneti kulcsszó",
+    "Str.Options.Formatting.Token.StorageModifier": "Tárolási módosító",
+    "Str.Options.Formatting.Token.Type": "Típus",
+    "Str.Options.Formatting.Token.Identifier": "Azonosító",
+    "Str.Options.Formatting.Token.MetadataKeyword": "Metaadat-kulcsszó",
     "Str.Project.AlreadyOpen": "A(z) {0} projekt már meg van nyitva.",
     "Str.Options.Addins.Overview": "A bővítmények eszközökkel és beállításokkal egészítik ki a HexIDE-t. Telepítéshez csomagoljon ki egy aláírt bővítménycsomagot az alábbi könyvtár saját almappájába, majd indítsa újra a HexIDE-t. Kezeléshez válasszon bővítményt a fában."
   }

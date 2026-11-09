@@ -1143,6 +1143,17 @@
     "Str.Layout.InvalidName": "Zadejte jedinečný neprázdný název rozložení.",
     "Str.Layout.Skipped": "Nedostupná okna doplňků byla přeskočena: {0}",
     "Str.Layout.SaveFailed": "Rozložení panelů se nepodařilo uložit.",
+    "Str.Options.Formatting.Tokens": "Typy tokenů",
+    "Str.Options.Formatting.Foreground": "Popředí",
+    "Str.Options.Formatting.Background": "Pozadí",
+    "Str.Options.Formatting.Preview": "Náhled",
+    "Str.Options.Formatting.Token.Comment": "Komentář",
+    "Str.Options.Formatting.Token.Keyword": "Klíčové slovo",
+    "Str.Options.Formatting.Token.IOKeyword": "Klíčové slovo vstupu/výstupu",
+    "Str.Options.Formatting.Token.StorageModifier": "Modifikátor úložiště",
+    "Str.Options.Formatting.Token.Type": "Typ",
+    "Str.Options.Formatting.Token.Identifier": "Identifikátor",
+    "Str.Options.Formatting.Token.MetadataKeyword": "Klíčové slovo metadat",
     "Str.Project.AlreadyOpen": "Projekt {0} je již otevřen.",
     "Str.Options.Addins.Overview": "Doplňky rozšiřují HexIDE o nástroje a nastavení. Pro instalaci rozbalte podepsaný balíček do vlastní složky v níže uvedeném adresáři a restartujte HexIDE. Doplněk můžete spravovat výběrem ve stromu."
   }

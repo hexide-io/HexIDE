@@ -1143,6 +1143,17 @@
     "Str.Layout.InvalidName": "יש להזין שם פריסה ייחודי שאינו ריק.",
     "Str.Layout.Skipped": "דולגו חלונות תוספים שאינם זמינים: {0}",
     "Str.Layout.SaveFailed": "לא ניתן לשמור את פריסות החלוניות.",
+    "Str.Options.Formatting.Tokens": "סוגי אסימונים",
+    "Str.Options.Formatting.Foreground": "צבע טקסט",
+    "Str.Options.Formatting.Background": "צבע רקע",
+    "Str.Options.Formatting.Preview": "תצוגה מקדימה",
+    "Str.Options.Formatting.Token.Comment": "הערה",
+    "Str.Options.Formatting.Token.Keyword": "מילת מפתח",
+    "Str.Options.Formatting.Token.IOKeyword": "מילת מפתח לקלט/פלט",
+    "Str.Options.Formatting.Token.StorageModifier": "משנה אחסון",
+    "Str.Options.Formatting.Token.Type": "טיפוס",
+    "Str.Options.Formatting.Token.Identifier": "מזהה",
+    "Str.Options.Formatting.Token.MetadataKeyword": "מילת מפתח למטא-נתונים",
     "Str.Project.AlreadyOpen": "הפרויקט {0} כבר פתוח.",
     "Str.Options.Addins.Overview": "תוספים מרחיבים את HexIDE עם כלים והגדרות נוספים. להתקנה, יש לחלץ חבילת תוסף חתומה לתיקייה משלה בספרייה שלהלן ולהפעיל מחדש את HexIDE. יש לבחור תוסף בעץ כדי לנהל אותו."
   }

@@ -55,10 +55,15 @@ internal sealed class SemanticTokensColorizer : DocumentColorizingTransformer
         {
             if (token.Start >= line.EndOffset) break;
             if (token.End <= line.Offset) continue;
-            var color = SyntaxHighlightingTheme.Definition.GetNamedColor(token.Color).Foreground?.GetColor(null!);
-            if (color is { } value)
-                ChangeLinePart(Math.Max(line.Offset, token.Start), Math.Min(line.EndOffset, token.End),
-                    element => element.TextRunProperties.SetForegroundBrush(new SolidColorBrush(value)));
+            var color = SyntaxHighlightingTheme.Definition.GetNamedColor(token.Color);
+            var foreground = color.Foreground?.GetColor(null!);
+            var background = color.Background?.GetColor(null!);
+            if (foreground is null && background is null) continue;
+            ChangeLinePart(Math.Max(line.Offset, token.Start), Math.Min(line.EndOffset, token.End), element =>
+            {
+                if (foreground is { } fg) element.TextRunProperties.SetForegroundBrush(new SolidColorBrush(fg));
+                if (background is { } bg) element.TextRunProperties.SetBackgroundBrush(new SolidColorBrush(bg));
+            });
         }
     }
 }

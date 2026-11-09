@@ -1143,6 +1143,17 @@
     "Str.Layout.InvalidName": "Vnesite enolično ime postavitve, ki ni prazno.",
     "Str.Layout.Skipped": "Nerazpoložljiva okna dodatkov so bila preskočena: {0}",
     "Str.Layout.SaveFailed": "Postavitev podoken ni bilo mogoče shraniti.",
+    "Str.Options.Formatting.Tokens": "Vrste žetonov",
+    "Str.Options.Formatting.Foreground": "Ospredje",
+    "Str.Options.Formatting.Background": "Ozadje",
+    "Str.Options.Formatting.Preview": "Predogled",
+    "Str.Options.Formatting.Token.Comment": "Komentar",
+    "Str.Options.Formatting.Token.Keyword": "Ključna beseda",
+    "Str.Options.Formatting.Token.IOKeyword": "Vhodno-izhodna ključna beseda",
+    "Str.Options.Formatting.Token.StorageModifier": "Modifikator shranjevanja",
+    "Str.Options.Formatting.Token.Type": "Tip",
+    "Str.Options.Formatting.Token.Identifier": "Identifikator",
+    "Str.Options.Formatting.Token.MetadataKeyword": "Ključna beseda metapodatkov",
     "Str.Project.AlreadyOpen": "Projekt {0} je že odprt.",
     "Str.Options.Addins.Overview": "Dodatki razširjajo HexIDE z orodji in nastavitvami. Za namestitev razširite podpisan paket v lastno mapo v spodnjem imeniku in znova zaženite HexIDE. Za upravljanje izberite dodatek v drevesu."
   }

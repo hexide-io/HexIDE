@@ -7,7 +7,7 @@ public class EditorFormattingPageViewModelTests
 {
     private readonly ISettingsService _settings = Substitute.For<ISettingsService>();
 
-    [Fact]
+    [AvaloniaFact]
     public void Load_PullsTabWidth()
     {
         _settings.TabWidth.Returns(3);
@@ -15,7 +15,7 @@ public class EditorFormattingPageViewModelTests
         new EditorFormattingPageViewModel(_settings).TabWidth.Should().Be(3);
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void Save_WritesTabWidth()
     {
         var sut = new EditorFormattingPageViewModel(_settings) { TabWidth = 8 };
@@ -25,7 +25,7 @@ public class EditorFormattingPageViewModelTests
         _settings.Received().TabWidth = 8;
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void Title_IsFormatting()
     {
         new EditorFormattingPageViewModel(_settings).Title.Should().Be("Formatting");

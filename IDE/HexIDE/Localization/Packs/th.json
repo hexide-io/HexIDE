@@ -1143,6 +1143,17 @@
     "Str.Layout.InvalidName": "ป้อนชื่อเค้าโครงที่ไม่ซ้ำและไม่ว่าง",
     "Str.Layout.Skipped": "ข้ามหน้าต่างส่วนเสริมที่ไม่พร้อมใช้งาน: {0}",
     "Str.Layout.SaveFailed": "ไม่สามารถบันทึกเค้าโครงแผงได้",
+    "Str.Options.Formatting.Tokens": "ชนิดโทเค็น",
+    "Str.Options.Formatting.Foreground": "สีข้อความ",
+    "Str.Options.Formatting.Background": "สีพื้นหลัง",
+    "Str.Options.Formatting.Preview": "ตัวอย่าง",
+    "Str.Options.Formatting.Token.Comment": "ข้อคิดเห็น",
+    "Str.Options.Formatting.Token.Keyword": "คำสำคัญ",
+    "Str.Options.Formatting.Token.IOKeyword": "คำสำคัญนำเข้า/ส่งออก",
+    "Str.Options.Formatting.Token.StorageModifier": "ตัวปรับแต่งการจัดเก็บ",
+    "Str.Options.Formatting.Token.Type": "ชนิด",
+    "Str.Options.Formatting.Token.Identifier": "ตัวระบุ",
+    "Str.Options.Formatting.Token.MetadataKeyword": "คำสำคัญเมทาดาทา",
     "Str.Project.AlreadyOpen": "โครงการ {0} เปิดอยู่แล้ว",
     "Str.Options.Addins.Overview": "ส่วนเสริมเพิ่มเครื่องมือและการตั้งค่าให้ HexIDE หากต้องการติดตั้ง ให้แตกแพ็กเกจส่วนเสริมที่ลงลายเซ็นแล้วลงในโฟลเดอร์ของตัวเองภายในไดเรกทอรีด้านล่าง แล้วเริ่ม HexIDE ใหม่ เลือกส่วนเสริมในแผนผังเพื่อจัดการ"
   }

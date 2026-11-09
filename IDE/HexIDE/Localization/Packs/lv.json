@@ -1143,6 +1143,17 @@
     "Str.Layout.InvalidName": "Ievadiet unikālu, netukšu izkārtojuma nosaukumu.",
     "Str.Layout.Skipped": "Nepieejamie pievienojumprogrammu logi tika izlaisti: {0}",
     "Str.Layout.SaveFailed": "Neizdevās saglabāt paneļu izkārtojumus.",
+    "Str.Options.Formatting.Tokens": "Leksēmu veidi",
+    "Str.Options.Formatting.Foreground": "Teksta krāsa",
+    "Str.Options.Formatting.Background": "Fona krāsa",
+    "Str.Options.Formatting.Preview": "Priekšskatījums",
+    "Str.Options.Formatting.Token.Comment": "Komentārs",
+    "Str.Options.Formatting.Token.Keyword": "Atslēgvārds",
+    "Str.Options.Formatting.Token.IOKeyword": "Ievades/izvades atslēgvārds",
+    "Str.Options.Formatting.Token.StorageModifier": "Glabāšanas modifikators",
+    "Str.Options.Formatting.Token.Type": "Tips",
+    "Str.Options.Formatting.Token.Identifier": "Identifikators",
+    "Str.Options.Formatting.Token.MetadataKeyword": "Metadatu atslēgvārds",
     "Str.Project.AlreadyOpen": "Projekts {0} jau ir atvērts.",
     "Str.Options.Addins.Overview": "Pievienojumprogrammas papildina HexIDE ar rīkiem un iestatījumiem. Lai instalētu, izpakojiet parakstītu pakotni atsevišķā mapē tālāk norādītajā direktorijā un restartējiet HexIDE. Atlasiet pievienojumprogrammu kokā, lai to pārvaldītu."
   }

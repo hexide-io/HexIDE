@@ -1143,6 +1143,17 @@
     "Str.Layout.InvalidName": "Sisestage kordumatu ja mittetühi paigutuse nimi.",
     "Str.Layout.Skipped": "Kättesaamatud lisandmooduli aknad jäeti vahele: {0}",
     "Str.Layout.SaveFailed": "Paneelipaigutusi ei saanud salvestada.",
+    "Str.Options.Formatting.Tokens": "Sõnetüübid",
+    "Str.Options.Formatting.Foreground": "Esiplaan",
+    "Str.Options.Formatting.Background": "Taust",
+    "Str.Options.Formatting.Preview": "Eelvaade",
+    "Str.Options.Formatting.Token.Comment": "Kommentaar",
+    "Str.Options.Formatting.Token.Keyword": "Võtmesõna",
+    "Str.Options.Formatting.Token.IOKeyword": "Sisendi/väljundi võtmesõna",
+    "Str.Options.Formatting.Token.StorageModifier": "Salvestusmodifikaator",
+    "Str.Options.Formatting.Token.Type": "Tüüp",
+    "Str.Options.Formatting.Token.Identifier": "Identifikaator",
+    "Str.Options.Formatting.Token.MetadataKeyword": "Metaandmete võtmesõna",
     "Str.Project.AlreadyOpen": "Projekt {0} on juba avatud.",
     "Str.Options.Addins.Overview": "Lisandmoodulid laiendavad HexIDE tööriistade ja sätetega. Paigaldamiseks paki allkirjastatud pakett eraldi kausta allolevas kataloogis ja taaskäivita HexIDE. Haldamiseks vali lisandmoodul puust."
   }

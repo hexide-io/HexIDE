@@ -1143,6 +1143,17 @@
     "Str.Layout.InvalidName": "Anna yksilöllinen asettelun nimi, joka ei ole tyhjä.",
     "Str.Layout.Skipped": "Lisäosien ikkunat, jotka eivät olleet käytettävissä, ohitettiin: {0}",
     "Str.Layout.SaveFailed": "Paneeliasetteluja ei voitu tallentaa.",
+    "Str.Options.Formatting.Tokens": "Tokenien tyypit",
+    "Str.Options.Formatting.Foreground": "Tekstin väri",
+    "Str.Options.Formatting.Background": "Taustaväri",
+    "Str.Options.Formatting.Preview": "Esikatselu",
+    "Str.Options.Formatting.Token.Comment": "Kommentti",
+    "Str.Options.Formatting.Token.Keyword": "Avainsana",
+    "Str.Options.Formatting.Token.IOKeyword": "Syötön/tulostuksen avainsana",
+    "Str.Options.Formatting.Token.StorageModifier": "Tallennusmäärite",
+    "Str.Options.Formatting.Token.Type": "Tyyppi",
+    "Str.Options.Formatting.Token.Identifier": "Tunniste",
+    "Str.Options.Formatting.Token.MetadataKeyword": "Metatietojen avainsana",
     "Str.Project.AlreadyOpen": "Projekti {0} on jo avoinna.",
     "Str.Options.Addins.Overview": "Lisäosat laajentavat HexIDEä työkaluilla ja asetuksilla. Asenna purkamalla allekirjoitettu lisäosapaketti omaan kansioonsa alla olevassa hakemistossa ja käynnistä HexIDE uudelleen. Hallitse lisäosaa valitsemalla se puusta."
   }

@@ -1143,6 +1143,17 @@
     "Str.Layout.InvalidName": "Введіть унікальну непорожню назву макета.",
     "Str.Layout.Skipped": "Недоступні вікна надбудов пропущено: {0}",
     "Str.Layout.SaveFailed": "Не вдалося зберегти макети панелей.",
+    "Str.Options.Formatting.Tokens": "Типи токенів",
+    "Str.Options.Formatting.Foreground": "Колір тексту",
+    "Str.Options.Formatting.Background": "Колір тла",
+    "Str.Options.Formatting.Preview": "Попередній перегляд",
+    "Str.Options.Formatting.Token.Comment": "Коментар",
+    "Str.Options.Formatting.Token.Keyword": "Ключове слово",
+    "Str.Options.Formatting.Token.IOKeyword": "Ключове слово введення/виведення",
+    "Str.Options.Formatting.Token.StorageModifier": "Модифікатор зберігання",
+    "Str.Options.Formatting.Token.Type": "Тип",
+    "Str.Options.Formatting.Token.Identifier": "Ідентифікатор",
+    "Str.Options.Formatting.Token.MetadataKeyword": "Ключове слово метаданих",
     "Str.Project.AlreadyOpen": "Проєкт {0} уже відкрито.",
     "Str.Options.Addins.Overview": "Надбудови додають до HexIDE інструменти та налаштування. Для встановлення розпакуйте підписаний пакет в окрему папку в зазначеному нижче каталозі та перезапустіть HexIDE. Виберіть надбудову в дереві для керування нею."
   }

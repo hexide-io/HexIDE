@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 
 namespace HexIDE.Themes;
@@ -9,6 +10,8 @@ namespace HexIDE.Themes;
 /// </summary>
 public interface IThemeService
 {
+    event Action? ThemeChanged;
+
     string ActiveTheme { get; }
     IReadOnlyList<string> AvailableThemes { get; }
 

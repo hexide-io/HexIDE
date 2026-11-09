@@ -1143,6 +1143,17 @@
     "Str.Layout.InvalidName": "Wprowadź unikatową, niepustą nazwę układu.",
     "Str.Layout.Skipped": "Pominięto niedostępne okna dodatków: {0}",
     "Str.Layout.SaveFailed": "Nie można zapisać układów paneli.",
+    "Str.Options.Formatting.Tokens": "Typy tokenów",
+    "Str.Options.Formatting.Foreground": "Kolor tekstu",
+    "Str.Options.Formatting.Background": "Kolor tła",
+    "Str.Options.Formatting.Preview": "Podgląd",
+    "Str.Options.Formatting.Token.Comment": "Komentarz",
+    "Str.Options.Formatting.Token.Keyword": "Słowo kluczowe",
+    "Str.Options.Formatting.Token.IOKeyword": "Słowo kluczowe wejścia/wyjścia",
+    "Str.Options.Formatting.Token.StorageModifier": "Modyfikator przechowywania",
+    "Str.Options.Formatting.Token.Type": "Typ",
+    "Str.Options.Formatting.Token.Identifier": "Identyfikator",
+    "Str.Options.Formatting.Token.MetadataKeyword": "Słowo kluczowe metadanych",
     "Str.Project.AlreadyOpen": "Projekt {0} jest już otwarty.",
     "Str.Options.Addins.Overview": "Dodatki rozszerzają HexIDE o narzędzia i ustawienia. Aby zainstalować dodatek, rozpakuj podpisany pakiet do osobnego folderu w poniższym katalogu i uruchom ponownie HexIDE. Wybierz dodatek w drzewie, aby nim zarządzać."
   }

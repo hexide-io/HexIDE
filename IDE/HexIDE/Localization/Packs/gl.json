@@ -1143,6 +1143,17 @@
     "Str.Layout.InvalidName": "Introduza un nome de disposición único e non baleiro.",
     "Str.Layout.Skipped": "Omitíronse as xanelas de complementos non dispoñibles: {0}",
     "Str.Layout.SaveFailed": "Non se puideron gardar as disposicións dos paneis.",
+    "Str.Options.Formatting.Tokens": "Tipos de tokens",
+    "Str.Options.Formatting.Foreground": "Primeiro plano",
+    "Str.Options.Formatting.Background": "Fondo",
+    "Str.Options.Formatting.Preview": "Vista previa",
+    "Str.Options.Formatting.Token.Comment": "Comentario",
+    "Str.Options.Formatting.Token.Keyword": "Palabra clave",
+    "Str.Options.Formatting.Token.IOKeyword": "Palabra clave de entrada/saída",
+    "Str.Options.Formatting.Token.StorageModifier": "Modificador de almacenamento",
+    "Str.Options.Formatting.Token.Type": "Tipo",
+    "Str.Options.Formatting.Token.Identifier": "Identificador",
+    "Str.Options.Formatting.Token.MetadataKeyword": "Palabra clave de metadatos",
     "Str.Project.AlreadyOpen": "O proxecto {0} xa está aberto.",
     "Str.Options.Addins.Overview": "Os complementos amplían HexIDE con ferramentas e opcións. Para instalar un, extraia un paquete asinado no seu propio cartafol dentro do directorio indicado abaixo e reinicie HexIDE. Seleccione un complemento na árbore para xestionalo."
   }
