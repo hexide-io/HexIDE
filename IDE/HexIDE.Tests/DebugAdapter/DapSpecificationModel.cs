@@ -34,7 +34,8 @@ internal static class DapSpecificationModel
                 if (configured is not null || Environment.GetEnvironmentVariable("HEXIDE_FOREIGN_LSP_DOWNLOAD") is "0" or "false")
                     return null;
                 using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
-                var bytes = http.GetByteArrayAsync(Url).GetAwaiter().GetResult();
+                var bytes = DownloadRetry.Run(token => http.GetByteArrayAsync(Url, token).GetAwaiter().GetResult(),
+                    TimeSpan.FromSeconds(30));
                 Verify(bytes);
                 Directory.CreateDirectory(Path.GetDirectoryName(path)!);
                 var temporary = path + "." + Guid.NewGuid().ToString("N") + ".partial";

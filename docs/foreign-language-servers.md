@@ -186,6 +186,11 @@ Downloaded on demand, once, at a pinned version, with a SHA-256 verified before 
 `artifacts/foreign-lsp/`. Not committed: several megabytes per platform against a repository whose whole
 history is a fraction of that, and every version bump would add the same again permanently.
 
+Release and specification-model downloads make up to three attempts for HTTP 5xx responses, timeouts
+or dropped connections, with 250 ms and 500 ms backoffs (#3489). Other HTTP errors and checksum
+mismatches do not retry. Exhausting the attempts leaves the server unavailable; required-server guards
+still fail. npm acquisition continues to use `npm ci`.
+
 Linux uses musl builds where offered, so one binary runs on any distribution.
 
 The advisory `build-ide (windows-arm, advisory)` job runs on `windows-11-arm` (#3139).
