@@ -21,13 +21,14 @@ namespace HexIDE.Lsp.Providers;
 /// case-sensitive: a camelCase file loads as an empty project.
 /// </para>
 /// <para>
-/// <c>Version</c> must be no newer than the server reading it, and is written before any server has said what it is, so
-/// it is the oldest version RDCore reports unless settings give one.
+/// <c>Version</c> names the file's format, not a server's version. RDCore reads and writes format <c>1.0</c>, and from
+/// <c>6c1ed90d</c> on it opens a file of any version. A build older than that refuses a version newer than its own,
+/// <c>0.1.0</c>, so settings can stamp that for one.
 /// </para>
 /// </remarks>
 public sealed class RdcoreProjectProvider : IWorkspaceArtifactProvider
 {
-    private const string DefaultVersion = "0.1.0";
+    private const string DefaultVersion = "1.0";
 
     public string Name => "rdcore";
 

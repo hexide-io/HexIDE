@@ -1,7 +1,7 @@
 # compiler-channel-lifecycle Specification
 
 ## Purpose
-Provide internal ownership and bounded I/O for the four sockets of an already prepared compiler project. Tracks #1201.
+Provide internal ownership and bounded I/O for the four sockets of an already prepared compiler project. Introduced by #1201.
 
 ## Requirements
 

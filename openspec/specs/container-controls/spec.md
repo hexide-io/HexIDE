@@ -398,7 +398,8 @@ caption mnemonic from a child SHALL switch to its enabled visible tab and then f
 ### Requirement: SSTab previews its saved strip in the designer
 The designer SHALL apply the implemented saved strip properties and select the saved Tab, without
 running the runtime-only ControlEnabled tab-zero load quirk. The initial preview SHALL leave saved child
-positions and page metadata unchanged. Per-tab picture binding remains a later slice of #2301.
+positions and page metadata unchanged. Per-tab picture binding is not built: `TabPicture` SHALL be refused as not
+implemented at run time until it is (#3426).
 
 #### Scenario: Preview a saved nonzero page
 - **GIVEN** an SSTab saved with tab one showing and custom captions

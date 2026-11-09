@@ -1,7 +1,7 @@
 # compiler-websocket-transport Specification
 
 ## Purpose
-Provide bounded, owned WebSocket I/O for an external compiler adapter, independently of compiler process startup and protocol semantics. Tracks #1196.
+Provide bounded, owned WebSocket I/O for an external compiler adapter, independently of compiler process startup and protocol semantics. Introduced by #1196.
 
 ## Requirements
 

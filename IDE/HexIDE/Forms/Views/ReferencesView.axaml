@@ -6,6 +6,7 @@
              xmlns:commonControls="clr-namespace:Classic.CommonControls;assembly=Classic.CommonControls.Avalonia"
              mc:Ignorable="d"
              MinWidth="444" MinHeight="280"
+             Height="400"
              x:DataType="viewModels:ReferencesViewModel"
              x:Class="HexIDE.Forms.Views.ReferencesView">
     <UserControl.DataTemplates>

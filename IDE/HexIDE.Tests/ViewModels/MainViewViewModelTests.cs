@@ -1572,7 +1572,7 @@ public class MainViewViewModelTests
         project.StartsAtSubMain = true;
         var localization = Substitute.For<ILocalizationService>();
         localization.GetString("Str.ProjectRunner.NotImplementedYet").Returns("Not implemented yet: {0}");
-        var runner = new ProjectRunnerService(_eventBus, _windowManager, _projectManager, localization,
+        var runner = TestRunners.WithInterpreter(_eventBus, _windowManager, _projectManager, localization,
             new HexIDE.Runtime.Debugging.DebugController(), Substitute.For<HexIDE.Debugging.IBreakpointService>(),
             new HexIDE.Debugging.WatchService(), new HexIDE.Debugging.RunScope());
         var sut = Build(runner);
@@ -1599,7 +1599,7 @@ public class MainViewViewModelTests
             + "Sub Main()\nEnd Sub\n");
         project.AddModule(module);
         project.StartsAtSubMain = true;
-        var runner = new ProjectRunnerService(_eventBus, _windowManager, _projectManager,
+        var runner = TestRunners.WithInterpreter(_eventBus, _windowManager, _projectManager,
             Substitute.For<ILocalizationService>(), new HexIDE.Runtime.Debugging.DebugController(),
             Substitute.For<HexIDE.Debugging.IBreakpointService>(), new HexIDE.Debugging.WatchService(),
             new HexIDE.Debugging.RunScope());

@@ -23,7 +23,7 @@ public readonly record struct ErrorLocation(string Module, int Line)
 
     /// <summary>
     /// Where <paramref name="error"/> was raised, or null when no statement it passed noted it. An inner exception's comes
-    /// first: <see cref="VBRunTimeException.At"/> wraps an error a statement nearer it may have noted already.
+    /// first: <c>VBRunTimeException.At</c> wraps an error a statement nearer it may have noted already.
     /// </summary>
     public static ErrorLocation? Of(Exception? error) =>
         error is null ? null : Of(error.InnerException) ?? (error.Data[Key] is ErrorLocation at ? at : null);
@@ -32,7 +32,7 @@ public readonly record struct ErrorLocation(string Module, int Line)
     /// Notes where <paramref name="error"/> was raised, unless a statement nearer has. Answers false, for an exception
     /// filter that only looks.
     /// </summary>
-    internal static bool Note(Exception error, string module, int line, string? statement = null)
+    public static bool Note(Exception error, string module, int line, string? statement = null)
     {
         try
         {

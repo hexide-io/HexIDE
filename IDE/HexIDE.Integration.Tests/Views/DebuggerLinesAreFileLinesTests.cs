@@ -64,7 +64,7 @@ public class DebuggerLinesAreFileLinesTests
     {
         var form = AForm("x = ");
         var windowManager = Substitute.For<IWindowManager>();
-        var runner = new ProjectRunnerService(
+        var runner = TestRunners.WithInterpreter(
             Substitute.For<IEventBus>(), windowManager, Substitute.For<IProjectManager>(),
             Substitute.For<ILocalizationService>(), new DebugController(), Substitute.For<IBreakpointService>(),
             new WatchService(), new RunScope());
@@ -130,7 +130,7 @@ public class DebuggerLinesAreFileLinesTests
         var debugger = new DebugController();
         var stopped = new TaskCompletionSource<StoppedInfo>(TaskCreationOptions.RunContinuationsAsynchronously);
         debugger.Stopped += info => stopped.TrySetResult(info);
-        var runner = new ProjectRunnerService(
+        var runner = TestRunners.WithInterpreter(
             Substitute.For<IEventBus>(), Substitute.For<IWindowManager>(), Substitute.For<IProjectManager>(),
             Substitute.For<ILocalizationService>(), debugger, breakpoints, new WatchService(), new RunScope());
         var failures = new List<string>();

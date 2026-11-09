@@ -489,3 +489,55 @@ on their own. The program and both builds were the same, and native code and p-c
     classes at all.
 
 All of this, and the tests, is #3213.
+
+### What `For Each` leaves in its variable (2026-11-09)
+
+**The probe.** RDCore's #607 made `For Each` empty its variable when the loop runs out. A run of HexIDE's parity corpus then
+showed six programs moving away from HexIDE's expected output, so the forms were measured directly. One Standard EXE per
+row, built with `vb6.exe /make`, as native code (`CompilationType=0`) and as p-code (`CompilationType=-1`), on the Win10
+guest: `VB6.EXE` 6.00.9782 and `MSVBVM60.DLL` 6.00.9848. Not run in the IDE. Native code and p-code agreed on every row
+except the one-line loops in the last table.
+
+**The collection raises 11, under `On Error Resume Next`.** `x` starts as `"pre"`. Every row prints `1: [pre]:...|92`: the
+body runs once with `x` as it was, then `Next` raises 92. The table says what `x` holds afterwards.
+
+| `For Each x In ...` | Declared | `x` afterwards |
+|---|---|---|
+| `o.Items()`, `Dim o`, late-bound, a Function | `As Long()`, `As String()`, `As Variant`, `As Collection`, `As Object`, or untyped | Empty |
+| `o.Items`, `Dim o`, late-bound, a `Property Get` | `As Long()`, or untyped | Empty |
+| `o.Items()`, `Dim o As Source`, early-bound, a Function | `As Long()` | `"pre"` |
+| `o.Items`, `Dim o As Source`, early-bound, a `Property Get` | `As Long()`, `As String()` | `"pre"` |
+| `o.Items()`, `Dim o As Source`, early-bound, a Function | `As Collection`, or untyped | Empty |
+| `Boom()`, a Function in the same module | `As Long()` | `"pre"` |
+| `Boom()`, a Function in the same module | untyped | Empty |
+| `Module2.Items()`, a Function | `As Long()` | `"pre"` |
+| `Module2.Items()`, a Function | untyped | Empty |
+
+So **an array type the compiler can see keeps the variable**, and everything else empties it. Late binding hides the
+array type, as round two of #3213 found for `As Long()`; this adds `As String()`, `As Collection` and `As Object`.
+
+**Nothing raises.** `v` starts as `"unchanged"` and `Err.Number` is 0 afterwards.
+
+| Loop | Written | `v` afterwards |
+|---|---|---|
+| over a Collection of two items | on one line, or on two | Empty |
+| over `Dim a(1) As Long` | on one line, or on two | Empty |
+| over a Variant holding `Array(1, 2)` | on one line, or on two | Empty |
+| over an empty Collection, so the body never runs | on one line, or on two | Empty |
+| over a Collection of two items, with `Exit For` in the body | on three lines | String, `"a"` |
+| over `Dim a(1) As Long`, `a(0) = 7`, with `Exit For` in the body | on three lines | Long, 7 |
+
+So the variable is Empty whenever the loop runs out, **even when it ran no times**, and `Exit For` leaves the element it
+was on.
+
+**Over Nothing.** The six rows of #1486's table in [the Collection page](collection.md) were rebuilt on SP6, through
+`w As Collection` and `w As Object`, and gave the same answers. The one-line empty loop is still the one place the two
+builds differ:
+
+| Loop, `w` is Nothing, under `On Error Resume Next` | Native | P-code |
+|---|---|---|
+| `For Each v In w: Next` | 92, `v` Empty | 424, `v` String |
+| `For Each v In w: Next: L "after"` | `after` runs; 92, `v` Empty | `after` runs; 424, `v` String |
+
+**In RDCore.** `950a394d` printed what vb6.exe printed on all 39 programs, compiled and interpreted, apart from those four
+(the two rows above, through each declaration), where it gives native code's answer.
