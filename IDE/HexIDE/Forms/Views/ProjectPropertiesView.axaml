@@ -88,7 +88,7 @@
 
         <StackPanel Grid.Row="2" HorizontalAlignment="Right" Orientation="Horizontal" Spacing="6">
             <Button Command="{CompiledBinding OkCommand}" Content="{DynamicResource Str.Dialog.ProjectProperties.Button.Ok}" />
-            <Button Command="{CompiledBinding CancelCommand}" Content="{DynamicResource Str.Dialog.ProjectProperties.Button.Cancel}" />
+            <Button Command="{CompiledBinding CancelCommand}" Content="{DynamicResource Str.Dialog.ProjectProperties.Button.Cancel}" IsCancel="True" />
             <Button Content="{DynamicResource Str.Dialog.ProjectProperties.Button.Help}" IsEnabled="False" />
             <StackPanel.Styles>
                 <Style Selector="Button">

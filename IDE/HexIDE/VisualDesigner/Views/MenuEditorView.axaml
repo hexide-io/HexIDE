@@ -28,7 +28,7 @@
 
                 <Label Content="{DynamicResource Str.Dialog.MenuEditor.Name}" Grid.Row="2" Grid.Column="0"/>
                 <TextBox Grid.Row="2" Grid.Column="1" Text="{CompiledBinding SelectedMenu.Name}"/>
-                <Button Content="{DynamicResource Str.Dialog.MenuEditor.Cancel}" Command="{CompiledBinding Cancel}" Grid.Row="2" Grid.Column="3" />
+                <Button Content="{DynamicResource Str.Dialog.MenuEditor.Cancel}" Command="{CompiledBinding Cancel}" Grid.Row="2" Grid.Column="3" IsCancel="True" />
 
                 <Label Content="{DynamicResource Str.Dialog.MenuEditor.Index}" Grid.Row="4" Grid.Column="0"/>
                 <DockPanel Grid.Row="4" Grid.Column="1" Grid.ColumnSpan="3" LastChildFill="False">
