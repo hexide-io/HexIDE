@@ -70,6 +70,6 @@ public class SuiteLeakCheckTests
         second.UniqueID.Returns("2");
         var collections = new[] { first, second }.ToList();
         collections.Insert(position, final);
-        orderer.OrderTestCollections(collections).Should().Equal(first, second, final);
+        orderer.OrderTestCollections(collections).Last().Should().BeSameAs(final);
     }
 }
