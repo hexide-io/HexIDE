@@ -37,7 +37,7 @@ public class DialogWindowChromeTests
             {
                 window = kind == "Dialog" ? new DialogWindow()
                     : new WindowManager(Substitute.For<ILocalizationService>()).MakeDialogWindow("Title",
-                        kind == "Message" ? new HexIDE.Runtime.Dialogs.MessageBox() : new HexIDE.Runtime.Dialogs.InputBox());
+                        kind == "Message" ? new HexIDE.Dialogs.MessageBox() : new HexIDE.Dialogs.InputBox());
                 pending = window.ShowDialog(owner);
             }
             try

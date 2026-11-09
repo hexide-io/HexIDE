@@ -5,7 +5,7 @@ using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Media;
 
-namespace HexIDE.Runtime.Dialogs;
+namespace HexIDE.Dialogs;
 
 public partial class ColorDialog : UserControl
 {
