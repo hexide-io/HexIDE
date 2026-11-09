@@ -75,7 +75,7 @@ the effect each one holds:
 
 ## Build & run
 
-Requires VB6 installed (`VB98\VB6.EXE`). `NeonAurora.exe` (committed) is the pre-built binary — just run it.
+Requires VB6 installed (`VB98\VB6.EXE`).
 
 ```sh
 "C:\Program Files (x86)\Microsoft Visual Studio\VB98\VB6.EXE" /make NeonAurora.vbp

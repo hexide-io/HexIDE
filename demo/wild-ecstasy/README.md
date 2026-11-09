@@ -28,8 +28,6 @@ Requires VB6 installed (`VB98\VB6.EXE`).
 WildEcstasy.exe
 ```
 
-`WildEcstasy.exe` (committed) is the pre-built binary — just run it.
-
 ## Files
 
 | File | Role |
@@ -37,5 +35,4 @@ WildEcstasy.exe
 | `WildEcstasy.vbp` | VB6 project (Standard EXE) |
 | `Form1.frm` | Form + Timer + animation loop |
 | `Class1.cls` | The wavy-text effect |
-| `WildEcstasy.exe` | Pre-compiled binary |
 | `screenshot.png` | The effect running |
