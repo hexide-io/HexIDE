@@ -1,7 +1,7 @@
 # compiler-process Specification
 
 ## Purpose
-Start the compiler without the stock IDE or its native host, find its root endpoint and key, keep it from outliving HexIDE, and end it cleanly, as measured on BETA 1024. Tracks #1689.
+Start the compiler without the stock IDE or its native host, find its root endpoint and key, keep it from outliving HexIDE, and end it cleanly, as measured on BETA 1024. Introduced by #1689.
 
 ## Requirements
 

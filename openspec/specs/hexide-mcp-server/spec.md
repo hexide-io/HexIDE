@@ -160,8 +160,8 @@ leave out items that do not show, and list at most 200, with `itemsNote` saying 
 that is closed it SHALL give no `items`, and `itemsNote` SHALL say to expand it; it SHALL NOT open it.
 
 #### Scenario: Options' Language dropdown
-- **WHEN** the Language dropdown, holding 31 items of which ten have rows, is expanded and inspected
-- **THEN** `items` gives all 31 texts, and `select` takes any of them as written
+- **WHEN** the Language dropdown, which holds more items than it makes rows for, is expanded and inspected
+- **THEN** `items` gives the text of every item, and `select` takes any of them as written
 
 ### Requirement: The Immediate window's editor SHALL be found by match and read where it is shown
 `dump_visual_tree`'s `match` SHALL find the Immediate window's editor by its class, `TextEditor`, and by the window's
@@ -502,8 +502,8 @@ that removing the server from a distributed build does not remove the ability to
 
 The automation server is a development tool and is compiled out of distributed builds. The inspector is not:
 its audience is somebody writing a language server against a HexIDE they downloaded. Placing the recording
-beside the tools that read it would tie the shipped feature to the unshipped one, and the failure would be
-silent, appearing only in a configuration nothing in CI currently builds.
+beside the tools that read it would tie the shipped feature to the unshipped one, and the failure would show only
+in a Release build, which is why CI compiles that configuration and a test guards where the recording lives.
 
 #### Scenario: A distributed build
 - **WHEN** a build that excludes the automation server is asked to record a conversation
