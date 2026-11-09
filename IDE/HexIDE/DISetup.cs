@@ -312,8 +312,12 @@ public partial class DISetup
                 ctx.Inject<Func<IProjectRunnerService>>(out var runners);
                 ctx.Inject<IWindowManager>(out var windows);
                 var serverPrompts = new ServerMessagePrompt(() => runners().IsRunning || windows.IsNativeDialogOpen);
+                // Taken when the composition builds this factory, not when a request arrives. A server's
+                // showDocument and applyEdit arrive on the JSON-RPC thread, and asking Dispatcher.UIThread there
+                // while a headless test's setup has it cleared makes that thread the UI thread (#2530).
+                var uiThread = Avalonia.Threading.Dispatcher.UIThread;
                 var serverDocuments = new ServerDocumentNavigation(serverPrompts, localization,
-                    (uri, token) => Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(
+                    (uri, token) => uiThread.InvokeAsync(
                         () => Avalonia.Controls.TopLevel.GetTopLevel(Static.MainView)!.Launcher.LaunchUriAsync(uri),
                         Avalonia.Threading.DispatcherPriority.Normal, token).GetTask().Unwrap());
                 return new LanguageServerRegistrationFactory(loggerFactory, workspace, capture, providers,
@@ -321,10 +325,10 @@ public partial class DISetup
                     () => localization.ResolvedLanguage, settings,
                     async (title, request, token) => request.External
                         ? await serverDocuments.ShowExternalAsync(title, request.Uri, token)
-                        : await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(
+                        : await uiThread.InvokeAsync(
                             () => editors().ShowDocument(request), Avalonia.Threading.DispatcherPriority.Normal, token),
                     serverPrompts.ShowAsync,
-                    (edit, documentFor, token) => Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(
+                    (edit, documentFor, token) => uiThread.InvokeAsync(
                         () => editors().ApplyWorkspaceEdit(edit, documentFor), Avalonia.Threading.DispatcherPriority.Normal, token).GetTask());
             })
             // The servers add-ins contribute (#2760), added to the router above while the IDE runs. The ids the

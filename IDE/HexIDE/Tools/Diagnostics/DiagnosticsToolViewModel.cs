@@ -50,7 +50,10 @@ public partial class DiagnosticsToolViewModel : Tool
         CanClose = true;
         CanPin = false;
         localization.LanguageChanged += Refresh;
-        client.DiagnosticsPublished += (_, _) => Dispatcher.UIThread.Post(Refresh);
+        // Taken here, on the UI thread: diagnostics arrive on the client's read loop, and asking Dispatcher.UIThread
+        // there while a headless test's setup has it cleared makes that thread the UI thread (#2530).
+        var uiThread = Dispatcher.UIThread;
+        client.DiagnosticsPublished += (_, _) => uiThread.Post(Refresh);
         documents.PropertyChanged += (_, _) => Refresh();
         Refresh();
     }
