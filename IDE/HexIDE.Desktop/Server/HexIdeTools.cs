@@ -490,7 +490,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
                      + "not the summary's pixels: in the container's ScaleMode, twips on a form unless it says otherwise, "
                      + "twips inside a Frame, and a form's own Width and Height with its frame; the row's 'note' names the "
                      + "unit. 'settable' says whether set_control_property takes that text back; a "
-                     + "picture is loaded with its row's ... button in the Properties window (arm answer_next_file_dialog first). Properties the file holds that HexIDE does not model, or "
+                     + "picture is loaded with its row's ... button in the Properties window (arm answer_next_file_dialog first), and '(None)' clears one. Properties the file holds that HexIDE does not model, or "
                      + "could not read, are rows too, with the file's text, not settable, and a 'note' saying which. "
                      + "A control array named without an index is its first element, and the reply's 'note' says so.")]
         string? controlName = null,
@@ -614,7 +614,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
                      + "value's reply says why where it can, and lists what that property takes. Left, Top, Width and "
                      + "Height are in the unit the Properties window shows them in, which get_form_controls' row for "
                      + "each names: twips, or the container's ScaleMode. Not the pixels of get_form_controls' summary "
-                     + "or of move_control.")]
+                     + "or of move_control. '(None)' clears a picture.")]
         string value, string? project = null,
         CancellationToken ct = default)
     {
@@ -780,11 +780,11 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     }
 
     [McpServerTool(Name = "open_file")]
-    [Description("Opens a form, module or carried file by name in the IDE code editor. Use get_project_info to list available names. Searches every loaded project, without regard to case; pass `project` when a group holds two documents of one name, and without it an ambiguous name is refused and the reply lists them. The reply's 'project' and 'document' name what was opened, as the IDE spells them. A carried file is also found by its filename, which differs from its name when VB6 carried it on a code line (`Module=Notes; Notes.md` is named Notes). The editor gets keyboard focus, as opening it by hand gives it. The reply's 'note' names the tab now active and how many are open. Pass 'line', and 'column' if wanted, to put the caret there, as the code window numbers them, so type_text and press_key act at that point with no offset to work out; the note then gives the caret's line, column and offset.")]
+    [Description("Opens a form, module or carried file by name in the IDE code editor. Use get_project_info to list available names. Searches every loaded project, without regard to case; pass `project` when a group holds two documents of one name, and without it an ambiguous name is refused and the reply lists them. The reply's 'project' and 'document' name what was opened, as the IDE spells them. A carried file is also found by its filename, which differs from its name when VB6 carried it on a code line (`Module=Notes; Notes.md` is named Notes). The editor gets keyboard focus, as opening it by hand gives it. The reply's 'note' names the tab now active and how many are open. Pass 'line', and 'column' if wanted, to put the caret there, as the code window numbers them, so type_text and press_key act at that point with no offset to work out; the note always gives the caret's line, column and offset, even without 'line'. In the header or an Attribute line it also names the nearest editable place.")]
     public async Task<MutateResult> OpenFileAsync(
         string name, string? project = null,
         [Description("Where to put the caret: a 1-based line, counted from the top of the file with its header included, "
-                     + "as the code window, get_file_content and set_breakpoints count it. Not for a carried file. A line "
+                     + "as the code window, get_file_content and set_breakpoints count it. A line "
                      + "or column off the text is refused, and nothing is opened.")]
         int? line = null,
         [Description("The 1-based column on 'line', 1 by default, counted in characters as the status bar counts them, so a "
@@ -818,8 +818,8 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
                     if (CodeEditorOf(document) is not { } editor || !HexIDE.Automation.CaretPlacement.Place(editor, at, column ?? 1))
                         return Naming(new MutateResult(false,
                             $"{document.Display} was opened, but its code window could not be found to put the caret in"), document);
-                    placedIn = document;
                 }
+                placedIn = document;
                 return Naming(new MutateResult(true, null, TabStateNote()), document);
             }
             if (found.Carried is { } carried)
@@ -840,8 +840,8 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
                     if (CarriedEditorOf(carried) is not { } editor || !HexIDE.Automation.CaretPlacement.Place(editor, at, column ?? 1))
                         return Naming(new MutateResult(false,
                             $"{carried.Name} was opened, but its editor could not be found to put the caret in"), found);
-                    placedInCarried = carried;
                 }
+                placedInCarried = carried;
                 return Naming(new MutateResult(true, null, TabStateNote()), found);
             }
             return new MutateResult(false, found.Error);
@@ -853,8 +853,13 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
         // Read back, not echoed (#700 review): once focus and the view's first layout have run, as the view opens a fold
         // around a caret navigated into it and the editor moves one it could not show.
         var where = await Dispatcher.UIThread.InvokeAsync(
-            () => (placedIn is { } placed ? CodeEditorOf(placed) : (ISearchableDocument?)CarriedEditorOf(placedInCarried!)) is { } editor
-                ? HexIDE.Automation.CaretPlacement.Where(editor, line!.Value, column ?? 1) : null,
+            () =>
+            {
+                var editor = placedIn is { } placed ? CodeEditorOf(placed) : (ISearchableDocument?)CarriedEditorOf(placedInCarried!);
+                if (editor is null) return null;
+                var at = editor.Document.GetLocation(editor.CaretOffset);
+                return HexIDE.Automation.CaretPlacement.Where(editor, line ?? at.Line, line is null ? at.Column : column ?? 1);
+            },
             DispatcherPriority.Background);
         return where is null ? focused : focused with { Note = $"{focused.Note} {where}" };
     }

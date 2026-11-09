@@ -17,12 +17,13 @@ worse than one that is obviously incomplete.
 > - **Unmeasured member-call receiver kinds.** Some fall-throughs still raise a run-time error without a number.
 >   The measured non-object Variant, Nothing and Collection paths are covered by #257; a form member through
 >   Object likewise raises 438 when absent.
-> - **`For Each` over anything but an array,** a control array included, raises Type mismatch (13).
-> - **A `Class_Terminate` that raises while the failure unwinds** replaces it with its own error
->   ([#767](https://github.com/hexide-io/HexIDE/issues/767)).
 >
-> Separately, some of the engine's own failures carry no message. Such a run does end, and its dialog says that
-> HexIDE does not implement something, but not what ([#181](https://github.com/hexide-io/HexIDE/issues/181)).
+> `For Each` walks arrays, a Collection, a form's Controls, Forms, TabStrip Tabs and ImageList Images. Over any other
+> object, a control array included, it stops the run as not implemented rather than raising an error a handler could
+> trap.
+>
+> Separately, some of the engine's own refusals carry no message of their own. Such a run does end, and its dialog
+> quotes the statement that reached the refusal, where that statement is known.
 >
 > The requirement is stated as intended rather than written down to match the code, because the code is wrong
 > here, not the intent.
@@ -678,7 +679,7 @@ Parent SHALL return the owning form. Left and Top SHALL raise 393 on reads and 3
 absent members SHALL raise trappable 438 when executed, including early-bound accesses translated to runtime,
 except early-bound TabIndex and ToolTipText reads SHALL retain the missing-member compile error (#801 review).
 
-Implementation gap (#801): TabIndex and ToolTipText reads currently use that compile error through Object references too,
+Implementation gap (#3431): TabIndex and ToolTipText reads currently use that compile error through Object references too,
 where the measured late-bound result is trappable 438.
 Unmeasured members and scroll-bar BackColor/ForeColor SHALL refuse as not implemented (#801).
 
@@ -1305,7 +1306,7 @@ A form's `ActiveControl` SHALL return its last focused control while active, ina
 and Nothing when loaded but never shown or when no control has taken focus. Reading an unloaded
 form's member SHALL load it again with no remembered control. Measured in
 [#2437](https://github.com/hexide-io/HexIDE/issues/2437), oracle measurement #2279.
-This first slice does not restore focus or raise GotFocus on reactivation; initial focus remains #2436.
+This first slice does not restore focus or raise GotFocus on reactivation. A form's initial focus is specified below.
 
 #### Scenario: A hidden form remembers focus
 - **WHEN** a control takes focus and its form is hidden

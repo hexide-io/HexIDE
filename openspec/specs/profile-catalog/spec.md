@@ -94,7 +94,7 @@ Duplicate map entries SHALL be refused.
 ### Requirement: Internal attributed diagnostics
 
 Validation failures SHALL carry machine-readable `file`, `field` and `code` data. These diagnostics
-SHALL remain internal until a localized presentation adapter exists. Validation SHALL NOT open any
+SHALL be presented only through the localized load error specified in [profiles](../profiles/spec.md). Validation SHALL NOT open any
 referenced file or certify a file reference's containment.
 
 #### Scenario: Invalid declaration is attributed
@@ -312,7 +312,7 @@ payload writes with an unchanged manifest.
 
 ## Out of Scope
 
-Effective pack entry and settings value validation, attributed localized presentation,
-pack/default adapters, CLI selection and application remain pending in #2621 and its companion
-split-outs. The directory-manifest preflight alone provides no protection against concurrent filesystem
+Effective pack entries, settings value validation, localized presentation and application belong to the
+adapters specified in [profiles](../profiles/spec.md), and command-line selection to desktop startup; this
+component does none of them. The directory-manifest preflight alone provides no protection against concurrent filesystem
 replacement. Arbitrary in-place payload updates with unchanged manifest bytes are not transactional.

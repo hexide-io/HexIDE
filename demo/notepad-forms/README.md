@@ -49,15 +49,15 @@ Written the natural way, it ran into these, each measured on vb6.exe, native and
   never ran: VB6 raises a menu's Click as it opens (#1344).
 
 It found these, which it doesn't depend on:
-- **`Clipboard.SetText` is refused** when the clipboard holds anything besides text (#1246). Cut and Copy call
-  `Clipboard.Clear` first, as VB6 programs usually do, so they never meet it.
-- **The Find dialog's one-line TextBox** clips the bottom of its text (#914).
+- **`Clipboard.SetText` was refused** when the clipboard held anything besides text (#1246, since fixed). Cut and Copy
+  call `Clipboard.Clear` first, as VB6 programs usually do, so they never met it.
+- **The Find dialog's one-line TextBox** clipped the bottom of its text (#914, since fixed).
 
-And these, which still show in it:
-- **`SelStart` after Select All, Ctrl+End and a paste** reads where the paste went in, not the caret after it, so Find
-  Up then starts from the middle of the text (#1385).
+And these, which showed in it:
+- **`SelStart` after Select All, Ctrl+End and a paste** read where the paste went in, not the caret after it, so Find
+  Up then started from the middle of the text (#1385, since fixed).
 - **Under a dark IDE theme the TextBoxes and the menu bar draw dark,** where VB6's follow the system's window colours
-  (#806, #909).
+  (#806, #909, still open).
 
 ## Left out
 
