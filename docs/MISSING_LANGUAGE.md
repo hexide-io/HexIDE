@@ -1181,6 +1181,17 @@ key codes. This is not the complete keyboard-input implementation.
 | Form, ListBox and CommandButton keyboard events | Silently wrong | #2325 remaining measured work: default/cancel/navigation arbitration, empty-form events and list/button ordering. | VBLoader.cs |
 | CheckBox, OptionButton, ComboBox, scroll bars, PictureBox and UserControl keyboard events | Silently wrong | #2325 probe explicitly did not measure these controls. No keyboard behavior is inferred from TextBox; implementation and explicit not-implemented member refusals remain pending. | AttachedEvents.cs |
 
+## ListBox scrolling (outside the baseline inventory)
+
+Measurements: [#3275](https://github.com/hexide-io/HexIDE/issues/3275), VB6 SP6 native and
+p-code on the Win10 oracle guest, measured by hexide-int; measuring PR
+[#3286](https://github.com/hexide-io/HexIDE/pull/3286).
+
+| Member | Status | Detail | Source |
+|---|---|---|---|
+| ListBox.TopIndex / Scroll | Partial | #3275 first slice: TopIndex assignments using standard Integer store coercion (including Long and numeric Variant; overflow raises 6) raise Scroll once when the top row changes, with the new value readable inside the handler. Reassigning the same effective row raises none; the last item clamps to the last page. Negative indices and ListCount or above raise 380 without Scroll. Wheel and ListIndex assignments do not raise Scroll. Scrollbar, keyboard and WM_VSCROLL event delivery remains pending. | ListMembers.cs, VBListBox.cs |
+| ListBox.TopIndex unmeasured cases | Dies | MultiSelect access and access before rows are laid out refuse as not implemented. Horizontal scrolling, Style 1, held-arrow repeat, Selected/Text scrolling and execution under the VB6 IDE were not measured; existing input behavior is retained. | ListMembers.cs, VBListBox.cs |
+
 ## StatusBar control members (outside the baseline inventory)
 
 The baseline counts above do not enumerate common-control members. **#1087 parts A/B** implement the
