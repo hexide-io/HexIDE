@@ -94,6 +94,27 @@
                 </Grid>
             </Border>
         </DataTemplate>
+        <DataTemplate x:Key="RawPropertyTemplate" x:DataType="visualDesigner:RawPropertyViewModel">
+            <Border Height="16"
+                    Background="{DynamicResource {x:Static commonControls:SystemColors.WindowBrushKey}}"
+                    BorderBrush="{DynamicResource {x:Static commonControls:SystemColors.ControlBrushKey}}"
+                    BorderThickness="0,0,0,1">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="110" SharedSizeGroup="Key" />
+                        <ColumnDefinition Width="1" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <Border Background="{DynamicResource {x:Static commonControls:SystemColors.ControlBrushKey}}">
+                        <TextBlock Text="{CompiledBinding Name}" Margin="2,0,0,0"
+                                   Foreground="{DynamicResource {x:Static commonControls:SystemColors.GrayTextBrushKey}}" />
+                    </Border>
+                    <Border Grid.Column="1" Background="{DynamicResource {x:Static commonControls:SystemColors.ControlBrushKey}}" />
+                    <TextBlock Grid.Column="2" Text="{CompiledBinding Value}" Margin="2,0,0,0"
+                               Foreground="{DynamicResource {x:Static commonControls:SystemColors.GrayTextBrushKey}}" />
+                </Grid>
+            </Border>
+        </DataTemplate>
     </UserControl.Resources>
     <Grid>
         <Grid.RowDefinitions>
@@ -122,9 +143,16 @@
         <TabControl Grid.Row="2" Name="TabProperties">
             <TabItem Header="{DynamicResource Str.Tool.Properties.Tab.Alphabetic}" x:Name="AlphabeticPropertiesTab">
                 <ListBox SelectedItem="{CompiledBinding SelectedProperty}"
-                         ItemTemplate="{StaticResource PropertyTemplate}"
                          ItemsSource="{CompiledBinding Properties}"
                          x:Name="AlphabeticProperties">
+                    <ListBox.DataTemplates>
+                        <DataTemplate x:DataType="visualDesigner:PropertyViewModel">
+                            <ContentControl Content="{CompiledBinding}" ContentTemplate="{StaticResource PropertyTemplate}" />
+                        </DataTemplate>
+                        <DataTemplate x:DataType="visualDesigner:RawPropertyViewModel">
+                            <ContentControl Content="{CompiledBinding}" ContentTemplate="{StaticResource RawPropertyTemplate}" />
+                        </DataTemplate>
+                    </ListBox.DataTemplates>
                     <ListBox.Styles>
                         <Style Selector="ListBoxItem">
                             <Setter Property="Padding" Value="0" />
@@ -156,6 +184,9 @@
                                             BorderThickness="1,0,0,0"
                                             Margin="15,0,0,0" />
                         </DataTemplate>
+                        <DataTemplate x:DataType="visualDesigner:RawPropertyViewModel">
+                            <ContentControl Content="{CompiledBinding}" ContentTemplate="{StaticResource RawPropertyTemplate}" />
+                        </DataTemplate>
                         <DataTemplate x:DataType="visualDesigner:PropertyCategoryViewModel">
                             <DockPanel>
                                 <ToggleButton AutomationProperties.Name="{CompiledBinding Header}" Theme="{StaticResource PropertyCategoryToggle}"
@@ -181,7 +212,7 @@
         <ClassicBorderDecorator Grid.Row="4" BorderThickness="1" BorderStyle="Sunken"
                                 Padding="4,2"
                                 DataContext="{CompiledBinding SelectedProperty}">
-            <DockPanel x:DataType="visualDesigner:PropertyViewModel">
+            <DockPanel x:DataType="visualDesigner:BasePropertyViewModel">
                 <TextBlock DockPanel.Dock="Top" FontWeight="Bold" Text="{CompiledBinding Name}" TextWrapping="WrapWithOverflow" />
                 <TextBlock Text="{CompiledBinding Description}" TextWrapping="WrapWithOverflow" />
             </DockPanel>

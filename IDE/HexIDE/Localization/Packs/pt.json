@@ -2,6 +2,7 @@
   "name": "Portuguese",
   "direction": "ltr",
   "strings": {
+    "Str.Tool.Properties.Binary": "(binário)",
     "Str.AIChat.Stop": "Parar",
     "Str.Tool.LanguageServers.Problem.JsonSyntaxEscape": "O ficheiro de configuração «{0}» contém JSON inválido na linha {1}, coluna {2}. Caminho: {3} Use barras (C:/tools/new/...) ou barras invertidas duplas (C:\\\\tools\\\\new\\\\...).",
     "Str.Tool.LanguageServers.Problem.PathControlWarning": "O campo '{0}' contém um caractere de controle produzido por uma sequência de escape; caminho com barras invertidas provavelmente pretendido: {1}. O valor permanece inalterado.",

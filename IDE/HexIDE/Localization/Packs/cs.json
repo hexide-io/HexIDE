@@ -2,6 +2,7 @@
   "name": "Czech",
   "direction": "ltr",
   "strings": {
+    "Str.Tool.Properties.Binary": "(binární)",
     "Str.AIChat.Stop": "Zastavit",
     "Str.Tool.LanguageServers.Problem.JsonSyntaxEscape": "Konfigurační soubor „{0}“ obsahuje neplatný JSON na řádku {1}, ve sloupci {2}. Cesta: {3} Použijte lomítka (C:/tools/new/...) nebo zdvojená zpětná lomítka (C:\\\\tools\\\\new\\\\...).",
     "Str.Tool.LanguageServers.Problem.PathControlWarning": "Pole '{0}' obsahuje řídicí znak z escape sekvence; pravděpodobně zamýšlená cesta se zpětnými lomítky: {1}. Hodnota zůstává beze změny.",

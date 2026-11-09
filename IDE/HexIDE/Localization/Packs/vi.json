@@ -2,6 +2,7 @@
   "name": "Vietnamese",
   "direction": "ltr",
   "strings": {
+    "Str.Tool.Properties.Binary": "(nhị phân)",
     "Str.AIChat.Stop": "Dừng",
     "Str.Tool.LanguageServers.Problem.JsonSyntaxEscape": "Tệp cấu hình '{0}' chứa JSON không hợp lệ tại dòng {1}, cột {2}. Đường dẫn: {3} Dùng dấu gạch chéo xuôi (C:/tools/new/...) hoặc dấu gạch chéo ngược kép (C:\\\\tools\\\\new\\\\...).",
     "Str.Tool.LanguageServers.Problem.PathControlWarning": "Trường '{0}' chứa ký tự điều khiển từ chuỗi thoát; đường dẫn có dấu gạch chéo ngược có thể được định dùng: {1}. Giá trị không thay đổi.",

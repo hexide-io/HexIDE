@@ -2,6 +2,7 @@
   "name": "Greek",
   "direction": "ltr",
   "strings": {
+    "Str.Tool.Properties.Binary": "(δυαδικό)",
     "Str.AIChat.Stop": "Διακοπή",
     "Str.Tool.LanguageServers.Problem.JsonSyntaxEscape": "Το αρχείο ρυθμίσεων «{0}» περιέχει μη έγκυρο JSON στη γραμμή {1}, στήλη {2}. Διαδρομή: {3} Χρησιμοποιήστε κάθετους (C:/tools/new/...) ή διπλές ανάστροφες καθέτους (C:\\\\tools\\\\new\\\\...).",
     "Str.Tool.LanguageServers.Problem.PathControlWarning": "Το πεδίο '{0}' περιέχει χαρακτήρα ελέγχου από ακολουθία διαφυγής· πιθανή επιθυμητή διαδρομή με ανάστροφες καθέτους: {1}. Η τιμή παραμένει αμετάβλητη.",
