@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Net.Sockets;
 using HexIDE.IDE;
+using HexIDE.Localization;
 using HexIDE.Runtime.Components;
 using HexIDE.Utils;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -23,8 +24,10 @@ public partial class MenuEditorViewModel : ObservableObject, IDialog
 
     }
 
-    public MenuEditorViewModel(FormEditViewModel form)
+    public MenuEditorViewModel(FormEditViewModel form, ILocalizationService? localization = null)
     {
+        Title = localization?.GetString("Str.Dialog.MenuEditor.Title") ?? Title;
+
         void AddRecur(ComponentInstance menu, int level)
         {
             var vm = new MenuViewModel(menu);
@@ -126,7 +129,7 @@ public partial class MenuEditorViewModel : ObservableObject, IDialog
         }
     }
 
-    public string Title => "Menu Editor";
+    public string Title { get; } = "Menu Editor";
     public bool CanResize => false;
     public event Action<bool>? CloseRequested;
 }

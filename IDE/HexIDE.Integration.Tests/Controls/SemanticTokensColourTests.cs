@@ -36,4 +36,35 @@ public class SemanticTokensColourTests
         }
         finally { window.Close(); }
     }
+    [AvaloniaTheory]
+    [InlineData("variable", "Identifier")]
+    [InlineData("operator", "Operator")]
+    public void SemanticTokensUseAndResetTheChosenBackground(string tokenType, string colorName)
+    {
+        var choice = SyntaxHighlightingTheme.Definition.GetNamedColor(colorName);
+        var original = choice.Background;
+        var background = Color.Parse("#654321");
+        var editor = new TextEditor { Text = "value", SyntaxHighlighting = SyntaxHighlightingTheme.Definition };
+        editor.TextArea.TextView.LineTransformers.Add(new SemanticTokensColorizer
+        {
+            Tokens = SemanticTokensColorizer.Decode(editor.Document, new([0, 0, 5, 0, 0], [tokenType]))
+        });
+        var window = new Window { Width = 400, Height = 200, Content = editor };
+        try
+        {
+            window.Show();
+            choice.Background = new AvaloniaEdit.Highlighting.SimpleHighlightingBrush(background);
+            editor.TextArea.TextView.Redraw();
+            var visual = editor.TextArea.TextView.GetOrConstructVisualLine(editor.Document.GetLineByNumber(1));
+            visual.Elements[0].TextRunProperties.BackgroundBrush.Should().BeAssignableTo<ISolidColorBrush>()
+                .Which.Color.Should().Be(background);
+            choice.Background = original;
+            editor.TextArea.TextView.Redraw();
+            visual = editor.TextArea.TextView.GetOrConstructVisualLine(editor.Document.GetLineByNumber(1));
+            var resetBackground = (visual.Elements[0].TextRunProperties.BackgroundBrush as ISolidColorBrush)?.Color;
+            resetBackground.Should().NotBe(background);
+        }
+        finally { window.Close(); choice.Background = original; }
+    }
+
 }

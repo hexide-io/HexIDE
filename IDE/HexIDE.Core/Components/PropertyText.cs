@@ -204,7 +204,7 @@ public static partial class PropertyText
         var unmodelled = component.UnknownRawProperties
             .Where(raw => !type.PropertiesByName.ContainsKey(raw.Name))
             .Select(raw => new PropertyRow(raw.Name, RawText(raw), false,
-                "not modelled by HexIDE, so not in the Properties window: the file's own text, which the save keeps"));
+                "not modelled by HexIDE, so read-only in the Properties window: the file's own text, which the save keeps"));
         return [.. modelled.Concat(unmodelled).OrderBy(r => r.Name)];
     }
 

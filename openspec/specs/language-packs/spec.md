@@ -4,8 +4,6 @@
 Define what a language pack is and the conventions every one follows, so that adding a language is a
 contained piece of work rather than a project.
 
-**Known divergence:** the guard that fails the build on an undefined key covers AXAML, not C# `GetString` calls (#3433).
-
 The localization mechanism is a separate capability; this is the content that rides on it. The bar being set
 here is deliberately low in effort and high in consistency — a pack should be one file that anyone who
 speaks the language can contribute to, and every pack should behave the same way once it is in.
@@ -167,6 +165,10 @@ means translating is a task requiring no knowledge of the runtime at all.
 ### Requirement: Pack coverage SHALL be enforced automatically
 The build SHALL fail when a key used by the interface is absent from the canonical pack, and when a pack
 defines a key the canonical pack does not.
+
+The source guard SHALL check AXAML resource references and literal `Str.*` arguments to C#
+`GetString` calls in `IDE/HexIDE`, excluding generated `bin` and `obj` directories. Computed and
+interpolated arguments are outside this source guard and require separate coverage at their use sites.
 
 The two checks catch opposite mistakes. A key used but not canonical renders as its own raw name, which
 reaches a user as gibberish. A key in a pack but not canonical is dead weight — usually a typo, or a

@@ -4,7 +4,7 @@ using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
 using Avalonia.Interactivity;
 using HexIDE.Runtime.BuiltinControls;
-using HexIDE.Runtime.Dialogs;
+using HexIDE.Dialogs;
 using HexIDE.Runtime.Interpreter;
 
 namespace HexIDE.Integration.Tests.Views;

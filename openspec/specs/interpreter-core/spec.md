@@ -698,8 +698,8 @@ Parent SHALL return the owning form. Left and Top SHALL raise 393 on reads and 3
 absent members SHALL raise trappable 438 when executed, including early-bound accesses translated to runtime,
 except early-bound TabIndex and ToolTipText reads SHALL retain the missing-member compile error (#801 review).
 
-Implementation gap (#3431): TabIndex and ToolTipText reads currently use that compile error through Object references too,
-where the measured late-bound result is trappable 438.
+TabIndex and ToolTipText reads through Object references SHALL raise trappable 438, as measured in
+[the Timer oracle](../../../docs/vb6-fidelity-oracle/what-a-timer-has-at-run-time.md) (#3431).
 Unmeasured members and scroll-bar BackColor/ForeColor SHALL refuse as not implemented (#801).
 
 #### Scenario: Timer size is absent
@@ -715,6 +715,10 @@ Unmeasured members and scroll-bar BackColor/ForeColor SHALL refuse as not implem
 #### Scenario: Timer extender members remain absent
 - **WHEN** code reads Timer1.TabIndex or Timer1.ToolTipText under On Error Resume Next
 - **THEN** the missing-member compile error is raised rather than swallowed by the handler
+
+#### Scenario: Timer extender reads through Object
+- **WHEN** an Object variable holds a Timer and code reads its TabIndex or ToolTipText under On Error Resume Next
+- **THEN** Err.Number is 438 and execution continues after the read
 
 #### Scenario: Timer Interval arithmetic
 - **WHEN** a Timer with Interval 1000 is read and multiplied by 40

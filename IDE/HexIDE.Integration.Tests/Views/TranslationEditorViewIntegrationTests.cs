@@ -122,7 +122,7 @@ public class TranslationEditorViewIntegrationTests
         var frame = window.CaptureRenderedFrame();
         frame.Should().NotBeNull();
         var path = Path.Combine(Path.GetTempPath(), name);
-        frame!.Save(path);
+        frame!.Save(path, Avalonia.Media.Imaging.PngBitmapEncoderOptions.Default);
         window.Close();
         return path;
     }

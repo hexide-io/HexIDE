@@ -1,6 +1,8 @@
 using System.IO;
 using System.Text.Json;
 using System.Text.RegularExpressions;
+using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
 using HexIDE.Localization;
 using HexIDE.Runtime.Components;
 
@@ -8,7 +10,7 @@ namespace HexIDE.Tests;
 
 /// <summary>
 /// Source-level coverage: every <c>{DynamicResource Str.*}</c> referenced in HexIDE AXAML must have a
-/// key in en.json — otherwise the binding resolves to null and the control renders blank at runtime.
+/// key in en.json; literal C# GetString keys must also exist, or the raw key renders at runtime.
 /// This is the backstop for the area-by-area string extraction (no blank chrome can ship).
 /// </summary>
 public class LocalizationCoverageTests
@@ -68,6 +70,75 @@ public class LocalizationCoverageTests
         }
 
         missing.Should().BeEmpty("every Str.* key used in AXAML must exist in en.json");
+    }
+
+    [Fact]
+    public void EveryCSharpGetStringLiteralKey_ExistsInEnglishPack()
+    {
+        var hexIdeDir = FindHexIdeProjectDir();
+        var enKeys = LoadEnglishKeys(Path.Combine(hexIdeDir, "Localization", "Packs", "en.json"));
+        var missing = new SortedSet<string>();
+        foreach (var file in Directory.EnumerateFiles(hexIdeDir, "*.cs", SearchOption.AllDirectories)
+                     .Where(path => !Path.GetRelativePath(hexIdeDir, path).Split(Path.DirectorySeparatorChar)
+                         .Any(part => part is "bin" or "obj")))
+        {
+            foreach (var key in CSharpGetStringLiteralKeys(File.ReadAllText(file)))
+                if (!enKeys.Contains(key))
+                    missing.Add($"{key}  ({Path.GetRelativePath(hexIdeDir, file)})");
+        }
+        missing.Should().BeEmpty("every literal Str.* key passed to GetString in C# must exist in en.json");
+    }
+
+    private static IEnumerable<string> CSharpGetStringLiteralKeys(string source)
+    {
+        // Computed and interpolated arguments are deliberately excluded; no constant evaluation or binding.
+        var root = CSharpSyntaxTree.ParseText(source).GetRoot();
+        foreach (var call in root.DescendantNodes().OfType<InvocationExpressionSyntax>())
+        {
+            var name = call.Expression switch
+            {
+                MemberAccessExpressionSyntax member => member.Name.Identifier.ValueText,
+                MemberBindingExpressionSyntax member => member.Name.Identifier.ValueText,
+                IdentifierNameSyntax identifier => identifier.Identifier.ValueText,
+                _ => null
+            };
+            if (name == "GetString" && call.ArgumentList.Arguments.Count == 1 &&
+                call.ArgumentList.Arguments[0].Expression is LiteralExpressionSyntax literal &&
+                literal.Kind() == SyntaxKind.StringLiteralExpression &&
+                literal.Token.ValueText.StartsWith("Str.", StringComparison.Ordinal))
+                yield return literal.Token.ValueText;
+        }
+    }
+
+    [Theory]
+    [InlineData("loc.GetString(\"Str.Missing\")")]
+    [InlineData("loc?.GetString(\"Str.Missing\")")]
+    [InlineData("GetString(\"Str.Missing\")")]
+    [InlineData("loc.GetString(@\"Str.Missing\")")]
+    [InlineData("loc.GetString(\"\"\"Str.Missing\"\"\")")]
+    [InlineData("loc.GetString(\"Str.\\u004dissing\")")]
+    public void CSharpGuard_FindsLiteralKeys(string expression)
+        => CSharpGetStringLiteralKeys("class C { object M() => " + expression + "; }")
+            .Should().Equal("Str.Missing");
+
+    [Fact]
+    public void CSharpGuard_ExcludesCommentsStringsAndComputedArguments()
+    {
+        CSharpGetStringLiteralKeys(""""
+            class C {
+                // loc.GetString("Str.Comment")
+                string example = "loc.GetString(\"Str.Example\")";
+                void M() {
+                    loc.GetString(key);
+                    loc.GetString($"Str.{name}");
+                    loc.GetString($"Str.Interpolated");
+                    loc.GetString("Str." + name);
+                    loc.GetString("Other.Key");
+                    json.GetString();
+                    loc.Other("Str.Other");
+                }
+            }
+            """").Should().BeEmpty();
     }
 
     [AvaloniaFact]

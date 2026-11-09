@@ -65,7 +65,7 @@ internal sealed class ServerMessagePrompt
             2 => MessageBoxIcon.Warning,
             _ => MessageBoxIcon.Information
         };
-        message.Children.Add(HexIDE.Runtime.Dialogs.MessageBox.BuildIconElement(icon));
+        message.Children.Add(HexIDE.Dialogs.MessageBox.BuildIconElement(icon));
         message.Children.Add(new TextBlock { Text = request.Message, TextWrapping = TextWrapping.Wrap, MaxWidth = 480 });
         content.Children.Add(message);
         content.Children.Add(buttons);

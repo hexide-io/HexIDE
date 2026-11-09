@@ -1,7 +1,7 @@
 # File safety audit (#2504)
 
-Audit of `4ef7aaa3` (2026-10-28), plus the conversation/picture export, Make-archive consent, unique-staging, parity-output and signing-generator fixes
-on this branch. This is a command audit,
+Audit of `4ef7aaa3` (2026-10-28), plus the conversation/picture export, Make-archive consent, unique-staging,
+parity-output, signing-generator and directory-save fixes on this branch. This is a command audit,
 not a claim that the beta file-safety gate is satisfied. “Picker” means the application delegates
 replacement confirmation to the platform; its native prompt has not been verified here. Scripted
 picker answers bypass that platform UI. Atomic replacement prevents truncation, not data loss or undo.
@@ -16,7 +16,7 @@ program's control, not VB6's IDE commands, and does not establish their behavior
 | Save form/module/project/group; Save As; Save Changes on close/unload | Existing paths replace silently; new paths and Save As use a picker. Writes source, companion and project/group files; no disk undo. `ProjectService.SaveFiles`, `DestinationOf`, `Write`, `WriteCompanionBinary`. Faithfulness and encoding gates refuse some writes. | Measured: ordinary Save Project rewrites existing members and `.vbp` without a prompt; cancelling a pathless member picker abandons the save ([oracle](vb6-fidelity-oracle/when-a-document-gets-a-file-and-what-a-dangling-startup-does.md)). Save Project As retargets relative paths without copying members ([oracle](vb6-fidelity-oracle/what-save-project-as-does-to-the-paths-in-a-project-file.md)). Measure collisions with another existing destination/companion. |
 | New form/module/class/UserControl/PropertyPage; MCP `add_file` | Adds only to the model; no file until Save. Generated names avoid occupied source/companion files; MCP validates VB6 names and duplicates. `ProjectService.AddNew*`, `NextFree*Name`; `HexIdeTools.AddFileAsync`. | Measured: new documents have no disk file until Save ([oracle](vb6-fidelity-oracle/when-a-document-gets-a-file-and-what-a-dangling-startup-does.md)). Measure first Save onto an existing name; no immediate overwrite. |
 | New project / templates | Built-in and add-in templates create a project model, not a folder of files. `ProjectManager.NewProject`, `IAddinProjectTemplate.Create`. Its Save reaches the normal writer. | Measure VB6 template/Save collision behavior. Third-party add-in arbitrary filesystem code is outside host enforcement. |
-| Save project to directory (`--newproject`) | `DesktopStartup` passes a GUID scratch directory; `ProjectService.SaveProjectToDirectory` itself replaces colliding members/project/companions with no question. | HexIDE addition: protect the public service's non-fresh directory case. |
+| Save project to directory (`--newproject`) | `DesktopStartup` passes a GUID scratch directory; `ProjectService.SaveProjectToDirectory` asks once, naming existing source, companion and project destinations before writing any output. Only Yes proceeds; No/cancel preserves the files and model paths. | **Fixed for this HexIDE addition:** protects the public service's non-fresh directory case (`UserFileWriteFailureTests.DirectorySaveAsksBeforeReplacingAnyOutput`). |
 | Make interpreter program | Picker for executable; derived `.dll` archive now has a separate explicit Yes/No question naming its path. No/cancel leaves both outputs untouched. Both outputs are staged and flushed through `AtomicFileWriter`. `ProjectService.MakeProjectInternal`. | **Fixed for the HexIDE-only archive.** Measure VB6 Make executable behavior; executable picker behavior is unchanged. |
 | Make/Run with VB6 | `Vb6ToolchainService.MakeWithVb6Async/RunVb6Async` invokes `/make`; compiler output uses the project's output name; a log uses a GUID temp path. Host adds no replacement question. | Measure VB6 `/make` and IDE Make output collisions separately. |
 | Rename document/control; language-server Rename | Changes names/model or undoable editor text, not filesystem names. `PropertiesToolViewModel`, `CodeEditorViewModel.ApplyRename`; disk write waits for Save (MCP property writes save immediately). | VB6 document/control rename measurement; LSP refactoring is HexIDE-only, already editor-undoable. |
@@ -51,7 +51,7 @@ claim to sandbox those processes.
 
 ## Remaining
 
-The branch delivers the audit, conversation/picture exports, Make-archive consent and unique staging.
+The branch delivers the audit, conversation/picture exports, Make-archive and directory-save consent and unique staging.
 The rows above identify the remaining
 HexIDE-only fixes, especially MCP write recovery/containment,
 carried-file save recovery and packer package output. Key/trust/revocation outputs now refuse replacement. Parity-harness output now refuses replacement. No VB6 replacement behavior was invented.

@@ -1,7 +1,7 @@
 # Avalonia RTL trailing punctuation (#2874, round 3)
 
 Standalone repro: one TextBlock, RTL, one string, no HexIDE code or resources.
-Uses the repository's pinned Avalonia 12.0.5 packages (no new dependency).
+Uses the repository's centrally pinned Avalonia packages (no new dependency); the measurements below used 12.0.5.
 
 ```sh
 dotnet run --project scripts/probes/2874-bidi

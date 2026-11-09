@@ -65,7 +65,7 @@ public class OpenDialogsTests
     {
         var ide = Shown(new Window(), "IDE");
         var watch = OpenDialogs.Watch([ide], ide);
-        var message = new Window { Title = "HexIDE", Content = new HexIDE.Runtime.Dialogs.MessageBox
+        var message = new Window { Title = "HexIDE", Content = new HexIDE.Dialogs.MessageBox
         {
             Text = "This action will reset your project…",
             Buttons = HexIDE.IDE.MessageBoxButtons.YesNo
@@ -101,7 +101,7 @@ public class OpenDialogsTests
         var ide = Shown(new Window(), "IDE");
         var watch = OpenDialogs.Watch([ide], ide);
         var text = multiline ? "First line" + Environment.NewLine + "Second line" : new string('x', 140);
-        var dialog = new Window { Title = "HexIDE", Content = new HexIDE.Runtime.Dialogs.MessageBox
+        var dialog = new Window { Title = "HexIDE", Content = new HexIDE.Dialogs.MessageBox
         {
             Text = text,
             Icon = HexIDE.IDE.MessageBoxIcon.Question
@@ -320,7 +320,7 @@ public class OpenDialogsTests
     [AvaloniaFact]
     public void A_programs_box_shown_in_a_window_of_its_own_counts()
     {
-        var box = Shown(new Window { Content = new HexIDE.Runtime.Dialogs.MessageBox() }, "Ask");
+        var box = Shown(new Window { Content = new HexIDE.Dialogs.MessageBox() }, "Ask");
         try
         {
             OpenDialogs.Among([box]).Should().Equal(box);

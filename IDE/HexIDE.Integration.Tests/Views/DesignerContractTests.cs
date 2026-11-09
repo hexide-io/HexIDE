@@ -19,7 +19,7 @@ namespace HexIDE.Integration.Tests.Views;
 // these drive it with a class that is nothing but the interface.
 public class DesignerContractTests
 {
-    private sealed class InterfaceOnlyClass : IDesignerComponentClass
+    internal sealed class InterfaceOnlyClass : IDesignerComponentClass
     {
         public int Drawn { get; private set; }
 

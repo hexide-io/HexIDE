@@ -227,6 +227,18 @@ controls to the other side of a form whose layout they did not change.
 Scissors, magnifiers and other non-navigation icons retain their existing inherited mirroring; no additional
 exceptions are selected here (#40).
 
+### Requirement: IDE prompts own their dialog controls
+The IDE SHALL use its own message-box and input-box controls, separate from the running program's
+`HexIDE.Runtime.Dialogs` controls (#3513). They SHALL retain their existing language resources, theme
+keys, automation names and visible behavior. Only the built-in engine's program-dialog boundary SHALL
+name the runtime dialog namespace in IDE product code. Color and Print controls SHALL belong to the IDE.
+
+#### Scenario: An IDE prompt while a program is running
+- **WHEN** the IDE asks its own question or requests text
+- **THEN** it uses an IDE-owned control and the active interface language and direction
+- **AND** the program's MsgBox and InputBox continue to use runtime-owned controls with their existing behavior
+- **AND** automation recognizes both kinds of box
+
 ### Requirement: A pseudo-localized mode SHALL exist to find untranslated text
 The IDE SHALL provide a generated pseudo-localized mode covering every canonical key, in both directions,
 available to developers and not offered to end users.

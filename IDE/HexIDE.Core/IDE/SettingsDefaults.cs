@@ -13,6 +13,8 @@ namespace HexIDE.IDE;
 public static class SettingsDefaults
 {
     // ── Editor ──────────────────────────────────────────────────
+    public const string EditorFontFamily = "Courier New,Monospace";
+    public const double EditorFontSize = 13;
     public const bool RequireVariableDeclaration = false;
     public const bool AutoListMembers = true;
     public const bool AutoQuickInfo = true;
