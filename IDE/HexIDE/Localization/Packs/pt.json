@@ -1078,6 +1078,7 @@
     "Str.Tool.Diagnostics.Hints": "Sugestões",
     "Str.Tool.Diagnostics.CurrentDocument": "Documento atual",
     "Str.Tool.Diagnostics.Server": "Servidor",
+    "Str.Tool.Diagnostics.Source": "Origem",
     "Str.Tool.Diagnostics.Document": "Documento",
     "Str.Tool.Diagnostics.Line": "Linha",
     "Str.Tool.Diagnostics.Message": "Mensagem",

@@ -1078,6 +1078,7 @@
     "Str.Tool.Diagnostics.Hints": "Patarimai",
     "Str.Tool.Diagnostics.CurrentDocument": "Dabartinis dokumentas",
     "Str.Tool.Diagnostics.Server": "Serveris",
+    "Str.Tool.Diagnostics.Source": "Šaltinis",
     "Str.Tool.Diagnostics.Document": "Dokumentas",
     "Str.Tool.Diagnostics.Line": "Eilutė",
     "Str.Tool.Diagnostics.Message": "Pranešimas",

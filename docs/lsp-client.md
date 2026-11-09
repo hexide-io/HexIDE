@@ -708,7 +708,8 @@ queues its own ledger/cache retirement after closing its claimants.
 
 Tools → Diagnostics shows the registry's current diagnostic store, including reports for unopened
 workspace documents. Each row names its publishing server (the configured display name), document,
-severity, line and message. Documents use the loaded member name or outside file name, with the full
+severity, source (when supplied by the server), line and message. Counts beside each severity switch
+follow the current-document filter and include severities hidden from the list (#1871). Documents use the loaded member name or outside file name, with the full
 path in a tooltip; navigation retains the URI. Severity captions are singular and headers size to
 their localized text. Severity switches and a current-document filter narrow the list; the latter
 retains the last editor while the panel has focus. Reports replace their publisher's previous rows and

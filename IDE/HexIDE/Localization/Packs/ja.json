@@ -1078,6 +1078,7 @@
     "Str.Tool.Diagnostics.Hints": "ヒント",
     "Str.Tool.Diagnostics.CurrentDocument": "現在のドキュメント",
     "Str.Tool.Diagnostics.Server": "サーバー",
+    "Str.Tool.Diagnostics.Source": "ソース",
     "Str.Tool.Diagnostics.Document": "ドキュメント",
     "Str.Tool.Diagnostics.Line": "行",
     "Str.Tool.Diagnostics.Message": "メッセージ",
