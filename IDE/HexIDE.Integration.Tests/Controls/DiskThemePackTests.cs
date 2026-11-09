@@ -29,7 +29,7 @@ public sealed class DiskThemePackTests : IDisposable
         var service = new ThemeService(_directory);
         try
         {
-            service.AvailableThemes.Should().Equal("Classic", "Dark", "Abyss");
+            service.AvailableThemes.Should().Equal("Classic", "Dark", "Abyss", "HighContrastLight", "HighContrastDark");
             service.Apply("Custom");
             service.ActiveTheme.Should().Be("Classic");
             service.Apply("Dark");
@@ -50,7 +50,7 @@ public sealed class DiskThemePackTests : IDisposable
         Write("Zeta", """{"name":"Display name","colors":{}}""");
         Write("Alpha", "{}");
         File.WriteAllText(Path.Combine(_directory, "ignored.txt"), "{}");
-        new ThemeService(_directory).AvailableThemes.Should().Equal("Classic", "Dark", "Abyss", "Alpha", "Zeta");
+        new ThemeService(_directory).AvailableThemes.Should().Equal("Classic", "Dark", "Abyss", "HighContrastLight", "HighContrastDark", "Alpha", "Zeta");
     }
 
     [AvaloniaFact]
@@ -86,7 +86,7 @@ public sealed class DiskThemePackTests : IDisposable
         Write(id, """{"name":"Dark","themeVariant":"Light","colors":{}}""");
         Write("Custom", "{}");
         var service = new ThemeService(_directory);
-        service.AvailableThemes.Should().Equal("Classic", "Dark", "Abyss", "Custom");
+        service.AvailableThemes.Should().Equal("Classic", "Dark", "Abyss", "HighContrastLight", "HighContrastDark", "Custom");
         var original = Application.Current!.RequestedThemeVariant;
         try
         {

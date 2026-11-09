@@ -484,6 +484,8 @@
     "Str.Options.Environment.WhenStarts.Header": "عند بدء تشغيل HexIDE",
     "Str.Options.Environment.WhenStarts.PromptForProject": "المطالبة باختيار مشروع",
     "Str.Options.Theme.GroupHeader": "سمة HexIDE",
+    "Str.Theme.HighContrastLight": "تباين عالٍ فاتح",
+    "Str.Theme.HighContrastDark": "تباين عالٍ داكن",
     "Str.Options.Theme.ThemeLabel": "السمة:",
     "Str.Options.Language.Header": "لغة HexIDE",
     "Str.Options.Language.LanguageLabel": "اللغة:",

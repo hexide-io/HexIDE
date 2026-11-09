@@ -447,6 +447,8 @@
     "Str.Options.Environment.FileHandling.Header": "การจัดการไฟล์",
     "Str.Options.Environment.ReloadExternalChanges": "โหลดไฟล์ที่เปลี่ยนแปลงภายนอก IDE ใหม่",
     "Str.Options.Theme.GroupHeader": "ธีม IDE",
+    "Str.Theme.HighContrastLight": "ความคมชัดสูงแบบสว่าง",
+    "Str.Theme.HighContrastDark": "ความคมชัดสูงแบบมืด",
     "Str.Options.Theme.ThemeLabel": "ธีม:",
     "Str.Options.Language.Header": "ภาษา IDE",
     "Str.Options.Language.LanguageLabel": "ภาษา:",

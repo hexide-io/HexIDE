@@ -447,6 +447,8 @@
     "Str.Options.Environment.FileHandling.Header": "Gestionarea fișierelor",
     "Str.Options.Environment.ReloadExternalChanges": "Reîncarcă fișierele modificate în afara IDE-ului",
     "Str.Options.Theme.GroupHeader": "Tema IDE-ului",
+    "Str.Theme.HighContrastLight": "Contrast ridicat luminos",
+    "Str.Theme.HighContrastDark": "Contrast ridicat întunecat",
     "Str.Options.Theme.ThemeLabel": "Temă:",
     "Str.Options.Language.Header": "Limba IDE-ului",
     "Str.Options.Language.LanguageLabel": "_Limbă:",

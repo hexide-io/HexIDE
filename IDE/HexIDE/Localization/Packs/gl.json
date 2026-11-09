@@ -447,6 +447,8 @@
     "Str.Options.Environment.FileHandling.Header": "Xestión de ficheiros",
     "Str.Options.Environment.ReloadExternalChanges": "Recargar os ficheiros modificados fóra do IDE",
     "Str.Options.Theme.GroupHeader": "Tema do IDE",
+    "Str.Theme.HighContrastLight": "Alto contraste claro",
+    "Str.Theme.HighContrastDark": "Alto contraste escuro",
     "Str.Options.Theme.ThemeLabel": "Tema:",
     "Str.Options.Language.Header": "Idioma do IDE",
     "Str.Options.Language.LanguageLabel": "_Idioma:",

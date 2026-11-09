@@ -447,6 +447,8 @@
     "Str.Options.Environment.FileHandling.Header": "Failu apstrāde",
     "Str.Options.Environment.ReloadExternalChanges": "Pārlādēt ārpus IDE mainītos failus",
     "Str.Options.Theme.GroupHeader": "IDE motīvs",
+    "Str.Theme.HighContrastLight": "Augsts kontrasts gaišs",
+    "Str.Theme.HighContrastDark": "Augsts kontrasts tumšs",
     "Str.Options.Theme.ThemeLabel": "Motīvs:",
     "Str.Options.Language.Header": "IDE valoda",
     "Str.Options.Language.LanguageLabel": "_Valoda:",

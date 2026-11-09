@@ -10,6 +10,13 @@
     "BracketDepth3": "#E58FE5",
     "BracketUnmatched": "#FF8080",
 
+    "WindowFrame": "#646464",
+    "ScrollBar": "#C8C8C8",
+    "ActiveCaption": "#99B4D1",
+    "ActiveBorder": "#B4B4B4",
+    "InactiveBorder": "#F4F7FC",
+    "InfoText": "#000000",
+    "Info": "#FFFFE1",
     "AppWorkspace":            "#000C18",
     "Window":                  "#000C18",
     "WindowText":              "#88AACC",

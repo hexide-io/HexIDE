@@ -16,6 +16,22 @@ embedded-only loader.
 
 ## Requirements
 
+### Requirement: Selectable high-contrast palettes
+The IDE SHALL ship HighContrastLight and HighContrastDark packs in every profile, including Classic.
+Each SHALL declare every top-level brush and colour key from Classic.axaml. The palette's window,
+control, menu, caption, selection, information, warning, validation, read-only, inactive-code, link and bracket
+text/background pairs SHALL have contrast of at least 7:1. Options SHALL display localized names while
+retaining stable pack IDs as setting values.
+
+This is the palette slice of [#3300](https://github.com/hexide-io/HexIDE/issues/3300). Automatic OS
+following, 2px focus/selection chrome and syntax-colour adaptation remain pending. Avalonia does not
+report the Linux portal contrast preference yet; HexIDE adds no workaround.
+
+#### Scenario: Selecting a high-contrast pack
+- **WHEN** a user selects either high-contrast pack in Options
+- **THEN** its complete colour dictionary is applied using its declared Light or Dark variant
+- **AND** the saved setting remains the pack ID rather than its translated name
+
 ### Requirement: Editor links SHALL follow the theme
 Editors SHALL use the `LinkText` theme colour (`LinkTextBrush`) for web and mail links.
 Every shipped pack SHALL declare it with at least 4.5:1 contrast against its own `Window` background.

@@ -484,6 +484,8 @@
     "Str.Options.Environment.WhenStarts.Header": "כאשר HexIDE מופעל",
     "Str.Options.Environment.WhenStarts.PromptForProject": "הצג בקשה לפרויקט",
     "Str.Options.Theme.GroupHeader": "ערכת נושא של ה-IDE",
+    "Str.Theme.HighContrastLight": "ניגודיות גבוהה בהירה",
+    "Str.Theme.HighContrastDark": "ניגודיות גבוהה כהה",
     "Str.Options.Theme.ThemeLabel": "ערכת נושא:",
     "Str.Options.Language.Header": "שפת ה-IDE",
     "Str.Options.Language.LanguageLabel": "שפה:",

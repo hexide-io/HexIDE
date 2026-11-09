@@ -484,6 +484,8 @@
     "Str.Options.Environment.WhenStarts.Header": "Khi HexIDE khởi động",
     "Str.Options.Environment.WhenStarts.PromptForProject": "Hỏi về dự án",
     "Str.Options.Theme.GroupHeader": "Giao diện IDE",
+    "Str.Theme.HighContrastLight": "Tương phản cao sáng",
+    "Str.Theme.HighContrastDark": "Tương phản cao tối",
     "Str.Options.Theme.ThemeLabel": "Giao diện:",
     "Str.Options.Language.Header": "Ngôn ngữ IDE",
     "Str.Options.Language.LanguageLabel": "_Ngôn ngữ:",

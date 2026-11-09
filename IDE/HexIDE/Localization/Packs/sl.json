@@ -447,6 +447,8 @@
     "Str.Options.Environment.FileHandling.Header": "Ravnanje z datotekami",
     "Str.Options.Environment.ReloadExternalChanges": "Znova naloži datoteke, spremenjene zunaj IDE-ja",
     "Str.Options.Theme.GroupHeader": "Tema IDE-ja",
+    "Str.Theme.HighContrastLight": "Visok kontrast svetlo",
+    "Str.Theme.HighContrastDark": "Visok kontrast temno",
     "Str.Options.Theme.ThemeLabel": "Tema:",
     "Str.Options.Language.Header": "Jezik IDE-ja",
     "Str.Options.Language.LanguageLabel": "_Jezik:",

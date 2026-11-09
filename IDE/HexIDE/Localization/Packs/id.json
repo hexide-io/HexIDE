@@ -484,6 +484,8 @@
     "Str.Options.Environment.WhenStarts.Header": "Saat HexIDE dimulai",
     "Str.Options.Environment.WhenStarts.PromptForProject": "Tanya proyek",
     "Str.Options.Theme.GroupHeader": "Tema IDE",
+    "Str.Theme.HighContrastLight": "Kontras tinggi terang",
+    "Str.Theme.HighContrastDark": "Kontras tinggi gelap",
     "Str.Options.Theme.ThemeLabel": "Tema:",
     "Str.Options.Language.Header": "Bahasa IDE",
     "Str.Options.Language.LanguageLabel": "_Bahasa:",

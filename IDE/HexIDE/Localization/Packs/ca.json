@@ -447,6 +447,8 @@
     "Str.Options.Environment.FileHandling.Header": "Gestió de fitxers",
     "Str.Options.Environment.ReloadExternalChanges": "Torna a carregar els fitxers modificats fora de l'IDE",
     "Str.Options.Theme.GroupHeader": "Tema de l'IDE",
+    "Str.Theme.HighContrastLight": "Contrast alt clar",
+    "Str.Theme.HighContrastDark": "Contrast alt fosc",
     "Str.Options.Theme.ThemeLabel": "Tema:",
     "Str.Options.Language.Header": "Idioma de l'IDE",
     "Str.Options.Language.LanguageLabel": "_Idioma:",

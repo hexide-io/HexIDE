@@ -447,6 +447,8 @@
     "Str.Options.Environment.FileHandling.Header": "Failide haldamine",
     "Str.Options.Environment.ReloadExternalChanges": "Laadi väljaspool IDE-d muudetud failid uuesti",
     "Str.Options.Theme.GroupHeader": "IDE kujundus",
+    "Str.Theme.HighContrastLight": "Suure kontrastsusega hele",
+    "Str.Theme.HighContrastDark": "Suure kontrastsusega tume",
     "Str.Options.Theme.ThemeLabel": "Kujundus:",
     "Str.Options.Language.Header": "IDE keel",
     "Str.Options.Language.LanguageLabel": "_Keel:",
