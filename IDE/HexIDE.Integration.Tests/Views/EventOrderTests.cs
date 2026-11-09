@@ -161,6 +161,36 @@ public class EventOrderTests
     }
 
     [AvaloniaFact]
+    public void RichTextBox_first_and_later_Text_assignments_raise_selection_before_change()
+    {
+        // #2547; measured order: in-box-controls-the-richtextbox.md, Change and SelChange from code.
+        // Extra statements make SelChange suspend longer than Change, deterministically exposing overtaking.
+        var source = Form.Replace("   Begin VB.TextBox Text1", "   Begin RichTextLib.RichTextBox Text1");
+        using var run = Start("""
+            Private Sub Command1_Click()
+                Text1.Text = "abc"
+            End Sub
+            Private Sub Text1_SelChange()
+                Dim work As Long
+                work = 1
+                work = work + 1
+                Debug.Print "SelChange " & Text1.SelStart & "," & Text1.SelLength
+            End Sub
+            Private Sub Text1_Change()
+                Debug.Print "Change"
+            End Sub
+            """, -1, source);
+
+        run.Click("Command1");
+        Pump();
+        run.Printed.Should().Equal("SelChange 0,0", "Change");
+        run.Click("Command1");
+        Pump();
+        run.Printed.Should().Equal("SelChange 0,0", "Change", "SelChange 0,0", "Change");
+        run.Failed.Should().BeEmpty();
+    }
+
+    [AvaloniaFact]
     public void SSTab_MouseDown_reads_the_old_tab_before_Click_and_MouseUp()
     {
         var source = Form.Replace("   Begin VB.CommandButton Command1", """
