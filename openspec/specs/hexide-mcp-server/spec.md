@@ -871,6 +871,26 @@ where the platform reports no frame.
 - **WHEN** `set_window_state` moves `window: "Form1"` to `x` 720, `y` 360 on a 150% display
 - **THEN** the reply's `outer` starts at 480, 240 and its `frame` and `client` inside it, with `scale` 1.5
 
+### Requirement: Native Wayland's window state SHALL not report a position it doesn't have
+On native Wayland `get_window_state` SHALL leave out `x`, `y`, `outer`, `frame` and `client`, and its `note` SHALL say why.
+`set_window_state` SHALL refuse `x` and `y` before anything changes, with that reason, and SHALL still apply `state`, `width` and
+`height` passed without them.
+
+#### Scenario: Moving a window on native Wayland
+- **WHEN** `set_window_state` is given `state` Normal with `x`, `y`, `width` and `height` under `--platform wayland`
+- **THEN** it is refused at once, the window is unchanged and the reply says only the compositor can place a window
+- **AND** the same call without `x` and `y` succeeds with the new size
+
+### Requirement: Pointer input and window-relative numbers SHALL share the window's coordinates
+Where a platform's decorations are drawn in the window's own surface, `interact`, `hover`, `inspect_element`'s `boundingRect` and
+`take_snapshot` SHALL all use the window's own coordinates, with its first row at 0, so a click lands on the control it names and a
+capture shows the whole window. A popup whose place the platform does not report SHALL be left out of a capture with the reason, and
+a control in it SHALL have no `boundingRect`, rather than a position that reads as measured.
+
+#### Scenario: Clicking in a window with client-side decorations
+- **WHEN** `interact` clicks a button in a window set in from its surface by a title bar and shadow
+- **THEN** the button is pressed, and its `boundingRect` is where `take_snapshot` shows it
+
 ### Requirement: A DPI-unaware IDE's window state SHALL say why its scale is 1
 An IDE started with `--dpi-unaware` SHALL give every window-state rectangle in the pixels Windows reports to it, the
 frame included, and its window-state reply SHALL carry a `note` saying why `scale` is 1 on a scaled display.

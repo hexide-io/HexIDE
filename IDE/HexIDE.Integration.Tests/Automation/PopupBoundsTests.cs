@@ -75,7 +75,7 @@ public class PopupBoundsTests
 
     // Headless CreatePopup returns null, and its screen conversion ignores Position. Forward its rendering/input
     // implementation but supply a separate popup at a known screen origin, as the desktop platform does (#3149).
-    private static Window NativePopupWindow(double scaling)
+    internal static Window NativePopupWindow(double scaling)
     {
         Window? window = null;
         var backing = new Window();
