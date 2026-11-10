@@ -310,7 +310,7 @@ public class DynamicRegistrationProbe : IAsyncDisposable
         foreach (var e in events) (kind & (1 << (e.GetProperty("type").GetInt32() - 1))).Should().NotBe(0);
     }
 
-    [Fact]
+    [NotOnMacFact]
     public async Task DiskChangesAndDeletesUseDefaultKinds()
     {
         var root = DirectoryForTest();
@@ -347,7 +347,7 @@ public class DynamicRegistrationProbe : IAsyncDisposable
         events[0].GetProperty("uri").GetString().Should().Be(new Uri(path).AbsoluteUri);
     }
 
-    [Fact]
+    [NotOnMacFact]
     public async Task UnregisterDropsQueuedEventsAndOtherConnectionsReceiveNothing()
     {
         var root = DirectoryForTest();
@@ -472,4 +472,17 @@ public class DynamicRegistrationProbe : IAsyncDisposable
         events[0].GetProperty("uri").GetString().Should().Be(new Uri(Path.Combine(root, "accepted.bas")).AbsoluteUri);
     }
 
+}
+
+/// <summary>Skips, visibly, on macOS, where FSEvents reports a watched file's events differently (#3650).</summary>
+public sealed class NotOnMacFactAttribute : FactAttribute
+{
+    public NotOnMacFactAttribute(
+        [System.Runtime.CompilerServices.CallerFilePath] string? sourceFilePath = null,
+        [System.Runtime.CompilerServices.CallerLineNumber] int sourceLineNumber = -1)
+            : base(sourceFilePath, sourceLineNumber)
+    {
+        if (OperatingSystem.IsMacOS())
+            Skip = "macOS: FSEvents can report a change as a creation and deliver after a later registration (#3650).";
+    }
 }

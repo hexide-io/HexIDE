@@ -322,7 +322,8 @@ public class OnTypeFormattingTests
             var vm = new CodeEditorViewModel(Substitute.For<IWindowManager>(), Substitute.For<IEditorService>(),
                 Substitute.For<IProjectService>(), Substitute.For<IEventBus>(), client, settings,
                 Substitute.For<IStatusBarService>(), new BookmarkService(), new BreakpointService(),
-                Substitute.For<IDebugController>(), new RunScope(), localization);
+                Substitute.For<IDebugController>(), new RunScope(), localization,
+                regionReader: new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionReader());
             var module = new ModuleDefinition(new ProjectDefinition(VBProjectType.EXE, "P"), "Module1", ModuleKind.StandardModule);
             module.AbsolutePath = Path.Combine(Path.GetTempPath(), "HexIDE-on-type", "Module1.bas");
             module.RecordOriginalHeader("");
