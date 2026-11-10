@@ -152,7 +152,7 @@ sealed partial class Program
         DesktopStartup.Register();
         // The lifetime returns the code the app shut down with. Discarding it made every exit 0, including
         // the one a server that could not bind asks for (hexide-io/HexIDE#53).
-        var builder = BuildAvaloniaApp();
+        var builder = LinuxWindowIdentity.Apply(BuildAvaloniaApp(), HexIDE.IDE.Distribution.Current);
 #if DEBUG
         // Avalonia's only scale override on Windows: unaware, Windows tells the process the display is at 96 DPI, so
         // RenderScaling is 1 and Windows stretches the window on screen to the display's scaling (#3083).
