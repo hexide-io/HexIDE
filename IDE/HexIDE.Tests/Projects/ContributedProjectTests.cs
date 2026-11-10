@@ -64,7 +64,7 @@ public sealed class ContributedProjectTests : IDisposable
             _events, projects, _recent,
             Substitute.For<IReferenceLibraryService>(), sidecar, _baselines, strings,
             new HeaderRefresher(new EventBus(), dock, new BreakpointService(), new BookmarkService(), new Vb6ProjectFileFormat()),
-            new Vb6ProjectFileFormat(),
+            new Vb6ProjectFileFormat(), new ComponentRegistry(),
             contributed: _types);
     }
 

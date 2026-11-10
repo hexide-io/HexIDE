@@ -59,7 +59,7 @@ public sealed class UnsavedWorkCaptureTests : IDisposable
             new FileBaselineStore(),
             Substitute.For<ILocalizationService>(),
             Substitute.For<IHeaderRefresher>(),
-            new Vb6ProjectFileFormat());
+            new Vb6ProjectFileFormat(), new ComponentRegistry());
     }
 
     /// <summary>A saved project of a form and two modules, opened and saved again so every baseline is this build's.</summary>

@@ -37,6 +37,7 @@ public partial class ProjectService : IProjectService
     private readonly Func<ILspClient>? lspClient;
     private readonly ContributedProjects? contributed;
     private readonly IProjectFileFormat format;
+    private readonly IComponentRegistry componentRegistry;
 
     public ProjectService(Func<NewProjectViewModel> newProjectVm,
         IWindowManager windowManager,
@@ -49,12 +50,14 @@ public partial class ProjectService : IProjectService
         ILocalizationService localization,
         IHeaderRefresher headerRefresher,
         IProjectFileFormat format,
+        IComponentRegistry componentRegistry,
         ArchiveProjectService? archives = null,
         Func<ILspClient>? lspClient = null,
         ContributedProjects? contributed = null)
     {
         this.contributed = contributed;
         this.format = format;
+        this.componentRegistry = componentRegistry;
         this.newProjectVm = newProjectVm;
         this.windowManager = windowManager;
         this.eventBus = eventBus;
@@ -1418,7 +1421,7 @@ public partial class ProjectService : IProjectService
     {
         if (await RefusedSettings(project, project.Offers.SetsComponents))
             return;
-        var vm = new ComponentsViewModel(project, windowManager, localization);
+        var vm = new ComponentsViewModel(project, componentRegistry, windowManager, localization);
         await windowManager.ShowDialog(vm);
     }
 

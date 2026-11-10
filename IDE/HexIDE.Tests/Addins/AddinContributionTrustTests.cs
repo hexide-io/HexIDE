@@ -284,7 +284,7 @@ public sealed class AddinContributionTrustTests : IAsyncDisposable
             Substitute.For<IEventBus>(), _projects, Substitute.For<IRecentProjectsService>(),
             Substitute.For<IReferenceLibraryService>(), sidecar, new FileBaselineStore(), strings,
             new HeaderRefresher(new EventBus(), dock, new BreakpointService(), new BookmarkService(), new Vb6ProjectFileFormat()),
-            new Vb6ProjectFileFormat(),
+            new Vb6ProjectFileFormat(), new ComponentRegistry(),
             contributed: _types);
     }
 }

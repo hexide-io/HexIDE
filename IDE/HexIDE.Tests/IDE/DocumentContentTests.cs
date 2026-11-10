@@ -142,7 +142,7 @@ public class DocumentContentTests : IDisposable
             new FileBaselineStore(),
             Substitute.For<ILocalizationService>(),
             new HeaderRefresher(new EventBus(), dock, new BreakpointService(), new BookmarkService(), new Vb6ProjectFileFormat()),
-            new Vb6ProjectFileFormat());
+            new Vb6ProjectFileFormat(), new ComponentRegistry());
     }
 
     private static string? FindUpwards(string relative)
