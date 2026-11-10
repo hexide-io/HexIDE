@@ -45,6 +45,43 @@ public class CodeEditorSplitTests : IDisposable
         GC.SuppressFinalize(this);
     }
 
+    [AvaloniaTheory]
+    [InlineData(false, false)]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public void UndoAndRedoMoveOnlyTheInvokingPane(bool otherPane, bool redo)
+    {
+        using var vm = MakeViewModel();
+        vm.Initialize(AModule());
+        var view = Show(vm);
+        view.ToggleSplit();
+        Dispatcher.UIThread.RunJobs();
+        var panes = Avalonia.VisualTree.VisualExtensions.GetVisualDescendants(view)
+            .OfType<HexIDE.Controls.TextEditing.TextEditor>().ToArray();
+        var author = panes[1];
+        var invoking = panes[otherPane ? 0 : 1];
+        var passive = panes[otherPane ? 1 : 0];
+        var offset = vm.Document.GetLineByNumber(vm.Document.LineCount - 2).Offset;
+        var original = vm.Document.Text;
+        vm.Document.UndoStack.ClearAll();
+        author.TextArea.Focus().Should().BeTrue();
+        author.CaretOffset = offset;
+        _windows.Single().KeyTextInput("' marker");
+        var edited = vm.Document.Text;
+        edited.Should().NotBe(original);
+        if (redo) view.Undo.Execute(null);
+        invoking.TextArea.Focus().Should().BeTrue();
+        invoking.CaretOffset = vm.Document.TextLength;
+        passive.CaretOffset = vm.Document.TextLength - 2;
+        var passiveOffset = passive.CaretOffset;
+        var command = redo ? ApplicationCommands.RedoCommand : ApplicationCommands.UndoCommand;
+        ((System.Windows.Input.ICommand)command).Execute(null);
+        vm.Document.Text.Should().Be(redo ? edited : original);
+        invoking.CaretOffset.Should().Be(offset + (redo ? "' marker".Length : 0));
+        passive.CaretOffset.Should().Be(passiveOffset + (redo ? "' marker".Length : -"' marker".Length));
+    }
+
     [AvaloniaFact]
     public void SplitPanesShareEditsAndUndoButKeepTheirCaretAndScroll()
     {

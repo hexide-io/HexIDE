@@ -42,6 +42,12 @@ The split and its pane sizes SHALL survive switching to the designer and back, i
 - **AND** edits and undo from either pane appear in both
 - **AND** invoking Split again returns to one pane without losing edits
 
+#### Scenario: Undo and redo preserve the other pane's caret
+- **WHEN** either pane invokes undo or redo for an edit made in either pane
+- **THEN** the invoking pane's caret SHALL move to the undone or redone edit
+- **AND** the other pane's caret SHALL retain its position apart from shifts caused by the text change
+- **AND** undo SHALL retain the filtering of designer and header edits
+
 #### Scenario: Reopen after resizing
 - **WHEN** the developer drags the splitter, removes the split and enables it again
 - **THEN** removing the split resets all three rows to their unsplit sizes
