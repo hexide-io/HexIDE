@@ -80,5 +80,6 @@
     "LineNumbersForeground": "#FFFFFF"
   },
   "placeholderOpacity": 1,
-  "tabSelectionBorderThickness": 3
+  "tabSelectionBorderThickness": 2,
+  "chromeBorderThickness": 2
 }

@@ -1,0 +1,40 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:dock="clr-namespace:Dock.Avalonia.Controls;assembly=Dock.Avalonia">
+    <Styles.Resources>
+        <Template x:Key="ChromeFocusAdorner">
+            <Rectangle AdornerLayer.IsClipEnabled="False" Margin="-2" StrokeThickness="{DynamicResource ChromeBorderStrokeThickness}"
+                       Stroke="{DynamicResource ThemeForegroundBrush}" IsHitTestVisible="False" />
+        </Template>
+    </Styles.Resources>
+    <!-- Keep inputs' own outlines; focus is drawn outside their layout bounds. -->
+    <Style Selector="Button, ToggleButton, CheckBox, RadioButton, TextBox, ComboBox, ListBox">
+        <Setter Property="FocusAdorner" Value="{DynamicResource ChromeFocusAdorner}" />
+    </Style>
+    <Style Selector=".ideDialog Button">
+        <Setter Property="FocusAdorner" Value="{DynamicResource ChromeFocusAdorner}" />
+    </Style>
+    <!-- Only selection-only surfaces reserve a transparent outline. -->
+    <Style Selector="ListBoxItem, ComboBoxItem, TreeViewItem, TabItem, MenuItem, dock|DocumentTabStripItem, dock|ToolTabStripItem">
+        <Setter Property="BorderThickness" Value="{DynamicResource ChromeBorderThickness}" />
+        <Setter Property="BorderBrush" Value="Transparent" />
+    </Style>
+    <Style Selector="MenuItem /template/ Border#root, TreeViewItem /template/ Border#SelectionBorder, ListBoxItem /template/ Border#PART_Frame">
+        <Setter Property="BorderThickness" Value="{DynamicResource ChromeBorderThickness}" />
+        <Setter Property="BorderBrush" Value="Transparent" />
+    </Style>
+    <Style Selector="ListBoxItem:focus, ComboBoxItem:focus, TreeViewItem:focus, TabItem:focus, MenuItem:focus, dock|DocumentTabStripItem:focus, dock|ToolTabStripItem:focus, ListBoxItem:selected, ComboBoxItem:selected, TreeViewItem:selected, TabItem:selected, MenuItem:selected, dock|DocumentTabStripItem:selected, dock|ToolTabStripItem:selected">
+        <Setter Property="BorderThickness" Value="{DynamicResource ChromeBorderThickness}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource ThemeForegroundBrush}" />
+    </Style>
+    <!-- These templates set their state colours on the drawing part itself. -->
+    <Style Selector="MenuItem:selected /template/ Border#root, TreeViewItem /template/ Border#SelectionBorder:focus">
+        <Setter Property="BorderThickness" Value="{DynamicResource ChromeBorderThickness}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource ThemeForegroundBrush}" />
+    </Style>
+    <Style Selector="ListBoxItem:selected /template/ Border#PART_Frame, ListBoxItem:focus /template/ Border#PART_Frame">
+        <Setter Property="BorderThickness" Value="{DynamicResource ChromeBorderThickness}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource ThemeForegroundBrush}" />
+        <Setter Property="Background" Value="{DynamicResource ThemeBackgroundBrush}" />
+    </Style>
+</Styles>
