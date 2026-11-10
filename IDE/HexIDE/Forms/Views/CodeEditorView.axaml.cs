@@ -1946,6 +1946,8 @@ public partial class CodeEditorView : UserControl
             e.Handled = true;
             return;
         }
+        if (CaretIsInFreeText())
+            _completionWindow?.Close();
         if (e.KeyModifiers == KeyModifiers.None)
         {
             if (e.Key == Key.Return && CompletionSnippet.OpenChoiceWindows(TextEditor.TextArea).FirstOrDefault() is { } choice)
@@ -2529,10 +2531,21 @@ public partial class CodeEditorView : UserControl
         return true;
     }
 
+    private bool CaretIsInFreeText()
+    {
+        return HexIDE.Language.VbFreeText.ContainsCaret(TextEditor.Document.Text, TextEditor.CaretOffset);
+    }
+
     private void TriggerCompletionAsync(string? triggerCharacter = null, bool completeWord = false)
     {
         if (DataContext is not CodeEditorViewModel vm) return;
         if (!vm.Settings.AutoListMembers) return;
+        if (CaretIsInFreeText())
+        {
+            _completionCts?.Cancel();
+            _completionWindow?.Close();
+            return;
+        }
 
         _completionCts?.Cancel();
         _completionCts?.Dispose();
@@ -2561,7 +2574,7 @@ public partial class CodeEditorView : UserControl
 
             await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
             {
-                if (token.IsCancellationRequested) return;
+                if (token.IsCancellationRequested || CaretIsInFreeText()) return;
 
                 DismissHover();
 

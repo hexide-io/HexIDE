@@ -331,7 +331,11 @@ first open starts analysis, completion can return the static keywords and built-
 declarations have been parsed. Diagnostics still run and publish for every
 change, and other requests (including formatting) still wait for that change's analysis.
 
-- ◐ No position awareness — the full list comes back regardless of cursor context.
+- Comments (apostrophe and Rem, including continued comments and `Rem:`) and string literals, including unfinished strings and doubled quotes, return an empty list (#3577).
+  Comment forms follow the measured [Rem rules](vb6-fidelity-oracle/line-continuations-and-statement-separators.md)
+  and [continued comments across CR/LF/CRLF](vb6-fidelity-oracle/a-lone-cr-or-lf-in-vb6-source.md).
+- A bare `Rem` at the caret and a member such as `x.Rem ` remain code for completion (#3577).
+- ◐ Outside free text, the full list comes back regardless of cursor context.
 - ■ No member-access completion (`obj.`), no type-aware filtering, no symbols from other project files. Each
   needs binding: resolving what `obj` *is*, or what type is expected here, is the relationship between two
   symbols rather than a list of them.

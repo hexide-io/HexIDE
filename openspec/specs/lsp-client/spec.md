@@ -1959,8 +1959,8 @@ If no item matches the opening word, the editor SHALL retain the server's list f
 - **AND** after `c.` or `UBound(` with no identifier, the request position remains after the punctuation
 
 ### Requirement: Completion acceptance keys
-The editor SHALL follow the VB6 SP6 measurements linked in issue #3056: Enter accepts a selected
-ordinary completion and then commits a new line; Tab accepts without a break; Space accepts and
+In ordinary code the editor SHALL follow the VB6 SP6 measurements linked in issue #3056: Enter accepts
+a selected ordinary completion and then commits a new line; Tab accepts without a break; Space accepts and
 then types a space; Escape closes without accepting. With no selection, Enter and Space SHALL close
 the list and only type their character, while Tab SHALL accept the first outlined item, replacing the
 whole word including text after the caret. The first Down SHALL highlight that first item.
@@ -1974,6 +1974,19 @@ A snippet choice picker's Enter SHALL accept without a line break and keep snipp
 #### Scenario: Enter in a snippet choice picker
 - **WHEN** the user selects `two` in a snippet choice picker and presses Enter
 - **THEN** `two` replaces the placeholder and its linked occurrences, without inserting a line break
+
+### Requirement: VB free text preserves typing
+The VB code editor SHALL suppress completion inside apostrophe comments, Rem comments and string
+literals, including unfinished literals and doubled quotes, and in continued comments (#3577). This rule
+SHALL apply independently of server replies, including replies arriving after the caret enters free text.
+
+#### Scenario: Space after on in a comment
+- **WHEN** the user types `' Typed on Wayland` one character at a time and a server offers `On Error`
+- **THEN** the document contains exactly the typed text
+
+#### Scenario: String literal text
+- **WHEN** the user types words inside a string literal
+- **THEN** completion does not replace those words
 
 ### Requirement: Completion snippet choices
 The editor SHALL expand a numbered choice placeholder to its first value and offer its values in
