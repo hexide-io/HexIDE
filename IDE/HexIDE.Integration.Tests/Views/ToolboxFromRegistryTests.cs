@@ -21,6 +21,9 @@ public class ToolboxFromRegistryTests
         toolbox.Components.Select(tool => tool.Name).Should().Equal("Mouse",
             "Picture", "Label", "Text", "Frame", "Command", "Check", "Option", "Combo", "List",
             "HScroll", "VScroll", "Timer", "Shape");
+        toolbox.Components.Skip(1).Select(tool => tool.IconKey).Should().Equal(
+            "Geo.Picture", "Geo.Label", "Geo.Textbox", "Geo.Groupbox", "Geo.Button", "Geo.Checkbox", "Geo.Radio", "Geo.Combo", "Geo.Listbox",
+            "Geo.Hscroll", "Geo.Vscroll", "Geo.Timer", "Geo.Shape");
     }
 
     [AvaloniaFact]
