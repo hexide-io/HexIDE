@@ -77,7 +77,7 @@ public class UnfaithfulSaveGateTests : IDisposable
             new FileBaselineStore(),
             localization,
             Substitute.For<IHeaderRefresher>(),
-            new Vb6ProjectFileFormat());
+            new Vb6ProjectFileFormat(), new ComponentRegistry());
     }
 
     private const string FlatForm =

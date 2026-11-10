@@ -220,7 +220,7 @@ public class WorkspaceAndPriorityTests : IAsyncDisposable
                     Substitute.For<IEventBus>(), model, Substitute.For<IRecentProjectsService>(),
                     Substitute.For<IReferenceLibraryService>(), Substitute.For<IUserSidecarService>(),
                     new FileBaselineStore(), Substitute.For<HexIDE.Localization.ILocalizationService>(),
-                    Substitute.For<IHeaderRefresher>(), new Vb6ProjectFileFormat(), lspClient: () => registry);
+                    Substitute.For<IHeaderRefresher>(), new Vb6ProjectFileFormat(), new ComponentRegistry(), lspClient: () => registry);
                 if (move == "directory") await service.SaveProjectToDirectory(project, newDirectory);
                 else await service.SaveProject(project, move == "saveAs");
             }
@@ -277,7 +277,7 @@ public class WorkspaceAndPriorityTests : IAsyncDisposable
                 Substitute.For<IEventBus>(), manager, Substitute.For<IRecentProjectsService>(),
                 Substitute.For<IReferenceLibraryService>(), Substitute.For<IUserSidecarService>(),
                 new FileBaselineStore(), Substitute.For<HexIDE.Localization.ILocalizationService>(),
-                Substitute.For<IHeaderRefresher>(), new Vb6ProjectFileFormat(), lspClient: () => registry);
+                Substitute.For<IHeaderRefresher>(), new Vb6ProjectFileFormat(), new ComponentRegistry(), lspClient: () => registry);
             await service.SaveProject(project, false);
             File.Exists(project.AbsolutePath).Should().BeTrue();
             var uri = await server.RootUri.WaitAsync(TimeSpan.FromSeconds(5), token);

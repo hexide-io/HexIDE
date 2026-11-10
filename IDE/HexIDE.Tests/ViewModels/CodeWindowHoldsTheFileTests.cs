@@ -81,7 +81,7 @@ public sealed class CodeWindowHoldsTheFileTests : IDisposable
             new FileBaselineStore(),
             Substitute.For<ILocalizationService>(),
             refresher,
-            new Vb6ProjectFileFormat());
+            new Vb6ProjectFileFormat(), new ComponentRegistry());
     }
 
     /// <summary>A code window on the document, on the same bus as the save, and open as far as the dock knows.</summary>

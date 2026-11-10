@@ -148,7 +148,8 @@ public partial class DISetup
                 ctx.Inject<Func<ILspClient>>(out var lspClient);
                 ctx.Inject<HexIDE.Projects.ContributedProjects>(out var contributed);
                 ctx.Inject<IProjectFileFormat>(out var format);
-                return new ProjectService(newProjectVm, windowManager, eventBus, projectManager, recentProjects, referenceLibraryService, sidecar, baselineStore, localization, headerRefresher, format, archives, lspClient,
+                ctx.Inject<IComponentRegistry>(out var componentRegistry);
+                return new ProjectService(newProjectVm, windowManager, eventBus, projectManager, recentProjects, referenceLibraryService, sidecar, baselineStore, localization, headerRefresher, format, componentRegistry, archives, lspClient,
                     contributed);
             })
             .Bind().As(Singleton).To<ArchiveProjectService>()

@@ -68,7 +68,7 @@ public class ProjectFileFormatSeamTests : IDisposable
         return new ProjectService(() => throw new InvalidOperationException("no new-project dialog here"), _windows,
             Substitute.For<IEventBus>(), _projects, Substitute.For<IRecentProjectsService>(),
             Substitute.For<IReferenceLibraryService>(), sidecar, _baselines, localization,
-            Substitute.For<IHeaderRefresher>(), format: _format);
+            Substitute.For<IHeaderRefresher>(), format: _format, new ComponentRegistry());
     }
 
     private async Task<ProjectService> Opened(string? path = null)

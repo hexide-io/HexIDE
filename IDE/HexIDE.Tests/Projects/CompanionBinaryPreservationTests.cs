@@ -79,7 +79,7 @@ public class CompanionBinaryPreservationTests : IDisposable
             new FileBaselineStore(),
             Substitute.For<HexIDE.Localization.ILocalizationService>(),
             Substitute.For<IHeaderRefresher>(),
-            new Vb6ProjectFileFormat());
+            new Vb6ProjectFileFormat(), new ComponentRegistry());
     }
 
     /// <summary>Copies a VB6-shipped form + its .frx into the scratch dir with a .vbp.</summary>

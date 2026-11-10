@@ -49,7 +49,7 @@ public class WorkingCopyReplyTests
         var service = new ProjectService(() => throw new InvalidOperationException(), windows, events,
             projects, Substitute.For<IRecentProjectsService>(), Substitute.For<IReferenceLibraryService>(),
             Substitute.For<HexIDE.Sidecar.IUserSidecarService>(), new FileBaselineStore(),
-            Substitute.For<HexIDE.Localization.ILocalizationService>(), Substitute.For<IHeaderRefresher>(), new Vb6ProjectFileFormat());
+            Substitute.For<HexIDE.Localization.ILocalizationService>(), Substitute.For<IHeaderRefresher>(), new Vb6ProjectFileFormat(), new ComponentRegistry());
         var directory = Path.GetDirectoryName(form.AbsolutePath)!;
         await service.SaveProjectToDirectory(project, directory);
         try
@@ -162,7 +162,7 @@ public class WorkingCopyReplyTests
         var service = new ProjectService(() => throw new InvalidOperationException(), windows, events,
             projects, Substitute.For<IRecentProjectsService>(), Substitute.For<IReferenceLibraryService>(),
             Substitute.For<HexIDE.Sidecar.IUserSidecarService>(), new FileBaselineStore(),
-            Substitute.For<HexIDE.Localization.ILocalizationService>(), Substitute.For<IHeaderRefresher>(), new Vb6ProjectFileFormat());
+            Substitute.For<HexIDE.Localization.ILocalizationService>(), Substitute.For<IHeaderRefresher>(), new Vb6ProjectFileFormat(), new ComponentRegistry());
         var directory = Path.GetDirectoryName(form.AbsolutePath)!;
         await service.SaveProjectToDirectory(project, directory);
         var outside = directory + "-outside";

@@ -61,7 +61,7 @@ public class UserControlSaveRoundTripTests : IDisposable
             baselineStore,
             Substitute.For<HexIDE.Localization.ILocalizationService>(),
             Substitute.For<IHeaderRefresher>(),
-            new Vb6ProjectFileFormat());
+            new Vb6ProjectFileFormat(), new ComponentRegistry());
     }
 
     /// <summary>Writes a canonical .ctl (via the serializer, so the on-disk format is real VB6) plus a .vbp.</summary>

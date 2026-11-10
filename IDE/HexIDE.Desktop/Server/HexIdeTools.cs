@@ -1532,13 +1532,11 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
             {
                 var known = string.Join(", ", tools.Select(c => c.VBTypeName!.Replace("VB.", "")));
                 // An in-box control is in the toolbox only while the project references its library, as in VB6.
-                var inBox = HexIDE.Runtime.Components.InBox.InBoxComponentClass.Implemented.FirstOrDefault(c =>
-                    string.Equals(c.ControlClassName, type, StringComparison.OrdinalIgnoreCase)
-                    || c.Libraries.Any(l => string.Equals(l.TypeName(c.ControlClassName), type, StringComparison.OrdinalIgnoreCase)));
-                var files = inBox?.Libraries.Select(l => l.File).ToList() ?? [];
-                var why = inBox is null
+                var offering = designer.ToolsBoxToolViewModel.LibrariesOffering(type);
+                var files = offering.Select(c => c.Library.File).ToList();
+                var why = offering.Count == 0
                     ? ""
-                    : $" {inBox.ControlClassName} comes from {string.Join(" or ", files)}, and {document.Project.Name} "
+                    : $" {offering[0].ControlName} comes from {string.Join(" or ", files)}, and {document.Project.Name} "
                       + (files.Count == 1 ? "doesn't reference it" : files.Count == 2 ? "references neither" : "references none of them")
                       + ": check one in Project > Components first, as in VB6.";
                 return new AddControlResult(false, null,

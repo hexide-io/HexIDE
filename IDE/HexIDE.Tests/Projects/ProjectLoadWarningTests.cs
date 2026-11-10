@@ -42,7 +42,7 @@ public class ProjectLoadWarningTests : IDisposable
         var service = new ProjectService(() => throw new InvalidOperationException(), windows,
             Substitute.For<IEventBus>(), manager, Substitute.For<IRecentProjectsService>(),
             Substitute.For<IReferenceLibraryService>(), Substitute.For<IUserSidecarService>(),
-            new FileBaselineStore(), localization, Substitute.For<IHeaderRefresher>(), new Vb6ProjectFileFormat());
+            new FileBaselineStore(), localization, Substitute.For<IHeaderRefresher>(), new Vb6ProjectFileFormat(), new ComponentRegistry());
         await service.OpenProject(path);
     }
 

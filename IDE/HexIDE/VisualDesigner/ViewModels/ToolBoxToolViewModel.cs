@@ -16,6 +16,7 @@ namespace HexIDE.VisualDesigner;
 public partial class ToolBoxToolViewModel : Tool
 {
     private readonly IDocumentDockService documentDockService;
+    private readonly IComponentRegistry componentRegistry;
     private readonly Lazy<IImage> _addinComponentIcon;
     private readonly int _inBoxToolsStart;
     [Notify] [AlsoNotify(nameof(IsCursorSelected))] private ComponentToolViewModel? selectedComponent;
@@ -27,6 +28,7 @@ public partial class ToolBoxToolViewModel : Tool
         ILocalizationService localization)
     {
         this.documentDockService = documentDockService;
+        this.componentRegistry = componentRegistry;
         localization.BindTitle(this, "Str.Toolbox.Title");
         CanPin = false;
         CanClose = true;
@@ -82,13 +84,28 @@ public partial class ToolBoxToolViewModel : Tool
         if (project is null)
             return;
 
-        var libraries = project.ObjectReferences.Select(ControlLibraries.For).OfType<RuntimeLibrary>().Distinct();
+        var libraries = project.ObjectReferences
+            .Select(reference => componentRegistry.Libraries.FirstOrDefault(library => library.IsNamedBy(reference)))
+            .OfType<RuntimeLibrary>().Distinct();
         foreach (var library in libraries)
-        foreach (var inBox in InBoxComponentClass.Implemented.Where(c => c.Libraries.Contains(library)))
-            inBoxTools.Add(new ComponentToolViewModel(this, inBox, IconFactory.Themed("Geo.Object")) { Library = library });
+        foreach (var control in componentRegistry.LibraryControls.Where(c => ReferenceEquals(c.Library, library)))
+            inBoxTools.Add(new ComponentToolViewModel(this, control.Class, IconFactory.Themed(control.IconKey))
+                { Library = library, LibraryTypeName = control.TypeName, IconKey = control.IconKey });
         var at = _inBoxToolsStart;
         foreach (var tool in inBoxTools)
             Components.Insert(at++, tool);
+    }
+
+    /// <summary>
+    /// Every library's entry for the control <paramref name="type"/> names, by its name or a type name, whether or not a
+    /// project references one: what a caller is told when the control isn't in the toolbox.
+    /// </summary>
+    public IReadOnlyList<LibraryControl> LibrariesOffering(string type)
+    {
+        var found = componentRegistry.LibraryControls.FirstOrDefault(c =>
+            string.Equals(c.ControlName, type, StringComparison.OrdinalIgnoreCase)
+            || string.Equals(c.TypeName, type, StringComparison.OrdinalIgnoreCase));
+        return found is null ? [] : [.. componentRegistry.LibraryControls.Where(c => ReferenceEquals(c.Class, found.Class))];
     }
 
     private void OnObjectReferencesChanged(ProjectDefinition changed) => ShowProject(changed);

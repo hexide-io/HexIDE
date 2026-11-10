@@ -76,7 +76,7 @@ public class MainViewViewModelTests
         return new ProjectService(() => throw new System.InvalidOperationException(), _windowManager,
             _eventBus, _projectManager, _recentProjects, Substitute.For<IReferenceLibraryService>(),
             Substitute.For<HexIDE.Sidecar.IUserSidecarService>(), new FileBaselineStore(), _localization,
-            Substitute.For<IHeaderRefresher>(), new Vb6ProjectFileFormat());
+            Substitute.For<IHeaderRefresher>(), new Vb6ProjectFileFormat(), new ComponentRegistry());
     }
 
     [AvaloniaTheory]
@@ -113,7 +113,7 @@ public class MainViewViewModelTests
                 _settingsService, profile, _localization),
             _windowManager, _eventBus, _projectManager, _recentProjects,
             Substitute.For<IReferenceLibraryService>(), Substitute.For<HexIDE.Sidecar.IUserSidecarService>(),
-            new FileBaselineStore(), _localization, Substitute.For<IHeaderRefresher>(), new Vb6ProjectFileFormat());
+            new FileBaselineStore(), _localization, Substitute.For<IHeaderRefresher>(), new Vb6ProjectFileFormat(), new ComponentRegistry());
         var shell = Build(_runnerService, projects: service);
 
         Func<Task> create = shell.NewProject;
