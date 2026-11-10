@@ -23,6 +23,18 @@ internal sealed class TextArea : AvaloniaEdit.Editing.TextArea
         AddHandler(KeyUpEvent, (_, args) => ForwardKey(args, down: false), RoutingStrategies.Tunnel);
     }
 
+    // AvaloniaEdit handles indentation in OnKeyDown, not EditingCommands.TabForward/TabBackward.
+    internal void Indent(bool backwards)
+    {
+        Focus();
+        base.OnKeyDown(new KeyEventArgs
+        {
+            RoutedEvent = KeyDownEvent,
+            Key = Key.Tab,
+            KeyModifiers = backwards ? KeyModifiers.Shift : KeyModifiers.None
+        });
+    }
+
     private void ForwardKey(KeyEventArgs args, bool down)
     {
         foreach (var handler in StackedInputHandlers)

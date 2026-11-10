@@ -18,8 +18,12 @@ localization key.
 
 #### Scenario: Disabled unfinished entries
 
-View → Last Position, View → Property Pages and Window → Split are placeholders with no action, state,
-provider or children.
+View → Last Position and View → Property Pages are placeholders with no action, state, provider or
+children.
+
+#### Scenario: Split the active code window
+
+Window → Split references the registered split command, handled by the active code editor (#70).
 
 #### Scenario: Host-populated menus
 

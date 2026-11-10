@@ -424,7 +424,7 @@
                                     </ControlTheme>
                                 </MenuItem.ItemContainerTheme>
                             </MenuItem>
-                            <MenuItem Header="{DynamicResource Str.Menu.Window.Split}" IsEnabled="False" />
+                            <MenuItem Header="{DynamicResource Str.Menu.Window.Split}" Command="{x:Static vb:ApplicationCommands.SplitWindowCommand}" />
                             <Separator />
                             <MenuItem Header="{DynamicResource Str.Layout.Layouts}" AutomationProperties.Name="{DynamicResource Str.Layout.Layouts}" x:Name="PanelLayoutsMenuItem" SubmenuOpened="OnPanelLayoutsOpened">
                                 <!-- A child lets Avalonia open the submenu; SubmenuOpened replaces it with current layouts. -->

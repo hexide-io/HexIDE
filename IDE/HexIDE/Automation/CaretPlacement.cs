@@ -40,7 +40,7 @@ public static class CaretPlacement
     public static bool Place(ISearchableDocument editor, int line, int column)
     {
         if (Refusal(editor.Document.Text, line, column) is not null) return false;
-        editor.CaretOffset = editor.Document.GetLineByNumber(line).Offset + column - 1;
+        editor.NavigateToOffset(editor.Document.GetLineByNumber(line).Offset + column - 1);
         return true;
     }
 

@@ -107,6 +107,7 @@ internal static class MenuHostRegistry
             ["application.SetNextStatementCommand"] = new("{x:Static vb:ApplicationCommands.SetNextStatementCommand}", ApplicationCommands.SetNextStatementCommand, null),
             ["application.ShowNextStatementCommand"] = new("{x:Static vb:ApplicationCommands.ShowNextStatementCommand}", ApplicationCommands.ShowNextStatementCommand, null),
             ["application.SizeToGridCommand"] = new("{x:Static vb:ApplicationCommands.SizeToGridCommand}", ApplicationCommands.SizeToGridCommand, null),
+            ["application.SplitWindowCommand"] = new("{x:Static vb:ApplicationCommands.SplitWindowCommand}", ApplicationCommands.SplitWindowCommand, null),
             ["application.StartDefaultProjectCommand"] = new("{x:Static vb:ApplicationCommands.StartDefaultProjectCommand}", ApplicationCommands.StartDefaultProjectCommand, null),
             ["application.StartDefaultProjectWithFullCompileCommand"] = new("{x:Static vb:ApplicationCommands.StartDefaultProjectWithFullCompileCommand}", ApplicationCommands.StartDefaultProjectWithFullCompileCommand, null),
             ["application.StepIntoCommand"] = new("{x:Static vb:ApplicationCommands.StepIntoCommand}", ApplicationCommands.StepIntoCommand, null),
