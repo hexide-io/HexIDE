@@ -943,6 +943,7 @@
     "Str.FindReplace.Msg.ProtectedOnly": "ข้อความที่ค้นหา '{0}' ปรากฏเฉพาะในส่วนหัวไฟล์หรือบรรทัด Attribute ของโพรซีเยอร์ การค้นหาจะข้ามบริเวณเหล่านี้เพราะมีเพียง IDE ที่แก้ไขได้",
     "Str.FindReplace.Msg.ReplacementsWithSkipped": "แทนที่ {0} รายการ ข้ามรายการที่ตรงกัน {1} รายการในส่วนหัวหรือบรรทัด Attribute ของโพรซีเยอร์ ซึ่งมีเพียง IDE ที่แก้ไขได้",
     "Str.FindReplace.Msg.ReplacementsMade": "แทนที่แล้ว {0} รายการ",
+    "Str.FindReplace.Msg.ReplacementsWithFilesLeftOut": "แทนที่แล้ว {0} รายการ; ข้าม {1} ไฟล์เนื่องจาก HexIDE ยังไม่สามารถบันทึกไฟล์เหล่านี้ได้อย่างครบถ้วนถูกต้อง",
     "Str.FindReplace.Msg.InvalidRegex": "รูปแบบนิพจน์ทั่วไปไม่ถูกต้อง",
     "Str.FindReplace.Msg.NothingToSearch": "ไม่มีเนื้อหาให้ค้นหาที่นี่ การค้นหาใช้ได้ในหน้าต่างโค้ดและไฟล์ข้อความที่อยู่ในโครงการ",
     "Str.Vb6Toolchain.Vb6NotFound": "ไม่พบ VB6.EXE ติดตั้ง VB6 ในตำแหน่งเริ่มต้น หรือตั้งค่าตัวแปรสภาพแวดล้อม VB6_EXE",

@@ -943,6 +943,7 @@
     "Str.FindReplace.Msg.ProtectedOnly": "Текстът „{0}“ се среща само в заглавната част на файла или в редовете Attribute на процедура. Търсенето пропуска тези области, защото само IDE ги променя.",
     "Str.FindReplace.Msg.ReplacementsWithSkipped": "Направени са {0} замени; пропуснати са {1} съвпадения в заглавната част или редовете Attribute на процедура, които само IDE променя.",
     "Str.FindReplace.Msg.ReplacementsMade": "Направени са {0} замени.",
+    "Str.FindReplace.Msg.ReplacementsWithFilesLeftOut": "Направени замени: {0}; пропуснати файлове: {1}, защото HexIDE все още не може да ги запази точно.",
     "Str.FindReplace.Msg.InvalidRegex": "Невалиден шаблон на регулярен израз.",
     "Str.FindReplace.Msg.NothingToSearch": "Тук няма нищо за търсене. Търсенето работи в прозорци с код и в текстови файлове, включени в проекта.",
     "Str.Vb6Toolchain.Vb6NotFound": "VB6.EXE не е намерен. Инсталирайте VB6 на местоположението по подразбиране или задайте променливата на средата VB6_EXE.",

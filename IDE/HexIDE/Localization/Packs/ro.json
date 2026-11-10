@@ -943,6 +943,7 @@
     "Str.FindReplace.Msg.ProtectedOnly": "Textul căutat „{0}” apare doar în antetul fișierului sau în liniile Attribute ale unei proceduri. Căutarea omite aceste regiuni deoarece numai IDE-ul le modifică.",
     "Str.FindReplace.Msg.ReplacementsWithSkipped": "{0} înlocuiri efectuate; {1} potriviri omise în antet sau în liniile Attribute ale procedurii, pe care numai IDE-ul le modifică.",
     "Str.FindReplace.Msg.ReplacementsMade": "{0} înlocuiri efectuate.",
+    "Str.FindReplace.Msg.ReplacementsWithFilesLeftOut": "S-au efectuat {0} înlocuiri; {1} fișiere au fost omise deoarece HexIDE nu le poate salva încă fidel.",
     "Str.FindReplace.Msg.InvalidRegex": "Model de expresie regulată nevalid.",
     "Str.FindReplace.Msg.NothingToSearch": "Nu există nimic aici în care să se poată căuta. Căutarea funcționează în ferestrele de cod și în fișierele text incluse în proiect.",
     "Str.Vb6Toolchain.Vb6NotFound": "VB6.EXE nu a fost găsit. Instalează VB6 în locația implicită sau setează variabila de mediu VB6_EXE.",

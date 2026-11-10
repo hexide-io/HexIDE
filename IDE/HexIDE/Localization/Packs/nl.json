@@ -943,6 +943,7 @@
     "Str.FindReplace.Msg.ProtectedOnly": "De zoektekst '{0}' komt alleen voor in de bestandskop of de Attribute-regels van een procedure. Zoeken slaat deze gebieden over omdat alleen de IDE ze wijzigt.",
     "Str.FindReplace.Msg.ReplacementsWithSkipped": "{0} vervangingen uitgevoerd; {1} overeenkomsten overgeslagen in de kop of Attribute-regels van procedures, die alleen de IDE wijzigt.",
     "Str.FindReplace.Msg.ReplacementsMade": "{0} vervanging(en) uitgevoerd.",
+    "Str.FindReplace.Msg.ReplacementsWithFilesLeftOut": "{0} vervangingen uitgevoerd; {1} bestanden overgeslagen omdat HexIDE ze nog niet getrouw kan opslaan.",
     "Str.FindReplace.Msg.InvalidRegex": "Ongeldig patroon voor reguliere expressie.",
     "Str.FindReplace.Msg.NothingToSearch": "Hier valt niets te doorzoeken. Zoeken werkt in codevensters en in tekstbestanden die het project bevat.",
     "Str.Vb6Toolchain.Vb6NotFound": "VB6.EXE is niet gevonden. Installeer VB6 op de standaardlocatie of stel de omgevingsvariabele VB6_EXE in.",

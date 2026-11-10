@@ -943,6 +943,7 @@
     "Str.FindReplace.Msg.ProtectedOnly": "Otsitav tekst '{0}' esineb ainult faili päises või protseduuri Attribute-ridades. Otsing jätab need alad vahele, sest neid muudab ainult IDE.",
     "Str.FindReplace.Msg.ReplacementsWithSkipped": "Tehti {0} asendust; {1} vastet jäeti vahele päises või protseduuri Attribute-ridades, mida muudab ainult IDE.",
     "Str.FindReplace.Msg.ReplacementsMade": "Tehti {0} asendust.",
+    "Str.FindReplace.Msg.ReplacementsWithFilesLeftOut": "Tehti {0} asendust; {1} faili jäeti välja, sest HexIDE ei saa neid veel täpselt salvestada.",
     "Str.FindReplace.Msg.InvalidRegex": "Vigane regulaaravaldise muster.",
     "Str.FindReplace.Msg.NothingToSearch": "Siin pole midagi otsida. Otsing töötab koodiakendes ja projekti kaasatud tekstifailides.",
     "Str.Vb6Toolchain.Vb6NotFound": "VB6.EXE-d ei leitud. Paigalda VB6 vaikeasukohta või määra keskkonnamuutuja VB6_EXE.",

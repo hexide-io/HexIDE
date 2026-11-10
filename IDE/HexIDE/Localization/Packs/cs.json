@@ -943,6 +943,7 @@
     "Str.FindReplace.Msg.ProtectedOnly": "Hledaný text '{0}' je pouze v hlavičce souboru nebo na řádcích Attribute procedury. Hledání je přeskakuje, protože je mění pouze IDE.",
     "Str.FindReplace.Msg.ReplacementsWithSkipped": "Provedeno {0} nahrazení; přeskočeno {1} shod v hlavičce nebo řádcích Attribute procedur, které mění pouze IDE.",
     "Str.FindReplace.Msg.ReplacementsMade": "Provedeno nahrazení: {0}.",
+    "Str.FindReplace.Msg.ReplacementsWithFilesLeftOut": "Provedeno {0} nahrazení; vynecháno {1} souborů, protože je HexIDE zatím nedokáže věrně uložit.",
     "Str.FindReplace.Msg.InvalidRegex": "Neplatný vzor regulárního výrazu.",
     "Str.FindReplace.Msg.NothingToSearch": "Zde není co prohledávat. Najít funguje v oknách kódu a v textových souborech, které projekt obsahuje.",
     "Str.Vb6Toolchain.Vb6NotFound": "VB6.EXE nebyl nalezen. Nainstalujte VB6 do výchozího umístění nebo nastavte proměnnou prostředí VB6_EXE.",

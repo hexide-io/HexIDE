@@ -362,15 +362,28 @@ one visible line, so a mark set there would land on a line the developer cannot 
 - **WHEN** the developer sets a breakpoint on a line of code in such a form
 - **THEN** it is set, because the document being read-only as a whole is not a read-only region
 
-### Requirement: Add-in writes to an open unsaveable form SHALL be refused
-When a code window holds a form read-only as a whole because it cannot be saved faithfully, its whole-content
-replacement and add-in range-edit paths SHALL refuse before changing the buffer or undo history. The refusal
-SHALL use `Str.CodeEditor.FileNotSaved.Banner`, the same explanation the window shows. This also applies to
-automation's `set_file_content` when it writes through that open code window (#701).
+### Requirement: Writes to an unsaveable form SHALL be refused
+Replace, Replace All, formatting (including on save), Insert File, undo, redo, whole-content replacements and
+add-in range edits SHALL refuse before changing text or undo history when a form cannot be saved faithfully.
+Refusals SHALL use `Str.CodeEditor.FileNotSaved.Banner`. Automation SHALL refuse even with no code window open.
+When the active document is the only document in scope, Replace All SHALL report refusal rather than zero
+replacements (#701). With other documents in scope, it SHALL replace in the writable documents and leave
+unsaveable forms, including the active form, and their undo histories untouched. Its closing message SHALL
+report how many files were left out and why, separately from header or Attribute matches skipped.
 
-#### Scenario: An add-in changes only ordinary code in an unsaveable form
-- **WHEN** an add-in replaces the content or applies range edits entirely outside the protected regions
-- **THEN** the write is refused with the whole-file explanation and the buffer and undo history are unchanged
+#### Scenario: A writer changes only ordinary code in an unsaveable form
+- **WHEN** a programmatic writer targets ordinary code outside the protected regions of such a form
+- **THEN** the write is refused with the whole-file explanation and the text and undo history are unchanged
+
+#### Scenario: Replace All spans writable and unsaveable files
+- **WHEN** project-wide Replace All includes an opened or unopened unsaveable form and a writable module
+- **THEN** the module is changed and the form and its undo history are untouched
+- **AND** the message counts the omitted form without counting its matches as protected-region skips
+
+#### Scenario: Undo or redo is requested while a form is read-only
+- **WHEN** undo or redo is requested with history available on such a form
+- **THEN** no history is replayed or removed
+- **AND** the history remains available when the form stops being read-only
 
 ### Requirement: A designer change SHALL reach the header without becoming a code edit
 A committed change in a form's designer — a property, a control added or removed, a move, the menu editor, the

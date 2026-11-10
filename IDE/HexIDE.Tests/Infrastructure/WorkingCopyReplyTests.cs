@@ -11,6 +11,35 @@ namespace HexIDE.Tests.Infrastructure;
 [ToolDescription]
 public class WorkingCopyReplyTests
 {
+    [AvaloniaFact]
+    public async Task UnopenedUnsaveableFormRefusesAutomationBeforeChangingTheModel()
+    {
+        var project = TestHelpers.CreateProjectWithForm("Project1");
+        var form = project.Forms[0];
+        project.WorkingDirectory = Path.GetTempPath();
+        form.AbsolutePath = Path.Combine(project.WorkingDirectory, "hexide-701-" + Guid.NewGuid().ToString("N") + ".frm");
+        form.UpdateCode("Option Explicit");
+        form.MarkUnfaithfulToSave(UnfaithfulSaveCause.UnreproducibleBinaryContent, "test");
+        var projects = Substitute.For<IProjectManager>();
+        projects.LoadedProjects.Returns([project]);
+        var dock = Substitute.For<IDocumentDockService>();
+        dock.OpenDocuments.Returns([]);
+        var localization = Substitute.For<ILocalizationService>();
+        localization.GetString("Str.CodeEditor.FileNotSaved.Banner").Returns("file cannot be saved");
+        var writer = Substitute.For<IProjectService>();
+        using var context = new IdeContext(projects, dock, Substitute.For<ILspClient>(),
+            null!, Substitute.For<IProjectRunnerService>(), writer, new EventBus(),
+            null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, localization,
+            null!, new Vb6ProjectFileFormat());
+
+        var result = await new HexIdeTools(context).SetFileContentAsync("Form1", "Option Explicit\r\n' changed");
+
+        result.Success.Should().BeFalse();
+        result.Error.Should().Be("file cannot be saved");
+        form.Code.Should().Be("Option Explicit");
+        await writer.DidNotReceiveWithAnyArgs().SaveForm(default!, default);
+    }
+
     [Theory]
     [InlineData("set_control_property")]
     [InlineData("set_file_content")]

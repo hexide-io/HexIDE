@@ -373,6 +373,8 @@ public partial class FindReplaceViewModel : ObservableObject, IDialog
             return;
         }
 
+        if (editor is CodeEditorViewModel code && code.RefuseWholeFileWrite()) return;
+
         // If current selection matches the search, replace it
         if (editor.SelectionLength > 0)
         {
@@ -409,26 +411,42 @@ public partial class FindReplaceViewModel : ObservableObject, IDialog
 
         var documents = new List<ISearchableDocument> { editor };
         documents.AddRange(OtherDocumentsInScope(editor));
-        var matching = documents.Where(document => FindPrevious(document.Document, document.Document.TextLength,
+        if (documents.Count == 1)
+        {
+            var single = editor is FindProjectDocuments.UnopenedDocument unopened && editor.IsReadOnlyDocument
+                ? unopened.Open() : editor;
+            if (single is CodeEditorViewModel activeCode && activeCode.RefuseWholeFileWrite()) return;
+        }
+
+        var leftOut = documents.Count(document => document.IsReadOnlyDocument
+            && document is CodeEditorViewModel or FindProjectDocuments.UnopenedDocument
+            && FindPrevious(document.Document, document.Document.TextLength, (_, _) => false) is not null);
+        var writable = documents.Where(document => !document.IsReadOnlyDocument).ToList();
+        var matching = writable.Where(document => FindPrevious(document.Document, document.Document.TextLength,
             document.IsReadOnlyRegion) is not null).ToList();
         if (matching.Count > 1 && await _windowManager.MessageBox(
                 _localization.GetString("Str.FindReplace.Msg.ConfirmAcrossFiles"), Title,
                 MessageBoxButtons.YesNo, MessageBoxIcon.Question) != MessageBoxResult.Yes) return;
 
-        var skipped = documents.Sum(ProtectedMatchesIn);
-        var count = 0;
-        foreach (var document in matching)
-        {
-            var target = document is FindProjectDocuments.UnopenedDocument unopened ? unopened.Open() : document;
-            if (target is not null) count += ReplaceAllIn(target);
-        }
+        var skipped = writable.Sum(ProtectedMatchesIn);
+        var targets = matching.Select(document => document is FindProjectDocuments.UnopenedDocument unopened
+            ? unopened.Open() : document).OfType<ISearchableDocument>().ToList();
 
-        await _windowManager.MessageBox(
-            skipped > 0
+        var count = 0;
+        foreach (var target in targets)
+            count += ReplaceAllIn(target);
+
+        var message = leftOut > 0
+                ? string.Format(_localization.GetString("Str.FindReplace.Msg.ReplacementsWithFilesLeftOut"), count, leftOut)
+                : skipped > 0
                 ? string.Format(_localization.GetString("Str.FindReplace.Msg.ReplacementsWithSkipped"), count, skipped)
                 : count > 0
                 ? string.Format(_localization.GetString("Str.FindReplace.Msg.ReplacementsMade"), count)
-                : string.Format(_localization.GetString("Str.FindReplace.Msg.NotFound"), SearchText),
+                : string.Format(_localization.GetString("Str.FindReplace.Msg.NotFound"), SearchText);
+        if (leftOut > 0 && skipped > 0)
+            message += Environment.NewLine + string.Format(
+                _localization.GetString("Str.FindReplace.Msg.ReplacementsWithSkipped"), count, skipped);
+        await _windowManager.MessageBox(message,
             _localization.GetString("Str.FindReplace.Msg.TitleReplace"),
             MessageBoxButtons.Ok,
             MessageBoxIcon.Information);

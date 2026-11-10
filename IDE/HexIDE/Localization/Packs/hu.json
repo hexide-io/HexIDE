@@ -943,6 +943,7 @@
     "Str.FindReplace.Msg.ProtectedOnly": "A keresett szöveg ('{0}') csak a fájl fejlécében vagy egy eljárás Attribute soraiban szerepel. A keresés kihagyja ezeket a részeket, mert csak az IDE módosítja őket.",
     "Str.FindReplace.Msg.ReplacementsWithSkipped": "{0} csere történt; {1} találat kihagyva a fejlécben vagy az eljárás Attribute soraiban, amelyeket csak az IDE módosít.",
     "Str.FindReplace.Msg.ReplacementsMade": "{0} csere történt.",
+    "Str.FindReplace.Msg.ReplacementsWithFilesLeftOut": "{0} csere történt; {1} fájl kimaradt, mert a HexIDE még nem tudja őket hűen menteni.",
     "Str.FindReplace.Msg.InvalidRegex": "Érvénytelen reguláris kifejezés.",
     "Str.FindReplace.Msg.NothingToSearch": "Itt nincs kereshető tartalom. A keresés kódablakokban és a projekthez tartozó szövegfájlokban működik.",
     "Str.Vb6Toolchain.Vb6NotFound": "A VB6.EXE nem található. Telepítse a VB6-ot az alapértelmezett helyre, vagy állítsa be a VB6_EXE környezeti változót.",

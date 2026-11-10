@@ -175,6 +175,8 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     /// </summary>
     public bool IsReadOnly => formDefinition is { CanSaveFaithfully: false };
 
+    public bool IsReadOnlyDocument => IsReadOnly;
+
     public string? ReadOnlyReason => formDefinition?.UnfaithfulSaveReason;
 
     public ObservableCollection<string> ObjectNames    { get; } = new();
@@ -920,6 +922,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     /// </remarks>
     internal void UndoRequested(Action popOne)
     {
+        if (RefuseWholeFileWrite()) return;
         var undidOwnerWrite = false;
         qualifierWriteWasUndone = false;
         while (Document.UndoStack.CanUndo)
@@ -1388,6 +1391,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     /// <returns>What was applied and what was left out, for the callers that want to say so.</returns>
     internal Reduction ApplyFormatting(IReadOnlyList<TextEdit> edits)
     {
+        if (RefuseWholeFileWrite()) return new Reduction([], 0);
         var before = Document.Text;
         var reduction = LineEdits.ReduceFormatting(before, Rewrite(before, edits),
             ReadOnlyRegions.Of(before, bufferPrefix.Length), MemberRunsNow);
@@ -1595,6 +1599,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     /// </remarks>
     internal async Task InsertFileAsync(int selectionStart, int selectionLength)
     {
+        if (RefuseWholeFileWrite()) return;
         var files = await windowManager.OpenFilePickerAsync(new FilePickerOpenOptions
         {
             Title = localization.GetString("Str.CodeEditor.Dialog.InsertFileTitle"),
@@ -1604,6 +1609,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
             return;
 
         var content = DocumentNewLines.Normalize(await System.IO.File.ReadAllTextAsync(files[0]), Document.Text);
+        if (RefuseWholeFileWrite()) return;
         if (InsertPastReadOnlyRegion(selectionStart, selectionLength, content) is { } caret)
         {
             CaretOffset = caret;
@@ -2144,6 +2150,14 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     /// <summary>The shared member name used by guarded edits and automation refusals.</summary>
     internal string? MemberNamedBy(TextRegion region) =>
         GuardedContent.MemberNamedBy(Document.Text, bufferPrefix.Length, region);
+
+    /// <summary>Refuses a programmatic write before it can change text or consume undo history.</summary>
+    internal bool RefuseWholeFileWrite()
+    {
+        if (!IsReadOnly) return false;
+        ShowRefusalAsync(localization.GetString("Str.CodeEditor.FileNotSaved.Banner")).ListenErrors();
+        return true;
+    }
 
     /// <summary>Shows a refusal from one of the guarded writers to the developer.</summary>
     internal Task ShowRefusalAsync(string message) =>

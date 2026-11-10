@@ -943,6 +943,7 @@
     "Str.FindReplace.Msg.ProtectedOnly": "Traženi tekst „{0}“ pojavljuje se samo u zaglavlju datoteke ili redovima Attribute procedure. Pretraga preskače ove oblasti jer ih menja samo IDE.",
     "Str.FindReplace.Msg.ReplacementsWithSkipped": "Izvršenih zamena: {0}; preskočenih podudaranja u zaglavlju ili redovima Attribute procedure koje menja samo IDE: {1}.",
     "Str.FindReplace.Msg.ReplacementsMade": "Izvršenih zamena: {0}.",
+    "Str.FindReplace.Msg.ReplacementsWithFilesLeftOut": "Izvršeno {0} zamena; izostavljeno {1} datoteka jer ih HexIDE još ne može verno sačuvati.",
     "Str.FindReplace.Msg.InvalidRegex": "Nevažeći obrazac regularnog izraza.",
     "Str.FindReplace.Msg.NothingToSearch": "Ovde nema sadržaja za pretragu. Pronalaženje radi u prozorima koda i tekstualnim datotekama projekta.",
     "Str.Vb6Toolchain.Vb6NotFound": "VB6.EXE nije pronađen. Instalirajte VB6 na podrazumevanu lokaciju ili podesite promenljivu okruženja VB6_EXE.",

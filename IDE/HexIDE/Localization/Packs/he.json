@@ -943,6 +943,7 @@
     "Str.FindReplace.Msg.ProtectedOnly": "טקסט החיפוש '{0}' מופיע רק בכותרת הקובץ או בשורות Attribute של פרוצדורה. החיפוש מדלג עליהן כי רק סביבת הפיתוח משנה אותן.",
     "Str.FindReplace.Msg.ReplacementsWithSkipped": "בוצעו {0} החלפות; דולגו {1} התאמות בכותרת או בשורות Attribute של פרוצדורות, שרק סביבת הפיתוח משנה.",
     "Str.FindReplace.Msg.ReplacementsMade": "בוצעו {0} החלפות.",
+    "Str.FindReplace.Msg.ReplacementsWithFilesLeftOut": "בוצעו {0} החלפות; {1} קבצים הושמטו כי HexIDE עדיין אינו יכול לשמור אותם בנאמנות.",
     "Str.FindReplace.Msg.InvalidRegex": "תבנית ביטוי רגולרי לא חוקית.",
     "Str.FindReplace.Msg.NothingToSearch": "אין כאן דבר לחפש בו. החיפוש פועל בחלונות קוד ובקובצי טקסט הכלולים בפרויקט.",
     "Str.Vb6Toolchain.Vb6NotFound": "VB6.EXE לא נמצא. התקן את VB6 במיקום ברירת המחדל או הגדר את משתנה הסביבה VB6_EXE.",

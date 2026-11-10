@@ -943,6 +943,7 @@
     "Str.FindReplace.Msg.ProtectedOnly": "Søketeksten '{0}' finnes bare i filhodet eller i Attribute-linjene til en prosedyre. Søk hopper over disse områdene fordi bare IDE-et endrer dem.",
     "Str.FindReplace.Msg.ReplacementsWithSkipped": "{0} erstatninger utført; {1} treff hoppet over i filhodet eller prosedyrenes Attribute-linjer, som bare IDE-et endrer.",
     "Str.FindReplace.Msg.ReplacementsMade": "{0} erstatning(er) utført.",
+    "Str.FindReplace.Msg.ReplacementsWithFilesLeftOut": "{0} erstatninger utført; {1} filer utelatt fordi HexIDE ennå ikke kan lagre dem trofast.",
     "Str.FindReplace.Msg.InvalidRegex": "Ugyldig mønster for regulært uttrykk.",
     "Str.FindReplace.Msg.NothingToSearch": "Det er ingenting å søke i her. Søk fungerer i kodevinduer og i tekstfiler som prosjektet inneholder.",
     "Str.Vb6Toolchain.Vb6NotFound": "VB6.EXE ble ikke funnet. Installer VB6 på standardplasseringen eller angi miljøvariabelen VB6_EXE.",

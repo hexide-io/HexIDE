@@ -1,4 +1,4 @@
-# `set_file_content` puts its content into a file the IDE will not save, and its refusal says only that the file was not written
+# `set_file_content` puts its content into a file the IDE will not save, and its refusal says only that the file was not written — **CLOSED** (#701, 2026-11-10)
 
 **Symptom.** Read in code, not run, at ec9bfc4. On a form HexIDE holds read-only as a whole because it cannot save it
 faithfully, such as the `frmAbout` with no `.frx` that #273's live check used on 2026-10-13 (archived under the #649
@@ -30,3 +30,10 @@ returned before the write, which is applied the same way.
 **Suggested fix.** #701's: refuse in the guarded write path, before anything changes, with the reason the banner and
 `type_text` give. The issue lists this tool among the writers that still edit such a file.
 [#701](https://github.com/hexide-io/HexIDE/issues/701).
+
+**Fixed (#701).** `set_file_content` now checks the form's whole-file fidelity verdict before write
+preparation, editing or saving, including when no code window is open. It returns the existing localized
+code-window banner. Open-window whole-content and range writes were already guarded by #3408.
+`WorkingCopyReplyTests.UnopenedUnsaveableFormRefusesAutomationBeforeChangingTheModel` exercises the tool
+headlessly on Linux. Live verification remains for the supervising session: send changed code to an
+unsaveable form both before and after opening its code window, and confirm the refusal and unchanged content.

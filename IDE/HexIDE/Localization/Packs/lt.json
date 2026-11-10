@@ -943,6 +943,7 @@
     "Str.FindReplace.Msg.ProtectedOnly": "Ieškomas tekstas „{0}“ yra tik failo antraštėje arba procedūros Attribute eilutėse. Paieška praleidžia šias sritis, nes jas keičia tik IDE.",
     "Str.FindReplace.Msg.ReplacementsWithSkipped": "Atlikta pakeitimų: {0}; praleista atitikmenų antraštėje arba procedūros Attribute eilutėse, kurias keičia tik IDE: {1}.",
     "Str.FindReplace.Msg.ReplacementsMade": "Atlikta pakeitimų: {0}.",
+    "Str.FindReplace.Msg.ReplacementsWithFilesLeftOut": "Atlikta pakeitimų: {0}; praleista failų: {1}, nes HexIDE dar negali jų tiksliai išsaugoti.",
     "Str.FindReplace.Msg.InvalidRegex": "Netinkamas reguliariojo reiškinio šablonas.",
     "Str.FindReplace.Msg.NothingToSearch": "Čia nėra ko ieškoti. Paieška veikia kodo languose ir prie projekto pridėtuose tekstiniuose failuose.",
     "Str.Vb6Toolchain.Vb6NotFound": "VB6.EXE nerastas. Įdiekite VB6 numatytojoje vietoje arba nustatykite aplinkos kintamąjį VB6_EXE.",
