@@ -2,6 +2,8 @@
   "name": "Ukrainian",
   "direction": "ltr",
   "strings": {
+    "Str.AIChat.Refusal": "Постачальник відхилив цей запит.",
+    "Str.AIChat.TokenLimit": "Відповідь досягла ліміту токенів і є неповною.",
     "Str.Startup.PlatformSummary": "Лише Linux. Система виведення: x11 (типово), auto або wayland.",
     "Str.Shell.NotImplemented": "Цю функцію ще не реалізовано",
     "Str.AIChat.Stop": "Зупинити",

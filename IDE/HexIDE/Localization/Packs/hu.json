@@ -2,6 +2,8 @@
   "name": "Hungarian",
   "direction": "ltr",
   "strings": {
+    "Str.AIChat.Refusal": "A szolgáltató elutasította ezt a kérést.",
+    "Str.AIChat.TokenLimit": "A válasz elérte a tokenkorlátot, és nem teljes.",
     "Str.Startup.PlatformSummary": "Csak Linux. Megjelenítő: x11 (alapértelmezett), auto vagy wayland.",
     "Str.Shell.NotImplemented": "Ez a funkció még nincs megvalósítva",
     "Str.AIChat.Stop": "Leállítás",

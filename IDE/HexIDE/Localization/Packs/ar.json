@@ -2,6 +2,8 @@
   "name": "Arabic",
   "direction": "rtl",
   "strings": {
+    "Str.AIChat.Refusal": "رفض مزود الخدمة هذا الطلب.",
+    "Str.AIChat.TokenLimit": "بلغ الرد حد الرموز وهو غير مكتمل.",
     "Str.Startup.PlatformSummary": "Linux فقط. واجهة العرض: x11 (افتراضي) أو auto أو wayland.",
     "Str.Shell.NotImplemented": "لم تُنفّذ هذه الميزة بعد",
     "Str.AIChat.Stop": "إيقاف",

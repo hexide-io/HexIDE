@@ -2,6 +2,8 @@
   "name": "Croatian",
   "direction": "ltr",
   "strings": {
+    "Str.AIChat.Refusal": "Pružatelj je odbio ovaj zahtjev.",
+    "Str.AIChat.TokenLimit": "Odgovor je dosegnuo ograničenje tokena i nije potpun.",
     "Str.Startup.PlatformSummary": "Samo Linux. Pozadina prikaza: x11 (zadano), auto ili wayland.",
     "Str.Shell.NotImplemented": "Ova značajka još nije implementirana",
     "Str.AIChat.Stop": "Zaustavi",

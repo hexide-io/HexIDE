@@ -2,6 +2,8 @@
   "name": "Estonian",
   "direction": "ltr",
   "strings": {
+    "Str.AIChat.Refusal": "Teenusepakkuja keeldus sellest päringust.",
+    "Str.AIChat.TokenLimit": "Vastus jõudis tokenite piiranguni ja on mittetäielik.",
     "Str.Startup.PlatformSummary": "Ainult Linux. Kuvamootor: x11 (vaikimisi), auto või wayland.",
     "Str.Shell.NotImplemented": "See funktsioon pole veel teostatud",
     "Str.AIChat.Stop": "Peata",

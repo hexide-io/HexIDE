@@ -2,6 +2,8 @@
   "name": "Greek",
   "direction": "ltr",
   "strings": {
+    "Str.AIChat.Refusal": "Ο πάροχος απέρριψε αυτό το αίτημα.",
+    "Str.AIChat.TokenLimit": "Η απάντηση έφτασε το όριο διακριτικών και είναι ελλιπής.",
     "Str.Startup.PlatformSummary": "Μόνο Linux. Σύστημα προβολής: x11 (προεπιλογή), auto ή wayland.",
     "Str.Shell.NotImplemented": "Αυτή η λειτουργία δεν έχει υλοποιηθεί ακόμη",
     "Str.AIChat.Stop": "Διακοπή",

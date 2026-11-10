@@ -2,6 +2,8 @@
   "name": "Indonesian",
   "direction": "ltr",
   "strings": {
+    "Str.AIChat.Refusal": "Penyedia menolak permintaan ini.",
+    "Str.AIChat.TokenLimit": "Balasan mencapai batas token dan belum lengkap.",
     "Str.Startup.PlatformSummary": "Khusus Linux. Backend tampilan: x11 (bawaan), auto atau wayland.",
     "Str.Shell.NotImplemented": "Fitur ini belum diimplementasikan",
     "Str.AIChat.Stop": "Hentikan",

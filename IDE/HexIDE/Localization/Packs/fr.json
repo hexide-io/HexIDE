@@ -2,6 +2,8 @@
   "name": "French",
   "direction": "ltr",
   "strings": {
+    "Str.AIChat.Refusal": "Le fournisseur a refusé cette demande.",
+    "Str.AIChat.TokenLimit": "La réponse a atteint la limite de jetons et est incomplète.",
     "Str.Startup.PlatformSummary": "Linux uniquement. Affichage : x11 (par défaut), auto ou wayland.",
     "Str.Shell.NotImplemented": "Cette fonctionnalité n’est pas encore implémentée",
     "Str.AIChat.Stop": "Arrêter",

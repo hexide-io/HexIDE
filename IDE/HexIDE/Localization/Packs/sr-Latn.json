@@ -2,6 +2,8 @@
   "name": "Serbian (Latin)",
   "direction": "ltr",
   "strings": {
+    "Str.AIChat.Refusal": "Pružalac je odbio ovaj zahtev.",
+    "Str.AIChat.TokenLimit": "Odgovor je dostigao ograničenje tokena i nije potpun.",
     "Str.Startup.PlatformSummary": "Samo Linux. Sistem prikaza: x11 (podrazumevano), auto ili wayland.",
     "Str.Shell.NotImplemented": "Ova funkcija još nije implementirana",
     "Str.AIChat.Stop": "Zaustavi",

@@ -9,6 +9,7 @@ public sealed class ConversationMessage
     public IReadOnlyList<ToolCall>? ToolCalls { get; set; }
     public string? ToolCallId { get; }
     public string? ToolName { get; }
+    public JsonArray? NativeContent { get; set; }
 
     /// <summary>
     /// True for a note the IDE wrote to the assistant about something the developer did, such as applying a code
@@ -65,6 +66,7 @@ public sealed class ConversationMessage
             }
             obj["tool_calls"] = arr;
         }
+        if (NativeContent is not null) obj["anthropic_content"] = NativeContent.DeepClone();
         return obj;
     }
 }

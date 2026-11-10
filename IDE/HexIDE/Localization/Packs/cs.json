@@ -2,6 +2,8 @@
   "name": "Czech",
   "direction": "ltr",
   "strings": {
+    "Str.AIChat.Refusal": "Poskytovatel tento požadavek odmítl.",
+    "Str.AIChat.TokenLimit": "Odpověď dosáhla limitu tokenů a není úplná.",
     "Str.Startup.PlatformSummary": "Pouze Linux. Grafický backend: x11 (výchozí), auto nebo wayland.",
     "Str.Shell.NotImplemented": "Tato funkce zatím není implementována",
     "Str.AIChat.Stop": "Zastavit",

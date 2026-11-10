@@ -2,6 +2,8 @@
   "name": "Bulgarian",
   "direction": "ltr",
   "strings": {
+    "Str.AIChat.Refusal": "Доставчикът отказа тази заявка.",
+    "Str.AIChat.TokenLimit": "Отговорът достигна лимита за токени и е непълен.",
     "Str.Startup.PlatformSummary": "Само Linux. Графична среда: x11 (по подразбиране), auto или wayland.",
     "Str.Shell.NotImplemented": "Тази функция все още не е реализирана",
     "Str.AIChat.Stop": "Спри",

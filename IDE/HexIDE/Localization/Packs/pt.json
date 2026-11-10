@@ -2,6 +2,8 @@
   "name": "Portuguese",
   "direction": "ltr",
   "strings": {
+    "Str.AIChat.Refusal": "O fornecedor recusou este pedido.",
+    "Str.AIChat.TokenLimit": "A resposta atingiu o limite de tokens e está incompleta.",
     "Str.Startup.PlatformSummary": "Apenas Linux. Motor gráfico: x11 (predefinido), auto ou wayland.",
     "Str.Shell.NotImplemented": "Esta funcionalidade ainda não está implementada",
     "Str.AIChat.Stop": "Parar",
