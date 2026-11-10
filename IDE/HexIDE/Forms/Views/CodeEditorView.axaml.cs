@@ -148,12 +148,12 @@ public partial class CodeEditorView : UserControl
             () =>
             {
                 if (DataContext is CodeEditorViewModel vm)
-                    vm.UndoRequested(() => TextEditor.Undo());
+                    vm.UndoRequested(() => ReplayUndo(redo: false));
                 else
-                    TextEditor.Undo();
+                    ReplayUndo(redo: false);
             },
             () => TextEditor?.CanUndo ?? false);
-        Redo = new DelegateCommand(() => TextEditor.Redo(), () =>
+        Redo = new DelegateCommand(() => ReplayUndo(redo: true), () =>
             TextEditor?.CanRedo ?? false);
         DeleteLine = new DelegateCommand(() =>
         {
@@ -248,6 +248,50 @@ public partial class CodeEditorView : UserControl
 
         TextEditor.TextArea.Caret.PositionChanged += OnCaretPositionChanged;
         TextEditor.TextArea.SelectionChanged += (_, _) => ResetSelectionChain();
+    }
+
+    private void ReplayUndo(bool redo)
+    {
+        var owner = _splitOwner ?? this;
+        if (owner._secondPane is null)
+        {
+            if (redo) TextEditor.Redo();
+            else TextEditor.Undo();
+            return;
+        }
+
+        // AvaloniaEdit's shared history restores both text areas' private caret snapshots.
+        // Follow the passive pane through the actual text changes, then replace those snapshots
+        // after playback. The invoking pane follows the edit even when the other pane made it.
+        var passive = ReferenceEquals(owner, this) ? owner._secondPane.TextEditor : owner.TextEditor;
+        var document = TextEditor.Document;
+        var caret = passive.CaretOffset;
+        var selection = passive.TextArea.Selection;
+        int? destination = null;
+        void Changed(object? sender, DocumentChangeEventArgs change)
+        {
+            caret = change.GetNewOffset(caret);
+            selection = selection.UpdateOnDocumentChange(change);
+            destination = change.Offset + change.InsertionLength;
+        }
+        document.Changed += Changed;
+        try
+        {
+            if (redo) TextEditor.Redo();
+            else TextEditor.Undo();
+        }
+        finally
+        {
+            document.Changed -= Changed;
+            passive.CaretOffset = caret;
+            passive.TextArea.Selection = selection;
+        }
+        if (destination is { } offset)
+        {
+            TextEditor.TextArea.ClearSelection();
+            TextEditor.CaretOffset = offset;
+            TextEditor.TextArea.Caret.BringCaretToView();
+        }
     }
 
     public void ToggleSplit()
