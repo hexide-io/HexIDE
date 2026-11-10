@@ -370,8 +370,11 @@ public partial class CodeEditorView : UserControl
             _markerService = new LspTextMarkerService(TextEditor);
             TextEditor.TextArea.TextView.BackgroundRenderers.Add(_markerService);
 
-            _bracketDepthColorizer = new BracketDepthColorizer(TextEditor, this, vm.Settings);
-            TextEditor.TextArea.TextView.LineTransformers.Add(_bracketDepthColorizer);
+            if (vm.Brackets is { } brackets)
+            {
+                _bracketDepthColorizer = new BracketDepthColorizer(TextEditor, this, vm.Settings, brackets);
+                TextEditor.TextArea.TextView.LineTransformers.Add(_bracketDepthColorizer);
+            }
 
             // The header and each member's Attribute lines in the theme's read-only colour (#273 task 3.15).
             // Added before the diagnostics colorizer, so an error inside one still shows red; AvaloniaEdit

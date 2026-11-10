@@ -23,7 +23,7 @@ public class BracketDepthRenderingTests
         editor.Resources["BracketDepth2Brush"] = Brushes.Green;
         editor.Resources["BracketDepth3Brush"] = Brushes.Purple;
         editor.Resources["BracketUnmatchedBrush"] = Brushes.Red;
-        using var colorizer = new BracketDepthColorizer(editor, editor, settings);
+        using var colorizer = new BracketDepthColorizer(editor, editor, settings, new HexIDE.Runtime.Interpreter.InterpreterBrackets());
         editor.TextArea.TextView.LineTransformers.Add(colorizer);
         var window = new Window { Width = 500, Height = 200, Content = editor };
         try

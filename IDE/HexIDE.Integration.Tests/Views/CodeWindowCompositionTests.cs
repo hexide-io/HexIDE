@@ -5,12 +5,12 @@ using HexIDE.Runtime.ProjectElements;
 
 namespace HexIDE.Integration.Tests.Views;
 
-public class ConditionalCodeCompositionTests
+public class CodeWindowCompositionTests
 {
-    // The code window's reader is optional, so leaving it out of the application's composition would still compile, open and
-    // edit, and an #If would just never be greyed again (#3559).
+    // The code window's readers are optional, so leaving one out of the application's composition would still compile, open
+    // and edit, and an #If would never be greyed, or a parenthesis coloured, again (#3559, #3572).
     [AvaloniaFact]
-    public async Task The_code_window_the_application_builds_can_say_which_lines_an_If_leaves_out()
+    public async Task The_code_window_the_application_builds_is_given_what_reads_its_text()
     {
         await using var owned = new RealComposition();
         var composition = owned.Composition;
@@ -29,6 +29,8 @@ public class ConditionalCodeCompositionTests
             var lines = editor.ConditionalCode?.InactiveLines("#If 0 Then\nDebug.Print 1\n#End If\n",
                 new ConditionalConstants(ConditionalConstants.NoArguments));
             lines.Should().Equal(new LineRange(2, 2));
+            var marks = editor.Brackets?.Brackets("(())");
+            marks.Should().Equal(new BracketMark(0, 0), new BracketMark(1, 1), new BracketMark(2, 1), new BracketMark(3, 0));
         }
         finally
         {
