@@ -612,8 +612,10 @@ public class LocalizationServiceTests
         sut.GetString("Str.Menu.File").Should().NotBe("Str.Menu.File");
     }
 
-    [Fact]
-    public void Initialize_CapturesUiCultureBeforeInvariantPin()
+    [Theory]
+    [InlineData("LocalizationService.OsUICulture = CultureInfo.CurrentUICulture;")]
+    [InlineData("UserRegion.Culture = CultureInfo.CurrentCulture;")]
+    public void Initialize_CapturesCulturesBeforeInvariantPin(string assignment)
     {
         var root = new System.IO.DirectoryInfo(AppContext.BaseDirectory);
         while (root != null && !System.IO.File.Exists(System.IO.Path.Combine(root.FullName, "IDE", "HexIDE", "App.axaml.cs")))
@@ -621,7 +623,7 @@ public class LocalizationServiceTests
         root.Should().NotBeNull();
         var source = System.IO.File.ReadAllText(System.IO.Path.Combine(root!.FullName, "IDE", "HexIDE", "App.axaml.cs"))
             .ReplaceLineEndings("\n");
-        var capture = source.IndexOf("LocalizationService.OsUICulture = CultureInfo.CurrentUICulture;", StringComparison.Ordinal);
+        var capture = source.IndexOf(assignment, StringComparison.Ordinal);
         capture.Should().BeGreaterThanOrEqualTo(0);
         capture.Should().BeLessThan(source.IndexOf("CultureInfo.DefaultThreadCurrentCulture =", StringComparison.Ordinal));
         capture.Should().BeLessThan(source.IndexOf("CultureInfo.DefaultThreadCurrentUICulture =", StringComparison.Ordinal));

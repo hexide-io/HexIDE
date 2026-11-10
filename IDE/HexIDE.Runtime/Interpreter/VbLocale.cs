@@ -2,6 +2,7 @@ using System;
 using System.Globalization;
 using System.Runtime.CompilerServices;
 using System.Threading;
+using HexIDE.IDE;
 
 namespace HexIDE.Runtime.Interpreter;
 
@@ -46,8 +47,12 @@ public static class VbLocale
     /// <summary>The cultures <see cref="ForProgram"/> had to change, by the culture they came from.</summary>
     private static readonly ConditionalWeakTable<CultureInfo, CultureInfo> Adapted = new();
 
-    /// <summary>The user's locale, set by the host at startup. Null until a host sets it.</summary>
-    public static CultureInfo? Default { get; set; }
+    /// <summary>The user's locale, set by the host at startup, and held as <see cref="UserRegion.Culture"/>. Null until a host sets it.</summary>
+    public static CultureInfo? Default
+    {
+        get => UserRegion.Culture;
+        set => UserRegion.Culture = value;
+    }
 
     /// <summary>The locale the running program uses now, as <see cref="ForProgram"/> gives it.</summary>
     public static CultureInfo Current => ForProgram(Scoped.Value ?? Default ?? CultureInfo.CurrentCulture);
