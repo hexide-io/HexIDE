@@ -2,6 +2,7 @@
   "name": "Norwegian Bokmål",
   "direction": "ltr",
   "strings": {
+    "Str.Startup.PlatformSummary": "Kun Linux. Visningsmotor: x11 (standard), auto eller wayland.",
     "Str.Shell.NotImplemented": "Denne funksjonen er ikke implementert ennå",
     "Str.AIChat.Stop": "Stopp",
     "Str.Tool.LanguageServers.Problem.JsonSyntaxEscape": "Konfigurasjonsfilen '{0}' inneholder ugyldig JSON på linje {1}, kolonne {2}. Sti: {3} Bruk skråstreker (C:/tools/new/...) eller doble omvendte skråstreker (C:\\\\tools\\\\new\\\\...).",

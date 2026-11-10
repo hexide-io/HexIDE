@@ -2,6 +2,7 @@
   "name": "Hungarian",
   "direction": "ltr",
   "strings": {
+    "Str.Startup.PlatformSummary": "Csak Linux. Megjelenítő: x11 (alapértelmezett), auto vagy wayland.",
     "Str.Shell.NotImplemented": "Ez a funkció még nincs megvalósítva",
     "Str.AIChat.Stop": "Leállítás",
     "Str.Tool.LanguageServers.Problem.JsonSyntaxEscape": "A(z) „{0}” konfigurációs fájl érvénytelen JSON-t tartalmaz a(z) {1}. sor {2}. oszlopában. Útvonal: {3} Használjon perjeleket (C:/tools/new/...) vagy kettős fordított perjeleket (C:\\\\tools\\\\new\\\\...).",

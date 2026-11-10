@@ -23,6 +23,7 @@
     <PackageVersion Include="Avalonia.Headless.XUnit" Version="12.1.4" />
     <PackageVersion Include="Avalonia.Skia" Version="12.1.4" />
     <PackageVersion Include="Avalonia.Themes.Simple" Version="12.1.4" />
+    <PackageVersion Include="Avalonia.Wayland" Version="12.1.4" />
     <!-- 12.0.1-beta1 is the Avalonia-12 build. The 11.3.0.3 assembly was compiled against Avalonia 11,
          and its ClassicBorderDecorator.DrawRadioButtonBorder called
          StreamGeometryContext.ArcTo(Point, Size, double, bool, SweepDirection) — an overload Avalonia 12

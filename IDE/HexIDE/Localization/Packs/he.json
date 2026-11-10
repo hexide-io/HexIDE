@@ -2,6 +2,7 @@
   "name": "Hebrew",
   "direction": "rtl",
   "strings": {
+    "Str.Startup.PlatformSummary": "Linux בלבד. מנגנון תצוגה: x11 (ברירת מחדל), auto או wayland.",
     "Str.Shell.NotImplemented": "תכונה זו עדיין לא מומשה",
     "Str.AIChat.Stop": "עצור",
     "Str.Tool.LanguageServers.Problem.JsonSyntaxEscape": "קובץ התצורה „{0}” מכיל JSON לא תקין בשורה {1}, עמודה {2}. נתיב: {3} יש להשתמש בלוכסנים (C:/tools/new/...) או בלוכסנים הפוכים כפולים (C:\\\\tools\\\\new\\\\...).",
