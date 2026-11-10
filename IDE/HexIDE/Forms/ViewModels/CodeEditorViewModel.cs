@@ -14,6 +14,7 @@ using HexIDE.Bookmarks;
 using HexIDE.Controls;
 using HexIDE.Events;
 using HexIDE.IDE;
+using HexIDE.Language;
 using HexIDE.Localization;
 using HexIDE.Lsp;
 using HexIDE.Lsp.Messages;
@@ -214,6 +215,9 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     /// <summary>What says where this module's parentheses are, or null where nothing does, and then none is coloured.</summary>
     public HexIDE.Language.IBracketReader? Brackets { get; }
 
+    /// <summary>Says where this window's read-only regions are. With none, nothing here is read-only.</summary>
+    private readonly IReadOnlyRegionReader? regionReader;
+
     public CodeEditorViewModel(IWindowManager windowManager,
         IEditorService editorService,
         IProjectService projectService,
@@ -230,10 +234,12 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
         HexIDE.Tools.CallStackToolViewModel? callStack = null,
         HexIDE.Tools.RecentEditHistory? recentEditHistory = null,
         HexIDE.Language.IConditionalCodeReader? conditionalCode = null,
-        HexIDE.Language.IBracketReader? brackets = null)
+        HexIDE.Language.IBracketReader? brackets = null,
+        IReadOnlyRegionReader? regionReader = null)
     {
         ConditionalCode = conditionalCode;
         Brackets = brackets;
+        this.regionReader = regionReader;
         this.recentEditHistory = recentEditHistory;
         CanFloat = false;
         this.windowManager = windowManager;
@@ -743,7 +749,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     /// </remarks>
     private bool RefuseMarkOn(int line)
     {
-        if (!CodeWindowText.IsReadOnlyLine(line))
+        if (!ReadOnlyRegions.IsReadOnlyLine(Document.Text, ReadOnlyRegionsNow, line))
             return false;
         statusBarService.SetTemporaryMessage(
             string.Format(localization.GetString("Str.CodeEditor.Msg.NoMarkOnReadOnlyLine"), line),
@@ -1390,7 +1396,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     {
         var before = Document.Text;
         var reduction = LineEdits.ReduceFormatting(before, Rewrite(before, edits),
-            ReadOnlyRegions.Of(before, bufferPrefix.Length), MemberRunsNow);
+            RegionsOf(before, bufferPrefix.Length), MemberRunsNow);
 
         if (reduction.Changes.Count > 0)
         {
@@ -1483,13 +1489,16 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
             if (regionsCache is null || !ReferenceEquals(regionsCacheVersion, version)
                 || regionsCachePrefixLength != bufferPrefix.Length)
             {
-                regionsCache = ReadOnlyRegions.Of(Document.Text, bufferPrefix.Length);
+                regionsCache = RegionsOf(Document.Text, bufferPrefix.Length);
                 regionsCacheVersion = version;
                 regionsCachePrefixLength = bufferPrefix.Length;
             }
             return regionsCache;
         }
     }
+
+    private IReadOnlyList<TextRegion> RegionsOf(string text, int prefixLength) =>
+        regionReader?.Regions(text, prefixLength) ?? [];
 
     private IReadOnlyList<TextRegion>? regionsCache;
     private ITextSourceVersion? regionsCacheVersion;
@@ -1807,7 +1816,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
             var resolved = Resolve(document, target.Edits);
             for (var j = 1; j < resolved.Count; j++)
                 if (resolved[j].Offset + resolved[j].Length > resolved[j - 1].Offset) return Refuse(target.Uri);
-            if (codeAction ? resolved.Any(c => ReadOnlyRegions.Changes(ReadOnlyRegions.Of(document.Text, prefix.Length), c.Offset, c.Length))
+            if (codeAction ? resolved.Any(c => ReadOnlyRegions.Changes(RegionsOf(document.Text, prefix.Length), c.Offset, c.Length))
                 : RefusedRenameEdit(document.Text, prefix.Length, resolved) is not null)
                 return Refuse(target.Uri);
             prepared.Add((target.Uri, identity, resolved));

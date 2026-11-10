@@ -1,5 +1,6 @@
 using AvaloniaEdit.Document;
 using AvaloniaEdit.Editing;
+using HexIDE.Language;
 using HexIDE.Runtime.Serialization;
 
 namespace HexIDE.Forms;

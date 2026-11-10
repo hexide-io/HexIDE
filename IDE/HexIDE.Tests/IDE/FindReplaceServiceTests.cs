@@ -23,7 +23,7 @@ public class FindReplaceServiceTests
         windows.When(manager => manager.ShowWindow(Arg.Any<IDialog>()))
             .Do(call => shown.Add(call.Arg<IDialog>()));
         var sut = new FindReplaceService(windows, Substitute.For<IDocumentDockService>(),
-            localization, projects, editors, () => explorer);
+            localization, projects, editors, () => explorer, new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionReader());
 
         sut.ShowFind();
         var first = (FindReplaceViewModel)shown[0];
