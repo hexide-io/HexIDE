@@ -131,7 +131,10 @@ internal static class LspRequestHandlers
     public static JsonDocument Completion(DocumentStore store, JsonElement p)
     {
         List<LspCompletionItem> items;
-        if (TryUri(p, out var uri) && store.DeclaredTypes.TryGetValue(uri, out var declaredTypes))
+        if (TryUriPos(p, out var uri, out var line, out var ch)
+            && store.Source.TryGetValue(uri, out var source)
+            && !HexIDE.Language.VbFreeText.ContainsPosition(source, line, ch)
+            && store.DeclaredTypes.TryGetValue(uri, out var declaredTypes))
         {
             items = new List<LspCompletionItem>(VbKeywords.All.Length + declaredTypes.Count);
             var labels = new HashSet<string>(declaredTypes.Keys, StringComparer.OrdinalIgnoreCase);

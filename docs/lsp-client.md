@@ -92,6 +92,11 @@ without accepting. Complete Word inserts a unique prefix match immediately (#305
 show detail alongside string or MarkupContent documentation, rendered as plain text (including markdown
 source until a markdown renderer is available). Kind glyphs reuse the Object Browser's member and class
 glyphs; kinds without a counterpart have none.
+The VB code editor suppresses completion in comments and string literals, independently of the server
+(#3577). It also dismisses an existing list before accepting a key there and checks late replies against
+the current caret context. A caret immediately after `Rem` remains in code until a following delimiter
+has been typed; a member such as `x.Rem` is not a comment. Space in ordinary code keeps its completion behaviour.
+
 The editor applies a completion's `textEdit` in preference to `insertText` or `label`; without
 a `textEdit`, it replaces the completion segment. `additionalTextEdits` use the same original
 document coordinates and commit with the main edit as one undo step. The caret follows the main

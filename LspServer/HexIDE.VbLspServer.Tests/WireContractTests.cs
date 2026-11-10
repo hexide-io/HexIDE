@@ -284,6 +284,36 @@ public class WireContractTests
         symbols.EnumerateArray().All(s => s.TryGetProperty("selectionRange", out _)).Should().BeTrue();
     }
 
+    [Theory]
+    [InlineData("' Typed on", true)]
+    [InlineData("Rem Typed on", true)]
+    [InlineData("Rem: Typed on", true)]
+    // Measured: docs/vb6-fidelity-oracle/line-continuations-and-statement-separators.md
+    // and docs/vb6-fidelity-oracle/a-lone-cr-or-lf-in-vb6-source.md.
+    [InlineData("' note _\non", true)]
+    [InlineData("' note _\ron", true)]
+    [InlineData("' note _\r\non", true)]
+    [InlineData("Rem note _\non", true)]
+    [InlineData("Rem note _\ron", true)]
+    [InlineData("Rem note _\r\non", true)]
+    [InlineData("Debug.Print \"note _\non", true)]
+    [InlineData("Debug.Print \"note _\ron", true)]
+    [InlineData("Debug.Print \"note _\r\non", true)]
+    [InlineData("x = \"Typed on", true)]
+    [InlineData("x = \"a \"\" on", true)]
+    [InlineData("Rem", false)]
+    [InlineData("Rem ", true)]
+    [InlineData("x.Rem ", false)]
+    public async Task Completion_is_empty_in_free_text(string line, bool freeText)
+    {
+        await using var h = await StartAsync();
+        await OpenAsync(h, Uri, "Sub Foo()\n" + line + "\nEnd Sub");
+        await h.NextDiagnosticsAsync();
+        var lines = line.ReplaceLineEndings("\n").Split('\n');
+        var list = await RequestAsync(h, "textDocument/completion", Pos(Uri, lines.Length, lines[^1].Length));
+        (list.GetProperty("items").GetArrayLength() == 0).Should().Be(freeText);
+    }
+
     [Fact]
     public async Task Completion_returns_a_CompletionList_envelope()
     {

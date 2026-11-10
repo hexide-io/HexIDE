@@ -24,6 +24,7 @@
   <!-- The interpreter's directive scanner, compiled here too, so the server and the interpreter cannot read a directive
        differently (#1112). BCL-only, so this project still builds on its own. -->
   <ItemGroup>
+    <Compile Include="..\..\IDE\HexIDE.Core\Language\VbFreeText.cs" Link="Shared\VbFreeText.cs" />
     <Compile Include="..\..\IDE\HexIDE.Core\Language\ConditionalCompilation.cs" Link="Shared\ConditionalCompilation.cs" />
   </ItemGroup>
 
