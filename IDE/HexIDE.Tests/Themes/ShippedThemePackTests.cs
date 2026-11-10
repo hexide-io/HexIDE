@@ -93,11 +93,12 @@ public class ShippedThemePackTests
     public static IEnumerable<object[]> DarkPackKeys =>
         from pack in new[] { "Dark", "Abyss" }
         from key in ColorKeyMapping.Table.Keys
+        where !ColorKeyMapping.Table[key].IsBrush || ClassicDefault(ColorKeyMapping.Table[key].Key) is not null
         select new object[] { pack, key };
 
     [Theory]
     [MemberData(nameof(DarkPackKeys))]
-    public void EveryDarkPackCarriesEveryMappedKey(string pack, string key)
+    public void EveryDarkPackCarriesEveryClassicPaletteKey(string pack, string key)
     {
         ColoursOf(pack).Should().ContainKey(key);
     }

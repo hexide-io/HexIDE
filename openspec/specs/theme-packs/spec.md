@@ -23,7 +23,7 @@ control, menu, caption, selection, information, warning, validation, read-only, 
 text/background pairs SHALL have contrast of at least 7:1. Options SHALL display localized names while
 retaining stable pack IDs as setting values.
 
-This is the palette slice of [#3300](https://github.com/hexide-io/HexIDE/issues/3300). Automatic OS
+These packs are part of [#3300](https://github.com/hexide-io/HexIDE/issues/3300). Automatic OS
 following, 2px focus/selection chrome and syntax-colour adaptation remain pending. Avalonia does not
 report the Linux portal contrast preference yet; HexIDE adds no workaround.
 
@@ -31,6 +31,20 @@ report the Linux portal contrast preference yet; HexIDE adds no workaround.
 - **WHEN** a user selects either high-contrast pack in Options
 - **THEN** its complete colour dictionary is applied using its declared Light or Dark variant
 - **AND** the saved setting remains the pack ID rather than its translated name
+
+### Requirement: High-contrast chrome beyond the Classic palette
+Line-number text, input placeholders and selected Properties tab text SHALL also reach 7:1; scrollbar
+thumbs SHALL reach 3:1 against their tracks. Dock panel and tab-strip backgrounds SHALL follow the pack.
+Active document tabs and selected Properties tabs SHALL have a heavy border. Both selection indicators
+SHALL contrast at least 3:1 with the unselected state, without relying on hue alone. Packs MAY set `tabSelectionBorderThickness` (a non-negative number, default zero).
+Packs MAY override the SimpleTheme and Dock brush resources exposed by the colour mapping and set
+`placeholderOpacity` (zero through one); omitted overrides SHALL retain the base theme's defaults.
+
+#### Scenario: Chrome beyond the Classic palette
+- **WHEN** either high-contrast pack is applied
+- **THEN** line numbers, placeholders and selected tabs use the pack's high-contrast text
+- **AND** scrollbar thumbs contrast with their tracks and Dock backgrounds follow the pack
+- **AND** document and Properties tabs show selection with a contrasting heavy border
 
 ### Requirement: Editor links SHALL follow the theme
 Editors SHALL use the `LinkText` theme colour (`LinkTextBrush`) for web and mail links.

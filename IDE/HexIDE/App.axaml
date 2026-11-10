@@ -29,6 +29,7 @@
         <StyleInclude Source="avares://HexIDE/Themes/IconDirection.axaml" />
         <StyleInclude Source="avares://HexIDE/Themes/CodeDirection.axaml" />
         <StyleInclude Source="avares://HexIDE/Themes/EditorLinks.axaml" />
+        <StyleInclude Source="avares://HexIDE/Themes/TabSelection.axaml" />
         <StyleInclude Source="avares://HexIDE/Themes/MenuNavigation.axaml" />
         <dockSimple:DockSimpleTheme />
         <StyleInclude Source="avares://AvaloniaEdit/Themes/Simple/AvaloniaEdit.xaml" />
