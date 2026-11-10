@@ -1,7 +1,7 @@
 # File safety audit (#2504)
 
 Audit of `4ef7aaa3` (2026-10-28), plus the conversation/picture export, Make-archive consent, unique-staging,
-parity-output, signing-generator and directory-save fixes on this branch. This is a command audit,
+parity-output, signing-generator, directory-save and carried/profile recovery fixes (2026-11-10). This is a command audit,
 not a claim that the beta file-safety gate is satisfied. “Picker” means the application delegates
 replacement confirmation to the platform; its native prompt has not been verified here. Scripted
 picker answers bypass that platform UI. Atomic replacement prevents truncation, not data loss or undo.
@@ -29,18 +29,20 @@ program's control, not VB6's IDE commands, and does not establish their behavior
 | Export conversation in Protocol Inspector | Picker for messages, silently replaces messages **and derived manifest**. `ProtocolInspectorToolViewModel.ExportAsync`. | **Fixed in this slice:** explicit Yes/No naming every existing output before either write; No/cancel writes neither. |
 | MCP `export_lsp_conversation` | Fixed temp filenames silently destroy the previous export. `HexIdeTools.ExportLspConversationAsync`. | **Fixed in this slice:** fresh private temporary directory per call; earlier exports survive. Tool accepts no destination path. |
 | Export picture property | Picker followed by an explicit Yes/No question naming an existing destination, including scripted picker answers. Only Yes replaces it, through `AtomicFileWriter`; a new destination is created exclusively. `PropertiesToolViewModel.ExportPicture`. | **Fixed:** No/cancel preserves the file (`PictureExportTests.ExistingDestinationRequiresExplicitConsent`). |
-| Save carried document | Atomic replacement of original; editor text undo exists but no disk recovery. Unique, exclusively created staging names preserve a user file at the former `.hexide-tmp` name. `RelatedDocumentEditorViewModel.SaveAsync`. | HexIDE addition: recoverability/consent remains; **staging collision fixed** (regression: `CarriedFileSaveTests.SavingPreservesFileAtOldStagingName`). |
+| Save carried document | Atomic replacement of original; each save now retains the previous disk bytes in a unique recovery sibling. Unique, exclusively created staging names preserve a user file at the former `.hexide-tmp` name. `RelatedDocumentEditorViewModel.SaveAsync`. | **Recovery fixed:** `CarriedFileSaveTests.SavingRetainsPreviousDiskBytesForRecovery`; **staging collision fixed** (regression: `CarriedFileSaveTests.SavingPreservesFileAtOldStagingName`). |
 | Workspace artefact generation/removal | Consent before first write; confines paths including links, refuses foreign/edited files using ownership hashes. Deletes only owned unchanged output. `WorkspaceArtifactService`, `WorkspaceArtifactConsent`. | HexIDE addition: ownership guards exist; removing an owned generated output is regenerable. |
 | Archive source-folder synchronization | Refuses unrelated/edited destinations; retains previous trees for recovery and uses a journal. `ArchiveSourceFolder.Synchronize`. Compiler preparation uses `CreateNew` in staging. | HexIDE addition: recovery already exists. Archive inputs are read-only; no compiler binaries inspected. |
-| Project user sidecar writes (`.user.hexproj`) | Merges known fields, preserves unknown ones, handles changed/unrelated sidecars, then stages and flushes through `AtomicFileWriter` with unique names. `UserSidecarService.SaveAsync`. | HexIDE addition: audit recovery of replaced user metadata; **staging collision fixed** (regression: `UserSidecarSaveTests.SavingPreservesFileAtOldStagingName`). |
-| Translation override edits / reset | Writes per-language override file. Reset All asks; individual override edits/reset persist immediately. `UserTranslationsService`, `TranslationEditorViewModel`. | HexIDE addition: recoverability of individual override changes needs follow-up. |
-| Settings, layout/reset, recents, add-in consent/state/revocations, chat history | Writes/removes application profile data, not source files; settings/layout use `AtomicFileWriter` with unique, exclusively created temporary names. `SettingsService`, `WindowStateService`, `RecentProjectsService`, add-in stores, `ChatSession`, `LoggingSetup` (old application-log pruning). | Profile-data recovery remains; staging collisions are fixed (`AtomicFileWriterTests`, `SettingsServiceTests.SavingPreservesFileAtOldStagingName`); cache/revocation refresh is regenerable. |
+| Project user sidecar writes (`.user.hexproj`) | Merges known fields, preserves unknown ones, handles changed/unrelated sidecars, then stages and flushes through `AtomicFileWriter` with unique names. `UserSidecarService.SaveAsync`. | **Recovery fixed:** previous sidecar bytes are retained (`UserSidecarSaveTests.SavingRetainsPreviousSidecarBytesForRecovery`); **staging collision fixed** (regression: `UserSidecarSaveTests.SavingPreservesFileAtOldStagingName`). |
+| Translation override edits / reset | Writes per-language override file atomically with recovery. Reset All asks; individual override edits/reset persist immediately. `UserTranslationsService`, `TranslationEditorViewModel`. | **Recovery fixed:** edits, clearing an override (including the last), and Reset All retain previous file bytes (`UserTranslationsServiceTests.ChangesRetainPreviousDiskBytesForRecovery`). |
+| Settings, layout/reset, recents, add-in consent/state/revocations, chat history | Writes/removes application profile data, not source files; settings/layout/recents/consent/state/chat use `AtomicFileWriter` with unique, exclusively created temporary names. `SettingsService`, `WindowStateService`, `RecentProjectsService`, add-in stores, `ChatSession`, `LoggingSetup` (old application-log pruning). | **Recovery fixed:** settings, current/named layouts (including reset), recents, add-in consent/state, and chat history retain recovery siblings (`SettingsServiceTests`, `ProfileFileRecoveryTests`, `ProfileRecoveryTests`, `ChatSessionTests`); staging collisions are fixed (`AtomicFileWriterTests`, `SettingsServiceTests.SavingPreservesFileAtOldStagingName`); cache/revocation refresh is regenerable. |
+| Keymap overrides / export | Options persists edits and exports selected bindings through the shared atomic writer. `KeymapService.SaveOverrides`, `KeymapPageViewModel.Export`. | **Recovery fixed:** both preserve previous destination bytes (`KeymapServiceTests`, `KeymapEditingTests`). |
+| Open-document session persistence | Saves per-project tab state in the profile. `DocumentSessionStore.Save`. | **Recovery fixed:** previous session bytes retained (`ProfileFileRecoveryTests.SavingRetainsPreviousSessionBytesForRecovery`). |
 | Add-in packer `pack`, `genkeys`, `sign-revocations` (CLI) | `PackageSigner.Pack` recursively deletes the requested output directory. `GenerateDevTrust` and `SignRevocations` now create every output exclusively and refuse a collision before writing generated content. | **Key/trust/revocation replacement fixed:** all eleven output collisions preserve the existing file (`PackerFileSafetyTests`, Linux-running). Package output deletion remains unsafe. Failed reservations or writes remove only the files this call created, including when the last output collides. |
 | DAP parity harness (CLI) | `HexIDE.Dap.Parity/Program.cs` overwrites `results.jsonl`, `summary.json`, per-case modules and `.rdproj` files in the chosen output directory. Default output is timestamped, but an explicit `--out` or same-second run can collide. | **Fixed:** every output is created exclusively; a collision fails without replacing that file (`ProgramParityTests.Existing_output_is_preserved`, four Linux-running cases). Failed runs remove only files created by that invocation; existing files survive, including a collision on the final output. Retries reuse their already-created workspace. Not an IDE menu command. |
 | Temporary staging and cleanup | `ProjectService.AtomicWriteText/Bytes`, carried saves, sidecars, settings and layout now use `AtomicFileWriter` with GUID siblings opened with `CreateNew` and flushed before replacement. GUID Make trees/logs and compiler preparation are scratch-owned. | **Fixed:** old `.tmp` and `.hexide-tmp` files survive; project-save regression: `WriteAtSaveTests.SavingPreservesFilesAtOldStagingNames`. Layout regression: `AtomicFileWriterTests.LayoutSavePreservesFileAtOldStagingName`. |
 
 Locations without a prefix above are under `IDE/HexIDE/`; project definitions are under
-`IDE/HexIDE.Core/ProjectElements/`, MCP tools under `IDE/HexIDE.Desktop/Server/`, workspace artefacts
+`IDE/HexIDE.Core/ProjectElements/`, the shared atomic writer is under `IDE/HexIDE.Core/IDE/`, MCP tools under `IDE/HexIDE.Desktop/Server/`, workspace artefacts
 under `IDE/HexIDE.Lsp/`, archive preparation under `IDE/HexIDE.TwinBasic/`, the parity harness under `IDE/HexIDE.Dap.Parity/`, and the packer under
 `IDE/HexIDE.AddinPacker/`.
 
@@ -54,7 +56,7 @@ claim to sandbox those processes.
 The branch delivers the audit, conversation/picture exports, Make-archive and directory-save consent and unique staging.
 The rows above identify the remaining
 HexIDE-only fixes, especially generic MCP UI-triggered writes,
-carried-file save recovery and packer package output. Key/trust/revocation outputs now refuse replacement. Parity-harness output now refuses replacement. No VB6 replacement behavior was invented.
+packer package output. Profile stores and project sidecars now retain recovery versions. Key/trust/revocation outputs now refuse replacement. Parity-harness output now refuses replacement. No VB6 replacement behavior was invented.
 Do not close #2504 or the beta safety gate on this slice.
 
 ## Direct MCP member writes (next slice)
@@ -69,3 +71,21 @@ folder does not grant permission. Recovery files remain beside the original and 
 pruned. This is a preflight guard: concurrent filesystem changes and overlapping scripted picker calls
 between checking and saving remain unaudited (source review, not a concurrency probe).
 No VB6 prompt or overwrite behavior was inferred or changed.
+
+## Carried files and profile recovery
+
+Carried-document Save, settings Save, layout persistence/reset, named-layout edits, recent-project
+add/remove/clear/startup preference, project sidecars, add-in consent/state, chat history, document
+sessions, keymap overrides/export, and translation edits/clear/reset retain the previous file as
+`<original-name>.<unique-id>.recovery` beside the original. Recovery files are created exclusively,
+flushed before replacement, and never automatically pruned. Reset moves the original to a unique
+recovery sibling without replacing an existing file. To restore, close the IDE, choose the recovery
+version wanted, and copy it back to the original name. Translation loaders only enumerate `*.json`,
+so recovery siblings are not loaded as languages. No prompt wording or VB6 behavior was inferred.
+
+The synchronous writers do not provide a transaction against another process changing the file
+between recovery and replacement. A failed recovery copy refuses the write; a failed staged write
+keeps the original and any completed recovery. Retaining versions can consume disk space; cleanup is
+manual so earlier user bytes are not silently removed. The explicitly deferred packer output deletion
+remains for a later run. Revocation caches and application logs keep their existing refresh/retention
+policy; neither is a user-edit command.

@@ -118,6 +118,24 @@ public sealed class UserSidecarSaveTests : IDisposable
     // ── A. A save rewrites the sidecar; it does not rebuild it ───────────────────────────────────────────
 
     [Fact]
+    public async Task SavingRetainsPreviousSidecarBytesForRecovery()
+    {
+        var project = Project();
+        var bookmarks = new BookmarkService();
+        var sidecar = Service(bookmarks);
+        await sidecar.LoadAsync(project);
+        bookmarks.SetBookmarks(Form1(project), [1]);
+        await sidecar.SaveAsync(project);
+        var path = SidecarOf(project);
+        var original = File.ReadAllBytes(path);
+        bookmarks.SetBookmarks(Form1(project), [2]);
+        await sidecar.SaveAsync(project);
+        var recovery = Directory.GetFiles(Path.GetDirectoryName(path)!, "*.recovery").Should().ContainSingle().Subject;
+        File.ReadAllBytes(recovery).Should().Equal(original);
+        Lines(Read(path), "codeBookmarks", "Form1").Should().Equal(2);
+    }
+
+    [Fact]
     public async Task WhatF5RunsForAProject_IsSavedWithItsMarks_AndReadBackWhenItOpens()
     {
         var project = Project();
