@@ -110,8 +110,8 @@ public class LanguageServerProblemLocalizationTests
     }
 
     [AvaloniaTheory]
-    [InlineData("en", "'bad'", "'stdio', 'pipe', 'websocket'")]
-    [InlineData("bg", "„bad“", "„stdio“, „pipe“, „websocket“")]
+    [InlineData("en", "'bad'", "'stdio', 'pipe', 'websocket', 'tcp'")]
+    [InlineData("bg", "„bad“", "„stdio“, „pipe“, „websocket“, „tcp“")]
     public async Task UnknownTransportOptionsUseTheTemplatesQuoteMarks(string language, string value, string options)
     {
         await CheckProblem("""{"servers":[{"id":"s","transport":"bad"}]}""",

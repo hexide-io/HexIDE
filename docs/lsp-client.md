@@ -935,8 +935,16 @@ sets. See [the measurements](foreign-language-servers.md#normal-teardown-and-doc
 
 ### Transports
 
-`stdio`, `pipe` (named pipe, connecting or listening) and `websocket` (connecting by default, or listening with `websocketRole: "listen"`) are all supported. Only `stdio` is
-exercised against a real foreign server; the other two are covered against fakes.
+`stdio`, `pipe` (named pipe, connecting or listening), `websocket` (connecting by default, or listening with `websocketRole: "listen"`) and `tcp` (connect or listen via `tcpRole`) are all supported. Only `stdio` is
+exercised against a real foreign server; the other transports are covered against test peers.
+
+TCP uses `tcp://host:port` endpoints and Content-Length framing in both directions (#386).
+Listen uses `localhost` (IPv4 loopback) unless an explicit IP address is named. A non-loopback
+bind exposes the unauthenticated connection to that network. Optional launches share the pipe
+process-lifetime rules and workspace placeholders, adding `{host}` and the actual `{port}`.
+`TcpLspTransportTests` reads initialize wire frames over real loopback sockets in both roles,
+and exercises a launched server dialing a port allocated by the OS. See
+[configuration](language-servers.md#tcp-language-servers).
 
 On Linux and macOS, an absolute `pipeName` connects verbatim to a Unix domain socket path, including a
 raw socket peer; a bare name becomes `/tmp/CoreFxPipe_<name>`. Windows uses Windows named pipes.
@@ -974,7 +982,7 @@ server's exit code. The helper runs with its own dependencies and runtime config
 Clean shutdown continues to terminate launched servers. See
 [configuration](language-servers.md#placeholders-in-arguments).
 
-The three do not carry the same framing, and the difference is load-bearing rather than incidental: the two
+The transports do not carry the same framing, and the difference is load-bearing rather than incidental: the three
 byte-stream transports delimit messages with a `Content-Length` header, while a WebSocket carries message
 boundaries itself and must therefore send **one JSON-RPC message per Text frame with no header at all**.
 Both directions of that are asserted against a real socket in `WebSocketWireShapeTests`, including a proof
