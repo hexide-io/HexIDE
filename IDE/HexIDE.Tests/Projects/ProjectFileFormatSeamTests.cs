@@ -3,6 +3,7 @@ using System.Text.RegularExpressions;
 using Avalonia.Headless.XUnit;
 using HexIDE.Bookmarks;
 using HexIDE.Debugging;
+using HexIDE.Desktop.Server;
 using HexIDE.Events;
 using HexIDE.Forms.ViewModels;
 using HexIDE.Localization;
@@ -351,6 +352,22 @@ public class ProjectFileFormatSeamTests : IDisposable
 
         text.Should().Be("project Test: one");
         workspace.Dispose();
+    }
+
+    [Fact]
+    public void A_tools_write_protects_the_companion_the_format_names()
+    {
+        var project = TestHelpers.CreateProjectWithForm("Project1");
+        project.AbsolutePath = _vbp;
+        var form = project.Forms[0];
+        form.AbsolutePath = _frm;
+        var companion = Path.ChangeExtension(_frm, ".standin");
+        File.WriteAllBytes(companion, [1, 2, 3]);
+
+        ProjectWriteSafety.Prepare(DocumentIdentity.For(form), _format, out var note).Should().BeNull();
+
+        note.Should().Contain(companion);
+        Directory.GetFiles(_dir, "Form1.standin.hexide-recovery-*").Should().ContainSingle();
     }
 
     [Fact]

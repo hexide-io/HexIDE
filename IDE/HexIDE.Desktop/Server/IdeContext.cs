@@ -38,6 +38,9 @@ internal sealed class IdeContext : IDisposable
     /// <summary>The session's pseudonym mapping, so every export names a path the same way.</summary>
     public HexIDE.Redaction.Pseudonymiser Pseudonyms { get; }
 
+    /// <summary>The project file format, for a tool that has to know a document's companion file.</summary>
+    public IProjectFileFormat ProjectFileFormat { get; }
+
     public IdeContext(
         IProjectManager projectManager,
         IDocumentDockService documentDockService,
@@ -57,7 +60,8 @@ internal sealed class IdeContext : IDisposable
         HexIDE.Conversations.ConversationLog capture,
         HexIDE.Redaction.Pseudonymiser pseudonyms,
         HexIDE.Localization.ILocalizationService localization,
-        ISettingsService settings)
+        ISettingsService settings,
+        IProjectFileFormat? projectFileFormat = null)
     {
         ProjectManager = projectManager;
         DocumentDockService = documentDockService;
@@ -79,6 +83,7 @@ internal sealed class IdeContext : IDisposable
         Pseudonyms = pseudonyms;
         Localization = localization;
         Settings = settings;
+        ProjectFileFormat = projectFileFormat ?? new Vb6ProjectFileFormat();
     }
 
     public void Dispose() => Diagnostics.Dispose();
