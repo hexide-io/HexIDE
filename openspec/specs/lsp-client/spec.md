@@ -839,7 +839,10 @@ tries to replace it.
 
 ### Requirement: Configuration SHALL layer over compiled-in defaults
 Default entries SHALL be contributed in code and user configuration SHALL be merged over them by identifier.
-Removing the user configuration SHALL restore the defaults.
+Removing the user configuration SHALL restore the defaults. A complete user entry with a default's identifier
+SHALL replace it wholesale, inheriting no fields. Only
+a user entry omitting required fields SHALL inherit fields it does not write and replace fields it writes,
+including whole objects and arrays. An explicit JSON null SHALL clear the inherited field. Layering SHALL NOT mutate the contributed default or rewrite the file (#1209).
 
 Layering rather than replacement is what makes the previous requirement safe. The bundled server can be a
 row a user may break precisely because the row itself is not stored in the file they edit: an improvement to
@@ -847,6 +850,14 @@ a default reaches an existing user, and a user who renders their own configurati
 deleting a file rather than by reinstalling.
 
 A default entry whose server cannot be located SHALL be omitted rather than contributed in a broken state.
+
+#### Scenario: A complete entry replaces the bundled server
+- **WHEN** a user entry names the bundled server and supplies all required fields
+- **THEN** no optional fields are inherited, including the bundled priority
+
+#### Scenario: A user adjusts the bundled server
+- **WHEN** a user entry names the bundled server and writes only `trace` and `priority`
+- **THEN** those fields change and the resolved command and claimed extensions remain inherited
 
 #### Scenario: A user has no configuration
 - **WHEN** no user configuration is present
