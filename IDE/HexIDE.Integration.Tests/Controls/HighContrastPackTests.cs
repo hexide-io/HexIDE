@@ -168,6 +168,11 @@ public sealed class HighContrastPackTests
             Avalonia.Threading.Dispatcher.UIThread.RunJobs();
             box.GetVisualDescendants().OfType<TextBlock>().Should()
                 .Contain(text => text.IsEffectivelyVisible && text.Text == "New translation");
+            // Pressing OK without choosing a theme leaves the setting alone, so the IDE keeps following the system (#3300).
+            vm.SaveToSettings();
+            settings.DidNotReceive().ActiveTheme = Arg.Any<string>();
+            vm.SelectedTheme = "Classic";
+            vm.SelectedTheme = id;
             vm.SaveToSettings();
             settings.Received().ActiveTheme = id;
         }
