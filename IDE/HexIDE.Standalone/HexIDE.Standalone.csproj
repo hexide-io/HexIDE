@@ -39,9 +39,11 @@
     </PropertyGroup>
 
     <ItemGroup>
+        <Compile Include="../HexIDE.Desktop/DisplayBackend.cs" Link="DisplayBackend.cs" />
         <PackageReference Include="Avalonia" />
         <PackageReference Include="Avalonia.Themes.Simple" />
         <PackageReference Include="Avalonia.Desktop" />
+        <PackageReference Include="Avalonia.Wayland" />
         <PackageReference Include="Classic.Avalonia.Theme" />
         <PackageReference Include="PropertyChanged.SourceGenerator" PrivateAssets="all" IncludeAssets="runtime; build; native; contentfiles; analyzers; buildtransitive" />
     </ItemGroup>

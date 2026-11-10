@@ -4,6 +4,7 @@ using System.IO;
 using System.IO.Compression;
 using System.Linq;
 using Avalonia;
+using HexIDE.Startup;
 using Avalonia.Media.Fonts;
 using HexIDE.IDE;
 using HexIDE.Runtime.ProjectElements;
@@ -41,6 +42,12 @@ public class Program
         // The made program's VB code runs on the UI thread, so it gets the IDE's stack rather than the
         // launcher's, which is 1.5 MiB on Windows (#3228).
         HexIDE.Runtime.UiThread.Run(() => BuildAvaloniaApp().StartWithClassicDesktopLifetime(args));
+    }
+
+    private sealed class ConsoleLogSink : Serilog.Core.ILogEventSink
+    {
+        public void Emit(Serilog.Events.LogEvent logEvent) =>
+            Console.Error.WriteLine(logEvent.RenderMessage(System.Globalization.CultureInfo.InvariantCulture));
     }
 
     private static int RunCheck(string projectPath)
@@ -224,7 +231,8 @@ public class Program
     // Avalonia configuration, don't remove; also used by visual designer.
     public static AppBuilder BuildAvaloniaApp()
         => AppBuilder.Configure<App>()
-            .UsePlatformDetect()
+            .UseDisplayBackend(logger: new Serilog.LoggerConfiguration()
+                .WriteTo.Sink(new ConsoleLogSink()).CreateLogger())
             .UseMessageBoxSounds()
             .LogToTrace();
             // No bundled font: the non-redistributable MS Sans Serif was removed. VB6 form text falls

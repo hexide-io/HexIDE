@@ -2,6 +2,7 @@
   "name": "Chinese (Simplified)",
   "direction": "ltr",
   "strings": {
+    "Str.Startup.PlatformSummary": "仅限 Linux。显示后端：x11（默认）、auto 或 wayland。",
     "Str.Shell.NotImplemented": "此功能尚未实现",
     "Str.AIChat.Stop": "停止",
     "Str.Tool.LanguageServers.Problem.JsonSyntaxEscape": "配置文件“{0}”在第 {1} 行、第 {2} 列包含无效的 JSON。路径：{3} 请使用正斜杠 (C:/tools/new/...) 或双反斜杠 (C:\\\\tools\\\\new\\\\...)。",

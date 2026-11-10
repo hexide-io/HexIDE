@@ -2,6 +2,7 @@
   "name": "Slovak",
   "direction": "ltr",
   "strings": {
+    "Str.Startup.PlatformSummary": "Iba Linux. Grafický backend: x11 (predvolený), auto alebo wayland.",
     "Str.Shell.NotImplemented": "Táto funkcia zatiaľ nie je implementovaná",
     "Str.AIChat.Stop": "Zastaviť",
     "Str.Tool.LanguageServers.Problem.JsonSyntaxEscape": "Konfiguračný súbor „{0}“ obsahuje neplatný JSON na riadku {1}, v stĺpci {2}. Cesta: {3} Použite lomky (C:/tools/new/...) alebo dvojité spätné lomky (C:\\\\tools\\\\new\\\\...).",

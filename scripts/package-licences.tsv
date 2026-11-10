@@ -24,6 +24,7 @@ Avalonia.Headless	MIT
 Avalonia.Headless.XUnit	MIT
 Avalonia.Skia	MIT
 Avalonia.Themes.Simple	MIT
+Avalonia.Wayland	MIT
 AwesomeAssertions	Apache-2.0
 Classic.Avalonia.Theme	MIT
 CommunityToolkit.Mvvm	MIT
