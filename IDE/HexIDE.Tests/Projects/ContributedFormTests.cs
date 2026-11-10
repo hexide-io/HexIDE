@@ -142,6 +142,25 @@ public sealed class ContributedFormTests : IDisposable
         await ToldOf("Not saved:");
     }
 
+    // As for the test below, VB6's writer throws on the stand-in's root, so this passing says the save never rendered the form.
+    [AvaloniaFact]
+    public async Task Saving_the_project_writes_its_edited_modules_and_refuses_its_forms()
+    {
+        var bas = Path.Join(_dir, "Code.bas");
+        File.WriteAllText(bas, "Attribute VB_Name = \"Code\"\r\nSub Main()\r\nEnd Sub\r\n");
+        using var type = Contribute(_forms, new AddinProjectMember(FormFile, AddinMemberKind.Form), new AddinProjectMember(bas, AddinMemberKind.StandardModule));
+        var project = await Opened();
+        var before = File.ReadAllBytes(FormFile);
+        project.Modules.Single().UpdateCode("Sub Main()\r\n    Debug.Print 1\r\nEnd Sub\r\n");
+
+        await _service.SaveAllProjects(saveAs: false);
+
+        File.ReadAllText(bas).Should().Contain("Debug.Print 1");
+        File.ReadAllBytes(FormFile).Should().Equal(before);
+        File.ReadAllText(ProjectFile).Should().Be("a project");
+        await ToldOf("Not saved:");
+    }
+
     // The stand-in's root isn't VB6's Form class, so VB6's writer throws on it, and this passing says nothing rendered it.
     [AvaloniaFact]
     public async Task A_form_an_add_in_read_is_never_rendered_so_it_never_counts_as_edited()
