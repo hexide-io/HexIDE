@@ -14,6 +14,7 @@ using HexIDE.Bookmarks;
 using HexIDE.Controls;
 using HexIDE.Events;
 using HexIDE.IDE;
+using HexIDE.Language;
 using HexIDE.Localization;
 using HexIDE.Lsp;
 using HexIDE.Lsp.Messages;
@@ -216,6 +217,9 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     /// <summary>What says where this module's parentheses are, or null where nothing does, and then none is coloured.</summary>
     public HexIDE.Language.IBracketReader? Brackets { get; }
 
+    /// <summary>Says where this window's read-only regions are. With none, nothing here is read-only.</summary>
+    private readonly IReadOnlyRegionReader? regionReader;
+
     public CodeEditorViewModel(IWindowManager windowManager,
         IEditorService editorService,
         IProjectService projectService,
@@ -232,10 +236,12 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
         HexIDE.Tools.CallStackToolViewModel? callStack = null,
         HexIDE.Tools.RecentEditHistory? recentEditHistory = null,
         HexIDE.Language.IConditionalCodeReader? conditionalCode = null,
-        HexIDE.Language.IBracketReader? brackets = null)
+        HexIDE.Language.IBracketReader? brackets = null,
+        IReadOnlyRegionReader? regionReader = null)
     {
         ConditionalCode = conditionalCode;
         Brackets = brackets;
+        this.regionReader = regionReader;
         this.recentEditHistory = recentEditHistory;
         CanFloat = false;
         this.windowManager = windowManager;
@@ -352,6 +358,11 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
         AutoDispose(this.eventBus.Subscribe<ModuleMovedEvent>(e =>
         {
             if (moduleDefinition is not null && ReferenceEquals(e.Module, moduleDefinition)) ReconcileWireName();
+        }));
+
+        AutoDispose(this.eventBus.Subscribe<FormMovedEvent>(e =>
+        {
+            if (formDefinition is not null && ReferenceEquals(e.Form, formDefinition)) ReconcileWireName();
         }));
 
         AutoDispose(this.eventBus.Subscribe<ModuleUnloadedEvent>(e =>
@@ -745,7 +756,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     /// </remarks>
     private bool RefuseMarkOn(int line)
     {
-        if (!CodeWindowText.IsReadOnlyLine(line))
+        if (!ReadOnlyRegions.IsReadOnlyLine(Document.Text, ReadOnlyRegionsNow, line))
             return false;
         statusBarService.SetTemporaryMessage(
             string.Format(localization.GetString("Str.CodeEditor.Msg.NoMarkOnReadOnlyLine"), line),
@@ -1394,7 +1405,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
         if (RefuseWholeFileWrite()) return new Reduction([], 0);
         var before = Document.Text;
         var reduction = LineEdits.ReduceFormatting(before, Rewrite(before, edits),
-            ReadOnlyRegions.Of(before, bufferPrefix.Length), MemberRunsNow);
+            RegionsOf(before, bufferPrefix.Length), MemberRunsNow);
 
         if (reduction.Changes.Count > 0)
         {
@@ -1448,8 +1459,10 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
             var start = OffsetOf(edit.Range.Start);
             resolved.Add(new TextChange(start, Math.Max(OffsetOf(edit.Range.End) - start, 0), edit.NewText));
         }
-        resolved.Sort((a, b) => b.Offset.CompareTo(a.Offset));
-        return resolved;
+        return resolved.Select((change, index) => (change, index))
+            .OrderByDescending(item => item.change.Offset)
+            .ThenByDescending(item => item.index)
+            .Select(item => item.change).ToList();
     }
 
     /// <summary>Applies changes that are already last first, as one undo step.</summary>
@@ -1487,13 +1500,16 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
             if (regionsCache is null || !ReferenceEquals(regionsCacheVersion, version)
                 || regionsCachePrefixLength != bufferPrefix.Length)
             {
-                regionsCache = ReadOnlyRegions.Of(Document.Text, bufferPrefix.Length);
+                regionsCache = RegionsOf(Document.Text, bufferPrefix.Length);
                 regionsCacheVersion = version;
                 regionsCachePrefixLength = bufferPrefix.Length;
             }
             return regionsCache;
         }
     }
+
+    private IReadOnlyList<TextRegion> RegionsOf(string text, int prefixLength) =>
+        regionReader?.Regions(text, prefixLength) ?? [];
 
     private IReadOnlyList<TextRegion>? regionsCache;
     private ITextSourceVersion? regionsCacheVersion;
@@ -1813,7 +1829,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
             var resolved = Resolve(document, target.Edits);
             for (var j = 1; j < resolved.Count; j++)
                 if (resolved[j].Offset + resolved[j].Length > resolved[j - 1].Offset) return Refuse(target.Uri);
-            if (codeAction ? resolved.Any(c => ReadOnlyRegions.Changes(ReadOnlyRegions.Of(document.Text, prefix.Length), c.Offset, c.Length))
+            if (codeAction ? resolved.Any(c => ReadOnlyRegions.Changes(RegionsOf(document.Text, prefix.Length), c.Offset, c.Length))
                 : RefusedRenameEdit(document.Text, prefix.Length, resolved) is not null)
                 return Refuse(target.Uri);
             prepared.Add((target.Uri, identity, resolved));
@@ -2393,6 +2409,89 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
 
     public Task<SelectionRange[]> RequestSelectionRangesAsync(Position[] positions) =>
         LiveDocumentUri is { } uri ? lspClient.RequestSelectionRangesAsync(uri, positions) : Task.FromResult<SelectionRange[]>([]);
+
+    internal bool SupportsOnTypeFormatting(string trigger) => !IsReadOnly && LiveDocumentUri is { } uri
+        && lspClient.SupportsOnTypeFormatting(uri, trigger);
+
+    internal async Task<TextEdit[]> RequestOnTypeFormattingAsync(Position position, string trigger)
+    {
+        var version = Document.Version;
+        var originalUri = LiveDocumentUri;
+        await FlushDocumentAsync();
+        return ReferenceEquals(version, Document.Version) && LiveDocumentUri == originalUri && LiveDocumentUri is { } uri
+            ? await lspClient.RequestOnTypeFormattingAsync(uri, position, trigger, new FormattingOptions(Settings.TabWidth, true))
+            : [];
+    }
+
+    internal int ApplyOnTypeFormatting(IReadOnlyList<TextEdit> edits, int caret)
+    {
+        if (IsReadOnly) return caret;
+        var before = Document.Text;
+        var normalized = edits.Select(edit => new TextEdit(edit.Range,
+            DocumentNewLines.Normalize(edit.NewText, before))).ToArray();
+        var changes = Resolve(normalized);
+        var proposed = Rewrite(before, normalized);
+        var reduction = ApplyFormatting(normalized);
+        if (Document.Text != proposed)
+        {
+            // Protected lines or declaration runs changed the answer. Map only through what was actually kept,
+            // trimming unchanged line text so an indentation edit does not move the caret past the whole line.
+            changes = [];
+            foreach (var change in reduction.Changes)
+            {
+                var old = before.AsSpan(change.Offset, change.Length);
+                var replacement = change.Text.AsSpan();
+                var prefix = 0;
+                while (prefix < old.Length && prefix < replacement.Length && old[prefix] == replacement[prefix])
+                    prefix++;
+                var suffix = 0;
+                while (suffix < old.Length - prefix && suffix < replacement.Length - prefix
+                    && old[old.Length - suffix - 1] == replacement[replacement.Length - suffix - 1])
+                    suffix++;
+                changes.Add(new TextChange(change.Offset + prefix, change.Length - prefix - suffix,
+                    change.Text.Substring(prefix, change.Text.Length - prefix - suffix)));
+            }
+        }
+        var mapped = caret;
+        var stoppedAtLineBreak = false;
+        // Walk in server order at each offset, so a closer inserted after indentation cannot carry the caret.
+        foreach (var change in changes.AsEnumerable().Reverse().OrderBy(change => change.Offset))
+        {
+            if (change.Offset > caret || (stoppedAtLineBreak && change.Offset == caret))
+                continue;
+            if (change.Offset + change.Length < caret)
+            {
+                mapped += change.Text.Length - change.Length;
+                continue;
+            }
+
+            var lineBreaks = 0;
+            for (var i = change.Offset; i < caret; i++)
+            {
+                if (before[i] == '\r')
+                {
+                    lineBreaks++;
+                    if (i + 1 < caret && before[i + 1] == '\n') i++;
+                }
+                else if (before[i] == '\n') lineBreaks++;
+            }
+            var target = change.Text.Length;
+            for (var i = 0; i < change.Text.Length; i++)
+            {
+                if (change.Text[i] != '\r' && change.Text[i] != '\n') continue;
+                if (lineBreaks-- == 0)
+                {
+                    target = i;
+                    stoppedAtLineBreak = true;
+                    break;
+                }
+                if (change.Text[i] == '\r' && i + 1 < change.Text.Length && change.Text[i + 1] == '\n') i++;
+            }
+            mapped += target - (caret - change.Offset);
+        }
+        return Math.Clamp(mapped, 0, Document.TextLength);
+    }
+
     public bool CanFormatSelection => !IsReadOnly && SelectionLength > 0 && LiveDocumentUri is { } uri
         && lspClient.SupportsRangeFormatting(uri);
 

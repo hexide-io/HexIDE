@@ -24,13 +24,25 @@ text/background pairs SHALL have contrast of at least 7:1. Options SHALL display
 retaining stable pack IDs as setting values.
 
 These packs are part of [#3300](https://github.com/hexide-io/HexIDE/issues/3300). Automatic OS
-following, 2px focus/selection chrome and syntax-colour adaptation remain pending. Avalonia does not
+following and 2px focus/selection chrome remain pending. Avalonia does not
 report the Linux portal contrast preference yet; HexIDE adds no workaround.
 
 #### Scenario: Selecting a high-contrast pack
 - **WHEN** a user selects either high-contrast pack in Options
 - **THEN** its complete colour dictionary is applied using its declared Light or Dark variant
 - **AND** the saved setting remains the pack ID rather than its translated name
+
+### Requirement: High-contrast syntax defaults
+Under HighContrastLight and HighContrastDark, default named syntax foregrounds SHALL meet 7:1 against
+the pack's Window background, for VB6 editors, Formatting previews and adopted language definitions.
+Adaptation SHALL preserve hue and use opaque colours, adjusting lightness to reach the threshold.
+Leaving the pack SHALL restore the ordinary
+palette. Explicit per-theme editor colour overrides SHALL continue to take precedence.
+
+#### Scenario: Switching to a high-contrast pack with code open
+- **WHEN** either high-contrast pack is selected
+- **THEN** default syntax colours and Formatting previews meet 7:1 against the editor background
+- **AND** switching back to Classic restores the original light syntax colours
 
 ### Requirement: High-contrast chrome beyond the Classic palette
 Line-number text, input placeholders and selected Properties tab text SHALL also reach 7:1; scrollbar

@@ -1,0 +1,599 @@
+[
+  {
+    "id": "standard",
+    "automationId": "StandardToolbar",
+    "visibilityBinding": "Settings.IsStandardToolbarVisible",
+    "items": [
+      {
+        "kind": "Flyout",
+        "id": "standard.addproject",
+        "automationId": "Standard.AddProject",
+        "tooltipKey": "Str.Toolbar.Tip.AddProject",
+        "automationNameKey": "Str.Toolbar.Tip.AddProject",
+        "provider": "add-project-templates"
+      },
+      {
+        "kind": "Flyout",
+        "id": "standard.addform",
+        "automationId": "Standard.AddForm",
+        "tooltipKey": "Str.Toolbar.Tip.AddForm",
+        "automationNameKey": "Str.Toolbar.Tip.AddForm",
+        "children": [
+          {
+            "kind": "Command",
+            "id": "standard.addform.form",
+            "labelKey": "Str.AddItem.Form",
+            "command": "shell.AddFormCommand"
+          },
+          {
+            "kind": "Command",
+            "id": "standard.addform.mdi-form",
+            "labelKey": "Str.AddItem.MDIForm",
+            "command": "application.DisabledCommand"
+          },
+          {
+            "kind": "Command",
+            "id": "standard.addform.module",
+            "labelKey": "Str.AddItem.Module",
+            "command": "shell.AddModuleCommand"
+          },
+          {
+            "kind": "Command",
+            "id": "standard.addform.class-module",
+            "labelKey": "Str.AddItem.ClassModule",
+            "command": "shell.AddClassModuleCommand"
+          },
+          {
+            "kind": "Command",
+            "id": "standard.addform.user-control",
+            "labelKey": "Str.AddItem.UserControl",
+            "command": "shell.AddUserControlCommand"
+          },
+          {
+            "kind": "Command",
+            "id": "standard.addform.property-page",
+            "labelKey": "Str.AddItem.PropertyPage",
+            "command": "shell.AddPropertyPageCommand"
+          },
+          {
+            "kind": "Separator",
+            "id": "standard.addform.separator-1"
+          },
+          {
+            "kind": "Command",
+            "id": "standard.addform.add-file",
+            "labelKey": "Str.AddItem.AddFile",
+            "command": "shell.AddFileCommand"
+          }
+        ]
+      },
+      {
+        "kind": "Command",
+        "id": "standard.menueditor",
+        "automationId": "Standard.MenuEditor",
+        "tooltipKey": "Str.Toolbar.Tip.MenuEditor",
+        "automationNameKey": "Str.Toolbar.Tip.MenuEditor",
+        "command": "application.EditMenuCommand"
+      },
+      {
+        "kind": "Separator",
+        "id": "standard.separator-1"
+      },
+      {
+        "kind": "Command",
+        "id": "standard.openproject",
+        "automationId": "Standard.OpenProject",
+        "tooltipKey": "Str.Toolbar.Tip.OpenProject",
+        "automationNameKey": "Str.Toolbar.Tip.OpenProject",
+        "command": "application.OpenProjectCommand"
+      },
+      {
+        "kind": "Command",
+        "id": "standard.saveproject",
+        "automationId": "Standard.SaveProject",
+        "tooltipKey": "Str.Toolbar.Tip.SaveProject",
+        "automationNameKey": "Str.Toolbar.Tip.SaveProject",
+        "command": "application.SaveProjectCommand"
+      },
+      {
+        "kind": "Separator",
+        "id": "standard.separator-2"
+      },
+      {
+        "kind": "Command",
+        "id": "standard.cut",
+        "automationId": "Standard.Cut",
+        "tooltipKey": "Str.Toolbar.Tip.Cut",
+        "automationNameKey": "Str.Toolbar.Tip.Cut",
+        "command": "application.CutCommand"
+      },
+      {
+        "kind": "Command",
+        "id": "standard.copy",
+        "automationId": "Standard.Copy",
+        "tooltipKey": "Str.Toolbar.Tip.Copy",
+        "automationNameKey": "Str.Toolbar.Tip.Copy",
+        "command": "application.CopyCommand"
+      },
+      {
+        "kind": "Command",
+        "id": "standard.paste",
+        "automationId": "Standard.Paste",
+        "tooltipKey": "Str.Toolbar.Tip.Paste",
+        "automationNameKey": "Str.Toolbar.Tip.Paste",
+        "command": "application.PasteCommand"
+      },
+      {
+        "kind": "Command",
+        "id": "standard.find",
+        "automationId": "Standard.Find",
+        "tooltipKey": "Str.Toolbar.Tip.Find",
+        "automationNameKey": "Str.Toolbar.Tip.Find",
+        "command": "application.FindCommand"
+      },
+      {
+        "kind": "Separator",
+        "id": "standard.separator-3"
+      },
+      {
+        "kind": "Command",
+        "id": "standard.undo",
+        "automationId": "Standard.Undo",
+        "tooltipKey": "Str.Toolbar.Tip.Undo",
+        "automationNameKey": "Str.Toolbar.Tip.Undo",
+        "command": "application.UndoCommand"
+      },
+      {
+        "kind": "Command",
+        "id": "standard.redo",
+        "automationId": "Standard.Redo",
+        "tooltipKey": "Str.Toolbar.Tip.Redo",
+        "automationNameKey": "Str.Toolbar.Tip.Redo",
+        "command": "application.RedoCommand"
+      },
+      {
+        "kind": "Separator",
+        "id": "standard.separator-4"
+      },
+      {
+        "kind": "Command",
+        "id": "standard.start",
+        "automationId": "Standard.Start",
+        "tooltipKey": "Str.Toolbar.Tip.Start",
+        "automationNameKey": "Str.Toolbar.Tip.Start",
+        "command": "application.StartDefaultProjectCommand"
+      },
+      {
+        "kind": "Command",
+        "id": "standard.break",
+        "automationId": "Standard.Break",
+        "tooltipKey": "Str.Toolbar.Tip.Break",
+        "automationNameKey": "Str.Toolbar.Tip.Break",
+        "command": "shell.BreakProjectCommand"
+      },
+      {
+        "kind": "Command",
+        "id": "standard.end",
+        "automationId": "Standard.End",
+        "tooltipKey": "Str.Toolbar.Tip.End",
+        "automationNameKey": "Str.Toolbar.Tip.End",
+        "command": "shell.EndProjectCommand"
+      },
+      {
+        "kind": "Separator",
+        "id": "standard.separator-5"
+      },
+      {
+        "kind": "Command",
+        "id": "standard.projectexplorer",
+        "automationId": "Standard.ProjectExplorer",
+        "tooltipKey": "Str.Toolbar.Tip.ProjectExplorer",
+        "automationNameKey": "Str.Toolbar.Tip.ProjectExplorer",
+        "command": "application.OpenProjectExplorerCommand"
+      },
+      {
+        "kind": "Command",
+        "id": "standard.propertieswindow",
+        "automationId": "Standard.PropertiesWindow",
+        "tooltipKey": "Str.Toolbar.Tip.PropertiesWindow",
+        "automationNameKey": "Str.Toolbar.Tip.PropertiesWindow",
+        "command": "application.OpenPropertiesCommand"
+      },
+      {
+        "kind": "Command",
+        "id": "standard.formlayout",
+        "automationId": "Standard.FormLayout",
+        "tooltipKey": "Str.Toolbar.Tip.FormLayoutWindow",
+        "automationNameKey": "Str.Toolbar.Tip.FormLayoutWindow",
+        "command": "application.OpenFormLayoutCommand"
+      },
+      {
+        "kind": "Command",
+        "id": "standard.objectbrowser",
+        "automationId": "Standard.ObjectBrowser",
+        "tooltipKey": "Str.Toolbar.Tip.ObjectBrowser",
+        "automationNameKey": "Str.Toolbar.Tip.ObjectBrowser",
+        "command": "application.OpenObjectBrowserCommand"
+      },
+      {
+        "kind": "Command",
+        "id": "standard.toolbox",
+        "automationId": "Standard.Toolbox",
+        "tooltipKey": "Str.Toolbar.Tip.Toolbox",
+        "automationNameKey": "Str.Toolbar.Tip.Toolbox",
+        "command": "application.OpenToolBoxCommand"
+      },
+      {
+        "kind": "Command",
+        "id": "standard.dataview",
+        "automationId": "Standard.DataView",
+        "tooltipKey": "Str.Toolbar.Tip.DataViewWindow",
+        "automationNameKey": "Str.Toolbar.Tip.DataViewWindow",
+        "command": "application.OpenDataViewCommand"
+      },
+      {
+        "kind": "Separator",
+        "id": "standard.separator-6"
+      },
+      {
+        "kind": "Provider",
+        "id": "standard.selection-readout",
+        "provider": "selection-readout"
+      }
+    ]
+  },
+  {
+    "id": "edit",
+    "automationId": "EditToolbar",
+    "visibilityBinding": "Settings.IsEditToolbarVisible",
+    "items": [
+      {
+        "kind": "Command",
+        "id": "edit.listpropertiesmethods",
+        "automationId": "Edit.ListPropertiesMethods",
+        "tooltipKey": "Str.Toolbar.Tip.ListPropertiesMethods",
+        "automationNameKey": "Str.Toolbar.Tip.ListPropertiesMethods",
+        "command": "application.ListPropertiesMethodsCommand"
+      },
+      {
+        "kind": "Command",
+        "id": "edit.listconstants",
+        "automationId": "Edit.ListConstants",
+        "tooltipKey": "Str.Toolbar.Tip.ListConstants",
+        "automationNameKey": "Str.Toolbar.Tip.ListConstants",
+        "command": "application.ListConstantsCommand"
+      },
+      {
+        "kind": "Command",
+        "id": "edit.quickinfo",
+        "automationId": "Edit.QuickInfo",
+        "tooltipKey": "Str.Toolbar.Tip.QuickInfo",
+        "automationNameKey": "Str.Toolbar.Tip.QuickInfo",
+        "command": "application.QuickInfoCommand"
+      },
+      {
+        "kind": "Command",
+        "id": "edit.parameterinfo",
+        "automationId": "Edit.ParameterInfo",
+        "tooltipKey": "Str.Toolbar.Tip.ParameterInfo",
+        "automationNameKey": "Str.Toolbar.Tip.ParameterInfo",
+        "command": "application.ParameterInfoCommand"
+      },
+      {
+        "kind": "Command",
+        "id": "edit.completeword",
+        "automationId": "Edit.CompleteWord",
+        "tooltipKey": "Str.Toolbar.Tip.CompleteWord",
+        "automationNameKey": "Str.Toolbar.Tip.CompleteWord",
+        "command": "application.CompleteWordCommand"
+      },
+      {
+        "kind": "Separator",
+        "id": "edit.separator-1"
+      },
+      {
+        "kind": "Command",
+        "id": "edit.indent",
+        "automationId": "Edit.Indent",
+        "tooltipKey": "Str.Toolbar.Tip.Indent",
+        "automationNameKey": "Str.Toolbar.Tip.Indent",
+        "command": "application.IndentCommand"
+      },
+      {
+        "kind": "Command",
+        "id": "edit.outdent",
+        "automationId": "Edit.Outdent",
+        "tooltipKey": "Str.Toolbar.Tip.Outdent",
+        "automationNameKey": "Str.Toolbar.Tip.Outdent",
+        "command": "application.OutdentCommand"
+      },
+      {
+        "kind": "Separator",
+        "id": "edit.separator-2"
+      },
+      {
+        "kind": "Command",
+        "id": "edit.togglebreakpoint",
+        "automationId": "Edit.ToggleBreakpoint",
+        "tooltipKey": "Str.Toolbar.Tip.ToggleBreakpoint",
+        "automationNameKey": "Str.Toolbar.Tip.ToggleBreakpoint",
+        "command": "application.ToggleBreakpointCommand"
+      },
+      {
+        "kind": "Separator",
+        "id": "edit.separator-3"
+      },
+      {
+        "kind": "Command",
+        "id": "edit.togglebookmark",
+        "automationId": "Edit.ToggleBookmark",
+        "tooltipKey": "Str.Toolbar.Tip.ToggleBookmark",
+        "automationNameKey": "Str.Toolbar.Tip.ToggleBookmark",
+        "command": "application.ToggleBookmarkCommand"
+      },
+      {
+        "kind": "Command",
+        "id": "edit.nextbookmark",
+        "automationId": "Edit.NextBookmark",
+        "tooltipKey": "Str.Toolbar.Tip.NextBookmark",
+        "automationNameKey": "Str.Toolbar.Tip.NextBookmark",
+        "command": "application.NextBookmarkCommand"
+      },
+      {
+        "kind": "Command",
+        "id": "edit.previousbookmark",
+        "automationId": "Edit.PreviousBookmark",
+        "tooltipKey": "Str.Toolbar.Tip.PreviousBookmark",
+        "automationNameKey": "Str.Toolbar.Tip.PreviousBookmark",
+        "command": "application.PreviousBookmarkCommand"
+      },
+      {
+        "kind": "Command",
+        "id": "edit.clearallbookmarks",
+        "automationId": "Edit.ClearAllBookmarks",
+        "tooltipKey": "Str.Toolbar.Tip.ClearAllBookmarks",
+        "automationNameKey": "Str.Toolbar.Tip.ClearAllBookmarks",
+        "command": "application.ClearAllBookmarksCommand"
+      }
+    ]
+  },
+  {
+    "id": "debug",
+    "automationId": "DebugToolbar",
+    "visibilityBinding": "Settings.IsDebugToolbarVisible",
+    "items": [
+      {
+        "kind": "Command",
+        "id": "debug.start",
+        "automationId": "Debug.Start",
+        "tooltipKey": "Str.Toolbar.Tip.Start",
+        "automationNameKey": "Str.Toolbar.Tip.Start",
+        "command": "application.StartDefaultProjectCommand"
+      },
+      {
+        "kind": "Command",
+        "id": "debug.break",
+        "automationId": "Debug.Break",
+        "tooltipKey": "Str.Toolbar.Tip.Break",
+        "automationNameKey": "Str.Toolbar.Tip.Break",
+        "command": "shell.BreakProjectCommand"
+      },
+      {
+        "kind": "Command",
+        "id": "debug.end",
+        "automationId": "Debug.End",
+        "tooltipKey": "Str.Toolbar.Tip.End",
+        "automationNameKey": "Str.Toolbar.Tip.End",
+        "command": "shell.EndProjectCommand"
+      },
+      {
+        "kind": "Separator",
+        "id": "debug.separator-1"
+      },
+      {
+        "kind": "Command",
+        "id": "debug.togglebreakpoint",
+        "automationId": "Debug.ToggleBreakpoint",
+        "tooltipKey": "Str.Toolbar.Tip.ToggleBreakpoint",
+        "automationNameKey": "Str.Toolbar.Tip.ToggleBreakpoint",
+        "command": "application.ToggleBreakpointCommand"
+      },
+      {
+        "kind": "Separator",
+        "id": "debug.separator-2"
+      },
+      {
+        "kind": "Command",
+        "id": "debug.stepinto",
+        "automationId": "Debug.StepInto",
+        "tooltipKey": "Str.Toolbar.Tip.StepInto",
+        "automationNameKey": "Str.Toolbar.Tip.StepInto",
+        "command": "application.StepIntoCommand"
+      },
+      {
+        "kind": "Command",
+        "id": "debug.stepover",
+        "automationId": "Debug.StepOver",
+        "tooltipKey": "Str.Toolbar.Tip.StepOver",
+        "automationNameKey": "Str.Toolbar.Tip.StepOver",
+        "command": "application.StepOverCommand"
+      },
+      {
+        "kind": "Command",
+        "id": "debug.stepout",
+        "automationId": "Debug.StepOut",
+        "tooltipKey": "Str.Toolbar.Tip.StepOut",
+        "automationNameKey": "Str.Toolbar.Tip.StepOut",
+        "command": "application.StepOutCommand"
+      },
+      {
+        "kind": "Separator",
+        "id": "debug.separator-3"
+      },
+      {
+        "kind": "Command",
+        "id": "debug.localswindow",
+        "automationId": "Debug.LocalsWindow",
+        "tooltipKey": "Str.Toolbar.Tip.LocalsWindow",
+        "automationNameKey": "Str.Toolbar.Tip.LocalsWindow",
+        "command": "application.OpenLocalsCommand"
+      },
+      {
+        "kind": "Command",
+        "id": "debug.immediatewindow",
+        "automationId": "Debug.ImmediateWindow",
+        "tooltipKey": "Str.Toolbar.Tip.ImmediateWindow",
+        "automationNameKey": "Str.Toolbar.Tip.ImmediateWindow",
+        "command": "application.OpenImmediateCommand"
+      },
+      {
+        "kind": "Command",
+        "id": "debug.watchwindow",
+        "automationId": "Debug.WatchWindow",
+        "tooltipKey": "Str.Toolbar.Tip.WatchWindow",
+        "automationNameKey": "Str.Toolbar.Tip.WatchWindow",
+        "command": "application.OpenWatchesCommand"
+      },
+      {
+        "kind": "Separator",
+        "id": "debug.separator-4"
+      },
+      {
+        "kind": "Command",
+        "id": "debug.quickwatch",
+        "automationId": "Debug.QuickWatch",
+        "tooltipKey": "Str.Toolbar.Tip.QuickWatch",
+        "automationNameKey": "Str.Toolbar.Tip.QuickWatch",
+        "command": "application.QuickWatchCommand"
+      },
+      {
+        "kind": "Command",
+        "id": "debug.callstack",
+        "automationId": "Debug.CallStack",
+        "tooltipKey": "Str.Toolbar.Tip.CallStack",
+        "automationNameKey": "Str.Toolbar.Tip.CallStack",
+        "command": "application.OpenCallStackCommand"
+      }
+    ]
+  },
+  {
+    "id": "form-editor",
+    "automationId": "FormEditorToolbar",
+    "visibilityBinding": "Settings.IsFormEditorToolbarVisible",
+    "items": [
+      {
+        "kind": "Command",
+        "id": "form-editor.bringtofront",
+        "automationId": "FormEditor.BringToFront",
+        "tooltipKey": "Str.Toolbar.Tip.BringToFront",
+        "automationNameKey": "Str.Toolbar.Tip.BringToFront",
+        "command": "application.BringToFrontCommand"
+      },
+      {
+        "kind": "Command",
+        "id": "form-editor.sendtoback",
+        "automationId": "FormEditor.SendToBack",
+        "tooltipKey": "Str.Toolbar.Tip.SendToBack",
+        "automationNameKey": "Str.Toolbar.Tip.SendToBack",
+        "command": "application.SendToBackCommand"
+      },
+      {
+        "kind": "Separator",
+        "id": "form-editor.separator-1"
+      },
+      {
+        "kind": "Command",
+        "id": "form-editor.alignlefts",
+        "automationId": "FormEditor.AlignLefts",
+        "tooltipKey": "Str.Toolbar.Tip.AlignLefts",
+        "automationNameKey": "Str.Toolbar.Tip.AlignLefts",
+        "command": "application.AlignLeftsCommand"
+      },
+      {
+        "kind": "Command",
+        "id": "form-editor.aligncentersh",
+        "automationId": "FormEditor.AlignCentersH",
+        "tooltipKey": "Str.Toolbar.Tip.AlignCentersHorizontally",
+        "automationNameKey": "Str.Toolbar.Tip.AlignCentersHorizontally",
+        "command": "application.AlignCentersHCommand"
+      },
+      {
+        "kind": "Command",
+        "id": "form-editor.alignrights",
+        "automationId": "FormEditor.AlignRights",
+        "tooltipKey": "Str.Toolbar.Tip.AlignRights",
+        "automationNameKey": "Str.Toolbar.Tip.AlignRights",
+        "command": "application.AlignRightsCommand"
+      },
+      {
+        "kind": "Separator",
+        "id": "form-editor.separator-2"
+      },
+      {
+        "kind": "Command",
+        "id": "form-editor.aligntops",
+        "automationId": "FormEditor.AlignTops",
+        "tooltipKey": "Str.Toolbar.Tip.AlignTops",
+        "automationNameKey": "Str.Toolbar.Tip.AlignTops",
+        "command": "application.AlignTopsCommand"
+      },
+      {
+        "kind": "Command",
+        "id": "form-editor.aligncentersv",
+        "automationId": "FormEditor.AlignCentersV",
+        "tooltipKey": "Str.Toolbar.Tip.AlignCentersVertically",
+        "automationNameKey": "Str.Toolbar.Tip.AlignCentersVertically",
+        "command": "application.AlignCentersVCommand"
+      },
+      {
+        "kind": "Command",
+        "id": "form-editor.alignbottoms",
+        "automationId": "FormEditor.AlignBottoms",
+        "tooltipKey": "Str.Toolbar.Tip.AlignBottoms",
+        "automationNameKey": "Str.Toolbar.Tip.AlignBottoms",
+        "command": "application.AlignBottomsCommand"
+      },
+      {
+        "kind": "Separator",
+        "id": "form-editor.separator-3"
+      },
+      {
+        "kind": "Command",
+        "id": "form-editor.makesamewidth",
+        "automationId": "FormEditor.MakeSameWidth",
+        "tooltipKey": "Str.Toolbar.Tip.MakeSameWidth",
+        "automationNameKey": "Str.Toolbar.Tip.MakeSameWidth",
+        "command": "application.MakeSameWidthCommand"
+      },
+      {
+        "kind": "Command",
+        "id": "form-editor.makesameheight",
+        "automationId": "FormEditor.MakeSameHeight",
+        "tooltipKey": "Str.Toolbar.Tip.MakeSameHeight",
+        "automationNameKey": "Str.Toolbar.Tip.MakeSameHeight",
+        "command": "application.MakeSameHeightCommand"
+      },
+      {
+        "kind": "Command",
+        "id": "form-editor.makesamesize",
+        "automationId": "FormEditor.MakeSameSize",
+        "tooltipKey": "Str.Toolbar.Tip.MakeSameSize",
+        "automationNameKey": "Str.Toolbar.Tip.MakeSameSize",
+        "command": "application.MakeSameSizeCommand"
+      },
+      {
+        "kind": "Separator",
+        "id": "form-editor.separator-4"
+      },
+      {
+        "kind": "Toggle",
+        "id": "form-editor.lockcontrols",
+        "automationId": "FormEditor.LockControls",
+        "tooltipKey": "Str.Toolbar.Tip.LockControls",
+        "automationNameKey": "Str.Toolbar.Tip.LockControls",
+        "command": "application.LockControlsCommand",
+        "checkedBinding": "{CompiledBinding FocusedProjectUtil.FocusedForm?.LockControls, Mode=OneWay, TargetNullValue={x:False}}"
+      }
+    ]
+  }
+]

@@ -32,7 +32,7 @@ public partial class FindReplaceViewModelTests : IDisposable
     private readonly List<ProjectDefinition> _findLoaded = [];
 
     private FindProjectDocuments ProjectDocuments() => new(_documentDockService, _findProjects,
-        _findEditors, () => _selectedFindProject);
+        _findEditors, () => _selectedFindProject, new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionReader());
 
     private FindReplaceViewModel ProjectFind()
     {

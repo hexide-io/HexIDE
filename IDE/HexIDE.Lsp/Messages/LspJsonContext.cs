@@ -15,6 +15,7 @@ namespace HexIDE.Lsp;
 [JsonSerializable(typeof(RenameFilesParams))]
 [JsonSerializable(typeof(DidChangeWorkspaceFoldersParams))]
 [JsonSerializable(typeof(NavigationClientCapabilities))]
+[JsonSerializable(typeof(DidChangeWatchedFilesParams))]
 [JsonSerializable(typeof(InitializeParams))]
 [JsonSerializable(typeof(InitializeResult))]
 [JsonSerializable(typeof(ServerCapabilities))]

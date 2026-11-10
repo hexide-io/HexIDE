@@ -1,4 +1,9 @@
 using System.Linq;
+using System.IO;
+using System.Collections.Generic;
+using Avalonia.Media.Imaging;
+using HexIDE.IDE;
+using HexIDE.Themes;
 using Avalonia;
 using Avalonia.Headless.XUnit;
 using AvaloniaEdit;
@@ -29,6 +34,43 @@ public class MinimapControlTests
         minimap.Arrange(new Rect(0, 0, 110, minimapHeight));
 
         return (editor, minimap);
+    }
+
+    [AvaloniaFact]
+    public void PaletteChange_RebuildsCachedBitmapWithoutTextOrLayoutChanges()
+    {
+        var settings = Substitute.For<ISettingsService>();
+        var themes = Substitute.For<IThemeService>();
+        themes.ActiveTheme.Returns("Classic");
+        settings.EditorColorOverrides.Returns(new Dictionary<string, Dictionary<string, EditorTokenColors>>() { ["Classic"] = new() { ["Comment"] = new("#008000") } });
+        SyntaxHighlightingTheme.Configure(settings, themes);
+        var (editor, minimap) = Build(1, 400, 400);
+        editor.Text = "' A comment with enough text to see its colour";
+        minimap.Attach(editor, SyntaxHighlightingTheme.Definition);
+        try
+        {
+            byte[] Render()
+            {
+                using var bitmap = new RenderTargetBitmap(new PixelSize(110, 400));
+                bitmap.Render(minimap);
+                using var stream = new MemoryStream();
+                bitmap.Save(stream, PngBitmapEncoderOptions.Default);
+                return stream.ToArray();
+            }
+
+            var before = Render();
+            Render().Should().Equal(before, "an unchanged palette keeps the cached rendering");
+            settings.EditorColorOverrides.Returns(new Dictionary<string, Dictionary<string, EditorTokenColors>>() { ["Classic"] = new() { ["Comment"] = new("#FF8800") } });
+            settings.PropertyChanged += Raise.Event<PropertyChangedEventHandler>(settings,
+                new PropertyChangedEventArgs(nameof(ISettingsService.EditorColorOverrides)));
+
+            Render().Should().NotEqual(before, "a same-theme palette change must repaint the cached comment");
+        }
+        finally
+        {
+            minimap.Detach();
+            SyntaxHighlightingTheme.Configure(Substitute.For<ISettingsService>(), themes);
+        }
     }
 
     [AvaloniaFact]

@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text;
 using AvaloniaEdit.Document;
 using HexIDE.Forms.ViewModels;
+using HexIDE.Language;
 using HexIDE.Runtime.ProjectElements;
 using HexIDE.Runtime.Serialization;
 using HexIDE.VisualDesigner;
@@ -12,7 +13,7 @@ namespace HexIDE.IDE;
 
 /// <summary>Uses live buffers first; searching never flushes an editor or opens a non-matching file.</summary>
 internal sealed class FindProjectDocuments(IDocumentDockService dock, IProjectManager projects,
-    IEditorService editors, Func<ProjectDefinition?> selectedProject)
+    IEditorService editors, Func<ProjectDefinition?> selectedProject, IReadOnlyRegionReader? regionReader = null)
 {
     public ProjectDefinition? CurrentProject => dock.ActiveDocument switch
     {
@@ -36,13 +37,15 @@ internal sealed class FindProjectDocuments(IDocumentDockService dock, IProjectMa
             foreach (var module in project.Modules)
                 result.Add(Lookup(module) ?? new UnopenedDocument(FormCodeText.WholeFile(module),
                     FormCodeText.Prefix(module).Length, () => { editors.EditCode(module); return Lookup(module); },
-                    isReadOnly: () => module.FormPart is { CanSaveFaithfully: false }));
+                    isReadOnly: () => module.FormPart is { CanSaveFaithfully: false },
+                    regionReader: regionReader));
             foreach (var form in project.Forms)
             {
                 if (project.Modules.Any(module => module.FormPart == form)) continue;
                 result.Add(Lookup(form) ?? new UnopenedDocument(FormCodeText.WholeFile(form),
                     FormCodeText.Prefix(form).Length, () => { editors.EditCode(form); return Lookup(form); },
-                    isReadOnly: () => !form.CanSaveFaithfully));
+                    isReadOnly: () => !form.CanSaveFaithfully,
+                    regionReader: regionReader));
             }
             foreach (var related in project.RelatedDocuments)
             {
@@ -70,14 +73,14 @@ internal sealed class FindProjectDocuments(IDocumentDockService dock, IProjectMa
     }
 
     internal sealed class UnopenedDocument(string text, int prefixLength, Func<ISearchableDocument?> open,
-        bool isCode = true, Func<bool>? isReadOnly = null) : ISearchableDocument
+        bool isCode = true, Func<bool>? isReadOnly = null, IReadOnlyRegionReader? regionReader = null) : ISearchableDocument
     {
         public bool IsReadOnlyDocument => isReadOnly?.Invoke() == true;
         public TextDocument Document { get; } = new(text);
         public int CaretOffset { get; set; }
         public int SelectionStart { get; set; }
         public int SelectionLength { get; set; }
-        private readonly IReadOnlyList<TextRegion> regions = isCode ? ReadOnlyRegions.Of(text, prefixLength) : [];
+        private readonly IReadOnlyList<TextRegion> regions = isCode ? regionReader?.Regions(text, prefixLength) ?? [] : [];
         public ISearchableDocument? Open() => open();
         public bool IsReadOnlyRegion(int offset, int length) => SnapshotReadOnlyRegions()(offset, length);
         public Func<int, int, bool> SnapshotReadOnlyRegions()

@@ -210,6 +210,9 @@ public interface ILspClient : IAsyncDisposable
     /// </remarks>
     Task CloseDocumentForRenameAsync(string uri, CancellationToken cancellationToken = default);
 
+    /// <summary>Reports a completed disk write directly; type is LSP Created (1), Changed (2) or Deleted (3).</summary>
+    void NotifyWatchedFile(string path, int type) { }
+
     /// <summary>
     /// Tells the servers holding this document that it has been written to disk.
     ///

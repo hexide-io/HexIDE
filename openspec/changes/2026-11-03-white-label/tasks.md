@@ -8,7 +8,7 @@
 - [x] Supervisor accepts localization templates, read-only protected-credit editor rows and override diagnostics.
 - [x] Supervisor accepts platform repack coverage, metadata mapping, signing, updates and notice staging.
 - [x] Supervisor resolves project-local state sharing/namespacing and remaining inventory consumers.
-- [ ] First-adopter consultation confirms needs; any trust-model conflict returns to Jen.
+- [x] First-adopter consultation confirms needs; any trust-model conflict returns to Jen.
 - [ ] Supervisor reviews strict validation, design-record and changelog guards and tree hygiene results.
 
 ## Implementation

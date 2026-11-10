@@ -68,16 +68,17 @@ and the JSON path. Non-ASCII text before the fault counts as characters, rather 
 
 | Field | Required | Meaning |
 |---|---|---|
-| `id` | yes | Identifies the entry. Reusing a default's id **replaces** that default wholesale, keeping its position. |
+| `id` | yes | Identifies the entry. Reusing a default's id with a complete entry replaces that default wholesale, keeping its position and inheriting nothing. Only an entry that omits required fields adjusts the default: unwritten fields inherit; explicit `null` clears a field. Objects and arrays replace the whole field, rather than merging their contents (#1209). |
 | `extensions` | yes | The file extensions this server **serves**. This is what routing reads, and the only thing it reads. |
 | `languageId` | yes | What this server wants those files **called**, in the protocol sense. It routes nothing, except that `vb6` lets a `.cls` claim take the project's class modules; see below. |
-| `transport` | yes | `stdio`, `pipe` or `websocket`. A pipe entry without `command` owns only its connection; closing it leaves the server running. |
-| `command` | for `stdio` | The executable to launch. Optional on `pipe` — see *Starting the server yourself* below. |
+| `transport` | yes | `stdio`, `pipe`, `websocket` or `tcp`. A pipe entry without `command` owns only its connection; closing it leaves the server running. |
+| `command` | for `stdio` | The executable to launch. Optional on `pipe` or `tcp` — see *Starting the server yourself* below. |
 | `arguments` | no | Command-line string or array of strings. Part of the command's identity — see *A command you have not run before*. |
 | `environment` | no | Map of environment variable names to string values, layered over the inherited environment for a launched stdio or pipe server. |
 | `workingDirectory` | no | Empty means the server runs in whichever project is open, which is usually what you want. |
 | `pipeName` / `pipeRole` | for `pipe` | `pipeRole` is `connect` (default) or `listen`, ignoring case and surrounding whitespace. An unrecognised value produces a warning and falls back to `connect`. On Linux and macOS, an absolute `pipeName` is used verbatim as a Unix domain socket path; a bare name becomes `/tmp/CoreFxPipe_<name>`. |
-| `endpoint` | for `websocket` | e.g. `ws://localhost:1234/`. |
+| `endpoint` | for `websocket` or `tcp` | e.g. `ws://localhost:1234/` or `tcp://localhost:6005`. |
+| `tcpRole` | for `tcp` | `connect` (default) or `listen`; other values reject the entry. |
 | `websocketRole` | for `websocket` | `connect` (default) dials the server; `listen` waits for the server to dial HexIDE. |
 | `displayName` | no | Shown wherever servers are listed. Defaults to the id. |
 | `initializationOptions` | no | Server-specific JSON passed unchanged in the `initialize` request. Omitted or null means the field is absent from the handshake; an empty object is sent as `{}`. |
@@ -95,10 +96,10 @@ interactive SSH prompts are unavailable. Pipe placeholders also work within each
 
 ### Adding arguments to a server without replacing it
 
-Replacing an entry means writing its whole command, and the bundled VB6 server's command is something HexIDE
-finds when it starts: its path differs between a build from source and an installed copy. So to give that
-server, or any other, a few more arguments, name its id in the file's top-level `arguments` rather than in
-`servers`:
+The bundled VB6 server's command is something HexIDE finds when it starts: its path differs between a
+build from source and an installed copy. An incomplete user entry with the same id can adjust individual fields
+without copying that command. To append arguments instead of replacing the arguments field, name the id
+in the file's top-level `arguments`:
 
 ```jsonc
 {
@@ -203,6 +204,41 @@ only.
 **A value out of range is corrected, not refused, and you are told.** Type a payload budget of four
 gigabytes and you get the ceiling, with a line in the servers window naming the field and the value used.
 Nothing here can stop the IDE starting.
+
+## TCP language servers
+
+Use `"transport": "tcp"` with `"endpoint": "tcp://localhost:6005"` to connect to a running
+server. Set `"tcpRole": "listen"` to wait for a server to dial HexIDE instead. Use `localhost`
+for the default loopback listener (IPv4), or name an explicit IPv4 or IPv6 bind address. A listener
+requires `localhost` or an IP literal; connect also accepts DNS names. Port 0 on a listener asks the
+OS for a free port. Connect requires a nonzero port. Credentials, paths, queries and fragments are
+not accepted in a TCP endpoint.
+
+**Naming a non-loopback address exposes the language-server connection to that network.**
+For example, `tcp://0.0.0.0:6005` accepts connections on every IPv4 interface. TCP has no TLS
+or authentication here; only use such a bind deliberately on a trusted network. Even on loopback, any process on this machine can dial a listener first. HexIDE talks to whichever connects first, and accepts only that one.
+
+An optional `command` launches the server, as for pipes, with `arguments`, `workingDirectory`
+and `environment`. `{host}` and `{port}` in arguments receive the endpoint host and actual bound
+port; `{pid}`, `{workspaceUri}` and `{workspaceDir}` work as for pipes. HexIDE binds before
+launching in listen mode, so a child can dial immediately, including with port 0. In connect mode,
+a launched server is retried during the 30-second connection timeout while it starts listening.
+A failed connection names the endpoint. A server HexIDE launches has its stdout, stderr and exit
+reported and is stopped on teardown; an external server keeps running when HexIDE disconnects.
+Externally owned connections can reconnect; launched servers are one-shot.
+
+```json
+{
+  "id": "example.tcp",
+  "extensions": [".example"],
+  "languageId": "example",
+  "transport": "tcp",
+  "tcpRole": "listen",
+  "endpoint": "tcp://localhost:0",
+  "command": "example-language-server",
+  "arguments": ["--connect", "{host}:{port}"]
+}
+```
 
 ## Letting HexIDE start a pipe server
 
@@ -453,8 +489,9 @@ writing into the workspace at that same moment could swap a parent folder for a 
 check and the write, and the write would follow it. Nothing in .NET closes that gap; it needs
 something already able to change the project's files.
 
-Forms, modules, carried files and reference changes trigger debounced regeneration. This phase sends
-no `workspace/didChangeWatchedFiles` (#456); clangd watches its own compilation database. No file is
+Forms, modules, carried files and reference changes trigger debounced regeneration. Completed writes
+and removals notify connections with matching `workspace/didChangeWatchedFiles` registrations (#456);
+clangd watches its own compilation database. No file is
 generated without a declaration, and core contains no backend schema.
 
 ### Project-import declarations

@@ -134,7 +134,7 @@ public class MemberRunFollowsItsLineTests : IDisposable
             Substitute.For<ISettingsService>(), Substitute.For<IStatusBarService>(),
             Substitute.For<IBookmarkService>(), Substitute.For<HexIDE.Debugging.IBreakpointService>(),
             Substitute.For<HexIDE.Runtime.Debugging.IDebugController>(),
-            Substitute.For<HexIDE.Debugging.IRunScope>(), new LocalizationService());
+            Substitute.For<HexIDE.Debugging.IRunScope>(), new LocalizationService(), regionReader: new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionReader());
         made.Add(vm);
         var module = TestHelpers.CreateModule(name: "Module1", kind: ModuleKind.StandardModule);
         module.UpdateCode(code);

@@ -38,10 +38,10 @@ public sealed class LanguageServerConfigFile
     /// Arguments added to an entry's own, by entry id, without replacing the entry (#262).
     /// </summary>
     /// <remarks>
-    /// <b>A channel of its own rather than a merge or a placeholder.</b> A user entry that shares a default's id
-    /// replaces it wholesale, and the bundled server's command is found at run time, so before this there was no way to
-    /// pass that server one more argument. A field-level merge would make an entry behave differently depending on
-    /// whether its id happened to be a default's. A placeholder for the found command would bring a template language
+    /// <b>A channel of its own rather than a merge or a placeholder.</b> A complete user entry that shares a default's id
+    /// replaces it wholesale, and the bundled server's command is found at run time, so this channel lets the user
+    /// pass that server one more argument. An incomplete entry can adjust default fields, including replacing
+    /// arguments; this channel appends arguments instead. A placeholder for the found command would bring a template language
     /// into a file that has none. This adjusts arguments and nothing else, and it is written apart from the servers,
     /// so the effective entry can still be read off the file.
     /// </remarks>
@@ -166,7 +166,7 @@ public sealed class CaptureLimitsEntry
 /// </summary>
 public sealed class LanguageServerEntry
 {
-    /// <summary>Stable identity. A user entry carrying a default's id replaces that default.</summary>
+    /// <summary>Stable identity. A complete user entry replaces the default; an incomplete one adjusts written fields.</summary>
     [JsonPropertyName("id")]
     public string? Id { get; set; }
 
@@ -188,7 +188,7 @@ public sealed class LanguageServerEntry
     [JsonPropertyName("languageId")]
     public string? LanguageId { get; set; }
 
-    /// <summary><c>stdio</c>, <c>pipe</c> or <c>websocket</c>.</summary>
+    /// <summary><c>stdio</c>, <c>pipe</c>, <c>websocket</c> or <c>tcp</c>.</summary>
     [JsonPropertyName("transport")]
     public string? Transport { get; set; }
 
@@ -212,6 +212,10 @@ public sealed class LanguageServerEntry
     /// <summary><c>connect</c> (default) or <c>listen</c>.</summary>
     [JsonPropertyName("websocketRole")]
     public string? WebSocketRole { get; set; }
+
+    /// <summary><c>connect</c> (default) or <c>listen</c> for a TCP endpoint.</summary>
+    [JsonPropertyName("tcpRole")]
+    public string? TcpRole { get; set; }
 
     // ── pipe ──────────────────────────────────────────────────────────────────────────────────────────
     [JsonPropertyName("pipeName")]

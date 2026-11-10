@@ -86,6 +86,69 @@ public sealed class LinuxRepackerTests : IDisposable
         return data.ToArray();
     }
 
+    [LinuxOnlyFact]
+    public void Included_missing_folder_is_refused()
+    {
+        WriteStock();
+        WriteBrand();
+        var include = Path.Combine(_root, "missing");
+        var run = () => Repacker.Run(new LinuxTarget(), Input, BrandFile, Output, include);
+        run.Should().Throw<RepackException>().Which.Message.Should().Contain(include);
+        Directory.Exists(Output).Should().BeFalse();
+    }
+
+    [LinuxOnlyFact]
+    public void Included_folder_below_a_link_is_allowed()
+    {
+        WriteStock();
+        WriteBrand();
+        var parent = Path.Combine(_root, "parent");
+        var include = Path.Combine(parent, "include");
+        Directory.CreateDirectory(include);
+        File.WriteAllText(Path.Combine(include, "extra.txt"), "adopter");
+        var link = Path.Combine(_root, "parent-link");
+        Directory.CreateSymbolicLink(link, parent);
+        Repacker.Run(new LinuxTarget(), Input, BrandFile, Output, Path.Combine(link, "include"));
+        File.ReadAllText(Path.Combine(Output, "app", "extra.txt")).Should().Be("adopter");
+    }
+
+    [LinuxOnlyFact]
+    public void Included_output_ancestor_is_refused_before_staging()
+    {
+        WriteStock();
+        WriteBrand();
+        var run = () => Repacker.Run(new LinuxTarget(), Input, BrandFile, Output, _root);
+        run.Should().Throw<RepackException>().Which.Message.Should().Contain(_root);
+        Directory.Exists(Output).Should().BeFalse();
+        Directory.GetDirectories(_root, "out.partial-*").Should().BeEmpty();
+    }
+
+    [LinuxOnlyFact]
+    public async Task Include_option_copies_files_and_reports_the_source_and_count()
+    {
+        WriteStock();
+        WriteBrand();
+        var include = Path.Combine(_root, "include");
+        Directory.CreateDirectory(include);
+        File.WriteAllText(Path.Combine(include, "notice.txt"), "adopter");
+        var start = new System.Diagnostics.ProcessStartInfo("dotnet",
+            [typeof(Repacker).Assembly.Location, "--input", Input, "--brand", BrandFile,
+                "--output", Output, "--include", include])
+        {
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+        };
+        using var process = System.Diagnostics.Process.Start(start)!;
+        var output = process.StandardOutput.ReadToEndAsync(TestContext.Current.CancellationToken);
+        var errors = process.StandardError.ReadToEndAsync(TestContext.Current.CancellationToken);
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        timeout.CancelAfter(TimeSpan.FromSeconds(30));
+        await process.WaitForExitAsync(timeout.Token);
+        process.ExitCode.Should().Be(0, await errors);
+        (await output).Should().Contain($"Included {1} file(s) from {include}");
+        File.ReadAllText(Path.Combine(Output, "app", "notice.txt")).Should().Be("adopter");
+    }
+
     private void ShouldRefuse(string reason)
     {
         var run = () => LinuxRepacker.Run(Input, BrandFile, Output);
@@ -101,6 +164,71 @@ public sealed class LinuxRepackerTests : IDisposable
         var lines = text.Split('\n', StringSplitOptions.RemoveEmptyEntries);
         lines[0].Should().Be("[Desktop Entry]");
         return lines.Skip(1).Select(line => line.Split('=', 2)).ToDictionary(pair => pair[0], pair => pair[1]);
+    }
+
+    [LinuxOnlyFact]
+    public void Included_files_reach_the_installable_payload_and_report()
+    {
+        WriteStock();
+        WriteBrand();
+        var include = Path.Combine(_root, "include");
+        Directory.CreateDirectory(Path.Combine(include, "addons"));
+        File.WriteAllText(Path.Combine(include, "addons", "notice.txt"), "adopter");
+
+        var result = Repacker.Run(new LinuxTarget(), Input, BrandFile, Output, include);
+
+        File.ReadAllText(Path.Combine(Output, "app", "addons", "notice.txt")).Should().Be("adopter");
+        result.IncludeDirectory.Should().Be(include);
+        result.IncludedFiles.Should().Be(1);
+        File.Exists(MenuEntry).Should().BeTrue();
+    }
+
+    public static bool CanInclude => OperatingSystem.IsLinux();
+
+    [Theory(Skip = "Requires the target platform filesystem.", SkipUnless = nameof(CanInclude))]
+    [InlineData("LICENSE")]
+    [InlineData("HexIDE")]
+    [InlineData("acme-ide")]
+    [InlineData("brand.json")]
+    [InlineData("branding/logo.png")]
+    [InlineData("hexide-root.pub")]
+    [InlineData("nested/HEXIDE-FIRSTPARTY.PUB")]
+    [InlineData("revocations.json")]
+    [InlineData("revocations.sig")]
+    [InlineData("revocations-cache.json")]
+    [InlineData("revocations-cache.sig")]
+    public void Included_protected_files_are_refused_without_output(string relative)
+    {
+        WriteStock();
+        WriteBrand();
+        var include = Path.Combine(_root, "include");
+        var file = Path.Combine(include, relative);
+        Directory.CreateDirectory(Path.GetDirectoryName(file)!);
+        File.WriteAllText(file, "replacement");
+
+        var run = () => Repacker.Run(new LinuxTarget(), Input, BrandFile, Output, include);
+
+        run.Should().Throw<RepackException>().Which.Message.Should().Contain(relative.Replace('/', Path.DirectorySeparatorChar));
+        Directory.Exists(Output).Should().BeFalse();
+        Directory.GetDirectories(_root, "out.partial-*").Should().BeEmpty();
+    }
+
+    [LinuxOnlyFact]
+    public void Included_links_are_refused_at_the_root_or_inside()
+    {
+        WriteStock();
+        WriteBrand();
+        var include = Path.Combine(_root, "include");
+        Directory.CreateDirectory(include);
+        File.CreateSymbolicLink(Path.Combine(include, "link"), BrandFile);
+        var run = () => Repacker.Run(new LinuxTarget(), Input, BrandFile, Output, include);
+        run.Should().Throw<RepackException>().Which.Message.Should().Contain("link");
+        File.Delete(Path.Combine(include, "link"));
+        var link = Path.Combine(_root, "linked");
+        Directory.CreateSymbolicLink(link, include);
+        run = () => Repacker.Run(new LinuxTarget(), Input, BrandFile, Output, link);
+        run.Should().Throw<RepackException>().Which.Message.Should().Contain(link);
+        Directory.Exists(Output).Should().BeFalse();
     }
 
     // --- Which platform's repack runs ---

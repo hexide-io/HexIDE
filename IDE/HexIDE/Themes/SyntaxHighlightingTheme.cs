@@ -241,7 +241,9 @@ public static class SyntaxHighlightingTheme
                 foreach (var color in definition.NamedHighlightingColors)
                 {
                     if (color.Name is null || !light.TryGetValue(color.Name, out var original)) continue;
-                    color.Foreground = dark ? DeriveForDarkBackground(original) : original;
+                    color.Foreground = HighContrastBackground is { } background
+                        ? DeriveForHighContrast(original, background)
+                        : dark ? DeriveForDarkBackground(original) : original;
                 }
             }
         }
@@ -278,6 +280,35 @@ public static class SyntaxHighlightingTheme
         return new SimpleHighlightingBrush(color);
     }
 
+    private static Color? HighContrastBackground => _themes?.ActiveTheme switch
+    {
+        "HighContrastLight" => Colors.White,
+        "HighContrastDark" => Colors.Black,
+        _ => null
+    };
+
+    private static HighlightingBrush? DeriveForHighContrast(HighlightingBrush? original, Color background)
+    {
+        if (original?.GetColor(null!) is not { } color) return original;
+        var hsl = color.ToHsl();
+        var lightness = hsl.L;
+        var direction = background == Colors.Black ? 1 : -1;
+        color = Color.FromRgb(color.R, color.G, color.B);
+        for (var i = 0; i < 100 && ContrastRatio(color, background) < 7; i++)
+        {
+            lightness = Math.Clamp(lightness + direction * 0.01, 0, 1);
+            color = new HslColor(1, hsl.H, hsl.S, lightness).ToRgb();
+        }
+        return new SimpleHighlightingBrush(color);
+    }
+
+    private static void ApplyHighContrast(IHighlightingDefinition definition)
+    {
+        if (HighContrastBackground is not { } background) return;
+        foreach (var color in definition.NamedHighlightingColors)
+            color.Foreground = DeriveForHighContrast(color.Foreground, background);
+    }
+
     /// <summary>WCAG relative-luminance contrast ratio between two opaque colours.</summary>
     internal static double ContrastRatio(Color a, Color b)
     {
@@ -311,6 +342,7 @@ public static class SyntaxHighlightingTheme
             foreach (var (name, hex) in DarkPalette)
                 if (name == color.Name) color.Foreground = new SimpleHighlightingBrush(Color.Parse(hex));
         }
+        ApplyHighContrast(definition);
         return definition;
     }
 
@@ -342,6 +374,8 @@ public static class SyntaxHighlightingTheme
                     color.Foreground = brush;
             }
         }
+
+        ApplyHighContrast(_definition);
 
         var overrides = _settings?.EditorColorOverrides;
         Dictionary<string, EditorTokenColors>? tokens = null;

@@ -2,6 +2,7 @@ using HexIDE.Conversations;
 using HexIDE.IDE;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using Microsoft.Extensions.Logging;
 
 using HexIDE.Lsp.Messages;
@@ -71,9 +72,10 @@ public sealed class LanguageServerConfigLoader
     /// The defaults with the user's file layered over them, and everything that was wrong with it.
     ///
     /// <para>
-    /// A user entry sharing a default's id <b>replaces</b> that default rather than merging field by field.
-    /// Field-level merge would mean an entry could not remove something the default set, and would make the
-    /// effective configuration something the user cannot read off their own file.
+    /// A complete user entry sharing a default's id replaces that default rather than merging field by
+    /// field, so its effective configuration can still be read off the user's own file. Only an entry
+    /// omitting required fields adjusts the default. Explicit null clears a field; objects and arrays
+    /// replace the whole field. Neither the file nor the defaults are changed.
     /// </para>
     /// </summary>
     public LanguageServerConfigResult Load(
@@ -81,16 +83,31 @@ public sealed class LanguageServerConfigLoader
         IWorkspaceArtifactProviderRegistry? artifactProviders = null)
     {
         var problems = new List<LanguageServerConfigProblem>();
-        var file = ReadUserFile(problems);
+        var file = ReadUserFile(problems, out var writtenEntries);
         var user = file?.Servers ?? [];
 
-        // Defaults first, then user entries replace by id and new ones append. Ordinal because an id is an
+        // Defaults first, then user entries replace or adjust by id and new ones append. Ordinal because an id is an
         // identifier, not prose — two ids differing only by case are two servers.
         var byId = new Dictionary<string, LanguageServerEntry>(StringComparer.Ordinal);
         var order = new List<string>();
 
-        foreach (var entry in defaults.Concat(user))
+        foreach (var original in defaults.Concat(user))
         {
+            var entry = original;
+            if (writtenEntries.TryGetValue(original, out var written)
+                && original.Id is { } writtenId && byId.TryGetValue(writtenId, out var baseline)
+                && OmitsRequiredFields(written, original.Transport ?? baseline.Transport))
+            {
+                var merged = JsonSerializer.SerializeToNode(baseline,
+                    LanguageServerConfigJsonContext.Default.LanguageServerEntry)!.AsObject();
+                foreach (var field in written.EnumerateObject())
+                    merged[field.Name] = JsonNode.Parse(field.Value.GetRawText(), documentOptions: new JsonDocumentOptions
+                    {
+                        CommentHandling = JsonCommentHandling.Skip,
+                        AllowTrailingCommas = true,
+                    });
+                entry = merged.Deserialize(LanguageServerConfigJsonContext.Default.LanguageServerEntry)!;
+            }
             if (!Validate(entry, problems, artifactProviders, out var id))
                 continue;
             if (!byId.ContainsKey(id))
@@ -129,6 +146,23 @@ public sealed class LanguageServerConfigLoader
         }
 
         return new LanguageServerConfigResult(entries, problems, limits, perServer);
+    }
+
+    private static bool OmitsRequiredFields(JsonElement written, string? transport)
+    {
+        if (!written.TryGetProperty("extensions", out _)
+            || !written.TryGetProperty("languageId", out _)
+            || !written.TryGetProperty("transport", out _))
+            return true;
+
+        var destination = transport?.Trim().ToLowerInvariant() switch
+        {
+            "stdio" => "command",
+            "pipe" => "pipeName",
+            "websocket" => "endpoint",
+            _ => null,
+        };
+        return destination is not null && !written.TryGetProperty(destination, out _);
     }
 
     /// <summary>
@@ -316,7 +350,8 @@ public sealed class LanguageServerConfigLoader
         var transport = entry.Transport?.Trim();
         var launches =
             string.Equals(transport, "stdio", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(transport, "pipe", StringComparison.OrdinalIgnoreCase);
+            || string.Equals(transport, "pipe", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(transport, "tcp", StringComparison.OrdinalIgnoreCase);
 
         if (!launches) return null;
 
@@ -344,8 +379,10 @@ public sealed class LanguageServerConfigLoader
     /// method that returned entries alone would have to read it twice or hand them out separately — either
     /// of which lets the two halves disagree about which file they came from.
     /// </remarks>
-    private LanguageServerConfigFile? ReadUserFile(List<LanguageServerConfigProblem> problems)
+    private LanguageServerConfigFile? ReadUserFile(List<LanguageServerConfigProblem> problems,
+        out Dictionary<LanguageServerEntry, JsonElement> writtenEntries)
     {
+        writtenEntries = [];
         string? text = null;
         try
         {
@@ -385,6 +422,16 @@ public sealed class LanguageServerConfigLoader
                     true).WithDetails("FutureVersion", file.Version, SupportedVersion));
                 return null;
             }
+
+            // Keep field presence: deserialization alone cannot distinguish absent from explicit null.
+            using var document = JsonDocument.Parse(text, new JsonDocumentOptions
+            {
+                CommentHandling = JsonCommentHandling.Skip,
+                AllowTrailingCommas = true,
+            });
+            if (file.Servers is { } servers && document.RootElement.TryGetProperty("servers", out var writtenServers))
+                for (var i = 0; i < servers.Length; i++)
+                    writtenEntries[servers[i]] = writtenServers[i].Clone();
 
             foreach (var entry in file.Servers ?? [])
             {
@@ -484,7 +531,7 @@ public sealed class LanguageServerConfigLoader
             Note("environment", entry.Environment);
         }
 
-        if (transport is "stdio" or "websocket")
+        if (transport is "stdio" or "websocket" or "tcp")
         {
             Note("pipeName", entry.PipeName);
             Note("pipeRole", entry.PipeRole);
@@ -493,8 +540,10 @@ public sealed class LanguageServerConfigLoader
         if (transport is "stdio" or "pipe")
         {
             Note("endpoint", entry.Endpoint);
-            Note("websocketRole", entry.WebSocketRole);
         }
+
+        if (transport != "websocket") Note("websocketRole", entry.WebSocketRole);
+        if (transport != "tcp") Note("tcpRole", entry.TcpRole);
 
         if (ignored.Count == 0) return;
 
@@ -618,6 +667,30 @@ public sealed class LanguageServerConfigLoader
             case "stdio":
                 if (string.IsNullOrWhiteSpace(entry.Command)) missing.Add("command");
                 break;
+            case "tcp":
+                if (string.IsNullOrWhiteSpace(entry.Endpoint)) missing.Add("endpoint");
+                else if (!TcpLspTransport.TryAddress(entry.Endpoint.Trim(), out var address)
+                    || (string.Equals(entry.TcpRole?.Trim(), "listen", StringComparison.OrdinalIgnoreCase)
+                        && !address!.Host.Equals("localhost", StringComparison.OrdinalIgnoreCase)
+                        && !System.Net.IPAddress.TryParse(address.Host.Trim('[', ']'), out _))
+                    || (!string.Equals(entry.TcpRole?.Trim(), "listen", StringComparison.OrdinalIgnoreCase)
+                        && address!.Port == 0))
+                {
+                    problems.Add(new LanguageServerConfigProblem(entry.Id,
+                        "TCP requires tcp://host:port; listen requires localhost or an IP address, and connect requires a nonzero port.", true)
+                        .WithDetails("Tcp", "endpoint=tcp://host:port; listen=localhost/IP; connect port=1..65535"));
+                    return false;
+                }
+                if (!string.IsNullOrWhiteSpace(entry.TcpRole)
+                    && !string.Equals(entry.TcpRole.Trim(), "listen", StringComparison.OrdinalIgnoreCase)
+                    && !string.Equals(entry.TcpRole.Trim(), "connect", StringComparison.OrdinalIgnoreCase))
+                {
+                    problems.Add(new LanguageServerConfigProblem(entry.Id,
+                        "tcpRole must be connect or listen. The entry has been ignored.", true)
+                        .WithDetails("Tcp", "tcpRole=connect|listen"));
+                    return false;
+                }
+                break;
             case "websocket":
                 if (string.IsNullOrWhiteSpace(entry.Endpoint)) missing.Add("endpoint");
                 break;
@@ -645,9 +718,9 @@ public sealed class LanguageServerConfigLoader
             default:
                 problems.Add(new LanguageServerConfigProblem(
                     entry.Id,
-                    $"Unknown transport '{entry.Transport}'. Expected stdio, pipe or websocket. "
+                    $"Unknown transport '{entry.Transport}'. Expected stdio, pipe, websocket or tcp. "
                   + "The entry has been ignored.",
-                    true).WithDetails("UnknownTransport", entry.Transport!, "stdio", "pipe", "websocket"));
+                    true).WithDetails("UnknownTransport", entry.Transport!, "stdio", "pipe", "websocket", "tcp"));
                 return false;
         }
 

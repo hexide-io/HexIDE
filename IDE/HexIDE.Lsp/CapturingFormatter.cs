@@ -37,7 +37,7 @@ namespace HexIDE.Lsp;
 /// </para>
 ///
 /// <para>
-/// <b>Both deserialize overloads, because HexIDE has three transports and they disagree.</b> Standard
+/// <b>Both deserialize overloads, because the transports disagree.</b> Standard
 /// input and named pipes call the two-argument overload exclusively; a web socket calls the one-argument
 /// overload exclusively and does not require the text interface at all. Implementing one of them leaves the
 /// tap blind on a transport rather than broken, which is the harder kind of gap to notice.

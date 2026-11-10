@@ -162,5 +162,6 @@ localized menu names, recovery notices and two brands running alongside stock He
 
 No feature or language-coverage status changes in this design record. No VB6 measurement is added or
 assumed; `MISSING_LANGUAGE.md` and its counts stay unchanged. Implementation, concrete schema and
-packaging mechanics, and first-adopter confirmation remain open.
+packaging mechanics remain partly open. The first adopter confirmed its needs without a trust-model conflict
+([#3625](https://github.com/hexide-io/HexIDE/issues/3625)); repacking can include its own files without replacing stock or granting trust.
 Native repacking, fixed installation identity and the absence of an adopter root are settled policy.
