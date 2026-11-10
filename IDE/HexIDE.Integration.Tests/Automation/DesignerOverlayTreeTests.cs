@@ -40,7 +40,7 @@ public class DesignerOverlayTreeTests
     internal static Designer Shown()
     {
         var toolbox = new ToolBoxToolViewModel(
-            Substitute.For<IDocumentDockService>(), Substitute.For<IComponentRegistry>(),
+            Substitute.For<IDocumentDockService>(), new ComponentRegistry(),
             Substitute.For<ILocalizationService>());
         toolbox.SelectedComponent = toolbox.Components.First(c => c.BaseClass == CommandButtonComponentClass.Instance);
         var vm = new FormEditViewModel(toolbox, Substitute.For<IEventBus>(),

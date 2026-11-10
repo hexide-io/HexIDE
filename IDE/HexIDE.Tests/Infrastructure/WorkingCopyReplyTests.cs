@@ -55,7 +55,7 @@ public class WorkingCopyReplyTests
         try
         {
             var localization = Substitute.For<ILocalizationService>();
-            var toolbox = new ToolBoxToolViewModel(dock, Substitute.For<IComponentRegistry>(), localization);
+            var toolbox = new ToolBoxToolViewModel(dock, new ComponentRegistry(), localization);
             using var designer = operation == "control"
                 ? new FormEditViewModel(toolbox, events, service, Substitute.For<IEditorService>(), windows,
                     Substitute.For<ISettingsService>(), localization, new Vb6ProjectFileFormat()).Initialize(form)
@@ -190,7 +190,7 @@ public class WorkingCopyReplyTests
         try
         {
             var localization = Substitute.For<ILocalizationService>();
-            var toolbox = new ToolBoxToolViewModel(dock, Substitute.For<IComponentRegistry>(), localization);
+            var toolbox = new ToolBoxToolViewModel(dock, new ComponentRegistry(), localization);
             using var designer = operation == "control"
                 ? new FormEditViewModel(toolbox, events, service, Substitute.For<IEditorService>(), windows,
                     Substitute.For<ISettingsService>(), localization, new Vb6ProjectFileFormat()).Initialize(form)
