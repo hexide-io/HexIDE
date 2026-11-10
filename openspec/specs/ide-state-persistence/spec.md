@@ -205,3 +205,14 @@ tool documents or projects themselves.
 - **THEN** it is not recorded as an open tab; unsaved work remains under crash recovery
 - **WHEN** the IDE runs in recovery mode
 - **THEN** document-session records are neither loaded nor overwritten
+
+### Requirement: Replaced personal state SHALL remain recoverable
+Settings, current and named layouts, recent projects and open-document sessions SHALL retain previous
+disk bytes in unique recovery siblings before replacement. Resetting the current layout SHALL move
+its file to a unique recovery sibling. Recovery versions SHALL not be automatically pruned; a failed
+recovery copy SHALL leave the active file untouched. See the
+[file-safety audit](../../../docs/file-safety-audit.md#carried-files-and-profile-recovery) (#2504).
+
+#### Scenario: Resetting a saved layout
+- **WHEN** the user resets a persisted layout
+- **THEN** the active layout file is removed while its previous bytes remain in a recovery sibling

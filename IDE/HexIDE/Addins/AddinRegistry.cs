@@ -508,7 +508,7 @@ internal sealed class AddinRegistry : IAddinRegistry, IAddinLoader
         {
             var data = new AddinStateData { Disabled = [.. _disabled] };
             var json = JsonSerializer.Serialize(data, s_jsonOptions);
-            File.WriteAllText(_stateFilePath, json);
+            AtomicFileWriter.WriteRecoverableText(_stateFilePath, json);
         }
         catch (Exception ex)
         {

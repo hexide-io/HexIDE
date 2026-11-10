@@ -25,8 +25,10 @@ public sealed class NamedLayoutPersistenceTests : IDisposable
         reopened.LoadLayoutManifest()!.Tools.Should().Equal(LayoutManifest.Default.Tools);
         restored.Delete("Review");
         new NamedLayoutService(reopened).Names.Should().BeEmpty();
-        Directory.GetFiles(_directory).Select(Path.GetFileName)
+        Directory.GetFiles(_directory, "*.json").Select(Path.GetFileName)
             .Should().BeEquivalentTo("dock-layout.json", "named-layouts.json");
+        Directory.GetFiles(_directory, "named-layouts.json.*.recovery").Should().HaveCount(2);
+        Directory.GetFiles(_directory).Should().HaveCount(4);
     }
 
     [Fact]

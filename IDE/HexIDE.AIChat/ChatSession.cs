@@ -96,7 +96,7 @@ public sealed class ChatSession
                     }).ToList(),
                 }).ToList(),
             };
-            File.WriteAllText(path, JsonSerializer.Serialize(payload, s_json));
+            HexIDE.IDE.AtomicFileWriter.WriteRecoverableText(path, JsonSerializer.Serialize(payload, s_json));
         }
         catch { /* best-effort */ }
     }

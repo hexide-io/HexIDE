@@ -268,7 +268,7 @@ public partial class RelatedDocumentEditorViewModel(ILspClient lspClient, IWindo
             throw;
         }
 
-        AtomicFileWriter.WriteAllBytes(path, bytes);
+        AtomicFileWriter.WriteRecoverableBytes(path, bytes);
 
         savedText = text;
         IsDirty = false;

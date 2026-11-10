@@ -20,6 +20,18 @@ public sealed class KeymapServiceTests : IDisposable
     public KeymapServiceTests() => Directory.CreateDirectory(_directory);
 
     [AvaloniaFact]
+    public void SavingRetainsPreviousKeymapBytesForRecovery()
+    {
+        WriteOverrides("\"CopyCommand\":\"F12\"");
+        var path = Path.Combine(_directory, "overrides", "bindings.json");
+        var original = File.ReadAllBytes(path);
+        new KeymapService(_directory).SaveOverrides(new Dictionary<string, string>());
+        var recovery = Directory.GetFiles(Path.GetDirectoryName(path)!, "*.recovery").Should().ContainSingle().Subject;
+        File.ReadAllBytes(recovery).Should().Equal(original);
+        JsonDocument.Parse(File.ReadAllText(path)).RootElement.GetProperty("bindings").EnumerateObject().Should().BeEmpty();
+    }
+
+    [AvaloniaFact]
     public void DefaultPackDocumentsEveryDeclaredBinding()
     {
         using var stream = AssetLoader.Open(new Uri("avares://HexIDE/Keymaps/Packs/Default.json"));

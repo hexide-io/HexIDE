@@ -82,3 +82,14 @@ guesses confirmed on the next launch.
 #### Scenario: Editing a menu label
 - **WHEN** the translator changes a value that appears in a menu
 - **THEN** the menu shows the new text without a restart
+
+### Requirement: Persisted override edits and resets SHALL be recoverable
+Before replacing a translation override file, the service SHALL retain its previous disk bytes in a
+unique, exclusively created and flushed recovery sibling. Clearing the last override or resetting the
+language SHALL move the file to a unique recovery sibling instead of deleting its contents. Recovery
+files SHALL not be loaded as languages or automatically pruned. See the
+[file-safety audit](../../../docs/file-safety-audit.md#carried-files-and-profile-recovery) (#2504).
+
+#### Scenario: Replacing an override and clearing it
+- **WHEN** an existing override is edited or cleared
+- **THEN** the previous disk version remains available for copying back after the IDE closes

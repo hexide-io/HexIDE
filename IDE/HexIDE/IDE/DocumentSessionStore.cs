@@ -54,7 +54,7 @@ public sealed class DocumentSessionStore
         {
             var file = FileFor(projectPath);
             Directory.CreateDirectory(Path.GetDirectoryName(file)!);
-            AtomicFileWriter.WriteAllText(file, JsonSerializer.Serialize(documents));
+            AtomicFileWriter.WriteRecoverableText(file, JsonSerializer.Serialize(documents));
         }
         catch (Exception ex)
         {
