@@ -1177,6 +1177,14 @@
     "Str.Options.Formatting.Token.Identifier": "Identifierare",
     "Str.Options.Formatting.Token.MetadataKeyword": "Metadatanyckelord",
     "Str.Project.AlreadyOpen": "Projektet {0} är redan öppet.",
-    "Str.Options.Addins.Overview": "Tillägg utökar HexIDE med verktyg och inställningar. Installera genom att packa upp ett signerat tilläggspaket i en egen mapp i katalogen nedan och starta om HexIDE. Välj ett tillägg i trädet för att hantera det."
+    "Str.Options.Addins.Overview": "Tillägg utökar HexIDE med verktyg och inställningar. Installera genom att packa upp ett signerat tilläggspaket i en egen mapp i katalogen nedan och starta om HexIDE. Välj ett tillägg i trädet för att hantera det.",
+    "Str.Tool.LanguageServers.Editor.Customise": "Anpassa",
+    "Str.Tool.LanguageServers.Editor.Help": "Ett tomt värde rensar fältet. JSON-fält tar JSON-värden. Spara kommer ihåg kommandot nedan; starta om för att tillämpa.",
+    "Str.Tool.LanguageServers.Editor.Command": "Utökat kommando (med argument)",
+    "Str.Tool.LanguageServers.Editor.Save": "Spara",
+    "Str.Tool.LanguageServers.Editor.DuplicateId": "Detta id finns redan. Redigera eller anpassa det.",
+    "Str.Tool.LanguageServers.Editor.InvalidJson": "Ogiltig JSON: {0}",
+    "Str.Tool.LanguageServers.Editor.NoWorkspace": "Platshållare för arbetsytan väntar på val av projektmapp.",
+    "Str.Tool.LanguageServers.Editor.FileChanged": "Filen har ändrats. Öppna formuläret igen innan du sparar."
   }
 }

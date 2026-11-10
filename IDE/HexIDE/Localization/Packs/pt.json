@@ -1177,6 +1177,14 @@
     "Str.Options.Formatting.Token.Identifier": "Identificador",
     "Str.Options.Formatting.Token.MetadataKeyword": "Palavra-chave de metadados",
     "Str.Project.AlreadyOpen": "O projeto {0} já está aberto.",
-    "Str.Options.Addins.Overview": "Os suplementos ampliam o HexIDE com ferramentas e configurações. Para instalar um, extraia um pacote assinado para uma pasta própria no diretório abaixo e reinicie o HexIDE. Selecione um suplemento na árvore para gerenciá-lo."
+    "Str.Options.Addins.Overview": "Os suplementos ampliam o HexIDE com ferramentas e configurações. Para instalar um, extraia um pacote assinado para uma pasta própria no diretório abaixo e reinicie o HexIDE. Selecione um suplemento na árvore para gerenciá-lo.",
+    "Str.Tool.LanguageServers.Editor.Customise": "Personalizar",
+    "Str.Tool.LanguageServers.Editor.Help": "Um valor vazio limpa o campo. Os campos JSON aceitam valores JSON. Guardar memoriza o comando abaixo; reinicie para aplicar.",
+    "Str.Tool.LanguageServers.Editor.Command": "Comando resolvido (com argumentos)",
+    "Str.Tool.LanguageServers.Editor.Save": "Guardar",
+    "Str.Tool.LanguageServers.Editor.DuplicateId": "Este identificador já existe. Edite-o ou personalize-o.",
+    "Str.Tool.LanguageServers.Editor.InvalidJson": "JSON inválido: {0}",
+    "Str.Tool.LanguageServers.Editor.NoWorkspace": "Os marcadores da área de trabalho aguardam a escolha da pasta do projeto.",
+    "Str.Tool.LanguageServers.Editor.FileChanged": "O ficheiro foi alterado. Reabra o formulário antes de guardar."
   }
 }

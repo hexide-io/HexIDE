@@ -1177,6 +1177,14 @@
     "Str.Options.Formatting.Token.Identifier": "Identifikator",
     "Str.Options.Formatting.Token.MetadataKeyword": "Metadatanøgleord",
     "Str.Project.AlreadyOpen": "Projektet {0} er allerede åbent.",
-    "Str.Options.Addins.Overview": "Tilføjelsesprogrammer udvider HexIDE med værktøjer og indstillinger. Installér ved at udpakke en signeret pakke i sin egen mappe i nedenstående mappe, og genstart HexIDE. Vælg et tilføjelsesprogram i træet for at administrere det."
+    "Str.Options.Addins.Overview": "Tilføjelsesprogrammer udvider HexIDE med værktøjer og indstillinger. Installér ved at udpakke en signeret pakke i sin egen mappe i nedenstående mappe, og genstart HexIDE. Vælg et tilføjelsesprogram i træet for at administrere det.",
+    "Str.Tool.LanguageServers.Editor.Customise": "Tilpas",
+    "Str.Tool.LanguageServers.Editor.Help": "En tom værdi rydder feltet. JSON-felter tager JSON-værdier. Gem husker kommandoen nedenfor; genstart for at anvende.",
+    "Str.Tool.LanguageServers.Editor.Command": "Udvidet kommando (med argumenter)",
+    "Str.Tool.LanguageServers.Editor.Save": "Gem",
+    "Str.Tool.LanguageServers.Editor.DuplicateId": "Dette id findes allerede. Rediger eller tilpas det.",
+    "Str.Tool.LanguageServers.Editor.InvalidJson": "Ugyldig JSON: {0}",
+    "Str.Tool.LanguageServers.Editor.NoWorkspace": "Pladsholdere for arbejdsområdet venter på valg af projektmappe.",
+    "Str.Tool.LanguageServers.Editor.FileChanged": "Filen er ændret. Åbn formularen igen, før du gemmer."
   }
 }

@@ -1177,6 +1177,14 @@
     "Str.Options.Formatting.Token.Identifier": "ตัวระบุ",
     "Str.Options.Formatting.Token.MetadataKeyword": "คำสำคัญเมทาดาทา",
     "Str.Project.AlreadyOpen": "โครงการ {0} เปิดอยู่แล้ว",
-    "Str.Options.Addins.Overview": "ส่วนเสริมเพิ่มเครื่องมือและการตั้งค่าให้ HexIDE หากต้องการติดตั้ง ให้แตกแพ็กเกจส่วนเสริมที่ลงลายเซ็นแล้วลงในโฟลเดอร์ของตัวเองภายในไดเรกทอรีด้านล่าง แล้วเริ่ม HexIDE ใหม่ เลือกส่วนเสริมในแผนผังเพื่อจัดการ"
+    "Str.Options.Addins.Overview": "ส่วนเสริมเพิ่มเครื่องมือและการตั้งค่าให้ HexIDE หากต้องการติดตั้ง ให้แตกแพ็กเกจส่วนเสริมที่ลงลายเซ็นแล้วลงในโฟลเดอร์ของตัวเองภายในไดเรกทอรีด้านล่าง แล้วเริ่ม HexIDE ใหม่ เลือกส่วนเสริมในแผนผังเพื่อจัดการ",
+    "Str.Tool.LanguageServers.Editor.Customise": "ปรับแต่ง",
+    "Str.Tool.LanguageServers.Editor.Help": "ค่าว่างจะล้างช่อง ช่อง JSON รับค่า JSON การบันทึกจะจดจำคำสั่งด้านล่าง เริ่มใหม่เพื่อใช้การเปลี่ยนแปลง",
+    "Str.Tool.LanguageServers.Editor.Command": "คำสั่งที่แทนค่าแล้ว (รวมอาร์กิวเมนต์)",
+    "Str.Tool.LanguageServers.Editor.Save": "บันทึก",
+    "Str.Tool.LanguageServers.Editor.DuplicateId": "มี ID นี้แล้ว โปรดแก้ไขหรือปรับแต่ง",
+    "Str.Tool.LanguageServers.Editor.InvalidJson": "JSON ไม่ถูกต้อง: {0}",
+    "Str.Tool.LanguageServers.Editor.NoWorkspace": "ตัวยึดตำแหน่งพื้นที่ทำงานรอการเลือกโฟลเดอร์โครงการ",
+    "Str.Tool.LanguageServers.Editor.FileChanged": "ไฟล์เปลี่ยนแปลงแล้ว โปรดเปิดแบบฟอร์มใหม่ก่อนบันทึก"
   }
 }

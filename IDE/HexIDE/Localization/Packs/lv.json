@@ -1177,6 +1177,14 @@
     "Str.Options.Formatting.Token.Identifier": "Identifikators",
     "Str.Options.Formatting.Token.MetadataKeyword": "Metadatu atslēgvārds",
     "Str.Project.AlreadyOpen": "Projekts {0} jau ir atvērts.",
-    "Str.Options.Addins.Overview": "Pievienojumprogrammas papildina HexIDE ar rīkiem un iestatījumiem. Lai instalētu, izpakojiet parakstītu pakotni atsevišķā mapē tālāk norādītajā direktorijā un restartējiet HexIDE. Atlasiet pievienojumprogrammu kokā, lai to pārvaldītu."
+    "Str.Options.Addins.Overview": "Pievienojumprogrammas papildina HexIDE ar rīkiem un iestatījumiem. Lai instalētu, izpakojiet parakstītu pakotni atsevišķā mapē tālāk norādītajā direktorijā un restartējiet HexIDE. Atlasiet pievienojumprogrammu kokā, lai to pārvaldītu.",
+    "Str.Tool.LanguageServers.Editor.Customise": "Pielāgot",
+    "Str.Tool.LanguageServers.Editor.Help": "Tukša vērtība notīra lauku. JSON lauki pieņem JSON vērtības. Saglabāšana atceras tālāk redzamo komandu; lietošanai restartējiet.",
+    "Str.Tool.LanguageServers.Editor.Command": "Atrisināta komanda (ar argumentiem)",
+    "Str.Tool.LanguageServers.Editor.Save": "Saglabāt",
+    "Str.Tool.LanguageServers.Editor.DuplicateId": "Šis ID jau pastāv. Rediģējiet vai pielāgojiet to.",
+    "Str.Tool.LanguageServers.Editor.InvalidJson": "Nederīgs JSON: {0}",
+    "Str.Tool.LanguageServers.Editor.NoWorkspace": "Darbvietas vietturi gaida projekta mapes izvēli.",
+    "Str.Tool.LanguageServers.Editor.FileChanged": "Fails ir mainījies. Pirms saglabāšanas atveriet veidlapu vēlreiz."
   }
 }

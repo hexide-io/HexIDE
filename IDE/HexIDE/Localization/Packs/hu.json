@@ -1177,6 +1177,14 @@
     "Str.Options.Formatting.Token.Identifier": "Azonosító",
     "Str.Options.Formatting.Token.MetadataKeyword": "Metaadat-kulcsszó",
     "Str.Project.AlreadyOpen": "A(z) {0} projekt már meg van nyitva.",
-    "Str.Options.Addins.Overview": "A bővítmények eszközökkel és beállításokkal egészítik ki a HexIDE-t. Telepítéshez csomagoljon ki egy aláírt bővítménycsomagot az alábbi könyvtár saját almappájába, majd indítsa újra a HexIDE-t. Kezeléshez válasszon bővítményt a fában."
+    "Str.Options.Addins.Overview": "A bővítmények eszközökkel és beállításokkal egészítik ki a HexIDE-t. Telepítéshez csomagoljon ki egy aláírt bővítménycsomagot az alábbi könyvtár saját almappájába, majd indítsa újra a HexIDE-t. Kezeléshez válasszon bővítményt a fában.",
+    "Str.Tool.LanguageServers.Editor.Customise": "Testreszabás",
+    "Str.Tool.LanguageServers.Editor.Help": "Az üres érték törli a mezőt. A JSON-mezők JSON-értékeket fogadnak. A mentés megjegyzi az alábbi parancsot; alkalmazásához indítsa újra.",
+    "Str.Tool.LanguageServers.Editor.Command": "Feloldott parancs (argumentumokkal)",
+    "Str.Tool.LanguageServers.Editor.Save": "Mentés",
+    "Str.Tool.LanguageServers.Editor.DuplicateId": "Ez az azonosító már létezik. Szerkessze vagy szabja testre.",
+    "Str.Tool.LanguageServers.Editor.InvalidJson": "Érvénytelen JSON: {0}",
+    "Str.Tool.LanguageServers.Editor.NoWorkspace": "A munkaterület helyőrzői a projektmappa kiválasztására várnak.",
+    "Str.Tool.LanguageServers.Editor.FileChanged": "A fájl megváltozott. Mentés előtt nyissa meg újra az űrlapot."
   }
 }

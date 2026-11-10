@@ -1177,6 +1177,14 @@
     "Str.Options.Formatting.Token.Identifier": "معرّف",
     "Str.Options.Formatting.Token.MetadataKeyword": "كلمة بيانات وصفية",
     "Str.Project.AlreadyOpen": "المشروع {0} مفتوح بالفعل.",
-    "Str.Options.Addins.Overview": "تضيف الوظائف الإضافية أدوات وإعدادات إلى HexIDE. لتثبيت إحداها، استخرج حزمة موقعة في مجلد خاص بها داخل الدليل أدناه، ثم أعد تشغيل HexIDE. حدد وظيفة إضافية في الشجرة لإدارتها."
+    "Str.Options.Addins.Overview": "تضيف الوظائف الإضافية أدوات وإعدادات إلى HexIDE. لتثبيت إحداها، استخرج حزمة موقعة في مجلد خاص بها داخل الدليل أدناه، ثم أعد تشغيل HexIDE. حدد وظيفة إضافية في الشجرة لإدارتها.",
+    "Str.Tool.LanguageServers.Editor.Customise": "تخصيص",
+    "Str.Tool.LanguageServers.Editor.Help": "القيمة الفارغة تمسح الحقل. تقبل حقول JSON قيم JSON. يحفظ الحفظ الأمر أدناه؛ أعد التشغيل للتطبيق.",
+    "Str.Tool.LanguageServers.Editor.Command": "الأمر المحلول (مع الوسائط)",
+    "Str.Tool.LanguageServers.Editor.Save": "حفظ",
+    "Str.Tool.LanguageServers.Editor.DuplicateId": "هذا المعرف موجود بالفعل. عدّله أو خصّصه.",
+    "Str.Tool.LanguageServers.Editor.InvalidJson": "JSON غير صالح: {0}",
+    "Str.Tool.LanguageServers.Editor.NoWorkspace": "تظل العناصر النائبة لمساحة العمل دون حل حتى اختيار مجلد مشروع.",
+    "Str.Tool.LanguageServers.Editor.FileChanged": "تغيّر الملف. أعد فتح النموذج قبل الحفظ."
   }
 }

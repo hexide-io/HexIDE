@@ -1177,6 +1177,14 @@
     "Str.Options.Formatting.Token.Identifier": "Αναγνωριστικό",
     "Str.Options.Formatting.Token.MetadataKeyword": "Λέξη-κλειδί μεταδεδομένων",
     "Str.Project.AlreadyOpen": "Το έργο {0} είναι ήδη ανοιχτό.",
-    "Str.Options.Addins.Overview": "Τα πρόσθετα επεκτείνουν το HexIDE με εργαλεία και ρυθμίσεις. Για εγκατάσταση, αποσυμπιέστε ένα υπογεγραμμένο πακέτο σε δικό του φάκελο στον παρακάτω κατάλογο και επανεκκινήστε το HexIDE. Επιλέξτε ένα πρόσθετο στο δέντρο για να το διαχειριστείτε."
+    "Str.Options.Addins.Overview": "Τα πρόσθετα επεκτείνουν το HexIDE με εργαλεία και ρυθμίσεις. Για εγκατάσταση, αποσυμπιέστε ένα υπογεγραμμένο πακέτο σε δικό του φάκελο στον παρακάτω κατάλογο και επανεκκινήστε το HexIDE. Επιλέξτε ένα πρόσθετο στο δέντρο για να το διαχειριστείτε.",
+    "Str.Tool.LanguageServers.Editor.Customise": "Προσαρμογή",
+    "Str.Tool.LanguageServers.Editor.Help": "Η κενή τιμή καθαρίζει το πεδίο. Τα πεδία JSON δέχονται τιμές JSON. Η αποθήκευση θυμάται την παρακάτω εντολή· επανεκκινήστε για εφαρμογή.",
+    "Str.Tool.LanguageServers.Editor.Command": "Επιλυμένη εντολή (με ορίσματα)",
+    "Str.Tool.LanguageServers.Editor.Save": "Αποθήκευση",
+    "Str.Tool.LanguageServers.Editor.DuplicateId": "Αυτό το αναγνωριστικό υπάρχει ήδη. Επεξεργαστείτε ή προσαρμόστε το.",
+    "Str.Tool.LanguageServers.Editor.InvalidJson": "Μη έγκυρο JSON: {0}",
+    "Str.Tool.LanguageServers.Editor.NoWorkspace": "Τα σύμβολα του χώρου εργασίας περιμένουν επιλογή φακέλου έργου.",
+    "Str.Tool.LanguageServers.Editor.FileChanged": "Το αρχείο άλλαξε. Ανοίξτε ξανά τη φόρμα πριν από την αποθήκευση."
   }
 }

@@ -1177,6 +1177,14 @@
     "Str.Options.Formatting.Token.Identifier": "Identificador",
     "Str.Options.Formatting.Token.MetadataKeyword": "Palabra clave de metadatos",
     "Str.Project.AlreadyOpen": "O proxecto {0} xa está aberto.",
-    "Str.Options.Addins.Overview": "Os complementos amplían HexIDE con ferramentas e opcións. Para instalar un, extraia un paquete asinado no seu propio cartafol dentro do directorio indicado abaixo e reinicie HexIDE. Seleccione un complemento na árbore para xestionalo."
+    "Str.Options.Addins.Overview": "Os complementos amplían HexIDE con ferramentas e opcións. Para instalar un, extraia un paquete asinado no seu propio cartafol dentro do directorio indicado abaixo e reinicie HexIDE. Seleccione un complemento na árbore para xestionalo.",
+    "Str.Tool.LanguageServers.Editor.Customise": "Personalizar",
+    "Str.Tool.LanguageServers.Editor.Help": "Un valor baleiro borra o campo. Os campos JSON aceptan valores JSON. Gardar lembra a orde de abaixo; reinicie para aplicala.",
+    "Str.Tool.LanguageServers.Editor.Command": "Orde resolta (con argumentos)",
+    "Str.Tool.LanguageServers.Editor.Save": "Gardar",
+    "Str.Tool.LanguageServers.Editor.DuplicateId": "Este identificador xa existe. Edíteo ou personalíceo.",
+    "Str.Tool.LanguageServers.Editor.InvalidJson": "JSON non válido: {0}",
+    "Str.Tool.LanguageServers.Editor.NoWorkspace": "Os marcadores do espazo de traballo agardan a que se escolla un cartafol de proxecto.",
+    "Str.Tool.LanguageServers.Editor.FileChanged": "O ficheiro cambiou. Abra de novo o formulario antes de gardar."
   }
 }

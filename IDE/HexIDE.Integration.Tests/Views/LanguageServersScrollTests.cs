@@ -90,7 +90,7 @@ public class LanguageServersScrollTests
         {
             window.RenderScaling.Should().Be(scaling);
             window.UpdateLayout();
-            var scroll = (ScrollViewer)view.Content!;
+            var scroll = view.GetVisualDescendants().OfType<ScrollViewer>().First();
             var presenter = scroll.GetVisualDescendants().OfType<ScrollContentPresenter>()
                 .First(p => ReferenceEquals(p.Content, scroll.Content));
             var note = view.GetVisualDescendants().OfType<TextBlock>()

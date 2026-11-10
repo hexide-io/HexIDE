@@ -1177,6 +1177,14 @@
     "Str.Options.Formatting.Token.Identifier": "Identificator",
     "Str.Options.Formatting.Token.MetadataKeyword": "Cuvânt-cheie de metadate",
     "Str.Project.AlreadyOpen": "Proiectul {0} este deja deschis.",
-    "Str.Options.Addins.Overview": "Programele de completare extind HexIDE cu instrumente și setări. Pentru instalare, extrageți un pachet semnat într-un folder propriu din directorul de mai jos și reporniți HexIDE. Selectați un program de completare în arbore pentru a-l gestiona."
+    "Str.Options.Addins.Overview": "Programele de completare extind HexIDE cu instrumente și setări. Pentru instalare, extrageți un pachet semnat într-un folder propriu din directorul de mai jos și reporniți HexIDE. Selectați un program de completare în arbore pentru a-l gestiona.",
+    "Str.Tool.LanguageServers.Editor.Customise": "Personalizează",
+    "Str.Tool.LanguageServers.Editor.Help": "O valoare goală șterge câmpul. Câmpurile JSON acceptă valori JSON. Salvarea memorează comanda de mai jos; reporniți pentru aplicare.",
+    "Str.Tool.LanguageServers.Editor.Command": "Comanda rezolvată (cu argumente)",
+    "Str.Tool.LanguageServers.Editor.Save": "Salvează",
+    "Str.Tool.LanguageServers.Editor.DuplicateId": "Acest identificator există deja. Editați-l sau personalizați-l.",
+    "Str.Tool.LanguageServers.Editor.InvalidJson": "JSON nevalid: {0}",
+    "Str.Tool.LanguageServers.Editor.NoWorkspace": "Substituenții spațiului de lucru așteaptă alegerea unui dosar de proiect.",
+    "Str.Tool.LanguageServers.Editor.FileChanged": "Fișierul s-a schimbat. Redeschideți formularul înainte de salvare."
   }
 }

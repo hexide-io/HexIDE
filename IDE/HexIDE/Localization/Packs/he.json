@@ -1177,6 +1177,14 @@
     "Str.Options.Formatting.Token.Identifier": "מזהה",
     "Str.Options.Formatting.Token.MetadataKeyword": "מילת מפתח למטא-נתונים",
     "Str.Project.AlreadyOpen": "הפרויקט {0} כבר פתוח.",
-    "Str.Options.Addins.Overview": "תוספים מרחיבים את HexIDE עם כלים והגדרות נוספים. להתקנה, יש לחלץ חבילת תוסף חתומה לתיקייה משלה בספרייה שלהלן ולהפעיל מחדש את HexIDE. יש לבחור תוסף בעץ כדי לנהל אותו."
+    "Str.Options.Addins.Overview": "תוספים מרחיבים את HexIDE עם כלים והגדרות נוספים. להתקנה, יש לחלץ חבילת תוסף חתומה לתיקייה משלה בספרייה שלהלן ולהפעיל מחדש את HexIDE. יש לבחור תוסף בעץ כדי לנהל אותו.",
+    "Str.Tool.LanguageServers.Editor.Customise": "התאמה אישית",
+    "Str.Tool.LanguageServers.Editor.Help": "ערך ריק מנקה את השדה. שדות JSON מקבלים ערכי JSON. שמירה זוכרת את הפקודה שלהלן; יש להפעיל מחדש להחלה.",
+    "Str.Tool.LanguageServers.Editor.Command": "הפקודה המלאה (כולל ארגומנטים)",
+    "Str.Tool.LanguageServers.Editor.Save": "שמירה",
+    "Str.Tool.LanguageServers.Editor.DuplicateId": "המזהה כבר קיים. יש לערוך או להתאים אותו.",
+    "Str.Tool.LanguageServers.Editor.InvalidJson": "JSON לא תקין: {0}",
+    "Str.Tool.LanguageServers.Editor.NoWorkspace": "מצייני המיקום של סביבת העבודה ייפתרו לאחר בחירת תיקיית פרויקט.",
+    "Str.Tool.LanguageServers.Editor.FileChanged": "הקובץ השתנה. יש לפתוח שוב את הטופס לפני השמירה."
   }
 }

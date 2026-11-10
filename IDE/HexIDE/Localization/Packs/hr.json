@@ -1177,6 +1177,14 @@
     "Str.Options.Formatting.Token.Identifier": "Identifikator",
     "Str.Options.Formatting.Token.MetadataKeyword": "Ključna riječ metapodataka",
     "Str.Project.AlreadyOpen": "Projekt {0} već je otvoren.",
-    "Str.Options.Addins.Overview": "Dodaci proširuju HexIDE alatima i postavkama. Za instalaciju raspakirajte potpisani paket u zasebnu mapu unutar donjeg direktorija i ponovno pokrenite HexIDE. Odaberite dodatak u stablu da biste njime upravljali."
+    "Str.Options.Addins.Overview": "Dodaci proširuju HexIDE alatima i postavkama. Za instalaciju raspakirajte potpisani paket u zasebnu mapu unutar donjeg direktorija i ponovno pokrenite HexIDE. Odaberite dodatak u stablu da biste njime upravljali.",
+    "Str.Tool.LanguageServers.Editor.Customise": "Prilagodi",
+    "Str.Tool.LanguageServers.Editor.Help": "Prazna vrijednost briše polje. JSON polja prihvaćaju JSON vrijednosti. Spremanje pamti naredbu ispod; ponovno pokrenite za primjenu.",
+    "Str.Tool.LanguageServers.Editor.Command": "Razriješena naredba (s argumentima)",
+    "Str.Tool.LanguageServers.Editor.Save": "Spremi",
+    "Str.Tool.LanguageServers.Editor.DuplicateId": "Ovaj ID već postoji. Uredite ga ili prilagodite.",
+    "Str.Tool.LanguageServers.Editor.InvalidJson": "Neispravan JSON: {0}",
+    "Str.Tool.LanguageServers.Editor.NoWorkspace": "Zamjenski znakovi radnog prostora čekaju odabir mape projekta.",
+    "Str.Tool.LanguageServers.Editor.FileChanged": "Datoteka je promijenjena. Ponovno otvorite obrazac prije spremanja."
   }
 }

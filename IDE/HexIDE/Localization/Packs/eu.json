@@ -1177,6 +1177,14 @@
     "Str.Options.Formatting.Token.Identifier": "Identifikatzailea",
     "Str.Options.Formatting.Token.MetadataKeyword": "Metadatuen gako-hitza",
     "Str.Project.AlreadyOpen": "{0} proiektua irekita dago jada.",
-    "Str.Options.Addins.Overview": "Gehigarriek tresnak eta ezarpenak gehitzen dizkiote HexIDEri. Instalatzeko, deskonprimitu sinatutako gehigarri-paketea beheko direktorioko bere karpetan eta berrabiarazi HexIDE. Hautatu gehigarri bat zuhaitzean hura kudeatzeko."
+    "Str.Options.Addins.Overview": "Gehigarriek tresnak eta ezarpenak gehitzen dizkiote HexIDEri. Instalatzeko, deskonprimitu sinatutako gehigarri-paketea beheko direktorioko bere karpetan eta berrabiarazi HexIDE. Hautatu gehigarri bat zuhaitzean hura kudeatzeko.",
+    "Str.Tool.LanguageServers.Editor.Customise": "Pertsonalizatu",
+    "Str.Tool.LanguageServers.Editor.Help": "Balio hutsak eremua garbitzen du. JSON eremuek JSON balioak hartzen dituzte. Gordetzeak beheko komandoa gogoratzen du; berrabiarazi aplikatzeko.",
+    "Str.Tool.LanguageServers.Editor.Command": "Ebatzitako komandoa (argumentuekin)",
+    "Str.Tool.LanguageServers.Editor.Save": "Gorde",
+    "Str.Tool.LanguageServers.Editor.DuplicateId": "ID hori badago jada. Editatu edo pertsonalizatu.",
+    "Str.Tool.LanguageServers.Editor.InvalidJson": "JSON baliogabea: {0}",
+    "Str.Tool.LanguageServers.Editor.NoWorkspace": "Lan-eremuko leku-markak proiektu-karpeta aukeratu arte daude zain.",
+    "Str.Tool.LanguageServers.Editor.FileChanged": "Fitxategia aldatu da. Ireki berriro inprimakia gorde aurretik."
   }
 }

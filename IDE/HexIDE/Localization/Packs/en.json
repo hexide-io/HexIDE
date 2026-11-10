@@ -1177,6 +1177,14 @@
     "Str.Options.Formatting.Token.Identifier": "Identifier",
     "Str.Options.Formatting.Token.MetadataKeyword": "Metadata keyword",
     "Str.Project.AlreadyOpen": "Project {0} is already open.",
-    "Str.Options.Addins.Overview": "Add-ins extend HexIDE with extra tools and settings. To install one, extract a signed add-in package into its own folder in the directory below, then restart HexIDE. Select an add-in in the tree to manage it."
+    "Str.Options.Addins.Overview": "Add-ins extend HexIDE with extra tools and settings. To install one, extract a signed add-in package into its own folder in the directory below, then restart HexIDE. Select an add-in in the tree to manage it.",
+    "Str.Tool.LanguageServers.Editor.Customise": "Customize",
+    "Str.Tool.LanguageServers.Editor.Help": "Blank clears a value. JSON fields take JSON values. Save remembers the command shown below; restart to apply.",
+    "Str.Tool.LanguageServers.Editor.Command": "Resolved command (arguments included)",
+    "Str.Tool.LanguageServers.Editor.Save": "Save",
+    "Str.Tool.LanguageServers.Editor.DuplicateId": "This id already exists. Edit or customize it instead.",
+    "Str.Tool.LanguageServers.Editor.InvalidJson": "Invalid JSON: {0}",
+    "Str.Tool.LanguageServers.Editor.NoWorkspace": "Workspace placeholders remain unresolved until a project folder is chosen.",
+    "Str.Tool.LanguageServers.Editor.FileChanged": "The file changed. Reopen the form before saving."
   }
 }

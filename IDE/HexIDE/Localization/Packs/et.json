@@ -1177,6 +1177,14 @@
     "Str.Options.Formatting.Token.Identifier": "Identifikaator",
     "Str.Options.Formatting.Token.MetadataKeyword": "Metaandmete võtmesõna",
     "Str.Project.AlreadyOpen": "Projekt {0} on juba avatud.",
-    "Str.Options.Addins.Overview": "Lisandmoodulid laiendavad HexIDE tööriistade ja sätetega. Paigaldamiseks paki allkirjastatud pakett eraldi kausta allolevas kataloogis ja taaskäivita HexIDE. Haldamiseks vali lisandmoodul puust."
+    "Str.Options.Addins.Overview": "Lisandmoodulid laiendavad HexIDE tööriistade ja sätetega. Paigaldamiseks paki allkirjastatud pakett eraldi kausta allolevas kataloogis ja taaskäivita HexIDE. Haldamiseks vali lisandmoodul puust.",
+    "Str.Tool.LanguageServers.Editor.Customise": "Kohanda",
+    "Str.Tool.LanguageServers.Editor.Help": "Tühi väärtus tühjendab välja. JSON-väljad võtavad JSON-väärtusi. Salvestamine jätab alloleva käsu meelde; rakendamiseks taaskäivitage.",
+    "Str.Tool.LanguageServers.Editor.Command": "Lahendatud käsk (koos argumentidega)",
+    "Str.Tool.LanguageServers.Editor.Save": "Salvesta",
+    "Str.Tool.LanguageServers.Editor.DuplicateId": "See tunnus on juba olemas. Muutke või kohandage seda.",
+    "Str.Tool.LanguageServers.Editor.InvalidJson": "Vigane JSON: {0}",
+    "Str.Tool.LanguageServers.Editor.NoWorkspace": "Tööruumi kohatäitjad ootavad projekti kausta valimist.",
+    "Str.Tool.LanguageServers.Editor.FileChanged": "Fail on muutunud. Avage vorm enne salvestamist uuesti."
   }
 }
