@@ -45,8 +45,10 @@ namespace HexIDE.Projects;
 /// costs every language feature in the IDE.
 /// </para>
 /// </summary>
-public sealed class ProjectLspWorkspace(Func<IProjectManager> projectManager) : IWorkspaceArtifactWorkspace
+public sealed class ProjectLspWorkspace(Func<IProjectManager> projectManager, IProjectFileFormat? format = null) : IWorkspaceArtifactWorkspace
 {
+    private readonly IProjectFileFormat _format = format ?? new Vb6ProjectFileFormat();
+
 
     private readonly List<Action> _unsubscribe = [];
     private IProjectManager? _observed;
@@ -129,7 +131,7 @@ public sealed class ProjectLspWorkspace(Func<IProjectManager> projectManager) : 
                 // None for a contributed project: its file is its add-in's, in its add-in's format, and never a .vbp.
                 ProjectText: project is { AbsolutePath: { } path, ContributedBy: null }
                     ? async token => await Dispatcher.UIThread.InvokeAsync<string>(
-                        () => new ProjectSerializer().Serialize(project, path), DispatcherPriority.Normal, token)
+                        () => _format.RenderProject(project, path), DispatcherPriority.Normal, token)
                     : null));
         }
         _projects = contexts;
