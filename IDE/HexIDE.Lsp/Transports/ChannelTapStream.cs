@@ -25,6 +25,14 @@ internal sealed class ChannelTapStream(Stream inner, Action<string> note) : Stre
     private int _readStarted;
     private int _readArrived;
     private long _bytesWritten;
+    private readonly TaskCompletionSource _firstWriteFinished = new(TaskCreationOptions.RunContinuationsAsynchronously);
+    private readonly TaskCompletionSource _firstReadIssued = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+    /// <summary>Completes when the first bytes have finished reaching the channel.</summary>
+    internal Task FirstWriteFinished => _firstWriteFinished.Task;
+
+    /// <summary>Completes when the first read has been issued.</summary>
+    internal Task FirstReadIssued => _firstReadIssued.Task;
 
     internal bool FirstWriteReached => Volatile.Read(ref _writeReached) != 0;
     internal bool FirstReadWaiting => Volatile.Read(ref _readStarted) != 0 && Volatile.Read(ref _readArrived) == 0;
@@ -88,7 +96,10 @@ internal sealed class ChannelTapStream(Stream inner, Action<string> note) : Stre
     {
         var written = Interlocked.Read(ref _bytesWritten);
         if (written > 0 && Interlocked.Exchange(ref _writeReached, 1) == 0)
+        {
             note($"the first {written} bytes reached the server's channel");
+            _firstWriteFinished.TrySetResult();
+        }
     }
 
     // ── reading ──────────────────────────────────────────────────────────────────────────────────
@@ -115,7 +126,10 @@ internal sealed class ChannelTapStream(Stream inner, Action<string> note) : Stre
     private void Waiting()
     {
         if (Interlocked.Exchange(ref _readStarted, 1) == 0)
+        {
             note("began waiting for the server's first bytes");
+            _firstReadIssued.TrySetResult();
+        }
     }
 
     private int Arrived(int count)
