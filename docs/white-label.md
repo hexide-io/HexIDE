@@ -119,9 +119,10 @@ ln -s ~/.local/opt/<id>/<id> ~/.local/bin/<id>
 cp -R share/. ~/.local/share/
 ```
 
-Don't install the program itself in `~/.local/share/<id>`, because that's where your product keeps each user's
-settings and logs, and removing the program shouldn't remove them. Removing the product means deleting those four
-things by name: the program's folder, the link, the `.desktop` file and the icons.
+Don't install the program itself in `~/.local/share/<id>`, because your product keeps each user's logs there. It keeps
+their settings in `~/.config/<id>` and recovery files in `~/.local/state/<id>`. Those three folders are the user's, so
+removing the program leaves them alone. Removing the product means deleting four things by name: the program's folder,
+the link, the `.desktop` file and the icons.
 
 A branded build sets its X11 window class to your `id`, and the menu entry's `StartupWMClass` names the same value, so
 a desktop groups the running window with its menu entry. It comes from `id`, which is one more reason not to change it.
