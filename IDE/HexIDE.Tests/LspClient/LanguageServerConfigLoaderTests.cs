@@ -166,6 +166,96 @@ public class LanguageServerConfigLoaderTests : IDisposable
         entry.Priority.Should().BeNull("the default's priority is replaced, not inherited");
     }
 
+    [Theory]
+    [InlineData("stdio", "command", "my-server")]
+    [InlineData("pipe", "pipeName", "my-pipe")]
+    [InlineData("websocket", "endpoint", "ws://localhost:1234")]
+    public void ACompleteEntryInheritsNoOptionalFields(string transport, string destination, string value)
+    {
+        var bundled = BundledVb6();
+        bundled.Arguments = new ServerArguments("--default", null);
+        bundled.Environment = new() { ["DEFAULT"] = "value" };
+        bundled.Trace = "verbose";
+        var result = LoaderFor($$"""
+            { "servers": [{ "id": "hexide.vb6", "extensions": [".bas"],
+              "languageId": "vb6", "transport": "{{transport}}", "{{destination}}": "{{value}}" }] }
+            """).Load([bundled]);
+
+        var entry = result.Entries.Should().ContainSingle().Which;
+        entry.Arguments.Should().BeNull();
+        entry.Environment.Should().BeNull();
+        entry.Trace.Should().BeNull();
+        entry.Priority.Should().BeNull();
+    }
+
+    [Fact]
+    public void AnAdjustmentChangingArgumentsAnnouncesTheChangedCommand()
+    {
+        var seen = new LanguageServerCommandStore(Path.Combine(_dir, "seen.json"));
+        var loader = LoaderFor("""
+            { "servers": [{ "id": "hexide.vb6", "arguments": ["--changed"] }] }
+            """);
+        seen.Record("hexide.vb6", BundledVb6().Command!);
+
+        var result = loader.Load([BundledVb6()], seen);
+
+        result.Problems.Should().ContainSingle(p => p.Kind == LanguageServerConfigProblemKind.UnseenCommand)
+            .Which.Message.Should().Contain("--changed");
+        loader.Load([BundledVb6()], seen).Problems.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void APartialCustomisationKeepsTheResolvedBundledCommand()
+    {
+        var bundled = BundledVb6();
+        var result = LoaderFor("""
+            { "servers": [{ "id": "hexide.vb6", "trace": "verbose", "priority": 0 }] }
+            """).Load([bundled]);
+
+        var entry = result.Entries.Should().ContainSingle().Which;
+        entry.Command.Should().Be(bundled.Command);
+        entry.Extensions.Should().Equal(bundled.Extensions!);
+        entry.Trace.Should().Be("verbose");
+        entry.Priority.Should().Be(0);
+        bundled.Trace.Should().BeNull();
+        bundled.Priority.Should().Be(-100);
+        result.Problems.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void AnExplicitNullRemovesAnInheritedOptionalField()
+    {
+        var bundled = BundledVb6();
+        bundled.Arguments = new ServerArguments("--default", null);
+        var result = LoaderFor("""
+            { "servers": [{ "id": "hexide.vb6", "arguments": null }] }
+            """).Load([bundled]);
+
+        var entry = result.Entries.Should().ContainSingle().Which;
+        entry.Arguments.Should().BeNull();
+        entry.Command.Should().Be(bundled.Command);
+        bundled.Arguments!.Text.Should().Be("--default");
+        result.Problems.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void WrittenObjectsAndArraysReplaceTheirInheritedFieldAsAWhole()
+    {
+        var bundled = BundledVb6();
+        bundled.Environment = new() { ["OLD"] = "old" };
+        var result = LoaderFor("""
+            { "servers": [{ "id": "hexide.vb6", "environment": { "NEW": "new" },
+                            "extensions": [".bas"] }] }
+            """).Load([bundled]);
+
+        var entry = result.Entries.Should().ContainSingle().Which;
+        entry.Environment.Should().BeEquivalentTo(new Dictionary<string, string> { ["NEW"] = "new" });
+        entry.Extensions.Should().Equal(".bas");
+        entry.Command.Should().Be(bundled.Command);
+        bundled.Environment.Should().ContainKey("OLD");
+        result.Problems.Should().BeEmpty();
+    }
+
     [Fact]
     public void AReplacedDefaultKeepsItsPositionRatherThanMovingToTheEnd()
     {
