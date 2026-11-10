@@ -34,7 +34,7 @@ This is the first slice of [#2042](https://github.com/hexide-io/HexIDE/issues/20
 | `copyright` | No | Your copyright line in About. |
 | `credits` | No | Up to 32 entries, shown in About **after** HexIDE's own. |
 | `logo` | No | A PNG of up to 1024×1024 pixels, inside the installation folder, for About, New Project and the window icon. |
-| `links` | No | `home`, `support` and `repository`, each an absolute `https` URL. |
+| `links` | No | `home`, `support` and `repository`, each an absolute `https` URL. Home and support appear in Help under your product's name when supplied; the home entry is labeled “Home Page”, distinct from the existing repository web entry. Without `repository`, that web entry keeps HexIDE's name and opens HexIDE's repository. |
 | `defaultProfile` | No | The profile used when the command line names none: a profile's name, or a folder inside the installation written with `/`, such as `branding/profile`. A profile sets your theme, keymap and defaults, and never your identity. `--profile`, including `--profile none`, still wins. |
 
 A member that isn't in this table stops the IDE from starting. So does anything else wrong with the file: the IDE
@@ -112,6 +112,53 @@ such as `HexIDE.VbLspServer.exe`, which keep their names.
 removes it and says so. Sign the executable and your setup program yourself. The tool never touches a key or a trust
 anchor, and there's no update service: your support link is yours to use for that.
 
+## Making the Linux build your own
+
+A Linux executable has no icon or version details inside it, so here the tool renames the executable and writes the
+files that describe your product to the desktop. Run it on Linux, from a clone of the tag you're repacking, because
+only there does a copy keep the execute permission the programs need:
+
+```sh
+cd IDE
+dotnet run --project HexIDE.Repack -- --input <unpacked release> --brand <path to brand.json> --output <new directory>
+```
+
+`--input` is a published build for any Linux processor, unpacked with `tar`. The tool picks Windows or Linux from what
+the build holds. `--output` must not exist, and the input is never changed.
+
+| In the output | Comes from |
+|---|---|
+| `app/<id>` | Stock's `HexIDE`, renamed from your `id`. Its bytes don't change. |
+| `app/brand.json`, your logo and a `defaultProfile` folder | Copied from beside your `brand.json`. |
+| `share/applications/<id>.desktop` | Your `name` and `id`. |
+| `share/icons/hicolor/<size>/apps/<id>.png` | Your `logo`, which is required here, at 16, 32, 48 and 256 pixels. |
+
+The `share` folder is laid out as it is under `/usr/share` or `~/.local/share`, so installing it means copying it
+there. The menu entry starts `<id>` from `PATH`. If your package doesn't put a link to the executable on `PATH`, change
+the entry's `Exec` line to the full path. For one user that could be:
+
+```sh
+mkdir -p ~/.local/opt ~/.local/bin
+cp -R app ~/.local/opt/<id>
+ln -s ~/.local/opt/<id>/<id> ~/.local/bin/<id>
+cp -R share/. ~/.local/share/
+```
+
+Don't install the program itself in `~/.local/share/<id>`, because your product keeps each user's logs there. It keeps
+their settings in `~/.config/<id>` and recovery files in `~/.local/state/<id>`. Those three folders are the user's, so
+removing the program leaves them alone. Removing the product means deleting four things by name: the program's folder,
+the link, the `.desktop` file and the icons.
+
+A branded build sets its X11 window class to your `id`, and the menu entry's `StartupWMClass` names the same value, so
+a desktop groups the running window with its menu entry. It comes from `id`, which is one more reason not to change it.
+
+The run stops if the build is missing `LICENSE` or `THIRD-PARTY-NOTICES.md`, or if unpacking lost its execute
+permissions. Every other file is copied unchanged, including the helper programs such as `HexIDE.VbLspServer`, which
+keep their names.
+
+**The output is not signed.** A Linux executable has no signature for the tool to remove. Sign your archive or package
+yourself. As on Windows, the tool never touches a key or a trust anchor, and there's no update service.
+
 ## Not done yet
 
-Repacking for Linux and macOS and some diagnostics written in English. See the issues linked from #2042.
+Repacking for macOS and some diagnostics written in English. See the issues linked from #2042.

@@ -1,4 +1,5 @@
 using System.Buffers.Binary;
+using HexIDE.IDE;
 using SkiaSharp;
 
 namespace HexIDE.Repack;
@@ -15,20 +16,34 @@ internal static class IconResources
     private const int GroupHeaderSize = 6;
     private const int GroupEntrySize = 14;
 
-    public static IReadOnlyList<NativeResource> FromLogo(byte[] logoPng)
+    /// <summary>The bytes of a brand's logo, which the checks on the way in have already found to be there.</summary>
+    public static byte[] LogoOf(DistributionIdentity brand)
+    {
+        using var logo = new MemoryStream();
+        using (var source = brand.OpenLogo()!)
+            source.CopyTo(logo);
+        return logo.ToArray();
+    }
+
+    /// <summary>The logo as a PNG at each of the icon's sizes.</summary>
+    public static IReadOnlyList<(int Size, byte[] Png)> Render(byte[] logoPng)
     {
         using var source = SKBitmap.Decode(logoPng) ?? throw new RepackException("The brand's logo could not be decoded as an image.");
         using var image = SKImage.FromBitmap(source);
+        return Sizes.Select(size => (size, Render(image, size))).ToList();
+    }
 
+    public static IReadOnlyList<NativeResource> FromLogo(byte[] logoPng)
+    {
+        var frames = Render(logoPng);
         var result = new List<NativeResource>();
         var group = new byte[GroupHeaderSize + Sizes.Length * GroupEntrySize];
         BinaryPrimitives.WriteUInt16LittleEndian(group.AsSpan(2), 1); // An icon, where 2 would be a cursor.
         BinaryPrimitives.WriteUInt16LittleEndian(group.AsSpan(4), (ushort)Sizes.Length);
 
-        for (var i = 0; i < Sizes.Length; i++)
+        for (var i = 0; i < frames.Count; i++)
         {
-            var size = Sizes[i];
-            var frame = Render(image, size);
+            var (size, frame) = frames[i];
             var name = i + 1;
             result.Add(new NativeResource(PeImage.TypeIcon, name, 0, frame));
 

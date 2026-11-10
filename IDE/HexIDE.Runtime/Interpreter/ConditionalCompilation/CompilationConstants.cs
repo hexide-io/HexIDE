@@ -15,13 +15,6 @@ public sealed class CompilationConstants
     /// </summary>
     public static readonly IReadOnlyDictionary<string, Vb6Value> Vb6BuiltIns = Variants(("Win16", 0), ("Win32", 1));
 
-    // VBA's constants, not measured here: there is no VBA oracle. Preview only (#1113). Microsoft's page calls them
-    // True, but VB6 (above) measures 1 where its own documentation says True, and so does #1691's, so 1 it is.
-    public static readonly IReadOnlyDictionary<string, Vb6Value> Vba32BuiltIns = Variants(("VBA6", 1), ("VBA7", 1), ("Win32", 1));
-
-    public static readonly IReadOnlyDictionary<string, Vb6Value> Vba64BuiltIns =
-        Variants(("VBA6", 1), ("VBA7", 1), ("Win32", 1), ("Win64", 1));
-
     /// <summary>A program with no project arguments, under VB6's built-ins.</summary>
     public static readonly CompilationConstants Vb6 = new(CompilationArguments.None);
 

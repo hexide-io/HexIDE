@@ -52,7 +52,7 @@ or companion bytes. This is the presentation contract decided in [#158](https://
 - **THEN** its value is the localized binary marker, never the citation or binary bytes
 
 ### Requirement: PictureBox designer bitmap assignment honors AutoSize
-When a bitmap is assigned to a PictureBox with AutoSize True, the designer SHALL set Width and Height to the bitmap's pixel dimensions plus two pixels on each side for the default 3-D Fixed Single border, or no extra pixels with BorderStyle None. It SHALL record those dimensions with the picture edit as one undo step. This implements the measured bitmap cases in [#922's oracle](../../../docs/vb6-fidelity-oracle/autosize-on-a-label-and-a-picturebox.md); runtime AutoSize and Label AutoSize remain pending.
+When a bitmap is assigned to a PictureBox with AutoSize True, the designer SHALL set Width and Height to the bitmap's pixel dimensions plus two pixels on each side for the default 3-D Fixed Single border, or no extra pixels with BorderStyle None. It SHALL record those dimensions with the picture edit as one undo step. This implements the measured bitmap cases in [#922's oracle](../../../docs/vb6-fidelity-oracle/autosize-on-a-label-and-a-picturebox.md); Label AutoSize remains pending; runtime bitmap sizing is specified in [container-controls](../container-controls/spec.md).
 
 #### Scenario: A 40 by 30 bitmap is assigned
 - **WHEN** the designer assigns a 40 by 30 pixel bitmap to an AutoSize PictureBox

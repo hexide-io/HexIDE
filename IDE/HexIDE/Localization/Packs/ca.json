@@ -2,6 +2,7 @@
   "name": "Catalan",
   "direction": "ltr",
   "strings": {
+    "Str.Startup.PlatformSummary": "Només Linux. Motor gràfic: x11 (per defecte), auto o wayland.",
     "Str.Shell.NotImplemented": "Aquesta funció encara no està implementada",
     "Str.AIChat.Stop": "Atura",
     "Str.Tool.LanguageServers.Problem.JsonSyntaxEscape": "El fitxer de configuració «{0}» conté JSON no vàlid a la línia {1}, columna {2}. Camí: {3} Feu servir barres inclinades (C:/tools/new/...) o barres inverses dobles (C:\\\\tools\\\\new\\\\...).",
@@ -240,6 +241,8 @@
     "Str.Menu.Window.Split": "_Divideix",
     "Str.Menu.Window.ResetLayout": "_Restableix la disposició de les finestres",
     "Str.Menu.Help": "_Ajuda",
+    "Str.Menu.Help.BrandHome": "Pàgina d’_inici de {0}",
+    "Str.Menu.Help.BrandSupport": "_Suport de {0}",
     "Str.Menu.Help.ProductOnWeb": "HexIDE al _web",
     "Str.Menu.Help.About": "_Quant a HexIDE...",
     "Str.Menu.GoToGithubRepo": "Ves al repositori de GitHub",

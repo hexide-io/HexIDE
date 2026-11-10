@@ -23,7 +23,8 @@ see each project for its authors and full license text.
 
 **MIT**
 - **Avalonia UI** and its `Desktop`, `Skia`, `Browser`, `Themes.Simple`, `Controls.ColorPicker`,
-  `Controls.DataGrid` packages — © The Avalonia Project
+  `Controls.DataGrid`, `Wayland` packages — © The Avalonia Project
+- **NWayland** — © 2014 Steven Kirk — MIT. <https://github.com/kekekeks/NWayland>
 - **AvaloniaEdit** (a port of ICSharpCode AvalonEdit) — © the AvaloniaUI community
 - **Avalonia.Labs** — the experimental `RoutedCommand`/`CommandManager` **vendored** into
   `IDE/HexIDE/AvaloniaLabs.CommandManager/` — © The Avalonia Project; the MIT notice ships in that

@@ -2,6 +2,7 @@
   "name": "Galician",
   "direction": "ltr",
   "strings": {
+    "Str.Startup.PlatformSummary": "Só Linux. Motor gráfico: x11 (predeterminado), auto ou wayland.",
     "Str.Shell.NotImplemented": "Esta función aínda non está implementada",
     "Str.AIChat.Stop": "Deter",
     "Str.Tool.LanguageServers.Problem.JsonSyntaxEscape": "O ficheiro de configuración «{0}» contén JSON non válido na liña {1}, columna {2}. Ruta: {3} Use barras (C:/tools/new/...) ou barras inversas dobres (C:\\\\tools\\\\new\\\\...).",
@@ -240,6 +241,8 @@
     "Str.Menu.Window.Split": "_Dividir",
     "Str.Menu.Window.ResetLayout": "_Restablecer a disposición das xanelas",
     "Str.Menu.Help": "_Axuda",
+    "Str.Menu.Help.BrandHome": "Páxina de _inicio de {0}",
+    "Str.Menu.Help.BrandSupport": "_Asistencia de {0}",
     "Str.Menu.Help.ProductOnWeb": "HexIDE na _web",
     "Str.Menu.Help.About": "_Sobre HexIDE...",
     "Str.Menu.GoToGithubRepo": "Ir ao repositorio de GitHub",

@@ -7,6 +7,7 @@ using AvaloniaEdit;
 using AvaloniaEdit.Document;
 using AvaloniaEdit.Rendering;
 using HexIDE.IDE;
+using HexIDE.Language;
 
 namespace HexIDE.Controls;
 
@@ -14,15 +15,17 @@ internal sealed class BracketDepthColorizer : DocumentColorizingTransformer, IDi
 {
     private readonly TextEditor _editor;
     private readonly ISettingsService _settings;
+    private readonly IBracketReader _reader;
     private readonly TextDocument _document;
     private readonly List<IDisposable> _subscriptions = [];
     private readonly IBrush?[] _brushes = new IBrush?[4];
-    private IReadOnlyList<BracketDepth.Mark>? _marks;
+    private IReadOnlyList<BracketMark>? _marks;
 
-    public BracketDepthColorizer(TextEditor editor, Control owner, ISettingsService settings)
+    public BracketDepthColorizer(TextEditor editor, Control owner, ISettingsService settings, IBracketReader reader)
     {
         _editor = editor;
         _settings = settings;
+        _reader = reader;
         _document = editor.Document;
         _document.TextChanged += OnTextChanged;
         settings.PropertyChanged += OnSettingsChanged;
@@ -54,7 +57,7 @@ internal sealed class BracketDepthColorizer : DocumentColorizingTransformer, IDi
     protected override void ColorizeLine(DocumentLine line)
     {
         if (!_settings.ColorBracketsByDepth) return;
-        _marks ??= BracketDepth.Scan(_document.Text);
+        _marks ??= _reader.Brackets(_document.Text);
         foreach (var mark in _marks)
         {
             if (mark.Offset >= line.EndOffset) break;

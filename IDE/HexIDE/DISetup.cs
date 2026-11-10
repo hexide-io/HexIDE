@@ -91,8 +91,10 @@ public partial class DISetup
                 ctx.Inject<HexIDE.Debugging.ExternalDebugService>(out var external);
                 ctx.Inject<CallStackToolViewModel>(out var stack);
                 ctx.Inject<RecentEditHistory>(out var recentEdits);
+                ctx.Inject<HexIDE.Language.IConditionalCodeReader>(out var conditionalCode);
+                ctx.Inject<HexIDE.Language.IBracketReader>(out var brackets);
                 return new CodeEditorViewModel(windows, editors, projects, events, lsp, settings, status,
-                    bookmarks, breakpoints, debugger, run, localization, external, stack, recentEdits);
+                    bookmarks, breakpoints, debugger, run, localization, external, stack, recentEdits, conditionalCode, brackets);
             })
             .Bind().As(Singleton).To<ColorPaletteToolViewModel>()
             .Bind().As(Singleton).To<ObjectBrowserToolViewModel>()
@@ -105,6 +107,10 @@ public partial class DISetup
             .Bind().As(Singleton).To<EditorService>()
             .Bind().As(Singleton).To<DockFactoryReference>()
             .Bind<IRunEngine>().As(Singleton).To<InterpreterRunEngine>()
+            .Bind<HexIDE.Language.IConditionalCodeReader>().As(Singleton)
+                .To<HexIDE.Runtime.Interpreter.ConditionalCompilation.InterpreterConditionalCode>()
+            .Bind<IProjectFileFormat>().As(Singleton).To<HexIDE.Projects.Vb6ProjectFileFormat>()
+            .Bind<HexIDE.Language.IBracketReader>().As(Singleton).To<HexIDE.Runtime.Interpreter.InterpreterBrackets>()
             .Bind<IDocumentDockService>().As(Singleton).To<DocumentDockService>()
             .Bind().As(Singleton).To<MainViewViewModel.DockFactory>()
             .Bind().As(Singleton).To<EventBus>()
@@ -141,8 +147,9 @@ public partial class DISetup
                 ctx.Inject<ArchiveProjectService>(out var archives);
                 ctx.Inject<Func<ILspClient>>(out var lspClient);
                 ctx.Inject<HexIDE.Projects.ContributedProjects>(out var contributed);
+                ctx.Inject<IProjectFileFormat>(out var format);
                 return new ProjectService(newProjectVm, windowManager, eventBus, projectManager, recentProjects, referenceLibraryService, sidecar, baselineStore, localization, headerRefresher, archives, lspClient,
-                    contributed);
+                    contributed, format);
             })
             .Bind().As(Singleton).To<ArchiveProjectService>()
             .Bind<IFileBaselineStore>().As(Singleton).To<FileBaselineStore>()

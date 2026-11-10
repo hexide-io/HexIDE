@@ -48,6 +48,7 @@ public class PictureBoxComponentClass : ComponentBaseClass
         var pictureData = instance.GetPropertyOrDefault(PictureProperty);
         if (pictureData != null)
             box.PictureData = pictureData;
+        box.AutoSize = instance.GetPropertyOrDefault(AutoSizeProperty);
         return box;
     }
 
@@ -79,26 +80,34 @@ public class PictureBoxComponentClass : ComponentBaseClass
     {
         if (!ReferenceEquals(property, PictureProperty) || !instance.GetPropertyOrDefault(AutoSizeProperty))
             return [];
-        var data = instance.GetPropertyOrDefault(PictureProperty);
-        if (data is null || data.Length == 0)
+        var size = AutoSizePixels(instance.GetPropertyOrDefault(PictureProperty),
+            ClientBorder(instance.GetPropertyOrDefault(BorderStyleProperty),
+                instance.GetPropertyOrDefault(AppearanceProperty)).Style);
+        if (size is not { } fitted)
             return [];
-        var payload = FrxImageHelper.PicturePayload(data) ?? data;
-        if (FrxImageHelper.DetectKind(payload) != FrxImageHelper.FrxBlobKind.Bitmap)
-            throw new NotImplementedException("PictureBox AutoSize for a non-bitmap picture is not measured (#922)");
-        var border = instance.GetPropertyOrDefault(BorderStyleProperty);
-        if (border == VBBorder.FixedSingle && instance.GetPropertyOrDefault(AppearanceProperty) != VBAppearance._3D)
-            throw new NotImplementedException("PictureBox AutoSize with a flat border is not measured (#922)");
-        using var bitmap = FrxImageHelper.TryDecodeToAvaloniaBitmap(data);
-        if (bitmap is null)
-            return [];
-        var extra = border == VBBorder.FixedSingle ? 4 : 0;
-        var width = (double)bitmap.PixelSize.Width + extra;
-        var height = (double)bitmap.PixelSize.Height + extra;
+        var width = fitted.Width;
+        var height = fitted.Height;
         var oldWidth = instance.GetPropertyOrDefault(WidthProperty);
         var oldHeight = instance.GetPropertyOrDefault(HeightProperty);
         instance.SetProperty(WidthProperty, width);
         instance.SetProperty(HeightProperty, height);
         return [new PropertyChange(WidthProperty, oldWidth, width), new PropertyChange(HeightProperty, oldHeight, height)];
+    }
+
+    internal static Size? AutoSizePixels(byte[]? data, ClassicBorderStyle border)
+    {
+        if (data is null || data.Length == 0)
+            return null;
+        var payload = FrxImageHelper.PicturePayload(data) ?? data;
+        if (FrxImageHelper.DetectKind(payload) != FrxImageHelper.FrxBlobKind.Bitmap)
+            throw new NotImplementedException("PictureBox AutoSize for a non-bitmap picture is not measured (#922)");
+        if (border is not (ClassicBorderStyle.None or ClassicBorderStyle.Sunken))
+            throw new NotImplementedException("PictureBox AutoSize with a flat border is not measured (#922)");
+        using var bitmap = FrxImageHelper.TryDecodeToAvaloniaBitmap(data);
+        if (bitmap is null)
+            return null;
+        var extra = border == ClassicBorderStyle.Sunken ? 4 : 0;
+        return new Size(bitmap.PixelSize.Width + extra, bitmap.PixelSize.Height + extra);
     }
 
     public override bool TryGetChildHost(Control control, [NotNullWhen(true)] out Canvas? host)

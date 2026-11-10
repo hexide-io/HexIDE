@@ -21,6 +21,7 @@ public sealed class HeaderRefresher : IHeaderRefresher, IDisposable
     private readonly IDocumentDockService dock;
     private readonly IBreakpointService breakpoints;
     private readonly IBookmarkService bookmarks;
+    private readonly IProjectFileFormat format;
     private readonly IDisposable subscription;
     private readonly IDisposable nameSubscription;
 
@@ -28,8 +29,10 @@ public sealed class HeaderRefresher : IHeaderRefresher, IDisposable
         IEventBus eventBus,
         IDocumentDockService dock,
         IBreakpointService breakpoints,
-        IBookmarkService bookmarks)
+        IBookmarkService bookmarks,
+        IProjectFileFormat? format = null)
     {
+        this.format = format ?? new HexIDE.Projects.Vb6ProjectFileFormat();
         this.dock = dock;
         this.breakpoints = breakpoints;
         this.bookmarks = bookmarks;
@@ -94,7 +97,7 @@ public sealed class HeaderRefresher : IHeaderRefresher, IDisposable
             return;
         }
 
-        var header = new FormSerializer().SerializeDesignerText(form, fileName);
+        var header = format.RenderDesignerHeader(form, fileName);
 
         // One undo entry per commit, however many of the IDE's writes it takes. A rename moves both the
         // designer block's Begin line and the code section's VB_Name, and two entries would let any undo that

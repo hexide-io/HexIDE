@@ -2,6 +2,7 @@
   "name": "Korean",
   "direction": "ltr",
   "strings": {
+    "Str.Startup.PlatformSummary": "Linux 전용. 표시 백엔드: x11 (기본값), auto 또는 wayland.",
     "Str.Shell.NotImplemented": "이 기능은 아직 구현되지 않았습니다",
     "Str.AIChat.Stop": "중지",
     "Str.Tool.LanguageServers.Problem.JsonSyntaxEscape": "구성 파일 '{0}'의 {1}행, {2}열에 잘못된 JSON이 있습니다. 경로: {3} 슬래시(C:/tools/new/...) 또는 이중 백슬래시(C:\\\\tools\\\\new\\\\...)를 사용하세요.",
@@ -277,6 +278,8 @@
     "Str.Menu.Window.Split": "분할",
     "Str.Menu.Window.ResetLayout": "창 레이아웃 재설정",
     "Str.Menu.Help": "도움말",
+    "Str.Menu.Help.BrandHome": "{0} 홈페이지",
+    "Str.Menu.Help.BrandSupport": "{0} 지원",
     "Str.Menu.Help.ProductOnWeb": "웹의 HexIDE",
     "Str.Menu.Help.About": "HexIDE 정보...",
     "Str.Menu.GoToGithubRepo": "github 저장소로 이동",

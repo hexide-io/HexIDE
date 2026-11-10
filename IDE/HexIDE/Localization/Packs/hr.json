@@ -2,6 +2,7 @@
   "name": "Croatian",
   "direction": "ltr",
   "strings": {
+    "Str.Startup.PlatformSummary": "Samo Linux. Pozadina prikaza: x11 (zadano), auto ili wayland.",
     "Str.Shell.NotImplemented": "Ova značajka još nije implementirana",
     "Str.AIChat.Stop": "Zaustavi",
     "Str.Tool.LanguageServers.Problem.JsonSyntaxEscape": "Konfiguracijska datoteka „{0}” sadrži neispravan JSON u retku {1}, stupcu {2}. Putanja: {3} Koristite kose crte (C:/tools/new/...) ili dvostruke obrnute kose crte (C:\\\\tools\\\\new\\\\...).",
@@ -240,6 +241,8 @@
     "Str.Menu.Window.Split": "_Podijeli",
     "Str.Menu.Window.ResetLayout": "_Vrati raspored prozora",
     "Str.Menu.Help": "_Pomoć",
+    "Str.Menu.Help.BrandHome": "_Početna stranica za {0}",
+    "Str.Menu.Help.BrandSupport": "_Podrška za {0}",
     "Str.Menu.Help.ProductOnWeb": "HexIDE na _webu",
     "Str.Menu.Help.About": "_O programu HexIDE...",
     "Str.Menu.GoToGithubRepo": "Otvori repozitorij na GitHubu",

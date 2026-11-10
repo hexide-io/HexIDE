@@ -9,15 +9,21 @@ using Avalonia.Threading;
 using HexIDE.Controls;
 using HexIDE.Forms.ViewModels;
 using HexIDE.Language;
-using HexIDE.Runtime.Interpreter;
 using HexIDE.Runtime.ProjectElements;
 using HexIDE.TwinBasic;
-using HexIDE.Runtime.Interpreter.ConditionalCompilation;
 
 namespace HexIDE.Forms.Views;
 
 public partial class CodeEditorView
 {
+    // VBA's constants, not measured here: there is no VBA oracle. Preview only (#1113). Microsoft's page calls them
+    // True, but VB6 measures 1 where its own documentation says True, and so does #1691's, so 1 it is.
+    private static readonly IReadOnlyDictionary<string, object?> Vba32BuiltIns =
+        new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase) { ["VBA6"] = 1, ["VBA7"] = 1, ["Win32"] = 1 };
+
+    private static readonly IReadOnlyDictionary<string, object?> Vba64BuiltIns =
+        new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase) { ["VBA6"] = 1, ["VBA7"] = 1, ["Win32"] = 1, ["Win64"] = 1 };
+
     private readonly DispatcherTimer _conditionalTimer = new() { Interval = TimeSpan.FromMilliseconds(200) };
     private InactiveCodeColorizer? _inactiveColorizer;
     private IDisposable? _inactiveBrushSubscription;
@@ -82,31 +88,25 @@ public partial class CodeEditorView
         var twinBasic = vm.ConditionalTargetIndex is 3 or 4;
         var builtIns = vm.ConditionalTargetIndex switch
         {
-            1 => CompilationConstants.Vba32BuiltIns,
-            2 => CompilationConstants.Vba64BuiltIns,
+            1 => Vba32BuiltIns,
+            2 => Vba64BuiltIns,
             3 or 4 => TwinBasicBuiltIns(vm.ConditionalTargetIndex == 4, project?.ProjectType),
-            _ => CompilationConstants.Vb6BuiltIns,
+            _ => null,
         };
-        try
-        {
-            var arguments = project is null ? CompilationArguments.None : CompilationArguments.ForProject(project);
-            var constants = new CompilationConstants(arguments, builtIns)
+        // A CondComp line vb6.exe refuses stops the program before it runs, so no line can be said to be left out.
+        var arguments = project is null ? ConditionalConstants.NoArguments : project.ConditionalArguments();
+        _inactiveLines = vm.ConditionalCode is { } reader && arguments is not null
+            ? reader.InactiveLines(source, new ConditionalConstants(arguments)
             {
+                BuiltIns = builtIns,
                 CallsReadZero = twinBasic,
                 NullIsUndetermined = twinBasic,
-            };
-            var result = ConditionalCompiler.Preprocess(source, constants, vm.Title);
-            _inactiveLines = result.InactiveLines.Where(range =>
-                !result.UndeterminedLines.Any(unknown => unknown.First <= range.Last && unknown.Last >= range.First)).ToArray();
-        }
-        catch (VBCompileErrorException)
-        {
-            _inactiveLines = [];
-        }
+            })
+            : [];
         TextEditor.TextArea.TextView.Redraw();
     }
 
-    private static IReadOnlyDictionary<string, Vb6Value> TwinBasicBuiltIns(bool win64, VBProjectType? projectType)
+    private static IReadOnlyDictionary<string, object?> TwinBasicBuiltIns(bool win64, VBProjectType? projectType)
     {
         var buildType = projectType switch
         {
@@ -115,15 +115,7 @@ public partial class CodeEditorView
             VBProjectType.Control => "ActiveX Control",
             _ => null,
         };
-        var builtIns = new Dictionary<string, Vb6Value>(StringComparer.OrdinalIgnoreCase);
-        foreach (var (constant, value) in TwinBasicCompilationConstants.BuiltIns(win64, build: null, buildType))
-            builtIns[constant] = value switch
-            {
-                int number => new Vb6Value(number).AsVariant(),
-                string s => new Vb6Value(s).AsVariant(),
-                _ => Vb6Value.Null,
-            };
-        return builtIns;
+        return TwinBasicCompilationConstants.BuiltIns(win64, build: null, buildType);
     }
 
     private void RemoveConditionalCompilation()

@@ -2,6 +2,7 @@
   "name": "Lithuanian",
   "direction": "ltr",
   "strings": {
+    "Str.Startup.PlatformSummary": "Tik Linux. Vaizdavimo posistemė: x11 (numatytoji), auto arba wayland.",
     "Str.Shell.NotImplemented": "Ši funkcija dar neįgyvendinta",
     "Str.AIChat.Stop": "Stabdyti",
     "Str.Tool.LanguageServers.Problem.JsonSyntaxEscape": "Konfigūracijos faile „{0}“ yra netaisyklingas JSON {1} eilutėje, {2} stulpelyje. Kelias: {3} Naudokite pasviruosius brūkšnius (C:/tools/new/...) arba dvigubus atvirkštinius brūkšnius (C:\\\\tools\\\\new\\\\...).",
@@ -240,6 +241,8 @@
     "Str.Menu.Window.Split": "_Skaidyti",
     "Str.Menu.Window.ResetLayout": "_Atkurti langų išdėstymą",
     "Str.Menu.Help": "_Žinynas",
+    "Str.Menu.Help.BrandHome": "{0} _pradžios puslapis",
+    "Str.Menu.Help.BrandSupport": "{0} _pagalba",
     "Str.Menu.Help.ProductOnWeb": "HexIDE _žiniatinklyje",
     "Str.Menu.Help.About": "_Apie HexIDE...",
     "Str.Menu.GoToGithubRepo": "Atverti GitHub saugyklą",

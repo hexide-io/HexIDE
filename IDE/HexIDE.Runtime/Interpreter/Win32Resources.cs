@@ -112,7 +112,7 @@ internal sealed class Win32Resources
 
     internal static string? PathFor(ProjectElements.ProjectDefinition project)
     {
-        var value = AppInfo.PreSectionValue(project, "ResFile32");
+        var value = project.PreSectionValue("ResFile32");
         return project.AbsolutePath is { } path && value is not null
             ? Path.GetFullPath(Path.Combine(Path.GetDirectoryName(path)!, SerializedProject.ToHostPath(value)))
             : null;

@@ -42,3 +42,24 @@ path beginning `/`. Recognized slash-prefixed flags SHALL continue to take prece
 #### Scenario: An absolute Unix project path
 - **WHEN** HexIDE is started with `/capture-lsp /tmp/example/Project.vbp`
 - **THEN** capture is armed and `/tmp/example/Project.vbp` is selected as the project to open
+
+### Requirement: Native Wayland is opt-in on Linux
+Desktop SHALL accept `--platform <name>` in Debug and Release, overriding `HEXIDE_PLATFORM`.
+Desktop and Standalone SHALL read that variable and use the same backend selection: `x11` (default)
+uses platform detection, `auto` tries Wayland with the detected backend as fallback, and `wayland`
+requires Wayland without fallback. Selection SHALL leave Windows and macOS platform detection unchanged.
+Values SHALL be case-insensitive. An absent Desktop selection SHALL use the environment variable;
+an absent environment selection or an unrecognized value SHALL select `x11`. A flag without a value
+SHALL be ignored.
+
+#### Scenario: A made program opts in
+- **WHEN** a Standalone program starts on Linux with `HEXIDE_PLATFORM=auto`
+- **THEN** it tries native Wayland and falls back to X11 if Wayland initialization fails
+
+#### Scenario: Desktop overrides the environment
+- **WHEN** Desktop starts with `--platform x11` and `HEXIDE_PLATFORM=wayland`
+- **THEN** it uses the existing platform detection path
+
+#### Scenario: Diagnosis requires Wayland
+- **WHEN** Desktop starts on Linux with `--platform wayland` and Wayland cannot initialize
+- **THEN** startup fails rather than silently using X11

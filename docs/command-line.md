@@ -18,6 +18,7 @@ most people will type today.
 | Option | Argument | What it does |
 |---|---|---|
 | `--help` | — | Prints usage and exits without starting the IDE. Also `-h`, `/?` and `-?`. |
+| `--platform` | `x11`, `auto` or `wayland` | Linux display backend; defaults to `x11`. Works in Release. |
 | `--newproject` | — | Creates a Standard EXE, saves it in a unique temporary directory and skips the startup dialog. |
 | `--newproject-unsaved` | — | Creates a Standard EXE without writing project or component files and skips the startup dialog. Save Project asks where to put them. |
 | `--capture-lsp` | — | Arms the [protocol capture](lsp-client.md#reading-the-conversation) for every language-server connection before the first one is made. |
@@ -227,3 +228,17 @@ HexIDE.Desktop --server-port 5123 --newproject
 # What all of this says, from the program itself
 HexIDE.Desktop --help
 ```
+
+## Linux display backend
+
+`--platform <name>` overrides `HEXIDE_PLATFORM`. Both Desktop and Standalone read that environment
+variable; unset, missing or unrecognised values select `x11`. Values are case-insensitive. Windows and
+macOS keep their normal backend regardless of this choice.
+
+- `x11`: the existing X11 path, through XWayland in a Wayland session.
+- `auto`: try native Wayland, falling back to X11 when it cannot start.
+- `wayland`: require native Wayland; a startup failure is not hidden by falling back.
+
+Serilog records the actual windowing implementation after startup. Native Wayland needs
+libwayland-client, libwayland-cursor and libxkbcommon; GPU rendering additionally needs libEGL and
+libwayland-egl. This opt-in is experimental pending desktop verification in [#868](https://github.com/hexide-io/HexIDE/issues/868).

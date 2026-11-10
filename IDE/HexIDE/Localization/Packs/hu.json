@@ -2,6 +2,7 @@
   "name": "Hungarian",
   "direction": "ltr",
   "strings": {
+    "Str.Startup.PlatformSummary": "Csak Linux. Megjelenítő: x11 (alapértelmezett), auto vagy wayland.",
     "Str.Shell.NotImplemented": "Ez a funkció még nincs megvalósítva",
     "Str.AIChat.Stop": "Leállítás",
     "Str.Tool.LanguageServers.Problem.JsonSyntaxEscape": "A(z) „{0}” konfigurációs fájl érvénytelen JSON-t tartalmaz a(z) {1}. sor {2}. oszlopában. Útvonal: {3} Használjon perjeleket (C:/tools/new/...) vagy kettős fordított perjeleket (C:\\\\tools\\\\new\\\\...).",
@@ -240,6 +241,8 @@
     "Str.Menu.Window.Split": "_Felosztás",
     "Str.Menu.Window.ResetLayout": "Ablakelrendezés _visszaállítása",
     "Str.Menu.Help": "Sú_gó",
+    "Str.Menu.Help.BrandHome": "{0} _kezdőlapja",
+    "Str.Menu.Help.BrandSupport": "{0} _támogatás",
     "Str.Menu.Help.ProductOnWeb": "HexIDE a _weben",
     "Str.Menu.Help.About": "A HexIDE _névjegye...",
     "Str.Menu.GoToGithubRepo": "GitHub-tároló megnyitása",

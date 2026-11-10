@@ -2,6 +2,7 @@
   "name": "Estonian",
   "direction": "ltr",
   "strings": {
+    "Str.Startup.PlatformSummary": "Ainult Linux. Kuvamootor: x11 (vaikimisi), auto või wayland.",
     "Str.Shell.NotImplemented": "See funktsioon pole veel teostatud",
     "Str.AIChat.Stop": "Peata",
     "Str.Tool.LanguageServers.Problem.JsonSyntaxEscape": "Konfiguratsioonifail „{0}“ sisaldab vigast JSON-i real {1}, veerus {2}. Tee: {3} Kasutage kaldkriipse (C:/tools/new/...) või kahekordseid längkriipse (C:\\\\tools\\\\new\\\\...).",
@@ -240,6 +241,8 @@
     "Str.Menu.Window.Split": "_Tükelda",
     "Str.Menu.Window.ResetLayout": "_Lähtesta akende paigutus",
     "Str.Menu.Help": "_Abi",
+    "Str.Menu.Help.BrandHome": "{0} _avaleht",
+    "Str.Menu.Help.BrandSupport": "{0} _tugi",
     "Str.Menu.Help.ProductOnWeb": "HexIDE _veebis",
     "Str.Menu.Help.About": "_Teave HexIDE kohta...",
     "Str.Menu.GoToGithubRepo": "Ava GitHubi hoidla",

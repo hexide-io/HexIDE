@@ -2,6 +2,7 @@
   "name": "Spanish",
   "direction": "ltr",
   "strings": {
+    "Str.Startup.PlatformSummary": "Solo Linux. Motor gráfico: x11 (predeterminado), auto o wayland.",
     "Str.Shell.NotImplemented": "Esta función aún no está implementada",
     "Str.AIChat.Stop": "Detener",
     "Str.Tool.LanguageServers.Problem.JsonSyntaxEscape": "El archivo de configuración «{0}» contiene JSON no válido en la línea {1}, columna {2}. Ruta: {3} Use barras normales (C:/tools/new/...) o barras inversas dobles (C:\\\\tools\\\\new\\\\...).",
@@ -277,6 +278,8 @@
     "Str.Menu.Window.Split": "_Dividir",
     "Str.Menu.Window.ResetLayout": "_Restablecer diseño de ventanas",
     "Str.Menu.Help": "A_yuda",
+    "Str.Menu.Help.BrandHome": "Página de _inicio de {0}",
+    "Str.Menu.Help.BrandSupport": "_Soporte de {0}",
     "Str.Menu.Help.ProductOnWeb": "HexIDE en la _Web",
     "Str.Menu.Help.About": "_Acerca de HexIDE...",
     "Str.Menu.GoToGithubRepo": "Ir al repositorio de github",

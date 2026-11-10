@@ -126,6 +126,8 @@ internal static class MenuHostRegistry
             ["shell.AddUserControlCommand"] = new("{CompiledBinding AddUserControlCommand}", null, nameof(MainViewViewModel.AddUserControlCommand)),
             ["shell.OpenAddInManager"] = new("{CompiledBinding OpenAddInManager}", null, nameof(MainViewViewModel.OpenAddInManager)),
             ["shell.OpenDiagnosticsCommand"] = new("{CompiledBinding OpenDiagnosticsCommand}", null, nameof(MainViewViewModel.OpenDiagnosticsCommand)),
+            ["shell.OpenBrandHomeCommand"] = new("{CompiledBinding OpenBrandHomeCommand}", null, nameof(MainViewViewModel.OpenBrandHomeCommand)),
+            ["shell.OpenBrandSupportCommand"] = new("{CompiledBinding OpenBrandSupportCommand}", null, nameof(MainViewViewModel.OpenBrandSupportCommand)),
             ["shell.OpenGithubRepo"] = new("{CompiledBinding OpenGithubRepo}", null, nameof(MainViewViewModel.OpenGithubRepo)),
             ["shell.OpenLanguageServersCommand"] = new("{CompiledBinding OpenLanguageServersCommand}", null, nameof(MainViewViewModel.OpenLanguageServersCommand)),
             ["shell.OpenOutlineCommand"] = new("{CompiledBinding OpenOutlineCommand}", null, nameof(MainViewViewModel.OpenOutlineCommand)),
@@ -159,8 +161,16 @@ internal static class MenuHostRegistry
             [nameof(MainViewViewModel.UndoHeader)] = "Str.Menu.Edit.Undo",
             [nameof(MainViewViewModel.RedoHeader)] = "Str.Menu.Edit.Redo",
             [nameof(MainViewViewModel.RemoveFormMenuHeader)] = "Str.Menu.Project.RemoveFormFallback",
+            [nameof(MainViewViewModel.BrandHomeMenuHeader)] = "Str.Menu.Help.BrandHome",
+            [nameof(MainViewViewModel.BrandSupportMenuHeader)] = "Str.Menu.Help.BrandSupport",
             [nameof(MainViewViewModel.ProjectPropertiesMenuHeader)] = "Str.Menu.Project.PropertiesFallback",
         };
+
+    internal static readonly HashSet<string> VisibilityBindings = new(StringComparer.Ordinal)
+    {
+        nameof(MainViewViewModel.HasBrandHome),
+        nameof(MainViewViewModel.HasBrandSupport),
+    };
 
     internal static readonly IReadOnlyDictionary<string, MenuBooleanState> States =
         new Dictionary<string, MenuBooleanState>(StringComparer.Ordinal)

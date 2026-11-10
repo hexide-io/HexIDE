@@ -42,6 +42,7 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
     private readonly IWindowManager windowManager;
     private readonly ISettingsService settingsService;
     private readonly ILocalizationService localization;
+    private readonly IProjectFileFormat format;
     public ToolBoxToolViewModel ToolsBoxToolViewModel { get; }
     public ISettingsService Settings => settingsService;
     protected override string ComputeTitle()
@@ -275,8 +276,10 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
         IEditorService editorService,
         IWindowManager windowManager,
         ISettingsService settingsService,
-        ILocalizationService localization) : this()
+        ILocalizationService localization,
+        IProjectFileFormat? format = null) : this()
     {
+        this.format = format ?? new HexIDE.Projects.Vb6ProjectFileFormat();
         this.eventBus = eventBus;
         this.projectService = projectService;
         this.editorService = editorService;
@@ -503,7 +506,7 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
 
     /// <summary>The children a container's block holds, in the order a save writes them, as the writer reads them.</summary>
     private IReadOnlyList<ComponentInstance> WrittenChildren(ComponentInstance container, IReadOnlyList<ComponentInstance> fileOrder) =>
-        ReferenceEquals(container, Form.Instance) ? FormSerializer.RootChildren(fileOrder, container) : container.ContainedControls;
+        ReferenceEquals(container, Form.Instance) ? format.RootChildren(fileOrder, container) : container.ContainedControls;
 
     /// <summary>
     /// Where a save puts each container's carried blocks among the children it writes, from how many of them each child
@@ -703,6 +706,7 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
             .SetProperty(VBProperties.CaptionProperty, "Form1"));
         AllComponents.Add(Form);
         eventBus = null!;
+        format = null!;
         projectService = null!;
         editorService = null!;
         windowManager = null!;

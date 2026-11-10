@@ -67,10 +67,22 @@ public class VBPictureBox : TemplatedControl, IVBContainerControl
     public static readonly StyledProperty<IImage?> PictureProperty =
         AvaloniaProperty.Register<VBPictureBox, IImage?>(nameof(Picture));
 
+    public bool AutoSize { get; set; }
+
     public byte[]? PictureData
     {
         get => GetValue(PictureDataProperty);
-        set => SetValue(PictureDataProperty, value);
+        set
+        {
+            // Validate before replacing the picture. Initial loading sets AutoSize afterwards (#922).
+            var size = AutoSize ? PictureBoxComponentClass.AutoSizePixels(value, ClientBorderStyle) : null;
+            SetValue(PictureDataProperty, value);
+            if (size is { } fitted)
+            {
+                Width = fitted.Width;
+                Height = fitted.Height;
+            }
+        }
     }
 
     public IImage? Picture

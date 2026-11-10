@@ -103,6 +103,7 @@ public static class AvaloniaInteroperability
         Register<Control, double>(VBProperties.LeftProperty, w => Canvas.GetLeft(w).OrZero(), Canvas.SetLeft);
         Register<Control, double>(VBProperties.TopProperty, w => Canvas.GetTop(w).OrZero(), Canvas.SetTop);
         Register<Control, double>(VBProperties.WidthProperty, Layoutable.WidthProperty);
+        Register<VBPictureBox, bool>(VBProperties.AutoSizeProperty, box => box.AutoSize, (box, value) => box.AutoSize = value);
         Register<Control, VBCursorType>(VBProperties.MousePointerProperty, AttachedProperties.GetMousePointer, (control, value) =>
         {
             control.Cursor = value.ToCursor();
@@ -277,6 +278,17 @@ public static class AvaloniaInteroperability
         RefuseUnmeasuredColour(control, property);
         if (control is VBTimer && ControlPositions.IsPosition(property))
             throw IdentityMembers.ReadOnlyAtRunTime(property.Name);
+        if (control is VBPictureBox { PictureData.Length: > 0 } pictureBox
+            && !pictureBox.AutoSize && ReferenceEquals(property, VBProperties.AutoSizeProperty)
+            && ConvertForAssignment(property, value) is true)
+            throw UnmeasuredAssignment(property, value);
+        if (control is VBPictureBox box && ReferenceEquals(property, VBProperties.PictureProperty))
+        {
+            if (value.Value is not PanelPicture picture)
+                throw UnmeasuredAssignment(property, value);
+            box.PictureData = picture.FileBytes;
+            return true;
+        }
         if (ReferenceEquals(property, VBProperties.FontProperty) && ControlFont.AppliesTo(control))
         {
             if (value.Type != Vb6Value.ValueType.String)
@@ -351,6 +363,9 @@ public static class AvaloniaInteroperability
             throw new VBRunTimeException(VBStandardError.InvalidPropertyValue);
     }
 
+    internal static NotImplementedException UnmeasuredAssignment(PropertyClass property, Vb6Value value) =>
+        new($"Assigning {value.Type} to the {property.Name} property is not implemented");
+
     /// <summary>
     /// What an assignment to <paramref name="property"/> stores: the right-hand side converted to the property's
     /// VB6 type, by the rule that converts a value stored into a declared variable of that type.
@@ -386,8 +401,7 @@ public static class AvaloniaInteroperability
         // of answering wrong, for a Boolean property too: there it used to give a trappable 13, which On Error
         // Resume Next would step over. What VB6 does with each of these was not measured for this change.
         if (!IsScalar(value))
-            throw new NotImplementedException(
-                $"Assigning {value.Type} to the {property.Name} property is not implemented");
+            throw UnmeasuredAssignment(property, value);
 
         // Tag keeps what it is given, for now. It is a String in VB6 (`Label1.Tag = 5` reads back "5", measured),
         // but storing it as one here broke two idioms that work today: `If Command1.Tag = 1` needs the String-to-

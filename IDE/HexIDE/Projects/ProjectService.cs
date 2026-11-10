@@ -36,6 +36,7 @@ public partial class ProjectService : IProjectService
     private readonly ArchiveProjectService? archives;
     private readonly Func<ILspClient>? lspClient;
     private readonly ContributedProjects? contributed;
+    private readonly IProjectFileFormat format;
 
     public ProjectService(Func<NewProjectViewModel> newProjectVm,
         IWindowManager windowManager,
@@ -49,9 +50,11 @@ public partial class ProjectService : IProjectService
         IHeaderRefresher headerRefresher,
         ArchiveProjectService? archives = null,
         Func<ILspClient>? lspClient = null,
-        ContributedProjects? contributed = null)
+        ContributedProjects? contributed = null,
+        IProjectFileFormat? format = null)
     {
         this.contributed = contributed;
+        this.format = format ?? new Vb6ProjectFileFormat();
         this.newProjectVm = newProjectVm;
         this.windowManager = windowManager;
         this.eventBus = eventBus;
@@ -1161,7 +1164,7 @@ public partial class ProjectService : IProjectService
                 FormDefinition form => (form.Name, RenderForm(form, destination.Path).Text, form.TextEncoding),
                 ModuleDefinition module => (module.Name, RenderModule(module, destination.Path).Text, module.TextEncoding),
                 ProjectDefinition project => (project.Name,
-                    new ProjectSerializer().Serialize(project, destination.Path, PathOf), project.TextEncoding),
+                    format.RenderProject(project, destination.Path, PathOf), project.TextEncoding),
                 ProjectGroupDefinition group => (group.Name, RenderGroup(group, destination.Path, PathOf), group.TextEncoding),
                 _ => throw new ArgumentException($"{HexIDE.IDE.Distribution.DisplayName} does not save a {destination.Document.GetType().Name}.")
             };
@@ -1200,7 +1203,7 @@ public partial class ProjectService : IProjectService
         {
             case ProjectDefinition { AbsolutePath: { } projectPath } project:
                 (name, encoding) = (project.Name, project.TextEncoding);
-                render = of => new ProjectSerializer().Serialize(project, projectPath, of);
+                render = of => format.RenderProject(project, projectPath, of);
                 break;
             case ProjectGroupDefinition { AbsolutePath: { } groupPath } group:
                 (name, encoding) = (group.Name, group.TextEncoding);
@@ -1272,22 +1275,13 @@ public partial class ProjectService : IProjectService
         }
     }
 
-    private static (string Text, byte[]? Companion) RenderForm(FormDefinition form, string path) =>
-        new FormSerializer().Serialize(form, Path.GetFileName(path));
+    private RenderedFile RenderForm(FormDefinition form, string path) => format.RenderForm(form, Path.GetFileName(path));
 
-    /// <summary>
-    /// A module's file as it would be written at <paramref name="path"/>. A UserControl or PropertyPage
-    /// is a designer file with a companion; a <c>.bas</c> or <c>.cls</c> gets the canonical VB6 header
-    /// (<see cref="ModuleFileFormat"/>) in front of its body, so vb6.exe can load it.
-    /// </summary>
-    private static (string Text, byte[]? Companion) RenderModule(ModuleDefinition module, string path) =>
-        DesignerPartOf(module) is { } designerPart
-            ? new FormSerializer().Serialize(designerPart, module.Code, Path.GetFileName(path))
-            : (ModuleFileFormat.ToFileContent(module.Code, module.Name, module.Kind, module.OriginalHeader), null);
+    /// <summary>A module's file as it would be written at <paramref name="path"/>.</summary>
+    private RenderedFile RenderModule(ModuleDefinition module, string path) => format.RenderModule(module, Path.GetFileName(path));
 
     private string RenderGroup(ProjectGroupDefinition group, string path, Func<object, string?>? pathOf) =>
-        new GroupSerializer().Serialize(path, projectManager.LoadedProjects, projectManager.StartupProject,
-            group.UnknownLines, pathOf);
+        format.RenderGroup(path, projectManager.LoadedProjects, projectManager.StartupProject, group.UnknownLines, pathOf);
 
     public async Task<bool> ReloadFormFromDisk(FormDefinition form)
     {
@@ -2506,7 +2500,7 @@ public partial class ProjectService : IProjectService
             throw new InvalidOperationException(
                 $"{definition.Name}'s project file would leave out {string.Join(", ", unlisted)}, which "
               + "have no file, so it was not written.");
-        var serialized = new ProjectSerializer().Serialize(definition, projectPath, includeRelatedDocuments: includeRelatedDocuments);
+        var serialized = format.RenderProject(definition, projectPath, includeRelatedDocuments: includeRelatedDocuments);
         AtomicWriteText(projectPath, serialized,
             Vb6TextFile.EncodeDocument(definition.Name, serialized, definition.TextEncoding));
         // A kept line names its file from the folder it was read in. A project the loader did not read has that folder
@@ -2542,7 +2536,7 @@ public partial class ProjectService : IProjectService
         if (UnlistedMembers(project, writtenWithIt: _ => false).Count > 0)
             return true;
 
-        return !BaselineMatches(path, new ProjectSerializer().Serialize(project, path));
+        return !BaselineMatches(path, format.RenderProject(project, path));
     }
 
     public bool HasUnsavedChanges(FormDefinition form) => IsDirty(form);
@@ -2608,7 +2602,7 @@ public partial class ProjectService : IProjectService
                 project.TextEncoding,
                 projectDirty
                     ? new HexIDE.Recovery.UnsavedFile(Path.GetFileName(projectPath),
-                        new ProjectSerializer().Serialize(project, projectPath, PathOf))
+                        format.RenderProject(project, projectPath, PathOf))
                     : null,
                 documents,
                 projectPath,
@@ -2641,7 +2635,7 @@ public partial class ProjectService : IProjectService
     private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<ProjectDefinition, string>
         NotionalProjectPaths = new();
 
-    private static HexIDE.Recovery.UnsavedFile Unsaved(string fileName, (string Text, byte[]? Companion) rendered) =>
+    private static HexIDE.Recovery.UnsavedFile Unsaved(string fileName, RenderedFile rendered) =>
         rendered.Companion is { Length: > 0 } companion
             ? new(fileName, rendered.Text, Path.ChangeExtension(fileName, CompanionBinaryExtension(fileName)), companion)
             : new(fileName, rendered.Text);
@@ -2652,7 +2646,7 @@ public partial class ProjectService : IProjectService
         if (path is null || IsScratchFile(form.Owner, path))
             return true;
 
-        var (text, binary) = new FormSerializer().Serialize(form, Path.GetFileName(path));
+        var (text, binary) = RenderForm(form, path);
         return !BaselineMatches(path, text) || CompanionWouldChange(path, binary);
     }
 
@@ -2662,13 +2656,8 @@ public partial class ProjectService : IProjectService
         if (path is null || IsScratchFile(module.Owner, path))
             return true;
 
-        if (module.FormPart is { } formPart && module.Kind is ModuleKind.UserControl or ModuleKind.PropertyPage)
-        {
-            var (text, binary) = new FormSerializer().Serialize(formPart, module.Code, Path.GetFileName(path));
-            return !BaselineMatches(path, text) || CompanionWouldChange(path, binary);
-        }
-
-        return !BaselineMatches(path, ModuleFileFormat.ToFileContent(module.Code, module.Name, module.Kind, module.OriginalHeader));
+        var (text, binary) = RenderModule(module, path);
+        return !BaselineMatches(path, text) || (DesignerPartOf(module) is not null && CompanionWouldChange(path, binary));
     }
 
     /// <summary>
@@ -2705,7 +2694,7 @@ public partial class ProjectService : IProjectService
     private void SnapshotRenderBaselines(ProjectDefinition project)
     {
         if (project.AbsolutePath is { } projectPath)
-            renderBaselines[projectPath] = FileHasher.Hash(new ProjectSerializer().Serialize(project, projectPath));
+            renderBaselines[projectPath] = FileHasher.Hash(format.RenderProject(project, projectPath));
 
         foreach (var form in project.Forms)
             SnapshotRenderBaseline(form);
@@ -2723,7 +2712,7 @@ public partial class ProjectService : IProjectService
     {
         if (form.AbsolutePath is not { } path)
             return;
-        var (text, binary) = new FormSerializer().Serialize(form, Path.GetFileName(path));
+        var (text, binary) = RenderForm(form, path);
         RecordRender(path, text, binary);
     }
 
@@ -2733,16 +2722,11 @@ public partial class ProjectService : IProjectService
         if (module.AbsolutePath is not { } path)
             return;
 
-        if (module.FormPart is { } formPart && module.Kind is ModuleKind.UserControl or ModuleKind.PropertyPage)
-        {
-            var (text, binary) = new FormSerializer().Serialize(formPart, module.Code, Path.GetFileName(path));
+        var (text, binary) = RenderModule(module, path);
+        if (DesignerPartOf(module) is not null)
             RecordRender(path, text, binary);
-        }
         else
-        {
-            renderBaselines[path] = FileHasher.Hash(
-                ModuleFileFormat.ToFileContent(module.Code, module.Name, module.Kind, module.OriginalHeader));
-        }
+            renderBaselines[path] = FileHasher.Hash(text);
     }
 
     private void RecordRender(string path, string text, byte[]? binary)

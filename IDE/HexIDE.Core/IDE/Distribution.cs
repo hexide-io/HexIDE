@@ -76,6 +76,12 @@ public sealed class DistributionIdentity
     /// </summary>
     public string? AppUserModelId => IsStock ? null : $"HexIDE.Distribution.{Id}";
 
+    /// <summary>
+    /// The window class a Linux desktop matches to this product's menu entry, from its id for the same reason. Null
+    /// for stock, whose windows keep the class they have always had.
+    /// </summary>
+    public string? WindowClass => IsStock ? null : Id;
+
     /// <summary>This distribution's log root. Bundled child processes are told it, so they log beside the host.</summary>
     public string LogsDirectory => Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), StateDirectoryName, "logs");

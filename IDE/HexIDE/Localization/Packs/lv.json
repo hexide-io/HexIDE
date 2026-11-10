@@ -2,6 +2,7 @@
   "name": "Latvian",
   "direction": "ltr",
   "strings": {
+    "Str.Startup.PlatformSummary": "Tikai Linux. Attēlošanas sistēma: x11 (noklusējums), auto vai wayland.",
     "Str.Shell.NotImplemented": "Šī funkcija vēl nav ieviesta",
     "Str.AIChat.Stop": "Apturēt",
     "Str.Tool.LanguageServers.Problem.JsonSyntaxEscape": "Konfigurācijas failā “{0}” ir nederīgs JSON {1}. rindā, {2}. kolonnā. Ceļš: {3} Izmantojiet slīpsvītras (C:/tools/new/...) vai dubultas atpakaļslīpsvītras (C:\\\\tools\\\\new\\\\...).",
@@ -240,6 +241,8 @@
     "Str.Menu.Window.Split": "_Sadalīt",
     "Str.Menu.Window.ResetLayout": "_Atiestatīt logu izkārtojumu",
     "Str.Menu.Help": "_Palīdzība",
+    "Str.Menu.Help.BrandHome": "{0} _sākumlapa",
+    "Str.Menu.Help.BrandSupport": "{0} _atbalsts",
     "Str.Menu.Help.ProductOnWeb": "HexIDE _tīmeklī",
     "Str.Menu.Help.About": "_Par HexIDE...",
     "Str.Menu.GoToGithubRepo": "Atvērt GitHub repozitoriju",

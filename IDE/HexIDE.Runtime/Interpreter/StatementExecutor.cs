@@ -3813,6 +3813,11 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             {
                 var member = UdtFieldName(setMembers[0]);
                 UserControlMembers.Check(target, member);
+                if (setControl is VBPictureBox && member.Equals("Picture", StringComparison.OrdinalIgnoreCase))
+                {
+                    AvaloniaInteroperability.TrySet(setControl, VBProperties.PictureProperty, value);
+                    return ControlFlow.Nothing;
+                }
                 if (UserControlContainers.TrySet(setControl, member, value))
                     return ControlFlow.Nothing;
             }

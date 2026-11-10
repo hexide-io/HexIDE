@@ -227,6 +227,13 @@ public partial class MainViewViewModel : ObservableObject
     public string RemoveFormMenuHeader => FormatHeader("Str.Menu.Project.RemoveFormFormat", "Str.Menu.Project.RemoveFormFallback", RemovableDocument?.Name);
     public string ProjectPropertiesMenuHeader => FormatHeader("Str.Menu.Project.PropertiesFormat", "Str.Menu.Project.PropertiesFallback", FocusedProjectUtil.FocusedOrStartupProject?.Name);
 
+    public bool HasBrandHome => Distribution.Current.HomeUrl is not null;
+    public bool HasBrandSupport => Distribution.Current.SupportUrl is not null;
+    public string BrandHomeMenuHeader => string.Format(localization.GetString("Str.Menu.Help.BrandHome"), Distribution.DisplayName);
+    public string BrandSupportMenuHeader => string.Format(localization.GetString("Str.Menu.Help.BrandSupport"), Distribution.DisplayName);
+    public DelegateCommand OpenBrandHomeCommand { get; }
+    public DelegateCommand OpenBrandSupportCommand { get; }
+
     private DocumentIdentity? RemovableDocument
     {
         get
@@ -262,6 +269,7 @@ public partial class MainViewViewModel : ObservableObject
         nameof(SaveProjectMenuHeader), nameof(SaveFormMenuHeader), nameof(SaveFormAsMenuHeader),
         nameof(RemoveProjectMenuHeader), nameof(MakeProjectMenuHeader), nameof(MakeWithVb6MenuHeader),
         nameof(RemoveFormMenuHeader), nameof(ProjectPropertiesMenuHeader),
+        nameof(BrandHomeMenuHeader), nameof(BrandSupportMenuHeader),
     ];
 
     private void RaiseDynamicMenuHeaders()
@@ -1309,6 +1317,8 @@ public partial class MainViewViewModel : ObservableObject
         Immediate = immediate;
         FormLayout = formLayout;
         Locals = locals;
+        OpenBrandHomeCommand = new DelegateCommand(() => OpenBrandLink(Distribution.Current.HomeUrl), () => HasBrandHome);
+        OpenBrandSupportCommand = new DelegateCommand(() => OpenBrandLink(Distribution.Current.SupportUrl), () => HasBrandSupport);
         OpenOutlineCommand = new DelegateCommand(() => OpenOrActivateTool(Outline, true));
         Watches = watches;
         CallStack = callStack;
@@ -1972,6 +1982,12 @@ public partial class MainViewViewModel : ObservableObject
         if (paths?.FirstOrDefault() is not { } file || projectRunnerService.IsRunning) return;
         OpenImmediateTool();
         await ExternalDebugger.StartAsync(file);
+    }
+
+    private static void OpenBrandLink(string? url)
+    {
+        if (url is not null)
+            TopLevel.GetTopLevel(Static.MainView)!.Launcher.LaunchUriAsync(new Uri(url)).ListenErrors();
     }
 
     public Task OpenGithubRepo()

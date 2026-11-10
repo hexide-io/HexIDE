@@ -2,6 +2,7 @@
   "name": "Hebrew",
   "direction": "rtl",
   "strings": {
+    "Str.Startup.PlatformSummary": "Linux בלבד. מנגנון תצוגה: x11 (ברירת מחדל), auto או wayland.",
     "Str.Shell.NotImplemented": "תכונה זו עדיין לא מומשה",
     "Str.AIChat.Stop": "עצור",
     "Str.Tool.LanguageServers.Problem.JsonSyntaxEscape": "קובץ התצורה „{0}” מכיל JSON לא תקין בשורה {1}, עמודה {2}. נתיב: {3} יש להשתמש בלוכסנים (C:/tools/new/...) או בלוכסנים הפוכים כפולים (C:\\\\tools\\\\new\\\\...).",
@@ -277,6 +278,8 @@
     "Str.Menu.Window.Split": "פצל",
     "Str.Menu.Window.ResetLayout": "אפס פריסת חלונות",
     "Str.Menu.Help": "עזרה",
+    "Str.Menu.Help.BrandHome": "דף הבית של {0}",
+    "Str.Menu.Help.BrandSupport": "תמיכה עבור {0}",
     "Str.Menu.Help.ProductOnWeb": "HexIDE ברשת",
     "Str.Menu.Help.About": "אודות HexIDE...",
     "Str.Menu.GoToGithubRepo": "עבור אל מאגר github",

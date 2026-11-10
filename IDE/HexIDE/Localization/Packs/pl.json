@@ -2,6 +2,7 @@
   "name": "Polish",
   "direction": "ltr",
   "strings": {
+    "Str.Startup.PlatformSummary": "Tylko Linux. Mechanizm wyświetlania: x11 (domyślny), auto lub wayland.",
     "Str.Shell.NotImplemented": "Ta funkcja nie została jeszcze zaimplementowana",
     "Str.AIChat.Stop": "Zatrzymaj",
     "Str.Tool.LanguageServers.Problem.JsonSyntaxEscape": "Plik konfiguracji „{0}” zawiera nieprawidłowy JSON w wierszu {1}, kolumnie {2}. Ścieżka: {3} Użyj ukośników (C:/tools/new/...) lub podwójnych ukośników odwrotnych (C:\\\\tools\\\\new\\\\...).",
@@ -277,6 +278,8 @@
     "Str.Menu.Window.Split": "_Podziel",
     "Str.Menu.Window.ResetLayout": "_Resetuj układ okien",
     "Str.Menu.Help": "Pomo_c",
+    "Str.Menu.Help.BrandHome": "Strona _główna {0}",
+    "Str.Menu.Help.BrandSupport": "_Wsparcie {0}",
     "Str.Menu.Help.ProductOnWeb": "HexIDE w _sieci",
     "Str.Menu.Help.About": "_O programie HexIDE...",
     "Str.Menu.GoToGithubRepo": "Przejdź do repozytorium github",

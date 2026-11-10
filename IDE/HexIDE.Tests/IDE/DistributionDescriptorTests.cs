@@ -352,6 +352,39 @@ public sealed class DistributionDescriptorTests
         strings["Other"].Should().Be("Nothing here");
     }
 
+    [Fact]
+    public void Home_and_repository_Help_headers_are_distinct()
+    {
+        var localization = new LocalizationService();
+        var strings = new Dictionary<string, string>
+        {
+            ["Str.Menu.Help.ProductOnWeb"] = localization.GetStringFrom("en", "Str.Menu.Help.ProductOnWeb"),
+            ["Str.Menu.Help.About"] = localization.GetStringFrom("en", "Str.Menu.Help.About")
+        };
+        BrandText.Apply(strings, "Acme Basic", hasRepository: true);
+
+        var headers = new[]
+        {
+            string.Format(localization.GetStringFrom("en", "Str.Menu.Help.BrandHome"), "Acme Basic"),
+            string.Format(localization.GetStringFrom("en", "Str.Menu.Help.BrandSupport"), "Acme Basic"),
+            strings["Str.Menu.Help.ProductOnWeb"],
+            strings["Str.Menu.Help.About"]
+        };
+        headers.Should().OnlyHaveUniqueItems();
+        headers[0].Replace("_", "").Should().Be("Acme Basic Home Page");
+        strings["Str.Menu.Help.ProductOnWeb"].Should().Be("Acme Basic on the _Web");
+    }
+
+    [Fact]
+    public void A_brand_without_a_repository_keeps_HexIDEs_name_on_the_web_entry()
+    {
+        var strings = new Dictionary<string, string> { ["Str.Menu.Help.ProductOnWeb"] = "HexIDE on the _Web" };
+
+        BrandText.Apply(strings, "Acme Basic");
+
+        strings["Str.Menu.Help.ProductOnWeb"].Should().Be("HexIDE on the _Web");
+    }
+
     [Theory]
     [InlineData("Build HexIDE.Standalone first.", "Build HexIDE.Standalone first.")]
     [InlineData("Close HexIDE. Then retry.", "Close Acme. Then retry.")]

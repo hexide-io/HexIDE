@@ -2,6 +2,7 @@
   "name": "Russian",
   "direction": "ltr",
   "strings": {
+    "Str.Startup.PlatformSummary": "Только Linux. Система вывода: x11 (по умолчанию), auto или wayland.",
     "Str.Shell.NotImplemented": "Эта функция ещё не реализована",
     "Str.AIChat.Stop": "Остановить",
     "Str.Tool.LanguageServers.Problem.JsonSyntaxEscape": "Файл конфигурации «{0}» содержит некорректный JSON в строке {1}, столбце {2}. Путь: {3} Используйте прямые косые черты (C:/tools/new/...) или удвоенные обратные косые черты (C:\\\\tools\\\\new\\\\...).",
@@ -277,6 +278,8 @@
     "Str.Menu.Window.Split": "Разделить",
     "Str.Menu.Window.ResetLayout": "Сбросить расположение окон",
     "Str.Menu.Help": "Справка",
+    "Str.Menu.Help.BrandHome": "Домашняя страница {0}",
+    "Str.Menu.Help.BrandSupport": "Поддержка {0}",
     "Str.Menu.Help.ProductOnWeb": "HexIDE в Интернете",
     "Str.Menu.Help.About": "О программе HexIDE...",
     "Str.Menu.GoToGithubRepo": "Перейти в репозиторий github",

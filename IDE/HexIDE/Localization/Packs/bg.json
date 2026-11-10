@@ -2,6 +2,7 @@
   "name": "Bulgarian",
   "direction": "ltr",
   "strings": {
+    "Str.Startup.PlatformSummary": "Само Linux. Графична среда: x11 (по подразбиране), auto или wayland.",
     "Str.Shell.NotImplemented": "Тази функция все още не е реализирана",
     "Str.AIChat.Stop": "Спри",
     "Str.Tool.LanguageServers.Problem.JsonSyntaxEscape": "Конфигурационният файл „{0}“ съдържа невалиден JSON на ред {1}, колона {2}. Път: {3} Използвайте наклонени черти (C:/tools/new/...) или двойни обратни наклонени черти (C:\\\\tools\\\\new\\\\...).",
@@ -240,6 +241,8 @@
     "Str.Menu.Window.Split": "Разделяне",
     "Str.Menu.Window.ResetLayout": "Възстановяване на разположението на прозорците",
     "Str.Menu.Help": "Помощ",
+    "Str.Menu.Help.BrandHome": "Начална страница на {0}",
+    "Str.Menu.Help.BrandSupport": "Поддръжка за {0}",
     "Str.Menu.Help.ProductOnWeb": "HexIDE в интернет",
     "Str.Menu.Help.About": "Относно HexIDE...",
     "Str.Menu.GoToGithubRepo": "Към хранилището в GitHub",

@@ -2,6 +2,7 @@
   "name": "Ukrainian",
   "direction": "ltr",
   "strings": {
+    "Str.Startup.PlatformSummary": "Лише Linux. Система виведення: x11 (типово), auto або wayland.",
     "Str.Shell.NotImplemented": "Цю функцію ще не реалізовано",
     "Str.AIChat.Stop": "Зупинити",
     "Str.Tool.LanguageServers.Problem.JsonSyntaxEscape": "Файл конфігурації «{0}» містить некоректний JSON у рядку {1}, стовпці {2}. Шлях: {3} Використовуйте прямі скісні риски (C:/tools/new/...) або подвоєні зворотні скісні риски (C:\\\\tools\\\\new\\\\...).",
@@ -277,6 +278,8 @@
     "Str.Menu.Window.Split": "Розділити",
     "Str.Menu.Window.ResetLayout": "Скинути розташування вікон",
     "Str.Menu.Help": "Довідка",
+    "Str.Menu.Help.BrandHome": "Домашня сторінка {0}",
+    "Str.Menu.Help.BrandSupport": "Підтримка {0}",
     "Str.Menu.Help.ProductOnWeb": "HexIDE в Інтернеті",
     "Str.Menu.Help.About": "Про HexIDE...",
     "Str.Menu.GoToGithubRepo": "Перейти до репозиторію github",
