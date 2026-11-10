@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using AvaloniaEdit.Document;
 using AvaloniaEdit.Folding;
+using HexIDE.Language;
 using HexIDE.Lsp.Messages;
 using HexIDE.Runtime.Serialization;
 

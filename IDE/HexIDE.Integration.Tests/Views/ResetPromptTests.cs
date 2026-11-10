@@ -97,7 +97,7 @@ public class ResetPromptTests : IDisposable
         var vm = new CodeEditorViewModel(
             windowManager, Substitute.For<IEditorService>(), Substitute.For<IProjectService>(),
             eventBus, lsp, settings, Substitute.For<IStatusBarService>(), new BookmarkService(), new BreakpointService(),
-            debugController, new RunScope(), Substitute.For<ILocalizationService>());
+            debugController, new RunScope(), Substitute.For<ILocalizationService>(), regionReader: new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionReader());
         made.Add(vm);
         var project = new ProjectDefinition(VBProjectType.EXE, "P");
         return vm.Initialize(new FormDeserializer().Deserialize(project, Frm, NullSink.Instance)!);

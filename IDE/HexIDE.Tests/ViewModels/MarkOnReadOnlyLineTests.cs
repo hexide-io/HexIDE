@@ -77,7 +77,7 @@ public class MarkOnReadOnlyLineTests : IDisposable
             Substitute.For<IProjectService>(), eventBus, Substitute.For<ILspClient>(),
             Substitute.For<ISettingsService>(), statusBar, bookmarks, breakpoints,
             Substitute.For<HexIDE.Runtime.Debugging.IDebugController>(),
-            Substitute.For<IRunScope>(), localization);
+            Substitute.For<IRunScope>(), localization, regionReader: new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionReader());
         made.Add(vm);
         return vm;
     }
