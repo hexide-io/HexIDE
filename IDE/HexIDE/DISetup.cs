@@ -92,8 +92,9 @@ public partial class DISetup
                 ctx.Inject<CallStackToolViewModel>(out var stack);
                 ctx.Inject<RecentEditHistory>(out var recentEdits);
                 ctx.Inject<HexIDE.Language.IConditionalCodeReader>(out var conditionalCode);
+                ctx.Inject<HexIDE.Language.IBracketReader>(out var brackets);
                 return new CodeEditorViewModel(windows, editors, projects, events, lsp, settings, status,
-                    bookmarks, breakpoints, debugger, run, localization, external, stack, recentEdits, conditionalCode);
+                    bookmarks, breakpoints, debugger, run, localization, external, stack, recentEdits, conditionalCode, brackets);
             })
             .Bind().As(Singleton).To<ColorPaletteToolViewModel>()
             .Bind().As(Singleton).To<ObjectBrowserToolViewModel>()
@@ -108,6 +109,7 @@ public partial class DISetup
             .Bind<IRunEngine>().As(Singleton).To<InterpreterRunEngine>()
             .Bind<HexIDE.Language.IConditionalCodeReader>().As(Singleton)
                 .To<HexIDE.Runtime.Interpreter.ConditionalCompilation.InterpreterConditionalCode>()
+            .Bind<HexIDE.Language.IBracketReader>().As(Singleton).To<HexIDE.Runtime.Interpreter.InterpreterBrackets>()
             .Bind<IDocumentDockService>().As(Singleton).To<DocumentDockService>()
             .Bind().As(Singleton).To<MainViewViewModel.DockFactory>()
             .Bind().As(Singleton).To<EventBus>()

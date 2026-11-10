@@ -208,6 +208,9 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     /// <summary>What says which lines an <c>#If</c> leaves out, or null where nothing does, and then nothing is greyed.</summary>
     public HexIDE.Language.IConditionalCodeReader? ConditionalCode { get; }
 
+    /// <summary>What says where this module's parentheses are, or null where nothing does, and then none is coloured.</summary>
+    public HexIDE.Language.IBracketReader? Brackets { get; }
+
     public CodeEditorViewModel(IWindowManager windowManager,
         IEditorService editorService,
         IProjectService projectService,
@@ -223,9 +226,11 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
         HexIDE.Debugging.ExternalDebugService? externalDebugger = null,
         HexIDE.Tools.CallStackToolViewModel? callStack = null,
         HexIDE.Tools.RecentEditHistory? recentEditHistory = null,
-        HexIDE.Language.IConditionalCodeReader? conditionalCode = null)
+        HexIDE.Language.IConditionalCodeReader? conditionalCode = null,
+        HexIDE.Language.IBracketReader? brackets = null)
     {
         ConditionalCode = conditionalCode;
+        Brackets = brackets;
         this.recentEditHistory = recentEditHistory;
         CanFloat = false;
         this.windowManager = windowManager;
