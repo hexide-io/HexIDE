@@ -157,6 +157,46 @@ public partial class ProjectDefinition : INotifyPropertyChanged
     public List<(int PositionHint, string RawLine)> UnknownPreSectionLines { get; } = new();
 
     /// <summary>
+    /// Read a <c>key=value</c> line the project loader kept verbatim.
+    /// </summary>
+    /// <remarks>
+    /// These keys are deliberately read from the preserved lines rather than promoted into the project
+    /// model. Modelling a key means the writer owns emitting it, and the <c>.vbp</c> currently round-trips
+    /// byte-for-byte against VB6's own files — not worth risking that gate to read a caption.
+    /// </remarks>
+    public string? PreSectionValue(string key)
+    {
+        foreach (var (_, raw) in UnknownPreSectionLines)
+        {
+            var line = raw.TrimStart();
+            if (!line.StartsWith(key + "=", System.StringComparison.OrdinalIgnoreCase)) continue;
+
+            var value = line[(key.Length + 1)..].Trim();
+
+            // Quoted titles read back without either quote under F5 and compiled p-code (#2413).
+            if (value.Length >= 2 && value[0] == '"' && value[^1] == '"')
+                value = value[1..^1];
+            else if (value.Length >= 1 && value[0] == '"')
+                value = value[1..];
+
+            return value;
+        }
+        return null;
+    }
+
+    /// <summary>The key of a project's Conditional Compilation Arguments in its <c>.vbp</c>.</summary>
+    public const string ConditionalArgumentsKey = "CondComp";
+
+    /// <summary>
+    /// The project's Conditional Compilation Arguments, by name in any case, or null where vb6.exe refuses its
+    /// <c>CondComp</c> line. No line, or an empty one, is no arguments.
+    /// </summary>
+    public IReadOnlyDictionary<string, short>? ConditionalArguments() =>
+        HexIDE.Language.ConditionalCompilation.TryParseArguments(PreSectionValue(ConditionalArgumentsKey), out var arguments)
+            ? arguments
+            : null;
+
+    /// <summary>
     /// The position hint of an <c>Object=</c> line the Components dialog added, which the writer resolves to just after the
     /// last <c>Form=</c> line: where VB6's Save Project put one (measured, #1103).
     /// </summary>

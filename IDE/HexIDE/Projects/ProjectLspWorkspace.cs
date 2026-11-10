@@ -4,7 +4,7 @@ using System.IO;
 using System.Linq;
 using System.ComponentModel;
 using Avalonia.Threading;
-using HexIDE.Runtime.Interpreter.ConditionalCompilation;
+using HexIDE.Language;
 using HexIDE.Runtime.ProjectElements;
 using HexIDE.Runtime.Serialization;
 using HexIDE.IDE;
@@ -123,9 +123,9 @@ public sealed class ProjectLspWorkspace(Func<IProjectManager> projectManager) : 
                 Version.TryParse(r.Version, out var version) ? version.Major : null,
                 Version.TryParse(r.Version, out version) ? version.Minor : null,
                 r.Lcid, r.LibPath is null ? null : SerializedProject.ToHostPath(r.LibPath))).ToArray();
-            var arguments = CompilationArguments.TryForProject(project, out var parsed) ? parsed : CompilationArguments.None;
+            var arguments = project.ConditionalArguments() ?? ConditionalConstants.NoArguments;
             contexts.Add(new WorkspaceArtifactContext(root,
-                new WorkspaceProjectSnapshot(project.Name, project.AbsolutePath, files, references, arguments.Values),
+                new WorkspaceProjectSnapshot(project.Name, project.AbsolutePath, files, references, arguments),
                 // None for a contributed project: its file is its add-in's, in its add-in's format, and never a .vbp.
                 ProjectText: project is { AbsolutePath: { } path, ContributedBy: null }
                     ? async token => await Dispatcher.UIThread.InvokeAsync<string>(

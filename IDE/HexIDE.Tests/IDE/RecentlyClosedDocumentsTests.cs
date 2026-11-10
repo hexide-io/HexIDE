@@ -183,7 +183,7 @@ public class RecentlyClosedDocumentsTests : CompositionTestBase
         var loc = Substitute.For<ILocalizationService>();
         loc.GetString(Arg.Any<string>()).Returns(call => call.Arg<string>());
         var archives = new ArchiveProjectService(dock, Substitute.For<IRecentProjectsService>(), loc,
-            Substitute.For<IWindowManager>());
+            Substitute.For<IWindowManager>(), Substitute.For<HexIDE.Language.IConditionalCodeReader>());
         try
         {
             File.Copy(Fixture("sample.twinpack"), path);
