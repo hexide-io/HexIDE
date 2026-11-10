@@ -541,6 +541,26 @@ and `ToolbarCaptionTests.Segoe_UI_nine_point_matches_console_measurements` (Wind
   dynamic providers from data, sharing the registry and visibility contract. Test command, toggle,
   flyout, enablement and visibility parity. The shippable model is larger than merely rendering today's
   buttons from an in-tree list; the latter can be a separate medium first slice.
+  Model slice (#3621): embedded declarations for all four bands, sharing the main-menu command,
+  typed-argument and visibility registrations. Static Add Form children retain menu declarations;
+  host providers are `add-project-templates` and `selection-readout` (both icons, text blocks and
+  spacers). Lock Controls retains its command and one-way checked binding. Independent id pins,
+  invalid-declaration guards and AXAML parity protect the migration boundary. Contract:
+  `openspec/specs/toolbar-model/spec.md`. Rendering, profile authoring and #419 remain unfinished.
+  Model validation: 27 new cases pass on Linux without skips; all 27 fail with inert API scaffolding
+  in place of the component. Parity also rejects nine deliberate AXAML changes: structure, command,
+  tooltip, band and item visibility, checked binding, flyout child command, nested flyout content and
+  readout spacing. Desktop Debug builds with zero warnings/errors. No new localization key, VB6
+  measurement, rendered surface, MISSING_FEATURES status change or MISSING_LANGUAGE count change.
+  Full WSL unit validation: 7,302 passed, 55 skipped, zero failures and zero xUnit errors (7,357 total);
+  CI floor rises to 6,989. Skips: 42 Windows/macOS platform cases, ten absent VB6 templates, two
+  uncached debug adapters and one unavailable DAP schema. No skip is claimed as coverage.
+  Local test setup needed the already-built `HexIDE.LspGuard.dll` copied beside the test output's
+  launcher: without its companion DLL, that launcher exited 154 before starting a server. Only
+  generated output was repaired; no build-output source fix is included in this slice. The four
+  affected shutdown cases then passed without skips. The completed full run used live MTP output and
+  a 45-minute outer allowance; an earlier 20-minute allowance cut off a passing run during the
+  repository-wide Roslyn affinity guard. Strict spec validation and tree hygiene pass.
 - [ ] **#419 follow-through — small once the renderer exists:** hook profile toolbar visibility into
   that renderer, with migration parity tests. Do not conflate the already-corrected spec claim with
   implementing the future profile capability.

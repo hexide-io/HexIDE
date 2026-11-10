@@ -72,7 +72,7 @@ public partial class FindReplaceViewModelTests
             Substitute.For<HexIDE.Debugging.IBreakpointService>(),
             Substitute.For<HexIDE.Runtime.Debugging.IDebugController>(),
             Substitute.For<HexIDE.Debugging.IRunScope>(),
-            Substitute.For<ILocalizationService>());
+            Substitute.For<ILocalizationService>(), regionReader: new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionReader());
         vm.Document.Text = text;
         vm.CaretOffset = 0;
         return vm;
