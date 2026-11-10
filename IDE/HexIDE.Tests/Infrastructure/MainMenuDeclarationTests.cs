@@ -29,6 +29,15 @@ public class MainMenuDeclarationTests
         Compare(MainMenuDeclaration.Load(), menu.Elements().ToArray());
     }
 
+    [Theory]
+    [InlineData("help.brandhome", "HasBrandHome")]
+    [InlineData("help.brandsupport", "HasBrandSupport")]
+    public void Brand_links_retain_their_visibility(string id, string visibility)
+    {
+        Walk(MainMenuDeclaration.Load()).Should().ContainSingle(i => i.Id == id)
+            .Which.VisibilityBinding.Should().Be(visibility);
+    }
+
     private static void Compare(MenuDeclaration[] items, XElement[] elements)
     {
         items.Should().HaveCount(elements.Length);
@@ -44,6 +53,9 @@ public class MainMenuDeclarationTests
             ((string?)element.Attribute("Command")).Should().Be(item.Command is { } command
                 ? MenuHostRegistry.Commands[command].AxamlBinding : null, because);
             element.Attribute("CommandParameter").Should().BeNull(because);
+            if (item.LabelBinding is "BrandHomeMenuHeader" or "BrandSupportMenuHeader")
+                ((string?)element.Attribute("IsVisible")).Should().Be(
+                    $"{{CompiledBinding {item.VisibilityBinding}}}", because);
             if (item.Kind == MenuItemKind.Toggle)
             {
                 var state = MenuHostRegistry.States[item.State!];

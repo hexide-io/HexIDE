@@ -240,6 +240,8 @@
     "Str.Menu.Window.Split": "แบ่ง",
     "Str.Menu.Window.ResetLayout": "รีเซ็ตเค้าโครงหน้าต่าง",
     "Str.Menu.Help": "วิธีใช้",
+    "Str.Menu.Help.BrandHome": "หน้าแรกของ {0}",
+    "Str.Menu.Help.BrandSupport": "การสนับสนุน {0}",
     "Str.Menu.Help.ProductOnWeb": "HexIDE บนเว็บ",
     "Str.Menu.Help.About": "เกี่ยวกับ HexIDE...",
     "Str.Menu.GoToGithubRepo": "ไปที่คลัง GitHub",

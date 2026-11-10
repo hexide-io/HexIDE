@@ -277,6 +277,8 @@
     "Str.Menu.Window.Split": "_Bagi",
     "Str.Menu.Window.ResetLayout": "_Atur Ulang Tata Letak Jendela",
     "Str.Menu.Help": "Bant_uan",
+    "Str.Menu.Help.BrandHome": "_Beranda {0}",
+    "Str.Menu.Help.BrandSupport": "_Dukungan {0}",
     "Str.Menu.Help.ProductOnWeb": "HexIDE di _Web",
     "Str.Menu.Help.About": "_Tentang HexIDE...",
     "Str.Menu.GoToGithubRepo": "Buka repo github",

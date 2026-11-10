@@ -31,6 +31,21 @@ public class HelpEntryPointTests
             File.ReadAllText(pack).Should().NotContain('"' + key + '"', Path.GetFileName(pack));
     }
 
+    [Theory]
+    [InlineData("BrandHome", "BrandHomeMenuHeader", "HasBrandHome", "OpenBrandHomeCommand")]
+    [InlineData("BrandSupport", "BrandSupportMenuHeader", "HasBrandSupport", "OpenBrandSupportCommand")]
+    public void OptionalBrandLink_IsOfferedByHelp(string name, string header, string visible, string command)
+    {
+        var document = XDocument.Load(Path.Combine(ViewDirectory(), "MainView.axaml"));
+        var help = document.Descendants().Single(element =>
+            (string?)element.Attribute("Header") == "{DynamicResource Str.Menu.Help}");
+        var item = help.Elements().SingleOrDefault(element =>
+            (string?)element.Attribute("Header") == "{CompiledBinding " + header + "}");
+        item.Should().NotBeNull(name);
+        item!.Attribute("IsVisible")!.Value.Should().Be("{CompiledBinding " + visible + "}");
+        item.Attribute("Command")!.Value.Should().Be("{CompiledBinding " + command + "}");
+    }
+
     private static string ViewDirectory()
     {
         for (var dir = new DirectoryInfo(AppContext.BaseDirectory); dir is not null; dir = dir.Parent)

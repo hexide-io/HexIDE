@@ -277,6 +277,8 @@
     "Str.Menu.Window.Split": "分割(_P)",
     "Str.Menu.Window.ResetLayout": "重設視窗版面配置(_R)",
     "Str.Menu.Help": "說明(_H)",
+    "Str.Menu.Help.BrandHome": "{0} 首頁(_H)",
+    "Str.Menu.Help.BrandSupport": "{0} 支援(_S)",
     "Str.Menu.Help.ProductOnWeb": "HexIDE 網站(_W)",
     "Str.Menu.Help.About": "關於 HexIDE(_A)...",
     "Str.Menu.GoToGithubRepo": "前往 github 儲存庫",

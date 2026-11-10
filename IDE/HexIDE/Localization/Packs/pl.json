@@ -277,6 +277,8 @@
     "Str.Menu.Window.Split": "_Podziel",
     "Str.Menu.Window.ResetLayout": "_Resetuj układ okien",
     "Str.Menu.Help": "Pomo_c",
+    "Str.Menu.Help.BrandHome": "Strona _główna {0}",
+    "Str.Menu.Help.BrandSupport": "_Wsparcie {0}",
     "Str.Menu.Help.ProductOnWeb": "HexIDE w _sieci",
     "Str.Menu.Help.About": "_O programie HexIDE...",
     "Str.Menu.GoToGithubRepo": "Przejdź do repozytorium github",

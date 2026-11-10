@@ -240,6 +240,8 @@
     "Str.Menu.Window.Split": "_Podeli",
     "Str.Menu.Window.ResetLayout": "_Vrati raspored prozora",
     "Str.Menu.Help": "_Pomoć",
+    "Str.Menu.Help.BrandHome": "_Početna stranica za {0}",
+    "Str.Menu.Help.BrandSupport": "_Podrška za {0}",
     "Str.Menu.Help.ProductOnWeb": "HexIDE na _vebu",
     "Str.Menu.Help.About": "_O programu HexIDE...",
     "Str.Menu.GoToGithubRepo": "Otvori GitHub repozitorijum",

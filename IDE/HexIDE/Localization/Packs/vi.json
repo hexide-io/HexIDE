@@ -277,6 +277,8 @@
     "Str.Menu.Window.Split": "_Chia tách",
     "Str.Menu.Window.ResetLayout": "Đặt _lại bố cục cửa sổ",
     "Str.Menu.Help": "Trợ _giúp",
+    "Str.Menu.Help.BrandHome": "Trang _chủ {0}",
+    "Str.Menu.Help.BrandSupport": "_Hỗ trợ {0}",
     "Str.Menu.Help.ProductOnWeb": "HexIDE trên _web",
     "Str.Menu.Help.About": "_Giới thiệu về HexIDE...",
     "Str.Menu.GoToGithubRepo": "Đến kho GitHub",

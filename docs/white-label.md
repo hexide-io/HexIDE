@@ -34,7 +34,7 @@ This is the first slice of [#2042](https://github.com/hexide-io/HexIDE/issues/20
 | `copyright` | No | Your copyright line in About. |
 | `credits` | No | Up to 32 entries, shown in About **after** HexIDE's own. |
 | `logo` | No | A PNG of up to 1024×1024 pixels, inside the installation folder, for About, New Project and the window icon. |
-| `links` | No | `home`, `support` and `repository`, each an absolute `https` URL. |
+| `links` | No | `home`, `support` and `repository`, each an absolute `https` URL. Home and support appear in Help under your product's name when supplied; the home entry is labeled “Home Page”, distinct from the existing repository web entry. Without `repository`, that web entry keeps HexIDE's name and opens HexIDE's repository. |
 | `defaultProfile` | No | The profile used when the command line names none: a profile's name, or a folder inside the installation written with `/`, such as `branding/profile`. A profile sets your theme, keymap and defaults, and never your identity. `--profile`, including `--profile none`, still wins. |
 
 A member that isn't in this table stops the IDE from starting. So does anything else wrong with the file: the IDE

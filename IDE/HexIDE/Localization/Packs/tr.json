@@ -277,6 +277,8 @@
     "Str.Menu.Window.Split": "_Böl",
     "Str.Menu.Window.ResetLayout": "Pencere _Düzenini Sıfırla",
     "Str.Menu.Help": "_Yardım",
+    "Str.Menu.Help.BrandHome": "{0} _Ana Sayfası",
+    "Str.Menu.Help.BrandSupport": "{0} _Desteği",
     "Str.Menu.Help.ProductOnWeb": "_Web'de HexIDE",
     "Str.Menu.Help.About": "HexIDE _Hakkında...",
     "Str.Menu.GoToGithubRepo": "github deposuna git",

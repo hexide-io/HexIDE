@@ -236,6 +236,8 @@
     "Str.Menu.Window.Split": "S_plit",
     "Str.Menu.Window.ResetLayout": "_Reset Window Layout",
     "Str.Menu.Help": "_Help",
+    "Str.Menu.Help.BrandHome": "{0} _Home Page",
+    "Str.Menu.Help.BrandSupport": "{0} _Support",
     "Str.Menu.Help.ProductOnWeb": "HexIDE on the _Web",
     "Str.Menu.Help.About": "_About HexIDE...",
     "Str.Menu.GoToGithubRepo": "Go to github repo",

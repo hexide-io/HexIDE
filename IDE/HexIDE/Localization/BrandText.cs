@@ -39,11 +39,11 @@ internal static partial class BrandText
     [GeneratedRegex(@"HexIDE(?!\.\w)", RegexOptions.CultureInvariant)]
     private static partial Regex ProductName();
 
-    public static void Apply(Dictionary<string, string> strings, string productName)
+    public static void Apply(Dictionary<string, string> strings, string productName, bool hasRepository = false)
     {
         foreach (var key in new List<string>(strings.Keys))
         {
-            if (UpstreamKeys.Contains(key))
+            if (UpstreamKeys.Contains(key) || (key == "Str.Menu.Help.ProductOnWeb" && !hasRepository))
                 continue;
             strings[key] = ProductName().Replace(strings[key], _ => productName);
         }

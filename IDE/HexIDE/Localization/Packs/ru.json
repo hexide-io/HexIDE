@@ -277,6 +277,8 @@
     "Str.Menu.Window.Split": "Разделить",
     "Str.Menu.Window.ResetLayout": "Сбросить расположение окон",
     "Str.Menu.Help": "Справка",
+    "Str.Menu.Help.BrandHome": "Домашняя страница {0}",
+    "Str.Menu.Help.BrandSupport": "Поддержка {0}",
     "Str.Menu.Help.ProductOnWeb": "HexIDE в Интернете",
     "Str.Menu.Help.About": "О программе HexIDE...",
     "Str.Menu.GoToGithubRepo": "Перейти в репозиторий github",
