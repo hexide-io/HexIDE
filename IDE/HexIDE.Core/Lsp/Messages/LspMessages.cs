@@ -378,7 +378,13 @@ public record WorkspaceClientCapabilities(
     [property: JsonPropertyName("workspaceEdit")]
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] WorkspaceEditClientCapabilities? WorkspaceEdit = null,
     [property: JsonPropertyName("codeLens")]
-    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] WorkspaceCodeLensClientCapabilities? CodeLens = null);
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] WorkspaceCodeLensClientCapabilities? CodeLens = null,
+    [property: JsonPropertyName("didChangeWatchedFiles")]
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] DidChangeWatchedFilesClientCapabilities? DidChangeWatchedFiles = null);
+
+public record DidChangeWatchedFilesClientCapabilities(
+    [property: JsonPropertyName("dynamicRegistration")] bool DynamicRegistration = true,
+    [property: JsonPropertyName("relativePatternSupport")] bool RelativePatternSupport = true);
 
 public record WorkspaceEditClientCapabilities(
     [property: JsonPropertyName("documentChanges")] bool DocumentChanges = true);
@@ -1469,3 +1475,10 @@ public record CallHierarchyIncomingCall(
 public record CallHierarchyOutgoingCall(
     [property: JsonPropertyName("to")] CallHierarchyItem To,
     [property: JsonPropertyName("fromRanges")] Range[] FromRanges);
+
+public record WatchedFileEvent(
+    [property: JsonPropertyName("uri")] string Uri,
+    [property: JsonPropertyName("type")] int Type);
+
+public record DidChangeWatchedFilesParams(
+    [property: JsonPropertyName("changes")] WatchedFileEvent[] Changes);

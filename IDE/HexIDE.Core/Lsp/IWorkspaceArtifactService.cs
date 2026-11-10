@@ -23,6 +23,7 @@ public interface IWorkspaceArtifactService
     /// that changed was the first one's.
     /// </summary>
     event Action<LanguageServerRegistration>? RestartRequested;
+    event Action<string, int>? FileChanged { add { } remove { } }
 }
 
 public interface IWorkspaceArtifactWorkspace : ILspWorkspace
