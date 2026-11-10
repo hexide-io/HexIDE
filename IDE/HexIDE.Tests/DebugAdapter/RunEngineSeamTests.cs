@@ -176,13 +176,14 @@ public class RunEngineSeamTests
     }
 
     [AvaloniaFact]
-    public void A_project_an_add_in_read_is_not_the_interpreters_to_run()
+    public void The_interpreter_runs_what_the_type_offers_to_run_whoever_opened_it()
     {
         var engine = new InterpreterRunEngine(Substitute.For<IWindowManager>(), Substitute.For<ILocalizationService>(), _debugger);
-        var contributed = new ProjectDefinition(VBProjectType.EXE, "Theirs") { ContributedBy = "com.example.addin" };
 
         engine.Runs(_project).Should().BeTrue();
-        engine.Runs(contributed).Should().BeFalse();
+        engine.Runs(new ProjectDefinition(VBProjectType.EXE, "Theirs") { ContributedBy = "com.example.addin" }).Should().BeTrue();
+        engine.Runs(new ProjectDefinition(VBProjectType.EXE, "Ours") { Offers = ProjectOffers.Everything with { Runs = false } })
+            .Should().BeFalse();
     }
 
     [AvaloniaFact]

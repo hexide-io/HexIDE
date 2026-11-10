@@ -128,8 +128,8 @@ public sealed class ProjectLspWorkspace(Func<IProjectManager> projectManager, IP
             var arguments = project.ConditionalArguments() ?? ConditionalConstants.NoArguments;
             contexts.Add(new WorkspaceArtifactContext(root,
                 new WorkspaceProjectSnapshot(project.Name, project.AbsolutePath, files, references, arguments),
-                // None for a contributed project: its file is its add-in's, in its add-in's format, and never a .vbp.
-                ProjectText: project is { AbsolutePath: { } path, ContributedBy: null }
+                // None where the type doesn't write its file: that file is its add-in's, in its add-in's format, and never a .vbp.
+                ProjectText: project is { AbsolutePath: { } path, Offers.WritesProjectFile: true }
                     ? async token => await Dispatcher.UIThread.InvokeAsync<string>(
                         () => _format.RenderProject(project, path), DispatcherPriority.Normal, token)
                     : null));
