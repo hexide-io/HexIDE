@@ -358,6 +358,11 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
             if (moduleDefinition is not null && ReferenceEquals(e.Module, moduleDefinition)) ReconcileWireName();
         }));
 
+        AutoDispose(this.eventBus.Subscribe<FormMovedEvent>(e =>
+        {
+            if (formDefinition is not null && ReferenceEquals(e.Form, formDefinition)) ReconcileWireName();
+        }));
+
         AutoDispose(this.eventBus.Subscribe<ModuleUnloadedEvent>(e =>
         {
             if (e.Module == moduleDefinition)

@@ -153,9 +153,16 @@
                 BorderBrush="{DynamicResource WarningBannerBorderBrush}"
                 BorderThickness="0,0,0,1"
                 Padding="8,5">
-            <TextBlock Text="{DynamicResource Str.Designer.ReadOnly.Banner}"
-                       Foreground="{DynamicResource WarningBannerForegroundBrush}"
-                       TextWrapping="Wrap" />
+            <Panel>
+                <TextBlock Text="{DynamicResource Str.Designer.ReadOnly.Banner}"
+                           IsVisible="{CompiledBinding !IsReadByAddin}"
+                           Foreground="{DynamicResource WarningBannerForegroundBrush}"
+                           TextWrapping="Wrap" />
+                <TextBlock Text="{DynamicResource Str.ContributedProject.FormReadOnly}"
+                           IsVisible="{CompiledBinding IsReadByAddin}"
+                           Foreground="{DynamicResource WarningBannerForegroundBrush}"
+                           TextWrapping="Wrap" />
+            </Panel>
         </Border>
         <Panel Background="{DynamicResource {x:Static commonControls:SystemColors.WindowBrushKey}}"
                ClipToBounds="True"

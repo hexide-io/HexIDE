@@ -35,4 +35,7 @@ public enum UnfaithfulSaveCause
 
     /// <summary>An invisible UserControl's size has no measured conversion to missing saved extents.</summary>
     MissingUserControlExtents = 1 << 2,
+
+    /// <summary>An add-in's project type read this form, and HexIDE has no way yet of writing what an add-in read.</summary>
+    ReadByAddin = 1 << 4,
 }

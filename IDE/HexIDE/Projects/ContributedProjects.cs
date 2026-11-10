@@ -6,6 +6,7 @@ using HexIDE.Localization;
 using HexIDE.Runtime.ProjectElements;
 using HexIDE.Runtime.Serialization;
 using HexIDE.Utils;
+using Serilog;
 
 namespace HexIDE.Projects;
 
@@ -24,6 +25,63 @@ public sealed record ContributedProjectType(AddinProjectType Type, string AddinI
 
     /// <summary>What a project of this type offers: nothing, until an add-in can write its own project.</summary>
     public ProjectOffers Offers => ProjectOffers.Nothing;
+}
+
+/// <summary>
+/// Reads a contributed project's forms through its type's reader, for as long as the type is there. An add-in that has gone
+/// isn't asked, and one that throws, or gives back a form with no root, has failed to read that form and nothing else.
+/// </summary>
+/// <remarks>
+/// Every form it reads is marked read-only, whichever of open, reload and crash recovery asked, as a reload takes its verdict
+/// from the read. The only writer is the IDE's own, and rendering a file an add-in read through it would change the file silently.
+/// </remarks>
+internal sealed class ContributedFormReader(ContributedProjectType type) : IFormFileReader
+{
+    public FormDefinition? ReadForm(ProjectDefinition project, string text, byte[]? companion, IDeserializeErrorSink problems)
+    {
+        if (type.Withdrawn.IsCancellationRequested)
+        {
+            problems.LogError($"{type.Origin} is no longer loaded, so nothing can read this form.");
+            return null;
+        }
+        if (type.Type.Forms is not { } forms)
+        {
+            problems.LogError($"{type.Origin} lists this as a form, but its project type has nothing that reads forms.");
+            return null;
+        }
+
+        FormDefinition? form;
+        try
+        {
+            form = forms.ReadForm(project, text, companion, problems);
+            // The name is the root's, and every view of the form asks for it.
+            _ = form?.Name;
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "{Origin} could not read a form", type.Origin);
+            problems.LogError($"{type.Origin}: {ex.Message}");
+            return null;
+        }
+
+        form?.MarkUnfaithfulToSave(UnfaithfulSaveCause.ReadByAddin, $"{type.Origin} read this form, and nothing can write what an add-in read yet");
+        return form;
+    }
+
+    public string? CompanionPath(string path)
+    {
+        if (type.Withdrawn.IsCancellationRequested)
+            return null;
+        try
+        {
+            return type.Type.Forms?.CompanionPath(path);
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "{Origin} could not name a form's companion", type.Origin);
+            return null;
+        }
+    }
 }
 
 /// <summary>
@@ -133,6 +191,7 @@ public sealed partial class ContributedProjects
             ContributedBy = type.AddinId,
             Offers = type.Offers,
             ContributorTitle = type.Origin,
+            FormReader = new ContributedFormReader(type),
         };
         project.AbsolutePath = path;
         project.ItemLinesDirectory = Path.GetDirectoryName(path)!;
@@ -144,7 +203,7 @@ public sealed partial class ContributedProjects
         {
             try
             {
-                await AddMemberAsync(project, member, hostAnsi, fileRead, localization);
+                await AddMemberAsync(project, member, hostAnsi, fileRead, localization, problems);
             }
             catch (MemberNameTakenException ex)
             {
@@ -161,12 +220,13 @@ public sealed partial class ContributedProjects
     /// <summary>
     /// Adds a member as a .vbp's is loaded. One already in the project at the same path is not added again.
     /// </summary>
-    /// <returns>The module or other file added, or null when the project had it already.</returns>
+    /// <param name="readProblems">Told what a form that did load had wrong with it.</param>
+    /// <returns>The module, form or other file added, or null when the project had it already.</returns>
     /// <exception cref="MemberNameTakenException">
     /// Another member has its name, which VB6 refuses as <c>Name conflicts with existing module</c>: it is left out.
     /// </exception>
     internal async Task<object?> AddMemberAsync(ProjectDefinition project, AddinProjectMember member, Vb6TextEncoding hostAnsi,
-        Action<string, byte[]>? fileRead, ILocalizationService localization)
+        Action<string, byte[]>? fileRead, ILocalizationService localization, ICollection<string>? readProblems = null)
     {
         if (!Path.IsPathFullyQualified(member.Path))
             throw new ArgumentException($"'{member.Path}' is not a full path.");
@@ -178,6 +238,8 @@ public sealed partial class ContributedProjects
             project.AddRelatedDocument(document);
             return document;
         }
+        if (member.Kind == AddinMemberKind.Form)
+            return await AddFormAsync(project, member.Path, hostAnsi, fileRead, localization, readProblems);
 
         // A document module is kept as a class module with its header as it came: it is the host document's code,
         // for reading and editing, and nothing runs or instantiates it.
@@ -201,9 +263,40 @@ public sealed partial class ContributedProjects
         return module;
     }
 
-    /// <summary>The module or other file of <paramref name="project"/> at <paramref name="path"/>, or null.</summary>
+    // Reads the text before the companion, as a .vbp's forms are: the text says how the companion divides.
+    private async Task<FormDefinition> AddFormAsync(ProjectDefinition project, string path, Vb6TextEncoding hostAnsi,
+        Action<string, byte[]>? fileRead, ILocalizationService localization, ICollection<string>? readProblems)
+    {
+        // Set on every project a contributed type opened, the only ones that reach here.
+        var reader = project.FormReader!;
+        var bytes = await ReadFile(path);
+        var read = Vb6TextFile.ReadDocument(bytes, null, hostAnsi);
+        var companionPath = reader.CompanionPath(path);
+        var companion = companionPath is not null && File.Exists(companionPath) ? await ReadFile(companionPath) : null;
+
+        var problems = new ProjectService.DeserializeErrorSink(localization);
+        var form = reader.ReadForm(project, read.Text, companion, problems);
+        if (form is null)
+            throw new ArgumentException(problems.Errors.Count > 0 ? string.Join(" ", problems.Errors) : "It couldn't be read as a form.");
+        if (ProjectNaming.IsNameTaken(project, form.Name))
+            throw new MemberNameTakenException(string.Format(localization.GetString("Str.ContributedProject.NameTaken"),
+                Path.GetFileName(path), form.Name, project.Name));
+
+        fileRead?.Invoke(path, bytes);
+        if (companion is not null)
+            fileRead?.Invoke(companionPath!, companion);
+        foreach (var problem in problems.Errors)
+            readProblems?.Add($"{path}: {problem}");
+        form.AbsolutePath = path;
+        form.TextEncoding = read.Encoding;
+        project.AddForm(form);
+        return form;
+    }
+
+    /// <summary>The module, form or other file of <paramref name="project"/> at <paramref name="path"/>, or null.</summary>
     internal static object? MemberAt(ProjectDefinition project, string path) =>
         (object?)project.Modules.FirstOrDefault(module => module.AbsolutePath is { } at && HostFilePath.Equals(at, path))
+        ?? (object?)project.Forms.FirstOrDefault(form => form.AbsolutePath is { } at && HostFilePath.Equals(at, path))
         ?? project.RelatedDocuments.FirstOrDefault(document => document.AbsolutePath is { } at && HostFilePath.Equals(at, path));
 
     /// <summary>A member left out because another has its name; the message says which, for the user.</summary>
