@@ -1,5 +1,6 @@
 using HexIDE.Desktop.Server;
 using HexIDE.IDE;
+using HexIDE.Projects;
 using HexIDE.Runtime.ProjectElements;
 
 namespace HexIDE.Tests.Infrastructure;
@@ -23,7 +24,7 @@ public sealed class ProjectWriteSafetyTests
             var companion = Path.ChangeExtension(form.AbsolutePath, companionExtension);
             File.WriteAllBytes(form.AbsolutePath, [0, 128, 255]);
             File.WriteAllBytes(companion, [255, 128, 0]);
-            ProjectWriteSafety.Prepare(DocumentIdentity.For(form), out var note).Should().BeNull();
+            ProjectWriteSafety.Prepare(DocumentIdentity.For(form), new Vb6ProjectFileFormat(), out var note).Should().BeNull();
             foreach (var path in new[] { form.AbsolutePath, companion })
             {
                 var backup = Directory.GetFiles(directory, Path.GetFileName(path) + ".hexide-recovery-*")
@@ -49,7 +50,7 @@ public sealed class ProjectWriteSafetyTests
             for (var write = 0; write < 8; write++)
             {
                 File.WriteAllText(form.AbsolutePath, "version " + write);
-                ProjectWriteSafety.Prepare(DocumentIdentity.For(form), out _).Should().BeNull();
+                ProjectWriteSafety.Prepare(DocumentIdentity.For(form), new Vb6ProjectFileFormat(), out _).Should().BeNull();
                 foreach (var file in Directory.GetFiles(directory, "Form1.frm.hexide-recovery-*"))
                     if (File.ReadAllText(file) == "version " + write)
                         File.SetLastWriteTimeUtc(file, DateTime.UtcNow.AddMinutes(write - 100));
@@ -76,11 +77,11 @@ public sealed class ProjectWriteSafetyTests
             project.AbsolutePath = Path.Combine(projectFolder, "Project1.vbp");
             var form = project.Forms[0];
             form.AbsolutePath = Path.Combine(projectFolder, "Form1.frm");
-            ProjectWriteSafety.Prepare(DocumentIdentity.For(form), out _).Should().BeNull();
+            ProjectWriteSafety.Prepare(DocumentIdentity.For(form), new Vb6ProjectFileFormat(), out _).Should().BeNull();
 
             Directory.CreateSymbolicLink(Path.Combine(real, "linked"), Path.Combine(real, "inner"));
             form.AbsolutePath = Path.Combine(projectFolder, "linked", "Form1.frm");
-            ProjectWriteSafety.Prepare(DocumentIdentity.For(form), out _).Should().Contain("linked path");
+            ProjectWriteSafety.Prepare(DocumentIdentity.For(form), new Vb6ProjectFileFormat(), out _).Should().Contain("linked path");
         }
         finally { Directory.Delete(directory, recursive: true); }
     }
@@ -102,7 +103,7 @@ public sealed class ProjectWriteSafetyTests
             var victim = Path.Combine(directory, "victim");
             if (!dangling) File.WriteAllText(victim, "user bytes");
             File.CreateSymbolicLink(Path.ChangeExtension(form.AbsolutePath, ".frx"), victim);
-            ProjectWriteSafety.Prepare(DocumentIdentity.For(form), out _).Should().Contain("linked path");
+            ProjectWriteSafety.Prepare(DocumentIdentity.For(form), new Vb6ProjectFileFormat(), out _).Should().Contain("linked path");
             Directory.GetFiles(directory, "*.hexide-recovery-*").Should().BeEmpty();
             if (!dangling) File.ReadAllText(victim).Should().Be("user bytes");
         }

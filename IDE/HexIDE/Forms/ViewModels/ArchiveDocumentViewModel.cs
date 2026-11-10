@@ -13,6 +13,7 @@ public partial class ArchiveDocumentViewModel : BaseEditorWindowViewModel, ISear
 {
     private readonly ILocalizationService localization;
     private readonly IConditionalCodeReader conditionalCode;
+    private string? buildType;
     public ArchiveProjectEntry Entry { get; private set; }
     [Notify] private TextDocument document = new();
     [Notify] private string notice = "";
@@ -43,6 +44,7 @@ public partial class ArchiveDocumentViewModel : BaseEditorWindowViewModel, ISear
     /// the project names none, and conditions on it are then left ungreyed.</param>
     public void Update(ArchiveProjectEntry entry, string? buildType = null)
     {
+        this.buildType = buildType;
         Entry = entry;
         var preview = (entry as ArchiveProjectDocument)?.ReadText();
         var buffer = new TextDocument(preview?.Text ?? "");
@@ -66,7 +68,7 @@ public partial class ArchiveDocumentViewModel : BaseEditorWindowViewModel, ISear
 
     internal ArchiveDocumentViewModel Reopen()
     {
-        var reopened = new ArchiveDocumentViewModel(Entry, localization, conditionalCode);
+        var reopened = new ArchiveDocumentViewModel(Entry, localization, conditionalCode, buildType);
         reopened.CaretOffset = Math.Clamp(CaretOffset, 0, reopened.Document.TextLength);
         return reopened;
     }
