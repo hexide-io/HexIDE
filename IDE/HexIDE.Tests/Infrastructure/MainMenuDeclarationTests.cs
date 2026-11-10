@@ -22,11 +22,11 @@ public class MainMenuDeclarationTests
         items.SelectMany(i => new[] { i }.Concat(Walk(i.Children ?? [])));
 
     [Fact]
-    public void Embedded_menu_matches_real_axaml_recursively()
+    public void Main_view_has_no_handwritten_main_menu()
     {
-        var menu = XDocument.Load(Path.Combine(Root, "IDE/HexIDE/MainView.axaml"))
-            .Descendants().Single(e => e.Name.LocalName == "Menu");
-        Compare(MainMenuDeclaration.Load(), menu.Elements().ToArray());
+        XDocument.Load(Path.Combine(Root, "IDE/HexIDE/MainView.axaml"))
+            .Descendants().Where(e => e.Name.LocalName == "Menu").Should().BeEmpty();
+        MainMenuDeclaration.Load().Should().NotBeEmpty();
     }
 
     [Theory]
@@ -36,58 +36,6 @@ public class MainMenuDeclarationTests
     {
         Walk(MainMenuDeclaration.Load()).Should().ContainSingle(i => i.Id == id)
             .Which.VisibilityBinding.Should().Be(visibility);
-    }
-
-    private static void Compare(MenuDeclaration[] items, XElement[] elements)
-    {
-        items.Should().HaveCount(elements.Length);
-        for (var i = 0; i < items.Length; i++)
-        {
-            var item = items[i];
-            var element = elements[i];
-            var because = $"placement {item.Id}";
-            element.Name.LocalName.Should().Be(item.Kind == MenuItemKind.Separator ? "Separator" : "MenuItem", because);
-            ((string?)element.Attribute("IsVisible")).Should().Be(item.VisibilityBinding is { } visibility
-                ? $"{{CompiledBinding {visibility}}}" : item.Visibility, because);
-            ((string?)element.Attribute(XName.Get("MenuUtils.MenuIcon", "clr-namespace:HexIDE.Utils")))
-                .Should().Be(item.IconKey is { } icon ? $"{{StaticResource {icon}}}" : null, because);
-            if (item.Kind == MenuItemKind.Separator) continue;
-            ((string?)element.Attribute("Header")).Should().Be(item.LabelBinding is { } binding
-                ? $"{{CompiledBinding {binding}}}" : $"{{DynamicResource {item.LabelKey}}}", because);
-            ((string?)element.Attribute("Command")).Should().Be(item.Command is { } command
-                ? MenuHostRegistry.Commands[command].AxamlBinding : null, because);
-            element.Attribute("CommandParameter").Should().BeNull(because);
-            if (item.Kind == MenuItemKind.Toggle)
-            {
-                var state = MenuHostRegistry.States[item.State!];
-                string.Concat(element.Attribute("IsChecked")!.Value.Where(c => !char.IsWhiteSpace(c)))
-                    .Should().Be($"{{CompiledBindingSettings.{state.SettingsProperty},Mode=TwoWay}}", because);
-                ((string?)element.Attribute("ToggleType")).Should().Be("CheckBox", because);
-            }
-            else element.Attribute("IsChecked").Should().BeNull(because);
-            if (item.Kind == MenuItemKind.Placeholder)
-                ((string?)element.Attribute("IsEnabled")).Should().Be("False", because);
-            var children = element.Elements().Where(e => e.Name.LocalName is "MenuItem" or "Separator").ToArray();
-            if (item.Kind == MenuItemKind.Provider)
-            {
-                var provider = MenuHostRegistry.Providers[item.Provider!];
-                if (provider.StartsWith('{'))
-                    ((string?)element.Attribute("ItemsSource")).Should().Be(provider, because);
-                else
-                {
-                    ((string?)element.Attribute(XName.Get("Name", "http://schemas.microsoft.com/winfx/2006/xaml")))
-                        .Should().Be(provider, because);
-                    if (item.Provider == "panel-layouts")
-                    {
-                        ((string?)element.Attribute("SubmenuOpened")).Should().Be("OnPanelLayoutsOpened");
-                        children.Should().ContainSingle().Which.Name.LocalName.Should().Be("Separator");
-                        children = [];
-                    }
-                }
-            }
-            else element.Attribute("ItemsSource").Should().BeNull(because);
-            Compare(item.Children ?? [], children);
-        }
     }
 
     [Fact]

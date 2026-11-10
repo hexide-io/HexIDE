@@ -1,10 +1,10 @@
 using System;
 using System.Collections.ObjectModel;
-using System.Collections.Specialized;
 using System.Windows.Input;
 using System.Linq;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
+using Avalonia.LogicalTree;
 using TextEditor = AvaloniaEdit.TextEditor;
 using Dock.Model.Core;
 using HexIDE.Forms.Views;
@@ -21,6 +21,7 @@ using Avalonia.Interactivity;
 using Avalonia.Labs.Input;
 using HexIDE.Addins;
 using HexIDE.Projects;
+using HexIDE.Menus;
 using HexIDE.Utils;
 
 namespace HexIDE;
@@ -28,17 +29,27 @@ namespace HexIDE;
 public partial class MainView : UserControl
 {
     private readonly ObservableCollection<MenuItem> _projectItems = [];
-    private readonly ObservableCollection<object> _toolsAddinItems = [];
-    private Separator? _toolsAddinSeparator;
+    private MenuRenderer? _menuRenderer;
 
     public MainView()
     {
-        // MenuUtils shows a command's shortcut from a class handler its static constructor registers, and File > New Project,
-        // the first item, sets its command before the markup first touches MenuUtils.
+        // Register shortcut tracking before markup or the renderer assigns its first command.
         System.Runtime.CompilerServices.RuntimeHelpers.RunClassConstructor(typeof(MenuUtils).TypeHandle);
         InitializeComponent();
+        var viewNames = this.GetLogicalDescendants().OfType<Control>().Prepend(this)
+            .Where(control => control.Name is not null && ReferenceEquals(this.FindNameScope()!.Find(control.Name), control))
+            .ToArray();
         DataContextChanged += (_, _) =>
         {
+            _menuRenderer?.Dispose();
+            _menuRenderer = DataContext is MainViewViewModel menuVm ? new MenuRenderer(menuVm) : null;
+            var names = new NameScope();
+            foreach (var control in viewNames) names.Register(control.Name!, control);
+            if (_menuRenderer is { } renderer)
+                foreach (var (name, item) in renderer.NamedItems) names.Register(name, item);
+            names.Complete();
+            NameScope.SetNameScope(this, names);
+            MainMenuHost.Child = _menuRenderer?.Menu;
             ++_focusRequest;
             _pendingFocus = null;
             if (_focusOwner != null) _focusOwner.KeyboardFocusRequested -= FocusDockable;
@@ -83,7 +94,8 @@ public partial class MainView : UserControl
         var children = view.GetVisualDescendants().OfType<Control>();
         Control? input = view switch
         {
-            CodeEditorView or ImmediateToolView => children.OfType<TextEditor>().FirstOrDefault()?.TextArea,
+            CodeEditorView code => code.ActiveTextArea,
+            ImmediateToolView => children.OfType<TextEditor>().FirstOrDefault()?.TextArea,
             ProjectToolView => children.OfType<TreeViewItem>().FirstOrDefault(c => c.IsSelected && c.IsEffectivelyVisible)
                 ?? children.OfType<TreeViewItem>().FirstOrDefault(c => c.IsEffectivelyVisible),
             PropertiesToolView => children.OfType<ListBoxItem>().FirstOrDefault(c => c.IsSelected && c.IsEffectivelyVisible)
@@ -122,12 +134,6 @@ public partial class MainView : UserControl
         }
     }
 
-    private void OnPanelLayoutsOpened(object? sender, RoutedEventArgs e)
-    {
-        if (!ReferenceEquals(e.Source, PanelLayoutsMenuItem) || DataContext is not MainViewViewModel vm) return;
-        PopulatePanelLayouts(PanelLayoutsMenuItem, vm);
-    }
-
     internal static void PopulatePanelLayouts(MenuItem menuItem, MainViewViewModel vm)
     {
         menuItem.Items.Clear();
@@ -160,12 +166,6 @@ public partial class MainView : UserControl
         (DataContext as MainViewViewModel)?.ScheduleLayoutSave();
     }
 
-    // The Run menu's launches are asked whether they run the startup project as it opens, never on a project's load.
-    private void OnRunMenuOpened(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
-    {
-        if (ReferenceEquals(e.Source, sender)) (DataContext as MainViewViewModel)?.RunWith?.Refresh();
-    }
-
     public MainView WindowInitialized()
     {
         if (DataContext is MainViewViewModel vm)
@@ -176,18 +176,6 @@ public partial class MainView : UserControl
             // handledEventsToo so a splitter that marks the event handled still schedules a save.
             DockControl.AddHandler(InputElement.PointerReleasedEvent, OnDockPointerReleased,
                 RoutingStrategies.Bubble, handledEventsToo: true);
-
-            var service = vm.AddinMenuService;
-
-            service.ToolsItems.CollectionChanged += (_, _) =>
-                RebuildToolsSection(service.ToolsItems);
-
-            service.AddInsItems.CollectionChanged += (_, _) =>
-                RebuildAddInsMenu(service.AddInsItems);
-
-            // Add-ins load before this subscription is set up, so seed from current state.
-            RebuildToolsSection(service.ToolsItems);
-            RebuildAddInsMenu(service.AddInsItems);
 
             var commands = vm.AddinCommandService;
             commands.CommandsChanged += () => RebuildCommandBindings(commands);
@@ -224,40 +212,6 @@ public partial class MainView : UserControl
             _addinKeyBindings.Add(kb);
             KeyBindings.Add(kb);
         }
-    }
-
-    private void RebuildToolsSection(ObservableCollection<AddinMenuItemViewModel> items)
-    {
-        if (_toolsAddinSeparator is not null)
-        {
-            ToolsMenuItem.Items.Remove(_toolsAddinSeparator);
-            _toolsAddinSeparator = null;
-        }
-        foreach (var item in _toolsAddinItems)
-            ToolsMenuItem.Items.Remove(item);
-        _toolsAddinItems.Clear();
-
-        if (items.Count == 0)
-            return;
-
-        _toolsAddinSeparator = new Separator();
-        ToolsMenuItem.Items.Add(_toolsAddinSeparator);
-        foreach (var vm in items)
-        {
-            var mi = BuildMenuItem(vm);
-            _toolsAddinItems.Add(mi);
-            ToolsMenuItem.Items.Add(mi);
-        }
-    }
-
-    private void RebuildAddInsMenu(ObservableCollection<AddinMenuItemViewModel> items)
-    {
-        AddInsMenuItem.Items.Clear();
-        AddInsMenuItem.Items.Add(AddInManagerMenuItem);
-        if (items.Count > 0)
-            AddInsMenuItem.Items.Add(new Separator());
-        foreach (var vm in items)
-            AddInsMenuItem.Items.Add(BuildMenuItem(vm));
     }
 
     internal static MenuItem BuildMenuItem(AddinMenuItemViewModel vm)

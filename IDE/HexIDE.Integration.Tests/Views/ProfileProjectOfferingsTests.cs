@@ -1,5 +1,4 @@
 using System.Reflection;
-using System.Runtime.CompilerServices;
 using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Threading;
@@ -42,13 +41,14 @@ public class ProfileProjectOfferingsTests
     [InlineData("vbaode")]
     [InlineData("vba")]
     [InlineData(null)]
-    public void Dialog_and_flyout_offer_the_same_profile_templates(string? selector)
+    public async System.Threading.Tasks.Task Dialog_and_flyout_offer_the_same_profile_templates(string? selector)
     {
+        await using var owned = new RealComposition();
         var profile = new ProfileService(new ProfileResolver(Path.GetTempPath(), Path.GetTempPath()).Resolve(selector));
         var window = ToolbarAutomationNameTests.ShowMainView();
         try
         {
-            var vm = (MainViewViewModel)RuntimeHelpers.GetUninitializedObject(typeof(MainViewViewModel));
+            var vm = owned.Composition.Root;
             typeof(MainViewViewModel).GetField("<Profile>k__BackingField", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(vm, profile);
             var button = window.GetVisualDescendants().OfType<Button>()
                 .Single(b => AutomationProperties.GetAutomationId(b) == "Standard.AddProject");

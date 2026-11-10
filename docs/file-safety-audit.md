@@ -1,7 +1,7 @@
 # File safety audit (#2504)
 
 Audit of `4ef7aaa3` (2026-10-28), plus the conversation/picture export, Make-archive consent, unique-staging,
-parity-output, signing-generator, directory-save and carried/profile recovery fixes (2026-11-10). This is a command audit,
+parity-output, signing-generator, directory-save, carried/profile recovery and packer-output fixes (2026-11-10). This is a command audit,
 not a claim that the beta file-safety gate is satisfied. “Picker” means the application delegates
 replacement confirmation to the platform; its native prompt has not been verified here. Scripted
 picker answers bypass that platform UI. Atomic replacement prevents truncation, not data loss or undo.
@@ -37,7 +37,7 @@ program's control, not VB6's IDE commands, and does not establish their behavior
 | Settings, layout/reset, recents, add-in consent/state/revocations, chat history | Writes/removes application profile data, not source files; settings/layout/recents/consent/state/chat use `AtomicFileWriter` with unique, exclusively created temporary names. `SettingsService`, `WindowStateService`, `RecentProjectsService`, add-in stores, `ChatSession`, `LoggingSetup` (old application-log pruning). | **Recovery fixed:** settings, current/named layouts (including reset), recents, add-in consent/state, and chat history retain recovery siblings (`SettingsServiceTests`, `ProfileFileRecoveryTests`, `ProfileRecoveryTests`, `ChatSessionTests`); staging collisions are fixed (`AtomicFileWriterTests`, `SettingsServiceTests.SavingPreservesFileAtOldStagingName`); cache/revocation refresh is regenerable. |
 | Keymap overrides / export | Options persists edits and exports selected bindings through the shared atomic writer. `KeymapService.SaveOverrides`, `KeymapPageViewModel.Export`. | **Recovery fixed:** both preserve previous destination bytes (`KeymapServiceTests`, `KeymapEditingTests`). |
 | Open-document session persistence | Saves per-project tab state in the profile. `DocumentSessionStore.Save`. | **Recovery fixed:** previous session bytes retained (`ProfileFileRecoveryTests.SavingRetainsPreviousSessionBytesForRecovery`). |
-| Add-in packer `pack`, `genkeys`, `sign-revocations` (CLI) | `PackageSigner.Pack` recursively deletes the requested output directory. `GenerateDevTrust` and `SignRevocations` now create every output exclusively and refuse a collision before writing generated content. | **Key/trust/revocation replacement fixed:** all eleven output collisions preserve the existing file (`PackerFileSafetyTests`, Linux-running). Package output deletion remains unsafe. Failed reservations or writes remove only the files this call created, including when the last output collides. |
+| Add-in packer `pack`, `genkeys`, `sign-revocations` (CLI) | `PackageSigner.Pack` accepts new or empty output folders, stages a complete replacement and refuses other existing output unless its signature verifies with the current signing key, its payload hashes match, its trust files match the supplied chain, and its exact file/directory inventory has no additions or links. `GenerateDevTrust` and `SignRevocations` now create every output exclusively and refuse a collision before writing generated content. | **Key/trust/revocation replacement fixed:** all eleven output collisions preserve the existing file (`PackerFileSafetyTests`, Linux-running). **Package replacement fixed:** unrelated or edited output is refused by path; an unchanged prior signed package is replaced, and a failed staged pack preserves it (`PackerFileSafetyTests`, Linux-running). Failed reservations or writes remove only the files this call created, including when the last output collides. |
 | DAP parity harness (CLI) | `HexIDE.Dap.Parity/Program.cs` overwrites `results.jsonl`, `summary.json`, per-case modules and `.rdproj` files in the chosen output directory. Default output is timestamped, but an explicit `--out` or same-second run can collide. | **Fixed:** every output is created exclusively; a collision fails without replacing that file (`ProgramParityTests.Existing_output_is_preserved`, four Linux-running cases). Failed runs remove only files created by that invocation; existing files survive, including a collision on the final output. Retries reuse their already-created workspace. Not an IDE menu command. |
 | Temporary staging and cleanup | `ProjectService.AtomicWriteText/Bytes`, carried saves, sidecars, settings and layout now use `AtomicFileWriter` with GUID siblings opened with `CreateNew` and flushed before replacement. GUID Make trees/logs and compiler preparation are scratch-owned. | **Fixed:** old `.tmp` and `.hexide-tmp` files survive; project-save regression: `WriteAtSaveTests.SavingPreservesFilesAtOldStagingNames`. Layout regression: `AtomicFileWriterTests.LayoutSavePreservesFileAtOldStagingName`. |
 
@@ -55,8 +55,7 @@ claim to sandbox those processes.
 
 The branch delivers the audit, conversation/picture exports, Make-archive and directory-save consent and unique staging.
 The rows above identify the remaining
-HexIDE-only fixes, especially generic MCP UI-triggered writes,
-packer package output. Profile stores and project sidecars now retain recovery versions. Key/trust/revocation outputs now refuse replacement. Parity-harness output now refuses replacement. No VB6 replacement behavior was invented.
+shared-writer questions, including generic MCP UI-triggered writes. Packer package output now refuses unrelated/edited folders and stages replacement. Profile stores and project sidecars now retain recovery versions. Key/trust/revocation outputs now refuse replacement. Parity-harness output now refuses replacement. No VB6 replacement behavior was invented.
 Do not close #2504 or the beta safety gate on this slice.
 
 ## Direct MCP member writes (next slice)
@@ -86,6 +85,29 @@ so recovery siblings are not loaded as languages. No prompt wording or VB6 behav
 The synchronous writers do not provide a transaction against another process changing the file
 between recovery and replacement. A failed recovery copy refuses the write; a failed staged write
 keeps the original and any completed recovery. Retaining versions can consume disk space; cleanup is
-manual so earlier user bytes are not silently removed. The explicitly deferred packer output deletion
-remains for a later run. Revocation caches and application logs keep their existing refresh/retention
+manual so earlier user bytes are not silently removed. Packer output replacement is now guarded as described below. Revocation caches and application logs keep their existing refresh/retention
 policy; neither is a user-edit command.
+
+
+## Packer package replacement
+
+`pack` recognises its own previous output using the signed `addin.json`, verified with the supplied
+signing key, payload hashes, byte-identical supplied trust-chain files, and an exact inventory including
+payload parent directories. Unrelated, modified, missing, or extra entries (including empty directories)
+are refused; links in the output and the output itself being a link are refused. Links above the output
+are allowed. The CLI names the refused path, explains the reason, confirms nothing was changed, and
+asks the caller to choose another folder or move this one aside.
+No ownership marker or package-format change is needed, so existing signed build output remains replaceable.
+Changing signing keys or trust files requires choosing a fresh output directory or explicitly moving the
+old one aside. Empty pre-existing directories are accepted.
+
+The new package is built in a unique sibling before the old output moves. Ownership is checked again,
+the old directory is renamed to a unique sibling, and the staged directory takes its place; a failed
+installation rename restores the old directory. Only after installation succeeds is the unchanged old package deleted. Cleanup is best-effort after
+that commit: failure prints the leftover sibling path but does not report the completed pack as failed.
+The sibling contains the old package beneath `package/`, with no root manifest, so leftovers are not
+loaded as another add-in.
+A build/signing/copy failure leaves the old package untouched. This is not a transaction against a
+concurrent process changing directories between the last check and rename, or a power-loss journal.
+The packer row is resolved; the audit still records unmeasured VB6 collision prompts and shared UI-writer
+questions above, so this does not establish the whole beta safety gate.

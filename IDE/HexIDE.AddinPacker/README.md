@@ -60,3 +60,22 @@ same commands without a `dotnet` prefix. No CI artifact is added by this command
 - `signing/firstparty/firstparty.key` → `HEXIDE_FIRSTPARTY_KEY` (CI secret)
 - `IDE/HexIDE.AddinPacker/firstparty/README.md`
 - `TRUST.md` — `HexIDE root`, `First-party publisher` SHA-256 fingerprints
+
+## Replacing package output
+
+`pack --out` accepts a new or empty directory, or an unchanged package signed with the supplied trust directory's
+`firstparty.key`. It checks the signed manifest, every payload hash, the supplied trust-chain bytes,
+and the exact inventory before replacement. Added files, extra directories, edits, and symbolic links
+in the output (or the output itself being a link) cause refusal. Links above the output folder are allowed.
+A refusal names the path, explains whether it is linked or not unchanged tool output, confirms nothing
+was changed, and asks you to choose another folder or move this one aside.
+Choose a fresh path or explicitly move an unrelated/edited folder aside; changing keys or trust files
+also needs a fresh output path.
+
+Packing happens in a unique sibling first, so a failed build leaves the previous package in place.
+After a successful installation, the unchanged earlier package is deleted. If the installation rename
+fails, the previous output is restored from its unique sibling before the error is reported.
+
+Cleanup after a successful installation is best-effort: if it cannot remove the old package's temporary
+container, `pack` prints that container's path on stderr and succeeds. The container has no root manifest,
+so the IDE ignores it. It can be removed manually once no longer needed.

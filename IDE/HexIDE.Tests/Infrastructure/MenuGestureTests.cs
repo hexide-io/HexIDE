@@ -3,6 +3,7 @@ using System.Xml.Linq;
 using Avalonia.Controls;
 using Avalonia.Labs.Input;
 using HexIDE.Keymaps;
+using HexIDE.Menus;
 using HexIDE.Utils;
 
 namespace HexIDE.Tests.Infrastructure;
@@ -59,6 +60,13 @@ public class MenuGestureTests
         while (root is not null && !Directory.Exists(Path.Combine(root.FullName, "IDE", "HexIDE")))
             root = root.Parent;
         root.Should().NotBeNull();
+        if (file == "MainView.axaml")
+        {
+            IEnumerable<MenuDeclaration> Walk(IEnumerable<MenuDeclaration> items) =>
+                items.SelectMany(i => new[] { i }.Concat(Walk(i.Children ?? [])));
+            Walk(MainMenuDeclaration.Load()).Should().ContainSingle(i => i.Command == "application." + command);
+            return;
+        }
         var document = XDocument.Load(Path.Combine(root!.FullName, "IDE", "HexIDE", file));
         var items = document.Descendants().Where(e => e.Name.LocalName == "MenuItem"
             && ((string?)e.Attribute("Command"))?.Contains("." + command + "}") == true).ToList();

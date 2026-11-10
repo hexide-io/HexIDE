@@ -42,6 +42,9 @@ public partial class ComponentToolViewModel : ObservableObject
     public string? VBTypeName =>
         Library is { } library && BaseClass is InBoxComponentClass inBox ? library.TypeName(inBox.ControlClassName) : BaseClass?.VBTypeName;
     public IImage Icon { get; }
+
+    /// <summary>The key of the icon the registry named for this button, where it named one.</summary>
+    public string? IconKey { get; init; }
     public string Name { get; }
 
     public bool IsSelected

@@ -25,6 +25,24 @@ public class ComponentRegistry : IComponentRegistry
     ];
 
     public IReadOnlyList<IComponentClass> Components => _components;
+
+    public IReadOnlyList<ToolboxEntry> Toolbox { get; } =
+    [
+        new(PictureBoxComponentClass.Instance, "Geo.Picture"),
+        new(LabelComponentClass.Instance, "Geo.Label"),
+        new(TextBoxComponentClass.Instance, "Geo.Textbox"),
+        new(FrameComponentClass.Instance, "Geo.Groupbox"),
+        new(CommandButtonComponentClass.Instance, "Geo.Button"),
+        new(CheckBoxComponentClass.Instance, "Geo.Checkbox"),
+        new(OptionButtonComponentClass.Instance, "Geo.Radio"),
+        new(ComboBoxComponentClass.Instance, "Geo.Combo"),
+        new(ListBoxComponentClass.Instance, "Geo.Listbox"),
+        new(HScrollBarComponentClass.Instance, "Geo.Hscroll"),
+        new(VScrollBarComponentClass.Instance, "Geo.Vscroll"),
+        new(TimerComponentClass.Instance, "Geo.Timer"),
+        new(ShapeComponentClass.Instance, "Geo.Shape"),
+    ];
+
     public event Action<IComponentClass>? ComponentRegistered;
 
     public event Action<IComponentClass>? ComponentUnregistered;
