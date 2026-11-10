@@ -228,6 +228,16 @@ public sealed class MacRepackerTests : IDisposable
     }
 
     [UnixOnlyFact]
+    public void A_bundle_signed_as_a_whole_is_refused_rather_than_broken()
+    {
+        WriteStock();
+        WriteBrand();
+        Directory.CreateDirectory(Path.Combine(Input, "Contents", "_CodeSignature"));
+
+        ShouldRefuse("signed as a whole");
+    }
+
+    [UnixOnlyFact]
     public void A_brand_with_no_logo_is_refused()
     {
         WriteStock();
@@ -405,7 +415,12 @@ public sealed class MacRepackerTests : IDisposable
         MacRepacker.Run(Input, BrandFile, Output);
 
         RunTool("/usr/bin/plutil", "-lint", Path.Combine(Bundle, "Contents", "Info.plist"));
-        RunTool("/usr/bin/codesign", "--verify", RepackedExecutable);
+
+        // codesign answers for the bundle when asked about its main executable, and this bundle isn't sealed.
+        var outside = Path.Combine(_root, "acme-ide");
+        File.Copy(RepackedExecutable, outside);
+        RunTool("/usr/bin/codesign", "--verify", outside);
+
         var iconset = Path.Combine(_root, "acme.iconset");
         RunTool("/usr/bin/iconutil", "-c", "iconset", "-o", iconset, Path.Combine(Bundle, "Contents", "Resources", "acme-ide.icns"));
         File.Exists(Path.Combine(iconset, "icon_512x512@2x.png")).Should().BeTrue();

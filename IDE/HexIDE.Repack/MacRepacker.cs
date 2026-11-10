@@ -59,6 +59,11 @@ internal sealed class MacTarget : RepackTarget
         }
 
         Payload.RequireExecutable(path, "macOS");
+
+        // Rewriting Info.plist would break a signature over the whole bundle, and HexIDE publishes none.
+        var contents = Path.GetDirectoryName(Path.GetDirectoryName(path))!;
+        if (Directory.Exists(Path.Combine(contents, "_CodeSignature")))
+            throw new RepackException("This bundle is signed as a whole, and rewriting it would invalidate that signature. This tool repacks the unsealed bundles HexIDE publishes.");
     }
 
     public override bool FinishExecutable(string executable, string stockExecutable, DistributionIdentity brand)
@@ -89,8 +94,25 @@ internal sealed class MacTarget : RepackTarget
         if (OperatingSystem.IsMacOS())
         {
             RunCheck("/usr/bin/plutil", ["-lint", plistPath], $"macOS doesn't accept the {MacRepacker.InfoPlistPath} this tool wrote.");
-            RunCheck("/usr/bin/codesign", ["--verify", Path.Combine(bundle, MacRepacker.ProgramDirectory, executableName)],
-                $"macOS doesn't accept the signature on {executableName} in the repacked bundle, and Apple Silicon wouldn't run it. A build signed as a whole bundle can't be repacked.");
+            CheckSignature(Path.Combine(bundle, MacRepacker.ProgramDirectory, executableName));
+        }
+    }
+
+    // Asked about a bundle's main executable, codesign answers for the bundle, and this one isn't sealed. What Apple
+    // Silicon checks when it starts the program is the signature inside the file, so a copy elsewhere is what to ask about.
+    private static void CheckSignature(string executable)
+    {
+        var scratch = Directory.CreateTempSubdirectory("hexide-repack-");
+        try
+        {
+            var copy = Path.Combine(scratch.FullName, Path.GetFileName(executable));
+            File.Copy(executable, copy);
+            RunCheck("/usr/bin/codesign", ["--verify", copy],
+                $"macOS doesn't accept the signature on {Path.GetFileName(executable)}, and Apple Silicon wouldn't run it.");
+        }
+        finally
+        {
+            scratch.Delete(recursive: true);
         }
     }
 
