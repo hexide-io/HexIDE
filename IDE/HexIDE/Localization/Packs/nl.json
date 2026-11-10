@@ -2,6 +2,7 @@
   "name": "Dutch",
   "direction": "ltr",
   "strings": {
+    "Str.Startup.PlatformSummary": "Alleen Linux. Weergavebackend: x11 (standaard), auto of wayland.",
     "Str.Shell.NotImplemented": "Deze functie is nog niet geïmplementeerd",
     "Str.AIChat.Stop": "Stoppen",
     "Str.Tool.LanguageServers.Problem.JsonSyntaxEscape": "Het configuratiebestand '{0}' bevat ongeldige JSON op regel {1}, kolom {2}. Pad: {3} Gebruik schuine strepen (C:/tools/new/...) of dubbele backslashes (C:\\\\tools\\\\new\\\\...).",

@@ -2,6 +2,7 @@
   "name": "Slovenian",
   "direction": "ltr",
   "strings": {
+    "Str.Startup.PlatformSummary": "Samo Linux. Prikazovalni sistem: x11 (privzeto), auto ali wayland.",
     "Str.Shell.NotImplemented": "Ta funkcija še ni implementirana",
     "Str.AIChat.Stop": "Ustavi",
     "Str.Tool.LanguageServers.Problem.JsonSyntaxEscape": "Konfiguracijska datoteka »{0}« vsebuje neveljaven JSON v vrstici {1}, stolpcu {2}. Pot: {3} Uporabite poševnice (C:/tools/new/...) ali dvojne obratne poševnice (C:\\\\tools\\\\new\\\\...).",

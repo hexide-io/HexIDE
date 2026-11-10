@@ -2,6 +2,7 @@
   "name": "Basque",
   "direction": "ltr",
   "strings": {
+    "Str.Startup.PlatformSummary": "Linux soilik. Pantaila-motorra: x11 (lehenetsia), auto edo wayland.",
     "Str.Shell.NotImplemented": "Eginbide hau oraindik ez dago inplementatuta",
     "Str.AIChat.Stop": "Gelditu",
     "Str.Tool.LanguageServers.Problem.JsonSyntaxEscape": "'{0}' konfigurazio-fitxategiak JSON baliogabea du {1}. lerroan, {2}. zutabean. Bidea: {3} Erabili barrak (C:/tools/new/...) edo alderantzizko barra bikoitzak (C:\\\\tools\\\\new\\\\...).",

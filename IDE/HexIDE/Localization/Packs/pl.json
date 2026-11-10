@@ -2,6 +2,7 @@
   "name": "Polish",
   "direction": "ltr",
   "strings": {
+    "Str.Startup.PlatformSummary": "Tylko Linux. Mechanizm wyświetlania: x11 (domyślny), auto lub wayland.",
     "Str.Shell.NotImplemented": "Ta funkcja nie została jeszcze zaimplementowana",
     "Str.AIChat.Stop": "Zatrzymaj",
     "Str.Tool.LanguageServers.Problem.JsonSyntaxEscape": "Plik konfiguracji „{0}” zawiera nieprawidłowy JSON w wierszu {1}, kolumnie {2}. Ścieżka: {3} Użyj ukośników (C:/tools/new/...) lub podwójnych ukośników odwrotnych (C:\\\\tools\\\\new\\\\...).",

@@ -2,6 +2,7 @@
   "name": "Russian",
   "direction": "ltr",
   "strings": {
+    "Str.Startup.PlatformSummary": "Только Linux. Система вывода: x11 (по умолчанию), auto или wayland.",
     "Str.Shell.NotImplemented": "Эта функция ещё не реализована",
     "Str.AIChat.Stop": "Остановить",
     "Str.Tool.LanguageServers.Problem.JsonSyntaxEscape": "Файл конфигурации «{0}» содержит некорректный JSON в строке {1}, столбце {2}. Путь: {3} Используйте прямые косые черты (C:/tools/new/...) или удвоенные обратные косые черты (C:\\\\tools\\\\new\\\\...).",

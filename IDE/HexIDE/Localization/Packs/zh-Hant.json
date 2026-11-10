@@ -2,6 +2,7 @@
   "name": "Chinese (Traditional)",
   "direction": "ltr",
   "strings": {
+    "Str.Startup.PlatformSummary": "僅限 Linux。顯示後端：x11（預設）、auto 或 wayland。",
     "Str.Shell.NotImplemented": "此功能尚未實作",
     "Str.AIChat.Stop": "停止",
     "Str.Tool.LanguageServers.Problem.JsonSyntaxEscape": "組態檔「{0}」在第 {1} 行、第 {2} 欄包含無效的 JSON。路徑：{3} 請使用正斜線 (C:/tools/new/...) 或雙反斜線 (C:\\\\tools\\\\new\\\\...)。",

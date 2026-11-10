@@ -2,6 +2,7 @@
   "name": "Romanian",
   "direction": "ltr",
   "strings": {
+    "Str.Startup.PlatformSummary": "Doar Linux. Backend de afișare: x11 (implicit), auto sau wayland.",
     "Str.Shell.NotImplemented": "Această funcționalitate nu este încă implementată",
     "Str.AIChat.Stop": "Oprește",
     "Str.Tool.LanguageServers.Problem.JsonSyntaxEscape": "Fișierul de configurare „{0}” conține JSON nevalid la linia {1}, coloana {2}. Cale: {3} Folosiți bare oblice (C:/tools/new/...) sau bare oblice inverse duble (C:\\\\tools\\\\new\\\\...).",

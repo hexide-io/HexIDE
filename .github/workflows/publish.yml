@@ -432,4 +432,4 @@ jobs:
             **Windows** shows a SmartScreen warning: More info → Run anyway.
             **macOS** — extract in Terminal with `tar -xzf <file>.tar.gz`. Unpacking with Finder
             instead applies a quarantine flag that an unsigned app cannot clear.
-            **Linux** self-contained still needs native libraries, including the distro's `libX11`, `libICE`, `libSM`, `fontconfig` and ICU.
+            **Linux** self-contained still needs native libraries, including the distro's `libX11`, `libICE`, `libSM`, `fontconfig` and ICU. Native Wayland (`auto` or `wayland`) also needs `libwayland-client`, `libwayland-cursor` and `libxkbcommon`, plus `libEGL` and `libwayland-egl` for GPU rendering.

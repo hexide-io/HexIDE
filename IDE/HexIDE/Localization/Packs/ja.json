@@ -2,6 +2,7 @@
   "name": "Japanese",
   "direction": "ltr",
   "strings": {
+    "Str.Startup.PlatformSummary": "Linux のみ。表示バックエンド: x11 (既定)、auto、wayland。",
     "Str.Shell.NotImplemented": "この機能はまだ実装されていません",
     "Str.AIChat.Stop": "停止",
     "Str.Tool.LanguageServers.Problem.JsonSyntaxEscape": "構成ファイル「{0}」の {1} 行、{2} 列に無効な JSON があります。パス: {3} スラッシュ (C:/tools/new/...) または二重のバックスラッシュ (C:\\\\tools\\\\new\\\\...) を使用してください。",

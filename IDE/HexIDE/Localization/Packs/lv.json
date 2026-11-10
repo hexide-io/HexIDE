@@ -2,6 +2,7 @@
   "name": "Latvian",
   "direction": "ltr",
   "strings": {
+    "Str.Startup.PlatformSummary": "Tikai Linux. Attēlošanas sistēma: x11 (noklusējums), auto vai wayland.",
     "Str.Shell.NotImplemented": "Šī funkcija vēl nav ieviesta",
     "Str.AIChat.Stop": "Apturēt",
     "Str.Tool.LanguageServers.Problem.JsonSyntaxEscape": "Konfigurācijas failā “{0}” ir nederīgs JSON {1}. rindā, {2}. kolonnā. Ceļš: {3} Izmantojiet slīpsvītras (C:/tools/new/...) vai dubultas atpakaļslīpsvītras (C:\\\\tools\\\\new\\\\...).",

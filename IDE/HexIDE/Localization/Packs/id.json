@@ -2,6 +2,7 @@
   "name": "Indonesian",
   "direction": "ltr",
   "strings": {
+    "Str.Startup.PlatformSummary": "Khusus Linux. Backend tampilan: x11 (bawaan), auto atau wayland.",
     "Str.Shell.NotImplemented": "Fitur ini belum diimplementasikan",
     "Str.AIChat.Stop": "Hentikan",
     "Str.Tool.LanguageServers.Problem.JsonSyntaxEscape": "File konfigurasi '{0}' berisi JSON tidak valid pada baris {1}, kolom {2}. Jalur: {3} Gunakan garis miring (C:/tools/new/...) atau garis miring terbalik ganda (C:\\\\tools\\\\new\\\\...).",

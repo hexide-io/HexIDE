@@ -2,6 +2,7 @@
   "name": "French",
   "direction": "ltr",
   "strings": {
+    "Str.Startup.PlatformSummary": "Linux uniquement. Affichage : x11 (par défaut), auto ou wayland.",
     "Str.Shell.NotImplemented": "Cette fonctionnalité n’est pas encore implémentée",
     "Str.AIChat.Stop": "Arrêter",
     "Str.Tool.LanguageServers.Problem.JsonSyntaxEscape": "Le fichier de configuration « {0} » contient du JSON non valide à la ligne {1}, colonne {2}. Chemin : {3} Utilisez des barres obliques (C:/tools/new/...) ou des barres obliques inverses doublées (C:\\\\tools\\\\new\\\\...).",

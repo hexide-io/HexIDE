@@ -34,6 +34,8 @@ internal sealed record CommandLineOption(
 
 internal static class ServerOptions
 {
+    public static string? Platform { get; private set; }
+
     public static int? Port { get; private set; }
     public static bool NewProject { get; private set; }
     public static bool NewProjectUnsaved { get; private set; }
@@ -156,6 +158,15 @@ internal static class ServerOptions
             "Print this message and exit. Also -h and /?.",
             _ => { HelpRequested = true; return false; },
             Aliases: ["-h", "/?", "-?"]),
+
+        new("platform", "<name>",
+            new HexIDE.Localization.LocalizationService().GetStringFrom("en", "Str.Startup.PlatformSummary"),
+            value =>
+            {
+                if (value is null || value.StartsWith('-') || value.StartsWith('/')) return false;
+                Platform = value;
+                return true;
+            }),
 
         new("newproject", null,
             "Create a Standard EXE and save it in a temporary directory.",

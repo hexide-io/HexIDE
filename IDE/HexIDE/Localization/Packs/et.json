@@ -2,6 +2,7 @@
   "name": "Estonian",
   "direction": "ltr",
   "strings": {
+    "Str.Startup.PlatformSummary": "Ainult Linux. Kuvamootor: x11 (vaikimisi), auto või wayland.",
     "Str.Shell.NotImplemented": "See funktsioon pole veel teostatud",
     "Str.AIChat.Stop": "Peata",
     "Str.Tool.LanguageServers.Problem.JsonSyntaxEscape": "Konfiguratsioonifail „{0}“ sisaldab vigast JSON-i real {1}, veerus {2}. Tee: {3} Kasutage kaldkriipse (C:/tools/new/...) või kahekordseid längkriipse (C:\\\\tools\\\\new\\\\...).",

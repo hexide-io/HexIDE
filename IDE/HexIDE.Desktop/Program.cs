@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using Avalonia;
+using HexIDE.Startup;
 using Avalonia.Media.Fonts;
 using Classic.CommonControls;
 
@@ -175,7 +176,7 @@ sealed partial class Program
     // Avalonia configuration, don't remove; also used by visual designer.
     public static AppBuilder BuildAvaloniaApp()
         => AppBuilder.Configure<App>()
-            .UsePlatformDetect()
+            .UseDisplayBackend(ServerOptions.Platform)
             .UseMessageBoxSounds()
             .LogToTrace()
             .ConfigureFonts(manager =>

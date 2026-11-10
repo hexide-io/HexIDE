@@ -2,6 +2,7 @@
   "name": "Czech",
   "direction": "ltr",
   "strings": {
+    "Str.Startup.PlatformSummary": "Pouze Linux. Grafický backend: x11 (výchozí), auto nebo wayland.",
     "Str.Shell.NotImplemented": "Tato funkce zatím není implementována",
     "Str.AIChat.Stop": "Zastavit",
     "Str.Tool.LanguageServers.Problem.JsonSyntaxEscape": "Konfigurační soubor „{0}“ obsahuje neplatný JSON na řádku {1}, ve sloupci {2}. Cesta: {3} Použijte lomítka (C:/tools/new/...) nebo zdvojená zpětná lomítka (C:\\\\tools\\\\new\\\\...).",

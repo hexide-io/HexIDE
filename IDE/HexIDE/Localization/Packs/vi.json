@@ -2,6 +2,7 @@
   "name": "Vietnamese",
   "direction": "ltr",
   "strings": {
+    "Str.Startup.PlatformSummary": "Chỉ Linux. Hệ thống hiển thị: x11 (mặc định), auto hoặc wayland.",
     "Str.Shell.NotImplemented": "Tính năng này chưa được triển khai",
     "Str.AIChat.Stop": "Dừng",
     "Str.Tool.LanguageServers.Problem.JsonSyntaxEscape": "Tệp cấu hình '{0}' chứa JSON không hợp lệ tại dòng {1}, cột {2}. Đường dẫn: {3} Dùng dấu gạch chéo xuôi (C:/tools/new/...) hoặc dấu gạch chéo ngược kép (C:\\\\tools\\\\new\\\\...).",

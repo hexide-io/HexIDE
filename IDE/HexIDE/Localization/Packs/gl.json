@@ -2,6 +2,7 @@
   "name": "Galician",
   "direction": "ltr",
   "strings": {
+    "Str.Startup.PlatformSummary": "Só Linux. Motor gráfico: x11 (predeterminado), auto ou wayland.",
     "Str.Shell.NotImplemented": "Esta función aínda non está implementada",
     "Str.AIChat.Stop": "Deter",
     "Str.Tool.LanguageServers.Problem.JsonSyntaxEscape": "O ficheiro de configuración «{0}» contén JSON non válido na liña {1}, columna {2}. Ruta: {3} Use barras (C:/tools/new/...) ou barras inversas dobres (C:\\\\tools\\\\new\\\\...).",

@@ -2,6 +2,7 @@
   "name": "Turkish",
   "direction": "ltr",
   "strings": {
+    "Str.Startup.PlatformSummary": "Yalnızca Linux. Görüntü altyapısı: x11 (varsayılan), auto veya wayland.",
     "Str.Shell.NotImplemented": "Bu özellik henüz uygulanmadı",
     "Str.AIChat.Stop": "Durdur",
     "Str.Tool.LanguageServers.Problem.JsonSyntaxEscape": "'{0}' yapılandırma dosyası {1}. satır, {2}. sütunda geçersiz JSON içeriyor. Yol: {3} Eğik çizgi (C:/tools/new/...) veya çift ters eğik çizgi (C:\\\\tools\\\\new\\\\...) kullanın.",
