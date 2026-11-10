@@ -242,3 +242,4 @@ macOS keep their normal backend regardless of this choice.
 Serilog records the actual windowing implementation after startup. Native Wayland needs
 libwayland-client, libwayland-cursor and libxkbcommon; GPU rendering additionally needs libEGL and
 libwayland-egl. This opt-in is experimental pending desktop verification in [#868](https://github.com/hexide-io/HexIDE/issues/868).
+Under it only the compositor places a window, so a form's `Left`, `Top` and `StartUpPosition` have no effect.
