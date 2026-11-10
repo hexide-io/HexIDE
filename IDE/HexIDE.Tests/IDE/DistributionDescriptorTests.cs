@@ -125,6 +125,76 @@ public sealed class DistributionDescriptorTests
         identity.OpenLogo().Should().NotBeNull();
     }
 
+    [Fact]
+    public void Localized_entries_keep_their_plain_text_fallbacks()
+    {
+        var identity = Parse("""
+            {"schemaVersion":1,"id":"a","name":"A",
+             "tagline":{"text":"For widgets","translations":{"fr":"Pour les widgets"}},
+             "credits":[{"text":"Team","translations":{"fr":"Équipe"}},"Sponsors"]}
+            """);
+
+        identity.Tagline.Should().Be("For widgets");
+        identity.AdditionalCredits.Should().Equal("Team", "Sponsors");
+    }
+
+    [Theory]
+    [InlineData("fr-CA", "Au Québec", "Équipe")]
+    [InlineData("fr-FR", "En français", "Équipe")]
+    [InlineData("de", "English", "Team")]
+    [InlineData("zh-TW", "繁體", "Team")]
+    [InlineData("zh-CN", "简体", "Team")]
+    [InlineData("en", "English", "Team")]
+    public void Brand_text_uses_the_pack_chain_and_falls_back_per_entry(string language, string tagline, string credit)
+    {
+        var identity = Parse("""
+            {"schemaVersion":1,"id":"a","name":"A",
+             "tagline":{"text":"Default","translations":{"en":"English","fr":"En français",
+                 "fr-CA":"Au Québec","zh-Hant":"繁體","zh-Hans":"简体"}},
+             "credits":[{"text":"Team","translations":{"fr":"Équipe"}},"Sponsors"]}
+            """);
+        var localization = Substitute.For<ILocalizationService>();
+        localization.ResolvedLanguage.Returns(language);
+        localization.GetString(BrandText.UpstreamCreditsKey).Returns("HexIDE upstream thanks");
+        var chain = BrandText.LanguageChain(localization);
+        var about = new HexIDE.Forms.ViewModels.AboutDialogViewModel(new AboutDialogOptions
+        {
+            SubTitle = identity.LocalizedTagline!.Resolve(chain),
+            AdditionalCredits = identity.LocalizedCredits.Select(text => text.Resolve(chain)).ToArray()
+        }, localization);
+
+        about.SubTitle.Should().Be(tagline);
+        about.Credits.Should().Equal("HexIDE upstream thanks", credit, "Sponsors");
+    }
+
+    [Fact]
+    public void Each_localized_entry_uses_its_own_text_when_no_translation_matches()
+    {
+        var identity = Parse("""
+            {"schemaVersion":1,"id":"a","name":"A",
+             "tagline":{"text":"Default","translations":{"fr":"Français"}},
+             "credits":[{"text":"Team","translations":{"fr":"Équipe"}}]}
+            """);
+
+        identity.LocalizedTagline!.Resolve(["de-DE", "de", "en"]).Should().Be("Default");
+        identity.LocalizedCredits[0].Resolve(["de-DE", "de", "en"]).Should().Be("Team");
+    }
+
+    [Theory]
+    [InlineData("{\"text\":\"Fallback\",\"translations\":[]}", "translations")]
+    [InlineData("{\"text\":\"Fallback\",\"translations\":{\"fr\":42}}", "translations.fr")]
+    [InlineData("{\"text\":\"Fallback\",\"translations\":{\"not a locale\":\"Text\"}}", "language id")]
+    [InlineData("{\"translations\":{\"fr\":\"Text\"}}", "'text' is required")]
+    [InlineData("{\"text\":\"Fallback\",\"hideCredits\":true}", "hideCredits")]
+    [InlineData("{\"text\":\"Fallback\",\"translations\":{\"fr\":\" \"}}", "empty")]
+    [InlineData("{\"text\":\"Fallback\",\"translations\":{\"fr\":\"a\\nb\"}}", "control")]
+    public void Unusable_localized_taglines_are_refused(string entry, string reason)
+    {
+        var parse = () => Parse($$"""{"schemaVersion":1,"id":"a","name":"A","tagline":{{entry}}}""");
+
+        parse.Should().Throw<DistributionDescriptorException>().WithMessage($"*{reason}*");
+    }
+
     [Theory]
     [InlineData("""{"schemaVersion":2,"id":"a","name":"A"}""", "schemaVersion")]
     [InlineData("""{"id":"a","name":"A"}""", "schemaVersion")]

@@ -47,15 +47,16 @@ public class MainMenuDeclarationTests
             var element = elements[i];
             var because = $"placement {item.Id}";
             element.Name.LocalName.Should().Be(item.Kind == MenuItemKind.Separator ? "Separator" : "MenuItem", because);
+            ((string?)element.Attribute("IsVisible")).Should().Be(item.VisibilityBinding is { } visibility
+                ? $"{{CompiledBinding {visibility}}}" : item.Visibility, because);
+            ((string?)element.Attribute(XName.Get("MenuUtils.MenuIcon", "clr-namespace:HexIDE.Utils")))
+                .Should().Be(item.IconKey is { } icon ? $"{{StaticResource {icon}}}" : null, because);
             if (item.Kind == MenuItemKind.Separator) continue;
             ((string?)element.Attribute("Header")).Should().Be(item.LabelBinding is { } binding
                 ? $"{{CompiledBinding {binding}}}" : $"{{DynamicResource {item.LabelKey}}}", because);
             ((string?)element.Attribute("Command")).Should().Be(item.Command is { } command
                 ? MenuHostRegistry.Commands[command].AxamlBinding : null, because);
             element.Attribute("CommandParameter").Should().BeNull(because);
-            if (item.LabelBinding is "BrandHomeMenuHeader" or "BrandSupportMenuHeader")
-                ((string?)element.Attribute("IsVisible")).Should().Be(
-                    $"{{CompiledBinding {item.VisibilityBinding}}}", because);
             if (item.Kind == MenuItemKind.Toggle)
             {
                 var state = MenuHostRegistry.States[item.State!];
@@ -161,6 +162,7 @@ public class MainMenuDeclarationTests
     [InlineData("{\"kind\":\"Separator\",\"id\":\"test\",\"labelKey\":\"Str.Menu.File\"}")]
     [InlineData("{\"kind\":\"Placeholder\",\"id\":\"test\",\"labelKey\":\"Str.Menu.File\",\"labelBinding\":\"missing\"}")]
     [InlineData("{\"kind\":\"Command\",\"id\":\"test\",\"labelKey\":\"Str.Menu.File\",\"command\":\"application.AboutCommand\",\"arguments\":{\"value\":{\"kind\":\"Boolean\",\"value\":true}}}")]
+    [InlineData("{\"kind\":\"Separator\",\"id\":\"test\",\"visibility\":\"missing\"}")]
     public void Invalid_item_is_refused_with_source_and_placement(string item)
     {
         var parse = () => MainMenuDeclaration.Parse($"[{item}]", "test-menu.json");

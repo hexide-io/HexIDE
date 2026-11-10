@@ -3,7 +3,7 @@
 ## Purpose
 
 Describe the host-owned main-menu declaration introduced by #3510. It is embedded data alongside the
-existing AXAML menu; the AXAML remains the renderer. Profiles cannot author or expose new placements
+existing AXAML menu; a separate renderer builds a replacement menu, while the IDE still displays AXAML. Profiles cannot author or expose new placements
 through this component yet.
 
 ## Requirements
@@ -44,7 +44,7 @@ The declaration is refused for that placement rather than discarding or coercing
 
 ### Requirement: Invalid declarations are refused before use
 
-The declaration validator SHALL reject unknown commands, providers, states and label bindings, duplicate
+The declaration validator SHALL reject unknown commands, providers, states, label bindings and visibility bindings, duplicate
 placements, invalid argument signatures or values, unknown JSON members and invalid item shapes. Errors
 SHALL identify the source and offending placement, or the JSON path when parsing fails. Toggle states
 SHALL name host-owned getters and setters over the same five settings as the AXAML bindings.
@@ -58,9 +58,38 @@ A toggle naming an unregistered state is refused with the declaration source and
 Ordinary tests SHALL compare the embedded menu recursively against the real AXAML for item order,
 structure, command bindings, label keys or host label bindings, toggle state bindings, providers and
 disabled placeholders. Tests SHALL pin placement ids independently and verify localized keys and host
-command registrations. Rendering, shortcut derivation, focus routing and expanded profile visibility
-remain outside this slice.
+command registrations.
+
+#### Scenario: The replacement renderer is built
+
+Tests compare it against instantiated AXAML in English and a right-to-left language, including headers,
+commands, gestures, visibility bindings, order and nested provider items. Switching the IDE to that
+renderer, focus routing and expanded profile visibility remain outside this slice.
 
 #### Scenario: A menu command changes only in AXAML
 
 The parity test fails for the corresponding placement until the host declaration is updated deliberately.
+
+### Requirement: The replacement renderer preserves host behavior
+
+The renderer SHALL build Avalonia menus from validated declarations, preserving localized mnemonic
+captions, host-bound dynamic labels, icons, commands, typed argument maps, separators, visibility bindings,
+two-way settings toggles and disabled placeholders. Routed-command gestures SHALL follow the existing
+keymap refresh mechanism. It SHALL retain live resource bindings when the language changes.
+
+#### Scenario: Host label and visibility bindings
+
+A declared `labelBinding` supplies the header from the host view model and follows language changes.
+A declared `visibilityBinding` supplies `IsVisible` from the host view model, including the brand Home
+and Support Help entries.
+
+#### Scenario: Dynamic providers
+
+Recent Projects and Recently Closed bind the host collections. Start With and Run With use the host run
+collections, including radio state, and refresh when Run opens. Panel Layouts uses the existing opening-time
+builder. Add-ins and Tools append host contributions in order and remove their collection subscriptions
+when the renderer is disposed.
+
+#### Scenario: The renderer is constructed
+
+The caller receives a separate menu; construction does not replace or install anything in MainView.

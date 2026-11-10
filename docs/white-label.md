@@ -41,6 +41,31 @@ A member that isn't in this table stops the IDE from starting. So does anything 
 reports the file and the problem, and doesn't fall back to being HexIDE, because that would open HexIDE's settings
 and recovery files inside your product. `--help` still answers on a broken installation, and exits with code 2.
 
+## Translating your tagline and credits
+
+Each `tagline` or `credits` entry can be an ordinary string or an object with a required `text` fallback
+and an optional `translations` map keyed by language id:
+
+```json
+{
+  "tagline": {
+    "text": "VB6 for widget makers",
+    "translations": { "fr": "VB6 pour les fabricants de widgets" }
+  },
+  "credits": [
+    { "text": "The widget team", "translations": { "fr": "L’équipe des widgets" } },
+    "Our sponsors"
+  ]
+}
+```
+
+When About opens, each entry uses the selected region, then its neutral language (including the Chinese
+script mapping used by language packs), then `en`, then that entry's `text`. Missing translations never
+remove a credit or change its position. System language is resolved first; pseudo languages use English.
+The same text limits apply to translations: 300 characters on one line for a tagline, 2000 characters per
+credit with newlines allowed. Empty translations are refused. `--help` continues to use the plain `text`
+fallback, since it runs before the user's language settings are loaded.
+
 ## What it doesn't do
 
 - **HexIDE's credits stay.** You can add to them, and nothing removes, replaces or hides them. A translation
@@ -136,5 +161,4 @@ yourself. As on Windows, the tool never touches a key or a trust anchor, and the
 
 ## Not done yet
 
-Repacking for macOS, localized credits and some diagnostics written in English. See the issues linked from
-#2042.
+Repacking for macOS and some diagnostics written in English. See the issues linked from #2042.
