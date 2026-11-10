@@ -2,6 +2,8 @@
   "name": "Latvian",
   "direction": "ltr",
   "strings": {
+    "Str.AIChat.Refusal": "Pakalpojuma sniedzējs noraidīja šo pieprasījumu.",
+    "Str.AIChat.TokenLimit": "Atbilde sasniedza tokenu ierobežojumu un ir nepilnīga.",
     "Str.Startup.PlatformSummary": "Tikai Linux. Attēlošanas sistēma: x11 (noklusējums), auto vai wayland.",
     "Str.Shell.NotImplemented": "Šī funkcija vēl nav ieviesta",
     "Str.AIChat.Stop": "Apturēt",

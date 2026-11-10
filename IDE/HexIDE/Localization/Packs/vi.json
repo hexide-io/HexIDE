@@ -2,6 +2,8 @@
   "name": "Vietnamese",
   "direction": "ltr",
   "strings": {
+    "Str.AIChat.Refusal": "Nhà cung cấp đã từ chối yêu cầu này.",
+    "Str.AIChat.TokenLimit": "Phản hồi đã đạt giới hạn token và chưa hoàn tất.",
     "Str.Startup.PlatformSummary": "Chỉ Linux. Hệ thống hiển thị: x11 (mặc định), auto hoặc wayland.",
     "Str.Shell.NotImplemented": "Tính năng này chưa được triển khai",
     "Str.AIChat.Stop": "Dừng",

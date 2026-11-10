@@ -2,6 +2,8 @@
   "name": "Japanese",
   "direction": "ltr",
   "strings": {
+    "Str.AIChat.Refusal": "プロバイダーがこのリクエストを拒否しました。",
+    "Str.AIChat.TokenLimit": "応答がトークン上限に達したため、未完了です。",
     "Str.Startup.PlatformSummary": "Linux のみ。表示バックエンド: x11 (既定)、auto、wayland。",
     "Str.Shell.NotImplemented": "この機能はまだ実装されていません",
     "Str.AIChat.Stop": "停止",

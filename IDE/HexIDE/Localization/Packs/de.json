@@ -2,6 +2,8 @@
   "name": "German",
   "direction": "ltr",
   "strings": {
+    "Str.AIChat.Refusal": "Der Anbieter hat diese Anfrage abgelehnt.",
+    "Str.AIChat.TokenLimit": "Die Antwort hat das Tokenlimit erreicht und ist unvollständig.",
     "Str.Startup.PlatformSummary": "Nur Linux. Anzeigebackend: x11 (Standard), auto oder wayland.",
     "Str.Shell.NotImplemented": "Diese Funktion ist noch nicht implementiert",
     "Str.AIChat.Stop": "Stoppen",

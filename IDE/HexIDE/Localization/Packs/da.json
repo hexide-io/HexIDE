@@ -2,6 +2,8 @@
   "name": "Danish",
   "direction": "ltr",
   "strings": {
+    "Str.AIChat.Refusal": "Udbyderen afviste denne anmodning.",
+    "Str.AIChat.TokenLimit": "Svaret nåede tokengrænsen og er ufuldstændigt.",
     "Str.Startup.PlatformSummary": "Kun Linux. Visningsbackend: x11 (standard), auto eller wayland.",
     "Str.Shell.NotImplemented": "Denne funktion er endnu ikke implementeret",
     "Str.AIChat.Stop": "Stop",

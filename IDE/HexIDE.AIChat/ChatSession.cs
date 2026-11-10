@@ -40,6 +40,7 @@ public sealed class ChatSession
 
         var toSummarise = _window.Take(boundary).ToList();
         _window.RemoveRange(0, boundary);
+        foreach (var message in _window) StripThinking(message.NativeContent);
         return toSummarise;
     }
 
@@ -62,8 +63,22 @@ public sealed class ChatSession
             new() { ["role"] = "system", ["content"] = system }
         };
 
-        messages.AddRange(_window.Select(m => m.ToApiJson()));
+        var latestDeveloper = _window.FindLastIndex(m => m.Role == "user" && !m.FromIde);
+        for (var i = 0; i < _window.Count; i++)
+        {
+            var message = _window[i].ToApiJson();
+            if (i < latestDeveloper) StripThinking(message["anthropic_content"] as JsonArray);
+            messages.Add(message);
+        }
         return messages;
+    }
+
+    private static void StripThinking(JsonArray? content)
+    {
+        if (content is null) return;
+        for (var i = content.Count - 1; i >= 0; i--)
+            if (content[i]?["type"]?.GetValue<string>() is "thinking" or "redacted_thinking")
+                content.RemoveAt(i);
     }
 
     // ── persistence ──────────────────────────────────────────────────────────
@@ -83,6 +98,7 @@ public sealed class ChatSession
                 CompactionSummary = _compactionSummary,
                 Log = _log.Select(m => new PersistedMessage
                 {
+                    NativeContent = m.NativeContent,
                     Role = m.Role,
                     Content = m.Content,
                     ToolCallId = m.ToolCallId,
@@ -120,6 +136,7 @@ public sealed class ChatSession
 
                 var msg = new ConversationMessage(
                     entry.Role, entry.Content, toolCalls, entry.ToolCallId, entry.ToolName, entry.FromIde == true);
+                msg.NativeContent = entry.NativeContent;
                 session._log.Add(msg);
                 session._window.Add(msg);
             }
@@ -138,6 +155,7 @@ public sealed class ChatSession
 
     private sealed class PersistedMessage
     {
+        [JsonPropertyName("nativeContent")] public JsonArray? NativeContent { get; set; }
         [JsonPropertyName("role")] public string Role { get; set; } = "user";
         [JsonPropertyName("content")] public string Content { get; set; } = "";
         [JsonPropertyName("toolCallId")] public string? ToolCallId { get; set; }

@@ -2,6 +2,8 @@
   "name": "Chinese (Simplified)",
   "direction": "ltr",
   "strings": {
+    "Str.AIChat.Refusal": "提供商拒绝了此请求。",
+    "Str.AIChat.TokenLimit": "回复已达到令牌上限，内容不完整。",
     "Str.Startup.PlatformSummary": "仅限 Linux。显示后端：x11（默认）、auto 或 wayland。",
     "Str.Shell.NotImplemented": "此功能尚未实现",
     "Str.AIChat.Stop": "停止",

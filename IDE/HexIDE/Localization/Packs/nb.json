@@ -2,6 +2,8 @@
   "name": "Norwegian Bokmål",
   "direction": "ltr",
   "strings": {
+    "Str.AIChat.Refusal": "Leverandøren avslo denne forespørselen.",
+    "Str.AIChat.TokenLimit": "Svaret nådde tokengrensen og er ufullstendig.",
     "Str.Startup.PlatformSummary": "Kun Linux. Visningsmotor: x11 (standard), auto eller wayland.",
     "Str.Shell.NotImplemented": "Denne funksjonen er ikke implementert ennå",
     "Str.AIChat.Stop": "Stopp",

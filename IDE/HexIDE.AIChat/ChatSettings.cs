@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 
 namespace HexIDE.AIChat;
@@ -18,6 +19,18 @@ public sealed class ChatSettings
 
     [JsonPropertyName("maxTurnsBeforeCompaction")]
     public int MaxTurnsBeforeCompaction { get; set; } = 20;
+
+    [JsonPropertyName("maxTokens")]
+    public int MaxTokens { get; set; } = 64000;
+
+    [JsonPropertyName("workspaceId")]
+    public string? WorkspaceId { get; set; }
+
+    [JsonPropertyName("thinking")]
+    public JsonObject? Thinking { get; set; }
+
+    [JsonPropertyName("effort")]
+    public string? Effort { get; set; }
 
     private static readonly string[] ApiKeyEnvVars = ["HEXIDE_AI_API_KEY", "ANTHROPIC_API_KEY", "OPENAI_API_KEY"];
 

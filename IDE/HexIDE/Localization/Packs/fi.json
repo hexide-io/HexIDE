@@ -2,6 +2,8 @@
   "name": "Finnish",
   "direction": "ltr",
   "strings": {
+    "Str.AIChat.Refusal": "Palveluntarjoaja hylkäsi tämän pyynnön.",
+    "Str.AIChat.TokenLimit": "Vastaus saavutti tokenrajan ja jäi kesken.",
     "Str.Startup.PlatformSummary": "Vain Linux. Näyttötausta: x11 (oletus), auto tai wayland.",
     "Str.Shell.NotImplemented": "Tätä ominaisuutta ei ole vielä toteutettu",
     "Str.AIChat.Stop": "Pysäytä",

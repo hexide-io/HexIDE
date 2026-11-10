@@ -2,6 +2,8 @@
   "name": "Galician",
   "direction": "ltr",
   "strings": {
+    "Str.AIChat.Refusal": "O provedor rexeitou esta solicitude.",
+    "Str.AIChat.TokenLimit": "A resposta acadou o límite de tokens e está incompleta.",
     "Str.Startup.PlatformSummary": "Só Linux. Motor gráfico: x11 (predeterminado), auto ou wayland.",
     "Str.Shell.NotImplemented": "Esta función aínda non está implementada",
     "Str.AIChat.Stop": "Deter",
