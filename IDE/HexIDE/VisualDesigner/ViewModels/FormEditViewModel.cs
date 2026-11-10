@@ -262,6 +262,9 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
 
     public string? ReadOnlyReason => formDefinition?.UnfaithfulSaveReason;
 
+    /// <summary>Whether it is read-only because an add-in read it, which the banner has its own words for.</summary>
+    public bool IsReadByAddin => formDefinition is { } form && form.UnfaithfulSaveCauses.HasFlag(UnfaithfulSaveCause.ReadByAddin);
+
     public DesignerUndoStack UndoStack { get; private set; } = null!;
     public DelegateCommand UndoCommand { get; private set; } = null!;
     public DelegateCommand RedoCommand { get; private set; } = null!;
@@ -657,6 +660,7 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
         // watches, so the banner and the disabled surface would keep the old answer until the tab was reopened.
         OnPropertyChanged(new PropertyChangedEventArgs(nameof(IsReadOnly)));
         OnPropertyChanged(new PropertyChangedEventArgs(nameof(ReadOnlyReason)));
+        OnPropertyChanged(new PropertyChangedEventArgs(nameof(IsReadByAddin)));
         // As the code window's reload does: clean after a reload from disk, edited after a crash recovery restore (#499).
         RefreshModified();
     }

@@ -12,6 +12,23 @@ later without the editor noticing.
 
 ## Requirements
 
+### Requirement: Registered watched-file notifications
+The client SHALL advertise dynamic registration only for `workspace/didChangeWatchedFiles`, including relative-pattern support. It SHALL honour registration and unregistration per connection, discard registrations on disconnect, and log and refuse unsupported methods. String globs and relative patterns with URI or WorkspaceFolder bases SHALL honour create/change/delete masks. Workspace-relative string globs SHALL follow additions and removals of workspace folders; relative patterns SHALL retain their own base. A registration that would recursively watch a filesystem root, including through the existing ancestor of a missing base, SHALL be logged and refused with `InvalidParams` without installing any part of the request. Matching disk changes and completed IDE writes SHALL be coalesced before notification, and SHALL reach only connections with matching registrations.
+
+#### Scenario: A server registers configuration files
+- **WHEN** a server registers `**/pyproject.toml` and that file changes externally
+- **THEN** the client sends a matching `FileEvent` in `workspace/didChangeWatchedFiles`
+- **AND** unrelated connections receive nothing
+
+#### Scenario: The IDE writes a file
+- **WHEN** an IDE save or artefact generation completes
+- **THEN** the write feeds the same registered-glob matcher directly, independently of editor reload watching
+
+#### Scenario: A registration ends
+- **WHEN** its id is unregistered or its connection drops
+- **THEN** it produces no further file events
+
+
 ### Requirement: One restart after a silent stdio initialize
 
 The client SHALL restart a live stdio server at most once when initialize times out, only if the channel tap
@@ -839,7 +856,10 @@ tries to replace it.
 
 ### Requirement: Configuration SHALL layer over compiled-in defaults
 Default entries SHALL be contributed in code and user configuration SHALL be merged over them by identifier.
-Removing the user configuration SHALL restore the defaults.
+Removing the user configuration SHALL restore the defaults. A complete user entry with a default's identifier
+SHALL replace it wholesale, inheriting no fields. Only
+a user entry omitting required fields SHALL inherit fields it does not write and replace fields it writes,
+including whole objects and arrays. An explicit JSON null SHALL clear the inherited field. Layering SHALL NOT mutate the contributed default or rewrite the file (#1209).
 
 Layering rather than replacement is what makes the previous requirement safe. The bundled server can be a
 row a user may break precisely because the row itself is not stored in the file they edit: an improvement to
@@ -847,6 +867,14 @@ a default reaches an existing user, and a user who renders their own configurati
 deleting a file rather than by reinstalling.
 
 A default entry whose server cannot be located SHALL be omitted rather than contributed in a broken state.
+
+#### Scenario: A complete entry replaces the bundled server
+- **WHEN** a user entry names the bundled server and supplies all required fields
+- **THEN** no optional fields are inherited, including the bundled priority
+
+#### Scenario: A user adjusts the bundled server
+- **WHEN** a user entry names the bundled server and writes only `trace` and `priority`
+- **THEN** those fields change and the resolved command and claimed extensions remain inherited
 
 #### Scenario: A user has no configuration
 - **WHEN** no user configuration is present
@@ -1864,7 +1892,7 @@ anyway, so it is recorded rather than defended.
 #### Scenario: Material project changes
 - **WHEN** forms, modules or carried files are added, removed or renamed, or references change
 - **THEN** the artefact is regenerated after debouncing, subject to the same consent and ownership checks
-- **AND** regeneration sends no watched-file notification in this phase (#456)
+- **AND** completed artefact writes and removals feed matching watched-file registrations directly (#456)
 
 #### Scenario: Restart on change
 - **WHEN** an entry sets `restartOnChange` and a regeneration changes its artefact's bytes, including taking the file back
@@ -1959,8 +1987,8 @@ If no item matches the opening word, the editor SHALL retain the server's list f
 - **AND** after `c.` or `UBound(` with no identifier, the request position remains after the punctuation
 
 ### Requirement: Completion acceptance keys
-The editor SHALL follow the VB6 SP6 measurements linked in issue #3056: Enter accepts a selected
-ordinary completion and then commits a new line; Tab accepts without a break; Space accepts and
+In ordinary code the editor SHALL follow the VB6 SP6 measurements linked in issue #3056: Enter accepts
+a selected ordinary completion and then commits a new line; Tab accepts without a break; Space accepts and
 then types a space; Escape closes without accepting. With no selection, Enter and Space SHALL close
 the list and only type their character, while Tab SHALL accept the first outlined item, replacing the
 whole word including text after the caret. The first Down SHALL highlight that first item.
@@ -1974,6 +2002,19 @@ A snippet choice picker's Enter SHALL accept without a line break and keep snipp
 #### Scenario: Enter in a snippet choice picker
 - **WHEN** the user selects `two` in a snippet choice picker and presses Enter
 - **THEN** `two` replaces the placeholder and its linked occurrences, without inserting a line break
+
+### Requirement: VB free text preserves typing
+The VB code editor SHALL suppress completion inside apostrophe comments, Rem comments and string
+literals, including unfinished literals and doubled quotes, and in continued comments (#3577). This rule
+SHALL apply independently of server replies, including replies arriving after the caret enters free text.
+
+#### Scenario: Space after on in a comment
+- **WHEN** the user types `' Typed on Wayland` one character at a time and a server offers `On Error`
+- **THEN** the document contains exactly the typed text
+
+#### Scenario: String literal text
+- **WHEN** the user types words inside a string literal
+- **THEN** completion does not replace those words
 
 ### Requirement: Completion snippet choices
 The editor SHALL expand a numbered choice placeholder to its first value and offer its values in
@@ -2646,8 +2687,7 @@ The client SHALL expose a query and a request for a document URI and typed chara
 `textDocument/onTypeFormatting` only to the highest-priority running document claimant declaring that
 character in `documentOnTypeFormattingProvider.firstTriggerCharacter` or `moreTriggerCharacter`.
 The request SHALL carry the post-typing position and formatting options, return the server's text edits,
-and cancel after a 250 ms budget with no edits on timeout. This protocol seam does not yet transfer
-ownership of typing from the editor's local helpers (#2672).
+and cancel after a 250 ms budget with no edits on timeout.
 
 #### Scenario: A higher-priority server declares a different character
 
@@ -2659,3 +2699,67 @@ ownership of typing from the editor's local helpers (#2672).
 
 - **WHEN** the on-type formatting request exhausts its budget
 - **THEN** the client sends `$/cancelRequest` for that request and returns no edits
+
+### Requirement: TCP language-server transport
+
+The client SHALL accept `transport: "tcp"` with a `tcp://host:port` endpoint and `tcpRole`
+`connect` (default) or `listen`, using Content-Length framed JSON-RPC in both directions.
+Listen SHALL bind IPv4 loopback for `localhost` and SHALL require an explicit IP literal for
+other bind addresses. Listener port 0 SHALL allocate an OS-selected port; connect SHALL require
+a nonzero port. Invalid endpoints and roles SHALL be rejected during configuration loading.
+The transport SHALL support the pipe launch fields and workspace placeholders, with `{host}`
+and `{port}` providing the host and actual port. A listener SHALL bind before launching its child.
+External servers SHALL remain running on disconnect; launched servers SHALL be owned, observed
+and stopped by the transport, and SHALL NOT auto-reconnect. Connection failures SHALL name
+the host and port. The transport inventory test SHALL enumerate all four supported transports.
+
+#### Scenario: Connect to a running language server
+
+- **GIVEN** a TCP server listening on a configured endpoint
+- **WHEN** the client establishes the connection
+- **THEN** initialize requests and responses cross the socket with Content-Length framing
+
+#### Scenario: Launch a server that dials the IDE
+
+- **GIVEN** a TCP listen entry at `tcp://localhost:0` with a command using `{port}`
+- **WHEN** the connection starts
+- **THEN** HexIDE binds loopback before launching and passes its allocated port to the child
+- **AND** receives the child's connection and exchanges framed language-server messages
+
+### Requirement: A declared typing trigger owns the editor gesture
+
+The code editor SHALL invoke on-type formatting after typing a declared trigger and flushing didChange.
+For a declared newline, Enter SHALL immediately insert a line break with the current line's indentation
+and SHALL skip local block closing and keyword case correction. Without a newline claimant, local Enter
+behavior SHALL remain unchanged. Other claimed typing characters SHALL use the same ownership rule.
+Replies SHALL be discarded after a document version or identity change or view detachment. Accepted edits
+SHALL use the guarded formatting writer and undo together with the typed character or line break,
+without holding an undo group open across the request (#2672). For an edit reaching the caret, the caret
+SHALL stop before the replacement's (n+1)th line break, or at its end if fewer exist, where n counts line
+breaks in the old text from the edit start to the caret. Once stopped at a line break, later insertions
+at that position SHALL NOT move it. This mapping SHALL also apply to reduced replies protecting read-only
+text. Same-position insertions SHALL retain their array order for on-type and document formatting.
+
+#### Scenario: A server closes the block
+
+- **WHEN** Enter follows a block opener and the document's server declares newline
+- **THEN** the server receives the synchronized text and post-newline position
+- **AND** only the server's closer is inserted, with the caret mapped through its indentation edits
+- **AND** one undo restores the text before Enter
+
+#### Scenario: One edit inserts the body and closer at EOF
+
+- **WHEN** the opener is the last line and a reply inserts indentation and a closer at the caret
+- **THEN** the caret stops before the first inserted line break, after the body indentation
+- **AND** the same rule holds when protected edits are dropped from the reply
+
+#### Scenario: A reply outlives its typing version
+
+- **WHEN** typing or undo changes the document before the formatting reply arrives
+- **THEN** the reply changes nothing, even if the text was restored to the requested text
+
+#### Scenario: A newline formatter times out
+
+- **WHEN** the newline formatter exceeds its 250 ms budget
+- **THEN** cancellation is sent and the typed line break and indentation stay
+- **AND** no local closer or keyword correction runs as a fallback

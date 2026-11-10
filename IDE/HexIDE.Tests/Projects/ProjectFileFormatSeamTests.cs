@@ -68,7 +68,7 @@ public class ProjectFileFormatSeamTests : IDisposable
         return new ProjectService(() => throw new InvalidOperationException("no new-project dialog here"), _windows,
             Substitute.For<IEventBus>(), _projects, Substitute.For<IRecentProjectsService>(),
             Substitute.For<IReferenceLibraryService>(), sidecar, _baselines, localization,
-            Substitute.For<IHeaderRefresher>(), format: _format);
+            Substitute.For<IHeaderRefresher>(), format: _format, new ComponentRegistry());
     }
 
     private async Task<ProjectService> Opened(string? path = null)
@@ -117,7 +117,7 @@ public class ProjectFileFormatSeamTests : IDisposable
         var service = await Opened();
         var form = _loaded.Single().Forms.Single();
         File.WriteAllText(_frm, "changed elsewhere");
-        File.WriteAllBytes(Path.ChangeExtension(_frm, ".frx"), [7, 8]);
+        File.WriteAllBytes(Path.ChangeExtension(_frm, ".standin"), [7, 8]);
 
         (await service.ReloadFormFromDisk(form)).Should().BeTrue();
 

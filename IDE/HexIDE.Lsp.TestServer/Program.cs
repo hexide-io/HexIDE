@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.IO.Pipes;
+using System.Net.Sockets;
 using System.Text;
 using System.Text.Json;
 
@@ -26,7 +27,13 @@ public static class Program
         if (mode != "logging") await Console.Error.WriteLineAsync($"pid:{Environment.ProcessId}");
         Stream input = Console.OpenStandardInput();
         Stream output = Console.OpenStandardOutput();
-        if (args.Length > 1 && !mode.StartsWith("initialize-", StringComparison.Ordinal))
+        if (mode == "tcp")
+        {
+            var tcp = new TcpClient();
+            await tcp.ConnectAsync(args[1], int.Parse(args[2], System.Globalization.CultureInfo.InvariantCulture));
+            input = output = tcp.GetStream();
+        }
+        else if (args.Length > 1 && !mode.StartsWith("initialize-", StringComparison.Ordinal))
         {
             var pipe = new NamedPipeClientStream(".", args[1], PipeDirection.InOut, PipeOptions.Asynchronous);
             await pipe.ConnectAsync();
@@ -73,6 +80,7 @@ public static class Program
                     continue;
                 }
             }
+            if (mode == "tcp") await Console.Out.WriteLineAsync($"tcp-received:{method}");
             if (method == "exit")
             {
                 if (mode == "logging")
@@ -95,7 +103,11 @@ public static class Program
             if (method == "textDocument/hover" && mode == "nonzero") return 17;
             if (method == "textDocument/hover" && mode == "exit1") return 1;
             if (method == "textDocument/hover" && mode == "exit2") return 2;
-            if (method == "shutdown" && mode == "unanswered") continue;
+            if (method == "shutdown" && mode == "unanswered")
+            {
+                await HoldAfterShutdownAsync(input);
+                return 0;
+            }
             if (method == "shutdown") shutdown = true;
             var result = method == "initialize" ? "{\"capabilities\":{\"hoverProvider\":true}}" : "null";
             var reply = Encoding.UTF8.GetBytes($"{{\"jsonrpc\":\"2.0\",\"id\":{root.GetProperty("id").GetRawText()},\"result\":{result}}}");
@@ -108,21 +120,26 @@ public static class Program
             finally
             {
                 // Teardown can break a Windows pipe before exit is read (or the reply flush completes).
-                // Drain so Windows pipe flushes can finish, then outlast the exit wait (#3244).
+                // Drain so Windows pipe flushes can finish, then outlast the exit wait (#3244, #3599).
                 if (mode == "slow" && shutdown)
                 {
-                    try
-                    {
-                        await input.CopyToAsync(Stream.Null);
-                    }
-                    catch (IOException)
-                    {
-                        // A broken pipe is also a disconnect.
-                    }
-                    await Task.Delay(TimeSpan.FromMinutes(1));
+                    await HoldAfterShutdownAsync(input);
                 }
             }
             if (mode == "slow" && shutdown) return 0;
         }
+    }
+
+    private static async Task HoldAfterShutdownAsync(Stream input)
+    {
+        try
+        {
+            await input.CopyToAsync(Stream.Null);
+        }
+        catch (IOException)
+        {
+            // A broken pipe is also a disconnect.
+        }
+        await Task.Delay(TimeSpan.FromMinutes(1));
     }
 }

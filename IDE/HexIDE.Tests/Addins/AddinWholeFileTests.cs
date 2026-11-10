@@ -103,7 +103,7 @@ public class AddinWholeFileTests : IDisposable
             Substitute.For<ISettingsService>(), Substitute.For<IStatusBarService>(),
             Substitute.For<IBookmarkService>(), Substitute.For<IBreakpointService>(),
             Substitute.For<HexIDE.Runtime.Debugging.IDebugController>(),
-            Substitute.For<IRunScope>(), new LocalizationService());
+            Substitute.For<IRunScope>(), new LocalizationService(), regionReader: new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionReader());
         made.Add(vm);
         return vm;
     }
@@ -643,7 +643,7 @@ public class AddinWholeFileTests : IDisposable
             new FileBaselineStore(),
             Substitute.For<ILocalizationService>(),
             new HeaderRefresher(new EventBus(), emptyDock, new BreakpointService(), new BookmarkService(), new Vb6ProjectFileFormat()),
-            new Vb6ProjectFileFormat());
+            new Vb6ProjectFileFormat(), new ComponentRegistry());
     }
 
     private static readonly string[] SourceExtensions =

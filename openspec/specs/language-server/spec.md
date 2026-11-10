@@ -477,3 +477,12 @@ Traversal SHALL continue with subsequent statements after a bounded subtree is s
 - **WHEN** a parsed module contains 100,000 additions followed by declarations and another procedure
 - **THEN** symbol and declaration collection completes and retains the later declarations and procedure
 - **AND** Option Explicit checking can still report an undeclared reference in a later statement
+
+### Requirement: Completion excludes VB free text
+The bundled server SHALL return an empty completion list at a position inside an apostrophe comment,
+Rem comment or string literal, including an unfinished literal or doubled quotes, and in continued
+comments (#3577).
+
+#### Scenario: A completion request within a comment
+- **WHEN** completion is requested after `on` in `' Typed on`
+- **THEN** the completion list has no items

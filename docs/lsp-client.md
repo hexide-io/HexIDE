@@ -92,6 +92,11 @@ without accepting. Complete Word inserts a unique prefix match immediately (#305
 show detail alongside string or MarkupContent documentation, rendered as plain text (including markdown
 source until a markdown renderer is available). Kind glyphs reuse the Object Browser's member and class
 glyphs; kinds without a counterpart have none.
+The VB code editor suppresses completion in comments and string literals, independently of the server
+(#3577). It also dismisses an existing list before accepting a key there and checks late replies against
+the current caret context. A caret immediately after `Rem` remains in code until a following delimiter
+has been typed; a member such as `x.Rem` is not a comment. Space in ordinary code keeps its completion behaviour.
+
 The editor applies a completion's `textEdit` in preference to `insertText` or `label`; without
 a `textEdit`, it replaces the completion segment. `additionalTextEdits` use the same original
 document coordinates and commit with the main edit as one undo step. The caret follows the main
@@ -186,9 +191,11 @@ elsewhere in `HexIDE.Tests`; this guards ownership rather than enumerating all t
 A test-only process server covers orderly exit, ignored
 exit, wrapper children, a truncated reply followed by a crash, and an unsolicited non-zero exit.
 Stdio and launched-pipe tests also cover a delayed exit after an answered shutdown and a server
-that never answers shutdown (#3217). Slow mode holds the process and pipe open after answering
-shutdown while draining and discarding input, then waits up to one minute after disconnect.
-Disconnect regressions cover both transports with bounded writes and flushes, including data larger
+that never answers shutdown (#3217). Both modes hold the process and pipe open after receiving
+shutdown while draining and discarding input, then wait one minute after disconnect. Only slow mode
+answers shutdown. The unanswered helper used to keep parsing frames, letting a disconnect during a
+frame end it with an unhandled read exception before the transport needed to kill it (#3599).
+Disconnect regressions cover both modes and transports with bounded writes and flushes, including data larger
 than the pipe buffer so a stalled reader fails on Linux too. Timeout-kill assertions first check that
 a kill occurred and report the stop duration if it did not (#3244).
 
@@ -230,7 +237,7 @@ The metamodel guard also checks the numeric values of the wire enums (`Diagnosti
 `SaveNotification` describes local save negotiation state rather than a wire enum.
 
 **Server-initiated requests.** Nine are handled: `client/registerCapability` and
-`client/unregisterCapability` (refused, with the refusal recorded rather than silent),
+`client/unregisterCapability` (watched files honoured; unsupported methods logged and refused),
 `workspace/diagnostic/refresh`, which is acted on — every open document is asked about again —
 `window/workDoneProgress/create`, which registers a progress token and succeeds, and
 `workspace/configuration`, `window/showMessageRequest`, `workspace/applyEdit`, `window/showDocument` and
@@ -928,8 +935,16 @@ sets. See [the measurements](foreign-language-servers.md#normal-teardown-and-doc
 
 ### Transports
 
-`stdio`, `pipe` (named pipe, connecting or listening) and `websocket` (connecting by default, or listening with `websocketRole: "listen"`) are all supported. Only `stdio` is
-exercised against a real foreign server; the other two are covered against fakes.
+`stdio`, `pipe` (named pipe, connecting or listening), `websocket` (connecting by default, or listening with `websocketRole: "listen"`) and `tcp` (connect or listen via `tcpRole`) are all supported. Only `stdio` is
+exercised against a real foreign server; the other transports are covered against test peers.
+
+TCP uses `tcp://host:port` endpoints and Content-Length framing in both directions (#386).
+Listen uses `localhost` (IPv4 loopback) unless an explicit IP address is named. A non-loopback
+bind exposes the unauthenticated connection to that network. Optional launches share the pipe
+process-lifetime rules and workspace placeholders, adding `{host}` and the actual `{port}`.
+`TcpLspTransportTests` reads initialize wire frames over real loopback sockets in both roles,
+and exercises a launched server dialing a port allocated by the OS. See
+[configuration](language-servers.md#tcp-language-servers).
 
 On Linux and macOS, an absolute `pipeName` connects verbatim to a Unix domain socket path, including a
 raw socket peer; a bare name becomes `/tmp/CoreFxPipe_<name>`. Windows uses Windows named pipes.
@@ -967,7 +982,7 @@ server's exit code. The helper runs with its own dependencies and runtime config
 Clean shutdown continues to terminate launched servers. See
 [configuration](language-servers.md#placeholders-in-arguments).
 
-The three do not carry the same framing, and the difference is load-bearing rather than incidental: the two
+The transports do not carry the same framing, and the difference is load-bearing rather than incidental: the three
 byte-stream transports delimit messages with a `Content-Length` header, while a WebSocket carries message
 boundaries itself and must therefore send **one JSON-RPC message per Text frame with no header at all**.
 Both directions of that are asserted against a real socket in `WebSocketWireShapeTests`, including a proof
@@ -1087,16 +1102,26 @@ options. The client declares `textDocument.rangeFormatting` at initialization. R
 Format Document's guarded path: one undo step, with IDE-only header and member attribute lines protected.
 The keymap command `FormatSelectionCommand` has no default shortcut.
 
-On-type formatting has a client protocol seam (#2672): `ILspClient` can query support for a specific
-character and request `textDocument/onTypeFormatting` with the post-typing position and formatting
-options. Only the highest-priority running document claimant declaring that character in
-`documentOnTypeFormattingProvider.firstTriggerCharacter` or `moreTriggerCharacter` receives the request.
-A request has a 250 ms budget and sends `$/cancelRequest` on timeout, returning no edits.
-The editor does not yet call this seam: Enter still uses HexIDE's closer and keyword correction.
-The remaining editor work is to insert the indented line break without those helpers, flush didChange,
-map the caret through returned edits, discard replies after a document version change, and group the
-line break and edits into one undo step. The same ownership rule must cover other claimed characters
-where HexIDE handles them. Until that work lands, typing does not invoke a server's formatter.
+On-type formatting transfers typing to the declaring server (#2672). Only the highest-priority running
+document claimant declaring the typed character in
+`documentOnTypeFormattingProvider.firstTriggerCharacter` or `moreTriggerCharacter` receives
+`textDocument/onTypeFormatting`, after didChange is flushed, with the post-typing UTF-16 position
+and configured formatting options. For a claimed newline, Enter immediately inserts the document's
+line break and the current line's indentation, skipping HexIDE's closer and keyword correction.
+Without that trigger, the local Enter behavior stays unchanged. Other declared characters also request
+formatting after typing; the editor has no local quote or bracket insertion to suppress.
+
+A request has a 250 ms budget and sends `$/cancelRequest` on timeout, leaving the typed text without
+running local helpers. Replies are discarded if the document version or identity changed, even when
+an intervening edit restored the same text. Accepted edits use the guarded formatting writer, map the
+caret through insertions/replacements, and continue the typing undo group so typing and formatting
+undo together. An edit reaching the caret keeps it on the corresponding line of the replacement: count
+line breaks from the old edit start to the caret, then stop before the next line break in the replacement
+(or at its end). Later insertions at that boundary do not move it past the body into a closer.
+Same-position insertions retain server array order, including for Format Document.
+No undo group stays open while awaiting a server. A detached view discards its answer.
+`OnTypeFormattingTests` drives a scripted server through headless keyboard input; a live IDE check is
+still needed for the editing gesture and rendering.
 
 Completion requests use the start of the identifier around the caret, including for Complete Word,
 so servers that filter by the preceding word return the full list for that context ([#3340](https://github.com/hexide-io/HexIDE/issues/3340)).
@@ -1159,9 +1184,9 @@ the conversation, rather than waiting out a diagnostics timeout. A clean exit or
 connection is not classified as that failure. This adds no retry and does not establish the cause of the
 intermittent SIGPIPE.
 
-The untitled-document tests also drain and poll for clangd's URI refusal and ruff's dynamic-registration
-warning, with a five-second deadline, before asserting on standard error (#2269). Diagnostics arriving
-does not mean the independent stderr reader has finished recording those lines.
+The untitled-document tests drain and poll for clangd's URI refusal, with a five-second deadline, before
+asserting on standard error (#2269). Diagnostics arriving does not mean the independent stderr reader
+has finished recording those lines. The ruff test checks watched-file negotiation alongside pull diagnostics (#456).
 
 A stdio server that exits before its Windows job assignment completes still supplies its stderr and
 exit-code notices (#2752). A refused assignment is ignored only if the process has already exited;
@@ -1381,7 +1406,7 @@ specification's own [`metaModel.json`](https://raw.githubusercontent.com/microso
 the canonical machine-readable list, so the method names and directions are the specification's rather than
 this document's recollection of them.
 
-**HexIDE implements 53 of the 93.** That is not a deficiency in itself — no client implements them all, and
+**HexIDE implements 56 of the 93.** That is not a deficiency in itself — no client implements them all, and
 most of the remainder are features no VB6 IDE needs. It is here so the shape of the gap is visible rather
 than inferred.
 
@@ -1431,7 +1456,7 @@ than inferred.
 | ○ | `textDocument/inlineValue` | → |  |
 | ○ | `textDocument/linkedEditingRange` | → |  |
 | ○ | `textDocument/moniker` | → |  |
-| ◐ | `textDocument/onTypeFormatting` | → | Client seam only; editor does not invoke it (#2672) |
+| ✅ | `textDocument/onTypeFormatting` | → | Claimed typing triggers, guarded edits, caret mapping and one-step undo (#2672) |
 | ✅ | `textDocument/prepareCallHierarchy` | → | Shows the server's call hierarchy; computes none |
 | ✅ | `textDocument/prepareRename` | → | Asks every claimant advertising prepareProvider before the prompt; range/placeholder seeds it, null/error refuses it (#3073) |
 | ○ | `textDocument/prepareTypeHierarchy` | → |  |
@@ -1449,7 +1474,7 @@ than inferred.
 | ○ | `textDocument/willSave` | → |  |
 | ○ | `textDocument/willSaveWaitUntil` | → |  |
 
-### `workspace/*` — 9 of 21
+### `workspace/*` — 10 of 21
 
 | | Method | Dir | Notes |
 |---|---|---|---|
@@ -1459,7 +1484,7 @@ than inferred.
 | ○ | `workspace/diagnostic` | → | The pull model, workspace-wide ([#284](https://github.com/hexide-io/HexIDE/issues/284)) |
 | ✅ | `workspace/diagnostic/refresh` | ← | Re-asks every open document; the only way a pull-model server can report a change that is not a document |
 | ✅ | `workspace/didChangeConfiguration` | → | Notifies running servers when Tab Width changes |
-| ○ | `workspace/didChangeWatchedFiles` | → |  |
+| ✅ | `workspace/didChangeWatchedFiles` | → | Registered globs, masks, relative patterns and coalesced disk events (#456) |
 | ✅ | `workspace/didChangeWorkspaceFolders` | → | Shared project-change debounce; opted-in servers, before import |
 | ✅ | `workspace/didCreateFiles` | → | First saves and Save As to new files, filtered per running server (#2248) |
 | ○ | `workspace/didDeleteFiles` | → |  |
@@ -1486,12 +1511,12 @@ than inferred.
 | ○ | `window/workDoneProgress/cancel` | → | No cancellation UI; cancellable is not acted on |
 | ✅ | `window/workDoneProgress/create` | ← | Registers string or integer tokens; replies with null |
 
-### `client/*` — 0 of 2
+### `client/*` — 2 of 2
 
 | | Method | Dir | Notes |
 |---|---|---|---|
-| ○ | `client/registerCapability` | ← | **Refused deliberately, and logged.** `dynamicRegistration` is a *client* capability and this client declares none, so a conformant server must declare everything at `initialize`. One that asks anyway gets `MethodNotFound` and a local warning naming the method ([#288](https://github.com/hexide-io/HexIDE/issues/288)) |
-| ○ | `client/unregisterCapability` | ← | Counterpart to the above, refused the same way |
+| ◐ | `client/registerCapability` | ← | Watched files only; unsupported methods logged and refused (#288, #456) |
+| ◐ | `client/unregisterCapability` | ← | Removes watched-file registrations per connection (#456) |
 
 ### `$/*` — 3 of 4
 
@@ -1632,16 +1657,22 @@ Three clusters account for nearly all of the gap:
   would consume* below. `workspace/symbol` used to sit in this list and no longer does: the client speaks it
   and the Object Browser surfaces it, so the missing half is a *server*, which is exactly the point of the
   seam.
-- **Workspace-level protocol** — `workspace/*` is 9 of 21. The client sends project folders,
+- **Workspace-level protocol** — `workspace/*` is 10 of 21. The client sends project folders,
   updates them as group membership changes, sends file-operation notifications, answers editor
-  configuration requests, and applies server-initiated workspace edits (#2908). Watched-file notifications
-  remain absent.
-- **Server-to-client courtesy** — `window/*` and `client/*` are 5 of 8 between them. Alongside work-done progress (#360), the messages that landed
+  configuration requests, and applies server-initiated workspace edits (#2908). Registered watched-file
+  notifications report disk changes and completed IDE writes (#456).
+- **Server-to-client courtesy** — `window/*` and `client/*` are 7 of 8 between them. Alongside work-done progress (#360), the messages that landed
   are the ones that cost no analysis depth and buy diagnosability: a server can now explain its own
-  problems instead of appearing broken ([#289](https://github.com/hexide-io/HexIDE/issues/289)). Dynamic registration stays refused on
-  purpose and is now logged rather than silent ([#288](https://github.com/hexide-io/HexIDE/issues/288)) — supporting it would mean
-  declaring `dynamicRegistration` and honouring what arrives, which is real work with no server yet asking
-  for it. `showMessageRequest` uses a queued IDE message box (#2908).
+  problems instead of appearing broken ([#289](https://github.com/hexide-io/HexIDE/issues/289)). Dynamic registration is honoured for
+  `workspace/didChangeWatchedFiles` only (#456); other methods remain logged and refused (#288).
+  Registrations belong to one connection and are discarded on disconnect. Both string globs and relative
+  patterns (URI or WorkspaceFolder bases) support create/change/delete masks. String globs follow workspace
+  folder additions and removals; relative patterns retain their registered base. Registrations that would
+  recursively watch a filesystem root (including a missing base whose existing ancestor is a root) are
+  logged and refused with `InvalidParams`, installing nothing. Recursive disk watches feed
+  the same matcher as completed project saves and workspace artefact writes, with 150 ms batching.
+  Direct writes work independently of editor reload watching. Unregistering removes pending matches.
+  `showMessageRequest` uses a queued IDE message box (#2908).
 
 `notebookDocument/*` is 0 of 4 and will stay there — notebooks are not a VB6 concept.
 
@@ -1712,8 +1743,8 @@ The second, `rdcore`, projects the project's code files, references and Conditio
 `.rdproj` RDCore's language server needs at the workspace root. Current RDCore builds take a project import
 instead (below).
 
-This implements generation only (#455). Regeneration sends no `workspace/didChangeWatchedFiles` until
-#456; there is no public add-in contract (#457), no undeclared generation,
+Completed artefact writes and removals feed `workspace/didChangeWatchedFiles` registrations directly
+(#456). There is no public add-in contract (#457), no undeclared generation,
 no unconsented write, and no write outside the workspace. See [configuration](language-servers.md#generated-workspace-files).
 ### Project imports
 

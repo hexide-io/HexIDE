@@ -85,7 +85,7 @@ public class InBoxToolboxTests
             "VERSION 5.00\r\nBegin VB.Form Form1\r\n   Caption = \"Form1\"\r\nEnd\r\nAttribute VB_Name = \"Form1\"\r\n", new NullSink())!;
         project.AddForm(form);
         var toolbox = new ToolBoxToolViewModel(Substitute.For<IDocumentDockService>(),
-            Substitute.For<IComponentRegistry>(), Substitute.For<ILocalizationService>());
+            new ComponentRegistry(), Substitute.For<ILocalizationService>());
         var settings = Substitute.For<ISettingsService>();
         settings.AlignToGrid.Returns(true);
         settings.GridWidth.Returns(8);
@@ -147,7 +147,7 @@ public class InBoxToolboxTests
     public void The_toolbox_follows_the_Components_dialog()
     {
         var (project, toolbox, _, _) = Designer();
-        var dialog = new ComponentsViewModel(project);
+        var dialog = new ComponentsViewModel(project, new ComponentRegistry());
 
         dialog.Controls.Single(c => c.Library == ControlLibraries.MSComctlLib).IsSelected = true;
         dialog.ApplyCommand.Execute(null);

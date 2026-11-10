@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using AvaloniaEdit.Document;
 using AvaloniaEdit.Rendering;
+using HexIDE.Language;
 using HexIDE.Runtime.Serialization;
 
 namespace HexIDE.Controls;

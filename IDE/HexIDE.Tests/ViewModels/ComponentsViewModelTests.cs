@@ -40,9 +40,24 @@ public class ComponentsViewModelTests
     }
 
     [Fact]
+    public void The_dialog_lists_the_libraries_the_component_registry_lists_and_calls_any_other_not_implemented()
+    {
+        var standIn = new RuntimeLibrary("Stand", "A stand-in library", "{11111111-2222-3333-4444-555555555555}", "1.0", "STAND.OCX", 1,
+            new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase) { ["Thing"] = 1 }, null);
+        var registry = Substitute.For<IComponentRegistry>();
+        registry.Libraries.Returns([standIn]);
+
+        var vm = new ComponentsViewModel(Project(form1UsesMsComctl: false, Ocx6), registry);
+
+        vm.Controls.Select(c => (c.Name, c.Location, c.IsSelected, c.CanChange)).Should().Equal(
+            ("A stand-in library", "STAND.OCX", false, true),
+            ("MSCOMCTL.OCX (not implemented in HexIDE)", "MSCOMCTL.OCX", true, false));
+    }
+
+    [Fact]
     public void Each_library_is_listed_under_its_registry_description_and_checked_where_referenced()
     {
-        var vm = new ComponentsViewModel(Project(form1UsesMsComctl: true, Ocx6));
+        var vm = new ComponentsViewModel(Project(form1UsesMsComctl: true, Ocx6), new ComponentRegistry());
 
         // Keep these measured registry descriptions independent of later library additions.
         vm.Controls.Where(c => c.Library == ControlLibraries.ComctlLib || c.Library == ControlLibraries.MSComctlLib
@@ -62,7 +77,7 @@ public class ComponentsViewModelTests
     {
         const string line = "Object={86CF1D34-0C5F-11D2-A9FC-0000F8754DA1}#2.0#0; MSCOMCT2.OCX";
         var project = Project(form1UsesMsComctl: false, line);
-        var vm = new ComponentsViewModel(project);
+        var vm = new ComponentsViewModel(project, new ComponentRegistry());
         var row = vm.Controls.Single(c => c.Location == "MSCOMCT2.OCX");
 
         row.Library.Should().NotBeNull();
@@ -92,7 +107,7 @@ public class ComponentsViewModelTests
     public void Checking_a_library_writes_its_Object_line_after_the_Form_lines()
     {
         var project = Project(form1UsesMsComctl: true, Ocx6);
-        var vm = new ComponentsViewModel(project);
+        var vm = new ComponentsViewModel(project, new ComponentRegistry());
 
         vm.Controls.Single(c => c.Library == ControlLibraries.ComctlLib).IsSelected = true;
         vm.ApplyCommand.Execute(null);
@@ -112,7 +127,7 @@ public class ComponentsViewModelTests
     public void Unchecking_a_library_a_form_uses_is_refused_and_the_box_stays_checked()
     {
         var project = Project(form1UsesMsComctl: true, Ocx6);
-        var vm = new ComponentsViewModel(project);
+        var vm = new ComponentsViewModel(project, new ComponentRegistry());
         RuntimeLibrary? refused = null;
         vm.Refused += library => refused = library;
 
@@ -129,7 +144,7 @@ public class ComponentsViewModelTests
     public void Unchecking_a_library_no_form_uses_drops_its_line()
     {
         var project = Project(form1UsesMsComctl: false, Ocx6);
-        var vm = new ComponentsViewModel(project);
+        var vm = new ComponentsViewModel(project, new ComponentRegistry());
         var refused = false;
         vm.Refused += _ => refused = true;
 
@@ -146,7 +161,7 @@ public class ComponentsViewModelTests
     {
         const string flexGrid = "Object={5E9E78A0-531B-11CF-91F6-C2863C385E30}#1.0#0; MSFLXGRD.OCX";
         var project = Project(form1UsesMsComctl: false, flexGrid);
-        var vm = new ComponentsViewModel(project);
+        var vm = new ComponentsViewModel(project, new ComponentRegistry());
 
         var row = vm.Controls.Single(c => c.Library is null);
         row.Name.Should().Be("MSFLXGRD.OCX (not implemented in HexIDE)");
@@ -160,7 +175,7 @@ public class ComponentsViewModelTests
     [Fact]
     public void Selected_Items_Only_lists_the_checked_libraries()
     {
-        var vm = new ComponentsViewModel(Project(form1UsesMsComctl: true, Ocx6)) { ShowOnlySelectedControls = true };
+        var vm = new ComponentsViewModel(Project(form1UsesMsComctl: true, Ocx6), new ComponentRegistry()) { ShowOnlySelectedControls = true };
 
         vm.Controls.Select(c => c.Name).Should().Equal("Microsoft Windows Common Controls 6.0 (SP6)");
     }
@@ -169,7 +184,7 @@ public class ComponentsViewModelTests
     public void Cancel_changes_nothing()
     {
         var project = Project(form1UsesMsComctl: false, Ocx6);
-        var vm = new ComponentsViewModel(project);
+        var vm = new ComponentsViewModel(project, new ComponentRegistry());
 
         vm.Controls.Single(c => c.Library == ControlLibraries.ComctlLib).IsSelected = true;
         vm.CancelCommand.Execute(null);

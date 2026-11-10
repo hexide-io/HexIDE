@@ -621,7 +621,13 @@ Given a line, and a column if wanted, `open_file` SHALL put the caret there in t
 a carried file's, numbering both from 1 as the editor does, against the text `get_file_content` returns. A place off
 the text SHALL be refused before anything opens. A fold over the caret SHALL be opened, and the note SHALL read the
 caret's line, column and offset back from the editor. Without `line`, the note SHALL still read the caret back,
-without requesting a new position, both when opening a new window and activating an existing one.
+without requesting a new position, both when opening a new window and activating an existing one. In a split code
+window the caret, keyboard focus and the note SHALL all be those of the pane that last had focus.
+
+#### Scenario: A split code window
+- **WHEN** the lower pane of a split code window last had focus and `open_file` names a line in that window
+- **THEN** the lower pane moves and has keyboard focus, the top pane keeps its caret, and the note gives the lower pane's
+  line and column with no claim that the caret went elsewhere
 
 #### Scenario: A carried file
 - **WHEN** `open_file` opens a carried file at line 3, column 5
@@ -870,6 +876,26 @@ where the platform reports no frame.
 #### Scenario: A form moved to 720, 360 screen pixels at 150%
 - **WHEN** `set_window_state` moves `window: "Form1"` to `x` 720, `y` 360 on a 150% display
 - **THEN** the reply's `outer` starts at 480, 240 and its `frame` and `client` inside it, with `scale` 1.5
+
+### Requirement: Native Wayland's window state SHALL not report a position it doesn't have
+On native Wayland `get_window_state` SHALL leave out `x`, `y`, `outer`, `frame` and `client`, and its `note` SHALL say why.
+`set_window_state` SHALL refuse `x` and `y` before anything changes, with that reason, and SHALL still apply `state`, `width` and
+`height` passed without them.
+
+#### Scenario: Moving a window on native Wayland
+- **WHEN** `set_window_state` is given `state` Normal with `x`, `y`, `width` and `height` under `--platform wayland`
+- **THEN** it is refused at once, the window is unchanged and the reply says only the compositor can place a window
+- **AND** the same call without `x` and `y` succeeds with the new size
+
+### Requirement: Pointer input and window-relative numbers SHALL share the window's coordinates
+Where a platform's decorations are drawn in the window's own surface, `interact`, `hover`, `inspect_element`'s `boundingRect` and
+`take_snapshot` SHALL all use the window's own coordinates, with its first row at 0, so a click lands on the control it names and a
+capture shows the whole window. A popup whose place the platform does not report SHALL be left out of a capture with the reason, and
+a control in it SHALL have no `boundingRect`, rather than a position that reads as measured.
+
+#### Scenario: Clicking in a window with client-side decorations
+- **WHEN** `interact` clicks a button in a window set in from its surface by a title bar and shadow
+- **THEN** the button is pressed, and its `boundingRect` is where `take_snapshot` shows it
 
 ### Requirement: A DPI-unaware IDE's window state SHALL say why its scale is 1
 An IDE started with `--dpi-unaware` SHALL give every window-state rectangle in the pixels Windows reports to it, the

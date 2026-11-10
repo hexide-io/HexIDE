@@ -66,7 +66,7 @@ public class CodeEditorSelectionTests : IDisposable
             Substitute.For<HexIDE.Debugging.IBreakpointService>(),
             Substitute.For<HexIDE.Runtime.Debugging.IDebugController>(),
             Substitute.For<HexIDE.Debugging.IRunScope>(),
-            localization);
+            localization, regionReader: new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionReader());
     }
 
     private static ModuleDefinition AModule()

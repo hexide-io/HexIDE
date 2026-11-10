@@ -304,16 +304,126 @@ public static class PackageSigner
         if (!AddinCapabilities.IsValid(capabilities))
             throw new ArgumentException("invalid capabilities declaration", nameof(r));
 
-        // Start from a clean output dir so the package is an EXACT match for the manifest — a stale
-        // file left from a previous pack would (correctly) fail the verifier's completeness check.
-        if (Directory.Exists(r.OutDir))
-            Directory.Delete(r.OutDir, recursive: true);
-        Directory.CreateDirectory(r.OutDir);
+        var output = Path.TrimEndingDirectorySeparator(Path.GetFullPath(r.OutDir));
+        RequireOwnedOutput(output, r.TrustDir);
+        var staging = output + "." + Guid.NewGuid().ToString("N") + ".staging";
+        var previous = output + "." + Guid.NewGuid().ToString("N") + ".previous";
+        Directory.CreateDirectory(staging);
+        try
+        {
+            var count = WritePackage(r, staging, capabilities);
+            // Check again after staging: a user may have edited the old package while we built.
+            RequireOwnedOutput(output, r.TrustDir);
+            var replacing = Directory.Exists(output);
+            var previousPackage = Path.Combine(previous, "package");
+            if (replacing)
+            {
+                Directory.CreateDirectory(previous);
+                Directory.Move(output, previousPackage);
+            }
+            try { Directory.Move(staging, output); }
+            catch
+            {
+                if (replacing)
+                {
+                    Directory.Move(previousPackage, output);
+                    Directory.Delete(previous);
+                }
+                throw;
+            }
+            // Installation has committed. A cleanup failure must not turn a successful pack into
+            // a reported failure with the old output gone. The container has no root manifest, so
+            // any leftovers cannot be discovered as a second add-in by the IDE.
+            if (replacing)
+            {
+                try { Directory.Delete(previous, recursive: true); }
+                catch (IOException) { Console.Error.WriteLine(previous); }
+                catch (UnauthorizedAccessException) { Console.Error.WriteLine(previous); }
+            }
+            Console.WriteLine($"Packed '{r.Id}' -> {r.OutDir} ({count} file(s))");
+        }
+        finally
+        {
+            if (Directory.Exists(staging)) Directory.Delete(staging, recursive: true);
+        }
+    }
+
+    private static void RequireOwnedOutput(string output, string trust)
+    {
+        if (new DirectoryInfo(output).LinkTarget is not null)
+            throw OutputRefusal(output, LinkedOutput);
+        if (File.Exists(output)) throw OutputRefusal(output, UnownedOutput);
+        if (!Directory.Exists(output)) return;
+
+        var linked = false;
+        try
+        {
+            var inventory = new HashSet<string>(StringComparer.Ordinal);
+            void Scan(string directory)
+            {
+                foreach (var path in Directory.EnumerateFileSystemEntries(directory))
+                {
+                    if ((File.GetAttributes(path) & FileAttributes.ReparsePoint) != 0)
+                    {
+                        linked = true;
+                        throw new IOException(output);
+                    }
+                    inventory.Add(Path.GetRelativePath(output, path).Replace('\\', '/'));
+                    if (Directory.Exists(path)) Scan(path);
+                }
+            }
+            Scan(output);
+            if (inventory.Count == 0) return;
+            var manifestBytes = File.ReadAllBytes(Path.Combine(output, "addin.json"));
+            using var key = PackageCrypto.ImportPrivateKey(File.ReadAllText(Path.Combine(trust, "firstparty.key")).Trim());
+            if (!PackageCrypto.Verify(key, manifestBytes, File.ReadAllText(Path.Combine(output, "addin.sig"))))
+                throw new IOException(output);
+            var manifest = JsonSerializer.Deserialize(manifestBytes, AddinJsonContext.Default.AddinManifest);
+            if (manifest?.Files is null) throw new IOException(output);
+            var expected = new HashSet<string>(StringComparer.Ordinal) { "addin.json", "addin.sig" };
+            foreach (var name in new[] { "publisher.json", "publisher.sig", "intermediate.json", "intermediate.sig" })
+            {
+                expected.Add(name);
+                if (!File.ReadAllBytes(Path.Combine(output, name)).AsSpan().SequenceEqual(File.ReadAllBytes(Path.Combine(trust, name))))
+                    throw new IOException(output);
+            }
+            foreach (var file in manifest.Files)
+            {
+                var name = file.Path.Replace('\\', '/');
+                if (Path.IsPathRooted(name) || name.Split('/').Any(part => part is "" or "." or ".."))
+                    throw new IOException(output);
+                expected.Add(name);
+                for (var slash = name.LastIndexOf('/'); slash >= 0; slash = name.LastIndexOf('/', slash - 1))
+                    expected.Add(name[..slash]);
+                if (PackageCrypto.Sha256Hex(File.ReadAllBytes(Path.Combine(output, name))) != file.Sha256)
+                    throw new IOException(output);
+            }
+            if (!inventory.SetEquals(expected)) throw new IOException(output);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException or CryptographicException or FormatException)
+        {
+            // Never echo signing material from parser failures.
+            throw OutputRefusal(output, linked ? LinkedOutput : UnownedOutput);
+        }
+    }
+
+    private const string LinkedOutput = "is or contains a link";
+    private const string UnownedOutput = "is not unchanged output of this tool";
+
+    private static IOException OutputRefusal(string output, string reason) =>
+        new($"Output '{output}' {reason}. Nothing was changed. Choose another folder or move this one aside.");
+
+    private static int WritePackage(PackRequest r, string destination, JsonElement capabilities)
+    {
         var files = new List<AddinFileHash>();
 
         void CopyAndHash(string relName)
         {
-            var dst = Path.Combine(r.OutDir, relName);
+            relName = relName.Replace('\\', '/');
+            if (Path.IsPathRooted(relName) || relName.Contains(':') ||
+                relName.Split('/').Any(part => part is "" or "." or ".."))
+                throw new IOException(relName);
+            var dst = Path.Combine(destination, relName);
             Directory.CreateDirectory(Path.GetDirectoryName(dst)!);
             File.Copy(Path.Combine(r.SrcDir, relName), dst, overwrite: true);
             files.Add(new AddinFileHash
@@ -353,15 +463,15 @@ public static class PackageSigner
             Files = files.ToArray(),
         };
         var manifestBytes = JsonSerializer.SerializeToUtf8Bytes(manifest, AddinJsonContext.Default.AddinManifest);
-        File.WriteAllBytes(Path.Combine(r.OutDir, "addin.json"), manifestBytes);
+        File.WriteAllBytes(Path.Combine(destination, "addin.json"), manifestBytes);
 
         var keyB64 = File.ReadAllText(Path.Combine(r.TrustDir, "firstparty.key")).Trim();
         using var key = PackageCrypto.ImportPrivateKey(keyB64);
-        File.WriteAllText(Path.Combine(r.OutDir, "addin.sig"), PackageCrypto.Sign(key, manifestBytes));
+        File.WriteAllText(Path.Combine(destination, "addin.sig"), PackageCrypto.Sign(key, manifestBytes));
 
         foreach (var f in new[] { "publisher.json", "publisher.sig", "intermediate.json", "intermediate.sig" })
-            File.Copy(Path.Combine(r.TrustDir, f), Path.Combine(r.OutDir, f), overwrite: true);
+            File.Copy(Path.Combine(r.TrustDir, f), Path.Combine(destination, f), overwrite: true);
 
-        Console.WriteLine($"Packed '{r.Id}' -> {r.OutDir} ({files.Count} file(s))");
+        return files.Count;
     }
 }

@@ -12,6 +12,7 @@ using AvaloniaEdit.Document;
 using AvaloniaEdit.Highlighting;
 using AvaloniaEdit.Folding;
 using AvaloniaEdit.Rendering;
+using HexIDE.Themes;
 
 namespace HexIDE.Controls;
 
@@ -85,6 +86,7 @@ public sealed class MinimapControl : Control
 
         _textView.VisualLinesChanged += OnVisualLinesChanged;
         ActualThemeVariantChanged += OnThemeChanged;
+        SyntaxHighlightingTheme.PaletteChanged += OnPaletteChanged;
         ResolveThemeColors();
 
         _debounce = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(200) };
@@ -97,6 +99,7 @@ public sealed class MinimapControl : Control
     public void Detach()
     {
         ActualThemeVariantChanged -= OnThemeChanged;
+        SyntaxHighlightingTheme.PaletteChanged -= OnPaletteChanged;
         if (_document is not null)
             _document.TextChanged -= OnDocumentTextChanged;
         if (_textView is not null)
@@ -123,7 +126,9 @@ public sealed class MinimapControl : Control
         InvalidateVisual();
     }
 
-    private void OnThemeChanged(object? sender, EventArgs e)
+    private void OnThemeChanged(object? sender, EventArgs e) => OnPaletteChanged();
+
+    private void OnPaletteChanged()
     {
         ResolveThemeColors();
         _cacheDirty = true;

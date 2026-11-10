@@ -57,6 +57,8 @@ public partial class CodeEditorView : UserControl
     private CancellationTokenSource? _completionCts;
     private OverloadInsightWindow? _insightWindow;
     private CancellationTokenSource? _signatureCts;
+    private int _onTypeGeneration;
+    internal Task PendingOnTypeFormatting { get; private set; } = Task.CompletedTask;
     // The last completion and parameter-info requests, as far as showing what came back.
     private Task _completionShown = Task.CompletedTask;
     private Task _signatureShown = Task.CompletedTask;
@@ -124,8 +126,24 @@ public partial class CodeEditorView : UserControl
     public DelegateCommand Replace { get; }
     public DelegateCommand SelectAll { get; }
 
-    public CodeEditorView()
+    private readonly CodeEditorView? _splitOwner;
+    private CodeEditorView? _secondPane;
+    private CodeEditorView? _activePane;
+    // Only the focused pane exchanges navigation with the shared view model.
+    private bool IsActivePane => (_splitOwner ?? this)._activePane is null ||
+                                 ReferenceEquals((_splitOwner ?? this)._activePane, this);
+
+    /// <summary>
+    /// The text area navigation moves: the pane that last had focus, or the only one. Whatever gives this window keyboard
+    /// focus gives it here, or the pane that moved and the pane being typed in are different ones (#3618).
+    /// </summary>
+    internal AvaloniaEdit.Editing.TextArea ActiveTextArea => ((_splitOwner ?? this)._activePane ?? this).TextEditor.TextArea;
+
+    public CodeEditorView() : this(null) { }
+
+    private CodeEditorView(CodeEditorView? splitOwner)
     {
+        _splitOwner = splitOwner;
         ExpandSelection = new DelegateCommand(() => _ = ExpandSelectionAsync(), CanChangeSelection);
         ShrinkSelection = new DelegateCommand(ShrinkSelectionCore, CanChangeSelection);
 
@@ -138,12 +156,12 @@ public partial class CodeEditorView : UserControl
             () =>
             {
                 if (DataContext is CodeEditorViewModel vm)
-                    vm.UndoRequested(() => TextEditor.Undo());
+                    vm.UndoRequested(() => ReplayUndo(redo: false));
                 else
-                    TextEditor.Undo();
+                    ReplayUndo(redo: false);
             },
             () => TextEditor?.CanUndo ?? false);
-        Redo = new DelegateCommand(() => TextEditor.Redo(), () =>
+        Redo = new DelegateCommand(() => ReplayUndo(redo: true), () =>
             TextEditor?.CanRedo ?? false);
         DeleteLine = new DelegateCommand(() =>
         {
@@ -198,6 +216,25 @@ public partial class CodeEditorView : UserControl
 
         InitializeComponent();
         InstallReadOnlySections();
+        // Commands explicitly addressed to the code window use the same pane-local route as keys and menus.
+        AddHandler(CommandManager.CanExecuteEvent, (_, args) =>
+        {
+            if (!ReferenceEquals(args.Source, this) || args.Command is not Avalonia.Labs.Input.RoutedCommand command) return;
+            args.CanExecute = command.CanExecute(args.Parameter, ActiveTextArea);
+            args.Handled = true;
+        });
+        AddHandler(CommandManager.ExecutedEvent, (_, args) =>
+        {
+            if (!ReferenceEquals(args.Source, this) || args.Command is not Avalonia.Labs.Input.RoutedCommand command) return;
+            command.Execute(args.Parameter, ActiveTextArea);
+            args.Handled = true;
+        });
+        TextEditor.TextArea.GotFocus += (_, _) =>
+        {
+            (_splitOwner ?? this)._activePane = this;
+            OnCaretPositionChanged(this, EventArgs.Empty);
+            _editorSelectionSync?.Invoke(this, EventArgs.Empty);
+        };
         // Keep TextEditor.Redo's routed handler, but let only the keymap supply its gesture (#513).
         var bindings = TextEditor.TextArea.DefaultInputHandler.CommandBindings;
         foreach (var binding in bindings.Where(binding => binding.Command == AvaloniaEdit.ApplicationCommands.Redo).ToArray())
@@ -220,6 +257,96 @@ public partial class CodeEditorView : UserControl
         TextEditor.TextArea.SelectionChanged += (_, _) => ResetSelectionChain();
     }
 
+    private void ReplayUndo(bool redo)
+    {
+        var owner = _splitOwner ?? this;
+        if (owner._secondPane is null)
+        {
+            if (redo) TextEditor.Redo();
+            else TextEditor.Undo();
+            return;
+        }
+
+        // AvaloniaEdit's shared history restores both text areas' private caret snapshots.
+        // Follow the passive pane through the actual text changes, then replace those snapshots
+        // after playback. The invoking pane follows the edit even when the other pane made it.
+        var passive = ReferenceEquals(owner, this) ? owner._secondPane.TextEditor : owner.TextEditor;
+        var document = TextEditor.Document;
+        var caret = passive.CaretOffset;
+        var selection = passive.TextArea.Selection;
+        int? destination = null;
+        void Changed(object? sender, DocumentChangeEventArgs change)
+        {
+            caret = change.GetNewOffset(caret);
+            selection = selection.UpdateOnDocumentChange(change);
+            destination = change.Offset + change.InsertionLength;
+        }
+        document.Changed += Changed;
+        try
+        {
+            if (redo) TextEditor.Redo();
+            else TextEditor.Undo();
+        }
+        finally
+        {
+            document.Changed -= Changed;
+            passive.CaretOffset = caret;
+            passive.TextArea.Selection = selection;
+        }
+        if (destination is { } offset)
+        {
+            TextEditor.TextArea.ClearSelection();
+            TextEditor.CaretOffset = offset;
+            TextEditor.TextArea.Caret.BringCaretToView();
+        }
+    }
+
+    public void ToggleSplit()
+    {
+        if (_splitOwner is not null)
+        {
+            _splitOwner.ToggleSplit();
+            return;
+        }
+        if (_secondPane is null)
+        {
+            _activePane ??= this;
+            _secondPane = new CodeEditorView(this) { DataContext = DataContext };
+            Grid.SetRow(_secondPane, 2);
+            SplitHost.RowDefinitions[0].Height = new GridLength(1, GridUnitType.Star);
+            SplitHost.RowDefinitions[1].Height = new GridLength(5);
+            SplitHost.RowDefinitions[2].Height = new GridLength(1, GridUnitType.Star);
+            var splitter = new GridSplitter
+            {
+                ResizeDirection = GridResizeDirection.Rows,
+                ResizeBehavior = GridResizeBehavior.PreviousAndNext,
+                HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Stretch,
+                VerticalAlignment = Avalonia.Layout.VerticalAlignment.Stretch
+            };
+            splitter.AddHandler(PointerReleasedEvent, (_, _) =>
+                (_activePane ?? this).TextEditor.TextArea.Focus(),
+                Avalonia.Interactivity.RoutingStrategies.Bubble, handledEventsToo: true);
+            Grid.SetRow(splitter, 1);
+            SplitHost.Children.Add(splitter);
+            SplitHost.Children.Add(_secondPane);
+        }
+        else
+        {
+            SplitHost.Children.Remove(_secondPane);
+            SplitHost.Children.RemoveAt(1);
+            _secondPane.DataContext = null;
+            _secondPane = null;
+            if (DataContext is CodeEditorViewModel vm) vm.SplitRows = null;
+            _activePane = this;
+            SplitHost.RowDefinitions[0].Height = new GridLength(1, GridUnitType.Star);
+            SplitHost.RowDefinitions[1].Height = new GridLength(0);
+            SplitHost.RowDefinitions[2].Height = new GridLength(0);
+            TextEditor.TextArea.Focus();
+            OnCaretPositionChanged(this, EventArgs.Empty);
+            _editorSelectionSync?.Invoke(this, EventArgs.Empty);
+        }
+    }
+
     private void TextChanged(object? sender, EventArgs e)
     {
         CommandManager.InvalidateRequerySuggested();
@@ -228,13 +355,13 @@ public partial class CodeEditorView : UserControl
     public void Indent()
     {
         ArmResetPrompt();
-        EditingCommands.TabForward.Execute(null, TextEditor.TextArea);
+        ((HexIDE.Controls.TextEditing.TextArea)TextEditor.TextArea).Indent(backwards: false);
     }
 
     public void Outdent()
     {
         ArmResetPrompt();
-        EditingCommands.TabBackward.Execute(null, TextEditor.TextArea);
+        ((HexIDE.Controls.TextEditing.TextArea)TextEditor.TextArea).Indent(backwards: true);
     }
 
     public void TriggerCompletion() => TriggerCompletionAsync();
@@ -271,6 +398,12 @@ public partial class CodeEditorView : UserControl
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
     {
         base.OnAttachedToVisualTree(e);
+        if (_splitOwner is null && _secondPane is null && DataContext is CodeEditorViewModel { SplitRows: { } rows })
+        {
+            ToggleSplit();
+            SplitHost.RowDefinitions[0].Height = rows.Top;
+            SplitHost.RowDefinitions[2].Height = rows.Bottom;
+        }
         sub?.Dispose();
         sub = null;
         if (DataContext is CodeEditorViewModel vm)
@@ -278,6 +411,7 @@ public partial class CodeEditorView : UserControl
             sub = vm.ObservePropertyChanged(x => x.CaretOffset)
                 .Subscribe(offset =>
                 {
+                    if (!IsActivePane) return;
                     var caret = Math.Clamp(offset, 0, TextEditor.Document.TextLength);
                     if (TextEditor.CaretOffset != caret)
                     {
@@ -298,10 +432,10 @@ public partial class CodeEditorView : UserControl
                 });
             // A view made for a caret already placed, as navigating to a document not yet open places it, scrolls to
             // it once it has been laid out: before then there is nothing to scroll, and ScrollToLine does nothing.
-            if (vm.CaretOffset > 0)
+            if (IsActivePane && vm.CaretOffset > 0)
                 Avalonia.Threading.Dispatcher.UIThread.Post(() =>
                 {
-                    if (DataContext == vm)
+                    if (IsActivePane && DataContext == vm)
                         TextEditor.ScrollToLine(TextEditor.TextArea.Caret.Line);
                 }, Avalonia.Threading.DispatcherPriority.Loaded);
 
@@ -310,7 +444,7 @@ public partial class CodeEditorView : UserControl
             // would accumulate on the VM and fire redundantly on every later selection change.
             _vmSelectionSync = (_, args) =>
             {
-                if (!_syncingSelection && args.PropertyName is nameof(CodeEditorViewModel.SelectionStart) or nameof(CodeEditorViewModel.SelectionLength))
+                if (IsActivePane && !_syncingSelection && args.PropertyName is nameof(CodeEditorViewModel.SelectionStart) or nameof(CodeEditorViewModel.SelectionLength))
                 {
                     if (TextEditor.SelectionStart != vm.SelectionStart ||
                         TextEditor.SelectionLength != vm.SelectionLength)
@@ -333,7 +467,7 @@ public partial class CodeEditorView : UserControl
             _editorSelectionSync = (_, _) =>
             {
                 CommandManager.InvalidateRequerySuggested();
-                if (_syncingSelection) return;
+                if (_syncingSelection || !IsActivePane) return;
                 _syncingSelection = true;
                 try
                 {
@@ -463,7 +597,7 @@ public partial class CodeEditorView : UserControl
                             line = location.Line;
                     }
                     _currentLineRenderer?.SetLine(line);
-                    if (line != displayedExecutionLine && line is > 0 && line <= TextEditor.Document.LineCount)
+                    if (IsActivePane && line != displayedExecutionLine && line is > 0 && line <= TextEditor.Document.LineCount)
                         TextEditor.ScrollToLine(line.Value);
                     displayedExecutionLine = line;
                 };
@@ -489,9 +623,9 @@ public partial class CodeEditorView : UserControl
                     var here = frame?.Module is { } module && vm.RunningProject is { } running
                         && vm.Identity.IsIn(running) && vm.Identity.IsNamed(module);
                     _breakpointMargin?.SetCallSite(here && frame!.IsCaller ? frame.Line : null);
-                    if (here && frame!.Line > 0 && frame.Line <= TextEditor.Document.LineCount)
+                    if (IsActivePane && here && frame!.Line > 0 && frame.Line <= TextEditor.Document.LineCount)
                     {
-                        vm.CaretOffset = TextEditor.Document.GetLineByNumber(frame.Line).Offset;
+                        vm.NavigateToOffset(TextEditor.Document.GetLineByNumber(frame.Line).Offset);
                         TextEditor.ScrollToLine(frame.Line);
                     }
                 };
@@ -552,9 +686,12 @@ public partial class CodeEditorView : UserControl
 
             // Push initial cursor position to status bar
             var caret = TextEditor.TextArea.Caret;
-            vm.StatusBar.Line = caret.Line;
-            vm.StatusBar.Column = caret.Column;
-            vm.StatusBar.InsertMode = !TextEditor.TextArea.OverstrikeMode;
+            if (IsActivePane)
+            {
+                vm.StatusBar.Line = caret.Line;
+                vm.StatusBar.Column = caret.Column;
+                vm.StatusBar.InsertMode = !TextEditor.TextArea.OverstrikeMode;
+            }
         }
     }
 
@@ -592,10 +729,10 @@ public partial class CodeEditorView : UserControl
             return;
         }
         _currentLineRenderer.SetLine(line);
-        if (line >= 1 && line <= TextEditor.Document.LineCount)
+        if (IsActivePane && line >= 1 && line <= TextEditor.Document.LineCount)
         {
             var docLine = TextEditor.Document.GetLineByNumber(line);
-            TextEditor.CaretOffset = docLine.Offset;
+            vm.NavigateToOffset(docLine.Offset);
             TextEditor.ScrollToLine(line);
         }
     }
@@ -608,12 +745,16 @@ public partial class CodeEditorView : UserControl
 
     private void VmOnFocusWindowRequest()
     {
+        if (!IsActivePane) return;
         TextEditor.Focus();
         TextEditor.ScrollToLine(TextEditor.TextArea.Caret.Line);
     }
 
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
+        if (_splitOwner is null && DataContext is CodeEditorViewModel owner)
+            owner.SplitRows = _secondPane is null ? null :
+                (SplitHost.RowDefinitions[0].Height, SplitHost.RowDefinitions[2].Height);
         base.OnDetachedFromVisualTree(e);
         if (_editorSelectionSync is not null)
         {
@@ -768,6 +909,7 @@ public partial class CodeEditorView : UserControl
         TextEditor.TextArea.KeyDown      -= OnEditorKeyDown;
         TextEditor.RemoveHandler(KeyDownEvent, OnEditorKeyHandled);
         _stepRightFrom = -1;
+        _onTypeGeneration++;
         _hoverCts?.Cancel();
         _hoverCts?.Dispose();
         _hoverCts = null;
@@ -799,7 +941,7 @@ public partial class CodeEditorView : UserControl
     {
         ResetSelectionChain();
         CommandManager.InvalidateRequerySuggested();
-        if (DataContext is CodeEditorViewModel vm)
+        if (IsActivePane && DataContext is CodeEditorViewModel vm)
         {
             vm.CaretOffset = TextEditor.CaretOffset;
             // Clearing a selection can raise SelectionChanged before the caret moves to its new start.
@@ -1616,7 +1758,7 @@ public partial class CodeEditorView : UserControl
         int oneBased = line + 1;
         if (oneBased < 1 || oneBased > TextEditor.Document.LineCount) return;
         var docLine = TextEditor.Document.GetLineByNumber(oneBased);
-        TextEditor.CaretOffset = docLine.Offset;
+        TextEditor.Select(docLine.Offset, 0);
         TextEditor.ScrollToLine(oneBased);
         TextEditor.Focus();
     }
@@ -1904,6 +2046,8 @@ public partial class CodeEditorView : UserControl
     private void OnTextEntered(object? sender, TextInputEventArgs e)
     {
         if (e.Text is not { Length: > 0 }) return;
+        if (DataContext is CodeEditorViewModel owner && owner.SupportsOnTypeFormatting(e.Text))
+            PendingOnTypeFormatting = FormatTypedCharacterAsync(owner, e.Text);
         var ch = e.Text[0];
         // Trigger completion on any letter (start/continuation of a word)
         if (char.IsLetter(ch))
@@ -1946,6 +2090,8 @@ public partial class CodeEditorView : UserControl
             e.Handled = true;
             return;
         }
+        if (CaretIsInFreeText())
+            _completionWindow?.Close();
         if (e.KeyModifiers == KeyModifiers.None)
         {
             if (e.Key == Key.Return && CompletionSnippet.OpenChoiceWindows(TextEditor.TextArea).FirstOrDefault() is { } choice)
@@ -1968,6 +2114,39 @@ public partial class CodeEditorView : UserControl
                     return;
                 }
             }
+        }
+        if (e.Key == Key.Return && e.KeyModifiers == KeyModifiers.None
+            && DataContext is CodeEditorViewModel owner && owner.SupportsOnTypeFormatting("\n"))
+        {
+            e.Handled = true;
+            var (offset, length) = EditedSpan() ?? (TextEditor.CaretOffset, 0);
+            if (owner.RefusesTyping(offset, length)) return;
+            var doc = TextEditor.Document;
+            var line = doc.GetLineByOffset(offset);
+            var indent = VbAutoCloseProvider.GetIndentation(doc.GetText(line.Offset, line.Length));
+            var newline = DocumentNewLines.Of(doc.Text);
+            var before = doc.Version;
+            using (doc.RunUpdate())
+            {
+                if (TextEditor.TextArea.Selection is RectangleSelection { IsEmpty: false } box)
+                {
+                    WriteOverBox(TextEditor.TextArea, box, string.Empty);
+                    TextEditor.TextArea.ClearSelection();
+                    (offset, length) = EditedSpan() ?? (TextEditor.CaretOffset, 0);
+                }
+                if (owner.InsertLineBreakPastRun(offset, length, "\n" + indent) is { } placed)
+                {
+                    TextEditor.TextArea.ClearSelection();
+                    TextEditor.CaretOffset = placed.End;
+                }
+                else
+                {
+                    TextEditor.TextArea.Selection.ReplaceSelectionWithText(newline + indent);
+                }
+            }
+            if (!ReferenceEquals(before, doc.Version))
+                PendingOnTypeFormatting = FormatTypedCharacterAsync(owner, "\n");
+            return;
         }
         // Enter = auto-close block + auto-indent
         if (e.Key == Key.Return && e.KeyModifiers == KeyModifiers.None)
@@ -2023,6 +2202,42 @@ public partial class CodeEditorView : UserControl
                     e.Handled = true;
                 }
             }
+        }
+    }
+
+    private async Task FormatTypedCharacterAsync(CodeEditorViewModel vm, string trigger)
+    {
+        var generation = ++_onTypeGeneration;
+        var doc = TextEditor.Document;
+        var version = doc.Version;
+        var uri = vm.LiveDocumentUri;
+        var location = doc.GetLocation(TextEditor.CaretOffset);
+        // TextEntered can run inside AvaloniaEdit's update. Let that typing group close before continuing it.
+        await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => { }, Avalonia.Threading.DispatcherPriority.Background);
+        if (generation != _onTypeGeneration || !ReferenceEquals(version, doc.Version)) return;
+        var group = doc.UndoStack.LastGroupDescriptor;
+        try
+        {
+            var edits = await vm.RequestOnTypeFormattingAsync(new Position(location.Line - 1, location.Column - 1), trigger);
+            if (generation != _onTypeGeneration || DataContext != vm || TextEditor.Document != doc
+                || vm.LiveDocumentUri != uri || !ReferenceEquals(version, doc.Version)
+                || !doc.UndoStack.CanUndo || !ReferenceEquals(group, doc.UndoStack.LastGroupDescriptor)
+                || edits.Length == 0) return;
+
+            // No group spans an await: typing, undo and unrelated edits stay usable while the server answers.
+            doc.UndoStack.StartContinuedUndoGroup();
+            try
+            {
+                TextEditor.CaretOffset = vm.ApplyOnTypeFormatting(edits, TextEditor.CaretOffset);
+            }
+            finally
+            {
+                doc.UndoStack.EndUndoGroup();
+            }
+        }
+        catch (Exception ex)
+        {
+            Log.Debug("[onTypeFormatting] {ErrorMessage}", ex.Message);
         }
     }
 
@@ -2529,10 +2744,21 @@ public partial class CodeEditorView : UserControl
         return true;
     }
 
+    private bool CaretIsInFreeText()
+    {
+        return HexIDE.Language.VbFreeText.ContainsCaret(TextEditor.Document.Text, TextEditor.CaretOffset);
+    }
+
     private void TriggerCompletionAsync(string? triggerCharacter = null, bool completeWord = false)
     {
         if (DataContext is not CodeEditorViewModel vm) return;
         if (!vm.Settings.AutoListMembers) return;
+        if (CaretIsInFreeText())
+        {
+            _completionCts?.Cancel();
+            _completionWindow?.Close();
+            return;
+        }
 
         _completionCts?.Cancel();
         _completionCts?.Dispose();
@@ -2561,7 +2787,7 @@ public partial class CodeEditorView : UserControl
 
             await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
             {
-                if (token.IsCancellationRequested) return;
+                if (token.IsCancellationRequested || CaretIsInFreeText()) return;
 
                 DismissHover();
 
@@ -2882,7 +3108,7 @@ public partial class CodeEditorView : UserControl
                     if (targetLine >= 1 && targetLine <= TextEditor.Document.LineCount)
                     {
                         var lineObj = TextEditor.Document.GetLineByNumber(targetLine);
-                        TextEditor.CaretOffset = Math.Min(lineObj.Offset + targetCol, lineObj.EndOffset);
+                        TextEditor.Select(Math.Min(lineObj.Offset + targetCol, lineObj.EndOffset), 0);
                         TextEditor.ScrollToLine(targetLine);
                         TextEditor.Focus();
                     }

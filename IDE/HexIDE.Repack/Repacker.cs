@@ -8,7 +8,7 @@ namespace HexIDE.Repack;
 internal sealed class RepackException(string message, Exception? inner = null) : Exception(message, inner);
 
 /// <summary>What a finished repack produced.</summary>
-internal sealed record RepackResult(string ProductName, string ExecutableName, bool RemovedSignature);
+internal sealed record RepackResult(string ProductName, string ExecutableName, bool RemovedSignature, int IncludedFiles = 0, string? IncludeDirectory = null);
 
 /// <summary>What differs between one platform's build and another's. <see cref="Repacker"/> holds what doesn't.</summary>
 internal abstract class RepackTarget
@@ -96,7 +96,7 @@ internal static class Repacker
 
     private static readonly string[] Notices = ["LICENSE", "THIRD-PARTY-NOTICES.md"];
 
-    public static RepackResult Run(RepackTarget target, string inputDirectory, string brandFile, string outputDirectory)
+    public static RepackResult Run(RepackTarget target, string inputDirectory, string brandFile, string outputDirectory, string? includeDirectory = null)
     {
         var input = Path.TrimEndingDirectorySeparator(Path.GetFullPath(inputDirectory));
         var output = Path.TrimEndingDirectorySeparator(Path.GetFullPath(outputDirectory));
@@ -107,7 +107,14 @@ internal static class Repacker
             var brand = ReadBrand(target, brandPath);
             var executableName = target.ExecutableName(brand);
             var stockExecutable = CheckInput(target, input, output, executableName);
-            return Build(target, input, stockExecutable, brandPath, brand, executableName, output);
+            if (includeDirectory is not null)
+            {
+                var include = Path.TrimEndingDirectorySeparator(Path.GetFullPath(includeDirectory));
+                if (string.Equals(include, output, Payload.PathComparison)
+                    || output.StartsWith(Path.EndsInDirectorySeparator(include) ? include : include + Path.DirectorySeparatorChar, Payload.PathComparison))
+                    throw new RepackException($"{output} is inside the folder to include, {include}. Choose an output outside it.");
+            }
+            return Build(target, input, stockExecutable, brandPath, brand, executableName, output, includeDirectory);
         }
         catch (DistributionDescriptorException ex)
         {
@@ -171,7 +178,7 @@ internal static class Repacker
     }
 
     private static RepackResult Build(RepackTarget target, string input, string stockExecutable, string brandPath,
-        DistributionIdentity brand, string executableName, string output)
+        DistributionIdentity brand, string executableName, string output, string? includeDirectory)
     {
         var staging = $"{output}.partial-{Guid.NewGuid():N}";
         try
@@ -187,10 +194,11 @@ internal static class Repacker
             var removedSignature = target.FinishExecutable(Path.Combine(programs, executableName), stockExecutable, brand);
 
             Payload.VerifyUnchanged(input, app, except: target.StockExecutable);
+            var included = includeDirectory is null ? 0 : IncludedFiles.Copy(includeDirectory, programs, Path.Combine(input, target.ProgramDirectory));
             target.WriteInstallerInputs(staging, brand, executableName, stockExecutable);
 
             Directory.Move(staging, output);
-            return new RepackResult(brand.Name, executableName, removedSignature);
+            return new RepackResult(brand.Name, executableName, removedSignature, included, includeDirectory is null ? null : Path.GetFullPath(includeDirectory));
         }
         finally
         {

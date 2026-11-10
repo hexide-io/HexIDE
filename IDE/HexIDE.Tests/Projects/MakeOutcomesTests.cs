@@ -39,7 +39,7 @@ public class MakeOutcomesTests : IDisposable
         () => throw new InvalidOperationException(), windows, events, Substitute.For<IProjectManager>(),
         Substitute.For<IRecentProjectsService>(), Substitute.For<IReferenceLibraryService>(),
         Substitute.For<IUserSidecarService>(), new FileBaselineStore(), localization,
-        Substitute.For<IHeaderRefresher>(), new Vb6ProjectFileFormat()) { RuntimeDirectory = ide };
+        Substitute.For<IHeaderRefresher>(), new Vb6ProjectFileFormat(), new ComponentRegistry()) { RuntimeDirectory = ide };
 
     private void Runner(string content = "the runner")
     {

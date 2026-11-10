@@ -16,7 +16,9 @@ namespace HexIDE.VisualDesigner;
 public partial class ToolBoxToolViewModel : Tool
 {
     private readonly IDocumentDockService documentDockService;
+    private readonly IComponentRegistry componentRegistry;
     private readonly Lazy<IImage> _addinComponentIcon;
+    private readonly int _inBoxToolsStart;
     [Notify] [AlsoNotify(nameof(IsCursorSelected))] private ComponentToolViewModel? selectedComponent;
     public ObservableCollection<ComponentToolViewModel> Components { get; } = new();
     public bool IsCursorSelected => selectedComponent?.BaseClass is null;
@@ -26,27 +28,18 @@ public partial class ToolBoxToolViewModel : Tool
         ILocalizationService localization)
     {
         this.documentDockService = documentDockService;
+        this.componentRegistry = componentRegistry;
         localization.BindTitle(this, "Str.Toolbox.Title");
         CanPin = false;
         CanClose = true;
 
-        _addinComponentIcon = new Lazy<IImage>(() => LoadIcon("object"));
+        _addinComponentIcon = new Lazy<IImage>(() => IconFactory.Themed("Geo.Object"));
 
-        Arrow = new ComponentToolViewModel(this, "Mouse", LoadIcon("cursor"));
+        Arrow = new ComponentToolViewModel(this, "Mouse", IconFactory.Themed("Geo.Cursor"));
         Components.Add(Arrow);
-        Components.Add(new ComponentToolViewModel(this, PictureBoxComponentClass.Instance, LoadIcon("picture")));
-        Components.Add(new ComponentToolViewModel(this, LabelComponentClass.Instance, LoadIcon("label")));
-        Components.Add(new ComponentToolViewModel(this, TextBoxComponentClass.Instance, LoadIcon("textbox")));
-        Components.Add(new ComponentToolViewModel(this, FrameComponentClass.Instance, LoadIcon("groupbox")));
-        Components.Add(new ComponentToolViewModel(this, CommandButtonComponentClass.Instance, LoadIcon("button")));
-        Components.Add(new ComponentToolViewModel(this, CheckBoxComponentClass.Instance, LoadIcon("checkbox")));
-        Components.Add(new ComponentToolViewModel(this, OptionButtonComponentClass.Instance, LoadIcon("radio")));
-        Components.Add(new ComponentToolViewModel(this, ComboBoxComponentClass.Instance, LoadIcon("combo")));
-        Components.Add(new ComponentToolViewModel(this, ListBoxComponentClass.Instance, LoadIcon("listbox")));
-        Components.Add(new ComponentToolViewModel(this, HScrollBarComponentClass.Instance, LoadIcon("hscroll")));
-        Components.Add(new ComponentToolViewModel(this, VScrollBarComponentClass.Instance, LoadIcon("vscroll")));
-        Components.Add(new ComponentToolViewModel(this, TimerComponentClass.Instance, LoadIcon("timer")));
-        Components.Add(new ComponentToolViewModel(this, ShapeComponentClass.Instance, LoadIcon("shape")));
+        foreach (var entry in componentRegistry.Toolbox)
+            Components.Add(new ComponentToolViewModel(this, entry.Class, IconFactory.Themed(entry.IconKey)) { IconKey = entry.IconKey });
+        _inBoxToolsStart = Components.Count;
 
         selectedComponent = Arrow;
 
@@ -59,11 +52,6 @@ public partial class ToolBoxToolViewModel : Tool
 
         componentRegistry.ComponentRegistered += OnComponentRegistered;
         componentRegistry.ComponentUnregistered += OnComponentUnregistered;
-
-        IImage LoadIcon(string name)
-        {
-            return IconFactory.Themed($"Geo.{char.ToUpperInvariant(name[0])}{name[1..]}");
-        }
     }
 
     private ProjectDefinition? project;
@@ -96,13 +84,28 @@ public partial class ToolBoxToolViewModel : Tool
         if (project is null)
             return;
 
-        var libraries = project.ObjectReferences.Select(ControlLibraries.For).OfType<RuntimeLibrary>().Distinct();
+        var libraries = project.ObjectReferences
+            .Select(reference => componentRegistry.Libraries.FirstOrDefault(library => library.IsNamedBy(reference)))
+            .OfType<RuntimeLibrary>().Distinct();
         foreach (var library in libraries)
-        foreach (var inBox in InBoxComponentClass.Implemented.Where(c => c.Libraries.Contains(library)))
-            inBoxTools.Add(new ComponentToolViewModel(this, inBox, IconFactory.Themed("Geo.Object")) { Library = library });
-        var at = Components.IndexOf(Components.Last(c => c.BaseClass is ShapeComponentClass)) + 1;
+        foreach (var control in componentRegistry.LibraryControls.Where(c => ReferenceEquals(c.Library, library)))
+            inBoxTools.Add(new ComponentToolViewModel(this, control.Class, IconFactory.Themed(control.IconKey))
+                { Library = library, LibraryTypeName = control.TypeName, IconKey = control.IconKey });
+        var at = _inBoxToolsStart;
         foreach (var tool in inBoxTools)
             Components.Insert(at++, tool);
+    }
+
+    /// <summary>
+    /// Every library's entry for the control <paramref name="type"/> names, by its name or a type name, whether or not a
+    /// project references one: what a caller is told when the control isn't in the toolbox.
+    /// </summary>
+    public IReadOnlyList<LibraryControl> LibrariesOffering(string type)
+    {
+        var found = componentRegistry.LibraryControls.FirstOrDefault(c =>
+            string.Equals(c.ControlName, type, StringComparison.OrdinalIgnoreCase)
+            || string.Equals(c.TypeName, type, StringComparison.OrdinalIgnoreCase));
+        return found is null ? [] : [.. componentRegistry.LibraryControls.Where(c => ReferenceEquals(c.Class, found.Class))];
     }
 
     private void OnObjectReferencesChanged(ProjectDefinition changed) => ShowProject(changed);

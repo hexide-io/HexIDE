@@ -62,7 +62,7 @@ public class ClassModuleSaveFidelityTests : IDisposable
             new FileBaselineStore(),
             Substitute.For<HexIDE.Localization.ILocalizationService>(),
             Substitute.For<IHeaderRefresher>(),
-            new Vb6ProjectFileFormat());
+            new Vb6ProjectFileFormat(), new ComponentRegistry());
     }
 
     /// <summary>Stages a VB6-shipped class beside a minimal .vbp.</summary>

@@ -68,6 +68,7 @@ public class ApplicationCommands
     public static readonly RoutedCommand ParameterInfoCommand = new RoutedCommand(nameof(ParameterInfoCommand), new KeyGesture(Key.I, GetPlatformCommandKey() | KeyModifiers.Shift));
     public static readonly RoutedCommand CompleteWordCommand = new RoutedCommand(nameof(CompleteWordCommand), new KeyGesture(Key.Space, GetPlatformCommandKey()));
     public static readonly RoutedCommand BookmarksCommand = new RoutedCommand(nameof(BookmarksCommand));
+    public static readonly RoutedCommand SplitWindowCommand = new RoutedCommand(nameof(SplitWindowCommand));
     public static readonly RoutedCommand ToggleFoldCommand = new RoutedCommand(nameof(ToggleFoldCommand), GetToggleFoldKeyGestures(RuntimeInformation.IsOSPlatform(OSPlatform.OSX)));
     public static readonly RoutedCommand ToggleBookmarkCommand = new RoutedCommand(nameof(ToggleBookmarkCommand), new KeyGesture(Key.F2, GetPlatformCommandKey()));
     public static readonly RoutedCommand NextBookmarkCommand = new RoutedCommand(nameof(NextBookmarkCommand));

@@ -64,7 +64,7 @@ public class DialogChromeLocalizationTests
     {
         _localization.GetString("Str.Dialog.Components.Title").Returns("Komponenten");
 
-        new ComponentsViewModel(Project(), localization: _localization).Title.Should().Be("Komponenten");
+        new ComponentsViewModel(Project(), new ComponentRegistry(), localization: _localization).Title.Should().Be("Komponenten");
     }
 
     [Fact]

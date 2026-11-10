@@ -1,4 +1,5 @@
 using System.Xml.Linq;
+using HexIDE.Menus;
 
 namespace HexIDE.Tests.Infrastructure;
 
@@ -12,6 +13,12 @@ public class MenuBindingTests
         root.Should().NotBeNull();
         return Path.Combine(root!.FullName, "IDE", "HexIDE");
     }
+
+    private static IEnumerable<MenuDeclaration> Walk(IEnumerable<MenuDeclaration> items) =>
+        items.SelectMany(i => new[] { i }.Concat(Walk(i.Children ?? [])));
+
+    private static MenuDeclaration MenuItem(string key) =>
+        Walk(MainMenuDeclaration.Load()).Single(i => i.LabelKey == key);
 
     [Theory]
     [InlineData("Standard.End")]
@@ -30,11 +37,7 @@ public class MenuBindingTests
     [InlineData("Str.Menu.Tools.ProcedureAttributes")]
     public void Unimplemented_printing_and_procedure_attributes_are_disabled(string key)
     {
-        var item = XDocument.Load(Path.Combine(ViewsDirectory(), "MainView.axaml"))
-            .Descendants().Single(e => e.Name.LocalName == "MenuItem" &&
-                (string?)e.Attribute("Header") == "{DynamicResource " + key + "}");
-        ((string?)item.Attribute("Command")).Should()
-            .Be("{x:Static vb:ApplicationCommands.DisabledCommand}");
+        MenuItem(key).Command.Should().Be("application.DisabledCommand");
         ApplicationCommands.DisabledCommand.CanExecute(null).Should().BeFalse();
     }
 
@@ -43,25 +46,17 @@ public class MenuBindingTests
     {
         var view = XDocument.Load(Path.Combine(ViewsDirectory(), "MainView.axaml"));
         var command = "{x:Static vb:ApplicationCommands.ReopenClosedDocumentCommand}";
-        view.Descendants().Single(e => e.Name.LocalName == "MenuItem" &&
-                (string?)e.Attribute("Header") == "{DynamicResource Str.Menu.Window.ReopenClosed}")
-            .Attribute("Command")!.Value.Should().Be(command);
+        MenuItem("Str.Menu.Window.ReopenClosed").Command.Should().Be("application.ReopenClosedDocumentCommand");
         view.Descendants().Single(e => e.Name.LocalName == "CommandBinding" &&
                 (string?)e.Attribute("Command") == command)
             .Attribute("ExecutingCommand")!.Value.Should().Be("{CompiledBinding ReopenClosedDocumentCommand}");
-        view.Descendants().Single(e => e.Name.LocalName == "MenuItem" &&
-                (string?)e.Attribute("Header") == "{DynamicResource Str.Menu.Window.RecentlyClosed}")
-            .Attribute("ItemsSource")!.Value.Should().Be("{CompiledBinding ClosedDocumentMenuItems}");
+        MenuItem("Str.Menu.Window.RecentlyClosed").Provider.Should().Be("closed-documents");
     }
 
     [Fact]
     public void AddMdiForm_uses_the_disabled_command_like_its_toolbar_twin()
     {
-        var items = XDocument.Load(Path.Combine(ViewsDirectory(), "MainView.axaml"))
-            .Descendants().Where(e => e.Name.LocalName == "MenuItem" &&
-                (string?)e.Attribute("Header") == "{DynamicResource Str.Menu.Project.AddMDIForm}");
-        ((string?)items.Single().Attribute("Command")).Should()
-            .Be("{x:Static vb:ApplicationCommands.DisabledCommand}");
+        MenuItem("Str.Menu.Project.AddMDIForm").Command.Should().Be("application.DisabledCommand");
     }
 
     [Fact]
@@ -71,19 +66,17 @@ public class MenuBindingTests
         var flyout = view.Descendants().Single(e => e.Name.LocalName == "StackPanel.ContextFlyout")
             .Elements().Single();
         var toggles = flyout.Elements().TakeWhile(e => e.Name.LocalName != "Separator").ToArray();
-        var menu = view.Descendants().Single(e => e.Name.LocalName == "MenuItem" &&
-            (string?)e.Attribute("Header") == "{DynamicResource Str.Menu.View.Toolbars}");
-
+        var menu = MenuItem("Str.Menu.View.Toolbars").Children!;
         toggles.Select(e => (string?)e.Attribute("Header")).Should().Equal(
-            menu.Elements().Select(e => (string?)e.Attribute("Header")));
+            menu.Select(i => "{DynamicResource " + i.LabelKey + "}"));
         toggles.Should().HaveCount(4);
-        foreach (var toggle in toggles)
+        foreach (var (toggle, index) in toggles.Select((item, index) => (item, index)))
         {
-            var counterpart = menu.Elements().Single(e =>
-                (string?)e.Attribute("Header") == (string?)toggle.Attribute("Header"));
+            var counterpart = menu[index];
+            counterpart.Kind.Should().Be(MenuItemKind.Toggle);
             toggle.Attribute("ToggleType")!.Value.Should().Be("CheckBox");
             string.Concat(toggle.Attribute("IsChecked")!.Value.Where(c => !char.IsWhiteSpace(c)))
-                .Should().Be(string.Concat(counterpart.Attribute("IsChecked")!.Value.Where(c => !char.IsWhiteSpace(c))));
+                .Should().Be("{CompiledBindingSettings." + MenuHostRegistry.States[counterpart.State!].SettingsProperty + ",Mode=TwoWay}");
         }
     }
 
@@ -107,10 +100,6 @@ public class MenuBindingTests
                     continue;
                 var path = Path.GetRelativePath(views, file).Replace(Path.DirectorySeparatorChar, '/');
                 var header = (string?)item.Attribute("Header");
-                // Filled from code in MainView.axaml.cs.
-                if (path == "MainView.axaml" && (string?)item.Attribute(XName.Get("Name", "http://schemas.microsoft.com/winfx/2006/xaml"))
-                    is "AddInsMenuItem" or "PanelLayoutsMenuItem")
-                    continue;
                 // Align to Grid remains unimplemented.
                 if (path == "VisualDesigner/Views/FormEditView.axaml" && header == "{DynamicResource Str.Designer.Context.AlignToGrid}")
                     continue;

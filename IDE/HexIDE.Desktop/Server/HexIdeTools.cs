@@ -790,7 +790,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     }
 
     [McpServerTool(Name = "open_file")]
-    [Description("Opens a form, module or carried file by name in the IDE code editor. Use get_project_info to list available names. Searches every loaded project, without regard to case; pass `project` when a group holds two documents of one name, and without it an ambiguous name is refused and the reply lists them. The reply's 'project' and 'document' name what was opened, as the IDE spells them. A carried file is also found by its filename, which differs from its name when VB6 carried it on a code line (`Module=Notes; Notes.md` is named Notes). The editor gets keyboard focus, as opening it by hand gives it. The reply's 'note' names the tab now active and how many are open. Pass 'line', and 'column' if wanted, to put the caret there, as the code window numbers them, so type_text and press_key act at that point with no offset to work out; the note always gives the caret's line, column and offset, even without 'line'. In the header or an Attribute line it also names the nearest editable place.")]
+    [Description("Opens a form, module or carried file by name in the IDE code editor. Use get_project_info to list available names. Searches every loaded project, without regard to case; pass `project` when a group holds two documents of one name, and without it an ambiguous name is refused and the reply lists them. The reply's 'project' and 'document' name what was opened, as the IDE spells them. A carried file is also found by its filename, which differs from its name when VB6 carried it on a code line (`Module=Notes; Notes.md` is named Notes). The editor gets keyboard focus, as opening it by hand gives it; in a split code window that is the pane last used, which is the one 'line' moves. The reply's 'note' names the tab now active and how many are open. Pass 'line', and 'column' if wanted, to put the caret there, as the code window numbers them, so type_text and press_key act at that point with no offset to work out; the note always gives the caret's line, column and offset, even without 'line'. In the header or an Attribute line it also names the nearest editable place.")]
     public async Task<MutateResult> OpenFileAsync(
         string name, string? project = null,
         [Description("Where to put the caret: a 1-based line, counted from the top of the file with its header included, "
@@ -963,8 +963,11 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
             .Where(c => ReferenceEquals(c.DataContext, tab) && c.IsEffectivelyVisible && c.IsEffectivelyEnabled)
             .ToList();
         // The surface a click lands on: an editor's text area, or the form itself in a designer, which is
-        // what FormEditView makes focusable and what a click on the canvas focuses.
-        var surface = own.FirstOrDefault(c => c is AvaloniaEdit.Editing.TextArea)
+        // what FormEditView makes focusable and what a click on the canvas focuses. A split code window has a text
+        // area per pane, and the one to focus is the one navigation moved (#3618), which needn't be the first.
+        var moved = own.OfType<HexIDE.Forms.Views.CodeEditorView>().FirstOrDefault()?.ActiveTextArea;
+        var surface = own.FirstOrDefault(c => ReferenceEquals(c, moved))
+                      ?? own.FirstOrDefault(c => c is AvaloniaEdit.Editing.TextArea)
                       ?? own.FirstOrDefault(c => c.Name == "FormContainer");
         return surface is null ? null : surface.Focus() ? FocusOutcome.Focused : FocusOutcome.Refused;
     }
@@ -1075,7 +1078,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     }
 
     [McpServerTool(Name = "get_window_state")]
-    [Description("Returns a window's state (Maximized/Normal/Minimized) and the reported position and client size in every state: the IDE's own window unless 'window' names another, such as a running form. x and y are in screen pixels and width and height in device-independent pixels, as set_window_state takes them; 'outer' (the whole window, on Windows with its invisible resize border), 'frame' (as drawn) and 'client' give each edge on the screen in device-independent pixels, with 'scale' beside them, and 'units' says so in the reply. 'name' is what to pass as 'window' to reach the same window again.")]
+    [Description("Returns a window's state (Maximized/Normal/Minimized) and the reported position and client size in every state: the IDE's own window unless 'window' names another, such as a running form. x and y are in screen pixels and width and height in device-independent pixels, as set_window_state takes them; 'outer' (the whole window, on Windows with its invisible resize border), 'frame' (as drawn) and 'client' give each edge on the screen in device-independent pixels, with 'scale' beside them, and 'units' says so in the reply. On native Wayland, which has no window positions, the position fields are left out and 'note' says why. 'name' is what to pass as 'window' to reach the same window again.")]
     public async Task<WindowStateResult> GetWindowStateAsync(
         [Description(WindowStateParameter)] string? window = null, CancellationToken ct = default)
     {
@@ -1144,12 +1147,32 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
         var scale = window.DesktopScaling;
         var outer = HexIDE.Automation.NativeWindowFrame.OuterRect(window) is { } o ? WindowRect.Of(o, scale) : null;
         var frame = HexIDE.Automation.NativeWindowFrame.VisibleFrame(window) is { } f ? WindowRect.Of(f, scale) : null;
-        var client = window.IsVisible && window.WindowState != Avalonia.Controls.WindowState.Minimized
+        // Native Wayland has no position to give: Position is always 0,0, and client's origin would be the title bar's depth
+        // reported as a place on the screen (#3576).
+        var positioned = !HexIDE.Automation.NativeWayland.Hosts(window);
+        var client = positioned && window.IsVisible && window.WindowState != Avalonia.Controls.WindowState.Minimized
             ? WindowRect.Of(window.PointToScreen(new Avalonia.Point(0, 0)), size, scale) : null;
-        return new WindowStateResult(state, pos.X, pos.Y, (int)size.Width, (int)size.Height, name,
+        return new WindowStateResult(state, positioned ? pos.X : null, positioned ? pos.Y : null, (int)size.Width, (int)size.Height, name,
             Scale: Math.Round(scale, 3), Outer: outer, Frame: frame, Client: client, Units: WindowStateUnits,
-            Note: ServerOptions.DpiUnaware ? DpiUnawareNote : null);
+            Note: ServerOptions.DpiUnaware ? DpiUnawareNote : positioned ? null : NoPositionNote);
     }
+
+    /// <summary>What get_window_state says on native Wayland, where the numbers it leaves out don't exist (#3576).</summary>
+    internal const string NoPositionNote =
+        "On native Wayland the compositor places every window and doesn't tell the program where, so x, y, outer, frame and "
+        + "client are left out rather than given as 0,0, which would read as a measurement. width, height and state are read "
+        + "as usual. inspect_element's boundingRect and take_snapshot are relative to the window itself, so neither needs a "
+        + "screen position.";
+
+    /// <summary>
+    /// Why <paramref name="x"/> and <paramref name="y"/> can't be honoured on <paramref name="target"/>; null when they can.
+    /// Accepted, a move waited out its 1 s and then read as a window manager that was slow to confirm (#3576).
+    /// </summary>
+    internal static string? PositionRefusal(Avalonia.Controls.Window target, string name, int? x, int? y) =>
+        (x is not null || y is not null) && HexIDE.Automation.NativeWayland.Hosts(target)
+            ? $"On native Wayland only the compositor can place a window, so '{name}' can't be moved, however long you wait. "
+              + "Leave out x and y; state, width and height work without them. Nothing was changed."
+            : null;
 
     /// <summary>Why the scale is 1 on a scaled display, for an IDE started with --dpi-unaware (#3083).</summary>
     internal const string DpiUnawareNote =
@@ -1166,7 +1189,8 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
         + "pixels. outer is the window's whole rectangle, which on Windows includes an invisible resize border; frame is "
         + "the window as drawn, title bar and border included; client is the area inside. None is given for a window "
         + "that is hidden or minimized, and Windows puts a minimized window's x and y at -32000. outer and frame are "
-        + "also left out where the platform reports no frame.";
+        + "also left out where the platform reports no frame. On native Wayland, which has no window positions, x, y and "
+        + "client are left out too.";
 
     /// <summary>
     /// Why a person couldn't make <paramref name="target"/> the state or size asked for: it has no minimize or maximize box,
@@ -1188,7 +1212,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     };
 
     [McpServerTool(Name = "set_window_state")]
-    [Description("Sets a window to Maximized, Normal, or Minimized, the IDE's own unless 'window' names another, and replies with the resulting state, position and size as get_window_state reports them. Another window, such as a running form, changes as a click on its minimize, maximize or restore box would, so its Resize runs, and the reply waits for the program as interact's does. It is refused where a person couldn't do the same: no such box, a fixed border for a resize, a disabled window, or one under a modal dialog. Waits up to 1 s for the state, then up to 1 s for any requested move/resize; if unconfirmed, success is false and note explains how to re-read, or, on an X11 display with no window manager, that a minimize or maximize can never be applied there. When setting Normal, any of `x`, `y`, `width` and `height` that are passed are applied after a confirmed restore; each is optional, and one left out keeps its current value. `x` and `y` are screen pixels and `width` and `height` the client area in device-independent pixels, as get_window_state reports them. They apply only to Normal and are refused with any other state. `width` and `height` must be positive, and a position that would leave the window on no screen at all is refused with the screens' bounds. An invalid argument is refused before anything changes. A timed-out request may still be applied later.")]
+    [Description("Sets a window to Maximized, Normal, or Minimized, the IDE's own unless 'window' names another, and replies with the resulting state, position and size as get_window_state reports them. Another window, such as a running form, changes as a click on its minimize, maximize or restore box would, so its Resize runs, and the reply waits for the program as interact's does. It is refused where a person couldn't do the same: no such box, a fixed border for a resize, a disabled window, or one under a modal dialog. Waits up to 1 s for the state, then up to 1 s for any requested move/resize; if unconfirmed, success is false and note explains how to re-read, or, on an X11 display with no window manager, that a minimize or maximize can never be applied there. When setting Normal, any of `x`, `y`, `width` and `height` that are passed are applied after a confirmed restore; each is optional, and one left out keeps its current value. `x` and `y` are screen pixels and `width` and `height` the client area in device-independent pixels, as get_window_state reports them. They apply only to Normal and are refused with any other state. `width` and `height` must be positive, and a position that would leave the window on no screen at all is refused with the screens' bounds, as `x` and `y` are on native Wayland, where only the compositor places a window. An invalid argument is refused before anything changes. A timed-out request may still be applied later.")]
     public async Task<WindowStateChangeResult> SetWindowStateAsync(
         string state,
         // Defaults, not just nullable types: a nullable parameter with no default is required in the schema,
@@ -1228,6 +1252,8 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
             if (width is <= 0 || height is <= 0)
                 return new WindowStateChangeResult(false,
                     $"width and height must be positive; got {(width is <= 0 ? $"width {width}" : $"height {height}")}. Nothing was changed.", null);
+            if (PositionRefusal(resolved, name!, x, y) is { } noMove)
+                return new WindowStateChangeResult(false, noMove, null);
             // Another window is changed as a person changes it, so what a person couldn't do is refused (#2357). The IDE's
             // own is set as it always was.
             if (!main && (WindowBoxRefusal(resolved, name!, target.Value, width is not null || height is not null)
@@ -1506,13 +1532,11 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
             {
                 var known = string.Join(", ", tools.Select(c => c.VBTypeName!.Replace("VB.", "")));
                 // An in-box control is in the toolbox only while the project references its library, as in VB6.
-                var inBox = HexIDE.Runtime.Components.InBox.InBoxComponentClass.Implemented.FirstOrDefault(c =>
-                    string.Equals(c.ControlClassName, type, StringComparison.OrdinalIgnoreCase)
-                    || c.Libraries.Any(l => string.Equals(l.TypeName(c.ControlClassName), type, StringComparison.OrdinalIgnoreCase)));
-                var files = inBox?.Libraries.Select(l => l.File).ToList() ?? [];
-                var why = inBox is null
+                var offering = designer.ToolsBoxToolViewModel.LibrariesOffering(type);
+                var files = offering.Select(c => c.Library.File).ToList();
+                var why = offering.Count == 0
                     ? ""
-                    : $" {inBox.ControlClassName} comes from {string.Join(" or ", files)}, and {document.Project.Name} "
+                    : $" {offering[0].ControlName} comes from {string.Join(" or ", files)}, and {document.Project.Name} "
                       + (files.Count == 1 ? "doesn't reference it" : files.Count == 2 ? "references neither" : "references none of them")
                       + ": check one in Project > Components first, as in VB6.";
                 return new AddControlResult(false, null,
@@ -3424,7 +3448,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
     internal static string? LeftOutNote(IReadOnlyList<HexIDE.Automation.SnapshotComposer.LeftOutPopup> leftOut) =>
         leftOut.Count == 0 ? null
             : $"Left out of this image: {string.Join("; ", leftOut.Select(p =>
-                $"a {p.Kind} popup reported at screen pixels ({p.Rect.X}, {p.Rect.Y}), {p.Rect.Width} × {p.Rect.Height}, {p.Reason}"))}. "
+                $"a {p.Kind} popup {(p.Located ? $"reported at screen pixels ({p.Rect.X}, {p.Rect.Y}), " : "")}{p.Rect.Width} × {p.Rect.Height}, {p.Reason}"))}. "
               + "The window and every other open popup are drawn, and dump_visual_tree still lists a left-out popup's controls.";
 
     /// <summary>A document tab's kind, as get_document_tabs reports it.</summary>
@@ -4269,7 +4293,7 @@ internal record AddFileResult(
 
 /// <summary>A window's state, as <c>get_window_state</c> reports it. <c>Name</c> is what reaches it as 'window' again;
 /// <c>Error</c> says why no window was read.</summary>
-internal record WindowStateResult(string State, int X, int Y, int Width, int Height, string? Name = null, string? Error = null,
+internal record WindowStateResult(string State, int? X, int? Y, int Width, int Height, string? Name = null, string? Error = null,
     double? Scale = null, WindowRect? Outer = null, WindowRect? Frame = null, WindowRect? Client = null, string? Units = null,
     string? Note = null);
 

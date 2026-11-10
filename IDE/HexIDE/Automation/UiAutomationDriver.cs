@@ -263,9 +263,14 @@ public static class UiAutomationDriver
             var window = root is null ? source as Window : TopLevel.GetTopLevel(root);
             if (source is not null && window is not null)
             {
+                // A peer measures from the surface, which under client-side decorations starts above the window's own
+                // first row (#3575).
                 var rect = peer.GetBoundingRectangle();
+                rect = new Rect(RawPointer.InWindow(source, rect.Position), rect.Size);
                 if (!ReferenceEquals(source, window))
                 {
+                    if (NativeWayland.Hosts(source))
+                        return (null, $"The control is in a popup, and {NativeWayland.NoPopupPlace}, so boundingRect is unavailable.");
                     var origin = window.PointToClient(source.PointToScreen(rect.Position));
                     var scale = source.RenderScaling / window.RenderScaling;
                     rect = new Rect(origin, new Size(rect.Width * scale, rect.Height * scale));
@@ -1690,7 +1695,7 @@ public static class UiAutomationDriver
             Avalonia.Input.Pointer.GetNextFreeId(), PointerType.Mouse, isPrimary: true);
         var props = new PointerPointProperties(RawInputModifiers.None, PointerUpdateKind.Other);
         var pointerArgs = new PointerEventArgs(
-            InputElement.DoubleTappedEvent, control, pointer, topLevel, atTopLevel,
+            InputElement.DoubleTappedEvent, control, pointer, topLevel, RawPointer.InSurface(topLevel, atTopLevel),
             (ulong)Environment.TickCount64, props, KeyModifiers.None);
 
         control.RaiseEvent(new TappedEventArgs(InputElement.DoubleTappedEvent, pointerArgs));
@@ -1894,7 +1899,7 @@ public static class UiAutomationDriver
         var arrived = !PointerAlreadyAt(topLevel, inWindow);
         // Raw input also records the screen position used by pointer-placed context popups (#3130).
         if (arrived && !RawPointer.Move(topLevel, inWindow, rawKeys))
-            hit.RaiseEvent(new PointerEventArgs(InputElement.PointerMovedEvent, hit, pointer, topLevel, inWindow,
+            hit.RaiseEvent(new PointerEventArgs(InputElement.PointerMovedEvent, hit, pointer, topLevel, RawPointer.InSurface(topLevel, inWindow),
                 (ulong)Environment.TickCount64, new PointerPointProperties(rawKeys, PointerUpdateKind.Other), keys));
         var arrival = arrived ? "; the pointer moved there first, as a person's does"
             : "; the pointer was already there from the last click, so it did not move first";
@@ -1915,7 +1920,7 @@ public static class UiAutomationDriver
         {
             if (destination is not null)
                 pointer.Capture(hit as IInputElement);
-            hit.RaiseEvent(new PointerPressedEventArgs(hit, pointer, topLevel, inWindow, pressTime,
+            hit.RaiseEvent(new PointerPressedEventArgs(hit, pointer, topLevel, RawPointer.InSurface(topLevel, inWindow), pressTime,
                 new PointerPointProperties(held | rawKeys, pressKind), keys));
         }
 
@@ -1947,7 +1952,7 @@ public static class UiAutomationDriver
                 var receiver = pointer.Captured as Avalonia.Interactivity.Interactive
                     ?? topLevel.InputHitTest(point) as Avalonia.Interactivity.Interactive;
                 receiver?.RaiseEvent(new PointerEventArgs(InputElement.PointerMovedEvent, receiver, pointer, topLevel,
-                    point, (ulong)Environment.TickCount64, new PointerPointProperties(held | rawKeys, PointerUpdateKind.Other), keys));
+                    RawPointer.InSurface(topLevel, point), (ulong)Environment.TickCount64, new PointerPointProperties(held | rawKeys, PointerUpdateKind.Other), keys));
             }
             catch (Exception ex) { moveFailed ??= ex; }
         }))];
@@ -1969,7 +1974,7 @@ public static class UiAutomationDriver
                     return Fail($"pressed {pressed}; nothing takes the pointer at the release point {releaseWhere}");
                 var releaseTime = ButtonTimestamp();
                 if (!RawPointer.Button(topLevel, releasePoint, button, down: false, rawKeys, mouse, releaseTime))
-                    releasedOn.RaiseEvent(new PointerReleasedEventArgs(releasedOn, pointer, topLevel, releasePoint,
+                    releasedOn.RaiseEvent(new PointerReleasedEventArgs(releasedOn, pointer, topLevel, RawPointer.InSurface(topLevel, releasePoint),
                         releaseTime, new PointerPointProperties(rawKeys, releaseKind), keys, button));
                 PointerNowAt(topLevel, releasePoint);
                 var recipient = destination is null ? "" : releasedOn is Control releasedControl
@@ -2015,7 +2020,7 @@ public static class UiAutomationDriver
                 return Fail($"clicked {pressed}; the second click was not sent because nothing takes the pointer at that point now");
             var secondPressTime = ButtonTimestamp();
             if (!RawPointer.Button(topLevel, inWindow, button, down: true, held | rawKeys, mouse, secondPressTime))
-                again.RaiseEvent(new PointerPressedEventArgs(again, pointer, topLevel, inWindow, secondPressTime,
+                again.RaiseEvent(new PointerPressedEventArgs(again, pointer, topLevel, RawPointer.InSurface(topLevel, inWindow), secondPressTime,
                     new PointerPointProperties(held | rawKeys, pressKind), keys, clickCount: 2));
             if (!ReferenceEquals(again, hit))
                 secondLanding = again is Control replacement
@@ -4394,7 +4399,7 @@ public static class UiAutomationDriver
     {
         if (ToolTipInstanceProperty is null || !ToolTip.GetIsOpen(owner)
             || owner.GetValue(ToolTipInstanceProperty) is not ToolTip { IsEffectivelyVisible: true } tip
-            || TopLevel.GetTopLevel(tip) is null)
+            || TopLevel.GetTopLevel(tip) is not { } top || NativeWayland.Hosts(top))
             return null;
         return Safe<Rect?>(() => new Rect(window.PointToClient(tip.PointToScreen(default)), tip.Bounds.Size), null);
     }
@@ -4479,7 +4484,7 @@ public static class UiAutomationDriver
             foreach (var routed in new[] { InputElement.PointerEnteredEvent, InputElement.PointerMovedEvent })
             {
                 target.RaiseEvent(new PointerEventArgs(
-                    routed, target, pointer, topLevel, atTopLevel,
+                    routed, target, pointer, topLevel, RawPointer.InSurface(topLevel, atTopLevel),
                     (ulong)Environment.TickCount64, props, KeyModifiers.None));
             }
 
@@ -4633,7 +4638,7 @@ public static class UiAutomationDriver
             if (raw.Type == Avalonia.Input.Raw.RawPointerEventType.LeaveWindow && anotherHover)
                 Moved = "another hover ended during the watch, taking the pointer out of the window, and the tip went with it. "
                         + "Hover one control at a time";
-            var at = raw.Position;
+            var at = RawPointer.InWindow(_topLevel, raw.Position);
             if (raw.Type != Avalonia.Input.Raw.RawPointerEventType.Move
                 || Math.Abs(at.X - _hovered.X) < 1 && Math.Abs(at.Y - _hovered.Y) < 1)
                 return;
@@ -4826,7 +4831,7 @@ public static class UiAutomationDriver
                     || Members.InputRoot?.GetValue(topLevel) is not IInputRoot root)
                     return false;
                 input((Avalonia.Input.Raw.RawInputEventArgs)newWheel.Invoke(
-                    [mouse, (ulong)Environment.TickCount64, root, at, delta, RawInputModifiers.None]));
+                    [mouse, (ulong)Environment.TickCount64, root, InSurface(topLevel, at), delta, RawInputModifiers.None]));
                 return true;
             }
             catch (Exception ex) when (ex is System.Reflection.TargetInvocationException or TypeInitializationException
@@ -4835,6 +4840,20 @@ public static class UiAutomationDriver
                 return false;
             }
         }
+
+        /// <summary>
+        /// <paramref name="at"/>, in the window's coordinates, as pointer input carries it, in the coordinates of the surface
+        /// the window is drawn in. A pointer event raised on a control takes its position the same way, whatever root it is
+        /// given. Those are one and the same except under client-side decorations, where the title bar and shadow are in the
+        /// surface too and the window is set in by them, so a point sent unconverted landed that much up and left of where
+        /// it was asked for (#3575).
+        /// </summary>
+        public static Point InSurface(TopLevel topLevel, Point at) =>
+            topLevel.GetVisualParent() is { } surface && topLevel.TranslatePoint(at, surface) is { } there ? there : at;
+
+        /// <summary>A point in the surface's coordinates, as platform input and a peer's bounds are, in the window's.</summary>
+        public static Point InWindow(TopLevel topLevel, Point at) =>
+            topLevel.GetVisualParent() is { } surface && surface.TranslatePoint(at, topLevel) is { } there ? there : at;
 
         /// <summary>Whether <paramref name="device"/> is the one every hover sends through.</summary>
         public static bool Sent(IInputDevice? device) => device is not null && ReferenceEquals(device, mouse);
@@ -4895,7 +4914,7 @@ public static class UiAutomationDriver
                     [new Avalonia.Input.Pointer(Avalonia.Input.Pointer.GetNextFreeId(), PointerType.Mouse, isPrimary: true)]);
                 input = found;
                 args = (Avalonia.Input.Raw.RawInputEventArgs)newEvent.Invoke(
-                    [device, timestamp ?? (ulong)Environment.TickCount64, root, type, at, modifiers]);
+                    [device, timestamp ?? (ulong)Environment.TickCount64, root, type, InSurface(topLevel, at), modifiers]);
             }
             catch (Exception ex) when (ex is System.Reflection.TargetInvocationException or TypeInitializationException
                                            or MemberAccessException or InvalidCastException or ArgumentException)

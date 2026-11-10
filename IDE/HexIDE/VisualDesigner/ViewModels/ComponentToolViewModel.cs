@@ -39,9 +39,15 @@ public partial class ComponentToolViewModel : ObservableObject
     public RuntimeLibrary? Library { get; init; }
 
     /// <summary>The type name a control placed from this button takes: <c>ComctlLib.ProgressBar</c> from COMCTL32.OCX's.</summary>
-    public string? VBTypeName =>
-        Library is { } library && BaseClass is InBoxComponentClass inBox ? library.TypeName(inBox.ControlClassName) : BaseClass?.VBTypeName;
+    public string? VBTypeName => LibraryTypeName ?? BaseClass?.VBTypeName;
+
+    /// <summary>The library's own type name for the control, where this button places one from a library.</summary>
+    public string? LibraryTypeName { get; init; }
+
     public IImage Icon { get; }
+
+    /// <summary>The key of the icon the registry named for this button, where it named one.</summary>
+    public string? IconKey { get; init; }
     public string Name { get; }
 
     public bool IsSelected

@@ -89,7 +89,7 @@ public class FileWatcherServiceTests : IDisposable
         () => throw new InvalidOperationException(), Substitute.For<IWindowManager>(), new EventBus(),
         manager, Substitute.For<IRecentProjectsService>(), Substitute.For<IReferenceLibraryService>(),
         Substitute.For<IUserSidecarService>(), new FileBaselineStore(),
-        Substitute.For<ILocalizationService>(), Substitute.For<IHeaderRefresher>(), new Vb6ProjectFileFormat());
+        Substitute.For<ILocalizationService>(), Substitute.For<IHeaderRefresher>(), new Vb6ProjectFileFormat(), new ComponentRegistry());
 
     [Fact]
     public async Task FirstSavePaths_StartWatching()

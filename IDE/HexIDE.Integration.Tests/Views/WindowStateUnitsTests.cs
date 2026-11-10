@@ -83,6 +83,80 @@ public class WindowStateUnitsTests
         finally { window.Close(); }
     }
 
+    // Native Wayland has no window position, so a 0,0 and a title bar's depth given as one read as measurements (#3576).
+    [AvaloniaFact]
+    public void Native_Wayland_leaves_the_position_out_and_says_why_and_keeps_the_size()
+    {
+        var window = Shown(new PixelPoint(120, 80));
+        HexIDE.Automation.NativeWayland.ForTest = _ => true;
+        try
+        {
+            var reply = HexIdeTools.WindowStateOf(window, "Form1");
+
+            reply.X.Should().BeNull();
+            reply.Y.Should().BeNull();
+            reply.Client.Should().BeNull();
+            (reply.State, reply.Width, reply.Height).Should().Be(("Normal", 300, 200));
+            reply.Note.Should().Be(HexIdeTools.NoPositionNote).And.Contain("compositor");
+        }
+        finally
+        {
+            HexIDE.Automation.NativeWayland.ForTest = null;
+            window.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public void Everywhere_else_the_position_is_given_and_nothing_is_said_about_it()
+    {
+        var window = Shown(new PixelPoint(120, 80));
+        try
+        {
+            var reply = HexIdeTools.WindowStateOf(window, "Form1");
+
+            (reply.X, reply.Y).Should().Be((120, 80));
+            reply.Note.Should().BeNull();
+            HexIdeTools.PositionRefusal(window, "Form1", 10, 20).Should().BeNull();
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaTheory]
+    [InlineData(10, 20)]
+    [InlineData(10, null)]
+    [InlineData(null, 20)]
+    public void Native_Wayland_refuses_a_move_and_says_why_and_what_still_works(int? x, int? y)
+    {
+        var window = Shown(new PixelPoint(120, 80));
+        HexIDE.Automation.NativeWayland.ForTest = _ => true;
+        try
+        {
+            HexIdeTools.PositionRefusal(window, "Form1", x, y).Should().Contain("compositor").And.Contain("Nothing was changed")
+                .And.Contain("width and height work without them");
+        }
+        finally
+        {
+            HexIDE.Automation.NativeWayland.ForTest = null;
+            window.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public void Native_Wayland_still_takes_a_state_or_a_size_on_its_own()
+    {
+        var window = Shown(new PixelPoint(120, 80));
+        HexIDE.Automation.NativeWayland.ForTest = _ => true;
+        try
+        {
+            HexIdeTools.PositionRefusal(window, "Form1", null, null).Should().BeNull();
+        }
+        finally
+        {
+            HexIDE.Automation.NativeWayland.ForTest = null;
+            window.Close();
+        }
+    }
+
     [Fact]
     public void Screen_pixels_become_device_independent_ones_to_a_tenth()
     {

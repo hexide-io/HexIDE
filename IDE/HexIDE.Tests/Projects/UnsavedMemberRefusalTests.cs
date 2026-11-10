@@ -79,7 +79,7 @@ public class UnsavedMemberRefusalTests : IDisposable
             new FileBaselineStore(),
             localization,
             Substitute.For<IHeaderRefresher>(),
-            new Vb6ProjectFileFormat());
+            new Vb6ProjectFileFormat(), new ComponentRegistry());
     }
 
     /// <summary>A project as File ▸ New Project makes it: a <c>Form1</c> that is its startup form, and no files.</summary>

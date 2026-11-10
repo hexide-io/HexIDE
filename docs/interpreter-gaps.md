@@ -83,7 +83,7 @@ are NOT that boundary — COM/OLE is in scope and Windows-gated, per CLAUDE.md. 
 paths. **Other: 0.**
 
 Counts — Missed: **0** (was 15; cleared 2026-08-10) · Deferred: 26 **+ 9 reclassified** · Walled: **5** (was 13) ·
-Platform: 4 · Partial: 12 · Other: 0.
+Platform: 5 · Partial: 12 · Other: 0.
 
 > **The Walled count fell from 13 to 5 on 2026-09-02**, not because anything was implemented but because the
 > section was audited entry by entry against the code and the documents it cited. Nine entries were
@@ -259,6 +259,10 @@ made them look permanent in a way they are not.
   external COM clients. `VB_PredeclaredId` is **not** in this group: it is a marker in the class's own
   header, so collecting it is permitted, and it is how `Form1.Show` works without `New`.
 - **OS automation** — `AppActivate`, `SendKeys`.
+- **Where a form opens, under `--platform wayland`** — only the compositor places a window. Measured 2026-11-10 on GNOME 48: a
+  form with `StartUpPosition` 0 and `Left`/`Top` of 9000/6000, of 300/300, and with `StartUpPosition` 2 opened at the same place
+  (#868, #3576). X11, the default, and Windows honour all three. A program moving its form at run time is a separate defect on
+  every backend (#852).
 
 ### Reclassified out of this section (2026-09-02)
 
