@@ -262,6 +262,8 @@ public class DecoratedWindowTests : WindowTestFixture
         try { bitmap.CopyPixels(new PixelRect(default, bitmap.PixelSize), handle.AddrOfPinnedObject(), pixels.Length, stride); }
         finally { handle.Free(); }
         var at = row * stride + bitmap.PixelSize.Width / 2 * 4;
-        return Color.FromRgb(pixels[at + 2], pixels[at + 1], pixels[at]);
+        return bitmap.Format == Avalonia.Platform.PixelFormat.Rgba8888
+            ? Color.FromRgb(pixels[at], pixels[at + 1], pixels[at + 2])
+            : Color.FromRgb(pixels[at + 2], pixels[at + 1], pixels[at]);
     }
 }
