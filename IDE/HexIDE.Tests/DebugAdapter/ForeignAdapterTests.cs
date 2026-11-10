@@ -26,8 +26,16 @@ public class ForeignAdapterTests
     {
         var resolved = ForeignAdapterAcquisition.Resolve(adapter);
         resolved.ChecksumMismatch.Should().BeFalse(resolved.Unavailable);
-        if (Environment.GetEnvironmentVariable("HEXIDE_REQUIRE_FOREIGN_LSP") is "1" or "true" or "yes")
+        if (Environment.GetEnvironmentVariable("HEXIDE_REQUIRE_FOREIGN_LSP") is "1" or "true" or "yes" && !resolved.NoBuildForPlatform)
             resolved.Options.Should().NotBeNull(resolved.Unavailable);
+    }
+
+    [Fact]
+    public void Netcoredbg_is_not_paired_with_a_program_it_cannot_debug()
+    {
+        var resolve = () => ForeignAdapterAcquisition.Asset("netcoredbg", "win-arm64");
+
+        resolve.Should().Throw<PlatformNotSupportedException>("its only Windows build is x64, which crashes launching an Arm program");
     }
 
     [ForeignAdapterFact("debugpy")]
