@@ -23,7 +23,7 @@ namespace HexIDE.IDE;
 /// render that varies shows every project as edited.
 /// </para>
 /// </remarks>
-public interface IProjectFileFormat
+public interface IProjectFileFormat : IFormFileReader
 {
     /// <summary>A form's file, as it would be written under this name, by which its text cites its companion.</summary>
     RenderedFile RenderForm(FormDefinition form, string fileName);
@@ -76,10 +76,6 @@ public interface IProjectFileFormat
     /// <summary>What a project group's file names.</summary>
     SerializedProjectGroup ReadGroup(string text);
 
-    /// <summary>A form, from its file's text and companion, which are read together: the text says how the companion divides.</summary>
-    /// <returns>The form, or null when the text can't be read as one, which goes to <paramref name="problems"/>.</returns>
-    FormDefinition? ReadForm(ProjectDefinition project, string text, byte[]? companion, IDeserializeErrorSink problems);
-
     /// <summary>The designer half of a UserControl's or PropertyPage's file, read as <see cref="ReadForm"/> reads a form.</summary>
     FormDefinition? ReadDesignerPart(ProjectDefinition project, string text, byte[]? companion, IDeserializeErrorSink problems);
 
@@ -91,6 +87,9 @@ public interface IProjectFileFormat
 
     /// <summary>The extension of the companion that goes with this designer file.</summary>
     string CompanionExtension(string path);
+
+    /// <inheritdoc/>
+    string? IFormFileReader.CompanionPath(string path) => System.IO.Path.ChangeExtension(path, CompanionExtension(path));
 
     /// <summary>The line a project's file holds for this member, kept when it fails to load so a save doesn't drop it.</summary>
     string MemberLine(ModuleKind kind, string name, string relativePath);

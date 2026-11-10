@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.IO.Pipes;
+using System.Net.Sockets;
 using System.Text;
 using System.Text.Json;
 
@@ -26,7 +27,13 @@ public static class Program
         if (mode != "logging") await Console.Error.WriteLineAsync($"pid:{Environment.ProcessId}");
         Stream input = Console.OpenStandardInput();
         Stream output = Console.OpenStandardOutput();
-        if (args.Length > 1 && !mode.StartsWith("initialize-", StringComparison.Ordinal))
+        if (mode == "tcp")
+        {
+            var tcp = new TcpClient();
+            await tcp.ConnectAsync(args[1], int.Parse(args[2], System.Globalization.CultureInfo.InvariantCulture));
+            input = output = tcp.GetStream();
+        }
+        else if (args.Length > 1 && !mode.StartsWith("initialize-", StringComparison.Ordinal))
         {
             var pipe = new NamedPipeClientStream(".", args[1], PipeDirection.InOut, PipeOptions.Asynchronous);
             await pipe.ConnectAsync();
@@ -73,6 +80,7 @@ public static class Program
                     continue;
                 }
             }
+            if (mode == "tcp") await Console.Out.WriteLineAsync($"tcp-received:{method}");
             if (method == "exit")
             {
                 if (mode == "logging")

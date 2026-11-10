@@ -34,6 +34,23 @@ public sealed class WorkspaceArtifactGenerationTests : IDisposable
         WorkspaceArtifact: new(path, "probe"));
 
     [Fact]
+    public async Task ArtefactWritesReportOnlyCompletedMaterialChangesDirectly()
+    {
+        var changed = new List<(string Path, int Type)>();
+        var signal = typeof(WorkspaceArtifactService).GetEvent("FileChanged");
+        signal.Should().NotBeNull();
+        signal!.AddEventHandler(_service, (Action<string, int>)((path, type) => changed.Add((path, type))));
+        await _service.PrepareAsync(Server(), TestContext.Current.CancellationToken);
+        await _service.PrepareAsync(Server(), TestContext.Current.CancellationToken);
+        _provider.Content = "replacement";
+        await _service.PrepareAsync(Server(), TestContext.Current.CancellationToken);
+        _provider.Content = null;
+        await _service.PrepareAsync(Server(), TestContext.Current.CancellationToken);
+        changed.Should().Equal((Path.Combine(_root, "generated.json"), 1), (Path.Combine(_root, "generated.json"), 2),
+            (Path.Combine(_root, "generated.json"), 3));
+    }
+
+    [Fact]
     public async Task IdenticalRegenerationPreservesWriteTime()
     {
         await _service.PrepareAsync(Server(), TestContext.Current.CancellationToken);

@@ -590,6 +590,11 @@ public partial class ProjectService : IProjectService
                 eventBus.Publish(new ModuleUnloadedEvent(module));
                 project.DeleteModule(module);
                 break;
+            case FormDefinition form:
+                // Read-only, so there are no edits to offer to save.
+                eventBus.Publish(new FormUnloadedEvent(form));
+                project.DeleteForm(form);
+                break;
             case RelatedDocumentDefinition document:
                 project.DeleteRelatedDocument(document);
                 break;
@@ -603,20 +608,32 @@ public partial class ProjectService : IProjectService
             case ModuleDefinition { AbsolutePath: { } from } module:
                 // Its file moved with the code in it as it was, so what HexIDE last read and wrote there moves too: edits
                 // not yet saved stay unsaved, and the file isn't taken for one changed outside HexIDE.
-                if (renderBaselines.Remove(from, out var rendered))
-                    renderBaselines[newPath] = rendered;
-                if (baselineStore.TryGet(from) is { } onDisk)
-                {
-                    baselineStore.Remove(from);
-                    baselineStore.Record(newPath, onDisk);
-                }
+                MoveBaselines(from, newPath);
                 module.AbsolutePath = newPath;
                 eventBus.Publish(new ModuleMovedEvent(module));
+                break;
+            case FormDefinition { AbsolutePath: { } from } form:
+                MoveBaselines(from, newPath);
+                if (project.FormReader?.CompanionPath(from) is { } companionFrom && project.FormReader.CompanionPath(newPath) is { } companionTo)
+                    MoveBaselines(companionFrom, companionTo);
+                form.AbsolutePath = newPath;
+                eventBus.Publish(new FormMovedEvent(form));
                 break;
             case RelatedDocumentDefinition document:
                 document.AbsolutePath = newPath;
                 document.Name = Path.GetFileName(newPath);
                 break;
+        }
+    }
+
+    private void MoveBaselines(string from, string to)
+    {
+        if (renderBaselines.Remove(from, out var rendered))
+            renderBaselines[to] = rendered;
+        if (baselineStore.TryGet(from) is { } onDisk)
+        {
+            baselineStore.Remove(from);
+            baselineStore.Record(to, onDisk);
         }
     }
 
@@ -746,7 +763,7 @@ public partial class ProjectService : IProjectService
         }
     }
 
-    private class DeserializeErrorSink(ILocalizationService localization) : IDeserializeErrorSink
+    internal class DeserializeErrorSink(ILocalizationService localization) : IDeserializeErrorSink
     {
         private List<string> errors = new();
 
@@ -769,6 +786,12 @@ public partial class ProjectService : IProjectService
     /// <see cref="FormDefinition"/>, and both belong in the same report.
     /// </summary>
     private readonly List<string> refusedThisSave = new();
+
+    /// <summary>
+    /// Those of <see cref="refusedThisSave"/> an add-in read. The reason is a different one: VB6 and its files have nothing
+    /// to do with why they aren't written.
+    /// </summary>
+    private readonly HashSet<string> refusedAsReadByAddin = new();
 
     /// <summary>
     /// Bank a refusal for the current save. Only ever called by an entry point that is followed by a drain
@@ -1052,6 +1075,8 @@ public partial class ProjectService : IProjectService
             case FormDefinition { CanSaveFaithfully: false } form:
                 Log.Warning("Refusing to save {Form}: {Reason}", form.Name, form.UnfaithfulSaveReason);
                 RecordRefusal(form.Name);
+                if (form.UnfaithfulSaveCauses.HasFlag(UnfaithfulSaveCause.ReadByAddin))
+                    refusedAsReadByAddin.Add(form.Name);
                 return true;
             case ModuleDefinition module when DesignerPartOf(module) is { CanSaveFaithfully: false } designerPart:
                 Log.Warning("Refusing to write {Module}: {Reason}", module.Name, designerPart.UnfaithfulSaveReason);
@@ -1271,6 +1296,10 @@ public partial class ProjectService : IProjectService
 
     private RenderedFile RenderForm(FormDefinition form, string path) => format.RenderForm(form, Path.GetFileName(path));
 
+    // What reads this project's forms. Every read of one comes through here, so a project an add-in opened never has a form
+    // read as a VB6 file.
+    private IFormFileReader FormReaderOf(ProjectDefinition project) => project.FormReader ?? format;
+
     /// <summary>A module's file as it would be written at <paramref name="path"/>.</summary>
     private RenderedFile RenderModule(ModuleDefinition module, string path) => format.RenderModule(module, Path.GetFileName(path));
 
@@ -1285,6 +1314,7 @@ public partial class ProjectService : IProjectService
 
         var project = form.Owner;
         var errorSink = new DeserializeErrorSink(localization);
+        var reader = FormReaderOf(project);
 
         // The designer file is read FIRST: its cited offsets are what partition the companion, so the
         // companion cannot be parsed without it. See FrxDeserializer.
@@ -1297,14 +1327,13 @@ public partial class ProjectService : IProjectService
         baselineStore.Record(path, sourceBytes);
 
         byte[]? companion = null;
-        var companionPath = Path.ChangeExtension(path, ".frx");
-        if (File.Exists(companionPath))
+        if (reader.CompanionPath(path) is { } companionPath && File.Exists(companionPath))
         {
             companion = await File.ReadAllBytesAsync(companionPath);
             baselineStore.Record(companionPath, companion);
         }
 
-        var fresh = format.ReadForm(project, source, companion, errorSink);
+        var fresh = reader.ReadForm(project, source, companion, errorSink);
         if (fresh is null)
             return false;
 
@@ -1912,7 +1941,7 @@ public partial class ProjectService : IProjectService
 
         // Form text before companion: the .frm's cited offsets partition the .frx.
         var companion = await ReadCompanion(absolutePath);
-        var form = format.ReadForm(project, source, companion, new DeserializeErrorSink(localization));
+        var form = FormReaderOf(project).ReadForm(project, source, companion, new DeserializeErrorSink(localization));
         if (form == null)
             return Adopted<FormDefinition>.Unreadable();
 
@@ -2116,9 +2145,21 @@ public partial class ProjectService : IProjectService
         if (refusedThisSave.Count == 0)
             return;
 
-        var names = string.Join("\n", refusedThisSave.Select(n => $"  • {n}"));
-        var singular = refusedThisSave.Count == 1;
+        // Told apart, because they're refused for different reasons, and a save of a group can reach both.
+        var byAddin = refusedThisSave.Where(refusedAsReadByAddin.Contains).ToList();
+        var others = refusedThisSave.Except(byAddin).ToList();
         refusedThisSave.Clear();
+        refusedAsReadByAddin.Clear();
+
+        if (interactive && byAddin.Count > 0)
+            await windowManager.MessageBox(
+                localization.GetString("Str.ContributedProject.FormReadOnly") + "\n\n" + string.Join("\n", byAddin.Select(n => $"  • {n}")),
+                HexIDE.IDE.Distribution.DisplayName, MessageBoxButtons.Ok, MessageBoxIcon.Warning);
+        if (others.Count == 0)
+            return;
+
+        var names = string.Join("\n", others.Select(n => $"  • {n}"));
+        var singular = others.Count == 1;
 
         // The body is a whole localized sentence rather than an English frame with a reason injected into
         // it. The earlier version read "These forms were not saved, because it contains…" — the reason is
@@ -2365,14 +2406,18 @@ public partial class ProjectService : IProjectService
     // document (Vb6TextFile.EncodeDocument) and every refusal names it.
     private void AtomicWriteText(string targetPath, string content, byte[] bytes)
     {
+        var existed = File.Exists(targetPath);
         AtomicFileWriter.WriteAllBytes(targetPath, bytes);
+        lspClient?.Invoke().NotifyWatchedFile(targetPath, existed ? 2 : 1);
         baselineStore.Record(targetPath, bytes);
         renderBaselines[targetPath] = FileHasher.Hash(content);
     }
 
     private void AtomicWriteBytes(string targetPath, byte[] content)
     {
+        var existed = File.Exists(targetPath);
         AtomicFileWriter.WriteAllBytes(targetPath, content);
+        lspClient?.Invoke().NotifyWatchedFile(targetPath, existed ? 2 : 1);
         baselineStore.Record(targetPath, content);
         renderBaselines[targetPath] = FileHasher.Hash(content);
     }
@@ -2622,6 +2667,10 @@ public partial class ProjectService : IProjectService
 
     private bool IsDirty(FormDefinition form)
     {
+        // Nothing can render it, and it opens read-only, so it can't have been edited.
+        if (!form.Owner.Offers.WritesForms)
+            return false;
+
         var path = form.AbsolutePath;
         if (path is null || IsScratchFile(form.Owner, path))
             return true;
@@ -2690,7 +2739,7 @@ public partial class ProjectService : IProjectService
     /// </summary>
     private void SnapshotRenderBaseline(FormDefinition form)
     {
-        if (form.AbsolutePath is not { } path)
+        if (form.AbsolutePath is not { } path || !form.Owner.Offers.WritesForms)
             return;
         var (text, binary) = RenderForm(form, path);
         RecordRender(path, text, binary);

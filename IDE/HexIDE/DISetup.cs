@@ -93,8 +93,10 @@ public partial class DISetup
                 ctx.Inject<RecentEditHistory>(out var recentEdits);
                 ctx.Inject<HexIDE.Language.IConditionalCodeReader>(out var conditionalCode);
                 ctx.Inject<HexIDE.Language.IBracketReader>(out var brackets);
+                ctx.Inject<HexIDE.Language.IReadOnlyRegionReader>(out var regionReader);
                 return new CodeEditorViewModel(windows, editors, projects, events, lsp, settings, status,
-                    bookmarks, breakpoints, debugger, run, localization, external, stack, recentEdits, conditionalCode, brackets);
+                    bookmarks, breakpoints, debugger, run, localization, external, stack, recentEdits, conditionalCode, brackets,
+                    regionReader);
             })
             .Bind().As(Singleton).To<ColorPaletteToolViewModel>()
             .Bind().As(Singleton).To<ObjectBrowserToolViewModel>()
@@ -111,6 +113,7 @@ public partial class DISetup
                 .To<HexIDE.Runtime.Interpreter.ConditionalCompilation.InterpreterConditionalCode>()
             .Bind<IProjectFileFormat>().As(Singleton).To<HexIDE.Projects.Vb6ProjectFileFormat>()
             .Bind<HexIDE.Language.IBracketReader>().As(Singleton).To<HexIDE.Runtime.Interpreter.InterpreterBrackets>()
+            .Bind<HexIDE.Language.IReadOnlyRegionReader>().As(Singleton).To<HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionReader>()
             .Bind<IDocumentDockService>().As(Singleton).To<DocumentDockService>()
             .Bind().As(Singleton).To<MainViewViewModel.DockFactory>()
             .Bind().As(Singleton).To<EventBus>()

@@ -447,7 +447,14 @@ public sealed class VBLspClient : ILspClient
         if (_transport.Unobservable is { Length: > 0 } unobservable)
             Note(ConversationDirection.Local, ConversationEntryKind.Note, null, unobservable);
 
-        var rpc = new LspJsonRpc(handler, new LspNotificationReceiver(this));
+        var receiver = new LspNotificationReceiver(this);
+        var rpc = new LspJsonRpc(handler, receiver);
+        var watched = new WatchedFileRegistrations(
+            () => _workspace?.Folders.Select(f => f.Directory).ToArray() ?? [],
+            p => rpc.NotifyWithParameterObjectAsync(WatchedFileRegistrations.Method, p), _logger);
+        receiver.WatchedFiles = watched;
+        _watchedFiles = watched;
+        rpc.Disconnected += (_, _) => watched.Dispose();
         var cancellation = new LspCancellationStrategy(rpc, _logger);
         rpc.CancellationStrategy = cancellation;
         rpc.AddLocalRpcTarget(cancellation);
@@ -658,6 +665,8 @@ public sealed class VBLspClient : ILspClient
     /// <summary>Unsubscribes and disposes the current JSON-RPC connection (leaving the transport intact).</summary>
     private void DisposeRpc()
     {
+        _watchedFiles?.Dispose();
+        _watchedFiles = null;
         _initializeAnswered = false;
         foreach (var written in _writtenOpens.Values) written.TrySetCanceled();
         var rpc = _rpc;
@@ -736,6 +745,7 @@ public sealed class VBLspClient : ILspClient
                     ApplyEdit: true,
                     WorkspaceFolders: true,
                     Configuration: true,
+                    DidChangeWatchedFiles: new DidChangeWatchedFilesClientCapabilities(),
                     WorkspaceEdit: new WorkspaceEditClientCapabilities(),
                     Diagnostics: new WorkspaceDiagnosticsClientCapabilities(),
                     CodeLens: new WorkspaceCodeLensClientCapabilities(),
@@ -2193,6 +2203,7 @@ public sealed class VBLspClient : ILspClient
     public async Task UpdateWorkspaceFoldersAsync(CancellationToken cancellationToken = default)
     {
         if (_rpc is null || !_initialized) return;
+        _watchedFiles?.UpdateWorkspaceFolders();
         var capabilities = AdvertisedCapabilities;
         if (capabilities is not { ValueKind: JsonValueKind.Object } caps
             || !caps.TryGetProperty("workspace", out var workspace)
@@ -2637,9 +2648,14 @@ public sealed class VBLspClient : ILspClient
         }
     }
 
+    private WatchedFileRegistrations? _watchedFiles;
+
+    public void NotifyWatchedFile(string path, int type) => _watchedFiles?.Notify(path, type);
+
     private sealed class LspNotificationReceiver
     {
         private readonly VBLspClient _client;
+        public WatchedFileRegistrations WatchedFiles { get; set; } = null!;
 
         public LspNotificationReceiver(VBLspClient client) => _client = client;
 
@@ -2791,38 +2807,29 @@ public sealed class VBLspClient : ILspClient
             _client.RaiseMessageShown(p);
         }
 
-        /// <summary>
-        /// Refuses dynamic capability registration, out loud.
-        ///
-        /// <para>
-        /// <b>Refusing is correct, and is not the part worth changing.</b> <c>dynamicRegistration</c> is a
-        /// <em>client</em> capability — the specification's own wording is "whether hover supports dynamic
-        /// registration" — and this client declares it nowhere. A conformant server therefore may not
-        /// register dynamically, and must put everything in its <c>initialize</c> reply.
-        /// </para>
-        ///
-        /// <para>
-        /// Servers that ask anyway exist, and the wire answer they already got was the right one: a
-        /// <c>MethodNotFound</c> error, which lets them fall back instead of waiting. That behaviour is
-        /// preserved exactly — the error code is set deliberately rather than inherited from having no
-        /// handler at all. What was missing was on this side: nothing was written down, so a server that
-        /// asked, was refused, and quietly served less left the user with fewer features and no trace of
-        /// why (hexide-io/HexIDE#288).
-        /// </para>
-        /// </summary>
         [JsonRpcMethod("client/registerCapability", UseSingleObjectParameterDeserialization = true)]
-        public void OnRegisterCapability(JsonElement p)
-        {
-            _client._logger.LogWarning(
-                "The {Language} server asked to register capabilities dynamically, which this client does "
-              + "not support and does not advertise support for; refused. Anything it withheld from its "
-              + "initialize reply expecting to register later will be unavailable. Registrations: {What}",
-                _client._languageId, Describe(p));
+        public void OnRegisterCapability(JsonElement p) => ChangeRegistration(p, unregister: false);
 
-            throw new LocalRpcException("This client does not support dynamic capability registration.")
+        private void ChangeRegistration(JsonElement p, bool unregister)
+        {
+            try
             {
-                ErrorCode = (int)StreamJsonRpc.Protocol.JsonRpcErrorCode.MethodNotFound,
-            };
+                if (unregister) WatchedFiles.Unregister(p);
+                else WatchedFiles.Register(p);
+            }
+            catch (LocalRpcException)
+            {
+                _client._logger.LogWarning(
+                    "The {Language} server asked to register capabilities dynamically; refused unsupported registrations: {What}",
+                    _client._languageId, Describe(p));
+                throw;
+            }
+            catch (Exception ex)
+            {
+                _client._logger.LogWarning(ex, "Invalid watched-file registration: {What}", Describe(p));
+                throw new LocalRpcException("Invalid watched-file registration: " + ex.Message)
+                { ErrorCode = (int)StreamJsonRpc.Protocol.JsonRpcErrorCode.InvalidParams };
+            }
         }
 
         [JsonRpcMethod("workspace/codeLens/refresh")]
@@ -2865,20 +2872,8 @@ public sealed class VBLspClient : ILspClient
                 _client.PullDiagnosticsInBackground(uri);
         }
 
-        /// <summary>The counterpart, refused the same way and for the same reason.</summary>
         [JsonRpcMethod("client/unregisterCapability", UseSingleObjectParameterDeserialization = true)]
-        public void OnUnregisterCapability(JsonElement p)
-        {
-            _client._logger.LogWarning(
-                "The {Language} server asked to unregister capabilities dynamically; refused, as nothing "
-              + "was ever registered that way. Registrations: {What}",
-                _client._languageId, Describe(p));
-
-            throw new LocalRpcException("This client does not support dynamic capability registration.")
-            {
-                ErrorCode = (int)StreamJsonRpc.Protocol.JsonRpcErrorCode.MethodNotFound,
-            };
-        }
+        public void OnUnregisterCapability(JsonElement p) => ChangeRegistration(p, unregister: true);
 
         /// <summary>
         /// The methods named in a registration payload, for the log. Best effort by design: this is a

@@ -10,6 +10,8 @@ namespace HexIDE.Lsp;
 /// <summary>Owns all writes; providers only produce content. A changed file relinquishes ownership.</summary>
 public sealed class WorkspaceArtifactService : IWorkspaceArtifactService, IDisposable
 {
+    public event Action<string, int>? FileChanged;
+
     private readonly IWorkspaceArtifactWorkspace _workspace;
     private readonly IWorkspaceArtifactProviderRegistry _providers;
     private readonly IWorkspaceArtifactConsent _consent;
@@ -219,6 +221,7 @@ public sealed class WorkspaceArtifactService : IWorkspaceArtifactService, IDispo
                 if (existing.AsSpan().SequenceEqual(bytes)) return false;
             }
         }
+        var existed = File.Exists(target);
         var temporary = Path.Combine(Path.GetDirectoryName(target)!, ".hexide-artifact-" + Guid.NewGuid().ToString("N"));
         try
         {
@@ -237,7 +240,7 @@ public sealed class WorkspaceArtifactService : IWorkspaceArtifactService, IDispo
         _hashes[target] = Convert.ToHexString(SHA256.HashData(bytes));
         _lastNote.Remove(server.Id);
         SaveOwnership();
-        // #456: regeneration deliberately sends no didChangeWatchedFiles in this phase.
+        FileChanged?.Invoke(target, existed ? 2 : 1);
         return true;
     }
 
@@ -268,6 +271,7 @@ public sealed class WorkspaceArtifactService : IWorkspaceArtifactService, IDispo
                 return false;
             }
             File.Delete(target);
+            FileChanged?.Invoke(target, 3);
         }
         _hashes.Remove(target);
         SaveOwnership();
