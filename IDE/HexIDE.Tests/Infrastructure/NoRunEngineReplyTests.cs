@@ -26,7 +26,7 @@ public class NoRunEngineReplyTests : CompositionTestBase
 
     private ProjectDefinition AnAddInsProjectAtStartup()
     {
-        var project = new ProjectDefinition(VBProjectType.EXE, "Ledger") { ContributedBy = "rdcore", ContributorTitle = "RDCore" };
+        var project = new ProjectDefinition(VBProjectType.EXE, "Ledger") { Offers = ProjectOffers.Nothing, ContributedBy = "rdcore", ContributorTitle = "RDCore" };
         Composition.ProjectManager.AddProject(project);
         Composition.ProjectManager.StartupProject = project;
         return project;

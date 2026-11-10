@@ -54,6 +54,24 @@ public class ProjectToolViewModelTests
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
+    public void Remove_is_offered_where_the_type_offers_membership_whoever_opened_the_project(bool offered)
+    {
+        var project = new ProjectDefinition(VBProjectType.EXE, "P")
+        {
+            ContributedBy = offered ? "addin" : null,
+            Offers = offered ? ProjectOffers.Everything : ProjectOffers.Everything with { ChangesMembership = false },
+        };
+        project.AddModule(new ModuleDefinition(project, "Module1", ModuleKind.StandardModule));
+        var vm = CreateVmWithLoadedProject(project, out var projectVm);
+
+        vm.SelectedItem = FirstModule(projectVm);
+
+        vm.HasRemovableSelection.Should().Be(offered);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
     public async Task ExplorerSave_SavesTheSelectedFormThroughTheProjectService(bool saveAs)
     {
         var project = TestHelpers.CreateProjectWithForm("P", "Form1");
@@ -407,7 +425,7 @@ public class ProjectToolViewModelTests
         }
         vm.SelectedItem = null;
         command.CanExecute(null).Should().BeFalse();
-        var contributed = new ProjectDefinition(VBProjectType.EXE, "Contributed") { ContributedBy = "addin" };
+        var contributed = new ProjectDefinition(VBProjectType.EXE, "Contributed") { Offers = ProjectOffers.Nothing };
         projectManager.ProjectLoaded += Raise.Event<Action<ProjectDefinition>>(contributed);
         vm.SelectedItem = vm.LoadedProjects.Last();
         command.CanExecute(null).Should().BeFalse();

@@ -256,7 +256,7 @@ public partial class ProjectService : IProjectService
     {
         if (!DocumentLookup.DocumentsOf(document.Project).Contains(document))
             return;
-        if (document.Project.ContributedBy is not null)
+        if (!document.Project.Offers.ChangesMembership)
         {
             await windowManager.MessageBox(
                 string.Format(localization.GetString("Str.ContributedProject.MembershipReadOnly"), document.Project.Name,
@@ -995,10 +995,9 @@ public partial class ProjectService : IProjectService
                     ? new Destination(module, modulePath)
                     : new Destination(module, await ChooseModulePath(module, module.AbsolutePath is null || IsScratchFile(module.Owner, module.AbsolutePath) ? PickerDirectory(module.Owner, previousDirectory) : null), Chosen: true);
 
-            // A contributed project's file is its add-in's program's to write, so a save never has it to write: no picker
-            // asks where it goes, no check renders it, and Save As puts it nowhere new or in the recent list. Its
-            // modules are saved as ever.
-            case ProjectDefinition { ContributedBy: not null }:
+            // A project whose type doesn't write its file has none to save here: no picker asks where it goes, no check
+            // renders it, and Save As puts it nowhere new or in the recent list. Its modules are saved as ever.
+            case ProjectDefinition { Offers.WritesProjectFile: false }:
                 return null;
 
             case ProjectDefinition project:
@@ -1379,7 +1378,7 @@ public partial class ProjectService : IProjectService
 
     public async Task EditProjectProperties(ProjectDefinition project)
     {
-        if (await RefusedSettings(project))
+        if (await RefusedSettings(project, project.Offers.SetsProperties))
             return;
         var vm = new ProjectPropertiesViewModel(project, proposed =>
             !ProjectNaming.IsValidName(proposed)
@@ -1395,7 +1394,7 @@ public partial class ProjectService : IProjectService
 
     public async Task EditProjectReferences(ProjectDefinition project)
     {
-        if (await RefusedSettings(project))
+        if (await RefusedSettings(project, project.Offers.SetsReferences))
             return;
         var vm = new ReferencesViewModel(project, referenceLibraryService, windowManager, localization);
         if (!await windowManager.ShowDialog(vm))
@@ -1403,11 +1402,11 @@ public partial class ProjectService : IProjectService
         vm.Apply(project);
     }
 
-    // A contributed project's properties, references and components are kept in its add-in's file, which HexIDE never
-    // writes: a change made here would be lost on close, unprompted, or overwritten by the add-in's next report.
-    private async Task<bool> RefusedSettings(ProjectDefinition project)
+    // A setting the project's type doesn't offer is kept where HexIDE never writes it: a change made here would be lost
+    // on close, unprompted, or overwritten by the add-in's next report.
+    private async Task<bool> RefusedSettings(ProjectDefinition project, bool offered)
     {
-        if (project.ContributedBy is null)
+        if (offered)
             return false;
         await windowManager.MessageBox(
             string.Format(localization.GetString("Str.ContributedProject.SettingsReadOnly"), project.Name, project.ContributorTitle),
@@ -1417,7 +1416,7 @@ public partial class ProjectService : IProjectService
 
     public async Task EditProjectComponents(ProjectDefinition project)
     {
-        if (await RefusedSettings(project))
+        if (await RefusedSettings(project, project.Offers.SetsComponents))
             return;
         var vm = new ComponentsViewModel(project, windowManager, localization);
         await windowManager.ShowDialog(vm);
@@ -1452,9 +1451,9 @@ public partial class ProjectService : IProjectService
     {
         // Make writes the project's own file into the package, which for a project an add-in read would be a .vbp
         // in place of the file the add-in owns.
-        if (projectDefinition.ContributedBy is { } contributor)
+        if (!projectDefinition.Offers.Makes)
         {
-            make.NotMade($"{projectDefinition.Name} is opened by the {contributor} add-in, so {HexIDE.IDE.Distribution.DisplayName} doesn't make it", true);
+            make.NotMade($"{projectDefinition.Name} is opened by the {projectDefinition.ContributedBy} add-in, so {HexIDE.IDE.Distribution.DisplayName} doesn't make it", true);
             await windowManager.MessageBox(string.Format(localization.GetString("Str.ContributedProject.NotMade"),
                 projectDefinition.Name, projectDefinition.ContributorTitle), icon: MessageBoxIcon.Information);
             throw new OperationCanceledException();
@@ -1790,12 +1789,12 @@ public partial class ProjectService : IProjectService
             || project.PreservedItemLines.Any(line => KeptLineNames(project, line, path));
     }
 
-    // A contributed project's membership is its add-in's program's, so every add is refused here, whichever route reaches
-    // it: a member HexIDE added would be one the project file never lists, which the next save writes all the same. A
-    // caller with someone to tell is told why; an automation caller is given the reason in the exception.
-    private async Task RefuseContributedMembership(ProjectDefinition project, bool interactive)
+    // Where a project's type doesn't offer membership, every add is refused here, whichever route reaches it: a member
+    // HexIDE added would be one the project file never lists, which the next save writes all the same. A caller with
+    // someone to tell is told why; an automation caller is given the reason in the exception.
+    private async Task RefuseMembershipChange(ProjectDefinition project, bool interactive)
     {
-        if (project.ContributedBy is null)
+        if (project.Offers.ChangesMembership)
             return;
         var reason = string.Format(localization.GetString("Str.ContributedProject.MembershipReadOnly"), project.Name,
             project.ContributorTitle);
@@ -1807,7 +1806,7 @@ public partial class ProjectService : IProjectService
 
     public async Task<FormDefinition> AddNewForm(ProjectDefinition project, string name, bool interactive = true)
     {
-        await RefuseContributedMembership(project, interactive);
+        await RefuseMembershipChange(project, interactive);
         return await AddNewFormCore(project, name, interactive);
     }
 
@@ -1828,7 +1827,7 @@ public partial class ProjectService : IProjectService
     public async Task<ModuleDefinition> AddNewModule(ProjectDefinition project, string name, ModuleKind kind,
         bool interactive = true)
     {
-        await RefuseContributedMembership(project, interactive);
+        await RefuseMembershipChange(project, interactive);
         return await WithSaveRefusals(() => Task.FromResult(
             AddNewModuleToProject(project, new ModuleDefinition(project, name, kind) { TextEncoding = HostAnsi })), interactive);
     }
@@ -1842,7 +1841,7 @@ public partial class ProjectService : IProjectService
     private async Task<ModuleDefinition> AddNewDesignerModule(
         ProjectDefinition project, string name, ModuleKind kind, bool interactive)
     {
-        await RefuseContributedMembership(project, interactive);
+        await RefuseMembershipChange(project, interactive);
         return await AddNewDesignerModuleCore(project, name, kind, interactive);
     }
 
@@ -1905,7 +1904,7 @@ public partial class ProjectService : IProjectService
 
     public async Task<Adopted<FormDefinition>> AddExistingForm(ProjectDefinition project, string absolutePath)
     {
-        await RefuseContributedMembership(project, interactive: true);
+        await RefuseMembershipChange(project, interactive: true);
         var (source, bytes, sourceEncoding, byteForByte) = await ReadSourceAsync(absolutePath);
 
         // Form text before companion: the .frm's cited offsets partition the .frx.
@@ -1934,7 +1933,7 @@ public partial class ProjectService : IProjectService
     public async Task<Adopted<ModuleDefinition>> AddExistingModule(
         ProjectDefinition project, string absolutePath, ModuleKind kind)
     {
-        await RefuseContributedMembership(project, interactive: true);
+        await RefuseMembershipChange(project, interactive: true);
         var (source, bytes, sourceEncoding, byteForByte) = await ReadSourceAsync(absolutePath);
 
         // .bas/.cls: strip the VB6 header so Code is the body only (a no-op for .ctl/.pag).
@@ -1980,7 +1979,7 @@ public partial class ProjectService : IProjectService
     public async Task<RelatedDocumentDefinition> AddExistingRelatedDocument(
         ProjectDefinition project, string absolutePath)
     {
-        await RefuseContributedMembership(project, interactive: true);
+        await RefuseMembershipChange(project, interactive: true);
         // No OriginalItemLine. This document is joining the project now, so there is no line to preserve
         // and RelatedDoc= is exactly what should be written. The preserved-line case belongs to entries
         // RECLASSIFIED on read, where rewriting would edit the .vbp on the strength of an inference.
@@ -2466,9 +2465,8 @@ public partial class ProjectService : IProjectService
 
     private void SerializeOnlyProjectToFile(ProjectDefinition definition, string projectPath, bool includeRelatedDocuments = true)
     {
-        // A contributed project's file is its add-in's program's to write, in its own format: its modules are saved, and
-        // never it, whatever route reaches here.
-        if (definition.ContributedBy is not null)
+        // Its modules are saved, and never the file a type doesn't write, whatever route reaches here.
+        if (!definition.Offers.WritesProjectFile)
             return;
 
         // The second check, at the write, for a route that reaches it without SaveFiles: that refuses before
@@ -2500,8 +2498,8 @@ public partial class ProjectService : IProjectService
 
     private bool IsDirty(ProjectDefinition project)
     {
-        // Its file is never written, so it is never edited: its membership changes only as its add-in reports it.
-        if (project.ContributedBy is not null)
+        // Its file is never written, so it is never edited.
+        if (!project.Offers.WritesProjectFile)
             return false;
 
         var path = project.AbsolutePath;

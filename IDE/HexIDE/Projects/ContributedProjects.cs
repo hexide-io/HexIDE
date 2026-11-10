@@ -21,6 +21,9 @@ public sealed record ContributedProjectType(AddinProjectType Type, string AddinI
     public CancellationToken Withdrawn => _withdrawn.Token;
 
     internal void Withdraw() => _withdrawn.Cancel();
+
+    /// <summary>What a project of this type offers: nothing, until an add-in can write its own project.</summary>
+    public ProjectOffers Offers => ProjectOffers.Nothing;
 }
 
 /// <summary>
@@ -128,6 +131,7 @@ public sealed partial class ContributedProjects
         var project = new ProjectDefinition(VBProjectType.EXE, content.Name)
         {
             ContributedBy = type.AddinId,
+            Offers = type.Offers,
             ContributorTitle = type.Origin,
         };
         project.AbsolutePath = path;

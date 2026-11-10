@@ -64,10 +64,10 @@ public partial class ProjectToolViewModel : Tool
         SelectedForm?.Name is { } n ? string.Format(localization.GetString("Str.Tool.Project.SaveFormFormat"), n) : "";
     public string SaveFormAsHeader =>
         SelectedForm?.Name is { } n ? string.Format(localization.GetString("Str.Tool.Project.SaveFormAsFormat"), n) : "";
-    // Not from a project an add-in opened: its membership is its add-in's program's to change.
+    // Not from a project whose type doesn't offer membership changes.
     public bool HasRemovableSelection =>
-        SelectedForm is { FormDefinition.Owner.ContributedBy: null }
-        || SelectedModule is { ModuleDefinition.Owner.ContributedBy: null };
+        SelectedForm is { FormDefinition.Owner.Offers.ChangesMembership: true }
+        || SelectedModule is { ModuleDefinition.Owner.Offers.ChangesMembership: true };
     public string RemoveFormHeader =>
         (SelectedForm?.Name ?? SelectedModule?.Name) is { } n ? string.Format(localization.GetString("Str.Tool.Project.RemoveFormFormat"), n) : "";
 
@@ -158,13 +158,13 @@ public partial class ProjectToolViewModel : Tool
                 projectService.SaveForm(SelectedForm.FormDefinition, true).ListenErrors();
         }, () => SelectedForm != null);
         AddFormCommand = new DelegateCommand(() => AddFormAsync(GetSelectedProject()!.Definition).ListenErrors(),
-            () => GetSelectedProject() is { Definition.ContributedBy: null });
+            () => GetSelectedProject() is { Definition.Offers.ChangesMembership: true });
         AddModuleCommand = new DelegateCommand(() => AddModuleAsync(GetSelectedProject()!.Definition, ModuleKind.StandardModule).ListenErrors(),
-            () => GetSelectedProject() is { Definition.ContributedBy: null });
+            () => GetSelectedProject() is { Definition.Offers.ChangesMembership: true });
         AddClassModuleCommand = new DelegateCommand(() => AddModuleAsync(GetSelectedProject()!.Definition, ModuleKind.ClassModule).ListenErrors(),
-            () => GetSelectedProject() is { Definition.ContributedBy: null });
+            () => GetSelectedProject() is { Definition.Offers.ChangesMembership: true });
         AddUserControlCommand = new DelegateCommand(() => AddUserControlAsync(GetSelectedProject()!.Definition).ListenErrors(),
-            () => GetSelectedProject() is { Definition.ContributedBy: null });
+            () => GetSelectedProject() is { Definition.Offers.ChangesMembership: true });
 
         projectManager.ProjectLoaded += OnProjectLoaded;
         projectManager.ProjectUnloaded += OnProjectUnloaded;
