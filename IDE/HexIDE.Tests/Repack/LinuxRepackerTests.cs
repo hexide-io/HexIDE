@@ -207,11 +207,11 @@ public sealed class LinuxRepackerTests : IDisposable
         WriteStock();
         var copy = Path.Combine(_root, "copy");
         Payload.Copy(Input, copy);
-        Payload.VerifyUnchanged(Input, copy, except: "nothing");
+        Payload.VerifyUnchanged(Input, copy, except: []);
 
         if (!OperatingSystem.IsWindows())
             File.SetUnixFileMode(Path.Combine(copy, "HexIDE.VbLspServer"), PlainFile);
-        var verify = () => Payload.VerifyUnchanged(Input, copy, except: "nothing");
+        var verify = () => Payload.VerifyUnchanged(Input, copy, except: []);
 
         verify.Should().Throw<RepackException>().Which.Message.Should().Contain("permissions");
     }

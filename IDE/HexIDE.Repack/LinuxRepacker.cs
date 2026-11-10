@@ -33,8 +33,7 @@ internal sealed class LinuxTarget : RepackTarget
                 throw new RepackException($"{path} is not a Linux executable.");
         }
 
-        if ((Payload.ModeOf(path) & UnixFileMode.UserExecute) == 0)
-            throw new RepackException($"{path} isn't marked as executable, so this build lost its permissions when it was unpacked. Unpack the release archive on Linux, with tar.");
+        Payload.RequireExecutable(path, "Linux");
     }
 
     public override bool FinishExecutable(string executable, string stockExecutable, DistributionIdentity brand)

@@ -13,8 +13,17 @@ internal sealed record RepackResult(string ProductName, string ExecutableName, b
 /// <summary>What differs between one platform's build and another's. <see cref="Repacker"/> holds what doesn't.</summary>
 internal abstract class RepackTarget
 {
-    /// <summary>The executable's name in a published stock build.</summary>
+    /// <summary>Where a published stock build's executable is, relative to the build's root.</summary>
     public abstract string StockExecutable { get; }
+
+    /// <summary>The folder holding the programs and the files the IDE reads beside them, relative to the build's root.</summary>
+    public virtual string ProgramDirectory => "";
+
+    /// <summary>What the copied build is called in the output.</summary>
+    public virtual string PayloadName(DistributionIdentity brand) => "app";
+
+    /// <summary>The files that aren't required to stay as published, relative to the build's root.</summary>
+    public virtual IReadOnlyList<string> ChangedFiles => [StockExecutable];
 
     /// <summary>The executable's name once it is the brand's.</summary>
     public abstract string ExecutableName(DistributionIdentity brand);
@@ -59,7 +68,14 @@ internal abstract class RepackTarget
             return new LinuxTarget();
         }
 
-        throw new RepackException($"{inputDirectory} has neither {WindowsRepacker.StockExecutable} nor {LinuxRepacker.StockExecutable}. Point --input at a published HexIDE build, such as an unpacked release archive.");
+        if (File.Exists(Path.Combine(inputDirectory, MacRepacker.StockExecutablePath)))
+        {
+            if (!OperatingSystem.IsMacOS())
+                throw new RepackException("This is a macOS build, and it has to be repacked on macOS, because the tool checks the result with macOS's own signature and property-list tools.");
+            return new MacTarget();
+        }
+
+        throw new RepackException($"{inputDirectory} has no {WindowsRepacker.StockExecutable}, {LinuxRepacker.StockExecutable} or {MacRepacker.StockExecutablePath}. Point --input at a published HexIDE build: an unpacked release archive, or HexIDE.app on macOS.");
     }
 }
 
@@ -136,19 +152,20 @@ internal static class Repacker
         if (Directory.Exists(output) || File.Exists(output))
             throw new RepackException($"{output} already exists. This tool only writes a new directory.");
 
+        var programs = Path.Combine(input, target.ProgramDirectory);
         var stock = Path.Combine(input, target.StockExecutable);
-        if (!File.Exists(stock) || !File.Exists(Path.Combine(input, ManagedEntryPoint)))
+        if (!File.Exists(stock) || !File.Exists(Path.Combine(programs, ManagedEntryPoint)))
             throw new RepackException($"{input} has no {target.StockExecutable} and {ManagedEntryPoint}. Point --input at a published HexIDE build, such as an unpacked release archive.");
-        if (File.Exists(Path.Combine(input, DistributionDescriptor.FileName)))
+        if (File.Exists(Path.Combine(programs, DistributionDescriptor.FileName)))
             throw new RepackException($"{input} already has a {DistributionDescriptor.FileName}, so it isn't a stock build.");
 
         // A folder counts: on Linux an id of 'standalone' would need the name of the runner's own folder.
-        if (Path.Exists(Path.Combine(input, executableName)))
+        if (Path.Exists(Path.Combine(programs, executableName)))
             throw new RepackException($"The build already has something called {executableName}, which is the name this brand's 'id' gives its executable. Choose another id.");
 
         foreach (var notice in Notices)
         {
-            if (!File.Exists(Path.Combine(input, notice)))
+            if (!File.Exists(Path.Combine(programs, notice)))
                 throw new RepackException($"{input} has no {notice}. It has to travel with every copy, so this build can't be repacked.");
         }
 
@@ -162,16 +179,17 @@ internal static class Repacker
         var staging = $"{output}.partial-{Guid.NewGuid():N}";
         try
         {
-            var app = Path.Combine(staging, "app");
-            Payload.Copy(input, app, renameFrom: target.StockExecutable, renameTo: executableName);
-            CopyBrandFiles(brandPath, brand, app);
+            var app = Path.Combine(staging, target.PayloadName(brand));
+            var programs = Path.Combine(app, target.ProgramDirectory);
+            Payload.Copy(input, app, renameFrom: target.StockExecutable, renameTo: Path.Combine(target.ProgramDirectory, executableName));
+            CopyBrandFiles(brandPath, brand, programs);
 
             // Checked again where it will really run: the same reader, against the layout the IDE will see.
-            DistributionDescriptor.Resolve(app);
+            DistributionDescriptor.Resolve(programs);
 
-            var removedSignature = target.FinishExecutable(Path.Combine(app, executableName), stockExecutable, brand);
+            var removedSignature = target.FinishExecutable(Path.Combine(programs, executableName), stockExecutable, brand);
 
-            Payload.VerifyUnchanged(input, app, except: target.StockExecutable);
+            Payload.VerifyUnchanged(input, app, except: target.ChangedFiles);
             target.WriteInstallerInputs(staging, brand, executableName, stockExecutable);
 
             Directory.Move(staging, output);
@@ -273,17 +291,24 @@ internal static class Payload
     }
 
     /// <summary>
-    /// Everything but the executable is required to be what was published, byte for byte. So are its permissions: a
-    /// helper program that loses its execute bit doesn't fail, it quietly stops being used.
+    /// Everything not named is required to be what was published, byte for byte. So are its permissions: a helper
+    /// program that loses its execute bit doesn't fail, it quietly stops being used.
     /// </summary>
-    public static void VerifyUnchanged(string source, string destination, string except)
+    public static void VerifyUnchanged(string source, string destination, IReadOnlyList<string> except)
     {
         foreach (var file in Directory.EnumerateFiles(source, "*", Everything))
         {
             var relative = Path.GetRelativePath(source, file);
-            if (!string.Equals(relative, except, PathComparison))
+            if (!except.Any(name => string.Equals(relative, name, PathComparison)))
                 VerifySame(file, Path.Combine(destination, relative), relative);
         }
+    }
+
+    /// <summary>Refuses an executable whose permissions didn't survive unpacking.</summary>
+    public static void RequireExecutable(string path, string platform)
+    {
+        if ((ModeOf(path) & UnixFileMode.UserExecute) == 0)
+            throw new RepackException($"{path} isn't marked as executable, so this build lost its permissions when it was unpacked. Unpack the release archive on {platform}, with tar.");
     }
 
     /// <summary>Requires a copy to hold the same bytes and permissions as its original.</summary>
