@@ -220,7 +220,7 @@ public sealed partial class UserTranslationsService : IUserTranslationsService
             Directory.CreateDirectory(_dir);
             var record = new LanguagePackRecord(id, null, new Dictionary<string, string>(map));
             var json = JsonSerializer.Serialize(record, LocalizationJsonContext.Default.LanguagePackRecord);
-            File.WriteAllText(PathFor(id), json);
+            AtomicFileWriter.WriteRecoverableText(PathFor(id), json);
             Log.Debug("UserTranslationsService: Wrote overrides for '{Id}'", id);
         }
         catch (Exception ex)
@@ -236,7 +236,7 @@ public sealed partial class UserTranslationsService : IUserTranslationsService
         {
             var path = PathFor(id);
             if (File.Exists(path))
-                File.Delete(path);
+                AtomicFileWriter.DeleteRecoverable(path);
         }
         catch (Exception ex)
         {

@@ -29,6 +29,20 @@ public class SettingsServiceTests : IDisposable
     }
 
     [Fact]
+    public void SavingRetainsPreviousDiskBytesForRecovery()
+    {
+        var settings = CreateSut();
+        settings.TabWidth = 6;
+        settings.Save();
+        var original = File.ReadAllBytes(SettingsPath);
+        settings.TabWidth = 8;
+        settings.Save();
+        Directory.GetFiles(_tempDir, "settings.json.*.recovery")
+            .Select(File.ReadAllBytes).Should().Contain(bytes => bytes.SequenceEqual(original));
+        CreateSut().TabWidth.Should().Be(8);
+    }
+
+    [Fact]
     public void InlayHintsToggleIsStagedPersistedAndRestored()
     {
         var settings = CreateSut();

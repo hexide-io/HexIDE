@@ -191,7 +191,7 @@ public partial class KeymapPageViewModel : ObservableObject, IOptionsPage
         if (_windows is null) return;
         var file = await _windows.SaveFilePickerAsync(new FilePickerSaveOptions { SuggestedFileName = "bindings.json", FileTypeChoices = [new FilePickerFileType(Text("Str.Options.Keymap.Header")) { Patterns = ["*.json"] }] });
         if (file is null) return;
-        try { AtomicFileWriter.WriteAllText(file, ExportJson()); Error = ""; }
+        try { AtomicFileWriter.WriteRecoverableText(file, ExportJson()); Error = ""; }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         { Error = string.Format(Text("Str.Archive.OpenErrorFormat"), file, ex.Message); }
     }

@@ -75,6 +75,22 @@ public class CarriedFileSaveTests : IDisposable
     }
 
     [AvaloniaFact]
+    public async Task SavingRetainsPreviousDiskBytesForRecovery()
+    {
+        using var vm = Open([0x63, 0xE9]);
+        var path = vm.RelatedDocument!.AbsolutePath!;
+        vm.Document.Text = "edited";
+        await vm.SaveAsync();
+        var recovery = Directory.GetFiles(_dir, "carried.dsr.*.recovery").Should().ContainSingle().Subject;
+        File.ReadAllBytes(recovery).Should().Equal(0x63, 0xE9);
+        File.ReadAllText(path).Should().Be("edited");
+        vm.Document.Text = "again";
+        await vm.SaveAsync();
+        Directory.GetFiles(_dir, "carried.dsr.*.recovery").Should().HaveCount(2);
+        File.ReadAllBytes(recovery).Should().Equal(0x63, 0xE9);
+    }
+
+    [AvaloniaFact]
     public async Task PartialWriteFailurePreservesBytesAndDirtyStateUntilRetry()
     {
         using var vm = Open([0x63]);

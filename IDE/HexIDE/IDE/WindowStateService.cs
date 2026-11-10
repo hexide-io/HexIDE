@@ -54,7 +54,7 @@ public sealed class WindowStateService : IWindowStateService
     {
         var entries = layouts.ToDictionary(p => p.Key, p => LayoutManifestJson.Serialize(p.Value));
         lock (_writeLock)
-            AtomicFileWriter.WriteAllText(_namedLayoutsPath, JsonSerializer.Serialize(entries));
+            AtomicFileWriter.WriteRecoverableText(_namedLayoutsPath, JsonSerializer.Serialize(entries));
     }
 
     public void TrackWindowState(Window window)
@@ -184,7 +184,7 @@ public sealed class WindowStateService : IWindowStateService
         {
             // Lock so a background (debounced) write and the synchronous on-close write never collide.
             lock (_writeLock)
-                AtomicFileWriter.WriteAllText(_dockLayoutPath, json);
+                AtomicFileWriter.WriteRecoverableText(_dockLayoutPath, json);
             Log.Debug("WindowStateService: Saved layout manifest to {Path}", _dockLayoutPath);
         }
         catch (Exception ex)
@@ -227,7 +227,7 @@ public sealed class WindowStateService : IWindowStateService
         try
         {
             if (File.Exists(_dockLayoutPath))
-                File.Delete(_dockLayoutPath);
+                AtomicFileWriter.DeleteRecoverable(_dockLayoutPath);
             Log.Debug("WindowStateService: Reset (deleted) layout manifest at {Path}", _dockLayoutPath);
         }
         catch (Exception ex)
