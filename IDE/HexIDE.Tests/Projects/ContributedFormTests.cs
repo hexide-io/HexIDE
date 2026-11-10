@@ -49,7 +49,7 @@ public sealed class ContributedFormTests : IDisposable
         var strings = Substitute.For<ILocalizationService>();
         strings.GetString(Arg.Any<string>()).Returns(call => call.Arg<string>() switch
         {
-            "Str.Dialog.UnfaithfulSave.Body.One" => "Not saved: {0}",
+            "Str.ContributedProject.FormReadOnly" => "An add-in read this, so it wasn't saved.",
             var key => key + " {0} {1}",
         });
         var dock = Substitute.For<IDocumentDockService>();
@@ -139,7 +139,7 @@ public sealed class ContributedFormTests : IDisposable
         form.UnfaithfulSaveCauses.Should().HaveFlag(UnfaithfulSaveCause.ReadByAddin);
         saved.Should().BeFalse();
         File.ReadAllBytes(FormFile).Should().Equal(before);
-        await ToldOf("Not saved:");
+        await ToldOf("An add-in read this, so it wasn't saved.");
     }
 
     // As for the test below, VB6's writer throws on the stand-in's root, so this passing says the save never rendered the form.
@@ -158,7 +158,7 @@ public sealed class ContributedFormTests : IDisposable
         File.ReadAllText(bas).Should().Contain("Debug.Print 1");
         File.ReadAllBytes(FormFile).Should().Equal(before);
         File.ReadAllText(ProjectFile).Should().Be("a project");
-        await ToldOf("Not saved:");
+        await ToldOf("An add-in read this, so it wasn't saved.");
     }
 
     // The stand-in's root isn't VB6's Form class, so VB6's writer throws on it, and this passing says nothing rendered it.
@@ -343,6 +343,22 @@ public sealed class ContributedFormTests : IDisposable
         form.Name.Should().Be("Real");
         form.Code.Should().Contain("Form_Load");
         form.CanSaveFaithfully.Should().BeFalse();
+    }
+
+    [AvaloniaTheory]
+    [InlineData(UnfaithfulSaveCause.ReadByAddin, true)]
+    [InlineData(UnfaithfulSaveCause.NestedContainers, false)]
+    public void The_designer_s_banner_has_its_own_words_for_a_form_an_add_in_read(UnfaithfulSaveCause cause, bool ownWords)
+    {
+        var form = new FormDefinition(new ProjectDefinition(VBProjectType.EXE, "Ledger"), [new ComponentInstance(Root, "Main")], "");
+        form.MarkUnfaithfulToSave(cause, "the reason");
+
+        using var designer = new HexIDE.VisualDesigner.FormEditViewModel(null!, Substitute.For<IEventBus>(), Substitute.For<IProjectService>(),
+            Substitute.For<IEditorService>(), Substitute.For<IWindowManager>(), Substitute.For<ISettingsService>(),
+            Substitute.For<ILocalizationService>(), new Vb6ProjectFileFormat()).Initialize(form);
+
+        designer.IsReadOnly.Should().BeTrue();
+        designer.IsReadByAddin.Should().Be(ownWords);
     }
 
     [Fact]

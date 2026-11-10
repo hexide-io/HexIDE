@@ -788,6 +788,12 @@ public partial class ProjectService : IProjectService
     private readonly List<string> refusedThisSave = new();
 
     /// <summary>
+    /// Those of <see cref="refusedThisSave"/> an add-in read. The reason is a different one: VB6 and its files have nothing
+    /// to do with why they aren't written.
+    /// </summary>
+    private readonly HashSet<string> refusedAsReadByAddin = new();
+
+    /// <summary>
     /// Bank a refusal for the current save. Only ever called by an entry point that is followed by a drain
     /// — never by the write helpers themselves, or a path with no drain of its own would leave the entry
     /// sitting there to surface during the next unrelated save, naming a file that was not in that batch.
@@ -1069,6 +1075,8 @@ public partial class ProjectService : IProjectService
             case FormDefinition { CanSaveFaithfully: false } form:
                 Log.Warning("Refusing to save {Form}: {Reason}", form.Name, form.UnfaithfulSaveReason);
                 RecordRefusal(form.Name);
+                if (form.UnfaithfulSaveCauses.HasFlag(UnfaithfulSaveCause.ReadByAddin))
+                    refusedAsReadByAddin.Add(form.Name);
                 return true;
             case ModuleDefinition module when DesignerPartOf(module) is { CanSaveFaithfully: false } designerPart:
                 Log.Warning("Refusing to write {Module}: {Reason}", module.Name, designerPart.UnfaithfulSaveReason);
@@ -2137,9 +2145,21 @@ public partial class ProjectService : IProjectService
         if (refusedThisSave.Count == 0)
             return;
 
-        var names = string.Join("\n", refusedThisSave.Select(n => $"  • {n}"));
-        var singular = refusedThisSave.Count == 1;
+        // Told apart, because they're refused for different reasons, and a save of a group can reach both.
+        var byAddin = refusedThisSave.Where(refusedAsReadByAddin.Contains).ToList();
+        var others = refusedThisSave.Except(byAddin).ToList();
         refusedThisSave.Clear();
+        refusedAsReadByAddin.Clear();
+
+        if (interactive && byAddin.Count > 0)
+            await windowManager.MessageBox(
+                localization.GetString("Str.ContributedProject.FormReadOnly") + "\n\n" + string.Join("\n", byAddin.Select(n => $"  • {n}")),
+                HexIDE.IDE.Distribution.DisplayName, MessageBoxButtons.Ok, MessageBoxIcon.Warning);
+        if (others.Count == 0)
+            return;
+
+        var names = string.Join("\n", others.Select(n => $"  • {n}"));
+        var singular = others.Count == 1;
 
         // The body is a whole localized sentence rather than an English frame with a reason injected into
         // it. The earlier version read "These forms were not saved, because it contains…" — the reason is

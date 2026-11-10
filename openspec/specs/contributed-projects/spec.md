@@ -55,9 +55,10 @@ with no reader lists, that its reader cannot read, or whose reader throws, SHALL
 reader said, and the project SHALL still open. A form read with problems SHALL join the project and the problems SHALL be
 shown. Once the type has been taken out, a reload SHALL ask nothing and SHALL leave the form as it is.
 
-Until the type can render its forms, a form read by an add-in SHALL open read-only in the designer and the code window, a
-save SHALL refuse it and leave its file as it was, it SHALL NOT count as edited, and the IDE SHALL NOT render it as a `.frm`
-for any purpose.
+Until the type can render its forms, a form read by an add-in SHALL open read-only in the designer and the code window, and
+a save SHALL refuse it, say that the IDE can't yet write what an add-in read, and leave its file as it was. The IDE's own
+writers are for its own files, so it SHALL NOT render such a form as a `.frm` for any purpose, and the form SHALL NOT count
+as edited. Rendering it through VB6's writer would change the file silently, which `docs/serialization-outcomes.md` forbids.
 
 #### Scenario: A provider's form opens
 - **WHEN** a project type lists a form and supplies a reader
@@ -65,7 +66,7 @@ for any purpose.
 
 #### Scenario: Saving a form an add-in read
 - **WHEN** the user saves such a form
-- **THEN** the save is refused, the user is told, and its file is unchanged
+- **THEN** the save is refused, the user is told why, and its file is unchanged
 
 ### Requirement: The IDE SHALL NOT write, make or run a contributed project
 Saving a contributed project, Save As included, SHALL write its edited modules, SHALL NOT write the forms an add-in read,

@@ -386,6 +386,7 @@
     "Str.Dialog.UnfaithfulSave.Body.One": "No s'ha desat aquest formulari perquè HexIDE encara no el pot reproduir fidelment:\n\n{0}\n\nEl fitxer del disc no ha canviat. Desar-lo canviaria el formulari sense avisar: Visual Basic 6 obre el resultat sense queixar-se, cosa que fa que el dany passi desapercebut. Per això HexIDE el deixa intacte per no malmetre'l.",
     "Str.Dialog.UnfaithfulSave.Body.Many": "No s'han desat aquests formularis perquè HexIDE encara no els pot reproduir fidelment:\n\n{0}\n\nEls fitxers del disc no han canviat. Desar-los canviaria els formularis sense avisar: Visual Basic 6 obre els resultats sense queixar-se, cosa que fa que el dany passi desapercebut. Per això HexIDE els deixa intactes per no malmetre'ls.",
     "Str.Designer.ReadOnly.Banner": "Només lectura: HexIDE encara no pot reproduir fidelment aquest formulari i desar-lo el canviaria. Podeu visualitzar-lo i executar-lo, però els canvis no es desaran.",
+    "Str.ContributedProject.FormReadOnly": "Només lectura — HexIDE encara no pot escriure un formulari que ha llegit un complement, de manera que els canvis que hi feu no es desaran.",
     "Str.Designer.Unmodelled.NotSupported": "No admès a HexIDE",
     "Str.Designer.Unmodelled.ViewOnly": "Només visualització al dissenyador",
     "Str.Designer.Context.Cut": "Re_talla",

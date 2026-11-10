@@ -386,6 +386,7 @@
     "Str.Dialog.UnfaithfulSave.Body.One": "Inprimaki hau ez da gorde, HexIDEk oraindik ezin duelako zehaztasunez erreproduzitu:\n\n{0}\n\nDiskoko fitxategia ez da aldatu. Gordetzeak inprimakia isilean aldatuko luke — Visual Basic 6k emaitza kexatu gabe irekitzen du, eta horregatik erraza da kaltea ez nabaritzea —; beraz, HexIDEk bere horretan uzten du, kaltetu beharrean.",
     "Str.Dialog.UnfaithfulSave.Body.Many": "Inprimaki hauek ez dira gorde, HexIDEk oraindik ezin dituelako zehaztasunez erreproduzitu:\n\n{0}\n\nDiskoko fitxategiak ez dira aldatu. Gordetzeak inprimakiak isilean aldatuko lituzke — Visual Basic 6k emaitzak kexatu gabe irekitzen ditu, eta horregatik erraza da kaltea ez nabaritzea —; beraz, HexIDEk bere horretan uzten ditu, kaltetu beharrean.",
     "Str.Designer.ReadOnly.Banner": "Irakurtzeko soilik: HexIDEk oraindik ezin du inprimaki hau zehaztasunez erreproduzitu, eta gordetzeak aldatu egingo luke. Ikusi eta exekutatu dezakezu, baina aldaketak ez dira gordeko.",
+    "Str.ContributedProject.FormReadOnly": "Irakurtzeko soilik — HexIDE-k oraindik ezin du idatzi gehigarri batek irakurritako formulario bat, beraz, bertako aldaketak ez dira gordeko.",
     "Str.Designer.Unmodelled.NotSupported": "HexIDEk ez du onartzen",
     "Str.Designer.Unmodelled.ViewOnly": "Diseinatzailean ikusteko soilik",
     "Str.Designer.Context.Cut": "E_baki",

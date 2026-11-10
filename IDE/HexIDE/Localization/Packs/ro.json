@@ -386,6 +386,7 @@
     "Str.Dialog.UnfaithfulSave.Body.One": "Acest formular nu a fost salvat, deoarece HexIDE nu îl poate reproduce încă fidel:\n\n{0}\n\nFișierul său de pe disc este nemodificat. Salvarea l-ar modifica fără avertizare — Visual Basic 6 deschide rezultatul fără obiecții, ceea ce face ca deteriorarea să treacă ușor neobservată — așa că HexIDE îl lasă neatins pentru a nu-l deteriora.",
     "Str.Dialog.UnfaithfulSave.Body.Many": "Aceste formulare nu au fost salvate, deoarece HexIDE nu le poate reproduce încă fidel:\n\n{0}\n\nFișierele lor de pe disc sunt nemodificate. Salvarea le-ar modifica fără avertizare — Visual Basic 6 deschide rezultatele fără obiecții, ceea ce face ca deteriorarea să treacă ușor neobservată — așa că HexIDE le lasă neatinse pentru a nu le deteriora.",
     "Str.Designer.ReadOnly.Banner": "Doar în citire — HexIDE nu poate reproduce încă fidel acest formular, iar salvarea l-ar modifica. Îl poți vizualiza și rula, dar modificările nu vor fi salvate.",
+    "Str.ContributedProject.FormReadOnly": "Doar citire — HexIDE nu poate scrie încă un formular citit de un supliment, așa că modificările nu vor fi salvate.",
     "Str.Designer.Unmodelled.NotSupported": "Neacceptat în HexIDE",
     "Str.Designer.Unmodelled.ViewOnly": "Doar vizualizare în proiectant",
     "Str.Designer.Context.Cut": "De_cupează",
