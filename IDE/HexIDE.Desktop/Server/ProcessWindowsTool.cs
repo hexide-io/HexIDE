@@ -1,7 +1,7 @@
 using System.Diagnostics;
 using System.Globalization;
 using HexIDE.Automation;
-using HexIDE.Runtime.Interpreter;
+using HexIDE.IDE;
 
 namespace HexIDE.Desktop.Server;
 

@@ -4,7 +4,7 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.Threading;
 
-namespace HexIDE.Runtime.Interpreter;
+namespace HexIDE.IDE;
 
 /// <summary>
 /// The processes a running program has started with <c>Shell</c>, so automation can describe their windows (#2591). It
@@ -33,7 +33,7 @@ public static class ShellLaunches
         get { lock (Gate) return Launches.ToArray(); }
     }
 
-    internal static void Record(int processId, string command, int windowStyle)
+    public static void Record(int processId, string command, int windowStyle)
     {
         DateTime? started = null;
         try
@@ -49,7 +49,7 @@ public static class ShellLaunches
         Record(new Launch(processId, command, windowStyle, started));
     }
 
-    internal static void Record(Launch launch)
+    public static void Record(Launch launch)
     {
         lock (Gate)
         {
