@@ -21,6 +21,41 @@ that the developer could not see them was a limitation of its code window, and t
 
 ## Requirements
 
+### Requirement: Split code window
+Window → Split SHALL toggle two vertically stacked, resizable editor views over the same document
+and undo stack (#70). Each pane SHALL retain its own caret, selection and scroll position. Navigation
+and editor commands SHALL use the active pane. Removing the split SHALL retain the document's edits.
+The split and its pane sizes SHALL survive switching to the designer and back, including view recreation.
+
+#### Scenario: Navigation does not transfer selections between panes
+- **WHEN** one pane has selected text and navigation focuses the other pane
+- **THEN** a caret-only navigation clears the destination pane's selection and leaves the other pane's selection alone
+- **AND** Find selects its match only in the destination pane
+
+#### Scenario: Dragging the splitter returns editor focus
+- **WHEN** the developer finishes dragging the splitter
+- **THEN** keyboard focus returns to the previously active pane and Window → Split remains available
+
+#### Scenario: Edit two parts of one module
+- **WHEN** the developer splits a code window and scrolls one pane
+- **THEN** the other pane retains its scroll position
+- **AND** edits and undo from either pane appear in both
+- **AND** invoking Split again returns to one pane without losing edits
+
+#### Scenario: Reopen after resizing
+- **WHEN** the developer drags the splitter, removes the split and enables it again
+- **THEN** removing the split resets all three rows to their unsplit sizes
+- **AND** enabling it again gives each editor an equal share of the available height
+
+#### Scenario: Commands in the lower pane
+- **WHEN** the lower pane has focus and the developer invokes an editor command by key or menu
+- **THEN** the command uses that pane's caret and selection
+- **AND** commands using the document's shared navigation state observe the focused pane
+
+#### Scenario: Return from the designer
+- **WHEN** the developer resizes a split code window, switches to the designer and returns
+- **THEN** the code window retains its split and both pane sizes even if its view was recreated
+
 ### Requirement: Selection scrolling does not re-enter itself
 The code and Immediate editors SHALL allow pointer selection when the viewport cannot fit the caret
 and its scrolling margin, without recursively scrolling the caret into view (#3273). Held pointer moves SHALL extend the selection,
