@@ -1,6 +1,6 @@
 using System.Diagnostics;
 using HexIDE.Desktop.Server;
-using HexIDE.Runtime.Interpreter;
+using HexIDE.IDE;
 
 namespace HexIDE.Tests.Server;
 

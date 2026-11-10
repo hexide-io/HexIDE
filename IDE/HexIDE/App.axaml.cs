@@ -10,7 +10,6 @@ using Avalonia.Media;
 using Avalonia.Media.Fonts;
 using Avalonia.Controls;
 using HexIDE.Infrastructure;
-using HexIDE.Runtime.Interpreter;
 using HexIDE.Keymaps;
 using HexIDE.Themes;
 using HexIDE.VisualDesigner;
@@ -31,7 +30,7 @@ public partial class App : Application
         // A running program formats and reads text in the user's regional settings, as VB6 does (#777). Taken on
         // the line before the pin below, because from that line on the main thread's culture reads as invariant.
         // The pin stays: it keeps the IDE's language out of what a program computes, and source literals rely on it.
-        VbLocale.Default = CultureInfo.CurrentCulture;
+        IDE.UserRegion.Culture = CultureInfo.CurrentCulture;
         Localization.LocalizationService.OsUICulture = CultureInfo.CurrentUICulture;
         CultureInfo.DefaultThreadCurrentCulture = CultureInfo.InvariantCulture;
         CultureInfo.DefaultThreadCurrentUICulture = CultureInfo.InvariantCulture;

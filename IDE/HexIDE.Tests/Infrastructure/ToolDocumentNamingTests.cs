@@ -72,9 +72,12 @@ public class ToolDocumentNamingTests
         resolving.Should().HaveCountGreaterThanOrEqualTo(14, "fourteen tools look a document up");
 
         // An optional tab name is checked for null to choose title addressing; that is not a second lookup.
+        // The write-safety preflight rejects path syntax before lookup; it never matches another document.
         resolving
             .Select(r => (Tool: r.Tool.Name, Parameter: r.Name,
-                Uses: Regex.Matches(Regex.Replace(r.Tool.Body, $@"\b{Regex.Escape(r.Name)} is null", ""), $@"(?<![\w.]){Regex.Escape(r.Name)}\b").Count,
+                Uses: Regex.Matches(Regex.Replace(Regex.Replace(r.Tool.Body,
+                    $@"\bProjectWriteSafety\.NameRefusal\(\s*{Regex.Escape(r.Name)}\s*\)", ""),
+                    $@"\b{Regex.Escape(r.Name)} is null", ""), $@"(?<![\w.]){Regex.Escape(r.Name)}\b").Count,
                 Lookups: Lookup.Matches(r.Tool.Body).Count(m => m.Groups["name"].Value == r.Name)))
             .Where(r => r.Uses != r.Lookups)
             .Select(r => $"{r.Tool} uses `{r.Parameter}` {r.Uses - r.Lookups} time(s) besides looking it up")

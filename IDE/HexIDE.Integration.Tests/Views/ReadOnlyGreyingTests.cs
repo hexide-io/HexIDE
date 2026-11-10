@@ -210,7 +210,8 @@ public class ReadOnlyGreyingTests : IDisposable
         var vm = new CodeEditorViewModel(
             Substitute.For<IWindowManager>(), Substitute.For<IEditorService>(), Substitute.For<IProjectService>(),
             eventBus, lsp, settings, Substitute.For<IStatusBarService>(), new BookmarkService(), new BreakpointService(),
-            Substitute.For<IDebugController>(), new RunScope(), Substitute.For<ILocalizationService>());
+            Substitute.For<IDebugController>(), new RunScope(), Substitute.For<ILocalizationService>(),
+            conditionalCode: new InterpreterConditionalCode());
         made.Add(vm);
         return vm;
     }
@@ -354,6 +355,35 @@ public class ReadOnlyGreyingTests : IDisposable
         switchedGrey.Should().Be(((ISolidColorBrush)view.FindResource("ReadOnlyTextBrush")!).Color);
         ColoursOn(editor, LineOf(editor, target == 0 ? "Debug.Print 32" : "Debug.Print 0"))
             .Should().OnlyContain(c => c == switchedGrey);
+    }
+
+    // A project's CondComp reaches the code window's #If.
+    [AvaloniaTheory]
+    [InlineData("CondComp=\"FLAG = 1\"", "Debug.Print 2", "Debug.Print 1")]
+    [InlineData("CondComp=\"FLAG = 0\"", "Debug.Print 1", "Debug.Print 2")]
+    public async Task ProjectArgumentsDecideWhatIsGreyed(string line, string greyed, string active)
+    {
+        var vm = OpenModule(ModuleKind.StandardModule, "Targets", "#If FLAG Then\nDebug.Print 1\n#Else\nDebug.Print 2\n#End If\n");
+        vm.ModuleDefinition!.Owner.UnknownPreSectionLines.Add((0, line));
+        var editor = Show(vm);
+        var view = (CodeEditorView)windows.Last().Content!;
+        await WaitForConditionalEvaluation(view);
+        var grey = ((ISolidColorBrush)view.FindResource("InactiveCodeTextBrush")!).Color;
+        ColoursOn(editor, LineOf(editor, greyed)).Should().OnlyContain(c => c == grey);
+        ColoursOn(editor, LineOf(editor, active)).Should().Contain(c => c != grey);
+    }
+
+    // vb6.exe refuses the line and stops the program before it runs, so no line can be said to be left out.
+    [AvaloniaFact]
+    public async Task ARefusedCondCompLineGreysNothing()
+    {
+        var vm = OpenModule(ModuleKind.StandardModule, "Targets", "#If 0 Then\nDebug.Print 1\n#End If\n");
+        vm.ModuleDefinition!.Owner.UnknownPreSectionLines.Add((0, "CondComp=\"DEBUG = 70000\""));
+        var editor = Show(vm);
+        var view = (CodeEditorView)windows.Last().Content!;
+        await WaitForConditionalEvaluation(view);
+        var grey = ((ISolidColorBrush)view.FindResource("InactiveCodeTextBrush")!).Color;
+        ColoursOn(editor, LineOf(editor, "Debug.Print 1")).Should().Contain(c => c != grey);
     }
 
     [AvaloniaTheory]

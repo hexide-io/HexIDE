@@ -1,4 +1,5 @@
 using System.Globalization;
+using HexIDE.IDE;
 using HexIDE.Runtime.Interpreter;
 
 namespace HexIDE.Tests.Runtime;
@@ -32,6 +33,26 @@ public class VbLocaleDefaultTests
         finally
         {
             VbLocale.Default = savedDefault;
+            CultureInfo.CurrentCulture = savedThread;
+        }
+    }
+
+    [Fact]
+    public void The_region_a_host_records_in_Core_is_the_one_a_program_reads()
+    {
+        var saved = UserRegion.Culture;
+        var savedThread = CultureInfo.CurrentCulture;
+        try
+        {
+            CultureInfo.CurrentCulture = CultureInfo.InvariantCulture;
+            UserRegion.Culture = CultureInfo.GetCultureInfo("en-GB");
+
+            VbLocale.Default.Should().BeSameAs(UserRegion.Culture);
+            VbDisplay.ToText(new Vb6Value(VbDate.FromDateTime(JanuaryTheSecond))).Should().Be("02/01/2003");
+        }
+        finally
+        {
+            UserRegion.Culture = saved;
             CultureInfo.CurrentCulture = savedThread;
         }
     }
