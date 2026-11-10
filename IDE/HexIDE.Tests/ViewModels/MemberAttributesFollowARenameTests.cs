@@ -55,7 +55,7 @@ public sealed class MemberAttributesFollowARenameTests : IDisposable
     {
         Directory.CreateDirectory(dir);
         dock.OpenDocuments.Returns(_ => open.Cast<BaseEditorWindowViewModel>().ToList());
-        refresher = new HeaderRefresher(bus, dock, new BreakpointService(), new BookmarkService());
+        refresher = new HeaderRefresher(bus, dock, new BreakpointService(), new BookmarkService(), new Vb6ProjectFileFormat());
     }
 
     public void Dispose()
@@ -88,7 +88,8 @@ public sealed class MemberAttributesFollowARenameTests : IDisposable
             sidecar,
             new FileBaselineStore(),
             Substitute.For<ILocalizationService>(),
-            refresher);
+            refresher,
+            new Vb6ProjectFileFormat());
     }
 
     /// <summary>A code window on the document, on the same bus as the save, and open as far as the dock knows.</summary>
@@ -802,7 +803,7 @@ public sealed class MemberAttributesFollowARenameTests : IDisposable
         editor.Document.Text.Should().Be(written);
         bus.Publish(new ApplyAllUnsavedChangesEvent());
         service.HasUnsavedChanges(form).Should().BeFalse("the rewrite is the save's, not an edit");
-        new DirtyDetector(new FileBaselineStore(), service)
+        new DirtyDetector(new FileBaselineStore(), service, new Vb6ProjectFileFormat())
             .Classify(new WatchedFileTarget(form.AbsolutePath!, form, null, editor, null))
             .Should().Be(ReloadDecision.CleanReload);
 

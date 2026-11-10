@@ -41,7 +41,7 @@ public class LockControlsSaveTests
         var form = new FormDeserializer().Deserialize(Project, BareForm, new NullSink())!;
         form.AbsolutePath = path;
         var vm = new FormEditViewModel(
-            null!, Substitute.For<IEventBus>(), projects, null!, null!, null!, Substitute.For<ILocalizationService>());
+            null!, Substitute.For<IEventBus>(), projects, null!, null!, null!, Substitute.For<ILocalizationService>(), new Vb6ProjectFileFormat());
         vm.Initialize(form);
         return (vm, form, projects);
     }

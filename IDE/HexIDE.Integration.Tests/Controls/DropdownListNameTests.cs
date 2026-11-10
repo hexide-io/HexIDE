@@ -150,7 +150,7 @@ public class DropdownListNameTests
     public void The_designer_renders_the_name()
     {
         var form = Load();
-        var designer = new FormEditViewModel(null!, new EventBus(), null!, null!, null!, null!, Substitute.For<ILocalizationService>())
+        var designer = new FormEditViewModel(null!, new EventBus(), null!, null!, null!, null!, Substitute.For<ILocalizationService>(), new Vb6ProjectFileFormat())
             .Initialize(form);
 
         byte[] Rendered(string name)

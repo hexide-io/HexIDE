@@ -119,7 +119,7 @@ public class CarriedBoxStackingTests
         var form = new FormDeserializer().Deserialize(project, source, new NullSink())!;
         project.AddForm(form);
         var vm = new FormEditViewModel(null!, Substitute.For<IEventBus>(), Substitute.For<IProjectService>(), null!, null!,
-            Substitute.For<ISettingsService>(), Substitute.For<ILocalizationService>()).Initialize(form);
+            Substitute.For<ISettingsService>(), Substitute.For<ILocalizationService>(), new Vb6ProjectFileFormat()).Initialize(form);
         var view = new FormEditView { DataContext = vm };
         var window = new Window { Width = 800, Height = 600, Content = view };
         window.Show();

@@ -277,9 +277,9 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
         IWindowManager windowManager,
         ISettingsService settingsService,
         ILocalizationService localization,
-        IProjectFileFormat? format = null) : this()
+        IProjectFileFormat format) : this()
     {
-        this.format = format ?? new HexIDE.Projects.Vb6ProjectFileFormat();
+        this.format = format;
         this.eventBus = eventBus;
         this.projectService = projectService;
         this.editorService = editorService;

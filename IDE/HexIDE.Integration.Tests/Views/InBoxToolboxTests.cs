@@ -91,7 +91,7 @@ public class InBoxToolboxTests
         settings.GridWidth.Returns(8);
         settings.GridHeight.Returns(8);
         var vm = new FormEditViewModel(toolbox, Substitute.For<IEventBus>(), Substitute.For<IProjectService>(), null!, null!,
-            settings, Substitute.For<ILocalizationService>()).Initialize(form);
+            settings, Substitute.For<ILocalizationService>(), new Vb6ProjectFileFormat()).Initialize(form);
         toolbox.ShowProject(project);
         return (project, toolbox, vm, form);
     }

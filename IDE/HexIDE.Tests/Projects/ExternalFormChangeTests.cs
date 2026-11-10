@@ -76,7 +76,8 @@ public class ExternalFormChangeTests : IDisposable
             sidecar,
             baselines,
             Substitute.For<HexIDE.Localization.ILocalizationService>(),
-            Substitute.For<IHeaderRefresher>());
+            Substitute.For<IHeaderRefresher>(),
+            new Vb6ProjectFileFormat());
     }
 
     /// <summary>
@@ -133,7 +134,7 @@ public class ExternalFormChangeTests : IDisposable
         var path = Path.Join(dir, "Module1.bas");
         File.AppendAllText(path, "' external\r\n");
         var target = new WatchedFileTarget(path, null, module, editor, null);
-        var detector = new DirtyDetector(baselines, svc);
+        var detector = new DirtyDetector(baselines, svc, new Vb6ProjectFileFormat());
         detector.Classify(target).Should().Be(ReloadDecision.Conflict);
 
         await svc.SaveProject(loaded.Single(), saveAs: false);
@@ -152,7 +153,7 @@ public class ExternalFormChangeTests : IDisposable
         form.Code.Should().Contain("' edited");
         File.AppendAllText(path, "' external\r\n");
         var target = new WatchedFileTarget(path, form, null, editor, null);
-        var detector = new DirtyDetector(baselines, svc);
+        var detector = new DirtyDetector(baselines, svc, new Vb6ProjectFileFormat());
         detector.Classify(target).Should().Be(ReloadDecision.Conflict);
 
         await svc.SaveProject(loaded.Single(), saveAs: false);

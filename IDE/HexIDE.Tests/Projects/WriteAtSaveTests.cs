@@ -60,7 +60,8 @@ public class WriteAtSaveTests : IDisposable
             sidecar,
             new FileBaselineStore(),
             Substitute.For<HexIDE.Localization.ILocalizationService>(),
-            Substitute.For<IHeaderRefresher>());
+            Substitute.For<IHeaderRefresher>(),
+            new Vb6ProjectFileFormat());
     }
 
     /// <summary>A project as File ▸ New Project leaves it: no file and no folder.</summary>

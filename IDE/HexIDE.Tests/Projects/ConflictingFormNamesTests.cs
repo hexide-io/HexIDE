@@ -61,7 +61,8 @@ public class ConflictingFormNamesTests : IDisposable
             sidecar,
             new FileBaselineStore(),
             localization,
-            Substitute.For<IHeaderRefresher>());
+            Substitute.For<IHeaderRefresher>(),
+            new Vb6ProjectFileFormat());
     }
 
     private async Task<string> Stage(string beginName, string vbName)

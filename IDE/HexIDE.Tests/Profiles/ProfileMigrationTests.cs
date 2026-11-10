@@ -235,7 +235,7 @@ public sealed class ProfileMigrationTests : IDisposable
         using var context = new HexIDE.Desktop.Server.IdeContext(
             Substitute.For<IProjectManager>(), Substitute.For<IDocumentDockService>(),
             Substitute.For<HexIDE.Lsp.ILspClient>(), null!, null!, null!, null!, null!, null!, null!, null!, null!,
-            service, addins, null!, null!, null!, null!, null!);
+            service, addins, null!, null!, null!, null!, null!, new Vb6ProjectFileFormat());
         var result = await new HexIDE.Desktop.Server.HexIdeTools(context)
             .GetNewProjectTemplatesAsync(TestContext.Current.CancellationToken);
         result.Templates.Select(t => t.Name).Should().Equal("Standard EXE", "ActiveX DLL");

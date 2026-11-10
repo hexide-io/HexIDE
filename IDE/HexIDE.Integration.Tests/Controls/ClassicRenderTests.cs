@@ -182,7 +182,7 @@ public class ClassicRenderTests
             Attribute VB_Name = "Form1"
 
             """.ReplaceLineEndings("\r\n"), new NullSink())!;
-        var designer = new FormEditViewModel(null!, new EventBus(), null!, null!, null!, null!, Substitute.For<ILocalizationService>())
+        var designer = new FormEditViewModel(null!, new EventBus(), null!, null!, null!, null!, Substitute.For<ILocalizationService>(), new Vb6ProjectFileFormat())
             .Initialize(form);
         var renderer = new ControlRenderer { Width = 160, Height = 32 };
         var window = BuildHost(renderer);

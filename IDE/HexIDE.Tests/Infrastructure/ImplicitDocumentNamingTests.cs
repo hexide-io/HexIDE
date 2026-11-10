@@ -16,7 +16,7 @@ public class ImplicitDocumentNamingTests
 {
     private static FormEditViewModel Designer(ProjectDefinition project) => new FormEditViewModel(
         null!, Substitute.For<IEventBus>(), null!, null!, null!, Substitute.For<ISettingsService>(),
-        Substitute.For<ILocalizationService>()).Initialize(project.Forms[0]);
+        Substitute.For<ILocalizationService>(), new Vb6ProjectFileFormat()).Initialize(project.Forms[0]);
 
     private static HexIDE.Forms.ViewModels.CodeEditorViewModel Code(FormDefinition form)
     {
@@ -46,7 +46,7 @@ public class ImplicitDocumentNamingTests
             var runner = Substitute.For<IProjectRunnerService>();
             runner.RunningProject.Returns(Second);
             Context = new IdeContext(projects, Dock, Substitute.For<ILspClient>(), null!, runner,
-                null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!);
+                null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, new Vb6ProjectFileFormat());
             Tools = new HexIdeTools(Context);
         }
         public void Tabs(params IDockable[] tabs)

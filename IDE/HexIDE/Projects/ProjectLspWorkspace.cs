@@ -45,10 +45,10 @@ namespace HexIDE.Projects;
 /// costs every language feature in the IDE.
 /// </para>
 /// </summary>
-public sealed class ProjectLspWorkspace(Func<IProjectManager> projectManager, IProjectFileFormat? format = null) : IWorkspaceArtifactWorkspace
+public sealed class ProjectLspWorkspace(Func<IProjectManager> projectManager, IProjectFileFormat format) : IWorkspaceArtifactWorkspace
 {
-    private readonly IProjectFileFormat _format = format ?? new Vb6ProjectFileFormat();
 
+    private readonly IProjectFileFormat _format = format;
 
     private readonly List<Action> _unsubscribe = [];
     private IProjectManager? _observed;

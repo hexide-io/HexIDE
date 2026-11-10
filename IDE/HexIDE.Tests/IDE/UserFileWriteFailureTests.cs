@@ -94,7 +94,7 @@ public sealed class UserFileWriteFailureTests : IDisposable
         var service = new ProjectService(() => throw new InvalidOperationException(), windows,
             Substitute.For<IEventBus>(), Substitute.For<IProjectManager>(), Substitute.For<IRecentProjectsService>(),
             Substitute.For<IReferenceLibraryService>(), Substitute.For<IUserSidecarService>(), new FileBaselineStore(),
-            localization, Substitute.For<IHeaderRefresher>());
+            localization, Substitute.For<IHeaderRefresher>(), new Vb6ProjectFileFormat());
         var project = new ProjectDefinition(VBProjectType.EXE, "Project1");
         var form = await service.AddNewForm(project, "Form1", interactive: false);
         form.Components[0].SetProperty(VBProperties.IconProperty, new byte[] { 1, 2, 3, 4 });
@@ -162,7 +162,7 @@ public sealed class UserFileWriteFailureTests : IDisposable
         var service = new ProjectService(() => throw new InvalidOperationException(), windows,
             Substitute.For<IEventBus>(), Substitute.For<IProjectManager>(), Substitute.For<IRecentProjectsService>(),
             Substitute.For<IReferenceLibraryService>(), Substitute.For<IUserSidecarService>(), new FileBaselineStore(),
-            Substitute.For<ILocalizationService>(), Substitute.For<IHeaderRefresher>());
+            Substitute.For<ILocalizationService>(), Substitute.For<IHeaderRefresher>(), new Vb6ProjectFileFormat());
         var project = new ProjectDefinition(VBProjectType.EXE, "Project1");
         var form = await service.AddNewForm(project, "Form1", interactive: false);
         form.Components[0].SetProperty(VBProperties.IconProperty, new byte[] { 1, 2, 3, 4 });
@@ -188,7 +188,7 @@ public sealed class UserFileWriteFailureTests : IDisposable
         var service = new ProjectService(() => throw new InvalidOperationException(), windows,
             Substitute.For<IEventBus>(), Substitute.For<IProjectManager>(), Substitute.For<IRecentProjectsService>(),
             Substitute.For<IReferenceLibraryService>(), Substitute.For<IUserSidecarService>(), new FileBaselineStore(),
-            Substitute.For<ILocalizationService>(), Substitute.For<IHeaderRefresher>());
+            Substitute.For<ILocalizationService>(), Substitute.For<IHeaderRefresher>(), new Vb6ProjectFileFormat());
         var project = new ProjectDefinition(VBProjectType.EXE, "Project1");
         await service.AddNewForm(project, "Form1", interactive: false);
         await service.AddNewModule(project, "Module1", ModuleKind.StandardModule, interactive: false);
@@ -212,7 +212,7 @@ public sealed class UserFileWriteFailureTests : IDisposable
         var service = new ProjectService(() => throw new InvalidOperationException(), windows,
             Substitute.For<IEventBus>(), manager, Substitute.For<IRecentProjectsService>(),
             Substitute.For<IReferenceLibraryService>(), Substitute.For<IUserSidecarService>(), new FileBaselineStore(),
-            Substitute.For<ILocalizationService>(), Substitute.For<IHeaderRefresher>());
+            Substitute.For<ILocalizationService>(), Substitute.For<IHeaderRefresher>(), new Vb6ProjectFileFormat());
         Fail(target);
 
         Func<Task> save = () => service.SaveAllProjects(saveAs: false);
@@ -232,7 +232,7 @@ public sealed class UserFileWriteFailureTests : IDisposable
         var service = new ProjectService(() => throw new InvalidOperationException(), windows,
             Substitute.For<IEventBus>(), Substitute.For<IProjectManager>(), Substitute.For<IRecentProjectsService>(),
             Substitute.For<IReferenceLibraryService>(), Substitute.For<IUserSidecarService>(), new FileBaselineStore(),
-            Substitute.For<ILocalizationService>(), Substitute.For<IHeaderRefresher>());
+            Substitute.For<ILocalizationService>(), Substitute.For<IHeaderRefresher>(), new Vb6ProjectFileFormat());
         service.RuntimeDirectory = root;
         Directory.CreateDirectory(Target("standalone"));
         File.WriteAllText(Path.Combine(Target("standalone"), ProjectService.StandaloneRunnerName()!), "runner");
@@ -254,7 +254,7 @@ public sealed class UserFileWriteFailureTests : IDisposable
         var service = new ProjectService(() => throw new InvalidOperationException(), windows,
             Substitute.For<IEventBus>(), Substitute.For<IProjectManager>(), Substitute.For<IRecentProjectsService>(),
             Substitute.For<IReferenceLibraryService>(), Substitute.For<IUserSidecarService>(), new FileBaselineStore(),
-            localization, Substitute.For<IHeaderRefresher>());
+            localization, Substitute.For<IHeaderRefresher>(), new Vb6ProjectFileFormat());
         service.RuntimeDirectory = root;
         Directory.CreateDirectory(Target("standalone"));
         File.WriteAllText(Path.Combine(Target("standalone"), ProjectService.StandaloneRunnerName()!), "runner");
@@ -288,7 +288,7 @@ public sealed class UserFileWriteFailureTests : IDisposable
         var service = new ProjectService(() => throw new InvalidOperationException(), windows,
             Substitute.For<IEventBus>(), Substitute.For<IProjectManager>(), Substitute.For<IRecentProjectsService>(),
             Substitute.For<IReferenceLibraryService>(), Substitute.For<IUserSidecarService>(), new FileBaselineStore(),
-            Substitute.For<ILocalizationService>(), Substitute.For<IHeaderRefresher>());
+            Substitute.For<ILocalizationService>(), Substitute.For<IHeaderRefresher>(), new Vb6ProjectFileFormat());
         service.RuntimeDirectory = root;
         Directory.CreateDirectory(Target("standalone"));
         var runner = Path.Combine(Target("standalone"), ProjectService.StandaloneRunnerName()!);
@@ -314,7 +314,7 @@ public sealed class UserFileWriteFailureTests : IDisposable
         // The framed one-byte payload accepted by the resource exporter.
         byte[] record = [9, 0, 0, 0, 0x6c, 0x74, 0, 0, 1, 0, 0, 0, 42];
         var owner = new PropertiesToolViewModel(Substitute.For<IDocumentDockService>(), Substitute.For<IEventBus>(),
-            windows, Substitute.For<ILocalizationService>());
+            windows, Substitute.For<ILocalizationService>(), new Vb6ProjectFileFormat());
         var row = new PropertyViewModel(owner, VBProperties.PictureProperty, record);
         await row.ExportPictureCommand.ExecuteAsync(null);
         Preserved(target);
@@ -359,7 +359,7 @@ public sealed class UserFileWriteFailureTests : IDisposable
         using var context = new HexIDE.Desktop.Server.IdeContext(Substitute.For<IProjectManager>(),
             Substitute.For<IDocumentDockService>(), Substitute.For<HexIDE.Lsp.ILspClient>(), null!,
             Substitute.For<IProjectRunnerService>(), null!, null!, null!, null!, null!, null!, null!, null!,
-            null!, null!, capture, new Pseudonymiser(), null!, null!);
+            null!, null!, capture, new Pseudonymiser(), null!, null!, new Vb6ProjectFileFormat());
         var tools = new HexIDE.Desktop.Server.HexIdeTools(context) { ConversationExportDirectory = root };
         Func<Task> export = () => tools.ExportLspConversationAsync(ct: TestContext.Current.CancellationToken);
         await export.Should().ThrowAsync<IOException>();

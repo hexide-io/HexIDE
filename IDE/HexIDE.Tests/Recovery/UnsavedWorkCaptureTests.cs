@@ -58,7 +58,8 @@ public sealed class UnsavedWorkCaptureTests : IDisposable
             sidecar,
             new FileBaselineStore(),
             Substitute.For<ILocalizationService>(),
-            Substitute.For<IHeaderRefresher>());
+            Substitute.For<IHeaderRefresher>(),
+            new Vb6ProjectFileFormat());
     }
 
     /// <summary>A saved project of a form and two modules, opened and saved again so every baseline is this build's.</summary>
@@ -96,7 +97,7 @@ public sealed class UnsavedWorkCaptureTests : IDisposable
     private FormEditViewModel Designer(IProjectService service, FormDefinition form) => Made(new FormEditViewModel(
         new ToolBoxToolViewModel(Substitute.For<IDocumentDockService>(), Substitute.For<IComponentRegistry>(),
             Substitute.For<ILocalizationService>()),
-        bus, service, null!, null!, Substitute.For<ISettingsService>(), Substitute.For<ILocalizationService>())
+        bus, service, null!, null!, Substitute.For<ISettingsService>(), Substitute.For<ILocalizationService>(), new Vb6ProjectFileFormat())
         .Initialize(form));
 
     [Fact]

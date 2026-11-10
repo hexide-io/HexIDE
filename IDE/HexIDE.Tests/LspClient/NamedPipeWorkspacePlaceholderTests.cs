@@ -224,7 +224,7 @@ public class NamedPipeWorkspacePlaceholderTests
         var project = TestHelpers.CreateProject("First");
         manager.StartupProject.Returns(_ => project);
         manager.LoadedProjects.Returns(_ => new[] { project });
-        var workspace = new ProjectLspWorkspace(() => manager);
+        var workspace = new ProjectLspWorkspace(() => manager, new Vb6ProjectFileFormat());
         if (route == "secondOpen")
         {
             await using var first = new NamedPipeLspTransport(

@@ -20,9 +20,9 @@ public class PropertyFilterTests
         var loc = Substitute.For<ILocalizationService>();
         var project = TestHelpers.CreateProjectWithForm("P", "Form1");
         using var designer = new FormEditViewModel(null!, bus, Substitute.For<IProjectService>(),
-            Substitute.For<IEditorService>(), Substitute.For<IWindowManager>(), Substitute.For<ISettingsService>(), loc)
+            Substitute.For<IEditorService>(), Substitute.For<IWindowManager>(), Substitute.For<ISettingsService>(), loc, new Vb6ProjectFileFormat())
             .Initialize(project.Forms.First());
-        var grid = new PropertiesToolViewModel(dock, bus, Substitute.For<IWindowManager>(), loc);
+        var grid = new PropertiesToolViewModel(dock, bus, Substitute.For<IWindowManager>(), loc, new Vb6ProjectFileFormat());
         dock.ActiveDocument.Returns(designer);
         dock.PropertyChanged += Raise.Event<PropertyChangedEventHandler>(dock, new PropertyChangedEventArgs(nameof(dock.ActiveDocument)));
         var original = grid.Properties.OfType<PropertyViewModel>().ToArray();

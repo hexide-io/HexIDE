@@ -41,7 +41,7 @@ public class DirtyDetectorTests
         editor.BufferBody.Should().Be(module.Code);
         module.Code.Should().Contain("' edited");
 
-        new DirtyDetector(baseline, Substitute.For<IProjectService>())
+        new DirtyDetector(baseline, Substitute.For<IProjectService>(), new Vb6ProjectFileFormat())
             .Classify(new WatchedFileTarget(path, null, module, editor, null))
             .Should().Be(ReloadDecision.Conflict);
     }
@@ -56,7 +56,7 @@ public class DirtyDetectorTests
         // so reconstruct the disk form to model "disk == model, no unsaved edits".
         baseline.Record(path, ModuleFileFormat.ToFileContent(module.Code, module.Name, module.Kind));
 
-        var sut = new DirtyDetector(baseline, Substitute.For<IProjectService>());
+        var sut = new DirtyDetector(baseline, Substitute.For<IProjectService>(), new Vb6ProjectFileFormat());
         sut.Classify(new WatchedFileTarget(path, null, module, null, null))
             .Should().Be(ReloadDecision.CleanReload);
     }
@@ -81,7 +81,7 @@ public class DirtyDetectorTests
         baseline.Record(path, Vb6TextFile.Encode(
             ModuleFileFormat.ToFileContent(module.Code, module.Name, module.Kind), module.TextEncoding));
 
-        var sut = new DirtyDetector(baseline, Substitute.For<IProjectService>());
+        var sut = new DirtyDetector(baseline, Substitute.For<IProjectService>(), new Vb6ProjectFileFormat());
         sut.Classify(new WatchedFileTarget(path, null, module, null, null))
             .Should().Be(ReloadDecision.CleanReload);
     }
@@ -101,7 +101,7 @@ public class DirtyDetectorTests
         var projectService = Substitute.For<IProjectService>();
         projectService.HasUnsavedChanges(module).Returns(dirty);
 
-        var sut = new DirtyDetector(baseline, projectService);
+        var sut = new DirtyDetector(baseline, projectService, new Vb6ProjectFileFormat());
         sut.Classify(new WatchedFileTarget(path, null, module, null, null))
             .Should().Be(dirty ? ReloadDecision.Conflict : ReloadDecision.CleanReload);
     }
@@ -114,7 +114,7 @@ public class DirtyDetectorTests
         baseline.Record(path, "Public Sub OnDisk()\nEnd Sub"); // last-known disk
         var module = Module("Public Sub EditedInIde()\nEnd Sub"); // unsaved in-memory edits
 
-        var sut = new DirtyDetector(baseline, Substitute.For<IProjectService>());
+        var sut = new DirtyDetector(baseline, Substitute.For<IProjectService>(), new Vb6ProjectFileFormat());
         sut.Classify(new WatchedFileTarget(path, null, module, null, null))
             .Should().Be(ReloadDecision.Conflict);
     }
@@ -125,7 +125,7 @@ public class DirtyDetectorTests
         var baseline = new FileBaselineStore();
         var module = Module("Public Sub Foo()\nEnd Sub");
 
-        var sut = new DirtyDetector(baseline, Substitute.For<IProjectService>());
+        var sut = new DirtyDetector(baseline, Substitute.For<IProjectService>(), new Vb6ProjectFileFormat());
         sut.Classify(new WatchedFileTarget(P("a.bas"), null, module, null, null))
             .Should().Be(ReloadDecision.Indeterminate);
     }
@@ -149,7 +149,7 @@ public class DirtyDetectorTests
         var projectService = Substitute.For<IProjectService>();
         projectService.HasUnsavedChanges(form).Returns(false);
 
-        var sut = new DirtyDetector(new FileBaselineStore(), projectService);
+        var sut = new DirtyDetector(new FileBaselineStore(), projectService, new Vb6ProjectFileFormat());
         sut.Classify(new WatchedFileTarget(P("Form1.frm"), form, null, null, null))
             .Should().Be(ReloadDecision.CleanReload);
     }
@@ -161,7 +161,7 @@ public class DirtyDetectorTests
         var projectService = Substitute.For<IProjectService>();
         projectService.HasUnsavedChanges(form).Returns(true);
 
-        var sut = new DirtyDetector(new FileBaselineStore(), projectService);
+        var sut = new DirtyDetector(new FileBaselineStore(), projectService, new Vb6ProjectFileFormat());
         sut.Classify(new WatchedFileTarget(P("Form1.frm"), form, null, null, null))
             .Should().Be(ReloadDecision.Conflict);
     }

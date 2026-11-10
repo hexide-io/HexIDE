@@ -69,7 +69,7 @@ public class ActiveFormSaveTests
         var projects = Substitute.For<IProjectService>();
         var form = new FormDefinition(new ProjectDefinition(VBProjectType.EXE, "P"), FormComponentClass.Instance, "Form1");
         var designer = new FormEditViewModel(null!, Substitute.For<IEventBus>(), projects,
-            null!, null!, null!, Substitute.For<ILocalizationService>());
+            null!, null!, null!, Substitute.For<ILocalizationService>(), new Vb6ProjectFileFormat());
         designer.Initialize(form);
         shell.Composition.DocumentDockService.OpenDocument(designer);
         Dispatcher.UIThread.RunJobs();

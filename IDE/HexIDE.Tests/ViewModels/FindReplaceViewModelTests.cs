@@ -1207,7 +1207,7 @@ public partial class FindReplaceViewModelTests
         var eventBus = Substitute.For<IEventBus>();
         var loc = Substitute.For<ILocalizationService>();
         loc.ActiveLanguage.Returns("en");
-        var properties = new PropertiesToolViewModel(mockDocDock, eventBus, windowManager, loc);
+        var properties = new PropertiesToolViewModel(mockDocDock, eventBus, windowManager, loc, new Vb6ProjectFileFormat());
         var immediate = new ImmediateToolViewModel(loc, Substitute.For<HexIDE.Runtime.Debugging.IDebugController>());
         var formLayout = new FormLayoutToolViewModel(mockDocDock, eventBus, loc);
         var locals = new LocalsToolViewModel(loc, Substitute.For<HexIDE.Runtime.Debugging.IDebugController>());

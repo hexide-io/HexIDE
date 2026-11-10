@@ -44,7 +44,7 @@ public class PictureBoxAutoSizeTests
         var form = new FormDefinition(new ProjectDefinition(VBProjectType.EXE, "P"), FormComponentClass.Instance, "Form1");
         form.UpdateComponents([..form.Components, instance]);
         using var designer = new FormEditViewModel(null!, new EventBus(), null!, null!, null!, null!,
-            Substitute.For<ILocalizationService>()).Initialize(form);
+            Substitute.For<ILocalizationService>(), new Vb6ProjectFileFormat()).Initialize(form);
         var changes = designer.PushSetPropertyCommand(instance, VBProperties.PictureProperty, null,
             instance.GetPropertyOrDefault(VBProperties.PictureProperty));
         changes.Should().HaveCount(2);
@@ -98,7 +98,7 @@ public class PictureBoxAutoSizeTests
         var form = new FormDefinition(new ProjectDefinition(VBProjectType.EXE, "P"), FormComponentClass.Instance, "Form1");
         form.UpdateComponents([..form.Components, instance]);
         using var designer = new FormEditViewModel(null!, new EventBus(), null!, null!, null!, null!,
-            Substitute.For<ILocalizationService>()).Initialize(form);
+            Substitute.For<ILocalizationService>(), new Vb6ProjectFileFormat()).Initialize(form);
         Action resize = () => designer.PushSetPropertyCommand(instance, VBProperties.PictureProperty, null,
             instance.GetPropertyOrDefault(VBProperties.PictureProperty));
         resize.Should().Throw<NotImplementedException>();
@@ -124,12 +124,12 @@ public class PictureBoxAutoSizeTests
             var loc = Substitute.For<ILocalizationService>();
             loc.GetString("Str.ProjectRunner.NotImplementedYet").Returns("Not implemented: {0}");
             loc.GetString("Str.Tool.Properties.LoadPictureFailed").Returns("Cannot load picture: {0}");
-            using var designer = new FormEditViewModel(null!, bus, null!, null!, null!, null!, loc).Initialize(form);
+            using var designer = new FormEditViewModel(null!, bus, null!, null!, null!, null!, loc, new Vb6ProjectFileFormat()).Initialize(form);
             var dock = Substitute.For<IDocumentDockService>();
             dock.ActiveDocument.Returns(designer);
             var windows = Substitute.For<IWindowManager>();
             windows.OpenFilePickerAsync(Arg.Any<FilePickerOpenOptions>()).Returns(new[] { path });
-            var grid = new PropertiesToolViewModel(dock, bus, windows, loc);
+            var grid = new PropertiesToolViewModel(dock, bus, windows, loc, new Vb6ProjectFileFormat());
             designer.SelectedComponent = designer.AllComponents.Single(c => c.Instance == instance);
             var row = grid.Properties.OfType<PropertyViewModel>().Single(p => p.PropertyClass == VBProperties.PictureProperty);
             await row.LoadPictureCommand.ExecuteAsync(null);

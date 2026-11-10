@@ -642,7 +642,8 @@ public class AddinWholeFileTests : IDisposable
             sidecar,
             new FileBaselineStore(),
             Substitute.For<ILocalizationService>(),
-            new HeaderRefresher(new EventBus(), emptyDock, new BreakpointService(), new BookmarkService()));
+            new HeaderRefresher(new EventBus(), emptyDock, new BreakpointService(), new BookmarkService(), new Vb6ProjectFileFormat()),
+            new Vb6ProjectFileFormat());
     }
 
     private static readonly string[] SourceExtensions =
