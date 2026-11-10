@@ -41,13 +41,6 @@ internal sealed class MacTarget : RepackTarget
 
     public override string PayloadName(DistributionIdentity brand) => brand.Name + ".app";
 
-    public override IReadOnlyList<string> ChangedFiles =>
-    [
-        MacRepacker.StockExecutablePath,
-        MacRepacker.InfoPlistPath,
-        Path.Combine(MacRepacker.ResourcesDirectory, MacRepacker.StockIcon),
-    ];
-
     public override string ExecutableName(DistributionIdentity brand) => brand.Id;
 
     public override void CheckBrand(DistributionIdentity brand) => MacNames.Check(brand.Name);

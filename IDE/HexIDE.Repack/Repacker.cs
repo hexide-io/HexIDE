@@ -22,9 +22,6 @@ internal abstract class RepackTarget
     /// <summary>What the copied build is called in the output.</summary>
     public virtual string PayloadName(DistributionIdentity brand) => "app";
 
-    /// <summary>The files that aren't required to stay as published, relative to the build's root.</summary>
-    public virtual IReadOnlyList<string> ChangedFiles => [StockExecutable];
-
     /// <summary>The executable's name once it is the brand's.</summary>
     public abstract string ExecutableName(DistributionIdentity brand);
 
@@ -189,7 +186,7 @@ internal static class Repacker
 
             var removedSignature = target.FinishExecutable(Path.Combine(programs, executableName), stockExecutable, brand);
 
-            Payload.VerifyUnchanged(input, app, except: target.ChangedFiles);
+            Payload.VerifyUnchanged(input, app, except: target.StockExecutable);
             target.WriteInstallerInputs(staging, brand, executableName, stockExecutable);
 
             Directory.Move(staging, output);
@@ -291,15 +288,15 @@ internal static class Payload
     }
 
     /// <summary>
-    /// Everything not named is required to be what was published, byte for byte. So are its permissions: a helper
-    /// program that loses its execute bit doesn't fail, it quietly stops being used.
+    /// Everything but the executable is required to be what was published, byte for byte. So are its permissions: a
+    /// helper program that loses its execute bit doesn't fail, it quietly stops being used.
     /// </summary>
-    public static void VerifyUnchanged(string source, string destination, IReadOnlyList<string> except)
+    public static void VerifyUnchanged(string source, string destination, string except)
     {
         foreach (var file in Directory.EnumerateFiles(source, "*", Everything))
         {
             var relative = Path.GetRelativePath(source, file);
-            if (!except.Any(name => string.Equals(relative, name, PathComparison)))
+            if (!string.Equals(relative, except, PathComparison))
                 VerifySame(file, Path.Combine(destination, relative), relative);
         }
     }

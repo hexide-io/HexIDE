@@ -258,6 +258,15 @@ public sealed class MacRepackerTests : IDisposable
         check.Should().Throw<RepackException>().Which.Message.Should().Contain(reason);
     }
 
+    [UnixOnlyFact]
+    public void A_run_with_a_name_that_cannot_be_a_bundles_name_is_refused()
+    {
+        WriteStock();
+        WriteBrand(name: "Acme: IDE");
+
+        ShouldRefuse("':'");
+    }
+
     [Fact]
     public void A_name_Windows_would_refuse_is_fine_for_a_bundle()
     {
