@@ -209,6 +209,12 @@ status bar, because a message the user never sees was the bug and a message with
 is the next one. The status-bar prefix is localized (with a separate error form); the server’s
 message text stays as sent. The log keeps its English connection tag.
 
+The window also offers Add and Edit for user language-server definitions and Customize for bundled
+ones (#1209). Its field form validates through the configuration loader and previews the full command
+before Save records it as seen. The JSONC file remains authoritative: saves patch only changed values,
+preserve unrelated entries and comments, and refuse a file changed since the form opened. See
+[editing connections](language-servers.md#editing-in-the-window). File watching and Test connection remain deferred.
+
 Server-card labels share a content-sized column, keeping their values aligned with a gap even
 for longer translations. State ages refresh once per second while the view is visible; the
 view stops its timer when hidden or detached (#2865, #2866). Switching the IDE language

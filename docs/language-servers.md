@@ -1,7 +1,7 @@
 # Attaching a language server
 
 HexIDE ships a language server for VB6 and will talk to others you attach yourself. Servers are
-configuration, not code: you add one by writing a file, and the bundled VB6 server is an ordinary entry in
+configuration, not code: you add one in Tools → Language & Debug Servers or by writing a file, and the bundled VB6 server is an ordinary entry in
 that file's defaults rather than a special case beside it — so you can replace it, or switch it off.
 
 ## Where the file lives
@@ -21,12 +21,35 @@ instead, which is the way to try a server without changing the configuration you
 > [#280](https://github.com/hexide-io/HexIDE/issues/280) fixed that: the paths above are now what HexIDE
 > actually uses, and setting `XDG_CONFIG_HOME` is a preference rather than a workaround.
 
-It does not exist until you create it. **Deleting it restores the defaults**, which is the intended way
+It does not exist until you create it or save an entry in the window. **Deleting it restores the defaults**, which is the intended way
 to undo an experiment that went wrong: the bundled server is compiled in, so no edit to this file can
 leave you without VB6 support permanently.
 
 Changes take effect on restart. Data applies live in HexIDE — themes, keymaps, languages — and code does
 not; a language server is a process, so it belongs to the second group.
+
+## Editing in the window
+
+Tools → Language & Debug Servers offers **Add** and **Edit** for user entries, and **Customize** for
+bundled entries. The same form covers the entry fields below, including capture limits, workspace-file
+and project-import declarations. Field names use the JSON spelling so they match this reference.
+Fields marked JSON accept JSON values (including `null`); other fields accept plain text. Clearing a
+previously written value writes `null`. A new field left blank stays absent. Existing entry ids are read-only.
+
+Opening the form focuses its first field. Only the fields scroll; validation problems, the command
+preview and Save stay below them while you edit. Cancel or Save returns to the server list.
+
+Validation uses the same loader and configuration-problem messages as the file. The form shows the full
+command with arguments and environment, resolving pipe placeholders against the current project. Without
+a project folder, workspace placeholders stay visible with an explanation. Nothing starts from the form.
+**Save** is consent to the displayed command and remembers its command identity, including arguments and
+environment. Changes take effect on restart.
+
+A bundled entry is read-only. Customize writes only the fields changed from its defaults, plus its id;
+normal layering rules still apply. Saving patches only changed values: other entries, unknown fields,
+and comments remain as written, including unknown fields inside the nested declarations. If the file
+changes while the form is open, saving refuses to overwrite it and asks you to reopen the form.
+Cancel writes nothing. Test connection and automatic refresh of hand-edits are not available yet.
 
 ## A worked example
 
@@ -368,7 +391,6 @@ verbatim after a translated explanation. Logs retain English messages.
 - **Per-project configuration.** Attaching a server is a decision about what code runs on your machine,
   and a per-project file is written by whoever wrote the project.
 - **Discovery of servers already installed.** Nothing scans your machine for language servers.
-- **A user interface.** Today this file is the whole of it.
 
 For an incoming WebSocket, set `"websocketRole": "listen"` and an endpoint with a trailing slash
 (e.g. `ws://localhost:1234/lsp/`). HexIDE owns that HTTP listener until teardown and accepts one

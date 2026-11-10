@@ -1,0 +1,33 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ls="clr-namespace:HexIDE.Tools.LanguageServers"
+             x:Class="HexIDE.Tools.LanguageServers.LanguageServerEditorView"
+             x:DataType="ls:LanguageServerEditorViewModel">
+    <Grid RowDefinitions="*,Auto" RowSpacing="8">
+        <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+            <StackPanel Spacing="8">
+                <TextBlock Text="{DynamicResource Str.Tool.LanguageServers.Editor.Help}" TextWrapping="Wrap" />
+                <ItemsControl ItemsSource="{CompiledBinding Fields}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="ls:LanguageServerFieldViewModel">
+                            <StackPanel Margin="0,3">
+                                <StackPanel Orientation="Horizontal" Spacing="8"><TextBlock Text="{CompiledBinding Name}" /><TextBlock Text="JSON" IsVisible="{CompiledBinding IsJson}" Opacity="0.7" /></StackPanel>
+                                <TextBox Text="{CompiledBinding Text, Mode=TwoWay}" IsReadOnly="{CompiledBinding IsReadOnly}"
+                                         AutomationProperties.Name="{CompiledBinding Name}" />
+                            </StackPanel>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </StackPanel>
+        </ScrollViewer>
+        <StackPanel Grid.Row="1" Spacing="4">
+            <SelectableTextBlock Text="{CompiledBinding Problems}" TextWrapping="Wrap" />
+            <TextBlock Text="{DynamicResource Str.Tool.LanguageServers.Editor.Command}" FontWeight="Bold" />
+            <SelectableTextBlock Text="{CompiledBinding Preview}" TextWrapping="Wrap" FontFamily="Courier New" />
+            <StackPanel Orientation="Horizontal" Spacing="8">
+                <Button Content="{DynamicResource Str.Tool.LanguageServers.Editor.Save}" Command="{CompiledBinding SaveCommand}" />
+                <Button IsCancel="True" Content="{DynamicResource Str.Dialog.MessageBox.Button.Cancel}" Command="{CompiledBinding CancelCommand}" />
+            </StackPanel>
+        </StackPanel>
+    </Grid>
+</UserControl>

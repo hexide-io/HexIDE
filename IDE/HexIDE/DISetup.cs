@@ -217,6 +217,15 @@ public partial class DISetup
             .Bind<ITypeLibraryService>().As(Singleton).To<TypeLibraryService>()
             .Bind<IComponentRegistry>().As(Singleton).To<ComponentRegistry>()
             // LSP
+            .Bind<LanguageServerEditorStore>().As(Singleton).To(ctx =>
+            {
+                ctx.Inject<ILspServerLocator>(out var locator);
+                ctx.Inject<ILoggerFactory>(out var loggerFactory);
+                ctx.Inject<IWorkspaceArtifactProviderRegistry>(out var providers);
+                var logger = loggerFactory.CreateLogger<LanguageServerConfigLoader>();
+                return new LanguageServerEditorStore(LanguageServerConfigLoader.DefaultFilePath(),
+                    LanguageServerDefaults.For(locator, logger), logger, new LanguageServerCommandStore(), providers);
+            })
             // The configuration, read exactly once for the session.
             //
             // It used to be read inside the router's own factory, which was fine until the capture needed

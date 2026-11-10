@@ -2,6 +2,7 @@
   "name": "English (United Kingdom)",
   "direction": "ltr",
   "strings": {
+    "Str.Tool.LanguageServers.Editor.Customise": "Customise",
     "Str.Tool.LanguageServers.Problem.UnknownFields": "Unrecognised fields: {0}. Ignored — check the spelling.",
     "Str.Tool.LanguageServers.Problem.UnknownField": "Unrecognised field: {0}. Ignored — check the spelling.",
     "Str.Tool.LanguageServers.Problem.ImportUnknownFields": "Unrecognised fields in {0}: {1}.",
