@@ -2700,6 +2700,36 @@ and cancel after a 250 ms budget with no edits on timeout.
 - **WHEN** the on-type formatting request exhausts its budget
 - **THEN** the client sends `$/cancelRequest` for that request and returns no edits
 
+### Requirement: Edit language-server definitions through a field form
+The Language & Debug Servers window SHALL offer Add and Edit for user entries and Customize for bundled
+entries. The form SHALL cover every documented entry field, validate while typing with the configuration
+loader, and show the full command, arguments, environment and resolved pipe placeholders before saving.
+Unresolved workspace placeholders SHALL remain visible with an explanation. Saving SHALL count the
+command identity as seen. The form SHALL NOT start a process.
+
+Saving SHALL patch only the changed values of that entry, preserving unrelated entries, unknown fields
+and comments. Customize SHALL write only changed fields and the bundled id. An existing entry id SHALL
+be read-only. A file changed since the form opened SHALL NOT be overwritten.
+
+#### Scenario: Edit in a short tool pane
+- **WHEN** Add, Edit or Customize opens a form taller than the tool pane
+- **THEN** the first field receives focus and is brought into view
+- **AND** only the fields scroll, keeping problems, command preview and Save visible
+
+#### Scenario: Customize a bundled server
+- **WHEN** the user changes only its arguments and saves
+- **THEN** the user entry contains only its id and arguments
+- **AND** other fields continue to inherit through the existing layering rules
+
+#### Scenario: Edit a file with comments and unknown fields
+- **WHEN** a user changes one command
+- **THEN** only that command value changes in the file
+- **AND** saving remembers the command identity including arguments and environment
+
+#### Scenario: A hand edit races the form
+- **WHEN** the file changes after the form opens
+- **THEN** saving asks the user to reopen the form and leaves the hand edit untouched
+
 ### Requirement: TCP language-server transport
 
 The client SHALL accept `transport: "tcp"` with a `tcp://host:port` endpoint and `tcpRole`

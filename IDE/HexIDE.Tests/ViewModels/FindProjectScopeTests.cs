@@ -10,6 +10,7 @@ using HexIDE.IDE;
 using HexIDE.Localization;
 using HexIDE.Lsp.Messages;
 using HexIDE.Runtime.Components;
+using HexIDE.Runtime.Serialization;
 using HexIDE.Runtime.ProjectElements;
 using HexIDE.VisualDesigner;
 using LspRange = HexIDE.Lsp.Messages.Range;
@@ -37,6 +38,7 @@ public partial class FindReplaceViewModelTests : IDisposable
     {
         var localization = Substitute.For<ILocalizationService>();
         localization.GetString(Arg.Any<string>()).Returns(call => call.Arg<string>());
+        localization.GetString("Str.FindReplace.Msg.ReplacementsWithFilesLeftOut").Returns("{0} replaced; {1} files left out.");
         localization.GetString("Str.FindReplace.Msg.ScopeCurrentProject").Returns("Current Project ({0})");
         _documentDockService.OpenDocuments.Returns(_findOpen);
         _windowManager.MessageBox(Arg.Any<string>(), Arg.Any<string>(), MessageBoxButtons.YesNo,
@@ -241,6 +243,80 @@ public partial class FindReplaceViewModelTests : IDisposable
         _findOpen.Should().HaveCount(accept ? 2 : 0);
         if (accept)
             _findOpen.OfType<CodeEditorViewModel>().Should().OnlyContain(editor => editor.Document.Text.Contains("changed"));
+    }
+
+    [AvaloniaTheory]
+    [InlineData(false, false)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public async Task CrossFileReplaceAll_LeavesOutUnsaveableForms(bool opened, bool activeForm)
+    {
+        var project = SearchProject("P");
+        var module = SearchModule(project, "M", "needle needle");
+        var form = new FormDefinition(project, FormComponentClass.Instance, "needle");
+        form.UpdateCode("needle");
+        form.MarkUnfaithfulToSave(UnfaithfulSaveCause.NestedContainers, "flattened menu");
+        project.AddForm(form);
+        // A held form with no match has nothing to leave out, so it isn't counted.
+        var quiet = new FormDefinition(project, FormComponentClass.Instance, "Quiet");
+        quiet.UpdateCode("nothing to find");
+        quiet.MarkUnfaithfulToSave(UnfaithfulSaveCause.NestedContainers, "flattened menu");
+        project.AddForm(quiet);
+        using var held = CreateMockEditor("").Initialize(form);
+        held.Document.Insert(held.Document.TextLength, "' history");
+        held.Document.UndoStack.Undo();
+        var before = held.Document.Text;
+        _findEditors.When(service => service.EditCode(form)).Do(_ =>
+        {
+            _findOpen.Add(held);
+            SetActiveEditor(held);
+        });
+        using var writable = CreateMockEditor("").Initialize(module);
+        _findOpen.Add(writable);
+        if (opened) _findOpen.Add(held);
+        SetActiveEditor(activeForm ? held : writable);
+        var sut = ProjectFind();
+        sut.ReplaceText = "changed";
+
+        await sut.ReplaceAllAsync();
+
+        writable.BufferBody.Should().Be("changed changed");
+        held.Document.Text.Should().Be(before);
+        held.Document.UndoStack.CanUndo.Should().BeFalse();
+        held.Document.UndoStack.CanRedo.Should().BeTrue();
+        held.Document.UndoStack.Redo();
+        held.Document.Text.Should().Be(before + "' history");
+        form.Code.Should().Be("needle");
+        _findEditors.DidNotReceive().EditCode(form);
+        await _windowManager.Received(1).MessageBox("2 replaced; 1 files left out.",
+            Arg.Any<string>(), MessageBoxButtons.Ok, MessageBoxIcon.Information);
+        await _windowManager.DidNotReceive().MessageBox(Arg.Any<string>(), Arg.Any<string>(),
+            MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+    }
+
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ProjectFindStillSearchesUnsaveableForms(bool opened)
+    {
+        var project = SearchProject("P");
+        var form = new FormDefinition(project, FormComponentClass.Instance, "F");
+        form.UpdateCode("needle");
+        form.MarkUnfaithfulToSave(UnfaithfulSaveCause.NestedContainers, "flattened menu");
+        project.AddForm(form);
+        using var held = CreateMockEditor("").Initialize(form);
+        if (opened) _findOpen.Add(held);
+        _findEditors.When(service => service.EditCode(form)).Do(_ =>
+        {
+            _findOpen.Add(held);
+            SetActiveEditor(held);
+        });
+        SetActiveEditor(held);
+        var sut = ProjectFind();
+
+        await sut.FindNextAsync();
+
+        held.Document.GetText(held.SelectionStart, held.SelectionLength).Should().Be("needle");
     }
 
     [AvaloniaTheory]

@@ -2,6 +2,8 @@
   "name": "Estonian",
   "direction": "ltr",
   "strings": {
+    "Str.AIChat.Refusal": "Teenusepakkuja keeldus sellest päringust.",
+    "Str.AIChat.TokenLimit": "Vastus jõudis tokenite piiranguni ja on mittetäielik.",
     "Str.Startup.PlatformSummary": "Ainult Linux. Kuvamootor: x11 (vaikimisi), auto või wayland.",
     "Str.Shell.NotImplemented": "See funktsioon pole veel teostatud",
     "Str.AIChat.Stop": "Peata",
@@ -945,6 +947,7 @@
     "Str.FindReplace.Msg.ProtectedOnly": "Otsitav tekst '{0}' esineb ainult faili päises või protseduuri Attribute-ridades. Otsing jätab need alad vahele, sest neid muudab ainult IDE.",
     "Str.FindReplace.Msg.ReplacementsWithSkipped": "Tehti {0} asendust; {1} vastet jäeti vahele päises või protseduuri Attribute-ridades, mida muudab ainult IDE.",
     "Str.FindReplace.Msg.ReplacementsMade": "Tehti {0} asendust.",
+    "Str.FindReplace.Msg.ReplacementsWithFilesLeftOut": "Tehti {0} asendust; {1} faili jäeti välja, sest HexIDE ei saa neid veel täpselt salvestada.",
     "Str.FindReplace.Msg.InvalidRegex": "Vigane regulaaravaldise muster.",
     "Str.FindReplace.Msg.NothingToSearch": "Siin pole midagi otsida. Otsing töötab koodiakendes ja projekti kaasatud tekstifailides.",
     "Str.Vb6Toolchain.Vb6NotFound": "VB6.EXE-d ei leitud. Paigalda VB6 vaikeasukohta või määra keskkonnamuutuja VB6_EXE.",
@@ -1174,6 +1177,14 @@
     "Str.Options.Formatting.Token.Identifier": "Identifikaator",
     "Str.Options.Formatting.Token.MetadataKeyword": "Metaandmete võtmesõna",
     "Str.Project.AlreadyOpen": "Projekt {0} on juba avatud.",
-    "Str.Options.Addins.Overview": "Lisandmoodulid laiendavad HexIDE tööriistade ja sätetega. Paigaldamiseks paki allkirjastatud pakett eraldi kausta allolevas kataloogis ja taaskäivita HexIDE. Haldamiseks vali lisandmoodul puust."
+    "Str.Options.Addins.Overview": "Lisandmoodulid laiendavad HexIDE tööriistade ja sätetega. Paigaldamiseks paki allkirjastatud pakett eraldi kausta allolevas kataloogis ja taaskäivita HexIDE. Haldamiseks vali lisandmoodul puust.",
+    "Str.Tool.LanguageServers.Editor.Customise": "Kohanda",
+    "Str.Tool.LanguageServers.Editor.Help": "Tühi väärtus tühjendab välja. JSON-väljad võtavad JSON-väärtusi. Salvestamine jätab alloleva käsu meelde; rakendamiseks taaskäivitage.",
+    "Str.Tool.LanguageServers.Editor.Command": "Lahendatud käsk (koos argumentidega)",
+    "Str.Tool.LanguageServers.Editor.Save": "Salvesta",
+    "Str.Tool.LanguageServers.Editor.DuplicateId": "See tunnus on juba olemas. Muutke või kohandage seda.",
+    "Str.Tool.LanguageServers.Editor.InvalidJson": "Vigane JSON: {0}",
+    "Str.Tool.LanguageServers.Editor.NoWorkspace": "Tööruumi kohatäitjad ootavad projekti kausta valimist.",
+    "Str.Tool.LanguageServers.Editor.FileChanged": "Fail on muutunud. Avage vorm enne salvestamist uuesti."
   }
 }

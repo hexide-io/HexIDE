@@ -2,6 +2,8 @@
   "name": "Polish",
   "direction": "ltr",
   "strings": {
+    "Str.AIChat.Refusal": "Dostawca odrzucił to żądanie.",
+    "Str.AIChat.TokenLimit": "Odpowiedź osiągnęła limit tokenów i jest niepełna.",
     "Str.Startup.PlatformSummary": "Tylko Linux. Mechanizm wyświetlania: x11 (domyślny), auto lub wayland.",
     "Str.Shell.NotImplemented": "Ta funkcja nie została jeszcze zaimplementowana",
     "Str.AIChat.Stop": "Zatrzymaj",
@@ -945,6 +947,7 @@
     "Str.FindReplace.Msg.ProtectedOnly": "Szukany tekst „{0}” występuje tylko w nagłówku pliku lub wierszach Attribute procedury. Wyszukiwanie pomija te obszary, ponieważ zmienia je tylko IDE.",
     "Str.FindReplace.Msg.ReplacementsWithSkipped": "Wykonano {0} zamian; pominięto {1} dopasowań w nagłówku lub wierszach Attribute procedur, które zmienia tylko IDE.",
     "Str.FindReplace.Msg.ReplacementsMade": "Liczba dokonanych zamian: {0}.",
+    "Str.FindReplace.Msg.ReplacementsWithFilesLeftOut": "Wykonano {0} zamian; pominięto {1} plików, ponieważ HexIDE nie potrafi ich jeszcze wiernie zapisać.",
     "Str.FindReplace.Msg.InvalidRegex": "Nieprawidłowy wzorzec wyrażenia regularnego.",
     "Str.FindReplace.Msg.NothingToSearch": "Nie ma tu czego przeszukiwać. Znajdź działa w oknach kodu i w plikach tekstowych dołączonych do projektu.",
     "Str.Vb6Toolchain.Vb6NotFound": "Nie znaleziono pliku VB6.EXE. Zainstaluj VB6 w domyślnej lokalizacji lub ustaw zmienną środowiskową VB6_EXE.",
@@ -1174,6 +1177,14 @@
     "Str.Options.Formatting.Token.Identifier": "Identyfikator",
     "Str.Options.Formatting.Token.MetadataKeyword": "Słowo kluczowe metadanych",
     "Str.Project.AlreadyOpen": "Projekt {0} jest już otwarty.",
-    "Str.Options.Addins.Overview": "Dodatki rozszerzają HexIDE o narzędzia i ustawienia. Aby zainstalować dodatek, rozpakuj podpisany pakiet do osobnego folderu w poniższym katalogu i uruchom ponownie HexIDE. Wybierz dodatek w drzewie, aby nim zarządzać."
+    "Str.Options.Addins.Overview": "Dodatki rozszerzają HexIDE o narzędzia i ustawienia. Aby zainstalować dodatek, rozpakuj podpisany pakiet do osobnego folderu w poniższym katalogu i uruchom ponownie HexIDE. Wybierz dodatek w drzewie, aby nim zarządzać.",
+    "Str.Tool.LanguageServers.Editor.Customise": "Dostosuj",
+    "Str.Tool.LanguageServers.Editor.Help": "Pusta wartość czyści pole. Pola JSON przyjmują wartości JSON. Zapisanie zapamiętuje polecenie poniżej; uruchom ponownie, aby zastosować.",
+    "Str.Tool.LanguageServers.Editor.Command": "Rozwinięte polecenie (z argumentami)",
+    "Str.Tool.LanguageServers.Editor.Save": "Zapisz",
+    "Str.Tool.LanguageServers.Editor.DuplicateId": "Ten identyfikator już istnieje. Edytuj go lub dostosuj.",
+    "Str.Tool.LanguageServers.Editor.InvalidJson": "Nieprawidłowy JSON: {0}",
+    "Str.Tool.LanguageServers.Editor.NoWorkspace": "Symbole obszaru roboczego czekają na wybór folderu projektu.",
+    "Str.Tool.LanguageServers.Editor.FileChanged": "Plik się zmienił. Otwórz formularz ponownie przed zapisaniem."
   }
 }

@@ -2,6 +2,8 @@
   "name": "Lithuanian",
   "direction": "ltr",
   "strings": {
+    "Str.AIChat.Refusal": "Teikėjas atmetė šią užklausą.",
+    "Str.AIChat.TokenLimit": "Atsakymas pasiekė žetonų ribą ir yra neišsamus.",
     "Str.Startup.PlatformSummary": "Tik Linux. Vaizdavimo posistemė: x11 (numatytoji), auto arba wayland.",
     "Str.Shell.NotImplemented": "Ši funkcija dar neįgyvendinta",
     "Str.AIChat.Stop": "Stabdyti",
@@ -945,6 +947,7 @@
     "Str.FindReplace.Msg.ProtectedOnly": "Ieškomas tekstas „{0}“ yra tik failo antraštėje arba procedūros Attribute eilutėse. Paieška praleidžia šias sritis, nes jas keičia tik IDE.",
     "Str.FindReplace.Msg.ReplacementsWithSkipped": "Atlikta pakeitimų: {0}; praleista atitikmenų antraštėje arba procedūros Attribute eilutėse, kurias keičia tik IDE: {1}.",
     "Str.FindReplace.Msg.ReplacementsMade": "Atlikta pakeitimų: {0}.",
+    "Str.FindReplace.Msg.ReplacementsWithFilesLeftOut": "Atlikta pakeitimų: {0}; praleista failų: {1}, nes HexIDE dar negali jų tiksliai išsaugoti.",
     "Str.FindReplace.Msg.InvalidRegex": "Netinkamas reguliariojo reiškinio šablonas.",
     "Str.FindReplace.Msg.NothingToSearch": "Čia nėra ko ieškoti. Paieška veikia kodo languose ir prie projekto pridėtuose tekstiniuose failuose.",
     "Str.Vb6Toolchain.Vb6NotFound": "VB6.EXE nerastas. Įdiekite VB6 numatytojoje vietoje arba nustatykite aplinkos kintamąjį VB6_EXE.",
@@ -1174,6 +1177,14 @@
     "Str.Options.Formatting.Token.Identifier": "Identifikatorius",
     "Str.Options.Formatting.Token.MetadataKeyword": "Metaduomenų raktažodis",
     "Str.Project.AlreadyOpen": "Projektas {0} jau atidarytas.",
-    "Str.Options.Addins.Overview": "Priedai papildo HexIDE įrankiais ir nuostatomis. Norėdami įdiegti, išskleiskite pasirašytą priedo paketą į atskirą aplanką toliau nurodytame kataloge ir paleiskite HexIDE iš naujo. Pasirinkite priedą medyje, kad jį tvarkytumėte."
+    "Str.Options.Addins.Overview": "Priedai papildo HexIDE įrankiais ir nuostatomis. Norėdami įdiegti, išskleiskite pasirašytą priedo paketą į atskirą aplanką toliau nurodytame kataloge ir paleiskite HexIDE iš naujo. Pasirinkite priedą medyje, kad jį tvarkytumėte.",
+    "Str.Tool.LanguageServers.Editor.Customise": "Tinkinti",
+    "Str.Tool.LanguageServers.Editor.Help": "Tuščia reikšmė išvalo lauką. JSON laukai priima JSON reikšmes. Išsaugojimas įsimena toliau pateiktą komandą; pritaikykite paleidę iš naujo.",
+    "Str.Tool.LanguageServers.Editor.Command": "Išspręsta komanda (su argumentais)",
+    "Str.Tool.LanguageServers.Editor.Save": "Išsaugoti",
+    "Str.Tool.LanguageServers.Editor.DuplicateId": "Šis ID jau yra. Redaguokite arba tinkinkite jį.",
+    "Str.Tool.LanguageServers.Editor.InvalidJson": "Netinkamas JSON: {0}",
+    "Str.Tool.LanguageServers.Editor.NoWorkspace": "Darbo srities vietaženkliai laukia projekto aplanko pasirinkimo.",
+    "Str.Tool.LanguageServers.Editor.FileChanged": "Failas pasikeitė. Prieš išsaugodami atverkite formą iš naujo."
   }
 }

@@ -2,6 +2,8 @@
   "name": "Chinese (Simplified)",
   "direction": "ltr",
   "strings": {
+    "Str.AIChat.Refusal": "提供商拒绝了此请求。",
+    "Str.AIChat.TokenLimit": "回复已达到令牌上限，内容不完整。",
     "Str.Startup.PlatformSummary": "仅限 Linux。显示后端：x11（默认）、auto 或 wayland。",
     "Str.Shell.NotImplemented": "此功能尚未实现",
     "Str.AIChat.Stop": "停止",
@@ -945,6 +947,7 @@
     "Str.FindReplace.Msg.ProtectedOnly": "搜索文本 '{0}' 仅出现在文件头或过程的 Attribute 行中。这些区域仅由 IDE 更改，因此搜索会跳过它们。",
     "Str.FindReplace.Msg.ReplacementsWithSkipped": "已替换 {0} 处；跳过了文件头或过程 Attribute 行中的 {1} 处匹配，这些区域仅由 IDE 更改。",
     "Str.FindReplace.Msg.ReplacementsMade": "已完成 {0} 处替换。",
+    "Str.FindReplace.Msg.ReplacementsWithFilesLeftOut": "已完成 {0} 处替换；已跳过 {1} 个文件，因为 HexIDE 尚无法忠实保存它们。",
     "Str.FindReplace.Msg.InvalidRegex": "正则表达式模式无效。",
     "Str.FindReplace.Msg.NothingToSearch": "这里没有可查找的内容。查找适用于代码窗口和项目附带的文本文件。",
     "Str.Vb6Toolchain.Vb6NotFound": "未找到 VB6.EXE。请将 VB6 安装到默认位置，或设置 VB6_EXE 环境变量。",
@@ -1174,6 +1177,14 @@
     "Str.Options.Formatting.Token.Identifier": "标识符",
     "Str.Options.Formatting.Token.MetadataKeyword": "元数据关键字",
     "Str.Project.AlreadyOpen": "项目 {0} 已打开。",
-    "Str.Options.Addins.Overview": "加载项为 HexIDE 添加工具和设置。要安装加载项，请将已签名的加载项包解压到下方目录中的独立文件夹，然后重启 HexIDE。在树中选择加载项即可管理。"
+    "Str.Options.Addins.Overview": "加载项为 HexIDE 添加工具和设置。要安装加载项，请将已签名的加载项包解压到下方目录中的独立文件夹，然后重启 HexIDE。在树中选择加载项即可管理。",
+    "Str.Tool.LanguageServers.Editor.Customise": "自定义",
+    "Str.Tool.LanguageServers.Editor.Help": "留空可清除值。JSON 字段接受 JSON 值。保存将记住下方命令；重启后生效。",
+    "Str.Tool.LanguageServers.Editor.Command": "解析后的命令（包括参数）",
+    "Str.Tool.LanguageServers.Editor.Save": "保存",
+    "Str.Tool.LanguageServers.Editor.DuplicateId": "此 ID 已存在。请编辑或自定义该条目。",
+    "Str.Tool.LanguageServers.Editor.InvalidJson": "无效的 JSON：{0}",
+    "Str.Tool.LanguageServers.Editor.NoWorkspace": "选择项目文件夹后才能解析工作区占位符。",
+    "Str.Tool.LanguageServers.Editor.FileChanged": "文件已更改。请重新打开表单后再保存。"
   }
 }

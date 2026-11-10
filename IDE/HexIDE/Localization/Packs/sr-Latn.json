@@ -2,6 +2,8 @@
   "name": "Serbian (Latin)",
   "direction": "ltr",
   "strings": {
+    "Str.AIChat.Refusal": "Pružalac je odbio ovaj zahtev.",
+    "Str.AIChat.TokenLimit": "Odgovor je dostigao ograničenje tokena i nije potpun.",
     "Str.Startup.PlatformSummary": "Samo Linux. Sistem prikaza: x11 (podrazumevano), auto ili wayland.",
     "Str.Shell.NotImplemented": "Ova funkcija još nije implementirana",
     "Str.AIChat.Stop": "Zaustavi",
@@ -945,6 +947,7 @@
     "Str.FindReplace.Msg.ProtectedOnly": "Traženi tekst „{0}“ pojavljuje se samo u zaglavlju datoteke ili redovima Attribute procedure. Pretraga preskače ove oblasti jer ih menja samo IDE.",
     "Str.FindReplace.Msg.ReplacementsWithSkipped": "Izvršenih zamena: {0}; preskočenih podudaranja u zaglavlju ili redovima Attribute procedure koje menja samo IDE: {1}.",
     "Str.FindReplace.Msg.ReplacementsMade": "Izvršenih zamena: {0}.",
+    "Str.FindReplace.Msg.ReplacementsWithFilesLeftOut": "Izvršeno {0} zamena; izostavljeno {1} datoteka jer ih HexIDE još ne može verno sačuvati.",
     "Str.FindReplace.Msg.InvalidRegex": "Nevažeći obrazac regularnog izraza.",
     "Str.FindReplace.Msg.NothingToSearch": "Ovde nema sadržaja za pretragu. Pronalaženje radi u prozorima koda i tekstualnim datotekama projekta.",
     "Str.Vb6Toolchain.Vb6NotFound": "VB6.EXE nije pronađen. Instalirajte VB6 na podrazumevanu lokaciju ili podesite promenljivu okruženja VB6_EXE.",
@@ -1174,6 +1177,14 @@
     "Str.Options.Formatting.Token.Identifier": "Identifikator",
     "Str.Options.Formatting.Token.MetadataKeyword": "Ključna reč metapodataka",
     "Str.Project.AlreadyOpen": "Projekat {0} je već otvoren.",
-    "Str.Options.Addins.Overview": "Dodaci proširuju HexIDE alatkama i podešavanjima. Za instalaciju raspakujte potpisani paket u zasebnu fasciklu u direktorijumu ispod i ponovo pokrenite HexIDE. Izaberite dodatak u stablu da biste njime upravljali."
+    "Str.Options.Addins.Overview": "Dodaci proširuju HexIDE alatkama i podešavanjima. Za instalaciju raspakujte potpisani paket u zasebnu fasciklu u direktorijumu ispod i ponovo pokrenite HexIDE. Izaberite dodatak u stablu da biste njime upravljali.",
+    "Str.Tool.LanguageServers.Editor.Customise": "Prilagodi",
+    "Str.Tool.LanguageServers.Editor.Help": "Prazna vrednost briše polje. JSON polja prihvataju JSON vrednosti. Čuvanje pamti naredbu ispod; ponovo pokrenite za primenu.",
+    "Str.Tool.LanguageServers.Editor.Command": "Razrešena naredba (sa argumentima)",
+    "Str.Tool.LanguageServers.Editor.Save": "Sačuvaj",
+    "Str.Tool.LanguageServers.Editor.DuplicateId": "Ovaj ID već postoji. Uredite ga ili prilagodite.",
+    "Str.Tool.LanguageServers.Editor.InvalidJson": "Neispravan JSON: {0}",
+    "Str.Tool.LanguageServers.Editor.NoWorkspace": "Zamenski simboli radnog prostora čekaju izbor fascikle projekta.",
+    "Str.Tool.LanguageServers.Editor.FileChanged": "Datoteka je promenjena. Ponovo otvorite obrazac pre čuvanja."
   }
 }

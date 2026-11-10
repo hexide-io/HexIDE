@@ -106,6 +106,110 @@ public class GuardedWritersTests : IDisposable
         return NewEditor().Initialize(form);
     }
 
+    [AvaloniaFact]
+    public async Task WholeFileReadOnlyRefusesAddProcedureBeforeItsDialog()
+    {
+        localization.GetString("Str.CodeEditor.FileNotSaved.Banner").Returns("file cannot be saved");
+        var vm = OpenFormHeldReadOnly();
+        var before = vm.Document.Text;
+
+        await vm.AddProcedure();
+
+        vm.Document.Text.Should().Be(before);
+        await windowManager.DidNotReceive().ShowDialog(Arg.Any<HexIDE.Forms.ViewModels.AddProcedureViewModel>());
+        await windowManager.Received().MessageBox("file cannot be saved", Arg.Any<string>(),
+            Arg.Any<MessageBoxButtons>(), MessageBoxIcon.Information);
+    }
+
+    [AvaloniaFact]
+    public async Task WholeFileReadOnlyRefusesAnEventStub()
+    {
+        localization.GetString("Str.CodeEditor.FileNotSaved.Banner").Returns("file cannot be saved");
+        var vm = OpenFormHeldReadOnly();
+        var before = vm.Document.Text;
+
+        typeof(CodeEditorViewModel).GetMethod("InsertEventHandlerStub",
+            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!.Invoke(vm, ["Form", "Load"]);
+
+        vm.Document.Text.Should().Be(before);
+        await windowManager.Received().MessageBox("file cannot be saved", Arg.Any<string>(),
+            Arg.Any<MessageBoxButtons>(), MessageBoxIcon.Information);
+    }
+
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task WholeFileReadOnlyRefusesReplace(bool all)
+    {
+        localization.GetString("Str.CodeEditor.FileNotSaved.Banner").Returns("file cannot be saved");
+        var vm = OpenFormHeldReadOnly();
+        var before = vm.Document.Text;
+        vm.Document.Insert(vm.Document.TextLength, "' undo marker");
+        vm.Document.UndoStack.Undo();
+        var dock = Substitute.For<IDocumentDockService>();
+        dock.ActiveDocument.Returns(vm);
+        dock.OpenDocuments.Returns([vm]);
+        var find = new FindReplaceViewModel(windowManager, dock, localization)
+        {
+            SearchText = "False", ReplaceText = "True", Scope = FindScope.CurrentModule
+        };
+        vm.SelectionStart = before.IndexOf("False", StringComparison.Ordinal);
+        vm.SelectionLength = 5;
+
+        if (all) await find.ReplaceAllAsync();
+        else await find.ReplaceOneAsync();
+
+        vm.Document.Text.Should().Be(before);
+        vm.Document.UndoStack.CanUndo.Should().BeFalse();
+        vm.Document.UndoStack.CanRedo.Should().BeTrue();
+        await windowManager.Received().MessageBox("file cannot be saved", Arg.Any<string>(),
+            Arg.Any<MessageBoxButtons>(), MessageBoxIcon.Information);
+    }
+
+    [AvaloniaFact]
+    public void WholeFileReadOnlyRefusesFormattingFromDocumentOrSave()
+    {
+        localization.GetString("Str.CodeEditor.FileNotSaved.Banner").Returns("file cannot be saved");
+        var vm = OpenFormHeldReadOnly();
+        var before = vm.Document.Text;
+        vm.Document.Insert(vm.Document.TextLength, "' undo marker");
+        vm.Document.UndoStack.Undo();
+
+        vm.ApplyFormatting([new TextEdit(new HexIDE.Lsp.Messages.Range(
+            new Position(0, 0), new Position(vm.Document.LineCount, 0)), before.Replace("False", "True"))]);
+
+        vm.Document.Text.Should().Be(before);
+        vm.Document.UndoStack.CanUndo.Should().BeFalse();
+        vm.Document.UndoStack.CanRedo.Should().BeTrue();
+        windowManager.Received().MessageBox("file cannot be saved", Arg.Any<string>(),
+            Arg.Any<MessageBoxButtons>(), MessageBoxIcon.Information);
+    }
+
+    [AvaloniaFact]
+    public async Task WholeFileReadOnlyRefusesInsertFile()
+    {
+        localization.GetString("Str.CodeEditor.FileNotSaved.Banner").Returns("file cannot be saved");
+        var vm = OpenFormHeldReadOnly();
+        var before = vm.Document.Text;
+        vm.Document.Insert(vm.Document.TextLength, "' undo marker");
+        vm.Document.UndoStack.Undo();
+        var file = System.IO.Path.GetTempFileName();
+        try
+        {
+            await System.IO.File.WriteAllTextAsync(file, "' inserted");
+            windowManager.OpenFilePickerAsync(Arg.Any<Avalonia.Platform.Storage.FilePickerOpenOptions>())
+                .Returns(new[] { file });
+            await vm.InsertFileAsync(vm.Document.TextLength, 0);
+
+            vm.Document.Text.Should().Be(before);
+            vm.Document.UndoStack.CanUndo.Should().BeFalse();
+            vm.Document.UndoStack.CanRedo.Should().BeTrue();
+            await windowManager.Received().MessageBox("file cannot be saved", Arg.Any<string>(),
+                Arg.Any<MessageBoxButtons>(), MessageBoxIcon.Information);
+        }
+        finally { System.IO.File.Delete(file); }
+    }
+
     private CodeEditorViewModel OpenClass()
     {
         var module = TestHelpers.CreateModule(name: "Order", kind: ModuleKind.ClassModule);

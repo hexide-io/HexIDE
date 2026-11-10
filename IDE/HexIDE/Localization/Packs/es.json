@@ -2,6 +2,8 @@
   "name": "Spanish",
   "direction": "ltr",
   "strings": {
+    "Str.AIChat.Refusal": "El proveedor rechazó esta solicitud.",
+    "Str.AIChat.TokenLimit": "La respuesta alcanzó el límite de tokens y está incompleta.",
     "Str.Startup.PlatformSummary": "Solo Linux. Motor gráfico: x11 (predeterminado), auto o wayland.",
     "Str.Shell.NotImplemented": "Esta función aún no está implementada",
     "Str.AIChat.Stop": "Detener",
@@ -945,6 +947,7 @@
     "Str.FindReplace.Msg.ProtectedOnly": "El texto '{0}' solo aparece en la cabecera del archivo o en las líneas Attribute de un procedimiento. La búsqueda omite estas regiones porque solo el IDE las modifica.",
     "Str.FindReplace.Msg.ReplacementsWithSkipped": "Se realizaron {0} sustituciones; se omitieron {1} coincidencias en la cabecera o las líneas Attribute de procedimientos, que solo modifica el IDE.",
     "Str.FindReplace.Msg.ReplacementsMade": "Se realizaron {0} reemplazo(s).",
+    "Str.FindReplace.Msg.ReplacementsWithFilesLeftOut": "{0} reemplazos realizados; {1} archivos omitidos porque HexIDE aún no puede guardarlos fielmente.",
     "Str.FindReplace.Msg.InvalidRegex": "Patrón de expresión regular no válido.",
     "Str.FindReplace.Msg.NothingToSearch": "Aquí no hay nada que buscar. Buscar funciona en ventanas de código y en archivos de texto que incluye el proyecto.",
     "Str.Vb6Toolchain.Vb6NotFound": "No se encontró VB6.EXE. Instale VB6 en la ubicación predeterminada o establezca la variable de entorno VB6_EXE.",
@@ -1174,6 +1177,14 @@
     "Str.Options.Formatting.Token.Identifier": "Identificador",
     "Str.Options.Formatting.Token.MetadataKeyword": "Palabra clave de metadatos",
     "Str.Project.AlreadyOpen": "El proyecto {0} ya está abierto.",
-    "Str.Options.Addins.Overview": "Los complementos amplían HexIDE con herramientas y opciones. Para instalar uno, extraiga un paquete firmado en su propia carpeta dentro del directorio indicado abajo y reinicie HexIDE. Seleccione un complemento en el árbol para administrarlo."
+    "Str.Options.Addins.Overview": "Los complementos amplían HexIDE con herramientas y opciones. Para instalar uno, extraiga un paquete firmado en su propia carpeta dentro del directorio indicado abajo y reinicie HexIDE. Seleccione un complemento en el árbol para administrarlo.",
+    "Str.Tool.LanguageServers.Editor.Customise": "Personalizar",
+    "Str.Tool.LanguageServers.Editor.Help": "Un valor vacío borra el campo. Los campos JSON aceptan valores JSON. Guardar recuerda el comando de abajo; reinicie para aplicar.",
+    "Str.Tool.LanguageServers.Editor.Command": "Comando resuelto (con argumentos)",
+    "Str.Tool.LanguageServers.Editor.Save": "Guardar",
+    "Str.Tool.LanguageServers.Editor.DuplicateId": "Este identificador ya existe. Edítelo o personalícelo.",
+    "Str.Tool.LanguageServers.Editor.InvalidJson": "JSON no válido: {0}",
+    "Str.Tool.LanguageServers.Editor.NoWorkspace": "Los marcadores del espacio de trabajo esperan a que se elija una carpeta de proyecto.",
+    "Str.Tool.LanguageServers.Editor.FileChanged": "El archivo ha cambiado. Vuelva a abrir el formulario antes de guardar."
   }
 }

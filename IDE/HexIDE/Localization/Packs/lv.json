@@ -2,6 +2,8 @@
   "name": "Latvian",
   "direction": "ltr",
   "strings": {
+    "Str.AIChat.Refusal": "Pakalpojuma sniedzējs noraidīja šo pieprasījumu.",
+    "Str.AIChat.TokenLimit": "Atbilde sasniedza tokenu ierobežojumu un ir nepilnīga.",
     "Str.Startup.PlatformSummary": "Tikai Linux. Attēlošanas sistēma: x11 (noklusējums), auto vai wayland.",
     "Str.Shell.NotImplemented": "Šī funkcija vēl nav ieviesta",
     "Str.AIChat.Stop": "Apturēt",
@@ -945,6 +947,7 @@
     "Str.FindReplace.Msg.ProtectedOnly": "Meklējamais teksts '{0}' ir tikai faila galvenē vai procedūras Attribute rindās. Meklēšana šos apgabalus izlaiž, jo tos maina tikai IDE.",
     "Str.FindReplace.Msg.ReplacementsWithSkipped": "Veikto aizstāšanu skaits: {0}; galvenē vai procedūras Attribute rindās izlaisto atbilstību skaits: {1}, jo tās maina tikai IDE.",
     "Str.FindReplace.Msg.ReplacementsMade": "Veikto aizstāšanu skaits: {0}.",
+    "Str.FindReplace.Msg.ReplacementsWithFilesLeftOut": "Veiktas {0} aizstāšanas; izlaisti {1} faili, jo HexIDE vēl nevar tos precīzi saglabāt.",
     "Str.FindReplace.Msg.InvalidRegex": "Nederīgs regulārās izteiksmes šablons.",
     "Str.FindReplace.Msg.NothingToSearch": "Šeit nav nekā, kur meklēt. Meklēšana darbojas koda logos un projekta teksta failos.",
     "Str.Vb6Toolchain.Vb6NotFound": "VB6.EXE netika atrasts. Instalējiet VB6 noklusējuma vietā vai iestatiet vides mainīgo VB6_EXE.",
@@ -1174,6 +1177,14 @@
     "Str.Options.Formatting.Token.Identifier": "Identifikators",
     "Str.Options.Formatting.Token.MetadataKeyword": "Metadatu atslēgvārds",
     "Str.Project.AlreadyOpen": "Projekts {0} jau ir atvērts.",
-    "Str.Options.Addins.Overview": "Pievienojumprogrammas papildina HexIDE ar rīkiem un iestatījumiem. Lai instalētu, izpakojiet parakstītu pakotni atsevišķā mapē tālāk norādītajā direktorijā un restartējiet HexIDE. Atlasiet pievienojumprogrammu kokā, lai to pārvaldītu."
+    "Str.Options.Addins.Overview": "Pievienojumprogrammas papildina HexIDE ar rīkiem un iestatījumiem. Lai instalētu, izpakojiet parakstītu pakotni atsevišķā mapē tālāk norādītajā direktorijā un restartējiet HexIDE. Atlasiet pievienojumprogrammu kokā, lai to pārvaldītu.",
+    "Str.Tool.LanguageServers.Editor.Customise": "Pielāgot",
+    "Str.Tool.LanguageServers.Editor.Help": "Tukša vērtība notīra lauku. JSON lauki pieņem JSON vērtības. Saglabāšana atceras tālāk redzamo komandu; lietošanai restartējiet.",
+    "Str.Tool.LanguageServers.Editor.Command": "Atrisināta komanda (ar argumentiem)",
+    "Str.Tool.LanguageServers.Editor.Save": "Saglabāt",
+    "Str.Tool.LanguageServers.Editor.DuplicateId": "Šis ID jau pastāv. Rediģējiet vai pielāgojiet to.",
+    "Str.Tool.LanguageServers.Editor.InvalidJson": "Nederīgs JSON: {0}",
+    "Str.Tool.LanguageServers.Editor.NoWorkspace": "Darbvietas vietturi gaida projekta mapes izvēli.",
+    "Str.Tool.LanguageServers.Editor.FileChanged": "Fails ir mainījies. Pirms saglabāšanas atveriet veidlapu vēlreiz."
   }
 }

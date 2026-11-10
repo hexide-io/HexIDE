@@ -2,6 +2,8 @@
   "name": "Romanian",
   "direction": "ltr",
   "strings": {
+    "Str.AIChat.Refusal": "Furnizorul a refuzat această cerere.",
+    "Str.AIChat.TokenLimit": "Răspunsul a atins limita de tokenuri și este incomplet.",
     "Str.Startup.PlatformSummary": "Doar Linux. Backend de afișare: x11 (implicit), auto sau wayland.",
     "Str.Shell.NotImplemented": "Această funcționalitate nu este încă implementată",
     "Str.AIChat.Stop": "Oprește",
@@ -945,6 +947,7 @@
     "Str.FindReplace.Msg.ProtectedOnly": "Textul căutat „{0}” apare doar în antetul fișierului sau în liniile Attribute ale unei proceduri. Căutarea omite aceste regiuni deoarece numai IDE-ul le modifică.",
     "Str.FindReplace.Msg.ReplacementsWithSkipped": "{0} înlocuiri efectuate; {1} potriviri omise în antet sau în liniile Attribute ale procedurii, pe care numai IDE-ul le modifică.",
     "Str.FindReplace.Msg.ReplacementsMade": "{0} înlocuiri efectuate.",
+    "Str.FindReplace.Msg.ReplacementsWithFilesLeftOut": "S-au efectuat {0} înlocuiri; {1} fișiere au fost omise deoarece HexIDE nu le poate salva încă fidel.",
     "Str.FindReplace.Msg.InvalidRegex": "Model de expresie regulată nevalid.",
     "Str.FindReplace.Msg.NothingToSearch": "Nu există nimic aici în care să se poată căuta. Căutarea funcționează în ferestrele de cod și în fișierele text incluse în proiect.",
     "Str.Vb6Toolchain.Vb6NotFound": "VB6.EXE nu a fost găsit. Instalează VB6 în locația implicită sau setează variabila de mediu VB6_EXE.",
@@ -1174,6 +1177,14 @@
     "Str.Options.Formatting.Token.Identifier": "Identificator",
     "Str.Options.Formatting.Token.MetadataKeyword": "Cuvânt-cheie de metadate",
     "Str.Project.AlreadyOpen": "Proiectul {0} este deja deschis.",
-    "Str.Options.Addins.Overview": "Programele de completare extind HexIDE cu instrumente și setări. Pentru instalare, extrageți un pachet semnat într-un folder propriu din directorul de mai jos și reporniți HexIDE. Selectați un program de completare în arbore pentru a-l gestiona."
+    "Str.Options.Addins.Overview": "Programele de completare extind HexIDE cu instrumente și setări. Pentru instalare, extrageți un pachet semnat într-un folder propriu din directorul de mai jos și reporniți HexIDE. Selectați un program de completare în arbore pentru a-l gestiona.",
+    "Str.Tool.LanguageServers.Editor.Customise": "Personalizează",
+    "Str.Tool.LanguageServers.Editor.Help": "O valoare goală șterge câmpul. Câmpurile JSON acceptă valori JSON. Salvarea memorează comanda de mai jos; reporniți pentru aplicare.",
+    "Str.Tool.LanguageServers.Editor.Command": "Comanda rezolvată (cu argumente)",
+    "Str.Tool.LanguageServers.Editor.Save": "Salvează",
+    "Str.Tool.LanguageServers.Editor.DuplicateId": "Acest identificator există deja. Editați-l sau personalizați-l.",
+    "Str.Tool.LanguageServers.Editor.InvalidJson": "JSON nevalid: {0}",
+    "Str.Tool.LanguageServers.Editor.NoWorkspace": "Substituenții spațiului de lucru așteaptă alegerea unui dosar de proiect.",
+    "Str.Tool.LanguageServers.Editor.FileChanged": "Fișierul s-a schimbat. Redeschideți formularul înainte de salvare."
   }
 }

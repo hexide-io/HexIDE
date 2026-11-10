@@ -35,6 +35,32 @@ public sealed class ThemeService : IThemeService
         ThemeChanged?.Invoke();
     }
 
+    internal void FollowPlatform(IPlatformSettings platform, SettingsService settings, Action restore)
+    {
+        var following = false;
+        void Update(PlatformColorValues colors)
+        {
+            if (settings.HasExplicitThemeChoice) return;
+            if (colors.ContrastPreference == ColorContrastPreference.High)
+            {
+                following = true;
+                Apply(colors.ThemeVariant == PlatformThemeVariant.Dark ? "HighContrastDark" : "HighContrastLight");
+            }
+            else if (following)
+            {
+                following = false;
+                restore();
+            }
+        }
+
+        platform.ColorValuesChanged += (_, colors) =>
+        {
+            if (Avalonia.Threading.Dispatcher.UIThread.CheckAccess()) Update(colors);
+            else Avalonia.Threading.Dispatcher.UIThread.Post(() => Update(colors));
+        };
+        Update(platform.GetColorValues());
+    }
+
     internal static (ThemePackRecord Pack, ResourceDictionary Resources) PrepareProfileTheme(string source, ProfilePayload payload)
     {
         try

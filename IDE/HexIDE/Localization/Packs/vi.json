@@ -2,6 +2,8 @@
   "name": "Vietnamese",
   "direction": "ltr",
   "strings": {
+    "Str.AIChat.Refusal": "Nhà cung cấp đã từ chối yêu cầu này.",
+    "Str.AIChat.TokenLimit": "Phản hồi đã đạt giới hạn token và chưa hoàn tất.",
     "Str.Startup.PlatformSummary": "Chỉ Linux. Hệ thống hiển thị: x11 (mặc định), auto hoặc wayland.",
     "Str.Shell.NotImplemented": "Tính năng này chưa được triển khai",
     "Str.AIChat.Stop": "Dừng",
@@ -945,6 +947,7 @@
     "Str.FindReplace.Msg.ProtectedOnly": "Văn bản '{0}' chỉ xuất hiện trong phần đầu tệp hoặc các dòng Attribute của thủ tục. Tìm kiếm bỏ qua các vùng này vì chỉ IDE mới thay đổi chúng.",
     "Str.FindReplace.Msg.ReplacementsWithSkipped": "Đã thay thế {0} lần; bỏ qua {1} kết quả trong phần đầu tệp hoặc các dòng Attribute của thủ tục, nơi chỉ IDE mới thay đổi.",
     "Str.FindReplace.Msg.ReplacementsMade": "Đã thực hiện {0} lần thay thế.",
+    "Str.FindReplace.Msg.ReplacementsWithFilesLeftOut": "Đã thực hiện {0} lần thay thế; bỏ qua {1} tệp vì HexIDE chưa thể lưu chúng một cách trung thực.",
     "Str.FindReplace.Msg.InvalidRegex": "Mẫu biểu thức chính quy không hợp lệ.",
     "Str.FindReplace.Msg.NothingToSearch": "Không có gì để tìm kiếm ở đây. Tìm kiếm hoạt động trong cửa sổ mã và trong các tệp văn bản mà dự án bao gồm.",
     "Str.Vb6Toolchain.Vb6NotFound": "Không tìm thấy VB6.EXE. Hãy cài đặt VB6 ở vị trí mặc định hoặc đặt biến môi trường VB6_EXE.",
@@ -1174,6 +1177,14 @@
     "Str.Options.Formatting.Token.Identifier": "Định danh",
     "Str.Options.Formatting.Token.MetadataKeyword": "Từ khóa siêu dữ liệu",
     "Str.Project.AlreadyOpen": "Dự án {0} đã được mở.",
-    "Str.Options.Addins.Overview": "Phần bổ trợ mở rộng HexIDE với các công cụ và thiết lập. Để cài đặt, giải nén gói phần bổ trợ đã ký vào thư mục riêng trong thư mục bên dưới, rồi khởi động lại HexIDE. Chọn phần bổ trợ trong cây để quản lý."
+    "Str.Options.Addins.Overview": "Phần bổ trợ mở rộng HexIDE với các công cụ và thiết lập. Để cài đặt, giải nén gói phần bổ trợ đã ký vào thư mục riêng trong thư mục bên dưới, rồi khởi động lại HexIDE. Chọn phần bổ trợ trong cây để quản lý.",
+    "Str.Tool.LanguageServers.Editor.Customise": "Tùy chỉnh",
+    "Str.Tool.LanguageServers.Editor.Help": "Giá trị trống sẽ xóa trường. Trường JSON nhận giá trị JSON. Lưu sẽ ghi nhớ lệnh bên dưới; khởi động lại để áp dụng.",
+    "Str.Tool.LanguageServers.Editor.Command": "Lệnh đã phân giải (gồm đối số)",
+    "Str.Tool.LanguageServers.Editor.Save": "Lưu",
+    "Str.Tool.LanguageServers.Editor.DuplicateId": "ID này đã tồn tại. Hãy sửa hoặc tùy chỉnh.",
+    "Str.Tool.LanguageServers.Editor.InvalidJson": "JSON không hợp lệ: {0}",
+    "Str.Tool.LanguageServers.Editor.NoWorkspace": "Chỗ giữ chỗ của không gian làm việc chờ chọn thư mục dự án.",
+    "Str.Tool.LanguageServers.Editor.FileChanged": "Tệp đã thay đổi. Mở lại biểu mẫu trước khi lưu."
   }
 }

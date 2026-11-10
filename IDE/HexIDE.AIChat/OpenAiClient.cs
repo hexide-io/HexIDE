@@ -12,12 +12,17 @@ public sealed class StreamChunk
     public string? ContentDelta { get; init; }
     public IReadOnlyList<ToolCall>? FinishedToolCalls { get; init; }
     public bool IsDone { get; init; }
+    public JsonArray? NativeContent { get; init; }
 }
 
 /// <summary>Thin OpenAI-compatible streaming client. No SDK dependencies.</summary>
 public sealed class OpenAiClient : IDisposable
 {
-    private readonly HttpClient _http = new();
+    private readonly HttpClient _http;
+
+    public OpenAiClient() : this(new HttpClient()) { }
+
+    internal OpenAiClient(HttpClient http) => _http = http;
 
     public void Dispose() => _http.Dispose();
 
@@ -37,7 +42,12 @@ public sealed class OpenAiClient : IDisposable
         {
             ["model"]    = modelId,
             ["stream"]   = true,
-            ["messages"] = JsonNode.Parse(JsonSerializer.Serialize(messages)),
+            ["messages"] = new JsonArray(messages.Select(m =>
+            {
+                var copy = (JsonObject)m.DeepClone();
+                copy.Remove("anthropic_content");
+                return (JsonNode)copy;
+            }).ToArray()),
         };
         if (tools.Count > 0)
             body["tools"] = JsonNode.Parse(tools.ToJsonString());
@@ -125,7 +135,7 @@ public sealed class OpenAiClient : IDisposable
     /// permitted only to a loopback host (a local model server such as Ollama or LM Studio); every remote
     /// endpoint must be <c>https</c>.
     /// </summary>
-    private static void RequireSecureEndpoint(string baseUrl)
+    internal static void RequireSecureEndpoint(string baseUrl)
     {
         if (!Uri.TryCreate(baseUrl, UriKind.Absolute, out var uri))
             throw new InvalidOperationException($"AI Chat base URL is not a valid absolute URL: '{baseUrl}'.");

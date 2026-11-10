@@ -2,6 +2,8 @@
   "name": "Ukrainian",
   "direction": "ltr",
   "strings": {
+    "Str.AIChat.Refusal": "Постачальник відхилив цей запит.",
+    "Str.AIChat.TokenLimit": "Відповідь досягла ліміту токенів і є неповною.",
     "Str.Startup.PlatformSummary": "Лише Linux. Система виведення: x11 (типово), auto або wayland.",
     "Str.Shell.NotImplemented": "Цю функцію ще не реалізовано",
     "Str.AIChat.Stop": "Зупинити",
@@ -945,6 +947,7 @@
     "Str.FindReplace.Msg.ProtectedOnly": "Текст '{0}' трапляється лише в заголовку файлу або рядках Attribute процедури. Пошук пропускає ці області, оскільки їх змінює лише IDE.",
     "Str.FindReplace.Msg.ReplacementsWithSkipped": "Виконано замін: {0}; пропущено збігів у заголовку або рядках Attribute процедур: {1}. Ці області змінює лише IDE.",
     "Str.FindReplace.Msg.ReplacementsMade": "Виконано замін: {0}.",
+    "Str.FindReplace.Msg.ReplacementsWithFilesLeftOut": "Виконано замін: {0}; пропущено файлів: {1}, оскільки HexIDE поки не може зберегти їх точно.",
     "Str.FindReplace.Msg.InvalidRegex": "Недійсний шаблон регулярного виразу.",
     "Str.FindReplace.Msg.NothingToSearch": "Тут немає чого шукати. «Знайти» працює у вікнах коду та в текстових файлах, що входять до проєкту.",
     "Str.Vb6Toolchain.Vb6NotFound": "VB6.EXE не знайдено. Установіть VB6 у типовому розташуванні або задайте змінну середовища VB6_EXE.",
@@ -1174,6 +1177,14 @@
     "Str.Options.Formatting.Token.Identifier": "Ідентифікатор",
     "Str.Options.Formatting.Token.MetadataKeyword": "Ключове слово метаданих",
     "Str.Project.AlreadyOpen": "Проєкт {0} уже відкрито.",
-    "Str.Options.Addins.Overview": "Надбудови додають до HexIDE інструменти та налаштування. Для встановлення розпакуйте підписаний пакет в окрему папку в зазначеному нижче каталозі та перезапустіть HexIDE. Виберіть надбудову в дереві для керування нею."
+    "Str.Options.Addins.Overview": "Надбудови додають до HexIDE інструменти та налаштування. Для встановлення розпакуйте підписаний пакет в окрему папку в зазначеному нижче каталозі та перезапустіть HexIDE. Виберіть надбудову в дереві для керування нею.",
+    "Str.Tool.LanguageServers.Editor.Customise": "Налаштувати",
+    "Str.Tool.LanguageServers.Editor.Help": "Порожнє значення очищає поле. Поля JSON приймають значення JSON. Збереження запам’ятовує команду нижче; для застосування перезапустіть програму.",
+    "Str.Tool.LanguageServers.Editor.Command": "Підсумкова команда (з аргументами)",
+    "Str.Tool.LanguageServers.Editor.Save": "Зберегти",
+    "Str.Tool.LanguageServers.Editor.DuplicateId": "Цей ідентифікатор уже існує. Змініть або налаштуйте його.",
+    "Str.Tool.LanguageServers.Editor.InvalidJson": "Неприпустимий JSON: {0}",
+    "Str.Tool.LanguageServers.Editor.NoWorkspace": "Підстановки робочої області очікують вибору папки проєкту.",
+    "Str.Tool.LanguageServers.Editor.FileChanged": "Файл змінено. Перед збереженням відкрийте форму знову."
   }
 }

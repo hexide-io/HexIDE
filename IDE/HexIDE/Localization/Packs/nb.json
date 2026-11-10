@@ -2,6 +2,8 @@
   "name": "Norwegian Bokmål",
   "direction": "ltr",
   "strings": {
+    "Str.AIChat.Refusal": "Leverandøren avslo denne forespørselen.",
+    "Str.AIChat.TokenLimit": "Svaret nådde tokengrensen og er ufullstendig.",
     "Str.Startup.PlatformSummary": "Kun Linux. Visningsmotor: x11 (standard), auto eller wayland.",
     "Str.Shell.NotImplemented": "Denne funksjonen er ikke implementert ennå",
     "Str.AIChat.Stop": "Stopp",
@@ -945,6 +947,7 @@
     "Str.FindReplace.Msg.ProtectedOnly": "Søketeksten '{0}' finnes bare i filhodet eller i Attribute-linjene til en prosedyre. Søk hopper over disse områdene fordi bare IDE-et endrer dem.",
     "Str.FindReplace.Msg.ReplacementsWithSkipped": "{0} erstatninger utført; {1} treff hoppet over i filhodet eller prosedyrenes Attribute-linjer, som bare IDE-et endrer.",
     "Str.FindReplace.Msg.ReplacementsMade": "{0} erstatning(er) utført.",
+    "Str.FindReplace.Msg.ReplacementsWithFilesLeftOut": "{0} erstatninger utført; {1} filer utelatt fordi HexIDE ennå ikke kan lagre dem trofast.",
     "Str.FindReplace.Msg.InvalidRegex": "Ugyldig mønster for regulært uttrykk.",
     "Str.FindReplace.Msg.NothingToSearch": "Det er ingenting å søke i her. Søk fungerer i kodevinduer og i tekstfiler som prosjektet inneholder.",
     "Str.Vb6Toolchain.Vb6NotFound": "VB6.EXE ble ikke funnet. Installer VB6 på standardplasseringen eller angi miljøvariabelen VB6_EXE.",
@@ -1174,6 +1177,14 @@
     "Str.Options.Formatting.Token.Identifier": "Identifikator",
     "Str.Options.Formatting.Token.MetadataKeyword": "Metadatanøkkelord",
     "Str.Project.AlreadyOpen": "Prosjektet {0} er allerede åpent.",
-    "Str.Options.Addins.Overview": "Tillegg utvider HexIDE med verktøy og innstillinger. Installer ved å pakke ut en signert tilleggspakke i en egen mappe i katalogen nedenfor, og start HexIDE på nytt. Velg et tillegg i treet for å administrere det."
+    "Str.Options.Addins.Overview": "Tillegg utvider HexIDE med verktøy og innstillinger. Installer ved å pakke ut en signert tilleggspakke i en egen mappe i katalogen nedenfor, og start HexIDE på nytt. Velg et tillegg i treet for å administrere det.",
+    "Str.Tool.LanguageServers.Editor.Customise": "Tilpass",
+    "Str.Tool.LanguageServers.Editor.Help": "En tom verdi tømmer feltet. JSON-felt tar JSON-verdier. Lagring husker kommandoen nedenfor; start på nytt for å ta i bruk.",
+    "Str.Tool.LanguageServers.Editor.Command": "Utvidet kommando (med argumenter)",
+    "Str.Tool.LanguageServers.Editor.Save": "Lagre",
+    "Str.Tool.LanguageServers.Editor.DuplicateId": "Denne ID-en finnes allerede. Rediger eller tilpass den.",
+    "Str.Tool.LanguageServers.Editor.InvalidJson": "Ugyldig JSON: {0}",
+    "Str.Tool.LanguageServers.Editor.NoWorkspace": "Plassholdere for arbeidsområdet venter på valg av prosjektmappe.",
+    "Str.Tool.LanguageServers.Editor.FileChanged": "Filen er endret. Åpne skjemaet på nytt før lagring."
   }
 }

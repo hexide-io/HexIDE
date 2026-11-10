@@ -23,14 +23,38 @@ control, menu, caption, selection, information, warning, validation, read-only, 
 text/background pairs SHALL have contrast of at least 7:1. Options SHALL display localized names while
 retaining stable pack IDs as setting values.
 
-These packs are part of [#3300](https://github.com/hexide-io/HexIDE/issues/3300). Automatic OS
-following and 2px focus/selection chrome remain pending. Avalonia does not
+These packs are part of [#3300](https://github.com/hexide-io/HexIDE/issues/3300). 2px focus chrome remains separate work. Avalonia does not
 report the Linux portal contrast preference yet; HexIDE adds no workaround.
 
 #### Scenario: Selecting a high-contrast pack
 - **WHEN** a user selects either high-contrast pack in Options
 - **THEN** its complete colour dictionary is applied using its declared Light or Dark variant
 - **AND** the saved setting remains the pack ID rather than its translated name
+
+### Requirement: Follow platform high contrast unless the user chose a theme
+Before creating views, the IDE SHALL read Application.PlatformSettings and SHALL observe its
+ColorValuesChanged event. When ContrastPreference is High, it SHALL apply HighContrastLight or
+HighContrastDark according to the platform theme variant, in every profile. Clearing high contrast
+SHALL restore the user's prior pack or profile theme. Automatic changes SHALL NOT write settings.
+An explicit theme choice saved in Options SHALL take precedence, including after restarting.
+While following automatically, the selector SHALL show the active high-contrast pack so Classic can
+be explicitly selected; saving untouched Options SHALL NOT pin that automatic pack.
+Ordinary OS dark mode SHALL leave Classic light. Avalonia does not yet read the Linux freedesktop
+portal contrast preference; Linux automatic following is a known gap, with no HexIDE workaround.
+
+#### Scenario: Starting with high contrast enabled
+- **WHEN** the platform already requests high contrast at startup and no explicit theme is saved
+- **THEN** the matching pack is applied before the first frame
+
+#### Scenario: Changing platform contrast
+- **WHEN** platform contrast turns on, changes variant, then clears
+- **THEN** the matching high-contrast packs are applied and the prior theme is restored
+- **AND** the user's saved theme is never overwritten
+
+#### Scenario: Saving a theme in Options
+- **WHEN** the user saves an explicit theme choice
+- **THEN** subsequent platform contrast changes and restarts preserve that choice
+- **AND** saving Options without changing the theme does not disable automatic following
 
 ### Requirement: High-contrast syntax defaults
 Under HighContrastLight and HighContrastDark, default named syntax foregrounds SHALL meet 7:1 against

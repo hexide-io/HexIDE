@@ -2,6 +2,8 @@
   "name": "Bulgarian",
   "direction": "ltr",
   "strings": {
+    "Str.AIChat.Refusal": "Доставчикът отказа тази заявка.",
+    "Str.AIChat.TokenLimit": "Отговорът достигна лимита за токени и е непълен.",
     "Str.Startup.PlatformSummary": "Само Linux. Графична среда: x11 (по подразбиране), auto или wayland.",
     "Str.Shell.NotImplemented": "Тази функция все още не е реализирана",
     "Str.AIChat.Stop": "Спри",
@@ -945,6 +947,7 @@
     "Str.FindReplace.Msg.ProtectedOnly": "Текстът „{0}“ се среща само в заглавната част на файла или в редовете Attribute на процедура. Търсенето пропуска тези области, защото само IDE ги променя.",
     "Str.FindReplace.Msg.ReplacementsWithSkipped": "Направени са {0} замени; пропуснати са {1} съвпадения в заглавната част или редовете Attribute на процедура, които само IDE променя.",
     "Str.FindReplace.Msg.ReplacementsMade": "Направени са {0} замени.",
+    "Str.FindReplace.Msg.ReplacementsWithFilesLeftOut": "Направени замени: {0}; пропуснати файлове: {1}, защото HexIDE все още не може да ги запази точно.",
     "Str.FindReplace.Msg.InvalidRegex": "Невалиден шаблон на регулярен израз.",
     "Str.FindReplace.Msg.NothingToSearch": "Тук няма нищо за търсене. Търсенето работи в прозорци с код и в текстови файлове, включени в проекта.",
     "Str.Vb6Toolchain.Vb6NotFound": "VB6.EXE не е намерен. Инсталирайте VB6 на местоположението по подразбиране или задайте променливата на средата VB6_EXE.",
@@ -1174,6 +1177,14 @@
     "Str.Options.Formatting.Token.Identifier": "Идентификатор",
     "Str.Options.Formatting.Token.MetadataKeyword": "Ключова дума за метаданни",
     "Str.Project.AlreadyOpen": "Проектът {0} вече е отворен.",
-    "Str.Options.Addins.Overview": "Добавките разширяват HexIDE с инструменти и настройки. За инсталиране разархивирайте подписан пакет в отделна папка в директорията по-долу и рестартирайте HexIDE. Изберете добавка в дървото, за да я управлявате."
+    "Str.Options.Addins.Overview": "Добавките разширяват HexIDE с инструменти и настройки. За инсталиране разархивирайте подписан пакет в отделна папка в директорията по-долу и рестартирайте HexIDE. Изберете добавка в дървото, за да я управлявате.",
+    "Str.Tool.LanguageServers.Editor.Customise": "Персонализиране",
+    "Str.Tool.LanguageServers.Editor.Help": "Празна стойност изчиства полето. JSON полетата приемат JSON стойности. Записването запомня командата отдолу; рестартирайте за прилагане.",
+    "Str.Tool.LanguageServers.Editor.Command": "Разрешена команда (с аргументи)",
+    "Str.Tool.LanguageServers.Editor.Save": "Запис",
+    "Str.Tool.LanguageServers.Editor.DuplicateId": "Този идентификатор вече съществува. Редактирайте или персонализирайте го.",
+    "Str.Tool.LanguageServers.Editor.InvalidJson": "Невалиден JSON: {0}",
+    "Str.Tool.LanguageServers.Editor.NoWorkspace": "Заместителите на работната област чакат избор на папка на проект.",
+    "Str.Tool.LanguageServers.Editor.FileChanged": "Файлът е променен. Отворете отново формуляра преди записване."
   }
 }

@@ -2,6 +2,8 @@
   "name": "Swedish",
   "direction": "ltr",
   "strings": {
+    "Str.AIChat.Refusal": "Leverantören avböjde denna begäran.",
+    "Str.AIChat.TokenLimit": "Svaret nådde tokengränsen och är ofullständigt.",
     "Str.Startup.PlatformSummary": "Endast Linux. Visningsmotor: x11 (standard), auto eller wayland.",
     "Str.Shell.NotImplemented": "Den här funktionen är inte implementerad ännu",
     "Str.AIChat.Stop": "Stoppa",
@@ -945,6 +947,7 @@
     "Str.FindReplace.Msg.ProtectedOnly": "Söktexten '{0}' finns bara i filhuvudet eller i en procedurs Attribute-rader. Sök hoppar över dessa områden eftersom bara IDE:n ändrar dem.",
     "Str.FindReplace.Msg.ReplacementsWithSkipped": "{0} ersättningar gjorda; {1} träffar överhoppade i filhuvudet eller procedurernas Attribute-rader, som bara IDE:n ändrar.",
     "Str.FindReplace.Msg.ReplacementsMade": "{0} ersättning(ar) gjorda.",
+    "Str.FindReplace.Msg.ReplacementsWithFilesLeftOut": "{0} ersättningar gjorda; {1} filer utelämnades eftersom HexIDE ännu inte kan spara dem troget.",
     "Str.FindReplace.Msg.InvalidRegex": "Ogiltigt mönster för reguljärt uttryck.",
     "Str.FindReplace.Msg.NothingToSearch": "Det finns inget att söka i här. Sök fungerar i kodfönster och i textfiler som projektet innehåller.",
     "Str.Vb6Toolchain.Vb6NotFound": "VB6.EXE hittades inte. Installera VB6 på standardplatsen eller ange miljövariabeln VB6_EXE.",
@@ -1174,6 +1177,14 @@
     "Str.Options.Formatting.Token.Identifier": "Identifierare",
     "Str.Options.Formatting.Token.MetadataKeyword": "Metadatanyckelord",
     "Str.Project.AlreadyOpen": "Projektet {0} är redan öppet.",
-    "Str.Options.Addins.Overview": "Tillägg utökar HexIDE med verktyg och inställningar. Installera genom att packa upp ett signerat tilläggspaket i en egen mapp i katalogen nedan och starta om HexIDE. Välj ett tillägg i trädet för att hantera det."
+    "Str.Options.Addins.Overview": "Tillägg utökar HexIDE med verktyg och inställningar. Installera genom att packa upp ett signerat tilläggspaket i en egen mapp i katalogen nedan och starta om HexIDE. Välj ett tillägg i trädet för att hantera det.",
+    "Str.Tool.LanguageServers.Editor.Customise": "Anpassa",
+    "Str.Tool.LanguageServers.Editor.Help": "Ett tomt värde rensar fältet. JSON-fält tar JSON-värden. Spara kommer ihåg kommandot nedan; starta om för att tillämpa.",
+    "Str.Tool.LanguageServers.Editor.Command": "Utökat kommando (med argument)",
+    "Str.Tool.LanguageServers.Editor.Save": "Spara",
+    "Str.Tool.LanguageServers.Editor.DuplicateId": "Detta id finns redan. Redigera eller anpassa det.",
+    "Str.Tool.LanguageServers.Editor.InvalidJson": "Ogiltig JSON: {0}",
+    "Str.Tool.LanguageServers.Editor.NoWorkspace": "Platshållare för arbetsytan väntar på val av projektmapp.",
+    "Str.Tool.LanguageServers.Editor.FileChanged": "Filen har ändrats. Öppna formuläret igen innan du sparar."
   }
 }

@@ -2,6 +2,8 @@
   "name": "Hungarian",
   "direction": "ltr",
   "strings": {
+    "Str.AIChat.Refusal": "A szolgáltató elutasította ezt a kérést.",
+    "Str.AIChat.TokenLimit": "A válasz elérte a tokenkorlátot, és nem teljes.",
     "Str.Startup.PlatformSummary": "Csak Linux. Megjelenítő: x11 (alapértelmezett), auto vagy wayland.",
     "Str.Shell.NotImplemented": "Ez a funkció még nincs megvalósítva",
     "Str.AIChat.Stop": "Leállítás",
@@ -945,6 +947,7 @@
     "Str.FindReplace.Msg.ProtectedOnly": "A keresett szöveg ('{0}') csak a fájl fejlécében vagy egy eljárás Attribute soraiban szerepel. A keresés kihagyja ezeket a részeket, mert csak az IDE módosítja őket.",
     "Str.FindReplace.Msg.ReplacementsWithSkipped": "{0} csere történt; {1} találat kihagyva a fejlécben vagy az eljárás Attribute soraiban, amelyeket csak az IDE módosít.",
     "Str.FindReplace.Msg.ReplacementsMade": "{0} csere történt.",
+    "Str.FindReplace.Msg.ReplacementsWithFilesLeftOut": "{0} csere történt; {1} fájl kimaradt, mert a HexIDE még nem tudja őket hűen menteni.",
     "Str.FindReplace.Msg.InvalidRegex": "Érvénytelen reguláris kifejezés.",
     "Str.FindReplace.Msg.NothingToSearch": "Itt nincs kereshető tartalom. A keresés kódablakokban és a projekthez tartozó szövegfájlokban működik.",
     "Str.Vb6Toolchain.Vb6NotFound": "A VB6.EXE nem található. Telepítse a VB6-ot az alapértelmezett helyre, vagy állítsa be a VB6_EXE környezeti változót.",
@@ -1174,6 +1177,14 @@
     "Str.Options.Formatting.Token.Identifier": "Azonosító",
     "Str.Options.Formatting.Token.MetadataKeyword": "Metaadat-kulcsszó",
     "Str.Project.AlreadyOpen": "A(z) {0} projekt már meg van nyitva.",
-    "Str.Options.Addins.Overview": "A bővítmények eszközökkel és beállításokkal egészítik ki a HexIDE-t. Telepítéshez csomagoljon ki egy aláírt bővítménycsomagot az alábbi könyvtár saját almappájába, majd indítsa újra a HexIDE-t. Kezeléshez válasszon bővítményt a fában."
+    "Str.Options.Addins.Overview": "A bővítmények eszközökkel és beállításokkal egészítik ki a HexIDE-t. Telepítéshez csomagoljon ki egy aláírt bővítménycsomagot az alábbi könyvtár saját almappájába, majd indítsa újra a HexIDE-t. Kezeléshez válasszon bővítményt a fában.",
+    "Str.Tool.LanguageServers.Editor.Customise": "Testreszabás",
+    "Str.Tool.LanguageServers.Editor.Help": "Az üres érték törli a mezőt. A JSON-mezők JSON-értékeket fogadnak. A mentés megjegyzi az alábbi parancsot; alkalmazásához indítsa újra.",
+    "Str.Tool.LanguageServers.Editor.Command": "Feloldott parancs (argumentumokkal)",
+    "Str.Tool.LanguageServers.Editor.Save": "Mentés",
+    "Str.Tool.LanguageServers.Editor.DuplicateId": "Ez az azonosító már létezik. Szerkessze vagy szabja testre.",
+    "Str.Tool.LanguageServers.Editor.InvalidJson": "Érvénytelen JSON: {0}",
+    "Str.Tool.LanguageServers.Editor.NoWorkspace": "A munkaterület helyőrzői a projektmappa kiválasztására várnak.",
+    "Str.Tool.LanguageServers.Editor.FileChanged": "A fájl megváltozott. Mentés előtt nyissa meg újra az űrlapot."
   }
 }

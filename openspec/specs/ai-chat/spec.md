@@ -54,6 +54,65 @@ differently.
 - **WHEN** the configured endpoint is a model server on the developer's own machine
 - **THEN** the assistant works and no conversation content leaves the machine
 
+### Requirement: Anthropic endpoints SHALL use the native Messages API
+When the configured base URL host is exactly `api.anthropic.com` (case insensitive), the assistant SHALL
+use the native streaming Messages API for replies, tool continuations and compaction. All other hosts
+SHALL retain the OpenAI-compatible transport. Credential resolution and cleartext refusal SHALL remain
+the same for both transports.
+
+The native transport SHALL translate system prompts, tool definitions, tool calls and tool results,
+assemble streamed tool input before exposing calls, and preserve native content blocks, including signed
+thinking, in history. It SHALL replay thinking only for the current developer message’s tool round; older
+assistant turns SHALL retain text and tool-use blocks without thinking or redacted thinking. Compaction
+SHALL remove thinking from the kept tail and run only before the first request of a developer message.
+The system prompt SHALL be built once per developer message and reused throughout its tool round.
+It SHALL report stream errors and premature EOF as
+failures rather than successful completion. It SHALL ignore unknown event types.
+
+`chat-settings.json` MAY set `maxTokens` (native output cap, default 64000), `thinking` (the native thinking
+configuration object), optional `workspaceId` (sent as `anthropic-workspace-id` only to Anthropic), and `effort` (sent as `output_config.effort`). Omission of thinking and effort SHALL
+leave their defaults to the configured model; no model-name allowlist SHALL be imposed. These native
+settings SHALL NOT alter requests to other hosts. For example, `"thinking": {"type": "adaptive"}` and
+`"effort": "high"` request adaptive thinking at high effort on a model that supports those settings.
+
+Wire reference read on 2026-11-10, API version **2026-10-21**:
+[Messages](https://platform.claude.com/docs/en/api/messages/create),
+[streaming](https://platform.claude.com/docs/en/build-with-claude/streaming),
+[thinking](https://platform.claude.com/docs/en/build-with-claude/extended-thinking),
+[steering thinking](https://platform.claude.com/docs/en/build-with-claude/adaptive-thinking),
+[effort](https://platform.claude.com/docs/en/build-with-claude/effort),
+[tool use](https://platform.claude.com/docs/en/agents-and-tools/tool-use/implement-tool-use),
+[API overview](https://platform.claude.com/docs/en/api/overview) and
+[versioning](https://platform.claude.com/docs/en/api/versioning).
+These are protocol references, not a claim of a live provider test; `NativeMessagesTests` uses a fake HTTP
+handler and synthetic event streams following the documented wire shapes.
+
+The native transport SHALL show the API’s `error.message` for unsuccessful HTTP responses. A
+`refusal` stop SHALL use the stream-error display route, including `stop_details.explanation` when
+present; a `max_tokens` stop SHALL visibly identify the incomplete reply. Neither SHALL execute tools.
+
+Additional protocol references checked on 2026-11-10 at the same API version:
+[authentication](https://platform.claude.com/docs/en/manage-claude/authentication),
+[preserved thinking](https://platform.claude.com/docs/en/build-with-claude/preserved-thinking),
+[thinking tool workflows](https://platform.claude.com/docs/en/build-with-claude/thinking-tool-workflows),
+[stop reasons](https://platform.claude.com/docs/en/build-with-claude/handling-stop-reasons), and
+[refusal details](https://platform.claude.com/docs/en/build-with-claude/refusals-and-fallback).
+
+#### Scenario: Native streamed tool call
+- **WHEN** Anthropic streams a tool's JSON input across several deltas and finishes with `tool_use`
+- **THEN** the assistant receives one assembled call only after message completion
+- **AND** its results return as user content containing `tool_result` blocks
+- **AND** signed thinking blocks are returned unchanged
+
+#### Scenario: Failure during a native stream
+- **WHEN** a stream errors or ends before `message_stop`
+- **THEN** the request fails without executing its tool calls
+
+#### Scenario: A different endpoint
+- **WHEN** the host is OpenAI, a loopback server, or any host other than exactly `api.anthropic.com`
+- **THEN** requests continue to use `/chat/completions` and the OpenAI-compatible format
+- **AND** native content metadata is omitted
+
 ### Requirement: The assistant SHALL refuse to transmit over a cleartext connection
 The assistant SHALL refuse to send a request over an unencrypted connection to a remote host, and SHALL
 permit an unencrypted connection only to the local machine.

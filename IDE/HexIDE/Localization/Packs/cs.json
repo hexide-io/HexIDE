@@ -2,6 +2,8 @@
   "name": "Czech",
   "direction": "ltr",
   "strings": {
+    "Str.AIChat.Refusal": "Poskytovatel tento požadavek odmítl.",
+    "Str.AIChat.TokenLimit": "Odpověď dosáhla limitu tokenů a není úplná.",
     "Str.Startup.PlatformSummary": "Pouze Linux. Grafický backend: x11 (výchozí), auto nebo wayland.",
     "Str.Shell.NotImplemented": "Tato funkce zatím není implementována",
     "Str.AIChat.Stop": "Zastavit",
@@ -945,6 +947,7 @@
     "Str.FindReplace.Msg.ProtectedOnly": "Hledaný text '{0}' je pouze v hlavičce souboru nebo na řádcích Attribute procedury. Hledání je přeskakuje, protože je mění pouze IDE.",
     "Str.FindReplace.Msg.ReplacementsWithSkipped": "Provedeno {0} nahrazení; přeskočeno {1} shod v hlavičce nebo řádcích Attribute procedur, které mění pouze IDE.",
     "Str.FindReplace.Msg.ReplacementsMade": "Provedeno nahrazení: {0}.",
+    "Str.FindReplace.Msg.ReplacementsWithFilesLeftOut": "Provedeno {0} nahrazení; vynecháno {1} souborů, protože je HexIDE zatím nedokáže věrně uložit.",
     "Str.FindReplace.Msg.InvalidRegex": "Neplatný vzor regulárního výrazu.",
     "Str.FindReplace.Msg.NothingToSearch": "Zde není co prohledávat. Najít funguje v oknách kódu a v textových souborech, které projekt obsahuje.",
     "Str.Vb6Toolchain.Vb6NotFound": "VB6.EXE nebyl nalezen. Nainstalujte VB6 do výchozího umístění nebo nastavte proměnnou prostředí VB6_EXE.",
@@ -1174,6 +1177,14 @@
     "Str.Options.Formatting.Token.Identifier": "Identifikátor",
     "Str.Options.Formatting.Token.MetadataKeyword": "Klíčové slovo metadat",
     "Str.Project.AlreadyOpen": "Projekt {0} je již otevřen.",
-    "Str.Options.Addins.Overview": "Doplňky rozšiřují HexIDE o nástroje a nastavení. Pro instalaci rozbalte podepsaný balíček do vlastní složky v níže uvedeném adresáři a restartujte HexIDE. Doplněk můžete spravovat výběrem ve stromu."
+    "Str.Options.Addins.Overview": "Doplňky rozšiřují HexIDE o nástroje a nastavení. Pro instalaci rozbalte podepsaný balíček do vlastní složky v níže uvedeném adresáři a restartujte HexIDE. Doplněk můžete spravovat výběrem ve stromu.",
+    "Str.Tool.LanguageServers.Editor.Customise": "Přizpůsobit",
+    "Str.Tool.LanguageServers.Editor.Help": "Prázdná hodnota vymaže pole. Pole JSON přijímají hodnoty JSON. Uložení si zapamatuje příkaz níže; změny použijete restartem.",
+    "Str.Tool.LanguageServers.Editor.Command": "Vyhodnocený příkaz (včetně argumentů)",
+    "Str.Tool.LanguageServers.Editor.Save": "Uložit",
+    "Str.Tool.LanguageServers.Editor.DuplicateId": "Toto ID již existuje. Upravte jej nebo přizpůsobte.",
+    "Str.Tool.LanguageServers.Editor.InvalidJson": "Neplatný JSON: {0}",
+    "Str.Tool.LanguageServers.Editor.NoWorkspace": "Zástupné symboly pracovního prostoru čekají na výběr složky projektu.",
+    "Str.Tool.LanguageServers.Editor.FileChanged": "Soubor se změnil. Před uložením znovu otevřete formulář."
   }
 }

@@ -2,6 +2,8 @@
   "name": "Indonesian",
   "direction": "ltr",
   "strings": {
+    "Str.AIChat.Refusal": "Penyedia menolak permintaan ini.",
+    "Str.AIChat.TokenLimit": "Balasan mencapai batas token dan belum lengkap.",
     "Str.Startup.PlatformSummary": "Khusus Linux. Backend tampilan: x11 (bawaan), auto atau wayland.",
     "Str.Shell.NotImplemented": "Fitur ini belum diimplementasikan",
     "Str.AIChat.Stop": "Hentikan",
@@ -945,6 +947,7 @@
     "Str.FindReplace.Msg.ProtectedOnly": "Teks pencarian '{0}' hanya ada di header berkas atau baris Attribute prosedur. Pencarian melewati bagian ini karena hanya IDE yang mengubahnya.",
     "Str.FindReplace.Msg.ReplacementsWithSkipped": "{0} penggantian dibuat; {1} kecocokan dilewati di header atau baris Attribute prosedur, yang hanya diubah oleh IDE.",
     "Str.FindReplace.Msg.ReplacementsMade": "{0} penggantian dilakukan.",
+    "Str.FindReplace.Msg.ReplacementsWithFilesLeftOut": "{0} penggantian dilakukan; {1} berkas dilewati karena HexIDE belum dapat menyimpannya secara akurat.",
     "Str.FindReplace.Msg.InvalidRegex": "Pola ekspresi reguler tidak valid.",
     "Str.FindReplace.Msg.NothingToSearch": "Tidak ada yang dapat dicari di sini. Cari berfungsi di jendela kode dan di berkas teks yang disertakan proyek.",
     "Str.Vb6Toolchain.Vb6NotFound": "VB6.EXE tidak ditemukan. Instal VB6 di lokasi default atau atur variabel lingkungan VB6_EXE.",
@@ -1174,6 +1177,14 @@
     "Str.Options.Formatting.Token.Identifier": "Pengenal",
     "Str.Options.Formatting.Token.MetadataKeyword": "Kata kunci metadata",
     "Str.Project.AlreadyOpen": "Proyek {0} sudah terbuka.",
-    "Str.Options.Addins.Overview": "Add-in memperluas HexIDE dengan alat dan pengaturan tambahan. Untuk memasangnya, ekstrak paket add-in bertanda tangan ke folder tersendiri di direktori di bawah, lalu mulai ulang HexIDE. Pilih add-in di pohon untuk mengelolanya."
+    "Str.Options.Addins.Overview": "Add-in memperluas HexIDE dengan alat dan pengaturan tambahan. Untuk memasangnya, ekstrak paket add-in bertanda tangan ke folder tersendiri di direktori di bawah, lalu mulai ulang HexIDE. Pilih add-in di pohon untuk mengelolanya.",
+    "Str.Tool.LanguageServers.Editor.Customise": "Sesuaikan",
+    "Str.Tool.LanguageServers.Editor.Help": "Nilai kosong menghapus isi bidang. Bidang JSON menerima nilai JSON. Menyimpan mengingat perintah di bawah; mulai ulang untuk menerapkan.",
+    "Str.Tool.LanguageServers.Editor.Command": "Perintah terselesaikan (termasuk argumen)",
+    "Str.Tool.LanguageServers.Editor.Save": "Simpan",
+    "Str.Tool.LanguageServers.Editor.DuplicateId": "ID ini sudah ada. Edit atau sesuaikan.",
+    "Str.Tool.LanguageServers.Editor.InvalidJson": "JSON tidak valid: {0}",
+    "Str.Tool.LanguageServers.Editor.NoWorkspace": "Placeholder ruang kerja menunggu pemilihan folder proyek.",
+    "Str.Tool.LanguageServers.Editor.FileChanged": "Berkas berubah. Buka kembali formulir sebelum menyimpan."
   }
 }

@@ -2,6 +2,8 @@
   "name": "Catalan",
   "direction": "ltr",
   "strings": {
+    "Str.AIChat.Refusal": "El proveïdor ha rebutjat aquesta sol·licitud.",
+    "Str.AIChat.TokenLimit": "La resposta ha arribat al límit de tokens i és incompleta.",
     "Str.Startup.PlatformSummary": "Només Linux. Motor gràfic: x11 (per defecte), auto o wayland.",
     "Str.Shell.NotImplemented": "Aquesta funció encara no està implementada",
     "Str.AIChat.Stop": "Atura",
@@ -945,6 +947,7 @@
     "Str.FindReplace.Msg.ProtectedOnly": "El text de cerca «{0}» només apareix a la capçalera del fitxer o a les línies Attribute d'un procediment. La cerca omet aquestes regions perquè només l'IDE les modifica.",
     "Str.FindReplace.Msg.ReplacementsWithSkipped": "S'han fet {0} substitucions; s'han omès {1} coincidències a la capçalera o a les línies Attribute dels procediments, que només modifica l'IDE.",
     "Str.FindReplace.Msg.ReplacementsMade": "S'han fet {0} substitucions.",
+    "Str.FindReplace.Msg.ReplacementsWithFilesLeftOut": "{0} substitucions fetes; {1} fitxers omesos perquè HexIDE encara no els pot desar fidelment.",
     "Str.FindReplace.Msg.InvalidRegex": "El patró d'expressió regular no és vàlid.",
     "Str.FindReplace.Msg.NothingToSearch": "Aquí no hi ha res per cercar. La cerca funciona a les finestres de codi i als fitxers de text que conté el projecte.",
     "Str.Vb6Toolchain.Vb6NotFound": "No s'ha trobat VB6.EXE. Instal·leu VB6 a la ubicació per defecte o establiu la variable d'entorn VB6_EXE.",
@@ -1174,6 +1177,14 @@
     "Str.Options.Formatting.Token.Identifier": "Identificador",
     "Str.Options.Formatting.Token.MetadataKeyword": "Paraula clau de metadades",
     "Str.Project.AlreadyOpen": "El projecte {0} ja està obert.",
-    "Str.Options.Addins.Overview": "Els complements amplien HexIDE amb eines i opcions. Per instal·lar-ne un, extraieu un paquet signat a la seva pròpia carpeta dins del directori indicat a sota i reinicieu HexIDE. Seleccioneu un complement a l’arbre per gestionar-lo."
+    "Str.Options.Addins.Overview": "Els complements amplien HexIDE amb eines i opcions. Per instal·lar-ne un, extraieu un paquet signat a la seva pròpia carpeta dins del directori indicat a sota i reinicieu HexIDE. Seleccioneu un complement a l’arbre per gestionar-lo.",
+    "Str.Tool.LanguageServers.Editor.Customise": "Personalitza",
+    "Str.Tool.LanguageServers.Editor.Help": "Un valor buit esborra el camp. Els camps JSON accepten valors JSON. Desar recorda l’ordre de sota; reinicieu per aplicar-la.",
+    "Str.Tool.LanguageServers.Editor.Command": "Ordre resolta (amb arguments)",
+    "Str.Tool.LanguageServers.Editor.Save": "Desa",
+    "Str.Tool.LanguageServers.Editor.DuplicateId": "Aquest identificador ja existeix. Editeu-lo o personalitzeu-lo.",
+    "Str.Tool.LanguageServers.Editor.InvalidJson": "JSON no vàlid: {0}",
+    "Str.Tool.LanguageServers.Editor.NoWorkspace": "Els marcadors de l’espai de treball esperen que es triï una carpeta de projecte.",
+    "Str.Tool.LanguageServers.Editor.FileChanged": "El fitxer ha canviat. Torneu a obrir el formulari abans de desar."
   }
 }

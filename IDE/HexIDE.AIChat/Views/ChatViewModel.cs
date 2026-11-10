@@ -3,6 +3,7 @@ using System.ComponentModel;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using Avalonia;
 using Avalonia.Threading;
 using HexIDE.Addins;
 
@@ -19,7 +20,7 @@ public sealed class ChatViewModel : INotifyPropertyChanged
     private readonly IHexIdeHost _host;
     private readonly ChatSession _session;
     private ChatSettings _settings;
-    private readonly OpenAiClient _client;
+    private readonly ChatClient _client;
     private readonly IdeToolExecutor _tools;
     private readonly string _settingsDir;
     private readonly string _historyPath;
@@ -81,7 +82,7 @@ public sealed class ChatViewModel : INotifyPropertyChanged
         _settings    = ChatSettings.Load(settingsDir);
         _historyPath = Path.Combine(settingsDir, "chat-history.json");
         _session     = ChatSession.LoadFrom(_historyPath);
-        _client      = new OpenAiClient();
+        _client      = new ChatClient();
         _tools       = new IdeToolExecutor(host);
 
         foreach (var msg in _session.Log.Where(m => m.Role is "user" or "assistant"))
@@ -155,7 +156,15 @@ public sealed class ChatViewModel : INotifyPropertyChanged
             _activeStream = null;
         }
 
-        Messages.Add(new ChatMessageViewModel("assistant", $"Error: {ex.Message}", isError: true));
+        var message = ex.Message;
+        if (ex is ChatStopException stop)
+        {
+            // Add-ins share the shell's localized resources without referencing the shell assembly.
+            message = Application.Current?.TryGetResource(stop.ResourceKey, null, out var value) == true
+                ? value as string ?? stop.ResourceKey : stop.ResourceKey;
+            if (!string.IsNullOrEmpty(stop.Explanation)) message += " " + stop.Explanation;
+        }
+        Messages.Add(new ChatMessageViewModel("assistant", ex is ChatStopException ? message : $"Error: {message}", isError: true));
     }
 
     public void Stop() => _responseCancellation?.Cancel();
@@ -253,14 +262,15 @@ public sealed class ChatViewModel : INotifyPropertyChanged
 
     private async Task RunAgenticLoopAsync(CancellationToken ct)
     {
+        FlushHeldNotes();
+        ct.ThrowIfCancellationRequested();
+        await MaybeCompactAsync(ct);
+        var systemPrompt = BuildSystemPrompt();
         while (true)
         {
             // Here the last message is the developer's or a tool result, after which a note may come.
             FlushHeldNotes();
             ct.ThrowIfCancellationRequested();
-            await MaybeCompactAsync(ct);
-
-            var systemPrompt = BuildSystemPrompt();
             var apiMessages  = _session.BuildApiMessages(systemPrompt);
 
             var aiMsgVm = new ChatMessageViewModel("assistant") { IsStreaming = true };
@@ -269,12 +279,14 @@ public sealed class ChatViewModel : INotifyPropertyChanged
 
             var contentBuilder = new StringBuilder();
             List<ToolCall>? toolCalls = null;
+            JsonArray? nativeContent = null;
 
             await foreach (var chunk in _client.StreamAsync(
                 _settings.BaseUrl, _settings.ResolveApiKey(), _settings.ModelId,
-                apiMessages, IdeToolExecutor.ToolDefinitions, ct))
+                apiMessages, IdeToolExecutor.ToolDefinitions, ct, _settings))
             {
                 ct.ThrowIfCancellationRequested();
+                if (chunk.NativeContent is not null) nativeContent = chunk.NativeContent;
                 if (chunk.IsDone) break;
 
                 if (chunk.ContentDelta is not null)
@@ -289,7 +301,7 @@ public sealed class ChatViewModel : INotifyPropertyChanged
 
             ct.ThrowIfCancellationRequested();
             var finalContent = contentBuilder.ToString();
-            var assistantMsg = new ConversationMessage("assistant", finalContent, toolCalls);
+            var assistantMsg = new ConversationMessage("assistant", finalContent, toolCalls) { NativeContent = nativeContent };
             _session.Add(assistantMsg);
             Dispatcher.UIThread.Post(() => aiMsgVm.IsStreaming = false);
             _activeStream = null;
@@ -485,7 +497,7 @@ public sealed class ChatViewModel : INotifyPropertyChanged
         var summary = new StringBuilder();
         await foreach (var chunk in _client.StreamAsync(
             _settings.BaseUrl, _settings.ResolveApiKey(), _settings.ModelId,
-            summaryPrompt, new System.Text.Json.Nodes.JsonArray(), ct))
+            summaryPrompt, new System.Text.Json.Nodes.JsonArray(), ct, _settings))
         {
             if (chunk.ContentDelta is not null) summary.Append(chunk.ContentDelta);
             if (chunk.IsDone) break;

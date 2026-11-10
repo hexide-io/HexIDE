@@ -2,6 +2,8 @@
   "name": "Thai",
   "direction": "ltr",
   "strings": {
+    "Str.AIChat.Refusal": "ผู้ให้บริการปฏิเสธคำขอนี้",
+    "Str.AIChat.TokenLimit": "คำตอบถึงขีดจำกัดโทเค็นและยังไม่สมบูรณ์",
     "Str.Startup.PlatformSummary": "Linux เท่านั้น ระบบแสดงผล: x11 (ค่าเริ่มต้น), auto หรือ wayland",
     "Str.Shell.NotImplemented": "ยังไม่ได้พัฒนาฟีเจอร์นี้",
     "Str.AIChat.Stop": "หยุด",
@@ -945,6 +947,7 @@
     "Str.FindReplace.Msg.ProtectedOnly": "ข้อความที่ค้นหา '{0}' ปรากฏเฉพาะในส่วนหัวไฟล์หรือบรรทัด Attribute ของโพรซีเยอร์ การค้นหาจะข้ามบริเวณเหล่านี้เพราะมีเพียง IDE ที่แก้ไขได้",
     "Str.FindReplace.Msg.ReplacementsWithSkipped": "แทนที่ {0} รายการ ข้ามรายการที่ตรงกัน {1} รายการในส่วนหัวหรือบรรทัด Attribute ของโพรซีเยอร์ ซึ่งมีเพียง IDE ที่แก้ไขได้",
     "Str.FindReplace.Msg.ReplacementsMade": "แทนที่แล้ว {0} รายการ",
+    "Str.FindReplace.Msg.ReplacementsWithFilesLeftOut": "แทนที่แล้ว {0} รายการ; ข้าม {1} ไฟล์เนื่องจาก HexIDE ยังไม่สามารถบันทึกไฟล์เหล่านี้ได้อย่างครบถ้วนถูกต้อง",
     "Str.FindReplace.Msg.InvalidRegex": "รูปแบบนิพจน์ทั่วไปไม่ถูกต้อง",
     "Str.FindReplace.Msg.NothingToSearch": "ไม่มีเนื้อหาให้ค้นหาที่นี่ การค้นหาใช้ได้ในหน้าต่างโค้ดและไฟล์ข้อความที่อยู่ในโครงการ",
     "Str.Vb6Toolchain.Vb6NotFound": "ไม่พบ VB6.EXE ติดตั้ง VB6 ในตำแหน่งเริ่มต้น หรือตั้งค่าตัวแปรสภาพแวดล้อม VB6_EXE",
@@ -1174,6 +1177,14 @@
     "Str.Options.Formatting.Token.Identifier": "ตัวระบุ",
     "Str.Options.Formatting.Token.MetadataKeyword": "คำสำคัญเมทาดาทา",
     "Str.Project.AlreadyOpen": "โครงการ {0} เปิดอยู่แล้ว",
-    "Str.Options.Addins.Overview": "ส่วนเสริมเพิ่มเครื่องมือและการตั้งค่าให้ HexIDE หากต้องการติดตั้ง ให้แตกแพ็กเกจส่วนเสริมที่ลงลายเซ็นแล้วลงในโฟลเดอร์ของตัวเองภายในไดเรกทอรีด้านล่าง แล้วเริ่ม HexIDE ใหม่ เลือกส่วนเสริมในแผนผังเพื่อจัดการ"
+    "Str.Options.Addins.Overview": "ส่วนเสริมเพิ่มเครื่องมือและการตั้งค่าให้ HexIDE หากต้องการติดตั้ง ให้แตกแพ็กเกจส่วนเสริมที่ลงลายเซ็นแล้วลงในโฟลเดอร์ของตัวเองภายในไดเรกทอรีด้านล่าง แล้วเริ่ม HexIDE ใหม่ เลือกส่วนเสริมในแผนผังเพื่อจัดการ",
+    "Str.Tool.LanguageServers.Editor.Customise": "ปรับแต่ง",
+    "Str.Tool.LanguageServers.Editor.Help": "ค่าว่างจะล้างช่อง ช่อง JSON รับค่า JSON การบันทึกจะจดจำคำสั่งด้านล่าง เริ่มใหม่เพื่อใช้การเปลี่ยนแปลง",
+    "Str.Tool.LanguageServers.Editor.Command": "คำสั่งที่แทนค่าแล้ว (รวมอาร์กิวเมนต์)",
+    "Str.Tool.LanguageServers.Editor.Save": "บันทึก",
+    "Str.Tool.LanguageServers.Editor.DuplicateId": "มี ID นี้แล้ว โปรดแก้ไขหรือปรับแต่ง",
+    "Str.Tool.LanguageServers.Editor.InvalidJson": "JSON ไม่ถูกต้อง: {0}",
+    "Str.Tool.LanguageServers.Editor.NoWorkspace": "ตัวยึดตำแหน่งพื้นที่ทำงานรอการเลือกโฟลเดอร์โครงการ",
+    "Str.Tool.LanguageServers.Editor.FileChanged": "ไฟล์เปลี่ยนแปลงแล้ว โปรดเปิดแบบฟอร์มใหม่ก่อนบันทึก"
   }
 }

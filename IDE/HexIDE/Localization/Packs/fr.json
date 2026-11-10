@@ -2,6 +2,8 @@
   "name": "French",
   "direction": "ltr",
   "strings": {
+    "Str.AIChat.Refusal": "Le fournisseur a refusé cette demande.",
+    "Str.AIChat.TokenLimit": "La réponse a atteint la limite de jetons et est incomplète.",
     "Str.Startup.PlatformSummary": "Linux uniquement. Affichage : x11 (par défaut), auto ou wayland.",
     "Str.Shell.NotImplemented": "Cette fonctionnalité n’est pas encore implémentée",
     "Str.AIChat.Stop": "Arrêter",
@@ -945,6 +947,7 @@
     "Str.FindReplace.Msg.ProtectedOnly": "Le texte '{0}' apparaît uniquement dans l’en-tête du fichier ou les lignes Attribute d’une procédure. La recherche ignore ces zones, car seul l’IDE les modifie.",
     "Str.FindReplace.Msg.ReplacementsWithSkipped": "{0} remplacement(s) effectué(s) ; {1} correspondance(s) ignorée(s) dans l’en-tête ou les lignes Attribute des procédures, que seul l’IDE modifie.",
     "Str.FindReplace.Msg.ReplacementsMade": "{0} remplacement(s) effectué(s).",
+    "Str.FindReplace.Msg.ReplacementsWithFilesLeftOut": "{0} remplacements effectués ; {1} fichiers exclus car HexIDE ne peut pas encore les enregistrer fidèlement.",
     "Str.FindReplace.Msg.InvalidRegex": "Modèle d'expression régulière non valide.",
     "Str.FindReplace.Msg.NothingToSearch": "Il n'y a rien à rechercher ici. Rechercher fonctionne dans les fenêtres de code et dans les fichiers texte inclus dans le projet.",
     "Str.Vb6Toolchain.Vb6NotFound": "VB6.EXE est introuvable. Installez VB6 à l'emplacement par défaut ou définissez la variable d'environnement VB6_EXE.",
@@ -1174,6 +1177,14 @@
     "Str.Options.Formatting.Token.Identifier": "Identificateur",
     "Str.Options.Formatting.Token.MetadataKeyword": "Mot-clé de métadonnées",
     "Str.Project.AlreadyOpen": "Le projet {0} est déjà ouvert.",
-    "Str.Options.Addins.Overview": "Les compléments ajoutent des outils et des paramètres à HexIDE. Pour en installer un, extrayez un paquet signé dans son propre dossier dans le répertoire ci-dessous, puis redémarrez HexIDE. Sélectionnez un complément dans l’arborescence pour le gérer."
+    "Str.Options.Addins.Overview": "Les compléments ajoutent des outils et des paramètres à HexIDE. Pour en installer un, extrayez un paquet signé dans son propre dossier dans le répertoire ci-dessous, puis redémarrez HexIDE. Sélectionnez un complément dans l’arborescence pour le gérer.",
+    "Str.Tool.LanguageServers.Editor.Customise": "Personnaliser",
+    "Str.Tool.LanguageServers.Editor.Help": "Une valeur vide efface le champ. Les champs JSON attendent des valeurs JSON. Enregistrer mémorise la commande ci-dessous ; redémarrez pour appliquer.",
+    "Str.Tool.LanguageServers.Editor.Command": "Commande résolue (arguments inclus)",
+    "Str.Tool.LanguageServers.Editor.Save": "Enregistrer",
+    "Str.Tool.LanguageServers.Editor.DuplicateId": "Cet identifiant existe déjà. Modifiez-le ou personnalisez-le.",
+    "Str.Tool.LanguageServers.Editor.InvalidJson": "JSON non valide : {0}",
+    "Str.Tool.LanguageServers.Editor.NoWorkspace": "Les espaces réservés de travail attendent le choix du dossier du projet.",
+    "Str.Tool.LanguageServers.Editor.FileChanged": "Le fichier a changé. Rouvrez le formulaire avant d’enregistrer."
   }
 }

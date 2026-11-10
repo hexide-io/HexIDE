@@ -2,6 +2,8 @@
   "name": "English",
   "direction": "ltr",
   "strings": {
+    "Str.AIChat.Refusal": "The provider declined this request.",
+    "Str.AIChat.TokenLimit": "The reply reached the token limit and is incomplete.",
     "Str.Startup.PlatformSummary": "Linux only. Display backend: x11 (default), auto or wayland.",
     "Str.Shell.NotImplemented": "This feature is not yet implemented",
     "Str.AIChat.Stop": "Stop",
@@ -945,6 +947,7 @@
     "Str.FindReplace.Msg.ProtectedOnly": "The search text '{0}' appears only in the file's header or a procedure's Attribute lines. Find skips these regions because only the IDE changes them.",
     "Str.FindReplace.Msg.ReplacementsWithSkipped": "{0} replacement(s) made; {1} match(es) skipped in the header or procedure Attribute lines, which only the IDE changes.",
     "Str.FindReplace.Msg.ReplacementsMade": "{0} replacement(s) made.",
+    "Str.FindReplace.Msg.ReplacementsWithFilesLeftOut": "{0} replacement(s) made; {1} file(s) left out because HexIDE can't yet save them faithfully.",
     "Str.FindReplace.Msg.InvalidRegex": "Invalid regular expression pattern.",
     "Str.FindReplace.Msg.NothingToSearch": "There is nothing here for Find to search. Find works in code windows and in text files the project carries.",
     "Str.Vb6Toolchain.Vb6NotFound": "VB6.EXE was not found. Install VB6 in the default location or set the VB6_EXE environment variable.",
@@ -1174,6 +1177,14 @@
     "Str.Options.Formatting.Token.Identifier": "Identifier",
     "Str.Options.Formatting.Token.MetadataKeyword": "Metadata keyword",
     "Str.Project.AlreadyOpen": "Project {0} is already open.",
-    "Str.Options.Addins.Overview": "Add-ins extend HexIDE with extra tools and settings. To install one, extract a signed add-in package into its own folder in the directory below, then restart HexIDE. Select an add-in in the tree to manage it."
+    "Str.Options.Addins.Overview": "Add-ins extend HexIDE with extra tools and settings. To install one, extract a signed add-in package into its own folder in the directory below, then restart HexIDE. Select an add-in in the tree to manage it.",
+    "Str.Tool.LanguageServers.Editor.Customise": "Customize",
+    "Str.Tool.LanguageServers.Editor.Help": "Blank clears a value. JSON fields take JSON values. Save remembers the command shown below; restart to apply.",
+    "Str.Tool.LanguageServers.Editor.Command": "Resolved command (arguments included)",
+    "Str.Tool.LanguageServers.Editor.Save": "Save",
+    "Str.Tool.LanguageServers.Editor.DuplicateId": "This id already exists. Edit or customize it instead.",
+    "Str.Tool.LanguageServers.Editor.InvalidJson": "Invalid JSON: {0}",
+    "Str.Tool.LanguageServers.Editor.NoWorkspace": "Workspace placeholders remain unresolved until a project folder is chosen.",
+    "Str.Tool.LanguageServers.Editor.FileChanged": "The file changed. Reopen the form before saving."
   }
 }

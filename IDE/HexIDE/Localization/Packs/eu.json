@@ -2,6 +2,8 @@
   "name": "Basque",
   "direction": "ltr",
   "strings": {
+    "Str.AIChat.Refusal": "Hornitzaileak eskaera hau baztertu du.",
+    "Str.AIChat.TokenLimit": "Erantzuna tokenen mugara iritsi da eta osatu gabe dago.",
     "Str.Startup.PlatformSummary": "Linux soilik. Pantaila-motorra: x11 (lehenetsia), auto edo wayland.",
     "Str.Shell.NotImplemented": "Eginbide hau oraindik ez dago inplementatuta",
     "Str.AIChat.Stop": "Gelditu",
@@ -945,6 +947,7 @@
     "Str.FindReplace.Msg.ProtectedOnly": "'{0}' bilaketa-testua fitxategiaren goiburuan edo prozedura baten Attribute lerroetan soilik agertzen da. Bilatu aukerak eremu horiek saltatzen ditu, IDEak soilik aldatzen dituelako.",
     "Str.FindReplace.Msg.ReplacementsWithSkipped": "{0} ordezkapen egin dira; {1} bat-etortze saltatu dira goiburuan edo prozeduren Attribute lerroetan, IDEak soilik aldatzen dituenetan.",
     "Str.FindReplace.Msg.ReplacementsMade": "{0} ordezkapen egin dira.",
+    "Str.FindReplace.Msg.ReplacementsWithFilesLeftOut": "{0} ordezkapen egin dira; {1} fitxategi baztertu dira, HexIDEk oraindik ezin dituelako zehaztasunez gorde.",
     "Str.FindReplace.Msg.InvalidRegex": "Adierazpen erregularraren eredu baliogabea.",
     "Str.FindReplace.Msg.NothingToSearch": "Hemen ez dago Bilatu aukerak bilatzeko ezer. Kode-leihoetan eta proiektuak daramatzan testu-fitxategietan egiten du lan.",
     "Str.Vb6Toolchain.Vb6NotFound": "Ez da VB6.EXE aurkitu. Instalatu VB6 kokaleku lehenetsian edo ezarri VB6_EXE ingurune-aldagaia.",
@@ -1174,6 +1177,14 @@
     "Str.Options.Formatting.Token.Identifier": "Identifikatzailea",
     "Str.Options.Formatting.Token.MetadataKeyword": "Metadatuen gako-hitza",
     "Str.Project.AlreadyOpen": "{0} proiektua irekita dago jada.",
-    "Str.Options.Addins.Overview": "Gehigarriek tresnak eta ezarpenak gehitzen dizkiote HexIDEri. Instalatzeko, deskonprimitu sinatutako gehigarri-paketea beheko direktorioko bere karpetan eta berrabiarazi HexIDE. Hautatu gehigarri bat zuhaitzean hura kudeatzeko."
+    "Str.Options.Addins.Overview": "Gehigarriek tresnak eta ezarpenak gehitzen dizkiote HexIDEri. Instalatzeko, deskonprimitu sinatutako gehigarri-paketea beheko direktorioko bere karpetan eta berrabiarazi HexIDE. Hautatu gehigarri bat zuhaitzean hura kudeatzeko.",
+    "Str.Tool.LanguageServers.Editor.Customise": "Pertsonalizatu",
+    "Str.Tool.LanguageServers.Editor.Help": "Balio hutsak eremua garbitzen du. JSON eremuek JSON balioak hartzen dituzte. Gordetzeak beheko komandoa gogoratzen du; berrabiarazi aplikatzeko.",
+    "Str.Tool.LanguageServers.Editor.Command": "Ebatzitako komandoa (argumentuekin)",
+    "Str.Tool.LanguageServers.Editor.Save": "Gorde",
+    "Str.Tool.LanguageServers.Editor.DuplicateId": "ID hori badago jada. Editatu edo pertsonalizatu.",
+    "Str.Tool.LanguageServers.Editor.InvalidJson": "JSON baliogabea: {0}",
+    "Str.Tool.LanguageServers.Editor.NoWorkspace": "Lan-eremuko leku-markak proiektu-karpeta aukeratu arte daude zain.",
+    "Str.Tool.LanguageServers.Editor.FileChanged": "Fitxategia aldatu da. Ireki berriro inprimakia gorde aurretik."
   }
 }

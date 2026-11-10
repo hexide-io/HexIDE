@@ -2,6 +2,8 @@
   "name": "Slovenian",
   "direction": "ltr",
   "strings": {
+    "Str.AIChat.Refusal": "Ponudnik je zavrnil to zahtevo.",
+    "Str.AIChat.TokenLimit": "Odgovor je dosegel omejitev žetonov in ni popoln.",
     "Str.Startup.PlatformSummary": "Samo Linux. Prikazovalni sistem: x11 (privzeto), auto ali wayland.",
     "Str.Shell.NotImplemented": "Ta funkcija še ni implementirana",
     "Str.AIChat.Stop": "Ustavi",
@@ -945,6 +947,7 @@
     "Str.FindReplace.Msg.ProtectedOnly": "Iskano besedilo '{0}' se pojavlja le v glavi datoteke ali vrsticah Attribute postopka. Iskanje preskoči ta območja, ker jih spreminja samo IDE.",
     "Str.FindReplace.Msg.ReplacementsWithSkipped": "Opravljenih zamenjav: {0}; preskočenih zadetkov v glavi ali vrsticah Attribute postopka, ki jih spreminja samo IDE: {1}.",
     "Str.FindReplace.Msg.ReplacementsMade": "Opravljenih zamenjav: {0}.",
+    "Str.FindReplace.Msg.ReplacementsWithFilesLeftOut": "Opravljenih je bilo {0} zamenjav; {1} datotek je bilo izpuščenih, ker jih HexIDE še ne more zvesto shraniti.",
     "Str.FindReplace.Msg.InvalidRegex": "Neveljaven vzorec regularnega izraza.",
     "Str.FindReplace.Msg.NothingToSearch": "Tukaj ni ničesar za iskanje. Iskanje deluje v oknih kode in besedilnih datotekah, vključenih v projekt.",
     "Str.Vb6Toolchain.Vb6NotFound": "VB6.EXE ni bil najden. Namestite VB6 na privzeto mesto ali nastavite okoljsko spremenljivko VB6_EXE.",
@@ -1174,6 +1177,14 @@
     "Str.Options.Formatting.Token.Identifier": "Identifikator",
     "Str.Options.Formatting.Token.MetadataKeyword": "Ključna beseda metapodatkov",
     "Str.Project.AlreadyOpen": "Projekt {0} je že odprt.",
-    "Str.Options.Addins.Overview": "Dodatki razširjajo HexIDE z orodji in nastavitvami. Za namestitev razširite podpisan paket v lastno mapo v spodnjem imeniku in znova zaženite HexIDE. Za upravljanje izberite dodatek v drevesu."
+    "Str.Options.Addins.Overview": "Dodatki razširjajo HexIDE z orodji in nastavitvami. Za namestitev razširite podpisan paket v lastno mapo v spodnjem imeniku in znova zaženite HexIDE. Za upravljanje izberite dodatek v drevesu.",
+    "Str.Tool.LanguageServers.Editor.Customise": "Prilagodi",
+    "Str.Tool.LanguageServers.Editor.Help": "Prazna vrednost počisti polje. Polja JSON sprejemajo vrednosti JSON. Shranjevanje si zapomni spodnji ukaz; za uveljavitev znova zaženite.",
+    "Str.Tool.LanguageServers.Editor.Command": "Razrešen ukaz (z argumenti)",
+    "Str.Tool.LanguageServers.Editor.Save": "Shrani",
+    "Str.Tool.LanguageServers.Editor.DuplicateId": "Ta ID že obstaja. Uredite ga ali prilagodite.",
+    "Str.Tool.LanguageServers.Editor.InvalidJson": "Neveljaven JSON: {0}",
+    "Str.Tool.LanguageServers.Editor.NoWorkspace": "Označbe delovnega prostora čakajo na izbiro projektne mape.",
+    "Str.Tool.LanguageServers.Editor.FileChanged": "Datoteka se je spremenila. Pred shranjevanjem znova odprite obrazec."
   }
 }

@@ -2,6 +2,8 @@
   "name": "Japanese",
   "direction": "ltr",
   "strings": {
+    "Str.AIChat.Refusal": "プロバイダーがこのリクエストを拒否しました。",
+    "Str.AIChat.TokenLimit": "応答がトークン上限に達したため、未完了です。",
     "Str.Startup.PlatformSummary": "Linux のみ。表示バックエンド: x11 (既定)、auto、wayland。",
     "Str.Shell.NotImplemented": "この機能はまだ実装されていません",
     "Str.AIChat.Stop": "停止",
@@ -945,6 +947,7 @@
     "Str.FindReplace.Msg.ProtectedOnly": "検索文字列 '{0}' はファイルのヘッダーまたはプロシージャの Attribute 行にのみ存在します。これらは IDE のみが変更するため、検索では除外されます。",
     "Str.FindReplace.Msg.ReplacementsWithSkipped": "{0} 件を置換しました。IDE のみが変更するヘッダーまたはプロシージャの Attribute 行の {1} 件を除外しました。",
     "Str.FindReplace.Msg.ReplacementsMade": "{0} 件置換しました。",
+    "Str.FindReplace.Msg.ReplacementsWithFilesLeftOut": "{0} 件を置換しました。HexIDE ではまだ忠実に保存できないため、{1} 個のファイルを除外しました。",
     "Str.FindReplace.Msg.InvalidRegex": "正規表現パターンが無効です。",
     "Str.FindReplace.Msg.NothingToSearch": "ここには検索できるものがありません。検索はコード ウィンドウと、プロジェクトに含まれるテキスト ファイルで使用できます。",
     "Str.Vb6Toolchain.Vb6NotFound": "VB6.EXE が見つかりませんでした。VB6 を既定の場所にインストールするか、VB6_EXE 環境変数を設定してください。",
@@ -1174,6 +1177,14 @@
     "Str.Options.Formatting.Token.Identifier": "識別子",
     "Str.Options.Formatting.Token.MetadataKeyword": "メタデータキーワード",
     "Str.Project.AlreadyOpen": "プロジェクト {0} は既に開いています。",
-    "Str.Options.Addins.Overview": "アドインは HexIDE にツールや設定を追加します。インストールするには、署名済みのアドインパッケージを以下のディレクトリ内の専用フォルダーに展開し、HexIDE を再起動してください。管理するアドインをツリーで選択してください。"
+    "Str.Options.Addins.Overview": "アドインは HexIDE にツールや設定を追加します。インストールするには、署名済みのアドインパッケージを以下のディレクトリ内の専用フォルダーに展開し、HexIDE を再起動してください。管理するアドインをツリーで選択してください。",
+    "Str.Tool.LanguageServers.Editor.Customise": "カスタマイズ",
+    "Str.Tool.LanguageServers.Editor.Help": "空欄にすると値を消去します。JSON フィールドには JSON 値を入力します。保存すると下のコマンドを記憶します。適用には再起動が必要です。",
+    "Str.Tool.LanguageServers.Editor.Command": "解決済みコマンド（引数を含む）",
+    "Str.Tool.LanguageServers.Editor.Save": "保存",
+    "Str.Tool.LanguageServers.Editor.DuplicateId": "この ID は既に存在します。編集またはカスタマイズしてください。",
+    "Str.Tool.LanguageServers.Editor.InvalidJson": "無効な JSON: {0}",
+    "Str.Tool.LanguageServers.Editor.NoWorkspace": "プロジェクトフォルダーを選択するまでワークスペースのプレースホルダーは解決されません。",
+    "Str.Tool.LanguageServers.Editor.FileChanged": "ファイルが変更されました。保存する前にフォームを開き直してください。"
   }
 }

@@ -2,6 +2,8 @@
   "name": "Chinese (Traditional)",
   "direction": "ltr",
   "strings": {
+    "Str.AIChat.Refusal": "供應商拒絕了此請求。",
+    "Str.AIChat.TokenLimit": "回覆已達到權杖上限，內容不完整。",
     "Str.Startup.PlatformSummary": "僅限 Linux。顯示後端：x11（預設）、auto 或 wayland。",
     "Str.Shell.NotImplemented": "此功能尚未實作",
     "Str.AIChat.Stop": "停止",
@@ -945,6 +947,7 @@
     "Str.FindReplace.Msg.ProtectedOnly": "搜尋文字 '{0}' 僅出現在檔案標頭或程序的 Attribute 行中。這些區域僅由 IDE 變更，因此搜尋會略過它們。",
     "Str.FindReplace.Msg.ReplacementsWithSkipped": "已取代 {0} 處；略過了檔案標頭或程序 Attribute 行中的 {1} 處符合項目，這些區域僅由 IDE 變更。",
     "Str.FindReplace.Msg.ReplacementsMade": "已完成 {0} 項取代。",
+    "Str.FindReplace.Msg.ReplacementsWithFilesLeftOut": "已完成 {0} 處取代；已略過 {1} 個檔案，因為 HexIDE 尚無法忠實儲存它們。",
     "Str.FindReplace.Msg.InvalidRegex": "無效的規則運算式模式。",
     "Str.FindReplace.Msg.NothingToSearch": "這裡沒有可尋找的內容。尋找適用於程式碼視窗和專案隨附的文字檔。",
     "Str.Vb6Toolchain.Vb6NotFound": "找不到 VB6.EXE。請將 VB6 安裝在預設位置，或設定 VB6_EXE 環境變數。",
@@ -1174,6 +1177,14 @@
     "Str.Options.Formatting.Token.Identifier": "識別項",
     "Str.Options.Formatting.Token.MetadataKeyword": "中繼資料關鍵字",
     "Str.Project.AlreadyOpen": "專案 {0} 已開啟。",
-    "Str.Options.Addins.Overview": "增益集為 HexIDE 加入工具和設定。若要安裝增益集，請將已簽署的增益集套件解壓縮至下方目錄中的獨立資料夾，然後重新啟動 HexIDE。在樹狀清單中選取增益集即可管理。"
+    "Str.Options.Addins.Overview": "增益集為 HexIDE 加入工具和設定。若要安裝增益集，請將已簽署的增益集套件解壓縮至下方目錄中的獨立資料夾，然後重新啟動 HexIDE。在樹狀清單中選取增益集即可管理。",
+    "Str.Tool.LanguageServers.Editor.Customise": "自訂",
+    "Str.Tool.LanguageServers.Editor.Help": "留空可清除值。JSON 欄位接受 JSON 值。儲存將記住下方命令；重新啟動後生效。",
+    "Str.Tool.LanguageServers.Editor.Command": "解析後的命令（包括引數）",
+    "Str.Tool.LanguageServers.Editor.Save": "儲存",
+    "Str.Tool.LanguageServers.Editor.DuplicateId": "此 ID 已存在。請編輯或自訂該項目。",
+    "Str.Tool.LanguageServers.Editor.InvalidJson": "無效的 JSON：{0}",
+    "Str.Tool.LanguageServers.Editor.NoWorkspace": "選擇專案資料夾後才能解析工作區預留位置。",
+    "Str.Tool.LanguageServers.Editor.FileChanged": "檔案已變更。請重新開啟表單後再儲存。"
   }
 }

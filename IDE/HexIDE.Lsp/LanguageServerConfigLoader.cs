@@ -51,6 +51,7 @@ public sealed class LanguageServerConfigLoader
     private const string PathControlWarning = "Field '{0}' contains an escaped control character; likely intended backslash path: {1}. The value is unchanged.";
 
     private readonly string _filePath;
+    private string? _previewText;
     private readonly ILogger<LanguageServerConfigLoader> _logger;
 
     public LanguageServerConfigLoader(ILogger<LanguageServerConfigLoader> logger)
@@ -61,6 +62,14 @@ public sealed class LanguageServerConfigLoader
     {
         _filePath = filePath;
         _logger = logger;
+    }
+
+    /// <summary>Validates an editor preview through the ordinary file loader, without writing or announcing commands.</summary>
+    public LanguageServerConfigResult Preview(string text, IReadOnlyList<LanguageServerEntry> defaults,
+        IWorkspaceArtifactProviderRegistry? artifactProviders = null)
+    {
+        var preview = new LanguageServerConfigLoader(_filePath, _logger) { _previewText = text };
+        return preview.Load(defaults, artifactProviders: artifactProviders);
     }
 
     public static string DefaultFilePath()
@@ -345,7 +354,7 @@ public sealed class LanguageServerConfigLoader
     /// executable.
     /// </para>
     /// </summary>
-    private static string? LaunchedCommandOf(LanguageServerEntry entry)
+    public static string? LaunchedCommandOf(LanguageServerEntry entry)
     {
         var transport = entry.Transport?.Trim();
         var launches =
@@ -386,7 +395,7 @@ public sealed class LanguageServerConfigLoader
         string? text = null;
         try
         {
-            if (!File.Exists(_filePath))
+            if (_previewText is null && !File.Exists(_filePath))
             {
                 _logger.LogDebug("No language server configuration at {Path}; using defaults", _filePath);
                 return null;
@@ -401,7 +410,7 @@ public sealed class LanguageServerConfigLoader
                 AllowTrailingCommas = true,
             };
 
-            text = File.ReadAllText(_filePath);
+            text = _previewText ?? File.ReadAllText(_filePath);
             var file = JsonSerializer.Deserialize<LanguageServerConfigFile>(text, options);
             if (file is null)
             {

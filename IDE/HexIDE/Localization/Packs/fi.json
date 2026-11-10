@@ -2,6 +2,8 @@
   "name": "Finnish",
   "direction": "ltr",
   "strings": {
+    "Str.AIChat.Refusal": "Palveluntarjoaja hylkäsi tämän pyynnön.",
+    "Str.AIChat.TokenLimit": "Vastaus saavutti tokenrajan ja jäi kesken.",
     "Str.Startup.PlatformSummary": "Vain Linux. Näyttötausta: x11 (oletus), auto tai wayland.",
     "Str.Shell.NotImplemented": "Tätä ominaisuutta ei ole vielä toteutettu",
     "Str.AIChat.Stop": "Pysäytä",
@@ -945,6 +947,7 @@
     "Str.FindReplace.Msg.ProtectedOnly": "Hakuteksti '{0}' esiintyy vain tiedoston otsakkeessa tai aliohjelman Attribute-riveillä. Haku ohittaa ne, koska vain IDE muuttaa niitä.",
     "Str.FindReplace.Msg.ReplacementsWithSkipped": "Tehtiin {0} korvausta; ohitettiin {1} osumaa otsakkeessa tai aliohjelmien Attribute-riveillä, joita vain IDE muuttaa.",
     "Str.FindReplace.Msg.ReplacementsMade": "{0} korvausta tehty.",
+    "Str.FindReplace.Msg.ReplacementsWithFilesLeftOut": "Tehtiin {0} korvausta; {1} tiedostoa ohitettiin, koska HexIDE ei vielä pysty tallentamaan niitä tarkasti.",
     "Str.FindReplace.Msg.InvalidRegex": "Virheellinen säännöllisen lausekkeen kuvio.",
     "Str.FindReplace.Msg.NothingToSearch": "Täällä ei ole mitään etsittävää. Etsi toimii koodi-ikkunoissa ja projektin sisältämissä tekstitiedostoissa.",
     "Str.Vb6Toolchain.Vb6NotFound": "VB6.EXE-tiedostoa ei löytynyt. Asenna VB6 oletussijaintiin tai aseta VB6_EXE-ympäristömuuttuja.",
@@ -1174,6 +1177,14 @@
     "Str.Options.Formatting.Token.Identifier": "Tunniste",
     "Str.Options.Formatting.Token.MetadataKeyword": "Metatietojen avainsana",
     "Str.Project.AlreadyOpen": "Projekti {0} on jo avoinna.",
-    "Str.Options.Addins.Overview": "Lisäosat laajentavat HexIDEä työkaluilla ja asetuksilla. Asenna purkamalla allekirjoitettu lisäosapaketti omaan kansioonsa alla olevassa hakemistossa ja käynnistä HexIDE uudelleen. Hallitse lisäosaa valitsemalla se puusta."
+    "Str.Options.Addins.Overview": "Lisäosat laajentavat HexIDEä työkaluilla ja asetuksilla. Asenna purkamalla allekirjoitettu lisäosapaketti omaan kansioonsa alla olevassa hakemistossa ja käynnistä HexIDE uudelleen. Hallitse lisäosaa valitsemalla se puusta.",
+    "Str.Tool.LanguageServers.Editor.Customise": "Mukauta",
+    "Str.Tool.LanguageServers.Editor.Help": "Tyhjä arvo tyhjentää kentän. JSON-kenttiin annetaan JSON-arvoja. Tallennus muistaa alla olevan komennon; ota käyttöön käynnistämällä uudelleen.",
+    "Str.Tool.LanguageServers.Editor.Command": "Ratkaistu komento (argumentteineen)",
+    "Str.Tool.LanguageServers.Editor.Save": "Tallenna",
+    "Str.Tool.LanguageServers.Editor.DuplicateId": "Tämä tunnus on jo olemassa. Muokkaa tai mukauta sitä.",
+    "Str.Tool.LanguageServers.Editor.InvalidJson": "Virheellinen JSON: {0}",
+    "Str.Tool.LanguageServers.Editor.NoWorkspace": "Työtilan paikkamerkit odottavat projektikansion valintaa.",
+    "Str.Tool.LanguageServers.Editor.FileChanged": "Tiedosto on muuttunut. Avaa lomake uudelleen ennen tallennusta."
   }
 }

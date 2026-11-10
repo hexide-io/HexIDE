@@ -46,6 +46,38 @@ public class CodeEditorSplitTests : IDisposable
     }
 
     [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void WholeFileReadOnlyRefusesHistoryReplayWithoutLosingIt(bool redo)
+    {
+        var windows = Substitute.For<IWindowManager>();
+        using var vm = MakeViewModel(windows);
+        var form = new FormDefinition(new ProjectDefinition(VBProjectType.EXE, "P"),
+            HexIDE.Runtime.Components.FormComponentClass.Instance, "Form1");
+        form.UpdateCode("Option Explicit\r\n");
+        vm.Initialize(form);
+        var view = Show(vm);
+        var original = vm.Document.Text;
+        vm.Document.Insert(vm.Document.TextLength, "' marker");
+        var edited = vm.Document.Text;
+        if (redo) view.Undo.Execute(null);
+        form.MarkUnfaithfulToSave(UnfaithfulSaveCause.UnreproducibleBinaryContent, "test");
+        var command = redo ? view.Redo : view.Undo;
+
+        command.Execute(null);
+
+        vm.Document.Text.Should().Be(redo ? original : edited);
+        vm.Document.UndoStack.CanUndo.Should().Be(!redo);
+        vm.Document.UndoStack.CanRedo.Should().Be(redo);
+        windows.Received().MessageBox("file cannot be saved", Arg.Any<string>(),
+            Arg.Any<MessageBoxButtons>(), MessageBoxIcon.Information);
+        form.AdoptFidelityState(new FormDefinition(form.Owner,
+            HexIDE.Runtime.Components.FormComponentClass.Instance, "Form1"));
+        command.Execute(null);
+        vm.Document.Text.Should().Be(redo ? edited : original);
+    }
+
+    [AvaloniaTheory]
     [InlineData(false, false)]
     [InlineData(false, true)]
     [InlineData(true, false)]
@@ -583,7 +615,7 @@ public class CodeEditorSplitTests : IDisposable
         return module;
     }
 
-    private CodeEditorViewModel MakeViewModel()
+    private CodeEditorViewModel MakeViewModel(IWindowManager? windows = null)
     {
         var eventBus = Substitute.For<IEventBus>();
         eventBus.Subscribe<CreateOrNavigateToSubEvent>(
@@ -597,6 +629,7 @@ public class CodeEditorSplitTests : IDisposable
 
         var localization = Substitute.For<ILocalizationService>();
         localization.GetString("Str.Document.CodeSuffix").Returns("Code");
+        localization.GetString("Str.CodeEditor.FileNotSaved.Banner").Returns("file cannot be saved");
 
         // A real value: the view pushes it into AvaloniaEdit, which rejects a non-positive indentation
         // size, so a substitute's default of 0 throws out of the attach handler.
@@ -604,7 +637,7 @@ public class CodeEditorSplitTests : IDisposable
         settings.TabWidth.Returns(4);
 
         return new CodeEditorViewModel(
-            Substitute.For<IWindowManager>(),
+            windows ?? Substitute.For<IWindowManager>(),
             Substitute.For<IEditorService>(),
             Substitute.For<IProjectService>(),
             eventBus,
