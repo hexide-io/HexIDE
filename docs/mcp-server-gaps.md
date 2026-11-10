@@ -11,9 +11,12 @@ for non-modal surfaces.
 Each gap is a file of its own, and the folder it is in is its status:
 
 **Write-tool source audit (#2504, not a live probe).** The [file-safety audit](file-safety-audit.md)
-records missing disk recovery and project-root containment on source/property/control saves, with their
-entry points and remaining work. MCP conversation exports now preserve earlier exports; that fix does
-not close the other write-tool gaps. Tracked by [#2504](https://github.com/hexide-io/HexIDE/issues/2504).
+records disk recovery and project-root containment on source/property/control saves, with their
+entry points and the remaining work on UI-triggered writes. MCP conversation exports preserve earlier exports. The three direct member writers
+(`set_file_content`, `set_control_property`, `add_control`) now refuse external/traversing/linked
+destinations before editing and preserve existing source and companion bytes in recovery siblings,
+reported with restore instructions. `add_file` writes no disk file. Generic UI-triggered writes remain
+outside that guard; this does not close the audit. Tracked by [#2504](https://github.com/hexide-io/HexIDE/issues/2504).
 
 ---
 
