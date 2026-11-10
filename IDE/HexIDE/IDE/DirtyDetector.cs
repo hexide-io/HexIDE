@@ -66,6 +66,7 @@ public sealed record WatchedFileTarget(
 /// </summary>
 public sealed class DirtyDetector(IFileBaselineStore baselineStore, IProjectService projectService, IProjectFileFormat format)
 {
+    private readonly IProjectFileFormat _format = format;
 
     public ReloadDecision Classify(WatchedFileTarget t)
     {
@@ -110,7 +111,7 @@ public sealed class DirtyDetector(IFileBaselineStore baselineStore, IProjectServ
             // Preserve the open-view verdict when no model baseline is available.
             return t.IsOpen ? ReloadDecision.CleanReload : ReloadDecision.Indeterminate;
         // Rebuild header + body as a save writes it, in the file's retained encoding (including its BOM).
-        var modelOnDisk = format.RenderModule(module, System.IO.Path.GetFileName(t.SourcePath)).Text;
+        var modelOnDisk = _format.RenderModule(module, System.IO.Path.GetFileName(t.SourcePath)).Text;
         try
         {
             return string.Equals(FileHasher.Hash(Vb6TextFile.Encode(modelOnDisk, module.TextEncoding)),

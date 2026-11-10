@@ -48,6 +48,7 @@ namespace HexIDE.Projects;
 public sealed class ProjectLspWorkspace(Func<IProjectManager> projectManager, IProjectFileFormat format) : IWorkspaceArtifactWorkspace
 {
 
+    private readonly IProjectFileFormat _format = format;
 
     private readonly List<Action> _unsubscribe = [];
     private IProjectManager? _observed;
@@ -130,7 +131,7 @@ public sealed class ProjectLspWorkspace(Func<IProjectManager> projectManager, IP
                 // None for a contributed project: its file is its add-in's, in its add-in's format, and never a .vbp.
                 ProjectText: project is { AbsolutePath: { } path, ContributedBy: null }
                     ? async token => await Dispatcher.UIThread.InvokeAsync<string>(
-                        () => format.RenderProject(project, path), DispatcherPriority.Normal, token)
+                        () => _format.RenderProject(project, path), DispatcherPriority.Normal, token)
                     : null));
         }
         _projects = contexts;
