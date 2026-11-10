@@ -67,12 +67,14 @@ public class SlowShutdownTests
     }
 
     [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public Task Slow_server_survives_disconnect_during_exit(bool pipe) =>
-        AssertSlowDisconnect(pipe, waitForExit: false);
+    [InlineData(false, "slow")]
+    [InlineData(true, "slow")]
+    [InlineData(false, "unanswered")]
+    [InlineData(true, "unanswered")]
+    public Task Slow_server_survives_disconnect_during_exit(bool pipe, string mode) =>
+        AssertSlowDisconnect(pipe, waitForExit: false, mode);
 
-    internal static async Task AssertSlowDisconnect(bool pipe, bool waitForExit)
+    internal static async Task AssertSlowDisconnect(bool pipe, bool waitForExit, string mode = "slow")
     {
         var token = TestContext.Current.CancellationToken;
         var name = $"h3244-{Guid.NewGuid():N}"[..20];
@@ -87,9 +89,10 @@ public class SlowShutdownTests
             RedirectStandardError = true,
         };
         start.ArgumentList.Add(typeof(global::HexIDE.Lsp.TestServer.Program).Assembly.Location);
-        start.ArgumentList.Add("slow");
+        start.ArgumentList.Add(mode);
         if (pipe) start.ArgumentList.Add(name);
         using var process = Process.Start(start)!;
+        var stderr = process.StandardError.ReadToEndAsync(token);
         try
         {
             if (listener is not null)
@@ -101,11 +104,14 @@ public class SlowShutdownTests
                 .AsTask().WaitAsync(TimeSpan.FromSeconds(5), token);
             await input.WriteAsync(shutdown, token).AsTask().WaitAsync(TimeSpan.FromSeconds(5), token);
             await input.FlushAsync(token).WaitAsync(TimeSpan.FromSeconds(5), token);
-            var reply = "{\"jsonrpc\":\"2.0\",\"id\":1,\"result\":null}";
-            var expected = Encoding.UTF8.GetBytes($"Content-Length: {Encoding.UTF8.GetByteCount(reply)}\r\n\r\n{reply}");
-            var received = new byte[expected.Length];
-            await output.ReadExactlyAsync(received, token).AsTask().WaitAsync(TimeSpan.FromSeconds(30), token);
-            received.Should().Equal(expected, "the server must answer shutdown before disconnecting");
+            if (mode == "slow")
+            {
+                var reply = "{\"jsonrpc\":\"2.0\",\"id\":1,\"result\":null}";
+                var expected = Encoding.UTF8.GetBytes($"Content-Length: {Encoding.UTF8.GetByteCount(reply)}\r\n\r\n{reply}");
+                var received = new byte[expected.Length];
+                await output.ReadExactlyAsync(received, token).AsTask().WaitAsync(TimeSpan.FromSeconds(30), token);
+                received.Should().Equal(expected, "the server must answer shutdown before disconnecting");
+            }
 
             // Exceed the pipe buffer so a server that stops draining fails here on Linux too.
             await input.WriteAsync(Encoding.ASCII.GetBytes("Content-Length: 2000000\r\n\r\n{"), token)
@@ -116,8 +122,10 @@ public class SlowShutdownTests
             else process.StandardInput.Close();
             var grace = Task.Delay(LaunchedServerGuard.ExitTimeout, token);
             var exited = process.WaitForExitAsync(token);
-            (await Task.WhenAny(exited, grace)).Should().Be(grace,
-                "slow mode must remain alive past the exit wait even when the peer disconnects (#3244)");
+            var first = await Task.WhenAny(exited, grace);
+            var detail = first == exited ? await stderr : "still running";
+            first.Should().Be(grace,
+                "{0} mode must remain alive past the exit wait even when the peer disconnects (#3244): {1}", mode, detail);
             await grace;
             if (waitForExit)
             {
