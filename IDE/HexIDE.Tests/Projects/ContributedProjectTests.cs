@@ -529,7 +529,7 @@ public sealed class ContributedProjectTests : IDisposable
     [InlineData(false)]
     public void HexIDE_s_interpreter_starts_only_a_project_HexIDE_read_itself(bool contributed)
     {
-        var project = new ProjectDefinition(VBProjectType.EXE, "Ledger") { ContributedBy = contributed ? "RDCore projects" : null };
+        var project = new ProjectDefinition(VBProjectType.EXE, "Ledger") { ContributedBy = contributed ? "RDCore projects" : null, Offers = contributed ? ProjectOffers.Nothing : ProjectOffers.Everything };
         var projects = Substitute.For<IProjectManager>();
         projects.StartupProject.Returns(project);
         var events = Substitute.For<IEventBus>();

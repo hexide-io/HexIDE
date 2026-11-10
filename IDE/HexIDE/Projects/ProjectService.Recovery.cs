@@ -68,8 +68,8 @@ public partial class ProjectService
     /// <inheritdoc/>
     public object? AddRecovered(ProjectDefinition project, UnsavedDocument document)
     {
-        // Not into a contributed project: a member its add-in no longer lists is not HexIDE's to add back.
-        if (project.ContributedBy is not null)
+        // Not where the type doesn't offer it: a member its add-in no longer lists is not HexIDE's to add back.
+        if (!project.Offers.ChangesMembership)
             return null;
         if (document.Content is not { } content || CheckAdoptedName(project, document.Name) != AdoptionRefusal.None)
             return null;

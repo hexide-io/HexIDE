@@ -75,11 +75,13 @@ public partial class ProjectDefinition : INotifyPropertyChanged
     }
 
     /// <summary>
-    /// The manifest id of the add-in whose project type opened this project, or null for a project HexIDE read itself. A
-    /// contributed project's file is its add-in's program's to write: HexIDE saves its modules, never the project file, and
-    /// changes its membership only as the add-in reports a change.
+    /// The manifest id of the add-in whose project type opened this project, or null for a project HexIDE read itself. It
+    /// says who the project belongs to, for messages and logs. What the IDE may do with it is <see cref="Offers"/>.
     /// </summary>
     public string? ContributedBy { get; init; }
+
+    /// <summary>What this project's type lets the IDE do with it. A project the IDE read itself offers everything.</summary>
+    public ProjectOffers Offers { get; init; } = ProjectOffers.Everything;
 
     /// <summary>The title of the add-in that opened this project, for display; null when <see cref="ContributedBy"/> is.</summary>
     public string? ContributorTitle { get; init; }

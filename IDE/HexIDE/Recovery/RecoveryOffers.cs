@@ -341,7 +341,7 @@ public sealed class RecoveryOffers : IRecoveryOffers
         foreach (var document in backup.Documents)
         {
             var target = Find(project, document);
-            if (target is null && project.ContributedBy is null && document.Path is { } path && File.Exists(path))
+            if (target is null && project.Offers.ChangesMembership && document.Path is { } path && File.Exists(path))
                 target = await AddExistingAsync(project, document, path);
             if (document.Content is not { } content)
                 continue;

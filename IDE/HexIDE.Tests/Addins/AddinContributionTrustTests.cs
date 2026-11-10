@@ -173,7 +173,7 @@ public sealed class AddinContributionTrustTests : IAsyncDisposable
     public void F5_s_state_keeps_and_watches_nothing_once_the_add_in_s_launch_or_the_project_is_gone(string how)
     {
         // F5's state asks the launch only for a project an add-in read.
-        var contributed = new ProjectDefinition(VBProjectType.EXE, "Ledger") { ContributedBy = "RDCore projects" };
+        var contributed = new ProjectDefinition(VBProjectType.EXE, "Ledger") { ContributedBy = "RDCore projects", Offers = ProjectOffers.Nothing };
         contributed.AddModule(new ModuleDefinition(contributed, "Startup", ModuleKind.StandardModule));
         _projects.StartupProject.Returns(contributed);
         using var registration = _host.RegisterDebugLaunch(new AddinDebugLaunch("Probe")

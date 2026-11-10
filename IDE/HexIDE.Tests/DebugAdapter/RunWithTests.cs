@@ -134,7 +134,7 @@ public class RunWithTests : IAsyncDisposable
     [InlineData("chosen, no longer claims it", false)]
     public void F5_starts_a_project_an_add_in_read_only_with_the_launch_its_user_chose_for_it(string state, bool starts)
     {
-        var contributed = new ProjectDefinition(VBProjectType.EXE, "Ledger") { ContributedBy = "RDCore projects" };
+        var contributed = new ProjectDefinition(VBProjectType.EXE, "Ledger") { ContributedBy = "RDCore projects", Offers = ProjectOffers.Nothing };
         _projects.StartupProject.Returns(contributed);
         if (state != "chosen, gone") Contribute(claims: _ => state != "chosen, no longer claims it");
         if (state != "no choice") _choices.Set(contributed, Key);
@@ -150,7 +150,7 @@ public class RunWithTests : IAsyncDisposable
     // it is asked whether it runs the project.
     private (ProjectDefinition Project, ModuleDefinition Module) ContributedAndChosen(Func<bool>? answer = null)
     {
-        var contributed = new ProjectDefinition(VBProjectType.EXE, "Ledger") { ContributedBy = "RDCore projects" };
+        var contributed = new ProjectDefinition(VBProjectType.EXE, "Ledger") { ContributedBy = "RDCore projects", Offers = ProjectOffers.Nothing };
         var module = new ModuleDefinition(contributed, "Startup", ModuleKind.StandardModule);
         contributed.AddModule(module);
         _projects.StartupProject.Returns(contributed);
@@ -257,7 +257,7 @@ public class RunWithTests : IAsyncDisposable
                 break;
             case "the launch registered again": Reregister(); break;
             case "another startup project":
-                var other = new ProjectDefinition(VBProjectType.EXE, "Other") { ContributedBy = "RDCore projects" };
+                var other = new ProjectDefinition(VBProjectType.EXE, "Other") { ContributedBy = "RDCore projects", Offers = ProjectOffers.Nothing };
                 _choices.Set(other, Key);
                 _projects.StartupProject.Returns(other);
                 break;
