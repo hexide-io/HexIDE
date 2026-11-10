@@ -15,6 +15,7 @@ public partial class ThemePageViewModel : ObservableObject, IOptionsPage
     private readonly ISettingsService _settings;
     private readonly IThemeService _themeService;
     private bool _loading;
+    private bool _themeChanged;
 
     public ThemePageViewModel(ISettingsService settings, IThemeService themeService)
     {
@@ -33,17 +34,26 @@ public partial class ThemePageViewModel : ObservableObject, IOptionsPage
     {
         // Only a genuine user change previews; loading the current value must not re-apply.
         if (_loading) return;
+        _themeChanged = true;
         _themeService.Apply(value);
     }
 
     public void LoadFromSettings()
     {
         _loading = true;
-        SelectedTheme = _settings.ActiveTheme;
+        SelectedTheme = _themeService.ActiveTheme is "HighContrastLight" or "HighContrastDark"
+            ? _themeService.ActiveTheme
+            : _settings.ActiveTheme;
         _loading = false;
+        _themeChanged = false;
     }
 
-    public void SaveToSettings() => _settings.ActiveTheme = SelectedTheme;
+    public void SaveToSettings()
+    {
+        if (!_themeChanged) return;
+        _settings.ActiveTheme = SelectedTheme;
+        if (_settings is SettingsService settings) settings.RecordExplicitThemeChoice();
+    }
 
     // Setting SelectedTheme applies the default theme live (preview), reverted on Cancel.
     public void RestoreDefaults() => SelectedTheme = SettingsDefaults.ActiveTheme;
