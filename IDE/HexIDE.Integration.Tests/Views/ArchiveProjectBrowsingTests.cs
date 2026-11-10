@@ -194,6 +194,25 @@ public sealed class ArchiveProjectBrowsingTests : IDisposable
         finally { window.Close(); }
     }
 
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Reopened_twin_entry_keeps_the_latest_build_type_inactive_lines(bool updated)
+    {
+        const string source = "#If TWINBASIC_BUILD_TYPE = \"Standard EXE\" Then\r\nExeBranch\r\n#Else\r\nOtherBranch\r\n#End If\r\n";
+        await archives.Open(Write("one.twinproj", source));
+        var entry = archives.Projects[0].Root.Children[0];
+        var tab = new ArchiveDocumentViewModel(entry, localization,
+            new HexIDE.Runtime.Interpreter.ConditionalCompilation.InterpreterConditionalCode(),
+            updated ? "ActiveX DLL" : "Standard EXE");
+        if (updated) tab.Update(entry, "Standard EXE");
+        tab.InactiveLines.Should().NotBeEmpty();
+
+        var reopened = tab.Reopen();
+
+        reopened.InactiveLines.Should().Equal(tab.InactiveLines);
+    }
+
     [AvaloniaFact]
     public async Task Only_twin_entries_are_read_for_conditional_compilation()
     {

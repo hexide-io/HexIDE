@@ -41,7 +41,8 @@ Selecting an archive entry or activating an archive tab MUST NOT implicitly targ
 ### Requirement: Grey a source entry's inactive conditional branches as the archive's compiler compiles them
 A `.twin` entry's preview MUST grey the lines its `#If` directives leave out under the archive compiler's measured
 built-ins at 32-bit (#1691), in the theme's `InactiveCodeTextBrush`. Under that compiler a call to one of VB's
-functions in a directive MUST read 0. Other entries MUST NOT be greyed.
+functions in a directive MUST read 0. Other entries MUST NOT be greyed. Reopening a recently closed tab MUST retain
+the latest project build type supplied on open or reload and preserve its inactive lines.
 
 #### Scenario: A branch the compiler's 32-bit build leaves out
 - **WHEN** the user opens a `.twin` entry whose `#If Win64 Then` branch has an `#Else`
