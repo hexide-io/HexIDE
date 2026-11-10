@@ -68,7 +68,7 @@ and the JSON path. Non-ASCII text before the fault counts as characters, rather 
 
 | Field | Required | Meaning |
 |---|---|---|
-| `id` | yes | Identifies the entry. Reusing a default's id **replaces** that default wholesale, keeping its position. |
+| `id` | yes | Identifies the entry. Reusing a default's id with a complete entry replaces that default wholesale, keeping its position and inheriting nothing. Only an entry that omits required fields adjusts the default: unwritten fields inherit; explicit `null` clears a field. Objects and arrays replace the whole field, rather than merging their contents (#1209). |
 | `extensions` | yes | The file extensions this server **serves**. This is what routing reads, and the only thing it reads. |
 | `languageId` | yes | What this server wants those files **called**, in the protocol sense. It routes nothing, except that `vb6` lets a `.cls` claim take the project's class modules; see below. |
 | `transport` | yes | `stdio`, `pipe` or `websocket`. A pipe entry without `command` owns only its connection; closing it leaves the server running. |
@@ -95,10 +95,10 @@ interactive SSH prompts are unavailable. Pipe placeholders also work within each
 
 ### Adding arguments to a server without replacing it
 
-Replacing an entry means writing its whole command, and the bundled VB6 server's command is something HexIDE
-finds when it starts: its path differs between a build from source and an installed copy. So to give that
-server, or any other, a few more arguments, name its id in the file's top-level `arguments` rather than in
-`servers`:
+The bundled VB6 server's command is something HexIDE finds when it starts: its path differs between a
+build from source and an installed copy. An incomplete user entry with the same id can adjust individual fields
+without copying that command. To append arguments instead of replacing the arguments field, name the id
+in the file's top-level `arguments`:
 
 ```jsonc
 {
