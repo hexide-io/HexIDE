@@ -193,6 +193,8 @@ window.separator3
 window.layouts
 window.resetlayout
 help
+help.brandhome
+help.brandsupport
 help.productonweb
 help.separator1
 help.about

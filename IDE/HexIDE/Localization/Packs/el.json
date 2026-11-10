@@ -277,6 +277,8 @@
     "Str.Menu.Window.Split": "Διαίρεση",
     "Str.Menu.Window.ResetLayout": "Επαναφορά διάταξης παραθύρων",
     "Str.Menu.Help": "Βοήθεια",
+    "Str.Menu.Help.BrandHome": "Αρχική σελίδα του {0}",
+    "Str.Menu.Help.BrandSupport": "Υποστήριξη {0}",
     "Str.Menu.Help.ProductOnWeb": "HexIDE στον ιστό",
     "Str.Menu.Help.About": "Πληροφορίες για το HexIDE...",
     "Str.Menu.GoToGithubRepo": "Μετάβαση στο αποθετήριο github",

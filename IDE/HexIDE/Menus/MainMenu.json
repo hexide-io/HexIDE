@@ -1118,6 +1118,22 @@
     "children": [
       {
         "kind": "Command",
+        "id": "help.brandhome",
+        "labelKey": "Str.Menu.Help.BrandHome",
+        "labelBinding": "BrandHomeMenuHeader",
+        "visibilityBinding": "HasBrandHome",
+        "command": "shell.OpenBrandHomeCommand"
+      },
+      {
+        "kind": "Command",
+        "id": "help.brandsupport",
+        "labelKey": "Str.Menu.Help.BrandSupport",
+        "labelBinding": "BrandSupportMenuHeader",
+        "visibilityBinding": "HasBrandSupport",
+        "command": "shell.OpenBrandSupportCommand"
+      },
+      {
+        "kind": "Command",
         "id": "help.productonweb",
         "labelKey": "Str.Menu.Help.ProductOnWeb",
         "command": "application.ProductOnWebCommand"

@@ -277,6 +277,8 @@
     "Str.Menu.Window.Split": "S_plitsen",
     "Str.Menu.Window.ResetLayout": "Vensterindeling _herstellen",
     "Str.Menu.Help": "_Help",
+    "Str.Menu.Help.BrandHome": "{0}-_startpagina",
+    "Str.Menu.Help.BrandSupport": "{0}-_ondersteuning",
     "Str.Menu.Help.ProductOnWeb": "HexIDE op het _web",
     "Str.Menu.Help.About": "_Over HexIDE...",
     "Str.Menu.GoToGithubRepo": "Ga naar github-repo",

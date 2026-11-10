@@ -240,6 +240,8 @@
     "Str.Menu.Window.Split": "_Dividir",
     "Str.Menu.Window.ResetLayout": "_Restablecer a disposición das xanelas",
     "Str.Menu.Help": "_Axuda",
+    "Str.Menu.Help.BrandHome": "Páxina de _inicio de {0}",
+    "Str.Menu.Help.BrandSupport": "_Asistencia de {0}",
     "Str.Menu.Help.ProductOnWeb": "HexIDE na _web",
     "Str.Menu.Help.About": "_Sobre HexIDE...",
     "Str.Menu.GoToGithubRepo": "Ir ao repositorio de GitHub",

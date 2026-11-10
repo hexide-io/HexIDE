@@ -277,6 +277,8 @@
     "Str.Menu.Window.Split": "_Fractionner",
     "Str.Menu.Window.ResetLayout": "_Réinitialiser la disposition",
     "Str.Menu.Help": "_Aide",
+    "Str.Menu.Help.BrandHome": "Page d’_accueil de {0}",
+    "Str.Menu.Help.BrandSupport": "_Assistance {0}",
     "Str.Menu.Help.ProductOnWeb": "HexIDE sur le _Web",
     "Str.Menu.Help.About": "À _propos de HexIDE...",
     "Str.Menu.GoToGithubRepo": "Accéder au dépôt github",

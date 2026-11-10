@@ -277,6 +277,8 @@
     "Str.Menu.Window.Split": "_Rozdělit",
     "Str.Menu.Window.ResetLayout": "O_bnovit rozložení oken",
     "Str.Menu.Help": "_Nápověda",
+    "Str.Menu.Help.BrandHome": "_Domovská stránka {0}",
+    "Str.Menu.Help.BrandSupport": "_Podpora {0}",
     "Str.Menu.Help.ProductOnWeb": "HexIDE na _webu",
     "Str.Menu.Help.About": "_O aplikaci HexIDE...",
     "Str.Menu.GoToGithubRepo": "Přejít na úložiště github",

@@ -277,6 +277,8 @@
     "Str.Menu.Window.Split": "分割(_P)",
     "Str.Menu.Window.ResetLayout": "ウィンドウレイアウトをリセット(_R)",
     "Str.Menu.Help": "ヘルプ(_H)",
+    "Str.Menu.Help.BrandHome": "{0} ホームページ(_H)",
+    "Str.Menu.Help.BrandSupport": "{0} サポート(_S)",
     "Str.Menu.Help.ProductOnWeb": "Web 上の HexIDE(_W)",
     "Str.Menu.Help.About": "HexIDE のバージョン情報(_A)...",
     "Str.Menu.GoToGithubRepo": "github リポジトリへ移動",
