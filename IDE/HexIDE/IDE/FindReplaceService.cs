@@ -1,4 +1,5 @@
 using HexIDE.Forms.ViewModels;
+using HexIDE.Language;
 using HexIDE.Localization;
 using Serilog;
 using System;
@@ -23,12 +24,13 @@ public class FindReplaceService : IFindReplaceService
     private bool _subscribed;
 
     public FindReplaceService(IWindowManager windowManager, IDocumentDockService documentDockService,
-        ILocalizationService localization, IProjectManager projects, IEditorService editors, Func<ProjectToolViewModel> explorer)
+        ILocalizationService localization, IProjectManager projects, IEditorService editors, Func<ProjectToolViewModel> explorer,
+        IReadOnlyRegionReader regionReader)
     {
         _windowManager = windowManager;
         _documentDockService = documentDockService;
         _localization = localization;
-        _projects = new FindProjectDocuments(documentDockService, projects, editors, () => SelectedProject(explorer()));
+        _projects = new FindProjectDocuments(documentDockService, projects, editors, () => SelectedProject(explorer()), regionReader);
         documentDockService.PropertyChanged += (_, _) => _viewModel?.RefreshScopes();
         projects.PropertyChanged += (_, _) => _viewModel?.RefreshScopes();
         _explorer = explorer;

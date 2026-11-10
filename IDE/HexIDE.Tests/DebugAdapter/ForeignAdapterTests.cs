@@ -192,7 +192,7 @@ public class ForeignAdapterTests
         verifiedBreakpoint.GetProperty("verified").GetBoolean().Should().BeTrue();
         verifiedBreakpoint.GetProperty("line").GetInt32().Should().Be(line);
         var output = string.Concat(events.Where(e => e.Method == "output").Select(e => Frame(e.Sequence).GetProperty("body").GetProperty("output").GetString()));
-        output.ReplaceLineEndings("\n").Should().Contain("42\n");
+        output.Should().MatchRegex(@"(?<!\d)42(?!\d)", "the program printed 42, and its final line break can arrive as a later event");
         var exited = Frame(events.Single(e => e.Method == "exited").Sequence);
         exited.GetProperty("body").GetProperty("exitCode").GetInt32().Should().Be(0);
         log.QueueDropped.Should().Be(0);

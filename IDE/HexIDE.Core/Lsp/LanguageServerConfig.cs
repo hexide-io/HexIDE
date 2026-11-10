@@ -188,7 +188,7 @@ public sealed class LanguageServerEntry
     [JsonPropertyName("languageId")]
     public string? LanguageId { get; set; }
 
-    /// <summary><c>stdio</c>, <c>pipe</c> or <c>websocket</c>.</summary>
+    /// <summary><c>stdio</c>, <c>pipe</c>, <c>websocket</c> or <c>tcp</c>.</summary>
     [JsonPropertyName("transport")]
     public string? Transport { get; set; }
 
@@ -212,6 +212,10 @@ public sealed class LanguageServerEntry
     /// <summary><c>connect</c> (default) or <c>listen</c>.</summary>
     [JsonPropertyName("websocketRole")]
     public string? WebSocketRole { get; set; }
+
+    /// <summary><c>connect</c> (default) or <c>listen</c> for a TCP endpoint.</summary>
+    [JsonPropertyName("tcpRole")]
+    public string? TcpRole { get; set; }
 
     // ── pipe ──────────────────────────────────────────────────────────────────────────────────────────
     [JsonPropertyName("pipeName")]

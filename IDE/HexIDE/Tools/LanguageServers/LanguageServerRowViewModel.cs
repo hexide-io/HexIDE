@@ -159,6 +159,7 @@ public sealed partial class LanguageServerRowViewModel : ObservableObject
     /// character. Not a localization key for that reason.</summary>
     public string Transport => _c.Transport switch
     {
+        LanguageConnectionTransport.Tcp => "tcp",
         LanguageConnectionTransport.Pipe => "pipe",
         LanguageConnectionTransport.WebSocket => "websocket",
         _ => "stdio",

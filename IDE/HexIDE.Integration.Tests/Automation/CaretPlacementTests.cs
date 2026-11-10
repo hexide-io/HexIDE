@@ -67,7 +67,7 @@ public class CaretPlacementTests : IDisposable
         var vm = new CodeEditorViewModel(
             Substitute.For<IWindowManager>(), Substitute.For<IEditorService>(), Substitute.For<IProjectService>(),
             eventBus, lsp, settings, Substitute.For<IStatusBarService>(), new BookmarkService(), new BreakpointService(),
-            Substitute.For<IDebugController>(), new RunScope(), Substitute.For<ILocalizationService>());
+            Substitute.For<IDebugController>(), new RunScope(), Substitute.For<ILocalizationService>(), regionReader: new HexIDE.Runtime.Serialization.Vb6ReadOnlyRegionReader());
         made.Add(vm);
         var module = new ModuleDefinition(new ProjectDefinition(VBProjectType.EXE, "P"), "Module1", kind);
         module.UpdateCode(code);

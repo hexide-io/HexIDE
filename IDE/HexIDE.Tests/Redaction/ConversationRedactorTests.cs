@@ -37,6 +37,22 @@ public class ConversationRedactorTests
         }
     }
 
+    [Theory]
+    [InlineData("127.0.0.1")]
+    [InlineData("localhost")]
+    [InlineData("[::1]")]
+    [InlineData("0.0.0.0")]
+    [InlineData("[::]")]
+    public void TcpLoopbackAndWildcardEndpointsSurvive(string host) =>
+        Redactor().Endpoint($"tcp://{host}:6005").Should().Be($"tcp://{host}:6005");
+
+    [Fact]
+    public void TcpRemoteEndpointLosesItsHost()
+    {
+        Redactor().Endpoint("tcp://build-07.corp.internal:6005").Should()
+            .StartWith("tcp://").And.EndWith(":6005").And.NotContain("build-07").And.NotContain("corp.internal");
+    }
+
     [Fact]
     public void NestedWorkspaceWinsAndIsRemovedInsideAUri()
     {

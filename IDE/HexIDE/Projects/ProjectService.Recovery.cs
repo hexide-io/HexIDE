@@ -18,7 +18,7 @@ public partial class ProjectService
     /// <inheritdoc/>
     public bool ApplyRecovered(FormDefinition form, UnsavedFile content)
     {
-        var fresh = format.ReadForm(form.Owner, content.Text, CompanionOf(content), new DeserializeErrorSink(localization));
+        var fresh = FormReaderOf(form.Owner).ReadForm(form.Owner, content.Text, CompanionOf(content), new DeserializeErrorSink(localization));
         if (fresh is null)
             return false;
         form.UpdateCode(fresh.Code);
@@ -76,7 +76,7 @@ public partial class ProjectService
 
         if (document.Kind == "Form")
         {
-            var form = format.ReadForm(project, content.Text, CompanionOf(content), new DeserializeErrorSink(localization));
+            var form = FormReaderOf(project).ReadForm(project, content.Text, CompanionOf(content), new DeserializeErrorSink(localization));
             if (form is null)
                 return null;
             form.TextEncoding = document.Encoding;

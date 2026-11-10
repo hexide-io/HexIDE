@@ -39,7 +39,7 @@ internal static class FileOperationFilters
         return false;
     }
 
-    private static string Glob(string glob)
+    internal static string Glob(string glob)
     {
         var result = new StringBuilder();
         var groups = 0;

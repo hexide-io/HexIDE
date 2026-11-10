@@ -112,6 +112,25 @@ such as `HexIDE.VbLspServer.exe`, which keep their names.
 removes it and says so. Sign the executable and your setup program yourself. The tool never touches a key or a trust
 anchor, and there's no update service: your support link is yours to use for that.
 
+## Including your own files
+
+Add `--include <folder>` to any platform's repack command. Its contents go into the program directory,
+keeping relative paths: `app/` on Windows and Linux, or `<name>.app/Contents/MacOS/` on macOS.
+The Windows installer's recursive payload, the Linux package's `app/` tree and the macOS bundle
+therefore carry them. The report gives the source folder and file count.
+
+The option adds files only. It refuses collisions with stock files (including the old executable name),
+the renamed executable, descriptor, logo or copied profile. Put your notices beside HexIDE's notices.
+The output must be outside the included folder.
+Links at or within the included folder are refused; a link above it is allowed. A refusal names the
+path and leaves no output or unfinished staging directory.
+
+It grants no trust: included add-ins still need verification and consent. At every depth, names are
+checked without regard to case against `hexide-root.pub`, `hexide-firstparty.pub`, `revocations.json`,
+`revocations.sig`, `revocations-cache.json` and `revocations-cache.sig`. These are refused even when
+absent from stock. This list follows `TrustAnchors.cs` (embedded anchors) and `RevocationStore.cs`
+(embedded revocation floor and user-data cache); it does not prohibit a package's publisher certificates.
+
 ## Making the Linux build your own
 
 A Linux executable has no icon or version details inside it, so here the tool renames the executable and writes the

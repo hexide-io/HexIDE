@@ -162,3 +162,18 @@ as valid or alter trust anchors or first-party package status.
 - **THEN** actual executable and installer metadata reflect that descriptor and allow coexistence with stock
 - **AND** managed implementation is unchanged and the result requires adopter signing
 - **AND** required notices and embedded package trust identities are preserved
+
+### Requirement: Repacking includes adopter files without replacing stock or granting trust
+The repack tool SHALL accept `--include <folder>` and copy its contents with relative paths into the
+program directory before writing installer inputs. It MUST refuse stock or generated-file collisions,
+trust anchors, revocation data, and links at or inside the folder, without leaving output. A link above
+the folder SHALL be allowed. The report SHALL name the source folder and number of files copied.
+
+#### Scenario: Included content reaches the installer payload
+- **WHEN** an adopter includes a folder of add-ins, profiles or notices
+- **THEN** the Windows installer payload, Linux program tree or macOS bundle contains those files
+- **AND** copying an add-in grants neither verification nor consent
+
+#### Scenario: Refused include
+- **WHEN** an included entry would replace stock, supply trust or revocation data, or follow a link
+- **THEN** the tool names the entry and reason and leaves no completed or partial output
