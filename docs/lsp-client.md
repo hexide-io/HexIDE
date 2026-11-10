@@ -1102,16 +1102,26 @@ options. The client declares `textDocument.rangeFormatting` at initialization. R
 Format Document's guarded path: one undo step, with IDE-only header and member attribute lines protected.
 The keymap command `FormatSelectionCommand` has no default shortcut.
 
-On-type formatting has a client protocol seam (#2672): `ILspClient` can query support for a specific
-character and request `textDocument/onTypeFormatting` with the post-typing position and formatting
-options. Only the highest-priority running document claimant declaring that character in
-`documentOnTypeFormattingProvider.firstTriggerCharacter` or `moreTriggerCharacter` receives the request.
-A request has a 250 ms budget and sends `$/cancelRequest` on timeout, returning no edits.
-The editor does not yet call this seam: Enter still uses HexIDE's closer and keyword correction.
-The remaining editor work is to insert the indented line break without those helpers, flush didChange,
-map the caret through returned edits, discard replies after a document version change, and group the
-line break and edits into one undo step. The same ownership rule must cover other claimed characters
-where HexIDE handles them. Until that work lands, typing does not invoke a server's formatter.
+On-type formatting transfers typing to the declaring server (#2672). Only the highest-priority running
+document claimant declaring the typed character in
+`documentOnTypeFormattingProvider.firstTriggerCharacter` or `moreTriggerCharacter` receives
+`textDocument/onTypeFormatting`, after didChange is flushed, with the post-typing UTF-16 position
+and configured formatting options. For a claimed newline, Enter immediately inserts the document's
+line break and the current line's indentation, skipping HexIDE's closer and keyword correction.
+Without that trigger, the local Enter behavior stays unchanged. Other declared characters also request
+formatting after typing; the editor has no local quote or bracket insertion to suppress.
+
+A request has a 250 ms budget and sends `$/cancelRequest` on timeout, leaving the typed text without
+running local helpers. Replies are discarded if the document version or identity changed, even when
+an intervening edit restored the same text. Accepted edits use the guarded formatting writer, map the
+caret through insertions/replacements, and continue the typing undo group so typing and formatting
+undo together. An edit reaching the caret keeps it on the corresponding line of the replacement: count
+line breaks from the old edit start to the caret, then stop before the next line break in the replacement
+(or at its end). Later insertions at that boundary do not move it past the body into a closer.
+Same-position insertions retain server array order, including for Format Document.
+No undo group stays open while awaiting a server. A detached view discards its answer.
+`OnTypeFormattingTests` drives a scripted server through headless keyboard input; a live IDE check is
+still needed for the editing gesture and rendering.
 
 Completion requests use the start of the identifier around the caret, including for Complete Word,
 so servers that filter by the preceding word return the full list for that context ([#3340](https://github.com/hexide-io/HexIDE/issues/3340)).
@@ -1446,7 +1456,7 @@ than inferred.
 | ○ | `textDocument/inlineValue` | → |  |
 | ○ | `textDocument/linkedEditingRange` | → |  |
 | ○ | `textDocument/moniker` | → |  |
-| ◐ | `textDocument/onTypeFormatting` | → | Client seam only; editor does not invoke it (#2672) |
+| ✅ | `textDocument/onTypeFormatting` | → | Claimed typing triggers, guarded edits, caret mapping and one-step undo (#2672) |
 | ✅ | `textDocument/prepareCallHierarchy` | → | Shows the server's call hierarchy; computes none |
 | ✅ | `textDocument/prepareRename` | → | Asks every claimant advertising prepareProvider before the prompt; range/placeholder seeds it, null/error refuses it (#3073) |
 | ○ | `textDocument/prepareTypeHierarchy` | → |  |
