@@ -13,48 +13,105 @@ using Avalonia.LogicalTree;
 using HexIDE.Addins;
 using HexIDE.Forms.ViewModels;
 using HexIDE.Menus;
+using HexIDE.Localization;
+using HexIDE.Automation;
 using HexIDE.Utils;
 
 namespace HexIDE.Integration.Tests.Views;
 
 public class MenuRendererTests
 {
-    [AvaloniaTheory]
-    [InlineData("en")]
-    [InlineData("ar")]
-    public async Task Rendered_menu_matches_the_real_axaml_recursively_and_after_updates(string language)
+    [AvaloniaFact]
+    public async Task Installed_menu_follows_the_declaration_in_every_shipped_language()
     {
         await using var owned = new RealComposition();
         var vm = owned.Composition.Root;
         var localization = owned.Composition.LocalizationService;
-        Window? host = null;
+        var view = new MainView { DataContext = vm };
+        var menu = view.GetLogicalDescendants().OfType<Menu>().Single();
+        var host = new Window { Content = view };
         try
         {
-            localization.Apply(language);
-            vm.RunWith!.Starts.Add(new RunMenuItemViewModel("Launch once", new DelegateCommand(() => { })));
-            vm.RunWith.Choices.Add(new RunMenuItemViewModel("Selected launch", new DelegateCommand(() => { }), true));
-            var view = new MainView { DataContext = vm };
-            var actual = view.GetLogicalDescendants().OfType<Menu>().Single();
-            using var renderer = new MenuRenderer(vm);
-            host = new Window { Content = new StackPanel { Children = { view, renderer.Menu } }, Width = 900, Height = 600 };
             host.Show();
-            var axamlLayouts = view.FindControl<MenuItem>("PanelLayoutsMenuItem")!;
-            var renderedLayouts = (MenuItem)((MenuItem)renderer.Menu.Items[9]!).Items[4]!;
-            axamlLayouts.RaiseEvent(new RoutedEventArgs(MenuItem.SubmenuOpenedEvent, axamlLayouts));
-            renderedLayouts.RaiseEvent(new RoutedEventArgs(MenuItem.SubmenuOpenedEvent, renderedLayouts));
-            Compare(actual, renderer.Menu, MainMenuDeclaration.Load());
-            renderer.Menu.FlowDirection.Should().Be(localization.FlowDirection);
-            ((MenuItem)renderer.Menu.Items[0]!).Header.Should().Be(localization.GetString("Str.Menu.File"));
-
+            foreach (var language in LanguageManifest.Packs)
+            {
+                localization.Apply(language.Id);
+                CheckDeclaration(menu, MainMenuDeclaration.Load(), vm, localization);
+                menu.FlowDirection.Should().Be(localization.FlowDirection);
+            }
             vm.RecentProjects.Add(new RecentProjectItemViewModel("Recent _project", new DelegateCommand(() => { })));
             vm.ClosedDocumentMenuItems.Add(new RecentProjectItemViewModel("Closed", new DelegateCommand(() => { })));
-            Compare(actual, renderer.Menu, MainMenuDeclaration.Load());
-            vm.RecentProjects.Clear();
-            Compare(actual, renderer.Menu, MainMenuDeclaration.Load());
-            localization.Apply(language == "en" ? "ar" : "en");
-            Compare(actual, renderer.Menu, MainMenuDeclaration.Load());
+            ((MenuItem)((MenuItem)menu.Items[0]!).Items[^3]!).ItemsSource.Should().BeSameAs(vm.RecentProjects);
+            ((MenuItem)((MenuItem)menu.Items[9]!).Items[1]!).ItemsSource.Should().BeSameAs(vm.ClosedDocumentMenuItems);
         }
-        finally { host?.Close(); localization.Apply("en"); }
+        finally { host.Close(); localization.Apply("en"); view.DataContext = null; }
+    }
+
+    [AvaloniaFact]
+    public async Task Installed_menu_keeps_named_and_automation_routes_and_releases_the_previous_context()
+    {
+        await using var owned = new RealComposition();
+        var vm = owned.Composition.Root;
+        owned.Composition.LocalizationService.Apply("en");
+        var view = new MainView { DataContext = vm };
+        var menu = view.GetLogicalDescendants().OfType<Menu>().Single();
+        var host = new Window { Content = view };
+        try
+        {
+            host.Show();
+            var named = new Dictionary<string, string>
+            {
+                ["RemoveProjectMemberMenuItem"] = "Project/Remove",
+                ["LanguageServersMenuItem"] = "Tools/Language Servers",
+                ["ProtocolInspectorMenuItem"] = "Tools/Protocol Inspector",
+                ["AddInManagerMenuItem"] = "Add-Ins/Add-In Manager",
+                ["PanelLayoutsMenuItem"] = "Window/Panel Layouts",
+                ["ToolsMenuItem"] = "Tools",
+                ["AddInsMenuItem"] = "Add-Ins"
+            };
+            foreach (var (name, path) in named)
+            {
+                var result = MenuPath.Resolve(menu.Items, path);
+                result.Error.Should().BeNull(path);
+                result.Item.Should().BeSameAs(view.FindControl<MenuItem>(name), name);
+            }
+            var contribution = new AddinMenuItemViewModel("Contribution", () => { }, null);
+            vm.AddinMenuService.ToolsItems.Add(contribution);
+            var tools = view.FindControl<MenuItem>("ToolsMenuItem")!;
+            var count = tools.Items.Count;
+            MenuPath.Resolve(menu.Items, "Tools/Contribution").Command.Should().BeSameAs(contribution.Command);
+            view.DataContext = null;
+            vm.AddinMenuService.ToolsItems.Clear();
+            tools.Items.Count.Should().Be(count, "the discarded renderer unsubscribed");
+            view.FindControl<MenuItem>("ToolsMenuItem").Should().BeNull();
+            view.DataContext = vm;
+            view.FindControl<MenuItem>("ToolsMenuItem").Should().NotBeSameAs(tools);
+            view.FindControl<Button>("AddProjectButton").Should().NotBeNull("markup names remain available");
+        }
+        finally { host.Close(); view.DataContext = null; }
+    }
+
+    [AvaloniaFact]
+    public async Task Installed_menu_preserves_profile_targets_and_the_first_shortcut()
+    {
+        await using var owned = new RealComposition();
+        var vm = owned.Composition.Root;
+        var view = new MainView { DataContext = vm };
+        var menu = view.GetLogicalDescendants().OfType<Menu>().Single();
+        ((MenuItem)((MenuItem)menu.Items[0]!).Items[0]!).InputGesture.Should()
+            .Be(ApplicationCommands.NewProjectCommand.Gestures.FirstOrDefault());
+        foreach (var (parent, index, path, expected) in new[]
+        {
+            (3, 10, "Profile.IsProjectReferencesVisible", vm.Profile.IsProjectReferencesVisible),
+            (7, 5, "Profile.IsToolsReferencesVisible", vm.Profile.IsToolsReferencesVisible)
+        })
+        {
+            var item = (MenuItem)((MenuItem)menu.Items[parent]!).Items[index]!;
+            BindingPath(BindingOperations.GetBindingExpressionBase(item, Visual.IsVisibleProperty)
+                as UntypedBindingExpressionBase).Should().Be(path);
+            item.IsVisible.Should().Be(expected);
+        }
+        view.DataContext = null;
     }
 
     [AvaloniaTheory]
@@ -100,68 +157,57 @@ public class MenuRendererTests
             as UntypedBindingExpressionBase).Should().Be(binding);
     }
 
-    private static void Compare(ItemsControl expected, ItemsControl actual, MenuDeclaration[]? declarations = null)
+    private static void CheckDeclaration(ItemsControl parent, MenuDeclaration[] declarations,
+        MainViewViewModel vm, ILocalizationService localization)
     {
-        actual.Items.Count.Should().Be(expected.Items.Count);
-        for (var index = 0; index < expected.Items.Count; index++)
+        parent.Items.Count.Should().Be(declarations.Length);
+        foreach (var (declaration, index) in declarations.Select((item, index) => (item, index)))
         {
-            var left = expected.Items[index].Should().BeAssignableTo<Control>().Subject;
-            var right = actual.Items[index].Should().BeAssignableTo<Control>().Subject;
-            var declaration = declarations?[index];
-            var because = declaration?.Id ?? $"provider child {index}";
-            right.GetType().Should().Be(left.GetType(), because);
-            right.IsVisible.Should().Be(left.IsVisible, because);
-            var expectedBinding = BindingOperations.GetBindingExpressionBase(left, Visual.IsVisibleProperty) as UntypedBindingExpressionBase;
-            var actualBinding = BindingOperations.GetBindingExpressionBase(right, Visual.IsVisibleProperty) as UntypedBindingExpressionBase;
-            BindingPath(actualBinding).Should().Be(BindingPath(expectedBinding), because);
-            if (left is not MenuItem a || right is not MenuItem b) continue;
-            b.Header.Should().NotBeNull(because);
-            if (a.Header is TextBlock text) ((TextBlock)b.Header!).Text.Should().Be(text.Text, because);
-            else b.Header.Should().Be(a.Header, because);
-            (b.InputGesture?.ToString()).Should().Be(a.InputGesture?.ToString(), because);
-            b.ToggleType.Should().Be(a.ToggleType, because);
-            b.IsChecked.Should().Be(a.IsChecked, because);
-            b.IsEnabled.Should().Be(a.IsEnabled, because);
-            b.CommandParameter.Should().BeEquivalentTo(a.CommandParameter, because);
-            if (declaration is not null)
-                foreach (var property in new AvaloniaProperty[] { MenuItem.CommandProperty, MenuItem.IsCheckedProperty, ItemsControl.ItemsSourceProperty }
-                    .Concat(declaration.LabelBinding is null ? [] : new AvaloniaProperty[] { MenuItem.HeaderProperty }))
-                    BindingPath(BindingOperations.GetBindingExpressionBase(b, property) as UntypedBindingExpressionBase)
-                        .Should().Be(BindingPath(BindingOperations.GetBindingExpressionBase(a, property) as UntypedBindingExpressionBase), because);
-            if (declaration?.Command is { } command && MenuHostRegistry.Commands[command].ShellMember is { } member
-                && typeof(MainViewViewModel).GetMember(member).Single() is MethodInfo)
+            var control = (Control)parent.Items[index]!;
+            var visibility = declaration.VisibilityBinding ?? (declaration.Visibility is { } value
+                && value.StartsWith("{CompiledBinding ") ? value[17..].TrimEnd('}').Split(',')[0] : null);
+            BindingPath(BindingOperations.GetBindingExpressionBase(control, Visual.IsVisibleProperty)
+                as UntypedBindingExpressionBase).Should().Be(visibility, declaration.Id);
+            if (declaration.Kind == MenuItemKind.Separator)
             {
-                b.Command.Should().NotBeNull(because);
-                b.Command!.CanExecute(null).Should().Be(a.Command!.CanExecute(null), because);
+                control.Should().BeOfType<Separator>(declaration.Id);
+                continue;
             }
-            else if (declarations is null && a.Command is not null)
-                b.Command!.CanExecute(null).Should().Be(a.Command.CanExecute(null), because);
-            else b.Command.Should().BeSameAs(a.Command, because);
-            if (a.ItemsSource is not null)
+            var item = control.Should().BeOfType<MenuItem>().Subject;
+            item.Header.Should().Be(declaration.LabelBinding is { } label
+                ? vm.GetType().GetProperty(label)!.GetValue(vm) : localization.GetString(declaration.LabelKey!), declaration.Id);
+            if (declaration.Command is { } command)
             {
-                b.ItemsSource.Should().BeSameAs(a.ItemsSource, because);
-                // Realize the same provider templates, including the radio state of Run With.
-                a.ApplyTemplate();
-                b.ApplyTemplate();
-                foreach (var data in a.ItemsSource)
+                var registered = MenuHostRegistry.Commands[command];
+                if (registered.RoutedCommand is { } commandInstance)
                 {
-                    var ca = new MenuItem { DataContext = data, Theme = a.ItemContainerTheme };
-                    var cb = new MenuItem { DataContext = data, Theme = b.ItemContainerTheme };
-                    var host = new Window { Content = new StackPanel { Children = { ca, cb } } };
-                    try
-                    {
-                        host.Show();
-                        cb.Header.Should().Be(ca.Header, because);
-                        cb.Header.Should().NotBeNull(because);
-                        cb.Command.Should().BeSameAs(ca.Command, because);
-                        cb.Command.Should().NotBeNull(because);
-                        cb.ToggleType.Should().Be(ca.ToggleType, because);
-                        cb.IsChecked.Should().Be(ca.IsChecked, because);
-                    }
-                    finally { host.Close(); }
+                    item.Command.Should().BeSameAs(commandInstance, declaration.Id);
+                    item.InputGesture.Should().Be(commandInstance is Avalonia.Labs.Input.RoutedCommand routed
+                        ? routed.Gestures.FirstOrDefault() : null, declaration.Id);
+                }
+                else
+                {
+                    item.Command.Should().NotBeNull(declaration.Id);
+                    BindingPath(BindingOperations.GetBindingExpressionBase(item, MenuItem.CommandProperty)
+                        as UntypedBindingExpressionBase).Should().Be(registered.ShellMember + (typeof(MainViewViewModel).GetMember(registered.ShellMember!).Single() is MethodInfo ? "()" : ""), declaration.Id);
                 }
             }
-            else Compare(a, b, declaration?.Children);
+            if (declaration.LabelBinding is { } binding)
+                BindingPath(BindingOperations.GetBindingExpressionBase(item, MenuItem.HeaderProperty)
+                    as UntypedBindingExpressionBase).Should().Be(binding, declaration.Id);
+            item.CommandParameter.Should().BeEquivalentTo(MenuRenderer.Arguments(declaration.Arguments));
+            if (declaration.IconKey is not null) item.Icon.Should().NotBeNull(declaration.Id);
+            if (declaration.Provider is { } provider && MenuHostRegistry.Providers[provider].StartsWith("{CompiledBinding "))
+                BindingPath(BindingOperations.GetBindingExpressionBase(item, ItemsControl.ItemsSourceProperty)
+                    as UntypedBindingExpressionBase).Should().Be(MenuHostRegistry.Providers[provider][17..^1], declaration.Id);
+            if (declaration.Kind == MenuItemKind.Placeholder) item.IsEnabled.Should().BeFalse(declaration.Id);
+            if (declaration.Kind == MenuItemKind.Toggle)
+            {
+                item.ToggleType.Should().Be(MenuItemToggleType.CheckBox);
+                item.IsChecked.Should().Be((bool)vm.Settings.GetType().GetProperty(MenuHostRegistry.States[declaration.State!].SettingsProperty)!.GetValue(vm.Settings)!);
+            }
+            if (declaration.Provider is null || declaration.Provider == "add-ins")
+                CheckDeclaration(item, declaration.Children ?? [], vm, localization);
         }
     }
 
@@ -193,14 +239,38 @@ public class MenuRendererTests
     {
         await using var owned = new RealComposition();
         var vm = owned.Composition.Root;
-        var view = new MainView { DataContext = vm };
+        vm.RecentProjects.Add(new RecentProjectItemViewModel("Recent", new DelegateCommand(() => { })));
+        vm.ClosedDocumentMenuItems.Add(new RecentProjectItemViewModel("Closed", new DelegateCommand(() => { })));
+        vm.RunWith!.Starts.Add(new RunMenuItemViewModel("Launch", new DelegateCommand(() => { })));
+        vm.RunWith.Choices.Add(new RunMenuItemViewModel("Choice", new DelegateCommand(() => { }), true));
         using var renderer = new MenuRenderer(vm);
         owned.Composition.LocalizationService.Apply("en");
-        var host = new Window { Content = new StackPanel { Children = { view, renderer.Menu } } };
+        var host = new Window { Content = renderer.Menu };
         try
         {
             host.Show();
             var menus = renderer.Menu.Items.Cast<MenuItem>().ToArray();
+            foreach (var (parent, index, radio, header) in new[] { (0, 20, false, "Recent"), (9, 1, false, "Closed"), (6, 3, false, "Launch"), (6, 4, true, "Choice") })
+            {
+                var provider = (MenuItem)menus[parent].Items[index]!;
+                var data = provider.ItemsSource!.Cast<object>().Single(item =>
+                    Equals(item.GetType().GetProperty("Header")!.GetValue(item), header));
+                var child = new MenuItem { DataContext = data, Theme = provider.ItemContainerTheme };
+                var popup = new Window { Content = child };
+                try
+                {
+                    popup.Show();
+                    child.Header.Should().Be(data.GetType().GetProperty("Header")!.GetValue(data));
+                    child.Command.Should().BeSameAs(data.GetType().GetProperty("Command")!.GetValue(data));
+                    child.Command.Should().NotBeNull();
+                    if (radio)
+                    {
+                        child.ToggleType.Should().Be(MenuItemToggleType.Radio);
+                        child.IsChecked.Should().BeTrue();
+                    }
+                }
+                finally { popup.Close(); }
+            }
             var refreshes = 0;
             vm.RunWith!.PropertyChanged += (_, _) => refreshes++;
             ((MenuItem)menus[6].Items[3]!).RaiseEvent(new RoutedEventArgs(MenuItem.SubmenuOpenedEvent));
@@ -209,10 +279,9 @@ public class MenuRendererTests
             refreshes.Should().BeGreaterThan(0);
             var window = menus[9];
             var layouts = (MenuItem)window.Items[4]!;
-            var axamlLayouts = view.FindControl<MenuItem>("PanelLayoutsMenuItem")!;
             layouts.RaiseEvent(new RoutedEventArgs(MenuItem.SubmenuOpenedEvent, layouts));
-            axamlLayouts.RaiseEvent(new RoutedEventArgs(MenuItem.SubmenuOpenedEvent, axamlLayouts));
-            Compare(axamlLayouts, layouts);
+            ((MenuItem)layouts.Items[0]!).Header.Should().Be(owned.Composition.LocalizationService.GetString("Str.Layout.Save"));
+            ((MenuItem)layouts.Items[1]!).Command.Should().NotBeNull();
             layouts.Items.Count.Should().BeGreaterThanOrEqualTo(2);
 
             var contribution = new AddinMenuItemViewModel("Contribution", () => { }, null);

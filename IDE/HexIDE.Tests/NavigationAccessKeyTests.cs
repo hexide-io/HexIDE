@@ -2,6 +2,7 @@ using System.IO;
 using System.Text.Json;
 using System.Xml.Linq;
 using HexIDE.Localization;
+using HexIDE.Menus;
 
 namespace HexIDE.Tests;
 
@@ -21,16 +22,9 @@ public class NavigationAccessKeyTests
     public void NewNavigationAccessKeyIsUniqueWhenLabelHasAFreeLetter(string packId, bool viewMenu, string entry)
     {
         var strings = PackStrings(packId);
-        var root = Directory.GetParent(Directory.GetParent(PacksDirectory())!.FullName)!.FullName;
-        var document = XDocument.Load(Path.Combine(root, viewMenu ? "MainView.axaml" : "Forms/Views/CodeEditorView.axaml"));
         var key = viewMenu ? "Str.Menu.View." + entry : "Str.CodeEditor.Context.GoTo" + entry;
-        var item = document.Descendants().Single(e => (string?)e.Attribute("Header") == "{DynamicResource " + key + "}");
-        var otherKeys = item.Parent!.Elements()
-            .Where(e => e != item && e.Name.LocalName == "MenuItem")
-            .Select(e => (string?)e.Attribute("Header"))
-            .Where(h => h is not null && h.StartsWith("{DynamicResource Str.", StringComparison.Ordinal))
-            .Select(h => strings[h![17..^1]])
-            .Select(AccessKey).Where(c => c is not null).ToArray();
+        var otherKeys = MenuLabelGroups(viewMenu, "view").First().Where(k => k != key)
+            .Select(k => strings[k]).Select(AccessKey).Where(c => c is not null).ToArray();
         var label = strings[key];
         if (label.Any(c => char.IsLetter(c) && !otherKeys.Contains(char.ToUpperInvariant(c))))
             otherKeys.Should().NotContain(AccessKey(label), $"{packId}: {key} has a free letter in its menu, counting disabled entries too (#3110)");
@@ -42,16 +36,9 @@ public class NavigationAccessKeyTests
     public void MenuAccessKeysAreUniqueAndMissingOnlyWhenNoLetterIsFree(string packId, bool viewMenu)
     {
         var strings = PackStrings(packId);
-        var root = Directory.GetParent(Directory.GetParent(PacksDirectory())!.FullName)!.FullName;
-        var document = XDocument.Load(Path.Combine(root, viewMenu ? "MainView.axaml" : "Forms/Views/CodeEditorView.axaml"));
-        var anchor = viewMenu ? "Str.Menu.View.Code" : "Str.CodeEditor.Context.Cut";
-        var item = document.Descendants().Single(e => (string?)e.Attribute("Header") == "{DynamicResource " + anchor + "}");
-        foreach (var menu in item.Parent!.DescendantsAndSelf().Where(e => e.Elements().Any(c => c.Name.LocalName == "MenuItem")))
+        foreach (var keys in MenuLabelGroups(viewMenu, "view"))
         {
-            var labels = menu.Elements().Where(e => e.Name.LocalName == "MenuItem")
-                .Select(e => (string?)e.Attribute("Header"))
-                .Where(h => h is not null && h.StartsWith("{DynamicResource Str.", StringComparison.Ordinal))
-                .Select(h => strings[h![17..^1]]).ToArray();
+            var labels = keys.Select(k => strings[k]).ToArray();
             var used = labels.Select(AccessKey).ToHashSet();
             var seen = new HashSet<char>();
             foreach (var label in labels)
@@ -171,10 +158,10 @@ public class NavigationAccessKeyTests
         strings.Should().ContainKeys("Str.Menu.View.Implementation", "Str.Menu.View.TypeDefinition");
         strings["Str.Menu.View.Implementation"].Replace("_", "").Should().Be("Implementation");
         strings["Str.Menu.View.TypeDefinition"].Replace("_", "").Should().Be("Type Definition");
-        var root = Directory.GetParent(Directory.GetParent(PacksDirectory())!.FullName)!.FullName;
-        var view = File.ReadAllText(Path.Combine(root, "MainView.axaml"));
+        var view = MainMenuDeclaration.Load().Single(i => i.Id == "view");
         foreach (var command in new[] { "Implementation", "TypeDefinition" })
-            view.Should().Contain($"Header=\"{{DynamicResource Str.Menu.View.{command}}}\" Command=\"{{x:Static vb:ApplicationCommands.GoTo{command}Command}}\"");
+            view.Children!.Should().ContainSingle(i => i.Command == "application.GoTo" + command + "Command")
+                .Which.LabelKey.Should().Be("Str.Menu.View." + command);
     }
 
     [Theory]
@@ -187,18 +174,19 @@ public class NavigationAccessKeyTests
         var label = strings[key];
         label.Count(c => c == '_').Should().Be(1);
         var mnemonic = char.ToUpperInvariant(label[label.IndexOf('_') + 1]);
-        var root = Directory.GetParent(Directory.GetParent(PacksDirectory())!.FullName)!.FullName;
-        XNamespace ns = "https://github.com/avaloniaui";
-        var xml = XDocument.Load(Path.Combine(root, editMenu ? "MainView.axaml" : "Forms/Views/CodeEditorView.axaml"));
-        var menu = editMenu
-            ? xml.Descendants(ns + "MenuItem").Single(e => (string?)e.Attribute("Header") == "{DynamicResource Str.Menu.Edit}")
-            : xml.Descendants(ns + "MenuFlyout").Single();
-        menu.Elements(ns + "MenuItem").Single(e => (string?)e.Attribute("Command") ==
-            "{x:Static vb:ApplicationCommands.CallHierarchyCommand}").Attribute("Header")!.Value
-            .Should().Be("{DynamicResource " + key + "}");
-        var menuKeys = menu.Elements(ns + "MenuItem").Select(e => (string?)e.Attribute("Header"))
-            .Where(h => h?.StartsWith("{DynamicResource Str.", StringComparison.Ordinal) == true)
-            .Select(h => h![17..^1]).Where(k => k != key).ToList();
+        if (editMenu)
+            MainMenuDeclaration.Load().Single(i => i.Id == "edit").Children!
+                .Should().ContainSingle(i => i.Command == "application.CallHierarchyCommand")
+                .Which.LabelKey.Should().Be(key);
+        else
+        {
+            var root = Directory.GetParent(Directory.GetParent(PacksDirectory())!.FullName)!.FullName;
+            var xml = XDocument.Load(Path.Combine(root, "Forms/Views/CodeEditorView.axaml"));
+            xml.Descendants().Single(e => e.Name.LocalName == "MenuItem" && (string?)e.Attribute("Command") ==
+                "{x:Static vb:ApplicationCommands.CallHierarchyCommand}").Attribute("Header")!.Value
+                .Should().Be("{DynamicResource " + key + "}");
+        }
+        var menuKeys = MenuLabelGroups(editMenu, "edit").First().Where(k => k != key).ToList();
         if (editMenu) menuKeys.AddRange(["Str.Menu.Edit.Undo", "Str.Menu.Edit.Redo"]);
         var used = menuKeys.Select(k => strings[k]).Where(v => v.Contains('_'))
             .Select(v => char.ToUpperInvariant(v[v.IndexOf('_') + 1]));
@@ -208,19 +196,28 @@ public class NavigationAccessKeyTests
     // These menus use their own collision guard instead of English marker-count parity.
     internal static readonly HashSet<string> CollisionPolicyKeys = LatinMenuKeys().ToHashSet();
 
-    private static IEnumerable<string> LatinMenuKeys()
+    private static IEnumerable<string> LatinMenuKeys() =>
+        MenuLabelGroups(true, "view").Concat(MenuLabelGroups(false, "view")).SelectMany(keys => keys);
+
+    private static IEnumerable<string[]> MenuLabelGroups(bool mainMenu, string placement)
     {
-        var root = Directory.GetParent(Directory.GetParent(PacksDirectory())!.FullName)!.FullName;
-        foreach (var viewMenu in new[] { true, false })
+        if (mainMenu)
         {
-            var document = XDocument.Load(Path.Combine(root, viewMenu ? "MainView.axaml" : "Forms/Views/CodeEditorView.axaml"));
-            var anchor = viewMenu ? "Str.Menu.View.Code" : "Str.CodeEditor.Context.Cut";
-            var item = document.Descendants().Single(e => (string?)e.Attribute("Header") == "{DynamicResource " + anchor + "}");
-            foreach (var header in item.Parent!.Descendants().Where(e => e.Name.LocalName == "MenuItem")
-                         .Select(e => (string?)e.Attribute("Header"))
-                         .Where(h => h?.StartsWith("{DynamicResource Str.", StringComparison.Ordinal) == true))
-                yield return header![17..^1];
+            IEnumerable<MenuDeclaration> Walk(MenuDeclaration item) => new[] { item }
+                .Concat((item.Children ?? []).SelectMany(Walk));
+            return Walk(MainMenuDeclaration.Load().Single(i => i.Id == placement))
+                .Where(i => i.Children is not null).Select(i => i.Children!
+                    .Where(child => child.LabelKey is not null && child.LabelBinding is null)
+                    .Select(child => child.LabelKey!).ToArray());
         }
+        var root = Directory.GetParent(Directory.GetParent(PacksDirectory())!.FullName)!.FullName;
+        var document = XDocument.Load(Path.Combine(root, "Forms/Views/CodeEditorView.axaml"));
+        var menu = document.Descendants().Single(e => e.Name.LocalName == "MenuFlyout");
+        return menu.DescendantsAndSelf().Where(e => e.Elements().Any(c => c.Name.LocalName == "MenuItem"))
+            .Select(e => e.Elements().Where(child => child.Name.LocalName == "MenuItem")
+                .Select(child => (string?)child.Attribute("Header"))
+                .Where(h => h?.StartsWith("{DynamicResource Str.", StringComparison.Ordinal) == true)
+                .Select(h => h![17..^1]).ToArray());
     }
 
     private static Dictionary<string, string> PackStrings(string packId)

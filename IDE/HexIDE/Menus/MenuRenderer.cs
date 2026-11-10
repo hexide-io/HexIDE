@@ -16,10 +16,10 @@ using HexIDE.Utils;
 
 namespace HexIDE.Menus;
 
-// Built alongside the AXAML menu, but not installed in MainView until the migration switches over.
 internal sealed class MenuRenderer : IDisposable
 {
     private readonly List<Action> unsubscribe = [];
+    internal Dictionary<string, MenuItem> NamedItems { get; } = new(StringComparer.Ordinal);
     internal Menu Menu { get; } = new() { Margin = new Thickness(0, 1, 0, 2) };
 
     internal static readonly IReadOnlyDictionary<string, Func<CompiledBinding>> VisibilityBindings =
@@ -67,6 +67,22 @@ internal sealed class MenuRenderer : IDisposable
         else
         {
             var item = new MenuItem();
+            var name = declaration.Id switch
+            {
+                "project.removeformfallback" => "RemoveProjectMemberMenuItem",
+                "tools" => "ToolsMenuItem",
+                "tools.languageservers" => "LanguageServersMenuItem",
+                "tools.protocolinspector" => "ProtocolInspectorMenuItem",
+                "addins" => "AddInsMenuItem",
+                "addins.manager" => "AddInManagerMenuItem",
+                "window.layouts" => "PanelLayoutsMenuItem",
+                _ => null
+            };
+            if (name is not null)
+            {
+                item.Name = name;
+                NamedItems.Add(name, item);
+            }
             if (declaration.Id == "run.start") item.Classes.Add("play");
             control = item;
             if (declaration.LabelBinding is { } label)
