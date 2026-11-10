@@ -40,6 +40,62 @@ public class SilentStdioRestartTests
         finally { File.Delete(marker); }
     }
 
+    // On a busy thread pool the request can still be on its way when the timer would have ended (#3553).
+    [Fact]
+    public async Task A_request_still_on_its_way_to_the_server_does_not_use_up_the_servers_time()
+    {
+        var token = TestContext.Current.CancellationToken;
+        var marker = Path.Combine(Path.GetTempPath(), Guid.NewGuid() + ".txt");
+        try
+        {
+            var server = typeof(global::HexIDE.Lsp.TestServer.Program).Assembly.Location;
+            var transport = new StdioProcessLspTransport(
+                new LspServerInfo("dotnet", $"\"{server}\" initialize-once \"{marker}\"", Path.GetTempPath()),
+                Substitute.For<ILogger<StdioProcessLspTransport>>())
+            {
+                ServerInput = stream => new SlowToFlushStream(stream, TimeSpan.FromSeconds(1.5)),
+            };
+            await using var client = new VBLspClient(transport, Substitute.For<ILogger<VBLspClient>>(),
+                "held", initializeTimeout: TimeSpan.FromSeconds(1));
+
+            await client.StartAsync(token).WaitAsync(TimeSpan.FromSeconds(30), token);
+
+            File.ReadAllLines(marker).Should().HaveCount(2, "the first server was silent once it had the request, so it was restarted");
+            client.IsRunning.Should().BeTrue();
+            await client.StopAsync();
+        }
+        finally { File.Delete(marker); }
+    }
+
+    private sealed class SlowToFlushStream(Stream inner, TimeSpan delay) : Stream
+    {
+        public override bool CanRead => inner.CanRead;
+        public override bool CanSeek => false;
+        public override bool CanWrite => inner.CanWrite;
+        public override long Length => throw new NotSupportedException();
+        public override long Position { get => throw new NotSupportedException(); set => throw new NotSupportedException(); }
+        public override void Flush() => inner.Flush();
+        public override int Read(byte[] buffer, int offset, int count) => inner.Read(buffer, offset, count);
+        public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+        public override void SetLength(long value) => throw new NotSupportedException();
+        public override void Write(byte[] buffer, int offset, int count) => inner.Write(buffer, offset, count);
+
+        public override async Task FlushAsync(CancellationToken cancellationToken)
+        {
+            await Task.Delay(delay, cancellationToken);
+            await inner.FlushAsync(cancellationToken);
+        }
+
+        public override ValueTask WriteAsync(ReadOnlyMemory<byte> buffer, CancellationToken cancellationToken = default) =>
+            inner.WriteAsync(buffer, cancellationToken);
+
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing) inner.Dispose();
+            base.Dispose(disposing);
+        }
+    }
+
     [Fact]
     public async Task Registry_uses_the_configured_display_name_for_the_restart_notice()
     {
