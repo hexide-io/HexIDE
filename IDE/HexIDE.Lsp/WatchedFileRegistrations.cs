@@ -136,12 +136,14 @@ internal sealed class WatchedFileRegistrations : IDisposable
     private static LocalRpcException Invalid(string message) => new(message)
         { ErrorCode = (int)StreamJsonRpc.Protocol.JsonRpcErrorCode.InvalidParams };
 
+    // Ignores case on every platform: a VB6 file is as often Upper.BAS as lower.bas, an extra event costs a server
+    // nothing, and a missed one loses the file.
     private static Watch Create(string root, string glob, int kind, bool absolute)
     {
         root = Path.TrimEndingDirectorySeparator(Path.GetFullPath(root));
         ExistingWatchDirectory(root);
         return new(root,
-            new Regex("\\A" + FileOperationFilters.Glob(glob) + "\\z", RegexOptions.CultureInvariant | RegexOptions.Singleline,
+            new Regex("\\A" + FileOperationFilters.Glob(glob) + "\\z", RegexOptions.CultureInvariant | RegexOptions.Singleline | RegexOptions.IgnoreCase,
                 TimeSpan.FromMilliseconds(100)), kind, absolute);
     }
 

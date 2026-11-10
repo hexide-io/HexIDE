@@ -404,6 +404,20 @@ public class DynamicRegistrationProbe : IAsyncDisposable
     }
 
     [Fact]
+    public async Task AGlobMatchesAFileNameWhateverItsCase()
+    {
+        var root = DirectoryForTest();
+        var (client, server) = await ConnectedAsync(root: root);
+        await server.RegisterAsync(new[] { new { globPattern = "**/*.{bas,cls}", kind = 1 } });
+
+        var upper = Path.Combine(root, "Upper.BAS");
+        client.NotifyWatchedFile(upper, 1);
+
+        (await EventsAsync(server, 1)).Should().ContainSingle()
+            .Which.GetProperty("uri").GetString().Should().Be(new Uri(upper).AbsoluteUri);
+    }
+
+    [Fact]
     public async Task AFolderThatCannotBeWatchedKeepsTheWatchesItHad()
     {
         var root = DirectoryForTest();
