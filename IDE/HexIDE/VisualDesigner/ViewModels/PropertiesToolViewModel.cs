@@ -15,6 +15,7 @@ using HexIDE.Runtime.Components;
 using HexIDE.Utils;
 using HexIDE.VisualDesigner.Commands;
 using HexIDE.IDE;
+using HexIDE.Projects;
 using HexIDE.Events;
 using HexIDE.Forms.ViewModels;
 using HexIDE.Runtime.ProjectElements;
@@ -32,6 +33,7 @@ public partial class PropertiesToolViewModel : Tool
     public IEventBus EventBus { get; }
     private readonly IWindowManager windowManager;
     private readonly ILocalizationService localization;
+    private readonly IProjectFileFormat format;
     private ModuleDefinition? currentModule;
 
     /// <summary>
@@ -103,8 +105,10 @@ public partial class PropertiesToolViewModel : Tool
     public PropertiesToolViewModel(IDocumentDockService documentDockService,
         IEventBus eventBus,
         IWindowManager windowManager,
-        ILocalizationService localization)
+        ILocalizationService localization,
+        IProjectFileFormat? format = null)
     {
+        this.format = format ?? new Vb6ProjectFileFormat();
         EventBus = eventBus;
         this.windowManager = windowManager;
         this.localization = localization;
@@ -191,7 +195,7 @@ public partial class PropertiesToolViewModel : Tool
 
                         foreach (var raw in component.Instance.UnknownRawProperties)
                         {
-                            var row = new RawPropertyViewModel(raw, localization);
+                            var row = new RawPropertyViewModel(raw, localization, format);
                             Properties.Add(row);
                             CategorizedProperties.Add(row);
                         }
@@ -574,17 +578,19 @@ public partial class PropertyViewModel : BasePropertyViewModel
 public sealed class RawPropertyViewModel : BasePropertyViewModel
 {
     private readonly ComponentInstance.UnknownRawProperty raw;
+    private readonly IProjectFileFormat format;
     private readonly ILocalizationService localization;
 
-    public RawPropertyViewModel(ComponentInstance.UnknownRawProperty raw, ILocalizationService localization)
+    public RawPropertyViewModel(ComponentInstance.UnknownRawProperty raw, ILocalizationService localization, IProjectFileFormat format)
     {
+        this.format = format;
         this.raw = raw;
         this.localization = localization;
     }
 
     public override string Name => raw.Name;
     public override string AccessibleName => Name;
-    public string Value => raw.Records is { Count: > 0 } || raw.Lines.Any(FrxDeserializer.IsFrxReference)
+    public string Value => raw.Records is { Count: > 0 } || raw.Lines.Any(format.IsCompanionCitation)
         ? localization.GetString("Str.Tool.Properties.Binary")
         : string.Join(Environment.NewLine, raw.Lines.Select((line, index) =>
             index == 0 && line.IndexOf('=') is var split && split >= 0 ? line[(split + 1)..].Trim() : line));

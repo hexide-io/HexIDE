@@ -1,13 +1,16 @@
 using System;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 using HexIDE.Runtime.Components;
 using HexIDE.Runtime.ProjectElements;
+using HexIDE.Runtime.Serialization;
 
 namespace HexIDE.IDE;
 
 /// <summary>
-/// What a project's files say: how the IDE's model of a project, a form or a module comes out as a file. The IDE does the
-/// writing itself, so every save is atomic and writes a companion before its text; a format only renders.
+/// What a project's files say: how they become the IDE's model of a project, a form or a module, and how that model comes
+/// out as files again. The IDE does the writing itself, so every save is atomic and writes a companion before its text; a
+/// format only renders.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -58,9 +61,56 @@ public interface IProjectFileFormat
     /// these, so it asks here rather than working the order out again.
     /// </summary>
     IReadOnlyList<ComponentInstance> RootChildren(IReadOnlyList<ComponentInstance> components, ComponentInstance root);
+
+    /// <summary>Reads a project's file and every member it names.</summary>
+    /// <param name="path">The project's file.</param>
+    /// <param name="hostAnsi">The code page a file without a byte-order mark is read in.</param>
+    /// <param name="fileRead">
+    /// Told each member's file and companion as it was on disk, so the IDE can tell later whether it changed. Not told the
+    /// project's own file, which comes back in the result.
+    /// </param>
+    /// <param name="problems">Told what stopped a member loading. A project file that can't be read at all throws.</param>
+    Task<ProjectFileRead> ReadProjectAsync(string path, Vb6TextEncoding hostAnsi, Action<string, byte[]>? fileRead,
+        IDeserializeErrorSink problems);
+
+    /// <summary>What a project group's file names.</summary>
+    SerializedProjectGroup ReadGroup(string text);
+
+    /// <summary>A form, from its file's text and companion, which are read together: the text says how the companion divides.</summary>
+    /// <returns>The form, or null when the text can't be read as one, which goes to <paramref name="problems"/>.</returns>
+    FormDefinition? ReadForm(ProjectDefinition project, string text, byte[]? companion, IDeserializeErrorSink problems);
+
+    /// <summary>The designer half of a UserControl's or PropertyPage's file, read as <see cref="ReadForm"/> reads a form.</summary>
+    FormDefinition? ReadDesignerPart(ProjectDefinition project, string text, byte[]? companion, IDeserializeErrorSink problems);
+
+    /// <summary>
+    /// A module's file, as the part kept for its next save and the part the code window edits. The header is empty when
+    /// there is nothing to keep.
+    /// </summary>
+    (string Header, string Body) SplitModule(string text, ModuleKind kind);
+
+    /// <summary>The extension of the companion that goes with this designer file.</summary>
+    string CompanionExtension(string path);
+
+    /// <summary>The line a project's file holds for this member, kept when it fails to load so a save doesn't drop it.</summary>
+    string MemberLine(ModuleKind kind, string name, string relativePath);
+
+    /// <summary>Whether a property's stored value is a citation of a record in the companion, and not a value.</summary>
+    bool IsCompanionCitation(string value);
 }
 
 /// <summary>A file as a format renders it.</summary>
 /// <param name="Text">Its text.</param>
 /// <param name="Companion">The binary file that goes with it, or null when it has none.</param>
 public readonly record struct RenderedFile(string Text, byte[]? Companion);
+
+/// <summary>What reading a project's file gave.</summary>
+/// <param name="Project">The project, with every member that loaded.</param>
+/// <param name="SkippedDocuments">Members the file names that the IDE does not open, as the file names them, to tell the user.</param>
+/// <param name="ReadByteForByte">
+/// The files the host's code page couldn't decode, which were read byte for byte instead: the project's file by its name, a
+/// member by its path as the project's file gives it.
+/// </param>
+/// <param name="ProjectFileBytes">The project's file as it was on disk when it was read.</param>
+public sealed record ProjectFileRead(ProjectDefinition Project, IReadOnlyList<string> SkippedDocuments,
+    IReadOnlyList<string> ReadByteForByte, byte[] ProjectFileBytes);

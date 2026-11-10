@@ -33,6 +33,9 @@ public partial class MainView : UserControl
 
     public MainView()
     {
+        // MenuUtils shows a command's shortcut from a class handler its static constructor registers, and File > New Project,
+        // the first item, sets its command before the markup first touches MenuUtils.
+        System.Runtime.CompilerServices.RuntimeHelpers.RunClassConstructor(typeof(MenuUtils).TypeHandle);
         InitializeComponent();
         DataContextChanged += (_, _) =>
         {
@@ -122,15 +125,20 @@ public partial class MainView : UserControl
     private void OnPanelLayoutsOpened(object? sender, RoutedEventArgs e)
     {
         if (!ReferenceEquals(e.Source, PanelLayoutsMenuItem) || DataContext is not MainViewViewModel vm) return;
-        PanelLayoutsMenuItem.Items.Clear();
+        PopulatePanelLayouts(PanelLayoutsMenuItem, vm);
+    }
+
+    internal static void PopulatePanelLayouts(MenuItem menuItem, MainViewViewModel vm)
+    {
+        menuItem.Items.Clear();
         MenuItem Item(string key, Action action)
         {
             var item = new MenuItem { Command = new DelegateCommand(action) };
             item.Bind(MenuItem.HeaderProperty, item.GetResourceObservable(key));
             return item;
         }
-        PanelLayoutsMenuItem.Items.Add(Item("Str.Layout.Save", () => vm.SaveNamedLayoutAsync().ListenErrors()));
-        PanelLayoutsMenuItem.Items.Add(Item("Str.Layout.FullEditor", vm.FullEditorLayout));
+        menuItem.Items.Add(Item("Str.Layout.Save", () => vm.SaveNamedLayoutAsync().ListenErrors()));
+        menuItem.Items.Add(Item("Str.Layout.FullEditor", vm.FullEditorLayout));
         foreach (var name in vm.NamedLayouts.Names)
         {
             var menu = new MenuItem { Header = new TextBlock { Text = name } };
@@ -138,7 +146,7 @@ public partial class MainView : UserControl
             menu.Items.Add(Item("Str.Layout.Switch", () => vm.SwitchNamedLayout(name)));
             menu.Items.Add(Item("Str.Layout.Rename", () => vm.RenameNamedLayoutAsync(name).ListenErrors()));
             menu.Items.Add(Item("Str.Layout.Delete", () => vm.DeleteNamedLayoutAsync(name).ListenErrors()));
-            PanelLayoutsMenuItem.Items.Add(menu);
+            menuItem.Items.Add(menu);
         }
     }
 
@@ -252,7 +260,7 @@ public partial class MainView : UserControl
             AddInsMenuItem.Items.Add(BuildMenuItem(vm));
     }
 
-    private static MenuItem BuildMenuItem(AddinMenuItemViewModel vm)
+    internal static MenuItem BuildMenuItem(AddinMenuItemViewModel vm)
     {
         var mi = new MenuItem { Header = vm.Header };
         if (vm.Command is not null)

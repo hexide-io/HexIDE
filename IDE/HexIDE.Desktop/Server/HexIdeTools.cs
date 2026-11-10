@@ -270,7 +270,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
             if (found.Document is not { } document)
                 return (null, null, found.Error);
             target = document;
-            if (ProjectWriteSafety.Prepare(document, out recoveryNote) is { } safetyRefusal)
+            if (ProjectWriteSafety.Prepare(document, ctx.ProjectFileFormat, out recoveryNote) is { } safetyRefusal)
                 return (null, null, safetyRefusal);
 
             // Refused BEFORE the edit. This used to apply the code and only then find there was no file to
@@ -638,7 +638,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
             if (named is not { Form: { } form, Document: { } document })
                 return (null, null, named.Error);
             target = document;
-            if (ProjectWriteSafety.Prepare(document, out recoveryNote) is { } safetyRefusal)
+            if (ProjectWriteSafety.Prepare(document, ctx.ProjectFileFormat, out recoveryNote) is { } safetyRefusal)
                 return (null, null, safetyRefusal);
 
             // A UserControl's or PropertyPage's identity is its module, which holds the file the save writes.
@@ -1533,7 +1533,7 @@ internal sealed class HexIdeTools(IdeContext ctx, IHttpContextAccessor? httpCont
                     $"{(owner is not null ? owner.Kind.ToString() : "Form")} '{document.Name}' {HexIDE.IDE.ScriptedFileDialogs.PickerRefusal}",
                     Project: document.Project.Name, Document: document.Name);
 
-            if (ProjectWriteSafety.Prepare(document, out recoveryNote) is { } safetyRefusal)
+            if (ProjectWriteSafety.Prepare(document, ctx.ProjectFileFormat, out recoveryNote) is { } safetyRefusal)
                 return new AddControlResult(false, null, safetyRefusal,
                     Project: document.Project.Name, Document: document.Name);
 

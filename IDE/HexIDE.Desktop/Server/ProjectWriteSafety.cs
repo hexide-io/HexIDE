@@ -12,7 +12,7 @@ internal static class ProjectWriteSafety
             ? $"Refused '{name}': use a document name from get_project_info, not a rooted or relative path. Nothing was changed."
             : null;
 
-    public static string? Prepare(DocumentIdentity document, out string note)
+    public static string? Prepare(DocumentIdentity document, IProjectFileFormat format, out string note)
     {
         note = "";
         var path = document.AbsolutePath;
@@ -31,7 +31,7 @@ internal static class ProjectWriteSafety
                 return Refused($"Refused '{path}': the project has no folder. Save Project in the IDE first. Nothing was changed.");
             var paths = new List<string> { path };
             if (document.Form is not null || document.Module?.Kind is ModuleKind.UserControl or ModuleKind.PropertyPage)
-                paths.Add(Path.ChangeExtension(path, HexIDE.Runtime.Serialization.ProjectLoader.CompanionBinaryExtension(path)));
+                paths.Add(Path.ChangeExtension(path, format.CompanionExtension(path)));
             foreach (var candidate in paths)
                 if (Refusal(root, candidate) is { } refusal)
                     return Refused(refusal);
