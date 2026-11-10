@@ -609,13 +609,17 @@ public partial class ProjectService : IProjectService
                 // Its file moved with the code in it as it was, so what HexIDE last read and wrote there moves too: edits
                 // not yet saved stay unsaved, and the file isn't taken for one changed outside HexIDE.
                 MoveBaselines(from, newPath);
+                if (DesignerPartOf(module) is { } designerPart)
+                {
+                    MoveCompanionBaselines(project, from, newPath);
+                    designerPart.AbsolutePath = newPath;
+                }
                 module.AbsolutePath = newPath;
                 eventBus.Publish(new ModuleMovedEvent(module));
                 break;
             case FormDefinition { AbsolutePath: { } from } form:
                 MoveBaselines(from, newPath);
-                if (project.FormReader?.CompanionPath(from) is { } companionFrom && project.FormReader.CompanionPath(newPath) is { } companionTo)
-                    MoveBaselines(companionFrom, companionTo);
+                MoveCompanionBaselines(project, from, newPath);
                 form.AbsolutePath = newPath;
                 eventBus.Publish(new FormMovedEvent(form));
                 break;
@@ -624,6 +628,12 @@ public partial class ProjectService : IProjectService
                 document.Name = Path.GetFileName(newPath);
                 break;
         }
+    }
+
+    private void MoveCompanionBaselines(ProjectDefinition project, string from, string to)
+    {
+        if (project.FormReader?.CompanionPath(from) is { } companionFrom && project.FormReader.CompanionPath(to) is { } companionTo)
+            MoveBaselines(companionFrom, companionTo);
     }
 
     private void MoveBaselines(string from, string to)
@@ -1081,6 +1091,8 @@ public partial class ProjectService : IProjectService
             case ModuleDefinition module when DesignerPartOf(module) is { CanSaveFaithfully: false } designerPart:
                 Log.Warning("Refusing to write {Module}: {Reason}", module.Name, designerPart.UnfaithfulSaveReason);
                 RecordRefusal(module.Name);
+                if (designerPart.UnfaithfulSaveCauses.HasFlag(UnfaithfulSaveCause.ReadByAddin))
+                    refusedAsReadByAddin.Add(module.Name);
                 return true;
             default:
                 return false;
@@ -1370,8 +1382,9 @@ public partial class ProjectService : IProjectService
         if (module.Kind is ModuleKind.UserControl or ModuleKind.PropertyPage)
         {
             var errorSink = new DeserializeErrorSink(localization);
-            var companion = await ReadCompanion(path);
-            var fresh = format.ReadDesignerPart(module.Owner, source, companion, errorSink);
+            var reader = FormReaderOf(module.Owner);
+            var companion = await ReadCompanion(path, reader);
+            var fresh = reader.ReadDesignerPart(module.Owner, source, companion, errorSink);
             if (fresh != null)
             {
                 // StripHeader above is a no-op for these kinds, so Code still holds the whole file.
@@ -1940,8 +1953,9 @@ public partial class ProjectService : IProjectService
         var (source, bytes, sourceEncoding, byteForByte) = await ReadSourceAsync(absolutePath);
 
         // Form text before companion: the .frm's cited offsets partition the .frx.
-        var companion = await ReadCompanion(absolutePath);
-        var form = FormReaderOf(project).ReadForm(project, source, companion, new DeserializeErrorSink(localization));
+        var reader = FormReaderOf(project);
+        var companion = await ReadCompanion(absolutePath, reader);
+        var form = reader.ReadForm(project, source, companion, new DeserializeErrorSink(localization));
         if (form == null)
             return Adopted<FormDefinition>.Unreadable();
 
@@ -1990,8 +2004,9 @@ public partial class ProjectService : IProjectService
         // what stops an adopted UserControl being text-only while a loaded one opens in the designer.
         if (kind is ModuleKind.UserControl or ModuleKind.PropertyPage)
         {
-            var companion = await ReadCompanion(absolutePath);
-            var formPart = format.ReadDesignerPart(project, source, companion, new DeserializeErrorSink(localization));
+            var reader = FormReaderOf(project);
+            var companion = await ReadCompanion(absolutePath, reader);
+            var formPart = reader.ReadDesignerPart(project, source, companion, new DeserializeErrorSink(localization));
             if (formPart != null)
             {
                 formPart.AbsolutePath = absolutePath;
@@ -2386,10 +2401,9 @@ public partial class ProjectService : IProjectService
     /// reads through here — hardcoding ".frx" silently drops UserControl and PropertyPage resources, and the save
     /// path then deletes the companion it never read.
     /// </summary>
-    private async Task<byte[]?> ReadCompanion(string sourceFilePath)
+    private async Task<byte[]?> ReadCompanion(string sourceFilePath, IFormFileReader reader)
     {
-        var companionPath = Path.ChangeExtension(sourceFilePath, CompanionBinaryExtension(sourceFilePath));
-        if (!File.Exists(companionPath))
+        if (reader.CompanionPath(sourceFilePath) is not { } companionPath || !File.Exists(companionPath))
             return null;
 
         var bytes = await File.ReadAllBytesAsync(companionPath);
@@ -2681,6 +2695,10 @@ public partial class ProjectService : IProjectService
 
     private bool IsDirty(ModuleDefinition module)
     {
+        // As for a form: a designer file nothing can render opens read-only.
+        if (DesignerPartOf(module) is not null && !module.Owner.Offers.WritesForms)
+            return false;
+
         var path = module.AbsolutePath;
         if (path is null || IsScratchFile(module.Owner, path))
             return true;
@@ -2748,7 +2766,7 @@ public partial class ProjectService : IProjectService
     /// <inheritdoc cref="SnapshotRenderBaseline(FormDefinition)"/>
     private void SnapshotRenderBaseline(ModuleDefinition module)
     {
-        if (module.AbsolutePath is not { } path)
+        if (module.AbsolutePath is not { } path || (DesignerPartOf(module) is not null && !module.Owner.Offers.WritesForms))
             return;
 
         var (text, binary) = RenderModule(module, path);

@@ -76,9 +76,6 @@ public interface IProjectFileFormat : IFormFileReader
     /// <summary>What a project group's file names.</summary>
     SerializedProjectGroup ReadGroup(string text);
 
-    /// <summary>The designer half of a UserControl's or PropertyPage's file, read as <see cref="ReadForm"/> reads a form.</summary>
-    FormDefinition? ReadDesignerPart(ProjectDefinition project, string text, byte[]? companion, IDeserializeErrorSink problems);
-
     /// <summary>
     /// A module's file, as the part kept for its next save and the part the code window edits. The header is empty when
     /// there is nothing to keep.
