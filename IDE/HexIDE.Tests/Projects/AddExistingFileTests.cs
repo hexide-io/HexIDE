@@ -49,7 +49,7 @@ public class AddExistingFileTests : IDisposable
             new FileBaselineStore(),
             Substitute.For<HexIDE.Localization.ILocalizationService>(),
             Substitute.For<IHeaderRefresher>(),
-            new Vb6ProjectFileFormat());
+            new Vb6ProjectFileFormat(), new ComponentRegistry());
     }
 
     private ProjectDefinition NewProject()

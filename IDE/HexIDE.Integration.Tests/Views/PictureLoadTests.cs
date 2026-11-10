@@ -158,7 +158,7 @@ public class PictureLoadTests
             form.AbsolutePath = Path.ChangeExtension(path, ".frm");
             var service = new ProjectService(null!, windows, bus, Substitute.For<IProjectManager>(),
                 Substitute.For<IRecentProjectsService>(), Substitute.For<IReferenceLibraryService>(),
-                Substitute.For<IUserSidecarService>(), new FileBaselineStore(), loc, Substitute.For<IHeaderRefresher>(), new Vb6ProjectFileFormat());
+                Substitute.For<IUserSidecarService>(), new FileBaselineStore(), loc, Substitute.For<IHeaderRefresher>(), new Vb6ProjectFileFormat(), new ComponentRegistry());
             (await service.SaveForm(form, saveAs: false, interactive: false)).Should().BeTrue();
             var source = await File.ReadAllTextAsync(form.AbsolutePath);
             var companion = await File.ReadAllBytesAsync(Path.ChangeExtension(path, ".frx"));

@@ -35,7 +35,7 @@ public class DesignerModifiedMarkerTests
         var service = new ProjectService(null!, Substitute.For<IWindowManager>(), bus,
             Substitute.For<IProjectManager>(), Substitute.For<IRecentProjectsService>(),
             Substitute.For<IReferenceLibraryService>(), Substitute.For<IUserSidecarService>(),
-            new FileBaselineStore(), Substitute.For<ILocalizationService>(), Substitute.For<IHeaderRefresher>(), new Vb6ProjectFileFormat());
+            new FileBaselineStore(), Substitute.For<ILocalizationService>(), Substitute.For<IHeaderRefresher>(), new Vb6ProjectFileFormat(), new ComponentRegistry());
         var project = new ProjectDefinition(VBProjectType.EXE, "P");
         var form = new FormDefinition(project, FormComponentClass.Instance, "Form1")
         {

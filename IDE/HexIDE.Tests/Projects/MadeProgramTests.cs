@@ -79,7 +79,7 @@ public class MadeProgramTests : IDisposable
             () => throw new InvalidOperationException("new-project dialog must not be reached"), windowManager,
             Substitute.For<IEventBus>(), projectManager, Substitute.For<IRecentProjectsService>(),
             Substitute.For<IReferenceLibraryService>(), sidecar, new FileBaselineStore(),
-            Substitute.For<HexIDE.Localization.ILocalizationService>(), Substitute.For<IHeaderRefresher>(), new Vb6ProjectFileFormat());
+            Substitute.For<HexIDE.Localization.ILocalizationService>(), Substitute.For<IHeaderRefresher>(), new Vb6ProjectFileFormat(), new ComponentRegistry());
     }
 }
 

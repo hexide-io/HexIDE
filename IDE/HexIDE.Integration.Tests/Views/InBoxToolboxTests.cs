@@ -147,7 +147,7 @@ public class InBoxToolboxTests
     public void The_toolbox_follows_the_Components_dialog()
     {
         var (project, toolbox, _, _) = Designer();
-        var dialog = new ComponentsViewModel(project);
+        var dialog = new ComponentsViewModel(project, new ComponentRegistry());
 
         dialog.Controls.Single(c => c.Library == ControlLibraries.MSComctlLib).IsSelected = true;
         dialog.ApplyCommand.Execute(null);

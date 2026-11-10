@@ -74,7 +74,7 @@ public class MemberWithoutAFileTests : IDisposable
             new FileBaselineStore(),
             Substitute.For<HexIDE.Localization.ILocalizationService>(),
             Substitute.For<IHeaderRefresher>(),
-            new Vb6ProjectFileFormat());
+            new Vb6ProjectFileFormat(), new ComponentRegistry());
     }
 
     /// <summary>A saved project, its baselines current, so nothing about it reads as changed.</summary>
