@@ -160,7 +160,12 @@ public class ProcessWindowsToolTests
         {
             ShellLaunches.Record(process.Id, "notepad.exe", 0);
 
-            var reply = await ProcessWindowsTool.DescribeAsync(process.Id, TestContext.Current.CancellationToken);
+            // Nothing waits for the program to get going, so its window can take a moment to exist.
+            ProcessWindowsResult reply;
+            var deadline = Environment.TickCount64 + 10_000;
+            do
+                reply = await ProcessWindowsTool.DescribeAsync(process.Id, TestContext.Current.CancellationToken);
+            while (!(reply.Windows ?? []).Any(w => w.ClassName == "Notepad") && Environment.TickCount64 < deadline);
 
             reply.Windows.Should().Contain(w => w.ClassName == "Notepad" && w.State == "Hidden" && !w.Visible);
             reply.Note.Should().EndWith(" None is visible, as vbHide starts a program hidden.");
