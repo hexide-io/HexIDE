@@ -66,6 +66,7 @@ internal static class MenuHostRegistry
             ["application.NextBookmarkCommand"] = new("{x:Static vb:ApplicationCommands.NextBookmarkCommand}", ApplicationCommands.NextBookmarkCommand, null),
             ["application.OpenCallStackCommand"] = new("{x:Static vb:ApplicationCommands.OpenCallStackCommand}", ApplicationCommands.OpenCallStackCommand, null),
             ["application.OpenColorPaletteCommand"] = new("{x:Static vb:ApplicationCommands.OpenColorPaletteCommand}", ApplicationCommands.OpenColorPaletteCommand, null),
+            ["application.OpenDataViewCommand"] = new("{x:Static vb:ApplicationCommands.OpenDataViewCommand}", ApplicationCommands.OpenDataViewCommand, null),
             ["application.OpenFormLayoutCommand"] = new("{x:Static vb:ApplicationCommands.OpenFormLayoutCommand}", ApplicationCommands.OpenFormLayoutCommand, null),
             ["application.OpenImmediateCommand"] = new("{x:Static vb:ApplicationCommands.OpenImmediateCommand}", ApplicationCommands.OpenImmediateCommand, null),
             ["application.OpenLocalsCommand"] = new("{x:Static vb:ApplicationCommands.OpenLocalsCommand}", ApplicationCommands.OpenLocalsCommand, null),
@@ -125,6 +126,8 @@ internal static class MenuHostRegistry
             ["shell.AddModuleCommand"] = new("{CompiledBinding AddModuleCommand}", null, nameof(MainViewViewModel.AddModuleCommand)),
             ["shell.AddPropertyPageCommand"] = new("{CompiledBinding AddPropertyPageCommand}", null, nameof(MainViewViewModel.AddPropertyPageCommand)),
             ["shell.AddUserControlCommand"] = new("{CompiledBinding AddUserControlCommand}", null, nameof(MainViewViewModel.AddUserControlCommand)),
+            ["shell.BreakProjectCommand"] = new("{CompiledBinding BreakProjectCommand}", null, nameof(MainViewViewModel.BreakProjectCommand)),
+            ["shell.EndProjectCommand"] = new("{CompiledBinding EndProjectCommand}", null, nameof(MainViewViewModel.EndProjectCommand)),
             ["shell.OpenAddInManager"] = new("{CompiledBinding OpenAddInManager}", null, nameof(MainViewViewModel.OpenAddInManager)),
             ["shell.OpenDiagnosticsCommand"] = new("{CompiledBinding OpenDiagnosticsCommand}", null, nameof(MainViewViewModel.OpenDiagnosticsCommand)),
             ["shell.OpenBrandHomeCommand"] = new("{CompiledBinding OpenBrandHomeCommand}", null, nameof(MainViewViewModel.OpenBrandHomeCommand)),
@@ -150,6 +153,18 @@ internal static class MenuHostRegistry
             ["run-starts"] = "{CompiledBinding RunWith.Starts}",
         };
 
+    internal static readonly IReadOnlyDictionary<string, string> ToolbarProviders =
+        new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["add-project-templates"] = "ProjectFlyoutOpening",
+            ["selection-readout"] = nameof(MainViewViewModel.FocusedProjectUtil),
+        };
+
+    internal static readonly HashSet<string> CheckedBindings = new(StringComparer.Ordinal)
+    {
+        "{CompiledBinding FocusedProjectUtil.FocusedForm?.LockControls, Mode=OneWay, TargetNullValue={x:False}}",
+    };
+
     internal static readonly IReadOnlyDictionary<string, string> Labels =
         new Dictionary<string, string>(StringComparer.Ordinal)
         {
@@ -169,6 +184,10 @@ internal static class MenuHostRegistry
 
     internal static readonly HashSet<string> VisibilityBindings = new(StringComparer.Ordinal)
     {
+        "Settings.IsStandardToolbarVisible",
+        "Settings.IsEditToolbarVisible",
+        "Settings.IsDebugToolbarVisible",
+        "Settings.IsFormEditorToolbarVisible",
         nameof(MainViewViewModel.HasBrandHome),
         nameof(MainViewViewModel.HasBrandSupport),
     };

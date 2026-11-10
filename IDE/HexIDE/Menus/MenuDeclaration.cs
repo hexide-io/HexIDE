@@ -98,24 +98,7 @@ internal static class MainMenuDeclaration
             Require(item.Kind != MenuItemKind.Submenu || item.Children is { Length: > 0 }, "Empty submenu.");
             Require(item.Arguments is null || item.Kind == MenuItemKind.Command, "Arguments belong only on commands.");
             if (item.Command is { } command)
-            {
-                Require(commands.TryGetValue(command, out var registration), $"Unknown command '{command}'.");
-                var arguments = item.Arguments ?? new Dictionary<string, MenuArgument>();
-                Require(arguments.Keys.ToHashSet(StringComparer.Ordinal).SetEquals(registration!.Arguments.Keys),
-                    "Arguments do not match the command signature.");
-                foreach (var (name, argument) in arguments)
-                {
-                    Require(argument is not null && argument.Kind == registration.Arguments[name],
-                        $"Argument '{name}' has the wrong type.");
-                    Require(argument!.Kind switch
-                    {
-                        MenuArgumentKind.String => argument.Value.ValueKind == JsonValueKind.String,
-                        MenuArgumentKind.Boolean => argument.Value.ValueKind is JsonValueKind.True or JsonValueKind.False,
-                        MenuArgumentKind.Integer => argument.Value.ValueKind == JsonValueKind.Number && argument.Value.TryGetInt32(out _),
-                        _ => false
-                    }, $"Argument '{name}' has an invalid value.");
-                }
-            }
+                ValidateCommand(command, item.Arguments, commands, Require);
             if (item.Provider is { } provider)
                 Require(MenuHostRegistry.Providers.ContainsKey(provider), $"Unknown provider '{provider}'.");
             if (item.State is { } state)
@@ -124,6 +107,27 @@ internal static class MainMenuDeclaration
                 foreach (var child in children) Visit(child);
         }
         foreach (var item in items) Visit(item);
+    }
+
+    internal static void ValidateCommand(string command, Dictionary<string, MenuArgument>? supplied,
+        IReadOnlyDictionary<string, MenuCommandRegistration> commands, Action<bool, string> require)
+    {
+        require(commands.TryGetValue(command, out var registration), $"Unknown command '{command}'.");
+        var arguments = supplied ?? new Dictionary<string, MenuArgument>();
+        require(arguments.Keys.ToHashSet(StringComparer.Ordinal).SetEquals(registration!.Arguments.Keys),
+            "Arguments do not match the command signature.");
+        foreach (var (name, argument) in arguments)
+        {
+            require(argument is not null && argument.Kind == registration.Arguments[name],
+                $"Argument '{name}' has the wrong type.");
+            require(argument!.Kind switch
+            {
+                MenuArgumentKind.String => argument.Value.ValueKind == JsonValueKind.String,
+                MenuArgumentKind.Boolean => argument.Value.ValueKind is JsonValueKind.True or JsonValueKind.False,
+                MenuArgumentKind.Integer => argument.Value.ValueKind == JsonValueKind.Number && argument.Value.TryGetInt32(out _),
+                _ => false
+            }, $"Argument '{name}' has an invalid value.");
+        }
     }
 }
 
