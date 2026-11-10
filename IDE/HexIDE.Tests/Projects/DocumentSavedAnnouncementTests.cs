@@ -96,6 +96,20 @@ public class DocumentSavedAnnouncementTests : IDisposable
         return form;
     }
 
+    [Fact]
+    public async Task SavesReportCompletedDiskChangesDirectly()
+    {
+        var module = AProjectWith("Module1").Modules[0];
+        var service = MakeService();
+        await service.SaveModule(module, false);
+        await service.SaveModule(module, false);
+        File.Exists(module.AbsolutePath).Should().BeTrue();
+        var calls = _lsp.ReceivedCalls().Where(c => c.GetMethodInfo().Name == "NotifyWatchedFile").ToArray();
+        calls.Should().HaveCount(2);
+        calls[0].GetArguments().Should().Equal(module.AbsolutePath, 1);
+        calls[1].GetArguments().Should().Equal(module.AbsolutePath, 2);
+    }
+
     [Theory]
     [InlineData(ModuleKind.StandardModule)]
     [InlineData(ModuleKind.ClassModule)]

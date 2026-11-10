@@ -2362,14 +2362,18 @@ public partial class ProjectService : IProjectService
     // document (Vb6TextFile.EncodeDocument) and every refusal names it.
     private void AtomicWriteText(string targetPath, string content, byte[] bytes)
     {
+        var existed = File.Exists(targetPath);
         AtomicFileWriter.WriteAllBytes(targetPath, bytes);
+        lspClient?.Invoke().NotifyWatchedFile(targetPath, existed ? 2 : 1);
         baselineStore.Record(targetPath, bytes);
         renderBaselines[targetPath] = FileHasher.Hash(content);
     }
 
     private void AtomicWriteBytes(string targetPath, byte[] content)
     {
+        var existed = File.Exists(targetPath);
         AtomicFileWriter.WriteAllBytes(targetPath, content);
+        lspClient?.Invoke().NotifyWatchedFile(targetPath, existed ? 2 : 1);
         baselineStore.Record(targetPath, content);
         renderBaselines[targetPath] = FileHasher.Hash(content);
     }

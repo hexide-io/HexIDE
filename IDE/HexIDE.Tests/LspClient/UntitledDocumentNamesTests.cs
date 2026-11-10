@@ -425,30 +425,19 @@ public class UntitledDocumentNamesTests : IAsyncDisposable
     // ── The delivery model, re-measured under this client ─────────────────────────────────────────────
 
     [ForeignServerFact("python")]
-    public async Task RefusingDynamicRegistrationDoesNotTalkThisServerOutOfAnswering()
+    public async Task WatchedFileRegistrationDoesNotTalkThisServerOutOfAnswering()
     {
-        // This server decides how to deliver diagnostics from what the client declared, and the probe that
-        // first measured it accepted dynamic registration where HexIDE refuses it — so its measured mode
-        // was the probe's, not HexIDE's. Re-measured here against the client that ships, and under a name
-        // with no file behind it, which is the combination nothing had asked about.
+        // Watched-file registration and pull diagnostics are independent negotiations, including for
+        // an untitled document with no file behind it.
         const string id = "untitled.python.dynreg";
         var uri = "untitled:Project1/Module1.py";
         var (_, published, connection, _) = await OpenUnderUntitledName(
             ForeignServer.Python, id, uri, PythonWithAnUnusedImport, TimeSpan.FromSeconds(30));
 
-        await WaitFor(id, e => e.Kind == ConversationEntryKind.StandardError
-                               && e.Detail != null
-                               && e.Detail.Contains("dynamic capability registration", StringComparison.Ordinal),
-                      TimeSpan.FromSeconds(5));
-
-        var stderr = string.Join("\n", _capture.Snapshot(id)
-            .Where(e => e.Kind == ConversationEntryKind.StandardError)
-            .Select(e => e.Detail));
-
-        stderr.Should().Contain("dynamic capability registration",
-            "HexIDE declines dynamic registration, and this server notices and says so — which is the "
-          + "condition under which the rest of this test is a measurement of HexIDE rather than of a probe. "
-          + Conversation(id));
+        var initialize = _capture.Snapshot(id).Single(e => e.Method == "initialize" && e.Direction == ConversationDirection.Sent);
+        Frame(id, initialize.Sequence).GetProperty("params").GetProperty("capabilities")
+            .GetProperty("workspace").GetProperty("didChangeWatchedFiles")
+            .GetProperty("dynamicRegistration").GetBoolean().Should().BeTrue();
 
         published.Should().NotBeNull("it still answers, by the pull model, for a document with no file");
         published!.Diagnostics.Should().Contain(

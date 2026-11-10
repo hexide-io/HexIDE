@@ -237,7 +237,7 @@ The metamodel guard also checks the numeric values of the wire enums (`Diagnosti
 `SaveNotification` describes local save negotiation state rather than a wire enum.
 
 **Server-initiated requests.** Nine are handled: `client/registerCapability` and
-`client/unregisterCapability` (refused, with the refusal recorded rather than silent),
+`client/unregisterCapability` (watched files honoured; unsupported methods logged and refused),
 `workspace/diagnostic/refresh`, which is acted on — every open document is asked about again —
 `window/workDoneProgress/create`, which registers a progress token and succeeds, and
 `workspace/configuration`, `window/showMessageRequest`, `workspace/applyEdit`, `window/showDocument` and
@@ -1166,9 +1166,9 @@ the conversation, rather than waiting out a diagnostics timeout. A clean exit or
 connection is not classified as that failure. This adds no retry and does not establish the cause of the
 intermittent SIGPIPE.
 
-The untitled-document tests also drain and poll for clangd's URI refusal and ruff's dynamic-registration
-warning, with a five-second deadline, before asserting on standard error (#2269). Diagnostics arriving
-does not mean the independent stderr reader has finished recording those lines.
+The untitled-document tests drain and poll for clangd's URI refusal, with a five-second deadline, before
+asserting on standard error (#2269). Diagnostics arriving does not mean the independent stderr reader
+has finished recording those lines. The ruff test checks watched-file negotiation alongside pull diagnostics (#456).
 
 A stdio server that exits before its Windows job assignment completes still supplies its stderr and
 exit-code notices (#2752). A refused assignment is ignored only if the process has already exited;
@@ -1388,7 +1388,7 @@ specification's own [`metaModel.json`](https://raw.githubusercontent.com/microso
 the canonical machine-readable list, so the method names and directions are the specification's rather than
 this document's recollection of them.
 
-**HexIDE implements 53 of the 93.** That is not a deficiency in itself — no client implements them all, and
+**HexIDE implements 56 of the 93.** That is not a deficiency in itself — no client implements them all, and
 most of the remainder are features no VB6 IDE needs. It is here so the shape of the gap is visible rather
 than inferred.
 
@@ -1456,7 +1456,7 @@ than inferred.
 | ○ | `textDocument/willSave` | → |  |
 | ○ | `textDocument/willSaveWaitUntil` | → |  |
 
-### `workspace/*` — 9 of 21
+### `workspace/*` — 10 of 21
 
 | | Method | Dir | Notes |
 |---|---|---|---|
@@ -1466,7 +1466,7 @@ than inferred.
 | ○ | `workspace/diagnostic` | → | The pull model, workspace-wide ([#284](https://github.com/hexide-io/HexIDE/issues/284)) |
 | ✅ | `workspace/diagnostic/refresh` | ← | Re-asks every open document; the only way a pull-model server can report a change that is not a document |
 | ✅ | `workspace/didChangeConfiguration` | → | Notifies running servers when Tab Width changes |
-| ○ | `workspace/didChangeWatchedFiles` | → |  |
+| ✅ | `workspace/didChangeWatchedFiles` | → | Registered globs, masks, relative patterns and coalesced disk events (#456) |
 | ✅ | `workspace/didChangeWorkspaceFolders` | → | Shared project-change debounce; opted-in servers, before import |
 | ✅ | `workspace/didCreateFiles` | → | First saves and Save As to new files, filtered per running server (#2248) |
 | ○ | `workspace/didDeleteFiles` | → |  |
@@ -1493,12 +1493,12 @@ than inferred.
 | ○ | `window/workDoneProgress/cancel` | → | No cancellation UI; cancellable is not acted on |
 | ✅ | `window/workDoneProgress/create` | ← | Registers string or integer tokens; replies with null |
 
-### `client/*` — 0 of 2
+### `client/*` — 2 of 2
 
 | | Method | Dir | Notes |
 |---|---|---|---|
-| ○ | `client/registerCapability` | ← | **Refused deliberately, and logged.** `dynamicRegistration` is a *client* capability and this client declares none, so a conformant server must declare everything at `initialize`. One that asks anyway gets `MethodNotFound` and a local warning naming the method ([#288](https://github.com/hexide-io/HexIDE/issues/288)) |
-| ○ | `client/unregisterCapability` | ← | Counterpart to the above, refused the same way |
+| ◐ | `client/registerCapability` | ← | Watched files only; unsupported methods logged and refused (#288, #456) |
+| ◐ | `client/unregisterCapability` | ← | Removes watched-file registrations per connection (#456) |
 
 ### `$/*` — 3 of 4
 
@@ -1639,16 +1639,22 @@ Three clusters account for nearly all of the gap:
   would consume* below. `workspace/symbol` used to sit in this list and no longer does: the client speaks it
   and the Object Browser surfaces it, so the missing half is a *server*, which is exactly the point of the
   seam.
-- **Workspace-level protocol** — `workspace/*` is 9 of 21. The client sends project folders,
+- **Workspace-level protocol** — `workspace/*` is 10 of 21. The client sends project folders,
   updates them as group membership changes, sends file-operation notifications, answers editor
-  configuration requests, and applies server-initiated workspace edits (#2908). Watched-file notifications
-  remain absent.
-- **Server-to-client courtesy** — `window/*` and `client/*` are 5 of 8 between them. Alongside work-done progress (#360), the messages that landed
+  configuration requests, and applies server-initiated workspace edits (#2908). Registered watched-file
+  notifications report disk changes and completed IDE writes (#456).
+- **Server-to-client courtesy** — `window/*` and `client/*` are 7 of 8 between them. Alongside work-done progress (#360), the messages that landed
   are the ones that cost no analysis depth and buy diagnosability: a server can now explain its own
-  problems instead of appearing broken ([#289](https://github.com/hexide-io/HexIDE/issues/289)). Dynamic registration stays refused on
-  purpose and is now logged rather than silent ([#288](https://github.com/hexide-io/HexIDE/issues/288)) — supporting it would mean
-  declaring `dynamicRegistration` and honouring what arrives, which is real work with no server yet asking
-  for it. `showMessageRequest` uses a queued IDE message box (#2908).
+  problems instead of appearing broken ([#289](https://github.com/hexide-io/HexIDE/issues/289)). Dynamic registration is honoured for
+  `workspace/didChangeWatchedFiles` only (#456); other methods remain logged and refused (#288).
+  Registrations belong to one connection and are discarded on disconnect. Both string globs and relative
+  patterns (URI or WorkspaceFolder bases) support create/change/delete masks. String globs follow workspace
+  folder additions and removals; relative patterns retain their registered base. Registrations that would
+  recursively watch a filesystem root (including a missing base whose existing ancestor is a root) are
+  logged and refused with `InvalidParams`, installing nothing. Recursive disk watches feed
+  the same matcher as completed project saves and workspace artefact writes, with 150 ms batching.
+  Direct writes work independently of editor reload watching. Unregistering removes pending matches.
+  `showMessageRequest` uses a queued IDE message box (#2908).
 
 `notebookDocument/*` is 0 of 4 and will stay there — notebooks are not a VB6 concept.
 
@@ -1719,8 +1725,8 @@ The second, `rdcore`, projects the project's code files, references and Conditio
 `.rdproj` RDCore's language server needs at the workspace root. Current RDCore builds take a project import
 instead (below).
 
-This implements generation only (#455). Regeneration sends no `workspace/didChangeWatchedFiles` until
-#456; there is no public add-in contract (#457), no undeclared generation,
+Completed artefact writes and removals feed `workspace/didChangeWatchedFiles` registrations directly
+(#456). There is no public add-in contract (#457), no undeclared generation,
 no unconsented write, and no write outside the workspace. See [configuration](language-servers.md#generated-workspace-files).
 ### Project imports
 

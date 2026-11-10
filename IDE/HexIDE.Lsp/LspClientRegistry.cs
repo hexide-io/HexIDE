@@ -98,7 +98,11 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
         _timeProvider = timeProvider ?? TimeProvider.System;
         _workspace = workspace;
         _artifacts = artifacts;
-        if (artifacts is not null) artifacts.RestartRequested += OnArtifactRestartRequested;
+        if (artifacts is not null)
+        {
+            artifacts.RestartRequested += OnArtifactRestartRequested;
+            artifacts.FileChanged += NotifyWatchedFile;
+        }
         _configurationProblems = configurationProblems ?? [];
         // Ordered once. OrderByDescending is stable, so equal priorities keep registration order — which is
         // the documented fallback rather than an accident of how the sort happened to behave.
@@ -429,6 +433,12 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
         ReleaseOpens(uri);
         await closing;
         ConnectionsChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    public void NotifyWatchedFile(string path, int type)
+    {
+        foreach (var entry in _entries)
+            if (entry.Client is { IsRunning: true } client) client.NotifyWatchedFile(path, type);
     }
 
     public Task SaveDocumentAsync(string uri, CancellationToken cancellationToken = default) =>
@@ -946,7 +956,11 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
 
     public async ValueTask DisposeAsync()
     {
-        if (_artifacts is not null) _artifacts.RestartRequested -= OnArtifactRestartRequested;
+        if (_artifacts is not null)
+        {
+            _artifacts.RestartRequested -= OnArtifactRestartRequested;
+            _artifacts.FileChanged -= NotifyWatchedFile;
+        }
         if (_artifacts is IDisposable disposable) disposable.Dispose();
         foreach (var e in _entries) await e.Lifetime.CancelAsync();
         await StopAsync();

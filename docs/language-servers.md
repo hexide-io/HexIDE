@@ -453,8 +453,9 @@ writing into the workspace at that same moment could swap a parent folder for a 
 check and the write, and the write would follow it. Nothing in .NET closes that gap; it needs
 something already able to change the project's files.
 
-Forms, modules, carried files and reference changes trigger debounced regeneration. This phase sends
-no `workspace/didChangeWatchedFiles` (#456); clangd watches its own compilation database. No file is
+Forms, modules, carried files and reference changes trigger debounced regeneration. Completed writes
+and removals notify connections with matching `workspace/didChangeWatchedFiles` registrations (#456);
+clangd watches its own compilation database. No file is
 generated without a declaration, and core contains no backend schema.
 
 ### Project-import declarations

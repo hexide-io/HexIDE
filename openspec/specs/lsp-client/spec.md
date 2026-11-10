@@ -12,6 +12,23 @@ later without the editor noticing.
 
 ## Requirements
 
+### Requirement: Registered watched-file notifications
+The client SHALL advertise dynamic registration only for `workspace/didChangeWatchedFiles`, including relative-pattern support. It SHALL honour registration and unregistration per connection, discard registrations on disconnect, and log and refuse unsupported methods. String globs and relative patterns with URI or WorkspaceFolder bases SHALL honour create/change/delete masks. Workspace-relative string globs SHALL follow additions and removals of workspace folders; relative patterns SHALL retain their own base. A registration that would recursively watch a filesystem root, including through the existing ancestor of a missing base, SHALL be logged and refused with `InvalidParams` without installing any part of the request. Matching disk changes and completed IDE writes SHALL be coalesced before notification, and SHALL reach only connections with matching registrations.
+
+#### Scenario: A server registers configuration files
+- **WHEN** a server registers `**/pyproject.toml` and that file changes externally
+- **THEN** the client sends a matching `FileEvent` in `workspace/didChangeWatchedFiles`
+- **AND** unrelated connections receive nothing
+
+#### Scenario: The IDE writes a file
+- **WHEN** an IDE save or artefact generation completes
+- **THEN** the write feeds the same registered-glob matcher directly, independently of editor reload watching
+
+#### Scenario: A registration ends
+- **WHEN** its id is unregistered or its connection drops
+- **THEN** it produces no further file events
+
+
 ### Requirement: One restart after a silent stdio initialize
 
 The client SHALL restart a live stdio server at most once when initialize times out, only if the channel tap
@@ -1864,7 +1881,7 @@ anyway, so it is recorded rather than defended.
 #### Scenario: Material project changes
 - **WHEN** forms, modules or carried files are added, removed or renamed, or references change
 - **THEN** the artefact is regenerated after debouncing, subject to the same consent and ownership checks
-- **AND** regeneration sends no watched-file notification in this phase (#456)
+- **AND** completed artefact writes and removals feed matching watched-file registrations directly (#456)
 
 #### Scenario: Restart on change
 - **WHEN** an entry sets `restartOnChange` and a regeneration changes its artefact's bytes, including taking the file back
