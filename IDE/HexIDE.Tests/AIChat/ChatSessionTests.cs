@@ -11,6 +11,27 @@ public class ChatSessionTests
     // ── #1: history round-trip ────────────────────────────────────────────────
 
     [Fact]
+    public void SavingRetainsPreviousChatBytesForRecovery()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "hexide-chat-recovery-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        try
+        {
+            var path = Path.Combine(dir, "chat.json");
+            var session = new ChatSession();
+            session.Add(new ConversationMessage("user", "first"));
+            session.SaveTo(path);
+            var original = File.ReadAllBytes(path);
+            session.Add(new ConversationMessage("assistant", "second"));
+            session.SaveTo(path);
+            var recovery = Directory.GetFiles(dir, "*.recovery").Should().ContainSingle().Subject;
+            File.ReadAllBytes(recovery).Should().Equal(original);
+            ChatSession.LoadFrom(path).Log.Should().HaveCount(2);
+        }
+        finally { Directory.Delete(dir, true); }
+    }
+
+    [Fact]
     public void SaveThenLoad_RoundTripsFullLog()
     {
         var path = Path.GetTempFileName();

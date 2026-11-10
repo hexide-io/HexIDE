@@ -26,8 +26,16 @@ public class ForeignAdapterTests
     {
         var resolved = ForeignAdapterAcquisition.Resolve(adapter);
         resolved.ChecksumMismatch.Should().BeFalse(resolved.Unavailable);
-        if (Environment.GetEnvironmentVariable("HEXIDE_REQUIRE_FOREIGN_LSP") is "1" or "true" or "yes")
+        if (Environment.GetEnvironmentVariable("HEXIDE_REQUIRE_FOREIGN_LSP") is "1" or "true" or "yes" && !resolved.NoBuildForPlatform)
             resolved.Options.Should().NotBeNull(resolved.Unavailable);
+    }
+
+    [Fact]
+    public void Netcoredbg_is_not_paired_with_a_program_it_cannot_debug()
+    {
+        var resolve = () => ForeignAdapterAcquisition.Asset("netcoredbg", "win-arm64");
+
+        resolve.Should().Throw<PlatformNotSupportedException>("its only Windows build is x64, which crashes launching an Arm program");
     }
 
     [ForeignAdapterFact("debugpy")]
@@ -45,6 +53,7 @@ public class ForeignAdapterTests
         Directory.CreateDirectory(directory);
         await using var log = new ConversationLog();
         log.Arm(adapter, true);
+        Task<DapProcessResult>? adapterEnded = null;
         try
         {
             var python = adapter == "debugpy";
@@ -66,6 +75,7 @@ public class ForeignAdapterTests
             }
             var options = ForeignAdapterAcquisition.Resolve(adapter).Options! with { WorkingDirectory = directory, Capture = new(log, adapter) };
             await using var session = DapSession.Start(options);
+            adapterEnded = session.ProcessCompletion;
             var breakpoints = await session.LaunchAsync(adapter, launch, [new(source, [breakpointLine])], token);
             breakpoints.Should().ContainSingle();
             breakpoints[0].Body!.Value.GetProperty("breakpoints").GetArrayLength().Should().Be(1);
@@ -93,7 +103,7 @@ public class ForeignAdapterTests
             await log.DrainAsync();
             AssertConversation(log, adapter, source, breakpointLine);
         }
-        catch
+        catch (Exception error)
         {
             await log.DrainAsync();
             foreach (var entry in log.Snapshot(adapter))
@@ -103,6 +113,9 @@ public class ForeignAdapterTests
                 if (entry.AnswerSequence is { } answer && log.Body(adapter, answer) is { } reply)
                     TestContext.Current.TestOutputHelper?.WriteLine(System.Text.Encoding.UTF8.GetString(reply.Head));
             }
+            // A run's log shows only the exception, and "the connection closed" doesn't say why the adapter left.
+            if (error is IOException && adapterEnded is { IsCompletedSuccessfully: true } ended)
+                throw new IOException($"{adapter} ended the connection with exit code {ended.Result.ExitCode}: {ended.Result.StandardErrorTail}", error);
             throw;
         }
         finally { DeleteWhenReleased(directory); }

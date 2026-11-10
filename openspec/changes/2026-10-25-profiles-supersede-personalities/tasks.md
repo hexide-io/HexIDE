@@ -491,9 +491,8 @@ and `ToolbarCaptionTests.Segoe_UI_nine_point_matches_console_measurements` (Wind
   arguments, settings toggles and disabled placeholders, guarded recursively against MainView AXAML.
   Dynamic captions retain host label bindings and fallback localization keys. Provider declarations
   cover recent projects, run choices, closed documents, panel layouts and add-ins (including its
-  static Manager child). Contract: `openspec/specs/main-menu-model/spec.md`. No renderer, shortcut,
-  focus-routing or profile visibility changes; the wider task remains incomplete.
-  The declaration has 199 placements: 18 submenus, 127 command references, 40 separators, six
+  static Manager child). Contract: `openspec/specs/main-menu-model/spec.md`.
+  First-slice validation: the declaration has 199 placements: 18 submenus, 127 command references, 40 separators, six
   providers, three placeholders and five toggles. All 26 new cases pass without skips in an isolated
   xUnit host compiling the actual component and test sources; all 26 fail against inert API scaffolds
   (empty loading/parsing/validation and command registry, inert state accessors). The production files
@@ -504,7 +503,23 @@ and `ToolbarCaptionTests.Segoe_UI_nine_point_matches_console_measurements` (Wind
   including all 26 new cases passing. Raised the measured CI floor to 6,577. The skips are 27
   Windows/platform cases, ten cases requiring the absent VB6 template tree, and one each requiring
   the unavailable DAP schema, netcoredbg and debugpy; none is claimed as coverage. Changes remain
-  uncommitted for supervisor review. Rendering and the other surface split-outs remain later work.
+  uncommitted for supervisor review at that boundary. Rendering and the other surface split-outs
+  were left for later work.
+  Second slice (#3510): a separate Avalonia renderer uses these declarations, host bindings, providers,
+  toggles and existing live gesture handling. The embedded data now includes visibility and icon keys.
+  The IDE continues to display AXAML; switching it over, focus routing and expanded profile visibility
+  remain incomplete. Renderer/AXAML parity is exercised in English and Arabic, including populated
+  layout providers. All eight renderer cases pass on Linux without skips; all eight fail against an
+  inert renderer scaffold. The metadata parity check and unknown-visibility guard also fail when the
+  new data/validation are removed (ten cases with demonstrated teeth).
+  Full renderer-slice validation (WSL): HexIDE.Tests 7,124 passed, 50 skipped (7,174 total);
+  Integration 5,540 passed, two skipped (5,542 total). Both reports have zero failures and zero
+  xUnit errors. CI floors rise to 6,815 and 5,264. The unit skips are 37 Windows/platform cases,
+  ten absent VB6 templates, one unavailable DAP schema and two uncached debug adapters. The
+  integration skips require Windows font/GDI measurements. No skip is claimed as coverage.
+  Desktop Debug builds with zero warnings/errors; strict spec validation and tree hygiene pass.
+  MISSING_FEATURES status and MISSING_LANGUAGE counts are unchanged. Live rendering verification
+  remains with the supervisor; no renderer is installed in the IDE by this slice.
 - [ ] **Data-driven toolbars — large:** publish bands/placement ids and render commands and host-owned
   dynamic providers from data, sharing the registry and visibility contract. Test command, toggle,
   flyout, enablement and visibility parity. The shippable model is larger than merely rendering today's

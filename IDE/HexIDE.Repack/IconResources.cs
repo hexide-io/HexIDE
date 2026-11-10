@@ -25,12 +25,12 @@ internal static class IconResources
         return logo.ToArray();
     }
 
-    /// <summary>The logo as a PNG at each of the icon's sizes.</summary>
-    public static IReadOnlyList<(int Size, byte[] Png)> Render(byte[] logoPng)
+    /// <summary>The logo as a PNG at each of the given sizes, or at the sizes stock's own icon has.</summary>
+    public static IReadOnlyList<(int Size, byte[] Png)> Render(byte[] logoPng, IReadOnlyList<int>? sizes = null)
     {
         using var source = SKBitmap.Decode(logoPng) ?? throw new RepackException("The brand's logo could not be decoded as an image.");
         using var image = SKImage.FromBitmap(source);
-        return Sizes.Select(size => (size, Render(image, size))).ToList();
+        return (sizes ?? Sizes).Select(size => (size, Render(image, size))).ToList();
     }
 
     public static IReadOnlyList<NativeResource> FromLogo(byte[] logoPng)

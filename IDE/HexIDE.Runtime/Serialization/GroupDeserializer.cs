@@ -27,8 +27,3 @@ public class GroupDeserializer
         return new SerializedProjectGroup(startupRelPath, projectPaths, unknownLines);
     }
 }
-
-public record SerializedProjectGroup(
-    string? StartupProjectRelativePath,
-    IReadOnlyList<string> ProjectRelativePaths,
-    IReadOnlyList<string> UnknownLines);

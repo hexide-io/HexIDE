@@ -34,7 +34,7 @@ public class DesignerRootKindTests
         var localization = Substitute.For<ILocalizationService>();
         localization.GetString(Arg.Any<string>()).Returns(call => call.Arg<string>());
         return new FormEditViewModel(null!, Substitute.For<IEventBus>(), Substitute.For<HexIDE.Projects.IProjectService>(),
-            null!, null!, Substitute.For<ISettingsService>(), localization).Initialize(root);
+            null!, null!, Substitute.For<ISettingsService>(), localization, new Vb6ProjectFileFormat()).Initialize(root);
     }
 
     [AvaloniaTheory]

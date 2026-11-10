@@ -233,7 +233,7 @@ public sealed class KeymapService : IKeymapService
     public void SaveOverrides(IReadOnlyDictionary<string, string> bindings)
     {
         if (!Static.IsRecoveryMode)
-            AtomicFileWriter.WriteAllText(_overridesPath, SerializeOverrides(bindings));
+            AtomicFileWriter.WriteRecoverableText(_overridesPath, SerializeOverrides(bindings));
     }
 
     public void RefreshOverrides()

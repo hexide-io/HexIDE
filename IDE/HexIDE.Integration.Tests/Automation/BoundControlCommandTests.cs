@@ -24,7 +24,7 @@ public class BoundControlCommandTests
             "VERSION 5.00\r\nBegin VB.Form Form1\r\n ClientHeight = 3600\r\n ClientWidth = 4800\r\n"
             + " Begin VB.CommandButton Button1\r\n Left = 120\r\n Top = 120\r\n Width = 1200\r\n Height = 400\r\n End\r\nEnd\r\n", new Sink())!;
         var vm = new FormEditViewModel(null!, Substitute.For<IEventBus>(), Substitute.For<IProjectService>(),
-            null!, null!, Substitute.For<ISettingsService>(), Substitute.For<ILocalizationService>()).Initialize(form);
+            null!, null!, Substitute.For<ISettingsService>(), Substitute.For<ILocalizationService>(), new Vb6ProjectFileFormat()).Initialize(form);
         var selected = vm.Components.Single(c => c.Name == "Button1");
         vm.SetSelectedComponents([selected]);
         vm.SelectedComponent = selected;

@@ -22,7 +22,7 @@ public class DocumentModifiedMarkerTests
         service.HasUnsavedChanges(module).Returns(true);
         var bus = new EventBus();
         using var vm = new FormEditViewModel(null!, bus, service, null!, null!,
-            Substitute.For<ISettingsService>(), Substitute.For<ILocalizationService>()).Initialize(form);
+            Substitute.For<ISettingsService>(), Substitute.For<ILocalizationService>(), new Vb6ProjectFileFormat()).Initialize(form);
         vm.IsModified.Should().BeTrue();
         service.DidNotReceive().HasUnsavedChanges(form);
         service.HasUnsavedChanges(module).Returns(false);
@@ -38,7 +38,7 @@ public class DocumentModifiedMarkerTests
         var service = Substitute.For<IProjectService>();
         var bus = new EventBus();
         using var vm = new FormEditViewModel(null!, bus, service, null!, null!,
-            Substitute.For<ISettingsService>(), Substitute.For<ILocalizationService>()).Initialize(form);
+            Substitute.For<ISettingsService>(), Substitute.For<ILocalizationService>(), new Vb6ProjectFileFormat()).Initialize(form);
         var control = vm.AllComponents.Last();
         var savedCount = form.Components.Count;
         service.HasUnsavedChanges(form).Returns(_ => form.Components.Count != savedCount);
@@ -60,7 +60,7 @@ public class DocumentModifiedMarkerTests
         var form = TestHelpers.CreateForm(name: "Form1");
         var service = Substitute.For<IProjectService>();
         using var vm = new FormEditViewModel(null!, new EventBus(), service, null!, null!,
-            Substitute.For<ISettingsService>(), Substitute.For<ILocalizationService>()).Initialize(form);
+            Substitute.For<ISettingsService>(), Substitute.For<ILocalizationService>(), new Vb6ProjectFileFormat()).Initialize(form);
         vm.Form!.Instance.SetProperty(VBProperties.CaptionProperty, "Edited");
         service.HasUnsavedChanges(form).Returns(true);
         vm.CommitLayout();

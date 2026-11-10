@@ -459,7 +459,7 @@ public class InteractClickTests
             c => c.BaseClass == CommandButtonComponentClass.Instance);
         using var vm = new FormEditViewModel(toolbox, Substitute.For<IEventBus>(),
             Substitute.For<IProjectService>(), null!, null!, Substitute.For<ISettingsService>(),
-            Substitute.For<ILocalizationService>())
+            Substitute.For<ILocalizationService>(), new Vb6ProjectFileFormat())
             .Initialize(new FormDefinition(
                 new ProjectDefinition(VBProjectType.EXE, "P"),
                 FormComponentClass.Instance, "Form1"));

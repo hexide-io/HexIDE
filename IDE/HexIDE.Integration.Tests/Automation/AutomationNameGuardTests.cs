@@ -87,11 +87,11 @@ public class AutomationNameGuardTests
             var bus = Substitute.For<IEventBus>();
             var editor = Substitute.For<IEditorService>();
             var designer = new FormEditViewModel(null!, bus, Substitute.For<IProjectService>(), null!, null!,
-                Substitute.For<ISettingsService>(), loc).Initialize(form);
+                Substitute.For<ISettingsService>(), loc, new Vb6ProjectFileFormat()).Initialize(form);
             designer.SelectedComponent = designer.Form;
             var documents = Substitute.For<IDocumentDockService>();
             documents.ActiveDocument.Returns(designer);
-            var properties = new PropertiesToolViewModel(documents, bus, Substitute.For<IWindowManager>(), loc);
+            var properties = new PropertiesToolViewModel(documents, bus, Substitute.For<IWindowManager>(), loc, new Vb6ProjectFileFormat());
             var explorer = new ProjectToolViewModel(manager, bus, Substitute.For<IProjectService>(), editor, loc);
             var browser = new ObjectBrowserToolViewModel(manager, Substitute.For<ILspClient>(), editor,
                 new ComponentRegistry(), Substitute.For<ITypeLibraryService>(), Substitute.For<IFocusedProjectUtil>(),

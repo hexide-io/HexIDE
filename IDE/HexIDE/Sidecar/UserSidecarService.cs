@@ -773,7 +773,7 @@ public partial class UserSidecarService : IUserSidecarService
             var json = JsonSerializer.Serialize(data, s_jsonOptions);
             if (json != onDisk)
             {
-                AtomicFileWriter.WriteAllText(path, json);
+                AtomicFileWriter.WriteRecoverableText(path, json);
                 Log.Debug("UserSidecarService: Saved sidecar to {Path}", path);
             }
 

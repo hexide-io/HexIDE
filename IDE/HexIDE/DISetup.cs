@@ -148,8 +148,8 @@ public partial class DISetup
                 ctx.Inject<Func<ILspClient>>(out var lspClient);
                 ctx.Inject<HexIDE.Projects.ContributedProjects>(out var contributed);
                 ctx.Inject<IProjectFileFormat>(out var format);
-                return new ProjectService(newProjectVm, windowManager, eventBus, projectManager, recentProjects, referenceLibraryService, sidecar, baselineStore, localization, headerRefresher, archives, lspClient,
-                    contributed, format);
+                return new ProjectService(newProjectVm, windowManager, eventBus, projectManager, recentProjects, referenceLibraryService, sidecar, baselineStore, localization, headerRefresher, format, archives, lspClient,
+                    contributed);
             })
             .Bind().As(Singleton).To<ArchiveProjectService>()
             .Bind<IFileBaselineStore>().As(Singleton).To<FileBaselineStore>()
@@ -422,6 +422,7 @@ public partial class DISetup
             .Root<IDocumentDockService>("DocumentDockService")
             .Root<IProjectRunnerService>("ProjectRunnerService")
             .Root<IProjectService>("ProjectService")
+            .Root<IProjectFileFormat>("ProjectFileFormat")
             .Root<IEventBus>("EventBus")
             .Root<IUserSidecarService>("UserSidecarService")
             .Root<IFileWatcherService>("FileWatcherService")

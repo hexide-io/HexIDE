@@ -1808,14 +1808,18 @@ public partial class MainViewViewModel : ObservableObject
     {
         const string upstreamNotice = "© 2026 The HexIDE Authors. Not affiliated with, endorsed by, or sponsored by Microsoft.";
         var brand = Distribution.Current;
+        var languages = BrandText.LanguageChain(localization);
+        var credits = new List<string>();
+        foreach (var credit in brand.LocalizedCredits)
+            credits.Add(credit.Resolve(languages));
         windowManager.ShowAbout(new AboutDialogOptions()
         {
             Copyright = brand.IsStock ? upstreamNotice : brand.Copyright ?? "",
             // A branded About still says what it is built on, and carries HexIDE's own notice (#2042).
             Provenance = brand.IsStock ? "" : string.Format(localization.GetString("Str.Dialog.About.Provenance"), BuildInfo.Display, upstreamNotice),
             Title = brand.IsStock ? $"{brand.Name} {BuildInfo.Display}" : brand.Name,
-            SubTitle = brand.Tagline ?? localization.GetString("Str.Dialog.About.Tagline"),
-            AdditionalCredits = brand.AdditionalCredits,
+            SubTitle = brand.LocalizedTagline?.Resolve(languages) ?? localization.GetString("Str.Dialog.About.Tagline"),
+            AdditionalCredits = credits,
             Icon = BrandAssets.Logo
         }).ListenErrors();
     }

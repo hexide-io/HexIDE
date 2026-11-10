@@ -76,7 +76,7 @@ public class MainViewViewModelTests
         return new ProjectService(() => throw new System.InvalidOperationException(), _windowManager,
             _eventBus, _projectManager, _recentProjects, Substitute.For<IReferenceLibraryService>(),
             Substitute.For<HexIDE.Sidecar.IUserSidecarService>(), new FileBaselineStore(), _localization,
-            Substitute.For<IHeaderRefresher>());
+            Substitute.For<IHeaderRefresher>(), new Vb6ProjectFileFormat());
     }
 
     [AvaloniaTheory]
@@ -113,7 +113,7 @@ public class MainViewViewModelTests
                 _settingsService, profile, _localization),
             _windowManager, _eventBus, _projectManager, _recentProjects,
             Substitute.For<IReferenceLibraryService>(), Substitute.For<HexIDE.Sidecar.IUserSidecarService>(),
-            new FileBaselineStore(), _localization, Substitute.For<IHeaderRefresher>());
+            new FileBaselineStore(), _localization, Substitute.For<IHeaderRefresher>(), new Vb6ProjectFileFormat());
         var shell = Build(_runnerService, projects: service);
 
         Func<Task> create = shell.NewProject;
@@ -275,7 +275,7 @@ public class MainViewViewModelTests
         // bypass with an uninitialized instance since tests never touch it.
         var toolBox = (ToolBoxToolViewModel)RuntimeHelpers.GetUninitializedObject(typeof(ToolBoxToolViewModel));
 
-        var properties = new PropertiesToolViewModel(mockDocDock, _eventBus, _windowManager, loc);
+        var properties = new PropertiesToolViewModel(mockDocDock, _eventBus, _windowManager, loc, new Vb6ProjectFileFormat());
         var immediate = new ImmediateToolViewModel(loc, Substitute.For<HexIDE.Runtime.Debugging.IDebugController>());
         var formLayout = new FormLayoutToolViewModel(mockDocDock, _eventBus, loc);
         var locals = new LocalsToolViewModel(loc, Substitute.For<HexIDE.Runtime.Debugging.IDebugController>());

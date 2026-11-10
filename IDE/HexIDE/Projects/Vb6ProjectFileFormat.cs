@@ -7,7 +7,7 @@ namespace HexIDE.Projects;
 
 /// <summary>
 /// VB6's files: <c>.vbp</c>, <c>.vbg</c>, <c>.frm</c>, <c>.ctl</c>, <c>.pag</c>, <c>.bas</c> and <c>.cls</c>, and the
-/// companion binaries that go with the designer files. The one place in the IDE that names the writers (#3564).
+/// companion binaries that go with the designer files. The one place in the IDE that names the readers and writers (#3564).
 /// </summary>
 public sealed class Vb6ProjectFileFormat : IProjectFileFormat
 {
@@ -50,4 +50,40 @@ public sealed class Vb6ProjectFileFormat : IProjectFileFormat
     /// <inheritdoc/>
     public IReadOnlyList<ComponentInstance> RootChildren(IReadOnlyList<ComponentInstance> components, ComponentInstance root) =>
         FormSerializer.RootChildren(components, root);
+
+    /// <inheritdoc/>
+    public async Task<ProjectFileRead> ReadProjectAsync(string path, Vb6TextEncoding hostAnsi, Action<string, byte[]>? fileRead,
+        IDeserializeErrorSink problems)
+    {
+        var read = await new ProjectLoader { HostAnsi = hostAnsi, FileRead = fileRead }.LoadAsync(path, problems);
+        return new(read.Project, read.Serialized.SkippedUserDocumentPaths, read.ReadByteForByte, read.ProjectFileBytes);
+    }
+
+    /// <inheritdoc/>
+    public SerializedProjectGroup ReadGroup(string text) => new GroupDeserializer().Deserialize(text);
+
+    /// <inheritdoc/>
+    /// <remarks>A form can hold the project's UserControls, so they are known to the read. A designer part's read does not.</remarks>
+    public FormDefinition? ReadForm(ProjectDefinition project, string text, byte[]? companion, IDeserializeErrorSink problems) =>
+        new FormDeserializer().Deserialize(project, text, problems, Records(companion, text), ProjectLoader.BuildUserControlRegistry(project));
+
+    /// <inheritdoc/>
+    public FormDefinition? ReadDesignerPart(ProjectDefinition project, string text, byte[]? companion, IDeserializeErrorSink problems) =>
+        new FormDeserializer().Deserialize(project, text, problems, Records(companion, text));
+
+    // The designer file's cited offsets are what partition the companion into records.
+    private static IReadOnlyDictionary<int, byte[]>? Records(byte[]? companion, string text) =>
+        companion is null ? null : FrxDeserializer.Read(companion, text);
+
+    /// <inheritdoc/>
+    public (string Header, string Body) SplitModule(string text, ModuleKind kind) => ModuleFileFormat.SplitHeader(text, kind);
+
+    /// <inheritdoc/>
+    public string CompanionExtension(string path) => ProjectLoader.CompanionBinaryExtension(path);
+
+    /// <inheritdoc/>
+    public string MemberLine(ModuleKind kind, string name, string relativePath) => ProjectLoader.ItemLineFor(kind, name, relativePath);
+
+    /// <inheritdoc/>
+    public bool IsCompanionCitation(string value) => FrxDeserializer.IsFrxReference(value);
 }

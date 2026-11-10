@@ -1,7 +1,7 @@
 # Atomic user-file writes (#2503)
 
 Project saves, carried-document saves, Make outputs, exports and sidecars use
-`HexIDE.IDE.AtomicFileWriter`. It writes a unique sibling temporary file, calls
+`HexIDE.IDE.AtomicFileWriter` (in `HexIDE.Core`). It writes a unique sibling temporary file, calls
 `FileStream.Flush(flushToDisk: true)`, closes the stream, then replaces the destination.
 A write or replacement failure propagates to the existing caller; the old target is
 untouched until replacement. Cleanup is attempted even on failure. If the filesystem
@@ -27,6 +27,10 @@ power-loss guarantee for directory metadata on every filesystem.
 | Protocol export | `ProtocolInspectorToolViewModel`: conversation and manifest | Shared flushed writer, separately for each file |
 | Automation protocol export | `HexIdeTools`: conversation and manifest | Shared flushed writer, separately for each file |
 | User sidecar | `UserSidecarService`: project-associated user metadata | Shared flushed writer; failed saves remain owed and are retried |
+
+The recoverable entry points additionally retain previous bytes for carried files, profile stores,
+keymap export and project sidecars; see [the file-safety audit](file-safety-audit.md#carried-files-and-profile-recovery)
+for restore instructions and the remaining work (#2504).
 
 The serializers render text and byte arrays; they do not themselves open destination
 files. The shared writer also serves existing layout/settings callers, but IDE-owned

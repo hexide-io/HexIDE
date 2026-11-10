@@ -39,7 +39,7 @@ public class FileWatcherServiceTests : IDisposable
         watcher = new FileWatcherService(manager, Substitute.For<IDocumentDockService>(),
             Substitute.For<IProjectRunnerService>(), settings, baseline, Substitute.For<IProjectService>(),
             events, Substitute.For<IWindowManager>(), Substitute.For<IStatusBarService>(),
-            Substitute.For<ILocalizationService>(), clock, Substitute.For<IHeaderRefresher>());
+            Substitute.For<ILocalizationService>(), clock, Substitute.For<IHeaderRefresher>(), new Vb6ProjectFileFormat());
     }
 
     private string FileAt(string directory, string name = "M.bas")
@@ -89,7 +89,7 @@ public class FileWatcherServiceTests : IDisposable
         () => throw new InvalidOperationException(), Substitute.For<IWindowManager>(), new EventBus(),
         manager, Substitute.For<IRecentProjectsService>(), Substitute.For<IReferenceLibraryService>(),
         Substitute.For<IUserSidecarService>(), new FileBaselineStore(),
-        Substitute.For<ILocalizationService>(), Substitute.For<IHeaderRefresher>());
+        Substitute.For<ILocalizationService>(), Substitute.For<IHeaderRefresher>(), new Vb6ProjectFileFormat());
 
     [Fact]
     public async Task FirstSavePaths_StartWatching()

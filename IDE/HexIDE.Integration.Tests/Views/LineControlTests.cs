@@ -352,7 +352,7 @@ public class LineControlTests : WindowTestFixture
     {
         var form = new FormDeserializer().Deserialize(new ProjectDefinition(VBProjectType.EXE, "P"), frm, NullSink.Instance)!;
         var vm = new FormEditViewModel(null!, Substitute.For<IEventBus>(), null!, null!, null!, Substitute.For<ISettingsService>(),
-            Substitute.For<ILocalizationService>()).Initialize(form);
+            Substitute.For<ILocalizationService>(), new Vb6ProjectFileFormat()).Initialize(form);
         return vm.AllComponents.First(c => c.Name == name);
     }
 
@@ -370,7 +370,7 @@ public class LineControlTests : WindowTestFixture
     {
         var form = Form(Pixel, Line("LineA", Black(1, 1) + At(20, 20, 220, 20)) + Line("LineB", Black(1, 1) + At(20, 30, 220, 30)));
         var vm = new FormEditViewModel(null!, Substitute.For<IEventBus>(), null!, null!, null!, Substitute.For<ISettingsService>(),
-            Substitute.For<ILocalizationService>()).Initialize(
+            Substitute.For<ILocalizationService>(), new Vb6ProjectFileFormat()).Initialize(
             new FormDeserializer().Deserialize(new ProjectDefinition(VBProjectType.EXE, "P"), form, NullSink.Instance)!);
 
         // The canvas draws its list in order, the last on top, so the first Line in the file is drawn last (#1481, #1497).

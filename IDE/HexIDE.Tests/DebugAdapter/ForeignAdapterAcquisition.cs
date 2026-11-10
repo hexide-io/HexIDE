@@ -9,7 +9,7 @@ using HexIDE.Dap;
 namespace HexIDE.Tests.DebugAdapter;
 
 internal sealed record ForeignAdapterAsset(string Url, string Sha256, string EntryPoint);
-internal sealed record ForeignAdapterResolution(DapProcessOptions? Options, string? Unavailable, bool ChecksumMismatch = false);
+internal sealed record ForeignAdapterResolution(DapProcessOptions? Options, string? Unavailable, bool ChecksumMismatch = false, bool NoBuildForPlatform = false);
 
 internal static class ForeignAdapterAcquisition
 {
@@ -26,7 +26,7 @@ internal static class ForeignAdapterAcquisition
         {
             "linux-x64" => Netcoredbg("netcoredbg-linux-amd64.tar.gz", "080eb3b2d2152465f599d3b33d1ee6e747794e11cc0a3773ec689f5e5f2c5afa", "netcoredbg/netcoredbg"),
             "linux-arm64" => Netcoredbg("netcoredbg-linux-arm64.tar.gz", "065ff49badec8a695dbea2de6ab6a330c774a191e426a217ab8cc05250627ccb", "netcoredbg/netcoredbg"),
-            "win-x64" or "win-arm64" => Netcoredbg("netcoredbg-win64.zip", "3c410a45fa502415203a94fcb88654af65bf8e3dac158a5527a722e7a6b9274a", "netcoredbg/netcoredbg.exe"),
+            "win-x64" => Netcoredbg("netcoredbg-win64.zip", "3c410a45fa502415203a94fcb88654af65bf8e3dac158a5527a722e7a6b9274a", "netcoredbg/netcoredbg.exe"),
             "osx-arm64" => Netcoredbg("netcoredbg-osx-arm64.zip", "f4fa33b3ff874910cc184b4bb3b9c56d0abdf5c6521cee0b144d7c6e4a6e59ea", "netcoredbg/netcoredbg"),
             _ => throw new PlatformNotSupportedException($"No pinned netcoredbg asset for {rid}."),
         };
@@ -58,6 +58,9 @@ internal static class ForeignAdapterAcquisition
 
     private static ForeignAdapterResolution Acquire(string adapter)
     {
+        if (adapter == "netcoredbg" && OperatingSystem.IsWindows() && RuntimeInformation.OSArchitecture == Architecture.Arm64)
+            return new(null, "netcoredbg publishes no Windows Arm build, and its x64 build crashes with an access violation launching an Arm program (#3548).",
+                NoBuildForPlatform: true);
         var python = adapter == "debugpy" ? FindPython() : null;
         if (adapter == "debugpy" && python is null) return new(null, "debugpy requires Python 3 on PATH (CI installs 3.14).");
         var os = OperatingSystem.IsWindows() ? "win" : OperatingSystem.IsMacOS() ? "osx" : "linux";

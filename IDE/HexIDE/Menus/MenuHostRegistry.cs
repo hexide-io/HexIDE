@@ -4,7 +4,7 @@ using HexIDE.IDE;
 
 namespace HexIDE.Menus;
 
-// Host registrations describe existing bindings; this slice does not render or invoke them.
+// Host registrations describe the bindings shared by the AXAML menu and its data-driven replacement.
 internal static class MenuHostRegistry
 {
     internal static readonly IReadOnlyDictionary<string, MenuCommandRegistration> Commands =

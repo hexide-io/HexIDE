@@ -14,7 +14,8 @@
         "kind": "Command",
         "id": "file.openproject",
         "labelKey": "Str.Menu.File.OpenProject",
-        "command": "application.OpenProjectCommand"
+        "command": "application.OpenProjectCommand",
+        "iconKey": "Geo.Open"
       },
       {
         "kind": "Command",
@@ -48,7 +49,8 @@
         "id": "file.saveprojectfallback",
         "labelKey": "Str.Menu.File.SaveProjectFallback",
         "labelBinding": "SaveProjectMenuHeader",
-        "command": "application.SaveProjectCommand"
+        "command": "application.SaveProjectCommand",
+        "iconKey": "Geo.Save"
       },
       {
         "kind": "Command",
@@ -82,13 +84,15 @@
         "kind": "Command",
         "id": "file.print",
         "labelKey": "Str.Menu.File.Print",
-        "command": "application.DisabledCommand"
+        "command": "application.DisabledCommand",
+        "iconKey": "Geo.Print"
       },
       {
         "kind": "Command",
         "id": "file.printsetup",
         "labelKey": "Str.Menu.File.PrintSetup",
-        "command": "application.DisabledCommand"
+        "command": "application.DisabledCommand",
+        "iconKey": "Geo.Pagesetup"
       },
       {
         "kind": "Separator",
@@ -122,11 +126,13 @@
         "kind": "Provider",
         "id": "file.recentprojects",
         "labelKey": "Str.Menu.File.RecentProjects",
-        "provider": "recent-projects"
+        "provider": "recent-projects",
+        "visibility": "{CompiledBinding HasRecentProjects}"
       },
       {
         "kind": "Separator",
-        "id": "file.separator21"
+        "id": "file.separator21",
+        "visibility": "{CompiledBinding HasRecentProjects}"
       },
       {
         "kind": "Command",
@@ -146,14 +152,16 @@
         "id": "edit.undo",
         "labelKey": "Str.Menu.Edit.Undo",
         "labelBinding": "UndoHeader",
-        "command": "application.UndoCommand"
+        "command": "application.UndoCommand",
+        "iconKey": "Geo.Undo"
       },
       {
         "kind": "Command",
         "id": "edit.redo",
         "labelKey": "Str.Menu.Edit.Redo",
         "labelBinding": "RedoHeader",
-        "command": "application.RedoCommand"
+        "command": "application.RedoCommand",
+        "iconKey": "Geo.Redo"
       },
       {
         "kind": "Separator",
@@ -163,19 +171,22 @@
         "kind": "Command",
         "id": "edit.cut",
         "labelKey": "Str.Menu.Edit.Cut",
-        "command": "application.CutCommand"
+        "command": "application.CutCommand",
+        "iconKey": "Geo.Cut"
       },
       {
         "kind": "Command",
         "id": "edit.copy",
         "labelKey": "Str.Menu.Edit.Copy",
-        "command": "application.CopyCommand"
+        "command": "application.CopyCommand",
+        "iconKey": "Geo.Copy"
       },
       {
         "kind": "Command",
         "id": "edit.paste",
         "labelKey": "Str.Menu.Edit.Paste",
-        "command": "application.PasteCommand"
+        "command": "application.PasteCommand",
+        "iconKey": "Geo.Paste"
       },
       {
         "kind": "Command",
@@ -215,7 +226,8 @@
         "kind": "Command",
         "id": "edit.find",
         "labelKey": "Str.Menu.Edit.Find",
-        "command": "application.FindCommand"
+        "command": "application.FindCommand",
+        "iconKey": "Geo.Find"
       },
       {
         "kind": "Command",
@@ -249,13 +261,15 @@
         "kind": "Command",
         "id": "edit.indent",
         "labelKey": "Str.Menu.Edit.Indent",
-        "command": "application.IndentCommand"
+        "command": "application.IndentCommand",
+        "iconKey": "Geo.Indent"
       },
       {
         "kind": "Command",
         "id": "edit.outdent",
         "labelKey": "Str.Menu.Edit.Outdent",
-        "command": "application.OutdentCommand"
+        "command": "application.OutdentCommand",
+        "iconKey": "Geo.Outdent"
       },
       {
         "kind": "Separator",
@@ -275,31 +289,36 @@
         "kind": "Command",
         "id": "edit.listpropertiesmethods",
         "labelKey": "Str.Menu.Edit.ListPropertiesMethods",
-        "command": "application.ListPropertiesMethodsCommand"
+        "command": "application.ListPropertiesMethodsCommand",
+        "iconKey": "Geo.Listproperties"
       },
       {
         "kind": "Command",
         "id": "edit.listconstants",
         "labelKey": "Str.Menu.Edit.ListConstants",
-        "command": "application.ListConstantsCommand"
+        "command": "application.ListConstantsCommand",
+        "iconKey": "Geo.Listconstants"
       },
       {
         "kind": "Command",
         "id": "edit.quickinfo",
         "labelKey": "Str.Menu.Edit.QuickInfo",
-        "command": "application.QuickInfoCommand"
+        "command": "application.QuickInfoCommand",
+        "iconKey": "Geo.Quickinfo"
       },
       {
         "kind": "Command",
         "id": "edit.parameterinfo",
         "labelKey": "Str.Menu.Edit.ParameterInfo",
-        "command": "application.ParameterInfoCommand"
+        "command": "application.ParameterInfoCommand",
+        "iconKey": "Geo.Parameterinfo"
       },
       {
         "kind": "Command",
         "id": "edit.completeword",
         "labelKey": "Str.Menu.Edit.CompleteWord",
-        "command": "application.CompleteWordCommand"
+        "command": "application.CompleteWordCommand",
+        "iconKey": "Geo.Completeword"
       },
       {
         "kind": "Separator",
@@ -357,13 +376,15 @@
         "kind": "Command",
         "id": "view.code",
         "labelKey": "Str.Menu.View.Code",
-        "command": "application.ViewCodeCommand"
+        "command": "application.ViewCodeCommand",
+        "iconKey": "Geo.Viewcode"
       },
       {
         "kind": "Command",
         "id": "view.object",
         "labelKey": "Str.Menu.View.Object",
-        "command": "application.ViewObjectCommand"
+        "command": "application.ViewObjectCommand",
+        "iconKey": "Geo.Viewobject"
       },
       {
         "kind": "Separator",
@@ -412,7 +433,8 @@
         "kind": "Command",
         "id": "view.objectbrowser",
         "labelKey": "Str.Menu.View.ObjectBrowser",
-        "command": "application.OpenObjectBrowserCommand"
+        "command": "application.OpenObjectBrowserCommand",
+        "iconKey": "Geo.Objectbrowser"
       },
       {
         "kind": "Separator",
@@ -422,7 +444,8 @@
         "kind": "Command",
         "id": "view.immediatewindow",
         "labelKey": "Str.Menu.View.ImmediateWindow",
-        "command": "application.OpenImmediateCommand"
+        "command": "application.OpenImmediateCommand",
+        "iconKey": "Geo.Immediatewindow"
       },
       {
         "kind": "Command",
@@ -434,13 +457,15 @@
         "kind": "Command",
         "id": "view.localswindow",
         "labelKey": "Str.Menu.View.LocalsWindow",
-        "command": "application.OpenLocalsCommand"
+        "command": "application.OpenLocalsCommand",
+        "iconKey": "Geo.Localswindow"
       },
       {
         "kind": "Command",
         "id": "view.watchwindow",
         "labelKey": "Str.Menu.View.WatchWindow",
-        "command": "application.OpenWatchesCommand"
+        "command": "application.OpenWatchesCommand",
+        "iconKey": "Geo.Watchwindow"
       },
       {
         "kind": "Command",
@@ -456,19 +481,22 @@
         "kind": "Command",
         "id": "view.projectexplorer",
         "labelKey": "Str.Menu.View.ProjectExplorer",
-        "command": "application.OpenProjectExplorerCommand"
+        "command": "application.OpenProjectExplorerCommand",
+        "iconKey": "Geo.View_projectexplorer"
       },
       {
         "kind": "Command",
         "id": "view.propertieswindow",
         "labelKey": "Str.Menu.View.PropertiesWindow",
-        "command": "application.OpenPropertiesCommand"
+        "command": "application.OpenPropertiesCommand",
+        "iconKey": "Geo.Properties"
       },
       {
         "kind": "Command",
         "id": "view.formlayoutwindow",
         "labelKey": "Str.Menu.View.FormLayoutWindow",
-        "command": "application.OpenFormLayoutCommand"
+        "command": "application.OpenFormLayoutCommand",
+        "iconKey": "Geo.Formlayout"
       },
       {
         "kind": "Placeholder",
@@ -483,7 +511,8 @@
         "kind": "Command",
         "id": "view.toolbox",
         "labelKey": "Str.Menu.View.Toolbox",
-        "command": "application.OpenToolBoxCommand"
+        "command": "application.OpenToolBoxCommand",
+        "iconKey": "Geo.Toolbox"
       },
       {
         "kind": "Command",
@@ -547,37 +576,43 @@
         "kind": "Command",
         "id": "project.addform",
         "labelKey": "Str.Menu.Project.AddForm",
-        "command": "shell.AddFormCommand"
+        "command": "shell.AddFormCommand",
+        "iconKey": "Geo.Addform"
       },
       {
         "kind": "Command",
         "id": "project.addmdiform",
         "labelKey": "Str.Menu.Project.AddMDIForm",
-        "command": "application.DisabledCommand"
+        "command": "application.DisabledCommand",
+        "iconKey": "Geo.Addmdiform"
       },
       {
         "kind": "Command",
         "id": "project.addmodule",
         "labelKey": "Str.Menu.Project.AddModule",
-        "command": "shell.AddModuleCommand"
+        "command": "shell.AddModuleCommand",
+        "iconKey": "Geo.Addmodule"
       },
       {
         "kind": "Command",
         "id": "project.addclassmodule",
         "labelKey": "Str.Menu.Project.AddClassModule",
-        "command": "shell.AddClassModuleCommand"
+        "command": "shell.AddClassModuleCommand",
+        "iconKey": "Geo.Addclassmodule"
       },
       {
         "kind": "Command",
         "id": "project.addusercontrol",
         "labelKey": "Str.Menu.Project.AddUserControl",
-        "command": "shell.AddUserControlCommand"
+        "command": "shell.AddUserControlCommand",
+        "iconKey": "Geo.Addusercontrol"
       },
       {
         "kind": "Command",
         "id": "project.addpropertypage",
         "labelKey": "Str.Menu.Project.AddPropertyPage",
-        "command": "shell.AddPropertyPageCommand"
+        "command": "shell.AddPropertyPageCommand",
+        "iconKey": "Geo.Addpropertypage"
       },
       {
         "kind": "Command",
@@ -604,7 +639,9 @@
         "kind": "Command",
         "id": "project.references",
         "labelKey": "Str.Menu.Project.References",
-        "command": "application.ProjectReferencesCommand"
+        "command": "application.ProjectReferencesCommand",
+        "visibility": "{CompiledBinding Profile.IsProjectReferencesVisible}",
+        "iconKey": "Geo.References"
       },
       {
         "kind": "Command",
@@ -710,7 +747,8 @@
         "kind": "Command",
         "id": "format.sizetogrid",
         "labelKey": "Str.Menu.Format.SizeToGrid",
-        "command": "application.SizeToGridCommand"
+        "command": "application.SizeToGridCommand",
+        "iconKey": "Geo.Sizetogrid"
       },
       {
         "kind": "Separator",
@@ -791,13 +829,15 @@
             "kind": "Command",
             "id": "format.centerinform.horizontally",
             "labelKey": "Str.Menu.Format.CenterInForm.Horizontally",
-            "command": "application.CenterHorizontallyCommand"
+            "command": "application.CenterHorizontallyCommand",
+            "iconKey": "Geo.Centerhorizontally"
           },
           {
             "kind": "Command",
             "id": "format.centerinform.vertically",
             "labelKey": "Str.Menu.Format.CenterInForm.Vertically",
-            "command": "application.CenterVerticallyCommand"
+            "command": "application.CenterVerticallyCommand",
+            "iconKey": "Geo.Centervertically"
           }
         ]
       },
@@ -814,13 +854,15 @@
             "kind": "Command",
             "id": "format.order.bringtofront",
             "labelKey": "Str.Menu.Format.Order.BringToFront",
-            "command": "application.BringToFrontCommand"
+            "command": "application.BringToFrontCommand",
+            "iconKey": "Geo.Bringtofront"
           },
           {
             "kind": "Command",
             "id": "format.order.sendtoback",
             "labelKey": "Str.Menu.Format.Order.SendToBack",
-            "command": "application.SendToBackCommand"
+            "command": "application.SendToBackCommand",
+            "iconKey": "Geo.Sendtoback"
           }
         ]
       },
@@ -832,7 +874,8 @@
         "kind": "Command",
         "id": "format.lockcontrols",
         "labelKey": "Str.Menu.Format.LockControls",
-        "command": "application.LockControlsCommand"
+        "command": "application.LockControlsCommand",
+        "iconKey": "Geo.Lockcontrols"
       }
     ]
   },
@@ -845,19 +888,22 @@
         "kind": "Command",
         "id": "debug.stepinto",
         "labelKey": "Str.Menu.Debug.StepInto",
-        "command": "application.StepIntoCommand"
+        "command": "application.StepIntoCommand",
+        "iconKey": "Geo.Stepinto"
       },
       {
         "kind": "Command",
         "id": "debug.stepover",
         "labelKey": "Str.Menu.Debug.StepOver",
-        "command": "application.StepOverCommand"
+        "command": "application.StepOverCommand",
+        "iconKey": "Geo.Stepover"
       },
       {
         "kind": "Command",
         "id": "debug.stepout",
         "labelKey": "Str.Menu.Debug.StepOut",
-        "command": "application.StepOutCommand"
+        "command": "application.StepOutCommand",
+        "iconKey": "Geo.Stepout"
       },
       {
         "kind": "Command",
@@ -885,7 +931,8 @@
         "kind": "Command",
         "id": "debug.quickwatch",
         "labelKey": "Str.Menu.Debug.QuickWatch",
-        "command": "application.QuickWatchCommand"
+        "command": "application.QuickWatchCommand",
+        "iconKey": "Geo.Quickwatch"
       },
       {
         "kind": "Separator",
@@ -895,7 +942,8 @@
         "kind": "Command",
         "id": "debug.togglebreakpoint",
         "labelKey": "Str.Menu.Debug.ToggleBreakpoint",
-        "command": "application.ToggleBreakpointCommand"
+        "command": "application.ToggleBreakpointCommand",
+        "iconKey": "Geo.Togglebreakpoint"
       },
       {
         "kind": "Command",
@@ -930,7 +978,8 @@
         "kind": "Command",
         "id": "run.start",
         "labelKey": "Str.Menu.Run.Start",
-        "command": "application.StartDefaultProjectCommand"
+        "command": "application.StartDefaultProjectCommand",
+        "iconKey": "Geo.Play"
       },
       {
         "kind": "Command",
@@ -948,25 +997,29 @@
         "kind": "Provider",
         "id": "run.startwith",
         "labelKey": "Str.Menu.Run.StartWith",
-        "provider": "run-starts"
+        "provider": "run-starts",
+        "visibility": "{CompiledBinding RunWith.HasLaunches, FallbackValue=False}"
       },
       {
         "kind": "Provider",
         "id": "run.runwith",
         "labelKey": "Str.Menu.Run.RunWith",
-        "provider": "run-choices"
+        "provider": "run-choices",
+        "visibility": "{CompiledBinding RunWith.HasChoices, FallbackValue=False}"
       },
       {
         "kind": "Command",
         "id": "run.break",
         "labelKey": "Str.Menu.Run.Break",
-        "command": "application.BreakProjectCommand"
+        "command": "application.BreakProjectCommand",
+        "iconKey": "Geo.Pause"
       },
       {
         "kind": "Command",
         "id": "run.end",
         "labelKey": "Str.Menu.Run.End",
-        "command": "application.EndProjectCommand"
+        "command": "application.EndProjectCommand",
+        "iconKey": "Geo.Stop"
       },
       {
         "kind": "Command",
@@ -995,7 +1048,8 @@
         "kind": "Command",
         "id": "tools.addprocedure",
         "labelKey": "Str.Menu.Tools.AddProcedure",
-        "command": "application.AddProcedureCommand"
+        "command": "application.AddProcedureCommand",
+        "iconKey": "Geo.Addprocedure"
       },
       {
         "kind": "Command",
@@ -1011,7 +1065,8 @@
         "kind": "Command",
         "id": "tools.menueditor",
         "labelKey": "Str.Menu.Tools.MenuEditor",
-        "command": "application.EditMenuCommand"
+        "command": "application.EditMenuCommand",
+        "iconKey": "Geo.Menubar"
       },
       {
         "kind": "Separator",
@@ -1021,11 +1076,14 @@
         "kind": "Command",
         "id": "tools.references",
         "labelKey": "Str.Menu.Project.References",
-        "command": "application.ProjectReferencesCommand"
+        "command": "application.ProjectReferencesCommand",
+        "visibility": "{CompiledBinding Profile.IsToolsReferencesVisible}",
+        "iconKey": "Geo.References"
       },
       {
         "kind": "Separator",
-        "id": "tools.separator6"
+        "id": "tools.separator6",
+        "visibility": "{CompiledBinding Profile.IsToolsReferencesVisible}"
       },
       {
         "kind": "Command",
@@ -1155,6 +1213,7 @@
     "kind": "Command",
     "id": "gotogithubrepo",
     "labelKey": "Str.Menu.GoToGithubRepo",
-    "command": "shell.OpenGithubRepo"
+    "command": "shell.OpenGithubRepo",
+    "visibility": "{x:Static vb:Static.IsBrowser}"
   }
 ]

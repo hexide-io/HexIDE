@@ -48,13 +48,13 @@ public partial class ProjectService : IProjectService
         IFileBaselineStore baselineStore,
         ILocalizationService localization,
         IHeaderRefresher headerRefresher,
+        IProjectFileFormat format,
         ArchiveProjectService? archives = null,
         Func<ILspClient>? lspClient = null,
-        ContributedProjects? contributed = null,
-        IProjectFileFormat? format = null)
+        ContributedProjects? contributed = null)
     {
         this.contributed = contributed;
-        this.format = format ?? new Vb6ProjectFileFormat();
+        this.format = format;
         this.newProjectVm = newProjectVm;
         this.windowManager = windowManager;
         this.eventBus = eventBus;
@@ -152,8 +152,7 @@ public partial class ProjectService : IProjectService
     /// it. In the shape VB6 requires for each kind: <c>Name; File</c> for a module or class, the bare path
     /// for the designer kinds (see <see cref="ProjectSerializer"/>).
     /// </summary>
-    private static string ItemLineFor(ModuleKind kind, string name, string relativePath) =>
-        ProjectLoader.ItemLineFor(kind, name, relativePath);
+    private string ItemLineFor(ModuleKind kind, string name, string relativePath) => format.MemberLine(kind, name, relativePath);
 
     private async Task<IAddinProjectTemplate?> ChooseNewProject(bool replaceExisting)
     {
@@ -627,8 +626,7 @@ public partial class ProjectService : IProjectService
         var (groupText, _, groupEncoding, groupByteForByte) = await ReadSourceAsync(groupPath);
         if (groupByteForByte)
             await windowManager.MessageBox(ReadByteForByteMessage(Path.GetFileName(groupPath)), icon: MessageBoxIcon.Warning);
-        var serializedGroup = new GroupDeserializer()
-            .Deserialize(groupText);
+        var serializedGroup = format.ReadGroup(groupText);
 
         foreach (var relPath in serializedGroup.ProjectRelativePaths)
         {
@@ -674,11 +672,8 @@ public partial class ProjectService : IProjectService
         var errorSink = new DeserializeErrorSink(localization);
         // The load itself is shared with the Standalone host a made program runs in (#1062). What the IDE adds is its own
         // record of what it read, which the save-changes prompt and the file watcher compare against.
-        var (project, serializedProject, readByteForByteList, projectFileBytes) = await new ProjectLoader
-        {
-            HostAnsi = HostAnsi,
-            FileRead = baselineStore.Record,
-        }.LoadAsync(projectPath, errorSink);
+        var (project, skippedDocuments, readByteForByteList, projectFileBytes) =
+            await format.ReadProjectAsync(projectPath, HostAnsi, baselineStore.Record, errorSink);
         // The project file too, as a save records it: crash recovery matches a moved project by it (#499).
         baselineStore.Record(projectPath, projectFileBytes);
         var readByteForByte = readByteForByteList.ToList();
@@ -692,9 +687,9 @@ public partial class ProjectService : IProjectService
         // After the baselines, so that a form whose VB_Name is made to agree comes up edited: its file still disagrees.
         var conflictingNames = ReconcileDesignerNames(project);
 
-        if (serializedProject.SkippedUserDocumentPaths.Count > 0)
+        if (skippedDocuments.Count > 0)
         {
-            var files = string.Join("\n", serializedProject.SkippedUserDocumentPaths.Select(p => $"  • {p}"));
+            var files = string.Join("\n", skippedDocuments.Select(p => $"  • {p}"));
             await windowManager.MessageBox(
                 string.Format(localization.GetString("Str.ProjectLoad.ActiveXDocuments"), files),
                 icon: MessageBoxIcon.Warning);
@@ -747,9 +742,6 @@ public partial class ProjectService : IProjectService
             notices.Add(string.Format(localization.GetString("Str.Dialog.ConflictingNames"), path ?? name, name));
         }
     }
-
-    private static IReadOnlyDictionary<string, ComponentBaseClass> BuildUserControlRegistry(
-        ProjectDefinition project) => ProjectLoader.BuildUserControlRegistry(project);
 
     private class DeserializeErrorSink(ILocalizationService localization) : IDeserializeErrorSink
     {
@@ -1290,7 +1282,6 @@ public partial class ProjectService : IProjectService
             return false;
 
         var project = form.Owner;
-        var formDeserializer = new FormDeserializer();
         var errorSink = new DeserializeErrorSink(localization);
 
         // The designer file is read FIRST: its cited offsets are what partition the companion, so the
@@ -1303,16 +1294,15 @@ public partial class ProjectService : IProjectService
         }
         baselineStore.Record(path, sourceBytes);
 
-        IReadOnlyDictionary<int, byte[]>? frxBlobs = null;
-        var frxPath = Path.ChangeExtension(path, ".frx");
-        if (File.Exists(frxPath))
+        byte[]? companion = null;
+        var companionPath = Path.ChangeExtension(path, ".frx");
+        if (File.Exists(companionPath))
         {
-            var frxBytes = await File.ReadAllBytesAsync(frxPath);
-            baselineStore.Record(frxPath, frxBytes);
-            frxBlobs = FrxDeserializer.Read(frxBytes, source);
+            companion = await File.ReadAllBytesAsync(companionPath);
+            baselineStore.Record(companionPath, companion);
         }
 
-        var fresh = formDeserializer.Deserialize(project, source, errorSink, frxBlobs, BuildUserControlRegistry(project));
+        var fresh = format.ReadForm(project, source, companion, errorSink);
         if (fresh is null)
             return false;
 
@@ -1339,7 +1329,7 @@ public partial class ProjectService : IProjectService
             await ReportReadByteForByte([Path.GetFileName(path)]);
         }
         baselineStore.Record(path, sourceBytes);
-        var (preservedHeader, reloadedBody) = ModuleFileFormat.SplitHeader(source, module.Kind);
+        var (preservedHeader, reloadedBody) = format.SplitModule(source, module.Kind);
 
         module.TextEncoding = sourceEncoding;
         module.RecordOriginalHeader(preservedHeader);
@@ -1348,10 +1338,9 @@ public partial class ProjectService : IProjectService
 
         if (module.Kind is ModuleKind.UserControl or ModuleKind.PropertyPage)
         {
-            var formDeserializer = new FormDeserializer();
             var errorSink = new DeserializeErrorSink(localization);
-            var blobs = await LoadCompanionBlobs(path, source);
-            var fresh = formDeserializer.Deserialize(module.Owner, source, errorSink, blobs);
+            var companion = await ReadCompanion(path);
+            var fresh = format.ReadDesignerPart(module.Owner, source, companion, errorSink);
             if (fresh != null)
             {
                 // StripHeader above is a no-op for these kinds, so Code still holds the whole file.
@@ -1786,7 +1775,7 @@ public partial class ProjectService : IProjectService
     /// added (#500), and the save's own picker is where a developer, or an automation caller's armed answer, decides
     /// where the file goes.
     /// </remarks>
-    private static bool IsFileInTheWay(ProjectDefinition project, string fileName)
+    private bool IsFileInTheWay(ProjectDefinition project, string fileName)
     {
         // Not ProjectFilesDirectory, which chooses a scratch folder for a project with none: there is nothing in a
         // folder not chosen yet, and asking for a name must not choose one.
@@ -1920,9 +1909,8 @@ public partial class ProjectService : IProjectService
         var (source, bytes, sourceEncoding, byteForByte) = await ReadSourceAsync(absolutePath);
 
         // Form text before companion: the .frm's cited offsets partition the .frx.
-        var blobs = await LoadCompanionBlobs(absolutePath, source);
-        var form = new FormDeserializer().Deserialize(
-            project, source, new DeserializeErrorSink(localization), blobs, BuildUserControlRegistry(project));
+        var companion = await ReadCompanion(absolutePath);
+        var form = format.ReadForm(project, source, companion, new DeserializeErrorSink(localization));
         if (form == null)
             return Adopted<FormDefinition>.Unreadable();
 
@@ -1950,7 +1938,7 @@ public partial class ProjectService : IProjectService
         var (source, bytes, sourceEncoding, byteForByte) = await ReadSourceAsync(absolutePath);
 
         // .bas/.cls: strip the VB6 header so Code is the body only (a no-op for .ctl/.pag).
-        var (preservedHeader, body) = ModuleFileFormat.SplitHeader(source, kind);
+        var (preservedHeader, body) = format.SplitModule(source, kind);
         var name = ModuleNameFor(absolutePath, preservedHeader);
 
         // Before the baseline is recorded, so a refused file leaves no trace: a baseline for a module the
@@ -1971,8 +1959,8 @@ public partial class ProjectService : IProjectService
         // what stops an adopted UserControl being text-only while a loaded one opens in the designer.
         if (kind is ModuleKind.UserControl or ModuleKind.PropertyPage)
         {
-            var blobs = await LoadCompanionBlobs(absolutePath, source);
-            var formPart = new FormDeserializer().Deserialize(project, source, new DeserializeErrorSink(localization), blobs);
+            var companion = await ReadCompanion(absolutePath);
+            var formPart = format.ReadDesignerPart(project, source, companion, new DeserializeErrorSink(localization));
             if (formPart != null)
             {
                 formPart.AbsolutePath = absolutePath;
@@ -2348,21 +2336,14 @@ public partial class ProjectService : IProjectService
         renderBaselines.Remove(companionPath);
     }
 
-    private static string CompanionBinaryExtension(string sourceFilePath) =>
-        ProjectLoader.CompanionBinaryExtension(sourceFilePath);
+    private string CompanionBinaryExtension(string sourceFilePath) => format.CompanionExtension(sourceFilePath);
 
     /// <summary>
-    /// Read the companion binary resource file (.frx / .ctx / .pgx) beside a .frm / .ctl / .pag, if present.
-    /// Always route companion reads through here — hardcoding ".frx" silently drops UserControl and
-    /// PropertyPage resources, and the save path then deletes the companion it never read.
+    /// Reads the companion binary beside a designer file, if it has one, and records it. Always route companion
+    /// reads through here — hardcoding ".frx" silently drops UserControl and PropertyPage resources, and the save
+    /// path then deletes the companion it never read.
     /// </summary>
-    /// <param name="citingSource">
-    /// The designer file's text. Its cited offsets are what partition the companion into records, so
-    /// omitting it falls back to walking the file as length-prefixed blobs — which cannot see a
-    /// <c>List</c>/<c>ItemData</c> record at all. Pass it wherever it is to hand.
-    /// </param>
-    private async Task<IReadOnlyDictionary<int, byte[]>?> LoadCompanionBlobs(
-        string sourceFilePath, string? citingSource = null)
+    private async Task<byte[]?> ReadCompanion(string sourceFilePath)
     {
         var companionPath = Path.ChangeExtension(sourceFilePath, CompanionBinaryExtension(sourceFilePath));
         if (!File.Exists(companionPath))
@@ -2370,9 +2351,7 @@ public partial class ProjectService : IProjectService
 
         var bytes = await File.ReadAllBytesAsync(companionPath);
         baselineStore.Record(companionPath, bytes);
-        return citingSource is null
-            ? FrxDeserializer.Read(bytes)
-            : FrxDeserializer.Read(bytes, citingSource);
+        return bytes;
     }
 
     // Instance (not static) so each atomic write records a baseline. Recording the just-written
@@ -2635,7 +2614,7 @@ public partial class ProjectService : IProjectService
     private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<ProjectDefinition, string>
         NotionalProjectPaths = new();
 
-    private static HexIDE.Recovery.UnsavedFile Unsaved(string fileName, RenderedFile rendered) =>
+    private HexIDE.Recovery.UnsavedFile Unsaved(string fileName, RenderedFile rendered) =>
         rendered.Companion is { Length: > 0 } companion
             ? new(fileName, rendered.Text, Path.ChangeExtension(fileName, CompanionBinaryExtension(fileName)), companion)
             : new(fileName, rendered.Text);

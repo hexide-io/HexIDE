@@ -33,9 +33,10 @@ public class RecentProjectsService : IRecentProjectsService
         }
     }
 
-    public RecentProjectsService()
+    public RecentProjectsService() : this(UserDataPath.Directory) { }
+
+    internal RecentProjectsService(string hexIdeDir)
     {
-        var hexIdeDir = UserDataPath.Directory;
         Directory.CreateDirectory(hexIdeDir);
         _filePath = Path.Combine(hexIdeDir, "recent-projects.json");
         Load();
@@ -104,7 +105,7 @@ public class RecentProjectsService : IRecentProjectsService
                 SuppressNewProjectDialog = _suppressDialog
             };
             var json = JsonSerializer.Serialize(data, s_jsonOptions);
-            File.WriteAllText(_filePath, json);
+            AtomicFileWriter.WriteRecoverableText(_filePath, json);
         }
         catch (Exception ex)
         {

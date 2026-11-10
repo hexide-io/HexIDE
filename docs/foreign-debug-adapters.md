@@ -45,8 +45,9 @@ archives are extracted; fetched code never lives beside tracked source.
 The portable debugpy wheel needs Python 3 on PATH. CI explicitly installs Python **3.14** in both IDE
 jobs; Python is a harness dependency, not a HexIDE dependency. No pip install, global package change or
 new NuGet package is needed. netcoredbg debugs a small C# program built with the already required .NET
-10 SDK and portable PDBs. Linux x64/Arm64, Windows x64 (also selected under Windows Arm64 emulation)
-and macOS Arm64 archives are pinned. Windows and macOS execution must be checked by their CI legs;
+10 SDK and portable PDBs. Linux x64/Arm64, Windows x64
+and macOS Arm64 archives are pinned. netcoredbg publishes no Windows Arm64 build, and its x64 build crashes with an
+access violation launching an Arm program, so that test skips there and says why (#3548). Windows and macOS execution must be checked by their CI legs;
 inspecting an archive's layout on Linux is not execution coverage there.
 
 | Variable | Effect |

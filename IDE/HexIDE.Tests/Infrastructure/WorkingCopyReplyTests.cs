@@ -49,7 +49,7 @@ public class WorkingCopyReplyTests
         var service = new ProjectService(() => throw new InvalidOperationException(), windows, events,
             projects, Substitute.For<IRecentProjectsService>(), Substitute.For<IReferenceLibraryService>(),
             Substitute.For<HexIDE.Sidecar.IUserSidecarService>(), new FileBaselineStore(),
-            Substitute.For<HexIDE.Localization.ILocalizationService>(), Substitute.For<IHeaderRefresher>());
+            Substitute.For<HexIDE.Localization.ILocalizationService>(), Substitute.For<IHeaderRefresher>(), new Vb6ProjectFileFormat());
         var directory = Path.GetDirectoryName(form.AbsolutePath)!;
         await service.SaveProjectToDirectory(project, directory);
         try
@@ -58,7 +58,7 @@ public class WorkingCopyReplyTests
             var toolbox = new ToolBoxToolViewModel(dock, Substitute.For<IComponentRegistry>(), localization);
             using var designer = operation == "control"
                 ? new FormEditViewModel(toolbox, events, service, Substitute.For<IEditorService>(), windows,
-                    Substitute.For<ISettingsService>(), localization).Initialize(form)
+                    Substitute.For<ISettingsService>(), localization, new Vb6ProjectFileFormat()).Initialize(form)
                 : null;
             if (designer is not null)
                 dock.OpenDocuments.Returns([designer]);
@@ -70,7 +70,7 @@ public class WorkingCopyReplyTests
                     .Returns(Task.FromException<bool>(new IOException("disk unavailable")));
             }
             using var context = new IdeContext(projects, dock, Substitute.For<ILspClient>(),
-                null!, Substitute.For<IProjectRunnerService>(), writer, events, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!);
+                null!, Substitute.For<IProjectRunnerService>(), writer, events, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, new Vb6ProjectFileFormat());
             var tools = new HexIdeTools(context);
             var previousBytes = File.ReadAllBytes(form.AbsolutePath!);
             var companion = Path.ChangeExtension(form.AbsolutePath, ".frx");
@@ -162,7 +162,7 @@ public class WorkingCopyReplyTests
         var service = new ProjectService(() => throw new InvalidOperationException(), windows, events,
             projects, Substitute.For<IRecentProjectsService>(), Substitute.For<IReferenceLibraryService>(),
             Substitute.For<HexIDE.Sidecar.IUserSidecarService>(), new FileBaselineStore(),
-            Substitute.For<HexIDE.Localization.ILocalizationService>(), Substitute.For<IHeaderRefresher>());
+            Substitute.For<HexIDE.Localization.ILocalizationService>(), Substitute.For<IHeaderRefresher>(), new Vb6ProjectFileFormat());
         var directory = Path.GetDirectoryName(form.AbsolutePath)!;
         await service.SaveProjectToDirectory(project, directory);
         var outside = directory + "-outside";
@@ -193,12 +193,12 @@ public class WorkingCopyReplyTests
             var toolbox = new ToolBoxToolViewModel(dock, Substitute.For<IComponentRegistry>(), localization);
             using var designer = operation == "control"
                 ? new FormEditViewModel(toolbox, events, service, Substitute.For<IEditorService>(), windows,
-                    Substitute.For<ISettingsService>(), localization).Initialize(form)
+                    Substitute.For<ISettingsService>(), localization, new Vb6ProjectFileFormat()).Initialize(form)
                 : null;
             if (designer is not null)
                 dock.OpenDocuments.Returns([designer]);
             using var context = new IdeContext(projects, dock, Substitute.For<ILspClient>(),
-                null!, Substitute.For<IProjectRunnerService>(), service, events, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!);
+                null!, Substitute.For<IProjectRunnerService>(), service, events, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, new Vb6ProjectFileFormat());
             var tools = new HexIdeTools(context);
             bool success;
             string? note;
@@ -242,7 +242,7 @@ public class WorkingCopyReplyTests
         projects.LoadedProjects.Returns([project]);
         projects.StartupProject.Returns(project);
         using var context = new IdeContext(projects, Substitute.For<IDocumentDockService>(), Substitute.For<ILspClient>(),
-            null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!);
+            null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, new Vb6ProjectFileFormat());
         var tools = new HexIdeTools(context);
         var source = await tools.SetFileContentAsync(name, "Option Explicit");
         var property = await tools.SetControlPropertyAsync(name, "Form1", "Caption", "Go");
@@ -270,7 +270,7 @@ public class WorkingCopyReplyTests
         projects.LoadedProjects.Returns([project]);
         projects.StartupProject.Returns(project);
         using var context = new IdeContext(projects, Substitute.For<IDocumentDockService>(), Substitute.For<ILspClient>(),
-            null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!);
+            null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, new Vb6ProjectFileFormat());
         var result = await new HexIdeTools(context).GetProjectInfoAsync(TestContext.Current.CancellationToken);
         result.Note.Should().Contain("Project1").And.Contain("no chosen home").And.Contain("Save Project");
     }

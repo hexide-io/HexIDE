@@ -70,6 +70,20 @@ public sealed class KeymapEditingTests : IDisposable
     private KeymapPageViewModel Page() => new(_settings, _service);
 
     [AvaloniaFact]
+    public async Task ExportRetainsPreviousKeymapExportBytesForRecovery()
+    {
+        var path = Path.Combine(_directory, "export.json");
+        File.WriteAllBytes(path, [1, 2, 3]);
+        var windows = Substitute.For<IWindowManager>();
+        windows.SaveFilePickerAsync(Arg.Any<FilePickerSaveOptions>()).Returns(path);
+        var page = new KeymapPageViewModel(_settings, _service, windows: windows);
+        await page.ExportCommand.ExecuteAsync(null);
+        var recovery = Directory.GetFiles(_directory, "*.recovery").Should().ContainSingle().Subject;
+        File.ReadAllBytes(recovery).Should().Equal(1, 2, 3);
+        File.ReadAllText(path).Should().Be(page.ExportJson());
+    }
+
+    [AvaloniaFact]
     public void SetStagesAndOkPersistsAndApplies()
     {
         var page = Page();

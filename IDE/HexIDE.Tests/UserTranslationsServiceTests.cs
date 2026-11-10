@@ -40,6 +40,36 @@ public class UserTranslationsServiceTests
         return record?.Strings is null ? null : new Dictionary<string, string>(record.Strings);
     }
 
+    [AvaloniaTheory]
+    [InlineData("edit")]
+    [InlineData("clear")]
+    [InlineData("reset")]
+    [InlineData("clear-last")]
+    public void ChangesRetainPreviousDiskBytesForRecovery(string command)
+    {
+        var dir = FreshDir() + command;
+        Directory.CreateDirectory(dir);
+        try
+        {
+            var sut = new UserTranslationsService(dir);
+            sut.SetOverride("de", PlainKey, "Datei");
+            if (command == "clear") sut.SetOverride("de", PlaceholderKey, "Noch {0}");
+            var path = FilePath(dir, "de");
+            var original = File.ReadAllBytes(path);
+            switch (command)
+            {
+                case "edit": sut.SetOverride("de", PlainKey, "Neu"); break;
+                case "reset": sut.ResetAll("de"); break;
+                default: sut.ClearOverride("de", PlainKey); break;
+            }
+            Directory.GetFiles(dir, "de.json.*.recovery")
+                .Select(File.ReadAllBytes).Should().Contain(bytes => bytes.SequenceEqual(original));
+            if (command is "reset" or "clear-last") File.Exists(path).Should().BeFalse();
+            else ReadStrings(dir, "de").Should().NotContain(new KeyValuePair<string, string>(PlainKey, "Datei"));
+        }
+        finally { Directory.Delete(dir, true); }
+    }
+
     // ── SetOverride / GetOverrides round-trip ──────────────────────────────
 
     [AvaloniaFact]

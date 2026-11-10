@@ -43,7 +43,7 @@ public sealed class CodeWindowHoldsTheFileTests : IDisposable
     {
         Directory.CreateDirectory(dir);
         dock.OpenDocuments.Returns(_ => open.Cast<BaseEditorWindowViewModel>().ToList());
-        refresher = new HeaderRefresher(bus, dock, new BreakpointService(), new BookmarkService());
+        refresher = new HeaderRefresher(bus, dock, new BreakpointService(), new BookmarkService(), new Vb6ProjectFileFormat());
     }
 
     public void Dispose()
@@ -80,7 +80,8 @@ public sealed class CodeWindowHoldsTheFileTests : IDisposable
             sidecar,
             new FileBaselineStore(),
             Substitute.For<ILocalizationService>(),
-            refresher);
+            refresher,
+            new Vb6ProjectFileFormat());
     }
 
     /// <summary>A code window on the document, on the same bus as the save, and open as far as the dock knows.</summary>
@@ -265,7 +266,7 @@ public sealed class CodeWindowHoldsTheFileTests : IDisposable
         editor.Document.Text.Should().Be(written, "the update is not something the developer can undo");
         editor.BufferBody.Should().Be(form.Code, "and it does not mark the document as edited");
         service.HasUnsavedChanges(form).Should().BeFalse();
-        new DirtyDetector(new FileBaselineStore(), service)
+        new DirtyDetector(new FileBaselineStore(), service, new Vb6ProjectFileFormat())
             .Classify(new WatchedFileTarget(form.AbsolutePath!, form, null, editor, null))
             .Should().Be(ReloadDecision.CleanReload, "an external change now would be a silent reload, not a conflict");
     }

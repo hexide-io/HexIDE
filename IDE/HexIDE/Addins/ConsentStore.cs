@@ -112,7 +112,7 @@ internal sealed class ConsentStore
             var data = new AddinConsentFile { Consents = _byHash.Values.ToArray() };
             var bytes = JsonSerializer.SerializeToUtf8Bytes(data, AddinConsentJsonContext.Default.AddinConsentFile);
             Directory.CreateDirectory(Path.GetDirectoryName(_filePath)!);
-            File.WriteAllBytes(_filePath, bytes);
+            AtomicFileWriter.WriteRecoverableBytes(_filePath, bytes);
         }
         catch (Exception ex)
         {

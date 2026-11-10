@@ -393,7 +393,7 @@ public partial class SettingsService : ObservableObject, ISettingsService
             foreach (var name in _changedProperties)
                 if (current.ContainsKey(name))
                     latest[name] = current[name]?.DeepClone();
-            AtomicFileWriter.WriteAllText(_filePath, latest.ToJsonString(s_jsonOptions));
+            AtomicFileWriter.WriteRecoverableText(_filePath, latest.ToJsonString(s_jsonOptions));
             _hasSavedTheme = HasExplicitThemeChoice;
             _hasSavedKeymap = HasExplicitKeymapChoice;
             _changedProperties.Clear();

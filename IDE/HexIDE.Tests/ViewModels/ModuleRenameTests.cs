@@ -26,8 +26,8 @@ public class ModuleRenameTests
         dock.OpenDocuments.Returns(new List<HexIDE.Forms.ViewModels.BaseEditorWindowViewModel>());
         loc.GetString("Str.Naming.Msg.NotAVb6Name").Returns("Invalid: {0}");
         loc.GetString("Str.Naming.Msg.DocumentNameTaken").Returns("Taken: {0}");
-        _ = new HeaderRefresher(bus, dock, new BreakpointService(), new BookmarkService());
-        return new PropertiesToolViewModel(dock, bus, windows, loc);
+        _ = new HeaderRefresher(bus, dock, new BreakpointService(), new BookmarkService(), new Vb6ProjectFileFormat());
+        return new PropertiesToolViewModel(dock, bus, windows, loc, new Vb6ProjectFileFormat());
     }
 
     private ModuleDefinition Module(ModuleKind kind)
@@ -128,7 +128,7 @@ public class ModuleRenameTests
         var module = Module(kind);
         dock.OpenDocuments.Returns(new List<HexIDE.Forms.ViewModels.BaseEditorWindowViewModel>());
         var designer = new FormEditViewModel(null!, bus, Substitute.For<IProjectService>(),
-            Substitute.For<IEditorService>(), windows, Substitute.For<ISettingsService>(), loc).Initialize(module.FormPart!);
+            Substitute.For<IEditorService>(), windows, Substitute.For<ISettingsService>(), loc, new Vb6ProjectFileFormat()).Initialize(module.FormPart!);
         var grid = Grid();
         dock.ActiveDocument.Returns(designer);
         dock.PropertyChanged += Raise.Event<PropertyChangedEventHandler>(dock, new PropertyChangedEventArgs(nameof(dock.ActiveDocument)));

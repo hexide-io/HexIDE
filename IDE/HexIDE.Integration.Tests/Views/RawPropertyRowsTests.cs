@@ -37,11 +37,11 @@ public class RawPropertyRowsTests
         var loc = Substitute.For<ILocalizationService>();
         loc.GetString("Str.Tool.Properties.Binary").Returns("(binary)");
         using var designer = new FormEditViewModel(null!, bus, Substitute.For<IProjectService>(),
-            Substitute.For<IEditorService>(), Substitute.For<IWindowManager>(), Substitute.For<ISettingsService>(), loc)
+            Substitute.For<IEditorService>(), Substitute.For<IWindowManager>(), Substitute.For<ISettingsService>(), loc, new Vb6ProjectFileFormat())
             .Initialize(form);
         var dock = Substitute.For<IDocumentDockService>();
         dock.ActiveDocument.Returns(designer);
-        var grid = new PropertiesToolViewModel(dock, bus, Substitute.For<IWindowManager>(), loc);
+        var grid = new PropertiesToolViewModel(dock, bus, Substitute.For<IWindowManager>(), loc, new Vb6ProjectFileFormat());
         var view = new PropertiesToolView { DataContext = grid };
         var window = new Window { Content = view, Width = 400, Height = 400 };
         try

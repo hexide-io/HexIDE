@@ -212,7 +212,8 @@ public sealed class SidecarMigrationTests : IDisposable
             sidecar,
             new FileBaselineStore(),
             Substitute.For<HexIDE.Localization.ILocalizationService>(),
-            Substitute.For<IHeaderRefresher>());
+            Substitute.For<IHeaderRefresher>(),
+            new Vb6ProjectFileFormat());
         await service.OpenProject(vbp);
         return new Opened(loaded.Single(), bookmarks, breakpoints, sidecar);
     }

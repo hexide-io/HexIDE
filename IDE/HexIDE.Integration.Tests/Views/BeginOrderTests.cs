@@ -129,7 +129,7 @@ public class BeginOrderTests
         var toolbox = new ToolBoxToolViewModel(Substitute.For<IDocumentDockService>(),
             Substitute.For<IComponentRegistry>(), Substitute.For<ILocalizationService>());
         var vm = new FormEditViewModel(toolbox, Substitute.For<IEventBus>(), Substitute.For<IProjectService>(), null!,
-            windows!, Substitute.For<ISettingsService>(), Substitute.For<ILocalizationService>()).Initialize(form);
+            windows!, Substitute.For<ISettingsService>(), Substitute.For<ILocalizationService>(), new Vb6ProjectFileFormat()).Initialize(form);
         return (vm, form);
     }
 

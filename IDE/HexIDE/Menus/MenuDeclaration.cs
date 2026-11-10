@@ -24,6 +24,8 @@ internal sealed record MenuDeclaration
     public Dictionary<string, MenuArgument>? Arguments { get; init; }
     public string? Provider { get; init; }
     public string? State { get; init; }
+    public string? Visibility { get; init; }
+    public string? IconKey { get; init; }
     public MenuDeclaration[]? Children { get; init; }
 }
 
@@ -78,6 +80,10 @@ internal static class MainMenuDeclaration
                 ? item.LabelKey is null && item.LabelBinding is null
                 : item.LabelKey is not null && item.LabelKey.StartsWith("Str.", StringComparison.Ordinal),
                 "Expected a localized label (separators have none).");
+            if (item.Visibility is not null)
+                Require(MenuRenderer.VisibilityBindings.ContainsKey(item.Visibility), "Unknown visibility binding.");
+            if (item.IconKey is not null)
+                Require(item.Kind != MenuItemKind.Separator && item.IconKey.StartsWith("Geo.", StringComparison.Ordinal), "Invalid icon key.");
             if (item.LabelBinding is not null)
                 Require(MenuHostRegistry.Labels.TryGetValue(item.LabelBinding, out var key) && key == item.LabelKey,
                     "Unknown or mismatched host label binding.");
