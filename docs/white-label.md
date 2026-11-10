@@ -159,6 +159,41 @@ keep their names.
 **The output is not signed.** A Linux executable has no signature for the tool to remove. Sign your archive or package
 yourself. As on Windows, the tool never touches a key or a trust anchor, and there's no update service.
 
+## Making the macOS build your own
+
+On macOS a product's identity is its bundle, so the tool renames the bundle and the executable and rewrites the bundle's
+`Info.plist` and icon. Run it on macOS, from a clone of the tag you're repacking, because it checks the result with
+macOS's own tools:
+
+```sh
+cd IDE
+dotnet run --project HexIDE.Repack -- --input <path to HexIDE.app> --brand <path to brand.json> --output <new directory>
+```
+
+`--input` is `HexIDE.app` from a release archive for either processor, unpacked with `tar`. `--output` must not exist,
+and the input is never changed.
+
+| In the output | Comes from |
+|---|---|
+| `<name>.app` | Your `name`. |
+| `Contents/MacOS/<id>` | Stock's `HexIDE`, renamed from your `id`. Its bytes don't change. |
+| `Contents/Info.plist` | Stock's, with the bundle's name, display name, identifier, executable and icon changed. The version numbers stay the build's. |
+| `Contents/Resources/<id>.icns` | Your `logo`, which is required here, at every size from 16 to 1024 pixels. Nothing of stock's icon stays. |
+| `Contents/MacOS/brand.json`, your logo and a `defaultProfile` folder | Copied from beside your `brand.json`. |
+
+The bundle identifier is `io.hexide.distribution.<id>`, so it installs alongside HexIDE and can't be stock's. It comes
+from `id`, so don't change that once you've shipped. To install the product, move the `.app` to `Applications`, and to
+remove it, delete the `.app`. Each user's settings and logs stay where macOS keeps them for the `id`.
+
+The run stops if your name can't be a bundle's name, or if the build is missing `LICENSE` or `THIRD-PARTY-NOTICES.md`.
+Every other file is copied unchanged, including the helper programs such as `HexIDE.VbLspServer`, which keep their
+names. It also stops if macOS doesn't accept the executable's signature or the `Info.plist` afterwards.
+
+**The output has no signing identity.** Its programs keep the ad-hoc signatures stock shipped with, which Apple Silicon
+needs in order to run them at all and which identify nobody. Signing with your own Developer ID and notarizing are
+yours to do, and [the macOS signing notes](macos-signing.md) describe what that takes. The tool never touches a key
+or a trust anchor, and there's no update service.
+
 ## Not done yet
 
-Repacking for macOS and some diagnostics written in English. See the issues linked from #2042.
+Some diagnostics written in English. See the issues linked from #2042.
