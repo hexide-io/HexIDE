@@ -2523,6 +2523,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
 
     public async Task AddProcedure()
     {
+        if (RefuseWholeFileWrite()) return;
         var vm = new AddProcedureViewModel(localization);
         if (!await windowManager.ShowDialog(vm))
             return;
@@ -2543,6 +2544,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     /// </remarks>
     private void InsertAtEnd(string beginCode, string endCode)
     {
+        if (RefuseWholeFileWrite()) return;
         var lineBreak = DocumentNewLines.Of(Document.Text);
         beginCode = TextUtilities.NormalizeNewLines(beginCode, lineBreak);
         endCode = TextUtilities.NormalizeNewLines(endCode, lineBreak);

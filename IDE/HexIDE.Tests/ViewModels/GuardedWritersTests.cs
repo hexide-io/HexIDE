@@ -106,6 +106,36 @@ public class GuardedWritersTests : IDisposable
         return NewEditor().Initialize(form);
     }
 
+    [AvaloniaFact]
+    public async Task WholeFileReadOnlyRefusesAddProcedureBeforeItsDialog()
+    {
+        localization.GetString("Str.CodeEditor.FileNotSaved.Banner").Returns("file cannot be saved");
+        var vm = OpenFormHeldReadOnly();
+        var before = vm.Document.Text;
+
+        await vm.AddProcedure();
+
+        vm.Document.Text.Should().Be(before);
+        await windowManager.DidNotReceive().ShowDialog(Arg.Any<HexIDE.Forms.ViewModels.AddProcedureViewModel>());
+        await windowManager.Received().MessageBox("file cannot be saved", Arg.Any<string>(),
+            Arg.Any<MessageBoxButtons>(), MessageBoxIcon.Information);
+    }
+
+    [AvaloniaFact]
+    public async Task WholeFileReadOnlyRefusesAnEventStub()
+    {
+        localization.GetString("Str.CodeEditor.FileNotSaved.Banner").Returns("file cannot be saved");
+        var vm = OpenFormHeldReadOnly();
+        var before = vm.Document.Text;
+
+        typeof(CodeEditorViewModel).GetMethod("InsertEventHandlerStub",
+            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!.Invoke(vm, ["Form", "Load"]);
+
+        vm.Document.Text.Should().Be(before);
+        await windowManager.Received().MessageBox("file cannot be saved", Arg.Any<string>(),
+            Arg.Any<MessageBoxButtons>(), MessageBoxIcon.Information);
+    }
+
     [AvaloniaTheory]
     [InlineData(false)]
     [InlineData(true)]
