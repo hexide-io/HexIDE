@@ -128,8 +128,8 @@ public static partial class DistributionDescriptor
             if (name != name.Trim())
                 throw Refuse(file, "'name' has spaces at its start or end");
 
-            var tagline = OptionalString(root, "tagline", file);
-            if (tagline != null) ValidateText(tagline, "tagline", MaximumLineLength, file, allowNewlines: false);
+            var tagline = root.TryGetProperty("tagline", out var taglineElement)
+                ? ReadText(taglineElement, "tagline", MaximumLineLength, file, allowNewlines: false) : null;
 
             var copyright = OptionalString(root, "copyright", file);
             if (copyright != null) ValidateText(copyright, "copyright", MaximumLineLength, file, allowNewlines: false);
@@ -139,15 +139,15 @@ public static partial class DistributionDescriptor
             var logo = ReadLogo(root, file, readAsset);
             var defaultProfile = ReadDefaultProfile(root, file);
 
-            return new DistributionIdentity(id, name, tagline, copyright, credits,
+            return new DistributionIdentity(id, name, tagline?.Text, copyright, null,
                 links.GetValueOrDefault("home"), links.GetValueOrDefault("support"), links.GetValueOrDefault("repository"),
-                logo, defaultProfile);
+                logo, defaultProfile, tagline, credits);
         }
     }
 
-    private static List<string> ReadCredits(JsonElement root, string file)
+    private static List<DistributionText> ReadCredits(JsonElement root, string file)
     {
-        var credits = new List<string>();
+        var credits = new List<DistributionText>();
         if (!root.TryGetProperty("credits", out var element))
             return credits;
         if (element.ValueKind != JsonValueKind.Array)
@@ -157,14 +157,43 @@ public static partial class DistributionDescriptor
 
         foreach (var entry in element.EnumerateArray())
         {
-            if (entry.ValueKind != JsonValueKind.String)
-                throw Refuse(file, "'credits' must be an array of strings");
-            var text = entry.GetString()!;
-            ValidateText(text, "credits", MaximumCreditLength, file, allowNewlines: true);
-            credits.Add(text);
+            credits.Add(ReadText(entry, "credits", MaximumCreditLength, file, allowNewlines: true));
         }
 
         return credits;
+    }
+
+    private static DistributionText ReadText(JsonElement element, string member, int maximum, string file, bool allowNewlines)
+    {
+        if (element.ValueKind == JsonValueKind.String)
+        {
+            var plain = element.GetString()!;
+            ValidateText(plain, member, maximum, file, allowNewlines);
+            return new DistributionText(plain);
+        }
+        if (element.ValueKind != JsonValueKind.Object)
+            throw Refuse(file, $"'{member}' must be a string or a text/translations object");
+
+        RefuseUnknownMembers(element, ["text", "translations"], file, member);
+        var text = RequiredString(element, "text", file);
+        ValidateText(text, member, maximum, file, allowNewlines);
+        var translations = new Dictionary<string, string>(StringComparer.Ordinal);
+        if (element.TryGetProperty("translations", out var map))
+        {
+            if (map.ValueKind != JsonValueKind.Object)
+                throw Refuse(file, $"'{member}.translations' must be an object");
+            foreach (var entry in map.EnumerateObject())
+            {
+                if (!Regex.IsMatch(entry.Name, "^[a-z]{2,3}(?:-[A-Za-z0-9]{2,8})*$", RegexOptions.CultureInvariant))
+                    throw Refuse(file, $"'{member}.translations' has an invalid language id '{entry.Name}'");
+                if (entry.Value.ValueKind != JsonValueKind.String)
+                    throw Refuse(file, $"'{member}.translations.{entry.Name}' must be a string");
+                var translation = entry.Value.GetString()!;
+                ValidateText(translation, member, maximum, file, allowNewlines);
+                translations.Add(entry.Name, translation);
+            }
+        }
+        return new DistributionText(text, translations);
     }
 
     private static Dictionary<string, string> ReadLinks(JsonElement root, string file)

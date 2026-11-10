@@ -116,6 +116,11 @@ those override tiers to replace it.
 - **THEN** HexIDE's base credits remain visible followed by the adopter additions
 - **AND** the override does not suppress provenance or the actual key fingerprints
 
+#### Scenario: A brand translates its own tagline or credits
+- **WHEN** a tagline or credit supplies a required `text` fallback and a `translations` map
+- **THEN** About resolves each through the selected region, neutral pack, `en`, then its own fallback (#3417)
+- **AND** translated credits still follow HexIDE's protected credits
+
 ### Requirement: Distribution notices remain independent of displayed credits
 Required copyright/permission and third-party notices SHALL remain in distributions independently of
 the credits display.
