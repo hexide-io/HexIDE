@@ -125,6 +125,108 @@ public sealed class MacRepackerTests : IDisposable
         return data.ToArray();
     }
 
+    [UnixOnlyFact]
+    public void Included_files_reach_the_installable_payload_and_report()
+    {
+        WriteStock();
+        WriteBrand();
+        var include = Path.Combine(_root, "include");
+        Directory.CreateDirectory(Path.Combine(include, "addons"));
+        File.WriteAllText(Path.Combine(include, "addons", "notice.txt"), "adopter");
+
+        var result = Repacker.Run(new MacTarget(), Input, BrandFile, Output, include);
+
+        File.ReadAllText(Path.Combine(Bundle, "Contents", "MacOS", "addons", "notice.txt")).Should().Be("adopter");
+        result.IncludeDirectory.Should().Be(include);
+        result.IncludedFiles.Should().Be(1);
+        File.Exists(Path.Combine(Bundle, "Contents", "Info.plist")).Should().BeTrue();
+    }
+
+    public static bool CanInclude => !OperatingSystem.IsWindows();
+
+    [Theory(Skip = "Requires the target platform filesystem.", SkipUnless = nameof(CanInclude))]
+    [InlineData("LICENSE")]
+    [InlineData("HexIDE")]
+    [InlineData("acme-ide")]
+    [InlineData("brand.json")]
+    [InlineData("branding/logo.png")]
+    [InlineData("hexide-root.pub")]
+    [InlineData("nested/HEXIDE-FIRSTPARTY.PUB")]
+    [InlineData("revocations.json")]
+    [InlineData("revocations.sig")]
+    [InlineData("revocations-cache.json")]
+    [InlineData("revocations-cache.sig")]
+    public void Included_protected_files_are_refused_without_output(string relative)
+    {
+        WriteStock();
+        WriteBrand();
+        var include = Path.Combine(_root, "include");
+        var file = Path.Combine(include, relative);
+        Directory.CreateDirectory(Path.GetDirectoryName(file)!);
+        File.WriteAllText(file, "replacement");
+
+        var run = () => Repacker.Run(new MacTarget(), Input, BrandFile, Output, include);
+
+        run.Should().Throw<RepackException>().Which.Message.Should().Contain(relative.Replace('/', Path.DirectorySeparatorChar));
+        Directory.Exists(Output).Should().BeFalse();
+        Directory.GetDirectories(_root, "out.partial-*").Should().BeEmpty();
+    }
+
+    [UnixOnlyFact]
+    public void Included_links_are_refused_at_the_root_or_inside()
+    {
+        WriteStock();
+        WriteBrand();
+        var include = Path.Combine(_root, "include");
+        Directory.CreateDirectory(include);
+        File.CreateSymbolicLink(Path.Combine(include, "link"), BrandFile);
+        var run = () => Repacker.Run(new MacTarget(), Input, BrandFile, Output, include);
+        run.Should().Throw<RepackException>().Which.Message.Should().Contain("link");
+        File.Delete(Path.Combine(include, "link"));
+        var link = Path.Combine(_root, "linked");
+        Directory.CreateSymbolicLink(link, include);
+        run = () => Repacker.Run(new MacTarget(), Input, BrandFile, Output, link);
+        run.Should().Throw<RepackException>().Which.Message.Should().Contain(link);
+        Directory.Exists(Output).Should().BeFalse();
+    }
+
+    [UnixOnlyFact]
+    public void Included_missing_folder_is_refused()
+    {
+        WriteStock();
+        WriteBrand();
+        var include = Path.Combine(_root, "missing");
+        var run = () => Repacker.Run(new MacTarget(), Input, BrandFile, Output, include);
+        run.Should().Throw<RepackException>().Which.Message.Should().Contain(include);
+        Directory.Exists(Output).Should().BeFalse();
+    }
+
+    [UnixOnlyFact]
+    public void Included_folder_below_a_link_is_allowed()
+    {
+        WriteStock();
+        WriteBrand();
+        var parent = Path.Combine(_root, "parent");
+        var include = Path.Combine(parent, "include");
+        Directory.CreateDirectory(include);
+        File.WriteAllText(Path.Combine(include, "extra.txt"), "adopter");
+        var link = Path.Combine(_root, "parent-link");
+        Directory.CreateSymbolicLink(link, parent);
+        Repacker.Run(new MacTarget(), Input, BrandFile, Output, Path.Combine(link, "include"));
+        File.ReadAllText(Path.Combine(Bundle, "Contents", "MacOS", "extra.txt")).Should().Be("adopter");
+    }
+
+    [UnixOnlyFact]
+    public void Included_output_ancestor_is_refused_before_staging()
+    {
+        WriteStock();
+        WriteBrand();
+        var run = () => Repacker.Run(new MacTarget(), Input, BrandFile, Output, _root);
+        run.Should().Throw<RepackException>().Which.Message.Should().Contain(_root);
+        Directory.Exists(Output).Should().BeFalse();
+        Directory.GetDirectories(_root, "out.partial-*").Should().BeEmpty();
+    }
+
     private void ShouldRefuse(string reason)
     {
         var run = () => MacRepacker.Run(Input, BrandFile, Output);
