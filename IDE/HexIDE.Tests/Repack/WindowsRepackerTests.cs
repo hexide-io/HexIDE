@@ -92,7 +92,7 @@ public sealed class WindowsRepackerTests : IDisposable
         return data.ToArray();
     }
 
-    [WindowsOnlyFact]
+    [WindowsX64OnlyFact]
     public void Included_files_reach_the_installable_payload_and_report()
     {
         WriteStock();
@@ -109,9 +109,10 @@ public sealed class WindowsRepackerTests : IDisposable
         File.ReadAllText(Path.Combine(Output, "installer", "HexIDE.iss")).Should().Contain("recursesubdirs");
     }
 
-    public static bool CanInclude => OperatingSystem.IsWindows();
+    // The launcher stands in for a stock build, and the repacker refuses anything but x64 before it reads --include (#3654).
+    public static bool CanInclude => OperatingSystem.IsWindows() && RuntimeInformation.ProcessArchitecture == Architecture.X64;
 
-    [Theory(Skip = "Requires the target platform filesystem.", SkipUnless = nameof(CanInclude))]
+    [Theory(Skip = "Needs a Windows x64 test host, whose launcher stands in for a stock executable.", SkipUnless = nameof(CanInclude))]
     [InlineData("LICENSE")]
     [InlineData("HexIDE.exe")]
     [InlineData("acme-ide.exe")]
@@ -139,7 +140,7 @@ public sealed class WindowsRepackerTests : IDisposable
         Directory.GetDirectories(_root, "out.partial-*").Should().BeEmpty();
     }
 
-    [WindowsOnlyFact]
+    [WindowsX64OnlyFact]
     public void Included_links_are_refused_at_the_root_or_inside()
     {
         WriteStock();
@@ -157,7 +158,7 @@ public sealed class WindowsRepackerTests : IDisposable
         Directory.Exists(Output).Should().BeFalse();
     }
 
-    [WindowsOnlyFact]
+    [WindowsX64OnlyFact]
     public void Included_missing_folder_is_refused()
     {
         WriteStock();
@@ -168,7 +169,7 @@ public sealed class WindowsRepackerTests : IDisposable
         Directory.Exists(Output).Should().BeFalse();
     }
 
-    [WindowsOnlyFact]
+    [WindowsX64OnlyFact]
     public void Included_folder_below_a_link_is_allowed()
     {
         WriteStock();
@@ -183,7 +184,7 @@ public sealed class WindowsRepackerTests : IDisposable
         File.ReadAllText(Path.Combine(Output, "app", "extra.txt")).Should().Be("adopter");
     }
 
-    [WindowsOnlyFact]
+    [WindowsX64OnlyFact]
     public void Included_output_ancestor_is_refused_before_staging()
     {
         WriteStock();
