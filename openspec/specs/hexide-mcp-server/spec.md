@@ -442,6 +442,35 @@ foreign `Host` and `Origin` headers on `/mcp`, a foreign `Host` on `/health`, an
 - **WHEN** a request whose `Host` is not loopback asks for the health check
 - **THEN** it is refused, rather than being told the project name and language-service state
 
+### Requirement: Direct member writes stay inside the owning project and preserve replaced bytes
+
+`set_file_content`, `set_control_property` and `add_control` SHALL refuse path-shaped document names,
+parent traversal, destinations outside the owning project's folder, and linked destinations or ancestors,
+before changing code, properties or controls. The folder SHALL be the project file's directory, or its
+working directory when the project has no file. An armed first-save destination and any binary companion
+SHALL pass the same checks. A destination with no project folder SHALL be refused. Links inside the folder
+MAY also be refused conservatively.
+
+Before attempting a replacement, these tools SHALL preserve existing source and companion bytes in
+unique, exclusively created, flushed recovery files. A successful reply SHALL name those files and explain
+how to restore them. A save exception SHALL also report available recovery files. Failure to preserve bytes
+SHALL refuse the edit. `add_file` SHALL remain model-only until a later Save.
+
+#### Scenario: A loaded member points outside its owning project
+
+- **WHEN** a direct member write resolves a loaded document whose path is outside its project folder
+- **THEN** the tool refuses, naming the path, without changing the model or the file
+
+#### Scenario: A first-save answer leads outside
+
+- **WHEN** a pathless member has an armed destination outside its project folder
+- **THEN** the tool refuses before editing and says the answer is still pending and how to clear it
+
+#### Scenario: Replace existing source and binary resources
+
+- **WHEN** a direct member write saves a document with an existing source and companion
+- **THEN** the reply names recovery files holding their previous bytes and explains how to copy them back
+
 ### Requirement: A tool that writes a file SHALL report whether it was written
 Where a tool asks the IDE to write a file, it SHALL report the outcome the IDE actually reached. A write
 the IDE refused SHALL NOT be reported as a success, and the report SHALL say the file on disk is unchanged.

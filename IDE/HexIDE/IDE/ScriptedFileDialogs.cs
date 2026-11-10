@@ -74,6 +74,16 @@ public static class ScriptedFileDialogs
         ? string.IsNullOrWhiteSpace(text) ? open : text.TrimEnd() + " " + open
         : text;
 
+    /// <summary>The next single destination, for a write tool's pre-edit safety check; does not consume it.</summary>
+    public static string? NextSinglePath
+    {
+        get
+        {
+            lock (Lock)
+                return Answers.TryPeek(out var answer) && answer.Paths is { Count: 1 } paths ? paths[0] : null;
+        }
+    }
+
     /// <summary>How many answers are queued, for a tool that has to report what it armed.</summary>
     public static int Pending { get { lock (Lock) return Answers.Count; } }
 

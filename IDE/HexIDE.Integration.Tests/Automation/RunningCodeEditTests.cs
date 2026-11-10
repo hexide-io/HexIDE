@@ -66,6 +66,7 @@ public class RunningCodeEditTests : IAsyncDisposable
         var save = Substitute.For<IProjectService>();
         var directory = Path.Combine(Path.GetTempPath(), "hexide-run-edit-" + Guid.NewGuid());
         Directory.CreateDirectory(directory);
+        project.AbsolutePath = Path.Combine(directory, "P.vbp");
         module.AbsolutePath = Path.Combine(directory, "Module1.bas");
         form.AbsolutePath = Path.Combine(directory, "Form1.frm");
         var controller = new DebugController();

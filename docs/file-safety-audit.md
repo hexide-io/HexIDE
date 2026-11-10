@@ -22,10 +22,10 @@ program's control, not VB6's IDE commands, and does not establish their behavior
 | Rename document/control; language-server Rename | Changes names/model or undoable editor text, not filesystem names. `PropertiesToolViewModel`, `CodeEditorViewModel.ApplyRename`; disk write waits for Save (MCP property writes save immediately). | VB6 document/control rename measurement; LSP refactoring is HexIDE-only, already editor-undoable. |
 | Encoding conversion | No standalone conversion command found. `ProjectService.EncodePackageSources` converts only disposable Make copies; ordinary Save preserves document encoding and refuses unencodable text. | No new VB6 semantics inferred. |
 | Add-in `SetContent`, `ApplyEdits`, editor writes; AI chat edits | Routes through editor replacement/undo groups and read-only-region guards. Does not itself save to disk. `AddinEditorService`, `CodeEditorViewModel.ReplaceContent/ApplyEdits`. | HexIDE additions: buffer undo exists; a later Save is the writer above. |
-| MCP `set_file_content` | Resolves a loaded document by identity (no arbitrary path), then replaces code and saves. Open buffer has undo; closed document updates model directly, without equivalent undo; neither provides durable disk recovery. `HexIdeTools.SetFileContentAsync`, `DocumentContent.Write`. | HexIDE addition: add consistent recoverability or consent, including closed documents. |
-| MCP `set_control_property`, `add_control` | Changes model/designer and immediately saves whole file; unrelated unsaved edits go with it. Designer undo is not disk undo. `HexIdeTools.SetControlPropertyAsync/AddControlAsync`, `SaveQuietlyAsync`. | HexIDE additions: protect disk writes; enforce containment of resolved targets, including loaded external members/links. |
+| MCP `set_file_content` | Resolves a loaded document by identity (no arbitrary path), then replaces code and saves. Before editing, `ProjectWriteSafety` checks the owning project folder, destination and companion. Existing bytes are flushed to unique, exclusively created recovery siblings; success names each backup and gives copy-back instructions, for closed documents too. `HexIdeTools.SetFileContentAsync`, `DocumentContent.Write`. | **Fixed for this direct writer:** outside-folder, parent-traversal and linked destinations are refused before editing; replacements preserve source and companion bytes. |
+| MCP `set_control_property`, `add_control` | Changes model/designer and immediately saves whole file; unrelated unsaved edits go with it. Designer undo is not disk undo. `HexIdeTools.SetControlPropertyAsync/AddControlAsync`, `SaveQuietlyAsync`. | **Fixed for these direct writers:** the same `ProjectWriteSafety` gate and byte recovery as `set_file_content`, before property changes or control placement. |
 | MCP `move_control`, format/type/key/reflection/menu tools | Buffer/model undo for normal edits; generic tools can invoke every UI Save/export/Make path. `HexIdeTools`, `UiAutomationDriver`. They inherit those writers' gaps. | Protect shared writers; an armed picker is not an overwrite confirmation. |
-| MCP path boundary | `add_file` rejects separators; source/property tools resolve loaded identities. A loaded `.vbp` can name members outside its directory; scripted save paths are arbitrary. No uniform project-root/link containment gate on these writes. | Security work remains for source/property/control writes; explicit UI Save As/export destinations must be distinguished from tool-supplied project-member paths. |
+| MCP path boundary | `add_file` rejects separators; source/property tools resolve loaded identities. A loaded `.vbp` can name members outside its directory; scripted save paths are arbitrary. The three direct member writers now check their owning project folder and all path ancestors, source and companion alike. Armed first-save destinations pass the same check; a project without a folder is refused. | Direct member writes are contained and recoverable. `add_file` remains model-only with VB6 identifier validation. Generic UI invocation and armed UI Save As/export destinations remain to audit at shared writers; they are not covered by this direct-tool gate. |
 | Export conversation in Protocol Inspector | Picker for messages, silently replaces messages **and derived manifest**. `ProtocolInspectorToolViewModel.ExportAsync`. | **Fixed in this slice:** explicit Yes/No naming every existing output before either write; No/cancel writes neither. |
 | MCP `export_lsp_conversation` | Fixed temp filenames silently destroy the previous export. `HexIdeTools.ExportLspConversationAsync`. | **Fixed in this slice:** fresh private temporary directory per call; earlier exports survive. Tool accepts no destination path. |
 | Export picture property | Picker followed by an explicit Yes/No question naming an existing destination, including scripted picker answers. Only Yes replaces it, through `AtomicFileWriter`; a new destination is created exclusively. `PropertiesToolViewModel.ExportPicture`. | **Fixed:** No/cancel preserves the file (`PictureExportTests.ExistingDestinationRequiresExplicitConsent`). |
@@ -53,6 +53,19 @@ claim to sandbox those processes.
 
 The branch delivers the audit, conversation/picture exports, Make-archive and directory-save consent and unique staging.
 The rows above identify the remaining
-HexIDE-only fixes, especially MCP write recovery/containment,
+HexIDE-only fixes, especially generic MCP UI-triggered writes,
 carried-file save recovery and packer package output. Key/trust/revocation outputs now refuse replacement. Parity-harness output now refuses replacement. No VB6 replacement behavior was invented.
 Do not close #2504 or the beta safety gate on this slice.
+
+## Direct MCP member writes (next slice)
+
+`WorkingCopyReplyTests` exercises all three writers against external loaded members, parent traversal,
+linked directories and an external armed first-save destination, and checks recovery of existing source
+bytes for chosen files and working copies. `ProjectWriteSafetyTests` checks binary companion recovery
+(`.frx`, `.ctx`, `.pgx`), including refusing linked and dangling companion paths before any backup is made.
+Links are conservatively refused even when they lead inside the project. The boundary is the owning
+project file's directory, or its working directory when no project file exists; another loaded project's
+folder does not grant permission. Recovery files remain beside the original and are never automatically
+pruned. This is a preflight guard: concurrent filesystem changes and overlapping scripted picker calls
+between checking and saving remain unaudited (source review, not a concurrency probe).
+No VB6 prompt or overwrite behavior was inferred or changed.
