@@ -105,6 +105,7 @@ internal static class CommandDisplayNames
         ["ShowNextStatementCommand"] = "Str.Menu.Debug.ShowNextStatement",
         ["ShrinkSelectionCommand"] = "Str.CodeEditor.Context.ShrinkSelection",
         ["SizeToGridCommand"] = "Str.Menu.Format.SizeToGrid",
+        ["SplitWindowCommand"] = "Str.Menu.Window.Split",
         ["StartDefaultProjectCommand"] = "Str.Menu.Run.Start",
         ["StartDefaultProjectWithFullCompileCommand"] = "Str.Menu.Run.StartWithFullCompile",
         ["StepIntoCommand"] = "Str.Menu.Debug.StepInto",

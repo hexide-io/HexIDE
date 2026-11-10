@@ -191,7 +191,7 @@ public partial class EditorService : IEditorService
                     if (open is not RelatedDocumentEditorViewModel editor || editor.RelatedDocument != carried) continue;
                     if (line < 1 || line > editor.Document.LineCount) break;
                     var target = editor.Document.GetLineByNumber(line);
-                    editor.CaretOffset = Math.Min(target.Offset + Math.Max(column - 1, 0), target.EndOffset);
+                    editor.NavigateToOffset(Math.Min(target.Offset + Math.Max(column - 1, 0), target.EndOffset));
                     break;
                 }
                 return true;
@@ -249,7 +249,7 @@ public partial class EditorService : IEditorService
             // longer agree with us about, and an offset past the end throws inside AvaloniaEdit.
             if (line < 1 || line > editor.Document.LineCount) return;
             var docLine = editor.Document.GetLineByNumber(line);
-            editor.CaretOffset = Math.Min(docLine.Offset + Math.Max(column - 1, 0), docLine.EndOffset);
+            editor.NavigateToOffset(Math.Min(docLine.Offset + Math.Max(column - 1, 0), docLine.EndOffset));
             return;
         }
     }

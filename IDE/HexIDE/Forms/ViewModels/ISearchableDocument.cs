@@ -60,3 +60,13 @@ public interface ISearchableDocument
     /// </remarks>
     Func<int, int, bool> SnapshotReadOnlyRegions() => static (_, _) => false;
 }
+
+internal static class SearchableDocumentNavigation
+{
+    internal static void NavigateToOffset(this ISearchableDocument document, int offset)
+    {
+        document.SelectionLength = 0;
+        document.CaretOffset = offset;
+        document.SelectionStart = offset;
+    }
+}
