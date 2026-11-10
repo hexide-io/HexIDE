@@ -945,6 +945,7 @@
     "Str.FindReplace.Msg.ProtectedOnly": "O texto de busca «{0}» só aparece na cabeceira do ficheiro ou nas liñas Attribute dun procedemento. A busca omite estas zonas porque só o IDE as modifica.",
     "Str.FindReplace.Msg.ReplacementsWithSkipped": "Fixéronse {0} substitucións; omitíronse {1} coincidencias na cabeceira ou nas liñas Attribute dun procedemento, que só o IDE modifica.",
     "Str.FindReplace.Msg.ReplacementsMade": "Fixéronse {0} substitucións.",
+    "Str.FindReplace.Msg.ReplacementsWithFilesLeftOut": "{0} substitucións realizadas; {1} ficheiros omitidos porque HexIDE aínda non pode gardalos fielmente.",
     "Str.FindReplace.Msg.InvalidRegex": "Patrón de expresión regular non válido.",
     "Str.FindReplace.Msg.NothingToSearch": "Non hai nada aquí onde buscar. A busca funciona nas xanelas de código e nos ficheiros de texto incluídos no proxecto.",
     "Str.Vb6Toolchain.Vb6NotFound": "Non se atopou VB6.EXE. Instale VB6 na localización predeterminada ou estableza a variable de contorno VB6_EXE.",

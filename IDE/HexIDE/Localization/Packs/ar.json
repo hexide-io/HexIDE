@@ -945,6 +945,7 @@
     "Str.FindReplace.Msg.ProtectedOnly": "يظهر نص البحث '{0}' فقط في رأس الملف أو أسطر Attribute لإجراء. يتخطى البحث هذه المناطق لأن بيئة التطوير وحدها تعدّلها.",
     "Str.FindReplace.Msg.ReplacementsWithSkipped": "تم إجراء {0} استبدال؛ تم تخطي {1} تطابق في الرأس أو أسطر Attribute للإجراءات، التي تعدّلها بيئة التطوير وحدها.",
     "Str.FindReplace.Msg.ReplacementsMade": "تم إجراء {0} عملية استبدال.",
+    "Str.FindReplace.Msg.ReplacementsWithFilesLeftOut": "تم إجراء {0} استبدال؛ تم استبعاد {1} ملف لأن HexIDE لا يستطيع حفظها بأمانة بعد.",
     "Str.FindReplace.Msg.InvalidRegex": "نمط تعبير عادي غير صالح.",
     "Str.FindReplace.Msg.NothingToSearch": "لا يوجد هنا ما يمكن البحث فيه. يعمل البحث في نوافذ التعليمات البرمجية وفي الملفات النصية التي يتضمنها المشروع.",
     "Str.Vb6Toolchain.Vb6NotFound": "لم يتم العثور على VB6.EXE. ثبّت VB6 في الموقع الافتراضي أو عيّن متغيّر البيئة VB6_EXE.",

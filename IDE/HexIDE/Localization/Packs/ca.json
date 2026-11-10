@@ -945,6 +945,7 @@
     "Str.FindReplace.Msg.ProtectedOnly": "El text de cerca «{0}» només apareix a la capçalera del fitxer o a les línies Attribute d'un procediment. La cerca omet aquestes regions perquè només l'IDE les modifica.",
     "Str.FindReplace.Msg.ReplacementsWithSkipped": "S'han fet {0} substitucions; s'han omès {1} coincidències a la capçalera o a les línies Attribute dels procediments, que només modifica l'IDE.",
     "Str.FindReplace.Msg.ReplacementsMade": "S'han fet {0} substitucions.",
+    "Str.FindReplace.Msg.ReplacementsWithFilesLeftOut": "{0} substitucions fetes; {1} fitxers omesos perquè HexIDE encara no els pot desar fidelment.",
     "Str.FindReplace.Msg.InvalidRegex": "El patró d'expressió regular no és vàlid.",
     "Str.FindReplace.Msg.NothingToSearch": "Aquí no hi ha res per cercar. La cerca funciona a les finestres de codi i als fitxers de text que conté el projecte.",
     "Str.Vb6Toolchain.Vb6NotFound": "No s'ha trobat VB6.EXE. Instal·leu VB6 a la ubicació per defecte o establiu la variable d'entorn VB6_EXE.",

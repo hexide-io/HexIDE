@@ -945,6 +945,7 @@
     "Str.FindReplace.Msg.ProtectedOnly": "Meklējamais teksts '{0}' ir tikai faila galvenē vai procedūras Attribute rindās. Meklēšana šos apgabalus izlaiž, jo tos maina tikai IDE.",
     "Str.FindReplace.Msg.ReplacementsWithSkipped": "Veikto aizstāšanu skaits: {0}; galvenē vai procedūras Attribute rindās izlaisto atbilstību skaits: {1}, jo tās maina tikai IDE.",
     "Str.FindReplace.Msg.ReplacementsMade": "Veikto aizstāšanu skaits: {0}.",
+    "Str.FindReplace.Msg.ReplacementsWithFilesLeftOut": "Veiktas {0} aizstāšanas; izlaisti {1} faili, jo HexIDE vēl nevar tos precīzi saglabāt.",
     "Str.FindReplace.Msg.InvalidRegex": "Nederīgs regulārās izteiksmes šablons.",
     "Str.FindReplace.Msg.NothingToSearch": "Šeit nav nekā, kur meklēt. Meklēšana darbojas koda logos un projekta teksta failos.",
     "Str.Vb6Toolchain.Vb6NotFound": "VB6.EXE netika atrasts. Instalējiet VB6 noklusējuma vietā vai iestatiet vides mainīgo VB6_EXE.",

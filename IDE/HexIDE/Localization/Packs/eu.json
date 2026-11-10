@@ -945,6 +945,7 @@
     "Str.FindReplace.Msg.ProtectedOnly": "'{0}' bilaketa-testua fitxategiaren goiburuan edo prozedura baten Attribute lerroetan soilik agertzen da. Bilatu aukerak eremu horiek saltatzen ditu, IDEak soilik aldatzen dituelako.",
     "Str.FindReplace.Msg.ReplacementsWithSkipped": "{0} ordezkapen egin dira; {1} bat-etortze saltatu dira goiburuan edo prozeduren Attribute lerroetan, IDEak soilik aldatzen dituenetan.",
     "Str.FindReplace.Msg.ReplacementsMade": "{0} ordezkapen egin dira.",
+    "Str.FindReplace.Msg.ReplacementsWithFilesLeftOut": "{0} ordezkapen egin dira; {1} fitxategi baztertu dira, HexIDEk oraindik ezin dituelako zehaztasunez gorde.",
     "Str.FindReplace.Msg.InvalidRegex": "Adierazpen erregularraren eredu baliogabea.",
     "Str.FindReplace.Msg.NothingToSearch": "Hemen ez dago Bilatu aukerak bilatzeko ezer. Kode-leihoetan eta proiektuak daramatzan testu-fitxategietan egiten du lan.",
     "Str.Vb6Toolchain.Vb6NotFound": "Ez da VB6.EXE aurkitu. Instalatu VB6 kokaleku lehenetsian edo ezarri VB6_EXE ingurune-aldagaia.",

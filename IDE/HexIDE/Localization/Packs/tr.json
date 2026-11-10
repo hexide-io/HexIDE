@@ -945,6 +945,7 @@
     "Str.FindReplace.Msg.ProtectedOnly": "Aranan '{0}' metni yalnızca dosya başlığında veya bir yordamın Attribute satırlarında bulunuyor. Yalnızca IDE değiştirdiği için arama bu bölgeleri atlar.",
     "Str.FindReplace.Msg.ReplacementsWithSkipped": "{0} değiştirme yapıldı; yalnızca IDE'nin değiştirdiği başlık veya yordam Attribute satırlarında {1} eşleşme atlandı.",
     "Str.FindReplace.Msg.ReplacementsMade": "{0} değiştirme yapıldı.",
+    "Str.FindReplace.Msg.ReplacementsWithFilesLeftOut": "{0} değiştirme yapıldı; HexIDE henüz aslına uygun kaydedemediği için {1} dosya dışarıda bırakıldı.",
     "Str.FindReplace.Msg.InvalidRegex": "Geçersiz düzenli ifade deseni.",
     "Str.FindReplace.Msg.NothingToSearch": "Burada aranacak bir şey yok. Bul, kod pencerelerinde ve projeye dahil metin dosyalarında çalışır.",
     "Str.Vb6Toolchain.Vb6NotFound": "VB6.EXE bulunamadı. VB6'yı varsayılan konuma yükleyin veya VB6_EXE ortam değişkenini ayarlayın.",

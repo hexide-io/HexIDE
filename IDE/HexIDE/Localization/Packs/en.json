@@ -945,6 +945,7 @@
     "Str.FindReplace.Msg.ProtectedOnly": "The search text '{0}' appears only in the file's header or a procedure's Attribute lines. Find skips these regions because only the IDE changes them.",
     "Str.FindReplace.Msg.ReplacementsWithSkipped": "{0} replacement(s) made; {1} match(es) skipped in the header or procedure Attribute lines, which only the IDE changes.",
     "Str.FindReplace.Msg.ReplacementsMade": "{0} replacement(s) made.",
+    "Str.FindReplace.Msg.ReplacementsWithFilesLeftOut": "{0} replacement(s) made; {1} file(s) left out because HexIDE can't yet save them faithfully.",
     "Str.FindReplace.Msg.InvalidRegex": "Invalid regular expression pattern.",
     "Str.FindReplace.Msg.NothingToSearch": "There is nothing here for Find to search. Find works in code windows and in text files the project carries.",
     "Str.Vb6Toolchain.Vb6NotFound": "VB6.EXE was not found. Install VB6 in the default location or set the VB6_EXE environment variable.",

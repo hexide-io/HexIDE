@@ -259,6 +259,7 @@ public partial class CodeEditorView : UserControl
 
     private void ReplayUndo(bool redo)
     {
+        if (DataContext is CodeEditorViewModel vm && vm.RefuseWholeFileWrite()) return;
         var owner = _splitOwner ?? this;
         if (owner._secondPane is null)
         {

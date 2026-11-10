@@ -37,12 +37,14 @@ internal sealed class FindProjectDocuments(IDocumentDockService dock, IProjectMa
             foreach (var module in project.Modules)
                 result.Add(Lookup(module) ?? new UnopenedDocument(FormCodeText.WholeFile(module),
                     FormCodeText.Prefix(module).Length, () => { editors.EditCode(module); return Lookup(module); },
+                    isReadOnly: () => module.FormPart is { CanSaveFaithfully: false },
                     regionReader: regionReader));
             foreach (var form in project.Forms)
             {
                 if (project.Modules.Any(module => module.FormPart == form)) continue;
                 result.Add(Lookup(form) ?? new UnopenedDocument(FormCodeText.WholeFile(form),
                     FormCodeText.Prefix(form).Length, () => { editors.EditCode(form); return Lookup(form); },
+                    isReadOnly: () => !form.CanSaveFaithfully,
                     regionReader: regionReader));
             }
             foreach (var related in project.RelatedDocuments)
@@ -71,8 +73,9 @@ internal sealed class FindProjectDocuments(IDocumentDockService dock, IProjectMa
     }
 
     internal sealed class UnopenedDocument(string text, int prefixLength, Func<ISearchableDocument?> open,
-        bool isCode = true, IReadOnlyRegionReader? regionReader = null) : ISearchableDocument
+        bool isCode = true, Func<bool>? isReadOnly = null, IReadOnlyRegionReader? regionReader = null) : ISearchableDocument
     {
+        public bool IsReadOnlyDocument => isReadOnly?.Invoke() == true;
         public TextDocument Document { get; } = new(text);
         public int CaretOffset { get; set; }
         public int SelectionStart { get; set; }

@@ -945,6 +945,7 @@
     "Str.FindReplace.Msg.ProtectedOnly": "Текст '{0}' трапляється лише в заголовку файлу або рядках Attribute процедури. Пошук пропускає ці області, оскільки їх змінює лише IDE.",
     "Str.FindReplace.Msg.ReplacementsWithSkipped": "Виконано замін: {0}; пропущено збігів у заголовку або рядках Attribute процедур: {1}. Ці області змінює лише IDE.",
     "Str.FindReplace.Msg.ReplacementsMade": "Виконано замін: {0}.",
+    "Str.FindReplace.Msg.ReplacementsWithFilesLeftOut": "Виконано замін: {0}; пропущено файлів: {1}, оскільки HexIDE поки не може зберегти їх точно.",
     "Str.FindReplace.Msg.InvalidRegex": "Недійсний шаблон регулярного виразу.",
     "Str.FindReplace.Msg.NothingToSearch": "Тут немає чого шукати. «Знайти» працює у вікнах коду та в текстових файлах, що входять до проєкту.",
     "Str.Vb6Toolchain.Vb6NotFound": "VB6.EXE не знайдено. Установіть VB6 у типовому розташуванні або задайте змінну середовища VB6_EXE.",
